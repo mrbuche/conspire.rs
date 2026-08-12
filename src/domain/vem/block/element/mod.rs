@@ -563,9 +563,9 @@ fn temporary_poly_2() {
             (0..3)
                 .map(|i| {
                     let mut nodal_coordinates = coordinates.clone();
-                    nodal_coordinates[node][i] += 0.5 * EPSILON;
+                    nodal_coordinates[node][i] += crate::math::assert::perturbation(0.5 * EPSILON);
                     finite_difference = block.helmholtz_free_energy(&nodal_coordinates).unwrap();
-                    nodal_coordinates[node][i] -= EPSILON;
+                    nodal_coordinates[node][i] -= crate::math::assert::perturbation(EPSILON);
                     finite_difference -= block.helmholtz_free_energy(&nodal_coordinates).unwrap();
                     // An energy per unit length is a force.
                     (finite_difference / Quantity::<Length>::new(EPSILON))
@@ -577,7 +577,7 @@ fn temporary_poly_2() {
     Assert::default()
         .eq_within_fd_tol(block.nodal_forces(&coordinates).unwrap(), &nodal_forces_fd)
         .unwrap();
-    let mut finite_difference = 0.0;
+    let mut finite_difference = crate::math::Quantity::default();
     let nodal_stiffnesses_fd = (0..coordinates.len())
         .map(|a| {
             (0..coordinates.len())
@@ -587,13 +587,18 @@ fn temporary_poly_2() {
                             (0..3)
                                 .map(|j| {
                                     let mut nodal_coordinates = coordinates.clone();
-                                    nodal_coordinates[b][j] += 0.5 * EPSILON;
+                                    nodal_coordinates[b][j] +=
+                                        crate::math::assert::perturbation(0.5 * EPSILON);
                                     finite_difference =
                                         block.nodal_forces(&nodal_coordinates).unwrap()[a][i];
-                                    nodal_coordinates[b][j] -= EPSILON;
+                                    nodal_coordinates[b][j] -=
+                                        crate::math::assert::perturbation(EPSILON);
                                     finite_difference -=
                                         block.nodal_forces(&nodal_coordinates).unwrap()[a][i];
-                                    finite_difference / EPSILON
+                                    finite_difference
+                                        / crate::math::assert::perturbation::<
+                                            crate::math::unit::Length,
+                                        >(EPSILON)
                                 })
                                 .collect()
                         })

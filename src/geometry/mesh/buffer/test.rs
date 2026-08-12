@@ -36,14 +36,14 @@ fn buffer_captures_corners() -> Result<(), AssertionError> {
             let point = &coordinates[node];
             point.iter().for_each(|&entry| {
                 assert!(
-                    (entry - entry.round()).abs() < 0.05,
+                    (entry.value() - entry.value().round()).abs() < 0.05,
                     "layer node off corner: {point}"
                 )
             });
             [
-                point[0].round() as u8,
-                point[1].round() as u8,
-                point[2].round() as u8,
+                point[0].value().round() as u8,
+                point[1].value().round() as u8,
+                point[2].value().round() as u8,
             ]
         })
         .collect();

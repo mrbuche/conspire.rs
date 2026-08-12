@@ -90,7 +90,7 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2SparseVec2D<D, I, J, U> {
                                     .iter()
                                     .enumerate()
                                     .map(|(j, block_ij)| {
-                                        block_ij * vector[D * a + i] * vector[D * b + j]
+                                        block_ij.value() * vector[D * a + i] * vector[D * b + j]
                                     })
                                     .sum::<Scalar>()
                             })
@@ -105,7 +105,7 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2SparseVec2D<D, I, J, U> {
             .0
             .binary_search_by_key(&(column / D), |&(b, _)| b)
         {
-            Ok(k) => self[row / D].0[k].1[row % D][column % D],
+            Ok(k) => self[row / D].0[k].1[row % D][column % D].value(),
             Err(_) => 0.0,
         }
     }
@@ -113,10 +113,9 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2SparseVec2D<D, I, J, U> {
         self.iter().enumerate().for_each(|(a, row)| {
             row.entries().for_each(|(b, block)| {
                 block.iter().enumerate().for_each(|(i, block_i)| {
-                    block_i
-                        .iter()
-                        .enumerate()
-                        .for_each(|(j, block_ij)| square_matrix[D * a + i][D * b + j] = *block_ij)
+                    block_i.iter().enumerate().for_each(|(j, block_ij)| {
+                        square_matrix[D * a + i][D * b + j] = block_ij.value()
+                    })
                 })
             })
         });
@@ -136,7 +135,7 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2SparseVec2D<D, I, J, U> {
                 block.iter().enumerate().for_each(|(i, block_i)| {
                     block_i.iter().enumerate().for_each(|(j, block_ij)| {
                         if retained[D * a + i] && retained[D * b + j] {
-                            square_matrix[remap[D * a + i]][remap[D * b + j]] = *block_ij
+                            square_matrix[remap[D * a + i]][remap[D * b + j]] = block_ij.value()
                         }
                     })
                 })
@@ -156,12 +155,12 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2SparseVec2D<D, I, 
                     |(self_ab_i, comparator_ab_i)| {
                         self_ab_i.iter().zip(comparator_ab_i.iter()).for_each(
                             |(&self_ab_ij, &comparator_ab_ij)| {
-                                if (self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
-                                    && (self_ab_ij.abs() >= epsilon
-                                        || comparator_ab_ij.abs() >= epsilon)
+                                if (self_ab_ij.ratio(comparator_ab_ij) - 1.0).abs() >= epsilon
+                                    && (self_ab_ij.value().abs() >= epsilon
+                                        || comparator_ab_ij.value().abs() >= epsilon)
                                 {
                                     errors.0 += 1;
-                                    if (self_ab_ij - comparator_ab_ij).abs() >= epsilon {
+                                    if (self_ab_ij - comparator_ab_ij).value().abs() >= epsilon {
                                         errors.1 += 1;
                                     }
                                 }

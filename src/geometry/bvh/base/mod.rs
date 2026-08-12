@@ -302,7 +302,11 @@ fn point_box_distance_squared<const D: usize>(
     (0..D)
         .map(|axis| {
             let value = point[axis];
-            let (low, high) = (bounding_box.minimum()[axis], bounding_box.maximum()[axis]);
+            let (low, high) = (
+                bounding_box.minimum()[axis].value(),
+                bounding_box.maximum()[axis].value(),
+            );
+            let value = value.value();
             let delta = if value < low {
                 low - value
             } else if value > high {

@@ -224,14 +224,14 @@ impl Mul<&Vector> for &CscMatrix {
 impl<const D: usize, I, J> Mul<&TensorRank2<D, I, J>> for &CscMatrix {
     type Output = Vector;
     fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
-        self.multiply(|j| tensor_rank_2[j / D][j % D])
+        self.multiply(|j| tensor_rank_2[j / D][j % D].value())
     }
 }
 
 impl<const D: usize, I> Mul<&TensorRank1Vec<D, I>> for &CscMatrix {
     type Output = Vector;
     fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
-        self.multiply(|j| tensor_rank_1_vec[j / D][j % D])
+        self.multiply(|j| tensor_rank_1_vec[j / D][j % D].value())
     }
 }
 

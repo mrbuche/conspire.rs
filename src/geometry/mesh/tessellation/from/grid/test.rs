@@ -15,7 +15,13 @@ fn distinct_positions(tessellation: &Tessellation) -> usize {
         .mesh()
         .coordinates()
         .into_iter()
-        .map(|point| [point[0].to_bits(), point[1].to_bits(), point[2].to_bits()])
+        .map(|point| {
+            [
+                point[0].value().to_bits(),
+                point[1].value().to_bits(),
+                point[2].value().to_bits(),
+            ]
+        })
         .collect::<std::collections::HashSet<_>>()
         .len()
 }

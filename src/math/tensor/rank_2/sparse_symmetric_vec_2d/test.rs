@@ -34,10 +34,10 @@ fn accumulate_canonicalizes_out_of_order_pairs() {
             assert_eq!(out_of_order.entry(p, q), in_order.entry(p, q));
         })
     });
-    assert_eq!(out_of_order.entry(4, 0), block(1.0)[0][0]);
-    assert_eq!(out_of_order.entry(4, 1), block(1.0)[0][1]);
-    assert_eq!(out_of_order.entry(5, 0), block(1.0)[1][0]);
-    assert_eq!(out_of_order.entry(5, 1), block(1.0)[1][1]);
+    assert_eq!(out_of_order.entry(4, 0), block(1.0)[0][0].value());
+    assert_eq!(out_of_order.entry(4, 1), block(1.0)[0][1].value());
+    assert_eq!(out_of_order.entry(5, 0), block(1.0)[1][0].value());
+    assert_eq!(out_of_order.entry(5, 1), block(1.0)[1][1].value());
 }
 
 #[test]

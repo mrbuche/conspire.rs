@@ -30,7 +30,8 @@ fn spread(mesh: &Mesh<3>) -> Scalar {
         .map(|node| {
             (0..3)
                 .map(|i| (coordinates[node][i] - center[i]).powi(2))
-                .sum::<Scalar>()
+                .sum::<crate::math::Quantity>()
+                .value()
         })
         .sum()
 }

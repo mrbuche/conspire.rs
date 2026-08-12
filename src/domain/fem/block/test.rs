@@ -412,14 +412,16 @@ macro_rules! test_helmholtz_free_energy {
                             } else {
                                 get_reference_coordinates_block().into()
                             };
-                            nodal_coordinates[node][i] += 0.5 * EPSILON;
+                            nodal_coordinates[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference = block.helmholtz_free_energy(&nodal_coordinates)?;
                             nodal_coordinates = if is_deformed {
                                 get_coordinates_block()
                             } else {
                                 get_reference_coordinates_block().into()
                             };
-                            nodal_coordinates[node][i] -= 0.5 * EPSILON;
+                            nodal_coordinates[node][i] -=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference -= block.helmholtz_free_energy(&nodal_coordinates)?;
                             // An energy per unit length is a force.
                             Ok((finite_difference
@@ -447,7 +449,7 @@ macro_rules! test_helmholtz_free_energy {
                 #[should_panic(expected = "Invalid Jacobian")]
                 fn invalid_jacobian() {
                     let mut deformation_gradient = DeformationGradient::identity();
-                    deformation_gradient[0][0] = 0.0;
+                    deformation_gradient[0][0] = $crate::math::Quantity::new(0.0);
                     let coordinates_block = get_reference_coordinates_block()
                         .iter()
                         .map(|reference_coordinates| &deformation_gradient * reference_coordinates)
@@ -470,7 +472,8 @@ macro_rules! test_helmholtz_free_energy {
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             let mut perturbed_coordinates = nodal_coordinates.clone();
-                            perturbed_coordinates[node][i] += 0.5 * EPSILON;
+                            perturbed_coordinates[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             perturbed = block.helmholtz_free_energy(&perturbed_coordinates)?
                                 - $crate::math::ContractWith::contract_with(
                                     &nodal_forces,
@@ -482,7 +485,8 @@ macro_rules! test_helmholtz_free_energy {
                             {
                                 assert!(perturbed > minimum)
                             }
-                            perturbed_coordinates[node][i] -= EPSILON;
+                            perturbed_coordinates[node][i] -=
+                                $crate::math::assert::perturbation(EPSILON);
                             perturbed = block.helmholtz_free_energy(&perturbed_coordinates)?
                                 - $crate::math::ContractWith::contract_with(
                                     &nodal_forces,
@@ -539,7 +543,8 @@ macro_rules! test_helmholtz_free_energy {
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             perturbed_coordinates = get_reference_coordinates_block().into();
-                            perturbed_coordinates[node][i] += 0.5 * EPSILON;
+                            perturbed_coordinates[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             perturbed = block.helmholtz_free_energy(&perturbed_coordinates)?;
                             if $crate::math::assert::Assert::default()
                                 .eq_within_tols(&perturbed, &minimum)
@@ -547,7 +552,8 @@ macro_rules! test_helmholtz_free_energy {
                             {
                                 assert!(perturbed > minimum)
                             }
-                            perturbed_coordinates[node][i] -= EPSILON;
+                            perturbed_coordinates[node][i] -=
+                                $crate::math::assert::perturbation(EPSILON);
                             perturbed = block.helmholtz_free_energy(&perturbed_coordinates)?;
                             if $crate::math::assert::Assert::default()
                                 .eq_within_tols(&perturbed, &minimum)
@@ -641,7 +647,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
             is_deformed: bool,
         ) -> Result<NodalStiffnessesSolid<3>, AssertionError> {
             let block = get_block();
-            let mut finite_difference = 0.0;
+            let mut finite_difference = $crate::math::Quantity::default();
             (0..D)
                 .map(|node_a| {
                     (0..D)
@@ -655,7 +661,8 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
                                             } else {
                                                 get_reference_coordinates_block().into()
                                             };
-                                            nodal_coordinates[node_b][j] += 0.5 * EPSILON;
+                                            nodal_coordinates[node_b][j] +=
+                                                $crate::math::assert::perturbation(0.5 * EPSILON);
                                             finite_difference =
                                                 block.nodal_forces(&nodal_coordinates)?[node_a][i];
                                             nodal_coordinates = if is_deformed {
@@ -663,10 +670,14 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
                                             } else {
                                                 get_reference_coordinates_block().into()
                                             };
-                                            nodal_coordinates[node_b][j] -= 0.5 * EPSILON;
+                                            nodal_coordinates[node_b][j] -=
+                                                $crate::math::assert::perturbation(0.5 * EPSILON);
                                             finite_difference -=
                                                 block.nodal_forces(&nodal_coordinates)?[node_a][i];
-                                            Ok(finite_difference / EPSILON)
+                                            Ok(finite_difference
+                                                / $crate::math::assert::perturbation::<
+                                                    $crate::math::unit::Length,
+                                                >(EPSILON))
                                         })
                                         .collect()
                                 })
@@ -951,7 +962,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
             } else {
                 get_reference_coordinates_block().into()
             };
-            let mut finite_difference = 0.0;
+            let mut finite_difference = $crate::math::Quantity::default();
             (0..D)
                 .map(|node_a| {
                     (0..D)
@@ -965,7 +976,8 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
                                             } else {
                                                 NodalVelocities::zero(D)
                                             };
-                                            nodal_velocities[node_a][i] += 0.5 * EPSILON;
+                                            nodal_velocities[node_a][i] +=
+                                                $crate::math::assert::perturbation(0.5 * EPSILON);
                                             finite_difference = block.nodal_forces(
                                                 &nodal_coordinates,
                                                 &nodal_velocities,
@@ -975,12 +987,16 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
                                             } else {
                                                 NodalVelocities::zero(D)
                                             };
-                                            nodal_velocities[node_a][i] -= 0.5 * EPSILON;
+                                            nodal_velocities[node_a][i] -=
+                                                $crate::math::assert::perturbation(0.5 * EPSILON);
                                             finite_difference -= block.nodal_forces(
                                                 &nodal_coordinates,
                                                 &nodal_velocities,
                                             )?[node_b][j];
-                                            Ok(finite_difference / EPSILON)
+                                            Ok(finite_difference
+                                                / $crate::math::assert::perturbation::<
+                                                    $crate::math::unit::Velocity,
+                                                >(EPSILON))
                                         })
                                         .collect()
                                 })
@@ -1184,7 +1200,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                             } else {
                                 NodalVelocities::zero(D)
                             };
-                            nodal_velocities[node][i] += 0.5 * EPSILON;
+                            nodal_velocities[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference =
                                 block.viscous_dissipation(&nodal_coordinates, &nodal_velocities)?;
                             nodal_velocities = if is_deformed {
@@ -1192,7 +1209,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                             } else {
                                 NodalVelocities::zero(D)
                             };
-                            nodal_velocities[node][i] -= 0.5 * EPSILON;
+                            nodal_velocities[node][i] -=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference -=
                                 block.viscous_dissipation(&nodal_coordinates, &nodal_velocities)?;
                             // A power per unit velocity is a force.
@@ -1225,7 +1243,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                             } else {
                                 NodalVelocities::zero(D)
                             };
-                            nodal_velocities[node][i] += 0.5 * EPSILON;
+                            nodal_velocities[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference = block
                                 .dissipation_potential(&nodal_coordinates, &nodal_velocities)?;
                             nodal_velocities = if is_deformed {
@@ -1233,7 +1252,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                             } else {
                                 NodalVelocities::zero(D)
                             };
-                            nodal_velocities[node][i] -= 0.5 * EPSILON;
+                            nodal_velocities[node][i] -=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference -= block
                                 .dissipation_potential(&nodal_coordinates, &nodal_velocities)?;
                             // A power per unit velocity is a force.
@@ -1279,7 +1299,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             perturbed_velocities = get_velocities_block();
-                            perturbed_velocities[node][i] += 0.5 * EPSILON;
+                            perturbed_velocities[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             assert!(
                                 block.viscous_dissipation(
                                     &nodal_coordinates,
@@ -1287,7 +1308,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 )? - nodal_forces.contract_with(&perturbed_velocities)
                                     >= minimum
                             );
-                            perturbed_velocities[node][i] -= EPSILON;
+                            perturbed_velocities[node][i] -=
+                                $crate::math::assert::perturbation(EPSILON);
                             assert!(
                                 block.viscous_dissipation(
                                     &nodal_coordinates,
@@ -1342,14 +1364,16 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             perturbed_velocities = NodalVelocities::zero(D);
-                            perturbed_velocities[node][i] += 0.5 * EPSILON;
+                            perturbed_velocities[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             assert!(
                                 block.viscous_dissipation(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
                                 )? >= minimum
                             );
-                            perturbed_velocities[node][i] -= EPSILON;
+                            perturbed_velocities[node][i] -=
+                                $crate::math::assert::perturbation(EPSILON);
                             assert!(
                                 block.viscous_dissipation(
                                     &nodal_coordinates,
@@ -1406,7 +1430,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             let mut perturbed_velocities = nodal_velocities.clone();
-                            perturbed_velocities[node][i] += 0.5 * EPSILON;
+                            perturbed_velocities[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             assert!(
                                 block.dissipation_potential(
                                     &nodal_coordinates,
@@ -1414,7 +1439,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 )? - nodal_forces.contract_with(&perturbed_velocities)
                                     >= minimum
                             );
-                            perturbed_velocities[node][i] -= EPSILON;
+                            perturbed_velocities[node][i] -=
+                                $crate::math::assert::perturbation(EPSILON);
                             assert!(
                                 block.dissipation_potential(
                                     &nodal_coordinates,
@@ -1458,14 +1484,16 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             let mut perturbed_velocities = NodalVelocities::zero(D);
-                            perturbed_velocities[node][i] += 0.5 * EPSILON;
+                            perturbed_velocities[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             assert!(
                                 block.dissipation_potential(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
                                 )? >= minimum
                             );
-                            perturbed_velocities[node][i] -= EPSILON;
+                            perturbed_velocities[node][i] -=
+                                $crate::math::assert::perturbation(EPSILON);
                             assert!(
                                 block.dissipation_potential(
                                     &nodal_coordinates,

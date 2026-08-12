@@ -12,7 +12,7 @@ use crate::{
         basic_from, surface::SurfaceElement,
     },
     math::{
-        Scalar, ScalarList, Tensor, TensorArray, TensorRank1, TensorRank1List, TensorRank2,
+        ScalarList, Tensor, TensorArray, TensorRank1, TensorRank1List, TensorRank2,
         TensorRank2List2D,
     },
     mechanics::{
@@ -94,7 +94,7 @@ where
             .iter()
             .map(|gradient_vectors| {
                 let mut deformation_gradient = DeformationGradient::zero();
-                deformation_gradient[2][2] = 1.0;
+                deformation_gradient[2][2] = Quantity::new(1.0);
                 nodal_coordinates.iter().zip(gradient_vectors).for_each(
                     |(nodal_coordinate, gradient_vector)| {
                         (0..M).for_each(|i| {
@@ -166,7 +166,7 @@ where
                                                 first_piola_kirchhoff_stress[i][j]
                                                     * gradient_vector[j]
                                             })
-                                            .sum::<Scalar>()
+                                            .sum::<Quantity<StressPerLength>>()
                                     })
                                     .collect::<TensorRank1<M, Current, StressPerLength>>()
                                     * integration_weight
@@ -226,9 +226,9 @@ where
                                                                                 * gradient_vector_a[j]
                                                                                 * gradient_vector_b[l]
                                                                         })
-                                                                        .sum::<Scalar>()
+                                                                        .sum::<Quantity<StressPerArea>>()
                                                                 })
-                                                                .sum::<Scalar>()
+                                                                .sum::<Quantity<StressPerArea>>()
                                                         })
                                                         .collect()
                                                 })

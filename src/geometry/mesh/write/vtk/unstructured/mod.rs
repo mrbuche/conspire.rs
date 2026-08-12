@@ -69,7 +69,11 @@ impl<const D: usize> Mesh<D> {
         let mut points = Vec::with_capacity(coordinates.len() * 3 * 8);
         for node in 0..coordinates.len() {
             for i in 0..3 {
-                let value = if i < D { coordinates[node][i] } else { 0.0 };
+                let value = if i < D {
+                    coordinates[node][i].value()
+                } else {
+                    0.0
+                };
                 points.extend_from_slice(&value.to_le_bytes());
             }
         }

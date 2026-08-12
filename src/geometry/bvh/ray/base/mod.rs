@@ -20,9 +20,11 @@ impl<const D: usize> Ray<D> {
         let mut t_min: Scalar = 0.0; // can return third case of inside box using custom enum
         let mut t_max: Scalar = Scalar::INFINITY;
         for axis in 0..D {
-            let inverse_direction = self.inverse_direction[axis];
-            let mut t_near = (bounding_box.minimum()[axis] - self.origin[axis]) * inverse_direction;
-            let mut t_far = (bounding_box.maximum()[axis] - self.origin[axis]) * inverse_direction;
+            let inverse_direction = self.inverse_direction[axis].value();
+            let mut t_near =
+                (bounding_box.minimum()[axis] - self.origin[axis]).value() * inverse_direction;
+            let mut t_far =
+                (bounding_box.maximum()[axis] - self.origin[axis]).value() * inverse_direction;
             if inverse_direction < 0.0 {
                 swap(&mut t_near, &mut t_far)
             }
@@ -85,8 +87,8 @@ impl Ray<3> {
         if determinant.abs() < ABS_TOL {
             return None;
         }
-        let inverse_determinant = 1.0 / determinant;
-        let t = (u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]) * inverse_determinant;
+        let inverse_determinant = 1.0 / determinant.value();
+        let t = (u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]).value() * inverse_determinant;
         (t > ABS_TOL).then_some(t)
     }
 }

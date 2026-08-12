@@ -75,11 +75,13 @@ impl<const D: usize, const N: usize, U> From<TensorRank1List<D, Reference, N, U>
     }
 }
 
-impl<const D: usize, I, J, const W: usize, U> Mul<TensorRank1List<D, J, W, U>>
+impl<const D: usize, I, J, const W: usize, U, V> Mul<TensorRank1List<D, J, W, V>>
     for TensorRank1List<D, I, W, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank2<D, I, J, U>;
-    fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W, U>) -> Self::Output {
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W, V>) -> Self::Output {
         self.into_iter()
             .zip(tensor_rank_1_list)
             .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
@@ -87,11 +89,13 @@ impl<const D: usize, I, J, const W: usize, U> Mul<TensorRank1List<D, J, W, U>>
     }
 }
 
-impl<const D: usize, I, J, const W: usize, U> Mul<&TensorRank1List<D, J, W, U>>
+impl<const D: usize, I, J, const W: usize, U, V> Mul<&TensorRank1List<D, J, W, V>>
     for TensorRank1List<D, I, W, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank2<D, I, J, U>;
-    fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W, U>) -> Self::Output {
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W, V>) -> Self::Output {
         self.into_iter()
             .zip(tensor_rank_1_list.iter())
             .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
@@ -137,8 +141,9 @@ impl<const D: usize, I, const W: usize, U> FiniteDifference for TensorRank1List<
                     .iter()
                     .zip(comparator_entry.iter())
                     .filter(|&(&entry_i, &comparator_entry_i)| {
-                        (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                            && (entry_i.abs() >= epsilon || comparator_entry_i.abs() >= epsilon)
+                        (entry_i.ratio(comparator_entry_i) - 1.0).abs() >= epsilon
+                            && (entry_i.value().abs() >= epsilon
+                                || comparator_entry_i.value().abs() >= epsilon)
                     })
                     .count()
             })
@@ -152,9 +157,10 @@ impl<const D: usize, I, const W: usize, U> FiniteDifference for TensorRank1List<
                         .iter()
                         .zip(comparator_entry.iter())
                         .filter(|&(&entry_i, &comparator_entry_i)| {
-                            (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                                && (entry_i - comparator_entry_i).abs() >= epsilon
-                                && (entry_i.abs() >= epsilon || comparator_entry_i.abs() >= epsilon)
+                            (entry_i.ratio(comparator_entry_i) - 1.0).abs() >= epsilon
+                                && (entry_i - comparator_entry_i).value().abs() >= epsilon
+                                && (entry_i.value().abs() >= epsilon
+                                    || comparator_entry_i.value().abs() >= epsilon)
                         })
                         .count()
                 })

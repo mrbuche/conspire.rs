@@ -1,4 +1,5 @@
 use super::{energy, scatter};
+use crate::math::assert::perturbation;
 use crate::{
     EPSILON,
     geometry::{Coordinate, Coordinates},
@@ -24,11 +25,11 @@ fn gradient_matches_finite_difference() -> Result<(), AssertionError> {
         for node in 0..8 {
             let analytic = scattered[node].clone();
             let numerical = Coordinate::from(from_fn(|i| {
-                coordinates[node][i] += EPSILON;
+                coordinates[node][i] += perturbation(EPSILON);
                 let above = energy(&hex, &coordinates, epsilon);
-                coordinates[node][i] -= 2.0 * EPSILON;
+                coordinates[node][i] -= perturbation(2.0 * EPSILON);
                 let below = energy(&hex, &coordinates, epsilon);
-                coordinates[node][i] += EPSILON;
+                coordinates[node][i] += perturbation(EPSILON);
                 (above - below) / (2.0 * EPSILON)
             }));
             Assert::default().eq_within_fd_tol(analytic, &numerical)?;

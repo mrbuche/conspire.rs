@@ -104,7 +104,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 {
                                     DeformationGradientRate::zero()
                                 };
-                            deformation_gradient_rate_plus[i][j] += 0.5*EPSILON;
+                            deformation_gradient_rate_plus[i][j] += $crate::math::assert::perturbation(0.5*EPSILON);
                             let helmholtz_free_energy_density_plus =
                             viscous_dissipation_from_deformation_gradient_rate_simple!(
                                 $constitutive_model, &deformation_gradient_rate_plus
@@ -118,7 +118,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 {
                                     DeformationGradientRate::zero()
                                 };
-                            deformation_gradient_rate_minus[i][j] -= 0.5*EPSILON;
+                            deformation_gradient_rate_minus[i][j] -= $crate::math::assert::perturbation(0.5*EPSILON);
                             let helmholtz_free_energy_density_minus =
                             viscous_dissipation_from_deformation_gradient_rate_simple!(
                                 $constitutive_model, &deformation_gradient_rate_minus
@@ -126,7 +126,8 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                             first_piola_kirchhoff_stress[i][j] = ((
                                 helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
                             )/$crate::math::Quantity::<$crate::math::unit::Rate>::new(EPSILON))
-                            .value_as::<$crate::math::unit::Stress>();
+                            .value_as::<$crate::math::unit::Stress>()
+                            .into();
                         }
                     }
                     Ok(first_piola_kirchhoff_stress)
@@ -161,7 +162,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         (0..3).try_for_each(|i|
                             (0..3).try_for_each(|j|{
                                 perturbed_deformation_gradient_rate = get_deformation_gradient_rate();
-                                perturbed_deformation_gradient_rate[i][j] += 0.5 * EPSILON;
+                                perturbed_deformation_gradient_rate[i][j] += $crate::math::assert::perturbation(0.5 * EPSILON);
                                 assert!(
                                     viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model, &perturbed_deformation_gradient_rate
@@ -169,7 +170,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                         &first_piola_kirchhoff_stress, &perturbed_deformation_gradient_rate
                                     ) > minimum
                                 );
-                                perturbed_deformation_gradient_rate[i][j] -= EPSILON;
+                                perturbed_deformation_gradient_rate[i][j] -= $crate::math::assert::perturbation(EPSILON);
                                 assert!(
                                     viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model, &perturbed_deformation_gradient_rate
@@ -226,13 +227,13 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         (0..3).try_for_each(|i|
                             (0..3).try_for_each(|j|{
                                 perturbed_deformation_gradient_rate = DeformationGradientRate::zero();
-                                perturbed_deformation_gradient_rate[i][j] += 0.5 * EPSILON;
+                                perturbed_deformation_gradient_rate[i][j] += $crate::math::assert::perturbation(0.5 * EPSILON);
                                 assert!(
                                     viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model, &perturbed_deformation_gradient_rate
                                     )? > minimum
                                 );
-                                perturbed_deformation_gradient_rate[i][j] -= EPSILON;
+                                perturbed_deformation_gradient_rate[i][j] -= $crate::math::assert::perturbation(EPSILON);
                                 assert!(
                                     viscous_dissipation_from_deformation_gradient_rate_simple!(
                                         $constitutive_model, &perturbed_deformation_gradient_rate
@@ -281,7 +282,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 {
                                     DeformationGradientRate::zero()
                                 };
-                            deformation_gradient_rate_plus[i][j] += 0.5*EPSILON;
+                            deformation_gradient_rate_plus[i][j] += $crate::math::assert::perturbation(0.5*EPSILON);
                             let helmholtz_free_energy_density_plus =
                             dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &deformation_gradient, &deformation_gradient_rate_plus
@@ -295,7 +296,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                 {
                                     DeformationGradientRate::zero()
                                 };
-                            deformation_gradient_rate_minus[i][j] -= 0.5*EPSILON;
+                            deformation_gradient_rate_minus[i][j] -= $crate::math::assert::perturbation(0.5*EPSILON);
                             let helmholtz_free_energy_density_minus =
                             dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &deformation_gradient, &deformation_gradient_rate_minus
@@ -303,7 +304,8 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                             first_piola_kirchhoff_stress[i][j] = ((
                                 helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
                             )/$crate::math::Quantity::<$crate::math::unit::Rate>::new(EPSILON))
-                            .value_as::<$crate::math::unit::Stress>();
+                            .value_as::<$crate::math::unit::Stress>()
+                            .into();
                         }
                     }
                     Ok(first_piola_kirchhoff_stress)
@@ -338,7 +340,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         (0..3).try_for_each(|i|
                             (0..3).try_for_each(|j|{
                                 perturbed_deformation_gradient_rate = get_deformation_gradient_rate();
-                                perturbed_deformation_gradient_rate[i][j] += 0.5 * EPSILON;
+                                perturbed_deformation_gradient_rate[i][j] += $crate::math::assert::perturbation(0.5 * EPSILON);
                                 assert!(
                                     dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model, &get_deformation_gradient(), &perturbed_deformation_gradient_rate
@@ -346,7 +348,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                                         &first_piola_kirchhoff_stress, &perturbed_deformation_gradient_rate
                                     ) > minimum
                                 );
-                                perturbed_deformation_gradient_rate[i][j] -= EPSILON;
+                                perturbed_deformation_gradient_rate[i][j] -= $crate::math::assert::perturbation(EPSILON);
                                 assert!(
                                     dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model, &get_deformation_gradient(), &perturbed_deformation_gradient_rate
@@ -393,13 +395,13 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         (0..3).try_for_each(|i|
                             (0..3).try_for_each(|j|{
                                 perturbed_deformation_gradient_rate = DeformationGradientRate::zero();
-                                perturbed_deformation_gradient_rate[i][j] += 0.5 * EPSILON;
+                                perturbed_deformation_gradient_rate[i][j] += $crate::math::assert::perturbation(0.5 * EPSILON);
                                 assert!(
                                     dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model, &DeformationGradient::identity(), &perturbed_deformation_gradient_rate
                                     )? > minimum
                                 );
-                                perturbed_deformation_gradient_rate[i][j] -= EPSILON;
+                                perturbed_deformation_gradient_rate[i][j] -= $crate::math::assert::perturbation(EPSILON);
                                 assert!(
                                     dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                         $constitutive_model, &DeformationGradient::identity(), &perturbed_deformation_gradient_rate

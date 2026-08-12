@@ -80,7 +80,7 @@ impl<const D: usize, I, J, U> From<[[TensorRank0; D]; D]> for TensorRank2<D, I, 
 
 impl<const D: usize, I, J, U> From<TensorRank2<D, I, J, U>> for [[TensorRank0; D]; D] {
     fn from(tensor_rank_2: TensorRank2<D, I, J, U>) -> Self {
-        from_fn(|i| from_fn(|j| tensor_rank_2[i][j]))
+        from_fn(|i| from_fn(|j| tensor_rank_2[i][j].value()))
     }
 }
 
@@ -266,10 +266,12 @@ impl<const D: usize, I, J, U> From<TensorRank1List<D, J, D, U>> for TensorRank2<
     }
 }
 
-impl<const D: usize, I, J, U> From<(TensorRank1<D, I, U>, TensorRank1<D, J, U>)>
-    for TensorRank2<D, I, J, U>
+impl<const D: usize, I, J, U, V> From<(TensorRank1<D, I, U>, TensorRank1<D, J, V>)>
+    for TensorRank2<D, I, J, <U as UnitMul<V>>::Output>
+where
+    U: UnitMul<V>,
 {
-    fn from((vector_a, vector_b): (TensorRank1<D, I, U>, TensorRank1<D, J, U>)) -> Self {
+    fn from((vector_a, vector_b): (TensorRank1<D, I, U>, TensorRank1<D, J, V>)) -> Self {
         vector_a
             .into_iter()
             .map(|vector_a_i| {
@@ -282,10 +284,12 @@ impl<const D: usize, I, J, U> From<(TensorRank1<D, I, U>, TensorRank1<D, J, U>)>
     }
 }
 
-impl<const D: usize, I, J, U> From<(TensorRank1<D, I, U>, &TensorRank1<D, J, U>)>
-    for TensorRank2<D, I, J, U>
+impl<const D: usize, I, J, U, V> From<(TensorRank1<D, I, U>, &TensorRank1<D, J, V>)>
+    for TensorRank2<D, I, J, <U as UnitMul<V>>::Output>
+where
+    U: UnitMul<V>,
 {
-    fn from((vector_a, vector_b): (TensorRank1<D, I, U>, &TensorRank1<D, J, U>)) -> Self {
+    fn from((vector_a, vector_b): (TensorRank1<D, I, U>, &TensorRank1<D, J, V>)) -> Self {
         vector_a
             .into_iter()
             .map(|vector_a_i| {
@@ -348,7 +352,7 @@ impl<const D: usize, I, J, U> From<TensorRank2<D, I, J, U>> for Vec<Vec<TensorRa
     fn from(tensor: TensorRank2<D, I, J, U>) -> Self {
         tensor
             .iter()
-            .map(|entry| entry.iter().copied().collect())
+            .map(|entry| entry.iter().map(|entry_i| entry_i.value()).collect())
             .collect()
     }
 }
@@ -373,8 +377,9 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2<D, I, J, U> {
                     .iter()
                     .zip(comparator_i.iter())
                     .filter(|&(&self_ij, &comparator_ij)| {
-                        (self_ij / comparator_ij - 1.0).abs() >= epsilon
-                            && (self_ij.abs() >= epsilon || comparator_ij.abs() >= epsilon)
+                        (self_ij.ratio(comparator_ij) - 1.0).abs() >= epsilon
+                            && (self_ij.value().abs() >= epsilon
+                                || comparator_ij.value().abs() >= epsilon)
                     })
                     .count()
             })
@@ -414,23 +419,23 @@ impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
         }
     }
     fn into_canonical(self) -> TensorRank2<D, Reference, Reference, Dimensionless> {
-        TensorRank2(
-            self.0
-                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0, PhantomData)),
-            PhantomData,
-        )
+        TensorRank2(self.0.map(recast), PhantomData)
     }
+}
+
+/// Moves a rank-1 tensor between configurations and units, the layout being
+/// the same whatever either of them is.
+fn recast<const D: usize, I, J, U, V>(tensor_rank_1: TensorRank1<D, I, U>) -> TensorRank1<D, J, V> {
+    TensorRank1(
+        tensor_rank_1.0.map(|entry| Quantity::new(entry.value())),
+        PhantomData,
+    )
 }
 
 pub(super) fn relabel<const D: usize, I, J, U>(
     tensor_rank_2: TensorRank2<D, Reference, Reference, Dimensionless>,
 ) -> TensorRank2<D, I, J, U> {
-    TensorRank2(
-        tensor_rank_2
-            .0
-            .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0, PhantomData)),
-        PhantomData,
-    )
+    TensorRank2(tensor_rank_2.0.map(recast), PhantomData)
 }
 
 impl<const D: usize> TensorRank2<D, Reference, Reference, Dimensionless> {
@@ -439,7 +444,9 @@ impl<const D: usize> TensorRank2<D, Reference, Reference, Dimensionless> {
         array
             .iter_mut()
             .zip(self.iter())
-            .for_each(|(entry, tensor_rank_1)| *entry = tensor_rank_1.as_array());
+            .for_each(|(entry, tensor_rank_1)| {
+                *entry = tensor_rank_1.as_array().map(|value| value.value())
+            });
         array
     }
     fn identity_core() -> Self {
@@ -504,7 +511,7 @@ impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
 
 impl<const D: usize, I, J, U> Hessian for TensorRank2<D, I, J, U> {
     fn entry(&self, row: usize, column: usize) -> TensorRank0 {
-        self[row][column]
+        self[row][column].value()
     }
     fn quadratic_form(&self, vector: &Vector) -> TensorRank0 {
         self.iter()
@@ -514,7 +521,7 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2<D, I, J, U> {
                     * self_i
                         .iter()
                         .zip(vector.iter())
-                        .map(|(self_ij, vector_j)| self_ij * vector_j)
+                        .map(|(self_ij, vector_j)| self_ij.value() * vector_j)
                         .sum::<TensorRank0>()
             })
             .sum()
@@ -524,7 +531,7 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2<D, I, J, U> {
             self_i
                 .into_iter()
                 .enumerate()
-                .for_each(|(j, self_ij)| square_matrix[i][j] = self_ij)
+                .for_each(|(j, self_ij)| square_matrix[i][j] = self_ij.value())
         })
     }
 }
@@ -548,7 +555,7 @@ impl<const D: usize, I, J, U> Rank2 for TensorRank2<D, I, J, U> {
                 self_i
                     .iter()
                     .enumerate()
-                    .map(|(j, self_ij)| (self_ij.abs() < ABS_TOL) as u8 * (i != j) as u8)
+                    .map(|(j, self_ij)| (self_ij.value().abs() < ABS_TOL) as u8 * (i != j) as u8)
                     .sum::<u8>()
             })
             .sum::<u8>()
@@ -559,7 +566,7 @@ impl<const D: usize, I, J, U> Rank2 for TensorRank2<D, I, J, U> {
             self_i
                 .iter()
                 .enumerate()
-                .all(|(j, self_ij)| self_ij == &((i == j) as u8 as TensorRank0))
+                .all(|(j, self_ij)| self_ij.value() == (i == j) as u8 as TensorRank0)
         })
     }
     fn is_symmetric(&self) -> bool {
@@ -577,13 +584,16 @@ impl<const D: usize, I, J, U> Rank2 for TensorRank2<D, I, J, U> {
                 self_i
                     .iter()
                     .zip(self.iter())
-                    .map(|(self_ij, self_j)| self_ij * self_j[i])
+                    .map(|(self_ij, self_j)| self_ij.value() * self_j[i].value())
                     .sum::<TensorRank0>()
             })
             .sum()
     }
     fn trace(&self) -> TensorRank0 {
-        self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum()
+        self.iter()
+            .enumerate()
+            .map(|(i, self_i)| self_i[i].value())
+            .sum()
     }
     fn transpose(&self) -> Self::Transpose {
         (0..D)
@@ -644,13 +654,17 @@ impl<const D: usize, I, J, U> Solution for TensorRank2<D, I, J, U> {
         self.iter_mut()
             .flat_map(|x| x.iter_mut())
             .zip(other.iter())
-            .for_each(|(self_i, vector_i)| *self_i -= vector_i)
+            .for_each(|(self_i, vector_i)| *self_i -= Quantity::new(*vector_i))
     }
     fn decrement_from_chained(&mut self, other: &mut Vector, vector: &Vector) {
+        let mut values = vector.iter();
         self.iter_mut()
             .flat_map(|x| x.iter_mut())
-            .chain(other.iter_mut())
-            .zip(vector.iter())
+            .zip(values.by_ref())
+            .for_each(|(entry_i, vector_i)| *entry_i -= Quantity::new(*vector_i));
+        other
+            .iter_mut()
+            .zip(values)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
     fn decrement_from_retained(&mut self, retained: &[bool], other: &Vector) {
@@ -659,7 +673,7 @@ impl<const D: usize, I, J, U> Solution for TensorRank2<D, I, J, U> {
             .zip(retained.iter())
             .filter(|(_, retained_i)| **retained_i)
             .zip(other.iter())
-            .for_each(|((self_i, _), vector_i)| *self_i -= vector_i)
+            .for_each(|((self_i, _), vector_i)| *self_i -= Quantity::new(*vector_i))
     }
 }
 
@@ -668,11 +682,12 @@ impl<const D: usize, I, J, U> Jacobian for TensorRank2<D, I, J, U> {
         self.iter()
             .flat_map(|entry| entry.iter())
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = *self_i)
+            .for_each(|(self_i, vector_i)| *vector_i = self_i.value())
     }
     fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
         self.into_iter()
             .flatten()
+            .map(|entry| entry.value())
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
@@ -682,7 +697,7 @@ impl<const D: usize, I, J, U> Jacobian for TensorRank2<D, I, J, U> {
             .flatten()
             .zip(retained.iter())
             .filter(|(_, retained_i)| **retained_i)
-            .map(|(entry, _)| entry)
+            .map(|(entry, _)| entry.value())
             .collect()
     }
 }
@@ -694,7 +709,7 @@ impl<const D: usize, I, J, U> Sub<Vector> for TensorRank2<D, I, J, U> {
             self_i
                 .iter_mut()
                 .enumerate()
-                .for_each(|(j, self_ij)| *self_ij -= vector[D * i + j])
+                .for_each(|(j, self_ij)| *self_ij -= Quantity::new(vector[D * i + j]))
         });
         self
     }
@@ -707,7 +722,7 @@ impl<const D: usize, I, J, U> Sub<&Vector> for TensorRank2<D, I, J, U> {
             self_i
                 .iter_mut()
                 .enumerate()
-                .for_each(|(j, self_ij)| *self_ij -= vector[D * i + j])
+                .for_each(|(j, self_ij)| *self_ij -= Quantity::new(vector[D * i + j]))
         });
         self
     }
@@ -744,12 +759,7 @@ impl<U> From<TensorRank2<3, Reference, Reference, U>>
     for TensorRank2<3, Intermediate, Intermediate, U>
 {
     fn from(tensor_rank_2: TensorRank2<3, Reference, Reference, U>) -> Self {
-        Self(
-            tensor_rank_2
-                .0
-                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0, PhantomData)),
-            PhantomData,
-        )
+        Self(tensor_rank_2.0.map(recast), PhantomData)
     }
 }
 
@@ -757,45 +767,25 @@ impl<U> From<TensorRank2<3, Current, Current, U>>
     for TensorRank2<3, Intermediate, Intermediate, U>
 {
     fn from(tensor_rank_2: TensorRank2<3, Current, Current, U>) -> Self {
-        Self(
-            tensor_rank_2
-                .0
-                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0, PhantomData)),
-            PhantomData,
-        )
+        Self(tensor_rank_2.0.map(recast), PhantomData)
     }
 }
 
 impl<I, U> From<TensorRank2<3, I, Reference, U>> for TensorRank2<3, I, Intermediate, U> {
     fn from(tensor_rank_2: TensorRank2<3, I, Reference, U>) -> Self {
-        Self(
-            tensor_rank_2
-                .0
-                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0, PhantomData)),
-            PhantomData,
-        )
+        Self(tensor_rank_2.0.map(recast), PhantomData)
     }
 }
 
 impl<I, U> From<TensorRank2<3, I, Current, U>> for TensorRank2<3, I, Reference, U> {
     fn from(tensor_rank_2: TensorRank2<3, I, Current, U>) -> Self {
-        Self(
-            tensor_rank_2
-                .0
-                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0, PhantomData)),
-            PhantomData,
-        )
+        Self(tensor_rank_2.0.map(recast), PhantomData)
     }
 }
 
 impl<I, U> From<TensorRank2<3, I, Intermediate, U>> for TensorRank2<3, I, Reference, U> {
     fn from(tensor_rank_2: TensorRank2<3, I, Intermediate, U>) -> Self {
-        Self(
-            tensor_rank_2
-                .0
-                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0, PhantomData)),
-            PhantomData,
-        )
+        Self(tensor_rank_2.0.map(recast), PhantomData)
     }
 }
 
@@ -835,12 +825,7 @@ impl<J, U> From<&TensorRank2<3, Intermediate, J, U>> for &TensorRank2<3, Current
 
 impl<U> From<TensorRank2<3, Reference, Reference, U>> for TensorRank2<3, Current, Current, U> {
     fn from(tensor_rank_2: TensorRank2<3, Reference, Reference, U>) -> Self {
-        Self(
-            tensor_rank_2
-                .0
-                .map(|tensor_rank_1| TensorRank1(tensor_rank_1.0, PhantomData)),
-            PhantomData,
-        )
+        Self(tensor_rank_2.0.map(recast), PhantomData)
     }
 }
 
@@ -998,7 +983,7 @@ fn canonical_rank_2_times_rank_1<const D: usize>(
                 .iter()
                 .zip(tensor_rank_1.iter())
                 .map(|(tensor_rank_2_ij, tensor_rank_1_j)| tensor_rank_2_ij * tensor_rank_1_j)
-                .sum::<TensorRank0>()
+                .sum::<Quantity>()
         })
         .collect()
 }

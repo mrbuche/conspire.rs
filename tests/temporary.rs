@@ -7410,9 +7410,9 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
             if coordinate[0].abs() == 0.5 {
                 matrix[index][3 * node] = 1.0;
                 if coordinate[0] > 0.0 {
-                    vector[index] = coordinate[0] + strain
+                    vector[index] = coordinate[0].value() + strain
                 } else {
-                    vector[index] = coordinate[0]
+                    vector[index] = coordinate[0].value()
                 }
                 index += 1;
             }
@@ -7471,9 +7471,9 @@ fn bcs_temporary_elastic_viscoplastic_vector(t: Quantity<Time>) -> Vector {
     coordinates().iter().for_each(|coordinate| {
         if coordinate[0].abs() == 0.5 {
             if coordinate[0] > 0.0 {
-                vector[index] = coordinate[0] + strain_rate * t.value()
+                vector[index] = coordinate[0].value() + strain_rate * t.value()
             } else {
-                vector[index] = coordinate[0]
+                vector[index] = coordinate[0].value()
             }
             index += 1;
         }
@@ -7866,9 +7866,9 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
             if coordinate[0].abs() == 0.5 {
                 matrix[index][3 * node] = 1.0;
                 if coordinate[0] > 0.0 {
-                    vector[index] = coordinate[0] + strain
+                    vector[index] = coordinate[0].value() + strain
                 } else {
-                    vector[index] = coordinate[0]
+                    vector[index] = coordinate[0].value()
                 }
                 index += 1;
             }
@@ -7995,9 +7995,9 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
             if coordinate[0].abs() == 0.5 {
                 matrix[index][3 * node] = 1.0;
                 if coordinate[0] > 0.0 {
-                    vector[index] = coordinate[0] + strain
+                    vector[index] = coordinate[0].value() + strain
                 } else {
-                    vector[index] = coordinate[0]
+                    vector[index] = coordinate[0].value()
                 }
                 index += 1;
             }

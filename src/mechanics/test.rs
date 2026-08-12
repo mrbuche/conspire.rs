@@ -161,7 +161,7 @@ fn frame_spin_tensor() {
 #[test]
 fn into_test_error() {
     let mut deformation_gradient = IDENTITY_10;
-    deformation_gradient[0][0] = -1.0;
+    deformation_gradient[0][0] = crate::math::Quantity::new(-1.0);
     let _: AssertionError = deformation_gradient.jacobian().unwrap_err().into();
 }
 
@@ -169,7 +169,7 @@ fn into_test_error() {
 #[should_panic(expected = "Invalid Jacobian")]
 fn invalid_jacobian() {
     let mut deformation_gradient = IDENTITY_10;
-    deformation_gradient[0][0] = -1.0;
+    deformation_gradient[0][0] = crate::math::Quantity::new(-1.0);
     let _ = deformation_gradient.jacobian().unwrap();
 }
 

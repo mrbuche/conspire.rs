@@ -102,9 +102,9 @@ fn template<T, U>(
     {
         let coordinate = &coordinates[adjacent] + &scale_2;
         let indices = [
-            (2.0 * coordinate[0]) as usize,
-            (2.0 * coordinate[1]) as usize,
-            (2.0 * coordinate[2]) as usize,
+            (2.0 * coordinate[0].value()) as usize,
+            (2.0 * coordinate[1].value()) as usize,
+            (2.0 * coordinate[2].value()) as usize,
         ];
         if let Some(&node_id) = nodes_map.get(&indices) {
             *exterior_node = node_id;

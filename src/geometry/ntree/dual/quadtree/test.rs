@@ -20,7 +20,7 @@ fn min_scaled_jacobian(mesh: &Mesh<D>) -> f64 {
                 .map(|k| {
                     let e = |j: usize| {
                         std::array::from_fn::<f64, D, _>(|i| {
-                            coordinates[quad[j]][i] - coordinates[quad[k]][i]
+                            (coordinates[quad[j]][i] - coordinates[quad[k]][i]).value()
                         })
                     };
                     let u = e((k + 1) % N);
@@ -49,7 +49,8 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
                 let q = &coordinates[element[(k + 1) % N]];
                 p[0] * q[1] - q[0] * p[1]
             })
-            .sum();
+            .sum::<crate::math::Quantity>()
+            .value();
         if area2 <= 1e-9 {
             return Err(format!(
                 "quad {e} not positively oriented (2A={area2}): {element:?}"

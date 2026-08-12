@@ -97,7 +97,7 @@ fn min_scaled_jacobian(mesh: &Mesh<3>) -> f64 {
                 .map(|&[c, a, b, d]| {
                     let e = |k: usize| {
                         std::array::from_fn::<f64, 3, _>(|i| {
-                            coordinates[hex[k]][i] - coordinates[hex[c]][i]
+                            (coordinates[hex[k]][i] - coordinates[hex[c]][i]).value()
                         })
                     };
                     let (u, v, w) = (e(a), e(b), e(d));

@@ -183,7 +183,7 @@ fn resolve_pinches(triangles: &[[usize; 3]], coordinates: &mut Coordinates<3>) -
                 continue;
             }
             let id = *copies.entry(root).or_insert_with(|| {
-                let point = Coordinate::const_from(from_fn(|ax| coordinates[v][ax]));
+                let point = Coordinate::from(from_fn(|ax| coordinates[v][ax]));
                 let id = coordinates.len();
                 coordinates.push(point);
                 id

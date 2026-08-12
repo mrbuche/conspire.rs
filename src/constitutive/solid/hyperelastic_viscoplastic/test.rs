@@ -137,11 +137,13 @@ macro_rules! test_model {
             for k in 0..3 {
                 for l in 0..3 {
                     let mut deformation_gradient_plus = deformation_gradient.clone();
-                    deformation_gradient_plus[k][l] += 0.5 * crate::EPSILON;
+                    deformation_gradient_plus[k][l] +=
+                        $crate::math::assert::perturbation(0.5 * crate::EPSILON);
                     let cauchy_stress_plus =
                         model.cauchy_stress(&deformation_gradient_plus, &deformation_gradient_p)?;
                     let mut deformation_gradient_minus = deformation_gradient.clone();
-                    deformation_gradient_minus[k][l] -= 0.5 * crate::EPSILON;
+                    deformation_gradient_minus[k][l] -=
+                        $crate::math::assert::perturbation(0.5 * crate::EPSILON);
                     let cauchy_stress_minus = model
                         .cauchy_stress(&deformation_gradient_minus, &deformation_gradient_p)?;
                     for i in 0..3 {

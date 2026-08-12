@@ -61,7 +61,7 @@ fn polytopal<const D: usize>(mesh: &Mesh<D>) -> (&[Vec<usize>], &[Vec<usize>]) {
 }
 
 fn point<const D: usize>(mesh: &Mesh<D>, node: usize) -> [f64; D] {
-    std::array::from_fn(|axis| mesh.coordinates()[node][axis])
+    std::array::from_fn(|axis| mesh.coordinates()[node][axis].value())
 }
 
 fn conformal<const D: usize>(mesh: &Mesh<D>) {

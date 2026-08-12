@@ -53,7 +53,12 @@ fn check(f: &DeformationGradient, f_2: &DeformationGradient2) -> Result<(), Asse
     use crate::constitutive::solid::elastic::internal_variables::ElasticIV;
     Assert::default().zero_within_tols(&model().internal_variables_residual(f, f_2)?)?;
     Assert::default().eq_within_tols(
-        Vector::from([f[0][0], f[0][1], f[0][2], f[1][2]]),
+        Vector::from([
+            f[0][0].value(),
+            f[0][1].value(),
+            f[0][2].value(),
+            f[1][2].value(),
+        ]),
         &Vector::from([STRETCH, 0.0, 0.0, 0.0]),
     )
 }
@@ -168,7 +173,12 @@ fn far(
     use crate::constitutive::solid::elastic::internal_variables::ElasticIV;
     Assert::default().zero_within_tols(&model().internal_variables_residual(&f, &f_2)?)?;
     Assert::default().eq_within_tols(
-        Vector::from([f[0][0], f[0][1], f[0][2], f[1][2]]),
+        Vector::from([
+            f[0][0].value(),
+            f[0][1].value(),
+            f[0][2].value(),
+            f[1][2].value(),
+        ]),
         &Vector::from([STRETCH_FAR, 0.0, 0.0, 0.0]),
     )?;
     Ok((f, f_2))
@@ -283,7 +293,13 @@ fn root_biaxial() -> Result<(), AssertionError> {
     )?;
     Assert::default().zero_within_tols(&model().internal_variables_residual(&f, &f_2)?)?;
     Assert::default().eq_within_tols(
-        Vector::from([f[0][0], f[0][1], f[0][2], f[1][2], f[1][1]]),
+        Vector::from([
+            f[0][0].value(),
+            f[0][1].value(),
+            f[0][2].value(),
+            f[1][2].value(),
+            f[1][1].value(),
+        ]),
         &Vector::from([STRETCH, 0.0, 0.0, 0.0, STRETCH_2]),
     )
 }
@@ -299,7 +315,7 @@ fn minimize_biaxial_first_order() -> Result<(), AssertionError> {
         },
     )?;
     Assert::default().eq_within_tols(
-        Vector::from([f[0][0], f[1][1]]),
+        Vector::from([f[0][0].value(), f[1][1].value()]),
         &Vector::from([STRETCH, STRETCH_2]),
     )
 }

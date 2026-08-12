@@ -7,7 +7,7 @@ use crate::{
     },
     math::{
         CrossProduct, IDENTITY, LEVI_CIVITA, Quantity, Scalar, Tensor, TensorArray, TensorRank2,
-        unit::{Area, Length, ReciprocalArea, Volume},
+        unit::{Area, Length, Rate, ReciprocalArea, Volume},
     },
     mechanics::{
         Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
@@ -90,7 +90,8 @@ where
                             .iter()
                             .zip(basis_vectors.iter())
                             .map(|(metric_tensor_mn, basis_vectors_n)| {
-                                basis_vectors_n * Quantity::<ReciprocalArea>::new(*metric_tensor_mn)
+                                basis_vectors_n
+                                    * Quantity::<ReciprocalArea>::new(metric_tensor_mn.value())
                             })
                             .sum()
                     })
@@ -133,11 +134,12 @@ where
                             .zip(normal_vector.iter()))
                             .map(|(levi_civita_symbol_mno, (identity_io, normal_vector_o))|
                                 levi_civita_symbol_mno * (identity_io - normal_vector_i * normal_vector_o)
-                            ).sum::<Scalar>() * (
+                            ).sum::<Quantity>() * (
                                 standard_gradient_operator_a[0] * basis_vector_1_n
                               - standard_gradient_operator_a[1] * basis_vector_0_n
                             )
-                        ).sum::<Scalar>() / normalization
+                        ).sum::<Quantity<Length>>()
+                            * Quantity::<ReciprocalArea>::new(normalization.recip())
                     ).collect()
                 ).collect()
             ).collect()
@@ -174,13 +176,15 @@ where
                                 .zip(normal.iter()))
                                 .map(|(levi_civita_symbol_mno, (identity_io, normal_vector_o))|
                                     levi_civita_symbol_mno * (identity_io - normal_vector_i * normal_vector_o)
-                                ).sum::<Scalar>() * (
+                                ).sum::<Quantity>() * (
                                     standard_gradient_operator_a[0] * basis_vector_1_n
                                 - standard_gradient_operator_a[1] * basis_vector_0_n
                                 )
-                            ).sum::<Scalar>() * nodal_velocity_a_m
-                        ).sum::<Scalar>()
-                    ).sum::<Scalar>() / normalization
+                            ).sum::<Quantity<Length>>()
+                            * Quantity::<ReciprocalArea>::new(normalization.recip())
+                                * nodal_velocity_a_m
+                        ).sum::<Quantity<Rate>>()
+                    ).sum::<Quantity<Rate>>()
                 ).collect()
         }).collect()
     }

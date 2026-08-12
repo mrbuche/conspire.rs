@@ -219,6 +219,34 @@ impl<U> Add<Quantity<U>> for &Quantity<U> {
     }
 }
 
+impl<U> Sub<Quantity<U>> for &Quantity<U> {
+    type Output = Quantity<U>;
+    fn sub(self, quantity: Quantity<U>) -> Self::Output {
+        Quantity::new(self.0 - quantity.0)
+    }
+}
+
+impl<U> Div<TensorRank0> for &Quantity<U> {
+    type Output = Quantity<U>;
+    fn div(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        Quantity::new(self.0 / tensor_rank_0)
+    }
+}
+
+impl<U> Div<&TensorRank0> for &Quantity<U> {
+    type Output = Quantity<U>;
+    fn div(self, tensor_rank_0: &TensorRank0) -> Self::Output {
+        Quantity::new(self.0 / tensor_rank_0)
+    }
+}
+
+impl<U> Neg for &Quantity<U> {
+    type Output = Quantity<U>;
+    fn neg(self) -> Self::Output {
+        Quantity::new(-self.0)
+    }
+}
+
 impl<U> Sub for &Quantity<U> {
     type Output = Quantity<U>;
     fn sub(self, quantity: Self) -> Self::Output {

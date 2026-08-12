@@ -164,12 +164,12 @@ impl<const D: usize> Verdict for Mesh<D> {
 const EQUIANGLE: Scalar = std::f64::consts::FRAC_PI_3;
 
 fn cross<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> [Scalar; 3] {
-    let az = if D > 2 { a[2] } else { 0.0 };
-    let bz = if D > 2 { b[2] } else { 0.0 };
+    let az = if D > 2 { a[2].value() } else { 0.0 };
+    let bz = if D > 2 { b[2].value() } else { 0.0 };
     [
-        a[1] * bz - az * b[1],
-        az * b[0] - a[0] * bz,
-        a[0] * b[1] - a[1] * b[0],
+        a[1].value() * bz - az * b[1].value(),
+        az * b[0].value() - a[0].value() * bz,
+        (a[0] * b[1] - a[1] * b[0]).value(),
     ]
 }
 
@@ -187,7 +187,7 @@ fn triple_product<const D: usize>(
     c: &Coordinate<D>,
 ) -> Scalar {
     let bc = cross(b, c);
-    a[0] * bc[0] + a[1] * bc[1] + a[2] * bc[2]
+    (a[0] * bc[0] + a[1] * bc[1] + a[2] * bc[2]).value()
 }
 
 fn cross_norm<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> Scalar {
@@ -290,7 +290,7 @@ fn corners<const D: usize, const K: usize, const C: usize>(
 
 fn corner_measure<const D: usize, const K: usize>(edges: &[Coordinate<D>; K]) -> Scalar {
     if K == D {
-        let matrix: [[Scalar; K]; K] = from_fn(|row| from_fn(|column| edges[row][column]));
+        let matrix: [[Scalar; K]; K] = from_fn(|row| from_fn(|column| edges[row][column].value()));
         TensorRank2::<K, Reference, Reference>::from(matrix).determinant()
     } else {
         let gram: [[Scalar; K]; K] = from_fn(|i| from_fn(|j| &edges[i] * &edges[j]));

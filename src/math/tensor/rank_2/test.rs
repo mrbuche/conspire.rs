@@ -286,7 +286,12 @@ fn div_tensor_rank_0_to_self() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -299,7 +304,12 @@ fn div_tensor_rank_0_to_self_ref() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -313,7 +323,12 @@ fn div_tensor_rank_0_ref_to_self() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -327,7 +342,12 @@ fn div_tensor_rank_0_ref_to_self_ref() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -342,7 +362,12 @@ fn div_assign_tensor_rank_0() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -357,7 +382,12 @@ fn div_assign_tensor_rank_0_ref() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())

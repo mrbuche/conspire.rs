@@ -20,9 +20,9 @@ impl<const D: usize, I, J, U> From<TensorRank2Vec2D<D, I, J, U>> for Vec<TensorR
             .into_iter()
             .flat_map(|tensor_rank_2_vec_1d| {
                 tensor_rank_2_vec_1d.into_iter().flat_map(|tensor_rank_2| {
-                    tensor_rank_2
-                        .into_iter()
-                        .flat_map(|tensor_rank_1| tensor_rank_1.into_iter())
+                    tensor_rank_2.into_iter().flat_map(|tensor_rank_1| {
+                        tensor_rank_1.into_iter().map(|entry| entry.value())
+                    })
                 })
             })
             .collect()
@@ -81,9 +81,9 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2Vec2D<D, I, J, U> 
                                     .iter()
                                     .zip(comparator_ab_i.iter())
                                     .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
-                                        (self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
-                                            && (self_ab_ij.abs() >= epsilon
-                                                || comparator_ab_ij.abs() >= epsilon)
+                                        (self_ab_ij.ratio(comparator_ab_ij) - 1.0).abs() >= epsilon
+                                            && (self_ab_ij.value().abs() >= epsilon
+                                                || comparator_ab_ij.value().abs() >= epsilon)
                                     })
                                     .count()
                             })
@@ -109,10 +109,12 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2Vec2D<D, I, J, U> 
                                         .iter()
                                         .zip(comparator_ab_i.iter())
                                         .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
-                                            (self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
-                                                && (self_ab_ij - comparator_ab_ij).abs() >= epsilon
-                                                && (self_ab_ij.abs() >= epsilon
-                                                    || comparator_ab_ij.abs() >= epsilon)
+                                            (self_ab_ij.ratio(comparator_ab_ij) - 1.0).abs()
+                                                >= epsilon
+                                                && (self_ab_ij - comparator_ab_ij).value().abs()
+                                                    >= epsilon
+                                                && (self_ab_ij.value().abs() >= epsilon
+                                                    || comparator_ab_ij.value().abs() >= epsilon)
                                         })
                                         .count()
                                 })

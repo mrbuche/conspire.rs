@@ -46,9 +46,9 @@ impl BoundingBox<3> {
         b: &Coordinate<3>,
         c: &Coordinate<3>,
     ) -> bool {
-        let center: [Scalar; 3] = from_fn(|k| (self.minimum[k] + self.maximum[k]) * 0.5);
-        let half: [Scalar; 3] = from_fn(|k| (self.maximum[k] - self.minimum[k]) * 0.5);
-        let v: [[Scalar; 3]; 3] = [a, b, c].map(|p| from_fn(|k| p[k] - center[k]));
+        let center: [Scalar; 3] = from_fn(|k| (self.minimum[k] + self.maximum[k]).value() * 0.5);
+        let half: [Scalar; 3] = from_fn(|k| (self.maximum[k] - self.minimum[k]).value() * 0.5);
+        let v: [[Scalar; 3]; 3] = [a, b, c].map(|p| from_fn(|k| p[k].value() - center[k]));
         let edges: [[Scalar; 3]; 3] = [
             from_fn(|k| v[1][k] - v[0][k]),
             from_fn(|k| v[2][k] - v[1][k]),

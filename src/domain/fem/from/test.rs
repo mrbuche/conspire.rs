@@ -425,8 +425,8 @@ fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
     )?;
-    assert!((solution[0][0] - 1.05).abs() < 1e-10);
-    assert!((solution[2][0] + 0.5).abs() < 1e-10);
+    assert!((solution[0][0].value() - 1.05).abs() < 1e-10);
+    assert!((solution[2][0].value() + 0.5).abs() < 1e-10);
     let residual =
         ElasticElements::nodal_forces(&model, &solution).map_err(|error| AssertionError {
             message: error.to_string(),
@@ -475,8 +475,9 @@ fn planar_patch_root() -> Result<(), AssertionError> {
     boundary.iter().enumerate().for_each(|(row, &node)| {
         (0..2).for_each(|i| {
             a[2 * row + i][2 * node + i] = 1.0;
-            b[2 * row + i] =
-                deformation[i][0] * coordinates[node][0] + deformation[i][1] * coordinates[node][1];
+            b[2 * row + i] = (deformation[i][0] * coordinates[node][0]
+                + deformation[i][1] * coordinates[node][1])
+                .value();
         })
     });
     let solution = FirstOrderRoot::root(
@@ -488,8 +489,8 @@ fn planar_patch_root() -> Result<(), AssertionError> {
         .iter()
         .map(|coordinate| {
             [
-                deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1],
-                deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1],
+                (deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1]).value(),
+                (deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1]).value(),
             ]
         })
         .collect::<Vec<_>>()
@@ -544,7 +545,7 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
     let mut row = 0;
     (0..18).for_each(|node| {
         a[row][3 * node + 2] = 1.0;
-        b[row] = coordinates[node][2];
+        b[row] = coordinates[node][2].value();
         row += 1;
     });
     [0, 3, 6, 9, 12, 15].iter().for_each(|&node| {
@@ -568,13 +569,13 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
     let layer_0: NodalCoordinates<2> = solution_wedge
         .iter()
         .take(9)
-        .map(|coordinate| [coordinate[0], coordinate[1]])
+        .map(|coordinate| [coordinate[0].value(), coordinate[1].value()])
         .collect::<Vec<_>>()
         .into();
     let layer_1: NodalCoordinates<2> = solution_wedge
         .iter()
         .skip(9)
-        .map(|coordinate| [coordinate[0], coordinate[1]])
+        .map(|coordinate| [coordinate[0].value(), coordinate[1].value()])
         .collect::<Vec<_>>()
         .into();
     Assert::default().eq_within_tols(&solution, &layer_0)?;
@@ -609,8 +610,9 @@ fn planar_quad_patch_root() -> Result<(), AssertionError> {
     boundary.iter().enumerate().for_each(|(row, &node)| {
         (0..2).for_each(|i| {
             a[2 * row + i][2 * node + i] = 1.0;
-            b[2 * row + i] =
-                deformation[i][0] * coordinates[node][0] + deformation[i][1] * coordinates[node][1];
+            b[2 * row + i] = (deformation[i][0] * coordinates[node][0]
+                + deformation[i][1] * coordinates[node][1])
+                .value();
         })
     });
     let solution = FirstOrderRoot::root(
@@ -622,8 +624,8 @@ fn planar_quad_patch_root() -> Result<(), AssertionError> {
         .iter()
         .map(|coordinate| {
             [
-                deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1],
-                deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1],
+                (deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1]).value(),
+                (deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1]).value(),
             ]
         })
         .collect::<Vec<_>>()

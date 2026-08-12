@@ -581,7 +581,7 @@ impl<const D: usize, I, U> Mul<&TensorRank1Vec<D, I, U>> for &Vector {
                 entry_a
                     .iter()
                     .enumerate()
-                    .map(|(i, entry_a_i)| self[D * a + i] * entry_a_i)
+                    .map(|(i, entry_a_i)| self[D * a + i] * entry_a_i.value())
                     .sum::<Scalar>()
             })
             .sum()
@@ -609,7 +609,7 @@ impl<const D: usize, I, J, U> Mul<&TensorRank2<D, I, J, U>> for &Vector {
                 entry_i
                     .iter()
                     .enumerate()
-                    .map(|(j, entry_ij)| self[D * i + j] * entry_ij)
+                    .map(|(j, entry_ij)| self[D * i + j] * entry_ij.value())
                     .sum::<Scalar>()
             })
             .sum()

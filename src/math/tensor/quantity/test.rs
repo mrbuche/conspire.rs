@@ -47,7 +47,7 @@ mod constitutive_law {
         let jacobian = 1.5;
         let stress: Stresses = Strain::identity() * (2.0 * shear_modulus / jacobian)
             + StrainRate::identity() * (2.0 * shear_viscosity / jacobian);
-        assert_eq!(stress[0][0], 2.0 * 2.0 / 1.5 + 2.0 * 3.0 / 1.5)
+        assert_eq!(stress[0][0].value(), 2.0 * 2.0 / 1.5 + 2.0 * 3.0 / 1.5)
     }
 
     #[test]

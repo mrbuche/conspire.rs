@@ -41,8 +41,8 @@ impl Tessellation {
         let mut max = [f64::NEG_INFINITY; D];
         for point in self.mesh.coordinates() {
             (0..D).for_each(|axis| {
-                min[axis] = min[axis].min(point[axis]);
-                max[axis] = max[axis].max(point[axis]);
+                min[axis] = min[axis].min(point[axis].value());
+                max[axis] = max[axis].max(point[axis].value());
             });
         }
         let diagonal = (0..D)
@@ -60,7 +60,7 @@ impl Tessellation {
         let mut anchors: HashMap<[i64; D], Vec<usize>> = HashMap::new();
         let mut welded = Coordinates::new();
         for point in self.mesh.coordinates() {
-            let cell = from_fn(|axis| (point[axis] / tolerance).floor() as i64);
+            let cell = from_fn(|axis| (point[axis].value() / tolerance).floor() as i64);
             let mut representative = None;
             'search: for dz in -1i64..=1 {
                 for dy in -1i64..=1 {

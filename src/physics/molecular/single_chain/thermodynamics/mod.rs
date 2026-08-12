@@ -895,7 +895,10 @@ fn cosine_moments_reweighted_inner<T: MonteCarlo>(
     for _ in 0..number_of_samples {
         let links = model.random_nondimensional_link_vectors(0.0);
 
-        let cosines: Vec<Scalar> = links.iter().map(|link| link[2] / link.norm()).collect();
+        let cosines: Vec<Scalar> = links
+            .iter()
+            .map(|link| link[2].value() / link.norm())
+            .collect();
 
         let sum_cos: Scalar = cosines.iter().sum();
         let x = nondimensional_force * sum_cos;
@@ -994,7 +997,7 @@ fn nondimensional_longitudinal_extension_reweighted_inner<T: MonteCarlo>(
     for _ in 0..number_of_samples {
         let links = model.random_nondimensional_link_vectors(0.0);
 
-        let extension_sum: Scalar = links.iter().map(|link| link[2]).sum();
+        let extension_sum: Scalar = links.iter().map(|link| link[2].value()).sum();
         let x = nondimensional_force * extension_sum;
 
         if x > x_max {
@@ -1256,7 +1259,7 @@ fn nondimensional_angular_distribution_inner<T: MonteCarlo>(
         let nondimensional_extension = if gamma == 0.0 {
             0.0
         } else {
-            configuration[end_index][2] / gamma
+            configuration[end_index][2].value() / gamma
         };
         if nondimensional_extension.abs() > maximum_nondimensional_extension {
             panic!(
@@ -1283,7 +1286,7 @@ fn nondimensional_lateral_distribution_inner<T: MonteCarlo>(
     let end_index = model.number_of_links() as usize - 1;
     for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
-        let nondimensional_extension = configuration[end_index][1] / num_links;
+        let nondimensional_extension = configuration[end_index][1].value() / num_links;
         if nondimensional_extension.abs() > maximum_nondimensional_extension {
             panic!(
                 "Sample {nondimensional_extension} outside [-{maximum_nondimensional_extension}, {maximum_nondimensional_extension}]"
@@ -1309,7 +1312,7 @@ fn nondimensional_longitudinal_distribution_inner<T: MonteCarlo>(
     let end_index = model.number_of_links() as usize - 1;
     for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
-        let nondimensional_extension = configuration[end_index][2] / num_links;
+        let nondimensional_extension = configuration[end_index][2].value() / num_links;
         if nondimensional_extension.abs() > maximum_nondimensional_extension {
             panic!(
                 "Sample {nondimensional_extension} outside [-{maximum_nondimensional_extension}, {maximum_nondimensional_extension}]"
@@ -1360,9 +1363,10 @@ fn nondimensional_transverse_distribution_inner<T: MonteCarlo>(
     let end_index = model.number_of_links() as usize - 1;
     for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
-        let nondimensional_extension =
-            (configuration[end_index][0].powi(2) + configuration[end_index][1].powi(2)).sqrt()
-                / num_links;
+        let nondimensional_extension = (configuration[end_index][0].value().powi(2)
+            + configuration[end_index][1].value().powi(2))
+        .sqrt()
+            / num_links;
         if nondimensional_extension.abs() > maximum_nondimensional_extension {
             panic!(
                 "Sample {nondimensional_extension} outside [-{maximum_nondimensional_extension}, {maximum_nondimensional_extension}]"

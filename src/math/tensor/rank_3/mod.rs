@@ -176,9 +176,9 @@ impl<const D: usize, I, J, K, U> FiniteDifference for TensorRank3<D, I, J, K, U>
                             .iter()
                             .zip(comparator_ij.iter())
                             .filter(|&(&self_ijk, &comparator_ijk)| {
-                                (self_ijk / comparator_ijk - 1.0).abs() >= epsilon
-                                    && (self_ijk.abs() >= epsilon
-                                        || comparator_ijk.abs() >= epsilon)
+                                (self_ijk.ratio(comparator_ijk) - 1.0).abs() >= epsilon
+                                    && (self_ijk.value().abs() >= epsilon
+                                        || comparator_ijk.value().abs() >= epsilon)
                             })
                             .count()
                     })

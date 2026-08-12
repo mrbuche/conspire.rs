@@ -1288,7 +1288,8 @@ fn contract_second_with_first_is_its_definition() {
                         contraction[i][j][k][l],
                         (0..3)
                             .map(|s| tensor_rank_4[i][s][k][l] * tensor_rank_2[s][j])
-                            .sum::<TensorRank0>()
+                            .sum::<crate::math::Quantity>()
+                            .value()
                     )
                 })
             })
@@ -1309,7 +1310,8 @@ fn contract_third_with_first_is_its_definition() {
                         contraction[i][j][k][l],
                         (0..3)
                             .map(|m| tensor_rank_2[m][k] * tensor_rank_4[i][j][m][l])
-                            .sum::<TensorRank0>()
+                            .sum::<crate::math::Quantity>()
+                            .value()
                     )
                 })
             })

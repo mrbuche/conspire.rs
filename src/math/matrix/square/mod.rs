@@ -101,7 +101,7 @@ impl<const D: usize, I, J> From<TensorRank2Vec2D<D, I, J>> for SquareMatrix {
                 entry_a.iter().enumerate().for_each(|(b, entry_ab)| {
                     entry_ab.iter().enumerate().for_each(|(i, entry_ab_i)| {
                         entry_ab_i.iter().enumerate().for_each(|(j, entry_ab_ij)| {
-                            square_matrix[D * a + i][D * b + j] = *entry_ab_ij
+                            square_matrix[D * a + i][D * b + j] = entry_ab_ij.value()
                         })
                     })
                 })

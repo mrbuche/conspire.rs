@@ -34,10 +34,11 @@ macro_rules! test_thermal {
                     let nodal_forces_fd: ElementNodalForcesThermal<N> = (0..N)
                         .map(|node| {
                             let mut nodal_temperatures = temperature.clone();
-                            nodal_temperatures[node] += $crate::math::Quantity::new(0.5 * EPSILON);
+                            nodal_temperatures[node] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference =
                                 element.potential(&constitutive_model, &nodal_temperatures)?;
-                            nodal_temperatures[node] -= $crate::math::Quantity::new(EPSILON);
+                            nodal_temperatures[node] -= $crate::math::assert::perturbation(EPSILON);
                             finite_difference -=
                                 element.potential(&constitutive_model, &nodal_temperatures)?;
                             // A potential per unit temperature is a power.
@@ -70,12 +71,12 @@ macro_rules! test_thermal {
                                 .map(|node_b| {
                                     let mut nodal_temperatures = temperature.clone();
                                     nodal_temperatures[node_b] +=
-                                        $crate::math::Quantity::new(0.5 * EPSILON);
+                                        $crate::math::assert::perturbation(0.5 * EPSILON);
                                     finite_difference = element
                                         .nodal_forces(&constitutive_model, &nodal_temperatures)?
                                         [node_a];
                                     nodal_temperatures[node_b] -=
-                                        $crate::math::Quantity::new(EPSILON);
+                                        $crate::math::assert::perturbation(EPSILON);
                                     finite_difference -= element
                                         .nodal_forces(&constitutive_model, &nodal_temperatures)?
                                         [node_a];

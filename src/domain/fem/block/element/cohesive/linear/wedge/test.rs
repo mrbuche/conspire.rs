@@ -1,7 +1,8 @@
 use crate::math::assert::Assert;
+use crate::math::assert::perturbation;
 use crate::math::{
     Current, Quantity,
-    unit::{Area, Force, Stress},
+    unit::{Area, Force, Length, Stress},
 };
 use crate::{
     EPSILON,
@@ -56,8 +57,8 @@ fn temporary_2() -> Result<(), AssertionError> {
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     let element = Wedge::from(coordinates.clone());
     coordinates.iter_mut().skip(P).for_each(|coordinate| {
-        coordinate[0] += TANGENTIAL_DISPLACEMENT;
-        coordinate[2] += NORMAL_DISPLACEMENT
+        coordinate[0] += Quantity::new(TANGENTIAL_DISPLACEMENT);
+        coordinate[2] += Quantity::new(NORMAL_DISPLACEMENT)
     });
     let area = element
         .integration_weights()
@@ -101,8 +102,8 @@ fn temporary_4() -> Result<(), AssertionError> {
     let element = Wedge::from(coordinates_0);
     let mut coordinates = ElementNodalReferenceCoordinates::from(COORDINATES);
     coordinates.iter_mut().skip(P).for_each(|coordinate| {
-        coordinate[0] += TANGENTIAL_DISPLACEMENT;
-        coordinate[2] += NORMAL_DISPLACEMENT;
+        coordinate[0] += Quantity::new(TANGENTIAL_DISPLACEMENT);
+        coordinate[2] += Quantity::new(NORMAL_DISPLACEMENT);
     });
     coordinates = coordinates
         .into_iter()
@@ -142,7 +143,7 @@ fn temporary_5() -> Result<(), AssertionError> {
     let coordinates_0 = ElementNodalReferenceCoordinates::from(COORDINATES);
     let coordinates = ElementNodalCoordinates::from(coordinates_0.clone());
     let element = Wedge::from(coordinates_0);
-    let mut finite_difference = 0.0;
+    let mut finite_difference = Quantity::<Force>::new(0.0);
     let nodal_stiffnesses_fd = (0..N)
         .map(|a| {
             (0..N)
@@ -152,13 +153,13 @@ fn temporary_5() -> Result<(), AssertionError> {
                             (0..3)
                                 .map(|j| {
                                     let mut nodal_coordinates = coordinates.clone();
-                                    nodal_coordinates[b][j] += 0.5 * EPSILON;
+                                    nodal_coordinates[b][j] += perturbation(0.5 * EPSILON);
                                     finite_difference =
                                         element.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
-                                    nodal_coordinates[b][j] -= EPSILON;
+                                    nodal_coordinates[b][j] -= perturbation(EPSILON);
                                     finite_difference -=
                                         element.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
-                                    Ok(finite_difference / EPSILON)
+                                    Ok(finite_difference / perturbation::<Length>(EPSILON))
                                 })
                                 .collect()
                         })
@@ -192,7 +193,7 @@ fn temporary_6() -> Result<(), AssertionError> {
         [6.80745386, 6.13361434, 5.46225216],
         [3.14323173, 3.98543986, 6.22717385],
     ]);
-    let mut finite_difference = 0.0;
+    let mut finite_difference = Quantity::<Force>::new(0.0);
     let nodal_stiffnesses_fd = (0..N)
         .map(|a| {
             (0..N)
@@ -202,13 +203,13 @@ fn temporary_6() -> Result<(), AssertionError> {
                             (0..3)
                                 .map(|j| {
                                     let mut nodal_coordinates = coordinates.clone();
-                                    nodal_coordinates[b][j] += 0.5 * EPSILON;
+                                    nodal_coordinates[b][j] += perturbation(0.5 * EPSILON);
                                     finite_difference =
                                         element.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
-                                    nodal_coordinates[b][j] -= EPSILON;
+                                    nodal_coordinates[b][j] -= perturbation(EPSILON);
                                     finite_difference -=
                                         element.nodal_forces(&MODEL, &nodal_coordinates)?[a][i];
-                                    Ok(finite_difference / EPSILON)
+                                    Ok(finite_difference / perturbation::<Length>(EPSILON))
                                 })
                                 .collect()
                         })

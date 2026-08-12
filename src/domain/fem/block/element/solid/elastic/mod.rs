@@ -8,7 +8,7 @@ use crate::{
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
     math::{
-        ContractSecondFourthWithFirst, Current, IDENTITY, Scalar, Tensor, TensorRank2,
+        ContractSecondFourthWithFirst, Current, IDENTITY, Quantity, Tensor, TensorRank2,
         unit::StressPerArea,
     },
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
@@ -172,9 +172,9 @@ where
                                                 first_piola_kirchhoff_tangent_stiffness_mjkl * gradient_vector_a_j * (
                                                     identity_nk * gradient_vector_b_l + normal_gradient_b_n_k * reference_normal_l
                                                 )
-                                            ).sum::<Scalar>()
-                                        ).sum::<Scalar>()
-                                    ).sum::<Scalar>()
+                                            ).sum::<Quantity<StressPerArea>>()
+                                        ).sum::<Quantity<StressPerArea>>()
+                                    ).sum::<Quantity<StressPerArea>>()
                                 ).collect()
                             ).collect::<TensorRank2<3, Current, Current, StressPerArea>>() * integration_weight
                         ).collect()

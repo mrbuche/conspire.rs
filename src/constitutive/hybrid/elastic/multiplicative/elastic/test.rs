@@ -1,4 +1,5 @@
 use crate::math::assert::Assert;
+use crate::math::assert::perturbation;
 use crate::{
     constitutive::{
         hybrid::ElasticMultiplicative,
@@ -50,11 +51,11 @@ fn finite_difference_0() -> Result<(), AssertionError> {
     for k in 0..3 {
         for l in 0..3 {
             let mut deformation_gradient_plus = deformation_gradient.clone();
-            deformation_gradient_plus[k][l] += 0.5 * crate::EPSILON;
+            deformation_gradient_plus[k][l] += perturbation(0.5 * crate::EPSILON);
             let cauchy_stress_plus =
                 model.cauchy_stress(&deformation_gradient_plus, &deformation_gradient_2)?;
             let mut deformation_gradient_minus = deformation_gradient.clone();
-            deformation_gradient_minus[k][l] -= 0.5 * crate::EPSILON;
+            deformation_gradient_minus[k][l] -= perturbation(0.5 * crate::EPSILON);
             let cauchy_stress_minus =
                 model.cauchy_stress(&deformation_gradient_minus, &deformation_gradient_2)?;
             for i in 0..3 {
@@ -99,11 +100,11 @@ fn finite_difference_1() -> Result<(), AssertionError> {
     for k in 0..3 {
         for l in 0..3 {
             let mut deformation_gradient_plus = deformation_gradient.clone();
-            deformation_gradient_plus[k][l] += 0.5 * crate::EPSILON;
+            deformation_gradient_plus[k][l] += perturbation(0.5 * crate::EPSILON);
             let residual_plus = model
                 .internal_variables_residual(&deformation_gradient_plus, &deformation_gradient_2)?;
             let mut deformation_gradient_minus = deformation_gradient.clone();
-            deformation_gradient_minus[k][l] -= 0.5 * crate::EPSILON;
+            deformation_gradient_minus[k][l] -= perturbation(0.5 * crate::EPSILON);
             let residual_minus = model.internal_variables_residual(
                 &deformation_gradient_minus,
                 &deformation_gradient_2,
@@ -149,13 +150,13 @@ fn finite_difference_2() -> Result<(), AssertionError> {
     for k in 0..3 {
         for l in 0..3 {
             let mut deformation_gradient_2_plus = deformation_gradient_2.clone();
-            deformation_gradient_2_plus[k][l] += 0.5 * crate::EPSILON;
+            deformation_gradient_2_plus[k][l] += perturbation(0.5 * crate::EPSILON);
             let residual_plus = model.first_piola_kirchhoff_stress(
                 &deformation_gradient,
                 &deformation_gradient_2_plus,
             )?;
             let mut deformation_gradient_2_minus = deformation_gradient_2.clone();
-            deformation_gradient_2_minus[k][l] -= 0.5 * crate::EPSILON;
+            deformation_gradient_2_minus[k][l] -= perturbation(0.5 * crate::EPSILON);
             let residual_minus = model.first_piola_kirchhoff_stress(
                 &deformation_gradient,
                 &deformation_gradient_2_minus,
@@ -201,11 +202,11 @@ fn finite_difference_3() -> Result<(), AssertionError> {
     for k in 0..3 {
         for l in 0..3 {
             let mut deformation_gradient_2_plus = deformation_gradient_2.clone();
-            deformation_gradient_2_plus[k][l] += 0.5 * crate::EPSILON;
+            deformation_gradient_2_plus[k][l] += perturbation(0.5 * crate::EPSILON);
             let residual_plus = model
                 .internal_variables_residual(&deformation_gradient, &deformation_gradient_2_plus)?;
             let mut deformation_gradient_2_minus = deformation_gradient_2.clone();
-            deformation_gradient_2_minus[k][l] -= 0.5 * crate::EPSILON;
+            deformation_gradient_2_minus[k][l] -= perturbation(0.5 * crate::EPSILON);
             let residual_minus = model.internal_variables_residual(
                 &deformation_gradient,
                 &deformation_gradient_2_minus,
@@ -276,7 +277,12 @@ fn rooted(
     )?;
     Assert::default().zero_within_tols(&model().internal_variables_residual(&f, &f_2)?)?;
     Assert::default().eq_within_tols(
-        Vector::from([f[0][0], f[0][1], f[0][2], f[1][2]]),
+        Vector::from([
+            f[0][0].value(),
+            f[0][1].value(),
+            f[0][2].value(),
+            f[1][2].value(),
+        ]),
         &Vector::from([STRETCH, 0.0, 0.0, 0.0]),
     )?;
     Ok((f, f_2))
@@ -332,8 +338,11 @@ fn moduli() -> Result<(), AssertionError> {
             < EPSILON
     );
     let mut sheared = DeformationGradient::identity();
-    sheared[0][1] = EPSILON;
+    sheared[0][1] = crate::math::Quantity::new(EPSILON);
     let sheared_stress = model.first_piola_kirchhoff_stress(&sheared, &solved(&sheared)?)?;
-    assert!((EPSILON * model.shear_modulus().value() / sheared_stress[0][1] - 1.0).abs() < EPSILON);
+    assert!(
+        (EPSILON * model.shear_modulus().value() / sheared_stress[0][1].value() - 1.0).abs()
+            < EPSILON
+    );
     Ok(())
 }

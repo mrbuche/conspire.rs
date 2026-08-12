@@ -111,10 +111,13 @@ pub fn langevin_derivative(x: Scalar) -> Scalar {
 /// ```
 pub fn rosenbrock<T>(x: &T, a: Scalar, b: Scalar) -> Scalar
 where
-    T: Tensor<Item = Scalar>,
+    T: Tensor,
+    T::Item: Copy + Into<Scalar>,
 {
-    x.iter()
-        .zip(x.iter().skip(1))
+    let values: Vec<Scalar> = x.iter().map(|x_i| (*x_i).into()).collect();
+    values
+        .iter()
+        .zip(values.iter().skip(1))
         .map(|(x_i, x_ip1)| (a - x_i).powi(2) + b * (x_ip1 - x_i.powi(2)).powi(2))
         .sum()
 }
@@ -129,9 +132,11 @@ where
 /// ```
 pub fn rosenbrock_derivative<T>(x: &T, a: Scalar, b: Scalar) -> T
 where
-    T: FromIterator<Scalar> + Tensor<Item = Scalar>,
+    T: FromIterator<Scalar> + Tensor,
+    T::Item: Copy + Into<Scalar>,
 {
-    let n = x.iter().count();
+    let x: Vec<Scalar> = x.iter().map(|x_i| (*x_i).into()).collect();
+    let n = x.len();
     x.iter()
         .take(1)
         .zip(x.iter().skip(1).take(1))

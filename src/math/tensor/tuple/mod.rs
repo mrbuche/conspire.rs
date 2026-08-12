@@ -211,13 +211,14 @@ impl<const D: usize, I, J, K, L, U> Jacobian
             .flat_map(|entry| entry.iter())
             .chain(self.1.iter().flat_map(|entry| entry.iter()))
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = *self_i)
+            .for_each(|(self_i, vector_i)| *vector_i = self_i.value())
     }
     fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
         self.0
             .into_iter()
             .flatten()
             .chain(self.1.into_iter().flatten())
+            .map(|entry| entry.value())
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
@@ -233,15 +234,19 @@ impl<const D: usize, I, J, K, L, U> Solution
             .flat_map(|x| x.iter_mut())
             .chain(self.1.iter_mut().flat_map(|x| x.iter_mut()))
             .zip(other.iter())
-            .for_each(|(self_i, vector_i)| *self_i -= vector_i)
+            .for_each(|(self_i, vector_i)| *self_i -= Quantity::new(*vector_i))
     }
     fn decrement_from_chained(&mut self, other: &mut Vector, vector: &Vector) {
+        let mut values = vector.iter();
         self.0
             .iter_mut()
             .flat_map(|x| x.iter_mut())
             .chain(self.1.iter_mut().flat_map(|x| x.iter_mut()))
-            .chain(other.iter_mut())
-            .zip(vector.iter())
+            .zip(values.by_ref())
+            .for_each(|(entry_i, vector_i)| *entry_i -= Quantity::new(*vector_i));
+        other
+            .iter_mut()
+            .zip(values)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
 }

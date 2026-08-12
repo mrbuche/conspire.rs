@@ -30,7 +30,7 @@ pub(crate) mod vec;
 
 impl<const D: usize, I, J, K, L, U> HessianBlock for TensorRank4<D, I, J, K, L, U> {
     fn entry(&self, row: usize, column: usize) -> TensorRank0 {
-        self[row / D][row % D][column / D][column % D]
+        self[row / D][row % D][column / D][column % D].value()
     }
     fn height(&self) -> usize {
         D * D
@@ -46,10 +46,9 @@ impl<const D: usize, I, J, K, L, U> HessianBlock for TensorRank4<D, I, J, K, L, 
             self_i.iter().enumerate().for_each(|(j, self_ij)| {
                 let matrix_row = &mut matrix[row + D * i + j];
                 self_ij.iter().enumerate().for_each(|(k, self_ijk)| {
-                    self_ijk
-                        .iter()
-                        .enumerate()
-                        .for_each(|(l, self_ijkl)| matrix_row[column + D * k + l] = *self_ijkl)
+                    self_ijk.iter().enumerate().for_each(|(l, self_ijkl)| {
+                        matrix_row[column + D * k + l] = self_ijkl.value()
+                    })
                 })
             })
         })
@@ -265,7 +264,9 @@ impl<const D: usize, I, J, K, L, U> From<TensorRank4<D, I, J, K, L, U>>
                     .map(|tensor_rank_2| {
                         tensor_rank_2
                             .iter()
-                            .map(|tensor_rank_1| tensor_rank_1.iter().copied().collect())
+                            .map(|tensor_rank_1| {
+                                tensor_rank_1.iter().map(|entry| entry.value()).collect()
+                            })
                             .collect()
                     })
                     .collect()
@@ -282,7 +283,7 @@ impl<const D: usize, I, J, K, L, U> From<TensorRank4<D, I, J, K, L, U>> for Vec<
                 tensor_rank_3.iter().flat_map(|tensor_rank_2| {
                     tensor_rank_2
                         .iter()
-                        .flat_map(|tensor_rank_1| tensor_rank_1.iter().copied())
+                        .flat_map(|tensor_rank_1| tensor_rank_1.iter().map(|entry| entry.value()))
                 })
             })
             .collect()
@@ -297,7 +298,7 @@ impl<const D: usize, I, J, K, L, U> From<TensorRank4<D, I, J, K, L, U>> for Vect
                 tensor_rank_3.iter().flat_map(|tensor_rank_2| {
                     tensor_rank_2
                         .iter()
-                        .flat_map(|tensor_rank_1| tensor_rank_1.iter().copied())
+                        .flat_map(|tensor_rank_1| tensor_rank_1.iter().map(|entry| entry.value()))
                 })
             })
             .collect()
@@ -332,9 +333,9 @@ impl<const D: usize, I, J, K, L, U> FiniteDifference for TensorRank4<D, I, J, K,
                                     .iter()
                                     .zip(comparator_ijk.iter())
                                     .filter(|&(&self_ijkl, &comparator_ijkl)| {
-                                        (self_ijkl / comparator_ijkl - 1.0).abs() >= epsilon
-                                            && (self_ijkl.abs() >= epsilon
-                                                || comparator_ijkl.abs() >= epsilon)
+                                        (self_ijkl.ratio(comparator_ijkl) - 1.0).abs() >= epsilon
+                                            && (self_ijkl.value().abs() >= epsilon
+                                                || comparator_ijkl.value().abs() >= epsilon)
                                     })
                                     .count()
                             })
@@ -360,10 +361,12 @@ impl<const D: usize, I, J, K, L, U> FiniteDifference for TensorRank4<D, I, J, K,
                                         .iter()
                                         .zip(comparator_ijk.iter())
                                         .filter(|&(&self_ijkl, &comparator_ijkl)| {
-                                            (self_ijkl / comparator_ijkl - 1.0).abs() >= epsilon
-                                                && (self_ijkl - comparator_ijkl).abs() >= epsilon
-                                                && (self_ijkl.abs() >= epsilon
-                                                    || comparator_ijkl.abs() >= epsilon)
+                                            (self_ijkl.ratio(comparator_ijkl) - 1.0).abs()
+                                                >= epsilon
+                                                && (self_ijkl - comparator_ijkl).value().abs()
+                                                    >= epsilon
+                                                && (self_ijkl.value().abs() >= epsilon
+                                                    || comparator_ijkl.value().abs() >= epsilon)
                                         })
                                         .count()
                                 })
@@ -430,7 +433,7 @@ impl<const D: usize, I, J, K, L, U> TensorRank4<D, I, J, K, L, U> {
 
 impl<const D: usize, I, J, K, L, U> Hessian for TensorRank4<D, I, J, K, L, U> {
     fn entry(&self, row: usize, column: usize) -> TensorRank0 {
-        self[row / D][row % D][column / D][column % D]
+        self[row / D][row % D][column / D][column % D].value()
     }
     fn quadratic_form(&self, vector: &Vector) -> TensorRank0 {
         self.iter()
@@ -448,7 +451,7 @@ impl<const D: usize, I, J, K, L, U> Hessian for TensorRank4<D, I, J, K, L, U> {
                                     self_ijk
                                         .iter()
                                         .enumerate()
-                                        .map(|(l, self_ijkl)| self_ijkl * vector[D * k + l])
+                                        .map(|(l, self_ijkl)| self_ijkl.value() * vector[D * k + l])
                                         .sum::<TensorRank0>()
                                 })
                                 .sum::<TensorRank0>()
@@ -461,10 +464,9 @@ impl<const D: usize, I, J, K, L, U> Hessian for TensorRank4<D, I, J, K, L, U> {
         self.into_iter().enumerate().for_each(|(i, self_i)| {
             self_i.into_iter().enumerate().for_each(|(j, self_ij)| {
                 self_ij.into_iter().enumerate().for_each(|(k, self_ijk)| {
-                    self_ijk
-                        .into_iter()
-                        .enumerate()
-                        .for_each(|(l, self_ijkl)| square_matrix[D * i + j][D * k + l] = self_ijkl)
+                    self_ijk.into_iter().enumerate().for_each(|(l, self_ijkl)| {
+                        square_matrix[D * i + j][D * k + l] = self_ijkl.value()
+                    })
                 })
             })
         })
@@ -475,7 +477,7 @@ impl<const D: usize, I, J, K, L, U> Hessian for TensorRank4<D, I, J, K, L, U> {
             .map(|row| {
                 (0..D * D)
                     .filter(|&column| retained[column])
-                    .map(|column| self[row / D][row % D][column / D][column % D])
+                    .map(|column| self[row / D][row % D][column / D][column % D].value())
                     .collect()
             })
             .collect()
@@ -1293,7 +1295,7 @@ fn canonical_rank_1_times_rank_4<const D: usize>(
     tensor_rank_1
         .iter()
         .zip(tensor_rank_4.iter())
-        .map(|(&tensor_rank_1_m, tensor_rank_4_m)| tensor_rank_4_m * tensor_rank_1_m)
+        .map(|(&tensor_rank_1_m, tensor_rank_4_m)| tensor_rank_4_m * tensor_rank_1_m.value())
         .sum()
 }
 

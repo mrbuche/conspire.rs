@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Quantity;
 use crate::math::unit::Dimensionless;
 use std::f64::consts::TAU;
 
@@ -115,8 +116,8 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                             eigenvector_i.iter().zip(eigenvector_k.iter().zip(divided_difference.iter())).map(|(eigenvector_ip, (eigenvector_kp, divided_difference_p))|
                                 eigenvector_j.iter().zip(eigenvector_l.iter().zip(divided_difference_p.iter())).map(|(eigenvector_jq, (eigenvector_lq, divided_difference_pq))|
                                     eigenvector_ip * eigenvector_kp * divided_difference_pq * eigenvector_jq * eigenvector_lq
-                                ).sum::<TensorRank0>()
-                            ).sum()
+                                ).sum::<Quantity>()
+                            ).sum::<Quantity>()
                         ).collect()
                     ).collect()
                 ).collect()
@@ -219,7 +220,8 @@ fn find_orthonormal_eigenvectors<I>(
         eigenvectors[0].normalize();
         let proj1 = &eigenvectors[1] * &eigenvectors[0];
         for i in 0..3 {
-            eigenvectors[1][i] -= proj1 * eigenvectors[0][i];
+            let projected = proj1 * eigenvectors[0][i];
+            eigenvectors[1][i] -= projected;
         }
         eigenvectors[1].normalize();
         eigenvectors[2] = eigenvectors[0].cross(&eigenvectors[1]);
@@ -237,7 +239,7 @@ fn orthogonal_unit_vector<I>(
         .map(|(i, _)| i)
         .unwrap();
     let mut other = TensorRank1::<3, I, Dimensionless>::zero();
-    other[axis] = 1.0;
+    other[axis] = Quantity::new(1.0);
     vector.cross(&other).normalized()
 }
 

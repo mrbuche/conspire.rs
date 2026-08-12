@@ -41,7 +41,10 @@ fn root_biaxial() -> Result<(), crate::math::assert::AssertionError> {
                 ..Default::default()
             }
             .eq_within_tols(
-                Vector::from([deformation_gradient[0][0], deformation_gradient[1][1]]),
+                Vector::from([
+                    deformation_gradient[0][0].value(),
+                    deformation_gradient[1][1].value(),
+                ]),
                 &Vector::from([1.0 + time.value(), 1.0 + time.value() / 2.0]),
             )
         })

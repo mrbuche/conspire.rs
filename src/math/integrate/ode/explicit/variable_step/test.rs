@@ -48,8 +48,9 @@ macro_rules! test_explicit_variable_step {
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
                 .try_for_each(|(t, (y, f))| {
-                    let t = *t * RATE;
-                    $crate::math::assert::Assert::default().eq_within_tols(y, &t.powi(2).exp())?;
+                    let t = (*t * RATE).value();
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(y, &Quantity::new(t.powi(2).exp()))?;
                     $crate::math::assert::Assert::default().eq_within_tols(f, &(y * RATE * t * 2.0))
                 })
         }
@@ -67,10 +68,10 @@ macro_rules! test_explicit_variable_step {
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
                 .try_for_each(|(t, (y, f))| {
-                    let t = *t * RATE;
-                    $crate::math::assert::Assert::default().eq_within_tols(y, &t.sin())?;
+                    let t = (*t * RATE).value();
                     $crate::math::assert::Assert::default()
-                        .eq_within_tols(f, &(RATE * t.cos().value()))
+                        .eq_within_tols(y, &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default().eq_within_tols(f, &(RATE * t.cos()))
                 })
         }
         #[test]
@@ -91,8 +92,9 @@ macro_rules! test_explicit_variable_step {
                 .try_for_each(|(t, (y, f))| {
                     let t = (*t * RATE).value();
                     y.iter().zip(f.iter()).try_for_each(|(y_n, f_n)| {
-                        $crate::math::assert::Assert::default().eq_within_tols(y_n, &t.exp())?;
-                        $crate::math::assert::Assert::default().eq_within_tols(f_n, y_n)
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(y_n, &Quantity::new(t.exp()))?;
+                        $crate::math::assert::Assert::default().eq_within_tols(f_n, &(*y_n * RATE))
                     })
                 })
         }
@@ -111,9 +113,9 @@ macro_rules! test_explicit_variable_step {
             time.iter()
                 .zip(solution.iter().zip(function.iter()))
                 .try_for_each(|(t, (y, f))| {
-                    let t = *t * RATE;
-                    eval_times_assert.eq_within_tols(y, &t.sin())?;
-                    eval_times_assert.eq_within_tols(f, &(RATE * t.cos().value()))
+                    let t = (*t * RATE).value();
+                    eval_times_assert.eq_within_tols(y, &Quantity::new(t.sin()))?;
+                    eval_times_assert.eq_within_tols(f, &(RATE * t.cos()))
                 })
         }
         #[test]
@@ -125,7 +127,7 @@ macro_rules! test_explicit_variable_step {
             ) = $integration.integrate(
                 |t: Quantity<Time>, y: &TensorRank1<2, $crate::math::Current>| {
                     let t = (t * RATE).value();
-                    Ok(TensorRank1::from([y[1], -t.sin()]))
+                    Ok(TensorRank1::from([y[1] * RATE, Quantity::new(-t.sin())]))
                 },
                 &[Quantity::new(0.0), Quantity::new(6.0)],
                 TensorRank1::from([0.0, 1.0]),
@@ -134,10 +136,14 @@ macro_rules! test_explicit_variable_step {
                 .zip(solution.iter().zip(function.iter()))
                 .try_for_each(|(t, (y, f))| {
                     let t = (*t * RATE).value();
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[0], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[0], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[1], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[1], &-t.sin())
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[0], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[0], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[1], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[1], &Quantity::new(-t.sin()))
                 })
         }
         #[test]
@@ -149,7 +155,11 @@ macro_rules! test_explicit_variable_step {
             ) = $integration.integrate(
                 |t: Quantity<Time>, y: &TensorRank1<3, $crate::math::Current>| {
                     let t = (t * RATE).value();
-                    Ok(TensorRank1::from([y[1], y[2], -t.cos()]))
+                    Ok(TensorRank1::from([
+                        y[1] * RATE,
+                        y[2] * RATE,
+                        Quantity::new(-t.cos()),
+                    ]))
                 },
                 &[Quantity::new(0.0), Quantity::new(1.0)],
                 TensorRank1::from([0.0, 1.0, 0.0]),
@@ -158,12 +168,18 @@ macro_rules! test_explicit_variable_step {
                 .zip(solution.iter().zip(function.iter()))
                 .try_for_each(|(t, (y, f))| {
                     let t = (*t * RATE).value();
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[0], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[0], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[1], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[1], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[2], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[2], &-t.cos())
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[0], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[0], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[1], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[1], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[2], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[2], &Quantity::new(-t.cos()))
                 })
         }
         #[test]
@@ -175,7 +191,12 @@ macro_rules! test_explicit_variable_step {
             ) = $integration.integrate(
                 |t: Quantity<Time>, y: &TensorRank1<4, $crate::math::Current>| {
                     let t = (t * RATE).value();
-                    Ok(TensorRank1::from([y[1], y[2], y[3], t.sin()]))
+                    Ok(TensorRank1::from([
+                        y[1] * RATE,
+                        y[2] * RATE,
+                        y[3] * RATE,
+                        Quantity::new(t.sin()),
+                    ]))
                 },
                 &[Quantity::new(0.0), Quantity::new(0.6)],
                 TensorRank1::from([0.0, 1.0, 0.0, -1.0]),
@@ -184,14 +205,22 @@ macro_rules! test_explicit_variable_step {
                 .zip(solution.iter().zip(function.iter()))
                 .try_for_each(|(t, (y, f))| {
                     let t = (*t * RATE).value();
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[0], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[0], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[1], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[1], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[2], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[2], &-t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[3], &-t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[3], &t.sin())
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[0], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[0], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[1], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[1], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[2], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[2], &Quantity::new(-t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[3], &Quantity::new(-t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[3], &Quantity::new(t.sin()))
                 })
         }
         #[test]
@@ -203,7 +232,13 @@ macro_rules! test_explicit_variable_step {
             ) = $integration.integrate(
                 |t: Quantity<Time>, y: &TensorRank1<5, $crate::math::Current>| {
                     let t = (t * RATE).value();
-                    Ok(TensorRank1::from([y[1], -t.sin(), y[3], y[4], -t.cos()]))
+                    Ok(TensorRank1::from([
+                        y[1] * RATE,
+                        Quantity::new(-t.sin()),
+                        y[3] * RATE,
+                        y[4] * RATE,
+                        Quantity::new(-t.cos()),
+                    ]))
                 },
                 &[Quantity::new(0.0), Quantity::new(1.0)],
                 TensorRank1::from([0.0, 1.0, 0.0, 1.0, 0.0]),
@@ -212,16 +247,26 @@ macro_rules! test_explicit_variable_step {
                 .zip(solution.iter().zip(function.iter()))
                 .try_for_each(|(t, (y, f))| {
                     let t = (*t * RATE).value();
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[0], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[0], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[1], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[1], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[2], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[2], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[3], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[3], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y[4], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f[4], &-t.cos())
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[0], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[0], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[1], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[1], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[2], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[2], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[3], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[3], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y[4], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f[4], &Quantity::new(-t.cos()))
                 })
         }
         #[test]
@@ -245,8 +290,8 @@ macro_rules! test_explicit_variable_step {
                     let t = (t * RATE).value();
                     let (y_1, y_2) = y.into();
                     Ok(TensorTuple::from((
-                        TensorRank1::from([y_1[1], -t.sin()]),
-                        TensorRank1::from([y_2[1], y_2[2], -t.cos()]),
+                        TensorRank1::from([y_1[1] * RATE, Quantity::new(-t.sin())]),
+                        TensorRank1::from([y_2[1] * RATE, y_2[2] * RATE, Quantity::new(-t.cos())]),
                     )))
                 },
                 &[Quantity::new(0.0), Quantity::new(1.0)],
@@ -261,16 +306,26 @@ macro_rules! test_explicit_variable_step {
                     let t = (*t * RATE).value();
                     let (y_1, y_2) = y.into();
                     let (f_1, f_2) = f.into();
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_1[0], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_1[0], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_1[1], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_1[1], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_2[0], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_2[0], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_2[1], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_2[1], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_2[2], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_2[2], &-t.cos())
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_1[0], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_1[0], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_1[1], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_1[1], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_2[0], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_2[0], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_2[1], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_2[1], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_2[2], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_2[2], &Quantity::new(-t.cos()))
                 })
         }
         #[test]
@@ -304,10 +359,19 @@ macro_rules! test_explicit_variable_step {
                     let (y_1, y_23) = y.into();
                     let (y_2, y_3) = y_23.into();
                     Ok(TensorTuple::from((
-                        TensorRank1::from([y_1[1], -t.sin()]),
+                        TensorRank1::from([y_1[1] * RATE, Quantity::new(-t.sin())]),
                         TensorTuple::from((
-                            TensorRank1::from([y_2[1], y_2[2], -t.cos()]),
-                            TensorRank1::from([y_3[1], y_3[2], y_3[3], t.sin()]),
+                            TensorRank1::from([
+                                y_2[1] * RATE,
+                                y_2[2] * RATE,
+                                Quantity::new(-t.cos()),
+                            ]),
+                            TensorRank1::from([
+                                y_3[1] * RATE,
+                                y_3[2] * RATE,
+                                y_3[3] * RATE,
+                                Quantity::new(t.sin()),
+                            ]),
                         )),
                     )))
                 },
@@ -328,24 +392,42 @@ macro_rules! test_explicit_variable_step {
                     let (y_2, y_3) = y_23.into();
                     let (f_1, f_23) = f.into();
                     let (f_2, f_3) = f_23.into();
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_1[0], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_1[0], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_1[1], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_1[1], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_2[0], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_2[0], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_2[1], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_2[1], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_2[2], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_2[2], &-t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_3[0], &t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_3[0], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_3[1], &t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_3[1], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_3[2], &-t.sin())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_3[2], &-t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&y_3[3], &-t.cos())?;
-                    $crate::math::assert::Assert::default().eq_within_tols(&f_3[3], &t.sin())
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_1[0], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_1[0], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_1[1], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_1[1], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_2[0], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_2[0], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_2[1], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_2[1], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_2[2], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_2[2], &Quantity::new(-t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_3[0], &Quantity::new(t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_3[0], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_3[1], &Quantity::new(t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_3[1], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_3[2], &Quantity::new(-t.sin()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_3[2], &Quantity::new(-t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&y_3[3], &Quantity::new(-t.cos()))?;
+                    $crate::math::assert::Assert::default()
+                        .eq_within_tols(&f_3[3], &Quantity::new(t.sin()))
                 })
         }
     };

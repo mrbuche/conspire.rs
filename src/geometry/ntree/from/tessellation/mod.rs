@@ -99,8 +99,8 @@ where
         let mut max_coord: [f64; D] = from_fn(|_| f64::NEG_INFINITY);
         for point in coordinates {
             for ax in 0..D {
-                min_coord[ax] = min_coord[ax].min(point[ax]);
-                max_coord[ax] = max_coord[ax].max(point[ax]);
+                min_coord[ax] = min_coord[ax].min(point[ax].value());
+                max_coord[ax] = max_coord[ax].max(point[ax].value());
             }
         }
         let max_extent = (0..D)
@@ -211,8 +211,9 @@ where
                 let minimum = Coordinate::const_from(from_fn(|ax| {
                     center[ax] + (Into::<Scalar>::into(corner[ax]) - half) * min_length
                 }));
-                let maximum =
-                    Coordinate::const_from(from_fn(|ax| minimum[ax] + child_extent * min_length));
+                let maximum = Coordinate::const_from(from_fn(|ax| {
+                    minimum[ax].value() + child_extent * min_length
+                }));
                 let bbox = BoundingBox::from(CoordinateList::const_from([minimum, maximum]));
                 let inside: Vec<usize> = overlapping
                     .iter()

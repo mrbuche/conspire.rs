@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 fn hex_vol6(hex: &[usize; 8], coordinates: &Coordinates<3>) -> f64 {
     let p: [[f64; 3]; 8] = std::array::from_fn(|k| {
         let v = &coordinates[hex[k]];
-        [v[0], v[1], v[2]]
+        [v[0].value(), v[1].value(), v[2].value()]
     });
     let tet = |a: usize, b: usize, c: usize, d: usize| -> f64 {
         let ab = [p[b][0] - p[a][0], p[b][1] - p[a][1], p[b][2] - p[a][2]];

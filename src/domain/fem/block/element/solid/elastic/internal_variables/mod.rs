@@ -1,4 +1,4 @@
-use crate::math::unit::{Dimensionless, UnitDiv};
+use crate::math::unit::{Dimensionless, Stress, UnitDiv};
 use crate::math::{Erase, Quantity};
 use std::ops::{Div, Mul};
 
@@ -238,8 +238,8 @@ where
             stress[i][j] -= unmap
                 .iter()
                 .enumerate()
-                .map(|(a, &v)| cross[3 * i + j][v] * eliminated[a])
-                .sum::<Scalar>()
+                .map(|(a, &v)| Quantity::new(cross[3 * i + j][v] * eliminated[a]))
+                .sum::<Quantity<Stress>>()
         })
     });
     Ok(stress)
@@ -280,9 +280,10 @@ where
                 .map(|k| {
                     (0..3)
                         .map(|l| coupling[i][3 * k + l] * deformation_gradient_decrement[k][l])
-                        .sum::<Scalar>()
+                        .sum::<Quantity>()
                 })
-                .sum::<Scalar>()
+                .sum::<Quantity>()
+                .value()
     });
     let solution = local_block(&tangent_vv, size, &unmap)
         .solve_lu(&reduced)
@@ -347,8 +348,10 @@ where
                     condensed[i][j][k][l] -= unmap
                         .iter()
                         .enumerate()
-                        .map(|(a, &v)| cross[3 * i + j][v] * eliminated[3 * k + l][a])
-                        .sum::<Scalar>()
+                        .map(|(a, &v)| {
+                            Quantity::new(cross[3 * i + j][v] * eliminated[3 * k + l][a])
+                        })
+                        .sum::<Quantity<Stress>>()
                 })
             })
         })

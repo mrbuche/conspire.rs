@@ -58,7 +58,7 @@ fn contract_third_fourth_indices(
                 .map(|k| {
                     (0..3)
                         .map(|l| dlogm[i][j][k][l] * tensor[k][l])
-                        .sum::<f64>()
+                        .sum::<crate::math::Quantity>()
                 })
                 .sum();
         })

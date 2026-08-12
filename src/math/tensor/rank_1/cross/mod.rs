@@ -18,7 +18,7 @@ where
 {
     type Output = TensorRank1<3, I, <U as UnitMul<V>>::Output>;
     fn cross(self, other: TensorRank1<3, I, V>) -> Self::Output {
-        TensorRank1::const_from([
+        TensorRank1::from([
             self[1] * other[2] - self[2] * other[1],
             self[2] * other[0] - self[0] * other[2],
             self[0] * other[1] - self[1] * other[0],
@@ -32,7 +32,7 @@ where
 {
     type Output = TensorRank1<3, I, <U as UnitMul<V>>::Output>;
     fn cross(self, other: &'a TensorRank1<3, I, V>) -> Self::Output {
-        TensorRank1::const_from([
+        TensorRank1::from([
             self[1] * other[2] - self[2] * other[1],
             self[2] * other[0] - self[0] * other[2],
             self[0] * other[1] - self[1] * other[0],

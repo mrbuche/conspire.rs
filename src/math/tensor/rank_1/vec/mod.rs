@@ -4,8 +4,8 @@ use crate::math::{Current, Reference};
 mod test;
 
 use crate::math::{
-    Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2SparseVec2D,
-    TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, Vector,
+    Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List,
+    TensorRank2SparseVec2D, TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, Vector,
     tensor::vec::TensorVector,
 };
 use std::{
@@ -107,7 +107,7 @@ impl<const D: usize, I, U> From<TensorRank1Vec<D, I, U>> for [Vec<TensorRank0>; 
             output
                 .iter_mut()
                 .zip(tensor_rank_1)
-                .for_each(|(entry, value)| entry.push(value))
+                .for_each(|(entry, value)| entry.push(value.value()))
         });
         output
     }
@@ -121,7 +121,7 @@ impl<const D: usize, I, U> From<&TensorRank1Vec<D, I, U>> for [Vec<TensorRank0>;
             output
                 .iter_mut()
                 .zip(tensor_rank_1.iter())
-                .for_each(|(entry, &value)| entry.push(value))
+                .for_each(|(entry, &value)| entry.push(value.value()))
         });
         output
     }
@@ -186,11 +186,12 @@ impl<const D: usize, I, U> Jacobian for TensorRank1Vec<D, I, U> {
         self.iter()
             .flat_map(|entry| entry.iter())
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = *self_i)
+            .for_each(|(self_i, vector_i)| *vector_i = self_i.value())
     }
     fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
         self.into_iter()
             .flatten()
+            .map(|entry| entry.value())
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
@@ -200,13 +201,13 @@ impl<const D: usize, I, U> Jacobian for TensorRank1Vec<D, I, U> {
             .flatten()
             .zip(retained.iter())
             .filter(|(_, retained)| **retained)
-            .map(|(entry, _)| entry)
+            .map(|(entry, _)| entry.value())
             .collect()
     }
     fn zero_out(&mut self, indices: &[usize]) {
         indices
             .iter()
-            .for_each(|index| self[index / D][index % D] = 0.0)
+            .for_each(|index| self[index / D][index % D] = Quantity::new(0.0))
     }
 }
 
@@ -215,13 +216,17 @@ impl<const D: usize, I, U> Solution for TensorRank1Vec<D, I, U> {
         self.iter_mut()
             .flat_map(|x| x.iter_mut())
             .zip(other.iter())
-            .for_each(|(self_i, vector_i)| *self_i -= vector_i)
+            .for_each(|(self_i, vector_i)| *self_i -= Quantity::new(*vector_i))
     }
     fn decrement_from_chained(&mut self, other: &mut Vector, vector: &Vector) {
+        let mut values = vector.iter();
         self.iter_mut()
             .flat_map(|x| x.iter_mut())
-            .chain(other.iter_mut())
-            .zip(vector.iter())
+            .zip(values.by_ref())
+            .for_each(|(entry_i, vector_i)| *entry_i -= Quantity::new(*vector_i));
+        other
+            .iter_mut()
+            .zip(values)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
     fn decrement_from_retained(&mut self, retained: &[bool], other: &Vector) {
@@ -230,7 +235,7 @@ impl<const D: usize, I, U> Solution for TensorRank1Vec<D, I, U> {
             .zip(retained.iter())
             .filter(|(_, retained_i)| **retained_i)
             .zip(other.iter())
-            .for_each(|((self_i, _), vector_i)| *self_i -= vector_i)
+            .for_each(|((self_i, _), vector_i)| *self_i -= Quantity::new(*vector_i))
     }
 }
 
@@ -241,7 +246,7 @@ impl<const D: usize, I, U> Sub<Vector> for TensorRank1Vec<D, I, U> {
             self_a
                 .iter_mut()
                 .enumerate()
-                .for_each(|(i, self_a_i)| *self_a_i -= vector[D * a + i])
+                .for_each(|(i, self_a_i)| *self_a_i -= Quantity::new(vector[D * a + i]))
         });
         self
     }
@@ -254,7 +259,7 @@ impl<const D: usize, I, U> Sub<&Vector> for TensorRank1Vec<D, I, U> {
             self_a
                 .iter_mut()
                 .enumerate()
-                .for_each(|(i, self_a_i)| *self_a_i -= vector[D * a + i])
+                .for_each(|(i, self_a_i)| *self_a_i -= Quantity::new(vector[D * a + i]))
         });
         self
     }
@@ -308,8 +313,9 @@ impl<const D: usize, I, U> FiniteDifference for TensorRank1Vec<D, I, U> {
                     .iter()
                     .zip(comparator_entry.iter())
                     .filter(|&(&entry_i, &comparator_entry_i)| {
-                        (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                            && (entry_i.abs() >= epsilon || comparator_entry_i.abs() >= epsilon)
+                        (entry_i.ratio(comparator_entry_i) - 1.0).abs() >= epsilon
+                            && (entry_i.value().abs() >= epsilon
+                                || comparator_entry_i.value().abs() >= epsilon)
                     })
                     .count()
             })
@@ -323,9 +329,10 @@ impl<const D: usize, I, U> FiniteDifference for TensorRank1Vec<D, I, U> {
                         .iter()
                         .zip(comparator_entry.iter())
                         .filter(|&(&entry_i, &comparator_entry_i)| {
-                            (entry_i / comparator_entry_i - 1.0).abs() >= epsilon
-                                && (entry_i - comparator_entry_i).abs() >= epsilon
-                                && (entry_i.abs() >= epsilon || comparator_entry_i.abs() >= epsilon)
+                            (entry_i.ratio(comparator_entry_i) - 1.0).abs() >= epsilon
+                                && (entry_i - comparator_entry_i).value().abs() >= epsilon
+                                && (entry_i.value().abs() >= epsilon
+                                    || comparator_entry_i.value().abs() >= epsilon)
                         })
                         .count()
                 })

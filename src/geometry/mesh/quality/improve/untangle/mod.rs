@@ -2,6 +2,7 @@
 mod test;
 
 use super::Incidence;
+use crate::math::Quantity;
 use crate::{
     geometry::{
         Coordinate,
@@ -50,7 +51,7 @@ impl<const D: usize> Mesh<D> {
                     for axis in 0..D {
                         for sign in [-1.0, 1.0] {
                             let original = coordinates[node].clone();
-                            coordinates[node][axis] += sign * step;
+                            coordinates[node][axis] += Quantity::new(sign * step);
                             if boundary[node] {
                                 coordinates[node] = project_to_surface(
                                     constrained.unwrap(),

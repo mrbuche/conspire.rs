@@ -62,8 +62,14 @@ fn triangles_intersect(t1: [usize; N], t2: [usize; N], coordinates: &Coordinates
             2
         }
     };
-    let interval1 = interval([v[0][axis], v[1][axis], v[2][axis]], dv);
-    let interval2 = interval([u[0][axis], u[1][axis], u[2][axis]], du);
+    let interval1 = interval(
+        [v[0][axis].value(), v[1][axis].value(), v[2][axis].value()],
+        dv,
+    );
+    let interval2 = interval(
+        [u[0][axis].value(), u[1][axis].value(), u[2][axis].value()],
+        du,
+    );
     interval1[0] <= interval2[1] && interval2[0] <= interval1[1]
 }
 

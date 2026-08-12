@@ -288,7 +288,7 @@ fn triangle_normal<const D: usize>(
     c: &Coordinate<D>,
 ) -> Coordinate<3> {
     let (e, f) = (b - a, c - a);
-    Coordinate::const_from([
+    Coordinate::from([
         e[1] * f[2] - e[2] * f[1],
         e[2] * f[0] - e[0] * f[2],
         e[0] * f[1] - e[1] * f[0],
@@ -356,7 +356,7 @@ fn flip_edges<const D: usize>(connectivity: &mut [[usize; N]], coordinates: &Coo
                 face_normal(connectivity[left]),
                 face_normal(connectivity[right]),
             );
-            let surface = Coordinate::const_from([l[0] + r[0], l[1] + r[1], l[2] + r[2]]);
+            let surface = Coordinate::from([l[0] + r[0], l[1] + r[1], l[2] + r[2]]);
             if face_normal([v, uv, vu]) * &surface <= 0.0
                 || face_normal([uv, u, vu]) * &surface <= 0.0
             {
@@ -409,7 +409,7 @@ fn tangential_smooth<const D: usize>(
                 e[0] * f[1] - e[1] * f[0],
             ];
             for vertex in [a, b, c] {
-                (0..3).for_each(|i| normals[vertex][i] += face[i]);
+                (0..3).for_each(|i| normals[vertex][i] += face[i].value());
             }
         }
         normals.iter_mut().for_each(|normal| {
@@ -434,8 +434,10 @@ fn tangential_smooth<const D: usize>(
         let mut displacement = &centroid - &coordinates[vertex];
         if D == 3 {
             let normal = &normals[vertex];
-            let along = (0..3).map(|i| displacement[i] * normal[i]).sum::<Scalar>();
-            let tangential: [Scalar; D] = from_fn(|i| displacement[i] - along * normal[i]);
+            let along = (0..3)
+                .map(|i| displacement[i].value() * normal[i])
+                .sum::<Scalar>();
+            let tangential: [Scalar; D] = from_fn(|i| displacement[i].value() - along * normal[i]);
             displacement = tangential.into();
         }
         smoothed.push(&coordinates[vertex] + &displacement);

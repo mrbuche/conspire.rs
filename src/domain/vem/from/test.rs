@@ -38,9 +38,9 @@ fn deformed_coordinates() -> NodalCoordinates {
         .iter()
         .map(|coordinate| {
             [
-                1.1 * coordinate[0] + 0.05 * coordinate[1],
-                0.95 * coordinate[1],
-                1.05 * coordinate[2],
+                (1.1 * coordinate[0] + 0.05 * coordinate[1]).value(),
+                (0.95 * coordinate[1]).value(),
+                (1.05 * coordinate[2]).value(),
             ]
         })
         .collect::<Vec<_>>()

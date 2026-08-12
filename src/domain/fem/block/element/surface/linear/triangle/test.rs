@@ -17,7 +17,7 @@ use crate::{
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
-    math::{Scalar, ScalarList, Tensor, optimize::EqualityConstraint},
+    math::{ScalarList, Tensor, optimize::EqualityConstraint},
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
         DeformationGradientRateList,

@@ -23,8 +23,8 @@ impl Voxels<usize> {
         let mut max = [f64::NEG_INFINITY; 3];
         for point in coordinates {
             (0..3).for_each(|ax| {
-                min[ax] = min[ax].min(point[ax]);
-                max[ax] = max[ax].max(point[ax]);
+                min[ax] = min[ax].min(point[ax].value());
+                max[ax] = max[ax].max(point[ax].value());
             });
         }
         let nel: [usize; 3] = from_fn(|ax| (((max[ax] - min[ax]) / size).ceil() as usize).max(1));
@@ -43,7 +43,7 @@ impl Voxels<usize> {
                 };
                 let points: Vec<[f64; 3]> = nodes
                     .iter()
-                    .map(|&node| from_fn(|ax| coordinates[node][ax]))
+                    .map(|&node| from_fn(|ax| coordinates[node][ax].value()))
                     .collect();
                 let mut lo = [usize::MAX; 3];
                 let mut hi = [0usize; 3];
