@@ -625,7 +625,7 @@ where
             local,
             update_inner,
         );
-        if local_solver.error_norm.apply(update_inner) < local_solver.abs_tol
+        if local_solver.error_norm.measure(update_inner) < local_solver.abs_tol
             || local_steps == local_solver.max_steps
         {
             return Ok(());
@@ -1065,7 +1065,7 @@ where
     let mut steps = 0;
     loop {
         residual = jacobian(&solution)?;
-        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
+        if newton_raphson.error_norm.measure(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -1082,7 +1082,7 @@ where
                 &residual / hessian(&solution)?
             };
             if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
-                let size = norm.apply(&decrement);
+                let size = norm.measure(&decrement);
                 if size > radius {
                     decrement *= radius / size
                 }
@@ -1139,7 +1139,7 @@ where
     let mut steps = 0;
     loop {
         residual = jacobian(&solution)?.retain_from(&retained);
-        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
+        if newton_raphson.error_norm.measure(&residual) < newton_raphson.abs_tol {
             return Ok(solution);
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(

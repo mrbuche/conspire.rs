@@ -353,8 +353,8 @@ impl Sweep<'_> {
         let mut value = self.objective(coordinates);
         let mut settled = false;
         for iteration in 0..ITERATIONS {
-            let magnitude = gradient.norm();
-            if magnitude / x.norm().max(1.0) < CONVERGENCE {
+            let magnitude = gradient.norm().value();
+            if magnitude / x.norm().value().max(1.0) < CONVERGENCE {
                 settled = iteration == 0;
                 break;
             }
@@ -397,7 +397,7 @@ impl Sweep<'_> {
                 .zip(gradient.iter())
                 .map(|(new, old)| new - old)
                 .collect();
-            if s.full_contraction(&y) > CURVATURE_FLOOR * s.norm() * y.norm() {
+            if s.full_contraction(&y) > CURVATURE_FLOOR * s.norm().value() * y.norm().value() {
                 if history.len() == HISTORY {
                     history.remove(0);
                 }
@@ -410,7 +410,7 @@ impl Sweep<'_> {
             .nodes
             .iter()
             .enumerate()
-            .map(|(index, &node)| (&x[index] - &anchor[index]).norm() / self.lengths[node])
+            .map(|(index, &node)| (&x[index] - &anchor[index]).norm().value() / self.lengths[node])
             .fold(0.0, Scalar::max);
         (shift, value, settled)
     }
@@ -425,7 +425,7 @@ fn sizes(
         .map(|node| {
             neighbors[node]
                 .iter()
-                .map(|&neighbor| (&coordinates[neighbor] - &coordinates[node]).norm())
+                .map(|&neighbor| (&coordinates[neighbor] - &coordinates[node]).norm().value())
                 .sum::<Scalar>()
                 / neighbors[node].len().max(1) as Scalar
         })

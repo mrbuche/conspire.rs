@@ -35,7 +35,7 @@ fn graduate_enforces_lipschitz() {
     for &[a, b, c] in &connectivity {
         for (i, j) in [(a, b), (b, c), (c, a)] {
             let distance = (&coordinates[j] - &coordinates[i]).norm();
-            assert!((field[i] - field[j]).abs() <= gradation * distance + 1.0e-9);
+            assert!((field[i] - field[j]).abs() <= gradation * distance.value() + 1.0e-9);
         }
     }
     assert!(field[0] < 0.2, "the small seed survives gradation");

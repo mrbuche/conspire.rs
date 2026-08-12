@@ -199,8 +199,8 @@ impl Tensor for Vector {
     fn len(&self) -> usize {
         self.0.len()
     }
-    fn norm_inf(&self) -> Scalar {
-        self.iter().fold(0.0, |acc, entry| entry.abs().max(acc))
+    fn norm_inf(&self) -> Quantity<Dimensionless> {
+        Quantity::new(self.iter().fold(0.0, |acc, entry| entry.abs().max(acc)))
     }
     fn size(&self) -> usize {
         self.len()

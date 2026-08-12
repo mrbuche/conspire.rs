@@ -95,7 +95,7 @@ impl Tessellation {
         let mut crossings = HashMap::<[usize; 2], Vec<Coordinate<D>>>::new();
         edges.iter().try_for_each(|&[a, b]| {
             let span = &coordinates[b] - &coordinates[a];
-            let length = span.norm();
+            let length = span.norm().value();
             let margin = CROSSING_TOLERANCE.max(super::GRAZING_TOLERANCE * length);
             match (signs[&a], signs[&b]) {
                 (Sign::On, Sign::On) => Ok(()),

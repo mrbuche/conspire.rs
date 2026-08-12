@@ -97,7 +97,7 @@ fn graduate(
         changed = false;
         for &[a, b, c] in connectivity {
             for (i, j) in [(a, b), (b, c), (c, a)] {
-                let slope = gradation * (&coordinates[j] - &coordinates[i]).norm();
+                let slope = gradation * (&coordinates[j] - &coordinates[i]).norm().value();
                 if field[i] + slope < field[j] {
                     field[j] = field[i] + slope;
                     changed = true;

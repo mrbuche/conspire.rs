@@ -541,11 +541,11 @@ impl<U> Tensor for Quantity<U> {
     fn len(&self) -> usize {
         1
     }
-    fn norm_inf(&self) -> TensorRank0 {
-        self.0.abs()
+    fn norm_inf(&self) -> Quantity<U> {
+        Self::new(self.0.abs())
     }
-    fn norm_l1(&self) -> TensorRank0 {
-        self.0.abs()
+    fn norm_l1(&self) -> Quantity<U> {
+        Self::new(self.0.abs())
     }
     fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
         self.0.abs().powf(p)

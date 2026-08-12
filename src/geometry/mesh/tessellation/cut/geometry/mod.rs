@@ -31,7 +31,7 @@ pub(super) fn face_area(face: &[usize], coordinates: &Coordinates<D>) -> Scalar 
         .map(|i| {
             let one = &coordinates[face[i]] - &middle;
             let two = &coordinates[face[(i + 1) % face.len()]] - &middle;
-            one.cross(&two).norm() / 2.0
+            one.cross(&two).norm().value() / 2.0
         })
         .sum()
 }

@@ -70,7 +70,7 @@ fn tables_sphere_dual() {
         .unwrap();
     assert!(!tables.crossings().is_empty());
     tables.crossings().values().flatten().for_each(|point| {
-        let norm = point.norm();
+        let norm = point.norm().value();
         assert!((0.985..=1.0 + 1e-9).contains(&norm), "{norm}")
     });
     let coordinates = mesh.coordinates();

@@ -246,7 +246,7 @@ where
         z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String> {
-        if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().apply(y_trial) {
+        if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
             k_sol.push(k.iter().cloned().collect());
             *t += *dt;
             *y = y_trial.clone();
@@ -319,7 +319,7 @@ where
         z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String> {
-        if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().apply(y_trial) {
+        if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
             k_sol.push(k.iter().cloned().collect());
             k[0] = k[Self::SLOPES - 1].clone();
             *t += *dt;

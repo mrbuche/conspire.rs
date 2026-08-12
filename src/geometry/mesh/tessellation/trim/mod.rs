@@ -71,7 +71,7 @@ impl Tessellation {
                                 if let Some((closest, _)) =
                                     bvh.closest_point(point, surface_coordinates, elements)
                                 {
-                                    let magnitude = (&closest - point).norm();
+                                    let magnitude = (&closest - point).norm().value();
                                     *distance = if inside { magnitude } else { -magnitude };
                                 }
                             });

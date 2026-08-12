@@ -70,7 +70,7 @@ fn buffer_snaps_to_surface() -> Result<(), AssertionError> {
             let (point, _) = bvh
                 .closest_point(&coordinates[node], surface.coordinates(), &elements)
                 .unwrap();
-            (&coordinates[node] - point).norm()
+            (&coordinates[node] - point).norm().value()
         })
         .fold(0.0, Scalar::max);
     assert!(deviation < 1.0e-12, "layer deviation: {deviation}");

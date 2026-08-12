@@ -227,6 +227,8 @@ unit_products!(
     ReciprocalArea * Length = ReciprocalLength,
     ReciprocalLength * ReciprocalLength = ReciprocalArea,
     ReciprocalLength * Volume = Area,
+    ReciprocalLength * Area = Length,
+    Area * ReciprocalLength = Length,
     Length * Rate = Velocity,
     Rate * Length = Velocity,
     Velocity * Time = Length,

@@ -112,7 +112,7 @@ where
     fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
         Ok(self
             .error_norm
-            .apply(&((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0))))
+            .measure(&((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0))))
     }
     fn slopes(
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,

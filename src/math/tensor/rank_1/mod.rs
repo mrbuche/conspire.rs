@@ -161,23 +161,27 @@ impl<const D: usize, I, U> TensorRank1<D, I, U> {
     pub const fn as_ptr(&self) -> *const TensorRank0 {
         self.0.as_ptr().cast()
     }
-    pub fn orthonormal_basis(&self) -> TensorRank1List<D, I, D, U> {
-        let norm = self.norm();
+    /// Returns an orthonormal basis whose first vector is this one's direction.
+    ///
+    /// A basis vector is a direction rather than the quantity it was built
+    /// from, so what comes back carries no unit whatever this one carries.
+    pub fn orthonormal_basis(&self) -> TensorRank1List<D, I, D, Dimensionless> {
+        let norm = self.norm().value();
         assert!(
             norm > ABS_TOL,
             "Cannot build an orthonormal basis from the zero vector"
         );
         let mut basis = TensorRank1List::zero();
-        basis[0] = self / norm;
+        basis[0] = (self / norm).with_unit();
         let mut filled = 1;
         for i in 0..D {
             if filled == D {
                 break;
             }
-            let mut v = zero();
+            let mut v: TensorRank1<D, I, Dimensionless> = zero();
             v[i] = Quantity::new(1.0);
             basis.iter().take(filled).for_each(|q| v -= q * (&v * q));
-            let v_norm = v.norm();
+            let v_norm = v.norm().value();
             if v_norm > ABS_TOL {
                 basis[filled] = v / v_norm;
                 filled += 1;

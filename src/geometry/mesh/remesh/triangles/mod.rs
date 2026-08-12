@@ -89,7 +89,7 @@ fn edge_lengths<const D: usize>(
         for (u, v) in [(a, b), (b, c), (c, a)] {
             lengths
                 .entry(edge(u, v))
-                .or_insert_with(|| (&coordinates[v] - &coordinates[u]).norm());
+                .or_insert_with(|| (&coordinates[v] - &coordinates[u]).norm().value());
         }
     });
     lengths

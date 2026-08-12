@@ -203,7 +203,7 @@ where
         } else {
             jacobian(&solution)?
         };
-        if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol {
+        if gradient_descent.error_norm.measure(&residual) < gradient_descent.abs_tol {
             return Ok(solution);
         } else if steps == gradient_descent.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -264,9 +264,9 @@ where
     loop {
         residual = jacobian(&solution)?;
         residual.zero_out(&indices);
-        residual_norm = gradient_descent.error_norm.apply(&residual);
+        residual_norm = gradient_descent.error_norm.measure(&residual);
         if gradient_descent.rel_tol.is_some() && steps == 0 {
-            relative_scale = gradient_descent.error_norm.apply(&residual)
+            relative_scale = gradient_descent.error_norm.measure(&residual)
         }
         if residual_norm < gradient_descent.abs_tol {
             return Ok(solution);
@@ -342,8 +342,8 @@ where
     loop {
         residual_solution = jacobian(&solution)? - &multipliers * &constraint_matrix;
         residual_multipliers = &constraint_rhs - &constraint_matrix * &solution;
-        if gradient_descent.error_norm.apply(&residual_solution) < gradient_descent.abs_tol
-            && gradient_descent.error_norm.apply(&residual_multipliers) < gradient_descent.abs_tol
+        if gradient_descent.error_norm.measure(&residual_solution) < gradient_descent.abs_tol
+            && gradient_descent.error_norm.measure(&residual_multipliers) < gradient_descent.abs_tol
         {
             return Ok(solution);
         } else if steps == gradient_descent.max_steps {
@@ -418,7 +418,7 @@ where
         ) {
             solution = result;
             residual = &constraint_rhs - &constraint_matrix * &solution;
-            if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol {
+            if gradient_descent.error_norm.measure(&residual) < gradient_descent.abs_tol {
                 return Ok(solution);
             } else {
                 multipliers_change -= &multipliers;

@@ -322,7 +322,7 @@ impl Tessellation {
             .map(|hex| {
                 EDGES
                     .iter()
-                    .map(|&[a, b]| (&coordinates[hex[b]] - &coordinates[hex[a]]).norm())
+                    .map(|&[a, b]| (&coordinates[hex[b]] - &coordinates[hex[a]]).norm().value())
                     .fold(Scalar::INFINITY, Scalar::min)
             })
             .collect();

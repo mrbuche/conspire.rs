@@ -188,11 +188,11 @@ where
     fn len(&self) -> usize {
         unimplemented!()
     }
-    fn norm_inf(&self) -> TensorRank0 {
-        self.0.norm_inf().max(self.1.norm_inf())
+    fn norm_inf(&self) -> Quantity<Self::Unit> {
+        Quantity::new(self.0.norm_inf().value().max(self.1.norm_inf().value()))
     }
-    fn norm_l1(&self) -> TensorRank0 {
-        self.0.norm_l1() + self.1.norm_l1()
+    fn norm_l1(&self) -> Quantity<Self::Unit> {
+        Quantity::new(self.0.norm_l1().value() + self.1.norm_l1().value())
     }
     fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
         self.0.norm_p_sum(p) + self.1.norm_p_sum(p)

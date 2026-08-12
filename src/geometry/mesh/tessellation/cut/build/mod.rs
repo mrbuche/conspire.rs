@@ -124,7 +124,7 @@ impl Tessellation {
                     let shortest = |edges: &[[usize; 2]], coordinates: &Coordinates<D>| {
                         edges
                             .iter()
-                            .map(|&[a, b]| (&coordinates[b] - &coordinates[a]).norm())
+                            .map(|&[a, b]| (&coordinates[b] - &coordinates[a]).norm().value())
                             .fold(Scalar::INFINITY, Scalar::min)
                     };
                     match classes[offset + local] {

@@ -11,7 +11,7 @@ use crate::{
         cohesive::{CohesiveElement, Separations},
         surface::SurfaceFiniteElement,
     },
-    math::{CrossProduct, Quantity, ScalarList, Tensor, unit::Area},
+    math::{CrossProduct, ScalarList, Tensor, unit::Area},
     mechanics::NormalGradients,
 };
 use std::iter::repeat_n;
@@ -31,7 +31,7 @@ where
         .into_iter()
         .zip(Self::parametric_weights())
         .map(|(reference_basis, parametric_weight)| {
-            Quantity::new(reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight)
+            reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight
         })
         .collect();
         LinearCohesiveElement {

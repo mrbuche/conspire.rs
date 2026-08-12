@@ -255,7 +255,7 @@ fn nondimensional_extension_reweighted_biased_stretch_inner(
             random_nondimensional_link_vectors_biased_stretch(model, nondimensional_stretch_bias);
 
         let extension_sum: Scalar = links.iter().map(|link| link[2].value()).sum();
-        let stretch_sum: Scalar = links.iter().map(|link| link.norm()).sum();
+        let stretch_sum: Scalar = links.iter().map(|link| link.norm().value()).sum();
 
         let x = nondimensional_force * extension_sum - nondimensional_stretch_bias * stretch_sum;
 

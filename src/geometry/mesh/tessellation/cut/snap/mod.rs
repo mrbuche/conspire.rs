@@ -62,7 +62,7 @@ impl Tessellation {
                     element_edges(&element_faces(block, element))
                         .into_iter()
                         .for_each(|[a, b]| {
-                            let length = (&coordinates[b] - &coordinates[a]).norm();
+                            let length = (&coordinates[b] - &coordinates[a]).norm().value();
                             [a, b].into_iter().for_each(|node| {
                                 lengths
                                     .entry(node)
@@ -158,7 +158,7 @@ impl Tessellation {
                     element_edges(&element_faces(block, element))
                         .into_iter()
                         .for_each(|[a, b]| {
-                            let length = (&coordinates[b] - &coordinates[a]).norm();
+                            let length = (&coordinates[b] - &coordinates[a]).norm().value();
                             [a, b].into_iter().for_each(|node| {
                                 lengths
                                     .entry(node)

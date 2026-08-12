@@ -433,7 +433,7 @@ fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
         })?;
     [8, 9, 10, 12]
         .iter()
-        .for_each(|&free_node| assert!(residual[free_node].norm() < 1e-10));
+        .for_each(|&free_node| assert!(residual[free_node].norm().value() < 1e-10));
     Ok(())
 }
 

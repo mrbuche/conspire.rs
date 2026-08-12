@@ -64,7 +64,7 @@ pub(super) fn maximum_skew<const D: usize>(
     [(&x1, &x2), (&x1, &x3), (&x2, &x3)]
         .into_iter()
         .map(|(u, v)| {
-            let (nu, nv) = (u.norm(), v.norm());
+            let (nu, nv) = (u.norm().value(), v.norm().value());
             if nu > 0.0 && nv > 0.0 {
                 ((u * v) / (nu * nv)).abs()
             } else {

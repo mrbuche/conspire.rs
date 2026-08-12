@@ -897,7 +897,7 @@ fn cosine_moments_reweighted_inner<T: MonteCarlo>(
 
         let cosines: Vec<Scalar> = links
             .iter()
-            .map(|link| link[2].value() / link.norm())
+            .map(|link| link[2].value() / link.norm().value())
             .collect();
 
         let sum_cos: Scalar = cosines.iter().sum();
@@ -1255,7 +1255,7 @@ fn nondimensional_angular_distribution_inner<T: MonteCarlo>(
     let end_index = model.number_of_links() as usize - 1;
     for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
-        let gamma = configuration[end_index].norm();
+        let gamma = configuration[end_index].norm().value();
         let nondimensional_extension = if gamma == 0.0 {
             0.0
         } else {
@@ -1338,7 +1338,7 @@ fn nondimensional_radial_distribution_inner<T: MonteCarlo>(
     let end_index = model.number_of_links() as usize - 1;
     for _ in 0..number_of_samples {
         let configuration = model.random_configuration(nondimensional_force);
-        let nondimensional_extension = configuration[end_index].norm() / num_links;
+        let nondimensional_extension = configuration[end_index].norm().value() / num_links;
         if nondimensional_extension > maximum_nondimensional_extension {
             panic!(
                 "Sample {nondimensional_extension} above maximum {maximum_nondimensional_extension}"

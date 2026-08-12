@@ -6,7 +6,7 @@ use crate::{
         ElementNodalVelocities, FiniteElement, GradientVectors, IntegrationWeights,
     },
     math::{
-        CrossProduct, IDENTITY, LEVI_CIVITA, Quantity, Scalar, Tensor, TensorArray, TensorRank2,
+        CrossProduct, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank2,
         unit::{Area, Length, Rate, ReciprocalArea, Volume},
     },
     mechanics::{
@@ -104,20 +104,20 @@ where
             .into_iter()
             .map(|basis_vectors| {
                 let normal = basis_vectors[0].cross(&basis_vectors[1]);
-                let area = Quantity::<Area>::new(normal.norm());
+                let area = normal.norm();
                 normal / area
             })
             .collect()
     }
     fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<P>) -> NormalGradients<P, G> {
         let levi_civita_symbol = LEVI_CIVITA;
-        let mut normalization: Scalar = 0.0;
+        let mut normalization = Quantity::<Area>::new(0.0);
         let mut normal_vector = Normal::zero();
         Self::shape_functions_gradients_at_integration_points().iter()
         .zip(Self::bases(nodal_coordinates))
         .map(|(standard_gradient_operator, basis_vectors)|{
             normalization = basis_vectors[0].cross(&basis_vectors[1]).norm();
-            normal_vector = basis_vectors[0].cross(&basis_vectors[1]) / Quantity::<Area>::new(normalization);
+            normal_vector = basis_vectors[0].cross(&basis_vectors[1]) / normalization;
             standard_gradient_operator.iter()
             .map(|standard_gradient_operator_a|
                 levi_civita_symbol.iter()
@@ -139,7 +139,7 @@ where
                               - standard_gradient_operator_a[1] * basis_vector_0_n
                             )
                         ).sum::<Quantity<Length>>()
-                            * Quantity::<ReciprocalArea>::new(normalization.recip())
+                            / normalization
                     ).collect()
                 ).collect()
             ).collect()
@@ -151,7 +151,7 @@ where
     ) -> NormalRates<G> {
         let identity = IDENTITY;
         let levi_civita_symbol = LEVI_CIVITA;
-        let mut normalization = 0.0;
+        let mut normalization = Quantity::<Area>::new(0.0);
         Self::bases(nodal_coordinates)
             .iter()
             .zip(Self::normals(nodal_coordinates).iter()
@@ -181,7 +181,7 @@ where
                                 - standard_gradient_operator_a[1] * basis_vector_0_n
                                 )
                             ).sum::<Quantity<Length>>()
-                            * Quantity::<ReciprocalArea>::new(normalization.recip())
+                            / normalization
                                 * nodal_velocity_a_m
                         ).sum::<Quantity<Rate>>()
                     ).sum::<Quantity<Rate>>()
@@ -212,9 +212,7 @@ where
             .into_iter()
             .zip(Self::parametric_weights())
             .map(|(reference_basis, parametric_weight)| {
-                Quantity::<Area>::new(
-                    reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight,
-                ) * thickness
+                reference_basis[0].cross(&reference_basis[1]).norm() * parametric_weight * thickness
             })
             .collect();
         let reference_dual_bases = Self::dual_bases(&reference_nodal_coordinates);
@@ -240,7 +238,7 @@ where
             .into_iter()
             .map(|reference_dual_basis| {
                 let normal = reference_dual_basis[0].cross(&reference_dual_basis[1]);
-                let reciprocal_area = Quantity::<ReciprocalArea>::new(normal.norm());
+                let reciprocal_area = normal.norm();
                 normal / reciprocal_area
             })
             .collect();

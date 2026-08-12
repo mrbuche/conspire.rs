@@ -35,7 +35,7 @@ where
         let normal_component = Quantity::<Length>::new(&separation * &normal);
         let normal_separation = &normal * normal_component;
         let tangential_separation = separation - normal_separation;
-        let tangential_component = Quantity::<Length>::new(tangential_separation.norm());
+        let tangential_component = tangential_separation.norm();
         let (normal_traction, tangential_traction) =
             self.tractions(normal_component, tangential_component)?;
         if tangential_component > Quantity::new(0.0) {
@@ -59,7 +59,7 @@ where
         let normal_component = Quantity::<Length>::new(&separation * &normal);
         let normal_separation = &normal * normal_component;
         let tangential_separation = &separation - normal_separation;
-        let tangential_component = Quantity::<Length>::new(tangential_separation.norm());
+        let tangential_component = tangential_separation.norm();
         let (normal_traction, tangential_traction) =
             self.tractions(normal_component, tangential_component)?;
         let (k_nn, k_tt) = self.stiffnesses(normal_component, tangential_component)?;

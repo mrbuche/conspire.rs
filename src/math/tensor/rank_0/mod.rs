@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use super::Quantity;
 use super::unit::Dimensionless;
 use crate::math::assert::FiniteDifference;
 
@@ -110,11 +111,11 @@ impl Tensor for TensorRank0 {
     fn len(&self) -> usize {
         1
     }
-    fn norm_inf(&self) -> TensorRank0 {
-        self.abs()
+    fn norm_inf(&self) -> Quantity<Dimensionless> {
+        Quantity::new(self.abs())
     }
-    fn norm_l1(&self) -> TensorRank0 {
-        self.abs()
+    fn norm_l1(&self) -> Quantity<Dimensionless> {
+        Quantity::new(self.abs())
     }
     fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
         self.abs().powf(p)

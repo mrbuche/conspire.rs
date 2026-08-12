@@ -221,7 +221,7 @@ macro_rules! test_surface_finite_element {
                 $element::normals(&coordinates())
                     .iter()
                     .try_for_each(|normal| {
-                        $crate::math::assert::Assert::default().eq_within_tols(&normal.norm(), &1.0)
+                        $crate::math::assert::Assert::default().eq_within_tols(&normal.norm(), &$crate::math::Quantity::new(1.0))
                     })
             }
             #[test]
@@ -352,7 +352,7 @@ macro_rules! test_surface_finite_element {
                     .iter()
                     .try_for_each(|reference_normal| {
                         $crate::math::assert::Assert::default()
-                            .eq_within_tols(&reference_normal.norm(), &1.0)
+                            .eq_within_tols(&reference_normal.norm(), &$crate::math::Quantity::new(1.0))
                     })
             }
             #[test]

@@ -154,7 +154,7 @@ where
     V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
-        Ok(self.error_norm.apply(
+        Ok(self.error_norm.measure(
             &((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
                 - &k[4] * C_17253_339200
                 + &k[5] * C_22_525

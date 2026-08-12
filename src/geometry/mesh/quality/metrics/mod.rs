@@ -234,7 +234,9 @@ fn maximum_edge_ratio<const D: usize, const E: usize>(
     let mut shortest = Scalar::INFINITY;
     let mut longest: Scalar = 0.0;
     for [a, b] in edges {
-        let length = (&coordinates[element[*b]] - &coordinates[element[*a]]).norm();
+        let length = (&coordinates[element[*b]] - &coordinates[element[*a]])
+            .norm()
+            .value();
         shortest = shortest.min(length);
         longest = longest.max(length);
     }
@@ -283,7 +285,7 @@ fn corners<const D: usize, const K: usize, const C: usize>(
         let origin = &coordinates[element[corner]];
         let edges: [Coordinate<D>; K] =
             from_fn(|edge| &coordinates[element[table[corner][edge]]] - origin);
-        let normalizer: Scalar = edges.iter().map(|edge| edge.norm()).product();
+        let normalizer: Scalar = edges.iter().map(|edge| edge.norm().value()).product();
         (corner_measure(&edges), normalizer)
     })
 }

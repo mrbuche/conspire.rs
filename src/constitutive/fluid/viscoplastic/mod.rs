@@ -55,10 +55,9 @@ where
         yield_stress: Scalar,
     ) -> Result<StretchingRatePlastic, ConstitutiveError> {
         let magnitude = deviatoric_mandel_stress.norm();
-        if magnitude == 0.0 {
+        if magnitude.value() == 0.0 {
             Ok(StretchingRatePlastic::zero())
         } else {
-            let magnitude = Quantity::<Stress>::new(magnitude);
             let yield_stress = Quantity::<Stress>::new(yield_stress);
             let reference_flow_rate = self.reference_flow_rate();
             Ok(deviatoric_mandel_stress
@@ -126,7 +125,7 @@ where
         mandel_stress.deviatoric(),
         model.yield_stress(equivalent_plastic_strain.value())?,
     )?;
-    let equivalent_plastic_strain_rate = Quantity::new(plastic_stretching_rate.norm());
+    let equivalent_plastic_strain_rate = plastic_stretching_rate.norm();
     Ok((
         plastic_stretching_rate * deformation_gradient_p,
         equivalent_plastic_strain_rate,

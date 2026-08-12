@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{Scalar, Tensor};
+use super::{Quantity, Scalar, Tensor};
 
 /// Different norms for tensors.
 #[derive(Clone, Copy, Debug, Default)]
@@ -14,13 +14,22 @@ pub enum Norm {
 }
 
 impl Norm {
-    pub fn apply<T: Tensor>(&self, t: &T) -> Scalar {
+    /// The norm of a whole tensor, which carries the unit the tensor does.
+    ///
+    /// Every variant is that unit once: the Minkowski norm takes the p-th root
+    /// of a sum of p-th powers, so only the sum inside it names no unit.
+    pub fn apply<T: Tensor>(&self, t: &T) -> Quantity<T::Unit> {
         match self {
             Self::Chebyshev => t.norm_inf(),
             Self::Euclidean => t.norm(),
             Self::Manhattan => t.norm_l1(),
             Self::Minkowski(p) => t.norm_p(*p),
         }
+    }
+    /// The norm of a whole tensor as a number, for comparing against a
+    /// tolerance the caller supplies in whatever units the problem is in.
+    pub fn measure<T: Tensor>(&self, t: &T) -> Scalar {
+        self.apply(t).value()
     }
     /// The norm of some values, for when they are part of a tensor rather than
     /// all of one.

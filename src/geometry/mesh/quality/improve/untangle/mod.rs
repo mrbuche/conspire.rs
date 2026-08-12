@@ -43,7 +43,9 @@ impl<const D: usize> Mesh<D> {
                 let mut step = 0.5
                     * neighbors[node]
                         .iter()
-                        .map(|&neighbor| (&coordinates[node] - &coordinates[neighbor]).norm())
+                        .map(|&neighbor| {
+                            (&coordinates[node] - &coordinates[neighbor]).norm().value()
+                        })
                         .sum::<Scalar>()
                     / (neighbors[node].len() as Scalar);
                 for _ in 0..PROBES {

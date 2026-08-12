@@ -226,7 +226,7 @@ fn cut_sphere() {
         .filter(|&(_, &count)| count == 1)
         .for_each(|(key, _)| {
             key.iter().for_each(|&node| {
-                let norm = coordinates[node].norm();
+                let norm = coordinates[node].norm().value();
                 assert!((0.985..=1.0 + 1e-9).contains(&norm), "{norm}")
             })
         });

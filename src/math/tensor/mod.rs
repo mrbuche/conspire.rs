@@ -314,18 +314,29 @@ where
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item>;
     /// Returns the number of elements, also referred to as the ‘length’.
     fn len(&self) -> usize;
-    /// Returns the tensor norm.
-    fn norm(&self) -> TensorRank0 {
-        self.norm_squared().sqrt()
+    /// Returns the tensor norm, which carries the unit the tensor does.
+    ///
+    /// Every norm below is that unit once, however many entries it is taken
+    /// over, so each is a number gathered from the entries and given the unit
+    /// at the end. The gathering stays a number because what it sums over is
+    /// squares and powers, which name no unit, and because a tuple's unit is
+    /// the pair its halves carry rather than the unit of either of them.
+    fn norm(&self) -> Quantity<Self::Unit> {
+        Quantity::new(self.norm_squared().sqrt())
     }
     /// Returns the infinity norm.
-    fn norm_inf(&self) -> TensorRank0 {
-        self.iter()
-            .fold(0.0, |acc, entry| entry.norm_inf().max(acc))
+    fn norm_inf(&self) -> Quantity<Self::Unit> {
+        Quantity::new(
+            self.iter()
+                .fold(0.0, |acc, entry| entry.norm_inf().value().max(acc)),
+        )
     }
     /// Returns the L1 (Manhattan) norm.
-    fn norm_l1(&self) -> TensorRank0 {
-        self.iter().fold(0.0, |acc, entry| acc + entry.norm_l1())
+    fn norm_l1(&self) -> Quantity<Self::Unit> {
+        Quantity::new(
+            self.iter()
+                .fold(0.0, |acc, entry| acc + entry.norm_l1().value()),
+        )
     }
     /// Returns the sum of p-th powers of absolute values (used internally by `norm_p`).
     fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
@@ -333,20 +344,23 @@ where
             .fold(0.0, |acc, entry| acc + entry.norm_p_sum(p))
     }
     /// Returns the Minkowski (Lp) norm.
-    fn norm_p(&self, p: TensorRank0) -> TensorRank0 {
-        self.norm_p_sum(p).powf(1.0 / p)
+    fn norm_p(&self, p: TensorRank0) -> Quantity<Self::Unit> {
+        Quantity::new(self.norm_p_sum(p).powf(1.0 / p))
     }
-    /// Returns the tensor norm squared.
+    /// Returns the tensor norm squared, which names no unit and so carries none.
     fn norm_squared(&self) -> TensorRank0 {
         self.full_contraction(self)
     }
     /// Normalizes the tensor.
+    ///
+    /// What comes out is a direction rather than the quantity it was taken
+    /// from, so the norm is spent rather than dividing the unit out.
     fn normalize(&mut self) {
-        *self /= self.norm()
+        *self /= self.norm().value()
     }
     /// Returns the tensor normalized.
     fn normalized(self) -> Self {
-        let norm = self.norm();
+        let norm = self.norm().value();
         self / norm
     }
     /// Returns the total number of entries.

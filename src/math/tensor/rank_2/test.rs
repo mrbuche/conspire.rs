@@ -1003,22 +1003,34 @@ fn from() {
 
 #[test]
 fn norm_dim_2() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_2().norm(), &5.477_225_575_051_661)
+    Assert::eq(
+        get_tensor_rank_2_dim_2().norm(),
+        &crate::math::Quantity::new(5.477_225_575_051_661),
+    )
 }
 
 #[test]
 fn norm_dim_3() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_3().norm(), &16.881_943_016_134_134)
+    Assert::eq(
+        get_tensor_rank_2_dim_3().norm(),
+        &crate::math::Quantity::new(16.881_943_016_134_134),
+    )
 }
 
 #[test]
 fn norm_dim_4() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_4().norm(), &14.282_856_857_085_7)
+    Assert::eq(
+        get_tensor_rank_2_dim_4().norm(),
+        &crate::math::Quantity::new(14.282_856_857_085_7),
+    )
 }
 
 #[test]
 fn norm_dim_9() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_9().norm(), &20.736_441_353_327_72)
+    Assert::eq(
+        get_tensor_rank_2_dim_9().norm(),
+        &crate::math::Quantity::new(20.736_441_353_327_72),
+    )
 }
 
 #[test]
