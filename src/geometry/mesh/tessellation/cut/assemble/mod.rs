@@ -21,6 +21,36 @@ use crate::{
 };
 use std::{array::from_fn, collections::HashMap, collections::HashSet, iter::once};
 
+/// Splits a cut loop along a crease that enters and leaves it, so the fold
+/// becomes an edge of the cell rather than something a single face spans.
+///
+/// One crease is taken, the lowest numbered the loop meets exactly twice; a
+/// loop a crease only touches once is left whole.
+fn fan(chain: Vec<Vertex>) -> Vec<Vec<Vertex>> {
+    let mut creases = HashMap::<usize, Vec<usize>>::new();
+    chain.iter().enumerate().for_each(|(at, vertex)| {
+        if let Vertex::Feature(_, crease) = vertex {
+            creases.entry(*crease).or_default().push(at)
+        }
+    });
+    let mut named: Vec<usize> = creases.keys().copied().collect();
+    named.sort_unstable();
+    for crease in named {
+        if let [one, two] = creases[&crease][..] {
+            let across = chain[one..=two].to_vec();
+            let about: Vec<Vertex> = chain[two..]
+                .iter()
+                .chain(chain[..=one].iter())
+                .copied()
+                .collect();
+            if across.len() > 2 && about.len() > 2 {
+                return vec![across, about];
+            }
+        }
+    }
+    vec![chain]
+}
+
 #[allow(clippy::type_complexity)]
 #[allow(clippy::too_many_arguments)]
 fn build_cut_cells(
@@ -163,12 +193,12 @@ fn build_cut_cells(
                     let mut visited = HashSet::<Vertex>::new();
                     keys.into_iter().for_each(|start| {
                         if visited.insert(start) {
-                            let mut polygon = vec![point(start)];
+                            let mut chain = vec![start];
                             let mut previous = start;
                             let mut current = adjacency[&start][0];
                             while current != start {
                                 visited.insert(current);
-                                polygon.push(point(current));
+                                chain.push(current);
                                 let next = if adjacency[&current][0] == previous {
                                     adjacency[&current][1]
                                 } else {
@@ -177,8 +207,10 @@ fn build_cut_cells(
                                 previous = current;
                                 current = next;
                             }
-                            if polygon.len() > 2 {
-                                polygons.push(polygon);
+                            if chain.len() > 2 {
+                                fan(chain).into_iter().for_each(|part| {
+                                    polygons.push(part.into_iter().map(point).collect())
+                                })
                             }
                         }
                     });
