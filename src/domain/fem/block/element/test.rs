@@ -550,18 +550,16 @@ macro_rules! test_finite_element_inner {
                         $element::parametric_reference()
                             .into_iter()
                             .try_for_each(|coordinate| {
+                                sums = [0.0; M];
                                 $element::shape_functions_gradients(coordinate)
-                                    .into_iter()
-                                    .try_for_each(|shape_functions_gradients| {
-                                        sums = [0.0; M];
-                                        shape_functions_gradients.iter().for_each(|row| {
-                                            row.iter()
-                                                .zip(sums.iter_mut())
-                                                .for_each(|(entry, sum)| *sum += entry.value())
-                                        });
-                                        $crate::math::assert::Assert::default()
-                                            .zero_within_tols(&$crate::math::Vector::from(sums))
-                                    })
+                                    .iter()
+                                    .for_each(|row| {
+                                        row.iter()
+                                            .zip(sums.iter_mut())
+                                            .for_each(|(entry, sum)| *sum += entry.value())
+                                    });
+                                $crate::math::assert::Assert::default()
+                                    .zero_within_tols(&$crate::math::Vector::from(sums))
                             })
                     }
                 }
