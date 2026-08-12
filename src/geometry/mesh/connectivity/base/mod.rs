@@ -126,8 +126,8 @@ impl Connectivity {
             Connectivity::Hexahedral(c) => c.add_edge_adjacency(nodes_nodes),
             Connectivity::Pyramidal(c) => c.add_edge_adjacency(nodes_nodes),
             Connectivity::Wedge(c) => c.add_edge_adjacency(nodes_nodes),
-            Connectivity::Polygonal(_) => todo!(),
-            Connectivity::Polyhedral(_) => todo!(),
+            Connectivity::Polygonal(c) => c.add_edge_adjacency(nodes_nodes),
+            Connectivity::Polyhedral(c) => c.add_edge_adjacency(nodes_nodes),
         }
     }
     pub fn is_empty(&self) -> bool {

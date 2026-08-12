@@ -14,18 +14,19 @@ impl<const D: usize> Mesh<D> {
         weighting: Weighting,
         preserve_boundary: bool,
         preserve_interfaces: bool,
-    ) {
+    ) -> Result<(), &'static str> {
         let adjacency = (preserve_boundary || preserve_interfaces)
             .then(|| self.constrained_adjacency(preserve_boundary, preserve_interfaces));
         for _ in 0..iterations {
             let laplacian = match &adjacency {
-                Some(adjacency) => self.laplacian_over(adjacency, weighting),
-                None => self.laplacian(weighting),
+                Some(adjacency) => self.laplacian_over(adjacency, weighting)?,
+                None => self.laplacian(weighting)?,
             };
             self.coordinates
                 .iter_mut()
                 .zip(laplacian)
                 .for_each(|(x, u)| *x -= u * scale)
         }
+        Ok(())
     }
 }

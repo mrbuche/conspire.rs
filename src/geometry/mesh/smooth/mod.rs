@@ -25,7 +25,7 @@ pub enum Smoothing {
 }
 
 impl<const D: usize> Mesh<D> {
-    pub fn smooth(&mut self, smoothing: Smoothing) {
+    pub fn smooth(&mut self, smoothing: Smoothing) -> Result<(), &'static str> {
         match smoothing {
             Smoothing::Laplace {
                 iterations,
