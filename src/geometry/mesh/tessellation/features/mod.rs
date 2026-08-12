@@ -11,12 +11,9 @@ use crate::{
     },
     math::{CrossProduct, FxHashMap, Scalar, Tensor},
 };
-use std::array::from_fn;
+use std::{array::from_fn, f64::consts::FRAC_1_SQRT_2};
 
-/// Cosine of the dihedral deviation past which an edge is a crease, taken at
-/// forty-five degrees to agree with the feature angle of 135 that Cubit
-/// defaults to, which is the same fold measured from flat instead.
-const CREASE_COSINE: Scalar = std::f64::consts::FRAC_1_SQRT_2;
+const CREASE_COSINE: Scalar = FRAC_1_SQRT_2;
 
 /// The sharp edges and points of a tessellation.
 ///
@@ -159,6 +156,35 @@ fn cell(point: &Coordinate<D>, spacing: Scalar) -> [i64; D] {
     from_fn(|axis| (point[axis] / spacing).floor() as i64)
 }
 
+/// Where a segment meets a triangle, as a fraction along the segment.
+fn meets(segment: &[Coordinate<D>; 2], triangle: [&Coordinate<D>; 3]) -> Option<Scalar> {
+    let along = &segment[1] - &segment[0];
+    let (one, two) = (triangle[1] - triangle[0], triangle[2] - triangle[0]);
+    let normal = along.cross(&two);
+    let determinant = &one * &normal;
+    let scale = one.norm() * two.norm() * along.norm();
+    if determinant.abs() < CROSSING * scale {
+        return None;
+    }
+    let inverse = 1.0 / determinant;
+    let offset = &segment[0] - triangle[0];
+    let u = inverse * (&offset * &normal);
+    if !(0.0..=1.0).contains(&u) {
+        return None;
+    }
+    let across = offset.cross(&one);
+    let v = inverse * (&along * &across);
+    if v < 0.0 || u + v > 1.0 {
+        return None;
+    }
+    let fraction = inverse * (&two * &across);
+    (0.0..=1.0).contains(&fraction).then_some(fraction)
+}
+
+/// Relative tolerance below which a crease is taken to run along a face
+/// rather than through it.
+const CROSSING: Scalar = 1.0e-12;
+
 fn closest_on(segment: &[Coordinate<D>; 2], point: &Coordinate<D>) -> Coordinate<D> {
     let along = &segment[1] - &segment[0];
     let length = &along * &along;
@@ -208,6 +234,30 @@ impl FeatureIndex<'_> {
     }
     pub fn corner(&self, index: usize) -> &Coordinate<D> {
         &self.features.corners[index]
+    }
+    /// Which creases pass through the quad, and where.
+    ///
+    /// The quad is taken as two triangles about its first corner, so a
+    /// background face that is not planar is still covered. A crease meeting
+    /// the shared diagonal is reported once.
+    pub fn through(&self, quad: [&Coordinate<D>; 4]) -> Vec<(usize, Coordinate<D>)> {
+        let mut through: Vec<(usize, Coordinate<D>)> = self
+            .features
+            .creases
+            .iter()
+            .enumerate()
+            .filter_map(|(index, crease)| {
+                [[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]
+                    .into_iter()
+                    .find_map(|triangle| meets(crease, triangle))
+                    .map(|fraction| {
+                        let point = &crease[0] + &((&crease[1] - &crease[0]) * fraction);
+                        (index, point)
+                    })
+            })
+            .collect();
+        through.sort_by_key(|&(index, _)| index);
+        through
     }
     pub fn is_empty(&self) -> bool {
         self.features.corners.is_empty() && self.features.creases.is_empty()
