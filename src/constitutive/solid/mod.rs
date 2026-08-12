@@ -19,7 +19,7 @@ use crate::{
     constitutive::{Constitutive, ConstitutiveError},
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, IDENTITY_00, Rank2,
-        Tensor, TensorArray, ZERO_10,
+        Tensor, TensorArray,
     },
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, CauchyTangentStiffness, Deformation,

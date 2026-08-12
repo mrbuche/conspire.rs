@@ -22,7 +22,7 @@ use conspire::{
     },
     geometry::mesh::{Connectivity, Mesh},
     math::{
-        Matrix, Scalar, Tensor, Vector,
+        Matrix, Quantity, Tensor, Time, Vector,
         assert::AssertionError,
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
@@ -7454,7 +7454,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
     Ok(())
 }
 
-fn bcs_temporary_elastic_viscoplastic_vector(t: Scalar) -> Vector {
+fn bcs_temporary_elastic_viscoplastic_vector(t: Quantity<Time>) -> Vector {
     let strain_rate = 1.0; // also set below
     let ref_coordinates = coordinates();
     let length = ref_coordinates
@@ -7467,7 +7467,7 @@ fn bcs_temporary_elastic_viscoplastic_vector(t: Scalar) -> Vector {
     coordinates().iter().for_each(|coordinate| {
         if coordinate[0].abs() == 0.5 {
             if coordinate[0] > 0.0 {
-                vector[index] = coordinate[0] + strain_rate * t
+                vector[index] = coordinate[0] + strain_rate * t.value()
             } else {
                 vector[index] = coordinate[0]
             }
@@ -7480,7 +7480,7 @@ fn bcs_temporary_elastic_viscoplastic_vector(t: Scalar) -> Vector {
     vector
 }
 
-fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> EqualityConstraint {
+fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
     let num_nodes = coordinates().len();
     let length = coordinates()
         .iter()
@@ -7509,7 +7509,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Scalar) -> EqualityConstraint {
 fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
     use conspire::math::integrate::BogackiShampine;
     let tol = 1e-4;
-    let tspan = [0.0, 2.0];
+    let tspan = [Quantity::new(0.0), Quantity::new(2.0)];
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
@@ -7531,29 +7531,37 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
         (mesh, model.clone()).try_into()?;
-    let (times, coordinates_history, state_variables_history): (
-        _,
-        _,
-        conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticStateVariablesHistory<
-            G,
-            Scalar,
-        >,
-    ) = conspire::fem::solid::hyperelastic_viscoplastic::SecondOrderMinimize::minimize(
-        &fem_model,
-        BogackiShampine {
-            abs_tol: tol,
-            rel_tol: tol,
-            ..Default::default()
-        },
-        NewtonRaphson::default(),
-        &tspan,
-        bcs_temporary_elastic_viscoplastic,
-    )?;
+    let (times, coordinates_history, state_variables_history) =
+        conspire::fem::solid::hyperelastic_viscoplastic::SecondOrderMinimize::<
+            conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticStateVariables<
+                G,
+                Quantity,
+            >,
+            conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticEvolutionHistory<
+                G,
+                Quantity,
+            >,
+            conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticStateVariablesHistory<
+                G,
+                Quantity,
+            >,
+            3,
+        >::minimize(
+            &fem_model,
+            BogackiShampine {
+                abs_tol: tol,
+                rel_tol: tol,
+                ..Default::default()
+            },
+            NewtonRaphson::default(),
+            &tspan,
+            bcs_temporary_elastic_viscoplastic,
+        )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
     let (_, deformation_gradients, state_variables) = model.minimize(
-        AppliedLoad::UniaxialStress(|t| 1.0 + 1.0 * t, times.as_slice()),
+        AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 1.0 * t.value(), times.as_slice()),
         BogackiShampine::default(),
         NewtonRaphson::default(),
     )?;
@@ -7618,7 +7626,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
 fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let tol = 1e-4;
     let strain_rate = 2.3; // also set below
-    let tspan = [0.0, 1.0];
+    let tspan = [Quantity::new(0.0), Quantity::new(1.0)];
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity

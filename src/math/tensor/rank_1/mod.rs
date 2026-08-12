@@ -258,6 +258,26 @@ where
     }
 }
 
+impl<const D: usize, I, U, V> Div<Quantity<V>> for TensorRank1<D, I, U>
+where
+    U: UnitDiv<V>,
+{
+    type Output = TensorRank1<D, I, <U as UnitDiv<V>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.into_canonical() / quantity.value())
+    }
+}
+
+impl<const D: usize, I, U, V> Div<Quantity<V>> for &TensorRank1<D, I, U>
+where
+    U: UnitDiv<V>,
+{
+    type Output = TensorRank1<D, I, <U as UnitDiv<V>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        relabel(self.canonical() / quantity.value())
+    }
+}
+
 impl<const D: usize, I, U> Tensor for TensorRank1<D, I, U> {
     type Item = TensorRank0;
     type Unit = U;

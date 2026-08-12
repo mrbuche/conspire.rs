@@ -4,6 +4,10 @@ mod test;
 use crate::math::{Scalar, Style, StyledError, assert::AssertionError, styled_error};
 
 /// Possible errors encountered when integrating.
+///
+/// A step and the interval it is taken over are carried as numbers rather than
+/// quantities: an error only formats them, so nothing here is measured in the
+/// variable of integration, and the error stays free of it.
 pub enum IntegrationError {
     InconsistentInitialConditions,
     InitialTimeNotLessThanFinalTime,

@@ -2,10 +2,10 @@ use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
-        solid::{NodalForcesSolid, NodalStiffnessesSolid},
+        solid::{NodalDampingsSolid, NodalForcesSolid},
     },
     math::{
-        Scalar, Tensor,
+        Quantity, Tensor, Time,
         integrate::{ImplicitDaeFirstOrderRoot, IntegrationError},
         optimize::{EqualityConstraint, FirstOrderRootFinding},
     },
@@ -35,14 +35,14 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
     ) -> Result<(), ElementModelError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
-        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+    ) -> Result<NodalDampingsSolid<D>, ElementModelError> {
+        let mut nodal_stiffnesses = NodalDampingsSolid::zero(nodal_coordinates.len());
         self.nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, &mut nodal_stiffnesses)?;
         Ok(nodal_stiffnesses)
     }
@@ -65,7 +65,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
     ) -> Result<(), ElementModelError> {
         self.blocks
             .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)
@@ -92,7 +92,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
     ) -> Result<(), ElementModelError> {
         self.0
             .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)?;
@@ -107,15 +107,16 @@ pub trait FirstOrderRoot<const D: usize> {
         equality_constraint: EqualityConstraint,
         integrator: impl ImplicitDaeFirstOrderRoot<
             NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalVelocities<D>,
+            NodalDampingsSolid<D>,
+            NodalCoordinates<D>,
+            NodalCoordinatesHistory<D>,
             NodalVelocitiesHistory<D>,
         >,
-        time: &[Scalar],
+        time: &[Quantity<Time>],
         solver: impl FirstOrderRootFinding<
             NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
+            NodalDampingsSolid<D>,
+            NodalVelocities<D>,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>;
 }
@@ -129,25 +130,26 @@ where
         equality_constraint: EqualityConstraint,
         integrator: impl ImplicitDaeFirstOrderRoot<
             NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalVelocities<D>,
+            NodalDampingsSolid<D>,
+            NodalCoordinates<D>,
+            NodalCoordinatesHistory<D>,
             NodalVelocitiesHistory<D>,
         >,
-        time: &[Scalar],
+        time: &[Quantity<Time>],
         solver: impl FirstOrderRootFinding<
             NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
+            NodalDampingsSolid<D>,
+            NodalVelocities<D>,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>
     {
         integrator.integrate(
-            |_: Scalar,
+            |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
                 Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
                 Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
@@ -155,7 +157,7 @@ where
             solver,
             time,
             self.coordinates().clone().into(),
-            |_: Scalar| equality_constraint.clone(),
+            |_: Quantity<Time>| equality_constraint.clone(),
         )
     }
 }

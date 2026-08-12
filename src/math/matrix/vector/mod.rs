@@ -570,9 +570,9 @@ impl Mul<&Matrix> for &Vector {
     }
 }
 
-impl<const D: usize, I> Mul<&TensorRank1Vec<D, I>> for &Vector {
+impl<const D: usize, I, U> Mul<&TensorRank1Vec<D, I, U>> for &Vector {
     type Output = Scalar;
-    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
+    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I, U>) -> Self::Output {
         tensor_rank_1_vec
             .iter()
             .enumerate()
@@ -587,9 +587,9 @@ impl<const D: usize, I> Mul<&TensorRank1Vec<D, I>> for &Vector {
     }
 }
 
-impl<const D: usize, I, J> Mul<&TensorRank2<D, I, J>> for &Vector {
+impl<const D: usize, I, J, U> Mul<&TensorRank2<D, I, J, U>> for &Vector {
     type Output = Scalar;
-    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
+    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J, U>) -> Self::Output {
         tensor_rank_2
             .iter()
             .enumerate()
@@ -604,13 +604,13 @@ impl<const D: usize, I, J> Mul<&TensorRank2<D, I, J>> for &Vector {
     }
 }
 
-impl<const D: usize, I, J, K, L> Mul<&TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>>
-    for &Vector
+impl<const D: usize, I, J, K, L, U, V>
+    Mul<&TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, V>>> for &Vector
 {
     type Output = Scalar;
     fn mul(
         self,
-        tensor_tuple: &TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>,
+        tensor_tuple: &TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, V>>,
     ) -> Self::Output {
         let (tensor_rank_2_a, tensor_rank_2_b) = tensor_tuple.into();
         &self.iter().take(D * D).copied().collect::<Vector>() * tensor_rank_2_a

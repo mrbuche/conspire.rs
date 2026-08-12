@@ -9,7 +9,7 @@ use crate::{
         },
     },
     math::{
-        Rank2, Tensor, TensorArray,
+        Quantity, Rank2, Tensor, TensorArray, Time,
         assert::{AssertionError, FiniteDifference},
         integrate::BogackiShampine,
         optimize::{GradientDescent, NewtonRaphson},
@@ -84,7 +84,10 @@ fn root_0() -> Result<(), AssertionError> {
         },
     ));
     let (t, f, f_p) = model.root(
-        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
+        AppliedLoad::UniaxialStress(
+            |t: Quantity<Time>| 1.0 + t.value(),
+            &[Quantity::new(0.0), Quantity::new(2.0)],
+        ),
         BogackiShampine {
             abs_tol: 1e-6,
             rel_tol: 1e-6,
@@ -131,7 +134,10 @@ fn root_1() -> Result<(), AssertionError> {
         },
     ));
     let (t, f, f_p) = model.root(
-        AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
+        AppliedLoad::UniaxialStress(
+            |t: Quantity<Time>| 1.0 + t.value(),
+            &[Quantity::new(0.0), Quantity::new(2.0)],
+        ),
         BogackiShampine {
             abs_tol: 1e-6,
             rel_tol: 1e-6,

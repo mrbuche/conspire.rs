@@ -14,7 +14,10 @@ use conspire::{
             hyperelastic_viscoplastic::SecondOrderMinimize,
         },
     },
-    math::{Tensor, assert::AssertionError, integrate::DormandPrince, optimize::NewtonRaphson},
+    math::{
+        Quantity, Tensor, Time, assert::AssertionError, integrate::DormandPrince,
+        optimize::NewtonRaphson,
+    },
 };
 
 #[test]
@@ -68,7 +71,10 @@ fn demonstrate() -> Result<(), AssertionError> {
     ));
     let (t, f, f_p) = model.minimize(
         AppliedLoad::UniaxialStress(
-            |t| {
+            |t: Quantity<Time>| {
+                // The load is stated as a piecewise function of a number, so
+                // the variable of integration is spent once, up front.
+                let t = t.value();
                 if t < 0.25_f64.exp() - 1.0 {
                     1.0 + t
                 } else if t < 0.25_f64.exp() - 1.0 + 0.12_f64.exp() - 1.0 {
@@ -168,19 +174,21 @@ fn demonstrate() -> Result<(), AssertionError> {
                 }
             },
             &[
-                0.0,
-                0.25_f64.exp() - 1.0 + 2.0 * (0.12_f64.exp() - 1.0) + 0.31_f64.exp() - 1.0
-                    + 2.0 * (0.245_f64.exp() - 1.0)
-                    + 0.385_f64.exp()
-                    - 1.0
-                    + 0.363_f64.exp()
-                    - 1.0
-                    + 0.713_f64.exp()
-                    - 1.0
-                    + 0.555_f64.exp()
-                    - 1.0
-                    + 0.55_f64.exp()
-                    - 1.0,
+                Quantity::new(0.0),
+                Quantity::new(
+                    0.25_f64.exp() - 1.0 + 2.0 * (0.12_f64.exp() - 1.0) + 0.31_f64.exp() - 1.0
+                        + 2.0 * (0.245_f64.exp() - 1.0)
+                        + 0.385_f64.exp()
+                        - 1.0
+                        + 0.363_f64.exp()
+                        - 1.0
+                        + 0.713_f64.exp()
+                        - 1.0
+                        + 0.555_f64.exp()
+                        - 1.0
+                        + 0.55_f64.exp()
+                        - 1.0,
+                ),
             ],
         ),
         DormandPrince::default(),

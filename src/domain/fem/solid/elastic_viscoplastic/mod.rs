@@ -6,7 +6,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
-        Scalar, Tensor, TensorTuple, TensorVec,
+        Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorVec, Time,
         integrate::{ExplicitDaeFirstOrderRoot, IntegrationError},
         optimize::FirstOrderRootFinding,
     },
@@ -16,6 +16,7 @@ use crate::{
 pub trait ElasticViscoplasticElements<S, const D: usize>
 where
     Self: Elements,
+    S: Differentiate,
 {
     fn initial_state(&self) -> S;
     fn nodal_forces_into(
@@ -52,12 +53,13 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<S, ElementModelError>;
+    ) -> Result<Derivative<S>, ElementModelError>;
 }
 
 impl<B, S, const D: usize> ElasticViscoplasticElements<S, D> for Model<B, D>
 where
     B: ElasticViscoplasticElements<S, D>,
+    S: Differentiate,
 {
     fn initial_state(&self) -> S {
         self.blocks.initial_state()
@@ -84,7 +86,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<S, ElementModelError> {
+    ) -> Result<Derivative<S>, ElementModelError> {
         self.blocks
             .state_variables_evolution(nodal_coordinates, state_variables)
     }
@@ -95,6 +97,7 @@ impl<B1, B2, S, const D: usize> ElasticViscoplasticElements<S, D>
 where
     B1: ElasticViscoplasticElements<S, D>,
     B2: ElasticElements<D>,
+    S: Differentiate,
 {
     fn initial_state(&self) -> S {
         self.0.initial_state()
@@ -124,7 +127,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<S, ElementModelError> {
+    ) -> Result<Derivative<S>, ElementModelError> {
         self.0
             .state_variables_evolution(nodal_coordinates, state_variables)
     }
@@ -135,8 +138,10 @@ impl<B1, B2, S1, S2, const D: usize> ElasticViscoplasticElements<TensorTuple<S1,
 where
     B1: ElasticViscoplasticElements<S1, D>,
     B2: ElasticViscoplasticElements<S2, D>,
-    S1: Tensor,
-    S2: Tensor,
+    S1: Differentiate + Tensor,
+    S2: Differentiate + Tensor,
+    Derivative<S1>: Tensor,
+    Derivative<S2>: Tensor,
 {
     fn initial_state(&self) -> TensorTuple<S1, S2> {
         (self.0.initial_state(), self.1.initial_state()).into()
@@ -167,7 +172,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<TensorTuple<S1, S2>, ElementModelError> {
+    ) -> Result<Derivative<TensorTuple<S1, S2>>, ElementModelError> {
         Ok((
             self.0
                 .state_variables_evolution(nodal_coordinates, &state_variables.0)?,
@@ -178,9 +183,10 @@ where
     }
 }
 
-pub trait FirstOrderRoot<S, H, const D: usize>
+pub trait FirstOrderRoot<S, R, H, const D: usize>
 where
-    S: Tensor,
+    S: Differentiate + Tensor,
+    R: TensorVec<Item = Derivative<S>>,
     H: TensorVec<Item = S>,
 {
     fn root(
@@ -192,21 +198,23 @@ where
             NodalCoordinates<D>,
             H,
             NodalCoordinatesHistory<D>,
+            R,
         >,
         solver: impl FirstOrderRootFinding<
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        time: &[Scalar],
+        time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, H), IntegrationError>;
 }
 
-impl<B, S, H, const D: usize> FirstOrderRoot<S, H, D> for Model<B, D>
+impl<B, S, R, H, const D: usize> FirstOrderRoot<S, R, H, D> for Model<B, D>
 where
     B: ElasticViscoplasticElements<S, D>,
-    S: Tensor,
+    S: Differentiate + Tensor,
+    R: TensorVec<Item = Derivative<S>>,
     H: TensorVec<Item = S>,
 {
     fn root(
@@ -218,28 +226,35 @@ where
             NodalCoordinates<D>,
             H,
             NodalCoordinatesHistory<D>,
+            R,
         >,
         solver: impl FirstOrderRootFinding<
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        time: &[Scalar],
+        time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, H), IntegrationError> {
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
             .integrate(
-                |_: Scalar, state_variables: &S, nodal_coordinates: &NodalCoordinates<D>| {
+                |_: Quantity<Time>,
+                 state_variables: &S,
+                 nodal_coordinates: &NodalCoordinates<D>| {
                     Ok(self
                         .blocks
                         .state_variables_evolution(nodal_coordinates, state_variables)?)
                 },
-                |_: Scalar, state_variables: &S, nodal_coordinates: &NodalCoordinates<D>| {
+                |_: Quantity<Time>,
+                 state_variables: &S,
+                 nodal_coordinates: &NodalCoordinates<D>| {
                     Ok(self
                         .blocks
                         .nodal_forces(nodal_coordinates, state_variables)?)
                 },
-                |_: Scalar, state_variables: &S, nodal_coordinates: &NodalCoordinates<D>| {
+                |_: Quantity<Time>,
+                 state_variables: &S,
+                 nodal_coordinates: &NodalCoordinates<D>| {
                     Ok(self
                         .blocks
                         .nodal_stiffnesses(nodal_coordinates, state_variables)?)

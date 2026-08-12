@@ -9,7 +9,10 @@ use crate::{
         ConstitutiveError,
         fluid::{
             plastic::Plastic,
-            viscoplastic::{Viscoplastic, ViscoplasticStateVariables, default_plastic_evolution},
+            viscoplastic::{
+                Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables,
+                default_plastic_evolution,
+            },
         },
         solid::{
             Solid, TWO_THIRDS,
@@ -59,15 +62,15 @@ impl Plastic for Hencky {
     }
 }
 
-impl Viscoplastic<Scalar> for Hencky {
-    fn initial_state(&self) -> ViscoplasticStateVariables<Scalar> {
-        (DeformationGradientPlastic::identity(), 0.0).into()
+impl Viscoplastic<Quantity> for Hencky {
+    fn initial_state(&self) -> ViscoplasticStateVariables<Quantity> {
+        (DeformationGradientPlastic::identity(), Quantity::default()).into()
     }
     fn plastic_evolution(
         &self,
         mandel_stress: MandelStressElastic,
-        state_variables: &ViscoplasticStateVariables<Scalar>,
-    ) -> Result<ViscoplasticStateVariables<Scalar>, ConstitutiveError> {
+        state_variables: &ViscoplasticStateVariables<Quantity>,
+    ) -> Result<ViscoplasticEvolution<Quantity>, ConstitutiveError> {
         default_plastic_evolution(self, mandel_stress, state_variables)
     }
     fn rate_sensitivity(&self) -> Scalar {
@@ -125,9 +128,9 @@ impl ElasticPlasticOrViscoplastic for Hencky {
     }
 }
 
-impl ElasticViscoplastic<Scalar> for Hencky {}
+impl ElasticViscoplastic<Quantity> for Hencky {}
 
-impl HyperelasticViscoplastic<Scalar> for Hencky {
+impl HyperelasticViscoplastic<Quantity> for Hencky {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

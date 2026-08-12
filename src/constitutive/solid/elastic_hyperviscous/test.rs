@@ -477,14 +477,20 @@ pub(crate) use test_solid_elastic_hyperviscous_specifics;
 
 macro_rules! test_minimize_and_root {
     ($constitutive_model: expr) => {
-        use crate::constitutive::solid::viscoelastic::AppliedLoad;
+        use crate::{
+            constitutive::solid::viscoelastic::AppliedLoad,
+            math::{Quantity, Time},
+        };
         macro_rules! test_with_integrator_and_solver {
             ($integrator: ident, $solver: expr) => {
                 #[test]
                 fn minimize_uniaxial_compression() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
-                            AppliedLoad::UniaxialStress(|t: Scalar| -t, &[0.0, 1.0]),
+                            AppliedLoad::UniaxialStress(
+                                |t: Quantity<Time>| -t.value(),
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
+                            ),
                             $integrator::default(),
                             $solver,
                         )?;
@@ -516,7 +522,10 @@ macro_rules! test_minimize_and_root {
                 fn minimize_uniaxial_tension() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
-                            AppliedLoad::UniaxialStress(|t: Scalar| t, &[0.0, 1.0]),
+                            AppliedLoad::UniaxialStress(
+                                |t: Quantity<Time>| t.value(),
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
+                            ),
                             $integrator::default(),
                             $solver,
                         )?;
@@ -548,7 +557,10 @@ macro_rules! test_minimize_and_root {
                 fn minimize_uniaxial_undeformed() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
-                            AppliedLoad::UniaxialStress(|_| 0.0, &[0.0, 1.0]),
+                            AppliedLoad::UniaxialStress(
+                                |_| 0.0,
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
+                            ),
                             $integrator::default(),
                             $solver,
                         )?;
@@ -574,9 +586,9 @@ macro_rules! test_minimize_and_root {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
                             AppliedLoad::BiaxialStress(
-                                |t: Scalar| 0.3 * t,
-                                |t: Scalar| 0.2 * t,
-                                &[0.0, 1.0],
+                                |t: Quantity<Time>| 0.3 * t.value(),
+                                |t: Quantity<Time>| 0.2 * t.value(),
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
                             ),
                             $integrator::default(),
                             $solver,
@@ -606,7 +618,11 @@ macro_rules! test_minimize_and_root {
                 fn minimize_biaxial_undeformed() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
-                            AppliedLoad::BiaxialStress(|_| 0.0, |_| 0.0, &[0.0, 1.0]),
+                            AppliedLoad::BiaxialStress(
+                                |_| 0.0,
+                                |_| 0.0,
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
+                            ),
                             $integrator::default(),
                             $solver,
                         )?;
@@ -631,7 +647,10 @@ macro_rules! test_minimize_and_root {
                 fn root_uniaxial_compression() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
-                            AppliedLoad::UniaxialStress(|t: Scalar| -t, &[0.0, 1.0]),
+                            AppliedLoad::UniaxialStress(
+                                |t: Quantity<Time>| -t.value(),
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
+                            ),
                             $integrator::default(),
                             $solver,
                         )?;
@@ -663,7 +682,10 @@ macro_rules! test_minimize_and_root {
                 fn root_uniaxial_tension() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
-                            AppliedLoad::UniaxialStress(|t: Scalar| t, &[0.0, 1.0]),
+                            AppliedLoad::UniaxialStress(
+                                |t: Quantity<Time>| t.value(),
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
+                            ),
                             $integrator::default(),
                             $solver,
                         )?;
@@ -695,7 +717,10 @@ macro_rules! test_minimize_and_root {
                 fn root_uniaxial_undeformed() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
-                            AppliedLoad::UniaxialStress(|_| 0.0, &[0.0, 1.0]),
+                            AppliedLoad::UniaxialStress(
+                                |_| 0.0,
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
+                            ),
                             $integrator::default(),
                             $solver,
                         )?;
@@ -721,9 +746,9 @@ macro_rules! test_minimize_and_root {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
                             AppliedLoad::BiaxialStress(
-                                |t: Scalar| 0.3 * t,
-                                |t: Scalar| 0.2 * t,
-                                &[0.0, 1.0],
+                                |t: Quantity<Time>| 0.3 * t.value(),
+                                |t: Quantity<Time>| 0.2 * t.value(),
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
                             ),
                             $integrator::default(),
                             $solver,
@@ -753,7 +778,11 @@ macro_rules! test_minimize_and_root {
                 fn root_biaxial_undeformed() -> Result<(), AssertionError> {
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
-                            AppliedLoad::BiaxialStress(|_| 0.0, |_| 0.0, &[0.0, 1.0]),
+                            AppliedLoad::BiaxialStress(
+                                |_| 0.0,
+                                |_| 0.0,
+                                &[Quantity::new(0.0), Quantity::new(1.0)],
+                            ),
                             $integrator::default(),
                             $solver,
                         )?;

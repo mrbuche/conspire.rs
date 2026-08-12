@@ -4,17 +4,18 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::viscoplastic::{
-            Viscoplastic, ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
+            Viscoplastic, ViscoplasticEvolution, ViscoplasticEvolutionHistory,
+            ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
         },
     },
     math::{
-        Rank2, ReciprocalStress, Tensor, TensorArray, Vector,
+        Differentiate, Quantity, Rank2, Tensor, TensorArray, Time, Vector,
         integrate::{ExplicitDaeFirstOrderRoot, ExplicitDaeZerothOrderRoot},
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
     mechanics::{
         DeformationGradient, DeformationGradients, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, Scalar, Times,
+        FirstPiolaKirchhoffTangentStiffness, Times,
     },
 };
 
@@ -25,14 +26,14 @@ pub use crate::constitutive::solid::elastic_plastic::{AppliedLoad, ElasticPlasti
 pub trait ElasticViscoplastic<Y>
 where
     Self: ElasticPlasticOrViscoplastic + Viscoplastic<Y>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     /// Calculates and returns the evolution of the state variables.
     fn state_variables_evolution(
         &self,
         deformation_gradient: &DeformationGradient,
         state_variables: &ViscoplasticStateVariables<Y>,
-    ) -> Result<ViscoplasticStateVariables<Y>, ConstitutiveError> {
+    ) -> Result<ViscoplasticEvolution<Y>, ConstitutiveError> {
         let deformation_gradient_p = &state_variables.0;
         let jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
@@ -48,7 +49,7 @@ where
 /// Zeroth-order root-finding methods for elastic-viscoplastic solid constitutive models.
 pub trait ZerothOrderRoot<Y>
 where
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -60,11 +61,11 @@ where
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeZerothOrderRoot<
             FirstPiolaKirchhoffStress,
-            ReciprocalStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
+            ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<
@@ -80,7 +81,7 @@ where
 /// First-order root-finding methods for elastic-viscoplastic solid constitutive models.
 pub trait FirstOrderRoot<Y>
 where
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -97,6 +98,7 @@ where
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
+            ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
@@ -116,18 +118,18 @@ where
 impl<C, Y> ZerothOrderRoot<Y> for C
 where
     C: ElasticViscoplastic<Y>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     fn root(
         &self,
         applied_load: AppliedLoad,
         integrator: impl ExplicitDaeZerothOrderRoot<
             FirstPiolaKirchhoffStress,
-            ReciprocalStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
+            ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<
@@ -141,12 +143,12 @@ where
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
         match integrator.integrate(
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
@@ -156,7 +158,7 @@ where
             solver,
             time,
             (self.initial_state(), DeformationGradient::identity()),
-            |t: Scalar| {
+            |t: Quantity<Time>| {
                 prescribed
                     .iter()
                     .for_each(|(index, function)| vector[*index] = function(t));
@@ -177,7 +179,7 @@ where
 impl<C, Y> FirstOrderRoot<Y> for C
 where
     C: ElasticViscoplastic<Y>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     fn root(
         &self,
@@ -189,6 +191,7 @@ where
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
+            ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
@@ -206,19 +209,19 @@ where
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
         match integrator.integrate(
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
                 Ok(self
                     .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
@@ -230,7 +233,7 @@ where
             solver,
             time,
             (self.initial_state(), DeformationGradient::identity()),
-            |t: Scalar| {
+            |t: Quantity<Time>| {
                 prescribed
                     .iter()
                     .for_each(|(index, function)| vector[*index] = function(t));

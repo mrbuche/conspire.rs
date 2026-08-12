@@ -2,7 +2,8 @@ pub(crate) mod list;
 pub(crate) mod vec;
 
 use crate::math::{
-    Differentiate, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank2, Vector,
+    Differentiate, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank2,
+    UnitHalves, Vector,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -17,19 +18,26 @@ where
     T1: Tensor,
     T2: Tensor;
 
-// A quantity carries its unit into both halves of the tuple it scales.
+// A quantity carries its unit into both halves of the tuple it scales, each half
+// taking the unit [`UnitHalves`] gives it: a step in one variable goes to both,
+// while a pair is taken apart.
 
-// The unit scaling a tuple is a pair too, each half taking its own.
+type First<V> = <V as UnitHalves>::First;
+type Second<V> = <V as UnitHalves>::Second;
 
-impl<T1, T2, V1, V2> Mul<Quantity<(V1, V2)>> for TensorTuple<T1, T2>
+impl<T1, T2, V> Mul<Quantity<V>> for TensorTuple<T1, T2>
 where
-    T1: Mul<Quantity<V1>> + Tensor,
-    T2: Mul<Quantity<V2>> + Tensor,
-    <T1 as Mul<Quantity<V1>>>::Output: Tensor,
-    <T2 as Mul<Quantity<V2>>>::Output: Tensor,
+    V: UnitHalves,
+    T1: Mul<Quantity<First<V>>> + Tensor,
+    T2: Mul<Quantity<Second<V>>> + Tensor,
+    <T1 as Mul<Quantity<First<V>>>>::Output: Tensor,
+    <T2 as Mul<Quantity<Second<V>>>>::Output: Tensor,
 {
-    type Output = TensorTuple<<T1 as Mul<Quantity<V1>>>::Output, <T2 as Mul<Quantity<V2>>>::Output>;
-    fn mul(self, quantity: Quantity<(V1, V2)>) -> Self::Output {
+    type Output = TensorTuple<
+        <T1 as Mul<Quantity<First<V>>>>::Output,
+        <T2 as Mul<Quantity<Second<V>>>>::Output,
+    >;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
         TensorTuple(
             self.0 * Quantity::new(quantity.value()),
             self.1 * Quantity::new(quantity.value()),
@@ -37,18 +45,42 @@ where
     }
 }
 
-impl<T1, T2, V1, V2> Mul<Quantity<(V1, V2)>> for &TensorTuple<T1, T2>
+impl<T1, T2, V> Mul<Quantity<V>> for &TensorTuple<T1, T2>
 where
-    T1: Clone + Mul<Quantity<V1>> + Tensor,
-    T2: Clone + Mul<Quantity<V2>> + Tensor,
-    <T1 as Mul<Quantity<V1>>>::Output: Tensor,
-    <T2 as Mul<Quantity<V2>>>::Output: Tensor,
+    V: UnitHalves,
+    T1: Clone + Mul<Quantity<First<V>>> + Tensor,
+    T2: Clone + Mul<Quantity<Second<V>>> + Tensor,
+    <T1 as Mul<Quantity<First<V>>>>::Output: Tensor,
+    <T2 as Mul<Quantity<Second<V>>>>::Output: Tensor,
 {
-    type Output = TensorTuple<<T1 as Mul<Quantity<V1>>>::Output, <T2 as Mul<Quantity<V2>>>::Output>;
-    fn mul(self, quantity: Quantity<(V1, V2)>) -> Self::Output {
+    type Output = TensorTuple<
+        <T1 as Mul<Quantity<First<V>>>>::Output,
+        <T2 as Mul<Quantity<Second<V>>>>::Output,
+    >;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
         TensorTuple(
             self.0.clone() * Quantity::new(quantity.value()),
             self.1.clone() * Quantity::new(quantity.value()),
+        )
+    }
+}
+
+impl<T1, T2, V> Div<Quantity<V>> for TensorTuple<T1, T2>
+where
+    V: UnitHalves,
+    T1: Div<Quantity<First<V>>> + Tensor,
+    T2: Div<Quantity<Second<V>>> + Tensor,
+    <T1 as Div<Quantity<First<V>>>>::Output: Tensor,
+    <T2 as Div<Quantity<Second<V>>>>::Output: Tensor,
+{
+    type Output = TensorTuple<
+        <T1 as Div<Quantity<First<V>>>>::Output,
+        <T2 as Div<Quantity<Second<V>>>>::Output,
+    >;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        TensorTuple(
+            self.0 / Quantity::new(quantity.value()),
+            self.1 / Quantity::new(quantity.value()),
         )
     }
 }

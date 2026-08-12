@@ -4,7 +4,7 @@ use crate::math::{Current, Projection, Reference};
 mod test;
 
 use crate::math::{
-    CrossProduct, Tensor, TensorRank0, TensorRank1, TensorRank2, tensor::list::TensorList,
+    CrossProduct, Tensor, TensorRank0, TensorRank1, TensorRank2, UnitMul, tensor::list::TensorList,
 };
 use std::ops::Mul;
 
@@ -95,11 +95,13 @@ impl<const D: usize, I, J, const W: usize, U> Mul<&TensorRank1List<D, J, W, U>>
     }
 }
 
-impl<const D: usize, I, J, const W: usize, U> Mul<TensorRank1List<D, J, W, U>>
+impl<const D: usize, I, J, const W: usize, U, V> Mul<TensorRank1List<D, J, W, V>>
     for &TensorRank1List<D, I, W, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank2<D, I, J, U>;
-    fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W, U>) -> Self::Output {
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_1_list: TensorRank1List<D, J, W, V>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1_list)
             .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))
@@ -107,11 +109,13 @@ impl<const D: usize, I, J, const W: usize, U> Mul<TensorRank1List<D, J, W, U>>
     }
 }
 
-impl<const D: usize, I, J, const W: usize, U> Mul<&TensorRank1List<D, J, W, U>>
+impl<const D: usize, I, J, const W: usize, U, V> Mul<&TensorRank1List<D, J, W, V>>
     for &TensorRank1List<D, I, W, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank2<D, I, J, U>;
-    fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W, U>) -> Self::Output {
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_1_list: &TensorRank1List<D, J, W, V>) -> Self::Output {
         self.iter()
             .zip(tensor_rank_1_list.iter())
             .map(|(self_entry, entry)| Self::Output::from((self_entry, entry)))

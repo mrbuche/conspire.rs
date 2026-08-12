@@ -13,11 +13,14 @@ use crate::constitutive::solid::elastic_plastic::bcs;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        fluid::viscoplastic::{ViscoplasticStateVariables, ViscoplasticStateVariablesHistory},
+        fluid::viscoplastic::{
+            ViscoplasticEvolutionHistory, ViscoplasticStateVariables,
+            ViscoplasticStateVariablesHistory,
+        },
         solid::elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
     },
     math::{
-        ReciprocalStress, Tensor, TensorArray, Vector,
+        Differentiate, Quantity, Tensor, TensorArray, Time, Vector,
         integrate::{ExplicitDaeFirstOrderMinimize, ExplicitDaeSecondOrderMinimize},
         optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
     },
@@ -31,7 +34,7 @@ use crate::{
 pub trait HyperelasticViscoplastic<Y>
 where
     Self: ElasticViscoplastic<Y>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///
@@ -48,7 +51,7 @@ where
 /// First-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
 pub trait FirstOrderMinimize<Y>
 where
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -61,11 +64,11 @@ where
         integrator: impl ExplicitDaeFirstOrderMinimize<
             Scalar,
             FirstPiolaKirchhoffStress,
-            ReciprocalStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
+            ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<
@@ -81,7 +84,7 @@ where
 /// Second-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
 pub trait SecondOrderMinimize<Y>
 where
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -99,6 +102,7 @@ where
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
+            ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl SecondOrderOptimization<
             Scalar,
@@ -119,7 +123,7 @@ where
 impl<C, Y> FirstOrderMinimize<Y> for C
 where
     C: HyperelasticViscoplastic<Y>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     fn minimize(
         &self,
@@ -127,11 +131,11 @@ where
         integrator: impl ExplicitDaeFirstOrderMinimize<
             Scalar,
             FirstPiolaKirchhoffStress,
-            ReciprocalStress,
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
+            ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<
@@ -145,19 +149,19 @@ where
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
         match integrator.integrate(
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
                 Ok(self
                     .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
@@ -167,7 +171,7 @@ where
             solver,
             time,
             (self.initial_state(), DeformationGradient::identity()),
-            |t: Scalar| {
+            |t: Quantity<Time>| {
                 prescribed
                     .iter()
                     .for_each(|(index, function)| vector[*index] = function(t));
@@ -188,7 +192,7 @@ where
 impl<C, Y> SecondOrderMinimize<Y> for C
 where
     C: HyperelasticViscoplastic<Y>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     fn minimize(
         &self,
@@ -201,6 +205,7 @@ where
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
+            ViscoplasticEvolutionHistory<Y>,
         >,
         solver: impl SecondOrderOptimization<
             Scalar,
@@ -219,26 +224,26 @@ where
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
         match integrator.integrate(
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
                 Ok(self
                     .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
                 Ok(self
                     .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
@@ -250,7 +255,7 @@ where
             solver,
             time,
             (self.initial_state(), DeformationGradient::identity()),
-            |t: Scalar| {
+            |t: Quantity<Time>| {
                 prescribed
                     .iter()
                     .for_each(|(index, function)| vector[*index] = function(t));

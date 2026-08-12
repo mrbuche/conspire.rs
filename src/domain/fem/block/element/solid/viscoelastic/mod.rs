@@ -1,13 +1,12 @@
-use crate::math::Dimensionless;
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
         FiniteElementError, GradientVectors,
-        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
+        solid::{ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidFiniteElement},
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
-    math::{ContractSecondFourthWithFirst, IDENTITY, Scalar, Tensor},
+    math::{ContractSecondFourthWithFirst, Dimensionless, IDENTITY, Scalar, Tensor, Time},
     mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStressList},
 };
 
@@ -32,7 +31,7 @@ pub trait ViscoelasticFiniteElement<
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
+    ) -> Result<ElementNodalDampingsSolid<N>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
@@ -60,7 +59,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
+    ) -> Result<ElementNodalDampingsSolid<N>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -103,7 +102,7 @@ where
                                                     gradient_vector_b,
                                                 )
                                                 * integration_weight)
-                                                .with_unit::<Dimensionless>()
+                                                .with_unit::<Time>()
                                         })
                                         .collect()
                                 })
@@ -145,7 +144,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
+    ) -> Result<ElementNodalDampingsSolid<N>, FiniteElementError> {
         match self.deformation_gradients(nodal_coordinates).iter().zip(self.deformation_gradient_rates(nodal_coordinates, nodal_velocities).iter())
             .map(|(deformation_gradient, deformation_gradient_rate)| {
                 constitutive_model.first_piola_kirchhoff_rate_tangent_stiffness(deformation_gradient, deformation_gradient_rate)

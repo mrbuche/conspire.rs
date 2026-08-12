@@ -5,7 +5,7 @@ macro_rules! test_model {
                 AppliedLoad, ElasticPlasticOrViscoplastic,
             },
             math::{
-                Rank2, Tensor, TensorArray,
+                Quantity, Rank2, Tensor, TensorArray, Time,
                 assert::{AssertionError, FiniteDifference},
                 integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
                 optimize::{GradientDescent, NewtonRaphson},
@@ -23,7 +23,10 @@ macro_rules! test_model {
                     reference_flow_rate: 0.1,
                 };
                 let (t, f, f_p) = model.root(
-                    AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
+                    AppliedLoad::UniaxialStress(
+                        |t: Quantity<Time>| 1.0 + t.value(),
+                        &[Quantity::new(0.0), Quantity::new(2.0)],
+                    ),
                     $integrator {
                         abs_tol: 1e-6,
                         rel_tol: 1e-6,
@@ -49,7 +52,10 @@ macro_rules! test_model {
                     )
                 }
                 let (t, f, f_p) = model.minimize(
-                    AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
+                    AppliedLoad::UniaxialStress(
+                        |t: Quantity<Time>| 1.0 + t.value(),
+                        &[Quantity::new(0.0), Quantity::new(2.0)],
+                    ),
                     $integrator {
                         abs_tol: 1e-6,
                         rel_tol: 1e-6,

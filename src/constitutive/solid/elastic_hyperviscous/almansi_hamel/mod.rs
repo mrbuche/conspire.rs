@@ -2,7 +2,7 @@ use crate::math::TensorRank4;
 #[cfg(test)]
 mod test;
 
-use crate::math::{Quantity, Rate, Stress, Viscosity};
+use crate::math::{Quantity, Stress, Viscosity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -88,8 +88,7 @@ impl Viscoelastic for AlmansiHamel {
             * 0.5;
         let (deviatoric_strain, strain_trace) = strain.deviatoric_and_trace();
         let velocity_gradient = deformation_gradient_rate * inverse_deformation_gradient;
-        let strain_rate =
-            ((&velocity_gradient + velocity_gradient.transpose()) * 0.5).with_unit::<Rate>();
+        let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
         let (deviatoric_strain_rate, strain_rate_trace) = strain_rate.deviatoric_and_trace();
         Ok(deviatoric_strain * (2.0 * shear_modulus / jacobian)
             + deviatoric_strain_rate * (2.0 * shear_viscosity / jacobian)
@@ -110,11 +109,8 @@ impl Viscoelastic for AlmansiHamel {
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
         let scaled_deformation_gradient_inverse_transpose =
             &deformation_gradient_inverse_transpose * self.shear_viscosity() / jacobian;
-        // A tangent with respect to a rate is a viscosity, but the rate itself
-        // carries no unit until there is one for time, so this is reported as
-        // the stress its alias claims.
         Ok(
-            (TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient_inverse_transpose)
+            TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient_inverse_transpose)
                 + TensorRank4::dyad_il_jk(
                     &scaled_deformation_gradient_inverse_transpose,
                     &IDENTITY,
@@ -124,8 +120,7 @@ impl Viscoelastic for AlmansiHamel {
                         * ((self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
                             / jacobian)),
                     &deformation_gradient_inverse_transpose,
-                ))
-            .with_unit::<Stress>(),
+                ),
         )
     }
 }

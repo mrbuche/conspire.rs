@@ -3,10 +3,13 @@
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
     math::{
-        Dimensionless, Quantity, Rank2, Rate, Scalar, Stress, Tensor, TensorArray, TensorTuple,
-        TensorTupleVec,
+        Derivative, Differentiate, Quantity, Rank2, Rate, Scalar, Stress, Tensor, TensorArray,
+        TensorTuple, TensorTupleVec,
     },
-    mechanics::{DeformationGradientPlastic, MandelStressElastic, StretchingRatePlastic},
+    mechanics::{
+        DeformationGradientPlastic, DeformationGradientRatePlastic, MandelStressElastic,
+        StretchingRatePlastic,
+    },
 };
 
 /// Viscoplastic state variables.
@@ -15,11 +18,18 @@ pub type ViscoplasticStateVariables<Y> = TensorTuple<DeformationGradientPlastic,
 /// Viscoplastic state variables history.
 pub type ViscoplasticStateVariablesHistory<Y> = TensorTupleVec<DeformationGradientPlastic, Y>;
 
+/// The evolution of the viscoplastic state variables.
+pub type ViscoplasticEvolution<Y> = Derivative<ViscoplasticStateVariables<Y>>;
+
+/// The history of the evolution of the viscoplastic state variables.
+pub type ViscoplasticEvolutionHistory<Y> =
+    TensorTupleVec<DeformationGradientRatePlastic, Derivative<Y>>;
+
 /// Required methods for viscoplastic fluid constitutive models.
 pub trait Viscoplastic<Y>
 where
     Self: Plastic,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     /// Returns the initial state of the variables.
     fn initial_state(&self) -> ViscoplasticStateVariables<Y>;
@@ -32,7 +42,7 @@ where
         &self,
         mandel_stress: MandelStressElastic,
         state_variables: &ViscoplasticStateVariables<Y>,
-    ) -> Result<ViscoplasticStateVariables<Y>, ConstitutiveError>;
+    ) -> Result<ViscoplasticEvolution<Y>, ConstitutiveError>;
     /// Calculates and returns the rate of plastic stretching.
     ///
     /// ```math
@@ -83,15 +93,15 @@ impl Plastic for ViscoplasticFlow {
     }
 }
 
-impl Viscoplastic<Scalar> for ViscoplasticFlow {
-    fn initial_state(&self) -> ViscoplasticStateVariables<Scalar> {
-        (DeformationGradientPlastic::identity(), 0.0).into()
+impl Viscoplastic<Quantity> for ViscoplasticFlow {
+    fn initial_state(&self) -> ViscoplasticStateVariables<Quantity> {
+        (DeformationGradientPlastic::identity(), Quantity::default()).into()
     }
     fn plastic_evolution(
         &self,
         mandel_stress: MandelStressElastic,
-        state_variables: &ViscoplasticStateVariables<Scalar>,
-    ) -> Result<ViscoplasticStateVariables<Scalar>, ConstitutiveError> {
+        state_variables: &ViscoplasticStateVariables<Quantity>,
+    ) -> Result<ViscoplasticEvolution<Quantity>, ConstitutiveError> {
         default_plastic_evolution(self, mandel_stress, state_variables)
     }
     fn rate_sensitivity(&self) -> Scalar {
@@ -105,22 +115,19 @@ impl Viscoplastic<Scalar> for ViscoplasticFlow {
 pub fn default_plastic_evolution<C>(
     model: &C,
     mandel_stress: MandelStressElastic,
-    state_variables: &ViscoplasticStateVariables<Scalar>,
-) -> Result<ViscoplasticStateVariables<Scalar>, ConstitutiveError>
+    state_variables: &ViscoplasticStateVariables<Quantity>,
+) -> Result<ViscoplasticEvolution<Quantity>, ConstitutiveError>
 where
-    C: Viscoplastic<Scalar>,
+    C: Viscoplastic<Quantity>,
 {
     let (deformation_gradient_p, &equivalent_plastic_strain) = state_variables.into();
     let plastic_stretching_rate = model.plastic_stretching_rate(
         mandel_stress.deviatoric(),
-        model.yield_stress(equivalent_plastic_strain)?,
+        model.yield_stress(equivalent_plastic_strain.value())?,
     )?;
-    let equivalent_plastic_strain_rate = plastic_stretching_rate.norm();
+    let equivalent_plastic_strain_rate = Quantity::new(plastic_stretching_rate.norm());
     Ok((
-        // An evolution is the state variables per unit time, but the integrators
-        // carry it in the state variables' own type, there being no unit of time
-        // for it to be divided by. The rate is erased until there is one.
-        (plastic_stretching_rate * deformation_gradient_p).with_unit::<Dimensionless>(),
+        plastic_stretching_rate * deformation_gradient_p,
         equivalent_plastic_strain_rate,
     )
         .into())

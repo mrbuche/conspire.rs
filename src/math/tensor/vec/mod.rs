@@ -85,6 +85,9 @@ where
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.0.as_mut_slice()
     }
+    pub fn as_slice(&self) -> &[T] {
+        self.0.as_slice()
+    }
 }
 
 impl<T> Default for TensorVector<T>
@@ -308,6 +311,28 @@ where
     }
     fn with_capacity(capacity: usize) -> Self {
         Self(Vec::with_capacity(capacity))
+    }
+}
+
+impl<T, V> Div<Quantity<V>> for TensorVector<T>
+where
+    T: Div<Quantity<V>> + Tensor,
+    <T as Div<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorVector<<T as Div<Quantity<V>>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        self.into_iter().map(|entry| entry / quantity).collect()
+    }
+}
+
+impl<T, V> Div<Quantity<V>> for &TensorVector<T>
+where
+    T: Clone + Div<Quantity<V>> + Tensor,
+    <T as Div<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorVector<<T as Div<Quantity<V>>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        self.iter().map(|entry| entry.clone() / quantity).collect()
     }
 }
 

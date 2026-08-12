@@ -20,8 +20,8 @@ pub use quantity::{Is, Quantity};
 pub use unit::{
     Compliance, Dimensionless, EnergyDensity, Fluidity, Frequency, Length, Modulus, Pressure, Rate,
     ReciprocalLength, ReciprocalStress, ReciprocalTemperature, ReciprocalViscosity, Stress,
-    StressPerTemperature, Temperature, ThermalExpansion, Time, Unit, UnitDiv, UnitInv, UnitMul,
-    Viscosity,
+    StressPerTemperature, Temperature, ThermalExpansion, Time, Unit, UnitDiv, UnitHalves, UnitInv,
+    UnitMul, Viscosity,
 };
 
 use super::{SquareMatrix, Vector};
@@ -86,6 +86,13 @@ where
     /// The derivative with respect to the variable of integration.
     type Derivative: Tensor;
 }
+
+/// The derivative of `Y` with respect to a variable of unit `T`.
+///
+/// Spelling the projection out at every use would crowd out the signatures it
+/// appears in, since a tensor names a derivative for each variable it might be
+/// differentiated against.
+pub type Derivative<Y, T = Time> = <Y as Differentiate<T>>::Derivative;
 
 /// Views a tensor with its configurations and unit discarded.
 ///

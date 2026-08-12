@@ -20,6 +20,24 @@ pub trait UnitDiv<Rhs> {
     type Output;
 }
 
+/// The units the halves of a tuple take from a unit meant for the pair.
+///
+/// A tuple is scaled either by a step in one variable, which both halves take,
+/// or by a quantity whose unit is the pair the halves already carry. Naming both
+/// through one trait keeps a single scaling rule for tuples rather than two that
+/// would overlap.
+pub trait UnitHalves {
+    /// The unit the first half takes.
+    type First;
+    /// The unit the second half takes.
+    type Second;
+}
+
+impl<A, B> UnitHalves for (A, B) {
+    type First = A;
+    type Second = B;
+}
+
 /// The unit obtained by inverting.
 ///
 /// Left unimplemented for units whose inverse names no quantity, so that
@@ -41,6 +59,10 @@ macro_rules! units {
             }
             impl UnitDiv<Dimensionless> for $name {
                 type Output = $name;
+            }
+            impl UnitHalves for $name {
+                type First = $name;
+                type Second = $name;
             }
         )+
     };

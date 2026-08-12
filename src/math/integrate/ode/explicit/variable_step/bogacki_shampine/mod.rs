@@ -3,15 +3,15 @@ mod test;
 
 use crate::math::Norm;
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        Explicit, FreeInterpolant, IntegrationError, OdeIntegrator, VariableStep,
+        Explicit, FreeInterpolant, IntegrationError, OdeIntegrator, Times, VariableStep,
         VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
-use std::ops::{Mul, Sub};
+use std::ops::{Div, Mul, Sub};
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
@@ -53,7 +53,7 @@ where
 {
 }
 
-impl VariableStep for BogackiShampine {
+impl<T> VariableStep<T> for BogackiShampine {
     fn abs_tol(&self) -> Scalar {
         self.abs_tol
     }
@@ -69,49 +69,57 @@ impl VariableStep for BogackiShampine {
     fn dt_cut(&self) -> Scalar {
         self.dt_cut
     }
-    fn dt_min(&self) -> Scalar {
-        self.dt_min
+    fn dt_min(&self) -> Quantity<T> {
+        Quantity::new(self.dt_min)
     }
     fn error_norm(&self) -> &Norm {
         &self.error_norm
     }
 }
 
-impl<Y, U> Explicit<Y, U> for BogackiShampine
+impl<Y, U, V, T> Explicit<Y, U, V, T> for BogackiShampine
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     const SLOPES: usize = 4;
     fn integrate(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        time: &[Scalar],
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        time: &[Quantity<T>],
         initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_variable_step(function, time, initial_condition)
     }
 }
 
-impl<Y, U> VariableStepExplicit<Y, U> for BogackiShampine
+impl<Y, U, V, T> VariableStepExplicit<Y, U, V, T> for BogackiShampine
 where
-    Self: Explicit<Y, U>,
-    Y: Tensor,
+    Self: Explicit<Y, U, V, T>,
+    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn error(&self, dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
+    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
         Ok(self
             .error_norm
             .apply(&((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0))))
     }
     fn slopes(
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
         *y_trial = &k[0] * (0.5 * dt) + y;
@@ -123,70 +131,89 @@ where
     }
     fn slopes_and_error(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
         self.slopes_and_error_fsal(function, y, t, dt, k, y_trial)
     }
     fn step(
         &self,
-        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        _function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &mut Y,
-        t: &mut Scalar,
+        t: &mut Quantity<T>,
         y_sol: &mut U,
-        t_sol: &mut Vector,
-        dydt_sol: &mut U,
-        k_sol: &mut Vec<U>,
-        dt: &mut Scalar,
-        k: &mut [Y],
+        t_sol: &mut Times<T>,
+        dydt_sol: &mut V,
+        k_sol: &mut Vec<V>,
+        dt: &mut Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
         let dt_0 = *dt;
         self.step_fsal(y, t, y_sol, t_sol, dydt_sol, k_sol, dt, k, y_trial, e)?;
         if e > 0.0 {
+            // None of these carry a unit, so the variable of integration has to
+            // be named for them rather than read off what they return.
+            let (beta, tol, expn) = (
+                VariableStep::<T>::dt_beta(self),
+                VariableStep::<T>::abs_tol(self),
+                VariableStep::<T>::dt_expn(self),
+            );
             *dt = dt_0;
-            *dt *= self.dt_beta() * (self.abs_tol() / e).powf(1.0 / self.dt_expn())
+            *dt *= beta * (tol / e).powf(1.0 / expn)
         }
         Ok(()) // some temporary fixes to pass tests in fem that are barely failing
     }
 }
 
-impl<Y, U> VariableStepExplicitFirstSameAsLast<Y, U> for BogackiShampine
+impl<Y, U, V, T> VariableStepExplicitFirstSameAsLast<Y, U, V, T> for BogackiShampine
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
 }
 
-impl<Y, U> FreeInterpolant<Y, U> for BogackiShampine
+impl<Y, U, V, T> FreeInterpolant<Y, U, V, T> for BogackiShampine
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
 }
 
-impl<Y, U> InterpolateSolution<Y, U> for BogackiShampine
+impl<Y, U, V, T> InterpolateSolution<Y, U, V, T> for BogackiShampine
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn interpolate(
         &self,
-        time: &Vector,
-        tp: &Vector,
+        time: &Times<T>,
+        tp: &Times<T>,
         yp: &U,
-        dydtp: &U,
-        _k_sol: &[U],
-        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-    ) -> Result<(U, U), IntegrationError> {
+        dydtp: &V,
+        _k_sol: &[V],
+        _function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+    ) -> Result<(U, V), IntegrationError> {
         Ok(Self::interpolate_free(time, tp, yp, dydtp))
     }
 }

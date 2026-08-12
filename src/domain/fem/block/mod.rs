@@ -44,10 +44,10 @@ where
     fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates<const D: usize, I>(
-        coordinates: &TensorRank1Vec<D, I>,
+    fn element_coordinates<const D: usize, I, U>(
+        coordinates: &TensorRank1Vec<D, I, U>,
         nodes: &[usize; N],
-    ) -> TensorRank1List<D, I, N> {
+    ) -> TensorRank1List<D, I, N, U> {
         nodes
             .iter()
             .map(|&node| coordinates[node].clone())

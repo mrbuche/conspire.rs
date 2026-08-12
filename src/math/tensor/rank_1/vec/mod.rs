@@ -5,7 +5,7 @@ mod test;
 
 use crate::math::{
     Jacobian, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorRank2SparseVec2D,
-    TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, Vector,
+    TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, UnitDiv, Vector,
     tensor::vec::TensorVector,
 };
 use std::{
@@ -269,22 +269,28 @@ impl<const D: usize, I, J, U> Div<TensorRank2Vec2D<D, I, J, U>> for &TensorRank1
     }
 }
 
-impl<const D: usize, I, J, U> Div<TensorRank2SparseVec2D<D, I, J, U>> for &TensorRank1Vec<D, I, U> {
-    type Output = TensorRank1Vec<D, J, U>;
-    fn div(self, _tensor_rank_2_sparse_vec_2d: TensorRank2SparseVec2D<D, I, J, U>) -> Self::Output {
+impl<const D: usize, I, J, U, V> Div<TensorRank2SparseVec2D<D, I, J, V>>
+    for &TensorRank1Vec<D, I, U>
+where
+    U: UnitDiv<V>,
+{
+    type Output = TensorRank1Vec<D, J, <U as UnitDiv<V>>::Output>;
+    fn div(self, _tensor_rank_2_sparse_vec_2d: TensorRank2SparseVec2D<D, I, J, V>) -> Self::Output {
         unimplemented!(
             "A mesh-scale step wants the sparse solver the caller supplies, which a division has nowhere to hold."
         )
     }
 }
 
-impl<const D: usize, I, J, U> Div<TensorRank2SparseVec2DSymmetric<D, I, J, U>>
+impl<const D: usize, I, J, U, V> Div<TensorRank2SparseVec2DSymmetric<D, I, J, V>>
     for &TensorRank1Vec<D, I, U>
+where
+    U: UnitDiv<V>,
 {
-    type Output = TensorRank1Vec<D, J, U>;
+    type Output = TensorRank1Vec<D, J, <U as UnitDiv<V>>::Output>;
     fn div(
         self,
-        _tensor_rank_2_sparse_symmetric_vec_2d: TensorRank2SparseVec2DSymmetric<D, I, J, U>,
+        _tensor_rank_2_sparse_symmetric_vec_2d: TensorRank2SparseVec2DSymmetric<D, I, J, V>,
     ) -> Self::Output {
         unimplemented!(
             "A mesh-scale step wants the sparse solver the caller supplies, which a division has nowhere to hold."

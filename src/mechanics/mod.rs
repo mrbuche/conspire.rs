@@ -1,6 +1,6 @@
 //! Mechanics library.
 
-use crate::math::{Current, Intermediate, Rate, Reference, Stress};
+use crate::math::{Current, Intermediate, Rate, Reference, Stress, Time, Viscosity};
 #[cfg(test)]
 pub mod test;
 
@@ -110,7 +110,8 @@ pub type CauchyTangentStiffnessElastic =
     TensorRank4<3, Current, Current, Current, Intermediate, Stress>;
 
 /// The rate tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{V}}`$.
-pub type CauchyRateTangentStiffness = TensorRank4<3, Current, Current, Current, Reference, Stress>;
+pub type CauchyRateTangentStiffness =
+    TensorRank4<3, Current, Current, Current, Reference, Viscosity>;
 
 /// A coordinate.
 pub type Coordinate<I> = TensorRank1<3, I>;
@@ -134,7 +135,10 @@ pub type CurrentCoordinates<const W: usize> = TensorRank1List<3, Current, W>;
 pub type CurrentCoordinatesRef<'a> = TensorRank1RefVec<'a, 3, Current>;
 
 /// A velocity in the current configuration.
-pub type CurrentVelocity = TensorRank1<3, Current>;
+pub type CurrentVelocity = TensorRank1<3, Current, Rate>;
+
+/// A list of velocities in the current configuration.
+pub type CurrentVelocities<const W: usize> = TensorRank1List<3, Current, W, Rate>;
 
 /// The deformation gradient $`\mathbf{F}`$.
 pub type DeformationGradient = TensorRank2<3, Current, Reference>;
@@ -152,16 +156,17 @@ pub type DeformationGradientGeneral<I, J> = TensorRank2<3, I, J>;
 pub type DeformationGradientPlastic = TensorRank2<3, Intermediate, Reference>;
 
 /// The deformation gradient rate $`\dot{\mathbf{F}}`$.
-pub type DeformationGradientRate = TensorRank2<3, Current, Reference>;
+pub type DeformationGradientRate = TensorRank2<3, Current, Reference, Rate>;
 
 /// The plastic deformation gradient rate $`\dot{\mathbf{F}}_\mathrm{p}`$.
-pub type DeformationGradientRatePlastic = TensorRank2<3, Intermediate, Reference>;
+pub type DeformationGradientRatePlastic = TensorRank2<3, Intermediate, Reference, Rate>;
 
 /// A list of deformation gradients.
 pub type DeformationGradientList<const W: usize> = TensorRank2List<3, Current, Reference, W>;
 
 /// A list of deformation gradient rates.
-pub type DeformationGradientRateList<const W: usize> = TensorRank2List<3, Current, Reference, W>;
+pub type DeformationGradientRateList<const W: usize> =
+    TensorRank2List<3, Current, Reference, W, Rate>;
 
 /// A vector of deformation gradients.
 pub type DeformationGradients = TensorRank2Vec<3, Current, Reference>;
@@ -170,10 +175,10 @@ pub type DeformationGradients = TensorRank2Vec<3, Current, Reference>;
 pub type DeformationGradientsPlastic = TensorRank2Vec<3, Intermediate, Reference>;
 
 /// A vector of deformation gradient rates.
-pub type DeformationGradientRates = TensorRank2Vec<3, Current, Reference>;
+pub type DeformationGradientRates = TensorRank2Vec<3, Current, Reference, Rate>;
 
 /// A vector of plastic deformation gradient rates.
-pub type DeformationGradientRatesPlastic = TensorRank2Vec<3, Intermediate, Reference>;
+pub type DeformationGradientRatesPlastic = TensorRank2Vec<3, Intermediate, Reference, Rate>;
 
 /// A displacement.
 pub type Displacement = TensorRank1<3, Current>;
@@ -222,11 +227,11 @@ pub type FirstPiolaKirchhoffTangentStiffnesses =
 
 /// The rate tangent stiffness associated with the first Piola-Kirchhoff stress $`\boldsymbol{\mathcal{U}}`$.
 pub type FirstPiolaKirchhoffRateTangentStiffness =
-    TensorRank4<3, Current, Reference, Current, Reference, Stress>;
+    TensorRank4<3, Current, Reference, Current, Reference, Viscosity>;
 
 /// A list of first Piola-Kirchhoff rate tangent stiffnesses.
 pub type FirstPiolaKirchhoffRateTangentStiffnesses<const W: usize> =
-    TensorRank4List<3, Current, Reference, Current, Reference, W, Stress>;
+    TensorRank4List<3, Current, Reference, Current, Reference, W, Viscosity>;
 
 /// A force.
 pub type Force = TensorRank1<3, Current>;
@@ -238,7 +243,7 @@ pub type ForceList<const N: usize> = TensorRank1List<3, Current, N>;
 pub type Forces = TensorRank1Vec<3, Current>;
 
 /// The frame spin $`\mathbf{\Omega}=\dot{\mathbf{Q}}\cdot\mathbf{Q}^T`$.
-pub type FrameSpin = TensorRank2<3, Current, Current>;
+pub type FrameSpin = TensorRank2<3, Current, Current, Rate>;
 
 /// The heat flux.
 pub type HeatFlux = TensorRank1<3, Reference>;
@@ -272,10 +277,10 @@ pub type NormalGradients<const O: usize, const P: usize> =
     TensorRank2List2D<3, Current, Current, O, P>;
 
 /// A normal rate.
-pub type NormalRate = TensorRank1<3, Current>;
+pub type NormalRate = TensorRank1<3, Current, Rate>;
 
 /// A list of normal rates.
-pub type NormalRates<const N: usize> = TensorRank1List<3, Current, N>;
+pub type NormalRates<const N: usize> = TensorRank1List<3, Current, N, Rate>;
 
 /// A coordinate in the reference configuration.
 pub type ReferenceCoordinate = TensorRank1<3, Reference>;
@@ -299,7 +304,7 @@ pub type RotationCurrentConfiguration = TensorRank2<3, Current, Current>;
 pub type RotationCurrentConfigurationList<const N: usize> = TensorRank2List<3, Current, Current, N>;
 
 /// The rate of rotation of the current configuration $`\dot{\mathbf{Q}}`$.
-pub type RotationRateCurrentConfiguration = TensorRank2<3, Current, Current>;
+pub type RotationRateCurrentConfiguration = TensorRank2<3, Current, Current, Rate>;
 
 /// The rotation of the reference configuration $`\mathbf{Q}_0`$.
 pub type RotationReferenceConfiguration = TensorRank2<3, Reference, Reference>;
@@ -323,7 +328,7 @@ pub type SecondPiolaKirchhoffTangentStiffnessElastic =
 
 /// The rate tangent stiffness associated with the second Piola-Kirchhoff stress $`\boldsymbol{\mathcal{W}}`$.
 pub type SecondPiolaKirchhoffRateTangentStiffness =
-    TensorRank4<3, Reference, Reference, Current, Reference, Stress>;
+    TensorRank4<3, Reference, Reference, Current, Reference, Viscosity>;
 
 /// A stiffness resulting from a force.
 pub type Stiffness = TensorRank2<3, Current, Current>;
@@ -333,6 +338,15 @@ pub type StiffnessList<const N: usize> = TensorRank2List<3, Current, Current, N>
 
 /// A 2D list of stiffnesses.
 pub type StiffnessList2D<const N: usize> = TensorRank2List2D<3, Current, Current, N, N>;
+
+/// A damping resulting from a force per unit rate.
+pub type Damping = TensorRank2<3, Current, Current, Time>;
+
+/// A list of two-dimensional lists of dampings.
+pub type DampingList2D<const N: usize> = TensorRank2List2D<3, Current, Current, N, N, Time>;
+
+/// A vector of two-dimensional vectors of dampings.
+pub type Dampings = TensorRank2Vec2D<3, Current, Current, Time>;
 
 /// A vector of stiffnesses.
 pub type Stiffnesses = TensorRank2Vec2D<3, Current, Current>;
@@ -356,7 +370,7 @@ pub type TemperatureGradient = TensorRank1<3, Reference>;
 pub type TemperatureGradients<const N: usize> = TensorRank1List<3, Reference, N>;
 
 /// A vector of times.
-pub type Times = crate::math::Vector;
+pub type Times = crate::math::integrate::Times;
 
 /// A traction.
 pub type Traction = TensorRank1<3, Current>;

@@ -14,9 +14,10 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor, TensorTupleListVec, TensorTupleListVec2D, optimize::EqualityConstraint,
+        Derivative, Differentiate, Quantity, Tensor, TensorTupleListVec, TensorTupleListVec2D,
+        Time, optimize::EqualityConstraint,
     },
-    mechanics::DeformationGradientPlastic,
+    mechanics::{DeformationGradientPlastic, DeformationGradientRatePlastic},
 };
 use std::array::from_fn;
 
@@ -26,14 +27,20 @@ pub type ViscoplasticStateVariables<const G: usize, Y> =
 pub type ViscoplasticStateVariablesHistory<const G: usize, Y> =
     TensorTupleListVec2D<DeformationGradientPlastic, Y, G>;
 
-pub type ElasticViscoplasticBCs = fn(Scalar) -> EqualityConstraint;
+pub type ViscoplasticEvolution<const G: usize, Y> =
+    TensorTupleListVec<DeformationGradientRatePlastic, Derivative<Y>, G>;
+
+pub type ViscoplasticEvolutionHistory<const G: usize, Y> =
+    TensorTupleListVec2D<DeformationGradientRatePlastic, Derivative<Y>, G>;
+
+pub type ElasticViscoplasticBCs = fn(Quantity<Time>) -> EqualityConstraint;
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
     ElasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3> for Block<C, F, G, M, N, P>
 where
     C: ElasticViscoplastic<Y>,
     F: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     fn initial_state(&self) -> ViscoplasticStateVariables<G, Y> {
         self.elements()
@@ -112,7 +119,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<ViscoplasticStateVariables<G, Y>, ElementModelError> {
+    ) -> Result<ViscoplasticEvolution<G, Y>, ElementModelError> {
         match self
             .elements()
             .iter()

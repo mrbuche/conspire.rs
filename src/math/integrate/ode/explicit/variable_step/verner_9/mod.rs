@@ -3,8 +3,10 @@ mod test;
 
 use crate::math::Norm;
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
-    integrate::{Explicit, IntegrationError, OdeIntegrator, VariableStep, VariableStepExplicit},
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    integrate::{
+        Explicit, IntegrationError, OdeIntegrator, Times, VariableStep, VariableStepExplicit,
+    },
     interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
@@ -162,7 +164,7 @@ where
 {
 }
 
-impl VariableStep for Verner9 {
+impl<T> VariableStep<T> for Verner9 {
     fn abs_tol(&self) -> Scalar {
         self.abs_tol
     }
@@ -178,39 +180,47 @@ impl VariableStep for Verner9 {
     fn dt_cut(&self) -> Scalar {
         self.dt_cut
     }
-    fn dt_min(&self) -> Scalar {
-        self.dt_min
+    fn dt_min(&self) -> Quantity<T> {
+        Quantity::new(self.dt_min)
     }
     fn error_norm(&self) -> &Norm {
         &self.error_norm
     }
 }
 
-impl<Y, U> Explicit<Y, U> for Verner9
+impl<Y, U, V, T> Explicit<Y, U, V, T> for Verner9
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     const SLOPES: usize = 16;
     fn integrate(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        time: &[Scalar],
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        time: &[Quantity<T>],
         initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_variable_step(function, time, initial_condition)
     }
 }
 
-impl<Y, U> VariableStepExplicit<Y, U> for Verner9
+impl<Y, U, V, T> VariableStepExplicit<Y, U, V, T> for Verner9
 where
-    Self: Explicit<Y, U>,
-    Y: Tensor,
+    Self: Explicit<Y, U, V, T>,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn error(&self, dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
+    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
         Ok(self.error_norm.apply(
             &((&k[0] * D_1
                 + &k[7] * D_8
@@ -226,11 +236,11 @@ where
         ))
     }
     fn slopes(
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
         k[0] = function(t, y)?;
@@ -343,21 +353,25 @@ where
     }
 }
 
-impl<Y, U> InterpolateSolution<Y, U> for Verner9
+impl<Y, U, V, T> InterpolateSolution<Y, U, V, T> for Verner9
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn interpolate(
         &self,
-        time: &Vector,
-        tp: &Vector,
+        time: &Times<T>,
+        tp: &Times<T>,
         yp: &U,
-        _dydtp: &U,
-        _k_sol: &[U],
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-    ) -> Result<(U, U), IntegrationError> {
+        _dydtp: &V,
+        _k_sol: &[V],
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+    ) -> Result<(U, V), IntegrationError> {
         Self::interpolate_variable_step(time, tp, yp, function)
     }
 }

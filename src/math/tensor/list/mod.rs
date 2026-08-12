@@ -1,4 +1,4 @@
-use crate::math::{Differentiate, Erase, Tensor, TensorArray, TensorRank0};
+use crate::math::{Differentiate, Erase, Quantity, Tensor, TensorArray, TensorRank0};
 use std::{
     array::{self, from_fn},
     fmt::{Display, Formatter, Result},
@@ -231,6 +231,41 @@ where
 {
     fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|entry| *entry /= tensor_rank_0);
+    }
+}
+
+// A quantity carries its unit into every entry of the list it scales.
+
+impl<T, const N: usize, V> Mul<Quantity<V>> for TensorList<T, N>
+where
+    T: Mul<Quantity<V>> + Tensor,
+    <T as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorList<<T as Mul<Quantity<V>>>::Output, N>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        self.into_iter().map(|entry| entry * quantity).collect()
+    }
+}
+
+impl<T, const N: usize, V> Mul<Quantity<V>> for &TensorList<T, N>
+where
+    T: Clone + Mul<Quantity<V>> + Tensor,
+    <T as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorList<<T as Mul<Quantity<V>>>::Output, N>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        self.iter().map(|entry| entry.clone() * quantity).collect()
+    }
+}
+
+impl<T, const N: usize, V> Div<Quantity<V>> for TensorList<T, N>
+where
+    T: Div<Quantity<V>> + Tensor,
+    <T as Div<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorList<<T as Div<Quantity<V>>>::Output, N>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        self.into_iter().map(|entry| entry / quantity).collect()
     }
 }
 

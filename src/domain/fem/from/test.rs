@@ -15,7 +15,8 @@ use crate::{
                 planar::{Quadrilateral, Triangle},
             },
             solid::elastic_viscoplastic::{
-                ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
+                ViscoplasticEvolution, ViscoplasticEvolutionHistory, ViscoplasticStateVariables,
+                ViscoplasticStateVariablesHistory,
             },
         },
         solid::{
@@ -24,7 +25,7 @@ use crate::{
     },
     geometry::mesh::{Connectivity, Mesh},
     math::{
-        Matrix, Scalar, Tensor, TensorTupleVec, Vector,
+        Matrix, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec, Time, Vector,
         assert::AssertionError,
         integrate::BogackiShampine,
         optimize::{EqualityConstraint, NewtonRaphson},
@@ -40,7 +41,7 @@ type TriNeoHookean = Block<NeoHookean, Triangle, 1, 2, 3, 3>;
 type Hex = Block<AlmansiHamel, Hexahedron, 8, 3, 8, 8>;
 type TetNeoHookean = Block<NeoHookean, Tetrahedron, 1, 3, 4, 4>;
 type TetViscoplastic = Block<
-    ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Scalar>,
+    ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Quantity>,
     Tetrahedron,
     1,
     3,
@@ -291,8 +292,8 @@ fn heterogeneous_blocks_nodal_forces() -> Result<(), AssertionError> {
     )
 }
 
-fn viscoplastic_model() -> ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Scalar>
-{
+fn viscoplastic_model()
+-> ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Quantity> {
     ElasticMultiplicativeViscoplastic::from((
         constitutive_model(),
         ViscoplasticFlow {
@@ -304,9 +305,9 @@ fn viscoplastic_model() -> ElasticMultiplicativeViscoplastic<AlmansiHamel, Visco
     ))
 }
 
-fn bcs(time: Scalar) -> EqualityConstraint {
+fn bcs(time: Quantity<Time>) -> EqualityConstraint {
     let (a, mut b) = constraint();
-    (0..5).for_each(|i| b[i] = 0.5 + 0.55 * time);
+    (0..5).for_each(|i| b[i] = 0.5 + 0.55 * time.value());
     EqualityConstraint::Linear(a, b)
 }
 
@@ -324,18 +325,22 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
         (mesh, (viscoplastic_model(), constitutive_model()))
             .try_into()
             .map_err(|error: String| AssertionError { message: error })?;
-    let (_, coordinates_history, _): (_, _, ViscoplasticStateVariablesHistory<1, Scalar>) =
-        DaeFirstOrderRoot::root(
-            &model,
-            BogackiShampine {
-                abs_tol: 1e-6,
-                rel_tol: 1e-6,
-                ..Default::default()
-            },
-            NewtonRaphson::default(),
-            &[0.0, 1.0],
-            bcs,
-        )?;
+    let (_, coordinates_history, _) = DaeFirstOrderRoot::<
+        ViscoplasticStateVariables<1, Quantity>,
+        ViscoplasticEvolutionHistory<1, Quantity>,
+        ViscoplasticStateVariablesHistory<1, Quantity>,
+        3,
+    >::root(
+        &model,
+        BogackiShampine {
+            abs_tol: 1e-6,
+            rel_tol: 1e-6,
+            ..Default::default()
+        },
+        NewtonRaphson::default(),
+        &[Quantity::new(0.0), Quantity::new(1.0)],
+        bcs,
+    )?;
     let (a, b) = constraint();
     let reference = FirstOrderRoot::root(
         &split_blocks_model()?,
@@ -359,14 +364,18 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
         (mesh, (viscoplastic_model(), viscoplastic_model()))
             .try_into()
             .map_err(|error: String| AssertionError { message: error })?;
-    let (_, coordinates_history, _): (
-        _,
-        _,
-        TensorTupleVec<
-            ViscoplasticStateVariables<1, Scalar>,
-            ViscoplasticStateVariables<1, Scalar>,
+    let (_, coordinates_history, _) = DaeFirstOrderRoot::<
+        TensorTuple<
+            ViscoplasticStateVariables<1, Quantity>,
+            ViscoplasticStateVariables<1, Quantity>,
         >,
-    ) = DaeFirstOrderRoot::root(
+        TensorTupleVec<ViscoplasticEvolution<1, Quantity>, ViscoplasticEvolution<1, Quantity>>,
+        TensorTupleVec<
+            ViscoplasticStateVariables<1, Quantity>,
+            ViscoplasticStateVariables<1, Quantity>,
+        >,
+        3,
+    >::root(
         &model,
         BogackiShampine {
             abs_tol: 1e-6,
@@ -374,7 +383,7 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
             ..Default::default()
         },
         NewtonRaphson::default(),
-        &[0.0, 1.0],
+        &[Quantity::new(0.0), Quantity::new(1.0)],
         bcs,
     )?;
     let (a, b) = constraint();

@@ -8,7 +8,7 @@ use crate::{
         hybrid::ElasticMultiplicativeViscoplastic,
         solid::{hyperelastic::Hyperelastic, hyperelastic_viscoplastic::HyperelasticViscoplastic},
     },
-    math::Tensor,
+    math::{Differentiate, Tensor},
     mechanics::{DeformationGradient, DeformationGradientPlastic, Scalar},
 };
 
@@ -16,7 +16,7 @@ impl<C1, C2, Y2> HyperelasticViscoplastic<Y2> for ElasticMultiplicativeViscoplas
 where
     C1: Hyperelastic,
     C2: Viscoplastic<Y2>,
-    Y2: Tensor,
+    Y2: Differentiate + Tensor,
 {
     fn helmholtz_free_energy_density(
         &self,

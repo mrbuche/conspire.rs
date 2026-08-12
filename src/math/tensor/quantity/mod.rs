@@ -2,7 +2,7 @@
 mod test;
 
 use super::{
-    Differentiate, Erase, Jacobian, Solution, Tensor, TensorArray, Vector,
+    Differentiate, Erase, Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
     unit::{Dimensionless, UnitDiv, UnitInv, UnitMul},
 };
@@ -53,9 +53,32 @@ impl<U> Quantity<U> {
     pub fn abs(self) -> Self {
         Self::new(self.0.abs())
     }
+    /// Returns whether the value is not a number.
+    pub fn is_nan(&self) -> bool {
+        self.0.is_nan()
+    }
+    /// Returns how many of another quantity of the same unit this one is.
+    ///
+    /// A count of steps carries no unit whatever the step is measured in, so
+    /// the ratio needs no unit named for it.
+    pub fn ratio(self, quantity: Self) -> TensorRank0 {
+        self.0 / quantity.0
+    }
+    /// Returns the lesser of two quantities of the same unit.
+    pub fn min(self, quantity: Self) -> Self {
+        Self::new(self.0.min(quantity.0))
+    }
+    /// Returns the greater of two quantities of the same unit.
+    pub fn max(self, quantity: Self) -> Self {
+        Self::new(self.0.max(quantity.0))
+    }
 }
 
 impl Quantity<Dimensionless> {
+    /// Returns the smallest integer greater than or equal to the value.
+    pub fn ceil(self) -> Self {
+        Self::new(self.0.ceil())
+    }
     /// Raises to an integer power.
     pub fn powi(self, n: i32) -> Self {
         Self::new(self.0.powi(n))
@@ -75,6 +98,14 @@ impl Quantity<Dimensionless> {
     /// Returns the exponential.
     pub fn exp(self) -> Self {
         Self::new(self.0.exp())
+    }
+    /// Returns the sine.
+    pub fn sin(self) -> Self {
+        Self::new(self.0.sin())
+    }
+    /// Returns the cosine.
+    pub fn cos(self) -> Self {
+        Self::new(self.0.cos())
     }
 }
 
@@ -173,6 +204,13 @@ impl<U> SubAssign<&Self> for Quantity<U> {
 impl<U> Add for &Quantity<U> {
     type Output = Quantity<U>;
     fn add(self, quantity: Self) -> Self::Output {
+        Quantity::new(self.0 + quantity.0)
+    }
+}
+
+impl<U> Add<Quantity<U>> for &Quantity<U> {
+    type Output = Quantity<U>;
+    fn add(self, quantity: Quantity<U>) -> Self::Output {
         Quantity::new(self.0 + quantity.0)
     }
 }
@@ -287,6 +325,16 @@ where
     type Output = Quantity<<U as UnitMul<V>>::Output>;
     fn mul(self, quantity: Quantity<V>) -> Self::Output {
         Quantity::new(self.0 * quantity.0)
+    }
+}
+
+impl<U, V> Div<Quantity<V>> for &Quantity<U>
+where
+    U: UnitDiv<V>,
+{
+    type Output = Quantity<<U as UnitDiv<V>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        Quantity::new(self.0 / quantity.value())
     }
 }
 
@@ -451,6 +499,20 @@ impl<U> Solution for Quantity<U> {
         unimplemented!()
     }
     fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: &Vector) {
+        unimplemented!()
+    }
+}
+
+// A scalar Hessian is the scalar itself, with no matrix to be filled into.
+
+impl<U> Hessian for Quantity<U> {
+    fn quadratic_form(&self, vector: &Vector) -> TensorRank0 {
+        self.0 * vector[0] * vector[0]
+    }
+    fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
+        unimplemented!()
+    }
+    fn fill_into(self, _square_matrix: &mut SquareMatrix) {
         unimplemented!()
     }
 }

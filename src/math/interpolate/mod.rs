@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use super::{Scalar, Tensor, TensorVec, Vector, integrate::IntegrationError};
+use super::{
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec, Time, Vector,
+    integrate::{IntegrationError, Times},
+};
 use std::ops::{Mul, Sub};
 
 /// Linear interpolation schemes.
@@ -18,23 +21,24 @@ where
 }
 
 /// Solution interpolation schemes.
-pub trait InterpolateSolution<Y, U>
+pub trait InterpolateSolution<Y, U, V, T = Time>
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     /// Solution interpolation.
     #[allow(clippy::too_many_arguments)]
     fn interpolate(
         &self,
-        time: &Vector,
-        tp: &Vector,
+        time: &Times<T>,
+        tp: &Times<T>,
         yp: &U,
-        dydtp: &U,
-        k_sol: &[U],
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-    ) -> Result<(U, U), IntegrationError>;
+        dydtp: &V,
+        k_sol: &[V],
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+    ) -> Result<(U, V), IntegrationError>;
 }
 
 impl<F, T> Interpolate1D<F, T> for LinearInterpolation

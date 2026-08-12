@@ -243,7 +243,7 @@ macro_rules! test_finite_element_block_inner {
                     fem::{
                         block::solid::SolidElements,
                         solid::{
-                            elastic_hyperviscous::ElasticHyperviscousElements,
+                            NodalDampingsSolid, elastic_hyperviscous::ElasticHyperviscousElements,
                             viscoelastic::ViscoelasticElements,
                         },
                     },
@@ -273,7 +273,7 @@ macro_rules! test_finite_element_block_inner {
                     fem::{
                         block::solid::SolidElements,
                         solid::{
-                            elastic_hyperviscous::ElasticHyperviscousElements,
+                            NodalDampingsSolid, elastic_hyperviscous::ElasticHyperviscousElements,
                             viscoelastic::ViscoelasticElements,
                         },
                     },
@@ -844,7 +844,10 @@ pub(crate) use test_finite_element_block_with_hyperelastic_constitutive_model;
 
 macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
-        fn get_velocities_transformed_block() -> NodalCoordinates<3> {
+        // A force contracted with a velocity is a power, which no unit here
+        // names, so the erased views are contracted.
+        use crate::math::Erase;
+        fn get_velocities_transformed_block() -> NodalVelocities<3> {
             get_coordinates_block()
                 .iter()
                 .zip(get_velocities_block().iter())
@@ -890,7 +893,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
         fn get_nodal_stiffnesses(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<NodalStiffnessesSolid<3>, AssertionError> {
+        ) -> Result<NodalDampingsSolid<3>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
@@ -923,7 +926,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
         }
         fn get_finite_difference_of_nodal_forces(
             is_deformed: bool,
-        ) -> Result<NodalStiffnessesSolid<3>, AssertionError> {
+        ) -> Result<NodalDampingsSolid<3>, AssertionError> {
             let block = get_block();
             let nodal_coordinates = if is_deformed {
                 get_coordinates_block()
@@ -988,6 +991,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
             $constitutive_model_type
         );
         use crate::math::{
+            Quantity,
             integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
             optimize::NewtonRaphson,
         };
@@ -1007,7 +1011,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                             )),
                             EqualityConstraint::Linear(a, b),
                             $integrator::default(),
-                            &[0.0, 1.0],
+                            &[Quantity::new(0.0), Quantity::new(1.0)],
                             NewtonRaphson::default(),
                         )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
@@ -1071,7 +1075,7 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         &crate::fem::Model::from((get_block(), get_reference_coordinates_block())),
                         EqualityConstraint::Linear(a, b),
                         $integrator::default(),
-                        &[0.0, 1.0],
+                        &[Quantity::new(0.0), Quantity::new(1.0)],
                         NewtonRaphson::default(),
                     )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
@@ -1242,7 +1246,9 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         block.nodal_forces(&nodal_coordinates, &nodal_velocities)? - nodal_forces_0;
                     let minimum = block
                         .viscous_dissipation(&nodal_coordinates, &nodal_velocities)?
-                        - nodal_forces.full_contraction(&nodal_velocities);
+                        - nodal_forces
+                            .erase()
+                            .full_contraction(nodal_velocities.erase());
                     let mut perturbed_velocities = get_velocities_block();
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
@@ -1252,7 +1258,9 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 block.viscous_dissipation(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
-                                )? - nodal_forces.full_contraction(&perturbed_velocities)
+                                )? - nodal_forces
+                                    .erase()
+                                    .full_contraction(perturbed_velocities.erase())
                                     >= minimum
                             );
                             perturbed_velocities[node][i] -= EPSILON;
@@ -1260,7 +1268,9 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 block.viscous_dissipation(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
-                                )? - nodal_forces.full_contraction(&perturbed_velocities)
+                                )? - nodal_forces
+                                    .erase()
+                                    .full_contraction(perturbed_velocities.erase())
                                     >= minimum
                             );
                             Ok(())
@@ -1366,11 +1376,13 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                 fn minimized() -> Result<(), AssertionError> {
                     let block = get_block();
                     let nodal_coordinates = get_coordinates_block();
-                    let nodal_velocities = get_coordinates_block();
+                    let nodal_velocities = get_velocities_block();
                     let nodal_forces = block.nodal_forces(&nodal_coordinates, &nodal_velocities)?;
                     let minimum = block
                         .dissipation_potential(&nodal_coordinates, &nodal_velocities)?
-                        - nodal_forces.full_contraction(&nodal_velocities);
+                        - nodal_forces
+                            .erase()
+                            .full_contraction(nodal_velocities.erase());
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             let mut perturbed_velocities = nodal_velocities.clone();
@@ -1379,7 +1391,9 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 block.dissipation_potential(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
-                                )? - nodal_forces.full_contraction(&perturbed_velocities)
+                                )? - nodal_forces
+                                    .erase()
+                                    .full_contraction(perturbed_velocities.erase())
                                     >= minimum
                             );
                             perturbed_velocities[node][i] -= EPSILON;
@@ -1387,7 +1401,9 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 block.dissipation_potential(
                                     &nodal_coordinates,
                                     &perturbed_velocities,
-                                )? - nodal_forces.full_contraction(&perturbed_velocities)
+                                )? - nodal_forces
+                                    .erase()
+                                    .full_contraction(perturbed_velocities.erase())
                                     >= minimum
                             );
                             Ok(())

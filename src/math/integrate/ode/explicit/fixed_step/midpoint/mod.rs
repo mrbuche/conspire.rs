@@ -2,8 +2,8 @@
 mod test;
 
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
-    integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator},
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator, Times},
 };
 use std::ops::Mul;
 
@@ -21,42 +21,44 @@ where
 {
 }
 
-impl FixedStep for Midpoint {
-    fn dt(&self) -> Scalar {
-        self.dt
+impl<T> FixedStep<T> for Midpoint {
+    fn dt(&self) -> Quantity<T> {
+        Quantity::new(self.dt)
     }
 }
 
-impl<Y, U> Explicit<Y, U> for Midpoint
+impl<Y, U, V, T> Explicit<Y, U, V, T> for Midpoint
 where
-    Y: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>,
+    Y: Differentiate<T> + Tensor,
+    for<'a> &'a Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     const SLOPES: usize = 2;
     fn integrate(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        time: &[Scalar],
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        time: &[Quantity<T>],
         initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_fixed_step(function, time, initial_condition)
     }
 }
 
-impl<Y, U> FixedStepExplicit<Y, U> for Midpoint
+impl<Y, U, V, T> FixedStepExplicit<Y, U, V, T> for Midpoint
 where
-    Y: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>,
+    Y: Differentiate<T> + Tensor,
+    for<'a> &'a Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn step(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
         k[0] = function(t, y)?;

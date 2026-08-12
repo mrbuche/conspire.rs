@@ -30,7 +30,7 @@ use super::{
     *,
 };
 use crate::math::{
-    Erase, Matrix, ReciprocalStress, Vector,
+    Erase, Matrix, Quantity, Time, Vector,
     integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
     optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
 };
@@ -53,7 +53,7 @@ where
         // A stress contracted with a rate is a power density, which is not a
         // unit this library names, so the erased views are contracted.
         Ok(self
-            .first_piola_kirchhoff_stress(deformation_gradient, &ZERO_10)?
+            .first_piola_kirchhoff_stress(deformation_gradient, &DeformationGradientRate::zero())?
             .erase()
             .full_contraction(deformation_gradient_rate.erase())
             + self.viscous_dissipation(deformation_gradient, deformation_gradient_rate)?)
@@ -83,11 +83,11 @@ pub trait FirstOrderMinimize {
         integrator: impl ImplicitDaeFirstOrderMinimize<
             Scalar,
             FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradientRate,
+            DeformationGradient,
+            DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradientRate>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
 
@@ -105,14 +105,15 @@ pub trait SecondOrderMinimize {
             Scalar,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
-            DeformationGradientRate,
+            DeformationGradient,
+            DeformationGradients,
             DeformationGradientRates,
         >,
         solver: impl SecondOrderOptimization<
             Scalar,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
-            DeformationGradient,
+            DeformationGradientRate,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
@@ -127,8 +128,8 @@ where
         integrator: impl ImplicitDaeFirstOrderMinimize<
             Scalar,
             FirstPiolaKirchhoffStress,
-            ReciprocalStress,
-            DeformationGradientRate,
+            DeformationGradient,
+            DeformationGradients,
             DeformationGradientRates,
         >,
         solver: impl FirstOrderOptimization<Scalar, FirstPiolaKirchhoffStress, DeformationGradientRate>,
@@ -142,7 +143,7 @@ where
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
                 integrator.integrate(
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.dissipation_potential(
@@ -150,7 +151,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.first_piola_kirchhoff_stress(
@@ -161,7 +162,7 @@ where
                     solver,
                     time,
                     DeformationGradient::identity(),
-                    |t: Scalar| {
+                    |t: Quantity<Time>| {
                         vector[0] = deformation_gradient_rate_11(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())
                     },
@@ -180,7 +181,7 @@ where
                 matrix[3][5] = 1.0;
                 matrix[4][4] = 1.0;
                 integrator.integrate(
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.dissipation_potential(
@@ -188,7 +189,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.first_piola_kirchhoff_stress(
@@ -199,7 +200,7 @@ where
                     solver,
                     time,
                     DeformationGradient::identity(),
-                    |t: Scalar| {
+                    |t: Quantity<Time>| {
                         vector[0] = deformation_gradient_rate_11(t);
                         vector[4] = deformation_gradient_rate_22(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())
@@ -227,7 +228,8 @@ where
             Scalar,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
-            DeformationGradientRate,
+            DeformationGradient,
+            DeformationGradients,
             DeformationGradientRates,
         >,
         solver: impl SecondOrderOptimization<
@@ -246,7 +248,7 @@ where
                 matrix[2][2] = 1.0;
                 matrix[3][5] = 1.0;
                 integrator.integrate(
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.dissipation_potential(
@@ -254,7 +256,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.first_piola_kirchhoff_stress(
@@ -262,7 +264,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
@@ -273,7 +275,7 @@ where
                     solver,
                     time,
                     DeformationGradient::identity(),
-                    |t: Scalar| {
+                    |t: Quantity<Time>| {
                         vector[0] = deformation_gradient_rate_11(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())
                     },
@@ -293,7 +295,7 @@ where
                 matrix[3][5] = 1.0;
                 matrix[4][4] = 1.0;
                 integrator.integrate(
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.dissipation_potential(
@@ -301,7 +303,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.first_piola_kirchhoff_stress(
@@ -309,7 +311,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
-                    |_: Scalar,
+                    |_: Quantity<Time>,
                      deformation_gradient: &DeformationGradient,
                      deformation_gradient_rate: &DeformationGradientRate| {
                         Ok(self.first_piola_kirchhoff_rate_tangent_stiffness(
@@ -320,7 +322,7 @@ where
                     solver,
                     time,
                     DeformationGradient::identity(),
-                    |t: Scalar| {
+                    |t: Quantity<Time>| {
                         vector[0] = deformation_gradient_rate_11(t);
                         vector[4] = deformation_gradient_rate_22(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())

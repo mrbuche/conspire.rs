@@ -18,7 +18,7 @@ use crate::{
         Scalar, ScalarList, TensorRank1, TensorRank1List, TensorRank1List2D,
         assert::AssertionError, defeat_message,
     },
-    mechanics::{CoordinateList, CurrentCoordinates, ReferenceCoordinates},
+    mechanics::{CoordinateList, CurrentCoordinates, CurrentVelocities, ReferenceCoordinates},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 
@@ -26,7 +26,7 @@ const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8; // nightly feature
 const FRAC_SQRT_3_5: Scalar = 0.774_596_669_241_483;
 
 pub type ElementNodalCoordinates<const N: usize> = CurrentCoordinates<N>;
-pub type ElementNodalVelocities<const N: usize> = CurrentCoordinates<N>;
+pub type ElementNodalVelocities<const N: usize> = CurrentVelocities<N>;
 pub type ElementNodalEitherCoordinates<I, const N: usize> = CoordinateList<I, N>;
 pub type ElementNodalReferenceCoordinates<const N: usize> = ReferenceCoordinates<N>;
 pub type GradientVectors<const D: usize, const G: usize, const N: usize> =

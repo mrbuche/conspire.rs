@@ -2,8 +2,8 @@
 mod test;
 
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
-    integrate::{FixedStep, IntegrationError, OdeIntegrator},
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec, Time,
+    integrate::{FixedStep, IntegrationError, OdeIntegrator, Times},
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
 
@@ -12,38 +12,39 @@ pub(crate) mod midpoint;
 pub(crate) mod trapezoidal;
 
 /// Implicit integrators for ordinary differential equations using zeroth-order root-finding.
-pub trait ImplicitZerothOrder<Y, U>
+pub trait ImplicitZerothOrder<Y, U, V, T = Time>
 where
-    Self: FixedStep + OdeIntegrator<Y, U>,
-    Y: Tensor,
+    Self: FixedStep<T> + OdeIntegrator<Y, U>,
+    Y: Differentiate<T> + Tensor,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     #[doc = include_str!("doc.md")]
     fn integrate(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, IntegrationError>,
-        time: &[Scalar],
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, IntegrationError>,
+        time: &[Quantity<T>],
         initial_condition: Y,
         solver: impl ZerothOrderRootFinding<Y, Y>,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
-        let mut t_sol: Vector;
+        let mut t_sol: Times<T>;
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
         } else if t_0 >= t_f {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         } else if time.len() == 2 {
-            if self.dt() <= 0.0 || self.dt().is_nan() {
+            if self.dt() <= Quantity::default() || self.dt().is_nan() {
                 return Err(IntegrationError::TimeStepNotSet(
-                    time[0],
-                    time[1],
+                    time[0].value(),
+                    time[1].value(),
                     format!("{self:?}"),
                 ));
             } else {
-                let max_steps = ((t_f - t_0) / self.dt()).ceil() as usize;
+                let max_steps = (t_f - t_0).ratio(self.dt()).ceil() as usize;
                 t_sol = (0..max_steps)
-                    .map(|step| t_0 + (step as Scalar) * self.dt())
+                    .map(|step| t_0 + self.dt() * (step as Scalar))
                     .collect();
                 t_sol.push(t_f);
             }
@@ -57,7 +58,7 @@ where
         let mut y = initial_condition.clone();
         let mut y_sol = U::new();
         y_sol.push(initial_condition.clone());
-        let mut dydt_sol = U::new();
+        let mut dydt_sol = V::new();
         dydt_sol.push(function(t, &y.clone())?);
         let mut y_trial;
         while t < t_f {
@@ -86,49 +87,55 @@ where
     }
     fn residual(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, IntegrationError>,
-        t: Scalar,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, IntegrationError>,
+        t: Quantity<T>,
         y: &Y,
-        t_trial: Scalar,
+        t_trial: Quantity<T>,
         y_trial: &Y,
-        dt: Scalar,
+        dt: Quantity<T>,
     ) -> Result<Y, String>;
 }
 
 /// Implicit integrators for ordinary differential equations using first-order root-finding.
-pub trait ImplicitFirstOrder<Y, J, U>
+///
+/// The residual is a state, so its Jacobian carries no unit, whereas the
+/// Jacobian of the right-hand side is that of a rate — the two differ by the
+/// step they are separated by.
+pub trait ImplicitFirstOrder<Y, J, U, V, T = Time>
 where
-    Self: ImplicitZerothOrder<Y, U>,
-    Y: Tensor,
+    Self: ImplicitZerothOrder<Y, U, V, T>,
+    Y: Differentiate<T> + Tensor,
+    J: Differentiate<T> + Tensor,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     #[doc = include_str!("doc.md")]
     fn integrate(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, IntegrationError>,
-        mut jacobian: impl FnMut(Scalar, &Y) -> Result<J, IntegrationError>,
-        time: &[Scalar],
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, IntegrationError>,
+        mut jacobian: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<J, T>, IntegrationError>,
+        time: &[Quantity<T>],
         initial_condition: Y,
         solver: impl FirstOrderRootFinding<Y, J, Y>,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
-        let mut t_sol: Vector;
+        let mut t_sol: Times<T>;
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
         } else if t_0 >= t_f {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         } else if time.len() == 2 {
-            if self.dt() <= 0.0 || self.dt().is_nan() {
+            if self.dt() <= Quantity::default() || self.dt().is_nan() {
                 return Err(IntegrationError::TimeStepNotSet(
-                    time[0],
-                    time[1],
+                    time[0].value(),
+                    time[1].value(),
                     format!("{self:?}"),
                 ));
             } else {
-                let max_steps = ((t_f - t_0) / self.dt()).ceil() as usize;
+                let max_steps = (t_f - t_0).ratio(self.dt()).ceil() as usize;
                 t_sol = (0..max_steps)
-                    .map(|step| t_0 + (step as Scalar) * self.dt())
+                    .map(|step| t_0 + self.dt() * (step as Scalar))
                     .collect();
                 t_sol.push(t_f);
             }
@@ -142,7 +149,7 @@ where
         let mut y = initial_condition.clone();
         let mut y_sol = U::new();
         y_sol.push(initial_condition.clone());
-        let mut dydt_sol = U::new();
+        let mut dydt_sol = V::new();
         dydt_sol.push(function(t, &y.clone())?);
         let mut y_trial;
         while t < t_f {
@@ -173,11 +180,11 @@ where
     }
     fn hessian(
         &self,
-        jacobian: impl FnMut(Scalar, &Y) -> Result<J, IntegrationError>,
-        t: Scalar,
+        jacobian: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<J, T>, IntegrationError>,
+        t: Quantity<T>,
         y: &Y,
-        t_trial: Scalar,
+        t_trial: Quantity<T>,
         y_trial: &Y,
-        dt: Scalar,
+        dt: Quantity<T>,
     ) -> Result<J, String>;
 }

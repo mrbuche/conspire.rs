@@ -299,10 +299,12 @@ impl<const D: usize, I, J, U> From<(TensorRank1<D, I, U>, &TensorRank1<D, J, U>)
     }
 }
 
-impl<const D: usize, I, J, U> From<(&TensorRank1<D, I, U>, TensorRank1<D, J, U>)>
-    for TensorRank2<D, I, J, U>
+impl<const D: usize, I, J, U, V> From<(&TensorRank1<D, I, U>, TensorRank1<D, J, V>)>
+    for TensorRank2<D, I, J, <U as UnitMul<V>>::Output>
+where
+    U: UnitMul<V>,
 {
-    fn from((vector_a, vector_b): (&TensorRank1<D, I, U>, TensorRank1<D, J, U>)) -> Self {
+    fn from((vector_a, vector_b): (&TensorRank1<D, I, U>, TensorRank1<D, J, V>)) -> Self {
         vector_a
             .iter()
             .map(|vector_a_i| {
@@ -315,10 +317,12 @@ impl<const D: usize, I, J, U> From<(&TensorRank1<D, I, U>, TensorRank1<D, J, U>)
     }
 }
 
-impl<const D: usize, I, J, U> From<(&TensorRank1<D, I, U>, &TensorRank1<D, J, U>)>
-    for TensorRank2<D, I, J, U>
+impl<const D: usize, I, J, U, V> From<(&TensorRank1<D, I, U>, &TensorRank1<D, J, V>)>
+    for TensorRank2<D, I, J, <U as UnitMul<V>>::Output>
+where
+    U: UnitMul<V>,
 {
-    fn from((vector_a, vector_b): (&TensorRank1<D, I, U>, &TensorRank1<D, J, U>)) -> Self {
+    fn from((vector_a, vector_b): (&TensorRank1<D, I, U>, &TensorRank1<D, J, V>)) -> Self {
         vector_a
             .iter()
             .map(|vector_a_i| {
