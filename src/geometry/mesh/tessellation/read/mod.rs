@@ -181,6 +181,7 @@ impl From<Builder> for Tessellation {
                 .into(),
             normals: vec![normals].into(),
             bvh: OnceCell::new(),
+            features: OnceCell::new(),
         }
     }
 }
