@@ -6,15 +6,12 @@ use crate::{
         Block,
         element::thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
-    math::{Quantity, Vector},
+    math::{QuantityVector, unit::Temperature},
     mechanics::TemperatureGradients,
 };
 
 /// The temperatures at the nodes.
-///
-/// A bare vector, being what a solver hands over, so this is where a thermal
-/// element's temperature is named and where the power it gives back is spent.
-pub type NodalTemperatures = Vector;
+pub type NodalTemperatures = QuantityVector<Temperature>;
 
 pub trait ThermalElements<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
 where
@@ -45,7 +42,7 @@ where
     ) -> ElementNodalTemperatures<N> {
         element_connectivity
             .iter()
-            .map(|&node| Quantity::new(nodal_temperatures[node]))
+            .map(|&node| nodal_temperatures[node])
             .collect()
     }
     fn temperature_gradients(

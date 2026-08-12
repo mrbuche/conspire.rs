@@ -2,8 +2,8 @@ use crate::math::assert::FiniteDifference;
 use crate::math::unit::Dimensionless;
 
 use crate::math::{
-    Erase, Jacobian, Matrix, Quantity, Scalar, Solution, SquareMatrix, Tensor, TensorRank1Vec,
-    TensorRank2, TensorTuple, TensorVec, write_tensor_rank_0,
+    Erase, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution, SquareMatrix, Tensor,
+    TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -584,6 +584,17 @@ impl<const D: usize, I, U> Mul<&TensorRank1Vec<D, I, U>> for &Vector {
                     .map(|(i, entry_a_i)| self[D * a + i] * entry_a_i)
                     .sum::<Scalar>()
             })
+            .sum()
+    }
+}
+
+impl<U> Mul<&QuantityVector<U>> for &Vector {
+    type Output = Scalar;
+    fn mul(self, quantity_vector: &QuantityVector<U>) -> Self::Output {
+        quantity_vector
+            .iter()
+            .enumerate()
+            .map(|(a, entry_a)| self[a] * entry_a.value())
             .sum()
     }
 }

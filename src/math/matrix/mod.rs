@@ -2,7 +2,8 @@ pub(super) mod square;
 pub(super) mod vector;
 
 use crate::math::{
-    Quantity, Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec,
+    Quantity, QuantityVector, Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2,
+    TensorTuple, TensorVec,
 };
 use std::{
     iter::Sum,
@@ -273,6 +274,13 @@ impl<const D: usize, I, U> Mul<&TensorRank1Vec<D, I, U>> for &Matrix {
         self.iter()
             .map(|self_i| self_i * tensor_rank_1_vec)
             .collect()
+    }
+}
+
+impl<U> Mul<&QuantityVector<U>> for &Matrix {
+    type Output = Vector;
+    fn mul(self, quantity_vector: &QuantityVector<U>) -> Self::Output {
+        self.iter().map(|self_i| self_i * quantity_vector).collect()
     }
 }
 

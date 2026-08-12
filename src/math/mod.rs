@@ -46,6 +46,9 @@ pub use tensor::{
     Projection, Quantity, Rank2, Reference, Scalar, ScalarList, ScalarListVec, Scalars, Solution,
     Tensor, TensorArray, TensorError, TensorVec,
     list::TensorList,
+    quantity::{
+        sparse_vec::QuantitySparseVec, sparse_vec_2d::QuantitySparseVec2D, vec::QuantityVector,
+    },
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
         TensorRank1, cross::CrossProduct, list::TensorRank1List, list_2d::TensorRank1List2D,

@@ -18,13 +18,14 @@ macro_rules! test_thermal_block {
                     },
                     thermal::conduction::ThermalConductionElements,
                 },
-                math::assert::AssertionError,
+                math::{Quantity, assert::AssertionError, unit::Temperature},
             };
             mod finite_difference {
                 use super::*;
                 const MODEL: Fourier = Fourier {
                     thermal_conductivity: 1.0,
                 };
+                const EPSILON_TEMPERATURE: Quantity<Temperature> = Quantity::new(EPSILON);
                 #[test]
                 fn potential() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
@@ -33,15 +34,16 @@ macro_rules! test_thermal_block {
                         get_connectivity(),
                         &get_reference_coordinates_block(),
                     ));
-                    let mut finite_difference = 0.0;
+                    let mut finite_difference = Quantity::default();
                     let nodal_forces_fd: NodalForcesThermal = (0..D)
                         .map(|node| {
                             let mut nodal_temperatures = NodalTemperatures::zero(D);
-                            nodal_temperatures[node] += 0.5 * EPSILON;
+                            nodal_temperatures[node] += EPSILON_TEMPERATURE * 0.5;
                             finite_difference = block.potential(&nodal_temperatures)?;
-                            nodal_temperatures[node] -= EPSILON;
+                            nodal_temperatures[node] -= EPSILON_TEMPERATURE;
                             finite_difference -= block.potential(&nodal_temperatures)?;
-                            Ok(finite_difference / EPSILON)
+                            // A potential per unit temperature is a power.
+                            Ok(finite_difference / EPSILON_TEMPERATURE)
                         })
                         .collect::<Result<_, ElementModelError>>()?;
                     $crate::math::assert::Assert::default().eq_within_fd_tol(
@@ -57,19 +59,20 @@ macro_rules! test_thermal_block {
                         get_connectivity(),
                         &get_reference_coordinates_block(),
                     ));
-                    let mut finite_difference = 0.0;
+                    let mut finite_difference = Quantity::default();
                     let nodal_stiffnesses_fd: NodalStiffnessesThermal = (0..D)
                         .map(|node_a| {
                             (0..D)
                                 .map(|node_b| {
                                     let mut nodal_temperatures = NodalTemperatures::zero(D);
-                                    nodal_temperatures[node_b] += 0.5 * EPSILON;
+                                    nodal_temperatures[node_b] += EPSILON_TEMPERATURE * 0.5;
                                     finite_difference =
                                         block.nodal_forces(&nodal_temperatures)?[node_a];
-                                    nodal_temperatures[node_b] -= EPSILON;
+                                    nodal_temperatures[node_b] -= EPSILON_TEMPERATURE;
                                     finite_difference -=
                                         block.nodal_forces(&nodal_temperatures)?[node_a];
-                                    Ok(finite_difference / EPSILON)
+                                    // A power per unit temperature is a thermal stiffness.
+                                    Ok(finite_difference / EPSILON_TEMPERATURE)
                                 })
                                 .collect()
                         })

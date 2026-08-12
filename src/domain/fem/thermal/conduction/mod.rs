@@ -11,11 +11,12 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor,
+        Quantity, Scalar, Tensor,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
+        unit::PowerTemperature,
     },
 };
 
@@ -26,7 +27,7 @@ where
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<PowerTemperature>, ElementModelError>;
     fn nodal_forces_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
@@ -62,7 +63,7 @@ where
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<PowerTemperature>, ElementModelError> {
         self.blocks.potential(nodal_temperatures)
     }
     fn nodal_forces_into(
@@ -91,7 +92,7 @@ where
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<PowerTemperature>, ElementModelError> {
         Ok(self.0.potential(nodal_temperatures)? + self.1.potential(nodal_temperatures)?)
     }
     fn nodal_forces_into(
@@ -172,7 +173,13 @@ where
         solver: impl FirstOrderOptimization<Scalar, NodalForcesThermal, NodalTemperatures>,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.minimize(
-            |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
+            |nodal_temperatures: &NodalTemperatures| {
+                // The solver only compares its objective, so the potential is
+                // spent where it is handed over.
+                Ok(self
+                    .potential(nodal_temperatures)?
+                    .value_as::<PowerTemperature>())
+            },
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
@@ -201,7 +208,13 @@ where
         finalize_node_neighbors(&mut neighbors);
         let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1, true);
         solver.minimize(
-            |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
+            |nodal_temperatures: &NodalTemperatures| {
+                // The solver only compares its objective, so the potential is
+                // spent where it is handed over.
+                Ok(self
+                    .potential(nodal_temperatures)?
+                    .value_as::<PowerTemperature>())
+            },
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| {
                 Ok(self.nodal_stiffnesses(nodal_temperatures)?)

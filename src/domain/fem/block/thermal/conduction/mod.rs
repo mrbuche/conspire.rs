@@ -13,13 +13,13 @@ use crate::{
         thermal::conduction::ThermalConductionElements,
     },
     math::{
-        Quantity, Scalar, SquareMatrix, Vector,
+        Quantity, QuantitySparseVec2D, QuantityVector,
         unit::{Power, PowerPerTemperature, PowerTemperature},
     },
 };
 
-pub type NodalForcesThermal = Vector;
-pub type NodalStiffnessesThermal = SquareMatrix;
+pub type NodalForcesThermal = QuantityVector<Power>;
+pub type NodalStiffnessesThermal = QuantitySparseVec2D<PowerPerTemperature>;
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ThermalConductionElements
     for Block<C, F, G, M, N, P>
@@ -30,7 +30,7 @@ where
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<PowerTemperature>, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -43,7 +43,7 @@ where
             })
             .sum::<Result<Quantity<PowerTemperature>, FiniteElementError>>()
         {
-            Ok(potential) => Ok(potential.value_as::<PowerTemperature>()),
+            Ok(potential) => Ok(potential),
             Err(error) => Err(ElementModelError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -67,9 +67,7 @@ where
                     )?
                     .into_iter()
                     .zip(element_connectivity)
-                    .for_each(|(nodal_force, &node)| {
-                        nodal_forces[node] += nodal_force.value_as::<Power>()
-                    });
+                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
             }) {
             Ok(()) => Ok(()),
@@ -99,8 +97,7 @@ where
                     .for_each(|(object, &node_a)| {
                         object.into_iter().zip(element_connectivity).for_each(
                             |(nodal_stiffness, &node_b)| {
-                                nodal_stiffnesses[node_a][node_b] +=
-                                    nodal_stiffness.value_as::<PowerPerTemperature>()
+                                nodal_stiffnesses[node_a][node_b] += nodal_stiffness
                             },
                         )
                     });

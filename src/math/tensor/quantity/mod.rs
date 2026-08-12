@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod test;
 
+pub(crate) mod sparse_vec;
+pub(crate) mod sparse_vec_2d;
+pub(crate) mod vec;
+
 use super::{
     Differentiate, Erase, Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
@@ -225,6 +229,13 @@ impl<U> Sub for &Quantity<U> {
 impl<U> Mul<TensorRank0> for &Quantity<U> {
     type Output = Quantity<U>;
     fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
+        Quantity::new(self.0 * tensor_rank_0)
+    }
+}
+
+impl<U> Mul<&TensorRank0> for &Quantity<U> {
+    type Output = Quantity<U>;
+    fn mul(self, tensor_rank_0: &TensorRank0) -> Self::Output {
         Quantity::new(self.0 * tensor_rank_0)
     }
 }

@@ -8,11 +8,11 @@ mod dae;
 mod error;
 mod ode;
 
+use crate::math::QuantityVector;
 use crate::math::unit::Time;
-use crate::math::{Quantity, TensorVector};
 
 /// The values of the variable of integration where the solution is reported.
-pub type Times<T = Time> = TensorVector<Quantity<T>>;
+pub type Times<T = Time> = QuantityVector<T>;
 
 pub use error::IntegrationError;
 

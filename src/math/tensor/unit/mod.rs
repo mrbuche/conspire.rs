@@ -261,6 +261,7 @@ unit_products!(
     PowerPerVolumeTemperature * Volume = PowerPerTemperature,
     Power * Temperature = PowerTemperature,
     PowerPerTemperature * Temperature = Power,
+    Temperature * PowerPerTemperature = Power,
 );
 
 // A tuple carries the pair of units its halves do, so the pair combines with
