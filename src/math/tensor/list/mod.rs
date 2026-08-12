@@ -1,4 +1,4 @@
-use crate::math::{Differentiate, Erase, Quantity, Tensor, TensorArray, TensorRank0};
+use crate::math::{ContractWith, Differentiate, Erase, Quantity, Tensor, TensorArray, TensorRank0};
 use std::{
     array::{self, from_fn},
     fmt::{Display, Formatter, Result},
@@ -418,6 +418,21 @@ where
         self.iter_mut()
             .zip(tensor_list.iter())
             .for_each(|(self_entry, entry)| *self_entry -= entry);
+    }
+}
+
+impl<T, V, const N: usize> ContractWith<TensorList<V, N>> for TensorList<T, N>
+where
+    T: ContractWith<V> + Tensor,
+    V: Tensor,
+    <T as ContractWith<V>>::Output: Sum,
+{
+    type Output = <T as ContractWith<V>>::Output;
+    fn contract_with(&self, tensor_list: &TensorList<V, N>) -> Self::Output {
+        self.iter()
+            .zip(tensor_list.iter())
+            .map(|(entry, other)| entry.contract_with(other))
+            .sum()
     }
 }
 

@@ -1,5 +1,6 @@
 pub mod internal_variables;
 
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
@@ -16,7 +17,7 @@ use crate::{
             hyperelastic::HyperelasticElements,
         },
     },
-    math::{HessianAccumulate, Scalar},
+    math::HessianAccumulate,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> HyperelasticElements<3>
@@ -29,7 +30,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -97,7 +98,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<2>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         match self
             .elements()
             .iter()

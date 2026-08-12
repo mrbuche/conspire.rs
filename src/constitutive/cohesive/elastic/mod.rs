@@ -5,8 +5,14 @@ use crate::math::Interface;
 use crate::{
     constitutive::{Constitutive, ConstitutiveError, cohesive::Cohesive},
     math::{Tensor, TensorArray, TensorRank1, TensorRank2, TensorRank2List},
-    mechanics::{Normal, Scalar, Separation, Stiffness, Traction},
+    mechanics::{Normal, Scalar, Separation, Traction},
 };
+
+/// A dyad of the vectors a cohesive stiffness is built from.
+///
+/// The cohesive models carry no units yet, so what they hand a finite element
+/// is a number, named where it enters the assembly.
+type Dyad = TensorRank2<3, Current, Current>;
 
 pub type Tractions = TensorRank1<2, Interface>;
 pub type Stiffnesses = TensorRank2<2, Interface, Interface>;
@@ -65,11 +71,11 @@ where
         } else {
             (Traction::zero(), 0.0, k_tt)
         };
-        let nn = Stiffness::from((&normal, &normal));
-        let nu = Stiffness::from((&normal, &separation));
-        let tt = Stiffness::from((&tangent, &tangent));
-        let tu = Stiffness::from((&tangent, &separation));
-        let identity = Stiffness::identity();
+        let nn = Dyad::from((&normal, &normal));
+        let nu = Dyad::from((&normal, &separation));
+        let tt = Dyad::from((&tangent, &tangent));
+        let tu = Dyad::from((&tangent, &separation));
+        let identity = Dyad::identity();
         let stiffness_u = nn * (k_nn - q_t) + tt * (k_tt - q_t) + &identity * q_t;
         let stiffness_n = nu * (k_nn - q_t)
             + identity * (normal_traction - ratio * tangential_traction)

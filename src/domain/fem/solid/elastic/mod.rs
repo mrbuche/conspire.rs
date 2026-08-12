@@ -94,14 +94,14 @@ where
     }
 }
 
-impl<B, const D: usize> ZerothOrderRoot<NodalCoordinates<D>> for Model<B, D>
+impl<B, const D: usize> ZerothOrderRoot<NodalForcesSolid<D>, NodalCoordinates<D>> for Model<B, D>
 where
     B: ElasticElements<D>,
 {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalCoordinates<D>, NodalCoordinates<D>>,
+        solver: impl ZerothOrderRootFinding<NodalForcesSolid<D>, NodalCoordinates<D>>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         solver.root(
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),

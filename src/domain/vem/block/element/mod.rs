@@ -553,7 +553,7 @@ fn temporary_poly_2() {
     ]);
     use crate::EPSILON;
     use crate::fem::solid::hyperelastic::HyperelasticElements;
-    let mut finite_difference = 0.0;
+    let mut finite_difference = crate::math::Quantity::default();
     let nodal_forces_fd = (0..coordinates.len())
         .map(|node| {
             (0..3)
@@ -563,7 +563,9 @@ fn temporary_poly_2() {
                     finite_difference = block.helmholtz_free_energy(&nodal_coordinates).unwrap();
                     nodal_coordinates[node][i] -= EPSILON;
                     finite_difference -= block.helmholtz_free_energy(&nodal_coordinates).unwrap();
-                    finite_difference / EPSILON
+                    // An energy density per unit perturbation is a stress, which
+                    // is what a nodal force carries.
+                    (finite_difference / EPSILON).value_as::<crate::math::Stress>()
                 })
                 .collect()
         })

@@ -1,5 +1,6 @@
 //! Hyperelastic solid constitutive models with internal variables.
 
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -33,7 +34,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }
 
 /// First-order minimization methods for hyperelastic solid constitutive models with internal variables.
@@ -100,7 +101,11 @@ where
         match solver.minimize(
             |variables: &Self::Variables| {
                 let (deformation_gradient, internal_variables) = variables.into();
-                Ok(self.helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
+                // The solver only compares its objective, so the free energy is
+                // spent where it is handed over.
+                Ok(self
+                    .helmholtz_free_energy_density(deformation_gradient, internal_variables)?
+                    .value_as::<EnergyDensity>())
             },
             |variables: &Self::Variables| {
                 let (deformation_gradient, internal_variables) = variables.into();
@@ -148,7 +153,11 @@ where
         let (constraint_external, constraint_internal) = bcs_block(self, applied_load);
         match solver.minimize_block(
             |deformation_gradient: &DeformationGradient, internal_variables: &V| {
-                Ok(self.helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
+                // The solver only compares its objective, so the free energy is
+                // spent where it is handed over.
+                Ok(self
+                    .helmholtz_free_energy_density(deformation_gradient, internal_variables)?
+                    .value_as::<EnergyDensity>())
             },
             |deformation_gradient: &DeformationGradient, internal_variables: &V| {
                 Ok(self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?)

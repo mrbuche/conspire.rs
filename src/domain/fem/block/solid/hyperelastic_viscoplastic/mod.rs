@@ -1,3 +1,4 @@
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     constitutive::solid::hyperelastic_viscoplastic::HyperelasticViscoplastic,
     fem::{
@@ -12,7 +13,7 @@ use crate::{
             hyperelastic_viscoplastic::HyperelasticViscoplasticElements,
         },
     },
-    math::{Differentiate, Scalar, Tensor},
+    math::{Differentiate, Tensor},
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
@@ -28,7 +29,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         match self
             .elements()
             .iter()

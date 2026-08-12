@@ -1,4 +1,3 @@
-use crate::math::Dimensionless;
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::block::element::{
@@ -80,9 +79,8 @@ where
                         gradient_vectors
                             .iter()
                             .map(|gradient_vector| {
-                                ((first_piola_kirchhoff_stress * gradient_vector)
-                                    * integration_weight)
-                                    .with_unit::<Dimensionless>()
+                                (first_piola_kirchhoff_stress * gradient_vector)
+                                    * integration_weight
                             })
                             .collect()
                     },
@@ -132,13 +130,12 @@ where
                                     gradient_vectors
                                         .iter()
                                         .map(|gradient_vector_b| {
-                                            (first_piola_kirchhoff_tangent_stiffness
+                                            first_piola_kirchhoff_tangent_stiffness
                                                 .contract_second_fourth_with_first(
                                                     gradient_vector_a,
                                                     gradient_vector_b,
                                                 )
-                                                * integration_weight)
-                                                .with_unit::<Dimensionless>()
+                                                * integration_weight
                                         })
                                         .collect()
                                 })

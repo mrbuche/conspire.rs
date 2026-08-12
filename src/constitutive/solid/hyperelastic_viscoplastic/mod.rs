@@ -10,6 +10,7 @@ pub use hencky::Hencky;
 pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use crate::constitutive::solid::elastic_plastic::bcs;
+use crate::math::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -45,7 +46,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }
 
 /// First-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
@@ -158,8 +159,11 @@ where
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
+                // The solver only compares its objective, so the free energy is
+                // spent where it is handed over.
                 Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?)
+                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?
+                    .value_as::<EnergyDensity>())
             },
             |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,
@@ -233,8 +237,11 @@ where
              state_variables: &ViscoplasticStateVariables<Y>,
              deformation_gradient: &DeformationGradient| {
                 let deformation_gradient_p = &state_variables.0;
+                // The solver only compares its objective, so the free energy is
+                // spent where it is handed over.
                 Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?)
+                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?
+                    .value_as::<EnergyDensity>())
             },
             |_: Quantity<Time>,
              state_variables: &ViscoplasticStateVariables<Y>,

@@ -402,7 +402,7 @@ macro_rules! test_helmholtz_free_energy {
             is_deformed: bool,
         ) -> Result<NodalForcesSolid<3>, AssertionError> {
             let block = get_block();
-            let mut finite_difference = 0.0;
+            let mut finite_difference = $crate::math::Quantity::default();
             (0..D)
                 .map(|node| {
                     (0..3)
@@ -421,7 +421,9 @@ macro_rules! test_helmholtz_free_energy {
                             };
                             nodal_coordinates[node][i] -= 0.5 * EPSILON;
                             finite_difference -= block.helmholtz_free_energy(&nodal_coordinates)?;
-                            Ok(finite_difference / EPSILON)
+                            // An energy density per unit perturbation is a stress, which is
+                            // what a nodal force carries.
+                            Ok((finite_difference / EPSILON).value_as::<$crate::math::Stress>())
                         })
                         .collect()
                 })
@@ -457,14 +459,20 @@ macro_rules! test_helmholtz_free_energy {
                     let nodal_coordinates = get_coordinates_block();
                     let nodal_forces = block.nodal_forces(&nodal_coordinates)?;
                     let minimum = block.helmholtz_free_energy(&nodal_coordinates)?
-                        - nodal_forces.full_contraction(&nodal_coordinates);
-                    let mut perturbed = 0.0;
+                        - $crate::math::ContractWith::contract_with(
+                            &nodal_forces,
+                            &nodal_coordinates,
+                        );
+                    let mut perturbed = $crate::math::Quantity::default();
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             let mut perturbed_coordinates = nodal_coordinates.clone();
                             perturbed_coordinates[node][i] += 0.5 * EPSILON;
                             perturbed = block.helmholtz_free_energy(&perturbed_coordinates)?
-                                - nodal_forces.full_contraction(&perturbed_coordinates);
+                                - $crate::math::ContractWith::contract_with(
+                                    &nodal_forces,
+                                    &perturbed_coordinates,
+                                );
                             if $crate::math::assert::Assert::default()
                                 .eq_within_tols(&perturbed, &minimum)
                                 .is_err()
@@ -473,7 +481,10 @@ macro_rules! test_helmholtz_free_energy {
                             }
                             perturbed_coordinates[node][i] -= EPSILON;
                             perturbed = block.helmholtz_free_energy(&perturbed_coordinates)?
-                                - nodal_forces.full_contraction(&perturbed_coordinates);
+                                - $crate::math::ContractWith::contract_with(
+                                    &nodal_forces,
+                                    &perturbed_coordinates,
+                                );
                             if $crate::math::assert::Assert::default()
                                 .eq_within_tols(&perturbed, &minimum)
                                 .is_err()
@@ -500,7 +511,10 @@ macro_rules! test_helmholtz_free_energy {
                             .helmholtz_free_energy(&get_reference_coordinates_block().into())?
                             .abs(),
                     )?;
-                    assert!(block.helmholtz_free_energy(&get_coordinates_block())? > 0.0);
+                    assert!(
+                        block.helmholtz_free_energy(&get_coordinates_block())?
+                            > $crate::math::Quantity::default()
+                    );
                     Ok(())
                 }
             }
@@ -515,7 +529,7 @@ macro_rules! test_helmholtz_free_energy {
                 }
                 #[test]
                 fn minimized() -> Result<(), AssertionError> {
-                    let mut perturbed = 0.0;
+                    let mut perturbed = $crate::math::Quantity::default();
                     let mut perturbed_coordinates = get_reference_coordinates_block().into();
                     let block = get_block();
                     let minimum = block.helmholtz_free_energy(&perturbed_coordinates)?;
@@ -847,7 +861,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
         // A force contracted with a velocity is a power, which no unit here
         // names, the force having spent its stress at assembly, so the erased
         // views are contracted and the dissipation is spent to meet them.
-        use crate::math::{Dissipation, Erase};
+        use crate::math::ContractWith;
         fn get_velocities_transformed_block() -> NodalVelocities<3> {
             get_coordinates_block()
                 .iter()
@@ -1255,38 +1269,25 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                         block.nodal_forces(&nodal_coordinates, &nodal_velocities)? - nodal_forces_0;
                     let minimum = block
                         .viscous_dissipation(&nodal_coordinates, &nodal_velocities)?
-                        .value_as::<Dissipation>()
-                        - nodal_forces
-                            .erase()
-                            .full_contraction(nodal_velocities.erase());
+                        - nodal_forces.contract_with(&nodal_velocities);
                     let mut perturbed_velocities = get_velocities_block();
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             perturbed_velocities = get_velocities_block();
                             perturbed_velocities[node][i] += 0.5 * EPSILON;
                             assert!(
-                                block
-                                    .viscous_dissipation(
-                                        &nodal_coordinates,
-                                        &perturbed_velocities,
-                                    )?
-                                    .value_as::<Dissipation>()
-                                    - nodal_forces
-                                    .erase()
-                                    .full_contraction(perturbed_velocities.erase())
+                                block.viscous_dissipation(
+                                    &nodal_coordinates,
+                                    &perturbed_velocities,
+                                )? - nodal_forces.contract_with(&perturbed_velocities)
                                     >= minimum
                             );
                             perturbed_velocities[node][i] -= EPSILON;
                             assert!(
-                                block
-                                    .viscous_dissipation(
-                                        &nodal_coordinates,
-                                        &perturbed_velocities,
-                                    )?
-                                    .value_as::<Dissipation>()
-                                    - nodal_forces
-                                    .erase()
-                                    .full_contraction(perturbed_velocities.erase())
+                                block.viscous_dissipation(
+                                    &nodal_coordinates,
+                                    &perturbed_velocities,
+                                )? - nodal_forces.contract_with(&perturbed_velocities)
                                     >= minimum
                             );
                             Ok(())
@@ -1396,37 +1397,24 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                     let nodal_forces = block.nodal_forces(&nodal_coordinates, &nodal_velocities)?;
                     let minimum = block
                         .dissipation_potential(&nodal_coordinates, &nodal_velocities)?
-                        .value_as::<Dissipation>()
-                        - nodal_forces
-                            .erase()
-                            .full_contraction(nodal_velocities.erase());
+                        - nodal_forces.contract_with(&nodal_velocities);
                     (0..D).try_for_each(|node| {
                         (0..3).try_for_each(|i| {
                             let mut perturbed_velocities = nodal_velocities.clone();
                             perturbed_velocities[node][i] += 0.5 * EPSILON;
                             assert!(
-                                block
-                                    .dissipation_potential(
-                                        &nodal_coordinates,
-                                        &perturbed_velocities,
-                                    )?
-                                    .value_as::<Dissipation>()
-                                    - nodal_forces
-                                    .erase()
-                                    .full_contraction(perturbed_velocities.erase())
+                                block.dissipation_potential(
+                                    &nodal_coordinates,
+                                    &perturbed_velocities,
+                                )? - nodal_forces.contract_with(&perturbed_velocities)
                                     >= minimum
                             );
                             perturbed_velocities[node][i] -= EPSILON;
                             assert!(
-                                block
-                                    .dissipation_potential(
-                                        &nodal_coordinates,
-                                        &perturbed_velocities,
-                                    )?
-                                    .value_as::<Dissipation>()
-                                    - nodal_forces
-                                    .erase()
-                                    .full_contraction(perturbed_velocities.erase())
+                                block.dissipation_potential(
+                                    &nodal_coordinates,
+                                    &perturbed_velocities,
+                                )? - nodal_forces.contract_with(&perturbed_velocities)
                                     >= minimum
                             );
                             Ok(())

@@ -1,3 +1,4 @@
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -5,7 +6,7 @@ use crate::{
         solid::{hyperelastic::Hyperelastic, hyperelastic_viscoplastic::HyperelasticViscoplastic},
     },
     math::{Differentiate, Tensor},
-    mechanics::{DeformationGradient, DeformationGradientPlastic, Scalar},
+    mechanics::{DeformationGradient, DeformationGradientPlastic},
 };
 
 impl<C1, C2, Y1> HyperelasticViscoplastic<Y1> for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
@@ -23,7 +24,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         Ok(self
             .0
             .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?

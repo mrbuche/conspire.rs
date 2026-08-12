@@ -1,3 +1,4 @@
+use crate::math::EnergyDensity;
 use crate::{
     fem::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
@@ -28,7 +29,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError>;
 }
 
 impl<B, S, const D: usize> HyperelasticViscoplasticElements<S, D> for Model<B, D>
@@ -40,7 +41,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         self.blocks
             .helmholtz_free_energy(nodal_coordinates, state_variables)
     }
@@ -57,7 +58,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         Ok(self
             .0
             .helmholtz_free_energy(nodal_coordinates, state_variables)?
@@ -79,7 +80,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         Ok(self
             .0
             .helmholtz_free_energy(nodal_coordinates, &state_variables.0)?
@@ -162,9 +163,12 @@ where
                 |_: Quantity<Time>,
                  state_variables: &S,
                  nodal_coordinates: &NodalCoordinates<D>| {
+                    // The solver only compares its objective, so the free
+                    // energy is spent where it is handed over.
                     Ok(self
                         .blocks
-                        .helmholtz_free_energy(nodal_coordinates, state_variables)?)
+                        .helmholtz_free_energy(nodal_coordinates, state_variables)?
+                        .value_as::<EnergyDensity>())
                 },
                 |_: Quantity<Time>,
                  state_variables: &S,

@@ -1,5 +1,6 @@
 use std::ops::{Div, Mul};
 
+use crate::math::EnergyDensity;
 use crate::{
     constitutive::solid::hyperelastic::internal_variables::HyperelasticIV,
     fem::{
@@ -35,7 +36,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         internal_variables: &InternalVariablesField<G, V>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         match self
             .elements()
             .iter()

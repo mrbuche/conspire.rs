@@ -1,13 +1,14 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     constitutive::{
         ConstitutiveError,
         hybrid::ElasticMultiplicative,
         solid::hyperelastic::{Hyperelastic, internal_variables::HyperelasticIV},
     },
-    mechanics::{DeformationGradient, DeformationGradient2, Scalar},
+    mechanics::{DeformationGradient, DeformationGradient2},
 };
 
 impl<C1, C2> HyperelasticIV<DeformationGradient2> for ElasticMultiplicative<C1, C2>
@@ -24,7 +25,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let deformation_gradient_1 = deformation_gradient * deformation_gradient_2.inverse();
         Ok(self
             .0

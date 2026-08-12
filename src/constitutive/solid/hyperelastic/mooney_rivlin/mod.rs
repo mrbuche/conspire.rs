@@ -110,16 +110,15 @@ impl Hyperelastic for MooneyRivlin {
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
-        Ok((0.5
+        Ok(0.5
             * ((self.shear_modulus() - self.extra_modulus())
                 * (isochoric_left_cauchy_green_deformation.trace() - 3.0)
                 + self.extra_modulus()
                     * (isochoric_left_cauchy_green_deformation.second_invariant() - 3.0)
                 + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
-        .value_as::<EnergyDensity>())
     }
 }

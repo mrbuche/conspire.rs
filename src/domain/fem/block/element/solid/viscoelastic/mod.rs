@@ -6,7 +6,7 @@ use crate::{
         solid::{ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidFiniteElement},
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
-    math::{ContractSecondFourthWithFirst, Dimensionless, IDENTITY, Scalar, Tensor, Time},
+    math::{ContractSecondFourthWithFirst, IDENTITY, Scalar, Tensor},
     mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStressList},
 };
 
@@ -96,13 +96,12 @@ where
                                     gradient_vectors_b
                                         .iter()
                                         .map(|gradient_vector_b| {
-                                            (first_piola_kirchhoff_rate_tangent_stiffness
+                                            first_piola_kirchhoff_rate_tangent_stiffness
                                                 .contract_second_fourth_with_first(
                                                     gradient_vector_a,
                                                     gradient_vector_b,
                                                 )
-                                                * integration_weight)
-                                                .with_unit::<Time>()
+                                                * integration_weight
                                         })
                                         .collect()
                                 })
@@ -250,8 +249,7 @@ where
                     gradient_vectors
                         .iter()
                         .map(|gradient_vector| {
-                            ((first_piola_kirchhoff_stress * gradient_vector) * integration_weight)
-                                .with_unit::<Dimensionless>()
+                            (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
                         })
                         .collect()
                 },

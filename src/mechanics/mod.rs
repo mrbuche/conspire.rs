@@ -1,6 +1,6 @@
 //! Mechanics library.
 
-use crate::math::{Current, Intermediate, Rate, Reference, Stress, Time, Viscosity};
+use crate::math::{Current, Intermediate, Rate, Reference, Stress, Viscosity};
 #[cfg(test)]
 pub mod test;
 
@@ -234,13 +234,17 @@ pub type FirstPiolaKirchhoffRateTangentStiffnesses<const W: usize> =
     TensorRank4List<3, Current, Reference, Current, Reference, W, Viscosity>;
 
 /// A force.
-pub type Force = TensorRank1<3, Current>;
+///
+/// A force is a stress times an area, and an area carries no unit here, so a
+/// force and a stress share a unit. What a finite element assembles is a stress
+/// against a gradient over a weight, which is why the two meet.
+pub type Force = TensorRank1<3, Current, Stress>;
 
 /// A list of forces.
-pub type ForceList<const N: usize> = TensorRank1List<3, Current, N>;
+pub type ForceList<const N: usize> = TensorRank1List<3, Current, N, Stress>;
 
 /// A vector of forces.
-pub type Forces = TensorRank1Vec<3, Current>;
+pub type Forces = TensorRank1Vec<3, Current, Stress>;
 
 /// The frame spin $`\mathbf{\Omega}=\dot{\mathbf{Q}}\cdot\mathbf{Q}^T`$.
 pub type FrameSpin = TensorRank2<3, Current, Current, Rate>;
@@ -331,25 +335,25 @@ pub type SecondPiolaKirchhoffRateTangentStiffness =
     TensorRank4<3, Reference, Reference, Current, Reference, Viscosity>;
 
 /// A stiffness resulting from a force.
-pub type Stiffness = TensorRank2<3, Current, Current>;
+pub type Stiffness = TensorRank2<3, Current, Current, Stress>;
 
 /// A list of stiffnesses.
-pub type StiffnessList<const N: usize> = TensorRank2List<3, Current, Current, N>;
+pub type StiffnessList<const N: usize> = TensorRank2List<3, Current, Current, N, Stress>;
 
 /// A 2D list of stiffnesses.
-pub type StiffnessList2D<const N: usize> = TensorRank2List2D<3, Current, Current, N, N>;
+pub type StiffnessList2D<const N: usize> = TensorRank2List2D<3, Current, Current, N, N, Stress>;
 
 /// A damping resulting from a force per unit rate.
-pub type Damping = TensorRank2<3, Current, Current, Time>;
+pub type Damping = TensorRank2<3, Current, Current, Viscosity>;
 
 /// A list of two-dimensional lists of dampings.
-pub type DampingList2D<const N: usize> = TensorRank2List2D<3, Current, Current, N, N, Time>;
+pub type DampingList2D<const N: usize> = TensorRank2List2D<3, Current, Current, N, N, Viscosity>;
 
 /// A vector of two-dimensional vectors of dampings.
-pub type Dampings = TensorRank2Vec2D<3, Current, Current, Time>;
+pub type Dampings = TensorRank2Vec2D<3, Current, Current, Viscosity>;
 
 /// A vector of stiffnesses.
-pub type Stiffnesses = TensorRank2Vec2D<3, Current, Current>;
+pub type Stiffnesses = TensorRank2Vec2D<3, Current, Current, Stress>;
 
 /// The stretching rate $`\mathbf{D}`$.
 pub type StretchingRate = TensorRank2<3, Current, Current, Rate>;

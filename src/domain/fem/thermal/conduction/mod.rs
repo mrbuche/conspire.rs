@@ -114,14 +114,14 @@ where
     }
 }
 
-impl<B, const D: usize> ZerothOrderRoot<NodalTemperatures> for Model<B, D>
+impl<B, const D: usize> ZerothOrderRoot<NodalForcesThermal, NodalTemperatures> for Model<B, D>
 where
     B: ThermalConductionElements,
 {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalTemperatures, NodalTemperatures>,
+        solver: impl ZerothOrderRootFinding<NodalForcesThermal, NodalTemperatures>,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.root(
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
@@ -161,14 +161,15 @@ where
     }
 }
 
-impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalTemperatures> for Model<B, D>
+impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalForcesThermal, NodalTemperatures>
+    for Model<B, D>
 where
     B: ThermalConductionElements,
 {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalTemperatures, NodalTemperatures>,
+        solver: impl FirstOrderOptimization<Scalar, NodalForcesThermal, NodalTemperatures>,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.minimize(
             |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),

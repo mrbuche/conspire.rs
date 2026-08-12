@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -9,7 +10,7 @@ use crate::{
         solid::{hyperelastic::Hyperelastic, hyperelastic_viscoplastic::HyperelasticViscoplastic},
     },
     math::{Differentiate, Tensor},
-    mechanics::{DeformationGradient, DeformationGradientPlastic, Scalar},
+    mechanics::{DeformationGradient, DeformationGradientPlastic},
 };
 
 impl<C1, C2, Y2> HyperelasticViscoplastic<Y2> for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
@@ -22,7 +23,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         self.0
             .helmholtz_free_energy_density(&deformation_gradient_e.into())

@@ -119,11 +119,11 @@ impl StyledError for ElementModelError {
 
 styled_error!(ElementModelError);
 
-pub trait ZerothOrderRoot<X> {
+pub trait ZerothOrderRoot<F, X> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<X, X>,
+        solver: impl ZerothOrderRootFinding<F, X>,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -135,11 +135,11 @@ pub trait FirstOrderRoot<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait FirstOrderMinimize<F, X> {
+pub trait FirstOrderMinimize<F, J, X> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<F, X, X>,
+        solver: impl FirstOrderOptimization<F, J, X>,
     ) -> Result<X, OptimizationError>;
 }
 

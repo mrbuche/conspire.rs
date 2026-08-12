@@ -1,4 +1,4 @@
-use super::{Differentiate, Erase};
+use super::{ContractWith, Differentiate, Erase};
 use crate::math::Dimensionless;
 use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
@@ -662,6 +662,16 @@ where
     type Output = TensorRank1<D, J, <U as UnitDiv<V>>::Output>;
     fn div(self, tensor_rank_2: TensorRank2<D, I, J, V>) -> Self::Output {
         relabel(tensor_rank_2.canonical().clone().inverse() * self.canonical())
+    }
+}
+
+impl<const D: usize, I, U, V> ContractWith<TensorRank1<D, I, V>> for TensorRank1<D, I, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = Quantity<<U as UnitMul<V>>::Output>;
+    fn contract_with(&self, tensor_rank_1: &TensorRank1<D, I, V>) -> Self::Output {
+        Quantity::new(self.canonical().full_contraction(tensor_rank_1.canonical()))
     }
 }
 

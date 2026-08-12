@@ -123,11 +123,11 @@ impl<const N: usize> Hyperelastic for Yeoh<N> {
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let scalar_term =
             deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;
-        Ok((0.5
+        Ok(0.5
             * (once(self.shear_modulus())
                 .chain(
                     self.extra_moduli()
@@ -138,6 +138,5 @@ impl<const N: usize> Hyperelastic for Yeoh<N> {
                 .map(|(n, modulus)| modulus * scalar_term.powi((n + 1) as i32))
                 .sum::<Quantity<Modulus>>()
                 + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
-        .value_as::<EnergyDensity>())
     }
 }

@@ -108,11 +108,11 @@ impl Thermohyperelastic for SaintVenantKirchhoff {
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: Scalar,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = (deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5;
         let strain_trace = strain.trace();
-        Ok((self.shear_modulus() * strain.squared_trace()
+        Ok(self.shear_modulus() * strain.squared_trace()
             + 0.5
                 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
                 * strain_trace.powi(2)
@@ -121,6 +121,5 @@ impl Thermohyperelastic for SaintVenantKirchhoff {
                 * self.coefficient_of_thermal_expansion()
                 * (Quantity::<Temperature>::new(temperature) - self.reference_temperature())
                 * strain_trace)
-            .value_as::<EnergyDensity>())
     }
 }

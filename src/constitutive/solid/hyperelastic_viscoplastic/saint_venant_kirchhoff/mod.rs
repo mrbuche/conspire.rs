@@ -4,6 +4,7 @@ use crate::math::{Quantity, Stress};
 #[cfg(test)]
 mod test;
 
+use crate::math::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -130,14 +131,13 @@ impl HyperelasticViscoplastic<Quantity> for SaintVenantKirchhoff {
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let strain = (deformation_gradient_e.right_cauchy_green() - IDENTITY_22) * 0.5;
-        Ok((self.shear_modulus() * strain.squared_trace()
+        Ok(self.shear_modulus() * strain.squared_trace()
             + 0.5
                 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())
                 * strain.trace().powi(2))
-        .value())
     }
 }

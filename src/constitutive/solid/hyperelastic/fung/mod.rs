@@ -109,15 +109,14 @@ impl Hyperelastic for Fung {
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let scalar_term =
             deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;
-        Ok((0.5
+        Ok(0.5
             * ((self.shear_modulus() - self.extra_modulus()) * scalar_term
                 + self.extra_modulus() / self.exponent()
                     * ((self.exponent() * scalar_term).exp() - 1.0)
                 + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
-        .value_as::<EnergyDensity>())
     }
 }

@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     constitutive::{ConstitutiveError, hybrid::ElasticAdditive, solid::hyperelastic::Hyperelastic},
-    mechanics::{DeformationGradient, Scalar},
+    mechanics::DeformationGradient,
 };
 
 impl<C1, C2> Hyperelastic for ElasticAdditive<C1, C2>
@@ -19,7 +20,7 @@ where
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         Ok(self.0.helmholtz_free_energy_density(deformation_gradient)?
             + self.1.helmholtz_free_energy_density(deformation_gradient)?)
     }

@@ -8,6 +8,7 @@ mod saint_venant_kirchhoff;
 pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use super::{thermoelastic::Thermoelastic, *};
+use crate::math::{EnergyDensity, Quantity};
 
 /// Required methods for thermohyperelastic solid constitutive models.
 pub trait Thermohyperelastic
@@ -23,5 +24,5 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: Scalar,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }

@@ -1,5 +1,6 @@
 pub mod internal_variables;
 
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, Model,
@@ -22,7 +23,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError>;
     fn nodal_stiffnesses_symmetric_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -45,7 +46,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         self.blocks.helmholtz_free_energy(nodal_coordinates)
     }
     fn nodal_stiffnesses_symmetric_into(
@@ -66,7 +67,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         Ok(self.0.helmholtz_free_energy(nodal_coordinates)?
             + self.1.helmholtz_free_energy(nodal_coordinates)?)
     }
@@ -82,18 +83,23 @@ where
     }
 }
 
-impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalCoordinates<D>> for Model<B, D>
+impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalForcesSolid<D>, NodalCoordinates<D>>
+    for Model<B, D>
 where
     B: HyperelasticElements<D>,
 {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalCoordinates<D>, NodalCoordinates<D>>,
+        solver: impl FirstOrderOptimization<Scalar, NodalForcesSolid<D>, NodalCoordinates<D>>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
+                // The solver only compares its objective, so the free energy is
+                // spent where it is handed over.
+                Ok(self
+                    .helmholtz_free_energy(nodal_coordinates)?
+                    .value_as::<EnergyDensity>())
             },
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
             self.coordinates().clone().into(),
@@ -128,7 +134,11 @@ where
         let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, true);
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
+                // The solver only compares its objective, so the free energy is
+                // spent where it is handed over.
+                Ok(self
+                    .helmholtz_free_energy(nodal_coordinates)?
+                    .value_as::<EnergyDensity>())
             },
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
             |nodal_coordinates: &NodalCoordinates<D>| {

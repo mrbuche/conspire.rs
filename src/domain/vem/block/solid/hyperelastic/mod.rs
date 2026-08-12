@@ -1,7 +1,8 @@
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{ElementModelError, solid::hyperelastic::HyperelasticElements},
-    math::{HessianAccumulate, Scalar},
+    math::HessianAccumulate,
     vem::{
         NodalCoordinates,
         block::{
@@ -20,7 +21,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         match self
             .elements()
             .iter()

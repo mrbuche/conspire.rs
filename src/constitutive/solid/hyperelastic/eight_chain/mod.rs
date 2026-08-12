@@ -191,7 +191,7 @@ where
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
@@ -203,11 +203,10 @@ where
         //
         // If end up re-using so much of ArrudaBoyce should make helper function to share.
         //
-        Ok((3.0 * gamma_0 / eta_0
+        Ok(3.0 * gamma_0 / eta_0
             * self.shear_modulus()
             * self.number_of_links()
             * (gamma * eta - gamma_0 * eta_0 - (eta_0 * eta.sinh() / (eta * eta_0.sinh())).ln())
             + 0.5 * self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
-        .value_as::<EnergyDensity>())
     }
 }

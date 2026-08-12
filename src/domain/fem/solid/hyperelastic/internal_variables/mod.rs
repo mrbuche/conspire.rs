@@ -1,3 +1,4 @@
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     fem::{
         ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
@@ -28,7 +29,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError>;
 }
 
 impl<B, const G: usize, V, const D: usize> HyperelasticIVElements<G, V, D> for Model<B, D>
@@ -40,7 +41,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         self.blocks
             .helmholtz_free_energy(nodal_coordinates, internal_variables)
     }
@@ -111,10 +112,14 @@ where
                 let solved = SolvedInternalVariables::new(self, local_solver, initial);
                 solver.minimize(
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self.helmholtz_free_energy(
-                            nodal_coordinates,
-                            &solved.at(nodal_coordinates)?,
-                        )?)
+                        // The solver only compares its objective, so the free
+                        // energy is spent where it is handed over.
+                        Ok(self
+                            .helmholtz_free_energy(
+                                nodal_coordinates,
+                                &solved.at(nodal_coordinates)?,
+                            )?
+                            .value_as::<EnergyDensity>())
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
                         Ok(self.nodal_forces(nodal_coordinates, &solved.at(nodal_coordinates)?)?)
@@ -139,7 +144,11 @@ where
                 let carried = CarriedInternalVariables::new(self, initial);
                 solver.minimize_incremental(
                     |nodal_coordinates: &NodalCoordinates<D>| {
-                        Ok(self.helmholtz_free_energy(nodal_coordinates, &carried.stepped())?)
+                        // The solver only compares its objective, so the free
+                        // energy is spent where it is handed over.
+                        Ok(self
+                            .helmholtz_free_energy(nodal_coordinates, &carried.stepped())?
+                            .value_as::<EnergyDensity>())
                     },
                     |nodal_coordinates: &NodalCoordinates<D>| {
                         Ok(self.nodal_forces_eliminated(nodal_coordinates, &carried.stepped())?)

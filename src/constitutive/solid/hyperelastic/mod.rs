@@ -32,6 +32,7 @@ use super::{
     *,
 };
 use crate::math::optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization};
+use crate::math::{EnergyDensity, Quantity};
 
 /// Required methods for hyperelastic solid constitutive models.
 pub trait Hyperelastic
@@ -46,7 +47,7 @@ where
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }
 
 /// First-order minimization methods for elastic solid constitutive models.
@@ -94,7 +95,11 @@ where
         let (matrix, vector) = bcs(applied_load);
         match solver.minimize(
             |deformation_gradient: &DeformationGradient| {
-                Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
+                // The solver only compares its objective, so the free energy is
+                // spent where it is handed over.
+                Ok(self
+                    .helmholtz_free_energy_density(deformation_gradient)?
+                    .value_as::<EnergyDensity>())
             },
             |deformation_gradient: &DeformationGradient| {
                 Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
@@ -128,7 +133,11 @@ where
         let (matrix, vector) = bcs(applied_load);
         match solver.minimize(
             |deformation_gradient: &DeformationGradient| {
-                Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
+                // The solver only compares its objective, so the free energy is
+                // spent where it is handed over.
+                Ok(self
+                    .helmholtz_free_energy_density(deformation_gradient)?
+                    .value_as::<EnergyDensity>())
             },
             |deformation_gradient: &DeformationGradient| {
                 Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)

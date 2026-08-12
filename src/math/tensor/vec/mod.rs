@@ -1,6 +1,7 @@
 use crate::math::Dimensionless;
 use crate::math::{
-    Differentiate, Erase, Quantity, Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorVec,
+    ContractWith, Differentiate, Erase, Quantity, Tensor, TensorRank0, TensorRank1,
+    TensorRank1List, TensorVec,
 };
 use std::{
     collections::VecDeque,
@@ -565,6 +566,21 @@ where
         self.iter_mut()
             .zip(tensor_vec.iter())
             .for_each(|(self_entry, entry)| *self_entry -= entry);
+    }
+}
+
+impl<T, V> ContractWith<TensorVector<V>> for TensorVector<T>
+where
+    T: ContractWith<V> + Tensor,
+    V: Tensor,
+    <T as ContractWith<V>>::Output: Sum,
+{
+    type Output = <T as ContractWith<V>>::Output;
+    fn contract_with(&self, tensor_vector: &TensorVector<V>) -> Self::Output {
+        self.iter()
+            .zip(tensor_vector.iter())
+            .map(|(entry, other)| entry.contract_with(other))
+            .sum()
     }
 }
 

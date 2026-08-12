@@ -5,6 +5,7 @@ use crate::math::{ReciprocalTemperature, Temperature};
 #[cfg(test)]
 mod test;
 
+use crate::math::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -129,7 +130,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         temperature: Scalar,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         self.solid_constitutive_model()
             .helmholtz_free_energy_density(deformation_gradient, temperature)
     }

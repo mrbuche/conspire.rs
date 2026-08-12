@@ -113,9 +113,9 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                     helmholtz_free_energy_density_from_deformation_gradient_simple!(
                         $constitutive_model, &deformation_gradient_minus
                     )?;
-                    first_piola_kirchhoff_stress[i][j] = (
+                    first_piola_kirchhoff_stress[i][j] = ((
                         helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
-                    )/EPSILON;
+                    )/EPSILON).value_as::<$crate::math::Stress>();
                 }
             }
             Ok(first_piola_kirchhoff_stress)
@@ -156,9 +156,8 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                     let minimum =
                     helmholtz_free_energy_density_from_deformation_gradient_simple!(
                         $constitutive_model, &get_deformation_gradient()
-                    )? - $crate::math::Tensor::full_contraction(
-                        $crate::math::Erase::erase(&first_piola_kirchhoff_stress),
-                        $crate::math::Erase::erase(&get_deformation_gradient())
+                    )? - $crate::math::ContractWith::contract_with(
+                        &first_piola_kirchhoff_stress, &get_deformation_gradient()
                     );
                     let mut perturbed_deformation_gradient = get_deformation_gradient();
                     (0..3).try_for_each(|i|
@@ -168,18 +167,16 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                             assert!(
                                 helmholtz_free_energy_density_from_deformation_gradient_simple!(
                                     $constitutive_model, &perturbed_deformation_gradient
-                                )? - $crate::math::Tensor::full_contraction(
-                        $crate::math::Erase::erase(&first_piola_kirchhoff_stress),
-                                    $crate::math::Erase::erase(&perturbed_deformation_gradient)
+                                )? - $crate::math::ContractWith::contract_with(
+                                    &first_piola_kirchhoff_stress, &perturbed_deformation_gradient
                                 ) > minimum
                             );
                             perturbed_deformation_gradient[i][j] -= EPSILON;
                             assert!(
                                 helmholtz_free_energy_density_from_deformation_gradient_simple!(
                                     $constitutive_model, &perturbed_deformation_gradient
-                                )? - $crate::math::Tensor::full_contraction(
-                        $crate::math::Erase::erase(&first_piola_kirchhoff_stress),
-                                    $crate::math::Erase::erase(&perturbed_deformation_gradient)
+                                )? - $crate::math::ContractWith::contract_with(
+                                    &first_piola_kirchhoff_stress, &perturbed_deformation_gradient
                                 ) > minimum
                             );
                             Ok(())
@@ -204,7 +201,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                     assert!(
                         helmholtz_free_energy_density_from_deformation_gradient_simple!(
                             $constitutive_model, &get_deformation_gradient()
-                        )? > 0.0
+                        )? > $crate::math::Quantity::default()
                     );
                     Ok(())
                 }

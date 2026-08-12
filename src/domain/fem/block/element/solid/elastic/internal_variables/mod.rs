@@ -152,9 +152,7 @@ fn assemble_forces<const G: usize, const N: usize>(
         .map(|(stress, (gradient_vectors_point, integration_weight))| {
             gradient_vectors_point
                 .iter()
-                .map(|gradient_vector| {
-                    ((stress * gradient_vector) * integration_weight).with_unit::<Dimensionless>()
-                })
+                .map(|gradient_vector| (stress * gradient_vector) * integration_weight)
                 .collect()
         })
         .sum()
@@ -522,11 +520,10 @@ where
                             gradient_vectors
                                 .iter()
                                 .map(|gradient_vector_b| {
-                                    (tangent.contract_second_fourth_with_first(
+                                    tangent.contract_second_fourth_with_first(
                                         gradient_vector_a,
                                         gradient_vector_b,
-                                    ) * integration_weight)
-                                        .with_unit::<Dimensionless>()
+                                    ) * integration_weight
                                 })
                                 .collect()
                         })

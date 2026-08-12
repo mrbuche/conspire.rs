@@ -1,3 +1,4 @@
+use crate::math::{EnergyDensity, Quantity};
 use crate::{
     constitutive::solid::hyperviscoelastic::Hyperviscoelastic,
     fem::{
@@ -8,7 +9,6 @@ use crate::{
             hyperviscoelastic::HyperviscoelasticElements,
         },
     },
-    math::Scalar,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
@@ -21,7 +21,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<EnergyDensity>, ElementModelError> {
         match self
             .elements()
             .iter()
