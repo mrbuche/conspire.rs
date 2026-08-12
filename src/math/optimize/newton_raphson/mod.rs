@@ -503,6 +503,22 @@ fn backtrack_errors(
     ))
 }
 
+/// Whether every block of the residual has come within the tolerance.
+///
+/// Each block is measured on its own, the multipliers being of another kind
+/// entirely from the variables, and either kind in one block from that in
+/// another, so that the tolerance means the same thing wherever it is met.
+fn converged(newton_raphson: &NewtonRaphson, residual: &Vector, variables: usize) -> bool {
+    newton_raphson
+        .error_norm
+        .over(residual.iter().take(variables).copied())
+        < newton_raphson.abs_tol
+        && newton_raphson
+            .error_norm
+            .over(residual.iter().skip(variables).copied())
+            < newton_raphson.abs_tol
+}
+
 /// Shortens the step until the variables move no further than the maximum.
 ///
 /// Only the variables are measured, the multipliers being of another kind
@@ -720,7 +736,9 @@ where
             .chain(update_inner.iter())
             .zip(residual.iter_mut())
             .for_each(|(entry, residual_i)| *residual_i = *entry);
-        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
+        if converged(newton_raphson, &update_outer, num_global)
+            && converged(newton_raphson, &update_inner, num_local)
+        {
             return Ok((global, local));
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -1217,7 +1235,7 @@ where
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
         );
-        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol {
+        if converged(newton_raphson, &residual, num_variables) {
             return Ok(solution);
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
