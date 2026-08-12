@@ -85,7 +85,13 @@ impl Tessellation {
                 let polygons = if cut.flush {
                     Vec::new()
                 } else {
-                    clip_face(&cut, tables.segments().get(key), &crossing_ids)
+                    clip_face(
+                        &cut,
+                        tables.segments().get(key),
+                        None,
+                        &crossing_ids,
+                        &HashMap::new(),
+                    )
                 };
                 face_polygons.insert(key.clone(), polygons);
                 face_cuts.insert(key.clone(), cut);

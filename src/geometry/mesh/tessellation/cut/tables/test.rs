@@ -93,6 +93,9 @@ fn tables_sphere_dual() {
             Vertex::Crossing(edge, ordinal) => {
                 assert!(tables.crossings()[edge].len() > *ordinal)
             }
+            Vertex::Feature(face, crease) => {
+                assert!(tables.features().contains_key(&(*face, *crease)))
+            }
         })
     })
 }

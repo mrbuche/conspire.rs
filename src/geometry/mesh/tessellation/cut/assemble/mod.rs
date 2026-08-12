@@ -18,9 +18,10 @@ use crate::{
     },
     math::{CrossProduct, Scalar, Tensor, TensorVec},
 };
-use std::{array::from_fn, collections::HashMap, collections::HashSet};
+use std::{array::from_fn, collections::HashMap, collections::HashSet, iter::once};
 
 #[allow(clippy::type_complexity)]
+#[allow(clippy::too_many_arguments)]
 fn build_cut_cells(
     mesh: &Mesh<D>,
     classes: &[Class],
@@ -28,6 +29,7 @@ fn build_cut_cells(
     face_polygons: &HashMap<&[usize; 4], Vec<Vec<usize>>>,
     face_cuts: &HashMap<&[usize; 4], FaceCut>,
     crossing_ids: &HashMap<[usize; 2], Vec<usize>>,
+    feature_ids: &HashMap<([usize; 4], usize), usize>,
     coordinates: &Coordinates<D>,
 ) -> Result<
     (
@@ -45,6 +47,7 @@ fn build_cut_cells(
     let point = |vertex: Vertex| match vertex {
         Vertex::Node(node) => node,
         Vertex::Crossing(edge, ordinal) => crossing_ids[&edge][ordinal],
+        Vertex::Feature(face, crease) => feature_ids[&(face, crease)],
     };
     let mut hexes = Vec::new();
     let mut elements_faces = Vec::<Vec<usize>>::new();
@@ -75,9 +78,19 @@ fn build_cut_cells(
                     let mut adjacency = HashMap::<Vertex, Vec<Vertex>>::new();
                     faces.iter().for_each(|(key, _)| {
                         if let Some(pairs) = tables.segments.get(key) {
-                            pairs.iter().for_each(|&[one, two]| {
-                                adjacency.entry(one).or_default().push(two);
-                                adjacency.entry(two).or_default().push(one);
+                            pairs.iter().enumerate().for_each(|(chord, &[one, two])| {
+                                let riding = tables
+                                    .vias
+                                    .get(key)
+                                    .and_then(|vias| vias.get(chord))
+                                    .cloned()
+                                    .unwrap_or_default();
+                                let chain: Vec<Vertex> =
+                                    once(one).chain(riding).chain(once(two)).collect();
+                                chain.windows(2).for_each(|pair| {
+                                    adjacency.entry(pair[0]).or_default().push(pair[1]);
+                                    adjacency.entry(pair[1]).or_default().push(pair[0]);
+                                })
                             })
                         }
                     });
@@ -267,6 +280,13 @@ impl Tessellation {
                 .collect();
             crossing_ids.insert(*edge, ids);
         });
+        let mut feature_ids = HashMap::<([usize; 4], usize), usize>::new();
+        let mut featured: Vec<&([usize; 4], usize)> = tables.features.keys().collect();
+        featured.sort_unstable();
+        featured.into_iter().for_each(|named| {
+            coordinates.push(tables.features[named].clone());
+            feature_ids.insert(*named, coordinates.len() - 1);
+        });
         let mut face_polygons = HashMap::new();
         let mut face_cuts = HashMap::new();
         tables.faces.iter().try_for_each(|(key, corners)| {
@@ -276,7 +296,13 @@ impl Tessellation {
                 if cut.flush {
                     Vec::new()
                 } else {
-                    clip_face(&cut, tables.segments.get(key), &crossing_ids)
+                    clip_face(
+                        &cut,
+                        tables.segments.get(key),
+                        tables.vias.get(key),
+                        &crossing_ids,
+                        &feature_ids,
+                    )
                 },
             );
             face_cuts.insert(key, cut);
@@ -289,6 +315,7 @@ impl Tessellation {
             &face_polygons,
             &face_cuts,
             &crossing_ids,
+            &feature_ids,
             &coordinates,
         )?;
         let fractions: Vec<Scalar> = elements_faces

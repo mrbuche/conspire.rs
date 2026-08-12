@@ -86,6 +86,9 @@ pub enum Sign {
 pub enum Vertex {
     Node(usize),
     Crossing([usize; 2], usize),
+    /// Where the `crease`-th crease of the tessellation passes through the
+    /// sorted face, which both cells sharing it name the same way.
+    Feature([usize; 4], usize),
 }
 
 pub struct Tables {
@@ -93,6 +96,9 @@ pub struct Tables {
     crossings: HashMap<[usize; 2], Vec<Coordinate<D>>>,
     faces: HashMap<[usize; 4], [usize; 4]>,
     segments: HashMap<[usize; 4], Vec<[Vertex; 2]>>,
+    /// The feature vertices lying along each segment of a face, in order.
+    vias: HashMap<[usize; 4], Vec<Vec<Vertex>>>,
+    features: HashMap<([usize; 4], usize), Coordinate<D>>,
 }
 
 impl Tables {
@@ -107,6 +113,12 @@ impl Tables {
     }
     pub fn segments(&self) -> &HashMap<[usize; 4], Vec<[Vertex; 2]>> {
         &self.segments
+    }
+    pub fn vias(&self) -> &HashMap<[usize; 4], Vec<Vec<Vertex>>> {
+        &self.vias
+    }
+    pub fn features(&self) -> &HashMap<([usize; 4], usize), Coordinate<D>> {
+        &self.features
     }
 }
 
