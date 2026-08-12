@@ -2,7 +2,10 @@
 mod test;
 
 use crate::{
-    geometry::{Coordinate, Coordinates, mesh::Mesh},
+    geometry::{
+        Coordinate, Coordinates,
+        mesh::{Connectivity, Mesh},
+    },
     math::{Scalar, TensorArray},
 };
 use std::collections::HashMap;
@@ -18,16 +21,16 @@ fn edge_key(a: usize, b: usize) -> (usize, usize) {
 }
 
 impl<const D: usize> Mesh<D> {
-    pub fn laplacian(&self, weighting: Weighting) -> Coordinates<D> {
+    pub fn laplacian(&self, weighting: Weighting) -> Result<Coordinates<D>, &'static str> {
         self.laplacian_over(self.node_node_connectivity(), weighting)
     }
     pub(crate) fn laplacian_over(
         &self,
         adjacency: &[Vec<usize>],
         weighting: Weighting,
-    ) -> Coordinates<D> {
+    ) -> Result<Coordinates<D>, &'static str> {
         let coordinates = self.coordinates();
-        match weighting {
+        Ok(match weighting {
             Weighting::Uniform => adjacency
                 .iter()
                 .enumerate()
@@ -45,6 +48,12 @@ impl<const D: usize> Mesh<D> {
                 })
                 .collect(),
             Weighting::Cotangent => {
+                if !self
+                    .iter()
+                    .all(|block| matches!(block, Connectivity::Triangular(_)))
+                {
+                    return Err("cotangent weighting requires an all-triangular mesh");
+                }
                 let weights = self.cotangent_weights();
                 adjacency
                     .iter()
@@ -67,7 +76,7 @@ impl<const D: usize> Mesh<D> {
                     })
                     .collect()
             }
-        }
+        })
     }
     fn cotangent_weights(&self) -> HashMap<(usize, usize), Scalar> {
         let coordinates = self.coordinates();

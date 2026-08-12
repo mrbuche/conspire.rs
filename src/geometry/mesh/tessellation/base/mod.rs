@@ -28,11 +28,12 @@ impl Tessellation {
         self.bvh
             .get_or_init(|| BoundingVolumeHierarchy::from(&self.mesh))
     }
-    pub fn smooth(&mut self, smoothing: Smoothing) {
-        self.mesh.smooth(smoothing);
+    pub fn smooth(&mut self, smoothing: Smoothing) -> Result<(), &'static str> {
+        self.mesh.smooth(smoothing)?;
         self.refresh();
+        Ok(())
     }
-    pub fn smooth_welded(&mut self, smoothing: Smoothing) {
+    pub fn smooth_welded(&mut self, smoothing: Smoothing) -> Result<(), &'static str> {
         let mut min = [f64::INFINITY; D];
         let mut max = [f64::NEG_INFINITY; D];
         for point in self.mesh.coordinates() {
@@ -45,9 +46,13 @@ impl Tessellation {
             .map(|axis| (max[axis] - min[axis]).powi(2))
             .sum::<f64>()
             .sqrt();
-        self.smooth_welded_with_tolerance(smoothing, WELD_TOLERANCE * diagonal);
+        self.smooth_welded_with_tolerance(smoothing, WELD_TOLERANCE * diagonal)
     }
-    pub(crate) fn smooth_welded_with_tolerance(&mut self, smoothing: Smoothing, tolerance: f64) {
+    pub(crate) fn smooth_welded_with_tolerance(
+        &mut self,
+        smoothing: Smoothing,
+        tolerance: f64,
+    ) -> Result<(), &'static str> {
         let mut representatives = Vec::with_capacity(self.mesh.number_of_nodes());
         let mut anchors: HashMap<[i64; D], Vec<usize>> = HashMap::new();
         let mut welded = Coordinates::new();
@@ -85,7 +90,7 @@ impl Tessellation {
             _ => panic!(),
         };
         let mut mesh = Mesh::from((vec![Connectivity::Triangular(triangles.into())], welded));
-        mesh.smooth(smoothing);
+        mesh.smooth(smoothing)?;
         let smoothed = mesh.coordinates();
         self.mesh
             .coordinates
@@ -93,6 +98,7 @@ impl Tessellation {
             .zip(&representatives)
             .for_each(|(point, &representative)| *point = smoothed[representative].clone());
         self.refresh();
+        Ok(())
     }
     fn refresh(&mut self) {
         self.normals = self.mesh.normals();
