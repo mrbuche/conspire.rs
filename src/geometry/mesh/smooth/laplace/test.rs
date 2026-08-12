@@ -253,3 +253,122 @@ fn polyhedral_preserve_boundary_retains_all_neighbors() -> Result<(), AssertionE
         .zip(mesh.coordinates())
         .try_for_each(|(a, b)| Assert::default().eq_within_tols(a, b))
 }
+
+fn two_cube_coordinates() -> Coordinates<3> {
+    Coordinates::from([
+        Coordinate::const_from([0.0, 0.0, 0.0]),
+        Coordinate::const_from([1.0, 0.0, 0.0]),
+        Coordinate::const_from([1.0, 1.0, 0.0]),
+        Coordinate::const_from([0.0, 1.0, 0.0]),
+        Coordinate::const_from([0.0, 0.0, 1.0]),
+        Coordinate::const_from([1.0, 0.0, 1.0]),
+        Coordinate::const_from([1.0, 1.0, 1.0]),
+        Coordinate::const_from([0.0, 1.0, 1.0]),
+        Coordinate::const_from([2.0, 0.0, 0.0]),
+        Coordinate::const_from([2.0, 1.0, 0.0]),
+        Coordinate::const_from([2.0, 0.0, 1.0]),
+        Coordinate::const_from([2.0, 1.0, 1.0]),
+    ])
+}
+
+fn right_cube() -> Connectivity {
+    Connectivity::Polyhedral(
+        (
+            vec![vec![0_usize, 1, 2, 3, 4, 5]],
+            vec![
+                vec![1_usize, 8, 9, 2],
+                vec![5, 10, 11, 6],
+                vec![1, 8, 10, 5],
+                vec![8, 9, 11, 10],
+                vec![9, 2, 6, 11],
+                vec![2, 1, 5, 6],
+            ],
+        )
+            .into(),
+    )
+}
+
+fn two_polyhedra() -> Mesh<3> {
+    (
+        vec![
+            Connectivity::Polyhedral(
+                (
+                    vec![vec![0_usize, 1, 2, 3, 4, 5]],
+                    vec![
+                        vec![0_usize, 1, 2, 3],
+                        vec![4, 5, 6, 7],
+                        vec![0, 1, 5, 4],
+                        vec![1, 2, 6, 5],
+                        vec![2, 3, 7, 6],
+                        vec![3, 0, 4, 7],
+                    ],
+                )
+                    .into(),
+            ),
+            right_cube(),
+        ],
+        two_cube_coordinates(),
+    )
+        .into()
+}
+
+fn hexahedron_and_polyhedron() -> Mesh<3> {
+    (
+        vec![
+            Connectivity::Hexahedral(vec![[0_usize, 1, 2, 3, 4, 5, 6, 7]].into()),
+            right_cube(),
+        ],
+        two_cube_coordinates(),
+    )
+        .into()
+}
+
+#[test]
+fn polyhedral_node_element_connectivity() {
+    assert_eq!(
+        two_polyhedra().node_element_connectivity(),
+        [
+            vec![0],
+            vec![0, 1],
+            vec![0, 1],
+            vec![0],
+            vec![0],
+            vec![0, 1],
+            vec![0, 1],
+            vec![0],
+            vec![1],
+            vec![1],
+            vec![1],
+            vec![1]
+        ]
+    );
+}
+
+#[test]
+fn polyhedral_preserve_interfaces_holds_the_interface_plane() -> Result<(), AssertionError> {
+    let mut mesh = two_polyhedra();
+    mesh.laplace_smooth(1, 1.0, Weighting::Uniform, false, true);
+    Assert::default().eq_within_tols(&mesh.coordinates()[1], &[1.0, 0.5, 0.5].into())?;
+    Assert::default().eq_within_tols(&mesh.coordinates()[6], &[1.0, 0.5, 0.5].into())
+}
+
+#[test]
+fn mixed_preserve_interfaces_holds_the_interface_plane() -> Result<(), AssertionError> {
+    let mut mesh = hexahedron_and_polyhedron();
+    mesh.laplace_smooth(1, 1.0, Weighting::Uniform, false, true);
+    Assert::default().eq_within_tols(&mesh.coordinates()[1], &[1.0, 0.5, 0.5].into())?;
+    Assert::default().eq_within_tols(&mesh.coordinates()[6], &[1.0, 0.5, 0.5].into())
+}
+
+#[test]
+fn mixed_free_smoothing_matches_all_polyhedral() -> Result<(), AssertionError> {
+    let mut polyhedral = two_polyhedra();
+    let mut mixed = hexahedron_and_polyhedron();
+    polyhedral.laplace_smooth(2, 0.5, Weighting::Uniform, false, false);
+    mixed.laplace_smooth(2, 0.5, Weighting::Uniform, false, false);
+    polyhedral
+        .coordinates()
+        .iter()
+        .zip(mixed.coordinates())
+        .try_for_each(|(a, b)| Assert::default().eq_within_tols(a, b))
+}

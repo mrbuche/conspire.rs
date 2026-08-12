@@ -1,13 +1,17 @@
 #[cfg(feature = "netcdf")]
 use crate::geometry::mesh::connectivity::base::FlatConnectivity;
 use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Set};
-use std::{fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
+use std::{cell::OnceCell, fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
 
-pub struct PolytopalConnectivity<const M: usize>(Set<Vec<Vec<usize>>>, Vec<Vec<usize>>);
+pub struct PolytopalConnectivity<const M: usize>(
+    Set<Vec<Vec<usize>>>,
+    Vec<Vec<usize>>,
+    OnceCell<Vec<Vec<usize>>>,
+);
 
 impl<const M: usize> From<(Vec<Vec<usize>>, Vec<Vec<usize>>)> for PolytopalConnectivity<M> {
     fn from((elements_faces, faces_nodes): (Vec<Vec<usize>>, Vec<Vec<usize>>)) -> Self {
-        PolytopalConnectivity(Set::from(elements_faces), faces_nodes)
+        PolytopalConnectivity(Set::from(elements_faces), faces_nodes, OnceCell::new())
     }
 }
 
@@ -61,7 +65,22 @@ impl<const M: usize> ConnectivityImpl for PolytopalConnectivity<M> {
         self.0.numbers()
     }
     fn node_element_connectivity(&self) -> &[Vec<usize>] {
-        unimplemented!()
+        self.2.get_or_init(|| {
+            let number_of_nodes = self.1.iter().flatten().max().map_or(0, |&node| node + 1);
+            let mut nodes_elements = vec![Vec::new(); number_of_nodes];
+            for (element, faces) in self.0.members().iter().enumerate() {
+                let mut nodes: Vec<usize> = faces
+                    .iter()
+                    .flat_map(|&face| self.1[face].iter().copied())
+                    .collect();
+                nodes.sort_unstable();
+                nodes.dedup();
+                for node in nodes {
+                    nodes_elements[node].push(element)
+                }
+            }
+            nodes_elements
+        })
     }
     fn number_elements(&mut self, numbers: Vec<usize>) {
         self.0.set_numbers(numbers)
