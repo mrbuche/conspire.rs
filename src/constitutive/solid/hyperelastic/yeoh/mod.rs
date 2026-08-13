@@ -27,9 +27,9 @@ pub struct Yeoh<const N: usize> {
 }
 
 impl<const N: usize> Yeoh<N> {
-    /// Returns an array of the extra moduli.
-    pub fn extra_moduli(&self) -> &[Scalar] {
-        &self.extra_moduli
+    /// Returns the extra moduli.
+    pub fn extra_moduli(&self) -> impl Iterator<Item = Quantity<Modulus>> {
+        self.extra_moduli.iter().map(|modulus| (*modulus).into())
     }
 }
 
@@ -53,15 +53,10 @@ impl<const N: usize> Elastic for Yeoh<N> {
             deformation_gradient
                 .left_cauchy_green()
                 .deviatoric_and_trace();
-        let scalar_term =
-            (left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0).value();
+        let scalar_term = left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0;
         Ok(deviatoric_left_cauchy_green_deformation
             * once(self.shear_modulus())
-                .chain(
-                    self.extra_moduli()
-                        .iter()
-                        .map(|modulus| Quantity::<Modulus>::new(*modulus)),
-                )
+                .chain(self.extra_moduli())
                 .enumerate()
                 .map(|(n, modulus)| modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
                 .sum::<Quantity<Modulus>>()
@@ -78,11 +73,7 @@ impl<const N: usize> Elastic for Yeoh<N> {
         let left_cauchy_green_deformation = deformation_gradient.left_cauchy_green();
         let scalar_term = left_cauchy_green_deformation.trace() / jacobian.powf(TWO_THIRDS) - 3.0;
         let scaled_modulus = once(self.shear_modulus())
-            .chain(
-                self.extra_moduli()
-                    .iter()
-                    .map(|modulus| Quantity::<Modulus>::new(*modulus)),
-            )
+            .chain(self.extra_moduli())
             .enumerate()
             .map(|(n, modulus)| modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
             .sum::<Quantity<Modulus>>()
@@ -94,10 +85,9 @@ impl<const N: usize> Elastic for Yeoh<N> {
                 * &inverse_transpose_deformation_gradient)
                 * (self
                     .extra_moduli()
-                    .iter()
                     .enumerate()
                     .map(|(n, modulus)| {
-                        Quantity::<Modulus>::new(*modulus)
+                        modulus
                             * (2.0
                                 * ((n as Scalar) + 2.0)
                                 * ((n as Scalar) + 1.0)
@@ -130,11 +120,7 @@ impl<const N: usize> Hyperelastic for Yeoh<N> {
             deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;
         Ok(0.5
             * (once(self.shear_modulus())
-                .chain(
-                    self.extra_moduli()
-                        .iter()
-                        .map(|modulus| Quantity::<Modulus>::new(*modulus)),
-                )
+                .chain(self.extra_moduli())
                 .enumerate()
                 .map(|(n, modulus)| modulus * scalar_term.powi((n + 1) as i32))
                 .sum::<Quantity<Modulus>>()

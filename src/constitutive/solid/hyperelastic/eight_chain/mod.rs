@@ -196,10 +196,10 @@ where
         let jacobian = self.jacobian(deformation_gradient)?;
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
-        let gamma = (isochoric_left_cauchy_green_deformation.trace().value()
-            / 3.0
-            / self.number_of_links())
-        .sqrt();
+        let gamma =
+            (isochoric_left_cauchy_green_deformation.trace() / 3.0 / self.number_of_links())
+                .sqrt()
+                .value();
         let eta = self.nondimensional_force(gamma)?;
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         let eta_0 = self.nondimensional_force(gamma_0)?;

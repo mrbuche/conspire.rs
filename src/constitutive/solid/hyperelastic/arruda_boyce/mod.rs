@@ -136,10 +136,10 @@ impl Hyperelastic for ArrudaBoyce {
         let jacobian = self.jacobian(deformation_gradient)?;
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
-        let gamma = (isochoric_left_cauchy_green_deformation.trace().value()
-            / 3.0
-            / self.number_of_links())
-        .sqrt();
+        let gamma =
+            (isochoric_left_cauchy_green_deformation.trace() / 3.0 / self.number_of_links())
+                .sqrt()
+                .value();
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
