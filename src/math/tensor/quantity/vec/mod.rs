@@ -111,21 +111,14 @@ impl<U> FiniteDifference for QuantityVector<U> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
-            .filter(|(entry, comparator_entry)| {
-                let (entry, comparator_entry) = (entry.value(), comparator_entry.value());
-                (entry / comparator_entry - 1.0).abs() >= epsilon
-                    && (entry.abs() >= epsilon || comparator_entry.abs() >= epsilon)
-            })
+            .filter(|(entry, comparator_entry)| entry.differs(**comparator_entry, epsilon))
             .count();
         if error_count > 0 {
             let auxiliary = self
                 .iter()
                 .zip(comparator.iter())
                 .filter(|(entry, comparator_entry)| {
-                    let (entry, comparator_entry) = (entry.value(), comparator_entry.value());
-                    (entry / comparator_entry - 1.0).abs() >= epsilon
-                        && (entry - comparator_entry).abs() >= epsilon
-                        && (entry.abs() >= epsilon || comparator_entry.abs() >= epsilon)
+                    entry.differs_severely(**comparator_entry, epsilon)
                 })
                 .count()
                 > 0;

@@ -146,9 +146,7 @@ impl<const D: usize, I, const W: usize, U> FiniteDifference for TensorRank1List<
                     .iter()
                     .zip(comparator_entry.iter())
                     .filter(|&(&entry_i, &comparator_entry_i)| {
-                        (entry_i.ratio(comparator_entry_i) - 1.0).abs() >= epsilon
-                            && (entry_i.value().abs() >= epsilon
-                                || comparator_entry_i.value().abs() >= epsilon)
+                        entry_i.differs(comparator_entry_i, epsilon)
                     })
                     .count()
             })
@@ -162,10 +160,7 @@ impl<const D: usize, I, const W: usize, U> FiniteDifference for TensorRank1List<
                         .iter()
                         .zip(comparator_entry.iter())
                         .filter(|&(&entry_i, &comparator_entry_i)| {
-                            (entry_i.ratio(comparator_entry_i) - 1.0).abs() >= epsilon
-                                && (entry_i - comparator_entry_i).value().abs() >= epsilon
-                                && (entry_i.value().abs() >= epsilon
-                                    || comparator_entry_i.value().abs() >= epsilon)
+                            entry_i.differs_severely(comparator_entry_i, epsilon)
                         })
                         .count()
                 })

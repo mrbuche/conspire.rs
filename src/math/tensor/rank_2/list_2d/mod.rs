@@ -81,12 +81,7 @@ impl<const D: usize, I, J, const W: usize, const X: usize, U> FiniteDifference
                                     .iter()
                                     .zip(comparator_ab_i.iter())
                                     .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
-                                        ((self_ab_ij.ratio(comparator_ab_ij) - 1.0).abs()
-                                            >= epsilon
-                                            && (self_ab_ij.value().abs() >= epsilon
-                                                || comparator_ab_ij.value().abs() >= epsilon))
-                                            || self_ab_ij.is_nan()
-                                            || comparator_ab_ij.is_nan()
+                                        self_ab_ij.differs(comparator_ab_ij, epsilon)
                                     })
                                     .count()
                             })
@@ -112,14 +107,7 @@ impl<const D: usize, I, J, const W: usize, const X: usize, U> FiniteDifference
                                         .iter()
                                         .zip(comparator_ab_i.iter())
                                         .filter(|&(&self_ab_ij, &comparator_ab_ij)| {
-                                            ((self_ab_ij.ratio(comparator_ab_ij) - 1.0).abs()
-                                                >= epsilon
-                                                && (self_ab_ij - comparator_ab_ij).value().abs()
-                                                    >= epsilon
-                                                && (self_ab_ij.value().abs() >= epsilon
-                                                    || comparator_ab_ij.value().abs() >= epsilon))
-                                                || self_ab_ij.is_nan()
-                                                || comparator_ab_ij.is_nan()
+                                            self_ab_ij.differs_severely(comparator_ab_ij, epsilon)
                                         })
                                         .count()
                                 })

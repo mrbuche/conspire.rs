@@ -197,10 +197,7 @@ impl<const D: usize, I, U> FiniteDifference for TensorRank1<D, I, U> {
         let error_count = self
             .iter()
             .zip(comparator.iter())
-            .filter(|&(&self_i, &comparator_i)| {
-                (self_i.ratio(comparator_i) - 1.0).abs() >= epsilon
-                    && (self_i.value().abs() >= epsilon || comparator_i.value().abs() >= epsilon)
-            })
+            .filter(|&(&self_i, &comparator_i)| self_i.differs(comparator_i, epsilon))
             .count();
         if error_count > 0 {
             Some((true, error_count))

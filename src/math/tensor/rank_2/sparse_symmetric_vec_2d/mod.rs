@@ -296,12 +296,9 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2SparseVec2DSymmetr
                     |(self_ab_i, comparator_ab_i)| {
                         self_ab_i.iter().zip(comparator_ab_i.iter()).for_each(
                             |(&self_ab_ij, &comparator_ab_ij)| {
-                                if (self_ab_ij.ratio(comparator_ab_ij) - 1.0).abs() >= epsilon
-                                    && (self_ab_ij.value().abs() >= epsilon
-                                        || comparator_ab_ij.value().abs() >= epsilon)
-                                {
+                                if self_ab_ij.differs(comparator_ab_ij, epsilon) {
                                     errors.0 += 1;
-                                    if (self_ab_ij - comparator_ab_ij).value().abs() >= epsilon {
+                                    if self_ab_ij.differs_severely(comparator_ab_ij, epsilon) {
                                         errors.1 += 1;
                                     }
                                 }

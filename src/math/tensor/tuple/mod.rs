@@ -38,10 +38,8 @@ where
         <T2 as Mul<Quantity<Second<V>>>>::Output,
     >;
     fn mul(self, quantity: Quantity<V>) -> Self::Output {
-        TensorTuple(
-            self.0 * Quantity::new(quantity.value()),
-            self.1 * Quantity::new(quantity.value()),
-        )
+        let (first, second) = quantity.halves();
+        TensorTuple(self.0 * first, self.1 * second)
     }
 }
 
@@ -58,10 +56,8 @@ where
         <T2 as Mul<Quantity<Second<V>>>>::Output,
     >;
     fn mul(self, quantity: Quantity<V>) -> Self::Output {
-        TensorTuple(
-            self.0.clone() * Quantity::new(quantity.value()),
-            self.1.clone() * Quantity::new(quantity.value()),
-        )
+        let (first, second) = quantity.halves();
+        TensorTuple(self.0.clone() * first, self.1.clone() * second)
     }
 }
 
@@ -78,10 +74,8 @@ where
         <T2 as Div<Quantity<Second<V>>>>::Output,
     >;
     fn div(self, quantity: Quantity<V>) -> Self::Output {
-        TensorTuple(
-            self.0 / Quantity::new(quantity.value()),
-            self.1 / Quantity::new(quantity.value()),
-        )
+        let (first, second) = quantity.halves();
+        TensorTuple(self.0 / first, self.1 / second)
     }
 }
 

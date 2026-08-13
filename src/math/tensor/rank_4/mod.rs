@@ -333,9 +333,7 @@ impl<const D: usize, I, J, K, L, U> FiniteDifference for TensorRank4<D, I, J, K,
                                     .iter()
                                     .zip(comparator_ijk.iter())
                                     .filter(|&(&self_ijkl, &comparator_ijkl)| {
-                                        (self_ijkl.ratio(comparator_ijkl) - 1.0).abs() >= epsilon
-                                            && (self_ijkl.value().abs() >= epsilon
-                                                || comparator_ijkl.value().abs() >= epsilon)
+                                        self_ijkl.differs(comparator_ijkl, epsilon)
                                     })
                                     .count()
                             })
@@ -361,12 +359,7 @@ impl<const D: usize, I, J, K, L, U> FiniteDifference for TensorRank4<D, I, J, K,
                                         .iter()
                                         .zip(comparator_ijk.iter())
                                         .filter(|&(&self_ijkl, &comparator_ijkl)| {
-                                            (self_ijkl.ratio(comparator_ijkl) - 1.0).abs()
-                                                >= epsilon
-                                                && (self_ijkl - comparator_ijkl).value().abs()
-                                                    >= epsilon
-                                                && (self_ijkl.value().abs() >= epsilon
-                                                    || comparator_ijkl.value().abs() >= epsilon)
+                                            self_ijkl.differs_severely(comparator_ijkl, epsilon)
                                         })
                                         .count()
                                 })

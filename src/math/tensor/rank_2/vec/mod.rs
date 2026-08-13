@@ -26,9 +26,7 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2Vec<D, I, J, U> {
                             .iter()
                             .zip(comparator_a_i.iter())
                             .filter(|&(&self_a_ij, &comparator_a_ij)| {
-                                (self_a_ij.ratio(comparator_a_ij) - 1.0).abs() >= epsilon
-                                    && (self_a_ij.value().abs() >= epsilon
-                                        || comparator_a_ij.value().abs() >= epsilon)
+                                self_a_ij.differs(comparator_a_ij, epsilon)
                             })
                             .count()
                     })

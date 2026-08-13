@@ -65,11 +65,11 @@ impl<U> FiniteDifference for QuantitySparseVec2D<U> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let zero = Quantity::new(0.0);
         let entry_errors = |self_ab: &Quantity<U>, comparator_ab: &Quantity<U>| {
-            let (self_ab, comparator_ab) = (self_ab.value(), comparator_ab.value());
-            if (self_ab / comparator_ab - 1.0).abs() >= epsilon
-                && (self_ab.abs() >= epsilon || comparator_ab.abs() >= epsilon)
-            {
-                (1, ((self_ab - comparator_ab).abs() >= epsilon) as usize)
+            if self_ab.differs(*comparator_ab, epsilon) {
+                (
+                    1,
+                    self_ab.differs_severely(*comparator_ab, epsilon) as usize,
+                )
             } else {
                 (0, 0)
             }

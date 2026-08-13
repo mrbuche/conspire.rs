@@ -376,11 +376,7 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2<D, I, J, U> {
                 self_i
                     .iter()
                     .zip(comparator_i.iter())
-                    .filter(|&(&self_ij, &comparator_ij)| {
-                        (self_ij.ratio(comparator_ij) - 1.0).abs() >= epsilon
-                            && (self_ij.value().abs() >= epsilon
-                                || comparator_ij.value().abs() >= epsilon)
-                    })
+                    .filter(|&(&self_ij, &comparator_ij)| self_ij.differs(comparator_ij, epsilon))
                     .count()
             })
             .sum();

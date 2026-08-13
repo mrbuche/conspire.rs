@@ -8,7 +8,7 @@ pub(crate) mod vec;
 use super::{
     Differentiate, Erase, Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
-    unit::{Dimensionless, UnitDiv, UnitInv, UnitMul},
+    unit::{Dimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul},
 };
 use crate::math::{TensorList, assert::FiniteDifference};
 use std::{
@@ -68,6 +68,29 @@ impl<U> Quantity<U> {
     pub fn ratio(self, quantity: Self) -> TensorRank0 {
         self.0 / quantity.0
     }
+    /// Returns whether two quantities differ by more than the epsilon
+    /// relatively, at least one of them being large enough for that ratio to
+    /// mean anything.
+    ///
+    /// The epsilon is a tolerance rather than a measurement, so it stays a bare
+    /// number and both sides are compared against it with their unit spent. A
+    /// quantity that is not a number differs from anything, that comparison
+    /// being one no epsilon settles.
+    pub fn differs(self, quantity: Self, epsilon: TensorRank0) -> bool {
+        ((self.ratio(quantity) - 1.0).abs() >= epsilon
+            && (self.0.abs() >= epsilon || quantity.0.abs() >= epsilon))
+            || self.is_nan()
+            || quantity.is_nan()
+    }
+    /// Returns whether two quantities [differ](Self::differs) absolutely as
+    /// well as relatively.
+    pub fn differs_severely(self, quantity: Self, epsilon: TensorRank0) -> bool {
+        ((self.ratio(quantity) - 1.0).abs() >= epsilon
+            && (self.0 - quantity.0).abs() >= epsilon
+            && (self.0.abs() >= epsilon || quantity.0.abs() >= epsilon))
+            || self.is_nan()
+            || quantity.is_nan()
+    }
     /// Returns the lesser of two quantities of the same unit.
     pub fn min(self, quantity: Self) -> Self {
         Self::new(self.0.min(quantity.0))
@@ -75,6 +98,22 @@ impl<U> Quantity<U> {
     /// Returns the greater of two quantities of the same unit.
     pub fn max(self, quantity: Self) -> Self {
         Self::new(self.0.max(quantity.0))
+    }
+}
+
+impl<U> Quantity<U>
+where
+    U: UnitHalves,
+{
+    /// Returns the quantity twice over, as the units the halves of a tuple take
+    /// from it.
+    pub const fn halves(
+        self,
+    ) -> (
+        Quantity<<U as UnitHalves>::First>,
+        Quantity<<U as UnitHalves>::Second>,
+    ) {
+        (Quantity::new(self.0), Quantity::new(self.0))
     }
 }
 
