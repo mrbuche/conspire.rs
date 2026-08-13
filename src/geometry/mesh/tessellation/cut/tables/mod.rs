@@ -46,7 +46,7 @@ fn locate(
     match vertex {
         Vertex::Node(node) => coordinates[node].clone(),
         Vertex::Crossing(edge, ordinal) => crossings[&edge][ordinal].clone(),
-        Vertex::Feature(..) => panic!(),
+        Vertex::Feature(..) | Vertex::Corner(_) => panic!(),
     }
 }
 

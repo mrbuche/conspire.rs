@@ -417,3 +417,38 @@ fn folding_at_the_creases_holds_the_volume_of_an_off_axis_box() {
     let error = (hexes + polyhedra - 1.0).abs();
     assert!(error < 9.0e-3, "{error}")
 }
+
+#[test]
+fn a_corner_within_a_cell_becomes_a_node_of_it() {
+    let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.4);
+    let mesh = tessellation.cut_uniform(1.4 / 16.0).unwrap();
+    assert!(corners_landed_on(&tessellation, &mesh) >= 2)
+}
+
+#[test]
+fn fanning_about_a_corner_holds_the_volume_of_an_off_axis_box() {
+    use crate::geometry::mesh::Verdict;
+    let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.2);
+    let mesh = tessellation.cut_uniform(1.4 / 6.0).unwrap();
+    let coordinates = mesh.coordinates();
+    let hexes = match &mesh.connectivities()[0] {
+        Connectivity::Hexahedral(hexes) => Mesh::from((
+            vec![Connectivity::Hexahedral(
+                hexes.iter().copied().collect::<Vec<_>>().into(),
+            )],
+            coordinates.clone(),
+        ))
+        .volumes()[0]
+            .iter()
+            .sum::<f64>(),
+        _ => panic!(),
+    };
+    let polyhedra = match &mesh.connectivities()[1] {
+        Connectivity::Polyhedral(polyhedra) => {
+            signed_volumes(polyhedra, coordinates).iter().sum::<f64>()
+        }
+        _ => panic!(),
+    };
+    let error = (hexes + polyhedra - 1.0).abs();
+    assert!(error < 1.0e-2, "{error}")
+}

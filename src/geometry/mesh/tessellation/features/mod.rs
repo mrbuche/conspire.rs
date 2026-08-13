@@ -28,6 +28,8 @@ const CREASE_COSINE: Scalar = FRAC_1_SQRT_2;
 pub struct Features {
     corners: Vec<Coordinate<D>>,
     creases: Vec<[Coordinate<D>; 2]>,
+    /// Which corner, if any, each end of a crease is.
+    ends: Vec<[Option<usize>; 2]>,
 }
 
 /// The features of a tessellation, binned for lookup within a fixed radius.
@@ -97,7 +99,7 @@ impl Features {
         });
         let mut nodes: Vec<usize> = through.keys().copied().collect();
         nodes.sort_unstable();
-        let corners = nodes
+        let cornered: Vec<usize> = nodes
             .into_iter()
             .filter(|node| {
                 let others = &through[node];
@@ -110,13 +112,37 @@ impl Features {
                     _ => true,
                 }
             })
+            .collect();
+        let at: FxHashMap<usize, usize> = cornered
+            .iter()
+            .enumerate()
+            .map(|(index, &node)| (node, index))
+            .collect();
+        let ends = sharp
+            .iter()
+            .map(|[a, b]| [at.get(a).copied(), at.get(b).copied()])
+            .collect();
+        let corners = cornered
+            .into_iter()
             .map(|node| coordinates[node].clone())
             .collect();
         let creases = sharp
             .into_iter()
             .map(|[a, b]| [coordinates[a].clone(), coordinates[b].clone()])
             .collect();
-        Self { corners, creases }
+        Self {
+            corners,
+            creases,
+            ends,
+        }
+    }
+    /// The corner every one of the given creases ends at, if they share one.
+    pub fn hub(&self, creases: &[usize]) -> Option<usize> {
+        let (first, rest) = creases.split_first()?;
+        self.ends[*first].into_iter().flatten().find(|corner| {
+            rest.iter()
+                .all(|&crease| self.ends[crease].contains(&Some(*corner)))
+        })
     }
     /// Bins the features so that everything within `radius` of a point is
     /// found in the twenty-seven cells about it.

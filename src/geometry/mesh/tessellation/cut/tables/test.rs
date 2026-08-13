@@ -96,6 +96,7 @@ fn tables_sphere_dual() {
             Vertex::Feature(face, crease) => {
                 assert!(tables.features().contains_key(&(*face, *crease)))
             }
+            Vertex::Corner(_) => panic!("a corner is not a face vertex"),
         })
     })
 }
