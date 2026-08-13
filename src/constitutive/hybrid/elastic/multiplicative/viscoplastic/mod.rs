@@ -50,10 +50,10 @@ where
     C2: Viscoplastic<Y2>,
     Y2: Differentiate + Tensor,
 {
-    fn initial_yield_stress(&self) -> Scalar {
+    fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.1.initial_yield_stress()
     }
-    fn hardening_slope(&self) -> Scalar {
+    fn hardening_slope(&self) -> Quantity<Stress> {
         self.1.hardening_slope()
     }
 }

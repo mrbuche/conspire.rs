@@ -2,7 +2,7 @@
 
 use crate::{
     constitutive::ConstitutiveError,
-    math::{Scalar, TensorTuple, TensorTupleVec},
+    math::{Quantity, Scalar, TensorTuple, TensorTupleVec, unit::Stress},
     mechanics::DeformationGradientPlastic,
 };
 use std::fmt::Debug;
@@ -19,15 +19,18 @@ where
     Self: Clone + Debug,
 {
     /// Returns the initial yield stress.
-    fn initial_yield_stress(&self) -> Scalar;
+    fn initial_yield_stress(&self) -> Quantity<Stress>;
     /// Returns the isotropic hardening slope.
-    fn hardening_slope(&self) -> Scalar;
+    fn hardening_slope(&self) -> Quantity<Stress>;
     /// Calculates and returns the yield stress.
     ///
     /// ```math
     /// Y = Y_0 + H\,\varepsilon_\mathrm{p}
     /// ```
-    fn yield_stress(&self, equivalent_plastic_strain: Scalar) -> Result<Scalar, ConstitutiveError> {
+    fn yield_stress(
+        &self,
+        equivalent_plastic_strain: Scalar,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
         //
         // Can eventually make a subdirectory with an enum (like LineaSearch) with different hardening models.
         //

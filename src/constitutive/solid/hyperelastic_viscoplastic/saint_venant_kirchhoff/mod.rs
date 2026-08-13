@@ -54,11 +54,11 @@ impl Solid for SaintVenantKirchhoff {
 }
 
 impl Plastic for SaintVenantKirchhoff {
-    fn initial_yield_stress(&self) -> Scalar {
-        self.yield_stress
+    fn initial_yield_stress(&self) -> Quantity<Stress> {
+        Quantity::new(self.yield_stress)
     }
-    fn hardening_slope(&self) -> Scalar {
-        self.hardening_slope
+    fn hardening_slope(&self) -> Quantity<Stress> {
+        Quantity::new(self.hardening_slope)
     }
 }
 

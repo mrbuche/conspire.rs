@@ -41,10 +41,10 @@ where
     C2: Elastic,
     Y1: Differentiate + Tensor,
 {
-    fn initial_yield_stress(&self) -> Scalar {
+    fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.0.initial_yield_stress()
     }
-    fn hardening_slope(&self) -> Scalar {
+    fn hardening_slope(&self) -> Quantity<Stress> {
         self.0.hardening_slope()
     }
 }
