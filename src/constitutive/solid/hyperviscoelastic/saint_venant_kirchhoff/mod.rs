@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::unit::{Dissipation, EnergyDensity, Rate, Stress, Viscosity};
+use crate::math::unit::{Dissipation, EnergyDensity, Stress, Viscosity};
 #[cfg(test)]
 mod test;
 
@@ -131,8 +131,7 @@ impl ElasticHyperviscous for SaintVenantKirchhoff {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let first_term = deformation_gradient_rate.transpose() * deformation_gradient;
         let strain_rate = (&first_term + first_term.transpose()) * 0.5;
-        // The trace of a strain rate is a rate, as any norm of one is.
-        let strain_rate_trace = Quantity::<Rate>::new(strain_rate.trace());
+        let strain_rate_trace = strain_rate.trace();
         Ok(
             (&strain_rate * self.shear_viscosity()).contract_with(&strain_rate)
                 + (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())

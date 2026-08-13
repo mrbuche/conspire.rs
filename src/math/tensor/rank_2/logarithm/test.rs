@@ -150,7 +150,7 @@ fn logm_symmetric_trace_equals_ln_determinant() -> Result<(), AssertionError> {
         rel_tol: 1e-10,
         ..Default::default()
     }
-    .eq_within_tols(tensor.logm()?.trace(), &determinant.ln())
+    .eq_within_tols(tensor.logm()?.trace().value(), &determinant.ln())
 }
 
 #[test]

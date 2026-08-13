@@ -4,6 +4,7 @@ mod test;
 mod ldl;
 mod lu;
 
+use crate::math::Quantity;
 use crate::math::assert::FiniteDifference;
 use crate::math::unit::Dimensionless;
 
@@ -177,7 +178,7 @@ impl Rank2 for SquareMatrix {
     type Transpose = Self;
     fn deviatoric(&self) -> Self {
         let len = self.len();
-        let scale = -self.trace() / len as Scalar;
+        let scale = -self.trace().value() / len as Scalar;
         (0..len)
             .map(|i| {
                 (0..len)
@@ -187,10 +188,10 @@ impl Rank2 for SquareMatrix {
             .collect::<Self>()
             + self
     }
-    fn deviatoric_and_trace(&self) -> (Self, Scalar) {
+    fn deviatoric_and_trace(&self) -> (Self, Quantity<Dimensionless>) {
         let len = self.len();
         let trace = self.trace();
-        let scale = -trace / len as Scalar;
+        let scale = -trace.value() / len as Scalar;
         (
             (0..len)
                 .map(|i| {
@@ -244,8 +245,8 @@ impl Rank2 for SquareMatrix {
             })
             .sum()
     }
-    fn trace(&self) -> Scalar {
-        self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum()
+    fn trace(&self) -> Quantity<Dimensionless> {
+        Quantity::new(self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum())
     }
     fn transpose(&self) -> Self::Transpose {
         (0..self.len())

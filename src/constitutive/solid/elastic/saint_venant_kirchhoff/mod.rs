@@ -1,4 +1,5 @@
 use crate::math::Quantity;
+use crate::math::Rank2;
 use crate::math::TensorRank4;
 use crate::math::unit::Stress;
 #[cfg(test)]

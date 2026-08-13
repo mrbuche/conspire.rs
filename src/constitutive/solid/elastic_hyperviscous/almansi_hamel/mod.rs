@@ -1,5 +1,5 @@
 use crate::math::TensorRank4;
-use crate::math::unit::{Dissipation, Rate, Stress, Viscosity};
+use crate::math::unit::{Dissipation, Stress, Viscosity};
 #[cfg(test)]
 mod test;
 
@@ -140,8 +140,7 @@ impl ElasticHyperviscous for AlmansiHamel {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let velocity_gradient = deformation_gradient_rate * deformation_gradient.inverse();
         let strain_rate = (&velocity_gradient + velocity_gradient.transpose()) * 0.5;
-        // The trace of a strain rate is a rate, as any norm of one is.
-        let strain_rate_trace = Quantity::<Rate>::new(strain_rate.trace());
+        let strain_rate_trace = strain_rate.trace();
         Ok(
             (&strain_rate * self.shear_viscosity()).contract_with(&strain_rate)
                 + (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())

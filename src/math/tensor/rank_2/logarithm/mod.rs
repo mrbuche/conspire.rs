@@ -128,7 +128,7 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
     }
     /// Returns the invariants of the 3x3 symmetric tensor.
     pub fn invariants(&self) -> TensorRank0List<3> {
-        let trace = self.trace();
+        let trace = self.trace().value();
         TensorRank0List::from([
             trace,
             0.5 * (trace.powi(2) - self.squared_trace()),

@@ -204,28 +204,29 @@ pub trait HessianAccumulate<const D: usize, I, U = Dimensionless> {
 /// Common methods for rank-2 tensors.
 pub trait Rank2
 where
-    Self: Sized,
+    Self: Sized + Tensor,
 {
     /// The type that is the transpose of the tensor.
     type Transpose;
     /// Returns the deviatoric component of the rank-2 tensor.
     fn deviatoric(&self) -> Self;
     /// Returns the deviatoric component and trace of the rank-2 tensor.
-    fn deviatoric_and_trace(&self) -> (Self, TensorRank0);
+    fn deviatoric_and_trace(&self) -> (Self, Quantity<Self::Unit>);
     /// Checks whether the tensor is a diagonal tensor.
     fn is_diagonal(&self) -> bool;
     /// Checks whether the tensor is the identity tensor.
     fn is_identity(&self) -> bool;
     /// Checks whether the tensor is a symmetric tensor.
     fn is_symmetric(&self) -> bool;
-    /// Returns the second invariant of the rank-2 tensor.
+    /// Returns the second invariant of the rank-2 tensor, which is a square
+    /// and so names no unit.
     fn second_invariant(&self) -> TensorRank0 {
-        0.5 * (self.trace().powi(2) - self.squared_trace())
+        0.5 * (self.trace().value().powi(2) - self.squared_trace())
     }
     /// Returns the trace of the rank-2 tensor squared.
     fn squared_trace(&self) -> TensorRank0;
-    /// Returns the trace of the rank-2 tensor.
-    fn trace(&self) -> TensorRank0;
+    /// Returns the trace of the rank-2 tensor, which carries its unit.
+    fn trace(&self) -> Quantity<Self::Unit>;
     /// Returns the transpose of the rank-2 tensor.
     fn transpose(&self) -> Self::Transpose;
 }

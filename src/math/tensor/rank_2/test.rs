@@ -401,7 +401,7 @@ fn deviatoric_dim_2() -> Result<(), AssertionError> {
     Assert::zero(&deviatoric_tensor_rank_2.trace())?;
     Assert::eq(
         &deviatoric_tensor_rank_2,
-        &(tensor_rank_2 - TensorRank2::identity() * (trace / 2.0)),
+        &(tensor_rank_2 - TensorRank2::identity() * (trace.value() / 2.0)),
     )
 }
 
@@ -413,7 +413,7 @@ fn deviatoric_dim_3() -> Result<(), AssertionError> {
     Assert::zero(&deviatoric_tensor_rank_2.trace())?;
     Assert::eq(
         &deviatoric_tensor_rank_2,
-        &(tensor_rank_2 - TensorRank2::identity() * (trace / 3.0)),
+        &(tensor_rank_2 - TensorRank2::identity() * (trace.value() / 3.0)),
     )
 }
 
@@ -425,7 +425,7 @@ fn deviatoric_dim_4() -> Result<(), AssertionError> {
     Assert::zero(&deviatoric_tensor_rank_2.trace())?;
     Assert::eq(
         &deviatoric_tensor_rank_2,
-        &(tensor_rank_2 - TensorRank2::identity() * (trace / 4.0)),
+        &(tensor_rank_2 - TensorRank2::identity() * (trace.value() / 4.0)),
     )
 }
 
@@ -437,7 +437,7 @@ fn deviatoric_dim_9() -> Result<(), AssertionError> {
     Assert::default().zero_within_tols(&deviatoric_tensor_rank_2.trace())?;
     Assert::eq(
         &deviatoric_tensor_rank_2,
-        &(tensor_rank_2 - TensorRank2::identity() * (trace / 9.0)),
+        &(tensor_rank_2 - TensorRank2::identity() * (trace.value() / 9.0)),
     )
 }
 
@@ -445,7 +445,7 @@ fn deviatoric_dim_9() -> Result<(), AssertionError> {
 fn deviatoric_and_trace_dim_2() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_2();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
-    Assert::eq(tensor_rank_2.trace(), &trace.value())?;
+    Assert::eq(tensor_rank_2.trace(), &trace)?;
     Assert::eq(tensor_rank_2.deviatoric(), &deviatoric)
 }
 
@@ -453,7 +453,7 @@ fn deviatoric_and_trace_dim_2() -> Result<(), AssertionError> {
 fn deviatoric_and_trace_dim_3() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_3();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
-    Assert::eq(tensor_rank_2.trace(), &trace.value())?;
+    Assert::eq(tensor_rank_2.trace(), &trace)?;
     Assert::eq(tensor_rank_2.deviatoric(), &deviatoric)
 }
 
@@ -461,7 +461,7 @@ fn deviatoric_and_trace_dim_3() -> Result<(), AssertionError> {
 fn deviatoric_and_trace_dim_4() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_4();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
-    Assert::eq(tensor_rank_2.trace(), &trace.value())?;
+    Assert::eq(tensor_rank_2.trace(), &trace)?;
     Assert::eq(tensor_rank_2.deviatoric(), &deviatoric)
 }
 
@@ -469,7 +469,7 @@ fn deviatoric_and_trace_dim_4() -> Result<(), AssertionError> {
 fn deviatoric_and_trace_dim_9() -> Result<(), AssertionError> {
     let tensor_rank_2 = get_tensor_rank_2_dim_9();
     let (deviatoric, trace) = tensor_rank_2.deviatoric_and_trace();
-    Assert::eq(tensor_rank_2.trace(), &trace.value())?;
+    Assert::eq(tensor_rank_2.trace(), &trace)?;
     Assert::eq(tensor_rank_2.deviatoric(), &deviatoric)
 }
 
@@ -1132,22 +1132,34 @@ fn sub_assign_tensor_rank_2_ref() {
 
 #[test]
 fn trace_dim_2() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_2().trace(), &5.0)
+    Assert::eq(
+        get_tensor_rank_2_dim_2().trace(),
+        &crate::math::Quantity::new(5.0),
+    )
 }
 
 #[test]
 fn trace_dim_3() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_3().trace(), &6.0)
+    Assert::eq(
+        get_tensor_rank_2_dim_3().trace(),
+        &crate::math::Quantity::new(6.0),
+    )
 }
 
 #[test]
 fn trace_dim_4() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_4().trace(), &11.0)
+    Assert::eq(
+        get_tensor_rank_2_dim_4().trace(),
+        &crate::math::Quantity::new(11.0),
+    )
 }
 
 #[test]
 fn trace_dim_9() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_9().trace(), &14.0)
+    Assert::eq(
+        get_tensor_rank_2_dim_9().trace(),
+        &crate::math::Quantity::new(14.0),
+    )
 }
 
 #[test]

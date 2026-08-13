@@ -334,7 +334,7 @@ fn moduli() -> Result<(), AssertionError> {
     let dilated = DeformationGradient::identity() * (1.0 + EPSILON / 3.0);
     let dilated_stress = model.first_piola_kirchhoff_stress(&dilated, &solved(&dilated)?)?;
     assert!(
-        (3.0 * EPSILON * model.bulk_modulus().value() / dilated_stress.trace() - 1.0).abs()
+        (3.0 * EPSILON * model.bulk_modulus().value() / dilated_stress.trace().value() - 1.0).abs()
             < EPSILON
     );
     let mut sheared = DeformationGradient::identity();

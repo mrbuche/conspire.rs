@@ -243,7 +243,7 @@ fn symmetry() -> Result<(), AssertionError> {
 
 #[test]
 fn trace() {
-    assert!(get_deformation_gradient_rate().trace() > 0.0)
+    assert!(get_deformation_gradient_rate().trace().value() > 0.0)
 }
 
 #[test]

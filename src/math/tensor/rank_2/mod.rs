@@ -393,11 +393,6 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2<D, I, J, U> {
 }
 
 impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
-    /// Returns the deviatoric part and the trace, the trace carrying the unit.
-    pub fn deviatoric_and_trace(&self) -> (Self, Quantity<U>) {
-        let (deviatoric, trace) = Rank2::deviatoric_and_trace(self);
-        (deviatoric, Quantity::new(trace))
-    }
     /// Asserts that the tensor carries the given unit.
     ///
     /// The dimensions of a quantity entering or leaving a constitutive law are
@@ -539,12 +534,12 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2<D, I, J, U> {
 impl<const D: usize, I, J, U> Rank2 for TensorRank2<D, I, J, U> {
     type Transpose = TensorRank2<D, J, I, U>;
     fn deviatoric(&self) -> Self {
-        Self::identity() * (self.trace() / -(D as TensorRank0)) + self
+        Self::identity() * (self.trace().value() / -(D as TensorRank0)) + self
     }
-    fn deviatoric_and_trace(&self) -> (Self, TensorRank0) {
+    fn deviatoric_and_trace(&self) -> (Self, Quantity<U>) {
         let trace = self.trace();
         (
-            Self::identity() * (trace / -(D as TensorRank0)) + self,
+            Self::identity() * (trace.value() / -(D as TensorRank0)) + self,
             trace,
         )
     }
@@ -589,11 +584,8 @@ impl<const D: usize, I, J, U> Rank2 for TensorRank2<D, I, J, U> {
             })
             .sum()
     }
-    fn trace(&self) -> TensorRank0 {
-        self.iter()
-            .enumerate()
-            .map(|(i, self_i)| self_i[i].value())
-            .sum()
+    fn trace(&self) -> Quantity<U> {
+        self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum()
     }
     fn transpose(&self) -> Self::Transpose {
         (0..D)
