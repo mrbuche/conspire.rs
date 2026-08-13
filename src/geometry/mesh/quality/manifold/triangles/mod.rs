@@ -39,12 +39,12 @@ fn triangles_intersect(t1: [usize; N], t2: [usize; N], coordinates: &Coordinates
     let v = t1.map(|i| &coordinates[i]);
     let u = t2.map(|i| &coordinates[i]);
     let n1 = (v[1] - v[0]).cross(v[2] - v[0]);
-    let du = u.map(|p| &n1 * &(p - v[0]));
+    let du = u.map(|p| (&n1 * &(p - v[0])).value());
     if du[0] * du[1] > 0.0 && du[0] * du[2] > 0.0 {
         return false;
     }
     let n2 = (u[1] - u[0]).cross(u[2] - u[0]);
-    let dv = v.map(|p| &n2 * &(p - u[0]));
+    let dv = v.map(|p| (&n2 * &(p - u[0])).value());
     if dv[0] * dv[1] > 0.0 && dv[0] * dv[2] > 0.0 {
         return false;
     }

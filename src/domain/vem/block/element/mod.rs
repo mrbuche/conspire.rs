@@ -568,9 +568,8 @@ fn temporary_poly_2() {
                     finite_difference = block.helmholtz_free_energy(&nodal_coordinates).unwrap();
                     nodal_coordinates[node][i] -= crate::math::assert::perturbation(EPSILON);
                     finite_difference -= block.helmholtz_free_energy(&nodal_coordinates).unwrap();
-                    // An energy per unit length is a force.
-                    (finite_difference / Quantity::<Length>::new(EPSILON))
-                        .value_as::<crate::math::unit::Force>()
+                    finite_difference
+                        / crate::math::assert::perturbation::<crate::math::unit::Length>(EPSILON)
                 })
                 .collect()
         })

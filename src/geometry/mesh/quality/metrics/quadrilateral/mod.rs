@@ -40,7 +40,7 @@ pub(super) fn maximum_skew<const D: usize>(
     let x2 = (p(3) - p(0)) + (p(2) - p(1));
     let (n1, n2) = (x1.norm().value(), x2.norm().value());
     if n1 > 0.0 && n2 > 0.0 {
-        ((&x1 * &x2) / (n1 * n2)).abs()
+        ((&x1 * &x2).value() / (n1 * n2)).abs()
     } else {
         0.0
     }

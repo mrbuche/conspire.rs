@@ -67,7 +67,7 @@ pub(super) fn signed_volumes(
                         .map(|i| {
                             let one = &coordinates[nodes[i]];
                             let two = &coordinates[nodes[(i + 1) % nodes.len()]];
-                            &middle * &one.cross(two) / 6.0
+                            (&middle * &one.cross(two)).value() / 6.0
                         })
                         .sum();
                     if owner[&face] == cell {

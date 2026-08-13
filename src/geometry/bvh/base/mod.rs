@@ -270,7 +270,7 @@ impl BoundingVolumeHierarchy<3> {
                         &coordinates[element[2]],
                     );
                     let offset = &candidate - point;
-                    let distance = &offset * &offset;
+                    let distance = (&offset * &offset).value();
                     if closest
                         .as_ref()
                         .is_none_or(|(nearest, ..)| distance < *nearest)

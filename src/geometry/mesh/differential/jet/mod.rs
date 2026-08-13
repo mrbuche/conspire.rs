@@ -44,7 +44,11 @@ pub(crate) fn fit_jet(
     let mut rhs = Vector::zero(5);
     for neighbor in neighbors {
         let delta = neighbor - center;
-        let (a, b, height) = (&delta * &u, &delta * &v, &delta * &w);
+        let (a, b, height) = (
+            (&delta * &u).value(),
+            (&delta * &v).value(),
+            (&delta * &w).value(),
+        );
         let basis = [a, b, a * a, a * b, b * b];
         for i in 0..5 {
             for j in 0..5 {

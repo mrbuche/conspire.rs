@@ -41,7 +41,12 @@ where
 {
     /// Returns the scalar triple product, a number as a determinant is.
     pub fn scalar_triple_product(&self) -> TensorRank0 {
-        &self[0] * self[1].cross(&self[2])
+        let cross = self[1].cross(&self[2]);
+        self[0]
+            .iter()
+            .zip(cross.iter())
+            .map(|(self_i, cross_i)| self_i.value() * cross_i.value())
+            .sum()
     }
 }
 

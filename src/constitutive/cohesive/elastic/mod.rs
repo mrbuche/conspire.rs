@@ -32,7 +32,7 @@ where
         separation: Separation,
         normal: Normal,
     ) -> Result<Traction, ConstitutiveError> {
-        let normal_component = Quantity::<Length>::new(&separation * &normal);
+        let normal_component = &separation * &normal;
         let normal_separation = &normal * normal_component;
         let tangential_separation = separation - normal_separation;
         let tangential_component = tangential_separation.norm();
@@ -56,7 +56,7 @@ where
         separation: Separation,
         normal: Normal,
     ) -> Result<StiffnessCohesive, ConstitutiveError> {
-        let normal_component = Quantity::<Length>::new(&separation * &normal);
+        let normal_component = &separation * &normal;
         let normal_separation = &normal * normal_component;
         let tangential_separation = &separation - normal_separation;
         let tangential_component = tangential_separation.norm();

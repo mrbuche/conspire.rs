@@ -87,12 +87,13 @@ fn feasible(normals: &CoordinatesRef<3>) -> bool {
     e = e.normalized();
     let mut best = Scalar::NEG_INFINITY;
     for _ in 0..ASCENT_ITERATIONS {
-        let (worst_index, worst) = normals.iter().enumerate().map(|(i, &n)| (i, n * &e)).fold(
-            (0, Scalar::INFINITY),
-            |(bi, bv), (i, v)| {
+        let (worst_index, worst) = normals
+            .iter()
+            .enumerate()
+            .map(|(i, &n)| (i, (n * &e).value()))
+            .fold((0, Scalar::INFINITY), |(bi, bv), (i, v)| {
                 if v < bv { (i, v) } else { (bi, bv) }
-            },
-        );
+            });
         best = best.max(worst);
         let candidate = &e + &normals[worst_index];
         if candidate.norm() < TOLERANCE {

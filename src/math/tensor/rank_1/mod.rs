@@ -315,7 +315,10 @@ impl<const D: usize, I, U> Tensor for TensorRank1<D, I, U> {
     type Item = Quantity<U>;
     type Unit = U;
     fn full_contraction(&self, tensor_rank_1: &Self) -> TensorRank0 {
-        self * tensor_rank_1
+        self.iter()
+            .zip(tensor_rank_1.iter())
+            .map(|(self_i, other_i)| self_i.value() * other_i.value())
+            .sum()
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
@@ -682,23 +685,33 @@ impl<const D: usize, I, U> Mul<&Self> for TensorRank1<D, I, U> {
     }
 }
 
-impl<const D: usize, I, U, V> Mul<TensorRank1<D, I, V>> for &TensorRank1<D, I, U> {
-    type Output = TensorRank0;
+impl<const D: usize, I, U, V> Mul<TensorRank1<D, I, V>> for &TensorRank1<D, I, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = Quantity<<U as UnitMul<V>>::Output>;
     fn mul(self, tensor_rank_1: TensorRank1<D, I, V>) -> Self::Output {
-        self.iter()
-            .zip(tensor_rank_1)
-            .map(|(self_i, tensor_rank_1_i)| self_i.value() * tensor_rank_1_i.value())
-            .sum()
+        Quantity::new(
+            self.iter()
+                .zip(tensor_rank_1)
+                .map(|(self_i, tensor_rank_1_i)| self_i.value() * tensor_rank_1_i.value())
+                .sum(),
+        )
     }
 }
 
-impl<const D: usize, I, U, V> Mul<&TensorRank1<D, I, V>> for &TensorRank1<D, I, U> {
-    type Output = TensorRank0;
+impl<const D: usize, I, U, V> Mul<&TensorRank1<D, I, V>> for &TensorRank1<D, I, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = Quantity<<U as UnitMul<V>>::Output>;
     fn mul(self, tensor_rank_1: &TensorRank1<D, I, V>) -> Self::Output {
-        self.iter()
-            .zip(tensor_rank_1.iter())
-            .map(|(self_i, tensor_rank_1_i)| self_i.value() * tensor_rank_1_i.value())
-            .sum()
+        Quantity::new(
+            self.iter()
+                .zip(tensor_rank_1.iter())
+                .map(|(self_i, tensor_rank_1_i)| self_i.value() * tensor_rank_1_i.value())
+                .sum(),
+        )
     }
 }
 

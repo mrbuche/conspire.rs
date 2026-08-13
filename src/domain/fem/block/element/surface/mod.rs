@@ -7,7 +7,7 @@ use crate::{
     },
     math::{
         CrossProduct, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank2,
-        unit::{Area, Length, Rate, ReciprocalArea, Volume},
+        unit::{Area, Length, Rate, Volume},
     },
     mechanics::{
         Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
@@ -90,8 +90,7 @@ where
                             .iter()
                             .zip(basis_vectors.iter())
                             .map(|(metric_tensor_mn, basis_vectors_n)| {
-                                basis_vectors_n
-                                    * Quantity::<ReciprocalArea>::new(metric_tensor_mn.value())
+                                basis_vectors_n * *metric_tensor_mn
                             })
                             .sum()
                     })

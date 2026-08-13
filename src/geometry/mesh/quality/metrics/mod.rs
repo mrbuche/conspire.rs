@@ -217,9 +217,9 @@ fn triangle_skew<const D: usize>(
     let l1 = (a - c).normalized();
     let l2 = (b - a).normalized();
     let minimum_angle = [
-        (-(&l0 * &l1)).acos(),
-        (-(&l1 * &l2)).acos(),
-        (-(&l2 * &l0)).acos(),
+        (-(&l0 * &l1).value()).acos(),
+        (-(&l1 * &l2).value()).acos(),
+        (-(&l2 * &l0).value()).acos(),
     ]
     .into_iter()
     .fold(Scalar::INFINITY, Scalar::min);
@@ -295,7 +295,7 @@ fn corner_measure<const D: usize, const K: usize>(edges: &[Coordinate<D>; K]) ->
         let matrix: [[Scalar; K]; K] = from_fn(|row| from_fn(|column| edges[row][column].value()));
         TensorRank2::<K, Reference, Reference>::from(matrix).determinant()
     } else {
-        let gram: [[Scalar; K]; K] = from_fn(|i| from_fn(|j| &edges[i] * &edges[j]));
+        let gram: [[Scalar; K]; K] = from_fn(|i| from_fn(|j| (&edges[i] * &edges[j]).value()));
         TensorRank2::<K, Reference, Reference>::from(gram)
             .determinant()
             .max(0.0)

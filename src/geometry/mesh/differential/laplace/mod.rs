@@ -91,8 +91,8 @@ impl<const D: usize> Mesh<D> {
                         let k = triangle[(local + 2) % 3];
                         let u = &coordinates[i] - &coordinates[k];
                         let v = &coordinates[j] - &coordinates[k];
-                        let dot = &u * &v;
-                        let cross = ((&u * &u) * (&v * &v) - dot * dot).sqrt();
+                        let dot = (&u * &v).value();
+                        let cross = ((&u * &u).value() * (&v * &v).value() - dot * dot).sqrt();
                         *weights.entry(edge_key(i, j)).or_insert(0.0) += dot / cross;
                     }
                 }

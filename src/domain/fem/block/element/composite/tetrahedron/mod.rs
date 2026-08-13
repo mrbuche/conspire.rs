@@ -171,7 +171,7 @@ impl Tetrahedron {
         Self::shape_functions_at_integration_points()
             .iter()
             .map(|shape_functions_at_integration_point| {
-                shape_functions_at_integration_point * &vector
+                (shape_functions_at_integration_point * &vector).value()
             })
             .collect()
     }
