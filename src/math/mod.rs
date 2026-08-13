@@ -44,7 +44,7 @@ pub use tensor::{
     Auxiliary, Configuration, ContractWith, Current, Derivative, Differentiate, Erase, Factor,
     Flattened, Hessian, HessianAccumulate, HessianBlock, Intermediate, Is, Jacobian, Norm,
     Projection, Quantity, Rank2, Reference, Scalar, ScalarList, ScalarListVec, Scalars, Solution,
-    Tensor, TensorArray, TensorError, TensorVec,
+    Square, Tensor, TensorArray, TensorError, TensorVec,
     list::TensorList,
     quantity::{
         sparse_vec::QuantitySparseVec, sparse_vec_2d::QuantitySparseVec2D, vec::QuantityVector,

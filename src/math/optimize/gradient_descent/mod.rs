@@ -217,9 +217,12 @@ where
             *change -= &residual;
             // The step size carries the unit of the solution over that of the
             // residual, which is what makes the increment below dimensionally
-            // sound without either of them having to be unitless.
-            step_trial =
-                change.erase().full_contraction(solution_change.erase()) / change.norm_squared();
+            // sound without either of them having to be unitless. The ratio
+            // itself is a number, so both sides are contracted in the erased
+            // view rather than one of them being asked for its norm squared,
+            // which would name a unit only to spend it again here.
+            step_trial = change.erase().full_contraction(solution_change.erase())
+                / change.erase().full_contraction(change.erase());
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
@@ -287,8 +290,8 @@ where
             // The step size carries the unit of the solution over that of the
             // residual, which is what makes the increment below dimensionally
             // sound without either of them having to be unitless.
-            step_trial =
-                change.erase().full_contraction(solution_change.erase()) / change.norm_squared();
+            step_trial = change.erase().full_contraction(solution_change.erase())
+                / change.erase().full_contraction(change.erase());
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
@@ -356,8 +359,8 @@ where
             solution_change -= &solution;
             let change = residual_solution_change.get_or_insert_with(|| zeroed(&residual_solution));
             *change -= &residual_solution;
-            step_trial_solution =
-                change.erase().full_contraction(solution_change.erase()) / change.norm_squared();
+            step_trial_solution = change.erase().full_contraction(solution_change.erase())
+                / change.erase().full_contraction(change.erase());
             if step_trial_solution.abs() > 0.0 && !step_trial_solution.is_nan() {
                 step_size_solution = step_trial_solution.abs()
             }
@@ -367,7 +370,7 @@ where
             residual_multipliers_change -= &residual_multipliers;
             step_trial_multipliers = residual_multipliers_change
                 .full_contraction(&multipliers_change)
-                / residual_multipliers_change.norm_squared();
+                / residual_multipliers_change.full_contraction(&residual_multipliers_change);
             if step_trial_multipliers.abs() > 0.0 && !step_trial_multipliers.is_nan() {
                 step_size_multipliers = step_trial_multipliers.abs()
             }
@@ -424,7 +427,7 @@ where
                 multipliers_change -= &multipliers;
                 residual_change -= &residual;
                 step_trial = residual_change.full_contraction(&multipliers_change)
-                    / residual_change.norm_squared();
+                    / residual_change.full_contraction(&residual_change);
                 if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                     step_size = step_trial.abs()
                 }

@@ -61,21 +61,21 @@ mod on_tensors {
     #[test]
     fn same_units_add() {
         let sum = Stresses::zero() + Stresses::zero();
-        assert_eq!(sum.norm_squared(), 0.0)
+        assert!(sum.is_zero())
     }
 
     #[test]
     fn multiplication_combines_the_units() {
         // Viscosity * Rate = Stress, resolved when this compiles.
         let stress: Stresses = Viscosities::zero() * Rates::zero();
-        assert_eq!(stress.norm_squared(), 0.0)
+        assert!(stress.is_zero())
     }
 
     #[test]
     fn the_default_is_dimensionless() {
         let product = TensorRank2::<3, Current, Reference>::zero()
             * TensorRank2::<3, Reference, Current>::zero();
-        assert_eq!(product.norm_squared(), 0.0)
+        assert!(product.is_zero())
     }
 }
 

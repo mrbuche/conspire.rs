@@ -1048,22 +1048,34 @@ fn second_invariant() {
 
 #[test]
 fn squared_trace_dim_2() -> Result<(), AssertionError> {
-    Assert::default().eq_within_tols(get_tensor_rank_2_dim_2().squared_trace(), &29.0)
+    Assert::default().eq_within_tols(
+        get_tensor_rank_2_dim_2().squared_trace(),
+        &crate::math::Quantity::new(29.0),
+    )
 }
 
 #[test]
 fn squared_trace_dim_3() -> Result<(), AssertionError> {
-    Assert::default().eq_within_tols(get_tensor_rank_2_dim_3().squared_trace(), &258.0)
+    Assert::default().eq_within_tols(
+        get_tensor_rank_2_dim_3().squared_trace(),
+        &crate::math::Quantity::new(258.0),
+    )
 }
 
 #[test]
 fn squared_trace_dim_4() -> Result<(), AssertionError> {
-    Assert::default().eq_within_tols(get_tensor_rank_2_dim_4().squared_trace(), &89.0)
+    Assert::default().eq_within_tols(
+        get_tensor_rank_2_dim_4().squared_trace(),
+        &crate::math::Quantity::new(89.0),
+    )
 }
 
 #[test]
 fn squared_trace_dim_9() -> Result<(), AssertionError> {
-    Assert::default().eq_within_tols(get_tensor_rank_2_dim_9().squared_trace(), &308.0)
+    Assert::default().eq_within_tols(
+        get_tensor_rank_2_dim_9().squared_trace(),
+        &crate::math::Quantity::new(308.0),
+    )
 }
 
 #[test]

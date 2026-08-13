@@ -233,7 +233,7 @@ impl Rank2 for SquareMatrix {
                 .all(|(self_ij, self_j)| self_ij == &self_j[i])
         })
     }
-    fn squared_trace(&self) -> Scalar {
+    fn squared_trace(&self) -> Quantity {
         self.iter()
             .enumerate()
             .map(|(i, self_i)| {
@@ -243,7 +243,8 @@ impl Rank2 for SquareMatrix {
                     .map(|(self_ij, self_j)| self_ij * self_j[i])
                     .sum::<Scalar>()
             })
-            .sum()
+            .sum::<Scalar>()
+            .into()
     }
     fn trace(&self) -> Quantity<Dimensionless> {
         Quantity::new(self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum())

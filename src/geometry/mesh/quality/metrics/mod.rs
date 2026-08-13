@@ -178,7 +178,7 @@ pub(crate) fn chi(epsilon: Scalar, determinant: Scalar) -> Scalar {
 }
 
 pub(crate) fn regularized(edges: &CoordinateList<3, 3>, epsilon: Scalar) -> Scalar {
-    edges.norm_squared().powf(1.5) / chi(epsilon, edges.scalar_triple_product())
+    edges.norm_squared().value().powf(1.5) / chi(epsilon, edges.scalar_triple_product())
 }
 
 fn triple_product<const D: usize>(

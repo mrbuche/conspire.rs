@@ -53,9 +53,6 @@ mod constitutive_law {
     #[test]
     fn dividing_a_stress_by_a_viscosity_gives_a_rate() {
         let rate = Stresses::identity() / Quantity::<Viscosity>::new(2.0);
-        assert_eq!(
-            rate.norm_squared(),
-            StrainRate::identity().norm_squared() / 4.0
-        )
+        assert_eq!(rate.norm(), StrainRate::identity().norm() / 2.0)
     }
 }

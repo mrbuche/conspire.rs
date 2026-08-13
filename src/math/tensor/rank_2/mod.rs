@@ -1,5 +1,5 @@
 use crate::math::unit::{Dimensionless, UnitDiv, UnitMul};
-use crate::math::{ContractWith, Quantity};
+use crate::math::{ContractWith, Quantity, Square};
 use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
 #[cfg(test)]
 mod test;
@@ -568,15 +568,18 @@ impl<const D: usize, I, J, U> Rank2 for TensorRank2<D, I, J, U> {
                 .all(|(self_ij, self_j)| self_ij == &self_j[i])
         })
     }
-    fn squared_trace(&self) -> TensorRank0 {
+    fn squared_trace(&self) -> Quantity<Square<U>>
+    where
+        U: UnitMul<U>,
+    {
         self.iter()
             .enumerate()
             .map(|(i, self_i)| {
                 self_i
                     .iter()
                     .zip(self.iter())
-                    .map(|(self_ij, self_j)| self_ij.value() * self_j[i].value())
-                    .sum::<TensorRank0>()
+                    .map(|(self_ij, self_j)| *self_ij * self_j[i])
+                    .sum::<Quantity<Square<U>>>()
             })
             .sum()
     }

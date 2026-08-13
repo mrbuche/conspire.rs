@@ -28,7 +28,7 @@ use std::{
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
-use unit::{Dimensionless, Time};
+use unit::{Dimensionless, Time, UnitMul};
 
 /// A scalar.
 pub type Scalar = TensorRank0;
@@ -87,6 +87,14 @@ where
 /// appears in, since a tensor names a derivative for each variable it might be
 /// differentiated against.
 pub type Derivative<Y, T = Time> = <Y as Differentiate<T>>::Derivative;
+
+/// The unit a quantity of unit `U` carries once squared.
+///
+/// A tensor squared against itself — its norm squared, the trace of its square,
+/// the invariant built from the two — carries this rather than nothing. Spelling
+/// the projection out at every use would crowd out the signatures, as it would
+/// for a [`Derivative`].
+pub type Square<U> = <U as UnitMul<U>>::Output;
 
 /// The full contraction of two tensors whose units need not agree.
 ///
@@ -218,13 +226,20 @@ where
     fn is_identity(&self) -> bool;
     /// Checks whether the tensor is a symmetric tensor.
     fn is_symmetric(&self) -> bool;
-    /// Returns the second invariant of the rank-2 tensor, which is a square
-    /// and so names no unit.
-    fn second_invariant(&self) -> TensorRank0 {
-        0.5 * (self.trace().value().powi(2) - self.squared_trace())
+    /// Returns the second invariant of the rank-2 tensor, which carries the
+    /// square of its unit, being built from two things that each do.
+    fn second_invariant(&self) -> Quantity<Square<Self::Unit>>
+    where
+        Self::Unit: UnitMul<Self::Unit>,
+    {
+        let trace = self.trace();
+        (trace * trace - self.squared_trace()) * 0.5
     }
-    /// Returns the trace of the rank-2 tensor squared.
-    fn squared_trace(&self) -> TensorRank0;
+    /// Returns the trace of the rank-2 tensor squared, which carries the square
+    /// of its unit.
+    fn squared_trace(&self) -> Quantity<Square<Self::Unit>>
+    where
+        Self::Unit: UnitMul<Self::Unit>;
     /// Returns the trace of the rank-2 tensor, which carries its unit.
     fn trace(&self) -> Quantity<Self::Unit>;
     /// Returns the transpose of the rank-2 tensor.
@@ -319,11 +334,13 @@ where
     ///
     /// Every norm below is that unit once, however many entries it is taken
     /// over, so each is a number gathered from the entries and given the unit
-    /// at the end. The gathering stays a number because what it sums over is
-    /// squares and powers, which name no unit, and because a tuple's unit is
-    /// the pair its halves carry rather than the unit of either of them.
+    /// at the end. The gathering stays a number because a tuple's unit is the
+    /// pair its halves carry rather than the unit of either of them, and
+    /// because a square root halves a unit, which the table names forwards but
+    /// not back — so this takes the contraction rather than the norm squared it
+    /// would otherwise have to spend.
     fn norm(&self) -> Quantity<Self::Unit> {
-        Quantity::new(self.norm_squared().sqrt())
+        Quantity::new(self.full_contraction(self).sqrt())
     }
     /// Returns the infinity norm.
     fn norm_inf(&self) -> Quantity<Self::Unit> {
@@ -348,9 +365,12 @@ where
     fn norm_p(&self, p: TensorRank0) -> Quantity<Self::Unit> {
         Quantity::new(self.norm_p_sum(p).powf(1.0 / p))
     }
-    /// Returns the tensor norm squared, which names no unit and so carries none.
-    fn norm_squared(&self) -> TensorRank0 {
-        self.full_contraction(self)
+    /// Returns the tensor norm squared, which carries the square of its unit.
+    fn norm_squared(&self) -> Quantity<Square<Self::Unit>>
+    where
+        Self::Unit: UnitMul<Self::Unit>,
+    {
+        Quantity::new(self.full_contraction(self))
     }
     /// Normalizes the tensor.
     ///
