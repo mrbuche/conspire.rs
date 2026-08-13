@@ -392,9 +392,8 @@ fn temporary_poly_0() {
         .unwrap();
     let length = (coordinates[face_node_connectivity[0][0]].clone()
         - coordinates[face_node_connectivity[0][1]].clone())
-    .norm()
-    .value();
-    let volume = Quantity::<Volume>::new((15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0 * length.powi(3));
+    .norm();
+    let volume = length * length * length * ((15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0);
     assert!((block.elements()[0].integration_weights()[0].ratio(volume) - 1.0).abs() < 1e-14);
 }
 
