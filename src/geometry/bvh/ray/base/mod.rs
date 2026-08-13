@@ -6,7 +6,7 @@ use std::mem::swap;
 use crate::{
     ABS_TOL,
     geometry::{Coordinate, Direction, bbox::BoundingBox, bvh::ray::Ray},
-    math::Scalar,
+    math::{Quantity, Scalar},
 };
 
 impl<const D: usize> Ray<D> {
@@ -80,15 +80,18 @@ impl Ray<3> {
         let u = cx * by - cy * bx;
         let v = ax * cy - ay * cx;
         let w = bx * ay - by * ax;
-        if (u < 0.0 || v < 0.0 || w < 0.0) && (u > 0.0 || v > 0.0 || w > 0.0) {
+        let zero = Quantity::default();
+        if (u < zero || v < zero || w < zero) && (u > zero || v > zero || w > zero) {
             return None;
         }
         let determinant = u + v + w;
-        if determinant.abs() < ABS_TOL {
+        if determinant.abs().value() < ABS_TOL {
             return None;
         }
-        let inverse_determinant = 1.0 / determinant.value();
-        let t = (u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]).value() * inverse_determinant;
+        // Three of those edge functions against three offsets are a volume,
+        // which the edge function they are divided by takes back to how far
+        // along the ray the triangle is met.
+        let t = ((u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]) / determinant).value();
         (t > ABS_TOL).then_some(t)
     }
 }
