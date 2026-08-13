@@ -52,7 +52,7 @@ impl Thermoelastic for AlmansiHamel {
     fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let inverse_deformation_gradient = deformation_gradient.inverse();
@@ -66,8 +66,7 @@ impl Thermoelastic for AlmansiHamel {
                     * (strain_trace
                         - 3.0
                             * self.coefficient_of_thermal_expansion()
-                            * (Quantity::<Temperature>::new(temperature)
-                                - self.reference_temperature()))))
+                            * (temperature - self.reference_temperature()))))
     }
     /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
     ///
@@ -77,7 +76,7 @@ impl Thermoelastic for AlmansiHamel {
     fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
@@ -105,8 +104,7 @@ impl Thermoelastic for AlmansiHamel {
                             * (strain_trace
                                 - 3.0
                                     * self.coefficient_of_thermal_expansion()
-                                    * (Quantity::<Temperature>::new(temperature)
-                                        - self.reference_temperature())))),
+                                    * (temperature - self.reference_temperature())))),
                 &inverse_transpose_deformation_gradient,
             ))
     }

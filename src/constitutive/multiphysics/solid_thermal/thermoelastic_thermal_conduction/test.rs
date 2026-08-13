@@ -62,12 +62,8 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         #[test]
         fn reference_temperature() {
             assert_eq!(
-                $thermoelastic_thermal_conduction_constitutive_model
-                    .reference_temperature()
-                    .value(),
-                $thermoelastic_constitutive_model
-                    .reference_temperature()
-                    .value()
+                $thermoelastic_thermal_conduction_constitutive_model.reference_temperature(),
+                $thermoelastic_constitutive_model.reference_temperature()
             )
         }
         #[test]

@@ -52,7 +52,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
     fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let (deviatoric_strain, strain_trace) =
@@ -64,8 +64,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
                     * (strain_trace
                         - 3.0
                             * self.coefficient_of_thermal_expansion()
-                            * (Quantity::<Temperature>::new(temperature)
-                                - self.reference_temperature()))))
+                            * (temperature - self.reference_temperature()))))
     }
     /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
@@ -75,7 +74,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
     fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        _: Scalar,
+        _: Quantity<Temperature>,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let scaled_deformation_gradient_transpose =
@@ -106,7 +105,7 @@ impl Thermohyperelastic for SaintVenantKirchhoff {
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = (deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5;
@@ -118,7 +117,7 @@ impl Thermohyperelastic for SaintVenantKirchhoff {
             - 3.0
                 * self.bulk_modulus()
                 * self.coefficient_of_thermal_expansion()
-                * (Quantity::<Temperature>::new(temperature) - self.reference_temperature())
+                * (temperature - self.reference_temperature())
                 * strain_trace)
     }
 }

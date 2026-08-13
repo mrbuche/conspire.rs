@@ -25,10 +25,7 @@ mod consistency {
             shear_modulus: SHEAR_MODULUS,
         };
         Assert::default().eq_within_tols(
-            &model.cauchy_stress(
-                &get_deformation_gradient(),
-                model.reference_temperature().value(),
-            )?,
+            &model.cauchy_stress(&get_deformation_gradient(), model.reference_temperature())?,
             &elastic_model.cauchy_stress(&get_deformation_gradient())?,
         )
     }
@@ -47,7 +44,7 @@ mod consistency {
         Assert::default().eq_within_tols(
             &model.cauchy_tangent_stiffness(
                 &get_deformation_gradient(),
-                model.reference_temperature().value(),
+                model.reference_temperature(),
             )?,
             &elastic_model.cauchy_tangent_stiffness(&get_deformation_gradient())?,
         )

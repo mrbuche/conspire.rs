@@ -16,8 +16,8 @@ use crate::{
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, Scalar,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
+        FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
     },
 };
 
@@ -68,7 +68,7 @@ where
     fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<CauchyStress, ConstitutiveError> {
         self.solid_constitutive_model()
             .cauchy_stress(deformation_gradient, temperature)
@@ -76,7 +76,7 @@ where
     fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         self.solid_constitutive_model()
             .cauchy_tangent_stiffness(deformation_gradient, temperature)
@@ -84,7 +84,7 @@ where
     fn first_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
         self.solid_constitutive_model()
             .first_piola_kirchhoff_stress(deformation_gradient, temperature)
@@ -92,7 +92,7 @@ where
     fn first_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         self.solid_constitutive_model()
             .first_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
@@ -100,7 +100,7 @@ where
     fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         self.solid_constitutive_model()
             .second_piola_kirchhoff_stress(deformation_gradient, temperature)
@@ -108,7 +108,7 @@ where
     fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         self.solid_constitutive_model()
             .second_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
@@ -130,7 +130,7 @@ where
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         self.solid_constitutive_model()
             .helmholtz_free_energy_density(deformation_gradient, temperature)

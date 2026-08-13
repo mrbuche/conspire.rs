@@ -6,7 +6,8 @@ use super::{
 };
 use crate::math::assert::Assert;
 use crate::math::{
-    IDENTITY, IDENTITY_00, IDENTITY_10, Rank2, Tensor, TensorArray, assert::AssertionError,
+    IDENTITY, IDENTITY_00, IDENTITY_10, Quantity, Rank2, Tensor, TensorArray,
+    assert::AssertionError, unit::Temperature,
 };
 
 impl From<DeformationError> for AssertionError {
@@ -135,8 +136,8 @@ pub fn get_translation_reference_configuration() -> ReferenceCoordinate {
     ReferenceCoordinate::from([4.4, 5.5, 6.6])
 }
 
-pub fn get_temperature() -> Scalar {
-    123.0
+pub fn get_temperature() -> Quantity<Temperature> {
+    Quantity::new(123.0)
 }
 
 pub fn get_temperature_gradient() -> TemperatureGradient {
