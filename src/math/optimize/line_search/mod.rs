@@ -184,6 +184,9 @@ impl LineSearch {
         if m <= 0.0 {
             return Err(LineSearchError::NotDescentDirection(format!("{self:?}")));
         }
+        // The step is a bare number here, the unit it takes being whatever the
+        // decrement needs to reach the argument.
+        let trial = |n: Scalar| decrement * Quantity::new(-n) + argument;
         match self {
             Self::Armijo {
                 control,
@@ -193,7 +196,7 @@ impl LineSearch {
                 let mut f_n;
                 let t = control * m;
                 for _ in 0..*max_steps {
-                    f_n = function(&(decrement * Quantity::new(-n) + argument), n);
+                    f_n = function(&trial(n), n);
                     if let Ok(value) = f_n
                         && f - value >= n * t
                     {
@@ -212,7 +215,7 @@ impl LineSearch {
                 max_steps,
             } => {
                 for _ in 0..*max_steps {
-                    if function(&(decrement * Quantity::new(-n) + argument), n).is_ok() {
+                    if function(&trial(n), n).is_ok() {
                         return Ok(n);
                     } else {
                         n *= cut_back
@@ -233,7 +236,7 @@ impl LineSearch {
                 let u = (1.0 - control) * m;
                 let mut v;
                 for _ in 0..*max_steps {
-                    f_n = function(&(decrement * Quantity::new(-n) + argument), n);
+                    f_n = function(&trial(n), n);
                     if let Ok(value) = f_n {
                         v = f - value;
                         if n * u < v || v < n * t {
@@ -261,7 +264,7 @@ impl LineSearch {
                 let mut j_n;
                 let t_1 = control_1 * m;
                 let t_2 = control_2 * m;
-                let mut trial_argument = decrement * Quantity::new(-n) + argument;
+                let mut trial_argument = trial(n);
                 for _ in 0..*max_steps {
                     f_n = function(&trial_argument, n);
                     j_n = jacobian(&trial_argument);
@@ -277,7 +280,7 @@ impl LineSearch {
                         return Ok(n);
                     } else {
                         n *= cut_back;
-                        trial_argument = decrement * Quantity::new(-n) + argument
+                        trial_argument = trial(n)
                     }
                 }
                 Err(LineSearchError::MaximumStepsReached(
