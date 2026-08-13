@@ -4,7 +4,7 @@ mod test;
 use crate::{
     ABS_TOL,
     geometry::{Coordinates, bvh::BoundingVolumeHierarchy, mesh::Mesh},
-    math::{CrossProduct, Scalar},
+    math::{CrossProduct, Scalar, Tensor},
 };
 
 const D: usize = 3;
@@ -49,7 +49,11 @@ fn triangles_intersect(t1: [usize; N], t2: [usize; N], coordinates: &Coordinates
         return false;
     }
     let direction = n1.cross(&n2);
-    if &direction * &direction < ABS_TOL * (&n1 * &n1) * (&n2 * &n2) {
+    // Either side is the eighth power of a length, which names nothing, so the
+    // comparison is made between the numbers a contraction gives.
+    if direction.full_contraction(&direction)
+        < ABS_TOL * n1.full_contraction(&n1) * n2.full_contraction(&n2)
+    {
         return false; // coplanar (or degenerate)
     }
     let axis = {
