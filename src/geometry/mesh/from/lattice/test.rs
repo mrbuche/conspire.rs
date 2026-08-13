@@ -2,7 +2,6 @@ use crate::{
     geometry::{Coordinate, Coordinates, grid::Voxels, mesh::Mesh},
     math::{Tensor, TensorVec},
 };
-use std::time::Instant;
 
 const RADIUS: usize = 3;
 const UNIT: Coordinate<3> = Coordinate::const_from([1.0; 3]);
@@ -28,7 +27,7 @@ fn rod_voxels(n: usize) -> Voxels<u8> {
     Voxels::new(data, [n, n, n])
 }
 
-fn dense(voxels: Voxels<u8>, remove: Option<&[u8]>) -> (usize, usize, Vec<[usize; 8]>) {
+fn dense(voxels: Voxels<u8>, remove: Option<&[u8]>) -> (usize, Vec<[usize; 8]>) {
     let [nx, ny, nz] = *voxels.nel();
     let (nxp, nyp, nzp) = (nx + 1, ny + 1, nz + 1);
     let layer = nxp * nyp;
@@ -69,13 +68,13 @@ fn dense(voxels: Voxels<u8>, remove: Option<&[u8]>) -> (usize, usize, Vec<[usize
     connectivity
         .iter_mut()
         .for_each(|nodes| nodes.iter_mut().for_each(|node| *node = mapping[*node]));
-    (nodes_unfiltered, coordinates.len(), connectivity)
+    (coordinates.len(), connectivity)
 }
 
 #[test]
 fn sparse_node_numbering_matches_dense() {
     let n = 24;
-    let (_, dense_nodes, dense_connectivity) = dense(rod_voxels(n), Some(&[0]));
+    let (dense_nodes, dense_connectivity) = dense(rod_voxels(n), Some(&[0]));
     let mesh = Mesh::from_voxels(rod_voxels(n), Some(&[0]));
     assert_eq!(mesh.number_of_nodes(), dense_nodes);
     assert_eq!(mesh.number_of_elements(), dense_connectivity.len());
@@ -97,33 +96,4 @@ fn empty_bounding_box_costs_nothing() {
     );
     assert_eq!(mesh.number_of_nodes(), 8);
     assert_eq!(mesh.number_of_elements(), 1);
-}
-
-#[test]
-#[ignore = "benchmark; run with --release -- --ignored --nocapture --test-threads=1"]
-fn bench_dense_versus_sparse() {
-    println!(
-        "{:>6}  {:>9}  {:>12}  {:>11}  {:>11}  {:>10}  {:>10}  {:>10}",
-        "n", "cells", "bbox", "dense (MB)", "sparse (MB)", "dense ms", "voxels ms", "cells ms"
-    );
-    for n in [64, 128, 256, 512] {
-        let cells = rod(n);
-        let start = Instant::now();
-        let (unfiltered, nodes, _) = dense(rod_voxels(n), Some(&[0]));
-        let dense_ms = start.elapsed().as_secs_f64() * 1e3;
-        let start = Instant::now();
-        let from_voxels = Mesh::from_voxels(rod_voxels(n), Some(&[0]));
-        let voxels_ms = start.elapsed().as_secs_f64() * 1e3;
-        let start = Instant::now();
-        let from_cells = Mesh::from_lattice_cells(cells.iter().copied(), [n, n, n], &UNIT, &ORIGIN);
-        let cells_ms = start.elapsed().as_secs_f64() * 1e3;
-        assert_eq!(from_voxels.number_of_nodes(), nodes);
-        assert_eq!(from_cells.number_of_nodes(), nodes);
-        let dense_mb = (unfiltered * 9) as f64 / 1e6;
-        let sparse_mb = (cells.len() * 8 * 8) as f64 / 1e6;
-        println!(
-            "{n:>6}  {:>9}  {unfiltered:>12}  {dense_mb:>11.1}  {sparse_mb:>11.1}  {dense_ms:>10.1}  {voxels_ms:>10.1}  {cells_ms:>10.1}",
-            cells.len(),
-        );
-    }
 }
