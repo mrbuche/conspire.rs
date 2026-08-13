@@ -12,7 +12,7 @@ use crate::{
             ray::Ray,
         },
     },
-    math::Scalar,
+    math::{Quantity, Scalar},
 };
 
 impl<const D: usize> BoundingVolumeHierarchy<D> {
@@ -325,38 +325,42 @@ fn closest_point_on_triangle(
     b: &Coordinate<3>,
     c: &Coordinate<3>,
 ) -> Coordinate<3> {
+    // Each projection is an edge against an offset from a corner, and each
+    // weight a pair of those multiplied. Weights are only ever taken against
+    // one another, so they are divided rather than inverted.
+    let zero = Quantity::default();
     let ab = b - a;
     let ac = c - a;
     let ap = point - a;
     let d1 = &ab * &ap;
     let d2 = &ac * &ap;
-    if d1 <= 0.0 && d2 <= 0.0 {
+    if d1 <= zero && d2 <= zero {
         return a.clone();
     }
     let bp = point - b;
     let d3 = &ab * &bp;
     let d4 = &ac * &bp;
-    if d3 >= 0.0 && d4 <= d3 {
+    if d3 >= zero && d4 <= d3 {
         return b.clone();
     }
     let vc = d1 * d4 - d3 * d2;
-    if vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0 {
-        return a + &(&ab * (d1 / (d1 - d3)));
+    if vc <= Quantity::default() && d1 >= zero && d3 <= zero {
+        return a + &(&ab * d1.ratio(d1 - d3));
     }
     let cp = point - c;
     let d5 = &ab * &cp;
     let d6 = &ac * &cp;
-    if d6 >= 0.0 && d5 <= d6 {
+    if d6 >= zero && d5 <= d6 {
         return c.clone();
     }
     let vb = d5 * d2 - d1 * d6;
-    if vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0 {
-        return a + &(&ac * (d2 / (d2 - d6)));
+    if vb <= Quantity::default() && d2 >= zero && d6 <= zero {
+        return a + &(&ac * d2.ratio(d2 - d6));
     }
     let va = d3 * d6 - d5 * d4;
-    if va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0 {
-        return b + &(&(c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6))));
+    if va <= Quantity::default() && (d4 - d3) >= zero && (d5 - d6) >= zero {
+        return b + &(&(c - b) * (d4 - d3).ratio((d4 - d3) + (d5 - d6)));
     }
-    let denominator = 1.0 / (va + vb + vc);
-    &(a + &(&ab * (vb * denominator))) + &(&ac * (vc * denominator))
+    let total = va + vb + vc;
+    &(a + &(&ab * vb.ratio(total))) + &(&ac * vc.ratio(total))
 }
