@@ -178,6 +178,7 @@ pub(super) fn clip_face(
         Vertex::Node(node) => node,
         Vertex::Crossing(edge, ordinal) => crossing_ids[&edge][ordinal],
         Vertex::Feature(face, crease) => feature_ids[&(face, crease)],
+        Vertex::Corner(_) => panic!(),
     };
     if cut.endpoints.is_empty() {
         return if cut.inside && cut.emitted.len() > 2 {

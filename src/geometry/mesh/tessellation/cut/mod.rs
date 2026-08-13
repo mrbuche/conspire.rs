@@ -91,6 +91,9 @@ pub enum Vertex {
     /// Where the `crease`-th crease of the tessellation passes through the
     /// sorted face, which both cells sharing it name the same way.
     Feature([usize; 4], usize),
+    /// The `corner`-th corner of the tessellation, lying within a cell rather
+    /// than on any of its faces.
+    Corner(usize),
 }
 
 pub struct Tables {

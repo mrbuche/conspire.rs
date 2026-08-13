@@ -13,7 +13,7 @@ use crate::{
         mesh::{
             Connectivity, Mesh,
             quality::metrics::{Kind, minimum_scaled_jacobian},
-            tessellation::{D, Tessellation},
+            tessellation::{D, Features, Tessellation},
         },
     },
     math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec},
@@ -21,12 +21,19 @@ use crate::{
 };
 use std::{array::from_fn, collections::HashMap, collections::HashSet, iter::once};
 
-/// Splits a cut loop along a crease that enters and leaves it, so the fold
-/// becomes an edge of the cell rather than something a single face spans.
+/// Splits a cut loop along the creases running through it, so a fold becomes
+/// an edge of the cell rather than something a single face spans.
 ///
-/// One crease is taken, the lowest numbered the loop meets exactly twice; a
-/// loop a crease only touches once is left whole.
-fn fan(chain: Vec<Vertex>) -> Vec<Vec<Vertex>> {
+/// A loop that several creases leave for a corner within the cell is fanned
+/// about that corner, one part per pair of neighbouring creases. Otherwise one
+/// crease is taken, the lowest numbered the loop meets exactly twice, and the
+/// loop split along the chord between where it enters and leaves; a loop a
+/// crease only touches once is left whole.
+fn fan(
+    chain: Vec<Vertex>,
+    features: &Features,
+    within: impl Fn(&Coordinate<D>) -> bool,
+) -> Vec<Vec<Vertex>> {
     let mut creases = HashMap::<usize, Vec<usize>>::new();
     chain.iter().enumerate().for_each(|(at, vertex)| {
         if let Vertex::Feature(_, crease) = vertex {
@@ -35,6 +42,34 @@ fn fan(chain: Vec<Vertex>) -> Vec<Vec<Vertex>> {
     });
     let mut named: Vec<usize> = creases.keys().copied().collect();
     named.sort_unstable();
+    let leaving: Vec<usize> = named
+        .iter()
+        .copied()
+        .filter(|crease| creases[crease].len() == 1)
+        .collect();
+    if leaving.len() > 2
+        && let Some(corner) = features.hub(&leaving)
+        && within(&features.corners()[corner])
+    {
+        let mut ats: Vec<usize> = leaving.iter().map(|crease| creases[crease][0]).collect();
+        ats.sort_unstable();
+        return (0..ats.len())
+            .map(|which| {
+                let (one, two) = (ats[which], ats[(which + 1) % ats.len()]);
+                let mut part: Vec<Vertex> = if one < two {
+                    chain[one..=two].to_vec()
+                } else {
+                    chain[one..]
+                        .iter()
+                        .chain(chain[..=two].iter())
+                        .copied()
+                        .collect()
+                };
+                part.push(Vertex::Corner(corner));
+                part
+            })
+            .collect();
+    }
     for crease in named {
         if let [one, two] = creases[&crease][..] {
             let across = chain[one..=two].to_vec();
@@ -61,6 +96,8 @@ fn build_cut_cells(
     face_cuts: &HashMap<&[usize; 4], FaceCut>,
     crossing_ids: &HashMap<[usize; 2], Vec<usize>>,
     feature_ids: &HashMap<([usize; 4], usize), usize>,
+    features: &Features,
+    corner_ids: &[usize],
     coordinates: &Coordinates<D>,
 ) -> Result<
     (
@@ -79,6 +116,7 @@ fn build_cut_cells(
         Vertex::Node(node) => node,
         Vertex::Crossing(edge, ordinal) => crossing_ids[&edge][ordinal],
         Vertex::Feature(face, crease) => feature_ids[&(face, crease)],
+        Vertex::Corner(corner) => corner_ids[corner],
     };
     let mut hexes = Vec::new();
     let mut elements_faces = Vec::<Vec<usize>>::new();
@@ -188,6 +226,21 @@ fn build_cut_cells(
                         Ok(())
                     })?;
                     let clipped = polygons.len();
+                    let low: [Scalar; D] = from_fn(|axis| {
+                        element
+                            .iter()
+                            .map(|&node| coordinates[node][axis])
+                            .fold(Scalar::INFINITY, Scalar::min)
+                    });
+                    let high: [Scalar; D] = from_fn(|axis| {
+                        element
+                            .iter()
+                            .map(|&node| coordinates[node][axis])
+                            .fold(Scalar::NEG_INFINITY, Scalar::max)
+                    });
+                    let within = |corner: &Coordinate<D>| {
+                        (0..D).all(|axis| low[axis] <= corner[axis] && corner[axis] <= high[axis])
+                    };
                     let mut keys: Vec<Vertex> = adjacency.keys().copied().collect();
                     keys.sort_unstable();
                     let mut visited = HashSet::<Vertex>::new();
@@ -208,7 +261,7 @@ fn build_cut_cells(
                                 current = next;
                             }
                             if chain.len() > 2 {
-                                fan(chain).into_iter().for_each(|part| {
+                                fan(chain, features, within).into_iter().for_each(|part| {
                                     polygons.push(part.into_iter().map(point).collect())
                                 })
                             }
@@ -320,6 +373,15 @@ impl Tessellation {
             coordinates.push(tables.features[named].clone());
             feature_ids.insert(*named, coordinates.len() - 1);
         });
+        let features = self.features();
+        let corner_ids: Vec<usize> = features
+            .corners()
+            .iter()
+            .map(|corner| {
+                coordinates.push(corner.clone());
+                coordinates.len() - 1
+            })
+            .collect();
         let mut face_polygons = HashMap::new();
         let mut face_cuts = HashMap::new();
         tables.faces.iter().try_for_each(|(key, corners)| {
@@ -349,6 +411,8 @@ impl Tessellation {
             &face_cuts,
             &crossing_ids,
             &feature_ids,
+            features,
+            &corner_ids,
             &coordinates,
         )?;
         let fractions: Vec<Scalar> = elements_faces
