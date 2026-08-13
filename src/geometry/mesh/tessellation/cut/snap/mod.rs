@@ -2,22 +2,46 @@
 mod test;
 
 use super::{
-    Class, SNAP_HARD, SNAP_QUALITY, SNAP_SOFT,
+    Class, SNAP_FEATURE, SNAP_HARD, SNAP_QUALITY, SNAP_SOFT,
     geometry::signed_volume,
     topology::{element_edges, element_faces},
 };
 use crate::{
     geometry::{
-        Coordinates,
+        Coordinate, Coordinates,
         mesh::{
             Connectivity, Mesh,
             quality::metrics::{Kind, minimum_scaled_jacobian},
-            tessellation::{D, Tessellation},
+            tessellation::{D, Tessellation, features::FeatureIndex},
         },
     },
     math::{Scalar, Tensor},
 };
 use std::collections::{HashMap, HashSet};
+
+/// Which corner each node should take, when two would otherwise take the same
+/// one and leave a cell degenerate. The nearer node wins.
+fn claims(
+    index: &FeatureIndex<'_>,
+    coordinates: &Coordinates<D>,
+    candidates: &[usize],
+    radius: impl Fn(usize) -> Scalar,
+) -> HashMap<usize, Coordinate<D>> {
+    let mut nearest = HashMap::<usize, (usize, Scalar)>::new();
+    candidates.iter().for_each(|&node| {
+        if let Some((corner, distance)) = index.nearest_corner(&coordinates[node], radius(node))
+            && nearest
+                .get(&corner)
+                .is_none_or(|&(_, held)| distance < held)
+        {
+            nearest.insert(corner, (node, distance));
+        }
+    });
+    nearest
+        .into_iter()
+        .map(|(corner, (node, _))| (node, index.corner(corner).clone()))
+        .collect()
+}
 
 impl Tessellation {
     pub(super) fn snap(
@@ -59,15 +83,28 @@ impl Tessellation {
         let mut snapped = HashSet::new();
         let mut candidates: Vec<usize> = lengths.keys().copied().collect();
         candidates.sort_unstable();
+        let radius = |node: usize| SNAP_FEATURE * lengths[&node];
+        let widest = candidates
+            .iter()
+            .map(|&node| radius(node))
+            .fold(0.0, Scalar::max);
+        let index = self.features().index(widest);
+        let corners = claims(&index, &working, &candidates, radius);
         candidates.into_iter().for_each(|node| {
             if let Some((closest, _)) =
                 bvh.closest_point(&working[node], surface_coordinates, &elements)
             {
-                let distance = (&closest - &working[node]).norm();
+                let corner = corners.get(&node).cloned();
+                let onto_corner = corner.is_some();
+                let target = corner.unwrap_or(closest);
+                let distance = (&target - &working[node]).norm();
                 let shortest = lengths[&node];
-                let accept = if distance < SNAP_HARD * shortest {
+                let limit = if onto_corner { SNAP_FEATURE } else { SNAP_SOFT };
+                let accept = if distance >= limit * shortest {
+                    false
+                } else if distance < SNAP_HARD * shortest {
                     true
-                } else if distance < SNAP_SOFT * shortest {
+                } else {
                     let retained: Vec<&Vec<usize>> = incidents[node]
                         .iter()
                         .filter(|&&cell| classes[cell] == Class::Inside)
@@ -83,17 +120,15 @@ impl Tessellation {
                     };
                     let before = quality(&working);
                     let previous = working[node].clone();
-                    working[node] = closest.clone();
+                    working[node] = target.clone();
                     let keep = retained.is_empty() || quality(&working) >= before.min(SNAP_QUALITY);
                     if !keep {
                         working[node] = previous;
                     }
                     keep
-                } else {
-                    false
                 };
                 if accept {
-                    working[node] = closest;
+                    working[node] = target;
                     snapped.insert(node);
                 }
             }
@@ -166,15 +201,28 @@ impl Tessellation {
         let mut snapped = HashSet::new();
         let mut candidates: Vec<usize> = lengths.keys().copied().collect();
         candidates.sort_unstable();
+        let radius = |node: usize| SNAP_FEATURE * lengths[&node];
+        let widest = candidates
+            .iter()
+            .map(|&node| radius(node))
+            .fold(0.0, Scalar::max);
+        let index = self.features().index(widest);
+        let corners = claims(&index, &working, &candidates, radius);
         candidates.into_iter().for_each(|node| {
             if let Some((closest, _)) =
                 bvh.closest_point(&working[node], surface_coordinates, &elements)
             {
-                let distance = (&closest - &working[node]).norm();
+                let corner = corners.get(&node).cloned();
+                let onto_corner = corner.is_some();
+                let target = corner.unwrap_or(closest);
+                let distance = (&target - &working[node]).norm();
                 let shortest = lengths[&node];
-                let accept = if distance < SNAP_HARD * shortest {
+                let limit = if onto_corner { SNAP_FEATURE } else { SNAP_SOFT };
+                let accept = if distance >= limit * shortest {
+                    false
+                } else if distance < SNAP_HARD * shortest {
                     true
-                } else if distance < SNAP_SOFT * shortest {
+                } else {
                     let retained: Vec<usize> = incidents[node]
                         .iter()
                         .filter(|&&cell| classes[cell] == Class::Inside)
@@ -190,17 +238,15 @@ impl Tessellation {
                     };
                     let before = quality(&working);
                     let previous = working[node].clone();
-                    working[node] = closest.clone();
+                    working[node] = target.clone();
                     let keep = retained.is_empty() || quality(&working) >= before.min(SNAP_QUALITY);
                     if !keep {
                         working[node] = previous;
                     }
                     keep
-                } else {
-                    false
                 };
                 if accept {
-                    working[node] = closest;
+                    working[node] = target;
                     snapped.insert(node);
                 }
             }

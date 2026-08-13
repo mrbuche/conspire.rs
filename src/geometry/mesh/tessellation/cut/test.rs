@@ -278,3 +278,88 @@ fn cut_polyhedral_sphere() {
         }
     })
 }
+
+#[test]
+fn cut_uniform_sphere() {
+    let tessellation = sphere(3);
+    let mesh = tessellation.cut_uniform(0.15).unwrap();
+    assert_eq!(mesh.number_of_element_blocks(), 2);
+    let coordinates = mesh.coordinates();
+    match &mesh.connectivities()[1] {
+        Connectivity::Polyhedral(polyhedra) => signed_volumes(polyhedra, coordinates)
+            .iter()
+            .for_each(|&volume| assert!(volume > 0.0, "{volume}")),
+        _ => panic!(),
+    }
+}
+
+#[test]
+fn cut_uniform_thin_plate() {
+    let plate = box_surface([-2.0, -2.0, -0.05], [2.0, 2.0, 0.05]);
+    let mesh = plate.cut_uniform(0.25);
+    assert!(mesh.is_ok(), "{}", mesh.err().unwrap_or(""));
+}
+
+fn rotated_box(minimum: [f64; 3], maximum: [f64; 3], angle: f64) -> Tessellation {
+    let plain = box_surface(minimum, maximum);
+    let axis = [1.0 / 3.0_f64.sqrt(); 3];
+    let (sin, cos) = angle.sin_cos();
+    let rotate = |p: [f64; 3]| {
+        let dot = (0..3).map(|d| p[d] * axis[d]).sum::<f64>();
+        let cross = [
+            axis[1] * p[2] - axis[2] * p[1],
+            axis[2] * p[0] - axis[0] * p[2],
+            axis[0] * p[1] - axis[1] * p[0],
+        ];
+        std::array::from_fn(|d| p[d] * cos + cross[d] * sin + axis[d] * dot * (1.0 - cos))
+    };
+    let triangles = match &plain.mesh().connectivities()[0] {
+        Connectivity::Triangular(triangles) => triangles.iter().copied().collect::<Vec<_>>(),
+        _ => panic!(),
+    };
+    let coordinates: Vec<[f64; 3]> = plain
+        .mesh()
+        .coordinates()
+        .iter()
+        .map(|p| rotate([p[0], p[1], p[2]]))
+        .collect();
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(triangles.into())],
+        Coordinates::from(coordinates),
+    )))
+}
+
+fn corners_landed_on(tessellation: &Tessellation, mesh: &Mesh<3>) -> usize {
+    tessellation
+        .features()
+        .corners()
+        .iter()
+        .filter(|corner| {
+            mesh.coordinates()
+                .iter()
+                .any(|point| (point - *corner).norm() < 1.0e-9)
+        })
+        .count()
+}
+
+#[test]
+fn snapping_lands_nodes_on_the_corners_of_an_off_axis_box() {
+    let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.7);
+    let mesh = tessellation.cut_uniform(0.14).unwrap();
+    assert_eq!(tessellation.features().corners().len(), 8);
+    assert!(corners_landed_on(&tessellation, &mesh) >= 5);
+}
+
+#[test]
+fn a_corner_takes_at_most_one_node() {
+    let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.7);
+    let mesh = tessellation.cut_uniform(0.14).unwrap();
+    tessellation.features().corners().iter().for_each(|corner| {
+        let landed = mesh
+            .coordinates()
+            .iter()
+            .filter(|point| (*point - corner).norm() < 1.0e-9)
+            .count();
+        assert!(landed <= 1, "{landed} nodes on {corner}")
+    })
+}

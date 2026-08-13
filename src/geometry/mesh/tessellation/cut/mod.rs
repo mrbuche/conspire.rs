@@ -4,6 +4,7 @@ mod classify;
 mod cleanup;
 mod face;
 mod geometry;
+mod lattice;
 mod snap;
 mod split;
 mod tables;
@@ -31,6 +32,7 @@ const CROSSING_TOLERANCE: Scalar = 1.0e-8;
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
 const SLIVER_FRACTION: Scalar = 0.1;
+const SNAP_FEATURE: Scalar = 0.5;
 const SNAP_HARD: Scalar = 0.05;
 const SNAP_QUALITY: Scalar = 0.3;
 const SNAP_SOFT: Scalar = 0.2;
@@ -122,6 +124,20 @@ impl Tessellation {
         let classes = self.classify(&mesh);
         if !contained(&mesh, &classes) {
             return Err("tessellation is not contained within the dual mesh");
+        }
+        let (mesh, snapped) = self.snap(mesh, &classes)?;
+        let tables = self.tables(&mesh, &classes, &snapped)?;
+        self.assemble(&mesh, &classes, &tables)
+    }
+    /// Cuts a hex mesh to this tessellation, over a uniform lattice of the
+    /// given cell size rather than a dual.
+    ///
+    /// Unlike [`cut`](Self::cut) the background cells are all axis-aligned
+    /// cubes, at the cost of the grading a tree provides.
+    pub fn cut_uniform(&self, spacing: Scalar) -> Result<Mesh<D>, &'static str> {
+        let (mesh, classes) = self.lattice(spacing)?.mesh();
+        if !contained(&mesh, &classes) {
+            return Err("tessellation is not contained within the lattice mesh");
         }
         let (mesh, snapped) = self.snap(mesh, &classes)?;
         let tables = self.tables(&mesh, &classes, &snapped)?;

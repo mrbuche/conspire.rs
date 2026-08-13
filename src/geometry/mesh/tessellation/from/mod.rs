@@ -16,6 +16,7 @@ impl From<Mesh<D>> for Tessellation {
             mesh,
             normals,
             bvh: OnceCell::new(),
+            features: OnceCell::new(),
         }
     }
 }
