@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinate, Coordinates, Direction, Directions,
         mesh::{
             Connectivity,
             tessellation::{D, Tessellation},

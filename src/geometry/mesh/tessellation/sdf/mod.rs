@@ -8,8 +8,8 @@ use std::{
 };
 
 use crate::{
-    geometry::{Coordinate, DirectionsRef, mesh::tessellation::Tessellation},
-    math::{Scalar, Tensor, Vector},
+    geometry::{Direction, DirectionsRef, mesh::tessellation::Tessellation},
+    math::{Quantity, Scalar, Tensor, Vector, unit::Length},
 };
 
 impl Tessellation {
@@ -52,7 +52,7 @@ impl Tessellation {
                                                 .map(|hit| (hit.distance(), weight))
                                         })
                                         .collect();
-                                *diameter = weighted_diameter(samples);
+                                *diameter = weighted_diameter(samples).value();
                             });
                     });
                 });
@@ -86,11 +86,11 @@ fn interpolate_to_nodes(
 }
 
 fn cone_directions(
-    axis: &Coordinate<3>,
+    axis: &Direction<3>,
     half_angle: Scalar,
     rings: usize,
     azimuthal: usize,
-) -> Vec<(Coordinate<3>, Scalar)> {
+) -> Vec<(Direction<3>, Scalar)> {
     let basis = axis.orthonormal_basis();
     let (axis, tangent_1, tangent_2) = (&basis[0], &basis[1], &basis[2]);
     let mut directions = Vec::with_capacity(1 + rings * azimuthal);
@@ -110,27 +110,32 @@ fn cone_directions(
     directions
 }
 
-fn weighted_diameter(samples: Vec<(Scalar, Scalar)>) -> Scalar {
+fn weighted_diameter(samples: Vec<(Quantity<Length>, Scalar)>) -> Quantity<Length> {
     if samples.is_empty() {
-        return 0.0;
+        return Quantity::default();
     }
-    let mut distances: Vec<Scalar> = samples.iter().map(|&(distance, _)| distance).collect();
+    let mut distances: Vec<Quantity<Length>> =
+        samples.iter().map(|&(distance, _)| distance).collect();
     distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let median = distances[distances.len() / 2];
-    let mean = distances.iter().sum::<Scalar>() / distances.len() as Scalar;
-    let standard_deviation = (distances
-        .iter()
-        .map(|distance| (distance - mean).powi(2))
-        .sum::<Scalar>()
-        / distances.len() as Scalar)
-        .sqrt();
+    let mean = distances.iter().copied().sum::<Quantity<Length>>() / distances.len() as Scalar;
+    // A spread is a length, but the square root that takes it back to one is
+    // no unit this names, so the deviations are squared as the numbers they are.
+    let standard_deviation = Quantity::new(
+        (distances
+            .iter()
+            .map(|&distance| (distance - mean).value().powi(2))
+            .sum::<Scalar>()
+            / distances.len() as Scalar)
+            .sqrt(),
+    );
     let (numerator, denominator) = samples
         .into_iter()
         .filter(|&(distance, _)| (distance - median).abs() <= standard_deviation)
         .fold(
-            (0.0, 0.0),
+            (Quantity::default(), 0.0),
             |(numerator, denominator), (distance, weight)| {
-                (numerator + weight * distance, denominator + weight)
+                (numerator + distance * weight, denominator + weight)
             },
         );
     if denominator > 0.0 {

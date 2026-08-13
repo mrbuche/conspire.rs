@@ -49,7 +49,7 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
                 let q = &coordinates[element[(k + 1) % N]];
                 p[0] * q[1] - q[0] * p[1]
             })
-            .sum::<crate::math::Quantity>()
+            .sum::<crate::math::Quantity<crate::math::unit::Area>>()
             .value();
         if area2 <= 1e-9 {
             return Err(format!(

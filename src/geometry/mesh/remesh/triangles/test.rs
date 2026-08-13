@@ -5,7 +5,7 @@ use super::{
 use crate::math::assert::Assert;
 use crate::{
     geometry::Coordinates,
-    math::{Tensor, assert::AssertionError},
+    math::{Quantity, Tensor, assert::AssertionError},
 };
 use std::collections::HashMap;
 
@@ -18,7 +18,7 @@ fn splits_only_long_edges() -> Result<(), AssertionError> {
     let mut connectivity = vec![[0, 1, 2]];
     let mut coordinates = right_triangle(3.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
-    let mut sizing = vec![3.0; coordinates.len()];
+    let mut sizing = vec![Quantity::new(3.0); coordinates.len()];
     split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(coordinates.len(), 4);
     Assert::default().eq_within_tols(&coordinates[3], &[1.5, 1.5, 0.0].into())?;
@@ -31,7 +31,7 @@ fn leaves_short_edges_alone() {
     let mut connectivity = vec![[0, 1, 2]];
     let mut coordinates = right_triangle(3.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
-    let mut sizing = vec![3.75; coordinates.len()];
+    let mut sizing = vec![Quantity::new(3.75); coordinates.len()];
     split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(coordinates.len(), 3);
     assert_eq!(connectivity, vec![[0, 1, 2]]);
@@ -42,7 +42,7 @@ fn three_split_makes_four_faces() {
     let mut connectivity = vec![[0, 1, 2]];
     let mut coordinates = right_triangle(4.0);
     let lengths = edge_lengths(&connectivity, &coordinates);
-    let mut sizing = vec![0.75; coordinates.len()];
+    let mut sizing = vec![Quantity::new(0.75); coordinates.len()];
     split_long_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(connectivity.len(), 4);
     assert_eq!(coordinates.len(), 6);
@@ -107,7 +107,7 @@ fn collapse_merges_short_edge() -> Result<(), AssertionError> {
         [0.0, 0.0, -1.0],
     ]);
     let lengths = edge_lengths(&connectivity, &coordinates);
-    let mut sizing = vec![1.6; coordinates.len()];
+    let mut sizing = vec![Quantity::new(1.6); coordinates.len()];
     collapse_short_edges(&mut connectivity, &mut coordinates, &lengths, &mut sizing);
     assert_eq!(
         connectivity.len(),

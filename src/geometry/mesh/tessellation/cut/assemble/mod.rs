@@ -16,7 +16,7 @@ use crate::{
             tessellation::{D, Tessellation},
         },
     },
-    math::{CrossProduct, Scalar, Tensor, TensorVec},
+    math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec, unit::Length},
 };
 use std::{array::from_fn, collections::HashMap, collections::HashSet};
 
@@ -303,7 +303,7 @@ impl Tessellation {
                     .iter()
                     .map(|face| face.iter().map(|&local| hex[local]).collect())
                     .collect();
-                star_volume(&polygons, &coordinates) / star_volume(&reference, &coordinates)
+                star_volume(&polygons, &coordinates).ratio(star_volume(&reference, &coordinates))
             })
             .collect();
         let mut sets: Vec<HashSet<usize>> = elements_faces
@@ -317,13 +317,13 @@ impl Tessellation {
             &fractions,
             &coordinates,
         );
-        let scales: Vec<Scalar> = sources
+        let scales: Vec<Quantity<Length>> = sources
             .iter()
             .map(|hex| {
                 EDGES
                     .iter()
-                    .map(|&[a, b]| (&coordinates[hex[b]] - &coordinates[hex[a]]).norm().value())
-                    .fold(Scalar::INFINITY, Scalar::min)
+                    .map(|&[a, b]| (&coordinates[hex[b]] - &coordinates[hex[a]]).norm())
+                    .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
             })
             .collect();
         let whole: HashSet<usize> = hexes.iter().flatten().copied().collect();

@@ -14,7 +14,7 @@ use crate::{
             rescale::Rescaling,
         },
     },
-    math::{Scalar, Tensor, TensorVec},
+    math::{Quantity, Scalar, Tensor, TensorVec},
 };
 use std::{array::from_fn, f64::consts::FRAC_PI_3, ops::Add};
 
@@ -130,9 +130,11 @@ where
                 max_extent,
                 gradation,
             ),
-            None => vec![max_extent; coordinates.len()],
+            None => vec![Quantity::new(max_extent); coordinates.len()],
         };
-        let min_curvature = curvature.iter().copied().fold(f64::INFINITY, f64::min);
+        let min_curvature = curvature
+            .iter()
+            .fold(f64::INFINITY, |least, length| least.min(length.value()));
         let thickness_length = if min_sdf.is_finite() {
             min_sdf / scale
         } else {
@@ -172,6 +174,7 @@ where
                 let feature = curvature[element[0]]
                     .min(curvature[element[1]])
                     .min(curvature[element[2]])
+                    .value()
                     * scale;
                 thickness.min(feature)
             })

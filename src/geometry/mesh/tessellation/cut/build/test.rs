@@ -58,7 +58,7 @@ fn assemble_generic_matches_assemble_hexahedron() {
                 .collect();
             let volume = signed_volume(&faces, result.coordinates());
             assert!(
-                (volume - expected_volume).abs() < 1e-9,
+                (volume - expected_volume).abs().value() < 1e-9,
                 "{volume} vs {expected_volume}"
             );
         }

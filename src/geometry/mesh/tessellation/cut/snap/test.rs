@@ -11,7 +11,7 @@ fn snap_eliminates_sliver() {
     let coordinates = mesh.coordinates();
     snapped
         .iter()
-        .for_each(|&node| assert!((coordinates[node].norm() - 1.0).abs() < 0.01));
+        .for_each(|&node| assert!((coordinates[node].norm().value() - 1.0).abs() < 0.01));
     let tables = tessellation.tables(&mesh, &classes, &snapped).unwrap();
     assert!(tables.crossings().is_empty());
     let result = tessellation.assemble(&mesh, &classes, &tables).unwrap();

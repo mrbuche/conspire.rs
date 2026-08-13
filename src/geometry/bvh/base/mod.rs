@@ -12,7 +12,10 @@ use crate::{
             ray::Ray,
         },
     },
-    math::{Quantity, Scalar},
+    math::{
+        Quantity,
+        unit::{Area, Length},
+    },
 };
 
 impl<const D: usize> BoundingVolumeHierarchy<D> {
@@ -157,7 +160,7 @@ impl BoundingVolumeHierarchy<3> {
     fn intersect_node(
         &self,
         node_index: usize,
-        entry: Scalar,
+        entry: Quantity<Length>,
         ray: &Ray<3>,
         coordinates: &Coordinates<3>,
         elements: &[&[usize]],
@@ -251,7 +254,7 @@ impl BoundingVolumeHierarchy<3> {
         point: &Coordinate<3>,
         coordinates: &Coordinates<3>,
         elements: &[&[usize]],
-        closest: &mut Option<(Scalar, Coordinate<3>, usize)>,
+        closest: &mut Option<(Quantity<Area>, Coordinate<3>, usize)>,
     ) {
         let node = &self.nodes[node_index];
         if closest.as_ref().is_some_and(|(distance, ..)| {
@@ -270,7 +273,7 @@ impl BoundingVolumeHierarchy<3> {
                         &coordinates[element[2]],
                     );
                     let offset = &candidate - point;
-                    let distance = (&offset * &offset).value();
+                    let distance = &offset * &offset;
                     if closest
                         .as_ref()
                         .is_none_or(|(nearest, ..)| distance < *nearest)
@@ -298,21 +301,17 @@ impl BoundingVolumeHierarchy<3> {
 fn point_box_distance_squared<const D: usize>(
     point: &Coordinate<D>,
     bounding_box: &BoundingBox<D>,
-) -> Scalar {
+) -> Quantity<Area> {
     (0..D)
         .map(|axis| {
             let value = point[axis];
-            let (low, high) = (
-                bounding_box.minimum()[axis].value(),
-                bounding_box.maximum()[axis].value(),
-            );
-            let value = value.value();
+            let (low, high) = (bounding_box.minimum()[axis], bounding_box.maximum()[axis]);
             let delta = if value < low {
                 low - value
             } else if value > high {
                 value - high
             } else {
-                0.0
+                Quantity::default()
             };
             delta * delta
         })

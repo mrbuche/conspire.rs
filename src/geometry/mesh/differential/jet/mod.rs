@@ -2,8 +2,10 @@
 mod test;
 
 use crate::{
-    geometry::{Coordinate, Coordinates},
-    math::{CrossProduct, FxHashSet, Scalar, SquareMatrix, Tensor, Vector},
+    geometry::{Coordinate, Coordinates, Direction},
+    math::{
+        CrossProduct, FxHashSet, Scalar, SquareMatrix, Tensor, TensorRank1Vec, Vector, unit::Area,
+    },
 };
 
 const D: usize = 3;
@@ -27,16 +29,16 @@ impl Jet {
 pub(crate) fn fit_jet(
     center: &Coordinate<D>,
     neighbors: &Coordinates<D>,
-    normal_guess: &Coordinate<D>,
+    normal_guess: &Direction<D>,
 ) -> Option<Jet> {
     if neighbors.len() < 5 {
         return None;
     }
-    let w = normal_guess.clone().normalized();
+    let w = normal_guess.clone();
     let reference = if w[0].abs() < 0.9 {
-        Coordinate::const_from([1.0, 0.0, 0.0])
+        Direction::const_from([1.0, 0.0, 0.0])
     } else {
-        Coordinate::const_from([0.0, 1.0, 0.0])
+        Direction::const_from([0.0, 1.0, 0.0])
     };
     let u = w.cross(reference).normalized();
     let v = w.cross(&u);
@@ -81,7 +83,7 @@ pub(crate) fn vertex_jets(
 ) -> Vec<Option<Jet>> {
     let count = coordinates.len();
     let mut neighbors = vec![FxHashSet::default(); count];
-    let mut normals = Coordinates::zero(count);
+    let mut normals = TensorRank1Vec::<D, _, Area>::zero(count);
     for &[a, b, c] in connectivity {
         for (i, j) in [(a, b), (b, c), (c, a)] {
             neighbors[i].insert(j);
@@ -100,7 +102,11 @@ pub(crate) fn vertex_jets(
                 .for_each(|&w| ring.extend(&neighbors[w]));
             ring.remove(&vertex);
             let points = ring.iter().map(|&w| coordinates[w].clone()).collect();
-            fit_jet(&coordinates[vertex], &points, &normals[vertex])
+            fit_jet(
+                &coordinates[vertex],
+                &points,
+                &normals[vertex].clone().normalized(),
+            )
         })
         .collect()
 }

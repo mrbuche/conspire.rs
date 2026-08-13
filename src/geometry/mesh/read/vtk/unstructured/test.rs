@@ -1,6 +1,9 @@
 use super::ReadVtkUnstructured;
 use crate::{
-    geometry::mesh::{Connectivity, Mesh, Output, Vtk},
+    geometry::{
+        Coordinate,
+        mesh::{Connectivity, Mesh, Output, Vtk},
+    },
     io::{Write, write::Compression},
 };
 use std::fs::write;
@@ -45,10 +48,7 @@ fn round_trip_mixed() {
     assert_eq!(first_element(&mesh, 2), [1, 2, 6, 5, 10]);
     assert_eq!(first_element(&mesh, 3), [1, 2, 10, 11]);
     let coordinates = mesh.coordinates();
-    assert_eq!(
-        [coordinates[10][0], coordinates[10][1], coordinates[10][2]],
-        [2.0, 0.5, 0.5]
-    );
+    assert_eq!(coordinates[10], Coordinate::const_from([2.0, 0.5, 0.5]));
 }
 
 #[test]
@@ -127,10 +127,7 @@ fn round_trip_compressed() {
     assert_eq!(first_element(&mesh, 2), [1, 2, 6, 5, 10]);
     assert_eq!(first_element(&mesh, 3), [1, 2, 10, 11]);
     let coordinates = mesh.coordinates();
-    assert_eq!(
-        [coordinates[10][0], coordinates[10][1], coordinates[10][2]],
-        [2.0, 0.5, 0.5]
-    );
+    assert_eq!(coordinates[10], Coordinate::const_from([2.0, 0.5, 0.5]));
 }
 
 #[test]
@@ -177,12 +174,8 @@ fn round_trip_compressed_large_mesh_spans_multiple_blocks() {
     );
     let coordinates = mesh.coordinates();
     assert_eq!(
-        [
-            coordinates[index(5, 6, 7)][0],
-            coordinates[index(5, 6, 7)][1],
-            coordinates[index(5, 6, 7)][2]
-        ],
-        [5.0, 6.0, 7.0]
+        coordinates[index(5, 6, 7)],
+        Coordinate::const_from([5.0, 6.0, 7.0])
     );
 }
 

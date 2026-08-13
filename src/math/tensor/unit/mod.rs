@@ -102,6 +102,8 @@ units!(
     ReciprocalArea,
     /// A volume.
     Volume,
+    /// A second moment of area, being an area squared.
+    SecondMomentOfArea,
     /// A velocity, being a length per unit time.
     Velocity,
     /// A force.
@@ -221,6 +223,9 @@ unit_products!(
     Length * Length = Area,
     Length * Area = Volume,
     Area * Length = Volume,
+    Area * Area = SecondMomentOfArea,
+    Length * Volume = SecondMomentOfArea,
+    Volume * Length = SecondMomentOfArea,
     Area * ReciprocalArea = Dimensionless,
     ReciprocalArea * Area = Dimensionless,
     Length * ReciprocalArea = ReciprocalLength,

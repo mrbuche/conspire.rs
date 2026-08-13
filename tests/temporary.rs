@@ -7396,7 +7396,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
     };
     let length = ref_coordinates
         .iter()
-        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
         .count()
         + 3;
     let width = num_nodes * 3;
@@ -7407,9 +7407,9 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
         .iter()
         .enumerate()
         .for_each(|(node, coordinate)| {
-            if coordinate[0].abs() == 0.5 {
+            if coordinate[0].abs().value() == 0.5 {
                 matrix[index][3 * node] = 1.0;
-                if coordinate[0] > 0.0 {
+                if coordinate[0].value() > 0.0 {
                     vector[index] = coordinate[0].value() + strain
                 } else {
                     vector[index] = coordinate[0].value()
@@ -7463,14 +7463,14 @@ fn bcs_temporary_elastic_viscoplastic_vector(t: Quantity<Time>) -> Vector {
     let ref_coordinates = coordinates();
     let length = ref_coordinates
         .iter()
-        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
         .count()
         + 3;
     let mut vector = Vector::zero(length);
     let mut index = 0;
     coordinates().iter().for_each(|coordinate| {
-        if coordinate[0].abs() == 0.5 {
-            if coordinate[0] > 0.0 {
+        if coordinate[0].abs().value() == 0.5 {
+            if coordinate[0].value() > 0.0 {
                 vector[index] = coordinate[0].value() + strain_rate * t.value()
             } else {
                 vector[index] = coordinate[0].value()
@@ -7488,7 +7488,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
     let num_nodes = coordinates().len();
     let length = coordinates()
         .iter()
-        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
         .count()
         + 3;
     let width = num_nodes * 3;
@@ -7498,7 +7498,7 @@ fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
         .iter()
         .enumerate()
         .for_each(|(node, coordinate)| {
-            if coordinate[0].abs() == 0.5 {
+            if coordinate[0].abs().value() == 0.5 {
                 matrix[index][3 * node] = 1.0;
                 index += 1;
             }
@@ -7646,7 +7646,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     };
     let length = ref_coordinates
         .iter()
-        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
         .count()
         + 3;
     let width = num_nodes * 3;
@@ -7657,9 +7657,9 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
         .iter()
         .enumerate()
         .for_each(|(node, coordinate)| {
-            if coordinate[0].abs() == 0.5 {
+            if coordinate[0].abs().value() == 0.5 {
                 matrix[index][3 * node] = 1.0;
-                if coordinate[0] > 0.0 {
+                if coordinate[0].value() > 0.0 {
                     vector[index] = strain_rate
                 } else {
                     vector[index] = 0.0
@@ -7768,7 +7768,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
     };
     let length = ref_coordinates
         .iter()
-        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
         .count();
     let width = num_nodes;
     let mut matrix = Matrix::zero(length, width);
@@ -7778,9 +7778,9 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
         .iter()
         .enumerate()
         .for_each(|(node, coordinate)| {
-            if coordinate[0].abs() == 0.5 {
+            if coordinate[0].abs().value() == 0.5 {
                 matrix[index][node] = 1.0;
-                if coordinate[0] > 0.0 {
+                if coordinate[0].value() > 0.0 {
                     vector[index] = temperature
                 } else {
                     vector[index] = 0.0
@@ -7852,7 +7852,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     ));
     let length = ref_coordinates
         .iter()
-        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
         .count()
         + 3;
     let width = num_nodes * 3;
@@ -7863,9 +7863,9 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         .iter()
         .enumerate()
         .for_each(|(node, coordinate)| {
-            if coordinate[0].abs() == 0.5 {
+            if coordinate[0].abs().value() == 0.5 {
                 matrix[index][3 * node] = 1.0;
-                if coordinate[0] > 0.0 {
+                if coordinate[0].value() > 0.0 {
                     vector[index] = coordinate[0].value() + strain
                 } else {
                     vector[index] = coordinate[0].value()
@@ -7981,7 +7981,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     ));
     let length = ref_coordinates
         .iter()
-        .filter(|coordinate| coordinate[0].abs() == 0.5)
+        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
         .count()
         + 3;
     let width = num_nodes * 3;
@@ -7992,9 +7992,9 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         .iter()
         .enumerate()
         .for_each(|(node, coordinate)| {
-            if coordinate[0].abs() == 0.5 {
+            if coordinate[0].abs().value() == 0.5 {
                 matrix[index][3 * node] = 1.0;
-                if coordinate[0] > 0.0 {
+                if coordinate[0].value() > 0.0 {
                     vector[index] = coordinate[0].value() + strain
                 } else {
                     vector[index] = coordinate[0].value()

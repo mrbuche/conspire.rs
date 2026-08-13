@@ -7,7 +7,10 @@ use crate::{
         Coordinate, Coordinates,
         mesh::tessellation::{D, Tessellation},
     },
-    math::{Scalar, Tensor},
+    math::{
+        Quantity, Scalar, Tensor,
+        unit::{Length, Volume},
+    },
 };
 use std::collections::{HashMap, HashSet};
 
@@ -58,7 +61,7 @@ pub(super) fn agglomerate(
         sets[sliver].iter().for_each(|&face| {
             face_cells[&face].iter().for_each(|&other| {
                 if other != sliver && alive[other] {
-                    *areas.entry(other).or_insert(0.0) +=
+                    *areas.entry(other).or_insert(Quantity::default()) +=
                         face_area(&faces_nodes[face], coordinates);
                 }
             })
@@ -115,7 +118,7 @@ impl Tessellation {
         alive: &mut [bool],
         signs: &HashMap<usize, Sign>,
         whole: &HashSet<usize>,
-        scales: &[Scalar],
+        scales: &[Quantity<Length>],
         crossing_edge: &HashMap<usize, [usize; 2]>,
     ) {
         let surface = self.mesh();
@@ -147,11 +150,11 @@ impl Tessellation {
         let mut short = Vec::new();
         face_cells.iter().for_each(|(&face, cells)| {
             let polygon = &faces_nodes[face];
-            let limit = COLLAPSE_FRACTION
-                * cells
-                    .iter()
-                    .map(|&cell| scales[cell])
-                    .fold(Scalar::INFINITY, Scalar::min);
+            let limit = cells
+                .iter()
+                .map(|&cell| scales[cell])
+                .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
+                * COLLAPSE_FRACTION;
             (0..polygon.len()).for_each(|i| {
                 let (a, b) = (polygon[i], polygon[(i + 1) % polygon.len()]);
                 if a != b
@@ -251,7 +254,7 @@ impl Tessellation {
                     })
                     .collect()
             };
-            let volumes: Vec<Scalar> = cells
+            let volumes: Vec<Quantity<Volume>> = cells
                 .iter()
                 .map(|&cell| signed_volume(&oriented(cell, &HashMap::new()), coordinates))
                 .collect();
@@ -302,7 +305,8 @@ impl Tessellation {
                 .collect();
             let valid = !pinched
                 && cells.iter().zip(volumes).all(|(&cell, volume)| {
-                    let bound = COLLAPSE_FRACTION * COLLAPSE_FRACTION * scales[cell].powi(3);
+                    let scale = scales[cell];
+                    let bound = scale * scale * scale * (COLLAPSE_FRACTION * COLLAPSE_FRACTION);
                     let faces = oriented(cell, &updated);
                     if faces.is_empty() {
                         return volume <= bound;
@@ -319,7 +323,10 @@ impl Tessellation {
                     let count = keys.len();
                     keys.dedup();
                     let new = signed_volume(&faces, coordinates);
-                    count == keys.len() && count > 3 && new > 0.0 && (new - volume).abs() <= bound
+                    count == keys.len()
+                        && count > 3
+                        && new > Quantity::default()
+                        && (new - volume).abs() <= bound
                 });
             if !valid {
                 coordinates[survivor] = previous;

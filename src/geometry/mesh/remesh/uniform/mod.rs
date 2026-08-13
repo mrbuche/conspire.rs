@@ -1,13 +1,13 @@
 use crate::{
     geometry::mesh::Mesh,
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor, unit::Length},
 };
 
 impl<const D: usize> Mesh<D> {
     pub(crate) fn uniform_remesh(
         self,
         iterations: usize,
-        length: Option<Scalar>,
+        length: Option<Quantity<Length>>,
     ) -> Result<Self, &'static str> {
         if iterations == 0 {
             Ok(self)
@@ -23,7 +23,8 @@ impl<const D: usize> Mesh<D> {
                 iterations,
                 |_, coordinates, lengths| {
                     let target = *target.get_or_insert_with(|| {
-                        lengths.values().sum::<Scalar>() / lengths.len() as Scalar
+                        lengths.values().copied().sum::<Quantity<Length>>()
+                            / lengths.len() as Scalar
                     });
                     vec![target; coordinates.len()]
                 },

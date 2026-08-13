@@ -28,7 +28,7 @@ fn tables_single_hexahedron() {
         assert_eq!(points.len(), 1);
         points
             .iter()
-            .for_each(|point| assert!((point.norm() - 1.0).abs() < 0.01))
+            .for_each(|point| assert!((point.norm().value() - 1.0).abs() < 0.01))
     });
     assert_eq!(tables.segments().len(), 4);
     tables
@@ -75,7 +75,7 @@ fn tables_sphere_dual() {
     });
     let coordinates = mesh.coordinates();
     tables.signs().iter().for_each(|(&node, &sign)| {
-        let norm = coordinates[node].norm();
+        let norm = coordinates[node].norm().value();
         if (norm - 1.0).abs() > 0.02 {
             assert_eq!(
                 sign,
@@ -118,9 +118,9 @@ fn tables_double_crossing_edge() {
             let points = &tables.crossings()[&[bottom, top]];
             assert_eq!(points.len(), 2);
             assert!(points[0][2] < points[1][2], "{points:?}");
-            points
-                .iter()
-                .for_each(|point| assert!((point[2].abs() - 0.05).abs() < 1e-9, "{point:?}"));
+            points.iter().for_each(|point| {
+                assert!((point[2].abs().value() - 0.05).abs() < 1e-9, "{point:?}")
+            });
         });
     let result = plate.assemble(&mesh, &classes, &tables).unwrap();
     assert_eq!(result.number_of_element_blocks(), 1);
@@ -129,13 +129,13 @@ fn tables_double_crossing_edge() {
             assert_eq!(hexes.iter().count(), 1);
             let element: Vec<usize> = hexes.iter().flatten().copied().collect();
             let coordinates = result.coordinates();
-            coordinates
-                .iter()
-                .for_each(|point| assert!((point[2].abs() - 0.05).abs() < 1e-9, "{point:?}"));
+            coordinates.iter().for_each(|point| {
+                assert!((point[2].abs().value() - 0.05).abs() < 1e-9, "{point:?}")
+            });
             let volume = &(&coordinates[element[1]] - &coordinates[element[0]])
                 .cross(&(&coordinates[element[3]] - &coordinates[element[0]]))
                 * &(&coordinates[element[4]] - &coordinates[element[0]]);
-            assert!((volume - 0.4).abs() < 1e-9, "{volume}")
+            assert!((volume.value() - 0.4).abs() < 1e-9, "{volume}")
         }
         _ => panic!(),
     }

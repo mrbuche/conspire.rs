@@ -6,7 +6,10 @@ use std::mem::swap;
 use crate::{
     ABS_TOL,
     geometry::{Coordinate, Direction, bbox::BoundingBox, bvh::ray::Ray},
-    math::{Quantity, Scalar},
+    math::{
+        Quantity, Scalar,
+        unit::{Area, Length},
+    },
 };
 
 impl<const D: usize> Ray<D> {
@@ -16,15 +19,16 @@ impl<const D: usize> Ray<D> {
     pub fn direction(&self) -> &Direction<D> {
         &self.direction
     }
-    pub fn intersects(&self, bounding_box: &BoundingBox<D>) -> Option<Scalar> {
-        let mut t_min: Scalar = 0.0; // can return third case of inside box using custom enum
-        let mut t_max: Scalar = Scalar::INFINITY;
+    /// How far along the ray the box is entered, a heading being a length of
+    /// one and so a step along it covering the distance it is.
+    pub fn intersects(&self, bounding_box: &BoundingBox<D>) -> Option<Quantity<Length>> {
+        // can return third case of inside box using custom enum
+        let mut t_min = Quantity::<Length>::default();
+        let mut t_max = Quantity::<Length>::new(Scalar::INFINITY);
         for axis in 0..D {
-            let inverse_direction = self.inverse_direction[axis].value();
-            let mut t_near =
-                (bounding_box.minimum()[axis] - self.origin[axis]).value() * inverse_direction;
-            let mut t_far =
-                (bounding_box.maximum()[axis] - self.origin[axis]).value() * inverse_direction;
+            let inverse_direction = self.inverse_direction[axis];
+            let mut t_near = (bounding_box.minimum()[axis] - self.origin[axis]) * inverse_direction;
+            let mut t_far = (bounding_box.maximum()[axis] - self.origin[axis]) * inverse_direction;
             if inverse_direction < 0.0 {
                 swap(&mut t_near, &mut t_far)
             }
@@ -51,7 +55,7 @@ impl Ray<3> {
         a: &Coordinate<3>,
         b: &Coordinate<3>,
         c: &Coordinate<3>,
-    ) -> Option<Scalar> {
+    ) -> Option<Quantity<Length>> {
         let direction = &self.direction;
         let (ax, ay, az) = (direction[0].abs(), direction[1].abs(), direction[2].abs());
         let kz = if ax > ay {
@@ -80,7 +84,7 @@ impl Ray<3> {
         let u = cx * by - cy * bx;
         let v = ax * cy - ay * cx;
         let w = bx * ay - by * ax;
-        let zero = Quantity::default();
+        let zero = Quantity::<Area>::default();
         if (u < zero || v < zero || w < zero) && (u > zero || v > zero || w > zero) {
             return None;
         }
@@ -91,7 +95,7 @@ impl Ray<3> {
         // Three of those edge functions against three offsets are a volume,
         // which the edge function they are divided by takes back to how far
         // along the ray the triangle is met.
-        let t = ((u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]) / determinant).value();
-        (t > ABS_TOL).then_some(t)
+        let t = (u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]) / determinant;
+        (t.value() > ABS_TOL).then_some(t)
     }
 }

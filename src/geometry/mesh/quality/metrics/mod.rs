@@ -8,10 +8,10 @@ mod triangle;
 
 use crate::{
     geometry::{
-        Coordinate, CoordinateList, Coordinates,
+        Coordinate, Coordinates,
         mesh::{Connectivity, Mesh},
     },
-    math::{Reference, Scalar, Tensor, TensorRank2},
+    math::{Reference, Scalar, Tensor, TensorRank1List, TensorRank2},
 };
 use std::array::from_fn;
 
@@ -177,7 +177,9 @@ pub(crate) fn chi(epsilon: Scalar, determinant: Scalar) -> Scalar {
     0.5 * (determinant + (epsilon * epsilon + determinant * determinant).sqrt())
 }
 
-pub(crate) fn regularized(edges: &CoordinateList<3, 3>, epsilon: Scalar) -> Scalar {
+/// The regularized quality of a corner, being a cube of lengths over a volume
+/// and so a number, which is why the edges it is given carry no unit.
+pub(crate) fn regularized(edges: &TensorRank1List<3, Reference, 3>, epsilon: Scalar) -> Scalar {
     edges.norm_squared().value().powf(1.5) / chi(epsilon, edges.scalar_triple_product())
 }
 

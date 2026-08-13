@@ -11,7 +11,7 @@ use crate::{
             tessellation::{D, Normals, Tessellation, features::Features},
         },
     },
-    math::{Scalar, Tensor, TensorVec},
+    math::{Quantity, Scalar, Tensor, TensorVec, unit::Length},
 };
 use std::{array::from_fn, cell::OnceCell, collections::HashMap};
 
@@ -45,22 +45,26 @@ impl Tessellation {
                 max[axis] = max[axis].max(point[axis].value());
             });
         }
-        let diagonal = (0..D)
-            .map(|axis| (max[axis] - min[axis]).powi(2))
-            .sum::<f64>()
-            .sqrt();
-        self.smooth_welded_with_tolerance(smoothing, WELD_TOLERANCE * diagonal)
+        // A diagonal is a length, but the square root that takes the spans
+        // back to one is no unit this names, so it is gathered as a number.
+        let diagonal = Quantity::new(
+            (0..D)
+                .map(|axis| (max[axis] - min[axis]).powi(2))
+                .sum::<Scalar>()
+                .sqrt(),
+        );
+        self.smooth_welded_with_tolerance(smoothing, diagonal * WELD_TOLERANCE)
     }
     pub(crate) fn smooth_welded_with_tolerance(
         &mut self,
         smoothing: Smoothing,
-        tolerance: f64,
+        tolerance: Quantity<Length>,
     ) -> Result<(), &'static str> {
         let mut representatives = Vec::with_capacity(self.mesh.number_of_nodes());
         let mut anchors: HashMap<[i64; D], Vec<usize>> = HashMap::new();
         let mut welded = Coordinates::new();
         for point in self.mesh.coordinates() {
-            let cell = from_fn(|axis| (point[axis].value() / tolerance).floor() as i64);
+            let cell = from_fn(|axis| point[axis].ratio(tolerance).floor() as i64);
             let mut representative = None;
             'search: for dz in -1i64..=1 {
                 for dy in -1i64..=1 {

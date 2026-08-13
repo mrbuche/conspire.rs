@@ -33,8 +33,8 @@ fn classify_sphere_dual() {
         .iter()
         .zip(centroids.iter())
         .for_each(|(class, centroid)| match class {
-            Class::Inside => assert!(centroid.norm() < 1.0),
-            Class::Outside => assert!(centroid.norm() > 1.0),
+            Class::Inside => assert!(centroid.norm().value() < 1.0),
+            Class::Outside => assert!(centroid.norm().value() > 1.0),
             Class::Cut => (),
         });
     let mut faces = HashMap::<Vec<usize>, Vec<Class>>::new();

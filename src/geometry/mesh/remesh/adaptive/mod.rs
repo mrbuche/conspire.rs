@@ -6,7 +6,7 @@ use crate::{
         Coordinates,
         mesh::{Mesh, differential::jet::vertex_jets},
     },
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor, unit::Length},
 };
 
 const D: usize = 3;
@@ -55,13 +55,13 @@ pub(crate) fn sizing_field(
     minimum: Scalar,
     maximum: Scalar,
     gradation: Scalar,
-) -> Vec<Scalar> {
-    let mut field: Vec<Scalar> = vertex_jets(connectivity, coordinates)
+) -> Vec<Quantity<Length>> {
+    let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates)
         .into_iter()
         .map(|jet| {
-            jet.map_or(maximum, |jet| {
+            Quantity::new(jet.map_or(maximum, |jet| {
                 dunyach_length(jet.max_abs_curvature(), tolerance, minimum, maximum)
-            })
+            }))
         })
         .collect();
     graduate(&mut field, connectivity, coordinates, gradation);
@@ -87,7 +87,7 @@ fn dunyach_length(
 }
 
 fn graduate(
-    field: &mut [Scalar],
+    field: &mut [Quantity<Length>],
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<D>,
     gradation: Scalar,
@@ -97,7 +97,7 @@ fn graduate(
         changed = false;
         for &[a, b, c] in connectivity {
             for (i, j) in [(a, b), (b, c), (c, a)] {
-                let slope = gradation * (&coordinates[j] - &coordinates[i]).norm().value();
+                let slope = (&coordinates[j] - &coordinates[i]).norm() * gradation;
                 if field[i] + slope < field[j] {
                     field[j] = field[i] + slope;
                     changed = true;

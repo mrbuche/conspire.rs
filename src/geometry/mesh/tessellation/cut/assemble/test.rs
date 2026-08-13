@@ -5,7 +5,7 @@ use crate::{
         Coordinates,
         mesh::{Connectivity, Mesh},
     },
-    math::CrossProduct,
+    math::{CrossProduct, Quantity},
 };
 use std::collections::HashSet;
 
@@ -28,7 +28,7 @@ fn assemble_single_hexahedron() {
             let base = &(&coordinates[element[1]] - &coordinates[element[0]])
                 .cross(&(&coordinates[element[3]] - &coordinates[element[0]]))
                 * &(&coordinates[element[4]] - &coordinates[element[0]]);
-            assert!(base > 0.0)
+            assert!(base > Quantity::default())
         }
         _ => panic!(),
     }
@@ -102,7 +102,10 @@ fn agglomerate_sliver() {
                 .map(|&face| polyhedra.faces_nodes()[face].clone())
                 .collect();
             let volume = star_volume(&faces, result.coordinates());
-            assert!((volume - 0.220095389507154).abs() < 1e-12, "{volume}");
+            assert!(
+                (volume.value() - 0.220095389507154).abs() < 1e-12,
+                "{volume}"
+            );
             let signed = signed_volumes(polyhedra, result.coordinates())[0];
             assert!((signed - 0.220095389507154).abs() < 1e-12, "{signed}")
         }

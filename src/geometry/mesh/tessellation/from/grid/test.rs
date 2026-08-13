@@ -6,7 +6,7 @@ use crate::{
             Connectivity, Mesh, Tessellation, differential::laplace::Weighting, smooth::Smoothing,
         },
     },
-    math::TensorVec,
+    math::{Quantity, TensorVec},
 };
 use std::collections::HashMap;
 
@@ -213,7 +213,7 @@ fn welding_tolerance_merges_near_coincident_across_buckets() {
                 preserve_boundary: false,
                 preserve_interfaces: false,
             },
-            0.01,
+            Quantity::new(0.01),
         )
         .unwrap();
     assert_eq!(distinct_positions(&tessellation), 5);

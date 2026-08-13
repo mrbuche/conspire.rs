@@ -12,6 +12,7 @@ use super::{
 };
 use crate::math::{TensorList, assert::FiniteDifference};
 use std::{
+    cmp::Ordering,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
     ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
@@ -90,6 +91,10 @@ impl<U> Quantity<U> {
             && (self.0.abs() >= epsilon || quantity.0.abs() >= epsilon))
             || self.is_nan()
             || quantity.is_nan()
+    }
+    /// Returns how two quantities of the same unit order, totally.
+    pub fn total_cmp(&self, quantity: &Self) -> Ordering {
+        self.0.total_cmp(&quantity.0)
     }
     /// Returns the lesser of two quantities of the same unit.
     pub fn min(self, quantity: Self) -> Self {

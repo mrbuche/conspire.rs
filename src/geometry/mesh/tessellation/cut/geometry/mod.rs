@@ -4,11 +4,14 @@ mod test;
 use super::Class;
 use crate::{
     geometry::{Coordinate, Coordinates, bvh::Hit, mesh::Mesh, mesh::tessellation::D},
-    math::{CrossProduct, Scalar, Tensor},
+    math::{
+        CrossProduct, Quantity, Scalar, Tensor,
+        unit::{Area, Length, Volume},
+    },
 };
 use std::collections::HashMap;
 
-pub(super) fn dedupe(hits: Vec<Hit>, margin: Scalar) -> Vec<Scalar> {
+pub(super) fn dedupe(hits: Vec<Hit>, margin: Quantity<Length>) -> Vec<Quantity<Length>> {
     let mut distances = Vec::new();
     hits.iter().for_each(|hit| {
         if distances
@@ -21,7 +24,7 @@ pub(super) fn dedupe(hits: Vec<Hit>, margin: Scalar) -> Vec<Scalar> {
     distances
 }
 
-pub(super) fn face_area(face: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+pub(super) fn face_area(face: &[usize], coordinates: &Coordinates<D>) -> Quantity<Area> {
     let middle = face
         .iter()
         .map(|&node| coordinates[node].clone())
@@ -31,12 +34,12 @@ pub(super) fn face_area(face: &[usize], coordinates: &Coordinates<D>) -> Scalar 
         .map(|i| {
             let one = &coordinates[face[i]] - &middle;
             let two = &coordinates[face[(i + 1) % face.len()]] - &middle;
-            one.cross(&two).norm().value() / 2.0
+            one.cross(&two).norm() / 2.0
         })
         .sum()
 }
 
-pub(super) fn star_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Scalar {
+pub(super) fn star_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Quantity<Volume> {
     let mut nodes: Vec<usize> = faces.iter().flatten().copied().collect();
     nodes.sort_unstable();
     nodes.dedup();
@@ -58,14 +61,17 @@ pub(super) fn star_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) ->
                 .map(|i| {
                     let one = &coordinates[face[i]] - &centroid;
                     let two = &coordinates[face[(i + 1) % face.len()]] - &centroid;
-                    (one.cross(&two) * &middle).value().abs() / 6.0
+                    (one.cross(&two) * &middle).abs() / 6.0
                 })
-                .sum::<Scalar>()
+                .sum::<Quantity<Volume>>()
         })
         .sum()
 }
 
-pub(super) fn signed_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) -> Scalar {
+pub(super) fn signed_volume(
+    faces: &[Vec<usize>],
+    coordinates: &Coordinates<D>,
+) -> Quantity<Volume> {
     let mut nodes: Vec<usize> = faces.iter().flatten().copied().collect();
     nodes.sort_unstable();
     nodes.dedup();
@@ -87,9 +93,9 @@ pub(super) fn signed_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) 
                 .map(|i| {
                     let one = &coordinates[face[i]] - &origin;
                     let two = &coordinates[face[(i + 1) % face.len()]] - &origin;
-                    (one.cross(&two) * &middle).value() / 6.0
+                    (one.cross(&two) * &middle) / 6.0
                 })
-                .sum::<Scalar>()
+                .sum::<Quantity<Volume>>()
         })
         .sum()
 }

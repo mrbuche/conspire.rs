@@ -11,8 +11,10 @@ pub struct Rescaling<const D: usize> {
 }
 
 impl<const D: usize> Rescaling<D> {
+    /// A tree coordinate is counted in cells rather than measured, so it gives
+    /// up its length here and takes one back from the cell it is scaled by.
     pub fn apply(&self, coordinate: &Coordinate<D>) -> Coordinate<D> {
-        from_fn(|ax| (coordinate[ax] - self.half) * self.cell + self.center[ax]).into()
+        from_fn(|ax| (coordinate[ax].value() - self.half) * self.cell + self.center[ax]).into()
     }
 }
 

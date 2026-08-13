@@ -12,7 +12,7 @@ use crate::{
         Coordinate, DirectionsRef,
         mesh::{Mesh, tessellation::D, tessellation::Tessellation},
     },
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor, unit::Length},
 };
 use std::{array::from_fn, collections::HashMap, collections::HashSet};
 
@@ -95,8 +95,8 @@ impl Tessellation {
         let mut crossings = HashMap::<[usize; 2], Vec<Coordinate<D>>>::new();
         edges.iter().try_for_each(|&[a, b]| {
             let span = &coordinates[b] - &coordinates[a];
-            let length = span.norm().value();
-            let margin = CROSSING_TOLERANCE.max(super::GRAZING_TOLERANCE * length);
+            let length = span.norm();
+            let margin = CROSSING_TOLERANCE.max(length * super::GRAZING_TOLERANCE);
             match (signs[&a], signs[&b]) {
                 (Sign::On, Sign::On) => Ok(()),
                 (Sign::On, _) | (_, Sign::On) => {
@@ -110,14 +110,16 @@ impl Tessellation {
                         surface_coordinates,
                         &elements,
                     );
-                    let distances: Vec<Scalar> = dedupe(hits, margin)
+                    let distances: Vec<Quantity<Length>> = dedupe(hits, margin)
                         .into_iter()
                         .filter(|&distance| distance < length - margin)
                         .collect();
                     if !distances.is_empty() {
                         let points: Vec<Coordinate<D>> = distances
                             .iter()
-                            .map(|&distance| &coordinates[from] + &(&along * (distance / length)))
+                            .map(|&distance| {
+                                &coordinates[from] + &(&along * (distance.ratio(length)))
+                            })
                             .collect();
                         let ordered = if from == a {
                             points
@@ -134,7 +136,7 @@ impl Tessellation {
                         surface_coordinates,
                         &elements,
                     );
-                    let distances: Vec<Scalar> = dedupe(hits, margin)
+                    let distances: Vec<Quantity<Length>> = dedupe(hits, margin)
                         .into_iter()
                         .filter(|&distance| distance <= length + margin)
                         .collect();
@@ -150,7 +152,7 @@ impl Tessellation {
                         [a, b],
                         distances
                             .iter()
-                            .map(|&distance| &coordinates[a] + &(&span * (distance / length)))
+                            .map(|&distance| &coordinates[a] + &(&span * (distance.ratio(length))))
                             .collect(),
                     );
                     Ok(())
@@ -161,7 +163,7 @@ impl Tessellation {
                         surface_coordinates,
                         &elements,
                     );
-                    let distances: Vec<Scalar> = dedupe(hits, margin)
+                    let distances: Vec<Quantity<Length>> = dedupe(hits, margin)
                         .into_iter()
                         .filter(|&distance| distance <= length + margin)
                         .collect();
@@ -175,7 +177,9 @@ impl Tessellation {
                             [a, b],
                             distances
                                 .iter()
-                                .map(|&distance| &coordinates[a] + &(&span * (distance / length)))
+                                .map(|&distance| {
+                                    &coordinates[a] + &(&span * (distance.ratio(length)))
+                                })
                                 .collect(),
                         );
                     }

@@ -15,7 +15,10 @@ use crate::{
             tessellation::{D, Tessellation, features::FeatureIndex},
         },
     },
-    math::{Scalar, Tensor},
+    math::{
+        Quantity, Scalar, Tensor,
+        unit::{Length, Volume},
+    },
 };
 use std::collections::{HashMap, HashSet};
 
@@ -54,7 +57,7 @@ impl Tessellation {
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
-        let mut lengths = HashMap::<usize, Scalar>::new();
+        let mut lengths = HashMap::<usize, Quantity<Length>>::new();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -62,7 +65,7 @@ impl Tessellation {
                     element_edges(&element_faces(block, element))
                         .into_iter()
                         .for_each(|[a, b]| {
-                            let length = (&coordinates[b] - &coordinates[a]).norm().value();
+                            let length = (&coordinates[b] - &coordinates[a]).norm();
                             [a, b].into_iter().for_each(|node| {
                                 lengths
                                     .entry(node)
@@ -100,9 +103,9 @@ impl Tessellation {
                 let distance = (&target - &working[node]).norm();
                 let shortest = lengths[&node];
                 let limit = if onto_corner { SNAP_FEATURE } else { SNAP_SOFT };
-                let accept = if distance >= limit * shortest {
+                let accept = if distance >= shortest * limit {
                     false
-                } else if distance < SNAP_HARD * shortest {
+                } else if distance < shortest * SNAP_HARD {
                     true
                 } else {
                     let retained: Vec<&Vec<usize>> = incidents[node]
@@ -150,7 +153,7 @@ impl Tessellation {
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
-        let mut lengths = HashMap::<usize, Scalar>::new();
+        let mut lengths = HashMap::<usize, Quantity<Length>>::new();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -158,7 +161,7 @@ impl Tessellation {
                     element_edges(&element_faces(block, element))
                         .into_iter()
                         .for_each(|[a, b]| {
-                            let length = (&coordinates[b] - &coordinates[a]).norm().value();
+                            let length = (&coordinates[b] - &coordinates[a]).norm();
                             [a, b].into_iter().for_each(|node| {
                                 lengths
                                     .entry(node)
@@ -171,7 +174,7 @@ impl Tessellation {
             offset += block.number_of_elements();
         });
         let mut cells = Vec::<Vec<Vec<usize>>>::with_capacity(classes.len());
-        let mut original_volumes = Vec::<Scalar>::with_capacity(classes.len());
+        let mut original_volumes = Vec::<Quantity<Volume>>::with_capacity(classes.len());
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -180,7 +183,7 @@ impl Tessellation {
                     original_volumes.push(signed_volume(&faces, coordinates));
                     cells.push(faces)
                 } else {
-                    original_volumes.push(1.0);
+                    original_volumes.push(Quantity::new(1.0));
                     cells.push(Vec::new())
                 }
             });
@@ -218,9 +221,9 @@ impl Tessellation {
                 let distance = (&target - &working[node]).norm();
                 let shortest = lengths[&node];
                 let limit = if onto_corner { SNAP_FEATURE } else { SNAP_SOFT };
-                let accept = if distance >= limit * shortest {
+                let accept = if distance >= shortest * limit {
                     false
-                } else if distance < SNAP_HARD * shortest {
+                } else if distance < shortest * SNAP_HARD {
                     true
                 } else {
                     let retained: Vec<usize> = incidents[node]
@@ -232,7 +235,8 @@ impl Tessellation {
                         retained
                             .iter()
                             .map(|&cell| {
-                                signed_volume(&cells[cell], coordinates) / original_volumes[cell]
+                                signed_volume(&cells[cell], coordinates)
+                                    .ratio(original_volumes[cell])
                             })
                             .fold(Scalar::INFINITY, Scalar::min)
                     };

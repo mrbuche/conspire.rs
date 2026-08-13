@@ -245,7 +245,7 @@ fn cut_sphere() {
                         .map(|&face| faces_nodes[face].clone())
                         .collect();
                     let star = star_volume(&polygons, coordinates);
-                    assert!(volume < star * (1.0 + 1e-9), "{volume} {star}")
+                    assert!(volume < star.value() * (1.0 + 1e-9), "{volume} {star}")
                 })
         }
         _ => panic!(),
