@@ -589,9 +589,6 @@ impl<U> Tensor for Quantity<U> {
     fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
         self.0.abs().powf(p)
     }
-    fn normalized(self) -> Self {
-        Self::new(1.0)
-    }
     fn size(&self) -> usize {
         1
     }

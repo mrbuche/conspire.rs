@@ -372,17 +372,16 @@ where
     {
         Quantity::new(self.full_contraction(self))
     }
-    /// Normalizes the tensor.
+    /// Normalizes the tensor in place.
     ///
-    /// What comes out is a direction rather than the quantity it was taken
-    /// from, so the norm is spent rather than dividing the unit out.
+    /// What is left points where the tensor did and is a length of one, so it
+    /// no longer carries what the tensor measured. Assigning over the tensor
+    /// cannot change its type to say so, which is why this is only reached for
+    /// where the tensor is already dimensionless; anything else takes the
+    /// direction [a rank-one tensor gives](crate::math::TensorRank1::normalized)
+    /// rather than normalizing itself.
     fn normalize(&mut self) {
         *self /= self.norm().value()
-    }
-    /// Returns the tensor normalized.
-    fn normalized(self) -> Self {
-        let norm = self.norm().value();
-        self / norm
     }
     /// Returns the total number of entries.
     fn size(&self) -> usize;

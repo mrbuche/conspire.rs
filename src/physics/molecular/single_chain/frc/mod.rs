@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::Current;
 use crate::{
-    math::{CrossProduct, Scalar, Tensor, random::random_uniform},
+    math::{CrossProduct, Scalar, random::random_uniform},
     mechanics::Vector,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,

@@ -72,6 +72,16 @@ impl<const D: usize, I, U> TensorRank1<D, I, U> {
     pub fn with_unit<V>(self) -> TensorRank1<D, I, V> {
         relabel(self.into_canonical())
     }
+    /// Returns the direction the tensor points in.
+    ///
+    /// A direction is a length of one rather than one of whatever the tensor
+    /// measured, so the unit divides out rather than being spent: a normal is
+    /// the cross product of two edges over how long that product is, and it is
+    /// the same normal whatever the edges were measured in.
+    pub fn normalized(self) -> TensorRank1<D, I, Dimensionless> {
+        let norm = self.norm().value();
+        (self / norm).with_unit()
+    }
     fn into_canonical(self) -> TensorRank1<D, Reference, Dimensionless> {
         unsafe {
             (&self as *const Self)

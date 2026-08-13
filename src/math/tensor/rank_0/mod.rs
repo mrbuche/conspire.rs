@@ -120,9 +120,6 @@ impl Tensor for TensorRank0 {
     fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
         self.abs().powf(p)
     }
-    fn normalized(self) -> Self {
-        1.0
-    }
     fn size(&self) -> usize {
         1
     }
