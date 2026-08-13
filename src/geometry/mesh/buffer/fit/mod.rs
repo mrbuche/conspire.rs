@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, CoordinateList, Coordinates, CoordinatesRef,
+        Coordinate, CoordinateList, Coordinates, DirectionsRef,
         bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity, Mesh, Tessellation,
@@ -38,7 +38,7 @@ struct Oracle<'a> {
     bvh: &'a BoundingVolumeHierarchy<3>,
     coordinates: &'a Coordinates<3>,
     elements: Vec<&'a [usize]>,
-    normals: CoordinatesRef<'a, 3>,
+    normals: DirectionsRef<'a, 3>,
 }
 
 struct Sweep<'a> {

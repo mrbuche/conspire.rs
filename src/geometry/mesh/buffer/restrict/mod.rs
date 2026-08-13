@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates, CoordinatesRef,
+        Direction, Directions, DirectionsRef,
         mesh::{Connectivity, Mesh},
     },
     math::{CrossProduct, FxHashMap, FxHashSet, Scalar, Tensor},
@@ -36,7 +36,7 @@ impl Mesh<3> {
                 .into_values()
                 .filter_map(|mut group| (group.len() == 1).then(|| group.pop().unwrap()))
                 .collect();
-            let normals: Coordinates<3> = boundary
+            let normals: Directions<3> = boundary
                 .iter()
                 .map(|(_, face)| {
                     let diagonal_0 = &coordinates[face[2]] - &coordinates[face[0]];
@@ -79,8 +79,8 @@ impl Mesh<3> {
     }
 }
 
-fn feasible(normals: &CoordinatesRef<3>) -> bool {
-    let mut e: Coordinate<3> = normals.iter().copied().sum();
+fn feasible(normals: &DirectionsRef<3>) -> bool {
+    let mut e: Direction<3> = normals.iter().copied().sum();
     if e.norm() < TOLERANCE {
         e = normals[0].clone();
     }

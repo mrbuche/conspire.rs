@@ -1,6 +1,6 @@
 //! Geometry library.
 
-use crate::math::Reference;
+use crate::math::{Reference, unit::Dimensionless};
 /// Bounding boxes.
 pub mod bbox;
 
@@ -25,3 +25,14 @@ pub type Coordinate<const D: usize> = TensorRank1<D, Reference>;
 pub type Coordinates<const D: usize> = TensorRank1Vec<D, Reference>;
 pub type CoordinateList<const D: usize, const N: usize> = TensorRank1List<D, Reference, N>;
 pub type CoordinatesRef<'a, const D: usize> = TensorRank1RefVec<'a, D, Reference>;
+
+/// A direction, being a length of one and so carrying no unit.
+///
+/// A normal, a ray's heading, a tangent: what a position is measured in says
+/// nothing about which way it points, so a direction is spelled apart from the
+/// [`Coordinate`] it is so often computed from.
+pub type Direction<const D: usize> = TensorRank1<D, Reference, Dimensionless>;
+pub type Directions<const D: usize> = TensorRank1Vec<D, Reference, Dimensionless>;
+pub type DirectionList<const D: usize, const N: usize> =
+    TensorRank1List<D, Reference, N, Dimensionless>;
+pub type DirectionsRef<'a, const D: usize> = TensorRank1RefVec<'a, D, Reference, Dimensionless>;

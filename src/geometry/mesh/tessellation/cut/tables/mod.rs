@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     geometry::{
-        Coordinate, CoordinatesRef,
+        Coordinate, DirectionsRef,
         mesh::{Mesh, tessellation::D, tessellation::Tessellation},
     },
     math::{Scalar, Tensor},
@@ -56,7 +56,7 @@ impl Tessellation {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<'_, D> = self.normals().iter().flatten().collect();
+        let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
@@ -195,7 +195,7 @@ impl Tessellation {
         let coordinates = mesh.coordinates();
         let surface_coordinates = self.mesh().coordinates();
         let elements: Vec<&[usize]> = self.mesh().connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<'_, D> = self.normals().iter().flatten().collect();
+        let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let contains = |point: &Coordinate<D>| {
             self.encloses(point, surface_coordinates, &elements, &normals, &directions)
@@ -267,7 +267,7 @@ impl Tessellation {
         let coordinates = mesh.coordinates();
         let surface_coordinates = self.mesh().coordinates();
         let elements: Vec<&[usize]> = self.mesh().connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<'_, D> = self.normals().iter().flatten().collect();
+        let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let contains = |point: &Coordinate<D>| {
             self.encloses(point, surface_coordinates, &elements, &normals, &directions)

@@ -5,7 +5,7 @@ use std::mem::swap;
 
 use crate::{
     ABS_TOL,
-    geometry::{Coordinate, bbox::BoundingBox, bvh::ray::Ray},
+    geometry::{Coordinate, Direction, bbox::BoundingBox, bvh::ray::Ray},
     math::Scalar,
 };
 
@@ -13,7 +13,7 @@ impl<const D: usize> Ray<D> {
     pub fn origin(&self) -> &Coordinate<D> {
         &self.origin
     }
-    pub fn direction(&self) -> &Coordinate<D> {
+    pub fn direction(&self) -> &Direction<D> {
         &self.direction
     }
     pub fn intersects(&self, bounding_box: &BoundingBox<D>) -> Option<Scalar> {

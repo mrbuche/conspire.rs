@@ -15,7 +15,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate,
+        Coordinate, Direction,
         mesh::{
             Mesh,
             tessellation::{D, Tessellation},
@@ -58,7 +58,7 @@ const EDGES: [[usize; 2]; 12] = [
     [2, 6],
     [3, 7],
 ];
-const DIRECTIONS: [Coordinate<D>; 3] = [
+const DIRECTIONS: [Direction<D>; 3] = [
     Coordinate::const_from([1.0, 0.140_412_03, 0.092_153_88]),
     Coordinate::const_from([0.097_153_2, 1.0, 0.131_771_4]),
     Coordinate::const_from([0.123_456_7, 0.087_654_3, 1.0]),
