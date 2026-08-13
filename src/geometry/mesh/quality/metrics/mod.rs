@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 pub(crate) mod hexahedron;
 mod quadrilateral;
 mod tetrahedron;
@@ -41,7 +44,10 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::maximum_edge_ratio(element, coordinates))
                     .collect(),
-                _ => todo!(),
+                Connectivity::Polygonal(_)
+                | Connectivity::Polyhedral(_)
+                | Connectivity::Pyramidal(_)
+                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
             })
             .collect()
     }
@@ -65,7 +71,10 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::minimum_jacobian(element, coordinates))
                     .collect(),
-                _ => todo!(),
+                Connectivity::Polygonal(_)
+                | Connectivity::Polyhedral(_)
+                | Connectivity::Pyramidal(_)
+                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
             })
             .collect()
     }
@@ -89,7 +98,10 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::minimum_scaled_jacobian(element, coordinates))
                     .collect(),
-                _ => todo!(),
+                Connectivity::Polygonal(_)
+                | Connectivity::Polyhedral(_)
+                | Connectivity::Pyramidal(_)
+                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
             })
             .collect()
     }
@@ -113,7 +125,10 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::maximum_skew(element, coordinates))
                     .collect(),
-                _ => todo!(),
+                Connectivity::Polygonal(_)
+                | Connectivity::Polyhedral(_)
+                | Connectivity::Pyramidal(_)
+                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
             })
             .collect()
     }
@@ -137,7 +152,10 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::volume(element, coordinates))
                     .collect(),
-                _ => todo!(),
+                Connectivity::Polygonal(_)
+                | Connectivity::Polyhedral(_)
+                | Connectivity::Pyramidal(_)
+                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
             })
             .collect()
     }
