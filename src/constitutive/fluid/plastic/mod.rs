@@ -2,16 +2,9 @@
 
 use crate::{
     constitutive::ConstitutiveError,
-    math::{Quantity, Scalar, TensorTuple, TensorTupleVec, unit::Stress},
-    mechanics::DeformationGradientPlastic,
+    math::{Quantity, unit::Stress},
 };
 use std::fmt::Debug;
-
-/// Plastic state variables.
-pub type StateVariables = TensorTuple<DeformationGradientPlastic, Scalar>;
-
-/// Plastic state variables history.
-pub type StateVariablesHistory = TensorTupleVec<DeformationGradientPlastic, Scalar>;
 
 /// Required methods for plastic fluid constitutive models.
 pub trait Plastic
@@ -29,7 +22,7 @@ where
     /// ```
     fn yield_stress(
         &self,
-        equivalent_plastic_strain: Scalar,
+        equivalent_plastic_strain: Quantity,
     ) -> Result<Quantity<Stress>, ConstitutiveError> {
         //
         // Can eventually make a subdirectory with an enum (like LineaSearch) with different hardening models.

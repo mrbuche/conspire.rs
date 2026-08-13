@@ -55,10 +55,10 @@ impl Solid for Hencky {
 
 impl Plastic for Hencky {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
-        Quantity::new(self.yield_stress)
+        self.yield_stress.into()
     }
     fn hardening_slope(&self) -> Quantity<Stress> {
-        Quantity::new(self.hardening_slope)
+        self.hardening_slope.into()
     }
 }
 

@@ -38,7 +38,7 @@ where
         let tangential_component = tangential_separation.norm();
         let (normal_traction, tangential_traction) =
             self.tractions(normal_component, tangential_component)?;
-        if tangential_component > Quantity::new(0.0) {
+        if !tangential_component.is_zero() {
             Ok(normal * normal_traction
                 + (tangential_separation / tangential_component) * tangential_traction)
         } else {
@@ -65,7 +65,7 @@ where
         let (k_nn, k_tt) = self.stiffnesses(normal_component, tangential_component)?;
         // The tangent is a direction, so where there is no tangential separation
         // to take it from, it is a zero direction rather than a zero traction.
-        let (tangent, ratio, q_t) = if tangential_component > Quantity::new(0.0) {
+        let (tangent, ratio, q_t) = if !tangential_component.is_zero() {
             (
                 tangential_separation / tangential_component,
                 normal_component.ratio(tangential_component),

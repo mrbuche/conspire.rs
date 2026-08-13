@@ -55,7 +55,7 @@ where
         yield_stress: Quantity<Stress>,
     ) -> Result<StretchingRatePlastic, ConstitutiveError> {
         let magnitude = deviatoric_mandel_stress.norm();
-        if magnitude.value() == 0.0 {
+        if magnitude.is_zero() {
             Ok(StretchingRatePlastic::zero())
         } else {
             let reference_flow_rate = self.reference_flow_rate();
@@ -85,10 +85,10 @@ pub struct ViscoplasticFlow {
 
 impl Plastic for ViscoplasticFlow {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
-        Quantity::new(self.yield_stress)
+        self.yield_stress.into()
     }
     fn hardening_slope(&self) -> Quantity<Stress> {
-        Quantity::new(self.hardening_slope)
+        self.hardening_slope.into()
     }
 }
 
@@ -122,7 +122,7 @@ where
     let (deformation_gradient_p, &equivalent_plastic_strain) = state_variables.into();
     let plastic_stretching_rate = model.plastic_stretching_rate(
         mandel_stress.deviatoric(),
-        model.yield_stress(equivalent_plastic_strain.value())?,
+        model.yield_stress(equivalent_plastic_strain)?,
     )?;
     let equivalent_plastic_strain_rate = plastic_stretching_rate.norm();
     Ok((
