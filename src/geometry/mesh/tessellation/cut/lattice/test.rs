@@ -5,12 +5,15 @@ use super::{
     },
     Lattice,
 };
-use crate::math::Scalar;
+use crate::{
+    geometry::mesh::{Connectivity, Fitting, Verdict},
+    math::Scalar,
+};
 
 #[test]
 fn box_encloses_its_interior_cells() {
     let lattice = box_surface([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
-        .lattice(0.1)
+        .lattice_cells(0.1)
         .unwrap();
     let cells = lattice.cells();
     assert!(cells.iter().any(|&(_, class)| class == Class::Cut));
@@ -24,7 +27,7 @@ fn box_encloses_its_interior_cells() {
 
 #[test]
 fn the_exterior_is_only_ever_one_cell_deep() {
-    let lattice = sphere(2).lattice(0.15).unwrap();
+    let lattice = sphere(2).lattice_cells(0.15).unwrap();
     lattice
         .cells()
         .iter()
@@ -61,7 +64,7 @@ fn box_volume_is_bracketed_ever_more_tightly() {
     let mut previous = Scalar::INFINITY;
     for spacing in [0.2, 0.1, 0.05] {
         let lattice = box_surface([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
-            .lattice(spacing)
+            .lattice_cells(spacing)
             .unwrap();
         let (low, high) = bracket(&lattice, spacing);
         assert!(low <= 1.0 && 1.0 <= high, "[{low}, {high}] at {spacing}");
@@ -72,7 +75,7 @@ fn box_volume_is_bracketed_ever_more_tightly() {
 
 #[test]
 fn cells_are_ascending_and_unique() {
-    let lattice = sphere(2).lattice(0.15).unwrap();
+    let lattice = sphere(2).lattice_cells(0.15).unwrap();
     let cells = lattice.cells();
     let keys: Vec<_> = cells.iter().map(|&([i, j, k], _)| (k, j, i)).collect();
     assert!(keys.windows(2).all(|pair| pair[0] < pair[1]));
@@ -80,7 +83,7 @@ fn cells_are_ascending_and_unique() {
 
 #[test]
 fn sphere_fill_does_not_leak() {
-    let lattice = sphere(2).lattice(0.15).unwrap();
+    let lattice = sphere(2).lattice_cells(0.15).unwrap();
     let [nx, ny, nz] = lattice.nel;
     lattice.cells().iter().for_each(|&([i, j, k], _)| {
         assert!(i > 0 && j > 0 && k > 0);
@@ -101,7 +104,7 @@ fn rasterized_classes_agree_with_classifying() {
         .enumerate()
         .for_each(|(fixture, tessellation)| {
             [0.3, 0.14].iter().for_each(|&spacing| {
-                let (mesh, classes) = tessellation.lattice(spacing).unwrap().mesh();
+                let (mesh, classes) = tessellation.lattice_cells(spacing).unwrap().mesh();
                 assert_eq!(classes, tessellation.classify(&mesh), "fixture {fixture}");
             })
         })
@@ -110,7 +113,7 @@ fn rasterized_classes_agree_with_classifying() {
 #[test]
 fn meshes_one_hexahedron_per_cell() {
     let lattice = box_surface([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
-        .lattice(0.2)
+        .lattice_cells(0.2)
         .unwrap();
     let (mesh, classes) = lattice.mesh();
     assert_eq!(mesh.number_of_elements(), lattice.cells().len());
@@ -119,13 +122,42 @@ fn meshes_one_hexahedron_per_cell() {
 
 #[test]
 fn rejects_nonpositive_spacing() {
-    assert!(box_surface([0.0; 3], [1.0; 3]).lattice(0.0).is_err());
-    assert!(box_surface([0.0; 3], [1.0; 3]).lattice(-1.0).is_err());
+    assert!(box_surface([0.0; 3], [1.0; 3]).lattice_cells(0.0).is_err());
+    assert!(box_surface([0.0; 3], [1.0; 3]).lattice_cells(-1.0).is_err());
+    assert!(
+        box_surface([0.0; 3], [1.0; 3])
+            .lattice_background(0.0)
+            .is_err()
+    );
 }
+
+/// The lattice, trimmed and buffered, is an all-hexahedral mesh of the solid.
+#[test]
+fn lattice_trimmed_and_buffered_is_all_hexahedral_and_not_inverted() {
+    let tessellation = sphere(3);
+    let mut mesh = tessellation.lattice_background(0.15).unwrap().0;
+    let background = mesh.number_of_elements();
+    tessellation.trim(&mut mesh).unwrap();
+    assert!(mesh.number_of_elements() < background);
+    let mesh = mesh.buffer(&tessellation, Fitting::Snap).unwrap();
+    assert!(
+        mesh.connectivities()
+            .iter()
+            .all(|block| matches!(block, Connectivity::Hexahedral(_))),
+        "expected an all-hexahedral mesh"
+    );
+    let worst = mesh
+        .minimum_scaled_jacobians()
+        .into_iter()
+        .flatten()
+        .fold(Scalar::INFINITY, Scalar::min);
+    assert!(worst > 0.0, "{worst}");
+}
+
 #[test]
 fn enclosed_cells_of_a_box_are_exactly_its_interior() {
     let lattice = box_surface([0.0, 0.0, 0.0], [1.0, 1.0, 1.0])
-        .lattice(0.2)
+        .lattice_cells(0.2)
         .unwrap();
     assert_eq!(
         lattice
@@ -140,7 +172,7 @@ fn enclosed_cells_of_a_box_are_exactly_its_interior() {
 #[test]
 fn a_plate_thinner_than_a_cell_is_all_cut_and_does_not_leak() {
     let lattice = box_surface([0.0, 0.0, 0.0], [4.0, 4.0, 0.3])
-        .lattice(0.5)
+        .lattice_cells(0.5)
         .unwrap();
     let cells = lattice.cells();
     let [nx, ny, nz] = lattice.nel;
@@ -153,7 +185,7 @@ fn sphere_volume_is_bracketed_ever_more_tightly() {
     let exact = 4.0 * std::f64::consts::PI / 3.0;
     let mut previous = Scalar::INFINITY;
     for spacing in [0.3, 0.15, 0.075] {
-        let lattice = sphere(3).lattice(spacing).unwrap();
+        let lattice = sphere(3).lattice_cells(spacing).unwrap();
         let (low, high) = bracket(&lattice, spacing);
         assert!(
             low <= exact && exact <= high,

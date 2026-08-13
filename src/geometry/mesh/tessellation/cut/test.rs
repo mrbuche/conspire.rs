@@ -9,6 +9,31 @@ use crate::{
 };
 use std::collections::HashMap;
 
+/// Composes the two cut phases, as the callers of the old one-shot entry
+/// points did.
+fn cut(
+    tessellation: &Tessellation,
+    balancing: Balancing,
+    scale: f64,
+) -> Result<Mesh<3>, &'static str> {
+    let (mesh, classes) = tessellation.dual_background(balancing, scale)?;
+    tessellation.cut(mesh, &classes)
+}
+
+fn cut_uniform(tessellation: &Tessellation, spacing: f64) -> Result<Mesh<3>, &'static str> {
+    let (mesh, classes) = tessellation.lattice_background(spacing)?;
+    tessellation.cut(mesh, &classes)
+}
+
+fn cut_polyhedral(
+    tessellation: &Tessellation,
+    balancing: Balancing,
+    scale: f64,
+) -> Result<Mesh<3>, &'static str> {
+    let (mesh, classes) = tessellation.octree_background(balancing, scale)?;
+    tessellation.cut_polyhedral(mesh, &classes)
+}
+
 pub(super) fn signed_volumes(
     polyhedra: &PolytopalConnectivity<3>,
     coordinates: &Coordinates<3>,
@@ -172,7 +197,7 @@ pub(super) fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
 #[test]
 fn cut_sphere() {
     let tessellation = sphere(3);
-    let mesh = tessellation.cut(Balancing::Strong(1), 8.0).unwrap();
+    let mesh = cut(&tessellation, Balancing::Strong(1), 8.0).unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 2);
     let coordinates = mesh.coordinates();
     let mut usage: HashMap<Vec<usize>, usize> = HashMap::new();
@@ -230,7 +255,7 @@ fn cut_sphere() {
 #[test]
 fn cut_thin_plate() {
     let plate = box_surface([-2.0, -2.0, -0.05], [2.0, 2.0, 0.05]);
-    let mesh = plate.cut(Balancing::Strong(1), 4.0);
+    let mesh = cut(&plate, Balancing::Strong(1), 4.0);
     assert!(mesh.is_ok(), "{}", mesh.err().unwrap_or(""));
 }
 
@@ -256,7 +281,7 @@ fn cut_polyhedral_sphere() {
     ]
     .into_iter()
     .for_each(|balancing| {
-        let mesh = tessellation.cut_polyhedral(balancing, 4.0).unwrap();
+        let mesh = cut_polyhedral(&tessellation, balancing, 4.0).unwrap();
         assert_eq!(mesh.number_of_element_blocks(), 1);
         match &mesh.connectivities()[0] {
             Connectivity::Polyhedral(connectivity) => {
@@ -282,7 +307,7 @@ fn cut_polyhedral_sphere() {
 #[test]
 fn cut_uniform_sphere() {
     let tessellation = sphere(3);
-    let mesh = tessellation.cut_uniform(0.15).unwrap();
+    let mesh = cut_uniform(&tessellation, 0.15).unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 2);
     let coordinates = mesh.coordinates();
     match &mesh.connectivities()[1] {
@@ -296,7 +321,7 @@ fn cut_uniform_sphere() {
 #[test]
 fn cut_uniform_thin_plate() {
     let plate = box_surface([-2.0, -2.0, -0.05], [2.0, 2.0, 0.05]);
-    let mesh = plate.cut_uniform(0.25);
+    let mesh = cut_uniform(&plate, 0.25);
     assert!(mesh.is_ok(), "{}", mesh.err().unwrap_or(""));
 }
 
@@ -345,7 +370,7 @@ fn corners_landed_on(tessellation: &Tessellation, mesh: &Mesh<3>) -> usize {
 #[test]
 fn snapping_lands_nodes_on_the_corners_of_an_off_axis_box() {
     let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.7);
-    let mesh = tessellation.cut_uniform(0.14).unwrap();
+    let mesh = cut_uniform(&tessellation, 0.14).unwrap();
     assert_eq!(tessellation.features().corners().len(), 8);
     assert!(corners_landed_on(&tessellation, &mesh) >= 5);
 }
@@ -353,7 +378,7 @@ fn snapping_lands_nodes_on_the_corners_of_an_off_axis_box() {
 #[test]
 fn a_corner_takes_at_most_one_node() {
     let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.7);
-    let mesh = tessellation.cut_uniform(0.14).unwrap();
+    let mesh = cut_uniform(&tessellation, 0.14).unwrap();
     tessellation.features().corners().iter().for_each(|corner| {
         let landed = mesh
             .coordinates()

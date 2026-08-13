@@ -111,61 +111,89 @@ impl Tables {
 }
 
 impl Tessellation {
-    /// Cuts a hex-dominant mesh to this tessellation, via the dual of an
-    /// octree fitted to it.
+    /// Builds the dual of an octree fitted to this tessellation, with each
+    /// cell classified against the surface.
     ///
-    /// `balancing` must be `Strong(1)` or `Weak(1)`,
-    /// which is what dualization requires.
-    pub fn cut(&self, balancing: Balancing, scale: Scalar) -> Result<Mesh<D>, &'static str> {
+    /// The background for [`cut`](Self::cut). `balancing` must be `Strong(1)`
+    /// or `Weak(1)`, which is what dualization requires.
+    pub fn dual_background(
+        &self,
+        balancing: Balancing,
+        scale: Scalar,
+    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         let mut octree =
             Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mesh = octree.dualize();
         let classes = self.classify(&mesh);
-        if !contained(&mesh, &classes) {
-            return Err("tessellation is not contained within the dual mesh");
-        }
-        let (mesh, snapped) = self.snap(mesh, &classes)?;
-        let tables = self.tables(&mesh, &classes, &snapped)?;
-        self.assemble(&mesh, &classes, &tables)
+        Ok((mesh, classes))
     }
-    /// Cuts a hex mesh to this tessellation, over a uniform lattice of the
-    /// given cell size rather than a dual.
+    /// Builds a uniform lattice of cubes of the given edge length around this
+    /// tessellation, with each cell classified against the surface.
     ///
-    /// Unlike [`cut`](Self::cut) the background cells are all axis-aligned
-    /// cubes, at the cost of the grading a tree provides.
-    pub fn cut_uniform(&self, spacing: Scalar) -> Result<Mesh<D>, &'static str> {
-        let (mesh, classes) = self.lattice(spacing)?.mesh();
-        if !contained(&mesh, &classes) {
-            return Err("tessellation is not contained within the lattice mesh");
-        }
-        let (mesh, snapped) = self.snap(mesh, &classes)?;
-        let tables = self.tables(&mesh, &classes, &snapped)?;
-        self.assemble(&mesh, &classes, &tables)
+    /// The lattice spans the cells the surface passes through, those its
+    /// interior encloses, and a single shell of cells beyond them, so it is a
+    /// background to be [cut](Self::cut), or [trimmed](Self::trim) and
+    /// [buffered](Mesh::buffer), rather than a finished mesh.
+    ///
+    /// Unlike [`dual_background`](Self::dual_background) the cells are all
+    /// axis-aligned cubes, at the cost of the grading a tree provides, and
+    /// the classes fall out of rasterizing rather than being found again.
+    pub fn lattice_background(
+        &self,
+        spacing: Scalar,
+    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
+        Ok(self.lattice_cells(spacing)?.mesh())
     }
-    /// Cuts a polyhedral mesh to this tessellation, taking the octree fitted
-    /// to it directly rather than its dual.
+    /// Builds an octree fitted to this tessellation, with each cell
+    /// classified against the surface.
     ///
-    /// Unlike [`cut`](Self::cut) this places no 2:1 requirement on
-    /// `balancing`, since hanging nodes become extra vertices on a face
-    /// rather than something to be dualized away. `Weak(n)` and `Strong(n)`
-    /// for `n > 1` are therefore available here, permitting coarser trees
-    /// than dualization allows.
-    pub fn cut_polyhedral(
+    /// The background for [`cut_polyhedral`](Self::cut_polyhedral), taking
+    /// the octree directly rather than its dual. This places no 2:1
+    /// requirement on `balancing`, since hanging nodes become extra vertices
+    /// on a face rather than something to be dualized away. `Weak(n)` and
+    /// `Strong(n)` for `n > 1` are therefore available here, permitting
+    /// coarser trees than dualization allows.
+    pub fn octree_background(
         &self,
         balancing: Balancing,
         scale: Scalar,
-    ) -> Result<Mesh<D>, &'static str> {
+    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         let mut octree =
             Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING);
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mesh = Mesh::from(octree);
         let classes = self.classify(&mesh);
-        if !contained(&mesh, &classes) {
-            return Err("tessellation is not contained within the octree mesh");
+        Ok((mesh, classes))
+    }
+    /// Cuts a classified background mesh to this tessellation, leaving
+    /// hexahedra everywhere but at the boundary.
+    ///
+    /// Snaps the nodes that nearly lie on the surface onto it, builds the
+    /// crossing tables, and assembles the cut cells into polyhedra.
+    pub fn cut(&self, mesh: Mesh<D>, classes: &[Class]) -> Result<Mesh<D>, &'static str> {
+        if !contained(&mesh, classes) {
+            return Err("tessellation is not contained within the background mesh");
         }
-        let (mesh, snapped) = self.snap_generic(mesh, &classes)?;
-        let tables = self.tables_generic(&mesh, &classes, &snapped)?;
-        self.assemble_generic(&mesh, &classes, &tables)
+        let (mesh, snapped) = self.snap(mesh, classes)?;
+        let tables = self.tables(&mesh, classes, &snapped)?;
+        self.assemble(&mesh, classes, &tables)
+    }
+    /// Cuts a classified background mesh to this tessellation, leaving
+    /// polyhedra throughout.
+    ///
+    /// The counterpart of [`cut`](Self::cut) for a background whose cells
+    /// carry hanging nodes, such as an octree taken directly.
+    pub fn cut_polyhedral(
+        &self,
+        mesh: Mesh<D>,
+        classes: &[Class],
+    ) -> Result<Mesh<D>, &'static str> {
+        if !contained(&mesh, classes) {
+            return Err("tessellation is not contained within the background mesh");
+        }
+        let (mesh, snapped) = self.snap_generic(mesh, classes)?;
+        let tables = self.tables_generic(&mesh, classes, &snapped)?;
+        self.assemble_generic(&mesh, classes, &tables)
     }
 }

@@ -1,11 +1,11 @@
 pub(super) mod base;
 pub(super) mod cut;
-pub(super) mod dual;
 pub(super) mod features;
 pub(super) mod from;
 pub(super) mod into;
 pub(super) mod read;
 pub(super) mod sdf;
+pub(super) mod trim;
 pub(super) mod write;
 
 use crate::{
