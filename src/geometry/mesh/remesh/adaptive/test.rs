@@ -22,10 +22,22 @@ fn ladder() -> (Vec<[usize; 3]>, Coordinates<3>) {
 
 #[test]
 fn dunyach_length_maps_curvature() {
-    let (tolerance, minimum, maximum) = (0.1, 0.1, 2.0);
-    assert_eq!(dunyach_length(0.0, tolerance, minimum, maximum), maximum);
-    assert!((dunyach_length(1.0, tolerance, minimum, maximum) - 0.57_f64.sqrt()).abs() < 1.0e-12);
-    assert_eq!(dunyach_length(100.0, tolerance, minimum, maximum), minimum);
+    let (tolerance, minimum, maximum) =
+        (Quantity::new(0.1), Quantity::new(0.1), Quantity::new(2.0));
+    let curvature = Quantity::new;
+    assert_eq!(
+        dunyach_length(curvature(0.0), tolerance, minimum, maximum),
+        maximum
+    );
+    assert!(
+        (dunyach_length(curvature(1.0), tolerance, minimum, maximum).value() - 0.57_f64.sqrt())
+            .abs()
+            < 1.0e-12
+    );
+    assert_eq!(
+        dunyach_length(curvature(100.0), tolerance, minimum, maximum),
+        minimum
+    );
 }
 
 #[test]
@@ -50,7 +62,14 @@ fn graduate_enforces_lipschitz() {
 #[test]
 fn sizing_field_is_uniform_on_flat_mesh() {
     let (connectivity, coordinates) = ladder();
-    let field = sizing_field(&connectivity, &coordinates, 0.1, 0.1, 2.0, 0.5);
+    let field = sizing_field(
+        &connectivity,
+        &coordinates,
+        Quantity::new(0.1),
+        Quantity::new(0.1),
+        Quantity::new(2.0),
+        0.5,
+    );
     assert!(
         field
             .iter()

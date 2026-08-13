@@ -4,7 +4,7 @@ use crate::{
         mesh::{Connectivity, Mesh, Tessellation},
         ntree::{CurvatureSizing, Octree},
     },
-    math::Scalar,
+    math::{Quantity, unit::Length},
 };
 use std::f64::consts::{PI, TAU};
 
@@ -51,7 +51,7 @@ fn sphere(stacks: usize, slices: usize, radius: f64) -> Tessellation {
     Tessellation::from(Mesh::from((connectivities, coordinates)))
 }
 
-fn curvature(tolerance: Scalar) -> CurvatureSizing {
+fn curvature(tolerance: Quantity<Length>) -> CurvatureSizing {
     CurvatureSizing {
         tolerance: Some(tolerance),
         ..Default::default()
@@ -62,9 +62,20 @@ fn curvature(tolerance: Scalar) -> CurvatureSizing {
 fn tighter_curvature_tolerance_refines_more() {
     let tessellation = sphere(4, 8, 2.0);
     let scale = 4.0;
-    let loose = Octree::<u16, usize>::from_features(&tessellation, scale, curvature(1.0), 0);
-    let medium = Octree::<u16, usize>::from_features(&tessellation, scale, curvature(1.0e-2), 0);
-    let tight = Octree::<u16, usize>::from_features(&tessellation, scale, curvature(1.0e-3), 0);
+    let loose =
+        Octree::<u16, usize>::from_features(&tessellation, scale, curvature(Quantity::new(1.0)), 0);
+    let medium = Octree::<u16, usize>::from_features(
+        &tessellation,
+        scale,
+        curvature(Quantity::new(1.0e-2)),
+        0,
+    );
+    let tight = Octree::<u16, usize>::from_features(
+        &tessellation,
+        scale,
+        curvature(Quantity::new(1.0e-3)),
+        0,
+    );
     assert!(medium.len() > loose.len());
     assert!(tight.len() > medium.len());
 }
@@ -73,7 +84,12 @@ fn tighter_curvature_tolerance_refines_more() {
 fn default_curvature_sizing_disables_curvature_refinement() {
     let tessellation = sphere(4, 8, 2.0);
     let scale = 4.0;
-    let without = Octree::<u16, usize>::from_features(&tessellation, scale, curvature(1.0e-3), 0);
+    let without = Octree::<u16, usize>::from_features(
+        &tessellation,
+        scale,
+        curvature(Quantity::new(1.0e-3)),
+        0,
+    );
     let with_default =
         Octree::<u16, usize>::from_features(&tessellation, scale, CurvatureSizing::default(), 0);
     assert!(with_default.len() <= without.len());

@@ -4,7 +4,8 @@ mod test;
 use crate::{
     geometry::{Coordinate, Coordinates, Direction},
     math::{
-        CrossProduct, FxHashSet, Scalar, SquareMatrix, Tensor, TensorRank1Vec, Vector, unit::Area,
+        CrossProduct, FxHashSet, Quantity, SquareMatrix, Tensor, TensorRank1Vec, Vector,
+        unit::{Area, ReciprocalLength},
     },
 };
 
@@ -14,12 +15,12 @@ const N: usize = 3;
 pub(crate) struct Jet {
     // Off until anisotropic remesh: the fitted surface normal, part of the
     // (u, v, n) curvature frame the per-vertex metric will need.
-    // pub normal: Coordinate<D>,
-    pub principal_curvatures: [Scalar; 2],
+    // pub normal: Direction<D>,
+    pub principal_curvatures: [Quantity<ReciprocalLength>; 2],
 }
 
 impl Jet {
-    pub(crate) fn max_abs_curvature(&self) -> Scalar {
+    pub(crate) fn max_abs_curvature(&self) -> Quantity<ReciprocalLength> {
         self.principal_curvatures[0]
             .abs()
             .max(self.principal_curvatures[1].abs())
@@ -71,9 +72,12 @@ pub(crate) fn fit_jet(
     let spread = (mean * mean - gauss).max(0.0).sqrt();
     // Off until anisotropic remesh (see Jet::normal):
     // let normal = (&(&w - &(&u * h_u)) - &(&v * h_v)).normalized();
+    // The fit is a polynomial in the first and second powers of a length at
+    // once, so no one unit runs through it and it is solved in numbers. What
+    // comes out is a curvature either way, which the two take back here.
     Some(Jet {
         // normal,
-        principal_curvatures: [mean + spread, mean - spread],
+        principal_curvatures: [Quantity::new(mean + spread), Quantity::new(mean - spread)],
     })
 }
 

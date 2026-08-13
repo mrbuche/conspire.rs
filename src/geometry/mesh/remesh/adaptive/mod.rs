@@ -6,7 +6,10 @@ use crate::{
         Coordinates,
         mesh::{Mesh, differential::jet::vertex_jets},
     },
-    math::{Quantity, Scalar, Tensor, unit::Length},
+    math::{
+        Quantity, Scalar, Tensor,
+        unit::{Length, ReciprocalLength},
+    },
 };
 
 const D: usize = 3;
@@ -16,9 +19,9 @@ impl Mesh<3> {
     pub(crate) fn adaptive_remesh(
         self,
         iterations: usize,
-        tolerance: Scalar,
-        minimum: Scalar,
-        maximum: Scalar,
+        tolerance: Quantity<Length>,
+        minimum: Quantity<Length>,
+        maximum: Quantity<Length>,
         gradation: Scalar,
     ) -> Result<Self, &'static str> {
         if iterations == 0 {
@@ -51,39 +54,45 @@ impl Mesh<3> {
 pub(crate) fn sizing_field(
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<D>,
-    tolerance: Scalar,
-    minimum: Scalar,
-    maximum: Scalar,
+    tolerance: Quantity<Length>,
+    minimum: Quantity<Length>,
+    maximum: Quantity<Length>,
     gradation: Scalar,
 ) -> Vec<Quantity<Length>> {
     let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates)
         .into_iter()
         .map(|jet| {
-            Quantity::new(jet.map_or(maximum, |jet| {
+            jet.map_or(maximum, |jet| {
                 dunyach_length(jet.max_abs_curvature(), tolerance, minimum, maximum)
-            }))
+            })
         })
         .collect();
     graduate(&mut field, connectivity, coordinates, gradation);
     field
 }
 
+/// The size a chord-error tolerance asks for at a given curvature.
+///
+/// Both terms under the root are areas, a tolerance over a curvature as much
+/// as a tolerance squared, so the root is the length it gives back. Halving a
+/// unit is not something the table names, so the root is taken in numbers and
+/// a length asserted on the way out.
 fn dunyach_length(
-    curvature: Scalar,
-    tolerance: Scalar,
-    minimum: Scalar,
-    maximum: Scalar,
-) -> Scalar {
-    if curvature <= 0.0 {
+    curvature: Quantity<ReciprocalLength>,
+    tolerance: Quantity<Length>,
+    minimum: Quantity<Length>,
+    maximum: Quantity<Length>,
+) -> Quantity<Length> {
+    if curvature <= Quantity::default() {
         return maximum;
     }
-    let argument = 6.0 * tolerance / curvature - 3.0 * tolerance * tolerance;
-    let length = if argument > 0.0 {
-        argument.sqrt()
+    let argument = tolerance * 6.0 / curvature - tolerance * tolerance * 3.0;
+    let length = if argument > Quantity::default() {
+        Quantity::new(argument.value().sqrt())
     } else {
         minimum
     };
-    length.clamp(minimum, maximum)
+    length.max(minimum).min(maximum)
 }
 
 fn graduate(

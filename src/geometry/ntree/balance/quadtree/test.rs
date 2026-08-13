@@ -1,10 +1,14 @@
-use crate::geometry::ntree::{
-    Quadtree,
-    balance::{Balance, Balancing},
-    node::{Kind, Node},
-    pair::Pairing,
-    rescale::Rescaling,
+use crate::geometry::{
+    Coordinate,
+    ntree::{
+        Quadtree,
+        balance::{Balance, Balancing},
+        node::{Kind, Node},
+        pair::Pairing,
+        rescale::Rescaling,
+    },
 };
+use crate::math::Quantity;
 
 fn fuzz_tree(seed: u64) -> Quadtree<u16, usize> {
     let mut state = seed
@@ -27,8 +31,8 @@ fn fuzz_tree(seed: u64) -> Quadtree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [16.0; 2],
-            cell: 1.0,
+            center: Coordinate::const_from([16.0; 2]),
+            cell: Quantity::new(1.0),
             half: 16.0,
         },
     };
@@ -73,8 +77,8 @@ fn build_jump() -> Quadtree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [4.0; 2],
-            cell: 1.0,
+            center: Coordinate::const_from([4.0; 2]),
+            cell: Quantity::new(1.0),
             half: 4.0,
         },
     };

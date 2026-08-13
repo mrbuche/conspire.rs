@@ -32,10 +32,13 @@ pub enum IsotropicSizing {
     /// Constant target edge length over the whole mesh ([`None`] = mean edge length).
     Uniform { length: Option<Quantity<Length>> },
     /// Curvature-driven scalar size field (Dunyach).
+    ///
+    /// The chord error a size is allowed to make, and the sizes it is held
+    /// between, are all lengths; only the grading rate is a bare rate.
     Adaptive {
-        tolerance: Scalar,
-        minimum: Scalar,
-        maximum: Scalar,
+        tolerance: Quantity<Length>,
+        minimum: Quantity<Length>,
+        maximum: Quantity<Length>,
         gradation: Scalar,
     },
 }

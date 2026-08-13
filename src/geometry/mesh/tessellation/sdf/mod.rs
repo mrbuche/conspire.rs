@@ -9,7 +9,7 @@ use std::{
 
 use crate::{
     geometry::{Direction, DirectionsRef, mesh::tessellation::Tessellation},
-    math::{Quantity, Scalar, Tensor, Vector, unit::Length},
+    math::{Quantity, QuantityVector, Scalar, Tensor, unit::Length},
 };
 
 impl Tessellation {
@@ -18,7 +18,7 @@ impl Tessellation {
         half_angle: Scalar,
         rings: usize,
         azimuthal: usize,
-    ) -> Vector {
+    ) -> QuantityVector<Length> {
         let mesh = self.mesh();
         let bvh = self.bvh();
         let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
@@ -26,7 +26,7 @@ impl Tessellation {
         let centroids = mesh.centroids();
         let normals: DirectionsRef<'_, 3> = self.normals.iter().flatten().collect();
         let number_of_faces = normals.len();
-        let mut face_diameters = vec![0.0; number_of_faces];
+        let mut face_diameters = vec![Quantity::<Length>::default(); number_of_faces];
         let threads = available_parallelism().map_or(1, |threads| threads.get());
         let chunk_size = number_of_faces.div_ceil(threads).max(1);
         scope(|scope| {
@@ -52,7 +52,7 @@ impl Tessellation {
                                                 .map(|hit| (hit.distance(), weight))
                                         })
                                         .collect();
-                                *diameter = weighted_diameter(samples).value();
+                                *diameter = weighted_diameter(samples);
                             });
                     });
                 });
@@ -62,11 +62,11 @@ impl Tessellation {
 }
 
 fn interpolate_to_nodes(
-    face_diameters: Vector,
+    face_diameters: QuantityVector<Length>,
     elements: Vec<&[usize]>,
     number_of_nodes: usize,
-) -> Vector {
-    let mut nodal = Vector::zero(number_of_nodes);
+) -> QuantityVector<Length> {
+    let mut nodal = QuantityVector::zero(number_of_nodes);
     let mut counts = vec![0; number_of_nodes];
     elements
         .into_iter()

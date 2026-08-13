@@ -1,12 +1,13 @@
 use crate::{
     geometry::{
+        Coordinate,
         mesh::{Connectivity, Mesh},
         ntree::{
             Balancing, Octree, Pairing, Quadtree, Rescaling,
             node::{Kind, Node},
         },
     },
-    math::Tensor,
+    math::{Quantity, Tensor},
 };
 use std::collections::HashSet;
 
@@ -22,8 +23,8 @@ fn octree(length: u16) -> Octree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [length as f64 / 2.0; 3],
-            cell: 1.0,
+            center: Coordinate::const_from([length as f64 / 2.0; 3]),
+            cell: Quantity::new(1.0),
             half: length as f64 / 2.0,
         },
     }
@@ -41,8 +42,8 @@ fn quadtree(length: u16) -> Quadtree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [length as f64 / 2.0; 2],
-            cell: 1.0,
+            center: Coordinate::const_from([length as f64 / 2.0; 2]),
+            cell: Quantity::new(1.0),
             half: length as f64 / 2.0,
         },
     }

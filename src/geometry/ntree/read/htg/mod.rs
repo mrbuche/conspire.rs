@@ -2,16 +2,19 @@
 mod test;
 
 use crate::{
-    geometry::ntree::{
-        Balancing, Orthotree, Pairing, Rescaling,
-        node::{Kind, Node, split::Split},
+    geometry::{
+        Coordinate,
+        ntree::{
+            Balancing, Orthotree, Pairing, Rescaling,
+            node::{Kind, Node, split::Split},
+        },
     },
     io::{
         invalid,
         read::{attribute, bits, data_arrays, encoding, find_data_array, floats, tag},
         unsupported,
     },
-    math::Scalar,
+    math::{Quantity, Scalar},
 };
 use std::{
     array::from_fn, collections::VecDeque, fs::read_to_string, io::Result, ops::Add, path::Path,
@@ -68,9 +71,9 @@ where
             .ok_or_else(|| invalid("no NumberOfLevels".into()))?;
         let descriptor = bits(&find_data_array(&arrays, Some("Descriptor"))?, &encoding)?;
         let root_length = 1usize << (levels - 1);
-        let cell = (hi[0] - lo[0]) / root_length as Scalar;
+        let cell = Quantity::new((hi[0] - lo[0]) / root_length as Scalar);
         let rescale = Rescaling {
-            center: from_fn(|axis| 0.5 * (lo[axis] + hi[axis])),
+            center: Coordinate::from(from_fn(|axis| 0.5 * (lo[axis] + hi[axis]))),
             cell,
             half: 0.5 * root_length as Scalar,
         };

@@ -3,6 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
+        Coordinate,
         grid::Grid,
         ntree::{
             Orthotree,
@@ -12,7 +13,7 @@ use crate::{
             rescale::Rescaling,
         },
     },
-    math::Scalar,
+    math::{Quantity, Scalar},
 };
 use std::{array::from_fn, ops::Add};
 
@@ -50,8 +51,8 @@ where
             }],
             paired: Pairing::None,
             rescale: Rescaling {
-                center: [half; D],
-                cell: 1.0,
+                center: Coordinate::const_from([half; D]),
+                cell: Quantity::new(1.0),
                 half,
             },
         };

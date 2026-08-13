@@ -1,5 +1,6 @@
 use super::{D, N};
 use crate::geometry::{
+    Coordinate,
     mesh::Mesh,
     ntree::{
         Balance, Dualization, Quadtree,
@@ -9,6 +10,7 @@ use crate::geometry::{
         rescale::Rescaling,
     },
 };
+use crate::math::Quantity;
 use std::collections::{HashMap, HashSet};
 
 fn min_scaled_jacobian(mesh: &Mesh<D>) -> f64 {
@@ -130,8 +132,8 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Quadtree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [16.0; D],
-            cell: 1.0,
+            center: Coordinate::const_from([16.0; D]),
+            cell: Quantity::new(1.0),
             half: 16.0,
         },
     };
