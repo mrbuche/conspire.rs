@@ -4,12 +4,10 @@ mod test;
 use crate::{
     geometry::{
         Coordinate, CoordinatesRef,
-        bvh::BoundingVolumeHierarchy,
         mesh::{
-            Fitting, Mesh,
+            Mesh,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
     math::{Scalar, Tensor},
 };
@@ -22,25 +20,16 @@ const DIRECTIONS: [Coordinate<D>; 3] = [
     Coordinate::const_from([0.097_153_2, 1.0, 0.131_771_4]),
     Coordinate::const_from([0.123_456_7, 0.087_654_3, 1.0]),
 ];
+
 impl Tessellation {
-    pub fn dualize(
-        &self,
-        balancing: Balancing,
-        scale: Scalar,
-        curvature: CurvatureSizing,
-        fitting: Fitting,
-    ) -> Result<Mesh<D>, &'static str> {
-        let mut octree = Octree::<u16, usize>::from_features(self, scale, curvature, 0);
-        octree.equilibrate(balancing, Pairing::Regular)?;
-        let mut mesh = octree.dualize();
-        self.trim(&mut mesh, self.bvh())?;
-        mesh.buffer(self, fitting)
-    }
-    fn trim(
-        &self,
-        mesh: &mut Mesh<D>,
-        bvh: &BoundingVolumeHierarchy<D>,
-    ) -> Result<(), &'static str> {
+    /// Discards the cells of a background mesh lying outside this
+    /// tessellation, leaving a mesh that covers the volume it encloses.
+    ///
+    /// A cell survives when the signed distances at its nodes satisfy
+    /// `minimum + 0.1 * maximum >= 0`, so the cells straddling the surface
+    /// are kept for [`buffer`](Mesh::buffer) to fit onto it.
+    pub fn trim(&self, mesh: &mut Mesh<D>) -> Result<(), &'static str> {
+        let bvh = self.bvh();
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();

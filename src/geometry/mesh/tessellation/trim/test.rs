@@ -5,7 +5,7 @@ use crate::{
             Connectivity, Fitting, Mesh, Verdict,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balancing, CurvatureSizing},
+        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
     math::Scalar,
 };
@@ -42,16 +42,20 @@ fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellati
     )))
 }
 
+/// The octree dual, trimmed and buffered, is a sound mesh of the solid.
 #[test]
-fn dualize_slender_torus_is_not_inverted() {
-    let mesh = torus(1.0, 0.15, 64, 24)
-        .dualize(
-            Balancing::Strong(1),
-            3.0,
-            CurvatureSizing::default(),
-            Fitting::Snap,
-        )
+fn dualized_slender_torus_is_not_inverted() {
+    let tessellation = torus(1.0, 0.15, 64, 24);
+    let mut octree =
+        Octree::<u16, usize>::from_features(&tessellation, 3.0, CurvatureSizing::default(), 0);
+    octree
+        .equilibrate(Balancing::Strong(1), Pairing::Regular)
         .unwrap();
+    let mut mesh = octree.dualize();
+    let background = mesh.number_of_elements();
+    tessellation.trim(&mut mesh).unwrap();
+    assert!(mesh.number_of_elements() < background);
+    let mesh = mesh.buffer(&tessellation, Fitting::Snap).unwrap();
     let worst = mesh
         .minimum_scaled_jacobians()
         .into_iter()

@@ -82,7 +82,7 @@ impl Lattice {
 }
 
 impl Tessellation {
-    pub(super) fn lattice(&self, spacing: Scalar) -> Result<Lattice, &'static str> {
+    pub(super) fn lattice_cells(&self, spacing: Scalar) -> Result<Lattice, &'static str> {
         if spacing <= 0.0 || spacing.is_nan() {
             return Err("lattice spacing must be positive");
         }
