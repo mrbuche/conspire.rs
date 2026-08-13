@@ -127,6 +127,7 @@ fn tessellation_volume(tessellation: &Tessellation) -> f64 {
         .map(|triangle| {
             let coordinates = surface.coordinates();
             (coordinates[triangle[0]].cross(&coordinates[triangle[1]]) * &coordinates[triangle[2]])
+                .value()
                 / 6.0
         })
         .sum()

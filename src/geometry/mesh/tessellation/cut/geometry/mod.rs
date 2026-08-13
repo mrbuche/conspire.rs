@@ -58,7 +58,7 @@ pub(super) fn star_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) ->
                 .map(|i| {
                     let one = &coordinates[face[i]] - &centroid;
                     let two = &coordinates[face[(i + 1) % face.len()]] - &centroid;
-                    (one.cross(&two) * &middle).abs() / 6.0
+                    (one.cross(&two) * &middle).value().abs() / 6.0
                 })
                 .sum::<Scalar>()
         })
@@ -87,7 +87,7 @@ pub(super) fn signed_volume(faces: &[Vec<usize>], coordinates: &Coordinates<D>) 
                 .map(|i| {
                     let one = &coordinates[face[i]] - &origin;
                     let two = &coordinates[face[(i + 1) % face.len()]] - &origin;
-                    (one.cross(&two) * &middle) / 6.0
+                    (one.cross(&two) * &middle).value() / 6.0
                 })
                 .sum::<Scalar>()
         })

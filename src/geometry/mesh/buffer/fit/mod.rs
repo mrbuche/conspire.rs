@@ -10,7 +10,7 @@ use crate::{
             quality::metrics::{chi, hexahedron::CORNERS, regularized},
         },
     },
-    math::{CrossProduct, Scalar, Tensor},
+    math::{CrossProduct, Quantity, Scalar, Tensor},
 };
 use std::{
     array::from_fn,
@@ -190,7 +190,8 @@ impl<'a> Oracle<'a> {
                                             let deviation = (&coordinates[node] - &point) * &normal;
                                             deviation * deviation
                                         })
-                                        .fold(0.0, Scalar::max);
+                                        .fold(Quantity::default(), Quantity::max)
+                                        .value();
                                     (point, normal, distance)
                                 });
                         })
@@ -260,7 +261,7 @@ impl Sweep<'_> {
                                                     / (self.lengths[node] * self.lengths[node]))
                                                     .max(WEIGHT_FLOOR);
                                             let deviation = (&coordinates[node] - point) * normal;
-                                            weight * deviation * deviation
+                                            weight * (deviation * deviation).value()
                                         })
                                         .sum::<Scalar>()
                             })

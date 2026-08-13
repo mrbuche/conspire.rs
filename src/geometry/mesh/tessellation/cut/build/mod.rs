@@ -42,7 +42,7 @@ fn orient_outward(polygons: &mut [Vec<usize>], clipped: usize, coordinates: &Coo
             .map(|i| {
                 let one = &coordinates[polygon[i]] - &centroid;
                 let two = &coordinates[polygon[(i + 1) % polygon.len()]] - &centroid;
-                one.cross(&two) * &middle
+                (one.cross(&two) * &middle).value()
             })
             .sum();
         if outward < 0.0 {

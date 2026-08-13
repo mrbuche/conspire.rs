@@ -270,6 +270,7 @@ fn cut_polyhedral_sphere() {
         .map(|triangle| {
             let coordinates = tessellation.mesh().coordinates();
             (coordinates[triangle[0]].cross(&coordinates[triangle[1]]) * &coordinates[triangle[2]])
+                .value()
                 / 6.0
         })
         .sum();
