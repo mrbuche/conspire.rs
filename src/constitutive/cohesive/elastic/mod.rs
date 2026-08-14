@@ -9,15 +9,10 @@ use crate::{
     mechanics::{Normal, Scalar, Separation, Traction},
 };
 
-/// A dyad of the directions a cohesive stiffness is built from.
 type Dyad = TensorRank2<3, Current, Current>;
-
-/// A dyad of a direction with the separation.
 type DyadSeparation = TensorRank2<3, Current, Current, Length>;
 
-/// The stiffness of a cohesive law, taken with respect to the separation and to
-/// the normal, which carry different units since the normal is a direction.
-pub type StiffnessCohesive = TensorTuple<
+pub(crate) type StiffnessCohesive = TensorTuple<
     TensorRank2<3, Current, Current, StressPerLength>,
     TensorRank2<3, Current, Current, Stress>,
 >;
@@ -63,8 +58,6 @@ where
         let (normal_traction, tangential_traction) =
             self.tractions(normal_component, tangential_component)?;
         let (k_nn, k_tt) = self.stiffnesses(normal_component, tangential_component)?;
-        // The tangent is a direction, so where there is no tangential separation
-        // to take it from, it is a zero direction rather than a zero traction.
         let (tangent, ratio, q_t) = if !tangential_component.is_zero() {
             (
                 tangential_separation / tangential_component,
@@ -85,7 +78,7 @@ where
             - tu * ((k_tt - q_t) * ratio);
         Ok(TensorTuple(stiffness_u, stiffness_n))
     }
-    /// Returns the normal and tangential stiffnesses.
+    /// Calculates and returns the normal and tangential stiffnesses.
     fn stiffnesses(
         &self,
         normal_separation: Quantity<Length>,
