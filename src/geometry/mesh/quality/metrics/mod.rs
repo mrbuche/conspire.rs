@@ -18,6 +18,8 @@ use crate::{
 };
 use std::array::from_fn;
 
+const EQUIANGLE: Scalar = std::f64::consts::FRAC_PI_3;
+
 pub trait Verdict {
     fn maximum_edge_ratios(&self) -> Vec<Vec<Scalar>>;
     fn maximum_skews(&self) -> Vec<Vec<Scalar>>;
@@ -163,8 +165,6 @@ impl<const D: usize> Verdict for Mesh<D> {
             .collect()
     }
 }
-
-const EQUIANGLE: Scalar = std::f64::consts::FRAC_PI_3;
 
 fn cross<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> [Quantity<Area>; 3] {
     let zero = Quantity::<Length>::default();
