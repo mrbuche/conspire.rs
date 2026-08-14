@@ -31,7 +31,7 @@ impl Potential for Harmonic {
     /// f = \pm\sqrt{2ku}
     /// ```
     fn forces_at_energy(&self, energy: Quantity<Energy>) -> [Quantity<Force>; 2] {
-        let force = Quantity::<Force>::new((2.0 * self.stiffness * energy.value()).sqrt());
+        let force = Quantity::new((2.0 * self.stiffness * energy.value()).sqrt());
         [force, -force]
     }
     /// ```math
@@ -56,7 +56,7 @@ impl Potential for Harmonic {
     /// \Delta x = \pm\sqrt{\frac{2u}{k}}
     /// ```
     fn extensions_at_energy(&self, energy: Quantity<Energy>) -> [Quantity<Length>; 2] {
-        let extension = Quantity::<Length>::new((2.0 * energy.value() / self.stiffness).sqrt());
+        let extension = Quantity::new((2.0 * energy.value() / self.stiffness).sqrt());
         [extension, -extension]
     }
     /// ```math
