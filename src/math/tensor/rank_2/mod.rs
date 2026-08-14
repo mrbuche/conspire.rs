@@ -74,7 +74,13 @@ impl<const D: usize, I, J, U> Default for TensorRank2<D, I, J, U> {
 
 impl<const D: usize, I, J, U> From<[[TensorRank0; D]; D]> for TensorRank2<D, I, J, U> {
     fn from(array: [[TensorRank0; D]; D]) -> Self {
-        Self(from_fn(|i| array[i].into()), PhantomData)
+        Self(from_fn(|i| TensorRank1::const_from(array[i])), PhantomData)
+    }
+}
+
+impl<const D: usize, I, J, U> From<[[Quantity<U>; D]; D]> for TensorRank2<D, I, J, U> {
+    fn from(array: [[Quantity<U>; D]; D]) -> Self {
+        Self(from_fn(|i| TensorRank1(array[i], PhantomData)), PhantomData)
     }
 }
 

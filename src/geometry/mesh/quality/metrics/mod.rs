@@ -23,10 +23,6 @@ pub trait Verdict {
     fn maximum_skews(&self) -> Vec<Vec<Scalar>>;
     fn minimum_jacobians(&self) -> Vec<Vec<Scalar>>;
     fn minimum_scaled_jacobians(&self) -> Vec<Vec<Scalar>>;
-    /// The measure of each element, which is an area for a surface element and
-    /// a volume for a solid one. A mesh holds either beside the other, so the
-    /// number is reported without a unit that would have to be one or the
-    /// other.
     fn volumes(&self) -> Vec<Vec<Scalar>>;
 }
 
@@ -185,8 +181,6 @@ pub(crate) fn chi(epsilon: Scalar, determinant: Scalar) -> Scalar {
     0.5 * (determinant + (epsilon * epsilon + determinant * determinant).sqrt())
 }
 
-/// The regularized quality of a corner, being a cube of lengths over a volume
-/// and so a number, which is why the edges it is given carry no unit.
 pub(crate) fn regularized(edges: &TensorRank1List<3, Reference, 3>, epsilon: Scalar) -> Scalar {
     edges.norm_squared().value().powf(1.5) / chi(epsilon, edges.scalar_triple_product())
 }
@@ -202,9 +196,6 @@ fn triple_product<const D: usize>(
 
 fn cross_norm<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> Quantity<Area> {
     let n = cross(a, b);
-    // How long a cross product is, which is an area, but the square root that
-    // takes its components back to one halves a unit the table cannot name, so
-    // they are squared as the numbers they are and an area asserted back.
     Quantity::new((n[0].value().powi(2) + n[1].value().powi(2) + n[2].value().powi(2)).sqrt())
 }
 
@@ -293,10 +284,6 @@ fn min_scaled_jacobian<const D: usize, const K: usize, const C: usize>(
         .fold(Scalar::INFINITY, Scalar::min)
 }
 
-/// The measure at each corner beside what normalizes it, both being the
-/// K-th power of a length, which is no unit to name while K is a parameter.
-/// They are only ever taken against one another, giving the number a scaled
-/// Jacobian is.
 fn corners<const D: usize, const K: usize, const C: usize>(
     table: &[[usize; K]; C],
     element: &[usize],
@@ -313,11 +300,11 @@ fn corners<const D: usize, const K: usize, const C: usize>(
 
 fn corner_measure<const D: usize, const K: usize>(edges: &[Coordinate<D>; K]) -> Scalar {
     if K == D {
-        let matrix: [[Scalar; K]; K] = from_fn(|row| from_fn(|column| edges[row][column].value()));
-        TensorRank2::<K, Reference, Reference>::from(matrix).determinant()
+        let matrix = from_fn(|i| from_fn(|j| edges[i][j]));
+        TensorRank2::<K, Reference, Reference, _>::from(matrix).determinant()
     } else {
-        let gram: [[Scalar; K]; K] = from_fn(|i| from_fn(|j| (&edges[i] * &edges[j]).value()));
-        TensorRank2::<K, Reference, Reference>::from(gram)
+        let gram = from_fn(|i| from_fn(|j| &edges[i] * &edges[j]));
+        TensorRank2::<K, Reference, Reference, _>::from(gram)
             .determinant()
             .max(0.0)
             .sqrt()

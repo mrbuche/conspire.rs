@@ -256,8 +256,6 @@ impl<const D: usize, I, U> Erase for TensorRank1<D, I, U> {
     }
 }
 
-// A quantity carries its unit into the tensor it scales.
-
 impl<const D: usize, I, U, V> Mul<Quantity<V>> for TensorRank1<D, I, U>
 where
     U: UnitMul<V>,
