@@ -11,7 +11,8 @@ use crate::{
             tessellation::{D, Normals, Tessellation, features::Features},
         },
     },
-    math::{Quantity, Scalar, Tensor, TensorVec, unit::Length},
+    math::{Quantity, Scalar, Tensor, TensorVec},
+    units::Length,
 };
 use std::{array::from_fn, cell::OnceCell, collections::HashMap};
 

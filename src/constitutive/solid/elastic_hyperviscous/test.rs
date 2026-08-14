@@ -125,8 +125,8 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                             )?;
                             first_piola_kirchhoff_stress[i][j] = ((
                                 helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
-                            )/$crate::math::Quantity::<$crate::math::unit::Rate>::new(EPSILON))
-                            .value_as::<$crate::math::unit::Stress>()
+                            )/$crate::math::Quantity::<$crate::units::Rate>::new(EPSILON))
+                            .value_as::<$crate::units::Stress>()
                             .into();
                         }
                     }
@@ -303,8 +303,8 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                             )?;
                             first_piola_kirchhoff_stress[i][j] = ((
                                 helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
-                            )/$crate::math::Quantity::<$crate::math::unit::Rate>::new(EPSILON))
-                            .value_as::<$crate::math::unit::Stress>()
+                            )/$crate::math::Quantity::<$crate::units::Rate>::new(EPSILON))
+                            .value_as::<$crate::units::Stress>()
                             .into();
                         }
                     }
@@ -481,7 +481,7 @@ pub(crate) use test_solid_elastic_hyperviscous_specifics;
 
 macro_rules! test_minimize_and_root {
     ($constitutive_model: expr) => {
-        use crate::math::unit::Time;
+        use crate::units::Time;
         use crate::{constitutive::solid::viscoelastic::AppliedLoad, math::Quantity};
         macro_rules! test_with_integrator_and_solver {
             ($integrator: ident, $solver: expr) => {

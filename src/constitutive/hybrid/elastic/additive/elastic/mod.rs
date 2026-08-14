@@ -1,5 +1,3 @@
-use crate::math::Quantity;
-use crate::math::unit::Stress;
 #[cfg(test)]
 mod test;
 
@@ -9,11 +7,13 @@ use crate::{
         hybrid::ElasticAdditive,
         solid::{Solid, elastic::Elastic},
     },
+    math::Quantity,
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
     },
+    units::Stress,
 };
 
 impl<C1, C2> Solid for ElasticAdditive<C1, C2>

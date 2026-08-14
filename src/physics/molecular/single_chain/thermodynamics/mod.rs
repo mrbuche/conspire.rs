@@ -2,10 +2,10 @@ use crate::{
     math::{
         Current, Quantity, Scalar, SquareMatrix, Tensor, TensorArray, TensorRank1, Vector,
         optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
-        unit::Temperature,
     },
     mechanics::Vectors,
     physics::molecular::single_chain::{Extensible, Inextensible, SingleChain, SingleChainError},
+    units::Temperature,
 };
 use std::{f64::consts::PI, thread::scope};
 

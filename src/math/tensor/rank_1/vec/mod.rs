@@ -1,7 +1,7 @@
-use crate::math::unit::{Dimensionless, UnitDiv};
-use crate::math::{Current, Reference};
 #[cfg(test)]
 mod test;
+use crate::math::{Current, Reference};
+use crate::units::{Dimensionless, UnitDiv};
 
 use crate::math::{
     Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List,

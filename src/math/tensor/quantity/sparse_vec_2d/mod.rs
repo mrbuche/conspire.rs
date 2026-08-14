@@ -1,9 +1,9 @@
 use super::{Quantity, sparse_vec::QuantitySparseVec};
-use crate::math::unit::Dimensionless;
 use crate::math::{
     Hessian, Scalar, SquareMatrix, Tensor, TensorRank0, Vector, assert::FiniteDifference,
     tensor::vec::TensorVector,
 };
+use crate::units::Dimensionless;
 
 /// A vector of sparse vectors of quantities, storing only inserted entries.
 ///

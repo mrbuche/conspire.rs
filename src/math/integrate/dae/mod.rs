@@ -1,4 +1,3 @@
-use crate::math::unit::Time;
 use crate::math::{
     Derivative, Differentiate, Quantity, Tensor, TensorVec,
     integrate::{IntegrationError, Times},
@@ -8,6 +7,7 @@ use crate::math::{
     },
     sparse::SparseSolver,
 };
+use crate::units::Time;
 
 pub(super) mod explicit;
 // pub mod implicit;

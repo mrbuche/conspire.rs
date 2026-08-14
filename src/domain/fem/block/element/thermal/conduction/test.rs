@@ -43,7 +43,7 @@ macro_rules! test_thermal {
                                 element.potential(&constitutive_model, &nodal_temperatures)?;
                             // A potential per unit temperature is a power.
                             Ok(finite_difference
-                                / $crate::math::Quantity::<$crate::math::unit::Temperature>::new(
+                                / $crate::math::Quantity::<$crate::units::Temperature>::new(
                                     EPSILON,
                                 ))
                         })
@@ -81,12 +81,10 @@ macro_rules! test_thermal {
                                         .nodal_forces(&constitutive_model, &nodal_temperatures)?
                                         [node_a];
                                     // A power per unit temperature is a thermal stiffness.
-                                    Ok(
-                                        finite_difference
-                                            / $crate::math::Quantity::<
-                                                $crate::math::unit::Temperature,
-                                            >::new(EPSILON),
-                                    )
+                                    Ok(finite_difference
+                                        / $crate::math::Quantity::<$crate::units::Temperature>::new(
+                                            EPSILON,
+                                        ))
                                 })
                                 .collect()
                         })

@@ -1,8 +1,7 @@
-use crate::math::Quantity;
-use crate::math::unit::Stress;
-use crate::math::{Current, Intermediate, Reference};
 #[cfg(test)]
 mod test;
+use crate::math::Quantity;
+use crate::math::{Current, Intermediate, Reference};
 
 use crate::{
     constitutive::{
@@ -20,6 +19,7 @@ use crate::{
         FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness,
         FirstPiolaKirchhoffTangentStiffness2, SecondPiolaKirchhoffStress,
     },
+    units::Stress,
 };
 
 impl<C1, C2> Solid for ElasticMultiplicative<C1, C2>

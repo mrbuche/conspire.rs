@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::Quantity;
-use crate::math::unit::Dimensionless;
+use crate::units::Dimensionless;
 use std::f64::consts::TAU;
 
 use super::{

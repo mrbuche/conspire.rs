@@ -3,12 +3,13 @@ mod test;
 
 use crate::math::Current;
 use crate::{
-    math::{Quantity, Scalar, random::random_uniform, unit::Length},
+    math::{Quantity, Scalar, random::random_uniform},
     mechanics::Vector,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
         SingleChain, SingleChainError, Thermodynamics,
     },
+    units::Length,
 };
 use std::f64::consts::TAU;
 

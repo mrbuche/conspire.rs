@@ -1,6 +1,6 @@
 use crate::math::Current;
 use crate::{
-    math::{Quantity, Scalar, random::random_uniform, unit::Length},
+    math::{Quantity, Scalar, random::random_uniform},
     mechanics::Vector,
     physics::molecular::{
         potential::{Harmonic, Potential},
@@ -9,6 +9,7 @@ use crate::{
             SingleChainError, Thermodynamics,
         },
     },
+    units::Length,
 };
 use std::f64::consts::TAU;
 

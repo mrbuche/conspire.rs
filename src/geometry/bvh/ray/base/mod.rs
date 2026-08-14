@@ -6,10 +6,8 @@ use std::mem::swap;
 use crate::{
     ABS_TOL,
     geometry::{Coordinate, Direction, bbox::BoundingBox, bvh::ray::Ray},
-    math::{
-        Quantity, Scalar,
-        unit::{Area, Length},
-    },
+    math::{Quantity, Scalar},
+    units::{Area, Length},
 };
 
 impl<const D: usize> Ray<D> {

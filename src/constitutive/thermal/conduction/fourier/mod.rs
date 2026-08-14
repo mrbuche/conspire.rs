@@ -6,11 +6,9 @@ use crate::{
         ConstitutiveError,
         thermal::{Thermal, conduction::ThermalConduction},
     },
-    math::{
-        ContractWith, IDENTITY_00, Quantity,
-        unit::{PowerPerLengthTemperature, PowerTemperatureDensity},
-    },
+    math::{ContractWith, IDENTITY_00, Quantity},
     mechanics::{HeatFlux, HeatFluxTangent, Scalar, TemperatureGradient},
+    units::{PowerPerLengthTemperature, PowerTemperatureDensity},
 };
 
 /// The Fourier thermal conduction constitutive model.

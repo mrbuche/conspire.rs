@@ -1,12 +1,9 @@
 use crate::{
-    math::{
-        Quantity, Scalar,
-        unit::{
-            Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength, ReciprocalLength,
-            Stress,
-        },
-    },
+    math::{Quantity, Scalar},
     physics::molecular::potential::Potential,
+    units::{
+        Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength, ReciprocalLength, Stress,
+    },
 };
 
 /// The Morse potential.[^1]

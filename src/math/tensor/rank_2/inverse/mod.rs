@@ -1,7 +1,7 @@
-use crate::math::unit::{Dimensionless, UnitInv};
-use crate::math::{Factor, Reference};
 #[cfg(test)]
 mod test;
+use crate::math::{Factor, Reference};
+use crate::units::{Dimensionless, UnitInv};
 
 use super::{Quantity, Rank2, Tensor, TensorArray, TensorRank0, TensorRank2, relabel};
 use crate::ABS_TOL;

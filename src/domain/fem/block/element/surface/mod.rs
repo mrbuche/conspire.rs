@@ -5,14 +5,12 @@ use crate::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
         ElementNodalVelocities, FiniteElement, GradientVectors, IntegrationWeights,
     },
-    math::{
-        CrossProduct, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank2,
-        unit::{Area, Length, Rate, Volume},
-    },
+    math::{CrossProduct, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank2},
     mechanics::{
         Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
         SurfaceDualBases,
     },
+    units::{Area, Length, Rate, Volume},
 };
 use std::fmt::{self, Debug, Formatter};
 

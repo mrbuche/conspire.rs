@@ -12,8 +12,9 @@ use crate::{
         },
         surface::linear::Triangle,
     },
-    math::{ScalarList, unit::Area},
+    math::ScalarList,
     mechanics::NormalGradients,
+    units::Area,
 };
 
 // This should share integration_points() and parametric_weights() with Triangle<G=3> when get to it.

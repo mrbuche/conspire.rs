@@ -1,5 +1,4 @@
 use crate::math::Quantity;
-use crate::math::unit::{Rate, Stress};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -12,6 +11,7 @@ use crate::{
     },
     math::{Differentiate, Rank2, Tensor, TensorTuple},
     mechanics::{MandelStressElastic, Scalar},
+    units::{Rate, Stress},
 };
 
 type GroupedViscoplasticStateVariables<Y1, Y2> = TensorTuple<ViscoplasticStateVariables<Y1>, Y2>;

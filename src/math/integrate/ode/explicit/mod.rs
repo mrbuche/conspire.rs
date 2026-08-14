@@ -1,11 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::unit::Time;
 use crate::math::{
     Derivative, Differentiate, Quantity, Tensor, TensorVec,
     integrate::{IntegrationError, OdeIntegrator, Times},
 };
+use crate::units::Time;
 
 pub(crate) mod fixed_step;
 pub(crate) mod variable_step;

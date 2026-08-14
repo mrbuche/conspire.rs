@@ -1,7 +1,7 @@
 use crate::math::Current;
 use crate::math::assert::Assert;
-use crate::math::unit::Dimensionless;
 use crate::math::{Rank2, TensorArray, TensorRank2, TensorRank4, assert::AssertionError};
+use crate::units::Dimensionless;
 
 fn get_rotation() -> TensorRank2<3, Current, Current> {
     [

@@ -1,7 +1,6 @@
 pub mod internal_variables;
 
 use crate::math::Quantity;
-use crate::math::unit::Energy;
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
@@ -19,6 +18,7 @@ use crate::{
         },
     },
     math::HessianAccumulate,
+    units::Energy,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> HyperelasticElements<3>

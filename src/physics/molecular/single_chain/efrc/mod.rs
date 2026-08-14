@@ -6,7 +6,6 @@ use crate::{
     math::{
         CrossProduct, Quantity, Scalar, Tensor,
         random::{random_uniform, random_x2_normal},
-        unit::{ForcePerLength, Length},
     },
     mechanics::Vector,
     physics::{
@@ -16,6 +15,7 @@ use crate::{
             SingleChain, SingleChainError, Thermodynamics,
         },
     },
+    units::{ForcePerLength, Length},
 };
 use std::f64::consts::TAU;
 

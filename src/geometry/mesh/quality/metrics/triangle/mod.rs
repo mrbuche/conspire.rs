@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     geometry::Coordinates,
-    math::{Quantity, Scalar, unit::Area},
+    math::{Quantity, Scalar},
+    units::Area,
 };
 
 const CORNERS: [[usize; 2]; 3] = [[1, 2], [2, 0], [0, 1]];

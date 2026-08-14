@@ -2,8 +2,8 @@
 mod test;
 
 use super::Quantity;
-use super::unit::Dimensionless;
 use crate::math::assert::FiniteDifference;
+use crate::units::Dimensionless;
 
 pub(crate) mod list;
 pub(crate) mod list_2d;

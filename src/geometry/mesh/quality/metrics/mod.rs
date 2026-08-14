@@ -11,10 +11,8 @@ use crate::{
         Coordinate, Coordinates,
         mesh::{Connectivity, Mesh},
     },
-    math::{
-        Quantity, Reference, Scalar, Tensor, TensorRank1List, TensorRank2,
-        unit::{Area, Length, Volume},
-    },
+    math::{Quantity, Reference, Scalar, Tensor, TensorRank1List, TensorRank2},
+    units::{Area, Length, Volume},
 };
 use std::array::from_fn;
 

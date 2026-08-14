@@ -18,10 +18,11 @@ macro_rules! test_thermal_block {
                     },
                     thermal::conduction::ThermalConductionElements,
                 },
-                math::{Quantity, assert::AssertionError, unit::Temperature},
+                math::{Quantity, assert::AssertionError},
             };
             mod finite_difference {
                 use super::*;
+                use crate::units::Temperature;
                 const MODEL: Fourier = Fourier {
                     thermal_conductivity: 1.0,
                 };

@@ -12,10 +12,8 @@ use crate::{
         },
         thermal::conduction::ThermalConductionElements,
     },
-    math::{
-        Quantity, QuantitySparseVec2D, QuantityVector,
-        unit::{Power, PowerPerTemperature, PowerTemperature},
-    },
+    math::{Quantity, QuantitySparseVec2D, QuantityVector},
+    units::{Power, PowerPerTemperature, PowerTemperature},
 };
 
 pub type NodalForcesThermal = QuantityVector<Power>;

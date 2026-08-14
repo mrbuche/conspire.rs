@@ -8,10 +8,9 @@ mod lattice;
 mod snap;
 mod split;
 mod tables;
-mod topology;
-
 #[cfg(test)]
 mod test;
+mod topology;
 
 use crate::{
     geometry::{
@@ -22,7 +21,8 @@ use crate::{
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::{Quantity, Scalar, unit::Length},
+    math::{Quantity, Scalar},
+    units::Length,
 };
 use geometry::contained;
 use std::collections::HashMap;

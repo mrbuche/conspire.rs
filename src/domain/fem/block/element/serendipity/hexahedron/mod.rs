@@ -8,7 +8,8 @@ use crate::{
         quadratic::{Hexahedron as QuadraticHexahedron, QuadraticElement, QuadraticFiniteElement},
         serendipity::M,
     },
-    math::{ScalarList, unit::Volume},
+    math::ScalarList,
+    units::Volume,
 };
 
 const G: usize = 27;

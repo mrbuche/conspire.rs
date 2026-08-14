@@ -6,7 +6,6 @@ use super::{
         Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Quantity, Scalar,
         Solution, SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
-        unit::{Dimensionless, UnitDiv, UnitMul, UnitSum},
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
     FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
@@ -15,6 +14,7 @@ use super::{
 };
 use crate::ABS_TOL;
 use crate::math::Norm;
+use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
 use std::{
     fmt::{self, Debug, Formatter},
     ops::{Div, Mul},

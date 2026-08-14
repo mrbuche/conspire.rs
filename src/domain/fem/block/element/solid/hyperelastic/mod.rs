@@ -1,7 +1,6 @@
 pub mod internal_variables;
 
 use crate::math::Quantity;
-use crate::math::unit::Energy;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
     fem::block::element::{
@@ -9,6 +8,7 @@ use crate::{
         surface::SurfaceElement,
     },
     math::Tensor,
+    units::Energy,
 };
 
 pub trait HyperelasticFiniteElement<

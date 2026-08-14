@@ -1,10 +1,10 @@
 pub(crate) mod list;
 pub(crate) mod vec;
 
-use crate::math::unit::UnitHalves;
 use crate::math::{
     Differentiate, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank2, Vector,
 };
+use crate::units::UnitHalves;
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,

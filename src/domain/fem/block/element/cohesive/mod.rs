@@ -6,8 +6,9 @@ use crate::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, FiniteElement, IntegrationWeights,
         ShapeFunctionsAtIntegrationPoints, surface::SurfaceFiniteElement,
     },
-    math::{ScalarList, Tensor, unit::Area},
+    math::{ScalarList, Tensor},
     mechanics::{CurrentCoordinate, NormalGradients},
+    units::Area,
 };
 use std::fmt::{self, Debug, Formatter};
 

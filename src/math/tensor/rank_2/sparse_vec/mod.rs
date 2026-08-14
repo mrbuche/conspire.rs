@@ -2,8 +2,8 @@
 mod test;
 
 use super::TensorRank2;
-use crate::math::unit::Dimensionless;
 use crate::math::{Tensor, TensorArray, TensorRank0};
+use crate::units::Dimensionless;
 use std::{
     fmt::{self, Debug, Display, Formatter, Result},
     iter::Sum,

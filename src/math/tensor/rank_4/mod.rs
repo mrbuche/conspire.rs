@@ -1,10 +1,10 @@
+#[cfg(test)]
+mod test;
 use super::rank_2::relabel as relabel_rank_2;
 use super::rank_3::relabel as relabel_rank_3;
 use crate::math::Quantity;
-use crate::math::unit::{Dimensionless, UnitDiv, UnitMul};
 use crate::math::{Current, Intermediate, Reference};
-#[cfg(test)]
-mod test;
+use crate::units::{Dimensionless, UnitDiv, UnitMul};
 
 use crate::math::assert::FiniteDifference;
 

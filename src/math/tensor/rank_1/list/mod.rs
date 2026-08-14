@@ -1,7 +1,7 @@
-use crate::math::unit::{Dimensionless, UnitMul};
-use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
 mod test;
+use crate::math::{Current, Projection, Reference};
+use crate::units::{Dimensionless, UnitMul};
 
 use crate::math::{
     CrossProduct, Tensor, TensorRank0, TensorRank1, TensorRank2, tensor::list::TensorList,

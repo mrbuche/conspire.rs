@@ -29,9 +29,9 @@ use conspire::{
         assert::AssertionError,
         integrate::DormandPrince,
         optimize::{EqualityConstraint, NewtonRaphson},
-        unit::Time,
     },
     mechanics::TemperatureGradient,
+    units::Time,
 };
 
 const G: usize = 1;

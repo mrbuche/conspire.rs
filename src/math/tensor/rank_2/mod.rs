@@ -1,8 +1,8 @@
-use crate::math::unit::{Dimensionless, UnitDiv, UnitMul};
-use crate::math::{ContractWith, Quantity, Square};
-use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
 #[cfg(test)]
 mod test;
+use crate::math::{ContractWith, Quantity, Square};
+use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
+use crate::units::{Dimensionless, UnitDiv, UnitMul};
 
 mod inverse;
 pub(crate) mod list;

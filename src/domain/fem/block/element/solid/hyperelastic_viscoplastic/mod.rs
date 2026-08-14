@@ -1,5 +1,4 @@
 use crate::math::Quantity;
-use crate::math::unit::Energy;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic_viscoplastic::HyperelasticViscoplastic},
     fem::block::element::{
@@ -10,6 +9,7 @@ use crate::{
         },
     },
     math::{Differentiate, Tensor},
+    units::Energy,
 };
 
 pub trait HyperelasticViscoplasticFiniteElement<

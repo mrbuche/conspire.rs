@@ -1,9 +1,9 @@
 use crate::math::Quantity;
-use crate::math::unit::Energy;
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{ElementModelError, solid::hyperelastic::HyperelasticElements},
     math::HessianAccumulate,
+    units::Energy,
     vem::{
         NodalCoordinates,
         block::{

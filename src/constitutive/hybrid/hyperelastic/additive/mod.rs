@@ -2,10 +2,10 @@
 mod test;
 
 use crate::math::Quantity;
-use crate::math::unit::EnergyDensity;
 use crate::{
     constitutive::{ConstitutiveError, hybrid::ElasticAdditive, solid::hyperelastic::Hyperelastic},
     mechanics::DeformationGradient,
+    units::EnergyDensity,
 };
 
 impl<C1, C2> Hyperelastic for ElasticAdditive<C1, C2>

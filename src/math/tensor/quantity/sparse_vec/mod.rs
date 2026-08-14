@@ -1,6 +1,6 @@
 use super::Quantity;
-use crate::math::unit::Dimensionless;
 use crate::math::{Tensor, TensorRank0};
+use crate::units::Dimensionless;
 use std::{
     fmt::{self, Debug, Display, Formatter, Result},
     iter::Sum,

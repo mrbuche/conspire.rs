@@ -11,7 +11,8 @@ pub(super) mod write;
 
 use crate::{
     geometry::{bvh::BoundingVolumeHierarchy, mesh::Mesh},
-    math::{TensorRank1Vec2D, unit::Dimensionless},
+    math::TensorRank1Vec2D,
+    units::Dimensionless,
 };
 use features::Features;
 use std::cell::OnceCell;

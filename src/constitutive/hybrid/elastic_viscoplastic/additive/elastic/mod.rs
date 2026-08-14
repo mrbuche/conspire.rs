@@ -1,5 +1,4 @@
 use crate::math::Quantity;
-use crate::math::unit::{Rate, Stress};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -19,6 +18,7 @@ use crate::{
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, MandelStressElastic,
         Scalar, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
+    units::{Rate, Stress},
 };
 
 impl<C1, C2, Y1> Solid for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>

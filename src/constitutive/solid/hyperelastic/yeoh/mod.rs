@@ -2,7 +2,6 @@
 mod test;
 
 use crate::math::Quantity;
-use crate::math::unit::{EnergyDensity, Modulus, Stress};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -10,6 +9,7 @@ use crate::{
     },
     math::{IDENTITY, Rank2, TensorRank4},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+    units::{EnergyDensity, Modulus, Stress},
 };
 use std::iter::once;
 

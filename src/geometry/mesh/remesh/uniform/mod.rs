@@ -1,6 +1,7 @@
 use crate::{
     geometry::mesh::Mesh,
-    math::{Quantity, Scalar, Tensor, unit::Length},
+    math::{Quantity, Scalar, Tensor},
+    units::Length,
 };
 
 impl<const D: usize> Mesh<D> {

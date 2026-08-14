@@ -4,10 +4,8 @@ mod test;
 use super::Class;
 use crate::{
     geometry::{Coordinate, Coordinates, bvh::Hit, mesh::Mesh, mesh::tessellation::D},
-    math::{
-        CrossProduct, Quantity, Scalar, Tensor,
-        unit::{Area, Length, Volume},
-    },
+    math::{CrossProduct, Quantity, Scalar, Tensor},
+    units::{Area, Length, Volume},
 };
 use std::collections::HashMap;
 

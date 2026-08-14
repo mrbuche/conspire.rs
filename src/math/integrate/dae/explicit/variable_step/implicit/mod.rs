@@ -1,4 +1,3 @@
-use crate::math::unit::{Time, UnitInv};
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
@@ -11,6 +10,7 @@ use crate::math::{
     },
     sparse::SparseSolver,
 };
+use crate::units::{Time, UnitInv};
 use std::ops::{Mul, Sub};
 
 /// Variable-step explicit integrators for implicit differential-algebraic equations.

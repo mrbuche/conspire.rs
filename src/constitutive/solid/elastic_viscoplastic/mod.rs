@@ -1,6 +1,5 @@
 //! Elastic-viscoplastic solid constitutive models.
 
-use crate::math::unit::Time;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -18,6 +17,7 @@ use crate::{
         DeformationGradient, DeformationGradients, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, Times,
     },
+    units::Time,
 };
 
 use crate::constitutive::solid::elastic_plastic::bcs;

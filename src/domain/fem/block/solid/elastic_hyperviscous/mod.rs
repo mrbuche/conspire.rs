@@ -1,4 +1,3 @@
-use crate::math::unit::Power;
 use crate::{
     constitutive::solid::elastic_hyperviscous::ElasticHyperviscous,
     fem::{
@@ -9,6 +8,7 @@ use crate::{
         },
     },
     math::Quantity,
+    units::Power,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>

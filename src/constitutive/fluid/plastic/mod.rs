@@ -1,9 +1,7 @@
 //! Plastic fluid constitutive models.
 
-use crate::{
-    constitutive::ConstitutiveError,
-    math::{Quantity, unit::Stress},
-};
+use crate::units::Stress;
+use crate::{constitutive::ConstitutiveError, math::Quantity};
 use std::fmt::Debug;
 
 /// Required methods for plastic fluid constitutive models.

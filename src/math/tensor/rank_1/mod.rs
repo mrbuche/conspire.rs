@@ -1,8 +1,7 @@
-use super::{ContractWith, Differentiate, Erase};
-use crate::math::unit::Dimensionless;
-use crate::math::{Current, Projection, Reference};
 #[cfg(test)]
 mod test;
+use super::{ContractWith, Differentiate, Erase};
+use crate::math::{Current, Projection, Reference};
 
 pub(crate) mod cross;
 pub(crate) mod list;
@@ -18,19 +17,18 @@ use std::{
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
+use crate::units::{UnitDiv, UnitMul};
 use crate::{
     ABS_TOL,
     math::{
         matrix::vector::Vector,
         tensor::{
-            Jacobian, Quantity, Solution, Tensor, TensorArray,
-            rank_0::TensorRank0,
-            rank_1::list::TensorRank1List,
-            rank_2::TensorRank2,
-            unit::{UnitDiv, UnitMul},
+            Jacobian, Quantity, Solution, Tensor, TensorArray, rank_0::TensorRank0,
+            rank_1::list::TensorRank1List, rank_2::TensorRank2,
         },
         write_tensor_rank_0,
     },
+    units::Dimensionless,
 };
 
 use crate::math::assert::FiniteDifference;

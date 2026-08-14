@@ -3,7 +3,8 @@ use crate::{
         NodalReferenceCoordinates,
         block::{Block, element::ElementNodalReferenceCoordinates},
     },
-    math::{Quantity, unit::Length},
+    math::Quantity,
+    units::Length,
 };
 
 const M: usize = 2;

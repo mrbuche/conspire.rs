@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::unit::Dimensionless;
 use crate::math::{TensorRank0, TensorRank4, tensor::list::TensorList};
+use crate::units::Dimensionless;
 
 /// A list of rank-4 tensors.
 pub type TensorRank4List<const D: usize, I, J, K, L, const N: usize, U = Dimensionless> =

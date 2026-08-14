@@ -1,6 +1,6 @@
 macro_rules! test_model {
     ($model:ident) => {
-        use crate::math::unit::Time;
+        use crate::units::Time;
         use crate::{
             constitutive::solid::elastic_viscoplastic::{
                 AppliedLoad, ElasticPlasticOrViscoplastic,

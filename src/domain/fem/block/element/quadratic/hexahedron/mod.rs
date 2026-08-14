@@ -7,7 +7,8 @@ use crate::{
         ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
-    math::{Scalar, ScalarList, TensorRank1, unit::Volume},
+    math::{Scalar, ScalarList, TensorRank1},
+    units::Volume,
 };
 
 const G: usize = 27;

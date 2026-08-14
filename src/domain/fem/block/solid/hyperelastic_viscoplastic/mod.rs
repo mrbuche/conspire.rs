@@ -1,5 +1,4 @@
 use crate::math::Quantity;
-use crate::math::unit::Energy;
 use crate::{
     constitutive::solid::hyperelastic_viscoplastic::HyperelasticViscoplastic,
     fem::{
@@ -15,6 +14,7 @@ use crate::{
         },
     },
     math::{Differentiate, Tensor},
+    units::Energy,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>

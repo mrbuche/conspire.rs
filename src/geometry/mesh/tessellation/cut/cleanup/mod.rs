@@ -7,10 +7,8 @@ use crate::{
         Coordinate, Coordinates,
         mesh::tessellation::{D, Tessellation},
     },
-    math::{
-        Quantity, Scalar, Tensor,
-        unit::{Length, Volume},
-    },
+    math::{Quantity, Scalar, Tensor},
+    units::{Length, Volume},
 };
 use std::collections::{HashMap, HashSet};
 

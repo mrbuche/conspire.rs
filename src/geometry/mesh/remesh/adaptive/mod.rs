@@ -6,10 +6,8 @@ use crate::{
         Coordinates,
         mesh::{Mesh, differential::jet::vertex_jets},
     },
-    math::{
-        Quantity, Scalar, Tensor,
-        unit::{Length, ReciprocalLength},
-    },
+    math::{Quantity, Scalar, Tensor},
+    units::{Length, ReciprocalLength},
 };
 
 const D: usize = 3;

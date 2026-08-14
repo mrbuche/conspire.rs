@@ -1,6 +1,5 @@
 use crate::math::assert::Assert;
 use crate::math::assert::perturbation;
-use crate::math::unit::Time;
 use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
@@ -17,6 +16,7 @@ use crate::{
         optimize::NewtonRaphson,
     },
     mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
+    units::Time,
 };
 
 #[test]

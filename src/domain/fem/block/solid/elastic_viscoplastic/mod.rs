@@ -1,4 +1,3 @@
-use crate::math::unit::Time;
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     fem::{
@@ -19,6 +18,7 @@ use crate::{
         optimize::EqualityConstraint,
     },
     mechanics::{DeformationGradientPlastic, DeformationGradientRatePlastic},
+    units::Time,
 };
 use std::array::from_fn;
 

@@ -8,9 +8,9 @@ pub(crate) mod vec;
 use super::{
     Differentiate, Erase, Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
-    unit::{Dimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul},
 };
 use crate::math::{TensorList, assert::FiniteDifference};
+use crate::units::{Dimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul};
 use std::{
     cmp::Ordering,
     fmt::{self, Display, Formatter},

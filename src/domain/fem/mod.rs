@@ -1,7 +1,7 @@
-//! Finite element library.
+//! Finite element methods.
 
-use crate::math::unit::{Length, Velocity};
 use crate::math::{Current, Reference};
+use crate::units::{Length, Velocity};
 pub mod block;
 mod from;
 pub mod solid;

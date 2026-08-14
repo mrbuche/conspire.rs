@@ -1,9 +1,9 @@
 use super::Quantity;
-use crate::math::unit::{Dimensionless, UnitDiv};
 use crate::math::{
     Jacobian, Solution, Tensor, TensorRank0, Vector, assert::FiniteDifference,
     tensor::vec::TensorVector,
 };
+use crate::units::{Dimensionless, UnitDiv};
 use std::ops::{Div, Sub};
 
 use super::sparse_vec_2d::QuantitySparseVec2D;

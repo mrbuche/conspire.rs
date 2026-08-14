@@ -2,11 +2,9 @@
 
 use crate::{
     constitutive::{Constitutive, ConstitutiveError, cohesive::Cohesive},
-    math::{
-        Current, Quantity, Tensor, TensorArray, TensorRank2, TensorTuple,
-        unit::{Length, Stress, StressPerLength},
-    },
+    math::{Current, Quantity, Tensor, TensorArray, TensorRank2, TensorTuple},
     mechanics::{Normal, Scalar, Separation, Traction},
+    units::{Length, Stress, StressPerLength},
 };
 
 type Dyad = TensorRank2<3, Current, Current>;

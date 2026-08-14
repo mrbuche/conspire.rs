@@ -7,7 +7,8 @@ use crate::{
         ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
-    math::{ScalarList, unit::Volume},
+    math::ScalarList,
+    units::Volume,
 };
 
 // When implement G=3, share the methods with cohesive linear wedge.

@@ -1,6 +1,5 @@
 //! Elastic-plastic solid constitutive models.
 
-use crate::math::unit::Time;
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic, solid::Solid},
     math::{
@@ -11,6 +10,7 @@ use crate::{
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Scalar,
         SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
+    units::Time,
 };
 
 /// Possible applied loads.

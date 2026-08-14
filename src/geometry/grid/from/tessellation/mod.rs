@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     geometry::{Coordinate, grid::Voxels, mesh::Tessellation},
-    math::{Quantity, unit::Length},
+    math::Quantity,
+    units::Length,
 };
 use std::{
     array::from_fn,

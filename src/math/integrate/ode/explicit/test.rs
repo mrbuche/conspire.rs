@@ -1,11 +1,11 @@
 macro_rules! test_explicit {
     ($integration: expr) => {
-        use crate::math::unit::{Rate, Time};
         use crate::math::{
             Quantity, TensorVector,
             assert::AssertionError,
             integrate::{Explicit, IntegrationError, Times},
         };
+        use crate::units::{Rate, Time};
         /// The rate the dimensionless fixtures are stated against, there being
         /// no rate to divide a state by otherwise.
         const RATE: Quantity<Rate> = Quantity::new(1.0);

@@ -1,7 +1,6 @@
-use crate::math::Quantity;
-use crate::math::unit::{EnergyDensity, Stress};
 #[cfg(test)]
 mod test;
+use crate::math::Quantity;
 
 use crate::{
     constitutive::{
@@ -10,6 +9,7 @@ use crate::{
     },
     math::{IDENTITY, Rank2, TensorRank4},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+    units::{EnergyDensity, Stress},
 };
 
 #[doc = include_str!("doc.md")]

@@ -1,4 +1,5 @@
-use crate::math::{Quantity, unit::Length};
+use crate::{math::Quantity, units::Length};
+
 pub const THICKNESS: Quantity<Length> = Quantity::new(1.23);
 
 macro_rules! test_finite_element {
@@ -176,13 +177,22 @@ macro_rules! test_surface_finite_element {
                                         (0..3)
                                             .map(|i| {
                                                 let mut nodal_coordinates = coordinates();
-                                                nodal_coordinates[a][m] += $crate::math::assert::perturbation(0.5 * EPSILON);
+                                                nodal_coordinates[a][m] +=
+                                                    $crate::math::assert::perturbation(
+                                                        0.5 * EPSILON,
+                                                    );
                                                 finite_difference =
                                                     $element::normals(&nodal_coordinates)[p][i];
-                                                nodal_coordinates[a][m] -= $crate::math::assert::perturbation(EPSILON);
+                                                nodal_coordinates[a][m] -=
+                                                    $crate::math::assert::perturbation(EPSILON);
                                                 finite_difference -=
                                                     $element::normals(&nodal_coordinates)[p][i];
-                                                finite_difference / $crate::math::assert::perturbation::<$crate::math::unit::Length>(EPSILON)
+                                                finite_difference
+                                                    / $crate::math::assert::perturbation::<
+                                                        $crate::units::Length,
+                                                    >(
+                                                        EPSILON
+                                                    )
                                             })
                                             .collect()
                                     })
@@ -221,7 +231,8 @@ macro_rules! test_surface_finite_element {
                 $element::normals(&coordinates())
                     .iter()
                     .try_for_each(|normal| {
-                        $crate::math::assert::Assert::default().eq_within_tols(&normal.norm(), &$crate::math::Quantity::new(1.0))
+                        $crate::math::assert::Assert::default()
+                            .eq_within_tols(&normal.norm(), &$crate::math::Quantity::new(1.0))
                     })
             }
             #[test]
@@ -278,17 +289,27 @@ macro_rules! test_surface_finite_element {
                                             .enumerate()
                                             .map(|(k, velocity_a_k)| {
                                                 let mut nodal_coordinates = coordinates();
-                                                nodal_coordinates[a][k] += $crate::math::assert::perturbation(0.5 * EPSILON);
+                                                nodal_coordinates[a][k] +=
+                                                    $crate::math::assert::perturbation(
+                                                        0.5 * EPSILON,
+                                                    );
                                                 finite_difference =
                                                     $element::normals(&nodal_coordinates)[p][i];
-                                                nodal_coordinates[a][k] -= $crate::math::assert::perturbation(EPSILON);
+                                                nodal_coordinates[a][k] -=
+                                                    $crate::math::assert::perturbation(EPSILON);
                                                 finite_difference -=
                                                     $element::normals(&nodal_coordinates)[p][i];
-                                                finite_difference / $crate::math::assert::perturbation::<$crate::math::unit::Length>(EPSILON) * velocity_a_k
+                                                finite_difference
+                                                    / $crate::math::assert::perturbation::<
+                                                        $crate::units::Length,
+                                                    >(
+                                                        EPSILON
+                                                    )
+                                                    * velocity_a_k
                                             })
-                                            .sum::<$crate::math::Quantity<$crate::math::unit::Rate>>()
+                                            .sum::<$crate::math::Quantity<$crate::units::Rate>>()
                                     })
-                                    .sum::<$crate::math::Quantity<$crate::math::unit::Rate>>()
+                                    .sum::<$crate::math::Quantity<$crate::units::Rate>>()
                             })
                             .collect()
                     })
@@ -351,8 +372,10 @@ macro_rules! test_surface_finite_element {
                     .reference_normals()
                     .iter()
                     .try_for_each(|reference_normal| {
-                        $crate::math::assert::Assert::default()
-                            .eq_within_tols(&reference_normal.norm(), &$crate::math::Quantity::new(1.0))
+                        $crate::math::assert::Assert::default().eq_within_tols(
+                            &reference_normal.norm(),
+                            &$crate::math::Quantity::new(1.0),
+                        )
                     })
             }
             #[test]
@@ -996,7 +1019,7 @@ macro_rules! test_helmholtz_free_energy {
         fn get_helmholtz_free_energy(
             is_deformed: bool,
             is_rotated: bool,
-        ) -> Result<$crate::math::Quantity<$crate::math::unit::Energy>, AssertionError> {
+        ) -> Result<$crate::math::Quantity<$crate::units::Energy>, AssertionError> {
             if is_rotated {
                 if is_deformed {
                     Ok(get_element_transformed()
@@ -1043,12 +1066,9 @@ macro_rules! test_helmholtz_free_energy {
                                 $crate::math::assert::perturbation(EPSILON);
                             finite_difference -= element
                                 .helmholtz_free_energy(&$constitutive_model, &nodal_coordinates)?;
-                            // An energy per unit length is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::unit::Length>::new(
-                                    EPSILON,
-                                ))
-                            .value_as::<$crate::math::unit::Force>())
+                                / $crate::math::Quantity::<$crate::units::Length>::new(EPSILON))
+                            .value_as::<$crate::units::Force>())
                         })
                         .collect()
                 })
@@ -1368,7 +1388,7 @@ macro_rules! test_finite_element_with_elastic_or_hyperelastic_constitutive_model
                                             )?[a][i];
                                             Ok(finite_difference
                                                 / $crate::math::assert::perturbation::<
-                                                    $crate::math::unit::Length,
+                                                    $crate::units::Length,
                                                 >(EPSILON))
                                         })
                                         .collect()
@@ -1585,7 +1605,7 @@ macro_rules! test_finite_element_with_viscoelastic_constitutive_model {
                                             )?[a][i];
                                             Ok(finite_difference
                                                 / $crate::math::assert::perturbation::<
-                                                    $crate::math::unit::Velocity,
+                                                    $crate::units::Velocity,
                                                 >(EPSILON))
                                         })
                                         .collect()
@@ -1612,7 +1632,10 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
             $constitutive_model,
             $constitutive_model_type
         );
-        use crate::math::{ContractWith, Quantity, unit::Power};
+        use crate::{
+            math::{ContractWith, Quantity},
+            units::Power,
+        };
         fn get_viscous_dissipation(
             is_deformed: bool,
             is_rotated: bool,
@@ -1714,12 +1737,9 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &nodal_coordinates,
                                 &nodal_velocities,
                             )?;
-                            // A power per unit velocity is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::unit::Velocity>::new(
-                                    EPSILON,
-                                ))
-                            .value_as::<$crate::math::unit::Force>())
+                                / $crate::math::Quantity::<$crate::units::Velocity>::new(EPSILON))
+                            .value_as::<$crate::units::Force>())
                         })
                         .collect()
                 })
@@ -1758,12 +1778,9 @@ macro_rules! test_finite_element_with_elastic_hyperviscous_constitutive_model {
                                 &nodal_coordinates,
                                 &nodal_velocities,
                             )?;
-                            // A power per unit velocity is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::unit::Velocity>::new(
-                                    EPSILON,
-                                ))
-                            .value_as::<$crate::math::unit::Force>())
+                                / $crate::math::Quantity::<$crate::units::Velocity>::new(EPSILON))
+                            .value_as::<$crate::units::Force>())
                         })
                         .collect()
                 })

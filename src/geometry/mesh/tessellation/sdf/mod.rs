@@ -1,5 +1,4 @@
 #[cfg(test)]
-#[cfg(feature = "netcdf")]
 mod test;
 
 use std::{
@@ -9,7 +8,8 @@ use std::{
 
 use crate::{
     geometry::{Direction, DirectionsRef, mesh::tessellation::Tessellation},
-    math::{Quantity, QuantityVector, Scalar, Tensor, unit::Length},
+    math::{Quantity, QuantityVector, Scalar, Tensor},
+    units::Length,
 };
 
 impl Tessellation {

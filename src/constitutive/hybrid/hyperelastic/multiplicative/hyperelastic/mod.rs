@@ -2,7 +2,6 @@
 mod test;
 
 use crate::math::Quantity;
-use crate::math::unit::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -10,6 +9,7 @@ use crate::{
         solid::hyperelastic::{Hyperelastic, internal_variables::HyperelasticIV},
     },
     mechanics::{DeformationGradient, DeformationGradient2},
+    units::EnergyDensity,
 };
 
 impl<C1, C2> HyperelasticIV<DeformationGradient2> for ElasticMultiplicative<C1, C2>

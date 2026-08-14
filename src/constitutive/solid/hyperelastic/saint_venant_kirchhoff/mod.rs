@@ -1,8 +1,7 @@
-use crate::math::Quantity;
-use crate::math::TensorRank4;
-use crate::math::unit::{EnergyDensity, Stress};
 #[cfg(test)]
 mod test;
+use crate::math::Quantity;
+use crate::math::TensorRank4;
 
 use crate::{
     constitutive::{
@@ -14,6 +13,7 @@ use crate::{
         Deformation, DeformationGradient, Scalar, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
     },
+    units::{EnergyDensity, Stress},
 };
 
 #[doc = include_str!("doc.md")]

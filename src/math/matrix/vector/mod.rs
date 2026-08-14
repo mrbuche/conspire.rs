@@ -1,5 +1,5 @@
 use crate::math::assert::FiniteDifference;
-use crate::math::unit::Dimensionless;
+use crate::units::Dimensionless;
 
 use crate::math::{
     Erase, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution, SquareMatrix, Tensor,

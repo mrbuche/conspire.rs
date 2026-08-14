@@ -1,5 +1,4 @@
 use crate::math::Quantity;
-use crate::math::unit::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -8,6 +7,7 @@ use crate::{
     },
     math::{Differentiate, Tensor},
     mechanics::{DeformationGradient, DeformationGradientPlastic},
+    units::EnergyDensity,
 };
 
 impl<C1, C2, Y1> HyperelasticViscoplastic<Y1> for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>

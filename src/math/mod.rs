@@ -1,4 +1,4 @@
-//! Mathematics library.
+//! Numerical methods.
 
 /// Assertion helpers for comparing values.
 pub mod assert;
@@ -39,7 +39,6 @@ pub use matrix::{
     vector::Vector,
 };
 pub use set::{Set, sets::Sets};
-pub use tensor::unit;
 pub use tensor::{
     Auxiliary, Configuration, ContractWith, Current, Derivative, Differentiate, Erase, Factor,
     Flattened, Hessian, HessianAccumulate, HessianBlock, Intermediate, Is, Jacobian, Norm,

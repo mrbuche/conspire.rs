@@ -5,7 +5,8 @@ pub use tetrahedron::Tetrahedron;
 
 use crate::{
     fem::block::element::Element,
-    math::{TensorRank1List, TensorRank2, TensorRank2List, unit::Length},
+    math::{TensorRank1List, TensorRank2, TensorRank2List},
+    units::Length,
 };
 
 pub type CompositeElement<const G: usize, const N: usize> = Element<3, G, N, 0>;

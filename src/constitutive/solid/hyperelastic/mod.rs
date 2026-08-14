@@ -4,11 +4,11 @@
 //!
 #![doc = include_str!("doc.md")]
 
-#[cfg(feature = "doc")]
-pub mod doc;
-
 #[cfg(test)]
 pub mod test;
+
+#[cfg(feature = "doc")]
+pub mod doc;
 
 pub mod internal_variables;
 
@@ -33,7 +33,7 @@ use super::{
 };
 use crate::math::Quantity;
 use crate::math::optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization};
-use crate::math::unit::EnergyDensity;
+use crate::units::EnergyDensity;
 
 /// Required methods for hyperelastic solid constitutive models.
 pub trait Hyperelastic

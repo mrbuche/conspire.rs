@@ -1,8 +1,7 @@
-use crate::math::Quantity;
-use crate::math::TensorRank4;
-use crate::math::unit::{EnergyDensity, Stress};
 #[cfg(test)]
 mod test;
+use crate::math::Quantity;
+use crate::math::TensorRank4;
 
 use crate::{
     constitutive::{
@@ -11,6 +10,7 @@ use crate::{
     },
     math::{ContractThirdFourthWithFirstSecond, IDENTITY, Rank2},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+    units::{EnergyDensity, Stress},
 };
 
 #[doc = include_str!("doc.md")]

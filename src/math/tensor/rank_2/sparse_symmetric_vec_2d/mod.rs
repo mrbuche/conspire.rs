@@ -2,10 +2,10 @@
 mod test;
 
 use super::TensorRank2;
-use crate::math::unit::Dimensionless;
 use crate::math::{
     Hessian, HessianAccumulate, Rank2, Scalar, SquareMatrix, Tensor, TensorRank0, Vector,
 };
+use crate::units::Dimensionless;
 use std::{
     fmt::{self, Debug, Display, Formatter},
     iter::Sum,

@@ -1,7 +1,6 @@
-use crate::math::Quantity;
-use crate::math::unit::{Rate, Stress};
 #[cfg(test)]
 mod test;
+use crate::math::Quantity;
 
 use crate::{
     constitutive::{
@@ -28,6 +27,7 @@ use crate::{
         MandelStressElastic, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffStressElastic,
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffnessElastic,
     },
+    units::{Rate, Stress},
 };
 
 impl<C1, C2, Y2> Solid for ElasticMultiplicativeViscoplastic<C1, C2, Y2>

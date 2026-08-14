@@ -1,7 +1,7 @@
-use crate::math::Projection;
-use crate::math::Reference;
 #[cfg(test)]
 mod test;
+use crate::math::Projection;
+use crate::math::Reference;
 
 pub mod cohesive;
 pub mod composite;
@@ -16,11 +16,10 @@ pub mod thermal;
 use crate::{
     math::{
         Quantity, Scalar, ScalarList, TensorList, TensorRank1, TensorRank1List, TensorRank1List2D,
-        assert::AssertionError,
-        defeat_message,
-        unit::{Length, ReciprocalLength, Volume},
+        assert::AssertionError, defeat_message,
     },
     mechanics::{CoordinateList, CurrentCoordinates, CurrentVelocities, ReferenceCoordinates},
+    units::{Length, ReciprocalLength, Volume},
 };
 use std::fmt::{self, Debug, Display, Formatter};
 

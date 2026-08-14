@@ -3,7 +3,7 @@ use crate::fem::{
     solid::elastic_hyperviscous::ElasticHyperviscousElements,
 };
 use crate::math::Quantity;
-use crate::math::unit::Energy;
+use crate::units::Energy;
 
 pub trait HyperviscoelasticElements<const D: usize>
 where

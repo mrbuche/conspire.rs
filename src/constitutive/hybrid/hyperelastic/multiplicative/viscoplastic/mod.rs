@@ -2,7 +2,6 @@
 mod test;
 
 use crate::math::Quantity;
-use crate::math::unit::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -12,6 +11,7 @@ use crate::{
     },
     math::{Differentiate, Tensor},
     mechanics::{DeformationGradient, DeformationGradientPlastic},
+    units::EnergyDensity,
 };
 
 impl<C1, C2, Y2> HyperelasticViscoplastic<Y2> for ElasticMultiplicativeViscoplastic<C1, C2, Y2>

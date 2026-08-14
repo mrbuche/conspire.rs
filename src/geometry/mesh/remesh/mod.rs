@@ -6,7 +6,8 @@ mod uniform;
 
 use crate::{
     geometry::mesh::Mesh,
-    math::{Quantity, Scalar, unit::Length},
+    math::{Quantity, Scalar},
+    units::Length,
 };
 
 const D: usize = 3;

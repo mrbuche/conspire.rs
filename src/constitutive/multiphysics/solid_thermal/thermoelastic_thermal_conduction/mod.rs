@@ -1,9 +1,8 @@
 //! Thermoelastic-thermal conduction constitutive models.
-
-use crate::math::Quantity;
-use crate::math::unit::{PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature};
 #[cfg(test)]
 pub mod test;
+
+use crate::math::Quantity;
 
 use crate::{
     constitutive::{
@@ -17,6 +16,7 @@ use crate::{
         FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
     },
+    units::{PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature},
 };
 
 /// A thermoelastic-thermal conduction constitutive model.

@@ -1,5 +1,5 @@
 use crate::math::Current;
-use crate::math::unit::{Force, ForcePerLength, ForcePerVelocity};
+use crate::units::{Force, ForcePerLength, ForcePerVelocity};
 pub mod elastic;
 pub mod elastic_hyperviscous;
 pub mod elastic_viscoplastic;

@@ -1,7 +1,6 @@
 pub mod internal_variables;
 
 use crate::math::Quantity;
-use crate::math::unit::Energy;
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, Model,
@@ -15,6 +14,7 @@ use crate::{
             EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,
         },
     },
+    units::Energy,
 };
 
 pub trait HyperelasticElements<const D: usize>

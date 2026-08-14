@@ -7,10 +7,8 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{Connectivity, Mesh},
     },
-    math::{
-        FxHashMap, FxHashSet, Quantity, Reference, Scalar, Tensor, TensorRank1, TensorVec,
-        unit::{Area, Length},
-    },
+    math::{FxHashMap, FxHashSet, Quantity, Reference, Scalar, Tensor, TensorRank1, TensorVec},
+    units::{Area, Length},
 };
 use std::array::from_fn;
 

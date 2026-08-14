@@ -1,6 +1,6 @@
-use crate::math::Reference;
 #[cfg(test)]
 mod test;
+use crate::math::Reference;
 
 use crate::math::FxHashMap;
 use crate::{
@@ -9,7 +9,8 @@ use crate::{
         bbox::{BoundingBox, BoundingBoxes},
         mesh::{Connectivity, Mesh, NodeSets, SideSets},
     },
-    math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D, TensorVec, unit::Dimensionless},
+    math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D, TensorVec},
+    units::Dimensionless,
 };
 use std::array::from_fn;
 

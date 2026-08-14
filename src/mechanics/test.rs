@@ -7,8 +7,9 @@ use super::{
 use crate::math::assert::Assert;
 use crate::math::{
     IDENTITY, IDENTITY_00, IDENTITY_10, Quantity, Rank2, Tensor, TensorArray,
-    assert::AssertionError, unit::Temperature,
+    assert::AssertionError,
 };
+use crate::units::Temperature;
 
 impl From<DeformationError> for AssertionError {
     fn from(error: DeformationError) -> AssertionError {

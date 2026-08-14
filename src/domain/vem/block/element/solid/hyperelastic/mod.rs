@@ -1,9 +1,9 @@
 use crate::math::Quantity;
-use crate::math::unit::Energy;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
     fem::block::element::solid::hyperelastic::HyperelasticFiniteElement,
     math::Tensor,
+    units::Energy,
     vem::block::element::{
         Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
         solid::{SolidVirtualElement, elastic::ElasticVirtualElement},

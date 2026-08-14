@@ -22,6 +22,9 @@ pub mod mechanics;
 #[cfg(feature = "physics")]
 pub mod physics;
 
+#[cfg(feature = "units")]
+pub mod units;
+
 #[cfg(feature = "vem")]
 #[path = "domain/vem/mod.rs"]
 pub mod vem;

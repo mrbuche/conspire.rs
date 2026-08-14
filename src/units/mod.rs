@@ -1,4 +1,4 @@
-//! Units for tensors.
+//! Dimensional analysis.
 
 #[cfg(test)]
 mod test;

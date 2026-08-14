@@ -1,7 +1,6 @@
 //! Solid constitutive models.
 
 use crate::math::Quantity;
-use crate::math::unit::Stress;
 pub mod elastic;
 pub mod elastic_hyperviscous;
 pub mod elastic_plastic;
@@ -30,6 +29,7 @@ use crate::{
         SecondPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness, Times,
     },
+    units::Stress,
 };
 use std::fmt::Debug;
 

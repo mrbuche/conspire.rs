@@ -1,6 +1,6 @@
-use crate::math::Projection;
 #[cfg(test)]
 mod test;
+use crate::math::Projection;
 
 use crate::{
     fem::block::element::{
@@ -15,7 +15,8 @@ use crate::{
         linear::Tetrahedron as LinearTetrahedron,
         quadratic::Tetrahedron as QuadraticTetrahedron,
     },
-    math::{Quantity, Scalar, ScalarList, Tensor, TensorRank1, unit::Volume},
+    math::{Quantity, Scalar, ScalarList, Tensor, TensorRank1},
+    units::Volume,
 };
 
 const G: usize = 4;

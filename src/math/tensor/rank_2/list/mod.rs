@@ -1,10 +1,9 @@
-pub(crate) mod vec;
-
 #[cfg(test)]
 mod test;
+pub(crate) mod vec;
 
-use crate::math::unit::Dimensionless;
 use crate::math::{TensorRank0, TensorRank2, tensor::list::TensorList};
+use crate::units::Dimensionless;
 
 /// A list of rank-2 tensors.
 pub type TensorRank2List<const D: usize, I, J, const N: usize, U = Dimensionless> =

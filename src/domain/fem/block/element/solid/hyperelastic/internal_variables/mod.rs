@@ -1,5 +1,4 @@
-use crate::math::unit::Energy;
-use crate::math::unit::{Dimensionless, UnitDiv};
+use crate::units::{Dimensionless, UnitDiv};
 use std::ops::{Div, Mul};
 
 use crate::{
@@ -12,6 +11,7 @@ use crate::{
         },
     },
     math::{Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector},
+    units::Energy,
 };
 
 pub trait HyperelasticIVFiniteElement<

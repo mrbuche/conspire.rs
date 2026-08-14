@@ -1,5 +1,4 @@
 use crate::math::assert::Assert;
-use crate::math::unit::Time;
 use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
@@ -35,6 +34,7 @@ use crate::{
         integrate::BogackiShampine,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
+    units::Time,
 };
 
 const D: usize = 14;

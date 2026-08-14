@@ -223,7 +223,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 cauchy_rate_tangent_stiffness[i][j][k][l] = (
                                     cauchy_stress_plus[i][j] - cauchy_stress_minus[i][j]
-                                )/$crate::math::assert::perturbation::<$crate::math::unit::Rate>(EPSILON);
+                                )/$crate::math::assert::perturbation::<$crate::units::Rate>(EPSILON);
                             }
                         }
                     }
@@ -280,7 +280,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 first_piola_kirchhoff_rate_tangent_stiffness[i][j][k][l] = (
                                     first_piola_kirchhoff_stress_plus[i][j] - first_piola_kirchhoff_stress_minus[i][j]
-                                )/$crate::math::assert::perturbation::<$crate::math::unit::Rate>(EPSILON);
+                                )/$crate::math::assert::perturbation::<$crate::units::Rate>(EPSILON);
                             }
                         }
                     }
@@ -337,7 +337,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 second_piola_kirchhoff_rate_tangent_stiffness[i][j][k][l] = (
                                     second_piola_kirchhoff_stress_plus[i][j] - second_piola_kirchhoff_stress_minus[i][j]
-                                )/$crate::math::assert::perturbation::<$crate::math::unit::Rate>(EPSILON);
+                                )/$crate::math::assert::perturbation::<$crate::units::Rate>(EPSILON);
                             }
                         }
                     }

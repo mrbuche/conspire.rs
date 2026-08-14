@@ -1,4 +1,3 @@
-use crate::math::unit::Time;
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
@@ -11,6 +10,7 @@ use crate::{
         optimize::{EqualityConstraint, FirstOrderRootFinding},
     },
     mechanics::Times,
+    units::Time,
 };
 
 pub trait ViscoelasticElements<const D: usize>

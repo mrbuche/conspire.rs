@@ -15,7 +15,6 @@ pub use newton_raphson::NewtonRaphson;
 pub use strategy::SolveStrategy;
 pub use trust_region::TrustRegion;
 
-use crate::math::unit::UnitDiv;
 use crate::math::{
     Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
     assert::AssertionError,
@@ -23,6 +22,7 @@ use crate::math::{
     sparse::{CscMatrix, SparseError, SparseSolver},
     styled_error,
 };
+use crate::units::UnitDiv;
 use std::{fmt::Debug, ops::Mul};
 
 /// The step size that takes a decrement of type `D` to an increment of `X`.

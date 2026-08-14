@@ -1,14 +1,13 @@
-//! Mechanics library.
-
-use crate::math::{
-    Current, Intermediate, Reference,
-    unit::{
-        ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature, Rate,
-        ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
-    },
-};
+//! Mechanics aliases.
 #[cfg(test)]
 pub mod test;
+
+use crate::units::{
+    ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature, Rate,
+    ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
+};
+
+use crate::math::{Current, Intermediate, Reference};
 
 use crate::math::{
     Rank2, Style, StyledError, Tensor, TensorRank1, TensorRank1List, TensorRank1List2D,
@@ -240,13 +239,13 @@ pub type FirstPiolaKirchhoffRateTangentStiffnesses<const W: usize> =
     TensorRank4List<3, Current, Reference, Current, Reference, W, Viscosity>;
 
 /// A force.
-pub type Force = TensorRank1<3, Current, crate::math::unit::Force>;
+pub type Force = TensorRank1<3, Current, crate::units::Force>;
 
 /// A list of forces.
-pub type ForceList<const N: usize> = TensorRank1List<3, Current, N, crate::math::unit::Force>;
+pub type ForceList<const N: usize> = TensorRank1List<3, Current, N, crate::units::Force>;
 
 /// A vector of forces.
-pub type Forces = TensorRank1Vec<3, Current, crate::math::unit::Force>;
+pub type Forces = TensorRank1Vec<3, Current, crate::units::Force>;
 
 /// The frame spin $`\mathbf{\Omega}=\dot{\mathbf{Q}}\cdot\mathbf{Q}^T`$.
 pub type FrameSpin = TensorRank2<3, Current, Current, Rate>;

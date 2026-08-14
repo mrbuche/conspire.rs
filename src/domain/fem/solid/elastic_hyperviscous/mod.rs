@@ -1,4 +1,3 @@
-use crate::math::unit::{Power, Time};
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
@@ -12,6 +11,7 @@ use crate::{
         optimize::{EqualityConstraint, SecondOrderOptimization},
     },
     mechanics::Times,
+    units::{Power, Time},
 };
 
 pub trait ElasticHyperviscousElements<const D: usize>

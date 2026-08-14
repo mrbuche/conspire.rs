@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::unit::Time;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{FixedStep, IntegrationError, OdeIntegrator, Times},
     optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
 };
+use crate::units::Time;
 
 pub(crate) mod backward_euler;
 pub(crate) mod midpoint;

@@ -425,10 +425,8 @@ macro_rules! test_helmholtz_free_energy {
                             finite_difference -= block.helmholtz_free_energy(&nodal_coordinates)?;
                             // An energy per unit length is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::unit::Length>::new(
-                                    EPSILON,
-                                ))
-                            .value_as::<$crate::math::unit::Force>())
+                                / $crate::math::Quantity::<$crate::units::Length>::new(EPSILON))
+                            .value_as::<$crate::units::Force>())
                         })
                         .collect()
                 })
@@ -676,7 +674,7 @@ macro_rules! test_finite_element_block_with_elastic_or_hyperelastic_constitutive
                                                 block.nodal_forces(&nodal_coordinates)?[node_a][i];
                                             Ok(finite_difference
                                                 / $crate::math::assert::perturbation::<
-                                                    $crate::math::unit::Length,
+                                                    $crate::units::Length,
                                                 >(EPSILON))
                                         })
                                         .collect()
@@ -995,7 +993,7 @@ macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
                                             )?[node_b][j];
                                             Ok(finite_difference
                                                 / $crate::math::assert::perturbation::<
-                                                    $crate::math::unit::Velocity,
+                                                    $crate::units::Velocity,
                                                 >(EPSILON))
                                         })
                                         .collect()
@@ -1215,10 +1213,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 block.viscous_dissipation(&nodal_coordinates, &nodal_velocities)?;
                             // A power per unit velocity is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::unit::Velocity>::new(
-                                    EPSILON,
-                                ))
-                            .value_as::<$crate::math::unit::Force>())
+                                / $crate::math::Quantity::<$crate::units::Velocity>::new(EPSILON))
+                            .value_as::<$crate::units::Force>())
                         })
                         .collect()
                 })
@@ -1258,10 +1254,8 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 .dissipation_potential(&nodal_coordinates, &nodal_velocities)?;
                             // A power per unit velocity is a force.
                             Ok((finite_difference
-                                / $crate::math::Quantity::<$crate::math::unit::Velocity>::new(
-                                    EPSILON,
-                                ))
-                            .value_as::<$crate::math::unit::Force>())
+                                / $crate::math::Quantity::<$crate::units::Velocity>::new(EPSILON))
+                            .value_as::<$crate::units::Force>())
                         })
                         .collect()
                 })

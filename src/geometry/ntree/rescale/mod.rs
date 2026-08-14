@@ -1,6 +1,7 @@
 use crate::{
     geometry::{Coordinate, Coordinates, ntree::Orthotree},
-    math::{Quantity, Scalar, Tensor, unit::Length},
+    math::{Quantity, Scalar, Tensor},
+    units::Length,
 };
 use std::array::from_fn;
 

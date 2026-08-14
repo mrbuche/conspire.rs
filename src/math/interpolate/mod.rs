@@ -4,8 +4,8 @@ mod test;
 use super::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec, Vector,
     integrate::{IntegrationError, Times},
-    unit::Time,
 };
+use crate::units::Time;
 use std::ops::{Mul, Sub};
 
 /// Linear interpolation schemes.

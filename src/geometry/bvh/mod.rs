@@ -1,13 +1,11 @@
+use crate::units::Length;
 mod base;
 mod from;
 mod node;
 mod primitive;
 mod ray;
 
-use crate::{
-    geometry::bvh::node::Nodes,
-    math::{Quantity, unit::Length},
-};
+use crate::{geometry::bvh::node::Nodes, math::Quantity};
 
 pub struct BoundingVolumeHierarchy<const D: usize> {
     items: Vec<usize>,

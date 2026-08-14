@@ -14,7 +14,8 @@ use crate::{
             rescale::Rescaling,
         },
     },
-    math::{Quantity, Scalar, Tensor, TensorVec, unit::Length},
+    math::{Quantity, Scalar, Tensor, TensorVec},
+    units::Length,
 };
 use std::{array::from_fn, f64::consts::FRAC_PI_3, ops::Add};
 

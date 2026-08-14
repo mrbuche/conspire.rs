@@ -16,8 +16,8 @@ use crate::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
-        unit::PowerTemperature,
     },
+    units::PowerTemperature,
 };
 
 pub trait ThermalConductionElements

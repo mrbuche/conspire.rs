@@ -6,11 +6,9 @@ use crate::{
         solid::{ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidFiniteElement},
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
-    math::{
-        ContractSecondFourthWithFirst, Current, IDENTITY, Quantity, Tensor, TensorRank2,
-        unit::ViscosityPerArea,
-    },
+    math::{ContractSecondFourthWithFirst, Current, IDENTITY, Quantity, Tensor, TensorRank2},
     mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStressList},
+    units::ViscosityPerArea,
 };
 
 pub trait ViscoelasticFiniteElement<

@@ -7,7 +7,8 @@ use crate::{
         ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
-    math::{ScalarList, unit::Volume},
+    math::ScalarList,
+    units::Volume,
 };
 
 const G: usize = 4;

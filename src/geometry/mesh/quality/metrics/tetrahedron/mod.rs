@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     geometry::Coordinates,
-    math::{Quantity, Scalar, unit::Volume},
+    math::{Quantity, Scalar},
+    units::Volume,
 };
 use std::f64::consts::SQRT_2;
 

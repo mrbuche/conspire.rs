@@ -6,8 +6,8 @@ use crate::{
     math::{
         Reference, TensorRank1,
         assert::{Assert, AssertionError},
-        unit::ReciprocalLength,
     },
+    units::ReciprocalLength,
 };
 use std::array::from_fn;
 

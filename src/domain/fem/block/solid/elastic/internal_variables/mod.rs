@@ -1,4 +1,3 @@
-use crate::math::unit::{Dimensionless, UnitDiv};
 use std::ops::{Div, Mul};
 
 use crate::{
@@ -20,6 +19,7 @@ use crate::{
         Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector,
         optimize::NewtonRaphson,
     },
+    units::{Dimensionless, UnitDiv},
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E>

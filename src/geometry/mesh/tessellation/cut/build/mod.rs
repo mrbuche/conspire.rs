@@ -18,7 +18,8 @@ use crate::{
             tessellation::{D, Tessellation},
         },
     },
-    math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec, unit::Length},
+    math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec},
+    units::Length,
 };
 use std::collections::{HashMap, HashSet};
 

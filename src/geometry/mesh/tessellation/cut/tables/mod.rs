@@ -12,7 +12,8 @@ use crate::{
         Coordinate, DirectionsRef,
         mesh::{Mesh, tessellation::D, tessellation::Tessellation},
     },
-    math::{Quantity, Scalar, Tensor, unit::Length},
+    math::{Quantity, Scalar, Tensor},
+    units::Length,
 };
 use std::{array::from_fn, collections::HashMap, collections::HashSet};
 

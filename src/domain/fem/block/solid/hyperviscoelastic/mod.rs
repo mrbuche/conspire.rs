@@ -1,5 +1,4 @@
 use crate::math::Quantity;
-use crate::math::unit::Energy;
 use crate::{
     constitutive::solid::hyperviscoelastic::Hyperviscoelastic,
     fem::{
@@ -10,6 +9,7 @@ use crate::{
             hyperviscoelastic::HyperviscoelasticElements,
         },
     },
+    units::Energy,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>

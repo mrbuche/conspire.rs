@@ -1,4 +1,3 @@
-use crate::math::unit::Power;
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic_hyperviscous::ElasticHyperviscous},
     fem::block::element::{
@@ -6,6 +5,7 @@ use crate::{
         solid::viscoelastic::ViscoelasticFiniteElement, surface::SurfaceElement,
     },
     math::{Quantity, Tensor},
+    units::Power,
 };
 
 pub trait ElasticHyperviscousFiniteElement<

@@ -1,7 +1,6 @@
-use crate::math::TensorRank4;
-use crate::math::unit::{Dissipation, Stress, Viscosity};
 #[cfg(test)]
 mod test;
+use crate::math::TensorRank4;
 
 use crate::math::{ContractWith, Quantity};
 use crate::{
@@ -18,6 +17,7 @@ use crate::{
         CauchyRateTangentStiffness, CauchyStress, DeformationGradient, DeformationGradientRate,
         Scalar,
     },
+    units::{Dissipation, Stress, Viscosity},
 };
 
 /// The Almansi-Hamel viscoelastic solid constitutive model.

@@ -13,8 +13,8 @@ use crate::{
     math::{
         ContractWith, CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1,
         TensorRank1List, TensorRank1Vec,
-        unit::{Area, Dimensionless, Length, ReciprocalLength},
     },
+    units::{Area, Dimensionless, Length, ReciprocalLength},
 };
 use std::{
     array::from_fn,

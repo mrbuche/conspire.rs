@@ -1,4 +1,4 @@
-//! Constitutive model library.
+//! Constitutive models.
 
 #[cfg(test)]
 pub mod test;

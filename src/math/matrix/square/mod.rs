@@ -6,7 +6,7 @@ mod lu;
 
 use crate::math::Quantity;
 use crate::math::assert::FiniteDifference;
-use crate::math::unit::Dimensionless;
+use crate::units::Dimensionless;
 
 use crate::math::{
     Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,

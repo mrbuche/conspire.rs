@@ -7,11 +7,9 @@ use crate::{
         Element, FiniteElement, FiniteElementError,
         thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
-    math::{
-        ContractWith, Quantity, Tensor, TensorList,
-        unit::{Power, PowerPerTemperature, PowerTemperature},
-    },
+    math::{ContractWith, Quantity, Tensor, TensorList},
     mechanics::{HeatFluxTangents, HeatFluxes},
+    units::{Power, PowerPerTemperature, PowerTemperature},
 };
 
 pub type ElementNodalForcesThermal<const D: usize> = TensorList<Quantity<Power>, D>;

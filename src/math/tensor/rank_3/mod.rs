@@ -1,7 +1,7 @@
-use crate::math::unit::Dimensionless;
-use crate::math::{Current, Reference};
 #[cfg(test)]
 mod test;
+use crate::math::{Current, Reference};
+use crate::units::Dimensionless;
 
 use crate::math::assert::FiniteDifference;
 

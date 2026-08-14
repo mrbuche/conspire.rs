@@ -4,9 +4,9 @@ use crate::{
     math::{
         Quantity, Scalar,
         assert::{AssertionError, perturbation},
-        unit::{Force, Length, Temperature},
     },
     physics::molecular::potential::{Harmonic, Morse, Potential},
+    units::{Force, Length, Temperature},
 };
 
 const NUM: usize = 333;

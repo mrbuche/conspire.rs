@@ -10,8 +10,7 @@ pub use hencky::Hencky;
 pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use crate::constitutive::solid::elastic_plastic::bcs;
-use crate::math::unit::EnergyDensity;
-use crate::math::unit::Time;
+use crate::units::Time;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -30,6 +29,7 @@ use crate::{
         DeformationGradient, DeformationGradientPlastic, DeformationGradients,
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Times,
     },
+    units::EnergyDensity,
 };
 
 /// Required methods for hyperelastic-viscoplastic solid constitutive models.

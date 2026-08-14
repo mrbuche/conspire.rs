@@ -7,13 +7,13 @@ use crate::{
         Quantity, Scalar,
         random::random_uniform,
         special::{inverse_langevin, langevin, langevin_derivative, sinhc},
-        unit::Length,
     },
     mechanics::Vector,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
         SingleChain, SingleChainError, Thermodynamics,
     },
+    units::Length,
 };
 use std::f64::consts::{PI, TAU};
 

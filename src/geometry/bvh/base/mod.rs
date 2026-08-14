@@ -12,10 +12,8 @@ use crate::{
             ray::Ray,
         },
     },
-    math::{
-        Quantity,
-        unit::{Area, Length},
-    },
+    math::Quantity,
+    units::{Area, Length},
 };
 
 impl<const D: usize> BoundingVolumeHierarchy<D> {

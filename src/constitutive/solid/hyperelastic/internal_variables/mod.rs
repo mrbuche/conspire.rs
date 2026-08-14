@@ -1,7 +1,6 @@
 //! Hyperelastic solid constitutive models with internal variables.
 
 use crate::math::Quantity;
-use crate::math::unit::EnergyDensity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -19,6 +18,7 @@ use crate::{
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
     },
+    units::EnergyDensity,
 };
 
 /// Required methods for hyperelastic solid constitutive models with internal variables.

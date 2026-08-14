@@ -7,7 +7,6 @@ use crate::{
         Quantity, Scalar,
         random::{random_uniform, random_x2_normal},
         special::{erf, erfc},
-        unit::{ForcePerLength, Length},
     },
     mechanics::Vector,
     physics::{
@@ -23,6 +22,7 @@ use crate::{
             },
         },
     },
+    units::{ForcePerLength, Length},
 };
 use std::f64::consts::{PI, TAU};
 

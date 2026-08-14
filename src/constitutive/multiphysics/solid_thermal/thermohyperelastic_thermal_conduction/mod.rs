@@ -1,11 +1,8 @@
 //! Thermohyperelastic-thermal conduction constitutive models.
-
-use crate::math::Quantity;
-use crate::math::unit::{
-    EnergyDensity, PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature,
-};
 #[cfg(test)]
 mod test;
+
+use crate::math::Quantity;
 
 use crate::{
     constitutive::{
@@ -19,6 +16,7 @@ use crate::{
         FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
     },
+    units::{EnergyDensity, PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature},
 };
 
 /// A thermohyperelastic-thermal conduction constitutive model.

@@ -2,10 +2,11 @@
 mod test;
 
 use crate::{
-    math::{Quantity, Scalar, unit::Length},
+    math::{Quantity, Scalar},
     physics::molecular::single_chain::{
         Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError, Thermodynamics,
     },
+    units::Length,
 };
 use std::f64::consts::PI;
 

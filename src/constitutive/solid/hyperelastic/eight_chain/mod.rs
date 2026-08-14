@@ -1,8 +1,7 @@
-use crate::math::Quantity;
-use crate::math::TensorRank4;
-use crate::math::unit::{EnergyDensity, Stress};
 #[cfg(test)]
 mod test;
+use crate::math::Quantity;
+use crate::math::TensorRank4;
 
 use crate::{
     constitutive::{
@@ -12,6 +11,7 @@ use crate::{
     math::{IDENTITY, Rank2},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
     physics::molecular::single_chain::Thermodynamics as SingleChainThermodynamics,
+    units::{EnergyDensity, Stress},
 };
 use std::{
     any::type_name,

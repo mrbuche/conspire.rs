@@ -1,5 +1,5 @@
-use crate::math::unit::{Dimensionless, Stress, UnitDiv};
 use crate::math::{Erase, Quantity};
+use crate::units::{Dimensionless, Stress, UnitDiv};
 use std::ops::{Div, Mul};
 
 use crate::{
@@ -13,12 +13,12 @@ use crate::{
         ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, Solution,
         SquareMatrix, Tensor, TensorList, Vector,
         optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson},
-        unit::Volume,
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressList,
         FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessList,
     },
+    units::Volume,
 };
 
 /// The indices of the internal variables that are free to move.

@@ -1,5 +1,4 @@
 //! Thermal conduction constitutive models.
-
 #[cfg(test)]
 pub mod test;
 
@@ -7,8 +6,9 @@ mod fourier;
 
 use crate::{
     constitutive::{ConstitutiveError, thermal::Thermal},
-    math::{Quantity, unit::PowerTemperatureDensity},
+    math::Quantity,
     mechanics::{HeatFlux, HeatFluxTangent, TemperatureGradient},
+    units::PowerTemperatureDensity,
 };
 
 pub use fourier::Fourier;

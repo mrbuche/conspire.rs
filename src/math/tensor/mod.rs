@@ -7,8 +7,9 @@ pub(super) mod rank_1;
 pub(super) mod rank_2;
 pub(super) mod rank_3;
 pub(super) mod rank_4;
+#[cfg(test)]
+mod test;
 pub(super) mod tuple;
-pub mod unit;
 pub(super) mod vec;
 
 pub use configuration::{
@@ -19,6 +20,7 @@ pub use quantity::{Is, Quantity};
 
 use super::{SquareMatrix, Vector};
 use crate::math::{Style, StyledError, styled_error};
+use crate::units::{Dimensionless, Time, UnitMul};
 use rank_0::{
     TensorRank0,
     list::{TensorRank0List, vec::TensorRank0ListVec},
@@ -28,7 +30,6 @@ use std::{
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
 };
-use unit::{Dimensionless, Time, UnitMul};
 
 /// A scalar.
 pub type Scalar = TensorRank0;

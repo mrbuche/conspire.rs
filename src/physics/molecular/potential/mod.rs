@@ -9,13 +9,9 @@ pub use harmonic::Harmonic;
 pub use morse::Morse;
 
 use crate::{
-    math::{
-        Quantity, Scalar,
-        unit::{
-            Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength, Stress, Temperature,
-        },
-    },
+    math::{Quantity, Scalar},
     physics::BOLTZMANN_CONSTANT,
+    units::{Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength, Stress, Temperature},
 };
 use std::fmt::Debug;
 

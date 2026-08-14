@@ -1,9 +1,6 @@
-//! Geometry library.
+//! Geometry and meshing.
 
-use crate::math::{
-    Reference,
-    unit::{Dimensionless, Length},
-};
+use crate::math::Reference;
 /// Bounding boxes.
 pub mod bbox;
 
@@ -23,6 +20,7 @@ pub mod grid;
 pub mod segmentation;
 
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1RefVec, TensorRank1Vec};
+use crate::units::{Dimensionless, Length};
 
 pub type Coordinate<const D: usize> = TensorRank1<D, Reference, Length>;
 pub type Coordinates<const D: usize> = TensorRank1Vec<D, Reference, Length>;

@@ -1,8 +1,8 @@
-use crate::math::unit::Dimensionless;
 use crate::math::{
     ContractWith, Differentiate, Erase, Quantity, Tensor, TensorRank0, TensorRank1,
     TensorRank1List, TensorVec,
 };
+use crate::units::Dimensionless;
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter, Result},

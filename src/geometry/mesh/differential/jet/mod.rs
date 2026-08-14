@@ -3,10 +3,8 @@ mod test;
 
 use crate::{
     geometry::{Coordinate, Coordinates, Direction},
-    math::{
-        CrossProduct, FxHashSet, Quantity, SquareMatrix, Tensor, TensorRank1Vec, Vector,
-        unit::{Area, ReciprocalLength},
-    },
+    math::{CrossProduct, FxHashSet, Quantity, SquareMatrix, Tensor, TensorRank1Vec, Vector},
+    units::{Area, ReciprocalLength},
 };
 
 const D: usize = 3;

@@ -1,6 +1,6 @@
-use crate::math::unit::Dimensionless;
 use crate::math::{Tensor, TensorRank0, assert::FiniteDifference};
 use crate::math::{TensorArray, TensorRank2, tensor::vec::TensorVector};
+use crate::units::Dimensionless;
 
 /// A vector of rank-2 tensors.
 pub type TensorRank2Vec<const D: usize, I, J, U = Dimensionless> =

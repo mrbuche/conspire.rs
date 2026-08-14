@@ -6,8 +6,9 @@ use crate::{
         Block,
         element::thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
-    math::{QuantityVector, unit::Temperature},
+    math::QuantityVector,
     mechanics::TemperatureGradients,
+    units::Temperature,
 };
 
 /// The temperatures at the nodes.

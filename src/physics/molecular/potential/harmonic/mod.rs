@@ -1,9 +1,7 @@
 use crate::{
-    math::{
-        Quantity, Scalar,
-        unit::{Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength, Stress},
-    },
+    math::{Quantity, Scalar},
     physics::molecular::potential::Potential,
+    units::{Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength, Stress},
 };
 
 /// The harmonic potential.

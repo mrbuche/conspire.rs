@@ -4,7 +4,8 @@ use crate::{
         mesh::{Connectivity, Mesh, Tessellation},
         ntree::{CurvatureSizing, Octree},
     },
-    math::{Quantity, unit::Length},
+    math::Quantity,
+    units::Length,
 };
 use std::f64::consts::{PI, TAU};
 

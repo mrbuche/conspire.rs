@@ -1,7 +1,6 @@
-use crate::math::TensorRank4;
-use crate::math::unit::{Dissipation, EnergyDensity, Stress, Viscosity};
 #[cfg(test)]
 mod test;
+use crate::math::TensorRank4;
 
 use crate::math::{ContractWith, Quantity};
 use crate::{
@@ -18,6 +17,7 @@ use crate::{
         Deformation, DeformationGradient, DeformationGradientRate, Scalar,
         SecondPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffStress,
     },
+    units::{Dissipation, EnergyDensity, Stress, Viscosity},
 };
 
 /// The Saint Venant-Kirchhoff hyperviscoelastic solid constitutive model.

@@ -7,11 +7,9 @@ use crate::{
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
-    math::{
-        ContractSecondFourthWithFirst, Current, IDENTITY, Quantity, Tensor, TensorRank2,
-        unit::StressPerArea,
-    },
+    math::{ContractSecondFourthWithFirst, Current, IDENTITY, Quantity, Tensor, TensorRank2},
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
+    units::StressPerArea,
 };
 
 pub trait ElasticFiniteElement<C, const G: usize, const M: usize, const N: usize, const P: usize>

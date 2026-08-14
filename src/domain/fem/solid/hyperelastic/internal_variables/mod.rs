@@ -1,5 +1,4 @@
 use crate::math::Quantity;
-use crate::math::unit::Energy;
 use crate::{
     fem::{
         ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
@@ -19,6 +18,7 @@ use crate::{
             SecondOrderOptimizationIncremental, SolveStrategy,
         },
     },
+    units::Energy,
 };
 
 pub trait HyperelasticIVElements<const G: usize, V, const D: usize>

@@ -9,12 +9,10 @@ use crate::{
     },
     math::{
         CrossProduct, Quantity, Scalar, Style, StyledError, Tensor, TensorRank1, TensorRank1Vec2D,
-        TensorVector,
-        assert::AssertionError,
-        styled_error,
-        unit::{Area, Length, ReciprocalLength, Volume},
+        TensorVector, assert::AssertionError, styled_error,
     },
     mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate},
+    units::{Area, Length, ReciprocalLength, Volume},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
 };
 
@@ -568,7 +566,7 @@ fn temporary_poly_2() {
                     nodal_coordinates[node][i] -= crate::math::assert::perturbation(EPSILON);
                     finite_difference -= block.helmholtz_free_energy(&nodal_coordinates).unwrap();
                     finite_difference
-                        / crate::math::assert::perturbation::<crate::math::unit::Length>(EPSILON)
+                        / crate::math::assert::perturbation::<crate::units::Length>(EPSILON)
                 })
                 .collect()
         })
@@ -595,9 +593,9 @@ fn temporary_poly_2() {
                                     finite_difference -=
                                         block.nodal_forces(&nodal_coordinates).unwrap()[a][i];
                                     finite_difference
-                                        / crate::math::assert::perturbation::<
-                                            crate::math::unit::Length,
-                                        >(EPSILON)
+                                        / crate::math::assert::perturbation::<crate::units::Length>(
+                                            EPSILON,
+                                        )
                                 })
                                 .collect()
                         })

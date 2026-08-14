@@ -1,9 +1,6 @@
 use crate::math::assert::Assert;
 use crate::math::assert::perturbation;
-use crate::math::{
-    Current, Quantity,
-    unit::{Area, Force, Length, Stress},
-};
+use crate::math::{Current, Quantity};
 use crate::{
     EPSILON,
     constitutive::cohesive::elastic::LinearElastic,
@@ -17,6 +14,7 @@ use crate::{
     },
     math::{Rank2, Scalar, Tensor, TensorRank2, assert::AssertionError},
     mechanics::test::get_rotation_reference_configuration,
+    units::{Area, Force, Length, Stress},
 };
 
 const NORMAL_DISPLACEMENT: Scalar = 1.2;

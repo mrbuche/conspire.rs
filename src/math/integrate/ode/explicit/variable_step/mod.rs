@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::unit::Time;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{Explicit, IntegrationError, Times, VariableStep},
     interpolate::InterpolateSolution,
 };
+use crate::units::Time;
 use std::ops::{Div, Mul, Sub};
 
 pub(crate) mod bogacki_shampine;

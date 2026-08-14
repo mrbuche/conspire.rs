@@ -17,8 +17,9 @@ use crate::{
     geometry::mesh::PrimitiveConnectivity,
     math::{
         Quantity, Tensor, TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint,
-        sparse::SparseSolver, unit::Volume,
+        sparse::SparseSolver,
     },
+    units::Volume,
 };
 use std::{
     any::type_name,

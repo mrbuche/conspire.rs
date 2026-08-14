@@ -1,5 +1,4 @@
 use crate::math::Quantity;
-use crate::math::unit::{Energy, ForcePerLength, Length, StressPerArea, StressPerLength, Volume};
 use crate::math::{Current, Reference};
 use crate::{
     constitutive::{
@@ -19,6 +18,7 @@ use crate::{
         DeformationGradient, DeformationGradientList, FirstPiolaKirchhoffStressList,
         FirstPiolaKirchhoffTangentStiffnessList,
     },
+    units::{Energy, ForcePerLength, Length, StressPerArea, StressPerLength, Volume},
 };
 
 const M: usize = 2;
@@ -30,7 +30,7 @@ pub type PlanarElementNodalCoordinates<const N: usize> = TensorRank1List<M, Curr
 pub type PlanarElementNodalReferenceCoordinates<const N: usize> =
     TensorRank1List<M, Reference, N, Length>;
 pub type PlanarElementNodalForcesSolid<const N: usize> =
-    TensorRank1List<M, Current, N, crate::math::unit::Force>;
+    TensorRank1List<M, Current, N, crate::units::Force>;
 pub type PlanarElementNodalStiffnessesSolid<const N: usize> =
     TensorRank2List2D<M, Current, Current, N, N, ForcePerLength>;
 

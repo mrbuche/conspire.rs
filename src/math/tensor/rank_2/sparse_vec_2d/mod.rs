@@ -2,11 +2,11 @@
 mod test;
 
 use super::TensorRank2;
-use crate::math::unit::{Dimensionless, UnitMul};
 use crate::math::{
     Hessian, HessianAccumulate, Rank2, Scalar, SquareMatrix, Tensor, Vector,
     tensor::vec::TensorVector,
 };
+use crate::units::{Dimensionless, UnitMul};
 use std::ops::Mul;
 
 use super::sparse_vec::TensorRank2SparseVec;

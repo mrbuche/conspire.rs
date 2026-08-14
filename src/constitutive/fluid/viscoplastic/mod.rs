@@ -1,6 +1,5 @@
 //! Viscoplastic fluid constitutive models.
 
-use crate::math::unit::{Rate, Stress};
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
     math::{
@@ -11,6 +10,7 @@ use crate::{
         DeformationGradientPlastic, DeformationGradientRatePlastic, MandelStressElastic,
         StretchingRatePlastic,
     },
+    units::{Rate, Stress},
 };
 
 /// Viscoplastic state variables.

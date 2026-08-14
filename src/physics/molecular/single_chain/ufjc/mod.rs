@@ -5,7 +5,6 @@ use crate::{
     math::{
         Quantity, Scalar,
         special::{langevin, langevin_derivative},
-        unit::Length,
     },
     physics::molecular::{
         potential::{Harmonic, Potential},
@@ -14,6 +13,7 @@ use crate::{
             SingleChain, SingleChainError, Thermodynamics, ThermodynamicsExtensible,
         },
     },
+    units::Length,
 };
 use std::f64::consts::TAU;
 

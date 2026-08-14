@@ -12,8 +12,9 @@ use crate::{
         },
         surface::linear::Quadrilateral,
     },
-    math::{ScalarList, unit::Area},
+    math::ScalarList,
     mechanics::NormalGradients,
+    units::Area,
 };
 
 const G: usize = 4;

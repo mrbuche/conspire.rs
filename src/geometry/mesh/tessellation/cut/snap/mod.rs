@@ -15,10 +15,8 @@ use crate::{
             tessellation::{D, Tessellation, features::FeatureIndex},
         },
     },
-    math::{
-        Quantity, Scalar, Tensor,
-        unit::{Length, Volume},
-    },
+    math::{Quantity, Scalar, Tensor},
+    units::{Length, Volume},
 };
 use std::collections::{HashMap, HashSet};
 

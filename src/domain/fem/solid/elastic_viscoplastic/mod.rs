@@ -1,4 +1,3 @@
-use crate::math::unit::Time;
 use crate::{
     fem::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
@@ -12,6 +11,7 @@ use crate::{
         optimize::FirstOrderRootFinding,
     },
     mechanics::Times,
+    units::Time,
 };
 
 pub trait ElasticViscoplasticElements<S, const D: usize>
