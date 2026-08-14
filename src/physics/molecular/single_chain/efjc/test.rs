@@ -1,7 +1,7 @@
 use crate::math::assert::Assert;
 use crate::{
     EPSILON,
-    math::{Quantity, Scalar, assert::AssertionError},
+    math::{Scalar, assert::AssertionError},
     physics::{
         BOLTZMANN_CONSTANT, ROOM_TEMPERATURE,
         molecular::single_chain::{Ensemble, ExtensibleFreelyJointedChain, Thermodynamics},
@@ -13,10 +13,11 @@ const NUM: usize = 333;
 #[test]
 fn monte_carlo() {
     use crate::physics::molecular::single_chain::MonteCarloExtensible;
-    let link_length = Quantity::new(1.0);
+    let link_length = 1.0;
     let model = ExtensibleFreelyJointedChain {
         link_length,
-        link_stiffness: 5.0 * BOLTZMANN_CONSTANT * ROOM_TEMPERATURE / (link_length * link_length),
+        link_stiffness: 5.0 * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE
+            / (link_length * link_length),
         number_of_links: 5,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
@@ -36,8 +37,8 @@ fn finite_difference() -> Result<(), AssertionError> {
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
                 let model = ExtensibleFreelyJointedChain {
-                    link_length: Quantity::new(1.0),
-                    link_stiffness: Quantity::new(link_stiffness),
+                    link_length: 1.0,
+                    link_stiffness,
                     number_of_links,
                     ensemble,
                 };

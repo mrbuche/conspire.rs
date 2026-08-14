@@ -1,7 +1,7 @@
 use crate::math::assert::Assert;
 use crate::{
     EPSILON,
-    math::{Quantity, Scalar, assert::AssertionError},
+    math::{Scalar, assert::AssertionError},
     physics::{
         ROOM_TEMPERATURE,
         molecular::single_chain::{Ensemble, SquareWellFreelyJointedChain, Thermodynamics},
@@ -15,9 +15,9 @@ fn monte_carlo() {
     use crate::physics::molecular::single_chain::MonteCarloInextensible;
     const N: usize = 5;
     let model = SquareWellFreelyJointedChain {
-        link_length: Quantity::new(1.0),
+        link_length: 1.0,
         number_of_links: N as u8,
-        well_width: Quantity::new(0.3),
+        well_width: 0.3,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
     let (gamma, g) =
@@ -35,9 +35,9 @@ fn finite_difference() -> Result<(), AssertionError> {
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
                 let model = SquareWellFreelyJointedChain {
-                    link_length: Quantity::new(1.0),
+                    link_length: 1.0,
                     number_of_links,
-                    well_width: Quantity::new(0.3),
+                    well_width: 0.3,
                     ensemble,
                 };
                 (30..NUM)

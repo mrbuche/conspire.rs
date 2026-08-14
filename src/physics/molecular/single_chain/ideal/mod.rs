@@ -13,7 +13,7 @@ use std::f64::consts::PI;
 #[derive(Clone, Debug)]
 pub struct IdealChain {
     /// The link length $`\ell_b`$.
-    pub link_length: Quantity<Length>,
+    pub link_length: Scalar,
     /// The number of links $`N_b`$.
     pub number_of_links: u8,
     /// The thermodynamic ensemble.
@@ -22,7 +22,7 @@ pub struct IdealChain {
 
 impl SingleChain for IdealChain {
     fn link_length(&self) -> Quantity<Length> {
-        self.link_length
+        self.link_length.into()
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links

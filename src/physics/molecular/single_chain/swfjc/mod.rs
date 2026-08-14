@@ -17,18 +17,18 @@ use std::f64::consts::TAU;
 #[derive(Clone, Debug)]
 pub struct SquareWellFreelyJointedChain {
     /// The link length $`\ell_b`$.
-    pub link_length: Quantity<Length>,
+    pub link_length: Scalar,
     /// The number of links $`N_b`$.
     pub number_of_links: u8,
     /// The well width $`w_b`$.
-    pub well_width: Quantity<Length>,
+    pub well_width: Scalar,
     /// The thermodynamic ensemble.
     pub ensemble: Ensemble,
 }
 
 impl SingleChain for SquareWellFreelyJointedChain {
     fn link_length(&self) -> Quantity<Length> {
-        self.link_length
+        self.link_length.into()
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links
@@ -40,7 +40,7 @@ impl Inextensible for SquareWellFreelyJointedChain {
     /// \lim_{\eta\to\infty}\gamma(\eta) = 1 + \frac{w_b}{\ell_b} = \varsigma
     /// ```
     fn maximum_nondimensional_extension(&self) -> Scalar {
-        1.0 + self.well_width.ratio(self.link_length)
+        1.0 + self.well_width / self.link_length
     }
 }
 

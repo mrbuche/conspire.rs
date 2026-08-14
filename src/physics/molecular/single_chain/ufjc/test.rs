@@ -1,7 +1,7 @@
 use crate::math::assert::Assert;
 use crate::{
     EPSILON,
-    math::{Quantity, Scalar, assert::AssertionError},
+    math::{Scalar, assert::AssertionError},
     physics::{
         molecular::{
             potential::{Harmonic, Morse},
@@ -18,15 +18,15 @@ fn finite_difference() -> Result<(), AssertionError> {
     let e = 1e5;
     let a = 1.0;
     let x0 = 1.0;
-    let eta_max = 0.5 * a * x0 * e / BOLTZMANN_CONSTANT.value() / ROOM_TEMPERATURE.value();
+    let eta_max = 0.5 * a * x0 * e / BOLTZMANN_CONSTANT.value() / ROOM_TEMPERATURE;
     [Ensemble::Isotensional(ROOM_TEMPERATURE)]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
                 let model = ArbitraryPotentialFreelyJointedChain {
                     link_potential: Harmonic {
-                        rest_length: Quantity::new(x0),
-                        stiffness: Quantity::new(e),
+                        rest_length: x0,
+                        stiffness: e,
                     },
                     number_of_links,
                     ensemble,
@@ -67,9 +67,9 @@ fn finite_difference() -> Result<(), AssertionError> {
             (3..16).into_iter().try_for_each(|number_of_links| {
                 let model = ArbitraryPotentialFreelyJointedChain {
                     link_potential: Morse {
-                        rest_length: Quantity::new(x0),
-                        depth: Quantity::new(e),
-                        parameter: Quantity::new(a),
+                        rest_length: x0,
+                        depth: e,
+                        parameter: a,
                     },
                     number_of_links,
                     ensemble,

@@ -32,9 +32,9 @@ use std::f64::consts::{PI, TAU};
 #[derive(Clone, Debug)]
 pub struct ExtensibleFreelyJointedChain {
     /// The link length $`\ell_b`$.
-    pub link_length: Quantity<Length>,
+    pub link_length: Scalar,
     /// The link stiffness $`k_b`$.
-    pub link_stiffness: Quantity<ForcePerLength>,
+    pub link_stiffness: Scalar,
     /// The number of links $`N_b`$.
     pub number_of_links: u8,
     /// The thermodynamic ensemble.
@@ -42,15 +42,18 @@ pub struct ExtensibleFreelyJointedChain {
 }
 
 impl ExtensibleFreelyJointedChain {
+    fn link_stiffness(&self) -> Quantity<ForcePerLength> {
+        self.link_stiffness.into()
+    }
     fn nondimensional_link_stiffness(&self) -> Scalar {
-        (self.link_stiffness * (self.link_length() * self.link_length()))
+        (self.link_stiffness() * (self.link_length() * self.link_length()))
             .ratio(BOLTZMANN_CONSTANT * self.temperature())
     }
 }
 
 impl SingleChain for ExtensibleFreelyJointedChain {
     fn link_length(&self) -> Quantity<Length> {
-        self.link_length
+        self.link_length.into()
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links

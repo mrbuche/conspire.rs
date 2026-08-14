@@ -1,7 +1,7 @@
 use crate::math::assert::Assert;
 use crate::{
     EPSILON,
-    math::{Quantity, Scalar, assert::AssertionError},
+    math::{Scalar, assert::AssertionError},
     physics::{
         ROOM_TEMPERATURE,
         molecular::single_chain::{Ensemble, IdealChain, Thermodynamics},
@@ -20,7 +20,7 @@ fn finite_difference() -> Result<(), AssertionError> {
     .try_for_each(|ensemble| {
         (3..16).into_iter().try_for_each(|number_of_links| {
             let model = IdealChain {
-                link_length: Quantity::new(1.0),
+                link_length: 1.0,
                 number_of_links,
                 ensemble,
             };

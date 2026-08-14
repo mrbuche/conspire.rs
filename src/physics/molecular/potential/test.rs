@@ -14,28 +14,28 @@ const NUM: usize = 333;
 #[test]
 fn test_consistency() -> Result<(), AssertionError> {
     let model = Harmonic {
-        rest_length: Quantity::new(1.5),
-        stiffness: Quantity::new(1.2),
+        rest_length: 1.5,
+        stiffness: 1.2,
     };
     let energy = model.energy(Quantity::new(1.7));
     let forces = model.forces_at_energy(energy);
     let extensions = model.extensions_at_energy(energy);
     Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[0]))?;
     Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[1]))?;
-    Assert::default().eq_within_tols(energy, &model.energy(extensions[0] + model.rest_length))?;
-    Assert::default().eq_within_tols(energy, &model.energy(extensions[1] + model.rest_length))?;
+    Assert::default().eq_within_tols(energy, &model.energy(extensions[0] + model.rest_length()))?;
+    Assert::default().eq_within_tols(energy, &model.energy(extensions[1] + model.rest_length()))?;
     let model = Morse {
-        rest_length: Quantity::new(1.5),
-        depth: Quantity::new(1.9),
-        parameter: Quantity::new(1.1),
+        rest_length: 1.5,
+        depth: 1.9,
+        parameter: 1.1,
     };
     let energy = model.energy(Quantity::new(1.51));
     let forces = model.forces_at_energy(energy);
     let extensions = model.extensions_at_energy(energy);
     Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[0]))?;
     Assert::default().eq_within_tols(energy, &model.energy_at_force(forces[1]))?;
-    Assert::default().eq_within_tols(energy, &model.energy(extensions[0] + model.rest_length))?;
-    Assert::default().eq_within_tols(energy, &model.energy(extensions[1] + model.rest_length))
+    Assert::default().eq_within_tols(energy, &model.energy(extensions[0] + model.rest_length()))?;
+    Assert::default().eq_within_tols(energy, &model.energy(extensions[1] + model.rest_length()))
 }
 
 #[test]
@@ -46,8 +46,8 @@ fn finite_difference() -> Result<(), AssertionError> {
     let x_max = x0 + 0.98 * 2.0_f64.ln() / a;
     let t = Quantity::<Temperature>::new(1e-1);
     let potential = Harmonic {
-        rest_length: Quantity::new(x0),
-        stiffness: Quantity::new(e),
+        rest_length: x0,
+        stiffness: e,
     };
     (0..NUM)
         .map(|k| Quantity::new(x0 + (x_max - x0) * k as Scalar / NUM as Scalar))
@@ -91,9 +91,9 @@ fn finite_difference() -> Result<(), AssertionError> {
             Assert::default().eq_within_fd_tol(compliance, &compliance_fd)
         })?;
     let potential = Morse {
-        rest_length: Quantity::new(x0),
-        depth: Quantity::new(e),
-        parameter: Quantity::new(a),
+        rest_length: x0,
+        depth: e,
+        parameter: a,
     };
     (1..NUM)
         .map(|k| Quantity::new(x0 + (x_max - x0) * k as Scalar / NUM as Scalar))

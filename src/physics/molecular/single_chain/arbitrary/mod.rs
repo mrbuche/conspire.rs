@@ -19,7 +19,7 @@ where
     U: Potential,
 {
     Free,
-    Rigid(Quantity<Length>),
+    Rigid(Scalar),
     Strong(U),
     Weak(U),
 }
@@ -43,7 +43,7 @@ impl SingleChain for ArbitraryDiscrete {
     fn link_length(&self) -> Quantity<Length> {
         match &self.link_potential {
             ArbitraryDiscretePotential::Free => panic!(),
-            ArbitraryDiscretePotential::Rigid(link_length) => *link_length,
+            ArbitraryDiscretePotential::Rigid(link_length) => (*link_length).into(),
             ArbitraryDiscretePotential::Strong(link_potential) => link_potential.rest_length(),
             ArbitraryDiscretePotential::Weak(link_potential) => link_potential.rest_length(),
         }

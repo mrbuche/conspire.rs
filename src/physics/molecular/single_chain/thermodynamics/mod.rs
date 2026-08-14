@@ -13,8 +13,8 @@ pub type Configuration = Vectors<Current>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Ensemble {
-    Isometric(Quantity<Temperature>),
-    Isotensional(Quantity<Temperature>),
+    Isometric(Scalar),
+    Isotensional(Scalar),
 }
 
 pub trait Thermodynamics
@@ -24,8 +24,8 @@ where
     fn ensemble(&self) -> Ensemble;
     fn temperature(&self) -> Quantity<Temperature> {
         match self.ensemble() {
-            Ensemble::Isometric(temperature) => temperature,
-            Ensemble::Isotensional(temperature) => temperature,
+            Ensemble::Isometric(temperature) => temperature.into(),
+            Ensemble::Isotensional(temperature) => temperature.into(),
         }
     }
     fn nondimensional_helmholtz_free_energy(

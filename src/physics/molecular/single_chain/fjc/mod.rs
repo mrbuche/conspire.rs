@@ -21,7 +21,7 @@ use std::f64::consts::{PI, TAU};
 #[derive(Clone, Debug)]
 pub struct FreelyJointedChain {
     /// The link length $`\ell_b`$.
-    pub link_length: Quantity<Length>,
+    pub link_length: Scalar,
     /// The number of links $`N_b`$.
     pub number_of_links: u8,
     /// The thermodynamic ensemble.
@@ -30,7 +30,7 @@ pub struct FreelyJointedChain {
 
 impl SingleChain for FreelyJointedChain {
     fn link_length(&self) -> Quantity<Length> {
-        self.link_length
+        self.link_length.into()
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links
