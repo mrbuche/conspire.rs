@@ -2,14 +2,15 @@
 #[cfg(test)]
 pub mod test;
 
-use crate::math::Quantity;
-use crate::units::{ReciprocalTemperature, Temperature};
+use super::*;
+use crate::{
+    math::Quantity,
+    units::{ReciprocalTemperature, Temperature},
+};
 
 mod almansi_hamel;
 
 pub use almansi_hamel::AlmansiHamel;
-
-use super::*;
 
 /// Required methods for thermoelastic solid constitutive models.
 pub trait Thermoelastic

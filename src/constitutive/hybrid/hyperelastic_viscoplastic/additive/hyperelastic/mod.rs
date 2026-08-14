@@ -1,11 +1,10 @@
-use crate::math::Quantity;
 use crate::{
     constitutive::{
         ConstitutiveError,
         hybrid::ElasticViscoplasticAdditiveElastic,
         solid::{hyperelastic::Hyperelastic, hyperelastic_viscoplastic::HyperelasticViscoplastic},
     },
-    math::{Differentiate, Tensor},
+    math::{Differentiate, Quantity, Tensor},
     mechanics::{DeformationGradient, DeformationGradientPlastic},
     units::EnergyDensity,
 };

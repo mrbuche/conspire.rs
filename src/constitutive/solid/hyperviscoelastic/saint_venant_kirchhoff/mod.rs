@@ -1,8 +1,5 @@
 #[cfg(test)]
 mod test;
-use crate::math::TensorRank4;
-
-use crate::math::{ContractWith, Quantity};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -12,7 +9,7 @@ use crate::{
             hyperviscoelastic::Hyperviscoelastic, viscoelastic::Viscoelastic,
         },
     },
-    math::{IDENTITY_00, Rank2},
+    math::{ContractWith, IDENTITY_00, Quantity, Rank2, TensorRank4},
     mechanics::{
         Deformation, DeformationGradient, DeformationGradientRate, Scalar,
         SecondPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffStress,

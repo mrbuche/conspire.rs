@@ -1,14 +1,12 @@
 #[cfg(test)]
 mod test;
-use crate::math::Quantity;
-use crate::math::TensorRank4;
 
 use crate::{
     constitutive::{
         ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
-    math::{IDENTITY, Rank2},
+    math::{IDENTITY, Quantity, Rank2, TensorRank4},
     mechanics::{CauchyStress, CauchyTangentStiffness, DeformationGradient, Scalar},
     units::Stress,
 };

@@ -1,4 +1,3 @@
-use crate::math::Quantity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -12,7 +11,7 @@ use crate::{
             elastic_viscoplastic::ElasticViscoplastic,
         },
     },
-    math::{Differentiate, Tensor},
+    math::{Differentiate, Quantity, Tensor},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, MandelStressElastic,

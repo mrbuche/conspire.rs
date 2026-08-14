@@ -34,8 +34,6 @@ where
     Self: Solid,
 {
     /// The residual associated with the internal variables.
-    ///
-    /// Not the internal variables themselves: the residual is whatever quantity
     /// the internal variables are in equilibrium over, typically a stress.
     type Residual: Jacobian;
     /// The tangent of the internal variables residual with the deformation gradient.
@@ -181,8 +179,6 @@ where
         internal_variables: &V,
     ) -> Result<Self::Residual, ConstitutiveError>;
     /// Returns the indices of the internal variables held at zero.
-    ///
-    /// These fix any gauge freedom in how the internal variables are parameterized.
     fn internal_variables_fixed(&self) -> &[usize];
     /// Calculates and returns the tangents of the coupled system.
     fn tangents(

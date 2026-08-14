@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod test;
-use crate::math::Quantity;
-use crate::math::TensorRank4;
 
 use crate::{
     constitutive::{
@@ -19,7 +17,7 @@ use crate::{
             hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
-    math::{IDENTITY_22, Rank2, TensorArray},
+    math::{IDENTITY_22, Quantity, Rank2, TensorArray, TensorRank4},
     mechanics::{
         Deformation, DeformationGradient, DeformationGradientPlastic, MandelStressElastic, Scalar,
         SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,

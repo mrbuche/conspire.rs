@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::Quantity;
 use crate::{
     constitutive::{ConstitutiveError, hybrid::ElasticAdditive, solid::hyperelastic::Hyperelastic},
+    math::Quantity,
     mechanics::DeformationGradient,
     units::EnergyDensity,
 };

@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::Quantity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -9,7 +8,7 @@ use crate::{
         hybrid::ElasticMultiplicativeViscoplastic,
         solid::{hyperelastic::Hyperelastic, hyperelastic_viscoplastic::HyperelasticViscoplastic},
     },
-    math::{Differentiate, Tensor},
+    math::{Differentiate, Quantity, Tensor},
     mechanics::{DeformationGradient, DeformationGradientPlastic},
     units::EnergyDensity,
 };

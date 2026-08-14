@@ -26,8 +26,7 @@ mod saint_venant_kirchhoff;
 pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use super::{elastic_hyperviscous::ElasticHyperviscous, *};
-use crate::math::Quantity;
-use crate::units::EnergyDensity;
+use crate::{math::Quantity, units::EnergyDensity};
 
 /// Required methods for hyperviscoelastic solid constitutive models.
 pub trait Hyperviscoelastic

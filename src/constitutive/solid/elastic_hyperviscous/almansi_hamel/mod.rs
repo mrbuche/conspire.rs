@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod test;
-use crate::math::TensorRank4;
 
 use crate::math::{ContractWith, Quantity};
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
             viscoelastic::Viscoelastic,
         },
     },
-    math::{IDENTITY, Rank2},
+    math::{IDENTITY, Rank2, TensorRank4},
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, DeformationGradient, DeformationGradientRate,
         Scalar,

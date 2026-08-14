@@ -1,6 +1,5 @@
 //! Solid constitutive models.
 
-use crate::math::Quantity;
 pub mod elastic;
 pub mod elastic_hyperviscous;
 pub mod elastic_plastic;
@@ -18,8 +17,8 @@ const FIVE_THIRDS: Scalar = 5.0 / 3.0;
 use crate::{
     constitutive::{Constitutive, ConstitutiveError},
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, IDENTITY_00, Rank2,
-        TensorArray,
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, IDENTITY_00, Quantity,
+        Rank2, TensorArray,
     },
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, CauchyTangentStiffness, Deformation,

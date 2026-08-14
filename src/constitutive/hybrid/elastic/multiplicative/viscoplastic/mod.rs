@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod test;
-use crate::math::Quantity;
 
 use crate::{
     constitutive::{
@@ -17,8 +16,8 @@ use crate::{
         },
     },
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, Differentiate, Rank2, Scalar,
-        Tensor,
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, Differentiate, Quantity, Rank2,
+        Scalar, Tensor,
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, DeformationGradient,

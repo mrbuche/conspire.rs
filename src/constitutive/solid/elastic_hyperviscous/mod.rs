@@ -29,12 +29,14 @@ use super::{
     viscoelastic::{AppliedLoad, Viscoelastic},
     *,
 };
-use crate::math::{
-    ContractWith, Matrix, Quantity, Vector,
-    integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
-    optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+use crate::{
+    math::{
+        ContractWith, Matrix, Quantity, Vector,
+        integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
+        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+    },
+    units::{Dissipation, Time},
 };
-use crate::units::{Dissipation, Time};
 
 /// Required methods for elastic-hyperviscous solid constitutive models.
 pub trait ElasticHyperviscous

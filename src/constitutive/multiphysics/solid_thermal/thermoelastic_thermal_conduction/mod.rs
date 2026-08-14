@@ -2,8 +2,6 @@
 #[cfg(test)]
 pub mod test;
 
-use crate::math::Quantity;
-
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -11,6 +9,7 @@ use crate::{
         solid::{Solid, thermoelastic::Thermoelastic},
         thermal::{Thermal, conduction::ThermalConduction},
     },
+    math::Quantity,
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, SecondPiolaKirchhoffStress,

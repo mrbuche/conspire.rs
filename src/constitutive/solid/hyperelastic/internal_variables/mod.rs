@@ -1,6 +1,5 @@
 //! Hyperelastic solid constitutive models with internal variables.
 
-use crate::math::Quantity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -10,7 +9,7 @@ use crate::{
         },
     },
     math::{
-        Tensor, TensorArray, TensorTuple,
+        Quantity, Tensor, TensorArray, TensorTuple,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
         },

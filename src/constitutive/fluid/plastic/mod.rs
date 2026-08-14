@@ -22,9 +22,6 @@ where
         &self,
         equivalent_plastic_strain: Quantity,
     ) -> Result<Quantity<Stress>, ConstitutiveError> {
-        //
-        // Can eventually make a subdirectory with an enum (like LineaSearch) with different hardening models.
-        //
         Ok(self.initial_yield_stress() + self.hardening_slope() * equivalent_plastic_strain)
     }
 }

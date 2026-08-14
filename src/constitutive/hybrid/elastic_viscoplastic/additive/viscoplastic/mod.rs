@@ -1,4 +1,3 @@
-use crate::math::Quantity;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -9,7 +8,7 @@ use crate::{
         hybrid::ElasticViscoplasticAdditiveViscoplastic,
         solid::elastic_viscoplastic::ElasticViscoplastic,
     },
-    math::{Differentiate, Rank2, Tensor, TensorTuple},
+    math::{Differentiate, Quantity, Rank2, Tensor, TensorTuple},
     mechanics::{MandelStressElastic, Scalar},
     units::{Rate, Stress},
 };

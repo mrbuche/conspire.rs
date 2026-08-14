@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod test;
-use crate::math::{Quantity, TensorRank4};
-use crate::units::{ReciprocalTemperature, Stress, Temperature};
 
 use super::*;
+use crate::{
+    math::{Quantity, TensorRank4},
+    units::{ReciprocalTemperature, Stress, Temperature},
+};
 
 /// The Almansi-Hamel thermoelastic solid constitutive model.
 ///

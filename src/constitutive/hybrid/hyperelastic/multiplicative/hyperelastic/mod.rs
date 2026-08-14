@@ -1,13 +1,13 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::Quantity;
 use crate::{
     constitutive::{
         ConstitutiveError,
         hybrid::ElasticMultiplicative,
         solid::hyperelastic::{Hyperelastic, internal_variables::HyperelasticIV},
     },
+    math::Quantity,
     mechanics::{DeformationGradient, DeformationGradient2},
     units::EnergyDensity,
 };
