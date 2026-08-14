@@ -17,10 +17,7 @@ impl<const D: usize> Ray<D> {
     pub fn direction(&self) -> &Direction<D> {
         &self.direction
     }
-    /// How far along the ray the box is entered, a heading being a length of
-    /// one and so a step along it covering the distance it is.
     pub fn intersects(&self, bounding_box: &BoundingBox<D>) -> Option<Quantity<Length>> {
-        // can return third case of inside box using custom enum
         let mut t_min = Quantity::<Length>::default();
         let mut t_max = Quantity::<Length>::new(Scalar::INFINITY);
         for axis in 0..D {
@@ -90,9 +87,6 @@ impl Ray<3> {
         if determinant.abs().value() < ABS_TOL {
             return None;
         }
-        // Three of those edge functions against three offsets are a volume,
-        // which the edge function they are divided by takes back to how far
-        // along the ray the triangle is met.
         let t = (u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]) / determinant;
         (t.value() > ABS_TOL).then_some(t)
     }

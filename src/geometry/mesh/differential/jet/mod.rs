@@ -70,9 +70,6 @@ pub(crate) fn fit_jet(
     let spread = (mean * mean - gauss).max(0.0).sqrt();
     // Off until anisotropic remesh (see Jet::normal):
     // let normal = (&(&w - &(&u * h_u)) - &(&v * h_v)).normalized();
-    // The fit is a polynomial in the first and second powers of a length at
-    // once, so no one unit runs through it and it is solved in numbers. What
-    // comes out is a curvature either way, which the two take back here.
     Some(Jet {
         // normal,
         principal_curvatures: [Quantity::new(mean + spread), Quantity::new(mean - spread)],

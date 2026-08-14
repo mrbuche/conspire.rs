@@ -69,12 +69,6 @@ pub(crate) fn sizing_field(
     field
 }
 
-/// The size a chord-error tolerance asks for at a given curvature.
-///
-/// Both terms under the root are areas, a tolerance over a curvature as much
-/// as a tolerance squared, so the root is the length it gives back. Halving a
-/// unit is not something the table names, so the root is taken in numbers and
-/// a length asserted on the way out.
 fn dunyach_length(
     curvature: Quantity<ReciprocalLength>,
     tolerance: Quantity<Length>,

@@ -46,8 +46,6 @@ impl Tessellation {
                 max[axis] = max[axis].max(point[axis].value());
             });
         }
-        // A diagonal is a length, but the square root that takes the spans
-        // back to one is no unit this names, so it is gathered as a number.
         let diagonal = Quantity::new(
             (0..D)
                 .map(|axis| (max[axis] - min[axis]).powi(2))

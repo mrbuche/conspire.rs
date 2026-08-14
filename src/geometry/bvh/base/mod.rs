@@ -322,9 +322,6 @@ fn closest_point_on_triangle(
     b: &Coordinate<3>,
     c: &Coordinate<3>,
 ) -> Coordinate<3> {
-    // Each projection is an edge against an offset from a corner, and each
-    // weight a pair of those multiplied. Weights are only ever taken against
-    // one another, so they are divided rather than inverted.
     let zero = Quantity::default();
     let ab = b - a;
     let ac = c - a;

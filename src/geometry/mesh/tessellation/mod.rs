@@ -1,4 +1,3 @@
-use crate::math::Reference;
 pub(super) mod base;
 pub(super) mod cut;
 pub(super) mod features;
@@ -11,7 +10,7 @@ pub(super) mod write;
 
 use crate::{
     geometry::{bvh::BoundingVolumeHierarchy, mesh::Mesh},
-    math::TensorRank1Vec2D,
+    math::{Reference, TensorRank1Vec2D},
     units::Dimensionless,
 };
 use features::Features;

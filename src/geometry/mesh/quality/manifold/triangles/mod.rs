@@ -49,12 +49,10 @@ fn triangles_intersect(t1: [usize; N], t2: [usize; N], coordinates: &Coordinates
         return false;
     }
     let direction = n1.cross(&n2);
-    // Either side is the eighth power of a length, which names nothing, so the
-    // comparison is made between the numbers a contraction gives.
     if direction.full_contraction(&direction)
         < ABS_TOL * n1.full_contraction(&n1) * n2.full_contraction(&n2)
     {
-        return false; // coplanar (or degenerate)
+        return false;
     }
     let axis = {
         let d = [direction[0].abs(), direction[1].abs(), direction[2].abs()];

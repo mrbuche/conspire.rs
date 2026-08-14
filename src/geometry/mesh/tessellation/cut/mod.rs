@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 mod assemble;
 mod build;
 mod classify;
@@ -8,8 +11,6 @@ mod lattice;
 mod snap;
 mod split;
 mod tables;
-#[cfg(test)]
-mod test;
 mod topology;
 
 use crate::{

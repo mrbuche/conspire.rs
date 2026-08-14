@@ -2,13 +2,12 @@
 mod test;
 
 use super::Incidence;
-use crate::math::Quantity;
 use crate::{
     geometry::{
         Coordinate,
         mesh::{Mesh, Tessellation},
     },
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
 };
 use std::mem::transmute_copy;
 

@@ -23,17 +23,9 @@ use std::{
     thread::{available_parallelism, scope},
 };
 
-/// The three edges at a corner, carrying no unit for the reason [`edges`] gives.
 type EdgeList = TensorRank1List<3, Reference, 3>;
-
-/// What differentiating the untangling energy against a position gives back.
 type Slope = TensorRank1<3, Reference, ReciprocalLength>;
-
-/// A gradient of the objective, which is a length, against a position.
 type Gradient = TensorRank1Vec<3, Reference, Dimensionless>;
-
-/// Where a quad is pulled to, which way the surface faces there, and how far
-/// off it the quad sits.
 type Target = (Coordinate<3>, Direction<3>, Quantity<Area>);
 
 const ARMIJO: Scalar = 1.0e-4;
@@ -478,8 +470,6 @@ fn direction(
     history: &[(Coordinates<3>, Gradient)],
     fallback: Quantity<Length>,
 ) -> Coordinates<3> {
-    // The recursion starts on the gradient, which is a number, and takes its
-    // length from the scaling between the two loops, a step being a position.
     let mut q = gradient.clone();
     let mut alphas = vec![0.0; history.len()];
     let mut rhos = vec![Quantity::<ReciprocalLength>::default(); history.len()];
@@ -509,18 +499,12 @@ fn edges(
     hex: &[usize; 8],
     coordinates: &Coordinates<3>,
 ) -> EdgeList {
-    // The untangling energy is a cube of lengths over a volume, so it is a
-    // number and so is its gradient. Neither a square root nor a reciprocal
-    // volume is a unit this names, so the edges give theirs up here and the
-    // kernel below works in numbers throughout.
     let origin = &coordinates[hex[corner]];
     (0..3)
         .map(|i| (&coordinates[hex[adjacent[i]]] - origin).with_unit())
         .collect()
 }
 
-/// How much a quad counts for, being nearer to one the closer the corner it
-/// pulls already sits to the surface.
 fn weight(distance: Quantity<Area>, length: Quantity<Length>) -> Quantity<Dimensionless> {
     1.0 / (distance / (length * length)).max(WEIGHT_FLOOR)
 }
