@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{grid::Voxels, mesh::Mesh};
+use crate::{
+    geometry::{grid::Voxels, mesh::Mesh},
+    math::{Quantity, unit::Length},
+};
 use std::array::from_fn;
 
 const TETS_4: [[usize; 4]; 1] = [[0, 1, 2, 3]];
@@ -17,7 +20,8 @@ const TETS_8: [[usize; 4]; 6] = [
 ];
 
 impl Voxels<usize> {
-    pub fn from_finite_elements(mesh: &Mesh<3>, size: f64) -> Self {
+    pub fn from_finite_elements(mesh: &Mesh<3>, size: Quantity<Length>) -> Self {
+        let size = size.value();
         let coordinates = mesh.coordinates();
         let mut min = [f64::INFINITY; 3];
         let mut max = [f64::NEG_INFINITY; 3];

@@ -1,27 +1,31 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{Coordinate, grid::Voxels, mesh::Tessellation};
+use crate::{
+    geometry::{Coordinate, grid::Voxels, mesh::Tessellation},
+    math::{Quantity, unit::Length},
+};
 use std::{
     array::from_fn,
     thread::{available_parallelism, scope},
 };
 
 impl Voxels<usize> {
-    pub fn from_tessellation(tessellation: &Tessellation, size: f64) -> Self {
+    pub fn from_tessellation(tessellation: &Tessellation, size: Quantity<Length>) -> Self {
         let mesh = tessellation.mesh();
         let bvh = tessellation.bvh();
         let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
         let coordinates = mesh.coordinates();
-        let mut min = [f64::INFINITY; 3];
-        let mut max = [f64::NEG_INFINITY; 3];
+        let mut min = [Quantity::<Length>::new(f64::INFINITY); 3];
+        let mut max = [Quantity::<Length>::new(f64::NEG_INFINITY); 3];
         for point in coordinates {
             (0..3).for_each(|ax| {
-                min[ax] = min[ax].min(point[ax].value());
-                max[ax] = max[ax].max(point[ax].value());
+                min[ax] = min[ax].min(point[ax]);
+                max[ax] = max[ax].max(point[ax]);
             });
         }
-        let nel: [usize; 3] = from_fn(|ax| (((max[ax] - min[ax]) / size).ceil() as usize).max(1));
+        let nel: [usize; 3] =
+            from_fn(|ax| (((max[ax] - min[ax]).ratio(size)).ceil() as usize).max(1));
         let [nx, ny, _] = nel;
         let layer = nx * ny;
         let mut data = vec![0usize; layer * nel[2]];
