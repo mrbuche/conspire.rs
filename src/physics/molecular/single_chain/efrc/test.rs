@@ -9,10 +9,10 @@ fn monte_carlo() {
     let model = ExtensibleFreelyRotatingChain {
         link_angle: 0.4363323129985824,
         link_length,
-        link_stiffness: 5.0 * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE
+        link_stiffness: 5.0 * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE.value()
             / (link_length * link_length),
         number_of_links: 3,
-        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
+        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE.value()),
     };
     let (gamma, g) =
         MonteCarloExtensible::nondimensional_radial_distribution(&model, 0.0, 333, 10_000, 1, 3.0);
@@ -29,10 +29,10 @@ fn bias() {
     let model = ExtensibleFreelyRotatingChain {
         link_angle: std::f64::consts::PI * 60.0 / 180.0,
         link_length,
-        link_stiffness: kappa * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE
+        link_stiffness: kappa * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE.value()
             / (link_length * link_length),
         number_of_links: 5,
-        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
+        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE.value()),
     };
     use crate::physics::molecular::single_chain::thermodynamics::MonteCarlo;
     println!(

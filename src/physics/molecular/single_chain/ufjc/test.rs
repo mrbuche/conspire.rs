@@ -18,8 +18,8 @@ fn finite_difference() -> Result<(), AssertionError> {
     let e = 1e5;
     let a = 1.0;
     let x0 = 1.0;
-    let eta_max = 0.5 * a * x0 * e / BOLTZMANN_CONSTANT.value() / ROOM_TEMPERATURE;
-    [Ensemble::Isotensional(ROOM_TEMPERATURE)]
+    let eta_max = 0.5 * a * x0 * e / BOLTZMANN_CONSTANT.value() / ROOM_TEMPERATURE.value();
+    [Ensemble::Isotensional(ROOM_TEMPERATURE.value())]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
@@ -61,7 +61,7 @@ fn finite_difference() -> Result<(), AssertionError> {
                     })
             })
         })?;
-    [Ensemble::Isotensional(ROOM_TEMPERATURE)]
+    [Ensemble::Isotensional(ROOM_TEMPERATURE.value())]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {

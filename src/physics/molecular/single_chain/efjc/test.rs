@@ -16,10 +16,10 @@ fn monte_carlo() {
     let link_length = 1.0;
     let model = ExtensibleFreelyJointedChain {
         link_length,
-        link_stiffness: 5.0 * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE
+        link_stiffness: 5.0 * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE.value()
             / (link_length * link_length),
         number_of_links: 5,
-        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
+        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE.value()),
     };
     let (gamma, g) =
         MonteCarloExtensible::nondimensional_radial_distribution(&model, 0.0, 333, 10_000, 1, 3.0);
@@ -32,7 +32,7 @@ fn monte_carlo() {
 #[test]
 fn finite_difference() -> Result<(), AssertionError> {
     let link_stiffness = 1e3;
-    [Ensemble::Isotensional(ROOM_TEMPERATURE)]
+    [Ensemble::Isotensional(ROOM_TEMPERATURE.value())]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {

@@ -18,7 +18,7 @@ fn monte_carlo() {
         link_length: 1.0,
         number_of_links: N as u8,
         well_width: 0.3,
-        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
+        ensemble: Ensemble::Isometric(ROOM_TEMPERATURE.value()),
     };
     let (gamma, g) =
         MonteCarloInextensible::nondimensional_radial_distribution(&model, 0.0, 333, 10_000, 1);
@@ -30,7 +30,7 @@ fn monte_carlo() {
 
 #[test]
 fn finite_difference() -> Result<(), AssertionError> {
-    [Ensemble::Isotensional(ROOM_TEMPERATURE)]
+    [Ensemble::Isotensional(ROOM_TEMPERATURE.value())]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {

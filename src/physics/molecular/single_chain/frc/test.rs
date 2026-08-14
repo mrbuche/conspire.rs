@@ -13,7 +13,7 @@ const MODEL: FreelyRotatingChain = FreelyRotatingChain {
     link_angle: 0.4363323129985824,
     link_length: 1.0,
     number_of_links: 8,
-    ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
+    ensemble: Ensemble::Isometric(ROOM_TEMPERATURE.value()),
 };
 
 #[test]
