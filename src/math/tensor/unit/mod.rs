@@ -160,6 +160,10 @@ units!(
     PowerTemperature,
     /// A power times a temperature per unit volume.
     PowerTemperatureDensity,
+    /// An entropy, and equally the Boltzmann constant, being an energy per unit temperature.
+    Entropy,
+    /// A reciprocal stiffness, as a compliance conjugate to a force is.
+    ReciprocalForcePerLength,
 );
 
 macro_rules! unit_products {
@@ -288,6 +292,25 @@ unit_products!(
     Power * Temperature = PowerTemperature,
     PowerPerTemperature * Temperature = Power,
     Temperature * PowerPerTemperature = Power,
+    Dimensionless * Entropy = Entropy,
+    Entropy * Temperature = Energy,
+    Temperature * Entropy = Energy,
+    Dimensionless * ReciprocalForcePerLength = ReciprocalForcePerLength,
+    ReciprocalLength * Energy = Force,
+    Energy * ReciprocalLength = Force,
+    ReciprocalArea * Energy = ForcePerLength,
+    Energy * ReciprocalArea = ForcePerLength,
+    ForcePerLength * ReciprocalLength = Stress,
+    ReciprocalLength * ForcePerLength = Stress,
+    ForcePerLength * Area = Energy,
+    Area * ForcePerLength = Energy,
+    ReciprocalForcePerLength * Energy = Area,
+    Energy * ReciprocalForcePerLength = Area,
+    Length * Force = Energy,
+    ReciprocalForcePerLength * Force = Length,
+    Force * ReciprocalForcePerLength = Length,
+    Stress * Length = ForcePerLength,
+    Length * Stress = ForcePerLength,
 );
 
 // A tuple carries the pair of units its halves do, so the pair combines with
@@ -333,6 +356,8 @@ unit_inverses!(
     ReciprocalViscosity => Viscosity,
     Time => Rate,
     Rate => Time,
+    ForcePerLength => ReciprocalForcePerLength,
+    ReciprocalForcePerLength => ForcePerLength,
 );
 
 // Names for units that are the same dimension as one already spelled. An alias

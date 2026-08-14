@@ -4,9 +4,10 @@ mod test;
 use crate::math::Current;
 use crate::{
     math::{
-        Scalar,
+        Quantity, Scalar,
         random::random_uniform,
         special::{inverse_langevin, langevin, langevin_derivative, sinhc},
+        unit::Length,
     },
     mechanics::Vector,
     physics::molecular::single_chain::{
@@ -20,7 +21,7 @@ use std::f64::consts::{PI, TAU};
 #[derive(Clone, Debug)]
 pub struct FreelyJointedChain {
     /// The link length $`\ell_b`$.
-    pub link_length: Scalar,
+    pub link_length: Quantity<Length>,
     /// The number of links $`N_b`$.
     pub number_of_links: u8,
     /// The thermodynamic ensemble.
@@ -28,7 +29,7 @@ pub struct FreelyJointedChain {
 }
 
 impl SingleChain for FreelyJointedChain {
-    fn link_length(&self) -> Scalar {
+    fn link_length(&self) -> Quantity<Length> {
         self.link_length
     }
     fn number_of_links(&self) -> u8 {

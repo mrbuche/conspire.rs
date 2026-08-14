@@ -3,8 +3,9 @@ mod test;
 
 use crate::{
     math::{
-        Scalar,
+        Quantity, Scalar,
         special::{langevin, langevin_derivative},
+        unit::Length,
     },
     physics::molecular::{
         potential::{Harmonic, Potential},
@@ -55,7 +56,7 @@ impl<T> SingleChain for ArbitraryPotentialFreelyJointedChain<T>
 where
     T: Potential,
 {
-    fn link_length(&self) -> Scalar {
+    fn link_length(&self) -> Quantity<Length> {
         self.link_potential.rest_length()
     }
     fn number_of_links(&self) -> u8 {

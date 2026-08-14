@@ -1,19 +1,18 @@
 use crate::{
-    math::Scalar,
+    math::Quantity,
     physics::{
         BOLTZMANN_CONSTANT, ROOM_TEMPERATURE,
         molecular::single_chain::{Ensemble, ExtensibleFreelyRotatingChain, MonteCarloExtensible},
     },
 };
 
-const STIFFNESS: Scalar = 5.0 * BOLTZMANN_CONSTANT * ROOM_TEMPERATURE;
-
 #[test]
 fn monte_carlo() {
+    let link_length = Quantity::new(1.0);
     let model = ExtensibleFreelyRotatingChain {
         link_angle: 0.4363323129985824,
-        link_length: 1.0,
-        link_stiffness: STIFFNESS,
+        link_length,
+        link_stiffness: 5.0 * BOLTZMANN_CONSTANT * ROOM_TEMPERATURE / (link_length * link_length),
         number_of_links: 3,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };
@@ -28,10 +27,11 @@ fn monte_carlo() {
 #[test]
 fn bias() {
     let kappa = 100.0;
+    let link_length = Quantity::new(1.0);
     let model = ExtensibleFreelyRotatingChain {
         link_angle: std::f64::consts::PI * 60.0 / 180.0,
-        link_length: 1.0,
-        link_stiffness: kappa * BOLTZMANN_CONSTANT * ROOM_TEMPERATURE,
+        link_length,
+        link_stiffness: kappa * BOLTZMANN_CONSTANT * ROOM_TEMPERATURE / (link_length * link_length),
         number_of_links: 5,
         ensemble: Ensemble::Isometric(ROOM_TEMPERATURE),
     };

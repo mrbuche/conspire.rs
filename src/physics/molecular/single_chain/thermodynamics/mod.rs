@@ -1,7 +1,8 @@
 use crate::{
     math::{
-        Current, Scalar, SquareMatrix, Tensor, TensorArray, TensorRank1, Vector,
+        Current, Quantity, Scalar, SquareMatrix, Tensor, TensorArray, TensorRank1, Vector,
         optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
+        unit::Temperature,
     },
     mechanics::Vectors,
     physics::molecular::single_chain::{Extensible, Inextensible, SingleChain, SingleChainError},
@@ -12,8 +13,8 @@ pub type Configuration = Vectors<Current>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Ensemble {
-    Isometric(Scalar),
-    Isotensional(Scalar),
+    Isometric(Quantity<Temperature>),
+    Isotensional(Quantity<Temperature>),
 }
 
 pub trait Thermodynamics
@@ -21,7 +22,7 @@ where
     Self: Isometric + Isotensional + Legendre + SingleChain,
 {
     fn ensemble(&self) -> Ensemble;
-    fn temperature(&self) -> Scalar {
+    fn temperature(&self) -> Quantity<Temperature> {
         match self.ensemble() {
             Ensemble::Isometric(temperature) => temperature,
             Ensemble::Isotensional(temperature) => temperature,

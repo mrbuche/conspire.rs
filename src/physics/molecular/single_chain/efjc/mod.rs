@@ -4,9 +4,10 @@ mod test;
 use crate::math::Current;
 use crate::{
     math::{
-        Scalar,
+        Quantity, Scalar,
         random::{random_uniform, random_x2_normal},
         special::{erf, erfc},
+        unit::{ForcePerLength, Length},
     },
     mechanics::Vector,
     physics::{
@@ -31,9 +32,9 @@ use std::f64::consts::{PI, TAU};
 #[derive(Clone, Debug)]
 pub struct ExtensibleFreelyJointedChain {
     /// The link length $`\ell_b`$.
-    pub link_length: Scalar,
+    pub link_length: Quantity<Length>,
     /// The link stiffness $`k_b`$.
-    pub link_stiffness: Scalar,
+    pub link_stiffness: Quantity<ForcePerLength>,
     /// The number of links $`N_b`$.
     pub number_of_links: u8,
     /// The thermodynamic ensemble.
@@ -42,12 +43,13 @@ pub struct ExtensibleFreelyJointedChain {
 
 impl ExtensibleFreelyJointedChain {
     fn nondimensional_link_stiffness(&self) -> Scalar {
-        self.link_stiffness * self.link_length().powi(2) / BOLTZMANN_CONSTANT / self.temperature()
+        (self.link_stiffness * (self.link_length() * self.link_length()))
+            .ratio(BOLTZMANN_CONSTANT * self.temperature())
     }
 }
 
 impl SingleChain for ExtensibleFreelyJointedChain {
-    fn link_length(&self) -> Scalar {
+    fn link_length(&self) -> Quantity<Length> {
         self.link_length
     }
     fn number_of_links(&self) -> u8 {

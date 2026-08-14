@@ -1,6 +1,6 @@
 use crate::math::Current;
 use crate::{
-    math::{Scalar, random::random_uniform},
+    math::{Quantity, Scalar, random::random_uniform, unit::Length},
     mechanics::Vector,
     physics::molecular::{
         potential::{Harmonic, Potential},
@@ -19,7 +19,7 @@ where
     U: Potential,
 {
     Free,
-    Rigid(Scalar),
+    Rigid(Quantity<Length>),
     Strong(U),
     Weak(U),
 }
@@ -40,7 +40,7 @@ pub struct ArbitraryDiscrete {
 }
 
 impl SingleChain for ArbitraryDiscrete {
-    fn link_length(&self) -> Scalar {
+    fn link_length(&self) -> Quantity<Length> {
         match &self.link_potential {
             ArbitraryDiscretePotential::Free => panic!(),
             ArbitraryDiscretePotential::Rigid(link_length) => *link_length,

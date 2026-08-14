@@ -1,5 +1,6 @@
 use super::super::test::*;
 use super::*;
+use crate::math::Quantity;
 use crate::math::assert::Assert;
 use crate::physics::{ROOM_TEMPERATURE, molecular::single_chain::Ensemble};
 
@@ -22,7 +23,7 @@ mod freely_jointed_chain {
     mod isotensional {
         use super::*;
         const FJC: FreelyJointedChain = FreelyJointedChain {
-            link_length: 1.0,
+            link_length: Quantity::new(1.0),
             number_of_links: NUMBER_OF_LINKS as u8,
             ensemble: Ensemble::Isotensional(ROOM_TEMPERATURE),
         };

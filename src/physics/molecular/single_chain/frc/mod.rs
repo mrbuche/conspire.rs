@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::Current;
 use crate::{
-    math::{CrossProduct, Scalar, random::random_uniform},
+    math::{CrossProduct, Quantity, Scalar, random::random_uniform, unit::Length},
     mechanics::Vector,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
@@ -18,7 +18,7 @@ pub struct FreelyRotatingChain {
     /// The link angle $`\theta_b`$.
     pub link_angle: Scalar,
     /// The link length $`\ell_b`$.
-    pub link_length: Scalar,
+    pub link_length: Quantity<Length>,
     /// The number of links $`N_b`$.
     pub number_of_links: u8,
     /// The thermodynamic ensemble.
@@ -26,7 +26,7 @@ pub struct FreelyRotatingChain {
 }
 
 impl SingleChain for FreelyRotatingChain {
-    fn link_length(&self) -> Scalar {
+    fn link_length(&self) -> Quantity<Length> {
         self.link_length
     }
     fn number_of_links(&self) -> u8 {

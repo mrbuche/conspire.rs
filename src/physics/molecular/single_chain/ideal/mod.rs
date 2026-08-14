@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{
-    math::Scalar,
+    math::{Quantity, Scalar, unit::Length},
     physics::molecular::single_chain::{
         Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError, Thermodynamics,
     },
@@ -13,7 +13,7 @@ use std::f64::consts::PI;
 #[derive(Clone, Debug)]
 pub struct IdealChain {
     /// The link length $`\ell_b`$.
-    pub link_length: Scalar,
+    pub link_length: Quantity<Length>,
     /// The number of links $`N_b`$.
     pub number_of_links: u8,
     /// The thermodynamic ensemble.
@@ -21,7 +21,7 @@ pub struct IdealChain {
 }
 
 impl SingleChain for IdealChain {
-    fn link_length(&self) -> Scalar {
+    fn link_length(&self) -> Quantity<Length> {
         self.link_length
     }
     fn number_of_links(&self) -> u8 {
