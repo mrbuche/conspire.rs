@@ -1,6 +1,5 @@
 pub mod internal_variables;
 
-use crate::math::Quantity;
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
@@ -17,7 +16,7 @@ use crate::{
             hyperelastic::HyperelasticElements,
         },
     },
-    math::HessianAccumulate,
+    math::{HessianAccumulate, Quantity},
     units::Energy,
 };
 

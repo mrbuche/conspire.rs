@@ -11,7 +11,6 @@ use crate::{
     units::Temperature,
 };
 
-/// The temperatures at the nodes.
 pub type NodalTemperatures = QuantityVector<Temperature>;
 
 pub trait ThermalElements<C, F, const G: usize, const M: usize, const N: usize, const P: usize>

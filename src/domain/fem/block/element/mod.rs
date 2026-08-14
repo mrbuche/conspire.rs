@@ -1,7 +1,5 @@
 #[cfg(test)]
 mod test;
-use crate::math::Projection;
-use crate::math::Reference;
 
 pub mod cohesive;
 pub mod composite;
@@ -15,8 +13,8 @@ pub mod thermal;
 
 use crate::{
     math::{
-        Quantity, Scalar, ScalarList, TensorList, TensorRank1, TensorRank1List, TensorRank1List2D,
-        assert::AssertionError, defeat_message,
+        Projection, Quantity, Reference, Scalar, ScalarList, TensorList, TensorRank1,
+        TensorRank1List, TensorRank1List2D, assert::AssertionError, defeat_message,
     },
     mechanics::{CoordinateList, CurrentCoordinates, CurrentVelocities, ReferenceCoordinates},
     units::{Length, ReciprocalLength, Volume},
@@ -45,11 +43,6 @@ pub type StandardGradientOperators<const M: usize, const O: usize, const P: usiz
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, Reference, P, O>;
 
-/// A finite element, whose integration weight carries the unit `W`.
-///
-/// A solid or surface element integrates over a volume, a cohesive element over
-/// the area its traction acts on, which is why the weight is named rather than
-/// assumed.
 pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize, W = Volume>
 where
     Self: Clone + Debug,
@@ -129,10 +122,6 @@ where
         .into_iter()
         .zip(Element::parametric_weights())
         .map(|(standard_gradient_operator, integration_weight)| {
-            // A determinant multiplies its unit once per dimension, which the
-            // type does not know, so the volume is named here rather than
-            // derived. In two dimensions it is an area, the element being of
-            // unit thickness.
             Quantity::new(
                 (&reference_nodal_coordinates * standard_gradient_operator).determinant()
                     * integration_weight,

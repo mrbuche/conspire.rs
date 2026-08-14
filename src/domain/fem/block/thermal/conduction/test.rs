@@ -43,7 +43,6 @@ macro_rules! test_thermal_block {
                             finite_difference = block.potential(&nodal_temperatures)?;
                             nodal_temperatures[node] -= EPSILON_TEMPERATURE;
                             finite_difference -= block.potential(&nodal_temperatures)?;
-                            // A potential per unit temperature is a power.
                             Ok(finite_difference / EPSILON_TEMPERATURE)
                         })
                         .collect::<Result<_, ElementModelError>>()?;
@@ -72,7 +71,6 @@ macro_rules! test_thermal_block {
                                     nodal_temperatures[node_b] -= EPSILON_TEMPERATURE;
                                     finite_difference -=
                                         block.nodal_forces(&nodal_temperatures)?[node_a];
-                                    // A power per unit temperature is a thermal stiffness.
                                     Ok(finite_difference / EPSILON_TEMPERATURE)
                                 })
                                 .collect()

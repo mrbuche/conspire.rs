@@ -1,13 +1,12 @@
 pub mod internal_variables;
 
-use crate::math::Quantity;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElementError, solid::elastic::ElasticFiniteElement,
         surface::SurfaceElement,
     },
-    math::Tensor,
+    math::{Quantity, Tensor},
     units::Energy,
 };
 

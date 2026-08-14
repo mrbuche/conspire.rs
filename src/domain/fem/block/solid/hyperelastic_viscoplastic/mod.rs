@@ -1,4 +1,3 @@
-use crate::math::Quantity;
 use crate::{
     constitutive::solid::hyperelastic_viscoplastic::HyperelasticViscoplastic,
     fem::{
@@ -13,7 +12,7 @@ use crate::{
             hyperelastic_viscoplastic::HyperelasticViscoplasticElements,
         },
     },
-    math::{Differentiate, Tensor},
+    math::{Differentiate, Quantity, Tensor},
     units::Energy,
 };
 

@@ -1,11 +1,10 @@
-use crate::math::Quantity;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperviscoelastic::Hyperviscoelastic},
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElementError,
         solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement, surface::SurfaceElement,
     },
-    math::Tensor,
+    math::{Quantity, Tensor},
     units::Energy,
 };
 

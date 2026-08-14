@@ -72,8 +72,6 @@ fn demonstrate() -> Result<(), AssertionError> {
     let (t, f, f_p) = model.minimize(
         AppliedLoad::UniaxialStress(
             |t: Quantity<Time>| {
-                // The load is stated as a piecewise function of a number, so
-                // the variable of integration is spent once, up front.
                 let t = t.value();
                 if t < 0.25_f64.exp() - 1.0 {
                     1.0 + t

@@ -423,7 +423,6 @@ macro_rules! test_helmholtz_free_energy {
                             nodal_coordinates[node][i] -=
                                 $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference -= block.helmholtz_free_energy(&nodal_coordinates)?;
-                            // An energy per unit length is a force.
                             Ok((finite_difference
                                 / $crate::math::Quantity::<$crate::units::Length>::new(EPSILON))
                             .value_as::<$crate::units::Force>())
@@ -870,9 +869,6 @@ pub(crate) use test_finite_element_block_with_hyperelastic_constitutive_model;
 
 macro_rules! test_finite_element_block_with_viscoelastic_constitutive_model {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
-        // A force contracted with a velocity is a power, which no unit here
-        // names, the force having spent its stress at assembly, so the erased
-        // views are contracted and the dissipation is spent to meet them.
         use crate::math::ContractWith;
         fn get_velocities_transformed_block() -> NodalVelocities<3> {
             get_coordinates_block()
@@ -1211,7 +1207,6 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference -=
                                 block.viscous_dissipation(&nodal_coordinates, &nodal_velocities)?;
-                            // A power per unit velocity is a force.
                             Ok((finite_difference
                                 / $crate::math::Quantity::<$crate::units::Velocity>::new(EPSILON))
                             .value_as::<$crate::units::Force>())
@@ -1252,7 +1247,6 @@ macro_rules! test_finite_element_block_with_elastic_hyperviscous_constitutive_mo
                                 $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference -= block
                                 .dissipation_potential(&nodal_coordinates, &nodal_velocities)?;
-                            // A power per unit velocity is a force.
                             Ok((finite_difference
                                 / $crate::math::Quantity::<$crate::units::Velocity>::new(EPSILON))
                             .value_as::<$crate::units::Force>())

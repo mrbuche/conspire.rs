@@ -1,4 +1,3 @@
-use crate::math::Quantity;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic_viscoplastic::HyperelasticViscoplastic},
     fem::block::element::{
@@ -8,7 +7,7 @@ use crate::{
             viscoplastic::ViscoplasticStateVariables,
         },
     },
-    math::{Differentiate, Tensor},
+    math::{Differentiate, Quantity, Tensor},
     units::Energy,
 };
 

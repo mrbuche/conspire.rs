@@ -1,5 +1,3 @@
-use crate::math::Quantity;
-use crate::math::{Current, Reference};
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -11,8 +9,8 @@ use crate::{
         basic_from, surface::SurfaceElement,
     },
     math::{
-        ScalarList, Tensor, TensorArray, TensorRank1, TensorRank1List, TensorRank2,
-        TensorRank2List2D,
+        Current, Quantity, Reference, ScalarList, Tensor, TensorArray, TensorRank1,
+        TensorRank1List, TensorRank2, TensorRank2List2D,
     },
     mechanics::{
         DeformationGradient, DeformationGradientList, FirstPiolaKirchhoffStressList,

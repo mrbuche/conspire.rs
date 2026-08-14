@@ -1,9 +1,11 @@
-use crate::fem::{
-    Blocks, ElementModelError, Model, NodalCoordinates,
-    solid::elastic_hyperviscous::ElasticHyperviscousElements,
+use crate::{
+    fem::{
+        Blocks, ElementModelError, Model, NodalCoordinates,
+        solid::elastic_hyperviscous::ElasticHyperviscousElements,
+    },
+    math::Quantity,
+    units::Energy,
 };
-use crate::math::Quantity;
-use crate::units::Energy;
 
 pub trait HyperviscoelasticElements<const D: usize>
 where

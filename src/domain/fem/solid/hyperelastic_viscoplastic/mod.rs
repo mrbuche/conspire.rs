@@ -1,4 +1,3 @@
-use crate::units::Time;
 use crate::{
     fem::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
@@ -18,7 +17,7 @@ use crate::{
         optimize::SecondOrderOptimization,
     },
     mechanics::Times,
-    units::Energy,
+    units::{Energy, Time},
 };
 
 pub trait HyperelasticViscoplasticElements<S, const D: usize>

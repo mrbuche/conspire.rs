@@ -1,4 +1,3 @@
-use crate::math::Quantity;
 use crate::{
     fem::{
         ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
@@ -12,7 +11,7 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor, Vector,
+        Quantity, Scalar, Tensor, Vector,
         optimize::{
             EqualityConstraint, OptimizationError, SecondOrderOptimization,
             SecondOrderOptimizationIncremental, SolveStrategy,

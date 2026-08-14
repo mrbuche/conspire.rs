@@ -1,6 +1,3 @@
-use crate::units::{Dimensionless, UnitDiv};
-use std::ops::{Div, Mul};
-
 use crate::{
     constitutive::solid::hyperelastic::internal_variables::HyperelasticIV,
     fem::{
@@ -14,8 +11,9 @@ use crate::{
         },
     },
     math::{Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector},
-    units::Energy,
+    units::{Dimensionless, Energy, UnitDiv},
 };
+use std::ops::{Div, Mul};
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E>
     HyperelasticIVElements<G, V, 3> for Block<C, F, G, M, N, P>

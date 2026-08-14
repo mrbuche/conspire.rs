@@ -1,6 +1,5 @@
 pub mod internal_variables;
 
-use crate::math::Quantity;
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, Model,
@@ -9,7 +8,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolidSymmetric, elastic::ElasticElements},
     },
     math::{
-        Tensor,
+        Quantity, Tensor,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,
         },

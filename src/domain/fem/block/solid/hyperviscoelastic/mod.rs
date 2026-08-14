@@ -1,4 +1,3 @@
-use crate::math::Quantity;
 use crate::{
     constitutive::solid::hyperviscoelastic::Hyperviscoelastic,
     fem::{
@@ -9,6 +8,7 @@ use crate::{
             hyperviscoelastic::HyperviscoelasticElements,
         },
     },
+    math::Quantity,
     units::Energy,
 };
 
