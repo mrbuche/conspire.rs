@@ -25,7 +25,7 @@ impl Voxels<usize> {
             });
         }
         let nel: [usize; 3] =
-            from_fn(|ax| (((max[ax] - min[ax]).ratio(size)).ceil() as usize).max(1));
+            from_fn(|ax| ((((max[ax] - min[ax]) / size).ceil().value()) as usize).max(1));
         let [nx, ny, _] = nel;
         let layer = nx * ny;
         let mut data = vec![0usize; layer * nel[2]];

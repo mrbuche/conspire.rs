@@ -344,7 +344,7 @@ fn closest_point_on_triangle(
     }
     let vc = d1 * d4 - d3 * d2;
     if vc <= Quantity::default() && d1 >= zero && d3 <= zero {
-        return a + &(&ab * d1.ratio(d1 - d3));
+        return a + &(&ab * (d1 / (d1 - d3)));
     }
     let cp = point - c;
     let d5 = &ab * &cp;
@@ -354,12 +354,12 @@ fn closest_point_on_triangle(
     }
     let vb = d5 * d2 - d1 * d6;
     if vb <= Quantity::default() && d2 >= zero && d6 <= zero {
-        return a + &(&ac * d2.ratio(d2 - d6));
+        return a + &(&ac * (d2 / (d2 - d6)));
     }
     let va = d3 * d6 - d5 * d4;
     if va <= Quantity::default() && (d4 - d3) >= zero && (d5 - d6) >= zero {
-        return b + &(&(c - b) * (d4 - d3).ratio((d4 - d3) + (d5 - d6)));
+        return b + &(&(c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6))));
     }
     let total = va + vb + vc;
-    &(a + &(&ab * vb.ratio(total))) + &(&ac * vc.ratio(total))
+    &(a + &(&ab * (vb / total))) + &(&ac * (vc / total))
 }

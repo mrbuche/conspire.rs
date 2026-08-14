@@ -261,7 +261,7 @@ impl DormandPrince {
             } else {
                 let t_0 = tp[i - 1];
                 let h = tp[i] - t_0;
-                let theta = (*time_k - t_0).ratio(h);
+                let theta = (*time_k - t_0).value() / h.value();
                 let theta2 = theta * theta;
                 let theta3 = theta2 * theta;
                 let theta4 = theta3 * theta;

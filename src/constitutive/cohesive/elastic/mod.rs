@@ -61,11 +61,11 @@ where
         let (tangent, ratio, q_t) = if !tangential_component.is_zero() {
             (
                 tangential_separation / tangential_component,
-                normal_component.ratio(tangential_component),
+                normal_component / tangential_component,
                 tangential_traction / tangential_component,
             )
         } else {
-            (Normal::zero(), 0.0, k_tt)
+            (Normal::zero(), 0.0.into(), k_tt)
         };
         let nn = Dyad::from((&normal, &normal));
         let nu = DyadSeparation::from((&normal, &separation));

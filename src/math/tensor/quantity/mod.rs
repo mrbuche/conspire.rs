@@ -62,13 +62,6 @@ impl<U> Quantity<U> {
     pub fn is_nan(&self) -> bool {
         self.0.is_nan()
     }
-    /// Returns how many of another quantity of the same unit this one is.
-    ///
-    /// A count of steps carries no unit whatever the step is measured in, so
-    /// the ratio needs no unit named for it.
-    pub fn ratio(self, quantity: Self) -> TensorRank0 {
-        self.0 / quantity.0
-    }
     /// Returns whether two quantities differ by more than the epsilon
     /// relatively, at least one of them being large enough for that ratio to
     /// mean anything.
@@ -78,7 +71,7 @@ impl<U> Quantity<U> {
     /// quantity that is not a number differs from anything, that comparison
     /// being one no epsilon settles.
     pub fn differs(self, quantity: Self, epsilon: TensorRank0) -> bool {
-        ((self.ratio(quantity) - 1.0).abs() >= epsilon
+        ((self.0 / quantity.0 - 1.0).abs() >= epsilon
             && (self.0.abs() >= epsilon || quantity.0.abs() >= epsilon))
             || self.is_nan()
             || quantity.is_nan()
@@ -86,7 +79,7 @@ impl<U> Quantity<U> {
     /// Returns whether two quantities [differ](Self::differs) absolutely as
     /// well as relatively.
     pub fn differs_severely(self, quantity: Self, epsilon: TensorRank0) -> bool {
-        ((self.ratio(quantity) - 1.0).abs() >= epsilon
+        ((self.0 / quantity.0 - 1.0).abs() >= epsilon
             && (self.0 - quantity.0).abs() >= epsilon
             && (self.0.abs() >= epsilon || quantity.0.abs() >= epsilon))
             || self.is_nan()
@@ -127,6 +120,10 @@ impl Quantity<Dimensionless> {
     pub fn ceil(self) -> Self {
         Self::new(self.0.ceil())
     }
+    /// Returns the largest integer less than or equal to the value.
+    pub fn floor(self) -> Self {
+        Self::new(self.0.floor())
+    }
     /// Raises to an integer power.
     pub fn powi(self, n: i32) -> Self {
         Self::new(self.0.powi(n))
@@ -142,6 +139,10 @@ impl Quantity<Dimensionless> {
     /// Returns the natural logarithm.
     pub fn ln(self) -> Self {
         Self::new(self.0.ln())
+    }
+    /// Returns the base-2 logarithm.
+    pub fn log2(self) -> Self {
+        Self::new(self.0.log2())
     }
     /// Returns the exponential.
     pub fn exp(self) -> Self {
@@ -511,9 +512,21 @@ impl PartialEq<TensorRank0> for Quantity<Dimensionless> {
     }
 }
 
+impl PartialEq<Quantity<Dimensionless>> for TensorRank0 {
+    fn eq(&self, quantity: &Quantity<Dimensionless>) -> bool {
+        self == &quantity.0
+    }
+}
+
 impl PartialOrd<TensorRank0> for Quantity<Dimensionless> {
     fn partial_cmp(&self, tensor_rank_0: &TensorRank0) -> Option<std::cmp::Ordering> {
         self.0.partial_cmp(tensor_rank_0)
+    }
+}
+
+impl PartialOrd<Quantity<Dimensionless>> for TensorRank0 {
+    fn partial_cmp(&self, quantity: &Quantity<Dimensionless>) -> Option<std::cmp::Ordering> {
+        self.partial_cmp(&quantity.0)
     }
 }
 

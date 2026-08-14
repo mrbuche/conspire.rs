@@ -61,7 +61,7 @@ impl BoundingBox<3> {
                     1 => [e[2], 0.0, -e[0]],
                     _ => [-e[1], e[0], 0.0],
                 };
-                let radius = (0..3).map(|i| half[i] * axis[i].abs()).sum();
+                let radius: Scalar = (0..3).map(|i| half[i] * axis[i].abs()).sum();
                 let projection: [Scalar; 3] = from_fn(|i| (0..3).map(|j| axis[j] * v[i][j]).sum());
                 let low = projection[0].min(projection[1]).min(projection[2]);
                 let high = projection[0].max(projection[1]).max(projection[2]);
@@ -81,7 +81,7 @@ impl BoundingBox<3> {
             let (i, j) = ((k + 1) % 3, (k + 2) % 3);
             edges[0][i] * edges[1][j] - edges[0][j] * edges[1][i]
         });
-        let radius = (0..3).map(|i| half[i] * normal[i].abs()).sum();
+        let radius: Scalar = (0..3).map(|i| half[i] * normal[i].abs()).sum();
         let distance: Scalar = (0..3).map(|i| normal[i] * v[0][i]).sum();
         distance.abs() <= radius
     }

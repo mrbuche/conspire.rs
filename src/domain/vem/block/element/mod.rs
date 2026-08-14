@@ -394,7 +394,7 @@ fn temporary_poly_0() {
         - coordinates[face_node_connectivity[0][1]].clone())
     .norm();
     let volume = length * length * length * ((15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0);
-    assert!((block.elements()[0].integration_weights()[0].ratio(volume) - 1.0).abs() < 1e-14);
+    assert!((block.elements()[0].integration_weights()[0] / volume - 1.0).abs() < 1e-14);
 }
 
 #[test]

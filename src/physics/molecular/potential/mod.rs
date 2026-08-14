@@ -37,7 +37,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let length = self.rest_length() * nondimensional_length;
-        self.energy(length).ratio(BOLTZMANN_CONSTANT * temperature)
+        (self.energy(length) / (BOLTZMANN_CONSTANT * temperature)).into()
     }
     /// ```math
     /// u = u[x(f)]
@@ -56,8 +56,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let force = BOLTZMANN_CONSTANT * temperature / self.rest_length() * nondimensional_force;
-        self.energy_at_force(force)
-            .ratio(BOLTZMANN_CONSTANT * temperature)
+        (self.energy_at_force(force) / (BOLTZMANN_CONSTANT * temperature)).into()
     }
     /// ```math
     /// f(x) = \frac{\partial u}{\partial x}
@@ -72,7 +71,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let length = self.rest_length() * nondimensional_length;
-        (self.force(length) * self.rest_length()).ratio(BOLTZMANN_CONSTANT * temperature)
+        ((self.force(length) * self.rest_length()) / (BOLTZMANN_CONSTANT * temperature)).into()
     }
     /// ```math
     /// f = x^{-1}[u^{-1}(u)]
@@ -88,7 +87,7 @@ where
     ) -> [Scalar; 2] {
         let energy = BOLTZMANN_CONSTANT * temperature * nondimensional_energy;
         self.forces_at_energy(energy)
-            .map(|force| (force * self.rest_length()).ratio(BOLTZMANN_CONSTANT * temperature))
+            .map(|force| ((force * self.rest_length()) / (BOLTZMANN_CONSTANT * temperature)).into())
     }
     /// ```math
     /// k(x) = \frac{\partial f}{\partial x}
@@ -103,8 +102,9 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let length = self.rest_length() * nondimensional_length;
-        (self.stiffness(length) * (self.rest_length() * self.rest_length()))
-            .ratio(BOLTZMANN_CONSTANT * temperature)
+        ((self.stiffness(length) * (self.rest_length() * self.rest_length()))
+            / (BOLTZMANN_CONSTANT * temperature))
+            .into()
     }
     /// ```math
     /// h(x) = \frac{\partial k}{\partial x}
@@ -119,9 +119,10 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let length = self.rest_length() * nondimensional_length;
-        (self.anharmonicity(length)
+        ((self.anharmonicity(length)
             * (self.rest_length() * self.rest_length() * self.rest_length()))
-        .ratio(BOLTZMANN_CONSTANT * temperature)
+            / (BOLTZMANN_CONSTANT * temperature))
+            .into()
     }
     /// ```math
     /// v(f) = u(x) - f\Delta x
@@ -140,7 +141,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let force = BOLTZMANN_CONSTANT * temperature / self.rest_length() * nondimensional_force;
-        self.legendre(force).ratio(BOLTZMANN_CONSTANT * temperature)
+        (self.legendre(force) / (BOLTZMANN_CONSTANT * temperature)).into()
     }
     /// ```math
     /// \Delta x(f) = -\frac{\partial v}{\partial f}
@@ -155,7 +156,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let force = BOLTZMANN_CONSTANT * temperature / self.rest_length() * nondimensional_force;
-        self.extension(force).ratio(self.rest_length())
+        (self.extension(force) / self.rest_length()).into()
     }
     /// ```math
     /// x(f) = x_0 + \Delta x(f)
@@ -187,7 +188,7 @@ where
     ) -> [Scalar; 2] {
         let energy = BOLTZMANN_CONSTANT * temperature * nondimensional_energy;
         self.extensions_at_energy(energy)
-            .map(|extension| extension.ratio(self.rest_length()))
+            .map(|extension| (extension / self.rest_length()).into())
     }
     /// ```math
     /// x = u^{-1}(u)
@@ -220,8 +221,9 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let force = BOLTZMANN_CONSTANT * temperature / self.rest_length() * nondimensional_force;
-        (self.compliance(force) * (BOLTZMANN_CONSTANT * temperature))
-            .ratio(self.rest_length() * self.rest_length())
+        ((self.compliance(force) * (BOLTZMANN_CONSTANT * temperature))
+            / (self.rest_length() * self.rest_length()))
+        .into()
     }
     /// ```math
     /// \text{arg max }u(x) = x_\mathrm{peak}

@@ -9,7 +9,7 @@ pub(crate) mod list;
 pub(crate) mod list_2d;
 
 use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
-use std::ops::Sub;
+use std::{ops::Sub, slice::from_ref};
 
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
@@ -103,7 +103,7 @@ impl Tensor for TensorRank0 {
         self == &0.0
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
-        std::slice::from_ref(self).iter()
+        from_ref(self).iter()
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         [self].into_iter()

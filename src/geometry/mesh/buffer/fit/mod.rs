@@ -424,11 +424,7 @@ impl Sweep<'_> {
             .nodes
             .iter()
             .enumerate()
-            .map(|(index, &node)| {
-                (&x[index] - &anchor[index])
-                    .norm()
-                    .ratio(self.lengths[node])
-            })
+            .map(|(index, &node)| ((&x[index] - &anchor[index]).norm() / self.lengths[node]).into())
             .fold(0.0, Scalar::max);
         (shift, value, settled)
     }
@@ -466,7 +462,7 @@ fn schedule(
     previous: Quantity<Length>,
     worst: Scalar,
 ) -> Scalar {
-    let sigma = RELAXATION.max(1.0 - quality.ratio(previous));
+    let sigma = RELAXATION.max((1.0 - quality / previous).into());
     let mu = (1.0 - sigma) * chi(epsilon, worst);
     let epsilon_2021 = if worst < mu {
         2.0 * (mu * (mu - worst)).sqrt()

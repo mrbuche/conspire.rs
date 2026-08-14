@@ -43,7 +43,7 @@ where
                     format!("{self:?}"),
                 ));
             } else {
-                let max_steps = (t_f - t_0).ratio(self.dt()).ceil() as usize;
+                let max_steps = ((t_f - t_0).value() / self.dt().value()).ceil() as usize;
                 t_sol = (0..max_steps)
                     .map(|step| t_0 + self.dt() * (step as Scalar))
                     .collect();
@@ -134,7 +134,7 @@ where
                     format!("{self:?}"),
                 ));
             } else {
-                let max_steps = (t_f - t_0).ratio(self.dt()).ceil() as usize;
+                let max_steps = ((t_f - t_0).value() / self.dt().value()).ceil() as usize;
                 t_sol = (0..max_steps)
                     .map(|step| t_0 + self.dt() * (step as Scalar))
                     .collect();

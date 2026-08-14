@@ -235,8 +235,8 @@ impl Tessellation {
                         retained
                             .iter()
                             .map(|&cell| {
-                                signed_volume(&cells[cell], coordinates)
-                                    .ratio(original_volumes[cell])
+                                (signed_volume(&cells[cell], coordinates) / original_volumes[cell])
+                                    .into()
                             })
                             .fold(Scalar::INFINITY, Scalar::min)
                     };

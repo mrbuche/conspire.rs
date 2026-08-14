@@ -146,10 +146,11 @@ where
         let levels = if max_extent <= zero || min_length <= zero {
             0u32
         } else {
-            (max_extent.ratio(min_length) + 2.0 * padding as Scalar)
+            (max_extent / min_length + 2.0 * padding as Scalar)
                 .log2()
                 .ceil()
-                .max(0.0) as u32
+                .max(Quantity::default())
+                .value() as u32
         };
         let root_length: u16 = 1u16.checked_shl(levels).unwrap_or(u16::MAX);
         let center = Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {

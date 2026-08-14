@@ -51,7 +51,7 @@ impl Potential for Morse {
     /// f(u) = \pm 2a u_0\sqrt{u/u_0}\left(1 \mp \sqrt{u/u_0}\right)
     /// ```
     fn forces_at_energy(&self, energy: Quantity<Energy>) -> [Quantity<Force>; 2] {
-        let y = energy.ratio(self.depth());
+        let y = energy / self.depth();
         let f = 2.0 * self.parameter() * self.depth() * y.sqrt();
         let tensile = if (0.0..=1.0).contains(&y) {
             f * (1.0 - y.sqrt())
@@ -82,7 +82,7 @@ impl Potential for Morse {
     /// \Delta x(f) = \frac{1}{a}\,\ln\left(\frac{2}{1 + \sqrt{1 - f/f_\mathrm{max}}}\right)
     /// ```
     fn extension(&self, force: Quantity<Force>) -> Quantity<Length> {
-        let y = force.ratio(self.peak_force());
+        let y = force / self.peak_force();
         if y <= 1.0 {
             (2.0 / (1.0 + (1.0 - y).sqrt())).ln() / self.parameter()
         } else {
@@ -93,7 +93,7 @@ impl Potential for Morse {
     /// \Delta x(u) = \frac{1}{a}\,\ln\left(\frac{1}{1\mp\sqrt{u/u_0}}\right)
     /// ```
     fn extensions_at_energy(&self, energy: Quantity<Energy>) -> [Quantity<Length>; 2] {
-        let y = energy.ratio(self.depth());
+        let y = energy / self.depth();
         let tensile = if (0.0..=1.0).contains(&y) {
             (1.0 / (1.0 - y.sqrt())).ln() / self.parameter()
         } else {
@@ -105,7 +105,7 @@ impl Potential for Morse {
     /// c(f) = \frac{1}{a^2u_0}\,\frac{\left(1-f/f_\mathrm{max}\right)^{-1/2}}{1+\sqrt{1-f/f_\mathrm{max}}}
     /// ```
     fn compliance(&self, force: Quantity<Force>) -> Quantity<ReciprocalForcePerLength> {
-        let y = force.ratio(self.peak_force());
+        let y = force / self.peak_force();
         if (0.0..1.0).contains(&y) {
             let s = (1.0 - y).sqrt();
             1.0 / (self.parameter() * self.parameter() * self.depth()) / (s * (1.0 + s))

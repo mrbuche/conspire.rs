@@ -117,9 +117,7 @@ impl Tessellation {
                     if !distances.is_empty() {
                         let points: Vec<Coordinate<D>> = distances
                             .iter()
-                            .map(|&distance| {
-                                &coordinates[from] + &(&along * (distance.ratio(length)))
-                            })
+                            .map(|&distance| &coordinates[from] + &(&along * (distance / length)))
                             .collect();
                         let ordered = if from == a {
                             points
@@ -152,7 +150,7 @@ impl Tessellation {
                         [a, b],
                         distances
                             .iter()
-                            .map(|&distance| &coordinates[a] + &(&span * (distance.ratio(length))))
+                            .map(|&distance| &coordinates[a] + &(&span * (distance / length)))
                             .collect(),
                     );
                     Ok(())
@@ -177,9 +175,7 @@ impl Tessellation {
                             [a, b],
                             distances
                                 .iter()
-                                .map(|&distance| {
-                                    &coordinates[a] + &(&span * (distance.ratio(length)))
-                                })
+                                .map(|&distance| &coordinates[a] + &(&span * (distance / length)))
                                 .collect(),
                         );
                     }

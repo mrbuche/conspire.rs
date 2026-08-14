@@ -303,7 +303,8 @@ impl Tessellation {
                     .iter()
                     .map(|face| face.iter().map(|&local| hex[local]).collect())
                     .collect();
-                star_volume(&polygons, &coordinates).ratio(star_volume(&reference, &coordinates))
+                (star_volume(&polygons, &coordinates) / star_volume(&reference, &coordinates))
+                    .into()
             })
             .collect();
         let mut sets: Vec<HashSet<usize>> = elements_faces

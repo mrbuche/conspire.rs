@@ -179,8 +179,6 @@ macro_rules! unit_products {
     };
 }
 
-// Only the products the library actually forms. Reaching for one that is
-// absent is a compile error, and the fix is to name the result here.
 unit_products!(
     Dimensionless * Length = Length,
     Dimensionless * ReciprocalLength = ReciprocalLength,
@@ -214,6 +212,7 @@ unit_products!(
     Dimensionless * Area = Area,
     Dimensionless * ReciprocalArea = ReciprocalArea,
     Dimensionless * Volume = Volume,
+    Dimensionless * SecondMomentOfArea = SecondMomentOfArea,
     Dimensionless * Velocity = Velocity,
     Dimensionless * Force = Force,
     Dimensionless * ForcePerLength = ForcePerLength,
@@ -313,9 +312,6 @@ unit_products!(
     Length * Stress = ForcePerLength,
 );
 
-// A tuple carries the pair of units its halves do, so the pair combines with
-// another the same way, one half at a time.
-
 impl<A, B, C, D> UnitMul<(C, D)> for (A, B)
 where
     A: UnitMul<C>,
@@ -359,10 +355,6 @@ unit_inverses!(
     ForcePerLength => ReciprocalForcePerLength,
     ReciprocalForcePerLength => ForcePerLength,
 );
-
-// Names for units that are the same dimension as one already spelled. An alias
-// costs nothing: no product to enumerate, no impl to write, and no
-// instantiation of its own, since it denotes the very same type.
 
 /// A pressure.
 pub type Pressure = Stress;

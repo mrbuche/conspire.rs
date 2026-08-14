@@ -40,7 +40,7 @@ pub(super) fn maximum_skew<const D: usize>(
     let x2 = (p(3) - p(0)) + (p(2) - p(1));
     let (n1, n2) = (x1.norm(), x2.norm());
     if n1 > Quantity::default() && n2 > Quantity::default() {
-        (&x1 * &x2).ratio(n1 * n2).abs()
+        Scalar::from(((&x1 * &x2) / (n1 * n2)).abs())
     } else {
         0.0
     }
