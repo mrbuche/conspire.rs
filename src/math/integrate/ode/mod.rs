@@ -15,19 +15,12 @@ where
 }
 
 /// Fixed-step integrators for ordinary differential equations.
-///
-/// The step is measured in the variable of integration, so the stored number
-/// takes that variable's unit from the accessor rather than naming one itself.
 pub trait FixedStep<T = Time> {
     /// Returns the time step.
     fn dt(&self) -> Quantity<T>;
 }
 
 /// Variable-step integrators for ordinary differential equations.
-///
-/// Only the smallest step is measured in the variable of integration; the
-/// tolerances are compared against norms, which carry no unit, and the rest are
-/// factors and exponents.
 pub trait VariableStep<T = Time> {
     /// Returns the absolute error tolerance.
     fn abs_tol(&self) -> Scalar;

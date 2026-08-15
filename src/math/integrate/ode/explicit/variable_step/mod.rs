@@ -243,9 +243,6 @@ where
                         + &yp[i] * h01
                         + &dydtp[i] * (h11 * h),
                 );
-                // The Hermite derivatives divide by the step rather than
-                // multiplying by its reciprocal, a state per step being a rate
-                // whether or not the step's reciprocal names a quantity.
                 dydt_int.push(
                     (&yp[i - 1] * dh00 + &yp[i] * dh01) / h
                         + &dydtp[i - 1] * dh10

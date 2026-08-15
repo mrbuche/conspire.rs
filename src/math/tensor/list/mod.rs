@@ -21,7 +21,6 @@ where
 {
     type Erased = TensorList<<T as Erase>::Erased, N>;
     fn erase(&self) -> &Self::Erased {
-        // Erasing an item changes neither its size nor its alignment.
         unsafe { &*(self as *const Self as *const Self::Erased) }
     }
 }
@@ -233,8 +232,6 @@ where
         self.iter_mut().for_each(|entry| *entry /= tensor_rank_0);
     }
 }
-
-// A quantity carries its unit into every entry of the list it scales.
 
 impl<T, const N: usize, V> Mul<Quantity<V>> for TensorList<T, N>
 where

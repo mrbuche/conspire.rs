@@ -11,10 +11,7 @@ macro_rules! test_implicit_fixed_step {
         };
         const TIME_STEP: Quantity<Time> = Quantity::new(0.1);
         const TOLERANCE: Scalar = 0.1;
-        /// The rate the dimensionless fixtures are stated against, there being
-        /// no rate to divide a state by otherwise.
         const RATE: Quantity<Rate> = Quantity::new(1.0);
-        /// The state and the rate the solution is reported as.
         type States = TensorVector<Quantity>;
         type Rates = TensorVector<Quantity<Rate>>;
         #[test]
@@ -65,8 +62,6 @@ macro_rules! test_implicit_fixed_step {
         mod gradient_descent {
             use super::*;
             use crate::math::{integrate::ImplicitZerothOrder, optimize::GradientDescent};
-            // A scalar unknown is a `Quantity`, a bare scalar carrying no unit
-            // for the solver's step size to be measured against.
             #[test]
             fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
                 $crate::math::assert::Assert::eq(
@@ -100,8 +95,6 @@ macro_rules! test_implicit_fixed_step {
                     &FixedStep::<Time>::dt(&$integration),
                     &TIME_STEP,
                 )?;
-                // The Jacobian of the residual is named, a derivative telling
-                // which tensor it came from only in the one direction.
                 let (time, solution, function): (Times, States, Rates) =
                     ImplicitFirstOrder::<Quantity, Quantity, States, Rates>::integrate(
                         &$integration,

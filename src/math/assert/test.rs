@@ -1,8 +1,7 @@
 use super::{Assert, AssertionError};
-use crate::math::Current;
 use crate::{
     EPSILON,
-    math::{TensorRank1, TensorRank1List},
+    math::{Current, TensorRank1, TensorRank1List},
 };
 
 #[test]

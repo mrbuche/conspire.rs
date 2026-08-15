@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 pub(super) mod configuration;
 pub(super) mod list;
 pub(super) mod norm;
@@ -7,8 +10,6 @@ pub(super) mod rank_1;
 pub(super) mod rank_2;
 pub(super) mod rank_3;
 pub(super) mod rank_4;
-#[cfg(test)]
-mod test;
 pub(super) mod tuple;
 pub(super) mod vec;
 
@@ -227,8 +228,7 @@ where
     fn is_identity(&self) -> bool;
     /// Checks whether the tensor is a symmetric tensor.
     fn is_symmetric(&self) -> bool;
-    /// Returns the second invariant of the rank-2 tensor, which carries the
-    /// square of its unit, being built from two things that each do.
+    /// Returns the second invariant of the rank-2 tensor.
     fn second_invariant(&self) -> Quantity<Square<Self::Unit>>
     where
         Self::Unit: UnitMul<Self::Unit>,
@@ -236,8 +236,7 @@ where
         let trace = self.trace();
         (trace * trace - self.squared_trace()) * 0.5
     }
-    /// Returns the trace of the rank-2 tensor squared, which carries the square
-    /// of its unit.
+    /// Returns the trace of the rank-2 tensor squared.
     fn squared_trace(&self) -> Quantity<Square<Self::Unit>>
     where
         Self::Unit: UnitMul<Self::Unit>;
@@ -278,12 +277,8 @@ where
     /// The type of item encountered when iterating over the tensor.
     type Item;
     /// The physical unit the tensor carries.
-    ///
-    /// Lets generic code name a unit it can only reach through the tensor, so
-    /// that a quantity derived from one — the unit of a step size, say — is a
-    /// projection rather than another parameter to be passed in.
     type Unit;
-    /// Returns number of nonzero entries given absolute and relative tolerances, compared against zero.
+    /// Returns number of nonzero entries given absolute and relative tolerances.
     fn error_count_zero(&self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
         let error_count = self
             .iter()
@@ -331,15 +326,7 @@ where
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item>;
     /// Returns the number of elements, also referred to as the ‘length’.
     fn len(&self) -> usize;
-    /// Returns the tensor norm, which carries the unit the tensor does.
-    ///
-    /// Every norm below is that unit once, however many entries it is taken
-    /// over, so each is a number gathered from the entries and given the unit
-    /// at the end. The gathering stays a number because a tuple's unit is the
-    /// pair its halves carry rather than the unit of either of them, and
-    /// because a square root halves a unit, which the table names forwards but
-    /// not back — so this takes the contraction rather than the norm squared it
-    /// would otherwise have to spend.
+    /// Returns the tensor norm.
     fn norm(&self) -> Quantity<Self::Unit> {
         Quantity::new(self.full_contraction(self).sqrt())
     }
@@ -374,13 +361,6 @@ where
         Quantity::new(self.full_contraction(self))
     }
     /// Normalizes the tensor in place.
-    ///
-    /// What is left points where the tensor did and is a length of one, so it
-    /// no longer carries what the tensor measured. Assigning over the tensor
-    /// cannot change its type to say so, which is why this is only reached for
-    /// where the tensor is already dimensionless; anything else takes the
-    /// direction [a rank-one tensor gives](crate::math::TensorRank1::normalized)
-    /// rather than normalizing itself.
     fn normalize(&mut self) {
         *self /= self.norm().value()
     }

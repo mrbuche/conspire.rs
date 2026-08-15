@@ -41,13 +41,6 @@ impl Matrix {
         (0..self.width())
             .map(|i| (0..self.len()).map(|j| self[j][i]).collect())
             .collect()
-        // let mut transpose = Self::zero(self.width(), self.len());
-        // self.iter().enumerate().for_each(|(i, self_i)|
-        //     self_i.iter().zip(transpose.iter_mut()).for_each(|(self_ij, transpose_j)|
-        //         transpose_j[i] = *self_ij
-        //     )
-        // );
-        // transpose
     }
     pub fn width(&self) -> usize {
         self.0[0].len()
@@ -183,7 +176,6 @@ impl Mul<&Scalar> for &Matrix {
     }
 }
 
-/// A scalar unknown has no constraint matrix to be multiplied by.
 impl<U> Mul<&Quantity<U>> for &Matrix {
     type Output = Vector;
     fn mul(self, _quantity: &Quantity<U>) -> Self::Output {

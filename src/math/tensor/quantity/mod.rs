@@ -25,10 +25,6 @@ pub trait Is<T> {}
 impl<T> Is<T> for T {}
 
 /// A scalar carrying a physical unit.
-///
-/// The dimensions of a constitutive law live in its material parameters rather
-/// than in the tensors they multiply, so a modulus is a [`Quantity`] while a
-/// count, a ratio, or a tolerance stays a bare [`TensorRank0`].
 #[repr(transparent)]
 pub struct Quantity<U = Dimensionless>(TensorRank0, PhantomData<U>);
 
@@ -42,9 +38,6 @@ impl<U> Quantity<U> {
         self.0
     }
     /// Returns the value, stating the unit being discarded.
-    ///
-    /// Compiles only when the quantity carries that unit, so a synonym for it
-    /// is accepted and anything else is not.
     pub const fn value_as<V>(&self) -> TensorRank0
     where
         U: Is<V>,
@@ -65,11 +58,6 @@ impl<U> Quantity<U> {
     /// Returns whether two quantities differ by more than the epsilon
     /// relatively, at least one of them being large enough for that ratio to
     /// mean anything.
-    ///
-    /// The epsilon is a tolerance rather than a measurement, so it stays a bare
-    /// number and both sides are compared against it with their unit spent. A
-    /// quantity that is not a number differs from anything, that comparison
-    /// being one no epsilon settles.
     pub fn differs(self, quantity: Self, epsilon: TensorRank0) -> bool {
         ((self.0 / quantity.0 - 1.0).abs() >= epsilon
             && (self.0.abs() >= epsilon || quantity.0.abs() >= epsilon))
@@ -248,8 +236,6 @@ impl<U> SubAssign<&Self> for Quantity<U> {
     }
 }
 
-// Reference-taking forms, which the integrators and solvers reach for.
-
 impl<U> Add for &Quantity<U> {
     type Output = Quantity<U>;
     fn add(self, quantity: Self) -> Self::Output {
@@ -344,8 +330,6 @@ impl<U> SubAssign for Quantity<U> {
     }
 }
 
-// Scaling by a bare scalar leaves the unit alone, in either order.
-
 impl<U> Mul<TensorRank0> for Quantity<U> {
     type Output = Self;
     fn mul(self, tensor_rank_0: TensorRank0) -> Self::Output {
@@ -387,17 +371,12 @@ impl<U> Mul<Quantity<U>> for TensorRank0 {
 }
 
 /// Scaling a bare scalar by a dimensionless quantity leaves it bare.
-///
-/// Sound rather than a loophole: the unit is named, and naming any other fails
-/// to compile. It is how an unknown that is a bare scalar takes a step.
 impl Mul<Quantity<Dimensionless>> for &TensorRank0 {
     type Output = TensorRank0;
     fn mul(self, quantity: Quantity<Dimensionless>) -> Self::Output {
         self * quantity.0
     }
 }
-
-// Combining two quantities combines their units.
 
 impl<U, V> Mul<Quantity<V>> for Quantity<U>
 where
@@ -439,9 +418,6 @@ where
     }
 }
 
-// The weights an element hands over are iterated by reference, so a quantity
-// scales the same way whether it is owned or borrowed.
-
 impl<U, V> Mul<&Quantity<V>> for Quantity<U>
 where
     U: UnitMul<V>,
@@ -475,8 +451,6 @@ impl<V> Mul<&Quantity<V>> for &TensorRank0 {
         Quantity::new(self * quantity.0)
     }
 }
-
-// A dimensionless quantity is a number, and mixes with one freely.
 
 impl Add<TensorRank0> for Quantity<Dimensionless> {
     type Output = Self;
@@ -558,10 +532,6 @@ impl<'a, U> std::iter::Sum<&'a Quantity<U>> for Quantity<U> {
     }
 }
 
-// A quantity is a scalar, so it is a tensor of rank zero that happens to carry
-// a unit. Every default that iterates is overridden, an iterator over a scalar
-// yielding the scalar itself.
-
 impl<U> Erase for Quantity<U> {
     type Erased = TensorRank0;
     fn erase(&self) -> &Self::Erased {
@@ -638,8 +608,6 @@ impl<U> FiniteDifference for Quantity<U> {
     }
 }
 
-// A list of quantities compares entry by entry, as a list of scalars does.
-
 impl<U, const N: usize> FiniteDifference for TensorList<Quantity<U>, N> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         error_fd_over(self.iter().zip(comparator.iter()), epsilon)
@@ -674,8 +642,6 @@ fn error_fd_over<'a, U: 'a>(
     }
 }
 
-// A scalar unknown has no vector to be filled into or decremented from.
-
 impl<U> Solution for Quantity<U> {
     fn decrement_from(&mut self, _other: &Vector) {
         unimplemented!()
@@ -684,8 +650,6 @@ impl<U> Solution for Quantity<U> {
         unimplemented!()
     }
 }
-
-// A scalar Hessian is the scalar itself, with no matrix to be filled into.
 
 impl<U> Hessian for Quantity<U> {
     fn quadratic_form(&self, vector: &Vector) -> TensorRank0 {

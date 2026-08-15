@@ -1,12 +1,14 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{FixedStep, IntegrationError, OdeIntegrator, Times},
-    optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+use crate::{
+    math::{
+        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+        integrate::{FixedStep, IntegrationError, OdeIntegrator, Times},
+        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+    },
+    units::Time,
 };
-use crate::units::Time;
 
 pub(crate) mod backward_euler;
 pub(crate) mod midpoint;
@@ -98,10 +100,6 @@ where
 }
 
 /// Implicit integrators for ordinary differential equations using first-order root-finding.
-///
-/// The residual is a state, so its Jacobian carries no unit, whereas the
-/// Jacobian of the right-hand side is that of a rate — the two differ by the
-/// step they are separated by.
 pub trait ImplicitFirstOrder<Y, J, U, V, T = Time>
 where
     Self: ImplicitZerothOrder<Y, U, V, T>,

@@ -230,10 +230,6 @@ mod constrained {
         Assert::default().eq_within_tols(&minimized(LineSearch::None)?, &Vector::from([1.0, 1.0]))
     }
 
-    /// The same problem with the objective measured in another unit, so that
-    /// the variables block of the residual scales while the multipliers block,
-    /// being a constraint violation, does not. No absolute tolerance is
-    /// allowed, so only the relative one can end it.
     fn scaled(rel_tol: Option<Scalar>) -> Result<Vector, OptimizationError> {
         const SCALE: Scalar = 1e12;
         NewtonRaphson {

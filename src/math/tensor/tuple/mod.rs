@@ -18,10 +18,6 @@ where
     T1: Tensor,
     T2: Tensor;
 
-// A quantity carries its unit into both halves of the tuple it scales, each half
-// taking the unit [`UnitHalves`] gives it: a step in one variable goes to both,
-// while a pair is taken apart.
-
 type First<V> = <V as UnitHalves>::First;
 type Second<V> = <V as UnitHalves>::Second;
 
@@ -88,7 +84,6 @@ where
 {
     type Erased = TensorTuple<<T1 as Erase>::Erased, <T2 as Erase>::Erased>;
     fn erase(&self) -> &Self::Erased {
-        // Erasing an item changes neither its size nor its alignment.
         unsafe { &*(self as *const Self as *const Self::Erased) }
     }
 }
@@ -159,8 +154,6 @@ where
     T2: Tensor,
 {
     type Item = T1::Item;
-    // The unit of a tuple is the pair its halves carry, they being free to
-    // differ, so that nothing has to constrain them to agree.
     type Unit = (<T1 as Tensor>::Unit, <T2 as Tensor>::Unit);
     fn full_contraction(&self, tensor_tuple: &Self) -> TensorRank0 {
         self.0.full_contraction(&tensor_tuple.0) + self.1.full_contraction(&tensor_tuple.1)

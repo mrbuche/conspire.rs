@@ -137,9 +137,6 @@ where
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError> {
-        // The line search compares merits against a constraint violation, which
-        // is a number, so the objective spends its unit here rather than at
-        // every call site that has one to hand over.
         let objective = move |argument: &X| function(argument).map(|value| *value.erase());
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => {
@@ -215,12 +212,6 @@ where
             solution_change -= &solution;
             let change = residual_change.get_or_insert_with(|| zeroed(&residual));
             *change -= &residual;
-            // The step size carries the unit of the solution over that of the
-            // residual, which is what makes the increment below dimensionally
-            // sound without either of them having to be unitless. The ratio
-            // itself is a number, so both sides are contracted in the erased
-            // view rather than one of them being asked for its norm squared,
-            // which would name a unit only to spend it again here.
             step_trial = change.erase().full_contraction(solution_change.erase())
                 / change.erase().full_contraction(change.erase());
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
@@ -287,9 +278,6 @@ where
             solution_change -= &solution;
             let change = residual_change.get_or_insert_with(|| zeroed(&residual));
             *change -= &residual;
-            // The step size carries the unit of the solution over that of the
-            // residual, which is what makes the increment below dimensionally
-            // sound without either of them having to be unitless.
             step_trial = change.erase().full_contraction(solution_change.erase())
                 / change.erase().full_contraction(change.erase());
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {

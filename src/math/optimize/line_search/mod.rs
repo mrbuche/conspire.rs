@@ -184,8 +184,6 @@ impl LineSearch {
         if m <= 0.0 {
             return Err(LineSearchError::NotDescentDirection(format!("{self:?}")));
         }
-        // The step is a bare number here, the unit it takes being whatever the
-        // decrement needs to reach the argument.
         let trial = |n: Scalar| decrement * Quantity::new(-n) + argument;
         match self {
             Self::Armijo {

@@ -18,11 +18,6 @@ type Inverse<U> = <U as UnitInv>::Output;
 
 impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
     /// Returns the determinant of the rank-2 tensor.
-    ///
-    /// A determinant multiplies the unit its tensor carries by itself once per
-    /// dimension, which is a unit this cannot name for a dimension it does not
-    /// know, so the determinant is a number and its unit is named where it is
-    /// wanted, as a norm's is.
     pub fn determinant(&self) -> TensorRank0 {
         self.canonical().determinant_core()
     }

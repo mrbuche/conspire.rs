@@ -208,9 +208,6 @@ where
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        // The merit a line search compares adds a constraint violation to the
-        // objective, and a violation is a number, so the objective spends its
-        // unit here rather than at every call site that has one to hand over.
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
         match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
@@ -425,8 +422,6 @@ where
         .sum()
 }
 
-/// The entry of the whole Karush-Kuhn-Tucker matrix, ordered as the global
-/// variables, their multipliers, the local variables, then theirs.
 #[allow(clippy::too_many_arguments)]
 fn kkt_entry<Kuu, Kvu, Kuv, Kvv>(
     row: usize,

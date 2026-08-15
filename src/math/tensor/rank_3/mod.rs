@@ -59,8 +59,6 @@ impl<const D: usize, I, J, K, U> PartialEq for TensorRank3<D, I, J, K, U> {
 }
 
 impl<const D: usize, I, J, K, U> TensorRank3<D, I, J, K, U> {
-    /// Views the tensor with its configurations discarded, so that arithmetic is
-    /// compiled once per dimension rather than once per configuration.
     fn canonical(&self) -> &TensorRank3<D, Reference, Reference, Reference, Dimensionless> {
         unsafe {
             &*(self as *const Self

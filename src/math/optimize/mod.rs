@@ -15,27 +15,22 @@ pub use newton_raphson::NewtonRaphson;
 pub use strategy::SolveStrategy;
 pub use trust_region::TrustRegion;
 
-use crate::math::{
-    Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
-    assert::AssertionError,
-    matrix::square::SquareMatrixError,
-    sparse::{CscMatrix, SparseError, SparseSolver},
-    styled_error,
+use crate::{
+    math::{
+        Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
+        assert::AssertionError,
+        matrix::square::SquareMatrixError,
+        sparse::{CscMatrix, SparseError, SparseSolver},
+        styled_error,
+    },
+    units::UnitDiv,
 };
-use crate::units::UnitDiv;
 use std::{fmt::Debug, ops::Mul};
 
-/// The step size that takes a decrement of type `D` to an increment of `X`.
-///
-/// Its unit is that of the unknown over that of the decrement, so that the two
-/// need not carry the same one and neither has to give theirs up.
+/// The step size taking a decrement of type `D` to an increment of `X`.
 pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;
 
 /// Zeroth-order root-finding algorithms.
-///
-/// `F` is the residual and `X` the unknown. The step size carries the unit of
-/// the unknown over that of the residual, which is read off the two rather than
-/// passed in.
 pub trait ZerothOrderRootFinding<F, X> {
     fn root(
         &self,
@@ -85,18 +80,6 @@ pub trait FirstOrderRootFindingIncremental<F, J, X> {
 }
 
 /// First-order optimization algorithms.
-///
-/// `F` is the objective, `J` its gradient, and `X` the unknown. The step size
-/// carries the unit of the unknown squared over that of the objective, since the
-/// gradient carries the objective over the unknown — the unit an inverse Hessian
-/// carries, which is what a step size stands in for. It is read off `J` and `X`
-/// rather than passed in.
-///
-/// The objective carries its unit in and gives it up inside, where the merit a
-/// line search compares adds a constraint violation to it. What the gradient
-/// contracted with the unknown carries is what the objective carries, since a
-/// line search takes one against the other, and an implementation says so as a
-/// bound rather than trusting the two to agree.
 pub trait FirstOrderOptimization<F, J, X> {
     fn minimize(
         &self,
@@ -108,8 +91,6 @@ pub trait FirstOrderOptimization<F, J, X> {
 }
 
 /// Second-order optimization algorithms.
-///
-/// The objective is carried and spent as it is in [`FirstOrderOptimization`].
 pub trait SecondOrderOptimization<F, J, H, X> {
     fn minimize(
         &self,

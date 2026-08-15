@@ -362,9 +362,6 @@ impl Erase for Vector {
     }
 }
 
-// A dimensionless quantity scaling a vector of bare scalars leaves it bare.
-// Any other unit would name a quantity this type cannot carry.
-
 impl Mul<Quantity<Dimensionless>> for Vector {
     type Output = Self;
     fn mul(self, quantity: Quantity<Dimensionless>) -> Self::Output {

@@ -1273,8 +1273,6 @@ fn quadratic_form_matches_dense() {
     assert!((form - &vector * (dense * &vector)).abs() < crate::ABS_TOL)
 }
 
-/// Both of these accumulate in place rather than summing blocks they build, so
-/// each is checked against the sum it stands for rather than against a fixture.
 #[test]
 fn contract_second_with_first_is_its_definition() {
     let tensor_rank_4 = get_tensor_rank_4();

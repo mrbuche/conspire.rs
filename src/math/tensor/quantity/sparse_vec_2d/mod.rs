@@ -6,9 +6,6 @@ use crate::math::{
 use crate::units::Dimensionless;
 
 /// A vector of sparse vectors of quantities, storing only inserted entries.
-///
-/// What a stiffness is where a node carries one degree of freedom, the blocks a
-/// rank-2 sparse vector stores being a single entry apiece.
 pub type QuantitySparseVec2D<U = Dimensionless> = TensorVector<QuantitySparseVec<U>>;
 
 impl<U> QuantitySparseVec2D<U> {

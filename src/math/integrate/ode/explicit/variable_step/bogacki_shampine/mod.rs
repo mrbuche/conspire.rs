@@ -157,8 +157,6 @@ where
         let dt_0 = *dt;
         self.step_fsal(y, t, y_sol, t_sol, dydt_sol, k_sol, dt, k, y_trial, e)?;
         if e > 0.0 {
-            // None of these carry a unit, so the variable of integration has to
-            // be named for them rather than read off what they return.
             let (beta, tol, expn) = (
                 VariableStep::<T>::dt_beta(self),
                 VariableStep::<T>::abs_tol(self),

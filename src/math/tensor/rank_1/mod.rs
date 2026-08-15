@@ -61,8 +61,6 @@ impl<const D: usize, I, U> PartialEq for TensorRank1<D, I, U> {
 }
 
 impl<const D: usize, I, U> TensorRank1<D, I, U> {
-    /// Views the tensor with its configuration and unit discarded, so that
-    /// arithmetic is compiled once per dimension rather than once per either.
     pub(super) fn canonical(&self) -> &TensorRank1<D, Reference, Dimensionless> {
         unsafe { &*(self as *const Self as *const TensorRank1<D, Reference, Dimensionless>) }
     }
@@ -71,11 +69,6 @@ impl<const D: usize, I, U> TensorRank1<D, I, U> {
         relabel(self.into_canonical())
     }
     /// Returns the direction the tensor points in.
-    ///
-    /// A direction is a length of one rather than one of whatever the tensor
-    /// measured, so the unit divides out rather than being spent: a normal is
-    /// the cross product of two edges over how long that product is, and it is
-    /// the same normal whatever the edges were measured in.
     pub fn normalized(self) -> TensorRank1<D, I, Dimensionless> {
         let norm = self.norm().value();
         (self / norm).with_unit()
@@ -170,9 +163,6 @@ impl<const D: usize, I, U> TensorRank1<D, I, U> {
         self.0.as_ptr().cast()
     }
     /// Returns an orthonormal basis whose first vector is this one's direction.
-    ///
-    /// A basis vector is a direction rather than the quantity it was built
-    /// from, so what comes back carries no unit whatever this one carries.
     pub fn orthonormal_basis(&self) -> TensorRank1List<D, I, D, Dimensionless> {
         let norm = self.norm().value();
         assert!(
@@ -722,8 +712,6 @@ where
         )
     }
 }
-
-// Solving against a rank 2 divides the units, as it undoes multiplying by one.
 
 #[allow(clippy::suspicious_arithmetic_impl)]
 impl<const D: usize, I, J, U, V> Div<TensorRank2<D, I, J, V>> for &TensorRank1<D, I, U>

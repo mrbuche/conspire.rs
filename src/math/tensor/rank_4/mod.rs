@@ -83,9 +83,6 @@ impl<const D: usize, I, J, K, L, U> PartialEq for TensorRank4<D, I, J, K, L, U> 
 }
 
 impl<const D: usize, I, J, K, L, U> TensorRank4<D, I, J, K, L, U> {
-    /// Views the tensor with its configurations discarded, so that arithmetic is
-    /// compiled once per dimension rather than once per configuration.
-    /// Asserts that the tensor carries the given unit.
     pub fn with_unit<V>(self) -> TensorRank4<D, I, J, K, L, V> {
         relabel(self.into_canonical())
     }
@@ -614,9 +611,6 @@ impl<const D: usize, I, J, K, L, M, N, O, P, U>
         tensor_rank_2_c: &TensorRank2<D, K, O, Dimensionless>,
         tensor_rank_2_d: &TensorRank2<D, L, P, Dimensionless>,
     ) -> Self::Output {
-        // One index at a time. Transforming all four at once sums over every
-        // index of the input for every index of the output, which is the
-        // dimension cubed more arithmetic than doing them in sequence.
         let first = canonical_transform_first(self.canonical(), tensor_rank_2_a.canonical());
         let second = canonical_contract_second_with_first(&first, tensor_rank_2_b.canonical());
         let third = canonical_contract_third_with_first(&second, tensor_rank_2_c.canonical());
@@ -627,10 +621,6 @@ impl<const D: usize, I, J, K, L, M, N, O, P, U>
     }
 }
 
-/// Transforms the first, third, and fourth indices of a rank-4 tensor.
-///
-/// Contracts each with the first index of a corresponding rank-2 tensor;
-/// the second index of `self` is left untouched.
 pub trait ContractFirstThirdFourthWithFirst<TIM, TKO, TLP> {
     type Output;
     fn contract_first_third_fourth_with_first(
@@ -655,7 +645,6 @@ impl<const D: usize, I, J, K, L, M, O, P, U>
         tensor_rank_2_b: &TensorRank2<D, K, O, Dimensionless>,
         tensor_rank_2_c: &TensorRank2<D, L, P, Dimensionless>,
     ) -> Self::Output {
-        // One index at a time, for the same reason.
         let first = canonical_transform_first(self.canonical(), tensor_rank_2_a.canonical());
         let third = canonical_contract_third_with_first(&first, tensor_rank_2_b.canonical());
         relabel(canonical_transform_fourth(
@@ -665,9 +654,6 @@ impl<const D: usize, I, J, K, L, M, O, P, U>
     }
 }
 
-/// Transforms the second index of a rank-4 tensor.
-///
-/// Contracts it with the first index of a rank-2 tensor.
 pub trait ContractSecondWithFirst<TJN> {
     type Output;
     fn contract_second_with_first(self, tensor_rank_2: TJN) -> Self::Output;
@@ -688,9 +674,6 @@ impl<const D: usize, I, J, K, L, N, U> ContractSecondWithFirst<&TensorRank2<D, J
     }
 }
 
-/// Contracts the second and fourth indices of a rank-4 tensor with two vectors.
-///
-/// Yields the rank-2 tensor over the remaining first and third indices.
 pub trait ContractSecondFourthWithFirst<TJ, TL> {
     type Output;
     fn contract_second_fourth_with_first(&self, object_a: TJ, object_b: TL) -> Self::Output;
@@ -717,13 +700,6 @@ where
     }
 }
 
-/// Contracts the second and fourth indices against two vectors.
-///
-/// `out[i][k] = sum_{j,l} tensor_rank_4[i][j][k][l] * a[j] * b[l]`
-///
-/// The scaled copy of the second vector this used to make depended on neither
-/// of the indices it was made inside, so it is a dot product and a scalar
-/// multiply instead.
 fn canonical_contract_second_fourth_with_first<const D: usize>(
     tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
     tensor_rank_1_a: &TensorRank1<D, Reference, Dimensionless>,
@@ -747,9 +723,6 @@ fn canonical_contract_second_fourth_with_first<const D: usize>(
     output
 }
 
-/// Transforms the third index of a rank-4 tensor.
-///
-/// Contracts it with the first index of a rank-2 tensor.
 pub trait ContractThirdWithFirst<TKL> {
     type Output;
     fn contract_third_with_first(&self, tensor: TKL) -> Self::Output;
@@ -770,9 +743,6 @@ impl<const D: usize, I, J, K, L, M, U> ContractThirdWithFirst<&TensorRank2<D, M,
     }
 }
 
-/// Double-contracts the third and fourth indices of a rank-4 tensor.
-///
-/// Contracts against the leading two indices of another rank-2 or rank-4 tensor.
 pub trait ContractThirdFourthWithFirstSecond<TKL> {
     type Output;
     fn contract_third_fourth_with_first_second(self, tensor: TKL) -> Self::Output;
@@ -855,9 +825,6 @@ fn canonical_contract_34_12_rank_4<const D: usize>(
         .collect()
 }
 
-/// Transforms the first and second indices of a rank-4 tensor.
-///
-/// Contracts each with the second index of a corresponding rank-2 tensor.
 pub trait ContractFirstSecondWithSecond<TI, TJ> {
     type Output;
     fn contract_first_second_with_second(self, object_a: TI, object_b: TJ) -> Self::Output;
@@ -875,8 +842,6 @@ impl<const D: usize, I, J, K, L, M, N, U>
         tensor_rank_2_a: &TensorRank2<D, I, M, Dimensionless>,
         tensor_rank_2_b: &TensorRank2<D, J, N, Dimensionless>,
     ) -> Self::Output {
-        // One index at a time, and against the transposes so that the same two
-        // primitives the other transforms use apply here.
         let first =
             canonical_transform_first(self.canonical(), &tensor_rank_2_a.canonical().transpose());
         relabel(canonical_contract_second_with_first(
@@ -1174,8 +1139,6 @@ impl<const D: usize, I, J, K, L, U> SubAssign<&Self> for TensorRank4<D, I, J, K,
     }
 }
 
-// A quantity carries its unit into the tensor it scales.
-
 impl<const D: usize, I, J, K, L, U, V> Mul<Quantity<V>> for TensorRank4<D, I, J, K, L, U>
 where
     U: UnitMul<V>,
@@ -1302,12 +1265,6 @@ fn canonical_rank_2_times_rank_4<const D: usize>(
         .collect()
 }
 
-/// Contracts the second index against the first of a rank 2.
-///
-/// `out[i][j][k][l] = sum_s tensor_rank_4[i][s][k][l] * tensor_rank_2[s][j]`
-///
-/// Accumulated in place, so none of the scaled rank-2 blocks the sum would
-/// otherwise build are materialized.
 fn canonical_contract_second_with_first<const D: usize>(
     tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
     tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
@@ -1339,12 +1296,6 @@ fn canonical_contract_second_with_first<const D: usize>(
     output
 }
 
-/// Contracts the third index against the first of a rank 2.
-///
-/// `out[i][j][k][l] = sum_m tensor_rank_2[m][k] * tensor_rank_4[i][j][m][l]`
-///
-/// Accumulated in place, so the outer product this formed for every `m` and
-/// then summed is never built.
 fn canonical_contract_third_with_first<const D: usize>(
     tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
     tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
@@ -1376,9 +1327,6 @@ fn canonical_contract_third_with_first<const D: usize>(
     output
 }
 
-/// Transforms the first index, contracting it with the first of a rank 2.
-///
-/// `out[i][j][k][l] = sum_m tensor_rank_4[m][j][k][l] * tensor_rank_2[m][i]`
 fn canonical_transform_first<const D: usize>(
     tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
     tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
@@ -1409,9 +1357,6 @@ fn canonical_transform_first<const D: usize>(
     output
 }
 
-/// Transforms the fourth index, contracting it with the first of a rank 2.
-///
-/// `out[i][j][k][l] = sum_m tensor_rank_4[i][j][k][m] * tensor_rank_2[m][l]`
 fn canonical_transform_fourth<const D: usize>(
     tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
     tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,

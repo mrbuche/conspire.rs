@@ -10,7 +10,7 @@ mod ode;
 use crate::math::QuantityVector;
 use crate::units::Time;
 
-/// The values of the variable of integration where the solution is reported.
+/// The variable of integration values.
 pub type Times<T = Time> = QuantityVector<T>;
 
 pub use error::IntegrationError;

@@ -1,17 +1,20 @@
-use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    assert::Assert,
-    integrate::{
-        ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,
-        ExplicitDaeZerothOrderRoot, IntegrationError, Times, VariableStepExplicit,
+use crate::{
+    math::{
+        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+        assert::Assert,
+        integrate::{
+            ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot,
+            ExplicitDaeSecondOrderMinimize, ExplicitDaeZerothOrderRoot, IntegrationError, Times,
+            VariableStepExplicit,
+        },
+        optimize::{
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,
+            SecondOrderOptimization, ZerothOrderRootFinding,
+        },
+        sparse::SparseSolver,
     },
-    optimize::{
-        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
-        ZerothOrderRootFinding,
-    },
-    sparse::SparseSolver,
+    units::Time,
 };
-use crate::units::Time;
 use std::ops::{Mul, Sub};
 
 /// Variable-step explicit integrators for explicit differential-algebraic equations.

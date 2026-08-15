@@ -22,8 +22,6 @@ where
 {
     type Erased = TensorVector<<T as Erase>::Erased>;
     fn erase(&self) -> &Self::Erased {
-        // Erasing an item changes neither its size nor its alignment, so the
-        // vector of erased items has the layout this one already has.
         unsafe { &*(self as *const Self as *const Self::Erased) }
     }
 }

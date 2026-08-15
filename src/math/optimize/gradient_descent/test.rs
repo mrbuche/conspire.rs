@@ -10,8 +10,6 @@ use crate::math::{Current, Quantity};
 
 mod minimize {
     use super::*;
-    // A scalar unknown is a `Quantity`, a bare `f64` carrying no unit for the
-    // step size to be measured against.
     #[test]
     fn quadratic() -> Result<(), AssertionError> {
         Assert::default().zero_within_tols(&GradientDescent::default().minimize(

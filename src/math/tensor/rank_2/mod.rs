@@ -396,15 +396,9 @@ impl<const D: usize, I, J, U> FiniteDifference for TensorRank2<D, I, J, U> {
 
 impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
     /// Asserts that the tensor carries the given unit.
-    ///
-    /// The dimensions of a quantity entering or leaving a constitutive law are
-    /// stated here rather than deduced, so a unit is erased at a boundary the
-    /// same way it is claimed at one.
     pub fn with_unit<V>(self) -> TensorRank2<D, I, J, V> {
         relabel(self.into_canonical())
     }
-    /// Views the tensor with its configurations discarded, so that arithmetic is
-    /// compiled once per dimension rather than once per configuration.
     pub(super) fn canonical(&self) -> &TensorRank2<D, Reference, Reference, Dimensionless> {
         unsafe {
             &*(self as *const Self as *const TensorRank2<D, Reference, Reference, Dimensionless>)
@@ -420,8 +414,6 @@ impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
     }
 }
 
-/// Moves a rank-1 tensor between configurations and units, the layout being
-/// the same whatever either of them is.
 fn recast<const D: usize, I, J, U, V>(tensor_rank_1: TensorRank1<D, I, U>) -> TensorRank1<D, J, V> {
     TensorRank1(
         tensor_rank_1.0.map(|entry| Quantity::new(entry.value())),
@@ -965,10 +957,6 @@ impl<const D: usize, I, J, U> MulAssign<&TensorRank0> for TensorRank2<D, I, J, U
     }
 }
 
-/// `out[i] = sum_j tensor_rank_2[i][j] * tensor_rank_1[j]`
-///
-/// Written out rather than deferring to the units-combining product, which at
-/// the canonical configurations and unit would be this same product again.
 fn canonical_rank_2_times_rank_1<const D: usize>(
     tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
     tensor_rank_1: &TensorRank1<D, Reference, Dimensionless>,
@@ -1385,8 +1373,6 @@ where
         relabel(output)
     }
 }
-
-// A quantity carries its unit into the tensor it scales.
 
 impl<const D: usize, I, J, U, V> Mul<Quantity<V>> for TensorRank2<D, I, J, U>
 where

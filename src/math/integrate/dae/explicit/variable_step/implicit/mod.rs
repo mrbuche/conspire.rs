@@ -1,16 +1,19 @@
-use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{
-        ImplicitDaeFirstOrderMinimize, ImplicitDaeFirstOrderRoot, ImplicitDaeSecondOrderMinimize,
-        ImplicitDaeZerothOrderRoot, IntegrationError, Times, VariableStepExplicit,
+use crate::{
+    math::{
+        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+        integrate::{
+            ImplicitDaeFirstOrderMinimize, ImplicitDaeFirstOrderRoot,
+            ImplicitDaeSecondOrderMinimize, ImplicitDaeZerothOrderRoot, IntegrationError, Times,
+            VariableStepExplicit,
+        },
+        optimize::{
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,
+            SecondOrderOptimization, ZerothOrderRootFinding,
+        },
+        sparse::SparseSolver,
     },
-    optimize::{
-        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
-        ZerothOrderRootFinding,
-    },
-    sparse::SparseSolver,
+    units::{Time, UnitInv},
 };
-use crate::units::{Time, UnitInv};
 use std::ops::{Mul, Sub};
 
 /// Variable-step explicit integrators for implicit differential-algebraic equations.
@@ -49,9 +52,6 @@ where
         let mut dt = t_f - t_0;
         let mut t_sol = Times::new();
         t_sol.push(t_0);
-        // A zero rate shaped like the state, which the solver starts from,
-        // scaling by the reciprocal of the variable of integration being how a
-        // state is given the shape of its own derivative.
         let mut dydt = &initial_condition * Quantity::<<T as UnitInv>::Output>::default();
         let mut y = initial_condition;
         let mut k = vec![Derivative::<Y, T>::default(); Self::SLOPES];
