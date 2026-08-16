@@ -19,8 +19,9 @@
 mod test;
 
 use super::{
-    Area, Dimensionless, Energy, Entropy, Force, ForcePerLength, Length, PowerPerLengthTemperature,
-    Rate, ReciprocalTemperature, Stress, StressPerLength, Temperature, Time, Viscosity, Volume,
+    Action, Amount, Area, Charge, Dimensionless, Energy, Entropy, Force, ForcePerLength, Length,
+    MolarEnergy, MolarEntropy, PowerPerLengthTemperature, Rate, ReciprocalAmount,
+    ReciprocalTemperature, Stress, StressPerLength, Temperature, Time, Velocity, Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -115,10 +116,35 @@ scales!(
     Entropy {
         joules_per_kelvin / in_joules_per_kelvin = 1.0, "joules per kelvin",
     }
+    Action {
+        joule_seconds / in_joule_seconds = 1.0, "joule seconds",
+    }
+    Amount {
+        moles / in_moles = 1.0, "moles",
+        millimoles / in_millimoles = 1e-3, "millimoles",
+    }
+    ReciprocalAmount {
+        per_mole / in_per_mole = 1.0, "reciprocal moles",
+    }
+    MolarEntropy {
+        joules_per_mole_kelvin / in_joules_per_mole_kelvin = 1.0, "joules per mole kelvin",
+    }
+    MolarEnergy {
+        joules_per_mole / in_joules_per_mole = 1.0, "joules per mole",
+        kilojoules_per_mole / in_kilojoules_per_mole = 1e3, "kilojoules per mole",
+    }
     ForcePerLength {
         newtons_per_meter / in_newtons_per_meter = 1.0, "newtons per metre",
         piconewtons_per_nanometer / in_piconewtons_per_nanometer = 1e-3,
             "piconewtons per nanometre",
+    }
+    Velocity {
+        meters_per_second / in_meters_per_second = 1.0, "metres per second",
+        millimeters_per_second / in_millimeters_per_second = 1e-3, "millimetres per second",
+        kilometers_per_hour / in_kilometers_per_hour = 1.0 / 3.6, "kilometres per hour",
+    }
+    Charge {
+        coulombs / in_coulombs = 1.0, "coulombs",
     }
     Viscosity {
         pascal_seconds / in_pascal_seconds = 1.0, "pascal seconds",

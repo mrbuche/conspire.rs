@@ -1,6 +1,7 @@
 use super::super::{
-    Area, Dimensionless, Energy, Entropy, Force, ForcePerLength, Length, Rate, Stress,
-    StressPerLength, Temperature, Time, Viscosity, Volume,
+    Action, Amount, Area, Dimensionless, Energy, Entropy, Force, ForcePerLength, Length,
+    MolarEnergy, MolarEntropy, Rate, ReciprocalAmount, Stress, StressPerLength, Temperature, Time,
+    Velocity, Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -151,6 +152,58 @@ mod cohere {
         same(
             ForcePerLength::piconewtons_per_nanometer(1.0) * Length::meters(1.0),
             Force::millinewtons(1.0),
+        )
+    }
+    #[test]
+    fn a_velocity_over_a_time_is_a_length() {
+        same(
+            Velocity::meters_per_second(1.0) * Time::seconds(1.0),
+            Length::meters(1.0),
+        );
+        same(
+            Velocity::kilometers_per_hour(3.6),
+            Velocity::meters_per_second(1.0),
+        );
+        same(
+            Velocity::kilometers_per_hour(1.0) * Time::hours(1.0),
+            Length::kilometers(1.0),
+        )
+    }
+    #[test]
+    fn an_energy_over_a_time_is_an_action() {
+        same(
+            Energy::joules(1.0) * Time::seconds(1.0),
+            Action::joule_seconds(1.0),
+        );
+        same(
+            Action::joule_seconds(1.0) * Rate::hertz(1.0),
+            Energy::joules(1.0),
+        )
+    }
+    #[test]
+    fn an_amount_undoes_a_reciprocal_amount() {
+        same(
+            Amount::moles(1.0) * ReciprocalAmount::per_mole(1.0),
+            Dimensionless::of(1.0),
+        )
+    }
+    #[test]
+    fn a_molar_quantity_is_one_over_an_amount() {
+        same(
+            Entropy::joules_per_kelvin(1.0) * ReciprocalAmount::per_mole(1.0),
+            MolarEntropy::joules_per_mole_kelvin(1.0),
+        );
+        same(
+            Energy::joules(1.0) * ReciprocalAmount::per_mole(1.0),
+            MolarEnergy::joules_per_mole(1.0),
+        );
+        same(
+            MolarEntropy::joules_per_mole_kelvin(1.0) * Temperature::kelvin(1.0),
+            MolarEnergy::joules_per_mole(1.0),
+        );
+        same(
+            MolarEnergy::kilojoules_per_mole(1.0) * Amount::moles(1.0),
+            Energy::kilojoules(1.0),
         )
     }
     #[test]
