@@ -421,6 +421,61 @@ where
         .sum()
 }
 
+/// Raises the penalty until it outweighs every multiplier the step would reach.
+///
+/// The penalty only ever climbs, so a step taken where the multipliers were
+/// larger is not undone by one taken where they are smaller.
+fn raise_penalty<'a>(
+    penalty: Scalar,
+    multipliers: impl Iterator<Item = (&'a Scalar, &'a Scalar)>,
+) -> Scalar {
+    penalty.max(
+        PENALTY_SAFETY
+            * multipliers.fold(0.0, |largest: Scalar, (multiplier, decrement)| {
+                largest.max((multiplier - decrement).abs())
+            }),
+    )
+}
+
+/// The slope of the merit function along the step.
+///
+/// Stated in the sign the line search reads, where a positive slope is the
+/// decrease a step buys, so the violation the penalty charges for adds to the
+/// descent the gradient promises rather than subtracting from it.
+fn merit_slope<'a>(
+    gradients: impl Iterator<Item = (&'a Scalar, &'a Scalar)>,
+    violated: Scalar,
+) -> Scalar {
+    gradients
+        .map(|(gradient, decrement)| gradient * decrement)
+        .sum::<Scalar>()
+        + violated
+}
+
+/// Backtracks on the merit function, or takes the whole step where there is
+/// nothing to backtrack along.
+///
+/// The line search refuses a direction that is not one of descent, so a slope
+/// that has come down to nothing is met by stepping whole rather than by
+/// asking and being turned away.
+fn backtrack_penalty(
+    newton_raphson: &NewtonRaphson,
+    merit: impl FnMut(Scalar) -> Result<Scalar, String>,
+    value: Scalar,
+    slope: Scalar,
+) -> Result<Scalar, OptimizationError> {
+    if slope < newton_raphson.abs_tol.slope {
+        Ok(1.0)
+    } else {
+        newton_raphson
+            .line_search
+            .backtrack_merit(merit, value, slope, 1.0)
+            .map_err(|error| {
+                OptimizationError::Upstream(format!("{error}"), format!("{newton_raphson:?}"))
+            })
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn kkt_entry<Kuu, Kvu, Kuv, Kvv>(
     row: usize,
@@ -926,19 +981,16 @@ where
                 *max_steps,
             )?
         } else {
-            penalty = penalty.max(
-                PENALTY_SAFETY
-                    * multipliers_global
-                        .iter()
-                        .zip(decrement_outer.iter().skip(num_global))
-                        .chain(
-                            multipliers_local
-                                .iter()
-                                .zip(decrement_inner.iter().skip(num_local)),
-                        )
-                        .fold(0.0, |largest: Scalar, (multiplier, decrement)| {
-                            largest.max((multiplier - decrement).abs())
-                        }),
+            penalty = raise_penalty(
+                penalty,
+                multipliers_global
+                    .iter()
+                    .zip(decrement_outer.iter().skip(num_global))
+                    .chain(
+                        multipliers_local
+                            .iter()
+                            .zip(decrement_inner.iter().skip(num_local)),
+                    ),
             );
             let violated = penalty
                 * (violation(&constraint_matrix_global, &constraint_rhs_global, &global)
@@ -947,79 +999,67 @@ where
             let mut gradient_local = Vector::zero(num_local);
             residual_global(&global, &local)?.fill_into(&mut gradient_global);
             residual_local(&global, &local)?.fill_into(&mut gradient_local);
-            let slope = gradient_global
-                .iter()
-                .zip(decrement_outer.iter())
-                .chain(gradient_local.iter().zip(decrement_inner.iter()))
-                .map(|(gradient_i, decrement_i)| gradient_i * decrement_i)
-                .sum::<Scalar>()
-                + violated;
+            let slope = merit_slope(
+                gradient_global
+                    .iter()
+                    .zip(decrement_outer.iter())
+                    .chain(gradient_local.iter().zip(decrement_inner.iter())),
+                violated,
+            );
             let value = function(&global, &local)? + violated;
-            if slope < newton_raphson.abs_tol.slope {
-                1.0
-            } else {
-                match newton_raphson.line_search.backtrack_merit(
-                    |step| {
-                        let mut trial_global = global.clone();
-                        let mut trial_local = local.clone();
-                        let mut trial_multipliers_global = multipliers_global.clone();
-                        let mut trial_multipliers_local = multipliers_local.clone();
-                        trial_global.decrement_from_chained(
-                            &mut trial_multipliers_global,
-                            &(&decrement_outer * step),
-                        );
-                        //
-                        // Condensed makes the local variables a function of the
-                        // global ones, so a trial point is where they solve to,
-                        // not where the increment predicted they would.
-                        //
-                        if let Some(local_solver) = condensed {
-                            converge_local(
-                                local_solver,
-                                &mut residual_local,
-                                &mut tangents,
+            backtrack_penalty(
+                newton_raphson,
+                |step| {
+                    let mut trial_global = global.clone();
+                    let mut trial_local = local.clone();
+                    let mut trial_multipliers_global = multipliers_global.clone();
+                    let mut trial_multipliers_local = multipliers_local.clone();
+                    trial_global.decrement_from_chained(
+                        &mut trial_multipliers_global,
+                        &(&decrement_outer * step),
+                    );
+                    //
+                    // Condensed makes the local variables a function of the
+                    // global ones, so a trial point is where they solve to,
+                    // not where the increment predicted they would.
+                    //
+                    if let Some(local_solver) = condensed {
+                        converge_local(
+                            local_solver,
+                            &mut residual_local,
+                            &mut tangents,
+                            &trial_global,
+                            &mut trial_local,
+                            &mut trial_multipliers_local,
+                            &constraint_matrix_local,
+                            &constraint_rhs_local,
+                            num_local,
+                            &mut update_inner,
+                            &mut tangent_inner,
+                            &mut factorization,
+                        )
+                        .map_err(|error| format!("{error}"))?
+                    } else {
+                        trial_local.decrement_from_chained(
+                            &mut trial_multipliers_local,
+                            &(&decrement_inner * step),
+                        )
+                    }
+                    Ok(function(&trial_global, &trial_local)?
+                        + penalty
+                            * (violation(
+                                &constraint_matrix_global,
+                                &constraint_rhs_global,
                                 &trial_global,
-                                &mut trial_local,
-                                &mut trial_multipliers_local,
+                            ) + violation(
                                 &constraint_matrix_local,
                                 &constraint_rhs_local,
-                                num_local,
-                                &mut update_inner,
-                                &mut tangent_inner,
-                                &mut factorization,
-                            )
-                            .map_err(|error| format!("{error}"))?
-                        } else {
-                            trial_local.decrement_from_chained(
-                                &mut trial_multipliers_local,
-                                &(&decrement_inner * step),
-                            )
-                        }
-                        Ok(function(&trial_global, &trial_local)?
-                            + penalty
-                                * (violation(
-                                    &constraint_matrix_global,
-                                    &constraint_rhs_global,
-                                    &trial_global,
-                                ) + violation(
-                                    &constraint_matrix_local,
-                                    &constraint_rhs_local,
-                                    &trial_local,
-                                )))
-                    },
-                    value,
-                    slope,
-                    1.0,
-                ) {
-                    Ok(step_size) => step_size,
-                    Err(error) => {
-                        return Err(OptimizationError::Upstream(
-                            format!("{error}"),
-                            format!("{newton_raphson:?}"),
-                        ));
-                    }
-                }
-            }
+                                &trial_local,
+                            )))
+                },
+                value,
+                slope,
+            )?
         };
         if step_size == 1.0 {
             global.decrement_from_chained(&mut multipliers_global, &decrement_outer);
@@ -1313,51 +1353,29 @@ where
                 *max_steps,
             )?
         } else {
-            penalty = penalty.max(
-                PENALTY_SAFETY
-                    * multipliers
-                        .iter()
-                        .zip(decrement.iter().skip(num_variables))
-                        .fold(0.0, |largest: Scalar, (multiplier, decrement_i)| {
-                            largest.max((multiplier - decrement_i).abs())
-                        }),
+            penalty = raise_penalty(
+                penalty,
+                multipliers.iter().zip(decrement.iter().skip(num_variables)),
             );
             let violated = penalty * violation(&constraint_matrix, &constraint_rhs, &solution);
             let mut gradient = Vector::zero(num_variables);
             jacobian(&solution)?.fill_into(&mut gradient);
-            let slope = gradient
-                .iter()
-                .zip(decrement.iter())
-                .map(|(gradient_i, decrement_i)| gradient_i * decrement_i)
-                .sum::<Scalar>()
-                + violated;
+            let slope = merit_slope(gradient.iter().zip(decrement.iter()), violated);
             update(&solution, &applied, 0.0, false)?;
             let value = function(&solution)? + violated;
-            if slope < newton_raphson.abs_tol.slope {
-                1.0
-            } else {
-                match newton_raphson.line_search.backtrack_merit(
-                    |step| {
-                        let mut trial = solution.clone();
-                        let mut trial_multipliers = multipliers.clone();
-                        trial.decrement_from_chained(&mut trial_multipliers, &(&decrement * step));
-                        update(&solution, &applied, step, false)?;
-                        Ok(function(&trial)?
-                            + penalty * violation(&constraint_matrix, &constraint_rhs, &trial))
-                    },
-                    value,
-                    slope,
-                    1.0,
-                ) {
-                    Ok(step_size) => step_size,
-                    Err(error) => {
-                        return Err(OptimizationError::Upstream(
-                            format!("{error}"),
-                            format!("{newton_raphson:?}"),
-                        ));
-                    }
-                }
-            }
+            backtrack_penalty(
+                newton_raphson,
+                |step| {
+                    let mut trial = solution.clone();
+                    let mut trial_multipliers = multipliers.clone();
+                    trial.decrement_from_chained(&mut trial_multipliers, &(&decrement * step));
+                    update(&solution, &applied, step, false)?;
+                    Ok(function(&trial)?
+                        + penalty * violation(&constraint_matrix, &constraint_rhs, &trial))
+                },
+                value,
+                slope,
+            )?
         };
         //
         // The increment is lent out whole, before it is applied and before it
