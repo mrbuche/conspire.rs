@@ -31,7 +31,9 @@ fn monte_carlo() {
 
 #[test]
 fn finite_difference() -> Result<(), AssertionError> {
-    let link_stiffness = 1e3;
+    const NONDIMENSIONAL_LINK_STIFFNESS: Scalar = 4.403_161_451_317_08e-1;
+    let link_stiffness =
+        NONDIMENSIONAL_LINK_STIFFNESS * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE.value();
     [Ensemble::Isotensional(ROOM_TEMPERATURE.value())]
         .into_iter()
         .try_for_each(|ensemble| {
