@@ -236,7 +236,6 @@ mod constrained {
             abs_tol: Tolerances {
                 constraint: 0.0,
                 residual: 0.0,
-                slope: 0.0,
             },
             rel_tol,
             ..Default::default()

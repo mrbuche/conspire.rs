@@ -467,7 +467,6 @@ where
             abs_tol: Tolerances {
                 constraint: 1e-10,
                 residual: 1e-10,
-                slope: 1e-10,
             },
             line_search: LineSearch::Error {
                 cut_back: 5e-1,
@@ -578,7 +577,6 @@ where
             abs_tol: Tolerances {
                 constraint: 1e-10,
                 residual: 1e-10,
-                slope: 1e-10,
             },
             line_search: LineSearch::Error {
                 cut_back: 5e-1,

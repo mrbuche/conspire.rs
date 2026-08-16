@@ -455,16 +455,23 @@ fn merit_slope<'a>(
 /// Backtracks on the merit function, or takes the whole step where there is
 /// nothing to backtrack along.
 ///
-/// The line search refuses a direction that is not one of descent, so a slope
-/// that has come down to nothing is met by stepping whole rather than by
+/// The line search refuses a direction that is not one of descent, and cannot
+/// resolve one whose descent is finer than the merit it would be measured
+/// against: the conditions all compare a decrease that the subtraction has
+/// already rounded away. Either is met by stepping whole rather than by
 /// asking and being turned away.
+///
+/// A slope is a merit against a step, so it is the merit it is judged
+/// against, which leaves the comparison a ratio and the threshold the
+/// precision that ratio is held in. A number of its own would carry units and
+/// mean something different at every scale.
 fn backtrack_penalty(
     newton_raphson: &NewtonRaphson,
     merit: impl FnMut(Scalar) -> Result<Scalar, String>,
     value: Scalar,
     slope: Scalar,
 ) -> Result<Scalar, OptimizationError> {
-    if slope < newton_raphson.abs_tol.slope {
+    if slope <= Scalar::EPSILON * value.abs() {
         Ok(1.0)
     } else {
         newton_raphson
