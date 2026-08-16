@@ -8,8 +8,8 @@ use crate::{
     units::{Entropy, Temperature},
 };
 
-/// The Boltzmann constant in units of J/(mol⋅K).
-pub const BOLTZMANN_CONSTANT: Quantity<Entropy> = Quantity::new(8.314_462_618_153_24);
+/// The Boltzmann constant.
+pub const BOLTZMANN_CONSTANT: Quantity<Entropy> = Quantity::new(1.380_649e-23);
 
 /// Standard room temperature.
 pub const ROOM_TEMPERATURE: Quantity<Temperature> = Temperature::celsius(20.0);

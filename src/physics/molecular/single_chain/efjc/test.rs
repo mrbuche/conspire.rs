@@ -31,7 +31,14 @@ fn monte_carlo() {
 
 #[test]
 fn finite_difference() -> Result<(), AssertionError> {
-    const NONDIMENSIONAL_LINK_STIFFNESS: Scalar = 4.403_161_451_317_08e-1;
+    //
+    // A link stretches by the force it carries over its stiffness, both
+    // nondimensional, so bounding the force by a fraction of the stiffness is
+    // bounding the stretch. That only reads as a stretch against the
+    // nondimensional stiffness, which is what is named here.
+    //
+    const NONDIMENSIONAL_LINK_STIFFNESS: Scalar = 1e3;
+    const NONDIMENSIONAL_STRETCH: Scalar = 0.6;
     let link_stiffness =
         NONDIMENSIONAL_LINK_STIFFNESS * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE.value();
     [Ensemble::Isotensional(ROOM_TEMPERATURE.value())]
@@ -45,7 +52,11 @@ fn finite_difference() -> Result<(), AssertionError> {
                     ensemble,
                 };
                 (10..NUM)
-                    .map(|k| k as Scalar / NUM as Scalar * 0.6 * link_stiffness)
+                    .map(|k| {
+                        k as Scalar / NUM as Scalar
+                            * NONDIMENSIONAL_STRETCH
+                            * NONDIMENSIONAL_LINK_STIFFNESS
+                    })
                     .into_iter()
                     .try_for_each(|mut nondimensional_force| {
                         nondimensional_force += 0.5 * EPSILON;
