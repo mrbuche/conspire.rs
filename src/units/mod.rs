@@ -3,6 +3,9 @@
 #[cfg(test)]
 mod test;
 
+#[cfg(feature = "math")]
+mod scale;
+
 /// The physical unit a tensor carries.
 ///
 /// Tensors may only be added when their units agree, and multiplying them
