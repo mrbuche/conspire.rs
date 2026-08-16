@@ -142,7 +142,7 @@ impl Tessellation {
     /// the classes fall out of rasterizing rather than being found again.
     pub fn lattice_background(
         &self,
-        spacing: Scalar,
+        spacing: Quantity<Length>,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         Ok(self.lattice_cells(spacing)?.mesh())
     }

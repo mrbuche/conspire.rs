@@ -26,9 +26,9 @@ fn claims(
     index: &FeatureIndex<'_>,
     coordinates: &Coordinates<D>,
     candidates: &[usize],
-    radius: impl Fn(usize) -> Scalar,
+    radius: impl Fn(usize) -> Quantity<Length>,
 ) -> HashMap<usize, Coordinate<D>> {
-    let mut nearest = HashMap::<usize, (usize, Scalar)>::new();
+    let mut nearest = HashMap::<usize, (usize, Quantity<Length>)>::new();
     candidates.iter().for_each(|&node| {
         if let Some((corner, distance)) = index.nearest_corner(&coordinates[node], radius(node))
             && nearest
@@ -84,11 +84,11 @@ impl Tessellation {
         let mut snapped = HashSet::new();
         let mut candidates: Vec<usize> = lengths.keys().copied().collect();
         candidates.sort_unstable();
-        let radius = |node: usize| SNAP_FEATURE * lengths[&node];
+        let radius = |node: usize| lengths[&node] * SNAP_FEATURE;
         let widest = candidates
             .iter()
             .map(|&node| radius(node))
-            .fold(0.0, Scalar::max);
+            .fold(Quantity::new(0.0), Quantity::max);
         let index = self.features().index(widest);
         let corners = claims(&index, &working, &candidates, radius);
         candidates.into_iter().for_each(|node| {
@@ -202,11 +202,11 @@ impl Tessellation {
         let mut snapped = HashSet::new();
         let mut candidates: Vec<usize> = lengths.keys().copied().collect();
         candidates.sort_unstable();
-        let radius = |node: usize| SNAP_FEATURE * lengths[&node];
+        let radius = |node: usize| lengths[&node] * SNAP_FEATURE;
         let widest = candidates
             .iter()
             .map(|&node| radius(node))
-            .fold(0.0, Scalar::max);
+            .fold(Quantity::new(0.0), Quantity::max);
         let index = self.features().index(widest);
         let corners = claims(&index, &working, &candidates, radius);
         candidates.into_iter().for_each(|node| {

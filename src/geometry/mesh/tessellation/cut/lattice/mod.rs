@@ -4,14 +4,15 @@ mod test;
 use super::{Class, DIRECTIONS, PADDING};
 use crate::{
     geometry::{
-        Coordinate, CoordinateList, CoordinatesRef,
+        Coordinate, CoordinateList, DirectionsRef,
         bbox::BoundingBox,
         mesh::{
             Mesh,
             tessellation::{D, Tessellation},
         },
     },
-    math::{FxHashMap, FxHashSet, Scalar, Tensor},
+    math::{FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
+    units::Length,
 };
 use std::array::from_fn;
 
@@ -28,21 +29,21 @@ pub(super) struct Lattice {
     cells: FxHashMap<[usize; D], Class>,
     nel: [usize; D],
     origin: Coordinate<D>,
-    spacing: Scalar,
+    spacing: Quantity<Length>,
 }
 
 impl Lattice {
     fn cell(&self, [i, j, k]: [usize; D]) -> BoundingBox<D> {
         let index = [i, j, k];
-        let minimum = Coordinate::const_from(from_fn(|d| {
-            self.origin[d] + index[d] as Scalar * self.spacing
+        let minimum = Coordinate::from(from_fn(|d| {
+            self.origin[d] + self.spacing * index[d] as Scalar
         }));
-        let maximum = Coordinate::const_from(from_fn(|d| minimum[d] + self.spacing));
+        let maximum = Coordinate::from(from_fn(|d| minimum[d] + self.spacing));
         BoundingBox::from(CoordinateList::from([minimum, maximum]))
     }
     fn centroid(&self, index: [usize; D]) -> Coordinate<D> {
-        Coordinate::const_from(from_fn(|d| {
-            self.origin[d] + (index[d] as Scalar + 0.5) * self.spacing
+        Coordinate::from(from_fn(|d| {
+            self.origin[d] + self.spacing * (index[d] as Scalar + 0.5)
         }))
     }
     fn neighbors(&self, index: [usize; D]) -> impl Iterator<Item = [usize; D]> + '_ {
@@ -73,7 +74,7 @@ impl Lattice {
             Mesh::from_lattice_cells(
                 cells.into_iter().map(|(index, _)| (index, 1)),
                 self.nel,
-                &Coordinate::const_from([self.spacing; D]),
+                &Coordinate::from([self.spacing; D]),
                 &self.origin,
             ),
             classes,
@@ -82,18 +83,20 @@ impl Lattice {
 }
 
 impl Tessellation {
-    pub(super) fn lattice_cells(&self, spacing: Scalar) -> Result<Lattice, &'static str> {
-        if spacing <= 0.0 || spacing.is_nan() {
+    pub(super) fn lattice_cells(&self, spacing: Quantity<Length>) -> Result<Lattice, &'static str> {
+        if spacing <= Quantity::new(0.0) || spacing.is_nan() {
             return Err("lattice spacing must be positive");
         }
         let surface = self.mesh();
         let coordinates = surface.coordinates();
         let bounds = BoundingBox::from(coordinates.clone());
-        let origin = Coordinate::const_from(from_fn(|d| {
-            bounds.minimum()[d] - PADDING as Scalar * spacing
+        let origin = Coordinate::from(from_fn(|d| {
+            bounds.minimum()[d] - spacing * PADDING as Scalar
         }));
         let nel = from_fn(|d| {
-            ((bounds.maximum()[d] - bounds.minimum()[d]) / spacing).ceil() as usize
+            ((bounds.maximum()[d] - bounds.minimum()[d]) / spacing)
+                .ceil()
+                .value() as usize
                 + 2 * PADDING as usize
         });
         let mut lattice = Lattice {
@@ -119,15 +122,17 @@ impl Lattice {
             .for_each(|triangle| {
                 let corners: [&Coordinate<D>; 3] = from_fn(|corner| &coordinates[triangle[corner]]);
                 let low: [usize; D] = from_fn(|d| {
-                    let minimum = corners.iter().fold(Scalar::INFINITY, |a, c| a.min(c[d]));
-                    (((minimum - self.origin[d]) / self.spacing).floor() as isize - 1)
+                    let minimum = corners
+                        .iter()
+                        .fold(Quantity::new(Scalar::INFINITY), |a, c| a.min(c[d]));
+                    (((minimum - self.origin[d]) / self.spacing).floor().value() as isize - 1)
                         .clamp(0, self.nel[d] as isize - 1) as usize
                 });
                 let high: [usize; D] = from_fn(|d| {
                     let maximum = corners
                         .iter()
-                        .fold(Scalar::NEG_INFINITY, |a, c| a.max(c[d]));
-                    (((maximum - self.origin[d]) / self.spacing).floor() as isize + 1)
+                        .fold(Quantity::new(Scalar::NEG_INFINITY), |a, c| a.max(c[d]));
+                    (((maximum - self.origin[d]) / self.spacing).floor().value() as isize + 1)
                         .clamp(0, self.nel[d] as isize - 1) as usize
                 });
                 for k in low[2]..=high[2] {
@@ -150,7 +155,7 @@ impl Lattice {
         }
         let coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<'_, D> = tessellation.normals().iter().flatten().collect();
+        let normals: DirectionsRef<'_, D> = tessellation.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let mut seeds: Vec<[usize; D]> = self
             .cells

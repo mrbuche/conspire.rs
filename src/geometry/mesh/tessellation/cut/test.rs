@@ -5,7 +5,7 @@ use crate::{
         mesh::{Connectivity, Mesh, PolytopalConnectivity, tessellation::Tessellation},
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::{CrossProduct, Tensor},
+    math::{CrossProduct, Quantity, Tensor},
 };
 use std::collections::HashMap;
 
@@ -21,7 +21,7 @@ fn cut(
 }
 
 fn cut_uniform(tessellation: &Tessellation, spacing: f64) -> Result<Mesh<3>, &'static str> {
-    let (mesh, classes) = tessellation.lattice_background(spacing)?;
+    let (mesh, classes) = tessellation.lattice_background(Quantity::new(spacing))?;
     tessellation.cut(mesh, &classes)
 }
 
@@ -347,7 +347,7 @@ fn rotated_box(minimum: [f64; 3], maximum: [f64; 3], angle: f64) -> Tessellation
         .mesh()
         .coordinates()
         .iter()
-        .map(|p| rotate([p[0], p[1], p[2]]))
+        .map(|p| rotate([p[0].value(), p[1].value(), p[2].value()]))
         .collect();
     Tessellation::from(Mesh::from((
         vec![Connectivity::Triangular(triangles.into())],
@@ -363,7 +363,7 @@ fn corners_landed_on(tessellation: &Tessellation, mesh: &Mesh<3>) -> usize {
         .filter(|corner| {
             mesh.coordinates()
                 .iter()
-                .any(|point| (point - *corner).norm() < 1.0e-9)
+                .any(|point| (point - *corner).norm() < Quantity::new(1.0e-9))
         })
         .count()
 }
@@ -384,7 +384,7 @@ fn a_corner_takes_at_most_one_node() {
         let landed = mesh
             .coordinates()
             .iter()
-            .filter(|point| (*point - corner).norm() < 1.0e-9)
+            .filter(|point| (*point - corner).norm() < Quantity::new(1.0e-9))
             .count();
         assert!(landed <= 1, "{landed} nodes on {corner}")
     })

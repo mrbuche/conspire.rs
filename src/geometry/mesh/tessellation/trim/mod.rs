@@ -4,7 +4,6 @@ mod test;
 use crate::{
     geometry::{
         Direction, DirectionsRef,
-        bvh::BoundingVolumeHierarchy,
         mesh::{
             Mesh,
             tessellation::{D, Tessellation},

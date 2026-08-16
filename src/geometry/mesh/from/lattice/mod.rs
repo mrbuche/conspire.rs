@@ -50,10 +50,10 @@ impl Mesh<3> {
             .iter()
             .enumerate()
             .map(|(new, &old)| {
-                coordinates.push(Coordinate::const_from([
-                    (old % nxp) as f64 * scale[0] + translate[0],
-                    (old / nxp % nyp) as f64 * scale[1] + translate[1],
-                    (old / layer) as f64 * scale[2] + translate[2],
+                coordinates.push(Coordinate::from([
+                    scale[0] * (old % nxp) as f64 + translate[0],
+                    scale[1] * (old / nxp % nyp) as f64 + translate[1],
+                    scale[2] * (old / layer) as f64 + translate[2],
                 ]));
                 (old, new)
             })

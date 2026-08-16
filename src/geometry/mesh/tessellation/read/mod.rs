@@ -129,7 +129,7 @@ fn read_f32<R: Read>(reader: &mut R) -> Result<f64, ErrorIO> {
 
 struct Builder {
     connectivity: Vec<[usize; D]>,
-    normals: Coordinates<D>,
+    normals: Directions<D>,
     vertex_map: HashMap<[u64; D], usize>,
     vertices: Coordinates<D>,
 }
@@ -138,7 +138,7 @@ impl Builder {
     fn with_capacity(triangle_count: usize) -> Self {
         Self {
             connectivity: Vec::with_capacity(triangle_count),
-            normals: Coordinates::with_capacity(triangle_count),
+            normals: Directions::with_capacity(triangle_count),
             vertex_map: HashMap::with_capacity(D * triangle_count),
             vertices: Coordinates::with_capacity(D * triangle_count),
         }
@@ -150,7 +150,7 @@ impl Builder {
             self.dedup(vertices[2]),
         ];
         self.connectivity.push(nodes);
-        self.normals.push(Coordinate::const_from(normal));
+        self.normals.push(Direction::const_from(normal));
     }
     fn dedup(&mut self, vertex: [f64; D]) -> usize {
         let key = vertex.map(|entry| entry.to_bits());

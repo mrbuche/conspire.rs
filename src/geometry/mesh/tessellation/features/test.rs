@@ -3,7 +3,7 @@ use crate::{
         Coordinate, Coordinates,
         mesh::{Connectivity, Mesh, tessellation::Tessellation},
     },
-    math::{Tensor, TensorVec},
+    math::{Quantity, Tensor, TensorVec},
 };
 use std::collections::HashMap;
 
@@ -99,7 +99,12 @@ fn the_corners_of_a_cube_are_its_vertices() {
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
     let features = tessellation.features();
     features.corners().iter().for_each(|corner| {
-        (0..3).for_each(|d| assert!(corner[d] == 0.0 || corner[d] == 1.0, "{corner}"))
+        (0..3).for_each(|d| {
+            assert!(
+                corner[d] == Quantity::new(0.0) || corner[d] == Quantity::new(1.0),
+                "{corner}"
+            )
+        })
     });
 }
 
@@ -114,22 +119,22 @@ fn a_sphere_has_no_features() {
 #[test]
 fn a_corner_is_found_only_within_the_radius() {
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
-    let index = tessellation.features().index(0.2);
+    let index = tessellation.features().index(Quantity::new(0.2));
     let point = Coordinate::const_from([0.1, 0.1, 0.1]);
-    let (corner, distance) = index.nearest_corner(&point, 0.2).unwrap();
+    let (corner, distance) = index.nearest_corner(&point, Quantity::new(0.2)).unwrap();
     assert_eq!(index.corner(corner), &Coordinate::const_from([0.0; 3]));
-    assert!((distance - 3.0_f64.sqrt() * 0.1).abs() < 1.0e-12);
-    assert!(index.nearest_corner(&point, 0.1).is_none());
+    assert!((distance.value() - 3.0_f64.sqrt() * 0.1).abs() < 1.0e-12);
+    assert!(index.nearest_corner(&point, Quantity::new(0.1)).is_none());
 }
 
 #[test]
 fn a_crease_is_found_at_its_closest_point() {
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
-    let index = tessellation.features().index(0.3);
+    let index = tessellation.features().index(Quantity::new(0.3));
     let point = Coordinate::const_from([0.05, 0.05, 0.5]);
-    let closest = index.nearest_crease(&point, 0.3).unwrap();
+    let closest = index.nearest_crease(&point, Quantity::new(0.3)).unwrap();
     assert!(
-        (&closest - &Coordinate::const_from([0.0, 0.0, 0.5])).norm() < 1.0e-12,
+        (&closest - &Coordinate::const_from([0.0, 0.0, 0.5])).norm() < Quantity::new(1.0e-12),
         "{closest}"
     );
 }
