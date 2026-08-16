@@ -14,7 +14,6 @@ use crate::{
     math::{IDENTITY, Rank2, TensorRank4},
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, DeformationGradient, DeformationGradientRate,
-        Scalar,
     },
     units::{Dissipation, Stress, Viscosity},
 };
@@ -39,30 +38,30 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct AlmansiHamel {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The bulk viscosity $`\zeta`$.
-    pub bulk_viscosity: Scalar,
+    pub bulk_viscosity: Quantity<Viscosity>,
     /// The shear viscosity $`\eta`$.
-    pub shear_viscosity: Scalar,
+    pub shear_viscosity: Quantity<Viscosity>,
 }
 
 impl Solid for AlmansiHamel {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.bulk_modulus.into()
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.shear_modulus.into()
+        self.shear_modulus
     }
 }
 
 impl Viscous for AlmansiHamel {
     fn bulk_viscosity(&self) -> Quantity<Viscosity> {
-        self.bulk_viscosity.into()
+        self.bulk_viscosity
     }
     fn shear_viscosity(&self) -> Quantity<Viscosity> {
-        self.shear_viscosity.into()
+        self.shear_viscosity
     }
 }
 

@@ -34,7 +34,7 @@ use crate::{
         integrate::BogackiShampine,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
-    units::Time,
+    units::{Rate, Stress, Time},
 };
 
 const D: usize = 14;
@@ -56,8 +56,8 @@ type TetViscoplastic = Block<
 
 fn constitutive_model() -> AlmansiHamel {
     AlmansiHamel {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Stress::pascals(13.0),
+        shear_modulus: Stress::pascals(3.0),
     }
 }
 
@@ -173,8 +173,8 @@ fn single_block_model() -> Result<Model<Tet, 3>, AssertionError> {
 
 fn neo_hookean_model() -> NeoHookean {
     NeoHookean {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Stress::pascals(13.0),
+        shear_modulus: Stress::pascals(3.0),
     }
 }
 
@@ -318,10 +318,10 @@ fn viscoplastic_model()
     ElasticMultiplicativeViscoplastic::from((
         constitutive_model(),
         ViscoplasticFlow {
-            yield_stress: 1e12,
-            hardening_slope: 1.0,
+            yield_stress: Stress::pascals(1e12),
+            hardening_slope: Stress::pascals(1.0),
             rate_sensitivity: 0.25,
-            reference_flow_rate: 0.1,
+            reference_flow_rate: Rate::per_second(0.1),
         },
     ))
 }

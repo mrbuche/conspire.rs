@@ -25,21 +25,21 @@ use super::*;
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The coefficient of thermal expansion $`\alpha`$.
-    pub coefficient_of_thermal_expansion: Scalar,
+    pub coefficient_of_thermal_expansion: Quantity<ReciprocalTemperature>,
     /// The reference temperature $`T_\mathrm{ref}`$.
-    pub reference_temperature: Scalar,
+    pub reference_temperature: Quantity<Temperature>,
 }
 
 impl Solid for SaintVenantKirchhoff {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.bulk_modulus.into()
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.shear_modulus.into()
+        self.shear_modulus
     }
 }
 
@@ -89,10 +89,10 @@ impl Thermoelastic for SaintVenantKirchhoff {
         )
     }
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
-        self.coefficient_of_thermal_expansion.into()
+        self.coefficient_of_thermal_expansion
     }
     fn reference_temperature(&self) -> Quantity<Temperature> {
-        self.reference_temperature.into()
+        self.reference_temperature
     }
 }
 

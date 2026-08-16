@@ -31,7 +31,7 @@ use conspire::{
         optimize::{EqualityConstraint, NewtonRaphson},
     },
     mechanics::TemperatureGradient,
-    units::Time,
+    units::{PowerPerLengthTemperature, Rate, Stress, Time, Viscosity},
 };
 
 const G: usize = 1;
@@ -7391,8 +7391,8 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
     let model = NeoHookean {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Stress::pascals(13.0),
+        shear_modulus: Stress::pascals(3.0),
     };
     let length = ref_coordinates
         .iter()
@@ -7513,19 +7513,19 @@ fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
 fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
     use conspire::math::integrate::BogackiShampine;
     let tol = 1e-4;
-    let tspan = [Quantity::new(0.0), Quantity::new(2.0)];
+    let tspan = [Time::seconds(0.0), Time::seconds(2.0)];
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
         .flatten()
         .for_each(|entry| *entry -= 1);
     let model = SaintVenantKirchhoff {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
-        yield_stress: 2.0,
-        hardening_slope: 1.0,
+        bulk_modulus: Stress::pascals(13.0),
+        shear_modulus: Stress::pascals(3.0),
+        yield_stress: Stress::pascals(2.0),
+        hardening_slope: Stress::pascals(1.0),
         rate_sensitivity: 0.25,
-        reference_flow_rate: 0.1,
+        reference_flow_rate: Rate::per_second(0.1),
     };
     let mut time = std::time::Instant::now();
     println!("Solving...");
@@ -7630,7 +7630,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
 fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let tol = 1e-4;
     let strain_rate = 2.3; // also set below
-    let tspan = [Quantity::new(0.0), Quantity::new(1.0)];
+    let tspan = [Time::seconds(0.0), Time::seconds(1.0)];
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
@@ -7639,10 +7639,10 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
     let model = AlmansiHamel {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
-        bulk_viscosity: 11.0,
-        shear_viscosity: 1.0,
+        bulk_modulus: Stress::pascals(13.0),
+        shear_modulus: Stress::pascals(3.0),
+        bulk_viscosity: Viscosity::pascal_seconds(11.0),
+        shear_viscosity: Viscosity::pascal_seconds(1.0),
     };
     let length = ref_coordinates
         .iter()
@@ -7764,7 +7764,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
     let model = Fourier {
-        thermal_conductivity: 1.0,
+        thermal_conductivity: PowerPerLengthTemperature::watts_per_meter_kelvin(1.0),
     };
     let length = ref_coordinates
         .iter()
@@ -7842,12 +7842,12 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let num_nodes = ref_coordinates.len();
     let model = ElasticMultiplicative::from((
         NeoHookean {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
         },
         SVK {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
         },
     ));
     let length = ref_coordinates
@@ -7971,12 +7971,12 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     let num_nodes = ref_coordinates.len();
     let model = ElasticMultiplicative::from((
         NeoHookean {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
         },
         SVK {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
         },
     ));
     let length = ref_coordinates

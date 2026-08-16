@@ -19,8 +19,9 @@ macro_rules! test_thermal {
             };
             mod finite_difference {
                 use super::*;
+                use $crate::units::PowerPerLengthTemperature;
                 const MODEL: Fourier = Fourier {
-                    thermal_conductivity: 1.0,
+                    thermal_conductivity: PowerPerLengthTemperature::watts_per_meter_kelvin(1.0),
                 };
                 #[test]
                 fn potential() -> Result<(), AssertionError> {

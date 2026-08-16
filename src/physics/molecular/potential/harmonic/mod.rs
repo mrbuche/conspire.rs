@@ -81,13 +81,13 @@ impl Potential for Harmonic {
     /// \text{arg min }u(x) = x_0
     /// ```
     fn rest_length(&self) -> Quantity<Length> {
-        self.rest_length.into()
+        Quantity::new(self.rest_length)
     }
 }
 
 impl Harmonic {
     /// Returns the stiffness.
     fn stiffness_quantity(&self) -> Quantity<ForcePerLength> {
-        self.stiffness.into()
+        Quantity::new(self.stiffness)
     }
 }

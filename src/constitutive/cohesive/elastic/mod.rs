@@ -3,7 +3,7 @@
 use crate::{
     constitutive::{Constitutive, ConstitutiveError, cohesive::Cohesive},
     math::{Current, Quantity, Tensor, TensorArray, TensorRank2, TensorTuple},
-    mechanics::{Normal, Scalar, Separation, Traction},
+    mechanics::{Normal, Separation, Traction},
     units::{Length, Stress, StressPerLength},
 };
 
@@ -63,7 +63,7 @@ where
                 tangential_traction / tangential_component,
             )
         } else {
-            (Normal::zero(), 0.0.into(), k_tt)
+            (Normal::zero(), Quantity::zero(), k_tt)
         };
         let nn = Dyad::from((&normal, &normal));
         let nu = DyadSeparation::from((&normal, &separation));
@@ -88,9 +88,9 @@ where
 #[derive(Clone, Debug)]
 pub struct LinearElastic {
     /// The normal stiffness $`k_n`$.
-    pub normal_stiffness: Scalar,
+    pub normal_stiffness: Quantity<StressPerLength>,
     /// The tangential stiffness $`k_t`$.
-    pub tangential_stiffness: Scalar,
+    pub tangential_stiffness: Quantity<StressPerLength>,
 }
 
 impl Constitutive for LinearElastic {}
@@ -100,11 +100,11 @@ impl Cohesive for LinearElastic {}
 impl LinearElastic {
     /// Returns the normal stiffness.
     fn normal_stiffness(&self) -> Quantity<StressPerLength> {
-        self.normal_stiffness.into()
+        self.normal_stiffness
     }
     /// Returns the tangential stiffness.
     fn tangential_stiffness(&self) -> Quantity<StressPerLength> {
-        self.tangential_stiffness.into()
+        self.tangential_stiffness
     }
 }
 

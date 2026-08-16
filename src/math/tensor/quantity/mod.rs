@@ -30,7 +30,7 @@ pub struct Quantity<U = Dimensionless>(TensorRank0, PhantomData<U>);
 
 impl<U> Quantity<U> {
     /// Associated function for const type conversion.
-    pub const fn new(value: TensorRank0) -> Self {
+    pub(crate) const fn new(value: TensorRank0) -> Self {
         Self(value, PhantomData)
     }
     /// Returns the value with its unit discarded.
@@ -175,12 +175,6 @@ impl<U> PartialEq for Quantity<U> {
 impl<U> PartialOrd for Quantity<U> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         self.0.partial_cmp(&other.0)
-    }
-}
-
-impl<U> From<TensorRank0> for Quantity<U> {
-    fn from(value: TensorRank0) -> Self {
-        Self::new(value)
     }
 }
 

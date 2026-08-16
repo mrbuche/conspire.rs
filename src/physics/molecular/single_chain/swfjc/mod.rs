@@ -29,7 +29,7 @@ pub struct SquareWellFreelyJointedChain {
 
 impl SingleChain for SquareWellFreelyJointedChain {
     fn link_length(&self) -> Quantity<Length> {
-        self.link_length.into()
+        Quantity::new(self.link_length)
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links

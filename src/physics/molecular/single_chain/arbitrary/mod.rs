@@ -44,7 +44,7 @@ impl SingleChain for ArbitraryDiscrete {
     fn link_length(&self) -> Quantity<Length> {
         match &self.link_potential {
             ArbitraryDiscretePotential::Free => panic!(),
-            ArbitraryDiscretePotential::Rigid(link_length) => (*link_length).into(),
+            ArbitraryDiscretePotential::Rigid(link_length) => Quantity::new(*link_length),
             ArbitraryDiscretePotential::Strong(link_potential) => link_potential.rest_length(),
             ArbitraryDiscretePotential::Weak(link_potential) => link_potential.rest_length(),
         }

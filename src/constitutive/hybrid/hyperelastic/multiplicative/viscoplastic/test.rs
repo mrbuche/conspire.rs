@@ -1,5 +1,6 @@
 use crate::math::assert::Assert;
 use crate::math::assert::perturbation;
+use crate::units::{Rate, Stress};
 use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
@@ -33,14 +34,14 @@ fn finite_difference() -> Result<(), AssertionError> {
     ]);
     let model = ElasticMultiplicativeViscoplastic::from((
         SaintVenantKirchhoff {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
         },
         ViscoplasticFlow {
-            yield_stress: 2.0,
-            hardening_slope: 1.0,
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
             rate_sensitivity: 0.25,
-            reference_flow_rate: 0.1,
+            reference_flow_rate: Rate::per_second(0.1),
         },
     ));
     let tangent = model.cauchy_tangent_stiffness(&deformation_gradient, &deformation_gradient_p)?;
@@ -75,14 +76,14 @@ fn root_0() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
     let model = ElasticMultiplicativeViscoplastic::from((
         SaintVenantKirchhoff {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
         },
         ViscoplasticFlow {
-            yield_stress: 2.0,
-            hardening_slope: 1.0,
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
             rate_sensitivity: 0.25,
-            reference_flow_rate: 0.1,
+            reference_flow_rate: Rate::per_second(0.1),
         },
     ));
     let (t, f, f_p) = model.root(
@@ -125,14 +126,14 @@ fn root_1() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
     let model = ElasticMultiplicativeViscoplastic::from((
         SaintVenantKirchhoff {
-            bulk_modulus: 13.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
         },
         ViscoplasticFlow {
-            yield_stress: 2.0,
-            hardening_slope: 1.0,
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
             rate_sensitivity: 0.25,
-            reference_flow_rate: 0.1,
+            reference_flow_rate: Rate::per_second(0.1),
         },
     ));
     let (t, f, f_p) = model.root(

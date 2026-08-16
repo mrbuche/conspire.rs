@@ -26,8 +26,8 @@ where
     fn ensemble(&self) -> Ensemble;
     fn temperature(&self) -> Quantity<Temperature> {
         match self.ensemble() {
-            Ensemble::Isometric(temperature) => temperature.into(),
-            Ensemble::Isotensional(temperature) => temperature.into(),
+            Ensemble::Isometric(temperature) => Quantity::new(temperature),
+            Ensemble::Isotensional(temperature) => Quantity::new(temperature),
         }
     }
     fn nondimensional_helmholtz_free_energy(

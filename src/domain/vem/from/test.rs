@@ -7,6 +7,7 @@ use crate::{
         mesh::{Connectivity, Mesh, PolytopalConnectivity},
     },
     math::{Tensor, assert::AssertionError},
+    units::Stress,
     vem::{
         NodalCoordinates,
         block::{Block, element::Element},
@@ -15,8 +16,8 @@ use crate::{
 
 fn constitutive_model() -> NeoHookean {
     NeoHookean {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Stress::pascals(13.0),
+        shear_modulus: Stress::pascals(3.0),
     }
 }
 

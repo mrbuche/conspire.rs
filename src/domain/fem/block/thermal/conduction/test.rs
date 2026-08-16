@@ -22,9 +22,9 @@ macro_rules! test_thermal_block {
             };
             mod finite_difference {
                 use super::*;
-                use crate::units::Temperature;
+                use crate::units::{PowerPerLengthTemperature, Temperature};
                 const MODEL: Fourier = Fourier {
-                    thermal_conductivity: 1.0,
+                    thermal_conductivity: PowerPerLengthTemperature::watts_per_meter_kelvin(1.0),
                 };
                 const EPSILON_TEMPERATURE: Quantity<Temperature> = Quantity::new(EPSILON);
                 #[test]

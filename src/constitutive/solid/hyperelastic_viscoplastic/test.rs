@@ -1,6 +1,6 @@
 macro_rules! test_model {
     ($model:ident) => {
-        use crate::units::Time;
+        use crate::units::{Rate, Stress, Time};
         use crate::{
             constitutive::solid::elastic_viscoplastic::{
                 AppliedLoad, ElasticPlasticOrViscoplastic,
@@ -16,12 +16,12 @@ macro_rules! test_model {
         macro_rules! test_integrator_with_solver {
             ($integrator:ident, $solver:expr) => {
                 let model = $model {
-                    bulk_modulus: 13.0,
-                    shear_modulus: 3.0,
-                    yield_stress: 2.0,
-                    hardening_slope: 1.0,
+                    bulk_modulus: Stress::pascals(13.0),
+                    shear_modulus: Stress::pascals(3.0),
+                    yield_stress: Stress::pascals(2.0),
+                    hardening_slope: Stress::pascals(1.0),
                     rate_sensitivity: 0.25,
-                    reference_flow_rate: 0.1,
+                    reference_flow_rate: Rate::per_second(0.1),
                 };
                 let (t, f, f_p) = model.root(
                     AppliedLoad::UniaxialStress(
@@ -124,12 +124,12 @@ macro_rules! test_model {
                 [1.82260662, 2.1921719, 3.16928404],
             ]);
             let model = $model {
-                bulk_modulus: 13.0,
-                shear_modulus: 3.0,
-                yield_stress: 2.0,
-                hardening_slope: 1.0,
+                bulk_modulus: Stress::pascals(13.0),
+                shear_modulus: Stress::pascals(3.0),
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
                 rate_sensitivity: 0.25,
-                reference_flow_rate: 0.1,
+                reference_flow_rate: Rate::per_second(0.1),
             };
             let tangent =
                 model.cauchy_tangent_stiffness(&deformation_gradient, &deformation_gradient_p)?;

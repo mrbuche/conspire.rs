@@ -21,11 +21,11 @@ pub struct Morse {
 impl Morse {
     /// Returns the potential depth.
     fn depth(&self) -> Quantity<Energy> {
-        self.depth.into()
+        Quantity::new(self.depth)
     }
     /// Returns the Morse parameter.
     fn parameter(&self) -> Quantity<ReciprocalLength> {
-        self.parameter.into()
+        Quantity::new(self.parameter)
     }
 }
 
@@ -128,6 +128,6 @@ impl Potential for Morse {
     /// \text{arg min }u(x) = x_0
     /// ```
     fn rest_length(&self) -> Quantity<Length> {
-        self.rest_length.into()
+        Quantity::new(self.rest_length)
     }
 }
