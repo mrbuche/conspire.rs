@@ -31,12 +31,6 @@ fn monte_carlo() {
 
 #[test]
 fn finite_difference() -> Result<(), AssertionError> {
-    //
-    // A link stretches by the force it carries over its stiffness, both
-    // nondimensional, so bounding the force by a fraction of the stiffness is
-    // bounding the stretch. That only reads as a stretch against the
-    // nondimensional stiffness, which is what is named here.
-    //
     const NONDIMENSIONAL_LINK_STIFFNESS: Scalar = 1e3;
     const NONDIMENSIONAL_STRETCH: Scalar = 0.6;
     let link_stiffness =

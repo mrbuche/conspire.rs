@@ -6,7 +6,7 @@ macro_rules! test_explicit {
             integrate::{Explicit, IntegrationError, Times},
         };
         use crate::units::{Rate, Time};
-        const RATE: Quantity<Rate> = Quantity::new(1.0);
+        const RATE: Quantity<Rate> = Rate::per_second(1.0);
         #[test]
         #[should_panic(expected = "The time must contain at least two entries.")]
         fn initial_time_not_less_than_final_time() {

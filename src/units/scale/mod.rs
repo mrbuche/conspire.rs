@@ -12,16 +12,15 @@
 //!
 //! The base scales are SI, coherent throughout: metres, kilograms, seconds and
 //! kelvin, so pascals, newtons, joules and watts follow. A factor is only
-//! correct against that set, which is why `physics::molecular` is left out —
-//! it counts energy per mole, and a joule and its Boltzmann constant cannot
-//! both be right in one `Quantity<Energy>`.
+//! correct against the rest of that set, which is what the tests check by
+//! crossing from one unit to another rather than within one.
 
 #[cfg(test)]
 mod test;
 
 use super::{
-    Area, Dimensionless, Force, Length, PowerPerLengthTemperature, Rate, ReciprocalTemperature,
-    Stress, StressPerLength, Temperature, Time, Viscosity, Volume,
+    Area, Dimensionless, Energy, Entropy, Force, ForcePerLength, Length, PowerPerLengthTemperature,
+    Rate, ReciprocalTemperature, Stress, StressPerLength, Temperature, Time, Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -106,6 +105,20 @@ scales!(
         kilonewtons / in_kilonewtons = 1e3, "kilonewtons",
         meganewtons / in_meganewtons = 1e6, "meganewtons",
         pounds_force / in_pounds_force = 4.448_221_615_260_5, "pounds force",
+    }
+    Energy {
+        joules / in_joules = 1.0, "joules",
+        millijoules / in_millijoules = 1e-3, "millijoules",
+        kilojoules / in_kilojoules = 1e3, "kilojoules",
+        electronvolts / in_electronvolts = 1.602_176_634e-19, "electronvolts",
+    }
+    Entropy {
+        joules_per_kelvin / in_joules_per_kelvin = 1.0, "joules per kelvin",
+    }
+    ForcePerLength {
+        newtons_per_meter / in_newtons_per_meter = 1.0, "newtons per metre",
+        piconewtons_per_nanometer / in_piconewtons_per_nanometer = 1e-3,
+            "piconewtons per nanometre",
     }
     Viscosity {
         pascal_seconds / in_pascal_seconds = 1.0, "pascal seconds",

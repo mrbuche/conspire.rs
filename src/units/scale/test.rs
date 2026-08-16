@@ -1,6 +1,6 @@
 use super::super::{
-    Area, Dimensionless, Force, Length, Rate, Stress, StressPerLength, Temperature, Time,
-    Viscosity, Volume,
+    Area, Dimensionless, Energy, Entropy, Force, ForcePerLength, Length, Rate, Stress,
+    StressPerLength, Temperature, Time, Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -122,6 +122,35 @@ mod cohere {
         same(
             Length::millimeters(1.0) * Length::millimeters(1.0),
             Area::square_millimeters(1.0),
+        )
+    }
+    #[test]
+    fn an_entropy_over_a_temperature_is_an_energy() {
+        same(
+            Entropy::joules_per_kelvin(1.0) * Temperature::kelvin(1.0),
+            Energy::joules(1.0),
+        )
+    }
+    #[test]
+    fn a_force_over_a_length_is_an_energy() {
+        same(
+            Force::newtons(1.0) * Length::meters(1.0),
+            Energy::joules(1.0),
+        );
+        same(
+            Energy::electronvolts(1.0),
+            Energy::joules(1.602_176_634e-19),
+        )
+    }
+    #[test]
+    fn a_force_per_length_is_a_force_over_a_length() {
+        same(
+            ForcePerLength::newtons_per_meter(1.0) * Length::meters(1.0),
+            Force::newtons(1.0),
+        );
+        same(
+            ForcePerLength::piconewtons_per_nanometer(1.0) * Length::meters(1.0),
+            Force::millinewtons(1.0),
         )
     }
     #[test]

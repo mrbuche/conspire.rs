@@ -40,7 +40,7 @@ const RELAXATION: Scalar = 0.1;
 const STAGNATION: Scalar = 5.0e-4;
 const SWEEPS: usize = 50;
 const TOLERANCE: Scalar = 1.0e-3;
-const WEIGHT_FLOOR: Quantity = Quantity::new(0.3);
+const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
 
 struct Oracle<'a> {
