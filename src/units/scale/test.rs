@@ -155,3 +155,43 @@ mod offset {
         same(Temperature::fahrenheit(-40.0), Temperature::celsius(-40.0))
     }
 }
+
+//
+// A quantity is read back by naming a scale, not by supplying one, so the
+// scale a value was written in never has to be kept alongside it.
+//
+mod read {
+    use super::*;
+    #[test]
+    fn a_scale_read_back_is_the_number_written() {
+        assert_eq!(Stress::megapascals(3.0).in_megapascals(), 3.0);
+        assert_eq!(Length::millimeters(25.4).in_millimeters(), 25.4);
+        assert_eq!(Time::hours(1.5).in_hours(), 1.5)
+    }
+    #[test]
+    fn a_scale_reads_back_in_any_other() {
+        assert_eq!(Stress::megapascals(3.0).in_pascals(), 3e6);
+        assert_eq!(Stress::gigapascals(1.0).in_megapascals(), 1e3);
+        assert_eq!(Length::inches(1.0).in_millimeters(), 25.4);
+        assert_eq!(Time::hours(1.0).in_minutes(), 6e1)
+    }
+    #[test]
+    fn the_base_scale_reads_back_the_value_held() {
+        assert_eq!(
+            Stress::megapascals(3.0).in_pascals(),
+            Stress::megapascals(3.0).value()
+        )
+    }
+    //
+    // An offset is what a division cannot undo, which is why a reader is named
+    // rather than handed the scale to divide by.
+    //
+    #[test]
+    fn an_offset_reads_back_through_its_own_reader() {
+        assert_eq!(Temperature::celsius(20.0).in_celsius(), 20.0);
+        assert_eq!(Temperature::celsius(20.0).in_kelvin(), 293.15);
+        assert_eq!(Temperature::kelvin(273.15).in_celsius(), 0.0);
+        assert_eq!(Temperature::fahrenheit(-40.0).in_celsius(), -40.0);
+        assert_eq!(Temperature::celsius(100.0).in_fahrenheit(), 212.0)
+    }
+}
