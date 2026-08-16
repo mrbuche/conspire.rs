@@ -8,14 +8,11 @@ use crate::{
         random::{random_uniform, random_x2_normal},
     },
     mechanics::Vector,
-    physics::{
-        BOLTZMANN_CONSTANT,
-        molecular::single_chain::{
-            Configuration, Ensemble, Extensible, Isometric, Isotensional, Legendre, MonteCarlo,
-            SingleChain, SingleChainError, Thermodynamics,
-        },
+    physics::molecular::single_chain::{
+        Configuration, Ensemble, Extensible, Isometric, Isotensional, Legendre, MonteCarlo,
+        SingleChain, SingleChainError, Thermodynamics,
     },
-    units::{ForcePerLength, Length},
+    units::{BOLTZMANN_CONSTANT, ForcePerLength, Length},
 };
 use std::f64::consts::TAU;
 

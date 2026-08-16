@@ -1,6 +1,8 @@
-use crate::physics::{
-    BOLTZMANN_CONSTANT, ROOM_TEMPERATURE,
-    molecular::single_chain::{Ensemble, ExtensibleFreelyRotatingChain, MonteCarloExtensible},
+use crate::{
+    physics::molecular::single_chain::{
+        Ensemble, ExtensibleFreelyRotatingChain, MonteCarloExtensible,
+    },
+    units::{BOLTZMANN_CONSTANT, ROOM_TEMPERATURE},
 };
 
 #[test]

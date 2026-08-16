@@ -10,8 +10,10 @@ pub use morse::Morse;
 
 use crate::{
     math::{Quantity, Scalar},
-    physics::BOLTZMANN_CONSTANT,
-    units::{Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength, Stress, Temperature},
+    units::{
+        BOLTZMANN_CONSTANT, Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength,
+        Stress, Temperature,
+    },
 };
 use std::fmt::Debug;
 

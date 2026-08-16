@@ -3,8 +3,13 @@
 #[cfg(test)]
 mod test;
 
-#[cfg(feature = "math")]
+mod constants;
 mod scale;
+
+pub use constants::{
+    AVOGADRO_CONSTANT, BOLTZMANN_CONSTANT, ELEMENTARY_CHARGE, GAS_CONSTANT, LIGHT_SPEED,
+    PLANCK_CONSTANT, ROOM_TEMPERATURE,
+};
 
 /// The physical unit a tensor carries.
 ///

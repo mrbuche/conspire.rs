@@ -22,7 +22,7 @@ pub mod mechanics;
 #[cfg(feature = "physics")]
 pub mod physics;
 
-#[cfg(feature = "units")]
+#[cfg(feature = "math")]
 pub mod units;
 
 #[cfg(feature = "vem")]

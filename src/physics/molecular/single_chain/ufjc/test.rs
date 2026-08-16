@@ -2,13 +2,11 @@ use crate::math::assert::Assert;
 use crate::{
     EPSILON,
     math::{Scalar, assert::AssertionError},
-    physics::{
-        molecular::{
-            potential::{Harmonic, Morse},
-            single_chain::{ArbitraryPotentialFreelyJointedChain, Ensemble, Thermodynamics},
-        },
-        {BOLTZMANN_CONSTANT, ROOM_TEMPERATURE},
+    physics::molecular::{
+        potential::{Harmonic, Morse},
+        single_chain::{ArbitraryPotentialFreelyJointedChain, Ensemble, Thermodynamics},
     },
+    units::{BOLTZMANN_CONSTANT, ROOM_TEMPERATURE},
 };
 
 const NUM: usize = 333;
