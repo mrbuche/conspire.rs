@@ -9,7 +9,7 @@ use crate::ABS_TOL;
 /// rather than where it is set.
 #[derive(Clone, Copy, Debug)]
 pub struct Tolerances {
-    /// Absolute error tolerance on the constraint violation.
+    /// Absolute error tolerance on the constraints.
     pub constraint: Scalar,
     /// Absolute error tolerance on the residual.
     pub residual: Scalar,
