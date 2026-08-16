@@ -6,6 +6,7 @@ mod gradient_descent;
 mod line_search;
 mod newton_raphson;
 mod strategy;
+mod tolerance;
 mod trust_region;
 
 pub use constraint::EqualityConstraint;
@@ -13,6 +14,7 @@ pub use gradient_descent::GradientDescent;
 pub use line_search::{LineSearch, LineSearchError};
 pub use newton_raphson::NewtonRaphson;
 pub use strategy::SolveStrategy;
+pub use tolerance::Tolerances;
 pub use trust_region::TrustRegion;
 
 use crate::{

@@ -201,7 +201,7 @@ mod root {
 
 mod constrained {
     use super::*;
-    use crate::math::{Matrix, SquareMatrix, Vector};
+    use crate::math::{Matrix, SquareMatrix, Vector, optimize::Tolerances};
 
     fn constraint() -> EqualityConstraint {
         let mut matrix = Matrix::zero(1, 2);
@@ -233,7 +233,11 @@ mod constrained {
     fn scaled(rel_tol: Option<Scalar>) -> Result<Vector, OptimizationError> {
         const SCALE: Scalar = 1e12;
         NewtonRaphson {
-            abs_tol: 0.0,
+            abs_tol: Tolerances {
+                constraint: 0.0,
+                residual: 0.0,
+                slope: 0.0,
+            },
             rel_tol,
             ..Default::default()
         }

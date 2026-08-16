@@ -1,7 +1,9 @@
 use crate::{
     math::{
         Current, Quantity, Scalar, SquareMatrix, Tensor, TensorArray, TensorRank1, Vector,
-        optimize::{EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization},
+        optimize::{
+            EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization, Tolerances,
+        },
     },
     mechanics::Vectors,
     physics::molecular::single_chain::{Extensible, Inextensible, SingleChain, SingleChainError},
@@ -462,7 +464,11 @@ where
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match (NewtonRaphson {
-            abs_tol: 1e-10,
+            abs_tol: Tolerances {
+                constraint: 1e-10,
+                residual: 1e-10,
+                slope: 1e-10,
+            },
             line_search: LineSearch::Error {
                 cut_back: 5e-1,
                 max_steps: 10,
@@ -569,7 +575,11 @@ where
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
         match (NewtonRaphson {
-            abs_tol: 1e-10,
+            abs_tol: Tolerances {
+                constraint: 1e-10,
+                residual: 1e-10,
+                slope: 1e-10,
+            },
             line_search: LineSearch::Error {
                 cut_back: 5e-1,
                 max_steps: 10,

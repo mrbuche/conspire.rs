@@ -10,9 +10,8 @@ use super::{
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
     FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
     SecondOrderOptimization, SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental,
-    SolveStrategy, TrustRegion,
+    SolveStrategy, Tolerances, TrustRegion,
 };
-use crate::ABS_TOL;
 use crate::math::Norm;
 use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
 use std::{
@@ -23,8 +22,8 @@ use std::{
 /// The Newton-Raphson method.
 #[derive(Clone)]
 pub struct NewtonRaphson {
-    /// Absolute error tolerance.
-    pub abs_tol: Scalar,
+    /// Absolute error tolerances.
+    pub abs_tol: Tolerances,
     /// Norm type for error evaluation.
     pub error_norm: Norm,
     /// Line search algorithm.
@@ -56,7 +55,7 @@ impl Debug for NewtonRaphson {
 impl Default for NewtonRaphson {
     fn default() -> Self {
         Self {
-            abs_tol: ABS_TOL,
+            abs_tol: Tolerances::default(),
             error_norm: Norm::Chebyshev,
             line_search: LineSearch::None,
             max_steps: 25,
@@ -503,9 +502,9 @@ fn backtrack_errors(
 
 /// Whether every block of the residual has come within the tolerance.
 ///
-/// Each block is measured on its own, the multipliers being of another kind
-/// entirely from the variables, and either kind in one block from that in
-/// another, so that the tolerance means the same thing wherever it is met.
+/// Each block is measured on its own against a tolerance of its own, the
+/// constraint violation being of another kind entirely from the residual, and
+/// either kind in one block from that in another.
 ///
 /// The scales are what each block was on the first step, so that the relative
 /// tolerance is compared against a ratio of two norms of the same kind, and
@@ -525,13 +524,14 @@ fn converged(
             .over(residual.iter().skip(variables).copied()),
     );
     let scales = scales.get_or_insert(norms);
-    let met = |norm: Scalar, scale: Scalar| {
-        norm < newton_raphson.abs_tol
+    let met = |norm: Scalar, scale: Scalar, abs_tol: Scalar| {
+        norm < abs_tol
             || newton_raphson
                 .rel_tol
                 .is_some_and(|rel_tol| norm / scale < rel_tol)
     };
-    met(norms.0, scales.0) && met(norms.1, scales.1)
+    met(norms.0, scales.0, newton_raphson.abs_tol.residual)
+        && met(norms.1, scales.1, newton_raphson.abs_tol.constraint)
 }
 
 /// Shortens the step until the variables move no further than the maximum.
@@ -611,6 +611,7 @@ where
     for<'a> &'a CscMatrix: Mul<&'a V, Output = Vector>,
 {
     let mut local_steps = 0;
+    let mut scales = None;
     loop {
         kkt_residual(
             residual_local(global, local)?,
@@ -620,7 +621,7 @@ where
             local,
             update_inner,
         );
-        if local_solver.error_norm.measure(update_inner) < local_solver.abs_tol
+        if converged(local_solver, update_inner, num_local, &mut scales)
             || local_steps == local_solver.max_steps
         {
             return Ok(());
@@ -954,7 +955,7 @@ where
                 .sum::<Scalar>()
                 + violated;
             let value = function(&global, &local)? + violated;
-            if slope < newton_raphson.abs_tol {
+            if slope < newton_raphson.abs_tol.slope {
                 1.0
             } else {
                 match newton_raphson.line_search.backtrack_merit(
@@ -1060,7 +1061,7 @@ where
     let mut steps = 0;
     loop {
         residual = jacobian(&solution)?;
-        if newton_raphson.error_norm.measure(&residual) < newton_raphson.abs_tol {
+        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol.residual() {
             return Ok(solution);
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -1134,7 +1135,7 @@ where
     let mut steps = 0;
     loop {
         residual = jacobian(&solution)?.retain_from(&retained);
-        if newton_raphson.error_norm.measure(&residual) < newton_raphson.abs_tol {
+        if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol.residual() {
             return Ok(solution);
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -1332,7 +1333,7 @@ where
                 + violated;
             update(&solution, &applied, 0.0, false)?;
             let value = function(&solution)? + violated;
-            if slope < newton_raphson.abs_tol {
+            if slope < newton_raphson.abs_tol.slope {
                 1.0
             } else {
                 match newton_raphson.line_search.backtrack_merit(

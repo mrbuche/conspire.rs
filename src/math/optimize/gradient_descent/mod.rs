@@ -4,9 +4,8 @@ mod test;
 use super::{
     super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
     BacktrackingLineSearch, EqualityConstraint, FirstOrderOptimization, LineSearch,
-    OptimizationError, StepSize, ZerothOrderRootFinding,
+    OptimizationError, StepSize, Tolerances, ZerothOrderRootFinding,
 };
-use crate::ABS_TOL;
 use crate::math::{Erase, Is, Norm};
 use crate::units::{UnitDiv, UnitMul, UnitSum};
 use std::{
@@ -20,8 +19,8 @@ const INITIAL_STEP_SIZE: Scalar = 1e-2;
 
 /// The method of gradient descent.
 pub struct GradientDescent {
-    /// Absolute error tolerance.
-    pub abs_tol: Scalar,
+    /// Absolute error tolerances.
+    pub abs_tol: Tolerances,
     /// Lagrangian dual.
     pub dual: bool,
     /// Norm type for error evaluation.
@@ -53,7 +52,7 @@ impl Debug for GradientDescent {
 impl Default for GradientDescent {
     fn default() -> Self {
         Self {
-            abs_tol: ABS_TOL,
+            abs_tol: Tolerances::default(),
             dual: false,
             error_norm: Norm::Chebyshev,
             line_search: LineSearch::None,
@@ -200,7 +199,7 @@ where
         } else {
             jacobian(&solution)?
         };
-        if gradient_descent.error_norm.measure(&residual) < gradient_descent.abs_tol {
+        if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol.residual() {
             return Ok(solution);
         } else if steps == gradient_descent.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -262,7 +261,7 @@ where
         if gradient_descent.rel_tol.is_some() && steps == 0 {
             relative_scale = gradient_descent.error_norm.measure(&residual)
         }
-        if residual_norm < gradient_descent.abs_tol {
+        if residual_norm < gradient_descent.abs_tol.residual {
             return Ok(solution);
         } else if let Some(rel_tol) = gradient_descent.rel_tol
             && residual_norm / relative_scale < rel_tol
@@ -333,8 +332,10 @@ where
     loop {
         residual_solution = jacobian(&solution)? - &multipliers * &constraint_matrix;
         residual_multipliers = &constraint_rhs - &constraint_matrix * &solution;
-        if gradient_descent.error_norm.measure(&residual_solution) < gradient_descent.abs_tol
-            && gradient_descent.error_norm.measure(&residual_multipliers) < gradient_descent.abs_tol
+        if gradient_descent.error_norm.apply(&residual_solution)
+            < gradient_descent.abs_tol.residual()
+            && gradient_descent.error_norm.apply(&residual_multipliers)
+                < gradient_descent.abs_tol.constraint()
         {
             return Ok(solution);
         } else if steps == gradient_descent.max_steps {
@@ -409,7 +410,8 @@ where
         ) {
             solution = result;
             residual = &constraint_rhs - &constraint_matrix * &solution;
-            if gradient_descent.error_norm.measure(&residual) < gradient_descent.abs_tol {
+            if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol.constraint()
+            {
                 return Ok(solution);
             } else {
                 multipliers_change -= &multipliers;
