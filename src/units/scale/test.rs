@@ -248,6 +248,12 @@ mod read {
         )
     }
     #[test]
+    fn no_unit_at_all_reads_back_as_the_number_it_is() {
+        assert_eq!(Dimensionless::of(0.3).value(), 0.3);
+        assert_eq!(Dimensionless::percent(50.0).value(), 0.5);
+        assert_eq!(Dimensionless::of(0.5).in_percent(), 50.0)
+    }
+    #[test]
     fn an_offset_reads_back_through_its_own_reader() {
         assert_eq!(Temperature::celsius(20.0).in_celsius(), 20.0);
         assert_eq!(Temperature::celsius(20.0).in_kelvin(), 293.15);

@@ -193,10 +193,20 @@ scales!(
         watts_per_meter_kelvin / in_watts_per_meter_kelvin = 1.0, "watts per metre kelvin",
     }
     Dimensionless {
-        of / in_ones = 1.0, "no unit at all",
         percent / in_percent = 1e-2, "percent",
     }
 );
+
+impl Dimensionless {
+    /// A quantity of no unit at all.
+    ///
+    /// Named here rather than in the table, since a row names a reader as well
+    /// and there is no word to read a ratio back in. A quantity of no unit is
+    /// the number it holds, which [`value`](Quantity::value) already gives.
+    pub const fn of(value: TensorRank0) -> Quantity<Dimensionless> {
+        Quantity::new(value)
+    }
+}
 
 impl Temperature {
     /// A quantity of degrees celsius.
