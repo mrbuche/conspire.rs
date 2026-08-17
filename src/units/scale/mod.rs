@@ -28,6 +28,32 @@ use crate::math::{Quantity, TensorRank0};
 /// The kelvin a celsius is measured from.
 const ZERO_CELSIUS: TensorRank0 = 273.15;
 
+/// A scale named as the constructor that spends it.
+pub type Scale<U> = fn(TensorRank0) -> Quantity<U>;
+
+/// The scale a length is named in, where it is named in words rather than in a
+/// type.
+///
+/// A file that says what its numbers are in has to say it as text, so the words
+/// are matched here and nowhere else. A word that is not among them is nothing
+/// rather than a guess, since a length taken in the wrong scale is wrong by a
+/// factor rather than by a little, and a file that troubled to say something is
+/// the last place to stop listening.
+pub fn length_scale(label: &str) -> Option<Scale<Length>> {
+    Some(match label.trim().to_lowercase().as_str() {
+        "m" | "meter" | "meters" | "metre" | "metres" => Length::meters,
+        "mm" | "millimeter" | "millimeters" | "millimetre" | "millimetres" => Length::millimeters,
+        "cm" | "centimeter" | "centimeters" | "centimetre" | "centimetres" => Length::centimeters,
+        "um" | "\u{b5}m" | "\u{3bc}m" | "micrometer" | "micrometers" | "micrometre"
+        | "micrometres" | "micron" | "microns" => Length::micrometers,
+        "nm" | "nanometer" | "nanometers" | "nanometre" | "nanometres" => Length::nanometers,
+        "km" | "kilometer" | "kilometers" | "kilometre" | "kilometres" => Length::kilometers,
+        "in" | "inch" | "inches" => Length::inches,
+        "ft" | "foot" | "feet" => Length::feet,
+        _ => return None,
+    })
+}
+
 //
 // A reader is named alongside the constructor it undoes rather than derived
 // from it, since deriving one identifier from another is what a dependency
@@ -172,10 +198,6 @@ scales!(
     }
 );
 
-//
-// A celsius is offset from a kelvin rather than scaled, which no factor can
-// say and no division can undo. Both directions are written out.
-//
 impl Temperature {
     /// A quantity of degrees celsius.
     ///

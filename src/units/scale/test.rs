@@ -16,10 +16,6 @@ fn same<U>(one: Quantity<U>, two: Quantity<U>) {
     )
 }
 
-//
-// A scale is spent where the quantity is built, so a constructor has to be
-// usable where a constant is, which is the whole reason it is a `const fn`.
-//
 const MODULUS: Quantity<Stress> = Stress::gigapascals(1.0);
 
 #[test]
@@ -65,11 +61,6 @@ mod agree {
     }
 }
 
-//
-// A factor is only right against the rest of the set, so the products that
-// cross from one unit to another are what actually tests the table. A wrong
-// factor shows up here and nowhere else.
-//
 mod cohere {
     use super::*;
     #[test]
@@ -219,10 +210,6 @@ mod cohere {
     }
 }
 
-//
-// A celsius is offset rather than scaled, which is the one thing a factor
-// cannot say, and the reason the scale is spent here rather than carried.
-//
 mod offset {
     use super::*;
     #[test]
@@ -238,10 +225,6 @@ mod offset {
     }
 }
 
-//
-// A quantity is read back by naming a scale, not by supplying one, so the
-// scale a value was written in never has to be kept alongside it.
-//
 mod read {
     use super::*;
     #[test]
@@ -264,10 +247,6 @@ mod read {
             Stress::megapascals(3.0).value()
         )
     }
-    //
-    // An offset is what a division cannot undo, which is why a reader is named
-    // rather than handed the scale to divide by.
-    //
     #[test]
     fn an_offset_reads_back_through_its_own_reader() {
         assert_eq!(Temperature::celsius(20.0).in_celsius(), 20.0);
@@ -275,5 +254,46 @@ mod read {
         assert_eq!(Temperature::kelvin(273.15).in_celsius(), 0.0);
         assert_eq!(Temperature::fahrenheit(-40.0).in_celsius(), -40.0);
         assert_eq!(Temperature::celsius(100.0).in_fahrenheit(), 212.0)
+    }
+}
+
+mod named_in_words {
+    use super::*;
+    use crate::units::length_scale;
+
+    fn is(label: &str, expected: Quantity<Length>) {
+        match length_scale(label) {
+            Some(scale) => same(scale(1.0), expected),
+            None => panic!("{label} was not taken for a length"),
+        }
+    }
+
+    #[test]
+    fn a_length_is_known_by_symbol_or_by_name() {
+        is("m", Length::meters(1.0));
+        is("mm", Length::millimeters(1.0));
+        is("millimeters", Length::millimeters(1.0));
+        is("cm", Length::centimeters(1.0));
+        is("um", Length::micrometers(1.0));
+        is("microns", Length::micrometers(1.0));
+        is("nm", Length::nanometers(1.0));
+        is("km", Length::kilometers(1.0));
+        is("in", Length::inches(1.0));
+        is("feet", Length::feet(1.0))
+    }
+
+    #[test]
+    fn a_length_is_known_however_it_is_spelled_or_spaced() {
+        is("metres", Length::meters(1.0));
+        is("Millimetres", Length::millimeters(1.0));
+        is("  MM  ", Length::millimeters(1.0))
+    }
+
+    #[test]
+    fn what_is_not_a_length_is_not_taken_for_one() {
+        assert!(length_scale("radians").is_none());
+        assert!(length_scale("seconds").is_none());
+        assert!(length_scale("").is_none());
+        assert!(length_scale("meters per second").is_none())
     }
 }

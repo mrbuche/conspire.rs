@@ -9,11 +9,12 @@ use crate::{
     io::{
         invalid,
         read::{
-            attribute, data_array, data_arrays, encoding, find_data_array, floats, integers,
-            region, tag,
+            attribute, data_array, data_arrays, encoding, find_data_array, floats, information,
+            integers, region, tag,
         },
         unsupported,
     },
+    units::length_scale,
 };
 use std::{
     fs::read_to_string,
@@ -56,7 +57,16 @@ where
         let encoding = encoding(header)?;
 
         let points_region = region(&text, "Points")?;
-        let points = floats(&data_array(points_region, None)?, &encoding)?;
+        let points_array = data_array(points_region, None)?;
+        let points = floats(&points_array, &encoding)?;
+        let scale = match information(&points_array, "UNITS_LABEL") {
+            Some(label) => Some(length_scale(label).ok_or_else(|| {
+                unsupported(&format!(
+                    "VTU points are labeled \"{label}\", which is not a length"
+                ))
+            })?),
+            None => None,
+        };
         let components = attribute(tag(points_region, "<DataArray")?, "NumberOfComponents")
             .and_then(|n| n.parse().ok())
             .unwrap_or(3);
@@ -82,7 +92,13 @@ where
 
         let coordinates: Coordinates<D> = points
             .chunks(components)
-            .map(|point| std::array::from_fn(|i| point[i]).into())
+            .map(|point| {
+                std::array::from_fn::<_, D, _>(|i| match scale {
+                    Some(scale) => scale(point[i]).value(),
+                    None => point[i],
+                })
+                .into()
+            })
             .collect();
         let mut mesh = Mesh::<D>::from((
             blocks(&connectivity, &offsets, &types, &cell_faces)?,

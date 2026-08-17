@@ -10,6 +10,7 @@ pub use constants::{
     AVOGADRO_CONSTANT, BOLTZMANN_CONSTANT, ELEMENTARY_CHARGE, GAS_CONSTANT, LIGHT_SPEED,
     PLANCK_CONSTANT, ROOM_TEMPERATURE,
 };
+pub use scale::{Scale, length_scale};
 
 /// The physical unit a tensor carries.
 ///

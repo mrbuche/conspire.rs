@@ -9,6 +9,7 @@ pub struct DataArray<'a> {
     pub format: &'a str,
     pub tuples: usize,
     pub text: &'a str,
+    pub information: &'a str,
 }
 
 #[derive(Clone, Copy)]
@@ -76,6 +77,7 @@ pub fn data_arrays<'a>(region: &'a str) -> Result<Vec<DataArray<'a>>> {
             .find("</DataArray>")
             .ok_or_else(|| invalid("unclosed DataArray".into()))?
             + attributes_end;
+        let inner = &rest[attributes_end + 1..close];
         arrays.push(DataArray {
             name: attribute(attributes, "Name"),
             data_type: attribute(attributes, "type")
@@ -84,11 +86,40 @@ pub fn data_arrays<'a>(region: &'a str) -> Result<Vec<DataArray<'a>>> {
             tuples: attribute(attributes, "NumberOfTuples")
                 .and_then(|t| t.parse().ok())
                 .unwrap_or(0),
-            text: rest[attributes_end + 1..close].trim(),
+            text: without_information(inner),
+            information: inner,
         });
         rest = &rest[close..];
     }
     Ok(arrays)
+}
+
+fn without_information(inner: &str) -> &str {
+    match inner.rfind("</InformationKey>") {
+        Some(end) => {
+            let after = inner[end + "</InformationKey>".len()..].trim();
+            if after.is_empty() {
+                inner[..inner.find("<InformationKey").unwrap_or(0)].trim()
+            } else {
+                after
+            }
+        }
+        None => inner.trim(),
+    }
+}
+
+/// The value of a named key an array carries, which is text however it is meant.
+pub fn information<'a>(array: &DataArray<'a>, name: &str) -> Option<&'a str> {
+    let mut rest = array.information;
+    while let Some(open) = rest.find("<InformationKey") {
+        let attributes_end = rest[open..].find('>')? + open;
+        let close = rest[attributes_end..].find("</InformationKey>")? + attributes_end;
+        if attribute(&rest[open..attributes_end], "name") == Some(name) {
+            return Some(rest[attributes_end + 1..close].trim());
+        }
+        rest = &rest[close..];
+    }
+    None
 }
 
 pub fn data_array<'a>(region: &'a str, name: Option<&str>) -> Result<DataArray<'a>> {
