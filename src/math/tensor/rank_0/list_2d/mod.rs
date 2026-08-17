@@ -1,6 +1,5 @@
-use crate::math::{TensorList, TensorRank0List};
-
 use crate::math::{Tensor, TensorRank0, assert::FiniteDifference};
+use crate::math::{TensorList, TensorRank0List};
 
 /// A list of lists of rank-0 tensors (scalars).
 pub type TensorRank0List2D<const N: usize> = TensorList<TensorRank0List<N>, N>;

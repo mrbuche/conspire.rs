@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{Scalar, Tensor};
+use super::{Quantity, Scalar, Tensor};
 
 /// Different norms for tensors.
 #[derive(Clone, Copy, Debug, Default)]
@@ -14,7 +14,8 @@ pub enum Norm {
 }
 
 impl Norm {
-    pub fn apply<T: Tensor>(&self, t: &T) -> Scalar {
+    /// The norm of a whole tensor with units.
+    pub fn apply<T: Tensor>(&self, t: &T) -> Quantity<T::Unit> {
         match self {
             Self::Chebyshev => t.norm_inf(),
             Self::Euclidean => t.norm(),
@@ -22,8 +23,11 @@ impl Norm {
             Self::Minkowski(p) => t.norm_p(*p),
         }
     }
-    /// The norm of some values, for when they are part of a tensor rather than
-    /// all of one.
+    /// The norm of a whole tensor as a number.
+    pub fn measure<T: Tensor>(&self, t: &T) -> Scalar {
+        self.apply(t).value()
+    }
+    /// The norm of some values of a tensor.
     pub fn over(&self, values: impl Iterator<Item = Scalar>) -> Scalar {
         match self {
             Self::Chebyshev => values.fold(0.0, |largest: Scalar, value| largest.max(value.abs())),

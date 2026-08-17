@@ -45,7 +45,7 @@ macro_rules! test_solid_hyperviscoelastic_constitutive_model
             assert!(
                 dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                     $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
-                )? > 0.0
+                )? > $crate::math::Quantity::default()
             );
             Ok(())
         }

@@ -2,10 +2,10 @@
 mod test;
 
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         DormandPrince as DormandPrinceVariableStep, Explicit, FixedStep, FixedStepExplicit,
-        IntegrationError, OdeIntegrator, VariableStepExplicit,
+        IntegrationError, OdeIntegrator, Times, VariableStepExplicit,
     },
 };
 use std::ops::{Mul, Sub};
@@ -24,43 +24,51 @@ where
 {
 }
 
-impl FixedStep for DormandPrince {
-    fn dt(&self) -> Scalar {
-        self.dt
+impl<T> FixedStep<T> for DormandPrince {
+    fn dt(&self) -> Quantity<T> {
+        Quantity::new(self.dt)
     }
 }
 
-impl<Y, U> Explicit<Y, U> for DormandPrince
+impl<Y, U, V, T> Explicit<Y, U, V, T> for DormandPrince
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     const SLOPES: usize = 6;
     fn integrate(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        time: &[Scalar],
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        time: &[Quantity<T>],
         initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_fixed_step(function, time, initial_condition)
     }
 }
 
-impl<Y, U> FixedStepExplicit<Y, U> for DormandPrince
+impl<Y, U, V, T> FixedStepExplicit<Y, U, V, T> for DormandPrince
 where
-    DormandPrinceVariableStep: VariableStepExplicit<Y, U>,
-    Y: Tensor,
+    DormandPrinceVariableStep: VariableStepExplicit<Y, U, V, T>,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn step(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
         k[0] = function(t, y)?;

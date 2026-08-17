@@ -7,7 +7,8 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{Connectivity, Mesh},
     },
-    math::{FxHashMap, FxHashSet, Scalar, Tensor, TensorVec},
+    math::{FxHashMap, FxHashSet, Quantity, Reference, Scalar, Tensor, TensorRank1, TensorVec},
+    units::{Area, Length},
 };
 use std::array::from_fn;
 
@@ -22,7 +23,11 @@ pub(super) fn remesh<const D: usize, F>(
     mut sizing_of: F,
 ) -> Result<(), &'static str>
 where
-    F: FnMut(&[[usize; N]], &Coordinates<D>, &FxHashMap<(usize, usize), Scalar>) -> Vec<Scalar>,
+    F: FnMut(
+        &[[usize; N]],
+        &Coordinates<D>,
+        &FxHashMap<(usize, usize), Quantity<Length>>,
+    ) -> Vec<Quantity<Length>>,
 {
     let surface = (D == 3).then(|| {
         let coordinates: &Coordinates<3> =
@@ -83,7 +88,7 @@ fn edge(a: usize, b: usize) -> (usize, usize) {
 fn edge_lengths<const D: usize>(
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<D>,
-) -> FxHashMap<(usize, usize), Scalar> {
+) -> FxHashMap<(usize, usize), Quantity<Length>> {
     let mut lengths = FxHashMap::default();
     connectivity.iter().for_each(|&[a, b, c]| {
         for (u, v) in [(a, b), (b, c), (c, a)] {
@@ -98,12 +103,12 @@ fn edge_lengths<const D: usize>(
 fn split_long_edges<const D: usize>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
-    lengths: &FxHashMap<(usize, usize), Scalar>,
-    sizing: &mut Vec<Scalar>,
+    lengths: &FxHashMap<(usize, usize), Quantity<Length>>,
+    sizing: &mut Vec<Quantity<Length>>,
 ) {
     let mut midpoints: FxHashMap<(usize, usize), usize> = FxHashMap::default();
     for (&(u, v), &length) in lengths {
-        if length > SPLIT_ABOVE * 0.5 * (sizing[u] + sizing[v]) {
+        if length > (sizing[u] + sizing[v]) * (SPLIT_ABOVE * 0.5) {
             let midpoint = &(&coordinates[u] + &coordinates[v]) * 0.5;
             midpoints.insert((u, v), coordinates.len());
             coordinates.push(midpoint);
@@ -137,8 +142,8 @@ fn split_long_edges<const D: usize>(
 fn collapse_short_edges<const D: usize>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
-    lengths: &FxHashMap<(usize, usize), Scalar>,
-    sizing: &mut Vec<Scalar>,
+    lengths: &FxHashMap<(usize, usize), Quantity<Length>>,
+    sizing: &mut Vec<Quantity<Length>>,
 ) {
     let vertices = coordinates.len();
     let mut neighbors: Vec<FxHashSet<usize>> = vec![FxHashSet::default(); vertices];
@@ -286,9 +291,9 @@ fn triangle_normal<const D: usize>(
     a: &Coordinate<D>,
     b: &Coordinate<D>,
     c: &Coordinate<D>,
-) -> Coordinate<3> {
+) -> TensorRank1<3, Reference, Area> {
     let (e, f) = (b - a, c - a);
-    Coordinate::const_from([
+    TensorRank1::from([
         e[1] * f[2] - e[2] * f[1],
         e[2] * f[0] - e[0] * f[2],
         e[0] * f[1] - e[1] * f[0],
@@ -356,9 +361,9 @@ fn flip_edges<const D: usize>(connectivity: &mut [[usize; N]], coordinates: &Coo
                 face_normal(connectivity[left]),
                 face_normal(connectivity[right]),
             );
-            let surface = Coordinate::const_from([l[0] + r[0], l[1] + r[1], l[2] + r[2]]);
-            if face_normal([v, uv, vu]) * &surface <= 0.0
-                || face_normal([uv, u, vu]) * &surface <= 0.0
+            let surface = TensorRank1::from([l[0] + r[0], l[1] + r[1], l[2] + r[2]]);
+            if face_normal([v, uv, vu]) * &surface <= Quantity::default()
+                || face_normal([uv, u, vu]) * &surface <= Quantity::default()
             {
                 continue;
             }
@@ -409,7 +414,7 @@ fn tangential_smooth<const D: usize>(
                 e[0] * f[1] - e[1] * f[0],
             ];
             for vertex in [a, b, c] {
-                (0..3).for_each(|i| normals[vertex][i] += face[i]);
+                (0..3).for_each(|i| normals[vertex][i] += face[i].value());
             }
         }
         normals.iter_mut().for_each(|normal| {
@@ -434,8 +439,10 @@ fn tangential_smooth<const D: usize>(
         let mut displacement = &centroid - &coordinates[vertex];
         if D == 3 {
             let normal = &normals[vertex];
-            let along = (0..3).map(|i| displacement[i] * normal[i]).sum::<Scalar>();
-            let tangential: [Scalar; D] = from_fn(|i| displacement[i] - along * normal[i]);
+            let along = (0..3)
+                .map(|i| displacement[i].value() * normal[i])
+                .sum::<Scalar>();
+            let tangential: [Scalar; D] = from_fn(|i| displacement[i].value() - along * normal[i]);
             displacement = tangential.into();
         }
         smoothed.push(&coordinates[vertex] + &displacement);

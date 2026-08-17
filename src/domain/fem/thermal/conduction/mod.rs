@@ -11,12 +11,13 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor,
+        Quantity, Tensor,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
+    units::PowerTemperature,
 };
 
 pub trait ThermalConductionElements
@@ -26,7 +27,7 @@ where
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<PowerTemperature>, ElementModelError>;
     fn nodal_forces_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
@@ -62,7 +63,7 @@ where
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<PowerTemperature>, ElementModelError> {
         self.blocks.potential(nodal_temperatures)
     }
     fn nodal_forces_into(
@@ -91,7 +92,7 @@ where
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<PowerTemperature>, ElementModelError> {
         Ok(self.0.potential(nodal_temperatures)? + self.1.potential(nodal_temperatures)?)
     }
     fn nodal_forces_into(
@@ -114,14 +115,14 @@ where
     }
 }
 
-impl<B, const D: usize> ZerothOrderRoot<NodalTemperatures> for Model<B, D>
+impl<B, const D: usize> ZerothOrderRoot<NodalForcesThermal, NodalTemperatures> for Model<B, D>
 where
     B: ThermalConductionElements,
 {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalTemperatures>,
+        solver: impl ZerothOrderRootFinding<NodalForcesThermal, NodalTemperatures>,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.root(
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
@@ -161,14 +162,20 @@ where
     }
 }
 
-impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalTemperatures> for Model<B, D>
+impl<B, const D: usize>
+    FirstOrderMinimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
+    for Model<B, D>
 where
     B: ThermalConductionElements,
 {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalTemperatures>,
+        solver: impl FirstOrderOptimization<
+            Quantity<PowerTemperature>,
+            NodalForcesThermal,
+            NodalTemperatures,
+        >,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.minimize(
             |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
@@ -180,8 +187,12 @@ where
 }
 
 impl<B, const D: usize>
-    SecondOrderMinimize<Scalar, NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
-    for Model<B, D>
+    SecondOrderMinimize<
+        Quantity<PowerTemperature>,
+        NodalForcesThermal,
+        NodalStiffnessesThermal,
+        NodalTemperatures,
+    > for Model<B, D>
 where
     B: ThermalConductionElements,
 {
@@ -189,7 +200,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<PowerTemperature>,
             NodalForcesThermal,
             NodalStiffnessesThermal,
             NodalTemperatures,
@@ -200,7 +211,10 @@ where
         finalize_node_neighbors(&mut neighbors);
         let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1, true);
         solver.minimize(
-            |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
+            |nodal_temperatures: &NodalTemperatures| {
+                Ok(self
+                    .potential(nodal_temperatures)?)
+            },
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| {
                 Ok(self.nodal_stiffnesses(nodal_temperatures)?)

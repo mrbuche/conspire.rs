@@ -12,11 +12,12 @@ use crate::{
         },
         thermal::conduction::ThermalConductionElements,
     },
-    math::{Scalar, SquareMatrix, Vector},
+    math::{Quantity, QuantitySparseVec2D, QuantityVector},
+    units::{Power, PowerPerTemperature, PowerTemperature},
 };
 
-pub type NodalForcesThermal = Vector;
-pub type NodalStiffnessesThermal = SquareMatrix;
+pub type NodalForcesThermal = QuantityVector<Power>;
+pub type NodalStiffnessesThermal = QuantitySparseVec2D<PowerPerTemperature>;
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ThermalConductionElements
     for Block<C, F, G, M, N, P>
@@ -27,7 +28,7 @@ where
     fn potential(
         &self,
         nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<PowerTemperature>, ElementModelError> {
         match self
             .elements()
             .iter()
@@ -38,7 +39,7 @@ where
                     &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
                 )
             })
-            .sum()
+            .sum::<Result<Quantity<PowerTemperature>, FiniteElementError>>()
         {
             Ok(potential) => Ok(potential),
             Err(error) => Err(ElementModelError::Upstream(

@@ -4,7 +4,7 @@ use crate::{
         grid::Voxels,
         mesh::{Connectivity, Mesh, Tessellation},
     },
-    math::TensorVec,
+    math::{Quantity, TensorVec},
 };
 
 const CONNECTIVITY: [[usize; 3]; 12] = [
@@ -52,7 +52,7 @@ fn two_cubes() -> Tessellation {
 
 #[test]
 fn solid_voxelization_inside_outside() {
-    let voxels = Voxels::from_tessellation(&two_cubes(), 1.0);
+    let voxels = Voxels::from_tessellation(&two_cubes(), Quantity::new(1.0));
     assert_eq!(*voxels.nel(), [3, 1, 1]);
     assert_eq!(voxels.data(), [1, 0, 1]);
 }

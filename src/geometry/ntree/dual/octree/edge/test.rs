@@ -1,7 +1,7 @@
 use super::{D, N};
 use crate::{
     geometry::{
-        Coordinates,
+        Coordinate, Coordinates,
         ntree::{
             Balance, Octree,
             balance::Balancing,
@@ -11,7 +11,7 @@ use crate::{
             rescale::Rescaling,
         },
     },
-    math::Scalar,
+    math::{Quantity, Scalar},
 };
 
 fn refine_to(octree: &mut Octree<u16, usize>, node: usize, levels: usize) {
@@ -36,8 +36,8 @@ pub(crate) fn weak_tree(depths: [usize; 8], balancing: Balancing) -> Octree<u16,
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [8.0, 8.0, 8.0],
-            cell: 1.0,
+            center: Coordinate::const_from([8.0, 8.0, 8.0]),
+            cell: Quantity::new(1.0),
             half: 8.0,
         },
     };

@@ -2,6 +2,7 @@ use super::{
     super::{Tensor, TensorArray},
     TensorRank0, TensorRank2, TensorRank3, levi_civita,
 };
+use crate::math::Current;
 use crate::{ABS_TOL, REL_TOL};
 
 fn get_array() -> [[[TensorRank0; 4]; 4]; 4] {
@@ -33,11 +34,11 @@ fn get_array() -> [[[TensorRank0; 4]; 4]; 4] {
     ]
 }
 
-fn get_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
+fn get_tensor_rank_3() -> TensorRank3<4, Current, Current, Current> {
     TensorRank3::from(get_array())
 }
 
-fn get_other_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
+fn get_other_tensor_rank_3() -> TensorRank3<4, Current, Current, Current> {
     TensorRank3::from([
         [
             [2.0, 1.0, 1.0, 2.0],
@@ -66,7 +67,7 @@ fn get_other_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
     ])
 }
 
-fn get_other_tensor_rank_3_add_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
+fn get_other_tensor_rank_3_add_tensor_rank_3() -> TensorRank3<4, Current, Current, Current> {
     TensorRank3::from([
         [
             [3.0, 3.0, 2.0, 4.0],
@@ -95,7 +96,7 @@ fn get_other_tensor_rank_3_add_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
     ])
 }
 
-fn get_other_tensor_rank_3_sub_tensor_rank_3() -> TensorRank3<4, 1, 1, 1> {
+fn get_other_tensor_rank_3_sub_tensor_rank_3() -> TensorRank3<4, Current, Current, Current> {
     TensorRank3::from([
         [
             [-1.0, 1.0, 0.0, 0.0],
@@ -341,7 +342,8 @@ fn error() {
 #[test]
 fn from_iter() {
     let into_iterator = get_tensor_rank_3().0.into_iter();
-    let tensor_rank_3 = TensorRank3::<4, 1, 1, 1>::from_iter(get_tensor_rank_3().0);
+    let tensor_rank_3 =
+        TensorRank3::<4, Current, Current, Current>::from_iter(get_tensor_rank_3().0);
     tensor_rank_3
         .iter()
         .zip(into_iterator)
@@ -395,7 +397,7 @@ fn iter_mut() {
 
 #[test]
 fn levi_civita_cases() {
-    let levi_civita_symbol = levi_civita::<1, 1, 1>();
+    let levi_civita_symbol = levi_civita::<Current, Current, Current>();
     assert_eq!(levi_civita_symbol[0][0][0], 0.0);
     assert_eq!(levi_civita_symbol[0][0][1], 0.0);
     assert_eq!(levi_civita_symbol[0][0][2], 0.0);
@@ -526,8 +528,8 @@ fn from() {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank3::<3, 1, 1, 1>>(),
-        std::mem::size_of::<[TensorRank2::<3, 1, 1>; 3]>()
+        std::mem::size_of::<TensorRank3::<3, Current, Current, Current>>(),
+        std::mem::size_of::<[TensorRank2::<3, Current, Current>; 3]>()
     )
 }
 
@@ -617,7 +619,7 @@ fn sub_assign_tensor_rank_3_ref() {
 
 #[test]
 fn zero() {
-    TensorRank3::<4, 1, 1, 1>::zero()
+    TensorRank3::<4, Current, Current, Current>::zero()
         .iter()
         .for_each(|tensor_rank_3_i| {
             tensor_rank_3_i.iter().for_each(|tensor_rank_3_ij| {

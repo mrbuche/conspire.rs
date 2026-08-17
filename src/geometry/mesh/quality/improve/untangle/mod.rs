@@ -7,7 +7,7 @@ use crate::{
         Coordinate,
         mesh::{Mesh, Tessellation},
     },
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
 };
 use std::mem::transmute_copy;
 
@@ -42,7 +42,9 @@ impl<const D: usize> Mesh<D> {
                 let mut step = 0.5
                     * neighbors[node]
                         .iter()
-                        .map(|&neighbor| (&coordinates[node] - &coordinates[neighbor]).norm())
+                        .map(|&neighbor| {
+                            (&coordinates[node] - &coordinates[neighbor]).norm().value()
+                        })
                         .sum::<Scalar>()
                     / (neighbors[node].len() as Scalar);
                 for _ in 0..PROBES {
@@ -50,7 +52,7 @@ impl<const D: usize> Mesh<D> {
                     for axis in 0..D {
                         for sign in [-1.0, 1.0] {
                             let original = coordinates[node].clone();
-                            coordinates[node][axis] += sign * step;
+                            coordinates[node][axis] += Quantity::new(sign * step);
                             if boundary[node] {
                                 coordinates[node] = project_to_surface(
                                     constrained.unwrap(),

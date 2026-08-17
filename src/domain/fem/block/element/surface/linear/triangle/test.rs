@@ -17,7 +17,7 @@ use crate::{
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
-    math::{Scalar, ScalarList, Tensor, optimize::EqualityConstraint},
+    math::{ScalarList, Tensor, optimize::EqualityConstraint},
     mechanics::{
         DeformationGradient, DeformationGradientList, DeformationGradientRate,
         DeformationGradientRateList,
@@ -186,7 +186,7 @@ pub fn equality_constraint() -> (
 }
 
 pub fn applied_velocity(
-    times: &crate::math::Vector,
+    times: &crate::math::integrate::Times,
 ) -> crate::constitutive::solid::viscoelastic::AppliedLoad<'_> {
     crate::constitutive::solid::viscoelastic::AppliedLoad::BiaxialStress(
         |_| 0.23,

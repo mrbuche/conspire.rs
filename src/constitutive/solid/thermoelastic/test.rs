@@ -1,9 +1,13 @@
-use crate::mechanics::Scalar;
+use crate::{
+    math::Quantity,
+    units::{ReciprocalTemperature, Temperature},
+};
 
 pub use crate::constitutive::solid::elastic::test::{BULK_MODULUS, SHEAR_MODULUS};
 
-pub const COEFFICIENT_OF_THERMAL_EXPANSION: Scalar = 1.0;
-pub const REFERENCE_TEMPERATURE: Scalar = 100.0;
+pub const COEFFICIENT_OF_THERMAL_EXPANSION: Quantity<ReciprocalTemperature> =
+    ReciprocalTemperature::per_kelvin(1.0);
+pub const REFERENCE_TEMPERATURE: Quantity<Temperature> = Temperature::kelvin(100.0);
 
 macro_rules! cauchy_stress_from_deformation_gradient {
     ($constitutive_model: expr, $deformation_gradient: expr) => {
@@ -117,16 +121,16 @@ macro_rules! test_solid_thermal_constitutive_model {
         fn coefficient_of_thermal_expansion() -> Result<(), AssertionError> {
             let model = $constitutive_model;
             let deformation_gradient = DeformationGradient::identity();
-            let temperature = model.reference_temperature() - EPSILON;
+            let temperature = model.reference_temperature() - $crate::math::Quantity::new(EPSILON);
             let first_piola_kirchhoff_stress =
                 model.first_piola_kirchhoff_stress(&deformation_gradient, temperature)?;
-            let compare = 3.0 * model.bulk_modulus() * EPSILON;
+            let compare = 3.0 * model.bulk_modulus().value() * EPSILON;
             (0..3).try_for_each(|i| {
                 (0..3).try_for_each(|j| {
                     if i == j {
                         assert!(
-                            (first_piola_kirchhoff_stress[i][j] / compare
-                                - model.coefficient_of_thermal_expansion())
+                            ((first_piola_kirchhoff_stress[i][j] / compare).value()
+                                - model.coefficient_of_thermal_expansion().value())
                             .abs()
                                 < EPSILON
                         );

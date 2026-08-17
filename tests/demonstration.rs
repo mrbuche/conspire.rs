@@ -14,7 +14,10 @@ use conspire::{
             hyperelastic_viscoplastic::SecondOrderMinimize,
         },
     },
-    math::{Tensor, assert::AssertionError, integrate::DormandPrince, optimize::NewtonRaphson},
+    math::{
+        Quantity, Tensor, assert::AssertionError, integrate::DormandPrince, optimize::NewtonRaphson,
+    },
+    units::{Rate, Stress, Time},
 };
 
 #[test]
@@ -22,53 +25,54 @@ fn demonstrate() -> Result<(), AssertionError> {
     let model = ElasticViscoplasticAdditiveElastic::from((
         ElasticMultiplicativeViscoplastic::from((
             Hencky {
-                bulk_modulus: 300.0,
-                shear_modulus: 100.0,
+                bulk_modulus: Stress::pascals(300.0),
+                shear_modulus: Stress::pascals(100.0),
             },
             ElasticViscoplasticAdditiveViscoplastic::from((
                 ElasticMultiplicativeViscoplastic::from((
                     Hencky {
-                        bulk_modulus: 0.0,
-                        shear_modulus: 25.0,
+                        bulk_modulus: Stress::pascals(0.0),
+                        shear_modulus: Stress::pascals(25.0),
                     },
                     ElasticViscoplasticAdditiveViscoplastic::from((
                         ElasticMultiplicativeViscoplastic::from((
                             Hencky {
-                                bulk_modulus: 0.0,
-                                shear_modulus: 10.0,
+                                bulk_modulus: Stress::pascals(0.0),
+                                shear_modulus: Stress::pascals(10.0),
                             },
                             ViscoplasticFlow {
-                                yield_stress: 3.0,
-                                hardening_slope: 0.0,
+                                yield_stress: Stress::pascals(3.0),
+                                hardening_slope: Stress::pascals(0.0),
                                 rate_sensitivity: 0.25,
-                                reference_flow_rate: 0.04,
+                                reference_flow_rate: Rate::per_second(0.04),
                             },
                         )),
                         ViscoplasticFlow {
-                            yield_stress: 2.0,
-                            hardening_slope: 0.0,
+                            yield_stress: Stress::pascals(2.0),
+                            hardening_slope: Stress::pascals(0.0),
                             rate_sensitivity: 0.25,
-                            reference_flow_rate: 0.02,
+                            reference_flow_rate: Rate::per_second(0.02),
                         },
                     )),
                 )),
                 ViscoplasticFlow {
-                    yield_stress: 1.0,
-                    hardening_slope: 1.0,
+                    yield_stress: Stress::pascals(1.0),
+                    hardening_slope: Stress::pascals(1.0),
                     rate_sensitivity: 0.25,
-                    reference_flow_rate: 0.01,
+                    reference_flow_rate: Rate::per_second(0.01),
                 },
             )),
         )),
         ArrudaBoyce {
-            bulk_modulus: 0.0,
-            shear_modulus: 3.0,
+            bulk_modulus: Stress::pascals(0.0),
+            shear_modulus: Stress::pascals(3.0),
             number_of_links: 4.0,
         },
     ));
     let (t, f, f_p) = model.minimize(
         AppliedLoad::UniaxialStress(
-            |t| {
+            |t: Quantity<Time>| {
+                let t = t.value();
                 if t < 0.25_f64.exp() - 1.0 {
                     1.0 + t
                 } else if t < 0.25_f64.exp() - 1.0 + 0.12_f64.exp() - 1.0 {
@@ -168,19 +172,21 @@ fn demonstrate() -> Result<(), AssertionError> {
                 }
             },
             &[
-                0.0,
-                0.25_f64.exp() - 1.0 + 2.0 * (0.12_f64.exp() - 1.0) + 0.31_f64.exp() - 1.0
-                    + 2.0 * (0.245_f64.exp() - 1.0)
-                    + 0.385_f64.exp()
-                    - 1.0
-                    + 0.363_f64.exp()
-                    - 1.0
-                    + 0.713_f64.exp()
-                    - 1.0
-                    + 0.555_f64.exp()
-                    - 1.0
-                    + 0.55_f64.exp()
-                    - 1.0,
+                Time::seconds(0.0),
+                Time::seconds(
+                    0.25_f64.exp() - 1.0 + 2.0 * (0.12_f64.exp() - 1.0) + 0.31_f64.exp() - 1.0
+                        + 2.0 * (0.245_f64.exp() - 1.0)
+                        + 0.385_f64.exp()
+                        - 1.0
+                        + 0.363_f64.exp()
+                        - 1.0
+                        + 0.713_f64.exp()
+                        - 1.0
+                        + 0.555_f64.exp()
+                        - 1.0
+                        + 0.55_f64.exp()
+                        - 1.0,
+                ),
             ],
         ),
         DormandPrince::default(),

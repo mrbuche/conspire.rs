@@ -2,7 +2,7 @@ use super::{
     invalid,
     read::{
         DataArray, Encoding, attribute, bits, data_array, data_arrays, decode, encoding,
-        find_data_array, floats, integers, parse, region, tag, unbase64,
+        find_data_array, floats, information, integers, parse, region, tag, unbase64,
     },
     unsupported,
     write::{self, Compression, base64, data_array_compressed},
@@ -164,6 +164,7 @@ fn ascii_array<'a>(data_type: &'a str, text: &'a str) -> DataArray<'a> {
         format: "ascii",
         tuples: 0,
         text,
+        information: "",
     }
 }
 
@@ -174,6 +175,7 @@ fn binary_array<'a>(data_type: &'a str, text: &'a str, tuples: usize) -> DataArr
         format: "binary",
         tuples,
         text,
+        information: "",
     }
 }
 
@@ -490,4 +492,50 @@ fn base64_round_trips_all_padding_cases() {
         let data: Vec<u8> = (0..len).collect();
         assert_eq!(unbase64(&base64(&data)), data);
     }
+}
+
+const KEY: &str =
+    "<InformationKey name=\"UNITS_LABEL\" location=\"vtkDataArray\">mm</InformationKey>";
+
+#[test]
+fn an_information_key_is_kept_out_of_the_numbers() {
+    let region = format!("<DataArray type=\"Float64\">{KEY}1 2 3</DataArray>");
+    let array = data_array(&region, None).unwrap();
+    assert_eq!(array.text, "1 2 3");
+    assert_eq!(
+        floats(&array, &uncompressed_encoding(4)).unwrap(),
+        [1.0, 2.0, 3.0]
+    );
+}
+
+#[test]
+fn an_information_key_after_the_numbers_is_kept_out_too() {
+    let region = format!("<DataArray type=\"Float64\">1 2 3{KEY}</DataArray>");
+    assert_eq!(data_array(&region, None).unwrap().text, "1 2 3");
+}
+
+#[test]
+fn an_information_key_is_found_by_name() {
+    let region = format!("<DataArray type=\"Float64\">{KEY}1 2 3</DataArray>");
+    let array = data_array(&region, None).unwrap();
+    assert_eq!(information(&array, "UNITS_LABEL"), Some("mm"));
+    assert_eq!(information(&array, "COMPONENT_NAMES"), None);
+}
+
+#[test]
+fn an_array_without_keys_has_none_to_find() {
+    let array = data_array("<DataArray type=\"Float64\">1 2 3</DataArray>", None).unwrap();
+    assert_eq!(array.text, "1 2 3");
+    assert_eq!(information(&array, "UNITS_LABEL"), None);
+}
+
+#[test]
+fn the_named_key_is_found_among_others() {
+    let region = format!(
+        "<DataArray type=\"Float64\"><InformationKey name=\"OTHER\" location=\"vtkDataArray\">x</InformationKey>{KEY}1 2 3</DataArray>"
+    );
+    let array = data_array(&region, None).unwrap();
+    assert_eq!(information(&array, "UNITS_LABEL"), Some("mm"));
+    assert_eq!(information(&array, "OTHER"), Some("x"));
+    assert_eq!(array.text, "1 2 3");
 }

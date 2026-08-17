@@ -2,9 +2,9 @@
 mod test;
 
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator,
+        Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator, Times,
         VariableStepExplicit, Verner9 as Verner9VariableStep,
     },
 };
@@ -24,43 +24,51 @@ where
 {
 }
 
-impl FixedStep for Verner9 {
-    fn dt(&self) -> Scalar {
-        self.dt
+impl<T> FixedStep<T> for Verner9 {
+    fn dt(&self) -> Quantity<T> {
+        Quantity::new(self.dt)
     }
 }
 
-impl<Y, U> Explicit<Y, U> for Verner9
+impl<Y, U, V, T> Explicit<Y, U, V, T> for Verner9
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     const SLOPES: usize = 15;
     fn integrate(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        time: &[Scalar],
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        time: &[Quantity<T>],
         initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_fixed_step(function, time, initial_condition)
     }
 }
 
-impl<Y, U> FixedStepExplicit<Y, U> for Verner9
+impl<Y, U, V, T> FixedStepExplicit<Y, U, V, T> for Verner9
 where
-    Verner9VariableStep: VariableStepExplicit<Y, U>,
-    Y: Tensor,
+    Verner9VariableStep: VariableStepExplicit<Y, U, V, T>,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn step(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
         Verner9VariableStep::slopes(function, y, t, dt, k, y_trial)

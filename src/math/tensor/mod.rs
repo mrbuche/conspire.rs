@@ -1,5 +1,10 @@
+#[cfg(test)]
+mod test;
+
+pub(super) mod configuration;
 pub(super) mod list;
 pub(super) mod norm;
+pub(super) mod quantity;
 pub(super) mod rank_0;
 pub(super) mod rank_1;
 pub(super) mod rank_2;
@@ -8,10 +13,15 @@ pub(super) mod rank_4;
 pub(super) mod tuple;
 pub(super) mod vec;
 
+pub use configuration::{
+    Auxiliary, Configuration, Current, Factor, Flattened, Intermediate, Projection, Reference,
+};
 pub use norm::Norm;
+pub use quantity::{Is, Quantity};
 
 use super::{SquareMatrix, Vector};
 use crate::math::{Style, StyledError, styled_error};
+use crate::units::{Dimensionless, Time, UnitMul};
 use rank_0::{
     TensorRank0,
     list::{TensorRank0List, vec::TensorRank0ListVec},
@@ -54,6 +64,71 @@ impl StyledError for TensorError {
 }
 
 styled_error!(TensorError);
+
+/// A tensor that can be differentiated with respect to a variable of unit `T`.
+///
+/// The derivative is named by the tensor rather than passed in alongside it,
+/// being the same tensor with its unit divided by the variable's. A tuple
+/// computes each half's derivative on its own, so the pair of units its halves
+/// carry never has to be taken apart.
+///
+/// The variable of integration need not be a time — an arclength or a load
+/// parameter is just as ordinary — so it is named rather than assumed, with time
+/// as the default for the common case.
+pub trait Differentiate<T = Time>
+where
+    Self: Tensor,
+{
+    /// The derivative with respect to the variable of integration.
+    type Derivative: Tensor;
+}
+
+/// The derivative of `Y` with respect to a variable of unit `T`.
+///
+/// Spelling the projection out at every use would crowd out the signatures it
+/// appears in, since a tensor names a derivative for each variable it might be
+/// differentiated against.
+pub type Derivative<Y, T = Time> = <Y as Differentiate<T>>::Derivative;
+
+/// The unit a quantity of unit `U` carries once squared.
+///
+/// A tensor squared against itself — its norm squared, the trace of its square,
+/// the invariant built from the two — carries this rather than nothing. Spelling
+/// the projection out at every use would crowd out the signatures, as it would
+/// for a [`Derivative`].
+pub type Square<U> = <U as UnitMul<U>>::Output;
+
+/// The full contraction of two tensors whose units need not agree.
+///
+/// [`Tensor::full_contraction`] contracts a tensor with another of its own type
+/// and gives a number. Contracting tensors of different units gives a quantity
+/// whose unit is the product of theirs — a stress with a rate is a power
+/// density — which is what erased views used to stand in for.
+pub trait ContractWith<Rhs> {
+    /// The quantity the contraction gives.
+    type Output;
+    /// Returns the full contraction with the other tensor.
+    fn contract_with(&self, rhs: &Rhs) -> Self::Output;
+}
+
+/// Views a tensor with its configurations and unit discarded.
+///
+/// Contracting tensors of different units gives a quantity whose unit is the
+/// product, which is not always one this library names. Generic code that only
+/// wants the number contracts the erased views instead.
+pub trait Erase {
+    /// The tensor with its configurations and unit discarded.
+    type Erased: Tensor;
+    /// Views the tensor with its configurations and unit discarded.
+    fn erase(&self) -> &Self::Erased;
+}
+
+impl Erase for TensorRank0 {
+    type Erased = Self;
+    fn erase(&self) -> &Self {
+        self
+    }
+}
 
 /// Common methods for solutions.
 pub trait Solution
@@ -132,21 +207,21 @@ pub trait HessianBlock {
 /// Symmetric-safe: the caller guarantees `block` at (a, b) equals the
 /// transpose of the (b, a) contribution, so implementors may store or
 /// mirror as they see fit.
-pub trait HessianAccumulate<const D: usize, const I: usize> {
-    fn accumulate(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I>);
+pub trait HessianAccumulate<const D: usize, I, U = Dimensionless> {
+    fn accumulate(&mut self, a: usize, b: usize, block: rank_2::TensorRank2<D, I, I, U>);
 }
 
 /// Common methods for rank-2 tensors.
 pub trait Rank2
 where
-    Self: Sized,
+    Self: Sized + Tensor,
 {
     /// The type that is the transpose of the tensor.
     type Transpose;
     /// Returns the deviatoric component of the rank-2 tensor.
     fn deviatoric(&self) -> Self;
     /// Returns the deviatoric component and trace of the rank-2 tensor.
-    fn deviatoric_and_trace(&self) -> (Self, TensorRank0);
+    fn deviatoric_and_trace(&self) -> (Self, Quantity<Self::Unit>);
     /// Checks whether the tensor is a diagonal tensor.
     fn is_diagonal(&self) -> bool;
     /// Checks whether the tensor is the identity tensor.
@@ -154,13 +229,19 @@ where
     /// Checks whether the tensor is a symmetric tensor.
     fn is_symmetric(&self) -> bool;
     /// Returns the second invariant of the rank-2 tensor.
-    fn second_invariant(&self) -> TensorRank0 {
-        0.5 * (self.trace().powi(2) - self.squared_trace())
+    fn second_invariant(&self) -> Quantity<Square<Self::Unit>>
+    where
+        Self::Unit: UnitMul<Self::Unit>,
+    {
+        let trace = self.trace();
+        (trace * trace - self.squared_trace()) * 0.5
     }
     /// Returns the trace of the rank-2 tensor squared.
-    fn squared_trace(&self) -> TensorRank0;
-    /// Returns the trace of the rank-2 tensor.
-    fn trace(&self) -> TensorRank0;
+    fn squared_trace(&self) -> Quantity<Square<Self::Unit>>
+    where
+        Self::Unit: UnitMul<Self::Unit>;
+    /// Returns the trace of the rank-2 tensor, which carries its unit.
+    fn trace(&self) -> Quantity<Self::Unit>;
     /// Returns the transpose of the rank-2 tensor.
     fn transpose(&self) -> Self::Transpose;
 }
@@ -195,7 +276,9 @@ where
 {
     /// The type of item encountered when iterating over the tensor.
     type Item;
-    /// Returns number of nonzero entries given absolute and relative tolerances, compared against zero.
+    /// The physical unit the tensor carries.
+    type Unit;
+    /// Returns number of nonzero entries given absolute and relative tolerances.
     fn error_count_zero(&self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
         let error_count = self
             .iter()
@@ -244,17 +327,22 @@ where
     /// Returns the number of elements, also referred to as the ‘length’.
     fn len(&self) -> usize;
     /// Returns the tensor norm.
-    fn norm(&self) -> TensorRank0 {
-        self.norm_squared().sqrt()
+    fn norm(&self) -> Quantity<Self::Unit> {
+        Quantity::new(self.full_contraction(self).sqrt())
     }
     /// Returns the infinity norm.
-    fn norm_inf(&self) -> TensorRank0 {
-        self.iter()
-            .fold(0.0, |acc, entry| entry.norm_inf().max(acc))
+    fn norm_inf(&self) -> Quantity<Self::Unit> {
+        Quantity::new(
+            self.iter()
+                .fold(0.0, |acc, entry| entry.norm_inf().value().max(acc)),
+        )
     }
     /// Returns the L1 (Manhattan) norm.
-    fn norm_l1(&self) -> TensorRank0 {
-        self.iter().fold(0.0, |acc, entry| acc + entry.norm_l1())
+    fn norm_l1(&self) -> Quantity<Self::Unit> {
+        Quantity::new(
+            self.iter()
+                .fold(0.0, |acc, entry| acc + entry.norm_l1().value()),
+        )
     }
     /// Returns the sum of p-th powers of absolute values (used internally by `norm_p`).
     fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
@@ -262,21 +350,19 @@ where
             .fold(0.0, |acc, entry| acc + entry.norm_p_sum(p))
     }
     /// Returns the Minkowski (Lp) norm.
-    fn norm_p(&self, p: TensorRank0) -> TensorRank0 {
-        self.norm_p_sum(p).powf(1.0 / p)
+    fn norm_p(&self, p: TensorRank0) -> Quantity<Self::Unit> {
+        Quantity::new(self.norm_p_sum(p).powf(1.0 / p))
     }
-    /// Returns the tensor norm squared.
-    fn norm_squared(&self) -> TensorRank0 {
-        self.full_contraction(self)
+    /// Returns the tensor norm squared, which carries the square of its unit.
+    fn norm_squared(&self) -> Quantity<Square<Self::Unit>>
+    where
+        Self::Unit: UnitMul<Self::Unit>,
+    {
+        Quantity::new(self.full_contraction(self))
     }
-    /// Normalizes the tensor.
+    /// Normalizes the tensor in place.
     fn normalize(&mut self) {
-        *self /= self.norm()
-    }
-    /// Returns the tensor normalized.
-    fn normalized(self) -> Self {
-        let norm = self.norm();
-        self / norm
+        *self /= self.norm().value()
     }
     /// Returns the total number of entries.
     fn size(&self) -> usize;

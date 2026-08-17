@@ -2,10 +2,8 @@ use crate::math::assert::Assert;
 use crate::{
     EPSILON,
     math::{Scalar, assert::AssertionError},
-    physics::{
-        ROOM_TEMPERATURE,
-        molecular::single_chain::{Ensemble, IdealChain, Thermodynamics},
-    },
+    physics::molecular::single_chain::{Ensemble, IdealChain, Thermodynamics},
+    units::ROOM_TEMPERATURE,
 };
 
 const NUM: usize = 333;
@@ -13,8 +11,8 @@ const NUM: usize = 333;
 #[test]
 fn finite_difference() -> Result<(), AssertionError> {
     [
-        Ensemble::Isometric(ROOM_TEMPERATURE),
-        Ensemble::Isotensional(ROOM_TEMPERATURE),
+        Ensemble::Isometric(ROOM_TEMPERATURE.value()),
+        Ensemble::Isotensional(ROOM_TEMPERATURE.value()),
     ]
     .into_iter()
     .try_for_each(|ensemble| {

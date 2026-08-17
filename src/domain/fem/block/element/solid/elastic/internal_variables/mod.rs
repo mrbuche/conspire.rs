@@ -1,20 +1,24 @@
+use crate::math::{Erase, Quantity};
+use crate::units::{Dimensionless, Stress, UnitDiv};
 use std::ops::{Div, Mul};
 
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic::internal_variables::ElasticIV},
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, GradientVectors,
+        IntegrationWeights,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
     },
     math::{
-        ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, ScalarList,
-        Solution, SquareMatrix, Tensor, TensorList, Vector,
+        ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, Solution,
+        SquareMatrix, Tensor, TensorList, Vector,
         optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson},
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressList,
         FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessList,
     },
+    units::Volume,
 };
 
 /// The indices of the internal variables that are free to move.
@@ -40,11 +44,16 @@ pub trait ElasticIVFiniteElement<
     const N: usize,
     const P: usize,
     V,
+    E,
 > where
     C: ElasticIV<V>,
+    C::Residual: Erase<Erased = E>,
     Self: SolidFiniteElement<G, M, N, P>,
-    V: Jacobian + Solution,
-    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    V: Erase<Erased = E> + Jacobian + Solution,
+    <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
+    E: Tensor,
+    for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
+    for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     /// The internal variables an element starts from at every integration point.
@@ -103,7 +112,7 @@ pub trait ElasticIVFiniteElement<
 /// The gauge freedom is fixed at the initial values, which are zero over those
 /// indices, so the constraint is imposed by leaving them out of the system
 /// rather than by a multiplier.
-fn root_at_point<C, V>(
+fn root_at_point<C, V, E>(
     local_solver: &NewtonRaphson,
     constitutive_model: &C,
     deformation_gradient: &DeformationGradient,
@@ -111,8 +120,12 @@ fn root_at_point<C, V>(
 ) -> Result<V, ConstitutiveError>
 where
     C: ElasticIV<V>,
-    V: Jacobian + Solution,
-    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    C::Residual: Erase<Erased = E>,
+    V: Erase<Erased = E> + Jacobian + Solution,
+    <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
+    E: Tensor,
+    for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
+    for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     local_solver
@@ -134,7 +147,7 @@ where
 fn assemble_forces<const G: usize, const N: usize>(
     stresses: FirstPiolaKirchhoffStressList<G>,
     gradient_vectors: &GradientVectors<3, G, N>,
-    integration_weights: &ScalarList<G>,
+    integration_weights: &IntegrationWeights<G, Volume>,
 ) -> ElementNodalForcesSolid<N> {
     stresses
         .iter()
@@ -225,8 +238,8 @@ where
             stress[i][j] -= unmap
                 .iter()
                 .enumerate()
-                .map(|(a, &v)| cross[3 * i + j][v] * eliminated[a])
-                .sum::<Scalar>()
+                .map(|(a, &v)| Quantity::new(cross[3 * i + j][v] * eliminated[a]))
+                .sum::<Quantity<Stress>>()
         })
     });
     Ok(stress)
@@ -267,9 +280,10 @@ where
                 .map(|k| {
                     (0..3)
                         .map(|l| coupling[i][3 * k + l] * deformation_gradient_decrement[k][l])
-                        .sum::<Scalar>()
+                        .sum::<Quantity>()
                 })
-                .sum::<Scalar>()
+                .sum::<Quantity>()
+                .value()
     });
     let solution = local_block(&tangent_vv, size, &unmap)
         .solve_lu(&reduced)
@@ -334,8 +348,10 @@ where
                     condensed[i][j][k][l] -= unmap
                         .iter()
                         .enumerate()
-                        .map(|(a, &v)| cross[3 * i + j][v] * eliminated[3 * k + l][a])
-                        .sum::<Scalar>()
+                        .map(|(a, &v)| {
+                            Quantity::new(cross[3 * i + j][v] * eliminated[3 * k + l][a])
+                        })
+                        .sum::<Quantity<Stress>>()
                 })
             })
         })
@@ -343,13 +359,17 @@ where
     Ok(condensed)
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V>
-    ElasticIVFiniteElement<C, G, 3, N, P, V> for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V, E>
+    ElasticIVFiniteElement<C, G, 3, N, P, V, E> for Element<3, G, N, O>
 where
     C: ElasticIV<V>,
+    C::Residual: Erase<Erased = E>,
     Self: SolidFiniteElement<G, 3, N, P>,
-    V: Jacobian + Solution,
-    for<'a> &'a V: Div<C::TangentVv, Output = V> + From<&'a V> + Mul<Scalar, Output = V>,
+    V: Erase<Erased = E> + Jacobian + Solution,
+    <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
+    E: Tensor,
+    for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
+    for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
 {
     fn internal_variables_initial(&self, constitutive_model: &C) -> InternalVariables<G, V> {

@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use crate::geometry::{Coordinate, grid::Grid};
+use crate::{
+    geometry::{Coordinate, grid::Grid},
+    math::Quantity,
+};
 use std::{
     array::from_fn,
     ops::{Deref, DerefMut, Range},
@@ -19,7 +22,7 @@ pub struct Segmentation<const D: usize, T> {
 impl<const D: usize, T> Segmentation<D, T> {
     pub fn new(grid: Grid<D, T>, scale: Coordinate<D>, translate: Coordinate<D>) -> Self {
         assert!(
-            (0..D).all(|axis| scale[axis] > 0.0),
+            (0..D).all(|axis| scale[axis] > Quantity::default()),
             "scale must be positive in every direction"
         );
         Self {

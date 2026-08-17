@@ -3,12 +3,14 @@ pub mod linear;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        ElementNodalVelocities, FiniteElement, GradientVectors,
+        ElementNodalVelocities, FiniteElement, GradientVectors, IntegrationWeights,
     },
-    math::{
-        CrossProduct, IDENTITY, LEVI_CIVITA, Scalar, ScalarList, Tensor, TensorArray, TensorRank2,
+    math::{CrossProduct, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank2},
+    mechanics::{
+        Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
+        SurfaceDualBases,
     },
-    mechanics::{Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases},
+    units::{Area, Length, Rate, Volume},
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -17,7 +19,7 @@ const M: usize = 2;
 #[derive(Clone)]
 pub struct SurfaceElement<const G: usize, const N: usize, const O: usize> {
     gradient_vectors: GradientVectors<3, G, N>,
-    integration_weights: ScalarList<G>,
+    integration_weights: IntegrationWeights<G, Volume>,
     reference_normals: ReferenceNormals<G>,
 }
 
@@ -41,13 +43,11 @@ impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G,
     }
 }
 
-pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize>
+pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize, W = Volume>
 where
-    Self: FiniteElement<G, M, N, P>,
+    Self: FiniteElement<G, M, N, P, W>,
 {
-    fn bases<const I: usize>(
-        nodal_coordinates: &ElementNodalEitherCoordinates<I, P>,
-    ) -> SurfaceBases<I, G> {
+    fn bases<I>(nodal_coordinates: &ElementNodalEitherCoordinates<I, P>) -> SurfaceBases<I, G> {
         Self::shape_functions_gradients_at_integration_points()
             .iter()
             .map(|shape_functions_gradients| {
@@ -66,9 +66,9 @@ where
             })
             .collect()
     }
-    fn dual_bases<const I: usize>(
+    fn dual_bases<I>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, P>,
-    ) -> SurfaceBases<I, G> {
+    ) -> SurfaceDualBases<I, G> {
         Self::bases(nodal_coordinates)
             .into_iter()
             .map(|basis_vectors| {
@@ -80,7 +80,7 @@ where
                             .map(|basis_vector_n| basis_vector_m * basis_vector_n)
                             .collect()
                     })
-                    .collect::<TensorRank2<2, I, I>>()
+                    .collect::<TensorRank2<2, I, I, Area>>()
                     .inverse()
                     .iter()
                     .map(|metric_tensor_m| {
@@ -88,7 +88,7 @@ where
                             .iter()
                             .zip(basis_vectors.iter())
                             .map(|(metric_tensor_mn, basis_vectors_n)| {
-                                basis_vectors_n * metric_tensor_mn
+                                basis_vectors_n * *metric_tensor_mn
                             })
                             .sum()
                     })
@@ -99,18 +99,22 @@ where
     fn normals(nodal_coordinates: &ElementNodalCoordinates<P>) -> Normals<G> {
         Self::bases(nodal_coordinates)
             .into_iter()
-            .map(|basis_vectors| basis_vectors[0].cross(&basis_vectors[1]).normalized())
+            .map(|basis_vectors| {
+                let normal = basis_vectors[0].cross(&basis_vectors[1]);
+                let area = normal.norm();
+                normal / area
+            })
             .collect()
     }
     fn normal_gradients(nodal_coordinates: &ElementNodalCoordinates<P>) -> NormalGradients<P, G> {
         let levi_civita_symbol = LEVI_CIVITA;
-        let mut normalization: Scalar = 0.0;
+        let mut normalization = Quantity::<Area>::new(0.0);
         let mut normal_vector = Normal::zero();
         Self::shape_functions_gradients_at_integration_points().iter()
         .zip(Self::bases(nodal_coordinates))
         .map(|(standard_gradient_operator, basis_vectors)|{
             normalization = basis_vectors[0].cross(&basis_vectors[1]).norm();
-            normal_vector = basis_vectors[0].cross(&basis_vectors[1])/normalization;
+            normal_vector = basis_vectors[0].cross(&basis_vectors[1]) / normalization;
             standard_gradient_operator.iter()
             .map(|standard_gradient_operator_a|
                 levi_civita_symbol.iter()
@@ -127,11 +131,12 @@ where
                             .zip(normal_vector.iter()))
                             .map(|(levi_civita_symbol_mno, (identity_io, normal_vector_o))|
                                 levi_civita_symbol_mno * (identity_io - normal_vector_i * normal_vector_o)
-                            ).sum::<Scalar>() * (
+                            ).sum::<Quantity>() * (
                                 standard_gradient_operator_a[0] * basis_vector_1_n
                               - standard_gradient_operator_a[1] * basis_vector_0_n
                             )
-                        ).sum::<Scalar>() / normalization
+                        ).sum::<Quantity<Length>>()
+                            / normalization
                     ).collect()
                 ).collect()
             ).collect()
@@ -143,7 +148,7 @@ where
     ) -> NormalRates<G> {
         let identity = IDENTITY;
         let levi_civita_symbol = LEVI_CIVITA;
-        let mut normalization = 0.0;
+        let mut normalization = Quantity::<Area>::new(0.0);
         Self::bases(nodal_coordinates)
             .iter()
             .zip(Self::normals(nodal_coordinates).iter()
@@ -168,13 +173,15 @@ where
                                 .zip(normal.iter()))
                                 .map(|(levi_civita_symbol_mno, (identity_io, normal_vector_o))|
                                     levi_civita_symbol_mno * (identity_io - normal_vector_i * normal_vector_o)
-                                ).sum::<Scalar>() * (
+                                ).sum::<Quantity>() * (
                                     standard_gradient_operator_a[0] * basis_vector_1_n
                                 - standard_gradient_operator_a[1] * basis_vector_0_n
                                 )
-                            ).sum::<Scalar>() * nodal_velocity_a_m
-                        ).sum::<Scalar>()
-                    ).sum::<Scalar>() / normalization
+                            ).sum::<Quantity<Length>>()
+                            / normalization
+                                * nodal_velocity_a_m
+                        ).sum::<Quantity<Rate>>()
+                    ).sum::<Quantity<Rate>>()
                 ).collect()
         }).collect()
     }
@@ -188,12 +195,15 @@ where
 }
 
 impl<const G: usize, const N: usize, const O: usize>
-    From<(ElementNodalReferenceCoordinates<N>, Scalar)> for SurfaceElement<G, N, O>
+    From<(ElementNodalReferenceCoordinates<N>, Quantity<Length>)> for SurfaceElement<G, N, O>
 where
     Self: SurfaceFiniteElement<G, N, N>,
 {
     fn from(
-        (reference_nodal_coordinates, thickness): (ElementNodalReferenceCoordinates<N>, Scalar),
+        (reference_nodal_coordinates, thickness): (
+            ElementNodalReferenceCoordinates<N>,
+            Quantity<Length>,
+        ),
     ) -> Self {
         let integration_weights = Self::bases(&reference_nodal_coordinates)
             .into_iter()
@@ -224,9 +234,9 @@ where
         let reference_normals = reference_dual_bases
             .into_iter()
             .map(|reference_dual_basis| {
-                reference_dual_basis[0]
-                    .cross(&reference_dual_basis[1])
-                    .normalized()
+                let normal = reference_dual_basis[0].cross(&reference_dual_basis[1]);
+                let reciprocal_area = normal.norm();
+                normal / reciprocal_area
             })
             .collect();
         Self {

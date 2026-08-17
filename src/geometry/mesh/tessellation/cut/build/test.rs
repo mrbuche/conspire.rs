@@ -58,7 +58,7 @@ fn assemble_generic_matches_assemble_hexahedron() {
                 .collect();
             let volume = signed_volume(&faces, result.coordinates());
             assert!(
-                (volume - expected_volume).abs() < 1e-9,
+                (volume - expected_volume).abs().value() < 1e-9,
                 "{volume} vs {expected_volume}"
             );
         }
@@ -127,6 +127,7 @@ fn tessellation_volume(tessellation: &Tessellation) -> f64 {
         .map(|triangle| {
             let coordinates = surface.coordinates();
             (coordinates[triangle[0]].cross(&coordinates[triangle[1]]) * &coordinates[triangle[2]])
+                .value()
                 / 6.0
         })
         .sum()

@@ -1,29 +1,33 @@
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepFirstSameAsLast, IntegrationError,
-        ode::explicit::variable_step::dormand_prince::*,
+        Times, ode::explicit::variable_step::dormand_prince::*,
     },
 };
 use std::ops::{Mul, Sub};
 
-impl<Y, Z, U, V> ExplicitDaeVariableStepExplicit<Y, Z, U, V> for DormandPrince
+impl<Y, Z, U, V, W, T> ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T> for DormandPrince
 where
-    Self: ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V>,
-    Y: Tensor,
+    Self: ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V, W, T>,
+    Y: Differentiate<T> + Tensor,
     Z: PartialEq + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
+    W: TensorVec<Item = Derivative<Y, T>>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
     fn slopes_solve(
-        mut evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        mut solution: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        mut evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
+        mut solution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Z, String>,
         y: &Y,
         z: &Z,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
         z_trial: &mut Z,
     ) -> Result<(), String> {
@@ -59,13 +63,13 @@ where
     }
     fn slopes_solve_and_error(
         &self,
-        evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        solution: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
+        evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
+        solution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Z, String>,
         y: &Y,
         z: &Z,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
         z_trial: &mut Z,
     ) -> Result<Scalar, String> {
@@ -73,17 +77,17 @@ where
     }
     fn step_solve(
         &self,
-        _: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
+        _: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
         y: &mut Y,
         z: &mut Z,
-        t: &mut Scalar,
+        t: &mut Quantity<T>,
         y_sol: &mut U,
         z_sol: &mut V,
-        t_sol: &mut Vector,
-        dydt_sol: &mut U,
-        k_sol: &mut Vec<U>,
-        dt: &mut Scalar,
-        k: &mut [Y],
+        t_sol: &mut Times<T>,
+        dydt_sol: &mut W,
+        k_sol: &mut Vec<W>,
+        dt: &mut Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &Y,
         z_trial: &Z,
         e: Scalar,
@@ -95,15 +99,15 @@ where
     #[allow(clippy::too_many_arguments)]
     fn interpolate_explicit_dae_variable_step(
         &self,
-        _evolution: impl FnMut(Scalar, &Y, &Z) -> Result<Y, String>,
-        mut solution: impl FnMut(Scalar, &Y, &Z) -> Result<Z, String>,
-        time: &Vector,
-        tp: &Vector,
+        _evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
+        mut solution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Z, String>,
+        time: &Times<T>,
+        tp: &Times<T>,
         yp: &U,
-        dydtp: &U,
-        k_sol: &[U],
+        dydtp: &W,
+        k_sol: &[W],
         zp: &V,
-    ) -> Result<(U, U, V), IntegrationError> {
+    ) -> Result<(U, W, V), IntegrationError> {
         let (y_int, dydt_int) = Self::interpolate_free_dense(time, tp, yp, dydtp, k_sol);
         let mut z_int = V::new();
         for (idx, time_k) in time.iter().enumerate() {
@@ -118,12 +122,16 @@ where
     }
 }
 
-impl<Y, Z, U, V> ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V> for DormandPrince
+impl<Y, Z, U, V, W, T> ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V, W, T> for DormandPrince
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Tensor,
     Z: PartialEq + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
+    W: TensorVec<Item = Derivative<Y, T>>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
 }

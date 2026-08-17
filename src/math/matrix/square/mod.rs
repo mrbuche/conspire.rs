@@ -4,7 +4,9 @@ mod test;
 mod ldl;
 mod lu;
 
+use crate::math::Quantity;
 use crate::math::assert::FiniteDifference;
+use crate::units::Dimensionless;
 
 use crate::math::{
     Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
@@ -90,9 +92,7 @@ impl<const N: usize> From<[[Scalar; N]; N]> for SquareMatrix {
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>>
-    for SquareMatrix
-{
+impl<const D: usize, I, J> From<TensorRank2Vec2D<D, I, J>> for SquareMatrix {
     fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
         let mut square_matrix = Self::zero(tensor_rank_2_vec_2d.len() * D);
         tensor_rank_2_vec_2d
@@ -102,7 +102,7 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
                 entry_a.iter().enumerate().for_each(|(b, entry_ab)| {
                     entry_ab.iter().enumerate().for_each(|(i, entry_ab_i)| {
                         entry_ab_i.iter().enumerate().for_each(|(j, entry_ab_ij)| {
-                            square_matrix[D * a + i][D * b + j] = *entry_ab_ij
+                            square_matrix[D * a + i][D * b + j] = entry_ab_ij.value()
                         })
                     })
                 })
@@ -178,7 +178,7 @@ impl Rank2 for SquareMatrix {
     type Transpose = Self;
     fn deviatoric(&self) -> Self {
         let len = self.len();
-        let scale = -self.trace() / len as Scalar;
+        let scale = -self.trace().value() / len as Scalar;
         (0..len)
             .map(|i| {
                 (0..len)
@@ -188,10 +188,10 @@ impl Rank2 for SquareMatrix {
             .collect::<Self>()
             + self
     }
-    fn deviatoric_and_trace(&self) -> (Self, Scalar) {
+    fn deviatoric_and_trace(&self) -> (Self, Quantity<Dimensionless>) {
         let len = self.len();
         let trace = self.trace();
-        let scale = -trace / len as Scalar;
+        let scale = -trace.value() / len as Scalar;
         (
             (0..len)
                 .map(|i| {
@@ -233,20 +233,22 @@ impl Rank2 for SquareMatrix {
                 .all(|(self_ij, self_j)| self_ij == &self_j[i])
         })
     }
-    fn squared_trace(&self) -> Scalar {
-        self.iter()
-            .enumerate()
-            .map(|(i, self_i)| {
-                self_i
-                    .iter()
-                    .zip(self.iter())
-                    .map(|(self_ij, self_j)| self_ij * self_j[i])
-                    .sum::<Scalar>()
-            })
-            .sum()
+    fn squared_trace(&self) -> Quantity {
+        Quantity::new(
+            self.iter()
+                .enumerate()
+                .map(|(i, self_i)| {
+                    self_i
+                        .iter()
+                        .zip(self.iter())
+                        .map(|(self_ij, self_j)| self_ij * self_j[i])
+                        .sum::<Scalar>()
+                })
+                .sum::<Scalar>(),
+        )
     }
-    fn trace(&self) -> Scalar {
-        self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum()
+    fn trace(&self) -> Quantity<Dimensionless> {
+        Quantity::new(self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum())
     }
     fn transpose(&self) -> Self::Transpose {
         (0..self.len())
@@ -257,6 +259,7 @@ impl Rank2 for SquareMatrix {
 
 impl Tensor for SquareMatrix {
     type Item = Vector;
+    type Unit = Dimensionless;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

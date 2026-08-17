@@ -6,6 +6,7 @@ mod gradient_descent;
 mod line_search;
 mod newton_raphson;
 mod strategy;
+mod tolerance;
 mod trust_region;
 
 pub use constraint::EqualityConstraint;
@@ -13,22 +14,29 @@ pub use gradient_descent::GradientDescent;
 pub use line_search::{LineSearch, LineSearchError};
 pub use newton_raphson::NewtonRaphson;
 pub use strategy::SolveStrategy;
+pub use tolerance::Tolerances;
 pub use trust_region::TrustRegion;
 
-use crate::math::{
-    Jacobian, Scalar, Solution, Style, StyledError, Vector,
-    assert::AssertionError,
-    matrix::square::SquareMatrixError,
-    sparse::{CscMatrix, SparseError, SparseSolver},
-    styled_error,
+use crate::{
+    math::{
+        Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
+        assert::AssertionError,
+        matrix::square::SquareMatrixError,
+        sparse::{CscMatrix, SparseError, SparseSolver},
+        styled_error,
+    },
+    units::UnitDiv,
 };
 use std::{fmt::Debug, ops::Mul};
 
+/// The step size taking a decrement of type `D` to an increment of `X`.
+pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;
+
 /// Zeroth-order root-finding algorithms.
-pub trait ZerothOrderRootFinding<X> {
+pub trait ZerothOrderRootFinding<F, X> {
     fn root(
         &self,
-        function: impl FnMut(&X) -> Result<X, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -74,11 +82,11 @@ pub trait FirstOrderRootFindingIncremental<F, J, X> {
 }
 
 /// First-order optimization algorithms.
-pub trait FirstOrderOptimization<F, X> {
+pub trait FirstOrderOptimization<F, J, X> {
     fn minimize(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
-        jacobian: impl FnMut(&X) -> Result<X, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -158,20 +166,22 @@ trait BacktrackingLineSearch<J, X>
 where
     Self: Debug,
 {
-    fn backtracking_line_search(
+    fn backtracking_line_search<D, E>(
         &self,
         mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
-        decrement: &X,
+        decrement: &D,
         step_size: Scalar,
     ) -> Result<Scalar, OptimizationError>
     where
-        J: Jacobian,
-        for<'a> &'a J: From<&'a X>,
+        J: Erase<Erased = E> + Jacobian,
+        D: Erase<Erased = E> + Tensor,
+        E: Tensor,
         X: Solution,
-        for<'a> &'a X: Mul<Scalar, Output = X>,
+        <X as Tensor>::Unit: UnitDiv<<D as Tensor>::Unit>,
+        for<'a> &'a D: Mul<StepSize<D, X>, Output = X>,
     {
         if matches!(self.get_line_search(), LineSearch::None) {
             Ok(step_size)

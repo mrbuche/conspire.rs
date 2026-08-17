@@ -1,5 +1,4 @@
 #[cfg(test)]
-#[cfg(feature = "netcdf")]
 mod test;
 
 use std::{
@@ -8,8 +7,9 @@ use std::{
 };
 
 use crate::{
-    geometry::{Coordinate, CoordinatesRef, mesh::tessellation::Tessellation},
-    math::{Scalar, Tensor, Vector},
+    geometry::{Direction, DirectionsRef, mesh::tessellation::Tessellation},
+    math::{Quantity, QuantityVector, Scalar, Tensor},
+    units::Length,
 };
 
 impl Tessellation {
@@ -18,15 +18,15 @@ impl Tessellation {
         half_angle: Scalar,
         rings: usize,
         azimuthal: usize,
-    ) -> Vector {
+    ) -> QuantityVector<Length> {
         let mesh = self.mesh();
         let bvh = self.bvh();
         let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
         let coordinates = mesh.coordinates();
         let centroids = mesh.centroids();
-        let normals: CoordinatesRef<'_, 3> = self.normals.iter().flatten().collect();
+        let normals: DirectionsRef<'_, 3> = self.normals.iter().flatten().collect();
         let number_of_faces = normals.len();
-        let mut face_diameters = vec![0.0; number_of_faces];
+        let mut face_diameters = vec![Quantity::<Length>::default(); number_of_faces];
         let threads = available_parallelism().map_or(1, |threads| threads.get());
         let chunk_size = number_of_faces.div_ceil(threads).max(1);
         scope(|scope| {
@@ -62,11 +62,11 @@ impl Tessellation {
 }
 
 fn interpolate_to_nodes(
-    face_diameters: Vector,
+    face_diameters: QuantityVector<Length>,
     elements: Vec<&[usize]>,
     number_of_nodes: usize,
-) -> Vector {
-    let mut nodal = Vector::zero(number_of_nodes);
+) -> QuantityVector<Length> {
+    let mut nodal = QuantityVector::zero(number_of_nodes);
     let mut counts = vec![0; number_of_nodes];
     elements
         .into_iter()
@@ -86,11 +86,11 @@ fn interpolate_to_nodes(
 }
 
 fn cone_directions(
-    axis: &Coordinate<3>,
+    axis: &Direction<3>,
     half_angle: Scalar,
     rings: usize,
     azimuthal: usize,
-) -> Vec<(Coordinate<3>, Scalar)> {
+) -> Vec<(Direction<3>, Scalar)> {
     let basis = axis.orthonormal_basis();
     let (axis, tangent_1, tangent_2) = (&basis[0], &basis[1], &basis[2]);
     let mut directions = Vec::with_capacity(1 + rings * azimuthal);
@@ -110,27 +110,32 @@ fn cone_directions(
     directions
 }
 
-fn weighted_diameter(samples: Vec<(Scalar, Scalar)>) -> Scalar {
+fn weighted_diameter(samples: Vec<(Quantity<Length>, Scalar)>) -> Quantity<Length> {
     if samples.is_empty() {
-        return 0.0;
+        return Quantity::default();
     }
-    let mut distances: Vec<Scalar> = samples.iter().map(|&(distance, _)| distance).collect();
+    let mut distances: Vec<Quantity<Length>> =
+        samples.iter().map(|&(distance, _)| distance).collect();
     distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let median = distances[distances.len() / 2];
-    let mean = distances.iter().sum::<Scalar>() / distances.len() as Scalar;
-    let standard_deviation = (distances
-        .iter()
-        .map(|distance| (distance - mean).powi(2))
-        .sum::<Scalar>()
-        / distances.len() as Scalar)
-        .sqrt();
+    let mean = distances.iter().copied().sum::<Quantity<Length>>() / distances.len() as Scalar;
+    // A spread is a length, but the square root that takes it back to one is
+    // no unit this names, so the deviations are squared as the numbers they are.
+    let standard_deviation = Quantity::new(
+        (distances
+            .iter()
+            .map(|&distance| (distance - mean).value().powi(2))
+            .sum::<Scalar>()
+            / distances.len() as Scalar)
+            .sqrt(),
+    );
     let (numerator, denominator) = samples
         .into_iter()
         .filter(|&(distance, _)| (distance - median).abs() <= standard_deviation)
         .fold(
-            (0.0, 0.0),
+            (Quantity::default(), 0.0),
             |(numerator, denominator), (distance, weight)| {
-                (numerator + weight * distance, denominator + weight)
+                (numerator + distance * weight, denominator + weight)
             },
         );
     if denominator > 0.0 {

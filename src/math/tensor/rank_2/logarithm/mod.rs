@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Quantity;
+use crate::units::Dimensionless;
 use std::f64::consts::TAU;
 
 use super::{
@@ -14,7 +16,7 @@ use super::{
 };
 use crate::{ABS_TOL, math::assert::Assert};
 
-impl<const I: usize> TensorRank2<3, I, I> {
+impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// Returns the matrix logarithm of the 3x3 symmetric tensor.
     pub fn logm(&self) -> Result<Self, TensorError> {
         if self.is_diagonal() {
@@ -58,7 +60,7 @@ impl<const I: usize> TensorRank2<3, I, I> {
         }
     }
     /// Returns the derivative of the matrix logarithm of the 3x3 symmetric tensor.
-    pub fn dlogm(&self) -> Result<TensorRank4<3, I, I, I, I>, TensorError> {
+    pub fn dlogm(&self) -> Result<TensorRank4<3, I, I, I, I, Dimensionless>, TensorError> {
         if self.is_diagonal() {
             let mut dlogm = TensorRank4::zero();
             dlogm.iter_mut().enumerate().for_each(|(i, dlogm_i)| {
@@ -114,8 +116,8 @@ impl<const I: usize> TensorRank2<3, I, I> {
                             eigenvector_i.iter().zip(eigenvector_k.iter().zip(divided_difference.iter())).map(|(eigenvector_ip, (eigenvector_kp, divided_difference_p))|
                                 eigenvector_j.iter().zip(eigenvector_l.iter().zip(divided_difference_p.iter())).map(|(eigenvector_jq, (eigenvector_lq, divided_difference_pq))|
                                     eigenvector_ip * eigenvector_kp * divided_difference_pq * eigenvector_jq * eigenvector_lq
-                                ).sum::<TensorRank0>()
-                            ).sum()
+                                ).sum::<Quantity>()
+                            ).sum::<Quantity>()
                         ).collect()
                     ).collect()
                 ).collect()
@@ -126,10 +128,9 @@ impl<const I: usize> TensorRank2<3, I, I> {
     }
     /// Returns the invariants of the 3x3 symmetric tensor.
     pub fn invariants(&self) -> TensorRank0List<3> {
-        let trace = self.trace();
         TensorRank0List::from([
-            trace,
-            0.5 * (trace.powi(2) - self.squared_trace()),
+            self.trace().value(),
+            self.second_invariant().value(),
             self.determinant(),
         ])
     }
@@ -188,10 +189,10 @@ fn solve_cubic_symmetric(
     }
 }
 
-fn find_orthonormal_eigenvectors<const I: usize>(
+fn find_orthonormal_eigenvectors<I>(
     eigenvalues: &TensorRank0List<3>,
-    tensor: &TensorRank2<3, I, I>,
-) -> TensorRank2<3, I, I> {
+    tensor: &TensorRank2<3, I, I, Dimensionless>,
+) -> TensorRank2<3, I, I, Dimensionless> {
     if Assert::default()
         .eq_within_tols(eigenvalues[0], &eigenvalues[1])
         .is_ok()
@@ -214,11 +215,12 @@ fn find_orthonormal_eigenvectors<const I: usize>(
         let mut eigenvectors = eigenvalues
             .iter()
             .map(|&eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
-            .collect::<TensorRank2<3, I, I>>();
+            .collect::<TensorRank2<3, I, I, Dimensionless>>();
         eigenvectors[0].normalize();
         let proj1 = &eigenvectors[1] * &eigenvectors[0];
         for i in 0..3 {
-            eigenvectors[1][i] -= proj1 * eigenvectors[0][i];
+            let projected = proj1 * eigenvectors[0][i];
+            eigenvectors[1][i] -= projected;
         }
         eigenvectors[1].normalize();
         eigenvectors[2] = eigenvectors[0].cross(&eigenvectors[1]);
@@ -226,22 +228,24 @@ fn find_orthonormal_eigenvectors<const I: usize>(
     }
 }
 
-fn orthogonal_unit_vector<const I: usize>(vector: &TensorRank1<3, I>) -> TensorRank1<3, I> {
+fn orthogonal_unit_vector<I>(
+    vector: &TensorRank1<3, I, Dimensionless>,
+) -> TensorRank1<3, I, Dimensionless> {
     let axis = vector
         .iter()
         .enumerate()
         .min_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).unwrap())
         .map(|(i, _)| i)
         .unwrap();
-    let mut other = TensorRank1::<3, I>::zero();
-    other[axis] = 1.0;
+    let mut other = TensorRank1::<3, I, Dimensionless>::zero();
+    other[axis] = Quantity::new(1.0);
     vector.cross(&other).normalized()
 }
 
-fn eigenvector_symmetric<const I: usize>(
+fn eigenvector_symmetric<I>(
     eigenvalue: TensorRank0,
-    tensor: &TensorRank2<3, I, I>,
-) -> TensorRank1<3, I> {
+    tensor: &TensorRank2<3, I, I, Dimensionless>,
+) -> TensorRank1<3, I, Dimensionless> {
     let m = tensor - TensorRank2::identity() * eigenvalue;
     [m[1].cross(&m[2]), m[0].cross(&m[2]), m[0].cross(&m[1])]
         .into_iter()
@@ -250,10 +254,10 @@ fn eigenvector_symmetric<const I: usize>(
         .normalized()
 }
 
-fn reconstruct_symmetric<const I: usize>(
+fn reconstruct_symmetric<I>(
     eigenvalues: TensorRank0List<3>,
-    eigenvectors: TensorRank2<3, I, I>,
-) -> TensorRank2<3, I, I> {
+    eigenvectors: TensorRank2<3, I, I, Dimensionless>,
+) -> TensorRank2<3, I, I, Dimensionless> {
     let mut tensor = TensorRank2::zero();
     eigenvalues
         .iter()

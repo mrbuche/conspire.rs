@@ -3,11 +3,12 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_1_SQRT_3, FiniteElement, IntegrationWeights, ParametricCoordinate,
+        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::{Scalar, ScalarList},
+    units::Volume,
 };
 
 const G: usize = 8;
@@ -20,7 +21,7 @@ impl FiniteElement<G, M, N, P> for Pyramid {
     fn integration_points() -> ParametricCoordinates<G, M> {
         integration_points_and_weights().0
     }
-    fn integration_weights(&self) -> &ScalarList<G> {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
         &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {

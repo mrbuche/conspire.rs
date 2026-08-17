@@ -1,5 +1,6 @@
 use super::{D, N};
 use crate::geometry::{
+    Coordinate,
     mesh::Mesh,
     ntree::{
         Balance, Dualization, Quadtree,
@@ -9,6 +10,7 @@ use crate::geometry::{
         rescale::Rescaling,
     },
 };
+use crate::math::Quantity;
 use std::collections::{HashMap, HashSet};
 
 fn min_scaled_jacobian(mesh: &Mesh<D>) -> f64 {
@@ -20,7 +22,7 @@ fn min_scaled_jacobian(mesh: &Mesh<D>) -> f64 {
                 .map(|k| {
                     let e = |j: usize| {
                         std::array::from_fn::<f64, D, _>(|i| {
-                            coordinates[quad[j]][i] - coordinates[quad[k]][i]
+                            (coordinates[quad[j]][i] - coordinates[quad[k]][i]).value()
                         })
                     };
                     let u = e((k + 1) % N);
@@ -49,7 +51,8 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
                 let q = &coordinates[element[(k + 1) % N]];
                 p[0] * q[1] - q[0] * p[1]
             })
-            .sum();
+            .sum::<crate::math::Quantity<crate::units::Area>>()
+            .value();
         if area2 <= 1e-9 {
             return Err(format!(
                 "quad {e} not positively oriented (2A={area2}): {element:?}"
@@ -129,8 +132,8 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Quadtree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [16.0; D],
-            cell: 1.0,
+            center: Coordinate::const_from([16.0; D]),
+            cell: Quantity::new(1.0),
             half: 16.0,
         },
     };

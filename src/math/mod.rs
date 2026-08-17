@@ -1,4 +1,4 @@
-//! Mathematics library.
+//! Numerical methods.
 
 /// Assertion helpers for comparing values.
 pub mod assert;
@@ -40,9 +40,14 @@ pub use matrix::{
 };
 pub use set::{Set, sets::Sets};
 pub use tensor::{
-    Hessian, HessianAccumulate, HessianBlock, Jacobian, Norm, Rank2, Scalar, ScalarList,
-    ScalarListVec, Scalars, Solution, Tensor, TensorArray, TensorError, TensorVec,
+    Auxiliary, Configuration, ContractWith, Current, Derivative, Differentiate, Erase, Factor,
+    Flattened, Hessian, HessianAccumulate, HessianBlock, Intermediate, Is, Jacobian, Norm,
+    Projection, Quantity, Rank2, Reference, Scalar, ScalarList, ScalarListVec, Scalars, Solution,
+    Square, Tensor, TensorArray, TensorError, TensorVec,
     list::TensorList,
+    quantity::{
+        sparse_vec::QuantitySparseVec, sparse_vec_2d::QuantitySparseVec2D, vec::QuantityVector,
+    },
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
         TensorRank1, cross::CrossProduct, list::TensorRank1List, list_2d::TensorRank1List2D,

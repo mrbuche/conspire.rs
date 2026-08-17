@@ -3,11 +3,12 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        FiniteElement, IntegrationWeights, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::ScalarList,
+    units::Volume,
 };
 
 const G: usize = 1;
@@ -20,7 +21,7 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [[0.25; M]].into()
     }
-    fn integration_weights(&self) -> &ScalarList<G> {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
         &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {

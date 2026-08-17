@@ -1,13 +1,15 @@
 #[cfg(test)]
 mod test;
 
+use super::Quantity;
 use crate::math::assert::FiniteDifference;
+use crate::units::Dimensionless;
 
 pub(crate) mod list;
 pub(crate) mod list_2d;
 
 use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
-use std::ops::Sub;
+use std::{ops::Sub, slice::from_ref};
 
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
@@ -71,6 +73,7 @@ impl Hessian for TensorRank0 {
 
 impl Tensor for TensorRank0 {
     type Item = TensorRank0;
+    type Unit = Dimensionless;
     fn error_count_zero(&self, tol_abs: TensorRank0, tol_rel: TensorRank0) -> Option<usize> {
         if (self.sub_abs(&0.0) < tol_abs || self.sub_rel(&0.0) < tol_rel) && !self.is_nan() {
             None
@@ -100,7 +103,7 @@ impl Tensor for TensorRank0 {
         self == &0.0
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
-        [0.0].iter()
+        from_ref(self).iter()
     }
     fn iter_mut(&mut self) -> impl Iterator<Item = &mut Self::Item> {
         [self].into_iter()
@@ -108,17 +111,14 @@ impl Tensor for TensorRank0 {
     fn len(&self) -> usize {
         1
     }
-    fn norm_inf(&self) -> TensorRank0 {
-        self.abs()
+    fn norm_inf(&self) -> Quantity<Dimensionless> {
+        Quantity::new(self.abs())
     }
-    fn norm_l1(&self) -> TensorRank0 {
-        self.abs()
+    fn norm_l1(&self) -> Quantity<Dimensionless> {
+        Quantity::new(self.abs())
     }
     fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
         self.abs().powf(p)
-    }
-    fn normalized(self) -> Self {
-        1.0
     }
     fn size(&self) -> usize {
         1

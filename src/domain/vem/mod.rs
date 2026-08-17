@@ -1,4 +1,4 @@
-//! Virtual element library.
+//! Virtual element methods.
 
 pub mod block;
 mod from;

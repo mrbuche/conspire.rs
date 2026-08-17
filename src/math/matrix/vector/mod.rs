@@ -1,8 +1,9 @@
 use crate::math::assert::FiniteDifference;
+use crate::units::Dimensionless;
 
 use crate::math::{
-    Jacobian, Matrix, Scalar, Solution, SquareMatrix, Tensor, TensorRank1Vec, TensorRank2,
-    TensorTuple, TensorVec, write_tensor_rank_0,
+    Erase, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution, SquareMatrix, Tensor,
+    TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -134,7 +135,7 @@ impl From<Vector> for Vec<Scalar> {
     }
 }
 
-impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vector {
+impl<const D: usize, I> From<TensorRank1Vec<D, I>> for Vector {
     fn from(tensor_rank_1_vec: TensorRank1Vec<D, I>) -> Self {
         let length = tensor_rank_1_vec.len() * D;
         let capacity = tensor_rank_1_vec.capacity() * D;
@@ -144,7 +145,7 @@ impl<const D: usize, const I: usize> From<TensorRank1Vec<D, I>> for Vector {
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> From<TensorRank2<D, I, J>> for Vector {
+impl<const D: usize, I, J> From<TensorRank2<D, I, J>> for Vector {
     fn from(tensor_rank_2: TensorRank2<D, I, J>) -> Self {
         let length = D * D;
         let capacity = length;
@@ -188,6 +189,7 @@ impl IndexMut<usize> for Vector {
 
 impl Tensor for Vector {
     type Item = Scalar;
+    type Unit = Dimensionless;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }
@@ -197,8 +199,8 @@ impl Tensor for Vector {
     fn len(&self) -> usize {
         self.0.len()
     }
-    fn norm_inf(&self) -> Scalar {
-        self.iter().fold(0.0, |acc, entry| entry.abs().max(acc))
+    fn norm_inf(&self) -> Quantity<Dimensionless> {
+        Quantity::new(self.iter().fold(0.0, |acc, entry| entry.abs().max(acc)))
     }
     fn size(&self) -> usize {
         self.len()
@@ -350,6 +352,27 @@ impl DivAssign<Scalar> for Vector {
 impl DivAssign<&Scalar> for Vector {
     fn div_assign(&mut self, scalar: &Scalar) {
         self.iter_mut().for_each(|entry| *entry /= scalar);
+    }
+}
+
+impl Erase for Vector {
+    type Erased = Self;
+    fn erase(&self) -> &Self {
+        self
+    }
+}
+
+impl Mul<Quantity<Dimensionless>> for Vector {
+    type Output = Self;
+    fn mul(self, quantity: Quantity<Dimensionless>) -> Self::Output {
+        self * quantity.value()
+    }
+}
+
+impl Mul<Quantity<Dimensionless>> for &Vector {
+    type Output = Vector;
+    fn mul(self, quantity: Quantity<Dimensionless>) -> Self::Output {
+        self * quantity.value()
     }
 }
 
@@ -545,9 +568,9 @@ impl Mul<&Matrix> for &Vector {
     }
 }
 
-impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &Vector {
+impl<const D: usize, I, U> Mul<&TensorRank1Vec<D, I, U>> for &Vector {
     type Output = Scalar;
-    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
+    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I, U>) -> Self::Output {
         tensor_rank_1_vec
             .iter()
             .enumerate()
@@ -555,16 +578,27 @@ impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &Vector {
                 entry_a
                     .iter()
                     .enumerate()
-                    .map(|(i, entry_a_i)| self[D * a + i] * entry_a_i)
+                    .map(|(i, entry_a_i)| self[D * a + i] * entry_a_i.value())
                     .sum::<Scalar>()
             })
             .sum()
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> for &Vector {
+impl<U> Mul<&QuantityVector<U>> for &Vector {
     type Output = Scalar;
-    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
+    fn mul(self, quantity_vector: &QuantityVector<U>) -> Self::Output {
+        quantity_vector
+            .iter()
+            .enumerate()
+            .map(|(a, entry_a)| self[a] * entry_a.value())
+            .sum()
+    }
+}
+
+impl<const D: usize, I, J, U> Mul<&TensorRank2<D, I, J, U>> for &Vector {
+    type Output = Scalar;
+    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J, U>) -> Self::Output {
         tensor_rank_2
             .iter()
             .enumerate()
@@ -572,20 +606,20 @@ impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> 
                 entry_i
                     .iter()
                     .enumerate()
-                    .map(|(j, entry_ij)| self[D * i + j] * entry_ij)
+                    .map(|(j, entry_ij)| self[D * i + j] * entry_ij.value())
                     .sum::<Scalar>()
             })
             .sum()
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
-    Mul<&TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>> for &Vector
+impl<const D: usize, I, J, K, L, U, V>
+    Mul<&TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, V>>> for &Vector
 {
     type Output = Scalar;
     fn mul(
         self,
-        tensor_tuple: &TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>,
+        tensor_tuple: &TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, V>>,
     ) -> Self::Output {
         let (tensor_rank_2_a, tensor_rank_2_b) = tensor_tuple.into();
         &self.iter().take(D * D).copied().collect::<Vector>() * tensor_rank_2_a

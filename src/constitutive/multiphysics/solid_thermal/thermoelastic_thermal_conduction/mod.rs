@@ -1,5 +1,4 @@
 //! Thermoelastic-thermal conduction constitutive models.
-
 #[cfg(test)]
 pub mod test;
 
@@ -10,11 +9,13 @@ use crate::{
         solid::{Solid, thermoelastic::Thermoelastic},
         thermal::{Thermal, conduction::ThermalConduction},
     },
+    math::Quantity,
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, Scalar,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
+        FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
     },
+    units::{PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature},
 };
 
 /// A thermoelastic-thermal conduction constitutive model.
@@ -48,10 +49,10 @@ where
     C1: Thermoelastic,
     C2: ThermalConduction,
 {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.solid_constitutive_model().bulk_modulus()
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.solid_constitutive_model().shear_modulus()
     }
 }
@@ -64,7 +65,7 @@ where
     fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<CauchyStress, ConstitutiveError> {
         self.solid_constitutive_model()
             .cauchy_stress(deformation_gradient, temperature)
@@ -72,7 +73,7 @@ where
     fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         self.solid_constitutive_model()
             .cauchy_tangent_stiffness(deformation_gradient, temperature)
@@ -80,7 +81,7 @@ where
     fn first_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
         self.solid_constitutive_model()
             .first_piola_kirchhoff_stress(deformation_gradient, temperature)
@@ -88,7 +89,7 @@ where
     fn first_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         self.solid_constitutive_model()
             .first_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
@@ -96,7 +97,7 @@ where
     fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         self.solid_constitutive_model()
             .second_piola_kirchhoff_stress(deformation_gradient, temperature)
@@ -104,16 +105,16 @@ where
     fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         self.solid_constitutive_model()
             .second_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
     }
-    fn coefficient_of_thermal_expansion(&self) -> Scalar {
+    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
         self.solid_constitutive_model()
             .coefficient_of_thermal_expansion()
     }
-    fn reference_temperature(&self) -> Scalar {
+    fn reference_temperature(&self) -> Quantity<Temperature> {
         self.solid_constitutive_model().reference_temperature()
     }
 }
@@ -133,7 +134,7 @@ where
     fn potential(
         &self,
         temperature_gradient: &TemperatureGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<PowerTemperatureDensity>, ConstitutiveError> {
         self.thermal_constitutive_model()
             .potential(temperature_gradient)
     }

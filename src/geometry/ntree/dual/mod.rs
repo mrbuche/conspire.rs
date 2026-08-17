@@ -24,7 +24,7 @@ fn get_or_add<const D: usize>(
     nodes_map: &mut NodeMap<D>,
     node_index: &mut usize,
 ) -> usize {
-    let key = from_fn(|i| (2.0 * coordinate[i]) as usize);
+    let key = from_fn(|i| (2.0 * coordinate[i].value()) as usize);
     if let Some(&node) = nodes_map.get(&key) {
         node
     } else {

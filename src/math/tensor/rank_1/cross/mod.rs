@@ -2,6 +2,7 @@
 mod test;
 
 use super::TensorRank1;
+use crate::units::UnitMul;
 
 /// The cross product of two rank-1 tensors.
 pub trait CrossProduct<T> {
@@ -11,10 +12,13 @@ pub trait CrossProduct<T> {
     fn cross(self, other: T) -> Self::Output;
 }
 
-impl<const I: usize> CrossProduct<TensorRank1<3, I>> for &TensorRank1<3, I> {
-    type Output = TensorRank1<3, I>;
-    fn cross(self, other: TensorRank1<3, I>) -> Self::Output {
-        TensorRank1::const_from([
+impl<I, U, V> CrossProduct<TensorRank1<3, I, V>> for &TensorRank1<3, I, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank1<3, I, <U as UnitMul<V>>::Output>;
+    fn cross(self, other: TensorRank1<3, I, V>) -> Self::Output {
+        TensorRank1::from([
             self[1] * other[2] - self[2] * other[1],
             self[2] * other[0] - self[0] * other[2],
             self[0] * other[1] - self[1] * other[0],
@@ -22,10 +26,13 @@ impl<const I: usize> CrossProduct<TensorRank1<3, I>> for &TensorRank1<3, I> {
     }
 }
 
-impl<const I: usize> CrossProduct<Self> for &TensorRank1<3, I> {
-    type Output = TensorRank1<3, I>;
-    fn cross(self, other: Self) -> Self::Output {
-        TensorRank1::const_from([
+impl<'a, I, U, V> CrossProduct<&'a TensorRank1<3, I, V>> for &TensorRank1<3, I, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank1<3, I, <U as UnitMul<V>>::Output>;
+    fn cross(self, other: &'a TensorRank1<3, I, V>) -> Self::Output {
+        TensorRank1::from([
             self[1] * other[2] - self[2] * other[1],
             self[2] * other[0] - self[0] * other[2],
             self[0] * other[1] - self[1] * other[0],

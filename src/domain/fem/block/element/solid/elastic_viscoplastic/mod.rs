@@ -4,10 +4,10 @@ use crate::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
-            viscoplastic::ViscoplasticStateVariables,
+            viscoplastic::{ViscoplasticEvolution, ViscoplasticStateVariables},
         },
     },
-    math::{ContractSecondFourthWithFirst, Tensor},
+    math::{ContractSecondFourthWithFirst, Differentiate, Tensor},
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
 
@@ -21,7 +21,7 @@ pub trait ElasticViscoplasticFiniteElement<
 > where
     C: ElasticViscoplastic<Y>,
     Self: SolidFiniteElement<G, M, N, P>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     fn nodal_forces(
         &self,
@@ -40,7 +40,7 @@ pub trait ElasticViscoplasticFiniteElement<
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<ViscoplasticStateVariables<G, Y>, FiniteElementError>;
+    ) -> Result<ViscoplasticEvolution<G, Y>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
@@ -48,7 +48,7 @@ impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
 where
     C: ElasticViscoplastic<Y>,
     Self: SolidFiniteElement<G, 3, N, P>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     fn nodal_forces(
         &self,
@@ -155,7 +155,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<ViscoplasticStateVariables<G, Y>, FiniteElementError> {
+    ) -> Result<ViscoplasticEvolution<G, Y>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -163,7 +163,7 @@ where
             .map(|(deformation_gradient, state_variable)| {
                 constitutive_model.state_variables_evolution(deformation_gradient, state_variable)
             })
-            .collect::<Result<ViscoplasticStateVariables<G, Y>, _>>()
+            .collect::<Result<ViscoplasticEvolution<G, Y>, _>>()
         {
             Ok(state_variables_evolution) => Ok(state_variables_evolution),
             Err(error) => Err(FiniteElementError::Upstream(

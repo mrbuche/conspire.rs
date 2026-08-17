@@ -1,6 +1,7 @@
+use crate::math::Current;
 use crate::{
-    math::{Scalar, random::random_uniform},
-    mechanics::CurrentCoordinate,
+    math::{Quantity, Scalar, random::random_uniform},
+    mechanics::Vector,
     physics::molecular::{
         potential::{Harmonic, Potential},
         single_chain::{
@@ -8,6 +9,7 @@ use crate::{
             SingleChainError, Thermodynamics,
         },
     },
+    units::Length,
 };
 use std::f64::consts::TAU;
 
@@ -39,10 +41,10 @@ pub struct ArbitraryDiscrete {
 }
 
 impl SingleChain for ArbitraryDiscrete {
-    fn link_length(&self) -> Scalar {
+    fn link_length(&self) -> Quantity<Length> {
         match &self.link_potential {
             ArbitraryDiscretePotential::Free => panic!(),
-            ArbitraryDiscretePotential::Rigid(link_length) => *link_length,
+            ArbitraryDiscretePotential::Rigid(link_length) => Quantity::new(*link_length),
             ArbitraryDiscretePotential::Strong(link_potential) => link_potential.rest_length(),
             ArbitraryDiscretePotential::Weak(link_potential) => link_potential.rest_length(),
         }
@@ -126,7 +128,7 @@ impl MonteCarlo for ArbitraryDiscrete {
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
-                CurrentCoordinate::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
+                Vector::<Current>::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
             })
             .collect()
     }

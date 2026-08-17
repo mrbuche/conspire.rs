@@ -1,15 +1,16 @@
 use super::{TensorRank2, TensorRank2SparseVec2DSymmetric};
+use crate::math::Current;
 use crate::math::{
     Hessian, HessianAccumulate, Rank2, SquareMatrix,
     assert::{Assert, AssertionError},
 };
 
-fn block(value: f64) -> TensorRank2<2, 1, 1> {
+fn block(value: f64) -> TensorRank2<2, Current, Current> {
     TensorRank2::from([[value, 2.0 * value], [3.0 * value, 4.0 * value]])
 }
 
-fn accumulator() -> TensorRank2SparseVec2DSymmetric<2, 1, 1> {
-    let mut stiffnesses = TensorRank2SparseVec2DSymmetric::<2, 1, 1>::zero(3);
+fn accumulator() -> TensorRank2SparseVec2DSymmetric<2, Current, Current> {
+    let mut stiffnesses = TensorRank2SparseVec2DSymmetric::<2, Current, Current>::zero(3);
     stiffnesses.accumulate(0, 2, block(1.0));
     stiffnesses.accumulate(0, 0, block(2.0));
     stiffnesses.accumulate(1, 1, block(5.0));
@@ -24,19 +25,19 @@ fn dense() -> SquareMatrix {
 
 #[test]
 fn accumulate_canonicalizes_out_of_order_pairs() {
-    let mut out_of_order = TensorRank2SparseVec2DSymmetric::<2, 1, 1>::zero(3);
+    let mut out_of_order = TensorRank2SparseVec2DSymmetric::<2, Current, Current>::zero(3);
     out_of_order.accumulate(2, 0, block(1.0));
-    let mut in_order = TensorRank2SparseVec2DSymmetric::<2, 1, 1>::zero(3);
+    let mut in_order = TensorRank2SparseVec2DSymmetric::<2, Current, Current>::zero(3);
     in_order.accumulate(0, 2, block(1.0).transpose());
     (0..6).for_each(|p| {
         (0..6).for_each(|q| {
             assert_eq!(out_of_order.entry(p, q), in_order.entry(p, q));
         })
     });
-    assert_eq!(out_of_order.entry(4, 0), block(1.0)[0][0]);
-    assert_eq!(out_of_order.entry(4, 1), block(1.0)[0][1]);
-    assert_eq!(out_of_order.entry(5, 0), block(1.0)[1][0]);
-    assert_eq!(out_of_order.entry(5, 1), block(1.0)[1][1]);
+    assert_eq!(out_of_order.entry(4, 0), block(1.0)[0][0].value());
+    assert_eq!(out_of_order.entry(4, 1), block(1.0)[0][1].value());
+    assert_eq!(out_of_order.entry(5, 0), block(1.0)[1][0].value());
+    assert_eq!(out_of_order.entry(5, 1), block(1.0)[1][1].value());
 }
 
 #[test]
@@ -92,7 +93,7 @@ fn retain_from_filters_and_mirrors() {
 
 #[test]
 fn add_and_sub_operate_entrywise() {
-    let mut other = TensorRank2SparseVec2DSymmetric::<2, 1, 1>::zero(3);
+    let mut other = TensorRank2SparseVec2DSymmetric::<2, Current, Current>::zero(3);
     other.accumulate(0, 0, block(7.0));
     let sum = accumulator() + other.clone();
     assert_eq!(sum.entry(0, 0), 9.0);

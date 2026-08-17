@@ -42,8 +42,8 @@ mod minimize {
     //         &NewtonRaphson::default().minimize(
     //             rosenbrock,
     //             rosenbrock_derivative,
-    //             |x: &TensorRank1<2, 1>| {
-    //                 Ok(TensorRank2::<2, 1, 1>::new([
+    //             |x: &TensorRank1<2, Current>| {
+    //                 Ok(TensorRank2::<2, Current, Current>::new([
     //                     [
     //                         2.0 + 400.0 * (x[1] - x[0].powi(2)) - 800.0 * x[0].powi(2),
     //                         -400.0 * x[0],
@@ -51,12 +51,12 @@ mod minimize {
     //                     [-400.0 * x[0], 200.0],
     //                 ]))
     //             },
-    //             // rosenbrock_second_derivative::<_, TensorRank2<2, 1, 1>>,
+    //             // rosenbrock_second_derivative::<_, TensorRank2<2, Current, Current>>,
     //             TensorRank1::new([-1.0, 1.0]),
     //             EqualityConstraint::None,
     //             None,
     //         )?,
-    //         &TensorRank1::<2, 1>::identity(),
+    //         &TensorRank1::<2, Current>::identity(),
     //     )
     // }
     mod line_search {
@@ -201,7 +201,7 @@ mod root {
 
 mod constrained {
     use super::*;
-    use crate::math::{Matrix, SquareMatrix, Vector};
+    use crate::math::{Matrix, SquareMatrix, Vector, optimize::Tolerances};
 
     fn constraint() -> EqualityConstraint {
         let mut matrix = Matrix::zero(1, 2);
@@ -228,6 +228,36 @@ mod constrained {
     #[test]
     fn none() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(&minimized(LineSearch::None)?, &Vector::from([1.0, 1.0]))
+    }
+
+    fn scaled(rel_tol: Option<Scalar>) -> Result<Vector, OptimizationError> {
+        const SCALE: Scalar = 1e12;
+        NewtonRaphson {
+            abs_tol: Tolerances {
+                constraint: 0.0,
+                residual: 0.0,
+            },
+            rel_tol,
+            ..Default::default()
+        }
+        .minimize(
+            |x: &Vector| Ok(SCALE * (x[0].powi(2) + x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(x * SCALE),
+            |_: &Vector| Ok(SquareMatrix::from([[SCALE, 0.0], [0.0, SCALE]])),
+            Vector::from([4.0, -3.0]),
+            constraint(),
+            None,
+        )
+    }
+
+    #[test]
+    fn relative() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(&scaled(Some(1e-8))?, &Vector::from([1.0, 1.0]))
+    }
+
+    #[test]
+    fn relative_is_what_absolute_cannot_be() {
+        assert!(scaled(None).is_err())
     }
 
     #[test]

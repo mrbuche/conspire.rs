@@ -2,10 +2,11 @@
 mod test;
 
 use crate::{
-    math::Scalar,
+    math::{Quantity, Scalar},
     physics::molecular::single_chain::{
         Ensemble, Isometric, Isotensional, Legendre, SingleChain, SingleChainError, Thermodynamics,
     },
+    units::Length,
 };
 use std::f64::consts::PI;
 
@@ -21,8 +22,8 @@ pub struct IdealChain {
 }
 
 impl SingleChain for IdealChain {
-    fn link_length(&self) -> Scalar {
-        self.link_length
+    fn link_length(&self) -> Quantity<Length> {
+        Quantity::new(self.link_length)
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links

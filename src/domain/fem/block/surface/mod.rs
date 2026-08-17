@@ -3,22 +3,28 @@ use crate::{
         NodalReferenceCoordinates,
         block::{Block, element::ElementNodalReferenceCoordinates},
     },
-    math::Scalar,
+    math::Quantity,
+    units::Length,
 };
 
 const M: usize = 2;
 
 impl<C, F, const G: usize, const N: usize, const P: usize>
-    From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<3>, Scalar)> for Block<C, F, G, M, N, P>
+    From<(
+        C,
+        Vec<[usize; N]>,
+        &NodalReferenceCoordinates<3>,
+        Quantity<Length>,
+    )> for Block<C, F, G, M, N, P>
 where
-    F: From<(ElementNodalReferenceCoordinates<N>, Scalar)>,
+    F: From<(ElementNodalReferenceCoordinates<N>, Quantity<Length>)>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates, thickness): (
             C,
             Vec<[usize; N]>,
             &NodalReferenceCoordinates<3>,
-            Scalar,
+            Quantity<Length>,
         ),
     ) -> Self {
         let elements = connectivity

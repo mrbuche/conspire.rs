@@ -4,7 +4,7 @@ mod test;
 use super::{Class, DIRECTIONS, topology::element_faces};
 use crate::{
     geometry::{
-        Coordinate, Coordinates, CoordinatesRef,
+        Coordinate, Coordinates, CoordinatesRef, Direction, DirectionsRef,
         bbox::BoundingBox,
         mesh::{Mesh, tessellation::D, tessellation::Tessellation},
     },
@@ -17,7 +17,7 @@ impl Tessellation {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<'_, D> = self.normals().iter().flatten().collect();
+        let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
@@ -110,8 +110,8 @@ impl Tessellation {
         point: &Coordinate<D>,
         surface_coordinates: &Coordinates<D>,
         elements: &[&[usize]],
-        normals: &CoordinatesRef<'_, D>,
-        directions: &[Coordinate<D>; 3],
+        normals: &DirectionsRef<'_, D>,
+        directions: &[Direction<D>; 3],
     ) -> bool {
         directions
             .iter()

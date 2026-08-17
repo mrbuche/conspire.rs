@@ -1,6 +1,5 @@
 #[cfg(test)]
 mod test;
-
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -10,11 +9,12 @@ use crate::{
             hyperviscoelastic::Hyperviscoelastic, viscoelastic::Viscoelastic,
         },
     },
-    math::{IDENTITY_00, Rank2},
+    math::{ContractWith, IDENTITY_00, Quantity, Rank2, TensorRank4},
     mechanics::{
-        Deformation, DeformationGradient, DeformationGradientRate, Scalar,
+        Deformation, DeformationGradient, DeformationGradientRate,
         SecondPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffStress,
     },
+    units::{Dissipation, EnergyDensity, Stress, Viscosity},
 };
 
 /// The Saint Venant-Kirchhoff hyperviscoelastic solid constitutive model.
@@ -37,29 +37,29 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The bulk viscosity $`\zeta`$.
-    pub bulk_viscosity: Scalar,
+    pub bulk_viscosity: Quantity<Viscosity>,
     /// The shear viscosity $`\eta`$.
-    pub shear_viscosity: Scalar,
+    pub shear_viscosity: Quantity<Viscosity>,
 }
 
 impl Solid for SaintVenantKirchhoff {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
 }
 
 impl Viscous for SaintVenantKirchhoff {
-    fn bulk_viscosity(&self) -> Scalar {
+    fn bulk_viscosity(&self) -> Quantity<Viscosity> {
         self.bulk_viscosity
     }
-    fn shear_viscosity(&self) -> Scalar {
+    fn shear_viscosity(&self) -> Quantity<Viscosity> {
         self.shear_viscosity
     }
 }
@@ -82,10 +82,13 @@ impl Viscoelastic for SaintVenantKirchhoff {
         let first_term = deformation_gradient_rate.transpose() * deformation_gradient;
         let (deviatoric_strain_rate, strain_rate_trace) =
             ((&first_term + first_term.transpose()) * 0.5).deviatoric_and_trace();
-        Ok(deviatoric_strain * (2.0 * self.shear_modulus())
-            + deviatoric_strain_rate * (2.0 * self.shear_viscosity())
-            + IDENTITY_00
-                * (self.bulk_modulus() * strain_trace + self.bulk_viscosity() * strain_rate_trace))
+        let bulk_modulus = self.bulk_modulus();
+        let shear_modulus = self.shear_modulus();
+        let bulk_viscosity = self.bulk_viscosity();
+        let shear_viscosity = self.shear_viscosity();
+        Ok(deviatoric_strain * (2.0 * shear_modulus)
+            + deviatoric_strain_rate * (2.0 * shear_viscosity)
+            + IDENTITY_00 * (bulk_modulus * strain_trace + bulk_viscosity * strain_rate_trace))
     }
     /// Calculates and returns the rate tangent stiffness associated with the second Piola-Kirchhoff stress.
     ///
@@ -100,16 +103,14 @@ impl Viscoelastic for SaintVenantKirchhoff {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let scaled_deformation_gradient_transpose =
             deformation_gradient.transpose() * self.shear_viscosity();
-        Ok(SecondPiolaKirchhoffRateTangentStiffness::dyad_ik_jl(
-            &scaled_deformation_gradient_transpose,
-            &IDENTITY_00,
-        ) + SecondPiolaKirchhoffRateTangentStiffness::dyad_il_jk(
-            &IDENTITY_00,
-            &scaled_deformation_gradient_transpose,
-        ) + SecondPiolaKirchhoffRateTangentStiffness::dyad_ij_kl(
-            &(IDENTITY_00 * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())),
-            deformation_gradient,
-        ))
+        Ok(
+            TensorRank4::dyad_ik_jl(&scaled_deformation_gradient_transpose, &IDENTITY_00)
+                + TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
+                + TensorRank4::dyad_ij_kl(
+                    &(IDENTITY_00 * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())),
+                    deformation_gradient,
+                ),
+        )
     }
 }
 
@@ -123,14 +124,18 @@ impl ElasticHyperviscous for SaintVenantKirchhoff {
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let first_term = deformation_gradient_rate.transpose() * deformation_gradient;
         let strain_rate = (&first_term + first_term.transpose()) * 0.5;
-        Ok(self.shear_viscosity() * strain_rate.squared_trace()
-            + 0.5
-                * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
-                * strain_rate.trace().powi(2))
+        let strain_rate_trace = strain_rate.trace();
+        Ok(
+            (&strain_rate * self.shear_viscosity()).contract_with(&strain_rate)
+                + (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
+                    * strain_rate_trace
+                    * strain_rate_trace
+                    * 0.5,
+        )
     }
 }
 
@@ -143,7 +148,7 @@ impl Hyperviscoelastic for SaintVenantKirchhoff {
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = (deformation_gradient.right_cauchy_green() - IDENTITY_00) * 0.5;
         Ok(self.shear_modulus() * strain.squared_trace()

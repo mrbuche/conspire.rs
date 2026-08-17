@@ -1,10 +1,11 @@
 #[cfg(test)]
 mod test;
+use crate::math::Projection;
 
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors, ParametricCoordinate,
-        ParametricCoordinates, ParametricReference, ShapeFunctions,
+        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors, IntegrationWeights,
+        ParametricCoordinate, ParametricCoordinates, ParametricReference, ShapeFunctions,
         ShapeFunctionsAtIntegrationPoints, ShapeFunctionsGradients, StandardGradientOperators,
         StandardGradientOperatorsTransposed,
         composite::{
@@ -14,7 +15,8 @@ use crate::{
         linear::Tetrahedron as LinearTetrahedron,
         quadratic::Tetrahedron as QuadraticTetrahedron,
     },
-    math::{Scalar, ScalarList, Tensor, TensorRank1},
+    math::{Quantity, Scalar, ScalarList, Tensor, TensorRank1},
+    units::Volume,
 };
 
 const G: usize = 4;
@@ -28,8 +30,8 @@ pub type Tetrahedron = CompositeElement<G, N>;
 impl From<ElementNodalReferenceCoordinates<N>> for Tetrahedron {
     fn from(reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>) -> Self {
         let gradient_vectors = Self::projected_gradient_vectors(&reference_nodal_coordinates);
-        let integration_weights =
-            Self::reference_jacobians(&reference_nodal_coordinates) * Self::integration_weight();
+        let integration_weights = Self::reference_jacobians(&reference_nodal_coordinates)
+            * Quantity::<Volume>::new(Self::integration_weight());
         Self {
             gradient_vectors,
             integration_weights,
@@ -41,7 +43,7 @@ impl FiniteElement<G, M, N, P> for Tetrahedron {
     fn integration_points() -> ParametricCoordinates<G, M> {
         QuadraticTetrahedron::integration_points() // should use LinearTetrahedron<G=4>
     }
-    fn integration_weights(&self) -> &ScalarList<G> {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
         &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {
@@ -166,11 +168,11 @@ impl Tetrahedron {
                 .map(|(shape_function_integral, reference_jacobian_subelement)| {
                     shape_function_integral * reference_jacobian_subelement
                 })
-                .sum::<TensorRank1<P, 9>>();
+                .sum::<TensorRank1<P, Projection>>();
         Self::shape_functions_at_integration_points()
             .iter()
             .map(|shape_functions_at_integration_point| {
-                shape_functions_at_integration_point * &vector
+                (shape_functions_at_integration_point * &vector).value()
             })
             .collect()
     }

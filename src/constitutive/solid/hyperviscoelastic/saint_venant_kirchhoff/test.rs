@@ -2,14 +2,7 @@ use super::super::test::*;
 use super::*;
 use crate::math::assert::Assert;
 
-use crate::{
-    math::Tensor,
-    mechanics::{
-        CauchyRateTangentStiffness, CauchyTangentStiffness,
-        FirstPiolaKirchhoffRateTangentStiffness, FirstPiolaKirchhoffTangentStiffness,
-        SecondPiolaKirchhoffTangentStiffness,
-    },
-};
+use crate::mechanics::{CauchyRateTangentStiffness, FirstPiolaKirchhoffRateTangentStiffness};
 
 test_solid_hyperviscoelastic_constitutive_model!(SaintVenantKirchhoff {
     bulk_modulus: BULK_MODULUS,

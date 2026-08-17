@@ -1,10 +1,13 @@
-//! Finite element library.
+//! Finite element methods.
 
+use crate::math::{Current, Reference};
+use crate::units::{Length, Velocity};
 pub mod block;
 mod from;
 pub mod solid;
 pub mod thermal;
 
+use crate::geometry::Coordinates;
 use crate::math::{
     Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
     assert::AssertionError,
@@ -16,11 +19,25 @@ use crate::math::{
 };
 use std::fmt::Debug;
 
-pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, 1>;
-pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, 1>;
-pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, 0>;
-pub type NodalVelocities<const D: usize> = TensorRank1Vec<D, 1>;
-pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, 1>;
+/// The coordinates of a mesh, given the length they are measured in.
+///
+/// A mesh is a shape rather than a body, so its coordinates carry no unit until
+/// a model is made of it. This is the one place a length is named, and every
+/// unit a model carries follows from it.
+pub(crate) fn nodal_coordinates<const D: usize>(
+    coordinates: Coordinates<D>,
+) -> NodalReferenceCoordinates<D> {
+    coordinates
+        .into_iter()
+        .map(|coordinate| coordinate.with_unit())
+        .collect()
+}
+
+pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, Current, Length>;
+pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Length>;
+pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, Reference, Length>;
+pub type NodalVelocities<const D: usize> = TensorRank1Vec<D, Current, Velocity>;
+pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Velocity>;
 
 #[derive(Debug)]
 pub struct Model<B, const D: usize> {
@@ -118,11 +135,11 @@ impl StyledError for ElementModelError {
 
 styled_error!(ElementModelError);
 
-pub trait ZerothOrderRoot<X> {
+pub trait ZerothOrderRoot<F, X> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<X>,
+        solver: impl ZerothOrderRootFinding<F, X>,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -134,11 +151,11 @@ pub trait FirstOrderRoot<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait FirstOrderMinimize<F, X> {
+pub trait FirstOrderMinimize<F, J, X> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<F, X>,
+        solver: impl FirstOrderOptimization<F, J, X>,
     ) -> Result<X, OptimizationError>;
 }
 

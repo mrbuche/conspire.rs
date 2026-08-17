@@ -2,7 +2,8 @@ pub(super) mod square;
 pub(super) mod vector;
 
 use crate::math::{
-    Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec,
+    Quantity, QuantityVector, Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2,
+    TensorTuple, TensorVec,
 };
 use std::{
     iter::Sum,
@@ -40,13 +41,6 @@ impl Matrix {
         (0..self.width())
             .map(|i| (0..self.len()).map(|j| self[j][i]).collect())
             .collect()
-        // let mut transpose = Self::zero(self.width(), self.len());
-        // self.iter().enumerate().for_each(|(i, self_i)|
-        //     self_i.iter().zip(transpose.iter_mut()).for_each(|(self_ij, transpose_j)|
-        //         transpose_j[i] = *self_ij
-        //     )
-        // );
-        // transpose
     }
     pub fn width(&self) -> usize {
         self.0[0].len()
@@ -182,6 +176,13 @@ impl Mul<&Scalar> for &Matrix {
     }
 }
 
+impl<U> Mul<&Quantity<U>> for &Matrix {
+    type Output = Vector;
+    fn mul(self, _quantity: &Quantity<U>) -> Self::Output {
+        unimplemented!()
+    }
+}
+
 impl MulAssign<Scalar> for Matrix {
     fn mul_assign(&mut self, scalar: Scalar) {
         self.iter_mut().for_each(|entry| *entry *= &scalar);
@@ -252,36 +253,43 @@ impl SubAssign<&Self> for Matrix {
     }
 }
 
-impl<const D: usize, const I: usize> Mul<&TensorRank1<D, I>> for &Matrix {
+impl<const D: usize, I, U> Mul<&TensorRank1<D, I, U>> for &Matrix {
     type Output = Vector;
-    fn mul(self, _tensor_rank_1: &TensorRank1<D, I>) -> Self::Output {
+    fn mul(self, _tensor_rank_1: &TensorRank1<D, I, U>) -> Self::Output {
         unimplemented!()
     }
 }
 
-impl<const D: usize, const I: usize> Mul<&TensorRank1Vec<D, I>> for &Matrix {
+impl<const D: usize, I, U> Mul<&TensorRank1Vec<D, I, U>> for &Matrix {
     type Output = Vector;
-    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
+    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I, U>) -> Self::Output {
         self.iter()
             .map(|self_i| self_i * tensor_rank_1_vec)
             .collect()
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Mul<&TensorRank2<D, I, J>> for &Matrix {
+impl<U> Mul<&QuantityVector<U>> for &Matrix {
     type Output = Vector;
-    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
+    fn mul(self, quantity_vector: &QuantityVector<U>) -> Self::Output {
+        self.iter().map(|self_i| self_i * quantity_vector).collect()
+    }
+}
+
+impl<const D: usize, I, J, U> Mul<&TensorRank2<D, I, J, U>> for &Matrix {
+    type Output = Vector;
+    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J, U>) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_rank_2).collect()
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize>
-    Mul<&TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>> for &Matrix
+impl<const D: usize, I, J, K, L, U, V>
+    Mul<&TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, V>>> for &Matrix
 {
     type Output = Vector;
     fn mul(
         self,
-        tensor_tuple: &TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>,
+        tensor_tuple: &TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, V>>,
     ) -> Self::Output {
         self.iter().map(|self_i| self_i * tensor_tuple).collect()
     }

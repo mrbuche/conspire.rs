@@ -6,26 +6,27 @@ use crate::{
         ConstitutiveError,
         solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
     },
-    math::{IDENTITY, Rank2},
+    math::{IDENTITY, Quantity, Rank2, TensorRank4},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+    units::{EnergyDensity, Stress},
 };
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct Fung {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The extra modulus $`\mu_m`$.
-    pub extra_modulus: Scalar,
+    pub extra_modulus: Quantity<Stress>,
     /// The exponent $`c`$.
     pub exponent: Scalar,
 }
 
 impl Fung {
     /// Returns the extra modulus.
-    pub fn extra_modulus(&self) -> Scalar {
+    pub fn extra_modulus(&self) -> Quantity<Stress> {
         self.extra_modulus
     }
     /// Returns the exponent.
@@ -35,10 +36,10 @@ impl Fung {
 }
 
 impl Solid for Fung {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
 }
@@ -83,25 +84,22 @@ impl Elastic for Fung {
         let scaled_shear_modulus_0 = (self.shear_modulus()
             + self.extra_modulus() * (exponential - 1.0))
             / jacobian.powf(FIVE_THIRDS);
-        Ok(
-            (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
-                + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
-                - CauchyTangentStiffness::dyad_ij_kl(&IDENTITY, deformation_gradient)
-                    * (TWO_THIRDS))
-                * scaled_shear_modulus_0
-                + CauchyTangentStiffness::dyad_ij_kl(
-                    &deviatoric_isochoric_left_cauchy_green_deformation,
-                    &((&deviatoric_isochoric_left_cauchy_green_deformation
-                        * &inverse_transpose_deformation_gradient)
-                        * (2.0 * self.exponent() * self.extra_modulus() * exponential / jacobian)),
-                )
-                + CauchyTangentStiffness::dyad_ij_kl(
-                    &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
-                        - deformation_gradient.left_cauchy_green().deviatoric()
-                            * (scaled_shear_modulus_0 * FIVE_THIRDS)),
-                    &inverse_transpose_deformation_gradient,
-                ),
-        )
+        Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
+            - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
+            * scaled_shear_modulus_0
+            + TensorRank4::dyad_ij_kl(
+                &deviatoric_isochoric_left_cauchy_green_deformation,
+                &((&deviatoric_isochoric_left_cauchy_green_deformation
+                    * &inverse_transpose_deformation_gradient)
+                    * (2.0 * self.exponent() * self.extra_modulus() * exponential / jacobian)),
+            )
+            + TensorRank4::dyad_ij_kl(
+                &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
+                    - deformation_gradient.left_cauchy_green().deviatoric()
+                        * (scaled_shear_modulus_0 * FIVE_THIRDS)),
+                &inverse_transpose_deformation_gradient,
+            ))
     }
 }
 
@@ -110,7 +108,7 @@ impl Hyperelastic for Fung {
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let scalar_term =
             deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;

@@ -15,7 +15,7 @@ fn min_corner(mesh: &Mesh<3>, element: &[usize]) -> [usize; 3] {
     let mut min = [usize::MAX; 3];
     element.iter().for_each(|&node| {
         let point = &coordinates[node];
-        (0..3).for_each(|axis| min[axis] = min[axis].min(point[axis] as usize))
+        (0..3).for_each(|axis| min[axis] = min[axis].min(point[axis].value() as usize))
     });
     min
 }

@@ -1,3 +1,4 @@
+use crate::math::Projection;
 use crate::math::assert::Assert;
 use crate::{
     fem::{
@@ -39,7 +40,7 @@ fn normalized_projection_matrix() -> Result<(), AssertionError> {
     Tetrahedron::shape_function_integrals_products()
         .iter()
         .map(|dummy| dummy * 1.0)
-        .sum::<TensorRank2<P, 9, 9>>()
+        .sum::<TensorRank2<P, Projection, Projection>>()
         .iter()
         .zip(
             Tetrahedron::inverse_normalized_projection_matrix()

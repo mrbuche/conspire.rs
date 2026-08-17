@@ -1,3 +1,4 @@
+use crate::math::Reference;
 pub mod solid;
 
 use crate::{
@@ -7,10 +8,11 @@ use crate::{
         linear::Tetrahedron,
     },
     math::{
-        CrossProduct, Scalar, Scalars, Style, StyledError, Tensor, TensorRank1Vec2D,
-        assert::AssertionError, styled_error,
+        CrossProduct, Quantity, Scalar, Style, StyledError, Tensor, TensorRank1, TensorRank1Vec2D,
+        TensorVector, assert::AssertionError, styled_error,
     },
-    mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate, Vectors2D},
+    mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate},
+    units::{Area, Length, ReciprocalLength, Volume},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
 };
 
@@ -22,15 +24,16 @@ use std::{
 };
 
 pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
-pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, 0>;
-pub type GradientVectors = Vectors2D<0>;
+pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, Reference, Length>;
+pub type GradientVectors = TensorRank1Vec2D<3, Reference, ReciprocalLength>;
+pub type IntegrationWeights = TensorVector<Quantity<Volume>>;
 
 pub type TetrahedraCoordinates = Vec<FemElementNodalCoordinates<4>>;
 
 pub struct Element {
     faces_nodes: Vec<Vec<usize>>,
     gradient_vectors: GradientVectors,
-    integration_weights: Scalars,
+    integration_weights: IntegrationWeights,
     stabilization: Scalar,
     tetrahedra: Vec<Tetrahedron>,
     tetrahedra_nodes: Vec<[usize; 3]>,
@@ -52,7 +55,7 @@ where
     ) -> NodalCoordinates;
     fn faces_nodes(&self) -> &[Vec<usize>];
     fn gradient_vectors(&self) -> &GradientVectors;
-    fn integration_weights(&self) -> &Scalars;
+    fn integration_weights(&self) -> &IntegrationWeights;
     fn stabilization(&self) -> Scalar;
     fn tetrahedra(&self) -> &[Tetrahedron];
     fn tetrahedra_coordinates<'a>(
@@ -91,7 +94,7 @@ impl VirtualElement for Element {
     fn gradient_vectors(&self) -> &GradientVectors {
         &self.gradient_vectors
     }
-    fn integration_weights(&self) -> &Scalars {
+    fn integration_weights(&self) -> &IntegrationWeights {
         &self.integration_weights
     }
     fn stabilization(&self) -> Scalar {
@@ -209,7 +212,7 @@ impl
             .iter()
             .map(|tetrahedron| tetrahedron.volume())
             .sum();
-        let integration_weights = Scalars::from([element_volume]);
+        let integration_weights = IntegrationWeights::from([element_volume]);
         let gradient_vectors = vec![
             element_nodes
                 .iter()
@@ -260,13 +263,13 @@ impl
                                                 e_1.cross(e_2) * factor
                                             },
                                         )
-                                        .sum::<ReferenceCoordinate>(),
+                                        .sum::<TensorRank1<3, Reference, Area>>(),
                                 )
                             } else {
                                 None
                             }
                         })
-                        .sum::<ReferenceCoordinate>()
+                        .sum::<TensorRank1<3, Reference, Area>>()
                         / (element_volume * 6.0)
                 })
                 .collect(),
@@ -358,11 +361,12 @@ fn temporary_poly_0() {
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
     use crate::fem::solid::elastic::ElasticElements;
+    use crate::units::Stress;
     use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
         NeoHookean {
-            shear_modulus: 3.0,
-            bulk_modulus: 13.0,
+            shear_modulus: Stress::pascals(3.0),
+            bulk_modulus: Stress::pascals(13.0),
         },
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
@@ -388,7 +392,7 @@ fn temporary_poly_0() {
     let length = (coordinates[face_node_connectivity[0][0]].clone()
         - coordinates[face_node_connectivity[0][1]].clone())
     .norm();
-    let volume = (15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0 * length.powi(3);
+    let volume = length * length * length * ((15.0 + 7.0 * 5.0_f64.sqrt()) / 4.0);
     assert!((block.elements()[0].integration_weights()[0] / volume - 1.0).abs() < 1e-14);
 }
 
@@ -434,11 +438,12 @@ fn temporary_poly_1() {
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
     use crate::fem::solid::elastic::ElasticElements;
+    use crate::units::Stress;
     use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
         NeoHookean {
-            shear_modulus: 3.0,
-            bulk_modulus: 13.0,
+            shear_modulus: Stress::pascals(3.0),
+            bulk_modulus: Stress::pascals(13.0),
         },
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
@@ -517,11 +522,12 @@ fn temporary_poly_2() {
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
     use crate::fem::solid::elastic::ElasticElements;
+    use crate::units::Stress;
     use crate::vem::block::Block;
     let block = Block::<_, Element>::from((
         NeoHookean {
-            shear_modulus: 3.0,
-            bulk_modulus: 13.0,
+            shear_modulus: Stress::pascals(3.0),
+            bulk_modulus: Stress::pascals(13.0),
         },
         element_face_connectivity.clone(),
         face_node_connectivity.clone(),
@@ -552,17 +558,18 @@ fn temporary_poly_2() {
     ]);
     use crate::EPSILON;
     use crate::fem::solid::hyperelastic::HyperelasticElements;
-    let mut finite_difference = 0.0;
+    let mut finite_difference = crate::math::Quantity::default();
     let nodal_forces_fd = (0..coordinates.len())
         .map(|node| {
             (0..3)
                 .map(|i| {
                     let mut nodal_coordinates = coordinates.clone();
-                    nodal_coordinates[node][i] += 0.5 * EPSILON;
+                    nodal_coordinates[node][i] += crate::math::assert::perturbation(0.5 * EPSILON);
                     finite_difference = block.helmholtz_free_energy(&nodal_coordinates).unwrap();
-                    nodal_coordinates[node][i] -= EPSILON;
+                    nodal_coordinates[node][i] -= crate::math::assert::perturbation(EPSILON);
                     finite_difference -= block.helmholtz_free_energy(&nodal_coordinates).unwrap();
-                    finite_difference / EPSILON
+                    finite_difference
+                        / crate::math::assert::perturbation::<crate::units::Length>(EPSILON)
                 })
                 .collect()
         })
@@ -570,7 +577,7 @@ fn temporary_poly_2() {
     Assert::default()
         .eq_within_fd_tol(block.nodal_forces(&coordinates).unwrap(), &nodal_forces_fd)
         .unwrap();
-    let mut finite_difference = 0.0;
+    let mut finite_difference = crate::math::Quantity::default();
     let nodal_stiffnesses_fd = (0..coordinates.len())
         .map(|a| {
             (0..coordinates.len())
@@ -580,13 +587,18 @@ fn temporary_poly_2() {
                             (0..3)
                                 .map(|j| {
                                     let mut nodal_coordinates = coordinates.clone();
-                                    nodal_coordinates[b][j] += 0.5 * EPSILON;
+                                    nodal_coordinates[b][j] +=
+                                        crate::math::assert::perturbation(0.5 * EPSILON);
                                     finite_difference =
                                         block.nodal_forces(&nodal_coordinates).unwrap()[a][i];
-                                    nodal_coordinates[b][j] -= EPSILON;
+                                    nodal_coordinates[b][j] -=
+                                        crate::math::assert::perturbation(EPSILON);
                                     finite_difference -=
                                         block.nodal_forces(&nodal_coordinates).unwrap()[a][i];
-                                    finite_difference / EPSILON
+                                    finite_difference
+                                        / crate::math::assert::perturbation::<crate::units::Length>(
+                                            EPSILON,
+                                        )
                                 })
                                 .collect()
                         })

@@ -1,5 +1,6 @@
 use super::super::{D, N};
 use crate::geometry::{
+    Coordinate,
     mesh::Mesh,
     ntree::{
         Octree,
@@ -7,6 +8,7 @@ use crate::geometry::{
         node::{Kind, split::Split},
     },
 };
+use crate::math::Quantity;
 use std::{array::from_fn, ops::Add};
 
 const ROTATIONS: [[usize; 8]; 24] = [
@@ -97,7 +99,7 @@ fn min_scaled_jacobian(mesh: &Mesh<3>) -> f64 {
                 .map(|&[c, a, b, d]| {
                     let e = |k: usize| {
                         std::array::from_fn::<f64, 3, _>(|i| {
-                            coordinates[hex[k]][i] - coordinates[hex[c]][i]
+                            (coordinates[hex[k]][i] - coordinates[hex[c]][i]).value()
                         })
                     };
                     let (u, v, w) = (e(a), e(b), e(d));
@@ -271,8 +273,8 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Octree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [16.0; 3],
-            cell: 1.0,
+            center: Coordinate::const_from([16.0; 3]),
+            cell: Quantity::new(1.0),
             half: 16.0,
         },
     };

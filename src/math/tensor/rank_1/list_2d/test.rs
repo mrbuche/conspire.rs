@@ -1,3 +1,4 @@
+use crate::math::Current;
 use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank1List, TensorRank1List2D};
 
 fn get_array() -> [[[TensorRank0; 3]; 8]; 2] {
@@ -25,7 +26,7 @@ fn get_array() -> [[[TensorRank0; 3]; 8]; 2] {
     ]
 }
 
-fn get_tensor_rank_1_list_2d() -> TensorRank1List2D<3, 1, 8, 2> {
+fn get_tensor_rank_1_list_2d() -> TensorRank1List2D<3, Current, 8, 2> {
     TensorRank1List2D::from(get_array())
 }
 
@@ -86,14 +87,14 @@ fn from() {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank1List2D::<3, 1, 7, 8>>(),
-        std::mem::size_of::<[TensorRank1List::<3, 1, 7>; 8]>()
+        std::mem::size_of::<TensorRank1List2D::<3, Current, 7, 8>>(),
+        std::mem::size_of::<[TensorRank1List::<3, Current, 7>; 8]>()
     )
 }
 
 #[test]
 fn zero() {
-    TensorRank1List2D::<3, 1, 7, 8>::zero()
+    TensorRank1List2D::<3, Current, 7, 8>::zero()
         .iter()
         .for_each(|tensor_rank_1_list| {
             tensor_rank_1_list.iter().for_each(|tensor_rank_1| {

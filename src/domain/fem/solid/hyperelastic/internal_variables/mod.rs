@@ -11,12 +11,13 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor, Vector,
+        Quantity, Scalar, Tensor, Vector,
         optimize::{
             EqualityConstraint, OptimizationError, SecondOrderOptimization,
             SecondOrderOptimizationIncremental, SolveStrategy,
         },
     },
+    units::Energy,
 };
 
 pub trait HyperelasticIVElements<const G: usize, V, const D: usize>
@@ -28,7 +29,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<Energy>, ElementModelError>;
 }
 
 impl<B, const G: usize, V, const D: usize> HyperelasticIVElements<G, V, D> for Model<B, D>
@@ -40,7 +41,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         internal_variables: &InternalVariablesField<G, V>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         self.blocks
             .helmholtz_free_energy(nodal_coordinates, internal_variables)
     }
@@ -56,12 +57,12 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         > + SecondOrderOptimizationIncremental<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
@@ -79,12 +80,12 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         > + SecondOrderOptimizationIncremental<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,

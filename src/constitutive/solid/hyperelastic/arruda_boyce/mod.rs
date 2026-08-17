@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod test;
+use crate::math::Quantity;
+use crate::math::TensorRank4;
 
 use crate::{
     constitutive::{
@@ -11,15 +13,16 @@ use crate::{
         special::{inverse_langevin, langevin_derivative},
     },
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+    units::{EnergyDensity, Stress},
 };
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct ArrudaBoyce {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The number of links $`N_b`$.
     pub number_of_links: Scalar,
 }
@@ -32,10 +35,10 @@ impl ArrudaBoyce {
 }
 
 impl Solid for ArrudaBoyce {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
 }
@@ -52,8 +55,9 @@ impl Elastic for ArrudaBoyce {
             isochoric_left_cauchy_green_deformation_trace,
         ) = (deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS))
             .deviatoric_and_trace();
-        let gamma =
-            (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
+        let gamma = (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
+            .sqrt()
+            .value();
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
@@ -82,8 +86,9 @@ impl Elastic for ArrudaBoyce {
             deviatoric_isochoric_left_cauchy_green_deformation,
             isochoric_left_cauchy_green_deformation_trace,
         ) = (left_cauchy_green_deformation / jacobian.powf(TWO_THIRDS)).deviatoric_and_trace();
-        let gamma =
-            (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
+        let gamma = (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
+            .sqrt()
+            .value();
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),
@@ -98,7 +103,7 @@ impl Elastic for ArrudaBoyce {
                     / jacobian.powf(FIVE_THIRDS);
             let scaled_deviatoric_isochoric_left_cauchy_green_deformation =
                 deviatoric_left_cauchy_green_deformation * scaled_shear_modulus;
-            let term = CauchyTangentStiffness::dyad_ij_kl(
+            let term = TensorRank4::dyad_ij_kl(
                 &scaled_deviatoric_isochoric_left_cauchy_green_deformation,
                 &(deviatoric_isochoric_left_cauchy_green_deformation
                     * &inverse_transpose_deformation_gradient
@@ -107,20 +112,17 @@ impl Elastic for ArrudaBoyce {
                         / self.number_of_links()
                         / gamma)),
             );
-            Ok(
-                (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
-                    + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
-                    - CauchyTangentStiffness::dyad_ij_kl(&IDENTITY, deformation_gradient)
-                        * (TWO_THIRDS))
-                    * scaled_shear_modulus
-                    + CauchyTangentStiffness::dyad_ij_kl(
-                        &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
-                            - scaled_deviatoric_isochoric_left_cauchy_green_deformation
-                                * (FIVE_THIRDS)),
-                        &inverse_transpose_deformation_gradient,
-                    )
-                    + term,
-            )
+            Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+                + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
+                - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
+                * scaled_shear_modulus
+                + TensorRank4::dyad_ij_kl(
+                    &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
+                        - scaled_deviatoric_isochoric_left_cauchy_green_deformation
+                            * (FIVE_THIRDS)),
+                    &inverse_transpose_deformation_gradient,
+                )
+                + term)
         }
     }
 }
@@ -130,12 +132,14 @@ impl Hyperelastic for ArrudaBoyce {
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
         let gamma =
-            (isochoric_left_cauchy_green_deformation.trace() / 3.0 / self.number_of_links()).sqrt();
+            (isochoric_left_cauchy_green_deformation.trace() / 3.0 / self.number_of_links())
+                .sqrt()
+                .value();
         if gamma >= 1.0 {
             Err(ConstitutiveError::Custom(
                 "Maximum extensibility reached.".to_string(),

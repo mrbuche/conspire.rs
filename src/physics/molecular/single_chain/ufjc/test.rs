@@ -2,24 +2,28 @@ use crate::math::assert::Assert;
 use crate::{
     EPSILON,
     math::{Scalar, assert::AssertionError},
-    physics::{
-        molecular::{
-            potential::{Harmonic, Morse},
-            single_chain::{ArbitraryPotentialFreelyJointedChain, Ensemble, Thermodynamics},
-        },
-        {BOLTZMANN_CONSTANT, ROOM_TEMPERATURE},
+    physics::molecular::{
+        potential::{Harmonic, Morse},
+        single_chain::{ArbitraryPotentialFreelyJointedChain, Ensemble, Thermodynamics},
     },
+    units::{BOLTZMANN_CONSTANT, ROOM_TEMPERATURE},
 };
 
 const NUM: usize = 333;
 
 #[test]
 fn finite_difference() -> Result<(), AssertionError> {
-    let e = 1e5;
+    //
+    // Held as the nondimensional stiffness, so the greatest nondimensional
+    // force below is the same wherever the chain sits.
+    //
+    const NONDIMENSIONAL_STIFFNESS: Scalar = 4.403_161_451_317_08e1;
     let a = 1.0;
     let x0 = 1.0;
-    let eta_max = 0.5 * a * x0 * e / BOLTZMANN_CONSTANT / ROOM_TEMPERATURE;
-    [Ensemble::Isotensional(ROOM_TEMPERATURE)]
+    let e = NONDIMENSIONAL_STIFFNESS * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE.value()
+        / (x0 * x0);
+    let eta_max = 0.5 * a * x0 * e / BOLTZMANN_CONSTANT.value() / ROOM_TEMPERATURE.value();
+    [Ensemble::Isotensional(ROOM_TEMPERATURE.value())]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {
@@ -61,7 +65,7 @@ fn finite_difference() -> Result<(), AssertionError> {
                     })
             })
         })?;
-    [Ensemble::Isotensional(ROOM_TEMPERATURE)]
+    [Ensemble::Isotensional(ROOM_TEMPERATURE.value())]
         .into_iter()
         .try_for_each(|ensemble| {
             (3..16).into_iter().try_for_each(|number_of_links| {

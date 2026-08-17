@@ -4,7 +4,7 @@ mod test;
 use crate::{
     ABS_TOL,
     geometry::{Coordinates, bvh::BoundingVolumeHierarchy, mesh::Mesh},
-    math::{CrossProduct, Scalar},
+    math::{CrossProduct, Scalar, Tensor},
 };
 
 const D: usize = 3;
@@ -39,18 +39,20 @@ fn triangles_intersect(t1: [usize; N], t2: [usize; N], coordinates: &Coordinates
     let v = t1.map(|i| &coordinates[i]);
     let u = t2.map(|i| &coordinates[i]);
     let n1 = (v[1] - v[0]).cross(v[2] - v[0]);
-    let du = u.map(|p| &n1 * &(p - v[0]));
+    let du = u.map(|p| (&n1 * &(p - v[0])).value());
     if du[0] * du[1] > 0.0 && du[0] * du[2] > 0.0 {
         return false;
     }
     let n2 = (u[1] - u[0]).cross(u[2] - u[0]);
-    let dv = v.map(|p| &n2 * &(p - u[0]));
+    let dv = v.map(|p| (&n2 * &(p - u[0])).value());
     if dv[0] * dv[1] > 0.0 && dv[0] * dv[2] > 0.0 {
         return false;
     }
     let direction = n1.cross(&n2);
-    if &direction * &direction < ABS_TOL * (&n1 * &n1) * (&n2 * &n2) {
-        return false; // coplanar (or degenerate)
+    if direction.full_contraction(&direction)
+        < ABS_TOL * n1.full_contraction(&n1) * n2.full_contraction(&n2)
+    {
+        return false;
     }
     let axis = {
         let d = [direction[0].abs(), direction[1].abs(), direction[2].abs()];
@@ -62,8 +64,14 @@ fn triangles_intersect(t1: [usize; N], t2: [usize; N], coordinates: &Coordinates
             2
         }
     };
-    let interval1 = interval([v[0][axis], v[1][axis], v[2][axis]], dv);
-    let interval2 = interval([u[0][axis], u[1][axis], u[2][axis]], du);
+    let interval1 = interval(
+        [v[0][axis].value(), v[1][axis].value(), v[2][axis].value()],
+        dv,
+    );
+    let interval2 = interval(
+        [u[0][axis].value(), u[1][axis].value(), u[2][axis].value()],
+        du,
+    );
     interval1[0] <= interval2[1] && interval2[0] <= interval1[1]
 }
 

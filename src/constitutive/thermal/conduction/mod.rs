@@ -1,5 +1,4 @@
 //! Thermal conduction constitutive models.
-
 #[cfg(test)]
 pub mod test;
 
@@ -7,7 +6,9 @@ mod fourier;
 
 use crate::{
     constitutive::{ConstitutiveError, thermal::Thermal},
-    mechanics::{HeatFlux, HeatFluxTangent, Scalar, TemperatureGradient},
+    math::Quantity,
+    mechanics::{HeatFlux, HeatFluxTangent, TemperatureGradient},
+    units::PowerTemperatureDensity,
 };
 
 pub use fourier::Fourier;
@@ -21,7 +22,7 @@ where
     fn potential(
         &self,
         temperature_gradient: &TemperatureGradient,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Quantity<PowerTemperatureDensity>, ConstitutiveError>;
     /// Calculates and returns the heat flux.
     fn heat_flux(
         &self,

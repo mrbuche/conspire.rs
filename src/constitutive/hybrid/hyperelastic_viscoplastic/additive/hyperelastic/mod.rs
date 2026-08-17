@@ -4,15 +4,16 @@ use crate::{
         hybrid::ElasticViscoplasticAdditiveElastic,
         solid::{hyperelastic::Hyperelastic, hyperelastic_viscoplastic::HyperelasticViscoplastic},
     },
-    math::Tensor,
-    mechanics::{DeformationGradient, DeformationGradientPlastic, Scalar},
+    math::{Differentiate, Quantity, Tensor},
+    mechanics::{DeformationGradient, DeformationGradientPlastic},
+    units::EnergyDensity,
 };
 
 impl<C1, C2, Y1> HyperelasticViscoplastic<Y1> for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
 where
     C1: HyperelasticViscoplastic<Y1>,
     C2: Hyperelastic,
-    Y1: Tensor,
+    Y1: Differentiate + Tensor,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///
@@ -23,7 +24,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         Ok(self
             .0
             .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?

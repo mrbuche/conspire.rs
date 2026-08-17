@@ -1,26 +1,25 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Current;
 use crate::{
     math::{
-        Scalar,
+        Quantity, Scalar,
         random::{random_uniform, random_x2_normal},
         special::{erf, erfc},
     },
-    mechanics::CurrentCoordinate,
-    physics::{
-        BOLTZMANN_CONSTANT,
-        molecular::single_chain::{
-            Configuration, Ensemble, Extensible, Isometric, Isotensional, IsotensionalExtensible,
-            Legendre, MonteCarlo, SingleChain, SingleChainError, Thermodynamics,
-            ThermodynamicsExtensible,
-            ufjc::{
-                // nondimensional_compliance as nondimensional_compliance_asymptotic,
-                nondimensional_extension as nondimensional_extension_asymptotic,
-                nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
-            },
+    mechanics::Vector,
+    physics::molecular::single_chain::{
+        Configuration, Ensemble, Extensible, Isometric, Isotensional, IsotensionalExtensible,
+        Legendre, MonteCarlo, SingleChain, SingleChainError, Thermodynamics,
+        ThermodynamicsExtensible,
+        ufjc::{
+            // nondimensional_compliance as nondimensional_compliance_asymptotic,
+            nondimensional_extension as nondimensional_extension_asymptotic,
+            nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
         },
     },
+    units::{BOLTZMANN_CONSTANT, ForcePerLength, Length},
 };
 use std::f64::consts::{PI, TAU};
 
@@ -40,14 +39,19 @@ pub struct ExtensibleFreelyJointedChain {
 }
 
 impl ExtensibleFreelyJointedChain {
+    fn link_stiffness(&self) -> Quantity<ForcePerLength> {
+        Quantity::new(self.link_stiffness)
+    }
     fn nondimensional_link_stiffness(&self) -> Scalar {
-        self.link_stiffness * self.link_length().powi(2) / BOLTZMANN_CONSTANT / self.temperature()
+        ((self.link_stiffness() * (self.link_length() * self.link_length()))
+            / (BOLTZMANN_CONSTANT * self.temperature()))
+        .value()
     }
 }
 
 impl SingleChain for ExtensibleFreelyJointedChain {
-    fn link_length(&self) -> Scalar {
-        self.link_length
+    fn link_length(&self) -> Quantity<Length> {
+        Quantity::new(self.link_length)
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links
@@ -326,7 +330,7 @@ impl MonteCarlo for ExtensibleFreelyJointedChain {
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
                 let lambda = random_x2_normal(1.0, sigma);
-                CurrentCoordinate::from([
+                Vector::<Current>::from([
                     lambda * sin_theta * cos_phi,
                     lambda * sin_theta * sin_phi,
                     lambda * cos_theta,

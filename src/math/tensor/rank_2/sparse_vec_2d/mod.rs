@@ -6,6 +6,7 @@ use crate::math::{
     Hessian, HessianAccumulate, Rank2, Scalar, SquareMatrix, Tensor, Vector,
     tensor::vec::TensorVector,
 };
+use crate::units::{Dimensionless, UnitMul};
 use std::ops::Mul;
 
 use super::sparse_vec::TensorRank2SparseVec;
@@ -13,17 +14,17 @@ use super::sparse_vec::TensorRank2SparseVec;
 use crate::math::{TensorArray, TensorRank0, assert::FiniteDifference};
 
 /// A vector of sparse vectors of rank-2 tensors, storing only inserted entries.
-pub type TensorRank2SparseVec2D<const D: usize, const I: usize, const J: usize> =
-    TensorVector<TensorRank2SparseVec<D, I, J>>;
+pub type TensorRank2SparseVec2D<const D: usize, I, J, U = Dimensionless> =
+    TensorVector<TensorRank2SparseVec<D, I, J, U>>;
 
-impl<const D: usize, const I: usize, const J: usize> TensorRank2SparseVec2D<D, I, J> {
+impl<const D: usize, I, J, U> TensorRank2SparseVec2D<D, I, J, U> {
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| TensorRank2SparseVec::default()).collect()
     }
 }
 
-impl<const D: usize, const I: usize> HessianAccumulate<D, I> for TensorRank2SparseVec2D<D, I, I> {
-    fn accumulate(&mut self, a: usize, b: usize, block: TensorRank2<D, I, I>) {
+impl<const D: usize, I, U> HessianAccumulate<D, I, U> for TensorRank2SparseVec2D<D, I, I, U> {
+    fn accumulate(&mut self, a: usize, b: usize, block: TensorRank2<D, I, I, U>) {
         if a == b {
             self[a][b] += block;
         } else {
@@ -33,11 +34,13 @@ impl<const D: usize, const I: usize> HessianAccumulate<D, I> for TensorRank2Spar
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize>
-    Mul<TensorRank2SparseVec2D<D, J, K>> for TensorRank2<D, I, J>
+impl<const D: usize, I, J, K, U, V> Mul<TensorRank2SparseVec2D<D, J, K, V>>
+    for TensorRank2<D, I, J, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank2SparseVec2D<D, I, K>;
-    fn mul(self, tensor_rank_2_sparse_vec_2d: TensorRank2SparseVec2D<D, J, K>) -> Self::Output {
+    type Output = TensorRank2SparseVec2D<D, I, K, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_2_sparse_vec_2d: TensorRank2SparseVec2D<D, J, K, V>) -> Self::Output {
         tensor_rank_2_sparse_vec_2d
             .into_iter()
             .map(|row| {
@@ -52,11 +55,13 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize>
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorRank2<D, J, K>>
-    for TensorRank2SparseVec2D<D, I, J>
+impl<const D: usize, I, J, K, U, V> Mul<TensorRank2<D, J, K, V>>
+    for TensorRank2SparseVec2D<D, I, J, U>
+where
+    U: UnitMul<V>,
 {
-    type Output = TensorRank2SparseVec2D<D, I, K>;
-    fn mul(self, tensor_rank_2: TensorRank2<D, J, K>) -> Self::Output {
+    type Output = TensorRank2SparseVec2D<D, I, K, <U as UnitMul<V>>::Output>;
+    fn mul(self, tensor_rank_2: TensorRank2<D, J, K, V>) -> Self::Output {
         self.into_iter()
             .map(|row| {
                 TensorRank2SparseVec(
@@ -70,7 +75,7 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize> Mul<TensorR
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2SparseVec2D<D, I, J> {
+impl<const D: usize, I, J, U> Hessian for TensorRank2SparseVec2D<D, I, J, U> {
     fn quadratic_form(&self, vector: &Vector) -> Scalar {
         self.iter()
             .enumerate()
@@ -85,7 +90,7 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Spar
                                     .iter()
                                     .enumerate()
                                     .map(|(j, block_ij)| {
-                                        block_ij * vector[D * a + i] * vector[D * b + j]
+                                        block_ij.value() * vector[D * a + i] * vector[D * b + j]
                                     })
                                     .sum::<Scalar>()
                             })
@@ -100,7 +105,7 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Spar
             .0
             .binary_search_by_key(&(column / D), |&(b, _)| b)
         {
-            Ok(k) => self[row / D].0[k].1[row % D][column % D],
+            Ok(k) => self[row / D].0[k].1[row % D][column % D].value(),
             Err(_) => 0.0,
         }
     }
@@ -108,10 +113,9 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Spar
         self.iter().enumerate().for_each(|(a, row)| {
             row.entries().for_each(|(b, block)| {
                 block.iter().enumerate().for_each(|(i, block_i)| {
-                    block_i
-                        .iter()
-                        .enumerate()
-                        .for_each(|(j, block_ij)| square_matrix[D * a + i][D * b + j] = *block_ij)
+                    block_i.iter().enumerate().for_each(|(j, block_ij)| {
+                        square_matrix[D * a + i][D * b + j] = block_ij.value()
+                    })
                 })
             })
         });
@@ -131,7 +135,7 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Spar
                 block.iter().enumerate().for_each(|(i, block_i)| {
                     block_i.iter().enumerate().for_each(|(j, block_ij)| {
                         if retained[D * a + i] && retained[D * b + j] {
-                            square_matrix[remap[D * a + i]][remap[D * b + j]] = *block_ij
+                            square_matrix[remap[D * a + i]][remap[D * b + j]] = block_ij.value()
                         }
                     })
                 })
@@ -141,24 +145,19 @@ impl<const D: usize, const I: usize, const J: usize> Hessian for TensorRank2Spar
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> FiniteDifference
-    for TensorRank2SparseVec2D<D, I, J>
-{
+impl<const D: usize, I, J, U> FiniteDifference for TensorRank2SparseVec2D<D, I, J, U> {
     fn error_fd(&self, comparator: &Self, epsilon: TensorRank0) -> Option<(bool, usize)> {
         let zero = TensorRank2::zero();
         let block_errors =
-            |self_ab: &TensorRank2<D, I, J>, comparator_ab: &TensorRank2<D, I, J>| {
+            |self_ab: &TensorRank2<D, I, J, U>, comparator_ab: &TensorRank2<D, I, J, U>| {
                 let mut errors = (0, 0);
                 self_ab.iter().zip(comparator_ab.iter()).for_each(
                     |(self_ab_i, comparator_ab_i)| {
                         self_ab_i.iter().zip(comparator_ab_i.iter()).for_each(
                             |(&self_ab_ij, &comparator_ab_ij)| {
-                                if (self_ab_ij / comparator_ab_ij - 1.0).abs() >= epsilon
-                                    && (self_ab_ij.abs() >= epsilon
-                                        || comparator_ab_ij.abs() >= epsilon)
-                                {
+                                if self_ab_ij.differs(comparator_ab_ij, epsilon) {
                                     errors.0 += 1;
-                                    if (self_ab_ij - comparator_ab_ij).abs() >= epsilon {
+                                    if self_ab_ij.differs_severely(comparator_ab_ij, epsilon) {
                                         errors.1 += 1;
                                     }
                                 }

@@ -128,7 +128,7 @@ where
             .enumerate()
         {
             let values = if axis < D {
-                vec![lo[axis], hi[axis]]
+                vec![lo[axis].value(), hi[axis].value()]
             } else {
                 vec![0.0]
             };

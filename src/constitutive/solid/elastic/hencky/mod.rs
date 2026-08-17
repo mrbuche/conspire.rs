@@ -6,27 +6,28 @@ use crate::{
         ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
-    math::{ContractThirdFourthWithFirstSecond, IDENTITY_00, Rank2},
+    math::{ContractThirdFourthWithFirstSecond, IDENTITY_00, Quantity, Rank2, TensorRank4},
     mechanics::{
-        Deformation, DeformationGradient, Scalar, SecondPiolaKirchhoffStress,
+        Deformation, DeformationGradient, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
     },
+    units::Stress,
 };
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct Hencky {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
 }
 
 impl Solid for Hencky {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
 }
@@ -56,15 +57,13 @@ impl Elastic for Hencky {
         Ok((right_cauchy_green
             .dlogm()?
             .contract_third_fourth_with_first_second(
-                &(SecondPiolaKirchhoffTangentStiffness::dyad_il_jk(
-                    &IDENTITY_00,
-                    &scaled_deformation_gradient_transpose,
-                ) + SecondPiolaKirchhoffTangentStiffness::dyad_ik_jl(
-                    &scaled_deformation_gradient_transpose,
-                    &IDENTITY_00,
-                )),
+                &(TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
+                    + TensorRank4::dyad_ik_jl(
+                        &scaled_deformation_gradient_transpose,
+                        &IDENTITY_00,
+                    )),
             ))
-            + (SecondPiolaKirchhoffTangentStiffness::dyad_ij_kl(
+            + (TensorRank4::dyad_ij_kl(
                 &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
                 &deformation_gradient_transpose.inverse(),
             )))

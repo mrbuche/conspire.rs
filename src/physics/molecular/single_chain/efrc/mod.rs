@@ -1,19 +1,18 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Current;
 use crate::{
     math::{
-        CrossProduct, Scalar, Tensor,
+        CrossProduct, Quantity, Scalar, Tensor,
         random::{random_uniform, random_x2_normal},
     },
-    mechanics::CurrentCoordinate,
-    physics::{
-        BOLTZMANN_CONSTANT,
-        molecular::single_chain::{
-            Configuration, Ensemble, Extensible, Isometric, Isotensional, Legendre, MonteCarlo,
-            SingleChain, SingleChainError, Thermodynamics,
-        },
+    mechanics::Vector,
+    physics::molecular::single_chain::{
+        Configuration, Ensemble, Extensible, Isometric, Isotensional, Legendre, MonteCarlo,
+        SingleChain, SingleChainError, Thermodynamics,
     },
+    units::{BOLTZMANN_CONSTANT, ForcePerLength, Length},
 };
 use std::f64::consts::TAU;
 
@@ -33,14 +32,19 @@ pub struct ExtensibleFreelyRotatingChain {
 }
 
 impl ExtensibleFreelyRotatingChain {
+    fn link_stiffness(&self) -> Quantity<ForcePerLength> {
+        Quantity::new(self.link_stiffness)
+    }
     fn nondimensional_link_stiffness(&self) -> Scalar {
-        self.link_stiffness * self.link_length().powi(2) / BOLTZMANN_CONSTANT / self.temperature()
+        ((self.link_stiffness() * (self.link_length() * self.link_length()))
+            / (BOLTZMANN_CONSTANT * self.temperature()))
+        .value()
     }
 }
 
 impl SingleChain for ExtensibleFreelyRotatingChain {
-    fn link_length(&self) -> Scalar {
-        self.link_length
+    fn link_length(&self) -> Quantity<Length> {
+        Quantity::new(self.link_length)
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links
@@ -136,11 +140,11 @@ impl MonteCarlo for ExtensibleFreelyRotatingChain {
         let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
         let phi = TAU * random_uniform();
         let (sin_phi, cos_phi) = phi.sin_cos();
-        const AY: CurrentCoordinate = CurrentCoordinate::const_from([0.0, 1.0, 0.0]);
-        const AZ: CurrentCoordinate = CurrentCoordinate::const_from([0.0, 0.0, 1.0]);
+        const AY: Vector<Current> = Vector::<Current>::const_from([0.0, 1.0, 0.0]);
+        const AZ: Vector<Current> = Vector::<Current>::const_from([0.0, 0.0, 1.0]);
         let mut a = AY;
         let mut b =
-            CurrentCoordinate::const_from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta]);
+            Vector::<Current>::const_from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta]);
         let (sin_theta, cos_theta) = self.link_angle.sin_cos();
         (0..self.number_of_links())
             .map(|link| {
@@ -171,12 +175,12 @@ fn random_nondimensional_link_vectors_biased_stretch(
     let phi = TAU * random_uniform();
     let (sin_phi, cos_phi) = phi.sin_cos();
 
-    const AY: CurrentCoordinate = CurrentCoordinate::const_from([0.0, 1.0, 0.0]);
-    const AZ: CurrentCoordinate = CurrentCoordinate::const_from([0.0, 0.0, 1.0]);
+    const AY: Vector<Current> = Vector::<Current>::const_from([0.0, 1.0, 0.0]);
+    const AZ: Vector<Current> = Vector::<Current>::const_from([0.0, 0.0, 1.0]);
 
     let mut a = AY;
     let mut b =
-        CurrentCoordinate::const_from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta]);
+        Vector::<Current>::const_from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta]);
 
     let (sin_theta, cos_theta) = model.link_angle.sin_cos();
 
@@ -253,8 +257,8 @@ fn nondimensional_extension_reweighted_biased_stretch_inner(
         let links =
             random_nondimensional_link_vectors_biased_stretch(model, nondimensional_stretch_bias);
 
-        let extension_sum: Scalar = links.iter().map(|link| link[2]).sum();
-        let stretch_sum: Scalar = links.iter().map(|link| link.norm()).sum();
+        let extension_sum: Scalar = links.iter().map(|link| link[2].value()).sum();
+        let stretch_sum: Scalar = links.iter().map(|link| link.norm().value()).sum();
 
         let x = nondimensional_force * extension_sum - nondimensional_stretch_bias * stretch_sum;
 

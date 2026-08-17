@@ -1,4 +1,5 @@
 use crate::geometry::{
+    Coordinate,
     grid::{Pixels, Voxels},
     ntree::{Octree, Quadtree},
 };
@@ -30,7 +31,7 @@ fn octree_heterogeneous_subdivides_once() {
 #[test]
 fn octree_non_power_of_two_pads() {
     let octree = Octree::<u16, usize, u8>::from(Voxels::new(vec![1u8; 27], [3, 3, 3]));
-    assert_eq!(octree.rescale().center, [2.0; 3]);
+    assert_eq!(octree.rescale().center, Coordinate::const_from([2.0; 3]));
     assert!(octree_leaves(&octree) > 1);
 }
 
@@ -53,7 +54,7 @@ fn quadtree_heterogeneous_subdivides_once() {
 #[test]
 fn quadtree_non_power_of_two_pads() {
     let quadtree = Quadtree::<u16, usize, u8>::from(Pixels::new(vec![1u8; 9], [3, 3]));
-    assert_eq!(quadtree.rescale().center, [2.0; 2]);
+    assert_eq!(quadtree.rescale().center, Coordinate::const_from([2.0; 2]));
     assert!(quadtree_leaves(&quadtree) > 1);
 }
 

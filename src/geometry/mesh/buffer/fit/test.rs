@@ -1,8 +1,13 @@
 use super::{energy, scatter};
+use crate::math::assert::perturbation;
 use crate::{
     EPSILON,
-    geometry::{Coordinate, Coordinates},
-    math::assert::{Assert, AssertionError},
+    geometry::Coordinates,
+    math::{
+        Reference, TensorRank1,
+        assert::{Assert, AssertionError},
+    },
+    units::ReciprocalLength,
 };
 use std::array::from_fn;
 
@@ -23,12 +28,12 @@ fn gradient_matches_finite_difference() -> Result<(), AssertionError> {
         let scattered = scatter(&hex, &coordinates, epsilon);
         for node in 0..8 {
             let analytic = scattered[node].clone();
-            let numerical = Coordinate::from(from_fn(|i| {
-                coordinates[node][i] += EPSILON;
+            let numerical = TensorRank1::<3, Reference, ReciprocalLength>::from(from_fn(|i| {
+                coordinates[node][i] += perturbation(EPSILON);
                 let above = energy(&hex, &coordinates, epsilon);
-                coordinates[node][i] -= 2.0 * EPSILON;
+                coordinates[node][i] -= perturbation(2.0 * EPSILON);
                 let below = energy(&hex, &coordinates, epsilon);
-                coordinates[node][i] += EPSILON;
+                coordinates[node][i] += perturbation(EPSILON);
                 (above - below) / (2.0 * EPSILON)
             }));
             Assert::default().eq_within_fd_tol(analytic, &numerical)?;

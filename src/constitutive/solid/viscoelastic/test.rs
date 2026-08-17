@@ -157,7 +157,7 @@ macro_rules! test_solid_viscous_constitutive_model
             let mut deformation_gradient_rate = DeformationGradientRate::zero();
             deformation_gradient_rate += DeformationGradientRate::identity()*(EPSILON/3.0);
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(&model, &deformation_gradient_rate)?;
-            assert!((3.0*EPSILON*model.bulk_viscosity()/first_piola_kirchhoff_stress.trace() - 1.0).abs() < EPSILON);
+            assert!((3.0*EPSILON*model.bulk_viscosity().value()/first_piola_kirchhoff_stress.trace().value() - 1.0).abs() < EPSILON);
             Ok(())
         }
         #[test]
@@ -165,9 +165,9 @@ macro_rules! test_solid_viscous_constitutive_model
         {
             let model = $constitutive_model;
             let mut deformation_gradient_rate = DeformationGradientRate::zero();
-            deformation_gradient_rate[0][1] = EPSILON;
+            deformation_gradient_rate[0][1] = Quantity::new(EPSILON);
             let first_piola_kirchhoff_stress = first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(&model, &deformation_gradient_rate)?;
-            assert!((EPSILON*model.shear_viscosity()/first_piola_kirchhoff_stress[0][1] - 1.0).abs() < EPSILON);
+            assert!((EPSILON*model.shear_viscosity().value()/ first_piola_kirchhoff_stress[0][1].value() - 1.0).abs() < EPSILON);
             Ok(())
         }
         mod solid_viscous
@@ -184,7 +184,7 @@ macro_rules! test_solid_viscous_constitutive_model
                     {
                         DeformationGradient::identity()
                     };
-                let mut cauchy_rate_tangent_stiffness = CauchyTangentStiffness::zero();
+                let mut cauchy_rate_tangent_stiffness = CauchyRateTangentStiffness::zero();
                 for k in 0..3
                 {
                     for l in 0..3
@@ -198,7 +198,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 DeformationGradientRate::zero()
                             };
-                        deformation_gradient_rate_plus[k][l] += 0.5*EPSILON;
+                        deformation_gradient_rate_plus[k][l] += $crate::math::assert::perturbation(0.5*EPSILON);
                         let cauchy_stress_plus =
                         cauchy_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                             &$constitutive_model, &deformation_gradient, &deformation_gradient_rate_plus
@@ -212,7 +212,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 DeformationGradientRate::zero()
                             };
-                        deformation_gradient_rate_minus[k][l] -= 0.5*EPSILON;
+                        deformation_gradient_rate_minus[k][l] -= $crate::math::assert::perturbation(0.5*EPSILON);
                         let cauchy_stress_minus =
                         cauchy_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                             &$constitutive_model, &deformation_gradient, &deformation_gradient_rate_minus
@@ -223,7 +223,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 cauchy_rate_tangent_stiffness[i][j][k][l] = (
                                     cauchy_stress_plus[i][j] - cauchy_stress_minus[i][j]
-                                )/EPSILON;
+                                )/$crate::math::assert::perturbation::<$crate::units::Rate>(EPSILON);
                             }
                         }
                     }
@@ -241,7 +241,7 @@ macro_rules! test_solid_viscous_constitutive_model
                     {
                         DeformationGradient::identity()
                     };
-                let mut first_piola_kirchhoff_rate_tangent_stiffness = FirstPiolaKirchhoffTangentStiffness::zero();
+                let mut first_piola_kirchhoff_rate_tangent_stiffness = FirstPiolaKirchhoffRateTangentStiffness::zero();
                 for k in 0..3
                 {
                     for l in 0..3
@@ -255,7 +255,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 DeformationGradientRate::zero()
                             };
-                        deformation_gradient_rate_plus[k][l] += 0.5*EPSILON;
+                        deformation_gradient_rate_plus[k][l] += $crate::math::assert::perturbation(0.5*EPSILON);
                         let first_piola_kirchhoff_stress_plus =
                         first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                             &$constitutive_model, &deformation_gradient, &deformation_gradient_rate_plus
@@ -269,7 +269,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 DeformationGradientRate::zero()
                             };
-                        deformation_gradient_rate_minus[k][l] -= 0.5*EPSILON;
+                        deformation_gradient_rate_minus[k][l] -= $crate::math::assert::perturbation(0.5*EPSILON);
                         let first_piola_kirchhoff_stress_minus =
                         first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                             &$constitutive_model, &deformation_gradient, &deformation_gradient_rate_minus
@@ -280,7 +280,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 first_piola_kirchhoff_rate_tangent_stiffness[i][j][k][l] = (
                                     first_piola_kirchhoff_stress_plus[i][j] - first_piola_kirchhoff_stress_minus[i][j]
-                                )/EPSILON;
+                                )/$crate::math::assert::perturbation::<$crate::units::Rate>(EPSILON);
                             }
                         }
                     }
@@ -298,7 +298,7 @@ macro_rules! test_solid_viscous_constitutive_model
                     {
                         DeformationGradient::identity()
                     };
-                let mut second_piola_kirchhoff_rate_tangent_stiffness = SecondPiolaKirchhoffTangentStiffness::zero();
+                let mut second_piola_kirchhoff_rate_tangent_stiffness = SecondPiolaKirchhoffRateTangentStiffness::zero();
                 for k in 0..3
                 {
                     for l in 0..3
@@ -312,7 +312,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 DeformationGradientRate::zero()
                             };
-                        deformation_gradient_rate_plus[k][l] += 0.5*EPSILON;
+                        deformation_gradient_rate_plus[k][l] += $crate::math::assert::perturbation(0.5*EPSILON);
                         let second_piola_kirchhoff_stress_plus =
                         second_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                             &$constitutive_model, &deformation_gradient, &deformation_gradient_rate_plus
@@ -326,7 +326,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 DeformationGradientRate::zero()
                             };
-                        deformation_gradient_rate_minus[k][l] -= 0.5*EPSILON;
+                        deformation_gradient_rate_minus[k][l] -= $crate::math::assert::perturbation(0.5*EPSILON);
                         let second_piola_kirchhoff_stress_minus =
                         second_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                             &$constitutive_model, &deformation_gradient, &deformation_gradient_rate_minus
@@ -337,7 +337,7 @@ macro_rules! test_solid_viscous_constitutive_model
                             {
                                 second_piola_kirchhoff_rate_tangent_stiffness[i][j][k][l] = (
                                     second_piola_kirchhoff_stress_plus[i][j] - second_piola_kirchhoff_stress_minus[i][j]
-                                )/EPSILON;
+                                )/$crate::math::assert::perturbation::<$crate::units::Rate>(EPSILON);
                             }
                         }
                     }

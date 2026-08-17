@@ -1,17 +1,19 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Current;
 use crate::{
     math::{
-        Scalar,
+        Quantity, Scalar,
         random::random_uniform,
         special::{inverse_langevin, langevin, langevin_derivative, sinhc},
     },
-    mechanics::CurrentCoordinate,
+    mechanics::Vector,
     physics::molecular::single_chain::{
         Configuration, Ensemble, Inextensible, Isometric, Isotensional, Legendre, MonteCarlo,
         SingleChain, SingleChainError, Thermodynamics,
     },
+    units::Length,
 };
 use std::f64::consts::{PI, TAU};
 
@@ -27,8 +29,8 @@ pub struct FreelyJointedChain {
 }
 
 impl SingleChain for FreelyJointedChain {
-    fn link_length(&self) -> Scalar {
-        self.link_length
+    fn link_length(&self) -> Quantity<Length> {
+        Quantity::new(self.link_length)
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links
@@ -200,7 +202,7 @@ impl MonteCarlo for FreelyJointedChain {
                 let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
                 let phi = TAU * random_uniform();
                 let (sin_phi, cos_phi) = phi.sin_cos();
-                CurrentCoordinate::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
+                Vector::<Current>::from([sin_theta * cos_phi, sin_theta * sin_phi, cos_theta])
             })
             .collect()
     }

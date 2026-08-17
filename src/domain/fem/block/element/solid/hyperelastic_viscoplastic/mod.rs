@@ -7,7 +7,8 @@ use crate::{
             viscoplastic::ViscoplasticStateVariables,
         },
     },
-    math::{Scalar, Tensor},
+    math::{Differentiate, Quantity, Tensor},
+    units::Energy,
 };
 
 pub trait HyperelasticViscoplasticFiniteElement<
@@ -20,14 +21,14 @@ pub trait HyperelasticViscoplasticFiniteElement<
 > where
     C: HyperelasticViscoplastic<Y>,
     Self: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<Scalar, FiniteElementError>;
+    ) -> Result<Quantity<Energy>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
@@ -35,14 +36,14 @@ impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
 where
     C: HyperelasticViscoplastic<Y>,
     Self: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<Scalar, FiniteElementError> {
+    ) -> Result<Quantity<Energy>, FiniteElementError> {
         match self
             .deformation_gradients(nodal_coordinates)
             .iter()

@@ -1,11 +1,12 @@
 macro_rules! test_model {
     ($model:ident) => {
+        use crate::units::{Rate, Stress, Time};
         use crate::{
             constitutive::solid::elastic_viscoplastic::{
                 AppliedLoad, ElasticPlasticOrViscoplastic,
             },
             math::{
-                Rank2, Tensor, TensorArray,
+                Quantity, Rank2, Tensor, TensorArray,
                 assert::{AssertionError, FiniteDifference},
                 integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
                 optimize::{GradientDescent, NewtonRaphson},
@@ -15,15 +16,18 @@ macro_rules! test_model {
         macro_rules! test_integrator_with_solver {
             ($integrator:ident, $solver:expr) => {
                 let model = $model {
-                    bulk_modulus: 13.0,
-                    shear_modulus: 3.0,
-                    yield_stress: 2.0,
-                    hardening_slope: 1.0,
+                    bulk_modulus: Stress::pascals(13.0),
+                    shear_modulus: Stress::pascals(3.0),
+                    yield_stress: Stress::pascals(2.0),
+                    hardening_slope: Stress::pascals(1.0),
                     rate_sensitivity: 0.25,
-                    reference_flow_rate: 0.1,
+                    reference_flow_rate: Rate::per_second(0.1),
                 };
                 let (t, f, f_p) = model.root(
-                    AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
+                    AppliedLoad::UniaxialStress(
+                        |t: Quantity<Time>| 1.0 + t.value(),
+                        &[Quantity::new(0.0), Quantity::new(2.0)],
+                    ),
                     $integrator {
                         abs_tol: 1e-6,
                         rel_tol: 1e-6,
@@ -49,7 +53,10 @@ macro_rules! test_model {
                     )
                 }
                 let (t, f, f_p) = model.minimize(
-                    AppliedLoad::UniaxialStress(|t| 1.0 + t, &[0.0, 2.0]),
+                    AppliedLoad::UniaxialStress(
+                        |t: Quantity<Time>| 1.0 + t.value(),
+                        &[Quantity::new(0.0), Quantity::new(2.0)],
+                    ),
                     $integrator {
                         abs_tol: 1e-6,
                         rel_tol: 1e-6,
@@ -117,12 +124,12 @@ macro_rules! test_model {
                 [1.82260662, 2.1921719, 3.16928404],
             ]);
             let model = $model {
-                bulk_modulus: 13.0,
-                shear_modulus: 3.0,
-                yield_stress: 2.0,
-                hardening_slope: 1.0,
+                bulk_modulus: Stress::pascals(13.0),
+                shear_modulus: Stress::pascals(3.0),
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
                 rate_sensitivity: 0.25,
-                reference_flow_rate: 0.1,
+                reference_flow_rate: Rate::per_second(0.1),
             };
             let tangent =
                 model.cauchy_tangent_stiffness(&deformation_gradient, &deformation_gradient_p)?;
@@ -130,11 +137,13 @@ macro_rules! test_model {
             for k in 0..3 {
                 for l in 0..3 {
                     let mut deformation_gradient_plus = deformation_gradient.clone();
-                    deformation_gradient_plus[k][l] += 0.5 * crate::EPSILON;
+                    deformation_gradient_plus[k][l] +=
+                        $crate::math::assert::perturbation(0.5 * crate::EPSILON);
                     let cauchy_stress_plus =
                         model.cauchy_stress(&deformation_gradient_plus, &deformation_gradient_p)?;
                     let mut deformation_gradient_minus = deformation_gradient.clone();
-                    deformation_gradient_minus[k][l] -= 0.5 * crate::EPSILON;
+                    deformation_gradient_minus[k][l] -=
+                        $crate::math::assert::perturbation(0.5 * crate::EPSILON);
                     let cauchy_stress_minus = model
                         .cauchy_stress(&deformation_gradient_minus, &deformation_gradient_p)?;
                     for i in 0..3 {

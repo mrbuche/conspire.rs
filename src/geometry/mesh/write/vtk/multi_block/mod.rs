@@ -121,7 +121,7 @@ fn write_side_set<const D: usize>(
                 *local_index.entry(global).or_insert_with(|| {
                     let index = points.len();
                     let mut point = [0.0; 3];
-                    (0..D).for_each(|i| point[i] = coordinates[global][i]);
+                    (0..D).for_each(|i| point[i] = coordinates[global][i].value());
                     points.push(point);
                     index
                 })

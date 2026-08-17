@@ -1,4 +1,5 @@
-use crate::math::{Norm, Scalar, Tensor, TensorVec};
+use crate::math::{Norm, Quantity, Scalar, Tensor, TensorVec};
+use crate::units::Time;
 use std::fmt::Debug;
 
 pub(super) mod explicit;
@@ -14,13 +15,13 @@ where
 }
 
 /// Fixed-step integrators for ordinary differential equations.
-pub trait FixedStep {
+pub trait FixedStep<T = Time> {
     /// Returns the time step.
-    fn dt(&self) -> Scalar;
+    fn dt(&self) -> Quantity<T>;
 }
 
 /// Variable-step integrators for ordinary differential equations.
-pub trait VariableStep {
+pub trait VariableStep<T = Time> {
     /// Returns the absolute error tolerance.
     fn abs_tol(&self) -> Scalar;
     /// Returns the relative error tolerance.
@@ -32,7 +33,7 @@ pub trait VariableStep {
     /// Returns the cut back factor for function errors.
     fn dt_cut(&self) -> Scalar;
     /// Returns the minimum value for the time step.
-    fn dt_min(&self) -> Scalar;
+    fn dt_min(&self) -> Quantity<T>;
     /// Returns the norm type for error evaluation.
     fn error_norm(&self) -> &Norm;
 }

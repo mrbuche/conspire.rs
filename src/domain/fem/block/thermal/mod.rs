@@ -6,11 +6,12 @@ use crate::{
         Block,
         element::thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
-    math::Vector,
+    math::QuantityVector,
     mechanics::TemperatureGradients,
+    units::Temperature,
 };
 
-pub type NodalTemperatures = Vector;
+pub type NodalTemperatures = QuantityVector<Temperature>;
 
 pub trait ThermalElements<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
 where

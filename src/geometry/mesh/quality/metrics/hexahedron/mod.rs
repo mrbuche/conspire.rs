@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     geometry::Coordinates,
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
+    units::Volume,
 };
 
 pub(crate) const CORNERS: [[usize; 3]; 8] = [
@@ -65,8 +66,8 @@ pub(super) fn maximum_skew<const D: usize>(
         .into_iter()
         .map(|(u, v)| {
             let (nu, nv) = (u.norm(), v.norm());
-            if nu > 0.0 && nv > 0.0 {
-                ((u * v) / (nu * nv)).abs()
+            if nu > Quantity::default() && nv > Quantity::default() {
+                ((u * v) / (nu * nv)).abs().value()
             } else {
                 0.0
             }
@@ -74,7 +75,10 @@ pub(super) fn maximum_skew<const D: usize>(
         .fold(Scalar::NEG_INFINITY, Scalar::max)
 }
 
-pub(super) fn volume<const D: usize>(element: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+pub(super) fn volume<const D: usize>(
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Quantity<Volume> {
     let p = |i: usize| &coordinates[element[i]];
     let x1 = (p(1) - p(0)) + (p(2) - p(3)) + (p(5) - p(4)) + (p(6) - p(7));
     let x2 = (p(3) - p(0)) + (p(2) - p(1)) + (p(7) - p(4)) + (p(6) - p(5));

@@ -16,7 +16,8 @@ use crate::{
             tessellation::{D, Tessellation},
         },
     },
-    math::{CrossProduct, Scalar, Tensor, TensorVec},
+    math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec},
+    units::Length,
 };
 use std::{array::from_fn, collections::HashMap, collections::HashSet};
 
@@ -191,7 +192,7 @@ fn build_cut_cells(
                                 let one = &coordinates[polygon[i]] - &centroid;
                                 let two =
                                     &coordinates[polygon[(i + 1) % polygon.len()]] - &centroid;
-                                one.cross(&two) * &middle
+                                (one.cross(&two) * &middle).value()
                             })
                             .sum();
                         if outward < 0.0 {
@@ -303,7 +304,8 @@ impl Tessellation {
                     .iter()
                     .map(|face| face.iter().map(|&local| hex[local]).collect())
                     .collect();
-                star_volume(&polygons, &coordinates) / star_volume(&reference, &coordinates)
+                (star_volume(&polygons, &coordinates) / star_volume(&reference, &coordinates))
+                    .value()
             })
             .collect();
         let mut sets: Vec<HashSet<usize>> = elements_faces
@@ -317,13 +319,13 @@ impl Tessellation {
             &fractions,
             &coordinates,
         );
-        let scales: Vec<Scalar> = sources
+        let scales: Vec<Quantity<Length>> = sources
             .iter()
             .map(|hex| {
                 EDGES
                     .iter()
                     .map(|&[a, b]| (&coordinates[hex[b]] - &coordinates[hex[a]]).norm())
-                    .fold(Scalar::INFINITY, Scalar::min)
+                    .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
             })
             .collect();
         let whole: HashSet<usize> = hexes.iter().flatten().copied().collect();

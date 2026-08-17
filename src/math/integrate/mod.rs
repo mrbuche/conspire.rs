@@ -1,12 +1,17 @@
 #[cfg(feature = "doc")]
 pub mod doc;
-
 #[cfg(test)]
 mod test;
 
 mod dae;
 mod error;
 mod ode;
+
+use crate::math::QuantityVector;
+use crate::units::Time;
+
+/// The variable of integration values.
+pub type Times<T = Time> = QuantityVector<T>;
 
 pub use error::IntegrationError;
 

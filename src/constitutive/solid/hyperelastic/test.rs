@@ -1,15 +1,21 @@
 pub use crate::{
     constitutive::solid::elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
-    math::Tensor,
+    math::{Quantity, Tensor},
     mechanics::Scalar,
+    units::Stress,
 };
 
 pub const EXPONENT: Scalar = 1.1;
 pub const EXTENSIBILITY: Scalar = 23.0;
-pub const EXTRA_MODULUS: Scalar = 1.2;
+pub const EXTRA_MODULUS: Quantity<Stress> = Stress::pascals(1.2);
 pub const NUMBER_OF_LINKS: Scalar = 8.0;
 pub const NUM_YEOH_EXTRA_MODULI: usize = 4;
-pub const YEOH_EXTRA_MODULI: [Scalar; NUM_YEOH_EXTRA_MODULI] = [-1.0, 3e-1, -1e-3, 1e-5];
+pub const YEOH_EXTRA_MODULI: [Quantity<Stress>; NUM_YEOH_EXTRA_MODULI] = [
+    Stress::pascals(-1.0),
+    Stress::pascals(3e-1),
+    Stress::pascals(-1e-3),
+    Stress::pascals(1e-5),
+];
 
 macro_rules! helmholtz_free_energy_density_from_deformation_gradient_simple {
     ($constitutive_model: expr, $deformation_gradient: expr) => {
@@ -94,7 +100,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                         {
                             DeformationGradient::identity()
                         };
-                    deformation_gradient_plus[i][j] += 0.5 * EPSILON;
+                    deformation_gradient_plus[i][j] += $crate::math::assert::perturbation(0.5 * EPSILON);
                     let helmholtz_free_energy_density_plus =
                     helmholtz_free_energy_density_from_deformation_gradient_simple!(
                         $constitutive_model, &deformation_gradient_plus
@@ -108,14 +114,14 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                         {
                             DeformationGradient::identity()
                         };
-                    deformation_gradient_minus[i][j] -= 0.5 * EPSILON;
+                    deformation_gradient_minus[i][j] -= $crate::math::assert::perturbation(0.5 * EPSILON);
                     let helmholtz_free_energy_density_minus =
                     helmholtz_free_energy_density_from_deformation_gradient_simple!(
                         $constitutive_model, &deformation_gradient_minus
                     )?;
-                    first_piola_kirchhoff_stress[i][j] = (
+                    first_piola_kirchhoff_stress[i][j] = ((
                         helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
-                    )/EPSILON;
+                    )/EPSILON);
                 }
             }
             Ok(first_piola_kirchhoff_stress)
@@ -156,27 +162,27 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                     let minimum =
                     helmholtz_free_energy_density_from_deformation_gradient_simple!(
                         $constitutive_model, &get_deformation_gradient()
-                    )? - first_piola_kirchhoff_stress.full_contraction(
-                        &get_deformation_gradient()
+                    )? - $crate::math::ContractWith::contract_with(
+                        &first_piola_kirchhoff_stress, &get_deformation_gradient()
                     );
                     let mut perturbed_deformation_gradient = get_deformation_gradient();
                     (0..3).try_for_each(|i|
                         (0..3).try_for_each(|j|{
                             perturbed_deformation_gradient = get_deformation_gradient();
-                            perturbed_deformation_gradient[i][j] += 0.5 * EPSILON;
+                            perturbed_deformation_gradient[i][j] += $crate::math::assert::perturbation(0.5 * EPSILON);
                             assert!(
                                 helmholtz_free_energy_density_from_deformation_gradient_simple!(
                                     $constitutive_model, &perturbed_deformation_gradient
-                                )? - first_piola_kirchhoff_stress.full_contraction(
-                                    &perturbed_deformation_gradient
+                                )? - $crate::math::ContractWith::contract_with(
+                                    &first_piola_kirchhoff_stress, &perturbed_deformation_gradient
                                 ) > minimum
                             );
-                            perturbed_deformation_gradient[i][j] -= EPSILON;
+                            perturbed_deformation_gradient[i][j] -= $crate::math::assert::perturbation(EPSILON);
                             assert!(
                                 helmholtz_free_energy_density_from_deformation_gradient_simple!(
                                     $constitutive_model, &perturbed_deformation_gradient
-                                )? - first_piola_kirchhoff_stress.full_contraction(
-                                    &perturbed_deformation_gradient
+                                )? - $crate::math::ContractWith::contract_with(
+                                    &first_piola_kirchhoff_stress, &perturbed_deformation_gradient
                                 ) > minimum
                             );
                             Ok(())
@@ -201,7 +207,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                     assert!(
                         helmholtz_free_energy_density_from_deformation_gradient_simple!(
                             $constitutive_model, &get_deformation_gradient()
-                        )? > 0.0
+                        )? > $crate::math::Quantity::default()
                     );
                     Ok(())
                 }
@@ -228,13 +234,13 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                     (0..3).try_for_each(|i|
                         (0..3).try_for_each(|j|{
                             perturbed_deformation_gradient = DeformationGradient::identity();
-                            perturbed_deformation_gradient[i][j] += 0.5 * EPSILON;
+                            perturbed_deformation_gradient[i][j] += $crate::math::assert::perturbation(0.5 * EPSILON);
                             assert!(
                                 helmholtz_free_energy_density_from_deformation_gradient_simple!(
                                     $constitutive_model, &perturbed_deformation_gradient
                                 )? > minimum
                             );
-                            perturbed_deformation_gradient[i][j] -= EPSILON;
+                            perturbed_deformation_gradient[i][j] -= $crate::math::assert::perturbation(EPSILON);
                             assert!(
                                 helmholtz_free_energy_density_from_deformation_gradient_simple!(
                                     $constitutive_model, &perturbed_deformation_gradient
@@ -337,7 +343,7 @@ macro_rules! test_minimize_and_root {
                     let deformation_gradient =
                         $constitutive_model.minimize(AppliedLoad::UniaxialStress(0.77), $solver)?;
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
-                    assert!(cauchy_stress[0][0] < 0.0);
+                    assert!(cauchy_stress[0][0].value() < 0.0);
                     $crate::math::assert::Assert::default()
                         .zero_within_tols(&(cauchy_stress[1][1] / cauchy_stress[0][0]))?;
                     $crate::math::assert::Assert::default()
@@ -355,7 +361,7 @@ macro_rules! test_minimize_and_root {
                     let deformation_gradient =
                         $constitutive_model.minimize(AppliedLoad::UniaxialStress(1.2), $solver)?;
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
-                    assert!(cauchy_stress[0][0] > 0.0);
+                    assert!(cauchy_stress[0][0].value() > 0.0);
                     assert!(cauchy_stress.is_diagonal());
                     $crate::math::assert::Assert::default()
                         .zero_within_tols(&cauchy_stress[1][1])?;
@@ -381,11 +387,13 @@ macro_rules! test_minimize_and_root {
                     let deformation_gradient = $constitutive_model
                         .minimize(AppliedLoad::BiaxialStress(0.77, 0.88), $solver)?;
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
-                    assert!(cauchy_stress[0][0] < 0.0);
-                    assert!(cauchy_stress[1][1] < 0.0);
+                    assert!(cauchy_stress[0][0].value() < 0.0);
+                    assert!(cauchy_stress[1][1].value() < 0.0);
                     $crate::math::assert::Assert::default().zero_within_tols(
                         &(cauchy_stress[2][2]
-                            / (cauchy_stress[0][0].powi(2) + cauchy_stress[1][1].powi(2)).sqrt()),
+                            / (cauchy_stress[0][0].value().powi(2)
+                                + cauchy_stress[1][1].value().powi(2))
+                            .sqrt()),
                     )?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
@@ -409,7 +417,7 @@ macro_rules! test_minimize_and_root {
                         .minimize(AppliedLoad::BiaxialStress(1.3, 1.2), $solver)?;
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);
-                    assert!(cauchy_stress[1][1] > 0.0);
+                    assert!(cauchy_stress[1][1].value() > 0.0);
                     $crate::math::assert::Assert::default()
                         .zero_within_tols(&cauchy_stress[2][2])?;
                     assert!(cauchy_stress.is_diagonal());

@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     geometry::Coordinates,
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
+    units::Area,
 };
 
 const CORNERS: [[usize; 2]; 4] = [[1, 3], [2, 0], [3, 1], [0, 2]];
@@ -39,14 +40,17 @@ pub(super) fn maximum_skew<const D: usize>(
     let x1 = (p(1) - p(0)) + (p(2) - p(3));
     let x2 = (p(3) - p(0)) + (p(2) - p(1));
     let (n1, n2) = (x1.norm(), x2.norm());
-    if n1 > 0.0 && n2 > 0.0 {
-        ((&x1 * &x2) / (n1 * n2)).abs()
+    if n1 > Quantity::default() && n2 > Quantity::default() {
+        ((&x1 * &x2) / (n1 * n2)).abs().value()
     } else {
         0.0
     }
 }
 
-pub(super) fn volume<const D: usize>(element: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+pub(super) fn volume<const D: usize>(
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Quantity<Area> {
     super::triangle_area(&[element[0], element[1], element[2]], coordinates)
         + super::triangle_area(&[element[0], element[2], element[3]], coordinates)
 }

@@ -7,11 +7,13 @@ use crate::{
         hybrid::ElasticAdditive,
         solid::{Solid, elastic::Elastic},
     },
+    math::Quantity,
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, Scalar, SecondPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
     },
+    units::Stress,
 };
 
 impl<C1, C2> Solid for ElasticAdditive<C1, C2>
@@ -19,10 +21,10 @@ where
     C1: Elastic,
     C2: Elastic,
 {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.0.bulk_modulus() + self.1.bulk_modulus()
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.0.shear_modulus() + self.1.shear_modulus()
     }
 }

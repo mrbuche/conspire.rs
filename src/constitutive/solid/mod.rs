@@ -17,8 +17,8 @@ const FIVE_THIRDS: Scalar = 5.0 / 3.0;
 use crate::{
     constitutive::{Constitutive, ConstitutiveError},
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, IDENTITY_00, Rank2,
-        Tensor, TensorArray, ZERO_10,
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, IDENTITY_00, Quantity,
+        Rank2, TensorArray,
     },
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, CauchyTangentStiffness, Deformation,
@@ -28,6 +28,7 @@ use crate::{
         SecondPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness, Times,
     },
+    units::Stress,
 };
 use std::fmt::Debug;
 
@@ -39,11 +40,11 @@ where
     Self: Constitutive,
 {
     /// Returns the bulk modulus.
-    fn bulk_modulus(&self) -> Scalar;
+    fn bulk_modulus(&self) -> Quantity<Stress>;
     /// Returns the shear modulus.
-    fn shear_modulus(&self) -> Scalar;
+    fn shear_modulus(&self) -> Quantity<Stress>;
     /// Calculates and returns the Jacobian.
-    fn jacobian<const I: usize, const J: usize>(
+    fn jacobian<I, J>(
         &self,
         deformation_gradient: &DeformationGradientGeneral<I, J>,
     ) -> Result<Scalar, ConstitutiveError> {

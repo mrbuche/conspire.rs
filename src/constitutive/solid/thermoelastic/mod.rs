@@ -1,13 +1,16 @@
 //! Thermoelastic solid constitutive models.
-
 #[cfg(test)]
 pub mod test;
+
+use super::*;
+use crate::{
+    math::Quantity,
+    units::{ReciprocalTemperature, Temperature},
+};
 
 mod almansi_hamel;
 
 pub use almansi_hamel::AlmansiHamel;
-
-use super::*;
 
 /// Required methods for thermoelastic solid constitutive models.
 pub trait Thermoelastic
@@ -22,7 +25,7 @@ where
     fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<CauchyStress, ConstitutiveError> {
         Ok(deformation_gradient
             * self.second_piola_kirchhoff_stress(deformation_gradient, temperature)?
@@ -37,7 +40,7 @@ where
     fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
         let cauchy_stress = self.cauchy_stress(deformation_gradient, temperature)?;
@@ -61,7 +64,7 @@ where
     fn first_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
         Ok(self.cauchy_stress(deformation_gradient, temperature)?
             * deformation_gradient.inverse_transpose()
@@ -75,7 +78,7 @@ where
     fn first_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
         let first_piola_kirchhoff_stress =
@@ -101,7 +104,7 @@ where
     fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         Ok(deformation_gradient.inverse()
             * self.cauchy_stress(deformation_gradient, temperature)?
@@ -116,7 +119,7 @@ where
     fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
-        temperature: Scalar,
+        temperature: Quantity<Temperature>,
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
         let deformation_gradient_inverse = deformation_gradient_inverse_transpose.transpose();
@@ -143,7 +146,7 @@ where
             ))
     }
     /// Returns the coefficient of thermal expansion.
-    fn coefficient_of_thermal_expansion(&self) -> Scalar;
+    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature>;
     /// Returns the reference temperature.
-    fn reference_temperature(&self) -> Scalar;
+    fn reference_temperature(&self) -> Quantity<Temperature>;
 }

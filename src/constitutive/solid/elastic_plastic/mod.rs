@@ -2,26 +2,33 @@
 
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic, solid::Solid},
-    math::{ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Rank2},
+    math::{
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
+    },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Scalar,
         SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
+    units::Time,
 };
 
 /// Possible applied loads.
 pub enum AppliedLoad<'a> {
     /// Uniaxial stress given $`F_{11}`$.
-    UniaxialStress(fn(Scalar) -> Scalar, &'a [Scalar]),
+    UniaxialStress(fn(Quantity<Time>) -> Scalar, &'a [Quantity<Time>]),
     /// Biaxial stress given $`F_{11}`$ and $`F_{22}`$.
-    BiaxialStress(fn(Scalar) -> Scalar, fn(Scalar) -> Scalar, &'a [Scalar]),
+    BiaxialStress(
+        fn(Quantity<Time>) -> Scalar,
+        fn(Quantity<Time>) -> Scalar,
+        &'a [Quantity<Time>],
+    ),
 }
 
-type Prescribed = Vec<(usize, fn(Scalar) -> Scalar)>;
+type Prescribed = Vec<(usize, fn(Quantity<Time>) -> Scalar)>;
 
 #[doc(hidden)]
-pub fn bcs(applied_load: AppliedLoad<'_>) -> (Matrix, Prescribed, &'_ [Scalar]) {
+pub fn bcs(applied_load: AppliedLoad<'_>) -> (Matrix, Prescribed, &'_ [Quantity<Time>]) {
     let (mut matrix, prescribed, time) = match applied_load {
         AppliedLoad::UniaxialStress(deformation_gradient_11, time) => {
             (Matrix::zero(4, 9), vec![(0, deformation_gradient_11)], time)

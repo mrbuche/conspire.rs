@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Jacobian, Scalar, Solution, Style, StyledError, styled_error};
+use crate::math::{
+    Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, styled_error,
+};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     ops::Mul,
@@ -150,20 +152,21 @@ impl LineSearch {
             }
         }
     }
-    pub fn backtrack<X, J>(
+    pub fn backtrack<X, J, D, W, E>(
         &self,
         mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
-        decrement: &X,
+        decrement: &D,
         step_size: Scalar,
     ) -> Result<Scalar, LineSearchError>
     where
-        J: Jacobian,
-        for<'a> &'a J: From<&'a X>,
+        J: Erase<Erased = E> + Jacobian,
+        D: Erase<Erased = E>,
+        E: Tensor,
         X: Solution,
-        for<'a> &'a X: Mul<Scalar, Output = X>,
+        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
     {
         if step_size <= 0.0 {
             return Err(LineSearchError::NegativeStepSize(
@@ -177,10 +180,11 @@ impl LineSearch {
         } else {
             return Err(LineSearchError::InvalidStartingPoint(format!("{self:?}")));
         };
-        let m = jacobian0.full_contraction(decrement.into());
+        let m = jacobian0.erase().full_contraction(decrement.erase());
         if m <= 0.0 {
             return Err(LineSearchError::NotDescentDirection(format!("{self:?}")));
         }
+        let trial = |n: Scalar| decrement * Quantity::new(-n) + argument;
         match self {
             Self::Armijo {
                 control,
@@ -190,7 +194,7 @@ impl LineSearch {
                 let mut f_n;
                 let t = control * m;
                 for _ in 0..*max_steps {
-                    f_n = function(&(decrement * -n + argument), n);
+                    f_n = function(&trial(n), n);
                     if let Ok(value) = f_n
                         && f - value >= n * t
                     {
@@ -209,7 +213,7 @@ impl LineSearch {
                 max_steps,
             } => {
                 for _ in 0..*max_steps {
-                    if function(&(decrement * -n + argument), n).is_ok() {
+                    if function(&trial(n), n).is_ok() {
                         return Ok(n);
                     } else {
                         n *= cut_back
@@ -230,7 +234,7 @@ impl LineSearch {
                 let u = (1.0 - control) * m;
                 let mut v;
                 for _ in 0..*max_steps {
-                    f_n = function(&(decrement * -n + argument), n);
+                    f_n = function(&trial(n), n);
                     if let Ok(value) = f_n {
                         v = f - value;
                         if n * u < v || v < n * t {
@@ -258,7 +262,7 @@ impl LineSearch {
                 let mut j_n;
                 let t_1 = control_1 * m;
                 let t_2 = control_2 * m;
-                let mut trial_argument = decrement * -n + argument;
+                let mut trial_argument = trial(n);
                 for _ in 0..*max_steps {
                     f_n = function(&trial_argument, n);
                     j_n = jacobian(&trial_argument);
@@ -266,15 +270,15 @@ impl LineSearch {
                         && let Ok(j_val) = j_n
                         && f - f_val >= n * t_1
                         && if *strong {
-                            j_val.full_contraction(decrement.into()).abs() < t_2.abs()
+                            j_val.erase().full_contraction(decrement.erase()).abs() < t_2.abs()
                         } else {
-                            j_val.full_contraction(decrement.into()) < t_2
+                            j_val.erase().full_contraction(decrement.erase()) < t_2
                         }
                     {
                         return Ok(n);
                     } else {
                         n *= cut_back;
-                        trial_argument = decrement * -n + argument
+                        trial_argument = trial(n)
                     }
                 }
                 Err(LineSearchError::MaximumStepsReached(

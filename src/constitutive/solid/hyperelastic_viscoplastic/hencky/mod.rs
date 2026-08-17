@@ -6,7 +6,10 @@ use crate::{
         ConstitutiveError,
         fluid::{
             plastic::Plastic,
-            viscoplastic::{Viscoplastic, ViscoplasticStateVariables, default_plastic_evolution},
+            viscoplastic::{
+                Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables,
+                default_plastic_evolution,
+            },
         },
         solid::{
             Solid, TWO_THIRDS,
@@ -14,63 +17,66 @@ use crate::{
             hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
-    math::{ContractThirdFourthWithFirstSecond, IDENTITY, Rank2, TensorArray},
-    mechanics::{
-        CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, Deformation,
-        DeformationGradient, DeformationGradientPlastic, MandelStressElastic, Scalar,
+    math::{
+        ContractThirdFourthWithFirstSecond, IDENTITY, Quantity, Rank2, TensorArray, TensorRank4,
     },
+    mechanics::{
+        CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient,
+        DeformationGradientPlastic, MandelStressElastic, Scalar,
+    },
+    units::{EnergyDensity, Rate, Stress},
 };
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct Hencky {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The initial yield stress $`Y_0`$.
-    pub yield_stress: Scalar,
+    pub yield_stress: Quantity<Stress>,
     /// The isotropic hardening slope $`H`$.
-    pub hardening_slope: Scalar,
+    pub hardening_slope: Quantity<Stress>,
     /// The rate sensitivity parameter $`m`$.
     pub rate_sensitivity: Scalar,
     /// The reference flow rate $`d_0`$.
-    pub reference_flow_rate: Scalar,
+    pub reference_flow_rate: Quantity<Rate>,
 }
 
 impl Solid for Hencky {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
 }
 
 impl Plastic for Hencky {
-    fn initial_yield_stress(&self) -> Scalar {
+    fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.yield_stress
     }
-    fn hardening_slope(&self) -> Scalar {
+    fn hardening_slope(&self) -> Quantity<Stress> {
         self.hardening_slope
     }
 }
 
-impl Viscoplastic<Scalar> for Hencky {
-    fn initial_state(&self) -> ViscoplasticStateVariables<Scalar> {
-        (DeformationGradientPlastic::identity(), 0.0).into()
+impl Viscoplastic<Quantity> for Hencky {
+    fn initial_state(&self) -> ViscoplasticStateVariables<Quantity> {
+        (DeformationGradientPlastic::identity(), Quantity::default()).into()
     }
     fn plastic_evolution(
         &self,
         mandel_stress: MandelStressElastic,
-        state_variables: &ViscoplasticStateVariables<Scalar>,
-    ) -> Result<ViscoplasticStateVariables<Scalar>, ConstitutiveError> {
+        state_variables: &ViscoplasticStateVariables<Quantity>,
+    ) -> Result<ViscoplasticEvolution<Quantity>, ConstitutiveError> {
         default_plastic_evolution(self, mandel_stress, state_variables)
     }
     fn rate_sensitivity(&self) -> Scalar {
         self.rate_sensitivity
     }
-    fn reference_flow_rate(&self) -> Scalar {
+    fn reference_flow_rate(&self) -> Quantity<Rate> {
         self.reference_flow_rate
     }
 }
@@ -108,16 +114,11 @@ impl ElasticPlasticOrViscoplastic for Hencky {
         Ok((left_cauchy_green_e
             .dlogm()?
             .contract_third_fourth_with_first_second(
-                &(CauchyTangentStiffnessElastic::dyad_il_jk(
-                    &scaled_deformation_gradient_e,
-                    &IDENTITY,
-                ) + CauchyTangentStiffnessElastic::dyad_ik_jl(
-                    &IDENTITY,
-                    &scaled_deformation_gradient_e,
-                )),
+                &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient_e, &IDENTITY)
+                    + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient_e)),
             ))
             * deformation_gradient_inverse_p.transpose()
-            + (CauchyTangentStiffness::dyad_ij_kl(
+            + (TensorRank4::dyad_ij_kl(
                 &(IDENTITY
                     * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)
                     - deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
@@ -127,15 +128,15 @@ impl ElasticPlasticOrViscoplastic for Hencky {
     }
 }
 
-impl ElasticViscoplastic<Scalar> for Hencky {}
+impl ElasticViscoplastic<Quantity> for Hencky {}
 
-impl HyperelasticViscoplastic<Scalar> for Hencky {
+impl HyperelasticViscoplastic<Quantity> for Hencky {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
         let strain_e = deformation_gradient_e.left_cauchy_green().logm()? * 0.5;

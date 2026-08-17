@@ -6,7 +6,7 @@ use crate::{
             Connectivity, Mesh, Tessellation, differential::laplace::Weighting, smooth::Smoothing,
         },
     },
-    math::TensorVec,
+    math::{Quantity, TensorVec},
 };
 use std::collections::HashMap;
 
@@ -15,7 +15,13 @@ fn distinct_positions(tessellation: &Tessellation) -> usize {
         .mesh()
         .coordinates()
         .into_iter()
-        .map(|point| [point[0].to_bits(), point[1].to_bits(), point[2].to_bits()])
+        .map(|point| {
+            [
+                point[0].value().to_bits(),
+                point[1].value().to_bits(),
+                point[2].value().to_bits(),
+            ]
+        })
         .collect::<std::collections::HashSet<_>>()
         .len()
 }
@@ -156,7 +162,7 @@ fn smoothing_preserves_topology_and_moves_vertices() {
     let nodes = tessellation.mesh().number_of_nodes();
     let elements = tessellation.mesh().number_of_elements();
     let before = tessellation.mesh().coordinates().clone();
-    tessellation.smooth(taubin());
+    tessellation.smooth(taubin()).unwrap();
     assert_eq!(tessellation.mesh().number_of_nodes(), nodes);
     assert_eq!(tessellation.mesh().number_of_elements(), elements);
     assert!(is_closed_manifold(&tessellation));
@@ -175,8 +181,8 @@ fn welded_smoothing_keeps_coincident_copies_together() {
     let coincident = distinct_positions(&welded);
     assert_eq!(welded.mesh().number_of_nodes(), 16);
     assert_eq!(coincident, 12);
-    welded.smooth_welded(taubin());
-    split.smooth(taubin());
+    welded.smooth_welded(taubin()).unwrap();
+    split.smooth(taubin()).unwrap();
     assert_eq!(distinct_positions(&welded), coincident);
     assert!(distinct_positions(&split) > coincident);
 }
@@ -197,17 +203,19 @@ fn welding_tolerance_merges_near_coincident_across_buckets() {
     let connectivity = Connectivity::Triangular(vec![[0, 1, 2], [3, 4, 5]].into());
     let mut tessellation = Tessellation::from(Mesh::from((vec![connectivity], coordinates)));
     assert_eq!(distinct_positions(&tessellation), 6);
-    tessellation.smooth_welded_with_tolerance(
-        Smoothing::Taubin {
-            iterations: 0,
-            pass_band: 0.1,
-            scale: 0.5,
-            weighting: Weighting::Uniform,
-            preserve_boundary: false,
-            preserve_interfaces: false,
-        },
-        0.01,
-    );
+    tessellation
+        .smooth_welded_with_tolerance(
+            Smoothing::Taubin {
+                iterations: 0,
+                pass_band: 0.1,
+                scale: 0.5,
+                weighting: Weighting::Uniform,
+                preserve_boundary: false,
+                preserve_interfaces: false,
+            },
+            Quantity::new(0.01),
+        )
+        .unwrap();
     assert_eq!(distinct_positions(&tessellation), 5);
 }
 

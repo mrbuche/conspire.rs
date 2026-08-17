@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod test;
+use crate::math::Quantity;
+use crate::math::{Current, Intermediate, Reference};
 
 use crate::{
     constitutive::{
@@ -15,8 +17,9 @@ use crate::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffness1, DeformationGradient,
         DeformationGradient2, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStress1,
         FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness,
-        FirstPiolaKirchhoffTangentStiffness2, Scalar, SecondPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness2, SecondPiolaKirchhoffStress,
     },
+    units::Stress,
 };
 
 impl<C1, C2> Solid for ElasticMultiplicative<C1, C2>
@@ -24,10 +27,10 @@ where
     C1: Elastic,
     C2: Elastic,
 {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         1.0 / (1.0 / self.0.bulk_modulus() + 1.0 / self.1.bulk_modulus())
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         1.0 / (1.0 / self.0.shear_modulus() + 1.0 / self.1.shear_modulus())
     }
 }
@@ -37,8 +40,9 @@ where
     C1: Elastic,
     C2: Elastic,
 {
-    type TangentVu = TensorRank4<3, 2, 0, 1, 0>;
-    type TangentUv = TensorRank4<3, 1, 0, 2, 0>;
+    type Residual = FirstPiolaKirchhoffStress2;
+    type TangentVu = TensorRank4<3, Intermediate, Reference, Current, Reference, Stress>;
+    type TangentUv = TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>;
     type TangentVv = FirstPiolaKirchhoffTangentStiffness2;
     /// Calculates and returns the Cauchy stress.
     ///
@@ -114,7 +118,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
-    ) -> Result<DeformationGradient2, ConstitutiveError> {
+    ) -> Result<FirstPiolaKirchhoffStress2, ConstitutiveError> {
         let deformation_gradient_2_inverse = deformation_gradient_2.inverse();
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
         Ok(FirstPiolaKirchhoffStress2::from(
@@ -148,8 +152,8 @@ where
     ) -> Result<
         (
             FirstPiolaKirchhoffTangentStiffness,
-            TensorRank4<3, 2, 0, 1, 0>,
-            TensorRank4<3, 1, 0, 2, 0>,
+            TensorRank4<3, Intermediate, Reference, Current, Reference, Stress>,
+            TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>,
             FirstPiolaKirchhoffTangentStiffness2,
         ),
         ConstitutiveError,
@@ -182,8 +186,7 @@ where
             );
         Ok((tangent_0, tangent_1, tangent_2, tangent_3))
     }
-    /// The strict upper triangle of the second deformation gradient, which keeps it
-    /// lower triangular and thereby fixes the rotational freedom of the split.
+    /// The second deformation gradient is lower triangular to fix rotational freedom.
     fn internal_variables_fixed(&self) -> &[usize] {
         &[1, 2, 5]
     }

@@ -1,7 +1,10 @@
 pub(crate) mod list;
 pub(crate) mod vec;
 
-use crate::math::{Jacobian, Solution, Tensor, TensorRank0, TensorRank2, Vector};
+use crate::math::{
+    Differentiate, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank2, Vector,
+};
+use crate::units::UnitHalves;
 use std::{
     fmt::{Display, Formatter, Result},
     iter::Sum,
@@ -14,6 +17,76 @@ pub struct TensorTuple<T1, T2>(pub T1, pub T2)
 where
     T1: Tensor,
     T2: Tensor;
+
+type First<V> = <V as UnitHalves>::First;
+type Second<V> = <V as UnitHalves>::Second;
+
+impl<T1, T2, V> Mul<Quantity<V>> for TensorTuple<T1, T2>
+where
+    V: UnitHalves,
+    T1: Mul<Quantity<First<V>>> + Tensor,
+    T2: Mul<Quantity<Second<V>>> + Tensor,
+    <T1 as Mul<Quantity<First<V>>>>::Output: Tensor,
+    <T2 as Mul<Quantity<Second<V>>>>::Output: Tensor,
+{
+    type Output = TensorTuple<
+        <T1 as Mul<Quantity<First<V>>>>::Output,
+        <T2 as Mul<Quantity<Second<V>>>>::Output,
+    >;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        let (first, second) = quantity.halves();
+        TensorTuple(self.0 * first, self.1 * second)
+    }
+}
+
+impl<T1, T2, V> Mul<Quantity<V>> for &TensorTuple<T1, T2>
+where
+    V: UnitHalves,
+    T1: Clone + Mul<Quantity<First<V>>> + Tensor,
+    T2: Clone + Mul<Quantity<Second<V>>> + Tensor,
+    <T1 as Mul<Quantity<First<V>>>>::Output: Tensor,
+    <T2 as Mul<Quantity<Second<V>>>>::Output: Tensor,
+{
+    type Output = TensorTuple<
+        <T1 as Mul<Quantity<First<V>>>>::Output,
+        <T2 as Mul<Quantity<Second<V>>>>::Output,
+    >;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        let (first, second) = quantity.halves();
+        TensorTuple(self.0.clone() * first, self.1.clone() * second)
+    }
+}
+
+impl<T1, T2, V> Div<Quantity<V>> for TensorTuple<T1, T2>
+where
+    V: UnitHalves,
+    T1: Div<Quantity<First<V>>> + Tensor,
+    T2: Div<Quantity<Second<V>>> + Tensor,
+    <T1 as Div<Quantity<First<V>>>>::Output: Tensor,
+    <T2 as Div<Quantity<Second<V>>>>::Output: Tensor,
+{
+    type Output = TensorTuple<
+        <T1 as Div<Quantity<First<V>>>>::Output,
+        <T2 as Div<Quantity<Second<V>>>>::Output,
+    >;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        let (first, second) = quantity.halves();
+        TensorTuple(self.0 / first, self.1 / second)
+    }
+}
+
+impl<T1, T2> Erase for TensorTuple<T1, T2>
+where
+    T1: Erase + Tensor,
+    T2: Erase + Tensor,
+    <T1 as Erase>::Erased: Tensor,
+    <T2 as Erase>::Erased: Tensor,
+{
+    type Erased = TensorTuple<<T1 as Erase>::Erased, <T2 as Erase>::Erased>;
+    fn erase(&self) -> &Self::Erased {
+        unsafe { &*(self as *const Self as *const Self::Erased) }
+    }
+}
 
 impl<T1, T2> Default for TensorTuple<T1, T2>
 where
@@ -81,6 +154,7 @@ where
     T2: Tensor,
 {
     type Item = T1::Item;
+    type Unit = (<T1 as Tensor>::Unit, <T2 as Tensor>::Unit);
     fn full_contraction(&self, tensor_tuple: &Self) -> TensorRank0 {
         self.0.full_contraction(&tensor_tuple.0) + self.1.full_contraction(&tensor_tuple.1)
     }
@@ -101,11 +175,11 @@ where
     fn len(&self) -> usize {
         unimplemented!()
     }
-    fn norm_inf(&self) -> TensorRank0 {
-        self.0.norm_inf().max(self.1.norm_inf())
+    fn norm_inf(&self) -> Quantity<Self::Unit> {
+        Quantity::new(self.0.norm_inf().value().max(self.1.norm_inf().value()))
     }
-    fn norm_l1(&self) -> TensorRank0 {
-        self.0.norm_l1() + self.1.norm_l1()
+    fn norm_l1(&self) -> Quantity<Self::Unit> {
+        Quantity::new(self.0.norm_l1().value() + self.1.norm_l1().value())
     }
     fn norm_p_sum(&self, p: TensorRank0) -> TensorRank0 {
         self.0.norm_p_sum(p) + self.1.norm_p_sum(p)
@@ -115,8 +189,8 @@ where
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Jacobian
-    for TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>
+impl<const D: usize, I, J, K, L, U> Jacobian
+    for TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, U>>
 {
     fn fill_into(&self, vector: &mut Vector) {
         self.0
@@ -124,21 +198,22 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
             .flat_map(|entry| entry.iter())
             .chain(self.1.iter().flat_map(|entry| entry.iter()))
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = *self_i)
+            .for_each(|(self_i, vector_i)| *vector_i = self_i.value())
     }
     fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
         self.0
             .into_iter()
             .flatten()
             .chain(self.1.into_iter().flatten())
+            .map(|entry| entry.value())
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Solution
-    for TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>
+impl<const D: usize, I, J, K, L, U> Solution
+    for TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, U>>
 {
     fn decrement_from(&mut self, other: &Vector) {
         self.0
@@ -146,15 +221,19 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
             .flat_map(|x| x.iter_mut())
             .chain(self.1.iter_mut().flat_map(|x| x.iter_mut()))
             .zip(other.iter())
-            .for_each(|(self_i, vector_i)| *self_i -= vector_i)
+            .for_each(|(self_i, vector_i)| *self_i -= Quantity::new(*vector_i))
     }
     fn decrement_from_chained(&mut self, other: &mut Vector, vector: &Vector) {
+        let mut values = vector.iter();
         self.0
             .iter_mut()
             .flat_map(|x| x.iter_mut())
             .chain(self.1.iter_mut().flat_map(|x| x.iter_mut()))
-            .chain(other.iter_mut())
-            .zip(vector.iter())
+            .zip(values.by_ref())
+            .for_each(|(entry_i, vector_i)| *entry_i -= Quantity::new(*vector_i));
+        other
+            .iter_mut()
+            .zip(values)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
 }
@@ -389,8 +468,8 @@ where
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Sub<Vector>
-    for TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>
+impl<const D: usize, I, J, K, L, U> Sub<Vector>
+    for TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, U>>
 {
     type Output = Self;
     fn sub(mut self, vector: Vector) -> Self::Output {
@@ -400,8 +479,8 @@ impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: us
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize, const K: usize, const L: usize> Sub<&Vector>
-    for TensorTuple<TensorRank2<D, I, J>, TensorRank2<D, K, L>>
+impl<const D: usize, I, J, K, L, U> Sub<&Vector>
+    for TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, U>>
 {
     type Output = Self;
     fn sub(mut self, vector: &Vector) -> Self::Output {
@@ -422,4 +501,15 @@ where
     fn div(self, _tensor_tuple: TensorTuple<T0, T1>) -> Self::Output {
         unimplemented!()
     }
+}
+
+impl<T1, T2, T> Differentiate<T> for TensorTuple<T1, T2>
+where
+    T1: Differentiate<T> + Tensor,
+    T2: Differentiate<T> + Tensor,
+    <T1 as Differentiate<T>>::Derivative: Tensor,
+    <T2 as Differentiate<T>>::Derivative: Tensor,
+{
+    type Derivative =
+        TensorTuple<<T1 as Differentiate<T>>::Derivative, <T2 as Differentiate<T>>::Derivative>;
 }

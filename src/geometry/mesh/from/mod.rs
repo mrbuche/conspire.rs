@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+mod lattice;
 mod ntree;
 mod pixels;
 mod segmentation;

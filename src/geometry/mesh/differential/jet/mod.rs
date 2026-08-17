@@ -2,8 +2,9 @@
 mod test;
 
 use crate::{
-    geometry::{Coordinate, Coordinates},
-    math::{CrossProduct, FxHashSet, Scalar, SquareMatrix, Tensor, Vector},
+    geometry::{Coordinate, Coordinates, Direction},
+    math::{CrossProduct, FxHashSet, Quantity, SquareMatrix, Tensor, TensorRank1Vec, Vector},
+    units::{Area, ReciprocalLength},
 };
 
 const D: usize = 3;
@@ -12,12 +13,12 @@ const N: usize = 3;
 pub(crate) struct Jet {
     // Off until anisotropic remesh: the fitted surface normal, part of the
     // (u, v, n) curvature frame the per-vertex metric will need.
-    // pub normal: Coordinate<D>,
-    pub principal_curvatures: [Scalar; 2],
+    // pub normal: Direction<D>,
+    pub principal_curvatures: [Quantity<ReciprocalLength>; 2],
 }
 
 impl Jet {
-    pub(crate) fn max_abs_curvature(&self) -> Scalar {
+    pub(crate) fn max_abs_curvature(&self) -> Quantity<ReciprocalLength> {
         self.principal_curvatures[0]
             .abs()
             .max(self.principal_curvatures[1].abs())
@@ -27,16 +28,16 @@ impl Jet {
 pub(crate) fn fit_jet(
     center: &Coordinate<D>,
     neighbors: &Coordinates<D>,
-    normal_guess: &Coordinate<D>,
+    normal_guess: &Direction<D>,
 ) -> Option<Jet> {
     if neighbors.len() < 5 {
         return None;
     }
-    let w = normal_guess.clone().normalized();
+    let w = normal_guess.clone();
     let reference = if w[0].abs() < 0.9 {
-        Coordinate::const_from([1.0, 0.0, 0.0])
+        Direction::const_from([1.0, 0.0, 0.0])
     } else {
-        Coordinate::const_from([0.0, 1.0, 0.0])
+        Direction::const_from([0.0, 1.0, 0.0])
     };
     let u = w.cross(reference).normalized();
     let v = w.cross(&u);
@@ -44,7 +45,11 @@ pub(crate) fn fit_jet(
     let mut rhs = Vector::zero(5);
     for neighbor in neighbors {
         let delta = neighbor - center;
-        let (a, b, height) = (&delta * &u, &delta * &v, &delta * &w);
+        let (a, b, height) = (
+            (&delta * &u).value(),
+            (&delta * &v).value(),
+            (&delta * &w).value(),
+        );
         let basis = [a, b, a * a, a * b, b * b];
         for i in 0..5 {
             for j in 0..5 {
@@ -67,7 +72,7 @@ pub(crate) fn fit_jet(
     // let normal = (&(&w - &(&u * h_u)) - &(&v * h_v)).normalized();
     Some(Jet {
         // normal,
-        principal_curvatures: [mean + spread, mean - spread],
+        principal_curvatures: [Quantity::new(mean + spread), Quantity::new(mean - spread)],
     })
 }
 
@@ -77,7 +82,7 @@ pub(crate) fn vertex_jets(
 ) -> Vec<Option<Jet>> {
     let count = coordinates.len();
     let mut neighbors = vec![FxHashSet::default(); count];
-    let mut normals = Coordinates::zero(count);
+    let mut normals = TensorRank1Vec::<D, _, Area>::zero(count);
     for &[a, b, c] in connectivity {
         for (i, j) in [(a, b), (b, c), (c, a)] {
             neighbors[i].insert(j);
@@ -96,7 +101,11 @@ pub(crate) fn vertex_jets(
                 .for_each(|&w| ring.extend(&neighbors[w]));
             ring.remove(&vertex);
             let points = ring.iter().map(|&w| coordinates[w].clone()).collect();
-            fit_jet(&coordinates[vertex], &points, &normals[vertex])
+            fit_jet(
+                &coordinates[vertex],
+                &points,
+                &normals[vertex].clone().normalized(),
+            )
         })
         .collect()
 }

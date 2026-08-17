@@ -1,10 +1,8 @@
-use crate::math::{TensorArray, TensorRank0, TensorRank0List};
-
+use crate::math::{Quantity, TensorRank0};
+use crate::units::Time;
+use std::array::from_fn;
 pub const LENGTH: usize = 33;
 
-pub fn zero_to_one<const W: usize>() -> [TensorRank0; W] {
-    (0..W)
-        .map(|i| (i as TensorRank0) / ((W - 1) as TensorRank0))
-        .collect::<TensorRank0List<W>>()
-        .as_array()
+pub fn zero_to_one<const W: usize>() -> [Quantity<Time>; W] {
+    from_fn(|i| Quantity::new((i as TensorRank0) / ((W - 1) as TensorRank0)))
 }

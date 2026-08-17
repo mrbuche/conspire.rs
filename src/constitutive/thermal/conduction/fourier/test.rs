@@ -21,7 +21,7 @@ fn thermal_conductivity() -> Result<(), crate::math::assert::AssertionError> {
     model
         .heat_flux(&get_temperature_gradient())?
         .iter()
-        .zip((get_temperature_gradient() / -model.thermal_conductivity()).iter())
+        .zip((get_temperature_gradient() * -model.thermal_conductivity()).iter())
         .try_for_each(|(heat_flux_i, entry_i)| Assert::eq(heat_flux_i, entry_i))
 }
 

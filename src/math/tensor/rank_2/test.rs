@@ -3,6 +3,7 @@ use super::{
     TensorRank2List2D, TensorRank4,
 };
 use crate::math::assert::Assert;
+use crate::math::{Auxiliary, Current, Intermediate, Reference};
 use crate::{ABS_TOL, REL_TOL, math::assert::AssertionError};
 
 fn get_array_dim_2() -> [[TensorRank0; 2]; 2] {
@@ -36,43 +37,43 @@ fn get_array_dim_9() -> [[TensorRank0; 9]; 9] {
     ]
 }
 
-fn get_tensor_rank_1_a() -> TensorRank1<4, 1> {
+fn get_tensor_rank_1_a() -> TensorRank1<4, Current> {
     TensorRank1::from([1.0, 2.0, 3.0, 4.0])
 }
 
-fn get_tensor_rank_1_b() -> TensorRank1<4, 1> {
+fn get_tensor_rank_1_b() -> TensorRank1<4, Current> {
     TensorRank1::from([5.0, 7.0, 6.0, 8.0])
 }
 
-fn get_tensor_rank_2_dim_2() -> TensorRank2<2, 1, 1> {
+fn get_tensor_rank_2_dim_2() -> TensorRank2<2, Current, Current> {
     TensorRank2::from(get_array_dim_2())
 }
 
-fn get_tensor_rank_2<const I: usize, const J: usize>() -> TensorRank2<3, I, J> {
+fn get_tensor_rank_2<I, J>() -> TensorRank2<3, I, J> {
     TensorRank2::from(get_array_dim_3())
 }
 
-fn get_tensor_rank_2_dim_3() -> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_2_dim_3() -> TensorRank2<3, Current, Current> {
     TensorRank2::from(get_array_dim_3())
 }
 
-fn get_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
+fn get_tensor_rank_2_dim_4() -> TensorRank2<4, Current, Current> {
     TensorRank2::from(get_array_dim_4())
 }
 
-fn get_tensor_rank_2_dim_9() -> TensorRank2<9, 1, 1> {
+fn get_tensor_rank_2_dim_9() -> TensorRank2<9, Current, Current> {
     TensorRank2::from(get_array_dim_9())
 }
 
-fn get_other_tensor_rank_2_dim_2() -> TensorRank2<2, 1, 1> {
+fn get_other_tensor_rank_2_dim_2() -> TensorRank2<2, Current, Current> {
     TensorRank2::from([[5.0, 6.0], [7.0, 8.0]])
 }
 
-fn get_other_tensor_rank_2_dim_3() -> TensorRank2<3, 1, 1> {
+fn get_other_tensor_rank_2_dim_3() -> TensorRank2<3, Current, Current> {
     TensorRank2::from([[3.0, 2.0, 3.0], [6.0, 5.0, 2.0], [4.0, 5.0, 0.0]])
 }
 
-fn get_other_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
+fn get_other_tensor_rank_2_dim_4() -> TensorRank2<4, Current, Current> {
     TensorRank2::from([
         [3.0, 2.0, 3.0, 5.0],
         [6.0, 5.0, 2.0, 4.0],
@@ -81,7 +82,7 @@ fn get_other_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
     ])
 }
 
-fn get_diagonal_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
+fn get_diagonal_tensor_rank_2_dim_4() -> TensorRank2<4, Current, Current> {
     TensorRank2::from([
         [3.0, 0.0, 0.0, 0.0],
         [0.0, 5.0, 0.0, 0.0],
@@ -90,7 +91,7 @@ fn get_diagonal_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
     ])
 }
 
-fn get_other_tensor_rank_2_dim_9() -> TensorRank2<9, 1, 1> {
+fn get_other_tensor_rank_2_dim_9() -> TensorRank2<9, Current, Current> {
     TensorRank2::from([
         [0.0, 4.0, 2.0, 0.0, 1.0, 4.0, 2.0, 4.0, 1.0],
         [1.0, 2.0, 2.0, 1.0, 0.0, 3.0, 0.0, 2.0, 0.0],
@@ -104,11 +105,11 @@ fn get_other_tensor_rank_2_dim_9() -> TensorRank2<9, 1, 1> {
     ])
 }
 
-fn get_other_tensor_rank_2_mul_tensor_rank_1_dim_4() -> TensorRank1<4, 1> {
+fn get_other_tensor_rank_2_mul_tensor_rank_1_dim_4() -> TensorRank1<4, Current> {
     TensorRank1::from([51.0, 14.0, 22.0, 27.0])
 }
 
-fn get_other_tensor_rank_2_add_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
+fn get_other_tensor_rank_2_add_tensor_rank_2_dim_4() -> TensorRank2<4, Current, Current> {
     TensorRank2::from([
         [4.0, 6.0, 9.0, 11.0],
         [7.0, 10.0, 3.0, 4.0],
@@ -117,7 +118,7 @@ fn get_other_tensor_rank_2_add_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
     ])
 }
 
-fn get_other_tensor_rank_2_sub_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
+fn get_other_tensor_rank_2_sub_tensor_rank_2_dim_4() -> TensorRank2<4, Current, Current> {
     TensorRank2::from([
         [-2.0, 2.0, 3.0, 1.0],
         [-5.0, 0.0, -1.0, -4.0],
@@ -126,7 +127,7 @@ fn get_other_tensor_rank_2_sub_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
     ])
 }
 
-fn get_other_tensor_rank_2_mul_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
+fn get_other_tensor_rank_2_mul_tensor_rank_2_dim_4() -> TensorRank2<4, Current, Current> {
     TensorRank2::from([
         [75.0, 76.0, 17.0, 81.0],
         [37.0, 32.0, 13.0, 29.0],
@@ -135,7 +136,7 @@ fn get_other_tensor_rank_2_mul_tensor_rank_2_dim_4() -> TensorRank2<4, 1, 1> {
     ])
 }
 
-fn get_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
+fn get_tensor_rank_1_list() -> TensorRank1List<3, Current, 8> {
     TensorRank1List::from([
         [5.0, 0.0, 0.0],
         [5.0, 5.0, 6.0],
@@ -148,7 +149,7 @@ fn get_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
     ])
 }
 
-fn get_tensor_rank_2_list_2d() -> TensorRank2List2D<3, 1, 1, 2, 2> {
+fn get_tensor_rank_2_list_2d() -> TensorRank2List2D<3, Current, Current, 2, 2> {
     TensorRank2List2D::from([
         [
             [[1.0, 4.0, 6.0], [7.0, 2.0, 5.0], [9.0, 8.0, 3.0]],
@@ -161,7 +162,7 @@ fn get_tensor_rank_2_list_2d() -> TensorRank2List2D<3, 1, 1, 2, 2> {
     ])
 }
 
-fn get_tensor_rank_2_mul_tensor_rank_2_list_2d() -> TensorRank2List2D<3, 1, 1, 2, 2> {
+fn get_tensor_rank_2_mul_tensor_rank_2_list_2d() -> TensorRank2List2D<3, Current, Current, 2, 2> {
     TensorRank2List2D::from([
         [
             [[83.0, 60.0, 44.0], [66.0, 72.0, 67.0], [92.0, 76.0, 103.0]],
@@ -174,7 +175,7 @@ fn get_tensor_rank_2_mul_tensor_rank_2_list_2d() -> TensorRank2List2D<3, 1, 1, 2
     ])
 }
 
-fn get_tensor_rank_4() -> TensorRank4<3, 1, 1, 2, 3> {
+fn get_tensor_rank_4() -> TensorRank4<3, Current, Current, Intermediate, Auxiliary> {
     TensorRank4::from([
         [
             [[7.0, 3.0, 7.0], [3.0, 2.0, 7.0], [9.0, 8.0, 4.0]],
@@ -194,7 +195,7 @@ fn get_tensor_rank_4() -> TensorRank4<3, 1, 1, 2, 3> {
     ])
 }
 
-fn get_tensor_rank_2_div_tensor_rank_4() -> TensorRank2<3, 2, 3> {
+fn get_tensor_rank_2_div_tensor_rank_4() -> TensorRank2<3, Intermediate, Auxiliary> {
     TensorRank2::from([
         [-0.8591023283605275, 0.5463144610682097, 0.48148464803521684],
         [0.14461826142457423, 2.8819091589827597, 0.3555608669979796],
@@ -285,7 +286,12 @@ fn div_tensor_rank_0_to_self() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -298,7 +304,12 @@ fn div_tensor_rank_0_to_self_ref() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -312,7 +323,12 @@ fn div_tensor_rank_0_ref_to_self() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -326,7 +342,12 @@ fn div_tensor_rank_0_ref_to_self_ref() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -341,7 +362,12 @@ fn div_assign_tensor_rank_0() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -356,7 +382,12 @@ fn div_assign_tensor_rank_0_ref() -> Result<(), AssertionError> {
         .zip(get_array_dim_4().iter())
         .try_for_each(|(tensor_rank_2_i, array_i)| {
             tensor_rank_2_i.iter().zip(array_i.iter()).try_for_each(
-                |(tensor_rank_2_ij, array_ij)| Assert::eq(tensor_rank_2_ij, &(array_ij / 3.3)),
+                |(tensor_rank_2_ij, array_ij)| {
+                    Assert::eq(
+                        tensor_rank_2_ij,
+                        &crate::math::Quantity::new(array_ij / 3.3),
+                    )
+                },
             )
         })?;
     Ok(())
@@ -370,7 +401,7 @@ fn deviatoric_dim_2() -> Result<(), AssertionError> {
     Assert::zero(&deviatoric_tensor_rank_2.trace())?;
     Assert::eq(
         &deviatoric_tensor_rank_2,
-        &(tensor_rank_2 - TensorRank2::identity() * (trace / 2.0)),
+        &(tensor_rank_2 - TensorRank2::identity() * (trace.value() / 2.0)),
     )
 }
 
@@ -382,7 +413,7 @@ fn deviatoric_dim_3() -> Result<(), AssertionError> {
     Assert::zero(&deviatoric_tensor_rank_2.trace())?;
     Assert::eq(
         &deviatoric_tensor_rank_2,
-        &(tensor_rank_2 - TensorRank2::identity() * (trace / 3.0)),
+        &(tensor_rank_2 - TensorRank2::identity() * (trace.value() / 3.0)),
     )
 }
 
@@ -394,7 +425,7 @@ fn deviatoric_dim_4() -> Result<(), AssertionError> {
     Assert::zero(&deviatoric_tensor_rank_2.trace())?;
     Assert::eq(
         &deviatoric_tensor_rank_2,
-        &(tensor_rank_2 - TensorRank2::identity() * (trace / 4.0)),
+        &(tensor_rank_2 - TensorRank2::identity() * (trace.value() / 4.0)),
     )
 }
 
@@ -406,7 +437,7 @@ fn deviatoric_dim_9() -> Result<(), AssertionError> {
     Assert::default().zero_within_tols(&deviatoric_tensor_rank_2.trace())?;
     Assert::eq(
         &deviatoric_tensor_rank_2,
-        &(tensor_rank_2 - TensorRank2::identity() * (trace / 9.0)),
+        &(tensor_rank_2 - TensorRank2::identity() * (trace.value() / 9.0)),
     )
 }
 
@@ -453,7 +484,7 @@ fn error() {
 #[test]
 fn from_iter() {
     let into_iterator = get_tensor_rank_2_dim_4().0.into_iter();
-    let tensor_rank_2 = TensorRank2::<4, 1, 1>::from_iter(get_tensor_rank_2_dim_4().0);
+    let tensor_rank_2 = TensorRank2::<4, Current, Current>::from_iter(get_tensor_rank_2_dim_4().0);
     tensor_rank_2
         .iter()
         .zip(into_iterator)
@@ -467,38 +498,43 @@ fn from_iter() {
 
 #[test]
 fn from_0_0_for_1_0() -> Result<(), AssertionError> {
-    let tensor: TensorRank2<3, 1, 0> = get_tensor_rank_2::<0, 0>().into();
-    Assert::eq(get_tensor_rank_2::<1, 0>(), &tensor)
+    let tensor: TensorRank2<3, Current, Reference> =
+        get_tensor_rank_2::<Reference, Reference>().into();
+    Assert::eq(get_tensor_rank_2::<Current, Reference>(), &tensor)
 }
 
 #[test]
 fn from_0_0_for_1_1() -> Result<(), AssertionError> {
-    let tensor: TensorRank2<3, 1, 1> = get_tensor_rank_2::<0, 0>().into();
-    Assert::eq(get_tensor_rank_2::<1, 1>(), &tensor)
+    let tensor: TensorRank2<3, Current, Current> =
+        get_tensor_rank_2::<Reference, Reference>().into();
+    Assert::eq(get_tensor_rank_2::<Current, Current>(), &tensor)
 }
 
 #[test]
 fn from_0_1_for_0_0() -> Result<(), AssertionError> {
-    let tensor: TensorRank2<3, 0, 0> = get_tensor_rank_2::<0, 1>().into();
-    Assert::eq(get_tensor_rank_2::<0, 0>(), &tensor)
+    let tensor: TensorRank2<3, Reference, Reference> =
+        get_tensor_rank_2::<Reference, Current>().into();
+    Assert::eq(get_tensor_rank_2::<Reference, Reference>(), &tensor)
 }
 
 #[test]
 fn from_1_0_for_0_0() -> Result<(), AssertionError> {
-    let tensor: TensorRank2<3, 0, 0> = get_tensor_rank_2::<1, 0>().into();
-    Assert::eq(get_tensor_rank_2::<0, 0>(), &tensor)
+    let tensor: TensorRank2<3, Reference, Reference> =
+        get_tensor_rank_2::<Current, Reference>().into();
+    Assert::eq(get_tensor_rank_2::<Reference, Reference>(), &tensor)
 }
 
 #[test]
 fn from_1_1_for_1_0() -> Result<(), AssertionError> {
-    let tensor: TensorRank2<3, 1, 0> = get_tensor_rank_2::<1, 1>().into();
-    Assert::eq(get_tensor_rank_2::<1, 0>(), &tensor)
+    let tensor: TensorRank2<3, Current, Reference> = get_tensor_rank_2::<Current, Current>().into();
+    Assert::eq(get_tensor_rank_2::<Current, Reference>(), &tensor)
 }
 
 #[test]
 fn from_1_2_for_1_0() -> Result<(), AssertionError> {
-    let tensor: TensorRank2<3, 1, 0> = get_tensor_rank_2::<1, 2>().into();
-    Assert::eq(get_tensor_rank_2::<1, 0>(), &tensor)
+    let tensor: TensorRank2<3, Current, Reference> =
+        get_tensor_rank_2::<Current, Intermediate>().into();
+    Assert::eq(get_tensor_rank_2::<Current, Reference>(), &tensor)
 }
 
 #[test]
@@ -535,7 +571,7 @@ fn full_contraction_dim_9() -> Result<(), AssertionError> {
 
 #[test]
 fn identity() {
-    TensorRank2::<9, 1, 1>::identity()
+    TensorRank2::<9, Current, Current>::identity()
         .iter()
         .enumerate()
         .for_each(|(i, tensor_rank_2_i)| {
@@ -564,27 +600,27 @@ fn is_not_diagonal() {
 
 #[test]
 fn is_diagonal_identity() {
-    assert!(TensorRank2::<3, 0, 0>::identity().is_diagonal())
+    assert!(TensorRank2::<3, Reference, Reference>::identity().is_diagonal())
 }
 
 #[test]
 fn is_diagonal_zero() {
-    assert!(TensorRank2::<4, 1, 1>::zero().is_diagonal())
+    assert!(TensorRank2::<4, Current, Current>::zero().is_diagonal())
 }
 
 #[test]
 fn is_identity_dim_3() {
-    assert!(TensorRank2::<3, 0, 0>::identity().is_identity())
+    assert!(TensorRank2::<3, Reference, Reference>::identity().is_identity())
 }
 
 #[test]
 fn is_not_identity_dim_3() {
-    assert!(!TensorRank2::<3, 0, 0>::zero().is_identity())
+    assert!(!TensorRank2::<3, Reference, Reference>::zero().is_identity())
 }
 
 #[test]
 fn is_identity_dim_4() {
-    assert!(TensorRank2::<4, 1, 1>::identity().is_identity())
+    assert!(TensorRank2::<4, Current, Current>::identity().is_identity())
 }
 
 #[test]
@@ -594,17 +630,17 @@ fn is_not_identity_dim_4() {
 
 #[test]
 fn is_zero_dim_3() {
-    assert!(TensorRank2::<3, 0, 0>::zero().is_zero())
+    assert!(TensorRank2::<3, Reference, Reference>::zero().is_zero())
 }
 
 #[test]
 fn is_not_zero_dim_3() {
-    assert!(!TensorRank2::<3, 0, 0>::identity().is_zero())
+    assert!(!TensorRank2::<3, Reference, Reference>::identity().is_zero())
 }
 
 #[test]
 fn is_zero_dim_4() {
-    assert!(TensorRank2::<4, 1, 1>::zero().is_zero())
+    assert!(TensorRank2::<4, Current, Current>::zero().is_zero())
 }
 
 #[test]
@@ -967,29 +1003,41 @@ fn from() {
 
 #[test]
 fn norm_dim_2() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_2().norm(), &5.477_225_575_051_661)
+    Assert::eq(
+        get_tensor_rank_2_dim_2().norm(),
+        &crate::math::Quantity::new(5.477_225_575_051_661),
+    )
 }
 
 #[test]
 fn norm_dim_3() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_3().norm(), &16.881_943_016_134_134)
+    Assert::eq(
+        get_tensor_rank_2_dim_3().norm(),
+        &crate::math::Quantity::new(16.881_943_016_134_134),
+    )
 }
 
 #[test]
 fn norm_dim_4() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_4().norm(), &14.282_856_857_085_7)
+    Assert::eq(
+        get_tensor_rank_2_dim_4().norm(),
+        &crate::math::Quantity::new(14.282_856_857_085_7),
+    )
 }
 
 #[test]
 fn norm_dim_9() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_9().norm(), &20.736_441_353_327_72)
+    Assert::eq(
+        get_tensor_rank_2_dim_9().norm(),
+        &crate::math::Quantity::new(20.736_441_353_327_72),
+    )
 }
 
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank2::<3, 1, 1>>(),
-        std::mem::size_of::<[TensorRank1::<3, 1>; 3]>()
+        std::mem::size_of::<TensorRank2::<3, Current, Current>>(),
+        std::mem::size_of::<[TensorRank1::<3, Current>; 3]>()
     )
 }
 
@@ -1000,22 +1048,34 @@ fn second_invariant() {
 
 #[test]
 fn squared_trace_dim_2() -> Result<(), AssertionError> {
-    Assert::default().eq_within_tols(get_tensor_rank_2_dim_2().squared_trace(), &29.0)
+    Assert::default().eq_within_tols(
+        get_tensor_rank_2_dim_2().squared_trace(),
+        &crate::math::Quantity::new(29.0),
+    )
 }
 
 #[test]
 fn squared_trace_dim_3() -> Result<(), AssertionError> {
-    Assert::default().eq_within_tols(get_tensor_rank_2_dim_3().squared_trace(), &258.0)
+    Assert::default().eq_within_tols(
+        get_tensor_rank_2_dim_3().squared_trace(),
+        &crate::math::Quantity::new(258.0),
+    )
 }
 
 #[test]
 fn squared_trace_dim_4() -> Result<(), AssertionError> {
-    Assert::default().eq_within_tols(get_tensor_rank_2_dim_4().squared_trace(), &89.0)
+    Assert::default().eq_within_tols(
+        get_tensor_rank_2_dim_4().squared_trace(),
+        &crate::math::Quantity::new(89.0),
+    )
 }
 
 #[test]
 fn squared_trace_dim_9() -> Result<(), AssertionError> {
-    Assert::default().eq_within_tols(get_tensor_rank_2_dim_9().squared_trace(), &308.0)
+    Assert::default().eq_within_tols(
+        get_tensor_rank_2_dim_9().squared_trace(),
+        &crate::math::Quantity::new(308.0),
+    )
 }
 
 #[test]
@@ -1084,22 +1144,34 @@ fn sub_assign_tensor_rank_2_ref() {
 
 #[test]
 fn trace_dim_2() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_2().trace(), &5.0)
+    Assert::eq(
+        get_tensor_rank_2_dim_2().trace(),
+        &crate::math::Quantity::new(5.0),
+    )
 }
 
 #[test]
 fn trace_dim_3() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_3().trace(), &6.0)
+    Assert::eq(
+        get_tensor_rank_2_dim_3().trace(),
+        &crate::math::Quantity::new(6.0),
+    )
 }
 
 #[test]
 fn trace_dim_4() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_4().trace(), &11.0)
+    Assert::eq(
+        get_tensor_rank_2_dim_4().trace(),
+        &crate::math::Quantity::new(11.0),
+    )
 }
 
 #[test]
 fn trace_dim_9() -> Result<(), AssertionError> {
-    Assert::eq(get_tensor_rank_2_dim_9().trace(), &14.0)
+    Assert::eq(
+        get_tensor_rank_2_dim_9().trace(),
+        &crate::math::Quantity::new(14.0),
+    )
 }
 
 #[test]
@@ -1131,7 +1203,7 @@ fn transpose() {
 
 #[test]
 fn zero_dim_2() {
-    TensorRank2::<2, 1, 1>::zero()
+    TensorRank2::<2, Current, Current>::zero()
         .iter()
         .for_each(|tensor_rank_2_i| {
             tensor_rank_2_i
@@ -1142,7 +1214,7 @@ fn zero_dim_2() {
 
 #[test]
 fn zero_dim_3() {
-    TensorRank2::<3, 1, 1>::zero()
+    TensorRank2::<3, Current, Current>::zero()
         .iter()
         .for_each(|tensor_rank_2_i| {
             tensor_rank_2_i
@@ -1153,7 +1225,7 @@ fn zero_dim_3() {
 
 #[test]
 fn zero_dim_4() {
-    TensorRank2::<4, 1, 1>::zero()
+    TensorRank2::<4, Current, Current>::zero()
         .iter()
         .for_each(|tensor_rank_2_i| {
             tensor_rank_2_i
@@ -1164,7 +1236,7 @@ fn zero_dim_4() {
 
 #[test]
 fn zero_dim_9() {
-    TensorRank2::<9, 1, 1>::zero()
+    TensorRank2::<9, Current, Current>::zero()
         .iter()
         .for_each(|tensor_rank_2_i| {
             tensor_rank_2_i
@@ -1177,7 +1249,7 @@ fn zero_dim_9() {
 fn retain_from_filters_entries() {
     use super::super::{Jacobian, Vector};
     let retained = [true, false, true, false, true, true, false, true, false];
-    let tensor = TensorRank2::<3, 1, 1>::from(get_array_dim_3());
+    let tensor = TensorRank2::<3, Current, Current>::from(get_array_dim_3());
     let vector = Jacobian::retain_from(tensor, &retained);
     let full = Vector::from(get_array_dim_3().as_flattened());
     let kept: Vec<usize> = (0..9).filter(|&index| retained[index]).collect();
@@ -1191,7 +1263,7 @@ fn retain_from_filters_entries() {
 fn decrement_from_retained_skips_fixed_entries() {
     use super::super::{Solution, Vector};
     let retained = [true, false, true, false, true, true, false, true, false];
-    let mut tensor = TensorRank2::<3, 1, 1>::from(get_array_dim_3());
+    let mut tensor = TensorRank2::<3, Current, Current>::from(get_array_dim_3());
     let decrement = Vector::from([1.0, 2.0, 3.0, 4.0, 5.0]);
     tensor.decrement_from_retained(&retained, &decrement);
     let full = get_array_dim_3();
@@ -1212,7 +1284,7 @@ fn decrement_from_retained_skips_fixed_entries() {
 #[test]
 fn quadratic_form_matches_dense() {
     use super::super::{Hessian, SquareMatrix, Vector};
-    let tensor = TensorRank2::<3, 1, 1>::from(get_array_dim_3());
+    let tensor = TensorRank2::<3, Current, Current>::from(get_array_dim_3());
     let vector = Vector::from([1.0, -2.0, 3.0]);
     let form = tensor.quadratic_form(&vector);
     let mut dense = SquareMatrix::zero(3);

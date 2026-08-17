@@ -4,10 +4,10 @@ mod test;
 use super::{
     super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
     BacktrackingLineSearch, EqualityConstraint, FirstOrderOptimization, LineSearch,
-    OptimizationError, ZerothOrderRootFinding,
+    OptimizationError, StepSize, Tolerances, ZerothOrderRootFinding,
 };
-use crate::ABS_TOL;
-use crate::math::Norm;
+use crate::math::{Erase, Is, Norm};
+use crate::units::{UnitDiv, UnitMul, UnitSum};
 use std::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
@@ -19,8 +19,8 @@ const INITIAL_STEP_SIZE: Scalar = 1e-2;
 
 /// The method of gradient descent.
 pub struct GradientDescent {
-    /// Absolute error tolerance.
-    pub abs_tol: Scalar,
+    /// Absolute error tolerances.
+    pub abs_tol: Tolerances,
     /// Lagrangian dual.
     pub dual: bool,
     /// Norm type for error evaluation.
@@ -52,7 +52,7 @@ impl Debug for GradientDescent {
 impl Default for GradientDescent {
     fn default() -> Self {
         Self {
-            abs_tol: ABS_TOL,
+            abs_tol: Tolerances::default(),
             dual: false,
             error_norm: Norm::Chebyshev,
             line_search: LineSearch::None,
@@ -62,15 +62,18 @@ impl Default for GradientDescent {
     }
 }
 
-impl<X> ZerothOrderRootFinding<X> for GradientDescent
+impl<F, X, E> ZerothOrderRootFinding<F, X> for GradientDescent
 where
-    X: Jacobian + Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
+    X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
+    E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn root(
         &self,
-        function: impl FnMut(&X) -> Result<X, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError> {
@@ -112,22 +115,31 @@ where
     }
 }
 
-impl<X> FirstOrderOptimization<Scalar, X> for GradientDescent
+impl<F, J, X, E> FirstOrderOptimization<F, J, X> for GradientDescent
 where
-    X: Jacobian + Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    F: Erase<Erased = Scalar> + Tensor,
+    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
+    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
+    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
+        Is<<F as Tensor>::Unit>,
+    J: Erase<Erased = E> + Jacobian + Mul<StepSize<J, X>, Output = X>,
+    for<'a> &'a J: Mul<StepSize<J, X>, Output = X>,
+    X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<J as Tensor>::Unit>,
+    E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
         &self,
-        function: impl FnMut(&X) -> Result<Scalar, String>,
-        jacobian: impl FnMut(&X) -> Result<X, String>,
+        mut function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError> {
+        let objective = move |argument: &X| function(argument).map(|value| *value.erase());
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => {
-                constrained_fixed(self, function, jacobian, initial_guess, indices)
+                constrained_fixed(self, objective, jacobian, initial_guess, indices)
             }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {
@@ -149,22 +161,25 @@ where
                 }
             }
             EqualityConstraint::None => {
-                unconstrained(self, function, jacobian, initial_guess, None)
+                unconstrained(self, objective, jacobian, initial_guess, None)
             }
         }
     }
 }
 
-fn unconstrained<X>(
+fn unconstrained<F, X, E>(
     gradient_descent: &GradientDescent,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
-    mut jacobian: impl FnMut(&X) -> Result<X, String>,
+    mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     linear_equality_constraint: Option<(&Matrix, &Vector)>,
 ) -> Result<X, OptimizationError>
 where
-    X: Jacobian + Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
+    X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
+    E: Tensor,
 {
     let constraint = if let Some((constraint_matrix, multipliers)) = linear_equality_constraint {
         Some(multipliers * constraint_matrix)
@@ -172,7 +187,7 @@ where
         None
     };
     let mut residual;
-    let mut residual_change = initial_guess.clone() * 0.0;
+    let mut residual_change = None;
     let mut solution = initial_guess.clone();
     let mut solution_change = solution.clone();
     let mut step_size = INITIAL_STEP_SIZE;
@@ -184,7 +199,7 @@ where
         } else {
             jacobian(&solution)?
         };
-        if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol {
+        if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol.residual() {
             return Ok(solution);
         } else if steps == gradient_descent.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -194,13 +209,14 @@ where
         } else {
             steps += 1;
             solution_change -= &solution;
-            residual_change -= &residual;
-            step_trial =
-                residual_change.full_contraction(&solution_change) / residual_change.norm_squared();
+            let change = residual_change.get_or_insert_with(|| zeroed(&residual));
+            *change -= &residual;
+            step_trial = change.erase().full_contraction(solution_change.erase())
+                / change.erase().full_contraction(change.erase());
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
-            step_size = gradient_descent.backtracking_line_search(
+            step_size = gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
@@ -208,27 +224,30 @@ where
                 &residual,
                 step_size,
             )?;
-            residual_change = residual.clone();
+            *change = residual.clone();
             solution_change = solution.clone();
-            solution -= residual * step_size;
+            solution -= residual * StepSize::<F, X>::new(step_size);
         }
     }
 }
 
-fn constrained_fixed<X>(
+fn constrained_fixed<F, X, E>(
     gradient_descent: &GradientDescent,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
-    mut jacobian: impl FnMut(&X) -> Result<X, String>,
+    mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
-    X: Jacobian + Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
+    X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
+    E: Tensor,
 {
     let mut relative_scale = 0.0;
-    let mut residual: X;
-    let mut residual_change = initial_guess.clone() * 0.0;
+    let mut residual: F;
+    let mut residual_change = None;
     let mut residual_norm;
     let mut solution = initial_guess.clone();
     let mut solution_change = solution.clone();
@@ -238,11 +257,11 @@ where
     loop {
         residual = jacobian(&solution)?;
         residual.zero_out(&indices);
-        residual_norm = gradient_descent.error_norm.apply(&residual);
+        residual_norm = gradient_descent.error_norm.measure(&residual);
         if gradient_descent.rel_tol.is_some() && steps == 0 {
-            relative_scale = gradient_descent.error_norm.apply(&residual)
+            relative_scale = gradient_descent.error_norm.measure(&residual)
         }
-        if residual_norm < gradient_descent.abs_tol {
+        if residual_norm < gradient_descent.abs_tol.residual {
             return Ok(solution);
         } else if let Some(rel_tol) = gradient_descent.rel_tol
             && residual_norm / relative_scale < rel_tol
@@ -256,13 +275,14 @@ where
         } else {
             steps += 1;
             solution_change -= &solution;
-            residual_change -= &residual;
-            step_trial =
-                residual_change.full_contraction(&solution_change) / residual_change.norm_squared();
+            let change = residual_change.get_or_insert_with(|| zeroed(&residual));
+            *change -= &residual;
+            step_trial = change.erase().full_contraction(solution_change.erase())
+                / change.erase().full_contraction(change.erase());
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
-            step_size = gradient_descent.backtracking_line_search(
+            step_size = gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
@@ -270,29 +290,32 @@ where
                 &residual,
                 step_size,
             )?;
-            residual_change = residual.clone();
+            *change = residual.clone();
             solution_change = solution.clone();
-            solution -= residual * step_size;
+            solution -= residual * StepSize::<F, X>::new(step_size);
         }
     }
 }
 
-fn constrained<X>(
+fn constrained<F, X, E>(
     gradient_descent: &GradientDescent,
-    mut jacobian: impl FnMut(&X) -> Result<X, String>,
+    mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
-    X: Jacobian,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    X: Erase<Erased = E> + Jacobian,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
+    E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     if !matches!(gradient_descent.line_search, LineSearch::None) {
         panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let mut residual_solution;
-    let mut residual_solution_change = initial_guess.clone() * 0.0;
+    let mut residual_solution_change = None;
     let mut solution = initial_guess.clone();
     let mut solution_change = solution.clone();
     let mut step_size_solution = INITIAL_STEP_SIZE;
@@ -309,8 +332,10 @@ where
     loop {
         residual_solution = jacobian(&solution)? - &multipliers * &constraint_matrix;
         residual_multipliers = &constraint_rhs - &constraint_matrix * &solution;
-        if gradient_descent.error_norm.apply(&residual_solution) < gradient_descent.abs_tol
-            && gradient_descent.error_norm.apply(&residual_multipliers) < gradient_descent.abs_tol
+        if gradient_descent.error_norm.apply(&residual_solution)
+            < gradient_descent.abs_tol.residual()
+            && gradient_descent.error_norm.apply(&residual_multipliers)
+                < gradient_descent.abs_tol.constraint()
         {
             return Ok(solution);
         } else if steps == gradient_descent.max_steps {
@@ -321,41 +346,45 @@ where
         } else {
             steps += 1;
             solution_change -= &solution;
-            residual_solution_change -= &residual_solution;
-            step_trial_solution = residual_solution_change.full_contraction(&solution_change)
-                / residual_solution_change.norm_squared();
+            let change = residual_solution_change.get_or_insert_with(|| zeroed(&residual_solution));
+            *change -= &residual_solution;
+            step_trial_solution = change.erase().full_contraction(solution_change.erase())
+                / change.erase().full_contraction(change.erase());
             if step_trial_solution.abs() > 0.0 && !step_trial_solution.is_nan() {
                 step_size_solution = step_trial_solution.abs()
             }
-            residual_solution_change = residual_solution.clone();
+            *change = residual_solution.clone();
             solution_change = solution.clone();
             multipliers_change -= &multipliers;
             residual_multipliers_change -= &residual_multipliers;
             step_trial_multipliers = residual_multipliers_change
                 .full_contraction(&multipliers_change)
-                / residual_multipliers_change.norm_squared();
+                / residual_multipliers_change.full_contraction(&residual_multipliers_change);
             if step_trial_multipliers.abs() > 0.0 && !step_trial_multipliers.is_nan() {
                 step_size_multipliers = step_trial_multipliers.abs()
             }
             residual_multipliers_change = residual_multipliers.clone();
             multipliers_change = multipliers.clone();
             step_size = step_size_solution.min(step_size_multipliers);
-            solution -= residual_solution * step_size;
+            solution -= residual_solution * StepSize::<F, X>::new(step_size);
             multipliers += residual_multipliers * step_size;
         }
     }
 }
 
-fn constrained_dual<X>(
+fn constrained_dual<F, X, E>(
     gradient_descent: &GradientDescent,
-    mut jacobian: impl FnMut(&X) -> Result<X, String>,
+    mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
-    X: Jacobian + Solution,
-    for<'a> &'a X: Mul<Scalar, Output = X>,
+    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
+    X: Erase<Erased = E> + Jacobian + Solution,
+    <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
+    E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     if !matches!(gradient_descent.line_search, LineSearch::None) {
@@ -381,13 +410,14 @@ where
         ) {
             solution = result;
             residual = &constraint_rhs - &constraint_matrix * &solution;
-            if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol {
+            if gradient_descent.error_norm.apply(&residual) < gradient_descent.abs_tol.constraint()
+            {
                 return Ok(solution);
             } else {
                 multipliers_change -= &multipliers;
                 residual_change -= &residual;
                 step_trial = residual_change.full_contraction(&multipliers_change)
-                    / residual_change.norm_squared();
+                    / residual_change.full_contraction(&residual_change);
                 if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                     step_size = step_trial.abs()
                 }
@@ -407,4 +437,14 @@ where
         gradient_descent.max_steps,
         format!("{gradient_descent:?}"),
     ))
+}
+
+/// A zeroed copy, to start the difference the step size is estimated from.
+fn zeroed<F>(residual: &F) -> F
+where
+    F: Tensor,
+{
+    let mut zero = residual.clone();
+    zero *= 0.0;
+    zero
 }

@@ -1,4 +1,4 @@
-//! Input/output library.
+//! File input and output.
 
 mod deflate;
 #[cfg(feature = "netcdf")]

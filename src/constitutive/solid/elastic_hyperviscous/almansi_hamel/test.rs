@@ -5,9 +5,7 @@ use crate::math::assert::Assert;
 use crate::{
     math::Tensor,
     mechanics::{
-        CauchyTangentStiffness, FirstPiolaKirchhoffRateTangentStiffness,
-        FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffRateTangentStiffness,
-        SecondPiolaKirchhoffTangentStiffness,
+        FirstPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffRateTangentStiffness,
     },
 };
 

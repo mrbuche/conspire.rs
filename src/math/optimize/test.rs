@@ -1,18 +1,20 @@
 use super::{
-    super::{Scalar, Tensor, assert::AssertionError, special},
+    super::{Erase, Scalar, Tensor, assert::AssertionError, special},
     OptimizationError,
 };
 
 pub fn rosenbrock<T>(x: &T) -> Result<Scalar, String>
 where
-    T: Tensor<Item = Scalar>,
+    T: Tensor,
+    T::Item: Copy + Erase<Erased = Scalar>,
 {
     Ok(special::rosenbrock(x, 1.0, 100.0))
 }
 
 pub fn rosenbrock_derivative<T>(x: &T) -> Result<T, String>
 where
-    T: FromIterator<Scalar> + Tensor<Item = Scalar>,
+    T: FromIterator<Scalar> + Tensor,
+    T::Item: Copy + Erase<Erased = Scalar>,
 {
     Ok(special::rosenbrock_derivative(x, 1.0, 100.0))
 }
