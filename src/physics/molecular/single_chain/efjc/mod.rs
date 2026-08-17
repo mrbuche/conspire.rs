@@ -45,7 +45,7 @@ impl ExtensibleFreelyJointedChain {
     fn nondimensional_link_stiffness(&self) -> Scalar {
         ((self.link_stiffness() * (self.link_length() * self.link_length()))
             / (BOLTZMANN_CONSTANT * self.temperature()))
-        .into()
+        .value()
     }
 }
 

@@ -165,9 +165,9 @@ impl Tessellation {
                                 Split::Cut(cut_cell) => {
                                     let mut polygons = cut_cell.polygons;
                                     orient_outward(&mut polygons, cut_cell.clipped, &coordinates);
-                                    let fraction: Scalar = (signed_volume(&polygons, &coordinates)
+                                    let fraction = (signed_volume(&polygons, &coordinates)
                                         / signed_volume(&faces, &coordinates))
-                                    .into();
+                                    .value();
                                     emit(polygons, fraction, scale)
                                 }
                             }

@@ -178,12 +178,6 @@ impl<U> PartialOrd for Quantity<U> {
     }
 }
 
-impl<U> From<Quantity<U>> for TensorRank0 {
-    fn from(quantity: Quantity<U>) -> Self {
-        quantity.0
-    }
-}
-
 impl<U> Neg for Quantity<U> {
     type Output = Self;
     fn neg(self) -> Self::Output {

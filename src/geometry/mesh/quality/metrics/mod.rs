@@ -247,7 +247,7 @@ fn maximum_edge_ratio<const D: usize, const E: usize>(
         longest = longest.max(length);
     }
     if shortest > Quantity::default() {
-        (longest / shortest).into()
+        (longest / shortest).value()
     } else {
         Scalar::INFINITY
     }
