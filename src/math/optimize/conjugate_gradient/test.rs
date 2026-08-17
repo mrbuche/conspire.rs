@@ -110,6 +110,45 @@ mod minimize {
             &TensorRank1::<2, Current>::identity(),
         )
     }
+    /// Hestenes-Stiefel divides by the previous direction against the change in
+    /// the gradient, which is the very quantity the curvature condition holds
+    /// away from zero. It converges only once the line search enforces one.
+    #[test]
+    fn rosenbrock_2d_hestenes_stiefel_needs_curvature() -> Result<(), AssertionError> {
+        let solver = |line_search| ConjugateGradient {
+            conjugacy: Conjugacy::HestenesStiefel,
+            line_search,
+            max_steps: 2500,
+            ..Default::default()
+        };
+        let start = TensorRank1::<2, Current>::from([-1.0, 1.0]);
+        assert!(
+            solver(LineSearch::None)
+                .minimize(
+                    rosenbrock,
+                    rosenbrock_derivative,
+                    start.clone(),
+                    EqualityConstraint::None
+                )
+                .is_err()
+        );
+        ASSERT.eq_within_tols(
+            &solver(LineSearch::Wolfe {
+                control_1: 1e-4,
+                control_2: 9e-1,
+                cut_back: 5e-1,
+                max_steps: 100,
+                strong: true,
+            })
+            .minimize(
+                rosenbrock,
+                rosenbrock_derivative,
+                start,
+                EqualityConstraint::None,
+            )?,
+            &TensorRank1::<2, Current>::identity(),
+        )
+    }
     /// Fletcher-Reeves has no clamp to restart it, so it stalls where
     /// Polak-Ribière recovers.
     #[test]

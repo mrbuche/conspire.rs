@@ -70,6 +70,10 @@ impl Conjugacy {
 /// leans on where it slips. That is why [`Conjugacy::PolakRibiere`] is the
 /// default: it is the only one of the three whose formula can turn negative, so
 /// it is the only one the clamp ever restarts.
+///
+/// [`LineSearch::Wolfe`] is what puts the curvature back, and the other two
+/// formulas need it. [`Conjugacy::HestenesStiefel`] divides by the quantity the
+/// curvature condition holds away from zero and does not converge without one.
 pub struct ConjugateGradient {
     /// Absolute error tolerances.
     pub abs_tol: Tolerances,
