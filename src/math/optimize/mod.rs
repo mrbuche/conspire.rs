@@ -15,7 +15,7 @@ mod trust_region;
 pub use conjugate_gradient::{Conjugacy, ConjugateGradient};
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
-pub use krylov::{Krylov, KrylovError, Preconditioner};
+pub use krylov::{Krylov, KrylovError, KrylovMethod, Preconditioner};
 pub use line_search::{LineSearch, LineSearchError};
 pub use linear::LinearSolver;
 pub use newton_raphson::NewtonRaphson;
@@ -215,6 +215,7 @@ where
 pub enum OptimizationError {
     Indefinite(String, String),
     Intermediate(String),
+    Unavailable(String, String),
     MaximumStepsReached(usize, String),
     NotMinimum(String, String),
     Upstream(String, String),
@@ -237,6 +238,11 @@ impl StyledError for OptimizationError {
                 In solver: {solver}."
             ),
             Self::Intermediate(message) => message.to_string(),
+            Self::Unavailable(what, solver) => format!(
+                "{h}An iterative linear solve is not available here.{c}\n\
+                It has not been given a way to apply: {what}.\n\
+                In solver: {solver}."
+            ),
             Self::MaximumStepsReached(steps, solver) => format!(
                 "{h}Maximum number of steps ({steps}) reached.{c}\n\
                 In solver: {solver}."

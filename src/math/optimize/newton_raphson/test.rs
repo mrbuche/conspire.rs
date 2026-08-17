@@ -206,7 +206,7 @@ mod krylov {
     use super::*;
     use crate::math::{
         SquareMatrix, Vector,
-        optimize::{Krylov, Preconditioner},
+        optimize::{Krylov, KrylovMethod, Preconditioner},
         sparse::SparseSolver,
     };
 
@@ -277,20 +277,38 @@ mod krylov {
         )
     }
 
+    fn constraint() -> EqualityConstraint {
+        let mut matrix = crate::math::Matrix::zero(1, 2);
+        matrix[0][0] = 1.0;
+        EqualityConstraint::Linear(matrix, Vector::from([1.0]))
+    }
+
     /// The system a linear equality constraint makes is symmetric indefinite by
     /// construction, which is not something conjugate gradients can descend.
     #[test]
-    fn linear_constraint_is_refused() {
-        use crate::math::Matrix;
-        let mut matrix = Matrix::zero(1, 2);
-        matrix[0][0] = 1.0;
-        assert!(
-            solved(
-                krylov(Preconditioner::Jacobi),
-                EqualityConstraint::Linear(matrix, Vector::from([1.0])),
-            )
-            .is_err()
-        )
+    fn linear_constraint_is_refused_by_conjugate_gradients() {
+        assert!(solved(krylov(Preconditioner::Jacobi), constraint()).is_err())
+    }
+
+    /// The minimal residual method asks only for symmetry, so the very system
+    /// conjugate gradients refuses is one it solves.
+    #[test]
+    fn linear_constraint_agrees_with_dense_under_minres() -> Result<(), AssertionError> {
+        let expected = solved(LinearSolver::Dense, constraint())?;
+        for preconditioner in [Preconditioner::Jacobi, Preconditioner::None] {
+            Assert::default().eq_within_tols(
+                &solved(
+                    LinearSolver::Krylov(Krylov {
+                        method: KrylovMethod::Minres,
+                        preconditioner,
+                        ..Default::default()
+                    }),
+                    constraint(),
+                )?,
+                &expected,
+            )?
+        }
+        Ok(())
     }
 }
 

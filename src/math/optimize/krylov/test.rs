@@ -1,4 +1,4 @@
-use super::{Krylov, KrylovError, Preconditioner};
+use super::{Krylov, KrylovError, KrylovMethod, Preconditioner};
 use crate::math::{
     Hessian, SquareMatrix, Vector,
     assert::{Assert, AssertionError},
@@ -12,6 +12,28 @@ fn krylov(preconditioner: Preconditioner) -> Krylov {
         rel_tol: 1e-15,
         ..Default::default()
     }
+}
+
+fn minres(preconditioner: Preconditioner) -> Krylov {
+    Krylov {
+        method: KrylovMethod::Minres,
+        preconditioner,
+        rel_tol: 1e-15,
+        ..Default::default()
+    }
+}
+
+/// Symmetric, and indefinite: the leading block is positive and the trailing one
+/// negative, which is the shape a constraint gives a system.
+fn indefinite() -> SquareMatrix {
+    let mut matrix = SquareMatrix::zero(3);
+    matrix[0][0] = 2.0;
+    matrix[1][1] = 3.0;
+    matrix[0][2] = 1.0;
+    matrix[2][0] = 1.0;
+    matrix[1][2] = 1.0;
+    matrix[2][1] = 1.0;
+    matrix
 }
 
 /// Positive definite, and coupled off the diagonal.
@@ -55,7 +77,7 @@ fn ones(size: usize) -> Vector {
 fn matches_the_direct_solve() -> Result<(), AssertionError> {
     for preconditioner in [Preconditioner::Jacobi, Preconditioner::None] {
         Assert::default().eq_within_tols(
-            &krylov(preconditioner).conjugate_gradients(&coupled(), &right_hand_side())?,
+            &krylov(preconditioner).solve(&coupled(), &right_hand_side())?,
             &direct(&coupled(), &right_hand_side()),
         )?
     }
@@ -72,8 +94,9 @@ fn jacobi_needs_one_iteration_where_nothing_needs_many() {
             max_steps,
             preconditioner,
             rel_tol: 1e-12,
+            ..Default::default()
         }
-        .conjugate_gradients(&spread(24), &ones(24))
+        .solve(&spread(24), &ones(24))
         .is_ok()
     };
     assert!(converges(Preconditioner::Jacobi, 1));
@@ -90,7 +113,7 @@ fn indefinite_is_refused() {
     matrix[1][1] = -1.0;
     assert!(matches!(
         krylov(Preconditioner::None)
-            .conjugate_gradients(&matrix, &Vector::from([1.0, 1.0]))
+            .solve(&matrix, &Vector::from([1.0, 1.0]))
             .unwrap_err(),
         KrylovError::NotPositiveDefinite(..)
     ))
@@ -98,9 +121,8 @@ fn indefinite_is_refused() {
 
 #[test]
 fn zero_right_hand_side_is_already_solved() -> Result<(), AssertionError> {
-    Assert::default().zero_within_tols(
-        &krylov(Preconditioner::Jacobi).conjugate_gradients(&coupled(), &Vector::zero(3))?,
-    )
+    Assert::default()
+        .zero_within_tols(&krylov(Preconditioner::Jacobi).solve(&coupled(), &Vector::zero(3))?)
 }
 
 /// How far it got is reported, and that need not be anywhere nearer than where
@@ -115,11 +137,9 @@ fn too_few_iterations_reports_how_far_it_got() {
         max_steps: 2,
         preconditioner: Preconditioner::None,
         rel_tol: 1e-12,
+        ..Default::default()
     };
-    match krylov
-        .conjugate_gradients(&spread(24), &ones(24))
-        .unwrap_err()
-    {
+    match krylov.solve(&spread(24), &ones(24)).unwrap_err() {
         KrylovError::MaximumStepsReached(steps, relative) => {
             assert_eq!(steps, 2);
             assert!(relative.is_finite() && relative > 0.0)
@@ -137,12 +157,7 @@ fn retained_matches_the_restricted_direct_solve() -> Result<(), AssertionError> 
     let reduced = coupled().retain_from(&retained);
     let right_hand_side = Vector::from([1.0, 3.0]);
     Assert::default().eq_within_tols(
-        &krylov(Preconditioner::Jacobi).conjugate_gradients_retained(
-            &coupled(),
-            &unmap,
-            3,
-            &right_hand_side,
-        )?,
+        &krylov(Preconditioner::Jacobi).solve_retained(&coupled(), &unmap, 3, &right_hand_side)?,
         &direct(&reduced, &right_hand_side),
     )
 }
@@ -157,12 +172,7 @@ fn retained_ignores_what_was_struck_out() -> Result<(), AssertionError> {
     matrix[0][1] = 5.0;
     matrix[1][0] = 5.0;
     Assert::default().eq_within_tols(
-        &krylov(Preconditioner::None).conjugate_gradients_retained(
-            &matrix,
-            &[0],
-            2,
-            &Vector::from([4.0]),
-        )?,
+        &krylov(Preconditioner::None).solve_retained(&matrix, &[0], 2, &Vector::from([4.0]))?,
         &Vector::from([2.0]),
     )
 }
@@ -172,4 +182,117 @@ fn display() {
     let _ = format!("{}", KrylovError::NotPositiveDefinite(-1.0));
     let _ = format!("{}", KrylovError::MaximumStepsReached(1, 0.5));
     let _ = format!("{:?}", Krylov::default());
+}
+
+/// The minimal residual method asks only for symmetry, so it reaches the same
+/// answer conjugate gradients does where both apply, and an answer where only it
+/// does.
+mod minimal_residual {
+    use super::*;
+
+    #[test]
+    fn matches_the_direct_solve_on_a_definite_system() -> Result<(), AssertionError> {
+        for preconditioner in [Preconditioner::Jacobi, Preconditioner::None] {
+            Assert::default().eq_within_tols(
+                &minres(preconditioner).solve(&coupled(), &right_hand_side())?,
+                &direct(&coupled(), &right_hand_side()),
+            )?
+        }
+        Ok(())
+    }
+
+    /// The system with a zero on its diagonal is what a constraint row looks
+    /// like, and is the one the preconditioner has to leave alone rather than
+    /// divide by.
+    #[test]
+    fn matches_the_direct_solve_on_an_indefinite_system() -> Result<(), AssertionError> {
+        for preconditioner in [Preconditioner::Jacobi, Preconditioner::None] {
+            Assert::default().eq_within_tols(
+                &minres(preconditioner).solve(&indefinite(), &right_hand_side())?,
+                &direct(&indefinite(), &right_hand_side()),
+            )?
+        }
+        Ok(())
+    }
+
+    /// The same system, told apart by which walk was asked for.
+    #[test]
+    fn succeeds_where_conjugate_gradients_refuses() {
+        assert!(
+            krylov(Preconditioner::None)
+                .solve(&indefinite(), &right_hand_side())
+                .is_err()
+        );
+        assert!(
+            minres(Preconditioner::None)
+                .solve(&indefinite(), &right_hand_side())
+                .is_ok()
+        )
+    }
+
+    #[test]
+    fn zero_right_hand_side_is_already_solved() -> Result<(), AssertionError> {
+        Assert::default().zero_within_tols(
+            &minres(Preconditioner::Jacobi).solve(&indefinite(), &Vector::zero(3))?,
+        )
+    }
+
+    #[test]
+    fn retained_matches_the_restricted_direct_solve() -> Result<(), AssertionError> {
+        let retained = [true, false, true];
+        let unmap: Vec<usize> = (0..3).filter(|&i| retained[i]).collect();
+        let reduced = indefinite().retain_from(&retained);
+        let right_hand_side = Vector::from([1.0, 3.0]);
+        Assert::default().eq_within_tols(
+            &minres(Preconditioner::Jacobi).solve_retained(
+                &indefinite(),
+                &unmap,
+                3,
+                &right_hand_side,
+            )?,
+            &direct(&reduced, &right_hand_side),
+        )
+    }
+
+    /// Small systems leave the rotation bookkeeping too little to do to be
+    /// wrong in, so this is a larger one, symmetric and indefinite, built the
+    /// same way every run.
+    #[test]
+    fn matches_the_direct_solve_on_a_larger_indefinite_system() -> Result<(), AssertionError> {
+        let size = 30;
+        let mut state = 12345_u64;
+        let mut next = || {
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            ((state >> 33) as f64 / (1_u64 << 31) as f64) - 1.0
+        };
+        let mut matrix = SquareMatrix::zero(size);
+        (0..size).for_each(|i| {
+            (i..size).for_each(|j| {
+                let entry = next();
+                matrix[i][j] = entry;
+                matrix[j][i] = entry
+            })
+        });
+        let right_hand_side: Vector = (0..size).map(|_| next()).collect();
+        Assert::default().eq_within_tols(
+            &minres(Preconditioner::Jacobi).solve(&matrix, &right_hand_side)?,
+            &direct(&matrix, &right_hand_side),
+        )
+    }
+
+    #[test]
+    fn too_few_iterations_reports_how_far_it_got() {
+        let krylov = Krylov {
+            max_steps: 1,
+            method: KrylovMethod::Minres,
+            preconditioner: Preconditioner::None,
+            rel_tol: 1e-12,
+        };
+        assert!(matches!(
+            krylov.solve(&spread(24), &ones(24)).unwrap_err(),
+            KrylovError::MaximumStepsReached(1, _)
+        ))
+    }
 }

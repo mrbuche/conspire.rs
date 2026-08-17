@@ -7,9 +7,10 @@ use super::{
         Solution, SquareMatrix, Tensor, Vector, sparse::CscMatrix,
     },
     EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
-    FirstOrderRootFindingIncremental, LineSearch, LineSearchError, LineSearcher, LinearSolver,
-    OptimizationError, SecondOrderOptimization, SecondOrderOptimizationBlock,
-    SecondOrderOptimizationIncremental, SolveStrategy, Tolerances, TrustRegion,
+    FirstOrderRootFindingIncremental, Krylov, KrylovMethod, LineSearch, LineSearchError,
+    LineSearcher, LinearSolver, OptimizationError, Preconditioner, SecondOrderOptimization,
+    SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental, SolveStrategy, Tolerances,
+    TrustRegion,
 };
 use crate::math::Norm;
 use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
@@ -619,6 +620,40 @@ fn limit_decrement(newton_raphson: &NewtonRaphson, decrements: &mut [(&mut Vecto
     }
 }
 
+/// The diagonal of a constrained system, to divide the residual through by.
+///
+/// The block the multipliers occupy is empty, so there is nothing there to
+/// divide by and those rows are left as they stand. What that leaves is a
+/// preconditioner for the variables alone, which is the half of the system that
+/// has a scale to speak of.
+fn kkt_diagonal<H>(
+    krylov: &Krylov,
+    tangent: &H,
+    num_variables: usize,
+    num_total: usize,
+) -> Option<Vector>
+where
+    H: Hessian,
+{
+    match krylov.preconditioner {
+        Preconditioner::Jacobi => Some(
+            (0..num_total)
+                .map(|i| {
+                    if i < num_variables {
+                        match tangent.entry(i, i).abs() {
+                            0.0 => 1.0,
+                            entry => entry,
+                        }
+                    } else {
+                        1.0
+                    }
+                })
+                .collect(),
+        ),
+        Preconditioner::None => None,
+    }
+}
+
 fn kkt_block<K>(
     tangent: &K,
     constraint_matrix: &CscMatrix,
@@ -749,8 +784,8 @@ where
         SolveStrategy::Monolithic { .. } => None,
     };
     if let LinearSolver::Krylov(_) = &linear_solver {
-        return Err(OptimizationError::Indefinite(
-            "variables split into blocks".to_string(),
+        return Err(OptimizationError::Unavailable(
+            "the four tangent blocks and the two constraints between them".to_string(),
             format!("{newton_raphson:?}"),
         ));
     }
@@ -1132,7 +1167,7 @@ where
                 LinearSolver::Krylov(krylov) => {
                     let hess = hessian(&solution)?;
                     residual.fill_into(&mut flattened);
-                    X::from(krylov.conjugate_gradients(&hess, &flattened)?)
+                    X::from(krylov.solve(&hess, &flattened)?)
                 }
                 LinearSolver::Sparse(solver) => {
                     let hess = hessian(&solution)?;
@@ -1219,12 +1254,7 @@ where
                 }
                 LinearSolver::Krylov(krylov) => {
                     let hess = hessian(&solution)?;
-                    decrement = krylov.conjugate_gradients_retained(
-                        &hess,
-                        &unmap,
-                        retained.len(),
-                        &residual,
-                    )?
+                    decrement = krylov.solve_retained(&hess, &unmap, retained.len(), &residual)?
                 }
                 LinearSolver::Sparse(solver) => {
                     let hess = hessian(&solution)?;
@@ -1305,7 +1335,9 @@ where
     X: Solution,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    if let LinearSolver::Krylov(_) = &linear_solver {
+    if let LinearSolver::Krylov(krylov) = &linear_solver
+        && matches!(krylov.method, KrylovMethod::ConjugateGradients)
+    {
         return Err(OptimizationError::Indefinite(
             "a linear equality constraint".to_string(),
             format!("{newton_raphson:?}"),
@@ -1358,6 +1390,45 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
+        } else if let LinearSolver::Krylov(krylov) = &linear_solver {
+            let hess = hessian(&solution)?;
+            //
+            // The system is never assembled, so what it does to a vector is
+            // spelled out block by block: the tangent on the variables, the
+            // constraint reaching in from the multipliers, and the constraint
+            // reaching back out into them.
+            //
+            let mut variables = Vector::zero(num_variables);
+            decrement = krylov.solve_operator(
+                |whole| {
+                    variables
+                        .iter_mut()
+                        .zip(whole.iter())
+                        .for_each(|(entry, from)| *entry = *from);
+                    let mut product = hess.times(&variables);
+                    constraint_matrix.iter().enumerate().for_each(|(a, row)| {
+                        let multiplier = whole[num_variables + a];
+                        row.iter().enumerate().for_each(|(j, entry)| {
+                            product[j] -= entry * multiplier;
+                        })
+                    });
+                    let mut applied = Vector::zero(num_total);
+                    applied
+                        .iter_mut()
+                        .zip(product.iter())
+                        .for_each(|(entry, from)| *entry = *from);
+                    constraint_matrix.iter().enumerate().for_each(|(a, row)| {
+                        applied[num_variables + a] = -row
+                            .iter()
+                            .zip(whole.iter())
+                            .map(|(entry, from)| entry * from)
+                            .sum::<Scalar>()
+                    });
+                    applied
+                },
+                kkt_diagonal(krylov, &hess, num_variables, num_total),
+                &residual,
+            )?;
         } else if let LinearSolver::Sparse(solver) = &linear_solver {
             let hess = hessian(&solution)?;
             decrement = solver.solve(
