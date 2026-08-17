@@ -8,10 +8,9 @@ use crate::{
             VariableStepExplicit,
         },
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, LinearSolver,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
-        sparse::SparseSolver,
     },
     units::Time,
 };
@@ -448,7 +447,7 @@ where
                 |z| jacobian(t, y, z),
                 z_0.clone(),
                 equality_constraint(t),
-                None,
+                LinearSolver::Dense,
             )?)
         };
         self.integrate_explicit_dae_variable_step(evolution, solution, time, initial_condition)
@@ -619,7 +618,7 @@ where
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<(Times<T>, U, W, V), IntegrationError> {
         let solution = |t: Quantity<T>, y: &Y, z_0: &Z| -> Result<Z, String> {
             Ok(solver.minimize(
@@ -628,7 +627,7 @@ where
                 |z| hessian(t, y, z),
                 z_0.clone(),
                 equality_constraint(t),
-                sparse.clone(),
+                linear_solver.clone(),
             )?)
         };
         self.integrate_explicit_dae_variable_step(evolution, solution, time, initial_condition)
@@ -674,7 +673,7 @@ where
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<(Times<T>, U, W, V), IntegrationError> {
         self.integrate_explicit_dae_variable_step_explicit_minimize_2(
             evolution,
@@ -685,7 +684,7 @@ where
             time,
             initial_condition,
             equality_constraint,
-            sparse,
+            linear_solver,
         )
     }
 }

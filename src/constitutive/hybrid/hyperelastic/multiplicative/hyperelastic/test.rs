@@ -16,7 +16,9 @@ use crate::{
     constitutive::solid::elastic::AppliedLoad,
     math::{
         Norm,
-        optimize::{GradientDescent, LineSearch, NewtonRaphson, SolveStrategy, TrustRegion},
+        optimize::{
+            GradientDescent, LineSearch, LinearSolver, NewtonRaphson, SolveStrategy, TrustRegion,
+        },
     },
     mechanics::*,
 };
@@ -267,7 +269,7 @@ fn root_fixed_at_point() -> Result<(), AssertionError> {
         },
         model.internal_variables_initial(),
         EqualityConstraint::Fixed(fixed.clone()),
-        None,
+        LinearSolver::Dense,
     )?;
     let residual = model.internal_variables_residual(&deformation_gradient, &root)?;
     let initial = model.internal_variables_initial();

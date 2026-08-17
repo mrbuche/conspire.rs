@@ -13,8 +13,8 @@ use crate::{
     math::{
         Quantity, Tensor,
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
-            SecondOrderOptimization, ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, LinearSolver,
+            OptimizationError, SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
     units::PowerTemperature,
@@ -157,7 +157,7 @@ where
             },
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
-            Some(sparse),
+            LinearSolver::Sparse(sparse),
         )
     }
 }
@@ -221,7 +221,7 @@ where
             },
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
-            Some(sparse),
+            LinearSolver::Sparse(sparse),
         )
     }
 }

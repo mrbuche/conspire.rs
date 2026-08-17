@@ -5,6 +5,7 @@ mod conjugate_gradient;
 mod constraint;
 mod gradient_descent;
 mod line_search;
+mod linear;
 mod newton_raphson;
 mod strategy;
 mod tolerance;
@@ -14,6 +15,7 @@ pub use conjugate_gradient::{Conjugacy, ConjugateGradient};
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
 pub use line_search::{LineSearch, LineSearchError};
+pub use linear::LinearSolver;
 pub use newton_raphson::NewtonRaphson;
 pub use strategy::SolveStrategy;
 pub use tolerance::Tolerances;
@@ -24,7 +26,7 @@ use crate::{
         Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
         assert::AssertionError,
         matrix::square::SquareMatrixError,
-        sparse::{CscMatrix, SparseError, SparseSolver},
+        sparse::{CscMatrix, SparseError},
         styled_error,
     },
     units::UnitDiv,
@@ -52,7 +54,7 @@ pub trait FirstOrderRootFinding<F, J, X> {
         jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -79,7 +81,7 @@ pub trait FirstOrderRootFindingIncremental<F, J, X> {
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -103,7 +105,7 @@ pub trait SecondOrderOptimization<F, J, H, X> {
         hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -127,7 +129,7 @@ pub trait SecondOrderOptimizationIncremental<F, J, H, X> {
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -142,7 +144,7 @@ pub trait FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
         initial_guess: (U, V),
         constraint_global: (CscMatrix, Vector),
         constraint_local: (CscMatrix, Vector),
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError>;
 }
@@ -159,7 +161,7 @@ pub trait SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
         initial_guess: (U, V),
         constraint_global: (CscMatrix, Vector),
         constraint_local: (CscMatrix, Vector),
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError>;
 }

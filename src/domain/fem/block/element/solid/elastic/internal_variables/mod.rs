@@ -12,7 +12,7 @@ use crate::{
     math::{
         ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, Solution,
         SquareMatrix, Tensor, TensorList, Vector,
-        optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson},
+        optimize::{EqualityConstraint, FirstOrderRootFinding, LinearSolver, NewtonRaphson},
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressList,
@@ -136,7 +136,7 @@ where
             |root: &V| Ok(constitutive_model.tangents(deformation_gradient, root)?.3),
             internal_variables.clone(),
             EqualityConstraint::Fixed(constitutive_model.internal_variables_fixed().to_vec()),
-            None,
+            LinearSolver::Dense,
         )
         .map_err(|error| {
             ConstitutiveError::Custom(format!("{error}"), format!("{deformation_gradient}"))

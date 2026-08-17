@@ -4,13 +4,12 @@ mod test;
 use super::{
     super::{
         Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Quantity, Scalar,
-        Solution, SquareMatrix, Tensor, Vector,
-        sparse::{CscMatrix, SparseSolver},
+        Solution, SquareMatrix, Tensor, Vector, sparse::CscMatrix,
     },
     EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
-    FirstOrderRootFindingIncremental, LineSearch, LineSearchError, LineSearcher, OptimizationError,
-    SecondOrderOptimization, SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental,
-    SolveStrategy, Tolerances, TrustRegion,
+    FirstOrderRootFindingIncremental, LineSearch, LineSearchError, LineSearcher, LinearSolver,
+    OptimizationError, SecondOrderOptimization, SecondOrderOptimizationBlock,
+    SecondOrderOptimizationIncremental, SolveStrategy, Tolerances, TrustRegion,
 };
 use crate::math::Norm;
 use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
@@ -83,7 +82,7 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<X, OptimizationError> {
         match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
@@ -93,7 +92,7 @@ where
                 jacobian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
-                sparse,
+                linear_solver,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -103,7 +102,7 @@ where
                 jacobian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
-                sparse,
+                linear_solver,
                 constraint_matrix,
                 constraint_rhs,
             ),
@@ -113,7 +112,7 @@ where
                 function,
                 jacobian,
                 initial_guess,
-                sparse,
+                linear_solver,
             ),
         } {
             Ok(solution) => Ok(solution),
@@ -144,7 +143,7 @@ where
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<X, OptimizationError> {
         match match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
@@ -154,7 +153,7 @@ where
                 jacobian,
                 update,
                 initial_guess,
-                sparse,
+                linear_solver,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -164,7 +163,7 @@ where
                 jacobian,
                 update,
                 initial_guess,
-                sparse,
+                linear_solver,
                 constraint_matrix,
                 constraint_rhs,
             ),
@@ -205,7 +204,7 @@ where
         hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
         match match equality_constraint {
@@ -216,7 +215,7 @@ where
                 hessian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
-                sparse,
+                linear_solver,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -226,13 +225,18 @@ where
                 hessian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
-                sparse,
+                linear_solver,
                 constraint_matrix,
                 constraint_rhs,
             ),
-            EqualityConstraint::None => {
-                unconstrained(self, function, jacobian, hessian, initial_guess, sparse)
-            }
+            EqualityConstraint::None => unconstrained(
+                self,
+                function,
+                jacobian,
+                hessian,
+                initial_guess,
+                linear_solver,
+            ),
         } {
             Ok(solution) => Ok(solution),
             Err(error) => Err(OptimizationError::Upstream(
@@ -268,7 +272,7 @@ where
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
         match match equality_constraint {
@@ -279,7 +283,7 @@ where
                 hessian,
                 update,
                 initial_guess,
-                sparse,
+                linear_solver,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -289,7 +293,7 @@ where
                 hessian,
                 update,
                 initial_guess,
-                sparse,
+                linear_solver,
                 constraint_matrix,
                 constraint_rhs,
             ),
@@ -327,7 +331,7 @@ where
         initial_guess: (U, V),
         constraint_global: (CscMatrix, Vector),
         constraint_local: (CscMatrix, Vector),
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError> {
         match blocked(
@@ -340,7 +344,7 @@ where
             initial_guess,
             constraint_global,
             constraint_local,
-            sparse,
+            linear_solver,
             strategy,
         ) {
             Ok(solution) => Ok(solution),
@@ -383,7 +387,7 @@ where
         initial_guess: (U, V),
         constraint_global: (CscMatrix, Vector),
         constraint_local: (CscMatrix, Vector),
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError> {
         let function = move |global: &U, local: &V| function(global, local).map(|v| *v.erase());
@@ -397,7 +401,7 @@ where
             initial_guess,
             constraint_global,
             constraint_local,
-            sparse,
+            linear_solver,
             strategy,
         ) {
             Ok(solution) => Ok(solution),
@@ -715,7 +719,7 @@ fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     initial_guess: (U, V),
     constraint_global: (CscMatrix, Vector),
     constraint_local: (CscMatrix, Vector),
-    sparse: Option<SparseSolver>,
+    linear_solver: LinearSolver,
     strategy: SolveStrategy,
 ) -> Result<(U, V), OptimizationError>
 where
@@ -744,7 +748,7 @@ where
         SolveStrategy::Condensed(ref local_solver) => Some(local_solver),
         SolveStrategy::Monolithic { .. } => None,
     };
-    if sparse.is_some() && eliminating {
+    if !linear_solver.is_dense() && eliminating {
         unimplemented!(
             "Eliminating the local block sparsely wants it held as the blocks it is, not as one matrix."
         )
@@ -754,7 +758,7 @@ where
     } else {
         (0, 0)
     };
-    let whole = if eliminating || sparse.is_some() {
+    let whole = if eliminating || !linear_solver.is_dense() {
         0
     } else {
         num_outer + num_inner
@@ -875,7 +879,7 @@ where
                     })
             });
         } else {
-            if sparse.is_none() {
+            if linear_solver.is_dense() {
                 kkt_block(
                     &tangent_uu,
                     &constraint_matrix_global,
@@ -891,7 +895,7 @@ where
                     num_outer,
                 );
             }
-            if let Some(ref solver) = sparse {
+            if let LinearSolver::Sparse(solver) = &linear_solver {
                 //
                 // The block layout is the same either way, so the entry a
                 // sparse solver asks for is read from whichever block holds it.
@@ -1084,7 +1088,7 @@ fn unconstrained<J, H, X, E>(
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
-    sparse: Option<SparseSolver>,
+    linear_solver: LinearSolver,
 ) -> Result<X, OptimizationError>
 where
     H: Hessian,
@@ -1097,7 +1101,7 @@ where
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
 {
     let mut decrement;
-    let mut flattened = Vector::zero(if sparse.is_none() {
+    let mut flattened = Vector::zero(if linear_solver.is_dense() {
         0
     } else {
         initial_guess.size()
@@ -1117,7 +1121,7 @@ where
             ));
         } else {
             steps += 1;
-            decrement = if let Some(ref solver) = sparse {
+            decrement = if let LinearSolver::Sparse(solver) = &linear_solver {
                 let hess = hessian(&solution)?;
                 residual.fill_into(&mut flattened);
                 X::from(solver.solve(|i, j| hess.entry(i, j), &flattened)?)
@@ -1154,7 +1158,7 @@ fn constrained_fixed<J, H, X, E>(
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
-    sparse: Option<SparseSolver>,
+    linear_solver: LinearSolver,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
@@ -1175,7 +1179,11 @@ where
         .filter_map(|(index, &keep)| keep.then_some(index))
         .collect();
     let mut decrement = Vector::zero(unmap.len());
-    let mut factorization = LuDecomposition::zero(if sparse.is_none() { unmap.len() } else { 0 });
+    let mut factorization = LuDecomposition::zero(if linear_solver.is_dense() {
+        unmap.len()
+    } else {
+        0
+    });
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
@@ -1189,7 +1197,7 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
-        } else if let Some(ref solver) = sparse {
+        } else if let LinearSolver::Sparse(solver) = &linear_solver {
             let hess = hessian(&solution)?;
             decrement = solver.solve(|i, j| hess.entry(unmap[i], unmap[j]), &residual)?
         } else {
@@ -1261,7 +1269,7 @@ fn constrained<J, H, X>(
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
-    sparse: Option<SparseSolver>,
+    linear_solver: LinearSolver,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
@@ -1277,13 +1285,21 @@ where
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
     let mut decrement = Vector::zero(num_total);
-    let mut factorization = LuDecomposition::zero(if sparse.is_none() { num_total } else { 0 });
+    let mut factorization = LuDecomposition::zero(if linear_solver.is_dense() {
+        num_total
+    } else {
+        0
+    });
     let mut multipliers = Vector::zero(num_constraints);
     let mut residual = Vector::zero(num_total);
     let mut scales = None;
     let mut solution = initial_guess;
-    let mut tangent = SquareMatrix::zero(if sparse.is_none() { num_total } else { 0 });
-    if sparse.is_none() {
+    let mut tangent = SquareMatrix::zero(if linear_solver.is_dense() {
+        num_total
+    } else {
+        0
+    });
+    if linear_solver.is_dense() {
         constraint_matrix
             .iter()
             .enumerate()
@@ -1310,7 +1326,7 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
-        } else if let Some(ref solver) = sparse {
+        } else if let LinearSolver::Sparse(solver) = &linear_solver {
             let hess = hessian(&solution)?;
             decrement = solver.solve(
                 |i, j| {

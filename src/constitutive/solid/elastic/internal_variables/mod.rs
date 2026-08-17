@@ -9,7 +9,8 @@ use crate::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, Hessian, HessianBlock, IDENTITY,
         Jacobian, Matrix, Rank2, Tensor, TensorArray, TensorTuple, Vector,
         optimize::{
-            EqualityConstraint, FirstOrderRootFindingBlock, SolveStrategy, ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderRootFindingBlock, LinearSolver, SolveStrategy,
+            ZerothOrderRootFinding,
         },
         sparse::CscMatrix,
     },
@@ -310,7 +311,7 @@ where
             ),
             constraint_global,
             constraint_local,
-            None,
+            LinearSolver::Dense,
             strategy,
         ) {
             Ok(solution) => Ok(solution),

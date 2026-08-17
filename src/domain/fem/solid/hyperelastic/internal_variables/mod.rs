@@ -13,7 +13,7 @@ use crate::{
     math::{
         Quantity, Scalar, Tensor, Vector,
         optimize::{
-            EqualityConstraint, OptimizationError, SecondOrderOptimization,
+            EqualityConstraint, LinearSolver, OptimizationError, SecondOrderOptimization,
             SecondOrderOptimizationIncremental, SolveStrategy,
         },
     },
@@ -126,7 +126,7 @@ where
                     },
                     self.coordinates().clone().into(),
                     equality_constraint,
-                    Some(sparse),
+                    LinearSolver::Sparse(sparse),
                 )
             }
             //
@@ -156,7 +156,7 @@ where
                     },
                     self.coordinates().clone().into(),
                     equality_constraint,
-                    Some(sparse),
+                    LinearSolver::Sparse(sparse),
                 )
             }
             SolveStrategy::Monolithic { elimination: false } => unimplemented!(

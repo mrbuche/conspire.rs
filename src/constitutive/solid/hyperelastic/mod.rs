@@ -34,7 +34,9 @@ use super::{
 use crate::{
     math::{
         Quantity,
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        optimize::{
+            EqualityConstraint, FirstOrderOptimization, LinearSolver, SecondOrderOptimization,
+        },
     },
     units::EnergyDensity,
 };
@@ -152,7 +154,7 @@ where
             },
             DeformationGradient::identity(),
             EqualityConstraint::Linear(matrix, vector),
-            None,
+            LinearSolver::Dense,
         ) {
             Ok(deformation_gradient) => Ok(deformation_gradient),
             Err(error) => Err(ConstitutiveError::Upstream(

@@ -11,7 +11,8 @@ use crate::{
     math::{
         Quantity, Tensor, TensorArray, TensorTuple,
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
+            EqualityConstraint, FirstOrderOptimization, LinearSolver, SecondOrderOptimizationBlock,
+            SolveStrategy,
         },
     },
     mechanics::{
@@ -166,7 +167,7 @@ where
             ),
             constraint_external,
             constraint_internal,
-            None,
+            LinearSolver::Dense,
             strategy,
         ) {
             Ok(solution) => Ok(solution),

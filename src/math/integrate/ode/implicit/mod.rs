@@ -5,7 +5,9 @@ use crate::{
     math::{
         Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
         integrate::{FixedStep, IntegrationError, OdeIntegrator, Times},
-        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+        optimize::{
+            EqualityConstraint, FirstOrderRootFinding, LinearSolver, ZerothOrderRootFinding,
+        },
     },
     units::Time,
 };
@@ -159,7 +161,7 @@ where
                 |y_trial: &Y| self.hessian(&mut jacobian, t, &y, t_trial, y_trial, dt),
                 y.clone(),
                 EqualityConstraint::None,
-                None,
+                LinearSolver::Dense,
             ) {
                 Ok(solution) => solution,
                 Err(error) => {

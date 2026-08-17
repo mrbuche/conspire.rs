@@ -11,7 +11,7 @@ use crate::{
         Scalar, Tensor, TensorVector, Vector,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingIncremental,
-            NewtonRaphson, OptimizationError, SolveStrategy,
+            LinearSolver, NewtonRaphson, OptimizationError, SolveStrategy,
         },
     },
 };
@@ -350,7 +350,7 @@ where
                     },
                     self.coordinates().clone().into(),
                     equality_constraint,
-                    Some(sparse),
+                    LinearSolver::Sparse(sparse),
                 )
             }
             //
@@ -376,7 +376,7 @@ where
                     },
                     self.coordinates().clone().into(),
                     equality_constraint,
-                    Some(sparse),
+                    LinearSolver::Sparse(sparse),
                 )
             }
             SolveStrategy::Monolithic { elimination: false } => unimplemented!(

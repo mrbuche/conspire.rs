@@ -31,7 +31,9 @@ use crate::{
     math::{
         Differentiate, Quantity, Tensor, TensorArray, Vector,
         integrate::{ExplicitDaeFirstOrderMinimize, ExplicitDaeSecondOrderMinimize},
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        optimize::{
+            EqualityConstraint, FirstOrderOptimization, LinearSolver, SecondOrderOptimization,
+        },
     },
     mechanics::{
         DeformationGradient, DeformationGradientPlastic, DeformationGradients,
@@ -279,7 +281,7 @@ where
                     .for_each(|(index, function)| vector[*index] = function(t));
                 EqualityConstraint::Linear(matrix.clone(), vector.clone())
             },
-            None,
+            LinearSolver::Dense,
         ) {
             Ok((times, state_variables, _, deformation_gradients)) => {
                 Ok((times, deformation_gradients, state_variables))

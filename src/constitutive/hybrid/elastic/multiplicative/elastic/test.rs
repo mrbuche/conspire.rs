@@ -19,7 +19,7 @@ use crate::{
     math::{
         TensorRank4, Vector,
         assert::FiniteDifference,
-        optimize::{GradientDescent, NewtonRaphson, SolveStrategy},
+        optimize::{GradientDescent, LinearSolver, NewtonRaphson, SolveStrategy},
     },
     mechanics::*,
 };
@@ -328,7 +328,7 @@ fn moduli() -> Result<(), AssertionError> {
             |v: &DeformationGradient2| Ok(model.tangents(f, v)?.3),
             model.internal_variables_initial(),
             EqualityConstraint::Fixed(fixed.clone()),
-            None,
+            LinearSolver::Dense,
         )
     };
     let dilated = DeformationGradient::identity() * (1.0 + EPSILON / 3.0);

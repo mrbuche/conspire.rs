@@ -9,6 +9,7 @@ use super::{
     EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, OptimizationError,
     Scalar, SecondOrderOptimization, TrustRegion,
 };
+use crate::math::optimize::LinearSolver;
 use crate::math::{Norm, Tensor, assert::Assert};
 
 const CONTROL_1: Scalar = 1e-3;
@@ -26,7 +27,7 @@ mod minimize {
             |_: &Scalar| Ok(1.0),
             1.0,
             EqualityConstraint::None,
-            None,
+            LinearSolver::Dense,
         )?)
     }
     //
@@ -78,7 +79,7 @@ mod minimize {
                     |_: &Scalar| Ok(1.0),
                     1.0,
                     EqualityConstraint::None,
-                    None,
+                    LinearSolver::Dense,
                 )?,
             )
         }
@@ -99,7 +100,7 @@ mod minimize {
                     |_: &Scalar| Ok(1.0),
                     1.0,
                     EqualityConstraint::None,
-                    None,
+                    LinearSolver::Dense,
                 )?,
             )
         }
@@ -124,7 +125,7 @@ mod minimize {
                         |_: &Scalar| Ok(1.0),
                         1.0,
                         EqualityConstraint::None,
-                        None,
+                        LinearSolver::Dense,
                     )?,
                 )
             }
@@ -147,7 +148,7 @@ mod minimize {
                         |_: &Scalar| Ok(1.0),
                         1.0,
                         EqualityConstraint::None,
-                        None,
+                        LinearSolver::Dense,
                     )?,
                 )
             }
@@ -165,10 +166,10 @@ mod root {
             |_: &Scalar| Ok(1.0),
             1.0,
             EqualityConstraint::None,
-            None,
+            LinearSolver::Dense,
         )?)
     }
-    fn coupled(sparse: Option<SparseSolver>) -> Result<Vector, AssertionError> {
+    fn coupled(linear_solver: LinearSolver) -> Result<Vector, AssertionError> {
         Ok(NewtonRaphson::default().root(
             |x: &Vector| {
                 Ok(Vector::from([
@@ -179,17 +180,17 @@ mod root {
             |_: &Vector| Ok(SquareMatrix::from([[1.0, 2.0], [3.0, -1.0]])),
             Vector::from([0.0, 0.0]),
             EqualityConstraint::None,
-            sparse,
+            linear_solver,
         )?)
     }
     #[test]
     fn coupled_dense() -> Result<(), AssertionError> {
-        Assert::default().eq_within_tols(&coupled(None)?, &Vector::from([1.0, 2.0]))
+        Assert::default().eq_within_tols(&coupled(LinearSolver::Dense)?, &Vector::from([1.0, 2.0]))
     }
     #[test]
     fn coupled_sparse() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &coupled(Some(SparseSolver::from_pattern(
+            &coupled(LinearSolver::Sparse(SparseSolver::from_pattern(
                 2,
                 vec![(0, 0), (0, 1), (1, 0), (1, 1)],
                 false,
@@ -221,7 +222,7 @@ mod constrained {
             |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
             Vector::from([4.0, -3.0]),
             constraint(),
-            None,
+            LinearSolver::Dense,
         )?)
     }
 
@@ -246,7 +247,7 @@ mod constrained {
             |_: &Vector| Ok(SquareMatrix::from([[SCALE, 0.0], [0.0, SCALE]])),
             Vector::from([4.0, -3.0]),
             constraint(),
-            None,
+            LinearSolver::Dense,
         )
     }
 
@@ -310,7 +311,7 @@ mod constrained {
                 |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
                 Vector::from([4.0, -3.0]),
                 constraint(),
-                None,
+                LinearSolver::Dense,
             )?,
             &Vector::from([1.0, 1.0]),
         )
@@ -336,7 +337,7 @@ mod constrained {
                 matrix[0][1] = 1.0;
                 EqualityConstraint::Linear(matrix, Vector::from([1.0]))
             },
-            None,
+            LinearSolver::Dense,
         )
     }
 
@@ -375,7 +376,7 @@ mod constrained {
             },
             Vector::from([2.0, 0.0]),
             EqualityConstraint::Linear(matrix, Vector::zero(1)),
-            None,
+            LinearSolver::Dense,
         )
     }
 
@@ -421,7 +422,7 @@ mod constrained {
             },
             Vector::from([2.0, 0.0]),
             EqualityConstraint::Linear(matrix, Vector::zero(1)),
-            None,
+            LinearSolver::Dense,
         )
     }
 
@@ -468,7 +469,7 @@ mod constrained {
             |_: &Vector| Ok(tangent.clone()),
             initial_guess,
             EqualityConstraint::Linear(constraint_matrix, Vector::zero(1)),
-            None,
+            LinearSolver::Dense,
         )
     }
 
@@ -508,7 +509,7 @@ mod fixed {
                 |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
                 Vector::from([0.0, 3.0]),
                 EqualityConstraint::Fixed(vec![1]),
-                None,
+                LinearSolver::Dense,
             )?,
             &Vector::from([4.0, 3.0]),
         )

@@ -2,10 +2,9 @@ use crate::math::{
     Derivative, Differentiate, Quantity, Tensor, TensorVec,
     integrate::{IntegrationError, Times},
     optimize::{
-        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
-        ZerothOrderRootFinding,
+        EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, LinearSolver,
+        SecondOrderOptimization, ZerothOrderRootFinding,
     },
-    sparse::SparseSolver,
 };
 use crate::units::Time;
 
@@ -96,7 +95,7 @@ where
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<(Times<T>, U, W, V), IntegrationError>;
 }
 
@@ -171,6 +170,6 @@ where
         time: &[Quantity<T>],
         initial_condition: Y,
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<(Times<T>, U, V), IntegrationError>;
 }

@@ -7,10 +7,9 @@ use crate::{
             VariableStepExplicit,
         },
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, LinearSolver,
             SecondOrderOptimization, ZerothOrderRootFinding,
         },
-        sparse::SparseSolver,
     },
     units::{Time, UnitInv},
 };
@@ -312,7 +311,7 @@ where
                 |dydt| jacobian(t, y, dydt),
                 dydt_0.clone(),
                 equality_constraint(t),
-                None,
+                LinearSolver::Dense,
             )?)
         };
         self.integrate_implicit_dae_variable_step(evolution, time, initial_condition)
@@ -484,7 +483,7 @@ where
         time: &[Quantity<T>],
         initial_condition: Y,
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         let evolution = |t: Quantity<T>,
                          y: &Y,
@@ -496,7 +495,7 @@ where
                 |dydt| hessian(t, y, dydt),
                 dydt_0.clone(),
                 equality_constraint(t),
-                sparse.clone(),
+                linear_solver.clone(),
             )?)
         };
         self.integrate_implicit_dae_variable_step(evolution, time, initial_condition)
@@ -543,7 +542,7 @@ where
         time: &[Quantity<T>],
         initial_condition: Y,
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-        sparse: Option<SparseSolver>,
+        linear_solver: LinearSolver,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_implicit_dae_variable_step_explicit_minimize_2(
             function,
@@ -553,7 +552,7 @@ where
             time,
             initial_condition,
             equality_constraint,
-            sparse,
+            linear_solver,
         )
     }
 }

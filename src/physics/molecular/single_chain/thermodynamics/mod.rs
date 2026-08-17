@@ -2,7 +2,8 @@ use crate::{
     math::{
         Current, Quantity, Scalar, SquareMatrix, Tensor, TensorArray, TensorRank1, Vector,
         optimize::{
-            EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization, Tolerances,
+            EqualityConstraint, LineSearch, LinearSolver, NewtonRaphson, SecondOrderOptimization,
+            Tolerances,
         },
     },
     mechanics::Vectors,
@@ -495,7 +496,7 @@ where
             },
             nondimensional_extension,
             EqualityConstraint::None,
-            None,
+            LinearSolver::Dense,
         )) {
             Ok(nondimensional_force) => Ok(nondimensional_force),
             Err(error) => Err(SingleChainError::Upstream(
@@ -605,7 +606,7 @@ where
             },
             nondimensional_force,
             EqualityConstraint::None,
-            None,
+            LinearSolver::Dense,
         )) {
             Ok(nondimensional_extension) => Ok(nondimensional_extension),
             Err(error) => Err(SingleChainError::Upstream(

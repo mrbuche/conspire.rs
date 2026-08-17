@@ -1,3 +1,4 @@
+use crate::math::optimize::LinearSolver;
 use crate::{
     fem::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
@@ -188,7 +189,7 @@ where
                     self.coordinates().clone().into(),
                 ),
                 bcs,
-                Some(sparse),
+                LinearSolver::Sparse(sparse),
             )?;
         Ok((
             time_history,

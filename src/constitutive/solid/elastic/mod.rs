@@ -23,7 +23,7 @@ pub use self::{
 use super::*;
 use crate::math::{
     Matrix, Vector,
-    optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, LinearSolver, ZerothOrderRootFinding},
 };
 
 /// Possible applied loads.
@@ -242,7 +242,7 @@ where
             },
             DeformationGradient::identity(),
             EqualityConstraint::Linear(matrix, vector),
-            None,
+            LinearSolver::Dense,
         ) {
             Ok(deformation_gradient) => Ok(deformation_gradient),
             Err(error) => Err(ConstitutiveError::Upstream(

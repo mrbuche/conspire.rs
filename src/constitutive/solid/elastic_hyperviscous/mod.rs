@@ -22,7 +22,9 @@ use crate::{
     math::{
         ContractWith, Matrix, Quantity, Vector,
         integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        optimize::{
+            EqualityConstraint, FirstOrderOptimization, LinearSolver, SecondOrderOptimization,
+        },
     },
     units::{Dissipation, Time},
 };
@@ -296,7 +298,7 @@ where
                         vector[0] = deformation_gradient_rate_11(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())
                     },
-                    None,
+                    LinearSolver::Dense,
                 )
             }
             AppliedLoad::BiaxialStress(
@@ -344,7 +346,7 @@ where
                         vector[4] = deformation_gradient_rate_22(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())
                     },
-                    None,
+                    LinearSolver::Dense,
                 )
             }
         } {

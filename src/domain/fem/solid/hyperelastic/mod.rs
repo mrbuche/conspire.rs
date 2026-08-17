@@ -10,7 +10,8 @@ use crate::{
     math::{
         Quantity, Tensor,
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,
+            EqualityConstraint, FirstOrderOptimization, LinearSolver, OptimizationError,
+            SecondOrderOptimization,
         },
     },
     units::Energy,
@@ -138,7 +139,7 @@ where
             },
             self.coordinates().clone().into(),
             equality_constraint,
-            Some(sparse),
+            LinearSolver::Sparse(sparse),
         )
     }
 }

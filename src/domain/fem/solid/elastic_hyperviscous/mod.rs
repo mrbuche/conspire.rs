@@ -8,7 +8,7 @@ use crate::{
     math::{
         Quantity, Tensor,
         integrate::{ImplicitDaeSecondOrderMinimize, IntegrationError},
-        optimize::{EqualityConstraint, SecondOrderOptimization},
+        optimize::{EqualityConstraint, LinearSolver, SecondOrderOptimization},
     },
     mechanics::Times,
     units::{Power, Time},
@@ -153,7 +153,7 @@ where
             time,
             self.coordinates().clone().into(),
             |_: Quantity<Time>| equality_constraint.clone(),
-            Some(sparse),
+            LinearSolver::Sparse(sparse),
         )
     }
 }
