@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+mod conjugate_gradient;
 mod constraint;
 mod gradient_descent;
 mod line_search;
@@ -9,6 +10,7 @@ mod strategy;
 mod tolerance;
 mod trust_region;
 
+pub use conjugate_gradient::{Conjugacy, ConjugateGradient};
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
 pub use line_search::{LineSearch, LineSearchError};
