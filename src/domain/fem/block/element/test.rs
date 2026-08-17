@@ -1,6 +1,6 @@
 use crate::{math::Quantity, units::Length};
 
-pub const THICKNESS: Quantity<Length> = Quantity::new(1.23);
+pub const THICKNESS: Quantity<Length> = Length::meters(1.23);
 
 macro_rules! test_finite_element {
     ($element: ident) => {

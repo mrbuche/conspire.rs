@@ -7,7 +7,7 @@ use crate::{
         thermal::{Thermal, conduction::ThermalConduction},
     },
     math::{ContractWith, IDENTITY_00, Quantity},
-    mechanics::{HeatFlux, HeatFluxTangent, Scalar, TemperatureGradient},
+    mechanics::{HeatFlux, HeatFluxTangent, TemperatureGradient},
     units::{PowerPerLengthTemperature, PowerTemperatureDensity},
 };
 
@@ -24,12 +24,12 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct Fourier {
     /// The thermal conductivity $`k`$.
-    pub thermal_conductivity: Scalar,
+    pub thermal_conductivity: Quantity<PowerPerLengthTemperature>,
 }
 
 impl Fourier {
     fn thermal_conductivity(&self) -> Quantity<PowerPerLengthTemperature> {
-        self.thermal_conductivity.into()
+        self.thermal_conductivity
     }
 }
 

@@ -9,9 +9,9 @@ macro_rules! test_implicit_fixed_step {
                 integrate::{FixedStep, IntegrationError, Times},
             },
         };
-        const TIME_STEP: Quantity<Time> = Quantity::new(0.1);
+        const TIME_STEP: Quantity<Time> = Time::seconds(0.1);
         const TOLERANCE: Scalar = 0.1;
-        const RATE: Quantity<Rate> = Quantity::new(1.0);
+        const RATE: Quantity<Rate> = Rate::per_second(1.0);
         type States = TensorVector<Quantity>;
         type Rates = TensorVector<Quantity<Rate>>;
         #[test]

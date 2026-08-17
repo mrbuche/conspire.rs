@@ -1,15 +1,21 @@
 pub use crate::{
     constitutive::solid::elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
-    math::Tensor,
+    math::{Quantity, Tensor},
     mechanics::Scalar,
+    units::Stress,
 };
 
 pub const EXPONENT: Scalar = 1.1;
 pub const EXTENSIBILITY: Scalar = 23.0;
-pub const EXTRA_MODULUS: Scalar = 1.2;
+pub const EXTRA_MODULUS: Quantity<Stress> = Stress::pascals(1.2);
 pub const NUMBER_OF_LINKS: Scalar = 8.0;
 pub const NUM_YEOH_EXTRA_MODULI: usize = 4;
-pub const YEOH_EXTRA_MODULI: [Scalar; NUM_YEOH_EXTRA_MODULI] = [-1.0, 3e-1, -1e-3, 1e-5];
+pub const YEOH_EXTRA_MODULI: [Quantity<Stress>; NUM_YEOH_EXTRA_MODULI] = [
+    Stress::pascals(-1.0),
+    Stress::pascals(3e-1),
+    Stress::pascals(-1e-3),
+    Stress::pascals(1e-5),
+];
 
 macro_rules! helmholtz_free_energy_density_from_deformation_gradient_simple {
     ($constitutive_model: expr, $deformation_gradient: expr) => {
@@ -115,7 +121,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_no_tangents
                     )?;
                     first_piola_kirchhoff_stress[i][j] = ((
                         helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
-                    )/EPSILON).value_as::<$crate::units::Stress>().into();
+                    )/EPSILON);
                 }
             }
             Ok(first_piola_kirchhoff_stress)

@@ -2,10 +2,8 @@ use crate::math::assert::Assert;
 use crate::{
     EPSILON,
     math::{Scalar, assert::AssertionError},
-    physics::{
-        BOLTZMANN_CONSTANT, ROOM_TEMPERATURE,
-        molecular::single_chain::{Ensemble, ExtensibleFreelyJointedChain, Thermodynamics},
-    },
+    physics::molecular::single_chain::{Ensemble, ExtensibleFreelyJointedChain, Thermodynamics},
+    units::{BOLTZMANN_CONSTANT, ROOM_TEMPERATURE},
 };
 
 const NUM: usize = 333;
@@ -31,7 +29,10 @@ fn monte_carlo() {
 
 #[test]
 fn finite_difference() -> Result<(), AssertionError> {
-    let link_stiffness = 1e3;
+    const NONDIMENSIONAL_LINK_STIFFNESS: Scalar = 1e3;
+    const NONDIMENSIONAL_STRETCH: Scalar = 0.6;
+    let link_stiffness =
+        NONDIMENSIONAL_LINK_STIFFNESS * BOLTZMANN_CONSTANT.value() * ROOM_TEMPERATURE.value();
     [Ensemble::Isotensional(ROOM_TEMPERATURE.value())]
         .into_iter()
         .try_for_each(|ensemble| {
@@ -43,7 +44,11 @@ fn finite_difference() -> Result<(), AssertionError> {
                     ensemble,
                 };
                 (10..NUM)
-                    .map(|k| k as Scalar / NUM as Scalar * 0.6 * link_stiffness)
+                    .map(|k| {
+                        k as Scalar / NUM as Scalar
+                            * NONDIMENSIONAL_STRETCH
+                            * NONDIMENSIONAL_LINK_STIFFNESS
+                    })
                     .into_iter()
                     .try_for_each(|mut nondimensional_force| {
                         nondimensional_force += 0.5 * EPSILON;

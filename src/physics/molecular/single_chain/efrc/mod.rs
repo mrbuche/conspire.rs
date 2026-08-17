@@ -8,14 +8,11 @@ use crate::{
         random::{random_uniform, random_x2_normal},
     },
     mechanics::Vector,
-    physics::{
-        BOLTZMANN_CONSTANT,
-        molecular::single_chain::{
-            Configuration, Ensemble, Extensible, Isometric, Isotensional, Legendre, MonteCarlo,
-            SingleChain, SingleChainError, Thermodynamics,
-        },
+    physics::molecular::single_chain::{
+        Configuration, Ensemble, Extensible, Isometric, Isotensional, Legendre, MonteCarlo,
+        SingleChain, SingleChainError, Thermodynamics,
     },
-    units::{ForcePerLength, Length},
+    units::{BOLTZMANN_CONSTANT, ForcePerLength, Length},
 };
 use std::f64::consts::TAU;
 
@@ -36,18 +33,18 @@ pub struct ExtensibleFreelyRotatingChain {
 
 impl ExtensibleFreelyRotatingChain {
     fn link_stiffness(&self) -> Quantity<ForcePerLength> {
-        self.link_stiffness.into()
+        Quantity::new(self.link_stiffness)
     }
     fn nondimensional_link_stiffness(&self) -> Scalar {
         ((self.link_stiffness() * (self.link_length() * self.link_length()))
             / (BOLTZMANN_CONSTANT * self.temperature()))
-        .into()
+        .value()
     }
 }
 
 impl SingleChain for ExtensibleFreelyRotatingChain {
     fn link_length(&self) -> Quantity<Length> {
-        self.link_length.into()
+        Quantity::new(self.link_length)
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links

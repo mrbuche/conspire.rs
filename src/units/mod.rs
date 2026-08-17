@@ -3,6 +3,15 @@
 #[cfg(test)]
 mod test;
 
+mod constants;
+mod scale;
+
+pub use constants::{
+    AVOGADRO_CONSTANT, BOLTZMANN_CONSTANT, ELEMENTARY_CHARGE, GAS_CONSTANT, LIGHT_SPEED,
+    PLANCK_CONSTANT, ROOM_TEMPERATURE,
+};
+pub use scale::{Scale, length_scale};
+
 /// The physical unit a tensor carries.
 ///
 /// Tensors may only be added when their units agree, and multiplying them
@@ -162,6 +171,18 @@ units!(
     PowerTemperatureDensity,
     /// An entropy, and equally the Boltzmann constant, being an energy per unit temperature.
     Entropy,
+    /// An action, being an energy times a time, as the Planck constant is.
+    Action,
+    /// An amount of substance.
+    Amount,
+    /// A reciprocal amount of substance, as the Avogadro constant is.
+    ReciprocalAmount,
+    /// A molar entropy, as the gas constant is, being an entropy per unit amount.
+    MolarEntropy,
+    /// A molar energy, being an energy per unit amount.
+    MolarEnergy,
+    /// An electric charge, as the elementary charge is.
+    Charge,
     /// A reciprocal stiffness, as a compliance conjugate to a force is.
     ReciprocalForcePerLength,
 );
@@ -294,6 +315,26 @@ unit_products!(
     Dimensionless * Entropy = Entropy,
     Entropy * Temperature = Energy,
     Temperature * Entropy = Energy,
+    Dimensionless * Action = Action,
+    Dimensionless * Amount = Amount,
+    Dimensionless * ReciprocalAmount = ReciprocalAmount,
+    Dimensionless * MolarEntropy = MolarEntropy,
+    Dimensionless * MolarEnergy = MolarEnergy,
+    Dimensionless * Charge = Charge,
+    Energy * Time = Action,
+    Time * Energy = Action,
+    Action * Rate = Energy,
+    Rate * Action = Energy,
+    Amount * ReciprocalAmount = Dimensionless,
+    ReciprocalAmount * Amount = Dimensionless,
+    Entropy * ReciprocalAmount = MolarEntropy,
+    ReciprocalAmount * Entropy = MolarEntropy,
+    MolarEntropy * Amount = Entropy,
+    MolarEntropy * Temperature = MolarEnergy,
+    Temperature * MolarEntropy = MolarEnergy,
+    Energy * ReciprocalAmount = MolarEnergy,
+    ReciprocalAmount * Energy = MolarEnergy,
+    MolarEnergy * Amount = Energy,
     Dimensionless * ReciprocalForcePerLength = ReciprocalForcePerLength,
     ReciprocalLength * Energy = Force,
     Energy * ReciprocalLength = Force,
@@ -352,6 +393,8 @@ unit_inverses!(
     ReciprocalViscosity => Viscosity,
     Time => Rate,
     Rate => Time,
+    Amount => ReciprocalAmount,
+    ReciprocalAmount => Amount,
     ForcePerLength => ReciprocalForcePerLength,
     ReciprocalForcePerLength => ForcePerLength,
 );

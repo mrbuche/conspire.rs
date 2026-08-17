@@ -38,9 +38,9 @@ const HISTORY: usize = 8;
 const ITERATIONS: usize = 100;
 const RELAXATION: Scalar = 0.1;
 const STAGNATION: Scalar = 5.0e-4;
-const SWEEPS: usize = 100;
+const SWEEPS: usize = 50;
 const TOLERANCE: Scalar = 1.0e-3;
-const WEIGHT_FLOOR: Quantity = Quantity::new(0.3);
+const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
 
 struct Oracle<'a> {
@@ -416,7 +416,9 @@ impl Sweep<'_> {
             .nodes
             .iter()
             .enumerate()
-            .map(|(index, &node)| ((&x[index] - &anchor[index]).norm() / self.lengths[node]).into())
+            .map(|(index, &node)| {
+                ((&x[index] - &anchor[index]).norm() / self.lengths[node]).value()
+            })
             .fold(0.0, Scalar::max);
         (shift, value, settled)
     }
@@ -454,7 +456,7 @@ fn schedule(
     previous: Quantity<Length>,
     worst: Scalar,
 ) -> Scalar {
-    let sigma = RELAXATION.max((1.0 - quality / previous).into());
+    let sigma = RELAXATION.max((1.0 - quality / previous).value());
     let mu = (1.0 - sigma) * chi(epsilon, worst);
     let epsilon_2021 = if worst < mu {
         2.0 * (mu * (mu - worst)).sqrt()

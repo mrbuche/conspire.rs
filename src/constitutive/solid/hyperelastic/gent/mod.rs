@@ -15,9 +15,9 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct Gent {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The extensibility $`J_m`$.
     pub extensibility: Scalar,
 }
@@ -31,10 +31,10 @@ impl Gent {
 
 impl Solid for Gent {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.bulk_modulus.into()
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.shear_modulus.into()
+        self.shear_modulus
     }
 }
 

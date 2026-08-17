@@ -10,8 +10,10 @@ pub use morse::Morse;
 
 use crate::{
     math::{Quantity, Scalar},
-    physics::BOLTZMANN_CONSTANT,
-    units::{Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength, Stress, Temperature},
+    units::{
+        BOLTZMANN_CONSTANT, Energy, Force, ForcePerLength, Length, ReciprocalForcePerLength,
+        Stress, Temperature,
+    },
 };
 use std::fmt::Debug;
 
@@ -33,7 +35,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let length = self.rest_length() * nondimensional_length;
-        (self.energy(length) / (BOLTZMANN_CONSTANT * temperature)).into()
+        (self.energy(length) / (BOLTZMANN_CONSTANT * temperature)).value()
     }
     /// ```math
     /// u = u[x(f)]
@@ -52,7 +54,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let force = BOLTZMANN_CONSTANT * temperature / self.rest_length() * nondimensional_force;
-        (self.energy_at_force(force) / (BOLTZMANN_CONSTANT * temperature)).into()
+        (self.energy_at_force(force) / (BOLTZMANN_CONSTANT * temperature)).value()
     }
     /// ```math
     /// f(x) = \frac{\partial u}{\partial x}
@@ -67,7 +69,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let length = self.rest_length() * nondimensional_length;
-        ((self.force(length) * self.rest_length()) / (BOLTZMANN_CONSTANT * temperature)).into()
+        ((self.force(length) * self.rest_length()) / (BOLTZMANN_CONSTANT * temperature)).value()
     }
     /// ```math
     /// f = x^{-1}[u^{-1}(u)]
@@ -82,8 +84,9 @@ where
         temperature: Quantity<Temperature>,
     ) -> [Scalar; 2] {
         let energy = BOLTZMANN_CONSTANT * temperature * nondimensional_energy;
-        self.forces_at_energy(energy)
-            .map(|force| ((force * self.rest_length()) / (BOLTZMANN_CONSTANT * temperature)).into())
+        self.forces_at_energy(energy).map(|force| {
+            ((force * self.rest_length()) / (BOLTZMANN_CONSTANT * temperature)).value()
+        })
     }
     /// ```math
     /// k(x) = \frac{\partial f}{\partial x}
@@ -100,7 +103,7 @@ where
         let length = self.rest_length() * nondimensional_length;
         ((self.stiffness(length) * (self.rest_length() * self.rest_length()))
             / (BOLTZMANN_CONSTANT * temperature))
-            .into()
+            .value()
     }
     /// ```math
     /// h(x) = \frac{\partial k}{\partial x}
@@ -118,7 +121,7 @@ where
         ((self.anharmonicity(length)
             * (self.rest_length() * self.rest_length() * self.rest_length()))
             / (BOLTZMANN_CONSTANT * temperature))
-            .into()
+            .value()
     }
     /// ```math
     /// v(f) = u(x) - f\Delta x
@@ -137,7 +140,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let force = BOLTZMANN_CONSTANT * temperature / self.rest_length() * nondimensional_force;
-        (self.legendre(force) / (BOLTZMANN_CONSTANT * temperature)).into()
+        (self.legendre(force) / (BOLTZMANN_CONSTANT * temperature)).value()
     }
     /// ```math
     /// \Delta x(f) = -\frac{\partial v}{\partial f}
@@ -152,7 +155,7 @@ where
         temperature: Quantity<Temperature>,
     ) -> Scalar {
         let force = BOLTZMANN_CONSTANT * temperature / self.rest_length() * nondimensional_force;
-        (self.extension(force) / self.rest_length()).into()
+        (self.extension(force) / self.rest_length()).value()
     }
     /// ```math
     /// x(f) = x_0 + \Delta x(f)
@@ -184,7 +187,7 @@ where
     ) -> [Scalar; 2] {
         let energy = BOLTZMANN_CONSTANT * temperature * nondimensional_energy;
         self.extensions_at_energy(energy)
-            .map(|extension| (extension / self.rest_length()).into())
+            .map(|extension| (extension / self.rest_length()).value())
     }
     /// ```math
     /// x = u^{-1}(u)
@@ -219,7 +222,7 @@ where
         let force = BOLTZMANN_CONSTANT * temperature / self.rest_length() * nondimensional_force;
         ((self.compliance(force) * (BOLTZMANN_CONSTANT * temperature))
             / (self.rest_length() * self.rest_length()))
-        .into()
+        .value()
     }
     /// ```math
     /// \text{arg max }u(x) = x_\mathrm{peak}

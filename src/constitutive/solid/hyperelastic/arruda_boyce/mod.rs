@@ -20,9 +20,9 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct ArrudaBoyce {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The number of links $`N_b`$.
     pub number_of_links: Scalar,
 }
@@ -36,10 +36,10 @@ impl ArrudaBoyce {
 
 impl Solid for ArrudaBoyce {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.bulk_modulus.into()
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.shear_modulus.into()
+        self.shear_modulus
     }
 }
 

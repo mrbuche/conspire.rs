@@ -9,20 +9,17 @@ use crate::{
         special::{erf, erfc},
     },
     mechanics::Vector,
-    physics::{
-        BOLTZMANN_CONSTANT,
-        molecular::single_chain::{
-            Configuration, Ensemble, Extensible, Isometric, Isotensional, IsotensionalExtensible,
-            Legendre, MonteCarlo, SingleChain, SingleChainError, Thermodynamics,
-            ThermodynamicsExtensible,
-            ufjc::{
-                // nondimensional_compliance as nondimensional_compliance_asymptotic,
-                nondimensional_extension as nondimensional_extension_asymptotic,
-                nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
-            },
+    physics::molecular::single_chain::{
+        Configuration, Ensemble, Extensible, Isometric, Isotensional, IsotensionalExtensible,
+        Legendre, MonteCarlo, SingleChain, SingleChainError, Thermodynamics,
+        ThermodynamicsExtensible,
+        ufjc::{
+            // nondimensional_compliance as nondimensional_compliance_asymptotic,
+            nondimensional_extension as nondimensional_extension_asymptotic,
+            nondimensional_gibbs_free_energy_per_link as nondimensional_gibbs_free_energy_per_link_asymptotic,
         },
     },
-    units::{ForcePerLength, Length},
+    units::{BOLTZMANN_CONSTANT, ForcePerLength, Length},
 };
 use std::f64::consts::{PI, TAU};
 
@@ -43,18 +40,18 @@ pub struct ExtensibleFreelyJointedChain {
 
 impl ExtensibleFreelyJointedChain {
     fn link_stiffness(&self) -> Quantity<ForcePerLength> {
-        self.link_stiffness.into()
+        Quantity::new(self.link_stiffness)
     }
     fn nondimensional_link_stiffness(&self) -> Scalar {
         ((self.link_stiffness() * (self.link_length() * self.link_length()))
             / (BOLTZMANN_CONSTANT * self.temperature()))
-        .into()
+        .value()
     }
 }
 
 impl SingleChain for ExtensibleFreelyJointedChain {
     fn link_length(&self) -> Quantity<Length> {
-        self.link_length.into()
+        Quantity::new(self.link_length)
     }
     fn number_of_links(&self) -> u8 {
         self.number_of_links

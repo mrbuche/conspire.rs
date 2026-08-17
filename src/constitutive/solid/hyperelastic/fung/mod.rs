@@ -15,11 +15,11 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct Fung {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The extra modulus $`\mu_m`$.
-    pub extra_modulus: Scalar,
+    pub extra_modulus: Quantity<Stress>,
     /// The exponent $`c`$.
     pub exponent: Scalar,
 }
@@ -27,7 +27,7 @@ pub struct Fung {
 impl Fung {
     /// Returns the extra modulus.
     pub fn extra_modulus(&self) -> Quantity<Stress> {
-        self.extra_modulus.into()
+        self.extra_modulus
     }
     /// Returns the exponent.
     pub fn exponent(&self) -> Scalar {
@@ -37,10 +37,10 @@ impl Fung {
 
 impl Solid for Fung {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.bulk_modulus.into()
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.shear_modulus.into()
+        self.shear_modulus
     }
 }
 

@@ -74,21 +74,21 @@ where
 #[derive(Clone, Debug)]
 pub struct ViscoplasticFlow {
     /// The initial yield stress $`Y_0`$.
-    pub yield_stress: Scalar,
+    pub yield_stress: Quantity<Stress>,
     /// The isotropic hardening slope $`H`$.
-    pub hardening_slope: Scalar,
+    pub hardening_slope: Quantity<Stress>,
     /// The rate sensitivity parameter $`m`$.
     pub rate_sensitivity: Scalar,
     /// The reference flow rate $`d_0`$.
-    pub reference_flow_rate: Scalar,
+    pub reference_flow_rate: Quantity<Rate>,
 }
 
 impl Plastic for ViscoplasticFlow {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
-        self.yield_stress.into()
+        self.yield_stress
     }
     fn hardening_slope(&self) -> Quantity<Stress> {
-        self.hardening_slope.into()
+        self.hardening_slope
     }
 }
 
@@ -107,7 +107,7 @@ impl Viscoplastic<Quantity> for ViscoplasticFlow {
         self.rate_sensitivity
     }
     fn reference_flow_rate(&self) -> Quantity<Rate> {
-        self.reference_flow_rate.into()
+        self.reference_flow_rate
     }
 }
 

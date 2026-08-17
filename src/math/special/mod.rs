@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::{Scalar, Tensor};
+use super::{Erase, Scalar, Tensor};
 use crate::{ABS_TOL, REL_TOL};
 use std::f64::consts::E;
 
@@ -112,9 +112,9 @@ pub fn langevin_derivative(x: Scalar) -> Scalar {
 pub fn rosenbrock<T>(x: &T, a: Scalar, b: Scalar) -> Scalar
 where
     T: Tensor,
-    T::Item: Copy + Into<Scalar>,
+    T::Item: Copy + Erase<Erased = Scalar>,
 {
-    let values: Vec<Scalar> = x.iter().map(|x_i| (*x_i).into()).collect();
+    let values: Vec<Scalar> = x.iter().map(|x_i| *x_i.erase()).collect();
     values
         .iter()
         .zip(values.iter().skip(1))
@@ -133,9 +133,9 @@ where
 pub fn rosenbrock_derivative<T>(x: &T, a: Scalar, b: Scalar) -> T
 where
     T: FromIterator<Scalar> + Tensor,
-    T::Item: Copy + Into<Scalar>,
+    T::Item: Copy + Erase<Erased = Scalar>,
 {
-    let x: Vec<Scalar> = x.iter().map(|x_i| (*x_i).into()).collect();
+    let x: Vec<Scalar> = x.iter().map(|x_i| *x_i.erase()).collect();
     let n = x.len();
     x.iter()
         .take(1)

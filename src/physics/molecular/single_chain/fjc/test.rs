@@ -2,10 +2,8 @@ use crate::math::assert::Assert;
 use crate::{
     EPSILON,
     math::{Scalar, assert::AssertionError},
-    physics::{
-        ROOM_TEMPERATURE,
-        molecular::single_chain::{Ensemble, FreelyJointedChain, Thermodynamics},
-    },
+    physics::molecular::single_chain::{Ensemble, FreelyJointedChain, Thermodynamics},
+    units::ROOM_TEMPERATURE,
 };
 
 const NUM: usize = 333;

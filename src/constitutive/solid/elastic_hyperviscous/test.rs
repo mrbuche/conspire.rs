@@ -1,9 +1,9 @@
-use crate::mechanics::Scalar;
+use crate::{math::Quantity, units::Viscosity};
 
 pub use crate::constitutive::solid::elastic::test::{BULK_MODULUS, SHEAR_MODULUS};
 
-pub const BULK_VISCOSITY: Scalar = 11.0;
-pub const SHEAR_VISCOSITY: Scalar = 1.0;
+pub const BULK_VISCOSITY: Quantity<Viscosity> = Viscosity::pascal_seconds(11.0);
+pub const SHEAR_VISCOSITY: Quantity<Viscosity> = Viscosity::pascal_seconds(1.0);
 
 macro_rules! viscous_dissipation_from_deformation_gradient_rate_simple {
     ($constitutive_model: expr, $deformation_gradient_rate: expr) => {
@@ -125,9 +125,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                             )?;
                             first_piola_kirchhoff_stress[i][j] = ((
                                 helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
-                            )/$crate::math::Quantity::<$crate::units::Rate>::new(EPSILON))
-                            .value_as::<$crate::units::Stress>()
-                            .into();
+                            )/$crate::math::Quantity::<$crate::units::Rate>::new(EPSILON));
                         }
                     }
                     Ok(first_piola_kirchhoff_stress)
@@ -303,9 +301,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                             )?;
                             first_piola_kirchhoff_stress[i][j] = ((
                                 helmholtz_free_energy_density_plus - helmholtz_free_energy_density_minus
-                            )/$crate::math::Quantity::<$crate::units::Rate>::new(EPSILON))
-                            .value_as::<$crate::units::Stress>()
-                            .into();
+                            )/$crate::math::Quantity::<$crate::units::Rate>::new(EPSILON));
                         }
                     }
                     Ok(first_piola_kirchhoff_stress)

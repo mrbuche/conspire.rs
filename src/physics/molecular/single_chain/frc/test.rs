@@ -1,12 +1,10 @@
 use crate::math::assert::Assert;
 use crate::{
     math::{Rank2, Scalar, Tensor, assert::AssertionError},
-    physics::{
-        ROOM_TEMPERATURE,
-        molecular::single_chain::{
-            Ensemble, FreelyRotatingChain, MonteCarlo, MonteCarloInextensible,
-        },
+    physics::molecular::single_chain::{
+        Ensemble, FreelyRotatingChain, MonteCarlo, MonteCarloInextensible,
     },
+    units::ROOM_TEMPERATURE,
 };
 
 const MODEL: FreelyRotatingChain = FreelyRotatingChain {

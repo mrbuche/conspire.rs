@@ -29,7 +29,7 @@ use geometry::contained;
 use std::collections::HashMap;
 
 const COLLAPSE_FRACTION: Scalar = 0.2;
-const CROSSING_TOLERANCE: Quantity<Length> = Quantity::new(1.0e-8);
+const CROSSING_TOLERANCE: Quantity<Length> = Length::meters(1.0e-8);
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
 const SLIVER_FRACTION: Scalar = 0.1;

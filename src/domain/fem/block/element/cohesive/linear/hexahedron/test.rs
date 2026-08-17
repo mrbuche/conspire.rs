@@ -14,17 +14,18 @@ use crate::{
     },
     math::{Rank2, Scalar, Tensor, TensorRank2, Vector, assert::AssertionError},
     mechanics::test::get_rotation_reference_configuration,
-    units::{Area, Force, Length, Stress},
+    units::{Area, Force, Length, Stress, StressPerLength},
 };
 
 const NORMAL_DISPLACEMENT: Scalar = 1.2;
-const NORMAL_STIFFNESS: Scalar = 3.4;
-const TANGENTIAL_STIFFNESS: Scalar = 5.6;
+const NORMAL_STIFFNESS: Quantity<StressPerLength> = StressPerLength::pascals_per_meter(3.4);
+const TANGENTIAL_STIFFNESS: Quantity<StressPerLength> = StressPerLength::pascals_per_meter(5.6);
 const TANGENTIAL_DISPLACEMENT: Scalar = 7.8;
 
 const TANGENTIAL_TRACTION: Quantity<Stress> =
-    Quantity::new(TANGENTIAL_STIFFNESS * TANGENTIAL_DISPLACEMENT);
-const NORMAL_TRACTION: Quantity<Stress> = Quantity::new(NORMAL_STIFFNESS * NORMAL_DISPLACEMENT);
+    Quantity::new(TANGENTIAL_STIFFNESS.value() * TANGENTIAL_DISPLACEMENT);
+const NORMAL_TRACTION: Quantity<Stress> =
+    Quantity::new(NORMAL_STIFFNESS.value() * NORMAL_DISPLACEMENT);
 
 const COORDINATES: [[Scalar; 3]; N] = [
     [-0.47979299, 0.48230032, 0.0],

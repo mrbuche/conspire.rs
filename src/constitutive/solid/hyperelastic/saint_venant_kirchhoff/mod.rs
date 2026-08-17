@@ -8,7 +8,7 @@ use crate::{
     },
     math::{IDENTITY_00, Quantity, Rank2, TensorRank4},
     mechanics::{
-        Deformation, DeformationGradient, Scalar, SecondPiolaKirchhoffStress,
+        Deformation, DeformationGradient, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
     },
     units::{EnergyDensity, Stress},
@@ -18,17 +18,17 @@ use crate::{
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
 }
 
 impl Solid for SaintVenantKirchhoff {
     fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.bulk_modulus.into()
+        self.bulk_modulus
     }
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.shear_modulus.into()
+        self.shear_modulus
     }
 }
 

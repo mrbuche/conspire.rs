@@ -67,7 +67,7 @@ pub(super) fn maximum_skew<const D: usize>(
         .map(|(u, v)| {
             let (nu, nv) = (u.norm(), v.norm());
             if nu > Quantity::default() && nv > Quantity::default() {
-                Scalar::from(((u * v) / (nu * nv)).abs())
+                ((u * v) / (nu * nv)).abs().value()
             } else {
                 0.0
             }

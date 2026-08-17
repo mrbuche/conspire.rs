@@ -8,7 +8,7 @@ macro_rules! test_explicit_fixed_step {
                 test::{LENGTH, zero_to_one},
             },
         };
-        const TIME_STEP: Quantity<Time> = Quantity::new(0.1);
+        const TIME_STEP: Quantity<Time> = Time::seconds(0.1);
         const TOLERANCE: Scalar = 0.1;
         test_explicit!($integration);
         #[test]
