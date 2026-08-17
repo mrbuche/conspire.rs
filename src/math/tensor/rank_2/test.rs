@@ -1293,3 +1293,18 @@ fn quadratic_form_matches_dense() {
         .eq_within_tols(form, &(&vector * (dense * &vector)))
         .unwrap()
 }
+
+/// Nothing overrides the default here, so this covers reaching every entry by
+/// position rather than by walking what is stored.
+#[test]
+fn times_matches_dense() {
+    use super::super::{Hessian, SquareMatrix, Vector};
+    let tensor = TensorRank2::<3, Current, Current>::from(get_array_dim_3());
+    let vector = Vector::from([1.0, -2.0, 3.0]);
+    let product = tensor.times(&vector);
+    let mut dense = SquareMatrix::zero(3);
+    tensor.fill_into(&mut dense);
+    Assert::default()
+        .eq_within_tols(&product, &(dense * &vector))
+        .unwrap()
+}

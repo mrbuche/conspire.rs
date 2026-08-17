@@ -182,6 +182,26 @@ where
     fn quadratic_form(&self, _vector: &Vector) -> Scalar {
         unimplemented!()
     }
+    /// The Hessian applied to a vector.
+    ///
+    /// ```math
+    /// \mathbf{H}\cdot\mathbf{v}
+    /// ```
+    ///
+    /// This is all an iterative solve ever asks of a Hessian, so the default
+    /// reaches every entry by position and leaves the sparse arrangements to
+    /// say how to walk only the entries they keep.
+    fn times(&self, vector: &Vector) -> Vector {
+        (0..vector.len())
+            .map(|row| {
+                vector
+                    .iter()
+                    .enumerate()
+                    .map(|(column, entry)| self.entry(row, column) * entry)
+                    .sum()
+            })
+            .collect()
+    }
     /// Return only the retained indices.
     fn retain_from(self, _retained: &[bool]) -> SquareMatrix {
         unimplemented!()

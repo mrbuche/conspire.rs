@@ -243,6 +243,27 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2SparseVec2DSymmetric<D, I, 
             })
             .sum()
     }
+    fn times(&self, vector: &Vector) -> Vector {
+        //
+        // A stored off-diagonal block stands for two, so it is scattered into
+        // both the row it is kept at and the row it mirrors into. A diagonal
+        // block is stored whole and is scattered once.
+        //
+        let mut product = Vector::zero(vector.len());
+        self.0.iter().enumerate().for_each(|(a, row)| {
+            row.entries().for_each(|(b, block)| {
+                block.iter().enumerate().for_each(|(i, block_i)| {
+                    block_i.iter().enumerate().for_each(|(j, block_ij)| {
+                        product[D * a + i] += block_ij.value() * vector[D * b + j];
+                        if a != b {
+                            product[D * b + j] += block_ij.value() * vector[D * a + i];
+                        }
+                    })
+                })
+            })
+        });
+        product
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.0.iter().enumerate().for_each(|(a, row)| {
             row.entries().for_each(|(b, block)| {

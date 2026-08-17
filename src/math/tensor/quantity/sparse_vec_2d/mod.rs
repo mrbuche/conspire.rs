@@ -25,6 +25,14 @@ impl<U> Hessian for QuantitySparseVec2D<U> {
             })
             .sum()
     }
+    fn times(&self, vector: &Vector) -> Vector {
+        let mut product = Vector::zero(vector.len());
+        self.iter().enumerate().for_each(|(a, row)| {
+            row.entries()
+                .for_each(|(b, entry)| product[a] += entry.value() * vector[b])
+        });
+        product
+    }
     fn entry(&self, row: usize, column: usize) -> Scalar {
         match self[row].0.binary_search_by_key(&column, |&(b, _)| b) {
             Ok(k) => self[row].0[k].1.value(),

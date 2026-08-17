@@ -100,6 +100,19 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2SparseVec2D<D, I, J, U> {
             })
             .sum()
     }
+    fn times(&self, vector: &Vector) -> Vector {
+        let mut product = Vector::zero(vector.len());
+        self.iter().enumerate().for_each(|(a, row)| {
+            row.entries().for_each(|(b, block)| {
+                block.iter().enumerate().for_each(|(i, block_i)| {
+                    block_i.iter().enumerate().for_each(|(j, block_ij)| {
+                        product[D * a + i] += block_ij.value() * vector[D * b + j]
+                    })
+                })
+            })
+        });
+        product
+    }
     fn entry(&self, row: usize, column: usize) -> Scalar {
         match self[row / D]
             .0

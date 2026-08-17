@@ -114,3 +114,10 @@ fn quadratic_form_matches_dense() -> Result<(), AssertionError> {
         &(&vector * (dense() * &vector)),
     )
 }
+
+#[test]
+fn times_matches_dense() -> Result<(), AssertionError> {
+    use crate::math::Vector;
+    let vector = Vector::from([1.0, -2.0, 3.0, 0.5, -1.5, 2.0]);
+    Assert::default().eq_within_tols(accumulator().times(&vector), &(dense() * &vector))
+}
