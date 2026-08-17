@@ -3,8 +3,8 @@ mod test;
 
 use super::{
     super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
-    BacktrackingLineSearch, EqualityConstraint, FirstOrderOptimization, LineSearch,
-    OptimizationError, StepSize, Tolerances, ZerothOrderRootFinding,
+    EqualityConstraint, FirstOrderOptimization, LineSearch, LineSearcher, OptimizationError,
+    StepSize, Tolerances, ZerothOrderRootFinding,
 };
 use crate::math::{Erase, Is, Norm};
 use crate::units::{UnitDiv, UnitMul, UnitSum};
@@ -87,7 +87,7 @@ pub struct ConjugateGradient {
     pub rel_tol: Option<Scalar>,
 }
 
-impl<J, X> BacktrackingLineSearch<J, X> for ConjugateGradient {
+impl<J, X> LineSearcher<J, X> for ConjugateGradient {
     fn get_line_search(&self) -> &LineSearch {
         &self.line_search
     }
@@ -319,7 +319,7 @@ where
                 previous.as_ref(),
                 &mut step_size,
             );
-            step_size = conjugate_gradient.backtracking_line_search::<F, E>(
+            step_size = conjugate_gradient.search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
@@ -382,7 +382,7 @@ where
                 previous.as_ref(),
                 &mut step_size,
             );
-            step_size = conjugate_gradient.backtracking_line_search::<F, E>(
+            step_size = conjugate_gradient.search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,

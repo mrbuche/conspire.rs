@@ -61,12 +61,12 @@ impl Display for LineSearch {
 }
 
 impl LineSearch {
-    /// Backtrack on a merit function of the step size alone.
+    /// Search a merit function of the step size alone.
     ///
     /// The exact penalty function is not differentiable, its norm having a kink
     /// wherever a constraint is satisfied, so its slope along the step is
     /// supplied rather than recovered from a gradient.
-    pub fn backtrack_merit(
+    pub fn search_merit(
         &self,
         mut merit: impl FnMut(Scalar) -> Result<Scalar, String>,
         value: Scalar,
@@ -148,11 +148,11 @@ impl LineSearch {
                 "The Wolfe conditions need the gradient of the merit function, which the exact penalty function does not have."
             ),
             Self::None => {
-                panic!("Cannot call backtracking line search when there is no algorithm.")
+                panic!("Cannot call the line search when there is no algorithm.")
             }
         }
     }
-    pub fn backtrack<X, J, D, W, E>(
+    pub fn search<X, J, D, W, E>(
         &self,
         mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
@@ -287,7 +287,7 @@ impl LineSearch {
                 ))
             }
             Self::None => {
-                panic!("Cannot call backtracking line search when there is no algorithm.")
+                panic!("Cannot call the line search when there is no algorithm.")
             }
         }
     }

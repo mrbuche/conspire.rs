@@ -9,7 +9,7 @@ fn search(strong: bool) -> Scalar {
         max_steps: 100,
         strong,
     }
-    .backtrack(
+    .search(
         |x: &Scalar, _: Scalar| Ok(x.powi(2) / 2.0),
         |x: &Scalar| Ok(*x),
         &1.0,

@@ -7,8 +7,8 @@ use super::{
         Solution, SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
-    BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
-    FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
+    EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
+    FirstOrderRootFindingIncremental, LineSearch, LineSearchError, LineSearcher, OptimizationError,
     SecondOrderOptimization, SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental,
     SolveStrategy, Tolerances, TrustRegion,
 };
@@ -36,7 +36,7 @@ pub struct NewtonRaphson {
     pub trust_region: TrustRegion,
 }
 
-impl<J, X> BacktrackingLineSearch<J, X> for NewtonRaphson {
+impl<J, X> LineSearcher<J, X> for NewtonRaphson {
     fn get_line_search(&self) -> &LineSearch {
         &self.line_search
     }
@@ -452,8 +452,8 @@ fn merit_slope<'a>(
         + violated
 }
 
-/// Backtracks on the merit function, or takes the whole step where there is
-/// nothing to backtrack along.
+/// Searches the merit function, or takes the whole step where there is
+/// nothing to search along.
 ///
 /// The line search refuses a direction that is not one of descent, and cannot
 /// resolve one whose descent is finer than the merit it would be measured
@@ -465,7 +465,7 @@ fn merit_slope<'a>(
 /// against, which leaves the comparison a ratio and the threshold the
 /// precision that ratio is held in. A number of its own would carry units and
 /// mean something different at every scale.
-fn backtrack_penalty(
+fn search_penalty(
     newton_raphson: &NewtonRaphson,
     merit: impl FnMut(Scalar) -> Result<Scalar, String>,
     value: Scalar,
@@ -476,7 +476,7 @@ fn backtrack_penalty(
     } else {
         newton_raphson
             .line_search
-            .backtrack_merit(merit, value, slope, 1.0)
+            .search_merit(merit, value, slope, 1.0)
             .map_err(|error| {
                 OptimizationError::Upstream(format!("{error}"), format!("{newton_raphson:?}"))
             })
@@ -941,7 +941,7 @@ where
             } = &newton_raphson.line_search
         {
             //
-            // Root finding has no merit function to backtrack against, so the
+            // Root finding has no merit function to search against, so the
             // trial point is judged by whether the problem can be evaluated
             // there at all. Minimization keeps its merit function instead.
             //
@@ -1014,7 +1014,7 @@ where
                 violated,
             );
             let value = function(&global, &local)? + violated;
-            backtrack_penalty(
+            search_penalty(
                 newton_raphson,
                 |step| {
                     let mut trial_global = global.clone();
@@ -1130,7 +1130,7 @@ where
                     decrement *= radius / size
                 }
             }
-            step_size = newton_raphson.backtracking_line_search::<X, E>(
+            step_size = newton_raphson.search::<X, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
@@ -1233,7 +1233,7 @@ where
             let mut decrement_full = &solution * 0.0;
             decrement_full.decrement_from_retained(&retained, &decrement);
             decrement_full *= -1.0;
-            newton_raphson.backtracking_line_search::<X, E>(
+            newton_raphson.search::<X, E>(
                 |trial: &X, step: Scalar| {
                     update(&solution, &applied, step, false)?;
                     function(trial)
@@ -1370,7 +1370,7 @@ where
             let slope = merit_slope(gradient.iter().zip(decrement.iter()), violated);
             update(&solution, &applied, 0.0, false)?;
             let value = function(&solution)? + violated;
-            backtrack_penalty(
+            search_penalty(
                 newton_raphson,
                 |step| {
                     let mut trial = solution.clone();

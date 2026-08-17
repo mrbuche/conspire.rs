@@ -3,8 +3,8 @@ mod test;
 
 use super::{
     super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
-    BacktrackingLineSearch, EqualityConstraint, FirstOrderOptimization, LineSearch,
-    OptimizationError, StepSize, Tolerances, ZerothOrderRootFinding,
+    EqualityConstraint, FirstOrderOptimization, LineSearch, LineSearcher, OptimizationError,
+    StepSize, Tolerances, ZerothOrderRootFinding,
 };
 use crate::math::{Erase, Is, Norm};
 use crate::units::{UnitDiv, UnitMul, UnitSum};
@@ -33,7 +33,7 @@ pub struct GradientDescent {
     pub rel_tol: Option<Scalar>,
 }
 
-impl<J, X> BacktrackingLineSearch<J, X> for GradientDescent {
+impl<J, X> LineSearcher<J, X> for GradientDescent {
     fn get_line_search(&self) -> &LineSearch {
         &self.line_search
     }
@@ -216,7 +216,7 @@ where
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
-            step_size = gradient_descent.backtracking_line_search::<F, E>(
+            step_size = gradient_descent.search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
@@ -282,7 +282,7 @@ where
             if step_trial.abs() > 0.0 && !step_trial.is_nan() {
                 step_size = step_trial.abs()
             }
-            step_size = gradient_descent.backtracking_line_search::<F, E>(
+            step_size = gradient_descent.search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,

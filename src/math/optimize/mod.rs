@@ -164,11 +164,11 @@ pub trait SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     ) -> Result<(U, V), OptimizationError>;
 }
 
-trait BacktrackingLineSearch<J, X>
+trait LineSearcher<J, X>
 where
     Self: Debug,
 {
-    fn backtracking_line_search<D, E>(
+    fn search<D, E>(
         &self,
         mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
@@ -188,7 +188,7 @@ where
         if matches!(self.get_line_search(), LineSearch::None) {
             Ok(step_size)
         } else {
-            match self.get_line_search().backtrack(
+            match self.get_line_search().search(
                 &mut function,
                 &mut jacobian,
                 argument,
