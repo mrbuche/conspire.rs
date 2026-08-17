@@ -200,6 +200,100 @@ mod root {
     }
 }
 
+/// An iterative linear solve has to reach the same answer as a direct one, the
+/// tangent it walks being the same tangent the others factorize.
+mod krylov {
+    use super::*;
+    use crate::math::{
+        SquareMatrix, Vector,
+        optimize::{Krylov, Preconditioner},
+        sparse::SparseSolver,
+    };
+
+    /// Symmetric and positive definite, as conjugate gradients requires.
+    fn tangent() -> SquareMatrix {
+        SquareMatrix::from([[4.0, 1.0], [1.0, 3.0]])
+    }
+
+    fn solved(
+        linear_solver: LinearSolver,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<Vector, AssertionError> {
+        Ok(NewtonRaphson::default().root(
+            |x: &Vector| {
+                Ok(Vector::from([
+                    4.0 * x[0] + x[1] - 1.0,
+                    x[0] + 3.0 * x[1] - 2.0,
+                ]))
+            },
+            |_: &Vector| Ok(tangent()),
+            Vector::from([0.0, 0.0]),
+            equality_constraint,
+            linear_solver,
+        )?)
+    }
+
+    fn krylov(preconditioner: Preconditioner) -> LinearSolver {
+        LinearSolver::Krylov(Krylov {
+            preconditioner,
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn agrees_with_dense_and_sparse() -> Result<(), AssertionError> {
+        let expected = solved(LinearSolver::Dense, EqualityConstraint::None)?;
+        Assert::default().eq_within_tols(
+            &solved(
+                LinearSolver::Sparse(SparseSolver::from_pattern(
+                    2,
+                    vec![(0, 0), (0, 1), (1, 0), (1, 1)],
+                    true,
+                )),
+                EqualityConstraint::None,
+            )?,
+            &expected,
+        )?;
+        for preconditioner in [Preconditioner::Jacobi, Preconditioner::None] {
+            Assert::default().eq_within_tols(
+                &solved(krylov(preconditioner), EqualityConstraint::None)?,
+                &expected,
+            )?
+        }
+        Ok(())
+    }
+
+    /// Fixing a variable strikes its row and column out, which the iterative
+    /// solve reaches by scattering and gathering rather than by remapping.
+    #[test]
+    fn fixed_agrees_with_dense() -> Result<(), AssertionError> {
+        let expected = solved(LinearSolver::Dense, EqualityConstraint::Fixed(vec![0]))?;
+        Assert::default().eq_within_tols(
+            &solved(
+                krylov(Preconditioner::Jacobi),
+                EqualityConstraint::Fixed(vec![0]),
+            )?,
+            &expected,
+        )
+    }
+
+    /// The system a linear equality constraint makes is symmetric indefinite by
+    /// construction, which is not something conjugate gradients can descend.
+    #[test]
+    fn linear_constraint_is_refused() {
+        use crate::math::Matrix;
+        let mut matrix = Matrix::zero(1, 2);
+        matrix[0][0] = 1.0;
+        assert!(
+            solved(
+                krylov(Preconditioner::Jacobi),
+                EqualityConstraint::Linear(matrix, Vector::from([1.0])),
+            )
+            .is_err()
+        )
+    }
+}
+
 mod constrained {
     use super::*;
     use crate::math::{Matrix, SquareMatrix, Vector, optimize::Tolerances};

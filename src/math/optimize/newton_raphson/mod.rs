@@ -748,6 +748,12 @@ where
         SolveStrategy::Condensed(ref local_solver) => Some(local_solver),
         SolveStrategy::Monolithic { .. } => None,
     };
+    if let LinearSolver::Krylov(_) = &linear_solver {
+        return Err(OptimizationError::Indefinite(
+            "variables split into blocks".to_string(),
+            format!("{newton_raphson:?}"),
+        ));
+    }
     if !linear_solver.is_dense() && eliminating {
         unimplemented!(
             "Eliminating the local block sparsely wants it held as the blocks it is, not as one matrix."
@@ -1121,12 +1127,18 @@ where
             ));
         } else {
             steps += 1;
-            decrement = if let LinearSolver::Sparse(solver) = &linear_solver {
-                let hess = hessian(&solution)?;
-                residual.fill_into(&mut flattened);
-                X::from(solver.solve(|i, j| hess.entry(i, j), &flattened)?)
-            } else {
-                &residual / hessian(&solution)?
+            decrement = match &linear_solver {
+                LinearSolver::Dense => &residual / hessian(&solution)?,
+                LinearSolver::Krylov(krylov) => {
+                    let hess = hessian(&solution)?;
+                    residual.fill_into(&mut flattened);
+                    X::from(krylov.conjugate_gradients(&hess, &flattened)?)
+                }
+                LinearSolver::Sparse(solver) => {
+                    let hess = hessian(&solution)?;
+                    residual.fill_into(&mut flattened);
+                    X::from(solver.solve(|i, j| hess.entry(i, j), &flattened)?)
+                }
             };
             if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
                 let size = norm.measure(&decrement);
@@ -1197,14 +1209,28 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
-        } else if let LinearSolver::Sparse(solver) = &linear_solver {
-            let hess = hessian(&solution)?;
-            decrement = solver.solve(|i, j| hess.entry(unmap[i], unmap[j]), &residual)?
         } else {
-            hessian(&solution)?
-                .retain_from(&retained)
-                .factorize_lu_into(&mut factorization)?;
-            factorization.solve_into(&residual, &mut decrement)
+            match &linear_solver {
+                LinearSolver::Dense => {
+                    hessian(&solution)?
+                        .retain_from(&retained)
+                        .factorize_lu_into(&mut factorization)?;
+                    factorization.solve_into(&residual, &mut decrement)
+                }
+                LinearSolver::Krylov(krylov) => {
+                    let hess = hessian(&solution)?;
+                    decrement = krylov.conjugate_gradients_retained(
+                        &hess,
+                        &unmap,
+                        retained.len(),
+                        &residual,
+                    )?
+                }
+                LinearSolver::Sparse(solver) => {
+                    let hess = hessian(&solution)?;
+                    decrement = solver.solve(|i, j| hess.entry(unmap[i], unmap[j]), &residual)?
+                }
+            }
         }
         steps += 1;
         limit_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
@@ -1279,6 +1305,12 @@ where
     X: Solution,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
+    if let LinearSolver::Krylov(_) = &linear_solver {
+        return Err(OptimizationError::Indefinite(
+            "a linear equality constraint".to_string(),
+            format!("{newton_raphson:?}"),
+        ));
+    }
     let mut penalty = 0.0 as Scalar;
     let num_variables = initial_guess.size();
     let mut applied = Vector::zero(num_variables);

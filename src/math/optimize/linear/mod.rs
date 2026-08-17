@@ -1,4 +1,4 @@
-use super::super::sparse::SparseSolver;
+use super::{super::sparse::SparseSolver, Krylov};
 
 /// How the linear system at each step is solved.
 #[derive(Clone, Default)]
@@ -6,6 +6,8 @@ pub enum LinearSolver {
     /// A dense direct factorization, formed fresh from the whole tangent.
     #[default]
     Dense,
+    /// An iterative solve, asking the tangent only what it does to a vector.
+    Krylov(Krylov),
     /// A sparse direct factorization, whose pivot order and fill pattern are
     /// reused across solves.
     Sparse(SparseSolver),

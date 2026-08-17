@@ -4,6 +4,7 @@ mod test;
 mod conjugate_gradient;
 mod constraint;
 mod gradient_descent;
+mod krylov;
 mod line_search;
 mod linear;
 mod newton_raphson;
@@ -14,6 +15,7 @@ mod trust_region;
 pub use conjugate_gradient::{Conjugacy, ConjugateGradient};
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
+pub use krylov::{Krylov, KrylovError, Preconditioner};
 pub use line_search::{LineSearch, LineSearchError};
 pub use linear::LinearSolver;
 pub use newton_raphson::NewtonRaphson;
@@ -211,6 +213,7 @@ where
 
 /// Possible errors encountered during optimization.
 pub enum OptimizationError {
+    Indefinite(String, String),
     Intermediate(String),
     MaximumStepsReached(usize, String),
     NotMinimum(String, String),
@@ -228,6 +231,11 @@ impl StyledError for OptimizationError {
     fn message(&self, style: &Style) -> String {
         let (h, c) = (style.headline, style.frame);
         match self {
+            Self::Indefinite(system, solver) => format!(
+                "{h}Conjugate gradients needs a positive definite system.{c}\n\
+                The system is symmetric indefinite by construction, having: {system}.\n\
+                In solver: {solver}."
+            ),
             Self::Intermediate(message) => message.to_string(),
             Self::MaximumStepsReached(steps, solver) => format!(
                 "{h}Maximum number of steps ({steps}) reached.{c}\n\
