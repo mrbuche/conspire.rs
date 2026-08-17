@@ -1,3 +1,5 @@
+pub mod internal_variables;
+
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, Model,
@@ -6,11 +8,12 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolidSymmetric, elastic::ElasticElements},
     },
     math::{
-        Scalar, Tensor,
+        Quantity, Tensor,
         optimize::{
             EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,
         },
     },
+    units::Energy,
 };
 
 pub trait HyperelasticElements<const D: usize>
@@ -20,7 +23,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<Energy>, ElementModelError>;
     fn nodal_stiffnesses_symmetric_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -43,7 +46,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         self.blocks.helmholtz_free_energy(nodal_coordinates)
     }
     fn nodal_stiffnesses_symmetric_into(
@@ -64,7 +67,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         Ok(self.0.helmholtz_free_energy(nodal_coordinates)?
             + self.1.helmholtz_free_energy(nodal_coordinates)?)
     }
@@ -80,14 +83,15 @@ where
     }
 }
 
-impl<B, const D: usize> FirstOrderMinimize<Scalar, NodalCoordinates<D>> for Model<B, D>
+impl<B, const D: usize>
+    FirstOrderMinimize<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>> for Model<B, D>
 where
     B: HyperelasticElements<D>,
 {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Scalar, NodalCoordinates<D>>,
+        solver: impl FirstOrderOptimization<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates<D>| {
@@ -102,7 +106,7 @@ where
 
 impl<B, const D: usize>
     SecondOrderMinimize<
-        Scalar,
+        Quantity<Energy>,
         NodalForcesSolid<D>,
         NodalStiffnessesSolidSymmetric<D>,
         NodalCoordinates<D>,
@@ -114,7 +118,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolidSymmetric<D>,
             NodalCoordinates<D>,

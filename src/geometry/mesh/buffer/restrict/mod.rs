@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates, CoordinatesRef,
+        Direction, Directions, DirectionsRef,
         mesh::{Connectivity, Mesh},
     },
     math::{CrossProduct, FxHashMap, FxHashSet, Scalar, Tensor},
@@ -36,7 +36,7 @@ impl Mesh<3> {
                 .into_values()
                 .filter_map(|mut group| (group.len() == 1).then(|| group.pop().unwrap()))
                 .collect();
-            let normals: Coordinates<3> = boundary
+            let normals: Directions<3> = boundary
                 .iter()
                 .map(|(_, face)| {
                     let diagonal_0 = &coordinates[face[2]] - &coordinates[face[0]];
@@ -79,20 +79,21 @@ impl Mesh<3> {
     }
 }
 
-fn feasible(normals: &CoordinatesRef<3>) -> bool {
-    let mut e: Coordinate<3> = normals.iter().copied().sum();
+fn feasible(normals: &DirectionsRef<3>) -> bool {
+    let mut e: Direction<3> = normals.iter().copied().sum();
     if e.norm() < TOLERANCE {
         e = normals[0].clone();
     }
     e = e.normalized();
     let mut best = Scalar::NEG_INFINITY;
     for _ in 0..ASCENT_ITERATIONS {
-        let (worst_index, worst) = normals.iter().enumerate().map(|(i, &n)| (i, n * &e)).fold(
-            (0, Scalar::INFINITY),
-            |(bi, bv), (i, v)| {
+        let (worst_index, worst) = normals
+            .iter()
+            .enumerate()
+            .map(|(i, &n)| (i, (n * &e).value()))
+            .fold((0, Scalar::INFINITY), |(bi, bv), (i, v)| {
                 if v < bv { (i, v) } else { (bi, bv) }
-            },
-        );
+            });
         best = best.max(worst);
         let candidate = &e + &normals[worst_index];
         if candidate.norm() < TOLERANCE {

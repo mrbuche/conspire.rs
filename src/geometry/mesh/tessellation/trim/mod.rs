@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, CoordinatesRef,
+        Direction, DirectionsRef,
         mesh::{
             Mesh,
             tessellation::{D, Tessellation},
@@ -15,10 +15,10 @@ use std::thread::{available_parallelism, scope};
 
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const TRIM_RATIO: Scalar = 0.1;
-const DIRECTIONS: [Coordinate<D>; 3] = [
-    Coordinate::const_from([1.0, 0.140_412_03, 0.092_153_88]),
-    Coordinate::const_from([0.097_153_2, 1.0, 0.131_771_4]),
-    Coordinate::const_from([0.123_456_7, 0.087_654_3, 1.0]),
+const DIRECTIONS: [Direction<D>; 3] = [
+    Direction::const_from([1.0, 0.140_412_03, 0.092_153_88]),
+    Direction::const_from([0.097_153_2, 1.0, 0.131_771_4]),
+    Direction::const_from([0.123_456_7, 0.087_654_3, 1.0]),
 ];
 
 impl Tessellation {
@@ -33,7 +33,7 @@ impl Tessellation {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<'_, D> = self.normals().iter().flatten().collect();
+        let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let coordinates = mesh.coordinates();
         let number_of_nodes = coordinates.len();
@@ -71,7 +71,7 @@ impl Tessellation {
                                 if let Some((closest, _)) =
                                     bvh.closest_point(point, surface_coordinates, elements)
                                 {
-                                    let magnitude = (&closest - point).norm();
+                                    let magnitude = (&closest - point).norm().value();
                                     *distance = if inside { magnitude } else { -magnitude };
                                 }
                             });

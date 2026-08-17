@@ -3,7 +3,8 @@ use crate::{
         Blocks, ElementModelError, Model, NodalCoordinates,
         solid::elastic_hyperviscous::ElasticHyperviscousElements,
     },
-    math::Scalar,
+    math::Quantity,
+    units::Energy,
 };
 
 pub trait HyperviscoelasticElements<const D: usize>
@@ -13,7 +14,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<Energy>, ElementModelError>;
 }
 
 impl<B, const D: usize> HyperviscoelasticElements<D> for Model<B, D>
@@ -23,7 +24,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         self.blocks.helmholtz_free_energy(nodal_coordinates)
     }
 }
@@ -36,7 +37,7 @@ where
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         Ok(self.0.helmholtz_free_energy(nodal_coordinates)?
             + self.1.helmholtz_free_energy(nodal_coordinates)?)
     }

@@ -1,3 +1,4 @@
-use crate::mechanics::Scalar;
+use crate::{math::Quantity, units::PowerPerLengthTemperature};
 
-pub const THERMAL_CONDUCTIVITY: Scalar = 1.0;
+pub const THERMAL_CONDUCTIVITY: Quantity<PowerPerLengthTemperature> =
+    PowerPerLengthTemperature::watts_per_meter_kelvin(1.0);

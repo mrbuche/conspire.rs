@@ -1,3 +1,4 @@
+use crate::math::Current;
 use crate::math::{Tensor, TensorArray, TensorRank0, TensorRank1, TensorRank1List, TensorRank2};
 
 fn get_array() -> [[TensorRank0; 3]; 8] {
@@ -13,11 +14,11 @@ fn get_array() -> [[TensorRank0; 3]; 8] {
     ]
 }
 
-fn get_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
+fn get_tensor_rank_1_list() -> TensorRank1List<3, Current, 8> {
     TensorRank1List::from(get_array())
 }
 
-fn get_other_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
+fn get_other_tensor_rank_1_list() -> TensorRank1List<3, Current, 8> {
     TensorRank1List::from([
         [3.0, 3.0, 6.0],
         [2.0, 4.0, 3.0],
@@ -30,7 +31,7 @@ fn get_other_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
     ])
 }
 
-fn get_tensor_rank_1_list_add_other_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
+fn get_tensor_rank_1_list_add_other_tensor_rank_1_list() -> TensorRank1List<3, Current, 8> {
     TensorRank1List::from([
         [8.0, 3.0, 6.0],
         [7.0, 9.0, 9.0],
@@ -43,7 +44,7 @@ fn get_tensor_rank_1_list_add_other_tensor_rank_1_list() -> TensorRank1List<3, 1
     ])
 }
 
-fn get_tensor_rank_1_list_sub_other_tensor_rank_1_list() -> TensorRank1List<3, 1, 8> {
+fn get_tensor_rank_1_list_sub_other_tensor_rank_1_list() -> TensorRank1List<3, Current, 8> {
     TensorRank1List::from([
         [2.0, -3.0, -6.0],
         [3.0, 1.0, 3.0],
@@ -56,7 +57,7 @@ fn get_tensor_rank_1_list_sub_other_tensor_rank_1_list() -> TensorRank1List<3, 1
     ])
 }
 
-fn get_tensor_rank_1_list_mul_other_tensor_rank_1_list() -> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_1_list_mul_other_tensor_rank_1_list() -> TensorRank2<3, Current, Current> {
     TensorRank2::from([[69.0, 70.0, 90.0], [57.0, 73.0, 75.0], [63.0, 70.0, 65.0]])
 }
 
@@ -380,8 +381,8 @@ fn from() {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank1List::<3, 1, 8>>(),
-        std::mem::size_of::<[TensorRank1::<3, 1>; 8]>()
+        std::mem::size_of::<TensorRank1List::<3, Current, 8>>(),
+        std::mem::size_of::<[TensorRank1::<3, Current>; 8]>()
     )
 }
 
@@ -459,7 +460,7 @@ fn sub_assign_tensor_rank_1_list_ref() {
 
 #[test]
 fn zero() {
-    TensorRank1List::<3, 1, 8>::zero()
+    TensorRank1List::<3, Current, 8>::zero()
         .iter()
         .for_each(|tensor_rank_1_entry| {
             tensor_rank_1_entry

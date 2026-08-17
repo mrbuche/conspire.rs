@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate,
+        Coordinate, Direction,
         mesh::{
             Connectivity,
             tessellation::{D, Tessellation},
@@ -55,7 +55,7 @@ where
 impl Tessellation {
     fn for_each_facet<F>(&self, mut facet: F) -> Result<(), ErrorIO>
     where
-        F: FnMut(&Coordinate<D>, [&Coordinate<D>; D]) -> Result<(), ErrorIO>,
+        F: FnMut(&Direction<D>, [&Coordinate<D>; D]) -> Result<(), ErrorIO>,
     {
         self.mesh
             .connectivities()
@@ -79,12 +79,12 @@ impl Tessellation {
         writer.write_all(&[0_u8; 80])?;
         writer.write_all(&(self.mesh.number_of_elements() as u32).to_le_bytes())?;
         self.for_each_facet(|normal, vertices| {
-            normal
-                .iter()
-                .try_for_each(|&component| writer.write_all(&(component as f32).to_le_bytes()))?;
+            normal.iter().try_for_each(|&component| {
+                writer.write_all(&(component.value() as f32).to_le_bytes())
+            })?;
             vertices.iter().try_for_each(|vertex| {
                 vertex.iter().try_for_each(|&coordinate| {
-                    writer.write_all(&(coordinate as f32).to_le_bytes())
+                    writer.write_all(&(coordinate.value() as f32).to_le_bytes())
                 })
             })?;
             writer.write_all(&0_u16.to_le_bytes())
@@ -101,13 +101,17 @@ impl Tessellation {
             writeln!(
                 writer,
                 "  facet normal {} {} {}\n    outer loop",
-                normal[0] as f32, normal[1] as f32, normal[2] as f32
+                normal[0].value() as f32,
+                normal[1].value() as f32,
+                normal[2].value() as f32
             )?;
             vertices.iter().try_for_each(|vertex| {
                 writeln!(
                     writer,
                     "      vertex {} {} {}",
-                    vertex[0] as f32, vertex[1] as f32, vertex[2] as f32
+                    vertex[0].value() as f32,
+                    vertex[1].value() as f32,
+                    vertex[2].value() as f32
                 )
             })?;
             writer.write_all(b"    endloop\n  endfacet\n")

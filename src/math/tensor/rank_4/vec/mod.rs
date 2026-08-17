@@ -1,10 +1,5 @@
 use crate::math::{TensorRank4, tensor::vec::TensorVector};
-
+use crate::units::Dimensionless;
 /// A vector of rank-4 tensors.
-pub type TensorRank4Vec<
-    const D: usize,
-    const I: usize,
-    const J: usize,
-    const K: usize,
-    const L: usize,
-> = TensorVector<TensorRank4<D, I, J, K, L>>;
+pub type TensorRank4Vec<const D: usize, I, J, K, L, U = Dimensionless> =
+    TensorVector<TensorRank4<D, I, J, K, L, U>>;

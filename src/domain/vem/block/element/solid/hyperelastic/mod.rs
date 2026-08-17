@@ -1,7 +1,9 @@
+use crate::math::Quantity;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
     fem::block::element::solid::hyperelastic::HyperelasticFiniteElement,
-    math::{Scalar, Tensor},
+    math::Tensor,
+    units::Energy,
     vem::block::element::{
         Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
         solid::{SolidVirtualElement, elastic::ElasticVirtualElement},
@@ -17,7 +19,7 @@ where
         &'a self,
         constitutive_model: &'a C,
         nodal_coordinates: ElementNodalCoordinates<'a>,
-    ) -> Result<Scalar, VirtualElementError>;
+    ) -> Result<Quantity<Energy>, VirtualElementError>;
 }
 
 impl<C> HyperelasticVirtualElement<C> for Element
@@ -29,7 +31,7 @@ where
         &'a self,
         constitutive_model: &'a C,
         nodal_coordinates: ElementNodalCoordinates<'a>,
-    ) -> Result<Scalar, VirtualElementError> {
+    ) -> Result<Quantity<Energy>, VirtualElementError> {
         match self
             .tetrahedra()
             .iter()
@@ -37,7 +39,7 @@ where
             .map(|(tetrahedron, tetrahedron_coordinates)| {
                 tetrahedron.helmholtz_free_energy(constitutive_model, tetrahedron_coordinates)
             })
-            .sum::<Result<Scalar, _>>()
+            .sum::<Result<Quantity<Energy>, _>>()
         {
             Ok(tetrahedra_energy) => {
                 match self
@@ -51,7 +53,7 @@ where
                                 * integration_weight,
                         )
                     })
-                    .sum::<Result<Scalar, _>>()
+                    .sum::<Result<Quantity<Energy>, _>>()
                 {
                     Ok(polyhedron_energy) => Ok(polyhedron_energy * (1.0 - self.stabilization())
                         + tetrahedra_energy * self.stabilization()),

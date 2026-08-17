@@ -5,20 +5,25 @@ use crate::{
         ConstitutiveError,
         solid::elastic::{
             AppliedLoad,
-            internal_variables::{ElasticIV, bcs},
+            internal_variables::{ElasticIV, bcs, bcs_block},
         },
     },
     math::{
-        Scalar, Tensor, TensorArray, TensorTuple,
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        Quantity, Tensor, TensorArray, TensorTuple,
+        optimize::{
+            EqualityConstraint, FirstOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
+        },
     },
-    mechanics::{DeformationGradient, FirstPiolaKirchhoffTangentStiffness},
+    mechanics::{
+        DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
+    },
+    units::EnergyDensity,
 };
 
 /// Required methods for hyperelastic solid constitutive models with internal variables.
-pub trait HyperelasticIV<V, T1, T2, T3>
+pub trait HyperelasticIV<V>
 where
-    Self: ElasticIV<V, T1, T2, T3>,
+    Self: ElasticIV<V>,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///
@@ -29,11 +34,13 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }
 
 /// First-order minimization methods for hyperelastic solid constitutive models with internal variables.
-pub trait FirstOrderMinimize<V, T1, T2, T3> {
+pub trait FirstOrderMinimize<V> {
+    /// Type representing all residuals.
+    type Residuals;
     /// Type representing all variables.
     type Variables;
     /// Solve for the unknown components of the deformation gradient under an applied load.
@@ -44,20 +51,16 @@ pub trait FirstOrderMinimize<V, T1, T2, T3> {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, Self::Variables>,
+        solver: impl FirstOrderOptimization<Quantity<EnergyDensity>, Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
 /// Second-order minimization methods for hyperelastic solid constitutive models with internal variables.
-pub trait SecondOrderMinimize<V, T1, T2, T3>
+pub trait SecondOrderMinimize<V>
 where
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
+    Self: ElasticIV<V>,
     V: Tensor,
 {
-    /// Type representing all variables.
-    type Variables;
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///
     /// ```math
@@ -66,29 +69,33 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
-            Scalar,
-            Self::Variables,
-            TensorTuple<FirstPiolaKirchhoffTangentStiffness, TensorTuple<T1, TensorTuple<T2, T3>>>,
-            Self::Variables,
+        solver: impl SecondOrderOptimizationBlock<
+            Quantity<EnergyDensity>,
+            DeformationGradient,
+            V,
+            FirstPiolaKirchhoffStress,
+            <Self as ElasticIV<V>>::Residual,
+            FirstPiolaKirchhoffTangentStiffness,
+            Self::TangentVu,
+            Self::TangentUv,
+            Self::TangentVv,
         >,
+        strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
-impl<T, V, T1, T2, T3> FirstOrderMinimize<V, T1, T2, T3> for T
+impl<T, V> FirstOrderMinimize<V> for T
 where
-    T: HyperelasticIV<V, T1, T2, T3>,
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
-    T: ElasticIV<V, T1, T2, T3>,
+    T: HyperelasticIV<V>,
+    T: ElasticIV<V>,
     V: Tensor,
 {
+    type Residuals = TensorTuple<FirstPiolaKirchhoffStress, <T as ElasticIV<V>>::Residual>;
     type Variables = TensorTuple<DeformationGradient, V>;
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, Self::Variables>,
+        solver: impl FirstOrderOptimization<Quantity<EnergyDensity>, Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (matrix, vector) = bcs(self, applied_load);
         match solver.minimize(
@@ -118,56 +125,51 @@ where
     }
 }
 
-impl<T, V, T1, T2, T3> SecondOrderMinimize<V, T1, T2, T3> for T
+impl<T, V> SecondOrderMinimize<V> for T
 where
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
-    T: HyperelasticIV<V, T1, T2, T3>,
+    T: HyperelasticIV<V>,
     V: Tensor,
 {
-    type Variables = TensorTuple<DeformationGradient, V>;
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
-            Scalar,
-            Self::Variables,
-            TensorTuple<FirstPiolaKirchhoffTangentStiffness, TensorTuple<T1, TensorTuple<T2, T3>>>,
-            Self::Variables,
+        solver: impl SecondOrderOptimizationBlock<
+            Quantity<EnergyDensity>,
+            DeformationGradient,
+            V,
+            FirstPiolaKirchhoffStress,
+            <Self as ElasticIV<V>>::Residual,
+            FirstPiolaKirchhoffTangentStiffness,
+            Self::TangentVu,
+            Self::TangentUv,
+            Self::TangentVv,
         >,
+        strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
-        let (matrix, vector) = bcs(self, applied_load);
-        match solver.minimize(
-            |variables: &Self::Variables| {
-                let (deformation_gradient, internal_variables) = variables.into();
+        let (constraint_external, constraint_internal) = bcs_block(self, applied_load);
+        match solver.minimize_block(
+            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
                 Ok(self.helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
             },
-            |variables: &Self::Variables| {
-                let (deformation_gradient, internal_variables) = variables.into();
-                Ok(TensorTuple::from((
-                    self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?,
-                    self.internal_variables_residual(deformation_gradient, internal_variables)?,
-                )))
+            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                Ok(self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?)
             },
-            |variables: &Self::Variables| {
-                let (deformation_gradient, internal_variables) = variables.into();
-                let tangent_0 = self.first_piola_kirchhoff_tangent_stiffness(
-                    deformation_gradient,
-                    internal_variables,
-                )?;
-                let (tangent_1, tangent_2, tangent_3) =
-                    self.internal_variables_tangents(deformation_gradient, internal_variables)?;
-                Ok((tangent_0, (tangent_1, (tangent_2, tangent_3).into()).into()).into())
+            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                Ok(self.internal_variables_residual(deformation_gradient, internal_variables)?)
             },
-            Self::Variables::from((
+            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                Ok(self.tangents(deformation_gradient, internal_variables)?)
+            },
+            (
                 DeformationGradient::identity(),
                 self.internal_variables_initial(),
-            )),
-            EqualityConstraint::Linear(matrix, vector),
+            ),
+            constraint_external,
+            constraint_internal,
             None,
+            strategy,
         ) {
-            Ok(solution) => Ok(solution.into()),
+            Ok(solution) => Ok(solution),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),

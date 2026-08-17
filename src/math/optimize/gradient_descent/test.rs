@@ -3,18 +3,19 @@ use super::{
         super::{TensorArray, TensorRank1, assert::AssertionError},
         test::{rosenbrock, rosenbrock_derivative},
     },
-    EqualityConstraint, FirstOrderOptimization, GradientDescent, Scalar, ZerothOrderRootFinding,
+    EqualityConstraint, FirstOrderOptimization, GradientDescent, ZerothOrderRootFinding,
 };
 use crate::math::assert::Assert;
+use crate::math::{Current, Quantity};
 
 mod minimize {
     use super::*;
     #[test]
     fn quadratic() -> Result<(), AssertionError> {
         Assert::default().zero_within_tols(&GradientDescent::default().minimize(
-            |x: &Scalar| Ok(x.powi(2) / 2.0),
-            |x: &Scalar| Ok(*x),
-            1.0,
+            |x: &Quantity| Ok(x.powi(2).value() / 2.0),
+            |x: &Quantity| Ok(*x),
+            Quantity::new(1.0),
             EqualityConstraint::None,
         )?)
     }
@@ -27,7 +28,7 @@ mod minimize {
                 TensorRank1::from([-1.0, 1.0]),
                 EqualityConstraint::None,
             )?,
-            &TensorRank1::<2, 1>::identity(),
+            &TensorRank1::<2, Current>::identity(),
         )
     }
 }
@@ -37,8 +38,8 @@ mod root {
     #[test]
     fn linear() -> Result<(), AssertionError> {
         Assert::default().zero_within_tols(&GradientDescent::default().root(
-            |x: &Scalar| Ok(*x),
-            1.0,
+            |x: &Quantity| Ok(*x),
+            Quantity::new(1.0),
             EqualityConstraint::None,
         )?)
     }
@@ -50,7 +51,7 @@ mod root {
                 TensorRank1::from([-1.0, 1.0]),
                 EqualityConstraint::None,
             )?,
-            &TensorRank1::<2, 1>::identity(),
+            &TensorRank1::<2, Current>::identity(),
         )
     }
 }

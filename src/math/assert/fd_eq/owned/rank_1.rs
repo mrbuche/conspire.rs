@@ -2,7 +2,7 @@ use super::super::{AssertFd, eq_within_fd_tol_impl};
 use crate::math::assert::{Assert, AssertionError};
 use crate::math::{TensorRank1, TensorRank1List, TensorRank1Vec};
 
-impl<const D: usize, const I: usize> AssertFd<TensorRank1<D, I>> for TensorRank1<D, I> {
+impl<const D: usize, I> AssertFd<TensorRank1<D, I>> for TensorRank1<D, I> {
     fn eq_within_fd_tol(
         tols: &Assert,
         a: Self,
@@ -12,7 +12,7 @@ impl<const D: usize, const I: usize> AssertFd<TensorRank1<D, I>> for TensorRank1
     }
 }
 
-impl<const D: usize, const I: usize, const W: usize> AssertFd<TensorRank1List<D, I, W>>
+impl<const D: usize, I, const W: usize> AssertFd<TensorRank1List<D, I, W>>
     for TensorRank1List<D, I, W>
 {
     fn eq_within_fd_tol(
@@ -24,7 +24,7 @@ impl<const D: usize, const I: usize, const W: usize> AssertFd<TensorRank1List<D,
     }
 }
 
-impl<const D: usize, const I: usize> AssertFd<TensorRank1Vec<D, I>> for TensorRank1Vec<D, I> {
+impl<const D: usize, I> AssertFd<TensorRank1Vec<D, I>> for TensorRank1Vec<D, I> {
     fn eq_within_fd_tol(
         tols: &Assert,
         a: Self,

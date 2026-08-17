@@ -2,14 +2,14 @@
 mod test;
 
 use crate::math::{
-    Scalar, Tensor, TensorArray, TensorVec,
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorArray, TensorVec,
     integrate::{
         FixedStep, ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeIntegrator,
     },
 };
 use std::{
     fmt::Debug,
-    ops::{Add, Mul, Sub},
+    ops::{Mul, Sub},
 };
 
 #[doc = include_str!("doc.md")]
@@ -26,46 +26,51 @@ where
 {
 }
 
-impl FixedStep for Trapezoidal {
-    fn dt(&self) -> Scalar {
-        self.dt
+impl<T> FixedStep<T> for Trapezoidal {
+    fn dt(&self) -> Quantity<T> {
+        Quantity::new(self.dt)
     }
 }
 
-impl<Y, U> ImplicitZerothOrder<Y, U> for Trapezoidal
+impl<Y, U, V, T> ImplicitZerothOrder<Y, U, V, T> for Trapezoidal
 where
-    Y: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Add<&'a Y, Output = Y> + Sub<&'a Y, Output = Y>,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
+    for<'a> &'a Y: Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn residual(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, IntegrationError>,
-        t: Scalar,
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, IntegrationError>,
+        t: Quantity<T>,
         y: &Y,
-        t_trial: Scalar,
+        t_trial: Quantity<T>,
         y_trial: &Y,
-        dt: Scalar,
+        dt: Quantity<T>,
     ) -> Result<Y, String> {
         Ok(y_trial - y - (function(t, y)? + function(t_trial, y_trial)?) * (0.5 * dt))
     }
 }
 
-impl<Y, J, U> ImplicitFirstOrder<Y, J, U> for Trapezoidal
+impl<Y, J, U, V, T> ImplicitFirstOrder<Y, J, U, V, T> for Trapezoidal
 where
-    Y: Tensor,
-    for<'a> &'a Y: Mul<Scalar, Output = Y> + Add<&'a Y, Output = Y> + Sub<&'a Y, Output = Y>,
-    J: Tensor + TensorArray,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
+    J: Differentiate<T> + Tensor + TensorArray,
+    Derivative<J, T>: Mul<Quantity<T>, Output = J>,
+    for<'a> &'a Y: Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn hessian(
         &self,
-        mut jacobian: impl FnMut(Scalar, &Y) -> Result<J, IntegrationError>,
-        _t: Scalar,
+        mut jacobian: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<J, T>, IntegrationError>,
+        _t: Quantity<T>,
         _y: &Y,
-        t_trial: Scalar,
+        t_trial: Quantity<T>,
         y_trial: &Y,
-        dt: Scalar,
+        dt: Quantity<T>,
     ) -> Result<J, String> {
         Ok(J::identity() - jacobian(t_trial, y_trial)? * (0.5 * dt))
     }

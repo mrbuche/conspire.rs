@@ -3,30 +3,33 @@ use crate::{
         ConstitutiveError,
         fluid::{
             plastic::Plastic,
-            viscoplastic::{Viscoplastic, ViscoplasticStateVariables},
+            viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
         },
         hybrid::ElasticViscoplasticAdditiveViscoplastic,
         solid::elastic_viscoplastic::ElasticViscoplastic,
     },
-    math::{Rank2, Tensor, TensorTuple},
+    math::{Differentiate, Quantity, Rank2, Tensor, TensorTuple},
     mechanics::{MandelStressElastic, Scalar},
+    units::{Rate, Stress},
 };
 
 type GroupedViscoplasticStateVariables<Y1, Y2> = TensorTuple<ViscoplasticStateVariables<Y1>, Y2>;
 type NestedViscoplasticStateVariables<Y1, Y2> =
     ViscoplasticStateVariables<GroupedViscoplasticStateVariables<Y1, Y2>>;
+type NestedViscoplasticEvolution<Y1, Y2> =
+    ViscoplasticEvolution<GroupedViscoplasticStateVariables<Y1, Y2>>;
 
 impl<C1, C2, Y1, Y2> Plastic for ElasticViscoplasticAdditiveViscoplastic<C1, C2, Y1, Y2>
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Viscoplastic<Y2>,
-    Y1: Tensor,
-    Y2: Tensor,
+    Y1: Differentiate + Tensor,
+    Y2: Differentiate + Tensor,
 {
-    fn initial_yield_stress(&self) -> Scalar {
+    fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.1.initial_yield_stress()
     }
-    fn hardening_slope(&self) -> Scalar {
+    fn hardening_slope(&self) -> Quantity<Stress> {
         self.1.hardening_slope()
     }
 }
@@ -36,8 +39,8 @@ impl<C1, C2, Y1, Y2> Viscoplastic<GroupedViscoplasticStateVariables<Y1, Y2>>
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Viscoplastic<Y2>,
-    Y1: Tensor,
-    Y2: Tensor,
+    Y1: Differentiate + Tensor,
+    Y2: Differentiate + Tensor,
 {
     fn initial_state(&self) -> NestedViscoplasticStateVariables<Y1, Y2> {
         let initial_state_1 = self.0.initial_state();
@@ -48,7 +51,7 @@ where
         &self,
         mandel_stress: MandelStressElastic,
         state_variables: &ViscoplasticStateVariables<GroupedViscoplasticStateVariables<Y1, Y2>>,
-    ) -> Result<NestedViscoplasticStateVariables<Y1, Y2>, ConstitutiveError> {
+    ) -> Result<NestedViscoplasticEvolution<Y1, Y2>, ConstitutiveError> {
         let state_variables_1 = &state_variables.1.0;
         let state_variables_2 = &(state_variables.0.clone(), state_variables.1.1.clone()).into();
         let deformation_gradient = (&state_variables.0).into();
@@ -75,7 +78,7 @@ where
     fn rate_sensitivity(&self) -> Scalar {
         self.1.rate_sensitivity()
     }
-    fn reference_flow_rate(&self) -> Scalar {
+    fn reference_flow_rate(&self) -> Quantity<Rate> {
         self.1.reference_flow_rate()
     }
 }

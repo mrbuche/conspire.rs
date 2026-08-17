@@ -1,6 +1,6 @@
 use crate::{
     geometry::{
-        Coordinate,
+        Coordinate, Direction,
         mesh::{
             Connectivity,
             tessellation::{Tessellation, from::test::tessellation as fixture, write::Stl},
@@ -17,7 +17,7 @@ use std::{
     path::Path,
 };
 
-fn facets(tessellation: &Tessellation) -> Vec<(Coordinate<3>, [Coordinate<3>; 3])> {
+fn facets(tessellation: &Tessellation) -> Vec<(Direction<3>, [Coordinate<3>; 3])> {
     tessellation
         .mesh()
         .connectivities()

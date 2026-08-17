@@ -1,9 +1,12 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
-    integrate::{Explicit, FixedStep, IntegrationError},
+use crate::{
+    math::{
+        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+        integrate::{Explicit, FixedStep, IntegrationError, Times},
+    },
+    units::Time,
 };
 
 pub(crate) mod bogacki_shampine;
@@ -16,36 +19,37 @@ pub(crate) mod verner_8;
 pub(crate) mod verner_9;
 
 /// Fixed-step explicit integrators for ordinary differential equations.
-pub trait FixedStepExplicit<Y, U>
+pub trait FixedStepExplicit<Y, U, V, T = Time>
 where
-    Self: Explicit<Y, U> + FixedStep,
-    Y: Tensor,
+    Self: Explicit<Y, U, V, T> + FixedStep<T>,
+    Y: Differentiate<T> + Tensor,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn integrate_fixed_step(
         &self,
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        time: &[Scalar],
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        time: &[Quantity<T>],
         initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
-        let mut t_sol: Vector;
+        let mut t_sol: Times<T>;
         if time.len() < 2 {
             return Err(IntegrationError::LengthTimeLessThanTwo);
         } else if t_0 >= t_f {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         } else if time.len() == 2 {
-            if self.dt() <= 0.0 || self.dt().is_nan() {
+            if self.dt() <= Quantity::default() || self.dt().is_nan() {
                 return Err(IntegrationError::TimeStepNotSet(
-                    time[0],
-                    time[1],
+                    time[0].value(),
+                    time[1].value(),
                     format!("{self:?}"),
                 ));
             } else {
-                let num_steps = ((t_f - t_0) / self.dt()).ceil() as usize;
-                t_sol = (0..num_steps)
-                    .map(|step| t_0 + (step as Scalar) * self.dt())
+                let max_steps = ((t_f - t_0).value() / self.dt().value()).ceil() as usize;
+                t_sol = (0..max_steps)
+                    .map(|step| t_0 + self.dt() * (step as Scalar))
                     .collect();
                 t_sol.push(t_f);
             }
@@ -56,12 +60,12 @@ where
         let mut t = t_0;
         let mut dt;
         let mut t_trial;
-        let mut k = vec![Y::default(); Self::SLOPES];
+        let mut k = vec![Derivative::<Y, T>::default(); Self::SLOPES];
         k[0] = function(t, &initial_condition)?;
         let mut y = initial_condition.clone();
         let mut y_sol = U::new();
         y_sol.push(initial_condition.clone());
-        let mut dydt_sol = U::new();
+        let mut dydt_sol = V::new();
         dydt_sol.push(function(t, &y.clone())?);
         let mut y_trial = Y::default();
         while t < t_f {
@@ -82,11 +86,11 @@ where
     #[allow(clippy::too_many_arguments)]
     fn step(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String>;
 }

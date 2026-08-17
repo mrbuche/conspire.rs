@@ -31,7 +31,13 @@ use super::{
     elastic::{AppliedLoad, Elastic, bcs},
     *,
 };
-use crate::math::optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization};
+use crate::{
+    math::{
+        Quantity,
+        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+    },
+    units::EnergyDensity,
+};
 
 /// Required methods for hyperelastic solid constitutive models.
 pub trait Hyperelastic
@@ -46,7 +52,7 @@ where
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }
 
 /// First-order minimization methods for elastic solid constitutive models.
@@ -59,7 +65,11 @@ pub trait FirstOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
+        solver: impl FirstOrderOptimization<
+            Quantity<EnergyDensity>,
+            FirstPiolaKirchhoffStress,
+            DeformationGradient,
+        >,
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
@@ -74,7 +84,7 @@ pub trait SecondOrderMinimize {
         &self,
         applied_load: AppliedLoad,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -89,7 +99,11 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Scalar, DeformationGradient>,
+        solver: impl FirstOrderOptimization<
+            Quantity<EnergyDensity>,
+            FirstPiolaKirchhoffStress,
+            DeformationGradient,
+        >,
     ) -> Result<DeformationGradient, ConstitutiveError> {
         let (matrix, vector) = bcs(applied_load);
         match solver.minimize(
@@ -119,7 +133,7 @@ where
         &self,
         applied_load: AppliedLoad,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,

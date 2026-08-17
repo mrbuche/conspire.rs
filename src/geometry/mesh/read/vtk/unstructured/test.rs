@@ -1,6 +1,9 @@
 use super::ReadVtkUnstructured;
 use crate::{
-    geometry::mesh::{Connectivity, Mesh, Output, Vtk},
+    geometry::{
+        Coordinate,
+        mesh::{Connectivity, Mesh, Output, Vtk},
+    },
     io::{Write, write::Compression},
 };
 use std::fs::write;
@@ -45,10 +48,7 @@ fn round_trip_mixed() {
     assert_eq!(first_element(&mesh, 2), [1, 2, 6, 5, 10]);
     assert_eq!(first_element(&mesh, 3), [1, 2, 10, 11]);
     let coordinates = mesh.coordinates();
-    assert_eq!(
-        [coordinates[10][0], coordinates[10][1], coordinates[10][2]],
-        [2.0, 0.5, 0.5]
-    );
+    assert_eq!(coordinates[10], Coordinate::const_from([2.0, 0.5, 0.5]));
 }
 
 #[test]
@@ -127,10 +127,7 @@ fn round_trip_compressed() {
     assert_eq!(first_element(&mesh, 2), [1, 2, 6, 5, 10]);
     assert_eq!(first_element(&mesh, 3), [1, 2, 10, 11]);
     let coordinates = mesh.coordinates();
-    assert_eq!(
-        [coordinates[10][0], coordinates[10][1], coordinates[10][2]],
-        [2.0, 0.5, 0.5]
-    );
+    assert_eq!(coordinates[10], Coordinate::const_from([2.0, 0.5, 0.5]));
 }
 
 #[test]
@@ -177,12 +174,8 @@ fn round_trip_compressed_large_mesh_spans_multiple_blocks() {
     );
     let coordinates = mesh.coordinates();
     assert_eq!(
-        [
-            coordinates[index(5, 6, 7)][0],
-            coordinates[index(5, 6, 7)][1],
-            coordinates[index(5, 6, 7)][2]
-        ],
-        [5.0, 6.0, 7.0]
+        coordinates[index(5, 6, 7)],
+        Coordinate::const_from([5.0, 6.0, 7.0])
     );
 }
 
@@ -321,5 +314,81 @@ fn round_trip_mixed_hexahedral_and_polyhedral() {
     match &mesh.connectivities()[1] {
         Connectivity::Polyhedral(poly) => assert!(poly.iter().eq(elements_faces.iter())),
         _ => panic!("expected Polyhedral block"),
+    }
+}
+
+mod units_label {
+    use super::*;
+
+    fn vtu(label: Option<&str>) -> String {
+        let key = match label {
+            Some(label) => format!(
+                "<InformationKey name=\"UNITS_LABEL\" location=\"vtkDataArray\">{label}</InformationKey>"
+            ),
+            None => String::new(),
+        };
+        format!(
+            "<?xml version=\"1.0\"?>\n\
+             <VTKFile type=\"UnstructuredGrid\" byte_order=\"LittleEndian\">\n\
+             <UnstructuredGrid><Piece NumberOfPoints=\"4\" NumberOfCells=\"1\">\n\
+             <Points>\n\
+             <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">{key}\
+             0 0 0 2 0 0 0 2 0 0 0 2</DataArray>\n\
+             </Points>\n\
+             <Cells>\n\
+             <DataArray type=\"Int64\" Name=\"connectivity\" format=\"ascii\">0 1 2 3</DataArray>\n\
+             <DataArray type=\"Int64\" Name=\"offsets\" format=\"ascii\">4</DataArray>\n\
+             <DataArray type=\"UInt8\" Name=\"types\" format=\"ascii\">10</DataArray>\n\
+             </Cells></Piece></UnstructuredGrid></VTKFile>\n"
+        )
+    }
+
+    fn read(label: Option<&str>, name: &str) -> Mesh<3> {
+        let path = format!("target/units_label_{name}.vtu");
+        write(&path, vtu(label)).unwrap();
+        Mesh::<3>::read_vtk_unstructured(&path).unwrap()
+    }
+
+    fn x_of_node_one(mesh: &Mesh<3>) -> f64 {
+        mesh.coordinates()[1][0].value()
+    }
+
+    #[test]
+    fn a_labeled_array_still_reads_its_numbers() {
+        let mesh = read(Some("m"), "meters");
+        assert_eq!(mesh.number_of_nodes(), 4);
+        assert_eq!(first_element(&mesh, 0), [0, 1, 2, 3]);
+        assert_eq!(x_of_node_one(&mesh), 2.0)
+    }
+
+    #[test]
+    fn an_unlabeled_array_is_taken_as_it_is() {
+        assert_eq!(x_of_node_one(&read(None, "none")), 2.0)
+    }
+
+    #[test]
+    fn a_labeled_length_is_brought_to_the_base_scale() {
+        assert_eq!(x_of_node_one(&read(Some("mm"), "mm")), 2e-3);
+        assert_eq!(
+            x_of_node_one(&read(Some("millimeters"), "millimeters")),
+            2e-3
+        );
+        assert_eq!(x_of_node_one(&read(Some("Millimetres"), "british")), 2e-3);
+        assert_eq!(x_of_node_one(&read(Some(" cm "), "padded")), 2e-2);
+        assert_eq!(
+            x_of_node_one(&read(Some("inches"), "inches")),
+            2.0 * 2.54e-2
+        )
+    }
+
+    #[test]
+    fn a_label_that_is_not_a_length_is_unsupported() {
+        let path = "target/units_label_radians.vtu";
+        write(path, vtu(Some("radians"))).unwrap();
+        let error = match Mesh::<3>::read_vtk_unstructured(path) {
+            Ok(_) => panic!("expected an unsupported-units error"),
+            Err(error) => error,
+        };
+        assert_eq!(error.kind(), std::io::ErrorKind::Unsupported)
     }
 }

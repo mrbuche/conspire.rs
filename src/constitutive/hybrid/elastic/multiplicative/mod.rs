@@ -5,7 +5,7 @@ use crate::{
     constitutive::{
         fluid::viscoplastic::Viscoplastic, hybrid::Multiplicative, solid::elastic::Elastic,
     },
-    math::Tensor,
+    math::{Differentiate, Tensor},
 };
 use std::{marker::PhantomData, ops::Deref};
 
@@ -48,7 +48,7 @@ pub struct ElasticMultiplicativeViscoplastic<C1, C2, Y2>
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
-    Y2: Tensor,
+    Y2: Differentiate + Tensor,
 {
     inner: Multiplicative<C1, C2>,
     dummy: PhantomData<Y2>,
@@ -58,7 +58,7 @@ impl<C1, C2, Y2> Deref for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
-    Y2: Tensor,
+    Y2: Differentiate + Tensor,
 {
     type Target = Multiplicative<C1, C2>;
     fn deref(&self) -> &Self::Target {
@@ -70,7 +70,7 @@ impl<C1, C2, Y2> From<(C1, C2)> for ElasticMultiplicativeViscoplastic<C1, C2, Y2
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
-    Y2: Tensor,
+    Y2: Differentiate + Tensor,
 {
     fn from((constitutive_model_1, constitutive_model_2): (C1, C2)) -> Self {
         Self {

@@ -72,5 +72,5 @@ fn perfect_grid_does_not_move() {
     mesh.coordinates()
         .iter()
         .zip(before)
-        .for_each(|(now, was)| assert!((now - &was).norm() < 1.0e-12));
+        .for_each(|(now, was)| assert!((now - &was).norm().value() < 1.0e-12));
 }

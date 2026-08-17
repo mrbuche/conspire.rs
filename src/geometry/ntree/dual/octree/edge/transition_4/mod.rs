@@ -95,9 +95,9 @@ fn template_inner<T, U>(
             let find = |coordinate: Coordinate<D>| -> Option<usize> {
                 nodes_map
                     .get(&[
-                        (2.0 * coordinate[0]) as usize,
-                        (2.0 * coordinate[1]) as usize,
-                        (2.0 * coordinate[2]) as usize,
+                        (2.0 * coordinate[0].value()) as usize,
+                        (2.0 * coordinate[1].value()) as usize,
+                        (2.0 * coordinate[2].value()) as usize,
                     ])
                     .copied()
             };

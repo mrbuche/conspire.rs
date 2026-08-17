@@ -13,6 +13,7 @@ use crate::{
     },
     math::{CrossProduct, ScalarList, Tensor},
     mechanics::NormalGradients,
+    units::Area,
 };
 use std::iter::repeat_n;
 
@@ -20,7 +21,7 @@ pub type LinearCohesiveElement<const G: usize, const N: usize> = CohesiveElement
 
 pub trait LinearCohesiveFiniteElement<const G: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElement<G, 2, N, P> + SurfaceFiniteElement<G, N, P>,
+    Self: FiniteElement<G, 2, N, P, Area> + SurfaceFiniteElement<G, N, P, Area>,
 {
     fn from_linear(
         reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,
@@ -38,7 +39,7 @@ where
             integration_weights,
         }
     }
-    fn nodal_mid_surface_linear<const I: usize>(
+    fn nodal_mid_surface_linear<I>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ElementNodalEitherCoordinates<I, P> {
         nodal_coordinates

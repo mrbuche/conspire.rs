@@ -26,6 +26,7 @@ mod saint_venant_kirchhoff;
 pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use super::{elastic_hyperviscous::ElasticHyperviscous, *};
+use crate::{math::Quantity, units::EnergyDensity};
 
 /// Required methods for hyperviscoelastic solid constitutive models.
 pub trait Hyperviscoelastic
@@ -40,5 +41,5 @@ where
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError>;
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }

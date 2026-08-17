@@ -155,7 +155,7 @@ where
 
 fn find(coordinate: &Coordinate<D>, nodes_map: &NodeMap<D>) -> Option<usize> {
     nodes_map
-        .get(&from_fn(|i| (2.0 * coordinate[i]) as usize))
+        .get(&from_fn(|i| (2.0 * coordinate[i].value()) as usize))
         .copied()
 }
 

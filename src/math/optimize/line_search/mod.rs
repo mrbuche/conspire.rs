@@ -1,11 +1,16 @@
-use crate::math::{Jacobian, Scalar, Solution, Style, StyledError, styled_error};
+#[cfg(test)]
+mod test;
+
+use crate::math::{
+    Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, styled_error,
+};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     ops::Mul,
 };
 
 /// Available line search algorithms.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum LineSearch {
     /// The Armijo condition.
     Armijo {
@@ -56,20 +61,112 @@ impl Display for LineSearch {
 }
 
 impl LineSearch {
-    pub fn backtrack<X, J>(
+    /// Backtrack on a merit function of the step size alone.
+    ///
+    /// The exact penalty function is not differentiable, its norm having a kink
+    /// wherever a constraint is satisfied, so its slope along the step is
+    /// supplied rather than recovered from a gradient.
+    pub fn backtrack_merit(
         &self,
-        mut function: impl FnMut(&X) -> Result<Scalar, String>,
+        mut merit: impl FnMut(Scalar) -> Result<Scalar, String>,
+        value: Scalar,
+        slope: Scalar,
+        step_size: Scalar,
+    ) -> Result<Scalar, LineSearchError> {
+        if step_size <= 0.0 {
+            return Err(LineSearchError::NegativeStepSize(
+                format!("{self:?}"),
+                step_size,
+            ));
+        } else if slope <= 0.0 {
+            return Err(LineSearchError::NotDescentDirection(format!("{self:?}")));
+        }
+        let mut n = step_size;
+        match self {
+            Self::Armijo {
+                control,
+                cut_back,
+                max_steps,
+            } => {
+                let t = control * slope;
+                for _ in 0..*max_steps {
+                    if let Ok(trial) = merit(n)
+                        && value - trial >= n * t
+                    {
+                        return Ok(n);
+                    } else {
+                        n *= cut_back
+                    }
+                }
+                Err(LineSearchError::MaximumStepsReached(
+                    format!("{self:?}"),
+                    *max_steps,
+                ))
+            }
+            Self::Error {
+                cut_back,
+                max_steps,
+            } => {
+                for _ in 0..*max_steps {
+                    if merit(n).is_ok() {
+                        return Ok(n);
+                    } else {
+                        n *= cut_back
+                    }
+                }
+                Err(LineSearchError::MaximumStepsReached(
+                    format!("{self:?}"),
+                    *max_steps,
+                ))
+            }
+            Self::Goldstein {
+                control,
+                cut_back,
+                max_steps,
+            } => {
+                let t = control * slope;
+                let u = (1.0 - control) * slope;
+                let mut v;
+                for _ in 0..*max_steps {
+                    if let Ok(trial) = merit(n) {
+                        v = value - trial;
+                        if n * u < v || v < n * t {
+                            n *= cut_back
+                        } else {
+                            return Ok(n);
+                        }
+                    } else {
+                        n *= cut_back
+                    }
+                }
+                Err(LineSearchError::MaximumStepsReached(
+                    format!("{self:?}"),
+                    *max_steps,
+                ))
+            }
+            Self::Wolfe { .. } => panic!(
+                "The Wolfe conditions need the gradient of the merit function, which the exact penalty function does not have."
+            ),
+            Self::None => {
+                panic!("Cannot call backtracking line search when there is no algorithm.")
+            }
+        }
+    }
+    pub fn backtrack<X, J, D, W, E>(
+        &self,
+        mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
-        decrement: &X,
+        decrement: &D,
         step_size: Scalar,
     ) -> Result<Scalar, LineSearchError>
     where
-        J: Jacobian,
-        for<'a> &'a J: From<&'a X>,
+        J: Erase<Erased = E> + Jacobian,
+        D: Erase<Erased = E>,
+        E: Tensor,
         X: Solution,
-        for<'a> &'a X: Mul<Scalar, Output = X>,
+        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
     {
         if step_size <= 0.0 {
             return Err(LineSearchError::NegativeStepSize(
@@ -78,15 +175,16 @@ impl LineSearch {
             ));
         }
         let mut n = step_size;
-        let f = if let Ok(value) = function(argument) {
+        let f = if let Ok(value) = function(argument, 0.0) {
             value
         } else {
             return Err(LineSearchError::InvalidStartingPoint(format!("{self:?}")));
         };
-        let m = jacobian0.full_contraction(decrement.into());
+        let m = jacobian0.erase().full_contraction(decrement.erase());
         if m <= 0.0 {
             return Err(LineSearchError::NotDescentDirection(format!("{self:?}")));
         }
+        let trial = |n: Scalar| decrement * Quantity::new(-n) + argument;
         match self {
             Self::Armijo {
                 control,
@@ -96,7 +194,7 @@ impl LineSearch {
                 let mut f_n;
                 let t = control * m;
                 for _ in 0..*max_steps {
-                    f_n = function(&(decrement * -n + argument));
+                    f_n = function(&trial(n), n);
                     if let Ok(value) = f_n
                         && f - value >= n * t
                     {
@@ -115,7 +213,7 @@ impl LineSearch {
                 max_steps,
             } => {
                 for _ in 0..*max_steps {
-                    if function(&(decrement * -n + argument)).is_ok() {
+                    if function(&trial(n), n).is_ok() {
                         return Ok(n);
                     } else {
                         n *= cut_back
@@ -136,7 +234,7 @@ impl LineSearch {
                 let u = (1.0 - control) * m;
                 let mut v;
                 for _ in 0..*max_steps {
-                    f_n = function(&(decrement * -n + argument));
+                    f_n = function(&trial(n), n);
                     if let Ok(value) = f_n {
                         v = f - value;
                         if n * u < v || v < n * t {
@@ -164,23 +262,23 @@ impl LineSearch {
                 let mut j_n;
                 let t_1 = control_1 * m;
                 let t_2 = control_2 * m;
-                let mut trial_argument = decrement * -n + argument;
+                let mut trial_argument = trial(n);
                 for _ in 0..*max_steps {
-                    f_n = function(&trial_argument);
+                    f_n = function(&trial_argument, n);
                     j_n = jacobian(&trial_argument);
                     if let Ok(f_val) = f_n
                         && let Ok(j_val) = j_n
                         && f - f_val >= n * t_1
                         && if *strong {
-                            j_val.full_contraction(decrement.into()) < t_2
+                            j_val.erase().full_contraction(decrement.erase()).abs() < t_2.abs()
                         } else {
-                            j_val.full_contraction(decrement.into()).abs() < t_2.abs() // less than?
+                            j_val.erase().full_contraction(decrement.erase()) < t_2
                         }
                     {
                         return Ok(n);
                     } else {
                         n *= cut_back;
-                        trial_argument = decrement * -n + argument
+                        trial_argument = trial(n)
                     }
                 }
                 Err(LineSearchError::MaximumStepsReached(
@@ -208,7 +306,7 @@ impl StyledError for LineSearchError {
         let (h, c) = (style.headline, style.frame);
         match self {
             Self::InvalidStartingPoint(line_search) => format!(
-                "{h}Staring point is invalid.{c}\n\
+                "{h}Starting point is invalid.{c}\n\
                 In line search: {line_search}."
             ),
             Self::MaximumStepsReached(line_search, steps) => format!(

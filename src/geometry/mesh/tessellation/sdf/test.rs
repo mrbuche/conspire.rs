@@ -5,7 +5,7 @@ use crate::{
         Coordinate, Coordinates,
         mesh::{Connectivity, Mesh, Tessellation},
     },
-    math::Tensor,
+    math::{Quantity, Tensor},
 };
 
 const CONNECTIVITY: [[usize; 3]; 12] = [
@@ -46,7 +46,7 @@ fn cube_center_ray_is_unit_thickness() {
     assert_eq!(diameters.len(), 8);
     diameters
         .iter()
-        .for_each(|&diameter| assert_eq!(diameter, 1.0));
+        .for_each(|&diameter| assert_eq!(diameter, Quantity::new(1.0)));
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn cube_cone_stays_near_unit_thickness() {
     let diameters = cube().shape_diameter_function(FRAC_PI_3, 3, 8);
     assert_eq!(diameters.len(), 8);
     diameters.iter().for_each(|&diameter| {
-        assert!(diameter > 0.0 && diameter.is_finite());
-        assert!((diameter - 1.0).abs() < 0.5);
+        assert!(diameter > Quantity::default() && diameter.value().is_finite());
+        assert!((diameter.value() - 1.0).abs() < 0.5);
     });
 }

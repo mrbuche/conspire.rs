@@ -3,13 +3,14 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate,
+        Coordinate, Direction,
         mesh::{
             Connectivity,
             tessellation::{D, Tessellation},
         },
     },
-    math::{CrossProduct, FxHashMap, Scalar, Tensor},
+    math::{CrossProduct, FxHashMap, Quantity, Scalar, Tensor},
+    units::{Area, Dimensionless, Length},
 };
 use std::array::from_fn;
 
@@ -38,7 +39,7 @@ pub struct FeatureIndex<'a> {
     creases: FxHashMap<[i64; D], Vec<usize>>,
     /// Creases spanning too many cells to bin, scanned by every lookup.
     sprawling: Vec<usize>,
-    spacing: Scalar,
+    spacing: Quantity<Length>,
 }
 
 /// How many cells a crease may be binned into before it is left sprawling.
@@ -65,7 +66,7 @@ impl Features {
     pub(super) fn of(tessellation: &Tessellation) -> Self {
         let coordinates = tessellation.mesh().coordinates();
         let triangles = triangles(tessellation);
-        let normals: Vec<Coordinate<D>> = triangles
+        let normals: Vec<Direction<D>> = triangles
             .iter()
             .map(|&[a, b, c]| {
                 (&coordinates[b] - &coordinates[a])
@@ -121,8 +122,12 @@ impl Features {
     }
     /// Bins the features so that everything within `radius` of a point is
     /// found in the twenty-seven cells about it.
-    pub fn index(&self, radius: Scalar) -> FeatureIndex<'_> {
-        let spacing = if radius > 0.0 { radius } else { 1.0 };
+    pub fn index(&self, radius: Quantity<Length>) -> FeatureIndex<'_> {
+        let spacing = if radius > Quantity::new(0.0) {
+            radius
+        } else {
+            Quantity::new(1.0)
+        };
         let mut corners = FxHashMap::<[i64; D], Vec<usize>>::default();
         self.corners.iter().enumerate().for_each(|(index, point)| {
             corners.entry(cell(point, spacing)).or_default().push(index)
@@ -153,17 +158,21 @@ impl Features {
     }
 }
 
-fn cell(point: &Coordinate<D>, spacing: Scalar) -> [i64; D] {
-    from_fn(|axis| (point[axis] / spacing).floor() as i64)
+fn cell(point: &Coordinate<D>, spacing: Quantity<Length>) -> [i64; D] {
+    from_fn(|axis| (point[axis] / spacing).floor().value() as i64)
 }
 
 fn closest_on(segment: &[Coordinate<D>; 2], point: &Coordinate<D>) -> Coordinate<D> {
     let along = &segment[1] - &segment[0];
     let length = &along * &along;
-    if length == 0.0 {
+    if length == Quantity::<Area>::new(0.0) {
         return segment[0].clone();
     }
-    let fraction = ((point - &segment[0]) * &along / length).clamp(0.0, 1.0);
+    let fraction = Quantity::<Dimensionless>::new(
+        ((point - &segment[0]) * &along / length)
+            .value()
+            .clamp(0.0, 1.0),
+    );
     &segment[0] + &(along * fraction)
 }
 
@@ -179,7 +188,11 @@ impl FeatureIndex<'_> {
             .collect()
     }
     /// The corner nearest `point` within `radius`, and how far away it is.
-    pub fn nearest_corner(&self, point: &Coordinate<D>, radius: Scalar) -> Option<(usize, Scalar)> {
+    pub fn nearest_corner(
+        &self,
+        point: &Coordinate<D>,
+        radius: Quantity<Length>,
+    ) -> Option<(usize, Quantity<Length>)> {
         self.about(point)
             .iter()
             .filter_map(|cell| self.corners.get(cell))
@@ -189,7 +202,11 @@ impl FeatureIndex<'_> {
             .min_by(|(_, one), (_, two)| one.total_cmp(two))
     }
     /// The point on a crease nearest `point` within `radius`.
-    pub fn nearest_crease(&self, point: &Coordinate<D>, radius: Scalar) -> Option<Coordinate<D>> {
+    pub fn nearest_crease(
+        &self,
+        point: &Coordinate<D>,
+        radius: Quantity<Length>,
+    ) -> Option<Coordinate<D>> {
         self.about(point)
             .iter()
             .filter_map(|cell| self.creases.get(cell))

@@ -9,10 +9,11 @@ use super::{
 };
 use crate::{
     geometry::{
-        Coordinate, CoordinatesRef,
+        Coordinate, DirectionsRef,
         mesh::{Mesh, tessellation::D, tessellation::Tessellation},
     },
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
+    units::Length,
 };
 use std::{array::from_fn, collections::HashMap, collections::HashSet};
 
@@ -56,7 +57,7 @@ impl Tessellation {
         let surface = self.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<'_, D> = self.normals().iter().flatten().collect();
+        let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
@@ -96,7 +97,7 @@ impl Tessellation {
         edges.iter().try_for_each(|&[a, b]| {
             let span = &coordinates[b] - &coordinates[a];
             let length = span.norm();
-            let margin = CROSSING_TOLERANCE.max(super::GRAZING_TOLERANCE * length);
+            let margin = CROSSING_TOLERANCE.max(length * super::GRAZING_TOLERANCE);
             match (signs[&a], signs[&b]) {
                 (Sign::On, Sign::On) => Ok(()),
                 (Sign::On, _) | (_, Sign::On) => {
@@ -110,7 +111,7 @@ impl Tessellation {
                         surface_coordinates,
                         &elements,
                     );
-                    let distances: Vec<Scalar> = dedupe(hits, margin)
+                    let distances: Vec<Quantity<Length>> = dedupe(hits, margin)
                         .into_iter()
                         .filter(|&distance| distance < length - margin)
                         .collect();
@@ -134,7 +135,7 @@ impl Tessellation {
                         surface_coordinates,
                         &elements,
                     );
-                    let distances: Vec<Scalar> = dedupe(hits, margin)
+                    let distances: Vec<Quantity<Length>> = dedupe(hits, margin)
                         .into_iter()
                         .filter(|&distance| distance <= length + margin)
                         .collect();
@@ -161,7 +162,7 @@ impl Tessellation {
                         surface_coordinates,
                         &elements,
                     );
-                    let distances: Vec<Scalar> = dedupe(hits, margin)
+                    let distances: Vec<Quantity<Length>> = dedupe(hits, margin)
                         .into_iter()
                         .filter(|&distance| distance <= length + margin)
                         .collect();
@@ -195,7 +196,7 @@ impl Tessellation {
         let coordinates = mesh.coordinates();
         let surface_coordinates = self.mesh().coordinates();
         let elements: Vec<&[usize]> = self.mesh().connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<'_, D> = self.normals().iter().flatten().collect();
+        let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let contains = |point: &Coordinate<D>| {
             self.encloses(point, surface_coordinates, &elements, &normals, &directions)
@@ -267,7 +268,7 @@ impl Tessellation {
         let coordinates = mesh.coordinates();
         let surface_coordinates = self.mesh().coordinates();
         let elements: Vec<&[usize]> = self.mesh().connectivities().iter().flatten().collect();
-        let normals: CoordinatesRef<'_, D> = self.normals().iter().flatten().collect();
+        let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
         let directions = DIRECTIONS.map(|direction| direction.normalized());
         let contains = |point: &Coordinate<D>| {
             self.encloses(point, surface_coordinates, &elements, &normals, &directions)

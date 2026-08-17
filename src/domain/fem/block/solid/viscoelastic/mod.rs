@@ -6,7 +6,7 @@ use crate::{
             Block,
             element::{FiniteElementError, solid::viscoelastic::ViscoelasticFiniteElement},
         },
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, viscoelastic::ViscoelasticElements},
+        solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
     mechanics::DeformationGradientRateList,
 };
@@ -73,7 +73,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
-        nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
+        nodal_stiffnesses: &mut NodalDampingsSolid<3>,
     ) -> Result<(), ElementModelError> {
         match self
             .elements()

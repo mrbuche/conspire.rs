@@ -15,7 +15,8 @@ use crate::{
             tessellation::{D, Tessellation, features::FeatureIndex},
         },
     },
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
+    units::{Length, Volume},
 };
 use std::collections::{HashMap, HashSet};
 
@@ -25,9 +26,9 @@ fn claims(
     index: &FeatureIndex<'_>,
     coordinates: &Coordinates<D>,
     candidates: &[usize],
-    radius: impl Fn(usize) -> Scalar,
+    radius: impl Fn(usize) -> Quantity<Length>,
 ) -> HashMap<usize, Coordinate<D>> {
-    let mut nearest = HashMap::<usize, (usize, Scalar)>::new();
+    let mut nearest = HashMap::<usize, (usize, Quantity<Length>)>::new();
     candidates.iter().for_each(|&node| {
         if let Some((corner, distance)) = index.nearest_corner(&coordinates[node], radius(node))
             && nearest
@@ -54,7 +55,7 @@ impl Tessellation {
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
-        let mut lengths = HashMap::<usize, Scalar>::new();
+        let mut lengths = HashMap::<usize, Quantity<Length>>::new();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -83,11 +84,11 @@ impl Tessellation {
         let mut snapped = HashSet::new();
         let mut candidates: Vec<usize> = lengths.keys().copied().collect();
         candidates.sort_unstable();
-        let radius = |node: usize| SNAP_FEATURE * lengths[&node];
+        let radius = |node: usize| lengths[&node] * SNAP_FEATURE;
         let widest = candidates
             .iter()
             .map(|&node| radius(node))
-            .fold(0.0, Scalar::max);
+            .fold(Quantity::new(0.0), Quantity::max);
         let index = self.features().index(widest);
         let corners = claims(&index, &working, &candidates, radius);
         candidates.into_iter().for_each(|node| {
@@ -100,9 +101,9 @@ impl Tessellation {
                 let distance = (&target - &working[node]).norm();
                 let shortest = lengths[&node];
                 let limit = if onto_corner { SNAP_FEATURE } else { SNAP_SOFT };
-                let accept = if distance >= limit * shortest {
+                let accept = if distance >= shortest * limit {
                     false
-                } else if distance < SNAP_HARD * shortest {
+                } else if distance < shortest * SNAP_HARD {
                     true
                 } else {
                     let retained: Vec<&Vec<usize>> = incidents[node]
@@ -150,7 +151,7 @@ impl Tessellation {
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
         let coordinates = mesh.coordinates();
-        let mut lengths = HashMap::<usize, Scalar>::new();
+        let mut lengths = HashMap::<usize, Quantity<Length>>::new();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -171,7 +172,7 @@ impl Tessellation {
             offset += block.number_of_elements();
         });
         let mut cells = Vec::<Vec<Vec<usize>>>::with_capacity(classes.len());
-        let mut original_volumes = Vec::<Scalar>::with_capacity(classes.len());
+        let mut original_volumes = Vec::<Quantity<Volume>>::with_capacity(classes.len());
         let mut offset = 0;
         mesh.iter().for_each(|block| {
             block.iter().enumerate().for_each(|(local, element)| {
@@ -180,7 +181,7 @@ impl Tessellation {
                     original_volumes.push(signed_volume(&faces, coordinates));
                     cells.push(faces)
                 } else {
-                    original_volumes.push(1.0);
+                    original_volumes.push(Quantity::new(1.0));
                     cells.push(Vec::new())
                 }
             });
@@ -201,11 +202,11 @@ impl Tessellation {
         let mut snapped = HashSet::new();
         let mut candidates: Vec<usize> = lengths.keys().copied().collect();
         candidates.sort_unstable();
-        let radius = |node: usize| SNAP_FEATURE * lengths[&node];
+        let radius = |node: usize| lengths[&node] * SNAP_FEATURE;
         let widest = candidates
             .iter()
             .map(|&node| radius(node))
-            .fold(0.0, Scalar::max);
+            .fold(Quantity::new(0.0), Quantity::max);
         let index = self.features().index(widest);
         let corners = claims(&index, &working, &candidates, radius);
         candidates.into_iter().for_each(|node| {
@@ -218,9 +219,9 @@ impl Tessellation {
                 let distance = (&target - &working[node]).norm();
                 let shortest = lengths[&node];
                 let limit = if onto_corner { SNAP_FEATURE } else { SNAP_SOFT };
-                let accept = if distance >= limit * shortest {
+                let accept = if distance >= shortest * limit {
                     false
-                } else if distance < SNAP_HARD * shortest {
+                } else if distance < shortest * SNAP_HARD {
                     true
                 } else {
                     let retained: Vec<usize> = incidents[node]
@@ -232,7 +233,8 @@ impl Tessellation {
                         retained
                             .iter()
                             .map(|&cell| {
-                                signed_volume(&cells[cell], coordinates) / original_volumes[cell]
+                                (signed_volume(&cells[cell], coordinates) / original_volumes[cell])
+                                    .value()
                             })
                             .fold(Scalar::INFINITY, Scalar::min)
                     };

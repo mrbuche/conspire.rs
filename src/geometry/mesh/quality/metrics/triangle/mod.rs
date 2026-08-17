@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use crate::{geometry::Coordinates, math::Scalar};
+use crate::{
+    geometry::Coordinates,
+    math::{Quantity, Scalar},
+    units::Area,
+};
 
 const CORNERS: [[usize; 2]; 3] = [[1, 2], [2, 0], [0, 1]];
 
@@ -39,6 +43,9 @@ pub(super) fn maximum_skew<const D: usize>(
     )
 }
 
-pub(super) fn volume<const D: usize>(element: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+pub(super) fn volume<const D: usize>(
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Quantity<Area> {
     super::triangle_area(&[element[0], element[1], element[2]], coordinates)
 }

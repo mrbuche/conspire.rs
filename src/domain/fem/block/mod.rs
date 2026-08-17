@@ -16,9 +16,10 @@ use crate::{
     },
     geometry::mesh::PrimitiveConnectivity,
     math::{
-        Scalar, Tensor, TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint,
+        Quantity, Tensor, TensorRank1List, TensorRank1Vec, optimize::EqualityConstraint,
         sparse::SparseSolver,
     },
+    units::Volume,
 };
 use std::{
     any::type_name,
@@ -44,16 +45,16 @@ where
     fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates<const D: usize, const I: usize>(
-        coordinates: &TensorRank1Vec<D, I>,
+    fn element_coordinates<const D: usize, I, U>(
+        coordinates: &TensorRank1Vec<D, I, U>,
         nodes: &[usize; N],
-    ) -> TensorRank1List<D, I, N> {
+    ) -> TensorRank1List<D, I, N, U> {
         nodes
             .iter()
             .map(|&node| coordinates[node].clone())
             .collect()
     }
-    pub fn volume(&self) -> Scalar {
+    pub fn volume(&self) -> Quantity<Volume> {
         self.elements().iter().map(|element| element.volume()).sum()
     }
 }
@@ -205,6 +206,7 @@ pub(crate) fn finalize_node_neighbors(neighbors: &mut [Vec<usize>]) {
     })
 }
 
+/// The sparse solver for the positions a mesh makes nonzero.
 pub(crate) fn solver_from_neighbors(
     neighbors: &[Vec<usize>],
     equality_constraint: &EqualityConstraint,

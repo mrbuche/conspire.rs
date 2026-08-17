@@ -6,9 +6,10 @@ use crate::{
         ConstitutiveError,
         solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
     },
-    math::{IDENTITY, Rank2},
+    math::{IDENTITY, Quantity, Rank2, TensorRank4},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
     physics::molecular::single_chain::Thermodynamics as SingleChainThermodynamics,
+    units::{EnergyDensity, Stress},
 };
 use std::{
     any::type_name,
@@ -22,9 +23,9 @@ where
     T: SingleChainThermodynamics,
 {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
     /// The single-chain model.
     pub single_chain_model: T,
 }
@@ -100,10 +101,10 @@ impl<T> Solid for EightChain<T>
 where
     T: SingleChainThermodynamics,
 {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
 }
@@ -123,8 +124,9 @@ where
             isochoric_left_cauchy_green_deformation_trace,
         ) = (deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS))
             .deviatoric_and_trace();
-        let gamma =
-            (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
+        let gamma = (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
+            .sqrt()
+            .value();
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         Ok(deviatoric_isochoric_left_cauchy_green_deformation
             * (self.shear_modulus() * self.nondimensional_force(gamma)?
@@ -147,8 +149,9 @@ where
             deviatoric_isochoric_left_cauchy_green_deformation,
             isochoric_left_cauchy_green_deformation_trace,
         ) = (left_cauchy_green_deformation / jacobian.powf(TWO_THIRDS)).deviatoric_and_trace();
-        let gamma =
-            (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links()).sqrt();
+        let gamma = (isochoric_left_cauchy_green_deformation_trace / 3.0 / self.number_of_links())
+            .sqrt()
+            .value();
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         let eta = self.nondimensional_force(gamma)?;
         let scaled_shear_modulus =
@@ -157,7 +160,7 @@ where
                 / jacobian.powf(FIVE_THIRDS);
         let scaled_deviatoric_isochoric_left_cauchy_green_deformation =
             deviatoric_left_cauchy_green_deformation * scaled_shear_modulus;
-        let term = CauchyTangentStiffness::dyad_ij_kl(
+        let term = TensorRank4::dyad_ij_kl(
             &scaled_deviatoric_isochoric_left_cauchy_green_deformation,
             &(deviatoric_isochoric_left_cauchy_green_deformation
                 * &inverse_transpose_deformation_gradient
@@ -166,20 +169,16 @@ where
                     / self.number_of_links()
                     / gamma)),
         );
-        Ok(
-            (CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, deformation_gradient)
-                + CauchyTangentStiffness::dyad_il_jk(deformation_gradient, &IDENTITY)
-                - CauchyTangentStiffness::dyad_ij_kl(&IDENTITY, deformation_gradient)
-                    * (TWO_THIRDS))
-                * scaled_shear_modulus
-                + CauchyTangentStiffness::dyad_ij_kl(
-                    &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
-                        - scaled_deviatoric_isochoric_left_cauchy_green_deformation
-                            * (FIVE_THIRDS)),
-                    &inverse_transpose_deformation_gradient,
-                )
-                + term,
-        )
+        Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
+            - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
+            * scaled_shear_modulus
+            + TensorRank4::dyad_ij_kl(
+                &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
+                    - scaled_deviatoric_isochoric_left_cauchy_green_deformation * (FIVE_THIRDS)),
+                &inverse_transpose_deformation_gradient,
+            )
+            + term)
     }
 }
 
@@ -191,12 +190,14 @@ where
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let isochoric_left_cauchy_green_deformation =
             deformation_gradient.left_cauchy_green() / jacobian.powf(TWO_THIRDS);
         let gamma =
-            (isochoric_left_cauchy_green_deformation.trace() / 3.0 / self.number_of_links()).sqrt();
+            (isochoric_left_cauchy_green_deformation.trace() / 3.0 / self.number_of_links())
+                .sqrt()
+                .value();
         let eta = self.nondimensional_force(gamma)?;
         let gamma_0 = (1.0 / self.number_of_links()).sqrt();
         let eta_0 = self.nondimensional_force(gamma_0)?;

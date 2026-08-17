@@ -1,11 +1,13 @@
 use super::WriteHtg;
 use crate::geometry::{
+    Coordinate,
     grid::Voxels,
     ntree::{
         Balancing, Octree, Pairing, Quadtree, Rescaling,
         node::{Kind, Node},
     },
 };
+use crate::math::Quantity;
 use std::fs::read_to_string;
 
 fn octree() -> Octree<u16, usize> {
@@ -20,8 +22,8 @@ fn octree() -> Octree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [4.0, 4.0, 4.0],
-            cell: 1.0,
+            center: Coordinate::const_from([4.0, 4.0, 4.0]),
+            cell: Quantity::new(1.0),
             half: 4.0,
         },
     };
@@ -41,8 +43,8 @@ fn quadtree() -> Quadtree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [4.0, 4.0],
-            cell: 1.0,
+            center: Coordinate::const_from([4.0, 4.0]),
+            cell: Quantity::new(1.0),
             half: 4.0,
         },
     };

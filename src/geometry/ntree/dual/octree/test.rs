@@ -1,14 +1,15 @@
 use crate::geometry::{
-    Coordinates,
+    Coordinate, Coordinates,
     mesh::Mesh,
     ntree::{Balance, Dualization, Octree, balance::Balancing, dual::Initialize, pair::Pairing},
 };
+use crate::math::Quantity;
 use std::collections::{HashMap, HashSet};
 
 fn hex_vol6(hex: &[usize; 8], coordinates: &Coordinates<3>) -> f64 {
     let p: [[f64; 3]; 8] = std::array::from_fn(|k| {
         let v = &coordinates[hex[k]];
-        [v[0], v[1], v[2]]
+        [v[0].value(), v[1].value(), v[2].value()]
     });
     let tet = |a: usize, b: usize, c: usize, d: usize| -> f64 {
         let ab = [p[b][0] - p[a][0], p[b][1] - p[a][1], p[b][2] - p[a][2]];
@@ -148,8 +149,8 @@ fn tree_refine_macros(fine_macros: &[usize]) -> Octree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [4.0, 4.0, 4.0],
-            cell: 1.0,
+            center: Coordinate::const_from([4.0, 4.0, 4.0]),
+            cell: Quantity::new(1.0),
             half: 4.0,
         },
     };
@@ -226,8 +227,8 @@ fn star_fires_on_synthetic_checkerboard() {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [4.0, 4.0, 4.0],
-            cell: 1.0,
+            center: Coordinate::const_from([4.0, 4.0, 4.0]),
+            cell: Quantity::new(1.0),
             half: 4.0,
         },
     };

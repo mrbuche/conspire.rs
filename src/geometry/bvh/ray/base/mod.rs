@@ -5,20 +5,21 @@ use std::mem::swap;
 
 use crate::{
     ABS_TOL,
-    geometry::{Coordinate, bbox::BoundingBox, bvh::ray::Ray},
-    math::Scalar,
+    geometry::{Coordinate, Direction, bbox::BoundingBox, bvh::ray::Ray},
+    math::{Quantity, Scalar},
+    units::{Area, Length},
 };
 
 impl<const D: usize> Ray<D> {
     pub fn origin(&self) -> &Coordinate<D> {
         &self.origin
     }
-    pub fn direction(&self) -> &Coordinate<D> {
+    pub fn direction(&self) -> &Direction<D> {
         &self.direction
     }
-    pub fn intersects(&self, bounding_box: &BoundingBox<D>) -> Option<Scalar> {
-        let mut t_min: Scalar = 0.0; // can return third case of inside box using custom enum
-        let mut t_max: Scalar = Scalar::INFINITY;
+    pub fn intersects(&self, bounding_box: &BoundingBox<D>) -> Option<Quantity<Length>> {
+        let mut t_min = Quantity::<Length>::default();
+        let mut t_max = Quantity::<Length>::new(Scalar::INFINITY);
         for axis in 0..D {
             let inverse_direction = self.inverse_direction[axis];
             let mut t_near = (bounding_box.minimum()[axis] - self.origin[axis]) * inverse_direction;
@@ -49,7 +50,7 @@ impl Ray<3> {
         a: &Coordinate<3>,
         b: &Coordinate<3>,
         c: &Coordinate<3>,
-    ) -> Option<Scalar> {
+    ) -> Option<Quantity<Length>> {
         let direction = &self.direction;
         let (ax, ay, az) = (direction[0].abs(), direction[1].abs(), direction[2].abs());
         let kz = if ax > ay {
@@ -78,15 +79,15 @@ impl Ray<3> {
         let u = cx * by - cy * bx;
         let v = ax * cy - ay * cx;
         let w = bx * ay - by * ax;
-        if (u < 0.0 || v < 0.0 || w < 0.0) && (u > 0.0 || v > 0.0 || w > 0.0) {
+        let zero = Quantity::<Area>::default();
+        if (u < zero || v < zero || w < zero) && (u > zero || v > zero || w > zero) {
             return None;
         }
         let determinant = u + v + w;
-        if determinant.abs() < ABS_TOL {
+        if determinant.abs().value() < ABS_TOL {
             return None;
         }
-        let inverse_determinant = 1.0 / determinant;
-        let t = (u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]) * inverse_determinant;
-        (t > ABS_TOL).then_some(t)
+        let t = (u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]) / determinant;
+        (t.value() > ABS_TOL).then_some(t)
     }
 }

@@ -1,20 +1,26 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::assert::FiniteDifference;
+mod ldl;
+mod lu;
 
-use crate::{
-    ABS_TOL,
-    math::{
-        Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
-    },
+use crate::math::Quantity;
+use crate::math::assert::FiniteDifference;
+use crate::units::Dimensionless;
+
+use crate::math::{
+    Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
 };
+
 use std::{
     fmt::{self, Display, Formatter},
     iter::Sum,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
     vec::IntoIter,
 };
+
+pub use ldl::LdlDecomposition;
+pub use lu::LuDecomposition;
 
 /// Possible errors for square matrices.
 #[derive(Debug, PartialEq)]
@@ -33,150 +39,9 @@ impl Default for SquareMatrix {
 }
 
 impl SquareMatrix {
-    // /// Solve a system of linear equations using the LDL decomposition.
-    // pub fn solve_ldl(&mut self, b: &Vector) -> Result<Vector, SquareMatrixError> {
-    //     let n = self.len();
-    //     let mut p: Vec<usize> = (0..n).collect();
-    //     let mut d: Vec<Scalar> = vec![0.0; n];
-    //     let mut l: Vec<Vec<Scalar>> = vec![vec![0.0; n]; n];
-    //     // for i in 0..n {
-    //     //     for j in 0..n {
-    //     //         assert!((self[i][j] - self[j][i]).abs() < ABS_TOL || (self[i][j] / self[j][i] - 1.0).abs() < ABS_TOL)
-    //     //     }
-    //     // }
-    //     for i in 0..n {
-    //         let mut max_row = i;
-    //         let mut max_val = self[max_row][i].abs();
-    //         for k in i + 1..n {
-    //             if self[k][i].abs() > max_val {
-    //                 max_row = k;
-    //                 max_val = self[max_row][i].abs();
-    //             }
-    //         }
-    //         if max_row != i {
-    //             self.0.swap(i, max_row);
-    //             p.swap(i, max_row);
-    //         }
-    //         let mut sum = 0.0;
-    //         for k in 0..i {
-    //             sum += l[i][k] * d[k] * l[i][k];
-    //         }
-    //         let pivot = self[i][i] - sum;
-    //         if pivot.abs() < ABS_TOL {
-    //             return Err(SquareMatrixError::Singular);
-    //         }
-    //         d[i] = pivot;
-    //         l[i][i] = 1.0;
-    //         for j in i + 1..n {
-    //             sum = 0.0;
-    //             for k in 0..i {
-    //                 sum += l[j][k] * d[k] * l[i][k];
-    //             }
-    //             l[j][i] = (self[j][i] - sum) / d[i];
-    //         }
-    //     }
-    //     let mut y = Vector::zero(n);
-    //     for i in 0..n {
-    //         y[i] = b[p[i]];
-    //         for j in 0..i {
-    //             y[i] -= l[i][j] * y[j];
-    //         }
-    //     }
-    //     let mut x = Vector::zero(n);
-    //     for i in 0..n {
-    //         x[i] = y[i] / d[i];
-    //     }
-    //     for i in (0..n).rev() {
-    //         for j in i + 1..n {
-    //             x[i] -= l[j][i] * x[j];
-    //         }
-    //     }
-    //     // Ok(x)
-    //     let mut xs = Vector::zero(n);
-    //     for i in 0..n {
-    //         xs[p[i]] = x[i]
-    //     }
-    //     Ok(xs)
-    //     // let mut p_reverse = vec![0; n];
-    //     // for (i, &pi) in p.iter().enumerate() {
-    //     //     p_reverse[pi] = i;
-    //     // }
-    //     // let mut xs = Vector::zero(n);
-    //     // for i in 0..n {
-    //     //     // xs[i] = x[p_reverse[i]]
-    //     //     xs[p_reverse[i]] = x[i]
-    //     // }
-    //     // Ok(xs)
-    // }
-    /// Solve a system of linear equations using the LU decomposition.
-    pub fn solve_lu(&self, b: &Vector) -> Result<Vector, SquareMatrixError> {
-        let n = self.len();
-        let mut p: Vec<usize> = (0..n).collect();
-        let mut factor;
-        let mut lu = self.clone();
-        let mut max_row;
-        let mut max_val;
-        let mut pivot;
-        for i in 0..n {
-            max_row = i;
-            max_val = lu[max_row][i].abs();
-            for k in i + 1..n {
-                if lu[k][i].abs() > max_val {
-                    max_row = k;
-                    max_val = lu[max_row][i].abs();
-                }
-            }
-            if max_row != i {
-                lu.0.swap(i, max_row);
-                p.swap(i, max_row);
-            }
-            pivot = lu[i][i];
-            if pivot.abs() < ABS_TOL {
-                return Err(SquareMatrixError::Singular);
-            }
-            for j in i + 1..n {
-                if lu[j][i] != 0.0 {
-                    lu[j][i] /= pivot;
-                    factor = lu[j][i];
-                    let (front, back) = lu.0.split_at_mut(j);
-                    back[0].as_mut_slice()[i + 1..n]
-                        .iter_mut()
-                        .zip(front[i].as_slice()[i + 1..n].iter())
-                        .for_each(|(lu_jk, lu_ik)| *lu_jk -= factor * lu_ik);
-                }
-            }
-        }
-        let mut x: Vector = p.into_iter().map(|p_i| b[p_i]).collect();
-        forward_substitution(&mut x, &lu);
-        backward_substitution(&mut x, &lu);
-        Ok(x)
-    }
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| Vector::zero(len)).collect()
     }
-}
-
-fn forward_substitution(x: &mut Vector, a: &SquareMatrix) {
-    a.iter().enumerate().for_each(|(i, a_i)| {
-        x[i] -= a_i
-            .iter()
-            .take(i)
-            .zip(x.iter().take(i))
-            .map(|(a_ij, x_j)| a_ij * x_j)
-            .sum::<Scalar>()
-    })
-}
-
-fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
-    a.0.iter().enumerate().rev().for_each(|(i, a_i)| {
-        x[i] -= a_i
-            .iter()
-            .skip(i + 1)
-            .zip(x.iter().skip(i + 1))
-            .map(|(a_ij, x_j)| a_ij * x_j)
-            .sum::<Scalar>();
-        x[i] /= a_i[i];
-    })
 }
 
 impl FiniteDifference for SquareMatrix {
@@ -227,9 +92,7 @@ impl<const N: usize> From<[[Scalar; N]; N]> for SquareMatrix {
     }
 }
 
-impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I, J>>
-    for SquareMatrix
-{
+impl<const D: usize, I, J> From<TensorRank2Vec2D<D, I, J>> for SquareMatrix {
     fn from(tensor_rank_2_vec_2d: TensorRank2Vec2D<D, I, J>) -> Self {
         let mut square_matrix = Self::zero(tensor_rank_2_vec_2d.len() * D);
         tensor_rank_2_vec_2d
@@ -239,7 +102,7 @@ impl<const D: usize, const I: usize, const J: usize> From<TensorRank2Vec2D<D, I,
                 entry_a.iter().enumerate().for_each(|(b, entry_ab)| {
                     entry_ab.iter().enumerate().for_each(|(i, entry_ab_i)| {
                         entry_ab_i.iter().enumerate().for_each(|(j, entry_ab_ij)| {
-                            square_matrix[D * a + i][D * b + j] = *entry_ab_ij
+                            square_matrix[D * a + i][D * b + j] = entry_ab_ij.value()
                         })
                     })
                 })
@@ -280,6 +143,25 @@ impl Hessian for SquareMatrix {
     fn entry(&self, row: usize, column: usize) -> Scalar {
         self[row][column]
     }
+    fn quadratic_form(&self, vector: &Vector) -> Scalar {
+        self.iter()
+            .zip(vector.iter())
+            .map(|(self_i, vector_i)| vector_i * (self_i * vector))
+            .sum()
+    }
+    fn retain_from(self, retained: &[bool]) -> SquareMatrix {
+        self.into_iter()
+            .zip(retained.iter())
+            .filter(|(_, retained_i)| **retained_i)
+            .map(|(row, _)| {
+                row.into_iter()
+                    .zip(retained.iter())
+                    .filter(|(_, retained_j)| **retained_j)
+                    .map(|(entry, _)| entry)
+                    .collect()
+            })
+            .collect()
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.into_iter()
             .zip(square_matrix.iter_mut())
@@ -296,7 +178,7 @@ impl Rank2 for SquareMatrix {
     type Transpose = Self;
     fn deviatoric(&self) -> Self {
         let len = self.len();
-        let scale = -self.trace() / len as Scalar;
+        let scale = -self.trace().value() / len as Scalar;
         (0..len)
             .map(|i| {
                 (0..len)
@@ -306,10 +188,10 @@ impl Rank2 for SquareMatrix {
             .collect::<Self>()
             + self
     }
-    fn deviatoric_and_trace(&self) -> (Self, Scalar) {
+    fn deviatoric_and_trace(&self) -> (Self, Quantity<Dimensionless>) {
         let len = self.len();
         let trace = self.trace();
-        let scale = -trace / len as Scalar;
+        let scale = -trace.value() / len as Scalar;
         (
             (0..len)
                 .map(|i| {
@@ -351,20 +233,22 @@ impl Rank2 for SquareMatrix {
                 .all(|(self_ij, self_j)| self_ij == &self_j[i])
         })
     }
-    fn squared_trace(&self) -> Scalar {
-        self.iter()
-            .enumerate()
-            .map(|(i, self_i)| {
-                self_i
-                    .iter()
-                    .zip(self.iter())
-                    .map(|(self_ij, self_j)| self_ij * self_j[i])
-                    .sum::<Scalar>()
-            })
-            .sum()
+    fn squared_trace(&self) -> Quantity {
+        Quantity::new(
+            self.iter()
+                .enumerate()
+                .map(|(i, self_i)| {
+                    self_i
+                        .iter()
+                        .zip(self.iter())
+                        .map(|(self_ij, self_j)| self_ij * self_j[i])
+                        .sum::<Scalar>()
+                })
+                .sum::<Scalar>(),
+        )
     }
-    fn trace(&self) -> Scalar {
-        self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum()
+    fn trace(&self) -> Quantity<Dimensionless> {
+        Quantity::new(self.iter().enumerate().map(|(i, self_i)| self_i[i]).sum())
     }
     fn transpose(&self) -> Self::Transpose {
         (0..self.len())
@@ -375,6 +259,7 @@ impl Rank2 for SquareMatrix {
 
 impl Tensor for SquareMatrix {
     type Item = Vector;
+    type Unit = Dimensionless;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }

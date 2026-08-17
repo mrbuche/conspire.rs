@@ -3,7 +3,7 @@ use crate::{
         ConstitutiveError,
         fluid::{
             plastic::Plastic,
-            viscoplastic::{Viscoplastic, ViscoplasticStateVariables},
+            viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
         },
         hybrid::ElasticViscoplasticAdditiveElastic,
         solid::{
@@ -11,24 +11,25 @@ use crate::{
             elastic_viscoplastic::ElasticViscoplastic,
         },
     },
-    math::Tensor,
+    math::{Differentiate, Quantity, Tensor},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, MandelStressElastic,
         Scalar, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
+    units::{Rate, Stress},
 };
 
 impl<C1, C2, Y1> Solid for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Tensor,
+    Y1: Differentiate + Tensor,
 {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.0.bulk_modulus() + self.1.bulk_modulus()
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.0.shear_modulus() + self.1.shear_modulus()
     }
 }
@@ -37,12 +38,12 @@ impl<C1, C2, Y1> Plastic for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Tensor,
+    Y1: Differentiate + Tensor,
 {
-    fn initial_yield_stress(&self) -> Scalar {
+    fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.0.initial_yield_stress()
     }
-    fn hardening_slope(&self) -> Scalar {
+    fn hardening_slope(&self) -> Quantity<Stress> {
         self.0.hardening_slope()
     }
 }
@@ -51,7 +52,7 @@ impl<C1, C2, Y1> Viscoplastic<Y1> for ElasticViscoplasticAdditiveElastic<C1, C2,
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Tensor,
+    Y1: Differentiate + Tensor,
 {
     fn initial_state(&self) -> ViscoplasticStateVariables<Y1> {
         self.0.initial_state()
@@ -60,13 +61,13 @@ where
         &self,
         mandel_stress: MandelStressElastic,
         state_variables: &ViscoplasticStateVariables<Y1>,
-    ) -> Result<ViscoplasticStateVariables<Y1>, ConstitutiveError> {
+    ) -> Result<ViscoplasticEvolution<Y1>, ConstitutiveError> {
         self.0.plastic_evolution(mandel_stress, state_variables)
     }
     fn rate_sensitivity(&self) -> Scalar {
         self.0.rate_sensitivity()
     }
-    fn reference_flow_rate(&self) -> Scalar {
+    fn reference_flow_rate(&self) -> Quantity<Rate> {
         self.0.reference_flow_rate()
     }
 }
@@ -75,7 +76,7 @@ impl<C1, C2, Y1> ElasticPlasticOrViscoplastic for ElasticViscoplasticAdditiveEla
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Tensor,
+    Y1: Differentiate + Tensor,
 {
     /// Calculates and returns the Cauchy stress.
     ///
@@ -177,13 +178,13 @@ impl<C1, C2, Y1> ElasticViscoplastic<Y1> for ElasticViscoplasticAdditiveElastic<
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Tensor,
+    Y1: Differentiate + Tensor,
 {
     fn state_variables_evolution(
         &self,
         deformation_gradient: &DeformationGradient,
         state_variables: &ViscoplasticStateVariables<Y1>,
-    ) -> Result<ViscoplasticStateVariables<Y1>, ConstitutiveError> {
+    ) -> Result<ViscoplasticEvolution<Y1>, ConstitutiveError> {
         self.0
             .state_variables_evolution(deformation_gradient, state_variables)
     }

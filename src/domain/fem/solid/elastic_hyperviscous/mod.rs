@@ -3,14 +3,15 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
         block::{finalize_node_neighbors, solver_from_neighbors},
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, viscoelastic::ViscoelasticElements},
+        solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
-        Scalar, Tensor,
+        Quantity, Tensor,
         integrate::{ImplicitDaeSecondOrderMinimize, IntegrationError},
         optimize::{EqualityConstraint, SecondOrderOptimization},
     },
     mechanics::Times,
+    units::{Power, Time},
 };
 
 pub trait ElasticHyperviscousElements<const D: usize>
@@ -21,12 +22,12 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<Power>, ElementModelError>;
     fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<Power>, ElementModelError>;
 }
 
 impl<B, const D: usize> ElasticHyperviscousElements<D> for Model<B, D>
@@ -37,7 +38,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         self.blocks
             .viscous_dissipation(nodal_coordinates, nodal_velocities)
     }
@@ -45,7 +46,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         self.blocks
             .dissipation_potential(nodal_coordinates, nodal_velocities)
     }
@@ -60,7 +61,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         Ok(self
             .0
             .viscous_dissipation(nodal_coordinates, nodal_velocities)?
@@ -72,7 +73,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         nodal_velocities: &NodalVelocities<D>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Power>, ElementModelError> {
         Ok(self
             .0
             .dissipation_potential(nodal_coordinates, nodal_velocities)?
@@ -87,18 +88,19 @@ pub trait SecondOrderMinimize<const D: usize> {
         &self,
         equality_constraint: EqualityConstraint,
         integrator: impl ImplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Power>,
             NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalVelocities<D>,
+            NodalDampingsSolid<D>,
+            NodalCoordinates<D>,
+            NodalCoordinatesHistory<D>,
             NodalVelocitiesHistory<D>,
         >,
-        time: &[Scalar],
+        time: &[Quantity<Time>],
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Power>,
             NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
+            NodalDampingsSolid<D>,
+            NodalVelocities<D>,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>;
 }
@@ -111,18 +113,19 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         integrator: impl ImplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Power>,
             NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalVelocities<D>,
+            NodalDampingsSolid<D>,
+            NodalCoordinates<D>,
+            NodalCoordinatesHistory<D>,
             NodalVelocitiesHistory<D>,
         >,
-        time: &[Scalar],
+        time: &[Quantity<Time>],
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Power>,
             NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
+            NodalDampingsSolid<D>,
+            NodalVelocities<D>,
         >,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>
     {
@@ -131,17 +134,17 @@ where
         finalize_node_neighbors(&mut neighbors);
         let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, true);
         integrator.integrate(
-            |_: Scalar,
+            |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
                 Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
                 Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
             },
-            |_: Scalar,
+            |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
                 Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
@@ -149,7 +152,7 @@ where
             solver,
             time,
             self.coordinates().clone().into(),
-            |_: Scalar| equality_constraint.clone(),
+            |_: Quantity<Time>| equality_constraint.clone(),
             Some(sparse),
         )
     }

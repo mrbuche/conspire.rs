@@ -1,7 +1,8 @@
 use super::Norm;
+use crate::math::Current;
 use crate::math::{Tensor, TensorRank1};
 
-fn v() -> TensorRank1<4, 1> {
+fn v() -> TensorRank1<4, Current> {
     TensorRank1::from([1.0, 2.0, 3.0, 4.0])
 }
 

@@ -12,33 +12,36 @@ use crate::{
         },
     },
     math::{
-        Scalar, Tensor, TensorTuple, TensorVec,
+        Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorVec,
         integrate::{ExplicitDaeSecondOrderMinimize, IntegrationError},
         optimize::SecondOrderOptimization,
     },
     mechanics::Times,
+    units::{Energy, Time},
 };
 
 pub trait HyperelasticViscoplasticElements<S, const D: usize>
 where
     Self: ElasticViscoplasticElements<S, D>,
+    S: Differentiate,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Scalar, ElementModelError>;
+    ) -> Result<Quantity<Energy>, ElementModelError>;
 }
 
 impl<B, S, const D: usize> HyperelasticViscoplasticElements<S, D> for Model<B, D>
 where
     B: HyperelasticViscoplasticElements<S, D>,
+    S: Differentiate,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         self.blocks
             .helmholtz_free_energy(nodal_coordinates, state_variables)
     }
@@ -49,12 +52,13 @@ impl<B1, B2, S, const D: usize> HyperelasticViscoplasticElements<S, D>
 where
     B1: HyperelasticViscoplasticElements<S, D>,
     B2: HyperelasticElements<D>,
+    S: Differentiate,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         Ok(self
             .0
             .helmholtz_free_energy(nodal_coordinates, state_variables)?
@@ -67,14 +71,16 @@ impl<B1, B2, S1, S2, const D: usize> HyperelasticViscoplasticElements<TensorTupl
 where
     B1: HyperelasticViscoplasticElements<S1, D>,
     B2: HyperelasticViscoplasticElements<S2, D>,
-    S1: Tensor,
-    S2: Tensor,
+    S1: Differentiate + Tensor,
+    S2: Differentiate + Tensor,
+    Derivative<S1>: Tensor,
+    Derivative<S2>: Tensor,
 {
     fn helmholtz_free_energy(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &TensorTuple<S1, S2>,
-    ) -> Result<Scalar, ElementModelError> {
+    ) -> Result<Quantity<Energy>, ElementModelError> {
         Ok(self
             .0
             .helmholtz_free_energy(nodal_coordinates, &state_variables.0)?
@@ -84,57 +90,61 @@ where
     }
 }
 
-pub trait SecondOrderMinimize<S, H, const D: usize>
+pub trait SecondOrderMinimize<S, R, H, const D: usize>
 where
-    S: Tensor,
+    S: Differentiate + Tensor,
+    R: TensorVec<Item = Derivative<S>>,
     H: TensorVec<Item = S>,
 {
     fn minimize(
         &self,
         integrator: impl ExplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             S,
             NodalCoordinates<D>,
             H,
             NodalCoordinatesHistory<D>,
+            R,
         >,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        time: &[Scalar],
+        time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, H), IntegrationError>;
 }
 
-impl<B, S, H, const D: usize> SecondOrderMinimize<S, H, D> for Model<B, D>
+impl<B, S, R, H, const D: usize> SecondOrderMinimize<S, R, H, D> for Model<B, D>
 where
     B: HyperelasticViscoplasticElements<S, D>,
-    S: Tensor,
+    S: Differentiate + Tensor,
+    R: TensorVec<Item = Derivative<S>>,
     H: TensorVec<Item = S>,
 {
     fn minimize(
         &self,
         integrator: impl ExplicitDaeSecondOrderMinimize<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             S,
             NodalCoordinates<D>,
             H,
             NodalCoordinatesHistory<D>,
+            R,
         >,
         solver: impl SecondOrderOptimization<
-            Scalar,
+            Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
         >,
-        time: &[Scalar],
+        time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, H), IntegrationError> {
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
@@ -143,22 +153,30 @@ where
         let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), D, true);
         let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
             .integrate(
-                |_: Scalar, state_variables: &S, nodal_coordinates: &NodalCoordinates<D>| {
+                |_: Quantity<Time>,
+                 state_variables: &S,
+                 nodal_coordinates: &NodalCoordinates<D>| {
                     Ok(self
                         .blocks
                         .state_variables_evolution(nodal_coordinates, state_variables)?)
                 },
-                |_: Scalar, state_variables: &S, nodal_coordinates: &NodalCoordinates<D>| {
+                |_: Quantity<Time>,
+                 state_variables: &S,
+                 nodal_coordinates: &NodalCoordinates<D>| {
                     Ok(self
                         .blocks
                         .helmholtz_free_energy(nodal_coordinates, state_variables)?)
                 },
-                |_: Scalar, state_variables: &S, nodal_coordinates: &NodalCoordinates<D>| {
+                |_: Quantity<Time>,
+                 state_variables: &S,
+                 nodal_coordinates: &NodalCoordinates<D>| {
                     Ok(self
                         .blocks
                         .nodal_forces(nodal_coordinates, state_variables)?)
                 },
-                |_: Scalar, state_variables: &S, nodal_coordinates: &NodalCoordinates<D>| {
+                |_: Quantity<Time>,
+                 state_variables: &S,
+                 nodal_coordinates: &NodalCoordinates<D>| {
                     Ok(self
                         .blocks
                         .nodal_stiffnesses(nodal_coordinates, state_variables)?)

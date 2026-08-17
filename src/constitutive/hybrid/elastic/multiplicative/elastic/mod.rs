@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod test;
+use crate::math::Quantity;
+use crate::math::{Current, Intermediate, Reference};
 
 use crate::{
     constitutive::{
@@ -14,9 +16,10 @@ use crate::{
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffness1, DeformationGradient,
         DeformationGradient2, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStress1,
-        FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness2, Scalar,
-        SecondPiolaKirchhoffStress,
+        FirstPiolaKirchhoffStress2, FirstPiolaKirchhoffTangentStiffness,
+        FirstPiolaKirchhoffTangentStiffness2, SecondPiolaKirchhoffStress,
     },
+    units::Stress,
 };
 
 impl<C1, C2> Solid for ElasticMultiplicative<C1, C2>
@@ -24,25 +27,23 @@ where
     C1: Elastic,
     C2: Elastic,
 {
-    fn bulk_modulus(&self) -> Scalar {
-        todo!()
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        1.0 / (1.0 / self.0.bulk_modulus() + 1.0 / self.1.bulk_modulus())
     }
-    fn shear_modulus(&self) -> Scalar {
-        todo!()
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        1.0 / (1.0 / self.0.shear_modulus() + 1.0 / self.1.shear_modulus())
     }
 }
 
-impl<C1, C2>
-    ElasticIV<
-        DeformationGradient2,
-        TensorRank4<3, 2, 0, 1, 0>,
-        TensorRank4<3, 1, 0, 2, 0>,
-        FirstPiolaKirchhoffTangentStiffness2,
-    > for ElasticMultiplicative<C1, C2>
+impl<C1, C2> ElasticIV<DeformationGradient2> for ElasticMultiplicative<C1, C2>
 where
     C1: Elastic,
     C2: Elastic,
 {
+    type Residual = FirstPiolaKirchhoffStress2;
+    type TangentVu = TensorRank4<3, Intermediate, Reference, Current, Reference, Stress>;
+    type TangentUv = TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>;
+    type TangentVv = FirstPiolaKirchhoffTangentStiffness2;
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math
@@ -117,7 +118,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
-    ) -> Result<DeformationGradient2, ConstitutiveError> {
+    ) -> Result<FirstPiolaKirchhoffStress2, ConstitutiveError> {
         let deformation_gradient_2_inverse = deformation_gradient_2.inverse();
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
         Ok(FirstPiolaKirchhoffStress2::from(
@@ -130,33 +131,33 @@ where
             )
             * deformation_gradient_2_inverse.transpose())
     }
-    /// Calculates and returns the tangents associated with the internal variables.
+    /// Calculates and returns the tangents of the coupled system.
     ///
     /// ```math
-    /// \frac{\partial P_{iJ}}{\partial F_{KL}^2} = -P_{iL}F_{KJ}^{2-T} - \mathcal{C}_{iJmL}F_{mK}^1
+    /// \mathcal{C}_{iJkL} = \frac{\partial P_{iJ}}{\partial F_{kL}}
     /// ```
     /// ```math
     /// \frac{\partial R_{IJ}}{\partial F_{kL}} = -F_{IL}^{2-T}P_{kJ} - F_{mI}^1\mathcal{C}_{mJkL}
     /// ```
     /// ```math
+    /// \frac{\partial P_{iJ}}{\partial F_{KL}^2} = -P_{iL}F_{KJ}^{2-T} - \mathcal{C}_{iJmL}F_{mK}^1
+    /// ```
+    /// ```math
     /// \frac{\partial R_{IJ}}{\partial F_{KL}^2} = \mathcal{C}_{IJKL}^2 + F_{IM}^1P_{ML}{F_{KJ}^{2-T}} - \frac{\partial R_{IJ}}{\partial F_{mL}}\,F_{mK}^1
     /// ```
-    fn internal_variables_tangents(
+    fn tangents(
         &self,
         deformation_gradient: &DeformationGradient,
         deformation_gradient_2: &DeformationGradient2,
     ) -> Result<
         (
-            TensorRank4<3, 2, 0, 1, 0>,
-            TensorRank4<3, 1, 0, 2, 0>,
+            FirstPiolaKirchhoffTangentStiffness,
+            TensorRank4<3, Intermediate, Reference, Current, Reference, Stress>,
+            TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>,
             FirstPiolaKirchhoffTangentStiffness2,
         ),
         ConstitutiveError,
     > {
-        //
-        // If hyperelastic, tangent_1 should equal a transpose of tangent_2.
-        // Could add a method to utilize that for minimize() in hyperelastic/multiplicative.
-        //
         let deformation_gradient_2_inverse = deformation_gradient_2.inverse();
         let deformation_gradient_2_inverse_transpose = deformation_gradient_2_inverse.transpose();
         let deformation_gradient_1 = deformation_gradient * &deformation_gradient_2_inverse;
@@ -183,9 +184,10 @@ where
                 &(deformation_gradient_1_transpose * first_piola_kirchhoff_stress),
                 &deformation_gradient_2_inverse,
             );
-        Ok((tangent_1, tangent_2, tangent_3))
+        Ok((tangent_0, tangent_1, tangent_2, tangent_3))
     }
-    fn internal_variables_constraints(&self) -> (&[usize], usize) {
-        (&[10, 11, 14], 9)
+    /// The second deformation gradient is lower triangular to fix rotational freedom.
+    fn internal_variables_fixed(&self) -> &[usize] {
+        &[1, 2, 5]
     }
 }

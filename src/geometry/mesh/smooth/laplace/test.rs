@@ -29,7 +29,7 @@ fn spread(mesh: &Mesh<3>) -> Scalar {
     (0..3)
         .map(|node| {
             (0..3)
-                .map(|i| (coordinates[node][i] - center[i]).powi(2))
+                .map(|i| (coordinates[node][i] - center[i]).value().powi(2))
                 .sum::<Scalar>()
         })
         .sum()
@@ -107,8 +107,14 @@ fn preserve_boundary_ignores_interior_neighbors() -> Result<(), AssertionError> 
     free.laplace_smooth(1, 1.0, Weighting::Uniform, false, false)
         .unwrap();
     assert!(
-        (free.coordinates()[0][0] - preserved_b.coordinates()[0][0]).abs() > 1e-6
-            || (free.coordinates()[0][1] - preserved_b.coordinates()[0][1]).abs() > 1e-6
+        (free.coordinates()[0][0] - preserved_b.coordinates()[0][0])
+            .abs()
+            .value()
+            > 1e-6
+            || (free.coordinates()[0][1] - preserved_b.coordinates()[0][1])
+                .abs()
+                .value()
+                > 1e-6
     );
     Ok(())
 }
@@ -147,8 +153,14 @@ fn preserve_interfaces_ignores_off_interface_neighbors() -> Result<(), Assertion
     free.laplace_smooth(1, 1.0, Weighting::Uniform, false, false)
         .unwrap();
     assert!(
-        (free.coordinates()[1][0] - interface_b.coordinates()[1][0]).abs() > 1e-6
-            || (free.coordinates()[1][1] - interface_b.coordinates()[1][1]).abs() > 1e-6
+        (free.coordinates()[1][0] - interface_b.coordinates()[1][0])
+            .abs()
+            .value()
+            > 1e-6
+            || (free.coordinates()[1][1] - interface_b.coordinates()[1][1])
+                .abs()
+                .value()
+                > 1e-6
     );
     Ok(())
 }

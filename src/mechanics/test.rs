@@ -6,8 +6,10 @@ use super::{
 };
 use crate::math::assert::Assert;
 use crate::math::{
-    IDENTITY, IDENTITY_00, IDENTITY_10, Rank2, Tensor, TensorArray, assert::AssertionError,
+    IDENTITY, IDENTITY_00, IDENTITY_10, Quantity, Rank2, Tensor, TensorArray,
+    assert::AssertionError,
 };
+use crate::units::Temperature;
 
 impl From<DeformationError> for AssertionError {
     fn from(error: DeformationError) -> AssertionError {
@@ -135,8 +137,8 @@ pub fn get_translation_reference_configuration() -> ReferenceCoordinate {
     ReferenceCoordinate::from([4.4, 5.5, 6.6])
 }
 
-pub fn get_temperature() -> Scalar {
-    123.0
+pub fn get_temperature() -> Quantity<Temperature> {
+    Quantity::new(123.0)
 }
 
 pub fn get_temperature_gradient() -> TemperatureGradient {
@@ -161,7 +163,7 @@ fn frame_spin_tensor() {
 #[test]
 fn into_test_error() {
     let mut deformation_gradient = IDENTITY_10;
-    deformation_gradient[0][0] = -1.0;
+    deformation_gradient[0][0] = crate::math::Quantity::new(-1.0);
     let _: AssertionError = deformation_gradient.jacobian().unwrap_err().into();
 }
 
@@ -169,7 +171,7 @@ fn into_test_error() {
 #[should_panic(expected = "Invalid Jacobian")]
 fn invalid_jacobian() {
     let mut deformation_gradient = IDENTITY_10;
-    deformation_gradient[0][0] = -1.0;
+    deformation_gradient[0][0] = crate::math::Quantity::new(-1.0);
     let _ = deformation_gradient.jacobian().unwrap();
 }
 
@@ -243,7 +245,7 @@ fn symmetry() -> Result<(), AssertionError> {
 
 #[test]
 fn trace() {
-    assert!(get_deformation_gradient_rate().trace() > 0.0)
+    assert!(get_deformation_gradient_rate().trace().value() > 0.0)
 }
 
 #[test]

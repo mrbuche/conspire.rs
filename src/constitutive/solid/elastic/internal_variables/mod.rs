@@ -6,9 +6,12 @@ use crate::{
         solid::{Solid, elastic::AppliedLoad},
     },
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Rank2, Tensor,
-        TensorArray, TensorTuple, Vector,
-        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, Hessian, HessianBlock, IDENTITY,
+        Jacobian, Matrix, Rank2, Tensor, TensorArray, TensorTuple, Vector,
+        optimize::{
+            EqualityConstraint, FirstOrderRootFindingBlock, SolveStrategy, ZerothOrderRootFinding,
+        },
+        sparse::CscMatrix,
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
@@ -17,11 +20,28 @@ use crate::{
     },
 };
 
+/// The tangents of the coupled system, in the order the block solver takes them.
+pub type Tangents<C, V> = (
+    FirstPiolaKirchhoffTangentStiffness,
+    <C as ElasticIV<V>>::TangentVu,
+    <C as ElasticIV<V>>::TangentUv,
+    <C as ElasticIV<V>>::TangentVv,
+);
+
 /// Required methods for elastic solid constitutive models with internal variables.
-pub trait ElasticIV<V, T1, T2, T3>
+pub trait ElasticIV<V>
 where
     Self: Solid,
 {
+    /// The residual associated with the internal variables.
+    /// the internal variables are in equilibrium over, typically a stress.
+    type Residual: Jacobian;
+    /// The tangent of the internal variables residual with the deformation gradient.
+    type TangentVu: HessianBlock;
+    /// The tangent of the deformation gradient residual with the internal variables.
+    type TangentUv: HessianBlock;
+    /// The tangent of the internal variables residual with the internal variables.
+    type TangentVv: Hessian + HessianBlock;
     /// Calculates and returns the Cauchy stress.
     ///
     /// ```math
@@ -157,22 +177,24 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
-    ) -> Result<V, ConstitutiveError>;
-    /// Calculates and returns the tangents associated with the internal variables.
-    fn internal_variables_tangents(
+    ) -> Result<Self::Residual, ConstitutiveError>;
+    /// Returns the indices of the internal variables held at zero.
+    fn internal_variables_fixed(&self) -> &[usize];
+    /// Calculates and returns the tangents of the coupled system.
+    fn tangents(
         &self,
         deformation_gradient: &DeformationGradient,
         internal_variables: &V,
-    ) -> Result<(T1, T2, T3), ConstitutiveError>;
-    /// Returns the constraint indices for the internal variables.
-    fn internal_variables_constraints(&self) -> (&[usize], usize);
+    ) -> Result<Tangents<Self, V>, ConstitutiveError>;
 }
 
 /// Zeroth-order root-finding methods for elastic solid constitutive models with internal variables.
-pub trait ZerothOrderRoot<V, T1, T2, T3>
+pub trait ZerothOrderRoot<V>
 where
     V: Tensor,
 {
+    /// Type representing all residuals.
+    type Residuals;
     /// Type representing all variables.
     type Variables;
     /// Solve for the unknown components of the deformation gradient under an applied load.
@@ -183,20 +205,16 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<Self::Variables>,
+        solver: impl ZerothOrderRootFinding<Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
 /// First-order root-finding methods for elastic solid constitutive models with internal variables.
-pub trait FirstOrderRoot<V, T1, T2, T3>
+pub trait FirstOrderRoot<V>
 where
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
+    Self: ElasticIV<V>,
     V: Tensor,
 {
-    /// Type representing all variables.
-    type Variables;
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///
     /// ```math
@@ -205,24 +223,31 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
-            Self::Variables,
-            TensorTuple<FirstPiolaKirchhoffTangentStiffness, TensorTuple<T1, TensorTuple<T2, T3>>>,
-            Self::Variables,
+        solver: impl FirstOrderRootFindingBlock<
+            DeformationGradient,
+            V,
+            FirstPiolaKirchhoffStress,
+            <Self as ElasticIV<V>>::Residual,
+            FirstPiolaKirchhoffTangentStiffness,
+            Self::TangentVu,
+            Self::TangentUv,
+            Self::TangentVv,
         >,
+        strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
-impl<T, V, T1, T2, T3> ZerothOrderRoot<V, T1, T2, T3> for T
+impl<T, V> ZerothOrderRoot<V> for T
 where
-    T: ElasticIV<V, T1, T2, T3>,
+    T: ElasticIV<V>,
     V: Tensor,
 {
+    type Residuals = TensorTuple<FirstPiolaKirchhoffStress, <T as ElasticIV<V>>::Residual>;
     type Variables = TensorTuple<DeformationGradient, V>;
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<Self::Variables>,
+        solver: impl ZerothOrderRootFinding<Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (matrix, vector) = bcs(self, applied_load);
         match solver.root(
@@ -248,51 +273,47 @@ where
     }
 }
 
-impl<T, V, T1, T2, T3> FirstOrderRoot<V, T1, T2, T3> for T
+impl<T, V> FirstOrderRoot<V> for T
 where
-    T1: Tensor,
-    T2: Tensor,
-    T3: Tensor,
-    T: ElasticIV<V, T1, T2, T3>,
+    T: ElasticIV<V>,
     V: Tensor,
 {
-    type Variables = TensorTuple<DeformationGradient, V>;
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
-            Self::Variables,
-            TensorTuple<FirstPiolaKirchhoffTangentStiffness, TensorTuple<T1, TensorTuple<T2, T3>>>,
-            Self::Variables,
+        solver: impl FirstOrderRootFindingBlock<
+            DeformationGradient,
+            V,
+            FirstPiolaKirchhoffStress,
+            <Self as ElasticIV<V>>::Residual,
+            FirstPiolaKirchhoffTangentStiffness,
+            Self::TangentVu,
+            Self::TangentUv,
+            Self::TangentVv,
         >,
+        strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
-        let (matrix, vector) = bcs(self, applied_load);
-        match solver.root(
-            |variables: &Self::Variables| {
-                let (deformation_gradient, internal_variables) = variables.into();
-                Ok(TensorTuple::from((
-                    self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?,
-                    self.internal_variables_residual(deformation_gradient, internal_variables)?,
-                )))
+        let (constraint_global, constraint_local) = bcs_block(self, applied_load);
+        match solver.root_block(
+            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                Ok(self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?)
             },
-            |variables: &Self::Variables| {
-                let (deformation_gradient, internal_variables) = variables.into();
-                let tangent_0 = self.first_piola_kirchhoff_tangent_stiffness(
-                    deformation_gradient,
-                    internal_variables,
-                )?;
-                let (tangent_1, tangent_2, tangent_3) =
-                    self.internal_variables_tangents(deformation_gradient, internal_variables)?;
-                Ok((tangent_0, (tangent_1, (tangent_2, tangent_3).into()).into()).into())
+            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                Ok(self.internal_variables_residual(deformation_gradient, internal_variables)?)
             },
-            Self::Variables::from((
+            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                Ok(self.tangents(deformation_gradient, internal_variables)?)
+            },
+            (
                 DeformationGradient::identity(),
                 self.internal_variables_initial(),
-            )),
-            EqualityConstraint::Linear(matrix, vector),
+            ),
+            constraint_global,
+            constraint_local,
             None,
+            strategy,
         ) {
-            Ok(solution) => Ok(solution.into()),
+            Ok(solution) => Ok(solution),
             Err(error) => Err(ConstitutiveError::Upstream(
                 format!("{error}"),
                 format!("{self:?}"),
@@ -302,31 +323,81 @@ where
 }
 
 #[doc(hidden)]
-pub fn bcs<C, V, T1, T2, T3>(model: &C, applied_load: AppliedLoad) -> (Matrix, Vector)
+pub fn bcs_block<C, V>(
+    model: &C,
+    applied_load: AppliedLoad,
+) -> ((CscMatrix, Vector), (CscMatrix, Vector))
 where
-    C: ElasticIV<V, T1, T2, T3>,
+    C: ElasticIV<V>,
+    V: Tensor,
 {
-    let (extra_constraints, num_vars) = model.internal_variables_constraints();
-    match applied_load {
+    let fixed = model.internal_variables_fixed();
+    let num_internal_variables = model.internal_variables_initial().size();
+    let pattern_vars = fixed.iter().enumerate().map(|(i, &j)| (i, j)).collect();
+    let mut matrix_vars =
+        CscMatrix::from_pattern(fixed.len(), num_internal_variables, pattern_vars);
+    matrix_vars.fill(|_, _| 1.0);
+    let local = (matrix_vars, Vector::zero(fixed.len()));
+    let (vector, pattern) = match applied_load {
         AppliedLoad::UniaxialStress(deformation_gradient_11) => {
-            let num_constraints = 4;
-            let num_constraints_vars = extra_constraints.len();
-            let mut matrix = Matrix::zero(num_constraints + num_constraints_vars, 9 + num_vars);
-            let mut vector = Vector::zero(num_constraints + num_constraints_vars);
-            matrix[0][0] = 1.0;
-            matrix[1][1] = 1.0;
-            matrix[2][2] = 1.0;
-            matrix[3][5] = 1.0;
-            let mut i = num_constraints;
-            extra_constraints.iter().for_each(|&j| {
-                matrix[i][j] = 1.0;
-                i += 1;
-            });
+            let mut vector = Vector::zero(4);
             vector[0] = deformation_gradient_11;
-            (matrix, vector)
+            (vector, vec![(0, 0), (1, 1), (2, 2), (3, 5)])
         }
-        AppliedLoad::BiaxialStress(_, _) => {
-            todo!()
+        AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => {
+            let mut vector = Vector::zero(5);
+            vector[0] = deformation_gradient_11;
+            vector[4] = deformation_gradient_22;
+            (vector, vec![(0, 0), (1, 1), (2, 2), (3, 5), (4, 4)])
         }
-    }
+    };
+    let mut matrix = CscMatrix::from_pattern(vector.len(), 9, pattern);
+    matrix.fill(|_, _| 1.0);
+    ((matrix, vector), local)
+}
+
+#[doc(hidden)]
+pub fn bcs<C, V>(model: &C, applied_load: AppliedLoad) -> (Matrix, Vector)
+where
+    C: ElasticIV<V>,
+    V: Tensor,
+{
+    let fixed = model.internal_variables_fixed();
+    let num_internal_variables = model.internal_variables_initial().size();
+    let num_deformation_gradient = 9;
+    let (num_constraints, prescribed) = match applied_load {
+        AppliedLoad::UniaxialStress(deformation_gradient_11) => (
+            4,
+            vec![
+                (0, 0, deformation_gradient_11),
+                (1, 1, 0.0),
+                (2, 2, 0.0),
+                (3, 5, 0.0),
+            ],
+        ),
+        AppliedLoad::BiaxialStress(deformation_gradient_11, deformation_gradient_22) => (
+            5,
+            vec![
+                (0, 0, deformation_gradient_11),
+                (1, 1, 0.0),
+                (2, 2, 0.0),
+                (3, 5, 0.0),
+                (4, 4, deformation_gradient_22),
+            ],
+        ),
+    };
+    let mut matrix = Matrix::zero(
+        num_constraints + fixed.len(),
+        num_deformation_gradient + num_internal_variables,
+    );
+    let mut vector = Vector::zero(num_constraints + fixed.len());
+    prescribed.iter().for_each(|&(row, column, value)| {
+        matrix[row][column] = 1.0;
+        vector[row] = value
+    });
+    fixed
+        .iter()
+        .enumerate()
+        .for_each(|(i, &j)| matrix[num_constraints + i][num_deformation_gradient + j] = 1.0);
+    (matrix, vector)
 }

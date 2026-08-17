@@ -3,9 +3,9 @@ mod test;
 
 use crate::math::Norm;
 use crate::math::{
-    Scalar, Tensor, TensorVec, Vector,
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        Explicit, IntegrationError, OdeIntegrator, VariableStep, VariableStepExplicit,
+        Explicit, IntegrationError, OdeIntegrator, Times, VariableStep, VariableStepExplicit,
         VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
@@ -73,7 +73,7 @@ pub struct DormandPrince {
     /// Minimum value for the time step.
     pub dt_min: Scalar,
     /// Norm type for error evaluation.
-    pub norm: Norm,
+    pub error_norm: Norm,
 }
 
 impl Default for DormandPrince {
@@ -85,7 +85,7 @@ impl Default for DormandPrince {
             dt_expn: 5.0,
             dt_cut: 0.5,
             dt_min: ABS_TOL,
-            norm: Norm::Chebyshev,
+            error_norm: Norm::Chebyshev,
         }
     }
 }
@@ -97,7 +97,7 @@ where
 {
 }
 
-impl VariableStep for DormandPrince {
+impl<T> VariableStep<T> for DormandPrince {
     fn abs_tol(&self) -> Scalar {
         self.abs_tol
     }
@@ -113,40 +113,48 @@ impl VariableStep for DormandPrince {
     fn dt_cut(&self) -> Scalar {
         self.dt_cut
     }
-    fn dt_min(&self) -> Scalar {
-        self.dt_min
+    fn dt_min(&self) -> Quantity<T> {
+        Quantity::new(self.dt_min)
     }
-    fn norm(&self) -> &Norm {
-        &self.norm
+    fn error_norm(&self) -> &Norm {
+        &self.error_norm
     }
 }
 
-impl<Y, U> Explicit<Y, U> for DormandPrince
+impl<Y, U, V, T> Explicit<Y, U, V, T> for DormandPrince
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     const SLOPES: usize = 7;
     fn integrate(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-        time: &[Scalar],
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        time: &[Quantity<T>],
         initial_condition: Y,
-    ) -> Result<(Vector, U, U), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_variable_step(function, time, initial_condition)
     }
 }
 
-impl<Y, U> VariableStepExplicit<Y, U> for DormandPrince
+impl<Y, U, V, T> VariableStepExplicit<Y, U, V, T> for DormandPrince
 where
-    Self: Explicit<Y, U>,
-    Y: Tensor,
+    Self: Explicit<Y, U, V, T>,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn error(&self, dt: Scalar, k: &[Y]) -> Result<Scalar, String> {
-        Ok(self.norm.apply(
+    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
+        Ok(self.error_norm.measure(
             &((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
                 - &k[4] * C_17253_339200
                 + &k[5] * C_22_525
@@ -155,11 +163,11 @@ where
         ))
     }
     fn slopes(
-        mut function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
         *y_trial = &k[0] * (0.2 * dt) + y;
@@ -188,26 +196,26 @@ where
     }
     fn slopes_and_error(
         &self,
-        function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
-        t: Scalar,
-        dt: Scalar,
-        k: &mut [Y],
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<Scalar, String> {
         self.slopes_and_error_fsal(function, y, t, dt, k, y_trial)
     }
     fn step(
         &self,
-        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
+        _function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &mut Y,
-        t: &mut Scalar,
+        t: &mut Quantity<T>,
         y_sol: &mut U,
-        t_sol: &mut Vector,
-        dydt_sol: &mut U,
-        k_sol: &mut Vec<U>,
-        dt: &mut Scalar,
-        k: &mut [Y],
+        t_sol: &mut Times<T>,
+        dydt_sol: &mut V,
+        k_sol: &mut Vec<V>,
+        dt: &mut Quantity<T>,
+        k: &mut [Derivative<Y, T>],
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
@@ -215,29 +223,36 @@ where
     }
 }
 
-impl<Y, U> VariableStepExplicitFirstSameAsLast<Y, U> for DormandPrince
+impl<Y, U, V, T> VariableStepExplicitFirstSameAsLast<Y, U, V, T> for DormandPrince
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
 }
 
 impl DormandPrince {
-    pub(crate) fn interpolate_free_dense<Y, U>(
-        time: &Vector,
-        tp: &Vector,
+    pub(crate) fn interpolate_free_dense<Y, U, V, T>(
+        time: &Times<T>,
+        tp: &Times<T>,
         yp: &U,
-        dydtp: &U,
-        k_sol: &[U],
-    ) -> (U, U)
+        dydtp: &V,
+        k_sol: &[V],
+    ) -> (U, V)
     where
-        Y: Tensor,
-        for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+        Y: Differentiate<T> + Tensor,
+        Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
+        for<'a> &'a Derivative<Y, T>:
+            Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
         U: TensorVec<Item = Y>,
+        V: TensorVec<Item = Derivative<Y, T>>,
     {
         let mut y_int = U::new();
-        let mut dydt_int = U::new();
+        let mut dydt_int = V::new();
         for time_k in time.iter() {
             let i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
             if time_k == &tp[i] {
@@ -246,7 +261,7 @@ impl DormandPrince {
             } else {
                 let t_0 = tp[i - 1];
                 let h = tp[i] - t_0;
-                let theta = (time_k - t_0) / h;
+                let theta = (*time_k - t_0).value() / h.value();
                 let theta2 = theta * theta;
                 let theta3 = theta2 * theta;
                 let theta4 = theta3 * theta;
@@ -285,21 +300,25 @@ impl DormandPrince {
     }
 }
 
-impl<Y, U> InterpolateSolution<Y, U> for DormandPrince
+impl<Y, U, V, T> InterpolateSolution<Y, U, V, T> for DormandPrince
 where
-    Y: Tensor,
+    Y: Differentiate<T> + Tensor,
+    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>:
+        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
+    V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn interpolate(
         &self,
-        time: &Vector,
-        tp: &Vector,
+        time: &Times<T>,
+        tp: &Times<T>,
         yp: &U,
-        dydtp: &U,
-        k_sol: &[U],
-        _function: impl FnMut(Scalar, &Y) -> Result<Y, String>,
-    ) -> Result<(U, U), IntegrationError> {
+        dydtp: &V,
+        k_sol: &[V],
+        _function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+    ) -> Result<(U, V), IntegrationError> {
         Ok(Self::interpolate_free_dense(time, tp, yp, dydtp, k_sol))
     }
 }

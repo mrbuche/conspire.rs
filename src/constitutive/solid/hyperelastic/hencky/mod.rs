@@ -6,24 +6,25 @@ use crate::{
         ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
     },
-    math::{ContractThirdFourthWithFirstSecond, IDENTITY, Rank2},
-    mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+    math::{ContractThirdFourthWithFirstSecond, IDENTITY, Quantity, Rank2, TensorRank4},
+    mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient},
+    units::{EnergyDensity, Stress},
 };
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct Hencky {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
 }
 
 impl Solid for Hencky {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
 }
@@ -53,10 +54,10 @@ impl Elastic for Hencky {
         Ok((left_cauchy_green
             .dlogm()?
             .contract_third_fourth_with_first_second(
-                &(CauchyTangentStiffness::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
-                    + CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient)),
+                &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
+                    + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient)),
             ))
-            + (CauchyTangentStiffness::dyad_ij_kl(
+            + (TensorRank4::dyad_ij_kl(
                 &(IDENTITY
                     * ((self.bulk_modulus() - TWO_THIRDS * self.shear_modulus()) / jacobian)
                     - deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
@@ -71,7 +72,7 @@ impl Hyperelastic for Hencky {
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
-    ) -> Result<Scalar, ConstitutiveError> {
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let strain = deformation_gradient.left_cauchy_green().logm()? * 0.5;
         Ok(self.shear_modulus() * strain.squared_trace()

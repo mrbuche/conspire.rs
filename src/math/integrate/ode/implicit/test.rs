@@ -1,45 +1,53 @@
 macro_rules! test_implicit_fixed_step {
     ($integration: expr) => {
+        use crate::units::{Rate, Time};
         use crate::{
             EPSILON,
             math::{
-                Scalar, Tensor, Vector,
+                Quantity, Scalar, Tensor, TensorVector,
                 assert::AssertionError,
-                integrate::{FixedStep, IntegrationError},
+                integrate::{FixedStep, IntegrationError, Times},
             },
         };
-        const TIME_STEP: Scalar = 0.1;
-        const TOLERANCE: Scalar = TIME_STEP;
+        const TIME_STEP: Quantity<Time> = Time::seconds(0.1);
+        const TOLERANCE: Scalar = 0.1;
+        const RATE: Quantity<Rate> = Rate::per_second(1.0);
+        type States = TensorVector<Quantity>;
+        type Rates = TensorVector<Quantity<Rate>>;
         #[test]
         fn finite_difference() -> Result<(), AssertionError> {
             use crate::math::integrate::{ImplicitFirstOrder, ImplicitZerothOrder};
-            let t = 0.55_f64;
-            let y = t.sin();
-            let function =
-                |_t: Scalar, y: &Scalar| Ok::<Scalar, IntegrationError>(-0.5 * t * y.powi(2));
-            let jacobian = |_t: Scalar, y: &Scalar| Ok::<Scalar, IntegrationError>(-t * y);
-            let dt = 0.1;
+            let t = Quantity::<Time>::new(0.55);
+            let y = (t * RATE).sin();
+            let function = |t: Quantity<Time>, y: &Quantity| {
+                Ok::<Quantity<Rate>, IntegrationError>(*y * *y * (t * RATE) * RATE * -0.5)
+            };
+            let jacobian = |t: Quantity<Time>, y: &Quantity| {
+                Ok::<Quantity<Rate>, IntegrationError>(*y * (t * RATE) * RATE * -1.0)
+            };
+            let dt = TIME_STEP;
             let t_trial = t + dt;
             let y_trial = y + function(t, &y)? * dt;
-            let finite_difference = (ImplicitZerothOrder::<Scalar, Vector>::residual(
-                &$integration,
-                &function,
-                t,
-                &y,
-                t_trial,
-                &(y_trial + 0.5 * EPSILON),
-                dt,
-            )? - ImplicitZerothOrder::<Scalar, Vector>::residual(
-                &$integration,
-                &function,
-                t,
-                &y,
-                t_trial,
-                &(y_trial - 0.5 * EPSILON),
-                dt,
-            )?) / EPSILON;
+            let finite_difference =
+                (ImplicitZerothOrder::<Quantity, States, Rates>::residual(
+                    &$integration,
+                    &function,
+                    t,
+                    &y,
+                    t_trial,
+                    &(y_trial + 0.5 * EPSILON),
+                    dt,
+                )? - ImplicitZerothOrder::<Quantity, States, Rates>::residual(
+                    &$integration,
+                    &function,
+                    t,
+                    &y,
+                    t_trial,
+                    &(y_trial - 0.5 * EPSILON),
+                    dt,
+                )?) / EPSILON;
             $crate::math::assert::Assert::default().eq_within_fd_tol(
-                &ImplicitFirstOrder::<Scalar, Scalar, Vector>::hessian(
+                &ImplicitFirstOrder::<Quantity, Quantity, States, Rates>::hessian(
                     &$integration,
                     &jacobian,
                     t,
@@ -56,17 +64,24 @@ macro_rules! test_implicit_fixed_step {
             use crate::math::{integrate::ImplicitZerothOrder, optimize::GradientDescent};
             #[test]
             fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
-                $crate::math::assert::Assert::eq(&$integration.dt(), &TIME_STEP)?;
-                let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
-                    |t: Scalar, _: &Scalar| Ok(t),
-                    &[0.0, 1.0],
-                    0.0,
+                $crate::math::assert::Assert::eq(
+                    &FixedStep::<Time>::dt(&$integration),
+                    &TIME_STEP,
+                )?;
+                let (time, solution, function): (Times, States, Rates) = $integration.integrate(
+                    |t: Quantity<Time>, _: &Quantity| Ok((t * RATE) * RATE),
+                    &[Quantity::new(0.0), Quantity::new(1.0)],
+                    Quantity::new(0.0),
                     GradientDescent::default(),
                 )?;
                 time.iter()
                     .zip(solution.iter().zip(function.iter()))
                     .for_each(|(t, (y, f))| {
-                        assert!((0.5 * t * t - y).abs() < TOLERANCE && (t - f).abs() < TOLERANCE)
+                        let t = (*t * RATE).value();
+                        assert!(
+                            (0.5 * t * t - y.value()).abs() < TOLERANCE
+                                && (t - f.value()).abs() < TOLERANCE
+                        )
                     });
                 Ok(())
             }
@@ -76,18 +91,27 @@ macro_rules! test_implicit_fixed_step {
             use crate::math::{integrate::ImplicitFirstOrder, optimize::NewtonRaphson};
             #[test]
             fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
-                $crate::math::assert::Assert::eq(&$integration.dt(), &TIME_STEP)?;
-                let (time, solution, function): (Vector, Vector, _) = $integration.integrate(
-                    |t: Scalar, _: &Scalar| Ok(t),
-                    |_: Scalar, _: &Scalar| Ok(1.0),
-                    &[0.0, 1.0],
-                    0.0,
-                    NewtonRaphson::default(),
+                $crate::math::assert::Assert::eq(
+                    &FixedStep::<Time>::dt(&$integration),
+                    &TIME_STEP,
                 )?;
+                let (time, solution, function): (Times, States, Rates) =
+                    ImplicitFirstOrder::<Quantity, Quantity, States, Rates>::integrate(
+                        &$integration,
+                        |t: Quantity<Time>, _: &Quantity| Ok((t * RATE) * RATE),
+                        |_: Quantity<Time>, _: &Quantity| Ok(RATE),
+                        &[Quantity::new(0.0), Quantity::new(1.0)],
+                        Quantity::new(0.0),
+                        NewtonRaphson::default(),
+                    )?;
                 time.iter()
                     .zip(solution.iter().zip(function.iter()))
                     .for_each(|(t, (y, f))| {
-                        assert!((0.5 * t * t - y).abs() < TOLERANCE && (t - f).abs() < TOLERANCE)
+                        let t = (*t * RATE).value();
+                        assert!(
+                            (0.5 * t * t - y.value()).abs() < TOLERANCE
+                                && (t - f.value()).abs() < TOLERANCE
+                        )
                     });
                 Ok(())
             }

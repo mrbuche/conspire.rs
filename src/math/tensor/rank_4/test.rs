@@ -2,8 +2,10 @@ use super::{
     super::{Tensor, TensorArray},
     ContractAllWithFirst, ContractFirstSecondWithSecond, ContractFirstThirdFourthWithFirst,
     ContractSecondFourthWithFirst, ContractSecondWithFirst, ContractThirdFourthWithFirstSecond,
-    IDENTITY_1010, Rank2, TensorRank0, TensorRank1, TensorRank2, TensorRank3, TensorRank4,
+    ContractThirdWithFirst, IDENTITY_1010, Rank2, TensorRank0, TensorRank1, TensorRank2,
+    TensorRank3, TensorRank4,
 };
+use crate::math::Current;
 use crate::{ABS_TOL, REL_TOL};
 
 fn get_array() -> [[[[TensorRank0; 3]; 3]; 3]; 3] {
@@ -26,11 +28,11 @@ fn get_array() -> [[[[TensorRank0; 3]; 3]; 3]; 3] {
     ]
 }
 
-fn get_tensor_rank_4() -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4() -> TensorRank4<3, Current, Current, Current, Current> {
     TensorRank4::from(get_array())
 }
 
-fn get_other_tensor_rank_4() -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_other_tensor_rank_4() -> TensorRank4<3, Current, Current, Current, Current> {
     TensorRank4::from([
         [
             [[2.0, 2.0, 4.0], [0.0, 0.0, 1.0], [1.0, 3.0, 3.0]],
@@ -50,7 +52,8 @@ fn get_other_tensor_rank_4() -> TensorRank4<3, 1, 1, 1, 1> {
     ])
 }
 
-fn get_other_tensor_rank_4_add_tensor_rank_4() -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_other_tensor_rank_4_add_tensor_rank_4() -> TensorRank4<3, Current, Current, Current, Current>
+{
     TensorRank4::from([
         [
             [[6.0, 4.0, 8.0], [1.0, 4.0, 4.0], [3.0, 7.0, 7.0]],
@@ -70,7 +73,8 @@ fn get_other_tensor_rank_4_add_tensor_rank_4() -> TensorRank4<3, 1, 1, 1, 1> {
     ])
 }
 
-fn get_other_tensor_rank_4_sub_tensor_rank_4() -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_other_tensor_rank_4_sub_tensor_rank_4() -> TensorRank4<3, Current, Current, Current, Current>
+{
     TensorRank4::from([
         [
             [[2.0, 0.0, 0.0], [1.0, 4.0, 2.0], [1.0, 1.0, 1.0]],
@@ -90,7 +94,7 @@ fn get_other_tensor_rank_4_sub_tensor_rank_4() -> TensorRank4<3, 1, 1, 1, 1> {
     ])
 }
 
-fn get_tensor_rank_4_mul_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_mul_tensor_rank_2() -> TensorRank4<3, Current, Current, Current, Current> {
     TensorRank4::from([
         [
             [[54.0, 52.0, 46.0], [56.0, 36.0, 35.0], [66.0, 48.0, 44.0]],
@@ -110,7 +114,8 @@ fn get_tensor_rank_4_mul_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1> {
     ])
 }
 
-fn get_tensor_rank_4_contract_all_with_first_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_contract_all_with_first_tensor_rank_2()
+-> TensorRank4<3, Current, Current, Current, Current> {
     TensorRank4::from([
         [
             [
@@ -166,8 +171,8 @@ fn get_tensor_rank_4_contract_all_with_first_tensor_rank_2() -> TensorRank4<3, 1
     ])
 }
 
-fn get_tensor_rank_4_contract_first_second_with_second_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1>
-{
+fn get_tensor_rank_4_contract_first_second_with_second_tensor_rank_2()
+-> TensorRank4<3, Current, Current, Current, Current> {
     TensorRank4::from([
         [
             [
@@ -224,7 +229,7 @@ fn get_tensor_rank_4_contract_first_second_with_second_tensor_rank_2() -> Tensor
 }
 
 fn get_tensor_rank_4_contract_first_third_fourth_with_first_tensor_rank_2()
--> TensorRank4<3, 1, 1, 1, 1> {
+-> TensorRank4<3, Current, Current, Current, Current> {
     TensorRank4::from([
         [
             [
@@ -280,7 +285,8 @@ fn get_tensor_rank_4_contract_first_third_fourth_with_first_tensor_rank_2()
     ])
 }
 
-fn get_tensor_rank_4_contract_second_with_first_tensor_rank_2() -> TensorRank4<3, 1, 1, 1, 1> {
+fn get_tensor_rank_4_contract_second_with_first_tensor_rank_2()
+-> TensorRank4<3, Current, Current, Current, Current> {
     TensorRank4::from([
         [
             [[27.0, 34.0, 45.0], [40.0, 29.0, 37.0], [18.0, 41.0, 18.0]],
@@ -300,8 +306,8 @@ fn get_tensor_rank_4_contract_second_with_first_tensor_rank_2() -> TensorRank4<3
     ])
 }
 
-fn get_tensor_rank_4_contract_third_fourth_with_first_second_tensor_rank_2() -> TensorRank2<3, 1, 1>
-{
+fn get_tensor_rank_4_contract_third_fourth_with_first_second_tensor_rank_2()
+-> TensorRank2<3, Current, Current> {
     TensorRank2::from([
         [128.0, 97.0, 77.0],
         [113.0, 92.0, 99.0],
@@ -309,7 +315,8 @@ fn get_tensor_rank_4_contract_third_fourth_with_first_second_tensor_rank_2() -> 
     ])
 }
 
-fn get_tensor_rank_4_contract_second_fourth_with_first_tensors_rank_1() -> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_4_contract_second_fourth_with_first_tensors_rank_1()
+-> TensorRank2<3, Current, Current> {
     TensorRank2::from([
         [206.0, 196.0, 151.0],
         [196.0, 195.0, 198.0],
@@ -317,27 +324,27 @@ fn get_tensor_rank_4_contract_second_fourth_with_first_tensors_rank_1() -> Tenso
     ])
 }
 
-fn get_tensor_rank_1() -> TensorRank1<3, 1> {
+fn get_tensor_rank_1() -> TensorRank1<3, Current> {
     TensorRank1::from([1.0, 2.0, 3.0])
 }
 
-fn get_other_tensor_rank_1() -> TensorRank1<3, 1> {
+fn get_other_tensor_rank_1() -> TensorRank1<3, Current> {
     TensorRank1::from([4.0, 5.0, 6.0])
 }
 
-fn get_tensor_rank_2() -> TensorRank2<3, 1, 1> {
+fn get_tensor_rank_2() -> TensorRank2<3, Current, Current> {
     TensorRank2::from([[1.0, 4.0, 6.0], [7.0, 2.0, 5.0], [9.0, 8.0, 3.0]])
 }
 
-fn get_other_tensor_rank_2() -> TensorRank2<3, 1, 1> {
+fn get_other_tensor_rank_2() -> TensorRank2<3, Current, Current> {
     TensorRank2::from([[3.0, 2.0, 3.0], [6.0, 5.0, 2.0], [4.0, 5.0, 0.0]])
 }
 
-fn get_other_other_tensor_rank_2() -> TensorRank2<3, 1, 1> {
+fn get_other_other_tensor_rank_2() -> TensorRank2<3, Current, Current> {
     TensorRank2::from([[1.0, 2.0, 3.0], [2.0, 1.0, 0.0], [3.0, 3.0, 2.0]])
 }
 
-fn get_other_other_other_tensor_rank_2() -> TensorRank2<3, 1, 1> {
+fn get_other_other_other_tensor_rank_2() -> TensorRank2<3, Current, Current> {
     TensorRank2::from([[3.0, 2.0, 4.0], [1.0, 0.0, 0.0], [3.0, 2.0, 2.0]])
 }
 
@@ -754,7 +761,7 @@ fn div_assign_tensor_rank_0_ref() {
 fn dyad_ij_kl() {
     let tensor_a = get_tensor_rank_2();
     let tensor_b = get_other_tensor_rank_2();
-    TensorRank4::<3, 1, 1, 1, 1>::dyad_ij_kl(&tensor_a, &tensor_b)
+    TensorRank4::<3, Current, Current, Current, Current>::dyad_ij_kl(&tensor_a, &tensor_b)
         .iter()
         .zip(tensor_a.iter())
         .for_each(|(tensor_rank_4_i, tensor_a_i)| {
@@ -778,7 +785,7 @@ fn dyad_ij_kl() {
 fn dyad_ik_jl() {
     let tensor_a = get_tensor_rank_2();
     let tensor_b = get_other_tensor_rank_2();
-    TensorRank4::<3, 1, 1, 1, 1>::dyad_ik_jl(&tensor_a, &tensor_b)
+    TensorRank4::<3, Current, Current, Current, Current>::dyad_ik_jl(&tensor_a, &tensor_b)
         .iter()
         .zip(tensor_a.iter())
         .for_each(|(tensor_rank_4_i, tensor_a_i)| {
@@ -802,7 +809,7 @@ fn dyad_ik_jl() {
 fn dyad_il_jk() {
     let tensor_a = get_tensor_rank_2();
     let tensor_b = get_other_tensor_rank_2();
-    TensorRank4::<3, 1, 1, 1, 1>::dyad_il_jk(&tensor_a, &tensor_b)
+    TensorRank4::<3, Current, Current, Current, Current>::dyad_il_jk(&tensor_a, &tensor_b)
         .iter()
         .zip(tensor_a.iter())
         .for_each(|(tensor_rank_4_i, tensor_a_i)| {
@@ -826,7 +833,7 @@ fn dyad_il_jk() {
 fn dyad_il_kj() {
     let tensor_a = get_tensor_rank_2();
     let tensor_b = get_other_tensor_rank_2();
-    TensorRank4::<3, 1, 1, 1, 1>::dyad_il_kj(&tensor_a, &tensor_b)
+    TensorRank4::<3, Current, Current, Current, Current>::dyad_il_kj(&tensor_a, &tensor_b)
         .iter()
         .zip(tensor_a.iter())
         .for_each(|(tensor_rank_4_i, tensor_a_i)| {
@@ -858,7 +865,8 @@ fn error() {
 #[test]
 fn from_iter() {
     let into_iterator = get_tensor_rank_4().0.into_iter();
-    let tensor_rank_4 = TensorRank4::<3, 1, 1, 1, 1>::from_iter(get_tensor_rank_4().0);
+    let tensor_rank_4 =
+        TensorRank4::<3, Current, Current, Current, Current>::from_iter(get_tensor_rank_4().0);
     tensor_rank_4
         .iter()
         .zip(into_iterator)
@@ -1113,8 +1121,8 @@ fn from() {
 #[test]
 fn size() {
     assert_eq!(
-        std::mem::size_of::<TensorRank4::<3, 1, 1, 1, 1>>(),
-        std::mem::size_of::<[TensorRank3::<3, 1, 1, 1>; 3]>()
+        std::mem::size_of::<TensorRank4::<3, Current, Current, Current, Current>>(),
+        std::mem::size_of::<[TensorRank3::<3, Current, Current, Current>; 3]>()
     )
 }
 
@@ -1224,7 +1232,7 @@ fn sub_assign_tensor_rank_4_ref() {
 
 #[test]
 fn zero() {
-    TensorRank4::<3, 1, 1, 1, 1>::zero()
+    TensorRank4::<3, Current, Current, Current, Current>::zero()
         .iter()
         .for_each(|tensor_rank_4_i| {
             tensor_rank_4_i.iter().for_each(|tensor_rank_4_ij| {
@@ -1235,4 +1243,76 @@ fn zero() {
                 })
             })
         });
+}
+
+#[test]
+fn retain_from_filters_rows_and_columns() {
+    use super::super::{Hessian, SquareMatrix};
+    let retained: Vec<bool> = (0..9).map(|index| index % 4 != 1).collect();
+    let tensor = TensorRank4::<3, Current, Current, Current, Current>::from(get_array());
+    let square_matrix = tensor.clone().retain_from(&retained);
+    let mut full = SquareMatrix::zero(9);
+    tensor.fill_into(&mut full);
+    let kept: Vec<usize> = (0..9).filter(|&index| retained[index]).collect();
+    assert_eq!(square_matrix.len(), kept.len());
+    kept.iter().enumerate().for_each(|(p, &full_p)| {
+        kept.iter()
+            .enumerate()
+            .for_each(|(q, &full_q)| assert_eq!(square_matrix[p][q], full[full_p][full_q]))
+    })
+}
+
+#[test]
+fn quadratic_form_matches_dense() {
+    use super::super::{Hessian, SquareMatrix, Vector};
+    let tensor = TensorRank4::<3, Current, Current, Current, Current>::from(get_array());
+    let vector = Vector::from([1.0, -2.0, 3.0, 0.5, -1.5, 2.0, -0.25, 4.0, 1.5]);
+    let form = tensor.quadratic_form(&vector);
+    let mut dense = SquareMatrix::zero(9);
+    tensor.fill_into(&mut dense);
+    assert!((form - &vector * (dense * &vector)).abs() < crate::ABS_TOL)
+}
+
+#[test]
+fn contract_second_with_first_is_its_definition() {
+    let tensor_rank_4 = get_tensor_rank_4();
+    let tensor_rank_2 = get_tensor_rank_2();
+    let contraction = get_tensor_rank_4().contract_second_with_first(&tensor_rank_2);
+    (0..3).for_each(|i| {
+        (0..3).for_each(|j| {
+            (0..3).for_each(|k| {
+                (0..3).for_each(|l| {
+                    assert_eq!(
+                        contraction[i][j][k][l],
+                        (0..3)
+                            .map(|s| tensor_rank_4[i][s][k][l] * tensor_rank_2[s][j])
+                            .sum::<crate::math::Quantity>()
+                            .value()
+                    )
+                })
+            })
+        })
+    })
+}
+
+#[test]
+fn contract_third_with_first_is_its_definition() {
+    let tensor_rank_4 = get_tensor_rank_4();
+    let tensor_rank_2 = get_tensor_rank_2();
+    let contraction = tensor_rank_4.contract_third_with_first(&tensor_rank_2);
+    (0..3).for_each(|i| {
+        (0..3).for_each(|j| {
+            (0..3).for_each(|k| {
+                (0..3).for_each(|l| {
+                    assert_eq!(
+                        contraction[i][j][k][l],
+                        (0..3)
+                            .map(|m| tensor_rank_2[m][k] * tensor_rank_4[i][j][m][l])
+                            .sum::<crate::math::Quantity>()
+                            .value()
+                    )
+                })
+            })
+        })
+    })
 }

@@ -6,7 +6,9 @@ mod fd_eq;
 #[cfg(test)]
 mod test;
 
-pub use self::{eq::AssertEq, error::AssertionError, fd::FiniteDifference, fd_eq::AssertFd};
+pub use self::{
+    eq::AssertEq, error::AssertionError, fd::FiniteDifference, fd::perturbation, fd_eq::AssertFd,
+};
 
 use self::eq::{zero_impl, zero_within_tols_impl};
 use crate::{

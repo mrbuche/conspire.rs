@@ -11,8 +11,12 @@ use crate::{
                 planar::PlanarElementNodalReferenceCoordinates,
             },
         },
+        nodal_coordinates,
     },
-    geometry::mesh::{Connectivities, Connectivity, Mesh, PrimitiveConnectivity},
+    geometry::{
+        Coordinates,
+        mesh::{Connectivities, Connectivity, Mesh, PrimitiveConnectivity},
+    },
 };
 
 fn block<C, F, const D: usize, const G: usize, const N: usize, const P: usize>(
@@ -43,8 +47,8 @@ where
 {
     type Error = String;
     fn try_from((mesh, constitutive_model): (Mesh<3>, C)) -> Result<Self, Self::Error> {
-        let (connectivities, coordinates): (Connectivities, NodalReferenceCoordinates<3>) =
-            mesh.into();
+        let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh.into();
+        let coordinates = nodal_coordinates(coordinates);
         let mut connectivities = connectivities.into_members();
         if connectivities.len() != 1 {
             return Err(format!(
@@ -67,8 +71,8 @@ where
 {
     type Error = String;
     fn try_from((mesh, constitutive_model): (Mesh<2>, C)) -> Result<Self, Self::Error> {
-        let (connectivities, coordinates): (Connectivities, NodalReferenceCoordinates<2>) =
-            mesh.into();
+        let (connectivities, coordinates): (Connectivities, Coordinates<2>) = mesh.into();
+        let coordinates = nodal_coordinates(coordinates);
         let mut connectivities = connectivities.into_members();
         if connectivities.len() != 1 {
             return Err(format!(
@@ -106,8 +110,8 @@ where
     fn try_from(
         (mesh, (constitutive_model_1, constitutive_model_2)): (Mesh<3>, (C1, C2)),
     ) -> Result<Self, Self::Error> {
-        let (connectivities, coordinates): (Connectivities, NodalReferenceCoordinates<3>) =
-            mesh.into();
+        let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh.into();
+        let coordinates = nodal_coordinates(coordinates);
         let mut connectivities = connectivities.into_members().into_iter();
         if connectivities.len() != 2 {
             return Err(format!(
@@ -159,8 +163,8 @@ where
     fn try_from(
         (mesh, (constitutive_model_1, constitutive_model_2)): (Mesh<3>, (C1, C2)),
     ) -> Result<Self, Self::Error> {
-        let (connectivities, coordinates): (Connectivities, NodalReferenceCoordinates<3>) =
-            mesh.into();
+        let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh.into();
+        let coordinates = nodal_coordinates(coordinates);
         let mut connectivities = connectivities.into_members().into_iter();
         if connectivities.len() != 2 {
             return Err(format!(

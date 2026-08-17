@@ -6,24 +6,25 @@ use crate::{
         ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
-    math::{IDENTITY, Rank2},
-    mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
+    math::{IDENTITY, Quantity, Rank2, TensorRank4},
+    mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient},
+    units::Stress,
 };
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
-    pub bulk_modulus: Scalar,
+    pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
-    pub shear_modulus: Scalar,
+    pub shear_modulus: Quantity<Stress>,
 }
 
 impl Solid for SaintVenantKirchhoff {
-    fn bulk_modulus(&self) -> Scalar {
+    fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    fn shear_modulus(&self) -> Scalar {
+    fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
 }
@@ -51,14 +52,14 @@ impl Elastic for SaintVenantKirchhoff {
         let (deviatoric_strain, strain_trace) =
             ((deformation_gradient.left_cauchy_green() - IDENTITY) * 0.5).deviatoric_and_trace();
         Ok(
-            (CauchyTangentStiffness::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
-                + CauchyTangentStiffness::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient))
-                + CauchyTangentStiffness::dyad_ij_kl(
+            (TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
+                + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient))
+                + TensorRank4::dyad_ij_kl(
                     &IDENTITY,
                     &(deformation_gradient
                         * ((self.bulk_modulus() - self.shear_modulus() * TWO_THIRDS) / jacobian)),
                 )
-                - CauchyTangentStiffness::dyad_ij_kl(
+                - TensorRank4::dyad_ij_kl(
                     &(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
                         + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian)),
                     &inverse_transpose_deformation_gradient,

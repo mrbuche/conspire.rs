@@ -2,10 +2,10 @@
 mod test;
 
 use super::super::{SparseError, matrix::CscMatrix};
-use super::gemm::{CHUNK, NONE, axpy, etree, gemm_wide, max_below, reach_sorted, supernodes};
+use super::gemm::{CHUNK, NONE, etree, gemm_wide, max_below, reach_sorted, supernodes};
 use crate::{
-    ABS_TOL,
-    math::{Scalar, Vector},
+    ABS_TOL, REL_TOL,
+    math::{Scalar, Vector, simd},
 };
 
 /// A sparse LDLᵀ factorization for symmetric matrices with a structurally full diagonal.
@@ -290,6 +290,14 @@ impl CscLdl {
             .unwrap_or(0);
         let mut temp = vec![0.0; CHUNK * self.max_below().max(width_max)];
         let mut pointers = [0; CHUNK];
+        //
+        // A pivot is singular only once it is negligible both absolutely and
+        // against the largest pivot so far, so that scaling the matrix down
+        // cannot alone condemn it, nor a wide but honest spread of pivots.
+        // A two-by-two block is judged by determinant, whose scale is that
+        // of a pivot squared.
+        //
+        let mut largest = 0.0;
         for s in 0..self.sn_start.len() - 1 {
             let s1 = self.sn_start[s];
             let s2 = self.sn_start[s + 1];
@@ -500,7 +508,8 @@ impl CscLdl {
                         work[offset + p] = 0.0;
                         work[offset + j] = 0.0;
                         let det = b_00 * b_11 - b_01 * b_01;
-                        if det.abs() < ABS_TOL {
+                        largest = b_00.abs().max(b_11.abs()).max(largest);
+                        if det.abs() < ABS_TOL && det.abs() <= (REL_TOL * largest).powi(2) {
                             return Err(SparseError::Singular);
                         }
                         self.d[p] = b_00;
@@ -528,7 +537,8 @@ impl CscLdl {
                     } else {
                         let pivot = work[offset + j];
                         work[offset + j] = 0.0;
-                        if pivot.abs() < ABS_TOL {
+                        largest = pivot.abs().max(largest);
+                        if pivot.abs() < ABS_TOL && pivot.abs() <= REL_TOL * largest {
                             return Err(SparseError::Singular);
                         }
                         self.d[j] = pivot;
@@ -574,7 +584,7 @@ fn finalize_update(
     if w != 0.0 {
         let c = base - s1;
         let start = panel_ptr + c * s_m;
-        axpy(
+        simd::axpy(
             &mut column[base + 1..s2],
             &sn_values[start + c + 1..start + s_width],
             w,

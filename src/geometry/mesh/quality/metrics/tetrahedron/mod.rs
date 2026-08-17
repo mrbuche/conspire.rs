@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use crate::{geometry::Coordinates, math::Scalar};
+use crate::{
+    geometry::Coordinates,
+    math::{Quantity, Scalar},
+    units::Volume,
+};
 use std::f64::consts::SQRT_2;
 
 const CORNERS: [[usize; 3]; 4] = [[1, 2, 3], [0, 3, 2], [0, 1, 3], [0, 2, 1]];
@@ -47,7 +51,10 @@ pub(super) fn maximum_skew<const D: usize>(
         .fold(Scalar::NEG_INFINITY, Scalar::max)
 }
 
-pub(super) fn volume<const D: usize>(element: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+pub(super) fn volume<const D: usize>(
+    element: &[usize],
+    coordinates: &Coordinates<D>,
+) -> Quantity<Volume> {
     super::tet_volume(
         &[element[0], element[1], element[2], element[3]],
         coordinates,

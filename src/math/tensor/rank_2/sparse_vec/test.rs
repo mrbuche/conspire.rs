@@ -1,11 +1,12 @@
 use super::{TensorRank2, TensorRank2SparseVec};
+use crate::math::Current;
 use crate::math::Tensor;
 
-fn block(value: f64) -> TensorRank2<2, 1, 1> {
+fn block(value: f64) -> TensorRank2<2, Current, Current> {
     TensorRank2::from([[value, 2.0 * value], [3.0 * value, 4.0 * value]])
 }
 
-fn sparse_vec() -> TensorRank2SparseVec<2, 1, 1> {
+fn sparse_vec() -> TensorRank2SparseVec<2, Current, Current> {
     let mut vec = TensorRank2SparseVec::default();
     vec[2] += block(1.0);
     vec[0] += block(2.0);
@@ -38,7 +39,7 @@ fn tensor_len_and_size() {
 
 #[test]
 fn from_iterator_indexes_sequentially() {
-    let vec: TensorRank2SparseVec<2, 1, 1> =
+    let vec: TensorRank2SparseVec<2, Current, Current> =
         [block(1.0), block(2.0), block(3.0)].into_iter().collect();
     assert_eq!(vec[0][0][0], 1.0);
     assert_eq!(vec[1][0][0], 2.0);
@@ -47,7 +48,7 @@ fn from_iterator_indexes_sequentially() {
 
 #[test]
 fn add_and_sub_merge_disjoint_and_overlapping_entries() {
-    let mut other = TensorRank2SparseVec::<2, 1, 1>::default();
+    let mut other = TensorRank2SparseVec::<2, Current, Current>::default();
     other[0] += block(7.0);
     other[1] += block(5.0);
     let sum = sparse_vec() + other.clone();
@@ -82,7 +83,8 @@ fn mul_and_div_scale_all_entries() {
 
 #[test]
 fn sum_folds_over_iterator() {
-    let total: TensorRank2SparseVec<2, 1, 1> = vec![sparse_vec(), sparse_vec()].into_iter().sum();
+    let total: TensorRank2SparseVec<2, Current, Current> =
+        vec![sparse_vec(), sparse_vec()].into_iter().sum();
     assert_eq!(total[0][0][0], 10.0);
     assert_eq!(total[2][0][0], 2.0);
 }

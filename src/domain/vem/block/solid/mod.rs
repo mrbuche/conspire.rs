@@ -2,6 +2,7 @@ pub mod elastic;
 pub mod hyperelastic;
 
 use crate::{
+    constitutive::solid::Solid,
     mechanics::DeformationGradients,
     vem::{
         NodalCoordinates,
@@ -15,6 +16,7 @@ pub type NodalStiffnessesSolidSymmetric = crate::fem::solid::NodalStiffnessesSol
 
 pub trait SolidVirtualElements<C, F>
 where
+    C: Solid,
     F: SolidVirtualElement,
 {
     fn deformation_gradients(
@@ -25,6 +27,7 @@ where
 
 impl<C, F> SolidVirtualElements<C, F> for Block<C, F>
 where
+    C: Solid,
     F: SolidVirtualElement,
 {
     fn deformation_gradients(

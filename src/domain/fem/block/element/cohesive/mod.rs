@@ -3,11 +3,12 @@ pub mod linear;
 
 use crate::{
     fem::block::element::{
-        ElementNodalCoordinates, ElementNodalEitherCoordinates, FiniteElement,
+        ElementNodalCoordinates, ElementNodalEitherCoordinates, FiniteElement, IntegrationWeights,
         ShapeFunctionsAtIntegrationPoints, surface::SurfaceFiniteElement,
     },
     math::{ScalarList, Tensor},
     mechanics::{CurrentCoordinate, NormalGradients},
+    units::Area,
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -18,7 +19,7 @@ const M: usize = 2;
 
 #[derive(Clone)]
 pub struct CohesiveElement<const G: usize, const N: usize, const O: usize> {
-    integration_weights: ScalarList<G>,
+    integration_weights: IntegrationWeights<G, Area>,
 }
 
 impl<const G: usize, const N: usize, const O: usize> Debug for CohesiveElement<G, N, O> {
@@ -32,18 +33,18 @@ impl<const G: usize, const N: usize, const O: usize> Debug for CohesiveElement<G
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize, const P: usize> SurfaceFiniteElement<G, N, P>
-    for CohesiveElement<G, N, O>
+impl<const G: usize, const N: usize, const O: usize, const P: usize>
+    SurfaceFiniteElement<G, N, P, Area> for CohesiveElement<G, N, O>
 where
-    Self: FiniteElement<G, M, N, P>,
+    Self: FiniteElement<G, M, N, P, Area>,
 {
 }
 
 pub trait CohesiveFiniteElement<const G: usize, const N: usize, const P: usize>
 where
-    Self: SurfaceFiniteElement<G, N, P>,
+    Self: SurfaceFiniteElement<G, N, P, Area>,
 {
-    fn nodal_mid_surface<const I: usize>(
+    fn nodal_mid_surface<I>(
         nodal_coordinates: &ElementNodalEitherCoordinates<I, N>,
     ) -> ElementNodalEitherCoordinates<I, P>;
     fn nodal_separations(nodal_coordinates: &ElementNodalCoordinates<N>) -> Separations<P>;

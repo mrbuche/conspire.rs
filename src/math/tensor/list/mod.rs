@@ -1,4 +1,4 @@
-use crate::math::{Tensor, TensorArray, TensorRank0};
+use crate::math::{ContractWith, Differentiate, Erase, Quantity, Tensor, TensorArray, TensorRank0};
 use std::{
     array::{self, from_fn},
     fmt::{Display, Formatter, Result},
@@ -9,9 +9,21 @@ use std::{
 
 /// A fixed-size collection of tensors.
 #[derive(Clone, Debug, PartialEq)]
+#[repr(transparent)]
 pub struct TensorList<T, const N: usize>([T; N])
 where
     T: Tensor;
+
+impl<T, const N: usize> Erase for TensorList<T, N>
+where
+    T: Erase + Tensor,
+    <T as Erase>::Erased: Tensor,
+{
+    type Erased = TensorList<<T as Erase>::Erased, N>;
+    fn erase(&self) -> &Self::Erased {
+        unsafe { &*(self as *const Self as *const Self::Erased) }
+    }
+}
 
 impl<T, const N: usize> TensorList<T, N>
 where
@@ -97,6 +109,7 @@ where
     T: Tensor,
 {
     type Item = T;
+    type Unit = <T as Tensor>::Unit;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }
@@ -217,6 +230,39 @@ where
 {
     fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|entry| *entry /= tensor_rank_0);
+    }
+}
+
+impl<T, const N: usize, V> Mul<Quantity<V>> for TensorList<T, N>
+where
+    T: Mul<Quantity<V>> + Tensor,
+    <T as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorList<<T as Mul<Quantity<V>>>::Output, N>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        self.into_iter().map(|entry| entry * quantity).collect()
+    }
+}
+
+impl<T, const N: usize, V> Mul<Quantity<V>> for &TensorList<T, N>
+where
+    T: Clone + Mul<Quantity<V>> + Tensor,
+    <T as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorList<<T as Mul<Quantity<V>>>::Output, N>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        self.iter().map(|entry| entry.clone() * quantity).collect()
+    }
+}
+
+impl<T, const N: usize, V> Div<Quantity<V>> for TensorList<T, N>
+where
+    T: Div<Quantity<V>> + Tensor,
+    <T as Div<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorList<<T as Div<Quantity<V>>>::Output, N>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        self.into_iter().map(|entry| entry / quantity).collect()
     }
 }
 
@@ -370,4 +416,27 @@ where
             .zip(tensor_list.iter())
             .for_each(|(self_entry, entry)| *self_entry -= entry);
     }
+}
+
+impl<T, V, const N: usize> ContractWith<TensorList<V, N>> for TensorList<T, N>
+where
+    T: ContractWith<V> + Tensor,
+    V: Tensor,
+    <T as ContractWith<V>>::Output: Sum,
+{
+    type Output = <T as ContractWith<V>>::Output;
+    fn contract_with(&self, tensor_list: &TensorList<V, N>) -> Self::Output {
+        self.iter()
+            .zip(tensor_list.iter())
+            .map(|(entry, other)| entry.contract_with(other))
+            .sum()
+    }
+}
+
+impl<E, T, const N: usize> Differentiate<T> for TensorList<E, N>
+where
+    E: Differentiate<T> + Tensor,
+    <E as Differentiate<T>>::Derivative: Tensor,
+{
+    type Derivative = TensorList<<E as Differentiate<T>>::Derivative, N>;
 }

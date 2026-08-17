@@ -1,4 +1,8 @@
-use crate::math::{Tensor, TensorRank0, TensorRank1, TensorRank1List, TensorVec};
+use crate::math::{
+    ContractWith, Differentiate, Erase, Quantity, Tensor, TensorRank0, TensorRank1,
+    TensorRank1List, TensorVec,
+};
+use crate::units::Dimensionless;
 use std::{
     collections::VecDeque,
     fmt::{Display, Formatter, Result},
@@ -9,18 +13,29 @@ use std::{
 
 /// A resizable collection of tensors.
 #[derive(Clone, Debug, PartialEq)]
+#[repr(transparent)]
 pub struct TensorVector<T>(Vec<T>);
+
+impl<T> Erase for TensorVector<T>
+where
+    T: Erase + Tensor,
+{
+    type Erased = TensorVector<<T as Erase>::Erased>;
+    fn erase(&self) -> &Self::Erased {
+        unsafe { &*(self as *const Self as *const Self::Erased) }
+    }
+}
 // where
 //     T: Tensor;
 
 // NEED TO MOVE SOMEWHERE ELSE
 
 /// A vector of references to rank-1 tensors.
-pub type TensorRank1RefVec<'a, const D: usize, const I: usize> =
-    TensorVector<&'a TensorRank1<D, I>>;
+pub type TensorRank1RefVec<'a, const D: usize, I, U = Dimensionless> =
+    TensorVector<&'a TensorRank1<D, I, U>>;
 
-impl<'a, const D: usize, const I: usize> TensorRank1RefVec<'a, D, I> {
-    pub fn bounding_box(&self) -> TensorRank1List<D, I, 2> {
+impl<'a, const D: usize, I, U> TensorRank1RefVec<'a, D, I, U> {
+    pub fn bounding_box(&self) -> TensorRank1List<D, I, 2, U> {
         self.iter()
             .skip(1)
             .fold(
@@ -38,7 +53,7 @@ impl<'a, const D: usize, const I: usize> TensorRank1RefVec<'a, D, I> {
             )
             .into()
     }
-    pub fn iter(&self) -> impl Iterator<Item = &&TensorRank1<D, I>> {
+    pub fn iter(&self) -> impl Iterator<Item = &&TensorRank1<D, I, U>> {
         self.0.iter()
     }
     pub fn is_empty(&self) -> bool {
@@ -49,8 +64,8 @@ impl<'a, const D: usize, const I: usize> TensorRank1RefVec<'a, D, I> {
     }
 }
 
-impl<'a, const D: usize, const I: usize> Index<usize> for TensorRank1RefVec<'a, D, I> {
-    type Output = TensorRank1<D, I>;
+impl<'a, const D: usize, I, U> Index<usize> for TensorRank1RefVec<'a, D, I, U> {
+    type Output = TensorRank1<D, I, U>;
     fn index(&self, index: usize) -> &Self::Output {
         self.0[index]
     }
@@ -68,6 +83,9 @@ where
     }
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         self.0.as_mut_slice()
+    }
+    pub fn as_slice(&self) -> &[T] {
+        self.0.as_slice()
     }
 }
 
@@ -193,6 +211,7 @@ where
     T: Tensor,
 {
     type Item = T;
+    type Unit = <T as Tensor>::Unit;
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()
     }
@@ -294,6 +313,28 @@ where
     }
 }
 
+impl<T, V> Div<Quantity<V>> for TensorVector<T>
+where
+    T: Div<Quantity<V>> + Tensor,
+    <T as Div<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorVector<<T as Div<Quantity<V>>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        self.into_iter().map(|entry| entry / quantity).collect()
+    }
+}
+
+impl<T, V> Div<Quantity<V>> for &TensorVector<T>
+where
+    T: Clone + Div<Quantity<V>> + Tensor,
+    <T as Div<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorVector<<T as Div<Quantity<V>>>::Output>;
+    fn div(self, quantity: Quantity<V>) -> Self::Output {
+        self.iter().map(|entry| entry.clone() / quantity).collect()
+    }
+}
+
 impl<T> Div<TensorRank0> for TensorVector<T>
 where
     T: Tensor,
@@ -331,6 +372,30 @@ where
 {
     fn div_assign(&mut self, tensor_rank_0: &TensorRank0) {
         self.iter_mut().for_each(|entry| *entry /= tensor_rank_0);
+    }
+}
+
+// A quantity carries its unit into the tensor it scales.
+
+impl<T, V> Mul<Quantity<V>> for TensorVector<T>
+where
+    T: Mul<Quantity<V>> + Tensor,
+    <T as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorVector<<T as Mul<Quantity<V>>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        self.into_iter().map(|entry| entry * quantity).collect()
+    }
+}
+
+impl<T, V> Mul<Quantity<V>> for &TensorVector<T>
+where
+    T: Mul<Quantity<V>> + Tensor,
+    <T as Mul<Quantity<V>>>::Output: Tensor,
+{
+    type Output = TensorVector<<T as Mul<Quantity<V>>>::Output>;
+    fn mul(self, quantity: Quantity<V>) -> Self::Output {
+        self.iter().map(|entry| entry.clone() * quantity).collect()
     }
 }
 
@@ -500,4 +565,27 @@ where
             .zip(tensor_vec.iter())
             .for_each(|(self_entry, entry)| *self_entry -= entry);
     }
+}
+
+impl<T, V> ContractWith<TensorVector<V>> for TensorVector<T>
+where
+    T: ContractWith<V> + Tensor,
+    V: Tensor,
+    <T as ContractWith<V>>::Output: Sum,
+{
+    type Output = <T as ContractWith<V>>::Output;
+    fn contract_with(&self, tensor_vector: &TensorVector<V>) -> Self::Output {
+        self.iter()
+            .zip(tensor_vector.iter())
+            .map(|(entry, other)| entry.contract_with(other))
+            .sum()
+    }
+}
+
+impl<E, T> Differentiate<T> for TensorVector<E>
+where
+    E: Differentiate<T> + Tensor,
+    <E as Differentiate<T>>::Derivative: Tensor,
+{
+    type Derivative = TensorVector<<E as Differentiate<T>>::Derivative>;
 }

@@ -8,12 +8,15 @@ mod triangle;
 
 use crate::{
     geometry::{
-        Coordinate, CoordinateList, Coordinates,
+        Coordinate, Coordinates,
         mesh::{Connectivity, Mesh},
     },
-    math::{Scalar, Tensor, TensorRank2},
+    math::{Quantity, Reference, Scalar, Tensor, TensorRank1List, TensorRank2},
+    units::{Area, Length, Volume},
 };
 use std::array::from_fn;
+
+const EQUIANGLE: Scalar = std::f64::consts::FRAC_PI_3;
 
 pub trait Verdict {
     fn maximum_edge_ratios(&self) -> Vec<Vec<Scalar>>;
@@ -138,19 +141,19 @@ impl<const D: usize> Verdict for Mesh<D> {
             .map(|block| match block {
                 Connectivity::Triangular(elements) => elements
                     .iter()
-                    .map(|element| triangle::volume(element, coordinates))
+                    .map(|element| triangle::volume(element, coordinates).value())
                     .collect(),
                 Connectivity::Quadrilateral(elements) => elements
                     .iter()
-                    .map(|element| quadrilateral::volume(element, coordinates))
+                    .map(|element| quadrilateral::volume(element, coordinates).value())
                     .collect(),
                 Connectivity::Tetrahedral(elements) => elements
                     .iter()
-                    .map(|element| tetrahedron::volume(element, coordinates))
+                    .map(|element| tetrahedron::volume(element, coordinates).value())
                     .collect(),
                 Connectivity::Hexahedral(elements) => elements
                     .iter()
-                    .map(|element| hexahedron::volume(element, coordinates))
+                    .map(|element| hexahedron::volume(element, coordinates).value())
                     .collect(),
                 Connectivity::Polygonal(_)
                 | Connectivity::Polyhedral(_)
@@ -161,11 +164,10 @@ impl<const D: usize> Verdict for Mesh<D> {
     }
 }
 
-const EQUIANGLE: Scalar = std::f64::consts::FRAC_PI_3;
-
-fn cross<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> [Scalar; 3] {
-    let az = if D > 2 { a[2] } else { 0.0 };
-    let bz = if D > 2 { b[2] } else { 0.0 };
+fn cross<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> [Quantity<Area>; 3] {
+    let zero = Quantity::<Length>::default();
+    let az = if D > 2 { a[2] } else { zero };
+    let bz = if D > 2 { b[2] } else { zero };
     [
         a[1] * bz - az * b[1],
         az * b[0] - a[0] * bz,
@@ -177,31 +179,37 @@ pub(crate) fn chi(epsilon: Scalar, determinant: Scalar) -> Scalar {
     0.5 * (determinant + (epsilon * epsilon + determinant * determinant).sqrt())
 }
 
-pub(crate) fn regularized(edges: &CoordinateList<3, 3>, epsilon: Scalar) -> Scalar {
-    edges.norm_squared().powf(1.5) / chi(epsilon, edges.scalar_triple_product())
+pub(crate) fn regularized(edges: &TensorRank1List<3, Reference, 3>, epsilon: Scalar) -> Scalar {
+    edges.norm_squared().value().powf(1.5) / chi(epsilon, edges.scalar_triple_product())
 }
 
 fn triple_product<const D: usize>(
     a: &Coordinate<D>,
     b: &Coordinate<D>,
     c: &Coordinate<D>,
-) -> Scalar {
+) -> Quantity<Volume> {
     let bc = cross(b, c);
     a[0] * bc[0] + a[1] * bc[1] + a[2] * bc[2]
 }
 
-fn cross_norm<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> Scalar {
+fn cross_norm<const D: usize>(a: &Coordinate<D>, b: &Coordinate<D>) -> Quantity<Area> {
     let n = cross(a, b);
-    (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt()
+    Quantity::new((n[0].value().powi(2) + n[1].value().powi(2) + n[2].value().powi(2)).sqrt())
 }
 
-fn triangle_area<const D: usize>(triangle: &[usize; 3], coordinates: &Coordinates<D>) -> Scalar {
+fn triangle_area<const D: usize>(
+    triangle: &[usize; 3],
+    coordinates: &Coordinates<D>,
+) -> Quantity<Area> {
     let a = &coordinates[triangle[1]] - &coordinates[triangle[0]];
     let b = &coordinates[triangle[2]] - &coordinates[triangle[0]];
-    0.5 * cross_norm(&a, &b)
+    cross_norm(&a, &b) * 0.5
 }
 
-fn tet_volume<const D: usize>(tetrahedron: &[usize; 4], coordinates: &Coordinates<D>) -> Scalar {
+fn tet_volume<const D: usize>(
+    tetrahedron: &[usize; 4],
+    coordinates: &Coordinates<D>,
+) -> Quantity<Volume> {
     let a = &coordinates[tetrahedron[1]] - &coordinates[tetrahedron[0]];
     let b = &coordinates[tetrahedron[2]] - &coordinates[tetrahedron[0]];
     let c = &coordinates[tetrahedron[3]] - &coordinates[tetrahedron[0]];
@@ -217,9 +225,9 @@ fn triangle_skew<const D: usize>(
     let l1 = (a - c).normalized();
     let l2 = (b - a).normalized();
     let minimum_angle = [
-        (-(&l0 * &l1)).acos(),
-        (-(&l1 * &l2)).acos(),
-        (-(&l2 * &l0)).acos(),
+        (-(&l0 * &l1).value()).acos(),
+        (-(&l1 * &l2).value()).acos(),
+        (-(&l2 * &l0).value()).acos(),
     ]
     .into_iter()
     .fold(Scalar::INFINITY, Scalar::min);
@@ -231,15 +239,15 @@ fn maximum_edge_ratio<const D: usize, const E: usize>(
     element: &[usize],
     coordinates: &Coordinates<D>,
 ) -> Scalar {
-    let mut shortest = Scalar::INFINITY;
-    let mut longest: Scalar = 0.0;
+    let mut shortest = Quantity::new(Scalar::INFINITY);
+    let mut longest = Quantity::default();
     for [a, b] in edges {
         let length = (&coordinates[element[*b]] - &coordinates[element[*a]]).norm();
         shortest = shortest.min(length);
         longest = longest.max(length);
     }
-    if shortest > 0.0 {
-        longest / shortest
+    if shortest > Quantity::default() {
+        (longest / shortest).value()
     } else {
         Scalar::INFINITY
     }
@@ -283,18 +291,18 @@ fn corners<const D: usize, const K: usize, const C: usize>(
         let origin = &coordinates[element[corner]];
         let edges: [Coordinate<D>; K] =
             from_fn(|edge| &coordinates[element[table[corner][edge]]] - origin);
-        let normalizer: Scalar = edges.iter().map(|edge| edge.norm()).product();
+        let normalizer: Scalar = edges.iter().map(|edge| edge.norm().value()).product();
         (corner_measure(&edges), normalizer)
     })
 }
 
 fn corner_measure<const D: usize, const K: usize>(edges: &[Coordinate<D>; K]) -> Scalar {
     if K == D {
-        let matrix: [[Scalar; K]; K] = from_fn(|row| from_fn(|column| edges[row][column]));
-        TensorRank2::<K, 0, 0>::from(matrix).determinant()
+        let matrix = from_fn(|i| from_fn(|j| edges[i][j]));
+        TensorRank2::<K, Reference, Reference, _>::from(matrix).determinant()
     } else {
-        let gram: [[Scalar; K]; K] = from_fn(|i| from_fn(|j| &edges[i] * &edges[j]));
-        TensorRank2::<K, 0, 0>::from(gram)
+        let gram = from_fn(|i| from_fn(|j| &edges[i] * &edges[j]));
+        TensorRank2::<K, Reference, Reference, _>::from(gram)
             .determinant()
             .max(0.0)
             .sqrt()

@@ -23,14 +23,15 @@ pub use thermodynamics::{
 };
 pub use ufjc::ArbitraryPotentialFreelyJointedChain;
 
-use crate::math::{Scalar, Style, StyledError, assert::AssertionError, styled_error};
+use crate::math::{Quantity, Scalar, Style, StyledError, assert::AssertionError, styled_error};
+use crate::units::Length;
 use std::fmt::Debug;
 
 pub trait SingleChain
 where
     Self: Clone + Debug,
 {
-    fn link_length(&self) -> Scalar;
+    fn link_length(&self) -> Quantity<Length>;
     fn number_of_links(&self) -> u8;
 }
 

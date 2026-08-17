@@ -1,4 +1,7 @@
-use crate::geometry::{Coordinate, bbox::test::BBOX_1, bvh::ray::Ray};
+use crate::{
+    geometry::{Coordinate, bbox::test::BBOX_1, bvh::ray::Ray},
+    math::Quantity,
+};
 
 #[test]
 fn hits_box_from_outside() {
@@ -6,7 +9,7 @@ fn hits_box_from_outside() {
         Coordinate::const_from([0.5, 0.5, -2.0]),
         Coordinate::const_from([0.0, 0.0, 1.0]),
     ));
-    assert_eq!(ray.intersects(&BBOX_1), Some(2.0));
+    assert_eq!(ray.intersects(&BBOX_1), Some(Quantity::new(2.0)));
 }
 
 #[test]
@@ -15,7 +18,7 @@ fn origin_inside_box_returns_zero() {
         Coordinate::const_from([0.5, 0.5, 0.5]),
         Coordinate::const_from([0.0, 0.0, 1.0]),
     ));
-    assert_eq!(ray.intersects(&BBOX_1), Some(0.0));
+    assert_eq!(ray.intersects(&BBOX_1), Some(Quantity::default()));
 }
 
 #[test]

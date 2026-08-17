@@ -1,7 +1,11 @@
 use super::ReadMedit;
 use crate::{
-    geometry::mesh::{Connectivity, Mesh, Output},
+    geometry::{
+        Coordinate,
+        mesh::{Connectivity, Mesh, Output},
+    },
     io::Write,
+    math::Quantity,
 };
 use std::fs::write;
 
@@ -45,11 +49,8 @@ fn round_trip_mixed() {
     assert_eq!(first_element(&mesh, 2), [1, 2, 6, 5, 10]);
     assert_eq!(first_element(&mesh, 3), [1, 2, 10, 11]);
     let coordinates = mesh.coordinates();
-    assert_eq!(
-        [coordinates[10][0], coordinates[10][1], coordinates[10][2]],
-        [2.0, 0.5, 0.5]
-    );
-    assert_eq!(coordinates[11][2], -1.0);
+    assert_eq!(coordinates[10], Coordinate::const_from([2.0, 0.5, 0.5]));
+    assert_eq!(coordinates[11][2], Quantity::new(-1.0));
 }
 
 #[test]

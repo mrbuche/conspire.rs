@@ -4,10 +4,10 @@ mod avx;
 mod test;
 
 use super::super::{SparseError, matrix::CscMatrix};
-use super::gemm::{CHUNK, NONE, axpy, etree, gemm_wide, max_below, reach_sorted, supernodes};
+use super::gemm::{CHUNK, NONE, etree, gemm_wide, max_below, reach_sorted, supernodes};
 use crate::{
-    ABS_TOL,
-    math::{Scalar, Vector},
+    ABS_TOL, REL_TOL,
+    math::{Scalar, Vector, simd},
 };
 
 /// Threshold for preferring the diagonal pivot, which preserves the
@@ -135,6 +135,12 @@ impl CscMatrix {
         let mut stack = vec![0; n];
         let mut pstack = vec![0; n];
         let mut top;
+        //
+        // A pivot is singular only once it is negligible both absolutely and
+        // against the largest pivot so far, so that scaling the matrix down
+        // cannot alone condemn it, nor a wide but honest spread of pivots.
+        //
+        let mut largest = 0.0;
         for (j, &q_j) in q.iter().enumerate() {
             top = reach(
                 self.column(q_j).map(|(i, _)| i),
@@ -164,7 +170,8 @@ impl CscMatrix {
                     pivot_row = i;
                 }
             });
-            if pivot_row == NONE || pivot_abs < ABS_TOL {
+            largest = pivot_abs.max(largest);
+            if pivot_row == NONE || (pivot_abs < ABS_TOL && pivot_abs <= REL_TOL * largest) {
                 return Err(SparseError::Singular);
             }
             if pinv[q_j] == NONE && x[q_j].abs() >= PIVOT_TOL * pivot_abs {
@@ -287,6 +294,7 @@ impl CscLu {
                     .unwrap_or(0)
         ];
         let mut pointers = [0; CHUNK];
+        let mut largest = 0.0;
         for s in 0..self.sn_start.len() - 1 {
             let s1 = self.sn_start[s];
             let s2 = self.sn_start[s + 1];
@@ -443,7 +451,7 @@ impl CscLu {
                         work[offset + k] = 0.0;
                         if u != 0.0 {
                             let start = self.sn_panel_ptr[s] + c * s_m;
-                            axpy(
+                            simd::axpy(
                                 &mut work[offset + k + 1..offset + s2],
                                 &self.sn_values[start + c + 1..start + s_width],
                                 u,
@@ -457,7 +465,8 @@ impl CscLu {
                     }
                     let pivot = work[offset + j];
                     work[offset + j] = 0.0;
-                    if pivot.abs() < ABS_TOL {
+                    largest = pivot.abs().max(largest);
+                    if pivot.abs() < ABS_TOL && pivot.abs() <= REL_TOL * largest {
                         return Err(SparseError::Singular);
                     }
                     self.u_values[p_end] = pivot;
@@ -489,7 +498,7 @@ impl CscLu {
 /// vectorized across the targets.
 fn trisolve(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, width: usize) {
     #[cfg(target_arch = "x86_64")]
-    if super::simd() {
+    if simd::enabled() {
         return unsafe { avx::trisolve(tile, panel, m, consumed, width) };
     }
     (0..consumed).for_each(|c| {

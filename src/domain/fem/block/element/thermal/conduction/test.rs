@@ -19,27 +19,34 @@ macro_rules! test_thermal {
             };
             mod finite_difference {
                 use super::*;
+                use $crate::units::PowerPerLengthTemperature;
                 const MODEL: Fourier = Fourier {
-                    thermal_conductivity: 1.0,
+                    thermal_conductivity: PowerPerLengthTemperature::watts_per_meter_kelvin(1.0),
                 };
                 #[test]
                 fn potential() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let element = element();
-                    let temperature = ElementNodalTemperatures::from([
-                        0.62895714, 0.73331084, 0.3058115, 0.08179408,
-                    ]);
-                    let mut finite_difference = 0.0;
+                    let temperature = ElementNodalTemperatures::from(
+                        [0.62895714, 0.73331084, 0.3058115, 0.08179408]
+                            .map($crate::math::Quantity::new),
+                    );
+                    let mut finite_difference = $crate::math::Quantity::default();
                     let nodal_forces_fd: ElementNodalForcesThermal<N> = (0..N)
                         .map(|node| {
                             let mut nodal_temperatures = temperature.clone();
-                            nodal_temperatures[node] += 0.5 * EPSILON;
+                            nodal_temperatures[node] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
                             finite_difference =
                                 element.potential(&constitutive_model, &nodal_temperatures)?;
-                            nodal_temperatures[node] -= EPSILON;
+                            nodal_temperatures[node] -= $crate::math::assert::perturbation(EPSILON);
                             finite_difference -=
                                 element.potential(&constitutive_model, &nodal_temperatures)?;
-                            Ok(finite_difference / EPSILON)
+                            // A potential per unit temperature is a power.
+                            Ok(finite_difference
+                                / $crate::math::Quantity::<$crate::units::Temperature>::new(
+                                    EPSILON,
+                                ))
                         })
                         .collect::<Result<_, FiniteElementError>>()?;
                     $crate::math::assert::Assert::default().eq_within_fd_tol(
@@ -54,24 +61,31 @@ macro_rules! test_thermal {
                 fn nodal_forces() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
                     let element = element();
-                    let temperature = ElementNodalTemperatures::from([
-                        0.62895714, 0.73331084, 0.3058115, 0.08179408,
-                    ]);
-                    let mut finite_difference = 0.0;
+                    let temperature = ElementNodalTemperatures::from(
+                        [0.62895714, 0.73331084, 0.3058115, 0.08179408]
+                            .map($crate::math::Quantity::new),
+                    );
+                    let mut finite_difference = $crate::math::Quantity::default();
                     let nodal_stiffnesses_fd: ElementNodalStiffnessesThermal<N> = (0..N)
                         .map(|node_a| {
                             (0..N)
                                 .map(|node_b| {
                                     let mut nodal_temperatures = temperature.clone();
-                                    nodal_temperatures[node_b] += 0.5 * EPSILON;
+                                    nodal_temperatures[node_b] +=
+                                        $crate::math::assert::perturbation(0.5 * EPSILON);
                                     finite_difference = element
                                         .nodal_forces(&constitutive_model, &nodal_temperatures)?
                                         [node_a];
-                                    nodal_temperatures[node_b] -= EPSILON;
+                                    nodal_temperatures[node_b] -=
+                                        $crate::math::assert::perturbation(EPSILON);
                                     finite_difference -= element
                                         .nodal_forces(&constitutive_model, &nodal_temperatures)?
                                         [node_a];
-                                    Ok(finite_difference / EPSILON)
+                                    // A power per unit temperature is a thermal stiffness.
+                                    Ok(finite_difference
+                                        / $crate::math::Quantity::<$crate::units::Temperature>::new(
+                                            EPSILON,
+                                        ))
                                 })
                                 .collect()
                         })

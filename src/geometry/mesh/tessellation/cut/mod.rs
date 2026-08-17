@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 mod assemble;
 mod build;
 mod classify;
@@ -10,25 +13,23 @@ mod split;
 mod tables;
 mod topology;
 
-#[cfg(test)]
-mod test;
-
 use crate::{
     geometry::{
-        Coordinate,
+        Coordinate, Direction,
         mesh::{
             Mesh,
             tessellation::{D, Tessellation},
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::Scalar,
+    math::{Quantity, Scalar},
+    units::Length,
 };
 use geometry::contained;
 use std::collections::HashMap;
 
 const COLLAPSE_FRACTION: Scalar = 0.2;
-const CROSSING_TOLERANCE: Scalar = 1.0e-8;
+const CROSSING_TOLERANCE: Quantity<Length> = Length::meters(1.0e-8);
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
 const SLIVER_FRACTION: Scalar = 0.1;
@@ -58,10 +59,10 @@ const EDGES: [[usize; 2]; 12] = [
     [2, 6],
     [3, 7],
 ];
-const DIRECTIONS: [Coordinate<D>; 3] = [
-    Coordinate::const_from([1.0, 0.140_412_03, 0.092_153_88]),
-    Coordinate::const_from([0.097_153_2, 1.0, 0.131_771_4]),
-    Coordinate::const_from([0.123_456_7, 0.087_654_3, 1.0]),
+const DIRECTIONS: [Direction<D>; 3] = [
+    Direction::const_from([1.0, 0.140_412_03, 0.092_153_88]),
+    Direction::const_from([0.097_153_2, 1.0, 0.131_771_4]),
+    Direction::const_from([0.123_456_7, 0.087_654_3, 1.0]),
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -141,7 +142,7 @@ impl Tessellation {
     /// the classes fall out of rasterizing rather than being found again.
     pub fn lattice_background(
         &self,
-        spacing: Scalar,
+        spacing: Quantity<Length>,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         Ok(self.lattice_cells(spacing)?.mesh())
     }

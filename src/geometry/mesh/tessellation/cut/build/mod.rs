@@ -18,7 +18,8 @@ use crate::{
             tessellation::{D, Tessellation},
         },
     },
-    math::{CrossProduct, Scalar, Tensor, TensorVec},
+    math::{CrossProduct, Quantity, Scalar, Tensor, TensorVec},
+    units::Length,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -42,7 +43,7 @@ fn orient_outward(polygons: &mut [Vec<usize>], clipped: usize, coordinates: &Coo
             .map(|i| {
                 let one = &coordinates[polygon[i]] - &centroid;
                 let two = &coordinates[polygon[(i + 1) % polygon.len()]] - &centroid;
-                one.cross(&two) * &middle
+                (one.cross(&two) * &middle).value()
             })
             .sum();
         if outward < 0.0 {
@@ -96,7 +97,7 @@ impl Tessellation {
         let mut face_owner = Vec::new();
         let mut elements_faces = Vec::<Vec<usize>>::new();
         let mut fractions = Vec::<Scalar>::new();
-        let mut scales = Vec::<Scalar>::new();
+        let mut scales = Vec::<Quantity<Length>>::new();
         let mut whole = HashSet::<usize>::new();
         let mut offset = 0;
         mesh.iter().try_for_each(|block| {
@@ -104,28 +105,29 @@ impl Tessellation {
             block.iter().enumerate().try_for_each(
                 |(local, element)| -> Result<(), &'static str> {
                     let cell = elements_faces.len();
-                    let mut emit = |polygons: Vec<Vec<usize>>, fraction: Scalar, scale: Scalar| {
-                        let ids: Vec<usize> = polygons
-                            .into_iter()
-                            .map(|polygon| {
-                                intern(
-                                    &mut face_ids,
-                                    &mut faces_nodes,
-                                    &mut face_owner,
-                                    polygon,
-                                    cell,
-                                )
-                            })
-                            .collect();
-                        elements_faces.push(ids);
-                        fractions.push(fraction);
-                        scales.push(scale);
-                    };
+                    let mut emit =
+                        |polygons: Vec<Vec<usize>>, fraction: Scalar, scale: Quantity<Length>| {
+                            let ids: Vec<usize> = polygons
+                                .into_iter()
+                                .map(|polygon| {
+                                    intern(
+                                        &mut face_ids,
+                                        &mut faces_nodes,
+                                        &mut face_owner,
+                                        polygon,
+                                        cell,
+                                    )
+                                })
+                                .collect();
+                            elements_faces.push(ids);
+                            fractions.push(fraction);
+                            scales.push(scale);
+                        };
                     let shortest = |edges: &[[usize; 2]], coordinates: &Coordinates<D>| {
                         edges
                             .iter()
                             .map(|&[a, b]| (&coordinates[b] - &coordinates[a]).norm())
-                            .fold(Scalar::INFINITY, Scalar::min)
+                            .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
                     };
                     match classes[offset + local] {
                         Class::Outside => {}
@@ -163,8 +165,9 @@ impl Tessellation {
                                 Split::Cut(cut_cell) => {
                                     let mut polygons = cut_cell.polygons;
                                     orient_outward(&mut polygons, cut_cell.clipped, &coordinates);
-                                    let fraction = signed_volume(&polygons, &coordinates)
-                                        / signed_volume(&faces, &coordinates);
+                                    let fraction = (signed_volume(&polygons, &coordinates)
+                                        / signed_volume(&faces, &coordinates))
+                                    .value();
                                     emit(polygons, fraction, scale)
                                 }
                             }

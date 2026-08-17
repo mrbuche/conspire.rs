@@ -1,7 +1,8 @@
 use crate::geometry::{
-    Coordinates,
+    Coordinate, Coordinates,
     mesh::{Connectivity, Mesh},
 };
+use crate::math::Quantity;
 
 fn triangles(connectivity: Vec<[usize; 3]>, points: usize) -> Mesh<3> {
     Mesh::from((
@@ -123,8 +124,8 @@ fn polygonal_boundary_edges() {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [1.0; 2],
-            cell: 1.0,
+            center: Coordinate::const_from([1.0; 2]),
+            cell: Quantity::new(1.0),
             half: 1.0,
         },
     };

@@ -1,4 +1,5 @@
 use super::{fit_jet, vertex_jets};
+use crate::math::Quantity;
 use crate::{
     geometry::Coordinates,
     // assert_eq_within_tols re-added with Jet::normal for anisotropic remesh
@@ -41,8 +42,8 @@ fn paraboloid_recovers_exact_curvatures() -> Result<(), AssertionError> {
         [-1.0, -1.0, 0.25],
     ]);
     let jet = fit_jet(&center, &neighbors, &[0.0, 0.0, 1.0].into()).unwrap();
-    assert!((jet.principal_curvatures[0] - 0.4).abs() < 1.0e-10);
-    assert!((jet.principal_curvatures[1] - 0.1).abs() < 1.0e-10);
+    assert!((jet.principal_curvatures[0].value() - 0.4).abs() < 1.0e-10);
+    assert!((jet.principal_curvatures[1].value() - 0.1).abs() < 1.0e-10);
     // Off until anisotropic remesh (Jet::normal):
     // Assert::default().eq_within_tols(&jet.normal, &[0.0, 0.0, 1.0].into())
     Ok(())
@@ -65,11 +66,11 @@ fn sphere_has_uniform_curvature() {
     }
     let neighbors = Coordinates::from(points);
     let jet = fit_jet(&center, &neighbors, &[0.0, 0.0, 1.0].into()).unwrap();
-    assert!((jet.max_abs_curvature() - 1.0 / r).abs() < 0.05);
+    assert!((jet.max_abs_curvature().value() - 1.0 / r).abs() < 0.05);
     assert!(
         jet.principal_curvatures
             .iter()
-            .all(|&curvature| curvature < 0.0)
+            .all(|&curvature| curvature < Quantity::default())
     );
 }
 
@@ -80,5 +81,5 @@ fn flat_grid_interior_has_zero_curvature() {
     let center = jets[2 * 5 + 2]
         .as_ref()
         .expect("interior vertex should fit");
-    assert!(center.max_abs_curvature() < 1.0e-9);
+    assert!(center.max_abs_curvature().value() < 1.0e-9);
 }

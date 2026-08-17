@@ -1,4 +1,4 @@
-//! Mathematics library.
+//! Numerical methods.
 
 /// Assertion helpers for comparing values.
 pub mod assert;
@@ -25,6 +25,7 @@ mod graph;
 mod hash;
 mod matrix;
 mod set;
+mod simd;
 mod style;
 mod tensor;
 
@@ -32,12 +33,21 @@ pub(crate) use style::{Style, StyledError, defeat_message, styled_error};
 
 pub use graph::Graph;
 pub use hash::{FxHashMap, FxHashSet, FxHasher};
-pub use matrix::{Matrix, square::SquareMatrix, vector::Vector};
+pub use matrix::{
+    Matrix,
+    square::{LdlDecomposition, LuDecomposition, SquareMatrix},
+    vector::Vector,
+};
 pub use set::{Set, sets::Sets};
 pub use tensor::{
-    Hessian, HessianAccumulate, HessianAccumulateGeneral, Jacobian, Norm, Rank2, Scalar,
-    ScalarList, ScalarListVec, Scalars, Solution, Tensor, TensorArray, TensorError, TensorVec,
+    Auxiliary, Configuration, ContractWith, Current, Derivative, Differentiate, Erase, Factor,
+    Flattened, Hessian, HessianAccumulate, HessianBlock, Intermediate, Is, Jacobian, Norm,
+    Projection, Quantity, Rank2, Reference, Scalar, ScalarList, ScalarListVec, Scalars, Solution,
+    Square, Tensor, TensorArray, TensorError, TensorVec,
     list::TensorList,
+    quantity::{
+        sparse_vec::QuantitySparseVec, sparse_vec_2d::QuantitySparseVec2D, vec::QuantityVector,
+    },
     rank_0::{TensorRank0, list::TensorRank0List, list_2d::TensorRank0List2D},
     rank_1::{
         TensorRank1, cross::CrossProduct, list::TensorRank1List, list_2d::TensorRank1List2D,

@@ -15,20 +15,26 @@ use crate::{
                 planar::{Quadrilateral, Triangle},
             },
             solid::elastic_viscoplastic::{
-                ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
+                ViscoplasticEvolution, ViscoplasticEvolutionHistory, ViscoplasticStateVariables,
+                ViscoplasticStateVariablesHistory,
             },
         },
+        nodal_coordinates,
         solid::{
             elastic::ElasticElements, elastic_viscoplastic::FirstOrderRoot as DaeFirstOrderRoot,
         },
     },
-    geometry::mesh::{Connectivity, Mesh},
+    geometry::{
+        Coordinates,
+        mesh::{Connectivity, Mesh},
+    },
     math::{
-        Matrix, Scalar, Tensor, TensorTupleVec, Vector,
+        Matrix, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec, Vector,
         assert::AssertionError,
         integrate::BogackiShampine,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
+    units::{Rate, Stress, Time},
 };
 
 const D: usize = 14;
@@ -40,7 +46,7 @@ type TriNeoHookean = Block<NeoHookean, Triangle, 1, 2, 3, 3>;
 type Hex = Block<AlmansiHamel, Hexahedron, 8, 3, 8, 8>;
 type TetNeoHookean = Block<NeoHookean, Tetrahedron, 1, 3, 4, 4>;
 type TetViscoplastic = Block<
-    ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Scalar>,
+    ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Quantity>,
     Tetrahedron,
     1,
     3,
@@ -50,8 +56,8 @@ type TetViscoplastic = Block<
 
 fn constitutive_model() -> AlmansiHamel {
     AlmansiHamel {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Stress::pascals(13.0),
+        shear_modulus: Stress::pascals(3.0),
     }
 }
 
@@ -84,8 +90,8 @@ fn connectivity() -> Vec<[usize; 4]> {
     ]
 }
 
-fn coordinates() -> NodalReferenceCoordinates<3> {
-    NodalReferenceCoordinates::from([
+fn coordinates() -> Coordinates<3> {
+    Coordinates::from([
         [0.5, -0.5, 0.5],
         [0.5, 0.5, 0.5],
         [-0.5, 0.5, 0.5],
@@ -167,8 +173,8 @@ fn single_block_model() -> Result<Model<Tet, 3>, AssertionError> {
 
 fn neo_hookean_model() -> NeoHookean {
     NeoHookean {
-        bulk_modulus: 13.0,
-        shear_modulus: 3.0,
+        bulk_modulus: Stress::pascals(13.0),
+        shear_modulus: Stress::pascals(3.0),
     }
 }
 
@@ -208,7 +214,11 @@ fn split_blocks_model() -> Result<Model<Blocks<Tet, Tet>, 3>, AssertionError> {
 
 #[test]
 fn single_block_nodal_forces() -> Result<(), AssertionError> {
-    let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
+    let block = Tet::from((
+        constitutive_model(),
+        connectivity(),
+        &nodal_coordinates(coordinates()),
+    ));
     let model = single_block_model()?;
     Assert::eq(
         &ElasticElements::nodal_forces(&block, &deformed_coordinates())?,
@@ -222,7 +232,11 @@ fn single_block_nodal_forces() -> Result<(), AssertionError> {
 
 #[test]
 fn split_blocks_nodal_forces() -> Result<(), AssertionError> {
-    let block = Tet::from((constitutive_model(), connectivity(), &coordinates()));
+    let block = Tet::from((
+        constitutive_model(),
+        connectivity(),
+        &nodal_coordinates(coordinates()),
+    ));
     let model = split_blocks_model()?;
     Assert::default().eq_within_tols(
         &ElasticElements::nodal_forces(&block, &deformed_coordinates())?,
@@ -278,8 +292,16 @@ fn wrong_element_kind() {
 #[test]
 fn heterogeneous_blocks_nodal_forces() -> Result<(), AssertionError> {
     let (connectivity_1, connectivity_2) = split_connectivities();
-    let block_1 = Tet::from((constitutive_model(), connectivity_1, &coordinates()));
-    let block_2 = TetNeoHookean::from((neo_hookean_model(), connectivity_2, &coordinates()));
+    let block_1 = Tet::from((
+        constitutive_model(),
+        connectivity_1,
+        &nodal_coordinates(coordinates()),
+    ));
+    let block_2 = TetNeoHookean::from((
+        neo_hookean_model(),
+        connectivity_2,
+        &nodal_coordinates(coordinates()),
+    ));
     Assert::default().eq_within_tols(
         &(ElasticElements::nodal_forces(&block_1, &deformed_coordinates())?
             + ElasticElements::nodal_forces(&block_2, &deformed_coordinates())?),
@@ -291,22 +313,22 @@ fn heterogeneous_blocks_nodal_forces() -> Result<(), AssertionError> {
     )
 }
 
-fn viscoplastic_model() -> ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Scalar>
-{
+fn viscoplastic_model()
+-> ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Quantity> {
     ElasticMultiplicativeViscoplastic::from((
         constitutive_model(),
         ViscoplasticFlow {
-            yield_stress: 1e12,
-            hardening_slope: 1.0,
+            yield_stress: Stress::pascals(1e12),
+            hardening_slope: Stress::pascals(1.0),
             rate_sensitivity: 0.25,
-            reference_flow_rate: 0.1,
+            reference_flow_rate: Rate::per_second(0.1),
         },
     ))
 }
 
-fn bcs(time: Scalar) -> EqualityConstraint {
+fn bcs(time: Quantity<Time>) -> EqualityConstraint {
     let (a, mut b) = constraint();
-    (0..5).for_each(|i| b[i] = 0.5 + 0.55 * time);
+    (0..5).for_each(|i| b[i] = 0.5 + 0.55 * time.value());
     EqualityConstraint::Linear(a, b)
 }
 
@@ -324,18 +346,22 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
         (mesh, (viscoplastic_model(), constitutive_model()))
             .try_into()
             .map_err(|error: String| AssertionError { message: error })?;
-    let (_, coordinates_history, _): (_, _, ViscoplasticStateVariablesHistory<1, Scalar>) =
-        DaeFirstOrderRoot::root(
-            &model,
-            BogackiShampine {
-                abs_tol: 1e-6,
-                rel_tol: 1e-6,
-                ..Default::default()
-            },
-            NewtonRaphson::default(),
-            &[0.0, 1.0],
-            bcs,
-        )?;
+    let (_, coordinates_history, _) = DaeFirstOrderRoot::<
+        ViscoplasticStateVariables<1, Quantity>,
+        ViscoplasticEvolutionHistory<1, Quantity>,
+        ViscoplasticStateVariablesHistory<1, Quantity>,
+        3,
+    >::root(
+        &model,
+        BogackiShampine {
+            abs_tol: 1e-6,
+            rel_tol: 1e-6,
+            ..Default::default()
+        },
+        NewtonRaphson::default(),
+        &[Quantity::new(0.0), Quantity::new(1.0)],
+        bcs,
+    )?;
     let (a, b) = constraint();
     let reference = FirstOrderRoot::root(
         &split_blocks_model()?,
@@ -359,14 +385,18 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
         (mesh, (viscoplastic_model(), viscoplastic_model()))
             .try_into()
             .map_err(|error: String| AssertionError { message: error })?;
-    let (_, coordinates_history, _): (
-        _,
-        _,
-        TensorTupleVec<
-            ViscoplasticStateVariables<1, Scalar>,
-            ViscoplasticStateVariables<1, Scalar>,
+    let (_, coordinates_history, _) = DaeFirstOrderRoot::<
+        TensorTuple<
+            ViscoplasticStateVariables<1, Quantity>,
+            ViscoplasticStateVariables<1, Quantity>,
         >,
-    ) = DaeFirstOrderRoot::root(
+        TensorTupleVec<ViscoplasticEvolution<1, Quantity>, ViscoplasticEvolution<1, Quantity>>,
+        TensorTupleVec<
+            ViscoplasticStateVariables<1, Quantity>,
+            ViscoplasticStateVariables<1, Quantity>,
+        >,
+        3,
+    >::root(
         &model,
         BogackiShampine {
             abs_tol: 1e-6,
@@ -374,7 +404,7 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
             ..Default::default()
         },
         NewtonRaphson::default(),
-        &[0.0, 1.0],
+        &[Quantity::new(0.0), Quantity::new(1.0)],
         bcs,
     )?;
     let (a, b) = constraint();
@@ -395,19 +425,19 @@ fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
     )?;
-    assert!((solution[0][0] - 1.05).abs() < 1e-10);
-    assert!((solution[2][0] + 0.5).abs() < 1e-10);
+    assert!((solution[0][0].value() - 1.05).abs() < 1e-10);
+    assert!((solution[2][0].value() + 0.5).abs() < 1e-10);
     let residual =
         ElasticElements::nodal_forces(&model, &solution).map_err(|error| AssertionError {
             message: error.to_string(),
         })?;
     [8, 9, 10, 12]
         .iter()
-        .for_each(|&free_node| assert!(residual[free_node].norm() < 1e-10));
+        .for_each(|&free_node| assert!(residual[free_node].norm().value() < 1e-10));
     Ok(())
 }
 
-fn coordinates_2d() -> NodalReferenceCoordinates<2> {
+fn coordinates_2d() -> Coordinates<2> {
     (0..3)
         .flat_map(|j| (0..3).map(move |i| [0.5 * i as Scalar, 0.5 * j as Scalar]))
         .collect::<Vec<_>>()
@@ -445,8 +475,9 @@ fn planar_patch_root() -> Result<(), AssertionError> {
     boundary.iter().enumerate().for_each(|(row, &node)| {
         (0..2).for_each(|i| {
             a[2 * row + i][2 * node + i] = 1.0;
-            b[2 * row + i] =
-                deformation[i][0] * coordinates[node][0] + deformation[i][1] * coordinates[node][1];
+            b[2 * row + i] = (deformation[i][0] * coordinates[node][0]
+                + deformation[i][1] * coordinates[node][1])
+                .value();
         })
     });
     let solution = FirstOrderRoot::root(
@@ -458,8 +489,8 @@ fn planar_patch_root() -> Result<(), AssertionError> {
         .iter()
         .map(|coordinate| {
             [
-                deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1],
-                deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1],
+                (deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1]).value(),
+                (deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1]).value(),
             ]
         })
         .collect::<Vec<_>>()
@@ -514,7 +545,7 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
     let mut row = 0;
     (0..18).for_each(|node| {
         a[row][3 * node + 2] = 1.0;
-        b[row] = coordinates[node][2];
+        b[row] = coordinates[node][2].value();
         row += 1;
     });
     [0, 3, 6, 9, 12, 15].iter().for_each(|&node| {
@@ -538,13 +569,13 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
     let layer_0: NodalCoordinates<2> = solution_wedge
         .iter()
         .take(9)
-        .map(|coordinate| [coordinate[0], coordinate[1]])
+        .map(|coordinate| [coordinate[0].value(), coordinate[1].value()])
         .collect::<Vec<_>>()
         .into();
     let layer_1: NodalCoordinates<2> = solution_wedge
         .iter()
         .skip(9)
-        .map(|coordinate| [coordinate[0], coordinate[1]])
+        .map(|coordinate| [coordinate[0].value(), coordinate[1].value()])
         .collect::<Vec<_>>()
         .into();
     Assert::default().eq_within_tols(&solution, &layer_0)?;
@@ -579,8 +610,9 @@ fn planar_quad_patch_root() -> Result<(), AssertionError> {
     boundary.iter().enumerate().for_each(|(row, &node)| {
         (0..2).for_each(|i| {
             a[2 * row + i][2 * node + i] = 1.0;
-            b[2 * row + i] =
-                deformation[i][0] * coordinates[node][0] + deformation[i][1] * coordinates[node][1];
+            b[2 * row + i] = (deformation[i][0] * coordinates[node][0]
+                + deformation[i][1] * coordinates[node][1])
+                .value();
         })
     });
     let solution = FirstOrderRoot::root(
@@ -592,8 +624,8 @@ fn planar_quad_patch_root() -> Result<(), AssertionError> {
         .iter()
         .map(|coordinate| {
             [
-                deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1],
-                deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1],
+                (deformation[0][0] * coordinate[0] + deformation[0][1] * coordinate[1]).value(),
+                (deformation[1][0] * coordinate[0] + deformation[1][1] * coordinate[1]).value(),
             ]
         })
         .collect::<Vec<_>>()

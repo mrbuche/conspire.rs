@@ -2,8 +2,15 @@
 
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
-    math::{Rank2, Scalar, Tensor, TensorArray, TensorTuple, TensorTupleVec},
-    mechanics::{DeformationGradientPlastic, MandelStressElastic, StretchingRatePlastic},
+    math::{
+        Derivative, Differentiate, Quantity, Rank2, Scalar, Tensor, TensorArray, TensorTuple,
+        TensorTupleVec,
+    },
+    mechanics::{
+        DeformationGradientPlastic, DeformationGradientRatePlastic, MandelStressElastic,
+        StretchingRatePlastic,
+    },
+    units::{Rate, Stress},
 };
 
 /// Viscoplastic state variables.
@@ -12,11 +19,18 @@ pub type ViscoplasticStateVariables<Y> = TensorTuple<DeformationGradientPlastic,
 /// Viscoplastic state variables history.
 pub type ViscoplasticStateVariablesHistory<Y> = TensorTupleVec<DeformationGradientPlastic, Y>;
 
+/// The evolution of the viscoplastic state variables.
+pub type ViscoplasticEvolution<Y> = Derivative<ViscoplasticStateVariables<Y>>;
+
+/// The history of the evolution of the viscoplastic state variables.
+pub type ViscoplasticEvolutionHistory<Y> =
+    TensorTupleVec<DeformationGradientRatePlastic, Derivative<Y>>;
+
 /// Required methods for viscoplastic fluid constitutive models.
 pub trait Viscoplastic<Y>
 where
     Self: Plastic,
-    Y: Tensor,
+    Y: Differentiate + Tensor,
 {
     /// Returns the initial state of the variables.
     fn initial_state(&self) -> ViscoplasticStateVariables<Y>;
@@ -29,7 +43,7 @@ where
         &self,
         mandel_stress: MandelStressElastic,
         state_variables: &ViscoplasticStateVariables<Y>,
-    ) -> Result<ViscoplasticStateVariables<Y>, ConstitutiveError>;
+    ) -> Result<ViscoplasticEvolution<Y>, ConstitutiveError>;
     /// Calculates and returns the rate of plastic stretching.
     ///
     /// ```math
@@ -38,60 +52,61 @@ where
     fn plastic_stretching_rate(
         &self,
         deviatoric_mandel_stress: MandelStressElastic,
-        yield_stress: Scalar,
+        yield_stress: Quantity<Stress>,
     ) -> Result<StretchingRatePlastic, ConstitutiveError> {
         let magnitude = deviatoric_mandel_stress.norm();
-        if magnitude == 0.0 {
+        if magnitude.is_zero() {
             Ok(StretchingRatePlastic::zero())
         } else {
+            let reference_flow_rate = self.reference_flow_rate();
             Ok(deviatoric_mandel_stress
-                * (self.reference_flow_rate() / magnitude
+                * (reference_flow_rate / magnitude
                     * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
         }
     }
     /// Returns the rate_sensitivity parameter.
     fn rate_sensitivity(&self) -> Scalar;
     /// Returns the reference flow rate.
-    fn reference_flow_rate(&self) -> Scalar;
+    fn reference_flow_rate(&self) -> Quantity<Rate>;
 }
 
 /// The viscoplastic flow model.
 #[derive(Clone, Debug)]
 pub struct ViscoplasticFlow {
     /// The initial yield stress $`Y_0`$.
-    pub yield_stress: Scalar,
+    pub yield_stress: Quantity<Stress>,
     /// The isotropic hardening slope $`H`$.
-    pub hardening_slope: Scalar,
+    pub hardening_slope: Quantity<Stress>,
     /// The rate sensitivity parameter $`m`$.
     pub rate_sensitivity: Scalar,
     /// The reference flow rate $`d_0`$.
-    pub reference_flow_rate: Scalar,
+    pub reference_flow_rate: Quantity<Rate>,
 }
 
 impl Plastic for ViscoplasticFlow {
-    fn initial_yield_stress(&self) -> Scalar {
+    fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.yield_stress
     }
-    fn hardening_slope(&self) -> Scalar {
+    fn hardening_slope(&self) -> Quantity<Stress> {
         self.hardening_slope
     }
 }
 
-impl Viscoplastic<Scalar> for ViscoplasticFlow {
-    fn initial_state(&self) -> ViscoplasticStateVariables<Scalar> {
-        (DeformationGradientPlastic::identity(), 0.0).into()
+impl Viscoplastic<Quantity> for ViscoplasticFlow {
+    fn initial_state(&self) -> ViscoplasticStateVariables<Quantity> {
+        (DeformationGradientPlastic::identity(), Quantity::default()).into()
     }
     fn plastic_evolution(
         &self,
         mandel_stress: MandelStressElastic,
-        state_variables: &ViscoplasticStateVariables<Scalar>,
-    ) -> Result<ViscoplasticStateVariables<Scalar>, ConstitutiveError> {
+        state_variables: &ViscoplasticStateVariables<Quantity>,
+    ) -> Result<ViscoplasticEvolution<Quantity>, ConstitutiveError> {
         default_plastic_evolution(self, mandel_stress, state_variables)
     }
     fn rate_sensitivity(&self) -> Scalar {
         self.rate_sensitivity
     }
-    fn reference_flow_rate(&self) -> Scalar {
+    fn reference_flow_rate(&self) -> Quantity<Rate> {
         self.reference_flow_rate
     }
 }
@@ -99,10 +114,10 @@ impl Viscoplastic<Scalar> for ViscoplasticFlow {
 pub fn default_plastic_evolution<C>(
     model: &C,
     mandel_stress: MandelStressElastic,
-    state_variables: &ViscoplasticStateVariables<Scalar>,
-) -> Result<ViscoplasticStateVariables<Scalar>, ConstitutiveError>
+    state_variables: &ViscoplasticStateVariables<Quantity>,
+) -> Result<ViscoplasticEvolution<Quantity>, ConstitutiveError>
 where
-    C: Viscoplastic<Scalar>,
+    C: Viscoplastic<Quantity>,
 {
     let (deformation_gradient_p, &equivalent_plastic_strain) = state_variables.into();
     let plastic_stretching_rate = model.plastic_stretching_rate(

@@ -2,11 +2,12 @@ pub mod conduction;
 
 use crate::{
     fem::block::element::{Element, FiniteElement},
-    math::{Tensor, TensorRank0List},
+    math::{Quantity, Tensor, TensorList},
     mechanics::TemperatureGradients,
+    units::Temperature,
 };
 
-pub type ElementNodalTemperatures<const D: usize> = TensorRank0List<D>;
+pub type ElementNodalTemperatures<const D: usize> = TensorList<Quantity<Temperature>, D>;
 
 pub trait ThermalFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where

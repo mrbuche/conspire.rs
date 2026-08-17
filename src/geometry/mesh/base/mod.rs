@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod test;
+use crate::math::Reference;
 
 use crate::math::FxHashMap;
 use crate::{
@@ -9,11 +10,12 @@ use crate::{
         mesh::{Connectivity, Mesh, NodeSets, SideSets},
     },
     math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D, TensorVec},
+    units::Dimensionless,
 };
 use std::array::from_fn;
 
 impl Mesh<3> {
-    pub fn normals(&self) -> TensorRank1Vec2D<3, 0> {
+    pub fn normals(&self) -> TensorRank1Vec2D<3, Reference, Dimensionless> {
         self.iter()
             .map(|connectivity| match connectivity {
                 Connectivity::Triangular(triangles) => triangles

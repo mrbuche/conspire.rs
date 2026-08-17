@@ -1,18 +1,19 @@
 use crate::{
     geometry::{Coordinate, Coordinates, ntree::Orthotree},
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
+    units::Length,
 };
 use std::array::from_fn;
 
 pub struct Rescaling<const D: usize> {
-    pub(crate) center: [Scalar; D],
-    pub(crate) cell: Scalar,
+    pub(crate) center: Coordinate<D>,
+    pub(crate) cell: Quantity<Length>,
     pub(crate) half: Scalar,
 }
 
 impl<const D: usize> Rescaling<D> {
     pub fn apply(&self, coordinate: &Coordinate<D>) -> Coordinate<D> {
-        from_fn(|ax| (coordinate[ax] - self.half) * self.cell + self.center[ax]).into()
+        from_fn(|ax| self.cell * (coordinate[ax].value() - self.half) + self.center[ax]).into()
     }
 }
 

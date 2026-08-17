@@ -14,7 +14,8 @@ use crate::{
             rescale::Rescaling,
         },
     },
-    math::{Scalar, Tensor, TensorVec},
+    math::{Quantity, Scalar, Tensor, TensorVec},
+    units::Length,
 };
 use std::{array::from_fn, f64::consts::FRAC_PI_3, ops::Add};
 
@@ -32,7 +33,7 @@ const M: usize = 6;
 pub struct CurvatureSizing {
     /// Chord-error tolerance; smaller refines more aggressively near curvature.
     /// `None` disables curvature-driven refinement.
-    pub tolerance: Option<Scalar>,
+    pub tolerance: Option<Quantity<Length>>,
     /// Lipschitz grading rate applied to the curvature-driven size field.
     pub gradation: Scalar,
     /// Smallest curvature-driven cell size allowed, as a fraction of the
@@ -89,14 +90,14 @@ where
                 }],
                 paired: Pairing::None,
                 rescale: Rescaling {
-                    center: [0.0; D],
-                    cell: 1.0,
+                    center: Coordinate::const_from([0.0; D]),
+                    cell: Quantity::new(1.0),
                     half: 0.0,
                 },
             };
         }
-        let mut min_coord: [f64; D] = from_fn(|_| f64::INFINITY);
-        let mut max_coord: [f64; D] = from_fn(|_| f64::NEG_INFINITY);
+        let mut min_coord = [Quantity::<Length>::new(Scalar::INFINITY); D];
+        let mut max_coord = [Quantity::<Length>::new(Scalar::NEG_INFINITY); D];
         for point in coordinates {
             for ax in 0..D {
                 min_coord[ax] = min_coord[ax].min(point[ax]);
@@ -105,12 +106,12 @@ where
         }
         let max_extent = (0..D)
             .map(|ax| max_coord[ax] - min_coord[ax])
-            .fold(0.0f64, f64::max);
+            .fold(Quantity::default(), Quantity::max);
         let min_sdf = sdf
             .iter()
             .copied()
-            .filter(|value| *value > 0.0)
-            .fold(f64::INFINITY, f64::min);
+            .filter(|&value| value > Quantity::default())
+            .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
         let elements: Vec<&[usize]> = tessellation
             .mesh()
             .connectivities()
@@ -132,27 +133,34 @@ where
             ),
             None => vec![max_extent; coordinates.len()],
         };
-        let min_curvature = curvature.iter().copied().fold(f64::INFINITY, f64::min);
-        let thickness_length = if min_sdf.is_finite() {
+        let min_curvature = curvature
+            .iter()
+            .copied()
+            .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
+        let thickness_length = if min_sdf.value().is_finite() {
             min_sdf / scale
         } else {
             max_extent
         };
         let min_length = thickness_length.min(min_curvature);
-        let levels = if max_extent <= 0.0 || min_length <= 0.0 {
+        let zero = Quantity::default();
+        let levels = if max_extent <= zero || min_length <= zero {
             0u32
         } else {
             (max_extent / min_length + 2.0 * padding as Scalar)
                 .log2()
                 .ceil()
-                .max(0.0) as u32
+                .max(Quantity::default())
+                .value() as u32
         };
         let root_length: u16 = 1u16.checked_shl(levels).unwrap_or(u16::MAX);
-        let center: [f64; D] = from_fn(|ax| (min_coord[ax] + max_coord[ax]) / 2.0);
+        let center = Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
+            (min_coord[ax] + max_coord[ax]) / 2.0
+        }));
         let mut tree = Self {
             balanced: Balancing::None,
             rescale: Rescaling {
-                center,
+                center: center.clone(),
                 cell: min_length,
                 half: root_length as Scalar / 2.0,
             },
@@ -165,7 +173,7 @@ where
             }],
             paired: Pairing::None,
         };
-        let targets: Vec<Scalar> = elements
+        let targets: Vec<Quantity<Length>> = elements
             .iter()
             .map(|element| {
                 let thickness = sdf[element[0]].min(sdf[element[1]]).min(sdf[element[2]]);
@@ -192,8 +200,8 @@ where
             let target = overlapping
                 .iter()
                 .map(|&triangle| targets[triangle])
-                .fold(f64::INFINITY, f64::min);
-            if cells <= 1 || (extent * min_length) * scale <= target {
+                .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
+            if cells <= 1 || min_length * (extent * scale) <= target {
                 continue;
             }
             if tree.subdivide(U::from(index)).is_err() {
@@ -208,11 +216,12 @@ where
             for child in children {
                 let corner = tree.nodes[child].corner;
                 let child_extent: Scalar = tree.nodes[child].length.into();
-                let minimum = Coordinate::const_from(from_fn(|ax| {
-                    center[ax] + (Into::<Scalar>::into(corner[ax]) - half) * min_length
+                let minimum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
+                    center[ax] + min_length * (Into::<Scalar>::into(corner[ax]) - half)
                 }));
-                let maximum =
-                    Coordinate::const_from(from_fn(|ax| minimum[ax] + child_extent * min_length));
+                let maximum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
+                    minimum[ax] + min_length * child_extent
+                }));
                 let bbox = BoundingBox::from(CoordinateList::const_from([minimum, maximum]));
                 let inside: Vec<usize> = overlapping
                     .iter()

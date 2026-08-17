@@ -1,5 +1,8 @@
 use super::{dunyach_length, graduate, sizing_field};
-use crate::{geometry::Coordinates, math::Tensor};
+use crate::{
+    geometry::Coordinates,
+    math::{Quantity, Tensor},
+};
 
 fn ladder() -> (Vec<[usize; 3]>, Coordinates<3>) {
     let mut points = Vec::new();
@@ -19,31 +22,57 @@ fn ladder() -> (Vec<[usize; 3]>, Coordinates<3>) {
 
 #[test]
 fn dunyach_length_maps_curvature() {
-    let (tolerance, minimum, maximum) = (0.1, 0.1, 2.0);
-    assert_eq!(dunyach_length(0.0, tolerance, minimum, maximum), maximum);
-    assert!((dunyach_length(1.0, tolerance, minimum, maximum) - 0.57_f64.sqrt()).abs() < 1.0e-12);
-    assert_eq!(dunyach_length(100.0, tolerance, minimum, maximum), minimum);
+    let (tolerance, minimum, maximum) =
+        (Quantity::new(0.1), Quantity::new(0.1), Quantity::new(2.0));
+    let curvature = Quantity::new;
+    assert_eq!(
+        dunyach_length(curvature(0.0), tolerance, minimum, maximum),
+        maximum
+    );
+    assert!(
+        (dunyach_length(curvature(1.0), tolerance, minimum, maximum).value() - 0.57_f64.sqrt())
+            .abs()
+            < 1.0e-12
+    );
+    assert_eq!(
+        dunyach_length(curvature(100.0), tolerance, minimum, maximum),
+        minimum
+    );
 }
 
 #[test]
 fn graduate_enforces_lipschitz() {
     let (connectivity, coordinates) = ladder();
     let gradation = 0.5;
-    let mut field = vec![2.0; coordinates.len()];
-    field[0] = 0.1;
+    let mut field = vec![Quantity::new(2.0); coordinates.len()];
+    field[0] = Quantity::new(0.1);
     graduate(&mut field, &connectivity, &coordinates, gradation);
     for &[a, b, c] in &connectivity {
         for (i, j) in [(a, b), (b, c), (c, a)] {
             let distance = (&coordinates[j] - &coordinates[i]).norm();
-            assert!((field[i] - field[j]).abs() <= gradation * distance + 1.0e-9);
+            assert!((field[i] - field[j]).abs().value() <= gradation * distance.value() + 1.0e-9);
         }
     }
-    assert!(field[0] < 0.2, "the small seed survives gradation");
+    assert!(
+        field[0] < Quantity::new(0.2),
+        "the small seed survives gradation"
+    );
 }
 
 #[test]
 fn sizing_field_is_uniform_on_flat_mesh() {
     let (connectivity, coordinates) = ladder();
-    let field = sizing_field(&connectivity, &coordinates, 0.1, 0.1, 2.0, 0.5);
-    assert!(field.iter().all(|&length| (length - 2.0).abs() < 1.0e-9));
+    let field = sizing_field(
+        &connectivity,
+        &coordinates,
+        Quantity::new(0.1),
+        Quantity::new(0.1),
+        Quantity::new(2.0),
+        0.5,
+    );
+    assert!(
+        field
+            .iter()
+            .all(|&length| (length.value() - 2.0).abs() < 1.0e-9)
+    );
 }

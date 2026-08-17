@@ -12,7 +12,8 @@ use crate::{
             ray::Ray,
         },
     },
-    math::Scalar,
+    math::Quantity,
+    units::{Area, Length},
 };
 
 impl<const D: usize> BoundingVolumeHierarchy<D> {
@@ -157,7 +158,7 @@ impl BoundingVolumeHierarchy<3> {
     fn intersect_node(
         &self,
         node_index: usize,
-        entry: Scalar,
+        entry: Quantity<Length>,
         ray: &Ray<3>,
         coordinates: &Coordinates<3>,
         elements: &[&[usize]],
@@ -251,7 +252,7 @@ impl BoundingVolumeHierarchy<3> {
         point: &Coordinate<3>,
         coordinates: &Coordinates<3>,
         elements: &[&[usize]],
-        closest: &mut Option<(Scalar, Coordinate<3>, usize)>,
+        closest: &mut Option<(Quantity<Area>, Coordinate<3>, usize)>,
     ) {
         let node = &self.nodes[node_index];
         if closest.as_ref().is_some_and(|(distance, ..)| {
@@ -298,7 +299,7 @@ impl BoundingVolumeHierarchy<3> {
 fn point_box_distance_squared<const D: usize>(
     point: &Coordinate<D>,
     bounding_box: &BoundingBox<D>,
-) -> Scalar {
+) -> Quantity<Area> {
     (0..D)
         .map(|axis| {
             let value = point[axis];
@@ -308,7 +309,7 @@ fn point_box_distance_squared<const D: usize>(
             } else if value > high {
                 value - high
             } else {
-                0.0
+                Quantity::default()
             };
             delta * delta
         })
@@ -321,38 +322,39 @@ fn closest_point_on_triangle(
     b: &Coordinate<3>,
     c: &Coordinate<3>,
 ) -> Coordinate<3> {
+    let zero = Quantity::default();
     let ab = b - a;
     let ac = c - a;
     let ap = point - a;
     let d1 = &ab * &ap;
     let d2 = &ac * &ap;
-    if d1 <= 0.0 && d2 <= 0.0 {
+    if d1 <= zero && d2 <= zero {
         return a.clone();
     }
     let bp = point - b;
     let d3 = &ab * &bp;
     let d4 = &ac * &bp;
-    if d3 >= 0.0 && d4 <= d3 {
+    if d3 >= zero && d4 <= d3 {
         return b.clone();
     }
     let vc = d1 * d4 - d3 * d2;
-    if vc <= 0.0 && d1 >= 0.0 && d3 <= 0.0 {
+    if vc <= Quantity::default() && d1 >= zero && d3 <= zero {
         return a + &(&ab * (d1 / (d1 - d3)));
     }
     let cp = point - c;
     let d5 = &ab * &cp;
     let d6 = &ac * &cp;
-    if d6 >= 0.0 && d5 <= d6 {
+    if d6 >= zero && d5 <= d6 {
         return c.clone();
     }
     let vb = d5 * d2 - d1 * d6;
-    if vb <= 0.0 && d2 >= 0.0 && d6 <= 0.0 {
+    if vb <= Quantity::default() && d2 >= zero && d6 <= zero {
         return a + &(&ac * (d2 / (d2 - d6)));
     }
     let va = d3 * d6 - d5 * d4;
-    if va <= 0.0 && (d4 - d3) >= 0.0 && (d5 - d6) >= 0.0 {
+    if va <= Quantity::default() && (d4 - d3) >= zero && (d5 - d6) >= zero {
         return b + &(&(c - b) * ((d4 - d3) / ((d4 - d3) + (d5 - d6))));
     }
-    let denominator = 1.0 / (va + vb + vc);
-    &(a + &(&ab * (vb * denominator))) + &(&ac * (vc * denominator))
+    let total = va + vb + vc;
+    &(a + &(&ab * (vb / total))) + &(&ac * (vc / total))
 }

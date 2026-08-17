@@ -10,14 +10,15 @@ pub(super) mod write;
 
 use crate::{
     geometry::{bvh::BoundingVolumeHierarchy, mesh::Mesh},
-    math::TensorRank1Vec2D,
+    math::{Reference, TensorRank1Vec2D},
+    units::Dimensionless,
 };
 use features::Features;
 use std::cell::OnceCell;
 
 const D: usize = 3;
 
-type Normals = TensorRank1Vec2D<D, 0>;
+type Normals = TensorRank1Vec2D<D, Reference, Dimensionless>;
 
 pub struct Tessellation {
     mesh: Mesh<D>,

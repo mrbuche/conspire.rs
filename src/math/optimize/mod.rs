@@ -5,26 +5,38 @@ mod constraint;
 mod gradient_descent;
 mod line_search;
 mod newton_raphson;
+mod strategy;
+mod tolerance;
+mod trust_region;
 
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
 pub use line_search::{LineSearch, LineSearchError};
 pub use newton_raphson::NewtonRaphson;
+pub use strategy::SolveStrategy;
+pub use tolerance::Tolerances;
+pub use trust_region::TrustRegion;
 
-use crate::math::{
-    Jacobian, Scalar, Solution, Style, StyledError,
-    assert::AssertionError,
-    matrix::square::SquareMatrixError,
-    sparse::{SparseError, SparseSolver},
-    styled_error,
+use crate::{
+    math::{
+        Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
+        assert::AssertionError,
+        matrix::square::SquareMatrixError,
+        sparse::{CscMatrix, SparseError, SparseSolver},
+        styled_error,
+    },
+    units::UnitDiv,
 };
 use std::{fmt::Debug, ops::Mul};
 
+/// The step size taking a decrement of type `D` to an increment of `X`.
+pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;
+
 /// Zeroth-order root-finding algorithms.
-pub trait ZerothOrderRootFinding<X> {
+pub trait ZerothOrderRootFinding<F, X> {
     fn root(
         &self,
-        function: impl FnMut(&X) -> Result<X, String>,
+        function: impl FnMut(&X) -> Result<F, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -42,12 +54,39 @@ pub trait FirstOrderRootFinding<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
+/// First-order root-finding algorithms that hand out each increment before
+/// applying it.
+///
+/// The solver keeps the iteration; the increment is only lent to the caller so
+/// that whatever was eliminated from the system can be carried along with it.
+///
+/// The increment is lent whole, with the step it is about to be scaled by
+/// alongside. Elimination solves one direction for the eliminated variables and
+/// the retained ones together, so shortening the step has to shorten both by
+/// the same amount, exactly as it would if nothing had been eliminated. Handing
+/// over the shortened increment instead would invite a fresh solve against it,
+/// which is a different direction rather than less of the same one.
+///
+/// A step is offered before it is taken. The caller is asked to report whether
+/// the state it arrives at is admissible, and only later told to keep it.
+pub trait FirstOrderRootFindingIncremental<F, J, X> {
+    fn root_incremental(
+        &self,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
+        initial_guess: X,
+        equality_constraint: EqualityConstraint,
+        sparse: Option<SparseSolver>,
+    ) -> Result<X, OptimizationError>;
+}
+
 /// First-order optimization algorithms.
-pub trait FirstOrderOptimization<F, X> {
+pub trait FirstOrderOptimization<F, J, X> {
     fn minimize(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
-        jacobian: impl FnMut(&X) -> Result<X, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
     ) -> Result<X, OptimizationError>;
@@ -66,24 +105,83 @@ pub trait SecondOrderOptimization<F, J, H, X> {
     ) -> Result<X, OptimizationError>;
 }
 
+/// Second-order optimization algorithms that hand out each increment before
+/// applying it.
+///
+/// The counterpart of [`FirstOrderRootFindingIncremental`] for problems with an
+/// energy to descend, and the increment is lent on the same terms.
+///
+/// What the line search measures is the energy of the whole state, eliminated
+/// variables included. Each trial is offered through the same update, so the
+/// eliminated variables are already standing where the trial puts them by the
+/// time the energy there is asked for.
+pub trait SecondOrderOptimizationIncremental<F, J, H, X> {
+    #[allow(clippy::too_many_arguments)]
+    fn minimize_incremental(
+        &self,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        hessian: impl FnMut(&X) -> Result<H, String>,
+        update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
+        initial_guess: X,
+        equality_constraint: EqualityConstraint,
+        sparse: Option<SparseSolver>,
+    ) -> Result<X, OptimizationError>;
+}
+
+/// First-order root-finding algorithms for problems split into global and local variables.
+#[allow(clippy::too_many_arguments)]
+pub trait FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
+    fn root_block(
+        &self,
+        residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
+        residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
+        tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
+        initial_guess: (U, V),
+        constraint_global: (CscMatrix, Vector),
+        constraint_local: (CscMatrix, Vector),
+        sparse: Option<SparseSolver>,
+        strategy: SolveStrategy,
+    ) -> Result<(U, V), OptimizationError>;
+}
+
+/// Second-order optimization algorithms for problems split into global and local variables.
+#[allow(clippy::too_many_arguments)]
+pub trait SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
+    fn minimize_block(
+        &self,
+        function: impl FnMut(&U, &V) -> Result<F, String>,
+        residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
+        residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
+        tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
+        initial_guess: (U, V),
+        constraint_global: (CscMatrix, Vector),
+        constraint_local: (CscMatrix, Vector),
+        sparse: Option<SparseSolver>,
+        strategy: SolveStrategy,
+    ) -> Result<(U, V), OptimizationError>;
+}
+
 trait BacktrackingLineSearch<J, X>
 where
     Self: Debug,
 {
-    fn backtracking_line_search(
+    fn backtracking_line_search<D, E>(
         &self,
-        mut function: impl FnMut(&X) -> Result<Scalar, String>,
+        mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
-        decrement: &X,
+        decrement: &D,
         step_size: Scalar,
     ) -> Result<Scalar, OptimizationError>
     where
-        J: Jacobian,
-        for<'a> &'a J: From<&'a X>,
+        J: Erase<Erased = E> + Jacobian,
+        D: Erase<Erased = E> + Tensor,
+        E: Tensor,
         X: Solution,
-        for<'a> &'a X: Mul<Scalar, Output = X>,
+        <X as Tensor>::Unit: UnitDiv<<D as Tensor>::Unit>,
+        for<'a> &'a D: Mul<StepSize<D, X>, Output = X>,
     {
         if matches!(self.get_line_search(), LineSearch::None) {
             Ok(step_size)

@@ -5,7 +5,7 @@ use crate::{
         mesh::{Connectivity, Mesh, PolytopalConnectivity, tessellation::Tessellation},
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
-    math::{CrossProduct, Tensor},
+    math::{CrossProduct, Quantity, Tensor},
 };
 use std::collections::HashMap;
 
@@ -21,7 +21,7 @@ fn cut(
 }
 
 fn cut_uniform(tessellation: &Tessellation, spacing: f64) -> Result<Mesh<3>, &'static str> {
-    let (mesh, classes) = tessellation.lattice_background(spacing)?;
+    let (mesh, classes) = tessellation.lattice_background(Quantity::new(spacing))?;
     tessellation.cut(mesh, &classes)
 }
 
@@ -67,7 +67,7 @@ pub(super) fn signed_volumes(
                         .map(|i| {
                             let one = &coordinates[nodes[i]];
                             let two = &coordinates[nodes[(i + 1) % nodes.len()]];
-                            &middle * &one.cross(two) / 6.0
+                            (&middle * &one.cross(two)).value() / 6.0
                         })
                         .sum();
                     if owner[&face] == cell {
@@ -226,7 +226,7 @@ fn cut_sphere() {
         .filter(|&(_, &count)| count == 1)
         .for_each(|(key, _)| {
             key.iter().for_each(|&node| {
-                let norm = coordinates[node].norm();
+                let norm = coordinates[node].norm().value();
                 assert!((0.985..=1.0 + 1e-9).contains(&norm), "{norm}")
             })
         });
@@ -245,7 +245,7 @@ fn cut_sphere() {
                         .map(|&face| faces_nodes[face].clone())
                         .collect();
                     let star = star_volume(&polygons, coordinates);
-                    assert!(volume < star * (1.0 + 1e-9), "{volume} {star}")
+                    assert!(volume < star.value() * (1.0 + 1e-9), "{volume} {star}")
                 })
         }
         _ => panic!(),
@@ -270,6 +270,7 @@ fn cut_polyhedral_sphere() {
         .map(|triangle| {
             let coordinates = tessellation.mesh().coordinates();
             (coordinates[triangle[0]].cross(&coordinates[triangle[1]]) * &coordinates[triangle[2]])
+                .value()
                 / 6.0
         })
         .sum();
@@ -346,7 +347,7 @@ fn rotated_box(minimum: [f64; 3], maximum: [f64; 3], angle: f64) -> Tessellation
         .mesh()
         .coordinates()
         .iter()
-        .map(|p| rotate([p[0], p[1], p[2]]))
+        .map(|p| rotate([p[0].value(), p[1].value(), p[2].value()]))
         .collect();
     Tessellation::from(Mesh::from((
         vec![Connectivity::Triangular(triangles.into())],
@@ -362,7 +363,7 @@ fn corners_landed_on(tessellation: &Tessellation, mesh: &Mesh<3>) -> usize {
         .filter(|corner| {
             mesh.coordinates()
                 .iter()
-                .any(|point| (point - *corner).norm() < 1.0e-9)
+                .any(|point| (point - *corner).norm() < Quantity::new(1.0e-9))
         })
         .count()
 }
@@ -383,7 +384,7 @@ fn a_corner_takes_at_most_one_node() {
         let landed = mesh
             .coordinates()
             .iter()
-            .filter(|point| (*point - corner).norm() < 1.0e-9)
+            .filter(|point| (*point - corner).norm() < Quantity::new(1.0e-9))
             .count();
         assert!(landed <= 1, "{landed} nodes on {corner}")
     })

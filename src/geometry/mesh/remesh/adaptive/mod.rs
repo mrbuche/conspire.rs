@@ -6,7 +6,8 @@ use crate::{
         Coordinates,
         mesh::{Mesh, differential::jet::vertex_jets},
     },
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
+    units::{Length, ReciprocalLength},
 };
 
 const D: usize = 3;
@@ -16,9 +17,9 @@ impl Mesh<3> {
     pub(crate) fn adaptive_remesh(
         self,
         iterations: usize,
-        tolerance: Scalar,
-        minimum: Scalar,
-        maximum: Scalar,
+        tolerance: Quantity<Length>,
+        minimum: Quantity<Length>,
+        maximum: Quantity<Length>,
         gradation: Scalar,
     ) -> Result<Self, &'static str> {
         if iterations == 0 {
@@ -51,12 +52,12 @@ impl Mesh<3> {
 pub(crate) fn sizing_field(
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<D>,
-    tolerance: Scalar,
-    minimum: Scalar,
-    maximum: Scalar,
+    tolerance: Quantity<Length>,
+    minimum: Quantity<Length>,
+    maximum: Quantity<Length>,
     gradation: Scalar,
-) -> Vec<Scalar> {
-    let mut field: Vec<Scalar> = vertex_jets(connectivity, coordinates)
+) -> Vec<Quantity<Length>> {
+    let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates)
         .into_iter()
         .map(|jet| {
             jet.map_or(maximum, |jet| {
@@ -69,25 +70,25 @@ pub(crate) fn sizing_field(
 }
 
 fn dunyach_length(
-    curvature: Scalar,
-    tolerance: Scalar,
-    minimum: Scalar,
-    maximum: Scalar,
-) -> Scalar {
-    if curvature <= 0.0 {
+    curvature: Quantity<ReciprocalLength>,
+    tolerance: Quantity<Length>,
+    minimum: Quantity<Length>,
+    maximum: Quantity<Length>,
+) -> Quantity<Length> {
+    if curvature <= Quantity::default() {
         return maximum;
     }
-    let argument = 6.0 * tolerance / curvature - 3.0 * tolerance * tolerance;
-    let length = if argument > 0.0 {
-        argument.sqrt()
+    let argument = tolerance * 6.0 / curvature - tolerance * tolerance * 3.0;
+    let length = if argument > Quantity::default() {
+        Quantity::new(argument.value().sqrt())
     } else {
         minimum
     };
-    length.clamp(minimum, maximum)
+    length.max(minimum).min(maximum)
 }
 
 fn graduate(
-    field: &mut [Scalar],
+    field: &mut [Quantity<Length>],
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<D>,
     gradation: Scalar,
@@ -97,7 +98,7 @@ fn graduate(
         changed = false;
         for &[a, b, c] in connectivity {
             for (i, j) in [(a, b), (b, c), (c, a)] {
-                let slope = gradation * (&coordinates[j] - &coordinates[i]).norm();
+                let slope = (&coordinates[j] - &coordinates[i]).norm() * gradation;
                 if field[i] + slope < field[j] {
                     field[j] = field[i] + slope;
                     changed = true;

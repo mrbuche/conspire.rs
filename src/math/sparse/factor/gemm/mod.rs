@@ -1,8 +1,5 @@
-#[cfg(target_arch = "x86_64")]
-mod avx;
-
 use super::super::matrix::CscMatrix;
-use crate::math::Scalar;
+use crate::math::{Scalar, simd};
 
 pub(super) const NONE: usize = usize::MAX;
 
@@ -98,78 +95,6 @@ pub(super) fn reach_sorted(
     reach.sort_unstable();
 }
 
-/// Subtracts `w` times a column slice from an equal-length target slice.
-pub(super) fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
-    #[cfg(target_arch = "x86_64")]
-    if super::simd() {
-        return unsafe { avx::axpy(target, column, w) };
-    }
-    target
-        .iter_mut()
-        .zip(column.iter())
-        .for_each(|(target_r, value)| *target_r -= value * w);
-}
-
-fn rank_one_quad(
-    temp_0: &mut [Scalar],
-    temp_1: &mut [Scalar],
-    temp_2: &mut [Scalar],
-    temp_3: &mut [Scalar],
-    column: &[Scalar],
-    u: [Scalar; 4],
-) {
-    #[cfg(target_arch = "x86_64")]
-    if super::simd() {
-        return unsafe { avx::rank_one_quad(temp_0, temp_1, temp_2, temp_3, column, u) };
-    }
-    column
-        .iter()
-        .zip(
-            temp_0
-                .iter_mut()
-                .zip(temp_1.iter_mut())
-                .zip(temp_2.iter_mut().zip(temp_3.iter_mut())),
-        )
-        .for_each(|(&value, ((a_0, a_1), (a_2, a_3)))| {
-            *a_0 += value * u[0];
-            *a_1 += value * u[1];
-            *a_2 += value * u[2];
-            *a_3 += value * u[3];
-        });
-}
-
-#[allow(clippy::too_many_arguments)]
-fn rank_two_quad(
-    temp_0: &mut [Scalar],
-    temp_1: &mut [Scalar],
-    temp_2: &mut [Scalar],
-    temp_3: &mut [Scalar],
-    column: &[Scalar],
-    other: &[Scalar],
-    u: [Scalar; 4],
-    w: [Scalar; 4],
-) {
-    #[cfg(target_arch = "x86_64")]
-    if super::simd() {
-        return unsafe { avx::rank_two_quad(temp_0, temp_1, temp_2, temp_3, column, other, u, w) };
-    }
-    column
-        .iter()
-        .zip(other.iter())
-        .zip(
-            temp_0
-                .iter_mut()
-                .zip(temp_1.iter_mut())
-                .zip(temp_2.iter_mut().zip(temp_3.iter_mut())),
-        )
-        .for_each(|((&value, &second), ((a_0, a_1), (a_2, a_3)))| {
-            *a_0 += value * u[0] + second * w[0];
-            *a_1 += value * u[1] + second * w[1];
-            *a_2 += value * u[2] + second * w[2];
-            *a_3 += value * u[3] + second * w[3];
-        });
-}
-
 /// Applies a source column pair to four target slices with multipliers `u`
 /// and `w`, skipping all-zero multiplier quads.
 #[allow(clippy::too_many_arguments)]
@@ -186,11 +111,11 @@ fn pair_quad(
     let any_u = u.iter().any(|&value| value != 0.0);
     let any_w = w.iter().any(|&value| value != 0.0);
     if any_u && any_w {
-        rank_two_quad(temp_0, temp_1, temp_2, temp_3, column, other, u, w);
+        simd::rank_two_quad(temp_0, temp_1, temp_2, temp_3, column, other, u, w);
     } else if any_u {
-        rank_one_quad(temp_0, temp_1, temp_2, temp_3, column, u);
+        simd::rank_one_quad(temp_0, temp_1, temp_2, temp_3, column, u);
     } else if any_w {
-        rank_one_quad(temp_0, temp_1, temp_2, temp_3, other, w);
+        simd::rank_one_quad(temp_0, temp_1, temp_2, temp_3, other, w);
     }
 }
 
@@ -262,12 +187,12 @@ pub(super) fn gemm_wide(
         let column = &panel[c * m + lo..c * m + lo + count];
         let u = [read(0, c), read(1, c), read(2, c), read(3, c)];
         if u.iter().any(|&value| value != 0.0) {
-            rank_one_quad(temp_0, temp_1, temp_2, temp_3, column, u);
+            simd::rank_one_quad(temp_0, temp_1, temp_2, temp_3, column, u);
         }
         if chunk > 4 {
             let u = [read(4, c), read(5, c), read(6, c), read(7, c)];
             if u.iter().any(|&value| value != 0.0) {
-                rank_one_quad(temp_4, temp_5, temp_6, temp_7, column, u);
+                simd::rank_one_quad(temp_4, temp_5, temp_6, temp_7, column, u);
             }
         }
     }

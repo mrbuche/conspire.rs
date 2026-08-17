@@ -4,7 +4,11 @@ mod test;
 mod triangles;
 mod uniform;
 
-use crate::{geometry::mesh::Mesh, math::Scalar};
+use crate::{
+    geometry::mesh::Mesh,
+    math::{Quantity, Scalar},
+    units::Length,
+};
 
 const D: usize = 3;
 
@@ -27,12 +31,12 @@ pub enum RemeshingMetric {
 /// Sizing for isotropic remeshing.
 pub enum IsotropicSizing {
     /// Constant target edge length over the whole mesh ([`None`] = mean edge length).
-    Uniform { length: Option<Scalar> },
+    Uniform { length: Option<Quantity<Length>> },
     /// Curvature-driven scalar size field (Dunyach).
     Adaptive {
-        tolerance: Scalar,
-        minimum: Scalar,
-        maximum: Scalar,
+        tolerance: Quantity<Length>,
+        minimum: Quantity<Length>,
+        maximum: Quantity<Length>,
         gradation: Scalar,
     },
 }

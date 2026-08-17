@@ -1,11 +1,15 @@
-use crate::geometry::ntree::{
-    Octree,
-    balance::{Balance, Balancing},
-    node::{Kind, Node},
-    pair::Pairing,
-    rescale::Rescaling,
-    write::htg::WriteHtg,
+use crate::geometry::{
+    Coordinate,
+    ntree::{
+        Octree,
+        balance::{Balance, Balancing},
+        node::{Kind, Node},
+        pair::Pairing,
+        rescale::Rescaling,
+        write::htg::WriteHtg,
+    },
 };
+use crate::math::Quantity;
 
 fn fuzz_tree(seed: u64, length: u16, picks: usize) -> Octree<u16, usize> {
     let mut state = seed
@@ -28,8 +32,8 @@ fn fuzz_tree(seed: u64, length: u16, picks: usize) -> Octree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [length as f64 / 2.0; 3],
-            cell: 1.0,
+            center: Coordinate::const_from([length as f64 / 2.0; 3]),
+            cell: Quantity::new(1.0),
             half: length as f64 / 2.0,
         },
     };
@@ -87,8 +91,8 @@ fn build_jump() -> Octree<u16, usize> {
         }],
         paired: Pairing::None,
         rescale: Rescaling {
-            center: [4.0; 3],
-            cell: 1.0,
+            center: Coordinate::const_from([4.0; 3]),
+            cell: Quantity::new(1.0),
             half: 4.0,
         },
     };

@@ -80,3 +80,15 @@ fn square_matrix_mul_other_square_matrix_dim_9() -> Result<(), AssertionError> {
         &get_square_matrix_mul_other_square_matrix_dim_9(),
     )
 }
+
+#[test]
+fn quadratic_form_matches_multiplication() {
+    use crate::math::Hessian;
+    let mut square_matrix = SquareMatrix::zero(3);
+    (0..3).for_each(|i| (0..3).for_each(|j| square_matrix[i][j] = (1 + i * 3 + j) as f64));
+    let vector = Vector::from([1.0, -2.0, 3.0]);
+    let form = square_matrix.quadratic_form(&vector);
+    Assert::default()
+        .eq_within_tols(form, &(&vector * (square_matrix * &vector)))
+        .unwrap()
+}

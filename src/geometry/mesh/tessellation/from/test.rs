@@ -1,25 +1,25 @@
 use crate::math::assert::Assert;
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinates, Direction,
         mesh::{Connectivity, Mesh, tessellation::Tessellation, test::mesh},
     },
     math::{Tensor, assert::AssertionError},
 };
 
-pub const NORMALS: [Coordinate<3>; 12] = [
-    Coordinate::const_from([0.0, 0.0, -1.0]),
-    Coordinate::const_from([0.0, 0.0, -1.0]),
-    Coordinate::const_from([0.0, 0.0, 1.0]),
-    Coordinate::const_from([0.0, 0.0, 1.0]),
-    Coordinate::const_from([0.0, -1.0, 0.0]),
-    Coordinate::const_from([0.0, -1.0, 0.0]),
-    Coordinate::const_from([0.0, 1.0, 0.0]),
-    Coordinate::const_from([0.0, 1.0, 0.0]),
-    Coordinate::const_from([-1.0, 0.0, 0.0]),
-    Coordinate::const_from([-1.0, 0.0, 0.0]),
-    Coordinate::const_from([1.0, 0.0, 0.0]),
-    Coordinate::const_from([1.0, 0.0, 0.0]),
+pub const NORMALS: [Direction<3>; 12] = [
+    Direction::const_from([0.0, 0.0, -1.0]),
+    Direction::const_from([0.0, 0.0, -1.0]),
+    Direction::const_from([0.0, 0.0, 1.0]),
+    Direction::const_from([0.0, 0.0, 1.0]),
+    Direction::const_from([0.0, -1.0, 0.0]),
+    Direction::const_from([0.0, -1.0, 0.0]),
+    Direction::const_from([0.0, 1.0, 0.0]),
+    Direction::const_from([0.0, 1.0, 0.0]),
+    Direction::const_from([-1.0, 0.0, 0.0]),
+    Direction::const_from([-1.0, 0.0, 0.0]),
+    Direction::const_from([1.0, 0.0, 0.0]),
+    Direction::const_from([1.0, 0.0, 0.0]),
 ];
 
 pub fn tessellation() -> Tessellation {
@@ -39,7 +39,7 @@ fn triangular_mesh() -> Result<(), AssertionError> {
     ]);
     let mesh = Mesh::from((connectivities, coordinates));
     let tessellation = Tessellation::from(mesh);
-    let up = Coordinate::const_from([0.0, 0.0, 1.0]);
+    let up = Direction::const_from([0.0, 0.0, 1.0]);
     tessellation
         .normals()
         .iter()
