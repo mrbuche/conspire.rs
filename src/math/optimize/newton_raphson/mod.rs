@@ -640,14 +640,13 @@ fn kkt_preconditioning<H>(
 where
     H: Hessian,
 {
+    let tangent_diagonal = |i: usize| match tangent.entry(i, i).abs() {
+        0.0 => 1.0,
+        entry => entry,
+    };
     let diagonal = || {
         let mut diagonal = Vector::zero(num_total);
-        (0..num_variables).for_each(|i| {
-            diagonal[i] = match tangent.entry(i, i).abs() {
-                0.0 => 1.0,
-                entry => entry,
-            }
-        });
+        (0..num_variables).for_each(|i| diagonal[i] = tangent_diagonal(i));
         constraint_matrix.iter().enumerate().for_each(|(a, row)| {
             let schur: Scalar = row
                 .iter()
@@ -661,21 +660,45 @@ where
         });
         diagonal
     };
+    //
+    // The diagonal of the Schur complement, on its own, standing in for the
+    // full complement where that fails to come out positive definite. Only
+    // the multiplier block is this weak — the incomplete factorization is
+    // kept for the variables, which is the block that actually has room to
+    // be indefinite and the one this was built for.
+    //
+    let diagonal_schur = || {
+        let mut matrix = SquareMatrix::zero(constraint_matrix.len());
+        constraint_matrix.iter().enumerate().for_each(|(a, row)| {
+            let schur: Scalar = row
+                .iter()
+                .enumerate()
+                .map(|(j, entry)| entry * entry / tangent_diagonal(j))
+                .sum();
+            matrix[a][a] = match schur {
+                0.0 => 1.0,
+                schur => schur,
+            }
+        });
+        matrix
+            .factorize_ldl()
+            .expect("a diagonal matrix with no zero entries always factorizes")
+    };
     match krylov.preconditioner {
         Preconditioner::Jacobi => Preconditioning::Diagonal(diagonal()),
         Preconditioner::None => Preconditioning::None,
-        Preconditioner::IncompleteLdl { .. } => {
-            match krylov
-                .factorization(num_variables, tangent.lower_triangle())
-                .map(|factor| (kkt_schur(&factor, constraint_matrix), factor))
-            {
-                Some((Some(schur), factor)) => Preconditioning::Incomplete {
+        Preconditioner::IncompleteLdl { .. } => match krylov
+            .factorization(num_variables, tangent.lower_triangle())
+        {
+            Some(factor) => {
+                let schur = kkt_schur(&factor, constraint_matrix).unwrap_or_else(diagonal_schur);
+                Preconditioning::Incomplete {
                     factor: Box::new(factor),
                     schur: Some(Box::new(schur)),
-                },
-                _ => Preconditioning::Diagonal(diagonal()),
+                }
             }
-        }
+            None => Preconditioning::Diagonal(diagonal()),
+        },
     }
 }
 
