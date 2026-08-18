@@ -226,12 +226,87 @@ Schur complement specifically comes out indefinite, which is the common
 case; it just isn't enough on its own for this specific pathological
 tangent.
 
-**Where this leaves the original two-part bar.** The deformed tangent
-factorizes without being refused — done. The linear solves converge on a
-true residual — not on this specific tangent, for the reason above; this
-document's job (Stage A, landed and correct) is finished, and what remains
-belongs to Stage B or to a numerically-robust catastrophic-cancellation
-guard in MINRES's own PD check, both out of scope here.
+**Where this left the original two-part bar, at that point.** The deformed
+tangent factorizes without being refused — done. The linear solves converge
+on a true residual — not on this specific tangent, for the reason above.
+Stage A itself (landed and correct) was finished; what remained belonged to
+Stage B or to a numerically-robust catastrophic-cancellation guard. The next
+section is that guard, attempted.
+
+## The inverse-norm-bounded criterion (ILUPACK)
+
+Asked a user for pointers on codes that handle this well; they named
+ILUPACK (Bollhöfer & Saad) and asked specifically whether it applied here
+and whether it beat SYM-ILDL. Read *Multilevel Preconditioners Constructed
+From Inverse-Based ILUs* (2004/2006) in full before writing anything —
+worth doing again before touching this section, since the theorem numbers
+below are theirs, not reconstructed from memory.
+
+**What it says, precisely.** Their Theorem 6 / Corollary 3: if `‖L⁻¹‖,
+‖U⁻¹‖ ≤ κ` at every step, dropping an entry is only safe when its magnitude
+is below `ε/κ²` — the drop threshold has to scale with how amplifying the
+*current inverse factors* are, not sit at a fixed constant like `GROWTH`.
+This is precisely `9.68e7`: a factor can pass both `GROWTH` and `UNSTABLE`
+(which bound the entries and pivots of `L` directly) while `‖L⁻¹‖` is still
+enormous, because neither one ever looks at the inverse.
+
+**Is it better than SYM-ILDL?** Their own numerical comparison (§4)
+answers this, and it is more nuanced than yes: at drop tolerance `1e-2`,
+plain threshold-pivoted ILU (ILUTP) solves ~72–76% of their test problems;
+single-level *inverse-aware* dropping alone (ILUTC — the closest analogue
+to grafting their criterion onto Stage A as-is) solves ~29–52%, the
+*worst* of their three compared methods; full multilevel ILUPACK solves
+~81–90%. The criterion alone is not what buys the robustness — the
+multilevel architecture is (defer whatever the criterion can't keep safe to
+a Schur complement, recurse on that as a smaller instance of the same
+problem). That is a different, larger project than Stage A or Stage B, out
+of scope here; see [[pivoting_stage_a]] for the fuller writeup of this
+conversation.
+
+**What was landed anyway, and why.** The criterion swap alone — no
+multilevel — is still a real, bounded, worthwhile change: it turns "silently
+accept a factor whose true inverse is catastrophic and crash MINRES three
+calls later" into "refuse the factorization for a legible, correct reason,
+right where the danger actually is." Added `rho`, a running bound on the
+row-sum norm of the inverse factor — for unit lower triangular `L`, row `i`
+of `L⁻¹` satisfies `(L⁻¹)ᵢⱼ = δᵢⱼ - Σₖ Lᵢₖ(L⁻¹)ₖⱼ`, so its row-sum norm is
+bounded by `1 + Σₖ|Lᵢₖ|·ρₖ` — exactly the entries and dependencies a row's
+own Crout construction already has in hand, so tracking it costs nothing
+extra. `AMPLIFICATION` drops a fill entry that would push this too far;
+`INVERSE_UNSTABLE` refuses the whole factorization, mirroring `UNSTABLE`
+but on the amplified quantity instead of the raw one.
+
+Measured directly against the real tangent, not a synthetic construction —
+small synthetic matrices did not discriminate this mechanism at all,
+matching the exact pattern `SAFE`'s own tuning hit earlier in this
+document:
+
+| threshold | step 1 (reference) | step 2 (deformed) |
+|---|---|---|
+| `INVERSE_UNSTABLE = 1e6` | refused (!) — too tight, step 1 shouldn't be | refused |
+| `INVERSE_UNSTABLE = 1e12` | untouched, 0 drops | refused, `rho` up to `3.1e22` |
+| `INVERSE_UNSTABLE = 1e14` (landed) | untouched, 0 drops, MINRES byte-identical to baseline | refused, same `3.1e22` |
+
+Loosening the threshold from `1e12` to `1e14` did not change step 2's
+outcome at all — its `rho` reaches `3.1e22` regardless, thirteen orders of
+magnitude past anything a reasonable threshold could admit. That is the
+theory correctly detecting genuine, severe ill-conditioning, exactly what
+the paper's own comparison predicts a single-level criterion can detect but
+not cure. `1e14` sits with wide margin above step 1's observed `~5.7e9`
+(three-plus orders of headroom) and wide margin below step 2's `3.1e22`
+(eight-plus orders below it) — the gap between the two problems is large
+enough that the exact threshold value doesn't matter much, only that it sits
+somewhere in that gap.
+
+**Where this leaves the two-part bar now.** The deformed tangent factorizes
+without being refused for the *wrong* reason, and is now correctly refused
+for a *right* one — the downstream `PreconditionerNotPositiveDefinite`
+crash this was chasing cannot recur through this path, because the
+factorization that would produce it is caught first. The linear solves
+converging on a true residual is still open, and still belongs to Stage B
+or full multilevel — this session's honest answer is that a single-level
+criterion, however correct, was never going to close that gap, and the
+paper says so about its own version of the same idea.
 
 **Stage B — 2×2 blocks.** Only after Stage A is green. This is where `D` stops
 being a vector and `|D|` stops being `abs`.
