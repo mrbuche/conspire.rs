@@ -16,7 +16,6 @@ impl Tessellation {
     /// Estimates local thickness at each node via the shape diameter function.[^1]
     ///
     /// [^1]: L. Shapira, A. Shamir, and D. Cohen-Or, [Visual Comp. **24**, 249 (2008)](https://doi.org/10.1007/s00371-007-0197-5).
-    ///
     pub fn shape_diameter_function(
         &self,
         half_angle: Scalar,
