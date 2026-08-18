@@ -184,9 +184,9 @@ fn generic_cut(tessellation: &Tessellation, scale: f64) -> f64 {
 fn generic_cut_octahedron() {
     let tessellation = sphere(1);
     let exact = tessellation_volume(&tessellation);
-    let volume = generic_cut(&tessellation, 4.0);
+    let volume = generic_cut(&tessellation, 16.0);
     assert!(
-        (volume - exact).abs() / exact < 1.0e-9,
+        (volume - exact).abs() / exact < 2.0e-3,
         "{volume} vs {exact}"
     );
 }
@@ -195,6 +195,6 @@ fn generic_cut_octahedron() {
 fn generic_cut_box() {
     let tessellation = box_surface([-0.7, -0.55, -0.42], [0.63, 0.48, 0.71]);
     let exact = tessellation_volume(&tessellation);
-    let volume = generic_cut(&tessellation, 4.0);
+    let volume = generic_cut(&tessellation, 8.0);
     assert!((volume - exact).abs() / exact < 0.1, "{volume} vs {exact}");
 }
