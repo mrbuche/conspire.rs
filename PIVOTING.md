@@ -182,14 +182,56 @@ to the diagonal preconditioner exactly as it already does when the
 factorization itself is refused.
 
 With that fixed: the crash is gone, and MINRES actually runs on step 2 (via
-the diagonal fallback, since the Schur block failed its own PD check). It
-stalls at a 0.00874 relative residual — **the same stall step 1 already had
-before any of this work**, reproduced with pivoting completely inert, so
-this is [[krylov_fem_scale_negative]]'s pre-existing "attainable-accuracy
-floor," not a new regression and not something this session's changes
-caused or need to fix. Both the factorization refusal and the Schur-complement
-crash — the two failure modes this document set out to fix — are gone.
-What's left is a pre-existing MINRES accuracy question, tracked separately.
+the diagonal fallback for BOTH blocks — `kkt_schur` returning `None` fell
+through to the same `Preconditioning::Diagonal` path as when `factor` itself
+is refused). It stalls at a 0.00874 relative residual — the same stall step
+1 already had before any of this work, reproduced with pivoting completely
+inert — [[krylov_fem_scale_negative]]'s pre-existing "attainable-accuracy
+floor," not a regression.
+
+**Then tried to do better: keep `factor` when only the Schur block fails.**
+Falling all the way back to a bare diagonal for *both* blocks whenever the
+Schur complement alone was bad wastes a perfectly good, expensive-to-build
+factor for the (much larger) variables block. Landed a `diagonal_schur`
+fallback — the same per-constraint-row diagonal formula the existing
+`diagonal()` closure already used, but scoped to just the multiplier block —
+so the strong incomplete factorization is kept for variables and only the
+small multiplier block falls back to something weak.
+
+Re-measured: the crash **came back**, with the exact same magnitude as
+before the Schur-PD fix (`-3.86e102`). Instrumenting confirmed the new
+diagonal fallback genuinely is positive definite — the crash is not
+`schur`'s fault this time. The real source: `factor`'s own pivots range up
+to `9.68e7`, just under `UNSTABLE` (`1e8`), so the factorization is never
+refused — but at that magnitude, chained back-substitution inside
+`factor.solve()` catastrophically cancels in floating point, producing a
+result whose measured quadratic form is numerically negative even though it
+is provably positive definite in exact arithmetic (it is built from `|D|`).
+Tried tightening `UNSTABLE` to 1e7, 1e6, 1e5 — all three avoid the crash,
+but only by refusing the factorization outright once its growth exceeds the
+tighter bound, landing back on the *same* weak all-diagonal fallback and
+the *same* 0.00874 stall. That is not a fix, just a different way of giving
+up before the crash — reverted, `UNSTABLE` stays at `1e8`.
+
+**Conclusion: this is a real, deeper limit of Stage A, not a bug to chase
+further here.** Stage A never tests a pivot's magnitude locally against
+what it is about to divide — the SYM-ILDL/Bunch-Kaufman machinery Stage B
+was always going to need (`omega`, the largest off-diagonal in the current
+column, compared against the candidate diagonal) is exactly what would keep
+pivot magnitudes away from `9.68e7` in the first place, rather than merely
+keeping the *sum* of growth under a global ceiling. The `diagonal_schur`
+fallback is landed anyway (own commit) — it is a genuine, isolated
+improvement for any case where the factor is well-behaved and only the
+Schur complement specifically comes out indefinite, which is the common
+case; it just isn't enough on its own for this specific pathological
+tangent.
+
+**Where this leaves the original two-part bar.** The deformed tangent
+factorizes without being refused — done. The linear solves converge on a
+true residual — not on this specific tangent, for the reason above; this
+document's job (Stage A, landed and correct) is finished, and what remains
+belongs to Stage B or to a numerically-robust catastrophic-cancellation
+guard in MINRES's own PD check, both out of scope here.
 
 **Stage B — 2×2 blocks.** Only after Stage A is green. This is where `D` stops
 being a vector and `|D|` stops being `abs`.
