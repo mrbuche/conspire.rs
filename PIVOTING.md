@@ -85,8 +85,8 @@ growth control for a fraction of the difficulty, and it is independently
 valuable. Land and verify it before starting Stage B.
 
 **Status (2026-08-17, `line-search`, `src/math/sparse/factor/incomplete/mod.rs`):
-Stage A is landed and unit-verified; end-to-end verification against the real
-deformed tangent is NOT done — see below before trusting it further.**
+Stage A is landed, unit-verified, AND now confirmed end-to-end against the
+real deformed tangent — see the measurement below.**
 
 Built as a Crout factorization with an eagerly-maintained Schur-complement
 diagonal (`diag`): each finalized column's not-yet-eliminated neighbors are
@@ -114,31 +114,58 @@ step-1 tangent through an ad hoc `Krylov`-gated measurement:
 | always take global largest diagonal | diverges (1.17x) |
 | candidate unless diag < 1% of best available | diverges (1.00x, no progress) |
 | candidate unless diag < 10% of best available | diverges (1.47x, worse) |
-| candidate unless \|diag\| < `SAFE` = 1e-4 (absolute) | matches baseline exactly, zero reorderings |
 
 Reordering is not free even when it is "safe" by some relative measure — it
 disturbs the fill an incomplete factorization keeps, and incomplete
 factorizations are chaotically sensitive to which fill survives (one early
 swap changes what the `fill`-cap keeps for the rest of the matrix). The
-landed rule (`SAFE` in `mod.rs`, currently `1e-4`) tests the *natural* next
-candidate's own diagonal in absolute terms and only searches for a
-replacement when that candidate is actually close to `FLOOR` territory — this
-is deliberately much stricter than a textbook Bunch-Kaufman ratio test.
+landed rule tests the *natural* next candidate's own diagonal in absolute
+terms and only searches for a replacement when that candidate has actually
+fallen small — deliberately much stricter than a textbook Bunch-Kaufman
+ratio test, and immune to the relative-comparison trap above by construction.
 
-**What is NOT yet verified: whether `SAFE = 1e-4` is loose enough to
-actually rescue the deformed-configuration (step 2) tangent this was all
-built for.** The ad hoc measurement above never got past step 1 under
-`KrylovMethod::Minres` — it stalls at a relative residual of 0.00874
-("attainable-accuracy floor," matches [[krylov_fem_scale_negative]]'s prior
-observation, not a regression) before `StoppedShortening` fires, so the test
-harness used here (env-gated `LinearSolver::Krylov` in
-`hyperelastic/mod.rs`, reverted before every commit, not present in the tree)
-never reaches step 2. Re-run the end-to-end check from this document's
-original instructions — ideally reproducing whatever exact configuration
-previously got step 1 to 92 converged iterations — before believing `SAFE`'s
-value one way or the other on the real problem. Do not tune `SAFE` further
-without that measurement; tuning blind is how the three failed rows above
-happened.
+**Getting a real reading on step 2 without depending on MINRES converging.**
+The linear system MINRES is asked to solve is a separate problem from
+whether the *factorization* refuses itself, and the two don't have to be
+measured together: Newton can be driven end-to-end on the proven
+`LinearSolver::Sparse` path (fast, exact, unaffected by any of this), while a
+side channel independently builds a `CscIncompleteLdl` from each iteration's
+real tangent purely to observe it — same `fill`/`threshold` a caller would
+use, nothing about the actual solve depends on it. That decouples "does
+Newton actually reach the deformed configuration" (yes, via Sparse, in
+~40 s) from "what does the incomplete factorization do with the tangent it's
+handed there" (the only thing in question), and let `SAFE` be swept quickly
+against the *real* step-2 tangent rather than guessed at:
+
+| `SAFE` | step 1 (3993 dof, reference config) | step 2 (deformed config) |
+|---|---|---|
+| 1e-4 – 3e-2 | untouched (0 negative pivots, matches baseline) | **REFUSED** |
+| 4.5e-2, 4.9e-2 | — | **REFUSED** |
+| **4e-2** | **untouched, MINRES byte-identical to baseline** | **946/3993 negative pivots, factorizes** |
+| 5e-2 | untouched, MINRES byte-identical to baseline | 1027/3993 negative pivots, factorizes |
+| 6e-2 | MINRES already diverges (1.0004x) | factorizes |
+| 1e-1 | MINRES diverges badly (1.47x) | factorizes |
+
+The step-2 crossover is not monotonic in `SAFE` (4.5e-2 and 4.9e-2 both
+refuse where 4e-2 and 5e-2 don't) — expected, given the chaotic fill
+sensitivity above, and a reason not to trust a single successful value
+without bracketing it. **`SAFE = 4e-2` is landed**: it is the smaller of the
+two working points found, confirmed twice over (both the negative-pivot
+count and, independently, `KrylovMethod::Minres`'s step-1 residual coming
+out byte-identical to the unpivoted baseline) to leave the healthy tangent's
+elimination order completely untouched, while turning the deformed tangent's
+factorization from a refusal into 946 negative pivots successfully kept.
+
+**What is still open: whether MINRES itself then converges on that
+now-unrefused step-2 system.** That is a different question from whether the
+factorization refuses itself, and this measurement didn't answer it — the
+side-channel harness observes the tangent without asking MINRES to solve it.
+Separately, step 1's own MINRES solve stalls at a 0.00874 relative residual
+regardless of `SAFE` (reproduced with pivoting completely inert) — a
+pre-existing "attainable-accuracy floor" per [[krylov_fem_scale_negative]],
+not something introduced here, but it is what stands between this and a
+fully Krylov-driven walk reaching step 2 on its own trajectory rather than
+via the Sparse-computed one used for this measurement.
 
 **Stage B — 2×2 blocks.** Only after Stage A is green. This is where `D` stops
 being a vector and `|D|` stops being `abs`.

@@ -39,7 +39,19 @@ const GROWTH: Scalar = 1e4;
 /// locality the matrix's own numbering gave the fill this keeps. What
 /// actually threatens the factorization is a pivot that has fallen toward
 /// zero, not one that is merely no longer the biggest.
-const SAFE: Scalar = 1e-4;
+///
+/// Measured against the real hyperelastic block this was built for (strain
+/// 13, 3993 free variables — see `PIVOTING.md`): the window between "leaves
+/// the healthy reference-configuration tangent alone" and "actually rescues
+/// the deformed one from refusal" is narrow and not monotonic in between —
+/// 4.5e-2 and 4.9e-2 both still refuse where 4e-2 and 5e-2 do not. 4e-2 is
+/// the smallest value that stopped the deformed tangent's factorization
+/// being refused in that measurement, chosen over 5e-2 for being the more
+/// conservative of the two working points, and confirmed to leave the
+/// reference-configuration tangent's elimination order untouched — its
+/// solve there is byte-identical to elimination forced into the matrix's own
+/// order.
+const SAFE: Scalar = 4e-2;
 
 /// An incomplete LDLᵀ factorization, kept to the sparsity it was given.
 ///
