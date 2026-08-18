@@ -13,6 +13,9 @@ use crate::{
 };
 
 impl Tessellation {
+    /// Estimates local thickness at each node via the shape diameter function.[^1]
+    ///
+    /// [^1]: L. Shapira, A. Shamir, and D. Cohen-Or, [Visual Comp. **24**, 249 (2008)](https://doi.org/10.1007/s00371-007-0197-5).
     pub fn shape_diameter_function(
         &self,
         half_angle: Scalar,
@@ -93,18 +96,20 @@ fn cone_directions(
 ) -> Vec<(Direction<3>, Scalar)> {
     let basis = axis.orthonormal_basis();
     let (axis, tangent_1, tangent_2) = (&basis[0], &basis[1], &basis[2]);
+    let sigma = half_angle / 3.0;
     let mut directions = Vec::with_capacity(1 + rings * azimuthal);
     directions.push((axis.clone(), 1.0));
     for ring in 1..=rings {
         let polar = half_angle * ring as Scalar / rings as Scalar;
         let (sin_polar, cos_polar) = polar.sin_cos();
+        let weight = (-0.5 * (polar / sigma).powi(2)).exp();
         for sample in 0..azimuthal {
             let (sin_azimuth, cos_azimuth) =
                 (TAU * sample as Scalar / azimuthal as Scalar).sin_cos();
             let direction = axis * cos_polar
                 + tangent_1 * (sin_polar * cos_azimuth)
                 + tangent_2 * (sin_polar * sin_azimuth);
-            directions.push((direction, cos_polar));
+            directions.push((direction, weight));
         }
     }
     directions
@@ -119,8 +124,6 @@ fn weighted_diameter(samples: Vec<(Quantity<Length>, Scalar)>) -> Quantity<Lengt
     distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let median = distances[distances.len() / 2];
     let mean = distances.iter().copied().sum::<Quantity<Length>>() / distances.len() as Scalar;
-    // A spread is a length, but the square root that takes it back to one is
-    // no unit this names, so the deviations are squared as the numbers they are.
     let standard_deviation = Quantity::new(
         (distances
             .iter()

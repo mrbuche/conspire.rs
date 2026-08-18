@@ -197,7 +197,7 @@ pub(super) fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
 #[test]
 fn cut_sphere() {
     let tessellation = sphere(3);
-    let mesh = cut(&tessellation, Balancing::Strong(1), 8.0).unwrap();
+    let mesh = cut(&tessellation, Balancing::Strong(1), 12.0).unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 2);
     let coordinates = mesh.coordinates();
     let mut usage: HashMap<Vec<usize>, usize> = HashMap::new();
@@ -282,7 +282,7 @@ fn cut_polyhedral_sphere() {
     ]
     .into_iter()
     .for_each(|balancing| {
-        let mesh = cut_polyhedral(&tessellation, balancing, 4.0).unwrap();
+        let mesh = cut_polyhedral(&tessellation, balancing, 8.0).unwrap();
         assert_eq!(mesh.number_of_element_blocks(), 1);
         match &mesh.connectivities()[0] {
             Connectivity::Polyhedral(connectivity) => {
