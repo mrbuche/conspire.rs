@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Scalar, Tensor, Vector};
+use crate::math::{Scalar, Vector};
 
 /// How near zero a pivot is allowed to come, once the matrix has been scaled so
 /// that its own diagonal is one, before it is held off at that distance instead.
@@ -28,6 +28,19 @@ const UNSTABLE: Scalar = 1e8;
 /// is worse than losing it.
 const GROWTH: Scalar = 1e4;
 
+/// How small the natural next candidate's own diagonal has to have fallen,
+/// on the scaled matrix, before it is passed over for the best one available.
+///
+/// This is judged against the candidate alone, not against whatever else is
+/// on offer: comparing it to the current largest would reorder every step
+/// some other index happens to edge the natural one out by, on a matrix
+/// where every diagonal is merely close rather than tied — and reordering is
+/// not free even where it is safe, since it is what disturbs whatever
+/// locality the matrix's own numbering gave the fill this keeps. What
+/// actually threatens the factorization is a pivot that has fallen toward
+/// zero, not one that is merely no longer the biggest.
+const SAFE: Scalar = 1e-4;
+
 /// An incomplete LDLᵀ factorization, kept to the sparsity it was given.
 ///
 /// A complete factorization of a sparse matrix fills in: entries the matrix
@@ -49,19 +62,45 @@ const GROWTH: Scalar = 1e4;
 /// What is done with a negative pivot instead is to take its magnitude when the
 /// factorization is applied — see [`Self::solve`]. Only the sign is discarded,
 /// and only where the matrix has none to give a preconditioner.
+///
+/// The factorization is of `P A Pᵀ`, not of `A` itself. Unpivoted elimination on
+/// an indefinite matrix has no bound on how far it can run away — a pivot small
+/// against what it divides throws out a large entry, and that entry poisons
+/// every correction after it. `P` is chosen during elimination, one index at a
+/// time, as whichever remaining index currently has the largest-magnitude
+/// diagonal entry of the Schur complement — the largest pivot on offer is the
+/// one least likely to be small against what it divides. Tracking that diagonal
+/// as elimination proceeds, rather than only discovering it the moment an index
+/// is eliminated, is what makes the choice possible at all: the moment a column
+/// finalizes, its effect on every remaining index it touches is folded into
+/// that index's running diagonal immediately, so comparing candidates is always
+/// a lookup and never a recomputation.
 pub struct CscIncompleteLdl {
-    /// The strictly lower triangle by rows, columns ascending within each row.
+    /// The strictly lower triangle by rows of elimination order, columns
+    /// ascending within each row.
     row_ptr: Vec<usize>,
     col_idx: Vec<usize>,
     values: Vec<Scalar>,
-    /// The pivots, held apart from the triangle they came out of.
+    /// The pivots, in elimination order, held apart from the triangle they came
+    /// out of.
     pivots: Vec<Scalar>,
-    /// What each row of the matrix was scaled by before any of this began.
+    /// What each row of the matrix was scaled by before any of this began, kept
+    /// in the matrix's own indices.
     ///
     /// The factorization is of the scaled matrix, so the scaling is applied
     /// either side of every solve to put the answer back in the terms it was
     /// asked in.
     scaling: Vec<Scalar>,
+    /// The permutation elimination chose: `permutation[step]` is the matrix's
+    /// own index of whatever was eliminated at that step.
+    permutation: Vec<usize>,
+    /// The inverse of `permutation`: `position[index]` is the step at which the
+    /// matrix's own `index` was eliminated. `solve` never needs to go from an
+    /// index to its step, only ever the other way, so this is kept only for
+    /// what reads a factorization by the matrix's own indices — today that is
+    /// only the tests.
+    #[cfg_attr(not(test), allow(dead_code))]
+    position: Vec<usize>,
     size: usize,
     /// How large the factor grew, and how many entries were dropped for growing.
     growth: (Scalar, usize),
@@ -104,31 +143,26 @@ impl CscIncompleteLdl {
             .filter(|&(row, column, _)| row >= column)
             .collect();
         gathered.sort_unstable_by_key(|&(row, column, _)| (row, column));
-        let mut matrix_ptr = vec![0_usize; size + 1];
-        let mut matrix_col = Vec::with_capacity(gathered.len());
-        let mut matrix_val: Vec<Scalar> = Vec::with_capacity(gathered.len());
-        let mut pivots = vec![Scalar::NAN; size];
+        let mut off_diagonal: Vec<(usize, usize, Scalar)> = Vec::with_capacity(gathered.len());
+        let mut diagonal = vec![Scalar::NAN; size];
         let mut last = (usize::MAX, usize::MAX);
         gathered.into_iter().for_each(|(row, column, value)| {
             if row == column {
-                if pivots[row].is_nan() {
-                    pivots[row] = value
+                if diagonal[row].is_nan() {
+                    diagonal[row] = value
                 } else {
-                    pivots[row] += value
+                    diagonal[row] += value
                 }
             } else if (row, column) == last {
-                *matrix_val.last_mut().unwrap() += value
+                off_diagonal.last_mut().unwrap().2 += value
             } else {
                 last = (row, column);
-                matrix_col.push(column);
-                matrix_val.push(value);
-                matrix_ptr[row + 1] += 1
+                off_diagonal.push((row, column, value))
             }
         });
-        if pivots.iter().any(|pivot| pivot.is_nan()) {
+        if diagonal.iter().any(|entry| entry.is_nan()) {
             return None;
         }
-        (0..size).for_each(|row| matrix_ptr[row + 1] += matrix_ptr[row]);
         //
         // The matrix is scaled so that every diagonal entry is one before any of
         // it is eliminated. Unpivoted elimination is unstable in proportion to
@@ -137,21 +171,24 @@ impl CscIncompleteLdl {
         // by; putting them all on the same footing first is the cheapest thing
         // that answers it, and it costs the factorization nothing else.
         //
-        let scaling: Vec<Scalar> = pivots
+        let scaling: Vec<Scalar> = diagonal
             .iter()
-            .map(|pivot| match pivot.abs() {
+            .map(|entry| match entry.abs() {
                 0.0 => 1.0,
                 magnitude => magnitude.sqrt().recip(),
             })
             .collect();
-        (0..size).for_each(|row| {
-            pivots[row] *= scaling[row] * scaling[row];
-            (matrix_ptr[row]..matrix_ptr[row + 1])
-                .for_each(|k| matrix_val[k] *= scaling[row] * scaling[matrix_col[k]])
+        diagonal
+            .iter_mut()
+            .zip(scaling.iter())
+            .for_each(|(entry, scale)| *entry *= scale * scale);
+        let mut neighbors: Vec<Vec<(usize, Scalar)>> = vec![Vec::new(); size];
+        off_diagonal.into_iter().for_each(|(row, column, value)| {
+            let scaled = value * scaling[row] * scaling[column];
+            neighbors[row].push((column, scaled));
+            neighbors[column].push((row, scaled))
         });
-        let factorization = Self::factorize(
-            size, matrix_ptr, matrix_col, matrix_val, pivots, scaling, fill, threshold,
-        );
+        let factorization = Self::factorize(size, neighbors, diagonal, scaling, fill, threshold);
         //
         // A factorization that ran away is refused rather than handed back. What
         // it produces is not a bad preconditioner but a meaningless one: the
@@ -163,90 +200,113 @@ impl CscIncompleteLdl {
         //
         (factorization.growth.0 <= UNSTABLE).then_some(factorization)
     }
-    /// Builds the factor a row at a time.
+    /// Builds the factor one pivot at a time, choosing at every step whichever
+    /// remaining index currently carries the largest-magnitude diagonal entry of
+    /// the Schur complement.
     ///
-    /// A row of the factor is the matrix's row less what every earlier row
-    /// accounts for, and what an earlier row accounts for reaches the columns
-    /// its own entries reach. So the earlier rows are met not by looking them up
-    /// but by having each finished row file itself under the columns it holds,
-    /// and the row being built is then assembled by scattering those columns
-    /// into it as they come due, in the order the columns come.
+    /// `diag` is that running diagonal, correct at every step for every index
+    /// not yet eliminated: the moment a column finalizes, its effect on every
+    /// remaining index it still touches is subtracted from `diag` immediately,
+    /// using exactly the entries just computed to finish that column — nothing
+    /// is ever recomputed to make a comparison. Picking the largest available
+    /// diagonal entry is what stands in here for the threshold test proper
+    /// Bunch-Kaufman pivoting runs against a candidate 2×2 block; there is no
+    /// 2×2 block yet, so there is nothing to test against, and the closest thing
+    /// this can still refuse is a step where nothing remaining rises above
+    /// `FLOOR` — handled the same way a small pivot always has been, by holding
+    /// it off at that distance rather than failing the whole factorization for
+    /// one bad step.
     ///
-    /// The order matters: a correction can put an entry where the matrix had
-    /// none, and that entry is itself due for correction later in the same row.
-    /// Taking the columns in ascending order is what makes every correction
-    /// arrive before the entry it lands on is finished, and what makes fill a
-    /// thing that can be noticed at all — a position not held by the matrix is
-    /// exactly one that arrived this way.
+    /// A column, once chosen, is built the same way a row of the old row-order
+    /// factorization was: its own entries are scattered, and corrections are
+    /// pulled in from every already-eliminated index it reaches, in the order
+    /// those indices were eliminated, via `columns` — but where the old
+    /// factorization only ever looked backward, at the indices before it in a
+    /// fixed order, this one has no fixed order to look backward through, so
+    /// `columns` is generalized: it holds, for a finalized index, not only what
+    /// depends on it (used the same way as before) but also what it still
+    /// depends on nothing, which is to say every not-yet-eliminated index it
+    /// reaches — the two directions of a symmetric matrix restricted to what
+    /// elimination order has actually resolved.
     #[allow(clippy::too_many_arguments)]
     fn factorize(
         size: usize,
-        matrix_ptr: Vec<usize>,
-        matrix_col: Vec<usize>,
-        matrix_val: Vec<Scalar>,
+        neighbors: Vec<Vec<(usize, Scalar)>>,
         diagonal: Vec<Scalar>,
         scaling: Vec<Scalar>,
         fill: usize,
         threshold: Scalar,
     ) -> Self {
-        //
-        // A pivot at zero is the one thing that still has no answer, division by
-        // it being what the next rows would do. The matrix arrives scaled to a
-        // diagonal of one, so how near zero is too near is a plain number rather
-        // than something measured against the matrix.
-        //
         let floor = FLOOR;
         let mut grew = (0.0 as Scalar, 0);
-        let mut pivots = vec![0.0; size];
+        let mut diag = diagonal.clone();
+        let mut eliminated = vec![false; size];
+        let mut position = vec![0_usize; size];
+        let mut permutation = Vec::with_capacity(size);
+        let mut pivots: Vec<Scalar> = Vec::with_capacity(size);
         let mut row_ptr = vec![0_usize; size + 1];
-        let mut col_idx = Vec::with_capacity(matrix_col.len());
-        let mut values = Vec::with_capacity(matrix_val.len());
+        let mut col_idx = Vec::new();
+        let mut values = Vec::new();
         let mut columns: Vec<Vec<(usize, Scalar)>> = vec![Vec::new(); size];
         let mut work = vec![0.0; size];
-        let mut reached = Vec::new();
         let mut held = vec![false; size];
         let mut kept = vec![false; size];
+        let mut reached = Vec::new();
         let mut pending = std::collections::BinaryHeap::new();
-        let mut row_entries: Vec<(usize, Scalar)> = Vec::new();
-        for row in 0..size {
-            let (start, stop) = (matrix_ptr[row], matrix_ptr[row + 1]);
+        let mut dependencies: Vec<(usize, Scalar)> = Vec::new();
+        let mut dependents: Vec<(usize, Scalar)> = Vec::new();
+        for step in 0..size {
+            //
+            // The next index in the order the matrix itself came in is used
+            // outright unless its own diagonal has fallen well behind the best
+            // one still on offer — reordering is not free even where it is
+            // safe, since it is what disturbs whatever locality the matrix's
+            // own numbering held for the fill this keeps, so it is spent only
+            // where the natural candidate could not stand behind a pivot
+            // threshold on its own.
+            //
+            let candidate = (0..size).find(|&index| !eliminated[index]).unwrap();
+            let pivot_index = if diag[candidate].abs() >= SAFE {
+                candidate
+            } else {
+                let mut largest_index = candidate;
+                let mut largest = -1.0 as Scalar;
+                (0..size).for_each(|index| {
+                    if !eliminated[index] && diag[index].abs() > largest {
+                        largest = diag[index].abs();
+                        largest_index = index
+                    }
+                });
+                largest_index
+            };
             let scale = threshold
-                * (diagonal[row] * diagonal[row]
-                    + (start..stop)
-                        .map(|k| matrix_val[k] * matrix_val[k])
+                * (diagonal[pivot_index] * diagonal[pivot_index]
+                    + neighbors[pivot_index]
+                        .iter()
+                        .map(|&(_, value)| value * value)
                         .sum::<Scalar>())
                 .sqrt();
-            (start..stop).for_each(|k| {
-                let column = matrix_col[k];
-                work[column] = matrix_val[k];
-                held[column] = true;
-                reached.push(column);
-                pending.push(std::cmp::Reverse(column))
+            neighbors[pivot_index].iter().for_each(|&(j, value)| {
+                work[j] = value;
+                held[j] = true;
+                reached.push(j);
+                if eliminated[j] {
+                    pending.push(std::cmp::Reverse((position[j], j)))
+                }
             });
-            row_entries.clear();
-            while let Some(std::cmp::Reverse(column)) = pending.pop() {
-                let entry = work[column] / pivots[column];
+            dependencies.clear();
+            while let Some(std::cmp::Reverse((_, column))) = pending.pop() {
+                let entry = work[column] / pivots[position[column]];
                 //
                 // A position the matrix holds is kept whatever its size, so that
-                // asking for no fill asks for the matrix's own pattern exactly
-                // and for nothing to depend on how the values came out. Where
-                // there is no room for fill at all, an arrival is turned away
-                // here rather than after it has spread its own corrections
-                // through the row, which is what makes that case exactly the
-                // factorization restricted to the matrix's pattern.
+                // asking for no fill asks for the matrix's own pattern exactly.
                 //
-                if !held[column] && (fill == 0 || entry.abs() * pivots[column].abs().sqrt() < scale)
+                if !held[column]
+                    && (fill == 0 || entry.abs() * pivots[position[column]].abs().sqrt() < scale)
                 {
                     work[column] = 0.0;
                     continue;
                 }
-                //
-                // An entry this large is one the elimination could not compute
-                // stably. It is dropped whether or not the matrix held that
-                // position, which is the one place the matrix's own pattern is
-                // not honoured — and the place where honouring it would mean
-                // building a preconditioner out of numbers that mean nothing.
-                //
                 grew = (grew.0.max(entry.abs()), grew.1);
                 if entry.abs() > GROWTH {
                     grew = (grew.0, grew.1 + 1);
@@ -254,15 +314,17 @@ impl CscIncompleteLdl {
                     continue;
                 }
                 work[column] = entry;
-                row_entries.push((column, entry));
+                dependencies.push((column, entry));
                 columns[column].iter().for_each(|&(later, value)| {
                     if !held[later] && !kept[later] {
                         kept[later] = true;
                         work[later] = 0.0;
                         reached.push(later);
-                        pending.push(std::cmp::Reverse(later))
+                        if eliminated[later] {
+                            pending.push(std::cmp::Reverse((position[later], later)))
+                        }
                     }
-                    work[later] -= entry * pivots[column] * value
+                    work[later] -= entry * pivots[position[column]] * value
                 })
             }
             //
@@ -271,46 +333,91 @@ impl CscIncompleteLdl {
             // factor rather than in the bare entry.
             //
             if fill > 0 {
-                let mut arrived: Vec<(usize, Scalar)> = row_entries
+                let mut arrived: Vec<(usize, Scalar)> = dependencies
                     .iter()
                     .filter(|&&(column, _)| !held[column])
                     .copied()
                     .collect();
                 if arrived.len() > fill {
                     arrived.sort_unstable_by(|a, b| {
-                        (b.1 * b.1 * pivots[b.0].abs())
-                            .partial_cmp(&(a.1 * a.1 * pivots[a.0].abs()))
+                        (b.1 * b.1 * pivots[position[b.0]].abs())
+                            .partial_cmp(&(a.1 * a.1 * pivots[position[a.0]].abs()))
                             .unwrap_or(std::cmp::Ordering::Equal)
                     });
                     arrived.truncate(fill);
-                    row_entries.retain(|&(column, _)| held[column]);
-                    row_entries.append(&mut arrived)
+                    dependencies.retain(|&(column, _)| held[column]);
+                    dependencies.append(&mut arrived)
                 }
             }
-            row_entries.sort_unstable_by_key(|&(column, _)| column);
-            let pivot = diagonal[row]
-                - row_entries
-                    .iter()
-                    .map(|&(column, entry)| entry * entry * pivots[column])
-                    .sum::<Scalar>();
-            pivots[row] = if !pivot.is_finite() {
+            dependencies.sort_unstable_by_key(|&(column, _)| position[column]);
+            let pivot = diag[pivot_index];
+            let pivot = if !pivot.is_finite() {
                 floor
             } else if pivot.abs() < floor {
                 floor.copysign(pivot)
             } else {
                 pivot
             };
-            grew = (grew.0.max(pivots[row].abs()), grew.1);
-            row_entries.iter().for_each(|&(column, entry)| {
-                col_idx.push(column);
-                values.push(entry);
-                columns[column].push((row, entry))
+            grew = (grew.0.max(pivot.abs()), grew.1);
+            dependencies.iter().for_each(|&(column, entry)| {
+                col_idx.push(position[column]);
+                values.push(entry)
             });
-            row_ptr[row + 1] = col_idx.len();
-            reached.drain(..).for_each(|column| {
-                work[column] = 0.0;
-                held[column] = false;
-                kept[column] = false
+            row_ptr[step + 1] = col_idx.len();
+            //
+            // The other direction: not-yet-eliminated indices this pivot still
+            // reaches are divided by its own pivot rather than an earlier one,
+            // recorded for the future in `columns`, and their share of what this
+            // pivot took out of the Schur complement is subtracted from `diag`
+            // immediately — the only reason a later step's comparison is ever a
+            // lookup rather than a recomputation.
+            //
+            dependents.clear();
+            reached
+                .iter()
+                .copied()
+                .filter(|&index| !eliminated[index])
+                .for_each(|index| {
+                    let entry = work[index] / pivot;
+                    if !held[index] && (fill == 0 || entry.abs() * pivot.abs().sqrt() < scale) {
+                        return;
+                    }
+                    if entry.abs() > GROWTH {
+                        grew = (grew.0.max(entry.abs()), grew.1 + 1);
+                        return;
+                    }
+                    grew = (grew.0.max(entry.abs()), grew.1);
+                    dependents.push((index, entry))
+                });
+            if fill > 0 {
+                let mut arrived: Vec<(usize, Scalar)> = dependents
+                    .iter()
+                    .filter(|&&(index, _)| !held[index])
+                    .copied()
+                    .collect();
+                if arrived.len() > fill {
+                    arrived.sort_unstable_by(|a, b| {
+                        (b.1 * b.1)
+                            .partial_cmp(&(a.1 * a.1))
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
+                    arrived.truncate(fill);
+                    dependents.retain(|&(index, _)| held[index]);
+                    dependents.append(&mut arrived)
+                }
+            }
+            dependents
+                .iter()
+                .for_each(|&(index, entry)| diag[index] -= entry * entry * pivot);
+            columns[pivot_index] = std::mem::take(&mut dependents);
+            position[pivot_index] = step;
+            eliminated[pivot_index] = true;
+            permutation.push(pivot_index);
+            pivots.push(pivot);
+            reached.drain(..).for_each(|index| {
+                work[index] = 0.0;
+                held[index] = false;
+                kept[index] = false
             })
         }
         Self {
@@ -319,6 +426,8 @@ impl CscIncompleteLdl {
             values,
             pivots,
             scaling,
+            permutation,
+            position,
             size,
             growth: grew,
         }
@@ -348,14 +457,14 @@ impl CscIncompleteLdl {
     /// The same, into a vector already standing.
     pub fn solve_into(&self, right_hand_side: &Vector, solution: &mut Vector) {
         let forward = &mut vec![0.0; self.size];
-        let scaled: Vec<Scalar> = right_hand_side
+        let scaled: Vec<Scalar> = self
+            .permutation
             .iter()
-            .zip(self.scaling.iter())
-            .map(|(entry, scale)| entry * scale)
+            .map(|&index| right_hand_side[index] * self.scaling[index])
             .collect();
-        (0..self.size).for_each(|row| {
-            forward[row] = scaled[row]
-                - (self.row_ptr[row]..self.row_ptr[row + 1])
+        (0..self.size).for_each(|step| {
+            forward[step] = scaled[step]
+                - (self.row_ptr[step]..self.row_ptr[step + 1])
                     .map(|k| self.values[k] * forward[self.col_idx[k]])
                     .sum::<Scalar>()
         });
@@ -368,37 +477,45 @@ impl CscIncompleteLdl {
         // back into the columns its row reaches rather than being gathered from
         // a row of the transpose that is nowhere stored.
         //
-        (0..self.size).rev().for_each(|row| {
-            let value = forward[row];
-            (self.row_ptr[row]..self.row_ptr[row + 1])
+        (0..self.size).rev().for_each(|step| {
+            let value = forward[step];
+            (self.row_ptr[step]..self.row_ptr[step + 1])
                 .for_each(|k| forward[self.col_idx[k]] -= self.values[k] * value)
         });
-        solution
-            .iter_mut()
-            .zip(forward.iter().zip(self.scaling.iter()))
-            .for_each(|(entry, (from, scale))| *entry = from * scale)
+        self.permutation
+            .iter()
+            .zip(forward.iter())
+            .for_each(|(&index, &from)| solution[index] = from * self.scaling[index])
     }
     pub fn size(&self) -> usize {
         self.size
     }
     /// The entry of the unit lower triangle at a position, the diagonal being
-    /// the one it does not store.
+    /// the one it does not store — both positions taken in the matrix's own
+    /// indices, elimination order being an internal matter.
     #[cfg(test)]
     fn entry(&self, row: usize, column: usize) -> Scalar {
         if row == column {
             1.0
+        } else if self.position[column] >= self.position[row] {
+            0.0
         } else {
-            (self.row_ptr[row]..self.row_ptr[row + 1])
-                .find(|&k| self.col_idx[k] == column)
+            let step = self.position[row];
+            (self.row_ptr[step]..self.row_ptr[step + 1])
+                .find(|&k| self.col_idx[k] == self.position[column])
                 .map_or(0.0, |k| self.values[k])
         }
     }
     #[cfg(test)]
     fn pivot(&self, row: usize) -> Scalar {
-        self.pivots[row]
+        self.pivots[self.position[row]]
     }
     #[cfg(test)]
     fn scale(&self, row: usize) -> Scalar {
         self.scaling[row]
+    }
+    #[cfg(test)]
+    fn growth(&self) -> (Scalar, usize) {
+        self.growth
     }
 }

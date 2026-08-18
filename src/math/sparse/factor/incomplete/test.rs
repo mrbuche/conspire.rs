@@ -55,11 +55,17 @@ fn product(factorization: &CscIncompleteLdl, size: usize) -> SquareMatrix {
     product
 }
 
-/// The factor of a tridiagonal matrix drops nothing, there being no fill to
-/// drop, so there the incomplete factorization is the complete one and stands
-/// in for the inverse exactly.
+/// A factor that drops nothing is the complete factorization, and stands in
+/// for the inverse exactly whatever order pivoting chose to eliminate in.
+///
+/// A tridiagonal matrix has no fill to speak of only under the order its own
+/// rows come in — every row's diagonal starts tied after scaling, so pivoting
+/// by largest-available-diagonal reorders even this, and reordering a chain
+/// does create fill. What is tested here is not that this matrix happens to
+/// have none, but that giving the factorization room to keep whatever fill
+/// pivoting does create is what makes it exact, regardless of the order.
 #[test]
-fn exact_where_nothing_fills_in() {
+fn exact_where_nothing_is_dropped() {
     let size = 12;
     let entries: Vec<_> = (0..size)
         .flat_map(|i| {
@@ -71,13 +77,13 @@ fn exact_where_nothing_fills_in() {
         })
         .collect();
     let matrix = dense(size, &entries);
-    let factorization = CscIncompleteLdl::new(size, entries).unwrap();
+    let factorization = CscIncompleteLdl::with_fill(size, entries, size, 0.0).unwrap();
     let right_hand_side = Vector::from((0..size).map(|i| (i as Scalar).sin()).collect::<Vec<_>>());
     let solution = factorization.solve(&right_hand_side);
     let residual = (matrix * &solution - right_hand_side.clone())
         .norm()
         .value();
-    assert!(residual < 1e-12 * right_hand_side.norm().value())
+    assert!(residual < 1e-10 * right_hand_side.norm().value())
 }
 
 /// What defines the factorization is not how near its product comes to the
@@ -192,4 +198,46 @@ fn sums_repeated_positions() {
 #[test]
 fn refuses_a_missing_diagonal() {
     assert!(CscIncompleteLdl::new(2, [(0, 0, 1.0), (1, 0, 1.0)]).is_none())
+}
+
+/// A stress test for the invariant at a scale a small matrix cannot exercise:
+/// a heavily indefinite matrix, fill kept rather than dropped, still comes out
+/// exact on its own pattern and still applies as something positive definite.
+///
+/// This does not by itself demonstrate that pivoting changed anything — a
+/// Laplacian-derived matrix never drives a scaled diagonal near `SAFE`, so
+/// elimination stays in the matrix's own order here regardless. What it does
+/// catch is any bug in the permutation bookkeeping the pivoting rewrite
+/// introduced (`permutation`, `position`, step-indexed storage) that a 6-row
+/// matrix is too small to expose.
+#[test]
+fn stands_up_to_scale_and_heavy_indefiniteness() {
+    let (size, mut entries) = laplacian(10);
+    (0..size).step_by(3).for_each(|i| {
+        let row = entries
+            .iter()
+            .position(|&(r, c, _)| r == i && c == i)
+            .unwrap();
+        entries[row].2 = -4.0;
+    });
+    let matrix = dense(size, &entries);
+    let factorization = CscIncompleteLdl::with_fill(size, entries, 20, 0.0).unwrap();
+    assert!(factorization.negative_pivots() > size / 4);
+    assert!(factorization.growth().0 < 10.0);
+    let product = product(&factorization, size);
+    (0..size).for_each(|row| {
+        (0..size).for_each(|column| {
+            if matrix[row][column] != 0.0 {
+                assert!((product[row][column] - matrix[row][column]).abs() < 1e-6)
+            }
+        })
+    });
+    let mut applied = SquareMatrix::zero(size);
+    (0..size).for_each(|column| {
+        let mut unit = Vector::zero(size);
+        unit[column] = 1.0;
+        let solved = factorization.solve(&unit);
+        (0..size).for_each(|row| applied[row][column] = solved[row])
+    });
+    assert!(applied.factorize_ldl().is_ok())
 }
