@@ -17,7 +17,7 @@ use crate::{
     math::{Quantity, Scalar, Tensor, TensorVec},
     units::Length,
 };
-use std::{array::from_fn, f64::consts::FRAC_PI_3, ops::Add};
+use std::{array::from_fn, f64::consts::FRAC_PI_4, ops::Add};
 
 const D: usize = 3;
 const M: usize = 6;
@@ -76,7 +76,7 @@ where
             gradation,
             floor_fraction,
         } = curvature;
-        let sdf = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
+        let sdf = tessellation.shape_diameter_function(FRAC_PI_4, 3, 10);
         let coordinates = tessellation.mesh().coordinates();
         if coordinates.is_empty() {
             return Self {
