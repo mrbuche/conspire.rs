@@ -1,4 +1,4 @@
-use super::{Krylov, KrylovError, KrylovMethod, Preconditioner};
+use super::{ACCEPTABLE, Krylov, KrylovError, KrylovMethod, Preconditioner, Preconditioning};
 use crate::math::{
     Hessian, SquareMatrix, Vector,
     assert::{Assert, AssertionError},
@@ -294,5 +294,200 @@ mod minimal_residual {
             krylov.solve(&spread(24), &ones(24)).unwrap_err(),
             KrylovError::MaximumStepsReached(1, _)
         ))
+    }
+}
+
+/// A system large enough that the walk cannot simply exhaust the subspace.
+///
+/// A small system is solved in as many iterations as it has rows whatever it is
+/// put through first, so nothing done to it before the walk can be told from
+/// nothing at all. These are the tests that can tell.
+mod at_size {
+    use super::*;
+    use crate::math::Tensor;
+
+    /// A saddle-point system: a stiff, coupled, indefinite block with a
+    /// constraint bordering it, which is the shape the constrained solves
+    /// actually meet.
+    fn saddle(variables: usize, constraints: usize) -> SquareMatrix {
+        let size = variables + constraints;
+        let mut matrix = SquareMatrix::zero(size);
+        (0..variables).for_each(|i| {
+            //
+            // A diagonal that turns over every fourth row makes the leading
+            // block indefinite in itself, which is what a tangent away from a
+            // minimum is and what the magnitudes of an incomplete factorization
+            // are for. Every diagonal entry outweighs the row it sits in, so
+            // that the block is indefinite without being singular.
+            //
+            matrix[i][i] = if i % 4 == 3 {
+                -12.0
+            } else {
+                12.0 + (i % 7) as f64
+            };
+            if i > 0 {
+                matrix[i][i - 1] = -1.0;
+                matrix[i - 1][i] = -1.0
+            }
+            if i >= 5 {
+                matrix[i][i - 5] = -2.0;
+                matrix[i - 5][i] = -2.0
+            }
+        });
+        //
+        // Each constraint reaches two variables of its own, so the constraints
+        // are independent of one another and the system as a whole is not
+        // singular.
+        //
+        (0..constraints).for_each(|a| {
+            [3 * a, 3 * a + 1].into_iter().for_each(|j| {
+                matrix[variables + a][j] = -1.0;
+                matrix[j][variables + a] = -1.0
+            })
+        });
+        matrix
+    }
+
+    fn load(size: usize) -> Vector {
+        (0..size).map(|i| ((i % 13) as f64 - 6.0) / 7.0).collect()
+    }
+
+    /// Whatever the residual is put through first, the answer at the end is the
+    /// system's own — a preconditioner changes how far the walk has to go, never
+    /// where it arrives.
+    #[test]
+    fn every_preconditioner_reaches_the_direct_answer() -> Result<(), AssertionError> {
+        let (variables, constraints) = (240, 20);
+        let matrix = saddle(variables, constraints);
+        let right_hand_side = load(variables + constraints);
+        let expected = direct(&matrix, &right_hand_side);
+        for preconditioner in [
+            Preconditioner::None,
+            Preconditioner::Jacobi,
+            Preconditioner::IncompleteLdl {
+                fill: 0,
+                threshold: 0.0,
+            },
+            Preconditioner::IncompleteLdl {
+                fill: 8,
+                threshold: 0.0,
+            },
+        ] {
+            let solution = minres(preconditioner).solve(&matrix, &right_hand_side)?;
+            //
+            // Measured against the system rather than against the answer: what
+            // the walk promises is a short residual, and on an ill-conditioned
+            // system a short residual still leaves the answer some way off.
+            //
+            let residual = (matrix.clone() * &solution - right_hand_side.clone())
+                .norm()
+                .value();
+            assert!(
+                residual < 1e-8 * right_hand_side.norm().value(),
+                "{preconditioner:?} left a residual of {residual:?}"
+            );
+            Assert {
+                rel_tol: 1e-6,
+                ..Default::default()
+            }
+            .eq_within_tols(&solution, &expected)?
+        }
+        Ok(())
+    }
+
+    /// The whole point of putting the residual through anything: the walk that
+    /// does gets there in fewer iterations than the walk that does not.
+    #[test]
+    fn preconditioning_shortens_the_walk() -> Result<(), AssertionError> {
+        let (variables, constraints) = (240, 20);
+        let matrix = saddle(variables, constraints);
+        let right_hand_side = load(variables + constraints);
+        let steps = |preconditioner| {
+            (1..=variables + constraints).find(|&max_steps| {
+                Krylov {
+                    max_steps,
+                    method: KrylovMethod::Minres,
+                    preconditioner,
+                    rel_tol: 1e-10,
+                }
+                .solve(&matrix, &right_hand_side)
+                .is_ok()
+            })
+        };
+        let bare = steps(Preconditioner::None).expect("unpreconditioned never converged");
+        let factored = steps(Preconditioner::IncompleteLdl {
+            fill: 8,
+            threshold: 0.0,
+        })
+        .expect("preconditioned never converged");
+        assert!(
+            factored < bare,
+            "preconditioned took {factored} against {bare}"
+        );
+        Ok(())
+    }
+}
+
+/// What the rotations report is the residual seen through the preconditioner,
+/// and a badly conditioned preconditioner makes that a different number from the
+/// residual — small when the residual is not. A walk that took the report for
+/// the residual would stop early and hand back an answer it had not reached,
+/// saying it had.
+///
+/// So the walk may refuse this system or it may answer it, but the one thing it
+/// may not do is call a long residual a short one.
+#[test]
+fn a_misleading_preconditioner_does_not_pass_for_a_short_residual() {
+    use crate::math::Tensor;
+    let size = 80;
+    let mut matrix = SquareMatrix::zero(size);
+    (0..size).for_each(|i| {
+        matrix[i][i] = if i % 3 == 2 { -4.0 } else { 9.0 };
+        if i > 0 {
+            matrix[i][i - 1] = -1.0;
+            matrix[i - 1][i] = -1.0
+        }
+    });
+    //
+    // The load sits only where the preconditioner weighs heaviest. The walk
+    // shortens the residual measured through the preconditioner, so it spends
+    // itself on those coordinates and leaves the residual on the ones weighed
+    // lightest — where it is long, and where the measurement barely registers
+    // it. That is the gap between the two, opened on purpose.
+    //
+    let right_hand_side: Vector = (0..size)
+        .map(|i| {
+            if i % 2 == 0 {
+                (i % 5) as f64 + 1.0
+            } else {
+                0.0
+            }
+        })
+        .collect();
+    //
+    // Positive definite, as the walk requires, and spanning twenty-four decades.
+    //
+    let preconditioning = Preconditioning::Diagonal(
+        (0..size)
+            .map(|i| 10.0_f64.powi(if i % 2 == 0 { -12 } else { 12 }))
+            .collect(),
+    );
+    let krylov = Krylov {
+        max_steps: 400,
+        method: KrylovMethod::Minres,
+        preconditioner: Preconditioner::Jacobi,
+        rel_tol: 1e-8,
+    };
+    if let Ok(solution) =
+        krylov.solve_operator(|v| matrix.times(v), preconditioning, &right_hand_side)
+    {
+        let residual = (matrix.clone() * &solution - right_hand_side.clone())
+            .norm()
+            .value()
+            / right_hand_side.norm().value();
+        assert!(
+            residual <= ACCEPTABLE,
+            "answered with a solution leaving a relative residual of {residual:?}"
+        )
     }
 }

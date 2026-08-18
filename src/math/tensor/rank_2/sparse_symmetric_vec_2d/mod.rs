@@ -264,6 +264,29 @@ impl<const D: usize, I, J, U> Hessian for TensorRank2SparseVec2DSymmetric<D, I, 
         });
         product
     }
+    fn lower_triangle(&self) -> Vec<(usize, usize, Scalar)> {
+        //
+        // The half kept is the upper one, so an off-diagonal block is handed
+        // over as the block it mirrors into, which lands wholly below the
+        // diagonal. A diagonal block straddles it and gives up only its own
+        // lower half.
+        //
+        let mut entries = Vec::new();
+        self.0.iter().enumerate().for_each(|(a, row)| {
+            row.entries().for_each(|(b, block)| {
+                block.iter().enumerate().for_each(|(i, block_i)| {
+                    block_i.iter().enumerate().for_each(|(j, block_ij)| {
+                        if a != b {
+                            entries.push((D * b + j, D * a + i, block_ij.value()))
+                        } else if i >= j {
+                            entries.push((D * a + i, D * a + j, block_ij.value()))
+                        }
+                    })
+                })
+            })
+        });
+        entries
+    }
     fn fill_into(self, square_matrix: &mut SquareMatrix) {
         self.0.iter().enumerate().for_each(|(a, row)| {
             row.entries().for_each(|(b, block)| {

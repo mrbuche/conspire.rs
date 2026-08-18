@@ -3,24 +3,104 @@ mod test;
 
 use super::{
     super::{
-        Hessian, Scalar, Style, StyledError, Tensor, Vector, assert::AssertionError, styled_error,
+        Hessian, LdlDecomposition, Scalar, Style, StyledError, Tensor, Vector,
+        assert::AssertionError, sparse::CscIncompleteLdl, styled_error,
     },
     OptimizationError,
 };
 
-/// What the residual is divided through by on its way to becoming a direction.
+/// How many iterations the residual is given to shorten before the walk is
+/// taken to have stopped shortening it, and by how much of itself it has to
+/// shorten over that span to count as still going.
+const PATIENCE: usize = 30;
+const PROGRESS: Scalar = 0.9;
+
+/// How far the residual has to have come for a walk that has stopped shortening
+/// it to be an answer rather than a failure.
+///
+/// A walk that stalls at nearly the residual it started from has not solved
+/// anything, whatever it says about not being able to do better.
+const ACCEPTABLE: Scalar = 1e-3;
+
+/// What the residual is put through on its way to becoming a direction.
 ///
 /// Krylov methods converge on how nearly the system behaves like a multiple of
 /// the identity, which a tangent assembled from unlike quantities does not.
-/// Dividing through by something of the same kind as the tangent is what brings
-/// the two nearer.
+/// Putting the residual through something that stands in for the tangent's
+/// inverse is what brings the two nearer.
 #[derive(Clone, Copy, Debug, Default)]
 pub enum Preconditioner {
     /// The diagonal of the tangent.
+    ///
+    /// Costs nothing and answers only how the tangent is scaled, not how it is
+    /// coupled. On a system whose difficulty is the scaling — unlike quantities
+    /// side by side — that is the whole of the problem. On one whose difficulty
+    /// is the coupling, it barely helps.
     #[default]
     Jacobi,
+    /// An incomplete LDLᵀ factorization of the tangent.
+    ///
+    /// Answers the coupling as well, at the cost of a factorization per solve
+    /// and of a triangular pass either way per iteration.
+    ///
+    /// `fill` and `threshold` say how much of what the real factorization would
+    /// have filled in is kept — see [`CscIncompleteLdl::with_fill`]. Keeping
+    /// none of it is the cheapest thing that answers coupling at all; keeping
+    /// more buys a preconditioner nearer the tangent's own inverse, which is
+    /// what an indefinite tangent needs and what a definite one usually does
+    /// not.
+    IncompleteLdl { fill: usize, threshold: Scalar },
     /// Nothing.
     None,
+}
+
+/// A preconditioner once it has been formed from a tangent.
+///
+/// This is what the walk actually holds: not the choice, but the thing built
+/// from it.
+pub enum Preconditioning {
+    /// Nothing to put the residual through.
+    None,
+    /// A diagonal to divide it by.
+    Diagonal(Vector),
+    /// An incomplete factorization of the tangent to solve against, and, where
+    /// the system is a constrained one, a factorization of the Schur complement
+    /// for the multipliers beneath it.
+    ///
+    /// The two blocks are preconditioned apart rather than together. A
+    /// saddle-point system preconditioned by the tangent on the variables and
+    /// by the Schur complement on the multipliers has, when both are exact,
+    /// only three distinct eigenvalues — so the minimal residual method
+    /// finishes in three iterations. Neither is exact here, but that is what
+    /// the arrangement is reaching for.
+    Incomplete {
+        factor: Box<CscIncompleteLdl>,
+        schur: Option<Box<LdlDecomposition>>,
+    },
+}
+
+impl Preconditioning {
+    /// What the residual becomes on its way to being a direction.
+    fn apply(&self, residual: &Vector) -> Vector {
+        match self {
+            Self::None => residual.clone(),
+            Self::Diagonal(diagonal) => residual
+                .iter()
+                .zip(diagonal.iter())
+                .map(|(entry, scale)| entry / scale)
+                .collect(),
+            Self::Incomplete { factor, schur } => {
+                let variables = factor.size();
+                let mut applied = factor.solve(&residual.iter().take(variables).copied().collect());
+                if let Some(schur) = schur {
+                    let multipliers =
+                        schur.solve(&residual.iter().skip(variables).copied().collect());
+                    applied = applied.iter().chain(multipliers.iter()).copied().collect()
+                }
+                applied
+            }
+        }
+    }
 }
 
 /// Which walk through the Krylov subspace to take.
@@ -89,20 +169,63 @@ impl Krylov {
     ///
     /// A zero on the diagonal is left as a one rather than divided by, a row the
     /// tangent says nothing about not being one to scale by nothing.
-    fn diagonal<H>(&self, tangent: &H, positions: impl Iterator<Item = usize>) -> Option<Vector>
+    pub fn diagonal<H>(tangent: &H, positions: impl Iterator<Item = usize>) -> Vector
     where
         H: Hessian,
     {
+        positions
+            .map(|i| match tangent.entry(i, i).abs() {
+                0.0 => 1.0,
+                entry => entry,
+            })
+            .collect()
+    }
+    /// The incomplete factorization asked for, of whatever triangle it is given.
+    ///
+    /// How much fill it keeps is the preconditioner's own business, so it is
+    /// read from there rather than passed along by every caller.
+    pub fn factorization(
+        &self,
+        size: usize,
+        entries: impl IntoIterator<Item = (usize, usize, Scalar)>,
+    ) -> Option<CscIncompleteLdl> {
         match self.preconditioner {
-            Preconditioner::Jacobi => Some(
-                positions
-                    .map(|i| match tangent.entry(i, i).abs() {
-                        0.0 => 1.0,
-                        entry => entry,
-                    })
-                    .collect(),
-            ),
-            Preconditioner::None => None,
+            Preconditioner::IncompleteLdl { fill, threshold } => {
+                CscIncompleteLdl::with_fill(size, entries, fill, threshold)
+            }
+            _ => None,
+        }
+    }
+    /// Builds whichever preconditioner was asked for, over the whole tangent.
+    fn precondition<H>(&self, tangent: &H, size: usize) -> Preconditioning
+    where
+        H: Hessian,
+    {
+        self.precondition_from(
+            || Self::diagonal(tangent, 0..size),
+            || self.factorization(size, tangent.lower_triangle()),
+        )
+    }
+    /// Builds whichever preconditioner was asked for, from what each needs.
+    ///
+    /// An incomplete factorization that will not stand is not an error: the
+    /// diagonal is always available and is what the walk falls back on, a worse
+    /// preconditioner being better than none.
+    fn precondition_from(
+        &self,
+        diagonal: impl FnOnce() -> Vector,
+        factor: impl FnOnce() -> Option<CscIncompleteLdl>,
+    ) -> Preconditioning {
+        match self.preconditioner {
+            Preconditioner::Jacobi => Preconditioning::Diagonal(diagonal()),
+            Preconditioner::IncompleteLdl { .. } => match factor() {
+                Some(factor) => Preconditioning::Incomplete {
+                    factor: Box::new(factor),
+                    schur: None,
+                },
+                None => Preconditioning::Diagonal(diagonal()),
+            },
+            Preconditioner::None => Preconditioning::None,
         }
     }
     /// Solves a system, by whichever walk was asked for.
@@ -110,9 +233,10 @@ impl Krylov {
     where
         H: Hessian,
     {
+        let preconditioning = self.precondition(tangent, right_hand_side.len());
         self.walk(
             |direction| tangent.times(direction),
-            self.diagonal(tangent, 0..right_hand_side.len()),
+            preconditioning,
             right_hand_side,
         )
     }
@@ -134,6 +258,31 @@ impl Krylov {
         H: Hessian,
     {
         let mut whole = Vector::zero(size);
+        let preconditioning = self.precondition_from(
+            || Self::diagonal(tangent, unmap.iter().copied()),
+            || {
+                //
+                // The triangle is handed over in the positions of the whole
+                // tangent, so what was struck out is dropped and what was kept
+                // is renumbered into the system actually being walked.
+                //
+                let mut map = vec![usize::MAX; size];
+                unmap
+                    .iter()
+                    .enumerate()
+                    .for_each(|(kept, &index)| map[index] = kept);
+                self.factorization(
+                    unmap.len(),
+                    tangent
+                        .lower_triangle()
+                        .into_iter()
+                        .filter(|&(row, column, _)| {
+                            map[row] != usize::MAX && map[column] != usize::MAX
+                        })
+                        .map(|(row, column, value)| (map[row], map[column], value)),
+                )
+            },
+        );
         self.walk(
             |direction| {
                 whole.iter_mut().for_each(|entry| *entry = 0.0);
@@ -144,7 +293,7 @@ impl Krylov {
                 let applied = tangent.times(&whole);
                 unmap.iter().map(|&index| applied[index]).collect()
             },
-            self.diagonal(tangent, unmap.iter().copied()),
+            preconditioning,
             right_hand_side,
         )
     }
@@ -155,31 +304,22 @@ impl Krylov {
     pub fn solve_operator(
         &self,
         apply: impl FnMut(&Vector) -> Vector,
-        diagonal: Option<Vector>,
+        preconditioning: Preconditioning,
         right_hand_side: &Vector,
     ) -> Result<Vector, KrylovError> {
-        self.walk(apply, diagonal, right_hand_side)
+        self.walk(apply, preconditioning, right_hand_side)
     }
     fn walk(
         &self,
         apply: impl FnMut(&Vector) -> Vector,
-        diagonal: Option<Vector>,
+        preconditioning: Preconditioning,
         right_hand_side: &Vector,
     ) -> Result<Vector, KrylovError> {
         match self.method {
-            KrylovMethod::ConjugateGradients => self.descend(apply, diagonal, right_hand_side),
-            KrylovMethod::Minres => self.minimize_residual(apply, diagonal, right_hand_side),
-        }
-    }
-    /// Divides the residual through by the preconditioner, if there is one.
-    fn divide(residual: &Vector, diagonal: Option<&Vector>) -> Vector {
-        match diagonal {
-            Some(diagonal) => residual
-                .iter()
-                .zip(diagonal.iter())
-                .map(|(entry, scale)| entry / scale)
-                .collect(),
-            None => residual.clone(),
+            KrylovMethod::ConjugateGradients => {
+                self.descend(apply, preconditioning, right_hand_side)
+            }
+            KrylovMethod::Minres => self.minimize_residual(apply, preconditioning, right_hand_side),
         }
     }
     /// Descends the quadratic the system is the stationary point of.
@@ -194,7 +334,7 @@ impl Krylov {
     fn descend(
         &self,
         mut apply: impl FnMut(&Vector) -> Vector,
-        diagonal: Option<Vector>,
+        preconditioning: Preconditioning,
         right_hand_side: &Vector,
     ) -> Result<Vector, KrylovError> {
         let scale = right_hand_side.norm().value();
@@ -202,7 +342,7 @@ impl Krylov {
         if scale == 0.0 {
             return Ok(solution);
         }
-        let divide = |residual: &Vector| Self::divide(residual, diagonal.as_ref());
+        let divide = |residual: &Vector| preconditioning.apply(residual);
         let mut residual = right_hand_side.clone();
         let mut preconditioned = divide(&residual);
         let mut direction = preconditioned.clone();
@@ -242,22 +382,35 @@ impl Krylov {
     /// question, which has an answer whether or not the quadratic has a minimum,
     /// so nothing here asks the tangent to be definite.
     ///
-    /// The rotations leave the length of the residual behind as a number, so
-    /// what would otherwise be another product to measure convergence by is
-    /// already in hand.
+    /// The rotations leave the length of the residual behind as a number, but
+    /// that number is the residual measured through the preconditioner rather
+    /// than the residual, so it is what says when to look and not what is
+    /// looked at.
     fn minimize_residual(
         &self,
         mut apply: impl FnMut(&Vector) -> Vector,
-        diagonal: Option<Vector>,
+        preconditioning: Preconditioning,
         right_hand_side: &Vector,
     ) -> Result<Vector, KrylovError> {
         let size = right_hand_side.len();
         let mut solution = Vector::zero(size);
-        let divide = |residual: &Vector| Self::divide(residual, diagonal.as_ref());
+        let divide = |residual: &Vector| preconditioning.apply(residual);
         let mut previous = right_hand_side.clone();
         let mut current = previous.clone();
         let mut preconditioned = divide(&previous);
-        let scale = previous.full_contraction(&preconditioned).max(0.0).sqrt();
+        //
+        // The walk measures the residual through the preconditioner, which is
+        // only a length at all if the preconditioner is positive definite. That
+        // is a promise the preconditioner makes and nothing here can check in
+        // advance — but a negative one of these is proof it was broken, and
+        // going on from it would be minimizing something that is not a length
+        // and reporting a residual that is not the residual.
+        //
+        let squared = previous.full_contraction(&preconditioned);
+        if squared < 0.0 {
+            return Err(KrylovError::PreconditionerNotPositiveDefinite(squared));
+        }
+        let scale = squared.sqrt();
         if scale == 0.0 {
             return Ok(solution);
         }
@@ -273,6 +426,15 @@ impl Krylov {
         let mut older;
         let mut old = Vector::zero(size);
         let mut basis;
+        //
+        // The residual is measured against the load rather than against what it
+        // started at through the preconditioner, those being different lengths
+        // of different things. At no steps taken the residual is the load, so it
+        // is watched from one.
+        //
+        let load = right_hand_side.norm().value();
+        let mut watched = 1.0;
+        let mut demanded = self.rel_tol;
         for step in 0..self.max_steps {
             basis = &preconditioned * off_diagonal.recip();
             preconditioned = apply(&basis);
@@ -284,7 +446,16 @@ impl Krylov {
             previous = std::mem::replace(&mut current, preconditioned);
             preconditioned = divide(&current);
             previous_off = off_diagonal;
-            off_diagonal = current.full_contraction(&preconditioned).max(0.0).sqrt();
+            let squared = current.full_contraction(&preconditioned);
+            //
+            // Rounding alone can take this a little below zero once the
+            // residual is spent, so what is refused is a negative too large to
+            // have come from rounding against the residual started from.
+            //
+            if squared < -Scalar::EPSILON * scale * scale {
+                return Err(KrylovError::PreconditionerNotPositiveDefinite(squared));
+            }
+            off_diagonal = squared.max(0.0).sqrt();
             //
             // The rotation of the iteration before reaches two entries ahead, so
             // what it left behind is applied before a rotation of this one is
@@ -304,13 +475,54 @@ impl Krylov {
             direction = (basis - &older * reached - &old * shifted) * rotated.recip();
             solution += &direction * (cosine * length);
             length *= sine;
-            if length.abs() <= self.rel_tol * scale {
-                return Ok(solution);
+            //
+            // Nothing is decided on the estimate alone. What the rotations leave
+            // behind is the residual measured through the preconditioner, and
+            // that is the same thing as the residual only up to how well
+            // conditioned the preconditioner is. A preconditioner far enough
+            // from the tangent parts the two entirely, and the walk then stops
+            // early on an answer that is not one and reports a residual that is
+            // not the residual — so the estimate is used only to decide when to
+            // ask, and what is asked is the residual itself.
+            //
+            let estimate = length.abs() / scale;
+            let checkpoint = step % PATIENCE == PATIENCE - 1;
+            if estimate <= demanded || checkpoint {
+                let truth = (right_hand_side.clone() - apply(&solution)).norm().value() / load;
+                if truth <= self.rel_tol {
+                    return Ok(solution);
+                }
+                //
+                // The residual this walk leaves never lengthens, so one that has
+                // stopped shortening is the shortest the walk can make it and
+                // every further iteration is spent. Where it stops is not the
+                // tolerance asked for but what the arithmetic allows: on an
+                // ill-conditioned system that floor sits well above zero, and a
+                // tolerance set beneath it is one no number of iterations ever
+                // reaches.
+                //
+                if checkpoint {
+                    if truth > PROGRESS * watched {
+                        return if truth <= ACCEPTABLE {
+                            Ok(solution)
+                        } else {
+                            Err(KrylovError::StoppedShortening(step + 1, truth))
+                        };
+                    }
+                    watched = truth
+                }
+                //
+                // The estimate promised more than the residual delivered, so it
+                // is not believed again until it has fallen a decade further.
+                // That is what keeps this to a product now and again rather than
+                // one every iteration once the estimate has run ahead.
+                //
+                demanded = demanded.min(estimate * 0.1)
             }
         }
         Err(KrylovError::MaximumStepsReached(
             self.max_steps,
-            length.abs() / scale,
+            (right_hand_side.clone() - apply(&solution)).norm().value() / load,
         ))
     }
 }
@@ -319,6 +531,8 @@ impl Krylov {
 pub enum KrylovError {
     MaximumStepsReached(usize, Scalar),
     NotPositiveDefinite(Scalar),
+    PreconditionerNotPositiveDefinite(Scalar),
+    StoppedShortening(usize, Scalar),
 }
 
 impl StyledError for KrylovError {
@@ -332,6 +546,14 @@ impl StyledError for KrylovError {
             Self::NotPositiveDefinite(curvature) => format!(
                 "{h}The tangent is not positive definite.{c}\n\
                 Curvature along a direction: {curvature:?}."
+            ),
+            Self::PreconditionerNotPositiveDefinite(squared) => format!(
+                "{h}The preconditioner is not positive definite.{c}\n\
+                Squared length of a residual through it: {squared:?}."
+            ),
+            Self::StoppedShortening(steps, relative) => format!(
+                "{h}The residual stopped shortening after {steps} iterations.{c}\n\
+                Residual relative to the one started from: {relative:?}."
             ),
         }
     }

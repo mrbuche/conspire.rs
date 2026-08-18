@@ -2,7 +2,7 @@ mod factor;
 mod matrix;
 mod solver;
 
-pub use factor::{CscLdl, CscLu};
+pub use factor::{CscIncompleteLdl, CscLdl, CscLu};
 pub use matrix::CscMatrix;
 pub use solver::SparseSolver;
 

@@ -152,6 +152,16 @@ impl Hessian for SquareMatrix {
     fn times(&self, vector: &Vector) -> Vector {
         self.iter().map(|self_i| self_i * vector).collect()
     }
+    fn lower_triangle(&self) -> Vec<(usize, usize, Scalar)> {
+        //
+        // Given rather than left to the default, which asks a square matrix for
+        // a size it declines to have an opinion about.
+        //
+        (0..self.len())
+            .flat_map(|row| (0..=row).map(move |column| (row, column, self[row][column])))
+            .filter(|&(_, _, entry)| entry != 0.0)
+            .collect()
+    }
     fn retain_from(self, retained: &[bool]) -> SquareMatrix {
         self.into_iter()
             .zip(retained.iter())

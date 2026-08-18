@@ -15,7 +15,7 @@ mod trust_region;
 pub use conjugate_gradient::{Conjugacy, ConjugateGradient};
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
-pub use krylov::{Krylov, KrylovError, KrylovMethod, Preconditioner};
+pub use krylov::{Krylov, KrylovError, KrylovMethod, Preconditioner, Preconditioning};
 pub use line_search::{LineSearch, LineSearchError};
 pub use linear::LinearSolver;
 pub use newton_raphson::NewtonRaphson;

@@ -202,6 +202,18 @@ where
             })
             .collect()
     }
+    /// The nonzero entries of the lower triangle, as (row, column, value).
+    ///
+    /// A walk asks the Hessian only what it does to a vector, but anything
+    /// built to stand in for its inverse has to see the Hessian itself. One
+    /// triangle is all that is asked for, what would stand in being symmetric,
+    /// and the default hands over every position the size admits.
+    fn lower_triangle(&self) -> Vec<(usize, usize, Scalar)> {
+        (0..self.size())
+            .flat_map(|row| (0..=row).map(move |column| (row, column, self.entry(row, column))))
+            .filter(|&(_, _, entry)| entry != 0.0)
+            .collect()
+    }
     /// Return only the retained indices.
     fn retain_from(self, _retained: &[bool]) -> SquareMatrix {
         unimplemented!()

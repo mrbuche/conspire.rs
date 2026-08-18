@@ -3,14 +3,15 @@ mod test;
 
 use super::{
     super::{
-        Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Quantity, Scalar,
-        Solution, SquareMatrix, Tensor, Vector, sparse::CscMatrix,
+        Erase, Hessian, HessianBlock, Is, Jacobian, LdlDecomposition, LuDecomposition, Matrix,
+        Quantity, Scalar, Solution, SquareMatrix, Tensor, Vector,
+        sparse::{CscIncompleteLdl, CscMatrix},
     },
     EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
     FirstOrderRootFindingIncremental, Krylov, KrylovMethod, LineSearch, LineSearchError,
-    LineSearcher, LinearSolver, OptimizationError, Preconditioner, SecondOrderOptimization,
-    SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental, SolveStrategy, Tolerances,
-    TrustRegion,
+    LineSearcher, LinearSolver, OptimizationError, Preconditioner, Preconditioning,
+    SecondOrderOptimization, SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental,
+    SolveStrategy, Tolerances, TrustRegion,
 };
 use crate::math::Norm;
 use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
@@ -620,38 +621,104 @@ fn limit_decrement(newton_raphson: &NewtonRaphson, decrements: &mut [(&mut Vecto
     }
 }
 
-/// The diagonal of a constrained system, to divide the residual through by.
+/// What the residual of a constrained system is put through.
 ///
-/// The block the multipliers occupy is empty, so there is nothing there to
-/// divide by and those rows are left as they stand. What that leaves is a
-/// preconditioner for the variables alone, which is the half of the system that
-/// has a scale to speak of.
-fn kkt_diagonal<H>(
+/// The block the multipliers occupy is empty, so there is nothing on the
+/// diagonal there to divide by. Leaving those rows at one is not neutral: it
+/// scales the multipliers against a tangent whose own diagonal is nothing like
+/// one, and the two halves of the system then sit decades apart. What belongs
+/// there instead is the scale the multipliers actually answer to, which is the
+/// constraint seen through the tangent — the diagonal of the Schur complement,
+/// taken with the tangent's own diagonal standing in for the tangent.
+fn kkt_preconditioning<H>(
     krylov: &Krylov,
     tangent: &H,
+    constraint_matrix: &Matrix,
     num_variables: usize,
     num_total: usize,
-) -> Option<Vector>
+) -> Preconditioning
 where
     H: Hessian,
 {
+    let diagonal = || {
+        let mut diagonal = Vector::zero(num_total);
+        (0..num_variables).for_each(|i| {
+            diagonal[i] = match tangent.entry(i, i).abs() {
+                0.0 => 1.0,
+                entry => entry,
+            }
+        });
+        constraint_matrix.iter().enumerate().for_each(|(a, row)| {
+            let schur: Scalar = row
+                .iter()
+                .enumerate()
+                .map(|(j, entry)| entry * entry / diagonal[j])
+                .sum();
+            diagonal[num_variables + a] = match schur {
+                0.0 => 1.0,
+                schur => schur,
+            }
+        });
+        diagonal
+    };
     match krylov.preconditioner {
-        Preconditioner::Jacobi => Some(
-            (0..num_total)
-                .map(|i| {
-                    if i < num_variables {
-                        match tangent.entry(i, i).abs() {
-                            0.0 => 1.0,
-                            entry => entry,
-                        }
-                    } else {
-                        1.0
-                    }
-                })
-                .collect(),
-        ),
-        Preconditioner::None => None,
+        Preconditioner::Jacobi => Preconditioning::Diagonal(diagonal()),
+        Preconditioner::None => Preconditioning::None,
+        Preconditioner::IncompleteLdl { .. } => {
+            match krylov
+                .factorization(num_variables, tangent.lower_triangle())
+                .map(|factor| (kkt_schur(&factor, constraint_matrix), factor))
+            {
+                Some((Some(schur), factor)) => Preconditioning::Incomplete {
+                    factor: Box::new(factor),
+                    schur: Some(Box::new(schur)),
+                },
+                _ => Preconditioning::Diagonal(diagonal()),
+            }
+        }
     }
+}
+
+/// The Schur complement the multipliers answer to, through the incomplete
+/// factorization standing in for the tangent.
+///
+/// A constraint row is put through the factorization once, and the columns of
+/// the complement are read off by pairing what comes back with each constraint
+/// row in turn. That is one solve per constraint rather than one per variable,
+/// which is what makes forming this affordable at all: there are far fewer
+/// things constrained than there are things to constrain.
+fn kkt_schur(factor: &CscIncompleteLdl, constraint_matrix: &Matrix) -> Option<LdlDecomposition> {
+    let num_constraints = constraint_matrix.len();
+    //
+    // The constraint is held dense but is rarely dense in fact, and every entry
+    // of the complement is a pass along a constraint row, so the rows are
+    // gathered to their nonzeros once instead of being walked whole each time.
+    //
+    let rows: Vec<Vec<(usize, Scalar)>> = constraint_matrix
+        .iter()
+        .map(|row| {
+            row.iter()
+                .enumerate()
+                .filter(|&(_, &entry)| entry != 0.0)
+                .map(|(j, &entry)| (j, entry))
+                .collect()
+        })
+        .collect();
+    let mut schur = SquareMatrix::zero(num_constraints);
+    let mut column = Vector::zero(factor.size());
+    let mut applied = Vector::zero(factor.size());
+    rows.iter().enumerate().for_each(|(b, row_b)| {
+        column.iter_mut().for_each(|entry| *entry = 0.0);
+        row_b.iter().for_each(|&(j, entry)| column[j] = entry);
+        factor.solve_into(&column, &mut applied);
+        rows.iter().enumerate().for_each(|(a, row_a)| {
+            schur[a][b] = row_a
+                .iter()
+                .map(|&(j, entry)| entry * applied[j])
+                .sum::<Scalar>()
+        })
+    });
+    schur.factorize_ldl().ok()
 }
 
 fn kkt_block<K>(
@@ -1426,7 +1493,7 @@ where
                     });
                     applied
                 },
-                kkt_diagonal(krylov, &hess, num_variables, num_total),
+                kkt_preconditioning(krylov, &hess, &constraint_matrix, num_variables, num_total),
                 &residual,
             )?;
         } else if let LinearSolver::Sparse(solver) = &linear_solver {
