@@ -28,6 +28,32 @@ const UNSTABLE: Scalar = 1e8;
 /// is worse than losing it.
 const GROWTH: Scalar = 1e4;
 
+/// How much a kept fill entry is allowed to amplify the row of the inverse
+/// factor it depends on, before it is dropped for that instead of for its own
+/// size.
+///
+/// `GROWTH` bounds the entries of the factor itself, but the factor is not
+/// what a solve touches — its inverse is, one triangular pass at a time, and
+/// an entry can be individually unremarkable while still sitting at the end
+/// of a dependency chain whose own inverse has already grown large. Push a
+/// correction through that chain and what comes out is *entry × however much
+/// the chain already amplifies*, not just the entry — an amplification
+/// `GROWTH` alone has no way to see, since it only ever looks at one row at a
+/// time. Bounding the entries of `L` does not bound `L⁻¹`; this bounds it
+/// directly, weighing a candidate entry against `rho`, a running bound on the
+/// row-sum norm of the inverse factor at the dependency it came from — which
+/// is exactly what a triangular solve multiplies a dropped correction by.
+/// Rediscovered the hard way: a factor whose every pivot passed `UNSTABLE`
+/// and whose every entry passed `GROWTH` still made a walk's own
+/// positive-definiteness check come out negative, on the real deformed
+/// tangent this exists for — see `PIVOTING.md`.
+const AMPLIFICATION: Scalar = 1e10;
+
+/// How far the worst inverse row-sum bound is allowed to grow before the
+/// factorization is refused outright, the same way `UNSTABLE` already refuses
+/// one that grew in its own entries.
+const INVERSE_UNSTABLE: Scalar = 1e14;
+
 /// How small the natural next candidate's own diagonal has to have fallen,
 /// on the scaled matrix, before it is passed over for the best one available.
 ///
@@ -116,6 +142,10 @@ pub struct CscIncompleteLdl {
     size: usize,
     /// How large the factor grew, and how many entries were dropped for growing.
     growth: (Scalar, usize),
+    /// How large the worst bound on a row of the inverse factor grew, and how
+    /// many entries were dropped for amplifying it too far — see
+    /// [`AMPLIFICATION`].
+    inverse_growth: (Scalar, usize),
 }
 
 impl CscIncompleteLdl {
@@ -210,7 +240,8 @@ impl CscIncompleteLdl {
         // Saying there is none leaves the caller free to fall back on something
         // that is merely weak.
         //
-        (factorization.growth.0 <= UNSTABLE).then_some(factorization)
+        (factorization.growth.0 <= UNSTABLE && factorization.inverse_growth.0 <= INVERSE_UNSTABLE)
+            .then_some(factorization)
     }
     /// Builds the factor one pivot at a time, choosing at every step whichever
     /// remaining index currently carries the largest-magnitude diagonal entry of
@@ -251,6 +282,16 @@ impl CscIncompleteLdl {
     ) -> Self {
         let floor = FLOOR;
         let mut grew = (0.0 as Scalar, 0);
+        let mut inverse_grew = (0.0 as Scalar, 0);
+        //
+        // `rho[step]` bounds the row-sum norm of row `step` of the inverse
+        // factor, `‖L⁻¹‖` restricted to that row. For a unit lower triangular
+        // matrix, row `i` of `L⁻¹` satisfies `(L⁻¹)ᵢⱼ = δᵢⱼ - Σₖ Lᵢₖ(L⁻¹)ₖⱼ` for
+        // `k < i`, so its row-sum norm is bounded by `1 + Σₖ |Lᵢₖ| · ρₖ` —
+        // exactly the entries and dependencies already in hand once a row is
+        // built, so this costs nothing beyond what factoring already touches.
+        //
+        let mut rho = vec![0.0; size];
         let mut diag = diagonal.clone();
         let mut eliminated = vec![false; size];
         let mut position = vec![0_usize; size];
@@ -325,6 +366,13 @@ impl CscIncompleteLdl {
                     work[column] = 0.0;
                     continue;
                 }
+                let amplified = entry.abs() * rho[position[column]];
+                inverse_grew = (inverse_grew.0.max(amplified), inverse_grew.1);
+                if !held[column] && amplified > AMPLIFICATION {
+                    inverse_grew = (inverse_grew.0, inverse_grew.1 + 1);
+                    work[column] = 0.0;
+                    continue;
+                }
                 work[column] = entry;
                 dependencies.push((column, entry));
                 columns[column].iter().for_each(|&(later, value)| {
@@ -362,6 +410,12 @@ impl CscIncompleteLdl {
                 }
             }
             dependencies.sort_unstable_by_key(|&(column, _)| position[column]);
+            rho[step] = 1.0
+                + dependencies
+                    .iter()
+                    .map(|&(column, entry)| entry.abs() * rho[position[column]])
+                    .sum::<Scalar>();
+            inverse_grew = (inverse_grew.0.max(rho[step]), inverse_grew.1);
             let pivot = diag[pivot_index];
             let pivot = if !pivot.is_finite() {
                 floor
@@ -442,6 +496,7 @@ impl CscIncompleteLdl {
             position,
             size,
             growth: grew,
+            inverse_growth: inverse_grew,
         }
     }
     /// How many pivots came out negative.
@@ -529,5 +584,9 @@ impl CscIncompleteLdl {
     #[cfg(test)]
     fn growth(&self) -> (Scalar, usize) {
         self.growth
+    }
+    #[cfg(test)]
+    fn inverse_growth(&self) -> (Scalar, usize) {
+        self.inverse_growth
     }
 }

@@ -224,6 +224,7 @@ fn stands_up_to_scale_and_heavy_indefiniteness() {
     let factorization = CscIncompleteLdl::with_fill(size, entries, 20, 0.0).unwrap();
     assert!(factorization.negative_pivots() > size / 4);
     assert!(factorization.growth().0 < 10.0);
+    assert!(factorization.inverse_growth().0.is_finite());
     let product = product(&factorization, size);
     (0..size).for_each(|row| {
         (0..size).for_each(|column| {
