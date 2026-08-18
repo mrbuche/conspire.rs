@@ -687,6 +687,18 @@ where
 /// row in turn. That is one solve per constraint rather than one per variable,
 /// which is what makes forming this affordable at all: there are far fewer
 /// things constrained than there are things to constrain.
+///
+/// `factor` is only ever an incomplete stand-in for the tangent, never the
+/// tangent itself, so a Schur complement built through it inherits none of
+/// the tangent's own guarantees — in particular, `factor.solve` is always
+/// positive definite (it is built from `|D|`), but the complement of a
+/// positive definite operator is positive definite only when that operator
+/// is the true inverse, which this one is not. `factorize_ldl` succeeding is
+/// not proof of that; it factorizes whatever it is given, indefinite or not,
+/// which is the entire point of pivoting. The definiteness has to be asked
+/// for separately, and a complement that fails it is worth nothing to a walk
+/// that needs both blocks positive definite — the caller falls back on the
+/// diagonal precisely as it does when the factorization itself is refused.
 fn kkt_schur(factor: &CscIncompleteLdl, constraint_matrix: &Matrix) -> Option<LdlDecomposition> {
     let num_constraints = constraint_matrix.len();
     //
@@ -718,7 +730,10 @@ fn kkt_schur(factor: &CscIncompleteLdl, constraint_matrix: &Matrix) -> Option<Ld
                 .sum::<Scalar>()
         })
     });
-    schur.factorize_ldl().ok()
+    schur
+        .factorize_ldl()
+        .ok()
+        .filter(LdlDecomposition::is_positive_definite)
 }
 
 fn kkt_block<K>(

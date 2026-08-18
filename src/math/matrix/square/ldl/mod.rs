@@ -293,4 +293,29 @@ impl LdlDecomposition {
             .zip(y.iter())
             .for_each(|(&p_i, y_i)| x[p_i] = *y_i)
     }
+    /// Whether the matrix this factorized is positive definite.
+    ///
+    /// The factorization exists whatever the matrix's definiteness is — that
+    /// is the point of pivoting — so succeeding here says nothing on its own.
+    /// A 1×1 block is answered by its own sign; a 2×2 block by Sylvester's
+    /// criterion on the pivot it stands for, `[[a, b], [b, c]]`.
+    pub fn is_positive_definite(&self) -> bool {
+        let n = self.permutation.len();
+        let mut k = 0;
+        while k < n {
+            if self.pair[k] {
+                let (a, b, c) = (self.ldl[k][k], self.ldl[k + 1][k], self.ldl[k + 1][k + 1]);
+                if a <= 0.0 || a * c - b * b <= 0.0 {
+                    return false;
+                }
+                k += 2
+            } else {
+                if self.ldl[k][k] <= 0.0 {
+                    return false;
+                }
+                k += 1
+            }
+        }
+        true
+    }
 }

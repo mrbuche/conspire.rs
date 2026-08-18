@@ -93,3 +93,31 @@ fn solve_ldl_scaled_dim_25() -> Result<(), AssertionError> {
         .unwrap();
     Assert::default().eq_within_tols(&scaled, &solution)
 }
+
+/// `factorize_ldl` succeeds on an indefinite matrix by design — that is the
+/// entire point of pivoting — so success on its own says nothing about
+/// definiteness, only `is_positive_definite` does.
+#[test]
+fn is_positive_definite_true_for_a_definite_matrix() {
+    let n = 8;
+    let mut matrix = SquareMatrix::zero(n);
+    for i in 0..n {
+        for j in 0..i {
+            let entry = ((i * 5 + j * 3) % 7) as f64 - 3.0;
+            matrix[i][j] = entry;
+            matrix[j][i] = entry
+        }
+        matrix[i][i] = 50.0
+    }
+    assert!(matrix.factorize_ldl().unwrap().is_positive_definite())
+}
+
+#[test]
+fn is_positive_definite_false_for_an_indefinite_matrix() {
+    assert!(
+        !kkt_symmetric_dim_25()
+            .factorize_ldl()
+            .unwrap()
+            .is_positive_definite()
+    )
+}
