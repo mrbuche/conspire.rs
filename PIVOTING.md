@@ -156,16 +156,40 @@ out byte-identical to the unpivoted baseline) to leave the healthy tangent's
 elimination order completely untouched, while turning the deformed tangent's
 factorization from a refusal into 946 negative pivots successfully kept.
 
-**What is still open: whether MINRES itself then converges on that
-now-unrefused step-2 system.** That is a different question from whether the
-factorization refuses itself, and this measurement didn't answer it — the
-side-channel harness observes the tangent without asking MINRES to solve it.
-Separately, step 1's own MINRES solve stalls at a 0.00874 relative residual
-regardless of `SAFE` (reproduced with pivoting completely inert) — a
-pre-existing "attainable-accuracy floor" per [[krylov_fem_scale_negative]],
-not something introduced here, but it is what stands between this and a
-fully Krylov-driven walk reaching step 2 on its own trajectory rather than
-via the Sparse-computed one used for this measurement.
+**Whether MINRES itself then converges on that now-unrefused step-2
+system — checked.** Restarted Newton from the exact deformed configuration
+(captured mid-solve on the proven `LinearSolver::Sparse` path, since a fully
+Krylov-driven trajectory can't get there — see below) and asked it for one
+`LinearSolver::Krylov` solve there, replicating the real step-2 linear
+system without needing MINRES to converge at step 1 first.
+
+First attempt: `PreconditionerNotPositiveDefinite`, hard failure. This was a
+real, separate bug, not an artifact of the measurement — `kkt_schur` builds
+the multiplier block's preconditioner by calling `factorize_ldl()` on the
+Schur complement of `factor.solve()`, and `factorize_ldl()` succeeds on any
+symmetric matrix, indefinite or not (that is the entire point of pivoting).
+`factor.solve()` is always positive definite by construction (it takes
+`|D|`), but the complement of a positive-definite operator is only
+guaranteed positive definite when that operator is the *true* inverse, and
+an incomplete factorization never is. On the real step-2 tangent the Schur
+complement came out genuinely indefinite. **This path was unreachable before
+Stage A pivoting landed** — the factorization itself was refused first
+(growth to 7.7e85), so `kkt_schur` was never exercised on a step-2 tangent
+at all; pivoting's success is what exposed it. Fixed in a follow-up commit:
+`LdlDecomposition::is_positive_definite` (1×1 blocks by sign, 2×2 by
+Sylvester's criterion), and `kkt_schur` now filters through it, falling back
+to the diagonal preconditioner exactly as it already does when the
+factorization itself is refused.
+
+With that fixed: the crash is gone, and MINRES actually runs on step 2 (via
+the diagonal fallback, since the Schur block failed its own PD check). It
+stalls at a 0.00874 relative residual — **the same stall step 1 already had
+before any of this work**, reproduced with pivoting completely inert, so
+this is [[krylov_fem_scale_negative]]'s pre-existing "attainable-accuracy
+floor," not a new regression and not something this session's changes
+caused or need to fix. Both the factorization refusal and the Schur-complement
+crash — the two failure modes this document set out to fix — are gone.
+What's left is a pre-existing MINRES accuracy question, tracked separately.
 
 **Stage B — 2×2 blocks.** Only after Stage A is green. This is where `D` stops
 being a vector and `|D|` stops being `abs`.
