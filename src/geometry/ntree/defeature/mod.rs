@@ -24,9 +24,6 @@ where
             }
         }
     }
-    /// Reassigns leaves whose value differs from neighboring leaves covering
-    /// at least `M - 1` of their `M` facets' worth of area, absorbing
-    /// single-cell protrusions into the majority-neighboring value.
     fn reduce_protrusions(&mut self) -> bool {
         let (leaves, pairs) = self.leaf_pairs();
         let mut differing: HashMap<usize, HashMap<V, usize>> = HashMap::new();
@@ -56,9 +53,6 @@ where
         });
         changed
     }
-    /// Merges connected clusters of leaves with total volume below `minimum`
-    /// into the neighboring cluster with which they share the most facet
-    /// area.
     fn reduce_clusters(&mut self, minimum: usize) -> bool {
         let count = self.len();
         let mut parent: Vec<usize> = (0..count).collect();
@@ -152,8 +146,6 @@ where
         });
         changed
     }
-    /// Returns every valued leaf and every (deduplicated) pair of
-    /// facet-adjacent valued leaves, weighted by shared facet area.
     fn leaf_pairs(&self) -> (Vec<usize>, Vec<(usize, usize, usize)>) {
         let leaves: Vec<usize> = (0..self.len())
             .filter(|&i| self.nodes[i].is_leaf() && self.nodes[i].value.is_some())
