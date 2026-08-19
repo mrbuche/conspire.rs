@@ -5,8 +5,10 @@ mod cylinder;
 mod unite;
 
 use crate::{
-    geometry::{Coordinate, Direction, bbox::BoundingBox, bvh::BoundingVolumeHierarchy},
-    math::Quantity,
+    geometry::{
+        Coordinate, Coordinates, Direction, bbox::BoundingBox, bvh::BoundingVolumeHierarchy,
+    },
+    math::{Quantity, Tensor},
     units::Length,
 };
 use std::cell::OnceCell;
@@ -29,6 +31,19 @@ pub trait Solid<const D: usize> {
     /// Whether a point lies within the solid, its boundary included.
     fn contains(&self, point: &Coordinate<D>) -> bool {
         self.signed_distance(point) <= Quantity::default()
+    }
+    /// The distances at many points at once.
+    ///
+    /// Meshing asks by the meshful rather than by the point, and a solid whose
+    /// answer costs something to set up — gathering a surface's elements, or
+    /// handing the points out across threads — wants that cost paid once for
+    /// the lot instead of once apiece. One at a time by default, for the solid
+    /// with nothing to set up.
+    fn signed_distances(&self, points: &Coordinates<D>) -> Vec<Quantity<Length>> {
+        points
+            .iter()
+            .map(|point| self.signed_distance(point))
+            .collect()
     }
 }
 

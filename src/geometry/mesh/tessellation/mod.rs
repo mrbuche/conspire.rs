@@ -5,6 +5,7 @@ pub(super) mod from;
 pub(super) mod into;
 pub(super) mod read;
 pub(super) mod sdf;
+pub(super) mod solid;
 pub(super) mod trim;
 pub(super) mod write;
 

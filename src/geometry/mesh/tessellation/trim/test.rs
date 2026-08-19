@@ -11,7 +11,7 @@ use crate::{
 };
 use std::f64::consts::TAU;
 
-fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellation {
+pub fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellation {
     let mut coordinates = Vec::new();
     (0..around).for_each(|i| {
         let theta = TAU * i as Scalar / around as Scalar;
