@@ -12,6 +12,9 @@ pub mod mesh;
 /// Orthotrees, such as quadtrees and octrees.
 pub mod ntree;
 
+/// Geometric primitives, and the solids they combine into.
+pub mod primitive;
+
 /// Regular grids of values.
 pub mod grid;
 
