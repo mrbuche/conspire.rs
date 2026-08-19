@@ -3,9 +3,10 @@ use crate::{
         Coordinate,
         primitive::{
             Cylinder, Solid, Union,
-            test::{assert_length, upright},
+            test::{Spread, assert_length, thicket, upright},
         },
     },
+    math::{Quantity, Scalar, Tensor},
     units::Length,
 };
 
@@ -137,4 +138,73 @@ fn contains_follows_the_sign() {
 #[should_panic(expected = "a union needs at least one solid")]
 fn empty_union_is_refused() {
     Union::<Cylinder>::new(vec![]);
+}
+
+/// Member counts either side of the count at which pruning takes over, so that
+/// the pruned answers and the plain ones are held to the same account.
+const COUNTS: [usize; 2] = [64, 400];
+
+/// Pruning may only decide which members to skip, never what the answer is, so
+/// it has to agree with asking every member outright.
+#[test]
+fn pruning_agrees_with_asking_every_member() {
+    COUNTS.into_iter().for_each(|count| {
+        let solids = thicket(count);
+        let united = Union::new(thicket(count));
+        let mut spread = Spread::default();
+        (0..2000).for_each(|_| {
+            let point = spread.point(14.0);
+            let brute = solids
+                .iter()
+                .map(|solid| solid.signed_distance(&point))
+                .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
+            assert_length(united.signed_distance(&point), brute.value())
+        })
+    })
+}
+
+/// Whatever the members do where they overlap, and however few of them a query
+/// looks at, the point it comes back with has to lie on the surface.
+#[test]
+fn closest_points_land_on_a_crowded_surface() {
+    COUNTS.into_iter().for_each(|count| {
+        let united = Union::new(thicket(count));
+        let mut spread = Spread::default();
+        (0..500).for_each(|_| {
+            let point = spread.point(14.0);
+            let (closest, normal) = united.closest_point(&point);
+            assert_length(united.signed_distance(&closest), 0.0);
+            assert!((normal.norm().value() - 1.0).abs() < 1.0e-12)
+        })
+    })
+}
+
+/// A point beyond every member still has to find the nearest of them, which is
+/// the case a search starting at the point has to widen its way out to.
+#[test]
+fn a_distant_point_still_finds_the_nearest_member() {
+    COUNTS.into_iter().for_each(|count| {
+        let solids = thicket(count);
+        let united = Union::new(thicket(count));
+        let point = Coordinate::const_from([500.0, -400.0, 300.0]);
+        let brute = solids
+            .iter()
+            .map(|solid| solid.signed_distance(&point))
+            .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
+        assert_length(united.signed_distance(&point), brute.value())
+    })
+}
+
+/// One member alone is just that member, pruning and all.
+#[test]
+fn a_lone_member_is_itself() {
+    let united = Union::new(vec![upright()]);
+    let mut spread = Spread::default();
+    (0..200).for_each(|_| {
+        let point = spread.point(4.0);
+        assert_length(
+            united.signed_distance(&point),
+            upright().signed_distance(&point).value(),
+        )
+    })
 }

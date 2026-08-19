@@ -5,10 +5,11 @@ mod cylinder;
 mod unite;
 
 use crate::{
-    geometry::{Coordinate, Direction, bbox::BoundingBox},
+    geometry::{Coordinate, Direction, bbox::BoundingBox, bvh::BoundingVolumeHierarchy},
     math::Quantity,
     units::Length,
 };
+use std::cell::OnceCell;
 
 /// A closed region of space, described by where it is rather than by a mesh of
 /// its boundary.
@@ -44,9 +45,14 @@ pub struct Cylinder {
 ///
 /// Held as a flat list rather than a tree of binary combinators so that the
 /// members stay one homogeneous collection, which keeps queries free of
-/// dynamic dispatch and leaves room to prune them against a hierarchy of the
-/// members' bounding boxes.
-#[derive(Clone, Debug)]
+/// dynamic dispatch and lets a hierarchy over their bounding boxes prune them
+/// all at once rather than a level at a time.
+///
+/// Three-dimensional alone, since that hierarchy is, though [`Solid`] itself is
+/// not; a union in another dimension can generalize the pruning when something
+/// needs one.
 pub struct Union<S> {
     solids: Vec<S>,
+    hierarchy: OnceCell<BoundingVolumeHierarchy<3>>,
+    extent: OnceCell<BoundingBox<3>>,
 }

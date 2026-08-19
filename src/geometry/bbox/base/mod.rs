@@ -14,6 +14,9 @@ impl<const D: usize> BoundingBox<D> {
     pub fn maximum(&self) -> &Coordinate<D> {
         &self.maximum
     }
+    pub fn center(&self) -> Coordinate<D> {
+        (&self.minimum + &self.maximum) / 2.0
+    }
     pub fn overlaps(&self, other: &Self) -> bool {
         (0..D).all(|d| self.minimum[d] <= other.maximum[d] && other.minimum[d] <= self.maximum[d])
     }
