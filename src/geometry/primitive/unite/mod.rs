@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, CoordinateList, Direction,
+        Coordinate, CoordinateList, Coordinates, Direction,
         bbox::{BoundingBox, BoundingBoxes, Unite},
         bvh::BoundingVolumeHierarchy,
         primitive::{Solid, Union},
@@ -32,11 +32,12 @@ const SEED_FRACTION: Scalar = 16.0;
 
 /// How many members a union carries before pruning is worth its while.
 ///
-/// Descending the hierarchy costs a traversal and the list it gathers, some
-/// hundreds of nanoseconds, where asking a cylinder its distance costs a few:
-/// pruning only repays that once there are enough members to skip. Measured at
-/// the crossing point, where the two cost the same.
-const PRUNING_THRESHOLD: usize = 256;
+/// Descending the hierarchy costs a traversal, where asking a cylinder its
+/// distance costs a few nanoseconds, so pruning only repays itself once there
+/// are enough members to skip. Measured at the crossing point, where the two
+/// cost the same: pruning breaks even at this many and wins from there, by
+/// nearly twice at twice as many and by sevenfold at sixteen times as many.
+const PRUNING_THRESHOLD: usize = 32;
 
 impl<S> Union<S> {
     /// Unites solids into the region any of them covers.
@@ -69,13 +70,15 @@ impl<S: Solid<D>> Union<S> {
     /// A member left out is farther than the radius, since its box misses a cube
     /// of that half-width, which is what lets a search stop once it holds an
     /// answer nearer than the radius it searched.
-    fn within(&self, point: &Coordinate<D>, radius: Quantity<Length>) -> Vec<usize> {
+    fn within(&self, point: &Coordinate<D>, radius: Quantity<Length>, found: &mut Vec<usize>) {
         let offset = Coordinate::from([radius.value(); D]);
-        self.hierarchy()
-            .overlapping(&BoundingBox::from(CoordinateList::const_from([
+        self.hierarchy().overlapping_into(
+            &BoundingBox::from(CoordinateList::const_from([
                 point - &offset,
                 point + &offset,
-            ])))
+            ])),
+            found,
+        )
     }
     /// The radius covering every member, whatever the point.
     fn reach(&self, point: &Coordinate<D>, extent: &BoundingBox<D>) -> Quantity<Length> {
@@ -102,17 +105,17 @@ impl<S: Solid<D>> Union<S> {
     /// is settled by the first query. A positive one bounds how far the search
     /// has to reach, and re-querying at that bound either confirms it or
     /// tightens it, until what was found is nearer than what was searched.
-    fn searched(&self, point: &Coordinate<D>) -> Quantity<Length> {
+    fn searched(&self, point: &Coordinate<D>, found: &mut Vec<usize>) -> Quantity<Length> {
         let zero = Quantity::default();
         let extent = self.extent();
         let reach = self.reach(point, extent);
         let seed = (extent.maximum() - extent.minimum()).norm() / SEED_FRACTION;
         let mut radius = self.clearance(point, extent);
         loop {
-            let members = self.within(point, radius);
-            match members.is_empty() {
+            self.within(point, radius, found);
+            match found.is_empty() {
                 false => {
-                    let nearest = self.among(point, members);
+                    let nearest = self.among(point, found.iter().copied());
                     if nearest <= zero || nearest <= radius || radius >= reach {
                         return nearest;
                     }
@@ -157,15 +160,29 @@ impl<S: Solid<D>> Union<S> {
         point: &Coordinate<D>,
         members: impl IntoIterator<Item = usize>,
         tolerance: Quantity<Length>,
+        burial: &mut Vec<usize>,
     ) -> Option<(Quantity<Length>, Coordinate<D>, Direction<D>)> {
         members
             .into_iter()
             .filter_map(|member| {
                 let (candidate, normal) = self.solids[member].closest_point(point);
-                (self.signed_distance(&candidate) >= -tolerance)
+                (self.distance_with(&candidate, burial) >= -tolerance)
                     .then(|| ((point - &candidate).norm(), candidate, normal))
             })
             .min_by(|(one, ..), (other, ..)| one.total_cmp(other))
+    }
+    /// The distance to the nearest member, gathering into a list the caller
+    /// holds onto so that a query per point does not cost a list per point.
+    fn distance_with(&self, point: &Coordinate<D>, found: &mut Vec<usize>) -> Quantity<Length> {
+        if self.solids.len() <= PRUNING_THRESHOLD {
+            self.solids
+                .iter()
+                .fold(Quantity::new(Scalar::INFINITY), |least, solid| {
+                    least.min(solid.signed_distance(point))
+                })
+        } else {
+            self.searched(point, found)
+        }
     }
     /// The union's box, held onto rather than gathered again for every query.
     fn extent(&self) -> &BoundingBox<D> {
@@ -185,15 +202,16 @@ impl<S: Solid<D>> Solid<D> for Union<S> {
     /// understates the depth, reporting the depth within a single member where
     /// the union may hold the point deeper still.
     fn signed_distance(&self, point: &Coordinate<D>) -> Quantity<Length> {
-        if self.solids.len() <= PRUNING_THRESHOLD {
-            return self
-                .solids
-                .iter()
-                .fold(Quantity::new(Scalar::INFINITY), |least, solid| {
-                    least.min(solid.signed_distance(point))
-                });
-        }
-        self.searched(point)
+        self.distance_with(point, &mut Vec::new())
+    }
+    /// Gathers what a query passes over into one list for the whole meshful,
+    /// rather than into one per point.
+    fn signed_distances(&self, points: &Coordinates<D>) -> Vec<Quantity<Length>> {
+        let mut found = Vec::new();
+        points
+            .iter()
+            .map(|point| self.distance_with(point, &mut found))
+            .collect()
     }
     /// The nearest of the members' closest points that the others leave exposed,
     /// or a projection onto the surface where they leave none.
@@ -212,17 +230,23 @@ impl<S: Solid<D>> Solid<D> for Union<S> {
         let extent = self.extent();
         let diagonal = (extent.maximum() - extent.minimum()).norm();
         let tolerance = diagonal * BURIED_TOLERANCE;
+        let mut members = Vec::new();
+        let mut burial = Vec::new();
         if self.solids.len() <= PRUNING_THRESHOLD {
             if let Some((_, candidate, normal)) =
-                self.exposed(point, 0..self.solids.len(), tolerance)
+                self.exposed(point, 0..self.solids.len(), tolerance, &mut burial)
             {
                 return (candidate, normal);
             }
         } else {
             let reach = self.reach(point, extent);
-            let mut radius = self.searched(point).abs().max(diagonal / SEED_FRACTION);
+            let mut radius = self
+                .searched(point, &mut burial)
+                .abs()
+                .max(diagonal / SEED_FRACTION);
             loop {
-                match self.exposed(point, self.within(point, radius), tolerance) {
+                self.within(point, radius, &mut members);
+                match self.exposed(point, members.iter().copied(), tolerance, &mut burial) {
                     Some((distance, candidate, normal))
                         if distance <= radius || radius >= reach =>
                     {

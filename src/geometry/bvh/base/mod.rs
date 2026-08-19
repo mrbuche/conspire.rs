@@ -216,10 +216,19 @@ impl BoundingVolumeHierarchy<3> {
     }
     pub fn overlapping(&self, query: &BoundingBox<3>) -> Vec<usize> {
         let mut found = Vec::new();
-        if !self.nodes.is_empty() {
-            self.overlapping_node(0, query, &mut found);
-        }
+        self.overlapping_into(query, &mut found);
         found
+    }
+    /// Gathers what overlaps into a list the caller holds onto, replacing
+    /// whatever it held.
+    ///
+    /// For the caller querying once per item of a loop, where a fresh list
+    /// every time costs more than the descent that fills it does.
+    pub fn overlapping_into(&self, query: &BoundingBox<3>, found: &mut Vec<usize>) {
+        found.clear();
+        if !self.nodes.is_empty() {
+            self.overlapping_node(0, query, found);
+        }
     }
     fn overlapping_node(&self, node_index: usize, query: &BoundingBox<3>, found: &mut Vec<usize>) {
         let node = &self.nodes[node_index];

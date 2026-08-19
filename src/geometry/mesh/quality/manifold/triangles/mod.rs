@@ -21,8 +21,10 @@ impl Mesh<D> {
         let boxes = self.bounding_boxes();
         let bvh = BoundingVolumeHierarchy::from(self);
         let mut hits = Vec::new();
+        let mut found = Vec::new();
         for (i, face) in faces.iter().enumerate() {
-            for j in bvh.overlapping(&boxes[i]) {
+            bvh.overlapping_into(&boxes[i], &mut found);
+            for &j in found.iter() {
                 if j > i
                     && !face.iter().any(|node| faces[j].contains(node))
                     && triangles_intersect(*face, faces[j], coordinates)

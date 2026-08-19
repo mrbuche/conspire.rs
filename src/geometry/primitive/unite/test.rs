@@ -142,7 +142,7 @@ fn empty_union_is_refused() {
 
 /// Member counts either side of the count at which pruning takes over, so that
 /// the pruned answers and the plain ones are held to the same account.
-const COUNTS: [usize; 2] = [64, 400];
+const COUNTS: [usize; 2] = [16, 400];
 
 /// Pruning may only decide which members to skip, never what the answer is, so
 /// it has to agree with asking every member outright.

@@ -23,6 +23,7 @@ impl Tessellation {
         let coordinates = mesh.coordinates();
         let number_of_elements = mesh.number_of_elements();
         let mut cut = vec![false; number_of_elements];
+        let mut found = Vec::new();
         mesh.iter()
             .flat_map(|block| {
                 block
@@ -36,7 +37,8 @@ impl Tessellation {
                     .map(|&node| &coordinates[node])
                     .collect::<CoordinatesRef<'_, D>>()
                     .into();
-                *flag = bvh.overlapping(&bbox).into_iter().any(|triangle| {
+                bvh.overlapping_into(&bbox, &mut found);
+                *flag = found.iter().any(|&triangle| {
                     let nodes = elements[triangle];
                     bbox.overlaps_triangle(
                         &surface_coordinates[nodes[0]],
