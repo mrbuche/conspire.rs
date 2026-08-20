@@ -15,16 +15,16 @@ use std::cell::OnceCell;
 
 const D: usize = 3;
 
-/// How far inside its neighbours a candidate must lie, as a fraction of the
-/// union's extent, before it counts as buried rather than as shared surface.
-const BURIED_TOLERANCE: Scalar = 1.0e-10;
-
 /// How near the surface, as a fraction of the union's extent, a projection has
 /// to land before it has arrived.
 const PROJECTION_TOLERANCE: Scalar = 1.0e-15;
 
 /// How many steps a projection may take before giving up on that.
-const PROJECTION_STEPS: usize = 16;
+const PROJECTION_STEPS: usize = 64;
+
+/// The shortest fraction of a step worth trying, below which halving it again
+/// buys nothing.
+const SHORTEST_STEP: Scalar = 1.0e-4;
 
 /// The fraction of the union's extent a search widens by when the point lies in
 /// no member's box at all, leaving nothing nearer to start from.
@@ -154,23 +154,6 @@ impl<S: Solid<D>> Union<S> {
         });
         nearest.expect("a union needs at least one solid").1
     }
-    /// The nearest of the members' closest points the others leave exposed.
-    fn exposed(
-        &self,
-        point: &Coordinate<D>,
-        members: impl IntoIterator<Item = usize>,
-        tolerance: Quantity<Length>,
-        burial: &mut Vec<usize>,
-    ) -> Option<(Quantity<Length>, Coordinate<D>, Direction<D>)> {
-        members
-            .into_iter()
-            .filter_map(|member| {
-                let (candidate, normal) = self.solids[member].closest_point(point);
-                (self.distance_with(&candidate, burial) >= -tolerance)
-                    .then(|| ((point - &candidate).norm(), candidate, normal))
-            })
-            .min_by(|(one, ..), (other, ..)| one.total_cmp(other))
-    }
     /// The distance to the nearest member, gathering into a list the caller
     /// holds onto so that a query per point does not cost a list per point.
     fn distance_with(&self, point: &Coordinate<D>, found: &mut Vec<usize>) -> Quantity<Length> {
@@ -213,50 +196,22 @@ impl<S: Solid<D>> Solid<D> for Union<S> {
             .map(|point| self.distance_with(point, &mut found))
             .collect()
     }
-    /// The nearest of the members' closest points that the others leave exposed,
-    /// or a projection onto the surface where they leave none.
+    /// The nearest point of the surface, reached by walking down the distance.
     ///
-    /// A member's closest point is only the union's if the other members do not
-    /// bury it, since the surface they overlap is interior and no longer
-    /// boundary. Outside the union no candidate is ever buried — burying one
-    /// would put the burying member nearer than the member owning it, which is
-    /// a contradiction — so the nearest candidate is exact there.
+    /// Outside the union this is exact and immediate: the distance is the
+    /// distance to the nearest member, its gradient is that member's outward
+    /// normal, and stepping the one against the other lands on the very point
+    /// that measured it.
     ///
-    /// Inside a crossing every candidate can be buried at once, each member's
-    /// nearest surface lying within another, and then there is no candidate to
-    /// take. Walking down the distance's own gradient reaches the surface
-    /// regardless, so that case projects rather than choosing.
+    /// Choosing among the members' own closest points instead would be exact
+    /// outside too, but not within. A member whose nearest point is buried is
+    /// not thereby a distant member — the rest of its surface may still be the
+    /// nearest thing there is — and discarding it wholesale sends the answer
+    /// clear across the solid to whichever member kept an exposed point.
+    /// Walking down the gradient cannot leave the neighbourhood it starts in.
     fn closest_point(&self, point: &Coordinate<D>) -> (Coordinate<D>, Direction<D>) {
         let extent = self.extent();
         let diagonal = (extent.maximum() - extent.minimum()).norm();
-        let tolerance = diagonal * BURIED_TOLERANCE;
-        let mut members = Vec::new();
-        let mut burial = Vec::new();
-        if self.solids.len() <= PRUNING_THRESHOLD {
-            if let Some((_, candidate, normal)) =
-                self.exposed(point, 0..self.solids.len(), tolerance, &mut burial)
-            {
-                return (candidate, normal);
-            }
-        } else {
-            let reach = self.reach(point, extent);
-            let mut radius = self
-                .searched(point, &mut burial)
-                .abs()
-                .max(diagonal / SEED_FRACTION);
-            loop {
-                self.within(point, radius, &mut members);
-                match self.exposed(point, members.iter().copied(), tolerance, &mut burial) {
-                    Some((distance, candidate, normal))
-                        if distance <= radius || radius >= reach =>
-                    {
-                        return (candidate, normal);
-                    }
-                    _ if radius >= reach => break,
-                    _ => radius = (radius * 2.0).min(reach),
-                }
-            }
-        }
         project(self, point, diagonal * PROJECTION_TOLERANCE)
     }
     fn bounding_box(&self) -> BoundingBox<D> {
@@ -266,11 +221,12 @@ impl<S: Solid<D>> Solid<D> for Union<S> {
 
 /// Steps a point onto the surface along the gradient of the distance to it.
 ///
-/// The distance to a union is the distance to whichever member is nearest, so
-/// that member's outward normal is the gradient, and stepping the distance
-/// against it lands on the surface in one go wherever the member stays the
-/// nearest one. Crossing over to another member partway costs another step
-/// rather than the answer, and the steps converge quadratically.
+/// A step lands on the surface outright wherever one member stays the nearest
+/// throughout it. Where two members trade places partway — along a crease
+/// where they meet — a full step overshoots onto the other's far side and the
+/// next step overshoots back, so a step that fails to close the distance is
+/// halved until it does. Left to stride, the two would trade blows without
+/// ever arriving.
 fn project<S: Solid<D>>(
     union: &Union<S>,
     point: &Coordinate<D>,
@@ -288,7 +244,15 @@ fn project<S: Solid<D>>(
         if depth.abs() <= tolerance {
             break;
         }
-        current -= &normal * depth;
+        let mut fraction = 1.0;
+        loop {
+            let trial = &current - &normal * (depth * fraction);
+            if union.signed_distance(&trial).abs() < depth.abs() || fraction <= SHORTEST_STEP {
+                current = trial;
+                break;
+            }
+            fraction *= 0.5
+        }
     }
     (current, normal)
 }

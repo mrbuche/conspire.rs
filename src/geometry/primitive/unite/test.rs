@@ -248,3 +248,27 @@ fn cylinders_mesh_into_hexahedra() {
         .fold(0.0, Scalar::max);
     assert!(drift < 0.06, "boundary drifts {drift} from the union")
 }
+
+/// Outside the union the nearest surface point is exactly as far off as the
+/// distance says it is, since the member that measured the distance owns that
+/// point and no other member can bury it without being nearer itself.
+///
+/// Landing farther means the answer jumped to some other part of the solid,
+/// which is what choosing among the members' own closest points used to do
+/// wherever the nearest of them happened to be buried.
+#[test]
+fn closest_points_outside_are_exactly_as_far_as_told() {
+    let united = Union::new(thicket(60));
+    let mut spread = Spread::default();
+    let mut checked = 0;
+    (0..20000).for_each(|_| {
+        let point = spread.point(14.0);
+        let told = united.signed_distance(&point);
+        if told.value() > 1.0e-6 {
+            checked += 1;
+            let (closest, _) = united.closest_point(&point);
+            assert_length((&closest - &point).norm(), told.value())
+        }
+    });
+    assert!(checked > 1000, "only {checked} points fell outside")
+}
