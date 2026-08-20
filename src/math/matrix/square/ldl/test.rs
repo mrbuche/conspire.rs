@@ -59,7 +59,6 @@ fn solve_ldl_zero_diagonal() -> Result<(), AssertionError> {
             matrix[j][i] = entry
         }
     }
-    // every third diagonal vanishes, so no one-by-one pivot is available there
     (0..n).step_by(3).for_each(|i| matrix[i][i] = 0.0);
     let rhs: Vector = (0..n).map(|i| (i % 5) as f64 - 2.0).collect();
     let solution = matrix.solve_ldl(&rhs).unwrap();
@@ -77,10 +76,51 @@ fn solve_ldl_vanishing_diagonal() -> Result<(), AssertionError> {
             matrix[j][i] = entry
         }
     }
-    // the diagonal vanishes entirely, so every pivot must be two-by-two
     let rhs: Vector = (0..n).map(|i| (i % 5) as f64 - 2.0).collect();
     let solution = matrix.solve_ldl(&rhs).unwrap();
     Assert::default().eq_within_tols(&(matrix * &solution), &rhs)
+}
+
+#[test]
+fn inertia_positive_definite() {
+    let mut matrix = SquareMatrix::zero(3);
+    (0..3).for_each(|i| matrix[i][i] = (i + 1) as f64);
+    assert_eq!(matrix.factorize_ldl().unwrap().inertia(), (3, 0, 0))
+}
+
+#[test]
+fn inertia_negative_definite() {
+    let mut matrix = SquareMatrix::zero(3);
+    (0..3).for_each(|i| matrix[i][i] = -((i + 1) as f64));
+    assert_eq!(matrix.factorize_ldl().unwrap().inertia(), (0, 3, 0))
+}
+
+#[test]
+fn inertia_indefinite_two_by_two() {
+    let mut matrix = SquareMatrix::zero(2);
+    matrix[0][1] = 1.0;
+    matrix[1][0] = 1.0;
+    assert_eq!(matrix.factorize_ldl().unwrap().inertia(), (1, 1, 0))
+}
+
+#[test]
+fn inertia_kkt_bordered_hessian() {
+    let mut matrix = SquareMatrix::zero(3);
+    matrix[0][0] = 2.0;
+    matrix[1][1] = 3.0;
+    matrix[0][2] = 1.0;
+    matrix[2][0] = 1.0;
+    matrix[1][2] = 1.0;
+    matrix[2][1] = 1.0;
+    assert_eq!(matrix.factorize_ldl().unwrap().inertia(), (2, 1, 0))
+}
+
+#[test]
+fn inertia_kkt_dim_25() {
+    assert_eq!(
+        kkt_symmetric_dim_25().factorize_ldl().unwrap().inertia(),
+        (12, 13, 0)
+    )
 }
 
 #[test]

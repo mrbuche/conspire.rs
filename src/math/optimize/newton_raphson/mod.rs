@@ -3,8 +3,8 @@ mod test;
 
 use super::{
     super::{
-        Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Quantity, Scalar,
-        Solution, SquareMatrix, Tensor, Vector,
+        Erase, Hessian, HessianBlock, Is, Jacobian, LdlDecomposition, LuDecomposition, Matrix,
+        Quantity, Scalar, Solution, SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
     BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
@@ -106,6 +106,7 @@ where
                 sparse,
                 constraint_matrix,
                 constraint_rhs,
+                false,
             ),
             EqualityConstraint::None => unconstrained(
                 self,
@@ -167,6 +168,7 @@ where
                 sparse,
                 constraint_matrix,
                 constraint_rhs,
+                false,
             ),
             EqualityConstraint::None => unimplemented!(
                 "An unconstrained solution has no chained vector to lend the increment through."
@@ -229,6 +231,7 @@ where
                 sparse,
                 constraint_matrix,
                 constraint_rhs,
+                true,
             ),
             EqualityConstraint::None => {
                 unconstrained(self, function, jacobian, hessian, initial_guess, sparse)
@@ -292,6 +295,7 @@ where
                 sparse,
                 constraint_matrix,
                 constraint_rhs,
+                true,
             ),
             EqualityConstraint::None => unimplemented!(
                 "An unconstrained solution has no chained vector to lend the increment through."
@@ -1264,6 +1268,7 @@ fn constrained<J, H, X>(
     sparse: Option<SparseSolver>,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
+    symmetric: bool,
 ) -> Result<X, OptimizationError>
 where
     H: Hessian,
@@ -1277,7 +1282,10 @@ where
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
     let mut decrement = Vector::zero(num_total);
-    let mut factorization = LuDecomposition::zero(if sparse.is_none() { num_total } else { 0 });
+    let dense = sparse.is_none();
+    let mut factorization = LuDecomposition::zero(if dense && !symmetric { num_total } else { 0 });
+    let mut factorization_ldl =
+        LdlDecomposition::zero(if dense && symmetric { num_total } else { 0 });
     let mut multipliers = Vector::zero(num_constraints);
     let mut residual = Vector::zero(num_total);
     let mut scales = None;
@@ -1324,6 +1332,10 @@ where
                 },
                 &residual,
             )?;
+        } else if symmetric {
+            hessian(&solution)?.fill_into(&mut tangent);
+            tangent.factorize_ldl_into(&mut factorization_ldl)?;
+            factorization_ldl.solve_into(&residual, &mut decrement)
         } else {
             hessian(&solution)?.fill_into(&mut tangent);
             tangent.factorize_lu_into(&mut factorization)?;
