@@ -398,17 +398,42 @@ fn decode_round_trips_compressed_empty() {
     assert_eq!(decode(&array, &compressed_encoding(8)).unwrap(), data);
 }
 
+/// The header is encoded apart from the blocks it describes, which is how a
+/// reader outside this crate finds them: it decodes the header's own base64 to
+/// learn the block count, and the blocks begin at a fresh base64 boundary.
+///
+/// Encoding the two as a single stream round trips perfectly against a decoder
+/// that makes the same mistake, and reads as corrupt to every reader that does
+/// not, so the sizes the header declares are checked against the blocks that
+/// actually follow rather than against another encoding of them.
+#[test]
+fn compressed_header_is_encoded_apart_from_its_blocks() {
+    let data = vec![5u8; 100_000];
+    let encoded = data_array_compressed(&data);
+    let encoding_of = |bytes: usize| bytes.div_ceil(3) * 4;
+    let counts = unbase64(&encoded[..encoding_of(24)]);
+    let num_blocks = u64::from_le_bytes(counts[..8].try_into().unwrap()) as usize;
+    assert_eq!(num_blocks, data.len().div_ceil(32768));
+    let split = encoding_of(24 + num_blocks * 8);
+    let header = unbase64(&encoded[..split]);
+    let blocks = unbase64(&encoded[split..]);
+    let declared: usize = header[24..24 + num_blocks * 8]
+        .chunks(8)
+        .map(|size| u64::from_le_bytes(size.try_into().unwrap()) as usize)
+        .sum();
+    assert_eq!(declared, blocks.len())
+}
+
 #[test]
 fn decode_round_trips_compressed_with_four_byte_header() {
     let data = vec![7u8; 50];
     let compressed = zlib_encode(&data);
-    let mut buffer = Vec::new();
-    buffer.extend_from_slice(&1u32.to_le_bytes());
-    buffer.extend_from_slice(&(32768u32).to_le_bytes());
-    buffer.extend_from_slice(&(data.len() as u32).to_le_bytes());
-    buffer.extend_from_slice(&(compressed.len() as u32).to_le_bytes());
-    buffer.extend_from_slice(&compressed);
-    let encoded = base64(&buffer);
+    let mut header = Vec::new();
+    header.extend_from_slice(&1u32.to_le_bytes());
+    header.extend_from_slice(&(32768u32).to_le_bytes());
+    header.extend_from_slice(&(data.len() as u32).to_le_bytes());
+    header.extend_from_slice(&(compressed.len() as u32).to_le_bytes());
+    let encoded = base64(&header) + &base64(&compressed);
     let array = binary_array("Int8", &encoded, data.len());
     assert_eq!(decode(&array, &compressed_encoding(4)).unwrap(), data);
 }
