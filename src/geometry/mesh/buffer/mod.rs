@@ -50,24 +50,38 @@ impl Mesh<3> {
                 coordinates.push(point);
             }
         });
-        connectivities.push(Connectivity::Hexahedral(
-            boundary
-                .iter()
-                .map(|face| {
-                    [
-                        face[0],
-                        face[1],
-                        face[2],
-                        face[3],
-                        duplicates[&face[0]],
-                        duplicates[&face[1]],
-                        duplicates[&face[2]],
-                        duplicates[&face[3]],
-                    ]
-                })
-                .collect::<Vec<_>>()
-                .into(),
-        ));
+        let cells = boundary
+            .iter()
+            .map(|face| {
+                [
+                    face[0],
+                    face[1],
+                    face[2],
+                    face[3],
+                    duplicates[&face[0]],
+                    duplicates[&face[1]],
+                    duplicates[&face[2]],
+                    duplicates[&face[3]],
+                ]
+            })
+            .collect::<Vec<_>>();
+        match connectivities
+            .iter()
+            .rposition(|connectivity| matches!(connectivity, Connectivity::Hexahedral(_)))
+        {
+            Some(index) => {
+                let Connectivity::Hexahedral(hexes) = connectivities.remove(index) else {
+                    unreachable!()
+                };
+                connectivities.insert(
+                    index,
+                    Connectivity::Hexahedral(
+                        hexes.into_iter().chain(cells).collect::<Vec<_>>().into(),
+                    ),
+                );
+            }
+            None => connectivities.push(Connectivity::Hexahedral(cells.into())),
+        }
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
         mesh.fit(&nodes, target)?;

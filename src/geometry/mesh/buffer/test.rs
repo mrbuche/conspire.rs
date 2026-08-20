@@ -28,7 +28,7 @@ fn core() -> Mesh<3> {
 fn buffer_captures_corners() -> Result<(), AssertionError> {
     let mesh = core().buffer(&tessellation(), Fitting::Soft).unwrap();
     assert_eq!(mesh.coordinates().len(), 16);
-    assert_eq!(mesh.number_of_element_blocks(), 2);
+    assert_eq!(mesh.number_of_element_blocks(), 1);
     assert_eq!(mesh.iter().flatten().count(), 7);
     let coordinates = mesh.coordinates();
     let corners: HashSet<[u8; 3]> = (8..16)
