@@ -55,8 +55,6 @@ pub struct LdlDecomposition {
     other: Vec<Scalar>,
 }
 
-/// The Bunch-Kaufman threshold, balancing the growth a one-by-one pivot
-/// admits against that of a two-by-two.
 const BUNCH_KAUFMAN: Scalar = 0.640_388_203_202_207_8;
 
 impl LdlDecomposition {
@@ -251,10 +249,6 @@ impl LdlDecomposition {
         })
     }
     /// The number of positive, negative, and zero eigenvalues of the factorized matrix.
-    ///
-    /// A two-by-two pivot is only ever chosen by Bunch-Kaufman when the block
-    /// is indefinite, so it always contributes one of each without needing
-    /// its own eigendecomposition.
     pub fn inertia(&self) -> (usize, usize, usize) {
         let (mut positive, mut negative, mut zero) = (0, 0, 0);
         let mut k = 0;
