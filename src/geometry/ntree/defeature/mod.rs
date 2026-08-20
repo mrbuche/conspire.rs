@@ -4,7 +4,7 @@ mod test;
 use crate::geometry::ntree::{Orthotree, node::Kind, subdivide::insert_bit};
 use std::{
     cmp::Reverse,
-    collections::{BinaryHeap, HashMap},
+    collections::{BinaryHeap, HashMap, HashSet},
     hash::Hash,
 };
 
@@ -16,30 +16,53 @@ where
     V: Copy + Eq + Hash,
 {
     pub fn defeature(&mut self, minimum: usize) {
+        loop {
+            let protruded = self.reduce_protrusions();
+            let clustered = self.reduce_clusters(minimum);
+            if !protruded && !clustered {
+                break;
+            }
+        }
+    }
+    fn reduce_protrusions(&mut self) -> bool {
+        let (leaves, pairs) = self.leaf_pairs();
+        let mut differing: HashMap<usize, HashMap<V, usize>> = HashMap::new();
+        for (a, b, weight) in pairs {
+            let (value_a, value_b) = (self.nodes[a].value.unwrap(), self.nodes[b].value.unwrap());
+            if value_a != value_b {
+                *differing.entry(a).or_default().entry(value_b).or_default() += weight;
+                *differing.entry(b).or_default().entry(value_a).or_default() += weight;
+            }
+        }
+        let mut reassignments: Vec<(usize, V)> = Vec::new();
+        for &leaf in &leaves {
+            let Some(neighbors) = differing.get(&leaf) else {
+                continue;
+            };
+            let length: usize = self.nodes[leaf].length.into();
+            let facet_area = length.pow((D - 1) as u32);
+            let differing_area: usize = neighbors.values().sum();
+            if differing_area >= (M - 1) * facet_area {
+                let into = *neighbors.iter().max_by_key(|&(_, &area)| area).unwrap().0;
+                reassignments.push((leaf, into));
+            }
+        }
+        let changed = !reassignments.is_empty();
+        reassignments.into_iter().for_each(|(leaf, into)| {
+            self.nodes[leaf].value = Some(into);
+        });
+        changed
+    }
+    fn reduce_clusters(&mut self, minimum: usize) -> bool {
         let count = self.len();
         let mut parent: Vec<usize> = (0..count).collect();
-        let leaves: Vec<usize> = (0..count)
-            .filter(|&i| self.nodes[i].is_leaf() && self.nodes[i].value.is_some())
-            .collect();
+        let (leaves, pairs) = self.leaf_pairs();
         let mut edges: Vec<(usize, usize, usize)> = Vec::new();
-        for &leaf in &leaves {
-            let value = self.nodes[leaf].value.unwrap();
-            let length: usize = self.nodes[leaf].length.into();
-            for face in 0..M {
-                if let Some(neighbor) = self.nodes[leaf].facets[face] {
-                    let mut others = Vec::new();
-                    self.face_leaves(neighbor.into(), face ^ 1, &mut others);
-                    for other in others {
-                        if let Some(adjacent) = self.nodes[other].value {
-                            if adjacent == value {
-                                union(&mut parent, leaf, other);
-                            } else {
-                                let span: usize = self.nodes[other].length.into();
-                                edges.push((leaf, other, length.min(span).pow((D - 1) as u32)));
-                            }
-                        }
-                    }
-                }
+        for (a, b, weight) in pairs {
+            if self.nodes[a].value == self.nodes[b].value {
+                union(&mut parent, a, b);
+            } else {
+                edges.push((a, b, weight));
             }
         }
         let mut volume: HashMap<usize, usize> = HashMap::new();
@@ -65,6 +88,7 @@ where
             .filter(|&(_, &size)| size < minimum)
             .map(|(&root, &size)| Reverse((size, root)))
             .collect();
+        let mut changed = false;
         while let Some(Reverse((size, root))) = queue.pop() {
             if value.get(&root).is_none_or(|_| volume[&root] != size) || size >= minimum {
                 continue;
@@ -73,6 +97,7 @@ where
                 Some(map) if !map.is_empty() => map,
                 _ => continue,
             };
+            changed = true;
             let mut by_value: HashMap<V, usize> = HashMap::new();
             for (other, &span) in neighbors {
                 *by_value.entry(value[other]).or_default() += span;
@@ -119,6 +144,37 @@ where
         leaves.iter().for_each(|&leaf| {
             self.nodes[leaf].value = Some(value[&find(&mut parent, leaf)]);
         });
+        changed
+    }
+    fn leaf_pairs(&self) -> (Vec<usize>, Vec<(usize, usize, usize)>) {
+        let leaves: Vec<usize> = (0..self.len())
+            .filter(|&i| self.nodes[i].is_leaf() && self.nodes[i].value.is_some())
+            .collect();
+        let mut visited: HashSet<(usize, usize)> = HashSet::new();
+        let mut pairs: Vec<(usize, usize, usize)> = Vec::new();
+        for &leaf in &leaves {
+            let length: usize = self.nodes[leaf].length.into();
+            for face in 0..M {
+                if let Some(neighbor) = self.nodes[leaf].facets[face] {
+                    let mut others = Vec::new();
+                    self.face_leaves(neighbor.into(), face ^ 1, &mut others);
+                    for other in others {
+                        if self.nodes[other].value.is_some() {
+                            let key = if leaf < other {
+                                (leaf, other)
+                            } else {
+                                (other, leaf)
+                            };
+                            if visited.insert(key) {
+                                let span: usize = self.nodes[other].length.into();
+                                pairs.push((leaf, other, length.min(span).pow((D - 1) as u32)));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        (leaves, pairs)
     }
     fn face_leaves(&self, index: usize, face: usize, out: &mut Vec<usize>) {
         match &self.nodes[index].kind {
