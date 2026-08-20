@@ -4,6 +4,57 @@ pub use crate::{
     mechanics::Scalar,
     units::Stress,
 };
+use crate::{
+    math::{Hessian, Reference, SquareMatrix, TensorRank2, Vector},
+    mechanics::DeformationGradient,
+    units::Dimensionless,
+};
+
+type Strain = TensorRank2<3, Reference, Reference, Dimensionless>;
+
+fn mandel_basis() -> [Strain; 6] {
+    let s = std::f64::consts::FRAC_1_SQRT_2;
+    [
+        Strain::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        Strain::from([[0.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 0.0]]),
+        Strain::from([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
+        Strain::from([[0.0, 0.0, 0.0], [0.0, 0.0, s], [0.0, s, 0.0]]),
+        Strain::from([[0.0, 0.0, s], [0.0, 0.0, 0.0], [s, 0.0, 0.0]]),
+        Strain::from([[0.0, s, 0.0], [s, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+    ]
+}
+
+pub(crate) fn strain_space_inertia(
+    tangent: impl Hessian,
+    deformation_gradient: &DeformationGradient,
+) -> (usize, usize, usize) {
+    let mut flat = SquareMatrix::zero(9);
+    tangent.fill_into(&mut flat);
+    let inverse_transpose = deformation_gradient.inverse_transpose();
+    let directions: Vec<Vector> = mandel_basis()
+        .iter()
+        .map(|basis| {
+            (&inverse_transpose * basis)
+                .as_tensor_rank_1()
+                .into_iter()
+                .map(|entry| entry.value())
+                .collect()
+        })
+        .collect();
+    let mut reduced = SquareMatrix::zero(6);
+    (0..6).for_each(|a| {
+        (0..6).for_each(|b| {
+            reduced[a][b] = (0..9)
+                .map(|i| {
+                    (0..9)
+                        .map(|j| directions[a][i] * flat[i][j] * directions[b][j])
+                        .sum::<Scalar>()
+                })
+                .sum()
+        })
+    });
+    reduced.factorize_ldl().unwrap().inertia()
+}
 
 pub const EXPONENT: Scalar = 1.1;
 pub const EXTENSIBILITY: Scalar = 23.0;
@@ -354,6 +405,16 @@ macro_rules! test_minimize_and_root {
                         &deformation_gradient[2][2],
                     )?;
                     assert!(deformation_gradient.is_diagonal());
+                    let tangent = $constitutive_model
+                        .first_piola_kirchhoff_tangent_stiffness(&deformation_gradient)?;
+                    assert_eq!(
+                        crate::constitutive::solid::hyperelastic::test::strain_space_inertia(
+                            tangent,
+                            &deformation_gradient
+                        ),
+                        (6, 0, 0),
+                        "not a strain-space minimum"
+                    );
                     Ok(())
                 }
                 #[test]
@@ -371,7 +432,18 @@ macro_rules! test_minimize_and_root {
                     $crate::math::assert::Assert::eq(
                         &deformation_gradient[1][1],
                         &deformation_gradient[2][2],
-                    )
+                    )?;
+                    let tangent = $constitutive_model
+                        .first_piola_kirchhoff_tangent_stiffness(&deformation_gradient)?;
+                    assert_eq!(
+                        crate::constitutive::solid::hyperelastic::test::strain_space_inertia(
+                            tangent,
+                            &deformation_gradient
+                        ),
+                        (6, 0, 0),
+                        "not a strain-space minimum"
+                    );
+                    Ok(())
                 }
                 #[test]
                 fn uniaxial_undeformed() -> Result<(), crate::math::assert::AssertionError> {
@@ -380,6 +452,16 @@ macro_rules! test_minimize_and_root {
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress.is_zero());
                     assert!(deformation_gradient.is_identity());
+                    let tangent = $constitutive_model
+                        .first_piola_kirchhoff_tangent_stiffness(&deformation_gradient)?;
+                    assert_eq!(
+                        crate::constitutive::solid::hyperelastic::test::strain_space_inertia(
+                            tangent,
+                            &deformation_gradient
+                        ),
+                        (6, 0, 0),
+                        "not a strain-space minimum"
+                    );
                     Ok(())
                 }
                 #[test]
@@ -397,6 +479,16 @@ macro_rules! test_minimize_and_root {
                     )?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
+                    let tangent = $constitutive_model
+                        .first_piola_kirchhoff_tangent_stiffness(&deformation_gradient)?;
+                    assert_eq!(
+                        crate::constitutive::solid::hyperelastic::test::strain_space_inertia(
+                            tangent,
+                            &deformation_gradient
+                        ),
+                        (6, 0, 0),
+                        "not a strain-space minimum"
+                    );
                     Ok(())
                 }
                 #[test]
@@ -409,6 +501,16 @@ macro_rules! test_minimize_and_root {
                         .zero_within_tols(&cauchy_stress[2][2])?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
+                    let tangent = $constitutive_model
+                        .first_piola_kirchhoff_tangent_stiffness(&deformation_gradient)?;
+                    assert_eq!(
+                        crate::constitutive::solid::hyperelastic::test::strain_space_inertia(
+                            tangent,
+                            &deformation_gradient
+                        ),
+                        (6, 0, 0),
+                        "not a strain-space minimum"
+                    );
                     Ok(())
                 }
                 #[test]
@@ -422,6 +524,16 @@ macro_rules! test_minimize_and_root {
                         .zero_within_tols(&cauchy_stress[2][2])?;
                     assert!(cauchy_stress.is_diagonal());
                     assert!(deformation_gradient.is_diagonal());
+                    let tangent = $constitutive_model
+                        .first_piola_kirchhoff_tangent_stiffness(&deformation_gradient)?;
+                    assert_eq!(
+                        crate::constitutive::solid::hyperelastic::test::strain_space_inertia(
+                            tangent,
+                            &deformation_gradient
+                        ),
+                        (6, 0, 0),
+                        "not a strain-space minimum"
+                    );
                     Ok(())
                 }
                 #[test]
@@ -431,6 +543,16 @@ macro_rules! test_minimize_and_root {
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress.is_zero());
                     assert!(deformation_gradient.is_identity());
+                    let tangent = $constitutive_model
+                        .first_piola_kirchhoff_tangent_stiffness(&deformation_gradient)?;
+                    assert_eq!(
+                        crate::constitutive::solid::hyperelastic::test::strain_space_inertia(
+                            tangent,
+                            &deformation_gradient
+                        ),
+                        (6, 0, 0),
+                        "not a strain-space minimum"
+                    );
                     Ok(())
                 }
             };
