@@ -230,6 +230,38 @@ mod constrained {
         Assert::default().eq_within_tols(&minimized(LineSearch::None)?, &Vector::from([1.0, 1.0]))
     }
 
+    fn minimized_trust_region(trust_region: TrustRegion) -> Result<Vector, AssertionError> {
+        Ok(NewtonRaphson {
+            trust_region,
+            ..Default::default()
+        }
+        .minimize(
+            |x: &Vector| Ok((x[0].powi(2) + x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(x.clone()),
+            |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+            Vector::from([4.0, -3.0]),
+            constraint(),
+            None,
+        )?)
+    }
+
+    #[test]
+    fn trust_region_adaptive() -> Result<(), AssertionError> {
+        // radius starts far smaller than the distance to the minimum, so
+        // convergence within max_steps requires the accept/reject loop to
+        // actually grow the radius across several outer Newton iterations;
+        // kept above the constraint's own feasibility floor (~0.71 here,
+        // from the initial constraint violation) so more_sorensen isn't
+        // being asked for a radius no shift could ever reach
+        Assert::default().eq_within_tols(
+            &minimized_trust_region(TrustRegion::Adaptive {
+                radius: 1.0,
+                max_radius: 10.0,
+            })?,
+            &Vector::from([1.0, 1.0]),
+        )
+    }
+
     fn scaled(rel_tol: Option<Scalar>) -> Result<Vector, OptimizationError> {
         const SCALE: Scalar = 1e12;
         NewtonRaphson {
