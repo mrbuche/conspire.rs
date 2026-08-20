@@ -1,6 +1,7 @@
 mutants.out/
 mutants.out.old/
 target/
+.claude/
 .venv/
 .vscode/
 **.exo
