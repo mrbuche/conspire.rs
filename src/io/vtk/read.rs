@@ -108,7 +108,6 @@ fn without_information(inner: &str) -> &str {
     }
 }
 
-/// The value of a named key an array carries, which is text however it is meant.
 pub fn information<'a>(array: &DataArray<'a>, name: &str) -> Option<&'a str> {
     let mut rest = array.information;
     while let Some(open) = rest.find("<InformationKey") {
@@ -196,14 +195,6 @@ fn read_uint(bytes: &[u8], offset: usize, size: usize) -> Result<usize> {
     })
 }
 
-/// Decodes compressed blocks, whose header is encoded apart from the blocks it
-/// describes.
-///
-/// The header cannot be found by decoding the whole text at once, since it is
-/// not a whole number of base64 triples and the blocks after it would begin
-/// partway through a character. Its first three integers are such a number
-/// though, so they decode on their own and say how many block sizes follow,
-/// which gives the length of the header and so where the blocks begin.
 fn decode_compressed_blocks(text: &str, header_bytes: usize) -> Result<Vec<u8>> {
     let encoded: String = text
         .chars()
@@ -226,8 +217,6 @@ fn decode_compressed_blocks(text: &str, header_bytes: usize) -> Result<Vec<u8>> 
             .get(..split)
             .ok_or_else(|| invalid("compressed DataArray header is truncated".into()))?,
     );
-    // Whatever follows the header is the blocks; the slice above having
-    // succeeded, the header ends within the text and this cannot run past it.
     let bytes = unbase64(&encoded[split..]);
     let sizes_start = 3 * header_bytes;
     let mut compressed_sizes = Vec::with_capacity(num_blocks);

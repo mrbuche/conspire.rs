@@ -30,14 +30,6 @@ pub fn data_array(data: &[u8]) -> String {
     base64(&buffer)
 }
 
-/// Encodes data as VTK's compressed base64, whose header is encoded apart from
-/// the blocks it describes.
-///
-/// A reader cannot know how long the compressed blocks are until it has read
-/// the header saying so, and it cannot read that header out of a stream encoded
-/// all at once: the header is not a whole number of base64 triples, so whatever
-/// follows begins partway through a character. Encoding the two apart lets the
-/// header be decoded on its own, and their encodings simply abut.
 pub fn data_array_compressed(data: &[u8]) -> String {
     let compressed_blocks: Vec<Vec<u8>> = data
         .chunks(COMPRESSION_BLOCK_SIZE)
