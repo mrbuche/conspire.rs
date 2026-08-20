@@ -11,6 +11,7 @@ use super::{
     FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
     SecondOrderOptimization, SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental,
     SolveStrategy, Tolerances, TrustRegion,
+    trust_region::{TRUST_REGION_ETA, TRUST_REGION_MAX_REJECTIONS, more_sorensen, update_radius},
 };
 use crate::math::Norm;
 use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
@@ -1305,6 +1306,12 @@ where
                     })
             });
     }
+    let (mut radius, max_radius) =
+        if let TrustRegion::Adaptive { radius, max_radius } = newton_raphson.trust_region {
+            (radius, max_radius)
+        } else {
+            (0.0, 0.0)
+        };
     let mut steps = 0;
     loop {
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
@@ -1318,6 +1325,69 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
+        } else if symmetric
+            && dense
+            && matches!(newton_raphson.trust_region, TrustRegion::Adaptive { .. })
+        {
+            hessian(&solution)?.fill_into(&mut tangent);
+            penalty = raise_penalty(
+                penalty,
+                multipliers.iter().zip(decrement.iter().skip(num_variables)),
+            );
+            let violated = penalty * violation(&constraint_matrix, &constraint_rhs, &solution);
+            let value = function(&solution)? + violated;
+            let mut gradient = Vector::zero(num_variables);
+            jacobian(&solution)?.fill_into(&mut gradient);
+            let mut accepted = false;
+            for _ in 0..TRUST_REGION_MAX_REJECTIONS {
+                decrement = more_sorensen(&tangent, &residual, radius, num_variables);
+                let quadratic: Scalar = (0..num_variables)
+                    .map(|i| {
+                        (0..num_variables)
+                            .map(|j| decrement[i] * tangent[i][j] * decrement[j])
+                            .sum::<Scalar>()
+                    })
+                    .sum();
+                let predicted =
+                    merit_slope(gradient.iter().zip(decrement.iter()), violated) - 0.5 * quadratic;
+                applied
+                    .iter_mut()
+                    .zip(decrement.iter())
+                    .for_each(|(applied_i, decrement_i)| *applied_i = *decrement_i);
+                if predicted <= Scalar::EPSILON * value.abs() {
+                    // Nothing left for the model to meaningfully predict: taking
+                    // the step or not is already below what a merit-function
+                    // difference can resolve without catastrophic cancellation,
+                    // so accept it outright rather than chase a ratio that would
+                    // only be numerical noise.
+                    accepted = true;
+                    break;
+                }
+                let mut trial = solution.clone();
+                let mut trial_multipliers = multipliers.clone();
+                trial.decrement_from_chained(&mut trial_multipliers, &decrement);
+                update(&solution, &applied, 1.0, false)?;
+                let value_trial = function(&trial)?
+                    + penalty * violation(&constraint_matrix, &constraint_rhs, &trial);
+                let rho = (value - value_trial) / predicted;
+                let primal_norm =
+                    Norm::Euclidean.over(decrement.iter().take(num_variables).copied());
+                radius = update_radius(radius, max_radius, rho, primal_norm);
+                if rho > TRUST_REGION_ETA {
+                    accepted = true;
+                    break;
+                }
+            }
+            if !accepted {
+                return Err(OptimizationError::MaximumStepsReached(
+                    TRUST_REGION_MAX_REJECTIONS,
+                    format!("{newton_raphson:?}"),
+                ));
+            }
+            steps += 1;
+            update(&solution, &applied, 1.0, true)?;
+            solution.decrement_from_chained(&mut multipliers, &decrement);
+            continue;
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
             decrement = solver.solve(

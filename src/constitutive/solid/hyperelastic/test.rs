@@ -581,6 +581,24 @@ macro_rules! test_minimize_and_root {
                     math::optimize::NewtonRaphson,
                 };
                 test_minimize_with_solver!(NewtonRaphson::default());
+                mod trust_region {
+                    use super::*;
+                    use crate::math::optimize::TrustRegion;
+                    // Newton's rate degrades to linear approaching a near-singular
+                    // tangent (e.g. SaintVenantKirchhoff under enough compression,
+                    // already characterized as edge-of-stability in
+                    // strain_space_inertia), so this needs more steps than the
+                    // default budget even though every step here is accepted
+                    // immediately (rho close to 1 throughout).
+                    test_minimize_with_solver!(NewtonRaphson {
+                        max_steps: 50,
+                        trust_region: TrustRegion::Adaptive {
+                            radius: 1.0,
+                            max_radius: 1e2,
+                        },
+                        ..Default::default()
+                    });
+                }
             }
         }
     };
