@@ -60,8 +60,6 @@ fn unbase64(text: &str) -> Vec<u8> {
     out
 }
 
-/// Decodes as a reader outside this crate would: the header base64 and the
-/// block base64 abut, rather than being one encoding of both.
 fn decode_compressed_blocks(text: &str) -> Vec<u8> {
     let encoding_of = |bytes: usize| bytes.div_ceil(3) * 4;
     let counts = unbase64(&text[..encoding_of(24)]);
