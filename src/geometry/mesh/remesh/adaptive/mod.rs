@@ -79,13 +79,11 @@ fn dunyach_length(
     if curvature <= Quantity::default() {
         return maximum;
     }
-    let argument = tolerance * 6.0 / curvature - tolerance * tolerance * 3.0;
-    let length = if argument > Quantity::default() {
-        Quantity::new(argument.value().sqrt())
-    } else {
-        minimum
-    };
-    length.max(minimum).min(maximum)
+    let epsilon = tolerance.min(1.0 / curvature);
+    let argument = epsilon * 6.0 / curvature - epsilon * epsilon * 3.0;
+    Quantity::new(argument.value().sqrt())
+        .max(minimum)
+        .min(maximum)
 }
 
 fn graduate(

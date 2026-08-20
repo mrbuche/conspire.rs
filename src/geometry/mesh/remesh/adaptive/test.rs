@@ -41,6 +41,20 @@ fn dunyach_length_maps_curvature() {
 }
 
 #[test]
+fn dunyach_length_never_shortens_as_tolerance_loosens() {
+    let (minimum, maximum) = (Quantity::new(0.1), Quantity::new(2.0));
+    let curvature = Quantity::new(1.0);
+    let lengths: Vec<_> = [0.05, 0.1, 0.5, 1.0, 1.5, 3.0]
+        .into_iter()
+        .map(|tolerance| dunyach_length(curvature, Quantity::new(tolerance), minimum, maximum))
+        .collect();
+    lengths
+        .windows(2)
+        .for_each(|pair| assert!(pair[1] >= pair[0]));
+    assert!((lengths[5].value() - 3.0_f64.sqrt()).abs() < 1.0e-12);
+}
+
+#[test]
 fn graduate_enforces_lipschitz() {
     let (connectivity, coordinates) = ladder();
     let gradation = 0.5;
