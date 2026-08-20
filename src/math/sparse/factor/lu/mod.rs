@@ -341,14 +341,14 @@ impl CscLu {
                         (0..chunk).for_each(|b| {
                             work[b * n + t1..b * n + t2]
                                 .iter()
-                                .zip(tile.chunks_exact_mut(CHUNK))
+                                .zip(tile.as_chunks_mut::<CHUNK>().0.iter_mut())
                                 .for_each(|(&value, row)| row[b] = value);
                         });
                         trisolve(&mut tile[..width * CHUNK], panel, m, consumed, width);
                         (0..chunk).for_each(|b| {
                             work[b * n + t1..b * n + t2]
                                 .iter_mut()
-                                .zip(tile.chunks_exact(CHUNK))
+                                .zip(tile.as_chunks::<CHUNK>().0.iter())
                                 .for_each(|(value, row)| *value = row[b]);
                         });
                         (c1..c2).zip(pointers.iter_mut()).for_each(|(j, pointer)| {
@@ -505,7 +505,9 @@ fn trisolve(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, wi
         let (row, rest) = tile[c * CHUNK..].split_at_mut(CHUNK);
         if row.iter().any(|&u| u != 0.0) {
             rest[..(width - c - 1) * CHUNK]
-                .chunks_exact_mut(CHUNK)
+                .as_chunks_mut::<CHUNK>()
+                .0
+                .iter_mut()
                 .zip(panel[c * m + c + 1..c * m + width].iter())
                 .for_each(|(target, &value)| {
                     target
