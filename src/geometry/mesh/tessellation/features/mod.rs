@@ -3,13 +3,13 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, Direction,
+        Coordinate, Coordinates, Direction,
         mesh::{
             Connectivity,
             tessellation::{D, Tessellation},
         },
     },
-    math::{CrossProduct, FxHashMap, Quantity, Scalar, Tensor},
+    math::{CrossProduct, FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
     units::{Area, Dimensionless, Length},
 };
 use std::array::from_fn;
@@ -56,6 +56,47 @@ fn key(one: usize, two: usize) -> [usize; 2] {
     if one < two { [one, two] } else { [two, one] }
 }
 
+pub(crate) fn crease_edges(
+    triangles: &[[usize; D]],
+    coordinates: &Coordinates<D>,
+) -> Vec<[usize; 2]> {
+    let normals: Vec<Direction<D>> = triangles
+        .iter()
+        .map(|&[a, b, c]| {
+            (&coordinates[b] - &coordinates[a])
+                .cross(&(&coordinates[c] - &coordinates[a]))
+                .normalized()
+        })
+        .collect();
+    let mut incident = FxHashMap::<[usize; 2], Vec<usize>>::default();
+    triangles
+        .iter()
+        .enumerate()
+        .for_each(|(index, &[a, b, c])| {
+            [key(a, b), key(b, c), key(c, a)]
+                .into_iter()
+                .for_each(|edge| incident.entry(edge).or_default().push(index))
+        });
+    let mut sharp: Vec<[usize; 2]> = incident
+        .iter()
+        .filter(|(_, triangles)| triangles.len() == 2)
+        .filter(|(_, triangles)| &normals[triangles[0]] * &normals[triangles[1]] < CREASE_COSINE)
+        .map(|(&edge, _)| edge)
+        .collect();
+    sharp.sort_unstable();
+    sharp
+}
+
+pub(crate) fn crease_nodes(
+    triangles: &[[usize; D]],
+    coordinates: &Coordinates<D>,
+) -> FxHashSet<usize> {
+    crease_edges(triangles, coordinates)
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
 impl Features {
     pub fn corners(&self) -> &[Coordinate<D>] {
         &self.corners
@@ -66,32 +107,7 @@ impl Features {
     pub(super) fn of(tessellation: &Tessellation) -> Self {
         let coordinates = tessellation.mesh().coordinates();
         let triangles = triangles(tessellation);
-        let normals: Vec<Direction<D>> = triangles
-            .iter()
-            .map(|&[a, b, c]| {
-                (&coordinates[b] - &coordinates[a])
-                    .cross(&(&coordinates[c] - &coordinates[a]))
-                    .normalized()
-            })
-            .collect();
-        let mut incident = FxHashMap::<[usize; 2], Vec<usize>>::default();
-        triangles
-            .iter()
-            .enumerate()
-            .for_each(|(index, &[a, b, c])| {
-                [key(a, b), key(b, c), key(c, a)]
-                    .into_iter()
-                    .for_each(|edge| incident.entry(edge).or_default().push(index))
-            });
-        let mut sharp: Vec<[usize; 2]> = incident
-            .iter()
-            .filter(|(_, triangles)| triangles.len() == 2)
-            .filter(|(_, triangles)| {
-                &normals[triangles[0]] * &normals[triangles[1]] < CREASE_COSINE
-            })
-            .map(|(&edge, _)| edge)
-            .collect();
-        sharp.sort_unstable();
+        let sharp = crease_edges(&triangles, coordinates);
         let mut through = FxHashMap::<usize, Vec<usize>>::default();
         sharp.iter().for_each(|&[a, b]| {
             through.entry(a).or_default().push(b);

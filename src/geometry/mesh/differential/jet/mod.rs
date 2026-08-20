@@ -79,6 +79,7 @@ pub(crate) fn fit_jet(
 pub(crate) fn vertex_jets(
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<D>,
+    discarded: &FxHashSet<usize>,
 ) -> Vec<Option<Jet>> {
     let count = coordinates.len();
     let mut neighbors = vec![FxHashSet::default(); count];
@@ -95,11 +96,16 @@ pub(crate) fn vertex_jets(
     }
     (0..count)
         .map(|vertex| {
+            if discarded.contains(&vertex) {
+                return None;
+            }
             let mut ring = neighbors[vertex].clone();
             neighbors[vertex]
                 .iter()
+                .filter(|w| !discarded.contains(w))
                 .for_each(|&w| ring.extend(&neighbors[w]));
             ring.remove(&vertex);
+            ring.retain(|w| !discarded.contains(w));
             let points = ring.iter().map(|&w| coordinates[w].clone()).collect();
             fit_jet(
                 &coordinates[vertex],

@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Mesh, differential::jet::vertex_jets},
+        mesh::{Mesh, differential::jet::vertex_jets, tessellation::features::crease_nodes},
     },
     math::{Quantity, Scalar, Tensor},
     units::{Length, ReciprocalLength},
@@ -57,7 +57,8 @@ pub(crate) fn sizing_field(
     maximum: Quantity<Length>,
     gradation: Scalar,
 ) -> Vec<Quantity<Length>> {
-    let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates)
+    let discarded = crease_nodes(connectivity, coordinates);
+    let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates, &discarded)
         .into_iter()
         .map(|jet| {
             jet.map_or(maximum, |jet| {
