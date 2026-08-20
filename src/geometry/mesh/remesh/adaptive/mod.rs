@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Mesh, differential::jet::vertex_jets},
+        mesh::{Mesh, differential::jet::vertex_jets, tessellation::features::crease_nodes},
     },
     math::{Quantity, Scalar, Tensor},
     units::{Length, ReciprocalLength},
@@ -57,7 +57,8 @@ pub(crate) fn sizing_field(
     maximum: Quantity<Length>,
     gradation: Scalar,
 ) -> Vec<Quantity<Length>> {
-    let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates)
+    let discarded = crease_nodes(connectivity, coordinates);
+    let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates, &discarded)
         .into_iter()
         .map(|jet| {
             jet.map_or(maximum, |jet| {
@@ -78,13 +79,11 @@ fn dunyach_length(
     if curvature <= Quantity::default() {
         return maximum;
     }
-    let argument = tolerance * 6.0 / curvature - tolerance * tolerance * 3.0;
-    let length = if argument > Quantity::default() {
-        Quantity::new(argument.value().sqrt())
-    } else {
-        minimum
-    };
-    length.max(minimum).min(maximum)
+    let epsilon = tolerance.min(1.0 / curvature);
+    let argument = epsilon * 6.0 / curvature - epsilon * epsilon * 3.0;
+    Quantity::new(argument.value().sqrt())
+        .max(minimum)
+        .min(maximum)
 }
 
 fn graduate(

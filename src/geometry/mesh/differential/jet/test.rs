@@ -1,4 +1,5 @@
 use super::{fit_jet, vertex_jets};
+use crate::math::FxHashSet;
 use crate::math::Quantity;
 use crate::{
     geometry::Coordinates,
@@ -77,7 +78,7 @@ fn sphere_has_uniform_curvature() {
 #[test]
 fn flat_grid_interior_has_zero_curvature() {
     let (connectivity, coordinates) = flat_grid(5);
-    let jets = vertex_jets(&connectivity, &coordinates);
+    let jets = vertex_jets(&connectivity, &coordinates, &FxHashSet::default());
     let center = jets[2 * 5 + 2]
         .as_ref()
         .expect("interior vertex should fit");
