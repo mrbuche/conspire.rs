@@ -398,14 +398,6 @@ fn decode_round_trips_compressed_empty() {
     assert_eq!(decode(&array, &compressed_encoding(8)).unwrap(), data);
 }
 
-/// The header is encoded apart from the blocks it describes, which is how a
-/// reader outside this crate finds them: it decodes the header's own base64 to
-/// learn the block count, and the blocks begin at a fresh base64 boundary.
-///
-/// Encoding the two as a single stream round trips perfectly against a decoder
-/// that makes the same mistake, and reads as corrupt to every reader that does
-/// not, so the sizes the header declares are checked against the blocks that
-/// actually follow rather than against another encoding of them.
 #[test]
 fn compressed_header_is_encoded_apart_from_its_blocks() {
     let data = vec![5u8; 100_000];
@@ -438,8 +430,6 @@ fn decode_round_trips_compressed_with_four_byte_header() {
     assert_eq!(decode(&array, &compressed_encoding(4)).unwrap(), data);
 }
 
-/// A header saying how many blocks there are, in text too short to hold the
-/// sizes of that many.
 #[test]
 fn decode_errors_on_header_without_its_block_sizes() {
     let data = vec![3u8; 50];
@@ -449,8 +439,6 @@ fn decode_errors_on_header_without_its_block_sizes() {
     assert!(decode(&array, &compressed_encoding(8)).is_err())
 }
 
-/// Padding standing where the header's own characters should, so that the text
-/// is as long as a header but decodes to less than one.
 #[test]
 fn decode_errors_on_header_padded_away() {
     let data = vec![3u8; 50];
@@ -479,10 +467,6 @@ fn decode_errors_on_truncated_compressed_header() {
 fn decode_errors_on_truncated_compressed_block() {
     let data: Vec<u8> = (0..40_000).map(|i| (i % 253) as u8).collect();
     let encoded = data_array_compressed(&data);
-    // Taken off the end, so the header still describes blocks longer than the
-    // ones now left to it. Decoding the whole text and re-encoding it would
-    // instead run the header and the blocks together, which fails sooner and
-    // for another reason.
     let corrupted = &encoded[..encoded.len() - 4];
     let array = binary_array("Int8", corrupted, data.len());
     assert!(decode(&array, &compressed_encoding(8)).is_err());
