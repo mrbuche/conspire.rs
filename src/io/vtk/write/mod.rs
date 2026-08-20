@@ -38,17 +38,18 @@ pub fn data_array_compressed(data: &[u8]) -> String {
     let num_blocks = compressed_blocks.len() as u64;
     let last_block_size =
         data.len() as u64 - num_blocks.saturating_sub(1) * COMPRESSION_BLOCK_SIZE as u64;
-    let mut buffer = Vec::with_capacity(24 + compressed_blocks.iter().map(Vec::len).sum::<usize>());
-    buffer.extend_from_slice(&num_blocks.to_le_bytes());
-    buffer.extend_from_slice(&(COMPRESSION_BLOCK_SIZE as u64).to_le_bytes());
-    buffer.extend_from_slice(&last_block_size.to_le_bytes());
+    let mut header = Vec::with_capacity(24 + compressed_blocks.len() * 8);
+    header.extend_from_slice(&num_blocks.to_le_bytes());
+    header.extend_from_slice(&(COMPRESSION_BLOCK_SIZE as u64).to_le_bytes());
+    header.extend_from_slice(&last_block_size.to_le_bytes());
     for block in &compressed_blocks {
-        buffer.extend_from_slice(&(block.len() as u64).to_le_bytes());
+        header.extend_from_slice(&(block.len() as u64).to_le_bytes());
     }
+    let mut payload = Vec::with_capacity(compressed_blocks.iter().map(Vec::len).sum::<usize>());
     for block in &compressed_blocks {
-        buffer.extend_from_slice(block);
+        payload.extend_from_slice(block);
     }
-    base64(&buffer)
+    base64(&header) + &base64(&payload)
 }
 
 pub fn base64(bytes: &[u8]) -> String {

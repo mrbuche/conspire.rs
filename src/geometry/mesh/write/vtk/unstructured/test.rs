@@ -60,18 +60,21 @@ fn unbase64(text: &str) -> Vec<u8> {
     out
 }
 
-fn decode_compressed_blocks(buffer: &[u8]) -> Vec<u8> {
-    let num_blocks = u64::from_le_bytes(buffer[0..8].try_into().unwrap()) as usize;
-    let sizes_start = 24;
-    let compressed_start = sizes_start + num_blocks * 8;
-    let compressed_sizes: Vec<usize> = buffer[sizes_start..compressed_start]
+fn decode_compressed_blocks(text: &str) -> Vec<u8> {
+    let encoding_of = |bytes: usize| bytes.div_ceil(3) * 4;
+    let counts = unbase64(&text[..encoding_of(24)]);
+    let num_blocks = u64::from_le_bytes(counts[0..8].try_into().unwrap()) as usize;
+    let split = encoding_of(24 + num_blocks * 8);
+    let header = unbase64(&text[..split]);
+    let blocks = unbase64(&text[split..]);
+    let compressed_sizes: Vec<usize> = header[24..24 + num_blocks * 8]
         .chunks(8)
         .map(|b| u64::from_le_bytes(b.try_into().unwrap()) as usize)
         .collect();
     let mut out = Vec::new();
-    let mut offset = compressed_start;
+    let mut offset = 0;
     for size in compressed_sizes {
-        out.extend(zlib_decode(&buffer[offset..offset + size]).unwrap());
+        out.extend(zlib_decode(&blocks[offset..offset + size]).unwrap());
         offset += size;
     }
     out
@@ -86,15 +89,15 @@ fn mixed_unstructured_grid_compressed() {
     let contents = read_to_string(path).unwrap();
     assert!(contents.contains("type=\"UnstructuredGrid\""));
     assert!(contents.contains("compressor=\"vtkZLibDataCompressor\""));
-    let types = decode_compressed_blocks(&unbase64(payload(&contents, "types")));
+    let types = decode_compressed_blocks(payload(&contents, "types"));
     assert_eq!(types, [12, 13, 14, 10]);
-    let offsets = decode_compressed_blocks(&unbase64(payload(&contents, "offsets")));
+    let offsets = decode_compressed_blocks(payload(&contents, "offsets"));
     let offsets: Vec<i64> = offsets
         .chunks(8)
         .map(|b| i64::from_le_bytes(b.try_into().unwrap()))
         .collect();
     assert_eq!(offsets, [8, 14, 19, 23]);
-    let connectivity = decode_compressed_blocks(&unbase64(payload(&contents, "connectivity")));
+    let connectivity = decode_compressed_blocks(payload(&contents, "connectivity"));
     let first8: Vec<i64> = connectivity
         .chunks(8)
         .take(8)

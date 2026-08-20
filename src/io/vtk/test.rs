@@ -399,18 +399,57 @@ fn decode_round_trips_compressed_empty() {
 }
 
 #[test]
+fn compressed_header_is_encoded_apart_from_its_blocks() {
+    let data = vec![5u8; 100_000];
+    let encoded = data_array_compressed(&data);
+    let encoding_of = |bytes: usize| bytes.div_ceil(3) * 4;
+    let counts = unbase64(&encoded[..encoding_of(24)]);
+    let num_blocks = u64::from_le_bytes(counts[..8].try_into().unwrap()) as usize;
+    assert_eq!(num_blocks, data.len().div_ceil(32768));
+    let split = encoding_of(24 + num_blocks * 8);
+    let header = unbase64(&encoded[..split]);
+    let blocks = unbase64(&encoded[split..]);
+    let declared: usize = header[24..24 + num_blocks * 8]
+        .chunks(8)
+        .map(|size| u64::from_le_bytes(size.try_into().unwrap()) as usize)
+        .sum();
+    assert_eq!(declared, blocks.len())
+}
+
+#[test]
 fn decode_round_trips_compressed_with_four_byte_header() {
     let data = vec![7u8; 50];
     let compressed = zlib_encode(&data);
-    let mut buffer = Vec::new();
-    buffer.extend_from_slice(&1u32.to_le_bytes());
-    buffer.extend_from_slice(&(32768u32).to_le_bytes());
-    buffer.extend_from_slice(&(data.len() as u32).to_le_bytes());
-    buffer.extend_from_slice(&(compressed.len() as u32).to_le_bytes());
-    buffer.extend_from_slice(&compressed);
-    let encoded = base64(&buffer);
+    let mut header = Vec::new();
+    header.extend_from_slice(&1u32.to_le_bytes());
+    header.extend_from_slice(&(32768u32).to_le_bytes());
+    header.extend_from_slice(&(data.len() as u32).to_le_bytes());
+    header.extend_from_slice(&(compressed.len() as u32).to_le_bytes());
+    let encoded = base64(&header) + &base64(&compressed);
     let array = binary_array("Int8", &encoded, data.len());
     assert_eq!(decode(&array, &compressed_encoding(4)).unwrap(), data);
+}
+
+#[test]
+fn decode_errors_on_header_without_its_block_sizes() {
+    let data = vec![3u8; 50];
+    let encoded = data_array_compressed(&data);
+    let truncated: String = encoded.chars().take(36).collect();
+    let array = binary_array("Int8", &truncated, 0);
+    assert!(decode(&array, &compressed_encoding(8)).is_err())
+}
+
+#[test]
+fn decode_errors_on_header_padded_away() {
+    let data = vec![3u8; 50];
+    let encoded = data_array_compressed(&data);
+    let padded: String = encoded
+        .chars()
+        .enumerate()
+        .map(|(index, character)| if index < 24 { '=' } else { character })
+        .collect();
+    let array = binary_array("Int8", &padded, 0);
+    assert!(decode(&array, &compressed_encoding(8)).is_err())
 }
 
 #[test]
@@ -428,10 +467,8 @@ fn decode_errors_on_truncated_compressed_header() {
 fn decode_errors_on_truncated_compressed_block() {
     let data: Vec<u8> = (0..40_000).map(|i| (i % 253) as u8).collect();
     let encoded = data_array_compressed(&data);
-    let mut bytes = unbase64(&encoded);
-    bytes.pop();
-    let corrupted = base64(&bytes);
-    let array = binary_array("Int8", &corrupted, data.len());
+    let corrupted = &encoded[..encoded.len() - 4];
+    let array = binary_array("Int8", corrupted, data.len());
     assert!(decode(&array, &compressed_encoding(8)).is_err());
 }
 

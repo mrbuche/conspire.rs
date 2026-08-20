@@ -108,7 +108,6 @@ fn without_information(inner: &str) -> &str {
     }
 }
 
-/// The value of a named key an array carries, which is text however it is meant.
 pub fn information<'a>(array: &DataArray<'a>, name: &str) -> Option<&'a str> {
     let mut rest = array.information;
     while let Some(open) = rest.find("<InformationKey") {
@@ -175,15 +174,14 @@ pub fn decode(array: &DataArray, encoding: &Encoding) -> Result<Vec<u8>> {
             "only ascii and inline binary DataArrays are supported",
         ));
     }
-    let bytes = unbase64(array.text);
     if encoding.compressed {
-        decode_compressed_blocks(&bytes, encoding.header_bytes)
-    } else {
-        if bytes.len() < encoding.header_bytes {
-            return Err(invalid("binary DataArray shorter than its header".into()));
-        }
-        Ok(bytes[encoding.header_bytes..].to_vec())
+        return decode_compressed_blocks(array.text, encoding.header_bytes);
     }
+    let bytes = unbase64(array.text);
+    if bytes.len() < encoding.header_bytes {
+        return Err(invalid("binary DataArray shorter than its header".into()));
+    }
+    Ok(bytes[encoding.header_bytes..].to_vec())
 }
 
 fn read_uint(bytes: &[u8], offset: usize, size: usize) -> Result<usize> {
@@ -197,18 +195,39 @@ fn read_uint(bytes: &[u8], offset: usize, size: usize) -> Result<usize> {
     })
 }
 
-fn decode_compressed_blocks(bytes: &[u8], header_bytes: usize) -> Result<Vec<u8>> {
-    let num_blocks = read_uint(bytes, 0, header_bytes)?;
+fn decode_compressed_blocks(text: &str, header_bytes: usize) -> Result<Vec<u8>> {
+    let encoded: String = text
+        .chars()
+        .filter(|&character| {
+            character.is_ascii_alphanumeric()
+                || character == '+'
+                || character == '/'
+                || character == '='
+        })
+        .collect();
+    let encoding_of = |bytes: usize| bytes.div_ceil(3) * 4;
+    let counted = encoding_of(3 * header_bytes);
+    let counts = encoded
+        .get(..counted)
+        .ok_or_else(|| invalid("compressed DataArray header is truncated".into()))?;
+    let num_blocks = read_uint(&unbase64(counts), 0, header_bytes)?;
+    let split = encoding_of(3 * header_bytes + num_blocks * header_bytes);
+    let header = unbase64(
+        encoded
+            .get(..split)
+            .ok_or_else(|| invalid("compressed DataArray header is truncated".into()))?,
+    );
+    let bytes = unbase64(&encoded[split..]);
     let sizes_start = 3 * header_bytes;
     let mut compressed_sizes = Vec::with_capacity(num_blocks);
     for block in 0..num_blocks {
         compressed_sizes.push(read_uint(
-            bytes,
+            &header,
             sizes_start + block * header_bytes,
             header_bytes,
         )?);
     }
-    let mut offset = sizes_start + num_blocks * header_bytes;
+    let mut offset = 0;
     let mut out = Vec::new();
     for size in compressed_sizes {
         let block = bytes
