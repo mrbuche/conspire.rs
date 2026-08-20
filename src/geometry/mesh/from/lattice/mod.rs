@@ -5,12 +5,40 @@ use crate::{
     geometry::{
         Coordinate, Coordinates,
         mesh::{Connectivities, Connectivity, Mesh},
+        primitive::Solid,
     },
-    math::{FxHashMap, Set, TensorVec},
+    math::{FxHashMap, Quantity, Scalar, Set, TensorVec},
+    units::Length,
 };
-use std::collections::BTreeMap;
+use std::{array::from_fn, collections::BTreeMap};
 
 impl Mesh<3> {
+    /// A uniform lattice of cells covering a solid, to be trimmed back to it.
+    ///
+    /// Stands a cell clear of the solid on every side, so that its surface
+    /// falls strictly within the lattice and trimming finds cells to discard
+    /// on either hand of it.
+    pub fn lattice_over<S: Solid<3>>(solid: &S, spacing: Quantity<Length>) -> Self {
+        assert!(
+            spacing > Quantity::default(),
+            "a lattice needs a positive spacing"
+        );
+        let extent = solid.bounding_box();
+        let nel: [usize; 3] = from_fn(|axis| {
+            ((extent.maximum()[axis] - extent.minimum()[axis]) / spacing)
+                .value()
+                .ceil() as usize
+                + 2
+        });
+        let translate = Coordinate::from(from_fn::<Scalar, 3, _>(|axis| {
+            (extent.minimum()[axis] - spacing).value()
+        }));
+        let scale = Coordinate::from([spacing.value(); 3]);
+        let cells = (0..nel[2]).flat_map(move |k| {
+            (0..nel[1]).flat_map(move |j| (0..nel[0]).map(move |i| ([i, j, k], 1)))
+        });
+        Self::from_lattice_cells(cells, nel, &scale, &translate)
+    }
     pub(crate) fn from_lattice_cells<I>(
         cells: I,
         nel: [usize; 3],

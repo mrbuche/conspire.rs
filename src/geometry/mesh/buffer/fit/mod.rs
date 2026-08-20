@@ -3,12 +3,12 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, Coordinates, Direction, DirectionsRef,
-        bvh::BoundingVolumeHierarchy,
+        Coordinate, Coordinates, Direction,
         mesh::{
-            Connectivity, Mesh, Tessellation,
+            Connectivity, Mesh,
             quality::metrics::{chi, hexahedron::CORNERS, regularized},
         },
+        primitive::Solid,
     },
     math::{
         ContractWith, CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1,
@@ -43,13 +43,6 @@ const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
 
-struct Oracle<'a> {
-    bvh: &'a BoundingVolumeHierarchy<3>,
-    coordinates: &'a Coordinates<3>,
-    elements: Vec<&'a [usize]>,
-    normals: DirectionsRef<'a, 3>,
-}
-
 struct Sweep<'a> {
     epsilon: Scalar,
     hex_chunk: usize,
@@ -66,12 +59,11 @@ struct Sweep<'a> {
 }
 
 impl Mesh<3> {
-    pub(super) fn fit(
+    pub(super) fn fit<S: Solid<3>>(
         &mut self,
         nodes: &[usize],
-        target: &Tessellation,
+        target: &S,
     ) -> Result<(), &'static str> {
-        let oracle = Oracle::new(target);
         let number_of_nodes = self.number_of_nodes();
         let mut free = vec![false; number_of_nodes];
         nodes.iter().for_each(|&node| free[node] = true);
@@ -107,7 +99,6 @@ impl Mesh<3> {
         });
         let neighbors = self.node_node_connectivity().to_vec();
         let threads = available_parallelism().map_or(1, |threads| threads.get());
-        let quad_chunk = quads.len().div_ceil(threads).max(1);
         let hex_chunk = tracked.len().div_ceil(threads).max(1);
         let node_chunk = nodes.len().div_ceil(threads).max(1);
         let coordinates = self.coordinates.members_mut();
@@ -132,7 +123,7 @@ impl Mesh<3> {
                 nodes,
                 scales,
                 slot: &slot,
-                targets: oracle.targets(&quads, coordinates, quad_chunk)?,
+                targets: targets(target, &quads, coordinates),
                 tracked: &tracked,
                 unknowns,
             };
@@ -159,58 +150,40 @@ impl Mesh<3> {
     }
 }
 
-impl<'a> Oracle<'a> {
-    fn new(target: &'a Tessellation) -> Self {
-        let surface = target.mesh();
-        Self {
-            bvh: target.bvh(),
-            coordinates: surface.coordinates(),
-            elements: surface.connectivities().iter().flatten().collect(),
-            normals: target.normals().iter().flatten().collect(),
-        }
-    }
-    fn targets(
-        &self,
-        quads: &[[usize; 4]],
-        coordinates: &Coordinates<3>,
-        chunk: usize,
-    ) -> Result<Vec<Target>, &'static str> {
-        let mut targets = vec![None; quads.len()];
-        scope(|scope| {
-            targets
-                .chunks_mut(chunk)
-                .zip(quads.chunks(chunk))
-                .for_each(|(targets, quads)| {
-                    scope.spawn(move || {
-                        targets.iter_mut().zip(quads).for_each(|(target, quad)| {
-                            let centroid = quad
-                                .iter()
-                                .map(|&node| &coordinates[node])
-                                .sum::<Coordinate<3>>()
-                                / 4.0;
-                            *target = self
-                                .bvh
-                                .closest_point(&centroid, self.coordinates, &self.elements)
-                                .map(|(point, index)| {
-                                    let normal = self.normals[index].clone();
-                                    let distance = quad
-                                        .iter()
-                                        .map(|&node| {
-                                            let deviation = (&coordinates[node] - &point) * &normal;
-                                            deviation * deviation
-                                        })
-                                        .fold(Quantity::default(), Quantity::max);
-                                    (point, normal, distance)
-                                });
-                        })
-                    });
-                });
-        });
-        targets
-            .into_iter()
-            .collect::<Option<_>>()
-            .ok_or("empty tessellation")
-    }
+/// Where each quad should be heading, and how far off it currently is.
+///
+/// The quad aims at the point of the surface nearest its centroid, and its
+/// error is how far the worst of its corners stands off the plane through that
+/// point, which is what the fit works to close.
+fn targets<S: Solid<3>>(
+    solid: &S,
+    quads: &[[usize; 4]],
+    coordinates: &Coordinates<3>,
+) -> Vec<Target> {
+    let centroids: Coordinates<3> = quads
+        .iter()
+        .map(|quad| {
+            quad.iter()
+                .map(|&node| &coordinates[node])
+                .sum::<Coordinate<3>>()
+                / 4.0
+        })
+        .collect();
+    solid
+        .closest_points(&centroids)
+        .into_iter()
+        .zip(quads)
+        .map(|((point, normal), quad)| {
+            let distance = quad
+                .iter()
+                .map(|&node| {
+                    let deviation = (&coordinates[node] - &point) * &normal;
+                    deviation * deviation
+                })
+                .fold(Quantity::default(), Quantity::max);
+            (point, normal, distance)
+        })
+        .collect()
 }
 
 impl Sweep<'_> {

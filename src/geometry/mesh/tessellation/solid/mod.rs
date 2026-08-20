@@ -68,6 +68,34 @@ impl Solid<D> for Tessellation {
     fn closest_point(&self, point: &Coordinate<D>) -> (Coordinate<D>, Direction<D>) {
         Surface::of(self).closest_at(point)
     }
+    /// Gathers the surface once and hands the points out across the threads,
+    /// as [`signed_distances`](Solid::signed_distances) does.
+    fn closest_points(&self, points: &Coordinates<D>) -> Vec<(Coordinate<D>, Direction<D>)> {
+        let surface = Surface::of(self);
+        let number_of_points = points.len();
+        let mut closest = vec![None; number_of_points];
+        let threads = available_parallelism().map_or(1, |threads| threads.get());
+        let chunk_size = number_of_points.div_ceil(threads).max(1);
+        scope(|scope| {
+            let surface = &surface;
+            closest
+                .chunks_mut(chunk_size)
+                .enumerate()
+                .for_each(|(chunk, closest)| {
+                    scope.spawn(move || {
+                        let offset = chunk * chunk_size;
+                        closest.iter_mut().enumerate().for_each(|(local, closest)| {
+                            *closest = Some(surface.closest_at(&points[offset + local]))
+                        })
+                    });
+                });
+        });
+        closest.into_iter().flatten().collect()
+    }
+    /// A tessellation of no facets encloses nothing.
+    fn is_empty(&self) -> bool {
+        self.mesh().connectivities().iter().flatten().count() == 0
+    }
     fn bounding_box(&self) -> BoundingBox<D> {
         BoundingBox::from(self.mesh().coordinates().clone())
     }

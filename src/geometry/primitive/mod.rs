@@ -45,6 +45,22 @@ pub trait Solid<const D: usize> {
             .map(|point| self.signed_distance(point))
             .collect()
     }
+    /// The closest points at many points at once, for the reason
+    /// [`signed_distances`](Solid::signed_distances) takes many at once.
+    fn closest_points(&self, points: &Coordinates<D>) -> Vec<(Coordinate<D>, Direction<D>)> {
+        points
+            .iter()
+            .map(|point| self.closest_point(point))
+            .collect()
+    }
+    /// Whether the solid encloses nothing at all, and so has no surface with
+    /// which to answer.
+    ///
+    /// Only a solid described by a surface can be given none; one described by
+    /// where it is always encloses somewhere.
+    fn is_empty(&self) -> bool {
+        false
+    }
 }
 
 /// A circular cylinder with flat caps, spanning two endpoints.

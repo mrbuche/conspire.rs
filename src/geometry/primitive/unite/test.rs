@@ -208,3 +208,43 @@ fn a_lone_member_is_itself() {
         )
     })
 }
+
+/// Cylinders straight through to hexahedra, with no surface anywhere between.
+///
+/// A lattice covering the union, trimmed back to it, and buffered onto it —
+/// the same three steps the pipeline takes from a tessellation, asking the
+/// cylinders themselves instead. Every element has to come out uninverted,
+/// which is what tells the boundary was met rather than merely approached.
+#[test]
+fn cylinders_mesh_into_hexahedra() {
+    use crate::{
+        geometry::mesh::{Fitting, Mesh, Verdict, trim_to},
+        math::Scalar,
+    };
+    let crossed = crossed();
+    let mut mesh = Mesh::lattice_over(&crossed, Length::meters(0.25));
+    let background = mesh.number_of_elements();
+    trim_to(&crossed, &mut mesh).unwrap();
+    assert!(mesh.number_of_elements() < background);
+    assert!(mesh.number_of_elements() > 0);
+    let mesh = mesh.buffer(&crossed, Fitting::Soft).unwrap();
+    let worst = mesh
+        .minimum_scaled_jacobians()
+        .into_iter()
+        .flatten()
+        .fold(Scalar::INFINITY, Scalar::min);
+    assert!(worst > 0.05, "worst scaled jacobian {worst}");
+    // The boundary should sit on the union, not merely near it.
+    let surface = mesh.exterior_faces();
+    let drift = surface
+        .iter()
+        .flatten()
+        .map(|&node| {
+            crossed
+                .signed_distance(&mesh.coordinates()[node])
+                .value()
+                .abs()
+        })
+        .fold(0.0, Scalar::max);
+    assert!(drift < 0.06, "boundary drifts {drift} from the union")
+}

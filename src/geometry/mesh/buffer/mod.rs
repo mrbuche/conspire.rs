@@ -4,8 +4,11 @@ mod test;
 mod fit;
 mod restrict;
 
-use super::{Connectivity, Mesh, Tessellation};
-use crate::math::{Tensor, TensorVec};
+use super::{Connectivity, Mesh};
+use crate::{
+    geometry::primitive::Solid,
+    math::{Tensor, TensorVec},
+};
 use std::collections::{HashMap, hash_map::Entry};
 
 /// Constraint on how the buffer layer approaches the target surface.
@@ -19,7 +22,14 @@ pub enum Fitting {
 }
 
 impl Mesh<3> {
-    pub fn buffer(mut self, target: &Tessellation, fitting: Fitting) -> Result<Self, &'static str> {
+    pub fn buffer<S: Solid<3>>(
+        mut self,
+        target: &S,
+        fitting: Fitting,
+    ) -> Result<Self, &'static str> {
+        if target.is_empty() {
+            return Err("empty tessellation");
+        }
         self.restrict()?;
         let boundary = self.exterior_faces();
         let mut edges = HashMap::new();
@@ -86,18 +96,10 @@ impl Mesh<3> {
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
         mesh.fit(&nodes, target)?;
         if let Fitting::Snap = fitting {
-            let surface = target.mesh();
-            let surface_coordinates = surface.coordinates();
-            let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-            let bvh = target.bvh();
             let coordinates = mesh.coordinates.members_mut();
-            layer.iter().try_for_each(|&node| {
-                let (point, _) = bvh
-                    .closest_point(&coordinates[node], surface_coordinates, &elements)
-                    .ok_or("empty tessellation")?;
-                coordinates[node] = point;
-                Ok::<_, &'static str>(())
-            })?;
+            layer
+                .iter()
+                .for_each(|&node| coordinates[node] = target.closest_point(&coordinates[node]).0);
             mesh.fit(&(0..count).collect::<Vec<_>>(), target)?;
         }
         Ok(mesh)
