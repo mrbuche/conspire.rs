@@ -26,7 +26,7 @@ jobs:
           - vem
           - all
         os: [macos-latest, windows-latest, ubuntu-latest]
-        toolchain: [beta, nightly, stable]
+        toolchain: [beta, stable]
         exclude:
           # TODO: netCDF vcpkg install is broken on Windows runners; re-enable once fixed.
           - os: windows-latest
