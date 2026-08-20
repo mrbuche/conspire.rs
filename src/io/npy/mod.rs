@@ -34,7 +34,7 @@ pub trait NpyType: Copy {
             .map_err(|_| invalid("truncated .npy data".into()))?;
         Ok(Self::read_le_all(&bytes))
     }
-    #[allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
+    #[allow(clippy::chunks_exact_to_as_chunks)]
     fn read_le_all(bytes: &[u8]) -> Vec<Self> {
         bytes.chunks_exact(Self::SIZE).map(Self::read_le).collect()
     }

@@ -196,7 +196,9 @@ fn read_polytopal_block(
 
 fn unflatten<const N: usize>(flat: &[i32]) -> Vec<[usize; N]> {
     assert_eq!(flat.len() % N, 0);
-    flat.chunks_exact(N)
+    flat.as_chunks::<N>()
+        .0
+        .iter()
         .map(|chunk| from_fn(|i| (chunk[i] - 1) as usize))
         .collect()
 }
