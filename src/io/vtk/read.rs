@@ -226,11 +226,9 @@ fn decode_compressed_blocks(text: &str, header_bytes: usize) -> Result<Vec<u8>> 
             .get(..split)
             .ok_or_else(|| invalid("compressed DataArray header is truncated".into()))?,
     );
-    let bytes = unbase64(
-        encoded
-            .get(split..)
-            .ok_or_else(|| invalid("compressed DataArray blocks are missing".into()))?,
-    );
+    // Whatever follows the header is the blocks; the slice above having
+    // succeeded, the header ends within the text and this cannot run past it.
+    let bytes = unbase64(&encoded[split..]);
     let sizes_start = 3 * header_bytes;
     let mut compressed_sizes = Vec::with_capacity(num_blocks);
     for block in 0..num_blocks {

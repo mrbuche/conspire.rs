@@ -438,6 +438,32 @@ fn decode_round_trips_compressed_with_four_byte_header() {
     assert_eq!(decode(&array, &compressed_encoding(4)).unwrap(), data);
 }
 
+/// A header saying how many blocks there are, in text too short to hold the
+/// sizes of that many.
+#[test]
+fn decode_errors_on_header_without_its_block_sizes() {
+    let data = vec![3u8; 50];
+    let encoded = data_array_compressed(&data);
+    let truncated: String = encoded.chars().take(36).collect();
+    let array = binary_array("Int8", &truncated, 0);
+    assert!(decode(&array, &compressed_encoding(8)).is_err())
+}
+
+/// Padding standing where the header's own characters should, so that the text
+/// is as long as a header but decodes to less than one.
+#[test]
+fn decode_errors_on_header_padded_away() {
+    let data = vec![3u8; 50];
+    let encoded = data_array_compressed(&data);
+    let padded: String = encoded
+        .chars()
+        .enumerate()
+        .map(|(index, character)| if index < 24 { '=' } else { character })
+        .collect();
+    let array = binary_array("Int8", &padded, 0);
+    assert!(decode(&array, &compressed_encoding(8)).is_err())
+}
+
 #[test]
 fn decode_errors_on_truncated_compressed_header() {
     let data = vec![3u8; 50];
@@ -453,10 +479,12 @@ fn decode_errors_on_truncated_compressed_header() {
 fn decode_errors_on_truncated_compressed_block() {
     let data: Vec<u8> = (0..40_000).map(|i| (i % 253) as u8).collect();
     let encoded = data_array_compressed(&data);
-    let mut bytes = unbase64(&encoded);
-    bytes.pop();
-    let corrupted = base64(&bytes);
-    let array = binary_array("Int8", &corrupted, data.len());
+    // Taken off the end, so the header still describes blocks longer than the
+    // ones now left to it. Decoding the whole text and re-encoding it would
+    // instead run the header and the blocks together, which fails sooner and
+    // for another reason.
+    let corrupted = &encoded[..encoded.len() - 4];
+    let array = binary_array("Int8", corrupted, data.len());
     assert!(decode(&array, &compressed_encoding(8)).is_err());
 }
 
