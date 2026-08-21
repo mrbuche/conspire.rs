@@ -4,7 +4,7 @@ mod test;
 use std::mem::swap;
 
 use crate::{
-    ABS_TOL,
+    REL_TOL,
     geometry::{Coordinate, Direction, bbox::BoundingBox, bvh::ray::Ray},
     math::{Quantity, Scalar},
     units::{Area, Length},
@@ -84,10 +84,15 @@ impl Ray<3> {
             return None;
         }
         let determinant = u + v + w;
-        if determinant.abs().value() < ABS_TOL {
+        let edge = |px: Quantity<Length>, py: Quantity<Length>| px * px + py * py;
+        let extent = edge(bx - ax, by - ay)
+            .max(edge(cx - bx, cy - by))
+            .max(edge(ax - cx, ay - cy));
+        if determinant.abs() <= extent * REL_TOL {
             return None;
         }
         let t = (u * sz * pa[kz] + v * sz * pb[kz] + w * sz * pc[kz]) / determinant;
-        (t.value() > ABS_TOL).then_some(t)
+        let reach = pa[kz].abs().max(pb[kz].abs()).max(pc[kz].abs());
+        (t > reach * REL_TOL).then_some(t)
     }
 }

@@ -64,3 +64,23 @@ fn dualized_slender_torus_is_not_inverted() {
         .fold(Scalar::INFINITY, Scalar::min);
     assert!(worst > 0.15, "{worst}");
 }
+
+/// Trimming sees the same solid however small the unit of length makes it.
+#[test]
+fn trim_keeps_the_same_cells_at_any_scale() {
+    let trimmed = |scale: Scalar| {
+        let tessellation = torus(scale, 0.15 * scale, 64, 24);
+        let mut octree =
+            Octree::<u16, usize>::from_features(&tessellation, 3.0, CurvatureSizing::default(), 0)
+                .unwrap();
+        octree
+            .equilibrate(Balancing::Strong(1), Pairing::Regular)
+            .unwrap();
+        let mut mesh = octree.dualize();
+        let background = mesh.number_of_elements();
+        tessellation.trim(&mut mesh).unwrap();
+        (background, mesh.number_of_elements())
+    };
+    let (background, kept) = trimmed(1.0);
+    assert_eq!(trimmed(1.0e-4), (background, kept));
+}
