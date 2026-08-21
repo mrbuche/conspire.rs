@@ -5,23 +5,7 @@ use crate::units::{EnergyDensity, ReciprocalTemperature, Stress, Temperature};
 
 use super::*;
 
-/// The Saint Venant-Kirchhoff thermohyperelastic solid constitutive model.
-///
-/// **Parameters**
-/// - The bulk modulus $`\kappa`$.
-/// - The shear modulus $`\mu`$.
-/// - The coefficient of thermal expansion $`\alpha`$.
-/// - The reference temperature $`T_\mathrm{ref}`$.
-///
-/// **External variables**
-/// - The deformation gradient $`\mathbf{F}`$.
-/// - The temperature $`T`$.
-///
-/// **Internal variables**
-/// - None.
-///
-/// **Notes**
-/// - The Green-Saint Venant strain measure is given by $`\mathbf{E}=\tfrac{1}{2}(\mathbf{C}-\mathbf{1})`$.
+#[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
@@ -44,11 +28,7 @@ impl Solid for SaintVenantKirchhoff {
 }
 
 impl Thermoelastic for SaintVenantKirchhoff {
-    /// Calculates and returns the second Piola-Kirchhoff stress.
-    ///
-    /// ```math
-    /// \mathbf{S}(\mathbf{F}, T) = 2\mu\mathbf{E}' + \kappa\,\mathrm{tr}(\mathbf{E})\mathbf{1} - 3\alpha\kappa(T - T_\mathrm{ref})\mathbf{1}
-    /// ```
+    #[doc = include_str!("second_piola_kirchhoff_stress.md")]
     fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -66,11 +46,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
                             * self.coefficient_of_thermal_expansion()
                             * (temperature - self.reference_temperature()))))
     }
-    /// Calculates and returns the tangent stiffness associated with the second Piola-Kirchhoff stress.
-    ///
-    /// ```math
-    /// \mathcal{G}_{IJkL}(\mathbf{F}) = \mu\,\delta_{JL}F_{kI} + \mu\,\delta_{IL}F_{kJ} + \left(\kappa - \frac{2}{3}\,\mu\right)\delta_{IJ}F_{kL}
-    /// ```
+    #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
     fn second_piola_kirchhoff_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -97,11 +73,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
 }
 
 impl Thermohyperelastic for SaintVenantKirchhoff {
-    /// Calculates and returns the Helmholtz free energy density.
-    ///
-    /// ```math
-    /// a(\mathbf{F}, T) = \mu\,\mathrm{tr}(\mathbf{E}^2) + \frac{1}{2}\left(\kappa - \frac{2}{3}\,\mu\right)\mathrm{tr}(\mathbf{E})^2 - 3\alpha\kappa\,\mathrm{tr}(\mathbf{E})(T - T_\mathrm{ref})
-    /// ```
+    #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,

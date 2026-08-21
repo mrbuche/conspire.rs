@@ -1,0 +1,15 @@
+Thermohyperelastic solid constitutive models are defined by a Helmholtz free energy density function of the deformation gradient and temperature.
+
+```math
+\mathbf{P}:\dot{\mathbf{F}} - \dot{a}(\mathbf{F},T) \geq 0
+```
+Satisfying the second law of thermodynamics (here, equivalent to extremized or zero dissipation) yields a relation for the stress.
+
+```math
+\mathbf{P} = \frac{\partial a}{\partial\mathbf{F}}
+```
+Consequently, the tangent stiffness associated with the first Piola-Kirchhoff stress is symmetric for these constitutive models.
+
+```math
+\mathcal{C}_{iJkL} = \mathcal{C}_{kLiJ}
+```
