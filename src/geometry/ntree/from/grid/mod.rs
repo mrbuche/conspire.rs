@@ -25,26 +25,30 @@ enum Cell<V> {
     Mixed,
 }
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V> From<Grid<D, V>>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V> TryFrom<Grid<D, V>>
     for Orthotree<D, L, M, N, T, U, V>
 where
-    T: Add<Output = T> + Copy + From<u16> + Into<usize> + Split,
+    T: Add<Output = T> + Copy + From<u16> + Into<usize> + Split + TryFrom<usize>,
     U: Copy + From<usize> + Into<usize>,
     V: Copy + PartialEq,
 {
-    fn from(grid: Grid<D, V>) -> Self {
+    type Error = &'static str;
+    fn try_from(grid: Grid<D, V>) -> Result<Self, Self::Error> {
         let nel = *grid.nel();
         let max = nel.iter().copied().max().unwrap_or(0).max(1);
-        let mut root_length = 1u16;
-        while (root_length as usize) < max {
-            root_length <<= 1;
+        let mut root_length = 1usize;
+        while root_length < max {
+            root_length = root_length
+                .checked_mul(2)
+                .ok_or("grid exceeds maximum octree depth")?;
         }
+        let length = T::try_from(root_length).map_err(|_| "grid exceeds maximum octree depth")?;
         let half = root_length as Scalar / 2.0;
         let mut tree = Self {
             balanced: Balancing::None,
             nodes: vec![Node {
                 corner: from_fn(|_| T::from(0)),
-                length: T::from(root_length),
+                length,
                 facets: [None; M],
                 kind: Kind::Leaf,
                 value: None,
@@ -69,13 +73,13 @@ where
             match classify(corner, length, &nel, &pyramid) {
                 Cell::Uniform(value) => tree.nodes[index].value = Some(value),
                 Cell::Mixed => {
-                    tree.subdivide(U::from(index)).ok();
+                    tree.subdivide(U::from(index))?;
                 }
                 Cell::Empty => {}
             }
             index += 1;
         }
-        tree
+        Ok(tree)
     }
 }
 
