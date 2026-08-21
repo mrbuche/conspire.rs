@@ -246,8 +246,6 @@ fn a_tolerance_does_not_refine_a_polyhedron() {
 #[test]
 fn refuses_a_depth_no_cell_length_can_index() {
     let tessellation = sphere(4, 8, 2.0);
-    // A scale this fine asks for 2^20 cells across the root, past what the u16
-    // a cell length is built from can hold.
     assert_eq!(
         Octree::<u16, usize>::from_features(&tessellation, 1.0e6, CurvatureSizing::default(), 0)
             .err(),
@@ -261,8 +259,6 @@ fn refuses_a_depth_no_cell_length_can_index() {
 
 #[test]
 fn refuses_a_target_the_finest_cell_cannot_meet() {
-    // An open surface has no thickness to find, so its shape diameter is zero
-    // and no cell is ever small enough to meet it.
     let tessellation = tessellate(
         vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
         vec![[0, 1, 2]],
