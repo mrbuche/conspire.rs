@@ -1,4 +1,5 @@
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 #[cfg(feature = "netcdf")]
 pub(crate) mod test;
@@ -26,7 +27,7 @@ pub(super) fn edge_transitions<T, U>(
     balancing: Balancing,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     transition_1::template(
         tree,

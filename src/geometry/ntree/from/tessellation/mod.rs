@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -191,7 +192,7 @@ impl<'a> Sizing<'a> {
 impl<T, U> Octree<T, U>
 where
     T: Cell,
-    U: Copy + From<usize> + Into<usize>,
+    U: Slot,
 {
     /// Builds an octree from a tessellation, refining cells where either the
     /// local thickness or the local curvature demands a smaller size.
@@ -282,12 +283,12 @@ where
             if cells <= 1 {
                 return Err("sizing field falls below minimum octree cell size");
             }
-            tree.subdivide(U::from(index))?;
+            tree.subdivide(index)?;
             let children: Vec<usize> = tree.nodes[index]
                 .orthants()
                 .unwrap()
                 .iter()
-                .map(|&child| child.into())
+                .map(|&child| child.slot())
                 .collect();
             for child in children {
                 let corner = tree.nodes[child].corner;

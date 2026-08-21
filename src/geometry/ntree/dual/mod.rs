@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 pub(super) mod octree;
 pub(super) mod quadtree;
 
@@ -48,7 +49,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U> Star<
     for Orthotree<D, L, M, N, T, U>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     fn star(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>) {
         let face_mask: usize = if D <= 2 { (1 << D) - 1 } else { 3 };
@@ -88,7 +89,7 @@ pub(crate) fn incident_leaf<const D: usize, const L: usize, const M: usize, cons
 ) -> usize
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let mut index = 0;
     loop {
@@ -108,7 +109,7 @@ where
                     };
                     acc | (bit << a)
                 });
-                index = orthants[child].into();
+                index = orthants[child].slot();
             }
         }
     }
@@ -122,7 +123,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U> Initi
     for Orthotree<D, L, M, N, T, U>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     fn initialize(&self) -> (Vec<usize>, Coordinates<D>, usize, Vec<[usize; N]>) {
         assert!(matches!(

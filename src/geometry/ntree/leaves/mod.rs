@@ -1,4 +1,5 @@
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 use crate::geometry::ntree::{
     Orthotree,
     node::{Kind, Node},
@@ -10,7 +11,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
     Orthotree<D, L, M, N, T, U>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     pub fn all_leaves<'a>(&self, node: &'a Node<D, M, N, T, U>) -> Option<&'a [U; N]> {
         match &node.kind {

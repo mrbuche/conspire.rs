@@ -1,4 +1,5 @@
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -13,7 +14,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
 where
     T: Cell,
-    U: Copy + From<usize> + Into<usize>,
+    U: Slot,
     V: Copy + Eq + Hash,
 {
     pub fn defeature(&mut self, minimum: usize) {
@@ -158,7 +159,7 @@ where
             for face in 0..M {
                 if let Some(neighbor) = self.nodes[leaf].facets[face] {
                     let mut others = Vec::new();
-                    self.face_leaves(neighbor.into(), face ^ 1, &mut others);
+                    self.face_leaves(neighbor.slot(), face ^ 1, &mut others);
                     for other in others {
                         if self.nodes[other].value.is_some() {
                             let key = if leaf < other {
@@ -183,7 +184,7 @@ where
             Kind::Tree(orthants) => {
                 let (axis, side) = (face >> 1, face & 1);
                 for i in 0..L {
-                    let child = orthants[insert_bit(i, axis, side)].into();
+                    let child = orthants[insert_bit(i, axis, side)].slot();
                     self.face_leaves(child, face, out);
                 }
             }

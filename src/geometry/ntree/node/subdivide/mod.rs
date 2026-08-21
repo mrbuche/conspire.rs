@@ -1,10 +1,11 @@
+use crate::geometry::ntree::node::slot::Slot;
 use crate::geometry::ntree::node::{Kind, Node, cell::Cell};
 use std::array::from_fn;
 
 impl<const D: usize, const M: usize, const N: usize, T, U, V> Node<D, M, N, T, U, V>
 where
     T: Cell,
-    U: Copy,
+    U: Slot,
     V: Copy,
 {
     pub fn subdivide(&self, indices: [U; N]) -> Result<[Self; N], &'static str> {

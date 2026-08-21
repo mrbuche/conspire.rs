@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 pub(super) mod htg;
 
 use crate::geometry::ntree::{Orthotree, node::cell::Cell};
@@ -28,7 +29,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, P> Tr
 where
     P: AsRef<Path>,
     T: Cell,
-    U: Copy + From<usize> + Into<usize>,
+    U: Slot,
 {
     type Error = ErrorIO;
     fn try_from(input: Input<P>) -> Result<Self, Self::Error> {

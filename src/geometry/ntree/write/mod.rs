@@ -1,4 +1,5 @@
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 pub(super) mod htg;
 
 use crate::{
@@ -32,7 +33,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, P> Wr
 where
     P: AsRef<Path>,
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     type Error = ErrorIO;
     fn write(&self, output: Output<P>) -> Result<(), Self::Error> {

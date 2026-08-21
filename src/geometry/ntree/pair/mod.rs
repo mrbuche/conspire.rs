@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 use crate::geometry::ntree::{Orthotree, node::cell::Cell};
 
 /// Constraint on how the orthants of a node may mix leaves and subtrees.
@@ -15,7 +16,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
 where
     T: Cell,
-    U: Copy + From<usize> + Into<usize>,
+    U: Slot,
     V: Copy,
 {
     pub fn pair(&mut self, pairing: Pairing) -> Result<bool, &'static str> {
@@ -25,7 +26,7 @@ where
                 let mut index = 0;
                 let mut paired = true;
                 while index < self.len() {
-                    if let Some(nodes) = self[index.into()].orthants() {
+                    if let Some(nodes) = self.nodes[index].orthants() {
                         let mut any_leaf = false;
                         let mut any_tree = false;
                         let mut leaves = Vec::with_capacity(N);
@@ -40,7 +41,7 @@ where
                         if any_tree && any_leaf {
                             for node in leaves {
                                 paired = false;
-                                self.subdivide(node)?;
+                                self.subdivide(node.slot())?;
                             }
                         }
                     }

@@ -1,4 +1,5 @@
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -32,7 +33,7 @@ pub(super) fn template<T, U>(
     nodes_map: &NodeMap<D>,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     for node in tree.iter().filter(|node| node.is_tree()) {
         let cell_subnodes = tree.leaves(node);
@@ -61,24 +62,24 @@ fn template_inner<T, U>(
     tree: &Octree<T, U>,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let (subcell_a, subcell_b, facet_m, facet_n, m_p, m_q, n_p, n_q) = edge;
     if let Some(node_a) = cell_subnodes[subcell_a]
         && let Some(node_b) = cell_subnodes[subcell_b]
-        && let Some(a_m) = tree.nodes[node_a.into()].facets[facet_m]
-        && let Some(a_n) = tree.nodes[node_a.into()].facets[facet_n]
-        && let Some(diagonal_a) = tree.nodes[a_m.into()].facets[facet_n]
-        && tree.nodes[diagonal_a.into()].is_leaf()
-        && let Some(b_m) = tree.nodes[node_b.into()].facets[facet_m]
-        && let Some(b_n) = tree.nodes[node_b.into()].facets[facet_n]
-        && let Some(diagonal_b) = tree.nodes[b_m.into()].facets[facet_n]
-        && tree.nodes[diagonal_b.into()].is_leaf()
+        && let Some(a_m) = tree.nodes[node_a.slot()].facets[facet_m]
+        && let Some(a_n) = tree.nodes[node_a.slot()].facets[facet_n]
+        && let Some(diagonal_a) = tree.nodes[a_m.slot()].facets[facet_n]
+        && tree.nodes[diagonal_a.slot()].is_leaf()
+        && let Some(b_m) = tree.nodes[node_b.slot()].facets[facet_m]
+        && let Some(b_n) = tree.nodes[node_b.slot()].facets[facet_n]
+        && let Some(diagonal_b) = tree.nodes[b_m.slot()].facets[facet_n]
+        && tree.nodes[diagonal_b.slot()].is_leaf()
     {
-        let a_m_leaves = tree.leaves(&tree.nodes[a_m.into()]);
-        let a_n_leaves = tree.leaves(&tree.nodes[a_n.into()]);
-        let b_m_leaves = tree.leaves(&tree.nodes[b_m.into()]);
-        let b_n_leaves = tree.leaves(&tree.nodes[b_n.into()]);
+        let a_m_leaves = tree.leaves(&tree.nodes[a_m.slot()]);
+        let a_n_leaves = tree.leaves(&tree.nodes[a_n.slot()]);
+        let b_m_leaves = tree.leaves(&tree.nodes[b_m.slot()]);
+        let b_n_leaves = tree.leaves(&tree.nodes[b_n.slot()]);
         if let Some(a_m_p) = a_m_leaves[m_p]
             && let Some(a_m_q) = a_m_leaves[m_q]
             && let Some(b_m_p) = b_m_leaves[m_p]
@@ -88,11 +89,11 @@ fn template_inner<T, U>(
             && let Some(b_n_p) = b_n_leaves[n_p]
             && let Some(b_n_q) = b_n_leaves[n_q]
         {
-            let length: Scalar = tree.nodes[a_m_p.into()].length.scalar();
+            let length: Scalar = tree.nodes[a_m_p.slot()].length.scalar();
             let offset_m = &facet_direction(facet_m) * length;
             let offset_n = &facet_direction(facet_n) * length;
-            let center_a_m_p = center_nodes[a_m_p.into()];
-            let center_b_m_q = center_nodes[b_m_q.into()];
+            let center_a_m_p = center_nodes[a_m_p.slot()];
+            let center_b_m_q = center_nodes[b_m_q.slot()];
             let find = |coordinate: Coordinate<D>| -> Option<usize> {
                 nodes_map
                     .get(&[
@@ -107,16 +108,16 @@ fn template_inner<T, U>(
                 && let Some(node_3) = find(&coordinates[center_a_m_p] + &offset_n)
                 && let Some(node_4) = find(&coordinates[center_b_m_q] + &offset_n)
             {
-                let center_a = center_nodes[node_a.into()];
-                let center_b = center_nodes[node_b.into()];
-                let a_m_q = center_nodes[a_m_q.into()];
-                let b_m_p = center_nodes[b_m_p.into()];
-                let a_n_p = center_nodes[a_n_p.into()];
-                let a_n_q = center_nodes[a_n_q.into()];
-                let b_n_p = center_nodes[b_n_p.into()];
-                let b_n_q = center_nodes[b_n_q.into()];
-                let diag_a = center_nodes[diagonal_a.into()];
-                let diag_b = center_nodes[diagonal_b.into()];
+                let center_a = center_nodes[node_a.slot()];
+                let center_b = center_nodes[node_b.slot()];
+                let a_m_q = center_nodes[a_m_q.slot()];
+                let b_m_p = center_nodes[b_m_p.slot()];
+                let a_n_p = center_nodes[a_n_p.slot()];
+                let a_n_q = center_nodes[a_n_q.slot()];
+                let b_n_p = center_nodes[b_n_p.slot()];
+                let b_n_q = center_nodes[b_n_q.slot()];
+                let diag_a = center_nodes[diagonal_a.slot()];
+                let diag_b = center_nodes[diagonal_b.slot()];
                 connectivity.push([
                     center_a_m_p,
                     node_1,

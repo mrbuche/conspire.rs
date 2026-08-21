@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 #[cfg(feature = "netcdf")]
 pub(crate) mod test;
@@ -18,7 +19,7 @@ pub(super) fn vertex_transitions<T, U>(
     nodes_map: &NodeMap<D>,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     tree.star(center_nodes, connectivity);
     star::template(tree, center_nodes, connectivity, nodes_map)

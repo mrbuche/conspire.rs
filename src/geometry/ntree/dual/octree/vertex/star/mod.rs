@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 use crate::geometry::ntree::{
     Octree,
     dual::{
@@ -19,7 +20,7 @@ pub(super) fn template<T, U>(
     nodes_map: &NodeMap<D>,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let root = &tree.nodes[0];
     let lo = root.corner;
@@ -67,7 +68,7 @@ fn cap<T, U>(
     nodes_map: &NodeMap<D>,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let longest = 4 * shortest;
     let odd: Vec<usize> = (0..D)
@@ -153,7 +154,7 @@ fn cap<T, U>(
 fn leaf_at<T, U>(tree: &Octree<T, U>, point: &[usize; D], direction: usize) -> usize
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let mut index = 0;
     loop {
@@ -173,7 +174,7 @@ where
                     };
                     acc | (bit << a)
                 });
-                index = orthants[child].into();
+                index = orthants[child].slot();
             }
         }
     }
@@ -182,7 +183,7 @@ where
 fn incident_leaf<T, U>(tree: &Octree<T, U>, vertex: &[T; D], direction: usize) -> usize
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let mut index = 0;
     loop {
@@ -202,7 +203,7 @@ where
                     };
                     acc | (bit << a)
                 });
-                index = orthants[child].into();
+                index = orthants[child].slot();
             }
         }
     }

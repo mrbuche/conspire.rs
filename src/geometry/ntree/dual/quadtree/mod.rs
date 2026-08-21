@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -20,7 +21,7 @@ const N: usize = 4;
 impl<T, U> Dualization<D> for Quadtree<T, U>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     fn dualize(&mut self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
@@ -52,7 +53,7 @@ fn edge_transition<T, U>(
     nodes_map: &mut NodeMap<D>,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let mut get_or_add = |pos: [Scalar; D]| -> usize {
         let key = pos.map(|p| (2.0 * p) as usize);
@@ -85,28 +86,28 @@ fn edge_transition<T, U>(
                 let new_1 = get_or_add([x1, y0]);
                 let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
-                    center_nodes[g_0b.into()],
+                    center_nodes[g_0b.slot()],
                     new_1,
                     new_2,
-                    center_nodes[g_2a.into()],
+                    center_nodes[g_2a.slot()],
                 ]);
                 connectivity.push([
                     new_1,
-                    center_nodes[leaf_0.into()],
-                    center_nodes[leaf_2.into()],
+                    center_nodes[leaf_0.slot()],
+                    center_nodes[leaf_2.slot()],
                     new_2,
                 ]);
                 connectivity.push([
-                    center_nodes[g_2a.into()],
+                    center_nodes[g_2a.slot()],
                     new_2,
-                    center_nodes[leaf_2.into()],
-                    center_nodes[g_2b.into()],
+                    center_nodes[leaf_2.slot()],
+                    center_nodes[g_2b.slot()],
                 ]);
                 connectivity.push([
-                    center_nodes[g_0a.into()],
-                    center_nodes[leaf_0.into()],
+                    center_nodes[g_0a.slot()],
+                    center_nodes[leaf_0.slot()],
                     new_1,
-                    center_nodes[g_0b.into()],
+                    center_nodes[g_0b.slot()],
                 ]);
             }
         }
@@ -128,27 +129,27 @@ fn edge_transition<T, U>(
                 let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
                     new_1,
-                    center_nodes[g_1b.into()],
-                    center_nodes[g_3a.into()],
+                    center_nodes[g_1b.slot()],
+                    center_nodes[g_3a.slot()],
                     new_2,
                 ]);
                 connectivity.push([
                     new_1,
                     new_2,
-                    center_nodes[leaf_3.into()],
-                    center_nodes[leaf_1.into()],
+                    center_nodes[leaf_3.slot()],
+                    center_nodes[leaf_1.slot()],
                 ]);
                 connectivity.push([
-                    center_nodes[g_3a.into()],
-                    center_nodes[g_3b.into()],
-                    center_nodes[leaf_3.into()],
+                    center_nodes[g_3a.slot()],
+                    center_nodes[g_3b.slot()],
+                    center_nodes[leaf_3.slot()],
                     new_2,
                 ]);
                 connectivity.push([
-                    center_nodes[g_1a.into()],
-                    center_nodes[g_1b.into()],
+                    center_nodes[g_1a.slot()],
+                    center_nodes[g_1b.slot()],
                     new_1,
-                    center_nodes[leaf_1.into()],
+                    center_nodes[leaf_1.slot()],
                 ]);
             }
         }
@@ -169,28 +170,28 @@ fn edge_transition<T, U>(
                 let new_1 = get_or_add([x0, y1]);
                 let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
-                    center_nodes[g_0b.into()],
-                    center_nodes[g_1a.into()],
+                    center_nodes[g_0b.slot()],
+                    center_nodes[g_1a.slot()],
                     new_2,
                     new_1,
                 ]);
                 connectivity.push([
                     new_1,
                     new_2,
-                    center_nodes[leaf_1.into()],
-                    center_nodes[leaf_0.into()],
+                    center_nodes[leaf_1.slot()],
+                    center_nodes[leaf_0.slot()],
                 ]);
                 connectivity.push([
-                    center_nodes[g_1a.into()],
-                    center_nodes[g_1b.into()],
-                    center_nodes[leaf_1.into()],
+                    center_nodes[g_1a.slot()],
+                    center_nodes[g_1b.slot()],
+                    center_nodes[leaf_1.slot()],
                     new_2,
                 ]);
                 connectivity.push([
-                    center_nodes[g_0a.into()],
-                    center_nodes[g_0b.into()],
+                    center_nodes[g_0a.slot()],
+                    center_nodes[g_0b.slot()],
                     new_1,
-                    center_nodes[leaf_0.into()],
+                    center_nodes[leaf_0.slot()],
                 ]);
             }
         }
@@ -213,26 +214,26 @@ fn edge_transition<T, U>(
                 connectivity.push([
                     new_1,
                     new_2,
-                    center_nodes[g_3a.into()],
-                    center_nodes[g_2b.into()],
+                    center_nodes[g_3a.slot()],
+                    center_nodes[g_2b.slot()],
                 ]);
                 connectivity.push([
                     new_1,
-                    center_nodes[leaf_2.into()],
-                    center_nodes[leaf_3.into()],
+                    center_nodes[leaf_2.slot()],
+                    center_nodes[leaf_3.slot()],
                     new_2,
                 ]);
                 connectivity.push([
-                    center_nodes[g_3a.into()],
+                    center_nodes[g_3a.slot()],
                     new_2,
-                    center_nodes[leaf_3.into()],
-                    center_nodes[g_3b.into()],
+                    center_nodes[leaf_3.slot()],
+                    center_nodes[g_3b.slot()],
                 ]);
                 connectivity.push([
-                    center_nodes[g_2a.into()],
-                    center_nodes[leaf_2.into()],
+                    center_nodes[g_2a.slot()],
+                    center_nodes[leaf_2.slot()],
                     new_1,
-                    center_nodes[g_2b.into()],
+                    center_nodes[g_2b.slot()],
                 ]);
             }
         }

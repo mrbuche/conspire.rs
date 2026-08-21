@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -29,7 +30,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V> Tr
     for Orthotree<D, L, M, N, T, U, V>
 where
     T: Cell,
-    U: Copy + From<usize> + Into<usize>,
+    U: Slot,
     V: Copy + PartialEq,
 {
     type Error = &'static str;
@@ -73,7 +74,7 @@ where
             match classify(corner, length, &nel, &pyramid) {
                 Content::Uniform(value) => tree.nodes[index].value = Some(value),
                 Content::Mixed => {
-                    tree.subdivide(U::from(index))?;
+                    tree.subdivide(index)?;
                 }
                 Content::Empty => {}
             }

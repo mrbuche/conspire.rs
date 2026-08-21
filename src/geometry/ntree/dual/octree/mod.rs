@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 #[cfg(feature = "netcdf")]
 mod test;
@@ -39,7 +40,7 @@ const fn facet_direction(facet: usize) -> Coordinate<D> {
 impl<T, U> Dualization<D> for Octree<T, U>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     fn dualize(&mut self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();

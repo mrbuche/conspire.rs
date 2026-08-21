@@ -1,4 +1,5 @@
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -26,14 +27,14 @@ pub(super) fn face_transition<T, U>(
     nodes_map: &mut NodeMap<D>,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     for node in tree.iter() {
         for facet in 0..M {
             if let [Some(s0), Some(s1), Some(s2), Some(s3)] = tree.leaves_on_facet(node, facet)
                 && let Some(neighbor) = node.facets[facet]
                 && let Some(neighbors) =
-                    tree.orthants_all_leaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)
+                    tree.orthants_all_leaves_on_facet(&tree.nodes[neighbor.slot()], facet ^ 1)
             {
                 template(
                     [s0, s1, s2, s3],
@@ -64,10 +65,10 @@ fn template<T, U>(
     node_index: &mut usize,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
-    let neighbors = from_fn(|k| neighbor_leaves[k / L][k % L].into());
-    let leaves_center_nodes: [usize; L] = from_fn(|i| center_nodes[leaves[i].into()]);
+    let neighbors = from_fn(|k| neighbor_leaves[k / L][k % L].slot());
+    let leaves_center_nodes: [usize; L] = from_fn(|i| center_nodes[leaves[i].slot()]);
     let adjacent_exterior_nodes = [
         center_nodes[neighbors[1]],
         center_nodes[neighbors[4]],
@@ -413,7 +414,7 @@ fn translations<T, U>(
 ) -> (Coordinate<D>, Coordinate<D>)
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let length: Scalar = tree.nodes[neighbors[0]].length.scalar();
     match facet {

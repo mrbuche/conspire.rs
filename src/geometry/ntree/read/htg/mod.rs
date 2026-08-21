@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -31,7 +32,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, P> Re
 where
     P: AsRef<Path>,
     T: Cell,
-    U: Copy + From<usize> + Into<usize>,
+    U: Slot,
 {
     fn read_htg(input: P) -> Result<Self> {
         let text = read_to_string(input)?;
@@ -88,7 +89,7 @@ where
             paired: Pairing::None,
             rescale,
         };
-        let mut queue: VecDeque<U> = VecDeque::from([U::from(0)]);
+        let mut queue = VecDeque::<usize>::from([0]);
         let mut bit = 0;
         while let Some(node) = queue.pop_front() {
             if bit >= descriptor.len() {
@@ -98,7 +99,13 @@ where
             bit += 1;
             if refined {
                 tree.subdivide(node).map_err(|e| invalid(e.into()))?;
-                queue.extend(tree.nodes[node.into()].orthants().unwrap().iter().copied());
+                queue.extend(
+                    tree.nodes[node]
+                        .orthants()
+                        .unwrap()
+                        .iter()
+                        .map(|node: &U| node.slot()),
+                );
             }
         }
         Ok(tree)

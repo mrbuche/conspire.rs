@@ -1,4 +1,5 @@
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -15,7 +16,7 @@ use std::{array::from_fn, collections::HashMap};
 impl<T, U, V> From<Octree<T, U, V>> for Mesh<3>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     fn from(octree: Octree<T, U, V>) -> Self {
         let (elements_faces, faces_nodes, mut coordinates) = polytopes(&octree);
@@ -33,7 +34,7 @@ where
 impl<T, U, V> From<Quadtree<T, U, V>> for Mesh<2>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     fn from(quadtree: Quadtree<T, U, V>) -> Self {
         let (elements_faces, faces_nodes, mut coordinates) = polytopes(&quadtree);
@@ -67,14 +68,14 @@ fn gather<const D: usize, const L: usize, const M: usize, const N: usize, T, U, 
     leaves: &mut Vec<usize>,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     match tree.nodes[index].orthants() {
         None => leaves.push(index),
         Some(orthants) => (0..L).for_each(|k| {
             gather(
                 tree,
-                orthants[insert_bit(k, facet >> 1, facet & 1)].into(),
+                orthants[insert_bit(k, facet >> 1, facet & 1)].slot(),
                 facet,
                 leaves,
             )
@@ -87,7 +88,7 @@ fn polytopes<const D: usize, const L: usize, const M: usize, const N: usize, T, 
 ) -> (Vec<Vec<usize>>, Vec<Vec<usize>>, Coordinates<D>)
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let mut element_of = vec![usize::MAX; tree.nodes.len()];
     let leaves = tree
@@ -204,7 +205,7 @@ where
             let plane = corner[axis] + side * length;
             match tree.nodes[index].facets[facet] {
                 Some(neighbor) => {
-                    let neighbor = neighbor.into();
+                    let neighbor = neighbor.slot();
                     if tree.nodes[neighbor].is_tree() {
                         let mut fine = Vec::new();
                         gather(tree, neighbor, facet ^ 1, &mut fine);

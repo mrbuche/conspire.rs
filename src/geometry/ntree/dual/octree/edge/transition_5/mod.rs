@@ -1,4 +1,5 @@
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -54,7 +55,7 @@ pub(super) fn template<T, U>(
     nodes_map: &mut NodeMap<D>,
 ) where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     for (index, node) in tree.nodes.iter().enumerate() {
         if !node.is_leaf() {
@@ -76,11 +77,11 @@ pub(super) fn template<T, U>(
                 let length: usize = node.length.cells();
                 if !(corner + length).is_multiple_of(2 * length)
                     && let Some(above) = node.facets[2 * axis + 1]
-                    && tree.nodes[above.into()].is_leaf()
+                    && tree.nodes[above.slot()].is_leaf()
                     && let Some(config_b) = config(
                         tree,
-                        &tree.nodes[above.into()],
-                        above.into(),
+                        &tree.nodes[above.slot()],
+                        above.slot(),
                         facet_m,
                         facet_n,
                         center_nodes,
@@ -111,7 +112,7 @@ fn config<T, U>(
 ) -> Option<Config>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let axis_m = facet_m >> 1;
     let axis_n = facet_n >> 1;
@@ -126,31 +127,31 @@ where
     let g_hi = g | (1 << axis);
     let tree_m = node.facets[facet_m]?;
     let tree_n = node.facets[facet_n]?;
-    let leaves_m = tree.leaves(&tree.nodes[tree_m.into()]);
-    let leaves_n = tree.leaves(&tree.nodes[tree_n.into()]);
+    let leaves_m = tree.leaves(&tree.nodes[tree_m.slot()]);
+    let leaves_n = tree.leaves(&tree.nodes[tree_n.slot()]);
     let m_lo = leaves_m[c]?;
     let m_hi = leaves_m[e]?;
     let n_lo = leaves_n[d]?;
     let n_hi = leaves_n[f]?;
-    let diagonal_lo = tree.nodes[m_lo.into()].facets[facet_n]?;
-    let diagonal_hi = tree.nodes[m_hi.into()].facets[facet_n]?;
-    let leaves_lo = tree.leaves(&tree.nodes[diagonal_lo.into()]);
-    let leaves_hi = tree.leaves(&tree.nodes[diagonal_hi.into()]);
+    let diagonal_lo = tree.nodes[m_lo.slot()].facets[facet_n]?;
+    let diagonal_hi = tree.nodes[m_hi.slot()].facets[facet_n]?;
+    let leaves_lo = tree.leaves(&tree.nodes[diagonal_lo.slot()]);
+    let leaves_hi = tree.leaves(&tree.nodes[diagonal_hi.slot()]);
     let ring_lo = leaves_lo[g]?;
     let ladder_lo = leaves_lo[g_hi]?;
     let ladder_hi = leaves_hi[g]?;
     let ring_hi = leaves_hi[g_hi]?;
     Some(Config {
         center: center_nodes[index],
-        length: tree.nodes[ring_lo.into()].length.scalar(),
-        n_lo: center_nodes[n_lo.into()],
-        n_hi: center_nodes[n_hi.into()],
-        m_lo: center_nodes[m_lo.into()],
-        m_hi: center_nodes[m_hi.into()],
-        ring_lo: center_nodes[ring_lo.into()],
-        ladder_lo: center_nodes[ladder_lo.into()],
-        ladder_hi: center_nodes[ladder_hi.into()],
-        ring_hi: center_nodes[ring_hi.into()],
+        length: tree.nodes[ring_lo.slot()].length.scalar(),
+        n_lo: center_nodes[n_lo.slot()],
+        n_hi: center_nodes[n_hi.slot()],
+        m_lo: center_nodes[m_lo.slot()],
+        m_hi: center_nodes[m_hi.slot()],
+        ring_lo: center_nodes[ring_lo.slot()],
+        ladder_lo: center_nodes[ladder_lo.slot()],
+        ladder_hi: center_nodes[ladder_hi.slot()],
+        ring_hi: center_nodes[ring_hi.slot()],
     })
 }
 

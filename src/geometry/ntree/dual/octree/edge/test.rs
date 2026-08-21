@@ -1,5 +1,6 @@
 use super::{D, N};
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -147,7 +148,7 @@ pub(crate) fn edge_transition_counts<T, U>(
 ) -> [usize; 4]
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let mut counts = [0usize; 4];
     let mut len = connectivity.len();

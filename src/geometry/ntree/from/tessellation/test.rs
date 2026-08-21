@@ -2,7 +2,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{Connectivity, Mesh, Tessellation},
-        ntree::node::cell::Cell,
+        ntree::node::{Node, cell::Cell},
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
     },
     math::{Quantity, Tensor},
@@ -318,4 +318,23 @@ fn a_size_field_knows_the_depth_it_asks_for() {
         Octree::<u16, usize>::refine(&deep).err(),
         Some("sizing field exceeds maximum octree depth")
     );
+}
+
+#[test]
+fn a_leaner_index_builds_the_same_tree() {
+    let tessellation = sphere(4, 8, 2.0);
+    let sizing = Sizing::new(&tessellation, 4.0, CurvatureSizing::default(), 0);
+    let mut wide = Octree::<u16, usize>::refine(&sizing).unwrap();
+    let mut lean = Octree::<u16, u32>::refine(&sizing).unwrap();
+    assert_eq!(wide.len(), lean.len());
+    wide.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    lean.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    assert_eq!(wide.len(), lean.len());
+    assert_eq!(
+        wide.dualize().number_of_elements(),
+        lean.dualize().number_of_elements()
+    );
+    assert!(size_of::<Node<3, 6, 8, u16, u32, ()>>() < size_of::<Node<3, 6, 8, u16, usize, ()>>());
 }

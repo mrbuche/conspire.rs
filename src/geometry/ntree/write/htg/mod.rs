@@ -1,4 +1,5 @@
 use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -48,7 +49,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V, P>
 where
     P: AsRef<Path>,
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
     V: HtgValue,
 {
     fn write_htg(&self, output: P) -> Result<()> {
@@ -63,7 +64,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
     V: HtgValue,
 {
     fn write_htg_impl<P: AsRef<Path>>(&self, output: P, compress: bool) -> Result<()> {
@@ -94,7 +95,7 @@ where
                 values.push(self.nodes[index].value.and_then(HtgValue::to_scalar));
                 if let Some(orthants) = self.nodes[index].orthants() {
                     descriptor.push(1);
-                    next.extend(orthants.iter().map(|&child| child.into()));
+                    next.extend(orthants.iter().map(|&child| child.slot()));
                 } else {
                     descriptor.push(0);
                 }

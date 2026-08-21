@@ -1,4 +1,5 @@
 use super::super::{D, N};
+use crate::geometry::ntree::node::slot::Slot;
 use crate::geometry::{
     Coordinate,
     mesh::Mesh,
@@ -205,7 +206,7 @@ pub(crate) fn vertex_dual_generic<T, U>(
 ) -> Vec<[usize; N]>
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     const WIND: [usize; N] = [0, 1, 3, 2, 4, 5, 7, 6];
     let root = &tree.nodes[0];
@@ -225,7 +226,7 @@ where
 fn find_leaf_octant<T, U>(tree: &Octree<T, U>, v: &[T; D], d: usize) -> usize
 where
     T: Cell,
-    U: Copy + Into<usize>,
+    U: Slot,
 {
     let mut index = 0;
     loop {
@@ -245,7 +246,7 @@ where
                     };
                     acc | (bit << a)
                 });
-                index = orthants[child].into();
+                index = orthants[child].slot();
             }
         }
     }
