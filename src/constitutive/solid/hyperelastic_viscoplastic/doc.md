@@ -1,0 +1,1 @@
+Hyperelastic-viscoplastic solid constitutive models are defined by a Helmholtz free energy density function of the elastic deformation gradient, together with a flow rule governing the evolution of the plastic deformation gradient from the Mandel stress.

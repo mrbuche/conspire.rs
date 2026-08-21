@@ -1,4 +1,12 @@
 //! Thermal conduction constitutive models.
+//!
+//! ---
+//!
+#![doc = include_str!("doc.md")]
+
+#[cfg(feature = "doc")]
+pub mod doc;
+
 #[cfg(test)]
 pub mod test;
 

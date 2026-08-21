@@ -18,23 +18,7 @@ use crate::{
     units::{Dissipation, Stress, Viscosity},
 };
 
-/// The Almansi-Hamel viscoelastic solid constitutive model.
-///
-/// **Parameters**
-/// - The bulk modulus $`\kappa`$.
-/// - The shear modulus $`\mu`$.
-/// - The bulk viscosity $`\zeta`$.
-/// - The shear viscosity $`\eta`$.
-///
-/// **External variables**
-/// - The deformation gradient $`\mathbf{F}`$.
-/// - The deformation gradient rate $`\dot{\mathbf{F}}`$.
-///
-/// **Internal variables**
-/// - None.
-///
-/// **Notes**
-/// - The Almansi-Hamel strain measure is given by $`\mathbf{e}=\tfrac{1}{2}(\mathbf{1}-\mathbf{B}^{-1})`$.
+#[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct AlmansiHamel {
     /// The bulk modulus $`\kappa`$.
@@ -66,11 +50,7 @@ impl Viscous for AlmansiHamel {
 }
 
 impl Viscoelastic for AlmansiHamel {
-    /// Calculates and returns the Cauchy stress.
-    ///
-    /// ```math
-    /// \boldsymbol{\sigma}(\mathbf{F},\dot\mathbf{F}) = 2\mu\mathbf{e}' + \kappa\,\mathrm{tr}(\mathbf{e})\mathbf{1} + 2\eta\mathbf{D}' + \zeta\,\mathrm{tr}(\mathbf{D})\mathbf{1}
-    /// ```
+    #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -94,11 +74,7 @@ impl Viscoelastic for AlmansiHamel {
             + IDENTITY
                 * ((bulk_modulus * strain_trace + bulk_viscosity * strain_rate_trace) / jacobian))
     }
-    /// Calculates and returns the rate tangent stiffness associated with the Cauchy stress.
-    ///
-    /// ```math
-    /// \mathcal{V}_{IJkL}(\mathbf{F}) = \eta\,\delta_{ik}F_{jL}^{-T} + \eta\,\delta_{jk}F_{iL}^{-T} + \left(\zeta - \frac{2}{3}\,\eta\right)\delta_{ij}F_{kL}^{-T}
-    /// ```
+    #[doc = include_str!("cauchy_rate_tangent_stiffness.md")]
     fn cauchy_rate_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -125,11 +101,7 @@ impl Viscoelastic for AlmansiHamel {
 }
 
 impl ElasticHyperviscous for AlmansiHamel {
-    /// Calculates and returns the viscous dissipation.
-    ///
-    /// ```math
-    /// \phi(\mathbf{F},\dot{\mathbf{F}}) = \eta\,\mathrm{tr}(\mathbf{D}^2) + \frac{1}{2}\left(\zeta - \frac{2}{3}\,\eta\right)\mathrm{tr}(\mathbf{D})^2
-    /// ```
+    #[doc = include_str!("viscous_dissipation.md")]
     fn viscous_dissipation(
         &self,
         deformation_gradient: &DeformationGradient,

@@ -7,23 +7,7 @@ use crate::{
     units::{ReciprocalTemperature, Stress, Temperature},
 };
 
-/// The Almansi-Hamel thermoelastic solid constitutive model.
-///
-/// **Parameters**
-/// - The bulk modulus $`\kappa`$.
-/// - The shear modulus $`\mu`$.
-/// - The coefficient of thermal expansion $`\alpha`$.
-/// - The reference temperature $`T_\mathrm{ref}`$.
-///
-/// **External variables**
-/// - The deformation gradient $`\mathbf{F}`$.
-/// - The temperature $`T`$.
-///
-/// **Internal variables**
-/// - None.
-///
-/// **Notes**
-/// - The Almansi-Hamel strain measure is given by $`\mathbf{e}=\tfrac{1}{2}(\mathbf{1}-\mathbf{B}^{-1})`$.
+#[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct AlmansiHamel {
     /// The bulk modulus $`\kappa`$.
@@ -46,11 +30,7 @@ impl Solid for AlmansiHamel {
 }
 
 impl Thermoelastic for AlmansiHamel {
-    /// Calculates and returns the Cauchy stress.
-    ///
-    /// ```math
-    /// \boldsymbol{\sigma}(\mathbf{F}, T) = \frac{2\mu}{J}\,\mathbf{e}' + \frac{\kappa}{J}\,\mathrm{tr}(\mathbf{e})\mathbf{1} - \frac{3\alpha\kappa}{J}(T - T_\mathrm{ref})\mathbf{1}
-    /// ```
+    #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -70,11 +50,7 @@ impl Thermoelastic for AlmansiHamel {
                             * self.coefficient_of_thermal_expansion()
                             * (temperature - self.reference_temperature()))))
     }
-    /// Calculates and returns the tangent stiffness associated with the Cauchy stress.
-    ///
-    /// ```math
-    /// \mathcal{T}_{ijkL}(\mathbf{F}, T) = \frac{\mu}{J}\left[B_{jk}^{-1}F_{iL}^{-T} + B_{ik}^{-1}F_{jL}^{-T} - \frac{2}{3}\,\delta_{ij}B_{km}^{-1}F_{mL}^{-T} - 2e_{ij}'F_{kL}^{-T}\right] + \frac{\kappa}{J}\left\{\delta_{ij}B_{km}^{-1}F_{mL}^{-T} - \Big[\mathrm{tr}(\mathbf{e}) - 3\alpha(T - T_\mathrm{ref})\Big]\delta_{ij}F_{kL}^{-T}\right\}
-    /// ```
+    #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
