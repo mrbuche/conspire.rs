@@ -823,7 +823,7 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
             $constitutive_model_type
         );
         macro_rules! test_minimize_with_solver {
-            ($solver: ident) => {
+            ($solver: expr) => {
                 #[test]
                 fn minimize() -> Result<(), AssertionError> {
                     let (applied_load, a, b) = equality_constraint();
@@ -834,11 +834,11 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                             get_reference_coordinates_block(),
                         )),
                         EqualityConstraint::Linear(a, b),
-                        $solver::default(),
+                        $solver,
                     )?;
                     let deformation_gradient =
                         $constitutive_model
-                            .minimize(applied_load, $solver::default())?;
+                            .minimize(applied_load, $solver)?;
                     block
                         .deformation_gradients(&coordinates)
                         .iter()
@@ -861,7 +861,30 @@ macro_rules! test_finite_element_block_with_hyperelastic_constitutive_model {
                 constitutive::solid::hyperelastic::SecondOrderMinimize as _,
                 fem::SecondOrderMinimize, math::optimize::NewtonRaphson,
             };
-            test_minimize_with_solver!(NewtonRaphson);
+            test_minimize_with_solver!(NewtonRaphson::default());
+            mod trust_region {
+                use super::*;
+                use crate::math::optimize::{Tolerances, TrustRegion};
+                //
+                // The default residual tolerance is the very tolerance the
+                // deformation gradients are then compared within, which only
+                // works while the last Newton step overshoots far past it. A
+                // trust-region step stops where it was asked to instead, so the
+                // solve has to be converged past the comparison to be compared.
+                //
+                test_minimize_with_solver!(NewtonRaphson {
+                    abs_tol: Tolerances {
+                        constraint: 1e-14,
+                        residual: 1e-14,
+                    },
+                    max_steps: 50,
+                    trust_region: TrustRegion::Adaptive {
+                        radius: 1.0,
+                        max_radius: 1e2,
+                    },
+                    ..Default::default()
+                });
+            }
         }
     };
 }

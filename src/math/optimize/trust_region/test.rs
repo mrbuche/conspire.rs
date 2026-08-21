@@ -1,4 +1,4 @@
-use super::{SquareMatrix, Vector, more_sorensen};
+use super::{SquareMatrix, Vector, more_sorensen_dense};
 
 /// A positive definite Hessian bordered by a full-rank constraint: KKT inertia
 /// is `(2, 1, 0)` already at `lambda = 0` (verified separately for this exact
@@ -31,7 +31,7 @@ fn bordered_indefinite_primal() -> SquareMatrix {
 fn interior_solution_matches_plain_solve() {
     let tangent = bordered_pd();
     let residual: Vector = [1.0, 1.0, 0.0].into_iter().collect();
-    let step = more_sorensen(&tangent, &residual, 1e3, 2);
+    let step = more_sorensen_dense(&tangent, &residual, 1e3, 2);
     let plain = tangent.solve_ldl(&residual).unwrap();
     (0..3).for_each(|i| assert!((step[i] - plain[i]).abs() < 1e-8));
 }
@@ -41,7 +41,7 @@ fn boundary_solution_lands_on_the_radius() {
     let tangent = bordered_pd();
     let residual: Vector = [1.0, 0.0, 0.0].into_iter().collect();
     let radius = 0.05;
-    let step = more_sorensen(&tangent, &residual, radius, 2);
+    let step = more_sorensen_dense(&tangent, &residual, radius, 2);
     let norm = (step[0] * step[0] + step[1] * step[1]).sqrt();
     assert!((norm - radius).abs() < 1e-4 * radius)
 }
@@ -57,7 +57,7 @@ fn handles_a_primal_block_that_starts_indefinite() {
         "test premise: lambda = 0 should not already be admissible here"
     );
     let radius = 0.1;
-    let step = more_sorensen(&tangent, &residual, radius, 2);
+    let step = more_sorensen_dense(&tangent, &residual, radius, 2);
     let norm = (step[0] * step[0] + step[1] * step[1]).sqrt();
     assert!(norm <= radius * (1.0 + 1e-6))
 }
@@ -69,7 +69,25 @@ fn unconstrained_degenerates_to_a_plain_shift() {
     tangent[1][1] = -2.0;
     let residual: Vector = [1.0, 1.0].into_iter().collect();
     let radius = 0.2;
-    let step = more_sorensen(&tangent, &residual, radius, 2);
+    let step = more_sorensen_dense(&tangent, &residual, radius, 2);
     let norm = (step[0] * step[0] + step[1] * step[1]).sqrt();
     assert!((norm - radius).abs() < 1e-4 * radius)
+}
+
+/// A radius only slightly shorter than the Newton step, with `lambda = 0`
+/// already admissible: the shift needed is correspondingly slight, and starting
+/// the search at the tangent's own scale overshoots it by a wide margin.
+#[test]
+fn a_radius_just_inside_the_newton_step_is_not_overshot() {
+    let tangent = bordered_pd();
+    let residual: Vector = [1.0, 0.0, 0.0].into_iter().collect();
+    let plain = tangent.solve_ldl(&residual).unwrap();
+    let unshifted = (plain[0] * plain[0] + plain[1] * plain[1]).sqrt();
+    let radius = 0.9 * unshifted;
+    let step = more_sorensen_dense(&tangent, &residual, radius, 2);
+    let norm = (step[0] * step[0] + step[1] * step[1]).sqrt();
+    assert!(
+        (norm - radius).abs() < 1e-4 * radius,
+        "step of norm {norm} for a radius of {radius}"
+    )
 }

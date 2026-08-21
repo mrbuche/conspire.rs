@@ -11,7 +11,10 @@ use super::{
     FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
     SecondOrderOptimization, SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental,
     SolveStrategy, Tolerances, TrustRegion,
-    trust_region::{TRUST_REGION_ETA, TRUST_REGION_MAX_REJECTIONS, more_sorensen, update_radius},
+    trust_region::{
+        TRUST_REGION_ETA, TRUST_REGION_MAX_REJECTIONS, more_sorensen_dense, more_sorensen_sparse,
+        quadratic_dense, update_radius,
+    },
 };
 use crate::math::Norm;
 use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
@@ -896,7 +899,7 @@ where
                 let mut accepted = false;
                 for _ in 0..TRUST_REGION_MAX_REJECTIONS {
                     decrement_outer =
-                        more_sorensen(&tangent_outer, &update_outer, radius, num_global);
+                        more_sorensen_dense(&tangent_outer, &update_outer, radius, num_global);
                     (0..num_global).for_each(|k| {
                         decrement_inner
                             .iter_mut()
@@ -905,15 +908,7 @@ where
                                 *decrement_inner_i -= eliminated_ki * decrement_outer[k]
                             })
                     });
-                    let quadratic: Scalar = (0..num_global)
-                        .map(|i| {
-                            (0..num_global)
-                                .map(|j| {
-                                    decrement_outer[i] * tangent_outer[i][j] * decrement_outer[j]
-                                })
-                                .sum::<Scalar>()
-                        })
-                        .sum();
+                    let quadratic = quadratic_dense(&tangent_outer, &decrement_outer, num_global);
                     let predicted =
                         merit_slope(gradient_global.iter().zip(decrement_outer.iter()), violated)
                             - 0.5 * quadratic;
@@ -1347,6 +1342,24 @@ where
     }
 }
 
+/// The entry of a bordered KKT system whose primal block is a Hessian left
+/// unassembled, the constraint rows and columns carried by the matrix itself.
+fn kkt_entry_sparse<H: Hessian>(
+    hessian: &H,
+    constraint_matrix: &Matrix,
+    num_variables: usize,
+    row: usize,
+    column: usize,
+) -> Scalar {
+    if row >= num_variables {
+        -constraint_matrix[row - num_variables][column]
+    } else if column >= num_variables {
+        -constraint_matrix[column - num_variables][row]
+    } else {
+        hessian.entry(row, column)
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
@@ -1414,11 +1427,17 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
-        } else if symmetric
-            && dense
-            && matches!(newton_raphson.trust_region, TrustRegion::Adaptive { .. })
-        {
-            hessian(&solution)?.fill_into(&mut tangent);
+        } else if symmetric && matches!(newton_raphson.trust_region, TrustRegion::Adaptive { .. }) {
+            //
+            // The dense tangent is assembled whole, while the sparse one is
+            // never assembled at all: it stays the entry closure the pattern
+            // is filled from, so that a shift costs a refill rather than a
+            // matrix. Only one of the two is ever live.
+            //
+            let mut hess = Some(hessian(&solution)?);
+            if dense && let Some(hess) = hess.take() {
+                hess.fill_into(&mut tangent)
+            }
             penalty = raise_penalty(
                 penalty,
                 multipliers.iter().zip(decrement.iter().skip(num_variables)),
@@ -1429,14 +1448,22 @@ where
             jacobian(&solution)?.fill_into(&mut gradient);
             let mut accepted = false;
             for _ in 0..TRUST_REGION_MAX_REJECTIONS {
-                decrement = more_sorensen(&tangent, &residual, radius, num_variables);
-                let quadratic: Scalar = (0..num_variables)
-                    .map(|i| {
-                        (0..num_variables)
-                            .map(|j| decrement[i] * tangent[i][j] * decrement[j])
-                            .sum::<Scalar>()
-                    })
-                    .sum();
+                let quadratic = match (&sparse, &hess) {
+                    (Some(solver), Some(hess)) => {
+                        decrement = more_sorensen_sparse(
+                            solver,
+                            |i, j| kkt_entry_sparse(hess, &constraint_matrix, num_variables, i, j),
+                            &residual,
+                            radius,
+                            num_variables,
+                        );
+                        hess.quadratic_form(&decrement)
+                    }
+                    _ => {
+                        decrement = more_sorensen_dense(&tangent, &residual, radius, num_variables);
+                        quadratic_dense(&tangent, &decrement, num_variables)
+                    }
+                };
                 let predicted =
                     merit_slope(gradient.iter().zip(decrement.iter()), violated) - 0.5 * quadratic;
                 applied
@@ -1480,15 +1507,7 @@ where
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
             decrement = solver.solve(
-                |i, j| {
-                    if i >= num_variables {
-                        -constraint_matrix[i - num_variables][j]
-                    } else if j >= num_variables {
-                        -constraint_matrix[j - num_variables][i]
-                    } else {
-                        hess.entry(i, j)
-                    }
-                },
+                |i, j| kkt_entry_sparse(&hess, &constraint_matrix, num_variables, i, j),
                 &residual,
             )?;
         } else if symmetric {
