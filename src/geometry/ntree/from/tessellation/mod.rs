@@ -9,7 +9,7 @@ use crate::{
         ntree::{
             Octree,
             balance::Balancing,
-            node::{Kind, Node, split::Split},
+            node::{Kind, Node, cell::Cell},
             pair::Pairing,
             rescale::Rescaling,
         },
@@ -17,7 +17,7 @@ use crate::{
     math::{Quantity, Scalar, Tensor, TensorVec},
     units::Length,
 };
-use std::{array::from_fn, f64::consts::FRAC_PI_4, ops::Add};
+use std::{array::from_fn, f64::consts::FRAC_PI_4};
 
 const D: usize = 3;
 const M: usize = 6;
@@ -54,14 +54,7 @@ impl Default for CurvatureSizing {
 
 impl<T, U> Octree<T, U>
 where
-    T: Add<Output = T>
-        + Copy
-        + From<u16>
-        + Into<Scalar>
-        + Into<usize>
-        + PartialOrd
-        + Split
-        + TryFrom<usize>,
+    T: Cell,
     U: Copy + From<usize> + Into<usize>,
 {
     /// Builds an octree from a tessellation, refining cells where either the
@@ -89,8 +82,8 @@ where
             return Ok(Self {
                 balanced: Balancing::None,
                 nodes: vec![Node {
-                    corner: from_fn(|_| T::from(0)),
-                    length: T::from(1),
+                    corner: from_fn(|_| T::ZERO),
+                    length: T::ONE,
                     facets: [None; M],
                     kind: Kind::Leaf,
                     value: None,
@@ -162,9 +155,9 @@ where
         };
         let root_length = 1usize
             .checked_shl(levels)
-            .and_then(|length| T::try_from(length).ok())
+            .and_then(T::length)
             .ok_or("sizing field exceeds maximum octree depth")?;
-        let span: Scalar = root_length.into();
+        let span: Scalar = root_length.scalar();
         let center = Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
             (min_coord[ax] + max_coord[ax]) / 2.0
         }));
@@ -176,7 +169,7 @@ where
                 half: span / 2.0,
             },
             nodes: vec![Node {
-                corner: from_fn(|_| T::from(0)),
+                corner: from_fn(|_| T::ZERO),
                 length: root_length,
                 facets: [None; M],
                 kind: Kind::Leaf,
@@ -206,8 +199,8 @@ where
         };
         let mut stack: Vec<(usize, Vec<usize>)> = vec![(0, (0..elements.len()).collect())];
         while let Some((index, overlapping)) = stack.pop() {
-            let cells: usize = tree.nodes[index].length.into();
-            let extent: Scalar = tree.nodes[index].length.into();
+            let cells: usize = tree.nodes[index].length.cells();
+            let extent: Scalar = tree.nodes[index].length.scalar();
             let target = overlapping
                 .iter()
                 .map(|&triangle| targets[triangle])
@@ -227,9 +220,9 @@ where
                 .collect();
             for child in children {
                 let corner = tree.nodes[child].corner;
-                let child_extent: Scalar = tree.nodes[child].length.into();
+                let child_extent: Scalar = tree.nodes[child].length.scalar();
                 let minimum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
-                    center[ax] + min_length * (Into::<Scalar>::into(corner[ax]) - half)
+                    center[ax] + min_length * (corner[ax].scalar() - half)
                 }));
                 let maximum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
                     minimum[ax] + min_length * child_extent

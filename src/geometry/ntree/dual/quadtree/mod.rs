@@ -8,19 +8,18 @@ use crate::{
         ntree::{
             Quadtree,
             dual::{Dualization, Initialize, NodeMap, Star},
-            node::split::Split,
+            node::cell::Cell,
         },
     },
     math::{Scalar, TensorVec},
 };
-use std::ops::Add;
 
 const D: usize = 2;
 const N: usize = 4;
 
 impl<T, U> Dualization<D> for Quadtree<T, U>
 where
-    T: Add<Output = T> + Copy + Into<Scalar> + Into<usize> + PartialOrd + Split,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     fn dualize(&mut self) -> Mesh<D> {
@@ -52,7 +51,7 @@ fn edge_transition<T, U>(
     node_index: &mut usize,
     nodes_map: &mut NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let mut get_or_add = |pos: [Scalar; D]| -> usize {
@@ -77,9 +76,9 @@ fn edge_transition<T, U>(
             if let Some([Some(g_0a), Some(g_0b)]) = face_leaves[0]
                 && let Some([Some(g_2a), Some(g_2b)]) = face_leaves[1]
             {
-                let length: Scalar = tree[g_2a].length.into();
-                let x0: Scalar = tree[g_2a].corner[0].into();
-                let y0c: Scalar = tree[g_2a].corner[1].into();
+                let length: Scalar = tree[g_2a].length.scalar();
+                let x0: Scalar = tree[g_2a].corner[0].scalar();
+                let y0c: Scalar = tree[g_2a].corner[1].scalar();
                 let x1 = x0 + length;
                 let y0 = y0c - length * 0.5;
                 let y1 = y0 + length;
@@ -119,9 +118,9 @@ fn edge_transition<T, U>(
             if let Some([Some(g_1a), Some(g_1b)]) = face_leaves[0]
                 && let Some([Some(g_3a), Some(g_3b)]) = face_leaves[1]
             {
-                let length: Scalar = tree[g_3a].length.into();
-                let x0: Scalar = tree[g_3a].corner[0].into();
-                let y0c: Scalar = tree[g_3a].corner[1].into();
+                let length: Scalar = tree[g_3a].length.scalar();
+                let x0: Scalar = tree[g_3a].corner[0].scalar();
+                let y0c: Scalar = tree[g_3a].corner[1].scalar();
                 let x1 = x0;
                 let y0 = y0c - length * 0.5;
                 let y1 = y0 + length;
@@ -161,9 +160,9 @@ fn edge_transition<T, U>(
             if let Some([Some(g_0a), Some(g_0b)]) = face_leaves[0]
                 && let Some([Some(g_1a), Some(g_1b)]) = face_leaves[1]
             {
-                let length: Scalar = tree[g_1a].length.into();
-                let x0c: Scalar = tree[g_1a].corner[0].into();
-                let y0: Scalar = tree[g_1a].corner[1].into();
+                let length: Scalar = tree[g_1a].length.scalar();
+                let x0c: Scalar = tree[g_1a].corner[0].scalar();
+                let y0: Scalar = tree[g_1a].corner[1].scalar();
                 let y1 = y0 + length;
                 let x0 = x0c - length * 0.5;
                 let x1 = x0 + length;
@@ -203,9 +202,9 @@ fn edge_transition<T, U>(
             if let Some([Some(g_2a), Some(g_2b)]) = face_leaves[0]
                 && let Some([Some(g_3a), Some(g_3b)]) = face_leaves[1]
             {
-                let length: Scalar = tree[g_3a].length.into();
-                let x0c: Scalar = tree[g_3a].corner[0].into();
-                let y0c: Scalar = tree[g_3a].corner[1].into();
+                let length: Scalar = tree[g_3a].length.scalar();
+                let x0c: Scalar = tree[g_3a].corner[0].scalar();
+                let y0c: Scalar = tree[g_3a].corner[1].scalar();
                 let y1 = y0c;
                 let x0 = x0c - length * 0.5;
                 let x1 = x0 + length;

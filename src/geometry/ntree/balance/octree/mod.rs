@@ -4,10 +4,9 @@ mod test;
 use crate::geometry::ntree::{
     Orthotree,
     balance::{Balance, Balancing},
-    node::split::Split,
+    node::cell::Cell,
     pair::Pairing,
 };
-use std::ops::Add;
 
 const D: usize = 3;
 const L: usize = 4;
@@ -25,7 +24,7 @@ const FACE_ORTHANTS: [[usize; 4]; M] = [
 
 impl<T, U, V> Orthotree<D, L, M, N, T, U, V>
 where
-    T: Copy + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     fn deep_toward(&self, cell: U, orthants: &[usize], depth: usize) -> bool {
@@ -67,7 +66,7 @@ where
 
 impl<T, U, V> Balance for Orthotree<D, L, M, N, T, U, V>
 where
-    T: Add<Output = T> + Copy + Split + Into<usize>,
+    T: Cell,
     U: Copy + From<usize> + Into<usize>,
     V: Copy,
 {

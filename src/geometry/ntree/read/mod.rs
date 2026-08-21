@@ -1,7 +1,7 @@
 pub(super) mod htg;
 
-use crate::geometry::ntree::{Orthotree, node::split::Split};
-use std::{io::Error as ErrorIO, ops::Add, path::Path};
+use crate::geometry::ntree::{Orthotree, node::cell::Cell};
+use std::{io::Error as ErrorIO, path::Path};
 
 use self::htg::ReadHtg;
 
@@ -27,7 +27,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, P> Tr
     for Orthotree<D, L, M, N, T, U>
 where
     P: AsRef<Path>,
-    T: Add<Output = T> + Copy + Split + Into<usize> + TryFrom<usize>,
+    T: Cell,
     U: Copy + From<usize> + Into<usize>,
 {
     type Error = ErrorIO;

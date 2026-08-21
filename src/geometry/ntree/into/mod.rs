@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::cell::Cell;
 use crate::{
     geometry::{Coordinates, grid::Grid, mesh::Connectivity, ntree::Orthotree},
     math::{Tensor, TensorVec},
@@ -67,7 +68,7 @@ impl<const L: usize, const M: usize, U> From<Orthotree<3, L, M, 8, u16, U>>
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     From<&Orthotree<D, L, M, N, T, U, V>> for Grid<D, V>
 where
-    T: Copy + Into<usize>,
+    T: Cell,
     V: Copy,
 {
     fn from(orthotree: &Orthotree<D, L, M, N, T, U, V>) -> Self {
@@ -77,8 +78,8 @@ where
             .filter_map(|node| {
                 node.value.map(|value| {
                     (
-                        from_fn(|ax| node.corner[ax].into()),
-                        node.length.into(),
+                        from_fn(|ax| node.corner[ax].cells()),
+                        node.length.cells(),
                         value,
                     )
                 })

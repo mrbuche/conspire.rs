@@ -1,5 +1,4 @@
-use crate::geometry::ntree::{Orthotree, node::split::Split};
-use std::ops::Add;
+use crate::geometry::ntree::{Orthotree, node::cell::Cell};
 
 /// Constraint on how the orthants of a node may mix leaves and subtrees.
 #[derive(Clone, Copy)]
@@ -15,7 +14,7 @@ pub enum Pairing {
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
 where
-    T: Add<Output = T> + Copy + Split + Into<usize>,
+    T: Cell,
     U: Copy + From<usize> + Into<usize>,
     V: Copy,
 {

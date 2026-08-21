@@ -8,13 +8,13 @@ use crate::{
         ntree::{
             Orthotree,
             balance::Balancing,
-            node::{Kind, split::Split},
+            node::{Kind, cell::Cell},
             pair::Pairing,
         },
     },
     math::{Scalar, TensorVec},
 };
-use std::{array::from_fn, collections::HashMap, ops::Add};
+use std::{array::from_fn, collections::HashMap};
 
 type NodeMap<const D: usize> = HashMap<[usize; D], usize>;
 
@@ -47,7 +47,7 @@ pub(super) trait Star<const D: usize, const N: usize> {
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U> Star<D, N>
     for Orthotree<D, L, M, N, T, U>
 where
-    T: Add<Output = T> + Copy + PartialOrd + Split + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     fn star(&self, center_nodes: &[usize], connectivity: &mut Vec<[usize; N]>) {
@@ -65,10 +65,10 @@ where
                 if distinct.len() != N {
                     continue;
                 }
-                let lengths: [usize; N] = from_fn(|o| self.nodes[cells[o]].length.into());
+                let lengths: [usize; N] = from_fn(|o| self.nodes[cells[o]].length.cells());
                 let shortest = *lengths.iter().min().unwrap();
                 let longest = *lengths.iter().max().unwrap();
-                let coordinate: [usize; D] = from_fn(|a| vertex[a].into());
+                let coordinate: [usize; D] = from_fn(|a| vertex[a].cells());
                 if longest == shortest || (0..D).all(|a| coordinate[a].is_multiple_of(2 * longest))
                 {
                     connectivity.push(from_fn(|i| {
@@ -87,7 +87,7 @@ pub(crate) fn incident_leaf<const D: usize, const L: usize, const M: usize, cons
     direction: usize,
 ) -> usize
 where
-    T: Add<Output = T> + Copy + PartialOrd + Split,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let mut index = 0;
@@ -121,7 +121,7 @@ pub(super) trait Initialize<const D: usize, const N: usize> {
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U> Initialize<D, N>
     for Orthotree<D, L, M, N, T, U>
 where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     fn initialize(&self) -> (Vec<usize>, Coordinates<D>, usize, Vec<[usize; N]>) {
@@ -139,9 +139,9 @@ where
             .filter(|(_, node)| node.is_leaf())
             .for_each(|(index, leaf)| {
                 center_nodes[index] = node_index;
-                let length: Scalar = leaf.length.into();
+                let length: Scalar = leaf.length.scalar();
                 let center = from_fn(|i| {
-                    let c: Scalar = leaf.corner[i].into();
+                    let c: Scalar = leaf.corner[i].scalar();
                     c + length * 0.5
                 });
                 coordinates.push(center.into());

@@ -1,5 +1,5 @@
+pub(crate) mod cell;
 pub(crate) mod orthants;
-pub(crate) mod split;
 pub(crate) mod subdivide;
 
 pub(crate) enum Kind<const N: usize, U> {

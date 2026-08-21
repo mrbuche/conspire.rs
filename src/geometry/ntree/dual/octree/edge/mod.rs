@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::cell::Cell;
 #[cfg(test)]
 #[cfg(feature = "netcdf")]
 pub(crate) mod test;
@@ -9,12 +10,9 @@ mod transition_4;
 mod transition_5;
 
 use super::{D, N};
-use crate::{
-    geometry::{
-        Coordinates,
-        ntree::{Octree, balance::Balancing, dual::NodeMap},
-    },
-    math::Scalar,
+use crate::geometry::{
+    Coordinates,
+    ntree::{Octree, balance::Balancing, dual::NodeMap},
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -27,7 +25,7 @@ pub(super) fn edge_transitions<T, U>(
     nodes_map: &mut NodeMap<D>,
     balancing: Balancing,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     transition_1::template(

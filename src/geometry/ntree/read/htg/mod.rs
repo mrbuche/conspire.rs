@@ -6,7 +6,7 @@ use crate::{
         Coordinate,
         ntree::{
             Balancing, Orthotree, Pairing, Rescaling,
-            node::{Kind, Node, split::Split},
+            node::{Kind, Node, cell::Cell},
         },
     },
     io::{
@@ -16,9 +16,7 @@ use crate::{
     },
     math::{Quantity, Scalar},
 };
-use std::{
-    array::from_fn, collections::VecDeque, fs::read_to_string, io::Result, ops::Add, path::Path,
-};
+use std::{array::from_fn, collections::VecDeque, fs::read_to_string, io::Result, path::Path};
 
 pub(crate) trait ReadHtg<P>
 where
@@ -32,7 +30,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, P> Re
     for Orthotree<D, L, M, N, T, U>
 where
     P: AsRef<Path>,
-    T: Add<Output = T> + Copy + Split + Into<usize> + TryFrom<usize>,
+    T: Cell,
     U: Copy + From<usize> + Into<usize>,
 {
     fn read_htg(input: P) -> Result<Self> {
@@ -107,6 +105,6 @@ where
     }
 }
 
-fn number<T: TryFrom<usize>>(value: usize) -> Result<T> {
-    T::try_from(value).map_err(|_| invalid("tree coordinate does not fit in T".into()))
+fn number<T: Cell>(value: usize) -> Result<T> {
+    T::length(value).ok_or_else(|| invalid("tree coordinate does not fit in T".into()))
 }

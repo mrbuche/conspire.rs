@@ -8,9 +8,8 @@ use super::{D, N};
 use crate::geometry::ntree::{
     Octree,
     dual::{NodeMap, Star},
-    node::split::Split,
+    node::cell::Cell,
 };
-use std::ops::Add;
 
 pub(super) fn vertex_transitions<T, U>(
     tree: &Octree<T, U>,
@@ -18,7 +17,7 @@ pub(super) fn vertex_transitions<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     nodes_map: &NodeMap<D>,
 ) where
-    T: Add<Output = T> + Copy + PartialOrd + Split + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     tree.star(center_nodes, connectivity);

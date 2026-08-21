@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::cell::Cell;
 use crate::{
     geometry::{
         Coordinates,
@@ -36,7 +37,7 @@ pub(super) fn template<T, U>(
     node_index: &mut usize,
     nodes_map: &mut NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     for node in tree.iter() {
@@ -70,7 +71,7 @@ fn template_inner<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let [
@@ -116,7 +117,7 @@ fn template_inner<T, U>(
             let face_n_b = center_nodes[node_face_n_b.into()];
             let diag_a = center_nodes[node_diag_a.into()];
             let diag_b = center_nodes[node_diag_b.into()];
-            let length: Scalar = tree.nodes[node_m_a.into()].length.into();
+            let length: Scalar = tree.nodes[node_m_a.into()].length.scalar();
             let offset_m = &facet_direction(facet_m) * length;
             let offset_n = &facet_direction(facet_n) * length;
             let base_a = coordinates[center_m_a].clone();

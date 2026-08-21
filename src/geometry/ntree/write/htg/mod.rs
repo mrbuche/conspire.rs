@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::cell::Cell;
 #[cfg(test)]
 mod test;
 
@@ -46,7 +47,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V, P>
     for Orthotree<D, L, M, N, T, U, V>
 where
     P: AsRef<Path>,
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
     V: HtgValue,
 {
@@ -61,7 +62,7 @@ where
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
 where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
     V: HtgValue,
 {
@@ -73,8 +74,8 @@ where
             ));
         }
         let root = &self.nodes[0];
-        let corner: [Scalar; D] = from_fn(|axis| root.corner[axis].into());
-        let length: Scalar = root.length.into();
+        let corner: [Scalar; D] = from_fn(|axis| root.corner[axis].scalar());
+        let length: Scalar = root.length.scalar();
         let lo = self.rescale().apply(&corner.into());
         let hi = self
             .rescale()

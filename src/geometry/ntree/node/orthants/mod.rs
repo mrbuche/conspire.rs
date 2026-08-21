@@ -1,9 +1,9 @@
-use crate::geometry::ntree::node::{Kind, Node, Orthants, split::Split};
-use std::{array::from_fn, ops::Add};
+use crate::geometry::ntree::node::{Kind, Node, Orthants, cell::Cell};
+use std::array::from_fn;
 
 impl<const D: usize, const M: usize, const N: usize, T, U, V> Node<D, M, N, T, U, V>
 where
-    T: Add<Output = T> + Copy + Into<usize> + Split,
+    T: Cell,
 {
     pub fn center(&self) -> [T; D] {
         if self.is_unit() {
@@ -16,7 +16,7 @@ where
 
 impl<const D: usize, const M: usize, const N: usize, T, U, V> Node<D, M, N, T, U, V>
 where
-    T: Copy + Into<usize>,
+    T: Cell,
 {
     pub fn facets(&self) -> &[Option<U>; M] {
         &self.facets
@@ -28,7 +28,7 @@ where
         matches!(self.kind, Kind::Tree(_))
     }
     pub fn is_unit(&self) -> bool {
-        self.length.into() == 1
+        self.length == T::ONE
     }
     pub fn orthants(&self) -> Option<&Orthants<N, U>> {
         match &self.kind {

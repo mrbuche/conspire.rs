@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::cell::Cell;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -24,7 +25,7 @@ pub(super) fn face_transition<T, U>(
     node_index: &mut usize,
     nodes_map: &mut NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     for node in tree.iter() {
@@ -62,7 +63,7 @@ fn template<T, U>(
     coordinates: &mut Coordinates<D>,
     node_index: &mut usize,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let neighbors = from_fn(|k| neighbor_leaves[k / L][k % L].into());
@@ -411,10 +412,10 @@ fn translations<T, U>(
     tree: &Octree<T, U>,
 ) -> (Coordinate<D>, Coordinate<D>)
 where
-    T: Copy + Into<Scalar>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
-    let length: Scalar = tree.nodes[neighbors[0]].length.into();
+    let length: Scalar = tree.nodes[neighbors[0]].length.scalar();
     match facet {
         0 => (
             Coordinate::const_from([SCALE_1 * length, 0.0, 0.0]),

@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::cell::Cell;
 #[cfg(test)]
 mod test;
 
@@ -13,7 +14,7 @@ use std::{array::from_fn, collections::HashMap};
 
 impl<T, U, V> From<Octree<T, U, V>> for Mesh<3>
 where
-    T: Copy + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     fn from(octree: Octree<T, U, V>) -> Self {
@@ -31,7 +32,7 @@ where
 
 impl<T, U, V> From<Quadtree<T, U, V>> for Mesh<2>
 where
-    T: Copy + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     fn from(quadtree: Quadtree<T, U, V>) -> Self {
@@ -51,9 +52,12 @@ fn corner_length<const D: usize, const M: usize, const N: usize, T, U, V>(
     node: &Node<D, M, N, T, U, V>,
 ) -> ([usize; D], usize)
 where
-    T: Copy + Into<usize>,
+    T: Cell,
 {
-    (from_fn(|axis| node.corner[axis].into()), node.length.into())
+    (
+        from_fn(|axis| node.corner[axis].cells()),
+        node.length.cells(),
+    )
 }
 
 fn gather<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>(
@@ -62,7 +66,7 @@ fn gather<const D: usize, const L: usize, const M: usize, const N: usize, T, U, 
     facet: usize,
     leaves: &mut Vec<usize>,
 ) where
-    T: Copy + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     match tree.nodes[index].orthants() {
@@ -82,7 +86,7 @@ fn polytopes<const D: usize, const L: usize, const M: usize, const N: usize, T, 
     tree: &Orthotree<D, L, M, N, T, U, V>,
 ) -> (Vec<Vec<usize>>, Vec<Vec<usize>>, Coordinates<D>)
 where
-    T: Copy + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let mut element_of = vec![usize::MAX; tree.nodes.len()];
@@ -190,8 +194,8 @@ where
             .for_each(|&element| elements_faces[element].push(index));
     };
     let root = &tree.nodes[0];
-    let lo: [usize; D] = from_fn(|axis| root.corner[axis].into());
-    let hi: [usize; D] = from_fn(|axis| lo[axis] + root.length.into());
+    let lo: [usize; D] = from_fn(|axis| root.corner[axis].cells());
+    let hi: [usize; D] = from_fn(|axis| lo[axis] + root.length.cells());
     for &index in &leaves {
         let element = element_of[index];
         let (corner, length) = corner_length(&tree.nodes[index]);

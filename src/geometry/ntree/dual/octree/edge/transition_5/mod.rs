@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::cell::Cell;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -52,7 +53,7 @@ pub(super) fn template<T, U>(
     node_index: &mut usize,
     nodes_map: &mut NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     for (index, node) in tree.nodes.iter().enumerate() {
@@ -71,8 +72,8 @@ pub(super) fn template<T, U>(
                     nodes_map,
                 );
                 let axis = 3 - (facet_m >> 1) - (facet_n >> 1);
-                let corner: usize = node.corner[axis].into();
-                let length: usize = node.length.into();
+                let corner: usize = node.corner[axis].cells();
+                let length: usize = node.length.cells();
                 if !(corner + length).is_multiple_of(2 * length)
                     && let Some(above) = node.facets[2 * axis + 1]
                     && tree.nodes[above.into()].is_leaf()
@@ -109,7 +110,7 @@ fn config<T, U>(
     center_nodes: &[usize],
 ) -> Option<Config>
 where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let axis_m = facet_m >> 1;
@@ -141,7 +142,7 @@ where
     let ring_hi = leaves_hi[g_hi]?;
     Some(Config {
         center: center_nodes[index],
-        length: tree.nodes[ring_lo.into()].length.into(),
+        length: tree.nodes[ring_lo.into()].length.scalar(),
         n_lo: center_nodes[n_lo.into()],
         n_hi: center_nodes[n_hi.into()],
         m_lo: center_nodes[m_lo.into()],

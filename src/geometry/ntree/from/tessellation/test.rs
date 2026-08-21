@@ -2,6 +2,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{Connectivity, Mesh, Tessellation},
+        ntree::node::cell::Cell,
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
     },
     math::{Quantity, Tensor},
@@ -268,4 +269,36 @@ fn refuses_a_target_the_finest_cell_cannot_meet() {
             .err(),
         Some("sizing field falls below minimum octree cell size")
     );
+}
+
+#[test]
+fn a_wider_cell_carries_the_whole_pipeline() {
+    let tessellation = sphere(4, 8, 2.0);
+    let narrow =
+        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
+            .unwrap();
+    let mut wide =
+        Octree::<u32, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
+            .unwrap();
+    assert_eq!(narrow.len(), wide.len());
+    wide.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    assert_eq!(wide.dualize().number_of_elements(), {
+        let mut narrow = narrow;
+        narrow
+            .equilibrate(Balancing::Weak(1), Pairing::Regular)
+            .unwrap();
+        narrow.dualize().number_of_elements()
+    });
+}
+
+#[test]
+fn a_wider_cell_indexes_a_depth_a_narrower_one_refuses() {
+    let tessellation = sphere(4, 8, 2.0);
+    assert_eq!(
+        Octree::<u16, usize>::from_features(&tessellation, 1.0e6, CurvatureSizing::default(), 0)
+            .err(),
+        Some("sizing field exceeds maximum octree depth")
+    );
+    assert_eq!(u32::length(1 << 20), Some(1u32 << 20));
 }

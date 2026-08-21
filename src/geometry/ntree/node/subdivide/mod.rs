@@ -1,9 +1,9 @@
-use crate::geometry::ntree::node::{Kind, Node, split::Split};
-use std::{array::from_fn, ops::Add};
+use crate::geometry::ntree::node::{Kind, Node, cell::Cell};
+use std::array::from_fn;
 
 impl<const D: usize, const M: usize, const N: usize, T, U, V> Node<D, M, N, T, U, V>
 where
-    T: Add<Output = T> + Copy + Split,
+    T: Cell,
     U: Copy,
     V: Copy,
 {

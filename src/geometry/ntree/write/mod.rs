@@ -1,9 +1,9 @@
+use crate::geometry::ntree::node::cell::Cell;
 pub(super) mod htg;
 
 use crate::{
     geometry::ntree::Orthotree,
     io::{Write, write::Compression},
-    math::Scalar,
 };
 use std::{io::Error as ErrorIO, path::Path};
 
@@ -31,7 +31,7 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, P> Wr
     for Orthotree<D, L, M, N, T, U>
 where
     P: AsRef<Path>,
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     type Error = ErrorIO;

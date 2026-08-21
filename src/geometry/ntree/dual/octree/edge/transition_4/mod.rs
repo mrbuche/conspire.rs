@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::cell::Cell;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -30,7 +31,7 @@ pub(super) fn template<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     nodes_map: &NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     for node in tree.iter().filter(|node| node.is_tree()) {
@@ -59,7 +60,7 @@ fn template_inner<T, U>(
     nodes_map: &NodeMap<D>,
     tree: &Octree<T, U>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let (subcell_a, subcell_b, facet_m, facet_n, m_p, m_q, n_p, n_q) = edge;
@@ -87,7 +88,7 @@ fn template_inner<T, U>(
             && let Some(b_n_p) = b_n_leaves[n_p]
             && let Some(b_n_q) = b_n_leaves[n_q]
         {
-            let length: Scalar = tree.nodes[a_m_p.into()].length.into();
+            let length: Scalar = tree.nodes[a_m_p.into()].length.scalar();
             let offset_m = &facet_direction(facet_m) * length;
             let offset_n = &facet_direction(facet_n) * length;
             let center_a_m_p = center_nodes[a_m_p.into()];

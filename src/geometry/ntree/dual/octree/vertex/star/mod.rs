@@ -4,9 +4,9 @@ use crate::geometry::ntree::{
         NodeMap,
         octree::{D, N},
     },
-    node::{Kind, split::Split},
+    node::{Kind, cell::Cell},
 };
-use std::{array::from_fn, ops::Add};
+use std::array::from_fn;
 
 const L2: usize = 4;
 
@@ -18,7 +18,7 @@ pub(super) fn template<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     nodes_map: &NodeMap<D>,
 ) where
-    T: Add<Output = T> + Copy + PartialOrd + Split + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let root = &tree.nodes[0];
@@ -34,10 +34,10 @@ pub(super) fn template<T, U>(
             if distinct.len() != N {
                 continue;
             }
-            let lengths: [usize; N] = from_fn(|o| tree.nodes[cells[o]].length.into());
+            let lengths: [usize; N] = from_fn(|o| tree.nodes[cells[o]].length.cells());
             let shortest = *lengths.iter().min().unwrap();
             let longest = *lengths.iter().max().unwrap();
-            let coordinate: [usize; D] = from_fn(|a| vertex[a].into());
+            let coordinate: [usize; D] = from_fn(|a| vertex[a].cells());
             if longest == 4 * shortest && !(0..D).all(|a| coordinate[a].is_multiple_of(2 * longest))
             {
                 cap(
@@ -66,7 +66,7 @@ fn cap<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     nodes_map: &NodeMap<D>,
 ) where
-    T: Copy + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let longest = 4 * shortest;
@@ -125,7 +125,7 @@ fn cap<T, U>(
                 }
             });
             let cell = leaf_at(tree, &point, o);
-            let length: usize = tree.nodes[cell].length.into();
+            let length: usize = tree.nodes[cell].length.cells();
             (length == 2 * shortest).then(|| center_nodes[cell])
         }
     });
@@ -152,7 +152,7 @@ fn cap<T, U>(
 
 fn leaf_at<T, U>(tree: &Octree<T, U>, point: &[usize; D], direction: usize) -> usize
 where
-    T: Copy + Into<usize>,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let mut index = 0;
@@ -161,9 +161,9 @@ where
             Kind::Leaf => return index,
             Kind::Tree(orthants) => {
                 let node = &tree.nodes[index];
-                let length = node.length.into();
+                let length = node.length.cells();
                 let child = (0..D).fold(0, |acc, a| {
-                    let mid = node.corner[a].into() + length / 2;
+                    let mid = node.corner[a].cells() + length / 2;
                     let bit = if point[a] > mid {
                         1
                     } else if point[a] < mid {
@@ -181,7 +181,7 @@ where
 
 fn incident_leaf<T, U>(tree: &Octree<T, U>, vertex: &[T; D], direction: usize) -> usize
 where
-    T: Copy + Add<Output = T> + PartialOrd + Split,
+    T: Cell,
     U: Copy + Into<usize>,
 {
     let mut index = 0;
