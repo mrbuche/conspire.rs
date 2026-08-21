@@ -52,9 +52,15 @@ impl Default for CurvatureSizing {
     }
 }
 
-/// The size field an octree is refined to, worked out before any tree
-/// exists. `levels` is the depth it asks for, so a caller can pick a cell
-/// length wide enough to index it.
+/// The size field that an octree is refined with.
+///
+/// `levels` is the depth the field asks for, and is the whole reason this is
+/// separate from the tree: it decides how wide a cell length has to be, so a
+/// caller reads it before naming the `T` it builds with, rather than after.
+/// Everything here is the same work whatever that `T` turns out to be, the
+/// shape diameter function among it, so [`refine`](Octree::refine) can be
+/// tried at one width and retried at another without paying for any of it
+/// twice.
 pub struct Sizing<'a> {
     center: Coordinate<D>,
     coordinates: &'a Coordinates<D>,
