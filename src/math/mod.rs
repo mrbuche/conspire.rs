@@ -1,4 +1,4 @@
-//! Numerical methods.
+//! Mathematical methods.
 
 /// Assertion helpers for comparing values.
 pub mod assert;

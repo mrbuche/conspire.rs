@@ -17,23 +17,7 @@ use crate::{
     units::{Dissipation, EnergyDensity, Stress, Viscosity},
 };
 
-/// The Saint Venant-Kirchhoff hyperviscoelastic solid constitutive model.
-///
-/// **Parameters**
-/// - The bulk modulus $`\kappa`$.
-/// - The shear modulus $`\mu`$.
-/// - The bulk viscosity $`\zeta`$.
-/// - The shear viscosity $`\eta`$.
-///
-/// **External variables**
-/// - The deformation gradient $`\mathbf{F}`$.
-/// - The deformation gradient rate $`\dot{\mathbf{F}}`$.
-///
-/// **Internal variables**
-/// - None.
-///
-/// **Notes**
-/// - The Green-Saint Venant strain measure is given by $`\mathbf{E}=\tfrac{1}{2}(\mathbf{C}-\mathbf{1})`$.
+#[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk modulus $`\kappa`$.
@@ -65,11 +49,7 @@ impl Viscous for SaintVenantKirchhoff {
 }
 
 impl Viscoelastic for SaintVenantKirchhoff {
-    /// Calculates and returns the second Piola-Kirchhoff stress.
-    ///
-    /// ```math
-    /// \mathbf{S}(\mathbf{F},\dot\mathbf{F}) = 2\mu\mathbf{E}' + \kappa\,\mathrm{tr}(\mathbf{E})\mathbf{1} + 2\eta\dot{\mathbf{E}}' + \zeta\,\mathrm{tr}(\dot{\mathbf{E}})\mathbf{1}
-    /// ```
+    #[doc = include_str!("second_piola_kirchhoff_stress.md")]
     fn second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -90,11 +70,7 @@ impl Viscoelastic for SaintVenantKirchhoff {
             + deviatoric_strain_rate * (2.0 * shear_viscosity)
             + IDENTITY_00 * (bulk_modulus * strain_trace + bulk_viscosity * strain_rate_trace))
     }
-    /// Calculates and returns the rate tangent stiffness associated with the second Piola-Kirchhoff stress.
-    ///
-    /// ```math
-    /// \mathcal{W}_{IJkL}(\mathbf{F}) = \eta\,\delta_{JL}F_{kI} + \eta\,\delta_{IL}F_{kJ} + \left(\zeta - \frac{2}{3}\,\eta\right)\delta_{IJ}F_{kL}
-    /// ```
+    #[doc = include_str!("second_piola_kirchhoff_rate_tangent_stiffness.md")]
     fn second_piola_kirchhoff_rate_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -115,11 +91,7 @@ impl Viscoelastic for SaintVenantKirchhoff {
 }
 
 impl ElasticHyperviscous for SaintVenantKirchhoff {
-    /// Calculates and returns the viscous dissipation.
-    ///
-    /// ```math
-    /// \phi(\mathbf{F},\dot{\mathbf{F}}) = \eta\,\mathrm{tr}(\dot{\mathbf{E}}^2) + \frac{1}{2}\left(\zeta - \frac{2}{3}\,\eta\right)\mathrm{tr}(\dot{\mathbf{E}})^2
-    /// ```
+    #[doc = include_str!("viscous_dissipation.md")]
     fn viscous_dissipation(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -140,11 +112,7 @@ impl ElasticHyperviscous for SaintVenantKirchhoff {
 }
 
 impl Hyperviscoelastic for SaintVenantKirchhoff {
-    /// Calculates and returns the Helmholtz free energy density.
-    ///
-    /// ```math
-    /// a(\mathbf{F}) = \mu\,\mathrm{tr}(\mathbf{E}^2) + \frac{1}{2}\left(\kappa - \frac{2}{3}\,\mu\right)\mathrm{tr}(\mathbf{E})^2
-    /// ```
+    #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,
         deformation_gradient: &DeformationGradient,
