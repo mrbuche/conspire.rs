@@ -1,4 +1,4 @@
-use super::{SparseSolver, Vector};
+use super::{Scalar, SparseSolver, Vector};
 use crate::math::assert::Assert;
 use crate::math::assert::AssertionError;
 
@@ -139,4 +139,33 @@ fn asymmetric_falls_back_to_lu() -> Result<(), AssertionError> {
         .iter()
         .for_each(|&(i, j)| residual[i] += source(i, j) * x[j]);
     Assert::default().eq_within_tols(&residual, &b)
+}
+
+#[test]
+fn degraded_pivot_keeps_the_ldl_for_the_next_solve() -> Result<(), AssertionError> {
+    let pattern = vec![(0, 0), (0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2)];
+    let solver = SparseSolver::from_pattern(3, pattern.clone(), true);
+    let b = Vector::from([1.0, 1.0, 1.0]);
+    let good = |i: usize, j: usize| if i == j { 4.0 } else { -1.0 };
+    let degraded = |i: usize, j: usize| {
+        if i == j {
+            if i == 0 { 0.0 } else { -2.0 }
+        } else {
+            -2.0
+        }
+    };
+    let check = |source: &dyn Fn(usize, usize) -> Scalar, x: &Vector| {
+        let mut residual = Vector::zero(3);
+        pattern
+            .iter()
+            .for_each(|&(i, j)| residual[i] += source(i, j) * x[j]);
+        Assert::default().eq_within_tols(&residual, &b)
+    };
+    check(&good, &solver.solve(good, &b)?)?;
+    assert!(solver.ldl.borrow().is_some());
+    check(&degraded, &solver.solve(degraded, &b)?)?;
+    assert!(solver.ldl.borrow().is_some());
+    check(&good, &solver.solve(good, &b)?)?;
+    assert!(solver.ldl.borrow().is_some());
+    Ok(())
 }

@@ -15,11 +15,12 @@ use std::{
 /// A sparse direct solver for repeated solves on a fixed sparsity pattern.
 ///
 /// Cloning shares the cached factorization, whose pivot order and fill pattern
-/// are reused across solves until a pivot degrades. Symmetric values use an
-/// LDLᵀ factorization, falling back to LU otherwise. Symmetry is a caller-supplied
-/// guarantee about the source values, not detected at runtime — a source whose
-/// symmetry can vary between solves (e.g. a tangent that is only symmetric near
-/// a particular configuration) must be declared asymmetric.
+/// are reused across solves. Symmetric values use an LDLᵀ factorization,
+/// falling back to LU for that solve alone when a pivot degrades, and
+/// otherwise. Symmetry is a caller-supplied guarantee about the source values,
+/// not detected at runtime — a source whose symmetry can vary between solves
+/// (e.g. a tangent that is only symmetric near a particular configuration)
+/// must be declared asymmetric.
 #[derive(Clone)]
 pub struct SparseSolver {
     matrix: RefCell<CscMatrix>,
@@ -60,13 +61,10 @@ impl SparseSolver {
         let mut matrix = self.matrix.borrow_mut();
         matrix.fill(source);
         let mut ldl = self.ldl.borrow_mut();
-        if ldl.is_some() {
-            if let Some(cached) = ldl.as_mut()
-                && cached.refactor(&matrix).is_ok()
-            {
-                return Ok(cached.solve(b));
-            }
-            *ldl = None;
+        if let Some(cached) = ldl.as_mut()
+            && cached.refactor(&matrix).is_ok()
+        {
+            return Ok(cached.solve(b));
         }
         drop(ldl);
         let mut lu = self.lu.borrow_mut();
