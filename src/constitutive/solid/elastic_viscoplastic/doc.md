@@ -1,0 +1,1 @@
+Elastic-viscoplastic solid constitutive models are defined by an elastic stress response as a function of the deformation gradient and the plastic deformation gradient, together with a flow rule governing the evolution of the plastic deformation gradient from the Mandel stress.
