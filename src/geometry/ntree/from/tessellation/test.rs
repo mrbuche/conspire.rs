@@ -5,7 +5,7 @@ use crate::{
         ntree::node::{Node, cell::Cell},
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
     },
-    math::{Quantity, Tensor},
+    math::{Quantity, Scalar, Tensor},
     units::Length,
 };
 use std::{
@@ -358,4 +358,22 @@ fn a_niched_index_builds_the_same_tree() {
     assert!(
         size_of::<Node<3, 6, 8, u16, NonZeroU32, ()>>() < size_of::<Node<3, 6, 8, u16, u32, ()>>()
     );
+}
+
+#[test]
+fn the_cell_that_set_the_size_field_is_not_a_failure() {
+    let tessellation = sphere(4, 8, 2.0);
+    (2..=40).for_each(|scale| {
+        let scale = scale as Scalar / 2.0;
+        assert!(
+            Octree::<u16, usize>::from_features(
+                &tessellation,
+                scale,
+                CurvatureSizing::default(),
+                0
+            )
+            .is_ok(),
+            "refused its own finest cell at scale {scale}"
+        )
+    })
 }
