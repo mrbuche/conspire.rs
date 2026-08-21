@@ -782,6 +782,12 @@ where
     let mut tangent_outer = SquareMatrix::zero(outer);
     let mut update_inner = Vector::zero(num_inner);
     let mut update_outer = Vector::zero(num_outer);
+    let (mut radius, max_radius) =
+        if let TrustRegion::Adaptive { radius, max_radius } = newton_raphson.trust_region {
+            (radius, max_radius)
+        } else {
+            (0.0, 0.0)
+        };
     let mut steps = 0;
     loop {
         if let Some(local_solver) = condensed {
@@ -869,6 +875,89 @@ where
                     update_outer[i] -= coupling * decrement_inner[j]
                 })
             });
+            if minimizing && let TrustRegion::Adaptive { .. } = newton_raphson.trust_region {
+                penalty = raise_penalty(
+                    penalty,
+                    multipliers_global
+                        .iter()
+                        .zip(decrement_outer.iter().skip(num_global))
+                        .chain(
+                            multipliers_local
+                                .iter()
+                                .zip(decrement_inner.iter().skip(num_local)),
+                        ),
+                );
+                let violated = penalty
+                    * (violation(&constraint_matrix_global, &constraint_rhs_global, &global)
+                        + violation(&constraint_matrix_local, &constraint_rhs_local, &local));
+                let mut gradient_global = Vector::zero(num_global);
+                residual_global(&global, &local)?.fill_into(&mut gradient_global);
+                let value = function(&global, &local)? + violated;
+                let mut accepted = false;
+                for _ in 0..TRUST_REGION_MAX_REJECTIONS {
+                    decrement_outer =
+                        more_sorensen(&tangent_outer, &update_outer, radius, num_global);
+                    (0..num_global).for_each(|k| {
+                        decrement_inner
+                            .iter_mut()
+                            .zip(eliminated[k].iter())
+                            .for_each(|(decrement_inner_i, eliminated_ki)| {
+                                *decrement_inner_i -= eliminated_ki * decrement_outer[k]
+                            })
+                    });
+                    let quadratic: Scalar = (0..num_global)
+                        .map(|i| {
+                            (0..num_global)
+                                .map(|j| {
+                                    decrement_outer[i] * tangent_outer[i][j] * decrement_outer[j]
+                                })
+                                .sum::<Scalar>()
+                        })
+                        .sum();
+                    let predicted =
+                        merit_slope(gradient_global.iter().zip(decrement_outer.iter()), violated)
+                            - 0.5 * quadratic;
+                    if predicted <= Scalar::EPSILON * value.abs() {
+                        accepted = true;
+                        break;
+                    }
+                    let mut trial_global = global.clone();
+                    let mut trial_local = local.clone();
+                    let mut trial_multipliers_global = multipliers_global.clone();
+                    let mut trial_multipliers_local = multipliers_local.clone();
+                    trial_global
+                        .decrement_from_chained(&mut trial_multipliers_global, &decrement_outer);
+                    trial_local
+                        .decrement_from_chained(&mut trial_multipliers_local, &decrement_inner);
+                    let value_trial = function(&trial_global, &trial_local)?
+                        + penalty
+                            * (violation(
+                                &constraint_matrix_global,
+                                &constraint_rhs_global,
+                                &trial_global,
+                            ) + violation(
+                                &constraint_matrix_local,
+                                &constraint_rhs_local,
+                                &trial_local,
+                            ));
+                    let rho = (value - value_trial) / predicted;
+                    let primal_norm = Norm::Euclidean.over(decrement_outer.iter().copied());
+                    radius = update_radius(radius, max_radius, rho, primal_norm);
+                    if rho > TRUST_REGION_ETA {
+                        accepted = true;
+                        break;
+                    }
+                }
+                if !accepted {
+                    return Err(OptimizationError::MaximumStepsReached(
+                        TRUST_REGION_MAX_REJECTIONS,
+                        format!("{newton_raphson:?}"),
+                    ));
+                }
+                global.decrement_from_chained(&mut multipliers_global, &decrement_outer);
+                local.decrement_from_chained(&mut multipliers_local, &decrement_inner);
+                continue;
+            }
             tangent_outer.factorize_lu_into(&mut factorization_outer)?;
             factorization_outer.solve_into(&update_outer, &mut decrement_outer);
             (0..num_global).for_each(|k| {
