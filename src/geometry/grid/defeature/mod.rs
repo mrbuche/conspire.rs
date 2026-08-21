@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 #[cfg(test)]
 mod test;
 
@@ -9,7 +10,7 @@ use std::hash::Hash;
 
 impl<V: Copy + Eq + Hash> Pixels<V> {
     pub fn defeature(self, minimum: usize) -> Result<Self, &'static str> {
-        let mut quadtree = Quadtree::<u16, u32, V>::try_from(self)?;
+        let mut quadtree = Quadtree::<u16, NonZeroU32, V>::try_from(self)?;
         quadtree.defeature(minimum);
         Ok(Self::from(&quadtree))
     }
@@ -17,7 +18,7 @@ impl<V: Copy + Eq + Hash> Pixels<V> {
 
 impl<V: Copy + Eq + Hash> Voxels<V> {
     pub fn defeature(self, minimum: usize) -> Result<Self, &'static str> {
-        let mut octree = Octree::<u16, u32, V>::try_from(self)?;
+        let mut octree = Octree::<u16, NonZeroU32, V>::try_from(self)?;
         octree.defeature(minimum);
         Ok(Self::from(&octree))
     }

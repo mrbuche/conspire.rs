@@ -338,3 +338,24 @@ fn a_leaner_index_builds_the_same_tree() {
     );
     assert!(size_of::<Node<3, 6, 8, u16, u32, ()>>() < size_of::<Node<3, 6, 8, u16, usize, ()>>());
 }
+
+#[test]
+fn a_niched_index_builds_the_same_tree() {
+    use std::num::NonZeroU32;
+    let tessellation = sphere(4, 8, 2.0);
+    let sizing = Sizing::new(&tessellation, 4.0, CurvatureSizing::default(), 0);
+    let mut wide = Octree::<u16, usize>::refine(&sizing).unwrap();
+    let mut lean = Octree::<u16, NonZeroU32>::refine(&sizing).unwrap();
+    assert_eq!(wide.len(), lean.len());
+    wide.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    lean.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    assert_eq!(
+        wide.dualize().number_of_elements(),
+        lean.dualize().number_of_elements()
+    );
+    assert!(
+        size_of::<Node<3, 6, 8, u16, NonZeroU32, ()>>() < size_of::<Node<3, 6, 8, u16, u32, ()>>()
+    );
+}

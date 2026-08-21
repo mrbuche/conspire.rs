@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 #[cfg(test)]
 mod test;
 
@@ -124,11 +125,11 @@ impl Tessellation {
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         let sizing = Sizing::new(self, scale, CurvatureSizing::default(), PADDING);
         let mesh = if sizing.fits::<u16>() {
-            let mut octree = Octree::<u16, u32>::refine(&sizing)?;
+            let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, Pairing::Regular)?;
             octree.dualize()
         } else {
-            let mut octree = Octree::<u32, u32>::refine(&sizing)?;
+            let mut octree = Octree::<u32, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, Pairing::Regular)?;
             octree.dualize()
         };
@@ -168,11 +169,11 @@ impl Tessellation {
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         let sizing = Sizing::new(self, scale, CurvatureSizing::default(), PADDING);
         let mesh = if sizing.fits::<u16>() {
-            let mut octree = Octree::<u16, u32>::refine(&sizing)?;
+            let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, Pairing::Regular)?;
             Mesh::from(octree)
         } else {
-            let mut octree = Octree::<u32, u32>::refine(&sizing)?;
+            let mut octree = Octree::<u32, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, Pairing::Regular)?;
             Mesh::from(octree)
         };
