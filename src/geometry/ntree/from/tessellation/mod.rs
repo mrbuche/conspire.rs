@@ -22,8 +22,6 @@ use std::{array::from_fn, f64::consts::FRAC_PI_4, ops::Add};
 const D: usize = 3;
 const M: usize = 6;
 
-const LEVELS: u32 = u16::BITS - 1;
-
 /// Parameters controlling curvature-driven octree refinement.
 ///
 /// `tolerance` is the Dunyach chord-error tolerance (an absolute length, like
@@ -56,7 +54,14 @@ impl Default for CurvatureSizing {
 
 impl<T, U> Octree<T, U>
 where
-    T: Add<Output = T> + Copy + From<u16> + Into<Scalar> + Into<usize> + PartialOrd + Split,
+    T: Add<Output = T>
+        + Copy
+        + From<u16>
+        + Into<Scalar>
+        + Into<usize>
+        + PartialOrd
+        + Split
+        + TryFrom<usize>,
     U: Copy + From<usize> + Into<usize>,
 {
     /// Builds an octree from a tessellation, refining cells where either the
@@ -155,10 +160,11 @@ where
                 .max(Quantity::default())
                 .value() as u32
         };
-        if levels > LEVELS {
-            return Err("sizing field exceeds maximum octree depth");
-        }
-        let root_length: u16 = 1u16 << levels;
+        let root_length = 1usize
+            .checked_shl(levels)
+            .and_then(|length| T::try_from(length).ok())
+            .ok_or("sizing field exceeds maximum octree depth")?;
+        let span: Scalar = root_length.into();
         let center = Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
             (min_coord[ax] + max_coord[ax]) / 2.0
         }));
@@ -167,11 +173,11 @@ where
             rescale: Rescaling {
                 center: center.clone(),
                 cell: min_length,
-                half: root_length as Scalar / 2.0,
+                half: span / 2.0,
             },
             nodes: vec![Node {
                 corner: from_fn(|_| T::from(0)),
-                length: T::from(root_length),
+                length: root_length,
                 facets: [None; M],
                 kind: Kind::Leaf,
                 value: None,
@@ -189,7 +195,7 @@ where
                 thickness.min(feature)
             })
             .collect();
-        let half = root_length as Scalar / 2.0;
+        let half = span / 2.0;
         let overlaps = |bbox: &BoundingBox<3>, triangle: usize| {
             let element = elements[triangle];
             bbox.overlaps_triangle(
@@ -210,7 +216,7 @@ where
                 continue;
             }
             if cells <= 1 {
-                return Err("sizing field exceeds maximum octree depth");
+                return Err("sizing field falls below minimum octree cell size");
             }
             tree.subdivide(U::from(index))?;
             let children: Vec<usize> = tree.nodes[index]

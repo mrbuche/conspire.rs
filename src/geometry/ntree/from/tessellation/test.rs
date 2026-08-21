@@ -249,7 +249,7 @@ fn refuses_a_depth_no_cell_length_can_index() {
     assert_eq!(
         Octree::<u16, usize>::from_features(&tessellation, 1.0e6, CurvatureSizing::default(), 0)
             .err(),
-        Some("the sizing field asks for an octree deeper than a cell length can index")
+        Some("sizing field exceeds maximum octree depth")
     );
     assert!(
         Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
@@ -266,6 +266,6 @@ fn refuses_a_target_the_finest_cell_cannot_meet() {
     assert_eq!(
         Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
             .err(),
-        Some("the sizing field asks for cells finer than the octree can represent")
+        Some("sizing field falls below minimum octree cell size")
     );
 }
