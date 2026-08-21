@@ -14,6 +14,5 @@ The eight-chain hyperelastic solid constitutive model.
 **Notes**
 - The nondimensional end-to-end length per link of a chain is $`\gamma=\sqrt{\mathrm{tr}(\mathbf{B}^*)/3N_b}`$.
 - The nondimensional force is given by the single-chain model as $`\eta=\eta(\gamma)`$.
-- The nondimensional stiffness is given by the single-chain model as $`\eta'=\mathrm{d}\eta/\mathrm{d}\gamma`$.
 - The initial values are given by $`\gamma_0=\sqrt{1/3N_b}`$ and $`\eta_0=\eta(\gamma_0)`$.
-- The eight-chain model reduces to the [Arruda-Boyce model](super::ArrudaBoyce) when the single-chain model gives $`\eta=\mathcal{L}^{-1}(\gamma)`$, and further to the [Neo-Hookean model](super::NeoHookean) when $`N_b\to\infty`$.
+- The eight-chain model reduces to the [Arruda-Boyce model](super::ArrudaBoyce) when $`\eta=\mathcal{L}^{-1}(\gamma)`$.
