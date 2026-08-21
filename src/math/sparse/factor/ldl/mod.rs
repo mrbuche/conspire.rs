@@ -277,6 +277,51 @@ impl CscLdl {
     pub fn nonzeros(&self) -> usize {
         self.fill
     }
+    /// The counts of positive, negative, and zero eigenvalues of the matrix
+    /// factorized, which by Sylvester's law of inertia are those of D however
+    /// the pivots were chosen.
+    ///
+    /// Unlike a Bunch-Kaufman factorization, whose two-by-two blocks are picked
+    /// to have a negative determinant and so always contribute one of each
+    /// sign, the blocks here are paired structurally by the maximum transversal
+    /// to give a row with no diagonal entry a partner, so a block's own
+    /// eigenvalues have to be read off its determinant and trace.
+    pub fn inertia(&self) -> (usize, usize, usize) {
+        let (mut positive, mut negative, mut zero) = (0, 0, 0);
+        let mut j = 0;
+        while j < self.d.len() {
+            if self.pair[j] == j + 1 {
+                let determinant = self.d[j] * self.d[j + 1] - self.e[j] * self.e[j];
+                let trace = self.d[j] + self.d[j + 1];
+                if determinant < 0.0 {
+                    positive += 1;
+                    negative += 1;
+                } else if determinant > 0.0 {
+                    if trace > 0.0 {
+                        positive += 2
+                    } else {
+                        negative += 2
+                    }
+                } else {
+                    zero += 1;
+                    match trace {
+                        trace if trace > 0.0 => positive += 1,
+                        trace if trace < 0.0 => negative += 1,
+                        _ => zero += 1,
+                    }
+                }
+                j += 2
+            } else {
+                match self.d[j] {
+                    pivot if pivot > 0.0 => positive += 1,
+                    pivot if pivot < 0.0 => negative += 1,
+                    _ => zero += 1,
+                }
+                j += 1
+            }
+        }
+        (positive, negative, zero)
+    }
     /// Recomputes the factorization for new values in the same pattern, reusing
     /// the pivot order and fill pattern without any symbolic work or pivot search.
     /// The factorization is invalid if an error is returned.
