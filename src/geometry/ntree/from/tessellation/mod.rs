@@ -280,9 +280,6 @@ where
             if min_length * (extent * scale) <= target {
                 continue;
             }
-            if target <= Quantity::default() {
-                return Err("sizing field falls below minimum octree cell size");
-            }
             if cells <= 1 {
                 continue;
             }

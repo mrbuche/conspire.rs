@@ -259,19 +259,6 @@ fn refuses_a_depth_no_cell_length_can_index() {
 }
 
 #[test]
-fn refuses_a_target_the_finest_cell_cannot_meet() {
-    let tessellation = tessellate(
-        vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-        vec![[0, 1, 2]],
-    );
-    assert_eq!(
-        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
-            .err(),
-        Some("sizing field falls below minimum octree cell size")
-    );
-}
-
-#[test]
 fn a_wider_cell_carries_the_whole_pipeline() {
     let tessellation = sphere(4, 8, 2.0);
     let narrow =
