@@ -1,4 +1,6 @@
 use super::{D, N};
+use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -11,7 +13,7 @@ use crate::{
             rescale::Rescaling,
         },
     },
-    math::{Quantity, Scalar},
+    math::Quantity,
 };
 
 fn refine_to(octree: &mut Octree<u16, usize>, node: usize, levels: usize) {
@@ -145,8 +147,8 @@ pub(crate) fn edge_transition_counts<T, U>(
     nodes_map: &mut NodeMap<D>,
 ) -> [usize; 4]
 where
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     let mut counts = [0usize; 4];
     let mut len = connectivity.len();

@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -8,43 +9,47 @@ use crate::{
         ntree::{
             Orthotree,
             balance::Balancing,
-            node::{Kind, Node, split::Split},
+            node::{Kind, Node, cell::Cell},
             pair::Pairing,
             rescale::Rescaling,
         },
     },
     math::{Quantity, Scalar},
 };
-use std::{array::from_fn, ops::Add};
+use std::array::from_fn;
 
 type Pyramid<const D: usize, V> = Vec<([usize; D], Vec<Option<V>>)>;
 
-enum Cell<V> {
+enum Content<V> {
     Empty,
     Uniform(V),
     Mixed,
 }
 
-impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V> From<Grid<D, V>>
+impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V> TryFrom<Grid<D, V>>
     for Orthotree<D, L, M, N, T, U, V>
 where
-    T: Add<Output = T> + Copy + From<u16> + Into<usize> + Split,
-    U: Copy + From<usize> + Into<usize>,
+    T: Cell,
+    U: Slot,
     V: Copy + PartialEq,
 {
-    fn from(grid: Grid<D, V>) -> Self {
+    type Error = &'static str;
+    fn try_from(grid: Grid<D, V>) -> Result<Self, Self::Error> {
         let nel = *grid.nel();
         let max = nel.iter().copied().max().unwrap_or(0).max(1);
-        let mut root_length = 1u16;
-        while (root_length as usize) < max {
-            root_length <<= 1;
+        let mut root_length = 1usize;
+        while root_length < max {
+            root_length = root_length
+                .checked_mul(2)
+                .ok_or("grid exceeds maximum octree depth")?;
         }
+        let length = T::length(root_length).ok_or("grid exceeds maximum octree depth")?;
         let half = root_length as Scalar / 2.0;
         let mut tree = Self {
             balanced: Balancing::None,
             nodes: vec![Node {
-                corner: from_fn(|_| T::from(0)),
-                length: T::from(root_length),
+                corner: from_fn(|_| T::ZERO),
+                length,
                 facets: [None; M],
                 kind: Kind::Leaf,
                 value: None,
@@ -64,18 +69,18 @@ where
         let mut index = 0;
         while index < tree.len() {
             let node = &tree.nodes[index];
-            let corner = from_fn(|ax| node.corner[ax].into());
-            let length = node.length.into();
+            let corner = from_fn(|ax| node.corner[ax].cells());
+            let length = node.length.cells();
             match classify(corner, length, &nel, &pyramid) {
-                Cell::Uniform(value) => tree.nodes[index].value = Some(value),
-                Cell::Mixed => {
-                    tree.subdivide(U::from(index)).ok();
+                Content::Uniform(value) => tree.nodes[index].value = Some(value),
+                Content::Mixed => {
+                    tree.subdivide(index)?;
                 }
-                Cell::Empty => {}
+                Content::Empty => {}
             }
             index += 1;
         }
-        tree
+        Ok(tree)
     }
 }
 
@@ -137,17 +142,17 @@ fn classify<const D: usize, V: Copy>(
     length: usize,
     nel: &[usize; D],
     pyramid: &Pyramid<D, V>,
-) -> Cell<V> {
+) -> Content<V> {
     if (0..D).any(|ax| corner[ax] >= nel[ax]) {
-        return Cell::Empty;
+        return Content::Empty;
     }
     if (0..D).any(|ax| corner[ax] + length > nel[ax]) {
-        return Cell::Mixed;
+        return Content::Mixed;
     }
     let (dim, data) = &pyramid[length.trailing_zeros() as usize];
     let cell = from_fn(|ax| corner[ax] / length);
     match data[flatten(&cell, dim)] {
-        Some(value) => Cell::Uniform(value),
-        None => Cell::Mixed,
+        Some(value) => Content::Uniform(value),
+        None => Content::Mixed,
     }
 }

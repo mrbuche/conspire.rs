@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -8,20 +9,19 @@ use crate::{
         ntree::{
             Quadtree,
             dual::{Dualization, Initialize, NodeMap, Star},
-            node::split::Split,
+            node::cell::Cell,
         },
     },
     math::{Scalar, TensorVec},
 };
-use std::ops::Add;
 
 const D: usize = 2;
 const N: usize = 4;
 
 impl<T, U> Dualization<D> for Quadtree<T, U>
 where
-    T: Add<Output = T> + Copy + Into<Scalar> + Into<usize> + PartialOrd + Split,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     fn dualize(&mut self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
@@ -52,8 +52,8 @@ fn edge_transition<T, U>(
     node_index: &mut usize,
     nodes_map: &mut NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     let mut get_or_add = |pos: [Scalar; D]| -> usize {
         let key = pos.map(|p| (2.0 * p) as usize);
@@ -77,37 +77,37 @@ fn edge_transition<T, U>(
             if let Some([Some(g_0a), Some(g_0b)]) = face_leaves[0]
                 && let Some([Some(g_2a), Some(g_2b)]) = face_leaves[1]
             {
-                let length: Scalar = tree[g_2a].length.into();
-                let x0: Scalar = tree[g_2a].corner[0].into();
-                let y0c: Scalar = tree[g_2a].corner[1].into();
+                let length: Scalar = tree[g_2a].length.scalar();
+                let x0: Scalar = tree[g_2a].corner[0].scalar();
+                let y0c: Scalar = tree[g_2a].corner[1].scalar();
                 let x1 = x0 + length;
                 let y0 = y0c - length * 0.5;
                 let y1 = y0 + length;
                 let new_1 = get_or_add([x1, y0]);
                 let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
-                    center_nodes[g_0b.into()],
+                    center_nodes[g_0b.slot()],
                     new_1,
                     new_2,
-                    center_nodes[g_2a.into()],
+                    center_nodes[g_2a.slot()],
                 ]);
                 connectivity.push([
                     new_1,
-                    center_nodes[leaf_0.into()],
-                    center_nodes[leaf_2.into()],
+                    center_nodes[leaf_0.slot()],
+                    center_nodes[leaf_2.slot()],
                     new_2,
                 ]);
                 connectivity.push([
-                    center_nodes[g_2a.into()],
+                    center_nodes[g_2a.slot()],
                     new_2,
-                    center_nodes[leaf_2.into()],
-                    center_nodes[g_2b.into()],
+                    center_nodes[leaf_2.slot()],
+                    center_nodes[g_2b.slot()],
                 ]);
                 connectivity.push([
-                    center_nodes[g_0a.into()],
-                    center_nodes[leaf_0.into()],
+                    center_nodes[g_0a.slot()],
+                    center_nodes[leaf_0.slot()],
                     new_1,
-                    center_nodes[g_0b.into()],
+                    center_nodes[g_0b.slot()],
                 ]);
             }
         }
@@ -119,9 +119,9 @@ fn edge_transition<T, U>(
             if let Some([Some(g_1a), Some(g_1b)]) = face_leaves[0]
                 && let Some([Some(g_3a), Some(g_3b)]) = face_leaves[1]
             {
-                let length: Scalar = tree[g_3a].length.into();
-                let x0: Scalar = tree[g_3a].corner[0].into();
-                let y0c: Scalar = tree[g_3a].corner[1].into();
+                let length: Scalar = tree[g_3a].length.scalar();
+                let x0: Scalar = tree[g_3a].corner[0].scalar();
+                let y0c: Scalar = tree[g_3a].corner[1].scalar();
                 let x1 = x0;
                 let y0 = y0c - length * 0.5;
                 let y1 = y0 + length;
@@ -129,27 +129,27 @@ fn edge_transition<T, U>(
                 let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
                     new_1,
-                    center_nodes[g_1b.into()],
-                    center_nodes[g_3a.into()],
+                    center_nodes[g_1b.slot()],
+                    center_nodes[g_3a.slot()],
                     new_2,
                 ]);
                 connectivity.push([
                     new_1,
                     new_2,
-                    center_nodes[leaf_3.into()],
-                    center_nodes[leaf_1.into()],
+                    center_nodes[leaf_3.slot()],
+                    center_nodes[leaf_1.slot()],
                 ]);
                 connectivity.push([
-                    center_nodes[g_3a.into()],
-                    center_nodes[g_3b.into()],
-                    center_nodes[leaf_3.into()],
+                    center_nodes[g_3a.slot()],
+                    center_nodes[g_3b.slot()],
+                    center_nodes[leaf_3.slot()],
                     new_2,
                 ]);
                 connectivity.push([
-                    center_nodes[g_1a.into()],
-                    center_nodes[g_1b.into()],
+                    center_nodes[g_1a.slot()],
+                    center_nodes[g_1b.slot()],
                     new_1,
-                    center_nodes[leaf_1.into()],
+                    center_nodes[leaf_1.slot()],
                 ]);
             }
         }
@@ -161,37 +161,37 @@ fn edge_transition<T, U>(
             if let Some([Some(g_0a), Some(g_0b)]) = face_leaves[0]
                 && let Some([Some(g_1a), Some(g_1b)]) = face_leaves[1]
             {
-                let length: Scalar = tree[g_1a].length.into();
-                let x0c: Scalar = tree[g_1a].corner[0].into();
-                let y0: Scalar = tree[g_1a].corner[1].into();
+                let length: Scalar = tree[g_1a].length.scalar();
+                let x0c: Scalar = tree[g_1a].corner[0].scalar();
+                let y0: Scalar = tree[g_1a].corner[1].scalar();
                 let y1 = y0 + length;
                 let x0 = x0c - length * 0.5;
                 let x1 = x0 + length;
                 let new_1 = get_or_add([x0, y1]);
                 let new_2 = get_or_add([x1, y1]);
                 connectivity.push([
-                    center_nodes[g_0b.into()],
-                    center_nodes[g_1a.into()],
+                    center_nodes[g_0b.slot()],
+                    center_nodes[g_1a.slot()],
                     new_2,
                     new_1,
                 ]);
                 connectivity.push([
                     new_1,
                     new_2,
-                    center_nodes[leaf_1.into()],
-                    center_nodes[leaf_0.into()],
+                    center_nodes[leaf_1.slot()],
+                    center_nodes[leaf_0.slot()],
                 ]);
                 connectivity.push([
-                    center_nodes[g_1a.into()],
-                    center_nodes[g_1b.into()],
-                    center_nodes[leaf_1.into()],
+                    center_nodes[g_1a.slot()],
+                    center_nodes[g_1b.slot()],
+                    center_nodes[leaf_1.slot()],
                     new_2,
                 ]);
                 connectivity.push([
-                    center_nodes[g_0a.into()],
-                    center_nodes[g_0b.into()],
+                    center_nodes[g_0a.slot()],
+                    center_nodes[g_0b.slot()],
                     new_1,
-                    center_nodes[leaf_0.into()],
+                    center_nodes[leaf_0.slot()],
                 ]);
             }
         }
@@ -203,9 +203,9 @@ fn edge_transition<T, U>(
             if let Some([Some(g_2a), Some(g_2b)]) = face_leaves[0]
                 && let Some([Some(g_3a), Some(g_3b)]) = face_leaves[1]
             {
-                let length: Scalar = tree[g_3a].length.into();
-                let x0c: Scalar = tree[g_3a].corner[0].into();
-                let y0c: Scalar = tree[g_3a].corner[1].into();
+                let length: Scalar = tree[g_3a].length.scalar();
+                let x0c: Scalar = tree[g_3a].corner[0].scalar();
+                let y0c: Scalar = tree[g_3a].corner[1].scalar();
                 let y1 = y0c;
                 let x0 = x0c - length * 0.5;
                 let x1 = x0 + length;
@@ -214,26 +214,26 @@ fn edge_transition<T, U>(
                 connectivity.push([
                     new_1,
                     new_2,
-                    center_nodes[g_3a.into()],
-                    center_nodes[g_2b.into()],
+                    center_nodes[g_3a.slot()],
+                    center_nodes[g_2b.slot()],
                 ]);
                 connectivity.push([
                     new_1,
-                    center_nodes[leaf_2.into()],
-                    center_nodes[leaf_3.into()],
+                    center_nodes[leaf_2.slot()],
+                    center_nodes[leaf_3.slot()],
                     new_2,
                 ]);
                 connectivity.push([
-                    center_nodes[g_3a.into()],
+                    center_nodes[g_3a.slot()],
                     new_2,
-                    center_nodes[leaf_3.into()],
-                    center_nodes[g_3b.into()],
+                    center_nodes[leaf_3.slot()],
+                    center_nodes[g_3b.slot()],
                 ]);
                 connectivity.push([
-                    center_nodes[g_2a.into()],
-                    center_nodes[leaf_2.into()],
+                    center_nodes[g_2a.slot()],
+                    center_nodes[leaf_2.slot()],
                     new_1,
-                    center_nodes[g_2b.into()],
+                    center_nodes[g_2b.slot()],
                 ]);
             }
         }

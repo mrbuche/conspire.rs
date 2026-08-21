@@ -1,3 +1,4 @@
+use std::num::NonZeroU32;
 #[cfg(test)]
 mod test;
 
@@ -8,17 +9,17 @@ use crate::geometry::{
 use std::hash::Hash;
 
 impl<V: Copy + Eq + Hash> Pixels<V> {
-    pub fn defeature(self, minimum: usize) -> Self {
-        let mut quadtree = Quadtree::<u16, usize, V>::from(self);
+    pub fn defeature(self, minimum: usize) -> Result<Self, &'static str> {
+        let mut quadtree = Quadtree::<u16, NonZeroU32, V>::try_from(self)?;
         quadtree.defeature(minimum);
-        Self::from(&quadtree)
+        Ok(Self::from(&quadtree))
     }
 }
 
 impl<V: Copy + Eq + Hash> Voxels<V> {
-    pub fn defeature(self, minimum: usize) -> Self {
-        let mut octree = Octree::<u16, usize, V>::from(self);
+    pub fn defeature(self, minimum: usize) -> Result<Self, &'static str> {
+        let mut octree = Octree::<u16, NonZeroU32, V>::try_from(self)?;
         octree.defeature(minimum);
-        Self::from(&octree)
+        Ok(Self::from(&octree))
     }
 }

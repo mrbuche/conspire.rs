@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -6,7 +7,7 @@ use crate::{
         Coordinate,
         ntree::{
             Balancing, Orthotree, Pairing, Rescaling,
-            node::{Kind, Node, split::Split},
+            node::{Kind, Node, cell::Cell},
         },
     },
     io::{
@@ -16,9 +17,7 @@ use crate::{
     },
     math::{Quantity, Scalar},
 };
-use std::{
-    array::from_fn, collections::VecDeque, fs::read_to_string, io::Result, ops::Add, path::Path,
-};
+use std::{array::from_fn, collections::VecDeque, fs::read_to_string, io::Result, path::Path};
 
 pub(crate) trait ReadHtg<P>
 where
@@ -32,8 +31,8 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, P> Re
     for Orthotree<D, L, M, N, T, U>
 where
     P: AsRef<Path>,
-    T: Add<Output = T> + Copy + Split + Into<usize> + TryFrom<usize>,
-    U: Copy + From<usize> + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     fn read_htg(input: P) -> Result<Self> {
         let text = read_to_string(input)?;
@@ -90,7 +89,7 @@ where
             paired: Pairing::None,
             rescale,
         };
-        let mut queue: VecDeque<U> = VecDeque::from([U::from(0)]);
+        let mut queue = VecDeque::<usize>::from([0]);
         let mut bit = 0;
         while let Some(node) = queue.pop_front() {
             if bit >= descriptor.len() {
@@ -100,13 +99,19 @@ where
             bit += 1;
             if refined {
                 tree.subdivide(node).map_err(|e| invalid(e.into()))?;
-                queue.extend(tree.nodes[node.into()].orthants().unwrap().iter().copied());
+                queue.extend(
+                    tree.nodes[node]
+                        .orthants()
+                        .unwrap()
+                        .iter()
+                        .map(|node: &U| node.slot()),
+                );
             }
         }
         Ok(tree)
     }
 }
 
-fn number<T: TryFrom<usize>>(value: usize) -> Result<T> {
-    T::try_from(value).map_err(|_| invalid("tree coordinate does not fit in T".into()))
+fn number<T: Cell>(value: usize) -> Result<T> {
+    T::length(value).ok_or_else(|| invalid("tree coordinate does not fit in T".into()))
 }

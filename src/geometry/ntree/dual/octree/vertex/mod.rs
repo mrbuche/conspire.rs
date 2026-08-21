@@ -1,3 +1,4 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 #[cfg(feature = "netcdf")]
 pub(crate) mod test;
@@ -8,9 +9,8 @@ use super::{D, N};
 use crate::geometry::ntree::{
     Octree,
     dual::{NodeMap, Star},
-    node::split::Split,
+    node::cell::Cell,
 };
-use std::ops::Add;
 
 pub(super) fn vertex_transitions<T, U>(
     tree: &Octree<T, U>,
@@ -18,8 +18,8 @@ pub(super) fn vertex_transitions<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     nodes_map: &NodeMap<D>,
 ) where
-    T: Add<Output = T> + Copy + PartialOrd + Split + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     tree.star(center_nodes, connectivity);
     star::template(tree, center_nodes, connectivity, nodes_map)

@@ -1,3 +1,5 @@
+use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 use crate::{
     geometry::{
         Coordinates,
@@ -50,17 +52,17 @@ pub(super) fn template<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     nodes_map: &NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     for node in tree.iter().filter(|node| node.is_tree()) {
         let node_subnodes = tree.leaves(node);
         for (facet, rows) in EDGES.iter().enumerate() {
             if let Some(neighbor) = node.facets[facet]
                 && let Some(face_nested) =
-                    tree.orthants_all_leaves_on_facet(&tree.nodes[neighbor.into()], facet ^ 1)
+                    tree.orthants_all_leaves_on_facet(&tree.nodes[neighbor.slot()], facet ^ 1)
             {
-                let face_subsubnodes: [usize; LL] = from_fn(|k| face_nested[k / L][k % L].into());
+                let face_subsubnodes: [usize; LL] = from_fn(|k| face_nested[k / L][k % L].slot());
                 for &row in rows {
                     template_inner(
                         facet,
@@ -93,8 +95,8 @@ fn template_inner<T, U>(
     nodes_map: &NodeMap<D>,
     tree: &Octree<T, U>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     let [
         adjacent_facet,
@@ -114,20 +116,20 @@ fn template_inner<T, U>(
     if let Some(leaf_a) = node_subnodes[node_a]
         && let Some(leaf_b) = node_subnodes[node_b]
         && let Some(adjacent_node) = node.facets[adjacent_facet]
-        && let Some(diagonal_node) = tree.nodes[adjacent_node.into()].facets[facet]
+        && let Some(diagonal_node) = tree.nodes[adjacent_node.slot()].facets[facet]
         && let Some(diag_nested) =
-            tree.orthants_all_leaves_on_facet(&tree.nodes[diagonal_node.into()], facet ^ 1)
+            tree.orthants_all_leaves_on_facet(&tree.nodes[diagonal_node.slot()], facet ^ 1)
     {
-        let adjacent_node_subnodes = tree.leaves(&tree.nodes[adjacent_node.into()]);
+        let adjacent_node_subnodes = tree.leaves(&tree.nodes[adjacent_node.slot()]);
         if let Some(adjacent_leaf_a) = adjacent_node_subnodes[adjacent_node_a]
             && let Some(adjacent_leaf_b) = adjacent_node_subnodes[adjacent_node_b]
         {
-            let cell_a = center_nodes[leaf_a.into()];
-            let cell_b = center_nodes[leaf_b.into()];
-            let adjacent_a = center_nodes[adjacent_leaf_a.into()];
-            let adjacent_b = center_nodes[adjacent_leaf_b.into()];
-            let diag_face_subsubnodes: [usize; LL] = from_fn(|k| diag_nested[k / L][k % L].into());
-            let length: Scalar = tree.nodes[face_subsubnodes[face_a]].length.into();
+            let cell_a = center_nodes[leaf_a.slot()];
+            let cell_b = center_nodes[leaf_b.slot()];
+            let adjacent_a = center_nodes[adjacent_leaf_a.slot()];
+            let adjacent_b = center_nodes[adjacent_leaf_b.slot()];
+            let diag_face_subsubnodes: [usize; LL] = from_fn(|k| diag_nested[k / L][k % L].slot());
+            let length: Scalar = tree.nodes[face_subsubnodes[face_a]].length.scalar();
             let offset = &facet_direction(facet) * length;
             let lookup = |center| -> Option<usize> {
                 let coordinate = &coordinates[center] - &offset;

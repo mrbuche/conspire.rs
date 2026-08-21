@@ -1,4 +1,4 @@
 mod grid;
 mod tessellation;
 
-pub use tessellation::CurvatureSizing;
+pub use tessellation::{CurvatureSizing, Sizing};

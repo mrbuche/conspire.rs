@@ -1,3 +1,5 @@
+use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 use crate::{
     geometry::{
         Coordinates,
@@ -36,8 +38,8 @@ pub(super) fn template<T, U>(
     node_index: &mut usize,
     nodes_map: &mut NodeMap<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     for node in tree.iter() {
         for &(facet_m, facet_n, indices) in EDGES.iter() {
@@ -70,8 +72,8 @@ fn template_inner<T, U>(
     connectivity: &mut Vec<[usize; N]>,
     coordinates: &mut Coordinates<D>,
 ) where
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     let [
         m_a,
@@ -87,12 +89,12 @@ fn template_inner<T, U>(
     ] = indices;
     if let Some(neighbor_m) = node.facets[facet_m]
         && let Some(neighbor_n) = node.facets[facet_n]
-        && let Some(neighbor_diag) = tree.nodes[neighbor_m.into()].facets[facet_n]
+        && let Some(neighbor_diag) = tree.nodes[neighbor_m.slot()].facets[facet_n]
         && tree.orthants_all_leaves_on_facet(node, facet_n).is_some()
     {
-        let face_m_leaves = tree.leaves(&tree.nodes[neighbor_m.into()]);
-        let face_n_leaves = tree.leaves(&tree.nodes[neighbor_n.into()]);
-        let diag_leaves = tree.leaves(&tree.nodes[neighbor_diag.into()]);
+        let face_m_leaves = tree.leaves(&tree.nodes[neighbor_m.slot()]);
+        let face_n_leaves = tree.leaves(&tree.nodes[neighbor_n.slot()]);
+        let diag_leaves = tree.leaves(&tree.nodes[neighbor_diag.slot()]);
         let sub_subnodes = tree.orthants_leaves_on_facet(node, facet_m);
         let sub_subnode = |k: usize| sub_subnodes[k / L].and_then(|inner| inner[k % L]);
         if let Some(node_m_a) = sub_subnode(m_a)
@@ -106,17 +108,17 @@ fn template_inner<T, U>(
             && let Some(node_diag_a) = diag_leaves[diag_a]
             && let Some(node_diag_b) = diag_leaves[diag_b]
         {
-            let center_m_a = center_nodes[node_m_a.into()];
-            let center_m_b = center_nodes[node_m_b.into()];
-            let center_m_c = center_nodes[node_m_c.into()];
-            let center_m_d = center_nodes[node_m_d.into()];
-            let face_m_a = center_nodes[node_face_m_a.into()];
-            let face_m_b = center_nodes[node_face_m_b.into()];
-            let face_n_a = center_nodes[node_face_n_a.into()];
-            let face_n_b = center_nodes[node_face_n_b.into()];
-            let diag_a = center_nodes[node_diag_a.into()];
-            let diag_b = center_nodes[node_diag_b.into()];
-            let length: Scalar = tree.nodes[node_m_a.into()].length.into();
+            let center_m_a = center_nodes[node_m_a.slot()];
+            let center_m_b = center_nodes[node_m_b.slot()];
+            let center_m_c = center_nodes[node_m_c.slot()];
+            let center_m_d = center_nodes[node_m_d.slot()];
+            let face_m_a = center_nodes[node_face_m_a.slot()];
+            let face_m_b = center_nodes[node_face_m_b.slot()];
+            let face_n_a = center_nodes[node_face_n_a.slot()];
+            let face_n_b = center_nodes[node_face_n_b.slot()];
+            let diag_a = center_nodes[node_diag_a.slot()];
+            let diag_b = center_nodes[node_diag_b.slot()];
+            let length: Scalar = tree.nodes[node_m_a.slot()].length.scalar();
             let offset_m = &facet_direction(facet_m) * length;
             let offset_n = &facet_direction(facet_n) * length;
             let base_a = coordinates[center_m_a].clone();

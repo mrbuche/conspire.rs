@@ -1,3 +1,5 @@
+use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -13,8 +15,8 @@ use std::{array::from_fn, collections::HashMap};
 
 impl<T, U, V> From<Octree<T, U, V>> for Mesh<3>
 where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     fn from(octree: Octree<T, U, V>) -> Self {
         let (elements_faces, faces_nodes, mut coordinates) = polytopes(&octree);
@@ -31,8 +33,8 @@ where
 
 impl<T, U, V> From<Quadtree<T, U, V>> for Mesh<2>
 where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     fn from(quadtree: Quadtree<T, U, V>) -> Self {
         let (elements_faces, faces_nodes, mut coordinates) = polytopes(&quadtree);
@@ -51,9 +53,12 @@ fn corner_length<const D: usize, const M: usize, const N: usize, T, U, V>(
     node: &Node<D, M, N, T, U, V>,
 ) -> ([usize; D], usize)
 where
-    T: Copy + Into<usize>,
+    T: Cell,
 {
-    (from_fn(|axis| node.corner[axis].into()), node.length.into())
+    (
+        from_fn(|axis| node.corner[axis].cells()),
+        node.length.cells(),
+    )
 }
 
 fn gather<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>(
@@ -62,15 +67,15 @@ fn gather<const D: usize, const L: usize, const M: usize, const N: usize, T, U, 
     facet: usize,
     leaves: &mut Vec<usize>,
 ) where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     match tree.nodes[index].orthants() {
         None => leaves.push(index),
         Some(orthants) => (0..L).for_each(|k| {
             gather(
                 tree,
-                orthants[insert_bit(k, facet >> 1, facet & 1)].into(),
+                orthants[insert_bit(k, facet >> 1, facet & 1)].slot(),
                 facet,
                 leaves,
             )
@@ -82,8 +87,8 @@ fn polytopes<const D: usize, const L: usize, const M: usize, const N: usize, T, 
     tree: &Orthotree<D, L, M, N, T, U, V>,
 ) -> (Vec<Vec<usize>>, Vec<Vec<usize>>, Coordinates<D>)
 where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     let mut element_of = vec![usize::MAX; tree.nodes.len()];
     let leaves = tree
@@ -190,8 +195,8 @@ where
             .for_each(|&element| elements_faces[element].push(index));
     };
     let root = &tree.nodes[0];
-    let lo: [usize; D] = from_fn(|axis| root.corner[axis].into());
-    let hi: [usize; D] = from_fn(|axis| lo[axis] + root.length.into());
+    let lo: [usize; D] = from_fn(|axis| root.corner[axis].cells());
+    let hi: [usize; D] = from_fn(|axis| lo[axis] + root.length.cells());
     for &index in &leaves {
         let element = element_of[index];
         let (corner, length) = corner_length(&tree.nodes[index]);
@@ -200,7 +205,7 @@ where
             let plane = corner[axis] + side * length;
             match tree.nodes[index].facets[facet] {
                 Some(neighbor) => {
-                    let neighbor = neighbor.into();
+                    let neighbor = neighbor.slot();
                     if tree.nodes[neighbor].is_tree() {
                         let mut fine = Vec::new();
                         gather(tree, neighbor, facet ^ 1, &mut fine);

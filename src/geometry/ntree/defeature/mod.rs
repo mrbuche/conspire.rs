@@ -1,3 +1,5 @@
+use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -11,8 +13,8 @@ use std::{
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
 where
-    T: Copy + Into<usize>,
-    U: Copy + From<usize> + Into<usize>,
+    T: Cell,
+    U: Slot,
     V: Copy + Eq + Hash,
 {
     pub fn defeature(&mut self, minimum: usize) {
@@ -39,7 +41,7 @@ where
             let Some(neighbors) = differing.get(&leaf) else {
                 continue;
             };
-            let length: usize = self.nodes[leaf].length.into();
+            let length: usize = self.nodes[leaf].length.cells();
             let facet_area = length.pow((D - 1) as u32);
             let differing_area: usize = neighbors.values().sum();
             if differing_area >= (M - 1) * facet_area {
@@ -69,7 +71,7 @@ where
         let mut value: HashMap<usize, V> = HashMap::new();
         for &leaf in &leaves {
             let root = find(&mut parent, leaf);
-            let length: usize = self.nodes[leaf].length.into();
+            let length: usize = self.nodes[leaf].length.cells();
             *volume.entry(root).or_default() += length.pow(D as u32);
             value
                 .entry(root)
@@ -153,11 +155,11 @@ where
         let mut visited: HashSet<(usize, usize)> = HashSet::new();
         let mut pairs: Vec<(usize, usize, usize)> = Vec::new();
         for &leaf in &leaves {
-            let length: usize = self.nodes[leaf].length.into();
+            let length: usize = self.nodes[leaf].length.cells();
             for face in 0..M {
                 if let Some(neighbor) = self.nodes[leaf].facets[face] {
                     let mut others = Vec::new();
-                    self.face_leaves(neighbor.into(), face ^ 1, &mut others);
+                    self.face_leaves(neighbor.slot(), face ^ 1, &mut others);
                     for other in others {
                         if self.nodes[other].value.is_some() {
                             let key = if leaf < other {
@@ -166,7 +168,7 @@ where
                                 (other, leaf)
                             };
                             if visited.insert(key) {
-                                let span: usize = self.nodes[other].length.into();
+                                let span: usize = self.nodes[other].length.cells();
                                 pairs.push((leaf, other, length.min(span).pow((D - 1) as u32)));
                             }
                         }
@@ -182,7 +184,7 @@ where
             Kind::Tree(orthants) => {
                 let (axis, side) = (face >> 1, face & 1);
                 for i in 0..L {
-                    let child = orthants[insert_bit(i, axis, side)].into();
+                    let child = orthants[insert_bit(i, axis, side)].slot();
                     self.face_leaves(child, face, out);
                 }
             }

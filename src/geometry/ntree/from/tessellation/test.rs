@@ -2,7 +2,8 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{Connectivity, Mesh, Tessellation},
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
+        ntree::node::{Node, cell::Cell},
+        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
     },
     math::{Quantity, Tensor},
     units::Length,
@@ -68,19 +69,22 @@ fn tighter_curvature_tolerance_refines_more() {
     let tessellation = sphere(12, 24, 2.0);
     let scale = 4.0;
     let loose =
-        Octree::<u16, usize>::from_features(&tessellation, scale, curvature(Quantity::new(1.0)), 0);
+        Octree::<u16, usize>::from_features(&tessellation, scale, curvature(Quantity::new(1.0)), 0)
+            .unwrap();
     let medium = Octree::<u16, usize>::from_features(
         &tessellation,
         scale,
         curvature(Quantity::new(1.0e-2)),
         0,
-    );
+    )
+    .unwrap();
     let tight = Octree::<u16, usize>::from_features(
         &tessellation,
         scale,
         curvature(Quantity::new(1.0e-3)),
         0,
-    );
+    )
+    .unwrap();
     assert!(medium.len() > loose.len());
     assert!(tight.len() > medium.len());
 }
@@ -94,9 +98,11 @@ fn default_curvature_sizing_disables_curvature_refinement() {
         scale,
         curvature(Quantity::new(1.0e-3)),
         0,
-    );
+    )
+    .unwrap();
     let with_default =
-        Octree::<u16, usize>::from_features(&tessellation, scale, CurvatureSizing::default(), 0);
+        Octree::<u16, usize>::from_features(&tessellation, scale, CurvatureSizing::default(), 0)
+            .unwrap();
     assert!(with_default.len() <= without.len());
 }
 
@@ -168,7 +174,7 @@ fn pored_cube(radius: f64) -> Tessellation {
 }
 
 fn refinement(tessellation: &Tessellation, curvature: CurvatureSizing) -> (f64, Vec<[f64; 3]>) {
-    let mut octree = Octree::<u16, usize>::from_features(tessellation, 5.0, curvature, 0);
+    let mut octree = Octree::<u16, usize>::from_features(tessellation, 5.0, curvature, 0).unwrap();
     octree
         .equilibrate(Balancing::Weak(1), Pairing::Regular)
         .unwrap();
@@ -235,5 +241,121 @@ fn a_tolerance_does_not_refine_a_polyhedron() {
     assert_eq!(
         tight, without,
         "no tolerance is tight enough to curve a flat face"
+    );
+}
+
+#[test]
+fn refuses_a_depth_no_cell_length_can_index() {
+    let tessellation = sphere(4, 8, 2.0);
+    assert_eq!(
+        Octree::<u16, usize>::from_features(&tessellation, 1.0e6, CurvatureSizing::default(), 0)
+            .err(),
+        Some("sizing field exceeds maximum octree depth")
+    );
+    assert!(
+        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
+            .is_ok()
+    );
+}
+
+#[test]
+fn refuses_a_target_the_finest_cell_cannot_meet() {
+    let tessellation = tessellate(
+        vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        vec![[0, 1, 2]],
+    );
+    assert_eq!(
+        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
+            .err(),
+        Some("sizing field falls below minimum octree cell size")
+    );
+}
+
+#[test]
+fn a_wider_cell_carries_the_whole_pipeline() {
+    let tessellation = sphere(4, 8, 2.0);
+    let narrow =
+        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
+            .unwrap();
+    let mut wide =
+        Octree::<u32, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
+            .unwrap();
+    assert_eq!(narrow.len(), wide.len());
+    wide.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    assert_eq!(wide.dualize().number_of_elements(), {
+        let mut narrow = narrow;
+        narrow
+            .equilibrate(Balancing::Weak(1), Pairing::Regular)
+            .unwrap();
+        narrow.dualize().number_of_elements()
+    });
+}
+
+#[test]
+fn a_wider_cell_indexes_a_depth_a_narrower_one_refuses() {
+    let tessellation = sphere(4, 8, 2.0);
+    assert_eq!(
+        Octree::<u16, usize>::from_features(&tessellation, 1.0e6, CurvatureSizing::default(), 0)
+            .err(),
+        Some("sizing field exceeds maximum octree depth")
+    );
+    assert_eq!(u32::length(1 << 20), Some(1u32 << 20));
+}
+
+#[test]
+fn a_size_field_knows_the_depth_it_asks_for() {
+    let tessellation = sphere(4, 8, 2.0);
+    let ordinary = Sizing::new(&tessellation, 4.0, CurvatureSizing::default(), 0);
+    assert!(ordinary.levels() <= 15);
+    assert!(ordinary.fits::<u16>());
+    assert!(Octree::<u16, usize>::refine(&ordinary).is_ok());
+    let deep = Sizing::new(&tessellation, 1.0e6, CurvatureSizing::default(), 0);
+    assert!(deep.levels() > 15);
+    assert!(!deep.fits::<u16>());
+    assert!(deep.fits::<u32>());
+    assert_eq!(
+        Octree::<u16, usize>::refine(&deep).err(),
+        Some("sizing field exceeds maximum octree depth")
+    );
+}
+
+#[test]
+fn a_leaner_index_builds_the_same_tree() {
+    let tessellation = sphere(4, 8, 2.0);
+    let sizing = Sizing::new(&tessellation, 4.0, CurvatureSizing::default(), 0);
+    let mut wide = Octree::<u16, usize>::refine(&sizing).unwrap();
+    let mut lean = Octree::<u16, u32>::refine(&sizing).unwrap();
+    assert_eq!(wide.len(), lean.len());
+    wide.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    lean.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    assert_eq!(wide.len(), lean.len());
+    assert_eq!(
+        wide.dualize().number_of_elements(),
+        lean.dualize().number_of_elements()
+    );
+    assert!(size_of::<Node<3, 6, 8, u16, u32, ()>>() < size_of::<Node<3, 6, 8, u16, usize, ()>>());
+}
+
+#[test]
+fn a_niched_index_builds_the_same_tree() {
+    use std::num::NonZeroU32;
+    let tessellation = sphere(4, 8, 2.0);
+    let sizing = Sizing::new(&tessellation, 4.0, CurvatureSizing::default(), 0);
+    let mut wide = Octree::<u16, usize>::refine(&sizing).unwrap();
+    let mut lean = Octree::<u16, NonZeroU32>::refine(&sizing).unwrap();
+    assert_eq!(wide.len(), lean.len());
+    wide.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    lean.equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    assert_eq!(
+        wide.dualize().number_of_elements(),
+        lean.dualize().number_of_elements()
+    );
+    assert!(
+        size_of::<Node<3, 6, 8, u16, NonZeroU32, ()>>() < size_of::<Node<3, 6, 8, u16, u32, ()>>()
     );
 }

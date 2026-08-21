@@ -83,7 +83,8 @@ pub(super) fn signed_volumes(
 
 pub(super) fn dual(tessellation: &Tessellation, scale: f64) -> Mesh<3> {
     let mut octree =
-        Octree::<u16, usize>::from_features(tessellation, scale, CurvatureSizing::default(), 2);
+        Octree::<u16, usize>::from_features(tessellation, scale, CurvatureSizing::default(), 2)
+            .unwrap();
     octree
         .equilibrate(Balancing::Strong(1), Pairing::Regular)
         .unwrap();

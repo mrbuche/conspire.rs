@@ -1,15 +1,16 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
 use crate::{
     geometry::{
-        Coordinate, CoordinateList,
+        Coordinate, CoordinateList, Coordinates,
         bbox::BoundingBox,
         mesh::{Tessellation, remesh::adaptive::sizing_field},
         ntree::{
             Octree,
             balance::Balancing,
-            node::{Kind, Node, split::Split},
+            node::{Kind, Node, cell::Cell},
             pair::Pairing,
             rescale::Rescaling,
         },
@@ -17,7 +18,7 @@ use crate::{
     math::{Quantity, Scalar, Tensor, TensorVec},
     units::Length,
 };
-use std::{array::from_fn, f64::consts::FRAC_PI_4, ops::Add};
+use std::{array::from_fn, f64::consts::FRAC_PI_4};
 
 const D: usize = 3;
 const M: usize = 6;
@@ -52,21 +53,28 @@ impl Default for CurvatureSizing {
     }
 }
 
-impl<T, U> Octree<T, U>
-where
-    T: Add<Output = T> + Copy + From<u16> + Into<Scalar> + Into<usize> + PartialOrd + Split,
-    U: Copy + From<usize> + Into<usize>,
-{
-    /// Builds an octree from a tessellation, refining cells where either the
-    /// local thickness (SDF) or the local curvature demands a smaller size.
-    ///
-    /// `scale` controls cells-per-thickness, as before; `curvature` controls
-    /// curvature-driven refinement independent of thickness (e.g. a sphere
-    /// has ~constant thickness everywhere but can still demand refinement
-    /// from curvature alone). `padding` adds extra empty root levels in case
-    /// the tessellation's boundary overlaps the primordial primal node.
-    pub fn from_features(
-        tessellation: &Tessellation,
+/// The size field that an octree is refined with.
+///
+/// `levels` is the depth the field asks for, and is the whole reason this is
+/// separate from the tree: it decides how wide a cell length has to be, so a
+/// caller reads it before naming the `T` it builds with, rather than after.
+/// Everything here is the same work whatever that `T` turns out to be, the
+/// shape diameter function among it, so [`refine`](Octree::refine) can be
+/// tried at one width and retried at another without paying for any of it
+/// twice.
+pub struct Sizing<'a> {
+    center: Coordinate<D>,
+    coordinates: &'a Coordinates<D>,
+    elements: Vec<&'a [usize]>,
+    levels: u32,
+    min_length: Quantity<Length>,
+    scale: Scalar,
+    targets: Vec<Quantity<Length>>,
+}
+
+impl<'a> Sizing<'a> {
+    pub fn new(
+        tessellation: &'a Tessellation,
         scale: Scalar,
         curvature: CurvatureSizing,
         padding: u16,
@@ -80,20 +88,13 @@ where
         let coordinates = tessellation.mesh().coordinates();
         if coordinates.is_empty() {
             return Self {
-                balanced: Balancing::None,
-                nodes: vec![Node {
-                    corner: from_fn(|_| T::from(0)),
-                    length: T::from(1),
-                    facets: [None; M],
-                    kind: Kind::Leaf,
-                    value: None,
-                }],
-                paired: Pairing::None,
-                rescale: Rescaling {
-                    center: Coordinate::const_from([0.0; D]),
-                    cell: Quantity::new(1.0),
-                    half: 0.0,
-                },
+                center: Coordinate::const_from([0.0; D]),
+                coordinates,
+                elements: Vec::new(),
+                levels: 0,
+                min_length: Quantity::new(1.0),
+                scale,
+                targets: Vec::new(),
             };
         }
         let mut min_coord = [Quantity::<Length>::new(Scalar::INFINITY); D];
@@ -153,26 +154,6 @@ where
                 .max(Quantity::default())
                 .value() as u32
         };
-        let root_length: u16 = 1u16.checked_shl(levels).unwrap_or(u16::MAX);
-        let center = Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
-            (min_coord[ax] + max_coord[ax]) / 2.0
-        }));
-        let mut tree = Self {
-            balanced: Balancing::None,
-            rescale: Rescaling {
-                center: center.clone(),
-                cell: min_length,
-                half: root_length as Scalar / 2.0,
-            },
-            nodes: vec![Node {
-                corner: from_fn(|_| T::from(0)),
-                length: T::from(root_length),
-                facets: [None; M],
-                kind: Kind::Leaf,
-                value: None,
-            }],
-            paired: Pairing::None,
-        };
         let targets: Vec<Quantity<Length>> = elements
             .iter()
             .map(|element| {
@@ -184,7 +165,102 @@ where
                 thickness.min(feature)
             })
             .collect();
-        let half = root_length as Scalar / 2.0;
+        Self {
+            center: Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
+                (min_coord[ax] + max_coord[ax]) / 2.0
+            })),
+            coordinates,
+            elements,
+            levels,
+            min_length,
+            scale,
+            targets,
+        }
+    }
+    pub fn levels(&self) -> u32 {
+        self.levels
+    }
+    /// Whether a cell length of this type can index the depth asked for.
+    pub(crate) fn fits<T: Cell>(&self) -> bool {
+        1usize
+            .checked_shl(self.levels)
+            .and_then(T::length)
+            .is_some()
+    }
+}
+
+impl<T, U> Octree<T, U>
+where
+    T: Cell,
+    U: Slot,
+{
+    /// Builds an octree from a tessellation, refining cells where either the
+    /// local thickness or the local curvature demands a smaller size.
+    ///
+    /// `scale` controls cells-per-thickness; `curvature` controls
+    /// curvature-driven refinement independent of thickness (e.g. a sphere
+    /// has ~constant thickness everywhere but can still demand refinement
+    /// from curvature alone). `padding` adds extra empty root levels in case
+    /// the tessellation's boundary overlaps the primordial primal node.
+    pub fn from_features(
+        tessellation: &Tessellation,
+        scale: Scalar,
+        curvature: CurvatureSizing,
+        padding: u16,
+    ) -> Result<Self, &'static str> {
+        Self::refine(&Sizing::new(tessellation, scale, curvature, padding))
+    }
+    /// Refines an octree to a given size field.
+    pub fn refine(sizing: &Sizing) -> Result<Self, &'static str> {
+        let Sizing {
+            center,
+            coordinates,
+            elements,
+            levels,
+            min_length,
+            scale,
+            targets,
+        } = sizing;
+        let (center, min_length, scale) = (center, *min_length, *scale);
+        if elements.is_empty() {
+            return Ok(Self {
+                balanced: Balancing::None,
+                nodes: vec![Node {
+                    corner: from_fn(|_| T::ZERO),
+                    length: T::ONE,
+                    facets: [None; M],
+                    kind: Kind::Leaf,
+                    value: None,
+                }],
+                paired: Pairing::None,
+                rescale: Rescaling {
+                    center: Coordinate::const_from([0.0; D]),
+                    cell: Quantity::new(1.0),
+                    half: 0.0,
+                },
+            });
+        }
+        let root_length = 1usize
+            .checked_shl(*levels)
+            .and_then(T::length)
+            .ok_or("sizing field exceeds maximum octree depth")?;
+        let half = root_length.scalar() / 2.0;
+        let mut tree = Self {
+            balanced: Balancing::None,
+            rescale: Rescaling {
+                center: center.clone(),
+                cell: min_length,
+                half,
+            },
+            nodes: vec![Node {
+                corner: from_fn(|_| T::ZERO),
+                length: root_length,
+                facets: [None; M],
+                kind: Kind::Leaf,
+                value: None,
+            }],
+            paired: Pairing::None,
+        };
         let overlaps = |bbox: &BoundingBox<3>, triangle: usize| {
             let element = elements[triangle];
             bbox.overlaps_triangle(
@@ -195,29 +271,30 @@ where
         };
         let mut stack: Vec<(usize, Vec<usize>)> = vec![(0, (0..elements.len()).collect())];
         while let Some((index, overlapping)) = stack.pop() {
-            let cells: usize = tree.nodes[index].length.into();
-            let extent: Scalar = tree.nodes[index].length.into();
+            let cells: usize = tree.nodes[index].length.cells();
+            let extent: Scalar = tree.nodes[index].length.scalar();
             let target = overlapping
                 .iter()
                 .map(|&triangle| targets[triangle])
                 .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
-            if cells <= 1 || min_length * (extent * scale) <= target {
+            if min_length * (extent * scale) <= target {
                 continue;
             }
-            if tree.subdivide(U::from(index)).is_err() {
-                continue;
+            if cells <= 1 {
+                return Err("sizing field falls below minimum octree cell size");
             }
+            tree.subdivide(index)?;
             let children: Vec<usize> = tree.nodes[index]
                 .orthants()
                 .unwrap()
                 .iter()
-                .map(|&child| child.into())
+                .map(|&child| child.slot())
                 .collect();
             for child in children {
                 let corner = tree.nodes[child].corner;
-                let child_extent: Scalar = tree.nodes[child].length.into();
+                let child_extent: Scalar = tree.nodes[child].length.scalar();
                 let minimum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
-                    center[ax] + min_length * (Into::<Scalar>::into(corner[ax]) - half)
+                    center[ax] + min_length * (corner[ax].scalar() - half)
                 }));
                 let maximum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
                     minimum[ax] + min_length * child_extent
@@ -233,6 +310,6 @@ where
                 }
             }
         }
-        tree
+        Ok(tree)
     }
 }

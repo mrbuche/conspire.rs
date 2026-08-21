@@ -1,3 +1,5 @@
+use crate::geometry::ntree::node::cell::Cell;
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -46,8 +48,8 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V, P>
     for Orthotree<D, L, M, N, T, U, V>
 where
     P: AsRef<Path>,
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
     V: HtgValue,
 {
     fn write_htg(&self, output: P) -> Result<()> {
@@ -61,8 +63,8 @@ where
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
 where
-    T: Copy + Into<Scalar> + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
     V: HtgValue,
 {
     fn write_htg_impl<P: AsRef<Path>>(&self, output: P, compress: bool) -> Result<()> {
@@ -73,8 +75,8 @@ where
             ));
         }
         let root = &self.nodes[0];
-        let corner: [Scalar; D] = from_fn(|axis| root.corner[axis].into());
-        let length: Scalar = root.length.into();
+        let corner: [Scalar; D] = from_fn(|axis| root.corner[axis].scalar());
+        let length: Scalar = root.length.scalar();
         let lo = self.rescale().apply(&corner.into());
         let hi = self
             .rescale()
@@ -93,7 +95,7 @@ where
                 values.push(self.nodes[index].value.and_then(HtgValue::to_scalar));
                 if let Some(orthants) = self.nodes[index].orthants() {
                     descriptor.push(1);
-                    next.extend(orthants.iter().map(|&child| child.into()));
+                    next.extend(orthants.iter().map(|&child| child.slot()));
                 } else {
                     descriptor.push(0);
                 }

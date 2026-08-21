@@ -1,13 +1,13 @@
+use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
 use crate::geometry::ntree::{
     Orthotree,
     balance::{Balance, Balancing},
-    node::split::Split,
+    node::cell::Cell,
     pair::Pairing,
 };
-use std::ops::Add;
 
 const D: usize = 2;
 const L: usize = 2;
@@ -18,8 +18,8 @@ const FACE_ORTHANTS: [[usize; 2]; M] = [[1, 3], [0, 2], [2, 3], [0, 1]];
 
 impl<T, U, V> Orthotree<D, L, M, N, T, U, V>
 where
-    T: Copy + Into<usize>,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     fn deep_toward(&self, cell: U, orthants: &[usize], depth: usize) -> bool {
         match self[cell].orthants() {
@@ -50,8 +50,8 @@ where
 
 impl<T, U, V> Balance for Orthotree<D, L, M, N, T, U, V>
 where
-    T: Add<Output = T> + Copy + Split + Into<usize>,
-    U: Copy + From<usize> + Into<usize>,
+    T: Cell,
+    U: Slot,
     V: Copy,
 {
     fn balance(&mut self, balancing: Balancing) -> bool {
@@ -65,9 +65,8 @@ where
             index = 0;
             subdivide = false;
             while index < self.len() {
-                if !self[index.into()].is_unit() && self[index.into()].is_leaf() {
-                    'faces: for (face, face_cell) in self[index.into()].facets().iter().enumerate()
-                    {
+                if !self.nodes[index].is_unit() && self.nodes[index].is_leaf() {
+                    'faces: for (face, face_cell) in self.nodes[index].facets().iter().enumerate() {
                         if let Some(neighbor) = face_cell
                             && let Some(children) = self[*neighbor].orthants()
                         {
@@ -86,7 +85,7 @@ where
                         }
                     }
                     if subdivide {
-                        self.subdivide(index.into()).unwrap();
+                        self.subdivide(index).unwrap();
                         balanced = false;
                         balanced_already = false;
                         subdivide = false;

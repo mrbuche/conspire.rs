@@ -1,8 +1,9 @@
+use crate::geometry::ntree::node::slot::Slot;
 use crate::geometry::ntree::{
     Orthotree,
-    node::{Kind, split::Split},
+    node::{Kind, cell::Cell},
 };
-use std::{array::from_fn, ops::Add};
+use std::array::from_fn;
 
 const fn mirror_facet(facet: usize) -> usize {
     facet ^ 1
@@ -18,8 +19,8 @@ pub(crate) const fn insert_bit(x: usize, axis: usize, bit: usize) -> usize {
 impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V>
     Orthotree<D, L, M, N, T, U, V>
 where
-    T: Add<Output = T> + Copy + Split + Into<usize>,
-    U: Copy + From<usize> + Into<usize>,
+    T: Cell,
+    U: Slot,
     V: Copy,
 {
     fn nodes_on_face(facet: usize) -> [usize; L] {
@@ -28,10 +29,14 @@ where
     fn nodes_on_other_face(face: usize) -> [usize; L] {
         Self::nodes_on_face(mirror_facet(face))
     }
-    pub fn subdivide(&mut self, index: U) -> Result<(), &'static str> {
-        let indices = from_fn(|n| (self.len() + n).into());
-        let mut orthants = self[index].subdivide(indices)?;
-        for (facet, node_facet) in self[index].facets.into_iter().enumerate() {
+    pub fn subdivide(&mut self, index: usize) -> Result<(), &'static str> {
+        let base = self.len();
+        if U::at(base + N - 1).is_none() {
+            return Err("tree exceeds the nodes an index can address");
+        }
+        let indices = from_fn(|n| U::at(base + n).unwrap());
+        let mut orthants = self.nodes[index].subdivide(indices)?;
+        for (facet, node_facet) in self.nodes[index].facets.into_iter().enumerate() {
             if let Some(facet_node) = node_facet
                 && let Some(neighbors) = self[facet_node].orthants().copied()
             {
@@ -53,8 +58,8 @@ where
             }
         }
         self.extend(orthants);
-        self[index].kind = Kind::Tree(indices);
-        self[index].value = None;
+        self.nodes[index].kind = Kind::Tree(indices);
+        self.nodes[index].value = None;
         Ok(())
     }
 }

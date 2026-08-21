@@ -47,7 +47,8 @@ fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellati
 fn dualized_slender_torus_is_not_inverted() {
     let tessellation = torus(1.0, 0.15, 64, 24);
     let mut octree =
-        Octree::<u16, usize>::from_features(&tessellation, 3.0, CurvatureSizing::default(), 0);
+        Octree::<u16, usize>::from_features(&tessellation, 3.0, CurvatureSizing::default(), 0)
+            .unwrap();
     octree
         .equilibrate(Balancing::Strong(1), Pairing::Regular)
         .unwrap();

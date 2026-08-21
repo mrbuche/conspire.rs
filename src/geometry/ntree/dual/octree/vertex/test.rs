@@ -1,15 +1,16 @@
 use super::super::{D, N};
+use crate::geometry::ntree::node::slot::Slot;
 use crate::geometry::{
     Coordinate,
     mesh::Mesh,
     ntree::{
         Octree,
         balance::Balancing,
-        node::{Kind, split::Split},
+        node::{Kind, cell::Cell},
     },
 };
 use crate::math::Quantity;
-use std::{array::from_fn, ops::Add};
+use std::array::from_fn;
 
 const ROTATIONS: [[usize; 8]; 24] = [
     [0, 1, 2, 3, 4, 5, 6, 7],
@@ -204,8 +205,8 @@ pub(crate) fn vertex_dual_generic<T, U>(
     center_nodes: &[usize],
 ) -> Vec<[usize; N]>
 where
-    T: Copy + Into<usize> + Add<Output = T> + PartialOrd + Split,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     const WIND: [usize; N] = [0, 1, 3, 2, 4, 5, 7, 6];
     let root = &tree.nodes[0];
@@ -224,8 +225,8 @@ where
 
 fn find_leaf_octant<T, U>(tree: &Octree<T, U>, v: &[T; D], d: usize) -> usize
 where
-    T: Copy + Add<Output = T> + PartialOrd + Split,
-    U: Copy + Into<usize>,
+    T: Cell,
+    U: Slot,
 {
     let mut index = 0;
     loop {
@@ -245,7 +246,7 @@ where
                     };
                     acc | (bit << a)
                 });
-                index = orthants[child].into();
+                index = orthants[child].slot();
             }
         }
     }

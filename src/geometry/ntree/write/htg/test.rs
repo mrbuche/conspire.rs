@@ -143,7 +143,7 @@ fn geometric_tree_has_no_value_array() {
 #[test]
 fn valued_octree_writes_value_array() {
     let data: Vec<u8> = (1..=8).collect();
-    let octree = Octree::<u16, usize, u8>::from(Voxels::new(data, [2, 2, 2]));
+    let octree = Octree::<u16, usize, u8>::try_from(Voxels::new(data, [2, 2, 2])).unwrap();
     let path = "target/octree_value.htg";
     octree.write_htg(path).unwrap();
     let contents = read_to_string(path).unwrap();
