@@ -42,7 +42,6 @@ fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellati
     )))
 }
 
-/// The octree dual, trimmed and buffered, is a sound mesh of the solid.
 #[test]
 fn dualized_slender_torus_is_not_inverted() {
     let tessellation = torus(1.0, 0.15, 64, 24);
@@ -65,7 +64,6 @@ fn dualized_slender_torus_is_not_inverted() {
     assert!(worst > 0.15, "{worst}");
 }
 
-/// Trimming sees the same solid however small the unit of length makes it.
 #[test]
 fn trim_keeps_the_same_cells_at_any_scale() {
     let trimmed = |scale: Scalar| {

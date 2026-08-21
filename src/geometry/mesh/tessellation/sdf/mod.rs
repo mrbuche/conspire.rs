@@ -46,8 +46,6 @@ impl Tessellation {
                             .for_each(|(local, diameter)| {
                                 let face = offset + local;
                                 if !normals[face].norm().value().is_finite() {
-                                    // A degenerate (zero-area) triangle has no
-                                    // well-defined normal to cast a cone from.
                                     return;
                                 }
                                 let samples =
