@@ -68,19 +68,22 @@ fn tighter_curvature_tolerance_refines_more() {
     let tessellation = sphere(12, 24, 2.0);
     let scale = 4.0;
     let loose =
-        Octree::<u16, usize>::from_features(&tessellation, scale, curvature(Quantity::new(1.0)), 0);
+        Octree::<u16, usize>::from_features(&tessellation, scale, curvature(Quantity::new(1.0)), 0)
+            .unwrap();
     let medium = Octree::<u16, usize>::from_features(
         &tessellation,
         scale,
         curvature(Quantity::new(1.0e-2)),
         0,
-    );
+    )
+    .unwrap();
     let tight = Octree::<u16, usize>::from_features(
         &tessellation,
         scale,
         curvature(Quantity::new(1.0e-3)),
         0,
-    );
+    )
+    .unwrap();
     assert!(medium.len() > loose.len());
     assert!(tight.len() > medium.len());
 }
@@ -94,9 +97,11 @@ fn default_curvature_sizing_disables_curvature_refinement() {
         scale,
         curvature(Quantity::new(1.0e-3)),
         0,
-    );
+    )
+    .unwrap();
     let with_default =
-        Octree::<u16, usize>::from_features(&tessellation, scale, CurvatureSizing::default(), 0);
+        Octree::<u16, usize>::from_features(&tessellation, scale, CurvatureSizing::default(), 0)
+            .unwrap();
     assert!(with_default.len() <= without.len());
 }
 
@@ -168,7 +173,7 @@ fn pored_cube(radius: f64) -> Tessellation {
 }
 
 fn refinement(tessellation: &Tessellation, curvature: CurvatureSizing) -> (f64, Vec<[f64; 3]>) {
-    let mut octree = Octree::<u16, usize>::from_features(tessellation, 5.0, curvature, 0);
+    let mut octree = Octree::<u16, usize>::from_features(tessellation, 5.0, curvature, 0).unwrap();
     octree
         .equilibrate(Balancing::Weak(1), Pairing::Regular)
         .unwrap();
@@ -235,5 +240,36 @@ fn a_tolerance_does_not_refine_a_polyhedron() {
     assert_eq!(
         tight, without,
         "no tolerance is tight enough to curve a flat face"
+    );
+}
+
+#[test]
+fn refuses_a_depth_no_cell_length_can_index() {
+    let tessellation = sphere(4, 8, 2.0);
+    // A scale this fine asks for 2^20 cells across the root, past what the u16
+    // a cell length is built from can hold.
+    assert_eq!(
+        Octree::<u16, usize>::from_features(&tessellation, 1.0e6, CurvatureSizing::default(), 0)
+            .err(),
+        Some("the sizing field asks for an octree deeper than a cell length can index")
+    );
+    assert!(
+        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
+            .is_ok()
+    );
+}
+
+#[test]
+fn refuses_a_target_the_finest_cell_cannot_meet() {
+    // An open surface has no thickness to find, so its shape diameter is zero
+    // and no cell is ever small enough to meet it.
+    let tessellation = tessellate(
+        vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+        vec![[0, 1, 2]],
+    );
+    assert_eq!(
+        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
+            .err(),
+        Some("the sizing field asks for cells finer than the octree can represent")
     );
 }

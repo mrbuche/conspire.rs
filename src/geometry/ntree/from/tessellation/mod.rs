@@ -22,6 +22,11 @@ use std::{array::from_fn, f64::consts::FRAC_PI_4, ops::Add};
 const D: usize = 3;
 const M: usize = 6;
 
+/// The deepest an octree can be refined: a root spanning `1 << LEVELS` cells
+/// has to fit the `u16` every cell length is built from, and has to stay a
+/// power of two so that halving keeps children on the lattice.
+const LEVELS: u32 = u16::BITS - 1;
+
 /// Parameters controlling curvature-driven octree refinement.
 ///
 /// `tolerance` is the Dunyach chord-error tolerance (an absolute length, like
@@ -70,7 +75,7 @@ where
         scale: Scalar,
         curvature: CurvatureSizing,
         padding: u16,
-    ) -> Self {
+    ) -> Result<Self, &'static str> {
         let CurvatureSizing {
             tolerance,
             gradation,
@@ -79,7 +84,7 @@ where
         let sdf = tessellation.shape_diameter_function(FRAC_PI_4, 3, 10);
         let coordinates = tessellation.mesh().coordinates();
         if coordinates.is_empty() {
-            return Self {
+            return Ok(Self {
                 balanced: Balancing::None,
                 nodes: vec![Node {
                     corner: from_fn(|_| T::from(0)),
@@ -94,7 +99,7 @@ where
                     cell: Quantity::new(1.0),
                     half: 0.0,
                 },
-            };
+            });
         }
         let mut min_coord = [Quantity::<Length>::new(Scalar::INFINITY); D];
         let mut max_coord = [Quantity::<Length>::new(Scalar::NEG_INFINITY); D];
@@ -153,7 +158,10 @@ where
                 .max(Quantity::default())
                 .value() as u32
         };
-        let root_length: u16 = 1u16.checked_shl(levels).unwrap_or(u16::MAX);
+        if levels > LEVELS {
+            return Err("the sizing field asks for an octree deeper than a cell length can index");
+        }
+        let root_length: u16 = 1u16 << levels;
         let center = Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
             (min_coord[ax] + max_coord[ax]) / 2.0
         }));
@@ -201,12 +209,13 @@ where
                 .iter()
                 .map(|&triangle| targets[triangle])
                 .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
-            if cells <= 1 || min_length * (extent * scale) <= target {
+            if min_length * (extent * scale) <= target {
                 continue;
             }
-            if tree.subdivide(U::from(index)).is_err() {
-                continue;
+            if cells <= 1 {
+                return Err("the sizing field asks for cells finer than the octree can represent");
             }
+            tree.subdivide(U::from(index))?;
             let children: Vec<usize> = tree.nodes[index]
                 .orthants()
                 .unwrap()
@@ -233,6 +242,6 @@ where
                 }
             }
         }
-        tree
+        Ok(tree)
     }
 }

@@ -123,7 +123,7 @@ impl Tessellation {
         scale: Scalar,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         let mut octree =
-            Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING);
+            Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING)?;
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mesh = octree.dualize();
         let classes = self.classify(&mesh);
@@ -161,7 +161,7 @@ impl Tessellation {
         scale: Scalar,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         let mut octree =
-            Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING);
+            Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING)?;
         octree.equilibrate(balancing, Pairing::Regular)?;
         let mesh = Mesh::from(octree);
         let classes = self.classify(&mesh);

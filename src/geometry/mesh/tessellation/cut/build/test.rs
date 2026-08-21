@@ -70,7 +70,8 @@ fn assemble_generic_matches_assemble_hexahedron() {
 fn assemble_generic_on_octree_polyhedron() {
     let tessellation = sphere(3);
     let mut octree =
-        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 2);
+        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 2)
+            .unwrap();
     octree
         .equilibrate(Balancing::Weak(2), Pairing::Regular)
         .unwrap();
@@ -135,7 +136,8 @@ fn tessellation_volume(tessellation: &Tessellation) -> f64 {
 
 fn generic_cut(tessellation: &Tessellation, scale: f64) -> f64 {
     let mut octree =
-        Octree::<u16, usize>::from_features(tessellation, scale, CurvatureSizing::default(), 2);
+        Octree::<u16, usize>::from_features(tessellation, scale, CurvatureSizing::default(), 2)
+            .unwrap();
     octree
         .equilibrate(Balancing::Weak(2), Pairing::Regular)
         .unwrap();
