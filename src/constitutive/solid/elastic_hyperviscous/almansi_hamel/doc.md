@@ -1,4 +1,4 @@
-The Almansi-Hamel viscoelastic solid constitutive model.
+The Almansi-Hamel elastic-hyperviscous solid constitutive model.
 
 **Parameters**
 - The bulk modulus $`\kappa`$.
