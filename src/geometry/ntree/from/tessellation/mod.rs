@@ -281,7 +281,7 @@ where
                 continue;
             }
             if cells <= 1 {
-                return Err("sizing field falls below minimum octree cell size");
+                continue;
             }
             tree.subdivide(index)?;
             let children: Vec<usize> = tree.nodes[index]

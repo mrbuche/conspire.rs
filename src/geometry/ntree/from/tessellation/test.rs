@@ -5,7 +5,7 @@ use crate::{
         ntree::node::{Node, cell::Cell},
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
     },
-    math::{Quantity, Tensor},
+    math::{Quantity, Scalar, Tensor},
     units::Length,
 };
 use std::{
@@ -259,19 +259,6 @@ fn refuses_a_depth_no_cell_length_can_index() {
 }
 
 #[test]
-fn refuses_a_target_the_finest_cell_cannot_meet() {
-    let tessellation = tessellate(
-        vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-        vec![[0, 1, 2]],
-    );
-    assert_eq!(
-        Octree::<u16, usize>::from_features(&tessellation, 4.0, CurvatureSizing::default(), 0)
-            .err(),
-        Some("sizing field falls below minimum octree cell size")
-    );
-}
-
-#[test]
 fn a_wider_cell_carries_the_whole_pipeline() {
     let tessellation = sphere(4, 8, 2.0);
     let narrow =
@@ -358,4 +345,22 @@ fn a_niched_index_builds_the_same_tree() {
     assert!(
         size_of::<Node<3, 6, 8, u16, NonZeroU32, ()>>() < size_of::<Node<3, 6, 8, u16, u32, ()>>()
     );
+}
+
+#[test]
+fn the_cell_that_set_the_size_field_is_not_a_failure() {
+    let tessellation = sphere(4, 8, 2.0);
+    (2..=40).for_each(|scale| {
+        let scale = scale as Scalar / 2.0;
+        assert!(
+            Octree::<u16, usize>::from_features(
+                &tessellation,
+                scale,
+                CurvatureSizing::default(),
+                0
+            )
+            .is_ok(),
+            "refused its own finest cell at scale {scale}"
+        )
+    })
 }
