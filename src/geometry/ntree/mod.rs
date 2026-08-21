@@ -17,7 +17,7 @@ mod write;
 pub use crate::geometry::ntree::{
     balance::{Balance, Balancing},
     dual::Dualization,
-    from::CurvatureSizing,
+    from::{CurvatureSizing, Sizing},
     node::Nodes,
     pair::Pairing,
     read::Input,

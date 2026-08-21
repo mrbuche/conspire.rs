@@ -20,7 +20,7 @@ use crate::{
             Mesh,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
+        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
     },
     math::{Quantity, Scalar},
     units::Length,
@@ -122,10 +122,16 @@ impl Tessellation {
         balancing: Balancing,
         scale: Scalar,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let mut octree =
-            Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING)?;
-        octree.equilibrate(balancing, Pairing::Regular)?;
-        let mesh = octree.dualize();
+        let sizing = Sizing::new(self, scale, CurvatureSizing::default(), PADDING);
+        let mesh = if sizing.fits::<u16>() {
+            let mut octree = Octree::<u16, usize>::refine(&sizing)?;
+            octree.equilibrate(balancing, Pairing::Regular)?;
+            octree.dualize()
+        } else {
+            let mut octree = Octree::<u32, usize>::refine(&sizing)?;
+            octree.equilibrate(balancing, Pairing::Regular)?;
+            octree.dualize()
+        };
         let classes = self.classify(&mesh);
         Ok((mesh, classes))
     }
@@ -160,10 +166,16 @@ impl Tessellation {
         balancing: Balancing,
         scale: Scalar,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let mut octree =
-            Octree::<u16, usize>::from_features(self, scale, CurvatureSizing::default(), PADDING)?;
-        octree.equilibrate(balancing, Pairing::Regular)?;
-        let mesh = Mesh::from(octree);
+        let sizing = Sizing::new(self, scale, CurvatureSizing::default(), PADDING);
+        let mesh = if sizing.fits::<u16>() {
+            let mut octree = Octree::<u16, usize>::refine(&sizing)?;
+            octree.equilibrate(balancing, Pairing::Regular)?;
+            Mesh::from(octree)
+        } else {
+            let mut octree = Octree::<u32, usize>::refine(&sizing)?;
+            octree.equilibrate(balancing, Pairing::Regular)?;
+            Mesh::from(octree)
+        };
         let classes = self.classify(&mesh);
         Ok((mesh, classes))
     }
