@@ -188,7 +188,7 @@ where
     U: Copy + From<usize> + Into<usize>,
 {
     /// Builds an octree from a tessellation, refining cells where either the
-    /// local thickness (SDF) or the local curvature demands a smaller size.
+    /// local thickness or the local curvature demands a smaller size.
     ///
     /// `scale` controls cells-per-thickness; `curvature` controls
     /// curvature-driven refinement independent of thickness (e.g. a sphere
@@ -203,7 +203,7 @@ where
     ) -> Result<Self, &'static str> {
         Self::refine(&Sizing::new(tessellation, scale, curvature, padding))
     }
-    /// Refines an octree to an already worked out size field.
+    /// Refines an octree to a given size field.
     pub fn refine(sizing: &Sizing) -> Result<Self, &'static str> {
         let Sizing {
             center,
