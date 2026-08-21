@@ -21,6 +21,27 @@ pub fn almansi_hamel<'a>() -> Vec<[&'a str; 2]> {
     ]
 }
 
+pub fn saint_venant_kirchhoff<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/elastic/saint_venant_kirchhoff",
+            include_str!("saint_venant_kirchhoff/doc.md"),
+        ],
+        [
+            "cauchy_stress",
+            include_str!("saint_venant_kirchhoff/cauchy_stress.md"),
+        ],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("saint_venant_kirchhoff/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+    ]
+}
+
 pub fn hencky<'a>() -> Vec<[&'a str; 2]> {
     vec![
         [
