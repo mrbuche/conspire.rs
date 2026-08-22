@@ -22,6 +22,15 @@ pub(crate) enum Unresolved {
     Radius,
 }
 
+/// Choices for how a crease enters the curvature fit.
+#[derive(Clone, Copy)]
+pub(crate) enum Creases {
+    /// Fit through them, like any other vertex.
+    Included,
+    /// Leave them out, sizing them from the neighbors that remain.
+    Discarded,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn sizing_field(
     connectivity: &[[usize; N]],
@@ -31,8 +40,12 @@ pub(crate) fn sizing_field(
     maximum: Quantity<Length>,
     gradation: Scalar,
     unresolved: Unresolved,
+    creases: Creases,
 ) -> Vec<Quantity<Length>> {
-    let discarded = crease_nodes(connectivity, coordinates);
+    let discarded = match creases {
+        Creases::Included => FxHashSet::default(),
+        Creases::Discarded => crease_nodes(connectivity, coordinates),
+    };
     let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates, &discarded)
         .into_iter()
         .map(|jet| {
@@ -47,7 +60,9 @@ pub(crate) fn sizing_field(
             })
         })
         .collect();
-    seed_discarded(&mut field, connectivity, &discarded, maximum);
+    if !discarded.is_empty() {
+        seed_discarded(&mut field, connectivity, &discarded, maximum);
+    }
     graduate(&mut field, connectivity, coordinates, gradation);
     field
 }

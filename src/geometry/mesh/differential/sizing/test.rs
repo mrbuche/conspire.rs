@@ -1,4 +1,4 @@
-use super::{Unresolved, dunyach_length, graduate, sizing_field};
+use super::{Creases, Unresolved, dunyach_length, graduate, sizing_field};
 use crate::{
     geometry::Coordinates,
     math::{Quantity, Tensor},
@@ -127,6 +127,7 @@ fn sizing_field_is_uniform_on_flat_mesh() {
         Quantity::new(2.0),
         0.5,
         Unresolved::Minimum,
+        Creases::Discarded,
     );
     assert!(
         field
@@ -187,12 +188,33 @@ fn sizing_field_ignores_creases() {
         Quantity::new(2.0),
         0.5,
         Unresolved::Minimum,
+        Creases::Discarded,
     );
     assert!(
         field
             .iter()
             .all(|&length| (length.value() - 2.0).abs() < 1.0e-9),
         "a fold is piecewise planar, so no tolerance should refine it"
+    );
+}
+
+#[test]
+fn including_creases_refines_the_fold() {
+    let (connectivity, coordinates) = folded();
+    let maximum = Quantity::new(2.0);
+    let field = sizing_field(
+        &connectivity,
+        &coordinates,
+        Quantity::new(1.0e-4),
+        Quantity::new(1.0e-3),
+        maximum,
+        0.5,
+        Unresolved::Minimum,
+        Creases::Included,
+    );
+    assert!(
+        field[2 * 7 + 3] < maximum * 0.1,
+        "fitting through the fold should see its curvature"
     );
 }
 
@@ -220,6 +242,7 @@ fn a_crease_inherits_the_curvature_around_it() {
         maximum,
         1.0e3,
         Unresolved::Minimum,
+        Creases::Discarded,
     );
     let (crease, curved) = (field[2 * 13 + 8], field[2 * 13 + 7]);
     assert!(
@@ -245,6 +268,7 @@ fn sizing_field_still_follows_smooth_curvature() {
         maximum,
         0.5,
         Unresolved::Minimum,
+        Creases::Discarded,
     );
     let expected = dunyach_length(
         Quantity::new(1.0),

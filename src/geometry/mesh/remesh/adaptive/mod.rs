@@ -1,7 +1,7 @@
 use crate::{
     geometry::mesh::{
         Mesh,
-        differential::sizing::{Unresolved, sizing_field},
+        differential::sizing::{Creases, Unresolved, sizing_field},
     },
     math::{Quantity, Scalar},
     units::Length,
@@ -36,6 +36,7 @@ impl Mesh<3> {
                         maximum,
                         gradation,
                         Unresolved::Minimum,
+                        Creases::Included,
                     )
                 },
             )?;
