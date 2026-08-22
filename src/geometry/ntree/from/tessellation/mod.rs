@@ -1,4 +1,3 @@
-use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
 mod test;
 
@@ -6,11 +5,14 @@ use crate::{
     geometry::{
         Coordinate, CoordinateList, Coordinates,
         bbox::BoundingBox,
-        mesh::{Tessellation, remesh::adaptive::sizing_field},
+        mesh::{
+            Tessellation,
+            differential::sizing::{Unresolved, sizing_field},
+        },
         ntree::{
             Octree,
             balance::Balancing,
-            node::{Kind, Node, cell::Cell},
+            node::{Kind, Node, cell::Cell, slot::Slot},
             pair::Pairing,
             rescale::Rescaling,
         },
@@ -131,6 +133,7 @@ impl<'a> Sizing<'a> {
                 max_extent * floor_fraction,
                 max_extent,
                 gradation,
+                Unresolved::Radius,
             ),
             None => vec![max_extent; coordinates.len()],
         };

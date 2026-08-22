@@ -1,4 +1,4 @@
-use super::{dunyach_length, graduate, sizing_field};
+use super::{Unresolved, dunyach_length, graduate, sizing_field};
 use crate::{
     geometry::Coordinates,
     math::{Quantity, Tensor},
@@ -26,16 +26,36 @@ fn dunyach_length_maps_curvature() {
         (Quantity::new(0.1), Quantity::new(0.1), Quantity::new(2.0));
     let curvature = Quantity::new;
     assert_eq!(
-        dunyach_length(curvature(0.0), tolerance, minimum, maximum),
+        dunyach_length(
+            curvature(0.0),
+            tolerance,
+            minimum,
+            maximum,
+            Unresolved::Radius
+        ),
         maximum
     );
     assert!(
-        (dunyach_length(curvature(1.0), tolerance, minimum, maximum).value() - 0.57_f64.sqrt())
-            .abs()
+        (dunyach_length(
+            curvature(1.0),
+            tolerance,
+            minimum,
+            maximum,
+            Unresolved::Radius
+        )
+        .value()
+            - 0.57_f64.sqrt())
+        .abs()
             < 1.0e-12
     );
     assert_eq!(
-        dunyach_length(curvature(100.0), tolerance, minimum, maximum),
+        dunyach_length(
+            curvature(100.0),
+            tolerance,
+            minimum,
+            maximum,
+            Unresolved::Radius
+        ),
         minimum
     );
 }
@@ -46,12 +66,35 @@ fn dunyach_length_never_shortens_as_tolerance_loosens() {
     let curvature = Quantity::new(1.0);
     let lengths: Vec<_> = [0.05, 0.1, 0.5, 1.0, 1.5, 3.0]
         .into_iter()
-        .map(|tolerance| dunyach_length(curvature, Quantity::new(tolerance), minimum, maximum))
+        .map(|tolerance| {
+            dunyach_length(
+                curvature,
+                Quantity::new(tolerance),
+                minimum,
+                maximum,
+                Unresolved::Radius,
+            )
+        })
         .collect();
     lengths
         .windows(2)
         .for_each(|pair| assert!(pair[1] >= pair[0]));
     assert!((lengths[5].value() - 3.0_f64.sqrt()).abs() < 1.0e-12);
+}
+
+#[test]
+fn a_feature_sharper_than_the_tolerance_splits_the_two_arms() {
+    let (tolerance, minimum, maximum) = (
+        Quantity::new(1.0e-2),
+        Quantity::new(1.0e-4),
+        Quantity::new(1.0),
+    );
+    let curvature = Quantity::new(1.0e3);
+    let floor = dunyach_length(curvature, tolerance, minimum, maximum, Unresolved::Minimum);
+    let radius = dunyach_length(curvature, tolerance, minimum, maximum, Unresolved::Radius);
+    assert_eq!(floor, minimum);
+    assert!((radius.value() - 3.0_f64.sqrt() * 1.0e-3).abs() < 1.0e-12);
+    assert!(radius > floor);
 }
 
 #[test]
@@ -83,6 +126,7 @@ fn sizing_field_is_uniform_on_flat_mesh() {
         Quantity::new(0.1),
         Quantity::new(2.0),
         0.5,
+        Unresolved::Minimum,
     );
     assert!(
         field
@@ -142,6 +186,7 @@ fn sizing_field_ignores_creases() {
         Quantity::new(1.0e-3),
         Quantity::new(2.0),
         0.5,
+        Unresolved::Minimum,
     );
     assert!(
         field
@@ -166,8 +211,15 @@ fn sizing_field_still_follows_smooth_curvature() {
         minimum,
         maximum,
         0.5,
+        Unresolved::Minimum,
     );
-    let expected = dunyach_length(Quantity::new(1.0), tolerance, minimum, maximum);
+    let expected = dunyach_length(
+        Quantity::new(1.0),
+        tolerance,
+        minimum,
+        maximum,
+        Unresolved::Minimum,
+    );
     let interior = field[2 * 9 + 4];
     assert!(
         (interior.value() - expected.value()).abs() < 5.0e-2 * expected.value(),
