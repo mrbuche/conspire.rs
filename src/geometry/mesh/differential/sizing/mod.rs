@@ -6,7 +6,7 @@ use crate::{
         Coordinates,
         mesh::{differential::jet::vertex_jets, tessellation::features::crease_nodes},
     },
-    math::{Quantity, Scalar, Tensor},
+    math::{FxHashSet, Quantity, Scalar, Tensor},
     units::{Length, ReciprocalLength},
 };
 
@@ -47,8 +47,28 @@ pub(crate) fn sizing_field(
             })
         })
         .collect();
+    seed_discarded(&mut field, connectivity, &discarded, maximum);
     graduate(&mut field, connectivity, coordinates, gradation);
     field
+}
+
+fn seed_discarded(
+    field: &mut [Quantity<Length>],
+    connectivity: &[[usize; N]],
+    discarded: &FxHashSet<usize>,
+    maximum: Quantity<Length>,
+) {
+    let mut seeded = vec![maximum; field.len()];
+    for &[a, b, c] in connectivity {
+        for (i, j) in [(a, b), (b, c), (c, a), (b, a), (c, b), (a, c)] {
+            if discarded.contains(&i) && !discarded.contains(&j) && field[j] < seeded[i] {
+                seeded[i] = field[j]
+            }
+        }
+    }
+    discarded
+        .iter()
+        .for_each(|&vertex| field[vertex] = seeded[vertex]);
 }
 
 fn dunyach_length(

@@ -196,6 +196,39 @@ fn sizing_field_ignores_creases() {
     );
 }
 
+fn creased_cylinder() -> (Vec<[usize; 3]>, Coordinates<3>) {
+    strip(13, 5, |column, row| {
+        let across = row as f64 / 4.0;
+        if column <= 8 {
+            let angle = column as f64 * std::f64::consts::FRAC_PI_2 / 8.0;
+            [angle.cos(), across, angle.sin()]
+        } else {
+            [(column - 8) as f64 / 8.0, across, 1.0]
+        }
+    })
+}
+
+#[test]
+fn a_crease_inherits_the_curvature_around_it() {
+    let (connectivity, coordinates) = creased_cylinder();
+    let maximum = Quantity::new(2.0);
+    let field = sizing_field(
+        &connectivity,
+        &coordinates,
+        Quantity::new(1.0e-3),
+        Quantity::new(1.0e-4),
+        maximum,
+        1.0e3,
+        Unresolved::Minimum,
+    );
+    let (crease, curved) = (field[2 * 13 + 8], field[2 * 13 + 7]);
+    assert!(
+        crease <= curved,
+        "crease size {crease} should not exceed the curved size {curved} beside it"
+    );
+    assert!(crease < maximum * 0.1);
+}
+
 #[test]
 fn sizing_field_still_follows_smooth_curvature() {
     let (connectivity, coordinates) = cylinder();
