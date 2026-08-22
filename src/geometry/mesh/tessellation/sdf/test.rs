@@ -50,6 +50,19 @@ fn cube_center_ray_is_unit_thickness() {
 }
 
 #[test]
+fn degenerate_face_does_not_panic() {
+    let mut connectivity = CONNECTIVITY.to_vec();
+    connectivity.push([0, 1, 1]);
+    let connectivities = vec![Connectivity::Triangular(connectivity.into())];
+    let coordinates = Coordinates::from(COORDINATES);
+    let tessellation = Tessellation::from(Mesh::from((connectivities, coordinates)));
+    let diameters = tessellation.shape_diameter_function(FRAC_PI_3, 3, 8);
+    diameters
+        .iter()
+        .for_each(|&diameter| assert!(diameter.value().is_finite()));
+}
+
+#[test]
 fn cube_cone_stays_near_unit_thickness() {
     let diameters = cube().shape_diameter_function(FRAC_PI_3, 3, 8);
     assert_eq!(diameters.len(), 8);
