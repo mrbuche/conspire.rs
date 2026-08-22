@@ -11,17 +11,18 @@ mod pair;
 mod prune;
 mod read;
 pub(crate) mod rescale;
+pub(crate) mod sizing;
 pub(crate) mod subdivide;
 mod write;
 
 pub use crate::geometry::ntree::{
     balance::{Balance, Balancing},
     dual::Dualization,
-    from::{CurvatureSizing, Sizing},
     node::Nodes,
     pair::Pairing,
     read::Input,
     rescale::Rescaling,
+    sizing::{Sizing, curvature::CurvatureSizing},
     write::Output,
 };
 
