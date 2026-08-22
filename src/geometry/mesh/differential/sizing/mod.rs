@@ -22,13 +22,13 @@ pub(crate) enum Unresolved {
     Radius,
 }
 
-/// Choices for how a crease enters the curvature fit.
+/// Choices for using crease vertices in curvature fits.
 #[derive(Clone, Copy)]
 pub(crate) enum Creases {
-    /// Fit through them, like any other vertex.
+    /// Size them like any other vertex.
     Included,
-    /// Leave them out, sizing them from the neighbors that remain.
-    Discarded,
+    /// Size them from remaining neighbors.
+    Excluded,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -44,7 +44,7 @@ pub(crate) fn sizing_field(
 ) -> Vec<Quantity<Length>> {
     let discarded = match creases {
         Creases::Included => FxHashSet::default(),
-        Creases::Discarded => crease_nodes(connectivity, coordinates),
+        Creases::Excluded => crease_nodes(connectivity, coordinates),
     };
     let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates, &discarded)
         .into_iter()

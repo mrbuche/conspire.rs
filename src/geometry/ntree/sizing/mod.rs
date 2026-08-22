@@ -99,7 +99,7 @@ impl<'a> Sizing<'a> {
                 max_extent,
                 gradation,
                 Unresolved::Radius,
-                Creases::Discarded,
+                Creases::Excluded,
             ),
             None => vec![max_extent; coordinates.len()],
         };

@@ -127,7 +127,7 @@ fn sizing_field_is_uniform_on_flat_mesh() {
         Quantity::new(2.0),
         0.5,
         Unresolved::Minimum,
-        Creases::Discarded,
+        Creases::Excluded,
     );
     assert!(
         field
@@ -188,7 +188,7 @@ fn sizing_field_ignores_creases() {
         Quantity::new(2.0),
         0.5,
         Unresolved::Minimum,
-        Creases::Discarded,
+        Creases::Excluded,
     );
     assert!(
         field
@@ -242,7 +242,7 @@ fn a_crease_inherits_the_curvature_around_it() {
         maximum,
         1.0e3,
         Unresolved::Minimum,
-        Creases::Discarded,
+        Creases::Excluded,
     );
     let (crease, curved) = (field[2 * 13 + 8], field[2 * 13 + 7]);
     assert!(
@@ -268,7 +268,7 @@ fn sizing_field_still_follows_smooth_curvature() {
         maximum,
         0.5,
         Unresolved::Minimum,
-        Creases::Discarded,
+        Creases::Excluded,
     );
     let expected = dunyach_length(
         Quantity::new(1.0),
