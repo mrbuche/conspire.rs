@@ -1,61 +1,14 @@
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh, Tessellation},
+        mesh::{Connectivity, Mesh, Tessellation, test::sphere},
         ntree::node::{Node, cell::Cell},
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
     },
     math::{Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::{
-    array::from_fn,
-    collections::HashMap,
-    f64::consts::{PI, TAU},
-};
-
-fn sphere(stacks: usize, slices: usize, radius: f64) -> Tessellation {
-    let mut points = vec![[0.0, 0.0, radius]];
-    for i in 1..=stacks {
-        let theta = PI * i as f64 / (stacks + 1) as f64;
-        for j in 0..slices {
-            let phi = TAU * j as f64 / slices as f64;
-            points.push([
-                radius * theta.sin() * phi.cos(),
-                radius * theta.sin() * phi.sin(),
-                radius * theta.cos(),
-            ]);
-        }
-    }
-    let south = points.len();
-    points.push([0.0, 0.0, -radius]);
-    let ring_start = |i: usize| 1 + (i - 1) * slices;
-    let mut faces = Vec::new();
-    for j in 0..slices {
-        faces.push([0, ring_start(1) + j, ring_start(1) + (j + 1) % slices]);
-    }
-    for i in 1..stacks {
-        for j in 0..slices {
-            let (a, b) = (ring_start(i) + j, ring_start(i + 1) + j);
-            let (c, d) = (
-                ring_start(i + 1) + (j + 1) % slices,
-                ring_start(i) + (j + 1) % slices,
-            );
-            faces.push([a, b, c]);
-            faces.push([a, c, d]);
-        }
-    }
-    for j in 0..slices {
-        faces.push([
-            south,
-            ring_start(stacks) + (j + 1) % slices,
-            ring_start(stacks) + j,
-        ]);
-    }
-    let coordinates = Coordinates::from(points);
-    let connectivities = vec![Connectivity::Triangular(faces.into())];
-    Tessellation::from(Mesh::from((connectivities, coordinates)))
-}
+use std::{array::from_fn, collections::HashMap};
 
 fn curvature(tolerance: Quantity<Length>) -> CurvatureSizing {
     CurvatureSizing {
@@ -288,23 +241,6 @@ fn a_wider_cell_indexes_a_depth_a_narrower_one_refuses() {
         Some("sizing field exceeds maximum octree depth")
     );
     assert_eq!(u32::length(1 << 20), Some(1u32 << 20));
-}
-
-#[test]
-fn a_size_field_knows_the_depth_it_asks_for() {
-    let tessellation = sphere(4, 8, 2.0);
-    let ordinary = Sizing::new(&tessellation, 4.0, CurvatureSizing::default(), 0);
-    assert!(ordinary.levels() <= 15);
-    assert!(ordinary.fits::<u16>());
-    assert!(Octree::<u16, usize>::refine(&ordinary).is_ok());
-    let deep = Sizing::new(&tessellation, 1.0e6, CurvatureSizing::default(), 0);
-    assert!(deep.levels() > 15);
-    assert!(!deep.fits::<u16>());
-    assert!(deep.fits::<u32>());
-    assert_eq!(
-        Octree::<u16, usize>::refine(&deep).err(),
-        Some("sizing field exceeds maximum octree depth")
-    );
 }
 
 #[test]

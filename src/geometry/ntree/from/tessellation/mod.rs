@@ -3,194 +3,24 @@ mod test;
 
 use crate::{
     geometry::{
-        Coordinate, CoordinateList, Coordinates,
+        Coordinate, CoordinateList,
         bbox::BoundingBox,
-        mesh::{
-            Tessellation,
-            differential::sizing::{Unresolved, sizing_field},
-        },
+        mesh::Tessellation,
         ntree::{
             Octree,
             balance::Balancing,
             node::{Kind, Node, cell::Cell, slot::Slot},
             pair::Pairing,
             rescale::Rescaling,
+            sizing::{Sizing, curvature::CurvatureSizing},
         },
     },
-    math::{Quantity, Scalar, Tensor, TensorVec},
-    units::Length,
+    math::{Quantity, Scalar},
 };
-use std::{array::from_fn, f64::consts::FRAC_PI_4};
+use std::array::from_fn;
 
 const D: usize = 3;
 const M: usize = 6;
-
-/// Parameters controlling curvature-driven octree refinement.
-///
-/// `tolerance` is the Dunyach chord-error tolerance (an absolute length, like
-/// adaptive surface remeshing's) and has no sensible default, since it is
-/// tied to the physical scale of the model; `None` disables curvature-driven
-/// refinement entirely (thickness alone still governs cell size). `gradation`
-/// and `floor_fraction` are dimensionless and default to values that work
-/// well in practice.
-pub struct CurvatureSizing {
-    /// Chord-error tolerance; smaller refines more aggressively near curvature.
-    /// `None` disables curvature-driven refinement.
-    pub tolerance: Option<Quantity<Length>>,
-    /// Lipschitz grading rate applied to the curvature-driven size field.
-    pub gradation: Scalar,
-    /// Smallest curvature-driven cell size allowed, as a fraction of the
-    /// tessellation's bounding box extent (a safety valve near singular
-    /// curvature, e.g. polytope corners).
-    pub floor_fraction: Scalar,
-}
-
-impl Default for CurvatureSizing {
-    fn default() -> Self {
-        Self {
-            tolerance: None,
-            gradation: 0.5,
-            floor_fraction: 1.0e-3,
-        }
-    }
-}
-
-/// The size field that an octree is refined with.
-///
-/// `levels` is the depth the field asks for, and is the whole reason this is
-/// separate from the tree: it decides how wide a cell length has to be, so a
-/// caller reads it before naming the `T` it builds with, rather than after.
-/// Everything here is the same work whatever that `T` turns out to be, the
-/// shape diameter function among it, so [`refine`](Octree::refine) can be
-/// tried at one width and retried at another without paying for any of it
-/// twice.
-pub struct Sizing<'a> {
-    center: Coordinate<D>,
-    coordinates: &'a Coordinates<D>,
-    elements: Vec<&'a [usize]>,
-    levels: u32,
-    min_length: Quantity<Length>,
-    scale: Scalar,
-    targets: Vec<Quantity<Length>>,
-}
-
-impl<'a> Sizing<'a> {
-    pub fn new(
-        tessellation: &'a Tessellation,
-        scale: Scalar,
-        curvature: CurvatureSizing,
-        padding: u16,
-    ) -> Self {
-        let CurvatureSizing {
-            tolerance,
-            gradation,
-            floor_fraction,
-        } = curvature;
-        let sdf = tessellation.shape_diameter_function(FRAC_PI_4, 3, 10);
-        let coordinates = tessellation.mesh().coordinates();
-        if coordinates.is_empty() {
-            return Self {
-                center: Coordinate::const_from([0.0; D]),
-                coordinates,
-                elements: Vec::new(),
-                levels: 0,
-                min_length: Quantity::new(1.0),
-                scale,
-                targets: Vec::new(),
-            };
-        }
-        let mut min_coord = [Quantity::<Length>::new(Scalar::INFINITY); D];
-        let mut max_coord = [Quantity::<Length>::new(Scalar::NEG_INFINITY); D];
-        for point in coordinates {
-            for ax in 0..D {
-                min_coord[ax] = min_coord[ax].min(point[ax]);
-                max_coord[ax] = max_coord[ax].max(point[ax]);
-            }
-        }
-        let max_extent = (0..D)
-            .map(|ax| max_coord[ax] - min_coord[ax])
-            .fold(Quantity::default(), Quantity::max);
-        let min_sdf = sdf
-            .iter()
-            .copied()
-            .filter(|&value| value > Quantity::default())
-            .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
-        let elements: Vec<&[usize]> = tessellation
-            .mesh()
-            .connectivities()
-            .iter()
-            .flatten()
-            .collect();
-        let triangles: Vec<[usize; 3]> = elements
-            .iter()
-            .map(|element| from_fn(|i| element[i]))
-            .collect();
-        let curvature = match tolerance {
-            Some(tolerance) => sizing_field(
-                &triangles,
-                coordinates,
-                tolerance,
-                max_extent * floor_fraction,
-                max_extent,
-                gradation,
-                Unresolved::Radius,
-            ),
-            None => vec![max_extent; coordinates.len()],
-        };
-        let min_curvature = curvature
-            .iter()
-            .copied()
-            .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
-        let thickness_length = if min_sdf.value().is_finite() {
-            min_sdf / scale
-        } else {
-            max_extent
-        };
-        let min_length = thickness_length.min(min_curvature);
-        let zero = Quantity::default();
-        let levels = if max_extent <= zero || min_length <= zero {
-            0u32
-        } else {
-            (max_extent / min_length + 2.0 * padding as Scalar)
-                .log2()
-                .ceil()
-                .max(Quantity::default())
-                .value() as u32
-        };
-        let targets: Vec<Quantity<Length>> = elements
-            .iter()
-            .map(|element| {
-                let thickness = sdf[element[0]].min(sdf[element[1]]).min(sdf[element[2]]);
-                let feature = curvature[element[0]]
-                    .min(curvature[element[1]])
-                    .min(curvature[element[2]])
-                    * scale;
-                thickness.min(feature)
-            })
-            .collect();
-        Self {
-            center: Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
-                (min_coord[ax] + max_coord[ax]) / 2.0
-            })),
-            coordinates,
-            elements,
-            levels,
-            min_length,
-            scale,
-            targets,
-        }
-    }
-    pub fn levels(&self) -> u32 {
-        self.levels
-    }
-    /// Whether a cell length of this type can index the depth asked for.
-    pub(crate) fn fits<T: Cell>(&self) -> bool {
-        1usize
-            .checked_shl(self.levels)
-            .and_then(T::length)
-            .is_some()
-    }
-}
 
 impl<T, U> Octree<T, U>
 where
