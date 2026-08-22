@@ -8,7 +8,7 @@ use crate::{
         Coordinate, Coordinates,
         mesh::{
             Tessellation,
-            differential::sizing::{Unresolved, sizing_field},
+            differential::sizing::{Creases, Unresolved, sizing_field},
         },
         ntree::{node::cell::Cell, sizing::curvature::CurvatureSizing},
     },
@@ -99,6 +99,7 @@ impl<'a> Sizing<'a> {
                 max_extent,
                 gradation,
                 Unresolved::Radius,
+                Creases::Excluded,
             ),
             None => vec![max_extent; coordinates.len()],
         };

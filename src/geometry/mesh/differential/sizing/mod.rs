@@ -6,7 +6,7 @@ use crate::{
         Coordinates,
         mesh::{differential::jet::vertex_jets, tessellation::features::crease_nodes},
     },
-    math::{Quantity, Scalar, Tensor},
+    math::{FxHashSet, Quantity, Scalar, Tensor},
     units::{Length, ReciprocalLength},
 };
 
@@ -22,6 +22,15 @@ pub(crate) enum Unresolved {
     Radius,
 }
 
+/// Choices for using crease vertices in curvature fits.
+#[derive(Clone, Copy)]
+pub(crate) enum Creases {
+    /// Size them like any other vertex.
+    Included,
+    /// Size them from remaining neighbors.
+    Excluded,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn sizing_field(
     connectivity: &[[usize; N]],
@@ -31,8 +40,12 @@ pub(crate) fn sizing_field(
     maximum: Quantity<Length>,
     gradation: Scalar,
     unresolved: Unresolved,
+    creases: Creases,
 ) -> Vec<Quantity<Length>> {
-    let discarded = crease_nodes(connectivity, coordinates);
+    let discarded = match creases {
+        Creases::Included => FxHashSet::default(),
+        Creases::Excluded => crease_nodes(connectivity, coordinates),
+    };
     let mut field: Vec<Quantity<Length>> = vertex_jets(connectivity, coordinates, &discarded)
         .into_iter()
         .map(|jet| {
@@ -47,8 +60,30 @@ pub(crate) fn sizing_field(
             })
         })
         .collect();
+    if !discarded.is_empty() {
+        seed_discarded(&mut field, connectivity, &discarded, maximum);
+    }
     graduate(&mut field, connectivity, coordinates, gradation);
     field
+}
+
+fn seed_discarded(
+    field: &mut [Quantity<Length>],
+    connectivity: &[[usize; N]],
+    discarded: &FxHashSet<usize>,
+    maximum: Quantity<Length>,
+) {
+    let mut seeded = vec![maximum; field.len()];
+    for &[a, b, c] in connectivity {
+        for (i, j) in [(a, b), (b, c), (c, a), (b, a), (c, b), (a, c)] {
+            if discarded.contains(&i) && !discarded.contains(&j) && field[j] < seeded[i] {
+                seeded[i] = field[j]
+            }
+        }
+    }
+    discarded
+        .iter()
+        .for_each(|&vertex| field[vertex] = seeded[vertex]);
 }
 
 fn dunyach_length(
