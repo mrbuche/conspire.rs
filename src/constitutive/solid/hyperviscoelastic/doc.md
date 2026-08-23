@@ -1,14 +1,14 @@
 Hyperviscoelastic solid constitutive models are defined by a Helmholtz free energy density and a viscous dissipation function.
 
 ```math
-\mathbf{P}:\dot{\mathbf{F}} - \dot{a}(\mathbf{F}) - \phi(\mathbf{F},\dot{\mathbf{F}}) \geq 0
+\mathbf{P}:\dot{\mathbf{F}} - \dot{a}(\mathbf{F}) \geq 0
 ```
 The second law of thermodynamics is satisfied by ensuring that the viscous dissipation function is convex and vanishes at zero rate,
 
 ```math
 \frac{\partial\phi}{\partial\dot{\mathbf{F}}}:\dot{\mathbf{F}} - \phi \geq 0 \quad\text{and}\quad \phi(\mathbf{F},\mathbf{0}) = 0
 ```
-and by minimizing the dissipation with respect to the deformation gradient rate, which yields a relation for the stress.
+and by minimizing the dissipation potential less the stress power with respect to the deformation gradient rate, yielding the stress.
 
 ```math
 \mathbf{P} = \frac{\partial a}{\partial\mathbf{F}} + \frac{\partial\phi}{\partial\dot{\mathbf{F}}}
