@@ -67,6 +67,22 @@ where
                     * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
         }
     }
+    /// Calculates and returns the dissipation potential.
+    ///
+    /// ```math
+    /// \phi(\mathbf{D}_\mathrm{p}) = \frac{1}{1+m}\,d_0 Y\left(\frac{|\mathbf{D}_\mathrm{p}|}{d_0}\right)^{1+m}
+    /// ```
+    fn dissipation_potential(
+        &self,
+        plastic_stretching_rate: StretchingRatePlastic,
+        yield_stress: Quantity<Stress>,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        let rate_sensitivity = self.rate_sensitivity();
+        let reference_flow_rate = self.reference_flow_rate();
+        Ok(reference_flow_rate * yield_stress / (1.0 + rate_sensitivity)
+            * (plastic_stretching_rate.norm() / reference_flow_rate)
+                .powf(1.0 + rate_sensitivity))
+    }
     /// Calculates and returns the dual dissipation potential.
     ///
     /// ```math

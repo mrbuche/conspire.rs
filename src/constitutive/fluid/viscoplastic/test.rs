@@ -45,3 +45,25 @@ fn plastic_stretching_rate_from_finite_difference_of_dual_dissipation_potential(
         &finite_difference,
     )
 }
+
+#[test]
+fn deviatoric_mandel_stress_from_finite_difference_of_dissipation_potential()
+-> Result<(), AssertionError> {
+    let model = model();
+    let yield_stress = model.yield_stress;
+    let plastic_stretching_rate =
+        model.plastic_stretching_rate(deviatoric_mandel_stress(), yield_stress)?;
+    let mut finite_difference = MandelStressElastic::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            let mut plus = plastic_stretching_rate.clone();
+            plus[i][j] += perturbation(0.5 * EPSILON);
+            let mut minus = plastic_stretching_rate.clone();
+            minus[i][j] -= perturbation(0.5 * EPSILON);
+            finite_difference[i][j] = (model.dissipation_potential(plus, yield_stress)?
+                - model.dissipation_potential(minus, yield_stress)?)
+                / Quantity::<Rate>::new(EPSILON);
+        }
+    }
+    Assert::default().eq_within_fd_tol(&deviatoric_mandel_stress(), &finite_difference)
+}
