@@ -3,12 +3,12 @@ Hyperelastic-viscoplastic solid constitutive models are defined by a Helmholtz f
 ```math
 \mathbf{P}:\dot{\mathbf{F}} - \dot{a}(\mathbf{F}_\mathrm{e}) \geq 0
 ```
-The second law of thermodynamics is satisfied by ensuring that the dissipation potential vanishes and is minimized at zero rate,
+The second law of thermodynamics is satisfied by ensuring that the dissipation potential is minimized and vanishes at zero rate,
 
 ```math
 \frac{\partial\phi}{\partial\mathbf{D}_\mathrm{p}}:\mathbf{D}_\mathrm{p} - \phi \geq 0 \quad\text{and}\quad \phi(\mathbf{0}) = 0
 ```
-by requiring the inequality to hold for arbitrary deformation gradient rates, which yields a relation for the stress,
+by requiring the inequality to hold for arbitrary deformation gradient rates, which yields the stress and a symmetric tangent,
 
 ```math
 \mathbf{P} = \frac{\partial a}{\partial\mathbf{F}} \quad\Longrightarrow\quad \mathcal{C}_{iJkL} = \mathcal{C}_{kLiJ}
