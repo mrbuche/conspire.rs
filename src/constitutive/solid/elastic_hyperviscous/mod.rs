@@ -35,7 +35,7 @@ where
     /// Calculates and returns the dissipation potential.
     ///
     /// ```math
-    /// \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}})
+    /// \psi(\mathbf{F},\dot{\mathbf{F}}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}})
     /// ```
     fn dissipation_potential(
         &self,
@@ -46,6 +46,26 @@ where
             .first_piola_kirchhoff_stress(deformation_gradient, &DeformationGradientRate::zero())?
             .contract_with(deformation_gradient_rate)
             + self.viscous_dissipation(deformation_gradient, deformation_gradient_rate)?)
+    }
+    /// Calculates and returns the internal dissipation.
+    ///
+    /// ```math
+    /// T\dot{s} = \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}):\dot{\mathbf{F}} - \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}}
+    /// ```
+    fn internal_dissipation(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        Ok(self
+            .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_rate)?
+            .contract_with(deformation_gradient_rate)
+            - self
+                .first_piola_kirchhoff_stress(
+                    deformation_gradient,
+                    &DeformationGradientRate::zero(),
+                )?
+                .contract_with(deformation_gradient_rate))
     }
     /// Calculates and returns the viscous dissipation.
     ///
