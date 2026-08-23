@@ -50,7 +50,7 @@ where
     /// Calculates and returns the rate of plastic stretching.
     ///
     /// ```math
-    /// \mathbf{D}_\mathrm{p} = d_0\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y(S)}\right)^{\footnotesize\tfrac{1}{m}}\frac{\mathbf{M}_\mathrm{e}'}{|\mathbf{M}_\mathrm{e}'|}
+    /// \mathbf{D}_\mathrm{p}(\mathbf{M}_\mathrm{e}') = d_0\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y(S)}\right)^{\footnotesize\tfrac{1}{m}}\frac{\mathbf{M}_\mathrm{e}'}{|\mathbf{M}_\mathrm{e}'|}
     /// ```
     fn plastic_stretching_rate(
         &self,
@@ -70,7 +70,7 @@ where
     /// Calculates and returns the dissipation potential.
     ///
     /// ```math
-    /// \phi(\mathbf{D}_\mathrm{p}) = \frac{1}{1+m}\,d_0 Y\left(\frac{|\mathbf{D}_\mathrm{p}|}{d_0}\right)^{1+m}
+    /// \phi(\mathbf{D}_\mathrm{p}) = \frac{Yd_0}{1+m}\left(\frac{|\mathbf{D}_\mathrm{p}|}{d_0}\right)^{1+m}
     /// ```
     fn dissipation_potential(
         &self,
@@ -88,7 +88,7 @@ where
     /// Calculates and returns the dual dissipation potential.
     ///
     /// ```math
-    /// \phi^*(\mathbf{M}_\mathrm{e}') = \frac{m}{1+m}\,d_0 Y\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y}\right)^{\footnotesize\tfrac{1+m}{m}}
+    /// \phi^*(\mathbf{M}_\mathrm{e}') = \frac{Yd_0m}{1+m}\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y(S)}\right)^{\footnotesize\tfrac{1+m}{m}}
     /// ```
     fn dual_dissipation_potential(
         &self,
