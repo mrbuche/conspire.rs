@@ -25,8 +25,9 @@ use crate::{
         FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessElastic,
         MandelStressElastic, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffStressElastic,
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffnessElastic,
+        StretchingRatePlastic,
     },
-    units::{Rate, Stress},
+    units::{Dissipation, Rate, Stress},
 };
 
 impl<C1, C2, Y2> Solid for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
@@ -72,6 +73,30 @@ where
         state_variables: &ViscoplasticStateVariables<Y2>,
     ) -> Result<ViscoplasticEvolution<Y2>, ConstitutiveError> {
         self.1.plastic_evolution(mandel_stress, state_variables)
+    }
+    fn plastic_stretching_rate(
+        &self,
+        deviatoric_mandel_stress: MandelStressElastic,
+        yield_stress: Quantity<Stress>,
+    ) -> Result<StretchingRatePlastic, ConstitutiveError> {
+        self.1
+            .plastic_stretching_rate(deviatoric_mandel_stress, yield_stress)
+    }
+    fn dissipation_potential(
+        &self,
+        plastic_stretching_rate: StretchingRatePlastic,
+        yield_stress: Quantity<Stress>,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        self.1
+            .dissipation_potential(plastic_stretching_rate, yield_stress)
+    }
+    fn dual_dissipation_potential(
+        &self,
+        deviatoric_mandel_stress: MandelStressElastic,
+        yield_stress: Quantity<Stress>,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        self.1
+            .dual_dissipation_potential(deviatoric_mandel_stress, yield_stress)
     }
     fn rate_sensitivity(&self) -> Scalar {
         self.1.rate_sensitivity()
