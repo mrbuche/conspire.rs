@@ -1,5 +1,8 @@
 //! Viscoplastic fluid constitutive models.
 
+#[cfg(test)]
+mod test;
+
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
     math::{
@@ -10,7 +13,7 @@ use crate::{
         DeformationGradientPlastic, DeformationGradientRatePlastic, MandelStressElastic,
         StretchingRatePlastic,
     },
-    units::{Rate, Stress},
+    units::{Dissipation, Rate, Stress},
 };
 
 /// Viscoplastic state variables.
@@ -63,6 +66,23 @@ where
                 * (reference_flow_rate / magnitude
                     * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
         }
+    }
+    /// Calculates and returns the dual dissipation potential.
+    ///
+    /// ```math
+    /// \phi^*(\mathbf{M}_\mathrm{e}') = \frac{m}{1+m}\,d_0 Y\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y}\right)^{\footnotesize\tfrac{1+m}{m}}
+    /// ```
+    fn dual_dissipation_potential(
+        &self,
+        deviatoric_mandel_stress: MandelStressElastic,
+        yield_stress: Quantity<Stress>,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        let rate_sensitivity = self.rate_sensitivity();
+        Ok(self.reference_flow_rate()
+            * yield_stress
+            * (rate_sensitivity / (1.0 + rate_sensitivity))
+            * (deviatoric_mandel_stress.norm() / yield_stress)
+                .powf((1.0 + rate_sensitivity) / rate_sensitivity))
     }
     /// Returns the rate_sensitivity parameter.
     fn rate_sensitivity(&self) -> Scalar;

@@ -35,7 +35,7 @@ where
     /// Calculates and returns the dissipation potential.
     ///
     /// ```math
-    /// \psi(\mathbf{F},\dot{\mathbf{F}}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}})
+    /// \phi(\mathbf{F},\dot{\mathbf{F}}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \psi(\mathbf{F},\dot{\mathbf{F}})
     /// ```
     fn dissipation_potential(
         &self,
@@ -70,7 +70,7 @@ where
     /// Calculates and returns the viscous dissipation.
     ///
     /// ```math
-    /// \phi = \phi(\mathbf{F},\dot{\mathbf{F}})
+    /// \psi = \psi(\mathbf{F},\dot{\mathbf{F}})
     /// ```
     fn viscous_dissipation(
         &self,
@@ -84,7 +84,7 @@ pub trait FirstOrderMinimize {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
     /// ```math
-    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
+    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \psi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
     /// ```
     fn minimize(
         &self,
@@ -109,7 +109,7 @@ pub trait SecondOrderMinimize {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
     /// ```math
-    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
+    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \psi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
     /// ```
     fn minimize(
         &self,
