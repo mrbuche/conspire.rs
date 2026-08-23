@@ -136,7 +136,7 @@ macro_rules! test_solid_thermal_constitutive_model {
                         );
                         Ok(())
                     } else {
-                        $crate::math::assert::Assert::zero(&first_piola_kirchhoff_stress[i][j])
+                        Assert::zero(&first_piola_kirchhoff_stress[i][j])
                     }
                 })
             })

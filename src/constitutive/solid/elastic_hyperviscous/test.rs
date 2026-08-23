@@ -136,7 +136,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     #[test]
                     fn finite_difference() -> Result<(), AssertionError>
                     {
-                        $crate::math::assert::Assert::default().eq_within_fd_tol(
+                        Assert::default().eq_within_fd_tol(
                             &first_piola_kirchhoff_stress_from_deformation_gradient_rate_simple!(
                                 $constitutive_model, &get_deformation_gradient_rate()
                             )?,
@@ -183,7 +183,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     #[test]
                     fn objectivity() -> Result<(), AssertionError>
                     {
-                        $crate::math::assert::Assert::default().eq_within_tols(
+                        Assert::default().eq_within_tols(
                             &viscous_dissipation_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
                             )?,
@@ -209,7 +209,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     #[test]
                     fn finite_difference() -> Result<(), AssertionError>
                     {
-                        $crate::math::assert::Assert::default().eq_within_fd_tol(
+                        Assert::default().eq_within_fd_tol(
                             &first_piola_kirchhoff_stress_from_finite_difference_of_viscous_dissipation(false)?,
                             &FirstPiolaKirchhoffStress::zero()
                         )
@@ -244,7 +244,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     #[test]
                     fn zero() -> Result<(), AssertionError>
                     {
-                        $crate::math::assert::Assert::eq(
+                        Assert::eq(
                             &viscous_dissipation_from_deformation_gradient_rate_simple!(
                                 $constitutive_model,  &DeformationGradientRate::zero()
                             )?, &$crate::math::Quantity::default()
@@ -312,7 +312,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     #[test]
                     fn finite_difference() -> Result<(), AssertionError>
                     {
-                        $crate::math::assert::Assert::default().eq_within_fd_tol(
+                        Assert::default().eq_within_fd_tol(
                             &first_piola_kirchhoff_stress_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
                             )?,
@@ -359,7 +359,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     #[test]
                     fn objectivity() -> Result<(), AssertionError>
                     {
-                        $crate::math::assert::Assert::default().eq_within_tols(
+                        Assert::default().eq_within_tols(
                             &dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
                             )?,
@@ -375,7 +375,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     #[test]
                     fn finite_difference() -> Result<(), AssertionError>
                     {
-                        $crate::math::assert::Assert::default().eq_within_fd_tol(
+                        Assert::default().eq_within_fd_tol(
                             &first_piola_kirchhoff_stress_from_finite_difference_of_dissipation_potential(false)?,
                             &FirstPiolaKirchhoffStress::zero()
                         )
@@ -410,7 +410,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                     #[test]
                     fn zero() -> Result<(), AssertionError>
                     {
-                        $crate::math::assert::Assert::eq(
+                        Assert::eq(
                             &dissipation_potential_from_deformation_gradient_and_deformation_gradient_rate!(
                                 $constitutive_model, &DeformationGradient::identity(), &DeformationGradientRate::zero()
                             )?, &$crate::math::Quantity::default()
@@ -431,7 +431,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model, &get_deformation_gradient(), &get_deformation_gradient_rate()
                         )?;
-                        $crate::math::assert::Assert::default().eq_within_tols(
+                        Assert::default().eq_within_tols(
                             &first_piola_kirchhoff_rate_tangent_stiffness,
                             &(0..3).map(|i|
                                 (0..3).map(|j|
@@ -455,7 +455,7 @@ macro_rules! test_solid_elastic_hyperviscous_specifics
                         first_piola_kirchhoff_rate_tangent_stiffness_from_deformation_gradient_and_deformation_gradient_rate!(
                             $constitutive_model, &DeformationGradient::identity(), &DeformationGradientRate::zero()
                         )?;
-                        $crate::math::assert::Assert::default().eq_within_tols(
+                        Assert::default().eq_within_tols(
                             &first_piola_kirchhoff_rate_tangent_stiffness,
                             &(0..3).map(|i|
                                 (0..3).map(|j|
@@ -519,12 +519,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
                 #[test]
@@ -565,12 +563,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
                 #[test]
@@ -604,12 +600,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
                 #[test]
@@ -647,12 +641,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
                 #[test]
@@ -687,12 +679,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
                 #[test]
@@ -733,12 +723,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
                 #[test]
@@ -779,12 +767,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
                 #[test]
@@ -818,12 +804,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
                 #[test]
@@ -861,12 +845,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
                 #[test]
@@ -901,12 +883,10 @@ macro_rules! test_minimize_and_root {
                         .iter()
                         .zip(deformation_gradient_rates.iter())
                         .try_for_each(|(deformation_gradient, deformation_gradient_rate)| {
-                            Assert::non_negative(
-                                &$constitutive_model.internal_dissipation(
-                                    deformation_gradient,
-                                    deformation_gradient_rate,
-                                )?,
-                            )
+                            Assert::non_negative(&$constitutive_model.internal_dissipation(
+                                deformation_gradient,
+                                deformation_gradient_rate,
+                            )?)
                         })
                 }
             };
@@ -944,7 +924,7 @@ macro_rules! test_minimize_and_root {
                 //         )?;
                 //     assert!(deformation_gradient_rate.is_diagonal());
                 //     assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
-                //     $crate::math::assert::Assert::default().eq_within_tols(
+                //     Assert::default().eq_within_tols(
                 //         &deformation_gradient_rate[1][1],
                 //         &deformation_gradient_rate[2][2],
                 //     )
@@ -960,14 +940,14 @@ macro_rules! test_minimize_and_root {
                 //         )?;
                 //     assert!(deformation_gradient_rate.is_diagonal());
                 //     assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
-                //     $crate::math::assert::Assert::default().eq_within_tols(
+                //     Assert::default().eq_within_tols(
                 //         &deformation_gradient_rate[1][1],
                 //         &deformation_gradient_rate[2][2],
                 //     )
                 // }
                 // #[test]
                 // fn minimize_uniaxial_undeformed_inner() -> Result<(), AssertionError> {
-                //     $crate::math::assert::Assert::default().eq_within_tols(
+                //     Assert::default().eq_within_tols(
                 //         &$constitutive_model.minimize_uniaxial_inner(
                 //             &DeformationGradient::identity(),
                 //             0.0,
@@ -1024,7 +1004,7 @@ macro_rules! test_minimize_and_root {
                 // }
                 // #[test]
                 // fn minimize_biaxial_undeformed_inner() -> Result<(), AssertionError> {
-                //     $crate::math::assert::Assert::default().eq_within_tols(
+                //     Assert::default().eq_within_tols(
                 //         &$constitutive_model.minimize_biaxial_inner(
                 //             &DeformationGradient::identity(),
                 //             0.0,
@@ -1046,7 +1026,7 @@ macro_rules! test_minimize_and_root {
                 //         )?;
                 //     assert!(deformation_gradient_rate.is_diagonal());
                 //     assert!(deformation_gradient_rate[0][0] < deformation_gradient_rate[1][1]);
-                //     $crate::math::assert::Assert::default().eq_within_tols(
+                //     Assert::default().eq_within_tols(
                 //         &deformation_gradient_rate[1][1],
                 //         &deformation_gradient_rate[2][2],
                 //     )
@@ -1062,14 +1042,14 @@ macro_rules! test_minimize_and_root {
                 //         )?;
                 //     assert!(deformation_gradient_rate.is_diagonal());
                 //     assert!(deformation_gradient_rate[0][0] > deformation_gradient_rate[1][1]);
-                //     $crate::math::assert::Assert::default().eq_within_tols(
+                //     Assert::default().eq_within_tols(
                 //         &deformation_gradient_rate[1][1],
                 //         &deformation_gradient_rate[2][2],
                 //     )
                 // }
                 // #[test]
                 // fn root_uniaxial_undeformed_inner() -> Result<(), AssertionError> {
-                //     $crate::math::assert::Assert::default().eq_within_tols(
+                //     Assert::default().eq_within_tols(
                 //         &$constitutive_model.root_uniaxial_inner(
                 //             &DeformationGradient::identity(),
                 //             0.0,
@@ -1126,7 +1106,7 @@ macro_rules! test_minimize_and_root {
                 // }
                 // #[test]
                 // fn root_biaxial_undeformed_inner() -> Result<(), AssertionError> {
-                //     $crate::math::assert::Assert::default().eq_within_tols(
+                //     Assert::default().eq_within_tols(
                 //         &$constitutive_model.root_biaxial_inner(
                 //             &DeformationGradient::identity(),
                 //             0.0,
