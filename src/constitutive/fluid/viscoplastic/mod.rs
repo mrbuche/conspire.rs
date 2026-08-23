@@ -79,9 +79,11 @@ where
     ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
         let rate_sensitivity = self.rate_sensitivity();
         let reference_flow_rate = self.reference_flow_rate();
-        Ok(reference_flow_rate * yield_stress / (1.0 + rate_sensitivity)
-            * (plastic_stretching_rate.norm() / reference_flow_rate)
-                .powf(1.0 + rate_sensitivity))
+        Ok(
+            reference_flow_rate * yield_stress / (1.0 + rate_sensitivity)
+                * (plastic_stretching_rate.norm() / reference_flow_rate)
+                    .powf(1.0 + rate_sensitivity),
+        )
     }
     /// Calculates and returns the dual dissipation potential.
     ///

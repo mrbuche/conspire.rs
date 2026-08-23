@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     EPSILON,
     math::assert::{Assert, AssertionError, perturbation},
-    math::TensorArray,
+    math::{ContractWith, TensorArray},
 };
 
 fn model() -> ViscoplasticFlow {
@@ -15,11 +15,7 @@ fn model() -> ViscoplasticFlow {
 }
 
 fn deviatoric_mandel_stress() -> MandelStressElastic {
-    MandelStressElastic::from([
-        [1.3, 0.7, -0.4],
-        [0.7, -0.9, 1.1],
-        [-0.4, 1.1, -0.4],
-    ])
+    MandelStressElastic::from([[1.3, 0.7, -0.4], [0.7, -0.9, 1.1], [-0.4, 1.1, -0.4]])
 }
 
 #[test]
@@ -65,5 +61,18 @@ fn deviatoric_mandel_stress_from_finite_difference_of_dissipation_potential()
                 / Quantity::<Rate>::new(EPSILON);
         }
     }
-    Assert::default().eq_within_fd_tol(&deviatoric_mandel_stress(), &finite_difference)
+    Assert::default().eq_within_fd_tol(deviatoric_mandel_stress(), &finite_difference)
+}
+
+#[test]
+fn fenchel_equality() -> Result<(), AssertionError> {
+    let model = model();
+    let yield_stress = model.yield_stress;
+    let plastic_stretching_rate =
+        model.plastic_stretching_rate(deviatoric_mandel_stress(), yield_stress)?;
+    Assert::default().eq_within_tols(
+        model.dissipation_potential(plastic_stretching_rate.clone(), yield_stress)?
+            + model.dual_dissipation_potential(deviatoric_mandel_stress(), yield_stress)?,
+        &ContractWith::contract_with(&deviatoric_mandel_stress(), &plastic_stretching_rate),
+    )
 }
