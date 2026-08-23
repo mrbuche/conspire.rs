@@ -1,7 +1,7 @@
 Thermohyperelastic solid constitutive models are defined by a Helmholtz free energy density function of the deformation gradient and temperature.
 
 ```math
-\mathbf{P}:\dot{\mathbf{F}} - \dot{a}(\mathbf{F},T) \geq 0
+\mathbf{P}:\dot{\mathbf{F}} - \dot{a}(\mathbf{F},T) - s\dot{T} \geq 0
 ```
 Satisfying the second law of thermodynamics (here, equivalent to extremized or zero dissipation) yields a relation for the stress.
 
