@@ -3,7 +3,7 @@ Hyperviscoelastic solid constitutive models are defined by a Helmholtz free ener
 ```math
 \mathbf{P}:\dot{\mathbf{F}} - \dot{a}(\mathbf{F}) - \phi(\mathbf{F},\dot{\mathbf{F}}) \geq 0
 ```
-Satisfying the second law of thermodynamics though a minimum viscous dissipation principal yields a relation for the stress.
+Satisfying the second law of thermodynamics through a minimum viscous dissipation principle yields a relation for the stress.
 
 ```math
 \mathbf{P} = \frac{\partial a}{\partial\mathbf{F}} + \frac{\partial\phi}{\partial\dot{\mathbf{F}}}
