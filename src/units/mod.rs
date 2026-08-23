@@ -161,7 +161,7 @@ units!(
     PowerPerLengthTemperature,
     /// A power per unit area per unit temperature, as a heat flux per unit temperature is.
     PowerPerAreaTemperature,
-    /// A power per unit volume per unit temperature.
+    /// A power per unit volume per unit temperature, as an entropy production rate per unit volume is.
     PowerPerVolumeTemperature,
     /// A power per unit temperature, as a thermal stiffness is.
     PowerPerTemperature,
@@ -308,6 +308,8 @@ unit_products!(
     ReciprocalLength * PowerPerLengthTemperature = PowerPerAreaTemperature,
     PowerPerAreaTemperature * ReciprocalLength = PowerPerVolumeTemperature,
     ReciprocalLength * PowerPerAreaTemperature = PowerPerVolumeTemperature,
+    PowerDensity * ReciprocalTemperature = EntropyDensityRate,
+    EntropyDensity * Rate = EntropyDensityRate,
     PowerPerVolumeTemperature * Volume = PowerPerTemperature,
     Power * Temperature = PowerTemperature,
     PowerPerTemperature * Temperature = Power,
@@ -422,3 +424,9 @@ pub type Frequency = Rate;
 
 /// A dissipation, being a power per unit volume.
 pub type Dissipation = PowerDensity;
+
+/// An entropy per unit volume.
+pub type EntropyDensity = StressPerTemperature;
+
+/// An entropy production rate per unit volume.
+pub type EntropyDensityRate = PowerPerVolumeTemperature;
