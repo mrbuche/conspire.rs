@@ -23,7 +23,7 @@ use crate::{
         },
     },
     math::{
-        Differentiate, Quantity, Rank2, Tensor, TensorArray, Vector,
+        ContractWith, Differentiate, Quantity, Rank2, Tensor, TensorArray, Vector,
         integrate::{ExplicitDaeFirstOrderRoot, ExplicitDaeZerothOrderRoot},
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
@@ -31,7 +31,7 @@ use crate::{
         DeformationGradient, DeformationGradients, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, Times,
     },
-    units::Time,
+    units::{Dissipation, Time},
 };
 
 use crate::constitutive::solid::elastic_plastic::bcs;
@@ -43,21 +43,36 @@ where
     Self: ElasticPlasticOrViscoplastic + Viscoplastic<Y>,
     Y: Differentiate + Tensor,
 {
+    /// Calculates and returns the internal dissipation.
+    ///
+    /// ```math
+    /// T\dot{s} = \mathbf{M}_\mathrm{e}':\mathbf{D}_\mathrm{p}
+    /// ```
+    fn internal_dissipation(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        state_variables: &ViscoplasticStateVariables<Y>,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        let deformation_gradient_p = &state_variables.0;
+        let plastic_stretching_rate = self
+            .state_variables_evolution(deformation_gradient, state_variables)?
+            .0
+            * deformation_gradient_p.inverse();
+        Ok(self
+            .mandel_stress(deformation_gradient, deformation_gradient_p)?
+            .deviatoric()
+            .contract_with(&plastic_stretching_rate))
+    }
     /// Calculates and returns the evolution of the state variables.
     fn state_variables_evolution(
         &self,
         deformation_gradient: &DeformationGradient,
         state_variables: &ViscoplasticStateVariables<Y>,
     ) -> Result<ViscoplasticEvolution<Y>, ConstitutiveError> {
-        let deformation_gradient_p = &state_variables.0;
-        let jacobian = self.jacobian(deformation_gradient)?;
-        let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
-        let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
-        let mandel_stress = (deformation_gradient_e.transpose()
-            * cauchy_stress
-            * deformation_gradient_e.inverse_transpose())
-            * jacobian;
-        self.plastic_evolution(mandel_stress, state_variables)
+        self.plastic_evolution(
+            self.mandel_stress(deformation_gradient, &state_variables.0)?,
+            state_variables,
+        )
     }
 }
 

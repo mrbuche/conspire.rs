@@ -3,11 +3,11 @@ macro_rules! test_model {
         use crate::units::{Rate, Stress, Time};
         use crate::{
             constitutive::solid::elastic_viscoplastic::{
-                AppliedLoad, ElasticPlasticOrViscoplastic,
+                AppliedLoad, ElasticPlasticOrViscoplastic, ElasticViscoplastic,
             },
             math::{
                 Quantity, Rank2, Tensor, TensorArray,
-                assert::{AssertionError, FiniteDifference},
+                assert::{Assert, AssertionError, FiniteDifference},
                 integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
                 optimize::{GradientDescent, NewtonRaphson},
             },
@@ -36,6 +36,7 @@ macro_rules! test_model {
                     $solver,
                 )?;
                 for (t_i, (f_i, s_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
+                    Assert::non_negative(&model.internal_dissipation(f_i, s_i)?)?;
                     let (f_p_i, y_i) = s_i.into();
                     let f_e = f_i * f_p_i.inverse();
                     let c_e = model.cauchy_stress(f_i, f_p_i)?;
