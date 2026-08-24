@@ -7,8 +7,8 @@ use crate::{
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
-        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Scalar,
-        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
+        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, MandelStressElastic,
+        Scalar, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
     units::Time,
 };
@@ -134,6 +134,24 @@ where
                 &first_piola_kirchhoff_stress,
                 &deformation_gradient_inverse_transpose,
             ))
+    }
+    /// Calculates and returns the Mandel stress.
+    ///
+    /// ```math
+    /// \mathbf{M}_\mathrm{e} = J\mathbf{F}_\mathrm{e}^T\cdot\boldsymbol{\sigma}\cdot\mathbf{F}_\mathrm{e}^{-T}
+    /// ```
+    fn mandel_stress(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_p: &DeformationGradientPlastic,
+    ) -> Result<MandelStressElastic, ConstitutiveError> {
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
+        let cauchy_stress = self.cauchy_stress(deformation_gradient, deformation_gradient_p)?;
+        Ok((deformation_gradient_e.transpose()
+            * cauchy_stress
+            * deformation_gradient_e.inverse_transpose())
+            * jacobian)
     }
     /// Calculates and returns the second Piola-Kirchhoff stress.
     ///
