@@ -52,6 +52,20 @@ pub(super) fn zero_impl<T: Display + Tensor>(a: &T) -> Result<(), AssertionError
     }
 }
 
+pub(super) fn non_negative_impl<T: Default + Display + PartialOrd>(
+    a: &T,
+) -> Result<(), AssertionError> {
+    if a >= &T::default() {
+        Ok(())
+    } else {
+        Err(AssertionError {
+            message: format!(
+                "\n\x1b[1;91mAssertion `left >= right` failed.\n\x1b[0;91m  left: {a}\n right: 0\x1b[0m"
+            ),
+        })
+    }
+}
+
 pub(super) fn zero_within_tols_impl<T: Display + Tensor>(
     tols: &Assert,
     a: &T,

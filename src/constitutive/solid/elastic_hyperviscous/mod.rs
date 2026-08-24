@@ -35,7 +35,7 @@ where
     /// Calculates and returns the dissipation potential.
     ///
     /// ```math
-    /// \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}})
+    /// \phi(\mathbf{F},\dot{\mathbf{F}}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \psi(\mathbf{F},\dot{\mathbf{F}})
     /// ```
     fn dissipation_potential(
         &self,
@@ -47,10 +47,30 @@ where
             .contract_with(deformation_gradient_rate)
             + self.viscous_dissipation(deformation_gradient, deformation_gradient_rate)?)
     }
+    /// Calculates and returns the internal dissipation.
+    ///
+    /// ```math
+    /// T\dot{s} = \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}):\dot{\mathbf{F}} - \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}}
+    /// ```
+    fn internal_dissipation(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        Ok(self
+            .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_rate)?
+            .contract_with(deformation_gradient_rate)
+            - self
+                .first_piola_kirchhoff_stress(
+                    deformation_gradient,
+                    &DeformationGradientRate::zero(),
+                )?
+                .contract_with(deformation_gradient_rate))
+    }
     /// Calculates and returns the viscous dissipation.
     ///
     /// ```math
-    /// \phi = \phi(\mathbf{F},\dot{\mathbf{F}})
+    /// \psi = \psi(\mathbf{F},\dot{\mathbf{F}})
     /// ```
     fn viscous_dissipation(
         &self,
@@ -64,7 +84,7 @@ pub trait FirstOrderMinimize {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
     /// ```math
-    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
+    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \psi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
     /// ```
     fn minimize(
         &self,
@@ -89,7 +109,7 @@ pub trait SecondOrderMinimize {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
     /// ```math
-    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \phi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
+    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \psi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
     /// ```
     fn minimize(
         &self,

@@ -7,6 +7,13 @@
 #[cfg(feature = "doc")]
 pub mod doc;
 
+#[cfg(test)]
+pub mod test;
+
+mod almansi_hamel;
+
+pub use almansi_hamel::AlmansiHamel;
+
 use crate::{
     constitutive::{
         ConstitutiveError,

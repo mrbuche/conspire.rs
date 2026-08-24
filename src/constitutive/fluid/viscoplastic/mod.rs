@@ -1,5 +1,8 @@
 //! Viscoplastic fluid constitutive models.
 
+#[cfg(test)]
+mod test;
+
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
     math::{
@@ -10,7 +13,7 @@ use crate::{
         DeformationGradientPlastic, DeformationGradientRatePlastic, MandelStressElastic,
         StretchingRatePlastic,
     },
-    units::{Rate, Stress},
+    units::{Dissipation, Rate, Stress},
 };
 
 /// Viscoplastic state variables.
@@ -47,7 +50,7 @@ where
     /// Calculates and returns the rate of plastic stretching.
     ///
     /// ```math
-    /// \mathbf{D}_\mathrm{p} = d_0\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y(S)}\right)^{\footnotesize\tfrac{1}{m}}\frac{\mathbf{M}_\mathrm{e}'}{|\mathbf{M}_\mathrm{e}'|}
+    /// \mathbf{D}_\mathrm{p}(\mathbf{M}_\mathrm{e}') = d_0\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y(S)}\right)^{\footnotesize\tfrac{1}{m}}\frac{\mathbf{M}_\mathrm{e}'}{|\mathbf{M}_\mathrm{e}'|}
     /// ```
     fn plastic_stretching_rate(
         &self,
@@ -63,6 +66,41 @@ where
                 * (reference_flow_rate / magnitude
                     * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
         }
+    }
+    /// Calculates and returns the dissipation potential.
+    ///
+    /// ```math
+    /// \phi(\mathbf{D}_\mathrm{p}) = \frac{Yd_0}{1+m}\left(\frac{|\mathbf{D}_\mathrm{p}|}{d_0}\right)^{1+m}
+    /// ```
+    fn dissipation_potential(
+        &self,
+        plastic_stretching_rate: StretchingRatePlastic,
+        yield_stress: Quantity<Stress>,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        let rate_sensitivity = self.rate_sensitivity();
+        let reference_flow_rate = self.reference_flow_rate();
+        Ok(
+            reference_flow_rate * yield_stress / (1.0 + rate_sensitivity)
+                * (plastic_stretching_rate.norm() / reference_flow_rate)
+                    .powf(1.0 + rate_sensitivity),
+        )
+    }
+    /// Calculates and returns the dual dissipation potential.
+    ///
+    /// ```math
+    /// \phi^*(\mathbf{M}_\mathrm{e}') = \frac{Yd_0m}{1+m}\left(\frac{|\mathbf{M}_\mathrm{e}'|}{Y(S)}\right)^{\footnotesize\tfrac{1+m}{m}}
+    /// ```
+    fn dual_dissipation_potential(
+        &self,
+        deviatoric_mandel_stress: MandelStressElastic,
+        yield_stress: Quantity<Stress>,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        let rate_sensitivity = self.rate_sensitivity();
+        Ok(self.reference_flow_rate()
+            * yield_stress
+            * (rate_sensitivity / (1.0 + rate_sensitivity))
+            * (deviatoric_mandel_stress.norm() / yield_stress)
+                .powf((1.0 + rate_sensitivity) / rate_sensitivity))
     }
     /// Returns the rate_sensitivity parameter.
     fn rate_sensitivity(&self) -> Scalar;
