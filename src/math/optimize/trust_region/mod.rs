@@ -29,7 +29,18 @@ const TRUST_REGION_SHRINK: Scalar = 0.25;
 const TRUST_REGION_GROW: Scalar = 2.0;
 pub(crate) const TRUST_REGION_MAX_REJECTIONS: usize = 25;
 
-const MORE_SORENSEN_TOLERANCE: Scalar = 1e-6;
+// How precisely the bisection locates the radius boundary. The radius is a
+// heuristic that only ever gets doubled or quartered, so resolving its boundary
+// to more than a couple of digits buys nothing and costs a factorization per
+// digit. `update_radius` has to read the boundary at least this loosely too: a
+// step is only converged to within this of the radius, so a tighter test there
+// would never see a step as having reached the boundary and the radius would
+// never grow.
+const MORE_SORENSEN_TOLERANCE: Scalar = 1e-2;
+// How far a shift is nudged to step off an exact singularity, which is a
+// question about floating-point spacing rather than about the radius, and stays
+// tight however loosely the boundary itself is located.
+const MORE_SORENSEN_NUDGE: Scalar = 1e-6;
 const MORE_SORENSEN_MAX_ITERATIONS: usize = 100;
 // How far a shift is let grow relative to the tangent's own scale before
 // giving up on shrinking further: past this, the arithmetic used to test a
@@ -87,7 +98,7 @@ fn step_at(
         if let Some((step, _)) = solve(lambda) {
             return step;
         }
-        lambda *= 1.0 + MORE_SORENSEN_TOLERANCE
+        lambda *= 1.0 + MORE_SORENSEN_NUDGE
     }
     panic!("no non-singular shift found near lambda = {lambda}")
 }

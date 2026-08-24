@@ -1,4 +1,4 @@
-use super::{SquareMatrix, Vector, more_sorensen_dense};
+use super::{MORE_SORENSEN_TOLERANCE, SquareMatrix, Vector, more_sorensen_dense};
 
 /// A positive definite Hessian bordered by a full-rank constraint: KKT inertia
 /// is `(2, 1, 0)` already at `lambda = 0` (verified separately for this exact
@@ -43,7 +43,7 @@ fn boundary_solution_lands_on_the_radius() {
     let radius = 0.05;
     let step = more_sorensen_dense(&tangent, &residual, radius, 2);
     let norm = (step[0] * step[0] + step[1] * step[1]).sqrt();
-    assert!((norm - radius).abs() < 1e-4 * radius)
+    assert!((norm - radius).abs() < 2.0 * MORE_SORENSEN_TOLERANCE * radius)
 }
 
 #[test]
@@ -71,7 +71,7 @@ fn unconstrained_degenerates_to_a_plain_shift() {
     let radius = 0.2;
     let step = more_sorensen_dense(&tangent, &residual, radius, 2);
     let norm = (step[0] * step[0] + step[1] * step[1]).sqrt();
-    assert!((norm - radius).abs() < 1e-4 * radius)
+    assert!((norm - radius).abs() < 2.0 * MORE_SORENSEN_TOLERANCE * radius)
 }
 
 /// A radius only slightly shorter than the Newton step, with `lambda = 0`
@@ -87,7 +87,7 @@ fn a_radius_just_inside_the_newton_step_is_not_overshot() {
     let step = more_sorensen_dense(&tangent, &residual, radius, 2);
     let norm = (step[0] * step[0] + step[1] * step[1]).sqrt();
     assert!(
-        (norm - radius).abs() < 1e-4 * radius,
+        (norm - radius).abs() < 2.0 * MORE_SORENSEN_TOLERANCE * radius,
         "step of norm {norm} for a radius of {radius}"
     )
 }
