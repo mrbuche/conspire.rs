@@ -156,19 +156,37 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                 });
                 Ok(powm)
             } else if self.is_symmetric() {
-                let mut eigenvalues = solve_cubic_symmetric(self.invariants())?;
-                if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
-                    panic!("Symmetric matrix has a non-positive eigenvalue")
-                }
-                let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self);
-                eigenvalues
-                    .iter_mut()
-                    .for_each(|eigenvalue| *eigenvalue = eigenvalue.powf(exponent));
-                Ok(reconstruct_symmetric(eigenvalues, eigenvectors))
+                let (eigenvalues, eigenvectors) = self.eigen()?;
+                Ok(Self::powm_from_eigen(&eigenvalues, &eigenvectors, exponent))
             } else {
                 panic!("Matrix power only implemented for symmetric cases")
             }
         }
+    }
+    /// Returns the eigenvalues and (row-wise) eigenvectors of the 3x3 symmetric tensor.
+    ///
+    /// Reuse this alongside [`Self::powm_from_eigen`]/[`Self::dpowm_from_eigen`] to evaluate
+    /// several exponents against the same tensor while sharing one eigendecomposition, instead
+    /// of paying for a fresh cubic solve on every [`Self::powm`]/[`Self::dpowm`] call.
+    pub fn eigen(&self) -> Result<(TensorRank0List<3>, Self), TensorError> {
+        let eigenvalues = solve_cubic_symmetric(self.invariants())?;
+        let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self);
+        Ok((eigenvalues, eigenvectors))
+    }
+    /// Returns the matrix power from an eigendecomposition obtained from [`Self::eigen`].
+    pub fn powm_from_eigen(
+        eigenvalues: &TensorRank0List<3>,
+        eigenvectors: &Self,
+        exponent: TensorRank0,
+    ) -> Self {
+        if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
+            panic!("Symmetric matrix has a non-positive eigenvalue")
+        }
+        let powered = eigenvalues
+            .iter()
+            .map(|eigenvalue| eigenvalue.powf(exponent))
+            .collect();
+        reconstruct_symmetric(powered, eigenvectors.clone())
     }
     /// Returns the derivative of the matrix power of the 3x3 symmetric tensor.
     pub fn dpowm(
@@ -200,46 +218,59 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
             });
             Ok(dpowm)
         } else if self.is_symmetric() {
-            let eigenvalues = solve_cubic_symmetric(self.invariants())?;
-            if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
-                panic!("Symmetric matrix has a non-positive eigenvalue")
-            }
-            let divided_difference: Self = eigenvalues
-                .iter()
-                .map(|eigenvalue_i| {
-                    eigenvalues
-                        .iter()
-                        .map(|eigenvalue_j| {
-                            if Assert::default()
-                                .eq_within_tols(eigenvalue_i, eigenvalue_j)
-                                .is_ok()
-                            {
-                                exponent * eigenvalue_j.powf(exponent - 1.0)
-                            } else {
-                                (eigenvalue_i.powf(exponent) - eigenvalue_j.powf(exponent))
-                                    / (eigenvalue_i - eigenvalue_j)
-                            }
-                        })
-                        .collect()
-                })
-                .collect();
-            let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self).transpose();
-            Ok(eigenvectors.iter().map(|eigenvector_i|
-                eigenvectors.iter().map(|eigenvector_j|
-                    eigenvectors.iter().map(|eigenvector_k|
-                        eigenvectors.iter().map(|eigenvector_l|
-                            eigenvector_i.iter().zip(eigenvector_k.iter().zip(divided_difference.iter())).map(|(eigenvector_ip, (eigenvector_kp, divided_difference_p))|
-                                eigenvector_j.iter().zip(eigenvector_l.iter().zip(divided_difference_p.iter())).map(|(eigenvector_jq, (eigenvector_lq, divided_difference_pq))|
-                                    eigenvector_ip * eigenvector_kp * divided_difference_pq * eigenvector_jq * eigenvector_lq
-                                ).sum::<Quantity>()
-                            ).sum::<Quantity>()
-                        ).collect()
-                    ).collect()
-                ).collect()
-            ).collect())
+            let (eigenvalues, eigenvectors) = self.eigen()?;
+            Ok(Self::dpowm_from_eigen(
+                &eigenvalues,
+                &eigenvectors,
+                exponent,
+            ))
         } else {
             panic!("Matrix power only implemented for symmetric cases")
         }
+    }
+    /// Returns the derivative of the matrix power from an eigendecomposition obtained from
+    /// [`Self::eigen`].
+    pub fn dpowm_from_eigen(
+        eigenvalues: &TensorRank0List<3>,
+        eigenvectors: &Self,
+        exponent: TensorRank0,
+    ) -> TensorRank4<3, I, I, I, I, Dimensionless> {
+        if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
+            panic!("Symmetric matrix has a non-positive eigenvalue")
+        }
+        let divided_difference: Self = eigenvalues
+            .iter()
+            .map(|eigenvalue_i| {
+                eigenvalues
+                    .iter()
+                    .map(|eigenvalue_j| {
+                        if Assert::default()
+                            .eq_within_tols(eigenvalue_i, eigenvalue_j)
+                            .is_ok()
+                        {
+                            exponent * eigenvalue_j.powf(exponent - 1.0)
+                        } else {
+                            (eigenvalue_i.powf(exponent) - eigenvalue_j.powf(exponent))
+                                / (eigenvalue_i - eigenvalue_j)
+                        }
+                    })
+                    .collect()
+            })
+            .collect();
+        let eigenvectors_transposed = eigenvectors.transpose();
+        eigenvectors_transposed.iter().map(|eigenvector_i|
+            eigenvectors_transposed.iter().map(|eigenvector_j|
+                eigenvectors_transposed.iter().map(|eigenvector_k|
+                    eigenvectors_transposed.iter().map(|eigenvector_l|
+                        eigenvector_i.iter().zip(eigenvector_k.iter().zip(divided_difference.iter())).map(|(eigenvector_ip, (eigenvector_kp, divided_difference_p))|
+                            eigenvector_j.iter().zip(eigenvector_l.iter().zip(divided_difference_p.iter())).map(|(eigenvector_jq, (eigenvector_lq, divided_difference_pq))|
+                                eigenvector_ip * eigenvector_kp * divided_difference_pq * eigenvector_jq * eigenvector_lq
+                            ).sum::<Quantity>()
+                        ).sum::<Quantity>()
+                    ).collect()
+                ).collect()
+            ).collect()
+        ).collect()
     }
     /// Returns the invariants of the 3x3 symmetric tensor.
     pub fn invariants(&self) -> TensorRank0List<3> {
