@@ -777,7 +777,7 @@ macro_rules! test_finite_element_inner {
                         SaintVenantKirchhoff, Yeoh,
                         test::{
                             EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUMBER_OF_LINKS,
-                            OGDEN_EXPONENTS, OGDEN_MODULI, YEOH_EXTRA_MODULI,
+                            OGDEN_EXPONENTS, OGDEN_MODULI, YEOH_MODULI,
                         },
                     },
                     fem::block::element::solid::{
@@ -873,8 +873,7 @@ macro_rules! test_finite_element_inner {
                         $element,
                         Yeoh {
                             bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            extra_moduli: YEOH_EXTRA_MODULI.to_vec(),
+                            moduli: YEOH_MODULI.to_vec(),
                         },
                         Yeoh
                     );

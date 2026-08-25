@@ -123,8 +123,7 @@ macro_rules! test_finite_element_block_inner {
                         ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff,
                         Yeoh,
                         test::{
-                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUMBER_OF_LINKS,
-                            YEOH_EXTRA_MODULI,
+                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUMBER_OF_LINKS, YEOH_MODULI,
                         },
                     },
                     fem::{
@@ -225,8 +224,7 @@ macro_rules! test_finite_element_block_inner {
                         $element,
                         Yeoh {
                             bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            extra_moduli: YEOH_EXTRA_MODULI.to_vec(),
+                            moduli: YEOH_MODULI.to_vec(),
                         },
                         Yeoh
                     );

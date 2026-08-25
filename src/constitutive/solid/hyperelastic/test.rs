@@ -9,8 +9,9 @@ pub const EXPONENT: Scalar = 1.1;
 pub const EXTENSIBILITY: Scalar = 23.0;
 pub const EXTRA_MODULUS: Quantity<Stress> = Stress::pascals(1.2);
 pub const NUMBER_OF_LINKS: Scalar = 8.0;
-pub const NUM_YEOH_EXTRA_MODULI: usize = 4;
-pub const YEOH_EXTRA_MODULI: [Quantity<Stress>; NUM_YEOH_EXTRA_MODULI] = [
+pub const NUM_YEOH_MODULI: usize = 5;
+pub const YEOH_MODULI: [Quantity<Stress>; NUM_YEOH_MODULI] = [
+    SHEAR_MODULUS,
     Stress::pascals(-1.0),
     Stress::pascals(3e-1),
     Stress::pascals(-1e-3),
