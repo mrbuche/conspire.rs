@@ -16,6 +16,13 @@ pub const YEOH_EXTRA_MODULI: [Quantity<Stress>; NUM_YEOH_EXTRA_MODULI] = [
     Stress::pascals(-1e-3),
     Stress::pascals(1e-5),
 ];
+pub const NUM_OGDEN_TERMS: usize = 3;
+pub const OGDEN_MODULI: [Quantity<Stress>; NUM_OGDEN_TERMS] = [
+    Stress::pascals(2.3),
+    Stress::pascals(1.1e-2),
+    Stress::pascals(-2.0e-3),
+];
+pub const OGDEN_EXPONENTS: [Scalar; NUM_OGDEN_TERMS] = [1.3, 5.0, -2.0];
 
 macro_rules! helmholtz_free_energy_density_from_deformation_gradient_simple {
     ($constitutive_model: expr, $deformation_gradient: expr) => {

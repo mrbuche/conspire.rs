@@ -773,11 +773,11 @@ macro_rules! test_finite_element_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::hyperelastic::{
-                        ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean,
+                        ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean, Ogden,
                         SaintVenantKirchhoff, Yeoh,
                         test::{
                             EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUMBER_OF_LINKS,
-                            YEOH_EXTRA_MODULI,
+                            OGDEN_EXPONENTS, OGDEN_MODULI, YEOH_EXTRA_MODULI,
                         },
                     },
                     fem::block::element::solid::{
@@ -877,6 +877,18 @@ macro_rules! test_finite_element_inner {
                             extra_moduli: YEOH_EXTRA_MODULI.to_vec(),
                         },
                         Yeoh
+                    );
+                }
+                mod ogden {
+                    use super::*;
+                    test_finite_element_with_hyperelastic_constitutive_model!(
+                        $element,
+                        Ogden {
+                            bulk_modulus: BULK_MODULUS,
+                            moduli: OGDEN_MODULI.to_vec(),
+                            exponents: OGDEN_EXPONENTS.to_vec(),
+                        },
+                        Ogden
                     );
                 }
             }
