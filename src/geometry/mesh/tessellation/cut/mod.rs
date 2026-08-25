@@ -22,7 +22,7 @@ use crate::{
             Dualization, Mesh,
             tessellation::{D, Tessellation, cut::geometry::contained},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, Sizing},
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, SeparationSizing, Sizing},
     },
     math::{Quantity, Scalar},
     units::Length,
@@ -243,7 +243,7 @@ impl Tessellation {
         curvature: CurvatureSizing,
         cells: Cells,
     ) -> Result<Mesh<D>, &'static str> {
-        let sizing = Sizing::new(self, scale, curvature, PADDING);
+        let sizing = Sizing::new(self, scale, curvature, SeparationSizing::default(), PADDING);
         if sizing.fits::<u16>() {
             let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, pairing)?;
