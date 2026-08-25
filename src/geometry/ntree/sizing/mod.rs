@@ -2,6 +2,7 @@
 mod test;
 
 pub mod curvature;
+pub mod separation;
 
 use crate::{
     geometry::{
@@ -10,7 +11,10 @@ use crate::{
             Tessellation,
             differential::sizing::{Creases, Unresolved, sizing_field},
         },
-        ntree::{node::cell::Cell, sizing::curvature::CurvatureSizing},
+        ntree::{
+            node::cell::Cell,
+            sizing::{curvature::CurvatureSizing, separation::SeparationSizing},
+        },
     },
     math::{Quantity, Scalar, Tensor, TensorVec},
     units::Length,
@@ -24,8 +28,11 @@ pub struct Sizing<'a> {
     pub(crate) center: Coordinate<D>,
     pub(crate) coordinates: &'a Coordinates<D>,
     pub(crate) elements: Vec<&'a [usize]>,
+    pub(crate) gaps: Vec<Quantity<Length>>,
     pub(crate) levels: u32,
     pub(crate) min_length: Quantity<Length>,
+    pub(crate) narrow: Vec<[[Coordinate<D>; 2]; 2]>,
+    pub(crate) distances: Vec<Quantity<Length>>,
     pub(crate) scale: Scalar,
     pub(crate) targets: Vec<Quantity<Length>>,
 }
@@ -44,6 +51,7 @@ impl<'a> Sizing<'a> {
         tessellation: &'a Tessellation,
         scale: Scalar,
         curvature: CurvatureSizing,
+        separation: SeparationSizing,
         padding: u16,
     ) -> Self {
         let CurvatureSizing {
@@ -51,6 +59,12 @@ impl<'a> Sizing<'a> {
             gradation,
             floor_fraction,
         } = curvature;
+        let SeparationSizing {
+            radius: separation_radius,
+            hops: separation_hops,
+            scale: separation_scale,
+        } = separation;
+        let separation_scale = separation_scale.unwrap_or(scale);
         let sdf = tessellation.shape_diameter_function(FRAC_PI_4, 3, 10);
         let coordinates = tessellation.mesh().coordinates();
         if coordinates.is_empty() {
@@ -58,8 +72,11 @@ impl<'a> Sizing<'a> {
                 center: Coordinate::const_from([0.0; D]),
                 coordinates,
                 elements: Vec::new(),
+                gaps: Vec::new(),
                 levels: 0,
                 min_length: Quantity::new(1.0),
+                narrow: Vec::new(),
+                distances: Vec::new(),
                 scale,
                 targets: Vec::new(),
             };
@@ -107,12 +124,58 @@ impl<'a> Sizing<'a> {
             .iter()
             .copied()
             .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
+        // Narrow features are kept as the pairs of creases they were measured
+        // between, and applied below only to cells lying between a pair,
+        // rather than smeared onto a per-vertex size field. A crease bounding
+        // a narrow feature is typically also a vertex of the large, flat
+        // triangles covering the bulk of the surface, and is often long while
+        // only part of it runs close to anything, so a field carried on either
+        // the triangles or the whole creases would drive the entire model down
+        // to the gap size instead of just the gap. Every pair a crease takes
+        // part in is kept, since each covers a different stretch of it.
+        let narrow_pairs: Vec<([[Coordinate<D>; 2]; 2], Quantity<Length>)> = match separation_radius
+        {
+            Some(radius) => {
+                let features = tessellation.features();
+                features
+                    .separation(tessellation, radius, separation_hops)
+                    .into_iter()
+                    .enumerate()
+                    .flat_map(|(crease, partners)| {
+                        // Each pair is reported from both of its creases, and
+                        // one copy of it is enough.
+                        partners
+                            .into_iter()
+                            .filter(move |partner| crease < partner.crease)
+                            .map(move |partner| {
+                                (
+                                    [
+                                        features.creases()[crease].clone(),
+                                        features.creases()[partner.crease].clone(),
+                                    ],
+                                    partner.distance,
+                                )
+                            })
+                    })
+                    .collect()
+            }
+            None => Vec::new(),
+        };
+        let min_narrow = narrow_pairs
+            .iter()
+            .map(|&(_, distance)| distance)
+            .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
         let thickness_length = if min_sdf.value().is_finite() {
             min_sdf / scale
         } else {
             max_extent
         };
-        let min_length = thickness_length.min(min_curvature);
+        let narrow_length = if min_narrow.value().is_finite() {
+            min_narrow / separation_scale
+        } else {
+            max_extent
+        };
+        let min_length = thickness_length.min(min_curvature).min(narrow_length);
         let zero = Quantity::default();
         let levels = if max_extent <= zero || min_length <= zero {
             0u32
@@ -134,14 +197,26 @@ impl<'a> Sizing<'a> {
                 thickness.min(feature)
             })
             .collect();
+        // Each narrow pair demands cells of `distance / separation_scale`
+        // throughout the region between the two creases, which is where cells
+        // have to be small enough to separate one from the other.
+        let gaps: Vec<Quantity<Length>> = narrow_pairs
+            .iter()
+            .map(|&(_, distance)| distance * (scale / separation_scale))
+            .collect();
+        let (narrow, distances): (Vec<[[Coordinate<D>; 2]; 2]>, Vec<Quantity<Length>>) =
+            narrow_pairs.into_iter().unzip();
         Self {
             center: Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
                 (min_coord[ax] + max_coord[ax]) / 2.0
             })),
             coordinates,
             elements,
+            gaps,
             levels,
             min_length,
+            narrow,
+            distances,
             scale,
             targets,
         }

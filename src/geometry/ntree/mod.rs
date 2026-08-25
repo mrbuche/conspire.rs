@@ -22,7 +22,7 @@ pub use crate::geometry::ntree::{
     pair::Pairing,
     read::Input,
     rescale::Rescaling,
-    sizing::{Sizing, curvature::CurvatureSizing},
+    sizing::{Sizing, curvature::CurvatureSizing, separation::SeparationSizing},
     write::Output,
 };
 

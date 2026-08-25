@@ -12,15 +12,31 @@ use crate::{
             node::{Kind, Node, cell::Cell, slot::Slot},
             pair::Pairing,
             rescale::Rescaling,
-            sizing::{Sizing, curvature::CurvatureSizing},
+            sizing::{Sizing, curvature::CurvatureSizing, separation::SeparationSizing},
         },
     },
-    math::{Quantity, Scalar},
+    math::{Quantity, Scalar, Tensor},
+    units::{Area, Dimensionless},
 };
 use std::array::from_fn;
 
 const D: usize = 3;
 const M: usize = 6;
+
+/// The point of a segment closest to `point`.
+fn closest_on(segment: &[Coordinate<D>; 2], point: &Coordinate<D>) -> Coordinate<D> {
+    let along = &segment[1] - &segment[0];
+    let length = &along * &along;
+    if length == Quantity::<Area>::new(0.0) {
+        return segment[0].clone();
+    }
+    let fraction = Quantity::<Dimensionless>::new(
+        ((point - &segment[0]) * &along / length)
+            .value()
+            .clamp(0.0, 1.0),
+    );
+    &segment[0] + &(along * fraction)
+}
 
 impl<T, U> Octree<T, U>
 where
@@ -33,15 +49,25 @@ where
     /// `scale` controls cells-per-thickness; `curvature` controls
     /// curvature-driven refinement independent of thickness (e.g. a sphere
     /// has ~constant thickness everywhere but can still demand refinement
-    /// from curvature alone). `padding` adds extra empty root levels in case
-    /// the tessellation's boundary overlaps the primordial primal node.
+    /// from curvature alone). `separation` controls refinement driven by
+    /// narrow features caught via nearby, topologically unrelated creases,
+    /// independent of both thickness and curvature. `padding` adds extra
+    /// empty root levels in case the tessellation's boundary overlaps the
+    /// primordial primal node.
     pub fn from_features(
         tessellation: &Tessellation,
         scale: Scalar,
         curvature: CurvatureSizing,
+        separation: SeparationSizing,
         padding: u16,
     ) -> Result<Self, &'static str> {
-        Self::refine(&Sizing::new(tessellation, scale, curvature, padding))
+        Self::refine(&Sizing::new(
+            tessellation,
+            scale,
+            curvature,
+            separation,
+            padding,
+        ))
     }
     /// Refines an octree to a given size field.
     pub fn refine(sizing: &Sizing) -> Result<Self, &'static str> {
@@ -49,8 +75,11 @@ where
             center,
             coordinates,
             elements,
+            gaps,
             levels,
             min_length,
+            narrow,
+            distances,
             scale,
             targets,
         } = sizing;
@@ -102,13 +131,18 @@ where
                 &coordinates[element[2]],
             )
         };
-        let mut stack: Vec<(usize, Vec<usize>)> = vec![(0, (0..elements.len()).collect())];
-        while let Some((index, overlapping)) = stack.pop() {
+        let mut stack: Vec<(usize, Vec<usize>, Vec<usize>)> = vec![(
+            0,
+            (0..elements.len()).collect(),
+            (0..narrow.len()).collect(),
+        )];
+        while let Some((index, overlapping, nearby)) = stack.pop() {
             let cells: usize = tree.nodes[index].length.cells();
             let extent: Scalar = tree.nodes[index].length.scalar();
             let target = overlapping
                 .iter()
                 .map(|&triangle| targets[triangle])
+                .chain(nearby.iter().map(|&pair| gaps[pair]))
                 .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
             if min_length * (extent * scale) <= target {
                 continue;
@@ -132,15 +166,31 @@ where
                 let maximum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
                     minimum[ax] + min_length * child_extent
                 }));
+                let center_of = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
+                    (minimum[ax] + maximum[ax]) / 2.0
+                }));
+                let reach = (&maximum - &minimum).norm() / 2.0;
                 let bbox = BoundingBox::from(CoordinateList::const_from([minimum, maximum]));
                 let inside: Vec<usize> = overlapping
                     .iter()
                     .copied()
                     .filter(|&triangle| overlaps(&bbox, triangle))
                     .collect();
-                if !inside.is_empty() {
-                    stack.push((child, inside));
+                if inside.is_empty() {
+                    continue;
                 }
+                let within: Vec<usize> = nearby
+                    .iter()
+                    .copied()
+                    .filter(|&pair| {
+                        let distance = distances[pair];
+                        narrow[pair].iter().all(|segment| {
+                            (&closest_on(segment, &center_of) - &center_of).norm()
+                                <= distance + reach
+                        })
+                    })
+                    .collect();
+                stack.push((child, inside, within));
             }
         }
         Ok(tree)

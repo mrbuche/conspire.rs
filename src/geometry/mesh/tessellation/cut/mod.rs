@@ -21,7 +21,10 @@ use crate::{
             Mesh,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
+        ntree::{
+            Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, SeparationSizing,
+            Sizing,
+        },
     },
     math::{Quantity, Scalar},
     units::Length,
@@ -123,7 +126,13 @@ impl Tessellation {
         balancing: Balancing,
         scale: Scalar,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let sizing = Sizing::new(self, scale, CurvatureSizing::default(), PADDING);
+        let sizing = Sizing::new(
+            self,
+            scale,
+            CurvatureSizing::default(),
+            SeparationSizing::default(),
+            PADDING,
+        );
         let mesh = if sizing.fits::<u16>() {
             let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, Pairing::Regular)?;
@@ -167,7 +176,13 @@ impl Tessellation {
         balancing: Balancing,
         scale: Scalar,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let sizing = Sizing::new(self, scale, CurvatureSizing::default(), PADDING);
+        let sizing = Sizing::new(
+            self,
+            scale,
+            CurvatureSizing::default(),
+            SeparationSizing::default(),
+            PADDING,
+        );
         let mesh = if sizing.fits::<u16>() {
             let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, Pairing::Regular)?;

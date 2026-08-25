@@ -5,7 +5,9 @@ use crate::{
             Connectivity, Fitting, Mesh, Verdict,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
+        ntree::{
+            Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, SeparationSizing,
+        },
     },
     math::Scalar,
 };
@@ -45,9 +47,14 @@ fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellati
 #[test]
 fn dualized_slender_torus_is_not_inverted() {
     let tessellation = torus(1.0, 0.15, 64, 24);
-    let mut octree =
-        Octree::<u16, usize>::from_features(&tessellation, 3.0, CurvatureSizing::default(), 0)
-            .unwrap();
+    let mut octree = Octree::<u16, usize>::from_features(
+        &tessellation,
+        3.0,
+        CurvatureSizing::default(),
+        SeparationSizing::default(),
+        0,
+    )
+    .unwrap();
     octree
         .equilibrate(Balancing::Strong(1), Pairing::Regular)
         .unwrap();
@@ -68,9 +75,14 @@ fn dualized_slender_torus_is_not_inverted() {
 fn trim_keeps_the_same_cells_at_any_scale() {
     let trimmed = |scale: Scalar| {
         let tessellation = torus(scale, 0.15 * scale, 64, 24);
-        let mut octree =
-            Octree::<u16, usize>::from_features(&tessellation, 3.0, CurvatureSizing::default(), 0)
-                .unwrap();
+        let mut octree = Octree::<u16, usize>::from_features(
+            &tessellation,
+            3.0,
+            CurvatureSizing::default(),
+            SeparationSizing::default(),
+            0,
+        )
+        .unwrap();
         octree
             .equilibrate(Balancing::Strong(1), Pairing::Regular)
             .unwrap();
