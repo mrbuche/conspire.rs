@@ -28,11 +28,6 @@ pub struct Ogden {
     pub exponents: Vec<Scalar>,
 }
 
-/// The eigendecomposition of `B`, shared across the `N` exponent evaluations of a single
-/// stress/tangent/energy call instead of solving the same cubic `N` times, with a fallback for
-/// the diagonal and near-identity cases that [`TensorRank2::powm`]/[`TensorRank2::dpowm`] handle
-/// specially (and where the fallback costs nothing extra: it's already a fast path there, and
-/// [`TensorRank2::dpowm`] takes it unconditionally for any non-diagonal input regardless).
 enum Spectrum {
     Eigen(TensorRank0List<3>, LeftCauchyGreenDeformation),
     Fallback(LeftCauchyGreenDeformation),

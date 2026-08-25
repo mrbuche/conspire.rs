@@ -773,11 +773,12 @@ macro_rules! test_finite_element_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::hyperelastic::{
-                        ArrudaBoyce, BlatzKo, Fung, Gent, Hencky, MooneyRivlin, NeoHookean, Ogden,
-                        SaintVenantKirchhoff, Yeoh,
+                        ArrudaBoyce, BlatzKo, Carroll, Fung, Gent, Hencky, MooneyRivlin,
+                        NeoHookean, Ogden, SaintVenantKirchhoff, Yeoh,
                         test::{
-                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, MIXING_PARAMETER,
-                            NUMBER_OF_LINKS, OGDEN_EXPONENTS, OGDEN_MODULI, YEOH_MODULI,
+                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, LINEAR_MODULUS,
+                            MIXING_PARAMETER, NUMBER_OF_LINKS, OGDEN_EXPONENTS, OGDEN_MODULI,
+                            QUARTIC_MODULUS, SECOND_INVARIANT_MODULUS, YEOH_MODULI,
                         },
                     },
                     fem::block::element::solid::{
@@ -820,6 +821,19 @@ macro_rules! test_finite_element_inner {
                             mixing_parameter: MIXING_PARAMETER,
                         },
                         BlatzKo
+                    );
+                }
+                mod carroll {
+                    use super::*;
+                    test_finite_element_with_hyperelastic_constitutive_model!(
+                        $element,
+                        Carroll {
+                            bulk_modulus: BULK_MODULUS,
+                            linear_modulus: LINEAR_MODULUS,
+                            quartic_modulus: QUARTIC_MODULUS,
+                            second_invariant_modulus: SECOND_INVARIANT_MODULUS,
+                        },
+                        Carroll
                     );
                 }
                 mod gent {
