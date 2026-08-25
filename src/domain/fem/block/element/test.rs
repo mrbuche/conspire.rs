@@ -873,7 +873,7 @@ macro_rules! test_finite_element_inner {
                         $element,
                         Yeoh {
                             bulk_modulus: BULK_MODULUS,
-                            moduli: YEOH_MODULI.to_vec(),
+                            shear_moduli: YEOH_MODULI.to_vec(),
                         },
                         Yeoh
                     );
@@ -884,7 +884,7 @@ macro_rules! test_finite_element_inner {
                         $element,
                         Ogden {
                             bulk_modulus: BULK_MODULUS,
-                            moduli: OGDEN_MODULI.to_vec(),
+                            shear_moduli: OGDEN_MODULI.to_vec(),
                             exponents: OGDEN_EXPONENTS.to_vec(),
                         },
                         Ogden

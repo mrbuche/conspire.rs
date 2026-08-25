@@ -2,7 +2,7 @@ The Ogden hyperelastic solid constitutive model.[^1]
 
 **Parameters**
 - The bulk modulus $`\kappa`$.
-- The moduli $`\mu_n`$ for $`n=1\ldots N`$.
+- The shear moduli $`\mu_n`$ for $`n=1\ldots N`$.
 - The exponents $`\alpha_n`$ for $`n=1\ldots N`$.
 
 **External variables**

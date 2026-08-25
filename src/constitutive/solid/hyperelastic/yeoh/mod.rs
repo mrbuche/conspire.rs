@@ -18,8 +18,8 @@ const SEVEN_THIRDS: Scalar = 7.0 / 3.0;
 pub struct Yeoh {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Quantity<Stress>,
-    /// The moduli $`\mu_n`$.
-    pub moduli: Vec<Quantity<Modulus>>,
+    /// The shear moduli $`\mu_n`$.
+    pub shear_moduli: Vec<Quantity<Modulus>>,
 }
 
 impl Solid for Yeoh {
@@ -30,7 +30,7 @@ impl Solid for Yeoh {
     /// \mu = \mu_1
     /// ```
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.moduli.first().copied().unwrap_or_default()
+        self.shear_moduli.first().copied().unwrap_or_default()
     }
 }
 
@@ -48,7 +48,7 @@ impl Elastic for Yeoh {
         let scalar_term = left_cauchy_green_deformation_trace / jacobian.powf(TWO_THIRDS) - 3.0;
         Ok(deviatoric_left_cauchy_green_deformation
             * self
-                .moduli
+                .shear_moduli
                 .iter()
                 .enumerate()
                 .map(|(n, &modulus)| modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
@@ -66,7 +66,7 @@ impl Elastic for Yeoh {
         let left_cauchy_green_deformation = deformation_gradient.left_cauchy_green();
         let scalar_term = left_cauchy_green_deformation.trace() / jacobian.powf(TWO_THIRDS) - 3.0;
         let scaled_modulus = self
-            .moduli
+            .shear_moduli
             .iter()
             .enumerate()
             .map(|(n, &modulus)| modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
@@ -78,7 +78,7 @@ impl Elastic for Yeoh {
             &((left_cauchy_green_deformation.deviatoric()
                 * &inverse_transpose_deformation_gradient)
                 * (self
-                    .moduli
+                    .shear_moduli
                     .iter()
                     .enumerate()
                     .skip(1)
@@ -116,7 +116,7 @@ impl Hyperelastic for Yeoh {
             deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS) - 3.0;
         Ok(0.5
             * (self
-                .moduli
+                .shear_moduli
                 .iter()
                 .enumerate()
                 .map(|(n, &modulus)| modulus * scalar_term.powi((n + 1) as i32))

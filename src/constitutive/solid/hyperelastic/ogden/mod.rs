@@ -22,8 +22,8 @@ use crate::{
 pub struct Ogden {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Quantity<Stress>,
-    /// The moduli $`\mu_n`$.
-    pub moduli: Vec<Quantity<Stress>>,
+    /// The shear moduli $`\mu_n`$.
+    pub shear_moduli: Vec<Quantity<Stress>>,
     /// The exponents $`\alpha_n`$.
     pub exponents: Vec<Scalar>,
 }
@@ -76,7 +76,7 @@ impl Solid for Ogden {
     /// \mu = \frac{1}{2}\sum_{n=1}^N \alpha_n\mu_n
     /// ```
     fn shear_modulus(&self) -> Quantity<Stress> {
-        self.moduli
+        self.shear_moduli
             .iter()
             .zip(self.exponents.iter())
             .map(|(modulus, exponent)| *modulus * exponent)
@@ -95,7 +95,7 @@ impl Elastic for Ogden {
         let left_cauchy_green = deformation_gradient.left_cauchy_green();
         let spectrum = Spectrum::new(&left_cauchy_green)?;
         let mut cauchy_stress = IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian);
-        for (modulus, exponent) in self.moduli.iter().zip(self.exponents.iter()) {
+        for (modulus, exponent) in self.shear_moduli.iter().zip(self.exponents.iter()) {
             let scaling = *modulus / jacobian.powf(exponent / 3.0 + 1.0);
             cauchy_stress += spectrum.powm(exponent / 2.0)?.deviatoric() * scaling;
         }
@@ -114,7 +114,7 @@ impl Elastic for Ogden {
             &(IDENTITY * (self.bulk_modulus() * 0.5 * (jacobian + 1.0 / jacobian))),
             &inverse_transpose_deformation_gradient,
         );
-        for (modulus, exponent) in self.moduli.iter().zip(self.exponents.iter()) {
+        for (modulus, exponent) in self.shear_moduli.iter().zip(self.exponents.iter()) {
             let half_exponent = exponent / 2.0;
             let scaling = *modulus / jacobian.powf(exponent / 3.0 + 1.0);
             let scaled_deformation_gradient = deformation_gradient * scaling;
@@ -150,7 +150,7 @@ impl Hyperelastic for Ogden {
         let spectrum = Spectrum::new(&left_cauchy_green)?;
         let mut helmholtz_free_energy_density =
             self.bulk_modulus() * 0.5 * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln());
-        for (modulus, exponent) in self.moduli.iter().zip(self.exponents.iter()) {
+        for (modulus, exponent) in self.shear_moduli.iter().zip(self.exponents.iter()) {
             helmholtz_free_energy_density += (*modulus / *exponent)
                 * (spectrum.powm(exponent / 2.0)?.trace() / jacobian.powf(exponent / 3.0) - 3.0);
         }
