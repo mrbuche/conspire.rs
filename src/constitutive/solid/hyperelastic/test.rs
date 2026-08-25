@@ -8,9 +8,9 @@ pub use crate::{
 pub const EXPONENT: Scalar = 1.1;
 pub const EXTENSIBILITY: Scalar = 23.0;
 pub const EXTRA_MODULUS: Quantity<Stress> = Stress::pascals(1.2);
-pub const LINEAR_MODULUS: Quantity<Stress> = Stress::pascals(0.4);
+pub const LINEAR_MODULUS: Quantity<Stress> = Stress::pascals(1.2);
 pub const QUARTIC_MODULUS: Quantity<Stress> = Stress::pascals(1e-4);
-pub const SECOND_INVARIANT_MODULUS: Quantity<Stress> = Stress::pascals(0.3);
+pub const SECOND_INVARIANT_MODULUS: Quantity<Stress> = Stress::pascals(0.9);
 pub const MIXING_PARAMETER: Scalar = 0.35;
 pub const NUMBER_OF_LINKS: Scalar = 8.0;
 pub const NUM_YEOH_MODULI: usize = 5;
