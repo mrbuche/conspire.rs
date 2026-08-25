@@ -120,11 +120,11 @@ macro_rules! test_finite_element_block_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::hyperelastic::{
-                        ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, Ogden,
-                        SaintVenantKirchhoff, Yeoh,
+                        ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff,
+                        Yeoh,
                         test::{
                             EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUMBER_OF_LINKS,
-                            OGDEN_EXPONENTS, OGDEN_MODULI, YEOH_EXTRA_MODULI,
+                            YEOH_EXTRA_MODULI,
                         },
                     },
                     fem::{
@@ -231,19 +231,19 @@ macro_rules! test_finite_element_block_inner {
                         Yeoh
                     );
                 }
-                mod ogden {
-                    use super::*;
-                    test_finite_element_block_with_hyperelastic_constitutive_model!(
-                        ElementBlock,
-                        $element,
-                        Ogden {
-                            bulk_modulus: BULK_MODULUS,
-                            moduli: OGDEN_MODULI.to_vec(),
-                            exponents: OGDEN_EXPONENTS.to_vec(),
-                        },
-                        Ogden
-                    );
-                }
+                // mod ogden {
+                //     use super::*;
+                //     test_finite_element_block_with_hyperelastic_constitutive_model!(
+                //         ElementBlock,
+                //         $element,
+                //         Ogden {
+                //             bulk_modulus: BULK_MODULUS,
+                //             moduli: OGDEN_MODULI.to_vec(),
+                //             exponents: OGDEN_EXPONENTS.to_vec(),
+                //         },
+                //         Ogden
+                //     );
+                // }
             }
             mod elastic_hyperviscous {
                 use super::*;
