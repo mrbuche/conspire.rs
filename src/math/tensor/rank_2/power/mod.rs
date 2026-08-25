@@ -8,7 +8,7 @@ use super::{
         rank_4::TensorRank4,
     },
     TensorRank2,
-    logarithm::{find_orthonormal_eigenvectors, reconstruct_symmetric, solve_cubic_symmetric},
+    eigen::reconstruct_symmetric,
 };
 use crate::math::assert::Assert;
 
@@ -49,16 +49,6 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                 panic!("Matrix power only implemented for symmetric cases")
             }
         }
-    }
-    /// Returns the eigenvalues and (row-wise) eigenvectors of the 3x3 symmetric tensor.
-    ///
-    /// Reuse this alongside [`Self::powm_from_eigen`]/[`Self::dpowm_from_eigen`] to evaluate
-    /// several exponents against the same tensor while sharing one eigendecomposition, instead
-    /// of paying for a fresh cubic solve on every [`Self::powm`]/[`Self::dpowm`] call.
-    pub fn eigen(&self) -> Result<(TensorRank0List<3>, Self), TensorError> {
-        let eigenvalues = solve_cubic_symmetric(self.invariants())?;
-        let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self);
-        Ok((eigenvalues, eigenvectors))
     }
     /// Returns the matrix power from an eigendecomposition obtained from [`Self::eigen`].
     pub fn powm_from_eigen(
