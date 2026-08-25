@@ -395,7 +395,7 @@ fn a_corner_takes_at_most_one_node() {
 fn the_cut_passes_through_the_creases_of_an_off_axis_box() {
     let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.7);
     let features = tessellation.features();
-    let mesh = tessellation.cut_uniform(0.14).unwrap();
+    let mesh = cut_uniform(&tessellation, 0.14).unwrap();
     let riding = mesh
         .coordinates()
         .iter()
@@ -403,14 +403,16 @@ fn the_cut_passes_through_the_creases_of_an_off_axis_box() {
             features
                 .corners()
                 .iter()
-                .all(|corner| (*point - corner).norm() > 1.0e-9)
+                .all(|corner| (*point - corner).norm() > Quantity::new(1.0e-9))
         })
         .filter(|point| {
             features.creases().iter().any(|crease| {
                 let along = &crease[1] - &crease[0];
                 let span = &along * &along;
-                let fraction = ((*point - &crease[0]) * &along / span).clamp(0.0, 1.0);
-                (*point - &(&crease[0] + &(&along * fraction))).norm() < 1.0e-9
+                let fraction = ((*point - &crease[0]) * &along / span)
+                    .value()
+                    .clamp(0.0, 1.0);
+                (*point - &(&crease[0] + &(&along * fraction))).norm() < Quantity::new(1.0e-9)
             })
         })
         .count();
@@ -421,7 +423,7 @@ fn the_cut_passes_through_the_creases_of_an_off_axis_box() {
 fn folding_at_the_creases_holds_the_volume_of_an_off_axis_box() {
     use crate::geometry::mesh::Verdict;
     let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.7);
-    let mesh = tessellation.cut_uniform(1.4 / 16.0).unwrap();
+    let mesh = cut_uniform(&tessellation, 1.4 / 16.0).unwrap();
     let coordinates = mesh.coordinates();
     let hexes = match &mesh.connectivities()[0] {
         Connectivity::Hexahedral(hexes) => Mesh::from((
@@ -448,7 +450,7 @@ fn folding_at_the_creases_holds_the_volume_of_an_off_axis_box() {
 #[test]
 fn a_corner_within_a_cell_becomes_a_node_of_it() {
     let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.4);
-    let mesh = tessellation.cut_uniform(1.4 / 16.0).unwrap();
+    let mesh = cut_uniform(&tessellation, 1.4 / 16.0).unwrap();
     assert!(corners_landed_on(&tessellation, &mesh) >= 2)
 }
 
@@ -456,7 +458,7 @@ fn a_corner_within_a_cell_becomes_a_node_of_it() {
 fn fanning_about_a_corner_holds_the_volume_of_an_off_axis_box() {
     use crate::geometry::mesh::Verdict;
     let tessellation = rotated_box([-0.5, -0.5, -0.5], [0.5, 0.5, 0.5], 0.2);
-    let mesh = tessellation.cut_uniform(1.4 / 6.0).unwrap();
+    let mesh = cut_uniform(&tessellation, 1.4 / 6.0).unwrap();
     let coordinates = mesh.coordinates();
     let hexes = match &mesh.connectivities()[0] {
         Connectivity::Hexahedral(hexes) => Mesh::from((

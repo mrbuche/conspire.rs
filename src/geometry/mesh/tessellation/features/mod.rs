@@ -98,6 +98,17 @@ pub(crate) fn crease_nodes(
         .collect()
 }
 
+impl Features {
+    pub fn corners(&self) -> &[Coordinate<D>] {
+        &self.corners
+    }
+    pub fn creases(&self) -> &[[Coordinate<D>; 2]] {
+        &self.creases
+    }
+    pub(super) fn of(tessellation: &Tessellation) -> Self {
+        let coordinates = tessellation.mesh().coordinates();
+        let triangles = triangles(tessellation);
+        let sharp = crease_edges(&triangles, coordinates);
         let mut through = FxHashMap::<usize, Vec<usize>>::default();
         sharp.iter().for_each(|&[a, b]| {
             through.entry(a).or_default().push(b);
@@ -202,18 +213,17 @@ fn meets(segment: &[Coordinate<D>; 2], triangle: [&Coordinate<D>; 3]) -> Option<
     if determinant.abs() < CROSSING * scale {
         return None;
     }
-    let inverse = 1.0 / determinant;
     let offset = &segment[0] - triangle[0];
-    let u = inverse * (&offset * &normal);
+    let u = (&offset * &normal / determinant).value();
     if !(0.0..=1.0).contains(&u) {
         return None;
     }
     let across = offset.cross(&one);
-    let v = inverse * (&along * &across);
+    let v = (&along * &across / determinant).value();
     if v < 0.0 || u + v > 1.0 {
         return None;
     }
-    let fraction = inverse * (&two * &across);
+    let fraction = (&two * &across / determinant).value();
     (0.0..=1.0).contains(&fraction).then_some(fraction)
 }
 

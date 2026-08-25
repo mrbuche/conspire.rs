@@ -232,7 +232,7 @@ impl Tessellation {
         let mut segments = HashMap::new();
         let mut vias = HashMap::new();
         let mut features = HashMap::new();
-        let index = self.features().index(0.0);
+        let index = self.features().index(Quantity::new(0.0));
         face_loops.iter().try_for_each(|(key, corners)| {
             let cut = face_cut(corners, &signs, &crossings)?;
             let count = cut.endpoints.len();
@@ -268,13 +268,13 @@ impl Tessellation {
                 let along = &ends[1] - &ends[0];
                 let span = &along * &along;
                 let quad = corners.map(|node| &coordinates[node]);
-                let margin = CROSSING_TOLERANCE.max(super::GRAZING_TOLERANCE * span.sqrt());
+                let margin = CROSSING_TOLERANCE.max(along.norm() * super::GRAZING_TOLERANCE);
                 let mut riding: Vec<(Scalar, Vertex, Coordinate<D>)> = index
                     .through(quad)
                     .into_iter()
                     .filter(|(_, point)| index.nearest_corner(point, margin).is_none())
                     .filter_map(|(crease, point)| {
-                        let fraction = (&point - &ends[0]) * &along / span;
+                        let fraction = ((&point - &ends[0]) * &along / span).value();
                         (0.0 < fraction && fraction < 1.0).then_some((
                             fraction,
                             Vertex::Feature(*key, crease),

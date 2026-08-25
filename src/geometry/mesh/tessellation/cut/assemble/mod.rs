@@ -226,17 +226,17 @@ fn build_cut_cells(
                         Ok(())
                     })?;
                     let clipped = polygons.len();
-                    let low: [Scalar; D] = from_fn(|axis| {
+                    let low: [Quantity<Length>; D] = from_fn(|axis| {
                         element
                             .iter()
                             .map(|&node| coordinates[node][axis])
-                            .fold(Scalar::INFINITY, Scalar::min)
+                            .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
                     });
-                    let high: [Scalar; D] = from_fn(|axis| {
+                    let high: [Quantity<Length>; D] = from_fn(|axis| {
                         element
                             .iter()
                             .map(|&node| coordinates[node][axis])
-                            .fold(Scalar::NEG_INFINITY, Scalar::max)
+                            .fold(Quantity::new(Scalar::NEG_INFINITY), Quantity::max)
                     });
                     let within = |corner: &Coordinate<D>| {
                         (0..D).all(|axis| low[axis] <= corner[axis] && corner[axis] <= high[axis])

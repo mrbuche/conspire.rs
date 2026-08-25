@@ -180,7 +180,7 @@ fn quad(points: [[f64; 3]; 4]) -> [Coordinate<3>; 4] {
 #[test]
 fn a_crease_through_a_face_is_found_where_it_crosses() {
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
-    let index = tessellation.features().index(0.5);
+    let index = tessellation.features().index(Quantity::new(0.5));
     let face = quad([
         [-0.5, -0.5, 0.5],
         [0.5, -0.5, 0.5],
@@ -190,7 +190,7 @@ fn a_crease_through_a_face_is_found_where_it_crosses() {
     let through = index.through([&face[0], &face[1], &face[2], &face[3]]);
     assert_eq!(through.len(), 1);
     assert!(
-        (&through[0].1 - &Coordinate::const_from([0.0, 0.0, 0.5])).norm() < 1.0e-12,
+        (&through[0].1 - &Coordinate::const_from([0.0, 0.0, 0.5])).norm() < Quantity::new(1.0e-12),
         "{}",
         through[0].1
     );
@@ -199,7 +199,7 @@ fn a_crease_through_a_face_is_found_where_it_crosses() {
 #[test]
 fn a_face_clear_of_every_crease_finds_none() {
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
-    let index = tessellation.features().index(0.5);
+    let index = tessellation.features().index(Quantity::new(0.5));
     let face = quad([
         [0.2, 0.2, 0.5],
         [0.8, 0.2, 0.5],
@@ -216,7 +216,7 @@ fn a_face_clear_of_every_crease_finds_none() {
 #[test]
 fn a_crease_running_along_a_face_is_not_through_it() {
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
-    let index = tessellation.features().index(0.5);
+    let index = tessellation.features().index(Quantity::new(0.5));
     let face = quad([
         [-0.5, -0.5, 0.0],
         [0.5, -0.5, 0.0],
@@ -226,7 +226,7 @@ fn a_crease_running_along_a_face_is_not_through_it() {
     let through = index.through([&face[0], &face[1], &face[2], &face[3]]);
     assert_eq!(through.len(), 1);
     assert!(
-        (&through[0].1 - &Coordinate::const_from([0.0; 3])).norm() < 1.0e-12,
+        (&through[0].1 - &Coordinate::const_from([0.0; 3])).norm() < Quantity::new(1.0e-12),
         "{}",
         through[0].1
     )
@@ -235,7 +235,7 @@ fn a_crease_running_along_a_face_is_not_through_it() {
 #[test]
 fn both_cells_sharing_a_face_find_the_same_crossings() {
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
-    let index = tessellation.features().index(0.5);
+    let index = tessellation.features().index(Quantity::new(0.5));
     let face = quad([
         [-0.5, -0.5, 0.5],
         [0.5, -0.5, 0.5],
@@ -247,6 +247,11 @@ fn both_cells_sharing_a_face_find_the_same_crossings() {
     assert_eq!(one.len(), other.len());
     one.iter().zip(other.iter()).for_each(|(a, b)| {
         assert_eq!(a.0, b.0);
-        assert!((&a.1 - &b.1).norm() < 1.0e-12, "{} {}", a.1, b.1)
+        assert!(
+            (&a.1 - &b.1).norm() < Quantity::new(1.0e-12),
+            "{} {}",
+            a.1,
+            b.1
+        )
     })
 }
