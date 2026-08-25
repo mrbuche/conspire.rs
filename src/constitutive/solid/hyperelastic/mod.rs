@@ -19,12 +19,13 @@ mod gent;
 mod hencky;
 mod mooney_rivlin;
 mod neo_hookean;
+mod ogden;
 mod saint_venant_kirchhoff;
 mod yeoh;
 
 pub use self::{
     arruda_boyce::ArrudaBoyce, eight_chain::EightChain, fung::Fung, gent::Gent, hencky::Hencky,
-    mooney_rivlin::MooneyRivlin, neo_hookean::NeoHookean,
+    mooney_rivlin::MooneyRivlin, neo_hookean::NeoHookean, ogden::Ogden,
     saint_venant_kirchhoff::SaintVenantKirchhoff, yeoh::Yeoh,
 };
 use super::{
