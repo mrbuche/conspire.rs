@@ -51,7 +51,7 @@ impl Elastic for Yeoh {
                 .moduli
                 .iter()
                 .enumerate()
-                .map(|(n, modulus)| *modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
+                .map(|(n, &modulus)| modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
                 .sum::<Quantity<Modulus>>()
             / jacobian.powf(FIVE_THIRDS)
             + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
@@ -69,7 +69,7 @@ impl Elastic for Yeoh {
             .moduli
             .iter()
             .enumerate()
-            .map(|(n, modulus)| *modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
+            .map(|(n, &modulus)| modulus * (((n as Scalar) + 1.0) * scalar_term.powi(n as i32)))
             .sum::<Quantity<Modulus>>()
             / jacobian.powf(FIVE_THIRDS);
         let deviatoric_left_cauchy_green_deformation = left_cauchy_green_deformation.deviatoric();
@@ -82,8 +82,8 @@ impl Elastic for Yeoh {
                     .iter()
                     .enumerate()
                     .skip(1)
-                    .map(|(n, modulus)| {
-                        *modulus
+                    .map(|(n, &modulus)| {
+                        modulus
                             * (2.0
                                 * ((n as Scalar) + 1.0)
                                 * (n as Scalar)
@@ -119,7 +119,7 @@ impl Hyperelastic for Yeoh {
                 .moduli
                 .iter()
                 .enumerate()
-                .map(|(n, modulus)| *modulus * scalar_term.powi((n + 1) as i32))
+                .map(|(n, &modulus)| modulus * scalar_term.powi((n + 1) as i32))
                 .sum::<Quantity<Modulus>>()
                 + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln())))
     }
