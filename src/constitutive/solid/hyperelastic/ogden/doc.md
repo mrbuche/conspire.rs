@@ -12,6 +12,7 @@ The Ogden hyperelastic solid constitutive model.[^1]
 - None.
 
 **Notes**
+- The shear modulus is given by $`\mu=\boldsymbol{\alpha}\cdot\boldsymbol{\mu}/2`$.
 - The Ogden model reduces to the [Neo-Hookean model](super::NeoHookean) when $`N=1`$ and $`\alpha_1\to 2`$.
 
 [^1]: R.W. Ogden, [Proc. R. Soc. Lond. A **326**, 565 (1972)](https://doi.org/10.1098/rspa.1972.0026).

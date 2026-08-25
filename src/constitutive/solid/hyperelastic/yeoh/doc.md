@@ -11,6 +11,7 @@ The Yeoh hyperelastic solid constitutive model.[^1]
 - None.
 
 **Notes**
+- The shear modulus is given by $`\mu=\mu_1`$.
 - The Yeoh model reduces to the [Neo-Hookean model](super::NeoHookean) when $`N=1`$.
 
 [^1]: O.H. Yeoh, [Rubber Chem. Technol. **66**, 754 (1993)](https://doi.org/10.5254/1.3538343).

@@ -26,9 +26,6 @@ impl Solid for Yeoh {
     fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    /// ```math
-    /// \mu = \mu_1
-    /// ```
     fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_moduli.first().copied().unwrap_or_default()
     }

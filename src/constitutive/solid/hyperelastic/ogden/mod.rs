@@ -72,9 +72,6 @@ impl Solid for Ogden {
     fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
-    /// ```math
-    /// \mu = \frac{1}{2}\sum_{n=1}^N \alpha_n\mu_n
-    /// ```
     fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_moduli
             .iter()
