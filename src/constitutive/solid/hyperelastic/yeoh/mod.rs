@@ -16,23 +16,23 @@ const SEVEN_THIRDS: Scalar = 7.0 / 3.0;
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
-pub struct Yeoh<const N: usize> {
+pub struct Yeoh {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
     pub shear_modulus: Quantity<Stress>,
     /// The extra moduli $`\mu_n`$ for $`n=2\ldots N`$.
-    pub extra_moduli: [Quantity<Modulus>; N],
+    pub extra_moduli: Vec<Quantity<Modulus>>,
 }
 
-impl<const N: usize> Yeoh<N> {
+impl Yeoh {
     /// Returns the extra moduli.
     pub fn extra_moduli(&self) -> impl Iterator<Item = Quantity<Modulus>> {
         self.extra_moduli.iter().copied()
     }
 }
 
-impl<const N: usize> Solid for Yeoh<N> {
+impl Solid for Yeoh {
     fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
@@ -41,7 +41,7 @@ impl<const N: usize> Solid for Yeoh<N> {
     }
 }
 
-impl<const N: usize> Elastic for Yeoh<N> {
+impl Elastic for Yeoh {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -108,7 +108,7 @@ impl<const N: usize> Elastic for Yeoh<N> {
     }
 }
 
-impl<const N: usize> Hyperelastic for Yeoh<N> {
+impl Hyperelastic for Yeoh {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

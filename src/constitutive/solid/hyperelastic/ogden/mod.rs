@@ -13,16 +13,16 @@ use crate::{
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
-pub struct Ogden<const N: usize> {
+pub struct Ogden {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Quantity<Stress>,
     /// The moduli $`\mu_n`$.
-    pub moduli: [Quantity<Stress>; N],
+    pub moduli: Vec<Quantity<Stress>>,
     /// The exponents $`\alpha_n`$.
-    pub exponents: [Scalar; N],
+    pub exponents: Vec<Scalar>,
 }
 
-impl<const N: usize> Solid for Ogden<N> {
+impl Solid for Ogden {
     fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
@@ -36,7 +36,7 @@ impl<const N: usize> Solid for Ogden<N> {
     }
 }
 
-impl<const N: usize> Elastic for Ogden<N> {
+impl Elastic for Ogden {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -88,7 +88,7 @@ impl<const N: usize> Elastic for Ogden<N> {
     }
 }
 
-impl<const N: usize> Hyperelastic for Ogden<N> {
+impl Hyperelastic for Ogden {
     #[doc = include_str!("helmholtz_free_energy_density.md")]
     fn helmholtz_free_energy_density(
         &self,

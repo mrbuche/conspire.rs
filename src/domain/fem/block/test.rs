@@ -123,8 +123,8 @@ macro_rules! test_finite_element_block_inner {
                         ArrudaBoyce, Fung, Gent, MooneyRivlin, NeoHookean, SaintVenantKirchhoff,
                         Yeoh,
                         test::{
-                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUM_YEOH_EXTRA_MODULI,
-                            NUMBER_OF_LINKS, YEOH_EXTRA_MODULI,
+                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUMBER_OF_LINKS,
+                            YEOH_EXTRA_MODULI,
                         },
                     },
                     fem::{
@@ -220,16 +220,15 @@ macro_rules! test_finite_element_block_inner {
                 }
                 mod yeoh {
                     use super::*;
-                    type YeohType = Yeoh<NUM_YEOH_EXTRA_MODULI>;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
                         ElementBlock,
                         $element,
                         Yeoh {
                             bulk_modulus: BULK_MODULUS,
                             shear_modulus: SHEAR_MODULUS,
-                            extra_moduli: YEOH_EXTRA_MODULI,
+                            extra_moduli: YEOH_EXTRA_MODULI.to_vec(),
                         },
-                        YeohType
+                        Yeoh
                     );
                 }
             }
