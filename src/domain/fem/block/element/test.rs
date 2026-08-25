@@ -773,11 +773,11 @@ macro_rules! test_finite_element_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::hyperelastic::{
-                        ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean, Ogden,
+                        ArrudaBoyce, BlatzKo, Fung, Gent, Hencky, MooneyRivlin, NeoHookean, Ogden,
                         SaintVenantKirchhoff, Yeoh,
                         test::{
-                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUMBER_OF_LINKS,
-                            OGDEN_EXPONENTS, OGDEN_MODULI, YEOH_MODULI,
+                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, MIXING_PARAMETER,
+                            NUMBER_OF_LINKS, OGDEN_EXPONENTS, OGDEN_MODULI, YEOH_MODULI,
                         },
                     },
                     fem::block::element::solid::{
@@ -808,6 +808,18 @@ macro_rules! test_finite_element_inner {
                             extra_modulus: EXTRA_MODULUS,
                         },
                         Fung
+                    );
+                }
+                mod blatz_ko {
+                    use super::*;
+                    test_finite_element_with_hyperelastic_constitutive_model!(
+                        $element,
+                        BlatzKo {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                            mixing_parameter: MIXING_PARAMETER,
+                        },
+                        BlatzKo
                     );
                 }
                 mod gent {

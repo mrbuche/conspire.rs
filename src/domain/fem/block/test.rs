@@ -144,6 +144,19 @@ macro_rules! test_finite_element_block_inner {
                         ArrudaBoyce
                     );
                 }
+                // mod blatz_ko {
+                //     use super::*;
+                //     test_finite_element_block_with_hyperelastic_constitutive_model!(
+                //         ElementBlock,
+                //         $element,
+                //         BlatzKo {
+                //             bulk_modulus: BULK_MODULUS,
+                //             shear_modulus: SHEAR_MODULUS,
+                //             mixing_parameter: MIXING_PARAMETER,
+                //         },
+                //         BlatzKo
+                //     );
+                // }
                 mod fung {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(
