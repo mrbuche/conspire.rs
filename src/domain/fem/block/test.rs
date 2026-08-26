@@ -120,12 +120,12 @@ macro_rules! test_finite_element_block_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::hyperelastic::{
-                        ArrudaBoyce, Carroll, Fung, Gent, MooneyRivlin, NeoHookean,
+                        ArrudaBoyce, Carroll, Fung, Gent, Isihara, MooneyRivlin, NeoHookean,
                         SaintVenantKirchhoff, Yeoh,
                         test::{
                             EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, LINEAR_MODULUS,
-                            NUMBER_OF_LINKS, QUARTIC_MODULUS, SECOND_INVARIANT_MODULUS,
-                            YEOH_MODULI,
+                            NUMBER_OF_LINKS, QUADRATIC_MODULUS, QUARTIC_MODULUS,
+                            SECOND_INVARIANT_MODULUS, YEOH_MODULI,
                         },
                     },
                     fem::{
@@ -209,6 +209,20 @@ macro_rules! test_finite_element_block_inner {
                 //         HENCKYPARAMETERS
                 //     );
                 // }
+                mod isihara {
+                    use super::*;
+                    test_finite_element_block_with_hyperelastic_constitutive_model!(
+                        ElementBlock,
+                        $element,
+                        Isihara {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                            extra_modulus: EXTRA_MODULUS,
+                            quadratic_modulus: QUADRATIC_MODULUS,
+                        },
+                        Isihara
+                    );
+                }
                 mod mooney_rivlin {
                     use super::*;
                     test_finite_element_block_with_hyperelastic_constitutive_model!(

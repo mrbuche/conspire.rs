@@ -13,6 +13,7 @@ pub const QUARTIC_MODULUS: Quantity<Stress> = Stress::pascals(1e-4);
 pub const SECOND_INVARIANT_MODULUS: Quantity<Stress> = Stress::pascals(0.9);
 pub const MIXING_PARAMETER: Scalar = 0.35;
 pub const NUMBER_OF_LINKS: Scalar = 8.0;
+pub const QUADRATIC_MODULUS: Quantity<Stress> = Stress::pascals(1e-2);
 pub const NUM_YEOH_MODULI: usize = 5;
 pub const YEOH_MODULI: [Quantity<Stress>; NUM_YEOH_MODULI] = [
     SHEAR_MODULUS,

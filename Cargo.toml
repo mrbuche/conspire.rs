@@ -33,3 +33,8 @@ codegen-units = 1
 lto = true
 panic = "abort"
 strip = "symbols"
+
+[profile.release-dev]
+inherits = "release"
+codegen-units = 16
+lto = false

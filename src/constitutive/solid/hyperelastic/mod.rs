@@ -19,6 +19,7 @@ mod eight_chain;
 mod fung;
 mod gent;
 mod hencky;
+mod isihara;
 mod mooney_rivlin;
 mod neo_hookean;
 mod ogden;
@@ -27,8 +28,9 @@ mod yeoh;
 
 pub use self::{
     arruda_boyce::ArrudaBoyce, blatz_ko::BlatzKo, carroll::Carroll, eight_chain::EightChain,
-    fung::Fung, gent::Gent, hencky::Hencky, mooney_rivlin::MooneyRivlin, neo_hookean::NeoHookean,
-    ogden::Ogden, saint_venant_kirchhoff::SaintVenantKirchhoff, yeoh::Yeoh,
+    fung::Fung, gent::Gent, hencky::Hencky, isihara::Isihara, mooney_rivlin::MooneyRivlin,
+    neo_hookean::NeoHookean, ogden::Ogden, saint_venant_kirchhoff::SaintVenantKirchhoff,
+    yeoh::Yeoh,
 };
 use super::{
     elastic::{AppliedLoad, Elastic, bcs},
