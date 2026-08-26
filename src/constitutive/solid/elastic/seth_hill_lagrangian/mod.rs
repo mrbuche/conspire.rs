@@ -17,7 +17,7 @@ use crate::{
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
-pub struct SethHill {
+pub struct SethHillLagrangian {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
@@ -26,7 +26,7 @@ pub struct SethHill {
     pub exponent: Scalar,
 }
 
-impl SethHill {
+impl SethHillLagrangian {
     /// Returns the exponent.
     pub fn exponent(&self) -> Scalar {
         self.exponent
@@ -39,7 +39,7 @@ impl SethHill {
     }
 }
 
-impl Solid for SethHill {
+impl Solid for SethHillLagrangian {
     fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
@@ -48,7 +48,7 @@ impl Solid for SethHill {
     }
 }
 
-impl Elastic for SethHill {
+impl Elastic for SethHillLagrangian {
     #[doc = include_str!("second_piola_kirchhoff_stress.md")]
     fn second_piola_kirchhoff_stress(
         &self,

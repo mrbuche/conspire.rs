@@ -120,12 +120,12 @@ macro_rules! test_finite_element_block_inner {
                 //     test_finite_element_block_with_elastic_constitutive_model!(
                 //         ElementBlock,
                 //         $element,
-                //         SethHill {
+                //         SethHillLagrangian {
                 //             bulk_modulus: BULK_MODULUS,
                 //             shear_modulus: SHEAR_MODULUS,
                 //             exponent: EXPONENT,
                 //         },
-                //         SethHill
+                //         SethHillLagrangian
                 //     );
                 // }
             }

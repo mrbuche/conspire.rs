@@ -1,4 +1,4 @@
-The Seth-Hill elastic solid constitutive model.[^1]<sup>,</sup>[^2]
+The Lagrangian Seth-Hill elastic solid constitutive model.[^1]<sup>,</sup>[^2]
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

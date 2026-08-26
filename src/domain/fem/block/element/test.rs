@@ -727,7 +727,7 @@ macro_rules! test_finite_element_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::elastic::{
-                        AlmansiHamel, Hencky, SaintVenantKirchhoff, SethHill,
+                        AlmansiHamel, Hencky, SaintVenantKirchhoff, SethHillLagrangian,
                         test::{BULK_MODULUS, EXPONENT, SHEAR_MODULUS},
                     },
                     fem::block::element::solid::{
@@ -772,12 +772,12 @@ macro_rules! test_finite_element_inner {
                     use super::*;
                     test_finite_element_with_elastic_constitutive_model!(
                         $element,
-                        SethHill {
+                        SethHillLagrangian {
                             bulk_modulus: BULK_MODULUS,
                             shear_modulus: SHEAR_MODULUS,
                             exponent: EXPONENT,
                         },
-                        SethHill
+                        SethHillLagrangian
                     );
                 }
             }
