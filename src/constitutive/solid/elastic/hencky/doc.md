@@ -13,4 +13,4 @@ The Hencky elastic solid constitutive model.[^1]
 **Notes**
 - The Hencky strain measure is given by $`\mathbf{H}=\tfrac{1}{2}\ln(\mathbf{C})`$.
 
-[^1]: H. Hencky, *Über die Form des Elastizitätsgesetzes bei ideal elastischen Stoffen*, Zeitschrift für technische Physik **9**, 215 (1928).
+[^1]: H. Hencky, Zeitschrift für technische Physik **9**, 215 (1928).

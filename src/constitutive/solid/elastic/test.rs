@@ -917,7 +917,7 @@ macro_rules! test_root {
                 #[test]
                 fn biaxial_mixed() -> Result<(), crate::math::assert::AssertionError> {
                     let deformation_gradient = $constitutive_model_constructed
-                        .root(AppliedLoad::BiaxialStress(1.3, 0.64), $solver)?;
+                        .root(AppliedLoad::BiaxialStress(1.3, 0.74), $solver)?;
                     let cauchy_stress =
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);

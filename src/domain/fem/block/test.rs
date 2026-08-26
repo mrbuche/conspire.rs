@@ -106,6 +106,32 @@ macro_rules! test_finite_element_block_inner {
                         AlmansiHamelLagrangian
                     );
                 }
+                // mod bazant_itskov_lagrangian {
+                //     use super::*;
+                //     test_finite_element_block_with_elastic_constitutive_model!(
+                //         ElementBlock,
+                //         $element,
+                //         BazantItskovLagrangian {
+                //             bulk_modulus: BULK_MODULUS,
+                //             shear_modulus: SHEAR_MODULUS,
+                //             exponent: EXPONENT,
+                //         },
+                //         BazantItskovLagrangian
+                //     );
+                // }
+                // mod bazant_itskov_eulerian {
+                //     use super::*;
+                //     test_finite_element_block_with_elastic_constitutive_model!(
+                //         ElementBlock,
+                //         $element,
+                //         BazantItskovEulerian {
+                //             bulk_modulus: BULK_MODULUS,
+                //             shear_modulus: SHEAR_MODULUS,
+                //             exponent: EXPONENT,
+                //         },
+                //         BazantItskovEulerian
+                //     );
+                // }
                 // mod hencky {
                 //     use super::*;
                 //     test_finite_element_block_with_elastic_constitutive_model!(
