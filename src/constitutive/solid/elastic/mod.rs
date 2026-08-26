@@ -16,10 +16,11 @@ mod almansi_hamel;
 mod hencky;
 mod saint_venant_kirchhoff;
 mod seth_hill;
+mod seth_hill_eulerian;
 
 pub use self::{
     almansi_hamel::AlmansiHamel, hencky::Hencky, saint_venant_kirchhoff::SaintVenantKirchhoff,
-    seth_hill::SethHill,
+    seth_hill::SethHill, seth_hill_eulerian::SethHillEulerian,
 };
 
 use super::*;

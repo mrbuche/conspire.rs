@@ -15,6 +15,7 @@ The Seth-Hill elastic solid constitutive model.[^1]<sup>,</sup>[^2]
 - The Seth-Hill strain measure is given by $`\mathbf{E}^{(m)} = \tfrac{1}{m}(\mathbf{U}^m - \mathbf{1})`$.
 - The model reduces to the [Hencky model](super::Hencky) when $`m=0`$.
 - The model reduces to the [Saint Venant-Kirchhoff model](super::super::hyperelastic::SaintVenantKirchhoff) when $`m=2`$.
+- This is the Lagrangian counterpart of the [Eulerian Seth-Hill model](super::SethHillEulerian).
 
 [^1]: B.R. Seth, *Generalized Strain Measure with Applications to Physical Problems*, AD0266913 (1961).
 [^2]: R. Hill, [J. Mech. Phys. Solids **16**, 229 (1968)](https://doi.org/10.1016/0022-5096(68)90031-8).
