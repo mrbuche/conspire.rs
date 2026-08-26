@@ -44,7 +44,7 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                 Ok(powm)
             } else if self.is_symmetric() {
                 let (eigenvalues, eigenvectors) = self.eigen()?;
-                Ok(Self::powm_from_eigen(&eigenvalues, &eigenvectors, exponent))
+                Self::powm_from_eigen(&eigenvalues, &eigenvectors, exponent)
             } else {
                 panic!("Matrix power only implemented for symmetric cases")
             }
@@ -55,15 +55,15 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
         eigenvalues: &TensorRank0List<3>,
         eigenvectors: &Self,
         exponent: TensorRank0,
-    ) -> Self {
-        if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
-            panic!("Symmetric matrix has a non-positive eigenvalue")
-        }
-        let powered = eigenvalues
+    ) -> Result<Self, TensorError> {
+        let powered: TensorRank0List<3> = eigenvalues
             .iter()
             .map(|eigenvalue| eigenvalue.powf(exponent))
             .collect();
-        reconstruct_symmetric(powered, eigenvectors.clone())
+        if powered.iter().any(|value| !value.is_finite()) {
+            return Err(TensorError::NotPositiveDefinite);
+        }
+        Ok(reconstruct_symmetric(powered, eigenvectors.clone()))
     }
     /// Returns the derivative of the matrix power of the 3x3 symmetric tensor.
     pub fn dpowm(
@@ -96,11 +96,7 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
             Ok(dpowm)
         } else if self.is_symmetric() {
             let (eigenvalues, eigenvectors) = self.eigen()?;
-            Ok(Self::dpowm_from_eigen(
-                &eigenvalues,
-                &eigenvectors,
-                exponent,
-            ))
+            Self::dpowm_from_eigen(&eigenvalues, &eigenvectors, exponent)
         } else {
             panic!("Matrix power only implemented for symmetric cases")
         }
@@ -111,10 +107,7 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
         eigenvalues: &TensorRank0List<3>,
         eigenvectors: &Self,
         exponent: TensorRank0,
-    ) -> TensorRank4<3, I, I, I, I, Dimensionless> {
-        if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
-            panic!("Symmetric matrix has a non-positive eigenvalue")
-        }
+    ) -> Result<TensorRank4<3, I, I, I, I, Dimensionless>, TensorError> {
         let divided_difference: Self = eigenvalues
             .iter()
             .map(|eigenvalue_i| {
@@ -134,8 +127,15 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                     .collect()
             })
             .collect();
+        if divided_difference
+            .iter()
+            .flat_map(|row| row.iter())
+            .any(|value| !value.value().is_finite())
+        {
+            return Err(TensorError::NotPositiveDefinite);
+        }
         let eigenvectors_transposed = eigenvectors.transpose();
-        eigenvectors_transposed.iter().map(|eigenvector_i|
+        Ok(eigenvectors_transposed.iter().map(|eigenvector_i|
             eigenvectors_transposed.iter().map(|eigenvector_j|
                 eigenvectors_transposed.iter().map(|eigenvector_k|
                     eigenvectors_transposed.iter().map(|eigenvector_l|
@@ -147,7 +147,7 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                     ).collect()
                 ).collect()
             ).collect()
-        ).collect()
+        ).collect())
     }
 }
 
@@ -173,12 +173,12 @@ impl<I> Spectrum<I> {
         &self,
         exponent: TensorRank0,
     ) -> Result<TensorRank2<3, I, I, Dimensionless>, TensorError> {
-        Ok(match self {
+        match self {
             Self::Eigen(eigenvalues, eigenvectors) => {
                 TensorRank2::powm_from_eigen(eigenvalues, eigenvectors, exponent)
             }
-            Self::Fallback(tensor) => tensor.powm(exponent)?,
-        })
+            Self::Fallback(tensor) => tensor.powm(exponent),
+        }
     }
     /// Returns the derivative of the matrix power at the given exponent, reusing the cached
     /// eigendecomposition.
@@ -186,11 +186,11 @@ impl<I> Spectrum<I> {
         &self,
         exponent: TensorRank0,
     ) -> Result<TensorRank4<3, I, I, I, I, Dimensionless>, TensorError> {
-        Ok(match self {
+        match self {
             Self::Eigen(eigenvalues, eigenvectors) => {
                 TensorRank2::dpowm_from_eigen(eigenvalues, eigenvectors, exponent)
             }
-            Self::Fallback(tensor) => tensor.dpowm(exponent)?,
-        })
+            Self::Fallback(tensor) => tensor.dpowm(exponent),
+        }
     }
 }

@@ -45,7 +45,7 @@ impl Spectrum {
     fn powm(&self, exponent: Scalar) -> Result<LeftCauchyGreenDeformation, ConstitutiveError> {
         Ok(match self {
             Self::Eigen(eigenvalues, eigenvectors) => {
-                TensorRank2::powm_from_eigen(eigenvalues, eigenvectors, exponent)
+                TensorRank2::powm_from_eigen(eigenvalues, eigenvectors, exponent)?
             }
             Self::Fallback(tensor) => tensor.powm(exponent)?,
         })
@@ -56,7 +56,7 @@ impl Spectrum {
     ) -> Result<TensorRank4<3, Current, Current, Current, Current>, ConstitutiveError> {
         Ok(match self {
             Self::Eigen(eigenvalues, eigenvectors) => {
-                TensorRank2::dpowm_from_eigen(eigenvalues, eigenvectors, exponent)
+                TensorRank2::dpowm_from_eigen(eigenvalues, eigenvectors, exponent)?
             }
             Self::Fallback(tensor) => tensor.dpowm(exponent)?,
         })
