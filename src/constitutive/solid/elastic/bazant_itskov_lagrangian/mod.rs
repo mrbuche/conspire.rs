@@ -7,7 +7,9 @@ use crate::{
         ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
-    math::{ContractThirdFourthWithFirstSecond, IDENTITY_00, Quantity, Rank2, TensorRank4},
+    math::{
+        ContractThirdFourthWithFirstSecond, IDENTITY_00, Quantity, Rank2, Spectrum, TensorRank4,
+    },
     mechanics::{
         Deformation, DeformationGradient, Scalar, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
@@ -62,8 +64,9 @@ impl Elastic for BazantItskovLagrangian {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let right_cauchy_green = deformation_gradient.right_cauchy_green();
         let half_exponent = 0.5 * self.exponent();
-        let (deviatoric_strain, strain_trace) = ((right_cauchy_green.powm(half_exponent)?
-            - right_cauchy_green.powm(-half_exponent)?)
+        let spectrum = Spectrum::new(&right_cauchy_green)?;
+        let (deviatoric_strain, strain_trace) = ((spectrum.powm(half_exponent)?
+            - spectrum.powm(-half_exponent)?)
             / (2.0 * self.exponent()))
         .deviatoric_and_trace();
         Ok(deviatoric_strain * (2.0 * self.shear_modulus())
@@ -82,26 +85,28 @@ impl Elastic for BazantItskovLagrangian {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let right_cauchy_green = deformation_gradient.right_cauchy_green();
         let half_exponent = 0.5 * self.exponent();
+        let spectrum = Spectrum::new(&right_cauchy_green)?;
         let deformation_gradient_transpose = deformation_gradient.transpose();
         let scaled_deformation_gradient_transpose =
             &deformation_gradient_transpose * (self.shear_modulus() / self.exponent());
         let trace_term = deformation_gradient
-            * (right_cauchy_green.powm(half_exponent - 1.0)?
-                + right_cauchy_green.powm(-half_exponent - 1.0)?)
+            * (spectrum.powm(half_exponent - 1.0)? + spectrum.powm(-half_exponent - 1.0)?)
             * 0.5;
         Ok(
-            (right_cauchy_green.dpowm(half_exponent)?
-                - right_cauchy_green.dpowm(-half_exponent)?)
-            .contract_third_fourth_with_first_second(
-                &(TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
-                    + TensorRank4::dyad_ik_jl(
+            (spectrum.dpowm(half_exponent)? - spectrum.dpowm(-half_exponent)?)
+                .contract_third_fourth_with_first_second(
+                    &(TensorRank4::dyad_il_jk(
+                        &IDENTITY_00,
+                        &scaled_deformation_gradient_transpose,
+                    ) + TensorRank4::dyad_ik_jl(
                         &scaled_deformation_gradient_transpose,
                         &IDENTITY_00,
                     )),
-            ) + TensorRank4::dyad_ij_kl(
-                &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
-                &trace_term,
-            ),
+                )
+                + TensorRank4::dyad_ij_kl(
+                    &(IDENTITY_00 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())),
+                    &trace_term,
+                ),
         )
     }
 }

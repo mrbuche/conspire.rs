@@ -6,7 +6,7 @@ use crate::{
         ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
-    math::{ContractThirdFourthWithFirstSecond, IDENTITY, Quantity, Rank2, TensorRank4},
+    math::{ContractThirdFourthWithFirstSecond, IDENTITY, Quantity, Rank2, Spectrum, TensorRank4},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
     units::Stress,
 };
@@ -83,15 +83,15 @@ impl Elastic for SethHillEulerian {
                 ));
         }
         let half_exponent = 0.5 * self.exponent();
+        let spectrum = Spectrum::new(&left_cauchy_green)?;
         let (deviatoric_strain, strain_trace) =
-            ((left_cauchy_green.powm(half_exponent)? - IDENTITY) / self.exponent())
-                .deviatoric_and_trace();
+            ((spectrum.powm(half_exponent)? - IDENTITY) / self.exponent()).deviatoric_and_trace();
         let cauchy_stress = deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian);
         let scaled_deformation_gradient =
             deformation_gradient * (2.0 * self.shear_modulus() / (self.exponent() * jacobian));
-        let trace_term = left_cauchy_green.powm(half_exponent - 1.0)? * deformation_gradient;
-        Ok(left_cauchy_green
+        let trace_term = spectrum.powm(half_exponent - 1.0)? * deformation_gradient;
+        Ok(spectrum
             .dpowm(half_exponent)?
             .contract_third_fourth_with_first_second(
                 &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)

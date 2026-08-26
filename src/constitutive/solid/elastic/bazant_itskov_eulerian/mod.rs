@@ -6,7 +6,7 @@ use crate::{
         ConstitutiveError,
         solid::{Solid, TWO_THIRDS, elastic::Elastic},
     },
-    math::{ContractThirdFourthWithFirstSecond, IDENTITY, Quantity, Rank2, TensorRank4},
+    math::{ContractThirdFourthWithFirstSecond, IDENTITY, Quantity, Rank2, Spectrum, TensorRank4},
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
     units::Stress,
 };
@@ -50,7 +50,8 @@ impl Elastic for BazantItskovEulerian {
             (left_cauchy_green.logm()? * 0.5).deviatoric_and_trace()
         } else {
             let half_exponent = 0.5 * self.exponent();
-            ((left_cauchy_green.powm(half_exponent)? - left_cauchy_green.powm(-half_exponent)?)
+            let spectrum = Spectrum::new(&left_cauchy_green)?;
+            ((spectrum.powm(half_exponent)? - spectrum.powm(-half_exponent)?)
                 / (2.0 * self.exponent()))
             .deviatoric_and_trace()
         };
@@ -85,20 +86,21 @@ impl Elastic for BazantItskovEulerian {
                 ));
         }
         let half_exponent = 0.5 * self.exponent();
-        let (deviatoric_strain, strain_trace) = ((left_cauchy_green.powm(half_exponent)?
-            - left_cauchy_green.powm(-half_exponent)?)
+        let spectrum = Spectrum::new(&left_cauchy_green)?;
+        let (deviatoric_strain, strain_trace) = ((spectrum.powm(half_exponent)?
+            - spectrum.powm(-half_exponent)?)
             / (2.0 * self.exponent()))
         .deviatoric_and_trace();
         let cauchy_stress = deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian);
         let scaled_deformation_gradient =
             deformation_gradient * (self.shear_modulus() / (self.exponent() * jacobian));
-        let trace_term = (left_cauchy_green.powm(half_exponent - 1.0)?
-            + left_cauchy_green.powm(-half_exponent - 1.0)?)
+        let trace_term = (spectrum.powm(half_exponent - 1.0)?
+            + spectrum.powm(-half_exponent - 1.0)?)
             * deformation_gradient
             * 0.5;
         Ok(
-            (left_cauchy_green.dpowm(half_exponent)? - left_cauchy_green.dpowm(-half_exponent)?)
+            (spectrum.dpowm(half_exponent)? - spectrum.dpowm(-half_exponent)?)
                 .contract_third_fourth_with_first_second(
                     &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
                         + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient)),

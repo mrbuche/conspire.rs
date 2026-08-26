@@ -150,3 +150,47 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
         ).collect()
     }
 }
+
+/// A cached eigendecomposition of a symmetric tensor, letting [`Self::powm`]/[`Self::dpowm`] be
+/// evaluated at several exponents while paying for only one cubic eigensolve.
+pub enum Spectrum<I> {
+    Eigen(TensorRank0List<3>, TensorRank2<3, I, I, Dimensionless>),
+    Fallback(TensorRank2<3, I, I, Dimensionless>),
+}
+
+impl<I> Spectrum<I> {
+    /// Caches the eigendecomposition of the tensor, when one is needed.
+    pub fn new(tensor: &TensorRank2<3, I, I, Dimensionless>) -> Result<Self, TensorError> {
+        if tensor.is_diagonal() || (tensor - &TensorRank2::identity()).norm() < 1e-2 {
+            Ok(Self::Fallback(tensor.clone()))
+        } else {
+            let (eigenvalues, eigenvectors) = tensor.eigen()?;
+            Ok(Self::Eigen(eigenvalues, eigenvectors))
+        }
+    }
+    /// Returns the matrix power at the given exponent, reusing the cached eigendecomposition.
+    pub fn powm(
+        &self,
+        exponent: TensorRank0,
+    ) -> Result<TensorRank2<3, I, I, Dimensionless>, TensorError> {
+        Ok(match self {
+            Self::Eigen(eigenvalues, eigenvectors) => {
+                TensorRank2::powm_from_eigen(eigenvalues, eigenvectors, exponent)
+            }
+            Self::Fallback(tensor) => tensor.powm(exponent)?,
+        })
+    }
+    /// Returns the derivative of the matrix power at the given exponent, reusing the cached
+    /// eigendecomposition.
+    pub fn dpowm(
+        &self,
+        exponent: TensorRank0,
+    ) -> Result<TensorRank4<3, I, I, I, I, Dimensionless>, TensorError> {
+        Ok(match self {
+            Self::Eigen(eigenvalues, eigenvectors) => {
+                TensorRank2::dpowm_from_eigen(eigenvalues, eigenvectors, exponent)
+            }
+            Self::Fallback(tensor) => tensor.dpowm(exponent)?,
+        })
+    }
+}
