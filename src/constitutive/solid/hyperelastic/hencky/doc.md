@@ -1,4 +1,4 @@
-The Hencky hyperelastic solid constitutive model.
+The Hencky hyperelastic solid constitutive model.[^1]
 
 **Parameters**
 - The bulk modulus $`\kappa`$.
@@ -12,3 +12,5 @@ The Hencky hyperelastic solid constitutive model.
 
 **Notes**
 - The Hencky strain measure is given by $`\mathbf{h}=\tfrac{1}{2}\ln(\mathbf{B})`$.
+
+[^1]: H. Hencky, *Über die Form des Elastizitätsgesetzes bei ideal elastischen Stoffen*, Zeitschrift für technische Physik **9**, 215 (1928).
