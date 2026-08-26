@@ -16,4 +16,4 @@ The Seth-Hill elastic solid constitutive model.[^1]<sup>,</sup>[^2]
 - The model reduces to the [Hencky model](super::Hencky) when $`m=0`$.
 
 [^1]: B.R. Seth, in *Second-Order Effects in Elasticity, Plasticity, and Fluid Dynamics*, edited by M. Reiner and D. Abir (Pergamon Press, 1964), pp. 162-172.
-[^2]: R. Hill, [Proc. R. Soc. London, Ser. A **314**, 457 (1970)](https://doi.org/10.1098/rspa.1970.0018).
+[^2]: R. Hill, [J. Mech. Phys. Solids **16**, 229 (1968)](https://doi.org/10.1016/0022-5096(68)90031-8).
