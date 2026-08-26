@@ -1,3 +1,3 @@
 ```math
-\mathbf{S}(\mathbf{F}) = 2\mu\left(\mathbf{E}^{(m)}\right)' + \kappa\,\mathrm{tr}\left(\mathbf{E}^{(m)}\right)\mathbf{1}
+\mathbf{S}(\mathbf{F}) = 2\mu\mathbf{E}^{(m)}{}' + \kappa\,\mathrm{tr}\big(\mathbf{E}^{(m)}\big)\mathbf{1}
 ```
