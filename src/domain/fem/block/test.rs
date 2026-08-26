@@ -115,6 +115,19 @@ macro_rules! test_finite_element_block_inner {
                         SaintVenantKirchhoff
                     );
                 }
+                // mod seth_hill {
+                //     use super::*;
+                //     test_finite_element_block_with_elastic_constitutive_model!(
+                //         ElementBlock,
+                //         $element,
+                //         SethHill {
+                //             bulk_modulus: BULK_MODULUS,
+                //             shear_modulus: SHEAR_MODULUS,
+                //             exponent: EXPONENT,
+                //         },
+                //         SethHill
+                //     );
+                // }
             }
             mod hyperelastic {
                 use super::*;

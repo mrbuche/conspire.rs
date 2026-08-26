@@ -727,8 +727,8 @@ macro_rules! test_finite_element_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::elastic::{
-                        AlmansiHamel, Hencky, SaintVenantKirchhoff,
-                        test::{BULK_MODULUS, SHEAR_MODULUS},
+                        AlmansiHamel, Hencky, SaintVenantKirchhoff, SethHill,
+                        test::{BULK_MODULUS, EXPONENT, SHEAR_MODULUS},
                     },
                     fem::block::element::solid::{
                         ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
@@ -766,6 +766,18 @@ macro_rules! test_finite_element_inner {
                             shear_modulus: SHEAR_MODULUS,
                         },
                         SaintVenantKirchhoff
+                    );
+                }
+                mod seth_hill {
+                    use super::*;
+                    test_finite_element_with_elastic_constitutive_model!(
+                        $element,
+                        SethHill {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                            exponent: EXPONENT,
+                        },
+                        SethHill
                     );
                 }
             }
