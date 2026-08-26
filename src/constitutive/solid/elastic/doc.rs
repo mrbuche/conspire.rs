@@ -83,3 +83,87 @@ pub fn hencky<'a>() -> Vec<[&'a str; 2]> {
         ],
     ]
 }
+
+pub fn bazant_itskov_eulerian<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/elastic/bazant_itskov_eulerian",
+            include_str!("bazant_itskov_eulerian/doc.md"),
+        ],
+        [
+            "cauchy_stress",
+            include_str!("bazant_itskov_eulerian/cauchy_stress.md"),
+        ],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("bazant_itskov_eulerian/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+    ]
+}
+
+pub fn bazant_itskov_lagrangian<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/elastic/bazant_itskov_lagrangian",
+            include_str!("bazant_itskov_lagrangian/doc.md"),
+        ],
+        ["cauchy_stress", ""],
+        ["cauchy_tangent_stiffness", ""],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "second_piola_kirchhoff_stress",
+            include_str!("bazant_itskov_lagrangian/second_piola_kirchhoff_stress.md"),
+        ],
+        [
+            "second_piola_kirchhoff_tangent_stiffness",
+            include_str!("bazant_itskov_lagrangian/second_piola_kirchhoff_tangent_stiffness.md"),
+        ],
+    ]
+}
+
+pub fn seth_hill_eulerian<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/elastic/seth_hill_eulerian",
+            include_str!("seth_hill_eulerian/doc.md"),
+        ],
+        [
+            "cauchy_stress",
+            include_str!("seth_hill_eulerian/cauchy_stress.md"),
+        ],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("seth_hill_eulerian/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+    ]
+}
+
+pub fn seth_hill_lagrangian<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/elastic/seth_hill_lagrangian",
+            include_str!("seth_hill_lagrangian/doc.md"),
+        ],
+        ["cauchy_stress", ""],
+        ["cauchy_tangent_stiffness", ""],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "second_piola_kirchhoff_stress",
+            include_str!("seth_hill_lagrangian/second_piola_kirchhoff_stress.md"),
+        ],
+        [
+            "second_piola_kirchhoff_tangent_stiffness",
+            include_str!("seth_hill_lagrangian/second_piola_kirchhoff_tangent_stiffness.md"),
+        ],
+    ]
+}
