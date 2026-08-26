@@ -1,6 +1,9 @@
 use crate::{math::Quantity, units::Stress};
 
+use crate::mechanics::Scalar;
+
 pub const BULK_MODULUS: Quantity<Stress> = Stress::pascals(13.0);
+pub const EXPONENT: Scalar = 1.3;
 pub const SHEAR_MODULUS: Quantity<Stress> = Stress::pascals(3.0);
 
 macro_rules! cauchy_stress_from_deformation_gradient {

@@ -15,9 +15,11 @@ pub mod internal_variables;
 mod almansi_hamel;
 mod hencky;
 mod saint_venant_kirchhoff;
+mod seth_hill;
 
 pub use self::{
     almansi_hamel::AlmansiHamel, hencky::Hencky, saint_venant_kirchhoff::SaintVenantKirchhoff,
+    seth_hill::SethHill,
 };
 
 use super::*;
