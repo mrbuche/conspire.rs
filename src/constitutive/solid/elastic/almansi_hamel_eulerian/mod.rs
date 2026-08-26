@@ -13,14 +13,14 @@ use crate::{
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
-pub struct AlmansiHamel {
+pub struct AlmansiHamelEulerian {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
     pub shear_modulus: Quantity<Stress>,
 }
 
-impl Solid for AlmansiHamel {
+impl Solid for AlmansiHamelEulerian {
     fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
@@ -29,7 +29,7 @@ impl Solid for AlmansiHamel {
     }
 }
 
-impl Elastic for AlmansiHamel {
+impl Elastic for AlmansiHamelEulerian {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,

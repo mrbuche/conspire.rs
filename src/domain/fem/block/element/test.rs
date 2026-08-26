@@ -727,23 +727,59 @@ macro_rules! test_finite_element_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::elastic::{
-                        AlmansiHamel, Hencky, SaintVenantKirchhoff,
-                        test::{BULK_MODULUS, SHEAR_MODULUS},
+                        AlmansiHamelEulerian, AlmansiHamelLagrangian, BazantItskovEulerian,
+                        BazantItskovLagrangian, Hencky, SaintVenantKirchhoff, SethHillLagrangian,
+                        test::{BULK_MODULUS, EXPONENT, SHEAR_MODULUS},
                     },
                     fem::block::element::solid::{
                         ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
                         elastic::ElasticFiniteElement,
                     },
                 };
-                mod almansi_hamel {
+                mod almansi_hamel_eulerian {
                     use super::*;
                     test_finite_element_with_elastic_constitutive_model!(
                         $element,
-                        AlmansiHamel {
+                        AlmansiHamelEulerian {
                             bulk_modulus: BULK_MODULUS,
                             shear_modulus: SHEAR_MODULUS,
                         },
-                        AlmansiHamel
+                        AlmansiHamelEulerian
+                    );
+                }
+                mod almansi_hamel_lagrangian {
+                    use super::*;
+                    test_finite_element_with_elastic_constitutive_model!(
+                        $element,
+                        AlmansiHamelLagrangian {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                        },
+                        AlmansiHamelLagrangian
+                    );
+                }
+                mod bazant_itskov_lagrangian {
+                    use super::*;
+                    test_finite_element_with_elastic_constitutive_model!(
+                        $element,
+                        BazantItskovLagrangian {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                            exponent: EXPONENT,
+                        },
+                        BazantItskovLagrangian
+                    );
+                }
+                mod bazant_itskov_eulerian {
+                    use super::*;
+                    test_finite_element_with_elastic_constitutive_model!(
+                        $element,
+                        BazantItskovEulerian {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                            exponent: EXPONENT,
+                        },
+                        BazantItskovEulerian
                     );
                 }
                 mod hencky {
@@ -768,16 +804,30 @@ macro_rules! test_finite_element_inner {
                         SaintVenantKirchhoff
                     );
                 }
+                mod seth_hill {
+                    use super::*;
+                    test_finite_element_with_elastic_constitutive_model!(
+                        $element,
+                        SethHillLagrangian {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                            exponent: EXPONENT,
+                        },
+                        SethHillLagrangian
+                    );
+                }
             }
             mod hyperelastic {
                 use super::*;
                 use crate::{
                     constitutive::solid::hyperelastic::{
-                        ArrudaBoyce, Fung, Gent, Hencky, MooneyRivlin, NeoHookean,
-                        SaintVenantKirchhoff, Yeoh,
+                        ArrudaBoyce, BlatzKo, Carroll, Fung, Gent, Hencky, Isihara, MooneyRivlin,
+                        NeoHookean, Ogden, SaintVenantKirchhoff, Yeoh,
                         test::{
-                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, NUMBER_OF_LINKS,
-                            YEOH_EXTRA_MODULI,
+                            EXPONENT, EXTENSIBILITY, EXTRA_MODULUS, LINEAR_MODULUS,
+                            MIXING_PARAMETER, NUMBER_OF_LINKS, OGDEN_EXPONENTS, OGDEN_MODULI,
+                            QUADRATIC_MODULUS, QUARTIC_MODULUS, SECOND_INVARIANT_MODULUS,
+                            YEOH_MODULI,
                         },
                     },
                     fem::block::element::solid::{
@@ -810,6 +860,31 @@ macro_rules! test_finite_element_inner {
                         Fung
                     );
                 }
+                mod blatz_ko {
+                    use super::*;
+                    test_finite_element_with_hyperelastic_constitutive_model!(
+                        $element,
+                        BlatzKo {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                            mixing_parameter: MIXING_PARAMETER,
+                        },
+                        BlatzKo
+                    );
+                }
+                mod carroll {
+                    use super::*;
+                    test_finite_element_with_hyperelastic_constitutive_model!(
+                        $element,
+                        Carroll {
+                            bulk_modulus: BULK_MODULUS,
+                            linear_modulus: LINEAR_MODULUS,
+                            quartic_modulus: QUARTIC_MODULUS,
+                            second_invariant_modulus: SECOND_INVARIANT_MODULUS,
+                        },
+                        Carroll
+                    );
+                }
                 mod gent {
                     use super::*;
                     test_finite_element_with_hyperelastic_constitutive_model!(
@@ -831,6 +906,19 @@ macro_rules! test_finite_element_inner {
                             shear_modulus: SHEAR_MODULUS,
                         },
                         Hencky
+                    );
+                }
+                mod isihara {
+                    use super::*;
+                    test_finite_element_with_hyperelastic_constitutive_model!(
+                        $element,
+                        Isihara {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                            extra_modulus: EXTRA_MODULUS,
+                            quadratic_modulus: QUADRATIC_MODULUS,
+                        },
+                        Isihara
                     );
                 }
                 mod mooney_rivlin {
@@ -873,10 +961,21 @@ macro_rules! test_finite_element_inner {
                         $element,
                         Yeoh {
                             bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            extra_moduli: YEOH_EXTRA_MODULI,
+                            shear_moduli: YEOH_MODULI.to_vec(),
                         },
                         Yeoh
+                    );
+                }
+                mod ogden {
+                    use super::*;
+                    test_finite_element_with_hyperelastic_constitutive_model!(
+                        $element,
+                        Ogden {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_moduli: OGDEN_MODULI.to_vec(),
+                            exponents: OGDEN_EXPONENTS.to_vec(),
+                        },
+                        Ogden
                     );
                 }
             }

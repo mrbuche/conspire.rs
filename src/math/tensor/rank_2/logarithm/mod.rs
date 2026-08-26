@@ -3,18 +3,13 @@ mod test;
 
 use crate::math::Quantity;
 use crate::units::Dimensionless;
-use std::f64::consts::TAU;
 
 use super::{
-    super::{
-        Rank2, Tensor, TensorArray, TensorError,
-        rank_0::{TensorRank0, list::TensorRank0List},
-        rank_1::{TensorRank1, cross::CrossProduct},
-        rank_4::TensorRank4,
-    },
+    super::{Rank2, Tensor, TensorArray, TensorError, rank_4::TensorRank4},
     TensorRank2,
+    eigen::{find_orthonormal_eigenvectors, reconstruct_symmetric, solve_cubic_symmetric},
 };
-use crate::{ABS_TOL, math::assert::Assert};
+use crate::math::assert::Assert;
 
 impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// Returns the matrix logarithm of the 3x3 symmetric tensor.
@@ -126,153 +121,4 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
             panic!("Matrix logarithm only implemented for symmetric cases")
         }
     }
-    /// Returns the invariants of the 3x3 symmetric tensor.
-    pub fn invariants(&self) -> TensorRank0List<3> {
-        TensorRank0List::from([
-            self.trace().value(),
-            self.second_invariant().value(),
-            self.determinant(),
-        ])
-    }
-}
-
-fn solve_cubic_symmetric(
-    coefficients: TensorRank0List<3>,
-) -> Result<TensorRank0List<3>, TensorError> {
-    let c2 = coefficients[0];
-    let c1 = coefficients[1];
-    let c0 = coefficients[2];
-    let p = c1 - c2 * c2 / 3.0;
-    let q = -(2.0 * c2.powi(3) - 9.0 * c2 * c1 + 27.0 * c0) / 27.0;
-    if p.abs() < ABS_TOL {
-        let t = (-q).cbrt();
-        let lambda = t + c2 / 3.0;
-        return Ok(TensorRank0List::from([lambda; _]));
-    }
-    let discriminant = -4.0 * p * p * p - 27.0 * q * q;
-    let scale = (4.0 * p * p * p).abs().max(27.0 * q * q);
-    if discriminant.abs() <= 1e-13 * scale {
-        let r = (q / 2.0).cbrt();
-        let lambda_double = r + c2 / 3.0;
-        let lambda_simple = -2.0 * r + c2 / 3.0;
-        let lambdas = if lambda_double >= lambda_simple {
-            [lambda_double, lambda_double, lambda_simple]
-        } else {
-            [lambda_simple, lambda_double, lambda_double]
-        };
-        Ok(TensorRank0List::from(lambdas))
-    } else if discriminant > 0.0 {
-        let sqrt_term = (-p / 3.0).sqrt();
-        let cos_arg = 3.0 * q / (2.0 * p * (-p / 3.0).sqrt());
-        let cos_arg = cos_arg.clamp(-1.0, 1.0);
-        let theta = cos_arg.acos();
-        let mut lambdas = [
-            2.0 * sqrt_term * (theta / 3.0).cos() + c2 / 3.0,
-            2.0 * sqrt_term * ((theta + TAU) / 3.0).cos() + c2 / 3.0,
-            2.0 * sqrt_term * ((theta + 2.0 * TAU) / 3.0).cos() + c2 / 3.0,
-        ];
-        lambdas.iter_mut().for_each(|lambda| {
-            for _ in 0..2 {
-                let x = *lambda;
-                let f = x * x * x - c2 * x * x + c1 * x - c0;
-                let f_prime = 3.0 * x * x - 2.0 * c2 * x + c1;
-                if f_prime.abs() < ABS_TOL {
-                    break;
-                }
-                *lambda -= f / f_prime;
-            }
-        });
-        lambdas.sort_by(|a, b| b.partial_cmp(a).unwrap());
-        Ok(TensorRank0List::from(lambdas))
-    } else {
-        Err(TensorError::SymmetricMatrixComplexEigenvalues)
-    }
-}
-
-fn find_orthonormal_eigenvectors<I>(
-    eigenvalues: &TensorRank0List<3>,
-    tensor: &TensorRank2<3, I, I, Dimensionless>,
-) -> TensorRank2<3, I, I, Dimensionless> {
-    if Assert::default()
-        .eq_within_tols(eigenvalues[0], &eigenvalues[1])
-        .is_ok()
-    {
-        let mut eigenvectors = TensorRank2::zero();
-        eigenvectors[2] = eigenvector_symmetric(eigenvalues[2], tensor);
-        eigenvectors[0] = orthogonal_unit_vector(&eigenvectors[2]);
-        eigenvectors[1] = eigenvectors[2].cross(&eigenvectors[0]);
-        eigenvectors
-    } else if Assert::default()
-        .eq_within_tols(eigenvalues[1], &eigenvalues[2])
-        .is_ok()
-    {
-        let mut eigenvectors = TensorRank2::zero();
-        eigenvectors[0] = eigenvector_symmetric(eigenvalues[0], tensor);
-        eigenvectors[1] = orthogonal_unit_vector(&eigenvectors[0]);
-        eigenvectors[2] = eigenvectors[0].cross(&eigenvectors[1]);
-        eigenvectors
-    } else {
-        let mut eigenvectors = eigenvalues
-            .iter()
-            .map(|&eigenvalue| eigenvector_symmetric(eigenvalue, tensor))
-            .collect::<TensorRank2<3, I, I, Dimensionless>>();
-        eigenvectors[0].normalize();
-        let proj1 = &eigenvectors[1] * &eigenvectors[0];
-        for i in 0..3 {
-            let projected = proj1 * eigenvectors[0][i];
-            eigenvectors[1][i] -= projected;
-        }
-        eigenvectors[1].normalize();
-        eigenvectors[2] = eigenvectors[0].cross(&eigenvectors[1]);
-        eigenvectors
-    }
-}
-
-fn orthogonal_unit_vector<I>(
-    vector: &TensorRank1<3, I, Dimensionless>,
-) -> TensorRank1<3, I, Dimensionless> {
-    let axis = vector
-        .iter()
-        .enumerate()
-        .min_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).unwrap())
-        .map(|(i, _)| i)
-        .unwrap();
-    let mut other = TensorRank1::<3, I, Dimensionless>::zero();
-    other[axis] = Quantity::new(1.0);
-    vector.cross(&other).normalized()
-}
-
-fn eigenvector_symmetric<I>(
-    eigenvalue: TensorRank0,
-    tensor: &TensorRank2<3, I, I, Dimensionless>,
-) -> TensorRank1<3, I, Dimensionless> {
-    let m = tensor - TensorRank2::identity() * eigenvalue;
-    [m[1].cross(&m[2]), m[0].cross(&m[2]), m[0].cross(&m[1])]
-        .into_iter()
-        .max_by(|a, b| a.norm().partial_cmp(&b.norm()).unwrap())
-        .unwrap()
-        .normalized()
-}
-
-fn reconstruct_symmetric<I>(
-    eigenvalues: TensorRank0List<3>,
-    eigenvectors: TensorRank2<3, I, I, Dimensionless>,
-) -> TensorRank2<3, I, I, Dimensionless> {
-    let mut tensor = TensorRank2::zero();
-    eigenvalues
-        .iter()
-        .zip(eigenvectors.iter())
-        .for_each(|(eigenvalue, eigenvector)| {
-            tensor
-                .iter_mut()
-                .zip(eigenvector.iter())
-                .for_each(|(tensor_i, eigenvector_i)| {
-                    tensor_i.iter_mut().zip(eigenvector.iter()).for_each(
-                        |(tensor_ij, eigenvector_j)| {
-                            *tensor_ij += eigenvalue * eigenvector_i * eigenvector_j
-                        },
-                    )
-                })
-        });
-    tensor
 }

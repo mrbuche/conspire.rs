@@ -26,7 +26,7 @@ use crate::{
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
-pub struct AlmansiHamel {
+pub struct AlmansiHamelEulerian {
     /// The bulk modulus $`\kappa`$.
     pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$.
@@ -41,7 +41,7 @@ pub struct AlmansiHamel {
     pub reference_flow_rate: Quantity<Rate>,
 }
 
-impl Solid for AlmansiHamel {
+impl Solid for AlmansiHamelEulerian {
     fn bulk_modulus(&self) -> Quantity<Stress> {
         self.bulk_modulus
     }
@@ -50,7 +50,7 @@ impl Solid for AlmansiHamel {
     }
 }
 
-impl Plastic for AlmansiHamel {
+impl Plastic for AlmansiHamelEulerian {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.yield_stress
     }
@@ -59,7 +59,7 @@ impl Plastic for AlmansiHamel {
     }
 }
 
-impl Viscoplastic<Quantity> for AlmansiHamel {
+impl Viscoplastic<Quantity> for AlmansiHamelEulerian {
     fn initial_state(&self) -> ViscoplasticStateVariables<Quantity> {
         (DeformationGradientPlastic::identity(), Quantity::default()).into()
     }
@@ -78,7 +78,7 @@ impl Viscoplastic<Quantity> for AlmansiHamel {
     }
 }
 
-impl ElasticPlasticOrViscoplastic for AlmansiHamel {
+impl ElasticPlasticOrViscoplastic for AlmansiHamelEulerian {
     #[doc = include_str!("cauchy_stress.md")]
     fn cauchy_stress(
         &self,
@@ -132,4 +132,4 @@ impl ElasticPlasticOrViscoplastic for AlmansiHamel {
     }
 }
 
-impl ElasticViscoplastic<Quantity> for AlmansiHamel {}
+impl ElasticViscoplastic<Quantity> for AlmansiHamelEulerian {}

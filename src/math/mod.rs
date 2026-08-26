@@ -54,7 +54,7 @@ pub use tensor::{
         vec::TensorRank1Vec, vec_2d::TensorRank1Vec2D, zero as tensor_rank_1_zero,
     },
     rank_2::{
-        IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_22, TensorRank2, ZERO, ZERO_10,
+        IDENTITY, IDENTITY_00, IDENTITY_10, IDENTITY_22, Spectrum, TensorRank2, ZERO, ZERO_10,
         list::{TensorRank2List, vec::TensorRank2ListVec},
         list_2d::TensorRank2List2D,
         sparse_symmetric_vec_2d::TensorRank2SparseVec2DSymmetric,

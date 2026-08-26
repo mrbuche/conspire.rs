@@ -5,7 +5,7 @@ use crate::{
         hybrid::ElasticMultiplicative,
         solid::{
             elastic::{
-                AlmansiHamel,
+                AlmansiHamelEulerian,
                 test::{BULK_MODULUS, SHEAR_MODULUS},
             },
             hyperelastic::NeoHookean,
@@ -37,7 +37,7 @@ fn finite_difference_0() -> Result<(), AssertionError> {
         [1.93680854, 2.32953025, 3.36786684],
     ]);
     let model = ElasticMultiplicative::from((
-        AlmansiHamel {
+        AlmansiHamelEulerian {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
@@ -86,7 +86,7 @@ fn finite_difference_1() -> Result<(), AssertionError> {
         [1.93680854, 2.32953025, 3.36786684],
     ]);
     let model = ElasticMultiplicative::from((
-        AlmansiHamel {
+        AlmansiHamelEulerian {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
@@ -136,7 +136,7 @@ fn finite_difference_2() -> Result<(), AssertionError> {
         [1.93680854, 2.32953025, 3.36786684],
     ]);
     let model = ElasticMultiplicative::from((
-        AlmansiHamel {
+        AlmansiHamelEulerian {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
@@ -188,7 +188,7 @@ fn finite_difference_3() -> Result<(), AssertionError> {
         [1.93680854, 2.32953025, 3.36786684],
     ]);
     let model = ElasticMultiplicative::from((
-        AlmansiHamel {
+        AlmansiHamelEulerian {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
@@ -231,7 +231,7 @@ const STRETCH: Scalar = 1.5;
 fn root_0() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::ZerothOrderRoot;
     let model = ElasticMultiplicative::from((
-        AlmansiHamel {
+        AlmansiHamelEulerian {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
@@ -253,9 +253,9 @@ fn root_0() -> Result<(), AssertionError> {
     Ok(())
 }
 
-fn model() -> ElasticMultiplicative<AlmansiHamel, NeoHookean> {
+fn model() -> ElasticMultiplicative<AlmansiHamelEulerian, NeoHookean> {
     ElasticMultiplicative::from((
-        AlmansiHamel {
+        AlmansiHamelEulerian {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },

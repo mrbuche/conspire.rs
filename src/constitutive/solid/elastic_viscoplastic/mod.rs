@@ -10,9 +10,9 @@ pub mod doc;
 #[cfg(test)]
 pub mod test;
 
-mod almansi_hamel;
+mod almansi_hamel_eulerian;
 
-pub use almansi_hamel::AlmansiHamel;
+pub use self::almansi_hamel_eulerian::AlmansiHamelEulerian;
 
 use crate::{
     constitutive::{

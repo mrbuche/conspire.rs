@@ -4,10 +4,14 @@ use crate::math::{ContractWith, Quantity, Square};
 use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
 use crate::units::{Dimensionless, UnitDiv, UnitMul};
 
+mod eigen;
 mod inverse;
 pub(crate) mod list;
 pub(crate) mod list_2d;
 mod logarithm;
+mod power;
+
+pub use power::Spectrum;
 pub(crate) mod sparse_symmetric_vec_2d;
 pub(crate) mod sparse_vec;
 pub(crate) mod sparse_vec_2d;

@@ -212,3 +212,91 @@ pub fn yeoh<'a>() -> Vec<[&'a str; 2]> {
         ],
     ]
 }
+
+pub fn blatz_ko<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/hyperelastic/blatz_ko",
+            include_str!("blatz_ko/doc.md"),
+        ],
+        ["cauchy_stress", include_str!("blatz_ko/cauchy_stress.md")],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("blatz_ko/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "helmholtz_free_energy_density",
+            include_str!("blatz_ko/helmholtz_free_energy_density.md"),
+        ],
+    ]
+}
+
+pub fn carroll<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/hyperelastic/carroll",
+            include_str!("carroll/doc.md"),
+        ],
+        ["cauchy_stress", include_str!("carroll/cauchy_stress.md")],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("carroll/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "helmholtz_free_energy_density",
+            include_str!("carroll/helmholtz_free_energy_density.md"),
+        ],
+    ]
+}
+
+pub fn isihara<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/hyperelastic/isihara",
+            include_str!("isihara/doc.md"),
+        ],
+        ["cauchy_stress", include_str!("isihara/cauchy_stress.md")],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("isihara/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "helmholtz_free_energy_density",
+            include_str!("isihara/helmholtz_free_energy_density.md"),
+        ],
+    ]
+}
+
+pub fn ogden<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/hyperelastic/ogden",
+            include_str!("ogden/doc.md"),
+        ],
+        ["cauchy_stress", include_str!("ogden/cauchy_stress.md")],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("ogden/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "helmholtz_free_energy_density",
+            include_str!("ogden/helmholtz_free_energy_density.md"),
+        ],
+    ]
+}

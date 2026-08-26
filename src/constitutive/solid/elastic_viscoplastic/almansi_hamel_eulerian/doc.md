@@ -1,4 +1,4 @@
-The Almansi-Hamel elastic-viscoplastic solid constitutive model.
+The Eulerian Almansi-Hamel elastic-viscoplastic solid constitutive model.
 
 **Parameters**
 - The bulk modulus $`\kappa`$.

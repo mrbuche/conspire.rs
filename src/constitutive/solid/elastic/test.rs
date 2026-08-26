@@ -1,6 +1,9 @@
 use crate::{math::Quantity, units::Stress};
 
+use crate::mechanics::Scalar;
+
 pub const BULK_MODULUS: Quantity<Stress> = Stress::pascals(13.0);
+pub const EXPONENT: Scalar = 1.3;
 pub const SHEAR_MODULUS: Quantity<Stress> = Stress::pascals(3.0);
 
 macro_rules! cauchy_stress_from_deformation_gradient {
@@ -914,7 +917,7 @@ macro_rules! test_root {
                 #[test]
                 fn biaxial_mixed() -> Result<(), crate::math::assert::AssertionError> {
                     let deformation_gradient = $constitutive_model_constructed
-                        .root(AppliedLoad::BiaxialStress(1.3, 0.64), $solver)?;
+                        .root(AppliedLoad::BiaxialStress(1.3, 0.74), $solver)?;
                     let cauchy_stress =
                         $constitutive_model_constructed.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0] > cauchy_stress[1][1]);

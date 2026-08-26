@@ -12,12 +12,20 @@ pub mod test;
 
 pub mod internal_variables;
 
-mod almansi_hamel;
+mod almansi_hamel_eulerian;
+mod almansi_hamel_lagrangian;
+mod bazant_itskov_eulerian;
+mod bazant_itskov_lagrangian;
 mod hencky;
 mod saint_venant_kirchhoff;
+mod seth_hill_eulerian;
+mod seth_hill_lagrangian;
 
 pub use self::{
-    almansi_hamel::AlmansiHamel, hencky::Hencky, saint_venant_kirchhoff::SaintVenantKirchhoff,
+    almansi_hamel_eulerian::AlmansiHamelEulerian, almansi_hamel_lagrangian::AlmansiHamelLagrangian,
+    bazant_itskov_eulerian::BazantItskovEulerian, bazant_itskov_lagrangian::BazantItskovLagrangian,
+    hencky::Hencky, saint_venant_kirchhoff::SaintVenantKirchhoff,
+    seth_hill_eulerian::SethHillEulerian, seth_hill_lagrangian::SethHillLagrangian,
 };
 
 use super::*;
