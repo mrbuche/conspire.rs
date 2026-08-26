@@ -3,7 +3,7 @@ use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
         hybrid::ElasticMultiplicativeViscoplastic,
-        solid::{elastic::AlmansiHamel, hyperelastic::NeoHookean},
+        solid::{elastic::AlmansiHamelEulerian, hyperelastic::NeoHookean},
     },
     fem::{
         Blocks, ElasticViscoplasticAndElastic, FirstOrderRoot, Model, NodalCoordinates,
@@ -39,14 +39,14 @@ use crate::{
 
 const D: usize = 14;
 
-type Tet = Block<AlmansiHamel, Tetrahedron, 1, 3, 4, 4>;
-type Tri = Block<AlmansiHamel, Triangle, 1, 2, 3, 3>;
-type Quad = Block<AlmansiHamel, Quadrilateral, 4, 2, 4, 4>;
+type Tet = Block<AlmansiHamelEulerian, Tetrahedron, 1, 3, 4, 4>;
+type Tri = Block<AlmansiHamelEulerian, Triangle, 1, 2, 3, 3>;
+type Quad = Block<AlmansiHamelEulerian, Quadrilateral, 4, 2, 4, 4>;
 type TriNeoHookean = Block<NeoHookean, Triangle, 1, 2, 3, 3>;
-type Hex = Block<AlmansiHamel, Hexahedron, 8, 3, 8, 8>;
+type Hex = Block<AlmansiHamelEulerian, Hexahedron, 8, 3, 8, 8>;
 type TetNeoHookean = Block<NeoHookean, Tetrahedron, 1, 3, 4, 4>;
 type TetViscoplastic = Block<
-    ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Quantity>,
+    ElasticMultiplicativeViscoplastic<AlmansiHamelEulerian, ViscoplasticFlow, Quantity>,
     Tetrahedron,
     1,
     3,
@@ -54,8 +54,8 @@ type TetViscoplastic = Block<
     4,
 >;
 
-fn constitutive_model() -> AlmansiHamel {
-    AlmansiHamel {
+fn constitutive_model() -> AlmansiHamelEulerian {
+    AlmansiHamelEulerian {
         bulk_modulus: Stress::pascals(13.0),
         shear_modulus: Stress::pascals(3.0),
     }
@@ -314,7 +314,7 @@ fn heterogeneous_blocks_nodal_forces() -> Result<(), AssertionError> {
 }
 
 fn viscoplastic_model()
--> ElasticMultiplicativeViscoplastic<AlmansiHamel, ViscoplasticFlow, Quantity> {
+-> ElasticMultiplicativeViscoplastic<AlmansiHamelEulerian, ViscoplasticFlow, Quantity> {
     ElasticMultiplicativeViscoplastic::from((
         constitutive_model(),
         ViscoplasticFlow {
@@ -534,7 +534,7 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
         .into_iter()
         .map(|[a, b, c]| [a, b, c, a + 9, b + 9, c + 9])
         .collect();
-    let block = Block::<AlmansiHamel, Wedge, 6, 3, 6, 6>::from((
+    let block = Block::<AlmansiHamelEulerian, Wedge, 6, 3, 6, 6>::from((
         constitutive_model(),
         connectivity,
         &coordinates,

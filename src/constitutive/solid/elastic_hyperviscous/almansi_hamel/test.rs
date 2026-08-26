@@ -18,7 +18,9 @@ test_solid_elastic_hyperviscous_constitutive_model!(AlmansiHamel {
 
 mod consistency {
     use super::*;
-    use crate::constitutive::solid::elastic::{AlmansiHamel as ElasticAlmansiHamel, Elastic};
+    use crate::constitutive::solid::elastic::{
+        AlmansiHamelEulerian as ElasticAlmansiHamel, Elastic,
+    };
     #[test]
     fn cauchy_stress() -> Result<(), AssertionError> {
         let model = AlmansiHamel {

@@ -727,7 +727,8 @@ macro_rules! test_finite_element_inner {
                 use super::*;
                 use crate::{
                     constitutive::solid::elastic::{
-                        AlmansiHamel, Hencky, SaintVenantKirchhoff, SethHillLagrangian,
+                        AlmansiHamelEulerian, AlmansiHamelLagrangian, Hencky, SaintVenantKirchhoff,
+                        SethHillLagrangian,
                         test::{BULK_MODULUS, EXPONENT, SHEAR_MODULUS},
                     },
                     fem::block::element::solid::{
@@ -735,15 +736,26 @@ macro_rules! test_finite_element_inner {
                         elastic::ElasticFiniteElement,
                     },
                 };
-                mod almansi_hamel {
+                mod almansi_hamel_eulerian {
                     use super::*;
                     test_finite_element_with_elastic_constitutive_model!(
                         $element,
-                        AlmansiHamel {
+                        AlmansiHamelEulerian {
                             bulk_modulus: BULK_MODULUS,
                             shear_modulus: SHEAR_MODULUS,
                         },
-                        AlmansiHamel
+                        AlmansiHamelEulerian
+                    );
+                }
+                mod almansi_hamel_lagrangian {
+                    use super::*;
+                    test_finite_element_with_elastic_constitutive_model!(
+                        $element,
+                        AlmansiHamelLagrangian {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                        },
+                        AlmansiHamelLagrangian
                     );
                 }
                 mod hencky {

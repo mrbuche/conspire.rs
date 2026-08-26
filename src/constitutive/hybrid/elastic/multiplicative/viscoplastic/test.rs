@@ -6,7 +6,7 @@ use crate::{
         fluid::viscoplastic::ViscoplasticFlow,
         hybrid::ElasticMultiplicativeViscoplastic,
         solid::{
-            elastic::AlmansiHamel,
+            elastic::AlmansiHamelEulerian,
             elastic_viscoplastic::{AppliedLoad, ElasticPlasticOrViscoplastic},
         },
     },
@@ -33,7 +33,7 @@ fn finite_difference() -> Result<(), AssertionError> {
         [1.82260662, 2.1921719, 3.16928404],
     ]);
     let model = ElasticMultiplicativeViscoplastic::from((
-        AlmansiHamel {
+        AlmansiHamelEulerian {
             bulk_modulus: Stress::pascals(13.0),
             shear_modulus: Stress::pascals(3.0),
         },
@@ -75,7 +75,7 @@ fn finite_difference() -> Result<(), AssertionError> {
 //fn root_0() -> Result<(), AssertionError> {
 //    use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
 //    let model = ElasticMultiplicativeViscoplastic::from((
-//        AlmansiHamel {
+//        AlmansiHamelEulerian {
 //            bulk_modulus: Stress::pascals(13.0),
 //            shear_modulus: Stress::pascals(3.0),
 //        },
@@ -122,7 +122,7 @@ fn finite_difference() -> Result<(), AssertionError> {
 fn root_1() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
     let model = ElasticMultiplicativeViscoplastic::from((
-        AlmansiHamel {
+        AlmansiHamelEulerian {
             bulk_modulus: Stress::pascals(13.0),
             shear_modulus: Stress::pascals(3.0),
         },
