@@ -27,6 +27,11 @@ const JOINED_FRACTION: Scalar = 0.25;
 /// sampled (see [`joined`]).
 const JOINED_SAMPLES: usize = 5;
 
+/// How much farther than the closest crease of a chain another crease of that
+/// same chain may run from a crease and still count as bounding the same
+/// narrow feature (see [`Features::separation`]).
+const SEPARATION_SPREAD: Scalar = 1.05;
+
 /// The sharp edges and points of a tessellation.
 ///
 /// An edge is a crease when its two triangles turn through more than thirty
@@ -321,9 +326,10 @@ impl Features {
                 reached
             });
         });
-        // The crease of each chain nearest to each crease. Every candidate
-        // pair is recorded from both ends, so the two creases agree on it
-        // however the spatial index happened to turn one of them up.
+        // The creases of each chain running closest to each crease. Every
+        // candidate pair is recorded from both ends, so the two creases agree
+        // on it however the spatial index happened to turn one of them up,
+        // and is measured once, from whichever end reached it first.
         let index = self.index(radius);
         let coordinates = tessellation.mesh().coordinates();
         let elements: Vec<&[usize]> = tessellation
@@ -333,49 +339,58 @@ impl Features {
             .flatten()
             .collect();
         let bvh = tessellation.bvh();
-        let mut nearest = vec![FxHashMap::<usize, Separation>::default(); self.creases.len()];
-        let closer = |nearest: &mut Vec<FxHashMap<usize, Separation>>,
+        let mut nearest = vec![FxHashMap::<usize, Vec<Separation>>::default(); self.creases.len()];
+        let mut measured = FxHashSet::<[usize; 2]>::default();
+        let record = |nearest: &mut Vec<FxHashMap<usize, Vec<Separation>>>,
                       this: usize,
                       other: usize,
                       distance: Quantity<Length>| {
-            let entry = nearest[this].entry(chain[other]).or_insert(Separation {
-                crease: other,
-                distance,
-            });
-            if (distance, other) < (entry.distance, entry.crease) {
-                *entry = Separation {
+            nearest[this]
+                .entry(chain[other])
+                .or_default()
+                .push(Separation {
                     crease: other,
                     distance,
-                }
-            }
+                })
         };
         self.creases.iter().enumerate().for_each(|(this, segment)| {
             index
                 .nearby_creases(&segment[0], &segment[1])
                 .filter(|other| !excluded[&chain[this]].contains(&chain[*other]))
                 .for_each(|other| {
+                    if !measured.insert(key(this, other)) {
+                        return;
+                    }
                     let distance = segment_distance(segment, &self.creases[other]);
                     if distance < radius
                         && joined(segment, &self.creases[other], coordinates, &elements, bvh)
                     {
-                        closer(&mut nearest, this, other, distance);
-                        closer(&mut nearest, other, this, distance);
+                        record(&mut nearest, this, other, distance);
+                        record(&mut nearest, other, this, distance);
                     }
                 })
         });
-        // A pair survives only if each crease is the one of its own chain
-        // nearest the other. Without that, subdividing a crease would let its
-        // far pieces pair with distant chains that the whole crease, measured
-        // at its closest approach, never reported.
+        // Every crease of a chain running as close to a crease as the closest
+        // one of that chain does bounds the same stretch of the same narrow
+        // feature, so all of them are kept. Keeping one per chain instead
+        // would report a chain facing another along a subdivided stretch as a
+        // single pair, leaving the rest of the stretch unbounded, and a
+        // constant gap ties the crease directly opposite with the two
+        // flanking it, which meet it at its own endpoints.
         (0..self.creases.len())
             .map(|this| {
                 let mut near: Vec<Separation> = nearest[this]
                     .values()
-                    .copied()
-                    .filter(|partner| {
-                        nearest[partner.crease]
-                            .get(&chain[this])
-                            .is_some_and(|back| back.crease == this)
+                    .flat_map(|partners| {
+                        let closest = partners
+                            .iter()
+                            .map(|partner| partner.distance)
+                            .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
+                            * SEPARATION_SPREAD;
+                        partners
+                            .iter()
+                            .copied()
+                            .filter(move |partner| partner.distance <= closest)
                     })
                     .collect();
                 near.sort_by(|one, two| {
