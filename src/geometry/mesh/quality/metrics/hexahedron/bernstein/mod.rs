@@ -31,8 +31,7 @@ fn determinant(element: &[usize], coordinates: &Coordinates<3>, at: [Scalar; 3])
             std::array::from_fn(|d| if exponents[d] == 1 { 1.0 } else { -1.0 });
         (0..3).for_each(|d| {
             let weight = slope[d] * value[(d + 1) % 3] * value[(d + 2) % 3];
-            (0..3)
-                .for_each(|component| columns[d][component] += weight * point[component].value())
+            (0..3).for_each(|component| columns[d][component] += weight * point[component].value())
         })
     });
     let [a, b, c] = columns;

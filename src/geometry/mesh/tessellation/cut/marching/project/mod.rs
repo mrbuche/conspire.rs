@@ -1,3 +1,5 @@
+#[cfg(test)]
+use crate::units::Length;
 use crate::{
     geometry::{
         Coordinates,
@@ -8,8 +10,6 @@ use crate::{
     },
     math::{FxHashMap, Quantity, Scalar, Tensor},
 };
-#[cfg(test)]
-use crate::units::Length;
 
 const BISECTIONS: usize = 8;
 const PASSES: usize = 4;
@@ -120,7 +120,12 @@ impl Tessellation {
             .collect();
         let count = distances.len() as Scalar;
         (
-            (distances.iter().cloned().fold(Quantity::new(0.0), Quantity::max) / spacing).value(),
+            (distances
+                .iter()
+                .cloned()
+                .fold(Quantity::new(0.0), Quantity::max)
+                / spacing)
+                .value(),
             (distances.into_iter().sum::<Quantity<Length>>() / count / spacing).value(),
         )
     }
