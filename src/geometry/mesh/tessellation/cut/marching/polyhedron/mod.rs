@@ -1,25 +1,25 @@
 use super::{CORNERS, Corner, FACES, Signs, Vertex};
-use crate::{
-    geometry::{
-        Coordinate, DirectionsRef,
-        mesh::tessellation::{D, Tessellation},
-    },
-    math::{FxHashMap, Tensor},
-};
+use crate::math::FxHashMap;
 
 pub(super) struct Polyhedron {
     pub(super) faces: Vec<Vec<Vertex>>,
 }
 
-fn clip(
-    corners: [Corner; 4],
-    inside: [bool; 4],
-    joined: impl FnOnce() -> bool,
-) -> (Vec<Vec<Vertex>>, Vec<[Vertex; 2]>) {
+fn clip(corners: [Corner; 4], inside: [bool; 4]) -> (Vec<Vec<Vertex>>, Vec<[Vertex; 2]>) {
     if inside.iter().all(|&flag| flag) {
         return (vec![corners.map(Vertex::Inside).to_vec()], Vec::new());
     } else if inside.iter().all(|&flag| !flag) {
         return (Vec::new(), Vec::new());
+    }
+    if inside[0] == inside[2] && inside[1] == inside[3] {
+        let (mut polygons, mut cuts) = (Vec::new(), Vec::new());
+        (0..4).filter(|&i| inside[i]).for_each(|i| {
+            let before = Vertex::boundary(corners[(i + 3) % 4], corners[i]);
+            let after = Vertex::boundary(corners[i], corners[(i + 1) % 4]);
+            polygons.push(vec![before, Vertex::Inside(corners[i]), after]);
+            cuts.push([after, before])
+        });
+        return (polygons, cuts);
     }
     let mut walk = Vec::new();
     (0..4).for_each(|i| {
@@ -31,17 +31,6 @@ fn clip(
             walk.push(Vertex::boundary(corners[i], corners[next]))
         }
     });
-    let opposed = inside[0] == inside[2] && inside[1] == inside[3] && inside[0] != inside[1];
-    if opposed && !joined() {
-        let (mut polygons, mut cuts) = (Vec::new(), Vec::new());
-        (0..4).filter(|&i| inside[i]).for_each(|i| {
-            let before = Vertex::boundary(corners[(i + 3) % 4], corners[i]);
-            let after = Vertex::boundary(corners[i], corners[(i + 1) % 4]);
-            polygons.push(vec![before, Vertex::Inside(corners[i]), after]);
-            cuts.push([after, before])
-        });
-        return (polygons, cuts);
-    }
     let cuts = (0..walk.len())
         .filter_map(|i| {
             let next = (i + 1) % walk.len();
@@ -78,50 +67,67 @@ fn loops(cuts: Vec<[Vertex; 2]>) -> Result<Vec<Vec<Vertex>>, &'static str> {
     Ok(chains)
 }
 
-impl Tessellation {
-    pub(super) fn polyhedra(
-        &self,
-        lattice: &super::Lattice,
-        signs: &Signs,
-    ) -> Result<Vec<Polyhedron>, &'static str> {
-        let surface = self.mesh();
-        let coordinates = surface.coordinates();
-        let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let normals: DirectionsRef<'_, D> = self.normals().iter().flatten().collect();
-        let directions = super::DIRECTIONS.map(|direction| direction.normalized());
-        lattice
-            .cells()
-            .iter()
-            .filter_map(|&([i, j, k], _)| {
-                let corners = CORNERS.map(|[a, b, c]| [i + a, j + b, k + c]);
-                let inside = corners.map(|corner| signs.at(corner));
-                if inside.iter().all(|&flag| !flag) {
-                    return None;
+fn pieces(mut faces: Vec<Vec<Vertex>>) -> Vec<Polyhedron> {
+    let mut pieces = Vec::new();
+    while let Some(first) = faces.pop() {
+        let mut vertices: Vec<Vertex> = first.clone();
+        let mut piece = vec![first];
+        let mut grown = true;
+        while grown {
+            grown = false;
+            faces.retain(|face| {
+                if face.iter().any(|vertex| vertices.contains(vertex)) {
+                    vertices.extend(face.iter().copied());
+                    piece.push(face.clone());
+                    grown = true;
+                    false
+                } else {
+                    true
                 }
-                let mut faces = Vec::new();
-                let mut cuts = Vec::new();
-                for face in FACES {
-                    let quad = face.map(|local| corners[local]);
-                    let flags = face.map(|local| inside[local]);
-                    let middle = || {
-                        let point = quad
-                            .iter()
-                            .map(|&corner| signs.point(corner))
-                            .sum::<Coordinate<D>>()
-                            / 4.0;
-                        self.encloses(&point, coordinates, &elements, &normals, &directions)
-                    };
-                    let (polygons, edges) = clip(quad, flags, middle);
-                    faces.extend(polygons);
-                    cuts.extend(edges)
-                }
-                Some(loops(cuts).map(|chains| {
-                    faces.extend(chains);
-                    Polyhedron { faces }
-                }))
             })
-            .collect()
+        }
+        pieces.push(Polyhedron { faces: piece })
     }
+    pieces
+}
+
+pub(super) fn cell(
+    corners: [Corner; 8],
+    inside: [bool; 8],
+) -> Result<Vec<Polyhedron>, &'static str> {
+    let mut faces = Vec::new();
+    let mut cuts = Vec::new();
+    for face in FACES {
+        let (polygons, edges) = clip(
+            face.map(|local| corners[local]),
+            face.map(|local| inside[local]),
+        );
+        faces.extend(polygons);
+        cuts.extend(edges)
+    }
+    loops(cuts).map(|chains| {
+        faces.extend(chains);
+        pieces(faces)
+    })
+}
+
+pub(super) fn polyhedra(
+    lattice: &super::Lattice,
+    signs: &Signs,
+) -> Result<Vec<Polyhedron>, &'static str> {
+    lattice
+        .cells()
+        .iter()
+        .filter_map(|&([i, j, k], _)| {
+            let corners = CORNERS.map(|[a, b, c]| [i + a, j + b, k + c]);
+            let inside = corners.map(|corner| signs.at(corner));
+            if inside.iter().all(|&flag| !flag) {
+                return None;
+            }
+            Some(cell(corners, inside))
+        })
+        .collect::<Result<Vec<Vec<Polyhedron>>, &'static str>>()
+        .map(|cells| cells.into_iter().flatten().collect())
 }
 
 impl Polyhedron {
