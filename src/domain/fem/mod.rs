@@ -1,7 +1,11 @@
 //! Finite element methods.
 
+#[cfg(test)]
+mod test;
+
 use crate::math::{Current, Reference};
 use crate::units::{Length, Velocity};
+
 pub mod block;
 mod from;
 pub mod solid;
