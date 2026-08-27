@@ -9,7 +9,8 @@ use crate::math::assert::FiniteDifference;
 use crate::units::Dimensionless;
 
 use crate::math::{
-    Hessian, Rank2, Scalar, Tensor, TensorRank2Vec2D, TensorVec, Vector, write_tensor_rank_0,
+    Hessian, Rank2, Scalar, Style, StyledError, Tensor, TensorRank2Vec2D, TensorVec, Vector,
+    styled_error, write_tensor_rank_0,
 };
 
 use std::{
@@ -23,10 +24,21 @@ pub use ldl::LdlDecomposition;
 pub use lu::LuDecomposition;
 
 /// Possible errors for square matrices.
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub enum SquareMatrixError {
     Singular,
 }
+
+impl StyledError for SquareMatrixError {
+    fn message(&self, style: &Style) -> String {
+        let h = style.headline;
+        match self {
+            Self::Singular => format!("{h}Matrix is singular."),
+        }
+    }
+}
+
+styled_error!(SquareMatrixError);
 
 /// A square matrix.
 #[derive(Clone, Debug, PartialEq)]

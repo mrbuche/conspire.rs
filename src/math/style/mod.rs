@@ -64,10 +64,14 @@ pub(crate) trait StyledError {
     fn message(&self, style: &Style) -> String;
 }
 
-/// Implements `Debug` and `Display` for a [`StyledError`].
+/// Implements `Debug`, `Display`, and [`std::error::Error`] for a [`StyledError`].
 ///
 /// Color is resolved once per format via [`Style::detect`]. `Debug` (the panic
 /// path) appends a flavor footer; `Display` does not.
+///
+/// `source` is left at its default of `None`: provenance is rendered into the
+/// message as the error is built, so there is no earlier error still held to
+/// hand back.
 macro_rules! styled_error {
     ($ty:ty) => {
         impl std::fmt::Debug for $ty {
@@ -94,6 +98,7 @@ macro_rules! styled_error {
                 )
             }
         }
+        impl std::error::Error for $ty {}
     };
 }
 pub(crate) use styled_error;
