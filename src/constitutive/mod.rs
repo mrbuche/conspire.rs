@@ -11,7 +11,7 @@ pub mod solid;
 pub mod thermal;
 
 use crate::math::{Scalar, Style, StyledError, TensorError, assert::AssertionError, styled_error};
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 /// Required methods for constitutive models.
 pub trait Constitutive
@@ -25,6 +25,12 @@ pub enum ConstitutiveError {
     Custom(String, String),
     InvalidJacobian(Scalar, String),
     Upstream(String, String),
+}
+
+impl ConstitutiveError {
+    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(format!("{error}"), format!("{context:?}"))
+    }
 }
 
 impl From<ConstitutiveError> for AssertionError {

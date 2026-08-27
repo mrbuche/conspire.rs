@@ -250,26 +250,26 @@ where
         solver: impl ZerothOrderRootFinding<Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (matrix, vector) = bcs(self, applied_load);
-        match solver.root(
-            |variables: &Self::Variables| {
-                let (deformation_gradient, internal_variables) = variables.into();
-                Ok(TensorTuple::from((
-                    self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?,
-                    self.internal_variables_residual(deformation_gradient, internal_variables)?,
-                )))
-            },
-            Self::Variables::from((
-                DeformationGradient::identity(),
-                self.internal_variables_initial(),
-            )),
-            EqualityConstraint::Linear(matrix, vector),
-        ) {
-            Ok(solution) => Ok(solution.into()),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        let solution = solver
+            .root(
+                |variables: &Self::Variables| {
+                    let (deformation_gradient, internal_variables) = variables.into();
+                    Ok(TensorTuple::from((
+                        self.first_piola_kirchhoff_stress(
+                            deformation_gradient,
+                            internal_variables,
+                        )?,
+                        self.internal_variables_residual(deformation_gradient, internal_variables)?,
+                    )))
+                },
+                Self::Variables::from((
+                    DeformationGradient::identity(),
+                    self.internal_variables_initial(),
+                )),
+                EqualityConstraint::Linear(matrix, vector),
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        Ok(solution.into())
     }
 }
 
@@ -294,31 +294,28 @@ where
         strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (constraint_global, constraint_local) = bcs_block(self, applied_load);
-        match solver.root_block(
-            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
-                Ok(self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?)
-            },
-            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
-                Ok(self.internal_variables_residual(deformation_gradient, internal_variables)?)
-            },
-            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
-                Ok(self.tangents(deformation_gradient, internal_variables)?)
-            },
-            (
-                DeformationGradient::identity(),
-                self.internal_variables_initial(),
-            ),
-            constraint_global,
-            constraint_local,
-            None,
-            strategy,
-        ) {
-            Ok(solution) => Ok(solution),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        solver
+            .root_block(
+                |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                    Ok(self
+                        .first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?)
+                },
+                |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                    Ok(self.internal_variables_residual(deformation_gradient, internal_variables)?)
+                },
+                |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                    Ok(self.tangents(deformation_gradient, internal_variables)?)
+                },
+                (
+                    DeformationGradient::identity(),
+                    self.internal_variables_initial(),
+                ),
+                constraint_global,
+                constraint_local,
+                None,
+                strategy,
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))
     }
 }
 

@@ -20,7 +20,7 @@ use crate::{
 use crate::math::assert::Assert;
 use std::{
     collections::VecDeque,
-    fmt::{self, Debug, Formatter},
+    fmt::{self, Debug, Display, Formatter},
 };
 
 pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
@@ -294,6 +294,12 @@ impl Debug for Element {
 
 pub enum VirtualElementError {
     Upstream(String, String),
+}
+
+impl VirtualElementError {
+    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(format!("{error}"), format!("{context:?}"))
+    }
 }
 
 impl From<VirtualElementError> for AssertionError {

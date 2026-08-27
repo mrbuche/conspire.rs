@@ -138,6 +138,12 @@ pub enum FiniteElementError {
     Upstream(String, String),
 }
 
+impl FiniteElementError {
+    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(format!("{error}"), format!("{context:?}"))
+    }
+}
+
 impl From<FiniteElementError> for AssertionError {
     fn from(error: FiniteElementError) -> Self {
         Self {

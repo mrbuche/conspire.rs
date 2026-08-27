@@ -74,10 +74,7 @@ where
             ) {
                 Ok(solution) => solution,
                 Err(error) => {
-                    return Err(IntegrationError::Upstream(
-                        format!("{error}"),
-                        format!("{self:?}"),
-                    ));
+                    return Err(IntegrationError::upstream(error, self));
                 }
             };
             t = t_trial;
@@ -163,10 +160,7 @@ where
             ) {
                 Ok(solution) => solution,
                 Err(error) => {
-                    return Err(IntegrationError::Upstream(
-                        format!("{error}"),
-                        format!("{self:?}"),
-                    ));
+                    return Err(IntegrationError::upstream(error, self));
                 }
             };
             t = t_trial;

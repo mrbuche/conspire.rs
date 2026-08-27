@@ -48,8 +48,7 @@ where
         nodal_decrement: &NodalCoordinates<3>,
         step: Scalar,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .zip(internal_variables)
@@ -63,13 +62,7 @@ where
                 )
             })
             .collect::<Result<InternalVariablesField<G, V>, _>>()
-        {
-            Ok(incremented) => Ok(incremented),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn internal_variables_root(
         &self,
@@ -77,8 +70,7 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         internal_variables: &InternalVariablesField<G, V>,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .zip(internal_variables)
@@ -91,13 +83,7 @@ where
                 )
             })
             .collect::<Result<InternalVariablesField<G, V>, _>>()
-        {
-            Ok(roots) => Ok(roots),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_forces_into(
         &self,
@@ -105,8 +91,7 @@ where
         internal_variables: &InternalVariablesField<G, V>,
         nodal_forces: &mut NodalForcesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .zip(internal_variables)
@@ -121,13 +106,8 @@ where
                     .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_forces_eliminated_into(
         &self,
@@ -135,8 +115,7 @@ where
         internal_variables: &InternalVariablesField<G, V>,
         nodal_forces: &mut NodalForcesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .zip(internal_variables)
@@ -151,13 +130,8 @@ where
                     .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_stiffnesses_into(
         &self,
@@ -165,8 +139,7 @@ where
         internal_variables: &InternalVariablesField<G, V>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .zip(internal_variables)
@@ -188,12 +161,7 @@ where
                             })
                     });
                 Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

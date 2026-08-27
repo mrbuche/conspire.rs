@@ -2,7 +2,10 @@ use crate::{
     constitutive::solid::hyperviscoelastic::Hyperviscoelastic,
     fem::{
         ElementModelError, NodalCoordinates,
-        block::{Block, element::solid::hyperviscoelastic::HyperviscoelasticFiniteElement},
+        block::{
+            Block, element::FiniteElementError,
+            element::solid::hyperviscoelastic::HyperviscoelasticFiniteElement,
+        },
         solid::{
             elastic_hyperviscous::ElasticHyperviscousElements,
             hyperviscoelastic::HyperviscoelasticElements,
@@ -23,8 +26,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
     ) -> Result<Quantity<Energy>, ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .map(|(element, nodes)| {
@@ -33,13 +35,7 @@ where
                     &Self::element_coordinates(nodal_coordinates, nodes),
                 )
             })
-            .sum()
-        {
-            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .sum::<Result<_, FiniteElementError>>()
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

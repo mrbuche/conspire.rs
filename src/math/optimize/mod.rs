@@ -27,7 +27,10 @@ use crate::{
     },
     units::UnitDiv,
 };
-use std::{fmt::Debug, ops::Mul};
+use std::{
+    fmt::{Debug, Display},
+    ops::Mul,
+};
 
 /// The step size taking a decrement of type `D` to an increment of `X`.
 pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;
@@ -186,20 +189,16 @@ where
         if matches!(self.get_line_search(), LineSearch::None) {
             Ok(step_size)
         } else {
-            match self.get_line_search().backtrack(
-                &mut function,
-                &mut jacobian,
-                argument,
-                jacobian0,
-                decrement,
-                step_size,
-            ) {
-                Ok(step_size) => Ok(step_size),
-                Err(error) => Err(OptimizationError::Upstream(
-                    format!("{error}"),
-                    format!("{self:?}"),
-                )),
-            }
+            self.get_line_search()
+                .backtrack(
+                    &mut function,
+                    &mut jacobian,
+                    argument,
+                    jacobian0,
+                    decrement,
+                    step_size,
+                )
+                .map_err(|error| OptimizationError::upstream(error, self))
         }
     }
     fn get_line_search(&self) -> &LineSearch;
@@ -212,6 +211,12 @@ pub enum OptimizationError {
     NotMinimum(String, String),
     Upstream(String, String),
     SingularMatrix,
+}
+
+impl OptimizationError {
+    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(format!("{error}"), format!("{context:?}"))
+    }
 }
 
 impl From<String> for OptimizationError {

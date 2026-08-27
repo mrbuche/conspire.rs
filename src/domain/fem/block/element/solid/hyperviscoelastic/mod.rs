@@ -72,7 +72,7 @@ where
     C: Hyperviscoelastic,
     F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,
 {
-    match element
+    element
         .deformation_gradients(nodal_coordinates)
         .iter()
         .zip(element.integration_weights())
@@ -82,12 +82,6 @@ where
                     * integration_weight,
             )
         })
-        .sum()
-    {
-        Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-        Err(error) => Err(FiniteElementError::Upstream(
-            format!("{error}"),
-            format!("{element:?}"),
-        )),
-    }
+        .sum::<Result<_, ConstitutiveError>>()
+        .map_err(|error| FiniteElementError::upstream(error, element))
 }

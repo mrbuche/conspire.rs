@@ -22,8 +22,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates,
     ) -> Result<Quantity<Energy>, ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.elements_nodes())
             .map(|(element, nodes)| {
@@ -32,22 +31,15 @@ where
                     Self::element_coordinates(nodal_coordinates, nodes),
                 )
             })
-            .sum()
-        {
-            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .sum::<Result<_, VirtualElementError>>()
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_stiffnesses_symmetric_into(
         &self,
         nodal_coordinates: &NodalCoordinates,
         nodal_stiffnesses: &mut NodalStiffnessesSolidSymmetric,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.elements_nodes())
             .try_for_each(|(element, nodes)| {
@@ -69,12 +61,7 @@ where
                             })
                     });
                 Ok::<(), VirtualElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

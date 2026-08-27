@@ -72,7 +72,7 @@ where
             t_trial = t_sol[index + 1];
             dt = t_trial - t;
             if let Err(error) = self.step(&mut function, &y, t, dt, &mut k, &mut y_trial) {
-                return Err(IntegrationError::Upstream(error, format!("{self:?}")));
+                return Err(IntegrationError::upstream(error, self));
             } else {
                 t += dt;
                 y = y_trial.clone();

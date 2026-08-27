@@ -166,44 +166,43 @@ where
     > {
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
-        match integrator.integrate(
-            |_: Quantity<Time>,
-             state_variables: &ViscoplasticStateVariables<Y>,
-             deformation_gradient: &DeformationGradient| {
-                Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
-            },
-            |_: Quantity<Time>,
-             state_variables: &ViscoplasticStateVariables<Y>,
-             deformation_gradient: &DeformationGradient| {
-                let deformation_gradient_p = &state_variables.0;
-                Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?)
-            },
-            |_: Quantity<Time>,
-             state_variables: &ViscoplasticStateVariables<Y>,
-             deformation_gradient: &DeformationGradient| {
-                let deformation_gradient_p = &state_variables.0;
-                Ok(self
-                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
-            },
-            solver,
-            time,
-            (self.initial_state(), DeformationGradient::identity()),
-            |t: Quantity<Time>| {
-                prescribed
-                    .iter()
-                    .for_each(|(index, function)| vector[*index] = function(t));
-                EqualityConstraint::Linear(matrix.clone(), vector.clone())
-            },
-        ) {
-            Ok((times, state_variables, _, deformation_gradients)) => {
-                Ok((times, deformation_gradients, state_variables))
-            }
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        let (times, state_variables, _, deformation_gradients) = integrator
+            .integrate(
+                |_: Quantity<Time>,
+                 state_variables: &ViscoplasticStateVariables<Y>,
+                 deformation_gradient: &DeformationGradient| {
+                    Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
+                },
+                |_: Quantity<Time>,
+                 state_variables: &ViscoplasticStateVariables<Y>,
+                 deformation_gradient: &DeformationGradient| {
+                    let deformation_gradient_p = &state_variables.0;
+                    Ok(self.helmholtz_free_energy_density(
+                        deformation_gradient,
+                        deformation_gradient_p,
+                    )?)
+                },
+                |_: Quantity<Time>,
+                 state_variables: &ViscoplasticStateVariables<Y>,
+                 deformation_gradient: &DeformationGradient| {
+                    let deformation_gradient_p = &state_variables.0;
+                    Ok(self.first_piola_kirchhoff_stress(
+                        deformation_gradient,
+                        deformation_gradient_p,
+                    )?)
+                },
+                solver,
+                time,
+                (self.initial_state(), DeformationGradient::identity()),
+                |t: Quantity<Time>| {
+                    prescribed
+                        .iter()
+                        .for_each(|(index, function)| vector[*index] = function(t));
+                    EqualityConstraint::Linear(matrix.clone(), vector.clone())
+                },
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        Ok((times, deformation_gradients, state_variables))
     }
 }
 
@@ -241,53 +240,52 @@ where
     > {
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
-        match integrator.integrate(
-            |_: Quantity<Time>,
-             state_variables: &ViscoplasticStateVariables<Y>,
-             deformation_gradient: &DeformationGradient| {
-                Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
-            },
-            |_: Quantity<Time>,
-             state_variables: &ViscoplasticStateVariables<Y>,
-             deformation_gradient: &DeformationGradient| {
-                let deformation_gradient_p = &state_variables.0;
-                Ok(self
-                    .helmholtz_free_energy_density(deformation_gradient, deformation_gradient_p)?)
-            },
-            |_: Quantity<Time>,
-             state_variables: &ViscoplasticStateVariables<Y>,
-             deformation_gradient: &DeformationGradient| {
-                let deformation_gradient_p = &state_variables.0;
-                Ok(self
-                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?)
-            },
-            |_: Quantity<Time>,
-             state_variables: &ViscoplasticStateVariables<Y>,
-             deformation_gradient: &DeformationGradient| {
-                let deformation_gradient_p = &state_variables.0;
-                Ok(self.first_piola_kirchhoff_tangent_stiffness(
-                    deformation_gradient,
-                    deformation_gradient_p,
-                )?)
-            },
-            solver,
-            time,
-            (self.initial_state(), DeformationGradient::identity()),
-            |t: Quantity<Time>| {
-                prescribed
-                    .iter()
-                    .for_each(|(index, function)| vector[*index] = function(t));
-                EqualityConstraint::Linear(matrix.clone(), vector.clone())
-            },
-            None,
-        ) {
-            Ok((times, state_variables, _, deformation_gradients)) => {
-                Ok((times, deformation_gradients, state_variables))
-            }
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        let (times, state_variables, _, deformation_gradients) = integrator
+            .integrate(
+                |_: Quantity<Time>,
+                 state_variables: &ViscoplasticStateVariables<Y>,
+                 deformation_gradient: &DeformationGradient| {
+                    Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
+                },
+                |_: Quantity<Time>,
+                 state_variables: &ViscoplasticStateVariables<Y>,
+                 deformation_gradient: &DeformationGradient| {
+                    let deformation_gradient_p = &state_variables.0;
+                    Ok(self.helmholtz_free_energy_density(
+                        deformation_gradient,
+                        deformation_gradient_p,
+                    )?)
+                },
+                |_: Quantity<Time>,
+                 state_variables: &ViscoplasticStateVariables<Y>,
+                 deformation_gradient: &DeformationGradient| {
+                    let deformation_gradient_p = &state_variables.0;
+                    Ok(self.first_piola_kirchhoff_stress(
+                        deformation_gradient,
+                        deformation_gradient_p,
+                    )?)
+                },
+                |_: Quantity<Time>,
+                 state_variables: &ViscoplasticStateVariables<Y>,
+                 deformation_gradient: &DeformationGradient| {
+                    let deformation_gradient_p = &state_variables.0;
+                    Ok(self.first_piola_kirchhoff_tangent_stiffness(
+                        deformation_gradient,
+                        deformation_gradient_p,
+                    )?)
+                },
+                solver,
+                time,
+                (self.initial_state(), DeformationGradient::identity()),
+                |t: Quantity<Time>| {
+                    prescribed
+                        .iter()
+                        .for_each(|(index, function)| vector[*index] = function(t));
+                    EqualityConstraint::Linear(matrix.clone(), vector.clone())
+                },
+                None,
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        Ok((times, deformation_gradients, state_variables))
     }
 }

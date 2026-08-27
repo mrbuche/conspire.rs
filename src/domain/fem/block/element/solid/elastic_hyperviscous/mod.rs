@@ -118,7 +118,7 @@ where
     C: ElasticHyperviscous,
     F: ViscoelasticFiniteElement<C, G, M, N, P>,
 {
-    match element
+    element
         .deformation_gradients(nodal_coordinates)
         .iter()
         .zip(
@@ -136,14 +136,8 @@ where
                 )
             },
         )
-        .sum()
-    {
-        Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-        Err(error) => Err(FiniteElementError::Upstream(
-            format!("{error}"),
-            format!("{element:?}"),
-        )),
-    }
+        .sum::<Result<_, ConstitutiveError>>()
+        .map_err(|error| FiniteElementError::upstream(error, element))
 }
 
 fn dissipation_potential<
@@ -164,7 +158,7 @@ where
     C: ElasticHyperviscous,
     F: ViscoelasticFiniteElement<C, G, M, N, P>,
 {
-    match element
+    element
         .deformation_gradients(nodal_coordinates)
         .iter()
         .zip(
@@ -182,12 +176,6 @@ where
                 )
             },
         )
-        .sum()
-    {
-        Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-        Err(error) => Err(FiniteElementError::Upstream(
-            format!("{error}"),
-            format!("{element:?}"),
-        )),
-    }
+        .sum::<Result<_, ConstitutiveError>>()
+        .map_err(|error| FiniteElementError::upstream(error, element))
 }

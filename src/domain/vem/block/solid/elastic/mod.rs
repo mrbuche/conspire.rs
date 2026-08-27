@@ -21,8 +21,7 @@ where
         nodal_coordinates: &NodalCoordinates,
         nodal_forces: &mut NodalForcesSolid,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.elements_nodes())
             .try_for_each(|(element, nodes)| {
@@ -35,21 +34,15 @@ where
                     .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), VirtualElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates,
         nodal_stiffnesses: &mut NodalStiffnessesSolid,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.elements_nodes())
             .try_for_each(|(element, nodes)| {
@@ -69,12 +62,7 @@ where
                             })
                     });
                 Ok::<(), VirtualElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

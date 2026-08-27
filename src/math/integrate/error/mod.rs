@@ -2,6 +2,7 @@
 mod test;
 
 use crate::math::{Scalar, Style, StyledError, assert::AssertionError, styled_error};
+use std::fmt::{Debug, Display};
 
 /// Possible errors encountered when integrating.
 pub enum IntegrationError {
@@ -13,6 +14,12 @@ pub enum IntegrationError {
     MinimumStepSizeUpstream(Scalar, String, String),
     TimeStepNotSet(Scalar, Scalar, String),
     Upstream(String, String),
+}
+
+impl IntegrationError {
+    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(format!("{error}"), format!("{context:?}"))
+    }
 }
 
 impl From<String> for IntegrationError {

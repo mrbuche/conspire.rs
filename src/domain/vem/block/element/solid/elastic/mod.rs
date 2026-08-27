@@ -40,7 +40,7 @@ where
         let mut tetrahedra_forces =
             ElementNodalForcesSolid::from(vec![[0.0; 3]; nodal_coordinates.len()]);
         let num_nodes = nodal_coordinates.len() as Scalar;
-        match self
+        let () = self
             .tetrahedra()
             .iter()
             .zip(self.tetrahedra_coordinates(&nodal_coordinates).iter())
@@ -60,51 +60,36 @@ where
                     });
                     Ok::<(), FiniteElementError>(())
                 },
-            ) {
-            Ok(()) => {
-                match self
-                    .deformation_gradients(nodal_coordinates)
+            )
+            .map_err(|error| VirtualElementError::upstream(error, self))?;
+        let first_piola_kirchhoff_stresses = self
+            .deformation_gradients(nodal_coordinates)
+            .iter()
+            .map(|deformation_gradient| {
+                constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
+            })
+            .collect::<Result<FirstPiolaKirchhoffStresses, _>>()
+            .map_err(|error| VirtualElementError::upstream(error, self))?;
+        Ok(first_piola_kirchhoff_stresses
+            .iter()
+            .zip(
+                self.gradient_vectors()
                     .iter()
-                    .map(|deformation_gradient| {
-                        constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
-                    })
-                    .collect::<Result<FirstPiolaKirchhoffStresses, _>>()
-                {
-                    Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
+                    .zip(self.integration_weights()),
+            )
+            .map(
+                |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
+                    gradient_vectors
                         .iter()
-                        .zip(
-                            self.gradient_vectors()
-                                .iter()
-                                .zip(self.integration_weights()),
-                        )
-                        .map(
-                            |(
-                                first_piola_kirchhoff_stress,
-                                (gradient_vectors, integration_weight),
-                            )| {
-                                gradient_vectors
-                                    .iter()
-                                    .map(|gradient_vector| {
-                                        (first_piola_kirchhoff_stress * gradient_vector)
-                                            * integration_weight
-                                    })
-                                    .collect()
-                            },
-                        )
-                        .sum::<ElementNodalForcesSolid>()
-                        * (1.0 - self.stabilization())
-                        + tetrahedra_forces * self.stabilization()),
-                    Err(error) => Err(VirtualElementError::Upstream(
-                        format!("{error}"),
-                        format!("{self:?}"),
-                    )),
-                }
-            }
-            Err(error) => Err(VirtualElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+                        .map(|gradient_vector| {
+                            (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
+                        })
+                        .collect()
+                },
+            )
+            .sum::<ElementNodalForcesSolid>()
+            * (1.0 - self.stabilization())
+            + tetrahedra_forces * self.stabilization())
     }
     fn nodal_stiffnesses<'a>(
         &'a self,
@@ -118,7 +103,7 @@ where
                 nodal_coordinates.len()
             ]);
         let num_nodes = nodal_coordinates.len() as Scalar;
-        match self
+        let () = self
             .tetrahedra()
             .iter()
             .zip(self.tetrahedra_coordinates(&nodal_coordinates).iter())
@@ -172,62 +157,48 @@ where
                     });
                     Ok::<(), FiniteElementError>(())
                 },
-            ) {
-            Ok(()) => {
-                match self
-                    .deformation_gradients(nodal_coordinates)
+            )
+            .map_err(|error| VirtualElementError::upstream(error, self))?;
+        let first_piola_kirchhoff_tangent_stiffnesses = self
+            .deformation_gradients(nodal_coordinates)
+            .iter()
+            .map(|deformation_gradient| {
+                constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
+            })
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses, _>>()
+            .map_err(|error| VirtualElementError::upstream(error, self))?;
+        Ok(first_piola_kirchhoff_tangent_stiffnesses
+            .iter()
+            .zip(
+                self.gradient_vectors()
                     .iter()
-                    .map(|deformation_gradient| {
-                        constitutive_model
-                            .first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
-                    })
-                    .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses, _>>()
-                {
-                    Ok(first_piola_kirchhoff_tangent_stiffnesses) => {
-                        Ok(first_piola_kirchhoff_tangent_stiffnesses
-                            .iter()
-                            .zip(
-                                self.gradient_vectors()
-                                    .iter()
-                                    .zip(self.integration_weights()),
-                            )
-                            .map(
-                                |(
-                                    first_piola_kirchhoff_tangent_stiffness,
-                                    (gradient_vectors, integration_weight),
-                                )| {
-                                    gradient_vectors
-                                        .iter()
-                                        .map(|gradient_vector_a| {
-                                            gradient_vectors
-                                                .iter()
-                                                .map(|gradient_vector_b| {
-                                                    first_piola_kirchhoff_tangent_stiffness
-                                                        .contract_second_fourth_with_first(
-                                                            gradient_vector_a,
-                                                            gradient_vector_b,
-                                                        )
-                                                        * integration_weight
-                                                })
-                                                .collect()
-                                        })
-                                        .collect()
-                                },
-                            )
-                            .sum::<ElementNodalStiffnessesSolid>()
-                            * (1.0 - self.stabilization())
-                            + tetrahedra_stiffnesses * self.stabilization())
-                    }
-                    Err(error) => Err(VirtualElementError::Upstream(
-                        format!("{error}"),
-                        format!("{self:?}"),
-                    )),
-                }
-            }
-            Err(error) => Err(VirtualElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+                    .zip(self.integration_weights()),
+            )
+            .map(
+                |(
+                    first_piola_kirchhoff_tangent_stiffness,
+                    (gradient_vectors, integration_weight),
+                )| {
+                    gradient_vectors
+                        .iter()
+                        .map(|gradient_vector_a| {
+                            gradient_vectors
+                                .iter()
+                                .map(|gradient_vector_b| {
+                                    first_piola_kirchhoff_tangent_stiffness
+                                        .contract_second_fourth_with_first(
+                                            gradient_vector_a,
+                                            gradient_vector_b,
+                                        )
+                                        * integration_weight
+                                })
+                                .collect()
+                        })
+                        .collect()
+                },
+            )
+            .sum::<ElementNodalStiffnessesSolid>()
+            * (1.0 - self.stabilization())
+            + tetrahedra_stiffnesses * self.stabilization())
     }
 }

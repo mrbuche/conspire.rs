@@ -56,8 +56,7 @@ where
         constitutive_model: &C,
         nodal_temperatures: &ElementNodalTemperatures<N>,
     ) -> Result<Quantity<PowerTemperature>, FiniteElementError> {
-        match self
-            .temperature_gradients(nodal_temperatures)
+        self.temperature_gradients(nodal_temperatures)
             .iter()
             .zip(self.integration_weights())
             .map(|(temperature_gradient, integration_weight)| {
@@ -65,88 +64,72 @@ where
                     constitutive_model.potential(temperature_gradient)? * integration_weight,
                 )
             })
-            .sum()
-        {
-            Ok(potential) => Ok(potential),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .sum::<Result<_, ConstitutiveError>>()
+            .map_err(|error| FiniteElementError::upstream(error, self))
     }
     fn nodal_forces(
         &self,
         constitutive_model: &C,
         nodal_temperatures: &ElementNodalTemperatures<N>,
     ) -> Result<ElementNodalForcesThermal<N>, FiniteElementError> {
-        match self
+        let heat_fluxes = self
             .temperature_gradients(nodal_temperatures)
             .iter()
             .map(|temperature_gradient| constitutive_model.heat_flux(temperature_gradient))
             .collect::<Result<HeatFluxes<G>, _>>()
-        {
-            Ok(heat_fluxes) => Ok(heat_fluxes
-                .iter()
-                .zip(
-                    self.gradient_vectors()
-                        .iter()
-                        .zip(self.integration_weights()),
-                )
-                .map(|(heat_flux, (gradient_vectors, integration_weight))| {
-                    gradient_vectors
-                        .iter()
-                        .map(|gradient_vector| {
-                            -heat_flux.contract_with(gradient_vector) * integration_weight
-                        })
-                        .collect()
-                })
-                .sum()),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| FiniteElementError::upstream(error, self))?;
+        Ok(heat_fluxes
+            .iter()
+            .zip(
+                self.gradient_vectors()
+                    .iter()
+                    .zip(self.integration_weights()),
+            )
+            .map(|(heat_flux, (gradient_vectors, integration_weight))| {
+                gradient_vectors
+                    .iter()
+                    .map(|gradient_vector| {
+                        -heat_flux.contract_with(gradient_vector) * integration_weight
+                    })
+                    .collect()
+            })
+            .sum())
     }
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
         nodal_temperatures: &ElementNodalTemperatures<N>,
     ) -> Result<ElementNodalStiffnessesThermal<N>, FiniteElementError> {
-        match self
+        let heat_flux_tangents = self
             .temperature_gradients(nodal_temperatures)
             .iter()
             .map(|temperature_gradient| constitutive_model.heat_flux_tangent(temperature_gradient))
             .collect::<Result<HeatFluxTangents<G>, _>>()
-        {
-            Ok(heat_flux_tangents) => Ok(heat_flux_tangents
-                .iter()
-                .zip(
-                    self.gradient_vectors()
+            .map_err(|error| FiniteElementError::upstream(error, self))?;
+        Ok(heat_flux_tangents
+            .iter()
+            .zip(
+                self.gradient_vectors()
+                    .iter()
+                    .zip(self.integration_weights()),
+            )
+            .map(
+                |(heat_flux_tangent, (gradient_vectors, integration_weight))| {
+                    gradient_vectors
                         .iter()
-                        .zip(self.integration_weights()),
-                )
-                .map(
-                    |(heat_flux_tangent, (gradient_vectors, integration_weight))| {
-                        gradient_vectors
-                            .iter()
-                            .map(|gradient_vector_a| {
-                                gradient_vectors
-                                    .iter()
-                                    .map(|gradient_vector_b| {
-                                        -gradient_vector_a
-                                            .contract_with(&(heat_flux_tangent * gradient_vector_b))
-                                            * integration_weight
-                                    })
-                                    .collect()
-                            })
-                            .collect()
-                    },
-                )
-                .sum()),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+                        .map(|gradient_vector_a| {
+                            gradient_vectors
+                                .iter()
+                                .map(|gradient_vector_b| {
+                                    -gradient_vector_a
+                                        .contract_with(&(heat_flux_tangent * gradient_vector_b))
+                                        * integration_weight
+                                })
+                                .collect()
+                        })
+                        .collect()
+                },
+            )
+            .sum())
     }
 }

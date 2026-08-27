@@ -3,7 +3,8 @@ use crate::{
     fem::{
         ElementModelError, NodalCoordinates,
         block::{
-            Block, element::solid::hyperelastic::internal_variables::HyperelasticIVFiniteElement,
+            Block, element::FiniteElementError,
+            element::solid::hyperelastic::internal_variables::HyperelasticIVFiniteElement,
         },
         solid::{
             elastic::internal_variables::{ElasticIVElements, InternalVariablesField},
@@ -34,8 +35,7 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         internal_variables: &InternalVariablesField<G, V>,
     ) -> Result<Quantity<Energy>, ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .zip(internal_variables)
@@ -46,13 +46,7 @@ where
                     internal_variables_element,
                 )
             })
-            .sum()
-        {
-            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .sum::<Result<_, FiniteElementError>>()
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

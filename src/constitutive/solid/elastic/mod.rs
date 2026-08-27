@@ -211,19 +211,15 @@ where
         solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError> {
         let (matrix, vector) = bcs(applied_load);
-        match solver.root(
-            |deformation_gradient: &DeformationGradient| {
-                Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-            },
-            DeformationGradient::identity(),
-            EqualityConstraint::Linear(matrix, vector),
-        ) {
-            Ok(deformation_gradient) => Ok(deformation_gradient),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        solver
+            .root(
+                |deformation_gradient: &DeformationGradient| {
+                    Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+                },
+                DeformationGradient::identity(),
+                EqualityConstraint::Linear(matrix, vector),
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))
     }
 }
 
@@ -241,23 +237,19 @@ where
         >,
     ) -> Result<DeformationGradient, ConstitutiveError> {
         let (matrix, vector) = bcs(applied_load);
-        match solver.root(
-            |deformation_gradient: &DeformationGradient| {
-                Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-            },
-            |deformation_gradient: &DeformationGradient| {
-                Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
-            },
-            DeformationGradient::identity(),
-            EqualityConstraint::Linear(matrix, vector),
-            None,
-        ) {
-            Ok(deformation_gradient) => Ok(deformation_gradient),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        solver
+            .root(
+                |deformation_gradient: &DeformationGradient| {
+                    Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
+                },
+                |deformation_gradient: &DeformationGradient| {
+                    Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
+                },
+                DeformationGradient::identity(),
+                EqualityConstraint::Linear(matrix, vector),
+                None,
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))
     }
 }
 

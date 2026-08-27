@@ -98,30 +98,31 @@ where
         solver: impl FirstOrderOptimization<Quantity<EnergyDensity>, Self::Residuals, Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (matrix, vector) = bcs(self, applied_load);
-        match solver.minimize(
-            |variables: &Self::Variables| {
-                let (deformation_gradient, internal_variables) = variables.into();
-                Ok(self.helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
-            },
-            |variables: &Self::Variables| {
-                let (deformation_gradient, internal_variables) = variables.into();
-                Ok(TensorTuple::from((
-                    self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?,
-                    self.internal_variables_residual(deformation_gradient, internal_variables)?,
-                )))
-            },
-            Self::Variables::from((
-                DeformationGradient::identity(),
-                self.internal_variables_initial(),
-            )),
-            EqualityConstraint::Linear(matrix, vector),
-        ) {
-            Ok(solution) => Ok(solution.into()),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        let solution = solver
+            .minimize(
+                |variables: &Self::Variables| {
+                    let (deformation_gradient, internal_variables) = variables.into();
+                    Ok(self
+                        .helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
+                },
+                |variables: &Self::Variables| {
+                    let (deformation_gradient, internal_variables) = variables.into();
+                    Ok(TensorTuple::from((
+                        self.first_piola_kirchhoff_stress(
+                            deformation_gradient,
+                            internal_variables,
+                        )?,
+                        self.internal_variables_residual(deformation_gradient, internal_variables)?,
+                    )))
+                },
+                Self::Variables::from((
+                    DeformationGradient::identity(),
+                    self.internal_variables_initial(),
+                )),
+                EqualityConstraint::Linear(matrix, vector),
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        Ok(solution.into())
     }
 }
 
@@ -147,33 +148,31 @@ where
         strategy: SolveStrategy,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (constraint_external, constraint_internal) = bcs_block(self, applied_load);
-        match solver.minimize_block(
-            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
-                Ok(self.helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
-            },
-            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
-                Ok(self.first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?)
-            },
-            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
-                Ok(self.internal_variables_residual(deformation_gradient, internal_variables)?)
-            },
-            |deformation_gradient: &DeformationGradient, internal_variables: &V| {
-                Ok(self.tangents(deformation_gradient, internal_variables)?)
-            },
-            (
-                DeformationGradient::identity(),
-                self.internal_variables_initial(),
-            ),
-            constraint_external,
-            constraint_internal,
-            None,
-            strategy,
-        ) {
-            Ok(solution) => Ok(solution),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        solver
+            .minimize_block(
+                |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                    Ok(self
+                        .helmholtz_free_energy_density(deformation_gradient, internal_variables)?)
+                },
+                |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                    Ok(self
+                        .first_piola_kirchhoff_stress(deformation_gradient, internal_variables)?)
+                },
+                |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                    Ok(self.internal_variables_residual(deformation_gradient, internal_variables)?)
+                },
+                |deformation_gradient: &DeformationGradient, internal_variables: &V| {
+                    Ok(self.tangents(deformation_gradient, internal_variables)?)
+                },
+                (
+                    DeformationGradient::identity(),
+                    self.internal_variables_initial(),
+                ),
+                constraint_external,
+                constraint_internal,
+                None,
+                strategy,
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))
     }
 }
