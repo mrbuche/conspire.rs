@@ -211,6 +211,7 @@ pub enum OptimizationError {
     NotMinimum(String, String),
     Upstream(String, String),
     SingularMatrix,
+    UnsymmetricMatrix,
 }
 
 impl OptimizationError {
@@ -240,6 +241,7 @@ impl StyledError for OptimizationError {
                 In solver: {solver}."
             ),
             Self::SingularMatrix => format!("{h}Matrix is singular."),
+            Self::UnsymmetricMatrix => format!("{h}Matrix is not symmetric."),
             Self::Upstream(error, solver) => format!(
                 "{error}{c}\n\
                 In solver: {solver}."
@@ -271,7 +273,10 @@ impl From<SquareMatrixError> for OptimizationError {
 }
 
 impl From<SparseError> for OptimizationError {
-    fn from(_error: SparseError) -> Self {
-        Self::SingularMatrix
+    fn from(error: SparseError) -> Self {
+        match error {
+            SparseError::Singular => Self::SingularMatrix,
+            SparseError::Unsymmetric => Self::UnsymmetricMatrix,
+        }
     }
 }

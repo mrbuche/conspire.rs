@@ -15,6 +15,9 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// Returns the matrix logarithm of the 3x3 symmetric tensor.
     pub fn logm(&self) -> Result<Self, TensorError> {
         if self.is_diagonal() {
+            if self.iter().enumerate().any(|(i, self_i)| self_i[i] <= 0.0) {
+                return Err(TensorError::NotPositiveDefinite);
+            }
             let mut logm = TensorRank2::zero();
             logm.iter_mut()
                 .enumerate()
@@ -42,7 +45,7 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
             } else if self.is_symmetric() {
                 let mut eigenvalues = solve_cubic_symmetric(self.invariants())?;
                 if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
-                    panic!("Symmetric matrix has a non-positive eigenvalue")
+                    return Err(TensorError::NotPositiveDefinite);
                 }
                 let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self);
                 eigenvalues
@@ -57,6 +60,9 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// Returns the derivative of the matrix logarithm of the 3x3 symmetric tensor.
     pub fn dlogm(&self) -> Result<TensorRank4<3, I, I, I, I, Dimensionless>, TensorError> {
         if self.is_diagonal() {
+            if self.iter().enumerate().any(|(i, self_i)| self_i[i] <= 0.0) {
+                return Err(TensorError::NotPositiveDefinite);
+            }
             let mut dlogm = TensorRank4::zero();
             dlogm.iter_mut().enumerate().for_each(|(i, dlogm_i)| {
                 dlogm_i.iter_mut().enumerate().for_each(|(j, dlogm_ij)| {
@@ -82,7 +88,7 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
         } else if self.is_symmetric() {
             let eigenvalues = solve_cubic_symmetric(self.invariants())?;
             if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
-                panic!("Symmetric matrix has a non-positive eigenvalue")
+                return Err(TensorError::NotPositiveDefinite);
             }
             let divided_difference: Self = eigenvalues
                 .iter()

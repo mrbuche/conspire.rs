@@ -1,6 +1,8 @@
 use crate::math::Current;
 use crate::math::assert::Assert;
-use crate::math::{Rank2, TensorArray, TensorRank2, TensorRank4, assert::AssertionError};
+use crate::math::{
+    Rank2, TensorArray, TensorError, TensorRank2, TensorRank4, assert::AssertionError,
+};
 use crate::units::Dimensionless;
 
 fn get_rotation() -> TensorRank2<3, Current, Current> {
@@ -274,9 +276,24 @@ fn dlogm_repeated_eigenvalue_matches_finite_difference_of_logm() -> Result<(), A
 }
 
 #[test]
-#[should_panic(expected = "Symmetric matrix has a non-positive eigenvalue")]
-fn logm_non_positive_eigenvalue_panics() {
-    let _ = from_eigenvalues([-1.0, 2.0, 0.5]).logm();
+fn logm_non_positive_eigenvalue_errors() {
+    assert_eq!(
+        from_eigenvalues([-1.0, 2.0, 0.5]).logm(),
+        Err(TensorError::NotPositiveDefinite)
+    )
+}
+
+#[test]
+fn logm_non_positive_diagonal_entry_errors() {
+    assert_eq!(
+        TensorRank2::<3, Current, Current>::from([
+            [2.0, 0.0, 0.0],
+            [0.0, -0.5, 0.0],
+            [0.0, 0.0, 1.5],
+        ])
+        .logm(),
+        Err(TensorError::NotPositiveDefinite)
+    )
 }
 
 #[test]
@@ -286,9 +303,24 @@ fn logm_non_symmetric_panics() {
 }
 
 #[test]
-#[should_panic(expected = "Symmetric matrix has a non-positive eigenvalue")]
-fn dlogm_non_positive_eigenvalue_panics() {
-    let _ = from_eigenvalues([-1.0, 2.0, 0.5]).dlogm();
+fn dlogm_non_positive_eigenvalue_errors() {
+    assert_eq!(
+        from_eigenvalues([-1.0, 2.0, 0.5]).dlogm(),
+        Err(TensorError::NotPositiveDefinite)
+    )
+}
+
+#[test]
+fn dlogm_non_positive_diagonal_entry_errors() {
+    assert_eq!(
+        TensorRank2::<3, Current, Current>::from([
+            [2.0, 0.0, 0.0],
+            [0.0, -0.5, 0.0],
+            [0.0, 0.0, 1.5],
+        ])
+        .dlogm(),
+        Err(TensorError::NotPositiveDefinite)
+    )
 }
 
 #[test]
