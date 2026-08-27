@@ -7,8 +7,9 @@ use crate::{
         },
     },
     math::{FxHashMap, Quantity, Scalar, Tensor},
-    units::Length,
 };
+#[cfg(test)]
+use crate::units::Length;
 
 const BISECTIONS: usize = 8;
 const PASSES: usize = 4;
