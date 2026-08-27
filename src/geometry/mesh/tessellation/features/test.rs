@@ -341,3 +341,65 @@ fn triangles_that_share_no_nodes_have_no_features() {
     assert!(soup.features().corners().is_empty());
     assert!(soup.features().creases().is_empty());
 }
+
+/// The `slot` fixture, but swept along x in `n` steps, so each of the four
+/// creases becomes a chain of `n` segments (long thin triangles, constant gap).
+fn slot_divided(gap: f64, depth: f64, n: usize) -> Tessellation {
+    let stations = [
+        (-1.0, depth),
+        (0.0, depth),
+        (0.0, 0.0),
+        (gap, 0.0),
+        (gap, depth),
+        (gap + 1.0, depth),
+    ];
+    let mut coordinates = Vec::new();
+    for &(y, z) in stations.iter() {
+        for i in 0..=n {
+            coordinates.push([i as f64 / n as f64, y, z]);
+        }
+    }
+    let p = |s: usize, i: usize| s * (n + 1) + i;
+    let mut faces = Vec::new();
+    for s in 0..stations.len() - 1 {
+        for i in 0..n {
+            let (a, b, c, d) = (p(s, i), p(s, i + 1), p(s + 1, i + 1), p(s + 1, i));
+            faces.push([a, b, c]);
+            faces.push([a, c, d]);
+        }
+    }
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        Coordinates::from(coordinates),
+    )))
+}
+
+#[test]
+fn a_subdivided_slot_floor_is_seen_along_its_whole_length() {
+    // The gap is constant along the sweep, so every floor crease is exactly
+    // `gap` from the one facing it and from the two flanking that one. Only
+    // one pair per ribbon survives the mutual-nearest filter, leaving the
+    // whole length between the anchors unrefined.
+    for n in [1, 2, 3, 4, 8] {
+        let tessellation = slot_divided(0.1, 1.0, n);
+        let features = tessellation.features();
+        let separation = features.separation(&tessellation, Quantity::new(0.5), 1);
+        let (mut floor, mut covered) = (0, 0);
+        features
+            .creases()
+            .iter()
+            .zip(separation.iter())
+            .for_each(|(segment, entry)| {
+                if segment[0][2] == Quantity::new(0.0) && segment[1][2] == Quantity::new(0.0) {
+                    floor += 1;
+                    if !entry.is_empty() {
+                        covered += 1
+                    }
+                }
+            });
+        assert_eq!(
+            covered, floor,
+            "{covered} of {floor} floor creases paired at n = {n}"
+        )
+    }
+}
