@@ -1,9 +1,8 @@
-mutants.out/
-mutants.out.old/
 target/
 .claude/
 .venv/
 .vscode/
 **.exo
 **.stl
+**.vtm
 **.vtu
