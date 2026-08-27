@@ -160,7 +160,7 @@ impl Tessellation {
                 }
             })
             .unwrap_or(Err("every lattice tried meets the surface at a corner"))?;
-        let cells = self.polyhedra(&lattice, &signs)?;
+        let cells = polyhedron::polyhedra(&lattice, &signs)?;
         if cells.is_empty() {
             return Err("no cell of the lattice has a corner inside the surface");
         }
