@@ -1,0 +1,185 @@
+use super::read;
+
+const CUBE: &str = r#"
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('unit cube'),'2;1');
+FILE_NAME('cube.step','2026-08-27T00:00:00',(''),(''),'conspire','conspire','');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 }'));
+ENDSEC;
+DATA;
+#10 = CARTESIAN_POINT('',(0.,0.,0.));
+#11 = CARTESIAN_POINT('',(1.,0.,0.));
+#12 = CARTESIAN_POINT('',(1.,1.,0.));
+#13 = CARTESIAN_POINT('',(0.,1.,0.));
+#14 = CARTESIAN_POINT('',(0.,0.,1.));
+#15 = CARTESIAN_POINT('',(1.,0.,1.));
+#16 = CARTESIAN_POINT('',(1.,1.,1.));
+#17 = CARTESIAN_POINT('',(0.,1.,1.));
+#20 = DIRECTION('',(0.,0.,1.));
+#21 = DIRECTION('',(0.,0.,-1.));
+#22 = DIRECTION('',(1.,0.,0.));
+#23 = DIRECTION('',(-1.,0.,0.));
+#24 = DIRECTION('',(0.,1.,0.));
+#25 = DIRECTION('',(0.,-1.,0.));
+#30 = VERTEX_POINT('',#10);
+#31 = VERTEX_POINT('',#11);
+#32 = VERTEX_POINT('',#12);
+#33 = VERTEX_POINT('',#13);
+#34 = VERTEX_POINT('',#14);
+#35 = VERTEX_POINT('',#15);
+#36 = VERTEX_POINT('',#16);
+#37 = VERTEX_POINT('',#17);
+#40 = VECTOR('',#22,1.);
+#41 = VECTOR('',#24,1.);
+#42 = VECTOR('',#23,1.);
+#43 = VECTOR('',#25,1.);
+#44 = VECTOR('',#20,1.);
+#50 = LINE('',#10,#40);
+#51 = LINE('',#11,#41);
+#52 = LINE('',#12,#42);
+#53 = LINE('',#13,#43);
+#54 = LINE('',#14,#40);
+#55 = LINE('',#15,#41);
+#56 = LINE('',#16,#42);
+#57 = LINE('',#17,#43);
+#58 = LINE('',#10,#44);
+#59 = LINE('',#11,#44);
+#60 = LINE('',#12,#44);
+#61 = LINE('',#13,#44);
+#70 = EDGE_CURVE('',#30,#31,#50,.T.);
+#71 = EDGE_CURVE('',#31,#32,#51,.T.);
+#72 = EDGE_CURVE('',#32,#33,#52,.T.);
+#73 = EDGE_CURVE('',#33,#30,#53,.T.);
+#74 = EDGE_CURVE('',#34,#35,#54,.T.);
+#75 = EDGE_CURVE('',#35,#36,#55,.T.);
+#76 = EDGE_CURVE('',#36,#37,#56,.T.);
+#77 = EDGE_CURVE('',#37,#34,#57,.T.);
+#78 = EDGE_CURVE('',#30,#34,#58,.T.);
+#79 = EDGE_CURVE('',#31,#35,#59,.T.);
+#80 = EDGE_CURVE('',#32,#36,#60,.T.);
+#81 = EDGE_CURVE('',#33,#37,#61,.T.);
+#90 = AXIS2_PLACEMENT_3D('',#10,#21,#22);
+#91 = AXIS2_PLACEMENT_3D('',#14,#20,#22);
+#92 = AXIS2_PLACEMENT_3D('',#10,#25,#22);
+#93 = AXIS2_PLACEMENT_3D('',#13,#24,#22);
+#94 = AXIS2_PLACEMENT_3D('',#10,#23,#24);
+#95 = AXIS2_PLACEMENT_3D('',#11,#22,#24);
+#100 = PLANE('',#90);
+#101 = PLANE('',#91);
+#102 = PLANE('',#92);
+#103 = PLANE('',#93);
+#104 = PLANE('',#94);
+#105 = PLANE('',#95);
+#110 = ORIENTED_EDGE('',*,*,#73,.F.);
+#111 = ORIENTED_EDGE('',*,*,#72,.F.);
+#112 = ORIENTED_EDGE('',*,*,#71,.F.);
+#113 = ORIENTED_EDGE('',*,*,#70,.F.);
+#114 = ORIENTED_EDGE('',*,*,#74,.T.);
+#115 = ORIENTED_EDGE('',*,*,#75,.T.);
+#116 = ORIENTED_EDGE('',*,*,#76,.T.);
+#117 = ORIENTED_EDGE('',*,*,#77,.T.);
+#118 = ORIENTED_EDGE('',*,*,#70,.T.);
+#119 = ORIENTED_EDGE('',*,*,#79,.T.);
+#120 = ORIENTED_EDGE('',*,*,#74,.F.);
+#121 = ORIENTED_EDGE('',*,*,#78,.F.);
+#122 = ORIENTED_EDGE('',*,*,#81,.T.);
+#123 = ORIENTED_EDGE('',*,*,#76,.F.);
+#124 = ORIENTED_EDGE('',*,*,#80,.F.);
+#125 = ORIENTED_EDGE('',*,*,#72,.T.);
+#126 = ORIENTED_EDGE('',*,*,#78,.T.);
+#127 = ORIENTED_EDGE('',*,*,#77,.F.);
+#128 = ORIENTED_EDGE('',*,*,#81,.F.);
+#129 = ORIENTED_EDGE('',*,*,#73,.T.);
+#130 = ORIENTED_EDGE('',*,*,#71,.T.);
+#131 = ORIENTED_EDGE('',*,*,#80,.T.);
+#132 = ORIENTED_EDGE('',*,*,#75,.F.);
+#133 = ORIENTED_EDGE('',*,*,#79,.F.);
+#140 = EDGE_LOOP('',(#110,#111,#112,#113));
+#141 = EDGE_LOOP('',(#114,#115,#116,#117));
+#142 = EDGE_LOOP('',(#118,#119,#120,#121));
+#143 = EDGE_LOOP('',(#122,#123,#124,#125));
+#144 = EDGE_LOOP('',(#126,#127,#128,#129));
+#145 = EDGE_LOOP('',(#130,#131,#132,#133));
+#150 = FACE_OUTER_BOUND('',#140,.T.);
+#151 = FACE_OUTER_BOUND('',#141,.T.);
+#152 = FACE_OUTER_BOUND('',#142,.T.);
+#153 = FACE_OUTER_BOUND('',#143,.T.);
+#154 = FACE_OUTER_BOUND('',#144,.T.);
+#155 = FACE_OUTER_BOUND('',#145,.T.);
+#160 = ADVANCED_FACE('',(#150),#100,.T.);
+#161 = ADVANCED_FACE('',(#151),#101,.T.);
+#162 = ADVANCED_FACE('',(#152),#102,.T.);
+#163 = ADVANCED_FACE('',(#153),#103,.T.);
+#164 = ADVANCED_FACE('',(#154),#104,.T.);
+#165 = ADVANCED_FACE('',(#155),#105,.T.);
+#170 = CLOSED_SHELL('',(#160,#161,#162,#163,#164,#165));
+#180 = MANIFOLD_SOLID_BREP('cube',#170);
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+#[test]
+fn reads_cube_topology() {
+    let brep = read(CUBE).unwrap();
+    assert_eq!(brep.vertices.len(), 8);
+    assert_eq!(brep.edges.len(), 12);
+    assert_eq!(brep.faces.len(), 6);
+    assert_eq!(brep.shells.len(), 1);
+    assert!(brep.shells[0].closed);
+    assert_eq!(brep.shells[0].faces, (0..6).collect::<Vec<_>>());
+}
+
+#[test]
+fn tessellates_read_cube() {
+    let brep = read(CUBE).unwrap();
+    let tessellation = brep.tessellate().unwrap();
+    let mesh = tessellation.mesh();
+    assert_eq!(mesh.number_of_nodes(), 8);
+    let crate::geometry::mesh::Connectivity::Triangular(block) = &mesh.connectivities()[0] else {
+        panic!("expected a triangular mesh");
+    };
+    let triangles: Vec<[usize; 3]> = block.iter().copied().collect();
+    assert_eq!(triangles.len(), 12);
+
+    let point = |node: usize| {
+        let coordinate = &mesh.coordinates()[node];
+        [
+            coordinate[0].value(),
+            coordinate[1].value(),
+            coordinate[2].value(),
+        ]
+    };
+    let mut area = 0.0f64;
+    for &[a, b, c] in triangles.iter() {
+        let (pa, pb, pc) = (point(a), point(b), point(c));
+        let u = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]];
+        let v = [pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]];
+        let normal = [
+            u[1] * v[2] - u[2] * v[1],
+            u[2] * v[0] - u[0] * v[2],
+            u[0] * v[1] - u[1] * v[0],
+        ];
+        area += 0.5 * (normal[0].powi(2) + normal[1].powi(2) + normal[2].powi(2)).sqrt();
+        let centroid = [
+            (pa[0] + pb[0] + pc[0]) / 3.0 - 0.5,
+            (pa[1] + pb[1] + pc[1]) / 3.0 - 0.5,
+            (pa[2] + pb[2] + pc[2]) / 3.0 - 0.5,
+        ];
+        let outward = normal[0] * centroid[0] + normal[1] * centroid[1] + normal[2] * centroid[2];
+        assert!(outward > 0.0, "triangle {:?} winds inward", [a, b, c]);
+    }
+    assert!((area - 6.0).abs() < 1e-9, "surface area was {area}");
+}
+
+#[test]
+fn rejects_missing_solid() {
+    let text = "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n#1 = PLANE('',#2);\n#2 = AXIS2_PLACEMENT_3D('',$,$,$);\nENDSEC;\nEND-ISO-10303-21;\n";
+    assert!(
+        read(text)
+            .err()
+            .unwrap()
+            .to_string()
+            .contains("MANIFOLD_SOLID_BREP")
+    );
+}
