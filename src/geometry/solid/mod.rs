@@ -29,6 +29,15 @@ pub trait Sizing {
     fn at(&self, point: &Coordinate<D>) -> Quantity<Length>;
 }
 
+/// A constant target element size everywhere.
+pub struct Uniform(pub Quantity<Length>);
+
+impl Sizing for Uniform {
+    fn at(&self, _point: &Coordinate<D>) -> Quantity<Length> {
+        self.0
+    }
+}
+
 /// An analytic query surface for the boundary fit: closest-point projection and
 /// signed distance, the latter positive inside the solid.
 pub trait SolidOracle: Sync {
@@ -58,8 +67,39 @@ pub trait Solid {
     /// An analytic oracle projecting onto the exact surface.
     fn oracle(&self) -> Result<Self::Oracle, &'static str>;
 
-    /// Labels every cell of `mesh` `Inside`, `Cut`, or `Outside`.
-    fn classify(&self, mesh: &Mesh<D>) -> Result<Vec<Class>, &'static str>;
+    /// Labels every cell of `mesh` `Inside`, `Cut`, or `Outside`. The default
+    /// reads the [`oracle`](Self::oracle): a cell whose corner signed distances
+    /// straddle zero is `Cut`, otherwise its centroid's sign decides.
+    fn classify(&self, mesh: &Mesh<D>) -> Result<Vec<Class>, &'static str> {
+        let oracle = self.oracle()?;
+        let signed: Vec<Scalar> = mesh
+            .coordinates()
+            .iter()
+            .map(|point| oracle.signed_distance(point))
+            .collect();
+        let centroids = mesh.centroids();
+        let mut classes = Vec::with_capacity(mesh.number_of_elements());
+        let mut index = 0;
+        for block in mesh.iter() {
+            for element in block.iter() {
+                let (minimum, maximum) = block.element_nodes(element).iter().fold(
+                    (Scalar::INFINITY, Scalar::NEG_INFINITY),
+                    |(minimum, maximum), &node| {
+                        (minimum.min(signed[node]), maximum.max(signed[node]))
+                    },
+                );
+                classes.push(if minimum <= 0.0 && maximum >= 0.0 {
+                    Class::Cut
+                } else if oracle.signed_distance(&centroids[index]) > 0.0 {
+                    Class::Inside
+                } else {
+                    Class::Outside
+                });
+                index += 1;
+            }
+        }
+        Ok(classes)
+    }
 
     /// Refines an octree over the padded bounding box until every leaf is no
     /// larger than `sizing` allows at its centre, then returns the leaves as a
