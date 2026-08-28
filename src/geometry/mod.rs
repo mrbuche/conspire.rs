@@ -6,6 +6,9 @@ pub mod bbox;
 /// Bounding volume hierarchies.
 pub mod bvh;
 
+/// Computer-aided design.
+pub mod cad;
+
 /// Primitive and polyhedral meshes.
 pub mod mesh;
 
