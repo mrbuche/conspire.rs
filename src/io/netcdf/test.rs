@@ -58,11 +58,10 @@ fn round_trip() {
 }
 
 #[test]
-#[should_panic]
 #[cfg(unix)]
-fn non_utf8_path_panics() {
+fn non_utf8_path_errors() {
     use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
-    let _ = NetCDF::try_from(Path::new(OsStr::from_bytes(&[0xff, 0x2f, 0x66])));
+    assert!(NetCDF::try_from(Path::new(OsStr::from_bytes(&[0xff, 0x2f, 0x66]))).is_err());
 }
 
 #[test]

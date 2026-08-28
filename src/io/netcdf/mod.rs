@@ -6,6 +6,8 @@ pub(super) mod ffi;
 pub(super) mod from;
 pub(super) mod variable;
 
+pub use from::NetCdfError;
+
 use std::{
     ffi::{NulError, c_int},
     sync::{Mutex, MutexGuard},
