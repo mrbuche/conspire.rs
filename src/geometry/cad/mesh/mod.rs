@@ -7,7 +7,7 @@ use super::{brep::Brep, sizing::FeatureSizing};
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Class, Connectivity, Mesh},
+        mesh::{Class, Connectivity, Fitting, Mesh},
         ntree::{
             Balance, Balancing, Dualization, Orthotree, Pairing, Rescaling,
             node::{Kind, Node, slot::Slot},
@@ -19,6 +19,10 @@ use crate::{
 use std::{array::from_fn, num::NonZeroU32};
 
 const D: usize = 3;
+
+/// Tong et al. 2024 §2.3: keep a hex iff `f_min + TRIM_RATIO * f_max >= 0` over
+/// its eight corner signed distances. Mirrors `mesh::tessellation::trim`.
+const TRIM_RATIO: Scalar = 0.1;
 
 type Cube = Orthotree<D, 4, 6, 8, u16, NonZeroU32>;
 
@@ -173,5 +177,59 @@ impl Brep {
             .filter_map(|(class, &keep)| keep.then_some(class))
             .collect();
         Ok((mesh, classes))
+    }
+
+    /// Meshes this solid end to end: refine the octree from `sizing`, balance,
+    /// dualize, trim interior cells back to the surface by Tong's per-hex SDF
+    /// ratio rule, then inflate a boundary layer and fit it to the exact
+    /// geometry with the analytic [`oracle`](Self::oracle). Planar faces only.
+    pub fn mesh(
+        &self,
+        sizing: &FeatureSizing,
+        max_levels: u32,
+        padding: Scalar,
+        balancing: Balancing,
+        fitting: Fitting,
+    ) -> Result<Mesh<D>, &'static str> {
+        let (mut mesh, classes) = self.dual_background(sizing, max_levels, padding, balancing)?;
+        let oracle = self.oracle()?;
+        let outside: Vec<bool> = classes
+            .iter()
+            .map(|&class| class == Class::Outside)
+            .collect();
+        let number_of_nodes = mesh.coordinates().len();
+        let mut needed = vec![false; number_of_nodes];
+        {
+            let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
+                return Err("dual background is not a single hexahedral block");
+            };
+            block.iter().zip(&outside).for_each(|(hex, &out)| {
+                if !out {
+                    hex.iter().for_each(|&node| needed[node] = true)
+                }
+            });
+        }
+        let signed: Vec<Scalar> = (0..number_of_nodes)
+            .map(|node| {
+                if needed[node] {
+                    oracle.signed_distance(&mesh.coordinates()[node])
+                } else {
+                    Scalar::NEG_INFINITY
+                }
+            })
+            .collect();
+        mesh.keep_hexes(|index, hex, _| {
+            if outside[index] {
+                return false;
+            }
+            let (minimum, maximum) = hex.iter().fold(
+                (Scalar::INFINITY, Scalar::NEG_INFINITY),
+                |(minimum, maximum), &node| {
+                    (minimum.min(signed[node]), maximum.max(signed[node]))
+                },
+            );
+            minimum + TRIM_RATIO * maximum >= 0.0
+        })?;
+        mesh.buffer_with(&oracle, fitting)
     }
 }

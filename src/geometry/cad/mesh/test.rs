@@ -4,7 +4,7 @@ use crate::{
             brep::test::{axis_aligned_box, unit_cube},
             sizing::FeatureSizing,
         },
-        mesh::{Class, Connectivity, Mesh, Output, Vtk},
+        mesh::{Class, Connectivity, Fitting, Mesh, Output, Verdict, Vtk},
         ntree::Balancing,
     },
     io::{Write, write::Compression},
@@ -193,6 +193,44 @@ fn trim_hugs_the_geometry() {
 
     mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
         "target/cad_box_trimmed.vtu",
+    ))))
+    .unwrap();
+}
+
+#[test]
+fn mesh_fits_the_unit_cube() {
+    let brep = unit_cube();
+    let sizing = FeatureSizing::of(&brep, 16, length(0.1), length(1.0), 0.25);
+    let mesh = brep
+        .mesh(&sizing, 4, 0.1, Balancing::Strong(1), Fitting::Soft)
+        .unwrap();
+
+    // All hexahedra, none inverted.
+    assert_eq!(mesh.connectivities().len(), 1);
+    let jacobians = mesh.minimum_scaled_jacobians();
+    assert!(
+        jacobians[0].iter().all(|&j| j > 0.0),
+        "inverted hex: worst scaled Jacobian {}",
+        jacobians[0].iter().cloned().fold(f64::INFINITY, f64::min)
+    );
+
+    // The soft fit settles the boundary onto the cube's planes to within a
+    // small fraction of an edge (energy balance, not exact interpolation).
+    let mut low = [f64::INFINITY; 3];
+    let mut high = [f64::NEG_INFINITY; 3];
+    for coordinate in mesh.coordinates() {
+        for axis in 0..3 {
+            low[axis] = low[axis].min(coordinate[axis].value());
+            high[axis] = high[axis].max(coordinate[axis].value());
+        }
+    }
+    for axis in 0..3 {
+        assert!(low[axis].abs() < 2e-3, "low[{axis}] = {}", low[axis]);
+        assert!((high[axis] - 1.0).abs() < 2e-3, "high[{axis}] = {}", high[axis]);
+    }
+
+    mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+        "target/cad_cube_meshed.vtu",
     ))))
     .unwrap();
 }

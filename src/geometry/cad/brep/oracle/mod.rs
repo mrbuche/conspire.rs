@@ -1,7 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use super::{Brep, D, inside::point_in_polygon, planar::PlanarFace};
+use super::{
+    Brep, D,
+    inside::{directions, encloses, point_in_polygon},
+    planar::PlanarFace,
+};
 use crate::{
     geometry::{Coordinate, Direction, mesh::buffer::fit::Oracle},
     math::{Scalar, Tensor},
@@ -12,6 +16,7 @@ use crate::{
 /// tessellation, no facet normals.
 pub struct BrepOracle {
     faces: Vec<PlanarFace>,
+    directions: [Direction<D>; 3],
 }
 
 impl Brep {
@@ -27,7 +32,25 @@ impl Brep {
                 .iter()
                 .map(|face| self.planar_face(face))
                 .collect::<Result<Vec<_>, _>>()?,
+            directions: directions(),
         })
+    }
+}
+
+impl BrepOracle {
+    /// Signed distance from `query` to the trimmed surface, positive inside the
+    /// solid. The magnitude is the exact distance to the nearest trimmed face.
+    pub fn signed_distance(&self, query: &Coordinate<D>) -> Scalar {
+        let magnitude = self
+            .faces
+            .iter()
+            .map(|face| (&closest_on_face(face, query) - query).norm().value())
+            .fold(Scalar::INFINITY, Scalar::min);
+        if encloses(query, &self.faces, &self.directions) {
+            magnitude
+        } else {
+            -magnitude
+        }
     }
 }
 

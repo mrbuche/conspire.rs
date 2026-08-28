@@ -19,7 +19,19 @@ pub enum Fitting {
 }
 
 impl Mesh<3> {
-    pub fn buffer(mut self, target: &Tessellation, fitting: Fitting) -> Result<Self, &'static str> {
+    /// Inflates a one-hex boundary layer and fits it to `target`, a triangulated
+    /// surface.
+    pub fn buffer(self, target: &Tessellation, fitting: Fitting) -> Result<Self, &'static str> {
+        self.buffer_with(&fit::Facets::new(target), fitting)
+    }
+
+    /// Inflates a one-hex boundary layer and fits it to whatever surface
+    /// `oracle` projects onto.
+    pub(crate) fn buffer_with<O: fit::Oracle>(
+        mut self,
+        oracle: &O,
+        fitting: Fitting,
+    ) -> Result<Self, &'static str> {
         self.restrict()?;
         let boundary = self.exterior_faces();
         let mut edges = HashMap::new();
@@ -37,7 +49,6 @@ impl Mesh<3> {
         if edges.values().any(|&count| count != 2) {
             return Err("non-manifold boundary");
         }
-        let oracle = fit::Facets::new(target);
         let (connectivities, mut coordinates) = self.into();
         let mut connectivities = connectivities.into_members();
         let count = coordinates.len();
@@ -85,21 +96,17 @@ impl Mesh<3> {
         }
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit(&nodes, &oracle)?;
+        mesh.fit(&nodes, oracle)?;
         if let Fitting::Snap = fitting {
-            let surface = target.mesh();
-            let surface_coordinates = surface.coordinates();
-            let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-            let bvh = target.bvh();
             let coordinates = mesh.coordinates.members_mut();
             layer.iter().try_for_each(|&node| {
-                let (point, _) = bvh
-                    .closest_point(&coordinates[node], surface_coordinates, &elements)
-                    .ok_or("empty tessellation")?;
+                let (point, _) = oracle
+                    .project(&coordinates[node])
+                    .ok_or("no projection onto target surface")?;
                 coordinates[node] = point;
                 Ok::<_, &'static str>(())
             })?;
-            mesh.fit(&(0..count).collect::<Vec<_>>(), &oracle)?;
+            mesh.fit(&(0..count).collect::<Vec<_>>(), oracle)?;
         }
         Ok(mesh)
     }
