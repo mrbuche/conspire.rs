@@ -17,6 +17,10 @@ const DIRECTIONS: [Direction<D>; 3] = [
     Direction::const_from([0.123_456_7, 0.087_654_3, 1.0]),
 ];
 
+pub(super) fn directions() -> [Direction<D>; 3] {
+    DIRECTIONS.map(|direction| direction.normalized())
+}
+
 /// Even-odd test of a point against a set of rings in a common 2D frame. Holes
 /// fall out of the parity, whatever the winding.
 pub(super) fn point_in_polygon([px, py]: [Scalar; 2], rings: &[Vec<[Scalar; 2]>]) -> bool {
@@ -85,7 +89,6 @@ impl Brep {
             .iter()
             .map(|face| self.planar_face(face))
             .collect::<Result<Vec<_>, _>>()?;
-        let directions = DIRECTIONS.map(|direction| direction.normalized());
-        Ok(encloses(point, &faces, &directions))
+        Ok(encloses(point, &faces, &directions()))
     }
 }

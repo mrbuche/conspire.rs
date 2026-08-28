@@ -7,6 +7,7 @@
 #[cfg(test)]
 pub mod test;
 
+pub mod classify;
 pub mod curve;
 pub mod features;
 pub mod inside;

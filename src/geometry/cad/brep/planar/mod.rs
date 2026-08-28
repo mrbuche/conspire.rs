@@ -20,6 +20,8 @@ pub struct PlanarFace {
     pub u: Direction<D>,
     pub v: Direction<D>,
     pub rings: Vec<Vec<[Scalar; 2]>>,
+    /// The outer loop's vertices in world space, for box-overlap tests.
+    pub outline: Vec<[Scalar; D]>,
     pub aabb: BoundingBox<D>,
 }
 
@@ -66,8 +68,9 @@ impl Brep {
         let origin = self.vertices[first].clone();
 
         let mut refs: Vec<&Coordinate<D>> = Vec::new();
+        let mut outline = Vec::new();
         let mut rings = Vec::with_capacity(loops.len());
-        for ring in &loops {
+        for (index, ring) in loops.iter().enumerate() {
             if ring.len() < 3 {
                 return Err("face loop has fewer than three vertices");
             }
@@ -76,6 +79,9 @@ impl Brep {
                     .map(|&vertex| {
                         let point = &self.vertices[vertex];
                         refs.push(point);
+                        if index == 0 {
+                            outline.push(from_fn(|k| point[k].value()));
+                        }
                         let delta = point - &origin;
                         [(&delta * &u).value(), (&delta * &v).value()]
                     })
@@ -90,6 +96,7 @@ impl Brep {
             u,
             v,
             rings,
+            outline,
             aabb,
         })
     }
