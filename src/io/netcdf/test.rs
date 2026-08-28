@@ -61,12 +61,18 @@ fn round_trip() {
 #[cfg(unix)]
 fn non_utf8_path_errors() {
     use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
-    assert!(NetCDF::try_from(Path::new(OsStr::from_bytes(&[0xff, 0x2f, 0x66]))).is_err());
+    let path = OsStr::from_bytes(&[0xff, 0x2f, 0x66]);
+    let error = NetCDF::try_from(Path::new(path)).err().unwrap();
+    assert_eq!(error.to_string(), "path is not valid UTF-8");
+    assert_eq!(format!("{error:?}"), "path is not valid UTF-8");
 }
 
 #[test]
 fn try_from_nul_path_errors() {
-    assert!(NetCDF::try_from(Path::new("bad\0.nc")).is_err());
+    let error = NetCDF::try_from(Path::new("bad\0.nc")).err().unwrap();
+    let nul = std::ffi::CString::new("bad\0.nc").unwrap_err();
+    assert_eq!(error.to_string(), nul.to_string());
+    assert_eq!(format!("{error:?}"), nul.to_string());
 }
 
 #[test]
