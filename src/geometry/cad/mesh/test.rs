@@ -151,7 +151,7 @@ fn tessellation_dual_background_still_runs() {
 fn trim_hugs_the_geometry() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
-    let sizing = FeatureSizing::of(&brep, 32, length(0.05), length(1.0), 0.25);
+    let sizing = FeatureSizing::of(&brep, 64, length(0.05), length(1.0), 0.25);
     let (mesh, classes) = brep.trim(&sizing, 6, 0.1).unwrap();
 
     assert_eq!(hexes(&mesh).len(), classes.len());
