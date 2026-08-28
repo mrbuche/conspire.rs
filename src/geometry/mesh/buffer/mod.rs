@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-mod fit;
+pub(crate) mod fit;
 mod restrict;
 
 use super::{Connectivity, Mesh, Tessellation};
@@ -37,6 +37,7 @@ impl Mesh<3> {
         if edges.values().any(|&count| count != 2) {
             return Err("non-manifold boundary");
         }
+        let oracle = fit::Facets::new(target);
         let (connectivities, mut coordinates) = self.into();
         let mut connectivities = connectivities.into_members();
         let count = coordinates.len();
@@ -84,7 +85,7 @@ impl Mesh<3> {
         }
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit(&nodes, target)?;
+        mesh.fit(&nodes, &oracle)?;
         if let Fitting::Snap = fitting {
             let surface = target.mesh();
             let surface_coordinates = surface.coordinates();
@@ -98,7 +99,7 @@ impl Mesh<3> {
                 coordinates[node] = point;
                 Ok::<_, &'static str>(())
             })?;
-            mesh.fit(&(0..count).collect::<Vec<_>>(), target)?;
+            mesh.fit(&(0..count).collect::<Vec<_>>(), &oracle)?;
         }
         Ok(mesh)
     }

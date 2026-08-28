@@ -2,7 +2,7 @@
 pub mod test;
 
 mod base;
-mod buffer;
+pub(crate) mod buffer;
 mod connectivity;
 pub(crate) mod differential;
 mod from;

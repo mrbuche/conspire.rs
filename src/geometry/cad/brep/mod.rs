@@ -11,6 +11,7 @@ pub mod classify;
 pub mod curve;
 pub mod features;
 pub mod inside;
+pub mod oracle;
 pub mod planar;
 pub mod surface;
 mod tessellate;

@@ -43,7 +43,17 @@ const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
 
-struct Oracle<'a> {
+/// Queried at boundary-quad centroids to drive the fit energy toward the target
+/// geometry. Must be cheap and thread-safe: every sweep projects every quad.
+pub(crate) trait Oracle: Sync {
+    /// The closest point on the target surface to `query`, and the outward unit
+    /// normal there.
+    fn project(&self, query: &Coordinate<3>) -> Option<(Coordinate<3>, Direction<3>)>;
+}
+
+/// [`Oracle`] backed by a triangulated [`Tessellation`]: BVH closest-point plus
+/// the hit triangle's face normal.
+pub(super) struct Facets<'a> {
     bvh: &'a BoundingVolumeHierarchy<3>,
     coordinates: &'a Coordinates<3>,
     elements: Vec<&'a [usize]>,
@@ -66,12 +76,11 @@ struct Sweep<'a> {
 }
 
 impl Mesh<3> {
-    pub(super) fn fit(
+    pub(super) fn fit<O: Oracle>(
         &mut self,
         nodes: &[usize],
-        target: &Tessellation,
+        oracle: &O,
     ) -> Result<(), &'static str> {
-        let oracle = Oracle::new(target);
         let number_of_nodes = self.number_of_nodes();
         let mut free = vec![false; number_of_nodes];
         nodes.iter().for_each(|&node| free[node] = true);
@@ -132,7 +141,7 @@ impl Mesh<3> {
                 nodes,
                 scales,
                 slot: &slot,
-                targets: oracle.targets(&quads, coordinates, quad_chunk)?,
+                targets: project(oracle, &quads, coordinates, quad_chunk)?,
                 tracked: &tracked,
                 unknowns,
             };
@@ -159,8 +168,8 @@ impl Mesh<3> {
     }
 }
 
-impl<'a> Oracle<'a> {
-    fn new(target: &'a Tessellation) -> Self {
+impl<'a> Facets<'a> {
+    pub(super) fn new(target: &'a Tessellation) -> Self {
         let surface = target.mesh();
         Self {
             bvh: target.bvh(),
@@ -169,48 +178,55 @@ impl<'a> Oracle<'a> {
             normals: target.normals().iter().flatten().collect(),
         }
     }
-    fn targets(
-        &self,
-        quads: &[[usize; 4]],
-        coordinates: &Coordinates<3>,
-        chunk: usize,
-    ) -> Result<Vec<Target>, &'static str> {
-        let mut targets = vec![None; quads.len()];
-        scope(|scope| {
-            targets
-                .chunks_mut(chunk)
-                .zip(quads.chunks(chunk))
-                .for_each(|(targets, quads)| {
-                    scope.spawn(move || {
-                        targets.iter_mut().zip(quads).for_each(|(target, quad)| {
-                            let centroid = quad
-                                .iter()
-                                .map(|&node| &coordinates[node])
-                                .sum::<Coordinate<3>>()
-                                / 4.0;
-                            *target = self
-                                .bvh
-                                .closest_point(&centroid, self.coordinates, &self.elements)
-                                .map(|(point, index)| {
-                                    let normal = self.normals[index].clone();
-                                    let distance = quad
-                                        .iter()
-                                        .map(|&node| {
-                                            let deviation = (&coordinates[node] - &point) * &normal;
-                                            deviation * deviation
-                                        })
-                                        .fold(Quantity::default(), Quantity::max);
-                                    (point, normal, distance)
-                                });
-                        })
-                    });
-                });
-        });
-        targets
-            .into_iter()
-            .collect::<Option<_>>()
-            .ok_or("empty tessellation")
+}
+
+impl Oracle for Facets<'_> {
+    fn project(&self, query: &Coordinate<3>) -> Option<(Coordinate<3>, Direction<3>)> {
+        self.bvh
+            .closest_point(query, self.coordinates, &self.elements)
+            .map(|(point, index)| (point, self.normals[index].clone()))
     }
+}
+
+/// Projects every boundary-quad centroid onto the target, pairing each hit with
+/// the worst tangent-plane deviation among the quad's four nodes.
+fn project<O: Oracle>(
+    oracle: &O,
+    quads: &[[usize; 4]],
+    coordinates: &Coordinates<3>,
+    chunk: usize,
+) -> Result<Vec<Target>, &'static str> {
+    let mut targets = vec![None; quads.len()];
+    scope(|scope| {
+        targets
+            .chunks_mut(chunk)
+            .zip(quads.chunks(chunk))
+            .for_each(|(targets, quads)| {
+                scope.spawn(move || {
+                    targets.iter_mut().zip(quads).for_each(|(target, quad)| {
+                        let centroid = quad
+                            .iter()
+                            .map(|&node| &coordinates[node])
+                            .sum::<Coordinate<3>>()
+                            / 4.0;
+                        *target = oracle.project(&centroid).map(|(point, normal)| {
+                            let distance = quad
+                                .iter()
+                                .map(|&node| {
+                                    let deviation = (&coordinates[node] - &point) * &normal;
+                                    deviation * deviation
+                                })
+                                .fold(Quantity::default(), Quantity::max);
+                            (point, normal, distance)
+                        });
+                    })
+                });
+            });
+    });
+    targets
+        .into_iter()
+        .collect::<Option<_>>()
+        .ok_or("no projection onto target surface")
 }
 
 impl Sweep<'_> {
