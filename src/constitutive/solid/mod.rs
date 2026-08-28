@@ -49,9 +49,9 @@ where
         deformation_gradient: &DeformationGradientGeneral<I, J>,
     ) -> Result<Scalar, ConstitutiveError> {
         match deformation_gradient.jacobian() {
-            Err(DeformationError::InvalidJacobian(jacobian)) => Err(
-                ConstitutiveError::InvalidJacobian(jacobian, format!("{self:?}")),
-            ),
+            Err(DeformationError::InvalidJacobian(jacobian)) => {
+                Err(ConstitutiveError::invalid_jacobian(jacobian, self))
+            }
             Ok(jacobian) => Ok(jacobian),
         }
     }

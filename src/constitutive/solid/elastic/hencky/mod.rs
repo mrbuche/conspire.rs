@@ -39,8 +39,12 @@ impl Elastic for Hencky {
         deformation_gradient: &DeformationGradient,
     ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
-        let (deviatoric_strain, strain_trace) =
-            (deformation_gradient.right_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
+        let (deviatoric_strain, strain_trace) = (deformation_gradient
+            .right_cauchy_green()
+            .logm()
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
+            * 0.5)
+            .deviatoric_and_trace();
         Ok(deviatoric_strain * (2.0 * self.shear_modulus())
             + IDENTITY_00 * (self.bulk_modulus() * strain_trace))
     }
@@ -55,7 +59,8 @@ impl Elastic for Hencky {
         let scaled_deformation_gradient_transpose =
             &deformation_gradient_transpose * self.shear_modulus();
         Ok((right_cauchy_green
-            .dlogm()?
+            .dlogm()
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
             .contract_third_fourth_with_first_second(
                 &(TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
                     + TensorRank4::dyad_ik_jl(

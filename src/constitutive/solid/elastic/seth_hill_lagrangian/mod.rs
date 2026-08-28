@@ -63,9 +63,12 @@ impl Elastic for SethHillLagrangian {
         }
         let _jacobian = self.jacobian(deformation_gradient)?;
         let right_cauchy_green = deformation_gradient.right_cauchy_green();
-        let (deviatoric_strain, strain_trace) =
-            ((right_cauchy_green.powm(0.5 * self.exponent())? - IDENTITY_00) / self.exponent())
-                .deviatoric_and_trace();
+        let (deviatoric_strain, strain_trace) = ((right_cauchy_green
+            .powm(0.5 * self.exponent())
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
+            - IDENTITY_00)
+            / self.exponent())
+        .deviatoric_and_trace();
         Ok(deviatoric_strain * (2.0 * self.shear_modulus())
             + IDENTITY_00 * (self.bulk_modulus() * strain_trace))
     }
@@ -82,13 +85,18 @@ impl Elastic for SethHillLagrangian {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let right_cauchy_green = deformation_gradient.right_cauchy_green();
         let half_exponent = 0.5 * self.exponent();
-        let spectrum = Spectrum::new(&right_cauchy_green)?;
+        let spectrum = Spectrum::new(&right_cauchy_green)
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
         let deformation_gradient_transpose = deformation_gradient.transpose();
         let scaled_deformation_gradient_transpose =
             &deformation_gradient_transpose * (2.0 * self.shear_modulus() / self.exponent());
-        let trace_term = deformation_gradient * spectrum.powm(half_exponent - 1.0)?;
+        let trace_term = deformation_gradient
+            * spectrum
+                .powm(half_exponent - 1.0)
+                .map_err(|error| ConstitutiveError::upstream(error, self))?;
         Ok(spectrum
-            .dpowm(half_exponent)?
+            .dpowm(half_exponent)
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
             .contract_third_fourth_with_first_second(
                 &(TensorRank4::dyad_il_jk(&IDENTITY_00, &scaled_deformation_gradient_transpose)
                     + TensorRank4::dyad_ik_jl(

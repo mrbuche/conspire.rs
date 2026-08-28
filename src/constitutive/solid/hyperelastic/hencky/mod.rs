@@ -36,8 +36,13 @@ impl Elastic for Hencky {
         deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
-        let (deviatoric_strain, strain_trace) =
-            (deformation_gradient.left_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
+        let (deviatoric_strain, strain_trace) = (deformation_gradient
+            .left_cauchy_green()
+            .logm()
+            .map_err(|error| {
+            ConstitutiveError::upstream(error, self)
+        })? * 0.5)
+            .deviatoric_and_trace();
         Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
     }
@@ -48,11 +53,15 @@ impl Elastic for Hencky {
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let left_cauchy_green = deformation_gradient.left_cauchy_green();
-        let (deviatoric_strain, strain_trace) =
-            (left_cauchy_green.logm()? * 0.5).deviatoric_and_trace();
+        let (deviatoric_strain, strain_trace) = (left_cauchy_green
+            .logm()
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
+            * 0.5)
+            .deviatoric_and_trace();
         let scaled_deformation_gradient = deformation_gradient * self.shear_modulus() / jacobian;
         Ok((left_cauchy_green
-            .dlogm()?
+            .dlogm()
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
             .contract_third_fourth_with_first_second(
                 &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
                     + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient)),
@@ -74,7 +83,11 @@ impl Hyperelastic for Hencky {
         deformation_gradient: &DeformationGradient,
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
-        let strain = deformation_gradient.left_cauchy_green().logm()? * 0.5;
+        let strain = deformation_gradient
+            .left_cauchy_green()
+            .logm()
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
+            * 0.5;
         Ok(self.shear_modulus() * strain.squared_trace()
             + 0.5
                 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())

@@ -1,5 +1,5 @@
 use super::{
-    super::{Erase, Scalar, Tensor, assert::AssertionError, special},
+    super::{Erase, Scalar, Tensor, assert::AssertionError, sparse::SparseError, special},
     OptimizationError,
 };
 
@@ -55,4 +55,16 @@ fn display() {
 fn into_test_error() {
     let optimize_error = OptimizationError::MaximumStepsReached(1, "foo".to_string());
     let _: AssertionError = optimize_error.into();
+}
+
+#[test]
+fn sparse_errors_keep_their_kind() {
+    assert!(matches!(
+        OptimizationError::from(SparseError::Singular),
+        OptimizationError::SingularMatrix
+    ));
+    assert!(matches!(
+        OptimizationError::from(SparseError::Unsymmetric),
+        OptimizationError::UnsymmetricMatrix
+    ))
 }

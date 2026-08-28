@@ -463,7 +463,7 @@ where
         &self,
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        match (NewtonRaphson {
+        (NewtonRaphson {
             abs_tol: Tolerances {
                 constraint: 1e-10,
                 residual: 1e-10,
@@ -496,13 +496,8 @@ where
             nondimensional_extension,
             EqualityConstraint::None,
             None,
-        )) {
-            Ok(nondimensional_force) => Ok(nondimensional_force),
-            Err(error) => Err(SingleChainError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        ))
+        .map_err(|error| SingleChainError::upstream(error, self))
     }
     /// ```math
     /// k(\gamma) = \left(\frac{\partial\gamma}{\partial\eta}\right)^{-1}
@@ -573,7 +568,7 @@ where
         &self,
         nondimensional_force: Scalar,
     ) -> Result<Scalar, SingleChainError> {
-        match (NewtonRaphson {
+        (NewtonRaphson {
             abs_tol: Tolerances {
                 constraint: 1e-10,
                 residual: 1e-10,
@@ -606,13 +601,8 @@ where
             nondimensional_force,
             EqualityConstraint::None,
             None,
-        )) {
-            Ok(nondimensional_extension) => Ok(nondimensional_extension),
-            Err(error) => Err(SingleChainError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        ))
+        .map_err(|error| SingleChainError::upstream(error, self))
     }
     /// ```math
     /// c(\eta) = \left(\frac{\partial\eta}{\partial\gamma}\right)^{-1}

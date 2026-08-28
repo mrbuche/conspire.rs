@@ -54,9 +54,9 @@ impl Elastic for Gent {
         let denominator =
             self.extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
         if denominator <= 0.0 {
-            Err(ConstitutiveError::Custom(
-                "Maximum extensibility reached.".to_string(),
-                format!("{:?}", self),
+            Err(ConstitutiveError::custom(
+                "Maximum extensibility reached.",
+                self,
             ))
         } else {
             Ok((deviatoric_isochoric_left_cauchy_green_deformation
@@ -83,9 +83,9 @@ impl Elastic for Gent {
         let denominator =
             self.extensibility() - isochoric_left_cauchy_green_deformation_trace + 3.0;
         if denominator <= 0.0 {
-            Err(ConstitutiveError::Custom(
-                "Maximum extensibility reached.".to_string(),
-                format!("{:?}", self),
+            Err(ConstitutiveError::custom(
+                "Maximum extensibility reached.",
+                self,
             ))
         } else {
             let prefactor = self.shear_modulus() * self.extensibility() / jacobian / denominator;
@@ -122,9 +122,9 @@ impl Hyperelastic for Gent {
             - 3.0)
             / self.extensibility();
         if factor >= 1.0 {
-            Err(ConstitutiveError::Custom(
-                "Maximum extensibility reached.".to_string(),
-                format!("{:?}", self),
+            Err(ConstitutiveError::custom(
+                "Maximum extensibility reached.",
+                self,
             ))
         } else {
             Ok(0.5

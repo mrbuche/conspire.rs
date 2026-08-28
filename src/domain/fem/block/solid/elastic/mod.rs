@@ -26,8 +26,7 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_forces: &mut NodalForcesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .try_for_each(|(element, nodes)| {
@@ -40,21 +39,15 @@ where
                     .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .try_for_each(|(element, nodes)| {
@@ -74,13 +67,8 @@ where
                             })
                     });
                 Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }
 
@@ -95,8 +83,7 @@ where
         nodal_coordinates: &NodalCoordinates<2>,
         nodal_forces: &mut NodalForcesSolid<2>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .try_for_each(|(element, nodes)| {
@@ -109,21 +96,15 @@ where
                     .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<2>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<2>,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .try_for_each(|(element, nodes)| {
@@ -143,12 +124,7 @@ where
                             })
                     });
                 Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

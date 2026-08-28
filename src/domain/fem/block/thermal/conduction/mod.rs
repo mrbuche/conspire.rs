@@ -29,8 +29,7 @@ where
         &self,
         nodal_temperatures: &NodalTemperatures,
     ) -> Result<Quantity<PowerTemperature>, ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .map(|(element, element_connectivity)| {
@@ -40,21 +39,14 @@ where
                 )
             })
             .sum::<Result<Quantity<PowerTemperature>, FiniteElementError>>()
-        {
-            Ok(potential) => Ok(potential),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_forces_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
         nodal_forces: &mut NodalForcesThermal,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .try_for_each(|(element, element_connectivity)| {
@@ -67,21 +59,15 @@ where
                     .zip(element_connectivity)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_stiffnesses_into(
         &self,
         nodal_temperatures: &NodalTemperatures,
         nodal_stiffnesses: &mut NodalStiffnessesThermal,
     ) -> Result<(), ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .try_for_each(|(element, element_connectivity)| {
@@ -100,12 +86,7 @@ where
                         )
                     });
                 Ok::<(), FiniteElementError>(())
-            }) {
-            Ok(()) => Ok(()),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            })
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

@@ -60,32 +60,22 @@ where
         &self,
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, ConstitutiveError> {
-        match SingleChainThermodynamics::nondimensional_force(
+        SingleChainThermodynamics::nondimensional_force(
             &self.single_chain_model,
             nondimensional_extension,
-        ) {
-            Ok(nondimensional_force) => Ok(nondimensional_force),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        )
+        .map_err(|error| ConstitutiveError::upstream(error, self))
     }
     /// Returns the nondimensional stiffness in a single chain.
     fn nondimensional_stiffness(
         &self,
         nondimensional_extension: Scalar,
     ) -> Result<Scalar, ConstitutiveError> {
-        match SingleChainThermodynamics::nondimensional_stiffness(
+        SingleChainThermodynamics::nondimensional_stiffness(
             &self.single_chain_model,
             nondimensional_extension,
-        ) {
-            Ok(nondimensional_stiffness) => Ok(nondimensional_stiffness),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        )
+        .map_err(|error| ConstitutiveError::upstream(error, self))
     }
     /// Returns the number of links in a single chain.
     pub fn number_of_links(&self) -> Scalar {

@@ -137,63 +137,56 @@ where
         constitutive_model: &C,
         nodal_coordinates: &PlanarElementNodalCoordinates<N>,
     ) -> Result<PlanarElementNodalForcesSolid<N>, FiniteElementError> {
-        match self
+        let first_piola_kirchhoff_stresses = self
             .deformation_gradients(nodal_coordinates)
             .iter()
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
             })
             .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
-        {
-            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
-                .iter()
-                .zip(
-                    self.gradient_vectors()
+            .map_err(|error| FiniteElementError::upstream(error, self))?;
+        Ok(first_piola_kirchhoff_stresses
+            .iter()
+            .zip(
+                self.gradient_vectors()
+                    .iter()
+                    .zip(self.integration_weights()),
+            )
+            .map(
+                |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
+                    gradient_vectors
                         .iter()
-                        .zip(self.integration_weights()),
-                )
-                .map(
-                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                        gradient_vectors
-                            .iter()
-                            .map(|gradient_vector| {
-                                (0..M)
-                                    .map(|i| {
-                                        (0..M)
-                                            .map(|j| {
-                                                first_piola_kirchhoff_stress[i][j]
-                                                    * gradient_vector[j]
-                                            })
-                                            .sum::<Quantity<StressPerLength>>()
-                                    })
-                                    .collect::<TensorRank1<M, Current, StressPerLength>>()
-                                    * integration_weight
-                            })
-                            .collect()
-                    },
-                )
-                .sum()),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+                        .map(|gradient_vector| {
+                            (0..M)
+                                .map(|i| {
+                                    (0..M)
+                                        .map(|j| {
+                                            first_piola_kirchhoff_stress[i][j] * gradient_vector[j]
+                                        })
+                                        .sum::<Quantity<StressPerLength>>()
+                                })
+                                .collect::<TensorRank1<M, Current, StressPerLength>>()
+                                * integration_weight
+                        })
+                        .collect()
+                },
+            )
+            .sum())
     }
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &PlanarElementNodalCoordinates<N>,
     ) -> Result<PlanarElementNodalStiffnessesSolid<N>, FiniteElementError> {
-        match self
+        let first_piola_kirchhoff_tangent_stiffnesses = self
             .deformation_gradients(nodal_coordinates)
             .iter()
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)
             })
             .collect::<Result<FirstPiolaKirchhoffTangentStiffnessList<G>, _>>()
-        {
-            Ok(first_piola_kirchhoff_tangent_stiffnesses) => {
-                Ok(first_piola_kirchhoff_tangent_stiffnesses
+            .map_err(|error| FiniteElementError::upstream(error, self))?;
+        Ok(first_piola_kirchhoff_tangent_stiffnesses
                     .iter()
                     .zip(
                         self.gradient_vectors()
@@ -239,12 +232,6 @@ where
                         },
                     )
                     .sum())
-            }
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
     }
 }
 
@@ -271,8 +258,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &PlanarElementNodalCoordinates<N>,
     ) -> Result<Quantity<Energy>, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
+        self.deformation_gradients(nodal_coordinates)
             .iter()
             .zip(self.integration_weights())
             .map(|(deformation_gradient, integration_weight)| {
@@ -281,13 +267,7 @@ where
                         * integration_weight,
                 )
             })
-            .sum()
-        {
-            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .sum::<Result<_, ConstitutiveError>>()
+            .map_err(|error| FiniteElementError::upstream(error, self))
     }
 }

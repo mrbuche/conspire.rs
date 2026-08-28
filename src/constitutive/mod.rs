@@ -10,8 +10,8 @@ pub mod multiphysics;
 pub mod solid;
 pub mod thermal;
 
-use crate::math::{Scalar, Style, StyledError, TensorError, assert::AssertionError, styled_error};
-use std::fmt::Debug;
+use crate::math::{Scalar, Style, StyledError, assert::AssertionError, styled_error};
+use std::fmt::{Debug, Display};
 
 /// Required methods for constitutive models.
 pub trait Constitutive
@@ -21,10 +21,23 @@ where
 }
 
 /// Possible errors encountered in constitutive models.
+#[derive(PartialEq)]
 pub enum ConstitutiveError {
     Custom(String, String),
     InvalidJacobian(Scalar, String),
     Upstream(String, String),
+}
+
+impl ConstitutiveError {
+    pub fn custom(message: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Custom(format!("{message}"), format!("{context:?}"))
+    }
+    pub fn invalid_jacobian(jacobian: Scalar, context: &(impl Debug + ?Sized)) -> Self {
+        Self::InvalidJacobian(jacobian, format!("{context:?}"))
+    }
+    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(format!("{error}"), format!("{context:?}"))
+    }
 }
 
 impl From<ConstitutiveError> for AssertionError {
@@ -32,15 +45,6 @@ impl From<ConstitutiveError> for AssertionError {
         Self {
             message: error.to_string(),
         }
-    }
-}
-
-impl From<TensorError> for ConstitutiveError {
-    fn from(error: TensorError) -> Self {
-        ConstitutiveError::Custom(
-            error.to_string(),
-            "unknown (temporary error handling)".to_string(),
-        )
     }
 }
 
@@ -71,22 +75,3 @@ impl StyledError for ConstitutiveError {
 }
 
 styled_error!(ConstitutiveError);
-
-impl PartialEq for ConstitutiveError {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            Self::Custom(a, b) => match other {
-                Self::Custom(c, d) => a == c && b == d,
-                _ => false,
-            },
-            Self::InvalidJacobian(a, b) => match other {
-                Self::InvalidJacobian(c, d) => a == c && b == d,
-                _ => false,
-            },
-            Self::Upstream(a, b) => match other {
-                Self::Upstream(c, d) => a == c && b == d,
-                _ => false,
-            },
-        }
-    }
-}

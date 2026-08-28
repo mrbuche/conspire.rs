@@ -44,8 +44,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<Quantity<Energy>, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
+        self.deformation_gradients(nodal_coordinates)
             .iter()
             .zip(state_variables)
             .zip(self.integration_weights())
@@ -60,13 +59,7 @@ where
                     )
                 },
             )
-            .sum()
-        {
-            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .sum::<Result<_, ConstitutiveError>>()
+            .map_err(|error| FiniteElementError::upstream(error, self))
     }
 }

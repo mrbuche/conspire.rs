@@ -56,7 +56,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        match self
+        let first_piola_kirchhoff_stresses = self
             .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(state_variables)
@@ -66,31 +66,25 @@ where
                     .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)
             })
             .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
-        {
-            Ok(first_piola_kirchhoff_stresses) => Ok(first_piola_kirchhoff_stresses
-                .iter()
-                .zip(
-                    self.gradient_vectors()
+            .map_err(|error| FiniteElementError::upstream(error, self))?;
+        Ok(first_piola_kirchhoff_stresses
+            .iter()
+            .zip(
+                self.gradient_vectors()
+                    .iter()
+                    .zip(self.integration_weights()),
+            )
+            .map(
+                |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
+                    gradient_vectors
                         .iter()
-                        .zip(self.integration_weights()),
-                )
-                .map(
-                    |(first_piola_kirchhoff_stress, (gradient_vectors, integration_weight))| {
-                        gradient_vectors
-                            .iter()
-                            .map(|gradient_vector| {
-                                (first_piola_kirchhoff_stress * gradient_vector)
-                                    * integration_weight
-                            })
-                            .collect()
-                    },
-                )
-                .sum()),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+                        .map(|gradient_vector| {
+                            (first_piola_kirchhoff_stress * gradient_vector) * integration_weight
+                        })
+                        .collect()
+                },
+            )
+            .sum())
     }
     fn nodal_stiffnesses(
         &self,
@@ -98,7 +92,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
-        match self
+        let first_piola_kirchhoff_tangent_stiffnesses = self
             .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(state_variables)
@@ -110,45 +104,38 @@ where
                 )
             })
             .collect::<Result<FirstPiolaKirchhoffTangentStiffnessList<G>, _>>()
-        {
-            Ok(first_piola_kirchhoff_tangent_stiffnesses) => {
-                Ok(first_piola_kirchhoff_tangent_stiffnesses
+            .map_err(|error| FiniteElementError::upstream(error, self))?;
+        Ok(first_piola_kirchhoff_tangent_stiffnesses
+            .iter()
+            .zip(
+                self.gradient_vectors()
                     .iter()
-                    .zip(
-                        self.gradient_vectors()
-                            .iter()
-                            .zip(self.integration_weights()),
-                    )
-                    .map(
-                        |(
-                            first_piola_kirchhoff_tangent_stiffness,
-                            (gradient_vectors, integration_weight),
-                        )| {
+                    .zip(self.integration_weights()),
+            )
+            .map(
+                |(
+                    first_piola_kirchhoff_tangent_stiffness,
+                    (gradient_vectors, integration_weight),
+                )| {
+                    gradient_vectors
+                        .iter()
+                        .map(|gradient_vector_a| {
                             gradient_vectors
                                 .iter()
-                                .map(|gradient_vector_a| {
-                                    gradient_vectors
-                                        .iter()
-                                        .map(|gradient_vector_b| {
-                                            first_piola_kirchhoff_tangent_stiffness
-                                                .contract_second_fourth_with_first(
-                                                    gradient_vector_a,
-                                                    gradient_vector_b,
-                                                )
-                                                * integration_weight
-                                        })
-                                        .collect()
+                                .map(|gradient_vector_b| {
+                                    first_piola_kirchhoff_tangent_stiffness
+                                        .contract_second_fourth_with_first(
+                                            gradient_vector_a,
+                                            gradient_vector_b,
+                                        )
+                                        * integration_weight
                                 })
                                 .collect()
-                        },
-                    )
-                    .sum())
-            }
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+                        })
+                        .collect()
+                },
+            )
+            .sum())
     }
     fn state_variables_evolution(
         &self,
@@ -156,20 +143,13 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<ViscoplasticEvolution<G, Y>, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
+        self.deformation_gradients(nodal_coordinates)
             .iter()
             .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 constitutive_model.state_variables_evolution(deformation_gradient, state_variable)
             })
             .collect::<Result<ViscoplasticEvolution<G, Y>, _>>()
-        {
-            Ok(state_variables_evolution) => Ok(state_variables_evolution),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| FiniteElementError::upstream(error, self))
     }
 }

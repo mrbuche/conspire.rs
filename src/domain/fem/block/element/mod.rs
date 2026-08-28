@@ -13,8 +13,8 @@ pub mod thermal;
 
 use crate::{
     math::{
-        Projection, Quantity, Reference, Scalar, ScalarList, TensorList, TensorRank1,
-        TensorRank1List, TensorRank1List2D, assert::AssertionError, defeat_message,
+        Projection, Quantity, Reference, Scalar, ScalarList, Style, StyledError, TensorList,
+        TensorRank1, TensorRank1List, TensorRank1List2D, assert::AssertionError, styled_error,
     },
     mechanics::{CoordinateList, CurrentCoordinates, CurrentVelocities, ReferenceCoordinates},
     units::{Length, ReciprocalLength, Volume},
@@ -138,6 +138,12 @@ pub enum FiniteElementError {
     Upstream(String, String),
 }
 
+impl FiniteElementError {
+    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(format!("{error}"), format!("{context:?}"))
+    }
+}
+
 impl From<FiniteElementError> for AssertionError {
     fn from(error: FiniteElementError) -> Self {
         Self {
@@ -146,30 +152,16 @@ impl From<FiniteElementError> for AssertionError {
     }
 }
 
-impl Debug for FiniteElementError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, element) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In finite element: {element}."
-                )
-            }
-        };
-        write!(f, "\n{error}\n\x1b[0;2;31m{}\x1b[0m\n", defeat_message())
+impl StyledError for FiniteElementError {
+    fn message(&self, style: &Style) -> String {
+        let c = style.frame;
+        match self {
+            Self::Upstream(error, element) => format!(
+                "{error}{c}\n\
+                In finite element: {element}."
+            ),
+        }
     }
 }
 
-impl Display for FiniteElementError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let error = match self {
-            Self::Upstream(error, element) => {
-                format!(
-                    "{error}\x1b[0;91m\n\
-                    In finite element: {element}."
-                )
-            }
-        };
-        write!(f, "{error}\x1b[0m")
-    }
-}
+styled_error!(FiniteElementError);

@@ -25,7 +25,7 @@ pub use ufjc::ArbitraryPotentialFreelyJointedChain;
 
 use crate::math::{Quantity, Scalar, Style, StyledError, assert::AssertionError, styled_error};
 use crate::units::Length;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 pub trait SingleChain
 where
@@ -64,6 +64,12 @@ where
 pub enum SingleChainError {
     MaximumExtensibility(String, String),
     Upstream(String, String),
+}
+
+impl SingleChainError {
+    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(format!("{error}"), format!("{context:?}"))
+    }
 }
 
 impl From<SingleChainError> for AssertionError {

@@ -90,8 +90,12 @@ impl ElasticPlasticOrViscoplastic for Hencky {
     ) -> Result<CauchyStress, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
-        let (deviatoric_strain_e, strain_trace_e) =
-            (deformation_gradient_e.left_cauchy_green().logm()? * 0.5).deviatoric_and_trace();
+        let (deviatoric_strain_e, strain_trace_e) = (deformation_gradient_e
+            .left_cauchy_green()
+            .logm()
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
+            * 0.5)
+            .deviatoric_and_trace();
         Ok(
             deviatoric_strain_e * (2.0 * self.shear_modulus() / jacobian)
                 + IDENTITY * (self.bulk_modulus() * strain_trace_e / jacobian),
@@ -107,12 +111,16 @@ impl ElasticPlasticOrViscoplastic for Hencky {
         let deformation_gradient_inverse_p = deformation_gradient_p.inverse();
         let deformation_gradient_e = deformation_gradient * &deformation_gradient_inverse_p;
         let left_cauchy_green_e = deformation_gradient_e.left_cauchy_green();
-        let (deviatoric_strain_e, strain_trace_e) =
-            (left_cauchy_green_e.logm()? * 0.5).deviatoric_and_trace();
+        let (deviatoric_strain_e, strain_trace_e) = (left_cauchy_green_e
+            .logm()
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
+            * 0.5)
+            .deviatoric_and_trace();
         let scaled_deformation_gradient_e =
             &deformation_gradient_e * self.shear_modulus() / jacobian;
         Ok((left_cauchy_green_e
-            .dlogm()?
+            .dlogm()
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
             .contract_third_fourth_with_first_second(
                 &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient_e, &IDENTITY)
                     + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient_e)),
@@ -139,7 +147,11 @@ impl HyperelasticViscoplastic<Quantity> for Hencky {
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
-        let strain_e = deformation_gradient_e.left_cauchy_green().logm()? * 0.5;
+        let strain_e = deformation_gradient_e
+            .left_cauchy_green()
+            .logm()
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
+            * 0.5;
         Ok(self.shear_modulus() * strain_e.squared_trace()
             + 0.5
                 * (self.bulk_modulus() - TWO_THIRDS * self.shear_modulus())

@@ -151,7 +151,7 @@ where
             DeformationGradientRate,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
-        match match applied_load {
+        match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
                 let mut matrix = Matrix::zero(4, 9);
                 let mut vector = Vector::zero(4);
@@ -224,13 +224,8 @@ where
                     },
                 )
             }
-        } {
-            Ok(results) => Ok(results),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
         }
+        .map_err(|error| ConstitutiveError::upstream(error, self))
     }
 }
 
@@ -256,7 +251,7 @@ where
             DeformationGradientRate,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
-        match match applied_load {
+        match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
                 let mut matrix = Matrix::zero(4, 9);
                 let mut vector = Vector::zero(4);
@@ -347,12 +342,7 @@ where
                     None,
                 )
             }
-        } {
-            Ok(results) => Ok(results),
-            Err(error) => Err(ConstitutiveError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
         }
+        .map_err(|error| ConstitutiveError::upstream(error, self))
     }
 }

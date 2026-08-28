@@ -1,7 +1,11 @@
 //! Finite element methods.
 
+#[cfg(test)]
+mod test;
+
 use crate::math::{Current, Reference};
 use crate::units::{Length, Velocity};
+
 pub mod block;
 mod from;
 pub mod solid;
@@ -17,7 +21,7 @@ use crate::math::{
     },
     styled_error,
 };
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 /// The coordinates of a mesh, given the length they are measured in.
 ///
@@ -113,6 +117,12 @@ where
 
 pub enum ElementModelError {
     Upstream(String, String),
+}
+
+impl ElementModelError {
+    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Upstream(format!("{error}"), format!("{context:?}"))
+    }
 }
 
 impl From<ElementModelError> for String {

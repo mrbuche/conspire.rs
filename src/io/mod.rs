@@ -11,7 +11,7 @@ use std::path::Path;
 
 pub use deflate::{adler32, deflate, inflate, zlib_decode, zlib_encode};
 #[cfg(feature = "netcdf")]
-pub use netcdf::{DefineVariable, GetVariable, NetCDF, PutVariable};
+pub use netcdf::{DefineVariable, GetVariable, NetCDF, NetCdfError, PutVariable};
 pub use npy::{Npy, NpyType};
 pub use vtk::{invalid, read, unsupported, write};
 pub use zip::{Zip, ZipEntry};

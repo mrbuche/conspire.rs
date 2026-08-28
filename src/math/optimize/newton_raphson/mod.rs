@@ -85,7 +85,7 @@ where
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match match equality_constraint {
+        match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -115,13 +115,8 @@ where
                 initial_guess,
                 sparse,
             ),
-        } {
-            Ok(solution) => Ok(solution),
-            Err(error) => Err(OptimizationError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
         }
+        .map_err(|error| OptimizationError::upstream(error, self))
     }
 }
 
@@ -146,7 +141,7 @@ where
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match match equality_constraint {
+        match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -171,13 +166,8 @@ where
             EqualityConstraint::None => unimplemented!(
                 "An unconstrained solution has no chained vector to lend the increment through."
             ),
-        } {
-            Ok(solution) => Ok(solution),
-            Err(error) => Err(OptimizationError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
         }
+        .map_err(|error| OptimizationError::upstream(error, self))
     }
 }
 
@@ -208,7 +198,7 @@ where
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match match equality_constraint {
+        match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 function,
@@ -233,13 +223,8 @@ where
             EqualityConstraint::None => {
                 unconstrained(self, function, jacobian, hessian, initial_guess, sparse)
             }
-        } {
-            Ok(solution) => Ok(solution),
-            Err(error) => Err(OptimizationError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
         }
+        .map_err(|error| OptimizationError::upstream(error, self))
     }
 }
 
@@ -271,7 +256,7 @@ where
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match match equality_constraint {
+        match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 function,
@@ -296,13 +281,8 @@ where
             EqualityConstraint::None => unimplemented!(
                 "An unconstrained solution has no chained vector to lend the increment through."
             ),
-        } {
-            Ok(solution) => Ok(solution),
-            Err(error) => Err(OptimizationError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
         }
+        .map_err(|error| OptimizationError::upstream(error, self))
     }
 }
 
@@ -330,7 +310,7 @@ where
         sparse: Option<SparseSolver>,
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError> {
-        match blocked(
+        blocked(
             self,
             |_: &U, _: &V| panic!("No line search in root finding"),
             false,
@@ -342,13 +322,8 @@ where
             constraint_local,
             sparse,
             strategy,
-        ) {
-            Ok(solution) => Ok(solution),
-            Err(error) => Err(OptimizationError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        )
+        .map_err(|error| OptimizationError::upstream(error, self))
     }
 }
 
@@ -387,7 +362,7 @@ where
         strategy: SolveStrategy,
     ) -> Result<(U, V), OptimizationError> {
         let function = move |global: &U, local: &V| function(global, local).map(|v| *v.erase());
-        match blocked(
+        blocked(
             self,
             function,
             true,
@@ -399,13 +374,8 @@ where
             constraint_local,
             sparse,
             strategy,
-        ) {
-            Ok(solution) => Ok(solution),
-            Err(error) => Err(OptimizationError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+        )
+        .map_err(|error| OptimizationError::upstream(error, self))
     }
 }
 
@@ -477,9 +447,7 @@ fn backtrack_penalty(
         newton_raphson
             .line_search
             .backtrack_merit(merit, value, slope, 1.0)
-            .map_err(|error| {
-                OptimizationError::Upstream(format!("{error}"), format!("{newton_raphson:?}"))
-            })
+            .map_err(|error| OptimizationError::upstream(error, newton_raphson))
     }
 }
 
@@ -550,15 +518,12 @@ fn backtrack_errors(
         }
         trial_size *= cut_back
     }
-    Err(OptimizationError::Upstream(
-        format!(
-            "{}",
-            LineSearchError::MaximumStepsReached(
-                format!("{:?}", newton_raphson.line_search),
-                max_steps
-            )
+    Err(OptimizationError::upstream(
+        LineSearchError::MaximumStepsReached(
+            format!("{:?}", newton_raphson.line_search),
+            max_steps,
         ),
-        format!("{newton_raphson:?}"),
+        newton_raphson,
     ))
 }
 

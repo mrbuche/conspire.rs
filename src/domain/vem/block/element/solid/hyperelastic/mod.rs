@@ -32,7 +32,7 @@ where
         constitutive_model: &'a C,
         nodal_coordinates: ElementNodalCoordinates<'a>,
     ) -> Result<Quantity<Energy>, VirtualElementError> {
-        match self
+        let tetrahedra_energy = self
             .tetrahedra()
             .iter()
             .zip(self.tetrahedra_coordinates(&nodal_coordinates).iter())
@@ -40,33 +40,20 @@ where
                 tetrahedron.helmholtz_free_energy(constitutive_model, tetrahedron_coordinates)
             })
             .sum::<Result<Quantity<Energy>, _>>()
-        {
-            Ok(tetrahedra_energy) => {
-                match self
-                    .deformation_gradients(nodal_coordinates)
-                    .iter()
-                    .zip(self.integration_weights())
-                    .map(|(deformation_gradient, integration_weight)| {
-                        Ok::<_, ConstitutiveError>(
-                            constitutive_model
-                                .helmholtz_free_energy_density(deformation_gradient)?
-                                * integration_weight,
-                        )
-                    })
-                    .sum::<Result<Quantity<Energy>, _>>()
-                {
-                    Ok(polyhedron_energy) => Ok(polyhedron_energy * (1.0 - self.stabilization())
-                        + tetrahedra_energy * self.stabilization()),
-                    Err(error) => Err(VirtualElementError::Upstream(
-                        format!("{error}"),
-                        format!("{self:?}"),
-                    )),
-                }
-            }
-            Err(error) => Err(VirtualElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| VirtualElementError::upstream(error, self))?;
+        let polyhedron_energy = self
+            .deformation_gradients(nodal_coordinates)
+            .iter()
+            .zip(self.integration_weights())
+            .map(|(deformation_gradient, integration_weight)| {
+                Ok::<_, ConstitutiveError>(
+                    constitutive_model.helmholtz_free_energy_density(deformation_gradient)?
+                        * integration_weight,
+                )
+            })
+            .sum::<Result<Quantity<Energy>, _>>()
+            .map_err(|error| VirtualElementError::upstream(error, self))?;
+        Ok(polyhedron_energy * (1.0 - self.stabilization())
+            + tetrahedra_energy * self.stabilization())
     }
 }

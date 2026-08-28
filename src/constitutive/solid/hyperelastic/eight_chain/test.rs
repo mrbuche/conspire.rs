@@ -103,15 +103,12 @@ mod freely_jointed_chain {
                 };
                 assert_eq!(
                     model.cauchy_stress(&deformation_gradient),
-                    Err(ConstitutiveError::Upstream(
-                        format!(
-                            "{}",
-                            SingleChainError::MaximumExtensibility(
-                                format!("{:?}", FJC.maximum_nondimensional_extension()),
-                                format!("{:?}", FJC),
-                            )
+                    Err(ConstitutiveError::upstream(
+                        SingleChainError::MaximumExtensibility(
+                            format!("{:?}", FJC.maximum_nondimensional_extension()),
+                            format!("{:?}", FJC),
                         ),
-                        format!("{:?}", model),
+                        &model
                     ))
                 )
             }
@@ -129,15 +126,12 @@ mod freely_jointed_chain {
                 };
                 assert_eq!(
                     model.cauchy_tangent_stiffness(&deformation_gradient),
-                    Err(ConstitutiveError::Upstream(
-                        format!(
-                            "{}",
-                            SingleChainError::MaximumExtensibility(
-                                format!("{:?}", FJC.maximum_nondimensional_extension()),
-                                format!("{:?}", FJC),
-                            )
+                    Err(ConstitutiveError::upstream(
+                        SingleChainError::MaximumExtensibility(
+                            format!("{:?}", FJC.maximum_nondimensional_extension()),
+                            format!("{:?}", FJC),
                         ),
-                        format!("{:?}", model),
+                        &model
                     ))
                 )
             }
@@ -155,15 +149,12 @@ mod freely_jointed_chain {
                 };
                 assert_eq!(
                     model.helmholtz_free_energy_density(&deformation_gradient),
-                    Err(ConstitutiveError::Upstream(
-                        format!(
-                            "{}",
-                            SingleChainError::MaximumExtensibility(
-                                format!("{:?}", FJC.maximum_nondimensional_extension()),
-                                format!("{:?}", FJC),
-                            )
+                    Err(ConstitutiveError::upstream(
+                        SingleChainError::MaximumExtensibility(
+                            format!("{:?}", FJC.maximum_nondimensional_extension()),
+                            format!("{:?}", FJC),
                         ),
-                        format!("{:?}", model),
+                        &model
                     ))
                 )
             }

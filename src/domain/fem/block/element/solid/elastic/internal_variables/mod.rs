@@ -138,9 +138,7 @@ where
             EqualityConstraint::Fixed(constitutive_model.internal_variables_fixed().to_vec()),
             None,
         )
-        .map_err(|error| {
-            ConstitutiveError::Custom(format!("{error}"), format!("{deformation_gradient}"))
-        })
+        .map_err(|error| ConstitutiveError::custom(error, deformation_gradient))
 }
 
 /// The nodal forces a list of stresses integrates to.
@@ -228,9 +226,7 @@ where
         constitutive_model.tangents(deformation_gradient, internal_variables)?;
     let eliminated = local_block(&tangent_vv, size, &unmap)
         .solve_lu(&reduced)
-        .map_err(|error| {
-            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
-        })?;
+        .map_err(|error| ConstitutiveError::custom(error, deformation_gradient))?;
     let mut cross = SquareMatrix::zero(size);
     tangent_uv.fill_into_block(&mut cross, 0, 0);
     (0..3).for_each(|i| {
@@ -287,9 +283,7 @@ where
     });
     let solution = local_block(&tangent_vv, size, &unmap)
         .solve_lu(&reduced)
-        .map_err(|error| {
-            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
-        })?;
+        .map_err(|error| ConstitutiveError::custom(error, deformation_gradient))?;
     let mut decrement = Vector::zero(size);
     unmap
         .iter()
@@ -324,9 +318,7 @@ where
     let unmap = free_indices(constitutive_model, size);
     let factorization = local_block(&tangent_vv, size, &unmap)
         .factorize_lu()
-        .map_err(|error| {
-            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
-        })?;
+        .map_err(|error| ConstitutiveError::custom(error, deformation_gradient))?;
     let mut coupling = SquareMatrix::zero(size);
     tangent_vu.fill_into_block(&mut coupling, 0, 0);
     let mut cross = SquareMatrix::zero(size);
@@ -382,8 +374,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
     ) -> Result<InternalVariables<G, V>, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
+        self.deformation_gradients(nodal_coordinates)
             .iter()
             .zip(internal_variables)
             .map(|(deformation_gradient, internal_variables_point)| {
@@ -395,13 +386,7 @@ where
                 )
             })
             .collect::<Result<InternalVariables<G, V>, _>>()
-        {
-            Ok(roots) => Ok(roots),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| FiniteElementError::upstream(error, self))
     }
     fn internal_variables_increment(
         &self,
@@ -411,8 +396,7 @@ where
         nodal_decrement: &ElementNodalCoordinates<N>,
         step: Scalar,
     ) -> Result<InternalVariables<G, V>, FiniteElementError> {
-        match self
-            .deformation_gradients(nodal_coordinates)
+        self.deformation_gradients(nodal_coordinates)
             .iter()
             .zip(self.deformation_gradients(nodal_decrement).iter())
             .zip(internal_variables)
@@ -428,13 +412,7 @@ where
                 },
             )
             .collect::<Result<InternalVariables<G, V>, _>>()
-        {
-            Ok(incremented) => Ok(incremented),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| FiniteElementError::upstream(error, self))
     }
     fn nodal_forces(
         &self,
@@ -442,7 +420,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        match self
+        let stresses = self
             .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(internal_variables)
@@ -451,17 +429,12 @@ where
                     .first_piola_kirchhoff_stress(deformation_gradient, internal_variables_point)
             })
             .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
-        {
-            Ok(stresses) => Ok(assemble_forces(
-                stresses,
-                self.gradient_vectors(),
-                self.integration_weights(),
-            )),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| FiniteElementError::upstream(error, self))?;
+        Ok(assemble_forces(
+            stresses,
+            self.gradient_vectors(),
+            self.integration_weights(),
+        ))
     }
     fn nodal_forces_eliminated(
         &self,
@@ -469,7 +442,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        match self
+        let stresses = self
             .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(internal_variables)
@@ -481,17 +454,12 @@ where
                 )
             })
             .collect::<Result<FirstPiolaKirchhoffStressList<G>, _>>()
-        {
-            Ok(stresses) => Ok(assemble_forces(
-                stresses,
-                self.gradient_vectors(),
-                self.integration_weights(),
-            )),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| FiniteElementError::upstream(error, self))?;
+        Ok(assemble_forces(
+            stresses,
+            self.gradient_vectors(),
+            self.integration_weights(),
+        ))
     }
     fn nodal_stiffnesses(
         &self,
@@ -499,7 +467,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
     ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError> {
-        match self
+        let condensed = self
             .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(internal_variables)
@@ -511,35 +479,30 @@ where
                 )
             })
             .collect::<Result<FirstPiolaKirchhoffTangentStiffnessList<G>, _>>()
-        {
-            Ok(condensed) => Ok(condensed
-                .iter()
-                .zip(
-                    self.gradient_vectors()
-                        .iter()
-                        .zip(self.integration_weights()),
-                )
-                .map(|(tangent, (gradient_vectors, integration_weight))| {
-                    gradient_vectors
-                        .iter()
-                        .map(|gradient_vector_a| {
-                            gradient_vectors
-                                .iter()
-                                .map(|gradient_vector_b| {
-                                    tangent.contract_second_fourth_with_first(
-                                        gradient_vector_a,
-                                        gradient_vector_b,
-                                    ) * integration_weight
-                                })
-                                .collect()
-                        })
-                        .collect()
-                })
-                .sum()),
-            Err(error) => Err(FiniteElementError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .map_err(|error| FiniteElementError::upstream(error, self))?;
+        Ok(condensed
+            .iter()
+            .zip(
+                self.gradient_vectors()
+                    .iter()
+                    .zip(self.integration_weights()),
+            )
+            .map(|(tangent, (gradient_vectors, integration_weight))| {
+                gradient_vectors
+                    .iter()
+                    .map(|gradient_vector_a| {
+                        gradient_vectors
+                            .iter()
+                            .map(|gradient_vector_b| {
+                                tangent.contract_second_fourth_with_first(
+                                    gradient_vector_a,
+                                    gradient_vector_b,
+                                ) * integration_weight
+                            })
+                            .collect()
+                    })
+                    .collect()
+            })
+            .sum())
     }
 }

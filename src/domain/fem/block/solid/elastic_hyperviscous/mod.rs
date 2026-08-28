@@ -2,7 +2,10 @@ use crate::{
     constitutive::solid::elastic_hyperviscous::ElasticHyperviscous,
     fem::{
         ElementModelError, NodalCoordinates, NodalVelocities,
-        block::{Block, element::solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement},
+        block::{
+            Block, element::FiniteElementError,
+            element::solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement,
+        },
         solid::{
             elastic_hyperviscous::ElasticHyperviscousElements, viscoelastic::ViscoelasticElements,
         },
@@ -23,8 +26,7 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
     ) -> Result<Quantity<Power>, ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .map(|(element, nodes)| {
@@ -34,22 +36,15 @@ where
                     &Self::element_coordinates(nodal_velocities, nodes),
                 )
             })
-            .sum()
-        {
-            Ok(viscous_dissipation) => Ok(viscous_dissipation),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .sum::<Result<_, FiniteElementError>>()
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn dissipation_potential(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
     ) -> Result<Quantity<Power>, ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .map(|(element, nodes)| {
@@ -59,13 +54,7 @@ where
                     &Self::element_coordinates(nodal_velocities, nodes),
                 )
             })
-            .sum()
-        {
-            Ok(dissipation_potential) => Ok(dissipation_potential),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .sum::<Result<_, FiniteElementError>>()
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

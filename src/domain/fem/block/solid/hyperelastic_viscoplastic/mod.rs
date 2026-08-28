@@ -3,7 +3,7 @@ use crate::{
     fem::{
         ElementModelError, NodalCoordinates,
         block::{
-            Block,
+            Block, element::FiniteElementError,
             element::solid::hyperelastic_viscoplastic::HyperelasticViscoplasticFiniteElement,
             solid::elastic_viscoplastic::ViscoplasticStateVariables,
         },
@@ -30,8 +30,7 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
     ) -> Result<Quantity<Energy>, ElementModelError> {
-        match self
-            .elements()
+        self.elements()
             .iter()
             .zip(self.connectivity())
             .zip(state_variables)
@@ -42,13 +41,7 @@ where
                     state_variables_element,
                 )
             })
-            .sum()
-        {
-            Ok(helmholtz_free_energy) => Ok(helmholtz_free_energy),
-            Err(error) => Err(ElementModelError::Upstream(
-                format!("{error}"),
-                format!("{self:?}"),
-            )),
-        }
+            .sum::<Result<_, FiniteElementError>>()
+            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }
