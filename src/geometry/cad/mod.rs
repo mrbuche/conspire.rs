@@ -6,3 +6,6 @@ pub mod part_21;
 
 /// Readers for CAD exchange formats.
 pub mod read;
+
+/// Sizing fields for meshing.
+pub mod sizing;

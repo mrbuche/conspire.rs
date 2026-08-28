@@ -5,11 +5,11 @@ use super::{
 };
 use crate::geometry::{Coordinate, Direction};
 
-pub(super) fn direction(entries: [f64; 3]) -> Direction<3> {
+pub(crate) fn direction(entries: [f64; 3]) -> Direction<3> {
     Direction::const_from(entries)
 }
 
-pub(super) fn edge(a: usize, b: usize) -> Edge {
+pub(crate) fn edge(a: usize, b: usize) -> Edge {
     Edge {
         vertices: [a, b],
         curve: Curve::Line(Line {
@@ -20,7 +20,7 @@ pub(super) fn edge(a: usize, b: usize) -> Edge {
 }
 
 /// `half_edges[i]` is `(edge index, forward?)`.
-pub(super) fn face(normal: [f64; 3], reference: [f64; 3], half_edges: &[(usize, bool)]) -> Face {
+pub(crate) fn face(normal: [f64; 3], reference: [f64; 3], half_edges: &[(usize, bool)]) -> Face {
     Face {
         surface: Surface::Plane(Plane {
             origin: Coordinate::const_from([0.0; 3]),
@@ -38,7 +38,7 @@ pub(super) fn face(normal: [f64; 3], reference: [f64; 3], half_edges: &[(usize, 
 }
 
 /// The axis-aligned unit cube `[0, 1]^3` as a closed shell of six planar faces.
-pub(super) fn unit_cube() -> Brep {
+pub(crate) fn unit_cube() -> Brep {
     let vertices = [
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
@@ -117,7 +117,7 @@ pub(super) fn unit_cube() -> Brep {
 ///   |  L   |  R   |
 ///   v0 --- v1 --- v2
 /// ```
-pub(super) fn coplanar_squares() -> Brep {
+pub(crate) fn coplanar_squares() -> Brep {
     let vertices = [
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],

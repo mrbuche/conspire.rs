@@ -5,7 +5,7 @@
 //! reader builds one of these; meshing consumes it.
 
 #[cfg(test)]
-mod test;
+pub mod test;
 
 pub mod curve;
 pub mod features;
