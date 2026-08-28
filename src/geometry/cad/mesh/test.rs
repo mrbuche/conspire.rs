@@ -6,6 +6,7 @@ use crate::{
         },
         mesh::{Class, Connectivity, Fitting, Mesh, Verdict},
         ntree::Balancing,
+        solid::Solid,
     },
     math::Quantity,
     units::Length,

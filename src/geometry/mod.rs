@@ -9,6 +9,9 @@ pub mod bvh;
 /// Computer-aided design.
 pub mod cad;
 
+/// The `Solid` abstraction and the shared octree meshing driver.
+pub mod solid;
+
 /// Primitive and polyhedral meshes.
 pub mod mesh;
 

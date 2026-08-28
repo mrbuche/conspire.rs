@@ -4,8 +4,8 @@ use crate::{
         cad::{
             brep::{
                 Brep, Edge, Face, HalfEdge, Loop, Shell,
-                curve::{Curve, Line},
-                surface::{Plane, Surface},
+                curve::{Circle, Curve, Line},
+                surface::{Cylinder, Plane, Surface},
             },
             part_21::{Exchange, Parameter, Record},
         },
@@ -104,30 +104,61 @@ impl<'a> Reader<'a> {
     }
 
     fn surface(&self, id: u64) -> Result<Surface> {
-        let record = self.record(id, "PLANE").map_err(|_| {
-            invalid(format!(
-                "STEP: #{id} is not a supported surface (only PLANE)"
-            ))
-        })?;
-        let (origin, normal, reference_direction) = self.axes(reference(&record.parameters, 1)?)?;
-        Ok(Surface::Plane(Plane {
-            origin,
-            normal,
-            reference_direction,
-        }))
+        if let Ok(record) = self.record(id, "PLANE") {
+            let (origin, normal, reference_direction) =
+                self.axes(reference(&record.parameters, 1)?)?;
+            return Ok(Surface::Plane(Plane {
+                origin,
+                normal,
+                reference_direction,
+            }));
+        }
+        if let Ok(record) = self.record(id, "CYLINDRICAL_SURFACE") {
+            let (origin, axis, reference_direction) =
+                self.axes(reference(&record.parameters, 1)?)?;
+            let radius = scalar(parameter(&record.parameters, 2)?)?;
+            return Ok(Surface::Cylinder(Cylinder {
+                origin,
+                axis,
+                reference_direction,
+                radius,
+            }));
+        }
+        Err(invalid(format!(
+            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE)"
+        )))
     }
 
     fn curve(&self, id: u64, same_sense: bool) -> Result<Curve> {
-        let record = self
-            .record(id, "LINE")
-            .map_err(|_| invalid(format!("STEP: #{id} is not a supported curve (only LINE)")))?;
-        let origin = self.point(reference(&record.parameters, 1)?)?;
-        let vector = self.record(reference(&record.parameters, 2)?, "VECTOR")?;
-        let mut direction = self.direction(reference(&vector.parameters, 1)?)?;
-        if !same_sense {
-            direction = Direction::const_from(from_fn(|axis| -direction[axis].value()));
+        if let Ok(record) = self.any(id, &["SURFACE_CURVE", "SEAM_CURVE", "INTERSECTION_CURVE"]) {
+            return self.curve(reference(&record.parameters, 1)?, same_sense);
         }
-        Ok(Curve::Line(Line { origin, direction }))
+        if let Ok(record) = self.record(id, "LINE") {
+            let origin = self.point(reference(&record.parameters, 1)?)?;
+            let vector = self.record(reference(&record.parameters, 2)?, "VECTOR")?;
+            let mut direction = self.direction(reference(&vector.parameters, 1)?)?;
+            if !same_sense {
+                direction = Direction::const_from(from_fn(|axis| -direction[axis].value()));
+            }
+            return Ok(Curve::Line(Line { origin, direction }));
+        }
+        if let Ok(record) = self.record(id, "CIRCLE") {
+            let (center, mut axis, reference_direction) =
+                self.axes(reference(&record.parameters, 1)?)?;
+            let radius = scalar(parameter(&record.parameters, 2)?)?;
+            if !same_sense {
+                axis = Direction::const_from(from_fn(|k| -axis[k].value()));
+            }
+            return Ok(Curve::Circle(Circle {
+                center,
+                axis,
+                reference_direction,
+                radius,
+            }));
+        }
+        Err(invalid(format!(
+            "STEP: #{id} is not a supported curve (only LINE, CIRCLE)"
+        )))
     }
 
     fn vertex(&mut self, id: u64) -> Result<usize> {

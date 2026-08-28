@@ -58,11 +58,13 @@ pub struct Shell {
 }
 
 impl Face {
-    /// The outward unit normal. Planar faces only.
-    fn normal(&self) -> [f64; D] {
-        let Surface::Plane(plane) = &self.surface;
+    /// The outward unit normal, or `None` for a non-planar face.
+    fn normal(&self) -> Option<[f64; D]> {
+        let Surface::Plane(plane) = &self.surface else {
+            return None;
+        };
         let sign = if self.forward { 1.0 } else { -1.0 };
-        from_fn(|axis| sign * plane.normal[axis].value())
+        Some(from_fn(|axis| sign * plane.normal[axis].value()))
     }
 }
 

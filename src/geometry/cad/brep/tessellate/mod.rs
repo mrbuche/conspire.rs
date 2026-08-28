@@ -41,7 +41,9 @@ impl Brep {
         if face.bounds.len() > 1 {
             return Err("faces with holes are not yet supported");
         }
-        let Surface::Plane(plane) = &face.surface;
+        let Surface::Plane(plane) = &face.surface else {
+            return Err("only planar faces are supported");
+        };
         let outer = face.bounds.first().ok_or("face has no outer loop")?;
         let ring = outer.vertices(&self.edges)?;
         if ring.len() < 3 {

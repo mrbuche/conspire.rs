@@ -4,7 +4,7 @@
 mod test;
 
 use crate::{
-    geometry::{Coordinate, cad::brep::Brep},
+    geometry::{Coordinate, cad::brep::Brep, solid::Sizing},
     math::{Quantity, Scalar, Tensor},
     units::{Dimensionless, Length},
 };
@@ -65,6 +65,12 @@ impl FeatureSizing {
             }
         }
         size.max(self.minimum).min(self.maximum)
+    }
+}
+
+impl Sizing for FeatureSizing {
+    fn at(&self, point: &Coordinate<D>) -> Quantity<Length> {
+        FeatureSizing::at(self, point)
     }
 }
 

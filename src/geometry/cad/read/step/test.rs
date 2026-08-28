@@ -172,6 +172,181 @@ fn tessellates_read_cube() {
     assert!((area - 6.0).abs() < 1e-9, "surface area was {area}");
 }
 
+/// A capped cylinder: radius 2, height 5, axis +z, base centred at the origin.
+/// Two planar disk caps and one cylindrical lateral face split by a seam line at
+/// angle 0, so the two circular rim edges share a vertex with the seam.
+const CYLINDER: &str = r#"
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('capped cylinder'),'2;1');
+FILE_NAME('cylinder.step','2026-08-28T00:00:00',(''),(''),'conspire','conspire','');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 }'));
+ENDSEC;
+DATA;
+#10 = CARTESIAN_POINT('',(0.,0.,0.));
+#11 = CARTESIAN_POINT('',(0.,0.,5.));
+#12 = CARTESIAN_POINT('',(2.,0.,0.));
+#13 = CARTESIAN_POINT('',(2.,0.,5.));
+#20 = DIRECTION('',(0.,0.,1.));
+#21 = DIRECTION('',(0.,0.,-1.));
+#22 = DIRECTION('',(1.,0.,0.));
+#30 = VERTEX_POINT('',#12);
+#31 = VERTEX_POINT('',#13);
+#40 = AXIS2_PLACEMENT_3D('',#10,#20,#22);
+#41 = AXIS2_PLACEMENT_3D('',#11,#20,#22);
+#42 = CIRCLE('',#40,2.);
+#43 = CIRCLE('',#41,2.);
+#44 = VECTOR('',#20,1.);
+#45 = LINE('',#12,#44);
+#50 = EDGE_CURVE('',#30,#30,#42,.T.);
+#51 = EDGE_CURVE('',#31,#31,#43,.T.);
+#52 = EDGE_CURVE('',#30,#31,#45,.T.);
+#60 = AXIS2_PLACEMENT_3D('',#10,#21,#22);
+#61 = AXIS2_PLACEMENT_3D('',#11,#20,#22);
+#62 = PLANE('',#60);
+#63 = PLANE('',#61);
+#64 = AXIS2_PLACEMENT_3D('',#10,#20,#22);
+#65 = CYLINDRICAL_SURFACE('',#64,2.);
+#70 = ORIENTED_EDGE('',*,*,#50,.F.);
+#71 = ORIENTED_EDGE('',*,*,#51,.T.);
+#72 = ORIENTED_EDGE('',*,*,#50,.T.);
+#73 = ORIENTED_EDGE('',*,*,#52,.T.);
+#74 = ORIENTED_EDGE('',*,*,#51,.F.);
+#75 = ORIENTED_EDGE('',*,*,#52,.F.);
+#80 = EDGE_LOOP('',(#70));
+#81 = EDGE_LOOP('',(#71));
+#82 = EDGE_LOOP('',(#72,#73,#74,#75));
+#90 = FACE_OUTER_BOUND('',#80,.T.);
+#91 = FACE_OUTER_BOUND('',#81,.T.);
+#92 = FACE_OUTER_BOUND('',#82,.T.);
+#100 = ADVANCED_FACE('',(#90),#62,.T.);
+#101 = ADVANCED_FACE('',(#91),#63,.T.);
+#102 = ADVANCED_FACE('',(#92),#65,.T.);
+#110 = CLOSED_SHELL('',(#100,#101,#102));
+#120 = MANIFOLD_SOLID_BREP('cylinder',#110);
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+#[test]
+fn reads_cylinder_topology() {
+    use crate::geometry::cad::brep::{curve::Curve, surface::Surface};
+
+    let brep = read(CYLINDER).unwrap();
+    assert_eq!(brep.vertices.len(), 2);
+    assert_eq!(brep.edges.len(), 3);
+    assert_eq!(brep.faces.len(), 3);
+    assert_eq!(brep.shells.len(), 1);
+    assert!(brep.shells[0].closed);
+    assert_eq!(brep.shells[0].faces, vec![0, 1, 2]);
+
+    let planar = brep
+        .faces
+        .iter()
+        .filter(|face| matches!(face.surface, Surface::Plane(_)))
+        .count();
+    assert_eq!(planar, 2);
+
+    let Surface::Cylinder(cylinder) = &brep.faces[2].surface else {
+        panic!("lateral face is not cylindrical");
+    };
+    assert_eq!(cylinder.radius, 2.0);
+    assert_eq!(
+        cylinder.axis,
+        crate::geometry::Direction::const_from([0.0, 0.0, 1.0])
+    );
+
+    let circles = brep
+        .edges
+        .iter()
+        .filter(|edge| matches!(edge.curve, Curve::Circle(_)))
+        .count();
+    assert_eq!(circles, 2);
+
+    // The seam line joins the two rim vertices; each rim circle closes on one.
+    let Curve::Circle(rim) = &brep.edges[0].curve else {
+        panic!("edge 0 is not a circle");
+    };
+    assert_eq!(rim.radius, 2.0);
+    assert_eq!(brep.edges[2].vertices, [0, 1]);
+}
+
+/// The same capped cylinder, but the rim and seam edges reference their 3D
+/// geometry indirectly through `SEAM_CURVE` / `SURFACE_CURVE` wrappers, the way
+/// most kernels actually export trimmed analytic edges.
+const CYLINDER_INDIRECT: &str = r#"
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('capped cylinder, indirect edge geometry'),'2;1');
+FILE_NAME('cylinder.step','2026-08-28T00:00:00',(''),(''),'conspire','conspire','');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 }'));
+ENDSEC;
+DATA;
+#10 = CARTESIAN_POINT('',(0.,0.,0.));
+#11 = CARTESIAN_POINT('',(0.,0.,5.));
+#12 = CARTESIAN_POINT('',(2.,0.,0.));
+#13 = CARTESIAN_POINT('',(2.,0.,5.));
+#20 = DIRECTION('',(0.,0.,1.));
+#21 = DIRECTION('',(0.,0.,-1.));
+#22 = DIRECTION('',(1.,0.,0.));
+#30 = VERTEX_POINT('',#12);
+#31 = VERTEX_POINT('',#13);
+#40 = AXIS2_PLACEMENT_3D('',#10,#20,#22);
+#41 = AXIS2_PLACEMENT_3D('',#11,#20,#22);
+#42 = CIRCLE('',#40,2.);
+#43 = CIRCLE('',#41,2.);
+#44 = VECTOR('',#20,1.);
+#45 = LINE('',#12,#44);
+#46 = SEAM_CURVE('',#42,(#65,#65),.CURVE_3D.);
+#47 = SURFACE_CURVE('',#45,(#65,#63),.CURVE_3D.);
+#50 = EDGE_CURVE('',#30,#30,#46,.T.);
+#51 = EDGE_CURVE('',#31,#31,#43,.T.);
+#52 = EDGE_CURVE('',#30,#31,#47,.T.);
+#60 = AXIS2_PLACEMENT_3D('',#10,#21,#22);
+#61 = AXIS2_PLACEMENT_3D('',#11,#20,#22);
+#62 = PLANE('',#60);
+#63 = PLANE('',#61);
+#64 = AXIS2_PLACEMENT_3D('',#10,#20,#22);
+#65 = CYLINDRICAL_SURFACE('',#64,2.);
+#70 = ORIENTED_EDGE('',*,*,#50,.F.);
+#71 = ORIENTED_EDGE('',*,*,#51,.T.);
+#72 = ORIENTED_EDGE('',*,*,#50,.T.);
+#73 = ORIENTED_EDGE('',*,*,#52,.T.);
+#74 = ORIENTED_EDGE('',*,*,#51,.F.);
+#75 = ORIENTED_EDGE('',*,*,#52,.F.);
+#80 = EDGE_LOOP('',(#70));
+#81 = EDGE_LOOP('',(#71));
+#82 = EDGE_LOOP('',(#72,#73,#74,#75));
+#90 = FACE_OUTER_BOUND('',#80,.T.);
+#91 = FACE_OUTER_BOUND('',#81,.T.);
+#92 = FACE_OUTER_BOUND('',#82,.T.);
+#100 = ADVANCED_FACE('',(#90),#62,.T.);
+#101 = ADVANCED_FACE('',(#91),#63,.T.);
+#102 = ADVANCED_FACE('',(#92),#65,.T.);
+#110 = CLOSED_SHELL('',(#100,#101,#102));
+#120 = MANIFOLD_SOLID_BREP('cylinder',#110);
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+#[test]
+fn unwraps_surface_curve_edge_geometry() {
+    use crate::geometry::cad::brep::curve::Curve;
+
+    let brep = read(CYLINDER_INDIRECT).unwrap();
+    assert_eq!(brep.vertices.len(), 2);
+    assert_eq!(brep.edges.len(), 3);
+    assert_eq!(brep.faces.len(), 3);
+
+    let Curve::Circle(rim) = &brep.edges[0].curve else {
+        panic!("rim edge did not resolve through SEAM_CURVE to a circle");
+    };
+    assert_eq!(rim.radius, 2.0);
+    let Curve::Line(_) = &brep.edges[2].curve else {
+        panic!("seam edge did not resolve through SURFACE_CURVE to a line");
+    };
+}
+
 #[test]
 fn rejects_missing_solid() {
     let text = "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n#1 = PLANE('',#2);\n#2 = AXIS2_PLACEMENT_3D('',$,$,$);\nENDSEC;\nEND-ISO-10303-21;\n";

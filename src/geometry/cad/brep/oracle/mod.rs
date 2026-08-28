@@ -7,13 +7,13 @@ use super::{
     planar::PlanarFace,
 };
 use crate::{
-    geometry::{Coordinate, Direction, mesh::buffer::fit::Oracle},
+    geometry::{Coordinate, Direction, solid::SolidOracle},
     math::{Scalar, Tensor},
 };
 
-/// [`Oracle`] backed by the analytic B-rep: exact closest-point projection onto
-/// the trimmed planar faces, returning the hit face's exact plane normal. No
-/// tessellation, no facet normals.
+/// [`SolidOracle`] backed by the analytic B-rep: exact closest-point projection
+/// onto the trimmed planar faces, returning the hit face's exact plane normal.
+/// No tessellation, no facet normals.
 pub struct BrepOracle {
     faces: Vec<PlanarFace>,
     directions: [Direction<D>; 3],
@@ -37,24 +37,7 @@ impl Brep {
     }
 }
 
-impl BrepOracle {
-    /// Signed distance from `query` to the trimmed surface, positive inside the
-    /// solid. The magnitude is the exact distance to the nearest trimmed face.
-    pub fn signed_distance(&self, query: &Coordinate<D>) -> Scalar {
-        let magnitude = self
-            .faces
-            .iter()
-            .map(|face| (&closest_on_face(face, query) - query).norm().value())
-            .fold(Scalar::INFINITY, Scalar::min);
-        if encloses(query, &self.faces, &self.directions) {
-            magnitude
-        } else {
-            -magnitude
-        }
-    }
-}
-
-impl Oracle for BrepOracle {
+impl SolidOracle for BrepOracle {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
         self.faces
             .iter()
@@ -65,6 +48,21 @@ impl Oracle for BrepOracle {
             })
             .min_by(|a, b| a.2.total_cmp(&b.2))
             .map(|(point, normal, _)| (point, normal))
+    }
+
+    /// The magnitude is the exact distance to the nearest trimmed face; the sign
+    /// is positive when `query` is enclosed by the solid.
+    fn signed_distance(&self, query: &Coordinate<D>) -> Scalar {
+        let magnitude = self
+            .faces
+            .iter()
+            .map(|face| (&closest_on_face(face, query) - query).norm().value())
+            .fold(Scalar::INFINITY, Scalar::min);
+        if encloses(query, &self.faces, &self.directions) {
+            magnitude
+        } else {
+            -magnitude
+        }
     }
 }
 

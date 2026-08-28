@@ -1,5 +1,5 @@
 use crate::{
-    geometry::{Coordinate, cad::brep::test::unit_cube, mesh::buffer::fit::Oracle},
+    geometry::{Coordinate, cad::brep::test::unit_cube, solid::SolidOracle},
     math::TensorRank1,
 };
 use std::array::from_fn;
@@ -31,7 +31,9 @@ fn projects_an_interior_point_onto_the_nearest_face() {
 #[test]
 fn a_point_on_a_face_projects_to_itself() {
     let oracle = unit_cube().oracle().unwrap();
-    let (point, normal) = oracle.project(&Coordinate::from([0.25, 0.75, 0.0])).unwrap();
+    let (point, normal) = oracle
+        .project(&Coordinate::from([0.25, 0.75, 0.0]))
+        .unwrap();
     assert!(close(&components(&point), &[0.25, 0.75, 0.0]));
     assert!(close(&components(&normal), &[0.0, 0.0, -1.0]));
 }

@@ -1,6 +1,7 @@
 use crate::{
     geometry::cad::{brep::test::axis_aligned_box, sizing::FeatureSizing},
     geometry::mesh::Class,
+    geometry::solid::Solid,
     math::Quantity,
     units::Length,
 };

@@ -30,7 +30,11 @@ impl Brep {
         }
         let creases: Vec<usize> = (0..self.edges.len())
             .filter(|&edge| match incident[edge].as_slice() {
-                [a, b] => dot(self.faces[*a].normal(), self.faces[*b].normal()) < SHARP,
+                [a, b] if a == b => false,
+                [a, b] => match (self.faces[*a].normal(), self.faces[*b].normal()) {
+                    (Some(x), Some(y)) => dot(x, y) < SHARP,
+                    _ => true,
+                },
                 _ => true,
             })
             .collect();

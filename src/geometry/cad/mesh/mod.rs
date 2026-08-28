@@ -1,81 +1,29 @@
-//! Meshing B-reps.
+//! Wiring [`Brep`] into the shared [`Solid`](crate::geometry::solid::Solid)
+//! meshing driver.
 
 #[cfg(test)]
 mod test;
 
-use super::{brep::Brep, sizing::FeatureSizing};
+use super::brep::{Brep, oracle::BrepOracle};
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
-        mesh::{Class, Connectivity, Fitting, Mesh},
-        ntree::{
-            Balance, Balancing, Dualization, Orthotree, Pairing, Rescaling,
-            node::{Kind, Node, slot::Slot},
-        },
+        Coordinate,
+        mesh::{Class, Mesh},
+        solid::Solid,
     },
-    math::{Quantity, Scalar, Tensor},
-    units::Length,
+    math::Scalar,
 };
-use std::{array::from_fn, num::NonZeroU32};
+use std::array::from_fn;
 
 const D: usize = 3;
 
-/// Tong et al. 2024 §2.3: keep a hex iff `f_min + TRIM_RATIO * f_max >= 0` over
-/// its eight corner signed distances. Mirrors `mesh::tessellation::trim`.
-const TRIM_RATIO: Scalar = 0.1;
+impl Solid for Brep {
+    type Oracle = BrepOracle;
 
-type Cube = Orthotree<D, 4, 6, 8, u16, NonZeroU32>;
-
-impl Brep {
-    /// Refines an octree over this solid's bounding box until every leaf is no
-    /// larger than `sizing` allows at its centre, then returns the leaves as a
-    /// hexahedral mesh.
-    ///
-    /// No tessellation, no balancing, no cutting: the mesh is a graded block
-    /// of cubes covering the bounding box, hanging nodes and all.
-    ///
-    /// `max_levels` (1..=15) caps the octree depth, so the finest cell is the
-    /// padded bounding box over `2^max_levels`. `padding` grows the box by
-    /// that fraction on each side.
-    pub fn sizing_octree(
-        &self,
-        sizing: &FeatureSizing,
-        max_levels: u32,
-        padding: Scalar,
-    ) -> Result<Mesh<D>, &'static str> {
-        let tree = self.refine_octree(sizing, max_levels, padding)?;
-        let rescale = Rescaling {
-            center: tree.rescale().center.clone(),
-            cell: tree.rescale().cell,
-            half: tree.rescale().half,
-        };
-        let (connectivity, mut coordinates): (Vec<[usize; 8]>, Coordinates<D>) = tree.into();
-        coordinates
-            .iter_mut()
-            .for_each(|coordinate| *coordinate = rescale.apply(coordinate));
-        Ok((
-            vec![Connectivity::Hexahedral(connectivity.into())],
-            coordinates,
-        )
-            .into())
-    }
-
-    /// Refines an octree over this solid's padded bounding box until every leaf
-    /// is no larger than `sizing` allows at its centre. `max_levels` (1..=15)
-    /// caps the depth; `padding` grows the box by that fraction per side.
-    fn refine_octree(
-        &self,
-        sizing: &FeatureSizing,
-        max_levels: u32,
-        padding: Scalar,
-    ) -> Result<Cube, &'static str> {
+    fn bounding_box(&self) -> Result<(Coordinate<D>, Coordinate<D>), &'static str> {
         if self.vertices.is_empty() {
             return Err("brep has no vertices");
         }
-        if !(1..=15).contains(&max_levels) {
-            return Err("max_levels must be in 1..=15");
-        }
-        let root_cells = 1u16 << max_levels;
         let mut low = [Scalar::INFINITY; D];
         let mut high = [Scalar::NEG_INFINITY; D];
         for vertex in &self.vertices {
@@ -84,152 +32,16 @@ impl Brep {
                 *hi = hi.max(vertex[axis].value());
             }
         }
-        let center: Coordinate<D> = from_fn(|axis| 0.5 * (low[axis] + high[axis])).into();
-        let side = (0..D)
-            .map(|axis| high[axis] - low[axis])
-            .fold(0.0, Scalar::max)
-            * (1.0 + padding.max(0.0));
-        if side <= 0.0 {
-            return Err("degenerate bounding box");
-        }
-        let cell = Quantity::<Length>::new(side / Scalar::from(root_cells));
-        let half = Scalar::from(root_cells) / 2.0;
-
-        let mut tree: Cube = Orthotree {
-            balanced: Balancing::None,
-            paired: Pairing::None,
-            rescale: Rescaling {
-                center: center.clone(),
-                cell,
-                half,
-            },
-            nodes: vec![Node {
-                corner: [0; D],
-                length: root_cells,
-                facets: [None; 6],
-                kind: Kind::Leaf,
-                value: None,
-            }],
-        };
-        let physical = |cells: [u16; D]| -> Coordinate<D> {
-            from_fn(|axis| cell.value() * (Scalar::from(cells[axis]) - half) + center[axis].value())
-                .into()
-        };
-        let mut stack = vec![0usize];
-        while let Some(index) = stack.pop() {
-            let length = tree.nodes[index].length;
-            if length <= 1 {
-                continue;
-            }
-            let extent = cell * Scalar::from(length);
-            if extent <= sizing.at(&physical(tree.nodes[index].center())) {
-                continue;
-            }
-            tree.subdivide(index)?;
-            let children: Vec<usize> = tree.nodes[index]
-                .orthants()
-                .expect("subdivided node has orthants")
-                .iter()
-                .map(|slot| slot.slot())
-                .collect();
-            stack.extend(children);
-        }
-        Ok(tree)
+        let low: Coordinate<D> = from_fn(|axis| low[axis]).into();
+        let high: Coordinate<D> = from_fn(|axis| high[axis]).into();
+        Ok((low, high))
     }
 
-    /// Refines the octree from `sizing`, balances and dualizes it, and
-    /// classifies the resulting conforming all-hex mesh against this solid.
-    /// `balancing` must be `Strong(1)` or `Weak(1)`.
-    pub fn dual_background(
-        &self,
-        sizing: &FeatureSizing,
-        max_levels: u32,
-        padding: Scalar,
-        balancing: Balancing,
-    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let mut tree = self.refine_octree(sizing, max_levels, padding)?;
-        tree.equilibrate(balancing, Pairing::Regular)?;
-        let mesh = tree.dualize();
-        let classes = self.classify(&mesh)?;
-        Ok((mesh, classes))
+    fn oracle(&self) -> Result<Self::Oracle, &'static str> {
+        Brep::oracle(self)
     }
 
-    /// Builds the [`dual_background`](Self::dual_background) and drops the
-    /// `Outside` cells. The kept `Cut` cells straddle the surface and come back
-    /// for a later fit or cut step, so this is a trimmed background, not a
-    /// finished mesh.
-    pub fn trim(
-        &self,
-        sizing: &FeatureSizing,
-        max_levels: u32,
-        padding: Scalar,
-        balancing: Balancing,
-    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let (mut mesh, classes) = self.dual_background(sizing, max_levels, padding, balancing)?;
-        let keep: Vec<bool> = classes
-            .iter()
-            .map(|&class| class != Class::Outside)
-            .collect();
-        mesh.keep_hexes(|index, _, _| keep[index])?;
-        let classes = classes
-            .into_iter()
-            .zip(&keep)
-            .filter_map(|(class, &keep)| keep.then_some(class))
-            .collect();
-        Ok((mesh, classes))
-    }
-
-    /// Meshes this solid end to end: refine the octree from `sizing`, balance,
-    /// dualize, trim interior cells back to the surface by Tong's per-hex SDF
-    /// ratio rule, then inflate a boundary layer and fit it to the exact
-    /// geometry with the analytic [`oracle`](Self::oracle). Planar faces only.
-    pub fn mesh(
-        &self,
-        sizing: &FeatureSizing,
-        max_levels: u32,
-        padding: Scalar,
-        balancing: Balancing,
-        fitting: Fitting,
-    ) -> Result<Mesh<D>, &'static str> {
-        let (mut mesh, classes) = self.dual_background(sizing, max_levels, padding, balancing)?;
-        let oracle = self.oracle()?;
-        let outside: Vec<bool> = classes
-            .iter()
-            .map(|&class| class == Class::Outside)
-            .collect();
-        let number_of_nodes = mesh.coordinates().len();
-        let mut needed = vec![false; number_of_nodes];
-        {
-            let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
-                return Err("dual background is not a single hexahedral block");
-            };
-            block.iter().zip(&outside).for_each(|(hex, &out)| {
-                if !out {
-                    hex.iter().for_each(|&node| needed[node] = true)
-                }
-            });
-        }
-        let signed: Vec<Scalar> = (0..number_of_nodes)
-            .map(|node| {
-                if needed[node] {
-                    oracle.signed_distance(&mesh.coordinates()[node])
-                } else {
-                    Scalar::NEG_INFINITY
-                }
-            })
-            .collect();
-        mesh.keep_hexes(|index, hex, _| {
-            if outside[index] {
-                return false;
-            }
-            let (minimum, maximum) = hex.iter().fold(
-                (Scalar::INFINITY, Scalar::NEG_INFINITY),
-                |(minimum, maximum), &node| {
-                    (minimum.min(signed[node]), maximum.max(signed[node]))
-                },
-            );
-            minimum + TRIM_RATIO * maximum >= 0.0
-        })?;
-        mesh.buffer_with(&oracle, fitting)
+    fn classify(&self, mesh: &Mesh<D>) -> Result<Vec<Class>, &'static str> {
+        Brep::classify(self, mesh)
     }
 }

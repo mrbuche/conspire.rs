@@ -21,7 +21,9 @@ fn dihedral_crosses_the_cutoff() {
     let fold = |degrees: f64| {
         let mut brep = coplanar_squares();
         let angle = degrees.to_radians();
-        let super::super::surface::Surface::Plane(plane) = &mut brep.faces[1].surface;
+        let super::super::surface::Surface::Plane(plane) = &mut brep.faces[1].surface else {
+            unreachable!()
+        };
         plane.normal = crate::geometry::Direction::const_from([angle.sin(), 0.0, angle.cos()]);
         brep.features().creases.contains(&1)
     };

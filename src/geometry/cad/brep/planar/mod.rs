@@ -45,7 +45,9 @@ impl PlanarFace {
 
 impl Brep {
     pub fn planar_face(&self, face: &Face) -> Result<PlanarFace, &'static str> {
-        let Surface::Plane(plane) = &face.surface;
+        let Surface::Plane(plane) = &face.surface else {
+            return Err("planar_face called on a non-planar face");
+        };
         let sign = if face.forward { 1.0 } else { -1.0 };
         let normal = (&plane.normal * sign).normalized();
         let reference = &plane.reference_direction;
