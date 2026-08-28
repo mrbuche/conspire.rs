@@ -1,7 +1,7 @@
 use super::{
     Brep, Edge, Face, HalfEdge, Loop, Shell,
-    curve::{Curve, Line},
-    surface::{Plane, Surface},
+    curve::{Circle, Curve, Line},
+    surface::{Cylinder, Plane, Surface},
 };
 use crate::geometry::{Coordinate, Direction};
 
@@ -110,6 +110,86 @@ pub(crate) fn axis_aligned_box(extents: [f64; 3]) -> Brep {
         faces,
         shells: vec![Shell {
             faces: (0..6).collect(),
+            closed: true,
+        }],
+    }
+}
+
+/// A capped right circular cylinder about `+z`, base centred at the origin: two
+/// planar disk caps and one cylindrical lateral face split by a seam line at
+/// angle 0.
+pub(crate) fn capped_cylinder(radius: f64, height: f64) -> Brep {
+    let vertices = vec![
+        Coordinate::const_from([radius, 0.0, 0.0]),
+        Coordinate::const_from([radius, 0.0, height]),
+    ];
+    let rim = |z: f64| {
+        Curve::Circle(Circle {
+            center: Coordinate::const_from([0.0, 0.0, z]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        })
+    };
+    let edges = vec![
+        Edge {
+            vertices: [0, 0],
+            curve: rim(0.0),
+        },
+        Edge {
+            vertices: [1, 1],
+            curve: rim(height),
+        },
+        Edge {
+            vertices: [0, 1],
+            curve: Curve::Line(Line {
+                origin: Coordinate::const_from([radius, 0.0, 0.0]),
+                direction: direction([0.0, 0.0, 1.0]),
+            }),
+        },
+    ];
+    let edge_loop = |half_edges: &[(usize, bool)]| Loop {
+        half_edges: half_edges
+            .iter()
+            .map(|&(edge, forward)| HalfEdge { edge, forward })
+            .collect(),
+    };
+    let faces = vec![
+        Face {
+            surface: Surface::Plane(Plane {
+                origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+                normal: direction([0.0, 0.0, -1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+            }),
+            bounds: vec![edge_loop(&[(0, false)])],
+            forward: true,
+        },
+        Face {
+            surface: Surface::Plane(Plane {
+                origin: Coordinate::const_from([0.0, 0.0, height]),
+                normal: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+            }),
+            bounds: vec![edge_loop(&[(1, true)])],
+            forward: true,
+        },
+        Face {
+            surface: Surface::Cylinder(Cylinder {
+                origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+                axis: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius,
+            }),
+            bounds: vec![edge_loop(&[(0, true), (2, true), (1, false), (2, false)])],
+            forward: true,
+        },
+    ];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell {
+            faces: vec![0, 1, 2],
             closed: true,
         }],
     }

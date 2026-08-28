@@ -271,6 +271,53 @@ fn reads_cylinder_topology() {
     assert_eq!(brep.edges[2].vertices, [0, 1]);
 }
 
+#[test]
+fn read_cylinder_recognised_as_a_primitive_and_meshed() {
+    use crate::{
+        geometry::{
+            Coordinate,
+            csg::Primitive,
+            mesh::{Connectivity, Fitting, Verdict},
+            ntree::Balancing,
+            solid::{Solid, SolidOracle, Uniform},
+        },
+        math::Quantity,
+        units::Length,
+    };
+
+    let Some(Primitive::Cylinder(cylinder)) = read(CYLINDER).unwrap().primitive() else {
+        panic!("read cylinder not recognised as a primitive");
+    };
+    let oracle = cylinder.oracle().unwrap();
+    assert!((oracle.signed_distance(&Coordinate::from([0.0, 0.0, 2.5])) - 2.0).abs() < 1e-9);
+
+    let mesh = cylinder
+        .mesh(
+            &Uniform(Quantity::<Length>::new(0.6)),
+            6,
+            0.1,
+            Balancing::Strong(1),
+            Fitting::Soft,
+        )
+        .unwrap();
+    assert!(matches!(
+        mesh.connectivities()[0],
+        Connectivity::Hexahedral(_)
+    ));
+    assert!(mesh.minimum_scaled_jacobians()[0].iter().all(|&j| j > 0.0));
+
+    let mut low = [f64::INFINITY; 3];
+    let mut high = [f64::NEG_INFINITY; 3];
+    for coordinate in mesh.coordinates() {
+        for k in 0..3 {
+            low[k] = low[k].min(coordinate[k].value());
+            high[k] = high[k].max(coordinate[k].value());
+        }
+    }
+    assert!((low[0] + 2.0).abs() < 0.25 && (high[0] - 2.0).abs() < 0.25);
+    assert!(low[2].abs() < 0.1 && (high[2] - 5.0).abs() < 0.1);
+}
+
 /// The same capped cylinder, but the rim and seam edges reference their 3D
 /// geometry indirectly through `SEAM_CURVE` / `SURFACE_CURVE` wrappers, the way
 /// most kernels actually export trimmed analytic edges.

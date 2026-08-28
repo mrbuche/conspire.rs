@@ -13,6 +13,7 @@ pub mod features;
 pub mod inside;
 pub mod oracle;
 pub mod planar;
+mod primitive;
 pub mod surface;
 mod tessellate;
 
