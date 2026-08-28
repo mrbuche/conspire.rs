@@ -9,6 +9,7 @@ pub mod test;
 
 pub mod curve;
 pub mod features;
+pub mod inside;
 pub mod planar;
 pub mod surface;
 mod tessellate;
