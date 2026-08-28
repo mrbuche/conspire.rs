@@ -140,11 +140,28 @@ fn max_levels_is_bounded() {
 }
 
 #[test]
-fn tessellation_dual_background_still_runs() {
+fn dual_background_classifies_the_dual_mesh() {
     let brep = unit_cube();
-    let (mesh, classes) = brep.dual_background(Balancing::Strong(1), 4.0).unwrap();
+    let sizing = FeatureSizing::of(&brep, 16, length(0.01), length(2.0), 0.25);
+    let (mesh, classes) = brep
+        .dual_background(&sizing, 5, 0.1, Balancing::Strong(1))
+        .unwrap();
     assert_eq!(hexes(&mesh).len(), classes.len());
-    assert!(classes.contains(&crate::geometry::mesh::Class::Inside));
+    assert!(classes.contains(&Class::Inside));
+    assert!(classes.contains(&Class::Cut));
+
+    // The flood fill agrees with a direct test away from the boundary.
+    let centroids = mesh.centroids();
+    for (index, &class) in classes.iter().enumerate() {
+        if class == Class::Cut {
+            continue;
+        }
+        assert_eq!(
+            class == Class::Inside,
+            brep.encloses(&centroids[index]).unwrap(),
+            "cell {index}"
+        );
+    }
 }
 
 #[test]
@@ -152,7 +169,7 @@ fn trim_hugs_the_geometry() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
     let sizing = FeatureSizing::of(&brep, 64, length(0.05), length(1.0), 0.25);
-    let (mesh, classes) = brep.trim(&sizing, 6, 0.1).unwrap();
+    let (mesh, classes) = brep.trim(&sizing, 6, 0.1, Balancing::Strong(1)).unwrap();
 
     assert_eq!(hexes(&mesh).len(), classes.len());
     assert!(classes.iter().all(|&class| class != Class::Outside));

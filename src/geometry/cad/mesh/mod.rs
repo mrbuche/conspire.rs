@@ -9,7 +9,7 @@ use crate::{
         Coordinate, Coordinates,
         mesh::{Class, Connectivity, Mesh},
         ntree::{
-            Balancing, Orthotree, Pairing, Rescaling,
+            Balance, Balancing, Dualization, Orthotree, Pairing, Rescaling,
             node::{Kind, Node, slot::Slot},
         },
     },
@@ -39,6 +39,32 @@ impl Brep {
         max_levels: u32,
         padding: Scalar,
     ) -> Result<Mesh<D>, &'static str> {
+        let tree = self.refine_octree(sizing, max_levels, padding)?;
+        let rescale = Rescaling {
+            center: tree.rescale().center.clone(),
+            cell: tree.rescale().cell,
+            half: tree.rescale().half,
+        };
+        let (connectivity, mut coordinates): (Vec<[usize; 8]>, Coordinates<D>) = tree.into();
+        coordinates
+            .iter_mut()
+            .for_each(|coordinate| *coordinate = rescale.apply(coordinate));
+        Ok((
+            vec![Connectivity::Hexahedral(connectivity.into())],
+            coordinates,
+        )
+            .into())
+    }
+
+    /// Refines an octree over this solid's padded bounding box until every leaf
+    /// is no larger than `sizing` allows at its centre. `max_levels` (1..=15)
+    /// caps the depth; `padding` grows the box by that fraction per side.
+    fn refine_octree(
+        &self,
+        sizing: &FeatureSizing,
+        max_levels: u32,
+        padding: Scalar,
+    ) -> Result<Cube, &'static str> {
         if self.vertices.is_empty() {
             return Err("brep has no vertices");
         }
@@ -64,11 +90,6 @@ impl Brep {
         }
         let cell = Quantity::<Length>::new(side / Scalar::from(root_cells));
         let half = Scalar::from(root_cells) / 2.0;
-        let rescale = Rescaling {
-            center: center.clone(),
-            cell,
-            half,
-        };
 
         let mut tree: Cube = Orthotree {
             balanced: Balancing::None,
@@ -109,30 +130,38 @@ impl Brep {
                 .collect();
             stack.extend(children);
         }
-
-        let (connectivity, mut coordinates): (Vec<[usize; 8]>, Coordinates<D>) = tree.into();
-        coordinates
-            .iter_mut()
-            .for_each(|coordinate| *coordinate = rescale.apply(coordinate));
-        Ok((
-            vec![Connectivity::Hexahedral(connectivity.into())],
-            coordinates,
-        )
-            .into())
+        Ok(tree)
     }
 
-    /// Refines the [`sizing_octree`](Self::sizing_octree) background,
-    /// classifies its cells against this solid, and drops the `Outside` ones.
-    /// The kept `Cut` cells straddle the surface and come back for a later fit
-    /// or cut step, so this is a trimmed background, not a finished mesh.
+    /// Refines the octree from `sizing`, balances and dualizes it, and
+    /// classifies the resulting conforming all-hex mesh against this solid.
+    /// `balancing` must be `Strong(1)` or `Weak(1)`.
+    pub fn dual_background(
+        &self,
+        sizing: &FeatureSizing,
+        max_levels: u32,
+        padding: Scalar,
+        balancing: Balancing,
+    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
+        let mut tree = self.refine_octree(sizing, max_levels, padding)?;
+        tree.equilibrate(balancing, Pairing::Regular)?;
+        let mesh = tree.dualize();
+        let classes = self.classify(&mesh)?;
+        Ok((mesh, classes))
+    }
+
+    /// Builds the [`dual_background`](Self::dual_background) and drops the
+    /// `Outside` cells. The kept `Cut` cells straddle the surface and come back
+    /// for a later fit or cut step, so this is a trimmed background, not a
+    /// finished mesh.
     pub fn trim(
         &self,
         sizing: &FeatureSizing,
         max_levels: u32,
         padding: Scalar,
+        balancing: Balancing,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let mut mesh = self.sizing_octree(sizing, max_levels, padding)?;
-        let classes = self.classify(&mesh)?;
+        let (mut mesh, classes) = self.dual_background(sizing, max_levels, padding, balancing)?;
         let keep: Vec<bool> = classes
             .iter()
             .map(|&class| class != Class::Outside)
@@ -144,17 +173,5 @@ impl Brep {
             .filter_map(|(class, &keep)| keep.then_some(class))
             .collect();
         Ok((mesh, classes))
-    }
-
-    /// Hexahedral background from the tessellation's octree-dual pathway.
-    /// Temporary, and the one place a tessellation is still involved.
-    ///
-    /// `balancing` must be `Strong(1)` or `Weak(1)`.
-    pub fn dual_background(
-        &self,
-        balancing: Balancing,
-        scale: Scalar,
-    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        self.tessellate()?.dual_background(balancing, scale)
     }
 }
