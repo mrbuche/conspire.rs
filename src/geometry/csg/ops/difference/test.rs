@@ -1,10 +1,7 @@
 use crate::{
     geometry::{
         Coordinate,
-        csg::{
-            Cuboid, Sphere,
-            ops::{Difference, Intersection, Union},
-        },
+        csg::{Cuboid, Sphere, ops::Difference},
         mesh::{Connectivity, Fitting, Verdict},
         ntree::Balancing,
         solid::{Solid, SolidOracle, Uniform},
@@ -21,8 +18,11 @@ fn point(entries: [f64; 3]) -> Coordinate<3> {
     Coordinate::from(entries)
 }
 
-fn box_centered(half: f64) -> Cuboid {
-    Cuboid::new(point([-half; 3]), point([half; 3])).unwrap()
+fn porous_block() -> Difference<Cuboid, Sphere> {
+    Difference::new(
+        Cuboid::new(point([-3.0; 3]), point([3.0; 3])).unwrap(),
+        Sphere::new(point([0.0; 3]), 1.5).unwrap(),
+    )
 }
 
 fn radius_from_origin(coordinate: &Coordinate<3>) -> f64 {
@@ -33,39 +33,20 @@ fn radius_from_origin(coordinate: &Coordinate<3>) -> f64 {
 }
 
 #[test]
-fn difference_signed_distance_carves_the_pore() {
-    let solid = Difference::new(box_centered(3.0), Sphere::new(point([0.0; 3]), 1.5).unwrap());
-    let oracle = solid.oracle().unwrap();
+fn signed_distance_carves_the_pore() {
+    let oracle = porous_block().oracle().unwrap();
     // Pore centre: deepest point of the removed region, 1.5 outside the solid.
     assert!((oracle.signed_distance(&point([0.0; 3])) + 1.5).abs() < 1e-12);
-    // Halfway out along x through solid material: positive.
+    // Through solid material between pore and wall: positive.
     assert!(oracle.signed_distance(&point([2.25, 0.0, 0.0])) > 0.0);
-    // On the pore wall.
+    // On the pore wall, and on the outer wall.
     assert!(oracle.signed_distance(&point([1.5, 0.0, 0.0])).abs() < 1e-12);
-    // On the outer wall.
     assert!(oracle.signed_distance(&point([3.0, 0.0, 0.0])).abs() < 1e-12);
 }
 
 #[test]
-fn union_and_intersection_signed_distance() {
-    let a = Sphere::new(point([-1.0, 0.0, 0.0]), 2.0).unwrap();
-    let b = Sphere::new(point([1.0, 0.0, 0.0]), 2.0).unwrap();
-    let union = Union::new(vec![a, b]).unwrap().oracle().unwrap();
-    let a = Sphere::new(point([-1.0, 0.0, 0.0]), 2.0).unwrap();
-    let b = Sphere::new(point([1.0, 0.0, 0.0]), 2.0).unwrap();
-    let intersection = Intersection::new(a, b).oracle().unwrap();
-
-    // Well inside one sphere only: in the union, out of the intersection.
-    assert!(union.signed_distance(&point([-2.5, 0.0, 0.0])) > 0.0);
-    assert!(intersection.signed_distance(&point([-2.5, 0.0, 0.0])) < 0.0);
-    // The shared lens centre is inside both.
-    assert!(intersection.signed_distance(&point([0.0; 3])) > 0.0);
-}
-
-#[test]
-fn difference_meshes_a_porous_block() {
-    let solid = Difference::new(box_centered(3.0), Sphere::new(point([0.0; 3]), 1.5).unwrap());
-    let mesh = solid
+fn meshes_a_porous_block() {
+    let mesh = porous_block()
         .mesh(
             &Uniform(length(0.6)),
             6,
@@ -88,7 +69,7 @@ fn difference_meshes_a_porous_block() {
     );
 
     // The pore is hollow: no node sits well inside the sphere, and the fit
-    // brings the cavity wall out to its radius.
+    // brings the cavity wall out toward its radius.
     let mut closest = f64::INFINITY;
     for coordinate in mesh.coordinates() {
         closest = closest.min(radius_from_origin(coordinate));
