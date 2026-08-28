@@ -234,3 +234,45 @@ fn mesh_fits_the_unit_cube() {
     ))))
     .unwrap();
 }
+
+#[test]
+fn mesh_fits_the_graded_box() {
+    let extents = [2.0, 4.0, 8.0];
+    let brep = axis_aligned_box(extents);
+    let sizing = FeatureSizing::of(&brep, 64, length(0.05), length(1.0), 0.25);
+    let mesh = brep
+        .mesh(&sizing, 6, 0.1, Balancing::Strong(1), Fitting::Soft)
+        .unwrap();
+
+    assert_eq!(mesh.connectivities().len(), 1);
+    let jacobians = mesh.minimum_scaled_jacobians();
+    assert!(
+        jacobians[0].iter().all(|&j| j > 0.0),
+        "inverted hex: worst scaled Jacobian {}",
+        jacobians[0].iter().cloned().fold(f64::INFINITY, f64::min)
+    );
+
+    // The graded, edge-refined dual fits onto the box faces to within a small
+    // fraction of the coarsest boundary edge.
+    let mut low = [f64::INFINITY; 3];
+    let mut high = [f64::NEG_INFINITY; 3];
+    for coordinate in mesh.coordinates() {
+        for axis in 0..3 {
+            low[axis] = low[axis].min(coordinate[axis].value());
+            high[axis] = high[axis].max(coordinate[axis].value());
+        }
+    }
+    for axis in 0..3 {
+        assert!(low[axis].abs() < 5e-3, "low[{axis}] = {}", low[axis]);
+        assert!(
+            (high[axis] - extents[axis]).abs() < 5e-3,
+            "high[{axis}] = {}",
+            high[axis]
+        );
+    }
+
+    mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+        "target/cad_box_meshed.vtu",
+    ))))
+    .unwrap();
+}
