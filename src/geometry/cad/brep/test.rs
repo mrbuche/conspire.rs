@@ -39,6 +39,12 @@ pub(crate) fn face(normal: [f64; 3], reference: [f64; 3], half_edges: &[(usize, 
 
 /// The axis-aligned unit cube `[0, 1]^3` as a closed shell of six planar faces.
 pub(crate) fn unit_cube() -> Brep {
+    axis_aligned_box([1.0, 1.0, 1.0])
+}
+
+/// The axis-aligned box `[0, extents[0]] x [0, extents[1]] x [0, extents[2]]` as a
+/// closed shell of six planar faces.
+pub(crate) fn axis_aligned_box(extents: [f64; 3]) -> Brep {
     let vertices = [
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
@@ -50,7 +56,7 @@ pub(crate) fn unit_cube() -> Brep {
         [0.0, 1.0, 1.0],
     ]
     .into_iter()
-    .map(Coordinate::const_from)
+    .map(|[x, y, z]| Coordinate::const_from([x * extents[0], y * extents[1], z * extents[2]]))
     .collect();
     let edges = vec![
         edge(0, 1),

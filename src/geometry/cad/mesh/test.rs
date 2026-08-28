@@ -1,6 +1,9 @@
 use crate::{
     geometry::{
-        cad::{brep::test::unit_cube, sizing::FeatureSizing},
+        cad::{
+            brep::test::{axis_aligned_box, unit_cube},
+            sizing::FeatureSizing,
+        },
         mesh::{Connectivity, Mesh, Output, Vtk},
         ntree::Balancing,
     },
@@ -42,14 +45,14 @@ fn cell_center(hex: &[usize; 8], mesh: &Mesh<3>) -> [f64; 3] {
     center
 }
 
-/// Distance from a point to the wireframe of the unit cube.
-fn distance_to_cube_edges(point: [f64; 3]) -> f64 {
+/// Distance from a point to the wireframe of the axis-aligned box `[0, extents]`.
+fn distance_to_box_edges(point: [f64; 3], extents: [f64; 3]) -> f64 {
     let mut best = f64::INFINITY;
     for axis in 0..3 {
         let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
-        for &cu in &[0.0, 1.0] {
-            for &cv in &[0.0, 1.0] {
-                let along = (point[axis]).clamp(0.0, 1.0);
+        for &cu in &[0.0, extents[u]] {
+            for &cv in &[0.0, extents[v]] {
+                let along = (point[axis]).clamp(0.0, extents[axis]);
                 let foot = {
                     let mut f = [0.0; 3];
                     f[axis] = along;
@@ -70,8 +73,11 @@ fn distance_to_cube_edges(point: [f64; 3]) -> f64 {
 
 #[test]
 fn sizing_field_grades_the_octree() {
-    let brep = unit_cube();
-    let sizing = FeatureSizing::of(&brep, 16, length(0.01), length(2.0), 0.25);
+    // A rectangular box: the octree root is a cube of the longest side, so it
+    // overhangs the geometry on the two shorter axes.
+    let extents = [2.0, 4.0, 8.0];
+    let brep = axis_aligned_box(extents);
+    let sizing = FeatureSizing::of(&brep, 64, length(0.01), length(2.0), 0.25);
     let mesh = brep.sizing_octree(&sizing, 7, 0.0).unwrap();
     let cells = hexes(&mesh);
 
@@ -88,7 +94,7 @@ fn sizing_field_grades_the_octree() {
     assert!(largest > smallest + 1e-9, "octree is uniform, not graded");
 
     // Small cells hug the edges; large cells sit in the interior.
-    let near_edges = |hex: &[usize; 8]| distance_to_cube_edges(cell_center(hex, &mesh));
+    let near_edges = |hex: &[usize; 8]| distance_to_box_edges(cell_center(hex, &mesh), extents);
     let smallest_cell = cells
         .iter()
         .min_by(|a, b| cell_size(a, &mesh).total_cmp(&cell_size(b, &mesh)))
@@ -99,7 +105,8 @@ fn sizing_field_grades_the_octree() {
         .unwrap();
     assert!(near_edges(smallest_cell) < near_edges(largest_cell));
 
-    // Padding zero, so the block fills the cube exactly.
+    // Padding zero, so the block fills the octree root cube: an 8x8x8 cube
+    // centred on the box, overhanging the geometry on x and y.
     let mut low = [f64::INFINITY; 3];
     let mut high = [f64::NEG_INFINITY; 3];
     for coordinate in mesh.coordinates() {
@@ -108,12 +115,18 @@ fn sizing_field_grades_the_octree() {
             high[axis] = high[axis].max(coordinate[axis].value());
         }
     }
+    let side = extents.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
     for axis in 0..3 {
-        assert!(low[axis].abs() < 1e-9 && (high[axis] - 1.0).abs() < 1e-9);
+        let center = 0.5 * extents[axis];
+        assert!((low[axis] - (center - side / 2.0)).abs() < 1e-9);
+        assert!((high[axis] - (center + side / 2.0)).abs() < 1e-9);
     }
+    // The root cube genuinely hangs past the geometry on the short axes.
+    assert!(low[0] < -1e-6 && high[0] > extents[0] + 1e-6);
+    assert!(low[1] < -1e-6 && high[1] > extents[1] + 1e-6);
 
     mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
-        "target/cad_cube_sizing_octree.vtu",
+        "target/cad_box_sizing_octree.vtu",
     ))))
     .unwrap();
 }
