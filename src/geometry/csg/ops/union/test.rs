@@ -1,7 +1,10 @@
 use crate::{
     geometry::{
-        Coordinate,
-        csg::{Sphere, ops::Union},
+        Coordinate, Direction,
+        csg::{
+            Cuboid, Cylinder, Sphere,
+            ops::{Difference, Union},
+        },
         mesh::{Connectivity, Fitting, Verdict},
         ntree::Balancing,
         solid::{Solid, SolidOracle, Uniform},
@@ -18,35 +21,34 @@ fn point(entries: [f64; 3]) -> Coordinate<3> {
     Coordinate::from(entries)
 }
 
-fn pair() -> Union<Sphere> {
-    Union::new(vec![
-        Sphere::new(point([-1.0, 0.0, 0.0]), 2.0).unwrap(),
-        Sphere::new(point([1.0, 0.0, 0.0]), 2.0).unwrap(),
-    ])
-    .unwrap()
+fn axis(entries: [f64; 3]) -> Direction<3> {
+    Direction::const_from(entries)
 }
 
 #[test]
-fn empty_union_is_rejected() {
-    assert!(Union::<Sphere>::new(vec![]).is_err());
+fn signed_distance_of_heterogeneous_operands() {
+    // A box with a cylindrical boss on its +z face -- no enum, no trait object.
+    let solid = Union::new(
+        Cuboid::new(point([-2.0; 3]), point([2.0; 3])).unwrap(),
+        Cylinder::new(point([0.0, 0.0, 2.0]), axis([0.0, 0.0, 1.0]), 1.0, 1.5).unwrap(),
+    );
+    let oracle = solid.oracle().unwrap();
+    assert!(oracle.signed_distance(&point([0.0; 3])) > 0.0);
+    assert!(oracle.signed_distance(&point([0.0, 0.0, 3.0])) > 0.0);
+    assert!(oracle.signed_distance(&point([1.8, 0.0, 3.0])) < 0.0);
 }
 
 #[test]
-fn signed_distance_takes_the_nearer_interior() {
-    let oracle = pair().oracle().unwrap();
-    // Inside the left sphere only: still inside the union.
-    assert!(oracle.signed_distance(&point([-2.5, 0.0, 0.0])) > 0.0);
-    // Outside both.
-    assert!(oracle.signed_distance(&point([5.0, 0.0, 0.0])) < 0.0);
-    // On the left sphere's far pole.
-    assert!(oracle.signed_distance(&point([-3.0, 0.0, 0.0])).abs() < 1e-12);
-}
-
-#[test]
-fn meshes_the_union() {
-    let mesh = pair()
+fn nests_with_a_combinator() {
+    // Union of "a block with a pore" (a Difference, not a primitive) with a boss.
+    let porous = Difference::new(
+        Cuboid::new(point([-2.0; 3]), point([2.0; 3])).unwrap(),
+        Sphere::new(point([0.0; 3]), 1.0).unwrap(),
+    );
+    let boss = Cylinder::new(point([0.0, 0.0, 2.0]), axis([0.0, 0.0, 1.0]), 1.0, 1.5).unwrap();
+    let mesh = Union::new(porous, boss)
         .mesh(
-            &Uniform(length(0.6)),
+            &Uniform(length(0.4)),
             6,
             0.1,
             Balancing::Strong(1),
@@ -66,15 +68,17 @@ fn meshes_the_union() {
         jacobians[0].iter().cloned().fold(f64::INFINITY, f64::min)
     );
 
-    let mut low = [f64::INFINITY; 3];
-    let mut high = [f64::NEG_INFINITY; 3];
+    let mut nearest = f64::INFINITY;
+    let mut top = f64::NEG_INFINITY;
     for coordinate in mesh.coordinates() {
-        for k in 0..3 {
-            low[k] = low[k].min(coordinate[k].value());
-            high[k] = high[k].max(coordinate[k].value());
-        }
+        let radius = (0..3)
+            .map(|k| coordinate[k].value().powi(2))
+            .sum::<f64>()
+            .sqrt();
+        nearest = nearest.min(radius);
+        top = top.max(coordinate[2].value());
     }
-    // The blob spans both spheres: x in [-3, 3], y and z in [-2, 2].
-    assert!((low[0] + 3.0).abs() < 0.3 && (high[0] - 3.0).abs() < 0.3);
-    assert!(low[1] > -2.3 && high[1] < 2.3);
+    // Boss carried through; interior pore still hollow.
+    assert!((top - 3.5).abs() < 0.2, "boss tip at z = {top}");
+    assert!(nearest > 1.0 - 0.25, "a node intruded the pore at r = {nearest}");
 }

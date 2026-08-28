@@ -3,7 +3,7 @@ use crate::{
         Coordinate, Direction,
         csg::{
             Cuboid, Cylinder, Primitive, Sphere,
-            ops::{Difference, Union},
+            ops::{Difference, UnionAll},
         },
         mesh::{Connectivity, Fitting, Verdict},
         ntree::Balancing,
@@ -26,8 +26,8 @@ fn axis(entries: [f64; 3]) -> Direction<3> {
 }
 
 /// A 4-cube with a cylindrical boss on its +z face.
-fn block_with_boss() -> Union<Primitive> {
-    Union::new(vec![
+fn block_with_boss() -> UnionAll<Primitive> {
+    UnionAll::new(vec![
         Cuboid::new(point([-2.0; 3]), point([2.0; 3])).unwrap().into(),
         Cylinder::new(point([0.0, 0.0, 2.0]), axis([0.0, 0.0, 1.0]), 1.0, 1.5)
             .unwrap()

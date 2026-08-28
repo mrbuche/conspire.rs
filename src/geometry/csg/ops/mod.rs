@@ -5,10 +5,12 @@
 mod difference;
 mod intersection;
 mod union;
+mod union_all;
 
 pub use difference::{Difference, DifferenceOracle};
 pub use intersection::{Intersection, IntersectionOracle};
 pub use union::{Union, UnionOracle};
+pub use union_all::{UnionAll, UnionAllOracle};
 
 use crate::{
     geometry::{Coordinate, Direction},

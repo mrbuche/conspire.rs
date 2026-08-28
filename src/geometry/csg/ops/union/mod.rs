@@ -9,75 +9,64 @@ use crate::{
     },
     math::Scalar,
 };
+use std::array::from_fn;
 
-/// The union of one or more solids: inside when inside any operand.
-pub struct Union<S>(Vec<S>);
+/// The union of two solids: inside when inside either. Binary and generic, so an
+/// operand may itself be a combinator or any other [`Solid`]; nest for a higher
+/// arity.
+pub struct Union<A, B> {
+    a: A,
+    b: B,
+}
 
-impl<S> Union<S> {
-    /// A union over a non-empty list of solids.
-    pub fn new(solids: Vec<S>) -> Result<Self, &'static str> {
-        if solids.is_empty() {
-            return Err("union needs at least one solid");
-        }
-        Ok(Self(solids))
+impl<A, B> Union<A, B> {
+    pub fn new(a: A, b: B) -> Self {
+        Self { a, b }
     }
 }
 
-impl<S: Solid> Solid for Union<S> {
-    type Oracle = UnionOracle<S::Oracle>;
+impl<A: Solid, B: Solid> Solid for Union<A, B> {
+    type Oracle = UnionOracle<A::Oracle, B::Oracle>;
 
     fn bounding_box(&self) -> Result<(Coordinate<D>, Coordinate<D>), &'static str> {
-        let mut low = [Scalar::INFINITY; D];
-        let mut high = [Scalar::NEG_INFINITY; D];
-        for solid in &self.0 {
-            let (l, h) = solid.bounding_box()?;
-            for k in 0..D {
-                low[k] = low[k].min(l[k].value());
-                high[k] = high[k].max(h[k].value());
-            }
-        }
+        let (la, ha) = self.a.bounding_box()?;
+        let (lb, hb) = self.b.bounding_box()?;
+        let low: [Scalar; D] = from_fn(|k| la[k].value().min(lb[k].value()));
+        let high: [Scalar; D] = from_fn(|k| ha[k].value().max(hb[k].value()));
         Ok((low.into(), high.into()))
     }
 
     fn oracle(&self) -> Result<Self::Oracle, &'static str> {
-        Ok(UnionOracle(
-            self.0
-                .iter()
-                .map(Solid::oracle)
-                .collect::<Result<Vec<_>, _>>()?,
-        ))
+        Ok(UnionOracle {
+            a: self.a.oracle()?,
+            b: self.b.oracle()?,
+        })
     }
 }
 
 /// [`SolidOracle`] for a [`Union`].
-pub struct UnionOracle<O>(Vec<O>);
+pub struct UnionOracle<A, B> {
+    a: A,
+    b: B,
+}
 
-impl<O: SolidOracle> SolidOracle for UnionOracle<O> {
+impl<A: SolidOracle, B: SolidOracle> SolidOracle for UnionOracle<A, B> {
     fn signed_distance(&self, query: &Coordinate<D>) -> Scalar {
-        self.0
-            .iter()
-            .map(|oracle| oracle.signed_distance(query))
-            .fold(Scalar::NEG_INFINITY, Scalar::max)
+        self.a
+            .signed_distance(query)
+            .max(self.b.signed_distance(query))
     }
 
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
-        let signed: Vec<Scalar> = self
-            .0
-            .iter()
-            .map(|oracle| oracle.signed_distance(query))
-            .collect();
+        let (sa, sb) = (self.a.signed_distance(query), self.b.signed_distance(query));
         best_candidate(
             query,
-            self.0.iter().enumerate().filter_map(|(index, oracle)| {
-                let (point, normal) = oracle.project(query)?;
-                // A patch of this operand's surface survives where no other
-                // operand encloses the query.
-                let valid = signed
-                    .iter()
-                    .enumerate()
-                    .all(|(other, &distance)| other == index || distance <= 0.0);
-                Some((point, normal, valid))
-            }),
+            [
+                self.a.project(query).map(|(p, n)| (p, n, sb <= 0.0)),
+                self.b.project(query).map(|(p, n)| (p, n, sa <= 0.0)),
+            ]
+            .into_iter()
+            .flatten(),
         )
     }
 }
