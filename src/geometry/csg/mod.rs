@@ -3,6 +3,7 @@
 
 mod cuboid;
 mod cylinder;
+pub mod ops;
 mod sphere;
 
 pub use cuboid::{Cuboid, CuboidOracle};
