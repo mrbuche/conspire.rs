@@ -1,13 +1,16 @@
-use crate::geometry::{
-    cad::brep::test::unit_cube,
-    mesh::{Class, Connectivity},
-    ntree::Balancing,
+use crate::{
+    geometry::{
+        cad::brep::test::unit_cube,
+        mesh::{Class, Connectivity, Output, Vtk},
+        ntree::Balancing,
+    },
+    io::{Write, write::Compression},
 };
 
 #[test]
 fn cube_runs_through_the_octree_dual_pathway() {
     let brep = unit_cube();
-    let (mesh, classes) = brep.dual_background(Balancing::Strong(1), 4.0).unwrap();
+    let (mut mesh, classes) = brep.dual_background(Balancing::Strong(1), 4.0).unwrap();
 
     let Connectivity::Hexahedral(block) = &mesh.connectivities()[0] else {
         panic!("expected a hexahedral mesh");
@@ -53,6 +56,18 @@ fn cube_runs_through_the_octree_dual_pathway() {
             max[axis]
         );
     }
+
+    mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+        "target/cad_cube_dual_background.vtu",
+    ))))
+    .unwrap();
+
+    mesh.keep_hexes(|index, _, _| classes[index] == Class::Inside)
+        .unwrap();
+    mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+        "target/cad_cube_dual_inside.vtu",
+    ))))
+    .unwrap();
 }
 
 #[test]
@@ -77,4 +92,10 @@ fn cut_fits_the_cube_back_to_its_bounds() {
         assert!((min[axis] - 0.0).abs() < 0.2, "min[{axis}] = {}", min[axis]);
         assert!((max[axis] - 1.0).abs() < 0.2, "max[{axis}] = {}", max[axis]);
     }
+
+    fitted
+        .write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+            "target/cad_cube_cut.vtu",
+        ))))
+        .unwrap();
 }
