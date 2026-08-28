@@ -4,12 +4,17 @@
 //! vertices) layered over geometry (`Surface`, `Curve`, points). The STEP
 //! reader builds one of these; meshing consumes it.
 
+#[cfg(test)]
+mod test;
+
 pub mod curve;
+pub mod features;
 pub mod surface;
 mod tessellate;
 
 use crate::geometry::Coordinate;
 use curve::Curve;
+use std::array::from_fn;
 use surface::Surface;
 
 const D: usize = 3;
@@ -46,6 +51,15 @@ pub struct Face {
 pub struct Shell {
     pub faces: Vec<usize>,
     pub closed: bool,
+}
+
+impl Face {
+    /// The outward unit normal. Planar faces only.
+    fn normal(&self) -> [f64; D] {
+        let Surface::Plane(plane) = &self.surface;
+        let sign = if self.forward { 1.0 } else { -1.0 };
+        from_fn(|axis| sign * plane.normal[axis].value())
+    }
 }
 
 impl Loop {
