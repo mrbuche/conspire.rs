@@ -121,6 +121,31 @@ impl Brep {
             .into())
     }
 
+    /// Refines the [`sizing_octree`](Self::sizing_octree) background,
+    /// classifies its cells against this solid, and drops the `Outside` ones.
+    /// The kept `Cut` cells straddle the surface and come back for a later fit
+    /// or cut step, so this is a trimmed background, not a finished mesh.
+    pub fn trim(
+        &self,
+        sizing: &FeatureSizing,
+        max_levels: u32,
+        padding: Scalar,
+    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
+        let mut mesh = self.sizing_octree(sizing, max_levels, padding)?;
+        let classes = self.classify(&mesh)?;
+        let keep: Vec<bool> = classes
+            .iter()
+            .map(|&class| class != Class::Outside)
+            .collect();
+        mesh.keep_hexes(|index, _, _| keep[index])?;
+        let classes = classes
+            .into_iter()
+            .zip(&keep)
+            .filter_map(|(class, &keep)| keep.then_some(class))
+            .collect();
+        Ok((mesh, classes))
+    }
+
     /// Hexahedral background from the tessellation's octree-dual pathway.
     /// Temporary, and the one place a tessellation is still involved.
     ///

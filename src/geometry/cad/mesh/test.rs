@@ -4,7 +4,7 @@ use crate::{
             brep::test::{axis_aligned_box, unit_cube},
             sizing::FeatureSizing,
         },
-        mesh::{Connectivity, Mesh, Output, Vtk},
+        mesh::{Class, Connectivity, Mesh, Output, Vtk},
         ntree::Balancing,
     },
     io::{Write, write::Compression},
@@ -145,4 +145,37 @@ fn tessellation_dual_background_still_runs() {
     let (mesh, classes) = brep.dual_background(Balancing::Strong(1), 4.0).unwrap();
     assert_eq!(hexes(&mesh).len(), classes.len());
     assert!(classes.contains(&crate::geometry::mesh::Class::Inside));
+}
+
+#[test]
+fn trim_hugs_the_geometry() {
+    let extents = [2.0, 4.0, 8.0];
+    let brep = axis_aligned_box(extents);
+    let sizing = FeatureSizing::of(&brep, 32, length(0.05), length(1.0), 0.25);
+    let (mesh, classes) = brep.trim(&sizing, 6, 0.1).unwrap();
+
+    assert_eq!(hexes(&mesh).len(), classes.len());
+    assert!(classes.iter().all(|&class| class != Class::Outside));
+    assert!(classes.contains(&Class::Inside) && classes.contains(&Class::Cut));
+
+    let mut low = [f64::INFINITY; 3];
+    let mut high = [f64::NEG_INFINITY; 3];
+    for coordinate in mesh.coordinates() {
+        for axis in 0..3 {
+            low[axis] = low[axis].min(coordinate[axis].value());
+            high[axis] = high[axis].max(coordinate[axis].value());
+        }
+    }
+    // The padded root cube is [-3.4, 5.4] x [-2.4, 6.4] x [-0.4, 8.4]; the
+    // trimmed block clings to the box, one boundary cell proud at most.
+    assert!(low[0] > -1.0 && high[0] < 3.0);
+    assert!(low[1] > -1.0 && high[1] < 5.0);
+    for axis in 0..3 {
+        assert!(low[axis] <= 1e-9 && high[axis] >= extents[axis] - 1e-9);
+    }
+
+    mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+        "target/cad_box_trimmed.vtu",
+    ))))
+    .unwrap();
 }
