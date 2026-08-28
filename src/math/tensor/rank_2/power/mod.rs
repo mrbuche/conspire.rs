@@ -77,6 +77,9 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
         exponent: TensorRank0,
     ) -> Result<TensorRank4<3, I, I, I, I, Dimensionless>, TensorError> {
         if self.is_diagonal() {
+            if self.iter().enumerate().any(|(i, self_i)| self_i[i] <= 0.0) {
+                return Err(TensorError::NotPositiveDefinite);
+            }
             let mut dpowm = TensorRank4::zero();
             dpowm.iter_mut().enumerate().for_each(|(i, dpowm_i)| {
                 dpowm_i.iter_mut().enumerate().for_each(|(j, dpowm_ij)| {
