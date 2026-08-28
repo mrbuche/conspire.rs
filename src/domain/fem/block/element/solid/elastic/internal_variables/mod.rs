@@ -138,9 +138,7 @@ where
             EqualityConstraint::Fixed(constitutive_model.internal_variables_fixed().to_vec()),
             None,
         )
-        .map_err(|error| {
-            ConstitutiveError::Custom(format!("{error}"), format!("{deformation_gradient}"))
-        })
+        .map_err(|error| ConstitutiveError::custom(error, deformation_gradient))
 }
 
 /// The nodal forces a list of stresses integrates to.
@@ -228,9 +226,7 @@ where
         constitutive_model.tangents(deformation_gradient, internal_variables)?;
     let eliminated = local_block(&tangent_vv, size, &unmap)
         .solve_lu(&reduced)
-        .map_err(|error| {
-            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
-        })?;
+        .map_err(|error| ConstitutiveError::custom(error, deformation_gradient))?;
     let mut cross = SquareMatrix::zero(size);
     tangent_uv.fill_into_block(&mut cross, 0, 0);
     (0..3).for_each(|i| {
@@ -287,9 +283,7 @@ where
     });
     let solution = local_block(&tangent_vv, size, &unmap)
         .solve_lu(&reduced)
-        .map_err(|error| {
-            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
-        })?;
+        .map_err(|error| ConstitutiveError::custom(error, deformation_gradient))?;
     let mut decrement = Vector::zero(size);
     unmap
         .iter()
@@ -324,9 +318,7 @@ where
     let unmap = free_indices(constitutive_model, size);
     let factorization = local_block(&tangent_vv, size, &unmap)
         .factorize_lu()
-        .map_err(|error| {
-            ConstitutiveError::Custom(format!("{error:?}"), format!("{deformation_gradient}"))
-        })?;
+        .map_err(|error| ConstitutiveError::custom(error, deformation_gradient))?;
     let mut coupling = SquareMatrix::zero(size);
     tangent_vu.fill_into_block(&mut coupling, 0, 0);
     let mut cross = SquareMatrix::zero(size);

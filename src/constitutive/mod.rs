@@ -21,6 +21,7 @@ where
 }
 
 /// Possible errors encountered in constitutive models.
+#[derive(PartialEq)]
 pub enum ConstitutiveError {
     Custom(String, String),
     InvalidJacobian(Scalar, String),
@@ -28,6 +29,12 @@ pub enum ConstitutiveError {
 }
 
 impl ConstitutiveError {
+    pub fn custom(message: impl Display, context: &(impl Debug + ?Sized)) -> Self {
+        Self::Custom(format!("{message}"), format!("{context:?}"))
+    }
+    pub fn invalid_jacobian(jacobian: Scalar, context: &(impl Debug + ?Sized)) -> Self {
+        Self::InvalidJacobian(jacobian, format!("{context:?}"))
+    }
     pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
         Self::Upstream(format!("{error}"), format!("{context:?}"))
     }
@@ -68,22 +75,3 @@ impl StyledError for ConstitutiveError {
 }
 
 styled_error!(ConstitutiveError);
-
-impl PartialEq for ConstitutiveError {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            Self::Custom(a, b) => match other {
-                Self::Custom(c, d) => a == c && b == d,
-                _ => false,
-            },
-            Self::InvalidJacobian(a, b) => match other {
-                Self::InvalidJacobian(c, d) => a == c && b == d,
-                _ => false,
-            },
-            Self::Upstream(a, b) => match other {
-                Self::Upstream(c, d) => a == c && b == d,
-                _ => false,
-            },
-        }
-    }
-}
