@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::math::Quantity;
 use crate::units::Dimensionless;
 
@@ -16,6 +19,9 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// Returns the matrix power of the 3x3 symmetric tensor.
     pub fn powm(&self, exponent: TensorRank0) -> Result<Self, TensorError> {
         if self.is_diagonal() {
+            if self.iter().enumerate().any(|(i, self_i)| self_i[i] <= 0.0) {
+                return Err(TensorError::NotPositiveDefinite);
+            }
             let mut powm = TensorRank2::zero();
             powm.iter_mut()
                 .enumerate()
