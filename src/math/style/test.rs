@@ -16,8 +16,6 @@ fn detect_inner_covers_all_branches() {
     }
 }
 
-/// Every error type the crate exposes must satisfy `std::error::Error`, so that
-/// callers can propagate one into a `Box<dyn Error>` or any error-wrapping crate.
 #[test]
 fn error_types_propagate_into_a_boxed_dyn_error() -> Result<(), Box<dyn std::error::Error>> {
     use crate::math::{TensorError, sparse::SparseError};
