@@ -6,3 +6,5 @@ target/
 **.stl
 **.vtm
 **.vtu
+*.swp
+*.swo
