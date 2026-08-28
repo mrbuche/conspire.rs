@@ -47,10 +47,18 @@ impl Elastic for SethHillEulerian {
         let jacobian = self.jacobian(deformation_gradient)?;
         let left_cauchy_green = deformation_gradient.left_cauchy_green();
         let (deviatoric_strain, strain_trace) = if self.exponent() == 0.0 {
-            (left_cauchy_green.logm()? * 0.5).deviatoric_and_trace()
-        } else {
-            ((left_cauchy_green.powm(0.5 * self.exponent())? - IDENTITY) / self.exponent())
+            (left_cauchy_green
+                .logm()
+                .map_err(|error| ConstitutiveError::upstream(error, self))?
+                * 0.5)
                 .deviatoric_and_trace()
+        } else {
+            ((left_cauchy_green
+                .powm(0.5 * self.exponent())
+                .map_err(|error| ConstitutiveError::upstream(error, self))?
+                - IDENTITY)
+                / self.exponent())
+            .deviatoric_and_trace()
         };
         Ok(deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian))
@@ -64,12 +72,16 @@ impl Elastic for SethHillEulerian {
         let left_cauchy_green = deformation_gradient.left_cauchy_green();
         let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
         if self.exponent() == 0.0 {
-            let (deviatoric_strain, strain_trace) =
-                (left_cauchy_green.logm()? * 0.5).deviatoric_and_trace();
+            let (deviatoric_strain, strain_trace) = (left_cauchy_green
+                .logm()
+                .map_err(|error| ConstitutiveError::upstream(error, self))?
+                * 0.5)
+                .deviatoric_and_trace();
             let scaled_deformation_gradient =
                 deformation_gradient * (self.shear_modulus() / jacobian);
             return Ok((left_cauchy_green
-                .dlogm()?
+                .dlogm()
+                .map_err(|error| ConstitutiveError::upstream(error, self))?
                 .contract_third_fourth_with_first_second(
                     &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
                         + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient)),
@@ -83,16 +95,25 @@ impl Elastic for SethHillEulerian {
                 ));
         }
         let half_exponent = 0.5 * self.exponent();
-        let spectrum = Spectrum::new(&left_cauchy_green)?;
-        let (deviatoric_strain, strain_trace) =
-            ((spectrum.powm(half_exponent)? - IDENTITY) / self.exponent()).deviatoric_and_trace();
+        let spectrum = Spectrum::new(&left_cauchy_green)
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        let (deviatoric_strain, strain_trace) = ((spectrum
+            .powm(half_exponent)
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
+            - IDENTITY)
+            / self.exponent())
+        .deviatoric_and_trace();
         let cauchy_stress = deviatoric_strain * (2.0 * self.shear_modulus() / jacobian)
             + IDENTITY * (self.bulk_modulus() * strain_trace / jacobian);
         let scaled_deformation_gradient =
             deformation_gradient * (2.0 * self.shear_modulus() / (self.exponent() * jacobian));
-        let trace_term = spectrum.powm(half_exponent - 1.0)? * deformation_gradient;
+        let trace_term = spectrum
+            .powm(half_exponent - 1.0)
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
+            * deformation_gradient;
         Ok(spectrum
-            .dpowm(half_exponent)?
+            .dpowm(half_exponent)
+            .map_err(|error| ConstitutiveError::upstream(error, self))?
             .contract_third_fourth_with_first_second(
                 &(TensorRank4::dyad_il_jk(&scaled_deformation_gradient, &IDENTITY)
                     + TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient)),
