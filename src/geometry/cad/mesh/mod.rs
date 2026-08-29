@@ -4,12 +4,12 @@
 #[cfg(test)]
 mod test;
 
-use super::brep::{Brep, oracle::BrepOracle};
+use super::brep::{Brep, oracle::BrepOracle, surface::Surface};
 use crate::{
     geometry::{
         Coordinate,
         mesh::{Class, Mesh},
-        solid::Solid,
+        solid::{Solid, classify_by_signed_distance},
     },
     math::Scalar,
 };
@@ -24,8 +24,17 @@ impl Solid for Brep {
         if self.vertices.is_empty() {
             return Err("brep has no vertices");
         }
-        let mut low = [Scalar::INFINITY; D];
-        let mut high = [Scalar::NEG_INFINITY; D];
+        // A curved face can bulge past its edge vertices, so union the oracle's
+        // per-face bounds in.
+        let (mut low, mut high) = Brep::oracle(self)
+            .map(|oracle| {
+                let (low, high) = oracle.bounds();
+                (
+                    from_fn::<Scalar, D, _>(|k| low[k].value()),
+                    from_fn::<Scalar, D, _>(|k| high[k].value()),
+                )
+            })
+            .unwrap_or(([Scalar::INFINITY; D], [Scalar::NEG_INFINITY; D]));
         for vertex in &self.vertices {
             for (axis, (lo, hi)) in low.iter_mut().zip(high.iter_mut()).enumerate() {
                 *lo = lo.min(vertex[axis].value());
@@ -42,6 +51,14 @@ impl Solid for Brep {
     }
 
     fn classify(&self, mesh: &Mesh<D>) -> Result<Vec<Class>, &'static str> {
-        Brep::classify(self, mesh)
+        if self
+            .faces
+            .iter()
+            .all(|face| matches!(face.surface, Surface::Plane(_)))
+        {
+            Brep::classify(self, mesh)
+        } else {
+            classify_by_signed_distance(&Brep::oracle(self)?, mesh)
+        }
     }
 }

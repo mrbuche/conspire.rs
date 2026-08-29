@@ -47,6 +47,40 @@ pub trait SolidOracle: Sync {
     fn signed_distance(&self, query: &Coordinate<D>) -> Scalar;
 }
 
+/// `Inside` / `Cut` / `Outside` per cell of `mesh` from an oracle's signed
+/// distance: a cell whose corner distances straddle zero is `Cut`, else its
+/// centroid's sign decides.
+pub(crate) fn classify_by_signed_distance(
+    oracle: &impl SolidOracle,
+    mesh: &Mesh<D>,
+) -> Result<Vec<Class>, &'static str> {
+    let signed: Vec<Scalar> = mesh
+        .coordinates()
+        .iter()
+        .map(|point| oracle.signed_distance(point))
+        .collect();
+    let centroids = mesh.centroids();
+    let mut classes = Vec::with_capacity(mesh.number_of_elements());
+    let mut index = 0;
+    for block in mesh.iter() {
+        for element in block.iter() {
+            let (minimum, maximum) = block.element_nodes(element).iter().fold(
+                (Scalar::INFINITY, Scalar::NEG_INFINITY),
+                |(minimum, maximum), &node| (minimum.min(signed[node]), maximum.max(signed[node])),
+            );
+            classes.push(if minimum <= 0.0 && maximum >= 0.0 {
+                Class::Cut
+            } else if oracle.signed_distance(&centroids[index]) > 0.0 {
+                Class::Inside
+            } else {
+                Class::Outside
+            });
+            index += 1;
+        }
+    }
+    Ok(classes)
+}
+
 /// Bridges a [`SolidOracle`] to the buffer layer's private fit [`Oracle`].
 struct Fit<'a, O>(&'a O);
 
@@ -71,34 +105,7 @@ pub trait Solid {
     /// reads the [`oracle`](Self::oracle): a cell whose corner signed distances
     /// straddle zero is `Cut`, otherwise its centroid's sign decides.
     fn classify(&self, mesh: &Mesh<D>) -> Result<Vec<Class>, &'static str> {
-        let oracle = self.oracle()?;
-        let signed: Vec<Scalar> = mesh
-            .coordinates()
-            .iter()
-            .map(|point| oracle.signed_distance(point))
-            .collect();
-        let centroids = mesh.centroids();
-        let mut classes = Vec::with_capacity(mesh.number_of_elements());
-        let mut index = 0;
-        for block in mesh.iter() {
-            for element in block.iter() {
-                let (minimum, maximum) = block.element_nodes(element).iter().fold(
-                    (Scalar::INFINITY, Scalar::NEG_INFINITY),
-                    |(minimum, maximum), &node| {
-                        (minimum.min(signed[node]), maximum.max(signed[node]))
-                    },
-                );
-                classes.push(if minimum <= 0.0 && maximum >= 0.0 {
-                    Class::Cut
-                } else if oracle.signed_distance(&centroids[index]) > 0.0 {
-                    Class::Inside
-                } else {
-                    Class::Outside
-                });
-                index += 1;
-            }
-        }
-        Ok(classes)
+        classify_by_signed_distance(&self.oracle()?, mesh)
     }
 
     /// Refines an octree over the padded bounding box until every leaf is no

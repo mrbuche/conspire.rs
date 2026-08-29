@@ -64,27 +64,32 @@ impl Brep {
             .map(|bound| bound.vertices(&self.edges))
             .collect::<Result<Vec<_>, _>>()?;
         let &first = loops
-            .first()
-            .and_then(|ring| ring.first())
-            .ok_or("face has no outer loop")?;
+            .iter()
+            .flatten()
+            .next()
+            .ok_or("face has no bounding vertices")?;
         let origin = self.vertices[first].clone();
 
+        // A loop of circular/elliptical edges yields fewer than three vertices:
+        // it does not trim, so it is dropped from `rings` but still bounds the
+        // face's box.
         let mut refs: Vec<&Coordinate<D>> = Vec::new();
         let mut outline = Vec::new();
         let mut rings = Vec::with_capacity(loops.len());
-        for (index, ring) in loops.iter().enumerate() {
+        for ring in &loops {
+            for &vertex in ring {
+                refs.push(&self.vertices[vertex]);
+            }
             if ring.len() < 3 {
-                return Err("face loop has fewer than three vertices");
+                continue;
+            }
+            if outline.is_empty() {
+                outline.extend(ring.iter().map(|&v| from_fn(|k| self.vertices[v][k].value())));
             }
             rings.push(
                 ring.iter()
                     .map(|&vertex| {
-                        let point = &self.vertices[vertex];
-                        refs.push(point);
-                        if index == 0 {
-                            outline.push(from_fn(|k| point[k].value()));
-                        }
-                        let delta = point - &origin;
+                        let delta = &self.vertices[vertex] - &origin;
                         [(&delta * &u).value(), (&delta * &v).value()]
                     })
                     .collect(),

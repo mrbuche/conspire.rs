@@ -503,6 +503,75 @@ fn probe_step_files() {
 }
 
 #[test]
+#[ignore = "meshes a local .stp given by STEP_MESH_FILE"]
+fn probe_mesh_real_file() {
+    use crate::{
+        geometry::{
+            mesh::{Fitting, Verdict},
+            ntree::Balancing,
+            solid::{Solid, Uniform},
+        },
+        math::Quantity,
+        units::Length,
+    };
+
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let text = std::fs::read_to_string(&path).unwrap();
+    let brep = read(&text).expect("read failed");
+    eprintln!("read {} faces", brep.faces.len());
+    let cell: f64 = std::env::var("STEP_MESH_CELL")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(6.0e-3);
+    let sizing = Uniform(Quantity::<Length>::new(cell));
+
+    let started = std::time::Instant::now();
+    let (background, classes) = brep
+        .dual_background(&sizing, 6, 0.1, Balancing::Strong(1))
+        .expect("dual_background failed");
+    eprintln!(
+        "dual: {} hexes ({:.1}s); classes: {} inside, {} cut, {} outside",
+        background.number_of_elements(),
+        started.elapsed().as_secs_f64(),
+        classes
+            .iter()
+            .filter(|&&c| c == crate::geometry::mesh::Class::Inside)
+            .count(),
+        classes
+            .iter()
+            .filter(|&&c| c == crate::geometry::mesh::Class::Cut)
+            .count(),
+        classes
+            .iter()
+            .filter(|&&c| c == crate::geometry::mesh::Class::Outside)
+            .count(),
+    );
+    let (trimmed, _) = brep
+        .trim(&sizing, 6, 0.1, Balancing::Strong(1))
+        .expect("trim failed");
+    eprintln!(
+        "trimmed: {} hexes ({:.1}s total)",
+        trimmed.number_of_elements(),
+        started.elapsed().as_secs_f64()
+    );
+    if std::env::var("STEP_MESH_FIT").is_err() {
+        return;
+    }
+    let mesh = brep
+        .mesh(&sizing, 6, 0.1, Balancing::Strong(1), Fitting::Soft)
+        .expect("mesh failed");
+    let jacobians = mesh.minimum_scaled_jacobians();
+    let worst = jacobians[0].iter().cloned().fold(f64::INFINITY, f64::min);
+    eprintln!(
+        "meshed: {} nodes, {} elements, worst scaled Jacobian {worst}",
+        mesh.number_of_nodes(),
+        mesh.number_of_elements(),
+    );
+}
+
+#[test]
 fn reads_every_solid_in_the_file() {
     use crate::geometry::{cad::brep::surface::Surface, csg::Primitive};
 
