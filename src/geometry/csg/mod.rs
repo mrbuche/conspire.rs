@@ -3,11 +3,13 @@
 
 mod cuboid;
 mod cylinder;
+mod ellipsoid;
 pub mod ops;
 mod primitive;
 mod sphere;
 
 pub use cuboid::{Cuboid, CuboidOracle};
 pub use cylinder::{Cylinder, CylinderOracle};
+pub use ellipsoid::{Ellipsoid, EllipsoidOracle};
 pub use primitive::{Primitive, PrimitiveOracle};
 pub use sphere::{Sphere, SphereOracle};

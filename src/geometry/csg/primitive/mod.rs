@@ -4,7 +4,9 @@
 #[cfg(test)]
 mod test;
 
-use super::{Cuboid, CuboidOracle, Cylinder, CylinderOracle, Sphere, SphereOracle};
+use super::{
+    Cuboid, CuboidOracle, Cylinder, CylinderOracle, Ellipsoid, EllipsoidOracle, Sphere, SphereOracle,
+};
 use crate::{
     geometry::{
         Coordinate, Direction,
@@ -20,6 +22,7 @@ pub enum Primitive {
     Cuboid(Cuboid),
     Sphere(Sphere),
     Cylinder(Cylinder),
+    Ellipsoid(Ellipsoid),
 }
 
 impl From<Cuboid> for Primitive {
@@ -40,6 +43,12 @@ impl From<Cylinder> for Primitive {
     }
 }
 
+impl From<Ellipsoid> for Primitive {
+    fn from(primitive: Ellipsoid) -> Self {
+        Self::Ellipsoid(primitive)
+    }
+}
+
 impl Solid for Primitive {
     type Oracle = PrimitiveOracle;
 
@@ -48,6 +57,7 @@ impl Solid for Primitive {
             Self::Cuboid(primitive) => primitive.bounding_box(),
             Self::Sphere(primitive) => primitive.bounding_box(),
             Self::Cylinder(primitive) => primitive.bounding_box(),
+            Self::Ellipsoid(primitive) => primitive.bounding_box(),
         }
     }
 
@@ -56,6 +66,7 @@ impl Solid for Primitive {
             Self::Cuboid(primitive) => PrimitiveOracle::Cuboid(primitive.oracle()?),
             Self::Sphere(primitive) => PrimitiveOracle::Sphere(primitive.oracle()?),
             Self::Cylinder(primitive) => PrimitiveOracle::Cylinder(primitive.oracle()?),
+            Self::Ellipsoid(primitive) => PrimitiveOracle::Ellipsoid(primitive.oracle()?),
         })
     }
 }
@@ -65,6 +76,7 @@ pub enum PrimitiveOracle {
     Cuboid(CuboidOracle),
     Sphere(SphereOracle),
     Cylinder(CylinderOracle),
+    Ellipsoid(EllipsoidOracle),
 }
 
 impl SolidOracle for PrimitiveOracle {
@@ -73,6 +85,7 @@ impl SolidOracle for PrimitiveOracle {
             Self::Cuboid(oracle) => oracle.project(query),
             Self::Sphere(oracle) => oracle.project(query),
             Self::Cylinder(oracle) => oracle.project(query),
+            Self::Ellipsoid(oracle) => oracle.project(query),
         }
     }
 
@@ -81,6 +94,7 @@ impl SolidOracle for PrimitiveOracle {
             Self::Cuboid(oracle) => oracle.signed_distance(query),
             Self::Sphere(oracle) => oracle.signed_distance(query),
             Self::Cylinder(oracle) => oracle.signed_distance(query),
+            Self::Ellipsoid(oracle) => oracle.signed_distance(query),
         }
     }
 }
