@@ -4,7 +4,8 @@ mod test;
 mod patch;
 
 use super::{
-    Brep, D, Face,
+    Brep, D, Face, Loop,
+    curve::Curve,
     surface::{self, Surface},
 };
 use crate::{
@@ -16,17 +17,15 @@ use std::array::from_fn;
 
 /// [`SolidOracle`] backed by the analytic B-rep: closest-point projection onto
 /// each face's exact surface. Planar faces are trimmed to their loops (polygon
-/// or exact disk/annulus). Cylindrical and conical faces are accepted only when
-/// they sweep the full circle — a partial one (fillet, chamfer) errs — and are
-/// trimmed to the face's axial vertex span. Spherical and toroidal faces are
-/// taken whole. A B-spline face errs.
+/// or exact disk/annulus). Cylindrical and conical faces are trimmed exactly
+/// from their bounding edges — an axial ruling or a circular arc ⊥ the axis
+/// collapses to a straight segment in the surface's own (angle, axial
+/// distance) chart, so a genuine partial sweep (fillet, chamfer remnant) is
+/// meshable; a tilted or free-form edge on such a face still errs. Spherical
+/// and toroidal faces are taken whole. A B-spline face errs.
 pub struct BrepOracle {
     patches: Vec<FacePatch>,
 }
-
-/// A cylindrical or conical face whose vertices span more than this fraction of
-/// a turn away from complete is treated as a partial patch and rejected.
-const ANGULAR_GAP_LIMIT: Scalar = std::f64::consts::FRAC_PI_2;
 
 impl Brep {
     /// An analytic [`SolidOracle`] projecting onto this solid's surface, for
@@ -69,6 +68,85 @@ impl Brep {
         Ok(points)
     }
 
+    /// The `(u, v)` boundary of one bound in `origin`/`axis`'s chart —
+    /// `u` the angle around `axis`, unwrapped continuously past a single turn
+    /// as the loop is walked, `v` the signed axial distance — or `None` if the
+    /// bound has no angular restriction (a coincident-endpoint seam circle,
+    /// the whole-turn case).
+    fn uv_ring(
+        &self,
+        bound: &Loop,
+        origin: [Scalar; D],
+        axis: [Scalar; D],
+    ) -> Result<Option<Vec<[Scalar; 2]>>, &'static str> {
+        let mut ring: Vec<[Scalar; 2]> = Vec::new();
+        for half_edge in &bound.half_edges {
+            let edge = self
+                .edges
+                .get(half_edge.edge)
+                .ok_or("half-edge references a missing edge")?;
+            let (start, end) = if half_edge.forward {
+                (edge.vertices[0], edge.vertices[1])
+            } else {
+                (edge.vertices[1], edge.vertices[0])
+            };
+            if ring.is_empty() {
+                let start_point: [Scalar; D] = from_fn(|k| self.vertices[start][k].value());
+                ring.push(to_uv(origin, axis, start_point));
+            }
+            let [u_prev, _] = *ring.last().unwrap();
+            let end_point: [Scalar; D] = from_fn(|k| self.vertices[end][k].value());
+            match &edge.curve {
+                Curve::Line(_) => {
+                    let [u_end, v_end] = to_uv(origin, axis, end_point);
+                    if wrap(u_end - u_prev).abs() > 1.0e-6 {
+                        return Err("non-axial straight edge on a curved face");
+                    }
+                    ring.push([u_prev, v_end]);
+                }
+                Curve::Circle(circle) => {
+                    let caxis: [Scalar; D] = from_fn(|k| circle.axis[k].value());
+                    let alignment = dot(caxis, axis);
+                    if alignment.abs() < 1.0 - 1.0e-6 {
+                        return Err("tilted circular edge on a curved face");
+                    }
+                    if start == end {
+                        return Ok(None);
+                    }
+                    let sign = if half_edge.forward { alignment } else { -alignment };
+                    let [u_end, v_end] = to_uv(origin, axis, end_point);
+                    let mut delta = wrap(u_end - u_prev);
+                    if sign > 0.0 && delta < 0.0 {
+                        delta += std::f64::consts::TAU;
+                    } else if sign < 0.0 && delta > 0.0 {
+                        delta -= std::f64::consts::TAU;
+                    }
+                    ring.push([u_prev + delta, v_end]);
+                }
+                _ => return Err("unsupported edge on a curved face trim"),
+            }
+        }
+        Ok(Some(ring))
+    }
+
+    /// Every bound of `face` as a `(u, v)` polygon, or `None` if any bound
+    /// sweeps the whole turn unrestricted.
+    fn trim_rings(
+        &self,
+        face: &Face,
+        origin: [Scalar; D],
+        axis: [Scalar; D],
+    ) -> Result<Option<Vec<Vec<[Scalar; 2]>>>, &'static str> {
+        let mut rings = Vec::new();
+        for bound in &face.bounds {
+            match self.uv_ring(bound, origin, axis)? {
+                Some(ring) => rings.push(ring),
+                None => return Ok(None),
+            }
+        }
+        Ok(Some(rings))
+    }
+
     fn cylinder_patch(
         &self,
         surface: &surface::Cylinder,
@@ -77,19 +155,19 @@ impl Brep {
         let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
         let origin: [Scalar; D] = from_fn(|k| surface.origin[k].value());
         let vertices = self.face_vertices(face)?;
-        if !sweeps_full_circle(&vertices, origin, axis) {
-            return Err("partial cylindrical face (fillet/chamfer) is not yet meshable");
-        }
         let (low, high) = axial_span(&vertices, origin, axis)?;
-        let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
         let radius = surface.radius;
+        let rings = self.trim_rings(face, origin, axis)?;
         let curved = Curved::Cylinder {
-            base,
+            origin,
             axis,
             radius,
-            height: high - low,
+            low,
+            high,
+            rings,
             sign: orientation(face.forward),
         };
+        let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
         let (bl, bh) = frustum_bounds(base, axis, radius, radius, high - low);
         Ok(FacePatch::Curved { curved, low: bl, high: bh })
     }
@@ -98,22 +176,22 @@ impl Brep {
         let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
         let origin: [Scalar; D] = from_fn(|k| surface.origin[k].value());
         let vertices = self.face_vertices(face)?;
-        if !sweeps_full_circle(&vertices, origin, axis) {
-            return Err("partial conical face (fillet/chamfer) is not yet meshable");
-        }
         let (low, high) = axial_span(&vertices, origin, axis)?;
         let slope = surface.semi_angle.tan();
         let base_radius = (surface.radius + low * slope).max(0.0);
         let tip_radius = (surface.radius + high * slope).max(0.0);
-        let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
+        let rings = self.trim_rings(face, origin, axis)?;
         let curved = Curved::Cone {
-            base,
+            origin,
             axis,
-            base_radius,
-            tip_radius,
-            height: high - low,
+            radius: surface.radius,
+            slope,
+            low,
+            high,
+            rings,
             sign: orientation(face.forward),
         };
+        let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
         let (bl, bh) = frustum_bounds(base, axis, base_radius, tip_radius, high - low);
         Ok(FacePatch::Curved { curved, low: bl, high: bh })
     }
@@ -199,35 +277,6 @@ fn orientation(forward: bool) -> Scalar {
     if forward { 1.0 } else { -1.0 }
 }
 
-/// Whether `points` projected around `axis` cover the whole circle: fewer than
-/// two distinct angles (a seam), or the largest wrap-around gap between sorted
-/// angles is small enough that no chunk of the turn is missing.
-fn sweeps_full_circle(points: &[[Scalar; D]], origin: [Scalar; D], axis: [Scalar; D]) -> bool {
-    let (u, v) = basis(axis);
-    let mut angles: Vec<Scalar> = points
-        .iter()
-        .filter_map(|point| {
-            let rel: [Scalar; D] = from_fn(|k| point[k] - origin[k]);
-            let (s, t) = (dot(rel, u), dot(rel, v));
-            (s.hypot(t) > 1.0e-9).then(|| t.atan2(s))
-        })
-        .collect();
-    angles.sort_by(Scalar::total_cmp);
-    angles.dedup_by(|a, b| (*a - *b).abs() < 1.0e-6);
-    // A seam sitting on the branch cut lands at both -pi and +pi: one angle.
-    if angles.len() > 1 && angles[0] + std::f64::consts::TAU - angles[angles.len() - 1] < 1.0e-6 {
-        angles.pop();
-    }
-    if angles.len() < 2 {
-        return true;
-    }
-    let mut gap = angles[0] + std::f64::consts::TAU - angles[angles.len() - 1];
-    for pair in angles.windows(2) {
-        gap = gap.max(pair[1] - pair[0]);
-    }
-    gap <= ANGULAR_GAP_LIMIT
-}
-
 /// The `[low, high]` span of `points` projected onto `axis` from `origin`.
 /// Errs rather than inventing a span when the face has no usable extent — a
 /// degenerate span has no honest analytic patch.
@@ -295,4 +344,81 @@ fn basis(axis: [Scalar; D]) -> ([Scalar; D], [Scalar; D]) {
         axis[0] * u[1] - axis[1] * u[0],
     ];
     (u, v)
+}
+
+/// `(u, v)` of `point` in `origin`/`axis`'s own chart: `u` the angle around
+/// `axis` from an arbitrary but fixed in-plane reference, `v` the signed axial
+/// distance from `origin`.
+fn to_uv(origin: [Scalar; D], axis: [Scalar; D], point: [Scalar; D]) -> [Scalar; 2] {
+    let (u_hat, v_hat) = basis(axis);
+    let rel: [Scalar; D] = from_fn(|k| point[k] - origin[k]);
+    let v = dot(rel, axis);
+    let radial: [Scalar; D] = from_fn(|k| rel[k] - v * axis[k]);
+    [dot(radial, v_hat).atan2(dot(radial, u_hat)), v]
+}
+
+/// The unit radial direction at angle `u` around `axis`.
+fn uv_direction(axis: [Scalar; D], u: Scalar) -> [Scalar; D] {
+    let (u_hat, v_hat) = basis(axis);
+    from_fn(|k| u.cos() * u_hat[k] + u.sin() * v_hat[k])
+}
+
+/// `delta` reduced into `(-pi, pi]`.
+fn wrap(delta: Scalar) -> Scalar {
+    let mut d = delta % std::f64::consts::TAU;
+    if d > std::f64::consts::PI {
+        d -= std::f64::consts::TAU;
+    } else if d <= -std::f64::consts::PI {
+        d += std::f64::consts::TAU;
+    }
+    d
+}
+
+/// Whether `uv` lies inside `rings`, trying both neighbouring turns since `u`
+/// is periodic and the rings may be unwrapped past a single turn.
+fn periodic_contains(uv: [Scalar; 2], rings: &[Vec<[Scalar; 2]>]) -> bool {
+    [0.0, std::f64::consts::TAU, -std::f64::consts::TAU]
+        .into_iter()
+        .any(|shift| super::inside::point_in_polygon([uv[0] + shift, uv[1]], rings))
+}
+
+/// The point of `rings` nearest `uv`, in an arc-length metric (`weight(v)` is
+/// the local radius) so the snap distance is physical, not raw angle-vs-length.
+/// Periodic in `u` like [`periodic_contains`].
+fn periodic_nearest(
+    uv: [Scalar; 2],
+    rings: &[Vec<[Scalar; 2]>],
+    weight: impl Fn(Scalar) -> Scalar,
+) -> [Scalar; 2] {
+    let mut best = uv;
+    let mut best_distance = Scalar::INFINITY;
+    for shift in [0.0, std::f64::consts::TAU, -std::f64::consts::TAU] {
+        let query = [uv[0] + shift, uv[1]];
+        let wq = [weight(query[1]) * query[0], query[1]];
+        for ring in rings {
+            let count = ring.len();
+            for i in 0..count {
+                let a = ring[i];
+                let b = ring[(i + 1) % count];
+                let wa = [weight(a[1]) * a[0], a[1]];
+                let wb = [weight(b[1]) * b[0], b[1]];
+                let (ex, ey) = (wb[0] - wa[0], wb[1] - wa[1]);
+                let span = ex * ex + ey * ey;
+                let t = if span > 0.0 {
+                    (((wq[0] - wa[0]) * ex + (wq[1] - wa[1]) * ey) / span).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let candidate = [wa[0] + t * ex, wa[1] + t * ey];
+                let distance = (candidate[0] - wq[0]).powi(2) + (candidate[1] - wq[1]).powi(2);
+                if distance < best_distance {
+                    best_distance = distance;
+                    let v = candidate[1];
+                    let u = candidate[0] / weight(v).max(1.0e-12) - shift;
+                    best = [u, v];
+                }
+            }
+        }
+    }
+    best
 }

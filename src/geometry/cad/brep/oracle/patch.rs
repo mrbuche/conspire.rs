@@ -1,7 +1,8 @@
 //! One B-rep face as an analytic closest-point patch. Cylindrical and conical
-//! faces are accepted only when they sweep the full circle, so the projection
-//! onto the lateral surface needs no angular trim; the axial extent is trimmed
-//! to the face's vertices. Spherical and toroidal faces are taken whole.
+//! faces are trimmed exactly from their bounding edges: an axial ruling or a
+//! circular arc ⊥ the axis collapses to a straight segment in the surface's
+//! own (angle, axial distance) chart, so the trim is a polygon there — no
+//! tessellation, no sampling. Spherical and toroidal faces are taken whole.
 
 use super::super::{D, planar::PlanarFace};
 use crate::{
@@ -11,22 +12,28 @@ use crate::{
 use std::array::from_fn;
 
 pub(super) enum Curved {
-    /// The lateral wall of a finite cylinder, axial coordinate in `[0, height]`
-    /// from `base` along the unit `axis`.
+    /// The lateral wall of a cylinder, trimmed either to `[low, high]` along
+    /// `axis` (`rings: None`, a full sweep) or to an exact `(angle, axial
+    /// distance)` polygon (`rings: Some`, a genuine partial sweep).
     Cylinder {
-        base: [Scalar; D],
+        origin: [Scalar; D],
         axis: [Scalar; D],
         radius: Scalar,
-        height: Scalar,
+        low: Scalar,
+        high: Scalar,
+        rings: Option<Vec<Vec<[Scalar; 2]>>>,
         sign: Scalar,
     },
-    /// The lateral wall of a truncated cone.
+    /// The lateral wall of a cone; `radius` is the surface's own radius at
+    /// `origin` (`v = 0`), widening by `slope` per unit `v`.
     Cone {
-        base: [Scalar; D],
+        origin: [Scalar; D],
         axis: [Scalar; D],
-        base_radius: Scalar,
-        tip_radius: Scalar,
-        height: Scalar,
+        radius: Scalar,
+        slope: Scalar,
+        low: Scalar,
+        high: Scalar,
+        rings: Option<Vec<Vec<[Scalar; 2]>>>,
         sign: Scalar,
     },
     Sphere {
@@ -92,38 +99,39 @@ impl Curved {
     fn closest(&self, q: [Scalar; D]) -> ([Scalar; D], [Scalar; D]) {
         match self {
             Self::Cylinder {
-                base,
+                origin,
                 axis,
                 radius,
-                height,
+                low,
+                high,
+                rings,
                 sign,
             } => {
-                let (h, radial, _) = local(*base, *axis, q);
-                let radial_unit = unit(radial).unwrap_or_else(|| perpendicular(*axis));
-                let h = h.clamp(0.0, *height);
-                let point = from_fn(|k| base[k] + h * axis[k] + radius * radial_unit[k]);
-                (point, scaled(radial_unit, *sign))
+                let (origin, axis, radius) = (*origin, *axis, *radius);
+                let uv = clamp_uv(super::to_uv(origin, axis, q), *low, *high, rings, |_| radius);
+                let direction = super::uv_direction(axis, uv[0]);
+                let point = from_fn(|k| origin[k] + uv[1] * axis[k] + radius * direction[k]);
+                (point, scaled(direction, *sign))
             }
             Self::Cone {
-                base,
+                origin,
                 axis,
-                base_radius,
-                tip_radius,
-                height,
+                radius,
+                slope,
+                low,
+                high,
+                rings,
                 sign,
             } => {
-                let (h, radial, rho) = local(*base, *axis, q);
-                let radial_unit = unit(radial).unwrap_or_else(|| perpendicular(*axis));
-                // Project `(rho, h)` onto the slant `(base_radius, 0) -> (tip_radius, height)`.
-                let d = [tip_radius - base_radius, *height];
-                let span = (d[0] * d[0] + d[1] * d[1]).max(1.0e-30);
-                let t = (((rho - base_radius) * d[0] + h * d[1]) / span).clamp(0.0, 1.0);
-                let (radius_at, h_at) = (base_radius + t * d[0], t * d[1]);
-                let point = from_fn(|k| base[k] + h_at * axis[k] + radius_at * radial_unit[k]);
-                let normal_2d =
-                    unit2([d[1], -d[0]]).unwrap_or([1.0, 0.0]);
-                let normal = from_fn(|k| normal_2d[0] * radial_unit[k] + normal_2d[1] * axis[k]);
-                (point, scaled(unit(normal).unwrap_or(radial_unit), *sign))
+                let (origin, axis, radius, slope) = (*origin, *axis, *radius, *slope);
+                let radius_at = move |v: Scalar| (radius + v * slope).max(0.0);
+                let uv = clamp_uv(super::to_uv(origin, axis, q), *low, *high, rings, radius_at);
+                let direction = super::uv_direction(axis, uv[0]);
+                let r = radius_at(uv[1]);
+                let point = from_fn(|k| origin[k] + uv[1] * axis[k] + r * direction[k]);
+                let normal_2d = unit2([1.0, -slope]).unwrap_or([1.0, 0.0]);
+                let normal = from_fn(|k| normal_2d[0] * direction[k] + normal_2d[1] * axis[k]);
+                (point, scaled(normal, *sign))
             }
             Self::Sphere {
                 centre,
@@ -147,6 +155,28 @@ impl Curved {
                 let off: [Scalar; D] = from_fn(|k| q[k] - ring[k]);
                 let normal = unit(off).unwrap_or(radial_unit);
                 (from_fn(|k| ring[k] + minor * normal[k]), scaled(normal, *sign))
+            }
+        }
+    }
+}
+
+/// The `(u, v)` to project at: `uv` itself if it (or an adjacent turn) lies
+/// inside `rings`, else the nearest boundary point of `rings`; with no `rings`
+/// (a full sweep) just the axial clamp, angle unrestricted.
+fn clamp_uv(
+    uv: [Scalar; 2],
+    low: Scalar,
+    high: Scalar,
+    rings: &Option<Vec<Vec<[Scalar; 2]>>>,
+    radius_at: impl Fn(Scalar) -> Scalar,
+) -> [Scalar; 2] {
+    match rings {
+        None => [uv[0], uv[1].clamp(low, high)],
+        Some(rings) => {
+            if super::periodic_contains(uv, rings) {
+                uv
+            } else {
+                super::periodic_nearest(uv, rings, radius_at)
             }
         }
     }

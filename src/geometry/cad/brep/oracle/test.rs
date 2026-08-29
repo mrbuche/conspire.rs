@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
         Coordinate,
-        cad::brep::test::{capped_cylinder, cone, unit_cube},
+        cad::brep::test::{capped_cylinder, cone, partial_cylinder, unit_cube},
         solid::SolidOracle,
     },
     math::TensorRank1,
@@ -88,10 +88,21 @@ fn accepts_a_full_cone_face() {
 }
 
 #[test]
-fn accepts_a_full_circle_whose_seam_sits_on_the_branch_cut() {
-    let axis = [0.0, 0.0, 1.0];
-    let seam: Vec<[f64; 3]> = vec![[-1.0, 1.0e-17, 0.0], [-1.0, -1.0e-17, 1.0]];
-    assert!(super::sweeps_full_circle(&seam, [0.0; 3], axis));
+fn accepts_a_partial_cylindrical_face() {
+    assert!(partial_cylinder(2.0, 5.0, std::f64::consts::FRAC_PI_2).oracle().is_ok());
+}
+
+#[test]
+fn a_partial_cylindrical_face_has_no_phantom_wall_in_the_gap() {
+    let angle = std::f64::consts::FRAC_PI_2;
+    let oracle = partial_cylinder(2.0, 5.0, angle).oracle().unwrap();
+    // Just past the trimmed edge, still well inside the untrimmed gap: a
+    // phantom full wall would report this point as already on the surface.
+    let query_angle = angle + 0.5;
+    let query = Coordinate::from([2.0 * query_angle.cos(), 2.0 * query_angle.sin(), 2.5]);
+    let (point, _) = oracle.project(&query).unwrap();
+    let [x, y, _] = components(&point);
+    assert!((y.atan2(x) - angle).abs() < 1e-6);
 }
 
 #[test]

@@ -199,6 +199,72 @@ pub(crate) fn capped_cylinder(radius: f64, height: f64) -> Brep {
     }
 }
 
+/// A single cylindrical face about `+z`, radius `radius`: a genuine partial
+/// sweep from angle `0` to `angle` (a fillet/chamfer remnant), not a full
+/// turn — two rulings and two arc rims bounding one lateral patch.
+pub(crate) fn partial_cylinder(radius: f64, height: f64, angle: f64) -> Brep {
+    let point = |a: f64, z: f64| [radius * a.cos(), radius * a.sin(), z];
+    let vertices = [point(0.0, 0.0), point(angle, 0.0), point(angle, height), point(0.0, height)]
+        .map(Coordinate::const_from)
+        .to_vec();
+    let edges = vec![
+        Edge {
+            vertices: [0, 1],
+            curve: Curve::Circle(Circle {
+                center: Coordinate::const_from([0.0, 0.0, 0.0]),
+                axis: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius,
+            }),
+        },
+        Edge {
+            vertices: [1, 2],
+            curve: Curve::Line(Line {
+                origin: Coordinate::const_from(point(angle, 0.0)),
+                direction: direction([0.0, 0.0, 1.0]),
+            }),
+        },
+        Edge {
+            vertices: [2, 3],
+            curve: Curve::Circle(Circle {
+                center: Coordinate::const_from([0.0, 0.0, height]),
+                axis: direction([0.0, 0.0, -1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius,
+            }),
+        },
+        Edge {
+            vertices: [3, 0],
+            curve: Curve::Line(Line {
+                origin: Coordinate::const_from(point(0.0, height)),
+                direction: direction([0.0, 0.0, -1.0]),
+            }),
+        },
+    ];
+    let faces = vec![Face {
+        surface: Surface::Cylinder(Cylinder {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+        bounds: vec![Loop {
+            half_edges: [(0, true), (1, true), (2, true), (3, true)]
+                .into_iter()
+                .map(|(edge, forward)| HalfEdge { edge, forward })
+                .collect(),
+        }],
+        poles: vec![],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0], closed: false }],
+    }
+}
+
 /// A truncated cone about `+z`: `base_radius` at `z = 0`, `tip_radius` at
 /// `z = height`, one conical lateral face split by a seam line.
 pub(crate) fn cone(base_radius: f64, tip_radius: f64, height: f64) -> Brep {
