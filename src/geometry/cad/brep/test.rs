@@ -537,3 +537,82 @@ pub(crate) fn coplanar_squares() -> Brep {
         }],
     }
 }
+
+/// A single `10x10` planar face (`+z` normal) with a rounded-rectangle hole
+/// (corner radius `1`, straight sides in between) — a mix of straight and
+/// circular-arc edges in one bound, like a real fillet-cornered pocket.
+pub(crate) fn square_with_rounded_hole() -> Brep {
+    let outer = [
+        Coordinate::const_from([0.0, 0.0, 0.0]),
+        Coordinate::const_from([10.0, 0.0, 0.0]),
+        Coordinate::const_from([10.0, 10.0, 0.0]),
+        Coordinate::const_from([0.0, 10.0, 0.0]),
+    ];
+    let hole = [
+        Coordinate::const_from([3.0, 2.0, 0.0]),
+        Coordinate::const_from([7.0, 2.0, 0.0]),
+        Coordinate::const_from([8.0, 3.0, 0.0]),
+        Coordinate::const_from([8.0, 7.0, 0.0]),
+        Coordinate::const_from([7.0, 8.0, 0.0]),
+        Coordinate::const_from([3.0, 8.0, 0.0]),
+        Coordinate::const_from([2.0, 7.0, 0.0]),
+        Coordinate::const_from([2.0, 3.0, 0.0]),
+    ];
+    let corners = [[7.0, 3.0], [7.0, 7.0], [3.0, 7.0], [3.0, 3.0]];
+    let vertices: Vec<Coordinate<3>> = outer.into_iter().chain(hole).collect();
+    let line = |a: usize, b: usize| Edge {
+        vertices: [a, b],
+        curve: Curve::Line(Line {
+            origin: vertices[a].clone(),
+            direction: direction([1.0, 0.0, 0.0]),
+        }),
+    };
+    let arc = |a: usize, b: usize, [cx, cy]: [f64; 2]| Edge {
+        vertices: [a, b],
+        curve: Curve::Circle(Circle {
+            center: Coordinate::const_from([cx, cy, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius: 1.0,
+        }),
+    };
+    let edges = vec![
+        line(0, 1),
+        line(1, 2),
+        line(2, 3),
+        line(3, 0),
+        line(4, 5),
+        arc(5, 6, corners[0]),
+        line(6, 7),
+        arc(7, 8, corners[1]),
+        line(8, 9),
+        arc(9, 10, corners[2]),
+        line(10, 11),
+        arc(11, 4, corners[3]),
+    ];
+    let edge_loop = |half_edges: &[usize]| Loop {
+        half_edges: half_edges
+            .iter()
+            .map(|&edge| HalfEdge { edge, forward: true })
+            .collect(),
+    };
+    let faces = vec![Face {
+        surface: Surface::Plane(Plane {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            normal: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+        }),
+        bounds: vec![
+            edge_loop(&[0, 1, 2, 3]),
+            edge_loop(&[4, 5, 6, 7, 8, 9, 10, 11]),
+        ],
+        poles: vec![],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0], closed: false }],
+    }
+}

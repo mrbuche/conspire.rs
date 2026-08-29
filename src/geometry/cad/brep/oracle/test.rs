@@ -1,7 +1,7 @@
 use crate::{
     geometry::{
         Coordinate,
-        cad::brep::test::{capped_cylinder, cone, partial_cylinder, unit_cube},
+        cad::brep::test::{capped_cylinder, cone, partial_cylinder, square_with_rounded_hole, unit_cube},
         solid::SolidOracle,
     },
     math::TensorRank1,
@@ -85,6 +85,11 @@ fn projects_onto_a_cylindrical_wall() {
 #[test]
 fn accepts_a_full_cone_face() {
     assert!(cone(3.0, 1.0, 4.0).oracle().is_ok());
+}
+
+#[test]
+fn accepts_a_planar_face_with_a_rounded_rectangle_hole() {
+    assert!(square_with_rounded_hole().oracle().is_ok());
 }
 
 #[test]

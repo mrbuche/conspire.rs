@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use super::{Brep, D, planar::PlanarFace};
+use super::{
+    Brep, D,
+    planar::{Arc2, PlanarFace, arc_sweep, offset_in_sense},
+};
 use crate::{
     geometry::{Coordinate, Direction},
     math::Scalar,
@@ -34,6 +37,57 @@ pub(super) fn point_in_polygon([px, py]: [Scalar; 2], rings: &[Vec<[Scalar; 2]>]
                 let crossing = ax + (py - ay) / (by - ay) * (bx - ax);
                 if px < crossing {
                     inside = !inside;
+                }
+            }
+        }
+    }
+    inside
+}
+
+/// Even-odd test of a point against a set of rings that may mix straight and
+/// circular-arc edges, in a common 2D frame. A ray crossing is found exactly
+/// for a line (as [`point_in_polygon`]) or by solving the circle/ray
+/// intersection for an arc, clamped to its swept range — an arc can cross the
+/// ray twice even when both its endpoints sit on the same side of it, which a
+/// line-style endpoint comparison alone would miss.
+pub(super) fn mixed_point_in_polygon(
+    [px, py]: [Scalar; 2],
+    rings: &[Vec<([Scalar; 2], Option<Arc2>)>],
+) -> bool {
+    let mut inside = false;
+    for ring in rings {
+        let count = ring.len();
+        for i in 0..count {
+            let (a, arc) = ring[i];
+            let (b, _) = ring[(i + 1) % count];
+            match arc {
+                None => {
+                    let [ax, ay] = a;
+                    let [bx, by] = b;
+                    if (ay > py) != (by > py) {
+                        let crossing = ax + (py - ay) / (by - ay) * (bx - ax);
+                        if px < crossing {
+                            inside = !inside;
+                        }
+                    }
+                }
+                Some(arc) => {
+                    let dy = py - arc.centre[1];
+                    if dy.abs() > arc.radius {
+                        continue;
+                    }
+                    let dx = (arc.radius * arc.radius - dy * dy).max(0.0).sqrt();
+                    let (start, sweep) = arc_sweep(a, b, &arc);
+                    for x in [arc.centre[0] + dx, arc.centre[0] - dx] {
+                        let angle = dy.atan2(x - arc.centre[0]);
+                        let offset = offset_in_sense(angle - start, arc.ccw);
+                        if (0.0..=1.0).contains(&(offset / sweep)) && px < x {
+                            inside = !inside;
+                        }
+                        if dx == 0.0 {
+                            break;
+                        }
+                    }
                 }
             }
         }
