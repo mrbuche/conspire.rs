@@ -5,7 +5,7 @@ use crate::{
             brep::{
                 Brep, Edge, Face, HalfEdge, Loop, Shell,
                 curve::{Circle, Curve, Line},
-                surface::{Cylinder, Plane, Surface},
+                surface::{Cylinder, Plane, Sphere, Surface},
             },
             part_21::{Exchange, Parameter, Record},
         },
@@ -124,8 +124,19 @@ impl<'a> Reader<'a> {
                 radius,
             }));
         }
+        if let Ok(record) = self.record(id, "SPHERICAL_SURFACE") {
+            let (origin, axis, reference_direction) =
+                self.axes(reference(&record.parameters, 1)?)?;
+            let radius = scalar(parameter(&record.parameters, 2)?)?;
+            return Ok(Surface::Sphere(Sphere {
+                origin,
+                axis,
+                reference_direction,
+                radius,
+            }));
+        }
         Err(invalid(format!(
-            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE)"
+            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE)"
         )))
     }
 

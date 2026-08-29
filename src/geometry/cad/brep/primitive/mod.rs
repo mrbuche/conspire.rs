@@ -7,7 +7,7 @@ mod test;
 use super::{Brep, D, surface::Surface};
 use crate::geometry::{
     Coordinate,
-    csg::{Cuboid, Cylinder, Primitive},
+    csg::{Cuboid, Cylinder, Primitive, Sphere},
 };
 use std::array::from_fn;
 
@@ -19,7 +19,26 @@ impl Brep {
     pub fn primitive(&self) -> Option<Primitive> {
         self.as_cuboid()
             .map(Primitive::Cuboid)
+            .or_else(|| self.as_sphere().map(Primitive::Sphere))
             .or_else(|| self.as_cylinder().map(Primitive::Cylinder))
+    }
+
+    fn as_sphere(&self) -> Option<Sphere> {
+        let mut surfaces = self.faces.iter().map(|face| match &face.surface {
+            Surface::Sphere(sphere) => Some(sphere),
+            _ => None,
+        });
+        let first = surfaces.next()??;
+        let center: [f64; D] = from_fn(|k| first.origin[k].value());
+        for surface in surfaces {
+            let surface = surface?;
+            if (surface.radius - first.radius).abs() > EPSILON
+                || (0..D).any(|k| (surface.origin[k].value() - center[k]).abs() > EPSILON)
+            {
+                return None;
+            }
+        }
+        Sphere::new(first.origin.clone(), first.radius).ok()
     }
 
     fn as_cuboid(&self) -> Option<Cuboid> {
@@ -66,6 +85,7 @@ impl Brep {
                     Some(_) => return None,
                 },
                 Surface::Plane(plane) => caps.push(plane),
+                Surface::Sphere(_) => return None,
             }
         }
         let lateral = lateral?;

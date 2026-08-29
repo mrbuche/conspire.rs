@@ -1,6 +1,6 @@
 use crate::geometry::{
     Coordinate,
-    cad::brep::test::{axis_aligned_box, capped_cylinder, coplanar_squares},
+    cad::brep::test::{axis_aligned_box, ball, capped_cylinder, coplanar_squares},
     csg::Primitive,
     solid::{Solid, SolidOracle},
 };
@@ -36,6 +36,17 @@ fn recognises_a_capped_cylinder() {
     assert!(oracle.signed_distance(&point([0.0, 0.0, 0.0])).abs() < 1e-9);
     // Past the top cap.
     assert!(oracle.signed_distance(&point([0.0, 0.0, 6.0])) < 0.0);
+}
+
+#[test]
+fn recognises_a_sphere() {
+    let Some(Primitive::Sphere(sphere)) = ball(3.0).primitive() else {
+        panic!("sphere not recognised");
+    };
+    let oracle = sphere.oracle().unwrap();
+    assert!((oracle.signed_distance(&point([0.0; 3])) - 3.0).abs() < 1e-9);
+    assert!(oracle.signed_distance(&point([3.0, 0.0, 0.0])).abs() < 1e-9);
+    assert!(oracle.signed_distance(&point([0.0, 0.0, 5.0])) < 0.0);
 }
 
 #[test]

@@ -318,6 +318,60 @@ fn read_cylinder_recognised_as_a_primitive_and_meshed() {
     assert!(low[2].abs() < 0.1 && (high[2] - 5.0).abs() < 0.1);
 }
 
+/// A sphere of radius 3 centred at the origin: one periodic `SPHERICAL_SURFACE`
+/// face with a meridian seam between the two pole vertices.
+const SPHERE: &str = r#"
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('sphere'),'2;1');
+FILE_NAME('sphere.step','2026-08-28T00:00:00',(''),(''),'conspire','conspire','');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 }'));
+ENDSEC;
+DATA;
+#10 = CARTESIAN_POINT('',(0.,0.,0.));
+#11 = CARTESIAN_POINT('',(0.,0.,-3.));
+#12 = CARTESIAN_POINT('',(0.,0.,3.));
+#20 = DIRECTION('',(0.,0.,1.));
+#21 = DIRECTION('',(1.,0.,0.));
+#22 = DIRECTION('',(0.,1.,0.));
+#30 = VERTEX_POINT('',#11);
+#31 = VERTEX_POINT('',#12);
+#40 = AXIS2_PLACEMENT_3D('',#10,#22,#21);
+#41 = CIRCLE('',#40,3.);
+#50 = EDGE_CURVE('',#30,#31,#41,.T.);
+#60 = AXIS2_PLACEMENT_3D('',#10,#20,#21);
+#61 = SPHERICAL_SURFACE('',#60,3.);
+#70 = ORIENTED_EDGE('',*,*,#50,.T.);
+#71 = ORIENTED_EDGE('',*,*,#50,.F.);
+#80 = EDGE_LOOP('',(#70,#71));
+#90 = FACE_OUTER_BOUND('',#80,.T.);
+#100 = ADVANCED_FACE('',(#90),#61,.T.);
+#110 = CLOSED_SHELL('',(#100));
+#120 = MANIFOLD_SOLID_BREP('sphere',#110);
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+#[test]
+fn reads_spherical_surface_and_recognises_the_primitive() {
+    use crate::geometry::{Coordinate, cad::brep::surface::Surface, csg::Primitive};
+
+    let brep = read(SPHERE).unwrap();
+    assert_eq!(brep.vertices.len(), 2);
+    assert_eq!(brep.edges.len(), 1);
+    assert_eq!(brep.faces.len(), 1);
+
+    let Surface::Sphere(sphere) = &brep.faces[0].surface else {
+        panic!("face is not spherical");
+    };
+    assert_eq!(sphere.radius, 3.0);
+    assert_eq!(sphere.origin, Coordinate::from([0.0, 0.0, 0.0]));
+
+    let Some(Primitive::Sphere(_)) = brep.primitive() else {
+        panic!("sphere not recognised as a primitive");
+    };
+}
+
 /// The same capped cylinder, but the rim and seam edges reference their 3D
 /// geometry indirectly through `SEAM_CURVE` / `SURFACE_CURVE` wrappers, the way
 /// most kernels actually export trimmed analytic edges.

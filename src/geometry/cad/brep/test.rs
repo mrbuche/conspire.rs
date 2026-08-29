@@ -1,7 +1,7 @@
 use super::{
     Brep, Edge, Face, HalfEdge, Loop, Shell,
     curve::{Circle, Curve, Line},
-    surface::{Cylinder, Plane, Surface},
+    surface::{Cylinder, Plane, Sphere, Surface},
 };
 use crate::geometry::{Coordinate, Direction};
 
@@ -190,6 +190,54 @@ pub(crate) fn capped_cylinder(radius: f64, height: f64) -> Brep {
         faces,
         shells: vec![Shell {
             faces: vec![0, 1, 2],
+            closed: true,
+        }],
+    }
+}
+
+/// A sphere of `radius` centred at the origin: one periodic spherical face with
+/// a meridian seam between the two pole vertices.
+pub(crate) fn ball(radius: f64) -> Brep {
+    let vertices = vec![
+        Coordinate::const_from([0.0, 0.0, -radius]),
+        Coordinate::const_from([0.0, 0.0, radius]),
+    ];
+    let edges = vec![Edge {
+        vertices: [0, 1],
+        curve: Curve::Circle(Circle {
+            center: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 1.0, 0.0]),
+            reference_direction: direction([0.0, 0.0, -1.0]),
+            radius,
+        }),
+    }];
+    let faces = vec![Face {
+        surface: Surface::Sphere(Sphere {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+        bounds: vec![Loop {
+            half_edges: vec![
+                HalfEdge {
+                    edge: 0,
+                    forward: true,
+                },
+                HalfEdge {
+                    edge: 0,
+                    forward: false,
+                },
+            ],
+        }],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell {
+            faces: vec![0],
             closed: true,
         }],
     }
