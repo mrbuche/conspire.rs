@@ -86,3 +86,21 @@ fn projects_onto_a_cylindrical_wall() {
 fn accepts_a_full_cone_face() {
     assert!(cone(3.0, 1.0, 4.0).oracle().is_ok());
 }
+
+#[test]
+fn accepts_a_full_circle_whose_seam_sits_on_the_branch_cut() {
+    let axis = [0.0, 0.0, 1.0];
+    let seam: Vec<[f64; 3]> = vec![[-1.0, 1.0e-17, 0.0], [-1.0, -1.0e-17, 1.0]];
+    assert!(super::sweeps_full_circle(&seam, [0.0; 3], axis));
+}
+
+#[test]
+fn axial_span_rejects_a_face_with_no_vertices() {
+    assert!(super::axial_span(&[], [0.0; 3], [0.0, 0.0, 1.0]).is_err());
+}
+
+#[test]
+fn axial_span_rejects_a_degenerate_zero_height_face() {
+    let points: Vec<[f64; 3]> = vec![[1.0, 0.0, 3.0], [-1.0, 0.0, 3.0], [0.0, 1.0, 3.0]];
+    assert!(super::axial_span(&points, [0.0; 3], [0.0, 0.0, 1.0]).is_err());
+}

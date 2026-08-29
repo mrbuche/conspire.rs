@@ -56,19 +56,17 @@ impl Brep {
     }
 
     /// World-space corners of every vertex on `face`'s loops, poles included.
-    fn face_vertices(&self, face: &Face) -> Vec<[Scalar; D]> {
+    fn face_vertices(&self, face: &Face) -> Result<Vec<[Scalar; D]>, &'static str> {
         let mut points = Vec::new();
         for bound in &face.bounds {
-            if let Ok(ring) = bound.vertices(&self.edges) {
-                for vertex in ring {
-                    points.push(from_fn(|k| self.vertices[vertex][k].value()));
-                }
+            for vertex in bound.vertices(&self.edges)? {
+                points.push(from_fn(|k| self.vertices[vertex][k].value()));
             }
         }
         for &pole in &face.poles {
             points.push(from_fn(|k| self.vertices[pole][k].value()));
         }
-        points
+        Ok(points)
     }
 
     fn cylinder_patch(
@@ -78,11 +76,11 @@ impl Brep {
     ) -> Result<FacePatch, &'static str> {
         let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
         let origin: [Scalar; D] = from_fn(|k| surface.origin[k].value());
-        let vertices = self.face_vertices(face);
+        let vertices = self.face_vertices(face)?;
         if !sweeps_full_circle(&vertices, origin, axis) {
             return Err("partial cylindrical face (fillet/chamfer) is not yet meshable");
         }
-        let (low, high) = axial_span(&vertices, origin, axis);
+        let (low, high) = axial_span(&vertices, origin, axis)?;
         let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
         let radius = surface.radius;
         let curved = Curved::Cylinder {
@@ -99,11 +97,11 @@ impl Brep {
     fn cone_patch(&self, surface: &surface::Cone, face: &Face) -> Result<FacePatch, &'static str> {
         let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
         let origin: [Scalar; D] = from_fn(|k| surface.origin[k].value());
-        let vertices = self.face_vertices(face);
+        let vertices = self.face_vertices(face)?;
         if !sweeps_full_circle(&vertices, origin, axis) {
             return Err("partial conical face (fillet/chamfer) is not yet meshable");
         }
-        let (low, high) = axial_span(&vertices, origin, axis);
+        let (low, high) = axial_span(&vertices, origin, axis)?;
         let slope = surface.semi_angle.tan();
         let base_radius = (surface.radius + low * slope).max(0.0);
         let tip_radius = (surface.radius + high * slope).max(0.0);
@@ -216,6 +214,10 @@ fn sweeps_full_circle(points: &[[Scalar; D]], origin: [Scalar; D], axis: [Scalar
         .collect();
     angles.sort_by(Scalar::total_cmp);
     angles.dedup_by(|a, b| (*a - *b).abs() < 1.0e-6);
+    // A seam sitting on the branch cut lands at both -pi and +pi: one angle.
+    if angles.len() > 1 && angles[0] + std::f64::consts::TAU - angles[angles.len() - 1] < 1.0e-6 {
+        angles.pop();
+    }
     if angles.len() < 2 {
         return true;
     }
@@ -226,9 +228,14 @@ fn sweeps_full_circle(points: &[[Scalar; D]], origin: [Scalar; D], axis: [Scalar
     gap <= ANGULAR_GAP_LIMIT
 }
 
-/// The `[low, high]` span of `points` projected onto `axis` from `origin`,
-/// widened to a non-degenerate interval.
-fn axial_span(points: &[[Scalar; D]], origin: [Scalar; D], axis: [Scalar; D]) -> (Scalar, Scalar) {
+/// The `[low, high]` span of `points` projected onto `axis` from `origin`.
+/// Errs rather than inventing a span when the face has no usable extent — a
+/// degenerate span has no honest analytic patch.
+fn axial_span(
+    points: &[[Scalar; D]],
+    origin: [Scalar; D],
+    axis: [Scalar; D],
+) -> Result<(Scalar, Scalar), &'static str> {
     let mut low = Scalar::INFINITY;
     let mut high = Scalar::NEG_INFINITY;
     for point in points {
@@ -237,13 +244,12 @@ fn axial_span(points: &[[Scalar; D]], origin: [Scalar; D], axis: [Scalar; D]) ->
         high = high.max(along);
     }
     if !(low.is_finite() && high.is_finite()) {
-        (low, high) = (-0.5, 0.5);
+        return Err("cylindrical/conical face has no vertices to bound its axial extent");
     }
     if high - low < 1.0e-9 {
-        (low - 0.5, high + 0.5)
-    } else {
-        (low, high)
+        return Err("cylindrical/conical face has a degenerate (zero-height) axial extent");
     }
+    Ok((low, high))
 }
 
 /// AABB of a frustum: the union of its two end circles, each an exact
