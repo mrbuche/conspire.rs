@@ -1,4 +1,4 @@
-use super::read;
+use super::super::read;
 
 const CUBE: &str = r#"
 ISO-10303-21;

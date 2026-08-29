@@ -1,6 +1,4 @@
 mod brep;
-#[cfg(test)]
-mod test;
 
 use crate::geometry::cad::{brep::Brep, part_21};
 use std::io::Result;
