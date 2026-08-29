@@ -1,4 +1,4 @@
-use super::super::read;
+use super::super::{read, read_all};
 
 const CUBE: &str = r#"
 ISO-10303-21;
@@ -405,6 +405,83 @@ DATA;
 ENDSEC;
 END-ISO-10303-21;
 "#;
+
+/// A file holding two separate solids: a radius-2 sphere at the origin and a
+/// radius-3 sphere at `(10, 0, 0)`.
+const TWO_SPHERES: &str = r#"
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('two spheres'),'2;1');
+FILE_NAME('two.step','2026-08-28T00:00:00',(''),(''),'conspire','conspire','');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 }'));
+ENDSEC;
+DATA;
+#1 = CARTESIAN_POINT('',(0.,0.,0.));
+#2 = DIRECTION('',(0.,0.,1.));
+#3 = DIRECTION('',(1.,0.,0.));
+#4 = DIRECTION('',(0.,1.,0.));
+#10 = CARTESIAN_POINT('',(0.,0.,-2.));
+#11 = CARTESIAN_POINT('',(0.,0.,2.));
+#12 = VERTEX_POINT('',#10);
+#13 = VERTEX_POINT('',#11);
+#14 = AXIS2_PLACEMENT_3D('',#1,#4,#3);
+#15 = CIRCLE('',#14,2.);
+#16 = EDGE_CURVE('',#12,#13,#15,.T.);
+#17 = AXIS2_PLACEMENT_3D('',#1,#2,#3);
+#18 = SPHERICAL_SURFACE('',#17,2.);
+#19 = ORIENTED_EDGE('',*,*,#16,.T.);
+#20 = ORIENTED_EDGE('',*,*,#16,.F.);
+#21 = EDGE_LOOP('',(#19,#20));
+#22 = FACE_OUTER_BOUND('',#21,.T.);
+#23 = ADVANCED_FACE('',(#22),#18,.T.);
+#24 = CLOSED_SHELL('',(#23));
+#25 = MANIFOLD_SOLID_BREP('A',#24);
+#30 = CARTESIAN_POINT('',(10.,0.,0.));
+#31 = CARTESIAN_POINT('',(10.,0.,-3.));
+#32 = CARTESIAN_POINT('',(10.,0.,3.));
+#33 = VERTEX_POINT('',#31);
+#34 = VERTEX_POINT('',#32);
+#35 = AXIS2_PLACEMENT_3D('',#30,#4,#3);
+#36 = CIRCLE('',#35,3.);
+#37 = EDGE_CURVE('',#33,#34,#36,.T.);
+#38 = AXIS2_PLACEMENT_3D('',#30,#2,#3);
+#39 = SPHERICAL_SURFACE('',#38,3.);
+#40 = ORIENTED_EDGE('',*,*,#37,.T.);
+#41 = ORIENTED_EDGE('',*,*,#37,.F.);
+#42 = EDGE_LOOP('',(#40,#41));
+#43 = FACE_OUTER_BOUND('',#42,.T.);
+#44 = ADVANCED_FACE('',(#43),#39,.T.);
+#45 = CLOSED_SHELL('',(#44));
+#46 = MANIFOLD_SOLID_BREP('B',#45);
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+#[test]
+fn reads_every_solid_in_the_file() {
+    use crate::geometry::{cad::brep::surface::Surface, csg::Primitive};
+
+    let breps = read_all(TWO_SPHERES).unwrap();
+    assert_eq!(breps.len(), 2);
+
+    let radii: Vec<f64> = breps
+        .iter()
+        .map(|brep| {
+            assert!(
+                matches!(brep.primitive(), Some(Primitive::Sphere(_))),
+                "solid not recognised as a sphere"
+            );
+            let Surface::Sphere(sphere) = &brep.faces[0].surface else {
+                unreachable!()
+            };
+            sphere.radius
+        })
+        .collect();
+    assert_eq!(radii, vec![2.0, 3.0]);
+
+    // The single-solid `read` refuses a multi-solid file.
+    assert!(read(TWO_SPHERES).is_err());
+}
 
 #[test]
 fn scales_coordinates_from_the_declared_length_unit() {

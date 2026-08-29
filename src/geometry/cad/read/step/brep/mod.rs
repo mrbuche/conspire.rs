@@ -16,11 +16,11 @@ use crate::{
     io::invalid,
     units::length_scale,
 };
-use std::{array::from_fn, collections::HashMap, io::Result};
+use std::{array::from_fn, collections::HashMap, io::Result, mem::take};
 
 const D: usize = 3;
 
-pub(super) fn read(exchange: &Exchange) -> Result<Brep> {
+pub(super) fn read(exchange: &Exchange) -> Result<Vec<Brep>> {
     let mut reader = Reader {
         exchange,
         scale: file_length_scale(exchange)?,
@@ -30,14 +30,38 @@ pub(super) fn read(exchange: &Exchange) -> Result<Brep> {
         edge_index: HashMap::new(),
         faces: Vec::new(),
     };
-    let solid = reader.find("MANIFOLD_SOLID_BREP")?;
-    let shell = reader.shell(reference(&solid.parameters, 1)?)?;
-    Ok(Brep {
-        vertices: reader.vertices,
-        edges: reader.edges,
-        faces: reader.faces,
-        shells: vec![shell],
-    })
+    let solids: Vec<u64> = exchange
+        .data
+        .iter()
+        .filter(|(_, instance)| {
+            instance
+                .records
+                .iter()
+                .any(|record| record.keyword == "MANIFOLD_SOLID_BREP")
+        })
+        .map(|(&id, _)| id)
+        .collect();
+    if solids.is_empty() {
+        return Err(invalid("STEP: no MANIFOLD_SOLID_BREP entity".to_string()));
+    }
+    solids
+        .into_iter()
+        .map(|id| {
+            reader.vertices.clear();
+            reader.vertex_index.clear();
+            reader.edges.clear();
+            reader.edge_index.clear();
+            reader.faces.clear();
+            let shell_id = reference(&reader.record(id, "MANIFOLD_SOLID_BREP")?.parameters, 1)?;
+            let shell = reader.shell(shell_id)?;
+            Ok(Brep {
+                vertices: take(&mut reader.vertices),
+                edges: take(&mut reader.edges),
+                faces: take(&mut reader.faces),
+                shells: vec![shell],
+            })
+        })
+        .collect()
 }
 
 struct Reader<'a> {
@@ -52,15 +76,6 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn find(&self, keyword: &str) -> Result<&'a Record> {
-        self.exchange
-            .data
-            .values()
-            .flat_map(|instance| &instance.records)
-            .find(|record| record.keyword == keyword)
-            .ok_or_else(|| invalid(format!("STEP: no {keyword} entity")))
-    }
-
     fn record(&self, id: u64, keyword: &str) -> Result<&'a Record> {
         let instance = self
             .exchange
