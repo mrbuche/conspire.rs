@@ -10,7 +10,7 @@ use super::{
 };
 use crate::geometry::{
     Coordinate, Direction,
-    csg::{Cone, Cuboid, Cylinder, Primitive, Sphere},
+    csg::{Cone, Cuboid, Cylinder, Primitive, Sphere, Torus},
 };
 use std::{array::from_fn, f64::consts::FRAC_PI_2};
 
@@ -18,14 +18,42 @@ const EPSILON: f64 = 1.0e-9;
 
 impl Brep {
     /// This solid as an analytic [`Primitive`] — an axis-aligned box, a sphere,
-    /// a capped cylinder, or a truncated cone — or `None` for anything the
-    /// recogniser doesn't reduce.
+    /// a capped cylinder, a truncated cone, or a ring torus — or `None` for
+    /// anything the recogniser doesn't reduce.
     pub fn primitive(&self) -> Option<Primitive> {
         self.as_cuboid()
             .map(Primitive::Cuboid)
             .or_else(|| self.as_sphere().map(Primitive::Sphere))
             .or_else(|| self.as_cylinder().map(Primitive::Cylinder))
             .or_else(|| self.as_cone().map(Primitive::Cone))
+            .or_else(|| self.as_torus().map(Primitive::Torus))
+    }
+
+    fn as_torus(&self) -> Option<Torus> {
+        let mut surfaces = self.faces.iter().map(|face| match &face.surface {
+            Surface::Torus(torus) => Some(torus),
+            _ => None,
+        });
+        let first = surfaces.next()??;
+        let center: [f64; D] = from_fn(|k| first.origin[k].value());
+        let axis: [f64; D] = from_fn(|k| first.axis[k].value());
+        for surface in surfaces {
+            let surface = surface?;
+            if (surface.major_radius - first.major_radius).abs() > EPSILON
+                || (surface.minor_radius - first.minor_radius).abs() > EPSILON
+                || (0..D).any(|k| (surface.origin[k].value() - center[k]).abs() > EPSILON)
+                || (0..D).any(|k| (surface.axis[k].value() - axis[k]).abs() > EPSILON)
+            {
+                return None;
+            }
+        }
+        Torus::new(
+            first.origin.clone(),
+            first.axis.clone(),
+            first.major_radius,
+            first.minor_radius,
+        )
+        .ok()
     }
 
     fn as_sphere(&self) -> Option<Sphere> {

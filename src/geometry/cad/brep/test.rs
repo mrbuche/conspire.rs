@@ -1,7 +1,7 @@
 use super::{
     Brep, Edge, Face, HalfEdge, Loop, Shell,
     curve::{Circle, Curve, Line},
-    surface::{Cone, Cylinder, Plane, Sphere, Surface},
+    surface::{Cone, Cylinder, Plane, Sphere, Surface, Torus},
 };
 use crate::geometry::{Coordinate, Direction};
 
@@ -283,6 +283,74 @@ pub(crate) fn cone(base_radius: f64, tip_radius: f64, height: f64) -> Brep {
         faces,
         shells: vec![Shell {
             faces: vec![0, 1, 2],
+            closed: true,
+        }],
+    }
+}
+
+/// A ring torus about `+z` centred at the origin: one toroidal face closed by a
+/// meridian seam and a longitude seam through the outer-equator point.
+pub(crate) fn torus(major_radius: f64, minor_radius: f64) -> Brep {
+    let seam = major_radius + minor_radius;
+    let vertices = vec![Coordinate::const_from([seam, 0.0, 0.0])];
+    let edges = vec![
+        // Tube cross-section circle in the x-z plane at angle 0.
+        Edge {
+            vertices: [0, 0],
+            curve: Curve::Circle(Circle {
+                center: Coordinate::const_from([major_radius, 0.0, 0.0]),
+                axis: direction([0.0, 1.0, 0.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius: minor_radius,
+            }),
+        },
+        // Outer equator traced by the seam point around the axis.
+        Edge {
+            vertices: [0, 0],
+            curve: Curve::Circle(Circle {
+                center: Coordinate::const_from([0.0, 0.0, 0.0]),
+                axis: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius: seam,
+            }),
+        },
+    ];
+    let faces = vec![Face {
+        surface: Surface::Torus(Torus {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            major_radius,
+            minor_radius,
+        }),
+        bounds: vec![Loop {
+            half_edges: vec![
+                HalfEdge {
+                    edge: 0,
+                    forward: true,
+                },
+                HalfEdge {
+                    edge: 1,
+                    forward: true,
+                },
+                HalfEdge {
+                    edge: 0,
+                    forward: false,
+                },
+                HalfEdge {
+                    edge: 1,
+                    forward: false,
+                },
+            ],
+        }],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell {
+            faces: vec![0],
             closed: true,
         }],
     }

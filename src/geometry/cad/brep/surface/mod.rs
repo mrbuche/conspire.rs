@@ -7,6 +7,7 @@ pub enum Surface {
     Cylinder(Cylinder),
     Sphere(Sphere),
     Cone(Cone),
+    Torus(Torus),
 }
 
 pub struct Plane {
@@ -38,4 +39,14 @@ pub struct Cone {
     /// Half the apex angle, in radians; the radius grows by `tan(semi_angle)`
     /// per unit along `axis`.
     pub semi_angle: f64,
+}
+
+pub struct Torus {
+    pub origin: Coordinate<D>,
+    pub axis: Direction<D>,
+    pub reference_direction: Direction<D>,
+    /// Centre of the tube circle to the torus axis.
+    pub major_radius: f64,
+    /// Radius of the tube.
+    pub minor_radius: f64,
 }

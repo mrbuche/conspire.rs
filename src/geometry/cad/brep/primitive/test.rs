@@ -1,6 +1,6 @@
 use crate::geometry::{
     Coordinate,
-    cad::brep::test::{axis_aligned_box, ball, capped_cylinder, cone, coplanar_squares},
+    cad::brep::test::{axis_aligned_box, ball, capped_cylinder, cone, coplanar_squares, torus},
     csg::Primitive,
     solid::{Solid, SolidOracle},
 };
@@ -60,6 +60,17 @@ fn recognises_a_truncated_cone() {
     assert!(oracle.signed_distance(&point([1.0, 0.0, 4.0])).abs() < 1e-6);
     assert!(oracle.signed_distance(&point([0.0, 0.0, 2.0])) > 0.0);
     assert!((oracle.signed_distance(&point([0.0, 0.0, -3.0])) + 3.0).abs() < 1e-6);
+}
+
+#[test]
+fn recognises_a_ring_torus() {
+    let Some(Primitive::Torus(ring)) = torus(3.0, 1.0).primitive() else {
+        panic!("torus not recognised");
+    };
+    let oracle = ring.oracle().unwrap();
+    assert!((oracle.signed_distance(&point([3.0, 0.0, 0.0])) - 1.0).abs() < 1e-6);
+    assert!(oracle.signed_distance(&point([4.0, 0.0, 0.0])).abs() < 1e-6);
+    assert!(oracle.signed_distance(&point([0.0; 3])) < 0.0);
 }
 
 #[test]

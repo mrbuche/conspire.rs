@@ -8,7 +8,7 @@ use crate::{
             brep::{
                 Brep, Edge, Face, HalfEdge, Loop, Shell,
                 curve::{Circle, Curve, Line},
-                surface::{Cone, Cylinder, Plane, Sphere, Surface},
+                surface::{Cone, Cylinder, Plane, Sphere, Surface, Torus},
             },
             part_21::{Exchange, Parameter, Record},
         },
@@ -176,8 +176,21 @@ impl<'a> Reader<'a> {
                 semi_angle,
             }));
         }
+        if let Ok(record) = self.record(id, "TOROIDAL_SURFACE") {
+            let (origin, axis, reference_direction) =
+                self.axes(reference(&record.parameters, 1)?)?;
+            let major_radius = self.radius(&record.parameters, 2)?;
+            let minor_radius = self.radius(&record.parameters, 3)?;
+            return Ok(Surface::Torus(Torus {
+                origin,
+                axis,
+                reference_direction,
+                major_radius,
+                minor_radius,
+            }));
+        }
         Err(invalid(format!(
-            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE, CONICAL_SURFACE)"
+            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE, CONICAL_SURFACE, TOROIDAL_SURFACE)"
         )))
     }
 
