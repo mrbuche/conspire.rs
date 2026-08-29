@@ -458,6 +458,23 @@ END-ISO-10303-21;
 "#;
 
 #[test]
+#[ignore = "reads a local file if one is present, not a checked-in fixture"]
+fn probe_real_file() {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/boxy_with_cylindricity.stp");
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return;
+    };
+    let brep = read(&text).expect("real STEP file did not read");
+    eprintln!(
+        "OK: {} vertices, {} edges, {} faces; primitive = {}",
+        brep.vertices.len(),
+        brep.edges.len(),
+        brep.faces.len(),
+        brep.primitive().is_some(),
+    );
+}
+
+#[test]
 fn reads_every_solid_in_the_file() {
     use crate::geometry::{cad::brep::surface::Surface, csg::Primitive};
 

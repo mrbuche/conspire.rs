@@ -7,7 +7,7 @@ use crate::{
         cad::{
             brep::{
                 Brep, Edge, Face, HalfEdge, Loop, Shell,
-                curve::{Circle, Curve, Line},
+                curve::{Circle, Curve, Ellipse, Line},
                 surface::{Cone, Cylinder, Plane, Sphere, Surface, Torus},
             },
             part_21::{Exchange, Parameter, Record},
@@ -24,6 +24,7 @@ pub(super) fn read(exchange: &Exchange) -> Result<Vec<Brep>> {
     let mut reader = Reader {
         exchange,
         scale: file_length_scale(exchange)?,
+        angle: file_angle_scale(exchange)?,
         vertices: Vec::new(),
         vertex_index: HashMap::new(),
         edges: Vec::new(),
@@ -68,6 +69,8 @@ struct Reader<'a> {
     exchange: &'a Exchange,
     /// Metres per the file's declared length unit.
     scale: f64,
+    /// Radians per the file's declared plane-angle unit.
+    angle: f64,
     vertices: Vec<Coordinate<D>>,
     vertex_index: HashMap<u64, usize>,
     edges: Vec<Edge>,
@@ -166,8 +169,7 @@ impl<'a> Reader<'a> {
             let (origin, axis, reference_direction) =
                 self.axes(reference(&record.parameters, 1)?)?;
             let radius = self.radius(&record.parameters, 2)?;
-            // The semi-angle is a plane angle, taken in radians.
-            let semi_angle = scalar(parameter(&record.parameters, 3)?)?;
+            let semi_angle = scalar(parameter(&record.parameters, 3)?)? * self.angle;
             return Ok(Surface::Cone(Cone {
                 origin,
                 axis,
@@ -221,8 +223,24 @@ impl<'a> Reader<'a> {
                 radius,
             }));
         }
+        if let Ok(record) = self.record(id, "ELLIPSE") {
+            let (center, mut axis, reference_direction) =
+                self.axes(reference(&record.parameters, 1)?)?;
+            let major_radius = self.radius(&record.parameters, 2)?;
+            let minor_radius = self.radius(&record.parameters, 3)?;
+            if !same_sense {
+                axis = Direction::const_from(from_fn(|k| -axis[k].value()));
+            }
+            return Ok(Curve::Ellipse(Ellipse {
+                center,
+                axis,
+                reference_direction,
+                major_radius,
+                minor_radius,
+            }));
+        }
         Err(invalid(format!(
-            "STEP: #{id} is not a supported curve (only LINE, CIRCLE)"
+            "STEP: #{id} is not a supported curve (only LINE, CIRCLE, ELLIPSE)"
         )))
     }
 
@@ -284,14 +302,16 @@ impl<'a> Reader<'a> {
         Ok(Loop { half_edges })
     }
 
-    fn bound(&mut self, id: u64) -> Result<(Loop, bool)> {
+    fn bound(&mut self, id: u64) -> Result<Option<(Loop, bool)>> {
         let record = self.any(id, &["FACE_OUTER_BOUND", "FACE_BOUND"])?;
         let outer = record.keyword == "FACE_OUTER_BOUND";
-        let edge_loop = self.edge_loop(
-            reference(&record.parameters, 1)?,
-            boolean(&record.parameters, 2)?,
-        )?;
-        Ok((edge_loop, outer))
+        let loop_id = reference(&record.parameters, 1)?;
+        // A VERTEX_LOOP is the pole of a periodic surface: no edges to trim.
+        if self.record(loop_id, "VERTEX_LOOP").is_ok() {
+            return Ok(None);
+        }
+        let edge_loop = self.edge_loop(loop_id, boolean(&record.parameters, 2)?)?;
+        Ok(Some((edge_loop, outer)))
     }
 
     fn face(&mut self, id: u64) -> Result<usize> {
@@ -305,7 +325,9 @@ impl<'a> Reader<'a> {
         let mut outer = None;
         let mut inner = Vec::new();
         for bound_id in bound_ids {
-            let (edge_loop, is_outer) = self.bound(bound_id)?;
+            let Some((edge_loop, is_outer)) = self.bound(bound_id)? else {
+                continue;
+            };
             if is_outer && outer.is_none() {
                 outer = Some(edge_loop);
             } else {
@@ -372,6 +394,7 @@ fn scalar(parameter: &Parameter) -> Result<f64> {
     match parameter {
         Parameter::Real(value) => Ok(*value),
         Parameter::Integer(value) => Ok(*value as f64),
+        Parameter::Typed { parameter, .. } => scalar(parameter),
         other => Err(invalid(format!("STEP: expected a number, found {other:?}"))),
     }
 }
@@ -416,6 +439,18 @@ fn file_length_scale(exchange: &Exchange) -> Result<f64> {
             && let Some(scale) = length_scale(name)
         {
             return Ok(scale(1.0).in_meters());
+        }
+    }
+    Ok(1.0)
+}
+
+/// Radians per the file's declared plane-angle unit: the factor carried by a
+/// `PLANE_ANGLE_MEASURE_WITH_UNIT` (present only for a conversion-based unit such
+/// as degrees), else 1 for an SI radian.
+fn file_angle_scale(exchange: &Exchange) -> Result<f64> {
+    for record in exchange.data.values().flat_map(|instance| &instance.records) {
+        if record.keyword == "PLANE_ANGLE_MEASURE_WITH_UNIT" {
+            return scalar(parameter(&record.parameters, 0)?);
         }
     }
     Ok(1.0)
