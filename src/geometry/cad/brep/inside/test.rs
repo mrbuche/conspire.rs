@@ -1,4 +1,4 @@
-use super::point_in_polygon;
+use super::mixed_point_in_polygon;
 use crate::geometry::{
     Coordinate,
     cad::brep::test::{axis_aligned_box, unit_cube},
@@ -6,14 +6,15 @@ use crate::geometry::{
 
 #[test]
 fn square_with_a_hole() {
+    let straight = |points: &[[f64; 2]]| points.iter().map(|&point| (point, None)).collect();
     let rings = vec![
-        vec![[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]],
-        vec![[1.0, 1.0], [2.0, 1.0], [2.0, 2.0], [1.0, 2.0]],
+        straight(&[[0.0, 0.0], [4.0, 0.0], [4.0, 4.0], [0.0, 4.0]]),
+        straight(&[[1.0, 1.0], [2.0, 1.0], [2.0, 2.0], [1.0, 2.0]]),
     ];
-    assert!(point_in_polygon([0.5, 0.5], &rings));
-    assert!(point_in_polygon([3.0, 3.0], &rings));
-    assert!(!point_in_polygon([1.5, 1.5], &rings)); // in the hole
-    assert!(!point_in_polygon([5.0, 2.0], &rings)); // outside
+    assert!(mixed_point_in_polygon([0.5, 0.5], &rings));
+    assert!(mixed_point_in_polygon([3.0, 3.0], &rings));
+    assert!(!mixed_point_in_polygon([1.5, 1.5], &rings)); // in the hole
+    assert!(!mixed_point_in_polygon([5.0, 2.0], &rings)); // outside
 }
 
 #[test]

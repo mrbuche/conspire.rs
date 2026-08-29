@@ -1,8 +1,11 @@
 //! One B-rep face as an analytic closest-point patch. Cylindrical and conical
 //! faces are trimmed exactly from their bounding edges: an axial ruling or a
 //! circular arc ⊥ the axis collapses to a straight segment in the surface's
-//! own (angle, axial distance) chart, so the trim is a polygon there — no
-//! tessellation, no sampling. Spherical and toroidal faces are taken whole.
+//! own (angle, axial distance) chart, and a tilted elliptical edge (cylinder
+//! only) traces an exact sinusoid there — no tessellation, no curve sampling
+//! (nearest-point-on-sinusoid has no closed form, so that one case bisects to
+//! an exact root instead, the same pattern as `csg::Ellipsoid`'s oracle).
+//! Spherical and toroidal faces are taken whole.
 
 use super::super::{D, planar::PlanarFace};
 use crate::{
@@ -21,7 +24,7 @@ pub(super) enum Curved {
         radius: Scalar,
         low: Scalar,
         high: Scalar,
-        rings: Option<Vec<Vec<[Scalar; 2]>>>,
+        rings: Option<Vec<super::Ring>>,
         sign: Scalar,
     },
     /// The lateral wall of a cone; `radius` is the surface's own radius at
@@ -33,7 +36,7 @@ pub(super) enum Curved {
         slope: Scalar,
         low: Scalar,
         high: Scalar,
-        rings: Option<Vec<Vec<[Scalar; 2]>>>,
+        rings: Option<Vec<super::Ring>>,
         sign: Scalar,
     },
     Sphere {
@@ -167,7 +170,7 @@ fn clamp_uv(
     uv: [Scalar; 2],
     low: Scalar,
     high: Scalar,
-    rings: &Option<Vec<Vec<[Scalar; 2]>>>,
+    rings: &Option<Vec<super::Ring>>,
     radius_at: impl Fn(Scalar) -> Scalar,
 ) -> [Scalar; 2] {
     match rings {

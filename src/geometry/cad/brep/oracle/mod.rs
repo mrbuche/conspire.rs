@@ -5,7 +5,7 @@ mod patch;
 
 use super::{
     Brep, D, Face, Loop,
-    curve::Curve,
+    curve::{self, Curve},
     surface::{self, Surface},
 };
 use crate::{
@@ -17,12 +17,15 @@ use std::array::from_fn;
 
 /// [`SolidOracle`] backed by the analytic B-rep: closest-point projection onto
 /// each face's exact surface. Planar faces are trimmed to their loops (polygon
-/// or exact disk/annulus). Cylindrical and conical faces are trimmed exactly
-/// from their bounding edges — an axial ruling or a circular arc ⊥ the axis
-/// collapses to a straight segment in the surface's own (angle, axial
-/// distance) chart, so a genuine partial sweep (fillet, chamfer remnant) is
-/// meshable; a tilted or free-form edge on such a face still errs. Spherical
-/// and toroidal faces are taken whole. A B-spline face errs.
+/// or exact disk/annulus, possibly mixed with circular-arc edges). Cylindrical
+/// and conical faces are trimmed exactly from their bounding edges — an axial
+/// ruling or a circular arc ⊥ the axis collapses to a straight segment in the
+/// surface's own (angle, axial distance) chart, so a genuine partial sweep
+/// (fillet, chamfer remnant) is meshable; on a cylinder, a tilted elliptical
+/// edge (an oblique planar cut) is trimmed exactly too, via the sinusoid it
+/// traces in that chart. A tilted edge on a cone, or a free-form edge on
+/// either, still errs. Spherical and toroidal faces are taken whole. A
+/// B-spline face errs.
 pub struct BrepOracle {
     patches: Vec<FacePatch>,
 }
@@ -72,14 +75,19 @@ impl Brep {
     /// `u` the angle around `axis`, unwrapped continuously past a single turn
     /// as the loop is walked, `v` the signed axial distance — or `None` if the
     /// bound has no angular restriction (a coincident-endpoint seam circle,
-    /// the whole-turn case).
+    /// the whole-turn case). Each ring point carries the shape of the edge
+    /// leading to the next one: `None` for straight, `Some` for the sinusoid
+    /// an oblique planar cut traces on a cylinder (`cylinder_radius: Some`) —
+    /// unsupported on a cone (`None`).
     fn uv_ring(
         &self,
         bound: &Loop,
         origin: [Scalar; D],
         axis: [Scalar; D],
-    ) -> Result<Option<Vec<[Scalar; 2]>>, &'static str> {
-        let mut ring: Vec<[Scalar; 2]> = Vec::new();
+        cylinder_radius: Option<Scalar>,
+    ) -> Result<Option<Ring>, &'static str> {
+        let mut ring: Ring = Vec::new();
+        let mut cursor: Option<[Scalar; 2]> = None;
         for half_edge in &bound.half_edges {
             let edge = self
                 .edges
@@ -90,19 +98,21 @@ impl Brep {
             } else {
                 (edge.vertices[1], edge.vertices[0])
             };
-            if ring.is_empty() {
-                let start_point: [Scalar; D] = from_fn(|k| self.vertices[start][k].value());
-                ring.push(to_uv(origin, axis, start_point));
-            }
-            let [u_prev, _] = *ring.last().unwrap();
+            let current = match cursor {
+                Some(point) => point,
+                None => {
+                    let start_point: [Scalar; D] = from_fn(|k| self.vertices[start][k].value());
+                    to_uv(origin, axis, start_point)
+                }
+            };
             let end_point: [Scalar; D] = from_fn(|k| self.vertices[end][k].value());
-            match &edge.curve {
+            let (kind, next) = match &edge.curve {
                 Curve::Line(_) => {
                     let [u_end, v_end] = to_uv(origin, axis, end_point);
-                    if wrap(u_end - u_prev).abs() > 1.0e-6 {
+                    if wrap(u_end - current[0]).abs() > 1.0e-6 {
                         return Err("non-axial straight edge on a curved face");
                     }
-                    ring.push([u_prev, v_end]);
+                    (None, [current[0], v_end])
                 }
                 Curve::Circle(circle) => {
                     let caxis: [Scalar; D] = from_fn(|k| circle.axis[k].value());
@@ -115,16 +125,27 @@ impl Brep {
                     }
                     let sign = if half_edge.forward { alignment } else { -alignment };
                     let [u_end, v_end] = to_uv(origin, axis, end_point);
-                    let mut delta = wrap(u_end - u_prev);
+                    let mut delta = wrap(u_end - current[0]);
                     if sign > 0.0 && delta < 0.0 {
                         delta += std::f64::consts::TAU;
                     } else if sign < 0.0 && delta > 0.0 {
                         delta -= std::f64::consts::TAU;
                     }
-                    ring.push([u_prev + delta, v_end]);
+                    (None, [current[0] + delta, v_end])
+                }
+                Curve::Ellipse(ellipse) => {
+                    let Some(radius) = cylinder_radius else {
+                        return Err("tilted elliptical edge on a conical face is not yet supported");
+                    };
+                    let sinusoid = ellipse_sinusoid(ellipse, origin, axis, radius)?;
+                    let [u_end, v_end] = to_uv(origin, axis, end_point);
+                    let u_end = current[0] + wrap(u_end - current[0]);
+                    (Some(sinusoid), [u_end, v_end])
                 }
                 _ => return Err("unsupported edge on a curved face trim"),
-            }
+            };
+            ring.push((current, kind));
+            cursor = Some(next);
         }
         Ok(Some(ring))
     }
@@ -136,10 +157,11 @@ impl Brep {
         face: &Face,
         origin: [Scalar; D],
         axis: [Scalar; D],
-    ) -> Result<Option<Vec<Vec<[Scalar; 2]>>>, &'static str> {
+        cylinder_radius: Option<Scalar>,
+    ) -> Result<Option<Vec<Ring>>, &'static str> {
         let mut rings = Vec::new();
         for bound in &face.bounds {
-            match self.uv_ring(bound, origin, axis)? {
+            match self.uv_ring(bound, origin, axis, cylinder_radius)? {
                 Some(ring) => rings.push(ring),
                 None => return Ok(None),
             }
@@ -157,7 +179,7 @@ impl Brep {
         let vertices = self.face_vertices(face)?;
         let (low, high) = axial_span(&vertices, origin, axis)?;
         let radius = surface.radius;
-        let rings = self.trim_rings(face, origin, axis)?;
+        let rings = self.trim_rings(face, origin, axis, Some(radius))?;
         let curved = Curved::Cylinder {
             origin,
             axis,
@@ -180,7 +202,7 @@ impl Brep {
         let slope = surface.semi_angle.tan();
         let base_radius = (surface.radius + low * slope).max(0.0);
         let tip_radius = (surface.radius + high * slope).max(0.0);
-        let rings = self.trim_rings(face, origin, axis)?;
+        let rings = self.trim_rings(face, origin, axis, None)?;
         let curved = Curved::Cone {
             origin,
             axis,
@@ -374,12 +396,97 @@ fn wrap(delta: Scalar) -> Scalar {
     d
 }
 
+/// A `(u, v)` trim-ring point paired with the shape of the edge leading to
+/// the next one: `None` for straight, `Some` for a sinusoid cut.
+pub(super) type Ring = Vec<([Scalar; 2], Option<Sinusoid>)>;
+
+/// The exact trace `v(u) = k + a*cos(u - phi)` an oblique plane leaves on a
+/// cylinder's `(u, v)` chart.
+#[derive(Clone, Copy)]
+pub(super) struct Sinusoid {
+    k: Scalar,
+    a: Scalar,
+    phi: Scalar,
+}
+
+impl Sinusoid {
+    fn v(&self, u: Scalar) -> Scalar {
+        self.k + self.a * (u - self.phi).cos()
+    }
+}
+
+/// The plane of `ellipse` meets the cylinder (`origin`/`axis`/`radius`) along
+/// `v(u) = k + a*cos(u - phi)`: substitute the cylinder's own parametrization
+/// into the plane equation `n.(p - centre) = 0` and solve for `v`, linear in
+/// `cos(u)` and `sin(u)`.
+fn ellipse_sinusoid(
+    ellipse: &curve::Ellipse,
+    origin: [Scalar; D],
+    axis: [Scalar; D],
+    radius: Scalar,
+) -> Result<Sinusoid, &'static str> {
+    let (u_hat, v_hat) = basis(axis);
+    let normal: [Scalar; D] = from_fn(|k| ellipse.axis[k].value());
+    let centre: [Scalar; D] = from_fn(|k| ellipse.center[k].value());
+    let n_axis = dot(normal, axis);
+    if n_axis.abs() < 1.0e-9 {
+        return Err("elliptical edge's plane is parallel to the cylinder axis");
+    }
+    let (nu, nv) = (dot(normal, u_hat), dot(normal, v_hat));
+    let k = dot(normal, from_fn(|i| centre[i] - origin[i])) / n_axis;
+    let (au, av) = (-radius * nu / n_axis, -radius * nv / n_axis);
+    Ok(Sinusoid { k, a: au.hypot(av), phi: av.atan2(au) })
+}
+
 /// Whether `uv` lies inside `rings`, trying both neighbouring turns since `u`
 /// is periodic and the rings may be unwrapped past a single turn.
-fn periodic_contains(uv: [Scalar; 2], rings: &[Vec<[Scalar; 2]>]) -> bool {
+fn periodic_contains(uv: [Scalar; 2], rings: &[Ring]) -> bool {
     [0.0, std::f64::consts::TAU, -std::f64::consts::TAU]
         .into_iter()
-        .any(|shift| super::inside::point_in_polygon([uv[0] + shift, uv[1]], rings))
+        .any(|shift| ring_contains([uv[0] + shift, uv[1]], rings))
+}
+
+/// Even-odd ray-crossing test against `rings` (line segments as usual; a
+/// sinusoid edge solves `v(u) = py` for up to two candidate `u`s, `cos` being
+/// two-to-one, each checked against the edge's own span) — a sinusoid can
+/// cross the ray twice even with both endpoints on one side.
+fn ring_contains([px, py]: [Scalar; 2], rings: &[Ring]) -> bool {
+    let mut inside = false;
+    for ring in rings {
+        let count = ring.len();
+        for i in 0..count {
+            let (a, kind) = ring[i];
+            let (b, _) = ring[(i + 1) % count];
+            match kind {
+                None => {
+                    let [ax, ay] = a;
+                    let [bx, by] = b;
+                    if (ay > py) != (by > py) {
+                        let crossing = ax + (py - ay) / (by - ay) * (bx - ax);
+                        if px < crossing {
+                            inside = !inside;
+                        }
+                    }
+                }
+                Some(sinusoid) => {
+                    let target = (py - sinusoid.k) / sinusoid.a;
+                    if target.abs() > 1.0 {
+                        continue;
+                    }
+                    let (lo, hi) = (a[0].min(b[0]), a[0].max(b[0]));
+                    let offset = target.acos();
+                    for candidate in [sinusoid.phi + offset, sinusoid.phi - offset] {
+                        let mid = (lo + hi) / 2.0;
+                        let u = candidate + ((mid - candidate) / std::f64::consts::TAU).round() * std::f64::consts::TAU;
+                        if u >= lo - 1.0e-9 && u <= hi + 1.0e-9 && px < u {
+                            inside = !inside;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    inside
 }
 
 /// The point of `rings` nearest `uv`, in an arc-length metric (`weight(v)` is
@@ -387,38 +494,79 @@ fn periodic_contains(uv: [Scalar; 2], rings: &[Vec<[Scalar; 2]>]) -> bool {
 /// Periodic in `u` like [`periodic_contains`].
 fn periodic_nearest(
     uv: [Scalar; 2],
-    rings: &[Vec<[Scalar; 2]>],
+    rings: &[Ring],
     weight: impl Fn(Scalar) -> Scalar,
 ) -> [Scalar; 2] {
     let mut best = uv;
     let mut best_distance = Scalar::INFINITY;
     for shift in [0.0, std::f64::consts::TAU, -std::f64::consts::TAU] {
         let query = [uv[0] + shift, uv[1]];
-        let wq = [weight(query[1]) * query[0], query[1]];
         for ring in rings {
             let count = ring.len();
             for i in 0..count {
-                let a = ring[i];
-                let b = ring[(i + 1) % count];
-                let wa = [weight(a[1]) * a[0], a[1]];
-                let wb = [weight(b[1]) * b[0], b[1]];
-                let (ex, ey) = (wb[0] - wa[0], wb[1] - wa[1]);
-                let span = ex * ex + ey * ey;
-                let t = if span > 0.0 {
-                    (((wq[0] - wa[0]) * ex + (wq[1] - wa[1]) * ey) / span).clamp(0.0, 1.0)
-                } else {
-                    0.0
+                let (a, kind) = ring[i];
+                let (b, _) = ring[(i + 1) % count];
+                let candidate = match kind {
+                    None => {
+                        let wq = [weight(query[1]) * query[0], query[1]];
+                        let (wa, wb) = ([weight(a[1]) * a[0], a[1]], [weight(b[1]) * b[0], b[1]]);
+                        let (ex, ey) = (wb[0] - wa[0], wb[1] - wa[1]);
+                        let span = ex * ex + ey * ey;
+                        let t = if span > 0.0 {
+                            (((wq[0] - wa[0]) * ex + (wq[1] - wa[1]) * ey) / span).clamp(0.0, 1.0)
+                        } else {
+                            0.0
+                        };
+                        let w = [wa[0] + t * ex, wa[1] + t * ey];
+                        [w[0] / weight(w[1]).max(1.0e-12), w[1]]
+                    }
+                    Some(sinusoid) => nearest_on_sinusoid(query, a[0], b[0], &sinusoid),
                 };
-                let candidate = [wa[0] + t * ex, wa[1] + t * ey];
-                let distance = (candidate[0] - wq[0]).powi(2) + (candidate[1] - wq[1]).powi(2);
+                let distance = (candidate[0] - query[0]).powi(2) + (candidate[1] - query[1]).powi(2);
                 if distance < best_distance {
                     best_distance = distance;
-                    let v = candidate[1];
-                    let u = candidate[0] / weight(v).max(1.0e-12) - shift;
-                    best = [u, v];
+                    best = [candidate[0] - shift, candidate[1]];
                 }
             }
         }
     }
     best
+}
+
+/// The point on `v = sinusoid(u)`, `u` between `u_a` and `u_b`, nearest `uv`:
+/// bisects for an interior critical point of the squared distance and takes
+/// the best of that and the two endpoints — no closed form exists for the
+/// nearest point on a general sinusoid, so this is the same bisection-to-an-
+/// exact-root approach as [`crate::geometry::csg::Ellipsoid`]'s oracle, not a
+/// sampled approximation of the curve itself.
+fn nearest_on_sinusoid(uv: [Scalar; 2], u_a: Scalar, u_b: Scalar, sinusoid: &Sinusoid) -> [Scalar; 2] {
+    let (lo, hi) = (u_a.min(u_b), u_a.max(u_b));
+    let derivative = |u: Scalar| (u - uv[0]) - sinusoid.a * (u - sinusoid.phi).sin() * (sinusoid.v(u) - uv[1]);
+    let distance = |u: Scalar| (u - uv[0]).powi(2) + (sinusoid.v(u) - uv[1]).powi(2);
+    let mut candidates = vec![lo, hi];
+    let (flo, fhi) = (derivative(lo), derivative(hi));
+    if flo * fhi <= 0.0 {
+        let (mut a, mut fa, mut b) = (lo, flo, hi);
+        for _ in 0..60 {
+            let mid = 0.5 * (a + b);
+            let fmid = derivative(mid);
+            if fmid == 0.0 {
+                a = mid;
+                b = mid;
+                break;
+            }
+            if (fmid > 0.0) == (fa > 0.0) {
+                a = mid;
+                fa = fmid;
+            } else {
+                b = mid;
+            }
+        }
+        candidates.push(0.5 * (a + b));
+    }
+    let best_u = candidates
+        .into_iter()
+        .min_by(|&x, &y| distance(x).total_cmp(&distance(y)))
+        .unwrap();
+    [best_u, sinusoid.v(best_u)]
 }

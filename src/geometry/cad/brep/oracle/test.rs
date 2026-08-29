@@ -1,7 +1,13 @@
 use crate::{
     geometry::{
         Coordinate,
-        cad::brep::test::{capped_cylinder, cone, partial_cylinder, square_with_rounded_hole, unit_cube},
+        cad::brep::{
+            curve::Ellipse,
+            test::{
+                capped_cylinder, cone, cylinder_with_elliptical_rim, direction, partial_cylinder,
+                square_with_rounded_hole, unit_cube,
+            },
+        },
         solid::SolidOracle,
     },
     math::TensorRank1,
@@ -85,6 +91,51 @@ fn projects_onto_a_cylindrical_wall() {
 #[test]
 fn accepts_a_full_cone_face() {
     assert!(cone(3.0, 1.0, 4.0).oracle().is_ok());
+}
+
+#[test]
+fn ellipse_sinusoid_matches_the_plane_cylinder_intersection() {
+    let h = std::f64::consts::FRAC_1_SQRT_2;
+    let ellipse = Ellipse {
+        center: Coordinate::from([0.0, 0.0, 5.0]),
+        axis: direction([0.0, h, h]),
+        reference_direction: direction([1.0, 0.0, 0.0]),
+        major_radius: 2.0 * std::f64::consts::SQRT_2,
+        minor_radius: 2.0,
+    };
+    let sinusoid = super::ellipse_sinusoid(&ellipse, [0.0; 3], [0.0, 0.0, 1.0], 2.0).unwrap();
+    for u in [0.0_f64, 0.7, 1.5, -1.0] {
+        assert!((sinusoid.v(u) - (5.0 - 2.0 * u.sin())).abs() < 1e-9);
+    }
+}
+
+#[test]
+fn accepts_a_cylindrical_face_with_a_tilted_elliptical_rim() {
+    assert!(
+        cylinder_with_elliptical_rim(2.0, std::f64::consts::FRAC_PI_3)
+            .oracle()
+            .is_ok()
+    );
+}
+
+#[test]
+fn a_tilted_elliptical_rim_snaps_onto_the_true_cut_not_a_flat_one() {
+    let query_angle = std::f64::consts::FRAC_PI_6; // well inside [0, pi/3]
+    let oracle = cylinder_with_elliptical_rim(2.0, std::f64::consts::FRAC_PI_3)
+        .oracle()
+        .unwrap();
+    // On the infinite cylinder, well past the true (tilted) cut everywhere
+    // over [0, pi/3]: a flat/full wall would leave this point exactly where
+    // it is (already on the surface, no trim at all).
+    let query = Coordinate::from([2.0 * query_angle.cos(), 2.0 * query_angle.sin(), 6.0]);
+    let (point, _) = oracle.project(&query).unwrap();
+    let [x, y, z] = components(&point);
+    // The nearest point on a sloped curve doesn't preserve the query's own
+    // angle, so check self-consistently: it lands exactly on the true
+    // sinusoid at whatever angle it actually snapped to.
+    assert!((z - (5.0 - 2.0 * y.atan2(x).sin())).abs() < 1e-6);
+    // And it moved — the query was already sitting on the untrimmed surface.
+    assert!((z - 6.0).abs() > 0.1);
 }
 
 #[test]

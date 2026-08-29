@@ -24,32 +24,12 @@ pub(super) fn directions() -> [Direction<D>; 3] {
     DIRECTIONS.map(|direction| direction.normalized())
 }
 
-/// Even-odd test of a point against a set of rings in a common 2D frame. Holes
-/// fall out of the parity, whatever the winding.
-pub(super) fn point_in_polygon([px, py]: [Scalar; 2], rings: &[Vec<[Scalar; 2]>]) -> bool {
-    let mut inside = false;
-    for ring in rings {
-        let count = ring.len();
-        for i in 0..count {
-            let [ax, ay] = ring[i];
-            let [bx, by] = ring[(i + 1) % count];
-            if (ay > py) != (by > py) {
-                let crossing = ax + (py - ay) / (by - ay) * (bx - ax);
-                if px < crossing {
-                    inside = !inside;
-                }
-            }
-        }
-    }
-    inside
-}
-
 /// Even-odd test of a point against a set of rings that may mix straight and
-/// circular-arc edges, in a common 2D frame. A ray crossing is found exactly
-/// for a line (as [`point_in_polygon`]) or by solving the circle/ray
-/// intersection for an arc, clamped to its swept range — an arc can cross the
-/// ray twice even when both its endpoints sit on the same side of it, which a
-/// line-style endpoint comparison alone would miss.
+/// circular-arc edges, in a common 2D frame. Holes fall out of the parity,
+/// whatever the winding. A ray crossing is found exactly for a line or by
+/// solving the circle/ray intersection for an arc, clamped to its swept range
+/// — an arc can cross the ray twice even when both its endpoints sit on the
+/// same side of it, which a line-style endpoint comparison alone would miss.
 pub(super) fn mixed_point_in_polygon(
     [px, py]: [Scalar; 2],
     rings: &[Vec<([Scalar; 2], Option<Arc2>)>],

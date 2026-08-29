@@ -1,6 +1,6 @@
 use super::{
     Brep, Edge, Face, HalfEdge, Loop, Shell,
-    curve::{Circle, Curve, Line},
+    curve::{Circle, Curve, Ellipse, Line},
     surface::{Cone, Cylinder, Plane, Sphere, Surface, Torus},
 };
 use crate::geometry::{Coordinate, Direction};
@@ -606,6 +606,81 @@ pub(crate) fn square_with_rounded_hole() -> Brep {
             edge_loop(&[0, 1, 2, 3]),
             edge_loop(&[4, 5, 6, 7, 8, 9, 10, 11]),
         ],
+        poles: vec![],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0], closed: false }],
+    }
+}
+
+/// A single cylindrical face about `+z`, radius `radius`: a genuine partial
+/// sweep from angle `0` to `angle`, flat-circle rim at the bottom and a
+/// genuinely tilted elliptical rim (an oblique planar cut) at the top — the
+/// `[Line, Circle, Line, Ellipse]` shape seen on real chamfered parts.
+pub(crate) fn cylinder_with_elliptical_rim(radius: f64, angle: f64) -> Brep {
+    let h = std::f64::consts::FRAC_1_SQRT_2;
+    let top = |a: f64| 5.0 - radius * a.sin();
+    let point = |a: f64, z: f64| [radius * a.cos(), radius * a.sin(), z];
+    let vertices = [
+        point(0.0, 0.0),
+        point(angle, 0.0),
+        point(angle, top(angle)),
+        point(0.0, top(0.0)),
+    ]
+    .map(Coordinate::const_from)
+    .to_vec();
+    let edges = vec![
+        Edge {
+            vertices: [0, 1],
+            curve: Curve::Circle(Circle {
+                center: Coordinate::const_from([0.0, 0.0, 0.0]),
+                axis: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius,
+            }),
+        },
+        Edge {
+            vertices: [1, 2],
+            curve: Curve::Line(Line {
+                origin: Coordinate::const_from(point(angle, 0.0)),
+                direction: direction([0.0, 0.0, 1.0]),
+            }),
+        },
+        Edge {
+            vertices: [2, 3],
+            curve: Curve::Ellipse(Ellipse {
+                center: Coordinate::const_from([0.0, 0.0, 5.0]),
+                axis: direction([0.0, h, h]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                major_radius: radius * std::f64::consts::SQRT_2,
+                minor_radius: radius,
+            }),
+        },
+        Edge {
+            vertices: [3, 0],
+            curve: Curve::Line(Line {
+                origin: Coordinate::const_from(point(0.0, top(0.0))),
+                direction: direction([0.0, 0.0, -1.0]),
+            }),
+        },
+    ];
+    let faces = vec![Face {
+        surface: Surface::Cylinder(Cylinder {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+        bounds: vec![Loop {
+            half_edges: [(0, true), (1, true), (2, true), (3, true)]
+                .into_iter()
+                .map(|(edge, forward)| HalfEdge { edge, forward })
+                .collect(),
+        }],
         poles: vec![],
         forward: true,
     }];
