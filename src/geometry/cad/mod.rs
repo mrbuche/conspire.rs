@@ -1,3 +1,6 @@
+/// Grouping recognised solids into bodies with pores.
+pub mod assemble;
+
 /// Boundary-representation solid models.
 pub mod brep;
 

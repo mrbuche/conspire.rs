@@ -195,17 +195,26 @@ pub(crate) fn capped_cylinder(radius: f64, height: f64) -> Brep {
     }
 }
 
-/// A sphere of `radius` centred at the origin: one periodic spherical face with
-/// a meridian seam between the two pole vertices.
+/// A sphere of `radius` centred at the origin.
 pub(crate) fn ball(radius: f64) -> Brep {
-    let vertices = vec![
-        Coordinate::const_from([0.0, 0.0, -radius]),
-        Coordinate::const_from([0.0, 0.0, radius]),
-    ];
+    ball_at([0.0, 0.0, 0.0], radius)
+}
+
+/// A sphere of `radius` centred at `center`: one periodic spherical face with a
+/// meridian seam between the two pole vertices.
+pub(crate) fn ball_at(center: [f64; 3], radius: f64) -> Brep {
+    let at = |offset: [f64; 3]| {
+        Coordinate::const_from([
+            center[0] + offset[0],
+            center[1] + offset[1],
+            center[2] + offset[2],
+        ])
+    };
+    let vertices = vec![at([0.0, 0.0, -radius]), at([0.0, 0.0, radius])];
     let edges = vec![Edge {
         vertices: [0, 1],
         curve: Curve::Circle(Circle {
-            center: Coordinate::const_from([0.0, 0.0, 0.0]),
+            center: at([0.0, 0.0, 0.0]),
             axis: direction([0.0, 1.0, 0.0]),
             reference_direction: direction([0.0, 0.0, -1.0]),
             radius,
@@ -213,7 +222,7 @@ pub(crate) fn ball(radius: f64) -> Brep {
     }];
     let faces = vec![Face {
         surface: Surface::Sphere(Sphere {
-            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            origin: at([0.0, 0.0, 0.0]),
             axis: direction([0.0, 0.0, 1.0]),
             reference_direction: direction([1.0, 0.0, 0.0]),
             radius,

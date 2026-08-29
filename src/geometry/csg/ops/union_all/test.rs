@@ -23,12 +23,13 @@ fn sphere_pair() -> UnionAll<Sphere> {
         Sphere::new(point([-1.0, 0.0, 0.0]), 2.0).unwrap(),
         Sphere::new(point([1.0, 0.0, 0.0]), 2.0).unwrap(),
     ])
-    .unwrap()
 }
 
 #[test]
-fn empty_list_is_rejected() {
-    assert!(UnionAll::<Sphere>::new(vec![]).is_err());
+fn an_empty_union_is_the_empty_set() {
+    let empty = UnionAll::<Sphere>::new(vec![]).oracle().unwrap();
+    assert_eq!(empty.signed_distance(&point([0.0; 3])), f64::NEG_INFINITY);
+    assert!(empty.project(&point([0.0; 3])).is_none());
 }
 
 #[test]

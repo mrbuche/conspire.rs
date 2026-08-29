@@ -33,7 +33,6 @@ fn block_with_boss() -> UnionAll<Primitive> {
             .unwrap()
             .into(),
     ])
-    .unwrap()
 }
 
 #[test]

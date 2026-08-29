@@ -12,15 +12,14 @@ use crate::{
 
 /// The union of a runtime-sized list of same-typed solids. For a fixed mix of
 /// different types use [`Union`](super::Union) instead.
+///
+/// An empty list is the empty set: nothing is inside it and it has no bounding
+/// box, which is only useful as the subtrahend of a [`Difference`](super::Difference).
 pub struct UnionAll<S>(Vec<S>);
 
 impl<S> UnionAll<S> {
-    /// A union over a non-empty list of solids.
-    pub fn new(solids: Vec<S>) -> Result<Self, &'static str> {
-        if solids.is_empty() {
-            return Err("union needs at least one solid");
-        }
-        Ok(Self(solids))
+    pub fn new(solids: Vec<S>) -> Self {
+        Self(solids)
     }
 }
 
@@ -28,6 +27,9 @@ impl<S: Solid> Solid for UnionAll<S> {
     type Oracle = UnionAllOracle<S::Oracle>;
 
     fn bounding_box(&self) -> Result<(Coordinate<D>, Coordinate<D>), &'static str> {
+        if self.0.is_empty() {
+            return Err("an empty union has no bounding box");
+        }
         let mut low = [Scalar::INFINITY; D];
         let mut high = [Scalar::NEG_INFINITY; D];
         for solid in &self.0 {
