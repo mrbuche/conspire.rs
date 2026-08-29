@@ -8,8 +8,8 @@ use crate::{
         linear::Tetrahedron,
     },
     math::{
-        CrossProduct, Quantity, Scalar, Style, StyledError, Tensor, TensorRank1, TensorRank1Vec2D,
-        TensorVector, assert::AssertionError, styled_error,
+        CrossProduct, Quantity, Scalar, Style, StyledError, Tensor, TensorArray, TensorRank1,
+        TensorRank1Vec, TensorRank1Vec2D, TensorVector, assert::AssertionError, styled_error,
     },
     mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate},
     units::{Area, Length, ReciprocalLength, Volume},
@@ -18,10 +18,7 @@ use crate::{
 
 #[cfg(test)]
 use crate::math::assert::Assert;
-use std::{
-    collections::VecDeque,
-    fmt::{self, Debug, Display, Formatter},
-};
+use std::fmt::{self, Debug, Display, Formatter};
 
 pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
 pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, Reference, Length>;
@@ -37,6 +34,12 @@ pub struct Element {
     stabilization: Scalar,
     tetrahedra: Vec<Tetrahedron>,
     tetrahedra_nodes: Vec<[usize; 3]>,
+}
+
+impl Element {
+    pub(crate) fn upstream(&self, error: impl Display) -> VirtualElementError {
+        VirtualElementError::Upstream(format!("{error}"), format!("{self:?}"))
+    }
 }
 
 pub trait VirtualElement
@@ -162,119 +165,76 @@ impl
                 ReferenceCoordinate::from([0.0, 0.0, 0.0]);
                 element_nodes.len()
             ]);
-        block_faces_nodes
+        faces_nodes
             .iter()
-            .flatten()
-            .zip(reference_nodal_coordinates.iter().flatten())
-            .for_each(|(&node, coordinates)| nodal_coordinates[node] = coordinates.clone());
+            .zip(reference_nodal_coordinates.iter())
+            .for_each(|(face_nodes, face_coordinates)| {
+                face_nodes
+                    .iter()
+                    .zip(face_coordinates.iter())
+                    .for_each(|(&node, coordinates)| nodal_coordinates[node] = coordinates.clone())
+            });
         let element_center = nodal_coordinates.into_iter().sum::<ReferenceCoordinate>()
             / (element_nodes.len() as Scalar);
-        let tetrahedra = reference_nodal_coordinates
+        let mut area_vectors = vec![TensorRank1::<3, Reference, Area>::zero(); element_nodes.len()];
+        let tetrahedra_nodes = faces_nodes
             .iter()
-            .flat_map(|face_coordinates| {
+            .enumerate()
+            .flat_map(|(face, face_nodes)| {
+                (0..face_nodes.len())
+                    .map(|spot| {
+                        [
+                            face,
+                            face_nodes[(spot + 1) % face_nodes.len()],
+                            face_nodes[spot],
+                        ]
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let tetrahedra = faces_nodes
+            .iter()
+            .zip(reference_nodal_coordinates.iter())
+            .flat_map(|(face_nodes, face_coordinates)| {
+                let num_nodes_face = face_coordinates.len();
                 let face_center = face_coordinates
                     .iter()
                     .cloned()
                     .sum::<ReferenceCoordinate>()
-                    / (face_coordinates.len() as Scalar);
-                let mut face_coordinates_one_ahead = VecDeque::from(face_coordinates.clone());
-                let first_entry = face_coordinates_one_ahead.pop_front().unwrap();
-                face_coordinates_one_ahead.push_back(first_entry);
-                face_coordinates
-                    .iter()
-                    .zip(face_coordinates_one_ahead)
-                    .map(|(node_a_coordinates, node_b_coordinates)| {
+                    / (num_nodes_face as Scalar);
+                (0..num_nodes_face)
+                    .map(|spot| {
+                        let next = (spot + 1) % num_nodes_face;
+                        let e_1 = &face_coordinates[next] - &face_coordinates[spot];
+                        let e_2 = &face_center - &face_coordinates[next];
+                        let cross = e_1.cross(&e_2);
+                        let shared = &cross / (num_nodes_face as Scalar);
+                        face_nodes
+                            .iter()
+                            .for_each(|&node| area_vectors[node] += &shared);
+                        area_vectors[face_nodes[spot]] += &cross;
+                        area_vectors[face_nodes[next]] += &cross;
                         Tetrahedron::from(FemElementNodalReferenceCoordinates::from([
                             face_center.clone(),
-                            node_b_coordinates,
-                            node_a_coordinates.clone(),
+                            face_coordinates[next].clone(),
+                            face_coordinates[spot].clone(),
                             element_center.clone(),
                         ]))
                     })
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-        let tetrahedra_nodes = faces_nodes
-            .iter()
-            .enumerate()
-            .flat_map(|(face, face_nodes)| {
-                let mut face_nodes_one_ahead = VecDeque::from(face_nodes.clone());
-                let first_entry = face_nodes_one_ahead.pop_front().unwrap();
-                face_nodes_one_ahead.push_back(first_entry);
-                face_nodes
-                    .iter()
-                    .zip(face_nodes_one_ahead)
-                    .map(|(&node_a, node_b)| [face, node_b, node_a])
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
         let element_volume = tetrahedra
             .iter()
             .map(|tetrahedron| tetrahedron.volume())
-            .sum();
+            .sum::<Quantity<Volume>>();
+        let gradient_vectors = GradientVectors::from(vec![
+            area_vectors
+                .into_iter()
+                .map(|area_vector| area_vector / (element_volume * 6.0))
+                .collect::<TensorRank1Vec<3, Reference, ReciprocalLength>>(),
+        ]);
         let integration_weights = IntegrationWeights::from([element_volume]);
-        let gradient_vectors = vec![
-            element_nodes
-                .iter()
-                .map(|&node| {
-                    element_faces
-                        .iter()
-                        .zip(reference_nodal_coordinates.iter())
-                        .filter_map(|(&face, face_coordinates)| {
-                            let face_nodes = &block_faces_nodes[face];
-                            if face_nodes.contains(&node) {
-                                let num_nodes_face = face_coordinates.len() as Scalar;
-                                let face_center = face_coordinates
-                                    .iter()
-                                    .cloned()
-                                    .sum::<ReferenceCoordinate>()
-                                    / num_nodes_face;
-                                let mut face_coordinates_one_ahead =
-                                    VecDeque::from(face_coordinates.clone());
-                                let first_entry = face_coordinates_one_ahead.pop_front().unwrap();
-                                face_coordinates_one_ahead.push_back(first_entry);
-                                Some(
-                                    face_coordinates
-                                        .into_iter()
-                                        .zip(face_coordinates_one_ahead)
-                                        .zip(face_nodes.iter())
-                                        .map(
-                                            |(
-                                                (node_a_coordinates, node_b_coordinates),
-                                                &node_a,
-                                            )| {
-                                                let node_a_spot = face_nodes
-                                                    .iter()
-                                                    .position(|&n| n == node_a)
-                                                    .unwrap();
-                                                let node_b = if node_a_spot + 1 == face_nodes.len()
-                                                {
-                                                    face_nodes[0]
-                                                } else {
-                                                    face_nodes[node_a_spot + 1]
-                                                };
-                                                let factor = if node == node_a || node == node_b {
-                                                    1.0 + 1.0 / num_nodes_face
-                                                } else {
-                                                    1.0 / num_nodes_face
-                                                };
-                                                let e_1 = &node_b_coordinates - node_a_coordinates;
-                                                let e_2 = &face_center - node_b_coordinates;
-                                                e_1.cross(e_2) * factor
-                                            },
-                                        )
-                                        .sum::<TensorRank1<3, Reference, Area>>(),
-                                )
-                            } else {
-                                None
-                            }
-                        })
-                        .sum::<TensorRank1<3, Reference, Area>>()
-                        / (element_volume * 6.0)
-                })
-                .collect(),
-        ]
-        .into();
         Self {
             faces_nodes,
             gradient_vectors,
@@ -617,6 +577,110 @@ fn temporary_poly_2() {
         .eq_within_fd_tol(
             block.nodal_stiffnesses(&coordinates).unwrap(),
             &nodal_stiffnesses_fd,
+        )
+        .unwrap();
+}
+
+#[test]
+fn temporary_poly_3() {
+    use crate::{
+        constitutive::solid::hyperelastic::NeoHookean,
+        fem::solid::elastic::ElasticElements,
+        units::Stress,
+        vem::{
+            NodalCoordinates, NodalReferenceCoordinates,
+            block::{Block, solid::SolidVirtualElements},
+        },
+    };
+    let phi = (1.0 + 5.0_f64.sqrt()) / 2.0;
+    let unit = [
+        [-1.0, -1.0, -1.0],
+        [-1.0, -1.0, 1.0],
+        [-1.0, 1.0, -1.0],
+        [-1.0, 1.0, 1.0],
+        [1.0, -1.0, -1.0],
+        [1.0, -1.0, 1.0],
+        [1.0, 1.0, -1.0],
+        [1.0, 1.0, 1.0],
+        [0.0, -phi, -1.0 / phi],
+        [0.0, -phi, 1.0 / phi],
+        [0.0, phi, -1.0 / phi],
+        [0.0, phi, 1.0 / phi],
+        [-phi, -1.0 / phi, 0.0],
+        [-phi, 1.0 / phi, 0.0],
+        [phi, -1.0 / phi, 0.0],
+        [phi, 1.0 / phi, 0.0],
+        [-1.0 / phi, 0.0, -phi],
+        [1.0 / phi, 0.0, -phi],
+        [-1.0 / phi, 0.0, phi],
+        [1.0 / phi, 0.0, phi],
+    ];
+    let unit_faces = [
+        [16, 17, 4, 8, 0],
+        [12, 13, 2, 16, 0],
+        [8, 9, 1, 12, 0],
+        [9, 5, 19, 18, 1],
+        [18, 3, 13, 12, 1],
+        [10, 6, 17, 16, 2],
+        [13, 3, 11, 10, 2],
+        [7, 11, 3, 18, 19],
+        [14, 5, 9, 8, 4],
+        [6, 15, 14, 4, 17],
+        [5, 14, 15, 7, 19],
+        [6, 10, 11, 7, 15],
+    ];
+    // element 0 owns faces 12..24 and element 1 owns faces 0..12, so that the
+    // element ordering does not match the face ordering
+    let coordinates = NodalReferenceCoordinates::from(
+        (0..2)
+            .flat_map(|copy| {
+                unit.iter()
+                    .map(|coordinate| {
+                        [
+                            coordinate[0] + 4.0 * copy as Scalar,
+                            coordinate[1],
+                            coordinate[2],
+                        ]
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>(),
+    );
+    let faces_nodes = (0..2)
+        .flat_map(|copy| {
+            unit_faces
+                .iter()
+                .map(|face| {
+                    face.iter()
+                        .map(|&node| node + (1 - copy) * unit.len())
+                        .collect()
+                })
+                .collect::<Vec<Vec<_>>>()
+        })
+        .collect();
+    let block = Block::<_, Element>::from((
+        NeoHookean {
+            shear_modulus: Stress::pascals(3.0),
+            bulk_modulus: Stress::pascals(13.0),
+        },
+        vec![(12..24).collect::<Vec<_>>(), (0..12).collect::<Vec<_>>()],
+        faces_nodes,
+        &coordinates,
+    ));
+    use crate::{fem::solid::NodalForcesSolid, math::TensorArray, mechanics::DeformationGradient};
+    let coordinates = NodalCoordinates::from(coordinates);
+    block
+        .deformation_gradients(&coordinates)
+        .iter()
+        .for_each(|deformation_gradients| {
+            Assert::default()
+                .eq_within_tols(DeformationGradient::identity(), &deformation_gradients[0])
+                .unwrap()
+        });
+    Assert::default()
+        .eq_within_tols(
+            NodalForcesSolid::zero(coordinates.len()),
+            &block.nodal_forces(&coordinates).unwrap(),
         )
         .unwrap();
 }
