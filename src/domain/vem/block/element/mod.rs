@@ -671,9 +671,9 @@ fn temporary_poly_3() {
         &coordinates,
     ));
     use crate::{fem::solid::NodalForcesSolid, math::TensorArray, mechanics::DeformationGradient};
-    let coordinates = NodalCoordinates::from(coordinates);
+    let reference = NodalCoordinates::from(coordinates);
     block
-        .deformation_gradients(&coordinates)
+        .deformation_gradients(&reference)
         .iter()
         .for_each(|deformation_gradients| {
             Assert::default()
@@ -682,8 +682,83 @@ fn temporary_poly_3() {
         });
     Assert::default()
         .eq_within_tols(
-            NodalForcesSolid::zero(coordinates.len()),
-            &block.nodal_forces(&coordinates).unwrap(),
+            NodalForcesSolid::zero(reference.len()),
+            &block.nodal_forces(&reference).unwrap(),
+        )
+        .unwrap();
+    // deformed differently per copy, so swapping the elements' data would show
+    let coordinates = NodalCoordinates::from(
+        (0..2)
+            .flat_map(|copy| {
+                let scale = 1.0 + 0.1 * copy as Scalar;
+                unit.iter()
+                    .map(|coordinate| {
+                        let (x, y, z) = (coordinate[0], coordinate[1], coordinate[2]);
+                        [
+                            1.1 * x + 0.05 * scale * y * z + 4.0 * copy as Scalar,
+                            0.9 * y - 0.07 * scale * z * x,
+                            1.05 * z + 0.06 * scale * x * y,
+                        ]
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>(),
+    );
+    use crate::EPSILON;
+    use crate::fem::solid::hyperelastic::HyperelasticElements;
+    let mut finite_difference = crate::math::Quantity::default();
+    let nodal_forces_fd = (0..coordinates.len())
+        .map(|node| {
+            (0..3)
+                .map(|i| {
+                    let mut nodal_coordinates = coordinates.clone();
+                    nodal_coordinates[node][i] += crate::math::assert::perturbation(0.5 * EPSILON);
+                    finite_difference = block.helmholtz_free_energy(&nodal_coordinates).unwrap();
+                    nodal_coordinates[node][i] -= crate::math::assert::perturbation(EPSILON);
+                    finite_difference -= block.helmholtz_free_energy(&nodal_coordinates).unwrap();
+                    finite_difference
+                        / crate::math::assert::perturbation::<crate::units::Length>(EPSILON)
+                })
+                .collect()
+        })
+        .collect();
+    Assert::default()
+        .eq_within_fd_tol(block.nodal_forces(&coordinates).unwrap(), &nodal_forces_fd)
+        .unwrap();
+    let mut finite_difference = crate::math::Quantity::default();
+    let nodal_stiffnesses_fd = (0..coordinates.len())
+        .map(|a| {
+            (0..coordinates.len())
+                .map(|b| {
+                    (0..3)
+                        .map(|i| {
+                            (0..3)
+                                .map(|j| {
+                                    let mut nodal_coordinates = coordinates.clone();
+                                    nodal_coordinates[b][j] +=
+                                        crate::math::assert::perturbation(0.5 * EPSILON);
+                                    finite_difference =
+                                        block.nodal_forces(&nodal_coordinates).unwrap()[a][i];
+                                    nodal_coordinates[b][j] -=
+                                        crate::math::assert::perturbation(EPSILON);
+                                    finite_difference -=
+                                        block.nodal_forces(&nodal_coordinates).unwrap()[a][i];
+                                    finite_difference
+                                        / crate::math::assert::perturbation::<crate::units::Length>(
+                                            EPSILON,
+                                        )
+                                })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect()
+        })
+        .collect();
+    Assert::default()
+        .eq_within_fd_tol(
+            block.nodal_stiffnesses(&coordinates).unwrap(),
+            &nodal_stiffnesses_fd,
         )
         .unwrap();
 }
