@@ -14,6 +14,7 @@ use crate::{
         },
     },
     io::invalid,
+    units::length_scale,
 };
 use std::{array::from_fn, collections::HashMap, io::Result};
 
@@ -22,6 +23,7 @@ const D: usize = 3;
 pub(super) fn read(exchange: &Exchange) -> Result<Brep> {
     let mut reader = Reader {
         exchange,
+        scale: file_length_scale(exchange)?,
         vertices: Vec::new(),
         vertex_index: HashMap::new(),
         edges: Vec::new(),
@@ -40,6 +42,8 @@ pub(super) fn read(exchange: &Exchange) -> Result<Brep> {
 
 struct Reader<'a> {
     exchange: &'a Exchange,
+    /// Metres per the file's declared length unit.
+    scale: f64,
     vertices: Vec<Coordinate<D>>,
     vertex_index: HashMap<u64, usize>,
     edges: Vec<Edge>,
@@ -79,7 +83,12 @@ impl<'a> Reader<'a> {
 
     fn point(&self, id: u64) -> Result<Coordinate<D>> {
         let record = self.record(id, "CARTESIAN_POINT")?;
-        Ok(Coordinate::const_from(triple(&record.parameters, 1)?))
+        let raw = triple(&record.parameters, 1)?;
+        Ok(Coordinate::const_from(raw.map(|value| value * self.scale)))
+    }
+
+    fn radius(&self, parameters: &[Parameter], index: usize) -> Result<f64> {
+        Ok(scalar(parameter(parameters, index)?)? * self.scale)
     }
 
     fn direction(&self, id: u64) -> Result<Direction<D>> {
@@ -119,7 +128,7 @@ impl<'a> Reader<'a> {
         if let Ok(record) = self.record(id, "CYLINDRICAL_SURFACE") {
             let (origin, axis, reference_direction) =
                 self.axes(reference(&record.parameters, 1)?)?;
-            let radius = scalar(parameter(&record.parameters, 2)?)?;
+            let radius = self.radius(&record.parameters, 2)?;
             return Ok(Surface::Cylinder(Cylinder {
                 origin,
                 axis,
@@ -130,7 +139,7 @@ impl<'a> Reader<'a> {
         if let Ok(record) = self.record(id, "SPHERICAL_SURFACE") {
             let (origin, axis, reference_direction) =
                 self.axes(reference(&record.parameters, 1)?)?;
-            let radius = scalar(parameter(&record.parameters, 2)?)?;
+            let radius = self.radius(&record.parameters, 2)?;
             return Ok(Surface::Sphere(Sphere {
                 origin,
                 axis,
@@ -159,7 +168,7 @@ impl<'a> Reader<'a> {
         if let Ok(record) = self.record(id, "CIRCLE") {
             let (center, mut axis, reference_direction) =
                 self.axes(reference(&record.parameters, 1)?)?;
-            let radius = scalar(parameter(&record.parameters, 2)?)?;
+            let radius = self.radius(&record.parameters, 2)?;
             if !same_sense {
                 axis = Direction::const_from(from_fn(|k| -axis[k].value()));
             }
@@ -342,4 +351,49 @@ fn triple(parameters: &[Parameter], index: usize) -> Result<[f64; D]> {
         *value = scalar(item)?;
     }
     Ok(values)
+}
+
+/// Metres per the file's declared length unit: an `SI_UNIT` on `.METRE.` with an
+/// optional prefix, else a named `CONVERSION_BASED_UNIT` the unit system knows,
+/// else 1 when nothing is declared.
+fn file_length_scale(exchange: &Exchange) -> Result<f64> {
+    let records = || exchange.data.values().flat_map(|instance| &instance.records);
+    for record in records() {
+        if record.keyword == "SI_UNIT"
+            && matches!(
+                record.parameters.get(1),
+                Some(Parameter::Enumeration(name)) if name == "METRE" || name == "METER"
+            )
+        {
+            return si_prefix(record.parameters.first());
+        }
+    }
+    for record in records() {
+        if record.keyword == "CONVERSION_BASED_UNIT"
+            && let Some(Parameter::String(name)) = record.parameters.first()
+            && let Some(scale) = length_scale(name)
+        {
+            return Ok(scale(1.0).in_meters());
+        }
+    }
+    Ok(1.0)
+}
+
+/// The metre factor of an `SI_UNIT` prefix enumeration (`None`/`Null` = unprefixed).
+fn si_prefix(prefix: Option<&Parameter>) -> Result<f64> {
+    Ok(match prefix {
+        None | Some(Parameter::Null) => 1.0,
+        Some(Parameter::Enumeration(name)) => match name.as_str() {
+            "KILO" => 1e3,
+            "HECTO" => 1e2,
+            "DECA" => 1e1,
+            "DECI" => 1e-1,
+            "CENTI" => 1e-2,
+            "MILLI" => 1e-3,
+            "MICRO" => 1e-6,
+            "NANO" => 1e-9,
+            other => return Err(invalid(format!("STEP: unsupported SI prefix .{other}."))),
+        },
+        other => return Err(invalid(format!("STEP: malformed SI_UNIT prefix {other:?}"))),
+    })
 }

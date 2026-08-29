@@ -372,6 +372,53 @@ fn reads_spherical_surface_and_recognises_the_primitive() {
     };
 }
 
+/// The same sphere, but its numbers are millimetres, declared by an SI_UNIT.
+const SPHERE_MILLIMETRES: &str = r#"
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('sphere in mm'),'2;1');
+FILE_NAME('sphere.step','2026-08-28T00:00:00',(''),(''),'conspire','conspire','');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 }'));
+ENDSEC;
+DATA;
+#10 = CARTESIAN_POINT('',(0.,0.,0.));
+#11 = CARTESIAN_POINT('',(0.,0.,-3000.));
+#12 = CARTESIAN_POINT('',(0.,0.,3000.));
+#20 = DIRECTION('',(0.,0.,1.));
+#21 = DIRECTION('',(1.,0.,0.));
+#22 = DIRECTION('',(0.,1.,0.));
+#30 = VERTEX_POINT('',#11);
+#31 = VERTEX_POINT('',#12);
+#40 = AXIS2_PLACEMENT_3D('',#10,#22,#21);
+#41 = CIRCLE('',#40,3000.);
+#50 = EDGE_CURVE('',#30,#31,#41,.T.);
+#60 = AXIS2_PLACEMENT_3D('',#10,#20,#21);
+#61 = SPHERICAL_SURFACE('',#60,3000.);
+#70 = ORIENTED_EDGE('',*,*,#50,.T.);
+#71 = ORIENTED_EDGE('',*,*,#50,.F.);
+#80 = EDGE_LOOP('',(#70,#71));
+#90 = FACE_OUTER_BOUND('',#80,.T.);
+#100 = ADVANCED_FACE('',(#90),#61,.T.);
+#110 = CLOSED_SHELL('',(#100));
+#120 = MANIFOLD_SOLID_BREP('sphere',#110);
+#200 = ( LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI.,.METRE.) );
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+#[test]
+fn scales_coordinates_from_the_declared_length_unit() {
+    use crate::geometry::cad::brep::surface::Surface;
+
+    let brep = read(SPHERE_MILLIMETRES).unwrap();
+    let Surface::Sphere(sphere) = &brep.faces[0].surface else {
+        panic!("face is not spherical");
+    };
+    // 3000 mm read back as 3 m.
+    assert!((sphere.radius - 3.0).abs() < 1e-12);
+    assert!((brep.vertices[0][2].value() + 3.0).abs() < 1e-12);
+}
+
 /// The same capped cylinder, but the rim and seam edges reference their 3D
 /// geometry indirectly through `SEAM_CURVE` / `SURFACE_CURVE` wrappers, the way
 /// most kernels actually export trimmed analytic edges.
