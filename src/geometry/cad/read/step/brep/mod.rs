@@ -7,8 +7,8 @@ use crate::{
         cad::{
             brep::{
                 Brep, Edge, Face, HalfEdge, Loop, Shell,
-                curve::{Circle, Curve, Ellipse, Line},
-                surface::{Cone, Cylinder, Plane, Sphere, Surface, Torus},
+                curve::{BSpline, Circle, Curve, Ellipse, Line},
+                surface::{BSplineSurface, Cone, Cylinder, Plane, Sphere, Surface, Torus},
             },
             part_21::{Exchange, Parameter, Record},
         },
@@ -109,6 +109,24 @@ impl<'a> Reader<'a> {
         Ok(scalar(parameter(parameters, index)?)? * self.scale)
     }
 
+    /// A list of `CARTESIAN_POINT` references, each read and scaled.
+    fn points(&self, references: &[Parameter]) -> Result<Vec<Coordinate<D>>> {
+        references
+            .iter()
+            .map(|reference| self.point(as_reference(reference)?))
+            .collect()
+    }
+
+    /// A list of lists of `CARTESIAN_POINT` references: `grid[u][v]`.
+    fn point_grid(&self, rows: &[Parameter]) -> Result<Vec<Vec<Coordinate<D>>>> {
+        rows.iter()
+            .map(|row| match row {
+                Parameter::List(items) => self.points(items),
+                other => Err(invalid(format!("STEP: expected a list, found {other:?}"))),
+            })
+            .collect()
+    }
+
     fn direction(&self, id: u64) -> Result<Direction<D>> {
         let record = self.record(id, "DIRECTION")?;
         let raw = triple(&record.parameters, 1)?;
@@ -191,8 +209,39 @@ impl<'a> Reader<'a> {
                 minor_radius,
             }));
         }
+        if let Ok(record) = self.record(id, "B_SPLINE_SURFACE_WITH_KNOTS") {
+            let base = self.record(id, "B_SPLINE_SURFACE").ok();
+            let (u_degree, v_degree, control_points, own) = match &base {
+                Some(base) => (
+                    integer(parameter(&base.parameters, 0)?)?,
+                    integer(parameter(&base.parameters, 1)?)?,
+                    self.point_grid(list(&base.parameters, 2)?)?,
+                    0,
+                ),
+                None => (
+                    integer(parameter(&record.parameters, 1)?)?,
+                    integer(parameter(&record.parameters, 2)?)?,
+                    self.point_grid(list(&record.parameters, 3)?)?,
+                    8,
+                ),
+            };
+            let weights = self
+                .record(id, "RATIONAL_B_SPLINE_SURFACE")
+                .ok()
+                .and_then(|rational| reals_grid(&rational.parameters, 0).ok());
+            return Ok(Surface::BSpline(BSplineSurface {
+                u_degree,
+                v_degree,
+                control_points,
+                u_multiplicities: integers(&record.parameters, own)?,
+                v_multiplicities: integers(&record.parameters, own + 1)?,
+                u_knots: reals(&record.parameters, own + 2)?,
+                v_knots: reals(&record.parameters, own + 3)?,
+                weights,
+            }));
+        }
         Err(invalid(format!(
-            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE, CONICAL_SURFACE, TOROIDAL_SURFACE)"
+            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE, CONICAL_SURFACE, TOROIDAL_SURFACE, B_SPLINE_SURFACE_WITH_KNOTS)"
         )))
     }
 
@@ -239,8 +288,38 @@ impl<'a> Reader<'a> {
                 minor_radius,
             }));
         }
+        if let Ok(record) = self.record(id, "B_SPLINE_CURVE_WITH_KNOTS") {
+            let base = self.record(id, "B_SPLINE_CURVE").ok();
+            let (degree, control_points, own) = match &base {
+                // Combined form: B_SPLINE_CURVE holds degree and control points;
+                // this record holds multiplicities(0), knots(1).
+                Some(base) => (
+                    integer(parameter(&base.parameters, 0)?)?,
+                    self.points(list(&base.parameters, 1)?)?,
+                    0,
+                ),
+                // Standalone: label, degree(1), control points(2), form, closed,
+                // self-intersect, multiplicities(6), knots(7).
+                None => (
+                    integer(parameter(&record.parameters, 1)?)?,
+                    self.points(list(&record.parameters, 2)?)?,
+                    6,
+                ),
+            };
+            let weights = self
+                .record(id, "RATIONAL_B_SPLINE_CURVE")
+                .ok()
+                .and_then(|rational| reals(&rational.parameters, 0).ok());
+            return Ok(Curve::BSpline(BSpline {
+                degree,
+                control_points,
+                multiplicities: integers(&record.parameters, own)?,
+                knots: reals(&record.parameters, own + 1)?,
+                weights,
+            }));
+        }
         Err(invalid(format!(
-            "STEP: #{id} is not a supported curve (only LINE, CIRCLE, ELLIPSE)"
+            "STEP: #{id} is not a supported curve (only LINE, CIRCLE, ELLIPSE, B_SPLINE_CURVE_WITH_KNOTS)"
         )))
     }
 
@@ -407,6 +486,32 @@ fn list(parameters: &[Parameter], index: usize) -> Result<&[Parameter]> {
         Parameter::List(items) => Ok(items),
         other => Err(invalid(format!("STEP: expected a list, found {other:?}"))),
     }
+}
+
+fn integer(parameter: &Parameter) -> Result<usize> {
+    let value = scalar(parameter)?;
+    if value < 0.0 || value.fract() != 0.0 {
+        return Err(invalid(format!("STEP: expected a non-negative integer, found {value}")));
+    }
+    Ok(value as usize)
+}
+
+fn integers(parameters: &[Parameter], index: usize) -> Result<Vec<usize>> {
+    list(parameters, index)?.iter().map(integer).collect()
+}
+
+fn reals(parameters: &[Parameter], index: usize) -> Result<Vec<f64>> {
+    list(parameters, index)?.iter().map(scalar).collect()
+}
+
+fn reals_grid(parameters: &[Parameter], index: usize) -> Result<Vec<Vec<f64>>> {
+    list(parameters, index)?
+        .iter()
+        .map(|row| match row {
+            Parameter::List(items) => items.iter().map(scalar).collect(),
+            other => Err(invalid(format!("STEP: expected a list, found {other:?}"))),
+        })
+        .collect()
 }
 
 fn triple(parameters: &[Parameter], index: usize) -> Result<[f64; D]> {

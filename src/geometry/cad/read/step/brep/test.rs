@@ -528,6 +528,56 @@ fn reads_every_solid_in_the_file() {
     assert!(read(TWO_SPHERES).is_err());
 }
 
+/// A solid whose one non-trivial edge is a cubic B-spline.
+const BSPLINE_EDGE: &str = r#"
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('bspline edge'),'2;1');
+FILE_NAME('b.step','2026-08-29T00:00:00',(''),(''),'conspire','conspire','');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN'));
+ENDSEC;
+DATA;
+#10 = CARTESIAN_POINT('',(0.,0.,0.));
+#11 = CARTESIAN_POINT('',(0.,0.,-3.));
+#12 = CARTESIAN_POINT('',(0.,0.,3.));
+#13 = CARTESIAN_POINT('',(3.,0.,-1.));
+#14 = CARTESIAN_POINT('',(3.,0.,1.));
+#20 = DIRECTION('',(0.,0.,1.));
+#21 = DIRECTION('',(1.,0.,0.));
+#30 = VERTEX_POINT('',#11);
+#31 = VERTEX_POINT('',#12);
+#41 = B_SPLINE_CURVE_WITH_KNOTS('',3,(#11,#13,#14,#12),.UNSPECIFIED.,.F.,.F.,(4,4),(0.,1.),.UNSPECIFIED.);
+#50 = EDGE_CURVE('',#30,#31,#41,.T.);
+#60 = AXIS2_PLACEMENT_3D('',#10,#20,#21);
+#61 = SPHERICAL_SURFACE('',#60,3.);
+#70 = ORIENTED_EDGE('',*,*,#50,.T.);
+#71 = ORIENTED_EDGE('',*,*,#50,.F.);
+#80 = EDGE_LOOP('',(#70,#71));
+#90 = FACE_OUTER_BOUND('',#80,.T.);
+#100 = ADVANCED_FACE('',(#90),#61,.T.);
+#110 = CLOSED_SHELL('',(#100));
+#120 = MANIFOLD_SOLID_BREP('b',#110);
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+#[test]
+fn reads_a_bspline_curve_raw() {
+    use crate::geometry::cad::brep::curve::Curve;
+
+    let brep = read(BSPLINE_EDGE).unwrap();
+    let Curve::BSpline(spline) = &brep.edges[0].curve else {
+        panic!("edge is not a B-spline");
+    };
+    assert_eq!(spline.degree, 3);
+    assert_eq!(spline.control_points.len(), 4);
+    assert_eq!(spline.multiplicities, vec![4, 4]);
+    assert_eq!(spline.knots, vec![0.0, 1.0]);
+    assert!(spline.weights.is_none());
+    // Control points are read (and would be unit-scaled).
+    assert_eq!(spline.control_points[1][0].value(), 3.0);
+}
+
 #[test]
 fn scales_coordinates_from_the_declared_length_unit() {
     use crate::geometry::cad::brep::surface::Surface;

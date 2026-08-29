@@ -8,6 +8,7 @@ pub enum Surface {
     Sphere(Sphere),
     Cone(Cone),
     Torus(Torus),
+    BSpline(BSplineSurface),
 }
 
 pub struct Plane {
@@ -49,4 +50,17 @@ pub struct Torus {
     pub major_radius: f64,
     /// Radius of the tube.
     pub minor_radius: f64,
+}
+
+/// A B-spline (or, when `weights` is set, NURBS) surface. The control net is
+/// `control_points[u][v]`. Stored as read; not yet evaluated.
+pub struct BSplineSurface {
+    pub u_degree: usize,
+    pub v_degree: usize,
+    pub control_points: Vec<Vec<Coordinate<D>>>,
+    pub u_knots: Vec<f64>,
+    pub v_knots: Vec<f64>,
+    pub u_multiplicities: Vec<usize>,
+    pub v_multiplicities: Vec<usize>,
+    pub weights: Option<Vec<Vec<f64>>>,
 }
