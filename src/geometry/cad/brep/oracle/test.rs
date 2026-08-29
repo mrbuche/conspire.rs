@@ -1,5 +1,9 @@
 use crate::{
-    geometry::{Coordinate, cad::brep::test::unit_cube, solid::SolidOracle},
+    geometry::{
+        Coordinate,
+        cad::brep::test::{capped_cylinder, cone, unit_cube},
+        solid::SolidOracle,
+    },
     math::TensorRank1,
 };
 use std::array::from_fn;
@@ -57,4 +61,28 @@ fn rejects_a_brep_with_no_faces() {
     let mut brep = unit_cube();
     brep.faces.clear();
     assert!(brep.oracle().is_err());
+}
+
+#[test]
+fn signs_a_capped_cylinder_from_the_nearest_face() {
+    let oracle = capped_cylinder(2.0, 5.0).oracle().unwrap();
+    // Positive inside, magnitude the distance to the nearer wall/cap.
+    assert!((oracle.signed_distance(&Coordinate::from([0.0, 0.0, 2.5])) - 2.0).abs() < 1e-9);
+    assert!((oracle.signed_distance(&Coordinate::from([0.0, 0.0, 0.5])) - 0.5).abs() < 1e-9);
+    // Negative outside.
+    assert!((oracle.signed_distance(&Coordinate::from([5.0, 0.0, 2.5])) + 3.0).abs() < 1e-9);
+    assert!((oracle.signed_distance(&Coordinate::from([0.0, 0.0, -1.0])) + 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn projects_onto_a_cylindrical_wall() {
+    let oracle = capped_cylinder(2.0, 5.0).oracle().unwrap();
+    let (point, normal) = oracle.project(&Coordinate::from([3.0, 0.0, 2.0])).unwrap();
+    assert!(close(&components(&point), &[2.0, 0.0, 2.0]));
+    assert!(close(&components(&normal), &[1.0, 0.0, 0.0]));
+}
+
+#[test]
+fn accepts_a_full_cone_face() {
+    assert!(cone(3.0, 1.0, 4.0).oracle().is_ok());
 }

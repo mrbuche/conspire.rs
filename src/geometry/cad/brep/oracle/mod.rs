@@ -5,32 +5,32 @@ mod patch;
 
 use super::{
     Brep, D, Face,
-    inside::point_in_polygon,
-    planar::PlanarFace,
     surface::{self, Surface},
 };
 use crate::{
-    geometry::{
-        Coordinate, Direction,
-        csg::{Cone, Cylinder, Sphere, Torus},
-        solid::{Solid, SolidOracle},
-    },
+    geometry::{Coordinate, Direction, solid::SolidOracle},
     math::Scalar,
 };
-use patch::{Analytic, Curved, FacePatch};
+use patch::{Curved, FacePatch};
 use std::array::from_fn;
 
 /// [`SolidOracle`] backed by the analytic B-rep: closest-point projection onto
-/// each face's exact surface. Planar faces are trimmed to their loops; curved
-/// faces (cylinder, cone, sphere, torus) use an analytic primitive sized to the
-/// face's extent, untrimmed in the surface parameters.
+/// each face's exact surface. Planar faces are trimmed to their loops (polygon
+/// or exact disk/annulus). Cylindrical and conical faces are accepted only when
+/// they sweep the full circle — a partial one (fillet, chamfer) errs — and are
+/// trimmed to the face's axial vertex span. Spherical and toroidal faces are
+/// taken whole. A B-spline face errs.
 pub struct BrepOracle {
     patches: Vec<FacePatch>,
 }
 
+/// A cylindrical or conical face whose vertices span more than this fraction of
+/// a turn away from complete is treated as a partial patch and rejected.
+const ANGULAR_GAP_LIMIT: Scalar = std::f64::consts::FRAC_PI_2;
+
 impl Brep {
     /// An analytic [`SolidOracle`] projecting onto this solid's surface, for
-    /// fitting a background mesh. Errs on a B-spline face.
+    /// fitting a background mesh.
     pub fn oracle(&self) -> Result<BrepOracle, &'static str> {
         if self.faces.is_empty() {
             return Err("brep has no faces");
@@ -49,13 +49,13 @@ impl Brep {
             Surface::Plane(_) => Ok(FacePatch::Planar(self.planar_face(face)?)),
             Surface::Cylinder(surface) => self.cylinder_patch(surface, face),
             Surface::Cone(surface) => self.cone_patch(surface, face),
-            Surface::Sphere(surface) => self.sphere_patch(surface, face.forward),
-            Surface::Torus(surface) => self.torus_patch(surface, face.forward),
+            Surface::Sphere(surface) => Ok(sphere_patch(surface, face.forward)),
+            Surface::Torus(surface) => Ok(torus_patch(surface, face.forward)),
             Surface::BSpline(_) => Err("B-spline faces are not yet meshable"),
         }
     }
 
-    /// World-space corners of every vertex on `face`'s loops.
+    /// World-space corners of every vertex on `face`'s loops, poles included.
     fn face_vertices(&self, face: &Face) -> Vec<[Scalar; D]> {
         let mut points = Vec::new();
         for bound in &face.bounds {
@@ -65,12 +65,8 @@ impl Brep {
                 }
             }
         }
-        if points.is_empty() {
-            points.extend(
-                self.vertices
-                    .iter()
-                    .map(|vertex| from_fn(|k| vertex[k].value())),
-            );
+        for &pole in &face.poles {
+            points.push(from_fn(|k| self.vertices[pole][k].value()));
         }
         points
     }
@@ -82,49 +78,79 @@ impl Brep {
     ) -> Result<FacePatch, &'static str> {
         let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
         let origin: [Scalar; D] = from_fn(|k| surface.origin[k].value());
-        let (low, high) = axial_span(&self.face_vertices(face), origin, axis);
-        let base: Coordinate<D> = from_fn(|k| origin[k] + low * axis[k]).into();
-        let cylinder = Cylinder::new(base, surface.axis.clone(), surface.radius, high - low)?;
-        Ok(curved(
-            Analytic::Cylinder(cylinder.oracle()?),
-            &cylinder,
-            face.forward,
-        ))
+        let vertices = self.face_vertices(face);
+        if !sweeps_full_circle(&vertices, origin, axis) {
+            return Err("partial cylindrical face (fillet/chamfer) is not yet meshable");
+        }
+        let (low, high) = axial_span(&vertices, origin, axis);
+        let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
+        let radius = surface.radius;
+        let curved = Curved::Cylinder {
+            base,
+            axis,
+            radius,
+            height: high - low,
+            sign: orientation(face.forward),
+        };
+        let (bl, bh) = frustum_bounds(base, axis, radius, radius, high - low);
+        Ok(FacePatch::Curved { curved, low: bl, high: bh })
     }
 
     fn cone_patch(&self, surface: &surface::Cone, face: &Face) -> Result<FacePatch, &'static str> {
         let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
         let origin: [Scalar; D] = from_fn(|k| surface.origin[k].value());
-        let (low, high) = axial_span(&self.face_vertices(face), origin, axis);
+        let vertices = self.face_vertices(face);
+        if !sweeps_full_circle(&vertices, origin, axis) {
+            return Err("partial conical face (fillet/chamfer) is not yet meshable");
+        }
+        let (low, high) = axial_span(&vertices, origin, axis);
         let slope = surface.semi_angle.tan();
-        let base_radius = (surface.radius + low * slope).max(1.0e-6);
-        let tip_radius = (surface.radius + high * slope).max(1.0e-6);
-        let base: Coordinate<D> = from_fn(|k| origin[k] + low * axis[k]).into();
-        let cone = Cone::new(base, surface.axis.clone(), base_radius, tip_radius, high - low)?;
-        Ok(curved(Analytic::Cone(cone.oracle()?), &cone, face.forward))
+        let base_radius = (surface.radius + low * slope).max(0.0);
+        let tip_radius = (surface.radius + high * slope).max(0.0);
+        let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
+        let curved = Curved::Cone {
+            base,
+            axis,
+            base_radius,
+            tip_radius,
+            height: high - low,
+            sign: orientation(face.forward),
+        };
+        let (bl, bh) = frustum_bounds(base, axis, base_radius, tip_radius, high - low);
+        Ok(FacePatch::Curved { curved, low: bl, high: bh })
     }
+}
 
-    fn sphere_patch(
-        &self,
-        surface: &surface::Sphere,
-        forward: bool,
-    ) -> Result<FacePatch, &'static str> {
-        let sphere = Sphere::new(surface.origin.clone(), surface.radius)?;
-        Ok(curved(Analytic::Sphere(sphere.oracle()?), &sphere, forward))
+fn sphere_patch(surface: &surface::Sphere, forward: bool) -> FacePatch {
+    let centre: [Scalar; D] = from_fn(|k| surface.origin[k].value());
+    let radius = surface.radius;
+    FacePatch::Curved {
+        curved: Curved::Sphere {
+            centre,
+            radius,
+            sign: orientation(forward),
+        },
+        low: from_fn(|k| centre[k] - radius),
+        high: from_fn(|k| centre[k] + radius),
     }
+}
 
-    fn torus_patch(
-        &self,
-        surface: &surface::Torus,
-        forward: bool,
-    ) -> Result<FacePatch, &'static str> {
-        let torus = Torus::new(
-            surface.origin.clone(),
-            surface.axis.clone(),
-            surface.major_radius,
-            surface.minor_radius,
-        )?;
-        Ok(curved(Analytic::Torus(torus.oracle()?), &torus, forward))
+fn torus_patch(surface: &surface::Torus, forward: bool) -> FacePatch {
+    let centre: [Scalar; D] = from_fn(|k| surface.origin[k].value());
+    let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
+    let (major, minor) = (surface.major_radius, surface.minor_radius);
+    let reach: [Scalar; D] =
+        from_fn(|k| (major + minor) * (1.0 - axis[k] * axis[k]).max(0.0).sqrt() + minor * axis[k].abs());
+    FacePatch::Curved {
+        curved: Curved::Torus {
+            centre,
+            axis,
+            major,
+            minor,
+            sign: orientation(forward),
+        },
+        low: from_fn(|k| centre[k] - reach[k]),
+        high: from_fn(|k| centre[k] + reach[k]),
     }
 }
 
@@ -146,7 +172,7 @@ impl BrepOracle {
     fn nearest(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar)> {
         self.patches
             .iter()
-            .filter_map(|patch| patch.closest(query))
+            .map(|patch| patch.closest(query))
             .min_by(|a, b| a.2.total_cmp(&b.2))
     }
 }
@@ -171,17 +197,33 @@ impl SolidOracle for BrepOracle {
     }
 }
 
-/// A [`Curved`] patch from an analytic primitive and its own bounding box.
-fn curved(analytic: Analytic, primitive: &impl Solid, forward: bool) -> FacePatch {
-    let (low, high) = primitive
-        .bounding_box()
-        .unwrap_or_else(|_| ([0.0; D].into(), [0.0; D].into()));
-    FacePatch::Curved(Curved {
-        analytic,
-        sign: if forward { 1.0 } else { -1.0 },
-        low: from_fn(|k| low[k].value()),
-        high: from_fn(|k| high[k].value()),
-    })
+fn orientation(forward: bool) -> Scalar {
+    if forward { 1.0 } else { -1.0 }
+}
+
+/// Whether `points` projected around `axis` cover the whole circle: fewer than
+/// two distinct angles (a seam), or the largest wrap-around gap between sorted
+/// angles is small enough that no chunk of the turn is missing.
+fn sweeps_full_circle(points: &[[Scalar; D]], origin: [Scalar; D], axis: [Scalar; D]) -> bool {
+    let (u, v) = basis(axis);
+    let mut angles: Vec<Scalar> = points
+        .iter()
+        .filter_map(|point| {
+            let rel: [Scalar; D] = from_fn(|k| point[k] - origin[k]);
+            let (s, t) = (dot(rel, u), dot(rel, v));
+            (s.hypot(t) > 1.0e-9).then(|| t.atan2(s))
+        })
+        .collect();
+    angles.sort_by(Scalar::total_cmp);
+    angles.dedup_by(|a, b| (*a - *b).abs() < 1.0e-6);
+    if angles.len() < 2 {
+        return true;
+    }
+    let mut gap = angles[0] + std::f64::consts::TAU - angles[angles.len() - 1];
+    for pair in angles.windows(2) {
+        gap = gap.max(pair[1] - pair[0]);
+    }
+    gap <= ANGULAR_GAP_LIMIT
 }
 
 /// The `[low, high]` span of `points` projected onto `axis` from `origin`,
@@ -194,7 +236,7 @@ fn axial_span(points: &[[Scalar; D]], origin: [Scalar; D], axis: [Scalar; D]) ->
         low = low.min(along);
         high = high.max(along);
     }
-    if !(low.is_finite() && high < Scalar::INFINITY) {
+    if !(low.is_finite() && high.is_finite()) {
         (low, high) = (-0.5, 0.5);
     }
     if high - low < 1.0e-9 {
@@ -204,39 +246,47 @@ fn axial_span(points: &[[Scalar; D]], origin: [Scalar; D], axis: [Scalar; D]) ->
     }
 }
 
-/// The closest point of a trimmed planar face to `query`.
-pub(super) fn closest_on_face(face: &PlanarFace, query: &Coordinate<D>) -> Coordinate<D> {
-    let uv = face.project(query);
-    let uv = if point_in_polygon(uv, &face.rings) {
-        uv
-    } else {
-        closest_on_rings(&face.rings, uv)
-    };
-    face.unproject(uv)
-}
-
-fn closest_on_rings(rings: &[Vec<[Scalar; 2]>], [px, py]: [Scalar; 2]) -> [Scalar; 2] {
-    let mut best = [px, py];
-    let mut best_distance = Scalar::INFINITY;
-    for ring in rings {
-        let count = ring.len();
-        for i in 0..count {
-            let [ax, ay] = ring[i];
-            let [bx, by] = ring[(i + 1) % count];
-            let (ex, ey) = (bx - ax, by - ay);
-            let span = ex * ex + ey * ey;
-            let t = if span > 0.0 {
-                (((px - ax) * ex + (py - ay) * ey) / span).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            let (cx, cy) = (ax + t * ex, ay + t * ey);
-            let distance = (px - cx).powi(2) + (py - cy).powi(2);
-            if distance < best_distance {
-                best_distance = distance;
-                best = [cx, cy];
-            }
+/// AABB of a frustum: the union of its two end circles, each an exact
+/// axis-aligned box of a circle with the given radius, centre and `axis`.
+fn frustum_bounds(
+    base: [Scalar; D],
+    axis: [Scalar; D],
+    base_radius: Scalar,
+    tip_radius: Scalar,
+    height: Scalar,
+) -> ([Scalar; D], [Scalar; D]) {
+    let tip: [Scalar; D] = from_fn(|k| base[k] + height * axis[k]);
+    let mut low = [Scalar::INFINITY; D];
+    let mut high = [Scalar::NEG_INFINITY; D];
+    for (centre, radius) in [(base, base_radius), (tip, tip_radius)] {
+        for k in 0..D {
+            let extent = radius * (1.0 - axis[k] * axis[k]).max(0.0).sqrt();
+            low[k] = low[k].min(centre[k] - extent);
+            high[k] = high[k].max(centre[k] + extent);
         }
     }
-    best
+    (low, high)
+}
+
+fn dot(a: [Scalar; D], b: [Scalar; D]) -> Scalar {
+    (0..D).map(|k| a[k] * b[k]).sum()
+}
+
+/// An orthonormal pair spanning the plane perpendicular to `axis`.
+fn basis(axis: [Scalar; D]) -> ([Scalar; D], [Scalar; D]) {
+    let seed = if axis[0].abs() < 0.9 {
+        [1.0, 0.0, 0.0]
+    } else {
+        [0.0, 1.0, 0.0]
+    };
+    let d = dot(seed, axis);
+    let mut u: [Scalar; D] = from_fn(|k| seed[k] - d * axis[k]);
+    let norm = dot(u, u).sqrt().max(1.0e-30);
+    u = u.map(|x| x / norm);
+    let v = [
+        axis[1] * u[2] - axis[2] * u[1],
+        axis[2] * u[0] - axis[0] * u[2],
+        axis[0] * u[1] - axis[1] * u[0],
+    ];
+    (u, v)
 }

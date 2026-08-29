@@ -1,13 +1,14 @@
 use crate::{
     geometry::{
         cad::{
-            brep::test::{axis_aligned_box, unit_cube},
+            brep::test::{axis_aligned_box, ball, capped_cylinder, cone, torus, unit_cube},
             sizing::FeatureSizing,
         },
-        mesh::{Class, Connectivity, Fitting, Mesh, Verdict},
+        mesh::{Class, Connectivity, Fitting, Mesh, Output, Verdict, Vtk},
         ntree::Balancing,
         solid::Solid,
     },
+    io::{Write, write::Compression},
     math::Quantity,
     units::Length,
 };
@@ -188,6 +189,38 @@ fn trim_hugs_the_geometry() {
 }
 
 #[test]
+fn meshes_a_capped_cylinder_through_the_analytic_oracle() {
+    let brep = capped_cylinder(2.0, 5.0);
+    let sizing = FeatureSizing::of(&brep, 32, length(0.1), length(1.0), 0.25);
+    let mesh = brep
+        .mesh(&sizing, 6, 0.1, Balancing::Strong(1), Fitting::Soft)
+        .unwrap();
+
+    assert_eq!(mesh.connectivities().len(), 1);
+    let jacobians = mesh.minimum_scaled_jacobians();
+    assert!(
+        jacobians[0].iter().all(|&j| j > 0.0),
+        "inverted hex: worst scaled Jacobian {}",
+        jacobians[0].iter().cloned().fold(f64::INFINITY, f64::min)
+    );
+
+    let mut low = [f64::INFINITY; 3];
+    let mut high = [f64::NEG_INFINITY; 3];
+    for coordinate in mesh.coordinates() {
+        for axis in 0..3 {
+            low[axis] = low[axis].min(coordinate[axis].value());
+            high[axis] = high[axis].max(coordinate[axis].value());
+        }
+    }
+    // Clings to the r = 2, z in [0, 5] cylinder, a boundary cell proud at most.
+    for axis in 0..2 {
+        assert!(low[axis] > -2.5 && low[axis] < -1.0);
+        assert!(high[axis] < 2.5 && high[axis] > 1.0);
+    }
+    assert!(low[2].abs() < 0.6 && (high[2] - 5.0).abs() < 0.6);
+}
+
+#[test]
 fn mesh_fits_the_graded_box() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
@@ -221,5 +254,76 @@ fn mesh_fits_the_graded_box() {
             "high[{axis}] = {}",
             high[axis]
         );
+    }
+}
+
+/// Dumps meshed curved B-reps to `target/*.vtu` for eyeballing in ParaView.
+/// Ignored: nothing reads them back.
+#[test]
+#[ignore = "writes target/cad_*.vtu for manual inspection"]
+fn dump_curved_brep_meshes() {
+    let cases: [(&str, Mesh<3>); 4] = [
+        (
+            "target/cad_capped_cylinder.vtu",
+            capped_cylinder(2.0, 5.0)
+                .mesh(
+                    &FeatureSizing::of(&capped_cylinder(2.0, 5.0), 48, length(0.15), length(1.0), 0.2),
+                    7,
+                    0.1,
+                    Balancing::Strong(1),
+                    Fitting::Soft,
+                )
+                .unwrap(),
+        ),
+        (
+            "target/cad_cone.vtu",
+            cone(3.0, 1.0, 5.0)
+                .mesh(
+                    &FeatureSizing::of(&cone(3.0, 1.0, 5.0), 48, length(0.15), length(1.0), 0.2),
+                    7,
+                    0.1,
+                    Balancing::Strong(1),
+                    Fitting::Soft,
+                )
+                .unwrap(),
+        ),
+        (
+            // No feature edges (the seam is an artifact): a uniform field, so
+            // `maximum` sets the resolution.
+            "target/cad_sphere.vtu",
+            ball(3.0)
+                .mesh(
+                    &FeatureSizing::of(&ball(3.0), 48, length(0.15), length(0.5), 0.2),
+                    7,
+                    0.1,
+                    Balancing::Strong(1),
+                    Fitting::Soft,
+                )
+                .unwrap(),
+        ),
+        (
+            "target/cad_torus.vtu",
+            torus(4.0, 1.5)
+                .mesh(
+                    &FeatureSizing::of(&torus(4.0, 1.5), 48, length(0.12), length(0.4), 0.2),
+                    7,
+                    0.1,
+                    Balancing::Strong(1),
+                    Fitting::Soft,
+                )
+                .unwrap(),
+        ),
+    ];
+    for (path, mesh) in &cases {
+        let worst = mesh.minimum_scaled_jacobians()[0]
+            .iter()
+            .cloned()
+            .fold(f64::INFINITY, f64::min);
+        eprintln!(
+            "{path}: {} hexes, worst scaled Jacobian {worst:.4}",
+            hexes(mesh).len()
+        );
+        mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))))
+            .unwrap();
     }
 }

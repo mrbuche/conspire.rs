@@ -49,6 +49,9 @@ pub struct Face {
     pub surface: Surface,
     /// Outer loop first, then inner (hole) loops.
     pub bounds: Vec<Loop>,
+    /// Vertices of any `VERTEX_LOOP` bound — a pole of a periodic surface, such
+    /// as a cone apex. Indices into [`Brep::vertices`].
+    pub poles: Vec<usize>,
     /// Whether the face normal agrees with its surface normal.
     pub forward: bool,
 }

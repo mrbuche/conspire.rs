@@ -20,6 +20,11 @@ use std::{array::from_fn, collections::HashMap, io::Result, mem::take};
 
 const D: usize = 3;
 
+enum Bound {
+    Loop(Loop, bool),
+    Pole(usize),
+}
+
 pub(super) fn read(exchange: &Exchange) -> Result<Vec<Brep>> {
     let mut reader = Reader {
         exchange,
@@ -381,16 +386,18 @@ impl<'a> Reader<'a> {
         Ok(Loop { half_edges })
     }
 
-    fn bound(&mut self, id: u64) -> Result<Option<(Loop, bool)>> {
+    fn bound(&mut self, id: u64) -> Result<Bound> {
         let record = self.any(id, &["FACE_OUTER_BOUND", "FACE_BOUND"])?;
         let outer = record.keyword == "FACE_OUTER_BOUND";
         let loop_id = reference(&record.parameters, 1)?;
-        // A VERTEX_LOOP is the pole of a periodic surface: no edges to trim.
-        if self.record(loop_id, "VERTEX_LOOP").is_ok() {
-            return Ok(None);
+        // A VERTEX_LOOP is a pole of a periodic surface: no edges to trim, but
+        // its single vertex (e.g. a cone apex) still pins the face's extent.
+        if let Ok(record) = self.record(loop_id, "VERTEX_LOOP") {
+            let vertex = self.vertex(reference(&record.parameters, 1)?)?;
+            return Ok(Bound::Pole(vertex));
         }
         let edge_loop = self.edge_loop(loop_id, boolean(&record.parameters, 2)?)?;
-        Ok(Some((edge_loop, outer)))
+        Ok(Bound::Loop(edge_loop, outer))
     }
 
     fn face(&mut self, id: u64) -> Result<usize> {
@@ -403,14 +410,12 @@ impl<'a> Reader<'a> {
         let forward = boolean(&record.parameters, 3)?;
         let mut outer = None;
         let mut inner = Vec::new();
+        let mut poles = Vec::new();
         for bound_id in bound_ids {
-            let Some((edge_loop, is_outer)) = self.bound(bound_id)? else {
-                continue;
-            };
-            if is_outer && outer.is_none() {
-                outer = Some(edge_loop);
-            } else {
-                inner.push(edge_loop);
+            match self.bound(bound_id)? {
+                Bound::Pole(vertex) => poles.push(vertex),
+                Bound::Loop(edge_loop, true) if outer.is_none() => outer = Some(edge_loop),
+                Bound::Loop(edge_loop, _) => inner.push(edge_loop),
             }
         }
         // Some exporters mark no bound as outer; take the first as the outline.
@@ -423,6 +428,7 @@ impl<'a> Reader<'a> {
         self.faces.push(Face {
             surface,
             bounds,
+            poles,
             forward,
         });
         Ok(index)

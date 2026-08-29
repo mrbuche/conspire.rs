@@ -67,7 +67,7 @@ pub(super) fn encloses(
                     s + parameter * (direction * &face.u).value(),
                     t + parameter * (direction * &face.v).value(),
                 ];
-                if point_in_polygon(hit, &face.rings)
+                if face.contains(hit)
                     && nearest.is_none_or(|(best, _)| parameter < best)
                 {
                     nearest = Some((parameter, cosine));

@@ -318,6 +318,51 @@ fn read_cylinder_recognised_as_a_primitive_and_meshed() {
     assert!(low[2].abs() < 0.1 && (high[2] - 5.0).abs() < 0.1);
 }
 
+#[test]
+fn read_cylinder_meshes_through_the_analytic_oracle() {
+    use crate::{
+        geometry::{
+            Coordinate,
+            cad::sizing::FeatureSizing,
+            mesh::{Fitting, Verdict},
+            ntree::Balancing,
+            solid::{Solid, SolidOracle},
+        },
+        math::Quantity,
+        units::Length,
+    };
+
+    // The same STEP body, but forced down the general B-rep path rather than
+    // the primitive recogniser: reader-built loops through `BrepOracle`.
+    let brep = read(CYLINDER).unwrap();
+    let oracle = brep.oracle().unwrap();
+    assert!(oracle.signed_distance(&Coordinate::from([0.0, 0.0, 2.5])) > 1.9);
+    assert!(oracle.signed_distance(&Coordinate::from([5.0, 0.0, 2.5])) < 0.0);
+
+    let length = |v| Quantity::<Length>::new(v);
+    let mesh = brep
+        .mesh(
+            &FeatureSizing::of(&brep, 32, length(0.2), length(1.0), 0.25),
+            6,
+            0.1,
+            Balancing::Strong(1),
+            Fitting::Soft,
+        )
+        .unwrap();
+    assert!(mesh.minimum_scaled_jacobians()[0].iter().all(|&j| j > 0.0));
+
+    let mut low = [f64::INFINITY; 3];
+    let mut high = [f64::NEG_INFINITY; 3];
+    for coordinate in mesh.coordinates() {
+        for k in 0..3 {
+            low[k] = low[k].min(coordinate[k].value());
+            high[k] = high[k].max(coordinate[k].value());
+        }
+    }
+    assert!(low[0] > -2.5 && high[0] < 2.5);
+    assert!(low[2].abs() < 0.6 && (high[2] - 5.0).abs() < 0.6);
+}
+
 /// A sphere of radius 3 centred at the origin: one periodic `SPHERICAL_SURFACE`
 /// face with a meridian seam between the two pole vertices.
 const SPHERE: &str = r#"

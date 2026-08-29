@@ -33,6 +33,7 @@ pub(crate) fn face(normal: [f64; 3], reference: [f64; 3], half_edges: &[(usize, 
                 .map(|&(edge, forward)| HalfEdge { edge, forward })
                 .collect(),
         }],
+        poles: vec![],
         forward: true,
     }
 }
@@ -162,6 +163,7 @@ pub(crate) fn capped_cylinder(radius: f64, height: f64) -> Brep {
                 reference_direction: direction([1.0, 0.0, 0.0]),
             }),
             bounds: vec![edge_loop(&[(0, false)])],
+            poles: vec![],
             forward: true,
         },
         Face {
@@ -171,6 +173,7 @@ pub(crate) fn capped_cylinder(radius: f64, height: f64) -> Brep {
                 reference_direction: direction([1.0, 0.0, 0.0]),
             }),
             bounds: vec![edge_loop(&[(1, true)])],
+            poles: vec![],
             forward: true,
         },
         Face {
@@ -181,6 +184,7 @@ pub(crate) fn capped_cylinder(radius: f64, height: f64) -> Brep {
                 radius,
             }),
             bounds: vec![edge_loop(&[(0, true), (2, true), (1, false), (2, false)])],
+            poles: vec![],
             forward: true,
         },
     ];
@@ -254,6 +258,7 @@ pub(crate) fn cone(base_radius: f64, tip_radius: f64, height: f64) -> Brep {
                 reference_direction: direction([1.0, 0.0, 0.0]),
             }),
             bounds: vec![edge_loop(&[(0, false)])],
+            poles: vec![],
             forward: true,
         },
         Face {
@@ -263,6 +268,7 @@ pub(crate) fn cone(base_radius: f64, tip_radius: f64, height: f64) -> Brep {
                 reference_direction: direction([1.0, 0.0, 0.0]),
             }),
             bounds: vec![edge_loop(&[(1, true)])],
+            poles: vec![],
             forward: true,
         },
         Face {
@@ -274,6 +280,7 @@ pub(crate) fn cone(base_radius: f64, tip_radius: f64, height: f64) -> Brep {
                 semi_angle,
             }),
             bounds: vec![edge_loop(&[(0, true), (2, true), (1, false), (2, false)])],
+            poles: vec![],
             forward: true,
         },
     ];
@@ -343,6 +350,7 @@ pub(crate) fn torus(major_radius: f64, minor_radius: f64) -> Brep {
                 },
             ],
         }],
+        poles: vec![],
         forward: true,
     }];
     Brep {
@@ -400,6 +408,7 @@ pub(crate) fn ball_at(center: [f64; 3], radius: f64) -> Brep {
                 },
             ],
         }],
+        poles: vec![],
         forward: true,
     }];
     Brep {
