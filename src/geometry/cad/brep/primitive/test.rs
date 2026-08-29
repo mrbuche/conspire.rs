@@ -1,6 +1,6 @@
 use crate::geometry::{
     Coordinate,
-    cad::brep::test::{axis_aligned_box, ball, capped_cylinder, coplanar_squares},
+    cad::brep::test::{axis_aligned_box, ball, capped_cylinder, cone, coplanar_squares},
     csg::Primitive,
     solid::{Solid, SolidOracle},
 };
@@ -47,6 +47,19 @@ fn recognises_a_sphere() {
     assert!((oracle.signed_distance(&point([0.0; 3])) - 3.0).abs() < 1e-9);
     assert!(oracle.signed_distance(&point([3.0, 0.0, 0.0])).abs() < 1e-9);
     assert!(oracle.signed_distance(&point([0.0, 0.0, 5.0])) < 0.0);
+}
+
+#[test]
+fn recognises_a_truncated_cone() {
+    let Some(Primitive::Cone(cone)) = cone(2.0, 1.0, 4.0).primitive() else {
+        panic!("cone not recognised");
+    };
+    let oracle = cone.oracle().unwrap();
+    // The recognised frustum spans the same rims: r = 2 at z = 0, r = 1 at z = 4.
+    assert!(oracle.signed_distance(&point([2.0, 0.0, 0.0])).abs() < 1e-6);
+    assert!(oracle.signed_distance(&point([1.0, 0.0, 4.0])).abs() < 1e-6);
+    assert!(oracle.signed_distance(&point([0.0, 0.0, 2.0])) > 0.0);
+    assert!((oracle.signed_distance(&point([0.0, 0.0, -3.0])) + 3.0).abs() < 1e-6);
 }
 
 #[test]

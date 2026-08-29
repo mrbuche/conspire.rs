@@ -1,7 +1,7 @@
 use super::{
     Brep, Edge, Face, HalfEdge, Loop, Shell,
     curve::{Circle, Curve, Line},
-    surface::{Cylinder, Plane, Sphere, Surface},
+    surface::{Cone, Cylinder, Plane, Sphere, Surface},
 };
 use crate::geometry::{Coordinate, Direction};
 
@@ -179,6 +179,99 @@ pub(crate) fn capped_cylinder(radius: f64, height: f64) -> Brep {
                 axis: direction([0.0, 0.0, 1.0]),
                 reference_direction: direction([1.0, 0.0, 0.0]),
                 radius,
+            }),
+            bounds: vec![edge_loop(&[(0, true), (2, true), (1, false), (2, false)])],
+            forward: true,
+        },
+    ];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell {
+            faces: vec![0, 1, 2],
+            closed: true,
+        }],
+    }
+}
+
+/// A truncated cone about `+z`: `base_radius` at `z = 0`, `tip_radius` at
+/// `z = height`, one conical lateral face split by a seam line.
+pub(crate) fn cone(base_radius: f64, tip_radius: f64, height: f64) -> Brep {
+    let widening = tip_radius >= base_radius;
+    let (origin_z, cone_axis, cone_radius, delta) = if widening {
+        (0.0, [0.0, 0.0, 1.0], base_radius, tip_radius - base_radius)
+    } else {
+        (height, [0.0, 0.0, -1.0], tip_radius, base_radius - tip_radius)
+    };
+    let semi_angle = (delta / height).atan();
+
+    let vertices = vec![
+        Coordinate::const_from([base_radius, 0.0, 0.0]),
+        Coordinate::const_from([tip_radius, 0.0, height]),
+    ];
+    let rim = |z: f64, radius: f64| {
+        Curve::Circle(Circle {
+            center: Coordinate::const_from([0.0, 0.0, z]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        })
+    };
+    let slant = {
+        let d = [tip_radius - base_radius, 0.0, height];
+        let n = (d[0] * d[0] + d[2] * d[2]).sqrt();
+        direction([d[0] / n, 0.0, d[2] / n])
+    };
+    let edges = vec![
+        Edge {
+            vertices: [0, 0],
+            curve: rim(0.0, base_radius),
+        },
+        Edge {
+            vertices: [1, 1],
+            curve: rim(height, tip_radius),
+        },
+        Edge {
+            vertices: [0, 1],
+            curve: Curve::Line(Line {
+                origin: Coordinate::const_from([base_radius, 0.0, 0.0]),
+                direction: slant,
+            }),
+        },
+    ];
+    let edge_loop = |half_edges: &[(usize, bool)]| Loop {
+        half_edges: half_edges
+            .iter()
+            .map(|&(edge, forward)| HalfEdge { edge, forward })
+            .collect(),
+    };
+    let faces = vec![
+        Face {
+            surface: Surface::Plane(Plane {
+                origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+                normal: direction([0.0, 0.0, -1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+            }),
+            bounds: vec![edge_loop(&[(0, false)])],
+            forward: true,
+        },
+        Face {
+            surface: Surface::Plane(Plane {
+                origin: Coordinate::const_from([0.0, 0.0, height]),
+                normal: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+            }),
+            bounds: vec![edge_loop(&[(1, true)])],
+            forward: true,
+        },
+        Face {
+            surface: Surface::Cone(Cone {
+                origin: Coordinate::const_from([0.0, 0.0, origin_z]),
+                axis: direction(cone_axis),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius: cone_radius,
+                semi_angle,
             }),
             bounds: vec![edge_loop(&[(0, true), (2, true), (1, false), (2, false)])],
             forward: true,

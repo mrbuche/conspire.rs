@@ -8,7 +8,7 @@ use crate::{
             brep::{
                 Brep, Edge, Face, HalfEdge, Loop, Shell,
                 curve::{Circle, Curve, Line},
-                surface::{Cylinder, Plane, Sphere, Surface},
+                surface::{Cone, Cylinder, Plane, Sphere, Surface},
             },
             part_21::{Exchange, Parameter, Record},
         },
@@ -162,8 +162,22 @@ impl<'a> Reader<'a> {
                 radius,
             }));
         }
+        if let Ok(record) = self.record(id, "CONICAL_SURFACE") {
+            let (origin, axis, reference_direction) =
+                self.axes(reference(&record.parameters, 1)?)?;
+            let radius = self.radius(&record.parameters, 2)?;
+            // The semi-angle is a plane angle, taken in radians.
+            let semi_angle = scalar(parameter(&record.parameters, 3)?)?;
+            return Ok(Surface::Cone(Cone {
+                origin,
+                axis,
+                reference_direction,
+                radius,
+                semi_angle,
+            }));
+        }
         Err(invalid(format!(
-            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE)"
+            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE, CONICAL_SURFACE)"
         )))
     }
 

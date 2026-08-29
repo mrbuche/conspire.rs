@@ -5,7 +5,8 @@
 mod test;
 
 use super::{
-    Cuboid, CuboidOracle, Cylinder, CylinderOracle, Ellipsoid, EllipsoidOracle, Sphere, SphereOracle,
+    Cone, ConeOracle, Cuboid, CuboidOracle, Cylinder, CylinderOracle, Ellipsoid, EllipsoidOracle,
+    Sphere, SphereOracle,
 };
 use crate::{
     geometry::{
@@ -23,6 +24,7 @@ pub enum Primitive {
     Sphere(Sphere),
     Cylinder(Cylinder),
     Ellipsoid(Ellipsoid),
+    Cone(Cone),
 }
 
 impl From<Cuboid> for Primitive {
@@ -49,6 +51,12 @@ impl From<Ellipsoid> for Primitive {
     }
 }
 
+impl From<Cone> for Primitive {
+    fn from(primitive: Cone) -> Self {
+        Self::Cone(primitive)
+    }
+}
+
 impl Solid for Primitive {
     type Oracle = PrimitiveOracle;
 
@@ -58,6 +66,7 @@ impl Solid for Primitive {
             Self::Sphere(primitive) => primitive.bounding_box(),
             Self::Cylinder(primitive) => primitive.bounding_box(),
             Self::Ellipsoid(primitive) => primitive.bounding_box(),
+            Self::Cone(primitive) => primitive.bounding_box(),
         }
     }
 
@@ -67,6 +76,7 @@ impl Solid for Primitive {
             Self::Sphere(primitive) => PrimitiveOracle::Sphere(primitive.oracle()?),
             Self::Cylinder(primitive) => PrimitiveOracle::Cylinder(primitive.oracle()?),
             Self::Ellipsoid(primitive) => PrimitiveOracle::Ellipsoid(primitive.oracle()?),
+            Self::Cone(primitive) => PrimitiveOracle::Cone(primitive.oracle()?),
         })
     }
 }
@@ -77,6 +87,7 @@ pub enum PrimitiveOracle {
     Sphere(SphereOracle),
     Cylinder(CylinderOracle),
     Ellipsoid(EllipsoidOracle),
+    Cone(ConeOracle),
 }
 
 impl SolidOracle for PrimitiveOracle {
@@ -86,6 +97,7 @@ impl SolidOracle for PrimitiveOracle {
             Self::Sphere(oracle) => oracle.project(query),
             Self::Cylinder(oracle) => oracle.project(query),
             Self::Ellipsoid(oracle) => oracle.project(query),
+            Self::Cone(oracle) => oracle.project(query),
         }
     }
 
@@ -95,6 +107,7 @@ impl SolidOracle for PrimitiveOracle {
             Self::Sphere(oracle) => oracle.signed_distance(query),
             Self::Cylinder(oracle) => oracle.signed_distance(query),
             Self::Ellipsoid(oracle) => oracle.signed_distance(query),
+            Self::Cone(oracle) => oracle.signed_distance(query),
         }
     }
 }
