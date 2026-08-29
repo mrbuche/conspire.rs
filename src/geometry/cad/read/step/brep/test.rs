@@ -458,20 +458,48 @@ END-ISO-10303-21;
 "#;
 
 #[test]
-#[ignore = "reads a local file if one is present, not a checked-in fixture"]
-fn probe_real_file() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/boxy_with_cylindricity.stp");
-    let Ok(text) = std::fs::read_to_string(path) else {
+#[ignore = "probes local .stp files under STEP_PROBE_DIR, not checked-in fixtures"]
+fn probe_step_files() {
+    let dir = std::env::var("STEP_PROBE_DIR")
+        .unwrap_or_else(|_| format!("{}/../boxy", env!("CARGO_MANIFEST_DIR")));
+    let mut files = Vec::new();
+    fn walk(dir: &std::path::Path, files: &mut Vec<std::path::PathBuf>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, files);
+            } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("stp")) {
+                files.push(path);
+            }
+        }
+    }
+    walk(std::path::Path::new(&dir), &mut files);
+    files.sort();
+    if files.is_empty() {
         return;
-    };
-    let brep = read(&text).expect("real STEP file did not read");
-    eprintln!(
-        "OK: {} vertices, {} edges, {} faces; primitive = {}",
-        brep.vertices.len(),
-        brep.edges.len(),
-        brep.faces.len(),
-        brep.primitive().is_some(),
-    );
+    }
+    let (mut ok, mut fail) = (0, 0);
+    for path in &files {
+        let name = path.file_name().unwrap().to_string_lossy();
+        match std::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|t| read(&t).map_err(|e| e.to_string())) {
+            Ok(brep) => {
+                ok += 1;
+                eprintln!(
+                    "ok   {name}: {} faces, primitive={}",
+                    brep.faces.len(),
+                    brep.primitive().is_some()
+                );
+            }
+            Err(error) => {
+                fail += 1;
+                eprintln!("FAIL {name}: {error}");
+            }
+        }
+    }
+    eprintln!("\n{ok} ok, {fail} failed of {}", files.len());
 }
 
 #[test]

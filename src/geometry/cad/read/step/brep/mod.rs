@@ -334,8 +334,11 @@ impl<'a> Reader<'a> {
                 inner.push(edge_loop);
             }
         }
-        let mut bounds =
-            vec![outer.ok_or_else(|| invalid(format!("STEP: #{id} has no outer bound")))?];
+        // Some exporters mark no bound as outer; take the first as the outline.
+        let outer = outer
+            .or_else(|| (!inner.is_empty()).then(|| inner.remove(0)))
+            .ok_or_else(|| invalid(format!("STEP: #{id} has no bounds")))?;
+        let mut bounds = vec![outer];
         bounds.append(&mut inner);
         let index = self.faces.len();
         self.faces.push(Face {
@@ -449,8 +452,13 @@ fn file_length_scale(exchange: &Exchange) -> Result<f64> {
 /// as degrees), else 1 for an SI radian.
 fn file_angle_scale(exchange: &Exchange) -> Result<f64> {
     for record in exchange.data.values().flat_map(|instance| &instance.records) {
-        if record.keyword == "PLANE_ANGLE_MEASURE_WITH_UNIT" {
-            return scalar(parameter(&record.parameters, 0)?);
+        // PMI sections carry many empty `PLANE_ANGLE_MEASURE_WITH_UNIT()`; the
+        // real conversion is the one with a numeric measure.
+        if record.keyword == "PLANE_ANGLE_MEASURE_WITH_UNIT"
+            && let Some(value) = record.parameters.first()
+            && let Ok(factor) = scalar(value)
+        {
+            return Ok(factor);
         }
     }
     Ok(1.0)
