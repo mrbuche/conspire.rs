@@ -1,10 +1,13 @@
 target/
+
 .claude/
 .venv/
 .vscode/
+
 **.exo
 **.stl
+**.stp
+**.swp
+**.swo
 **.vtm
 **.vtu
-*.swp
-*.swo
