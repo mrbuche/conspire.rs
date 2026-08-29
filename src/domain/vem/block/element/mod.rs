@@ -202,16 +202,14 @@ impl
                     .cloned()
                     .sum::<ReferenceCoordinate>()
                     / (num_nodes_face as Scalar);
-                (0..num_nodes_face)
+                let mut face_area_vector = TensorRank1::<3, Reference, Area>::zero();
+                let face_tetrahedra = (0..num_nodes_face)
                     .map(|spot| {
                         let next = (spot + 1) % num_nodes_face;
                         let e_1 = &face_coordinates[next] - &face_coordinates[spot];
                         let e_2 = &face_center - &face_coordinates[next];
                         let cross = e_1.cross(&e_2);
-                        let shared = &cross / (num_nodes_face as Scalar);
-                        face_nodes
-                            .iter()
-                            .for_each(|&node| area_vectors[node] += &shared);
+                        face_area_vector += &cross;
                         area_vectors[face_nodes[spot]] += &cross;
                         area_vectors[face_nodes[next]] += &cross;
                         Tetrahedron::from(FemElementNodalReferenceCoordinates::from([
@@ -221,7 +219,12 @@ impl
                             element_center.clone(),
                         ]))
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Vec<_>>();
+                let shared = &face_area_vector / (num_nodes_face as Scalar);
+                face_nodes
+                    .iter()
+                    .for_each(|&node| area_vectors[node] += &shared);
+                face_tetrahedra
             })
             .collect::<Vec<_>>();
         let element_volume = tetrahedra
