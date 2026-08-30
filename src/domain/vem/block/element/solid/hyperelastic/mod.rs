@@ -40,7 +40,7 @@ where
                 tetrahedron.helmholtz_free_energy(constitutive_model, tetrahedron_coordinates)
             })
             .sum::<Result<Quantity<Energy>, _>>()
-            .map_err(|error| VirtualElementError::upstream(error, self))?;
+            .map_err(|error| self.upstream(error))?;
         let polyhedron_energy = self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -52,7 +52,7 @@ where
                 )
             })
             .sum::<Result<Quantity<Energy>, _>>()
-            .map_err(|error| VirtualElementError::upstream(error, self))?;
+            .map_err(|error| self.upstream(error))?;
         Ok(polyhedron_energy * (1.0 - self.stabilization())
             + tetrahedra_energy * self.stabilization())
     }
