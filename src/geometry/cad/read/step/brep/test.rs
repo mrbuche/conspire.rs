@@ -338,6 +338,9 @@ fn read_cylinder_meshes_through_the_analytic_oracle() {
     let oracle = brep.oracle().unwrap();
     assert!(oracle.signed_distance(&Coordinate::from([0.0, 0.0, 2.5])) > 1.9);
     assert!(oracle.signed_distance(&Coordinate::from([5.0, 0.0, 2.5])) < 0.0);
+    // The winding number of the reader-built + oriented shell is clean here.
+    assert!((oracle.winding_number(&Coordinate::from([0.0, 0.0, 2.5])).abs() - 1.0).abs() < 5e-2);
+    assert!(oracle.winding_number(&Coordinate::from([5.0, 0.0, 2.5])).abs() < 5e-2);
 
     let length = |v| Quantity::<Length>::new(v);
     let mesh = brep
@@ -727,7 +730,11 @@ fn probe_signed_distance_sign() {
     let centre = crate::geometry::Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| {
         0.5 * (low[k].value() + high[k].value())
     }));
-    eprintln!("signed_distance(centre) = {}", oracle.signed_distance(&centre));
+    eprintln!(
+        "signed_distance(centre) = {}, winding(centre) = {:.4}",
+        oracle.signed_distance(&centre),
+        oracle.winding_number(&centre),
+    );
 
     // Is it a clean global flip, or per-region inconsistency? Tally the sign at
     // many points deep inside (near the centre) vs far outside (past a face).

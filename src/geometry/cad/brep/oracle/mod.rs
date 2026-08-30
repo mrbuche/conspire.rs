@@ -2,6 +2,12 @@
 mod test;
 
 mod patch;
+/// The generalized-winding-number machinery — a robust future replacement for
+/// [`BrepOracle::signed_distance`]'s nearest-face-normal sign, exercised by
+/// tests but not yet on the meshing path (it needs consistently oriented
+/// curved faces and a spatial acceleration structure first).
+#[cfg(test)]
+mod winding;
 
 use super::{
     Brep, D, Face, Loop,
@@ -14,6 +20,8 @@ use crate::{
 };
 use patch::{Curved, FacePatch};
 use std::array::from_fn;
+#[cfg(test)]
+use winding::generalized_winding_number;
 
 /// [`SolidOracle`] backed by the analytic B-rep: closest-point projection onto
 /// each face's exact surface. Planar faces are trimmed to their loops (polygon
@@ -28,6 +36,13 @@ use std::array::from_fn;
 /// B-spline face errs.
 pub struct BrepOracle {
     patches: Vec<FacePatch>,
+    /// Planar face bounds as closed 3D polylines, and curved faces as coarse
+    /// outward-wound triangle soups — the two inputs to the winding-number
+    /// inside/outside test.
+    #[cfg(test)]
+    loops: Vec<Vec<[Scalar; D]>>,
+    #[cfg(test)]
+    winding_triangles: Vec<[[Scalar; D]; 3]>,
 }
 
 impl Brep {
@@ -37,12 +52,22 @@ impl Brep {
         if self.faces.is_empty() {
             return Err("brep has no faces");
         }
+        let patches = self
+            .faces
+            .iter()
+            .map(|face| self.face_patch(face))
+            .collect::<Result<Vec<_>, _>>()?;
+        #[cfg(test)]
+        let winding_triangles: Vec<_> = patches
+            .iter()
+            .flat_map(FacePatch::winding_triangles)
+            .collect();
         Ok(BrepOracle {
-            patches: self
-                .faces
-                .iter()
-                .map(|face| self.face_patch(face))
-                .collect::<Result<Vec<_>, _>>()?,
+            patches,
+            #[cfg(test)]
+            loops: self.winding_loops()?,
+            #[cfg(test)]
+            winding_triangles,
         })
     }
 
@@ -267,6 +292,17 @@ impl BrepOracle {
         (low.into(), high.into())
     }
 
+    /// The generalized winding number of `query` against the trimmed boundary:
+    /// near `±1` inside the solid, near `0` outside.
+    #[cfg(test)]
+    pub(crate) fn winding_number(&self, query: &Coordinate<D>) -> Scalar {
+        generalized_winding_number(
+            from_fn(|k| query[k].value()),
+            &self.loops,
+            &self.winding_triangles,
+        )
+    }
+
     fn nearest(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar)> {
         self.patches
             .iter()
@@ -280,8 +316,15 @@ impl SolidOracle for BrepOracle {
         self.nearest(query).map(|(point, normal, _)| (point, normal))
     }
 
-    /// Magnitude is the distance to the nearest face; the sign is read from that
-    /// face's outward normal (positive inside).
+    /// Magnitude is the distance to the nearest trimmed face; the sign is read
+    /// from that face's outward normal (positive inside).
+    ///
+    /// A generalized winding number against the exact trimmed boundary is the
+    /// robust replacement for this sign (see [`winding`]), but it is not wired
+    /// in yet: it needs every curved face consistently oriented — which
+    /// [`Brep::orient`](super::super::Brep::orient) does not yet guarantee for
+    /// curved-curved adjacencies — and a spatial acceleration structure, since
+    /// a bare sum over the boundary is far too slow per query.
     fn signed_distance(&self, query: &Coordinate<D>) -> Scalar {
         match self.nearest(query) {
             Some((point, normal, distance)) => {
