@@ -704,6 +704,7 @@ fn probe_signed_distance_sign() {
     let samples = 100usize;
     let lines = 9usize;
 
+    let winding_scan = std::env::var("STEP_WINDING_SCAN").is_ok();
     for axis in 0..3 {
         let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
         eprintln!("--- scan along axis {axis} ---");
@@ -715,25 +716,30 @@ fn probe_signed_distance_sign() {
                     p[axis] = base[axis] + span[axis] * (s as f64 + 0.5) / samples as f64;
                     p[u] = base[u] + span[u] * a as f64 / lines as f64;
                     p[v] = base[v] + span[v] * b as f64 / lines as f64;
-                    let sd = oracle.signed_distance(&Coordinate::from(p));
-                    row.push(if sd > 0.0 { '#' } else { '.' });
+                    let point = Coordinate::from(p);
+                    if winding_scan {
+                        let w = oracle.winding_number(&point).abs();
+                        row.push(if w > 0.75 { '#' } else if w > 0.25 { '?' } else { '.' });
+                    } else {
+                        row.push(if oracle.signed_distance(&point) > 0.0 { '#' } else { '.' });
+                    }
                 }
-                if row.contains('#') {
+                if row.contains('#') || row.contains('?') {
                     eprintln!("u{a} v{b} {row}");
                 }
             }
         }
     }
 
-    // The bbox centre is inside the solid block, so its signed distance must
-    // be positive.
     let centre = crate::geometry::Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| {
         0.5 * (low[k].value() + high[k].value())
     }));
+    let bbox_volume = span[0] * span[1] * span[2];
     eprintln!(
-        "signed_distance(centre) = {}, winding(centre) = {:.4}",
+        "centre: signed_distance = {:.5}, winding = {:.4}, signed_volume/bbox = {:.4}",
         oracle.signed_distance(&centre),
         oracle.winding_number(&centre),
+        oracle.signed_volume_x6() / 6.0 / bbox_volume,
     );
 
     // Is it a clean global flip, or per-region inconsistency? Tally the sign at

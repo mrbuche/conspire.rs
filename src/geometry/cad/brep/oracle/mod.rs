@@ -303,6 +303,27 @@ impl BrepOracle {
         )
     }
 
+    /// Six times the signed volume the oriented boundary encloses
+    /// (divergence theorem). `≈ ±6·V` when the shell is consistently wound,
+    /// near zero when the face orientations fight each other.
+    #[cfg(test)]
+    pub(crate) fn signed_volume_x6(&self) -> Scalar {
+        let tet = |a: [Scalar; D], b: [Scalar; D], c: [Scalar; D]| {
+            a[0] * (b[1] * c[2] - b[2] * c[1]) + a[1] * (b[2] * c[0] - b[0] * c[2])
+                + a[2] * (b[0] * c[1] - b[1] * c[0])
+        };
+        let mut total = 0.0;
+        for ring in &self.loops {
+            for i in 1..ring.len() - 1 {
+                total += tet(ring[0], ring[i], ring[i + 1]);
+            }
+        }
+        for &[a, b, c] in &self.winding_triangles {
+            total += tet(a, b, c);
+        }
+        total
+    }
+
     fn nearest(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar)> {
         self.patches
             .iter()
