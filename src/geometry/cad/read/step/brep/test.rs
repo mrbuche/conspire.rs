@@ -741,6 +741,11 @@ fn probe_signed_distance_sign() {
         oracle.winding_number(&centre),
         oracle.signed_volume_x6() / 6.0 / bbox_volume,
     );
+    eprintln!("nearest patches to the centre:");
+    for (kind, distance, point, normal) in oracle.patch_report(&centre).into_iter().take(8) {
+        eprintln!("  {kind:6} d={distance:.5} at [{:.4},{:.4},{:.4}] n=[{:.2},{:.2},{:.2}]",
+            point[0], point[1], point[2], normal[0], normal[1], normal[2]);
+    }
 
     // Is it a clean global flip, or per-region inconsistency? Tally the sign at
     // many points deep inside (near the centre) vs far outside (past a face).

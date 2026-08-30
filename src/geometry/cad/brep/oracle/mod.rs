@@ -330,6 +330,40 @@ impl BrepOracle {
             .map(|patch| patch.closest(query))
             .min_by(|a, b| a.2.total_cmp(&b.2))
     }
+
+    /// Every patch's `(surface type, distance, closest point, outward normal)`
+    /// for `query`, nearest first — a probe for why a query picks the face it
+    /// does.
+    #[cfg(test)]
+    pub(crate) fn patch_report(
+        &self,
+        query: &Coordinate<D>,
+    ) -> Vec<(&'static str, Scalar, [Scalar; D], [Scalar; D])> {
+        let mut rows: Vec<_> = self
+            .patches
+            .iter()
+            .map(|patch| {
+                let kind = match patch {
+                    FacePatch::Planar(_) => "plane",
+                    FacePatch::Curved { curved, .. } => match curved {
+                        Curved::Cylinder { .. } => "cyl",
+                        Curved::Cone { .. } => "cone",
+                        Curved::Sphere { .. } => "sphere",
+                        Curved::Torus { .. } => "torus",
+                    },
+                };
+                let (point, normal, distance) = patch.closest(query);
+                (
+                    kind,
+                    distance,
+                    from_fn(|k| point[k].value()),
+                    from_fn(|k| normal[k].value()),
+                )
+            })
+            .collect();
+        rows.sort_by(|a, b| a.1.total_cmp(&b.1));
+        rows
+    }
 }
 
 impl SolidOracle for BrepOracle {
