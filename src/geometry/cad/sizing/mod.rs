@@ -22,15 +22,18 @@ const D: usize = 3;
 /// parameterization artifacts are ignored. A curved edge is sampled into a
 /// chord polyline so the whole rim drives refinement, not just its endpoints.
 /// Each contributing chord carries a target size of the edge's arc length over
-/// `segments_per_edge`; away from it that size grows at rate `gradation`. The
-/// field is the clamped minimum of those contributions, so it is defined
-/// everywhere and already satisfies the gradation constraint.
+/// `segments_per_edge`. `gradation` is the rate that size may grow per unit
+/// distance from the edge (the mesh-smoothness bound); `Some(0.0)` pins the
+/// whole field to the finest feature size, `None` lets it grow as fast as it
+/// likes — the feature size within one target-size of the edge, `maximum`
+/// beyond, a single fine layer per feature. The field is the clamped minimum
+/// of those contributions, so it is defined everywhere.
 pub struct FeatureSizing {
     segments: Vec<[Coordinate<D>; 2]>,
     sizes: Vec<Quantity<Length>>,
     minimum: Quantity<Length>,
     maximum: Quantity<Length>,
-    gradation: Scalar,
+    gradation: Option<Scalar>,
 }
 
 impl FeatureSizing {
@@ -39,7 +42,7 @@ impl FeatureSizing {
         segments_per_edge: usize,
         minimum: Quantity<Length>,
         maximum: Quantity<Length>,
-        gradation: Scalar,
+        gradation: Option<Scalar>,
     ) -> Self {
         let samples = segments_per_edge.max(1);
         let divisor = samples as Scalar;
@@ -75,7 +78,12 @@ impl FeatureSizing {
     pub fn at(&self, point: &Coordinate<D>) -> Quantity<Length> {
         let mut size = self.maximum;
         for (segment, source) in self.segments.iter().zip(&self.sizes) {
-            let candidate = *source + distance(point, segment) * self.gradation;
+            let reach = distance(point, segment);
+            let candidate = match self.gradation {
+                Some(rate) => *source + reach * rate,
+                None if reach <= *source => *source,
+                None => self.maximum,
+            };
             if candidate < size {
                 size = candidate;
             }

@@ -48,7 +48,7 @@ fn meshes_the_lens() {
     let mesh = lens()
         .mesh(
             &Uniform(length(0.4)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,

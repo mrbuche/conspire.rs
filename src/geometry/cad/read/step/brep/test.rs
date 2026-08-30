@@ -294,7 +294,7 @@ fn read_cylinder_recognised_as_a_primitive_and_meshed() {
     let mesh = cylinder
         .mesh(
             &Uniform(Quantity::<Length>::new(0.6)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,
@@ -342,8 +342,8 @@ fn read_cylinder_meshes_through_the_analytic_oracle() {
     let length = |v| Quantity::<Length>::new(v);
     let mesh = brep
         .mesh(
-            &FeatureSizing::of(&brep, 32, length(0.2), length(1.0), 0.25),
-            6,
+            &FeatureSizing::of(&brep, 32, length(0.2), length(1.0), Some(0.25)),
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,
@@ -547,15 +547,79 @@ fn probe_step_files() {
     eprintln!("\n{ok} ok, {fail} failed of {}", files.len());
 }
 
+/// Runs the octree -> dual -> trim (-> fit) pipeline on `brep` with `sizing`,
+/// writing each stage to `{out}_{dual,trimmed,fitted}.vtu` for ParaView. The
+/// trimmed dump is the one to look at before paying for the fit.
+fn probe_mesh(
+    brep: &crate::geometry::cad::brep::Brep,
+    sizing: &impl crate::geometry::solid::Sizing,
+    levels: Option<u32>,
+    out: &str,
+    fit: bool,
+) {
+    use crate::{
+        geometry::{
+            mesh::{Class, Fitting, Output, Verdict, Vtk},
+            ntree::Balancing,
+            solid::Solid,
+        },
+        io::{Write, write::Compression},
+    };
+
+    let dump = |mesh: &crate::geometry::mesh::Mesh<3>, path: &str| {
+        mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))))
+            .unwrap();
+        eprintln!("wrote {path}");
+    };
+    let started = std::time::Instant::now();
+
+    let (dual, classes) = brep
+        .dual_background(sizing, levels, 0.1, Balancing::Strong(1))
+        .expect("dual_background failed");
+    let count = |class| classes.iter().filter(|&&c| c == class).count();
+    eprintln!(
+        "dual: {} hexes ({:.1}s); {} inside, {} cut, {} outside",
+        dual.number_of_elements(),
+        started.elapsed().as_secs_f64(),
+        count(Class::Inside),
+        count(Class::Cut),
+        count(Class::Outside),
+    );
+    dump(&dual, &format!("{out}_dual.vtu"));
+
+    let (trimmed, _) = brep
+        .trim(sizing, levels, 0.1, Balancing::Strong(1))
+        .expect("trim failed");
+    eprintln!(
+        "trimmed: {} hexes ({:.1}s total)",
+        trimmed.number_of_elements(),
+        started.elapsed().as_secs_f64(),
+    );
+    dump(&trimmed, &format!("{out}_trimmed.vtu"));
+
+    if !fit {
+        return;
+    }
+    let mesh = brep
+        .mesh(sizing, levels, 0.1, Balancing::Strong(1), Fitting::Soft)
+        .expect("mesh failed");
+    let worst = mesh.minimum_scaled_jacobians()[0]
+        .iter()
+        .cloned()
+        .fold(f64::INFINITY, f64::min);
+    eprintln!(
+        "meshed: {} nodes, {} elements, worst scaled Jacobian {worst}",
+        mesh.number_of_nodes(),
+        mesh.number_of_elements(),
+    );
+    dump(&mesh, &format!("{out}_fitted.vtu"));
+}
+
 #[test]
 #[ignore = "meshes a local .stp given by STEP_MESH_FILE"]
 fn probe_mesh_real_file() {
     use crate::{
-        geometry::{
-            mesh::{Fitting, Verdict},
-            ntree::Balancing,
-            solid::{Solid, Uniform},
-        },
+        geometry::{cad::sizing::FeatureSizing, solid::Uniform},
         math::Quantity,
         units::Length,
     };
@@ -566,54 +630,43 @@ fn probe_mesh_real_file() {
     let text = std::fs::read_to_string(&path).unwrap();
     let brep = read(&text).expect("read failed");
     eprintln!("read {} faces", brep.faces.len());
-    let cell: f64 = std::env::var("STEP_MESH_CELL")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(6.0e-3);
-    let sizing = Uniform(Quantity::<Length>::new(cell));
 
-    let started = std::time::Instant::now();
-    let (background, classes) = brep
-        .dual_background(&sizing, 6, 0.1, Balancing::Strong(1))
-        .expect("dual_background failed");
-    eprintln!(
-        "dual: {} hexes ({:.1}s); classes: {} inside, {} cut, {} outside",
-        background.number_of_elements(),
-        started.elapsed().as_secs_f64(),
-        classes
-            .iter()
-            .filter(|&&c| c == crate::geometry::mesh::Class::Inside)
-            .count(),
-        classes
-            .iter()
-            .filter(|&&c| c == crate::geometry::mesh::Class::Cut)
-            .count(),
-        classes
-            .iter()
-            .filter(|&&c| c == crate::geometry::mesh::Class::Outside)
-            .count(),
-    );
-    let (trimmed, _) = brep
-        .trim(&sizing, 6, 0.1, Balancing::Strong(1))
-        .expect("trim failed");
-    eprintln!(
-        "trimmed: {} hexes ({:.1}s total)",
-        trimmed.number_of_elements(),
-        started.elapsed().as_secs_f64()
-    );
-    if std::env::var("STEP_MESH_FIT").is_err() {
-        return;
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let length = |v| Quantity::<Length>::new(v);
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let out = std::env::var("STEP_MESH_OUT").unwrap_or_else(|_| "target/step_mesh".into());
+    let fit = std::env::var("STEP_MESH_FIT").is_ok();
+    // Unset STEP_MESH_LEVELS => None => refine as far as the sizing field wants.
+    let levels = std::env::var("STEP_MESH_LEVELS")
+        .ok()
+        .and_then(|value| value.parse().ok());
+
+    // STEP_MESH_SIZING=uniform for a flat field; feature (default) drives
+    // refinement from the B-rep's sharp edges.
+    if std::env::var("STEP_MESH_SIZING").as_deref() == Ok("uniform") {
+        probe_mesh(&brep, &Uniform(length(cell)), levels, &out, fit);
+    } else {
+        // STEP_MESH_GRADATION="none" => grade as fast as it likes (one fine
+        // layer per feature); a number => that bounded rate; unset => 0.2.
+        let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
+            Ok("none") => None,
+            Ok(value) => Some(value.parse().expect("STEP_MESH_GRADATION")),
+            Err(_) => Some(0.2),
+        };
+        let sizing = FeatureSizing::of(
+            &brep,
+            env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
+            length(env_f64("STEP_MESH_MIN", cell / 8.0)),
+            length(cell),
+            gradation,
+        );
+        probe_mesh(&brep, &sizing, levels, &out, fit);
     }
-    let mesh = brep
-        .mesh(&sizing, 6, 0.1, Balancing::Strong(1), Fitting::Soft)
-        .expect("mesh failed");
-    let jacobians = mesh.minimum_scaled_jacobians();
-    let worst = jacobians[0].iter().cloned().fold(f64::INFINITY, f64::min);
-    eprintln!(
-        "meshed: {} nodes, {} elements, worst scaled Jacobian {worst}",
-        mesh.number_of_nodes(),
-        mesh.number_of_elements(),
-    );
 }
 
 #[test]

@@ -64,7 +64,7 @@ fn meshes_the_frustum() {
     let mesh = frustum()
         .mesh(
             &Uniform(length(0.5)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,

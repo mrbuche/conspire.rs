@@ -49,7 +49,7 @@ fn nests_with_a_combinator() {
     let mesh = Union::new(porous, boss)
         .mesh(
             &Uniform(length(0.4)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,

@@ -67,7 +67,7 @@ fn meshes_the_cylinder() {
     let mesh = cylinder
         .mesh(
             &Uniform(length(0.6)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,

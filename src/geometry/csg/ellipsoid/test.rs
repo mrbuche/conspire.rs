@@ -77,7 +77,7 @@ fn meshes_the_ellipsoid() {
     let mesh = ellipsoid
         .mesh(
             &Uniform(length(0.6)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,

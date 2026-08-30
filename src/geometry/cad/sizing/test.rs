@@ -15,7 +15,7 @@ fn point(coordinates: [f64; 3]) -> Coordinate<3> {
 
 #[test]
 fn grows_from_the_edges_inward() {
-    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(10.0), 1.0);
+    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(10.0), Some(1.0));
     let on_edge = field.at(&point([0.5, 0.0, 0.0])).value();
     let near_edge = field.at(&point([0.5, 0.02, 0.02])).value();
     let center = field.at(&point([0.5, 0.5, 0.5])).value();
@@ -28,24 +28,35 @@ fn grows_from_the_edges_inward() {
 
 #[test]
 fn segments_per_edge_scales_the_source() {
-    let coarse = FeatureSizing::of(&unit_cube(), 1, length(0.01), length(10.0), 1.0);
-    let fine = FeatureSizing::of(&unit_cube(), 4, length(0.01), length(10.0), 1.0);
+    let coarse = FeatureSizing::of(&unit_cube(), 1, length(0.01), length(10.0), Some(1.0));
+    let fine = FeatureSizing::of(&unit_cube(), 4, length(0.01), length(10.0), Some(1.0));
     assert!((coarse.at(&point([0.5, 0.0, 0.0])).value() - 1.0).abs() < 1e-12);
     assert!((fine.at(&point([0.5, 0.0, 0.0])).value() - 0.25).abs() < 1e-12);
 }
 
 #[test]
 fn respects_the_clamps() {
-    let capped = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(0.3), 1.0);
+    let capped = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(0.3), Some(1.0));
     assert!((capped.at(&point([0.5, 0.5, 0.5])).value() - 0.3).abs() < 1e-12);
-    let floored = FeatureSizing::of(&unit_cube(), 8, length(0.4), length(10.0), 1.0);
+    let floored = FeatureSizing::of(&unit_cube(), 8, length(0.4), length(10.0), Some(1.0));
     assert!((floored.at(&point([0.5, 0.0, 0.0])).value() - 0.4).abs() < 1e-12);
+}
+
+#[test]
+fn unbounded_gradation_is_one_fine_layer() {
+    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(10.0), None);
+    let source = 0.5; // edge length 1.0 over 2 segments
+    // Within one target size of an edge: the feature size.
+    assert!((field.at(&point([0.5, 0.0, 0.0])).value() - source).abs() < 1e-12);
+    assert!((field.at(&point([0.5, source * 0.9, 0.0])).value() - source).abs() < 1e-12);
+    // Beyond it: straight to the maximum, no ramp.
+    assert!((field.at(&point([0.5, 0.5, 0.5])).value() - 10.0).abs() < 1e-12);
 }
 
 #[test]
 fn obeys_the_gradation_bound() {
     let gradation = 0.7;
-    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(10.0), gradation);
+    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(10.0), Some(gradation));
     let samples: [[f64; 3]; 5] = [
         [0.5, 0.0, 0.0],
         [0.5, 0.1, 0.1],

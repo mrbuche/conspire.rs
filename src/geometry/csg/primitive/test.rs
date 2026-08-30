@@ -52,7 +52,7 @@ fn block_with_boss_and_pore_meshes() {
     let mesh = solid
         .mesh(
             &Uniform(length(0.4)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,

@@ -78,8 +78,8 @@ fn sizing_field_grades_the_octree() {
     // overhangs the geometry on the two shorter axes.
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
-    let sizing = FeatureSizing::of(&brep, 64, length(0.01), length(2.0), 0.25);
-    let mesh = brep.sizing_octree(&sizing, 7, 0.0).unwrap();
+    let sizing = FeatureSizing::of(&brep, 64, length(0.01), length(2.0), Some(0.25));
+    let mesh = brep.sizing_octree(&sizing, Some(7), 0.0).unwrap();
     let cells = hexes(&mesh);
 
     assert!(
@@ -130,17 +130,20 @@ fn sizing_field_grades_the_octree() {
 #[test]
 fn max_levels_is_bounded() {
     let brep = unit_cube();
-    let sizing = FeatureSizing::of(&brep, 16, length(0.01), length(2.0), 0.25);
-    assert!(brep.sizing_octree(&sizing, 0, 0.0).is_err());
-    assert!(brep.sizing_octree(&sizing, 16, 0.0).is_err());
+    let sizing = FeatureSizing::of(&brep, 16, length(0.01), length(2.0), Some(0.25));
+    assert!(brep.sizing_octree(&sizing, Some(0), 0.0).is_err());
+    assert!(brep.sizing_octree(&sizing, Some(16), 0.0).is_err());
+    // `None` is uncapped: the coarse `maximum` still settles it well short of
+    // the tree's own depth limit.
+    assert!(brep.sizing_octree(&sizing, None, 0.0).is_ok());
 }
 
 #[test]
 fn dual_background_classifies_the_dual_mesh() {
     let brep = unit_cube();
-    let sizing = FeatureSizing::of(&brep, 16, length(0.01), length(2.0), 0.25);
+    let sizing = FeatureSizing::of(&brep, 16, length(0.01), length(2.0), Some(0.25));
     let (mesh, classes) = brep
-        .dual_background(&sizing, 5, 0.1, Balancing::Strong(1))
+        .dual_background(&sizing, Some(5), 0.1, Balancing::Strong(1))
         .unwrap();
     assert_eq!(hexes(&mesh).len(), classes.len());
     assert!(classes.contains(&Class::Inside));
@@ -164,8 +167,8 @@ fn dual_background_classifies_the_dual_mesh() {
 fn trim_hugs_the_geometry() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
-    let sizing = FeatureSizing::of(&brep, 64, length(0.05), length(1.0), 0.25);
-    let (mesh, classes) = brep.trim(&sizing, 6, 0.1, Balancing::Strong(1)).unwrap();
+    let sizing = FeatureSizing::of(&brep, 64, length(0.05), length(1.0), Some(0.25));
+    let (mesh, classes) = brep.trim(&sizing, Some(6), 0.1, Balancing::Strong(1)).unwrap();
 
     assert_eq!(hexes(&mesh).len(), classes.len());
     assert!(classes.iter().all(|&class| class != Class::Outside));
@@ -191,9 +194,9 @@ fn trim_hugs_the_geometry() {
 #[test]
 fn meshes_a_capped_cylinder_through_the_analytic_oracle() {
     let brep = capped_cylinder(2.0, 5.0);
-    let sizing = FeatureSizing::of(&brep, 32, length(0.1), length(1.0), 0.25);
+    let sizing = FeatureSizing::of(&brep, 32, length(0.1), length(1.0), Some(0.25));
     let mesh = brep
-        .mesh(&sizing, 6, 0.1, Balancing::Strong(1), Fitting::Soft)
+        .mesh(&sizing, Some(6), 0.1, Balancing::Strong(1), Fitting::Soft)
         .unwrap();
 
     assert_eq!(mesh.connectivities().len(), 1);
@@ -224,9 +227,9 @@ fn meshes_a_capped_cylinder_through_the_analytic_oracle() {
 fn mesh_fits_the_graded_box() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
-    let sizing = FeatureSizing::of(&brep, 64, length(0.05), length(1.0), 0.25);
+    let sizing = FeatureSizing::of(&brep, 64, length(0.05), length(1.0), Some(0.25));
     let mesh = brep
-        .mesh(&sizing, 6, 0.1, Balancing::Strong(1), Fitting::Soft)
+        .mesh(&sizing, Some(6), 0.1, Balancing::Strong(1), Fitting::Soft)
         .unwrap();
 
     assert_eq!(mesh.connectivities().len(), 1);
@@ -267,8 +270,8 @@ fn dump_curved_brep_meshes() {
             "target/cad_capped_cylinder.vtu",
             capped_cylinder(2.0, 5.0)
                 .mesh(
-                    &FeatureSizing::of(&capped_cylinder(2.0, 5.0), 48, length(0.15), length(1.0), 0.2),
-                    7,
+                    &FeatureSizing::of(&capped_cylinder(2.0, 5.0), 48, length(0.15), length(1.0), Some(0.2)),
+                    Some(7),
                     0.1,
                     Balancing::Strong(1),
                     Fitting::Soft,
@@ -279,8 +282,8 @@ fn dump_curved_brep_meshes() {
             "target/cad_cone.vtu",
             cone(3.0, 1.0, 5.0)
                 .mesh(
-                    &FeatureSizing::of(&cone(3.0, 1.0, 5.0), 48, length(0.15), length(1.0), 0.2),
-                    7,
+                    &FeatureSizing::of(&cone(3.0, 1.0, 5.0), 48, length(0.15), length(1.0), Some(0.2)),
+                    Some(7),
                     0.1,
                     Balancing::Strong(1),
                     Fitting::Soft,
@@ -293,8 +296,8 @@ fn dump_curved_brep_meshes() {
             "target/cad_sphere.vtu",
             ball(3.0)
                 .mesh(
-                    &FeatureSizing::of(&ball(3.0), 48, length(0.15), length(0.5), 0.2),
-                    7,
+                    &FeatureSizing::of(&ball(3.0), 48, length(0.15), length(0.5), Some(0.2)),
+                    Some(7),
                     0.1,
                     Balancing::Strong(1),
                     Fitting::Soft,
@@ -305,8 +308,8 @@ fn dump_curved_brep_meshes() {
             "target/cad_torus.vtu",
             torus(4.0, 1.5)
                 .mesh(
-                    &FeatureSizing::of(&torus(4.0, 1.5), 48, length(0.12), length(0.4), 0.2),
-                    7,
+                    &FeatureSizing::of(&torus(4.0, 1.5), 48, length(0.12), length(0.4), Some(0.2)),
+                    Some(7),
                     0.1,
                     Balancing::Strong(1),
                     Fitting::Soft,

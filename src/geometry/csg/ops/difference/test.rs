@@ -49,7 +49,7 @@ fn meshes_a_porous_block() {
     let mesh = porous_block()
         .mesh(
             &Uniform(length(0.6)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,

@@ -56,7 +56,7 @@ fn meshes_the_overhanging_box() {
     let mesh = cuboid
         .mesh(
             &Uniform(length(1.0)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,

@@ -112,12 +112,13 @@ pub trait Solid {
     /// larger than `sizing` allows at its centre, then returns the leaves as a
     /// hexahedral mesh: a graded block of cubes, hanging nodes and all.
     ///
-    /// `max_levels` (1..=15) caps the octree depth; `padding` grows the box by
-    /// that fraction on each side.
+    /// `max_levels` (`Some(1..=15)`) caps the octree depth; `None` lets the
+    /// sizing field refine as far as the tree allows. `padding` grows the box
+    /// by that fraction on each side.
     fn sizing_octree(
         &self,
         sizing: &impl Sizing,
-        max_levels: u32,
+        max_levels: Option<u32>,
         padding: Scalar,
     ) -> Result<Mesh<D>, &'static str> {
         let tree = refine_octree(self.bounding_box()?, sizing, max_levels, padding)?;
@@ -143,7 +144,7 @@ pub trait Solid {
     fn dual_background(
         &self,
         sizing: &impl Sizing,
-        max_levels: u32,
+        max_levels: Option<u32>,
         padding: Scalar,
         balancing: Balancing,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
@@ -161,7 +162,7 @@ pub trait Solid {
     fn trim(
         &self,
         sizing: &impl Sizing,
-        max_levels: u32,
+        max_levels: Option<u32>,
         padding: Scalar,
         balancing: Balancing,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
@@ -186,7 +187,7 @@ pub trait Solid {
     fn mesh(
         &self,
         sizing: &impl Sizing,
-        max_levels: u32,
+        max_levels: Option<u32>,
         padding: Scalar,
         balancing: Balancing,
         fitting: Fitting,
@@ -233,17 +234,22 @@ pub trait Solid {
 }
 
 /// Refines an octree over the padded box `(low, high)` until every leaf is no
-/// larger than `sizing` allows at its centre. `max_levels` (1..=15) caps the
-/// depth; `padding` grows the box by that fraction per side.
+/// larger than `sizing` allows at its centre. `max_levels` (`Some(1..=15)`)
+/// caps the depth; `None` refines as far as the tree allows. `padding` grows
+/// the box by that fraction per side.
 fn refine_octree(
     (low, high): (Coordinate<D>, Coordinate<D>),
     sizing: &impl Sizing,
-    max_levels: u32,
+    max_levels: Option<u32>,
     padding: Scalar,
 ) -> Result<Cube, &'static str> {
-    if !(1..=15).contains(&max_levels) {
-        return Err("max_levels must be in 1..=15");
-    }
+    // `None` = as deep as the linear octree's u16 corner coordinates allow, so
+    // the sizing field alone decides where refinement stops.
+    let max_levels = match max_levels {
+        None => 15,
+        Some(levels) if (1..=15).contains(&levels) => levels,
+        Some(_) => return Err("max_levels must be in 1..=15"),
+    };
     let low: [Scalar; D] = from_fn(|axis| low[axis].value());
     let high: [Scalar; D] = from_fn(|axis| high[axis].value());
     let root_cells = 1u16 << max_levels;

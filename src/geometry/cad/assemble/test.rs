@@ -51,7 +51,7 @@ fn interior_solids_become_voids() {
         .unwrap()
         .mesh(
             &Uniform(length(0.5)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,

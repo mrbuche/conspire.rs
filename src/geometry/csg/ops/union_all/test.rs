@@ -45,7 +45,7 @@ fn meshes_the_blob() {
     let mesh = sphere_pair()
         .mesh(
             &Uniform(length(0.6)),
-            6,
+            Some(6),
             0.1,
             Balancing::Strong(1),
             Fitting::Soft,
