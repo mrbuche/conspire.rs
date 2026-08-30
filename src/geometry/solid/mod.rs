@@ -20,6 +20,7 @@ use std::{
     array::from_fn,
     collections::{VecDeque, hash_map::Entry, HashMap},
     num::NonZeroU32,
+    thread::{available_parallelism, scope},
 };
 
 const D: usize = 3;
@@ -31,7 +32,8 @@ const TRIM_RATIO: Scalar = 0.1;
 type Cube = Orthotree<D, 4, 6, 8, u16, NonZeroU32>;
 
 /// A scalar target-element-size field, sampled at octree cell centres.
-pub trait Sizing {
+/// `Sync` so a level of the octree can be tested across threads.
+pub trait Sizing: Sync {
     /// The target element size at `point`.
     fn at(&self, point: &Coordinate<D>) -> Quantity<Length>;
 }
@@ -52,6 +54,37 @@ pub trait SolidOracle: Sync {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)>;
     /// Signed distance from `query` to the surface, positive inside the solid.
     fn signed_distance(&self, query: &Coordinate<D>) -> Scalar;
+}
+
+/// `oracle.signed_distance` at every coordinate, evaluated across threads
+/// (a B-rep oracle ray-casts, so this is the expensive part of classifying).
+/// A `false` in `mask` leaves that entry at `NEG_INFINITY`.
+fn signed_distances<O: SolidOracle>(
+    oracle: &O,
+    coordinates: &Coordinates<D>,
+    mask: Option<&[bool]>,
+) -> Vec<Scalar> {
+    let count = coordinates.len();
+    let mut signed = vec![Scalar::NEG_INFINITY; count];
+    let threads = available_parallelism().map_or(1, |threads| threads.get());
+    let chunk = count.div_ceil(threads).max(1);
+    scope(|scope| {
+        signed
+            .chunks_mut(chunk)
+            .enumerate()
+            .for_each(|(index, out)| {
+                scope.spawn(move || {
+                    let base = index * chunk;
+                    out.iter_mut().enumerate().for_each(|(local, value)| {
+                        let node = base + local;
+                        if mask.is_none_or(|mask| mask[node]) {
+                            *value = oracle.signed_distance(&coordinates[node]);
+                        }
+                    });
+                });
+            });
+    });
+    signed
 }
 
 /// `Inside` / `Cut` / `Outside` per cell of `mesh` from an oracle's signed
@@ -119,10 +152,7 @@ pub(crate) fn classify_by_flood_fill(
     };
     let count = block.iter().len();
     let coordinates = mesh.coordinates();
-    let signed: Vec<Scalar> = coordinates
-        .iter()
-        .map(|point| oracle.signed_distance(point))
-        .collect();
+    let signed = signed_distances(oracle, coordinates, None);
 
     let mut classes = vec![Class::Inside; count];
     let mut cut = vec![false; count];
@@ -337,15 +367,7 @@ pub trait Solid {
                 }
             });
         }
-        let signed: Vec<Scalar> = (0..number_of_nodes)
-            .map(|node| {
-                if needed[node] {
-                    oracle.signed_distance(&mesh.coordinates()[node])
-                } else {
-                    Scalar::NEG_INFINITY
-                }
-            })
-            .collect();
+        let signed = signed_distances(&oracle, mesh.coordinates(), Some(&needed));
         mesh.keep_hexes(|index, hex, _| {
             if outside[index] {
                 return false;
@@ -411,24 +433,43 @@ fn refine_octree(
         from_fn(|axis| cell.value() * (Scalar::from(cells[axis]) - half) + center[axis].value())
             .into()
     };
-    let mut stack = vec![0usize];
-    while let Some(index) = stack.pop() {
-        let length = tree.nodes[index].length;
-        if length <= 1 {
-            continue;
+    // Refine level by level: test a whole frontier of leaves against `sizing`
+    // across threads (the B-rep field ray-casts, so this dominates), then
+    // subdivide the ones that are too coarse in one sequential pass.
+    let threads = available_parallelism().map_or(1, |threads| threads.get());
+    let mut frontier = vec![0usize];
+    while !frontier.is_empty() {
+        let mut split = vec![false; frontier.len()];
+        let chunk = frontier.len().div_ceil(threads).max(1);
+        scope(|scope| {
+            let (tree, physical, frontier) = (&tree, &physical, &frontier);
+            split.chunks_mut(chunk).enumerate().for_each(|(block, out)| {
+                scope.spawn(move || {
+                    let base = block * chunk;
+                    out.iter_mut().enumerate().for_each(|(local, coarse)| {
+                        let node = &tree.nodes[frontier[base + local]];
+                        *coarse = node.length > 1
+                            && cell * Scalar::from(node.length)
+                                > sizing.at(&physical(node.center()));
+                    });
+                });
+            });
+        });
+        let mut next = Vec::new();
+        for (&index, &coarse) in frontier.iter().zip(&split) {
+            if !coarse {
+                continue;
+            }
+            tree.subdivide(index)?;
+            next.extend(
+                tree.nodes[index]
+                    .orthants()
+                    .expect("subdivided node has orthants")
+                    .iter()
+                    .map(|slot| slot.slot()),
+            );
         }
-        let extent = cell * Scalar::from(length);
-        if extent <= sizing.at(&physical(tree.nodes[index].center())) {
-            continue;
-        }
-        tree.subdivide(index)?;
-        let children: Vec<usize> = tree.nodes[index]
-            .orthants()
-            .expect("subdivided node has orthants")
-            .iter()
-            .map(|slot| slot.slot())
-            .collect();
-        stack.extend(children);
+        frontier = next;
     }
     Ok(tree)
 }
