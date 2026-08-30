@@ -13,8 +13,6 @@ use crate::{
     math::{Scalar, Tensor},
 };
 use std::array::from_fn;
-#[cfg(test)]
-use std::f64::consts::TAU;
 
 pub(super) enum Curved {
     /// The lateral wall of a cylinder, trimmed either to `[low, high]` along
@@ -99,16 +97,33 @@ impl FacePatch {
         }
     }
 
-    /// Outward-wound triangles of a curved patch's trimmed surface for the
-    /// winding-number integral; empty for a planar patch (its loops carry the
-    /// contribution exactly).
-    #[cfg(test)]
-    pub(super) fn winding_triangles(&self) -> Vec<[[Scalar; D]; 3]> {
+    /// Parameters `t > 0` at which the ray `origin + t·direction` crosses this
+    /// patch's *trimmed* surface (`direction` need not be unit). The basis of
+    /// the ray-parity inside/outside test.
+    pub(super) fn ray_hits(&self, origin: [Scalar; D], direction: [Scalar; D]) -> Vec<Scalar> {
         match self {
-            Self::Planar(_) => Vec::new(),
-            Self::Curved { curved, .. } => curved.winding_triangles(),
+            Self::Planar(face) => {
+                let normal: [Scalar; D] = from_fn(|k| face.normal[k].value());
+                let denominator = dot(direction, normal);
+                if denominator.abs() < 1.0e-13 {
+                    return Vec::new();
+                }
+                let to_plane: [Scalar; D] = from_fn(|k| face.origin[k].value() - origin[k]);
+                let t = dot(to_plane, normal) / denominator;
+                if t <= RAY_EPS {
+                    return Vec::new();
+                }
+                let hit = Coordinate::from(from_fn::<Scalar, D, _>(|k| origin[k] + t * direction[k]));
+                if face.contains(face.project(&hit)) {
+                    vec![t]
+                } else {
+                    Vec::new()
+                }
+            }
+            Self::Curved { curved, .. } => curved.ray_hits(origin, direction),
         }
     }
+
 }
 
 impl Curved {
@@ -175,177 +190,63 @@ impl Curved {
         }
     }
 
-    /// A coarse outward-wound triangle soup of the trimmed surface, for the
-    /// winding-number integral only (its accuracy is topological, not
-    /// geometric, so the sampling can be crude). Winding follows `sign`, so a
-    /// hole's triangles face into the cavity.
-    #[cfg(test)]
-    pub(super) fn winding_triangles(&self) -> Vec<[[Scalar; D]; 3]> {
-        let mut triangles = Vec::new();
-        let mut quad = |p: [[Scalar; D]; 4], flip: bool| {
-            let [a, b, c, d] = p;
-            if flip {
-                triangles.push([a, c, b]);
-                triangles.push([a, d, c]);
-            } else {
-                triangles.push([a, b, c]);
-                triangles.push([a, c, d]);
-            }
+    /// Parameters `t > 0` where the ray `o + t·d` crosses this curved patch's
+    /// trimmed surface. Quadrics (cylinder, cone, sphere) solve in closed
+    /// form; the torus marches its analytic distance and bisects sign changes.
+    /// Sphere and torus have no trim rings yet, so every quadric root counts.
+    pub(super) fn ray_hits(&self, o: [Scalar; D], d: [Scalar; D]) -> Vec<Scalar> {
+        let on_ruled = |t: &Scalar,
+                        origin: &[Scalar; D],
+                        axis: &[Scalar; D],
+                        low: &Scalar,
+                        high: &Scalar,
+                        rings: &Option<Vec<super::Ring>>| {
+            let hit: [Scalar; D] = from_fn(|k| o[k] + t * d[k]);
+            let uv = super::to_uv(*origin, *axis, hit);
+            uv[1] >= low - RAY_EPS
+                && uv[1] <= high + RAY_EPS
+                && rings.as_ref().is_none_or(|r| super::periodic_contains(uv, r))
         };
-        let lerp = |lo: Scalar, hi: Scalar, i: usize, n: usize| lo + (hi - lo) * i as Scalar / n as Scalar;
-        const NA: usize = 48;
         match self {
-            Self::Cylinder { origin, axis, radius, low, high, rings, sign } => {
-                let at = |u: Scalar, v: Scalar| {
-                    let d = super::uv_direction(*axis, u);
-                    from_fn(|k| origin[k] + v * axis[k] + radius * d[k])
+            Self::Cylinder { origin, axis, radius, low, high, rings, .. } => {
+                let w: [Scalar; D] = from_fn(|k| o[k] - origin[k]);
+                let (dp, wp) = (reject(d, *axis), reject(w, *axis));
+                quadratic(dot(dp, dp), 2.0 * dot(dp, wp), dot(wp, wp) - radius * radius)
+                    .into_iter()
+                    .filter(|t| *t > RAY_EPS && on_ruled(t, origin, axis, low, high, rings))
+                    .collect()
+            }
+            Self::Cone { origin, axis, radius, slope, low, high, rings, .. } => {
+                let w: [Scalar; D] = from_fn(|k| o[k] - origin[k]);
+                let (dp, wp) = (reject(d, *axis), reject(w, *axis));
+                let (base, rate) = (radius + slope * dot(w, *axis), slope * dot(d, *axis));
+                quadratic(
+                    dot(dp, dp) - rate * rate,
+                    2.0 * (dot(dp, wp) - base * rate),
+                    dot(wp, wp) - base * base,
+                )
+                .into_iter()
+                .filter(|t| *t > RAY_EPS && on_ruled(t, origin, axis, low, high, rings))
+                .collect()
+            }
+            Self::Sphere { centre, radius, .. } => {
+                let w: [Scalar; D] = from_fn(|k| o[k] - centre[k]);
+                quadratic(dot(d, d), 2.0 * dot(w, d), dot(w, w) - radius * radius)
+                    .into_iter()
+                    .filter(|t| *t > RAY_EPS)
+                    .collect()
+            }
+            Self::Torus { centre, axis, major, minor, .. } => {
+                let sdf = |p: [Scalar; D]| {
+                    let (_, radial, _) = local(*centre, *axis, p);
+                    let unit_radial = unit(radial).unwrap_or_else(|| perpendicular(*axis));
+                    let ring: [Scalar; D] = from_fn(|k| centre[k] + major * unit_radial[k]);
+                    let off: [Scalar; D] = from_fn(|k| p[k] - ring[k]);
+                    dot(off, off).sqrt() - minor
                 };
-                ruled_surface(&mut triangles, rings, (*low, *high), *sign < 0.0, at);
-            }
-            Self::Cone { origin, axis, radius, slope, low, high, rings, sign } => {
-                let at = |u: Scalar, v: Scalar| {
-                    let r = (radius + v * slope).max(0.0);
-                    let d = super::uv_direction(*axis, u);
-                    from_fn(|k| origin[k] + v * axis[k] + r * d[k])
-                };
-                ruled_surface(&mut triangles, rings, (*low, *high), *sign < 0.0, at);
-            }
-            Self::Sphere { centre, radius, sign } => {
-                let nt = 24;
-                let (e1, e2) = super::basis([0.0, 0.0, 1.0]);
-                let at = |phi: Scalar, theta: Scalar| {
-                    let (ct, st) = (theta.cos(), theta.sin());
-                    from_fn(|k| {
-                        centre[k] + radius * (ct * (phi.cos() * e1[k] + phi.sin() * e2[k]) + st * [0.0, 0.0, 1.0][k])
-                    })
-                };
-                for i in 0..NA {
-                    let (p0, p1) = (lerp(0.0, TAU, i, NA), lerp(0.0, TAU, i + 1, NA));
-                    for j in 0..nt {
-                        let half = std::f64::consts::FRAC_PI_2;
-                        let (t0, t1) = (lerp(-half, half, j, nt), lerp(-half, half, j + 1, nt));
-                        quad([at(p0, t0), at(p1, t0), at(p1, t1), at(p0, t1)], *sign < 0.0);
-                    }
-                }
-            }
-            Self::Torus { centre, axis, major, minor, sign } => {
-                let np = 24;
-                let (e1, e2) = super::basis(*axis);
-                let at = |phi: Scalar, psi: Scalar| {
-                    let r = major + minor * psi.cos();
-                    from_fn(|k| {
-                        centre[k] + r * (phi.cos() * e1[k] + phi.sin() * e2[k]) + minor * psi.sin() * axis[k]
-                    })
-                };
-                for i in 0..NA {
-                    let (p0, p1) = (lerp(0.0, TAU, i, NA), lerp(0.0, TAU, i + 1, NA));
-                    for j in 0..np {
-                        let (s0, s1) = (lerp(0.0, TAU, j, np), lerp(0.0, TAU, j + 1, np));
-                        quad([at(p0, s0), at(p1, s0), at(p1, s1), at(p0, s1)], *sign < 0.0);
-                    }
-                }
+                march_sign_changes(o, d, *centre, major + minor, sdf)
             }
         }
-        triangles
-    }
-}
-
-/// Outward-wound triangles of a ruled surface (cylinder or cone) whose points
-/// are `at(angle, axial)`: a full `[0, 2π] × [low, high]` grid when `rings` is
-/// `None`, else a fan-triangulation of each `(angle, axial)` trim polygon,
-/// winding-agnostic (a clockwise ring in the chart is corrected). `flip`
-/// reverses everything for a hole.
-#[cfg(test)]
-fn ruled_surface(
-    triangles: &mut Vec<[[Scalar; D]; 3]>,
-    rings: &Option<Vec<super::Ring>>,
-    (low, high): (Scalar, Scalar),
-    flip: bool,
-    at: impl Fn(Scalar, Scalar) -> [Scalar; D],
-) {
-    let lerp = |a: Scalar, b: Scalar, t: Scalar| a + (b - a) * t;
-    let Some(rings) = rings else {
-        const NA: usize = 48;
-        const NV: usize = 8;
-        for i in 0..NA {
-            let (u0, u1) = (
-                TAU * i as Scalar / NA as Scalar,
-                TAU * (i + 1) as Scalar / NA as Scalar,
-            );
-            for j in 0..NV {
-                let (v0, v1) = (
-                    lerp(low, high, j as Scalar / NV as Scalar),
-                    lerp(low, high, (j + 1) as Scalar / NV as Scalar),
-                );
-                push_quad(
-                    triangles,
-                    [at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)],
-                    flip,
-                );
-            }
-        }
-        return;
-    };
-    let step = TAU / 36.0;
-    for ring in rings {
-        let count = ring.len();
-        if count < 3 {
-            continue;
-        }
-        // Densify sinusoid and wide edges so the lift stays accurate.
-        let mut polygon: Vec<[Scalar; 2]> = Vec::new();
-        for i in 0..count {
-            let (a, kind) = ring[i];
-            let (b, _) = ring[(i + 1) % count];
-            polygon.push(a);
-            let cuts = match kind {
-                Some(_) => 12,
-                None => (((b[0] - a[0]).abs() / step).ceil() as usize).max(1),
-            };
-            for s in 1..cuts {
-                let t = s as Scalar / cuts as Scalar;
-                let u = lerp(a[0], b[0], t);
-                let v = match kind {
-                    Some(sinusoid) => sinusoid.v(u),
-                    None => lerp(a[1], b[1], t),
-                };
-                polygon.push([u, v]);
-            }
-        }
-        let n = polygon.len();
-        if n < 3 {
-            continue;
-        }
-        let area: Scalar = (0..n)
-            .map(|i| {
-                let p = polygon[i];
-                let q = polygon[(i + 1) % n];
-                p[0] * q[1] - q[0] * p[1]
-            })
-            .sum();
-        let reverse = flip ^ (area < 0.0);
-        let centroid = [
-            polygon.iter().map(|p| p[0]).sum::<Scalar>() / n as Scalar,
-            polygon.iter().map(|p| p[1]).sum::<Scalar>() / n as Scalar,
-        ];
-        let apex = at(centroid[0], centroid[1]);
-        for i in 0..n {
-            let p = at(polygon[i][0], polygon[i][1]);
-            let q = at(polygon[(i + 1) % n][0], polygon[(i + 1) % n][1]);
-            triangles.push(if reverse { [apex, q, p] } else { [apex, p, q] });
-        }
-    }
-}
-
-#[cfg(test)]
-fn push_quad(triangles: &mut Vec<[[Scalar; D]; 3]>, p: [[Scalar; D]; 4], flip: bool) {
-    let [a, b, c, d] = p;
-    if flip {
-        triangles.push([a, c, b]);
-        triangles.push([a, d, c]);
-    } else {
-        triangles.push([a, b, c]);
-        triangles.push([a, c, d]);
     }
 }
 
@@ -369,6 +270,80 @@ fn clamp_uv(
             }
         }
     }
+}
+
+const RAY_EPS: Scalar = 1.0e-12;
+
+fn dot(a: [Scalar; D], b: [Scalar; D]) -> Scalar {
+    (0..D).map(|k| a[k] * b[k]).sum()
+}
+
+/// `v` with its component along the unit vector `axis` removed.
+fn reject(v: [Scalar; D], axis: [Scalar; D]) -> [Scalar; D] {
+    let along = dot(v, axis);
+    from_fn(|k| v[k] - along * axis[k])
+}
+
+/// Real roots of `a·t² + b·t + c` (the lone linear root when `a ≈ 0`, none
+/// when the discriminant is negative). Order is not guaranteed for `a < 0`.
+fn quadratic(a: Scalar, b: Scalar, c: Scalar) -> Vec<Scalar> {
+    if a.abs() < 1.0e-15 {
+        return if b.abs() < 1.0e-15 {
+            Vec::new()
+        } else {
+            vec![-c / b]
+        };
+    }
+    let discriminant = b * b - 4.0 * a * c;
+    if discriminant < 0.0 {
+        return Vec::new();
+    }
+    let root = discriminant.sqrt();
+    vec![(-b - root) / (2.0 * a), (-b + root) / (2.0 * a)]
+}
+
+/// Ray parameters `t > 0` where `sdf(o + t·d)` changes sign, searched over the
+/// segment inside the bounding sphere of radius `radius` about `centre` and
+/// bisected to a root — the fallback where a closed-form ray/surface solve
+/// would be a quartic or worse (the torus).
+fn march_sign_changes(
+    o: [Scalar; D],
+    d: [Scalar; D],
+    centre: [Scalar; D],
+    radius: Scalar,
+    sdf: impl Fn([Scalar; D]) -> Scalar,
+) -> Vec<Scalar> {
+    let w: [Scalar; D] = from_fn(|k| o[k] - centre[k]);
+    let bracket = quadratic(dot(d, d), 2.0 * dot(w, d), dot(w, w) - radius * radius);
+    let (Some(&a), Some(&b)) = (bracket.first(), bracket.last()) else {
+        return Vec::new();
+    };
+    let (t0, t1) = (a.min(b).max(RAY_EPS), a.max(b));
+    if t1 <= t0 {
+        return Vec::new();
+    }
+    const STEPS: usize = 96;
+    let at = |t: Scalar| sdf(from_fn(|k| o[k] + t * d[k]));
+    let mut hits = Vec::new();
+    let mut previous = at(t0);
+    for i in 1..=STEPS {
+        let t = t0 + (t1 - t0) * i as Scalar / STEPS as Scalar;
+        let current = at(t);
+        if previous != 0.0 && (previous < 0.0) != (current < 0.0) {
+            let (mut lo, mut hi) = (t - (t1 - t0) / STEPS as Scalar, t);
+            for _ in 0..48 {
+                let mid = 0.5 * (lo + hi);
+                if (at(mid) < 0.0) == (previous < 0.0) {
+                    lo = mid;
+                } else {
+                    hi = mid;
+                }
+            }
+            hits.push(0.5 * (lo + hi));
+        }
+        previous = current;
+    }
+    hits
 }
 
 fn local(base: [Scalar; D], axis: [Scalar; D], q: [Scalar; D]) -> (Scalar, [Scalar; D], Scalar) {

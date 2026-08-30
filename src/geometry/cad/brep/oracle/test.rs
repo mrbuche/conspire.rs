@@ -23,31 +23,17 @@ fn components<I, U>(tensor: &TensorRank1<3, I, U>) -> [f64; 3] {
 }
 
 #[test]
-fn winding_number_is_one_inside_the_cube() {
-    let brep = unit_cube();
-    let loops = brep.winding_loops().unwrap();
-    let w = |p: [f64; 3]| super::winding::generalized_winding_number(p, &loops, &[]).abs();
-    let inside = w([0.5, 0.5, 0.5]);
-    let outside = w([0.5, 0.5, 2.0]);
-    eprintln!("winding inside = {inside}, outside = {outside}");
-    assert!((inside - 1.0).abs() < 1e-3, "inside winding {inside}");
-    assert!(outside.abs() < 1e-3, "outside winding {outside}");
-}
-
-#[test]
-fn winding_number_is_one_inside_the_capped_cylinder() {
-    // radius 2, height 5 about +z, base at the origin.
+fn ray_parity_signs_a_capped_cylinder() {
     let oracle = capped_cylinder(2.0, 5.0).oracle().unwrap();
-    let w = |p: [f64; 3]| oracle.winding_number(&Coordinate::from(p)).abs();
-    let inside = w([0.0, 0.0, 2.5]);
-    let near_wall = w([1.9, 0.0, 2.5]);
-    let outside = w([5.0, 0.0, 2.5]);
-    let above = w([0.0, 0.0, 8.0]);
-    eprintln!("inside {inside}, near_wall {near_wall}, outside {outside}, above {above}");
-    assert!((inside - 1.0).abs() < 5e-2, "inside {inside}");
-    assert!((near_wall - 1.0).abs() < 5e-2, "near_wall {near_wall}");
-    assert!(outside < 5e-2, "outside {outside}");
-    assert!(above < 5e-2, "above {above}");
+    let sign = |p: [f64; 3]| oracle.signed_distance(&Coordinate::from(p)).is_sign_positive();
+    assert!(sign([0.0, 0.0, 2.5]), "axis mid-height is inside");
+    assert!(sign([1.9, 0.0, 2.5]), "just inside the wall is inside");
+    assert!(!sign([2.1, 0.0, 2.5]), "just outside the wall is outside");
+    assert!(!sign([0.0, 0.0, 6.0]), "above the top cap is outside");
+    assert!(!sign([0.0, 0.0, -1.0]), "below the base is outside");
+    // A point in the cylinder's "shadow" but well outside it — nearest-face
+    // normal could pick the cap and mis-sign; ray parity does not.
+    assert!(!sign([0.0, 0.0, 20.0]));
 }
 
 #[test]

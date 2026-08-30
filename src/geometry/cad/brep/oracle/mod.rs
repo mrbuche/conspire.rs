@@ -2,12 +2,6 @@
 mod test;
 
 mod patch;
-/// The generalized-winding-number machinery — a robust future replacement for
-/// [`BrepOracle::signed_distance`]'s nearest-face-normal sign, exercised by
-/// tests but not yet on the meshing path (it needs consistently oriented
-/// curved faces and a spatial acceleration structure first).
-#[cfg(test)]
-mod winding;
 
 use super::{
     Brep, D, Face, Loop,
@@ -20,8 +14,6 @@ use crate::{
 };
 use patch::{Curved, FacePatch};
 use std::array::from_fn;
-#[cfg(test)]
-use winding::generalized_winding_number;
 
 /// [`SolidOracle`] backed by the analytic B-rep: closest-point projection onto
 /// each face's exact surface. Planar faces are trimmed to their loops (polygon
@@ -34,15 +26,12 @@ use winding::generalized_winding_number;
 /// traces in that chart. A tilted edge on a cone, or a free-form edge on
 /// either, still errs. Spherical and toroidal faces are taken whole. A
 /// B-spline face errs.
+///
+/// [`signed_distance`](Self::signed_distance)'s sign is a ray-parity test
+/// against these trimmed faces (OCCT's `BRepClass3d_SolidClassifier`
+/// approach); the magnitude is the nearest trimmed face's distance.
 pub struct BrepOracle {
     patches: Vec<FacePatch>,
-    /// Planar face bounds as closed 3D polylines, and curved faces as coarse
-    /// outward-wound triangle soups — the two inputs to the winding-number
-    /// inside/outside test.
-    #[cfg(test)]
-    loops: Vec<Vec<[Scalar; D]>>,
-    #[cfg(test)]
-    winding_triangles: Vec<[[Scalar; D]; 3]>,
 }
 
 impl Brep {
@@ -52,22 +41,12 @@ impl Brep {
         if self.faces.is_empty() {
             return Err("brep has no faces");
         }
-        let patches = self
-            .faces
-            .iter()
-            .map(|face| self.face_patch(face))
-            .collect::<Result<Vec<_>, _>>()?;
-        #[cfg(test)]
-        let winding_triangles: Vec<_> = patches
-            .iter()
-            .flat_map(FacePatch::winding_triangles)
-            .collect();
         Ok(BrepOracle {
-            patches,
-            #[cfg(test)]
-            loops: self.winding_loops()?,
-            #[cfg(test)]
-            winding_triangles,
+            patches: self
+                .faces
+                .iter()
+                .map(|face| self.face_patch(face))
+                .collect::<Result<Vec<_>, _>>()?,
         })
     }
 
@@ -292,38 +271,6 @@ impl BrepOracle {
         (low.into(), high.into())
     }
 
-    /// The generalized winding number of `query` against the trimmed boundary:
-    /// near `±1` inside the solid, near `0` outside.
-    #[cfg(test)]
-    pub(crate) fn winding_number(&self, query: &Coordinate<D>) -> Scalar {
-        generalized_winding_number(
-            from_fn(|k| query[k].value()),
-            &self.loops,
-            &self.winding_triangles,
-        )
-    }
-
-    /// Six times the signed volume the oriented boundary encloses
-    /// (divergence theorem). `≈ ±6·V` when the shell is consistently wound,
-    /// near zero when the face orientations fight each other.
-    #[cfg(test)]
-    pub(crate) fn signed_volume_x6(&self) -> Scalar {
-        let tet = |a: [Scalar; D], b: [Scalar; D], c: [Scalar; D]| {
-            a[0] * (b[1] * c[2] - b[2] * c[1]) + a[1] * (b[2] * c[0] - b[0] * c[2])
-                + a[2] * (b[0] * c[1] - b[1] * c[0])
-        };
-        let mut total = 0.0;
-        for ring in &self.loops {
-            for i in 1..ring.len() - 1 {
-                total += tet(ring[0], ring[i], ring[i + 1]);
-            }
-        }
-        for &[a, b, c] in &self.winding_triangles {
-            total += tet(a, b, c);
-        }
-        total
-    }
-
     fn nearest(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar)> {
         self.patches
             .iter()
@@ -366,29 +313,74 @@ impl BrepOracle {
     }
 }
 
+/// Three fixed ray directions with pairwise-irrational-ish components, so a
+/// ray is unlikely to graze an edge or lie in a face for all three at once.
+const RAY_DIRECTIONS: [[Scalar; D]; 3] = [
+    [0.862_667, 0.411_988, 0.291_536],
+    [0.301_511, 0.904_534, 0.301_511],
+    [0.334_412, 0.243_975, 0.910_367],
+];
+
+impl BrepOracle {
+    /// Whether `query` is inside the solid, by ray parity against the exact
+    /// trimmed faces (OCCT's `BRepClass3d_SolidClassifier` approach): count the
+    /// crossings of a ray from `query`; odd is inside. A ray that grazes an
+    /// edge — two hits at the same parameter — is discarded and the next
+    /// direction tried.
+    fn encloses(&self, query: &Coordinate<D>) -> bool {
+        let origin: [Scalar; D] = from_fn(|k| query[k].value());
+        let (low, high) = self.bounds();
+        let graze = (0..D)
+            .map(|k| high[k].value() - low[k].value())
+            .fold(0.0, Scalar::max)
+            * 1.0e-7;
+        let mut parity = false;
+        for direction in RAY_DIRECTIONS {
+            let mut hits: Vec<Scalar> = self
+                .patches
+                .iter()
+                .flat_map(|patch| patch.ray_hits(origin, direction))
+                .collect();
+            hits.sort_by(Scalar::total_cmp);
+            if hits.first().is_some_and(|&t| t < graze) {
+                return true; // on the surface
+            }
+            let mut crossings = 0usize;
+            let mut ambiguous = false;
+            let mut previous = Scalar::NEG_INFINITY;
+            for &t in &hits {
+                if t - previous < graze {
+                    ambiguous = true; // grazed a shared edge or vertex
+                } else {
+                    crossings += 1;
+                    previous = t;
+                }
+            }
+            parity = crossings % 2 == 1;
+            if !ambiguous {
+                return parity;
+            }
+        }
+        parity
+    }
+}
+
 impl SolidOracle for BrepOracle {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
         self.nearest(query).map(|(point, normal, _)| (point, normal))
     }
 
-    /// Magnitude is the distance to the nearest trimmed face; the sign is read
-    /// from that face's outward normal (positive inside).
-    ///
-    /// A generalized winding number against the exact trimmed boundary is the
-    /// robust replacement for this sign (see [`winding`]), but it is not wired
-    /// in yet: it needs every curved face consistently oriented — which
-    /// [`Brep::orient`](super::super::Brep::orient) does not yet guarantee for
-    /// curved-curved adjacencies — and a spatial acceleration structure, since
-    /// a bare sum over the boundary is far too slow per query.
+    /// Magnitude is the distance to the nearest trimmed face; the sign is the
+    /// ray parity of the exact trimmed boundary (positive inside), which stays
+    /// right at a void's medial axis where a nearest-face normal cannot.
     fn signed_distance(&self, query: &Coordinate<D>) -> Scalar {
-        match self.nearest(query) {
-            Some((point, normal, distance)) => {
-                let outward: Scalar = (0..D)
-                    .map(|k| (query[k].value() - point[k].value()) * normal[k].value())
-                    .sum();
-                if outward >= 0.0 { -distance } else { distance }
-            }
-            None => Scalar::NEG_INFINITY,
+        let Some((_, _, distance)) = self.nearest(query) else {
+            return Scalar::NEG_INFINITY;
+        };
+        if self.encloses(query) {
+            distance
+        } else {
+            -distance
         }
     }
 }

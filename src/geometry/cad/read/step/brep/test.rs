@@ -338,9 +338,6 @@ fn read_cylinder_meshes_through_the_analytic_oracle() {
     let oracle = brep.oracle().unwrap();
     assert!(oracle.signed_distance(&Coordinate::from([0.0, 0.0, 2.5])) > 1.9);
     assert!(oracle.signed_distance(&Coordinate::from([5.0, 0.0, 2.5])) < 0.0);
-    // The winding number of the reader-built + oriented shell is clean here.
-    assert!((oracle.winding_number(&Coordinate::from([0.0, 0.0, 2.5])).abs() - 1.0).abs() < 5e-2);
-    assert!(oracle.winding_number(&Coordinate::from([5.0, 0.0, 2.5])).abs() < 5e-2);
 
     let length = |v| Quantity::<Length>::new(v);
     let mesh = brep
@@ -704,7 +701,6 @@ fn probe_signed_distance_sign() {
     let samples = 100usize;
     let lines = 9usize;
 
-    let winding_scan = std::env::var("STEP_WINDING_SCAN").is_ok();
     for axis in 0..3 {
         let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
         eprintln!("--- scan along axis {axis} ---");
@@ -716,15 +712,13 @@ fn probe_signed_distance_sign() {
                     p[axis] = base[axis] + span[axis] * (s as f64 + 0.5) / samples as f64;
                     p[u] = base[u] + span[u] * a as f64 / lines as f64;
                     p[v] = base[v] + span[v] * b as f64 / lines as f64;
-                    let point = Coordinate::from(p);
-                    if winding_scan {
-                        let w = oracle.winding_number(&point).abs();
-                        row.push(if w > 0.75 { '#' } else if w > 0.25 { '?' } else { '.' });
+                    row.push(if oracle.signed_distance(&Coordinate::from(p)) > 0.0 {
+                        '#'
                     } else {
-                        row.push(if oracle.signed_distance(&point) > 0.0 { '#' } else { '.' });
-                    }
+                        '.'
+                    });
                 }
-                if row.contains('#') || row.contains('?') {
+                if row.contains('#') {
                     eprintln!("u{a} v{b} {row}");
                 }
             }
@@ -734,13 +728,7 @@ fn probe_signed_distance_sign() {
     let centre = crate::geometry::Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| {
         0.5 * (low[k].value() + high[k].value())
     }));
-    let bbox_volume = span[0] * span[1] * span[2];
-    eprintln!(
-        "centre: signed_distance = {:.5}, winding = {:.4}, signed_volume/bbox = {:.4}",
-        oracle.signed_distance(&centre),
-        oracle.winding_number(&centre),
-        oracle.signed_volume_x6() / 6.0 / bbox_volume,
-    );
+    eprintln!("centre: signed_distance = {:.5}", oracle.signed_distance(&centre));
     if let Ok(spec) = std::env::var("STEP_PROBE_POINTS") {
         for chunk in spec.split(';') {
             let c: Vec<f64> = chunk.split(',').filter_map(|s| s.trim().parse().ok()).collect();
@@ -750,9 +738,8 @@ fn probe_signed_distance_sign() {
             let p = crate::geometry::Coordinate::from([c[0], c[1], c[2]]);
             let (kind, d, pt, n) = oracle.patch_report(&p).into_iter().next().unwrap();
             eprintln!(
-                "probe {c:?}: sd={:.5} winding={:.4}  nearest {kind} d={d:.5} at [{:.4},{:.4},{:.4}] n=[{:.2},{:.2},{:.2}]",
+                "probe {c:?}: sd={:.5}  nearest {kind} d={d:.5} at [{:.4},{:.4},{:.4}] n=[{:.2},{:.2},{:.2}]",
                 oracle.signed_distance(&p),
-                oracle.winding_number(&p),
                 pt[0], pt[1], pt[2], n[0], n[1], n[2],
             );
         }
