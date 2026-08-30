@@ -6,7 +6,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinate,
-        cad::brep::{Brep, Edge, curve::Curve},
+        cad::brep::{Brep, Edge, curve::Curve, oracle::BrepOracle},
         solid::Sizing,
     },
     math::{Quantity, Scalar, Tensor},
@@ -15,6 +15,14 @@ use crate::{
 use std::{array::from_fn, f64::consts::TAU};
 
 const D: usize = 3;
+
+/// The local-feature-size term: cap the target at the local through-dimension
+/// (wall thickness / cavity width) over `cells`, so thin walls and narrow
+/// cavities get that many elements across.
+struct Proximity {
+    oracle: BrepOracle,
+    cells: Scalar,
+}
 
 /// A scalar sizing field driven by B-rep feature edges.
 ///
@@ -26,14 +34,19 @@ const D: usize = 3;
 /// distance from the edge (the mesh-smoothness bound); `Some(0.0)` pins the
 /// whole field to the finest feature size, `None` lets it grow as fast as it
 /// likes — the feature size within one target-size of the edge, `maximum`
-/// beyond, a single fine layer per feature. The field is the clamped minimum
-/// of those contributions, so it is defined everywhere.
+/// beyond, a single fine layer per feature.
+///
+/// [`with_proximity`](Self::with_proximity) adds a local-feature-size term for
+/// thin geometry the crease term is blind to (a thin wall or a small cavity
+/// need not be near any sharp edge). The field is the clamped minimum of all
+/// contributions, so it is defined everywhere.
 pub struct FeatureSizing {
     segments: Vec<[Coordinate<D>; 2]>,
     sizes: Vec<Quantity<Length>>,
     minimum: Quantity<Length>,
     maximum: Quantity<Length>,
     gradation: Option<Scalar>,
+    proximity: Option<Proximity>,
 }
 
 impl FeatureSizing {
@@ -71,7 +84,25 @@ impl FeatureSizing {
             minimum,
             maximum,
             gradation,
+            proximity: None,
         }
+    }
+
+    /// Adds a local-feature-size term: at each point the target is also capped
+    /// at the local through-dimension — the wall thickness or cavity width the
+    /// point sits in — over `cells_across`, so a thin wall or a narrow cavity
+    /// that the crease term (which sees only distance to a sharp edge) misses
+    /// still gets `cells_across` elements across it.
+    pub fn with_proximity(
+        mut self,
+        brep: &Brep,
+        cells_across: usize,
+    ) -> Result<Self, &'static str> {
+        self.proximity = Some(Proximity {
+            oracle: brep.oracle()?,
+            cells: cells_across.max(1) as Scalar,
+        });
+        Ok(self)
     }
 
     /// The target element size at `point`.
@@ -84,6 +115,14 @@ impl FeatureSizing {
                 None if reach <= *source => *source,
                 None => self.maximum,
             };
+            if candidate < size {
+                size = candidate;
+            }
+        }
+        if let Some(proximity) = &self.proximity {
+            let candidate = Quantity::<Length>::new(
+                proximity.oracle.local_diameter(point) / proximity.cells,
+            );
             if candidate < size {
                 size = candidate;
             }

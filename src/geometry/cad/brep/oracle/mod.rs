@@ -278,6 +278,44 @@ impl BrepOracle {
             .min_by(|a, b| a.2.total_cmp(&b.2))
     }
 
+    /// Unsigned distance from `query` to the nearest trimmed face.
+    pub fn distance(&self, query: &Coordinate<D>) -> Scalar {
+        self.nearest(query)
+            .map_or(Scalar::INFINITY, |(_, _, distance)| distance)
+    }
+
+    /// The local through-dimension at `query`: the shortest surface-to-surface
+    /// chord through it, searched along the coordinate axes and the nearest
+    /// face's normal. This is the thickness of a wall or the width of a cavity
+    /// the query sits in — the quantity proximity sizing wants, unlike
+    /// [`distance`](Self::distance), which is small next to *any* surface and
+    /// would over-refine the skin of a thick body. A chord that escapes one
+    /// side without a hit (an open recess, a through hole along its axis)
+    /// counts as infinite, so an open direction never drives refinement.
+    pub fn local_diameter(&self, query: &Coordinate<D>) -> Scalar {
+        let origin: [Scalar; D] = from_fn(|k| query[k].value());
+        let graze = self.distance(query).max(1.0e-9) * 1.0e-3;
+        let nearest_along = |direction: [Scalar; D]| {
+            self.patches
+                .iter()
+                .flat_map(|patch| patch.ray_hits(origin, direction))
+                .filter(|&t| t > graze)
+                .fold(Scalar::INFINITY, Scalar::min)
+        };
+        let mut directions: Vec<[Scalar; D]> = (0..D)
+            .map(|axis| from_fn(|k| if k == axis { 1.0 } else { 0.0 }))
+            .collect();
+        if let Some((_, normal, _)) = self.nearest(query) {
+            directions.push(from_fn(|k| normal[k].value()));
+        }
+        directions
+            .into_iter()
+            .map(|direction| {
+                nearest_along(direction) + nearest_along(from_fn(|k| -direction[k]))
+            })
+            .fold(Scalar::INFINITY, Scalar::min)
+    }
+
     /// Every patch's `(surface type, distance, closest point, outward normal)`
     /// for `query`, nearest first — a probe for why a query picks the face it
     /// does.

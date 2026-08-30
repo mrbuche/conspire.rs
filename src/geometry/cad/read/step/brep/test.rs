@@ -671,13 +671,20 @@ fn probe_mesh_real_file() {
             Ok(value) => Some(value.parse().expect("STEP_MESH_GRADATION")),
             Err(_) => Some(0.2),
         };
-        let sizing = FeatureSizing::of(
+        let mut sizing = FeatureSizing::of(
             &brep,
             env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
             length(env_f64("STEP_MESH_MIN", cell / 8.0)),
             length(cell),
             gradation,
         );
+        // STEP_MESH_PROXIMITY=N adds the local-feature-size term (N cells
+        // across a thin wall or narrow cavity).
+        if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+            sizing = sizing
+                .with_proximity(&brep, n.parse().expect("STEP_MESH_PROXIMITY"))
+                .expect("with_proximity");
+        }
         probe_mesh(&brep, &sizing, levels, &out, fit);
     }
 }

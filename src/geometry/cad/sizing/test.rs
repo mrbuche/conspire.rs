@@ -54,6 +54,41 @@ fn unbounded_gradation_is_one_fine_layer() {
 }
 
 #[test]
+fn proximity_caps_the_interior_at_the_local_feature_size() {
+    let build = || FeatureSizing::of(&unit_cube(), 2, length(0.005), length(10.0), None);
+    let plain = build();
+    let near = build().with_proximity(&unit_cube(), 4).unwrap();
+    // Without proximity the crease term leaves the interior at `maximum`.
+    assert!((plain.at(&point([0.5, 0.5, 0.5])).value() - 10.0).abs() < 1e-9);
+    // With it, every interior point is capped at the through-thickness (1) / 4,
+    // wherever it sits along the chord — not at its distance to a face.
+    for z in [0.5, 0.2, 0.05] {
+        assert!(
+            (near.at(&point([0.5, 0.5, z])).value() - 1.0 / 4.0).abs() < 5e-3,
+            "z = {z}"
+        );
+    }
+}
+
+#[test]
+fn proximity_sees_a_thin_slab() {
+    use crate::geometry::cad::brep::test::axis_aligned_box;
+    // 0.2 thin in x, thick in y and z.
+    let brep = axis_aligned_box([0.2, 4.0, 8.0]);
+    let field = FeatureSizing::of(&brep, 2, length(1e-4), length(10.0), None)
+        .with_proximity(&brep, 4)
+        .unwrap();
+    // Anywhere through the slab: capped at the 0.2 thickness / 4, not the
+    // 4 or 8 spans.
+    for x in [0.02, 0.1, 0.18] {
+        assert!(
+            (field.at(&point([x, 2.0, 4.0])).value() - 0.2 / 4.0).abs() < 5e-3,
+            "x = {x}"
+        );
+    }
+}
+
+#[test]
 fn obeys_the_gradation_bound() {
     let gradation = 0.7;
     let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(10.0), Some(gradation));
