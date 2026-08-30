@@ -89,10 +89,24 @@ impl FacePatch {
 
     pub(super) fn bounds(&self) -> ([Scalar; D], [Scalar; D]) {
         match self {
-            Self::Planar(face) => (
-                from_fn(|k| face.aabb.minimum()[k].value()),
-                from_fn(|k| face.aabb.maximum()[k].value()),
-            ),
+            Self::Planar(face) => {
+                // `aabb` spans only the loop *vertices*; a disk or annulus loop
+                // has one seam vertex, so union its circles' extents in.
+                let mut low = from_fn(|k| face.aabb.minimum()[k].value());
+                let mut high = from_fn(|k| face.aabb.maximum()[k].value());
+                for &(centre, radius) in &face.circles {
+                    for k in 0..D {
+                        let world = face.origin[k].value()
+                            + centre[0] * face.u[k].value()
+                            + centre[1] * face.v[k].value();
+                        let extent = radius
+                            * (1.0 - face.normal[k].value().powi(2)).max(0.0).sqrt();
+                        low[k] = low[k].min(world - extent);
+                        high[k] = high[k].max(world + extent);
+                    }
+                }
+                (low, high)
+            }
             Self::Curved { low, high, .. } => (*low, *high),
         }
     }

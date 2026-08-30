@@ -32,6 +32,9 @@ use std::array::from_fn;
 /// approach); the magnitude is the nearest trimmed face's distance.
 pub struct BrepOracle {
     patches: Vec<FacePatch>,
+    /// One axis-aligned box per patch, the ray/point broad-phase: a ray or
+    /// query that misses a patch's box skips its narrow-phase entirely.
+    boxes: Vec<([Scalar; D], [Scalar; D])>,
 }
 
 impl Brep {
@@ -41,13 +44,27 @@ impl Brep {
         if self.faces.is_empty() {
             return Err("brep has no faces");
         }
-        Ok(BrepOracle {
-            patches: self
-                .faces
-                .iter()
-                .map(|face| self.face_patch(face))
-                .collect::<Result<Vec<_>, _>>()?,
-        })
+        let patches = self
+            .faces
+            .iter()
+            .map(|face| self.face_patch(face))
+            .collect::<Result<Vec<_>, _>>()?;
+        let boxes = patches
+            .iter()
+            .map(|patch| {
+                let (mut low, mut high) = patch.bounds();
+                // A hair of slack so a ray grazing a box face is not rejected.
+                let pad = (0..D)
+                    .map(|k| high[k] - low[k])
+                    .fold(0.0, Scalar::max)
+                    .max(1.0)
+                    * 1.0e-9;
+                low = from_fn(|k| low[k] - pad);
+                high = from_fn(|k| high[k] + pad);
+                (low, high)
+            })
+            .collect();
+        Ok(BrepOracle { patches, boxes })
     }
 
     fn face_patch(&self, face: &Face) -> Result<FacePatch, &'static str> {
@@ -272,10 +289,35 @@ impl BrepOracle {
     }
 
     fn nearest(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar)> {
+        let point: [Scalar; D] = from_fn(|k| query[k].value());
+        let mut best: Option<(Coordinate<D>, Direction<D>, Scalar)> = None;
+        for (patch, boxed) in self.patches.iter().zip(&self.boxes) {
+            // Skip a patch whose box is already farther than the best hit.
+            if best
+                .as_ref()
+                .is_some_and(|(_, _, d)| point_box_distance(point, boxed) >= *d)
+            {
+                continue;
+            }
+            let candidate = patch.closest(query);
+            if best.as_ref().is_none_or(|(_, _, d)| candidate.2 < *d) {
+                best = Some(candidate);
+            }
+        }
+        best
+    }
+
+    /// The patches whose box the ray `origin + t·direction` (`t ≥ 0`) meets.
+    fn ray_candidates(
+        &self,
+        origin: [Scalar; D],
+        direction: [Scalar; D],
+    ) -> impl Iterator<Item = &FacePatch> {
         self.patches
             .iter()
-            .map(|patch| patch.closest(query))
-            .min_by(|a, b| a.2.total_cmp(&b.2))
+            .zip(&self.boxes)
+            .filter(move |(_, boxed)| ray_hits_box(origin, direction, boxed))
+            .map(|(patch, _)| patch)
     }
 
     /// Unsigned distance from `query` to the nearest trimmed face.
@@ -296,8 +338,7 @@ impl BrepOracle {
         let origin: [Scalar; D] = from_fn(|k| query[k].value());
         let graze = self.distance(query).max(1.0e-9) * 1.0e-3;
         let nearest_along = |direction: [Scalar; D]| {
-            self.patches
-                .iter()
+            self.ray_candidates(origin, direction)
                 .flat_map(|patch| patch.ray_hits(origin, direction))
                 .filter(|&t| t > graze)
                 .fold(Scalar::INFINITY, Scalar::min)
@@ -375,8 +416,7 @@ impl BrepOracle {
         let mut parity = false;
         for direction in RAY_DIRECTIONS {
             let mut hits: Vec<Scalar> = self
-                .patches
-                .iter()
+                .ray_candidates(origin, direction)
                 .flat_map(|patch| patch.ray_hits(origin, direction))
                 .collect();
             hits.sort_by(Scalar::total_cmp);
@@ -425,6 +465,45 @@ impl SolidOracle for BrepOracle {
 
 fn orientation(forward: bool) -> Scalar {
     if forward { 1.0 } else { -1.0 }
+}
+
+/// Whether the ray `origin + t·direction`, `t ≥ 0`, meets the box `[low, high]`
+/// (a slab test; `direction` need not be unit).
+fn ray_hits_box(
+    origin: [Scalar; D],
+    direction: [Scalar; D],
+    (low, high): &([Scalar; D], [Scalar; D]),
+) -> bool {
+    let mut enter = Scalar::NEG_INFINITY;
+    let mut exit = Scalar::INFINITY;
+    for k in 0..D {
+        if direction[k].abs() < 1.0e-30 {
+            if origin[k] < low[k] || origin[k] > high[k] {
+                return false;
+            }
+        } else {
+            let inverse = 1.0 / direction[k];
+            let mut near = (low[k] - origin[k]) * inverse;
+            let mut far = (high[k] - origin[k]) * inverse;
+            if near > far {
+                std::mem::swap(&mut near, &mut far);
+            }
+            enter = enter.max(near);
+            exit = exit.min(far);
+            if enter > exit {
+                return false;
+            }
+        }
+    }
+    exit >= 0.0
+}
+
+/// Distance from `point` to the box `[low, high]` (zero when inside).
+fn point_box_distance(point: [Scalar; D], (low, high): &([Scalar; D], [Scalar; D])) -> Scalar {
+    (0..D)
+        .map(|k| (low[k] - point[k]).max(point[k] - high[k]).max(0.0).powi(2))
+        .sum::<Scalar>()
+        .sqrt()
 }
 
 /// The `[low, high]` span of `points` projected onto `axis` from `origin`.
