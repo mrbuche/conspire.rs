@@ -547,6 +547,113 @@ fn probe_step_files() {
     eprintln!("\n{ok} ok, {fail} failed of {}", files.len());
 }
 
+/// Walks `STEP_MESH_DIR` (default: the checked-in `boxy` dir) and runs the
+/// full octree -> dual -> trim -> fit pipeline on every `.stp`, reporting
+/// element count and worst scaled Jacobian, or where it fell over. Sizing:
+/// `FeatureSizing` with `STEP_MESH_CELL`/`_MIN`/`_SEGMENTS`/`_GRADATION`/
+/// `_PROXIMITY` env vars, one per part (no per-file tuning).
+#[test]
+#[ignore = "meshes every .stp under STEP_MESH_DIR"]
+fn probe_mesh_step_dir() {
+    use crate::{
+        geometry::{
+            cad::sizing::FeatureSizing,
+            mesh::{Fitting, Verdict},
+            ntree::Balancing,
+            solid::Solid,
+        },
+        math::Quantity,
+        units::Length,
+    };
+
+    let dir = std::env::var("STEP_MESH_DIR")
+        .unwrap_or_else(|_| format!("{}/../boxy", env!("CARGO_MANIFEST_DIR")));
+    let mut files: Vec<std::path::PathBuf> = Vec::new();
+    for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+        let path = entry.path();
+        if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("stp"))
+            || path.extension().is_some_and(|e| e.eq_ignore_ascii_case("step"))
+        {
+            files.push(path);
+        }
+    }
+    files.sort();
+    if files.is_empty() {
+        return;
+    }
+
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+    };
+    let cell = env_f64("STEP_MESH_CELL", 3.0e-3);
+    let minimum = env_f64("STEP_MESH_MIN", 4.0e-4);
+    let segments = env_f64("STEP_MESH_SEGMENTS", 32.0) as usize;
+    let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
+        Ok("none") => None,
+        Ok(v) => Some(v.parse().unwrap()),
+        Err(_) => Some(0.2),
+    };
+    let proximity: Option<usize> = std::env::var("STEP_MESH_PROXIMITY")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    // Off by default: dual + trim only, the geometry-pipeline signal.
+    let fit = std::env::var("STEP_MESH_FIT").is_ok();
+
+    let (mut meshed, mut failed) = (0, 0);
+    for path in &files {
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        let started = std::time::Instant::now();
+        let outcome = (|| -> Result<(usize, Option<f64>), String> {
+            let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+            let brep = read(&text).map_err(|e| e.to_string())?;
+            // Fail fast on an unmeshable face before paying for the octree.
+            brep.oracle().map_err(|e| e.to_string())?;
+            let mut sizing = FeatureSizing::of(
+                &brep,
+                segments,
+                Quantity::<Length>::new(minimum),
+                Quantity::<Length>::new(cell),
+                gradation,
+            );
+            if let Some(cells) = proximity {
+                sizing = sizing.with_proximity(&brep, cells).map_err(|e| e.to_string())?;
+            }
+            if fit {
+                let mesh = brep
+                    .mesh(&sizing, None, 0.1, Balancing::Strong(1), Fitting::Soft)
+                    .map_err(|e| e.to_string())?;
+                let worst = mesh.minimum_scaled_jacobians()[0]
+                    .iter()
+                    .copied()
+                    .fold(f64::INFINITY, f64::min);
+                Ok((mesh.number_of_elements(), Some(worst)))
+            } else {
+                let (mesh, _) = brep
+                    .trim(&sizing, None, 0.1, Balancing::Strong(1))
+                    .map_err(|e| e.to_string())?;
+                Ok((mesh.number_of_elements(), None))
+            }
+        })();
+        let secs = started.elapsed().as_secs_f64();
+        match outcome {
+            Ok((elements, worst)) => {
+                meshed += 1;
+                match worst {
+                    Some(worst) => eprintln!(
+                        "ok   {name}: {elements} elements, worst SJ {worst:.4} ({secs:.0}s)"
+                    ),
+                    None => eprintln!("ok   {name}: {elements} trimmed hexes ({secs:.0}s)"),
+                }
+            }
+            Err(error) => {
+                failed += 1;
+                eprintln!("FAIL {name}: {error} ({secs:.0}s)");
+            }
+        }
+    }
+    eprintln!("\n{meshed} ok, {failed} failed of {}", files.len());
+}
+
 /// Runs the octree -> dual -> trim (-> fit) pipeline on `brep` with `sizing`,
 /// writing each stage to `{out}_{dual,trimmed,fitted}.vtu` for ParaView. The
 /// trimmed dump is the one to look at before paying for the fit.
