@@ -741,10 +741,21 @@ fn probe_signed_distance_sign() {
         oracle.winding_number(&centre),
         oracle.signed_volume_x6() / 6.0 / bbox_volume,
     );
-    eprintln!("nearest patches to the centre:");
-    for (kind, distance, point, normal) in oracle.patch_report(&centre).into_iter().take(8) {
-        eprintln!("  {kind:6} d={distance:.5} at [{:.4},{:.4},{:.4}] n=[{:.2},{:.2},{:.2}]",
-            point[0], point[1], point[2], normal[0], normal[1], normal[2]);
+    if let Ok(spec) = std::env::var("STEP_PROBE_POINTS") {
+        for chunk in spec.split(';') {
+            let c: Vec<f64> = chunk.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+            if c.len() != 3 {
+                continue;
+            }
+            let p = crate::geometry::Coordinate::from([c[0], c[1], c[2]]);
+            let (kind, d, pt, n) = oracle.patch_report(&p).into_iter().next().unwrap();
+            eprintln!(
+                "probe {c:?}: sd={:.5} winding={:.4}  nearest {kind} d={d:.5} at [{:.4},{:.4},{:.4}] n=[{:.2},{:.2},{:.2}]",
+                oracle.signed_distance(&p),
+                oracle.winding_number(&p),
+                pt[0], pt[1], pt[2], n[0], n[1], n[2],
+            );
+        }
     }
 
     // Is it a clean global flip, or per-region inconsistency? Tally the sign at
