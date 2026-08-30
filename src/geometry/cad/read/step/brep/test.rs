@@ -669,6 +669,82 @@ fn probe_mesh_real_file() {
     }
 }
 
+/// Prints the `signed_distance` sign along evenly spaced lines through the
+/// bbox on each axis: `#` inside (sd > 0), `.` outside. A phantom string shows
+/// up as `#` runs where the geometry is a void.
+#[test]
+#[ignore = "prints STEP_MESH_FILE's signed-distance sign along scan lines"]
+fn probe_signed_distance_sign() {
+    use crate::geometry::{Coordinate, solid::SolidOracle};
+
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let brep = read(&std::fs::read_to_string(&path).unwrap()).expect("read failed");
+    let oracle = brep.oracle().expect("oracle failed");
+    let (low, high) = oracle.bounds();
+    let span: [f64; 3] = std::array::from_fn(|k| high[k].value() - low[k].value());
+    let base: [f64; 3] = std::array::from_fn(|k| low[k].value());
+    let samples = 100usize;
+    let lines = 9usize;
+
+    for axis in 0..3 {
+        let (u, v) = ((axis + 1) % 3, (axis + 2) % 3);
+        eprintln!("--- scan along axis {axis} ---");
+        for a in 1..lines {
+            for b in 1..lines {
+                let mut row = String::new();
+                for s in 0..samples {
+                    let mut p = [0.0; 3];
+                    p[axis] = base[axis] + span[axis] * (s as f64 + 0.5) / samples as f64;
+                    p[u] = base[u] + span[u] * a as f64 / lines as f64;
+                    p[v] = base[v] + span[v] * b as f64 / lines as f64;
+                    let sd = oracle.signed_distance(&Coordinate::from(p));
+                    row.push(if sd > 0.0 { '#' } else { '.' });
+                }
+                if row.contains('#') {
+                    eprintln!("u{a} v{b} {row}");
+                }
+            }
+        }
+    }
+
+    // The bbox centre is inside the solid block, so its signed distance must
+    // be positive.
+    let centre = crate::geometry::Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| {
+        0.5 * (low[k].value() + high[k].value())
+    }));
+    eprintln!("signed_distance(centre) = {}", oracle.signed_distance(&centre));
+
+    // Is it a clean global flip, or per-region inconsistency? Tally the sign at
+    // many points deep inside (near the centre) vs far outside (past a face).
+    let mut inside_pos = 0;
+    let mut inside_neg = 0;
+    let mut outside_pos = 0;
+    let mut outside_neg = 0;
+    for i in 0..7 {
+        for j in 0..7 {
+            for k in 0..7 {
+                let f = |t: usize| (t as f64 + 0.5) / 7.0;
+                let deep = crate::geometry::Coordinate::from([
+                    centre[0].value() + span[0] * 0.20 * (f(i) - 0.5),
+                    centre[1].value() + span[1] * 0.20 * (f(j) - 0.5),
+                    centre[2].value() + span[2] * 0.20 * (f(k) - 0.5),
+                ]);
+                if oracle.signed_distance(&deep) > 0.0 { inside_pos += 1 } else { inside_neg += 1 }
+                let far = crate::geometry::Coordinate::from([
+                    low[0].value() - span[0] * (0.3 + f(i)),
+                    low[1].value() + span[1] * f(j),
+                    low[2].value() + span[2] * f(k),
+                ]);
+                if oracle.signed_distance(&far) > 0.0 { outside_pos += 1 } else { outside_neg += 1 }
+            }
+        }
+    }
+    eprintln!("deep-inside points:  {inside_pos} positive, {inside_neg} negative (want all positive)");
+    eprintln!("far-outside points:  {outside_pos} positive, {outside_neg} negative (want all negative)");
+}
+
 #[test]
 fn reads_every_solid_in_the_file() {
     use crate::geometry::{cad::brep::surface::Surface, csg::Primitive};

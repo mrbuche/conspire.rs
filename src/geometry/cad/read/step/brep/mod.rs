@@ -60,12 +60,14 @@ pub(super) fn read(exchange: &Exchange) -> Result<Vec<Brep>> {
             reader.faces.clear();
             let shell_id = reference(&reader.record(id, "MANIFOLD_SOLID_BREP")?.parameters, 1)?;
             let shell = reader.shell(shell_id)?;
-            Ok(Brep {
+            let mut brep = Brep {
                 vertices: take(&mut reader.vertices),
                 edges: take(&mut reader.edges),
                 faces: take(&mut reader.faces),
                 shells: vec![shell],
-            })
+            };
+            brep.orient();
+            Ok(brep)
         })
         .collect()
 }
