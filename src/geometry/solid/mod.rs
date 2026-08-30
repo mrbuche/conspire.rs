@@ -1,6 +1,9 @@
 //! The [`Solid`] abstraction and the octree → dual → trim → fit meshing driver
 //! shared by every solid representation (B-rep, CSG primitives, ...).
 
+#[cfg(test)]
+mod test;
+
 use crate::{
     geometry::{
         Coordinate, Coordinates, Direction,
@@ -13,7 +16,11 @@ use crate::{
     math::{Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::{array::from_fn, num::NonZeroU32};
+use std::{
+    array::from_fn,
+    collections::{VecDeque, hash_map::Entry, HashMap},
+    num::NonZeroU32,
+};
 
 const D: usize = 3;
 
@@ -76,6 +83,126 @@ pub(crate) fn classify_by_signed_distance(
                 Class::Outside
             });
             index += 1;
+        }
+    }
+    Ok(classes)
+}
+
+/// The six quad faces of a hexahedron, as corner indices into its node octet.
+const HEX_FACES: [[usize; 4]; 6] = [
+    [0, 1, 2, 3],
+    [4, 5, 6, 7],
+    [0, 1, 5, 4],
+    [1, 2, 6, 5],
+    [2, 3, 7, 6],
+    [3, 0, 4, 7],
+];
+
+/// `Inside` / `Cut` / `Outside` per cell by seeded flood fill: a cell whose
+/// corner signed distances straddle zero is `Cut` and blocks the fill; the
+/// remaining cells are `Outside` if reachable through shared faces from a cell
+/// on the mesh boundary, else `Inside`.
+///
+/// Robust where the oracle's sign is only trustworthy away from creases (a
+/// nearest-face-normal B-rep oracle): the fill is seeded both from the mesh
+/// rim and from any cell whose eight corners are unanimously outside — a
+/// signal even the flaky oracle gets right — so a narrow cavity the `Cut`
+/// band seals off at its mouth still drains. Only cells the fill cannot
+/// reach, and that are not themselves unanimously outside, end up `Inside`.
+/// A fully enclosed void reads `Inside`; single-shell B-reps have none.
+pub(crate) fn classify_by_flood_fill(
+    oracle: &impl SolidOracle,
+    mesh: &Mesh<D>,
+) -> Result<Vec<Class>, &'static str> {
+    let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
+        return Err("flood-fill classify needs a single hexahedral block");
+    };
+    let count = block.iter().len();
+    let coordinates = mesh.coordinates();
+    let signed: Vec<Scalar> = coordinates
+        .iter()
+        .map(|point| oracle.signed_distance(point))
+        .collect();
+
+    let mut classes = vec![Class::Inside; count];
+    let mut cut = vec![false; count];
+    for (index, hex) in block.iter().enumerate() {
+        let (minimum, maximum) = hex.iter().fold(
+            (Scalar::INFINITY, Scalar::NEG_INFINITY),
+            |(minimum, maximum), &node| (minimum.min(signed[node]), maximum.max(signed[node])),
+        );
+        if minimum <= 0.0 && maximum >= 0.0 {
+            cut[index] = true;
+            classes[index] = Class::Cut;
+        }
+    }
+
+    // Face adjacency: a quad shared by two hexes links them.
+    let mut seen: HashMap<[usize; 4], usize> = HashMap::new();
+    let mut adjacency: Vec<Vec<usize>> = vec![Vec::new(); count];
+    for (index, hex) in block.iter().enumerate() {
+        for face in HEX_FACES {
+            let mut key = face.map(|corner| hex[corner]);
+            key.sort_unstable();
+            match seen.entry(key) {
+                Entry::Occupied(slot) => {
+                    let other = slot.remove();
+                    adjacency[index].push(other);
+                    adjacency[other].push(index);
+                }
+                Entry::Vacant(slot) => {
+                    slot.insert(index);
+                }
+            }
+        }
+    }
+
+    // Flood `Outside` from every non-`Cut` cell touching the mesh's bounding box.
+    let mut low = [Scalar::INFINITY; D];
+    let mut high = [Scalar::NEG_INFINITY; D];
+    for point in coordinates.iter() {
+        for k in 0..D {
+            low[k] = low[k].min(point[k].value());
+            high[k] = high[k].max(point[k].value());
+        }
+    }
+    let tolerance = (0..D).map(|k| high[k] - low[k]).fold(0.0, Scalar::max) * 1.0e-9;
+    let on_boundary = |node: usize| {
+        (0..D).any(|k| {
+            let value = coordinates[node][k].value();
+            value <= low[k] + tolerance || value >= high[k] - tolerance
+        })
+    };
+
+    // Seed `Outside` from every non-`Cut` cell that either touches the padded
+    // octree's rim (air, by construction) or has all eight corners strictly
+    // outside (unambiguous even for a crease-flaky oracle). The latter reaches
+    // into a cavity the `Cut` band would otherwise wall off at its opening.
+    let mut outside = vec![false; count];
+    let mut queue = VecDeque::new();
+    for (index, hex) in block.iter().enumerate() {
+        if cut[index] {
+            continue;
+        }
+        let rim = hex.iter().any(|&node| on_boundary(node));
+        let all_outside = hex.iter().all(|&node| signed[node] < 0.0);
+        if rim || all_outside {
+            outside[index] = true;
+            queue.push_back(index);
+        }
+    }
+    while let Some(index) = queue.pop_front() {
+        for &neighbour in &adjacency[index] {
+            if !cut[neighbour] && !outside[neighbour] {
+                outside[neighbour] = true;
+                queue.push_back(neighbour);
+            }
+        }
+    }
+
+    for index in 0..count {
+        if !cut[index] && outside[index] {
+            classes[index] = Class::Outside;
         }
     }
     Ok(classes)

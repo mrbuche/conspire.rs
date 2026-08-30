@@ -587,6 +587,19 @@ fn probe_mesh(
     );
     dump(&dual, &format!("{out}_dual.vtu"));
 
+    // Split the classified dual so the Inside-only and Cut-only cells can be
+    // eyeballed apart (a phantom column is usually one or the other).
+    for (label, want) in [("inside", Class::Inside), ("cut", Class::Cut)] {
+        let (mut only, only_classes) = brep
+            .dual_background(sizing, levels, 0.1, Balancing::Strong(1))
+            .expect("dual_background failed");
+        only
+            .keep_hexes(|index, _, _| only_classes[index] == want)
+            .expect("keep_hexes failed");
+        eprintln!("  {label}: {} hexes", only.number_of_elements());
+        dump(&only, &format!("{out}_{label}.vtu"));
+    }
+
     let (trimmed, _) = brep
         .trim(sizing, levels, 0.1, Balancing::Strong(1))
         .expect("trim failed");

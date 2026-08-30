@@ -9,7 +9,7 @@ use crate::{
     geometry::{
         Coordinate,
         mesh::{Class, Mesh},
-        solid::{Solid, classify_by_signed_distance},
+        solid::{Solid, classify_by_flood_fill},
     },
     math::Scalar,
 };
@@ -58,7 +58,7 @@ impl Solid for Brep {
         {
             Brep::classify(self, mesh)
         } else {
-            classify_by_signed_distance(&Brep::oracle(self)?, mesh)
+            classify_by_flood_fill(&Brep::oracle(self)?, mesh)
         }
     }
 }
