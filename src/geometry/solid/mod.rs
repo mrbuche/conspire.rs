@@ -129,6 +129,20 @@ pub(crate) fn classify_by_signed_distance(
     Ok(classes)
 }
 
+/// Half the diagonal of `hex`'s bounding box: the farthest any interior point,
+/// its centroid included, can be from every corner.
+fn circumradius(hex: &[usize], coordinates: &Coordinates<D>) -> Scalar {
+    let mut low = [Scalar::INFINITY; D];
+    let mut high = [Scalar::NEG_INFINITY; D];
+    for &node in hex {
+        for k in 0..D {
+            low[k] = low[k].min(coordinates[node][k].value());
+            high[k] = high[k].max(coordinates[node][k].value());
+        }
+    }
+    (0..D).map(|k| (high[k] - low[k]).powi(2)).sum::<Scalar>().sqrt() / 2.0
+}
+
 /// The six quad faces of a hexahedron, as corner indices into its node octet.
 const HEX_FACES: [[usize; 4]; 6] = [
     [0, 1, 2, 3],
@@ -140,9 +154,10 @@ const HEX_FACES: [[usize; 4]; 6] = [
 ];
 
 /// `Inside` / `Cut` / `Outside` per cell by seeded flood fill: a cell whose
-/// corner signed distances straddle zero is `Cut` and blocks the fill; the
-/// remaining cells are `Outside` if reachable through shared faces from a cell
-/// on the mesh boundary, else `Inside`.
+/// corner signed distances straddle zero — or which brackets a wall thinner
+/// than itself, every corner in the air but its centroid in the solid — is
+/// `Cut` and blocks the fill; the remaining cells are `Outside` if reachable
+/// through shared faces from a cell on the mesh boundary, else `Inside`.
 ///
 /// The fill is seeded both from the mesh rim and from any cell whose eight
 /// corners are unanimously outside — an 8/8 sign test, reliable where the
@@ -163,6 +178,15 @@ pub(crate) fn classify_by_flood_fill(
 
     let mut classes = vec![Class::Inside; count];
     let mut cut = vec![false; count];
+    // A cell coarser than the local wall thickness can bracket a thin feature
+    // entirely — all eight corners in the air, on both sides of it — and so
+    // read as unanimously outside even though it is full of solid. Probe the
+    // centroid of any such cell that is close enough to the surface for that
+    // to be possible: the field is a true distance, so a positive centroid is
+    // proof the surface passes through, and the cell is `Cut`. The Lipschitz
+    // bound `minimum + circumradius <= 0` rules the centroid out without
+    // evaluating it, leaving only a thin shell of cells to probe.
+    let mut suspect = vec![false; count];
     for (index, hex) in block.iter().enumerate() {
         let (minimum, maximum) = hex.iter().fold(
             (Scalar::INFINITY, Scalar::NEG_INFINITY),
@@ -171,6 +195,17 @@ pub(crate) fn classify_by_flood_fill(
         if minimum <= 0.0 && maximum >= 0.0 {
             cut[index] = true;
             classes[index] = Class::Cut;
+        } else if maximum < 0.0 && minimum + circumradius(hex, coordinates) > 0.0 {
+            suspect[index] = true;
+        }
+    }
+    if suspect.iter().any(|&flag| flag) {
+        let probed = signed_distances(oracle, &mesh.centroids(), Some(&suspect));
+        for index in 0..count {
+            if suspect[index] && probed[index] > 0.0 {
+                cut[index] = true;
+                classes[index] = Class::Cut;
+            }
         }
     }
 

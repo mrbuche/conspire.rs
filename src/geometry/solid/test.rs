@@ -130,3 +130,50 @@ fn flood_fill_ignores_a_lie_in_the_interior() {
     let flooded = classify_by_flood_fill(&Box { lie: true }, &mesh).unwrap();
     assert_eq!(flooded[centre], Class::Inside);
 }
+
+/// A plate `0.5 <= x,z <= 4.5`, `1.3 <= y <= 1.7` (positive inside): thinner
+/// than one unit cell, and placed so no cell corner ever lands in it.
+struct Plate;
+
+impl SolidOracle for Plate {
+    fn project(&self, _query: &Coordinate<3>) -> Option<(Coordinate<3>, Direction<3>)> {
+        None
+    }
+    fn signed_distance(&self, query: &Coordinate<3>) -> Scalar {
+        let (low, high) = ([0.5, 1.3, 0.5], [4.5, 1.7, 4.5]);
+        (0..3)
+            .map(|k| {
+                let v = query[k].value();
+                (v - low[k]).min(high[k] - v)
+            })
+            .fold(Scalar::INFINITY, Scalar::min)
+    }
+}
+
+#[test]
+fn flood_fill_keeps_a_wall_thinner_than_its_cell() {
+    let mesh = cube_of_hexes(5);
+    let classes = classify_by_flood_fill(&Plate, &mesh).unwrap();
+    // Every corner of the y = 1..2 cell layer is in the air (the plate spans
+    // only 1.3..1.7), so the eight-corner sign test alone reads the whole
+    // layer as unanimously outside and deletes the plate.
+    for i in 1..4 {
+        for k in 1..4 {
+            assert_eq!(
+                classes[hex(5, i, 1, k)],
+                Class::Cut,
+                "plate cell ({i}, 1, {k}) was dropped"
+            );
+        }
+    }
+    // The rescue is not a blanket one: cells with no solid in them at all stay
+    // `Outside`, above and below the plate and off its footprint.
+    for (i, j, k) in [(2, 0, 2), (2, 2, 2), (2, 3, 2), (0, 1, 0), (4, 1, 4)] {
+        assert_eq!(
+            classes[hex(5, i, j, k)],
+            Class::Outside,
+            "empty cell ({i}, {j}, {k}) was rescued"
+        );
+    }
+    assert!(!classes.contains(&Class::Inside));
+}
