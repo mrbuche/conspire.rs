@@ -5,7 +5,9 @@
 //! only) traces an exact sinusoid there — no tessellation, no curve sampling
 //! (nearest-point-on-sinusoid has no closed form, so that one case bisects to
 //! an exact root instead, the same pattern as `csg::Ellipsoid`'s oracle).
-//! Spherical and toroidal faces are taken whole.
+//! Spherical and toroidal faces are trimmed to a polygon in their own
+//! (longitude, latitude) / (major angle, tube angle) chart, every bounding
+//! edge chorded into straight sub-segments there.
 
 use super::super::{
     D,
@@ -42,16 +44,23 @@ pub(super) enum Curved {
         rings: Option<Vec<super::Ring>>,
         sign: Scalar,
     },
+    /// A sphere, trimmed to a `(longitude, radius x latitude)` polygon
+    /// (`rings: Some`) or taken whole (`rings: None`, a seam-closed face).
     Sphere {
         centre: [Scalar; D],
+        axis: [Scalar; D],
         radius: Scalar,
+        rings: Option<Vec<super::Ring>>,
         sign: Scalar,
     },
+    /// A torus, trimmed to a `(major angle, minor radius x tube angle)`
+    /// polygon; both chart axes wrap, `v` with period `TAU * minor`.
     Torus {
         centre: [Scalar; D],
         axis: [Scalar; D],
         major: Scalar,
         minor: Scalar,
+        rings: Option<Vec<super::Ring>>,
         sign: Scalar,
     },
 }
@@ -214,28 +223,55 @@ impl Curved {
                 let normal = from_fn(|k| normal_2d[0] * direction[k] + normal_2d[1] * axis[k]);
                 (point, scaled(normal, *sign))
             }
-            Self::Sphere {
-                centre,
-                radius,
-                sign,
-            } => {
-                let delta: [Scalar; D] = from_fn(|k| q[k] - centre[k]);
-                let normal = unit(delta).unwrap_or([1.0, 0.0, 0.0]);
-                (from_fn(|k| centre[k] + radius * normal[k]), scaled(normal, *sign))
+            Self::Sphere { centre, axis, radius, rings, sign } => {
+                let (centre, axis, radius) = (*centre, *axis, *radius);
+                match rings {
+                    None => {
+                        let delta: [Scalar; D] = from_fn(|k| q[k] - centre[k]);
+                        let normal = unit(delta).unwrap_or([1.0, 0.0, 0.0]);
+                        (from_fn(|k| centre[k] + radius * normal[k]), scaled(normal, *sign))
+                    }
+                    Some(rings) => {
+                        let uv = super::to_uv_sphere(centre, axis, radius, q);
+                        let uv = if super::chart_contains(uv, rings, None) {
+                            uv
+                        } else {
+                            super::chart_nearest(uv, rings, super::sphere_weight(radius), None)
+                        };
+                        let (point, normal) = super::sphere_uv_point(centre, axis, radius, uv);
+                        (point, scaled(normal, *sign))
+                    }
+                }
             }
-            Self::Torus {
-                centre,
-                axis,
-                major,
-                minor,
-                sign,
-            } => {
-                let (_, radial, _) = local(*centre, *axis, q);
-                let radial_unit = unit(radial).unwrap_or_else(|| perpendicular(*axis));
-                let ring: [Scalar; D] = from_fn(|k| centre[k] + major * radial_unit[k]);
-                let off: [Scalar; D] = from_fn(|k| q[k] - ring[k]);
-                let normal = unit(off).unwrap_or(radial_unit);
-                (from_fn(|k| ring[k] + minor * normal[k]), scaled(normal, *sign))
+            Self::Torus { centre, axis, major, minor, rings, sign } => {
+                let (centre, axis, major, minor) = (*centre, *axis, *major, *minor);
+                match rings {
+                    None => {
+                        let (_, radial, _) = local(centre, axis, q);
+                        let radial_unit = unit(radial).unwrap_or_else(|| perpendicular(axis));
+                        let ring: [Scalar; D] = from_fn(|k| centre[k] + major * radial_unit[k]);
+                        let off: [Scalar; D] = from_fn(|k| q[k] - ring[k]);
+                        let normal = unit(off).unwrap_or(radial_unit);
+                        (from_fn(|k| ring[k] + minor * normal[k]), scaled(normal, *sign))
+                    }
+                    Some(rings) => {
+                        let period = Some(std::f64::consts::TAU * minor);
+                        let uv = super::to_uv_torus(centre, axis, major, minor, q);
+                        let uv = if super::chart_contains(uv, rings, period) {
+                            uv
+                        } else {
+                            super::chart_nearest(
+                                uv,
+                                rings,
+                                super::torus_weight(major, minor),
+                                period,
+                            )
+                        };
+                        let (point, normal) =
+                            super::torus_uv_point(centre, axis, major, minor, uv);
+                        (point, scaled(normal, *sign))
+                    }
+                }
             }
         }
     }
@@ -243,7 +279,7 @@ impl Curved {
     /// Parameters `t > 0` where the ray `o + t·d` crosses this curved patch's
     /// trimmed surface. Quadrics (cylinder, cone, sphere) solve in closed
     /// form; the torus marches its analytic distance and bisects sign changes.
-    /// Sphere and torus have no trim rings yet, so every quadric root counts.
+    /// Every root is kept only if it lands inside the patch's trim rings.
     pub(super) fn ray_hits(&self, o: [Scalar; D], d: [Scalar; D]) -> Vec<Scalar> {
         let on_ruled = |t: &Scalar,
                         origin: &[Scalar; D],
@@ -279,14 +315,21 @@ impl Curved {
                 .filter(|t| *t > RAY_EPS && on_ruled(t, origin, axis, low, high, rings))
                 .collect()
             }
-            Self::Sphere { centre, radius, .. } => {
+            Self::Sphere { centre, axis, radius, rings, .. } => {
                 let w: [Scalar; D] = from_fn(|k| o[k] - centre[k]);
                 quadratic(dot(d, d), 2.0 * dot(w, d), dot(w, w) - radius * radius)
                     .into_iter()
-                    .filter(|t| *t > RAY_EPS)
+                    .filter(|t| {
+                        *t > RAY_EPS
+                            && rings.as_ref().is_none_or(|rings| {
+                                let hit: [Scalar; D] = from_fn(|k| o[k] + t * d[k]);
+                                let uv = super::to_uv_sphere(*centre, *axis, *radius, hit);
+                                super::chart_contains(uv, rings, None)
+                            })
+                    })
                     .collect()
             }
-            Self::Torus { centre, axis, major, minor, .. } => {
+            Self::Torus { centre, axis, major, minor, rings, .. } => {
                 let sdf = |p: [Scalar; D]| {
                     let (_, radial, _) = local(*centre, *axis, p);
                     let unit_radial = unit(radial).unwrap_or_else(|| perpendicular(*axis));
@@ -294,7 +337,17 @@ impl Curved {
                     let off: [Scalar; D] = from_fn(|k| p[k] - ring[k]);
                     dot(off, off).sqrt() - minor
                 };
+                let period = Some(std::f64::consts::TAU * minor);
                 march_sign_changes(o, d, *centre, major + minor, *minor, sdf)
+                    .into_iter()
+                    .filter(|t| {
+                        rings.as_ref().is_none_or(|rings| {
+                            let hit: [Scalar; D] = from_fn(|k| o[k] + t * d[k]);
+                            let uv = super::to_uv_torus(*centre, *axis, *major, *minor, hit);
+                            super::chart_contains(uv, rings, period)
+                        })
+                    })
+                    .collect()
             }
         }
     }

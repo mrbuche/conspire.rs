@@ -72,12 +72,8 @@ impl Brep {
             Surface::Plane(_) => Ok(FacePatch::Planar(self.planar_face(face)?)),
             Surface::Cylinder(surface) => self.cylinder_patch(surface, face),
             Surface::Cone(surface) => self.cone_patch(surface, face),
-            Surface::Sphere(surface) => sweeps_whole_surface(face)
-                .then(|| sphere_patch(surface, face.forward))
-                .ok_or("partial spherical face (fillet/blend) is not yet meshable"),
-            Surface::Torus(surface) => sweeps_whole_surface(face)
-                .then(|| torus_patch(surface, face.forward))
-                .ok_or("partial toroidal face (pipe bend/blend) is not yet meshable"),
+            Surface::Sphere(surface) => self.sphere_patch(surface, face),
+            Surface::Torus(surface) => self.torus_patch(surface, face),
             Surface::BSpline(_) => Err("B-spline faces are not yet meshable"),
         }
     }
@@ -228,6 +224,190 @@ impl Brep {
         Ok(Some(rings))
     }
 
+    /// `edge`'s 3D chord polyline from vertex `start` to vertex `end`, both
+    /// included. Sampled, not exact: no edge on a sphere or torus has a
+    /// closed-form trace in those surfaces' charts, so the ring carries it as
+    /// straight sub-segments — the same treatment a B-spline edge already gets
+    /// on a cylinder.
+    fn edge_polyline(
+        &self,
+        edge: &super::Edge,
+        start: usize,
+        end: usize,
+        forward: bool,
+        samples: usize,
+    ) -> Vec<Coordinate<D>> {
+        let (a, b) = (&self.vertices[start], &self.vertices[end]);
+        let raw = |point: &Coordinate<D>| from_fn::<Scalar, D, _>(|k| point[k].value());
+        let closed = start == end;
+        // The reader orients a circle/ellipse axis so the *edge* runs CCW about
+        // it, and `arc_polyline` always takes the positive turn; a half-edge
+        // walked backwards must therefore turn about the negated axis, or the
+        // chord goes the long way round and the ring gains a spurious turn.
+        let sense = if forward { 1.0 } else { -1.0 };
+        match &edge.curve {
+            Curve::Line(_) => vec![a.clone(), b.clone()],
+            Curve::BSpline(bspline) => bspline.segment(a, b, samples),
+            Curve::Circle(circle) => crate::geometry::cad::sizing::arc_polyline(
+                raw(&circle.center),
+                from_fn(|k| sense * circle.axis[k].value()),
+                from_fn(|k| circle.reference_direction[k].value()),
+                circle.radius,
+                circle.radius,
+                raw(a),
+                raw(b),
+                closed,
+                samples - 1,
+            ),
+            Curve::Ellipse(ellipse) => crate::geometry::cad::sizing::arc_polyline(
+                raw(&ellipse.center),
+                from_fn(|k| sense * ellipse.axis[k].value()),
+                from_fn(|k| ellipse.reference_direction[k].value()),
+                ellipse.major_radius,
+                ellipse.minor_radius,
+                raw(a),
+                raw(b),
+                closed,
+                samples - 1,
+            ),
+        }
+    }
+
+    /// One bound of a spherical or toroidal face as a closed `(u, v)` polygon
+    /// in `chart`'s coordinates, every edge chorded into straight
+    /// sub-segments, `u` (and `v`, where the chart wraps) unwrapped
+    /// continuously against the running cursor. A `NaN` `u` — the sphere's
+    /// poles — holds the cursor's own longitude, so an edge running into a
+    /// pole stays on its meridian.
+    ///
+    /// Errs when the walk does not return to where it started: a bound that
+    /// wraps the chart a whole turn (a bare latitude circle bounding a band)
+    /// is not a polygon here, and is refused rather than silently mis-trimmed.
+    fn chart_ring(
+        &self,
+        bound: &Loop,
+        chart: impl Fn([Scalar; D]) -> [Scalar; 2],
+        v_period: Option<Scalar>,
+        surface: &'static str,
+    ) -> Result<(Ring, Scalar), &'static str> {
+        const SAMPLES: usize = 48;
+        let mut ring: Ring = Vec::new();
+        let mut cursor: Option<[Scalar; 2]> = None;
+        for half_edge in &bound.half_edges {
+            let edge = self
+                .edges
+                .get(half_edge.edge)
+                .ok_or("half-edge references a missing edge")?;
+            let (start, end) = if half_edge.forward {
+                (edge.vertices[0], edge.vertices[1])
+            } else {
+                (edge.vertices[1], edge.vertices[0])
+            };
+            let samples = self.edge_polyline(edge, start, end, half_edge.forward, SAMPLES);
+            let mut point = match cursor {
+                Some(point) => point,
+                None => {
+                    let first = chart(from_fn(|k| samples[0][k].value()));
+                    [if first[0].is_nan() { 0.0 } else { first[0] }, first[1]]
+                }
+            };
+            for sample in samples.iter().skip(1) {
+                let next = chart(from_fn(|k| sample[k].value()));
+                let du = if next[0].is_nan() {
+                    0.0
+                } else {
+                    wrap(next[0] - point[0])
+                };
+                let v = match v_period {
+                    Some(period) => point[1] + wrap_by(next[1] - point[1], period),
+                    None => next[1],
+                };
+                ring.push((point, None));
+                point = [point[0] + du, v];
+            }
+            cursor = Some(point);
+        }
+        let (Some(last), Some(&(first, _))) = (cursor, ring.first()) else {
+            return Err("trim ring on a curved face has no edges");
+        };
+        // `v` must always come back; `u` may legitimately come back a whole
+        // turn on, encircling the chart — a latitude-like boundary that cuts
+        // the surface into caps rather than bounding a polygon.
+        let scale = v_period.unwrap_or(std::f64::consts::TAU);
+        let winding = last[0] - first[0];
+        let turns = winding / std::f64::consts::TAU;
+        if (last[1] - first[1]).abs() > 1.0e-6 * scale.abs().max(1.0e-9)
+            || (turns - turns.round()).abs() > 1.0e-6
+            || turns.round().abs() > 1.0
+        {
+            return Err(surface);
+        }
+        if turns.round() != 0.0 {
+            ring.push((last, None));
+        }
+        Ok((ring, turns.round()))
+    }
+
+    /// Every bound of `face` as a chart polygon, or `None` when the face is
+    /// closed by its own seams alone and so sweeps the whole surface.
+    fn chart_rings(
+        &self,
+        face: &Face,
+        chart: impl Fn([Scalar; D]) -> [Scalar; 2] + Copy,
+        v_period: Option<Scalar>,
+        v_limit: Scalar,
+        surface: &'static str,
+    ) -> Result<Option<Vec<Ring>>, &'static str> {
+        if sweeps_whole_surface(face) {
+            return Ok(None);
+        }
+        let mut rings = Vec::new();
+        let mut wrapping = Vec::new();
+        for bound in &face.bounds {
+            let (ring, turns) = self.chart_ring(bound, chart, v_period, surface)?;
+            if turns == 0.0 {
+                rings.push(ring);
+            } else {
+                wrapping.push((ring, turns));
+            }
+        }
+        if !wrapping.is_empty() {
+            // A boundary encircling the chart is a cap edge, not a polygon.
+            // Close every one of them onto a common line beyond the interior
+            // side of the first: one such loop then encloses its cap, and a
+            // pair encloses the band between them by even-odd parity.
+            //
+            // Which side is interior follows the B-rep convention that a bound
+            // keeps its face to the left, walked with the face's outward
+            // normal up. The chart is right-handed about the outward normal
+            // (du x dv = +outward), so a `+u` winding puts the face at `+v`
+            // when the face runs with the surface, and at `-v` when against.
+            let (_, turns) = wrapping[0];
+            let plus = (turns > 0.0) == (orientation(face.forward) > 0.0);
+            let anchor = wrapping[0].0.first().map_or(0.0, |&(point, _)| point[1]);
+            let cut = match v_period {
+                Some(period) => anchor + if plus { period / 2.0 } else { -period / 2.0 },
+                None => {
+                    if plus {
+                        v_limit
+                    } else {
+                        -v_limit
+                    }
+                }
+            };
+            for (mut ring, _) in wrapping {
+                let (&(first, _), &(last, _)) = (
+                    ring.first().ok_or(surface)?,
+                    ring.last().ok_or(surface)?,
+                );
+                ring.push(([last[0], cut], None));
+                ring.push(([first[0], cut], None));
+                rings.push(ring);
+            }
+        }
+        Ok(Some(rings))
+    }
+
     fn cylinder_patch(
         &self,
         surface: &surface::Cylinder,
@@ -304,36 +484,90 @@ fn sweeps_whole_surface(face: &Face) -> bool {
     })
 }
 
-fn sphere_patch(surface: &surface::Sphere, forward: bool) -> FacePatch {
-    let centre: [Scalar; D] = from_fn(|k| surface.origin[k].value());
-    let radius = surface.radius;
-    FacePatch::Curved {
-        curved: Curved::Sphere {
-            centre,
-            radius,
-            sign: orientation(forward),
-        },
-        low: from_fn(|k| centre[k] - radius),
-        high: from_fn(|k| centre[k] + radius),
+impl Brep {
+    fn sphere_patch(
+        &self,
+        surface: &surface::Sphere,
+        face: &Face,
+    ) -> Result<FacePatch, &'static str> {
+        let centre: [Scalar; D] = from_fn(|k| surface.origin[k].value());
+        let radius = surface.radius;
+        // The chart's poles are singular — longitude swings by pi across one,
+        // and a chorded edge running past it would gain a spurious turn. Aim
+        // the chart axis perpendicular to the face's own mean direction, which
+        // sits the patch on the equator, as far from both poles as it goes.
+        // Any patch bigger than a hemisphere still reaches one, and errs.
+        let mut mean = [0.0; D];
+        for bound in &face.bounds {
+            for half_edge in &bound.half_edges {
+                let Some(edge) = self.edges.get(half_edge.edge) else {
+                    continue;
+                };
+                let (start, end) = if half_edge.forward {
+                    (edge.vertices[0], edge.vertices[1])
+                } else {
+                    (edge.vertices[1], edge.vertices[0])
+                };
+                for sample in self.edge_polyline(edge, start, end, half_edge.forward, 16) {
+                    for k in 0..D {
+                        mean[k] += sample[k].value() - centre[k];
+                    }
+                }
+            }
+        }
+        let axis = unit(mean)
+            .map(|mean| basis(mean).0)
+            .unwrap_or_else(|| from_fn(|k| surface.axis[k].value()));
+        let rings = self.chart_rings(
+            face,
+            |point| to_uv_sphere(centre, axis, radius, point),
+            None,
+            radius * std::f64::consts::FRAC_PI_2,
+            "unsupported trim ring on a spherical face",
+        )?;
+        Ok(FacePatch::Curved {
+            curved: Curved::Sphere {
+                centre,
+                axis,
+                radius,
+                rings,
+                sign: orientation(face.forward),
+            },
+            low: from_fn(|k| centre[k] - radius),
+            high: from_fn(|k| centre[k] + radius),
+        })
     }
-}
 
-fn torus_patch(surface: &surface::Torus, forward: bool) -> FacePatch {
-    let centre: [Scalar; D] = from_fn(|k| surface.origin[k].value());
-    let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
-    let (major, minor) = (surface.major_radius, surface.minor_radius);
-    let reach: [Scalar; D] =
-        from_fn(|k| (major + minor) * (1.0 - axis[k] * axis[k]).max(0.0).sqrt() + minor * axis[k].abs());
-    FacePatch::Curved {
-        curved: Curved::Torus {
-            centre,
-            axis,
-            major,
-            minor,
-            sign: orientation(forward),
-        },
-        low: from_fn(|k| centre[k] - reach[k]),
-        high: from_fn(|k| centre[k] + reach[k]),
+    fn torus_patch(
+        &self,
+        surface: &surface::Torus,
+        face: &Face,
+    ) -> Result<FacePatch, &'static str> {
+        let centre: [Scalar; D] = from_fn(|k| surface.origin[k].value());
+        let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
+        let (major, minor) = (surface.major_radius, surface.minor_radius);
+        let rings = self.chart_rings(
+            face,
+            |point| to_uv_torus(centre, axis, major, minor, point),
+            Some(std::f64::consts::TAU * minor),
+            0.0,
+            "unsupported trim ring on a toroidal face",
+        )?;
+        let reach: [Scalar; D] = from_fn(|k| {
+            (major + minor) * (1.0 - axis[k] * axis[k]).max(0.0).sqrt() + minor * axis[k].abs()
+        });
+        Ok(FacePatch::Curved {
+            curved: Curved::Torus {
+                centre,
+                axis,
+                major,
+                minor,
+                rings,
+                sign: orientation(face.forward),
+            },
+            low: from_fn(|k| centre[k] - reach[k]),
+            high: from_fn(|k| centre[k] + reach[k]),
+        })
     }
 }
 
@@ -664,8 +898,101 @@ fn frustum_bounds(
     (low, high)
 }
 
+/// `(longitude, radius x latitude)` of `point` in a sphere's own chart: `u` the
+/// angle about `axis`, `v` the arc length from the equator, so both axes of the
+/// chart measure length once `u` is weighted by [`sphere_weight`]. `u` is `NaN`
+/// at a pole, where longitude is undefined.
+fn to_uv_sphere(
+    centre: [Scalar; D],
+    axis: [Scalar; D],
+    radius: Scalar,
+    point: [Scalar; D],
+) -> [Scalar; 2] {
+    let (u_hat, v_hat) = basis(axis);
+    let rel: [Scalar; D] = from_fn(|k| point[k] - centre[k]);
+    let along = dot(rel, axis);
+    let radial: [Scalar; D] = from_fn(|k| rel[k] - along * axis[k]);
+    let rho = dot(radial, radial).sqrt();
+    let u = if rho <= radius * 1.0e-12 {
+        Scalar::NAN
+    } else {
+        dot(radial, v_hat).atan2(dot(radial, u_hat))
+    };
+    [u, radius * along.atan2(rho)]
+}
+
+/// The point at `(u, v)` on the sphere, and its outward unit normal.
+fn sphere_uv_point(
+    centre: [Scalar; D],
+    axis: [Scalar; D],
+    radius: Scalar,
+    [u, v]: [Scalar; 2],
+) -> ([Scalar; D], [Scalar; D]) {
+    let latitude = v / radius;
+    let direction = uv_direction(axis, if u.is_nan() { 0.0 } else { u });
+    let normal: [Scalar; D] =
+        from_fn(|k| latitude.cos() * direction[k] + latitude.sin() * axis[k]);
+    (from_fn(|k| centre[k] + radius * normal[k]), normal)
+}
+
+/// Metres of arc per radian of longitude at chart height `v` on a sphere.
+fn sphere_weight(radius: Scalar) -> impl Fn(Scalar) -> Scalar {
+    move |v| radius * (v / radius).cos()
+}
+
+/// `(major angle, minor radius x tube angle)` of `point` in a torus's own
+/// chart, the tube angle measured from the outer equator.
+fn to_uv_torus(
+    centre: [Scalar; D],
+    axis: [Scalar; D],
+    major: Scalar,
+    minor: Scalar,
+    point: [Scalar; D],
+) -> [Scalar; 2] {
+    let (u_hat, v_hat) = basis(axis);
+    let rel: [Scalar; D] = from_fn(|k| point[k] - centre[k]);
+    let along = dot(rel, axis);
+    let radial: [Scalar; D] = from_fn(|k| rel[k] - along * axis[k]);
+    let rho = dot(radial, radial).sqrt();
+    [
+        dot(radial, v_hat).atan2(dot(radial, u_hat)),
+        minor * along.atan2(rho - major),
+    ]
+}
+
+/// The point at `(u, v)` on the torus, and its outward unit normal.
+fn torus_uv_point(
+    centre: [Scalar; D],
+    axis: [Scalar; D],
+    major: Scalar,
+    minor: Scalar,
+    [u, v]: [Scalar; 2],
+) -> ([Scalar; D], [Scalar; D]) {
+    let tube = v / minor;
+    let direction = uv_direction(axis, u);
+    let normal: [Scalar; D] = from_fn(|k| tube.cos() * direction[k] + tube.sin() * axis[k]);
+    let point = from_fn(|k| centre[k] + major * direction[k] + minor * normal[k]);
+    (point, normal)
+}
+
+/// Metres of arc per radian of major angle at chart height `v` on a torus.
+fn torus_weight(major: Scalar, minor: Scalar) -> impl Fn(Scalar) -> Scalar {
+    move |v| major + minor * (v / minor).cos()
+}
+
+/// `delta` reduced into `(-period/2, period/2]`.
+fn wrap_by(delta: Scalar, period: Scalar) -> Scalar {
+    wrap(delta / period * std::f64::consts::TAU) * period / std::f64::consts::TAU
+}
+
 fn dot(a: [Scalar; D], b: [Scalar; D]) -> Scalar {
     (0..D).map(|k| a[k] * b[k]).sum()
+}
+
+/// `v` normalized, or `None` when it is too short to have a direction.
+fn unit(v: [Scalar; D]) -> Option<[Scalar; D]> {
+    let norm = dot(v, v).sqrt();
+    (norm > 1.0e-30).then(|| v.map(|x| x / norm))
 }
 
 /// An orthonormal pair spanning the plane perpendicular to `axis`.
@@ -766,9 +1093,20 @@ fn ellipse_sinusoid(
 /// Whether `uv` lies inside `rings`, trying both neighbouring turns since `u`
 /// is periodic and the rings may be unwrapped past a single turn.
 fn periodic_contains(uv: [Scalar; 2], rings: &[Ring]) -> bool {
-    [0.0, std::f64::consts::TAU, -std::f64::consts::TAU]
-        .into_iter()
-        .any(|shift| ring_contains([uv[0] + shift, uv[1]], rings))
+    chart_contains(uv, rings, None)
+}
+
+/// [`periodic_contains`], additionally shifting `v` by `v_period` when the
+/// chart wraps in `v` too (the torus's tube angle).
+fn chart_contains(uv: [Scalar; 2], rings: &[Ring], v_period: Option<Scalar>) -> bool {
+    let turns = [0.0, std::f64::consts::TAU, -std::f64::consts::TAU];
+    let v_shifts = v_period.map_or([0.0; 3], |period| [0.0, period, -period]);
+    let count = if v_period.is_some() { 3 } else { 1 };
+    turns.into_iter().any(|shift| {
+        v_shifts[..count]
+            .iter()
+            .any(|rise| ring_contains([uv[0] + shift, uv[1] + rise], rings))
+    })
 }
 
 /// Even-odd ray-crossing test against `rings` (line segments as usual; a
@@ -822,10 +1160,27 @@ fn periodic_nearest(
     rings: &[Ring],
     weight: impl Fn(Scalar) -> Scalar,
 ) -> [Scalar; 2] {
+    chart_nearest(uv, rings, weight, None)
+}
+
+/// [`periodic_nearest`], additionally shifting `v` by `v_period` when the chart
+/// wraps in `v` too.
+fn chart_nearest(
+    uv: [Scalar; 2],
+    rings: &[Ring],
+    weight: impl Fn(Scalar) -> Scalar,
+    v_period: Option<Scalar>,
+) -> [Scalar; 2] {
+    let turns = [0.0, std::f64::consts::TAU, -std::f64::consts::TAU];
+    let rises = v_period.map_or([0.0; 3], |period| [0.0, period, -period]);
+    let count = if v_period.is_some() { 3 } else { 1 };
     let mut best = uv;
     let mut best_distance = Scalar::INFINITY;
-    for shift in [0.0, std::f64::consts::TAU, -std::f64::consts::TAU] {
-        let query = [uv[0] + shift, uv[1]];
+    for (shift, rise) in turns
+        .into_iter()
+        .flat_map(|shift| rises[..count].iter().map(move |&rise| (shift, rise)))
+    {
+        let query = [uv[0] + shift, uv[1] + rise];
         for ring in rings {
             let count = ring.len();
             for i in 0..count {
@@ -850,7 +1205,7 @@ fn periodic_nearest(
                 let distance = (candidate[0] - query[0]).powi(2) + (candidate[1] - query[1]).powi(2);
                 if distance < best_distance {
                     best_distance = distance;
-                    best = [candidate[0] - shift, candidate[1]];
+                    best = [candidate[0] - shift, candidate[1] - rise];
                 }
             }
         }

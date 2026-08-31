@@ -932,3 +932,73 @@ pub(crate) fn square_with_splined_hole() -> Brep {
         shells: vec![Shell { faces: vec![0], closed: false }],
     }
 }
+
+/// A quarter of a torus tube about `+z`: `u` swept from `0` to `angle` and the
+/// tube swept from the outer equator up to the top — partial in both chart
+/// directions, so its trim is a genuine four-edge polygon (a fillet remnant,
+/// the shape real blend faces leave).
+pub(crate) fn partial_torus(major: f64, minor: f64, angle: f64) -> Brep {
+    let point = |u: f64, t: f64| {
+        [
+            (major + minor * t.cos()) * u.cos(),
+            (major + minor * t.cos()) * u.sin(),
+            minor * t.sin(),
+        ]
+    };
+    let top = std::f64::consts::FRAC_PI_2;
+    let vertices = [point(0.0, 0.0), point(angle, 0.0), point(angle, top), point(0.0, top)]
+        .map(Coordinate::const_from)
+        .to_vec();
+    // Each edge is a circle whose axis the reader would have oriented so the
+    // edge runs CCW about it.
+    let circle = |centre: [f64; 3], axis: [f64; 3], radius: f64| {
+        Curve::Circle(Circle {
+            center: Coordinate::const_from(centre),
+            axis: direction(axis),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        })
+    };
+    let (sin, cos) = (angle.sin(), angle.cos());
+    let edges = vec![
+        Edge {
+            vertices: [0, 1],
+            curve: circle([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], major + minor),
+        },
+        Edge {
+            vertices: [1, 2],
+            curve: circle([major * cos, major * sin, 0.0], [sin, -cos, 0.0], minor),
+        },
+        Edge {
+            vertices: [2, 3],
+            curve: circle([0.0, 0.0, minor], [0.0, 0.0, -1.0], major),
+        },
+        Edge {
+            vertices: [3, 0],
+            curve: circle([major, 0.0, 0.0], [0.0, 1.0, 0.0], minor),
+        },
+    ];
+    let faces = vec![Face {
+        surface: Surface::Torus(Torus {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            major_radius: major,
+            minor_radius: minor,
+        }),
+        bounds: vec![Loop {
+            half_edges: [(0, true), (1, true), (2, true), (3, true)]
+                .into_iter()
+                .map(|(edge, forward)| HalfEdge { edge, forward })
+                .collect(),
+        }],
+        poles: vec![],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0], closed: false }],
+    }
+}

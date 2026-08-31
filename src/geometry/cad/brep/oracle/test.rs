@@ -5,7 +5,7 @@ use crate::{
             curve::Ellipse,
             test::{
                 ball, bulged_plate, capped_cylinder, cone, cylinder_with_elliptical_rim, direction,
-                cylinder_with_splined_rim, partial_cylinder, partial_sphere,
+                cylinder_with_splined_rim, partial_cylinder, partial_sphere, partial_torus,
                 square_with_rounded_hole, square_with_splined_hole, torus, unit_cube,
             },
         },
@@ -200,8 +200,82 @@ fn a_planar_patch_box_covers_a_bulging_arc_edge() {
 }
 
 #[test]
-fn rejects_a_partial_spherical_face() {
-    assert!(partial_sphere(2.0).oracle().is_err());
+fn accepts_a_partial_spherical_face() {
+    assert!(partial_sphere(2.0).oracle().is_ok());
+}
+
+#[test]
+fn a_hemisphere_has_no_phantom_surface_below_its_rim() {
+    // The equator runs CCW about +z on an outward-facing face, so the trimmed
+    // patch is the northern cap; the southern half must not be there.
+    let oracle = partial_sphere(2.0).oracle().unwrap();
+    let query = Coordinate::from([1.0, 0.0, -3.0]);
+    let (point, _) = oracle.project(&query).unwrap();
+    let [x, y, z] = components(&point);
+    // A whole sphere would answer with the radial projection, well below z = 0.
+    assert!(z.abs() < 1.0e-6, "landed at z = {z}, not on the rim");
+    assert!((x.hypot(y) - 2.0).abs() < 1.0e-6);
+    assert!(y.atan2(x).abs() < 1.0e-6, "rim point drifted off the query meridian");
+    // And a point over the kept cap still projects radially onto it.
+    let north = Coordinate::from([0.0, 0.0, 3.0]);
+    let (point, _) = oracle.project(&north).unwrap();
+    assert!(close(&components(&point), &[0.0, 0.0, 2.0]));
+}
+
+/// The same patch with every half-edge walked backwards. The reader orients a
+/// circle's axis for its edge's own direction, so a reversed half-edge has to
+/// turn about the negated axis; taking the positive turn regardless sends the
+/// chord the long way round and the ring gains a whole spurious turn.
+#[test]
+fn a_toroidal_trim_survives_a_loop_walked_backwards() {
+    let angle = std::f64::consts::FRAC_PI_2;
+    let mut brep = partial_torus(4.0, 1.5, angle);
+    let half_edges = &mut brep.faces[0].bounds[0].half_edges;
+    half_edges.reverse();
+    half_edges.iter_mut().for_each(|half_edge| half_edge.forward = false);
+    let oracle = brep.oracle().expect("reversed loop did not close");
+    let (major, minor) = (4.0, 1.5);
+    let past = angle + 0.5;
+    let tube = std::f64::consts::FRAC_PI_4;
+    let on_surface = [
+        (major + minor * tube.cos()) * past.cos(),
+        (major + minor * tube.cos()) * past.sin(),
+        minor * tube.sin(),
+    ];
+    let (point, _) = oracle.project(&Coordinate::from(on_surface)).unwrap();
+    let [x, y, _] = components(&point);
+    assert!((y.atan2(x) - angle).abs() < 1.0e-6, "reversed trim lost the u rim");
+}
+
+#[test]
+fn accepts_a_partial_toroidal_face() {
+    assert!(partial_torus(4.0, 1.5, std::f64::consts::FRAC_PI_2).oracle().is_ok());
+}
+
+#[test]
+fn a_partial_toroidal_face_has_no_phantom_tube_in_the_gap() {
+    let angle = std::f64::consts::FRAC_PI_2;
+    let oracle = partial_torus(4.0, 1.5, angle).oracle().unwrap();
+    // Sitting exactly on the untrimmed tube, a quarter turn past the patch: a
+    // phantom full torus would leave this point where it is.
+    let past = angle + 0.5;
+    let (major, minor) = (4.0, 1.5);
+    let tube = std::f64::consts::FRAC_PI_4;
+    let on_surface = [
+        (major + minor * tube.cos()) * past.cos(),
+        (major + minor * tube.cos()) * past.sin(),
+        minor * tube.sin(),
+    ];
+    let (point, _) = oracle.project(&Coordinate::from(on_surface)).unwrap();
+    let [x, y, _] = components(&point);
+    assert!(
+        (y.atan2(x) - angle).abs() < 1.0e-6,
+        "did not snap back to the u = {angle} rim"
+    );
+    // Below the outer equator is off the patch in the tube direction too.
+    let under = [major + minor, 0.0, -0.5];
+    let (point, _) = oracle.project(&Coordinate::from(under)).unwrap();
+    assert!(components(&point)[2] > -1.0e-6, "kept a phantom lower tube");
 }
 
 #[test]
