@@ -23,9 +23,9 @@ use std::array::from_fn;
 /// surface's own (angle, axial distance) chart, so a genuine partial sweep
 /// (fillet, chamfer remnant) is meshable; on a cylinder, a tilted elliptical
 /// edge (an oblique planar cut) is trimmed exactly too, via the sinusoid it
-/// traces in that chart. A tilted edge on a cone, or a free-form edge on
-/// either, still errs. Spherical and toroidal faces are taken whole. A
-/// B-spline face errs.
+/// traces in that chart. A free-form (B-spline) edge is chorded into straight
+/// sub-segments; a tilted edge on a cone still errs. Spherical and toroidal
+/// faces are taken whole. A B-spline face errs.
 ///
 /// [`signed_distance`](Self::signed_distance)'s sign is a ray-parity test
 /// against these trimmed faces (OCCT's `BRepClass3d_SolidClassifier`
@@ -131,6 +131,25 @@ impl Brep {
                 }
             };
             let end_point: [Scalar; D] = from_fn(|k| self.vertices[end][k].value());
+            if let Curve::BSpline(bspline) = &edge.curve {
+                // No closed-form trace in this chart for a general B-spline:
+                // chord it into straight sub-segments. Fixed count for now;
+                // adaptive-by-curvature is a later refinement.
+                const SAMPLES: usize = 32;
+                let mut point = current;
+                for sample in bspline
+                    .segment(&self.vertices[start], &self.vertices[end], SAMPLES)
+                    .iter()
+                    .skip(1)
+                {
+                    let raw: [Scalar; D] = from_fn(|k| sample[k].value());
+                    let [u, v] = to_uv(origin, axis, raw);
+                    ring.push((point, None));
+                    point = [point[0] + wrap(u - point[0]), v];
+                }
+                cursor = Some(point);
+                continue;
+            }
             let (kind, next) = match &edge.curve {
                 Curve::Line(_) => {
                     let [u_end, v_end] = to_uv(origin, axis, end_point);

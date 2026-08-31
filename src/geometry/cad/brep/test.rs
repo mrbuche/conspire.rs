@@ -1,6 +1,6 @@
 use super::{
     Brep, Edge, Face, HalfEdge, Loop, Shell,
-    curve::{Circle, Curve, Ellipse, Line},
+    curve::{BSpline, Circle, Curve, Ellipse, Line},
     surface::{Cone, Cylinder, Plane, Sphere, Surface, Torus},
 };
 use crate::geometry::{Coordinate, Direction};
@@ -770,6 +770,158 @@ pub(crate) fn cylinder_with_elliptical_rim(radius: f64, angle: f64) -> Brep {
                 .map(|(edge, forward)| HalfEdge { edge, forward })
                 .collect(),
         }],
+        poles: vec![],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0], closed: false }],
+    }
+}
+
+/// A degree-1 clamped B-spline interpolating `points`: the polyline itself,
+/// evaluated by the same De Boor path a STEP free-form edge takes.
+fn polyline_spline(points: Vec<Coordinate<3>>) -> Curve {
+    let last = points.len() - 1;
+    Curve::BSpline(BSpline {
+        degree: 1,
+        knots: (0..=last).map(|i| i as f64).collect(),
+        multiplicities: (0..=last).map(|i| if i == 0 || i == last { 2 } else { 1 }).collect(),
+        control_points: points,
+        weights: None,
+    })
+}
+
+/// A single cylindrical face about `+z`, radius `radius`, swept from angle `0`
+/// to `angle`: a flat circular rim at the bottom and a free-form (B-spline)
+/// rim `z = 5 - sin(u) / 2` at the top — the trim a blended cut leaves.
+pub(crate) fn cylinder_with_splined_rim(radius: f64, angle: f64) -> Brep {
+    let top = |a: f64| 5.0 - 0.5 * a.sin();
+    let point = |a: f64, z: f64| [radius * a.cos(), radius * a.sin(), z];
+    let vertices = [
+        point(0.0, 0.0),
+        point(angle, 0.0),
+        point(angle, top(angle)),
+        point(0.0, top(0.0)),
+    ]
+    .map(Coordinate::const_from)
+    .to_vec();
+    const CONTROL: usize = 9;
+    let rim = (0..CONTROL)
+        .map(|i| {
+            let a = angle * (1.0 - i as f64 / (CONTROL - 1) as f64);
+            Coordinate::const_from(point(a, top(a)))
+        })
+        .collect();
+    let edges = vec![
+        Edge {
+            vertices: [0, 1],
+            curve: Curve::Circle(Circle {
+                center: Coordinate::const_from([0.0, 0.0, 0.0]),
+                axis: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius,
+            }),
+        },
+        Edge {
+            vertices: [1, 2],
+            curve: Curve::Line(Line {
+                origin: Coordinate::const_from(point(angle, 0.0)),
+                direction: direction([0.0, 0.0, 1.0]),
+            }),
+        },
+        Edge {
+            vertices: [2, 3],
+            curve: polyline_spline(rim),
+        },
+        Edge {
+            vertices: [3, 0],
+            curve: Curve::Line(Line {
+                origin: Coordinate::const_from(point(0.0, top(0.0))),
+                direction: direction([0.0, 0.0, -1.0]),
+            }),
+        },
+    ];
+    let faces = vec![Face {
+        surface: Surface::Cylinder(Cylinder {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+        bounds: vec![Loop {
+            half_edges: [(0, true), (1, true), (2, true), (3, true)]
+                .into_iter()
+                .map(|(edge, forward)| HalfEdge { edge, forward })
+                .collect(),
+        }],
+        poles: vec![],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0], closed: false }],
+    }
+}
+
+/// A 10 x 10 `+z` plate holed by a loop of four rational quadratic B-spline
+/// quarter-circles (radius 2 about `(5, 5)`) — a free-form inner trim.
+pub(crate) fn square_with_splined_hole() -> Brep {
+    let (centre, radius) = ([5.0, 5.0], 2.0);
+    let corner = |i: usize| {
+        let a = std::f64::consts::FRAC_PI_2 * i as f64;
+        Coordinate::const_from([centre[0] + radius * a.cos(), centre[1] + radius * a.sin(), 0.0])
+    };
+    let mut vertices = [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [10.0, 10.0, 0.0], [0.0, 10.0, 0.0]]
+        .map(Coordinate::const_from)
+        .to_vec();
+    vertices.extend((0..4).map(corner));
+    let line = |a: usize, b: usize| Edge {
+        vertices: [a, b],
+        curve: Curve::Line(Line {
+            origin: Coordinate::const_from([0.0; 3]),
+            direction: direction([1.0, 0.0, 0.0]),
+        }),
+    };
+    let mut edges = vec![line(0, 1), line(1, 2), line(2, 3), line(3, 0)];
+    edges.extend((0..4).map(|i| {
+        let (start, end) = (corner(i), corner((i + 1) % 4));
+        let middle = Coordinate::const_from([
+            start[0].value() + end[0].value() - centre[0],
+            start[1].value() + end[1].value() - centre[1],
+            0.0,
+        ]);
+        Edge {
+            vertices: [4 + i, 4 + (i + 1) % 4],
+            curve: Curve::BSpline(BSpline {
+                degree: 2,
+                control_points: vec![start, middle, end],
+                knots: vec![0.0, 1.0],
+                multiplicities: vec![3, 3],
+                weights: Some(vec![1.0, std::f64::consts::FRAC_1_SQRT_2, 1.0]),
+            }),
+        }
+    }));
+    let bound = |half_edges: &[(usize, bool)]| Loop {
+        half_edges: half_edges
+            .iter()
+            .map(|&(edge, forward)| HalfEdge { edge, forward })
+            .collect(),
+    };
+    let faces = vec![Face {
+        surface: Surface::Plane(Plane {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            normal: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+        }),
+        bounds: vec![
+            bound(&[(0, true), (1, true), (2, true), (3, true)]),
+            bound(&[(4, true), (5, true), (6, true), (7, true)]),
+        ],
         poles: vec![],
         forward: true,
     }];

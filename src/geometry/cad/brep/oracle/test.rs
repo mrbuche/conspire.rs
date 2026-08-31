@@ -5,7 +5,8 @@ use crate::{
             curve::Ellipse,
             test::{
                 ball, bulged_plate, capped_cylinder, cone, cylinder_with_elliptical_rim, direction,
-                partial_cylinder, partial_sphere, square_with_rounded_hole, torus, unit_cube,
+                cylinder_with_splined_rim, partial_cylinder, partial_sphere,
+                square_with_rounded_hole, square_with_splined_hole, torus, unit_cube,
             },
         },
         solid::SolidOracle,
@@ -251,4 +252,45 @@ fn axial_span_rejects_a_face_with_no_vertices() {
 fn axial_span_rejects_a_degenerate_zero_height_face() {
     let points: Vec<[f64; 3]> = vec![[1.0, 0.0, 3.0], [-1.0, 0.0, 3.0], [0.0, 1.0, 3.0]];
     assert!(super::axial_span(&points, [0.0; 3], [0.0, 0.0, 1.0]).is_err());
+}
+
+#[test]
+fn accepts_a_cylindrical_face_with_a_free_form_rim() {
+    assert!(
+        cylinder_with_splined_rim(2.0, std::f64::consts::FRAC_PI_2)
+            .oracle()
+            .is_ok()
+    );
+}
+
+#[test]
+fn a_b_spline_rim_trims_to_the_true_curve_not_a_flat_one() {
+    let angle = std::f64::consts::FRAC_PI_2;
+    let oracle = cylinder_with_splined_rim(2.0, angle).oracle().unwrap();
+    // Mid-sweep, well above the rim: it must fall onto `z = 5 - sin(u)/2`,
+    // which at u = pi/4 sits 0.35 below the flat cut a chord-free trim gives.
+    let u = angle / 2.0;
+    let query = Coordinate::from([2.0 * u.cos(), 2.0 * u.sin(), 8.0]);
+    let (point, _) = oracle.project(&query).unwrap();
+    let [x, y, z] = components(&point);
+    assert!((z - (5.0 - 0.5 * y.atan2(x).sin())).abs() < 0.01, "landed at z = {z}");
+    // A point already on the trimmed wall must not move.
+    let inside = Coordinate::from([2.0 * u.cos(), 2.0 * u.sin(), 2.0]);
+    let (point, _) = oracle.project(&inside).unwrap();
+    assert!(close(&components(&point), &[2.0 * u.cos(), 2.0 * u.sin(), 2.0]));
+}
+
+#[test]
+fn accepts_a_planar_face_with_a_b_spline_hole() {
+    let brep = square_with_splined_hole();
+    let face = brep.planar_face(&brep.faces[0]).unwrap();
+    assert!(brep.oracle().is_ok());
+    // The rational quarter-circles bound a radius-2 hole about (5, 5).
+    assert!(!face.contains([5.0, 5.0]));
+    assert!(!face.contains([6.4, 5.0]));
+    assert!(face.contains([7.5, 5.0]));
+    assert!(face.contains([5.0, 8.0]));
+    let boundary = face.nearest_boundary([5.0, 5.0 + 1.0]);
+    let radius = ((boundary[0] - 5.0).powi(2) + (boundary[1] - 5.0).powi(2)).sqrt();
+    assert!((radius - 2.0).abs() < 0.01, "nearest hole boundary at radius {radius}");
 }

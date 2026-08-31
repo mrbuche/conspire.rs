@@ -24,9 +24,10 @@ pub struct Arc2 {
 /// basis `(u, v)` with `v = normal x u`, the outward unit normal, and every
 /// bounding loop projected into that frame. A ring is a sequence of `(point,
 /// arc to the next point)` pairs — `None` for a straight edge — so a loop may
-/// mix straight rulings and circular fillet arcs; a loop that is itself one
-/// whole circle (or two matching half-circles) is stored separately as an
-/// exact `(centre, radius)` disk/annulus.
+/// mix straight rulings, circular fillet arcs and free-form (elliptical or
+/// B-spline) edges, the last chorded into straight sub-segments; a loop that
+/// is itself one whole circle (or two matching half-circles) is stored
+/// separately as an exact `(centre, radius)` disk/annulus.
 pub struct PlanarFace {
     pub origin: Coordinate<D>,
     pub normal: Direction<D>,
@@ -222,15 +223,20 @@ impl Brep {
                     return Err("planar face's split circular loop is inconsistent");
                 }
                 circles.push((uv(&a.center), a.radius));
-            } else if curves.iter().all(|curve| matches!(curve, Curve::Line(_) | Curve::Circle(_))) {
-                // A genuine mix of straight rulings and fillet arcs (e.g. a
-                // rounded-rectangle hole): keep every edge, in order, as an
-                // exact straight or arc segment — no chord approximation.
+            } else {
+                // A genuine mix of straight rulings, fillet arcs and free-form
+                // edges (e.g. a rounded-rectangle or splined hole): keep every
+                // edge, in order. A straight or circular edge stays exact; an
+                // ellipse or B-spline is chorded into straight sub-segments.
+                const SAMPLES: usize = 32;
                 let mut mixed = Vec::with_capacity(ring.len());
                 for (i, half_edge) in bound.half_edges.iter().enumerate() {
-                    let point = uv(&self.vertices[ring[i]]);
-                    let arc = match &self.edges[half_edge.edge].curve {
-                        Curve::Line(_) => None,
+                    let edge = &self.edges[half_edge.edge];
+                    let start = &self.vertices[ring[i]];
+                    let end = &self.vertices[edge.vertices[usize::from(half_edge.forward)]];
+                    let point = uv(start);
+                    match &edge.curve {
+                        Curve::Line(_) => mixed.push((point, None)),
                         Curve::Circle(circle) => {
                             if !parallel(&circle.axis, &normal) {
                                 return Err("planar face's circular edge is not in the face plane");
@@ -239,15 +245,20 @@ impl Brep {
                                 .map(|k| circle.axis[k].value() * normal[k].value())
                                 .sum::<Scalar>();
                             let ccw = if half_edge.forward { alignment > 0.0 } else { alignment < 0.0 };
-                            Some(Arc2 { centre: uv(&circle.center), radius: circle.radius, ccw })
+                            let arc =
+                                Arc2 { centre: uv(&circle.center), radius: circle.radius, ccw };
+                            mixed.push((point, Some(arc)));
                         }
-                        _ => unreachable!("checked all-Line-or-Circle above"),
-                    };
-                    mixed.push((point, arc));
+                        curve => {
+                            let chords = chord(curve, start, end, SAMPLES);
+                            mixed.extend(chords.iter().rev().skip(1).rev().map(|p| (uv(p), None)));
+                        }
+                    }
+                }
+                if mixed.len() < 3 {
+                    return Err("planar face has a mixed or partial trimming loop");
                 }
                 rings.push(mixed);
-            } else {
-                return Err("planar face has a mixed or partial trimming loop");
             }
         }
 
@@ -262,6 +273,35 @@ impl Brep {
             outline,
             aabb,
         })
+    }
+}
+
+/// A free-form edge from `start` to `end` chorded into `samples` points, both
+/// ends included.
+fn chord(
+    curve: &Curve,
+    start: &Coordinate<D>,
+    end: &Coordinate<D>,
+    samples: usize,
+) -> Vec<Coordinate<D>> {
+    let raw = |point: &Coordinate<D>| from_fn::<Scalar, D, _>(|k| point[k].value());
+    match curve {
+        Curve::Ellipse(ellipse) => {
+            let closed = (0..D).all(|k| (start[k].value() - end[k].value()).abs() <= EPSILON);
+            crate::geometry::cad::sizing::arc_polyline(
+                raw(&ellipse.center),
+                from_fn(|k| ellipse.axis[k].value()),
+                from_fn(|k| ellipse.reference_direction[k].value()),
+                ellipse.major_radius,
+                ellipse.minor_radius,
+                raw(start),
+                raw(end),
+                closed,
+                samples - 1,
+            )
+        }
+        Curve::BSpline(bspline) => bspline.segment(start, end, samples),
+        _ => vec![start.clone(), end.clone()],
     }
 }
 

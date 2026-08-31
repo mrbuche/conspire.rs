@@ -474,12 +474,13 @@ fn sample_edge(brep: &Brep, edge: &Edge, samples: usize) -> Vec<Coordinate<D>> {
             ia == ib,
             samples,
         ),
-        Curve::Line(_) | Curve::BSpline(_) => vec![a.clone(), b.clone()],
+        Curve::BSpline(bspline) => bspline.segment(a, b, samples + 1),
+        Curve::Line(_) => vec![a.clone(), b.clone()],
     }
 }
 
 #[expect(clippy::too_many_arguments)]
-fn arc_polyline(
+pub(in crate::geometry::cad) fn arc_polyline(
     centre: [Scalar; D],
     normal: [Scalar; D],
     reference: [Scalar; D],

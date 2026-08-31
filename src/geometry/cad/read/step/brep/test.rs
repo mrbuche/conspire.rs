@@ -1355,6 +1355,28 @@ fn unwraps_surface_curve_edge_geometry() {
 }
 
 #[test]
+fn unwraps_trimmed_and_implied_knot_curves() {
+    use crate::geometry::cad::brep::curve::Curve;
+
+    let text = CYLINDER_INDIRECT.replace(
+        "#47 = SURFACE_CURVE('',#45,(#65,#63),.CURVE_3D.);",
+        "#47 = TRIMMED_CURVE('',#48,(PARAMETER_VALUE(0.)),(PARAMETER_VALUE(1.)),.T.,.UNSPECIFIED.);\n\
+         #48 = QUASI_UNIFORM_CURVE('',1,(#12,#13),.UNSPECIFIED.,.F.,.U.);",
+    );
+    let brep = read(&text).unwrap();
+    let Curve::BSpline(seam) = &brep.edges[2].curve else {
+        panic!("seam edge did not resolve through TRIMMED_CURVE to a B-spline");
+    };
+    assert_eq!(seam.degree, 1);
+    assert_eq!(seam.knots, vec![0.0, 1.0]);
+    assert_eq!(seam.multiplicities, vec![2, 2]);
+    let middle = seam.point(0.5);
+    assert!((middle[0].value() - 2.0).abs() < 1.0e-12);
+    assert!((middle[2].value() - 2.5).abs() < 1.0e-12);
+    assert!(brep.oracle().is_ok());
+}
+
+#[test]
 fn rejects_missing_solid() {
     let text = "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n#1 = PLANE('',#2);\n#2 = AXIS2_PLACEMENT_3D('',$,$,$);\nENDSEC;\nEND-ISO-10303-21;\n";
     assert!(

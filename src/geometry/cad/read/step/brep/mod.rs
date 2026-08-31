@@ -256,6 +256,12 @@ impl<'a> Reader<'a> {
         if let Ok(record) = self.any(id, &["SURFACE_CURVE", "SEAM_CURVE", "INTERSECTION_CURVE"]) {
             return self.curve(reference(&record.parameters, 1)?, same_sense);
         }
+        if let Ok(record) = self.record(id, "TRIMMED_CURVE") {
+            // The trim parameters are dropped: an edge is bounded by its own
+            // vertices, which the curve is later restricted between.
+            let agreement = boolean(&record.parameters, 4)?;
+            return self.curve(reference(&record.parameters, 1)?, same_sense == agreement);
+        }
         if let Ok(record) = self.record(id, "LINE") {
             let origin = self.point(reference(&record.parameters, 1)?)?;
             let vector = self.record(reference(&record.parameters, 2)?, "VECTOR")?;
@@ -295,7 +301,13 @@ impl<'a> Reader<'a> {
                 minor_radius,
             }));
         }
-        if let Ok(record) = self.record(id, "B_SPLINE_CURVE_WITH_KNOTS") {
+        // The implied-knot subtypes carry no knot vector of their own; it is
+        // synthesized from the form and the control point count.
+        let implied = ["UNIFORM_CURVE", "QUASI_UNIFORM_CURVE", "BEZIER_CURVE"]
+            .into_iter()
+            .find_map(|keyword| self.record(id, keyword).ok().map(|record| (keyword, record)));
+        let knotted = self.record(id, "B_SPLINE_CURVE_WITH_KNOTS").ok();
+        if let Some(record) = knotted.or(implied.map(|(_, record)| record)) {
             let base = self.record(id, "B_SPLINE_CURVE").ok();
             let (degree, control_points, own) = match &base {
                 // Combined form: B_SPLINE_CURVE holds degree and control points;
@@ -313,6 +325,13 @@ impl<'a> Reader<'a> {
                     6,
                 ),
             };
+            let (knots, multiplicities) = match implied {
+                Some((keyword, _)) => implied_knots(keyword, degree, control_points.len()),
+                None => (
+                    reals(&record.parameters, own + 1)?,
+                    integers(&record.parameters, own)?,
+                ),
+            };
             let weights = self
                 .record(id, "RATIONAL_B_SPLINE_CURVE")
                 .ok()
@@ -320,13 +339,13 @@ impl<'a> Reader<'a> {
             return Ok(Curve::BSpline(BSpline {
                 degree,
                 control_points,
-                multiplicities: integers(&record.parameters, own)?,
-                knots: reals(&record.parameters, own + 1)?,
+                multiplicities,
+                knots,
                 weights,
             }));
         }
         Err(invalid(format!(
-            "STEP: #{id} is not a supported curve (only LINE, CIRCLE, ELLIPSE, B_SPLINE_CURVE_WITH_KNOTS)"
+            "STEP: #{id} is not a supported curve (only LINE, CIRCLE, ELLIPSE, B_SPLINE_CURVE_WITH_KNOTS, UNIFORM_CURVE, QUASI_UNIFORM_CURVE, BEZIER_CURVE)"
         )))
     }
 
@@ -502,6 +521,26 @@ fn integer(parameter: &Parameter) -> Result<usize> {
         return Err(invalid(format!("STEP: expected a non-negative integer, found {value}")));
     }
     Ok(value as usize)
+}
+
+/// The knot vector implied by a `B_SPLINE_CURVE` subtype that carries none:
+/// `degree + 1` clamped ends for a Bezier or quasi-uniform curve, a plain
+/// `0, 1, 2, ...` ladder for a uniform one.
+fn implied_knots(keyword: &str, degree: usize, count: usize) -> (Vec<f64>, Vec<usize>) {
+    let segments = count.saturating_sub(degree);
+    match keyword {
+        "QUASI_UNIFORM_CURVE" if segments > 1 => (
+            (0..=segments).map(|i| i as f64).collect(),
+            (0..=segments)
+                .map(|i| if i == 0 || i == segments { degree + 1 } else { 1 })
+                .collect(),
+        ),
+        "UNIFORM_CURVE" => (
+            (0..count + degree + 1).map(|i| i as f64).collect(),
+            vec![1; count + degree + 1],
+        ),
+        _ => (vec![0.0, 1.0], vec![degree + 1, degree + 1]),
+    }
 }
 
 fn integers(parameters: &[Parameter], index: usize) -> Result<Vec<usize>> {
