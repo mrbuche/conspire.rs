@@ -5,7 +5,8 @@ use crate::{
             curve::Ellipse,
             test::{
                 ball, bulged_plate, capped_cylinder, cone, cylinder_with_elliptical_rim, direction,
-                cylinder_with_splined_rim, partial_cylinder, partial_sphere, partial_torus,
+                cylinder_with_splined_rim, partial_cone_to_apex, partial_cylinder,
+                partial_sphere, partial_torus,
                 square_with_rounded_hole, square_with_splined_hole, torus, unit_cube,
             },
         },
@@ -248,6 +249,45 @@ fn a_toroidal_trim_survives_a_loop_walked_backwards() {
 }
 
 #[test]
+fn accepts_a_conical_face_closing_to_its_apex() {
+    assert!(
+        partial_cone_to_apex(2.0, 5.0, std::f64::consts::FRAC_PI_2)
+            .oracle()
+            .is_ok()
+    );
+}
+
+#[test]
+fn a_cone_wedge_keeps_the_whole_patch_beside_its_apex() {
+    // The apex is the whole chart line `v = 0`, not one point on it: a ring
+    // that holds its angle across it cuts the corner and loses half the wedge.
+    let angle = std::f64::consts::FRAC_PI_2;
+    let (radius, height) = (2.0, 5.0);
+    let oracle = partial_cone_to_apex(radius, height, angle).oracle().unwrap();
+    // Mid-wedge and near the apex, on the surface: it must stay put.
+    for fraction in [0.15, 0.5, 0.85] {
+        let a = angle * fraction;
+        let level = 0.2;
+        let r = radius * level;
+        let on_surface = [r * a.cos(), r * a.sin(), height * (1.0 - level)];
+        let (point, _) = oracle.project(&Coordinate::from(on_surface)).unwrap();
+        let moved = components(&point)
+            .iter()
+            .zip(on_surface)
+            .map(|(x, y)| (x - y).powi(2))
+            .sum::<f64>()
+            .sqrt();
+        assert!(moved < 1.0e-6, "point at angle {a} near the apex moved {moved}");
+    }
+    // Outside the wedge there is no surface to sit on.
+    let a = angle + 0.6;
+    let query = [radius * a.cos(), radius * a.sin(), 0.0];
+    let (point, _) = oracle.project(&Coordinate::from(query)).unwrap();
+    let [x, y, _] = components(&point);
+    assert!(y.atan2(x) <= angle + 1.0e-6, "kept a phantom wedge past the ruling");
+}
+
+#[test]
 fn accepts_a_partial_toroidal_face() {
     assert!(partial_torus(4.0, 1.5, std::f64::consts::FRAC_PI_2).oracle().is_ok());
 }
@@ -368,3 +408,4 @@ fn accepts_a_planar_face_with_a_b_spline_hole() {
     let radius = ((boundary[0] - 5.0).powi(2) + (boundary[1] - 5.0).powi(2)).sqrt();
     assert!((radius - 2.0).abs() < 0.01, "nearest hole boundary at radius {radius}");
 }
+

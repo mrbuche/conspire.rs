@@ -119,14 +119,28 @@ impl Brep {
             } else {
                 (edge.vertices[1], edge.vertices[0])
             };
-            let current = match cursor {
-                Some(point) => point,
-                None => {
-                    let start_point: [Scalar; D] = from_fn(|k| self.vertices[start][k].value());
-                    to_uv(origin, axis, start_point)
-                }
-            };
+            let start_point: [Scalar; D] = from_fn(|k| self.vertices[start][k].value());
             let end_point: [Scalar; D] = from_fn(|k| self.vertices[end][k].value());
+            let mut current = match cursor {
+                Some(point) => point,
+                None => to_uv(origin, axis, start_point),
+            };
+            // A cone's apex sits on the axis, where the angle is undefined: it
+            // is the whole chart line `v = v_apex`, not one point on it. A
+            // ruling leaving the apex has to cross along that line to its own
+            // angle first, or the ring cuts the corner and drops half the
+            // patch; one running into the apex just holds the angle it came
+            // in on.
+            let (from_axis, to_axis) = (
+                radial_distance(origin, axis, start_point),
+                radial_distance(origin, axis, end_point),
+            );
+            let apex = |near: Scalar, far: Scalar| near <= far * 1.0e-6;
+            if matches!(&edge.curve, Curve::Line(_)) && apex(from_axis, to_axis) {
+                let [u_end, _] = to_uv(origin, axis, end_point);
+                ring.push((current, None));
+                current = [current[0] + wrap(u_end - current[0]), current[1]];
+            }
             if let Curve::BSpline(bspline) = &edge.curve {
                 // No closed-form trace in this chart for a general B-spline:
                 // chord it into straight sub-segments. Fixed count for now;
@@ -149,7 +163,8 @@ impl Brep {
             let (kind, next) = match &edge.curve {
                 Curve::Line(_) => {
                     let [u_end, v_end] = to_uv(origin, axis, end_point);
-                    if wrap(u_end - current[0]).abs() > 1.0e-6 {
+                    let on_axis = apex(from_axis, to_axis) || apex(to_axis, from_axis);
+                    if !on_axis && wrap(u_end - current[0]).abs() > 1.0e-6 {
                         return Err("non-axial straight edge on a curved face");
                     }
                     (None, [current[0], v_end])
@@ -987,6 +1002,14 @@ fn wrap_by(delta: Scalar, period: Scalar) -> Scalar {
 
 fn dot(a: [Scalar; D], b: [Scalar; D]) -> Scalar {
     (0..D).map(|k| a[k] * b[k]).sum()
+}
+
+/// Distance from `point` to the line through `origin` along `axis`.
+fn radial_distance(origin: [Scalar; D], axis: [Scalar; D], point: [Scalar; D]) -> Scalar {
+    let rel: [Scalar; D] = from_fn(|k| point[k] - origin[k]);
+    let along = dot(rel, axis);
+    let radial: [Scalar; D] = from_fn(|k| rel[k] - along * axis[k]);
+    dot(radial, radial).sqrt()
 }
 
 /// `v` normalized, or `None` when it is too short to have a direction.
