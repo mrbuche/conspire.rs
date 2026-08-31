@@ -15,7 +15,7 @@ fn point(coordinates: [f64; 3]) -> Coordinate<3> {
 
 #[test]
 fn grows_from_the_edges_inward() {
-    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(10.0), Some(1.0));
+    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), Some(length(10.0)), Some(1.0));
     let on_edge = field.at(&point([0.5, 0.0, 0.0])).value();
     let near_edge = field.at(&point([0.5, 0.02, 0.02])).value();
     let center = field.at(&point([0.5, 0.5, 0.5])).value();
@@ -28,23 +28,23 @@ fn grows_from_the_edges_inward() {
 
 #[test]
 fn segments_per_edge_scales_the_source() {
-    let coarse = FeatureSizing::of(&unit_cube(), 1, length(0.01), length(10.0), Some(1.0));
-    let fine = FeatureSizing::of(&unit_cube(), 4, length(0.01), length(10.0), Some(1.0));
+    let coarse = FeatureSizing::of(&unit_cube(), 1, length(0.01), Some(length(10.0)), Some(1.0));
+    let fine = FeatureSizing::of(&unit_cube(), 4, length(0.01), Some(length(10.0)), Some(1.0));
     assert!((coarse.at(&point([0.5, 0.0, 0.0])).value() - 1.0).abs() < 1e-12);
     assert!((fine.at(&point([0.5, 0.0, 0.0])).value() - 0.25).abs() < 1e-12);
 }
 
 #[test]
 fn respects_the_clamps() {
-    let capped = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(0.3), Some(1.0));
+    let capped = FeatureSizing::of(&unit_cube(), 2, length(0.05), Some(length(0.3)), Some(1.0));
     assert!((capped.at(&point([0.5, 0.5, 0.5])).value() - 0.3).abs() < 1e-12);
-    let floored = FeatureSizing::of(&unit_cube(), 8, length(0.4), length(10.0), Some(1.0));
+    let floored = FeatureSizing::of(&unit_cube(), 8, length(0.4), Some(length(10.0)), Some(1.0));
     assert!((floored.at(&point([0.5, 0.0, 0.0])).value() - 0.4).abs() < 1e-12);
 }
 
 #[test]
 fn unbounded_gradation_is_one_fine_layer() {
-    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(10.0), None);
+    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), Some(length(10.0)), None);
     let source = 0.5; // edge length 1.0 over 2 segments
     // Within one target size of an edge: the feature size.
     assert!((field.at(&point([0.5, 0.0, 0.0])).value() - source).abs() < 1e-12);
@@ -55,7 +55,7 @@ fn unbounded_gradation_is_one_fine_layer() {
 
 #[test]
 fn proximity_caps_the_interior_at_the_local_feature_size() {
-    let build = || FeatureSizing::of(&unit_cube(), 2, length(0.005), length(10.0), None);
+    let build = || FeatureSizing::of(&unit_cube(), 2, length(0.005), Some(length(10.0)), None);
     let plain = build();
     let near = build().with_proximity(&unit_cube(), 4).unwrap();
     // Without proximity the crease term leaves the interior at `maximum`.
@@ -75,7 +75,7 @@ fn proximity_sees_a_thin_slab() {
     use crate::geometry::cad::brep::test::axis_aligned_box;
     // 0.2 thin in x, thick in y and z.
     let brep = axis_aligned_box([0.2, 4.0, 8.0]);
-    let field = FeatureSizing::of(&brep, 2, length(1e-4), length(10.0), None)
+    let field = FeatureSizing::of(&brep, 2, length(1e-4), Some(length(10.0)), None)
         .with_proximity(&brep, 4)
         .unwrap();
     // Anywhere through the slab: capped at the 0.2 thickness / 4, not the
@@ -89,9 +89,63 @@ fn proximity_sees_a_thin_slab() {
 }
 
 #[test]
+fn curvature_resolves_a_bare_cylinder_wall() {
+    use crate::geometry::cad::brep::test::capped_cylinder;
+    // Radius 1, height 4: mid-height the lateral wall is two radii from either
+    // rim, so the crease term has long since ramped to `maximum`.
+    let brep = capped_cylinder(1.0, 4.0);
+    let plain = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), Some(0.2));
+    let curved = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), Some(0.2))
+        .with_curvature(&brep, 16)
+        .unwrap();
+    let on_wall = point([1.0, 0.0, 2.0]);
+    let expected = std::f64::consts::TAU / 16.0; // TAU * radius / sections
+    assert!(plain.at_cell(&on_wall, 0.05).value() > 4.0 * expected);
+    let got = curved.at_cell(&on_wall, 0.05).value();
+    assert!(
+        got > 0.75 * expected && got < 1.25 * expected,
+        "got {got}, expected ~{expected}"
+    );
+}
+
+#[test]
+fn proximity_anchors_a_curved_wall_all_the_way_around() {
+    use crate::geometry::cad::brep::test::capped_cylinder;
+    // The lateral wall is rotationally symmetric, so proximity must report the
+    // same size at every angle around it — the planar path alone leaves an
+    // azimuthal gap that a bore then inherits as lopsided refinement.
+    let brep = capped_cylinder(1.0, 4.0);
+    let plain = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), None);
+    let prox = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), None)
+        .with_proximity(&brep, 4)
+        .unwrap();
+    for deg in [0, 45, 90, 135, 180, 225, 270, 315] {
+        let t = (deg as f64).to_radians();
+        let p = point([t.cos(), t.sin(), 2.0]);
+        // The planar path never tiles this face; the crease ramp has hit its
+        // ceiling two radii from either rim.
+        assert!(plain.at(&p).value() > 1.0, "deg {deg}");
+        // With the revolved path every angle is anchored to the local
+        // through-dimension — no azimuthal gap.
+        assert!(prox.at(&p).value() < 0.5, "deg {deg}: {}", prox.at(&p).value());
+    }
+}
+
+#[test]
+fn curvature_leaves_the_far_field_alone() {
+    use crate::geometry::cad::brep::test::capped_cylinder;
+    let brep = capped_cylinder(1.0, 4.0);
+    let curved = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), Some(0.2))
+        .with_curvature(&brep, 16)
+        .unwrap();
+    // Well outside the wall band: back to the crease ramp / `maximum`.
+    assert!(curved.at_cell(&point([6.0, 0.0, 2.0]), 0.05).value() > 1.0);
+}
+
+#[test]
 fn obeys_the_gradation_bound() {
     let gradation = 0.7;
-    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), length(10.0), Some(gradation));
+    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), Some(length(10.0)), Some(gradation));
     let samples: [[f64; 3]; 5] = [
         [0.5, 0.0, 0.0],
         [0.5, 0.1, 0.1],

@@ -326,6 +326,20 @@ impl BrepOracle {
             .map_or(Scalar::INFINITY, |(_, _, distance)| distance)
     }
 
+    /// Distance to the first trimmed face along `origin + t·direction`, `t > 0`,
+    /// or `None` if the ray hits nothing. `direction` need not be unit.
+    pub fn ray_distance(
+        &self,
+        origin: &Coordinate<D>,
+        direction: [Scalar; D],
+    ) -> Option<Scalar> {
+        let origin: [Scalar; D] = from_fn(|k| origin[k].value());
+        self.ray_candidates(origin, direction)
+            .flat_map(|patch| patch.ray_hits(origin, direction))
+            .filter(|&t| t > 1.0e-9)
+            .fold(None, |best, t| Some(best.map_or(t, |b: Scalar| b.min(t))))
+    }
+
     /// The local through-dimension at `query`: the shortest surface-to-surface
     /// chord through it, searched along the coordinate axes and the nearest
     /// face's normal. This is the thickness of a wall or the width of a cavity

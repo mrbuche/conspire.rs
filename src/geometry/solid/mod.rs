@@ -36,6 +36,14 @@ type Cube = Orthotree<D, 4, 6, 8, u16, NonZeroU32>;
 pub trait Sizing: Sync {
     /// The target element size at `point`.
     fn at(&self, point: &Coordinate<D>) -> Quantity<Length>;
+
+    /// The target element size for a cubic cell centred at `center` with
+    /// half-edge `half`. The default is [`at`](Self::at) at the centre; a
+    /// surface-anchored proximity field overrides it so a thin feature crossing
+    /// the cell drives a split even when it misses the cell's centre.
+    fn at_cell(&self, center: &Coordinate<D>, _half: Scalar) -> Quantity<Length> {
+        self.at(center)
+    }
 }
 
 /// A constant target element size everywhere.
@@ -402,7 +410,6 @@ fn refine_octree(
     let low: [Scalar; D] = from_fn(|axis| low[axis].value());
     let high: [Scalar; D] = from_fn(|axis| high[axis].value());
     let root_cells = 1u16 << max_levels;
-    let center: Coordinate<D> = from_fn(|axis| 0.5 * (low[axis] + high[axis])).into();
     let side = (0..D)
         .map(|axis| high[axis] - low[axis])
         .fold(0.0, Scalar::max)
@@ -412,6 +419,18 @@ fn refine_octree(
     }
     let cell = Quantity::<Length>::new(side / Scalar::from(root_cells));
     let half = Scalar::from(root_cells) / 2.0;
+    // Snap the root so the world origin lands on a grid plane on every axis:
+    // grid lines sit at `center - side/2 + i*cell`, so rounding `center -
+    // side/2` to a whole number of finest cells puts a plane through 0. Geometry
+    // modelled symmetric about a coordinate plane then refines symmetrically
+    // instead of at whatever sub-cell phase the raw bbox centre happened to hit.
+    // The shift is under one finest cell, so it never unseats the geometry.
+    let center: Coordinate<D> = from_fn(|axis| {
+        let raw = 0.5 * (low[axis] + high[axis]);
+        let base = raw - 0.5 * side;
+        raw - (base - (base / cell.value()).round() * cell.value())
+    })
+    .into();
 
     let mut tree: Cube = Orthotree {
         balanced: Balancing::None,
@@ -448,9 +467,10 @@ fn refine_octree(
                     let base = block * chunk;
                     out.iter_mut().enumerate().for_each(|(local, coarse)| {
                         let node = &tree.nodes[frontier[base + local]];
+                        let extent = cell * Scalar::from(node.length);
+                        let half = 0.5 * extent.value();
                         *coarse = node.length > 1
-                            && cell * Scalar::from(node.length)
-                                > sizing.at(&physical(node.center()));
+                            && extent > sizing.at_cell(&physical(node.center()), half);
                     });
                 });
             });

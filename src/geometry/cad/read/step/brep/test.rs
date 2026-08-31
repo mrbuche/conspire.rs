@@ -342,7 +342,7 @@ fn read_cylinder_meshes_through_the_analytic_oracle() {
     let length = |v| Quantity::<Length>::new(v);
     let mesh = brep
         .mesh(
-            &FeatureSizing::of(&brep, 32, length(0.2), length(1.0), Some(0.25)),
+            &FeatureSizing::of(&brep, 32, length(0.2), Some(length(1.0)), Some(0.25)),
             Some(6),
             0.1,
             Balancing::Strong(1),
@@ -586,6 +586,10 @@ fn probe_mesh_step_dir() {
         std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
     };
     let cell = env_f64("STEP_MESH_CELL", 3.0e-3);
+    // STEP_MESH_CELL=none => no ceiling: cells grow to the octree root away
+    // from the part.
+    let maximum = (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none"))
+        .then(|| Quantity::<Length>::new(cell));
     let minimum = env_f64("STEP_MESH_MIN", 4.0e-4);
     let segments = env_f64("STEP_MESH_SEGMENTS", 32.0) as usize;
     let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
@@ -594,6 +598,9 @@ fn probe_mesh_step_dir() {
         Err(_) => Some(0.2),
     };
     let proximity: Option<usize> = std::env::var("STEP_MESH_PROXIMITY")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let curvature: Option<usize> = std::env::var("STEP_MESH_CURVATURE")
         .ok()
         .and_then(|v| v.parse().ok());
     // Off by default: dual + trim only, the geometry-pipeline signal.
@@ -612,11 +619,14 @@ fn probe_mesh_step_dir() {
                 &brep,
                 segments,
                 Quantity::<Length>::new(minimum),
-                Quantity::<Length>::new(cell),
+                maximum,
                 gradation,
             );
             if let Some(cells) = proximity {
                 sizing = sizing.with_proximity(&brep, cells).map_err(|e| e.to_string())?;
+            }
+            if let Some(sections) = curvature {
+                sizing = sizing.with_curvature(&brep, sections).map_err(|e| e.to_string())?;
             }
             if fit {
                 let mesh = brep
@@ -680,6 +690,68 @@ fn probe_mesh(
     };
     let started = std::time::Instant::now();
 
+    // STEP_MESH_OCTREE_ONLY: dump the refined sizing octree and stop, so the
+    // sizing field can be inspected without the classify/dual grind.
+    if std::env::var("STEP_MESH_OCTREE_ONLY").is_ok() {
+        let octree = brep
+            .sizing_octree(sizing, levels, 0.1)
+            .expect("sizing_octree failed");
+        eprintln!(
+            "octree: {} leaves ({:.1}s)",
+            octree.number_of_elements(),
+            started.elapsed().as_secs_f64(),
+        );
+        // Mirror-pair leaf census: count leaves and sum 1/size^3 in a box at
+        // +STEP_MIRROR and its reflection across the plane x = STEP_MIRROR_AT,
+        // so an asymmetry in the raw octree (before classify/dual/trim) shows
+        // up as a count mismatch here.
+        if let Ok(m) = std::env::var("STEP_MIRROR") {
+            let m: f64 = m.parse().unwrap();
+            let at: f64 = std::env::var("STEP_MIRROR_AT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.0);
+            let rad: f64 = std::env::var("STEP_MIRROR_RAD")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(10.0e-3);
+            let zc: f64 = std::env::var("STEP_MIRROR_Z")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(40.0e-3);
+            let coords = octree.coordinates();
+            let (mut np, mut nm) = (0usize, 0usize);
+            let (mut lp, mut lm) = ([0.0f64; 12], [0.0f64; 12]);
+            for block in octree.iter() {
+                for element in block.iter() {
+                    let nodes = block.element_nodes(element);
+                    let c: [f64; 3] = std::array::from_fn(|k| {
+                        nodes.iter().map(|&n| coords[n][k].value()).sum::<f64>() / nodes.len() as f64
+                    });
+                    let h = (coords[nodes[0]][0].value() - c[0]).abs() * 2.0;
+                    let lvl = (h.log2().round() as i64).rem_euclid(12) as usize;
+                    let near = |x: f64| {
+                        (c[1] - 0.0).abs() < rad
+                            && (c[2] - zc).abs() < rad
+                            && (c[0] - x).abs() < rad
+                    };
+                    if near(at + m) {
+                        np += 1;
+                        lp[lvl] += 1.0;
+                    }
+                    if near(at - m) {
+                        nm += 1;
+                        lm[lvl] += 1.0;
+                    }
+                }
+            }
+            eprintln!("mirror +{m}: {np} leaves, by size-bucket {lp:?}");
+            eprintln!("mirror -{m}: {nm} leaves, by size-bucket {lm:?}");
+        }
+        dump(&octree, &format!("{out}_octree.vtu"));
+        return;
+    }
+
     let (dual, classes) = brep
         .dual_background(sizing, levels, 0.1, Balancing::Strong(1))
         .expect("dual_background failed");
@@ -710,6 +782,38 @@ fn probe_mesh(
     let (trimmed, _) = brep
         .trim(sizing, levels, 0.1, Balancing::Strong(1))
         .expect("trim failed");
+    // Mirror-pair census of the dual and the trimmed mesh: `Inside`+`Cut`
+    // counts in a box at +/-STEP_MIRROR across x=STEP_MIRROR_AT. First stage
+    // that mismatches is the one breaking symmetry.
+    if let Ok(m) = std::env::var("STEP_MIRROR") {
+        let m: f64 = m.parse().unwrap();
+        let at: f64 = std::env::var("STEP_MIRROR_AT").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0);
+        let rad: f64 = std::env::var("STEP_MIRROR_RAD").ok().and_then(|v| v.parse().ok()).unwrap_or(10.0e-3);
+        let zc: f64 = std::env::var("STEP_MIRROR_Z").ok().and_then(|v| v.parse().ok()).unwrap_or(40.0e-3);
+        let census = |mesh: &crate::geometry::mesh::Mesh<3>, tag: &str| {
+            let coords = mesh.coordinates();
+            let (mut p, mut n) = (0usize, 0usize);
+            for block in mesh.iter() {
+                for element in block.iter() {
+                    let nodes = block.element_nodes(element);
+                    let c: [f64; 3] = std::array::from_fn(|k| {
+                        nodes.iter().map(|&i| coords[i][k].value()).sum::<f64>() / nodes.len() as f64
+                    });
+                    if (c[1]).abs() < rad && (c[2] - zc).abs() < rad {
+                        if (c[0] - (at + m)).abs() < rad {
+                            p += 1;
+                        }
+                        if (c[0] - (at - m)).abs() < rad {
+                            n += 1;
+                        }
+                    }
+                }
+            }
+            eprintln!("{tag}: +{m} -> {p} hexes, -{m} -> {n} hexes  (diff {})", p as i64 - n as i64);
+        };
+        census(&dual, "dual  ");
+        census(&trimmed, "trimmed");
+    }
     eprintln!(
         "trimmed: {} hexes ({:.1}s total)",
         trimmed.number_of_elements(),
@@ -733,6 +837,61 @@ fn probe_mesh(
         mesh.number_of_elements(),
     );
     dump(&mesh, &format!("{out}_fitted.vtu"));
+}
+
+/// Samples `FeatureSizing::at_cell` on a circle of radius `STEP_RING_R` about
+/// the line `(t, 0, STEP_RING_Z)`, at every axial `STEP_RING_X` (comma list)
+/// and every `STEP_RING_STEP` degrees, printing size vs angle so a curved-face
+/// sizing band can be checked for rotational symmetry (and two mirrored bores
+/// compared) without opening the mesh.
+#[test]
+#[ignore = "samples the sizing field around a ring, STEP_MESH_FILE + STEP_RING_*"]
+fn probe_sizing_ring() {
+    use crate::{
+        geometry::{Coordinate, cad::sizing::FeatureSizing},
+        math::Quantity,
+        units::Length,
+    };
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let env_f64 = |key, default: f64| {
+        std::env::var(key).ok().and_then(|v: String| v.parse().ok()).unwrap_or(default)
+    };
+    let brep = read(&std::fs::read_to_string(&path).unwrap()).expect("read failed");
+    let length = |v| Quantity::<Length>::new(v);
+    let cell = env_f64("STEP_MESH_CELL", 8.0e-3);
+    let sizing = FeatureSizing::of(
+        &brep,
+        env_f64("STEP_MESH_SEGMENTS", 36.0) as usize,
+        length(env_f64("STEP_MESH_MIN", 6.0e-4)),
+        Some(length(cell)),
+        Some(env_f64("STEP_MESH_GRADATION", 0.15)),
+    )
+    .with_proximity(&brep, env_f64("STEP_MESH_PROXIMITY", 3.0) as usize)
+    .unwrap()
+    .with_curvature(&brep, env_f64("STEP_MESH_CURVATURE", 48.0) as usize)
+    .unwrap();
+
+    let radius = env_f64("STEP_RING_R", 5.3e-3);
+    let ring_z = env_f64("STEP_RING_Z", 40.0e-3);
+    let half = env_f64("STEP_RING_HALF", 0.4e-3);
+    let step = env_f64("STEP_RING_STEP", 10.0);
+    let xs: Vec<f64> = std::env::var("STEP_RING_X")
+        .unwrap_or_else(|_| "31e-3,-31e-3".into())
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
+    for x in xs {
+        eprintln!("--- axial x = {x:.5}, radius {radius:.5} ---");
+        let mut deg = 0.0_f64;
+        while deg < 360.0 {
+            let t = deg.to_radians();
+            let p = Coordinate::from([x, radius * t.cos(), ring_z + radius * t.sin()]);
+            eprintln!("  {deg:6.1} deg  size = {:.6}", sizing.at_cell(&p, half).value());
+            deg += step;
+        }
+    }
 }
 
 #[test]
@@ -778,19 +937,34 @@ fn probe_mesh_real_file() {
             Ok(value) => Some(value.parse().expect("STEP_MESH_GRADATION")),
             Err(_) => Some(0.2),
         };
+        // STEP_MESH_CELL=none => no ceiling: cells grow to the octree root
+        // away from the part.
+        let maximum = (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none"))
+            .then(|| length(cell));
         let mut sizing = FeatureSizing::of(
             &brep,
             env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
             length(env_f64("STEP_MESH_MIN", cell / 8.0)),
-            length(cell),
+            maximum,
             gradation,
         );
         // STEP_MESH_PROXIMITY=N adds the local-feature-size term (N cells
         // across a thin wall or narrow cavity).
         if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+            let t = std::time::Instant::now();
             sizing = sizing
                 .with_proximity(&brep, n.parse().expect("STEP_MESH_PROXIMITY"))
                 .expect("with_proximity");
+            eprintln!("with_proximity built in {:.1}s", t.elapsed().as_secs_f64());
+        }
+        // STEP_MESH_CURVATURE=N resolves every curved face at N cells around a
+        // full circle of its local curvature radius.
+        if let Ok(n) = std::env::var("STEP_MESH_CURVATURE") {
+            let t = std::time::Instant::now();
+            sizing = sizing
+                .with_curvature(&brep, n.parse().expect("STEP_MESH_CURVATURE"))
+                .expect("with_curvature");
+            eprintln!("with_curvature built in {:.1}s", t.elapsed().as_secs_f64());
         }
         probe_mesh(&brep, &sizing, levels, &out, fit);
     }
@@ -812,6 +986,44 @@ fn probe_signed_distance_sign() {
     let (low, high) = oracle.bounds();
     let span: [f64; 3] = std::array::from_fn(|k| high[k].value() - low[k].value());
     let base: [f64; 3] = std::array::from_fn(|k| low[k].value());
+
+    eprintln!(
+        "bbox low=[{:.3},{:.3},{:.3}] high=[{:.3},{:.3},{:.3}]  {} faces",
+        low[0].value(), low[1].value(), low[2].value(),
+        high[0].value(), high[1].value(), high[2].value(),
+        brep.faces.len(),
+    );
+    for (fi, face) in brep.faces.iter().enumerate() {
+        let mut lo = [f64::INFINITY; 3];
+        let mut hi = [f64::NEG_INFINITY; 3];
+        for lp in &face.bounds {
+            for he in &lp.half_edges {
+                for vi in brep.edges[he.edge].vertices {
+                    let v = &brep.vertices[vi];
+                    for k in 0..3 {
+                        lo[k] = lo[k].min(v[k].value());
+                        hi[k] = hi[k].max(v[k].value());
+                    }
+                }
+            }
+        }
+        let kind = match &face.surface {
+            crate::geometry::cad::brep::surface::Surface::Plane(p) => format!(
+                "plane n=[{:.2},{:.2},{:.2}]",
+                p.normal[0].value(), p.normal[1].value(), p.normal[2].value()
+            ),
+            crate::geometry::cad::brep::surface::Surface::Cylinder(_) => "cylinder".into(),
+            crate::geometry::cad::brep::surface::Surface::Cone(_) => "cone".into(),
+            crate::geometry::cad::brep::surface::Surface::Sphere(_) => "sphere".into(),
+            crate::geometry::cad::brep::surface::Surface::Torus(_) => "torus".into(),
+            _ => "bspline".into(),
+        };
+        eprintln!(
+            "  f{fi:<3} fwd={} {:<28} bbox=[{:.3},{:.3},{:.3}]..[{:.3},{:.3},{:.3}]",
+            face.forward as u8, kind,
+            lo[0], lo[1], lo[2], hi[0], hi[1], hi[2],
+        );
+    }
     let samples = 100usize;
     let lines = 9usize;
 
@@ -826,8 +1038,17 @@ fn probe_signed_distance_sign() {
                     p[axis] = base[axis] + span[axis] * (s as f64 + 0.5) / samples as f64;
                     p[u] = base[u] + span[u] * a as f64 / lines as f64;
                     p[v] = base[v] + span[v] * b as f64 / lines as f64;
-                    row.push(if oracle.signed_distance(&Coordinate::from(p)) > 0.0 {
-                        '#'
+                    let q = Coordinate::from(p);
+                    row.push(if oracle.signed_distance(&q) > 0.0 {
+                        let ld = oracle.local_diameter(&q);
+                        match ld {
+                            _ if ld < 0.005 => '1',
+                            _ if ld < 0.010 => '2',
+                            _ if ld < 0.020 => '3',
+                            _ if ld < 0.040 => '4',
+                            _ if ld < 0.080 => '5',
+                            _ => '#',
+                        }
                     } else {
                         '.'
                     });
@@ -852,8 +1073,9 @@ fn probe_signed_distance_sign() {
             let p = crate::geometry::Coordinate::from([c[0], c[1], c[2]]);
             let (kind, d, pt, n) = oracle.patch_report(&p).into_iter().next().unwrap();
             eprintln!(
-                "probe {c:?}: sd={:.5}  nearest {kind} d={d:.5} at [{:.4},{:.4},{:.4}] n=[{:.2},{:.2},{:.2}]",
+                "probe {c:?}: sd={:.5} local_diameter={:.5}  nearest {kind} d={d:.5} at [{:.4},{:.4},{:.4}] n=[{:.2},{:.2},{:.2}]",
                 oracle.signed_distance(&p),
+                oracle.local_diameter(&p),
                 pt[0], pt[1], pt[2], n[0], n[1], n[2],
             );
         }

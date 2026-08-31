@@ -14,7 +14,7 @@ fn length(value: f64) -> Quantity<Length> {
 fn box_octree_partitions_into_all_three_classes() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
-    let sizing = FeatureSizing::of(&brep, 32, length(0.05), length(1.0), Some(0.25));
+    let sizing = FeatureSizing::of(&brep, 32, length(0.05), Some(length(1.0)), Some(0.25));
     let mesh = brep.sizing_octree(&sizing, Some(6), 0.1).unwrap();
     let classes = brep.classify(&mesh).unwrap();
     assert_eq!(classes.len(), mesh.number_of_elements());
