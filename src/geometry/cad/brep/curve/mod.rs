@@ -34,6 +34,108 @@ pub struct Ellipse {
     pub minor_radius: f64,
 }
 
+/// The 3D chord polyline replacing `curve` from `start` to `end`, both
+/// included, refined until no chord strays further from the curve than
+/// `RELATIVE_SAGITTA` of its own length.
+///
+/// Every trim that cannot carry an edge in closed form calls this — the
+/// planar frame and the spherical/toroidal charts alike — so two faces
+/// sharing an edge chord it into the *same* polyline. Sampling them
+/// independently leaves their trimmed regions disagreeing by the difference
+/// of two approximations, a crack a ray-parity test falls straight through.
+pub(in crate::geometry::cad) fn chords(
+    curve: &Curve,
+    start: &Coordinate<D>,
+    end: &Coordinate<D>,
+    forward: bool,
+    closed: bool,
+) -> Vec<Coordinate<D>> {
+    /// Chord deviation allowed, as a fraction of the edge's own length — well
+    /// under anything the mesh resolves, and since every face chords a shared
+    /// edge through this same function they agree exactly regardless.
+    const RELATIVE_SAGITTA: f64 = 1.0e-3;
+    const FIRST: usize = 17;
+    const CAP: usize = 513;
+
+    // The reader orients a circle/ellipse axis so the *edge* runs CCW about
+    // it, and `arc_polyline` always takes the positive turn; a half-edge
+    // walked backwards has to turn about the negated axis, or the chord goes
+    // the long way round.
+    let sense = if forward { 1.0 } else { -1.0 };
+    let raw = |point: &Coordinate<D>| std::array::from_fn::<f64, D, _>(|k| point[k].value());
+    let sample = |count: usize| -> Vec<Coordinate<D>> {
+        match curve {
+            Curve::Line(_) => vec![start.clone(), end.clone()],
+            Curve::BSpline(bspline) => bspline.segment(start, end, count),
+            Curve::Circle(circle) => crate::geometry::cad::sizing::arc_polyline(
+                raw(&circle.center),
+                std::array::from_fn(|k| sense * circle.axis[k].value()),
+                std::array::from_fn(|k| circle.reference_direction[k].value()),
+                circle.radius,
+                circle.radius,
+                raw(start),
+                raw(end),
+                closed,
+                count - 1,
+            ),
+            Curve::Ellipse(ellipse) => crate::geometry::cad::sizing::arc_polyline(
+                raw(&ellipse.center),
+                std::array::from_fn(|k| sense * ellipse.axis[k].value()),
+                std::array::from_fn(|k| ellipse.reference_direction[k].value()),
+                ellipse.major_radius,
+                ellipse.minor_radius,
+                raw(start),
+                raw(end),
+                closed,
+                count - 1,
+            ),
+        }
+    };
+    if matches!(curve, Curve::Line(_)) {
+        return sample(2);
+    }
+    let mut count = FIRST;
+    loop {
+        let points = sample(count);
+        // Halving again would put a sample at each chord's midpoint; the
+        // deviation there bounds how far this polyline strays.
+        let length: f64 = points
+            .windows(2)
+            .map(|pair| distance(&pair[0], &pair[1]))
+            .sum();
+        if count >= CAP || length == 0.0 {
+            return points;
+        }
+        let refined = sample(count * 2 - 1);
+        let worst = refined
+            .windows(3)
+            .step_by(2)
+            .map(|triple| point_segment_distance(&triple[1], &triple[0], &triple[2]))
+            .fold(0.0, f64::max);
+        if worst <= length * RELATIVE_SAGITTA {
+            return refined;
+        }
+        count = count * 2 - 1;
+    }
+}
+
+fn distance(a: &Coordinate<D>, b: &Coordinate<D>) -> f64 {
+    (0..D).map(|k| (a[k].value() - b[k].value()).powi(2)).sum::<f64>().sqrt()
+}
+
+/// Distance from `p` to the segment `a`-`b`.
+fn point_segment_distance(p: &Coordinate<D>, a: &Coordinate<D>, b: &Coordinate<D>) -> f64 {
+    let ab = std::array::from_fn::<f64, D, _>(|k| b[k].value() - a[k].value());
+    let ap = std::array::from_fn::<f64, D, _>(|k| p[k].value() - a[k].value());
+    let span = (0..D).map(|k| ab[k] * ab[k]).sum::<f64>();
+    let t = if span > 0.0 {
+        ((0..D).map(|k| ap[k] * ab[k]).sum::<f64>() / span).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    (0..D).map(|k| (ap[k] - t * ab[k]).powi(2)).sum::<f64>().sqrt()
+}
+
 /// A B-spline (or, when `weights` is set, NURBS) curve, with the knots stored
 /// compressed as STEP writes them: distinct `knots` and their
 /// `multiplicities`.

@@ -141,14 +141,13 @@ impl Brep {
                 ring.push((current, None));
                 current = [current[0] + wrap(u_end - current[0]), current[1]];
             }
-            if let Curve::BSpline(bspline) = &edge.curve {
+            if matches!(&edge.curve, Curve::BSpline(_)) {
                 // No closed-form trace in this chart for a general B-spline:
-                // chord it into straight sub-segments. Fixed count for now;
-                // adaptive-by-curvature is a later refinement.
-                const SAMPLES: usize = 32;
+                // chord it into straight sub-segments, at the same density
+                // every face trimming this edge uses.
                 let mut point = current;
-                for sample in bspline
-                    .segment(&self.vertices[start], &self.vertices[end], SAMPLES)
+                for sample in self
+                    .edge_polyline(edge, start, end, half_edge.forward)
                     .iter()
                     .skip(1)
                 {
@@ -250,42 +249,14 @@ impl Brep {
         start: usize,
         end: usize,
         forward: bool,
-        samples: usize,
     ) -> Vec<Coordinate<D>> {
-        let (a, b) = (&self.vertices[start], &self.vertices[end]);
-        let raw = |point: &Coordinate<D>| from_fn::<Scalar, D, _>(|k| point[k].value());
-        let closed = start == end;
-        // The reader orients a circle/ellipse axis so the *edge* runs CCW about
-        // it, and `arc_polyline` always takes the positive turn; a half-edge
-        // walked backwards must therefore turn about the negated axis, or the
-        // chord goes the long way round and the ring gains a spurious turn.
-        let sense = if forward { 1.0 } else { -1.0 };
-        match &edge.curve {
-            Curve::Line(_) => vec![a.clone(), b.clone()],
-            Curve::BSpline(bspline) => bspline.segment(a, b, samples),
-            Curve::Circle(circle) => crate::geometry::cad::sizing::arc_polyline(
-                raw(&circle.center),
-                from_fn(|k| sense * circle.axis[k].value()),
-                from_fn(|k| circle.reference_direction[k].value()),
-                circle.radius,
-                circle.radius,
-                raw(a),
-                raw(b),
-                closed,
-                samples - 1,
-            ),
-            Curve::Ellipse(ellipse) => crate::geometry::cad::sizing::arc_polyline(
-                raw(&ellipse.center),
-                from_fn(|k| sense * ellipse.axis[k].value()),
-                from_fn(|k| ellipse.reference_direction[k].value()),
-                ellipse.major_radius,
-                ellipse.minor_radius,
-                raw(a),
-                raw(b),
-                closed,
-                samples - 1,
-            ),
-        }
+        curve::chords(
+            &edge.curve,
+            &self.vertices[start],
+            &self.vertices[end],
+            forward,
+            start == end,
+        )
     }
 
     /// One bound of a spherical or toroidal face as a closed `(u, v)` polygon
@@ -305,7 +276,6 @@ impl Brep {
         v_period: Option<Scalar>,
         surface: &'static str,
     ) -> Result<(Ring, Scalar), &'static str> {
-        const SAMPLES: usize = 48;
         let mut ring: Ring = Vec::new();
         let mut cursor: Option<[Scalar; 2]> = None;
         for half_edge in &bound.half_edges {
@@ -318,7 +288,7 @@ impl Brep {
             } else {
                 (edge.vertices[1], edge.vertices[0])
             };
-            let samples = self.edge_polyline(edge, start, end, half_edge.forward, SAMPLES);
+            let samples = self.edge_polyline(edge, start, end, half_edge.forward);
             let mut point = match cursor {
                 Some(point) => point,
                 None => {
@@ -523,7 +493,7 @@ impl Brep {
                 } else {
                     (edge.vertices[1], edge.vertices[0])
                 };
-                for sample in self.edge_polyline(edge, start, end, half_edge.forward, 16) {
+                for sample in self.edge_polyline(edge, start, end, half_edge.forward) {
                     for k in 0..D {
                         mean[k] += sample[k].value() - centre[k];
                     }

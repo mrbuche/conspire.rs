@@ -228,7 +228,6 @@ impl Brep {
                 // edges (e.g. a rounded-rectangle or splined hole): keep every
                 // edge, in order. A straight or circular edge stays exact; an
                 // ellipse or B-spline is chorded into straight sub-segments.
-                const SAMPLES: usize = 32;
                 let mut mixed = Vec::with_capacity(ring.len());
                 for (i, half_edge) in bound.half_edges.iter().enumerate() {
                     let edge = &self.edges[half_edge.edge];
@@ -250,8 +249,11 @@ impl Brep {
                             mixed.push((point, Some(arc)));
                         }
                         curve => {
-                            let chords = chord(curve, start, end, SAMPLES);
-                            mixed.extend(chords.iter().rev().skip(1).rev().map(|p| (uv(p), None)));
+                            let closed = (0..D)
+                                .all(|k| (start[k].value() - end[k].value()).abs() <= EPSILON);
+                            let poly =
+                                super::curve::chords(curve, start, end, half_edge.forward, closed);
+                            mixed.extend(poly.iter().rev().skip(1).rev().map(|p| (uv(p), None)));
                         }
                     }
                 }
@@ -273,35 +275,6 @@ impl Brep {
             outline,
             aabb,
         })
-    }
-}
-
-/// A free-form edge from `start` to `end` chorded into `samples` points, both
-/// ends included.
-fn chord(
-    curve: &Curve,
-    start: &Coordinate<D>,
-    end: &Coordinate<D>,
-    samples: usize,
-) -> Vec<Coordinate<D>> {
-    let raw = |point: &Coordinate<D>| from_fn::<Scalar, D, _>(|k| point[k].value());
-    match curve {
-        Curve::Ellipse(ellipse) => {
-            let closed = (0..D).all(|k| (start[k].value() - end[k].value()).abs() <= EPSILON);
-            crate::geometry::cad::sizing::arc_polyline(
-                raw(&ellipse.center),
-                from_fn(|k| ellipse.axis[k].value()),
-                from_fn(|k| ellipse.reference_direction[k].value()),
-                ellipse.major_radius,
-                ellipse.minor_radius,
-                raw(start),
-                raw(end),
-                closed,
-                samples - 1,
-            )
-        }
-        Curve::BSpline(bspline) => bspline.segment(start, end, samples),
-        _ => vec![start.clone(), end.clone()],
     }
 }
 
