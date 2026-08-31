@@ -416,6 +416,32 @@ impl BrepOracle {
             .fold(Scalar::INFINITY, Scalar::min)
     }
 
+    /// Every ray hit along `direction` from `query`, as `(patch index, kind,
+    /// t)`, sorted by `t` — a probe for the parity count.
+    #[cfg(test)]
+    pub(crate) fn ray_report(
+        &self,
+        query: &Coordinate<D>,
+        direction: [Scalar; D],
+    ) -> Vec<(usize, &'static str, Scalar)> {
+        let origin: [Scalar; D] = from_fn(|k| query[k].value());
+        let mut rows: Vec<_> = self
+            .patches
+            .iter()
+            .enumerate()
+            .zip(&self.boxes)
+            .filter(|(_, boxed)| ray_hits_box(origin, direction, boxed))
+            .flat_map(|((index, patch), _)| {
+                patch
+                    .ray_hits(origin, direction)
+                    .into_iter()
+                    .map(move |t| (index, patch_kind(patch), t))
+            })
+            .collect();
+        rows.sort_by(|a, b| a.2.total_cmp(&b.2));
+        rows
+    }
+
     /// Every patch's `(surface type, distance, closest point, outward normal)`
     /// for `query`, nearest first — a probe for why a query picks the face it
     /// does.
@@ -428,15 +454,7 @@ impl BrepOracle {
             .patches
             .iter()
             .map(|patch| {
-                let kind = match patch {
-                    FacePatch::Planar(_) => "plane",
-                    FacePatch::Curved { curved, .. } => match curved {
-                        Curved::Cylinder { .. } => "cyl",
-                        Curved::Cone { .. } => "cone",
-                        Curved::Sphere { .. } => "sphere",
-                        Curved::Torus { .. } => "torus",
-                    },
-                };
+                let kind = patch_kind(patch);
                 let (point, normal, distance) = patch.closest(query);
                 (
                     kind,
@@ -519,6 +537,19 @@ impl SolidOracle for BrepOracle {
         } else {
             -distance
         }
+    }
+}
+
+#[cfg(test)]
+fn patch_kind(patch: &FacePatch) -> &'static str {
+    match patch {
+        FacePatch::Planar(_) => "plane",
+        FacePatch::Curved { curved, .. } => match curved {
+            Curved::Cylinder { .. } => "cyl",
+            Curved::Cone { .. } => "cone",
+            Curved::Sphere { .. } => "sphere",
+            Curved::Torus { .. } => "torus",
+        },
     }
 }
 

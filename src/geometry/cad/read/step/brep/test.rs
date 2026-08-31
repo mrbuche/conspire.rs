@@ -1110,6 +1110,85 @@ fn probe_signed_distance_sign() {
     eprintln!("far-outside points:  {outside_pos} positive, {outside_neg} negative (want all negative)");
 }
 
+/// Falsifies a wrong ray-parity sign without a reference classifier: a lost or
+/// spurious crossing flips a whole shadow region, whose boundary is then a sign
+/// change with no surface within the sampling step. Reports every such pair.
+#[test]
+#[ignore = "sweeps STEP_MESH_FILE for sign flips away from any surface"]
+fn probe_sign_consistency() {
+    use crate::geometry::{Coordinate, solid::SolidOracle};
+    let path = std::env::var("STEP_MESH_FILE").unwrap();
+    let brep = read(&std::fs::read_to_string(&path).unwrap()).expect("read failed");
+    let oracle = brep.oracle().expect("oracle failed");
+    let (low, high) = oracle.bounds();
+    let span: [f64; 3] = std::array::from_fn(|k| high[k].value() - low[k].value());
+    let mut seed = 0x2545F4914F6CDD1Du64;
+    let mut rand = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        (seed >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let step = span[0] * 1.0e-4;
+    let mut bad = 0;
+    for _ in 0..400000 {
+        let p: [f64; 3] =
+            std::array::from_fn(|k| low[k].value() + span[k] * rand());
+        let mut q = p;
+        let axis = (rand() * 3.0) as usize % 3;
+        q[axis] += step;
+        let (a, b) = (
+            oracle.signed_distance(&Coordinate::from(p)),
+            oracle.signed_distance(&Coordinate::from(q)),
+        );
+        if (a > 0.0) != (b > 0.0) && a.abs().min(b.abs()) > step {
+            bad += 1;
+            if bad <= 20 {
+                eprintln!(
+                    "flip without a surface: [{:.5},{:.5},{:.5}] sd={a:.6} -> axis{axis} sd={b:.6}",
+                    p[0], p[1], p[2]
+                );
+            }
+        }
+    }
+    eprintln!("{bad} inconsistent pairs of 400000");
+}
+
+/// Every face crossing along each of `encloses`'s three ray directions, so a
+/// disputed sign can be read off the crossing count face by face.
+#[test]
+#[ignore = "dumps per-face ray hits at STEP_PROBE_POINTS"]
+fn probe_ray_hits() {
+    use crate::geometry::{Coordinate, solid::SolidOracle};
+    let path = std::env::var("STEP_MESH_FILE").unwrap();
+    let brep = read(&std::fs::read_to_string(&path).unwrap()).expect("read failed");
+    let oracle = brep.oracle().expect("oracle failed");
+    let dirs = [
+        [0.862_667, 0.411_988, 0.291_536],
+        [0.301_511, 0.904_534, 0.301_511],
+        [0.334_412, 0.243_975, 0.910_367],
+    ];
+    for chunk in std::env::var("STEP_PROBE_POINTS").unwrap().split(';') {
+        let c: Vec<f64> = chunk.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+        if c.len() != 3 {
+            continue;
+        }
+        let p = Coordinate::from([c[0], c[1], c[2]]);
+        eprintln!("=== {c:?} sd={:.6}", oracle.signed_distance(&p));
+        for (di, d) in dirs.into_iter().enumerate() {
+            let rows = oracle.ray_report(&p, d);
+            eprintln!("  dir{di} {} hits", rows.len());
+            for (index, kind, t) in rows {
+                let hit: [f64; 3] = std::array::from_fn(|k| c[k] + t * d[k]);
+                eprintln!(
+                    "    f{index:<3} {kind:<6} t={t:.6} at [{:.4},{:.4},{:.4}]",
+                    hit[0], hit[1], hit[2]
+                );
+            }
+        }
+    }
+}
+
 #[test]
 fn reads_every_solid_in_the_file() {
     use crate::geometry::{cad::brep::surface::Surface, csg::Primitive};
