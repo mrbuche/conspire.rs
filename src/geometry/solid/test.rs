@@ -95,9 +95,12 @@ fn origin_snap_keeps_the_geometry_inside_the_root() {
     // to absorb it. The shift must be clamped so the geometry stays enclosed.
     let low = Coordinate::from([0.3, 0.3, 0.3]);
     let high = Coordinate::from([1.3, 1.3, 1.3]);
+    // A size that forces a level or two of refinement (an unrefined 1-node
+    // tree is rejected as a degenerate field), though only the root placement
+    // set before refinement matters here.
     let tree = refine_octree(
         (low.clone(), high.clone()),
-        &Uniform(Quantity::new(10.0)),
+        &Uniform(Quantity::new(0.1)),
         Some(3),
         0.0,
     )

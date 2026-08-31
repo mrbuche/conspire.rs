@@ -495,5 +495,12 @@ fn refine_octree(
         }
         frontier = next;
     }
+    if tree.nodes.len() == 1 {
+        return Err(
+            "sizing field never triggered any refinement: the target size is unbounded \
+             everywhere (e.g. FeatureSizing::of with maximum None and gradation None and \
+             no with_proximity/with_curvature term)",
+        );
+    }
     Ok(tree)
 }
