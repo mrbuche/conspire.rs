@@ -163,9 +163,24 @@ impl Brep {
                         return Err("tilted elliptical edge on a conical face is not yet supported");
                     };
                     let sinusoid = ellipse_sinusoid(ellipse, origin, axis, radius)?;
+                    // The cut plane's normal, reader-oriented so the edge runs
+                    // CCW about it; its axial component is the sweep sense, so a
+                    // partial cut over half a turn resolves to the right branch
+                    // instead of `wrap` collapsing it (mirrors the Circle arm).
+                    let ecaxis: [Scalar; D] = from_fn(|k| ellipse.axis[k].value());
+                    let sign = if half_edge.forward {
+                        dot(ecaxis, axis)
+                    } else {
+                        -dot(ecaxis, axis)
+                    };
                     let [u_end, v_end] = to_uv(origin, axis, end_point);
-                    let u_end = current[0] + wrap(u_end - current[0]);
-                    (Some(sinusoid), [u_end, v_end])
+                    let mut delta = wrap(u_end - current[0]);
+                    if sign > 0.0 && delta < 0.0 {
+                        delta += std::f64::consts::TAU;
+                    } else if sign < 0.0 && delta > 0.0 {
+                        delta -= std::f64::consts::TAU;
+                    }
+                    (Some(sinusoid), [current[0] + delta, v_end])
                 }
                 _ => return Err("unsupported edge on a curved face trim"),
             };
@@ -686,7 +701,13 @@ fn ellipse_sinusoid(
     let (nu, nv) = (dot(normal, u_hat), dot(normal, v_hat));
     let k = dot(normal, from_fn(|i| centre[i] - origin[i])) / n_axis;
     let (au, av) = (-radius * nu / n_axis, -radius * nv / n_axis);
-    Ok(Sinusoid { k, a: au.hypot(av), phi: av.atan2(au) })
+    let a = au.hypot(av);
+    if a < 1.0e-9 * radius {
+        // The cut plane is ~perpendicular to the axis — a flat circular rim,
+        // not an oblique cut; downstream code divides by `a`.
+        return Err("elliptical edge is not tilted; expected a circular rim");
+    }
+    Ok(Sinusoid { k, a, phi: av.atan2(au) })
 }
 
 /// Whether `uv` lies inside `rings`, trying both neighbouring turns since `u`
@@ -795,25 +816,48 @@ fn nearest_on_sinusoid(uv: [Scalar; 2], u_a: Scalar, u_b: Scalar, sinusoid: &Sin
     let derivative = |u: Scalar| (u - uv[0]) - sinusoid.a * (u - sinusoid.phi).sin() * (sinusoid.v(u) - uv[1]);
     let distance = |u: Scalar| (u - uv[0]).powi(2) + (sinusoid.v(u) - uv[1]).powi(2);
     let mut candidates = vec![lo, hi];
-    let (flo, fhi) = (derivative(lo), derivative(hi));
-    if flo * fhi <= 0.0 {
-        let (mut a, mut fa, mut b) = (lo, flo, hi);
-        for _ in 0..60 {
-            let mid = 0.5 * (a + b);
-            let fmid = derivative(mid);
-            if fmid == 0.0 {
-                a = mid;
-                b = mid;
-                break;
+    // The squared-distance derivative can hold several roots over the span
+    // (`cos` is two-to-one and the `u` term adds another), so a single bracket
+    // bisection can land on a local *maximum*. Scan sub-intervals at <= 0.15 rad
+    // and bisect every sign change; the min over all roots and the endpoints is
+    // the true nearest point.
+    // The squared-distance derivative can hold several roots over the span
+    // (`cos` is two-to-one and the `u` term adds another), so a single bracket
+    // bisection can land on a local *maximum*. Scan sub-intervals at <= 0.15 rad
+    // and bisect every sign change; the min over all roots and the endpoints is
+    // the true nearest point.
+    let scan = ((hi - lo) / 0.15).ceil().max(8.0) as usize;
+    let mut prev_u = lo;
+    let mut prev_f = derivative(lo);
+    for i in 1..=scan {
+        let u = lo + (hi - lo) * i as Scalar / scan as Scalar;
+        let f = derivative(u);
+        if prev_f == 0.0 {
+            candidates.push(prev_u);
+        } else if prev_f * f < 0.0 {
+            let (mut a, mut fa, mut b) = (prev_u, prev_f, u);
+            for _ in 0..60 {
+                let mid = 0.5 * (a + b);
+                let fmid = derivative(mid);
+                if fmid == 0.0 {
+                    a = mid;
+                    b = mid;
+                    break;
+                }
+                if (fmid > 0.0) == (fa > 0.0) {
+                    a = mid;
+                    fa = fmid;
+                } else {
+                    b = mid;
+                }
             }
-            if (fmid > 0.0) == (fa > 0.0) {
-                a = mid;
-                fa = fmid;
-            } else {
-                b = mid;
-            }
+            candidates.push(0.5 * (a + b));
         }
-        candidates.push(0.5 * (a + b));
+        prev_u = u;
+        prev_f = f;
+    }
+    if prev_f == 0.0 {
+        candidates.push(prev_u);
     }
     let best_u = candidates
         .into_iter()

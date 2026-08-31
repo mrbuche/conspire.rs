@@ -740,7 +740,10 @@ pub(crate) fn cylinder_with_elliptical_rim(radius: f64, angle: f64) -> Brep {
             vertices: [2, 3],
             curve: Curve::Ellipse(Ellipse {
                 center: Coordinate::const_from([0.0, 0.0, 5.0]),
-                axis: direction([0.0, h, h]),
+                // Cut plane `z + y = 5`; oriented (normal `-(0, h, h)`) so the
+                // v2 -> v3 traversal runs CCW about it, as a STEP reader folds
+                // `same_sense` in.
+                axis: direction([0.0, -h, -h]),
                 reference_direction: direction([1.0, 0.0, 0.0]),
                 major_radius: radius * std::f64::consts::SQRT_2,
                 minor_radius: radius,

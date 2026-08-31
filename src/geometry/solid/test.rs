@@ -1,10 +1,10 @@
-use super::{SolidOracle, classify_by_flood_fill, classify_by_signed_distance};
+use super::{SolidOracle, Uniform, classify_by_flood_fill, classify_by_signed_distance, refine_octree};
 use crate::{
     geometry::{
         Coordinate, Coordinates, Direction,
         mesh::{Class, Connectivity, Mesh},
     },
-    math::Scalar,
+    math::{Quantity, Scalar},
 };
 
 /// The box `1.5 <= x,y,z <= 3.5` (positive inside). With `lie`, the sign is
@@ -86,6 +86,34 @@ fn flood_fill_carves_the_interior_box() {
     assert_eq!(classes[hex(5, 0, 2, 2)], Class::Outside);
     assert_eq!(classes[hex(5, 0, 0, 0)], Class::Outside);
     assert_eq!(classes.iter().filter(|&&c| c == Class::Inside).count(), 1);
+}
+
+#[test]
+fn origin_snap_keeps_the_geometry_inside_the_root() {
+    // Off-origin bbox, zero padding, coarse levels: the origin snap wants to
+    // shift the box by up to half a finest cell, and there is no padding margin
+    // to absorb it. The shift must be clamped so the geometry stays enclosed.
+    let low = Coordinate::from([0.3, 0.3, 0.3]);
+    let high = Coordinate::from([1.3, 1.3, 1.3]);
+    let tree = refine_octree(
+        (low.clone(), high.clone()),
+        &Uniform(Quantity::new(10.0)),
+        Some(3),
+        0.0,
+    )
+    .unwrap();
+    let rescale = tree.rescale();
+    let extent = rescale.cell.value() * rescale.half;
+    for k in 0..3 {
+        let root_low = rescale.center[k].value() - extent;
+        let root_high = rescale.center[k].value() + extent;
+        assert!(
+            root_low <= low[k].value() + 1e-12 && root_high >= high[k].value() - 1e-12,
+            "axis {k}: root [{root_low}, {root_high}] does not enclose geometry [{}, {}]",
+            low[k].value(),
+            high[k].value(),
+        );
+    }
 }
 
 #[test]

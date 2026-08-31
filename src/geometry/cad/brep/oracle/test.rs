@@ -133,6 +133,27 @@ fn accepts_a_cylindrical_face_with_a_tilted_elliptical_rim() {
 }
 
 #[test]
+fn a_tilted_elliptical_rim_over_half_a_turn_still_closes_the_trim() {
+    // angle > pi: `wrap` alone would collapse the ellipse edge onto the wrong
+    // branch and the ring would not close. The axial component of the cut
+    // plane's normal picks the branch.
+    let angle = 4.0_f64;
+    let oracle = cylinder_with_elliptical_rim(2.0, angle).oracle().unwrap();
+    // A point sitting exactly on the trimmed wall, mid-sweep: it must not move.
+    let u = angle / 2.0;
+    let z = 5.0 - 2.0 * u.sin();
+    let query = Coordinate::from([2.0 * u.cos(), 2.0 * u.sin(), z]);
+    let (point, _) = oracle.project(&query).unwrap();
+    let moved = components(&point)
+        .iter()
+        .zip([2.0 * u.cos(), 2.0 * u.sin(), z])
+        .map(|(a, b)| (a - b).powi(2))
+        .sum::<f64>()
+        .sqrt();
+    assert!(moved < 1.0e-6, "on-surface point moved {moved}");
+}
+
+#[test]
 fn a_tilted_elliptical_rim_snaps_onto_the_true_cut_not_a_flat_one() {
     let query_angle = std::f64::consts::FRAC_PI_6; // well inside [0, pi/3]
     let oracle = cylinder_with_elliptical_rim(2.0, std::f64::consts::FRAC_PI_3)
@@ -150,6 +171,17 @@ fn a_tilted_elliptical_rim_snaps_onto_the_true_cut_not_a_flat_one() {
     assert!((z - (5.0 - 2.0 * y.atan2(x).sin())).abs() < 1e-6);
     // And it moved — the query was already sitting on the untrimmed surface.
     assert!((z - 6.0).abs() > 0.1);
+}
+
+#[test]
+fn nearest_on_sinusoid_finds_the_global_minimum_not_a_saddle() {
+    // v(u) = 3 cos(u), query (0, 0): u = 0 is a critical point of the squared
+    // distance (d = 3) but not the minimum, which is near u = +-1.41 (d ~ 1.49).
+    // The old single-bracket bisection stopped at u = 0.
+    let sinusoid = super::Sinusoid { k: 0.0, a: 3.0, phi: 0.0 };
+    let [u, v] = super::nearest_on_sinusoid([0.0, 0.0], -3.0, 3.0, &sinusoid);
+    let distance = (u * u + v * v).sqrt();
+    assert!(distance < 1.6, "landed on a non-minimal critical point: u = {u}, d = {distance}");
 }
 
 #[test]
@@ -175,6 +207,21 @@ fn rejects_a_partial_spherical_face() {
 fn accepts_a_whole_sphere_and_torus() {
     assert!(ball(2.0).oracle().is_ok());
     assert!(torus(4.0, 1.5).oracle().is_ok());
+}
+
+#[test]
+fn ray_distance_reaches_a_slender_torus_tube() {
+    // major/minor = 250. The old fixed 96-step march over the ~10-long chord
+    // stepped clean over the ~0.035-wide tube on both sides and ray_distance
+    // returned None. The ray is offset in z so its crossings sit mid-interval,
+    // not on the bounding-sphere tangent point.
+    let oracle = torus(5.0, 0.02).oracle().unwrap();
+    let hit = oracle.ray_distance(&Coordinate::from([-10.0, 0.0, 0.01]), [1.0, 0.0, 0.0]);
+    assert!(hit.is_some(), "ray stepped over the slender tube");
+    // Enters the near tube where sqrt((x+5)^2 + 0.01^2) = 0.02, i.e. at
+    // x = -5 - sqrt(3e-4); t = x + 10.
+    let want = 5.0 - (3.0e-4_f64).sqrt();
+    assert!((hit.unwrap() - want).abs() < 1.0e-3, "got {hit:?}, want ~{want:.4}");
 }
 
 #[test]

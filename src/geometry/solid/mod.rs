@@ -424,11 +424,15 @@ fn refine_octree(
     // side/2` to a whole number of finest cells puts a plane through 0. Geometry
     // modelled symmetric about a coordinate plane then refines symmetrically
     // instead of at whatever sub-cell phase the raw bbox centre happened to hit.
-    // The shift is under one finest cell, so it never unseats the geometry.
+    // The shift is up to half a finest cell, which the padding margin usually
+    // absorbs; where it does not (small padding, coarse levels) it is clamped to
+    // the axis's free margin so the geometry never leaves the root box.
     let center: Coordinate<D> = from_fn(|axis| {
         let raw = 0.5 * (low[axis] + high[axis]);
         let base = raw - 0.5 * side;
-        raw - (base - (base / cell.value()).round() * cell.value())
+        let shift = base - (base / cell.value()).round() * cell.value();
+        let margin = 0.5 * (side - (high[axis] - low[axis]));
+        raw - shift.clamp(-margin, margin)
     })
     .into();
 

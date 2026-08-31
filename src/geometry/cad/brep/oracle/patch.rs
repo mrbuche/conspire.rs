@@ -294,7 +294,7 @@ impl Curved {
                     let off: [Scalar; D] = from_fn(|k| p[k] - ring[k]);
                     dot(off, off).sqrt() - minor
                 };
-                march_sign_changes(o, d, *centre, major + minor, sdf)
+                march_sign_changes(o, d, *centre, major + minor, *minor, sdf)
             }
         }
     }
@@ -355,12 +355,15 @@ fn quadratic(a: Scalar, b: Scalar, c: Scalar) -> Vec<Scalar> {
 /// Ray parameters `t > 0` where `sdf(o + t·d)` changes sign, searched over the
 /// segment inside the bounding sphere of radius `radius` about `centre` and
 /// bisected to a root — the fallback where a closed-form ray/surface solve
-/// would be a quartic or worse (the torus).
+/// would be a quartic or worse (the torus). The march step is half of
+/// `min_feature` in physical length, so the thinnest part of the surface (a
+/// slender torus tube) is never stepped over.
 fn march_sign_changes(
     o: [Scalar; D],
     d: [Scalar; D],
     centre: [Scalar; D],
     radius: Scalar,
+    min_feature: Scalar,
     sdf: impl Fn([Scalar; D]) -> Scalar,
 ) -> Vec<Scalar> {
     let w: [Scalar; D] = from_fn(|k| o[k] - centre[k]);
@@ -372,15 +375,16 @@ fn march_sign_changes(
     if t1 <= t0 {
         return Vec::new();
     }
-    const STEPS: usize = 96;
+    let chord = (t1 - t0) * dot(d, d).sqrt();
+    let steps = ((chord / (min_feature * 0.5)).ceil() as usize).clamp(96, 1 << 18);
     let at = |t: Scalar| sdf(from_fn(|k| o[k] + t * d[k]));
     let mut hits = Vec::new();
     let mut previous = at(t0);
-    for i in 1..=STEPS {
-        let t = t0 + (t1 - t0) * i as Scalar / STEPS as Scalar;
+    for i in 1..=steps {
+        let t = t0 + (t1 - t0) * i as Scalar / steps as Scalar;
         let current = at(t);
         if previous != 0.0 && (previous < 0.0) != (current < 0.0) {
-            let (mut lo, mut hi) = (t - (t1 - t0) / STEPS as Scalar, t);
+            let (mut lo, mut hi) = (t - (t1 - t0) / steps as Scalar, t);
             for _ in 0..48 {
                 let mid = 0.5 * (lo + hi);
                 if (at(mid) < 0.0) == (previous < 0.0) {
