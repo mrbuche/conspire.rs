@@ -500,8 +500,10 @@ fn arc_polyline(
     let mut sweep = angle(end) - start_angle;
     if closed || sweep.abs() < 1.0e-9 {
         sweep = TAU;
-    } else {
-        sweep -= TAU * (sweep / TAU).round(); // shortest arc, into (-pi, pi]
+    } else if sweep < 0.0 {
+        // The STEP reader flips a circle/ellipse axis so the edge always runs
+        // CCW about it; take the positive turn, which may exceed half a turn.
+        sweep += TAU;
     }
     (0..=samples)
         .map(|i| {

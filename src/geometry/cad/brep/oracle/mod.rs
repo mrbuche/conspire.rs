@@ -72,8 +72,12 @@ impl Brep {
             Surface::Plane(_) => Ok(FacePatch::Planar(self.planar_face(face)?)),
             Surface::Cylinder(surface) => self.cylinder_patch(surface, face),
             Surface::Cone(surface) => self.cone_patch(surface, face),
-            Surface::Sphere(surface) => Ok(sphere_patch(surface, face.forward)),
-            Surface::Torus(surface) => Ok(torus_patch(surface, face.forward)),
+            Surface::Sphere(surface) => sweeps_whole_surface(face)
+                .then(|| sphere_patch(surface, face.forward))
+                .ok_or("partial spherical face (fillet/blend) is not yet meshable"),
+            Surface::Torus(surface) => sweeps_whole_surface(face)
+                .then(|| torus_patch(surface, face.forward))
+                .ok_or("partial toroidal face (pipe bend/blend) is not yet meshable"),
             Surface::BSpline(_) => Err("B-spline faces are not yet meshable"),
         }
     }
@@ -238,6 +242,32 @@ impl Brep {
         let (bl, bh) = frustum_bounds(base, axis, base_radius, tip_radius, high - low);
         Ok(FacePatch::Curved { curved, low: bl, high: bh })
     }
+}
+
+/// Whether every edge bounding `face` is one of its own seams — appearing
+/// among these half-edges once each way. A spherical or toroidal face like
+/// that sweeps its whole surface; one with a genuine trimming edge (a fillet
+/// cap, a pipe-bend rim) does not, and there is no `(u, v)` trim for a partial
+/// sphere or torus yet.
+fn sweeps_whole_surface(face: &Face) -> bool {
+    let half_edges: Vec<_> = face
+        .bounds
+        .iter()
+        .flat_map(|bound| &bound.half_edges)
+        .collect();
+    half_edges.iter().all(|half_edge| {
+        let (mut forward, mut backward) = (0, 0);
+        for other in &half_edges {
+            if other.edge == half_edge.edge {
+                if other.forward {
+                    forward += 1;
+                } else {
+                    backward += 1;
+                }
+            }
+        }
+        forward == 1 && backward == 1
+    })
 }
 
 fn sphere_patch(surface: &surface::Sphere, forward: bool) -> FacePatch {

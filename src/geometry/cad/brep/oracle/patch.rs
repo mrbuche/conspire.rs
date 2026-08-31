@@ -7,7 +7,10 @@
 //! an exact root instead, the same pattern as `csg::Ellipsoid`'s oracle).
 //! Spherical and toroidal faces are taken whole.
 
-use super::super::{D, planar::PlanarFace};
+use super::super::{
+    D,
+    planar::{PlanarFace, arc_sweep, offset_in_sense},
+};
 use crate::{
     geometry::{Coordinate, Direction},
     math::{Scalar, Tensor},
@@ -103,6 +106,39 @@ impl FacePatch {
                             * (1.0 - face.normal[k].value().powi(2)).max(0.0).sqrt();
                         low[k] = low[k].min(world - extent);
                         high[k] = high[k].max(world + extent);
+                    }
+                }
+                // A circular-arc edge in a mixed loop can bulge past every ring
+                // vertex; for each world axis, the arc's extreme sits where the
+                // world-k coordinate's derivative in the sweep angle vanishes
+                // (θ = atan2(v[k], u[k]), and +π). Union it in when that angle
+                // falls within the arc's actual sweep.
+                for ring in &face.rings {
+                    let count = ring.len();
+                    for i in 0..count {
+                        let (a, arc) = ring[i];
+                        let Some(arc) = arc else { continue };
+                        let (b, _) = ring[(i + 1) % count];
+                        let (start, sweep) = arc_sweep(a, b, &arc);
+                        if sweep == 0.0 {
+                            continue;
+                        }
+                        for k in 0..D {
+                            let base = face.v[k].value().atan2(face.u[k].value());
+                            for theta in [base, base + std::f64::consts::PI] {
+                                let offset = offset_in_sense(theta - start, arc.ccw);
+                                if !(0.0..=1.0).contains(&(offset / sweep)) {
+                                    continue;
+                                }
+                                let world = face.origin[k].value()
+                                    + (arc.centre[0] + arc.radius * theta.cos())
+                                        * face.u[k].value()
+                                    + (arc.centre[1] + arc.radius * theta.sin())
+                                        * face.v[k].value();
+                                low[k] = low[k].min(world);
+                                high[k] = high[k].max(world);
+                            }
+                        }
                     }
                 }
                 (low, high)

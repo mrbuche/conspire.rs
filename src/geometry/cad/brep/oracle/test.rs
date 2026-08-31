@@ -4,8 +4,8 @@ use crate::{
         cad::brep::{
             curve::Ellipse,
             test::{
-                capped_cylinder, cone, cylinder_with_elliptical_rim, direction, partial_cylinder,
-                square_with_rounded_hole, unit_cube,
+                ball, bulged_plate, capped_cylinder, cone, cylinder_with_elliptical_rim, direction,
+                partial_cylinder, partial_sphere, square_with_rounded_hole, torus, unit_cube,
             },
         },
         solid::SolidOracle,
@@ -155,6 +155,26 @@ fn a_tilted_elliptical_rim_snaps_onto_the_true_cut_not_a_flat_one() {
 #[test]
 fn accepts_a_planar_face_with_a_rounded_rectangle_hole() {
     assert!(square_with_rounded_hole().oracle().is_ok());
+}
+
+#[test]
+fn a_planar_patch_box_covers_a_bulging_arc_edge() {
+    let brep = bulged_plate();
+    let face = brep.planar_face(&brep.faces[0]).unwrap();
+    let (low, high) = super::patch::FacePatch::Planar(face).bounds();
+    // The arc bulges to y = 6; the loop vertices only reach y = 4.
+    assert!(high[1] >= 6.0 - 1e-9, "arc bulge to y=6 not in the box: {low:?}..{high:?}");
+}
+
+#[test]
+fn rejects_a_partial_spherical_face() {
+    assert!(partial_sphere(2.0).oracle().is_err());
+}
+
+#[test]
+fn accepts_a_whole_sphere_and_torus() {
+    assert!(ball(2.0).oracle().is_ok());
+    assert!(torus(4.0, 1.5).oracle().is_ok());
 }
 
 #[test]

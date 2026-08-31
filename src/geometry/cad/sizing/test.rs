@@ -143,6 +143,38 @@ fn curvature_leaves_the_far_field_alone() {
 }
 
 #[test]
+fn arc_polyline_traces_the_true_arc_past_half_a_turn() {
+    // 270 deg CCW about +z, r = 1, centre origin: (1,0,0) -> (0,-1,0) the long
+    // way, through (-1,0,0). The old shortest-arc rule traced the 90 deg
+    // complement through (0.7, -0.7) instead.
+    let poly = super::arc_polyline(
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.0],
+        1.0,
+        1.0,
+        [1.0, 0.0, 0.0],
+        [0.0, -1.0, 0.0],
+        false,
+        12,
+    );
+    let mid = super::point(&poly[poly.len() / 2]);
+    assert!(mid[0] < -0.5, "arc took the short way: {mid:?}");
+    let length: f64 = poly
+        .windows(2)
+        .map(|w| {
+            let (a, b) = (super::point(&w[0]), super::point(&w[1]));
+            (0..3).map(|k| (b[k] - a[k]).powi(2)).sum::<f64>().sqrt()
+        })
+        .sum();
+    assert!(
+        (length - 1.5 * std::f64::consts::PI).abs() < 0.05,
+        "length {length}, want ~{}",
+        1.5 * std::f64::consts::PI
+    );
+}
+
+#[test]
 fn obeys_the_gradation_bound() {
     let gradation = 0.7;
     let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), Some(length(10.0)), Some(gradation));

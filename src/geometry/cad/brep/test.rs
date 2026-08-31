@@ -265,6 +265,92 @@ pub(crate) fn partial_cylinder(radius: f64, height: f64, angle: f64) -> Brep {
     }
 }
 
+/// A single `+z` planar face whose outer loop is three straight sides plus a
+/// semicircular arc bulging to `y = 6` — well past every vertex (max vertex
+/// `y = 4`). The arc is on the *outer* bound, so the loop-vertex AABB alone
+/// misses the bulge.
+pub(crate) fn bulged_plate() -> Brep {
+    let vertices = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [4.0, 4.0, 0.0], [0.0, 4.0, 0.0]]
+        .map(Coordinate::const_from)
+        .to_vec();
+    let line = |a: usize, b: usize| Edge {
+        vertices: [a, b],
+        curve: Curve::Line(Line {
+            origin: vertices[a].clone(),
+            direction: direction([1.0, 0.0, 0.0]),
+        }),
+    };
+    let edges = vec![
+        line(0, 1),
+        line(1, 2),
+        Edge {
+            vertices: [2, 3],
+            curve: Curve::Circle(Circle {
+                center: Coordinate::const_from([2.0, 4.0, 0.0]),
+                axis: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius: 2.0,
+            }),
+        },
+        line(3, 0),
+    ];
+    let faces = vec![Face {
+        surface: Surface::Plane(Plane {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            normal: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+        }),
+        bounds: vec![Loop {
+            half_edges: [(0, true), (1, true), (2, true), (3, true)]
+                .into_iter()
+                .map(|(edge, forward)| HalfEdge { edge, forward })
+                .collect(),
+        }],
+        poles: vec![],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0], closed: false }],
+    }
+}
+
+/// A spherical face bounded by a single equator circle traversed once — a
+/// genuine partial (hemisphere) patch, not a whole sphere closed by a seam.
+pub(crate) fn partial_sphere(radius: f64) -> Brep {
+    let vertices = vec![Coordinate::const_from([radius, 0.0, 0.0])];
+    let edges = vec![Edge {
+        vertices: [0, 0],
+        curve: Curve::Circle(Circle {
+            center: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+    }];
+    let faces = vec![Face {
+        surface: Surface::Sphere(Sphere {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+        bounds: vec![Loop {
+            half_edges: vec![HalfEdge { edge: 0, forward: true }],
+        }],
+        poles: vec![],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0], closed: false }],
+    }
+}
+
 /// A truncated cone about `+z`: `base_radius` at `z = 0`, `tip_radius` at
 /// `z = height`, one conical lateral face split by a seam line.
 pub(crate) fn cone(base_radius: f64, tip_radius: f64, height: f64) -> Brep {
