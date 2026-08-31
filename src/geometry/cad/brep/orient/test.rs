@@ -57,3 +57,52 @@ fn flips_a_wholly_inverted_shell() {
     brep.orient();
     assert!(all_outward(&brep, [1.0, 1.5, 2.0]));
 }
+
+#[test]
+fn face_points_covers_a_vertex_reached_only_backward() {
+    use crate::geometry::{
+        Coordinate, Direction,
+        cad::brep::{
+            Edge, Face, HalfEdge, Loop, Shell,
+            curve::{Curve, Line},
+            surface::{Plane, Surface},
+        },
+    };
+    let dir = |v: [f64; 3]| Direction::const_from(v);
+    let line = |a: usize, b: usize| Edge {
+        vertices: [a, b],
+        curve: Curve::Line(Line {
+            origin: Coordinate::const_from([0.0; 3]),
+            direction: dir([1.0, 0.0, 0.0]),
+        }),
+    };
+    // Loop v0 -> v1 (e0 fwd) -> v2 (e1 bwd) -> v0 (e2 bwd): v1 is only ever an
+    // edge's `vertices[1]`, so the old per-edge `vertices[0]` scan dropped it.
+    let brep = Brep {
+        vertices: vec![
+            Coordinate::const_from([0.0, 0.0, 0.0]),
+            Coordinate::const_from([1.0, 0.0, 0.0]),
+            Coordinate::const_from([1.0, 1.0, 0.0]),
+        ],
+        edges: vec![line(0, 1), line(2, 1), line(2, 0)],
+        faces: vec![Face {
+            surface: Surface::Plane(Plane {
+                origin: Coordinate::const_from([0.0; 3]),
+                normal: dir([0.0, 0.0, 1.0]),
+                reference_direction: dir([1.0, 0.0, 0.0]),
+            }),
+            bounds: vec![Loop {
+                half_edges: vec![
+                    HalfEdge { edge: 0, forward: true },
+                    HalfEdge { edge: 1, forward: false },
+                    HalfEdge { edge: 2, forward: false },
+                ],
+            }],
+            poles: vec![],
+            forward: true,
+        }],
+        shells: vec![Shell { faces: vec![0], closed: false }],
+    };
+    let points = super::face_points(&brep, &brep.faces[0]);
+    assert!(points.contains(&[1.0, 0.0, 0.0]), "v1 was dropped");
+}

@@ -144,13 +144,12 @@ const HEX_FACES: [[usize; 4]; 6] = [
 /// remaining cells are `Outside` if reachable through shared faces from a cell
 /// on the mesh boundary, else `Inside`.
 ///
-/// Robust where the oracle's sign is only trustworthy away from creases (a
-/// nearest-face-normal B-rep oracle): the fill is seeded both from the mesh
-/// rim and from any cell whose eight corners are unanimously outside — a
-/// signal even the flaky oracle gets right — so a narrow cavity the `Cut`
-/// band seals off at its mouth still drains. Only cells the fill cannot
-/// reach, and that are not themselves unanimously outside, end up `Inside`.
-/// A fully enclosed void reads `Inside`; single-shell B-reps have none.
+/// The fill is seeded both from the mesh rim and from any cell whose eight
+/// corners are unanimously outside — an 8/8 sign test, reliable where the
+/// oracle is (away from the surface), which lets a narrow cavity the `Cut`
+/// band seals off at its mouth still drain. Only cells the fill cannot reach,
+/// and that are not themselves unanimously outside, end up `Inside`. A fully
+/// enclosed void — its corners all outside — is seeded `Outside` directly.
 pub(crate) fn classify_by_flood_fill(
     oracle: &impl SolidOracle,
     mesh: &Mesh<D>,

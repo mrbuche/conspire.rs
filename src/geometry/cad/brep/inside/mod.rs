@@ -58,14 +58,17 @@ pub(super) fn mixed_point_in_polygon(
                     }
                     let dx = (arc.radius * arc.radius - dy * dy).max(0.0).sqrt();
                     let (start, sweep) = arc_sweep(a, b, &arc);
+                    // A ray tangent to the arc (`dx` ~ 0) crosses zero times,
+                    // not once; a degenerate arc (`sweep` ~ 0) has no swept
+                    // range to divide by.
+                    if dx < EPSILON || sweep.abs() < EPSILON {
+                        continue;
+                    }
                     for x in [arc.centre[0] + dx, arc.centre[0] - dx] {
                         let angle = dy.atan2(x - arc.centre[0]);
                         let offset = offset_in_sense(angle - start, arc.ccw);
                         if (0.0..=1.0).contains(&(offset / sweep)) && px < x {
                             inside = !inside;
-                        }
-                        if dx == 0.0 {
-                            break;
                         }
                     }
                 }

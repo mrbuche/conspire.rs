@@ -180,8 +180,9 @@ fn face_points(brep: &Brep, face: &Face) -> Vec<[f64; D]> {
         .collect();
     for bound in &face.bounds {
         for half_edge in &bound.half_edges {
-            let vertex = brep.edges[half_edge.edge].vertices[0];
-            points.push(from_fn(|k| brep.vertices[vertex][k].value()));
+            for vertex in brep.edges[half_edge.edge].vertices {
+                points.push(from_fn(|k| brep.vertices[vertex][k].value()));
+            }
         }
     }
     points

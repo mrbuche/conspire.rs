@@ -490,7 +490,7 @@ impl BrepOracle {
             .map(|k| high[k].value() - low[k].value())
             .fold(0.0, Scalar::max)
             * 1.0e-7;
-        let mut parity = false;
+        let mut votes = 0i32;
         for direction in RAY_DIRECTIONS {
             let mut hits: Vec<Scalar> = self
                 .ray_candidates(origin, direction)
@@ -511,12 +511,15 @@ impl BrepOracle {
                     previous = t;
                 }
             }
-            parity = crossings % 2 == 1;
+            let parity = crossings % 2 == 1;
             if !ambiguous {
                 return parity;
             }
+            votes += if parity { 1 } else { -1 };
         }
-        parity
+        // Every direction grazed an edge; take the majority of their counts
+        // rather than an arbitrary one.
+        votes > 0
     }
 }
 
