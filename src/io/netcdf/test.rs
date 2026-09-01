@@ -144,7 +144,6 @@ fn queries_before_end_definition() {
     netcdf
         .put_variable_attribute_text("coordx", "units", "meters")
         .unwrap();
-    // dimension and variable-attribute lookups work on a writer, not just a reader
     assert_eq!(netcdf.dimension_length("nodes").unwrap(), 5);
     assert_eq!(netcdf.try_dimension_length("missing").unwrap(), None);
     assert_eq!(
@@ -209,7 +208,6 @@ fn write_on_reader_panics() {
     let _ = netcdf.define_dimension("m", 2);
 }
 
-/// A one-variable `x: f64[n]` file, written and reopened for reading.
 fn one_var_file(path: &str) -> NetCDF {
     {
         let mut netcdf = NetCDF::create(path).unwrap();

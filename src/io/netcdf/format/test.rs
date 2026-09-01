@@ -110,9 +110,6 @@ fn empty_dims_and_vars_round_trip() {
     assert!(parsed.vars.is_empty());
 }
 
-// --- hand-built classic files (the writer only emits CDF-5) ---
-
-/// Big-endian byte buffer builder for classic-format headers.
 struct Buf(Vec<u8>);
 impl Buf {
     fn u32(&mut self, x: u32) {
@@ -137,35 +134,32 @@ impl Buf {
     }
 }
 
-/// A minimal classic file of the given version: dim `n`, one var `x: f64[n]`,
-/// no global attributes, plus `var_attrs` (raw type tag + payload) on `x`.
 fn classic(version: u8, values: &[f64], var_attrs: &[(&str, i32, Vec<u8>)]) -> Vec<u8> {
-    let cw = if version == 5 { 8 } else { 4 }; // count width
-    let ow = if version >= 2 { 8 } else { 4 }; // offset (begin) width
-    let dw = if version == 5 { 8 } else { 4 }; // dimid width
+    let cw = if version == 5 { 8 } else { 4 };
+    let ow = if version >= 2 { 8 } else { 4 };
+    let dw = if version == 5 { 8 } else { 4 };
     let mut b = Buf(Vec::new());
     b.raw(b"CDF");
     b.0.push(version);
-    b.uint(cw, 0); // numrecs
-    b.u32(0x0A); // NC_DIMENSION
+    b.uint(cw, 0);
+    b.u32(0x0A);
     b.uint(cw, 1);
     b.name(cw, "n");
     b.uint(cw, values.len() as u64);
-    b.u32(0); // gatt_list ABSENT
+    b.u32(0);
     b.uint(cw, 0);
-    b.u32(0x0B); // NC_VARIABLE
+    b.u32(0x0B);
     b.uint(cw, 1);
     b.name(cw, "x");
-    b.uint(cw, 1); // rank
-    b.uint(dw, 0); // dimid -> "n"
+    b.uint(cw, 1);
+    b.uint(dw, 0);
     if var_attrs.is_empty() {
         b.u32(0);
         b.uint(cw, 0);
     } else {
-        b.u32(0x0C); // NC_ATTRIBUTE
+        b.u32(0x0C);
         b.uint(cw, var_attrs.len() as u64);
         for (name, tag, payload) in var_attrs {
-            // nelems: CHAR counts bytes, INT/FLOAT 4-byte words, DOUBLE 8-byte words
             let nelems = match tag {
                 2 => payload.len(),
                 6 => payload.len() / 8,
@@ -180,8 +174,8 @@ fn classic(version: u8, values: &[f64], var_attrs: &[(&str, i32, Vec<u8>)]) -> V
             }
         }
     }
-    b.u32(6); // NC_DOUBLE
-    b.uint(cw, (values.len() * 8) as u64); // vsize
+    b.u32(6);
+    b.uint(cw, (values.len() * 8) as u64);
     let begin = b.0.len() as u64 + ow as u64;
     b.uint(ow, begin);
     for &v in values {
@@ -211,7 +205,6 @@ fn parses_cdf1_and_cdf2() {
 #[test]
 fn reads_int_and_double_variable_attributes() {
     let attrs: [(&str, i32, Vec<u8>); 3] = [
-        // an odd-length CHAR payload exercises the attribute padding path
         ("tag", 2, b"hi".to_vec()),
         ("count", 4, 7_i32.to_be_bytes().to_vec()),
         ("scale", 6, 2.5_f64.to_bits().to_be_bytes().to_vec()),

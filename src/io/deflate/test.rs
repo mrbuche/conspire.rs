@@ -192,15 +192,15 @@ fn zlib_decode_rejects_bad_header_check_bits() {
 #[test]
 fn read_dynamic_tables_rejects_repeat_16_with_no_previous_length() {
     let mut writer = BitWriter::new();
-    writer.write_bits(0, 5); // hlit
-    writer.write_bits(0, 5); // hdist
-    writer.write_bits(0, 4); // hclen
-    writer.write_bits(1, 3); // code length for symbol 16
-    writer.write_bits(0, 3); // code length for symbol 17
-    writer.write_bits(0, 3); // code length for symbol 18
-    writer.write_bits(0, 3); // code length for symbol 0
-    writer.write_huffman(0, 1); // encodes symbol 16
-    writer.write_bits(0, 2); // repeat count bits
+    writer.write_bits(0, 5);
+    writer.write_bits(0, 5);
+    writer.write_bits(0, 4);
+    writer.write_bits(1, 3);
+    writer.write_bits(0, 3);
+    writer.write_bits(0, 3);
+    writer.write_bits(0, 3);
+    writer.write_huffman(0, 1);
+    writer.write_bits(0, 2);
     let bytes = writer.finish();
     let mut reader = BitReader::new(&bytes);
     assert!(read_dynamic_tables(&mut reader).is_err());
@@ -209,17 +209,17 @@ fn read_dynamic_tables_rejects_repeat_16_with_no_previous_length() {
 #[test]
 fn read_dynamic_tables_rejects_code_length_overflow() {
     let mut writer = BitWriter::new();
-    writer.write_bits(0, 5); // hlit -> 257
-    writer.write_bits(0, 5); // hdist -> 1
-    writer.write_bits(0, 4); // hclen -> 4
-    writer.write_bits(0, 3); // code length for symbol 16
-    writer.write_bits(0, 3); // code length for symbol 17
-    writer.write_bits(1, 3); // code length for symbol 18
-    writer.write_bits(0, 3); // code length for symbol 0
-    writer.write_huffman(0, 1); // encodes symbol 18
-    writer.write_bits(127, 7); // repeat = 138
-    writer.write_huffman(0, 1); // encodes symbol 18 again
-    writer.write_bits(127, 7); // repeat = 138, overshoots 258
+    writer.write_bits(0, 5);
+    writer.write_bits(0, 5);
+    writer.write_bits(0, 4);
+    writer.write_bits(0, 3);
+    writer.write_bits(0, 3);
+    writer.write_bits(1, 3);
+    writer.write_bits(0, 3);
+    writer.write_huffman(0, 1);
+    writer.write_bits(127, 7);
+    writer.write_huffman(0, 1);
+    writer.write_bits(127, 7);
     let bytes = writer.finish();
     let mut reader = BitReader::new(&bytes);
     assert!(read_dynamic_tables(&mut reader).is_err());
@@ -248,8 +248,8 @@ fn inflate_block_rejects_invalid_distance_symbol() {
     distance_lengths[30] = 1;
     let distance = Huffman::build(&distance_lengths);
     let mut writer = BitWriter::new();
-    writer.write_huffman(0, 1); // literal symbol 257
-    writer.write_huffman(0, 1); // distance symbol 30
+    writer.write_huffman(0, 1);
+    writer.write_huffman(0, 1);
     let bytes = writer.finish();
     let mut reader = BitReader::new(&bytes);
     let mut output = Vec::new();
@@ -271,7 +271,6 @@ fn round_trip_lz77_candidate_beyond_window() {
 
 #[test]
 fn inflate_rejects_stored_block_data_truncated_after_stored_block() {
-    // BFINAL=0, BTYPE=0 (stored), LEN=0, NLEN=!0, then a final stored block "ABC".
     let bytes: Vec<u8> = vec![
         0x00, 0x00, 0x00, 0xFF, 0xFF, 0x01, 0x03, 0x00, 0xFC, 0xFF, 0x41, 0x42, 0x43,
     ];
@@ -281,35 +280,32 @@ fn inflate_rejects_stored_block_data_truncated_after_stored_block() {
 #[test]
 fn inflate_round_trips_dynamic_huffman_block_built_by_hand() {
     let mut writer = BitWriter::new();
-    writer.write_bit(1); // BFINAL
-    writer.write_bits(2, 2); // BTYPE = 2 (dynamic)
-    writer.write_bits(0, 5); // HLIT -> 257
-    writer.write_bits(0, 5); // HDIST -> 1
-    writer.write_bits(12, 4); // HCLEN -> 16
+    writer.write_bit(1);
+    writer.write_bits(2, 2);
+    writer.write_bits(0, 5);
+    writer.write_bits(0, 5);
+    writer.write_bits(12, 4);
     for value in [3u32, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3] {
         writer.write_bits(value, 3);
     }
-    // code-length alphabet: symbol 0 -> code 0b000, symbol 2 -> 0b001,
-    // symbol 16 -> 0b010, symbol 17 -> 0b011, symbol 18 -> 0b100 (all length 3).
-    writer.write_huffman(0, 3); // idx 0: explicit length 0
-    writer.write_huffman(2, 3); // repeat previous (16), count = 4
+    writer.write_huffman(0, 3);
+    writer.write_huffman(2, 3);
     writer.write_bits(1, 2);
-    writer.write_huffman(3, 3); // repeat zero (17), count = 5
+    writer.write_huffman(3, 3);
     writer.write_bits(2, 3);
-    writer.write_huffman(4, 3); // repeat zero (18), count = 55
+    writer.write_huffman(4, 3);
     writer.write_bits(44, 7);
-    writer.write_huffman(1, 3); // idx 65: explicit length 2 ('A')
-    writer.write_huffman(1, 3); // idx 66: explicit length 2 ('B')
-    writer.write_huffman(4, 3); // repeat zero (18), count = 138
+    writer.write_huffman(1, 3);
+    writer.write_huffman(1, 3);
+    writer.write_huffman(4, 3);
     writer.write_bits(127, 7);
-    writer.write_huffman(4, 3); // repeat zero (18), count = 51
+    writer.write_huffman(4, 3);
     writer.write_bits(40, 7);
-    writer.write_huffman(1, 3); // idx 256: explicit length 2 (EOB)
-    writer.write_huffman(0, 3); // idx 257 (distance): explicit length 0
-    // literal alphabet: symbol 65 -> 0b00, symbol 66 -> 0b01, symbol 256 -> 0b10 (length 2).
-    writer.write_huffman(0, 2); // 'A'
-    writer.write_huffman(1, 2); // 'B'
-    writer.write_huffman(2, 2); // end of block
+    writer.write_huffman(1, 3);
+    writer.write_huffman(0, 3);
+    writer.write_huffman(0, 2);
+    writer.write_huffman(1, 2);
+    writer.write_huffman(2, 2);
     let bytes = writer.finish();
     assert_eq!(inflate(&bytes).unwrap(), b"AB");
 }
@@ -321,8 +317,8 @@ fn inflate_block_rejects_distance_exceeding_output() {
     let literal = Huffman::build(&literal_lengths);
     let distance = Huffman::build(&[1u8]);
     let mut writer = BitWriter::new();
-    writer.write_huffman(0, 1); // literal symbol 257 (length 3)
-    writer.write_huffman(0, 1); // distance symbol 0 (distance 1)
+    writer.write_huffman(0, 1);
+    writer.write_huffman(0, 1);
     let bytes = writer.finish();
     let mut reader = BitReader::new(&bytes);
     let mut output = Vec::new();
