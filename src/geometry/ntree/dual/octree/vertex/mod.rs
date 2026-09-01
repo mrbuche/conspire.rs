@@ -1,6 +1,5 @@
 use crate::geometry::ntree::node::slot::Slot;
 #[cfg(test)]
-#[cfg(feature = "netcdf")]
 pub(crate) mod test;
 
 mod star;
