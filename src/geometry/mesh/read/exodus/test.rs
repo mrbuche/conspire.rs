@@ -296,3 +296,26 @@ fn round_trip_polygonal() {
         _ => panic!("expected Polygonal block"),
     }
 }
+
+const FIXTURES: &str = "src/geometry/mesh/read/exodus/fixtures";
+
+#[test]
+fn netcdf4_matches_classic() {
+    let classic_path = format!("{FIXTURES}/sphere_classic.nc");
+    let classic = Mesh::<3>::try_from(Input::Exodus(&classic_path)).unwrap();
+    for name in ["sphere_nc4.nc", "sphere_nc4_zip.nc"] {
+        let path = format!("{FIXTURES}/{name}");
+        let read = Mesh::<3>::try_from(Input::Exodus(&path)).unwrap();
+        assert_eq!(
+            read.coordinates(),
+            classic.coordinates(),
+            "{name} coordinates"
+        );
+        match (&read.connectivities()[0], &classic.connectivities()[0]) {
+            (Connectivity::Hexahedral(a), Connectivity::Hexahedral(b)) => {
+                assert!(a.iter().eq(b.iter()), "{name} connectivity")
+            }
+            _ => panic!("expected Hexahedral block"),
+        }
+    }
+}

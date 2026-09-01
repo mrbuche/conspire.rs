@@ -21,3 +21,23 @@ pub(in crate::io::netcdf) fn decode_be<T: NcType>(bytes: &[u8]) -> Vec<T> {
     unsafe { out.set_len(count) }
     out
 }
+
+#[cfg(target_endian = "big")]
+pub(in crate::io::netcdf) fn decode_le<T: NcType>(bytes: &[u8]) -> Vec<T> {
+    decode_be::<T>(bytes)
+}
+
+#[cfg(target_endian = "little")]
+pub(in crate::io::netcdf) fn decode_le<T: NcType>(bytes: &[u8]) -> Vec<T> {
+    let count = bytes.len() / T::SIZE;
+    let mut out: Vec<T> = Vec::with_capacity(count);
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            bytes.as_ptr(),
+            out.as_mut_ptr().cast::<u8>(),
+            count * T::SIZE,
+        );
+        out.set_len(count);
+    }
+    out
+}

@@ -122,6 +122,7 @@ impl NetCDF {
                 atts: std::mem::take(&mut build.attributes),
                 begin: 0,
                 vsize: 0,
+                storage: format::Storage::Classic,
             })
             .collect();
         let header = format::finalize(&writer.dims, &writer.global_attributes, &mut variables);

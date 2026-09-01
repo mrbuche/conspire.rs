@@ -1,6 +1,6 @@
 use crate::io::netcdf::{
     DefineVariable, GetVariable, NcType, NetCDF, PutVariable, State, VarBuild,
-    format::{self},
+    format::{self, Storage, decode_be, decode_le, hdf5},
     nc_lock, reject_nul,
 };
 use std::{
@@ -82,13 +82,29 @@ impl NetCDF {
             T::XTYPE,
             "type mismatch reading variable {name}"
         );
-        let start = spec.begin as usize;
-        let end = start + len * T::SIZE;
-        assert!(
-            end <= reader.bytes.len(),
-            "variable {name} data runs past end of file"
-        );
-        Some(format::decode_be(&reader.bytes[start..end]))
+        match &spec.storage {
+            Storage::Classic => {
+                let start = spec.begin as usize;
+                let end = start + len * T::SIZE;
+                assert!(
+                    end <= reader.bytes.len(),
+                    "variable {name} data runs past end of file"
+                );
+                Some(decode_be(&reader.bytes[start..end]))
+            }
+            Storage::Hdf5 {
+                little_endian,
+                layout,
+                filters,
+            } => {
+                let raw = hdf5::read_data(&reader.bytes, layout, filters, len * T::SIZE);
+                Some(if *little_endian {
+                    decode_le(&raw)
+                } else {
+                    decode_be(&raw)
+                })
+            }
+        }
     }
 }
 

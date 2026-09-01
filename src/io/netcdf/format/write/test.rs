@@ -1,5 +1,7 @@
 use super::finalize;
-use crate::io::netcdf::format::{AttValue, Attribute, DimSpec, NC_DOUBLE, NC_INT, VarSpec};
+use crate::io::netcdf::format::{
+    AttValue, Attribute, DimSpec, NC_DOUBLE, NC_INT, Storage, VarSpec,
+};
 
 fn double_var(name: &str, dimids: Vec<usize>) -> VarSpec {
     VarSpec {
@@ -9,6 +11,7 @@ fn double_var(name: &str, dimids: Vec<usize>) -> VarSpec {
         atts: Vec::new(),
         begin: 0,
         vsize: 0,
+        storage: Storage::Classic,
     }
 }
 
@@ -34,6 +37,7 @@ fn header_layout_is_contiguous_after_itself() {
             }],
             begin: 0,
             vsize: 0,
+            storage: Storage::Classic,
         },
     ];
     let header = finalize(&dims, &gatts, &mut vars);
@@ -54,6 +58,7 @@ fn finalize_rejects_unknown_type() {
         atts: Vec::new(),
         begin: 0,
         vsize: 0,
+        storage: Storage::Classic,
     }];
     finalize(&[], &[], &mut vars);
 }

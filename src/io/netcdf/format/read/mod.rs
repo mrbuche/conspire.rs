@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     AttValue, Attribute, DimSpec, NC_ATTRIBUTE, NC_CHAR_TYPE, NC_DIMENSION, NC_DOUBLE, NC_FLOAT,
-    NC_INT, NC_VARIABLE, Parsed, VarSpec,
+    NC_INT, NC_VARIABLE, Parsed, Storage, VarSpec,
 };
 
 #[derive(Clone, Copy)]
@@ -157,6 +157,7 @@ pub(in crate::io::netcdf) fn parse(bytes: &[u8]) -> Parsed {
                 atts,
                 begin,
                 vsize,
+                storage: Storage::Classic,
             });
         }
     }

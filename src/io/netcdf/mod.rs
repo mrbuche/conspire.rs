@@ -25,11 +25,12 @@ pub(crate) fn reject_nul(name: &str) -> Result<(), NulError> {
     CString::new(name).map(|_| ())
 }
 
-/// A netCDF classic-format file, open for either writing or reading.
+/// A netCDF file, open for either writing or reading.
 ///
-/// Written files use CDF-5 ("64-bit data"); CDF-1, CDF-2 and CDF-5 are accepted
-/// on read. Only fixed-size variables of `i32` / `f32` / `f64` are supported,
-/// which is everything an Exodus mesh file needs.
+/// Written files use classic CDF-5 ("64-bit data"). On read, CDF-1, CDF-2 and
+/// CDF-5 are parsed directly, and netCDF-4 (HDF5) files are read through a
+/// built-in reader covering the subset an Exodus mesh uses. Only fixed-size
+/// variables of `i32` / `f32` / `f64` are supported.
 pub struct NetCDF {
     state: State,
 }
