@@ -24,14 +24,55 @@ fn shuffle(data: &[u8], elem: usize) -> Vec<u8> {
     out
 }
 
-fn compress(raw: &[u8], elem: usize) -> (u32, Vec<u8>) {
-    let shuffled = shuffle(raw, elem);
+fn compress(
+    data: &[u8],
+    start: u64,
+    row: u64,
+    rows: u64,
+    slab: u64,
+    elem: usize,
+) -> (u32, Vec<u8>) {
+    let extent = (rows - start).min(slab);
+    let mut raw = data[(start * row) as usize..((start + extent) * row) as usize].to_vec();
+    raw.resize((slab * row) as usize, 0);
+    let shuffled = shuffle(&raw, elem);
     let deflated = zlib_encode(&shuffled);
     if deflated.len() < raw.len() {
         (0, deflated)
     } else {
-        (0b11, raw.to_vec())
+        (0b11, raw)
     }
+}
+
+/// Compress every chunk. Chunks are independent, so split them across threads;
+/// results are concatenated in chunk order, so the output is identical whatever
+/// the thread count.
+fn compress_chunks(
+    data: &[u8],
+    starts: &[u64],
+    row: u64,
+    rows: u64,
+    slab: u64,
+    elem: usize,
+) -> Vec<(u32, Vec<u8>)> {
+    let one = |&start: &u64| compress(data, start, row, rows, slab, elem);
+    if starts.len() < 2 {
+        return starts.iter().map(one).collect();
+    }
+    let threads = std::thread::available_parallelism()
+        .map_or(1, |p| p.get())
+        .min(starts.len());
+    let mut out = Vec::with_capacity(starts.len());
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = starts
+            .chunks(starts.len().div_ceil(threads))
+            .map(|group| scope.spawn(move || group.iter().map(one).collect::<Vec<_>>()))
+            .collect();
+        for handle in handles {
+            out.extend(handle.join().unwrap());
+        }
+    });
+    out
 }
 
 const BTREE_K: usize = 32;
@@ -48,24 +89,21 @@ pub(super) fn plan(dims: &[u64], data: &[u8], elem: usize) -> Plan {
     }
     let mut chunk_dims = dims.to_vec();
     chunk_dims[0] = slab;
-    let full = (slab * row) as usize;
 
-    let mut blobs = Vec::new();
-    let mut start = 0;
-    while start < dims[0] {
-        let extent = (dims[0] - start).min(slab);
-        let mut raw = data[(start * row) as usize..((start + extent) * row) as usize].to_vec();
-        raw.resize(full, 0);
-        let (mask, bytes) = compress(&raw, elem);
-        let mut offsets = vec![0u64; rank];
-        offsets[0] = start;
-        blobs.push(Blob {
-            offsets,
-            mask,
-            bytes,
-        });
-        start += slab;
-    }
+    let starts: Vec<u64> = (0..dims[0]).step_by(slab as usize).collect();
+    let blobs = starts
+        .iter()
+        .zip(compress_chunks(data, &starts, row, dims[0], slab, elem))
+        .map(|(&start, (mask, bytes))| {
+            let mut offsets = vec![0u64; rank];
+            offsets[0] = start;
+            Blob {
+                offsets,
+                mask,
+                bytes,
+            }
+        })
+        .collect();
     Plan {
         chunk_dims,
         elem: elem as u32,

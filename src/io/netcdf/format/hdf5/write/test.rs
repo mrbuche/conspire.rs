@@ -87,6 +87,21 @@ fn multi_chunk_variable_round_trips() {
 }
 
 #[test]
+fn multi_chunk_output_is_deterministic() {
+    // Chunk compression is threaded; the serialized bytes must not depend on it.
+    let n = 300_000usize;
+    let values: Vec<f64> = (0..n).map(|i| (i % 13) as f64).collect();
+    let dims = [DimSpec {
+        name: "row".to_string(),
+        len: n as u64,
+    }];
+    let vars = [spec("x", NC_DOUBLE, vec![0])];
+    let a = write(&dims, &[], &vars, &[le(&values)]);
+    let b = write(&dims, &[], &vars, &[le(&values)]);
+    assert_eq!(a, b);
+}
+
+#[test]
 fn incompressible_chunk_is_stored_raw() {
     let path = "target/hdf5_write_raw.nc";
     let values: Vec<i32> = vec![0x1234_5678, -0x0765_4321, 0x0abc_def0, 0x7fff_fffe];
