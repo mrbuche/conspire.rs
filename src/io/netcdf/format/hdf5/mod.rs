@@ -31,9 +31,7 @@ pub(in crate::io::netcdf) enum Layout {
     Chunked {
         btree_addr: usize,
         offset_size: usize,
-        dims: Vec<u64>,
         chunk: Vec<u64>,
-        elem_size: usize,
     },
 }
 

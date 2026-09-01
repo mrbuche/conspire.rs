@@ -56,6 +56,11 @@ fn api_round_trip_scalar_contiguous_and_chunked() {
         nc.get_variable::<f32>("temperature", 4).unwrap(),
         temperature
     );
+    assert_eq!(
+        nc.get_variable_slice::<f32>("temperature", &[1], &[2])
+            .unwrap(),
+        &temperature[1..3]
+    );
     assert_eq!(nc.get_variable::<i32>("connect1", 6).unwrap(), connect);
     assert_eq!(nc.get_variable::<i32>("count", 1).unwrap(), count);
     assert_eq!(
@@ -141,4 +146,65 @@ fn datatype_rejects_unsupported_type() {
 #[should_panic(expected = "cannot write netCDF external type")]
 fn fill_value_rejects_unsupported_type() {
     fill_value(99);
+}
+
+#[test]
+fn hyperslab_across_chunk_boundaries() {
+    let path = "target/hdf5_write_slab.nc";
+    let n = 400_000usize;
+    let values: Vec<i32> = (0..n as i32).collect();
+    {
+        let mut nc = NetCDF::create_netcdf4(path).unwrap();
+        nc.define_dimension("row", n).unwrap();
+        nc.define_variable::<i32>("x", 1, &["row"]).unwrap();
+        nc.end_definition();
+        nc.put_variable("x", &values).unwrap();
+    }
+    let nc = NetCDF::open(path).unwrap();
+    // a window straddling the ~262144-element chunk boundary
+    let slab = nc
+        .get_variable_slice::<i32>("x", &[262_000], &[500])
+        .unwrap();
+    assert_eq!(slab, &values[262_000..262_500]);
+    assert_eq!(
+        nc.get_variable_slice::<i32>("x", &[0], &[3]).unwrap(),
+        &values[0..3]
+    );
+    assert_eq!(
+        nc.get_variable_slice::<i32>("x", &[n - 4], &[4]).unwrap(),
+        &values[n - 4..]
+    );
+}
+
+#[test]
+fn hyperslab_two_dimensional() {
+    let path = "target/hdf5_write_slab2d.nc";
+    let (rows, cols) = (5usize, 4usize);
+    let values: Vec<f64> = (0..(rows * cols) as i32).map(f64::from).collect();
+    {
+        let mut nc = NetCDF::create_netcdf4(path).unwrap();
+        nc.define_dimension("r", rows).unwrap();
+        nc.define_dimension("c", cols).unwrap();
+        nc.define_variable::<f64>("m", 2, &["r", "c"]).unwrap();
+        nc.end_definition();
+        nc.put_variable("m", &values).unwrap();
+    }
+    let nc = NetCDF::open(path).unwrap();
+    let block = nc.get_variable_slice::<f64>("m", &[1, 1], &[3, 2]).unwrap();
+    assert_eq!(block, [5.0, 6.0, 9.0, 10.0, 13.0, 14.0]);
+}
+
+#[test]
+#[should_panic(expected = "slice out of bounds")]
+fn hyperslab_out_of_bounds_panics() {
+    let path = "target/hdf5_write_slab_oob.nc";
+    {
+        let mut nc = NetCDF::create_netcdf4(path).unwrap();
+        nc.define_dimension("k", 4).unwrap();
+        nc.define_variable::<i32>("v", 1, &["k"]).unwrap();
+        nc.end_definition();
+        nc.put_variable("v", &[1i32, 2, 3, 4]).unwrap();
+    }
+    let nc = NetCDF::open(path).unwrap();
+    nc.get_variable_slice::<i32>("v", &[2], &[5]).unwrap();
 }

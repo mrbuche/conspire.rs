@@ -72,16 +72,10 @@ pub(super) fn parse(
     let layout = match layout.unwrap_or(RawLayout::Fill) {
         RawLayout::Fill => Layout::Fill,
         RawLayout::Contiguous { addr, size } => Layout::Contiguous { addr, size },
-        RawLayout::Chunked {
-            btree_addr,
-            chunk,
-            elem_size,
-        } => Layout::Chunked {
+        RawLayout::Chunked { btree_addr, chunk } => Layout::Chunked {
             btree_addr,
             offset_size: sizes.offset,
-            dims: shape,
             chunk,
-            elem_size,
         },
     };
     vars.push(VarSpec {
@@ -93,6 +87,7 @@ pub(super) fn parse(
         vsize: 0,
         storage: Storage::Hdf5 {
             little_endian: dt.little_endian,
+            shape,
             layout,
             filters,
         },
@@ -131,15 +126,8 @@ pub(super) fn dataspace(d: &[u8]) -> Vec<u64> {
 
 pub(super) enum RawLayout {
     Fill,
-    Contiguous {
-        addr: usize,
-        size: usize,
-    },
-    Chunked {
-        btree_addr: usize,
-        chunk: Vec<u64>,
-        elem_size: usize,
-    },
+    Contiguous { addr: usize, size: usize },
+    Chunked { btree_addr: usize, chunk: Vec<u64> },
 }
 
 pub(super) fn data_layout(sizes: &Sizes, d: &[u8]) -> RawLayout {
@@ -164,7 +152,6 @@ pub(super) fn data_layout(sizes: &Sizes, d: &[u8]) -> RawLayout {
             let vals: Vec<u32> = (0..dimensionality).map(|i| u32(d, base + 4 * i)).collect();
             RawLayout::Chunked {
                 btree_addr,
-                elem_size: *vals.last().unwrap() as usize,
                 chunk: vals[..dimensionality - 1]
                     .iter()
                     .map(|&v| v as u64)

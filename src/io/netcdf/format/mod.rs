@@ -63,12 +63,16 @@ pub(super) enum Storage {
     Classic,
     Hdf5 {
         little_endian: bool,
+        shape: Vec<u64>,
         layout: hdf5::Layout,
         filters: Vec<hdf5::Filter>,
     },
 }
 
 impl VarSpec {
+    pub fn shape(&self, dims: &[DimSpec]) -> Vec<u64> {
+        self.dimids.iter().map(|&d| dims[d].len).collect()
+    }
     pub fn elements(&self, dims: &[DimSpec]) -> u64 {
         self.dimids
             .iter()

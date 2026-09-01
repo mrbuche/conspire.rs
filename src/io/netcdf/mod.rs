@@ -93,6 +93,15 @@ pub trait GetVariable {
         name: &str,
         len: usize,
     ) -> Result<Option<Vec<T>>, NulError>;
+    /// Read the hyperslab `start .. start + count` (element coordinates, one
+    /// entry per dimension) of a variable, decompressing only the chunks it
+    /// touches.
+    fn get_variable_slice<T: NcType>(
+        &self,
+        name: &str,
+        start: &[usize],
+        count: &[usize],
+    ) -> Result<Vec<T>, NulError>;
 }
 
 /// # Safety

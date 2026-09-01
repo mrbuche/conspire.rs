@@ -113,10 +113,26 @@ impl NetCDF {
             }
             Storage::Hdf5 {
                 little_endian,
+                shape,
                 layout,
                 filters,
             } => {
-                let raw = hdf5::read_data(&reader.bytes, layout, filters, len * T::SIZE);
+                assert_eq!(
+                    len as u64,
+                    shape.iter().product::<u64>().max(1),
+                    "wrong element count for variable {name}"
+                );
+                let start = vec![0usize; shape.len()];
+                let count: Vec<usize> = shape.iter().map(|&d| d as usize).collect();
+                let raw = hdf5::read_data(
+                    &reader.bytes,
+                    layout,
+                    filters,
+                    shape,
+                    &start,
+                    &count,
+                    T::SIZE,
+                );
                 Some(if *little_endian {
                     decode_le(&raw)
                 } else {
@@ -124,6 +140,64 @@ impl NetCDF {
                 })
             }
         }
+    }
+
+    fn read_variable_slice<T: NcType>(
+        &self,
+        name: &str,
+        start: &[usize],
+        count: &[usize],
+    ) -> Option<Vec<T>> {
+        let reader = match &self.state {
+            State::Read(reader) => reader,
+            State::Write(_) => panic!("get_variable_slice on a NetCDF opened for writing"),
+        };
+        let spec = reader.parsed.vars.iter().find(|spec| spec.name == name)?;
+        assert_eq!(
+            spec.xtype,
+            T::XTYPE,
+            "type mismatch reading variable {name}"
+        );
+        match &spec.storage {
+            Storage::Hdf5 {
+                little_endian,
+                shape,
+                layout,
+                filters,
+            } => {
+                check_slice(name, shape, start, count);
+                let raw =
+                    hdf5::read_data(&reader.bytes, layout, filters, shape, start, count, T::SIZE);
+                Some(if *little_endian {
+                    decode_le(&raw)
+                } else {
+                    decode_be(&raw)
+                })
+            }
+            Storage::Classic => {
+                let shape = spec.shape(&reader.parsed.dims);
+                check_slice(name, &shape, start, count);
+                let bytes = shape.iter().product::<u64>().max(1) as usize * T::SIZE;
+                let layout = hdf5::Layout::Contiguous {
+                    addr: spec.begin as usize,
+                    size: bytes,
+                };
+                let raw =
+                    hdf5::read_data(&reader.bytes, &layout, &[], &shape, start, count, T::SIZE);
+                Some(decode_be(&raw))
+            }
+        }
+    }
+}
+
+fn check_slice(name: &str, shape: &[u64], start: &[usize], count: &[usize]) {
+    assert_eq!(start.len(), shape.len(), "start has wrong rank for {name}");
+    assert_eq!(count.len(), shape.len(), "count has wrong rank for {name}");
+    for (i, (&s, &c)) in start.iter().zip(count).enumerate() {
+        assert!(
+            s + c <= shape[i] as usize,
+            "slice out of bounds on axis {i} of {name}"
+        );
     }
 }
 
@@ -143,5 +217,17 @@ impl GetVariable for NetCDF {
         reject_nul(name)?;
         let _guard = nc_lock();
         Ok(self.read_variable(name, len))
+    }
+    fn get_variable_slice<T: NcType>(
+        &self,
+        name: &str,
+        start: &[usize],
+        count: &[usize],
+    ) -> Result<Vec<T>, NulError> {
+        reject_nul(name)?;
+        let _guard = nc_lock();
+        Ok(self
+            .read_variable_slice(name, start, count)
+            .unwrap_or_else(|| panic!("no variable named {name}")))
     }
 }
