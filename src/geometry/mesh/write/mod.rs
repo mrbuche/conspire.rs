@@ -13,7 +13,7 @@ use crate::{
 use std::{io::Error as ErrorIO, path::Path};
 
 use self::abaqus::WriteAbaqus;
-use self::exodus::WriteExodus;
+use self::exodus::{ExodusFormat, WriteExodus};
 use self::medit::WriteMedit;
 use self::vtk::{Vtk, multi_block::WriteVtkMultiBlock, unstructured::WriteVtkUnstructured};
 
@@ -22,8 +22,7 @@ where
     P: AsRef<Path>,
 {
     Abaqus(P),
-    Exodus(P),
-    ExodusCompressed { path: P, threads: usize },
+    Exodus(ExodusFormat<P>),
     Medit(P),
     Vtk(Vtk<P>),
 }
@@ -35,8 +34,7 @@ where
     fn as_ref(&self) -> &Path {
         match self {
             Output::Abaqus(path) => path.as_ref(),
-            Output::Exodus(path) => path.as_ref(),
-            Output::ExodusCompressed { path, .. } => path.as_ref(),
+            Output::Exodus(format) => format.as_ref(),
             Output::Medit(path) => path.as_ref(),
             Output::Vtk(vtk) => vtk.as_ref(),
         }
@@ -51,8 +49,8 @@ where
     fn write(&self, output: Output<P>) -> Result<(), Self::Error> {
         match output {
             Output::Abaqus(path) => self.write_abaqus(path)?,
-            Output::Exodus(path) => self.write_exodus(path)?,
-            Output::ExodusCompressed { path, threads } => {
+            Output::Exodus(ExodusFormat::Classic(path)) => self.write_exodus(path)?,
+            Output::Exodus(ExodusFormat::Netcdf4 { path, threads }) => {
                 self.write_exodus_compressed(path, threads)?
             }
             Output::Medit(path) => self.write_medit(path)?,

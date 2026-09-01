@@ -7,6 +7,30 @@ use crate::{
 };
 use std::{ffi::NulError, path::Path};
 
+/// Which on-disk Exodus flavour to write.
+pub enum ExodusFormat<P>
+where
+    P: AsRef<Path>,
+{
+    /// Classic netCDF (CDF-5).
+    Classic(P),
+    /// netCDF-4 (HDF5): chunked, shuffle + deflate compressed. `threads` bounds
+    /// the pool used to compress chunks (`0` or `1` compresses serially).
+    Netcdf4 { path: P, threads: usize },
+}
+
+impl<P> AsRef<Path> for ExodusFormat<P>
+where
+    P: AsRef<Path>,
+{
+    fn as_ref(&self) -> &Path {
+        match self {
+            ExodusFormat::Classic(path) => path.as_ref(),
+            ExodusFormat::Netcdf4 { path, .. } => path.as_ref(),
+        }
+    }
+}
+
 pub(crate) trait WriteExodus<P>
 where
     P: AsRef<Path>,

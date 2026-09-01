@@ -1,5 +1,5 @@
 use crate::{
-    geometry::mesh::{Connectivity, Mesh, Output},
+    geometry::mesh::{Connectivity, ExodusFormat, Mesh, Output},
     io::Write,
 };
 
@@ -25,7 +25,10 @@ fn two_cubes() {
     ]
     .into();
     let mesh = Mesh::from((connectivities, coordinates));
-    mesh.write(Output::Exodus("target/two_cubes.exo")).unwrap()
+    mesh.write(Output::Exodus(ExodusFormat::Classic(
+        "target/two_cubes.exo",
+    )))
+    .unwrap()
 }
 
 #[test]
@@ -76,5 +79,8 @@ fn two_polys() {
     ]
     .into();
     let mesh = Mesh::from((connectivities, coordinates));
-    mesh.write(Output::Exodus("target/two_polys.exo")).unwrap()
+    mesh.write(Output::Exodus(ExodusFormat::Classic(
+        "target/two_polys.exo",
+    )))
+    .unwrap()
 }

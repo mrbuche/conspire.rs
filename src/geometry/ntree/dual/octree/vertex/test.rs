@@ -183,7 +183,10 @@ fn weak_vertex_depths(fine: usize) -> [usize; 8] {
 fn write_weak_vertex_dual() {
     use super::super::test::verify_dual;
     use crate::{
-        geometry::{mesh::Output, ntree::Dualization},
+        geometry::{
+            mesh::{ExodusFormat, Output},
+            ntree::Dualization,
+        },
         io::Write,
     };
     for fine in 0..8 {
@@ -194,8 +197,10 @@ fn write_weak_vertex_dual() {
             panic!("weak vertex dual (fine orthant {fine}) failed verification: {error}");
         }
         if fine == 7 {
-            mesh.write(Output::Exodus("target/weak_vertex.exo"))
-                .unwrap();
+            mesh.write(Output::Exodus(ExodusFormat::Classic(
+                "target/weak_vertex.exo",
+            )))
+            .unwrap();
         }
     }
 }
