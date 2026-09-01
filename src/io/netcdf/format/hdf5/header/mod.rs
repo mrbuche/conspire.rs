@@ -28,16 +28,17 @@ pub(super) fn object_header(b: &[u8], sizes: &Sizes, addr: usize) -> Vec<Message
     let chunk0 = uint(b, p, size_bytes) as usize;
     p += size_bytes;
 
+    let header_len = 4 + if creation_order { 2 } else { 0 };
     let mut out = Vec::new();
     let mut blocks = vec![(p, p + chunk0)];
     let mut i = 0;
     while i < blocks.len() {
         let (mut p, end) = blocks[i];
         i += 1;
-        while p + 4 <= end {
+        while p + header_len <= end {
             let typ = b[p] as u16;
             let size = u16(b, p + 1) as usize;
-            let data = p + 4 + if creation_order { 2 } else { 0 };
+            let data = p + header_len;
             p = data + size;
             match typ {
                 0x0000 => {}

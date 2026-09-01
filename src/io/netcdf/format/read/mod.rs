@@ -82,6 +82,9 @@ impl<'a> HeaderReader<'a> {
                         })
                         .collect(),
                 ),
+                // Only text attributes are surfaced by the public API; numeric
+                // attribute values are parsed but never read back, so the
+                // double -> f32 narrowing here is inconsequential.
                 NC_DOUBLE => AttValue::Float(
                     (0..len)
                         .map(|_| {
