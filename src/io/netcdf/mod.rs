@@ -15,18 +15,12 @@ use std::{
     sync::{Mutex, MutexGuard},
 };
 
-/// Serializes netCDF operations process-wide, matching the previous behavior so
-/// [`NetCDF`] can still be driven the same way from multiple threads.
 static NC_LOCK: Mutex<()> = Mutex::new(());
 
 pub(crate) fn nc_lock() -> MutexGuard<'static, ()> {
     NC_LOCK.lock().unwrap_or_else(|error| error.into_inner())
 }
 
-/// Returns `Err` if `name` contains an interior NUL byte.
-///
-/// Names are no longer passed to C, but rejecting NUL keeps the observable error
-/// behavior (and error type) identical for callers.
 pub(crate) fn reject_nul(name: &str) -> Result<(), NulError> {
     CString::new(name).map(|_| ())
 }
@@ -60,8 +54,6 @@ struct VarBuild {
     attributes: Vec<Attribute>,
 }
 
-/// State after [`NetCDF::end_definition`]: the header is on disk and every
-/// variable has a resolved location.
 struct Output {
     file: File,
     variables: Vec<VarSpec>,
@@ -100,31 +92,16 @@ pub trait GetVariable {
     ) -> Result<Option<Vec<T>>, NulError>;
 }
 
-/// A scalar type that can be stored as netCDF external data.
-///
-/// Encoding and decoding are byte-oriented (see [`format::encode_be`] /
-/// [`format::decode_be`]): the in-memory `[T]` is reinterpreted as bytes and
-/// [`xdr_swap`](NcType::xdr_swap) does the endianness conversion as it copies
-/// into (or out of) the I/O buffer — no separate pass.
-///
 /// # Safety
 ///
 /// `SIZE` must equal `size_of::<Self>()`, `Self` must have no padding, and every
 /// bit pattern of that width must be a valid `Self`.
 pub unsafe trait NcType: Default + Copy {
-    /// The netCDF external type tag (`NC_INT`, `NC_FLOAT`, `NC_DOUBLE`).
     const XTYPE: i32;
-    /// Bytes per element, on disk and in memory.
     const SIZE: usize;
-    /// Copy `src` to `dst` swapping each `SIZE`-byte element between native and
-    /// big-endian XDR order (a byte reversal on little-endian hosts, a plain
-    /// copy on big-endian ones). It is its own inverse, so both `encode_be` and
-    /// `decode_be` use it. `src.len() == dst.len()`, both multiples of `SIZE`.
     fn xdr_swap(src: &[u8], dst: &mut [u8]);
 }
 
-/// Byte-reverse each `N`-byte group of `src` into `dst` (native <-> big-endian
-/// XDR). `src.len() == dst.len()`, both multiples of `N`; remainders are empty.
 #[inline]
 fn swap_words<const N: usize>(src: &[u8], dst: &mut [u8], swap: impl Fn([u8; N]) -> [u8; N]) {
     let (src, _) = src.as_chunks::<N>();

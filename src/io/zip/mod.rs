@@ -9,11 +9,21 @@ use std::{
     str::from_utf8,
 };
 
+/// One member of a ZIP archive.
+///
+/// `name` is the path within the archive; `data` is the member's uncompressed
+/// contents.
 pub struct ZipEntry {
     pub name: String,
     pub data: Vec<u8>,
 }
 
+/// An in-memory ZIP archive.
+///
+/// Holds an ordered list of [`ZipEntry`] members. Read with [`Zip::read`] (look
+/// entries up by name with [`Zip::entry`]) and written through the
+/// [`Write`](crate::io::Write) trait. Only stored (uncompressed) entries are
+/// supported, which is what NumPy `.npz` files use.
 pub struct Zip {
     pub entries: Vec<ZipEntry>,
 }

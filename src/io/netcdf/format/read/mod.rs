@@ -1,5 +1,3 @@
-//! Classic-format header parsing (CDF-1, CDF-2, and CDF-5).
-
 #[cfg(test)]
 mod test;
 
@@ -8,15 +6,10 @@ use super::{
     NC_INT, NC_VARIABLE, Parsed, VarSpec,
 };
 
-/// Integer widths that vary between classic-format variants.
 #[derive(Clone, Copy)]
 struct Widths {
-    /// `numrecs`, all list counts, name lengths, dimension lengths, attribute
-    /// element counts, and `vsize`.
     count: usize,
-    /// Variable data offset (`begin`).
     offset: usize,
-    /// Dimension-id references inside a variable.
     dimid: usize,
 }
 
@@ -35,7 +28,6 @@ impl<'a> HeaderReader<'a> {
     fn i32(&mut self) -> i32 {
         i32::from_be_bytes(self.take(4).try_into().unwrap())
     }
-    /// A big-endian non-negative integer of `width` bytes (4 or 8).
     fn uint(&mut self, width: usize) -> u64 {
         if width == 8 {
             u64::from_be_bytes(self.take(8).try_into().unwrap())
@@ -43,15 +35,12 @@ impl<'a> HeaderReader<'a> {
             u32::from_be_bytes(self.take(4).try_into().unwrap()) as u64
         }
     }
-    /// A `count`-width non-negative integer (list lengths, sizes, `numrecs`).
     fn count(&mut self) -> u64 {
         self.uint(self.w.count)
     }
-    /// The variable data offset (`begin`).
     fn offset(&mut self) -> u64 {
         self.uint(self.w.offset)
     }
-    /// A dimension-id reference inside a variable.
     fn dimid(&mut self) -> usize {
         self.uint(self.w.dimid) as usize
     }

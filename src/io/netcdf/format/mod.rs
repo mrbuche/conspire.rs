@@ -1,14 +1,3 @@
-//! Minimal reader and writer for the netCDF *classic* formats (CDF-1, CDF-2,
-//! CDF-5), sufficient for Exodus mesh files: fixed-size (non-record) variables
-//! only, whole-variable access, `int` / `float` / `double` data.
-//!
-//! Files are always written as CDF-5 ("64-bit data"); all three classic
-//! variants are accepted on read. NetCDF-4 (HDF5) files are not supported.
-//!
-//! The work splits three ways: [`write`] encodes a CDF-5 header, [`read`] parses
-//! any classic header, and [`xdr`] moves variable data between native order and
-//! netCDF's big-endian encoding. This module holds the vocabulary they share.
-
 #[cfg(test)]
 mod test;
 
@@ -29,7 +18,6 @@ const NC_DIMENSION: i32 = 0x0A;
 const NC_VARIABLE: i32 = 0x0B;
 const NC_ATTRIBUTE: i32 = 0x0C;
 
-/// Bytes on disk for one element of the given external type.
 pub(super) fn type_size(xtype: i32) -> usize {
     match xtype {
         NC_INT | NC_FLOAT => 4,
@@ -59,15 +47,11 @@ pub(super) struct VarSpec {
     pub xtype: i32,
     pub dimids: Vec<usize>,
     pub atts: Vec<Attribute>,
-    /// Byte offset of this variable's data from the start of the file.
     pub begin: u64,
-    /// Bytes occupied on disk (data length padded to a multiple of four).
     pub vsize: u64,
 }
 
 impl VarSpec {
-    /// Number of scalar elements, i.e. the product of the referenced dimension
-    /// lengths (an empty dimension list denotes a scalar: one element).
     pub fn elements(&self, dims: &[DimSpec]) -> u64 {
         self.dimids
             .iter()
