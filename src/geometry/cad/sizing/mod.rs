@@ -394,17 +394,25 @@ impl FeatureSizing {
     }
 
     /// The crease term alone: the smallest feature size the sharp edges impose
-    /// at `point`, unclamped.
-    fn crease(&self, point: &Coordinate<D>) -> Quantity<Length> {
+    /// on a cube centred at `center` with half-edge `half`, unclamped. Distance
+    /// is measured from the nearest point of the cube, not its centre (the
+    /// `half * sqrt(3)` circumradius slack), so whether a near-rim cell refines
+    /// no longer depends on octree grid phase and mirror-image rims refine
+    /// evenly — matching how the proximity and curvature box fields inflate
+    /// their query by `half`.
+    fn crease(&self, center: &Coordinate<D>, half: Scalar) -> Quantity<Length> {
         let Some(bvh) = &self.crease else {
             return self.maximum;
         };
-        let p: [Scalar; D] = from_fn(|k| point[k].value());
+        let p: [Scalar; D] = from_fn(|k| center[k].value());
+        let low: [Scalar; D] = from_fn(|k| p[k] - half);
+        let high: [Scalar; D] = from_fn(|k| p[k] + half);
+        let slack = half * (D as Scalar).sqrt();
         let maximum = self.maximum.value();
         let gradation = self.gradation;
         let mut size = maximum;
-        bvh.query(&p, &p, &mut size, &mut |seg, size| {
-            let reach = point_segment_distance(&p, &seg.a, &seg.b);
+        bvh.query(&low, &high, &mut size, &mut |seg, size| {
+            let reach = (point_segment_distance(&p, &seg.a, &seg.b) - slack).max(0.0);
             let candidate = match gradation {
                 Some(rate) => seg.source + reach * rate,
                 None if reach <= seg.source => seg.source,
@@ -426,7 +434,7 @@ impl FeatureSizing {
     /// `half`: the crease term, further capped wherever a proximity slab
     /// reaches into the cell.
     pub fn at_cell(&self, center: &Coordinate<D>, half: Scalar) -> Quantity<Length> {
-        let mut size = self.crease(center);
+        let mut size = self.crease(center, half);
         for field in [&self.proximity, &self.curvature].into_iter().flatten() {
             if let Some(target) = field.target(center, half) {
                 size = size.min(Quantity::<Length>::new(target));

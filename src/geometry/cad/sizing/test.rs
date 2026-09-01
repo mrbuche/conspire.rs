@@ -144,14 +144,20 @@ fn curvature_leaves_the_far_field_alone() {
 
 #[test]
 fn unbounded_max_and_gradation_without_a_thickness_term_is_rejected() {
-    use crate::geometry::solid::Solid;
-    // maximum: None + gradation: None + no proximity/curvature: the crease term
-    // is INF everywhere off a chord, so the octree never refines. The driver
+    use crate::geometry::{cad::brep::test::ball, solid::Solid};
+    // maximum: None + gradation: None + no proximity/curvature + no sharp edges:
+    // the crease term is INF everywhere, so the octree never refines. The driver
     // must reject the degenerate field, not hand back a 1-node tree.
+    let smooth = ball(1.0);
+    let empty = FeatureSizing::of(&smooth, 2, length(1e-3), None, None);
+    assert!(smooth.sizing_octree(&empty, Some(4), 0.1).is_err());
+    // A cube's sharp edges do drive refinement even with no ramp: the crease
+    // term's half-cell slack pulls a fine shell around every edge before the
+    // size jumps to `maximum`.
     let brep = unit_cube();
-    let field = FeatureSizing::of(&brep, 2, length(1e-3), None, None);
-    assert!(brep.sizing_octree(&field, Some(4), 0.1).is_err());
-    // The same field with a proximity term is fine.
+    let creased = FeatureSizing::of(&brep, 2, length(1e-3), None, None);
+    assert!(brep.sizing_octree(&creased, Some(4), 0.1).is_ok());
+    // A proximity term anchors the interior too.
     let anchored = FeatureSizing::of(&brep, 2, length(1e-3), None, None)
         .with_proximity(&brep, 3)
         .unwrap();
