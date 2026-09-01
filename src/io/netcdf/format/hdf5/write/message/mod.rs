@@ -36,6 +36,10 @@ pub(super) fn group_info() -> Vec<u8> {
 }
 
 pub(super) fn link(name: &str, object_header: u64) -> Vec<u8> {
+    assert!(
+        name.len() < 256,
+        "link name too long for a 1-byte length field"
+    );
     let mut v = vec![1, 0, name.len() as u8];
     v.extend_from_slice(name.as_bytes());
     extend_u64(&mut v, object_header);

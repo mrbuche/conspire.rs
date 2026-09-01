@@ -103,8 +103,9 @@ fn object_header(messages: &[(u8, Vec<u8>)]) -> Vec<u8> {
     v.push(0x02);
     v.extend_from_slice(&(chunk0 as u32).to_le_bytes());
     for (typ, body) in messages {
+        let size = u16::try_from(body.len()).expect("object header message exceeds 64 KiB");
         v.push(*typ);
-        v.extend_from_slice(&(body.len() as u16).to_le_bytes());
+        v.extend_from_slice(&size.to_le_bytes());
         v.push(0);
         v.extend_from_slice(body);
     }

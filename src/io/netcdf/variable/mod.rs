@@ -122,6 +122,18 @@ impl NetCDF {
                     shape.iter().product::<u64>().max(1),
                     "wrong element count for variable {name}"
                 );
+                let decode = |bytes: &[u8]| {
+                    if *little_endian {
+                        decode_le(bytes)
+                    } else {
+                        decode_be(bytes)
+                    }
+                };
+                if let (hdf5::Layout::Contiguous { addr, size }, true) =
+                    (layout, filters.is_empty())
+                {
+                    return Some(decode(&reader.bytes[*addr..*addr + *size]));
+                }
                 let start = vec![0usize; shape.len()];
                 let count: Vec<usize> = shape.iter().map(|&d| d as usize).collect();
                 let raw = hdf5::read_data(
@@ -133,11 +145,7 @@ impl NetCDF {
                     &count,
                     T::SIZE,
                 );
-                Some(if *little_endian {
-                    decode_le(&raw)
-                } else {
-                    decode_be(&raw)
-                })
+                Some(decode(&raw))
             }
         }
     }

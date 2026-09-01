@@ -40,6 +40,27 @@ pub(in crate::io::netcdf) enum Filter {
     Shuffle,
 }
 
+// HDF5 shuffle filter: `encode` groups byte j of every element together (planar);
+// decode is the exact inverse. Trailing bytes that don't fill an element pass
+// through untouched.
+pub(super) fn shuffle(data: &[u8], elem: usize, encode: bool) -> Vec<u8> {
+    let n = data.len() / elem;
+    let mut out = vec![0u8; data.len()];
+    for j in 0..elem {
+        for k in 0..n {
+            let (planar, interleaved) = (j * n + k, k * elem + j);
+            if encode {
+                out[planar] = data[interleaved];
+            } else {
+                out[interleaved] = data[planar];
+            }
+        }
+    }
+    let tail = n * elem;
+    out[tail..].copy_from_slice(&data[tail..]);
+    out
+}
+
 pub(super) fn u16(b: &[u8], p: usize) -> u16 {
     u16::from_le_bytes([b[p], b[p + 1]])
 }

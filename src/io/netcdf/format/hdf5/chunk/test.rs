@@ -1,4 +1,4 @@
-use super::{Filter, Layout, gather, read_data, scatter, unfilter, unshuffle};
+use super::{Filter, Layout, gather, read_data, scatter, shuffle, unfilter};
 
 #[test]
 fn fill_layout_reads_zeros() {
@@ -61,6 +61,8 @@ fn unfilter_honours_the_skip_mask() {
 
 #[test]
 fn unshuffle_inverts_shuffle() {
-    let shuffled = [0u8, 4, 1, 5, 2, 6, 3, 7];
-    assert_eq!(unshuffle(&shuffled, 4), [0, 1, 2, 3, 4, 5, 6, 7]);
+    let plain = [0u8, 1, 2, 3, 4, 5, 6, 7];
+    let shuffled = shuffle(&plain, 4, true);
+    assert_eq!(shuffled, [0, 4, 1, 5, 2, 6, 3, 7]);
+    assert_eq!(shuffle(&shuffled, 4, false), plain);
 }

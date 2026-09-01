@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use super::{Filter, Layout, TREE, u16, u32, u64, uint};
+use super::{Filter, Layout, TREE, shuffle, u16, u32, u64, uint};
+use std::borrow::Cow;
 
 #[allow(clippy::too_many_arguments)]
 pub(in crate::io::netcdf) fn read_data(
@@ -128,29 +129,17 @@ fn overlaps(chunk_off: &[u64], chunk: &[u64], start: &[usize], count: &[usize]) 
 }
 
 fn unfilter(raw: &[u8], filters: &[Filter], mask: u32, elem: usize) -> Vec<u8> {
-    let mut data = raw.to_vec();
+    let mut data = Cow::Borrowed(raw);
     for (i, filter) in filters.iter().enumerate().rev() {
         if mask & (1 << i) != 0 {
             continue;
         }
-        data = match filter {
+        data = Cow::Owned(match filter {
             Filter::Deflate => crate::io::zlib_decode(&data).expect("HDF5 deflate chunk inflate"),
-            Filter::Shuffle => unshuffle(&data, elem),
-        };
+            Filter::Shuffle => shuffle(&data, elem, false),
+        });
     }
-    data
-}
-
-fn unshuffle(data: &[u8], elem: usize) -> Vec<u8> {
-    let n = data.len() / elem;
-    let mut out = vec![0; data.len()];
-    for j in 0..elem {
-        for k in 0..n {
-            out[k * elem + j] = data[j * n + k];
-        }
-    }
-    out[n * elem..].copy_from_slice(&data[n * elem..]);
-    out
+    data.into_owned()
 }
 
 #[allow(clippy::too_many_arguments)]

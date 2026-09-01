@@ -1,3 +1,4 @@
+use super::super::shuffle;
 use crate::io::zlib_encode;
 
 pub(super) struct Plan {
@@ -13,18 +14,6 @@ pub(super) struct Blob {
     pub bytes: Vec<u8>,
 }
 
-fn shuffle(data: &[u8], elem: usize) -> Vec<u8> {
-    let n = data.len() / elem;
-    let mut out = vec![0u8; data.len()];
-    for j in 0..elem {
-        for k in 0..n {
-            out[j * n + k] = data[k * elem + j];
-        }
-    }
-    out[n * elem..].copy_from_slice(&data[n * elem..]);
-    out
-}
-
 fn compress(
     data: &[u8],
     start: u64,
@@ -36,7 +25,7 @@ fn compress(
     let extent = (rows - start).min(slab);
     let mut raw = data[(start * row) as usize..((start + extent) * row) as usize].to_vec();
     raw.resize((slab * row) as usize, 0);
-    let shuffled = shuffle(&raw, elem);
+    let shuffled = shuffle(&raw, elem, true);
     let deflated = zlib_encode(&shuffled);
     if deflated.len() < raw.len() {
         (0, deflated)
