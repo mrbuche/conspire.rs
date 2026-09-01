@@ -1242,6 +1242,56 @@ fn probe_ray_hits() {
     }
 }
 
+/// For a local `.stp` at `STEP_MESH_FILE`, lists every planar face's trimming
+/// loops by their edge-curve kinds and whether `planar_face` accepts them —
+/// so the exact loop shape behind a "trimming loop" error can be read off a
+/// file this repo cannot see.
+#[test]
+#[ignore = "audits the planar-face trim loops of STEP_MESH_FILE"]
+fn probe_planar_faces() {
+    use crate::geometry::cad::brep::{curve::Curve, surface::Surface};
+
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let text = std::fs::read_to_string(&path).unwrap();
+    let kind = |curve: &Curve| match curve {
+        Curve::Line(_) => "Line",
+        Curve::Circle(_) => "Circle",
+        Curve::Ellipse(_) => "Ellipse",
+        Curve::BSpline(_) => "BSpline",
+    };
+    for (si, brep) in read_all(&text).expect("read failed").into_iter().enumerate() {
+        let (mut ok, mut err) = (0, 0);
+        for (fi, face) in brep.faces.iter().enumerate() {
+            if !matches!(face.surface, Surface::Plane(_)) {
+                continue;
+            }
+            let signature = face
+                .bounds
+                .iter()
+                .map(|bound| {
+                    let kinds: Vec<&str> = bound
+                        .half_edges
+                        .iter()
+                        .map(|half_edge| kind(&brep.edges[half_edge.edge].curve))
+                        .collect();
+                    format!("[{}]", kinds.join(","))
+                })
+                .collect::<Vec<_>>()
+                .join(" ");
+            match brep.planar_face(face) {
+                Ok(_) => ok += 1,
+                Err(error) => {
+                    err += 1;
+                    eprintln!("solid {si} face {fi}: {signature} -> ERR {error}");
+                }
+            }
+        }
+        eprintln!("solid {si}: {ok} planar faces ok, {err} failed");
+    }
+}
+
 #[test]
 fn reads_every_solid_in_the_file() {
     use crate::geometry::{cad::brep::surface::Surface, csg::Primitive};
