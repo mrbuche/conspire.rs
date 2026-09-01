@@ -8,7 +8,8 @@ use crate::{
                 cylinder_with_elliptical_rim, direction,
                 cone_split_at_apex, cylinder_with_splined_rim, hemisphere_solid,
                 partial_cone_to_apex,
-                partial_cylinder, partial_sphere, partial_torus, revolved_cylinder,
+                cylinder_with_slanted_edge, partial_cylinder, partial_sphere, partial_torus,
+                revolved_cylinder,
                 square_with_rounded_hole, square_with_splined_hole, torus, unit_cube,
             },
         },
@@ -93,6 +94,26 @@ fn a_surface_of_revolution_matches_the_cylinder_it_describes() {
     assert!(!inside([2.1, 0.0, 2.5]), "just outside the wall");
     assert!(!inside([0.0, 0.0, 6.0]), "above the top cap");
     assert!(!inside([0.0, 0.0, 20.0]), "far down the shadow is still outside");
+}
+
+#[test]
+fn a_non_axial_straight_edge_trims_the_cylinder_instead_of_refusing_it() {
+    // The slanted top edge used to make `oracle()` error outright.
+    let oracle = cylinder_with_slanted_edge(2.0, 4.0, 1.2).oracle().unwrap();
+
+    // A point outside the wall, mid-wedge, projects onto the cylinder r = 2.
+    let mid = [2.5 * 0.6_f64.cos(), 2.5 * 0.6_f64.sin(), 2.0];
+    let (point, _) = oracle.project(&Coordinate::from(mid)).unwrap();
+    let p = components(&point);
+    assert!((p[0].hypot(p[1]) - 2.0).abs() < 1.0e-6, "{p:?}");
+    assert!((p[1].atan2(p[0]) - 0.6).abs() < 1.0e-3, "mid-wedge angle {}", p[1].atan2(p[0]));
+
+    // A point in the angular gap clamps back to the θ = 1.2 trim edge, not
+    // onto the untrimmed cylinder at its own angle.
+    let gap = [2.0 * 2.0_f64.cos(), 2.0 * 2.0_f64.sin(), 2.0];
+    let (point, _) = oracle.project(&Coordinate::from(gap)).unwrap();
+    let p = components(&point);
+    assert!(p[1].atan2(p[0]) < 1.4, "gap point clamps to the trim edge, got {}", p[1].atan2(p[0]));
 }
 
 #[test]

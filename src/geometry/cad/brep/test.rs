@@ -304,6 +304,19 @@ pub(crate) fn partial_cylinder(radius: f64, height: f64, angle: f64) -> Brep {
     }
 }
 
+/// [`partial_cylinder`], but the top edge is a straight `Line` chord across
+/// the patch (from angle `angle` down to `0` at `z = height`) instead of an
+/// arc — a non-axial straight edge that does not lie on the cylinder, so the
+/// chart trim must chord it rather than refuse the face.
+pub(crate) fn cylinder_with_slanted_edge(radius: f64, height: f64, angle: f64) -> Brep {
+    let mut brep = partial_cylinder(radius, height, angle);
+    brep.edges[2].curve = Curve::Line(Line {
+        origin: Coordinate::const_from([radius * angle.cos(), radius * angle.sin(), height]),
+        direction: direction([1.0, 0.0, 0.0]),
+    });
+    brep
+}
+
 /// A single `+z` planar face whose outer loop is three straight sides plus a
 /// semicircular arc bulging to `y = 6` — well past every vertex (max vertex
 /// `y = 4`). The arc is on the *outer* bound, so the loop-vertex AABB alone

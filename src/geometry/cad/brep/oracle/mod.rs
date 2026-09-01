@@ -158,10 +158,19 @@ impl Brep {
                 crossed_apex = Some(ring.len());
                 current = [current[0] + wrap(u_end - current[0]), current[1]];
             }
-            if matches!(&edge.curve, Curve::BSpline(_)) {
-                // No closed-form trace in this chart for a general B-spline:
-                // chord it into straight sub-segments, at the same density
-                // every face trimming this edge uses.
+            // A straight edge that is neither an axial ruling nor an apex
+            // ruling does not lie on the surface — it is a chord shared with a
+            // cutting plane, its endpoints on the surface but its interior
+            // not. Its `(u, v)` trace is a curve like a B-spline's, so chord
+            // it the same way rather than refusing the face.
+            let chord_line = matches!(&edge.curve, Curve::Line(_))
+                && !apex(from_axis, to_axis)
+                && !apex(to_axis, from_axis)
+                && wrap(to_uv(origin, axis, end_point)[0] - current[0]).abs() > 1.0e-6;
+            if matches!(&edge.curve, Curve::BSpline(_)) || chord_line {
+                // No closed-form trace in this chart: chord it into straight
+                // sub-segments, at the same density every face trimming this
+                // edge uses.
                 let mut point = current;
                 for sample in self
                     .edge_polyline(edge, start, end, half_edge.forward)
@@ -178,11 +187,9 @@ impl Brep {
             }
             let (kind, next) = match &edge.curve {
                 Curve::Line(_) => {
-                    let [u_end, v_end] = to_uv(origin, axis, end_point);
-                    let on_axis = apex(from_axis, to_axis) || apex(to_axis, from_axis);
-                    if !on_axis && wrap(u_end - current[0]).abs() > 1.0e-6 {
-                        return Err("non-axial straight edge on a curved face");
-                    }
+                    // Only an axial or apex ruling reaches here (a non-axial
+                    // chord is handled above); `u` is unchanged along it.
+                    let [_, v_end] = to_uv(origin, axis, end_point);
                     (None, [current[0], v_end])
                 }
                 Curve::Circle(circle) => {
