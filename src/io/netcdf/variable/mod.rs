@@ -35,37 +35,56 @@ impl PutVariable for NetCDF {
     fn put_variable<T: NcType>(&mut self, name: &str, data: &[T]) -> Result<(), NulError> {
         reject_nul(name)?;
         let _guard = nc_lock();
-        let output = match &mut self.state {
-            State::Write(writer) => writer
-                .output
-                .as_mut()
-                .unwrap_or_else(|| panic!("put_variable before end_definition")),
+        let writer = match &mut self.state {
+            State::Write(writer) => writer,
             State::Read(_) => panic!("put_variable on a NetCDF opened for reading"),
         };
-        let (begin, vsize, xtype) = output
+        let netcdf4 = writer.netcdf4;
+        let dims = std::mem::take(&mut writer.dims);
+        let output = writer
+            .output
+            .as_mut()
+            .unwrap_or_else(|| panic!("put_variable before end_definition"));
+        let index = output
             .variables
             .iter()
-            .find(|spec| spec.name == name)
-            .map(|spec| (spec.begin, spec.vsize as usize, spec.xtype))
+            .position(|spec| spec.name == name)
             .unwrap_or_else(|| panic!("no variable named {name}"));
-        assert_eq!(xtype, T::XTYPE, "type mismatch writing variable {name}");
-        let expected = vsize / T::SIZE;
+        let spec = &output.variables[index];
         assert_eq!(
-            data.len(),
-            expected,
-            "wrong element count for variable {name}"
+            spec.xtype,
+            T::XTYPE,
+            "type mismatch writing variable {name}"
         );
-        let mut buffer = Vec::with_capacity(vsize);
-        format::encode_be(data, &mut buffer);
-        buffer.resize(vsize, 0);
-        output
-            .file
-            .seek(SeekFrom::Start(begin))
-            .expect("seek failed");
-        output
-            .file
-            .write_all(&buffer)
-            .expect("variable write failed");
+        if netcdf4 {
+            assert_eq!(
+                data.len() as u64,
+                spec.elements(&dims),
+                "wrong element count for variable {name}"
+            );
+            let mut buffer = Vec::with_capacity(data.len() * T::SIZE);
+            format::encode_le(data, &mut buffer);
+            output.data[index] = buffer;
+        } else {
+            let (begin, vsize) = (spec.begin, spec.vsize as usize);
+            assert_eq!(
+                data.len(),
+                vsize / T::SIZE,
+                "wrong element count for variable {name}"
+            );
+            let mut buffer = Vec::with_capacity(vsize);
+            format::encode_be(data, &mut buffer);
+            buffer.resize(vsize, 0);
+            output
+                .file
+                .seek(SeekFrom::Start(begin))
+                .expect("seek failed");
+            output
+                .file
+                .write_all(&buffer)
+                .expect("variable write failed");
+        }
+        writer.dims = dims;
         Ok(())
     }
 }

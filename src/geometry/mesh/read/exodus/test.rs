@@ -319,3 +319,19 @@ fn netcdf4_matches_classic() {
         }
     }
 }
+
+#[test]
+fn netcdf4_write_then_read_round_trip() {
+    let original = mesh();
+    original
+        .write(Output::ExodusCompressed(
+            "target/exodus_netcdf4_round_trip.exo",
+        ))
+        .unwrap();
+    let read = Mesh::<3>::try_from(Input::Exodus("target/exodus_netcdf4_round_trip.exo")).unwrap();
+    assert_eq!(read.coordinates(), &Coordinates::from(COORDINATES));
+    match &read.connectivities()[0] {
+        Connectivity::Triangular(triangles) => assert!(triangles.iter().eq(CONNECTIVITY.iter())),
+        _ => panic!("expected Triangular block"),
+    }
+}

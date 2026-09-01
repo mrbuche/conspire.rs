@@ -4,10 +4,12 @@ mod group;
 mod header;
 #[cfg(test)]
 mod test;
+mod write;
 
 use super::Parsed;
 
 pub(in crate::io::netcdf) use chunk::read_data;
+pub(in crate::io::netcdf) use write::write;
 
 pub(super) const OHDR: &[u8; 4] = b"OHDR";
 pub(super) const TREE: &[u8; 4] = b"TREE";

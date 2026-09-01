@@ -45,6 +45,7 @@ struct Writer {
     dims: Vec<DimSpec>,
     global_attributes: Vec<Attribute>,
     variables: Vec<VarBuild>,
+    netcdf4: bool,
     output: Option<Output>,
 }
 
@@ -58,6 +59,7 @@ struct VarBuild {
 struct Output {
     file: File,
     variables: Vec<VarSpec>,
+    data: Vec<Vec<u8>>,
 }
 
 struct Reader {

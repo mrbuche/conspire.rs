@@ -7,7 +7,7 @@ mod write;
 mod xdr;
 
 pub(super) use write::finalize;
-pub(super) use xdr::{decode_be, decode_le, encode_be};
+pub(super) use xdr::{decode_be, decode_le, encode_be, encode_le};
 
 pub(super) fn parse(bytes: &[u8]) -> Parsed {
     match hdf5::superblock_offset(bytes) {

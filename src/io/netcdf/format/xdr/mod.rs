@@ -12,6 +12,19 @@ pub(in crate::io::netcdf) fn encode_be<T: NcType>(data: &[T], out: &mut Vec<u8>)
     T::xdr_swap(src, &mut out[start..]);
 }
 
+#[cfg(target_endian = "little")]
+pub(in crate::io::netcdf) fn encode_le<T: NcType>(data: &[T], out: &mut Vec<u8>) {
+    out.extend_from_slice(as_bytes(data));
+}
+
+#[cfg(target_endian = "big")]
+pub(in crate::io::netcdf) fn encode_le<T: NcType>(data: &[T], out: &mut Vec<u8>) {
+    let src = as_bytes(data);
+    let start = out.len();
+    out.resize(start + src.len(), 0);
+    T::xdr_swap(src, &mut out[start..]);
+}
+
 pub(in crate::io::netcdf) fn decode_be<T: NcType>(bytes: &[u8]) -> Vec<T> {
     let count = bytes.len() / T::SIZE;
     let mut out: Vec<T> = Vec::with_capacity(count);

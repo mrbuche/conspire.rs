@@ -9,12 +9,27 @@ impl NetCDF {
     pub fn close(&mut self) {
         let _guard = nc_lock();
         if let State::Write(writer) = &mut self.state
-            && let Some(output) = &mut writer.output
+            && let Some(mut output) = writer.output.take()
         {
+            if writer.netcdf4 {
+                let bytes = format::hdf5::write(
+                    &writer.dims,
+                    &writer.global_attributes,
+                    &output.variables,
+                    &output.data,
+                );
+                let _ = output.file.write_all(&bytes);
+            }
             let _ = output.file.flush();
         }
     }
     pub fn create(path: &str) -> Result<Self, NulError> {
+        Self::new(path, false)
+    }
+    pub fn create_netcdf4(path: &str) -> Result<Self, NulError> {
+        Self::new(path, true)
+    }
+    fn new(path: &str, netcdf4: bool) -> Result<Self, NulError> {
         reject_nul(path)?;
         Ok(Self {
             state: State::Write(Writer {
@@ -22,6 +37,7 @@ impl NetCDF {
                 dims: Vec::new(),
                 global_attributes: Vec::new(),
                 variables: Vec::new(),
+                netcdf4,
                 output: None,
             }),
         })
@@ -125,11 +141,18 @@ impl NetCDF {
                 storage: format::Storage::Classic,
             })
             .collect();
-        let header = format::finalize(&writer.dims, &writer.global_attributes, &mut variables);
         let mut file = File::create(&writer.path).expect("failed to create netCDF file");
-        file.write_all(&header)
-            .expect("failed to write netCDF header");
-        writer.output = Some(Output { file, variables });
+        if !writer.netcdf4 {
+            let header = format::finalize(&writer.dims, &writer.global_attributes, &mut variables);
+            file.write_all(&header)
+                .expect("failed to write netCDF header");
+        }
+        let data = vec![Vec::new(); variables.len()];
+        writer.output = Some(Output {
+            file,
+            variables,
+            data,
+        });
     }
     pub fn global(&mut self) {
         let _guard = nc_lock();
