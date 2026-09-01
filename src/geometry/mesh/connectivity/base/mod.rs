@@ -15,15 +15,12 @@ pub(crate) trait ConnectivityImpl {
     fn number_of_nodes_per_face<I>(&self) -> Option<Vec<I>>
     where
         I: Debug + TryFrom<usize, Error = TryFromIntError>;
-    #[cfg(feature = "netcdf")]
     fn exodus_element_type(&self) -> &str;
-    #[cfg(feature = "netcdf")]
     fn flat_connectivity<I>(&self) -> FlatConnectivity<I>
     where
         I: Debug + TryFrom<usize, Error = TryFromIntError>;
 }
 
-#[cfg(feature = "netcdf")]
 pub enum FlatConnectivity<I> {
     Primitive(Vec<I>),
     Polytopal(Vec<I>, Vec<I>),
@@ -247,7 +244,6 @@ impl Connectivity {
             Connectivity::Triangular(c) => c.number_of_nodes_per_face(),
         }
     }
-    #[cfg(feature = "netcdf")]
     pub fn exodus_element_type(&self) -> &str {
         match self {
             Connectivity::Hexahedral(c) => c.exodus_element_type(),
@@ -260,7 +256,6 @@ impl Connectivity {
             Connectivity::Triangular(c) => c.exodus_element_type(),
         }
     }
-    #[cfg(feature = "netcdf")]
     pub fn flat_connectivity<I>(&self) -> FlatConnectivity<I>
     where
         I: Debug + TryFrom<usize, Error = TryFromIntError>,

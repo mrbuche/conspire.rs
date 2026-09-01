@@ -1,11 +1,9 @@
 pub(super) mod abaqus;
-#[cfg(feature = "netcdf")]
 pub(super) mod exodus;
 pub(super) mod medit;
 pub(super) mod vtk;
 
 pub(super) use self::abaqus::ReadAbaqus;
-#[cfg(feature = "netcdf")]
 pub(super) use self::exodus::ReadExodus;
 pub(super) use self::medit::ReadMedit;
 pub(super) use self::vtk::{multi_block::ReadVtkMultiBlock, unstructured::ReadVtkUnstructured};
@@ -18,7 +16,6 @@ where
     P: AsRef<Path>,
 {
     Abaqus(P),
-    #[cfg(feature = "netcdf")]
     Exodus(P),
     Medit(P),
     VtkUnstructured(P),
@@ -32,7 +29,6 @@ where
     fn as_ref(&self) -> &Path {
         match self {
             Input::Abaqus(path) => path.as_ref(),
-            #[cfg(feature = "netcdf")]
             Input::Exodus(path) => path.as_ref(),
             Input::Medit(path) => path.as_ref(),
             Input::VtkUnstructured(path) => path.as_ref(),
@@ -49,7 +45,6 @@ where
     fn try_from(input: Input<P>) -> Result<Self, Self::Error> {
         match input {
             Input::Abaqus(path) => Ok(Mesh::read_abaqus(path)?),
-            #[cfg(feature = "netcdf")]
             Input::Exodus(path) => Ok(Mesh::read_exodus(path)?),
             Input::Medit(path) => Ok(Mesh::read_medit(path)?),
             Input::VtkUnstructured(path) => Ok(Mesh::read_vtk_unstructured(path)?),

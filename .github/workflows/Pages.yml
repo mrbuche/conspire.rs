@@ -18,8 +18,6 @@ jobs:
         uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
           toolchain: stable
-      - name: netCDF
-        run: sudo apt-get update && sudo apt-get install -y libnetcdf-dev
       - name: Dev
         run: |
           mkdir -p _site/

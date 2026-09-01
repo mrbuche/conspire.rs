@@ -83,6 +83,13 @@ npy_type!(i64, "<i8");
 npy_type!(f32, "<f4");
 npy_type!(f64, "<f8");
 
+/// An in-memory NumPy array.
+///
+/// The elements are flat in `data`, alongside their `shape` and whether they are
+/// laid out in `fortran_order` (column-major) rather than C order. Read with
+/// [`Npy::read`] / [`Npy::read_from`] and written through the
+/// [`Write`](crate::io::Write) trait or [`Npy::write_to`]. The element type `T`
+/// is any [`NpyType`]: the ten primitive integer and float types.
 pub struct Npy<T> {
     pub data: Vec<T>,
     pub shape: Vec<usize>,

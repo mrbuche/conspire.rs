@@ -2,7 +2,6 @@
 mod test;
 
 pub(super) mod abaqus;
-#[cfg(feature = "netcdf")]
 pub(super) mod exodus;
 pub(super) mod medit;
 pub(super) mod vtk;
@@ -14,7 +13,6 @@ use crate::{
 use std::{io::Error as ErrorIO, path::Path};
 
 use self::abaqus::WriteAbaqus;
-#[cfg(feature = "netcdf")]
 use self::exodus::WriteExodus;
 use self::medit::WriteMedit;
 use self::vtk::{Vtk, multi_block::WriteVtkMultiBlock, unstructured::WriteVtkUnstructured};
@@ -24,7 +22,6 @@ where
     P: AsRef<Path>,
 {
     Abaqus(P),
-    #[cfg(feature = "netcdf")]
     Exodus(P),
     Medit(P),
     Vtk(Vtk<P>),
@@ -37,7 +34,6 @@ where
     fn as_ref(&self) -> &Path {
         match self {
             Output::Abaqus(path) => path.as_ref(),
-            #[cfg(feature = "netcdf")]
             Output::Exodus(path) => path.as_ref(),
             Output::Medit(path) => path.as_ref(),
             Output::Vtk(vtk) => vtk.as_ref(),
@@ -53,7 +49,6 @@ where
     fn write(&self, output: Output<P>) -> Result<(), Self::Error> {
         match output {
             Output::Abaqus(path) => self.write_abaqus(path)?,
-            #[cfg(feature = "netcdf")]
             Output::Exodus(path) => self.write_exodus(path)?,
             Output::Medit(path) => self.write_medit(path)?,
             Output::Vtk(Vtk::UnstructuredGrid(Compression::On(path))) => {

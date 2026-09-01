@@ -1,157 +1,160 @@
 use crate::io::netcdf::{
-    NetCDF,
-    ffi::{
-        NC_64BIT_DATA, NC_FLOAT, NC_GLOBAL, NC_INT, NC_NOFILL, NC_NOWRITE, nc_close, nc_create,
-        nc_def_dim, nc_enddef, nc_get_att_text, nc_inq_attlen, nc_inq_dimid, nc_inq_dimlen,
-        nc_inq_varid, nc_open, nc_put_att_float, nc_put_att_int, nc_put_att_text, nc_set_fill,
-    },
-    nc_lock,
+    NetCDF, Output, Reader, State, Writer,
+    format::{self, AttValue, Attribute, DimSpec},
+    nc_lock, reject_nul,
 };
-use std::ffi::{CStr, CString, NulError, c_char, c_int};
+use std::{collections::HashMap, ffi::NulError, fs::File, io::Write};
 
 impl NetCDF {
     pub fn close(&mut self) {
         let _guard = nc_lock();
-        let status = unsafe { nc_close(self.ncid) };
-        assert_eq!(status, 0, "nc_close failed with status={status}");
+        if let State::Write(writer) = &mut self.state
+            && let Some(output) = &mut writer.output
+        {
+            let _ = output.file.flush();
+        }
     }
     pub fn create(path: &str) -> Result<Self, NulError> {
-        let path_c_str = CString::new(path)?;
-        let mut ncid = 0;
-        let _guard = nc_lock();
-        let status = unsafe { nc_create(path_c_str.as_ptr(), NC_64BIT_DATA, &mut ncid) };
-        assert_eq!(
-            status, 0,
-            "Might need a new error type to handle errors properly"
-        );
-        let status = unsafe { nc_set_fill(ncid, NC_NOFILL, std::ptr::null_mut()) };
-        assert_eq!(status, 0, "nc_set_fill failed with status={status}");
-        let dimid = 0;
-        let varid = 0;
-        Ok(Self { ncid, dimid, varid })
+        reject_nul(path)?;
+        Ok(Self {
+            state: State::Write(Writer {
+                path: path.to_string(),
+                dims: Vec::new(),
+                global_attributes: Vec::new(),
+                variables: Vec::new(),
+                output: None,
+            }),
+        })
     }
     pub fn open(path: &str) -> Result<Self, NulError> {
-        let path_c_str = CString::new(path)?;
-        let mut ncid = 0;
+        reject_nul(path)?;
         let _guard = nc_lock();
-        let status = unsafe { nc_open(path_c_str.as_ptr(), NC_NOWRITE, &mut ncid) };
-        assert_eq!(status, 0, "nc_open failed for {path} with status={status}");
+        let bytes = std::fs::read(path).expect("failed to read netCDF file");
+        let parsed = format::parse(&bytes);
         Ok(Self {
-            ncid,
-            dimid: 0,
-            varid: 0,
+            state: State::Read(Reader { bytes, parsed }),
         })
     }
     pub fn dimension_length(&self, name: &str) -> Result<usize, NulError> {
-        let name_c_str = CString::new(name)?;
-        let mut dimid: c_int = 0;
-        let _guard = nc_lock();
-        let status = unsafe { nc_inq_dimid(self.ncid, name_c_str.as_ptr(), &mut dimid) };
-        assert_eq!(
-            status, 0,
-            "nc_inq_dimid failed for {name} with status={status}"
-        );
-        let mut len: usize = 0;
-        let status = unsafe { nc_inq_dimlen(self.ncid, dimid, &mut len) };
-        assert_eq!(
-            status, 0,
-            "nc_inq_dimlen failed for {name} with status={status}"
-        );
-        Ok(len)
+        reject_nul(name)?;
+        Ok(self
+            .lookup_dimension(name)
+            .unwrap_or_else(|| panic!("no dimension named {name}")) as usize)
     }
     pub fn try_dimension_length(&self, name: &str) -> Result<Option<usize>, NulError> {
-        let name_c_str = CString::new(name)?;
-        let mut dimid: c_int = 0;
-        let _guard = nc_lock();
-        let status = unsafe { nc_inq_dimid(self.ncid, name_c_str.as_ptr(), &mut dimid) };
-        if status != 0 {
-            return Ok(None);
-        }
-        let mut len: usize = 0;
-        let status = unsafe { nc_inq_dimlen(self.ncid, dimid, &mut len) };
-        assert_eq!(
-            status, 0,
-            "nc_inq_dimlen failed for {name} with status={status}"
-        );
-        Ok(Some(len))
+        reject_nul(name)?;
+        Ok(self.lookup_dimension(name).map(|len| len as usize))
+    }
+    fn lookup_dimension(&self, name: &str) -> Option<u64> {
+        let dims: &[DimSpec] = match &self.state {
+            State::Read(reader) => &reader.parsed.dims,
+            State::Write(writer) => &writer.dims,
+        };
+        dims.iter().find(|dim| dim.name == name).map(|dim| dim.len)
     }
     pub fn get_variable_attribute_text(
         &self,
         variable: &str,
         attr_name: &str,
     ) -> Result<String, NulError> {
-        let variable_c_str = CString::new(variable)?;
-        let mut varid: c_int = 0;
-        let _guard = nc_lock();
-        let status = unsafe { nc_inq_varid(self.ncid, variable_c_str.as_ptr(), &mut varid) };
-        assert_eq!(
-            status, 0,
-            "nc_inq_varid failed for {variable} with status={status}"
-        );
-        let attr_c_str = CString::new(attr_name)?;
-        let mut len: usize = 0;
-        let status = unsafe { nc_inq_attlen(self.ncid, varid, attr_c_str.as_ptr(), &mut len) };
-        assert_eq!(
-            status, 0,
-            "nc_inq_attlen failed for {variable}::{attr_name} with status={status}"
-        );
-        let mut buf: Vec<c_char> = vec![0; len];
-        let status =
-            unsafe { nc_get_att_text(self.ncid, varid, attr_c_str.as_ptr(), buf.as_mut_ptr()) };
-        assert_eq!(
-            status, 0,
-            "nc_get_att_text failed for {variable}::{attr_name} with status={status}"
-        );
-        let bytes: Vec<u8> = buf.into_iter().map(|c| c as u8).collect();
-        Ok(String::from_utf8_lossy(&bytes).into_owned())
+        reject_nul(variable)?;
+        reject_nul(attr_name)?;
+        let attributes: &[Attribute] = match &self.state {
+            State::Read(reader) => reader
+                .parsed
+                .vars
+                .iter()
+                .find(|var| var.name == variable)
+                .map(|var| var.atts.as_slice()),
+            State::Write(writer) => writer
+                .variables
+                .iter()
+                .find(|var| var.name == variable)
+                .map(|var| var.attributes.as_slice()),
+        }
+        .unwrap_or_else(|| panic!("no variable named {variable}"));
+        match attributes
+            .iter()
+            .find(|attribute| attribute.name == attr_name)
+            .map(|attribute| &attribute.value)
+        {
+            Some(AttValue::Text(text)) => Ok(text.clone()),
+            _ => panic!("no text attribute {variable}::{attr_name}"),
+        }
     }
     pub fn define_dimension(&mut self, name: &str, len: usize) -> Result<(), NulError> {
-        let name_c_str = CString::new(name)?;
+        reject_nul(name)?;
         let _guard = nc_lock();
-        let status = unsafe { nc_def_dim(self.ncid, name_c_str.as_ptr(), len, &mut self.dimid) };
-        assert_eq!(
-            status, 0,
-            "nc_def_dim failed for {name} with status={status}"
-        );
+        self.writer_defining().dims.push(DimSpec {
+            name: name.to_string(),
+            len: len as u64,
+        });
         Ok(())
     }
     pub fn end_definition(&mut self) {
         let _guard = nc_lock();
-        let status = unsafe { nc_enddef(self.ncid) };
-        assert_eq!(status, 0, "nc_enddef failed with status={status}");
+        let writer = match &mut self.state {
+            State::Write(writer) => writer,
+            State::Read(_) => panic!("end_definition on a NetCDF opened for reading"),
+        };
+        assert!(writer.output.is_none(), "end_definition called twice");
+        let dim_index: HashMap<&str, usize> = writer
+            .dims
+            .iter()
+            .enumerate()
+            .map(|(index, dim)| (dim.name.as_str(), index))
+            .collect();
+        let mut variables: Vec<format::VarSpec> = writer
+            .variables
+            .iter_mut()
+            .map(|build| format::VarSpec {
+                name: build.name.clone(),
+                xtype: build.xtype,
+                dimids: build
+                    .dim_names
+                    .iter()
+                    .map(|dim| {
+                        *dim_index.get(dim.as_str()).unwrap_or_else(|| {
+                            panic!("variable references unknown dimension {dim}")
+                        })
+                    })
+                    .collect(),
+                atts: std::mem::take(&mut build.attributes),
+                begin: 0,
+                vsize: 0,
+            })
+            .collect();
+        let header = format::finalize(&writer.dims, &writer.global_attributes, &mut variables);
+        let mut file = File::create(&writer.path).expect("failed to create netCDF file");
+        file.write_all(&header)
+            .expect("failed to write netCDF header");
+        writer.output = Some(Output { file, variables });
     }
     pub fn global(&mut self) {
-        self.put_global_float(c"api_version", 8.25);
-        self.put_global_int(c"file_size", 1);
-        self.put_global_int(c"floating_point_word_size", 8);
-        self.put_global_float(c"version", 8.25);
+        let _guard = nc_lock();
         let title = format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-        self.put_global_text(c"title", &title);
-    }
-    fn put_global_float(&mut self, name: &CStr, value: f32) {
-        let _guard = nc_lock();
-        let status =
-            unsafe { nc_put_att_float(self.ncid, NC_GLOBAL, name.as_ptr(), NC_FLOAT, 1, &value) };
-        assert_eq!(status, 0, "nc_put_att_float failed with status={status}");
-    }
-    fn put_global_int(&mut self, name: &CStr, value: i32) {
-        let _guard = nc_lock();
-        let status =
-            unsafe { nc_put_att_int(self.ncid, NC_GLOBAL, name.as_ptr(), NC_INT, 1, &value) };
-        assert_eq!(status, 0, "nc_put_att_int failed with status={status}");
-    }
-    fn put_global_text(&mut self, name: &CStr, value: &str) {
-        let _guard = nc_lock();
-        let status = unsafe {
-            nc_put_att_text(
-                self.ncid,
-                NC_GLOBAL,
-                name.as_ptr(),
-                value.len(),
-                value.as_ptr() as *const c_char,
-            )
-        };
-        assert_eq!(status, 0, "nc_put_att_text failed with status={status}");
+        self.writer_defining().global_attributes.extend([
+            Attribute {
+                name: "api_version".to_string(),
+                value: AttValue::Float(vec![8.25]),
+            },
+            Attribute {
+                name: "file_size".to_string(),
+                value: AttValue::Int(vec![1]),
+            },
+            Attribute {
+                name: "floating_point_word_size".to_string(),
+                value: AttValue::Int(vec![8]),
+            },
+            Attribute {
+                name: "version".to_string(),
+                value: AttValue::Float(vec![8.25]),
+            },
+            Attribute {
+                name: "title".to_string(),
+                value: AttValue::Text(title),
+            },
+        ]);
     }
     pub fn put_variable_attribute_text(
         &mut self,
@@ -159,38 +162,27 @@ impl NetCDF {
         attr_name: &str,
         value: &str,
     ) -> Result<(), NulError> {
-        let variable_c_str = CString::new(variable)?;
-        let mut varid: c_int = 0;
+        reject_nul(variable)?;
+        reject_nul(attr_name)?;
+        reject_nul(value)?;
         let _guard = nc_lock();
-        let status = unsafe { nc_inq_varid(self.ncid, variable_c_str.as_ptr(), &mut varid) };
-        assert_eq!(
-            status, 0,
-            "nc_inq_varid failed for {variable} with status={status}"
-        );
-        put_attribute_text(self, varid, attr_name, value)
+        let build = self
+            .writer_defining()
+            .variables
+            .iter_mut()
+            .find(|build| build.name == variable)
+            .unwrap_or_else(|| panic!("no variable named {variable}"));
+        build.attributes.push(Attribute {
+            name: attr_name.to_string(),
+            value: AttValue::Text(value.to_string()),
+        });
+        Ok(())
     }
-}
-
-fn put_attribute_text(
-    netcdf: &mut NetCDF,
-    varid: c_int,
-    name: &str,
-    value: &str,
-) -> Result<(), NulError> {
-    let name_c_str = CString::new(name)?;
-    let value_c_str = CString::new(value)?;
-    let status = unsafe {
-        nc_put_att_text(
-            netcdf.ncid,
-            varid,
-            name_c_str.as_ptr(),
-            value_c_str.as_bytes().len(),
-            value_c_str.as_ptr(),
-        )
-    };
-    assert_eq!(
-        status, 0,
-        "nc_put_att_text failed for {name} with status={status}"
-    );
-    Ok(())
+    pub(super) fn writer_defining(&mut self) -> &mut Writer {
+        match &mut self.state {
+            State::Write(writer) if writer.output.is_none() => writer,
+            State::Write(_) => panic!("operation not allowed after end_definition"),
+            State::Read(_) => panic!("write operation on a NetCDF opened for reading"),
+        }
+    }
 }

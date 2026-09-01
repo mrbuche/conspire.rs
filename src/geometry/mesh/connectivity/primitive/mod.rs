@@ -1,4 +1,3 @@
-#[cfg(feature = "netcdf")]
 use crate::geometry::mesh::connectivity::base::FlatConnectivity;
 use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Sets};
 use std::{fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
@@ -67,7 +66,6 @@ impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<
     {
         None
     }
-    #[cfg(feature = "netcdf")]
     fn exodus_element_type(&self) -> &str {
         match (M, N) {
             (2, 3) => "tri3",
@@ -79,7 +77,6 @@ impl<const M: usize, const N: usize> ConnectivityImpl for PrimitiveConnectivity<
             _ => panic!("unknown primitive element type: M={M}, N={N}"),
         }
     }
-    #[cfg(feature = "netcdf")]
     fn flat_connectivity<I>(&self) -> FlatConnectivity<I>
     where
         I: Debug + TryFrom<usize, Error = TryFromIntError>,

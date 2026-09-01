@@ -1,4 +1,3 @@
-#[cfg(feature = "netcdf")]
 use crate::geometry::mesh::connectivity::base::FlatConnectivity;
 use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Set};
 use std::{cell::OnceCell, fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
@@ -120,7 +119,6 @@ impl<const M: usize> ConnectivityImpl for PolytopalConnectivity<M> {
             panic!()
         }
     }
-    #[cfg(feature = "netcdf")]
     fn exodus_element_type(&self) -> &str {
         match M {
             2 => "nsided",
@@ -128,7 +126,6 @@ impl<const M: usize> ConnectivityImpl for PolytopalConnectivity<M> {
             _ => panic!(),
         }
     }
-    #[cfg(feature = "netcdf")]
     fn flat_connectivity<I>(&self) -> FlatConnectivity<I>
     where
         I: Debug + TryFrom<usize, Error = TryFromIntError>,

@@ -1,13 +1,12 @@
 use crate::io::netcdf::{
-    DefineVariable, GetVariable, NcType, NetCDF, PutVariable,
-    ffi::{
-        NC_DOUBLE, NC_FLOAT, NC_INT, nc_def_var, nc_get_var_double, nc_get_var_float,
-        nc_get_var_int, nc_inq_dimid, nc_inq_varid, nc_put_var_double, nc_put_var_float,
-        nc_put_var_int,
-    },
-    nc_lock,
+    DefineVariable, GetVariable, NcType, NetCDF, PutVariable, State, VarBuild,
+    format::{self},
+    nc_lock, reject_nul,
 };
-use std::ffi::{CString, NulError, c_int};
+use std::{
+    ffi::NulError,
+    io::{Seek, SeekFrom, Write},
+};
 
 impl DefineVariable for NetCDF {
     fn define_variable<T: NcType>(
@@ -16,132 +15,98 @@ impl DefineVariable for NetCDF {
         ndims: usize,
         dim_names: &[&str],
     ) -> Result<(), NulError> {
-        let xtype = T::XTYPE;
-        assert_eq!(ndims, dim_names.len(), "ndims must equal dim_names.len()");
-
-        let name_c_str = CString::new(name)?;
-        let dim_name_cstrings: Result<Vec<CString>, NulError> =
-            dim_names.iter().map(|name| CString::new(*name)).collect();
-        let dim_name_cstrings = dim_name_cstrings?;
-
-        let _guard = nc_lock();
-        let mut dimids = Vec::with_capacity(dim_name_cstrings.len());
-        for dim_name_cstr in dim_name_cstrings.iter() {
-            let mut dimid: c_int = 0;
-            let status = unsafe { nc_inq_dimid(self.ncid, dim_name_cstr.as_ptr(), &mut dimid) };
-            assert_eq!(
-                status, 0,
-                "nc_inq_dimid failed for dim '{:?}' with status={status}",
-                dim_name_cstr
-            );
-            dimids.push(dimid);
+        reject_nul(name)?;
+        for dim_name in dim_names {
+            reject_nul(dim_name)?;
         }
-
-        let status = unsafe {
-            nc_def_var(
-                self.ncid,
-                name_c_str.as_ptr(),
-                xtype,
-                ndims as c_int,
-                dimids.as_ptr(),
-                &mut self.varid,
-            )
-        };
-        assert_eq!(
-            status, 0,
-            "nc_def_var failed for {name} with status={status}"
-        );
+        assert_eq!(ndims, dim_names.len(), "ndims must equal dim_names.len()");
+        let _guard = nc_lock();
+        self.writer_defining().variables.push(VarBuild {
+            name: name.to_string(),
+            xtype: T::XTYPE,
+            dim_names: dim_names.iter().map(|dim| dim.to_string()).collect(),
+            attributes: Vec::new(),
+        });
         Ok(())
     }
 }
 
 impl PutVariable for NetCDF {
     fn put_variable<T: NcType>(&mut self, name: &str, data: &[T]) -> Result<(), NulError> {
-        let name_c_str = CString::new(name)?;
-        let mut varid: c_int = 0;
+        reject_nul(name)?;
         let _guard = nc_lock();
-        let status = unsafe { nc_inq_varid(self.ncid, name_c_str.as_ptr(), &mut varid) };
+        let output = match &mut self.state {
+            State::Write(writer) => writer
+                .output
+                .as_mut()
+                .unwrap_or_else(|| panic!("put_variable before end_definition")),
+            State::Read(_) => panic!("put_variable on a NetCDF opened for reading"),
+        };
+        let (begin, vsize, xtype) = output
+            .variables
+            .iter()
+            .find(|spec| spec.name == name)
+            .map(|spec| (spec.begin, spec.vsize as usize, spec.xtype))
+            .unwrap_or_else(|| panic!("no variable named {name}"));
+        assert_eq!(xtype, T::XTYPE, "type mismatch writing variable {name}");
+        let expected = vsize / T::SIZE;
         assert_eq!(
-            status, 0,
-            "nc_inq_varid failed for {name} with status={status}"
+            data.len(),
+            expected,
+            "wrong element count for variable {name}"
         );
-
-        let status = T::put_var(self.ncid, varid, data.as_ptr());
-        assert_eq!(
-            status, 0,
-            "nc_put_var failed for var '{}' (varid {}) with status={status}",
-            name, varid
-        );
+        let mut buffer = Vec::with_capacity(vsize);
+        format::encode_be(data, &mut buffer);
+        buffer.resize(vsize, 0);
+        output
+            .file
+            .seek(SeekFrom::Start(begin))
+            .expect("seek failed");
+        output
+            .file
+            .write_all(&buffer)
+            .expect("variable write failed");
         Ok(())
+    }
+}
+
+impl NetCDF {
+    fn read_variable<T: NcType>(&self, name: &str, len: usize) -> Option<Vec<T>> {
+        let reader = match &self.state {
+            State::Read(reader) => reader,
+            State::Write(_) => panic!("get_variable on a NetCDF opened for writing"),
+        };
+        let spec = reader.parsed.vars.iter().find(|spec| spec.name == name)?;
+        assert_eq!(
+            spec.xtype,
+            T::XTYPE,
+            "type mismatch reading variable {name}"
+        );
+        let start = spec.begin as usize;
+        let end = start + len * T::SIZE;
+        assert!(
+            end <= reader.bytes.len(),
+            "variable {name} data runs past end of file"
+        );
+        Some(format::decode_be(&reader.bytes[start..end]))
     }
 }
 
 impl GetVariable for NetCDF {
     fn get_variable<T: NcType>(&self, name: &str, len: usize) -> Result<Vec<T>, NulError> {
-        let name_c_str = CString::new(name)?;
-        let mut varid: c_int = 0;
+        reject_nul(name)?;
         let _guard = nc_lock();
-        let status = unsafe { nc_inq_varid(self.ncid, name_c_str.as_ptr(), &mut varid) };
-        assert_eq!(
-            status, 0,
-            "nc_inq_varid failed for {name} with status={status}"
-        );
-        let mut data: Vec<T> = vec![T::default(); len];
-        let status = T::get_var(self.ncid, varid, data.as_mut_ptr());
-        assert_eq!(
-            status, 0,
-            "nc_get_var failed for var '{name}' (varid {varid}) with status={status}"
-        );
-        Ok(data)
+        Ok(self
+            .read_variable(name, len)
+            .unwrap_or_else(|| panic!("no variable named {name}")))
     }
     fn try_get_variable<T: NcType>(
         &self,
         name: &str,
         len: usize,
     ) -> Result<Option<Vec<T>>, NulError> {
-        let name_c_str = CString::new(name)?;
-        let mut varid: c_int = 0;
+        reject_nul(name)?;
         let _guard = nc_lock();
-        let status = unsafe { nc_inq_varid(self.ncid, name_c_str.as_ptr(), &mut varid) };
-        if status != 0 {
-            return Ok(None);
-        }
-        let mut data: Vec<T> = vec![T::default(); len];
-        let status = T::get_var(self.ncid, varid, data.as_mut_ptr());
-        assert_eq!(
-            status, 0,
-            "nc_get_var failed for var '{name}' (varid {varid}) with status={status}"
-        );
-        Ok(Some(data))
-    }
-}
-
-impl NcType for i32 {
-    const XTYPE: c_int = NC_INT;
-    fn put_var(ncid: c_int, varid: c_int, data: *const Self) -> c_int {
-        unsafe { nc_put_var_int(ncid, varid, data) }
-    }
-    fn get_var(ncid: c_int, varid: c_int, data: *mut Self) -> c_int {
-        unsafe { nc_get_var_int(ncid, varid, data) }
-    }
-}
-
-impl NcType for f32 {
-    const XTYPE: c_int = NC_FLOAT;
-    fn put_var(ncid: c_int, varid: c_int, data: *const Self) -> c_int {
-        unsafe { nc_put_var_float(ncid, varid, data) }
-    }
-    fn get_var(ncid: c_int, varid: c_int, data: *mut Self) -> c_int {
-        unsafe { nc_get_var_float(ncid, varid, data) }
-    }
-}
-
-impl NcType for f64 {
-    const XTYPE: c_int = NC_DOUBLE;
-    fn put_var(ncid: c_int, varid: c_int, data: *const Self) -> c_int {
-        unsafe { nc_put_var_double(ncid, varid, data) }
-    }
-    fn get_var(ncid: c_int, varid: c_int, data: *mut Self) -> c_int {
-        unsafe { nc_get_var_double(ncid, varid, data) }
+        Ok(self.read_variable(name, len))
     }
 }
