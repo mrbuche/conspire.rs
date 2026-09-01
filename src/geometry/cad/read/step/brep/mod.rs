@@ -619,11 +619,44 @@ fn triple(parameters: &[Parameter], index: usize) -> Result<[f64; D]> {
     Ok(values)
 }
 
-/// Metres per the file's declared length unit: an `SI_UNIT` on `.METRE.` with an
-/// optional prefix, else a named `CONVERSION_BASED_UNIT` the unit system knows,
-/// else 1 when nothing is declared.
+/// Metres per the file's length unit. The unit the geometry's own
+/// representation context assigns wins, so a stray finer unit declared only
+/// for something like a surface-texture measure cannot hijack the model
+/// scale. Falls back to any `LENGTH_UNIT`-tagged unit, then the first bare
+/// `SI_UNIT` on `.METRE.`, then a named `CONVERSION_BASED_UNIT`, then 1.
 fn file_length_scale(exchange: &Exchange) -> Result<f64> {
+    for instance in exchange.data.values() {
+        let is_geometry_context = instance
+            .records
+            .iter()
+            .any(|record| record.keyword == "GEOMETRIC_REPRESENTATION_CONTEXT");
+        if !is_geometry_context {
+            continue;
+        }
+        let Some(Parameter::List(units)) = instance
+            .records
+            .iter()
+            .find(|record| record.keyword == "GLOBAL_UNIT_ASSIGNED_CONTEXT")
+            .and_then(|record| record.parameters.first())
+        else {
+            continue;
+        };
+        for unit in units {
+            if let Parameter::Reference(id) = unit
+                && let Some(scale) = unit_length_scale(exchange, *id)
+            {
+                return Ok(scale);
+            }
+        }
+    }
     let records = || exchange.data.values().flat_map(|instance| &instance.records);
+    for (&id, instance) in &exchange.data {
+        if instance.records.iter().any(|record| record.keyword == "LENGTH_UNIT")
+            && let Some(scale) = unit_length_scale(exchange, id)
+        {
+            return Ok(scale);
+        }
+    }
     for record in records() {
         if record.keyword == "SI_UNIT"
             && matches!(
@@ -643,6 +676,35 @@ fn file_length_scale(exchange: &Exchange) -> Result<f64> {
         }
     }
     Ok(1.0)
+}
+
+/// Metres per the unit entity at `id`, if it is a length unit — an `SI_UNIT`
+/// on `.METRE.` with an optional prefix, or (only when explicitly tagged
+/// `LENGTH_UNIT`) a named `CONVERSION_BASED_UNIT` the unit system knows.
+/// `None` for an angle, solid-angle, or unrecognised unit.
+fn unit_length_scale(exchange: &Exchange, id: u64) -> Option<f64> {
+    let instance = exchange.data.get(&id)?;
+    for record in &instance.records {
+        if record.keyword == "SI_UNIT"
+            && matches!(
+                record.parameters.get(1),
+                Some(Parameter::Enumeration(name)) if name == "METRE" || name == "METER"
+            )
+        {
+            return si_prefix(record.parameters.first()).ok();
+        }
+    }
+    if instance.records.iter().any(|record| record.keyword == "LENGTH_UNIT") {
+        for record in &instance.records {
+            if record.keyword == "CONVERSION_BASED_UNIT"
+                && let Some(Parameter::String(name)) = record.parameters.first()
+                && let Some(scale) = length_scale(name)
+            {
+                return Some(scale(1.0).in_meters());
+            }
+        }
+    }
+    None
 }
 
 /// Radians per the file's declared plane-angle unit: the factor carried by a
