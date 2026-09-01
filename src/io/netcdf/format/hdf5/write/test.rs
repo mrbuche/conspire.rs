@@ -87,8 +87,26 @@ fn multi_chunk_variable_round_trips() {
 }
 
 #[test]
+fn btree_final_key_is_chunk_aligned_past_the_end() {
+    use super::chunk::{btree_key_size, btree_node, plan};
+    let rows = 1_030_301u64;
+    let elem = 8usize;
+    let p = plan(&[rows], &vec![0u8; rows as usize * elem], elem, 1);
+    let slab = p.chunk_dims[0];
+    let n = p.blobs.len();
+    assert!(
+        n > 1 && !rows.is_multiple_of(slab),
+        "want a partial trailing chunk"
+    );
+    let node = btree_node(&p, &vec![0u64; n]);
+    let off = 24 + n * (btree_key_size(1) + 8) + 8;
+    let final_dim0 = u64::from_le_bytes(node[off..off + 8].try_into().unwrap());
+    assert_eq!(final_dim0 % slab, 0);
+    assert!(final_dim0 / slab > (n as u64 - 1));
+}
+
+#[test]
 fn multi_chunk_output_is_deterministic() {
-    // Chunk compression is threaded; the bytes must not depend on the count.
     let n = 300_000usize;
     let values: Vec<f64> = (0..n).map(|i| (i % 13) as f64).collect();
     let dims = [DimSpec {
@@ -182,7 +200,6 @@ fn hyperslab_across_chunk_boundaries() {
         nc.put_variable("x", &values).unwrap();
     }
     let nc = NetCDF::open(path).unwrap();
-    // a window straddling the ~262144-element chunk boundary
     let slab = nc
         .get_variable_slice::<i32>("x", &[262_000], &[500])
         .unwrap();

@@ -42,8 +42,6 @@ pub(in crate::io::netcdf) fn read_data(
     }
 }
 
-/// Copy the hyperslab `start .. start + count` out of a row-major blob that
-/// holds the whole dataset (`shape`).
 fn gather(blob: &[u8], shape: &[u64], start: &[usize], count: &[usize], elem: usize) -> Vec<u8> {
     let rank = shape.len();
     let mut out = vec![0u8; count.iter().product::<usize>() * elem];
@@ -155,9 +153,6 @@ fn unshuffle(data: &[u8], elem: usize) -> Vec<u8> {
     out
 }
 
-/// Copy the part of one decoded chunk (`src`, row-major over `chunk`, at element
-/// offset `chunk_off`) that falls inside the requested box (`start .. start +
-/// count`) into `out` (row-major over `count`), clipping at the dataset edge.
 #[allow(clippy::too_many_arguments)]
 fn scatter(
     out: &mut [u8],

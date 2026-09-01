@@ -24,7 +24,6 @@ fn contiguous_full_and_hyperslab() {
 
 #[test]
 fn gather_two_dimensional_window() {
-    // 3x4 row-major, 1 byte per element: rows 0,1,2 * cols 0..3.
     let blob: Vec<u8> = (0..12).collect();
     let out = gather(&blob, &[3, 4], &[1, 1], &[2, 2], 1);
     assert_eq!(out, [5, 6, 9, 10]);
@@ -50,7 +49,6 @@ fn scatter_scalar_chunk() {
 #[test]
 fn scatter_chunk_outside_the_box() {
     let mut out = [7u8; 4];
-    // dataset shape [8], box [0,2), chunk of size 2 at offset 4: no overlap.
     scatter(&mut out, &[8], &[0], &[2], &[2], &[4], 1, &[1, 2]);
     assert_eq!(out, [7; 4]);
 }

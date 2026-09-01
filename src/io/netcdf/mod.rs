@@ -45,8 +45,7 @@ struct Writer {
     dims: Vec<DimSpec>,
     global_attributes: Vec<Attribute>,
     variables: Vec<VarBuild>,
-    /// `None` for classic; `Some(threads)` selects netCDF-4 output and its
-    /// chunk-compression thread count.
+    // None = classic CDF-5; Some(n) = netCDF-4 with n chunk-compression threads.
     netcdf4: Option<usize>,
     output: Option<Output>,
 }

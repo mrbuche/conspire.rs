@@ -1,6 +1,7 @@
 use crate::io::zlib_encode;
 
 pub(super) struct Plan {
+    pub dims: Vec<u64>,
     pub chunk_dims: Vec<u64>,
     pub elem: u32,
     pub blobs: Vec<Blob>,
@@ -44,9 +45,8 @@ fn compress(
     }
 }
 
-/// Compress every chunk. Chunks are independent, so split them across `threads`
-/// worker threads (`0` or `1` runs serially); results are concatenated in chunk
-/// order, so the output is identical whatever the thread count.
+// Results are concatenated in chunk order, so the bytes are identical for any
+// thread count.
 fn compress_chunks(
     data: &[u8],
     starts: &[u64],
@@ -106,6 +106,7 @@ pub(super) fn plan(dims: &[u64], data: &[u8], elem: usize, threads: usize) -> Pl
         })
         .collect();
     Plan {
+        dims: dims.to_vec(),
         chunk_dims,
         elem: elem as u32,
         blobs,
@@ -138,12 +139,16 @@ pub(super) fn btree_node(plan: &Plan, chunk_addrs: &[u64]) -> Vec<u8> {
         v.extend_from_slice(&0u64.to_le_bytes());
         v.extend_from_slice(&addr.to_le_bytes());
     }
+    // Right-most key: offset one past the last chunk, chunk-aligned in every
+    // dimension. HDF5 divides these offsets by the chunk dims to get chunk
+    // indices, so a non-aligned value (e.g. the raw dataset size) can collapse
+    // to the same index as the final chunk and make it unreachable.
     v.extend_from_slice(&0u32.to_le_bytes());
     v.extend_from_slice(&0u32.to_le_bytes());
-    for &c in &plan.chunk_dims {
-        v.extend_from_slice(&c.to_le_bytes());
+    for (&d, &c) in plan.dims.iter().zip(&plan.chunk_dims) {
+        v.extend_from_slice(&(d.div_ceil(c) * c).to_le_bytes());
     }
-    v.extend_from_slice(&(plan.elem as u64).to_le_bytes());
+    v.extend_from_slice(&0u64.to_le_bytes());
     v.resize(btree_node_size(rank), 0);
     v
 }
