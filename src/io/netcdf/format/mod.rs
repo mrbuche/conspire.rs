@@ -235,27 +235,25 @@ impl<'a> HeaderReader<'a> {
     fn i32(&mut self) -> i32 {
         i32::from_be_bytes(self.take(4).try_into().unwrap())
     }
-    /// A `count`-width non-negative integer.
+    /// A big-endian non-negative integer of `width` bytes (4 or 8).
+    fn uint(&mut self, width: usize) -> u64 {
+        if width == 8 {
+            u64::from_be_bytes(self.take(8).try_into().unwrap())
+        } else {
+            u32::from_be_bytes(self.take(4).try_into().unwrap()) as u64
+        }
+    }
+    /// A `count`-width non-negative integer (list lengths, sizes, `numrecs`).
     fn count(&mut self) -> u64 {
-        match self.w.count {
-            4 => u32::from_be_bytes(self.take(4).try_into().unwrap()) as u64,
-            8 => u64::from_be_bytes(self.take(8).try_into().unwrap()),
-            _ => unreachable!(),
-        }
+        self.uint(self.w.count)
     }
+    /// The variable data offset (`begin`).
     fn offset(&mut self) -> u64 {
-        match self.w.offset {
-            4 => u32::from_be_bytes(self.take(4).try_into().unwrap()) as u64,
-            8 => u64::from_be_bytes(self.take(8).try_into().unwrap()),
-            _ => unreachable!(),
-        }
+        self.uint(self.w.offset)
     }
+    /// A dimension-id reference inside a variable.
     fn dimid(&mut self) -> usize {
-        match self.w.dimid {
-            4 => u32::from_be_bytes(self.take(4).try_into().unwrap()) as usize,
-            8 => u64::from_be_bytes(self.take(8).try_into().unwrap()) as usize,
-            _ => unreachable!(),
-        }
+        self.uint(self.w.dimid) as usize
     }
     fn align(&mut self) {
         self.pos = self.pos.div_ceil(4) * 4;
@@ -388,53 +386,30 @@ fn as_bytes<T: crate::io::netcdf::NcType>(data: &[T]) -> &[u8] {
     unsafe { std::slice::from_raw_parts(data.as_ptr().cast::<u8>(), data.len() * T::SIZE) }
 }
 
-/// Swap `src` into `dst` as `W`-byte big-endian words (`dst.len() == src.len()`,
-/// both multiples of `size_of::<W>()`). A no-op copy on a big-endian host.
-macro_rules! swap_into {
-    ($word:ty, $src:expr, $dst:expr) => {
-        for (s, d) in $src
-            .chunks_exact(size_of::<$word>())
-            .zip($dst.chunks_exact_mut(size_of::<$word>()))
-        {
-            let word = <$word>::from_ne_bytes(s.try_into().unwrap());
-            d.copy_from_slice(&word.to_be_bytes());
-        }
-    };
-}
-
 /// Append `data` to `out` as big-endian XDR bytes.
 ///
 /// The endianness swap happens *inside* the single copy from `data` into `out`
 /// (no separate pass), and the destination bytes are made live with `set_len`
-/// and fully written before being read (no zero-fill).
+/// and fully written by [`NcType::xdr_swap`] before being read (no zero-fill).
 pub(super) fn encode_be<T: crate::io::netcdf::NcType>(data: &[T], out: &mut Vec<u8>) {
     let src = as_bytes(data);
     out.reserve(src.len());
     let start = out.len();
-    // SAFETY: `reserve` guaranteed the capacity and the match below writes every
-    // byte of `start..start + src.len()` before anything reads it.
+    // SAFETY: `reserve` guaranteed the capacity and `xdr_swap` writes every byte
+    // of `start..start + src.len()` before anything reads it.
     unsafe { out.set_len(start + src.len()) }
-    let dst = &mut out[start..];
-    match T::SIZE {
-        4 => swap_into!(u32, src, dst),
-        8 => swap_into!(u64, src, dst),
-        _ => unreachable!("NcType::SIZE is 4 or 8"),
-    }
+    T::xdr_swap(src, &mut out[start..]);
 }
 
 /// Decode `bytes` (big-endian XDR, length a multiple of `T::SIZE`) into `Vec<T>`.
 pub(super) fn decode_be<T: crate::io::netcdf::NcType>(bytes: &[u8]) -> Vec<T> {
     let count = bytes.len() / T::SIZE;
     let mut out: Vec<T> = Vec::with_capacity(count);
-    // SAFETY: capacity for `count` elements just reserved; the match writes every
+    // SAFETY: capacity for `count` elements just reserved; `xdr_swap` writes every
     // byte before `set_len` exposes them, and `u8` alignment is trivially met.
     let dst =
         unsafe { std::slice::from_raw_parts_mut(out.as_mut_ptr().cast::<u8>(), count * T::SIZE) };
-    match T::SIZE {
-        4 => swap_into!(u32, bytes, dst),
-        8 => swap_into!(u64, bytes, dst),
-        _ => unreachable!("NcType::SIZE is 4 or 8"),
-    }
+    T::xdr_swap(bytes, dst);
     // SAFETY: all `count` elements were initialized above.
     unsafe { out.set_len(count) }
     out

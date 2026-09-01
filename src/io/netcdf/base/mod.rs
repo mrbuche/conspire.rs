@@ -31,8 +31,8 @@ impl NetCDF {
     pub fn open(path: &str) -> Result<Self, NulError> {
         reject_nul(path)?;
         let _guard = nc_lock();
-        let bytes =
-            std::fs::read(path).unwrap_or_else(|error| panic!("failed to read {path}: {error}"));
+        // I/O failure aborts, matching the previous FFI behavior.
+        let bytes = std::fs::read(path).expect("failed to read netCDF file");
         let parsed = format::parse(&bytes);
         Ok(Self {
             state: State::Read(Reader { bytes, parsed }),
@@ -86,8 +86,7 @@ impl NetCDF {
             .map(|attribute| &attribute.value)
         {
             Some(AttValue::Text(text)) => Ok(text.clone()),
-            Some(_) => panic!("attribute {variable}::{attr_name} is not text"),
-            None => panic!("no attribute {variable}::{attr_name}"),
+            _ => panic!("no text attribute {variable}::{attr_name}"),
         }
     }
 
@@ -135,10 +134,10 @@ impl NetCDF {
             })
             .collect();
         let header = format::finalize(&writer.dims, &writer.global_attributes, &mut variables);
-        let mut file = File::create(&writer.path)
-            .unwrap_or_else(|error| panic!("failed to create {}: {error}", writer.path));
+        // I/O failure aborts, matching the previous FFI behavior.
+        let mut file = File::create(&writer.path).expect("failed to create netCDF file");
         file.write_all(&header)
-            .unwrap_or_else(|error| panic!("failed to write header: {error}"));
+            .expect("failed to write netCDF header");
         writer.output = Some(Output { file, variables });
     }
 

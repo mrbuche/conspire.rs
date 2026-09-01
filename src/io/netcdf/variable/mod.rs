@@ -53,20 +53,20 @@ impl PutVariable for NetCDF {
         assert_eq!(
             data.len(),
             expected,
-            "variable {name} expects {expected} elements, got {}",
-            data.len()
+            "wrong element count for variable {name}"
         );
         let mut buffer = Vec::with_capacity(vsize);
         format::encode_be(data, &mut buffer);
         buffer.resize(vsize, 0); // pad to a multiple of four
+        // I/O failure aborts, matching the previous FFI behavior.
         output
             .file
             .seek(SeekFrom::Start(begin))
-            .unwrap_or_else(|error| panic!("seek failed for {name}: {error}"));
+            .expect("seek failed");
         output
             .file
             .write_all(&buffer)
-            .unwrap_or_else(|error| panic!("write failed for {name}: {error}"));
+            .expect("variable write failed");
         Ok(())
     }
 }
