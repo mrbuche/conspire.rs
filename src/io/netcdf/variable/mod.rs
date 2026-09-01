@@ -57,8 +57,7 @@ impl PutVariable for NetCDF {
         );
         let mut buffer = Vec::with_capacity(vsize);
         format::encode_be(data, &mut buffer);
-        buffer.resize(vsize, 0); // pad to a multiple of four
-        // I/O failure aborts, matching the previous FFI behavior.
+        buffer.resize(vsize, 0);
         output
             .file
             .seek(SeekFrom::Start(begin))
@@ -101,7 +100,6 @@ impl GetVariable for NetCDF {
             .read_variable(name, len)
             .unwrap_or_else(|| panic!("no variable named {name}")))
     }
-
     fn try_get_variable<T: NcType>(
         &self,
         name: &str,

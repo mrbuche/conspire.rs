@@ -14,7 +14,6 @@ impl NetCDF {
             let _ = output.file.flush();
         }
     }
-
     pub fn create(path: &str) -> Result<Self, NulError> {
         reject_nul(path)?;
         Ok(Self {
@@ -27,30 +26,25 @@ impl NetCDF {
             }),
         })
     }
-
     pub fn open(path: &str) -> Result<Self, NulError> {
         reject_nul(path)?;
         let _guard = nc_lock();
-        // I/O failure aborts, matching the previous FFI behavior.
         let bytes = std::fs::read(path).expect("failed to read netCDF file");
         let parsed = format::parse(&bytes);
         Ok(Self {
             state: State::Read(Reader { bytes, parsed }),
         })
     }
-
     pub fn dimension_length(&self, name: &str) -> Result<usize, NulError> {
         reject_nul(name)?;
         Ok(self
             .lookup_dimension(name)
             .unwrap_or_else(|| panic!("no dimension named {name}")) as usize)
     }
-
     pub fn try_dimension_length(&self, name: &str) -> Result<Option<usize>, NulError> {
         reject_nul(name)?;
         Ok(self.lookup_dimension(name).map(|len| len as usize))
     }
-
     fn lookup_dimension(&self, name: &str) -> Option<u64> {
         let dims: &[DimSpec] = match &self.state {
             State::Read(reader) => &reader.parsed.dims,
@@ -58,7 +52,6 @@ impl NetCDF {
         };
         dims.iter().find(|dim| dim.name == name).map(|dim| dim.len)
     }
-
     pub fn get_variable_attribute_text(
         &self,
         variable: &str,
@@ -89,7 +82,6 @@ impl NetCDF {
             _ => panic!("no text attribute {variable}::{attr_name}"),
         }
     }
-
     pub fn define_dimension(&mut self, name: &str, len: usize) -> Result<(), NulError> {
         reject_nul(name)?;
         let _guard = nc_lock();
@@ -99,7 +91,6 @@ impl NetCDF {
         });
         Ok(())
     }
-
     pub fn end_definition(&mut self) {
         let _guard = nc_lock();
         let writer = match &mut self.state {
@@ -134,13 +125,11 @@ impl NetCDF {
             })
             .collect();
         let header = format::finalize(&writer.dims, &writer.global_attributes, &mut variables);
-        // I/O failure aborts, matching the previous FFI behavior.
         let mut file = File::create(&writer.path).expect("failed to create netCDF file");
         file.write_all(&header)
             .expect("failed to write netCDF header");
         writer.output = Some(Output { file, variables });
     }
-
     pub fn global(&mut self) {
         let _guard = nc_lock();
         let title = format!("{} v{}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
@@ -167,7 +156,6 @@ impl NetCDF {
             },
         ]);
     }
-
     pub fn put_variable_attribute_text(
         &mut self,
         variable: &str,
@@ -190,8 +178,6 @@ impl NetCDF {
         });
         Ok(())
     }
-
-    /// Mutable access to the writer while it is still in "define" mode.
     pub(super) fn writer_defining(&mut self) -> &mut Writer {
         match &mut self.state {
             State::Write(writer) if writer.output.is_none() => writer,
