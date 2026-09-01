@@ -12,7 +12,7 @@ where
     P: AsRef<Path>,
 {
     fn write_exodus(&self, output: P) -> Result<(), NulError>;
-    fn write_exodus_compressed(&self, output: P) -> Result<(), NulError>;
+    fn write_exodus_compressed(&self, output: P, threads: usize) -> Result<(), NulError>;
 }
 
 impl<const D: usize, P> WriteExodus<P> for Mesh<D>
@@ -20,10 +20,10 @@ where
     P: AsRef<Path>,
 {
     fn write_exodus(&self, output: P) -> Result<(), NulError> {
-        self.write_exodus_format(output, false)
+        self.write_exodus_format(output, None)
     }
-    fn write_exodus_compressed(&self, output: P) -> Result<(), NulError> {
-        self.write_exodus_format(output, true)
+    fn write_exodus_compressed(&self, output: P, threads: usize) -> Result<(), NulError> {
+        self.write_exodus_format(output, Some(threads))
     }
 }
 
@@ -31,13 +31,12 @@ impl<const D: usize> Mesh<D> {
     fn write_exodus_format<P: AsRef<Path>>(
         &self,
         output: P,
-        netcdf4: bool,
+        netcdf4: Option<usize>,
     ) -> Result<(), NulError> {
         let path = output.as_ref().to_str().unwrap();
-        let mut netcdf = if netcdf4 {
-            NetCDF::create_netcdf4(path)?
-        } else {
-            NetCDF::create(path)?
+        let mut netcdf = match netcdf4 {
+            Some(threads) => NetCDF::create_netcdf4(path, threads)?,
+            None => NetCDF::create(path)?,
         };
         netcdf.global();
         let element_numbers: Option<Vec<i32>> = self

@@ -45,7 +45,9 @@ struct Writer {
     dims: Vec<DimSpec>,
     global_attributes: Vec<Attribute>,
     variables: Vec<VarBuild>,
-    netcdf4: bool,
+    /// `None` for classic; `Some(threads)` selects netCDF-4 output and its
+    /// chunk-compression thread count.
+    netcdf4: Option<usize>,
     output: Option<Output>,
 }
 

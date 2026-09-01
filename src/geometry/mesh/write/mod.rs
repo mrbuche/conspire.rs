@@ -23,7 +23,7 @@ where
 {
     Abaqus(P),
     Exodus(P),
-    ExodusCompressed(P),
+    ExodusCompressed { path: P, threads: usize },
     Medit(P),
     Vtk(Vtk<P>),
 }
@@ -36,7 +36,7 @@ where
         match self {
             Output::Abaqus(path) => path.as_ref(),
             Output::Exodus(path) => path.as_ref(),
-            Output::ExodusCompressed(path) => path.as_ref(),
+            Output::ExodusCompressed { path, .. } => path.as_ref(),
             Output::Medit(path) => path.as_ref(),
             Output::Vtk(vtk) => vtk.as_ref(),
         }
@@ -52,7 +52,9 @@ where
         match output {
             Output::Abaqus(path) => self.write_abaqus(path)?,
             Output::Exodus(path) => self.write_exodus(path)?,
-            Output::ExodusCompressed(path) => self.write_exodus_compressed(path)?,
+            Output::ExodusCompressed { path, threads } => {
+                self.write_exodus_compressed(path, threads)?
+            }
             Output::Medit(path) => self.write_medit(path)?,
             Output::Vtk(Vtk::UnstructuredGrid(Compression::On(path))) => {
                 self.write_vtk_unstructured_compressed(path)?

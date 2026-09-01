@@ -30,12 +30,12 @@ struct VarPlan {
     storage: Storage,
 }
 
-fn plan_var(var: &VarSpec, dim_lens: &[u64], data: &[u8]) -> VarPlan {
+fn plan_var(var: &VarSpec, dim_lens: &[u64], data: &[u8], threads: usize) -> VarPlan {
     let dims: Vec<u64> = var.dimids.iter().map(|&d| dim_lens[d]).collect();
     let storage = if dims.is_empty() {
         Storage::Contiguous(data.to_vec())
     } else {
-        Storage::Chunked(chunk::plan(&dims, data, elem_size(var.xtype)))
+        Storage::Chunked(chunk::plan(&dims, data, elem_size(var.xtype), threads))
     };
     VarPlan { dims, storage }
 }
@@ -135,12 +135,13 @@ pub(in crate::io::netcdf) fn write(
     global: &[Attribute],
     vars: &[VarSpec],
     data: &[Vec<u8>],
+    threads: usize,
 ) -> Vec<u8> {
     let dim_lens: Vec<u64> = dims.iter().map(|d| d.len).collect();
     let plans: Vec<VarPlan> = vars
         .iter()
         .zip(data)
-        .map(|(v, d)| plan_var(v, &dim_lens, d))
+        .map(|(v, d)| plan_var(v, &dim_lens, d, threads))
         .collect();
 
     let dim_scale_msgs: Vec<Vec<(u8, Vec<u8>)>> = (0..dims.len())

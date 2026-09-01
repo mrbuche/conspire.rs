@@ -11,12 +11,13 @@ impl NetCDF {
         if let State::Write(writer) = &mut self.state
             && let Some(mut output) = writer.output.take()
         {
-            if writer.netcdf4 {
+            if let Some(threads) = writer.netcdf4 {
                 let bytes = format::hdf5::write(
                     &writer.dims,
                     &writer.global_attributes,
                     &output.variables,
                     &output.data,
+                    threads,
                 );
                 let _ = output.file.write_all(&bytes);
             }
@@ -24,12 +25,14 @@ impl NetCDF {
         }
     }
     pub fn create(path: &str) -> Result<Self, NulError> {
-        Self::new(path, false)
+        Self::new(path, None)
     }
-    pub fn create_netcdf4(path: &str) -> Result<Self, NulError> {
-        Self::new(path, true)
+    /// Create a netCDF-4 (HDF5) file. `threads` bounds the pool used to compress
+    /// chunks in parallel; `0` or `1` compresses serially.
+    pub fn create_netcdf4(path: &str, threads: usize) -> Result<Self, NulError> {
+        Self::new(path, Some(threads))
     }
-    fn new(path: &str, netcdf4: bool) -> Result<Self, NulError> {
+    fn new(path: &str, netcdf4: Option<usize>) -> Result<Self, NulError> {
         reject_nul(path)?;
         Ok(Self {
             state: State::Write(Writer {
@@ -142,7 +145,7 @@ impl NetCDF {
             })
             .collect();
         let mut file = File::create(&writer.path).expect("failed to create netCDF file");
-        if !writer.netcdf4 {
+        if writer.netcdf4.is_none() {
             let header = format::finalize(&writer.dims, &writer.global_attributes, &mut variables);
             file.write_all(&header)
                 .expect("failed to write netCDF header");

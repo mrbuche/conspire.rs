@@ -44,9 +44,9 @@ fn compress(
     }
 }
 
-/// Compress every chunk. Chunks are independent, so split them across threads;
-/// results are concatenated in chunk order, so the output is identical whatever
-/// the thread count.
+/// Compress every chunk. Chunks are independent, so split them across `threads`
+/// worker threads (`0` or `1` runs serially); results are concatenated in chunk
+/// order, so the output is identical whatever the thread count.
 fn compress_chunks(
     data: &[u8],
     starts: &[u64],
@@ -54,14 +54,13 @@ fn compress_chunks(
     rows: u64,
     slab: u64,
     elem: usize,
+    threads: usize,
 ) -> Vec<(u32, Vec<u8>)> {
     let one = |&start: &u64| compress(data, start, row, rows, slab, elem);
-    if starts.len() < 2 {
+    let threads = threads.min(starts.len());
+    if threads < 2 {
         return starts.iter().map(one).collect();
     }
-    let threads = std::thread::available_parallelism()
-        .map_or(1, |p| p.get())
-        .min(starts.len());
     let mut out = Vec::with_capacity(starts.len());
     std::thread::scope(|scope| {
         let handles: Vec<_> = starts
@@ -78,7 +77,7 @@ fn compress_chunks(
 const BTREE_K: usize = 32;
 const TARGET_CHUNK_BYTES: u64 = 1 << 20;
 
-pub(super) fn plan(dims: &[u64], data: &[u8], elem: usize) -> Plan {
+pub(super) fn plan(dims: &[u64], data: &[u8], elem: usize, threads: usize) -> Plan {
     let rank = dims.len();
     let row: u64 = dims[1..].iter().product::<u64>() * elem as u64;
     let mut slab = dims[0].max(1);
@@ -93,7 +92,9 @@ pub(super) fn plan(dims: &[u64], data: &[u8], elem: usize) -> Plan {
     let starts: Vec<u64> = (0..dims[0]).step_by(slab as usize).collect();
     let blobs = starts
         .iter()
-        .zip(compress_chunks(data, &starts, row, dims[0], slab, elem))
+        .zip(compress_chunks(
+            data, &starts, row, dims[0], slab, elem, threads,
+        ))
         .map(|(&start, (mask, bytes))| {
             let mut offsets = vec![0u64; rank];
             offsets[0] = start;

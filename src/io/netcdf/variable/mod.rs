@@ -39,7 +39,7 @@ impl PutVariable for NetCDF {
             State::Write(writer) => writer,
             State::Read(_) => panic!("put_variable on a NetCDF opened for reading"),
         };
-        let netcdf4 = writer.netcdf4;
+        let netcdf4 = writer.netcdf4.is_some();
         let dims = std::mem::take(&mut writer.dims);
         let output = writer
             .output

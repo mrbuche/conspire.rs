@@ -29,7 +29,7 @@ fn api_round_trip_scalar_contiguous_and_chunked() {
     let connect = vec![1i32, 2, 3, 4, 2, 3];
     let count = vec![42i32];
     {
-        let mut nc = NetCDF::create_netcdf4(path).unwrap();
+        let mut nc = NetCDF::create_netcdf4(path, 1).unwrap();
         nc.global();
         nc.define_dimension("nodes", 4).unwrap();
         nc.define_dimension("elems", 2).unwrap();
@@ -76,7 +76,7 @@ fn multi_chunk_variable_round_trips() {
     let n = 400_000usize;
     let values: Vec<f64> = (0..n).map(|i| i as f64 * 0.25).collect();
     {
-        let mut nc = NetCDF::create_netcdf4(path).unwrap();
+        let mut nc = NetCDF::create_netcdf4(path, 4).unwrap();
         nc.define_dimension("row", n).unwrap();
         nc.define_variable::<f64>("x", 1, &["row"]).unwrap();
         nc.end_definition();
@@ -88,7 +88,7 @@ fn multi_chunk_variable_round_trips() {
 
 #[test]
 fn multi_chunk_output_is_deterministic() {
-    // Chunk compression is threaded; the serialized bytes must not depend on it.
+    // Chunk compression is threaded; the bytes must not depend on the count.
     let n = 300_000usize;
     let values: Vec<f64> = (0..n).map(|i| (i % 13) as f64).collect();
     let dims = [DimSpec {
@@ -96,8 +96,8 @@ fn multi_chunk_output_is_deterministic() {
         len: n as u64,
     }];
     let vars = [spec("x", NC_DOUBLE, vec![0])];
-    let a = write(&dims, &[], &vars, &[le(&values)]);
-    let b = write(&dims, &[], &vars, &[le(&values)]);
+    let a = write(&dims, &[], &vars, &[le(&values)], 2);
+    let b = write(&dims, &[], &vars, &[le(&values)], 5);
     assert_eq!(a, b);
 }
 
@@ -106,7 +106,7 @@ fn incompressible_chunk_is_stored_raw() {
     let path = "target/hdf5_write_raw.nc";
     let values: Vec<i32> = vec![0x1234_5678, -0x0765_4321, 0x0abc_def0, 0x7fff_fffe];
     {
-        let mut nc = NetCDF::create_netcdf4(path).unwrap();
+        let mut nc = NetCDF::create_netcdf4(path, 1).unwrap();
         nc.define_dimension("k", 4).unwrap();
         nc.define_variable::<i32>("v", 1, &["k"]).unwrap();
         nc.end_definition();
@@ -129,7 +129,13 @@ fn write_function_smoke() {
         len: 3,
     }];
     let vars = [spec("x", NC_DOUBLE, vec![0]), spec("s", NC_INT, vec![])];
-    let bytes = write(&dims, &[], &vars, &[le(&[1.0f64, 2.0, 3.0]), le(&[7i32])]);
+    let bytes = write(
+        &dims,
+        &[],
+        &vars,
+        &[le(&[1.0f64, 2.0, 3.0]), le(&[7i32])],
+        1,
+    );
     assert_eq!(
         &bytes[..8],
         &[0x89, b'H', b'D', b'F', b'\r', b'\n', 0x1a, b'\n']
@@ -148,7 +154,7 @@ fn write_rejects_unsupported_variable_type() {
         name: "n".to_string(),
         len: 2,
     }];
-    write(&dims, &[], &[spec("bad", 99, vec![0])], &[le(&[0u8, 0])]);
+    write(&dims, &[], &[spec("bad", 99, vec![0])], &[le(&[0u8, 0])], 0);
 }
 
 #[test]
@@ -169,7 +175,7 @@ fn hyperslab_across_chunk_boundaries() {
     let n = 400_000usize;
     let values: Vec<i32> = (0..n as i32).collect();
     {
-        let mut nc = NetCDF::create_netcdf4(path).unwrap();
+        let mut nc = NetCDF::create_netcdf4(path, 4).unwrap();
         nc.define_dimension("row", n).unwrap();
         nc.define_variable::<i32>("x", 1, &["row"]).unwrap();
         nc.end_definition();
@@ -197,7 +203,7 @@ fn hyperslab_two_dimensional() {
     let (rows, cols) = (5usize, 4usize);
     let values: Vec<f64> = (0..(rows * cols) as i32).map(f64::from).collect();
     {
-        let mut nc = NetCDF::create_netcdf4(path).unwrap();
+        let mut nc = NetCDF::create_netcdf4(path, 1).unwrap();
         nc.define_dimension("r", rows).unwrap();
         nc.define_dimension("c", cols).unwrap();
         nc.define_variable::<f64>("m", 2, &["r", "c"]).unwrap();
@@ -214,7 +220,7 @@ fn hyperslab_two_dimensional() {
 fn hyperslab_out_of_bounds_panics() {
     let path = "target/hdf5_write_slab_oob.nc";
     {
-        let mut nc = NetCDF::create_netcdf4(path).unwrap();
+        let mut nc = NetCDF::create_netcdf4(path, 2).unwrap();
         nc.define_dimension("k", 4).unwrap();
         nc.define_variable::<i32>("v", 1, &["k"]).unwrap();
         nc.end_definition();
