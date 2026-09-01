@@ -1062,3 +1062,126 @@ pub(crate) fn partial_cone_to_apex(radius: f64, height: f64, angle: f64) -> Brep
         shells: vec![Shell { faces: vec![0], closed: false }],
     }
 }
+
+/// A cone closed to its apex, cut into two faces by two rulings `angle` apart
+/// — so one face spans more than half a turn, the case where the shorter way
+/// round the apex is the wrong way. One loop opens on a rim vertex and the
+/// other on the apex itself, as real countersinks' do.
+pub(crate) fn cone_split_at_apex(radius: f64, height: f64, angle: f64) -> Brep {
+    let rim = |a: f64| [radius * a.cos(), radius * a.sin(), 0.0];
+    let apex = [0.0, 0.0, height];
+    let vertices = [rim(0.0), rim(angle), apex].map(Coordinate::const_from).to_vec();
+    let ruling = |from: [f64; 3], to: [f64; 3]| {
+        let delta = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
+        let norm = (delta[0].powi(2) + delta[1].powi(2) + delta[2].powi(2)).sqrt();
+        Curve::Line(Line {
+            origin: Coordinate::const_from(from),
+            direction: direction([delta[0] / norm, delta[1] / norm, delta[2] / norm]),
+        })
+    };
+    // The reader orients a circle so its edge runs CCW about the axis, so both
+    // rim arcs turn about `+z`; which arc each is follows from its vertices.
+    let arc = || {
+        Curve::Circle(Circle {
+            center: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        })
+    };
+    let edges = vec![
+        Edge { vertices: [2, 0], curve: ruling(apex, rim(0.0)) },
+        Edge { vertices: [2, 1], curve: ruling(apex, rim(angle)) },
+        // 2: the short arc, `0` round to `angle`. 3: the long one back.
+        Edge { vertices: [0, 1], curve: arc() },
+        Edge { vertices: [1, 0], curve: arc() },
+    ];
+    let cone = || {
+        Surface::Cone(Cone {
+            origin: Coordinate::const_from(apex),
+            axis: direction([0.0, 0.0, -1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius: 0.0,
+            semi_angle: (radius / height).atan(),
+        })
+    };
+    let bound = |half_edges: &[(usize, bool)]| {
+        vec![Loop {
+            half_edges: half_edges
+                .iter()
+                .map(|&(edge, forward)| HalfEdge { edge, forward })
+                .collect(),
+        }]
+    };
+    let faces = vec![
+        // The long face, opening on a rim vertex.
+        Face {
+            surface: cone(),
+            bounds: bound(&[(3, true), (0, false), (1, true)]),
+            poles: vec![],
+            forward: true,
+        },
+        // The short face, opening on the apex.
+        Face {
+            surface: cone(),
+            bounds: bound(&[(0, true), (2, true), (1, false)]),
+            poles: vec![],
+            forward: true,
+        },
+    ];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0, 1], closed: false }],
+    }
+}
+
+/// A solid hemisphere: a flat disk and a spherical cap sharing one rim circle.
+/// The plane carries that circle exactly, the sphere has to chord it.
+pub(crate) fn hemisphere_solid(radius: f64) -> Brep {
+    let vertices = vec![Coordinate::const_from([radius, 0.0, 0.0])];
+    let edges = vec![Edge {
+        vertices: [0, 0],
+        curve: Curve::Circle(Circle {
+            center: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+    }];
+    let bound = |forward: bool| {
+        vec![Loop {
+            half_edges: vec![HalfEdge { edge: 0, forward }],
+        }]
+    };
+    let faces = vec![
+        Face {
+            surface: Surface::Sphere(Sphere {
+                origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+                axis: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius,
+            }),
+            bounds: bound(true),
+            poles: vec![],
+            forward: true,
+        },
+        Face {
+            surface: Surface::Plane(Plane {
+                origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+                normal: direction([0.0, 0.0, -1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+            }),
+            bounds: bound(false),
+            poles: vec![],
+            forward: true,
+        },
+    ];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell { faces: vec![0, 1], closed: true }],
+    }
+}

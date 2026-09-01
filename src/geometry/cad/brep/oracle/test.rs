@@ -5,8 +5,9 @@ use crate::{
             curve::Ellipse,
             test::{
                 ball, bulged_plate, capped_cylinder, cone, cylinder_with_elliptical_rim, direction,
-                cylinder_with_splined_rim, partial_cone_to_apex, partial_cylinder,
-                partial_sphere, partial_torus,
+                cone_split_at_apex, cylinder_with_splined_rim, hemisphere_solid,
+                partial_cone_to_apex,
+                partial_cylinder, partial_sphere, partial_torus,
                 square_with_rounded_hole, square_with_splined_hole, torus, unit_cube,
             },
         },
@@ -408,4 +409,88 @@ fn accepts_a_planar_face_with_a_b_spline_hole() {
     let radius = ((boundary[0] - 5.0).powi(2) + (boundary[1] - 5.0).powi(2)).sqrt();
     assert!((radius - 2.0).abs() < 0.01, "nearest hole boundary at radius {radius}");
 }
+
+
+
+/// The two halves of an apex cone must tile it, not overlap. Crossing the
+/// apex, `wrap` can only offer the shorter turn, so both halves used to swing
+/// onto the same side and every ray through the cone was counted twice.
+#[test]
+fn the_halves_of_an_apex_cone_do_not_overlap() {
+    let brep = cone_split_at_apex(2.0, 5.0, 2.0 * std::f64::consts::PI / 3.0);
+    let oracle = brep.oracle().unwrap();
+    let direction = [0.862_667, 0.411_988, 0.291_536];
+    let mut seen = 0;
+    for step in 0..40 {
+        let query = Coordinate::from([-6.0, -3.0 + 0.15 * step as f64, 1.0]);
+        let hits = oracle.ray_report(&query, direction);
+        for pair in hits.windows(2) {
+            assert!(
+                (pair[1].2 - pair[0].2).abs() > 1.0e-9,
+                "two faces claim the same crossing at t = {}",
+                pair[0].2
+            );
+        }
+        seen += hits.len();
+    }
+    assert!(seen > 0, "the sweep never crossed the cone");
+    // And between them the halves have to cover the cone: every point on the
+    // lateral surface belongs to one of them, so projection leaves it alone.
+    for spoke in 0..24 {
+        let angle = std::f64::consts::TAU * (spoke as f64 + 0.5) / 24.0;
+        for level in 1..5 {
+            let z = 5.0 * level as f64 / 5.0 - 0.5;
+            let r = 2.0 * (1.0 - z / 5.0);
+            let on_surface = [r * angle.cos(), r * angle.sin(), z];
+            let (point, _) = oracle.project(&Coordinate::from(on_surface)).unwrap();
+            let moved = components(&point)
+                .iter()
+                .zip(on_surface)
+                .map(|(a, b)| (a - b).powi(2))
+                .sum::<f64>()
+                .sqrt();
+            assert!(moved < 1.0e-9, "cone surface point at angle {angle} z {z} moved {moved}");
+        }
+    }
+}
+
+/// A plane and a sphere sharing a circular edge: the plane carries it exactly,
+/// the sphere can only chord it in its own chart, so the two trimmed regions
+/// part company by the chord's sagitta. A ray threading that gap hits neither
+/// face, or both, and must not be left to settle the parity on its own — the
+/// signed distance would flip sign across a hair's breadth of empty space.
+#[test]
+fn a_chorded_shared_edge_does_not_flip_the_sign() {
+    assert_eq!(sign_flips(&hemisphere_solid(2.0)), 0);
+}
+
+/// Random neighbouring pairs whose signed distances disagree in sign with no
+/// surface between them — the signature of a boundary a ray can slip through.
+fn sign_flips(brep: &crate::geometry::cad::brep::Brep) -> usize {
+    let oracle = brep.oracle().unwrap();
+    let mut seed = 0x2545_F491_4F6C_DD1Du64;
+    let mut rand = move || {
+        seed ^= seed << 13;
+        seed ^= seed >> 7;
+        seed ^= seed << 17;
+        (seed >> 11) as f64 / (1u64 << 53) as f64
+    };
+    let step = 4.0e-4;
+    let mut flips = 0;
+    for _ in 0..400000 {
+        let p: [f64; 3] = from_fn(|_| -3.0 + 6.0 * rand());
+        let mut q = p;
+        q[(rand() * 3.0) as usize % 3] += step;
+        let (a, b) = (
+            oracle.signed_distance(&Coordinate::from(p)),
+            oracle.signed_distance(&Coordinate::from(q)),
+        );
+        // A sign change over one step is only honest within a step of a face.
+        if (a > 0.0) != (b > 0.0) && a.abs().min(b.abs()) > step {
+            flips += 1;
+        }
+    }
+    flips
+}
+
 

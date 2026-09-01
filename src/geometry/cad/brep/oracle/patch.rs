@@ -67,7 +67,13 @@ pub(super) enum Curved {
 
 pub(super) enum FacePatch {
     Planar(PlanarFace),
-    Curved { curved: Curved, low: [Scalar; D], high: [Scalar; D] },
+    Curved {
+        curved: Curved,
+        low: [Scalar; D],
+        high: [Scalar; D],
+        /// How far this patch's chorded boundary may sit from the true edge.
+        tolerance: Scalar,
+    },
 }
 
 impl FacePatch {
@@ -157,29 +163,41 @@ impl FacePatch {
     }
 
     /// Parameters `t > 0` at which the ray `origin + t·direction` crosses this
-    /// patch's *trimmed* surface (`direction` need not be unit). The basis of
-    /// the ray-parity inside/outside test.
-    pub(super) fn ray_hits(&self, origin: [Scalar; D], direction: [Scalar; D]) -> Vec<Scalar> {
+    /// patch's *trimmed* surface (`direction` need not be unit), and whether
+    /// any root landed within [`tolerance`](FacePatch::Curved::tolerance) of
+    /// the trim boundary — where the neighbour sharing that edge may claim the
+    /// crossing too, or neither may, so the parity cannot be trusted. The
+    /// basis of the ray-parity inside/outside test.
+    pub(super) fn ray_hits(
+        &self,
+        origin: [Scalar; D],
+        direction: [Scalar; D],
+    ) -> (Vec<Scalar>, bool) {
         match self {
             Self::Planar(face) => {
                 let normal: [Scalar; D] = from_fn(|k| face.normal[k].value());
                 let denominator = dot(direction, normal);
                 if denominator.abs() < 1.0e-13 {
-                    return Vec::new();
+                    return (Vec::new(), false);
                 }
                 let to_plane: [Scalar; D] = from_fn(|k| face.origin[k].value() - origin[k]);
                 let t = dot(to_plane, normal) / denominator;
                 if t <= RAY_EPS {
-                    return Vec::new();
+                    return (Vec::new(), false);
                 }
                 let hit = Coordinate::from(from_fn::<Scalar, D, _>(|k| origin[k] + t * direction[k]));
-                if face.contains(face.project(&hit)) {
-                    vec![t]
+                let uv = face.project(&hit);
+                let grazing = face.tolerance > 0.0 && {
+                    let near = face.nearest_boundary(uv);
+                    (near[0] - uv[0]).hypot(near[1] - uv[1]) < face.tolerance
+                };
+                if face.contains(uv) {
+                    (vec![t], grazing)
                 } else {
-                    Vec::new()
+                    (Vec::new(), grazing)
                 }
             }
-            Self::Curved { curved, .. } => curved.ray_hits(origin, direction),
+            Self::Curved { curved, tolerance, .. } => curved.ray_hits(origin, direction, *tolerance),
         }
     }
 
@@ -280,15 +298,31 @@ impl Curved {
     /// trimmed surface. Quadrics (cylinder, cone, sphere) solve in closed
     /// form; the torus marches its analytic distance and bisects sign changes.
     /// Every root is kept only if it lands inside the patch's trim rings.
-    pub(super) fn ray_hits(&self, o: [Scalar; D], d: [Scalar; D]) -> Vec<Scalar> {
+    pub(super) fn ray_hits(
+        &self,
+        o: [Scalar; D],
+        d: [Scalar; D],
+        tolerance: Scalar,
+    ) -> (Vec<Scalar>, bool) {
+        let mut grazed = false;
         let on_ruled = |t: &Scalar,
                         origin: &[Scalar; D],
                         axis: &[Scalar; D],
+                        radius_at: &dyn Fn(Scalar) -> Scalar,
                         low: &Scalar,
                         high: &Scalar,
-                        rings: &Option<Vec<super::Ring>>| {
+                        rings: &Option<Vec<super::Ring>>,
+                        grazed: &mut bool| {
             let hit: [Scalar; D] = from_fn(|k| o[k] + t * d[k]);
             let uv = super::to_uv(*origin, *axis, hit);
+            if tolerance > 0.0 {
+                let rim = (uv[1] - low).abs().min((high - uv[1]).abs());
+                let edge = rings.as_ref().map_or(Scalar::INFINITY, |r| {
+                    let near = super::periodic_nearest(uv, r, radius_at);
+                    ((near[0] - uv[0]) * radius_at(uv[1])).hypot(near[1] - uv[1])
+                });
+                *grazed |= rim.min(edge) < tolerance;
+            }
             uv[1] >= low - RAY_EPS
                 && uv[1] <= high + RAY_EPS
                 && rings.as_ref().is_none_or(|r| super::periodic_contains(uv, r))
@@ -297,37 +331,55 @@ impl Curved {
             Self::Cylinder { origin, axis, radius, low, high, rings, .. } => {
                 let w: [Scalar; D] = from_fn(|k| o[k] - origin[k]);
                 let (dp, wp) = (reject(d, *axis), reject(w, *axis));
-                quadratic(dot(dp, dp), 2.0 * dot(dp, wp), dot(wp, wp) - radius * radius)
+                let radius_at = |_: Scalar| *radius;
+                let hits = quadratic(dot(dp, dp), 2.0 * dot(dp, wp), dot(wp, wp) - radius * radius)
                     .into_iter()
-                    .filter(|t| *t > RAY_EPS && on_ruled(t, origin, axis, low, high, rings))
-                    .collect()
+                    .filter(|t| {
+                        *t > RAY_EPS
+                            && on_ruled(t, origin, axis, &radius_at, low, high, rings, &mut grazed)
+                    })
+                    .collect();
+                (hits, grazed)
             }
             Self::Cone { origin, axis, radius, slope, low, high, rings, .. } => {
                 let w: [Scalar; D] = from_fn(|k| o[k] - origin[k]);
                 let (dp, wp) = (reject(d, *axis), reject(w, *axis));
                 let (base, rate) = (radius + slope * dot(w, *axis), slope * dot(d, *axis));
-                quadratic(
+                let radius_at = |v: Scalar| (radius + v * slope).max(0.0);
+                let hits = quadratic(
                     dot(dp, dp) - rate * rate,
                     2.0 * (dot(dp, wp) - base * rate),
                     dot(wp, wp) - base * base,
                 )
                 .into_iter()
-                .filter(|t| *t > RAY_EPS && on_ruled(t, origin, axis, low, high, rings))
-                .collect()
+                .filter(|t| {
+                    *t > RAY_EPS
+                        && on_ruled(t, origin, axis, &radius_at, low, high, rings, &mut grazed)
+                })
+                .collect();
+                (hits, grazed)
             }
             Self::Sphere { centre, axis, radius, rings, .. } => {
                 let w: [Scalar; D] = from_fn(|k| o[k] - centre[k]);
-                quadratic(dot(d, d), 2.0 * dot(w, d), dot(w, w) - radius * radius)
+                let hits = quadratic(dot(d, d), 2.0 * dot(w, d), dot(w, w) - radius * radius)
                     .into_iter()
                     .filter(|t| {
                         *t > RAY_EPS
                             && rings.as_ref().is_none_or(|rings| {
                                 let hit: [Scalar; D] = from_fn(|k| o[k] + t * d[k]);
                                 let uv = super::to_uv_sphere(*centre, *axis, *radius, hit);
+                                let weight = super::sphere_weight(*radius);
+                                if tolerance > 0.0 {
+                                    let near = super::chart_nearest(uv, rings, &weight, None);
+                                    grazed |= ((near[0] - uv[0]) * weight(uv[1]))
+                                        .hypot(near[1] - uv[1])
+                                        < tolerance;
+                                }
                                 super::chart_contains(uv, rings, None)
                             })
                     })
-                    .collect()
+                    .collect();
+                (hits, grazed)
             }
             Self::Torus { centre, axis, major, minor, rings, .. } => {
                 let sdf = |p: [Scalar; D]| {
@@ -338,16 +390,24 @@ impl Curved {
                     dot(off, off).sqrt() - minor
                 };
                 let period = Some(std::f64::consts::TAU * minor);
-                march_sign_changes(o, d, *centre, major + minor, *minor, sdf)
+                let hits = march_sign_changes(o, d, *centre, major + minor, *minor, sdf)
                     .into_iter()
                     .filter(|t| {
                         rings.as_ref().is_none_or(|rings| {
                             let hit: [Scalar; D] = from_fn(|k| o[k] + t * d[k]);
                             let uv = super::to_uv_torus(*centre, *axis, *major, *minor, hit);
+                            let weight = super::torus_weight(*major, *minor);
+                            if tolerance > 0.0 {
+                                let near = super::chart_nearest(uv, rings, &weight, period);
+                                grazed |= ((near[0] - uv[0]) * weight(uv[1]))
+                                    .hypot(near[1] - uv[1])
+                                    < tolerance;
+                            }
                             super::chart_contains(uv, rings, period)
                         })
                     })
-                    .collect()
+                    .collect();
+                (hits, grazed)
             }
         }
     }

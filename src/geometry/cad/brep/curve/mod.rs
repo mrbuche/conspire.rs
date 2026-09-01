@@ -34,6 +34,31 @@ pub struct Ellipse {
     pub minor_radius: f64,
 }
 
+/// Chord deviation allowed, as a fraction of the edge's own length. Two faces
+/// sharing an edge chord it identically, but each straightens it in its own
+/// chart, so their trimmed boundaries still part company by about this much —
+/// which is why a patch reports it as its own trim tolerance.
+pub(in crate::geometry::cad) const RELATIVE_SAGITTA: f64 = 1.0e-3;
+
+/// How far the chord polyline of `curve` may stray from it: zero for an edge
+/// carried in closed form, else [`RELATIVE_SAGITTA`] of the edge's length.
+pub(in crate::geometry::cad) fn chord_deviation(
+    curve: &Curve,
+    start: &Coordinate<D>,
+    end: &Coordinate<D>,
+    forward: bool,
+    closed: bool,
+) -> f64 {
+    if matches!(curve, Curve::Line(_)) {
+        return 0.0;
+    }
+    chords(curve, start, end, forward, closed)
+        .windows(2)
+        .map(|pair| distance(&pair[0], &pair[1]))
+        .sum::<f64>()
+        * RELATIVE_SAGITTA
+}
+
 /// The 3D chord polyline replacing `curve` from `start` to `end`, both
 /// included, refined until no chord strays further from the curve than
 /// `RELATIVE_SAGITTA` of its own length.

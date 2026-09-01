@@ -109,6 +109,8 @@ impl Brep {
     ) -> Result<Option<Ring>, &'static str> {
         let mut ring: Ring = Vec::new();
         let mut cursor: Option<[Scalar; 2]> = None;
+        let mut crossed_apex: Option<usize> = None;
+        let mut starts_at_apex = false;
         for half_edge in &bound.half_edges {
             let edge = self
                 .edges
@@ -136,9 +138,15 @@ impl Brep {
                 radial_distance(origin, axis, end_point),
             );
             let apex = |near: Scalar, far: Scalar| near <= far * 1.0e-6;
+            starts_at_apex |= ring.is_empty() && cursor.is_none() && apex(from_axis, to_axis);
             if matches!(&edge.curve, Curve::Line(_)) && apex(from_axis, to_axis) {
                 let [u_end, _] = to_uv(origin, axis, end_point);
                 ring.push((current, None));
+                // Which way round the apex is not knowable here — `wrap` can
+                // only offer the shorter turn, and a face split from its twin
+                // by two rulings half a turn apart has both looking alike.
+                // The loop's own closure settles it below.
+                crossed_apex = Some(ring.len());
                 current = [current[0] + wrap(u_end - current[0]), current[1]];
             }
             if matches!(&edge.curve, Curve::BSpline(_)) {
@@ -216,6 +224,29 @@ impl Brep {
             ring.push((current, kind));
             cursor = Some(next);
         }
+        // The walk has to come back to where it started. When it does not and
+        // the loop crossed an apex, the crossing went the wrong way round:
+        // undo the whole residual there, which swings that face onto its own
+        // half instead of its neighbour's. A loop that *began* on the apex is
+        // exempt — both its ends are that one point, whatever angle they wear.
+        if let (Some(last), Some(&(first, _)), Some(at), false) =
+            (cursor, ring.first(), crossed_apex, starts_at_apex)
+        {
+            let residual = last[0] - first[0];
+            if residual.abs() > 1.0e-9 {
+                ring[at..]
+                    .iter_mut()
+                    .for_each(|(point, _)| point[0] -= residual);
+                cursor = Some([last[0] - residual, last[1]]);
+            }
+        }
+        // Close along the apex line rather than cutting the corner back to the
+        // first point, which would drop the wedge beside it.
+        if let (Some(last), Some(&(first, _))) = (cursor, ring.first())
+            && (last[0] - first[0]).abs() > 1.0e-9
+        {
+            ring.push((last, None));
+        }
         Ok(Some(ring))
     }
 
@@ -273,9 +304,10 @@ impl Brep {
         &self,
         bound: &Loop,
         chart: impl Fn([Scalar; D]) -> [Scalar; 2],
-        v_period: Option<Scalar>,
+        frame: Chart,
         surface: &'static str,
     ) -> Result<(Ring, Scalar), &'static str> {
+        let Chart { centre, axis, v_period } = frame;
         let mut ring: Ring = Vec::new();
         let mut cursor: Option<[Scalar; 2]> = None;
         for half_edge in &bound.half_edges {
@@ -288,6 +320,53 @@ impl Brep {
             } else {
                 (edge.vertices[1], edge.vertices[0])
             };
+            // A circle about the chart's own axis runs along a line of
+            // constant `v`: carry it exactly rather than chording it, so the
+            // trim meets a neighbouring plane — which keeps such an edge exact
+            // too — without a gap for a ray to slip through.
+            if let Curve::Circle(circle) = &edge.curve {
+                let circle_axis: [Scalar; D] = from_fn(|k| circle.axis[k].value());
+                let alignment = dot(circle_axis, axis);
+                let centre_off: [Scalar; D] =
+                    from_fn(|k| circle.center[k].value() - centre[k]);
+                let off_axis = {
+                    let along = dot(centre_off, axis);
+                    let radial: [Scalar; D] = from_fn(|k| centre_off[k] - along * axis[k]);
+                    dot(radial, radial).sqrt()
+                };
+                if alignment.abs() > 1.0 - 1.0e-9 && off_axis <= circle.radius * 1.0e-9 {
+                    let start_point: [Scalar; D] =
+                        from_fn(|k| self.vertices[start][k].value());
+                    let end_point: [Scalar; D] = from_fn(|k| self.vertices[end][k].value());
+                    let point = match cursor {
+                        Some(point) => point,
+                        None => chart(start_point),
+                    };
+                    let sign = if half_edge.forward { alignment } else { -alignment };
+                    let [u_end, v_end] = chart(end_point);
+                    let delta = if start == end {
+                        std::f64::consts::TAU * sign.signum()
+                    } else {
+                        let mut delta = wrap(u_end - point[0]);
+                        if sign > 0.0 && delta < 0.0 {
+                            delta += std::f64::consts::TAU;
+                        } else if sign < 0.0 && delta > 0.0 {
+                            delta -= std::f64::consts::TAU;
+                        }
+                        delta
+                    };
+                    // `v` is constant along the edge, but on a chart that
+                    // wraps in `v` the raw reading may sit a turn away from
+                    // the one the walk has accumulated.
+                    let v = match v_period {
+                        Some(period) => point[1] + wrap_by(v_end - point[1], period),
+                        None => v_end,
+                    };
+                    ring.push((point, None));
+                    cursor = Some([point[0] + delta, v]);
+                    continue;
+                }
+            }
             let samples = self.edge_polyline(edge, start, end, half_edge.forward);
             let mut point = match cursor {
                 Some(point) => point,
@@ -339,17 +418,18 @@ impl Brep {
         &self,
         face: &Face,
         chart: impl Fn([Scalar; D]) -> [Scalar; 2] + Copy,
-        v_period: Option<Scalar>,
+        frame: Chart,
         v_limit: Scalar,
         surface: &'static str,
     ) -> Result<Option<Vec<Ring>>, &'static str> {
+        let v_period = frame.v_period;
         if sweeps_whole_surface(face) {
             return Ok(None);
         }
         let mut rings = Vec::new();
         let mut wrapping = Vec::new();
         for bound in &face.bounds {
-            let (ring, turns) = self.chart_ring(bound, chart, v_period, surface)?;
+            let (ring, turns) = self.chart_ring(bound, chart, frame, surface)?;
             if turns == 0.0 {
                 rings.push(ring);
             } else {
@@ -393,6 +473,40 @@ impl Brep {
         Ok(Some(rings))
     }
 
+    /// How far this face's trimmed boundary may stray from its true edges: the
+    /// chord tolerance of the worst edge the trim has to approximate, and zero
+    /// where every edge is carried in closed form. Neighbouring faces chord a
+    /// shared edge identically but straighten it in their own charts, so a ray
+    /// landing within this of a boundary cannot be trusted to fall on the
+    /// right side of it.
+    pub(super) fn trim_tolerance(&self, face: &Face, exact: fn(&Curve) -> bool) -> Scalar {
+        let mut worst = 0.0;
+        for half_edge in face.bounds.iter().flat_map(|bound| &bound.half_edges) {
+            let Some(edge) = self.edges.get(half_edge.edge) else {
+                continue;
+            };
+            if exact(&edge.curve) {
+                continue;
+            }
+            let (start, end) = if half_edge.forward {
+                (edge.vertices[0], edge.vertices[1])
+            } else {
+                (edge.vertices[1], edge.vertices[0])
+            };
+            worst = Scalar::max(
+                worst,
+                curve::chord_deviation(
+                    &edge.curve,
+                    &self.vertices[start],
+                    &self.vertices[end],
+                    half_edge.forward,
+                    start == end,
+                ),
+            );
+        }
+        worst
+    }
+
     fn cylinder_patch(
         &self,
         surface: &surface::Cylinder,
@@ -415,7 +529,8 @@ impl Brep {
         };
         let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
         let (bl, bh) = frustum_bounds(base, axis, radius, radius, high - low);
-        Ok(FacePatch::Curved { curved, low: bl, high: bh })
+        let tolerance = self.trim_tolerance(face, |curve| !matches!(curve, Curve::BSpline(_)));
+        Ok(FacePatch::Curved { curved, low: bl, high: bh, tolerance })
     }
 
     fn cone_patch(&self, surface: &surface::Cone, face: &Face) -> Result<FacePatch, &'static str> {
@@ -439,7 +554,8 @@ impl Brep {
         };
         let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
         let (bl, bh) = frustum_bounds(base, axis, base_radius, tip_radius, high - low);
-        Ok(FacePatch::Curved { curved, low: bl, high: bh })
+        let tolerance = self.trim_tolerance(face, |curve| !matches!(curve, Curve::BSpline(_)));
+        Ok(FacePatch::Curved { curved, low: bl, high: bh, tolerance })
     }
 }
 
@@ -483,6 +599,7 @@ impl Brep {
         // sits the patch on the equator, as far from both poles as it goes.
         // Any patch bigger than a hemisphere still reaches one, and errs.
         let mut mean = [0.0; D];
+        let mut samples = 0usize;
         for bound in &face.bounds {
             for half_edge in &bound.half_edges {
                 let Some(edge) = self.edges.get(half_edge.edge) else {
@@ -493,20 +610,33 @@ impl Brep {
                 } else {
                     (edge.vertices[1], edge.vertices[0])
                 };
-                for sample in self.edge_polyline(edge, start, end, half_edge.forward) {
+                // Drop each polyline's last point: it is the next edge's
+                // first. Counting it twice tips the mean of an otherwise
+                // symmetric loop onto its seam vertex, and the chart would
+                // then aim its poles straight at the trim boundary.
+                let polyline = self.edge_polyline(edge, start, end, half_edge.forward);
+                for sample in polyline.iter().rev().skip(1).rev() {
+                    samples += 1;
                     for k in 0..D {
                         mean[k] += sample[k].value() - centre[k];
                     }
                 }
             }
         }
+        // A boundary symmetric about the centre — a bare equator, say — leaves
+        // a mean that is pure rounding noise and would aim the chart in an
+        // arbitrary direction. Only a decisively off-centre boundary earns the
+        // perpendicular; otherwise keep the surface's own axis, which also
+        // leaves a latitude circle running along a line of constant `v`.
+        let decisive = dot(mean, mean).sqrt() > samples as Scalar * radius * 1.0e-2;
         let axis = unit(mean)
+            .filter(|_| decisive)
             .map(|mean| basis(mean).0)
             .unwrap_or_else(|| from_fn(|k| surface.axis[k].value()));
         let rings = self.chart_rings(
             face,
             |point| to_uv_sphere(centre, axis, radius, point),
-            None,
+            Chart { centre, axis, v_period: None },
             radius * std::f64::consts::FRAC_PI_2,
             "unsupported trim ring on a spherical face",
         )?;
@@ -520,6 +650,7 @@ impl Brep {
             },
             low: from_fn(|k| centre[k] - radius),
             high: from_fn(|k| centre[k] + radius),
+            tolerance: self.trim_tolerance(face, |curve| matches!(curve, Curve::Line(_))),
         })
     }
 
@@ -534,7 +665,7 @@ impl Brep {
         let rings = self.chart_rings(
             face,
             |point| to_uv_torus(centre, axis, major, minor, point),
-            Some(std::f64::consts::TAU * minor),
+            Chart { centre, axis, v_period: Some(std::f64::consts::TAU * minor) },
             0.0,
             "unsupported trim ring on a toroidal face",
         )?;
@@ -552,6 +683,7 @@ impl Brep {
             },
             low: from_fn(|k| centre[k] - reach[k]),
             high: from_fn(|k| centre[k] + reach[k]),
+            tolerance: self.trim_tolerance(face, |curve| matches!(curve, Curve::Line(_))),
         })
     }
 }
@@ -618,7 +750,7 @@ impl BrepOracle {
     ) -> Option<Scalar> {
         let origin: [Scalar; D] = from_fn(|k| origin[k].value());
         self.ray_candidates(origin, direction)
-            .flat_map(|patch| patch.ray_hits(origin, direction))
+            .flat_map(|patch| patch.ray_hits(origin, direction).0)
             .filter(|&t| t > 1.0e-9)
             .fold(None, |best, t| Some(best.map_or(t, |b: Scalar| b.min(t))))
     }
@@ -636,7 +768,7 @@ impl BrepOracle {
         let graze = self.distance(query).max(1.0e-9) * 1.0e-3;
         let nearest_along = |direction: [Scalar; D]| {
             self.ray_candidates(origin, direction)
-                .flat_map(|patch| patch.ray_hits(origin, direction))
+                .flat_map(|patch| patch.ray_hits(origin, direction).0)
                 .filter(|&t| t > graze)
                 .fold(Scalar::INFINITY, Scalar::min)
         };
@@ -672,6 +804,7 @@ impl BrepOracle {
             .flat_map(|((index, patch), _)| {
                 patch
                     .ray_hits(origin, direction)
+                    .0
                     .into_iter()
                     .map(move |t| (index, patch_kind(patch), t))
             })
@@ -730,16 +863,25 @@ impl BrepOracle {
             * 1.0e-7;
         let mut votes = 0i32;
         for direction in RAY_DIRECTIONS {
+            // A ray landing within a patch's trim tolerance of its boundary
+            // has no reliable side: the neighbour approximating that same edge
+            // may claim it too, or neither may. Treat the whole direction as
+            // ambiguous and let another one settle the parity.
+            let mut grazed = false;
             let mut hits: Vec<Scalar> = self
                 .ray_candidates(origin, direction)
-                .flat_map(|patch| patch.ray_hits(origin, direction))
+                .flat_map(|patch| {
+                    let (hits, graze) = patch.ray_hits(origin, direction);
+                    grazed |= graze;
+                    hits
+                })
                 .collect();
             hits.sort_by(Scalar::total_cmp);
             if hits.first().is_some_and(|&t| t < graze) {
                 return true; // on the surface
             }
             let mut crossings = 0usize;
-            let mut ambiguous = false;
+            let mut ambiguous = grazed;
             let mut previous = Scalar::NEG_INFINITY;
             for &t in &hits {
                 if t - previous < graze {
@@ -881,6 +1023,15 @@ fn frustum_bounds(
         }
     }
     (low, high)
+}
+
+/// The frame a curved surface's `(u, v)` chart is measured in: `u` turns about
+/// `axis` through `centre`, and `v` wraps with `v_period` where it wraps at all.
+#[derive(Clone, Copy)]
+struct Chart {
+    centre: [Scalar; D],
+    axis: [Scalar; D],
+    v_period: Option<Scalar>,
 }
 
 /// `(longitude, radius x latitude)` of `point` in a sphere's own chart: `u` the

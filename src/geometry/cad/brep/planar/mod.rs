@@ -38,6 +38,9 @@ pub struct PlanarFace {
     /// The outer polygon loop in world space, for box-overlap tests.
     pub outline: Vec<[Scalar; D]>,
     pub aabb: BoundingBox<D>,
+    /// How far a chorded edge of this loop may sit from the true curve; zero
+    /// when every edge is exact.
+    pub tolerance: Scalar,
 }
 
 impl PlanarFace {
@@ -265,6 +268,8 @@ impl Brep {
         }
 
         let aabb = BoundingBox::from(refs.into_iter().collect::<CoordinatesRef<'_, D>>());
+        let tolerance =
+            self.trim_tolerance(face, |curve| matches!(curve, Curve::Line(_) | Curve::Circle(_)));
         Ok(PlanarFace {
             origin,
             normal,
@@ -274,6 +279,7 @@ impl Brep {
             circles,
             outline,
             aabb,
+            tolerance,
         })
     }
 }
