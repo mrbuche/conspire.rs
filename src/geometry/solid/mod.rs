@@ -277,6 +277,46 @@ pub(crate) fn classify_by_flood_fill(
             classes[index] = Class::Outside;
         }
     }
+
+    // A connected island of `Cut` cells holding no `Inside` cell and detached
+    // from the main body is not a boundary — a real trimmed feature always
+    // wraps some interior, and a genuinely sub-cell-thin wall stays attached
+    // to the bulk it belongs to. It is the residue of a ray-parity sign flip
+    // near a trim edge (common where a face is a sampled B-spline patch).
+    // Demote every such island to `Outside`; the largest component is always
+    // kept, so a wholly thin-walled part is safe.
+    let mut component = vec![usize::MAX; count];
+    let mut sizes: Vec<usize> = Vec::new();
+    let mut has_inside: Vec<bool> = Vec::new();
+    for start in 0..count {
+        if classes[start] == Class::Outside || component[start] != usize::MAX {
+            continue;
+        }
+        let id = sizes.len();
+        let (mut size, mut inside) = (0usize, false);
+        let mut stack = vec![start];
+        component[start] = id;
+        while let Some(index) = stack.pop() {
+            size += 1;
+            inside |= classes[index] == Class::Inside;
+            for &neighbour in &adjacency[index] {
+                if classes[neighbour] != Class::Outside && component[neighbour] == usize::MAX {
+                    component[neighbour] = id;
+                    stack.push(neighbour);
+                }
+            }
+        }
+        sizes.push(size);
+        has_inside.push(inside);
+    }
+    if let Some(main) = (0..sizes.len()).max_by_key(|&id| sizes[id]) {
+        for index in 0..count {
+            let id = component[index];
+            if id != usize::MAX && id != main && !has_inside[id] {
+                classes[index] = Class::Outside;
+            }
+        }
+    }
     Ok(classes)
 }
 
