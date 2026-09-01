@@ -26,10 +26,10 @@ use std::array::from_fn;
 /// edge (an oblique planar cut) is trimmed exactly too, via the sinusoid it
 /// traces in that chart. A free-form (B-spline) edge is chorded into straight
 /// sub-segments; a tilted edge on a cone still errs. Spherical and toroidal
-/// faces are trimmed to a polygon in their own chart. A free-form (B-spline)
-/// face is evaluated numerically: a dense De Boor sample grid seeds a
-/// Gauss-Newton closest-point solve and, triangulated, is the ray-hit target.
-/// A surface of revolution still errs.
+/// faces are trimmed to a polygon in their own chart. A free-form face — a
+/// B-spline surface, or a surface of revolution — is evaluated numerically: a
+/// dense sample grid seeds a Gauss-Newton closest-point solve and,
+/// triangulated, is the ray-hit target.
 ///
 /// [`signed_distance`](Self::signed_distance)'s sign is a ray-parity test
 /// against these trimmed faces (OCCT's `BRepClass3d_SolidClassifier`
@@ -81,7 +81,9 @@ impl Brep {
             Surface::BSpline(surface) => {
                 Ok(FacePatch::Sampled(self.sampled_patch(surface, face)?))
             }
-            Surface::Revolution(_) => Err("surface of revolution faces are not yet meshable"),
+            Surface::Revolution(surface) => {
+                Ok(FacePatch::Sampled(self.revolution_patch(surface, face)?))
+            }
         }
     }
 

@@ -1,50 +1,83 @@
-//! A free-form (B-spline / NURBS) face as a sampled parametric patch. The
-//! surface has no closed-form point inversion or ray intersection, so it is
-//! evaluated by De Boor and handled numerically: a dense `(u, v)` sample grid
-//! seeds a Gauss-Newton closest-point solve, and the same grid, triangulated,
-//! is the ray-hit target for the parity sign. The grid is an evaluation
-//! cache, not mesh output. Trimming is a `(u, v)` polygon walked from the 3D
-//! edges through the point-inversion, the same chorded-edge treatment a
-//! spline edge already gets on a cylinder.
+//! A free-form face — a B-spline / NURBS surface, or a surface of revolution —
+//! as a sampled parametric patch. Neither has a closed-form point inversion or
+//! ray intersection, so both are handled numerically: a dense `(u, v)` sample
+//! grid seeds a Gauss-Newton closest-point solve, and the same grid,
+//! triangulated, is the ray-hit target for the parity sign. The grid is an
+//! evaluation cache, not mesh output. Trimming is a `(u, v)` polygon walked
+//! from the 3D edges through the point-inversion, the same chorded-edge
+//! treatment a spline edge already gets on a cylinder.
 
 use super::super::{
     Brep, D, Face, Loop,
     curve::Curve,
-    surface::BSplineSurface,
+    surface::{BSplineSurface, Revolution},
 };
 use super::{Ring, chart_contains, chart_nearest, sweeps_whole_surface, wrap_by};
 use crate::{geometry::Coordinate, math::Scalar};
 use std::array::from_fn;
+use std::f64::consts::TAU;
 
 const RAY_EPS: Scalar = 1.0e-12;
 /// Gauss-Newton point-inversion iterations.
 const NEWTON: usize = 20;
 
-/// A tensor-product B-spline surface in homogeneous control points, indexed
-/// `control[iu][iv]` as STEP stores it.
-struct Field {
-    u_degree: usize,
-    v_degree: usize,
-    u_knots: Vec<Scalar>,
-    v_knots: Vec<Scalar>,
-    control: Vec<Vec<[Scalar; D + 1]>>,
+/// A parametric surface `S(u, v)` evaluated numerically.
+enum Field {
+    /// A tensor-product B-spline in homogeneous control points, indexed
+    /// `control[iu][iv]` as STEP stores it.
+    BSpline {
+        u_degree: usize,
+        v_degree: usize,
+        u_knots: Vec<Scalar>,
+        v_knots: Vec<Scalar>,
+        control: Vec<Vec<[Scalar; D + 1]>>,
+    },
+    /// A profile polyline (`v` its normalized arc parameter) revolved about the
+    /// line through `origin` along `axis` (`u` the angle).
+    Revolution {
+        profile: Vec<[Scalar; D]>,
+        origin: [Scalar; D],
+        axis: [Scalar; D],
+    },
 }
 
 impl Field {
     fn point(&self, u: Scalar, v: Scalar) -> [Scalar; D] {
-        let column: Vec<[Scalar; D + 1]> = self
-            .control
-            .iter()
-            .map(|row| de_boor(self.v_degree, &self.v_knots, row, v))
-            .collect();
-        let homogeneous = de_boor(self.u_degree, &self.u_knots, &column, u);
-        let w = if homogeneous[D].abs() > Scalar::EPSILON {
-            homogeneous[D]
-        } else {
-            1.0
-        };
-        from_fn(|k| homogeneous[k] / w)
+        match self {
+            Self::BSpline { u_degree, v_degree, u_knots, v_knots, control } => {
+                let column: Vec<[Scalar; D + 1]> = control
+                    .iter()
+                    .map(|row| de_boor(*v_degree, v_knots, row, v))
+                    .collect();
+                let homogeneous = de_boor(*u_degree, u_knots, &column, u);
+                let w = if homogeneous[D].abs() > Scalar::EPSILON {
+                    homogeneous[D]
+                } else {
+                    1.0
+                };
+                from_fn(|k| homogeneous[k] / w)
+            }
+            Self::Revolution { profile, origin, axis } => {
+                let last = profile.len() - 1;
+                let s = v.clamp(0.0, 1.0) * last as Scalar;
+                let i = (s.floor() as usize).min(last - 1);
+                let f = s - i as Scalar;
+                let p: [Scalar; D] =
+                    from_fn(|k| profile[i][k] * (1.0 - f) + profile[i + 1][k] * f);
+                rotate_about(p, *origin, *axis, u)
+            }
+        }
     }
+}
+
+/// `p` rotated by `angle` about the line through `origin` along the unit
+/// vector `axis` (Rodrigues).
+fn rotate_about(p: [Scalar; D], origin: [Scalar; D], axis: [Scalar; D], angle: Scalar) -> [Scalar; D] {
+    let r: [Scalar; D] = from_fn(|k| p[k] - origin[k]);
+    let (c, s) = (angle.cos(), angle.sin());
+    let along = dot(axis, r);
+    let cross_kr = cross(axis, r);
+    from_fn(|k| origin[k] + r[k] * c + cross_kr[k] * s + axis[k] * along * (1.0 - c))
 }
 
 /// De Boor evaluation of a homogeneous B-spline at `t`, clamped to the span.
@@ -272,25 +305,53 @@ impl Brep {
                     .collect()
             })
             .collect();
-        let field = Field {
-            u_degree: surface.u_degree.min(rows.saturating_sub(1)),
-            v_degree: surface.v_degree.min(columns.saturating_sub(1)),
-            u_knots,
-            v_knots,
-            control,
-        };
-        let u_range = [
-            field.u_knots[field.u_degree],
-            field.u_knots[rows],
-        ];
-        let v_range = [
-            field.v_knots[field.v_degree],
-            field.v_knots[columns],
-        ];
-
+        let u_degree = surface.u_degree.min(rows.saturating_sub(1));
+        let v_degree = surface.v_degree.min(columns.saturating_sub(1));
+        let u_range = [u_knots[u_degree], u_knots[rows]];
+        let v_range = [v_knots[v_degree], v_knots[columns]];
+        let field = Field::BSpline { u_degree, v_degree, u_knots, v_knots, control };
         // A grid dense enough to resolve the control net's own detail.
         let nu = (rows * 6).clamp(24, 48);
         let nv = (columns * 6).clamp(24, 48);
+        self.assemble_sampled(field, u_range, v_range, nu, nv, face)
+    }
+
+    /// A surface of revolution as a sampled patch: `u` the revolution angle
+    /// (`[0, TAU]`), `v` the normalized parameter along the profile polyline.
+    pub(super) fn revolution_patch(
+        &self,
+        surface: &Revolution,
+        face: &Face,
+    ) -> Result<Sampled, &'static str> {
+        let origin: [Scalar; D] = from_fn(|k| surface.origin[k].value());
+        let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
+        let profile = self.revolution_profile(surface, face)?;
+        let field = Field::Revolution { profile, origin, axis };
+        let profile_samples = match &field {
+            Field::Revolution { profile, .. } => profile.len(),
+            _ => unreachable!(),
+        };
+        self.assemble_sampled(
+            field,
+            [0.0, TAU],
+            [0.0, 1.0],
+            64,
+            profile_samples.clamp(24, 48),
+            face,
+        )
+    }
+
+    /// Builds the [`Sampled`] shared machinery — grid, triangulation,
+    /// periodicity, trim rings — around an already-constructed [`Field`].
+    fn assemble_sampled(
+        &self,
+        field: Field,
+        u_range: [Scalar; 2],
+        v_range: [Scalar; 2],
+        nu: usize,
+        nv: usize,
+        face: &Face,
+    ) -> Result<Sampled, &'static str> {
         let u_of = |iu: usize| u_range[0] + (u_range[1] - u_range[0]) * iu as Scalar / (nu - 1) as Scalar;
         let v_of = |iv: usize| v_range[0] + (v_range[1] - v_range[0]) * iv as Scalar / (nv - 1) as Scalar;
         let grid: Vec<[Scalar; D]> = (0..nu)
@@ -373,6 +434,51 @@ impl Brep {
             Some(rings)
         };
         Ok(sampled)
+    }
+
+    /// The revolution's profile as a dense 3D polyline. A B-spline profile is
+    /// sampled over its own span; a straight profile (a cone or cylinder some
+    /// exporters emit as a revolution) is bounded by projecting the face's
+    /// vertices onto it. A conic profile is not handled yet.
+    fn revolution_profile(
+        &self,
+        surface: &Revolution,
+        face: &Face,
+    ) -> Result<Vec<[Scalar; D]>, &'static str> {
+        const N: usize = 96;
+        let raw = |point: &Coordinate<D>| -> [Scalar; D] { from_fn(|k| point[k].value()) };
+        match &surface.curve {
+            Curve::BSpline(bspline) => Ok(bspline.polyline(N).iter().map(raw).collect()),
+            Curve::Line(line) => {
+                let origin: [Scalar; D] = from_fn(|k| line.origin[k].value());
+                let direction: [Scalar; D] = from_fn(|k| line.direction[k].value());
+                let (mut lo, mut hi) = (Scalar::INFINITY, Scalar::NEG_INFINITY);
+                for bound in &face.bounds {
+                    for vertex in bound
+                        .vertices(&self.edges)
+                        .map_err(|_| "revolution profile: malformed bound")?
+                    {
+                        let rel: [Scalar; D] =
+                            from_fn(|k| self.vertices[vertex][k].value() - origin[k]);
+                        let t = dot(rel, direction);
+                        lo = lo.min(t);
+                        hi = hi.max(t);
+                    }
+                }
+                if hi - lo <= 1.0e-12 {
+                    return Err("revolution profile: straight profile has no extent here");
+                }
+                Ok((0..N)
+                    .map(|i| {
+                        let t = lo + (hi - lo) * i as Scalar / (N - 1) as Scalar;
+                        from_fn(|k| origin[k] + t * direction[k])
+                    })
+                    .collect())
+            }
+            Curve::Circle(_) | Curve::Ellipse(_) => {
+                Err("revolution of a conic profile is not yet meshable")
+            }
+        }
     }
 
     /// One bound of a B-spline face as a `(u, v)` polygon: every edge chorded

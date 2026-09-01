@@ -1,7 +1,7 @@
 use super::{
     Brep, Edge, Face, HalfEdge, Loop, Shell,
     curve::{BSpline, Circle, Curve, Ellipse, Line},
-    surface::{BSplineSurface, Cone, Cylinder, Plane, Sphere, Surface, Torus},
+    surface::{BSplineSurface, Cone, Cylinder, Plane, Revolution, Sphere, Surface, Torus},
 };
 use crate::geometry::{Coordinate, Direction};
 
@@ -220,6 +220,22 @@ pub(crate) fn capped_cylinder(radius: f64, height: f64) -> Brep {
             closed: true,
         }],
     }
+}
+
+/// [`capped_cylinder`], but the lateral face is a `SURFACE_OF_REVOLUTION` of a
+/// vertical line about `+z` instead of an analytic cylinder — the same solid
+/// through the sampled-patch path.
+pub(crate) fn revolved_cylinder(radius: f64, height: f64) -> Brep {
+    let mut brep = capped_cylinder(radius, height);
+    brep.faces[2].surface = Surface::Revolution(Revolution {
+        curve: Curve::Line(Line {
+            origin: Coordinate::const_from([radius, 0.0, 0.0]),
+            direction: direction([0.0, 0.0, 1.0]),
+        }),
+        origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+        axis: direction([0.0, 0.0, 1.0]),
+    });
+    brep
 }
 
 /// A single cylindrical face about `+z`, radius `radius`: a genuine partial

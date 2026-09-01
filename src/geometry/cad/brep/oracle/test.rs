@@ -8,7 +8,7 @@ use crate::{
                 cylinder_with_elliptical_rim, direction,
                 cone_split_at_apex, cylinder_with_splined_rim, hemisphere_solid,
                 partial_cone_to_apex,
-                partial_cylinder, partial_sphere, partial_torus,
+                partial_cylinder, partial_sphere, partial_torus, revolved_cylinder,
                 square_with_rounded_hole, square_with_splined_hole, torus, unit_cube,
             },
         },
@@ -74,6 +74,25 @@ fn a_bspline_face_projects_and_signs_like_the_plane_it_lies_on() {
     assert!(!inside([0.5, 0.5, -0.5]), "below the base is outside");
     let near_top = oracle.signed_distance(&Coordinate::from([0.5, 0.5, 0.9]));
     assert!((near_top - 0.1).abs() < 1.0e-3, "{near_top}");
+}
+
+#[test]
+fn a_surface_of_revolution_matches_the_cylinder_it_describes() {
+    let oracle = revolved_cylinder(2.0, 5.0).oracle().unwrap();
+
+    // Projection onto the revolved wall lands on the cylinder of radius 2.
+    let (point, normal) = oracle.project(&Coordinate::from([5.0, 0.0, 2.5])).unwrap();
+    let point = components(&point);
+    assert!((point[0].hypot(point[1]) - 2.0).abs() < 5.0e-3, "{point:?}");
+    assert!((point[2] - 2.5).abs() < 5.0e-3, "{point:?}");
+    assert!(components(&normal)[0] > 0.99, "{:?}", components(&normal));
+
+    let inside = |p: [f64; 3]| oracle.signed_distance(&Coordinate::from(p)).is_sign_positive();
+    assert!(inside([0.0, 0.0, 2.5]), "axis is inside");
+    assert!(inside([1.9, 0.0, 2.5]), "just inside the wall");
+    assert!(!inside([2.1, 0.0, 2.5]), "just outside the wall");
+    assert!(!inside([0.0, 0.0, 6.0]), "above the top cap");
+    assert!(!inside([0.0, 0.0, 20.0]), "far down the shadow is still outside");
 }
 
 #[test]
