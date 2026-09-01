@@ -529,13 +529,18 @@ fn probe_step_files() {
     let (mut ok, mut fail) = (0, 0);
     for path in &files {
         let name = path.file_name().unwrap().to_string_lossy();
-        match std::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|t| read(&t).map_err(|e| e.to_string())) {
-            Ok(brep) => {
+        match std::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|t| read_all(&t).map_err(|e| e.to_string())) {
+            Ok(breps) => {
                 ok += 1;
+                let faces: usize = breps.iter().map(|brep| brep.faces.len()).sum();
+                let primitives = breps.iter().filter(|brep| brep.primitive().is_some()).count();
+                let assembly = match crate::geometry::cad::assemble::assemble(&breps) {
+                    Ok(bodies) => format!("{} bodies", bodies.len()),
+                    Err(error) => format!("no ({error})"),
+                };
                 eprintln!(
-                    "ok   {name}: {} faces, primitive={}",
-                    brep.faces.len(),
-                    brep.primitive().is_some()
+                    "ok   {name}: {} solids, {faces} faces, {primitives} primitive, assemble={assembly}",
+                    breps.len(),
                 );
             }
             Err(error) => {
@@ -545,6 +550,36 @@ fn probe_step_files() {
         }
     }
     eprintln!("\n{ok} ok, {fail} failed of {}", files.len());
+}
+
+/// Trims (or, with `fit`, fully meshes) one solid — a [`Brep`] or a body from
+/// [`assemble`](crate::geometry::cad::assemble::assemble) — reporting its
+/// element count and, when fitting, its worst scaled Jacobian.
+fn mesh_solid(
+    solid: &impl crate::geometry::solid::Solid,
+    sizing: &impl crate::geometry::solid::Sizing,
+    levels: Option<u32>,
+    fit: bool,
+) -> Result<(usize, Option<f64>), String> {
+    use crate::geometry::{
+        mesh::{Fitting, Verdict},
+        ntree::Balancing,
+    };
+    if fit {
+        let mesh = solid
+            .mesh(sizing, levels, 0.1, Balancing::Strong(1), Fitting::Soft)
+            .map_err(|e| e.to_string())?;
+        let worst = mesh.minimum_scaled_jacobians()[0]
+            .iter()
+            .copied()
+            .fold(f64::INFINITY, f64::min);
+        Ok((mesh.number_of_elements(), Some(worst)))
+    } else {
+        let (mesh, _) = solid
+            .trim(sizing, levels, 0.1, Balancing::Strong(1))
+            .map_err(|e| e.to_string())?;
+        Ok((mesh.number_of_elements(), None))
+    }
 }
 
 /// Walks `STEP_MESH_DIR` (default: the checked-in `boxy` dir) and runs the
@@ -557,10 +592,8 @@ fn probe_step_files() {
 fn probe_mesh_step_dir() {
     use crate::{
         geometry::{
-            cad::sizing::FeatureSizing,
-            mesh::{Fitting, Verdict},
-            ntree::Balancing,
-            solid::Solid,
+            cad::{assemble::assemble, sizing::FeatureSizing},
+            solid::Uniform,
         },
         math::Quantity,
         units::Length,
@@ -612,37 +645,42 @@ fn probe_mesh_step_dir() {
         let started = std::time::Instant::now();
         let outcome = (|| -> Result<(usize, Option<f64>), String> {
             let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-            let brep = read(&text).map_err(|e| e.to_string())?;
-            // Fail fast on an unmeshable face before paying for the octree.
-            brep.oracle().map_err(|e| e.to_string())?;
-            let mut sizing = FeatureSizing::of(
-                &brep,
-                segments,
-                Quantity::<Length>::new(minimum),
-                maximum,
-                gradation,
-            );
-            if let Some(cells) = proximity {
-                sizing = sizing.with_proximity(&brep, cells).map_err(|e| e.to_string())?;
-            }
-            if let Some(sections) = curvature {
-                sizing = sizing.with_curvature(&brep, sections).map_err(|e| e.to_string())?;
-            }
-            if fit {
-                let mesh = brep
-                    .mesh(&sizing, None, 0.1, Balancing::Strong(1), Fitting::Soft)
-                    .map_err(|e| e.to_string())?;
-                let worst = mesh.minimum_scaled_jacobians()[0]
-                    .iter()
-                    .copied()
-                    .fold(f64::INFINITY, f64::min);
-                Ok((mesh.number_of_elements(), Some(worst)))
+            let breps = read_all(&text).map_err(|e| e.to_string())?;
+            let (mut elements, mut worst) = (0usize, f64::INFINITY);
+            // A recognised assembly (every solid a primitive, interior solids
+            // carved as voids) meshes body by body with a uniform field;
+            // anything else meshes solid by solid with feature sizing. Element
+            // counts and worst SJ are summed over the whole set.
+            if let Ok(bodies) = assemble(&breps) {
+                let sizing = Uniform(maximum.unwrap_or_else(|| Quantity::<Length>::new(cell)));
+                for body in &bodies {
+                    let (n, w) = mesh_solid(body, &sizing, None, fit)?;
+                    elements += n;
+                    worst = worst.min(w.unwrap_or(f64::INFINITY));
+                }
             } else {
-                let (mesh, _) = brep
-                    .trim(&sizing, None, 0.1, Balancing::Strong(1))
-                    .map_err(|e| e.to_string())?;
-                Ok((mesh.number_of_elements(), None))
+                for brep in &breps {
+                    // Fail fast on an unmeshable face before paying for the octree.
+                    brep.oracle().map_err(|e| e.to_string())?;
+                    let mut sizing = FeatureSizing::of(
+                        brep,
+                        segments,
+                        Quantity::<Length>::new(minimum),
+                        maximum,
+                        gradation,
+                    );
+                    if let Some(cells) = proximity {
+                        sizing = sizing.with_proximity(brep, cells).map_err(|e| e.to_string())?;
+                    }
+                    if let Some(sections) = curvature {
+                        sizing = sizing.with_curvature(brep, sections).map_err(|e| e.to_string())?;
+                    }
+                    let (n, w) = mesh_solid(brep, &sizing, None, fit)?;
+                    elements += n;
+                    worst = worst.min(w.unwrap_or(f64::INFINITY));
+                }
             }
+            Ok((elements, fit.then_some(worst)))
         })();
         let secs = started.elapsed().as_secs_f64();
         match outcome {
@@ -907,8 +945,12 @@ fn probe_mesh_real_file() {
         return;
     };
     let text = std::fs::read_to_string(&path).unwrap();
-    let brep = read(&text).expect("read failed");
-    eprintln!("read {} faces", brep.faces.len());
+    let breps = read_all(&text).expect("read failed");
+    eprintln!(
+        "read {} solid(s), {} faces total",
+        breps.len(),
+        breps.iter().map(|brep| brep.faces.len()).sum::<usize>(),
+    );
 
     let env_f64 = |key, default: f64| -> f64 {
         std::env::var(key)
@@ -925,11 +967,22 @@ fn probe_mesh_real_file() {
         .ok()
         .and_then(|value| value.parse().ok());
 
-    // STEP_MESH_SIZING=uniform for a flat field; feature (default) drives
-    // refinement from the B-rep's sharp edges.
-    if std::env::var("STEP_MESH_SIZING").as_deref() == Ok("uniform") {
-        probe_mesh(&brep, &Uniform(length(cell)), levels, &out, fit);
-    } else {
+    // One dump set per solid; suffix the prefix when the file holds more than
+    // one so the VTUs do not collide.
+    for (index, brep) in breps.iter().enumerate() {
+        let out = if breps.len() == 1 {
+            out.clone()
+        } else {
+            format!("{out}_solid{index}")
+        };
+        eprintln!("--- solid {index}: {} faces -> {out} ---", brep.faces.len());
+
+        // STEP_MESH_SIZING=uniform for a flat field; feature (default) drives
+        // refinement from the B-rep's sharp edges.
+        if std::env::var("STEP_MESH_SIZING").as_deref() == Ok("uniform") {
+            probe_mesh(brep, &Uniform(length(cell)), levels, &out, fit);
+            continue;
+        }
         // STEP_MESH_GRADATION="none" => grade as fast as it likes (one fine
         // layer per feature); a number => that bounded rate; unset => 0.2.
         let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
@@ -942,7 +995,7 @@ fn probe_mesh_real_file() {
         let maximum = (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none"))
             .then(|| length(cell));
         let mut sizing = FeatureSizing::of(
-            &brep,
+            brep,
             env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
             length(env_f64("STEP_MESH_MIN", cell / 8.0)),
             maximum,
@@ -953,7 +1006,7 @@ fn probe_mesh_real_file() {
         if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
             let t = std::time::Instant::now();
             sizing = sizing
-                .with_proximity(&brep, n.parse().expect("STEP_MESH_PROXIMITY"))
+                .with_proximity(brep, n.parse().expect("STEP_MESH_PROXIMITY"))
                 .expect("with_proximity");
             eprintln!("with_proximity built in {:.1}s", t.elapsed().as_secs_f64());
         }
@@ -962,11 +1015,11 @@ fn probe_mesh_real_file() {
         if let Ok(n) = std::env::var("STEP_MESH_CURVATURE") {
             let t = std::time::Instant::now();
             sizing = sizing
-                .with_curvature(&brep, n.parse().expect("STEP_MESH_CURVATURE"))
+                .with_curvature(brep, n.parse().expect("STEP_MESH_CURVATURE"))
                 .expect("with_curvature");
             eprintln!("with_curvature built in {:.1}s", t.elapsed().as_secs_f64());
         }
-        probe_mesh(&brep, &sizing, levels, &out, fit);
+        probe_mesh(brep, &sizing, levels, &out, fit);
     }
 }
 
