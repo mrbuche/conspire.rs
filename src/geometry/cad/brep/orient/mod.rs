@@ -189,7 +189,8 @@ fn face_points(brep: &Brep, face: &Face) -> Vec<[f64; D]> {
 }
 
 /// The surface's unit outward normal at `at`, with `face.forward` applied;
-/// `None` for a B-spline face or a degenerate (on-axis / at-centre) query.
+/// `None` for a B-spline or surface-of-revolution face, or a degenerate
+/// (on-axis / at-centre) query.
 fn outward_normal(face: &Face, at: [f64; D]) -> Option<[f64; D]> {
     let sign = if face.forward { 1.0 } else { -1.0 };
     let scale = |v: [f64; D]| from_fn(|k| sign * v[k]);
@@ -219,7 +220,7 @@ fn outward_normal(face: &Face, at: [f64; D]) -> Option<[f64; D]> {
             let ring: [f64; D] = from_fn(|k| centre[k] + torus.major_radius * inplane[k]);
             unit(from_fn(|k| at[k] - ring[k])).map(scale)
         }
-        Surface::BSpline(_) => None,
+        Surface::BSpline(_) | Surface::Revolution(_) => None,
     }
 }
 

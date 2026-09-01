@@ -75,6 +75,7 @@ impl Brep {
             Surface::Sphere(surface) => self.sphere_patch(surface, face),
             Surface::Torus(surface) => self.torus_patch(surface, face),
             Surface::BSpline(_) => Err("B-spline faces are not yet meshable"),
+            Surface::Revolution(_) => Err("surface of revolution faces are not yet meshable"),
         }
     }
 

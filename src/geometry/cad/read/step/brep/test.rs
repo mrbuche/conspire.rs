@@ -1318,6 +1318,116 @@ fn reads_a_bspline_curve_raw() {
     assert_eq!(spline.control_points[1][0].value(), 3.0);
 }
 
+/// A knotless (implied-knot) B-spline surface: degree 1 in both directions,
+/// a 4x2 control grid. `u` has 3 segments (exercises the real quasi-uniform
+/// ladder); `v` has 1 (falls to the clamped-ends default, same as a Bezier).
+const QUASI_UNIFORM_SURFACE_FACE: &str = r#"
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('quasi-uniform surface'),'2;1');
+FILE_NAME('q.step','2026-09-01T00:00:00',(''),(''),'conspire','conspire','');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN'));
+ENDSEC;
+DATA;
+#10 = CARTESIAN_POINT('',(0.,0.,-1.));
+#11 = CARTESIAN_POINT('',(0.,0.,1.));
+#20 = VERTEX_POINT('',#10);
+#21 = VERTEX_POINT('',#11);
+#30 = DIRECTION('',(0.,0.,1.));
+#31 = VECTOR('',#30,1.);
+#40 = LINE('',#10,#31);
+#50 = EDGE_CURVE('',#20,#21,#40,.T.);
+#200 = CARTESIAN_POINT('',(-1.,-1.,0.));
+#201 = CARTESIAN_POINT('',(-1.,1.,0.));
+#202 = CARTESIAN_POINT('',(0.,-1.,0.5));
+#203 = CARTESIAN_POINT('',(0.,1.,0.5));
+#204 = CARTESIAN_POINT('',(1.,-1.,1.));
+#205 = CARTESIAN_POINT('',(1.,1.,1.));
+#206 = CARTESIAN_POINT('',(2.,-1.,1.5));
+#207 = CARTESIAN_POINT('',(2.,1.,1.5));
+#210 = QUASI_UNIFORM_SURFACE('',1,1,((#200,#201),(#202,#203),(#204,#205),(#206,#207)),
+   .UNSPECIFIED.,.F.,.F.,.U.);
+#70 = ORIENTED_EDGE('',*,*,#50,.T.);
+#71 = ORIENTED_EDGE('',*,*,#50,.F.);
+#80 = EDGE_LOOP('',(#70,#71));
+#90 = FACE_OUTER_BOUND('',#80,.T.);
+#100 = ADVANCED_FACE('',(#90),#210,.T.);
+#110 = CLOSED_SHELL('',(#100));
+#120 = MANIFOLD_SOLID_BREP('q',#110);
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+#[test]
+fn reads_a_quasi_uniform_surface_with_implied_knots() {
+    use crate::geometry::cad::brep::surface::Surface;
+
+    let brep = read(QUASI_UNIFORM_SURFACE_FACE).unwrap();
+    let Surface::BSpline(surface) = &brep.faces[0].surface else {
+        panic!("face is not a B-spline surface");
+    };
+    assert_eq!(surface.u_degree, 1);
+    assert_eq!(surface.v_degree, 1);
+    assert_eq!(surface.control_points.len(), 4);
+    assert_eq!(surface.control_points[0].len(), 2);
+    // u: degree 1, 4 control points -> 3 segments, so the real quasi-uniform
+    // ladder (clamped ends, single interior knots) applies.
+    assert_eq!(surface.u_knots, vec![0.0, 1.0, 2.0, 3.0]);
+    assert_eq!(surface.u_multiplicities, vec![2, 1, 1, 2]);
+    // v: degree 1, 2 control points -> 1 segment, too few to ladder, so it
+    // falls to the same clamped-ends default a Bezier gets.
+    assert_eq!(surface.v_knots, vec![0.0, 1.0]);
+    assert_eq!(surface.v_multiplicities, vec![2, 2]);
+    assert!(surface.weights.is_none());
+}
+
+const SURFACE_OF_REVOLUTION_FACE: &str = r#"
+ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION(('surface of revolution'),'2;1');
+FILE_NAME('r.step','2026-09-01T00:00:00',(''),(''),'conspire','conspire','');
+FILE_SCHEMA(('AUTOMOTIVE_DESIGN'));
+ENDSEC;
+DATA;
+#10 = CARTESIAN_POINT('',(1.,0.,0.));
+#11 = CARTESIAN_POINT('',(1.,0.,2.));
+#20 = VERTEX_POINT('',#10);
+#21 = VERTEX_POINT('',#11);
+#30 = DIRECTION('',(0.,0.,1.));
+#31 = VECTOR('',#30,1.);
+#40 = LINE('',#10,#31);
+#50 = EDGE_CURVE('',#20,#21,#40,.T.);
+#60 = CARTESIAN_POINT('',(0.,0.,0.));
+#61 = DIRECTION('',(0.,0.,1.));
+#62 = AXIS1_PLACEMENT('',#60,#61);
+#63 = SURFACE_OF_REVOLUTION('',#40,#62);
+#80 = ORIENTED_EDGE('',*,*,#50,.T.);
+#81 = ORIENTED_EDGE('',*,*,#50,.F.);
+#90 = EDGE_LOOP('',(#80,#81));
+#95 = FACE_OUTER_BOUND('',#90,.T.);
+#100 = ADVANCED_FACE('',(#95),#63,.T.);
+#110 = CLOSED_SHELL('',(#100));
+#120 = MANIFOLD_SOLID_BREP('r',#110);
+ENDSEC;
+END-ISO-10303-21;
+"#;
+
+#[test]
+fn reads_a_surface_of_revolution() {
+    use crate::geometry::{
+        Coordinate, Direction,
+        cad::brep::{curve::Curve, surface::Surface},
+    };
+
+    let brep = read(SURFACE_OF_REVOLUTION_FACE).unwrap();
+    let Surface::Revolution(revolution) = &brep.faces[0].surface else {
+        panic!("face is not a surface of revolution");
+    };
+    assert!(matches!(revolution.curve, Curve::Line(_)));
+    assert_eq!(revolution.origin, Coordinate::from([0.0, 0.0, 0.0]));
+    assert_eq!(revolution.axis, Direction::from([0.0, 0.0, 1.0]));
+}
+
 #[test]
 fn scales_coordinates_from_the_declared_length_unit() {
     use crate::geometry::cad::brep::surface::Surface;

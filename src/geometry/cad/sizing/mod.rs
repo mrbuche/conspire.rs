@@ -386,7 +386,7 @@ impl FeatureSizing {
                 Surface::Torus(torus) => {
                     curvature_torus(torus, &points, sections, minimum, maximum, &mut boxes)
                 }
-                Surface::Plane(_) | Surface::BSpline(_) => {}
+                Surface::Plane(_) | Surface::BSpline(_) | Surface::Revolution(_) => {}
             }
         }
         self.curvature = (!boxes.is_empty()).then(|| BoxField { bvh: Bvh::build(boxes) });

@@ -8,7 +8,9 @@ use crate::{
             brep::{
                 Brep, Edge, Face, HalfEdge, Loop, Shell,
                 curve::{BSpline, Circle, Curve, Ellipse, Line},
-                surface::{BSplineSurface, Cone, Cylinder, Plane, Sphere, Surface, Torus},
+                surface::{
+                    BSplineSurface, Cone, Cylinder, Plane, Revolution, Sphere, Surface, Torus,
+                },
             },
             part_21::{Exchange, Parameter, Record},
         },
@@ -158,6 +160,16 @@ impl<'a> Reader<'a> {
         Ok((origin, normal, reference_direction))
     }
 
+    fn axis1(&self, id: u64) -> Result<(Coordinate<D>, Direction<D>)> {
+        let record = self.record(id, "AXIS1_PLACEMENT")?;
+        let origin = self.point(reference(&record.parameters, 1)?)?;
+        let axis = match record.parameters.get(2) {
+            Some(Parameter::Reference(axis)) => self.direction(*axis)?,
+            _ => Direction::const_from([0.0, 0.0, 1.0]),
+        };
+        Ok((origin, axis))
+    }
+
     fn surface(&self, id: u64) -> Result<Surface> {
         if let Ok(record) = self.record(id, "PLANE") {
             let (origin, normal, reference_direction) =
@@ -216,20 +228,48 @@ impl<'a> Reader<'a> {
                 minor_radius,
             }));
         }
-        if let Ok(record) = self.record(id, "B_SPLINE_SURFACE_WITH_KNOTS") {
+        // The implied-knot subtypes carry no knot vector of their own; it is
+        // synthesized from the form and each dimension's control point count,
+        // mirroring the curve side below.
+        let implied = ["UNIFORM_SURFACE", "QUASI_UNIFORM_SURFACE", "BEZIER_SURFACE"]
+            .into_iter()
+            .find_map(|keyword| self.record(id, keyword).ok().map(|record| (keyword, record)));
+        let knotted = self.record(id, "B_SPLINE_SURFACE_WITH_KNOTS").ok();
+        if let Some(record) = knotted.or(implied.map(|(_, record)| record)) {
             let base = self.record(id, "B_SPLINE_SURFACE").ok();
             let (u_degree, v_degree, control_points, own) = match &base {
+                // Combined form: B_SPLINE_SURFACE holds degrees and control
+                // points; this record holds multiplicities/knots (or nothing,
+                // for an implied-knot subtype).
                 Some(base) => (
                     integer(parameter(&base.parameters, 0)?)?,
                     integer(parameter(&base.parameters, 1)?)?,
                     self.point_grid(list(&base.parameters, 2)?)?,
                     0,
                 ),
+                // Standalone: label, u_degree(1), v_degree(2), control points(3),
+                // form, u_closed, v_closed, self-intersect, then (for
+                // B_SPLINE_SURFACE_WITH_KNOTS only) multiplicities/knots(8..11).
                 None => (
                     integer(parameter(&record.parameters, 1)?)?,
                     integer(parameter(&record.parameters, 2)?)?,
                     self.point_grid(list(&record.parameters, 3)?)?,
                     8,
+                ),
+            };
+            let v_count = control_points.first().map_or(0, Vec::len);
+            let (u_knots, u_multiplicities, v_knots, v_multiplicities) = match implied {
+                Some((keyword, _)) => {
+                    let (u_knots, u_multiplicities) =
+                        implied_knots(keyword, u_degree, control_points.len());
+                    let (v_knots, v_multiplicities) = implied_knots(keyword, v_degree, v_count);
+                    (u_knots, u_multiplicities, v_knots, v_multiplicities)
+                }
+                None => (
+                    reals(&record.parameters, own + 2)?,
+                    integers(&record.parameters, own)?,
+                    reals(&record.parameters, own + 3)?,
+                    integers(&record.parameters, own + 1)?,
                 ),
             };
             let weights = self
@@ -240,15 +280,20 @@ impl<'a> Reader<'a> {
                 u_degree,
                 v_degree,
                 control_points,
-                u_multiplicities: integers(&record.parameters, own)?,
-                v_multiplicities: integers(&record.parameters, own + 1)?,
-                u_knots: reals(&record.parameters, own + 2)?,
-                v_knots: reals(&record.parameters, own + 3)?,
+                u_multiplicities,
+                v_multiplicities,
+                u_knots,
+                v_knots,
                 weights,
             }));
         }
+        if let Ok(record) = self.record(id, "SURFACE_OF_REVOLUTION") {
+            let curve = self.curve(reference(&record.parameters, 1)?, true)?;
+            let (origin, axis) = self.axis1(reference(&record.parameters, 2)?)?;
+            return Ok(Surface::Revolution(Revolution { curve, origin, axis }));
+        }
         Err(invalid(format!(
-            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE, CONICAL_SURFACE, TOROIDAL_SURFACE, B_SPLINE_SURFACE_WITH_KNOTS)"
+            "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE, CONICAL_SURFACE, TOROIDAL_SURFACE, B_SPLINE_SURFACE_WITH_KNOTS, UNIFORM_SURFACE, QUASI_UNIFORM_SURFACE, BEZIER_SURFACE, SURFACE_OF_REVOLUTION)"
         )))
     }
 
@@ -523,19 +568,20 @@ fn integer(parameter: &Parameter) -> Result<usize> {
     Ok(value as usize)
 }
 
-/// The knot vector implied by a `B_SPLINE_CURVE` subtype that carries none:
-/// `degree + 1` clamped ends for a Bezier or quasi-uniform curve, a plain
-/// `0, 1, 2, ...` ladder for a uniform one.
+/// The knot vector implied by a `B_SPLINE_CURVE`/`B_SPLINE_SURFACE` subtype
+/// that carries none: `degree + 1` clamped ends for a Bezier or quasi-uniform
+/// one, a plain `0, 1, 2, ...` ladder for a uniform one. `keyword` is the
+/// subtype's own name (`_CURVE`, or `_SURFACE` for one dimension of a surface).
 fn implied_knots(keyword: &str, degree: usize, count: usize) -> (Vec<f64>, Vec<usize>) {
     let segments = count.saturating_sub(degree);
-    match keyword {
-        "QUASI_UNIFORM_CURVE" if segments > 1 => (
+    match keyword.trim_end_matches("_CURVE").trim_end_matches("_SURFACE") {
+        "QUASI_UNIFORM" if segments > 1 => (
             (0..=segments).map(|i| i as f64).collect(),
             (0..=segments)
                 .map(|i| if i == 0 || i == segments { degree + 1 } else { 1 })
                 .collect(),
         ),
-        "UNIFORM_CURVE" => (
+        "UNIFORM" => (
             (0..count + degree + 1).map(|i| i as f64).collect(),
             vec![1; count + degree + 1],
         ),

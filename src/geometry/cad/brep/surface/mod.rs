@@ -1,3 +1,4 @@
+use super::curve::Curve;
 use crate::geometry::{Coordinate, Direction};
 
 const D: usize = 3;
@@ -9,6 +10,7 @@ pub enum Surface {
     Cone(Cone),
     Torus(Torus),
     BSpline(BSplineSurface),
+    Revolution(Revolution),
 }
 
 pub struct Plane {
@@ -63,4 +65,12 @@ pub struct BSplineSurface {
     pub u_multiplicities: Vec<usize>,
     pub v_multiplicities: Vec<usize>,
     pub weights: Option<Vec<Vec<f64>>>,
+}
+
+/// A surface swept by revolving `curve` about the line through `origin` along
+/// `axis`. Stored as read; not yet evaluated.
+pub struct Revolution {
+    pub curve: Curve,
+    pub origin: Coordinate<D>,
+    pub axis: Direction<D>,
 }
