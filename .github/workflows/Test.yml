@@ -16,9 +16,7 @@ jobs:
         features:
           - math
           - io
-          - io,netcdf
           - geometry
-          - geometry,netcdf
           - mechanics
           - physics
           - constitutive
@@ -27,14 +25,6 @@ jobs:
           - all
         os: [macos-latest, windows-latest, ubuntu-latest]
         toolchain: [beta, stable]
-        exclude:
-          # TODO: netCDF vcpkg install is broken on Windows runners; re-enable once fixed.
-          - os: windows-latest
-            features: io,netcdf
-          - os: windows-latest
-            features: geometry,netcdf
-          - os: windows-latest
-            features: all
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -44,18 +34,6 @@ jobs:
         with:
           components: clippy, rustfmt
           toolchain: ${{ matrix.toolchain }}
-      - name: netCDF
-        if: ${{ contains(matrix.features, 'netcdf') || matrix.features == 'all' }}
-        shell: bash
-        run: |
-          case "${{ runner.os }}" in
-            Linux) sudo apt-get update && sudo apt-get install -y libnetcdf-dev ;;
-            macOS) brew install netcdf ;;
-            Windows)
-              vcpkg install netcdf-c:x64-windows
-              echo "C:/vcpkg/installed/x64-windows/bin" >> "$GITHUB_PATH"
-              ;;
-          esac
       - name: Format
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -71,9 +49,7 @@ jobs:
         features:
           - math
           - io
-          - io,netcdf
           - geometry
-          - geometry,netcdf
           - mechanics
           - physics
           - constitutive
@@ -87,16 +63,13 @@ jobs:
         uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
         with:
           toolchain: stable
-      - name: netCDF
-        if: contains(matrix.features, 'netcdf')
-        run: sudo apt-get update && sudo apt-get install -y libnetcdf-dev
       - name: Install
         run: cargo install cargo-llvm-cov
       - name: Coverage
-        if:  matrix.features == 'io' || matrix.features == 'io,netcdf'
+        if:  matrix.features == 'io'
         run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 100 --fail-under-lines 100 --fail-under-regions 99
       - name: Coverage
-        if:  matrix.features != 'io' && matrix.features != 'io,netcdf'
+        if:  matrix.features != 'io'
         run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])

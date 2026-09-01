@@ -22,23 +22,11 @@ repos:
         args: ['--features', 'io', '--tests', '--', '-D',  'warnings']
         name: cargo clippy io tests
     -   id: clippy
-        args: ['--features', 'io netcdf', '--', '-D',  'warnings']
-        name: cargo clippy io netcdf
-    -   id: clippy
-        args: ['--features', 'io netcdf', '--tests', '--', '-D',  'warnings']
-        name: cargo clippy io netcdf tests
-    -   id: clippy
         args: ['--features', 'geometry', '--', '-D',  'warnings']
         name: cargo clippy geometry
     -   id: clippy
         args: ['--features', 'geometry', '--tests', '--', '-D',  'warnings']
         name: cargo clippy geometry tests
-    -   id: clippy
-        args: ['--features', 'geometry netcdf', '--', '-D',  'warnings']
-        name: cargo clippy geometry netcdf
-    -   id: clippy
-        args: ['--features', 'geometry netcdf', '--tests', '--', '-D',  'warnings']
-        name: cargo clippy geometry netcdf tests
     -   id: clippy
         args: ['--features', 'mechanics', '--', '-D',  'warnings']
         name: cargo clippy mechanics
