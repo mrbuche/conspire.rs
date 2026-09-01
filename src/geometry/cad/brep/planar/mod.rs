@@ -218,19 +218,19 @@ impl Brep {
                     return Err("planar face's circular edge is not in the face plane");
                 }
                 circles.push((uv(&circle.center), circle.radius));
-            } else if let [Curve::Circle(a), Curve::Circle(b)] = curves.as_slice() {
-                if !parallel(&a.axis, &normal)
-                    || (a.radius - b.radius).abs() > EPSILON
-                    || (0..D).any(|k| (a.center[k].value() - b.center[k].value()).abs() > EPSILON)
-                {
-                    return Err("planar face's split circular loop is inconsistent");
-                }
+            } else if let [Curve::Circle(a), Curve::Circle(b)] = curves.as_slice()
+                && parallel(&a.axis, &normal)
+                && (a.radius - b.radius).abs() <= EPSILON
+                && (0..D).all(|k| (a.center[k].value() - b.center[k].value()).abs() <= EPSILON)
+            {
+                // A full circle split into two matching half-arcs at a seam.
                 circles.push((uv(&a.center), a.radius));
             } else {
-                // A genuine mix of straight rulings, fillet arcs and free-form
-                // edges (e.g. a rounded-rectangle or splined hole): keep every
-                // edge, in order. A straight or circular edge stays exact; an
-                // ellipse or B-spline is chorded into straight sub-segments.
+                // Any other loop: a straight chord plus an arc (a D-shape or
+                // slot end), two mismatched arcs (a lens), a rounded rectangle,
+                // a splined hole. Keep every edge, in order — a straight or
+                // circular edge stays exact, an ellipse or B-spline is chorded
+                // into straight sub-segments.
                 let mut mixed = Vec::with_capacity(ring.len());
                 for (i, half_edge) in bound.half_edges.iter().enumerate() {
                     let edge = &self.edges[half_edge.edge];
@@ -260,8 +260,10 @@ impl Brep {
                         }
                     }
                 }
-                if mixed.len() < 3 {
-                    return Err("planar face has a mixed or partial trimming loop");
+                // Two points already make a closed loop of two edges (a chord
+                // and an arc); only one edge cannot bound an area.
+                if mixed.len() < 2 {
+                    return Err("planar face has a degenerate trimming loop");
                 }
                 rings.push(mixed);
             }

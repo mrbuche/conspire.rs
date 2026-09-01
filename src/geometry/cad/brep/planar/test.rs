@@ -1,5 +1,8 @@
 use crate::{
-    geometry::{Coordinate, cad::brep::test::{axis_aligned_box, square_with_rounded_hole}},
+    geometry::{
+        Coordinate,
+        cad::brep::test::{axis_aligned_box, half_disk_plate, square_with_rounded_hole},
+    },
     math::TensorRank1,
 };
 use std::array::from_fn;
@@ -67,6 +70,21 @@ fn rounded_hole_trims_the_true_arc_not_a_bounding_box() {
     assert!(face.contains([7.9, 2.5]));
     // Inside that same disk, within the arc's swept sector: still hole.
     assert!(!face.contains([7.9, 2.9]));
+}
+
+#[test]
+fn a_two_edge_chord_plus_arc_loop_is_not_degenerate() {
+    // Used to error "planar face has a mixed or partial trimming loop".
+    let brep = half_disk_plate(2.0);
+    let face = brep.planar_face(&brep.faces[0]).unwrap();
+    // The uv frame is anchored at the first vertex (-2, 0), so the disk
+    // centre sits at uv (2, 0) and the half-disk covers v >= 0.
+    assert!(face.contains([2.0, 1.0]), "inside the half-disk");
+    assert!(!face.contains([2.0, -1.0]), "below the diameter chord");
+    assert!(!face.contains([2.0, 3.0]), "beyond the arc");
+    // A point just below the chord snaps to the chord (v = 0), not the arc.
+    let near = face.nearest_boundary([2.0, -0.5]);
+    assert!(near[1].abs() < 1e-9, "{near:?}");
 }
 
 #[test]
