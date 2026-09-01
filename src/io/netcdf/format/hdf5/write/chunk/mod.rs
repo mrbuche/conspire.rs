@@ -34,12 +34,9 @@ fn compress(raw: &[u8], elem: usize) -> (u32, Vec<u8>) {
     }
 }
 
-/// HDF5's default internal-node K for raw-data chunk B-trees (`HDF5_BTREE_CHUNK_IK_DEF`).
 const BTREE_K: usize = 32;
 const TARGET_CHUNK_BYTES: u64 = 1 << 20;
 
-/// Split a dataset into chunks along its slowest-varying axis so each chunk is
-/// roughly [`TARGET_CHUNK_BYTES`], capped so the B-tree stays a single level.
 pub(super) fn plan(dims: &[u64], data: &[u8], elem: usize) -> Plan {
     let rank = dims.len();
     let row: u64 = dims[1..].iter().product::<u64>() * elem as u64;
@@ -80,9 +77,6 @@ pub(super) fn btree_key_size(rank: usize) -> usize {
     8 + 8 * (rank + 1)
 }
 
-/// A v1 B-tree node occupies a fixed slab on disk (`2*K` slots plus a trailing
-/// key), regardless of how many entries are actually used; libhdf5 reads the
-/// whole slab.
 pub(super) fn btree_node_size(rank: usize) -> usize {
     let key = btree_key_size(rank);
     24 + 2 * BTREE_K * (key + 8) + key

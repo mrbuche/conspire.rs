@@ -147,8 +147,6 @@ pub(in crate::io::netcdf) fn write(
         .map(|i| dim_scale_messages(i, dim_lens[i]))
         .collect();
 
-    // First pass: object-header sizes are independent of the addresses inside
-    // them, so lay the file out using placeholder addresses.
     let placeholder_var_msgs: Vec<Vec<(u8, Vec<u8>)>> = vars
         .iter()
         .zip(&plans)
@@ -200,7 +198,6 @@ pub(in crate::io::netcdf) fn write(
     }
     let eof = cursor;
 
-    // Second pass: render everything with real addresses.
     let mut out = superblock(root_oh, eof);
     out.extend(object_header(&root_messages(
         dims, vars, global, &dim_oh, &var_oh,

@@ -80,7 +80,6 @@ pub(super) fn fill_default() -> Vec<u8> {
 }
 
 pub(super) fn fill_value(xtype: i32) -> Vec<u8> {
-    // netCDF default fill values: NC_FILL_INT / NC_FILL_FLOAT / NC_FILL_DOUBLE.
     let bytes: Vec<u8> = match xtype {
         NC_INT => (-2147483647i32).to_le_bytes().to_vec(),
         NC_FLOAT => f32::from_bits(0x7cf0_0000).to_le_bytes().to_vec(),
