@@ -9,6 +9,7 @@
 //! (longitude, latitude) / (major angle, tube angle) chart, every bounding
 //! edge chorded into straight sub-segments there.
 
+use super::sampled::Sampled;
 use super::super::{
     D,
     planar::{PlanarFace, arc_sweep, offset_in_sense},
@@ -74,6 +75,8 @@ pub(super) enum FacePatch {
         /// How far this patch's chorded boundary may sit from the true edge.
         tolerance: Scalar,
     },
+    /// A free-form (B-spline / NURBS) face, evaluated numerically.
+    Sampled(Sampled),
 }
 
 impl FacePatch {
@@ -100,6 +103,7 @@ impl FacePatch {
                 );
             }
             Self::Curved { curved, .. } => curved.closest(q),
+            Self::Sampled(sampled) => sampled.closest(q),
         };
         let distance = (0..D).map(|k| (point[k] - q[k]).powi(2)).sum::<Scalar>().sqrt();
         (point.into(), Direction::const_from(normal), distance)
@@ -159,6 +163,7 @@ impl FacePatch {
                 (low, high)
             }
             Self::Curved { low, high, .. } => (*low, *high),
+            Self::Sampled(sampled) => (sampled.low, sampled.high),
         }
     }
 
@@ -198,9 +203,9 @@ impl FacePatch {
                 }
             }
             Self::Curved { curved, tolerance, .. } => curved.ray_hits(origin, direction, *tolerance),
+            Self::Sampled(sampled) => sampled.ray_hits(origin, direction),
         }
     }
-
 }
 
 impl Curved {

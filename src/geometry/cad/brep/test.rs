@@ -1,7 +1,7 @@
 use super::{
     Brep, Edge, Face, HalfEdge, Loop, Shell,
     curve::{BSpline, Circle, Curve, Ellipse, Line},
-    surface::{Cone, Cylinder, Plane, Sphere, Surface, Torus},
+    surface::{BSplineSurface, Cone, Cylinder, Plane, Sphere, Surface, Torus},
 };
 use crate::geometry::{Coordinate, Direction};
 
@@ -114,6 +114,29 @@ pub(crate) fn axis_aligned_box(extents: [f64; 3]) -> Brep {
             closed: true,
         }],
     }
+}
+
+/// The unit cube, but its `+z` face is a degree-1 (bilinear) B-spline surface
+/// coincident with the plane `z = 1` — a flat free-form patch, so an oracle
+/// projection onto it has a known exact answer.
+pub(crate) fn cube_with_bspline_top() -> Brep {
+    let mut brep = unit_cube();
+    let corner = |x: f64, y: f64| Coordinate::const_from([x, y, 1.0]);
+    brep.faces[1].surface = Surface::BSpline(BSplineSurface {
+        u_degree: 1,
+        v_degree: 1,
+        // control[iu][iv]: u along +x, v along +y.
+        control_points: vec![
+            vec![corner(0.0, 0.0), corner(0.0, 1.0)],
+            vec![corner(1.0, 0.0), corner(1.0, 1.0)],
+        ],
+        u_knots: vec![0.0, 1.0],
+        v_knots: vec![0.0, 1.0],
+        u_multiplicities: vec![2, 2],
+        v_multiplicities: vec![2, 2],
+        weights: None,
+    });
+    brep
 }
 
 /// A capped right circular cylinder about `+z`, base centred at the origin: two

@@ -4,7 +4,8 @@ use crate::{
         cad::brep::{
             curve::Ellipse,
             test::{
-                ball, bulged_plate, capped_cylinder, cone, cylinder_with_elliptical_rim, direction,
+                ball, bulged_plate, capped_cylinder, cone, cube_with_bspline_top,
+                cylinder_with_elliptical_rim, direction,
                 cone_split_at_apex, cylinder_with_splined_rim, hemisphere_solid,
                 partial_cone_to_apex,
                 partial_cylinder, partial_sphere, partial_torus,
@@ -53,6 +54,26 @@ fn projects_an_interior_point_onto_the_nearest_face() {
     let (point, normal) = oracle.project(&Coordinate::from([0.4, 0.6, 0.85])).unwrap();
     assert!(close(&components(&point), &[0.4, 0.6, 1.0]));
     assert!(close(&components(&normal), &[0.0, 0.0, 1.0]));
+}
+
+#[test]
+fn a_bspline_face_projects_and_signs_like_the_plane_it_lies_on() {
+    let oracle = cube_with_bspline_top().oracle().unwrap();
+
+    // The free-form top is flat at z = 1, so projection onto it is exact.
+    let (point, normal) = oracle.project(&Coordinate::from([0.4, 0.7, 2.0])).unwrap();
+    let point = components(&point);
+    assert!((point[2] - 1.0).abs() < 1.0e-6, "{point:?}");
+    assert!((point[0] - 0.4).abs() < 1.0e-3 && (point[1] - 0.7).abs() < 1.0e-3, "{point:?}");
+    assert!(components(&normal)[2].abs() > 0.999, "{:?}", components(&normal));
+
+    // Ray parity still classifies the solid with a free-form face in the shell.
+    let inside = |p: [f64; 3]| oracle.signed_distance(&Coordinate::from(p)).is_sign_positive();
+    assert!(inside([0.5, 0.5, 0.5]), "cube centre is inside");
+    assert!(!inside([0.5, 0.5, 1.5]), "above the free-form top is outside");
+    assert!(!inside([0.5, 0.5, -0.5]), "below the base is outside");
+    let near_top = oracle.signed_distance(&Coordinate::from([0.5, 0.5, 0.9]));
+    assert!((near_top - 0.1).abs() < 1.0e-3, "{near_top}");
 }
 
 #[test]
