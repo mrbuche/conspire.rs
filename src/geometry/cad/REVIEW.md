@@ -51,12 +51,18 @@ fit quality is a separate concern). A *change* in that number is the signal.
 | `cad/brep/{classify,inside,orient,planar,tessellate,primitive,features}` | — | trimming/topology |
 | `cad/sizing` | — | feature-size field |
 | `cad/{assemble,mesh}` | — | orchestration |
-| `csg/*` | `bb39c8cf` (Sonnet high; Opus pass pending) | analytic primitives + boolean ops |
-| `solid` | `bb39c8cf` (Sonnet high; Opus pass pending) | shared octree→dual→trim→fit driver |
+| `csg/*` | `5422e853` (Sonnet high + Opus deep) | analytic primitives + boolean ops; 10 findings logged, 5 confirmed correctness |
+| `solid` | `5422e853` (Sonnet high + Opus deep) | shared octree→dual→trim→fit driver; see findings 2-3, 7-9 |
 | `geometry/mesh/buffer` edits | — | regression surface on existing code |
 
 ## Risk register (re-check every pass)
 
+- Boolean-op `project` survival flag evaluated at query not candidate — csg/solid
+  finding 6; affects every fit of a CSG combination.
+- `EllipsoidOracle` off-surface projection on origin-plane nodes — csg/solid
+  finding 5.
+- CSG classify path lacks the flood-fill thin-wall/void guards, and `mesh`'s
+  trim rule undoes the guard `trim` does have — csg/solid findings 4, 7, 9.
 - Cone/chamfer distance — see FINDING cone-distance below.
 - `BrepOracle` fillet/chamfer faces still error (`primitive()` deferred).
 - Mismatched-arc / two-edge planar trimming loops (recent commits).
@@ -124,3 +130,74 @@ All verified against the code. None block; fix opportunistically.
    pore is thinner than the local octree cell — all 8 corners in material,
    centroid missing the pore — is classified `Inside` and never trimmed. Real
    for the box−⋃pores use case unless the caller sizes the octree fine enough.
+
+### csg/solid pass 2 (Opus deep review, `5422e853`) — 3 confirmed + 3 notes
+
+Opus verified each against a concrete input; the cuboid/cylinder/cone SDFs, all
+tilted-primitive AABBs, `circumradius`'s Lipschitz bound, `HEX_FACES`
+adjacency, and the `needed`/`keep_hexes` index alignment all checked out clean.
+
+5. **CONFIRMED — `EllipsoidOracle::closest_local` returns an off-surface point
+   for an interior query with a (near-)zero principal coordinate**
+   (`csg/ellipsoid/mod.rs:112,126-138`). `TOLERANCE = 1e-12` is used both to
+   nudge a zero coordinate (`y = p.abs().max(TOLERANCE)`) and as the *absolute*
+   bisection stop (`hi - lo <= TOLERANCE*(1+|hi|)`), so when the root sits at
+   `t ≈ -e_min² + O(1e-12)` it is never resolved and `closest[min] =
+   e_min²·y_min/(t+e_min²)` becomes `O(1)` noise. `Ellipsoid::new(0,[1,2,3])`,
+   query `(0,1,0)` (true closest `(0,2,0)`, dist 1) → the recogniser returns a
+   point with `Σ(xᵢ/eᵢ)² ≈ 1.4` and a wrong distance. **Reachable, not
+   exotic:** `refine_octree` deliberately snaps a grid plane through the world
+   origin (`solid/mod.rs:503-511`), so a centred ellipsoid gets a whole plane
+   of nodes with an exactly-zero coordinate, and for an oblate ellipsoid most
+   of that plane lies inside the evolute. `Fit` then pulls those boundary nodes
+   off the surface. Fix: separate the coordinate-nudge epsilon from a
+   *relative* bisection stop, or special-case a zero coordinate (drop that axis
+   and solve the lower-D problem).
+
+6. **CONFIRMED — every boolean-op `project` tests the "patch survives the
+   boolean" flag at the query, not at the candidate point**
+   (`csg/ops/{union,intersection,difference,union_all}/mod.rs`). The correct
+   test for `a.project(q) = p` is `b.signed_distance(&p) ⋚ 0`; the code passes
+   `query`. Union, interior query `q=(0.93,0,0)` with `A=Sphere(0,1)`,
+   `B=Sphere((1.9,0,0),1)`: `sa,sb > 0` so *both* candidates are flagged
+   off-surface, `best_candidate` falls through to `any` and returns `(0.9,0,0)`
+   — 0.1 *inside* the union, not on its boundary. Difference, exterior query
+   `q=(3,0,0)` with `outer=Sphere(0,2)`, `inner=Sphere((1.9,0,0),1)`: the outer
+   candidate `(2,0,0)` is flagged valid (`carved(q) ≤ 0`) and wins, though it
+   was carved away (0.9 inside `inner`); the real boundary is the rim circle.
+   Intersection/UnionAll share it. Directly degrades the fit for the box−⋃pores
+   case. Fix: evaluate the survival predicate at `p`.
+
+7. **CONFIRMED — `Solid::mesh`'s trim rule deletes every cell the flood-fill
+   thin-wall rescue just saved** (`solid/mod.rs:457-461` vs `190-209`). The
+   rescue promotes a cell to `Cut` only in the `maximum < 0` branch (all
+   corners in air, centroid in solid). `mesh` then keeps a non-`Outside` cell
+   iff `minimum + 0.1·maximum ≥ 0`; with `minimum ≤ maximum < 0` that is always
+   negative, so the rescued cell is dropped immediately. The rescue only
+   survives via `trim()` (keeps all non-`Outside`). The `Plate` case
+   `solid/test.rs:154` asserts kept would mesh to nothing through `mesh()`.
+   Fix: exempt `Cut` cells with all corners outside from the trim rule, or
+   record the probed centroid value and use it as `maximum`.
+
+8. **PLAUSIBLE / doc — the Tong `TRIM_RATIO` rule assumes a true Euclidean
+   distance, which min/max CSG composition is not** (`solid/mod.rs:461`). Signs
+   are always right (classification safe) but magnitudes are understated near
+   creases: at an `Intersection`'s convex edge a corner 0.3+0.3 outside reports
+   −0.3 not −0.424, biasing ~40% of a cell toward keeping protruding cells;
+   symmetric over-trim at a `Union`'s reentrant crease. At least note that
+   `TRIM_RATIO` is calibrated for exact fields.
+
+9. **PLAUSIBLE — the thin-feature probe is one-sided** (`solid/mod.rs:190-201`).
+   Only cells with `maximum < 0` (thin solid wall) are probed. The mirror — all
+   eight corners inside, a sub-cell-thin air slot crossing the cell — passes
+   the straddle test, is never probed, and is labelled `Inside`, filling the
+   slot. Symmetric guard: `minimum > 0 && maximum - circumradius < 0` plus a
+   centroid probe for a negative value. (Dual of finding 4.)
+
+10. **NOTE — `CuboidOracle` exterior normal in the edge/corner Voronoi region
+    is the bevel direction, not either adjacent face** (`csg/cuboid/mod.rs:64`).
+    `normal = unit(query − clamped)`, so `fit::project`'s `(x−p)·n` deviation
+    pulls boundary-layer quads straddling a box edge toward a chamfer — the same
+    feature-preservation failure mode recorded for the tessellation path.
+    Snapping the normal to the dominant clamped axis keeps `p` identical while
+    restoring a face normal.
