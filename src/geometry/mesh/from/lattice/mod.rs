@@ -4,22 +4,14 @@ mod test;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh},
+        mesh::{
+            Connectivities, Connectivity, Mesh,
+            from::{kuhn, orient},
+        },
     },
-    math::{CrossProduct, FxHashMap, Set, TensorVec},
+    math::{FxHashMap, Set, TensorVec},
 };
-use std::collections::BTreeMap;
-
-/// The axis orders of the Kuhn/Freudenthal split, each a path of unit steps
-/// from a cell's lowest-numbered corner to its highest.
-const KUHN: [[usize; 2]; 6] = [[0, 1], [0, 2], [1, 0], [1, 2], [2, 0], [2, 1]];
-
-fn positive(tet: &[usize; 4], coordinates: &Coordinates<3>) -> bool {
-    let u = &coordinates[tet[1]] - &coordinates[tet[0]];
-    let v = &coordinates[tet[2]] - &coordinates[tet[0]];
-    let w = &coordinates[tet[3]] - &coordinates[tet[0]];
-    (&u.cross(v) * &w).value() > 0.0
-}
+use std::{array::from_fn, collections::BTreeMap};
 
 fn remap<const N: usize>(
     connectivity: &mut [[usize; N]],
@@ -141,23 +133,18 @@ impl Mesh<3> {
         let mut materials = Vec::with_capacity(6 * lower);
         cells.for_each(|([i, j, k], material)| {
             let low = i + nxp * j + layer * k;
-            let high = low + 1 + nxp + layer;
-            KUHN.iter().for_each(|&[first, second]| {
-                connectivity.push([
-                    low,
-                    low + steps[first],
-                    low + steps[first] + steps[second],
-                    high,
-                ]);
+            let corners: [usize; 8] = from_fn(|corner| {
+                low + (0..3)
+                    .map(|axis| ((corner >> axis) & 1) * steps[axis])
+                    .sum::<usize>()
+            });
+            kuhn(&corners).into_iter().for_each(|tet| {
+                connectivity.push(tet);
                 materials.push(material);
             })
         });
         let coordinates = remap(&mut connectivity, nel, scale, translate);
-        connectivity.iter_mut().for_each(|tet| {
-            if !positive(tet, &coordinates) {
-                tet.swap(2, 3)
-            }
-        });
+        orient(&mut connectivity, &coordinates);
         (
             blocks(connectivity, materials, |elements| {
                 Connectivity::Tetrahedral(elements.into())

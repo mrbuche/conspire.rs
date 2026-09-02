@@ -2,6 +2,7 @@
 mod test;
 
 pub(crate) mod facets;
+mod tets;
 
 use crate::geometry::{
     Coordinates,

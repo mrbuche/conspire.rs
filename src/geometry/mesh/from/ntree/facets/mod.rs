@@ -169,14 +169,18 @@ impl<const D: usize> Facets<D> {
             nodes,
         }
     }
-    #[cfg(test)]
     pub(crate) fn coordinates(&self) -> &Coordinates<D> {
         &self.coordinates
+    }
+    pub(crate) fn node(&self, key: &[usize; D]) -> Option<usize> {
+        self.nodes.get(key).copied()
+    }
+    pub(crate) fn key(&self, node: usize) -> [usize; D] {
+        from_fn(|axis| self.coordinates[node][axis].value() as usize)
     }
     pub(crate) fn into_coordinates(self) -> Coordinates<D> {
         self.coordinates
     }
-    #[allow(dead_code)]
     pub(crate) fn corners<const N: usize>(&self, corner: [usize; D], length: usize) -> [usize; N] {
         from_fn(|k| {
             self.nodes[&from_fn::<_, D, _>(|axis| corner[axis] + ((k >> axis) & 1) * length)]
@@ -249,7 +253,6 @@ impl<const D: usize> Facets<D> {
     }
     /// The outward polygons covering each facet of a leaf: one per facet, or
     /// the finer neighbors' when that facet is refined.
-    #[allow(dead_code)]
     pub(crate) fn leaf_polygons<const L: usize, const M: usize, const N: usize, T, U, V>(
         &self,
         tree: &Orthotree<D, L, M, N, T, U, V>,
