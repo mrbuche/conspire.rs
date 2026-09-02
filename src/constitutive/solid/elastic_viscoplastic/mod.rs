@@ -11,8 +11,9 @@ pub mod doc;
 pub mod test;
 
 mod almansi_hamel_eulerian;
+mod canonical;
 
-pub use self::almansi_hamel_eulerian::AlmansiHamelEulerian;
+pub use self::{almansi_hamel_eulerian::AlmansiHamelEulerian, canonical::Canonical};
 
 use crate::{
     constitutive::{

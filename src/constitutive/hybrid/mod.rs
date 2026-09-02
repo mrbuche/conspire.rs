@@ -6,14 +6,15 @@ mod hyperelastic;
 mod hyperelastic_viscoplastic;
 
 pub use self::{
-    elastic::{
-        additive::ElasticAdditive,
-        multiplicative::{ElasticMultiplicative, ElasticMultiplicativeViscoplastic},
-    },
+    elastic::{additive::ElasticAdditive, multiplicative::ElasticMultiplicative},
     elastic_viscoplastic::additive::{
         ElasticViscoplasticAdditiveElastic, ElasticViscoplasticAdditiveViscoplastic,
     },
 };
+
+/// The multiplicative elastic-viscoplastic model now lives in
+/// [`solid::elastic_viscoplastic`](crate::constitutive::solid::elastic_viscoplastic).
+pub use crate::constitutive::solid::elastic_viscoplastic::Canonical as ElasticMultiplicativeViscoplastic;
 
 use std::{
     any::type_name,

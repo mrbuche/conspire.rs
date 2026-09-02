@@ -1,1 +1,2 @@
+mod elastic;
 mod hyperelastic;

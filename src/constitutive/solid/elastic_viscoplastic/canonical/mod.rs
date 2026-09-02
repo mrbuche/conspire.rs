@@ -8,11 +8,12 @@ use crate::{
             plastic::Plastic,
             viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
         },
-        hybrid::ElasticMultiplicativeViscoplastic,
         solid::{
             Solid,
             elastic::Elastic,
             elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
+            hyperelastic::Hyperelastic,
+            hyperelastic_viscoplastic::HyperelasticViscoplastic,
         },
     },
     math::{
@@ -27,10 +28,63 @@ use crate::{
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffnessElastic,
         StretchingRatePlastic,
     },
-    units::{Dissipation, Rate, Stress},
+    units::{Dissipation, EnergyDensity, Rate, Stress},
+};
+use std::{
+    any::type_name,
+    fmt::{self, Debug, Formatter},
+    marker::PhantomData,
 };
 
-impl<C1, C2, Y2> Solid for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
+/// An elastic response composed with a viscoplastic flow rule through the
+/// multiplicative decomposition $`\mathbf{F}=\mathbf{F}_\mathrm{e}\cdot\mathbf{F}_\mathrm{p}`$.
+#[derive(Clone)]
+pub struct Canonical<C1, C2, Y2>(C1, C2, PhantomData<Y2>)
+where
+    C1: Elastic,
+    C2: Viscoplastic<Y2>,
+    Y2: Differentiate + Tensor;
+
+impl<C1, C2, Y2> Debug for Canonical<C1, C2, Y2>
+where
+    C1: Elastic,
+    C2: Viscoplastic<Y2>,
+    Y2: Differentiate + Tensor,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Canonical({}, {})",
+            type_name::<C1>()
+                .rsplit("::")
+                .next()
+                .unwrap()
+                .split("<")
+                .next()
+                .unwrap(),
+            type_name::<C2>()
+                .rsplit("::")
+                .next()
+                .unwrap()
+                .split("<")
+                .next()
+                .unwrap()
+        )
+    }
+}
+
+impl<C1, C2, Y2> From<(C1, C2)> for Canonical<C1, C2, Y2>
+where
+    C1: Elastic,
+    C2: Viscoplastic<Y2>,
+    Y2: Differentiate + Tensor,
+{
+    fn from((constitutive_model_1, constitutive_model_2): (C1, C2)) -> Self {
+        Self(constitutive_model_1, constitutive_model_2, PhantomData)
+    }
+}
+
+impl<C1, C2, Y2> Solid for Canonical<C1, C2, Y2>
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
@@ -44,7 +98,7 @@ where
     }
 }
 
-impl<C1, C2, Y2> Plastic for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
+impl<C1, C2, Y2> Plastic for Canonical<C1, C2, Y2>
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
@@ -58,7 +112,7 @@ where
     }
 }
 
-impl<C1, C2, Y2> Viscoplastic<Y2> for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
+impl<C1, C2, Y2> Viscoplastic<Y2> for Canonical<C1, C2, Y2>
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
@@ -106,7 +160,7 @@ where
     }
 }
 
-impl<C1, C2, Y2> ElasticPlasticOrViscoplastic for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
+impl<C1, C2, Y2> ElasticPlasticOrViscoplastic for Canonical<C1, C2, Y2>
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
@@ -188,10 +242,27 @@ where
     }
 }
 
-impl<C1, C2, Y2> ElasticViscoplastic<Y2> for ElasticMultiplicativeViscoplastic<C1, C2, Y2>
+impl<C1, C2, Y2> ElasticViscoplastic<Y2> for Canonical<C1, C2, Y2>
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
     Y2: Differentiate + Tensor,
 {
+}
+
+impl<C1, C2, Y2> HyperelasticViscoplastic<Y2> for Canonical<C1, C2, Y2>
+where
+    C1: Hyperelastic,
+    C2: Viscoplastic<Y2>,
+    Y2: Differentiate + Tensor,
+{
+    fn helmholtz_free_energy_density(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_p: &DeformationGradientPlastic,
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
+        let deformation_gradient_e = deformation_gradient * deformation_gradient_p.inverse();
+        self.0
+            .helmholtz_free_energy_density(&deformation_gradient_e.into())
+    }
 }

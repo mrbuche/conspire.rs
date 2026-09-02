@@ -4,9 +4,8 @@ use crate::units::{Rate, Stress};
 use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticFlow,
-        hybrid::ElasticMultiplicativeViscoplastic,
         solid::{
-            elastic_viscoplastic::{AppliedLoad, ElasticPlasticOrViscoplastic},
+            elastic_viscoplastic::{AppliedLoad, Canonical, ElasticPlasticOrViscoplastic},
             hyperelastic::SaintVenantKirchhoff,
         },
     },
@@ -32,7 +31,7 @@ fn finite_difference() -> Result<(), AssertionError> {
         [0.71714877, 1.83110678, 0.69670465],
         [1.82260662, 2.1921719, 3.16928404],
     ]);
-    let model = ElasticMultiplicativeViscoplastic::from((
+    let model = Canonical::from((
         SaintVenantKirchhoff {
             bulk_modulus: Stress::pascals(13.0),
             shear_modulus: Stress::pascals(3.0),
@@ -74,7 +73,7 @@ fn finite_difference() -> Result<(), AssertionError> {
 #[test]
 fn root_0() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
-    let model = ElasticMultiplicativeViscoplastic::from((
+    let model = Canonical::from((
         SaintVenantKirchhoff {
             bulk_modulus: Stress::pascals(13.0),
             shear_modulus: Stress::pascals(3.0),
@@ -124,7 +123,7 @@ fn root_0() -> Result<(), AssertionError> {
 #[test]
 fn root_1() -> Result<(), AssertionError> {
     use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
-    let model = ElasticMultiplicativeViscoplastic::from((
+    let model = Canonical::from((
         SaintVenantKirchhoff {
             bulk_modulus: Stress::pascals(13.0),
             shear_modulus: Stress::pascals(3.0),
