@@ -136,8 +136,13 @@ fn check(octree: Tree) {
         (total - volume).abs() < 1.0e-9 * volume,
         "{total} vs {volume}"
     );
+    // Every templated leaf is config B at eight tetrahedra or config A at
+    // fourteen, so the total lies between those multiples.
     let templated_tets = mesh.number_of_elements() - 6 * plain;
-    assert!(templated_tets >= 12 * templated, "{templated_tets}")
+    assert!(
+        (8 * templated..=14 * templated).contains(&templated_tets),
+        "{templated_tets} over {templated}"
+    )
 }
 
 #[test]
@@ -181,6 +186,9 @@ const CENTRE_FAN: [(usize, usize); 2] = [(4032, 805), (1584, 343)];
 /// hanging edge must in turn stay under.
 const PATCH_FAN: [(usize, usize); 2] = [(3264, 605), (1296, 271)];
 
+/// And once that cut landed, which the config-A template must stay under.
+const KUHN_CUT: [(usize, usize); 2] = [(2952, 557), (1140, 247)];
+
 #[test]
 fn steiner_free_patches_shrink_the_mesh() {
     [
@@ -188,22 +196,17 @@ fn steiner_free_patches_shrink_the_mesh() {
         ball(8, 12, 1.0),
     ]
     .iter()
-    .zip(CENTRE_FAN.iter().zip(PATCH_FAN))
-    .for_each(|(tessellation, (&(tets, nodes), (cut_tets, cut_nodes)))| {
+    .enumerate()
+    .for_each(|(case, tessellation)| {
         let (mesh, _, templated) = Mesh::tetrahedra(tree(tessellation, 1.0));
         assert!(templated > 0);
         conforming(&mesh);
-        assert!(cut_tets < tets && cut_nodes < nodes);
-        assert!(
-            mesh.number_of_elements() < cut_tets,
-            "{}",
-            mesh.number_of_elements()
-        );
-        assert!(
-            mesh.number_of_nodes() < cut_nodes,
-            "{}",
-            mesh.number_of_nodes()
-        )
+        let (tets, nodes) = (mesh.number_of_elements(), mesh.number_of_nodes());
+        // Each stage strictly under the last: centre fan, then the
+        // Steiner-free patch rules, then the Kuhn cut, then config A.
+        for &(stage_tets, stage_nodes) in &[CENTRE_FAN[case], PATCH_FAN[case], KUHN_CUT[case]] {
+            assert!(tets < stage_tets && nodes < stage_nodes, "{tets} / {nodes}");
+        }
     })
 }
 
@@ -233,4 +236,80 @@ fn an_unbalanced_tree_still_conforms() {
         (total - volume).abs() < 1.0e-9 * volume,
         "{total} vs {volume}"
     )
+}
+
+/// Every config-A template, in each of the six orientations the refined facet
+/// can take, must bound exactly the triangles the patch rules give that cell.
+///
+/// That contract is what lets a config-A cell sit against a plain, a config-B
+/// or a fallback neighbor, and it is asserted per orientation because the
+/// rules order nodes absolutely: a template cannot be rotated onto another
+/// orientation, so each is checked on its own.
+#[test]
+fn config_a_templates_bound_the_patch_triangles() {
+    let mut seen = std::collections::BTreeSet::new();
+    for tessellation in [
+        box_surface([-1.0, -0.6, -0.2], [1.0, 0.6, 0.2]),
+        ball(8, 12, 1.0),
+        box_surface([-2.0, -1.0, -0.15], [2.0, 1.0, 0.15]),
+    ] {
+        for scale in [1.0, 2.5] {
+            let octree = tree(&tessellation, scale);
+            let (leaves, _) = leaves(&octree);
+            let facets = super::Facets::<3>::new(&octree, &leaves);
+            let mut builder = super::Builder::new(&facets);
+            for &index in &leaves {
+                let (corner, length) = super::corner_length(&octree.nodes[index]);
+                let polygons = facets.leaf_polygons(&octree, index);
+                let refined: Vec<usize> = (0..6).filter(|&f| polygons[f].len() > 1).collect();
+                if refined.len() != 1 || length % 2 != 0 {
+                    continue;
+                }
+                let mut hanging = Vec::new();
+                for (edge, &(axis, low)) in super::CUBE_EDGES.iter().enumerate() {
+                    let mut key: [usize; 3] =
+                        std::array::from_fn(|a| corner[a] + ((low >> a) & 1) * length);
+                    key[axis] += length / 2;
+                    if let Some(node) = facets.node(&key) {
+                        hanging.push((edge, node))
+                    }
+                }
+                if hanging.len() != 4 || !super::on_facet(&hanging, refined[0]) {
+                    continue;
+                }
+                let tets =
+                    super::config_a(&facets, corner, length, refined[0]).expect("template missing");
+                assert_eq!(tets.len(), 14);
+                let mut counts = FxHashMap::<[usize; 3], usize>::default();
+                tets.iter().for_each(|tet| {
+                    [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
+                        .iter()
+                        .for_each(|local| {
+                            let mut face = [tet[local[0]], tet[local[1]], tet[local[2]]];
+                            face.sort_unstable();
+                            *counts.entry(face).or_default() += 1
+                        })
+                });
+                let bound: std::collections::BTreeSet<[usize; 3]> = counts
+                    .iter()
+                    .filter(|&(_, &count)| count == 1)
+                    .map(|(&face, _)| face)
+                    .collect();
+                assert!(counts.values().all(|&count| count <= 2));
+                let wanted: std::collections::BTreeSet<[usize; 3]> = polygons
+                    .iter()
+                    .flatten()
+                    .flat_map(|polygon| builder.triangles(polygon))
+                    .map(|mut face| {
+                        face.sort_unstable();
+                        face
+                    })
+                    .collect();
+                assert_eq!(wanted.len(), 22);
+                assert_eq!(bound, wanted, "facet {}", refined[0]);
+                seen.insert(refined[0]);
+            }
+        }
+    }
+    assert_eq!(seen.len(), 6, "orientations covered: {seen:?}")
 }

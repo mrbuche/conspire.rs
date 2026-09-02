@@ -65,6 +65,149 @@ fn kuhn_cut(corners: &[usize; 8], from: usize, to: usize, hanging: usize) -> Vec
         .collect()
 }
 
+/// Minimal interior tetrahedralisations of the config-A cell — one refined
+/// facet, a hanging node on each of its four edges — indexed by which facet is
+/// refined.
+///
+/// Vertices are the cell's own halved lattice offsets, `r0 + 3 r1 + 9 r2` for
+/// components 0, 1 and 2, covering the eight corners, the four hanging nodes
+/// and the refined facet's centre. Each was found by an exhaustive search over
+/// those thirteen nodes against the boundary [`Builder::triangles`] gives that
+/// orientation, and is minimal: no tetrahedralisation of fewer than fourteen
+/// exists, and none needs an interior node.
+///
+/// There is a table per orientation rather than one canonical template mapped
+/// by symmetry because the triangulation rules order nodes lexicographically,
+/// which is absolute, not relative to the cell; rotating a template would
+/// carry a diagonal onto a face whose own rule puts it elsewhere.
+const CONFIG_A: [[[usize; 4]; 14]; 6] = [
+    [
+        [0, 20, 2, 26],
+        [0, 26, 2, 8],
+        [0, 8, 3, 26],
+        [0, 26, 3, 12],
+        [0, 12, 9, 26],
+        [0, 26, 9, 20],
+        [3, 8, 6, 26],
+        [3, 26, 6, 15],
+        [3, 15, 12, 26],
+        [9, 26, 12, 21],
+        [9, 21, 18, 26],
+        [9, 26, 18, 20],
+        [12, 26, 15, 24],
+        [12, 24, 21, 26],
+    ],
+    [
+        [0, 11, 2, 14],
+        [0, 14, 2, 5],
+        [0, 14, 5, 17],
+        [0, 17, 5, 8],
+        [0, 8, 6, 17],
+        [0, 17, 6, 26],
+        [0, 26, 6, 24],
+        [0, 20, 11, 23],
+        [0, 23, 11, 14],
+        [0, 23, 14, 26],
+        [0, 26, 14, 17],
+        [0, 24, 18, 26],
+        [0, 26, 18, 23],
+        [0, 23, 18, 20],
+    ],
+    [
+        [0, 10, 1, 26],
+        [0, 26, 1, 8],
+        [0, 8, 6, 26],
+        [0, 26, 6, 24],
+        [0, 24, 9, 26],
+        [0, 26, 9, 10],
+        [1, 11, 2, 26],
+        [1, 26, 2, 8],
+        [1, 26, 10, 11],
+        [9, 19, 10, 26],
+        [9, 24, 18, 26],
+        [9, 26, 18, 19],
+        [10, 20, 11, 26],
+        [10, 26, 19, 20],
+    ],
+    [
+        [0, 20, 2, 26],
+        [0, 26, 2, 17],
+        [0, 17, 2, 8],
+        [0, 7, 6, 16],
+        [0, 16, 6, 15],
+        [0, 8, 7, 17],
+        [0, 17, 7, 16],
+        [0, 16, 15, 25],
+        [0, 25, 15, 24],
+        [0, 17, 16, 26],
+        [0, 26, 16, 25],
+        [0, 24, 18, 25],
+        [0, 25, 18, 26],
+        [0, 26, 18, 20],
+    ],
+    [
+        [0, 20, 1, 26],
+        [0, 26, 1, 4],
+        [0, 4, 3, 26],
+        [0, 26, 3, 24],
+        [0, 24, 18, 26],
+        [0, 26, 18, 20],
+        [1, 20, 2, 26],
+        [1, 26, 2, 5],
+        [1, 5, 4, 26],
+        [3, 26, 4, 7],
+        [3, 7, 6, 26],
+        [3, 26, 6, 24],
+        [4, 26, 5, 8],
+        [4, 8, 7, 26],
+    ],
+    [
+        [0, 20, 2, 23],
+        [0, 23, 2, 26],
+        [0, 26, 2, 8],
+        [0, 8, 6, 26],
+        [0, 26, 6, 25],
+        [0, 25, 6, 24],
+        [0, 21, 18, 22],
+        [0, 22, 18, 19],
+        [0, 22, 19, 23],
+        [0, 23, 19, 20],
+        [0, 24, 21, 25],
+        [0, 25, 21, 22],
+        [0, 25, 22, 26],
+        [0, 26, 22, 23],
+    ],
+];
+
+/// Whether the hanging edges are exactly the four bounding `facet`.
+fn on_facet(hanging: &[(usize, usize)], facet: usize) -> bool {
+    let (axis, side) = (facet >> 1, facet & 1);
+    hanging.iter().all(|&(edge, _)| {
+        let (along, from) = CUBE_EDGES[edge];
+        along != axis && (from >> axis) & 1 == side
+    })
+}
+
+/// The config-A template for `refined`, resolved to this cell's nodes.
+fn config_a(
+    facets: &Facets<3>,
+    corner: [usize; 3],
+    length: usize,
+    refined: usize,
+) -> Option<Vec<[usize; 4]>> {
+    let half = length / 2;
+    let mut tets = Vec::with_capacity(CONFIG_A[refined].len());
+    for template in &CONFIG_A[refined] {
+        let mut tet = [0; 4];
+        for (slot, &vertex) in tet.iter_mut().zip(template.iter()) {
+            let offsets = [vertex % 3, vertex / 3 % 3, vertex / 9];
+            *slot = facets.node(&from_fn(|axis| corner[axis] + offsets[axis] * half))?
+        }
+        tets.push(tet)
+    }
+    Some(tets)
+}
+
 /// Lexicographic rank of a node, most significant axis first, so that a cell's
 /// extremes under it are the corners [`kuhn`] splits about.
 fn rank(key: [usize; 3]) -> [usize; 3] {
@@ -239,7 +382,7 @@ impl Mesh<3> {
             } else {
                 templated += 1;
                 let mut hanging = Vec::new();
-                if length % 2 == 0 && polygons.iter().all(|facet| facet.len() == 1) {
+                if length % 2 == 0 {
                     CUBE_EDGES
                         .iter()
                         .enumerate()
@@ -252,8 +395,16 @@ impl Mesh<3> {
                             }
                         })
                 }
-                match hanging.first() {
-                    Some(&(edge, node)) if hanging.len() == 1 => {
+                let refined: Vec<usize> = (0..6).filter(|&f| polygons[f].len() > 1).collect();
+                let template = match refined[..] {
+                    [facet] if hanging.len() == 4 && on_facet(&hanging, facet) => {
+                        config_a(&facets, corner, length, facet)
+                    }
+                    _ => None,
+                };
+                match (template, hanging.first()) {
+                    (Some(tets), _) => connectivity.extend(tets),
+                    (None, Some(&(edge, node))) if hanging.len() == 1 && refined.is_empty() => {
                         let (axis, low) = CUBE_EDGES[edge];
                         connectivity.extend(kuhn_cut(
                             &facets.corners::<8>(corner, length),
