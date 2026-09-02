@@ -166,9 +166,7 @@ impl Tessellation {
     /// [`lattice_background`](Self::lattice_background). The cells are still
     /// classified by rasterizing, so the six tetrahedra of a cell all take the
     /// class of the cell they came from.
-    // Consumed by the trim step, which lands next.
-    #[allow(dead_code)]
-    pub(crate) fn lattice_tet_background(
+    pub fn lattice_tet_background(
         &self,
         spacing: Quantity<Length>,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
@@ -188,7 +186,12 @@ impl Tessellation {
         balancing: Balancing,
         scale: Scalar,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let mesh = self.octree_mesh(balancing, scale, Cells::Polyhedral)?;
+        let mesh = self.octree_mesh(
+            balancing,
+            scale,
+            CurvatureSizing::default(),
+            Cells::Polyhedral,
+        )?;
         let classes = self.classify(&mesh);
         Ok((mesh, classes))
     }
@@ -200,17 +203,23 @@ impl Tessellation {
     /// [trimmed](Self::trim). `balancing` must be `Strong(1)`: the templates
     /// filling a graded cell only span a one-level difference, and only a
     /// balance over edges and vertices as well as faces holds them to it.
-    // Consumed by the trim step, which lands next.
-    #[allow(dead_code)]
-    pub(crate) fn octree_tet_background(
+    ///
+    /// `tolerance` is the Dunyach chord-error tolerance for curvature-driven
+    /// refinement; `None` disables it.
+    pub fn octree_tet_background(
         &self,
         balancing: Balancing,
         scale: Scalar,
+        tolerance: Option<Quantity<Length>>,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         if !matches!(balancing, Balancing::Strong(1)) {
             return Err("tetrahedra require Strong(1) balancing");
         }
-        let mesh = self.octree_mesh(balancing, scale, Cells::Tetrahedral)?;
+        let curvature = CurvatureSizing {
+            tolerance,
+            ..Default::default()
+        };
+        let mesh = self.octree_mesh(balancing, scale, curvature, Cells::Tetrahedral)?;
         let classes = self.classify(&mesh);
         Ok((mesh, classes))
     }
@@ -218,9 +227,10 @@ impl Tessellation {
         &self,
         balancing: Balancing,
         scale: Scalar,
+        curvature: CurvatureSizing,
         cells: Cells,
     ) -> Result<Mesh<D>, &'static str> {
-        let sizing = Sizing::new(self, scale, CurvatureSizing::default(), PADDING);
+        let sizing = Sizing::new(self, scale, curvature, PADDING);
         if sizing.fits::<u16>() {
             let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, Pairing::Regular)?;

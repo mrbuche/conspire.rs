@@ -35,7 +35,7 @@ fn check_trimmed(background: usize, mesh: &Mesh<D>) {
 fn trims_an_octree_tet_background() {
     let tessellation = torus(1.0, 0.15, 64, 24);
     let (mut mesh, _) = tessellation
-        .octree_tet_background(Balancing::Strong(1), 3.0)
+        .octree_tet_background(Balancing::Strong(1), 3.0, None)
         .unwrap();
     let background = mesh.number_of_elements();
     tessellation.trim(&mut mesh).unwrap();
