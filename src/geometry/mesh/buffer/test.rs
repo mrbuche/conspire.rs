@@ -184,3 +184,68 @@ fn buffer_tets_rejects_a_hexahedral_mesh() {
         Some("non-triangular boundary face")
     );
 }
+
+/// A slender bar whose faces land exactly on lattice planes -- the axis-aligned
+/// degeneracy that leaves `trim` with a pinched tetrahedral boundary.
+fn bar() -> Tessellation {
+    let min = [0.0, 0.0, 0.0];
+    let max = [3.0, 0.3, 0.3];
+    let [x0, y0, z0] = min;
+    let [x1, y1, z1] = max;
+    let coordinates = Coordinates::from(vec![
+        [x0, y0, z0],
+        [x1, y0, z0],
+        [x1, y1, z0],
+        [x0, y1, z0],
+        [x0, y0, z1],
+        [x1, y0, z1],
+        [x1, y1, z1],
+        [x0, y1, z1],
+    ]);
+    let quads: [[usize; 4]; 6] = [
+        [0, 1, 5, 4],
+        [1, 2, 6, 5],
+        [2, 3, 7, 6],
+        [3, 0, 4, 7],
+        [0, 3, 2, 1],
+        [4, 5, 6, 7],
+    ];
+    let faces: Vec<[usize; 3]> = quads
+        .iter()
+        .flat_map(|&[a, b, c, d]| [[a, b, c], [a, c, d]])
+        .collect();
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        coordinates,
+    )))
+}
+
+/// Panics unless every boundary edge of `mesh` is shared by exactly two
+/// boundary faces.
+fn assert_manifold_boundary(mesh: &Mesh<3>) {
+    let mut edges: HashMap<[usize; 2], u32> = HashMap::new();
+    for face in mesh.exterior_faces() {
+        for i in 0..face.len() {
+            let mut edge = [face[i], face[(i + 1) % face.len()]];
+            edge.sort_unstable();
+            *edges.entry(edge).or_insert(0) += 1;
+        }
+    }
+    assert!(
+        edges.values().all(|&count| count == 2),
+        "non-manifold boundary: {:?}",
+        edges.iter().filter(|&(_, &c)| c != 2).collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn buffer_tets_repairs_a_pinched_trim() -> Result<(), AssertionError> {
+    let target = bar();
+    let (mut mesh, _) = target.lattice_tet_background(Quantity::new(0.1)).unwrap();
+    target.trim(&mut mesh).unwrap();
+    let mesh = mesh.buffer_tets(&target, Fitting::Soft).unwrap();
+    assert_eq!(mesh.number_of_element_blocks(), 1);
+    assert_manifold_boundary(&mesh);
+    assert!(worst_scaled_jacobian(&mesh) > 0.0);
+    Ok(())
+}

@@ -11,8 +11,11 @@ use crate::{
 };
 use std::{
     array::from_fn,
-    collections::{HashMap, hash_map::Entry},
+    collections::{HashMap, HashSet, hash_map::Entry},
 };
+
+/// The four faces of a tetrahedron, as triples of local node indices.
+const TET_FACES: [[usize; 3]; 4] = [[0, 2, 1], [0, 1, 3], [1, 2, 3], [2, 0, 3]];
 
 /// A mesh peeled open along its boundary, with that boundary's nodes
 /// duplicated so a layer of elements can span the two copies.
@@ -67,6 +70,73 @@ where
         None => connectivities.push(variant(cells.into())),
     }
     Ok(())
+}
+
+/// Drops tetrahedra until the mesh boundary is edge-manifold: every boundary
+/// edge carried by exactly two boundary faces.
+///
+/// [`trim`](Tessellation::trim) keeps or discards a background cell by the
+/// signed distances at its nodes alone, with no topological guard, so a
+/// tetrahedral background can be left pinched along an edge or hanging by one.
+/// Such a boundary cannot be [peeled](Mesh::peel), so each tetrahedron that
+/// carries a boundary face on a non-manifold edge is removed, and the check
+/// repeated, until the boundary closes up. A hexahedral background trimmed the
+/// same way rarely pinches, and [`buffer`](Mesh::buffer) leaves it alone.
+fn manifold_boundary(mut mesh: Mesh<3>) -> Result<Mesh<3>, &'static str> {
+    for _ in 0..64 {
+        let tets: Vec<[usize; 4]> = mesh
+            .iter()
+            .flatten()
+            .map(|tet| from_fn(|i| tet[i]))
+            .collect();
+        let mut face_tets: HashMap<[usize; 3], Vec<usize>> = HashMap::new();
+        for (element, tet) in tets.iter().enumerate() {
+            for face in TET_FACES {
+                let mut key = face.map(|node| tet[node]);
+                key.sort_unstable();
+                face_tets.entry(key).or_default().push(element);
+            }
+        }
+        let mut edge_faces: HashMap<[usize; 2], u32> = HashMap::new();
+        for (face, owners) in &face_tets {
+            if owners.len() == 1 {
+                for [a, b] in [[0, 1], [1, 2], [2, 0]] {
+                    let mut edge = [face[a], face[b]];
+                    edge.sort_unstable();
+                    *edge_faces.entry(edge).or_insert(0) += 1;
+                }
+            }
+        }
+        let bad: HashSet<[usize; 2]> = edge_faces
+            .into_iter()
+            .filter_map(|(edge, count)| (count != 2).then_some(edge))
+            .collect();
+        if bad.is_empty() {
+            return Ok(mesh);
+        }
+        let mut discard: HashSet<usize> = HashSet::new();
+        for (face, owners) in &face_tets {
+            if owners.len() == 1
+                && [[0, 1], [1, 2], [2, 0]].iter().any(|&[a, b]| {
+                    let mut edge = [face[a], face[b]];
+                    edge.sort_unstable();
+                    bad.contains(&edge)
+                })
+            {
+                discard.insert(owners[0]);
+            }
+        }
+        if discard.is_empty() {
+            return Err("non-manifold boundary");
+        }
+        let mut element = 0;
+        mesh.retain_elements(|_, _, _| {
+            let keep = !discard.contains(&element);
+            element += 1;
+            keep
+        });
+    }
+    Err("non-manifold boundary")
 }
 
 /// Constraint on how the buffer layer approaches the target surface.
@@ -136,14 +206,15 @@ impl Mesh<3> {
         target: &Tessellation,
         fitting: Fitting,
     ) -> Result<Self, &'static str> {
-        let boundary = self.exterior_faces();
+        let cleaned = manifold_boundary(self)?;
+        let boundary = cleaned.exterior_faces();
         let Peeled {
             mut connectivities,
             coordinates,
             count,
             duplicates,
             layer,
-        } = self.peel(&boundary, 3, "non-triangular boundary face")?;
+        } = cleaned.peel(&boundary, 3, "non-triangular boundary face")?;
         let cells: Vec<[usize; 4]> = boundary
             .iter()
             .flat_map(|face| prism(face, &duplicates))
