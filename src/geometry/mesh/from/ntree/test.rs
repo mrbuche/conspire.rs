@@ -11,7 +11,7 @@ use crate::{
 };
 use std::collections::HashSet;
 
-fn octree(length: u16) -> Octree<u16, usize> {
+pub(super) fn octree(length: u16) -> Octree<u16, usize> {
     Octree {
         balanced: Balancing::None,
         nodes: vec![Node {
