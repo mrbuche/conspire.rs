@@ -1,4 +1,7 @@
-use super::{SolidOracle, Uniform, classify_by_flood_fill, classify_by_signed_distance, refine_octree};
+use super::{
+    SolidOracle, Uniform, classify_by_flood_fill, classify_by_signed_distance, refine_octree,
+    survives_trim,
+};
 use crate::{
     geometry::{
         Coordinate, Coordinates, Direction,
@@ -129,6 +132,18 @@ fn flood_fill_ignores_a_lie_in_the_interior() {
     // The flood fill only trusts the straddle band and the boundary seed.
     let flooded = classify_by_flood_fill(&Box { lie: true }, &mesh).unwrap();
     assert_eq!(flooded[centre], Class::Inside);
+}
+
+#[test]
+fn trim_keeps_a_flood_fill_rescued_cut_cell() {
+    // A `Cut` cell with every corner in the air (maximum < 0) is a thin-wall
+    // rescue: Tong's ratio test drops it, `mesh`'s trim must not.
+    assert!(survives_trim(true, -0.3, -0.1));
+    // Same corners, not flagged `Cut` (an ordinary far-outside cell): dropped.
+    assert!(!survives_trim(false, -0.3, -0.1));
+    // An ordinary straddling `Cut` cell still obeys the ratio rule.
+    assert!(survives_trim(true, -0.05, 0.9));
+    assert!(!survives_trim(true, -1.0, 0.5));
 }
 
 /// A plate `0.5 <= x,z <= 4.5`, `1.3 <= y <= 1.7` (positive inside): thinner

@@ -437,6 +437,7 @@ pub trait Solid {
             .iter()
             .map(|&class| class == Class::Outside)
             .collect();
+        let cut: Vec<bool> = classes.iter().map(|&class| class == Class::Cut).collect();
         let number_of_nodes = mesh.coordinates().len();
         let mut needed = vec![false; number_of_nodes];
         {
@@ -458,10 +459,22 @@ pub trait Solid {
                 (Scalar::INFINITY, Scalar::NEG_INFINITY),
                 |(minimum, maximum), &node| (minimum.min(signed[node]), maximum.max(signed[node])),
             );
-            minimum + TRIM_RATIO * maximum >= 0.0
+            survives_trim(cut[index], minimum, maximum)
         })?;
         mesh.buffer_with(&Fit(&oracle), fitting)
     }
+}
+
+/// Whether a non-`Outside` dual cell survives [`Solid::mesh`]'s trim. A `Cut`
+/// cell the flood fill rescued — every one of its eight corners in the air, its
+/// centroid in the solid, so it carries a wall thinner than itself — fails
+/// Tong's ratio rule by construction (`maximum < 0`), but dropping it would
+/// delete the thin feature; keep it. Every other cell obeys the ratio rule.
+fn survives_trim(cut: bool, minimum: Scalar, maximum: Scalar) -> bool {
+    if cut && maximum < 0.0 {
+        return true;
+    }
+    minimum + TRIM_RATIO * maximum >= 0.0
 }
 
 /// Refines an octree over the padded box `(low, high)` until every leaf is no
