@@ -10,6 +10,7 @@ mod into;
 mod quality;
 mod read;
 mod remesh;
+mod retain;
 mod smooth;
 mod tessellation;
 mod write;

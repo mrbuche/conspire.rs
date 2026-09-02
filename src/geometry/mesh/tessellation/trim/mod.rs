@@ -78,12 +78,13 @@ impl Tessellation {
                     });
                 });
         });
-        mesh.keep_hexes(|_, hex, _| {
-            let (minimum, maximum) = hex.iter().fold(
+        mesh.retain_elements(|_, element, _| {
+            let (minimum, maximum) = element.iter().fold(
                 (Scalar::INFINITY, Scalar::NEG_INFINITY),
                 |(minimum, maximum), &node| (minimum.min(signed[node]), maximum.max(signed[node])),
             );
             minimum + TRIM_RATIO * maximum >= 0.0
-        })
+        });
+        Ok(())
     }
 }
