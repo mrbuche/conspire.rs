@@ -51,8 +51,8 @@ fit quality is a separate concern). A *change* in that number is the signal.
 | `cad/brep/{classify,inside,orient,planar,tessellate,primitive,features}` | — | trimming/topology |
 | `cad/sizing` | — | feature-size field |
 | `cad/{assemble,mesh}` | — | orchestration |
-| `csg/*` | — | analytic primitives + boolean ops |
-| `solid` | — | shared octree→dual→trim→fit driver |
+| `csg/*` | `bb39c8cf` (Sonnet high; Opus pass pending) | analytic primitives + boolean ops |
+| `solid` | `bb39c8cf` (Sonnet high; Opus pass pending) | shared octree→dual→trim→fit driver |
 | `geometry/mesh/buffer` edits | — | regression surface on existing code |
 
 ## Risk register (re-check every pass)
@@ -86,3 +86,41 @@ the axial (r, z) half-plane rather than differencing radii. Tests are
 
 (`oracle_matches_primitive_cone` also depends on `csg::Cone`'s own SDF being
 exact — confirm that separately when fixing.)
+
+### csg/solid pass 1 (Sonnet `/code-review high`, `bb39c8cf`) — 4 open
+
+All verified against the code. None block; fix opportunistically.
+
+1. **`TorusOracle::project` off-surface for a query exactly on the tube centre
+   circle** (`csg/torus/mod.rs:100`). When `offset` is zero the normal falls
+   back to `perpendicular(axis)` — a fixed global direction, not radial at the
+   ring point — so the returned "projection" is ~`minor·(1−cos)` *inside* the
+   solid, not on the surface (e.g. query `[0,3,0]` on `Torus(0,+z,3,1)` →
+   `[1,3,0]`, `signed_distance ≈ 0.84`). Fix: reuse `radial_unit` from
+   `tube_frame` (or `axis`) as the fallback — both are genuine tube-frame
+   directions and land on the surface. Severity low (measure-zero input,
+   `1e-30` guard) but a real `project` correctness bug.
+
+2. **`Solid::mesh` evaluates corner SDFs twice** (`solid/mod.rs:434`).
+   `dual_background` → `classify` already does one `signed_distance` per node
+   (plus per non-`Cut` centroid); `mesh` then keeps only the `Outside` bit and
+   recomputes corner SDFs via `signed_distances` at :452. The centroid work and
+   one full corner pass are wasted. `mesh` only needs an "entirely outside"
+   predicate. Costs most on the ray-casting B-rep oracle this driver is built
+   to share.
+
+3. **`classify_by_signed_distance` is single-threaded** (`solid/mod.rs:105`).
+   The default `Solid::classify` for every CSG primitive evaluates the oracle in
+   a plain `.iter().map()` for nodes and again per centroid, while the sibling
+   `classify_by_flood_fill` uses the threaded `signed_distances` helper (whose
+   own doc calls SDF eval "the expensive part"). Route both passes through
+   `signed_distances`.
+
+4. **CSG combinators silently use the naive classifier** (`solid/mod.rs:347`).
+   `classify_by_flood_fill` (thin-wall centroid probe, detached-`Cut`-island
+   handling) is wired only into `impl Solid for Brep`; `Primitive` /
+   `Difference` / `Union` / … fall through to `classify_by_signed_distance`,
+   which has no sub-cell-feature guard. A `Difference(box, thin_pore)` whose
+   pore is thinner than the local octree cell — all 8 corners in material,
+   centroid missing the pore — is classified `Inside` and never trimmed. Real
+   for the box−⋃pores use case unless the caller sizes the octree fine enough.
