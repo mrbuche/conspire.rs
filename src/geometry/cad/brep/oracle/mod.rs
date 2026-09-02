@@ -1,4 +1,6 @@
 #[cfg(test)]
+mod harness;
+#[cfg(test)]
 mod test;
 
 mod patch;
