@@ -13,6 +13,12 @@ use std::array::from_fn;
 const D: usize = 3;
 const TOLERANCE: Scalar = 1.0e-12;
 const ITERATIONS: usize = 100;
+/// A principal coordinate this close to zero (relative to its semi-axis) is
+/// treated as exactly zero: the closest point sits on that plane by symmetry,
+/// so the axis is dropped and the lower-D problem solved instead. Keeps the
+/// bisection root away from the `-e_min²` bracket end, where an
+/// epsilon-nudged coordinate left it unresolved.
+const AXIS_EPSILON: Scalar = 1.0e-9;
 
 /// A triaxial ellipsoid, meshed as a solid by the shared driver.
 pub struct Ellipsoid {
@@ -97,45 +103,38 @@ impl EllipsoidOracle {
     }
 
     /// The closest point of the canonical ellipsoid to the frame-local point
-    /// `p`, by bisecting Eberly's `F(t) = Σ (eᵢ pᵢ / (t + eᵢ²))² − 1`.
+    /// `p`, by bisecting Eberly's `F(t) = Σ (eᵢ pᵢ / (t + eᵢ²))² − 1`. A
+    /// principal coordinate within [`AXIS_EPSILON`] of zero is dropped and the
+    /// remaining-axes problem solved, with that coordinate held at zero.
     fn closest_local(&self, p: [Scalar; D]) -> [Scalar; D] {
         let e = self.semi;
+        let shortest_axis = || (0..D).min_by(|&a, &b| e[a].total_cmp(&e[b])).unwrap();
+
         let normalized: Scalar = (0..D).map(|i| (p[i] / e[i]).powi(2)).sum();
+        let mut closest = [0.0; D];
         if normalized < TOLERANCE {
             // At the centre the projection is the tip of the shortest semi-axis.
-            let shortest = (0..D).min_by(|&a, &b| e[a].total_cmp(&e[b])).unwrap();
-            let mut closest = [0.0; D];
-            closest[shortest] = e[shortest];
+            closest[shortest_axis()] = e[shortest_axis()];
             return closest;
         }
-        let sign: [Scalar; D] = from_fn(|i| if p[i] < 0.0 { -1.0 } else { 1.0 });
-        let y: [Scalar; D] = from_fn(|i| p[i].abs().max(TOLERANCE));
 
-        let f = |t: Scalar| -> Scalar {
-            (0..D)
-                .map(|i| (e[i] * y[i] / (t + e[i] * e[i])).powi(2))
-                .sum::<Scalar>()
-                - 1.0
-        };
-        let smallest = (0..D).map(|i| e[i] * e[i]).fold(Scalar::INFINITY, Scalar::min);
-        let (mut lo, mut hi) = if normalized <= 1.0 {
-            (TOLERANCE - smallest, 0.0)
-        } else {
-            (0.0, (0..D).map(|i| (e[i] * y[i]).powi(2)).sum::<Scalar>().sqrt())
-        };
-        for _ in 0..ITERATIONS {
-            if hi - lo <= TOLERANCE * (1.0 + hi.abs()) {
-                break;
-            }
-            let mid = 0.5 * (lo + hi);
-            if f(mid) > 0.0 {
-                lo = mid;
-            } else {
-                hi = mid;
-            }
+        let active: Vec<usize> = (0..D)
+            .filter(|&i| p[i].abs() > AXIS_EPSILON * e[i].max(1.0))
+            .collect();
+        if active.is_empty() {
+            closest[shortest_axis()] = e[shortest_axis()];
+            return closest;
         }
-        let t = 0.5 * (lo + hi);
-        from_fn(|i| sign[i] * e[i] * e[i] * y[i] / (t + e[i] * e[i]))
+
+        let es: Vec<Scalar> = active.iter().map(|&i| e[i]).collect();
+        let ys: Vec<Scalar> = active.iter().map(|&i| p[i].abs()).collect();
+        let sub_normalized: Scalar = active.iter().map(|&i| (p[i] / e[i]).powi(2)).sum();
+        let t = eberly_root(&es, &ys, sub_normalized);
+        for (slot, &i) in active.iter().enumerate() {
+            let sign = if p[i] < 0.0 { -1.0 } else { 1.0 };
+            closest[i] = sign * es[slot] * es[slot] * ys[slot] / (t + es[slot] * es[slot]);
+        }
+        closest
     }
 
     fn to_world(&self, local: [Scalar; D]) -> [Scalar; D] {
@@ -172,6 +171,41 @@ impl SolidOracle for EllipsoidOracle {
             -distance
         }
     }
+}
+
+/// Bisects Eberly's `F(t) = Σ (eᵢ yᵢ / (t + eᵢ²))² − 1` over the given axes
+/// (`y` = `|p|` there, all strictly positive) for the closest-point parameter
+/// `t`. `normalized = Σ (yᵢ / eᵢ)²` selects the interior (`≤ 1`) or exterior
+/// bracket.
+fn eberly_root(e: &[Scalar], y: &[Scalar], normalized: Scalar) -> Scalar {
+    let f = |t: Scalar| -> Scalar {
+        e.iter()
+            .zip(y)
+            .map(|(&e, &y)| (e * y / (t + e * e)).powi(2))
+            .sum::<Scalar>()
+            - 1.0
+    };
+    let smallest = e.iter().map(|&e| e * e).fold(Scalar::INFINITY, Scalar::min);
+    let (mut lo, mut hi) = if normalized <= 1.0 {
+        (TOLERANCE - smallest, 0.0)
+    } else {
+        (
+            0.0,
+            e.iter().zip(y).map(|(&e, &y)| (e * y).powi(2)).sum::<Scalar>().sqrt(),
+        )
+    };
+    for _ in 0..ITERATIONS {
+        if hi - lo <= TOLERANCE * (1.0 + hi.abs()) {
+            break;
+        }
+        let mid = 0.5 * (lo + hi);
+        if f(mid) > 0.0 {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    0.5 * (lo + hi)
 }
 
 fn dot(a: [Scalar; D], b: [Scalar; D]) -> Scalar {

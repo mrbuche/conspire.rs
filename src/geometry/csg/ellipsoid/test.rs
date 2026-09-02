@@ -52,6 +52,78 @@ fn projects_onto_the_surface() {
     assert!((normal[0].value() - 1.0).abs() < 1e-6);
 }
 
+/// Least distance from `q` to a dense sample of the `[1, 2, 3]` ellipsoid.
+fn brute_force_distance(q: [f64; 3]) -> f64 {
+    use std::f64::consts::PI;
+    let e = [1.0, 2.0, 3.0];
+    let n = 240;
+    let mut best = f64::INFINITY;
+    for i in 0..=n {
+        let theta = PI * i as f64 / n as f64;
+        for j in 0..2 * n {
+            let phi = PI * j as f64 / n as f64;
+            let s = [
+                e[0] * theta.sin() * phi.cos(),
+                e[1] * theta.sin() * phi.sin(),
+                e[2] * theta.cos(),
+            ];
+            let d = ((q[0] - s[0]).powi(2) + (q[1] - s[1]).powi(2) + (q[2] - s[2]).powi(2)).sqrt();
+            best = best.min(d);
+        }
+    }
+    best
+}
+
+#[test]
+fn interior_query_on_a_principal_plane_projects_onto_the_surface() {
+    // The octree origin snap lands a whole plane of nodes on x_i = 0. Such a
+    // query used to leave the bisection root unresolved: the returned foot came
+    // back off the ellipsoid with the wrong distance. The foot must sit on the
+    // surface and the signed distance must equal the distance to it.
+    let ellipsoid = Ellipsoid::new(point([0.0; 3]), [1.0, 2.0, 3.0]).unwrap();
+    let oracle = ellipsoid.oracle().unwrap();
+    let level = |p: [f64; 3]| p[0].powi(2) + (p[1] / 2.0).powi(2) + (p[2] / 3.0).powi(2);
+
+    for q in [
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.5],
+        [0.3, 0.0, 0.0],
+        [0.0, -1.2, 0.8],
+        [0.5, 0.0, 2.0],
+        [0.0, 0.0, 0.0],
+    ] {
+        let (foot, _) = oracle.project(&point(q)).unwrap();
+        let foot = [foot[0].value(), foot[1].value(), foot[2].value()];
+        assert!(
+            (level(foot) - 1.0).abs() < 1e-6,
+            "project({q:?}) -> {foot:?} off the ellipsoid (level {})",
+            level(foot)
+        );
+        let to_foot = ((q[0] - foot[0]).powi(2)
+            + (q[1] - foot[1]).powi(2)
+            + (q[2] - foot[2]).powi(2))
+        .sqrt();
+        assert!(
+            (oracle.signed_distance(&point(q)).abs() - to_foot).abs() < 1e-6,
+            "{q:?}: signed distance disagrees with the foot"
+        );
+    }
+
+    // Where the nearest point is unique (query outside the focal set) it is
+    // also the global nearest. A query inside the focal set on a symmetry
+    // plane -- e.g. [0, 1, 0] or [0, 0, 1.5] -- lands on an on-surface
+    // stationary point that is not the global minimum; that is a standing
+    // limitation of the reduced-axis solve, out of the fit's near-surface
+    // regime, not checked here.
+    for q in [[0.3, 0.0, 0.0], [0.0, 0.0, 2.7], [5.0, 0.0, 0.0], [0.0, 0.0, 0.0]] {
+        let distance = oracle.signed_distance(&point(q)).abs();
+        assert!(
+            distance <= brute_force_distance(q) + 2e-3,
+            "project({q:?}) distance {distance} exceeds the brute-force nearest"
+        );
+    }
+}
+
 #[test]
 fn oriented_swaps_the_axes() {
     // Rotate 90 degrees about z: the a=1 semi-axis now points along world +y.
