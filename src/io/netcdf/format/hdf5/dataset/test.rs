@@ -1,4 +1,4 @@
-use super::{Sizes, attribute, data_layout, dataspace, datatype, filter_pipeline};
+use super::{Sizes, attribute, data_layout, dataspace, datatype, fill_value, filter_pipeline};
 
 const SIZES: Sizes = Sizes {
     offset: 8,
@@ -45,6 +45,26 @@ fn data_layout_unallocated_chunked_is_fill() {
     d.extend([0xFF; 8]);
     d.extend([4, 0, 0, 0, 8, 0, 0, 0]);
     assert!(matches!(data_layout(&SIZES, &d), super::RawLayout::Fill));
+}
+
+#[test]
+fn fill_value_versions() {
+    assert_eq!(
+        fill_value(&[3, 0x2a, 4, 0, 0, 0, 9, 9, 9, 9]),
+        Some(vec![9; 4])
+    );
+    assert_eq!(fill_value(&[3, 0x00, 0, 0, 0, 0]), None);
+    assert_eq!(
+        fill_value(&[2, 2, 2, 1, 4, 0, 0, 0, 7, 7, 7, 7]),
+        Some(vec![7; 4])
+    );
+    assert_eq!(fill_value(&[2, 2, 2, 0]), None);
+}
+
+#[test]
+#[should_panic(expected = "unsupported fill value message version")]
+fn fill_value_rejects_unknown_version() {
+    fill_value(&[9, 0]);
 }
 
 #[test]

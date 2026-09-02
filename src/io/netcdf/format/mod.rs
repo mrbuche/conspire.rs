@@ -66,6 +66,7 @@ pub(super) enum Storage {
         shape: Vec<u64>,
         layout: hdf5::Layout,
         filters: Vec<hdf5::Filter>,
+        fill: Option<Vec<u8>>,
     },
 }
 

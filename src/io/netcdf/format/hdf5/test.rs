@@ -99,13 +99,14 @@ fn chunked_multilevel_btree() {
 }
 
 #[test]
-fn unallocated_variable_reads_as_zero() {
+fn unallocated_variable_reads_as_fill() {
     let nc = open("hdf5_unallocated.nc", UNALLOCATED);
     assert_eq!(
         nc.get_variable::<f64>("a", 4).unwrap(),
         [1.0, 2.0, 3.0, 4.0]
     );
-    assert_eq!(nc.get_variable::<f64>("b", 4).unwrap(), [0.0; 4]);
+    let fill = f64::from_bits(0x479e_0000_0000_0000);
+    assert_eq!(nc.get_variable::<f64>("b", 4).unwrap(), [fill; 4]);
 }
 
 #[test]

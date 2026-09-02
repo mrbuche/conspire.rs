@@ -3,8 +3,16 @@ use super::{Filter, Layout, gather, read_data, scatter, shuffle, unfilter};
 #[test]
 fn fill_layout_reads_zeros() {
     assert_eq!(
-        read_data(&[], &Layout::Fill, &[], &[2], &[0], &[2], 4),
+        read_data(&[], &Layout::Fill, &[], &[2], &[0], &[2], 4, &[]),
         [0; 8]
+    );
+}
+
+#[test]
+fn fill_layout_tiles_the_fill_value() {
+    assert_eq!(
+        read_data(&[], &Layout::Fill, &[], &[2], &[0], &[2], 4, &[1, 2, 3, 4]),
+        [1, 2, 3, 4, 1, 2, 3, 4]
     );
 }
 
@@ -13,11 +21,11 @@ fn contiguous_full_and_hyperslab() {
     let file = [0u8, 0, 10, 0, 20, 0, 30, 0, 40, 0, 50, 0];
     let layout = Layout::Contiguous { addr: 2, size: 10 };
     assert_eq!(
-        read_data(&file, &layout, &[], &[5], &[0], &[5], 2),
+        read_data(&file, &layout, &[], &[5], &[0], &[5], 2, &[]),
         [10, 0, 20, 0, 30, 0, 40, 0, 50, 0]
     );
     assert_eq!(
-        read_data(&file, &layout, &[], &[5], &[1], &[3], 2),
+        read_data(&file, &layout, &[], &[5], &[1], &[3], 2, &[]),
         [20, 0, 30, 0, 40, 0]
     );
 }

@@ -4,6 +4,16 @@ mod test;
 use super::{Filter, Layout, TREE, shuffle, u16, u32, u64, uint};
 use std::borrow::Cow;
 
+// Bytes for `out_elems` unwritten elements: the dataset's fill value tiled if
+// one is known (`fill.len() == elem`), otherwise zero.
+fn fill_buf(fill: &[u8], out_elems: usize, elem: usize) -> Vec<u8> {
+    if fill.len() == elem {
+        fill.repeat(out_elems)
+    } else {
+        vec![0; out_elems * elem]
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(in crate::io::netcdf) fn read_data(
     file: &[u8],
@@ -13,10 +23,11 @@ pub(in crate::io::netcdf) fn read_data(
     start: &[usize],
     count: &[usize],
     elem: usize,
+    fill: &[u8],
 ) -> Vec<u8> {
     let out_elems = count.iter().product::<usize>();
     match layout {
-        Layout::Fill => vec![0; out_elems * elem],
+        Layout::Fill => fill_buf(fill, out_elems, elem),
         Layout::Contiguous { addr, size } => {
             gather(&file[*addr..*addr + size], shape, start, count, elem)
         }
@@ -25,7 +36,7 @@ pub(in crate::io::netcdf) fn read_data(
             offset_size,
             chunk,
         } => {
-            let mut out = vec![0; out_elems * elem];
+            let mut out = fill_buf(fill, out_elems, elem);
             btree(
                 file,
                 *btree_addr,

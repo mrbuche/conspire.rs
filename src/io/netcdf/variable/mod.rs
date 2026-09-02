@@ -116,6 +116,7 @@ impl NetCDF {
                 shape,
                 layout,
                 filters,
+                fill,
             } => {
                 assert_eq!(
                     len as u64,
@@ -144,6 +145,7 @@ impl NetCDF {
                     &start,
                     &count,
                     T::SIZE,
+                    fill.as_deref().unwrap_or(&[]),
                 );
                 Some(decode(&raw))
             }
@@ -172,10 +174,19 @@ impl NetCDF {
                 shape,
                 layout,
                 filters,
+                fill,
             } => {
                 check_slice(name, shape, start, count);
-                let raw =
-                    hdf5::read_data(&reader.bytes, layout, filters, shape, start, count, T::SIZE);
+                let raw = hdf5::read_data(
+                    &reader.bytes,
+                    layout,
+                    filters,
+                    shape,
+                    start,
+                    count,
+                    T::SIZE,
+                    fill.as_deref().unwrap_or(&[]),
+                );
                 Some(if *little_endian {
                     decode_le(&raw)
                 } else {
@@ -190,8 +201,16 @@ impl NetCDF {
                     addr: spec.begin as usize,
                     size: bytes,
                 };
-                let raw =
-                    hdf5::read_data(&reader.bytes, &layout, &[], &shape, start, count, T::SIZE);
+                let raw = hdf5::read_data(
+                    &reader.bytes,
+                    &layout,
+                    &[],
+                    &shape,
+                    start,
+                    count,
+                    T::SIZE,
+                    &[],
+                );
                 Some(decode_be(&raw))
             }
         }

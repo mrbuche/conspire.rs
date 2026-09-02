@@ -17,6 +17,7 @@ pub(super) fn parse(
     let mut shape = Vec::new();
     let mut dt = None;
     let mut layout = None;
+    let mut fill = None;
     let mut filters = Vec::new();
     let mut atts = Vec::new();
     let mut dimension_scale = false;
@@ -26,6 +27,7 @@ pub(super) fn parse(
         match m.typ {
             0x0001 => shape = dataspace(d),
             0x0003 => dt = Some(datatype(d)),
+            0x0005 => fill = fill_value(d),
             0x0008 => layout = Some(data_layout(sizes, d)),
             0x000B => filters = filter_pipeline(d),
             0x000C => {
@@ -90,6 +92,7 @@ pub(super) fn parse(
             shape,
             layout,
             filters,
+            fill,
         },
     });
 }
@@ -160,6 +163,27 @@ pub(super) fn data_layout(sizes: &Sizes, d: &[u8]) -> RawLayout {
         }
         c => panic!("unsupported data layout class {c}"),
     }
+}
+
+// Fill value message. v1/v2 carry `defined` at byte 3 and size+value from
+// byte 4; v3 packs version+flags into bytes 0-1 (bit 5 = value present) and
+// size+value from byte 2. Returns the raw fill bytes, or None when no value is
+// stored (callers then fall back to zero-fill).
+fn fill_value(d: &[u8]) -> Option<Vec<u8>> {
+    assert!(
+        matches!(d[0], 1..=3),
+        "unsupported fill value message version {}",
+        d[0]
+    );
+    let (defined, at) = if d[0] == 3 {
+        (d[1] & 0x20 != 0, 2)
+    } else {
+        (d[3] != 0, 4)
+    };
+    defined.then(|| {
+        let size = u32(d, at) as usize;
+        d[at + 4..at + 4 + size].to_vec()
+    })
 }
 
 pub(super) fn filter_pipeline(d: &[u8]) -> Vec<Filter> {
