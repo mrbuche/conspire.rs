@@ -365,7 +365,7 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
     let name = |b: &mut Vec<u8>, s: &str| {
         b.extend_from_slice(&(s.len() as u32).to_be_bytes());
         b.extend_from_slice(s.as_bytes());
-        while b.len() % 4 != 0 {
+        while !b.len().is_multiple_of(4) {
             b.push(0);
         }
     };
@@ -410,7 +410,7 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
             b.extend_from_slice(&NC_CHAR.to_be_bytes());
             b.extend_from_slice(&6u32.to_be_bytes());
             b.extend_from_slice(b"TETRA\x00");
-            while b.len() % 4 != 0 {
+            while !b.len().is_multiple_of(4) {
                 b.push(0);
             }
         } else {
