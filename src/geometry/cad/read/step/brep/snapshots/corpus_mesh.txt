@@ -1,0 +1,55 @@
+nist/AP203 geometry only/nist_ctc_01_asme1_rd.stp: 8235 hexes, bbox [0.8113 0.4538 0.1650], 4848 boundary faces, worst SJ 1.000
+nist/AP203 geometry only/nist_ctc_02_asme1_rc.stp: skipped (663 faces)
+nist/AP203 geometry only/nist_ctc_03_asme1_rc.stp: 246 hexes, bbox [0.0501 0.1335 0.0501], 418 boundary faces, worst SJ 1.000
+nist/AP203 geometry only/nist_ctc_04_asme1_rd.stp: skipped (517 faces)
+nist/AP203 geometry only/nist_ctc_05_asme1_rd.stp: skipped (208 faces)
+nist/AP203 geometry only/nist_ftc_06_asme1_rd.stp: 20121 hexes, bbox [0.3196 0.2095 0.2934], 29652 boundary faces, worst SJ 1.000
+nist/AP203 geometry only/nist_ftc_07_asme1_rd.stp: skipped (269 faces)
+nist/AP203 geometry only/nist_ftc_08_asme1_rc.stp: skipped (270 faces)
+nist/AP203 geometry only/nist_ftc_09_asme1_rd.stp: 4302 hexes, bbox [0.1969 0.0096 0.2833], 4902 boundary faces, worst SJ 1.000
+nist/AP203 geometry only/nist_ftc_10_asme1_rb.stp: skipped (214 faces)
+nist/AP203 geometry only/nist_ftc_11_asme1_rb.stp: 1530 hexes, bbox [0.0671 0.0671 0.0108], 1946 boundary faces, worst SJ 1.000
+nist/AP203 with PMI/nist_ctc_01_asme1_ap203.stp: 8235 hexes, bbox [0.8113 0.4538 0.1650], 4848 boundary faces, worst SJ 1.000
+nist/AP203 with PMI/nist_ctc_02_asme1_ap203.stp: skipped (over 2000000 bytes)
+nist/AP203 with PMI/nist_ctc_03_asme1_ap203.stp: skipped (over 2000000 bytes)
+nist/AP203 with PMI/nist_ctc_04_asme1_ap203.stp: skipped (405 faces)
+nist/AP203 with PMI/nist_ctc_05_asme1_ap203.stp: 9240 hexes, bbox [0.7149 0.6577 0.6720], 7826 boundary faces, worst SJ 1.000
+nist/nist_ctc_01_asme1_ap242-e1.stp: 8235 hexes, bbox [0.8113 0.4538 0.1650], 4848 boundary faces, worst SJ 1.000
+nist/nist_ctc_02_asme1_ap242-e2.stp: skipped (635 faces)
+nist/nist_ctc_03_asme1_ap242-e2.stp: 246 hexes, bbox [0.0501 0.1335 0.0501], 418 boundary faces, worst SJ 1.000
+nist/nist_ctc_04_asme1_ap242-e1.stp: skipped (483 faces)
+nist/nist_ctc_05_asme1_ap242-e1.stp: 8780 hexes, bbox [0.7149 0.6577 0.6720], 7104 boundary faces, worst SJ 1.000
+nist/nist_ftc_06_asme1_ap242-e2.stp: skipped (187 faces)
+nist/nist_ftc_07_asme1_ap242-e2.stp: skipped (304 faces)
+nist/nist_ftc_08_asme1_ap242-e1-tg.stp: skipped (over 2000000 bytes)
+nist/nist_ftc_08_asme1_ap242-e2.stp: skipped (over 2000000 bytes)
+nist/nist_ftc_09_asme1_ap242-e1.stp: skipped (over 2000000 bytes)
+nist/nist_ftc_10_asme1_ap242-e2.stp: skipped (264 faces)
+nist/nist_ftc_11_asme1_ap242-e2.stp: 5880 hexes, bbox [0.0677 0.0671 0.0265], 6720 boundary faces, worst SJ 0.258
+nist/nist_stc_06_asme1_ap242-e3.stp: 33654 hexes, bbox [0.2881 0.3196 0.1781], 17762 boundary faces, worst SJ 1.000
+nist/nist_stc_07_asme1_ap242-e3.stp: skipped (304 faces)
+nist/nist_stc_08_asme1_ap242-e3.stp: skipped (over 2000000 bytes)
+nist/nist_stc_09_asme1_ap242-e3.stp: skipped (over 2000000 bytes)
+nist/nist_stc_10_asme1_ap242-e2.stp: skipped (over 2000000 bytes)
+steptools/as1-ac-214.stp: 67783 hexes, bbox [0.1825 0.1516 0.2028], 27484 boundary faces, worst SJ 0.258
+steptools/as1-ec-214.stp: 74547 hexes, bbox [0.2893 0.2102 0.2097], 32794 boundary faces, worst SJ 0.258
+steptools/as1-md-214.stp: 60485 hexes, bbox [0.1825 0.1763 0.2028], 25330 boundary faces, worst SJ 0.258
+steptools/as1-tc-214.stp: 74549 hexes, bbox [0.2893 0.2102 0.2097], 32802 boundary faces, worst SJ 0.258
+steptools/as1-ug-214.stp: 61238 hexes, bbox [0.1893 0.1583 0.2028], 24992 boundary faces, worst SJ 0.258
+steptools/boxy_with_cylindricity.stp: 69080 hexes, bbox [0.0853 0.0839 0.0811], 26524 boundary faces, worst SJ 0.258
+steptools/boxy_with_diamsize.stp: 69080 hexes, bbox [0.0853 0.0839 0.0811], 26524 boundary faces, worst SJ 0.258
+steptools/boxy_with_flatness.stp: 69080 hexes, bbox [0.0853 0.0839 0.0811], 26524 boundary faces, worst SJ 0.258
+steptools/boxy_with_limitsandfits.stp: 69080 hexes, bbox [0.0853 0.0839 0.0811], 26524 boundary faces, worst SJ 0.258
+steptools/boxy_with_linearsize.stp: 69080 hexes, bbox [0.0853 0.0839 0.0811], 26524 boundary faces, worst SJ 0.258
+steptools/boxy_with_perp.stp: 69080 hexes, bbox [0.0853 0.0839 0.0811], 26524 boundary faces, worst SJ 0.258
+steptools/boxy_with_surfacetex.stp: 69080 hexes, bbox [0.0853 0.0839 0.0811], 26524 boundary faces, worst SJ 0.258
+steptools/d2-db-214.stp: 99332 hexes, bbox [0.0541 0.0541 0.0541], 13718 boundary faces, worst SJ 0.258
+steptools/f1-db-214.stp: mesh-error: unsupported trim ring on a B-spline face
+steptools/io1-ac-214.stp: 27334 hexes, bbox [0.0892 0.0318 0.0892], 10772 boundary faces, worst SJ 1.000
+steptools/io1-ca-214.stp: 22093 hexes, bbox [0.0366 0.0882 0.0882], 9278 boundary faces, worst SJ 1.000
+steptools/io1-ec-214.stp: 29030 hexes, bbox [0.0892 0.0892 0.0348], 11564 boundary faces, worst SJ 1.000
+steptools/io1-md-214.stp: 27334 hexes, bbox [0.0892 0.0318 0.0892], 10772 boundary faces, worst SJ 1.000
+steptools/io1-tc-214.stp: 28064 hexes, bbox [0.0423 0.0923 0.0923], 12234 boundary faces, worst SJ 1.000
+steptools/io1-ug-214.stp: 25836 hexes, bbox [0.0892 0.0318 0.0892], 10908 boundary faces, worst SJ 1.000
+
+53 files

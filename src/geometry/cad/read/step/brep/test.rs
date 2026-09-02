@@ -1651,3 +1651,283 @@ fn rejects_missing_solid() {
             .contains("MANIFOLD_SOLID_BREP")
     );
 }
+
+// ---------------------------------------------------------------------------
+// Corpus snapshot probes. Both are #[ignore]d and read STEP_CORPUS_DIR (walked
+// recursively); with the dir unset they no-op. The stats text is diffed against
+// a checked-in snapshot under snapshots/; UPDATE_SNAPSHOT=1 rewrites it. Point
+// the dir at ~/Downloads/steptools + ~/Downloads/NIST-PMI-STEP-Files.
+// ---------------------------------------------------------------------------
+
+const HEX_FACES: [[usize; 4]; 6] = [
+    [0, 1, 2, 3],
+    [4, 5, 6, 7],
+    [0, 1, 5, 4],
+    [1, 2, 6, 5],
+    [2, 3, 7, 6],
+    [3, 0, 4, 7],
+];
+
+fn step_corpus() -> Vec<(String, std::path::PathBuf)> {
+    let Ok(root) = std::env::var("STEP_CORPUS_DIR") else {
+        return Vec::new();
+    };
+    let root = std::path::PathBuf::from(root);
+    fn walk(dir: &std::path::Path, root: &std::path::Path, out: &mut Vec<(String, std::path::PathBuf)>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, root, out);
+            } else if path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("stp") || e.eq_ignore_ascii_case("step"))
+            {
+                let rel = path
+                    .strip_prefix(root)
+                    .unwrap_or(&path)
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                out.push((rel, path));
+            }
+        }
+    }
+    let mut files = Vec::new();
+    walk(&root, &root, &mut files);
+    files.sort();
+    files
+}
+
+fn check_snapshot(name: &str, actual: &str) {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("src/geometry/cad/read/step/brep/snapshots")
+        .join(name);
+    if std::env::var("UPDATE_SNAPSHOT").is_ok() || !path.exists() {
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, actual).unwrap();
+        eprintln!("wrote snapshot {}", path.display());
+        return;
+    }
+    let expected = std::fs::read_to_string(&path).unwrap();
+    if expected == actual {
+        return;
+    }
+    let (exp, act): (Vec<&str>, Vec<&str>) = (expected.lines().collect(), actual.lines().collect());
+    let mut diff = String::new();
+    for row in 0..exp.len().max(act.len()) {
+        let (e, a) = (exp.get(row).copied().unwrap_or(""), act.get(row).copied().unwrap_or(""));
+        if e != a {
+            diff.push_str(&format!("-{e}\n+{a}\n"));
+        }
+    }
+    panic!("snapshot {name} changed (UPDATE_SNAPSHOT=1 to accept):\n{diff}");
+}
+
+/// Parses every corpus file, catching panics, and snapshots per file: the solid
+/// and face counts, the surface-type histogram, how many solids reduce to a
+/// primitive, how many build an oracle, and the assembly outcome — or the parse
+/// error / `PANIC`. A regression here is a reader change that broke a file it
+/// used to read (or started panicking on one).
+#[test]
+#[ignore = "parses every .stp under STEP_CORPUS_DIR and diffs snapshots/corpus_parse.txt"]
+fn corpus_parse_snapshot() {
+    use crate::geometry::cad::{assemble::assemble, brep::surface::Surface};
+
+    let files = step_corpus();
+    if files.is_empty() {
+        return;
+    }
+    let mut report = String::new();
+    for (rel, path) in &files {
+        let Ok(text) = std::fs::read_to_string(path) else {
+            report.push_str(&format!("{rel}: read-io-error\n"));
+            continue;
+        };
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| read_all(&text))) {
+            Err(_) => report.push_str(&format!("{rel}: PANIC\n")),
+            Ok(Err(error)) => {
+                report.push_str(&format!("{rel}: parse-error: {}\n", error.to_string().trim()))
+            }
+            Ok(Ok(breps)) => {
+                let faces: usize = breps.iter().map(|brep| brep.faces.len()).sum();
+                let mut hist = [0usize; 7];
+                for brep in &breps {
+                    for face in &brep.faces {
+                        hist[match face.surface {
+                            Surface::Plane(_) => 0,
+                            Surface::Cylinder(_) => 1,
+                            Surface::Sphere(_) => 2,
+                            Surface::Cone(_) => 3,
+                            Surface::Torus(_) => 4,
+                            Surface::BSpline(_) => 5,
+                            Surface::Revolution(_) => 6,
+                        }] += 1;
+                    }
+                }
+                let primitives = breps.iter().filter(|brep| brep.primitive().is_some()).count();
+                let oracles = breps.iter().filter(|brep| brep.oracle().is_ok()).count();
+                let assembled = match assemble(&breps) {
+                    Ok(bodies) => format!("{} bodies", bodies.len()),
+                    Err(error) => format!("no ({error})"),
+                };
+                report.push_str(&format!(
+                    "{rel}: {} solids, {faces} faces \
+                     [P{} Cy{} S{} Co{} T{} B{} R{}], {primitives} primitive, \
+                     oracle {oracles}/{}, assemble {assembled}\n",
+                    breps.len(),
+                    hist[0], hist[1], hist[2], hist[3], hist[4], hist[5], hist[6],
+                    breps.len(),
+                ));
+            }
+        }
+    }
+    report.push_str(&format!("\n{} files\n", files.len()));
+    check_snapshot("corpus_parse.txt", &report);
+}
+
+/// Runs the octree -> dual -> trim pipeline (no fit — the fit is
+/// non-deterministic) on every corpus file at a fixed sizing and snapshots the
+/// hex count, mesh bounding-box spans, boundary-quad count (with any
+/// non-manifold quad flagged), and worst scaled Jacobian — or the pipeline
+/// error. Files over `STEP_CORPUS_MAX_BYTES` (default 2 MB) are recorded as
+/// `skipped` to keep the default run bounded.
+#[test]
+#[ignore = "meshes every .stp under STEP_CORPUS_DIR and diffs snapshots/corpus_mesh.txt"]
+fn corpus_mesh_snapshot() {
+    use crate::{
+        geometry::{
+            cad::{assemble::assemble, sizing::FeatureSizing},
+            mesh::{Connectivity, Mesh, Verdict},
+            ntree::Balancing,
+            solid::{Solid, Uniform},
+        },
+        math::{Quantity, Tensor},
+        units::Length,
+    };
+
+    let files = step_corpus();
+    if files.is_empty() {
+        return;
+    }
+    let env_usize = |key, default| -> usize {
+        std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+    };
+    // A single runaway mesh SIGKILLs the whole snapshot, so bound the work up
+    // front: skip large files and face-dense solids, and cap the octree. All
+    // three are env-overridable for a deliberate full run.
+    let max_bytes = env_usize("STEP_CORPUS_MAX_BYTES", 2_000_000) as u64;
+    let max_faces = env_usize("STEP_CORPUS_MAX_FACES", 160);
+    let levels = Some(env_usize("STEP_CORPUS_LEVELS", 6) as u32);
+
+    let cell = || Quantity::<Length>::new(3.0e-3);
+    let fold_bbox = |mesh: &Mesh<3>, low: &mut [f64; 3], high: &mut [f64; 3]| {
+        for point in mesh.coordinates().iter() {
+            for k in 0..3 {
+                low[k] = low[k].min(point[k].value());
+                high[k] = high[k].max(point[k].value());
+            }
+        }
+    };
+    let faces_of = |mesh: &Mesh<3>| -> (usize, usize) {
+        let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
+            return (0, 0);
+        };
+        let mut seen: std::collections::HashMap<[usize; 4], usize> = std::collections::HashMap::new();
+        for hex in block.iter() {
+            for face in HEX_FACES {
+                let mut key = face.map(|corner| hex[corner]);
+                key.sort_unstable();
+                *seen.entry(key).or_insert(0) += 1;
+            }
+        }
+        (
+            seen.values().filter(|&&count| count == 1).count(),
+            seen.values().filter(|&&count| count > 2).count(),
+        )
+    };
+
+    let mut report = String::new();
+    for (rel, path) in &files {
+        if std::fs::metadata(path).map(|m| m.len()).unwrap_or(0) > max_bytes {
+            report.push_str(&format!("{rel}: skipped (over {max_bytes} bytes)\n"));
+            continue;
+        }
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let text = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+            let breps = read_all(&text).map_err(|e| e.to_string())?;
+            let face_count: usize = breps.iter().map(|brep| brep.faces.len()).sum();
+            if face_count > max_faces {
+                return Err(format!("skipped ({face_count} faces)"));
+            }
+            let (mut elements, mut boundary, mut nonmanifold) = (0usize, 0usize, 0usize);
+            let mut worst = f64::INFINITY;
+            let mut low = [f64::INFINITY; 3];
+            let mut high = [f64::NEG_INFINITY; 3];
+            let mut tally = |mesh: &Mesh<3>| {
+                elements += mesh.number_of_elements();
+                worst = worst.min(
+                    mesh.minimum_scaled_jacobians()[0]
+                        .iter()
+                        .copied()
+                        .fold(f64::INFINITY, f64::min),
+                );
+                let (b, n) = faces_of(mesh);
+                boundary += b;
+                nonmanifold += n;
+                fold_bbox(mesh, &mut low, &mut high);
+            };
+            if let Ok(bodies) = assemble(&breps) {
+                let sizing = Uniform(cell());
+                for body in &bodies {
+                    let (mesh, _) = body
+                        .trim(&sizing, levels, 0.1, Balancing::Strong(1))
+                        .map_err(|e| e.to_string())?;
+                    tally(&mesh);
+                }
+            } else {
+                for brep in &breps {
+                    brep.oracle().map_err(|e| e.to_string())?;
+                    let sizing = FeatureSizing::of(
+                        brep,
+                        32,
+                        Quantity::<Length>::new(4.0e-4),
+                        Some(cell()),
+                        Some(0.2),
+                    );
+                    let (mesh, _) = brep
+                        .trim(&sizing, levels, 0.1, Balancing::Strong(1))
+                        .map_err(|e| e.to_string())?;
+                    tally(&mesh);
+                }
+            }
+            Ok::<_, String>((elements, boundary, nonmanifold, worst, low, high))
+        }));
+        match outcome {
+            Err(_) => report.push_str(&format!("{rel}: PANIC\n")),
+            Ok(Err(error)) if error.starts_with("skipped") => {
+                report.push_str(&format!("{rel}: {error}\n"))
+            }
+            Ok(Err(error)) => report.push_str(&format!("{rel}: mesh-error: {error}\n")),
+            Ok(Ok((elements, boundary, nonmanifold, worst, low, high))) => {
+                let span = |k: usize| (high[k] - low[k]).max(0.0);
+                let flag = if nonmanifold > 0 {
+                    format!(", {nonmanifold} non-manifold")
+                } else {
+                    String::new()
+                };
+                report.push_str(&format!(
+                    "{rel}: {elements} hexes, bbox [{:.4} {:.4} {:.4}], \
+                     {boundary} boundary faces{flag}, worst SJ {:.3}\n",
+                    span(0),
+                    span(1),
+                    span(2),
+                    worst,
+                ));
+            }
+        }
+    }
+    report.push_str(&format!("\n{} files\n", files.len()));
+    check_snapshot("corpus_mesh.txt", &report);
+}
