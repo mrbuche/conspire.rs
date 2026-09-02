@@ -12,14 +12,16 @@ impl NetCDF {
             && let Some(mut output) = writer.output.take()
         {
             if let Some(threads) = writer.netcdf4 {
-                let bytes = format::hdf5::write(
+                let mut file = std::io::BufWriter::new(&mut output.file);
+                let _ = format::hdf5::write(
                     &writer.dims,
                     &writer.global_attributes,
                     &output.variables,
-                    &output.data,
+                    std::mem::take(&mut output.data),
                     threads,
+                    &mut file,
                 );
-                let _ = output.file.write_all(&bytes);
+                let _ = file.flush();
             }
             let _ = output.file.flush();
         }

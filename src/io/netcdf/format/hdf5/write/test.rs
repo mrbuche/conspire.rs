@@ -21,6 +21,12 @@ fn le<T: Copy>(values: &[T]) -> Vec<u8> {
     unsafe { std::slice::from_raw_parts(values.as_ptr().cast::<u8>(), n) }.to_vec()
 }
 
+fn write_to_vec(dims: &[DimSpec], vars: &[VarSpec], data: Vec<Vec<u8>>, threads: usize) -> Vec<u8> {
+    let mut out = Vec::new();
+    write(dims, &[], vars, data, threads, &mut out).unwrap();
+    out
+}
+
 #[test]
 fn api_round_trip_scalar_contiguous_and_chunked() {
     let path = "target/hdf5_write_api.nc";
@@ -114,8 +120,8 @@ fn multi_chunk_output_is_deterministic() {
         len: n as u64,
     }];
     let vars = [spec("x", NC_DOUBLE, vec![0])];
-    let a = write(&dims, &[], &vars, &[le(&values)], 2);
-    let b = write(&dims, &[], &vars, &[le(&values)], 5);
+    let a = write_to_vec(&dims, &vars, vec![le(&values)], 2);
+    let b = write_to_vec(&dims, &vars, vec![le(&values)], 5);
     assert_eq!(a, b);
 }
 
@@ -147,13 +153,7 @@ fn write_function_smoke() {
         len: 3,
     }];
     let vars = [spec("x", NC_DOUBLE, vec![0]), spec("s", NC_INT, vec![])];
-    let bytes = write(
-        &dims,
-        &[],
-        &vars,
-        &[le(&[1.0f64, 2.0, 3.0]), le(&[7i32])],
-        1,
-    );
+    let bytes = write_to_vec(&dims, &vars, vec![le(&[1.0f64, 2.0, 3.0]), le(&[7i32])], 1);
     assert_eq!(
         &bytes[..8],
         &[0x89, b'H', b'D', b'F', b'\r', b'\n', 0x1a, b'\n']
@@ -172,7 +172,7 @@ fn write_rejects_unsupported_variable_type() {
         name: "n".to_string(),
         len: 2,
     }];
-    write(&dims, &[], &[spec("bad", 99, vec![0])], &[le(&[0u8, 0])], 0);
+    write_to_vec(&dims, &[spec("bad", 99, vec![0])], vec![le(&[0u8, 0])], 0);
 }
 
 #[test]

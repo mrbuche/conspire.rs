@@ -9,6 +9,7 @@ use crate::io::netcdf::format::{
 };
 use checksum::jenkins;
 use message::*;
+use std::io::{Result as IoResult, Write};
 
 const DEFLATE_LEVEL: u32 = 4;
 
@@ -30,12 +31,12 @@ struct VarPlan {
     storage: Storage,
 }
 
-fn plan_var(var: &VarSpec, dim_lens: &[u64], data: &[u8], threads: usize) -> VarPlan {
+fn plan_var(var: &VarSpec, dim_lens: &[u64], data: Vec<u8>, threads: usize) -> VarPlan {
     let dims: Vec<u64> = var.dimids.iter().map(|&d| dim_lens[d]).collect();
     let storage = if dims.is_empty() {
-        Storage::Contiguous(data.to_vec())
+        Storage::Contiguous(data)
     } else {
-        Storage::Chunked(chunk::plan(&dims, data, elem_size(var.xtype), threads))
+        Storage::Chunked(chunk::plan(&dims, &data, elem_size(var.xtype), threads))
     };
     VarPlan { dims, storage }
 }
@@ -131,13 +132,19 @@ fn superblock(root_oh: u64, eof: u64) -> Vec<u8> {
     v
 }
 
-pub(in crate::io::netcdf) fn write(
+fn emit<W: Write>(out: &mut W, written: &mut u64, bytes: &[u8]) -> IoResult<()> {
+    *written += bytes.len() as u64;
+    out.write_all(bytes)
+}
+
+pub(in crate::io::netcdf) fn write<W: Write>(
     dims: &[DimSpec],
     global: &[Attribute],
     vars: &[VarSpec],
-    data: &[Vec<u8>],
+    data: Vec<Vec<u8>>,
     threads: usize,
-) -> Vec<u8> {
+    out: &mut W,
+) -> IoResult<()> {
     let dim_lens: Vec<u64> = dims.iter().map(|d| d.len).collect();
     let plans: Vec<VarPlan> = vars
         .iter()
@@ -200,34 +207,40 @@ pub(in crate::io::netcdf) fn write(
     }
     let eof = cursor;
 
-    let mut out = superblock(root_oh, eof);
-    out.extend(object_header(&root_messages(
-        dims, vars, global, &dim_oh, &var_oh,
-    )));
+    let mut written = 0u64;
+    emit(out, &mut written, &superblock(root_oh, eof))?;
+    emit(
+        out,
+        &mut written,
+        &object_header(&root_messages(dims, vars, global, &dim_oh, &var_oh)),
+    )?;
     for msgs in &dim_scale_msgs {
-        out.extend(object_header(msgs));
+        emit(out, &mut written, &object_header(msgs))?;
     }
     for (i, (var, plan)) in vars.iter().zip(&plans).enumerate() {
-        out.extend(object_header(&var_messages(
-            var,
-            plan,
-            var_btree[i],
-            var_data[i],
-        )));
+        emit(
+            out,
+            &mut written,
+            &object_header(&var_messages(var, plan, var_btree[i], var_data[i])),
+        )?;
     }
-    for (i, plan) in plans.iter().enumerate() {
-        match &plan.storage {
-            Storage::Contiguous(bytes) => out.extend_from_slice(bytes),
+    for (i, plan) in plans.into_iter().enumerate() {
+        match plan.storage {
+            Storage::Contiguous(bytes) => emit(out, &mut written, &bytes)?,
             Storage::Chunked(p) => {
-                out.extend(chunk::btree_node(p, &var_chunk_addrs[i]));
+                emit(
+                    out,
+                    &mut written,
+                    &chunk::btree_node(&p, &var_chunk_addrs[i]),
+                )?;
                 for blob in &p.blobs {
-                    out.extend_from_slice(&blob.bytes);
+                    emit(out, &mut written, &blob.bytes)?;
                 }
             }
         }
     }
-    debug_assert_eq!(out.len() as u64, eof);
-    out
+    debug_assert_eq!(written, eof);
+    Ok(())
 }
 
 fn root_messages(
