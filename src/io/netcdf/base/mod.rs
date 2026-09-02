@@ -9,12 +9,32 @@ impl NetCDF {
     pub fn close(&mut self) {
         let _guard = nc_lock();
         if let State::Write(writer) = &mut self.state
-            && let Some(output) = &mut writer.output
+            && let Some(mut output) = writer.output.take()
         {
+            if let Some(threads) = writer.netcdf4 {
+                let mut file = std::io::BufWriter::new(&mut output.file);
+                let _ = format::hdf5::write(
+                    &writer.dims,
+                    &writer.global_attributes,
+                    &output.variables,
+                    std::mem::take(&mut output.data),
+                    threads,
+                    &mut file,
+                );
+                let _ = file.flush();
+            }
             let _ = output.file.flush();
         }
     }
     pub fn create(path: &str) -> Result<Self, NulError> {
+        Self::new(path, None)
+    }
+    /// Create a netCDF-4 (HDF5) file. `threads` bounds the pool used to compress
+    /// chunks in parallel; `0` or `1` compresses serially.
+    pub fn create_netcdf4(path: &str, threads: usize) -> Result<Self, NulError> {
+        Self::new(path, Some(threads))
+    }
+    fn new(path: &str, netcdf4: Option<usize>) -> Result<Self, NulError> {
         reject_nul(path)?;
         Ok(Self {
             state: State::Write(Writer {
@@ -22,6 +42,7 @@ impl NetCDF {
                 dims: Vec::new(),
                 global_attributes: Vec::new(),
                 variables: Vec::new(),
+                netcdf4,
                 output: None,
             }),
         })
@@ -122,13 +143,21 @@ impl NetCDF {
                 atts: std::mem::take(&mut build.attributes),
                 begin: 0,
                 vsize: 0,
+                storage: format::Storage::Classic,
             })
             .collect();
-        let header = format::finalize(&writer.dims, &writer.global_attributes, &mut variables);
         let mut file = File::create(&writer.path).expect("failed to create netCDF file");
-        file.write_all(&header)
-            .expect("failed to write netCDF header");
-        writer.output = Some(Output { file, variables });
+        if writer.netcdf4.is_none() {
+            let header = format::finalize(&writer.dims, &writer.global_attributes, &mut variables);
+            file.write_all(&header)
+                .expect("failed to write netCDF header");
+        }
+        let data = vec![Vec::new(); variables.len()];
+        writer.output = Some(Output {
+            file,
+            variables,
+            data,
+        });
     }
     pub fn global(&mut self) {
         let _guard = nc_lock();

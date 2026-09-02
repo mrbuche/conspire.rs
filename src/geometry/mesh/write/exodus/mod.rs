@@ -7,11 +7,36 @@ use crate::{
 };
 use std::{ffi::NulError, path::Path};
 
+/// Which on-disk Exodus flavour to write.
+pub enum ExodusFormat<P>
+where
+    P: AsRef<Path>,
+{
+    /// Classic netCDF (CDF-5).
+    Classic(P),
+    /// netCDF-4 (HDF5): chunked, shuffle + deflate compressed. `threads` bounds
+    /// the pool used to compress chunks (`0` or `1` compresses serially).
+    Netcdf4 { path: P, threads: usize },
+}
+
+impl<P> AsRef<Path> for ExodusFormat<P>
+where
+    P: AsRef<Path>,
+{
+    fn as_ref(&self) -> &Path {
+        match self {
+            ExodusFormat::Classic(path) => path.as_ref(),
+            ExodusFormat::Netcdf4 { path, .. } => path.as_ref(),
+        }
+    }
+}
+
 pub(crate) trait WriteExodus<P>
 where
     P: AsRef<Path>,
 {
     fn write_exodus(&self, output: P) -> Result<(), NulError>;
+    fn write_exodus_compressed(&self, output: P, threads: usize) -> Result<(), NulError>;
 }
 
 impl<const D: usize, P> WriteExodus<P> for Mesh<D>
@@ -19,8 +44,24 @@ where
     P: AsRef<Path>,
 {
     fn write_exodus(&self, output: P) -> Result<(), NulError> {
+        self.write_exodus_format(output, None)
+    }
+    fn write_exodus_compressed(&self, output: P, threads: usize) -> Result<(), NulError> {
+        self.write_exodus_format(output, Some(threads))
+    }
+}
+
+impl<const D: usize> Mesh<D> {
+    fn write_exodus_format<P: AsRef<Path>>(
+        &self,
+        output: P,
+        netcdf4: Option<usize>,
+    ) -> Result<(), NulError> {
         let path = output.as_ref().to_str().unwrap();
-        let mut netcdf = NetCDF::create(path)?;
+        let mut netcdf = match netcdf4 {
+            Some(threads) => NetCDF::create_netcdf4(path, threads)?,
+            None => NetCDF::create(path)?,
+        };
         netcdf.global();
         let element_numbers: Option<Vec<i32>> = self
             .connectivities()

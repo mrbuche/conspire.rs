@@ -33,6 +33,24 @@ fn round_trip() {
     assert_eq!(netcdf.try_dimension_length("missing").unwrap(), None);
     assert_eq!(netcdf.get_variable::<f64>("coordx", 3).unwrap(), coordx);
     assert_eq!(
+        netcdf
+            .get_variable_slice::<f64>("coordx", &[1], &[2])
+            .unwrap(),
+        &coordx[1..3]
+    );
+    assert_eq!(
+        netcdf
+            .get_variable_slice::<f32>("temperature", &[0], &[2])
+            .unwrap(),
+        &temperature[0..2]
+    );
+    assert_eq!(
+        netcdf
+            .get_variable_slice::<i32>("connectivity", &[2], &[1])
+            .unwrap(),
+        &connectivity[2..3]
+    );
+    assert_eq!(
         netcdf.get_variable::<f32>("temperature", 3).unwrap(),
         temperature
     );
@@ -234,6 +252,13 @@ fn get_variable_missing_panics() {
 }
 
 #[test]
+#[should_panic(expected = "no variable named")]
+fn get_variable_slice_missing_panics() {
+    let netcdf = one_var_file("target/netcdf_slice_missing.nc");
+    let _ = netcdf.get_variable_slice::<f64>("nope", &[0], &[1]);
+}
+
+#[test]
 #[should_panic(expected = "get_variable on a NetCDF opened for writing")]
 fn get_variable_on_writer_panics() {
     let mut netcdf = NetCDF::create("target/netcdf_get_on_writer.nc").unwrap();
@@ -241,6 +266,16 @@ fn get_variable_on_writer_panics() {
     netcdf.define_variable::<i32>("v", 1, &["n"]).unwrap();
     netcdf.end_definition();
     let _ = netcdf.get_variable::<i32>("v", 1);
+}
+
+#[test]
+#[should_panic(expected = "get_variable_slice on a NetCDF opened for writing")]
+fn get_variable_slice_on_writer_panics() {
+    let mut netcdf = NetCDF::create("target/netcdf_slice_on_writer.nc").unwrap();
+    netcdf.define_dimension("n", 1).unwrap();
+    netcdf.define_variable::<i32>("v", 1, &["n"]).unwrap();
+    netcdf.end_definition();
+    let _ = netcdf.get_variable_slice::<i32>("v", &[0], &[1]);
 }
 
 #[test]

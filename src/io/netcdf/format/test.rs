@@ -1,5 +1,6 @@
 use super::{
-    AttValue, Attribute, DimSpec, NC_DOUBLE, NC_FLOAT, NC_INT, VarSpec, finalize, parse, type_size,
+    AttValue, Attribute, DimSpec, NC_DOUBLE, NC_FLOAT, NC_INT, Storage, VarSpec, finalize, parse,
+    type_size,
 };
 
 fn double_var(name: &str, dimids: Vec<usize>) -> VarSpec {
@@ -10,6 +11,7 @@ fn double_var(name: &str, dimids: Vec<usize>) -> VarSpec {
         atts: Vec::new(),
         begin: 0,
         vsize: 0,
+        storage: Storage::Classic,
     }
 }
 

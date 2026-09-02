@@ -3,7 +3,7 @@ mod test;
 
 use super::{
     AttValue, Attribute, DimSpec, NC_ATTRIBUTE, NC_CHAR_TYPE, NC_DIMENSION, NC_DOUBLE, NC_FLOAT,
-    NC_INT, NC_VARIABLE, Parsed, VarSpec,
+    NC_INT, NC_VARIABLE, Parsed, Storage, VarSpec,
 };
 
 #[derive(Clone, Copy)]
@@ -82,6 +82,9 @@ impl<'a> HeaderReader<'a> {
                         })
                         .collect(),
                 ),
+                // Only text attributes are surfaced by the public API; numeric
+                // attribute values are parsed but never read back, so the
+                // double -> f32 narrowing here is inconsequential.
                 NC_DOUBLE => AttValue::Float(
                     (0..len)
                         .map(|_| {
@@ -157,6 +160,7 @@ pub(in crate::io::netcdf) fn parse(bytes: &[u8]) -> Parsed {
                 atts,
                 begin,
                 vsize,
+                storage: Storage::Classic,
             });
         }
     }

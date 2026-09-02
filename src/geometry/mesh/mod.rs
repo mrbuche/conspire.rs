@@ -26,7 +26,7 @@ pub use self::{
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
     smooth::Smoothing,
     tessellation::{Tessellation, cut::Class, write::Stl},
-    write::{Output, vtk::Vtk},
+    write::{Output, exodus::ExodusFormat, vtk::Vtk},
 };
 
 use crate::{

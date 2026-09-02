@@ -2,7 +2,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{
-            Connectivities, Connectivity, Input, Mesh, NodeSets, Output, SideSets,
+            Connectivities, Connectivity, ExodusFormat, Input, Mesh, NodeSets, Output, SideSets,
             test::{CONNECTIVITY, COORDINATES, mesh},
         },
     },
@@ -14,7 +14,9 @@ use crate::{
 fn round_trip() {
     let original = mesh();
     original
-        .write(Output::Exodus("target/read_exodus_round_trip.exo"))
+        .write(Output::Exodus(ExodusFormat::Classic(
+            "target/read_exodus_round_trip.exo",
+        )))
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_round_trip.exo")).unwrap();
     let expected_coords = Coordinates::from(COORDINATES);
@@ -64,9 +66,9 @@ fn round_trip_polyhedral() {
     .into();
     let original = Mesh::from((connectivities, coordinates.clone()));
     original
-        .write(Output::Exodus(
+        .write(Output::Exodus(ExodusFormat::Classic(
             "target/read_exodus_round_trip_polyhedral.exo",
-        ))
+        )))
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus(
         "target/read_exodus_round_trip_polyhedral.exo",
@@ -101,7 +103,9 @@ fn round_trip_block_numbers() {
         coordinates.into(),
     ));
     original
-        .write(Output::Exodus("target/read_exodus_block_numbers.exo"))
+        .write(Output::Exodus(ExodusFormat::Classic(
+            "target/read_exodus_block_numbers.exo",
+        )))
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_block_numbers.exo")).unwrap();
     assert_eq!(read.connectivities.numbers(), Some([10, 20].as_slice()));
@@ -124,7 +128,9 @@ fn round_trip_element_numbers() {
     .into();
     let original = Mesh::from((vec![block_0, block_1], coordinates));
     original
-        .write(Output::Exodus("target/read_exodus_element_numbers.exo"))
+        .write(Output::Exodus(ExodusFormat::Classic(
+            "target/read_exodus_element_numbers.exo",
+        )))
         .unwrap();
     let read =
         Mesh::<3>::try_from(Input::Exodus("target/read_exodus_element_numbers.exo")).unwrap();
@@ -148,7 +154,9 @@ fn round_trip_node_numbers() {
         Set::from((coordinates, vec![7, 8, 9])),
     ));
     original
-        .write(Output::Exodus("target/read_exodus_node_numbers.exo"))
+        .write(Output::Exodus(ExodusFormat::Classic(
+            "target/read_exodus_node_numbers.exo",
+        )))
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_node_numbers.exo")).unwrap();
     assert_eq!(read.coordinates.numbers(), Some([7, 8, 9].as_slice()));
@@ -167,7 +175,9 @@ fn round_trip_node_sets() {
     let mut original = Mesh::from((connectivities, coordinates));
     original.set_node_sets(vec![vec![0, 1], vec![2, 3]].into());
     original
-        .write(Output::Exodus("target/read_exodus_node_sets.exo"))
+        .write(Output::Exodus(ExodusFormat::Classic(
+            "target/read_exodus_node_sets.exo",
+        )))
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_node_sets.exo")).unwrap();
     assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
@@ -187,7 +197,9 @@ fn round_trip_node_set_numbers() {
     let mut original = Mesh::from((connectivities, coordinates));
     original.set_node_sets(NodeSets::from((vec![vec![0, 1], vec![2, 3]], vec![10, 20])));
     original
-        .write(Output::Exodus("target/read_exodus_node_set_numbers.exo"))
+        .write(Output::Exodus(ExodusFormat::Classic(
+            "target/read_exodus_node_set_numbers.exo",
+        )))
         .unwrap();
     let read =
         Mesh::<3>::try_from(Input::Exodus("target/read_exodus_node_set_numbers.exo")).unwrap();
@@ -208,7 +220,9 @@ fn round_trip_side_sets() {
     let mut original = Mesh::from((connectivities, coordinates));
     original.set_side_sets(vec![vec![(0, 1)], vec![(0, 2), (1, 0)]].into());
     original
-        .write(Output::Exodus("target/read_exodus_side_sets.exo"))
+        .write(Output::Exodus(ExodusFormat::Classic(
+            "target/read_exodus_side_sets.exo",
+        )))
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_side_sets.exo")).unwrap();
     assert_eq!(read.side_sets(), &[vec![(0, 1)], vec![(0, 2), (1, 0)]]);
@@ -231,7 +245,9 @@ fn round_trip_side_set_numbers() {
         vec![10, 20],
     )));
     original
-        .write(Output::Exodus("target/read_exodus_side_set_numbers.exo"))
+        .write(Output::Exodus(ExodusFormat::Classic(
+            "target/read_exodus_side_set_numbers.exo",
+        )))
         .unwrap();
     let read =
         Mesh::<3>::try_from(Input::Exodus("target/read_exodus_side_set_numbers.exo")).unwrap();
@@ -255,9 +271,9 @@ fn round_trip_side_sets_with_custom_element_numbers() {
     let mut original = Mesh::from((vec![block_0, block_1], coordinates));
     original.set_side_sets(vec![vec![(0, 0), (1, 2)]].into());
     original
-        .write(Output::Exodus(
+        .write(Output::Exodus(ExodusFormat::Classic(
             "target/read_exodus_side_sets_custom_elements.exo",
-        ))
+        )))
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus(
         "target/read_exodus_side_sets_custom_elements.exo",
@@ -282,9 +298,9 @@ fn round_trip_polygonal() {
     .into();
     let original = Mesh::from((connectivities, coordinates.clone()));
     original
-        .write(Output::Exodus(
+        .write(Output::Exodus(ExodusFormat::Classic(
             "target/read_exodus_round_trip_polygonal.exo",
-        ))
+        )))
         .unwrap();
     let read =
         Mesh::<3>::try_from(Input::Exodus("target/read_exodus_round_trip_polygonal.exo")).unwrap();
@@ -294,5 +310,45 @@ fn round_trip_polygonal() {
             assert!(poly.iter().eq(elements_faces.iter()));
         }
         _ => panic!("expected Polygonal block"),
+    }
+}
+
+const FIXTURES: &str = "src/geometry/mesh/read/exodus/fixtures";
+
+#[test]
+fn netcdf4_matches_classic() {
+    let classic_path = format!("{FIXTURES}/sphere_classic.nc");
+    let classic = Mesh::<3>::try_from(Input::Exodus(&classic_path)).unwrap();
+    for name in ["sphere_nc4.nc", "sphere_nc4_zip.nc"] {
+        let path = format!("{FIXTURES}/{name}");
+        let read = Mesh::<3>::try_from(Input::Exodus(&path)).unwrap();
+        assert_eq!(
+            read.coordinates(),
+            classic.coordinates(),
+            "{name} coordinates"
+        );
+        match (&read.connectivities()[0], &classic.connectivities()[0]) {
+            (Connectivity::Hexahedral(a), Connectivity::Hexahedral(b)) => {
+                assert!(a.iter().eq(b.iter()), "{name} connectivity")
+            }
+            _ => panic!("expected Hexahedral block"),
+        }
+    }
+}
+
+#[test]
+fn netcdf4_write_then_read_round_trip() {
+    let original = mesh();
+    original
+        .write(Output::Exodus(ExodusFormat::Netcdf4 {
+            path: "target/exodus_netcdf4_round_trip.exo",
+            threads: 2,
+        }))
+        .unwrap();
+    let read = Mesh::<3>::try_from(Input::Exodus("target/exodus_netcdf4_round_trip.exo")).unwrap();
+    assert_eq!(read.coordinates(), &Coordinates::from(COORDINATES));
+    match &read.connectivities()[0] {
+        Connectivity::Triangular(triangles) => assert!(triangles.iter().eq(CONNECTIVITY.iter())),
+        _ => panic!("expected Triangular block"),
     }
 }

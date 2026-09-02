@@ -25,11 +25,12 @@ pub(crate) fn reject_nul(name: &str) -> Result<(), NulError> {
     CString::new(name).map(|_| ())
 }
 
-/// A netCDF classic-format file, open for either writing or reading.
+/// A netCDF file, open for either writing or reading.
 ///
-/// Written files use CDF-5 ("64-bit data"); CDF-1, CDF-2 and CDF-5 are accepted
-/// on read. Only fixed-size variables of `i32` / `f32` / `f64` are supported,
-/// which is everything an Exodus mesh file needs.
+/// Written files use classic CDF-5 ("64-bit data"). On read, CDF-1, CDF-2 and
+/// CDF-5 are parsed directly, and netCDF-4 (HDF5) files are read through a
+/// built-in reader covering the subset an Exodus mesh uses. Only fixed-size
+/// variables of `i32` / `f32` / `f64` are supported.
 pub struct NetCDF {
     state: State,
 }
@@ -44,6 +45,8 @@ struct Writer {
     dims: Vec<DimSpec>,
     global_attributes: Vec<Attribute>,
     variables: Vec<VarBuild>,
+    // None = classic CDF-5; Some(n) = netCDF-4 with n chunk-compression threads.
+    netcdf4: Option<usize>,
     output: Option<Output>,
 }
 
@@ -57,6 +60,7 @@ struct VarBuild {
 struct Output {
     file: File,
     variables: Vec<VarSpec>,
+    data: Vec<Vec<u8>>,
 }
 
 struct Reader {
@@ -90,6 +94,15 @@ pub trait GetVariable {
         name: &str,
         len: usize,
     ) -> Result<Option<Vec<T>>, NulError>;
+    /// Read the hyperslab `start .. start + count` (element coordinates, one
+    /// entry per dimension) of a variable, decompressing only the chunks it
+    /// touches.
+    fn get_variable_slice<T: NcType>(
+        &self,
+        name: &str,
+        start: &[usize],
+        count: &[usize],
+    ) -> Result<Vec<T>, NulError>;
 }
 
 /// # Safety

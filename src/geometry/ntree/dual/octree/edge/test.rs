@@ -60,7 +60,10 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
 fn write_weak_edge_dual() {
     use super::super::test::verify_dual;
     use crate::{
-        geometry::{mesh::Output, ntree::Dualization},
+        geometry::{
+            mesh::{ExodusFormat, Output},
+            ntree::Dualization,
+        },
         io::Write,
     };
     let mut octree = weak_edge_tree(Balancing::Weak(1));
@@ -68,7 +71,10 @@ fn write_weak_edge_dual() {
     if let Err(error) = verify_dual(&mesh) {
         panic!("weak dual failed verification: {error}");
     }
-    mesh.write(Output::Exodus("target/weak_edge.exo")).unwrap();
+    mesh.write(Output::Exodus(ExodusFormat::Classic(
+        "target/weak_edge.exo",
+    )))
+    .unwrap();
 }
 
 #[test]
