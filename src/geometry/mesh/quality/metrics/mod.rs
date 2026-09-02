@@ -3,7 +3,7 @@ mod test;
 
 pub(crate) mod hexahedron;
 mod quadrilateral;
-mod tetrahedron;
+pub(crate) mod tetrahedron;
 mod triangle;
 
 use crate::{
