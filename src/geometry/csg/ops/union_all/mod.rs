@@ -64,22 +64,21 @@ impl<O: SolidOracle> SolidOracle for UnionAllOracle<O> {
     }
 
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
-        let signed: Vec<Scalar> = self
-            .0
-            .iter()
-            .map(|oracle| oracle.signed_distance(query))
-            .collect();
         best_candidate(
             query,
             self.0.iter().enumerate().filter_map(|(index, oracle)| {
                 let (point, normal) = oracle.project(query)?;
-                // A patch of this operand's surface survives where no other
-                // operand encloses the query.
-                let valid = signed
+                // This patch of operand `index`'s surface survives where no
+                // other operand encloses the *projected point*; the penalty is
+                // how far inside the deepest such operand it is.
+                let penalty = self
+                    .0
                     .iter()
                     .enumerate()
-                    .all(|(other, &distance)| other == index || distance <= 0.0);
-                Some((point, normal, valid))
+                    .filter(|&(other, _)| other != index)
+                    .map(|(_, other)| other.signed_distance(&point).max(0.0))
+                    .fold(0.0, Scalar::max);
+                Some((point, normal, penalty))
             }),
         )
     }

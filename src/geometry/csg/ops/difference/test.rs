@@ -18,6 +18,29 @@ fn point(entries: [f64; 3]) -> Coordinate<3> {
     Coordinate::from(entries)
 }
 
+#[test]
+fn project_in_the_carve_shadow_is_not_a_carved_away_point() {
+    let oracle = Difference::new(
+        Sphere::new(point([0.0; 3]), 2.0).unwrap(),
+        Sphere::new(point([1.9, 0.0, 0.0]), 1.0).unwrap(),
+    )
+    .oracle()
+    .unwrap();
+    let inner = Sphere::new(point([1.9, 0.0, 0.0]), 1.0).unwrap().oracle().unwrap();
+
+    // q is outside the solid, in line with the carved-out cap. Passing the
+    // query rather than the candidate point to the survival test let the old
+    // code accept the outer-sphere foot (2, 0, 0) -- 0.9 deep inside the
+    // carve -- as the surface.
+    let (foot, _) = oracle.project(&point([3.0, 0.0, 0.0])).unwrap();
+    assert!(
+        inner.signed_distance(&foot) <= 1.0e-6,
+        "project returned {:?}, {} inside the carved-out region",
+        [foot[0].value(), foot[1].value(), foot[2].value()],
+        inner.signed_distance(&foot),
+    );
+}
+
 fn porous_block() -> Difference<Cuboid, Sphere> {
     Difference::new(
         Cuboid::new(point([-3.0; 3]), point([3.0; 3])).unwrap(),

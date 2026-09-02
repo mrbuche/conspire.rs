@@ -58,12 +58,20 @@ impl<A: SolidOracle, B: SolidOracle> SolidOracle for UnionOracle<A, B> {
     }
 
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
-        let (sa, sb) = (self.a.signed_distance(query), self.b.signed_distance(query));
+        // A patch of one operand's surface survives the union where the *other*
+        // operand does not enclose that patch point; the penalty is how far
+        // inside the other it is.
         best_candidate(
             query,
             [
-                self.a.project(query).map(|(p, n)| (p, n, sb <= 0.0)),
-                self.b.project(query).map(|(p, n)| (p, n, sa <= 0.0)),
+                self.a.project(query).map(|(p, n)| {
+                    let penalty = self.b.signed_distance(&p).max(0.0);
+                    (p, n, penalty)
+                }),
+                self.b.project(query).map(|(p, n)| {
+                    let penalty = self.a.signed_distance(&p).max(0.0);
+                    (p, n, penalty)
+                }),
             ]
             .into_iter()
             .flatten(),
