@@ -27,6 +27,47 @@ fn write_to_vec(dims: &[DimSpec], vars: &[VarSpec], data: Vec<Vec<u8>>, threads:
     out
 }
 
+struct FailAfter {
+    ok: usize,
+    calls: usize,
+}
+
+impl std::io::Write for FailAfter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.calls;
+        self.calls += 1;
+        if n >= self.ok {
+            Err(std::io::Error::other("boom"))
+        } else {
+            Ok(buf.len())
+        }
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn write_propagates_io_errors_from_each_emit_stage() {
+    let dims = [DimSpec {
+        name: "k".to_string(),
+        len: 4,
+    }];
+    let vars = [spec("s", NC_INT, vec![]), spec("v", NC_INT, vec![0])];
+    for ok in 0..8 {
+        let mut out = FailAfter { ok, calls: 0 };
+        let data = vec![le(&[7i32]), le(&[1i32, 2, 3, 4])];
+        assert!(write(&dims, &[], &vars, data, 1, &mut out).is_err());
+        std::io::Write::flush(&mut out).unwrap();
+    }
+    let mut out = FailAfter {
+        ok: usize::MAX,
+        calls: 0,
+    };
+    let data = vec![le(&[7i32]), le(&[1i32, 2, 3, 4])];
+    write(&dims, &[], &vars, data, 1, &mut out).unwrap();
+}
+
 #[test]
 fn api_round_trip_scalar_contiguous_and_chunked() {
     let path = "target/hdf5_write_api.nc";
