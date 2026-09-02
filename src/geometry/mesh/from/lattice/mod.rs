@@ -113,7 +113,6 @@ impl Mesh<3> {
     /// the diagonal joining its own two extremes. Neighboring cells share a
     /// face's extremes, so they cut it the same way and the mesh is conforming
     /// without any parity rule.
-    #[allow(dead_code)]
     pub(crate) fn from_lattice_tets<I>(
         cells: I,
         nel: [usize; 3],

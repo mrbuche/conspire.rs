@@ -338,7 +338,6 @@ impl<'a> Builder<'a> {
 }
 
 impl Mesh<3> {
-    #[allow(dead_code)]
     pub(crate) fn tetrahedra_from<T, U, V>(octree: Octree<T, U, V>) -> Self
     where
         T: Cell,

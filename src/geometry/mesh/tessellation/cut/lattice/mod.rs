@@ -14,7 +14,13 @@ use crate::{
     math::{FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
     units::Length,
 };
-use std::array::from_fn;
+use std::{array::from_fn, iter::repeat_n, vec::IntoIter};
+
+/// Tetrahedra in the Kuhn/Freudenthal split of one cell.
+const TETS_PER_CELL: usize = 6;
+
+type Mesher =
+    fn(IntoIter<([usize; D], usize)>, [usize; D], &Coordinate<D>, &Coordinate<D>) -> Mesh<D>;
 
 const NEIGHBORS: [[isize; D]; 6] = [
     [-1, 0, 0],
@@ -68,11 +74,24 @@ impl Lattice {
         cells
     }
     pub(super) fn mesh(&self) -> (Mesh<D>, Vec<Class>) {
+        self.build(Mesh::from_lattice_cells, 1)
+    }
+    pub(super) fn tets(&self) -> (Mesh<D>, Vec<Class>) {
+        self.build(Mesh::from_lattice_tets, TETS_PER_CELL)
+    }
+    /// Meshes the cells and repeats each one's class over the `per_cell`
+    /// elements it becomes, since the cells are meshed and so classed in
+    /// order.
+    fn build(&self, mesher: Mesher, per_cell: usize) -> (Mesh<D>, Vec<Class>) {
         let cells = self.cells();
-        let classes = cells.iter().map(|&(_, class)| class).collect();
+        let classes = cells
+            .iter()
+            .flat_map(|&(_, class)| repeat_n(class, per_cell))
+            .collect();
+        let indices: Vec<_> = cells.into_iter().map(|(index, _)| (index, 1)).collect();
         (
-            Mesh::from_lattice_cells(
-                cells.into_iter().map(|(index, _)| (index, 1)),
+            mesher(
+                indices.into_iter(),
                 self.nel,
                 &Coordinate::from([self.spacing; D]),
                 &self.origin,
