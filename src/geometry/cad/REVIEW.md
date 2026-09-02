@@ -51,18 +51,19 @@ fit quality is a separate concern). A *change* in that number is the signal.
 | `cad/brep/{classify,inside,orient,planar,tessellate,primitive,features}` | — | trimming/topology |
 | `cad/sizing` | — | feature-size field |
 | `cad/{assemble,mesh}` | — | orchestration |
-| `csg/*` | `5422e853` (Sonnet high + Opus deep) | analytic primitives + boolean ops; 10 findings logged, 5 confirmed correctness |
-| `solid` | `5422e853` (Sonnet high + Opus deep) | shared octree→dual→trim→fit driver; see findings 2-3, 7-9 |
+| `csg/*` | `5422e853` (Sonnet high + Opus deep) | 10 findings; 5, 6 fixed (`59a2df88`, `a7075224`); 1, 8, 10 open |
+| `solid` | `5422e853` (Sonnet high + Opus deep) | findings 2-4, 9 open; 7 fixed (`e4d9debb`) |
 | `geometry/mesh/buffer` edits | — | regression surface on existing code |
 
 ## Risk register (re-check every pass)
 
-- Boolean-op `project` survival flag evaluated at query not candidate — csg/solid
-  finding 6; affects every fit of a CSG combination.
-- `EllipsoidOracle` off-surface projection on origin-plane nodes — csg/solid
-  finding 5.
-- CSG classify path lacks the flood-fill thin-wall/void guards, and `mesh`'s
-  trim rule undoes the guard `trim` does have — csg/solid findings 4, 7, 9.
+- CSG `project` near an overlap lens / CSG edge returns an operand foot, not the
+  true nearest edge point — csg/solid finding 6 (predicate fixed, edge-candidate
+  generation still open).
+- `EllipsoidOracle` on a symmetry plane inside the focal set returns a
+  stationary point, not the global nearest — csg/solid finding 5 residual.
+- CSG classify path lacks the flood-fill thin-wall/void guards — csg/solid
+  findings 4, 9 (finding 7 fixed).
 - Cone/chamfer distance — see FINDING cone-distance below.
 - `BrepOracle` fillet/chamfer faces still error (`primitive()` deferred).
 - Mismatched-arc / two-edge planar trimming loops (recent commits).
@@ -153,6 +154,11 @@ adjacency, and the `needed`/`keep_hexes` index alignment all checked out clean.
    off the surface. Fix: separate the coordinate-nudge epsilon from a
    *relative* bisection stop, or special-case a zero coordinate (drop that axis
    and solve the lower-D problem).
+   **FIXED `59a2df88`** — drops any axis within `AXIS_EPSILON` of zero and
+   solves the remaining-axes Eberly problem via `eberly_root`, foot pinned to
+   that plane. Residual limitation (pre-existing, out of the near-surface
+   regime, not fixed): a query *inside the focal set* on a symmetry plane lands
+   on an on-surface stationary point, not the global nearest.
 
 6. **CONFIRMED — every boolean-op `project` tests the "patch survives the
    boolean" flag at the query, not at the candidate point**
@@ -167,6 +173,12 @@ adjacency, and the `needed`/`keep_hexes` index alignment all checked out clean.
    was carved away (0.9 inside `inner`); the real boundary is the rim circle.
    Intersection/UnionAll share it. Directly degrades the fit for the box−⋃pores
    case. Fix: evaluate the survival predicate at `p`.
+   **FIXED `a7075224`** — every combinator's survival test is now at the
+   candidate point, and `best_candidate` carries a penalty (distance onto the
+   wrong side of the boolean) so the fallback returns the least-buried
+   candidate. Residual limitation (not fixed): a query deep in an overlap lens
+   or beside a CSG edge still gets an operand foot, not the edge point — needs
+   CSG-edge candidate generation.
 
 7. **CONFIRMED — `Solid::mesh`'s trim rule deletes every cell the flood-fill
    thin-wall rescue just saved** (`solid/mod.rs:457-461` vs `190-209`). The
@@ -178,6 +190,8 @@ adjacency, and the `needed`/`keep_hexes` index alignment all checked out clean.
    `solid/test.rs:154` asserts kept would mesh to nothing through `mesh()`.
    Fix: exempt `Cut` cells with all corners outside from the trim rule, or
    record the probed centroid value and use it as `maximum`.
+   **FIXED `e4d9debb`** — per-cell decision factored into `survives_trim`,
+   which keeps a `Cut` cell with `maximum < 0`.
 
 8. **PLAUSIBLE / doc — the Tong `TRIM_RATIO` rule assumes a true Euclidean
    distance, which min/max CSG composition is not** (`solid/mod.rs:461`). Signs
