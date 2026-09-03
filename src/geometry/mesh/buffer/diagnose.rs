@@ -198,7 +198,8 @@ fn median(mut values: Vec<Scalar>) -> Scalar {
     values[values.len() / 2]
 }
 
-fn report(name: &str, target: &Tessellation, scale: Scalar) {
+/// The fitted buffer mesh and, per hex in stored order, `(msj, scan)`.
+fn run(target: &Tessellation, scale: Scalar) -> (Mesh<3>, Vec<(Scalar, HexScan)>) {
     let mut octree =
         Octree::<u32, usize>::from_features(target, scale, CurvatureSizing::default(), 0)
             .expect("octree");
@@ -235,6 +236,24 @@ fn report(name: &str, target: &Tessellation, scale: Scalar) {
             }
         }
     }
+    (mesh, rows)
+}
+
+fn report(name: &str, target: &Tessellation, scale: Scalar) {
+    let creases = target.features().creases();
+    let bbox_diag = {
+        let mut lo = [Scalar::INFINITY; 3];
+        let mut hi = [Scalar::NEG_INFINITY; 3];
+        for point in target.mesh().coordinates().iter() {
+            for k in 0..3 {
+                lo[k] = lo[k].min(point[k].value());
+                hi[k] = hi[k].max(point[k].value());
+            }
+        }
+        norm(sub(hi, lo))
+    };
+    let line_of = crease_lines(creases, 1.0e-6 * bbox_diag);
+    let (_, mut rows) = run(target, scale);
     rows.sort_by(|a, b| a.0.total_cmp(&b.0));
 
     let n = rows.len();
@@ -277,6 +296,79 @@ fn report(name: &str, target: &Tessellation, scale: Scalar) {
     println!(
         "  MSJ < 0.1: {lt10:<4} of which flagged {lt10_f}      MSJ < 0.2: {lt20:<4} of which flagged {lt20_f}"
     );
+}
+
+/// Writes the fitted buffer mesh as a legacy ASCII `.vtk`, with per-hex
+/// `msj`, `flagged` (the collapsing corner), and `two_on_line` cell arrays.
+fn write_mesh_vtk(path: &str, mesh: &Mesh<3>, rows: &[(Scalar, HexScan)]) {
+    let coordinates = mesh.coordinates();
+    let hexes: Vec<[usize; 8]> = mesh
+        .iter()
+        .flat_map(|block| match block {
+            Connectivity::Hexahedral(h) => h.iter().map(|hex| from_fn(|i| hex[i])).collect(),
+            _ => Vec::new(),
+        })
+        .collect();
+    let mut out = String::new();
+    out.push_str("# vtk DataFile Version 3.0\nautomesh #757 flagged hexes\nASCII\n");
+    out.push_str("DATASET UNSTRUCTURED_GRID\n");
+    out.push_str(&format!("POINTS {} double\n", coordinates.len()));
+    for point in coordinates.iter() {
+        out.push_str(&format!(
+            "{} {} {}\n",
+            point[0].value(),
+            point[1].value(),
+            point[2].value()
+        ));
+    }
+    out.push_str(&format!("CELLS {} {}\n", hexes.len(), hexes.len() * 9));
+    for hex in &hexes {
+        out.push('8');
+        for node in hex {
+            out.push_str(&format!(" {node}"));
+        }
+        out.push('\n');
+    }
+    out.push_str(&format!("CELL_TYPES {}\n", hexes.len()));
+    for _ in &hexes {
+        out.push_str("12\n");
+    }
+    out.push_str(&format!("CELL_DATA {}\n", hexes.len()));
+    out.push_str("SCALARS msj double 1\nLOOKUP_TABLE default\n");
+    for (msj, _) in rows {
+        out.push_str(&format!("{msj}\n"));
+    }
+    out.push_str("SCALARS flagged int 1\nLOOKUP_TABLE default\n");
+    for (_, scan) in rows {
+        out.push_str(&format!("{}\n", scan.collapsing_corner as i32));
+    }
+    out.push_str("SCALARS two_on_line int 1\nLOOKUP_TABLE default\n");
+    for (_, scan) in rows {
+        out.push_str(&format!("{}\n", scan.two_on_one_line as i32));
+    }
+    std::fs::write(path, out).expect("write mesh vtk");
+}
+
+/// Writes the target's crease segments as a legacy ASCII polydata `.vtk`.
+fn write_creases_vtk(path: &str, creases: &[[Coordinate<3>; 2]]) {
+    let mut out = String::new();
+    out.push_str("# vtk DataFile Version 3.0\ncreases\nASCII\nDATASET POLYDATA\n");
+    out.push_str(&format!("POINTS {} double\n", creases.len() * 2));
+    for [a, b] in creases {
+        for point in [a, b] {
+            out.push_str(&format!(
+                "{} {} {}\n",
+                point[0].value(),
+                point[1].value(),
+                point[2].value()
+            ));
+        }
+    }
+    out.push_str(&format!("LINES {} {}\n", creases.len(), creases.len() * 3));
+    for i in 0..creases.len() {
+        out.push_str(&format!("2 {} {}\n", 2 * i, 2 * i + 1));
+    }
+    std::fs::write(path, out).expect("write creases vtk");
 }
 
 fn surface(points: Vec<[Scalar; 3]>, faces: Vec<[usize; 3]>) -> Tessellation {
@@ -397,4 +489,30 @@ fn near_collinear_hex_on_the_bone() {
     println!();
     report("bone axis", &bone, 4.0);
     report("bone 25deg", &rotate(&bone, 0.436_332), 4.0);
+}
+
+/// Writes `.vtk` pairs to `target/` for a look in ParaView: colour the mesh by
+/// `flagged` (or threshold `msj`), overlay `*_creases.vtk` as tubes.
+#[test]
+#[ignore = "diagnostic, writes target/diag757_*.vtk"]
+fn visualize_flagged_hexes() {
+    let cases: [(&str, Tessellation, Scalar); 4] = [
+        ("staircase_axis", staircase(), 5.0),
+        ("staircase_25deg", rotate(&staircase(), 0.436_332), 5.0),
+        ("notched_axis", notched(), 5.0),
+        ("notched_25deg", rotate(&notched(), 0.436_332), 5.0),
+    ];
+    for (name, target, scale) in &cases {
+        let (mesh, rows) = run(target, *scale);
+        let flagged = rows.iter().filter(|(_, s)| s.collapsing_corner).count();
+        write_mesh_vtk(&format!("target/diag757_{name}.vtk"), &mesh, &rows);
+        write_creases_vtk(
+            &format!("target/diag757_{name}_creases.vtk"),
+            target.features().creases(),
+        );
+        println!(
+            "target/diag757_{name}.vtk  ({} hexes, {flagged} flagged)",
+            rows.len()
+        );
+    }
 }
