@@ -52,7 +52,7 @@ struct Oracle<'a> {
 
 /// One pass of the fit over a mesh of `N`-node elements.
 struct Sweep<'a, const N: usize> {
-    corners: &'static [[usize; 3]; N],
+    corners: &'static [(usize, [usize; 3]); N],
     element_chunk: usize,
     elements: &'a [[usize; N]],
     epsilon: Scalar,
@@ -103,7 +103,7 @@ impl Mesh<3> {
         &mut self,
         nodes: &[usize],
         target: &Tessellation,
-        corners: &'static [[usize; 3]; N],
+        corners: &'static [(usize, [usize; 3]); N],
         elements: &[[usize; N]],
     ) -> Result<(), &'static str> {
         let oracle = Oracle::new(target);
@@ -548,29 +548,28 @@ fn weight(distance: Quantity<Area>, length: Quantity<Length>) -> Quantity<Dimens
 }
 
 fn energy<const N: usize>(
-    corners: &[[usize; 3]; N],
+    corners: &[(usize, [usize; 3]); N],
     element: &[usize; N],
     coordinates: &Coordinates<3>,
     epsilon: Scalar,
 ) -> Scalar {
     corners
         .iter()
-        .enumerate()
         .map(|(corner, adjacent)| {
-            regularized(&edges(corner, adjacent, element, coordinates), epsilon)
+            regularized(&edges(*corner, adjacent, element, coordinates), epsilon)
         })
         .sum()
 }
 
 fn scatter<const N: usize>(
-    corners: &[[usize; 3]; N],
+    corners: &[(usize, [usize; 3]); N],
     element: &[usize; N],
     coordinates: &Coordinates<3>,
     epsilon: Scalar,
 ) -> [Slope; N] {
     let mut local = from_fn(|_| TensorRank1::<3, Reference>::const_from([0.0; 3]));
-    corners.iter().enumerate().for_each(|(corner, adjacent)| {
-        let edges = edges(corner, adjacent, element, coordinates);
+    corners.iter().for_each(|(corner, adjacent)| {
+        let edges = edges(*corner, adjacent, element, coordinates);
         let trace = edges.norm_squared().value();
         let determinant = edges.scalar_triple_product();
         let denominator = chi(epsilon, determinant);
@@ -585,7 +584,7 @@ fn scatter<const N: usize>(
             edges[0].cross(&edges[1]),
         ];
         (0..3).for_each(|i| {
-            local[corner] += &crosses[i] * beta - &edges[i] * alpha;
+            local[*corner] += &crosses[i] * beta - &edges[i] * alpha;
             local[adjacent[i]] += &edges[i] * alpha - &crosses[i] * beta;
         });
     });
@@ -593,15 +592,14 @@ fn scatter<const N: usize>(
 }
 
 fn determinant<const N: usize>(
-    corners: &[[usize; 3]; N],
+    corners: &[(usize, [usize; 3]); N],
     element: &[usize; N],
     coordinates: &Coordinates<3>,
 ) -> Scalar {
     corners
         .iter()
-        .enumerate()
         .map(|(corner, adjacent)| {
-            edges(corner, adjacent, element, coordinates).scalar_triple_product()
+            edges(*corner, adjacent, element, coordinates).scalar_triple_product()
         })
         .fold(Scalar::INFINITY, Scalar::min)
 }
