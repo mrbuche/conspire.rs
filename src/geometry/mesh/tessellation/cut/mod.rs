@@ -202,12 +202,15 @@ impl Tessellation {
     /// [trimmed](Self::trim). `balancing` must be `Strong(1)`: the templates
     /// filling a graded cell only span a one-level difference, and only a
     /// balance over edges and vertices as well as faces holds them to it.
+    /// `pairing` need not be `Regular`; the tetrahedra conform under any
+    /// pairing, and `None` yields a smaller background.
     ///
     /// `tolerance` is the Dunyach chord-error tolerance for curvature-driven
     /// refinement; `None` disables it.
     pub fn octree_tet_background(
         &self,
         balancing: Balancing,
+        pairing: Pairing,
         scale: Scalar,
         tolerance: Option<Quantity<Length>>,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
@@ -218,13 +221,7 @@ impl Tessellation {
             tolerance,
             ..Default::default()
         };
-        let mesh = self.octree_mesh(
-            balancing,
-            Pairing::Regular,
-            scale,
-            curvature,
-            Cells::Tetrahedral,
-        )?;
+        let mesh = self.octree_mesh(balancing, pairing, scale, curvature, Cells::Tetrahedral)?;
         let classes = self.classify(&mesh);
         Ok((mesh, classes))
     }

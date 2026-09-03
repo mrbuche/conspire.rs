@@ -557,7 +557,7 @@ fn classify_agrees_between_the_hex_and_tet_lattices() {
 
 fn check_octree_tet_background(tessellation: &Tessellation, graded: bool) {
     let (mesh, classes) = tessellation
-        .octree_tet_background(Balancing::Strong(1), 1.0, None)
+        .octree_tet_background(Balancing::Strong(1), Pairing::Regular, 1.0, None)
         .unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 1);
     assert_eq!(classes.len(), mesh.number_of_elements());
@@ -606,17 +606,17 @@ fn octree_tet_background_requires_strong_1() {
     let tessellation = sphere(2);
     assert!(
         tessellation
-            .octree_tet_background(Balancing::Weak(1), 1.0, None)
+            .octree_tet_background(Balancing::Weak(1), Pairing::Regular, 1.0, None)
             .is_err()
     );
     assert!(
         tessellation
-            .octree_tet_background(Balancing::Strong(2), 1.0, None)
+            .octree_tet_background(Balancing::Strong(2), Pairing::Regular, 1.0, None)
             .is_err()
     );
     assert!(
         tessellation
-            .octree_tet_background(Balancing::Strong(1), 1.0, None)
+            .octree_tet_background(Balancing::Strong(1), Pairing::Regular, 1.0, None)
             .is_ok()
     )
 }
