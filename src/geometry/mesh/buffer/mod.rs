@@ -1,7 +1,8 @@
 #[cfg(test)]
-mod test;
+pub mod test;
 
 mod fit;
+mod mixed;
 mod restrict;
 
 use super::{Connectivity, Mesh, PrimitiveConnectivity, Tessellation};

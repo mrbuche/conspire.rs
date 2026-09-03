@@ -10,7 +10,7 @@ use crate::{
 };
 use std::collections::{HashMap, HashSet};
 
-fn core() -> Mesh<3> {
+pub(crate) fn core() -> Mesh<3> {
     let coordinates = Coordinates::from(vec![
         [0.4, 0.4, 0.4],
         [0.6, 0.4, 0.4],
