@@ -102,13 +102,13 @@ pub(crate) fn classify_by_signed_distance(
     oracle: &impl SolidOracle,
     mesh: &Mesh<D>,
 ) -> Result<Vec<Class>, &'static str> {
-    let signed: Vec<Scalar> = mesh
-        .coordinates()
-        .iter()
-        .map(|point| oracle.signed_distance(point))
-        .collect();
-    let centroids = mesh.centroids();
-    let mut classes = Vec::with_capacity(mesh.number_of_elements());
+    let signed = signed_distances(oracle, mesh.coordinates(), None);
+    let count = mesh.number_of_elements();
+
+    // A cell whose corner distances straddle zero is `Cut`; the rest are
+    // decided by their centroid's sign, evaluated in one parallel masked pass.
+    let mut straddle = vec![false; count];
+    let mut needs_centroid = vec![false; count];
     let mut index = 0;
     for block in mesh.iter() {
         for element in block.iter() {
@@ -116,17 +116,27 @@ pub(crate) fn classify_by_signed_distance(
                 (Scalar::INFINITY, Scalar::NEG_INFINITY),
                 |(minimum, maximum), &node| (minimum.min(signed[node]), maximum.max(signed[node])),
             );
-            classes.push(if minimum <= 0.0 && maximum >= 0.0 {
-                Class::Cut
-            } else if oracle.signed_distance(&centroids[index]) > 0.0 {
-                Class::Inside
+            if minimum <= 0.0 && maximum >= 0.0 {
+                straddle[index] = true;
             } else {
-                Class::Outside
-            });
+                needs_centroid[index] = true;
+            }
             index += 1;
         }
     }
-    Ok(classes)
+
+    let centroid_signed = signed_distances(oracle, &mesh.centroids(), Some(&needs_centroid));
+    Ok((0..count)
+        .map(|index| {
+            if straddle[index] {
+                Class::Cut
+            } else if centroid_signed[index] > 0.0 {
+                Class::Inside
+            } else {
+                Class::Outside
+            }
+        })
+        .collect())
 }
 
 /// Half the diagonal of `hex`'s bounding box: the farthest any interior point,
