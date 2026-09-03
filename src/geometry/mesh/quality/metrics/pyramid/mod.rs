@@ -8,9 +8,6 @@ use crate::{
 };
 use std::f64::consts::SQRT_2;
 
-/// Nodes `0..4` are the base quadrilateral in face order, node `4` the apex.
-/// The four base corners meet two base edges and the apex; the apex meets four
-/// edges and is fanned into four three-edge corners `(4, [i, i+2, i+1])`.
 pub(crate) const CORNERS: [(usize, [usize; 3]); 8] = [
     (0, [1, 3, 4]),
     (1, [2, 0, 4]),

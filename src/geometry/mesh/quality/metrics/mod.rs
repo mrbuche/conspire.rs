@@ -319,9 +319,6 @@ fn min_scaled_jacobian<const D: usize, const K: usize, const C: usize>(
         .fold(Scalar::INFINITY, Scalar::min)
 }
 
-/// One `(origin, neighbours)` entry per corner. The origin is carried
-/// explicitly so a node may appear as more than one corner — the pyramid apex
-/// meets four edges and is fanned into four three-edge corners.
 fn corners<const D: usize, const K: usize, const C: usize>(
     table: &[(usize, [usize; K]); C],
     element: &[usize],
@@ -337,8 +334,6 @@ fn corners<const D: usize, const K: usize, const C: usize>(
     })
 }
 
-/// Cosine between the two principal axes of a quadrilateral, as used for the
-/// quadrilateral faces of a pyramid or wedge.
 fn quad_skew<const D: usize>(
     p0: &Coordinate<D>,
     p1: &Coordinate<D>,

@@ -6,8 +6,6 @@ fn pyramid(coordinates: Vec<[f64; 3]>) -> Mesh<3> {
     Mesh::from((connectivities, coordinates.into()))
 }
 
-/// Unit square base, apex raised so every lateral edge has unit length; every
-/// lateral face is then equilateral.
 const PERFECT: [[f64; 3]; 5] = [
     [0.0, 0.0, 0.0],
     [1.0, 0.0, 0.0],
