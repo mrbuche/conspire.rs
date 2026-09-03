@@ -6,7 +6,7 @@ use crate::{
             tessellation::from::test::tessellation,
         },
     },
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
 };
 use std::collections::HashMap;
 
@@ -203,4 +203,59 @@ fn buffer_mixed_beats_the_hexahedral_shell_across_the_crease() {
         fan > straddling * 1.5,
         "pyramid fan {fan} did not clearly beat the straddling hexahedron {straddling}"
     );
+}
+
+/// End to end on a real background: a lattice trimmed to the prism gives a
+/// many-hexahedron core whose ridge-facing boundary spans several faces, so
+/// adjacent faces both fan and their shared side quadrilaterals are exercised.
+#[test]
+fn buffer_mixed_on_a_trimmed_multi_hexahedron_core() {
+    let target = ridge_prism();
+    let (mut background, _) = target.lattice_background(Quantity::new(0.35)).unwrap();
+    target.trim(&mut background).unwrap();
+    let core_hexes = background.number_of_elements();
+    let core_nodes = background.number_of_nodes();
+    assert!(
+        core_hexes > 20,
+        "want a genuine multi-hex core, got {core_hexes}"
+    );
+
+    let mesh = background.buffer_mixed(&target, Fitting::Snap).unwrap();
+
+    assert_eq!(mesh.number_of_element_blocks(), 2);
+    let [
+        Connectivity::Hexahedral(hexes),
+        Connectivity::Pyramidal(pyramids),
+    ] = mesh.connectivities()
+    else {
+        unreachable!("clean faces stay hexahedra, crease faces fan")
+    };
+    assert!(
+        hexes.iter().count() > core_hexes,
+        "clean shell hexahedra joined the core block"
+    );
+    let fans = pyramids.iter().count();
+    assert!(
+        fans > 0 && fans % 5 == 0,
+        "whole five-pyramid fans, got {fans}"
+    );
+    assert_manifold_boundary(&mesh);
+    assert!(worst_scaled_jacobian(&mesh) > 0.0);
+
+    let surface = target.mesh();
+    let surface_elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+    let bvh = target.bvh();
+    let deviation = (core_nodes..mesh.coordinates().len())
+        .map(|node| {
+            let (point, _) = bvh
+                .closest_point(
+                    &mesh.coordinates()[node],
+                    surface.coordinates(),
+                    &surface_elements,
+                )
+                .unwrap();
+            (&mesh.coordinates()[node] - point).norm().value()
+        })
+        .fold(0.0, Scalar::max);
+    assert!(deviation < 1.0e-9, "layer left the surface by {deviation}");
 }
