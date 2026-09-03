@@ -13,8 +13,8 @@ use crate::{
 use std::array::from_fn;
 
 impl Mesh<3> {
-    /// Adds a one-element-thick shell to a hexahedral core and fits it to the
-    /// target.
+    /// Adds a one-element-thick buffer to a hexahedral core
+    /// and fits it to the target tessellation.
     ///
     /// A core boundary quadrilateral whose neighbourhood is clear of the
     /// target's corners and creases raises a single hexahedron, exactly as
@@ -105,8 +105,6 @@ impl Mesh<3> {
     }
 }
 
-/// The mean edge length of a boundary quadrilateral, used as the radius within
-/// which a target feature is taken to cross the face.
 fn face_size(face: &[usize], coordinates: &Coordinates<3>) -> Quantity<Length> {
     (0..4)
         .map(|i| (&coordinates[face[(i + 1) % 4]] - &coordinates[face[i]]).norm())
