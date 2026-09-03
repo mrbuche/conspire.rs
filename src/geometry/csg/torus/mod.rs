@@ -77,9 +77,11 @@ pub struct TorusOracle {
 }
 
 impl TorusOracle {
-    /// The point on the tube centre circle nearest `query`, and the vector from
-    /// it to `query` with that vector's length.
-    fn tube_frame(&self, query: &Coordinate<D>) -> ([Scalar; D], [Scalar; D], Scalar) {
+    /// The point on the tube centre circle nearest `query`, the vector from it
+    /// to `query` and that vector's length, and the outward radial unit at the
+    /// ring point (the tube-plane direction to use when `query` lies on the
+    /// centre circle and `offset` is zero).
+    fn tube_frame(&self, query: &Coordinate<D>) -> ([Scalar; D], [Scalar; D], Scalar, [Scalar; D]) {
         let relative: [Scalar; D] = from_fn(|k| query[k].value() - self.center[k]);
         let axial = (0..D).map(|k| relative[k] * self.axis[k]).sum::<Scalar>();
         let radial: [Scalar; D] = from_fn(|k| relative[k] - axial * self.axis[k]);
@@ -93,24 +95,28 @@ impl TorusOracle {
             from_fn(|k| self.center[k] + self.major_radius * radial_unit[k]);
         let offset: [Scalar; D] = from_fn(|k| query[k].value() - ring[k]);
         let distance = offset.iter().map(|x| x * x).sum::<Scalar>().sqrt();
-        (ring, offset, distance)
+        (ring, offset, distance, radial_unit)
     }
 }
 
 impl SolidOracle for TorusOracle {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
-        let (ring, offset, distance) = self.tube_frame(query);
+        let (ring, offset, distance, radial_unit) = self.tube_frame(query);
+        // On the tube centre circle there is no unique closest point; the
+        // outward radial at the ring point is a genuine tube-plane direction,
+        // so `ring + minor * radial_unit` still lands on the surface (a fixed
+        // `perpendicular(axis)` would not).
         let normal = if distance > 1.0e-30 {
             offset.map(|x| x / distance)
         } else {
-            perpendicular(self.axis)
+            radial_unit
         };
         let point: Coordinate<D> = from_fn(|k| ring[k] + self.minor_radius * normal[k]).into();
         Some((point, Direction::const_from(normal)))
     }
 
     fn signed_distance(&self, query: &Coordinate<D>) -> Scalar {
-        let (_, _, distance) = self.tube_frame(query);
+        let (_, _, distance, _) = self.tube_frame(query);
         self.minor_radius - distance
     }
 }

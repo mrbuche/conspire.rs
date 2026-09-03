@@ -57,6 +57,23 @@ fn projects_onto_the_tube() {
 }
 
 #[test]
+fn projects_a_point_on_the_tube_centre_circle_onto_the_surface() {
+    let oracle = ring().oracle().unwrap();
+    // [0, 3, 0] is on the tube centre circle: no unique closest point, but the
+    // foot must still be on the torus. The old fixed perpendicular(axis)
+    // fallback put it at [0, 4, 0] + a [1,0,0] offset -> 0.16 off the surface.
+    let (surface, _) = oracle.project(&point([0.0, 3.0, 0.0])).unwrap();
+    let off = oracle.signed_distance(&surface).abs();
+    assert!(
+        off < 1e-9,
+        "foot [{}, {}, {}] is {off} off the torus",
+        surface[0].value(),
+        surface[1].value(),
+        surface[2].value(),
+    );
+}
+
+#[test]
 fn meshes_the_ring() {
     let mesh = ring()
         .mesh(
