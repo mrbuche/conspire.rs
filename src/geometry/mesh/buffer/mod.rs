@@ -1,4 +1,6 @@
 #[cfg(test)]
+mod diagnose;
+#[cfg(test)]
 mod test;
 
 mod fit;
