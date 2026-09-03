@@ -17,7 +17,7 @@ fn cut(
     balancing: Balancing,
     scale: f64,
 ) -> Result<Mesh<3>, &'static str> {
-    let (mesh, classes) = tessellation.dual_background(balancing, scale)?;
+    let (mesh, classes) = tessellation.dual_background(balancing, scale, None)?;
     tessellation.cut(mesh, &classes)
 }
 
@@ -31,7 +31,7 @@ fn cut_polyhedral(
     balancing: Balancing,
     scale: f64,
 ) -> Result<Mesh<3>, &'static str> {
-    let (mesh, classes) = tessellation.octree_background(balancing, scale)?;
+    let (mesh, classes) = tessellation.octree_background(balancing, scale, None)?;
     tessellation.cut_polyhedral(mesh, &classes)
 }
 
@@ -558,7 +558,7 @@ fn check_octree_tet_background(tessellation: &Tessellation, graded: bool) {
         volume_of(&mesh)
     );
     let (polyhedra, _) = tessellation
-        .octree_background(Balancing::Strong(1), 1.0)
+        .octree_background(Balancing::Strong(1), 1.0, None)
         .unwrap();
     let leaves = polyhedra.number_of_elements();
     if graded {
