@@ -1,9 +1,9 @@
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh, Tessellation, test::sphere},
+        mesh::{Connectivity, Dualization, Mesh, Tessellation, test::sphere},
         ntree::node::{Node, cell::Cell},
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, Sizing},
     },
     math::{Quantity, Scalar, Tensor},
     units::Length,

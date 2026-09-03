@@ -73,7 +73,7 @@ impl Mesh<3> {
             if offenders.is_empty() {
                 return Ok(());
             }
-            self.keep_hexes(|index, _, _| !offenders.contains(&index))?;
+            self.retain_elements(|index, _, _| !offenders.contains(&index));
         }
         Err("clearance restriction did not converge")
     }

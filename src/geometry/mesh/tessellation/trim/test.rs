@@ -2,14 +2,54 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{
-            Connectivity, Fitting, Mesh, Verdict,
+            Connectivity, Dualization, Fitting, Mesh, Verdict,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
-    math::Scalar,
+    math::{Quantity, Scalar},
 };
 use std::f64::consts::TAU;
+
+fn worst_scaled_jacobian(mesh: &Mesh<D>) -> Scalar {
+    mesh.minimum_scaled_jacobians()
+        .into_iter()
+        .flatten()
+        .fold(Scalar::INFINITY, Scalar::min)
+}
+
+fn check_trimmed(background: usize, mesh: &Mesh<D>) {
+    assert_eq!(mesh.number_of_element_blocks(), 1);
+    assert!(matches!(
+        mesh.connectivities(),
+        [Connectivity::Tetrahedral(_)]
+    ));
+    assert!(mesh.number_of_elements() > 0);
+    assert!(mesh.number_of_elements() < background);
+    assert!(worst_scaled_jacobian(mesh) > 0.0);
+}
+
+#[test]
+fn trims_an_octree_tet_background() {
+    let tessellation = torus(1.0, 0.15, 64, 24);
+    let (mut mesh, _) = tessellation
+        .octree_tet_background(Balancing::Strong(1), Pairing::Regular, 3.0, None)
+        .unwrap();
+    let background = mesh.number_of_elements();
+    tessellation.trim(&mut mesh).unwrap();
+    check_trimmed(background, &mesh);
+}
+
+#[test]
+fn trims_a_lattice_tet_background() {
+    let tessellation = torus(1.0, 0.15, 64, 24);
+    let (mut mesh, _) = tessellation
+        .lattice_tet_background(Quantity::new(0.1))
+        .unwrap();
+    let background = mesh.number_of_elements();
+    tessellation.trim(&mut mesh).unwrap();
+    check_trimmed(background, &mesh);
+}
 
 fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellation {
     let mut coordinates = Vec::new();

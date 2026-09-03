@@ -1,0 +1,278 @@
+use crate::geometry::{
+    Coordinate, Coordinates,
+    mesh::{Dualization, Mesh, from::ntree::dualization::Initialize},
+    ntree::{Balance, Balancing, Octree, Pairing},
+};
+use crate::math::Quantity;
+use std::collections::{HashMap, HashSet};
+
+fn hex_vol6(hex: &[usize; 8], coordinates: &Coordinates<3>) -> f64 {
+    let p: [[f64; 3]; 8] = std::array::from_fn(|k| {
+        let v = &coordinates[hex[k]];
+        [v[0].value(), v[1].value(), v[2].value()]
+    });
+    let tet = |a: usize, b: usize, c: usize, d: usize| -> f64 {
+        let ab = [p[b][0] - p[a][0], p[b][1] - p[a][1], p[b][2] - p[a][2]];
+        let ac = [p[c][0] - p[a][0], p[c][1] - p[a][1], p[c][2] - p[a][2]];
+        let ad = [p[d][0] - p[a][0], p[d][1] - p[a][1], p[d][2] - p[a][2]];
+        ab[0] * (ac[1] * ad[2] - ac[2] * ad[1]) - ab[1] * (ac[0] * ad[2] - ac[2] * ad[0])
+            + ab[2] * (ac[0] * ad[1] - ac[1] * ad[0])
+    };
+    tet(0, 1, 2, 6)
+        + tet(0, 2, 3, 6)
+        + tet(0, 3, 7, 6)
+        + tet(0, 7, 4, 6)
+        + tet(0, 4, 5, 6)
+        + tet(0, 5, 1, 6)
+}
+
+const HEX_FACES: [[usize; 4]; 6] = [
+    [0, 1, 2, 3],
+    [4, 5, 6, 7],
+    [0, 1, 5, 4],
+    [1, 2, 6, 5],
+    [2, 3, 7, 6],
+    [3, 0, 4, 7],
+];
+
+pub(crate) fn verify_dual(mesh: &Mesh<3>) -> Result<(), String> {
+    let coordinates = mesh.coordinates();
+    for (e, element) in mesh.iter().flatten().enumerate() {
+        let mut distinct = element.to_vec();
+        distinct.sort_unstable();
+        distinct.dedup();
+        if distinct.len() != 8 {
+            return Err(format!("hex {e} has repeated nodes: {element:?}"));
+        }
+        let hex: [usize; 8] = std::array::from_fn(|k| element[k]);
+        let six_v = hex_vol6(&hex, coordinates);
+        if six_v <= 1e-9 {
+            return Err(format!(
+                "hex {e} not positively oriented (6V={six_v}): {element:?}"
+            ));
+        }
+    }
+    let mut faces: HashMap<[usize; 4], usize> = HashMap::new();
+    for element in mesh.iter().flatten() {
+        for face in HEX_FACES {
+            let mut key = [
+                element[face[0]],
+                element[face[1]],
+                element[face[2]],
+                element[face[3]],
+            ];
+            key.sort_unstable();
+            *faces.entry(key).or_insert(0) += 1;
+        }
+    }
+    if let Some((face, count)) = faces.iter().find(|(_, count)| **count > 2) {
+        return Err(format!("non-conformal: face {face:?} shared {count} times"));
+    }
+    let mut edges: HashMap<[usize; 2], usize> = HashMap::new();
+    let exterior: Vec<_> = mesh.exterior_faces();
+    for face in &exterior {
+        for i in 0..face.len() {
+            let mut edge = [face[i], face[(i + 1) % face.len()]];
+            edge.sort_unstable();
+            *edges.entry(edge).or_insert(0) += 1;
+        }
+    }
+    if let Some((edge, count)) = edges.iter().find(|(_, count)| **count != 2) {
+        return Err(format!(
+            "boundary not a closed manifold: edge {edge:?} borders {count} boundary faces"
+        ));
+    }
+    let vertices: HashSet<usize> = exterior.iter().flatten().copied().collect();
+    let euler = vertices.len() as i64 - edges.len() as i64 + exterior.len() as i64;
+    if euler != 2 {
+        return Err(format!(
+            "boundary is not a topological sphere (Euler characteristic {euler})"
+        ));
+    }
+    let mut component: HashMap<usize, usize> = HashMap::new();
+    let mut queue = vec![*vertices.iter().next().ok_or("boundary is empty")?];
+    component.insert(queue[0], 0);
+    let mut neighbors: HashMap<usize, Vec<usize>> = HashMap::new();
+    for edge in edges.keys() {
+        neighbors.entry(edge[0]).or_default().push(edge[1]);
+        neighbors.entry(edge[1]).or_default().push(edge[0]);
+    }
+    while let Some(vertex) = queue.pop() {
+        for &next in neighbors.get(&vertex).into_iter().flatten() {
+            if component.insert(next, 0).is_none() {
+                queue.push(next);
+            }
+        }
+    }
+    if component.len() != vertices.len() {
+        return Err(format!(
+            "boundary is disconnected ({} of {} vertices reached; unfilled interior void)",
+            component.len(),
+            vertices.len()
+        ));
+    }
+    Ok(())
+}
+
+fn refine_sets() -> Vec<Vec<usize>> {
+    vec![vec![1], vec![1, 2, 3], vec![1, 8], vec![1, 4, 6, 7]]
+}
+
+#[test]
+fn dual_is_conformal_on_strong_trees() {
+    for macros in refine_sets() {
+        let octree = tree_refine_macros(&macros);
+        let mesh = octree.dualize();
+        assert!(
+            mesh.iter().flatten().count() > 0,
+            "dual produced no hexes for {macros:?}"
+        );
+        if let Err(error) = verify_dual(&mesh) {
+            panic!("strong dual {macros:?} failed verification: {error}");
+        }
+    }
+}
+
+fn tree_refine_macros(fine_macros: &[usize]) -> Octree<u16, usize> {
+    use crate::geometry::ntree::{
+        node::{Kind, Node},
+        rescale::Rescaling,
+    };
+    let mut octree = Octree::<u16, usize> {
+        balanced: Balancing::None,
+        nodes: vec![Node {
+            corner: [0, 0, 0],
+            length: 8,
+            facets: [None; 6],
+            kind: Kind::Leaf,
+            value: None,
+        }],
+        paired: Pairing::None,
+        rescale: Rescaling {
+            center: Coordinate::const_from([4.0, 4.0, 4.0]),
+            cell: Quantity::new(1.0),
+            half: 4.0,
+        },
+    };
+    octree.subdivide(0).unwrap();
+    for macro_cell in 1..=8usize {
+        octree.subdivide(macro_cell).unwrap();
+    }
+    for &fine_macro in fine_macros {
+        let children = *octree.nodes[fine_macro].orthants().unwrap();
+        for child in children {
+            octree.subdivide(child).unwrap();
+        }
+    }
+    octree
+        .equilibrate(Balancing::Strong(1), Pairing::Regular)
+        .unwrap();
+    octree
+}
+
+fn edge_counts(octree: &Octree<u16, usize>) -> [usize; 4] {
+    use super::{edge::test::edge_transition_counts, face::face_transition};
+    let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
+    let mut nodes_map = HashMap::new();
+    face_transition(
+        octree,
+        &center_nodes,
+        &mut coordinates,
+        &mut connectivity,
+        &mut node_index,
+        &mut nodes_map,
+    );
+    edge_transition_counts(
+        octree,
+        &center_nodes,
+        &mut coordinates,
+        &mut connectivity,
+        &mut node_index,
+        &mut nodes_map,
+    )
+}
+
+#[test]
+fn edge_transitions_each_fire_across_strong_trees() {
+    let mut fired = [false; 4];
+    for macros in refine_sets() {
+        let counts = edge_counts(&tree_refine_macros(&macros));
+        (0..4).for_each(|k| fired[k] |= counts[k] > 0);
+    }
+    for (i, &f) in fired.iter().enumerate() {
+        assert!(
+            f,
+            "edge transition_{} never fired across any test tree",
+            i + 1
+        );
+    }
+}
+
+#[test]
+fn star_fires_on_synthetic_checkerboard() {
+    use super::vertex::test::vertex_dual_generic;
+    use crate::geometry::ntree::{
+        node::{Kind, Node},
+        rescale::Rescaling,
+    };
+
+    let mut octree = Octree::<u16, usize> {
+        balanced: Balancing::None,
+        nodes: vec![Node {
+            corner: [0, 0, 0],
+            length: 8,
+            facets: [None; 6],
+            kind: Kind::Leaf,
+            value: None,
+        }],
+        paired: Pairing::None,
+        rescale: Rescaling {
+            center: Coordinate::const_from([4.0, 4.0, 4.0]),
+            cell: Quantity::new(1.0),
+            half: 4.0,
+        },
+    };
+    octree.subdivide(0).unwrap();
+    for macro_cell in 1..=8usize {
+        octree.subdivide(macro_cell).unwrap();
+    }
+    for fine_macro in [1usize, 4, 6, 7] {
+        let children = *octree.nodes[fine_macro].orthants().unwrap();
+        for child in children {
+            octree.subdivide(child).unwrap();
+        }
+    }
+    octree.balanced = Balancing::Strong(1);
+    octree.paired = Pairing::Regular;
+
+    let (center_nodes, coordinates, ..) = octree.initialize();
+    let mut hexes = Vec::new();
+    super::vertex::vertex_transitions(&octree, &center_nodes, &mut hexes, &HashMap::new());
+    assert!(
+        !hexes.is_empty(),
+        "the star template did not fire on the checkerboard tree"
+    );
+
+    hexes.iter().enumerate().for_each(|(i, hex)| {
+        assert!(
+            hex_vol6(hex, &coordinates) > 1e-12,
+            "star hex {i} not positively oriented: {hex:?}"
+        );
+    });
+
+    let generic: HashSet<[usize; 8]> = vertex_dual_generic(&octree, &center_nodes)
+        .into_iter()
+        .map(|mut hex| {
+            hex.sort_unstable();
+            hex
+        })
+        .collect();
+    hexes.iter().for_each(|hex| {
+        let mut sorted = *hex;
+        sorted.sort_unstable();
+        assert!(
+            generic.contains(&sorted),
+            "star hex {hex:?} is not a vertex star"
+        );
+    });
+}

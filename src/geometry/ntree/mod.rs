@@ -1,7 +1,6 @@
 mod balance;
 mod defeature;
 mod deref;
-mod dual;
 mod from;
 mod index;
 mod into;
@@ -17,7 +16,6 @@ mod write;
 
 pub use crate::geometry::ntree::{
     balance::{Balance, Balancing},
-    dual::Dualization,
     node::Nodes,
     pair::Pairing,
     read::Input,
