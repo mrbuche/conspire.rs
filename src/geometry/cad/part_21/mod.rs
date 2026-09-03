@@ -55,12 +55,18 @@ impl FromStr for Exchange {
 }
 
 pub fn parse(text: &str) -> Result<Exchange> {
-    // Tolerate a leading UTF-8 BOM some exporters prepend.
-    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    // Tolerate a leading UTF-8 BOM some exporters prepend; keep its width so
+    // reported byte offsets still point into the original file.
+    let (text, base_offset) = match text.strip_prefix('\u{feff}') {
+        Some(rest) => (rest, '\u{feff}'.len_utf8()),
+        None => (text, 0),
+    };
     let mut scanner = Scanner {
         bytes: text.as_bytes(),
         position: 0,
         depth: 0,
+        base_offset,
+        comment_unterminated: false,
     };
     scanner.literal("ISO-10303-21")?;
     scanner.terminator()?;
@@ -88,8 +94,21 @@ pub fn parse(text: &str) -> Result<Exchange> {
     scanner.literal("END-ISO-10303-21")?;
     scanner.terminator()?;
     scanner.trivia();
+    if scanner.comment_unterminated {
+        return Err(scanner.error("unterminated `/*` comment"));
+    }
     if scanner.peek().is_some() {
         return Err(scanner.error("trailing content after `END-ISO-10303-21;`"));
+    }
+    // Part 21 forbids entity references in the header section.
+    if header
+        .iter()
+        .flat_map(|record| &record.parameters)
+        .any(has_reference)
+    {
+        return Err(invalid(
+            "Part 21: entity reference in the HEADER section".to_string(),
+        ));
     }
     for (id, instance) in &data {
         instance
@@ -99,6 +118,15 @@ pub fn parse(text: &str) -> Result<Exchange> {
             .try_for_each(|parameter| resolve(parameter, *id, &data))?;
     }
     Ok(Exchange { header, data })
+}
+
+fn has_reference(parameter: &Parameter) -> bool {
+    match parameter {
+        Parameter::Reference(_) => true,
+        Parameter::List(items) => items.iter().any(has_reference),
+        Parameter::Typed { parameter, .. } => has_reference(parameter),
+        _ => false,
+    }
 }
 
 fn resolve(parameter: &Parameter, id: u64, data: &BTreeMap<u64, Instance>) -> Result<()> {
@@ -124,6 +152,11 @@ struct Scanner<'a> {
     bytes: &'a [u8],
     position: usize,
     depth: usize,
+    /// Bytes of a stripped BOM, added back into reported offsets.
+    base_offset: usize,
+    /// A `/*` reached EOF with no `*/`; `trivia` stops advancing and `parse`
+    /// turns it into an error rather than silently swallowing the tail.
+    comment_unterminated: bool,
 }
 
 impl Scanner<'_> {
@@ -131,7 +164,7 @@ impl Scanner<'_> {
         invalid(format!(
             "Part 21: {} at byte {}",
             message.into(),
-            self.position
+            self.base_offset + self.position
         ))
     }
 
@@ -144,13 +177,16 @@ impl Scanner<'_> {
             while self.peek().is_some_and(|byte| byte.is_ascii_whitespace()) {
                 self.position += 1;
             }
-            if self.bytes[self.position..].starts_with(b"/*") {
+            if !self.comment_unterminated && self.bytes[self.position..].starts_with(b"/*") {
                 match self.bytes[self.position + 2..]
                     .windows(2)
                     .position(|window| window == b"*/")
                 {
                     Some(offset) => self.position += offset + 4,
-                    None => self.position = self.bytes.len(),
+                    None => {
+                        self.comment_unterminated = true;
+                        self.position = self.bytes.len();
+                    }
                 }
             } else {
                 return;
@@ -222,10 +258,17 @@ impl Scanner<'_> {
         if self.position == start {
             return Err(self.error("expected an entity id after `#`"));
         }
-        from_utf8(&self.bytes[start..self.position])
+        if self.position > start + 1 && self.bytes[start] == b'0' {
+            return Err(self.error("entity id has a leading zero"));
+        }
+        let id: u64 = from_utf8(&self.bytes[start..self.position])
             .unwrap()
             .parse()
-            .map_err(|_| self.error("entity id out of range"))
+            .map_err(|_| self.error("entity id out of range"))?;
+        if id == 0 {
+            return Err(self.error("entity id must be positive"));
+        }
+        Ok(id)
     }
 
     fn record(&mut self) -> Result<Record> {
@@ -336,6 +379,12 @@ impl Scanner<'_> {
                     self.position += 1;
                     return Ok(String::from_utf8_lossy(&value).into_owned());
                 }
+                // A raw control byte (a bare newline especially) is the mark of
+                // a truncated quote; without this one runaway `'` swallows the
+                // records that follow it as string content.
+                Some(byte) if byte < 0x20 => {
+                    return Err(self.error("control character in a string literal"));
+                }
                 Some(byte) => {
                     value.push(byte);
                     self.position += 1;
@@ -356,6 +405,9 @@ impl Scanner<'_> {
         if self.position == start || self.peek() != Some(b'.') {
             return Err(self.error("malformed enumeration"));
         }
+        if self.bytes[start].is_ascii_digit() {
+            return Err(self.error("enumeration cannot start with a digit"));
+        }
         let value = from_utf8(&self.bytes[start..self.position])
             .unwrap()
             .to_owned();
@@ -369,10 +421,20 @@ impl Scanner<'_> {
             self.position += 1;
         }
         let mut real = false;
+        let mut seen_digit = false;
         while let Some(byte) = self.peek() {
             match byte {
-                b'0'..=b'9' => self.position += 1,
+                b'0'..=b'9' => {
+                    seen_digit = true;
+                    self.position += 1;
+                }
                 b'.' => {
+                    // Part 21 requires a digit before the decimal point, in the
+                    // signed form (`-.5`) as much as the bare one (`.5`, which
+                    // never reaches here — `parameter` sends it to `enumeration`).
+                    if !seen_digit {
+                        return Err(self.error("real literal needs a digit before `.`"));
+                    }
                     real = true;
                     self.position += 1;
                 }
@@ -389,9 +451,17 @@ impl Scanner<'_> {
         let text = from_utf8(&self.bytes[start..self.position]).unwrap();
         if real {
             match text.parse::<f64>() {
-                Ok(value) if value.is_finite() => Ok(Parameter::Real(value)),
-                // `str::parse` maps an overflowing literal to ±inf, not an
-                // error; reject it rather than feed an infinite coordinate on.
+                // `str::parse` maps an overflowing literal to ±inf and an
+                // underflowing one to 0.0, neither an error; reject both so a
+                // bad literal never reaches geometry as an infinite or a
+                // silently-zeroed coordinate.
+                Ok(value)
+                    if value.is_finite()
+                        && (value != 0.0
+                            || !text.bytes().any(|b| b.is_ascii_digit() && b != b'0')) =>
+                {
+                    Ok(Parameter::Real(value))
+                }
                 _ => Err(self.error(format!("malformed or out-of-range real `{text}`"))),
             }
         } else {

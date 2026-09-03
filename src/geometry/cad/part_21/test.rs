@@ -127,14 +127,37 @@ fn rejects_pathologically_nested_parameters() {
 
 #[test]
 fn rejects_a_non_finite_real() {
-    let error = parse(&wrap("#1 = P(1.0E400);")).unwrap_err().to_string();
-    assert!(error.contains("out-of-range real"), "{error}");
+    // Overflow -> +/-inf and underflow -> exactly 0.0 both parse `Ok` from
+    // `str::parse`; neither may reach geometry.
+    for literal in ["1.0E400", "1.0E-400"] {
+        let error = parse(&wrap(&format!("#1 = P({literal});")))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("out-of-range real"), "{literal}: {error}");
+    }
+    // A genuine zero and a genuine tiny value still parse.
+    assert!(parse(&wrap("#1 = P(0.,-0.0,1.0E-30);")).is_ok());
 }
 
 #[test]
 fn tolerates_a_leading_bom() {
     let text = format!("\u{feff}{}", wrap("#1 = A();"));
     assert!(parse(&text).is_ok());
+    // The 3-byte BOM is added back into reported offsets, so an error points
+    // at the real position in the file the caller passed, not the stripped one.
+    let bare = parse(&wrap("#1 = A(@);")).unwrap_err().to_string();
+    let with_bom = parse(&format!("\u{feff}{}", wrap("#1 = A(@);")))
+        .unwrap_err()
+        .to_string();
+    let offset = |message: &str| {
+        message
+            .rsplit(' ')
+            .next()
+            .unwrap()
+            .parse::<usize>()
+            .unwrap()
+    };
+    assert_eq!(offset(&with_bom), offset(&bare) + 3);
 }
 
 #[test]
@@ -147,6 +170,56 @@ fn rejects_trailing_content() {
             .to_string()
             .contains("trailing content")
     );
+}
+
+#[test]
+fn rejects_an_unterminated_comment() {
+    // Trailing `/*` used to be swallowed to EOF, silently defeating the
+    // end-of-file check.
+    let text = format!("{}/* dangling", wrap("#1 = A();"));
+    assert!(
+        parse(&text)
+            .unwrap_err()
+            .to_string()
+            .contains("unterminated"),
+        "{}",
+        parse(&text).unwrap_err()
+    );
+}
+
+#[test]
+fn rejects_a_header_entity_reference() {
+    let text = "ISO-10303-21;\nHEADER;\nFILE_NAME(#5);\nENDSEC;\nDATA;\n#1 = A();\nENDSEC;\nEND-ISO-10303-21;\n";
+    assert!(parse(text).unwrap_err().to_string().contains("HEADER"));
+}
+
+#[test]
+fn rejects_control_characters_in_a_string() {
+    let error = parse(&wrap("#1 = L('a\nb');")).unwrap_err().to_string();
+    assert!(error.contains("control character"), "{error}");
+}
+
+#[test]
+fn rejects_a_leading_dot_real() {
+    // `.5` reaches `enumeration`; `-.5` reaches `number` -- both malformed.
+    assert!(parse(&wrap("#1 = A(-.5);")).is_err());
+    assert!(parse(&wrap("#1 = A(.5);")).is_err());
+    // The well-formed forms still parse.
+    let params = &parse(&wrap("#1 = A(-0.5,5.);")).unwrap().data[&1].records[0].parameters;
+    assert_eq!(params, &[Parameter::Real(-0.5), Parameter::Real(5.0)]);
+}
+
+#[test]
+fn rejects_a_numeric_enumeration() {
+    assert!(parse(&wrap("#1 = A(.123.);")).is_err());
+    assert!(parse(&wrap("#1 = A(.T.,.STEEL_2.);")).is_ok());
+}
+
+#[test]
+fn rejects_malformed_entity_ids() {
+    assert!(parse(&wrap("#0 = A();")).is_err());
+    assert!(parse(&wrap("#007 = A();")).is_err());
+    assert!(parse(&wrap("#1 = A(#02);")).is_err());
 }
 
 fn wrap(data: &str) -> String {

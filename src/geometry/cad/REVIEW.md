@@ -44,7 +44,7 @@ fit quality is a separate concern). A *change* in that number is the signal.
 
 | Module | Reviewed through | Notes |
 |---|---|---|
-| `cad/part_21` | `7e29ff44` (Sonnet high; Opus 529'd ×2) | 6 findings, no panics/loops; P1/P4/P5/P6 fixed, P2/P3 open |
+| `cad/part_21` | (Sonnet high + Opus deep) | 6 + 15 findings, no memory-safety issues; P1/P4/P5/P6 + O1/O4/O6/O7/O9/O10/O11/O15 fixed; P2/P3 + O2/O3/O5/O8/O12/O13/O14 open |
 | `cad/read/step/brep` | — | STEP entity graph → `Brep` |
 | `cad/brep/{curve,surface}` | — | primitive curve/surface eval |
 | `cad/brep/oracle/{mod,patch,sampled}` | — | **highest risk**; harness covers primitives + closed quadrics |
@@ -265,3 +265,44 @@ P6. **No EOF check after `END-ISO-10303-21;`** (`part_21/mod.rs:85`). Trailing
     garbage or a second concatenated document is silently ignored and the file
     reported valid. Fix: after the trailing terminator, error if `trivia()`
     leaves anything. **FIXED `7e29ff44`**.
+
+### part_21 pass 2 (Opus deep review) — 8 fixed, 7 open
+
+All 15 CONFIRMED. Opus separately fuzzed 4000 random malformed strings + every
+prefix-truncation of a valid file with zero aborts, and traced every
+`self.position` mutation, the `windows(2)` comment math, and the `from_utf8`
+spans — **no memory-safety issue survived** (P1/P4/P5/P6 hold). What is left is
+grammar/semantic conformance.
+
+**Fixed (next commit):**
+- O1 — entity reference in the HEADER section silently accepted → rejected.
+- O4 — `-.5` accepted while `.5` rejected (asymmetric) → both rejected (digit
+  required before `.`).
+- O6 — `enumeration()` allowed a digit-leading value (`.123.`) → rejected,
+  mirroring `keyword()`.
+- O7 — `#0` accepted, and `#007` aliased `#7` → leading-zero and zero ids
+  rejected.
+- O9 — underflowing real (`1.0E-400`) silently became `0.0` → rejected (mirror
+  of P4).
+- O10 — unterminated `/*` swallowed to EOF, defeating the P6 check → `trivia`
+  stops and `parse` errors.
+- O11 — raw control bytes (a bare newline) allowed in a string literal, so one
+  runaway `'` eats the following records → rejected.
+- O15 — a stripped BOM made every reported byte offset 3 short → `base_offset`
+  carried into `error()`.
+
+**Open (spec-coverage; loud failure or won't occur in real exports):**
+- O2 — binary literals `"0A1F"` unsupported, no `Parameter::Binary` variant
+  (AP242 uses these for embedded blobs).
+- O3 — `&SCOPE … ENDSCOPE` entity scope blocks unsupported (misleading
+  `expected ';'`).
+- O5 — `1E2` (exponent, no `.`) parsed as `Real`; Part 21 has no such literal,
+  and it changes the type a consumer sees. Left lenient deliberately.
+- O8 — `keyword()` accepts a leading `_`, a bare `!`, and lowercase (not
+  normalised, so `cartesian_point` ≠ `CARTESIAN_POINT` for the reader's match).
+- O12 — a complex entity accepts duplicate/unordered simple records; spec wants
+  an alphabetical set.
+- O13 — mandatory `FILE_DESCRIPTION`/`FILE_NAME`/`FILE_SCHEMA` not required; an
+  empty header parses (enforcing breaks the `wrap()` test helper).
+- O14 — parameterised `DATA(('schema'));` form rejected (separate from O2's
+  multi-section gap).
