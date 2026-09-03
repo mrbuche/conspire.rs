@@ -98,9 +98,17 @@ fn segment_restricts_and_reverses() {
         assert!((forward[8][k].value() - three[k].value()).abs() < 1.0e-12);
     }
     // Monotone in x over this control polygon, so a genuine restriction.
-    assert!(forward.windows(2).all(|w| w[0][0].value() < w[1][0].value()));
+    assert!(
+        forward
+            .windows(2)
+            .all(|w| w[0][0].value() < w[1][0].value())
+    );
     let backward = curve.segment(&three, &quarter, 9);
-    assert!(backward.windows(2).all(|w| w[0][0].value() > w[1][0].value()));
+    assert!(
+        backward
+            .windows(2)
+            .all(|w| w[0][0].value() > w[1][0].value())
+    );
     // A closed edge (same vertex twice) falls back to the whole span.
     let whole = curve.segment(&quarter, &quarter, 5);
     assert!((whole[2][0].value() - 1.0).abs() < 1.0e-9);

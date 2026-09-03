@@ -45,7 +45,11 @@ impl Cylinder {
 
 /// `query` in cylinder coordinates: axial coordinate `h` from `base`, the radial
 /// offset vector, and its length `rho`.
-fn local(base: [Scalar; D], axis: [Scalar; D], query: &Coordinate<D>) -> (Scalar, [Scalar; D], Scalar) {
+fn local(
+    base: [Scalar; D],
+    axis: [Scalar; D],
+    query: &Coordinate<D>,
+) -> (Scalar, [Scalar; D], Scalar) {
     let rel: [Scalar; D] = from_fn(|k| query[k].value() - base[k]);
     let h = (0..D).map(|k| rel[k] * axis[k]).sum::<Scalar>();
     let radial: [Scalar; D] = from_fn(|k| rel[k] - h * axis[k]);

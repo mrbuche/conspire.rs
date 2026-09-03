@@ -127,7 +127,11 @@ fn proximity_anchors_a_curved_wall_all_the_way_around() {
         assert!(plain.at(&p).value() > 1.0, "deg {deg}");
         // With the revolved path every angle is anchored to the local
         // through-dimension — no azimuthal gap.
-        assert!(prox.at(&p).value() < 0.5, "deg {deg}: {}", prox.at(&p).value());
+        assert!(
+            prox.at(&p).value() < 0.5,
+            "deg {deg}: {}",
+            prox.at(&p).value()
+        );
     }
 }
 
@@ -199,7 +203,13 @@ fn arc_polyline_traces_the_true_arc_past_half_a_turn() {
 #[test]
 fn obeys_the_gradation_bound() {
     let gradation = 0.7;
-    let field = FeatureSizing::of(&unit_cube(), 2, length(0.05), Some(length(10.0)), Some(gradation));
+    let field = FeatureSizing::of(
+        &unit_cube(),
+        2,
+        length(0.05),
+        Some(length(10.0)),
+        Some(gradation),
+    );
     let samples: [[f64; 3]; 5] = [
         [0.5, 0.0, 0.0],
         [0.5, 0.1, 0.1],

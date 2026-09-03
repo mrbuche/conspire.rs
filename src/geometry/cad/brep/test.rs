@@ -243,9 +243,14 @@ pub(crate) fn revolved_cylinder(radius: f64, height: f64) -> Brep {
 /// turn — two rulings and two arc rims bounding one lateral patch.
 pub(crate) fn partial_cylinder(radius: f64, height: f64, angle: f64) -> Brep {
     let point = |a: f64, z: f64| [radius * a.cos(), radius * a.sin(), z];
-    let vertices = [point(0.0, 0.0), point(angle, 0.0), point(angle, height), point(0.0, height)]
-        .map(Coordinate::const_from)
-        .to_vec();
+    let vertices = [
+        point(0.0, 0.0),
+        point(angle, 0.0),
+        point(angle, height),
+        point(0.0, height),
+    ]
+    .map(Coordinate::const_from)
+    .to_vec();
     let edges = vec![
         Edge {
             vertices: [0, 1],
@@ -300,7 +305,10 @@ pub(crate) fn partial_cylinder(radius: f64, height: f64, angle: f64) -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -322,9 +330,14 @@ pub(crate) fn cylinder_with_slanted_edge(radius: f64, height: f64, angle: f64) -
 /// `y = 4`). The arc is on the *outer* bound, so the loop-vertex AABB alone
 /// misses the bulge.
 pub(crate) fn bulged_plate() -> Brep {
-    let vertices = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0], [4.0, 4.0, 0.0], [0.0, 4.0, 0.0]]
-        .map(Coordinate::const_from)
-        .to_vec();
+    let vertices = [
+        [0.0, 0.0, 0.0],
+        [4.0, 0.0, 0.0],
+        [4.0, 4.0, 0.0],
+        [0.0, 4.0, 0.0],
+    ]
+    .map(Coordinate::const_from)
+    .to_vec();
     let line = |a: usize, b: usize| Edge {
         vertices: [a, b],
         curve: Curve::Line(Line {
@@ -365,7 +378,10 @@ pub(crate) fn bulged_plate() -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -390,7 +406,10 @@ pub(crate) fn partial_sphere(radius: f64) -> Brep {
             radius,
         }),
         bounds: vec![Loop {
-            half_edges: vec![HalfEdge { edge: 0, forward: true }],
+            half_edges: vec![HalfEdge {
+                edge: 0,
+                forward: true,
+            }],
         }],
         poles: vec![],
         forward: true,
@@ -399,7 +418,10 @@ pub(crate) fn partial_sphere(radius: f64) -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -410,7 +432,12 @@ pub(crate) fn cone(base_radius: f64, tip_radius: f64, height: f64) -> Brep {
     let (origin_z, cone_axis, cone_radius, delta) = if widening {
         (0.0, [0.0, 0.0, 1.0], base_radius, tip_radius - base_radius)
     } else {
-        (height, [0.0, 0.0, -1.0], tip_radius, base_radius - tip_radius)
+        (
+            height,
+            [0.0, 0.0, -1.0],
+            tip_radius,
+            base_radius - tip_radius,
+        )
     };
     let semi_angle = (delta / height).atan();
 
@@ -725,7 +752,10 @@ pub(crate) fn half_disk_plate(radius: f64) -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -781,7 +811,10 @@ pub(crate) fn square_with_rounded_hole() -> Brep {
     let edge_loop = |half_edges: &[usize]| Loop {
         half_edges: half_edges
             .iter()
-            .map(|&edge| HalfEdge { edge, forward: true })
+            .map(|&edge| HalfEdge {
+                edge,
+                forward: true,
+            })
             .collect(),
     };
     let faces = vec![Face {
@@ -801,7 +834,10 @@ pub(crate) fn square_with_rounded_hole() -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -879,7 +915,10 @@ pub(crate) fn cylinder_with_elliptical_rim(radius: f64, angle: f64) -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -890,7 +929,9 @@ fn polyline_spline(points: Vec<Coordinate<3>>) -> Curve {
     Curve::BSpline(BSpline {
         degree: 1,
         knots: (0..=last).map(|i| i as f64).collect(),
-        multiplicities: (0..=last).map(|i| if i == 0 || i == last { 2 } else { 1 }).collect(),
+        multiplicities: (0..=last)
+            .map(|i| if i == 0 || i == last { 2 } else { 1 })
+            .collect(),
         control_points: points,
         weights: None,
     })
@@ -966,7 +1007,10 @@ pub(crate) fn cylinder_with_splined_rim(radius: f64, angle: f64) -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -976,11 +1020,20 @@ pub(crate) fn square_with_splined_hole() -> Brep {
     let (centre, radius) = ([5.0, 5.0], 2.0);
     let corner = |i: usize| {
         let a = std::f64::consts::FRAC_PI_2 * i as f64;
-        Coordinate::const_from([centre[0] + radius * a.cos(), centre[1] + radius * a.sin(), 0.0])
+        Coordinate::const_from([
+            centre[0] + radius * a.cos(),
+            centre[1] + radius * a.sin(),
+            0.0,
+        ])
     };
-    let mut vertices = [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [10.0, 10.0, 0.0], [0.0, 10.0, 0.0]]
-        .map(Coordinate::const_from)
-        .to_vec();
+    let mut vertices = [
+        [0.0, 0.0, 0.0],
+        [10.0, 0.0, 0.0],
+        [10.0, 10.0, 0.0],
+        [0.0, 10.0, 0.0],
+    ]
+    .map(Coordinate::const_from)
+    .to_vec();
     vertices.extend((0..4).map(corner));
     let line = |a: usize, b: usize| Edge {
         vertices: [a, b],
@@ -1031,7 +1084,10 @@ pub(crate) fn square_with_splined_hole() -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -1048,9 +1104,14 @@ pub(crate) fn partial_torus(major: f64, minor: f64, angle: f64) -> Brep {
         ]
     };
     let top = std::f64::consts::FRAC_PI_2;
-    let vertices = [point(0.0, 0.0), point(angle, 0.0), point(angle, top), point(0.0, top)]
-        .map(Coordinate::const_from)
-        .to_vec();
+    let vertices = [
+        point(0.0, 0.0),
+        point(angle, 0.0),
+        point(angle, top),
+        point(0.0, top),
+    ]
+    .map(Coordinate::const_from)
+    .to_vec();
     // Each edge is a circle whose axis the reader would have oriented so the
     // edge runs CCW about it.
     let circle = |centre: [f64; 3], axis: [f64; 3], radius: f64| {
@@ -1101,7 +1162,10 @@ pub(crate) fn partial_torus(major: f64, minor: f64, angle: f64) -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -1111,7 +1175,9 @@ pub(crate) fn partial_torus(major: f64, minor: f64, angle: f64) -> Brep {
 pub(crate) fn partial_cone_to_apex(radius: f64, height: f64, angle: f64) -> Brep {
     let rim = |a: f64| [radius * a.cos(), radius * a.sin(), 0.0];
     let apex = [0.0, 0.0, height];
-    let vertices = [rim(0.0), rim(angle), apex].map(Coordinate::const_from).to_vec();
+    let vertices = [rim(0.0), rim(angle), apex]
+        .map(Coordinate::const_from)
+        .to_vec();
     let ruling = |from: [f64; 3], to: [f64; 3]| {
         let delta = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
         let norm = (delta[0].powi(2) + delta[1].powi(2) + delta[2].powi(2)).sqrt();
@@ -1161,7 +1227,10 @@ pub(crate) fn partial_cone_to_apex(radius: f64, height: f64, angle: f64) -> Brep
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     }
 }
 
@@ -1172,7 +1241,9 @@ pub(crate) fn partial_cone_to_apex(radius: f64, height: f64, angle: f64) -> Brep
 pub(crate) fn cone_split_at_apex(radius: f64, height: f64, angle: f64) -> Brep {
     let rim = |a: f64| [radius * a.cos(), radius * a.sin(), 0.0];
     let apex = [0.0, 0.0, height];
-    let vertices = [rim(0.0), rim(angle), apex].map(Coordinate::const_from).to_vec();
+    let vertices = [rim(0.0), rim(angle), apex]
+        .map(Coordinate::const_from)
+        .to_vec();
     let ruling = |from: [f64; 3], to: [f64; 3]| {
         let delta = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
         let norm = (delta[0].powi(2) + delta[1].powi(2) + delta[2].powi(2)).sqrt();
@@ -1192,11 +1263,23 @@ pub(crate) fn cone_split_at_apex(radius: f64, height: f64, angle: f64) -> Brep {
         })
     };
     let edges = vec![
-        Edge { vertices: [2, 0], curve: ruling(apex, rim(0.0)) },
-        Edge { vertices: [2, 1], curve: ruling(apex, rim(angle)) },
+        Edge {
+            vertices: [2, 0],
+            curve: ruling(apex, rim(0.0)),
+        },
+        Edge {
+            vertices: [2, 1],
+            curve: ruling(apex, rim(angle)),
+        },
         // 2: the short arc, `0` round to `angle`. 3: the long one back.
-        Edge { vertices: [0, 1], curve: arc() },
-        Edge { vertices: [1, 0], curve: arc() },
+        Edge {
+            vertices: [0, 1],
+            curve: arc(),
+        },
+        Edge {
+            vertices: [1, 0],
+            curve: arc(),
+        },
     ];
     let cone = || {
         Surface::Cone(Cone {
@@ -1235,7 +1318,10 @@ pub(crate) fn cone_split_at_apex(radius: f64, height: f64, angle: f64) -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0, 1], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0, 1],
+            closed: false,
+        }],
     }
 }
 
@@ -1284,6 +1370,9 @@ pub(crate) fn hemisphere_solid(radius: f64) -> Brep {
         vertices,
         edges,
         faces,
-        shells: vec![Shell { faces: vec![0, 1], closed: true }],
+        shells: vec![Shell {
+            faces: vec![0, 1],
+            closed: true,
+        }],
     }
 }

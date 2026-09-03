@@ -93,7 +93,10 @@ impl SolidOracle for CuboidOracle {
         let q: [Scalar; D] = from_fn(|k| query[k].value());
         let d: [Scalar; D] = from_fn(|k| (self.low[k] - q[k]).max(q[k] - self.high[k]));
         let outside = (0..D).map(|k| d[k].max(0.0).powi(2)).sum::<Scalar>().sqrt();
-        let inside = d.into_iter().fold(Scalar::NEG_INFINITY, Scalar::max).min(0.0);
+        let inside = d
+            .into_iter()
+            .fold(Scalar::NEG_INFINITY, Scalar::max)
+            .min(0.0);
         // Exterior box SDF is `outside + inside` (negative within the box); flip
         // so the result is positive inside the solid.
         -(outside + inside)

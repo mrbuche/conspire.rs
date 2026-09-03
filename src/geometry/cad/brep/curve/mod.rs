@@ -145,7 +145,10 @@ pub(in crate::geometry::cad) fn chords(
 }
 
 fn distance(a: &Coordinate<D>, b: &Coordinate<D>) -> f64 {
-    (0..D).map(|k| (a[k].value() - b[k].value()).powi(2)).sum::<f64>().sqrt()
+    (0..D)
+        .map(|k| (a[k].value() - b[k].value()).powi(2))
+        .sum::<f64>()
+        .sqrt()
 }
 
 /// Distance from `p` to the segment `a`-`b`.
@@ -158,7 +161,10 @@ fn point_segment_distance(p: &Coordinate<D>, a: &Coordinate<D>, b: &Coordinate<D
     } else {
         0.0
     };
-    (0..D).map(|k| (ap[k] - t * ab[k]).powi(2)).sum::<f64>().sqrt()
+    (0..D)
+        .map(|k| (ap[k] - t * ab[k]).powi(2))
+        .sum::<f64>()
+        .sqrt()
 }
 
 /// A B-spline (or, when `weights` is set, NURBS) curve, with the knots stored

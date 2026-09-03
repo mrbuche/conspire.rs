@@ -9,11 +9,11 @@
 //! (longitude, latitude) / (major angle, tube angle) chart, every bounding
 //! edge chorded into straight sub-segments there.
 
-use super::sampled::Sampled;
 use super::super::{
     D,
     planar::{PlanarFace, arc_sweep, offset_in_sense},
 };
+use super::sampled::Sampled;
 use crate::{
     geometry::{Coordinate, Direction},
     math::{Scalar, Tensor},
@@ -82,10 +82,7 @@ pub(super) enum FacePatch {
 impl FacePatch {
     /// Closest surface point to `query`, its outward-from-solid unit normal, and
     /// the distance.
-    pub(super) fn closest(
-        &self,
-        query: &Coordinate<D>,
-    ) -> (Coordinate<D>, Direction<D>, Scalar) {
+    pub(super) fn closest(&self, query: &Coordinate<D>) -> (Coordinate<D>, Direction<D>, Scalar) {
         let q: [Scalar; D] = from_fn(|k| query[k].value());
         let (point, normal) = match self {
             Self::Planar(face) => {
@@ -105,7 +102,10 @@ impl FacePatch {
             Self::Curved { curved, .. } => curved.closest(q),
             Self::Sampled(sampled) => sampled.closest(q),
         };
-        let distance = (0..D).map(|k| (point[k] - q[k]).powi(2)).sum::<Scalar>().sqrt();
+        let distance = (0..D)
+            .map(|k| (point[k] - q[k]).powi(2))
+            .sum::<Scalar>()
+            .sqrt();
         (point.into(), Direction::const_from(normal), distance)
     }
 
@@ -121,8 +121,8 @@ impl FacePatch {
                         let world = face.origin[k].value()
                             + centre[0] * face.u[k].value()
                             + centre[1] * face.v[k].value();
-                        let extent = radius
-                            * (1.0 - face.normal[k].value().powi(2)).max(0.0).sqrt();
+                        let extent =
+                            radius * (1.0 - face.normal[k].value().powi(2)).max(0.0).sqrt();
                         low[k] = low[k].min(world - extent);
                         high[k] = high[k].max(world + extent);
                     }
@@ -190,7 +190,8 @@ impl FacePatch {
                 if t <= RAY_EPS {
                     return (Vec::new(), false);
                 }
-                let hit = Coordinate::from(from_fn::<Scalar, D, _>(|k| origin[k] + t * direction[k]));
+                let hit =
+                    Coordinate::from(from_fn::<Scalar, D, _>(|k| origin[k] + t * direction[k]));
                 let uv = face.project(&hit);
                 let grazing = face.tolerance > 0.0 && {
                     let near = face.nearest_boundary(uv);
@@ -202,7 +203,9 @@ impl FacePatch {
                     (Vec::new(), grazing)
                 }
             }
-            Self::Curved { curved, tolerance, .. } => curved.ray_hits(origin, direction, *tolerance),
+            Self::Curved {
+                curved, tolerance, ..
+            } => curved.ray_hits(origin, direction, *tolerance),
             Self::Sampled(sampled) => sampled.ray_hits(origin, direction),
         }
     }
@@ -221,7 +224,9 @@ impl Curved {
                 sign,
             } => {
                 let (origin, axis, radius) = (*origin, *axis, *radius);
-                let uv = clamp_uv(super::to_uv(origin, axis, q), *low, *high, rings, |_| radius);
+                let uv = clamp_uv(super::to_uv(origin, axis, q), *low, *high, rings, |_| {
+                    radius
+                });
                 let direction = super::uv_direction(axis, uv[0]);
                 let point = from_fn(|k| origin[k] + uv[1] * axis[k] + radius * direction[k]);
                 (point, scaled(direction, *sign))
@@ -246,13 +251,22 @@ impl Curved {
                 let normal = from_fn(|k| normal_2d[0] * direction[k] + normal_2d[1] * axis[k]);
                 (point, scaled(normal, *sign))
             }
-            Self::Sphere { centre, axis, radius, rings, sign } => {
+            Self::Sphere {
+                centre,
+                axis,
+                radius,
+                rings,
+                sign,
+            } => {
                 let (centre, axis, radius) = (*centre, *axis, *radius);
                 match rings {
                     None => {
                         let delta: [Scalar; D] = from_fn(|k| q[k] - centre[k]);
                         let normal = unit(delta).unwrap_or([1.0, 0.0, 0.0]);
-                        (from_fn(|k| centre[k] + radius * normal[k]), scaled(normal, *sign))
+                        (
+                            from_fn(|k| centre[k] + radius * normal[k]),
+                            scaled(normal, *sign),
+                        )
                     }
                     Some(rings) => {
                         let uv = super::to_uv_sphere(centre, axis, radius, q);
@@ -266,7 +280,14 @@ impl Curved {
                     }
                 }
             }
-            Self::Torus { centre, axis, major, minor, rings, sign } => {
+            Self::Torus {
+                centre,
+                axis,
+                major,
+                minor,
+                rings,
+                sign,
+            } => {
                 let (centre, axis, major, minor) = (*centre, *axis, *major, *minor);
                 match rings {
                     None => {
@@ -275,7 +296,10 @@ impl Curved {
                         let ring: [Scalar; D] = from_fn(|k| centre[k] + major * radial_unit[k]);
                         let off: [Scalar; D] = from_fn(|k| q[k] - ring[k]);
                         let normal = unit(off).unwrap_or(radial_unit);
-                        (from_fn(|k| ring[k] + minor * normal[k]), scaled(normal, *sign))
+                        (
+                            from_fn(|k| ring[k] + minor * normal[k]),
+                            scaled(normal, *sign),
+                        )
                     }
                     Some(rings) => {
                         let period = Some(std::f64::consts::TAU * minor);
@@ -290,8 +314,7 @@ impl Curved {
                                 period,
                             )
                         };
-                        let (point, normal) =
-                            super::torus_uv_point(centre, axis, major, minor, uv);
+                        let (point, normal) = super::torus_uv_point(centre, axis, major, minor, uv);
                         (point, scaled(normal, *sign))
                     }
                 }
@@ -330,23 +353,46 @@ impl Curved {
             }
             uv[1] >= low - RAY_EPS
                 && uv[1] <= high + RAY_EPS
-                && rings.as_ref().is_none_or(|r| super::periodic_contains(uv, r))
+                && rings
+                    .as_ref()
+                    .is_none_or(|r| super::periodic_contains(uv, r))
         };
         match self {
-            Self::Cylinder { origin, axis, radius, low, high, rings, .. } => {
+            Self::Cylinder {
+                origin,
+                axis,
+                radius,
+                low,
+                high,
+                rings,
+                ..
+            } => {
                 let w: [Scalar; D] = from_fn(|k| o[k] - origin[k]);
                 let (dp, wp) = (reject(d, *axis), reject(w, *axis));
                 let radius_at = |_: Scalar| *radius;
-                let hits = quadratic(dot(dp, dp), 2.0 * dot(dp, wp), dot(wp, wp) - radius * radius)
-                    .into_iter()
-                    .filter(|t| {
-                        *t > RAY_EPS
-                            && on_ruled(t, origin, axis, &radius_at, low, high, rings, &mut grazed)
-                    })
-                    .collect();
+                let hits = quadratic(
+                    dot(dp, dp),
+                    2.0 * dot(dp, wp),
+                    dot(wp, wp) - radius * radius,
+                )
+                .into_iter()
+                .filter(|t| {
+                    *t > RAY_EPS
+                        && on_ruled(t, origin, axis, &radius_at, low, high, rings, &mut grazed)
+                })
+                .collect();
                 (hits, grazed)
             }
-            Self::Cone { origin, axis, radius, slope, low, high, rings, .. } => {
+            Self::Cone {
+                origin,
+                axis,
+                radius,
+                slope,
+                low,
+                high,
+                rings,
+                ..
+            } => {
                 let w: [Scalar; D] = from_fn(|k| o[k] - origin[k]);
                 let (dp, wp) = (reject(d, *axis), reject(w, *axis));
                 let (base, rate) = (radius + slope * dot(w, *axis), slope * dot(d, *axis));
@@ -364,7 +410,13 @@ impl Curved {
                 .collect();
                 (hits, grazed)
             }
-            Self::Sphere { centre, axis, radius, rings, .. } => {
+            Self::Sphere {
+                centre,
+                axis,
+                radius,
+                rings,
+                ..
+            } => {
                 let w: [Scalar; D] = from_fn(|k| o[k] - centre[k]);
                 let hits = quadratic(dot(d, d), 2.0 * dot(w, d), dot(w, w) - radius * radius)
                     .into_iter()
@@ -386,7 +438,14 @@ impl Curved {
                     .collect();
                 (hits, grazed)
             }
-            Self::Torus { centre, axis, major, minor, rings, .. } => {
+            Self::Torus {
+                centre,
+                axis,
+                major,
+                minor,
+                rings,
+                ..
+            } => {
                 let sdf = |p: [Scalar; D]| {
                     let (_, radial, _) = local(*centre, *axis, p);
                     let unit_radial = unit(radial).unwrap_or_else(|| perpendicular(*axis));

@@ -96,6 +96,11 @@ fn meshes_the_lens() {
             high[k] = high[k].max(coordinate[k].value());
         }
     }
-    assert!(low[0] > -1.1 && high[0] < 1.1, "x span {} .. {}", low[0], high[0]);
+    assert!(
+        low[0] > -1.1 && high[0] < 1.1,
+        "x span {} .. {}",
+        low[0],
+        high[0]
+    );
     assert!(low[1] > -1.9 && high[1] < 1.9);
 }

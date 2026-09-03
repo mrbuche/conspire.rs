@@ -99,10 +99,8 @@ fn interior_query_on_a_principal_plane_projects_onto_the_surface() {
             "project({q:?}) -> {foot:?} off the ellipsoid (level {})",
             level(foot)
         );
-        let to_foot = ((q[0] - foot[0]).powi(2)
-            + (q[1] - foot[1]).powi(2)
-            + (q[2] - foot[2]).powi(2))
-        .sqrt();
+        let to_foot =
+            ((q[0] - foot[0]).powi(2) + (q[1] - foot[1]).powi(2) + (q[2] - foot[2]).powi(2)).sqrt();
         assert!(
             (oracle.signed_distance(&point(q)).abs() - to_foot).abs() < 1e-6,
             "{q:?}: signed distance disagrees with the foot"
@@ -115,7 +113,12 @@ fn interior_query_on_a_principal_plane_projects_onto_the_surface() {
     // stationary point that is not the global minimum; that is a standing
     // limitation of the reduced-axis solve, out of the fit's near-surface
     // regime, not checked here.
-    for q in [[0.3, 0.0, 0.0], [0.0, 0.0, 2.7], [5.0, 0.0, 0.0], [0.0, 0.0, 0.0]] {
+    for q in [
+        [0.3, 0.0, 0.0],
+        [0.0, 0.0, 2.7],
+        [5.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0],
+    ] {
         let distance = oracle.signed_distance(&point(q)).abs();
         assert!(
             distance <= brute_force_distance(q) + 2e-3,

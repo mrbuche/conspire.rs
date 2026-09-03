@@ -19,7 +19,10 @@ fn all_outward(brep: &Brep, centre: [f64; 3]) -> bool {
     (0..brep.faces.len()).all(|face| {
         let normal = brep.faces[face].normal().unwrap();
         let centroid = face_centroid(brep, face);
-        (0..3).map(|k| normal[k] * (centroid[k] - centre[k])).sum::<f64>() > 0.0
+        (0..3)
+            .map(|k| normal[k] * (centroid[k] - centre[k]))
+            .sum::<f64>()
+            > 0.0
     })
 }
 
@@ -93,15 +96,27 @@ fn face_points_covers_a_vertex_reached_only_backward() {
             }),
             bounds: vec![Loop {
                 half_edges: vec![
-                    HalfEdge { edge: 0, forward: true },
-                    HalfEdge { edge: 1, forward: false },
-                    HalfEdge { edge: 2, forward: false },
+                    HalfEdge {
+                        edge: 0,
+                        forward: true,
+                    },
+                    HalfEdge {
+                        edge: 1,
+                        forward: false,
+                    },
+                    HalfEdge {
+                        edge: 2,
+                        forward: false,
+                    },
                 ],
             }],
             poles: vec![],
             forward: true,
         }],
-        shells: vec![Shell { faces: vec![0], closed: false }],
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
     };
     let points = super::face_points(&brep, &brep.faces[0]);
     assert!(points.contains(&[1.0, 0.0, 0.0]), "v1 was dropped");

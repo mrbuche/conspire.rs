@@ -516,7 +516,10 @@ fn probe_step_files() {
             let path = entry.path();
             if path.is_dir() {
                 walk(&path, files);
-            } else if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("stp")) {
+            } else if path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("stp"))
+            {
                 files.push(path);
             }
         }
@@ -529,11 +532,17 @@ fn probe_step_files() {
     let (mut ok, mut fail) = (0, 0);
     for path in &files {
         let name = path.file_name().unwrap().to_string_lossy();
-        match std::fs::read_to_string(path).map_err(|e| e.to_string()).and_then(|t| read_all(&t).map_err(|e| e.to_string())) {
+        match std::fs::read_to_string(path)
+            .map_err(|e| e.to_string())
+            .and_then(|t| read_all(&t).map_err(|e| e.to_string()))
+        {
             Ok(breps) => {
                 ok += 1;
                 let faces: usize = breps.iter().map(|brep| brep.faces.len()).sum();
-                let primitives = breps.iter().filter(|brep| brep.primitive().is_some()).count();
+                let primitives = breps
+                    .iter()
+                    .filter(|brep| brep.primitive().is_some())
+                    .count();
                 let assembly = match crate::geometry::cad::assemble::assemble(&breps) {
                     Ok(bodies) => format!("{} bodies", bodies.len()),
                     Err(error) => format!("no ({error})"),
@@ -604,8 +613,12 @@ fn probe_mesh_step_dir() {
     let mut files: Vec<std::path::PathBuf> = Vec::new();
     for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
         let path = entry.path();
-        if path.extension().is_some_and(|e| e.eq_ignore_ascii_case("stp"))
-            || path.extension().is_some_and(|e| e.eq_ignore_ascii_case("step"))
+        if path
+            .extension()
+            .is_some_and(|e| e.eq_ignore_ascii_case("stp"))
+            || path
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("step"))
         {
             files.push(path);
         }
@@ -616,7 +629,10 @@ fn probe_mesh_step_dir() {
     }
 
     let env_f64 = |key, default: f64| -> f64 {
-        std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
     };
     let cell = env_f64("STEP_MESH_CELL", 3.0e-3);
     // STEP_MESH_CELL=none => no ceiling: cells grow to the octree root away
@@ -670,10 +686,14 @@ fn probe_mesh_step_dir() {
                         gradation,
                     );
                     if let Some(cells) = proximity {
-                        sizing = sizing.with_proximity(brep, cells).map_err(|e| e.to_string())?;
+                        sizing = sizing
+                            .with_proximity(brep, cells)
+                            .map_err(|e| e.to_string())?;
                     }
                     if let Some(sections) = curvature {
-                        sizing = sizing.with_curvature(brep, sections).map_err(|e| e.to_string())?;
+                        sizing = sizing
+                            .with_curvature(brep, sections)
+                            .map_err(|e| e.to_string())?;
                     }
                     let (n, w) = mesh_solid(brep, &sizing, None, fit)?;
                     elements += n;
@@ -764,7 +784,8 @@ fn probe_mesh(
                 for element in block.iter() {
                     let nodes = block.element_nodes(element);
                     let c: [f64; 3] = std::array::from_fn(|k| {
-                        nodes.iter().map(|&n| coords[n][k].value()).sum::<f64>() / nodes.len() as f64
+                        nodes.iter().map(|&n| coords[n][k].value()).sum::<f64>()
+                            / nodes.len() as f64
                     });
                     let h = (coords[nodes[0]][0].value() - c[0]).abs() * 2.0;
                     let lvl = (h.log2().round() as i64).rem_euclid(12) as usize;
@@ -810,8 +831,7 @@ fn probe_mesh(
         let (mut only, only_classes) = brep
             .dual_background(sizing, levels, 0.1, Balancing::Strong(1))
             .expect("dual_background failed");
-        only
-            .keep_hexes(|index, _, _| only_classes[index] == want)
+        only.keep_hexes(|index, _, _| only_classes[index] == want)
             .expect("keep_hexes failed");
         eprintln!("  {label}: {} hexes", only.number_of_elements());
         dump(&only, &format!("{out}_{label}.vtu"));
@@ -825,9 +845,18 @@ fn probe_mesh(
     // that mismatches is the one breaking symmetry.
     if let Ok(m) = std::env::var("STEP_MIRROR") {
         let m: f64 = m.parse().unwrap();
-        let at: f64 = std::env::var("STEP_MIRROR_AT").ok().and_then(|v| v.parse().ok()).unwrap_or(0.0);
-        let rad: f64 = std::env::var("STEP_MIRROR_RAD").ok().and_then(|v| v.parse().ok()).unwrap_or(10.0e-3);
-        let zc: f64 = std::env::var("STEP_MIRROR_Z").ok().and_then(|v| v.parse().ok()).unwrap_or(40.0e-3);
+        let at: f64 = std::env::var("STEP_MIRROR_AT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0.0);
+        let rad: f64 = std::env::var("STEP_MIRROR_RAD")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(10.0e-3);
+        let zc: f64 = std::env::var("STEP_MIRROR_Z")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(40.0e-3);
         let census = |mesh: &crate::geometry::mesh::Mesh<3>, tag: &str| {
             let coords = mesh.coordinates();
             let (mut p, mut n) = (0usize, 0usize);
@@ -835,7 +864,8 @@ fn probe_mesh(
                 for element in block.iter() {
                     let nodes = block.element_nodes(element);
                     let c: [f64; 3] = std::array::from_fn(|k| {
-                        nodes.iter().map(|&i| coords[i][k].value()).sum::<f64>() / nodes.len() as f64
+                        nodes.iter().map(|&i| coords[i][k].value()).sum::<f64>()
+                            / nodes.len() as f64
                     });
                     if (c[1]).abs() < rad && (c[2] - zc).abs() < rad {
                         if (c[0] - (at + m)).abs() < rad {
@@ -847,7 +877,10 @@ fn probe_mesh(
                     }
                 }
             }
-            eprintln!("{tag}: +{m} -> {p} hexes, -{m} -> {n} hexes  (diff {})", p as i64 - n as i64);
+            eprintln!(
+                "{tag}: +{m} -> {p} hexes, -{m} -> {n} hexes  (diff {})",
+                p as i64 - n as i64
+            );
         };
         census(&dual, "dual  ");
         census(&trimmed, "trimmed");
@@ -894,7 +927,10 @@ fn probe_sizing_ring() {
         return;
     };
     let env_f64 = |key, default: f64| {
-        std::env::var(key).ok().and_then(|v: String| v.parse().ok()).unwrap_or(default)
+        std::env::var(key)
+            .ok()
+            .and_then(|v: String| v.parse().ok())
+            .unwrap_or(default)
     };
     let brep = read(&std::fs::read_to_string(&path).unwrap()).expect("read failed");
     let length = |v| Quantity::<Length>::new(v);
@@ -926,7 +962,10 @@ fn probe_sizing_ring() {
         while deg < 360.0 {
             let t = deg.to_radians();
             let p = Coordinate::from([x, radius * t.cos(), ring_z + radius * t.sin()]);
-            eprintln!("  {deg:6.1} deg  size = {:.6}", sizing.at_cell(&p, half).value());
+            eprintln!(
+                "  {deg:6.1} deg  size = {:.6}",
+                sizing.at_cell(&p, half).value()
+            );
             deg += step;
         }
     }
@@ -992,8 +1031,8 @@ fn probe_mesh_real_file() {
         };
         // STEP_MESH_CELL=none => no ceiling: cells grow to the octree root
         // away from the part.
-        let maximum = (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none"))
-            .then(|| length(cell));
+        let maximum =
+            (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none")).then(|| length(cell));
         let mut sizing = FeatureSizing::of(
             brep,
             env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
@@ -1042,8 +1081,12 @@ fn probe_signed_distance_sign() {
 
     eprintln!(
         "bbox low=[{:.3},{:.3},{:.3}] high=[{:.3},{:.3},{:.3}]  {} faces",
-        low[0].value(), low[1].value(), low[2].value(),
-        high[0].value(), high[1].value(), high[2].value(),
+        low[0].value(),
+        low[1].value(),
+        low[2].value(),
+        high[0].value(),
+        high[1].value(),
+        high[2].value(),
         brep.faces.len(),
     );
     for (fi, face) in brep.faces.iter().enumerate() {
@@ -1063,7 +1106,9 @@ fn probe_signed_distance_sign() {
         let kind = match &face.surface {
             crate::geometry::cad::brep::surface::Surface::Plane(p) => format!(
                 "plane n=[{:.2},{:.2},{:.2}]",
-                p.normal[0].value(), p.normal[1].value(), p.normal[2].value()
+                p.normal[0].value(),
+                p.normal[1].value(),
+                p.normal[2].value()
             ),
             crate::geometry::cad::brep::surface::Surface::Cylinder(_) => "cylinder".into(),
             crate::geometry::cad::brep::surface::Surface::Cone(_) => "cone".into(),
@@ -1073,8 +1118,7 @@ fn probe_signed_distance_sign() {
         };
         eprintln!(
             "  f{fi:<3} fwd={} {:<28} bbox=[{:.3},{:.3},{:.3}]..[{:.3},{:.3},{:.3}]",
-            face.forward as u8, kind,
-            lo[0], lo[1], lo[2], hi[0], hi[1], hi[2],
+            face.forward as u8, kind, lo[0], lo[1], lo[2], hi[0], hi[1], hi[2],
         );
     }
     let samples = 100usize;
@@ -1116,10 +1160,16 @@ fn probe_signed_distance_sign() {
     let centre = crate::geometry::Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| {
         0.5 * (low[k].value() + high[k].value())
     }));
-    eprintln!("centre: signed_distance = {:.5}", oracle.signed_distance(&centre));
+    eprintln!(
+        "centre: signed_distance = {:.5}",
+        oracle.signed_distance(&centre)
+    );
     if let Ok(spec) = std::env::var("STEP_PROBE_POINTS") {
         for chunk in spec.split(';') {
-            let c: Vec<f64> = chunk.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+            let c: Vec<f64> = chunk
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
             if c.len() != 3 {
                 continue;
             }
@@ -1129,7 +1179,12 @@ fn probe_signed_distance_sign() {
                 "probe {c:?}: sd={:.5} local_diameter={:.5}  nearest {kind} d={d:.5} at [{:.4},{:.4},{:.4}] n=[{:.2},{:.2},{:.2}]",
                 oracle.signed_distance(&p),
                 oracle.local_diameter(&p),
-                pt[0], pt[1], pt[2], n[0], n[1], n[2],
+                pt[0],
+                pt[1],
+                pt[2],
+                n[0],
+                n[1],
+                n[2],
             );
         }
     }
@@ -1149,18 +1204,30 @@ fn probe_signed_distance_sign() {
                     centre[1].value() + span[1] * 0.20 * (f(j) - 0.5),
                     centre[2].value() + span[2] * 0.20 * (f(k) - 0.5),
                 ]);
-                if oracle.signed_distance(&deep) > 0.0 { inside_pos += 1 } else { inside_neg += 1 }
+                if oracle.signed_distance(&deep) > 0.0 {
+                    inside_pos += 1
+                } else {
+                    inside_neg += 1
+                }
                 let far = crate::geometry::Coordinate::from([
                     low[0].value() - span[0] * (0.3 + f(i)),
                     low[1].value() + span[1] * f(j),
                     low[2].value() + span[2] * f(k),
                 ]);
-                if oracle.signed_distance(&far) > 0.0 { outside_pos += 1 } else { outside_neg += 1 }
+                if oracle.signed_distance(&far) > 0.0 {
+                    outside_pos += 1
+                } else {
+                    outside_neg += 1
+                }
             }
         }
     }
-    eprintln!("deep-inside points:  {inside_pos} positive, {inside_neg} negative (want all positive)");
-    eprintln!("far-outside points:  {outside_pos} positive, {outside_neg} negative (want all negative)");
+    eprintln!(
+        "deep-inside points:  {inside_pos} positive, {inside_neg} negative (want all positive)"
+    );
+    eprintln!(
+        "far-outside points:  {outside_pos} positive, {outside_neg} negative (want all negative)"
+    );
 }
 
 /// Falsifies a wrong ray-parity sign without a reference classifier: a lost or
@@ -1185,8 +1252,7 @@ fn probe_sign_consistency() {
     let step = span[0] * 1.0e-4;
     let mut bad = 0;
     for _ in 0..400000 {
-        let p: [f64; 3] =
-            std::array::from_fn(|k| low[k].value() + span[k] * rand());
+        let p: [f64; 3] = std::array::from_fn(|k| low[k].value() + span[k] * rand());
         let mut q = p;
         let axis = (rand() * 3.0) as usize % 3;
         q[axis] += step;
@@ -1222,7 +1288,10 @@ fn probe_ray_hits() {
         [0.334_412, 0.243_975, 0.910_367],
     ];
     for chunk in std::env::var("STEP_PROBE_POINTS").unwrap().split(';') {
-        let c: Vec<f64> = chunk.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+        let c: Vec<f64> = chunk
+            .split(',')
+            .filter_map(|s| s.trim().parse().ok())
+            .collect();
         if c.len() != 3 {
             continue;
         }
@@ -1261,7 +1330,11 @@ fn probe_planar_faces() {
         Curve::Ellipse(_) => "Ellipse",
         Curve::BSpline(_) => "BSpline",
     };
-    for (si, brep) in read_all(&text).expect("read failed").into_iter().enumerate() {
+    for (si, brep) in read_all(&text)
+        .expect("read failed")
+        .into_iter()
+        .enumerate()
+    {
         let (mut ok, mut err) = (0, 0);
         for (fi, face) in brep.faces.iter().enumerate() {
             if !matches!(face.surface, Surface::Plane(_)) {
@@ -1673,7 +1746,11 @@ fn step_corpus() -> Vec<(String, std::path::PathBuf)> {
         return Vec::new();
     };
     let root = std::path::PathBuf::from(root);
-    fn walk(dir: &std::path::Path, root: &std::path::Path, out: &mut Vec<(String, std::path::PathBuf)>) {
+    fn walk(
+        dir: &std::path::Path,
+        root: &std::path::Path,
+        out: &mut Vec<(String, std::path::PathBuf)>,
+    ) {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
         };
@@ -1717,7 +1794,10 @@ fn check_snapshot(name: &str, actual: &str) {
     let (exp, act): (Vec<&str>, Vec<&str>) = (expected.lines().collect(), actual.lines().collect());
     let mut diff = String::new();
     for row in 0..exp.len().max(act.len()) {
-        let (e, a) = (exp.get(row).copied().unwrap_or(""), act.get(row).copied().unwrap_or(""));
+        let (e, a) = (
+            exp.get(row).copied().unwrap_or(""),
+            act.get(row).copied().unwrap_or(""),
+        );
         if e != a {
             diff.push_str(&format!("-{e}\n+{a}\n"));
         }
@@ -1747,9 +1827,10 @@ fn corpus_parse_snapshot() {
         };
         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| read_all(&text))) {
             Err(_) => report.push_str(&format!("{rel}: PANIC\n")),
-            Ok(Err(error)) => {
-                report.push_str(&format!("{rel}: parse-error: {}\n", error.to_string().trim()))
-            }
+            Ok(Err(error)) => report.push_str(&format!(
+                "{rel}: parse-error: {}\n",
+                error.to_string().trim()
+            )),
             Ok(Ok(breps)) => {
                 let faces: usize = breps.iter().map(|brep| brep.faces.len()).sum();
                 let mut hist = [0usize; 7];
@@ -1766,7 +1847,10 @@ fn corpus_parse_snapshot() {
                         }] += 1;
                     }
                 }
-                let primitives = breps.iter().filter(|brep| brep.primitive().is_some()).count();
+                let primitives = breps
+                    .iter()
+                    .filter(|brep| brep.primitive().is_some())
+                    .count();
                 let oracles = breps.iter().filter(|brep| brep.oracle().is_ok()).count();
                 let assembled = match assemble(&breps) {
                     Ok(bodies) => format!("{} bodies", bodies.len()),
@@ -1777,7 +1861,13 @@ fn corpus_parse_snapshot() {
                      [P{} Cy{} S{} Co{} T{} B{} R{}], {primitives} primitive, \
                      oracle {oracles}/{}, assemble {assembled}\n",
                     breps.len(),
-                    hist[0], hist[1], hist[2], hist[3], hist[4], hist[5], hist[6],
+                    hist[0],
+                    hist[1],
+                    hist[2],
+                    hist[3],
+                    hist[4],
+                    hist[5],
+                    hist[6],
                     breps.len(),
                 ));
             }
@@ -1812,7 +1902,10 @@ fn corpus_mesh_snapshot() {
         return;
     }
     let env_usize = |key, default| -> usize {
-        std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
     };
     // A single runaway mesh SIGKILLs the whole snapshot, so bound the work up
     // front: skip large files and face-dense solids, and cap the octree. All
@@ -1834,7 +1927,8 @@ fn corpus_mesh_snapshot() {
         let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
             return (0, 0);
         };
-        let mut seen: std::collections::HashMap<[usize; 4], usize> = std::collections::HashMap::new();
+        let mut seen: std::collections::HashMap<[usize; 4], usize> =
+            std::collections::HashMap::new();
         for hex in block.iter() {
             for face in HEX_FACES {
                 let mut key = face.map(|corner| hex[corner]);

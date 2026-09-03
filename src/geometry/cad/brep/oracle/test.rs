@@ -4,12 +4,10 @@ use crate::{
         cad::brep::{
             curve::Ellipse,
             test::{
-                ball, bulged_plate, capped_cylinder, cone, cube_with_bspline_top,
-                cylinder_with_elliptical_rim, direction,
-                cone_split_at_apex, cylinder_with_splined_rim, hemisphere_solid,
-                partial_cone_to_apex,
-                cylinder_with_slanted_edge, partial_cylinder, partial_sphere, partial_torus,
-                revolved_cylinder,
+                ball, bulged_plate, capped_cylinder, cone, cone_split_at_apex,
+                cube_with_bspline_top, cylinder_with_elliptical_rim, cylinder_with_slanted_edge,
+                cylinder_with_splined_rim, direction, hemisphere_solid, partial_cone_to_apex,
+                partial_cylinder, partial_sphere, partial_torus, revolved_cylinder,
                 square_with_rounded_hole, square_with_splined_hole, torus, unit_cube,
             },
         },
@@ -30,7 +28,11 @@ fn components<I, U>(tensor: &TensorRank1<3, I, U>) -> [f64; 3] {
 #[test]
 fn ray_parity_signs_a_capped_cylinder() {
     let oracle = capped_cylinder(2.0, 5.0).oracle().unwrap();
-    let sign = |p: [f64; 3]| oracle.signed_distance(&Coordinate::from(p)).is_sign_positive();
+    let sign = |p: [f64; 3]| {
+        oracle
+            .signed_distance(&Coordinate::from(p))
+            .is_sign_positive()
+    };
     assert!(sign([0.0, 0.0, 2.5]), "axis mid-height is inside");
     assert!(sign([1.9, 0.0, 2.5]), "just inside the wall is inside");
     assert!(!sign([2.1, 0.0, 2.5]), "just outside the wall is outside");
@@ -65,13 +67,27 @@ fn a_bspline_face_projects_and_signs_like_the_plane_it_lies_on() {
     let (point, normal) = oracle.project(&Coordinate::from([0.4, 0.7, 2.0])).unwrap();
     let point = components(&point);
     assert!((point[2] - 1.0).abs() < 1.0e-6, "{point:?}");
-    assert!((point[0] - 0.4).abs() < 1.0e-3 && (point[1] - 0.7).abs() < 1.0e-3, "{point:?}");
-    assert!(components(&normal)[2].abs() > 0.999, "{:?}", components(&normal));
+    assert!(
+        (point[0] - 0.4).abs() < 1.0e-3 && (point[1] - 0.7).abs() < 1.0e-3,
+        "{point:?}"
+    );
+    assert!(
+        components(&normal)[2].abs() > 0.999,
+        "{:?}",
+        components(&normal)
+    );
 
     // Ray parity still classifies the solid with a free-form face in the shell.
-    let inside = |p: [f64; 3]| oracle.signed_distance(&Coordinate::from(p)).is_sign_positive();
+    let inside = |p: [f64; 3]| {
+        oracle
+            .signed_distance(&Coordinate::from(p))
+            .is_sign_positive()
+    };
     assert!(inside([0.5, 0.5, 0.5]), "cube centre is inside");
-    assert!(!inside([0.5, 0.5, 1.5]), "above the free-form top is outside");
+    assert!(
+        !inside([0.5, 0.5, 1.5]),
+        "above the free-form top is outside"
+    );
     assert!(!inside([0.5, 0.5, -0.5]), "below the base is outside");
     let near_top = oracle.signed_distance(&Coordinate::from([0.5, 0.5, 0.9]));
     assert!((near_top - 0.1).abs() < 1.0e-3, "{near_top}");
@@ -88,12 +104,19 @@ fn a_surface_of_revolution_matches_the_cylinder_it_describes() {
     assert!((point[2] - 2.5).abs() < 5.0e-3, "{point:?}");
     assert!(components(&normal)[0] > 0.99, "{:?}", components(&normal));
 
-    let inside = |p: [f64; 3]| oracle.signed_distance(&Coordinate::from(p)).is_sign_positive();
+    let inside = |p: [f64; 3]| {
+        oracle
+            .signed_distance(&Coordinate::from(p))
+            .is_sign_positive()
+    };
     assert!(inside([0.0, 0.0, 2.5]), "axis is inside");
     assert!(inside([1.9, 0.0, 2.5]), "just inside the wall");
     assert!(!inside([2.1, 0.0, 2.5]), "just outside the wall");
     assert!(!inside([0.0, 0.0, 6.0]), "above the top cap");
-    assert!(!inside([0.0, 0.0, 20.0]), "far down the shadow is still outside");
+    assert!(
+        !inside([0.0, 0.0, 20.0]),
+        "far down the shadow is still outside"
+    );
 }
 
 #[test]
@@ -106,14 +129,22 @@ fn a_non_axial_straight_edge_trims_the_cylinder_instead_of_refusing_it() {
     let (point, _) = oracle.project(&Coordinate::from(mid)).unwrap();
     let p = components(&point);
     assert!((p[0].hypot(p[1]) - 2.0).abs() < 1.0e-6, "{p:?}");
-    assert!((p[1].atan2(p[0]) - 0.6).abs() < 1.0e-3, "mid-wedge angle {}", p[1].atan2(p[0]));
+    assert!(
+        (p[1].atan2(p[0]) - 0.6).abs() < 1.0e-3,
+        "mid-wedge angle {}",
+        p[1].atan2(p[0])
+    );
 
     // A point in the angular gap clamps back to the θ = 1.2 trim edge, not
     // onto the untrimmed cylinder at its own angle.
     let gap = [2.0 * 2.0_f64.cos(), 2.0 * 2.0_f64.sin(), 2.0];
     let (point, _) = oracle.project(&Coordinate::from(gap)).unwrap();
     let p = components(&point);
-    assert!(p[1].atan2(p[0]) < 1.4, "gap point clamps to the trim edge, got {}", p[1].atan2(p[0]));
+    assert!(
+        p[1].atan2(p[0]) < 1.4,
+        "gap point clamps to the trim edge, got {}",
+        p[1].atan2(p[0])
+    );
 }
 
 #[test]
@@ -242,10 +273,17 @@ fn nearest_on_sinusoid_finds_the_global_minimum_not_a_saddle() {
     // v(u) = 3 cos(u), query (0, 0): u = 0 is a critical point of the squared
     // distance (d = 3) but not the minimum, which is near u = +-1.41 (d ~ 1.49).
     // The old single-bracket bisection stopped at u = 0.
-    let sinusoid = super::Sinusoid { k: 0.0, a: 3.0, phi: 0.0 };
+    let sinusoid = super::Sinusoid {
+        k: 0.0,
+        a: 3.0,
+        phi: 0.0,
+    };
     let [u, v] = super::nearest_on_sinusoid([0.0, 0.0], -3.0, 3.0, &sinusoid);
     let distance = (u * u + v * v).sqrt();
-    assert!(distance < 1.6, "landed on a non-minimal critical point: u = {u}, d = {distance}");
+    assert!(
+        distance < 1.6,
+        "landed on a non-minimal critical point: u = {u}, d = {distance}"
+    );
 }
 
 #[test]
@@ -259,7 +297,10 @@ fn a_planar_patch_box_covers_a_bulging_arc_edge() {
     let face = brep.planar_face(&brep.faces[0]).unwrap();
     let (low, high) = super::patch::FacePatch::Planar(face).bounds();
     // The arc bulges to y = 6; the loop vertices only reach y = 4.
-    assert!(high[1] >= 6.0 - 1e-9, "arc bulge to y=6 not in the box: {low:?}..{high:?}");
+    assert!(
+        high[1] >= 6.0 - 1e-9,
+        "arc bulge to y=6 not in the box: {low:?}..{high:?}"
+    );
 }
 
 #[test]
@@ -278,7 +319,10 @@ fn a_hemisphere_has_no_phantom_surface_below_its_rim() {
     // A whole sphere would answer with the radial projection, well below z = 0.
     assert!(z.abs() < 1.0e-6, "landed at z = {z}, not on the rim");
     assert!((x.hypot(y) - 2.0).abs() < 1.0e-6);
-    assert!(y.atan2(x).abs() < 1.0e-6, "rim point drifted off the query meridian");
+    assert!(
+        y.atan2(x).abs() < 1.0e-6,
+        "rim point drifted off the query meridian"
+    );
     // And a point over the kept cap still projects radially onto it.
     let north = Coordinate::from([0.0, 0.0, 3.0]);
     let (point, _) = oracle.project(&north).unwrap();
@@ -295,7 +339,9 @@ fn a_toroidal_trim_survives_a_loop_walked_backwards() {
     let mut brep = partial_torus(4.0, 1.5, angle);
     let half_edges = &mut brep.faces[0].bounds[0].half_edges;
     half_edges.reverse();
-    half_edges.iter_mut().for_each(|half_edge| half_edge.forward = false);
+    half_edges
+        .iter_mut()
+        .for_each(|half_edge| half_edge.forward = false);
     let oracle = brep.oracle().expect("reversed loop did not close");
     let (major, minor) = (4.0, 1.5);
     let past = angle + 0.5;
@@ -307,7 +353,10 @@ fn a_toroidal_trim_survives_a_loop_walked_backwards() {
     ];
     let (point, _) = oracle.project(&Coordinate::from(on_surface)).unwrap();
     let [x, y, _] = components(&point);
-    assert!((y.atan2(x) - angle).abs() < 1.0e-6, "reversed trim lost the u rim");
+    assert!(
+        (y.atan2(x) - angle).abs() < 1.0e-6,
+        "reversed trim lost the u rim"
+    );
 }
 
 #[test]
@@ -325,7 +374,9 @@ fn a_cone_wedge_keeps_the_whole_patch_beside_its_apex() {
     // that holds its angle across it cuts the corner and loses half the wedge.
     let angle = std::f64::consts::FRAC_PI_2;
     let (radius, height) = (2.0, 5.0);
-    let oracle = partial_cone_to_apex(radius, height, angle).oracle().unwrap();
+    let oracle = partial_cone_to_apex(radius, height, angle)
+        .oracle()
+        .unwrap();
     // Mid-wedge and near the apex, on the surface: it must stay put.
     for fraction in [0.15, 0.5, 0.85] {
         let a = angle * fraction;
@@ -339,19 +390,29 @@ fn a_cone_wedge_keeps_the_whole_patch_beside_its_apex() {
             .map(|(x, y)| (x - y).powi(2))
             .sum::<f64>()
             .sqrt();
-        assert!(moved < 1.0e-6, "point at angle {a} near the apex moved {moved}");
+        assert!(
+            moved < 1.0e-6,
+            "point at angle {a} near the apex moved {moved}"
+        );
     }
     // Outside the wedge there is no surface to sit on.
     let a = angle + 0.6;
     let query = [radius * a.cos(), radius * a.sin(), 0.0];
     let (point, _) = oracle.project(&Coordinate::from(query)).unwrap();
     let [x, y, _] = components(&point);
-    assert!(y.atan2(x) <= angle + 1.0e-6, "kept a phantom wedge past the ruling");
+    assert!(
+        y.atan2(x) <= angle + 1.0e-6,
+        "kept a phantom wedge past the ruling"
+    );
 }
 
 #[test]
 fn accepts_a_partial_toroidal_face() {
-    assert!(partial_torus(4.0, 1.5, std::f64::consts::FRAC_PI_2).oracle().is_ok());
+    assert!(
+        partial_torus(4.0, 1.5, std::f64::consts::FRAC_PI_2)
+            .oracle()
+            .is_ok()
+    );
 }
 
 #[test]
@@ -398,12 +459,19 @@ fn ray_distance_reaches_a_slender_torus_tube() {
     // Enters the near tube where sqrt((x+5)^2 + 0.01^2) = 0.02, i.e. at
     // x = -5 - sqrt(3e-4); t = x + 10.
     let want = 5.0 - (3.0e-4_f64).sqrt();
-    assert!((hit.unwrap() - want).abs() < 1.0e-3, "got {hit:?}, want ~{want:.4}");
+    assert!(
+        (hit.unwrap() - want).abs() < 1.0e-3,
+        "got {hit:?}, want ~{want:.4}"
+    );
 }
 
 #[test]
 fn accepts_a_partial_cylindrical_face() {
-    assert!(partial_cylinder(2.0, 5.0, std::f64::consts::FRAC_PI_2).oracle().is_ok());
+    assert!(
+        partial_cylinder(2.0, 5.0, std::f64::consts::FRAC_PI_2)
+            .oracle()
+            .is_ok()
+    );
 }
 
 #[test]
@@ -449,11 +517,17 @@ fn a_b_spline_rim_trims_to_the_true_curve_not_a_flat_one() {
     let query = Coordinate::from([2.0 * u.cos(), 2.0 * u.sin(), 8.0]);
     let (point, _) = oracle.project(&query).unwrap();
     let [x, y, z] = components(&point);
-    assert!((z - (5.0 - 0.5 * y.atan2(x).sin())).abs() < 0.01, "landed at z = {z}");
+    assert!(
+        (z - (5.0 - 0.5 * y.atan2(x).sin())).abs() < 0.01,
+        "landed at z = {z}"
+    );
     // A point already on the trimmed wall must not move.
     let inside = Coordinate::from([2.0 * u.cos(), 2.0 * u.sin(), 2.0]);
     let (point, _) = oracle.project(&inside).unwrap();
-    assert!(close(&components(&point), &[2.0 * u.cos(), 2.0 * u.sin(), 2.0]));
+    assert!(close(
+        &components(&point),
+        &[2.0 * u.cos(), 2.0 * u.sin(), 2.0]
+    ));
 }
 
 #[test]
@@ -468,10 +542,11 @@ fn accepts_a_planar_face_with_a_b_spline_hole() {
     assert!(face.contains([5.0, 8.0]));
     let boundary = face.nearest_boundary([5.0, 5.0 + 1.0]);
     let radius = ((boundary[0] - 5.0).powi(2) + (boundary[1] - 5.0).powi(2)).sqrt();
-    assert!((radius - 2.0).abs() < 0.01, "nearest hole boundary at radius {radius}");
+    assert!(
+        (radius - 2.0).abs() < 0.01,
+        "nearest hole boundary at radius {radius}"
+    );
 }
-
-
 
 /// The two halves of an apex cone must tile it, not overlap. Crossing the
 /// apex, `wrap` can only offer the shorter turn, so both halves used to swing
@@ -510,7 +585,10 @@ fn the_halves_of_an_apex_cone_do_not_overlap() {
                 .map(|(a, b)| (a - b).powi(2))
                 .sum::<f64>()
                 .sqrt();
-            assert!(moved < 1.0e-9, "cone surface point at angle {angle} z {z} moved {moved}");
+            assert!(
+                moved < 1.0e-9,
+                "cone surface point at angle {angle} z {z} moved {moved}"
+            );
         }
     }
 }
@@ -553,5 +631,3 @@ fn sign_flips(brep: &crate::geometry::cad::brep::Brep) -> usize {
     }
     flips
 }
-
-

@@ -106,7 +106,11 @@ impl SolidOracle for ConeOracle {
                 [self.tip_radius, self.height],
                 lateral_normal,
             ),
-            ([self.tip_radius, self.height], [0.0, self.height], [0.0, 1.0]),
+            (
+                [self.tip_radius, self.height],
+                [0.0, self.height],
+                [0.0, 1.0],
+            ),
         ];
         let (closest, normal_2d) = segments
             .into_iter()
@@ -117,10 +121,9 @@ impl SolidOracle for ConeOracle {
             })
             .min_by(|x, y| x.1.total_cmp(&y.1))
             .map(|(pair, _)| pair)?;
-        let point: Coordinate<D> = from_fn(|k| {
-            self.base[k] + closest[1] * self.axis[k] + closest[0] * radial_unit[k]
-        })
-        .into();
+        let point: Coordinate<D> =
+            from_fn(|k| self.base[k] + closest[1] * self.axis[k] + closest[0] * radial_unit[k])
+                .into();
         let normal = unit(from_fn(|k| {
             normal_2d[0] * radial_unit[k] + normal_2d[1] * self.axis[k]
         }))?;
@@ -138,14 +141,22 @@ impl SolidOracle for ConeOracle {
         let ca = [rho - rho.min(near_radius), y.abs() - half];
         let t = (dot2([k1[0] - q[0], k1[1] - q[1]], k2) / dot2(k2, k2)).clamp(0.0, 1.0);
         let cb = [q[0] - k1[0] + k2[0] * t, q[1] - k1[1] + k2[1] * t];
-        let sign = if cb[0] < 0.0 && ca[1] < 0.0 { -1.0 } else { 1.0 };
+        let sign = if cb[0] < 0.0 && ca[1] < 0.0 {
+            -1.0
+        } else {
+            1.0
+        };
         -sign * dot2(ca, ca).min(dot2(cb, cb)).sqrt()
     }
 }
 
 /// `query` in cone coordinates: axial coordinate `h` from `base`, the radial
 /// offset vector, and its length `rho`.
-fn local(base: [Scalar; D], axis: [Scalar; D], query: &Coordinate<D>) -> (Scalar, [Scalar; D], Scalar) {
+fn local(
+    base: [Scalar; D],
+    axis: [Scalar; D],
+    query: &Coordinate<D>,
+) -> (Scalar, [Scalar; D], Scalar) {
     let rel: [Scalar; D] = from_fn(|k| query[k].value() - base[k]);
     let h = (0..D).map(|k| rel[k] * axis[k]).sum::<Scalar>();
     let radial: [Scalar; D] = from_fn(|k| rel[k] - h * axis[k]);

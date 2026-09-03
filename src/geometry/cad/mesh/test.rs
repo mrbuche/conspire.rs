@@ -168,7 +168,9 @@ fn trim_hugs_the_geometry() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
     let sizing = FeatureSizing::of(&brep, 64, length(0.05), Some(length(1.0)), Some(0.25));
-    let (mesh, classes) = brep.trim(&sizing, Some(6), 0.1, Balancing::Strong(1)).unwrap();
+    let (mesh, classes) = brep
+        .trim(&sizing, Some(6), 0.1, Balancing::Strong(1))
+        .unwrap();
 
     assert_eq!(hexes(&mesh).len(), classes.len());
     assert!(classes.iter().all(|&class| class != Class::Outside));
@@ -270,7 +272,13 @@ fn dump_curved_brep_meshes() {
             "target/cad_capped_cylinder.vtu",
             capped_cylinder(2.0, 5.0)
                 .mesh(
-                    &FeatureSizing::of(&capped_cylinder(2.0, 5.0), 48, length(0.15), Some(length(1.0)), Some(0.2)),
+                    &FeatureSizing::of(
+                        &capped_cylinder(2.0, 5.0),
+                        48,
+                        length(0.15),
+                        Some(length(1.0)),
+                        Some(0.2),
+                    ),
                     Some(7),
                     0.1,
                     Balancing::Strong(1),
@@ -282,7 +290,13 @@ fn dump_curved_brep_meshes() {
             "target/cad_cone.vtu",
             cone(3.0, 1.0, 5.0)
                 .mesh(
-                    &FeatureSizing::of(&cone(3.0, 1.0, 5.0), 48, length(0.15), Some(length(1.0)), Some(0.2)),
+                    &FeatureSizing::of(
+                        &cone(3.0, 1.0, 5.0),
+                        48,
+                        length(0.15),
+                        Some(length(1.0)),
+                        Some(0.2),
+                    ),
                     Some(7),
                     0.1,
                     Balancing::Strong(1),
@@ -308,7 +322,13 @@ fn dump_curved_brep_meshes() {
             "target/cad_torus.vtu",
             torus(4.0, 1.5)
                 .mesh(
-                    &FeatureSizing::of(&torus(4.0, 1.5), 48, length(0.12), Some(length(0.4)), Some(0.2)),
+                    &FeatureSizing::of(
+                        &torus(4.0, 1.5),
+                        48,
+                        length(0.12),
+                        Some(length(0.4)),
+                        Some(0.2),
+                    ),
                     Some(7),
                     0.1,
                     Balancing::Strong(1),

@@ -57,7 +57,12 @@ impl<T> Bvh<T> {
         }
         if items.len() == 1 {
             let (low, high, floor, payload) = items.pop().unwrap();
-            return Bvh { low, high, floor, node: BvhNode::Leaf(payload) };
+            return Bvh {
+                low,
+                high,
+                floor,
+                node: BvhNode::Leaf(payload),
+            };
         }
         let axis = (0..D)
             .max_by(|&a, &b| (high[a] - low[a]).total_cmp(&(high[b] - low[b])))
@@ -191,9 +196,7 @@ impl FeatureSizing {
             if length <= 0.0 {
                 continue;
             }
-            let source = (length / divisor)
-                .max(minimum.value())
-                .min(maximum.value());
+            let source = (length / divisor).max(minimum.value()).min(maximum.value());
             // The chord stops mattering past the reach where its ramped size
             // hits `maximum`; inflate its box by that (capped at the part's own
             // size) so a point query only visits chords that can constrain it.
@@ -255,8 +258,15 @@ impl FeatureSizing {
                 Ok(planar) => planar,
                 Err(_) => {
                     proximity_revolved(
-                        brep, face, &oracle, cells, tile, eps,
-                        self.minimum.value(), self.maximum.value(), &mut slabs,
+                        brep,
+                        face,
+                        &oracle,
+                        cells,
+                        tile,
+                        eps,
+                        self.minimum.value(),
+                        self.maximum.value(),
+                        &mut slabs,
                     );
                     continue;
                 }
@@ -333,7 +343,9 @@ impl FeatureSizing {
                 }
             }
         }
-        self.proximity = (!slabs.is_empty()).then(|| BoxField { bvh: Bvh::build(slabs) });
+        self.proximity = (!slabs.is_empty()).then(|| BoxField {
+            bvh: Bvh::build(slabs),
+        });
         Ok(self)
     }
 
@@ -347,11 +359,7 @@ impl FeatureSizing {
     /// B-spline faces are not yet handled. The face's parametric footprint is
     /// recovered from its bounding edges; a gap under an eighth of a turn is
     /// read as a full revolution.
-    pub fn with_curvature(
-        mut self,
-        brep: &Brep,
-        sections: usize,
-    ) -> Result<Self, &'static str> {
+    pub fn with_curvature(mut self, brep: &Brep, sections: usize) -> Result<Self, &'static str> {
         let sections = sections.max(1) as Scalar;
         let (minimum, maximum) = (self.minimum.value(), self.maximum.value());
         let mut boxes: Vec<Item<Scalar>> = Vec::new();
@@ -389,7 +397,9 @@ impl FeatureSizing {
                 Surface::Plane(_) | Surface::BSpline(_) | Surface::Revolution(_) => {}
             }
         }
-        self.curvature = (!boxes.is_empty()).then(|| BoxField { bvh: Bvh::build(boxes) });
+        self.curvature = (!boxes.is_empty()).then(|| BoxField {
+            bvh: Bvh::build(boxes),
+        });
         Ok(self)
     }
 
@@ -518,9 +528,7 @@ pub(in crate::geometry::cad) fn arc_polyline(
         .map(|i| {
             let theta = start_angle + sweep * (i as Scalar) / (samples as Scalar);
             let (c, s) = (theta.cos(), theta.sin());
-            Coordinate::from(from_fn(|k| {
-                centre[k] + major * c * u[k] + minor * s * w[k]
-            }))
+            Coordinate::from(from_fn(|k| centre[k] + major * c * u[k] + minor * s * w[k]))
         })
         .collect()
 }
@@ -603,9 +611,8 @@ fn tile_band(
     if !(target.is_finite() && target > 0.0 && u1 > u0 && v1 > v0) {
         return;
     }
-    let count = |span: Scalar, scale: Scalar| {
-        ((span * scale / target).ceil() as usize).clamp(1, 64)
-    };
+    let count =
+        |span: Scalar, scale: Scalar| ((span * scale / target).ceil() as usize).clamp(1, 64);
     let (nu, nv) = (count(u1 - u0, u_world), count(v1 - v0, v_world));
     let (du, dv) = ((u1 - u0) / nu as Scalar, (v1 - v0) / nv as Scalar);
     let eps = target * 1.0e-3;
@@ -627,7 +634,12 @@ fn tile_band(
                     }
                 }
             }
-            out.push((from_fn(|k| low[k] - eps), from_fn(|k| high[k] + eps), target, target));
+            out.push((
+                from_fn(|k| low[k] - eps),
+                from_fn(|k| high[k] + eps),
+                target,
+                target,
+            ));
         }
     }
 }
@@ -845,8 +857,20 @@ fn proximity_revolved(
             let (u, w) = placement_basis(axis(&c.reference_direction), a);
             let radius = c.radius;
             proximity_ruled(
-                brep, face, oracle, cells, tile, eps, minimum, maximum,
-                point(&c.origin), a, u, w, |_z| radius, out,
+                brep,
+                face,
+                oracle,
+                cells,
+                tile,
+                eps,
+                minimum,
+                maximum,
+                point(&c.origin),
+                a,
+                u,
+                w,
+                |_z| radius,
+                out,
             );
         }
         Surface::Cone(c) => {
@@ -854,8 +878,20 @@ fn proximity_revolved(
             let (u, w) = placement_basis(axis(&c.reference_direction), a);
             let (tan, base) = (c.semi_angle.tan(), c.radius);
             proximity_ruled(
-                brep, face, oracle, cells, tile, eps, minimum, maximum,
-                point(&c.origin), a, u, w, |z| (base + z * tan).max(0.0), out,
+                brep,
+                face,
+                oracle,
+                cells,
+                tile,
+                eps,
+                minimum,
+                maximum,
+                point(&c.origin),
+                a,
+                u,
+                w,
+                |z| (base + z * tan).max(0.0),
+                out,
             );
         }
         _ => {}
@@ -902,7 +938,8 @@ fn proximity_ruled(
     if !(z1 > z0 && span > 0.0) {
         return;
     }
-    let n_ang = (((span * radius_at(0.5 * (z0 + z1)).max(tile)) / tile).ceil() as usize).clamp(1, 48);
+    let n_ang =
+        (((span * radius_at(0.5 * (z0 + z1)).max(tile)) / tile).ceil() as usize).clamp(1, 48);
     let n_z = (((z1 - z0) / tile).ceil() as usize).clamp(1, 48);
     let (d_ang, d_z) = (span / n_ang as Scalar, (z1 - z0) / n_z as Scalar);
     let surface = |t: Scalar, z: Scalar| -> [Scalar; D] {
@@ -952,7 +989,12 @@ fn proximity_ruled(
                     }
                 }
             }
-            out.push((from_fn(|k| low[k] - eps), from_fn(|k| high[k] + eps), target, target));
+            out.push((
+                from_fn(|k| low[k] - eps),
+                from_fn(|k| high[k] + eps),
+                target,
+                target,
+            ));
         }
     }
 }

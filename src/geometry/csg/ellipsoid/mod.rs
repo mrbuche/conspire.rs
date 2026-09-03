@@ -165,11 +165,7 @@ impl SolidOracle for EllipsoidOracle {
             .map(|i| (local[i] / self.semi[i]).powi(2))
             .sum::<Scalar>()
             <= 1.0;
-        if inside {
-            distance
-        } else {
-            -distance
-        }
+        if inside { distance } else { -distance }
     }
 }
 
@@ -191,7 +187,11 @@ fn eberly_root(e: &[Scalar], y: &[Scalar], normalized: Scalar) -> Scalar {
     } else {
         (
             0.0,
-            e.iter().zip(y).map(|(&e, &y)| (e * y).powi(2)).sum::<Scalar>().sqrt(),
+            e.iter()
+                .zip(y)
+                .map(|(&e, &y)| (e * y).powi(2))
+                .sum::<Scalar>()
+                .sqrt(),
         )
     };
     for _ in 0..ITERATIONS {

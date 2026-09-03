@@ -26,7 +26,10 @@ fn project_in_the_carve_shadow_is_not_a_carved_away_point() {
     )
     .oracle()
     .unwrap();
-    let inner = Sphere::new(point([1.9, 0.0, 0.0]), 1.0).unwrap().oracle().unwrap();
+    let inner = Sphere::new(point([1.9, 0.0, 0.0]), 1.0)
+        .unwrap()
+        .oracle()
+        .unwrap();
 
     // q is outside the solid, in line with the carved-out cap. Passing the
     // query rather than the candidate point to the survival test let the old
@@ -97,8 +100,14 @@ fn meshes_a_porous_block() {
     for coordinate in mesh.coordinates() {
         closest = closest.min(radius_from_origin(coordinate));
     }
-    assert!(closest > 1.5 - 0.25, "a node intruded the pore at r = {closest}");
-    assert!(closest < 1.5 + 0.35, "cavity wall never reached, r = {closest}");
+    assert!(
+        closest > 1.5 - 0.25,
+        "a node intruded the pore at r = {closest}"
+    );
+    assert!(
+        closest < 1.5 + 0.35,
+        "cavity wall never reached, r = {closest}"
+    );
 
     // The outer block is still the box.
     let mut high = [f64::NEG_INFINITY; 3];

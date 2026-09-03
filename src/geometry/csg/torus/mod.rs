@@ -91,8 +91,7 @@ impl TorusOracle {
         } else {
             perpendicular(self.axis)
         };
-        let ring: [Scalar; D] =
-            from_fn(|k| self.center[k] + self.major_radius * radial_unit[k]);
+        let ring: [Scalar; D] = from_fn(|k| self.center[k] + self.major_radius * radial_unit[k]);
         let offset: [Scalar; D] = from_fn(|k| query[k].value() - ring[k]);
         let distance = offset.iter().map(|x| x * x).sum::<Scalar>().sqrt();
         (ring, offset, distance, radial_unit)

@@ -80,9 +80,7 @@ impl Brep {
             Surface::Cone(surface) => self.cone_patch(surface, face),
             Surface::Sphere(surface) => self.sphere_patch(surface, face),
             Surface::Torus(surface) => self.torus_patch(surface, face),
-            Surface::BSpline(surface) => {
-                Ok(FacePatch::Sampled(self.sampled_patch(surface, face)?))
-            }
+            Surface::BSpline(surface) => Ok(FacePatch::Sampled(self.sampled_patch(surface, face)?)),
             Surface::Revolution(surface) => {
                 Ok(FacePatch::Sampled(self.revolution_patch(surface, face)?))
             }
@@ -203,7 +201,11 @@ impl Brep {
                     if start == end {
                         return Ok(None);
                     }
-                    let sign = if half_edge.forward { alignment } else { -alignment };
+                    let sign = if half_edge.forward {
+                        alignment
+                    } else {
+                        -alignment
+                    };
                     let [u_end, v_end] = to_uv(origin, axis, end_point);
                     let mut delta = wrap(u_end - current[0]);
                     if sign > 0.0 && delta < 0.0 {
@@ -215,7 +217,9 @@ impl Brep {
                 }
                 Curve::Ellipse(ellipse) => {
                     let Some(radius) = cylinder_radius else {
-                        return Err("tilted elliptical edge on a conical face is not yet supported");
+                        return Err(
+                            "tilted elliptical edge on a conical face is not yet supported",
+                        );
                     };
                     let sinusoid = ellipse_sinusoid(ellipse, origin, axis, radius)?;
                     // The cut plane's normal, reader-oriented so the edge runs
@@ -325,7 +329,11 @@ impl Brep {
         frame: Chart,
         surface: &'static str,
     ) -> Result<(Ring, Scalar), &'static str> {
-        let Chart { centre, axis, v_period } = frame;
+        let Chart {
+            centre,
+            axis,
+            v_period,
+        } = frame;
         let mut ring: Ring = Vec::new();
         let mut cursor: Option<[Scalar; 2]> = None;
         for half_edge in &bound.half_edges {
@@ -345,22 +353,24 @@ impl Brep {
             if let Curve::Circle(circle) = &edge.curve {
                 let circle_axis: [Scalar; D] = from_fn(|k| circle.axis[k].value());
                 let alignment = dot(circle_axis, axis);
-                let centre_off: [Scalar; D] =
-                    from_fn(|k| circle.center[k].value() - centre[k]);
+                let centre_off: [Scalar; D] = from_fn(|k| circle.center[k].value() - centre[k]);
                 let off_axis = {
                     let along = dot(centre_off, axis);
                     let radial: [Scalar; D] = from_fn(|k| centre_off[k] - along * axis[k]);
                     dot(radial, radial).sqrt()
                 };
                 if alignment.abs() > 1.0 - 1.0e-9 && off_axis <= circle.radius * 1.0e-9 {
-                    let start_point: [Scalar; D] =
-                        from_fn(|k| self.vertices[start][k].value());
+                    let start_point: [Scalar; D] = from_fn(|k| self.vertices[start][k].value());
                     let end_point: [Scalar; D] = from_fn(|k| self.vertices[end][k].value());
                     let point = match cursor {
                         Some(point) => point,
                         None => chart(start_point),
                     };
-                    let sign = if half_edge.forward { alignment } else { -alignment };
+                    let sign = if half_edge.forward {
+                        alignment
+                    } else {
+                        -alignment
+                    };
                     let [u_end, v_end] = chart(end_point);
                     let delta = if start == end {
                         std::f64::consts::TAU * sign.signum()
@@ -479,10 +489,8 @@ impl Brep {
                 }
             };
             for (mut ring, _) in wrapping {
-                let (&(first, _), &(last, _)) = (
-                    ring.first().ok_or(surface)?,
-                    ring.last().ok_or(surface)?,
-                );
+                let (&(first, _), &(last, _)) =
+                    (ring.first().ok_or(surface)?, ring.last().ok_or(surface)?);
                 ring.push(([last[0], cut], None));
                 ring.push(([first[0], cut], None));
                 rings.push(ring);
@@ -548,7 +556,12 @@ impl Brep {
         let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
         let (bl, bh) = frustum_bounds(base, axis, radius, radius, high - low);
         let tolerance = self.trim_tolerance(face, |curve| !matches!(curve, Curve::BSpline(_)));
-        Ok(FacePatch::Curved { curved, low: bl, high: bh, tolerance })
+        Ok(FacePatch::Curved {
+            curved,
+            low: bl,
+            high: bh,
+            tolerance,
+        })
     }
 
     fn cone_patch(&self, surface: &surface::Cone, face: &Face) -> Result<FacePatch, &'static str> {
@@ -573,7 +586,12 @@ impl Brep {
         let base: [Scalar; D] = from_fn(|k| origin[k] + low * axis[k]);
         let (bl, bh) = frustum_bounds(base, axis, base_radius, tip_radius, high - low);
         let tolerance = self.trim_tolerance(face, |curve| !matches!(curve, Curve::BSpline(_)));
-        Ok(FacePatch::Curved { curved, low: bl, high: bh, tolerance })
+        Ok(FacePatch::Curved {
+            curved,
+            low: bl,
+            high: bh,
+            tolerance,
+        })
     }
 }
 
@@ -654,7 +672,11 @@ impl Brep {
         let rings = self.chart_rings(
             face,
             |point| to_uv_sphere(centre, axis, radius, point),
-            Chart { centre, axis, v_period: None },
+            Chart {
+                centre,
+                axis,
+                v_period: None,
+            },
             radius * std::f64::consts::FRAC_PI_2,
             "unsupported trim ring on a spherical face",
         )?;
@@ -683,7 +705,11 @@ impl Brep {
         let rings = self.chart_rings(
             face,
             |point| to_uv_torus(centre, axis, major, minor, point),
-            Chart { centre, axis, v_period: Some(std::f64::consts::TAU * minor) },
+            Chart {
+                centre,
+                axis,
+                v_period: Some(std::f64::consts::TAU * minor),
+            },
             0.0,
             "unsupported trim ring on a toroidal face",
         )?;
@@ -761,11 +787,7 @@ impl BrepOracle {
 
     /// Distance to the first trimmed face along `origin + t·direction`, `t > 0`,
     /// or `None` if the ray hits nothing. `direction` need not be unit.
-    pub fn ray_distance(
-        &self,
-        origin: &Coordinate<D>,
-        direction: [Scalar; D],
-    ) -> Option<Scalar> {
+    pub fn ray_distance(&self, origin: &Coordinate<D>, direction: [Scalar; D]) -> Option<Scalar> {
         let origin: [Scalar; D] = from_fn(|k| origin[k].value());
         self.ray_candidates(origin, direction)
             .flat_map(|patch| patch.ray_hits(origin, direction).0)
@@ -798,9 +820,7 @@ impl BrepOracle {
         }
         directions
             .into_iter()
-            .map(|direction| {
-                nearest_along(direction) + nearest_along(from_fn(|k| -direction[k]))
-            })
+            .map(|direction| nearest_along(direction) + nearest_along(from_fn(|k| -direction[k])))
             .fold(Scalar::INFINITY, Scalar::min)
     }
 
@@ -923,7 +943,8 @@ impl BrepOracle {
 
 impl SolidOracle for BrepOracle {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
-        self.nearest(query).map(|(point, normal, _)| (point, normal))
+        self.nearest(query)
+            .map(|(point, normal, _)| (point, normal))
     }
 
     /// Magnitude is the distance to the nearest trimmed face; the sign is the
@@ -1009,7 +1030,9 @@ fn axial_span(
     let mut low = Scalar::INFINITY;
     let mut high = Scalar::NEG_INFINITY;
     for point in points {
-        let along = (0..D).map(|k| (point[k] - origin[k]) * axis[k]).sum::<Scalar>();
+        let along = (0..D)
+            .map(|k| (point[k] - origin[k]) * axis[k])
+            .sum::<Scalar>();
         low = low.min(along);
         high = high.max(along);
     }
@@ -1085,8 +1108,7 @@ fn sphere_uv_point(
 ) -> ([Scalar; D], [Scalar; D]) {
     let latitude = v / radius;
     let direction = uv_direction(axis, if u.is_nan() { 0.0 } else { u });
-    let normal: [Scalar; D] =
-        from_fn(|k| latitude.cos() * direction[k] + latitude.sin() * axis[k]);
+    let normal: [Scalar; D] = from_fn(|k| latitude.cos() * direction[k] + latitude.sin() * axis[k]);
     (from_fn(|k| centre[k] + radius * normal[k]), normal)
 }
 
@@ -1250,7 +1272,11 @@ fn ellipse_sinusoid(
         // not an oblique cut; downstream code divides by `a`.
         return Err("elliptical edge is not tilted; expected a circular rim");
     }
-    Ok(Sinusoid { k, a, phi: av.atan2(au) })
+    Ok(Sinusoid {
+        k,
+        a,
+        phi: av.atan2(au),
+    })
 }
 
 /// Whether `uv` lies inside `rings`, trying both neighbouring turns since `u`
@@ -1303,7 +1329,9 @@ fn ring_contains([px, py]: [Scalar; 2], rings: &[Ring]) -> bool {
                     let offset = target.acos();
                     for candidate in [sinusoid.phi + offset, sinusoid.phi - offset] {
                         let mid = (lo + hi) / 2.0;
-                        let u = candidate + ((mid - candidate) / std::f64::consts::TAU).round() * std::f64::consts::TAU;
+                        let u = candidate
+                            + ((mid - candidate) / std::f64::consts::TAU).round()
+                                * std::f64::consts::TAU;
                         if u >= lo - 1.0e-9 && u <= hi + 1.0e-9 && px < u {
                             inside = !inside;
                         }
@@ -1365,7 +1393,8 @@ fn chart_nearest(
                     }
                     Some(sinusoid) => nearest_on_sinusoid(query, a[0], b[0], &sinusoid),
                 };
-                let distance = (candidate[0] - query[0]).powi(2) + (candidate[1] - query[1]).powi(2);
+                let distance =
+                    (candidate[0] - query[0]).powi(2) + (candidate[1] - query[1]).powi(2);
                 if distance < best_distance {
                     best_distance = distance;
                     best = [candidate[0] - shift, candidate[1] - rise];
@@ -1382,9 +1411,15 @@ fn chart_nearest(
 /// nearest point on a general sinusoid, so this is the same bisection-to-an-
 /// exact-root approach as [`crate::geometry::csg::Ellipsoid`]'s oracle, not a
 /// sampled approximation of the curve itself.
-fn nearest_on_sinusoid(uv: [Scalar; 2], u_a: Scalar, u_b: Scalar, sinusoid: &Sinusoid) -> [Scalar; 2] {
+fn nearest_on_sinusoid(
+    uv: [Scalar; 2],
+    u_a: Scalar,
+    u_b: Scalar,
+    sinusoid: &Sinusoid,
+) -> [Scalar; 2] {
     let (lo, hi) = (u_a.min(u_b), u_a.max(u_b));
-    let derivative = |u: Scalar| (u - uv[0]) - sinusoid.a * (u - sinusoid.phi).sin() * (sinusoid.v(u) - uv[1]);
+    let derivative =
+        |u: Scalar| (u - uv[0]) - sinusoid.a * (u - sinusoid.phi).sin() * (sinusoid.v(u) - uv[1]);
     let distance = |u: Scalar| (u - uv[0]).powi(2) + (sinusoid.v(u) - uv[1]).powi(2);
     let mut candidates = vec![lo, hi];
     // The squared-distance derivative can hold several roots over the span

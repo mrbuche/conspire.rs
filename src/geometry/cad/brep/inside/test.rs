@@ -25,7 +25,14 @@ fn a_tangent_ray_does_not_flip_parity() {
     // Upper half-disk: diameter b->a on y = 0, semicircular arc a->b (ccw) on
     // top. Ring entry i carries the arc for edge i -> i+1.
     let ring = vec![vec![
-        ([2.0, 0.0], Some(Arc2 { centre: [0.0, 0.0], radius: 2.0, ccw: true })),
+        (
+            [2.0, 0.0],
+            Some(Arc2 {
+                centre: [0.0, 0.0],
+                radius: 2.0,
+                ccw: true,
+            }),
+        ),
         ([-2.0, 0.0], None),
     ]];
     // Far left at y = 2 exactly: the +x ray is tangent to the arc's apex. The

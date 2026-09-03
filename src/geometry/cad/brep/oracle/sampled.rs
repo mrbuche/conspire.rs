@@ -44,7 +44,13 @@ enum Field {
 impl Field {
     fn point(&self, u: Scalar, v: Scalar) -> [Scalar; D] {
         match self {
-            Self::BSpline { u_degree, v_degree, u_knots, v_knots, control } => {
+            Self::BSpline {
+                u_degree,
+                v_degree,
+                u_knots,
+                v_knots,
+                control,
+            } => {
                 let column: Vec<[Scalar; D + 1]> = control
                     .iter()
                     .map(|row| de_boor(*v_degree, v_knots, row, v))
@@ -57,13 +63,16 @@ impl Field {
                 };
                 from_fn(|k| homogeneous[k] / w)
             }
-            Self::Revolution { profile, origin, axis } => {
+            Self::Revolution {
+                profile,
+                origin,
+                axis,
+            } => {
                 let last = profile.len() - 1;
                 let s = v.clamp(0.0, 1.0) * last as Scalar;
                 let i = (s.floor() as usize).min(last - 1);
                 let f = s - i as Scalar;
-                let p: [Scalar; D] =
-                    from_fn(|k| profile[i][k] * (1.0 - f) + profile[i + 1][k] * f);
+                let p: [Scalar; D] = from_fn(|k| profile[i][k] * (1.0 - f) + profile[i + 1][k] * f);
                 rotate_about(p, *origin, *axis, u)
             }
         }
@@ -72,7 +81,12 @@ impl Field {
 
 /// `p` rotated by `angle` about the line through `origin` along the unit
 /// vector `axis` (Rodrigues).
-fn rotate_about(p: [Scalar; D], origin: [Scalar; D], axis: [Scalar; D], angle: Scalar) -> [Scalar; D] {
+fn rotate_about(
+    p: [Scalar; D],
+    origin: [Scalar; D],
+    axis: [Scalar; D],
+    angle: Scalar,
+) -> [Scalar; D] {
     let r: [Scalar; D] = from_fn(|k| p[k] - origin[k]);
     let (c, s) = (angle.cos(), angle.sin());
     let along = dot(axis, r);
@@ -81,7 +95,12 @@ fn rotate_about(p: [Scalar; D], origin: [Scalar; D], axis: [Scalar; D], angle: S
 }
 
 /// De Boor evaluation of a homogeneous B-spline at `t`, clamped to the span.
-fn de_boor(degree: usize, knots: &[Scalar], control: &[[Scalar; D + 1]], t: Scalar) -> [Scalar; D + 1] {
+fn de_boor(
+    degree: usize,
+    knots: &[Scalar],
+    control: &[[Scalar; D + 1]],
+    t: Scalar,
+) -> [Scalar; D + 1] {
     let count = control.len();
     let degree = degree.min(count.saturating_sub(1));
     let (low, high) = (knots[degree], knots[count]);
@@ -90,8 +109,7 @@ fn de_boor(degree: usize, knots: &[Scalar], control: &[[Scalar; D + 1]], t: Scal
     while span + 1 < count && knots[span + 1] <= t {
         span += 1;
     }
-    let mut work: Vec<[Scalar; D + 1]> =
-        (0..=degree).map(|j| control[j + span - degree]).collect();
+    let mut work: Vec<[Scalar; D + 1]> = (0..=degree).map(|j| control[j + span - degree]).collect();
     for r in 1..=degree {
         for j in (r..=degree).rev() {
             let i = j + span - degree;
@@ -153,8 +171,16 @@ impl Sampled {
         let point = self.field.point(u, v);
         let hu = (self.u_range[1] - self.u_range[0]) * 1.0e-5;
         let hv = (self.v_range[1] - self.v_range[0]) * 1.0e-5;
-        let su = diff(self.field.point(u + hu, v), self.field.point(u - hu, v), 2.0 * hu);
-        let sv = diff(self.field.point(u, v + hv), self.field.point(u, v - hv), 2.0 * hv);
+        let su = diff(
+            self.field.point(u + hu, v),
+            self.field.point(u - hu, v),
+            2.0 * hu,
+        );
+        let sv = diff(
+            self.field.point(u, v + hv),
+            self.field.point(u, v - hv),
+            2.0 * hv,
+        );
         let normal = unit(cross(su, sv))
             .or_else(|| unit(su))
             .or_else(|| unit(sv))
@@ -179,8 +205,16 @@ impl Sampled {
         let hv = (self.v_range[1] - self.v_range[0]) * 1.0e-5;
         for _ in 0..NEWTON {
             let s = self.field.point(u, v);
-            let su = diff(self.field.point(u + hu, v), self.field.point(u - hu, v), 2.0 * hu);
-            let sv = diff(self.field.point(u, v + hv), self.field.point(u, v - hv), 2.0 * hv);
+            let su = diff(
+                self.field.point(u + hu, v),
+                self.field.point(u - hu, v),
+                2.0 * hu,
+            );
+            let sv = diff(
+                self.field.point(u, v + hv),
+                self.field.point(u, v - hv),
+                2.0 * hv,
+            );
             let r: [Scalar; D] = from_fn(|k| s[k] - q[k]);
             let (guu, guv, gvv) = (dot(su, su), dot(su, sv), dot(sv, sv));
             let (bu, bv) = (dot(su, r), dot(sv, r));
@@ -232,12 +266,7 @@ impl Sampled {
             if t <= RAY_EPS {
                 continue;
             }
-            let uv = blend(
-                self.grid_uv(ia),
-                self.grid_uv(ib),
-                self.grid_uv(ic),
-                bary,
-            );
+            let uv = blend(self.grid_uv(ia), self.grid_uv(ib), self.grid_uv(ic), bary);
             if let Some(rings) = &self.rings {
                 if tolerance > 0.0 {
                     let near = chart_nearest(uv, rings, |_| self.u_weight, self.v_period);
@@ -279,7 +308,10 @@ impl Brep {
         }
         let u_knots = expand(&surface.u_knots, &surface.u_multiplicities);
         let v_knots = expand(&surface.v_knots, &surface.v_multiplicities);
-        let (rows, columns) = (surface.control_points.len(), surface.control_points[0].len());
+        let (rows, columns) = (
+            surface.control_points.len(),
+            surface.control_points[0].len(),
+        );
         if u_knots.len() <= rows + surface.u_degree || v_knots.len() <= columns + surface.v_degree {
             return Err("B-spline surface knot vector is too short");
         }
@@ -291,10 +323,7 @@ impl Brep {
                 row.iter()
                     .enumerate()
                     .map(|(iv, point)| {
-                        let w = surface
-                            .weights
-                            .as_ref()
-                            .map_or(1.0, |grid| grid[iu][iv]);
+                        let w = surface.weights.as_ref().map_or(1.0, |grid| grid[iu][iv]);
                         let mut homogeneous = [0.0; D + 1];
                         for k in 0..D {
                             homogeneous[k] = point[k].value() * w;
@@ -309,7 +338,13 @@ impl Brep {
         let v_degree = surface.v_degree.min(columns.saturating_sub(1));
         let u_range = [u_knots[u_degree], u_knots[rows]];
         let v_range = [v_knots[v_degree], v_knots[columns]];
-        let field = Field::BSpline { u_degree, v_degree, u_knots, v_knots, control };
+        let field = Field::BSpline {
+            u_degree,
+            v_degree,
+            u_knots,
+            v_knots,
+            control,
+        };
         // A grid dense enough to resolve the control net's own detail.
         let nu = (rows * 6).clamp(24, 48);
         let nv = (columns * 6).clamp(24, 48);
@@ -326,7 +361,11 @@ impl Brep {
         let origin: [Scalar; D] = from_fn(|k| surface.origin[k].value());
         let axis: [Scalar; D] = from_fn(|k| surface.axis[k].value());
         let profile = self.revolution_profile(surface, face)?;
-        let field = Field::Revolution { profile, origin, axis };
+        let field = Field::Revolution {
+            profile,
+            origin,
+            axis,
+        };
         let profile_samples = match &field {
             Field::Revolution { profile, .. } => profile.len(),
             _ => unreachable!(),
@@ -352,8 +391,10 @@ impl Brep {
         nv: usize,
         face: &Face,
     ) -> Result<Sampled, &'static str> {
-        let u_of = |iu: usize| u_range[0] + (u_range[1] - u_range[0]) * iu as Scalar / (nu - 1) as Scalar;
-        let v_of = |iv: usize| v_range[0] + (v_range[1] - v_range[0]) * iv as Scalar / (nv - 1) as Scalar;
+        let u_of =
+            |iu: usize| u_range[0] + (u_range[1] - u_range[0]) * iu as Scalar / (nu - 1) as Scalar;
+        let v_of =
+            |iv: usize| v_range[0] + (v_range[1] - v_range[0]) * iv as Scalar / (nv - 1) as Scalar;
         let grid: Vec<[Scalar; D]> = (0..nu)
             .flat_map(|iu| (0..nv).map(move |iv| (iu, iv)))
             .map(|(iu, iv)| field.point(u_of(iu), v_of(iv)))
@@ -367,7 +408,10 @@ impl Brep {
                 high[k] = high[k].max(point[k]);
             }
         }
-        let diagonal = (0..D).map(|k| (high[k] - low[k]).powi(2)).sum::<Scalar>().sqrt();
+        let diagonal = (0..D)
+            .map(|k| (high[k] - low[k]).powi(2))
+            .sum::<Scalar>()
+            .sqrt();
         let seam = 1.0e-6 * diagonal.max(1.0e-12);
         let closed = |a: [Scalar; D], b: [Scalar; D]| {
             (0..D).map(|k| (a[k] - b[k]).powi(2)).sum::<Scalar>().sqrt() < seam

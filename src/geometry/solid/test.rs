@@ -33,7 +33,11 @@ impl SolidOracle for Box {
             let v = query[k].value();
             v > 2.0 && v < 3.0
         });
-        if self.lie && deep { -distance } else { distance }
+        if self.lie && deep {
+            -distance
+        } else {
+            distance
+        }
     }
 }
 

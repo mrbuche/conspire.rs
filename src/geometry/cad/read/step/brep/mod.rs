@@ -233,7 +233,11 @@ impl<'a> Reader<'a> {
         // mirroring the curve side below.
         let implied = ["UNIFORM_SURFACE", "QUASI_UNIFORM_SURFACE", "BEZIER_SURFACE"]
             .into_iter()
-            .find_map(|keyword| self.record(id, keyword).ok().map(|record| (keyword, record)));
+            .find_map(|keyword| {
+                self.record(id, keyword)
+                    .ok()
+                    .map(|record| (keyword, record))
+            });
         let knotted = self.record(id, "B_SPLINE_SURFACE_WITH_KNOTS").ok();
         if let Some(record) = knotted.or(implied.map(|(_, record)| record)) {
             let base = self.record(id, "B_SPLINE_SURFACE").ok();
@@ -290,7 +294,11 @@ impl<'a> Reader<'a> {
         if let Ok(record) = self.record(id, "SURFACE_OF_REVOLUTION") {
             let curve = self.curve(reference(&record.parameters, 1)?, true)?;
             let (origin, axis) = self.axis1(reference(&record.parameters, 2)?)?;
-            return Ok(Surface::Revolution(Revolution { curve, origin, axis }));
+            return Ok(Surface::Revolution(Revolution {
+                curve,
+                origin,
+                axis,
+            }));
         }
         Err(invalid(format!(
             "STEP: #{id} is not a supported surface (only PLANE, CYLINDRICAL_SURFACE, SPHERICAL_SURFACE, CONICAL_SURFACE, TOROIDAL_SURFACE, B_SPLINE_SURFACE_WITH_KNOTS, UNIFORM_SURFACE, QUASI_UNIFORM_SURFACE, BEZIER_SURFACE, SURFACE_OF_REVOLUTION)"
@@ -350,7 +358,11 @@ impl<'a> Reader<'a> {
         // synthesized from the form and the control point count.
         let implied = ["UNIFORM_CURVE", "QUASI_UNIFORM_CURVE", "BEZIER_CURVE"]
             .into_iter()
-            .find_map(|keyword| self.record(id, keyword).ok().map(|record| (keyword, record)));
+            .find_map(|keyword| {
+                self.record(id, keyword)
+                    .ok()
+                    .map(|record| (keyword, record))
+            });
         let knotted = self.record(id, "B_SPLINE_CURVE_WITH_KNOTS").ok();
         if let Some(record) = knotted.or(implied.map(|(_, record)| record)) {
             let base = self.record(id, "B_SPLINE_CURVE").ok();
@@ -563,7 +575,9 @@ fn list(parameters: &[Parameter], index: usize) -> Result<&[Parameter]> {
 fn integer(parameter: &Parameter) -> Result<usize> {
     let value = scalar(parameter)?;
     if value < 0.0 || value.fract() != 0.0 {
-        return Err(invalid(format!("STEP: expected a non-negative integer, found {value}")));
+        return Err(invalid(format!(
+            "STEP: expected a non-negative integer, found {value}"
+        )));
     }
     Ok(value as usize)
 }
@@ -574,11 +588,20 @@ fn integer(parameter: &Parameter) -> Result<usize> {
 /// subtype's own name (`_CURVE`, or `_SURFACE` for one dimension of a surface).
 fn implied_knots(keyword: &str, degree: usize, count: usize) -> (Vec<f64>, Vec<usize>) {
     let segments = count.saturating_sub(degree);
-    match keyword.trim_end_matches("_CURVE").trim_end_matches("_SURFACE") {
+    match keyword
+        .trim_end_matches("_CURVE")
+        .trim_end_matches("_SURFACE")
+    {
         "QUASI_UNIFORM" if segments > 1 => (
             (0..=segments).map(|i| i as f64).collect(),
             (0..=segments)
-                .map(|i| if i == 0 || i == segments { degree + 1 } else { 1 })
+                .map(|i| {
+                    if i == 0 || i == segments {
+                        degree + 1
+                    } else {
+                        1
+                    }
+                })
                 .collect(),
         ),
         "UNIFORM" => (
@@ -649,9 +672,17 @@ fn file_length_scale(exchange: &Exchange) -> Result<f64> {
             }
         }
     }
-    let records = || exchange.data.values().flat_map(|instance| &instance.records);
+    let records = || {
+        exchange
+            .data
+            .values()
+            .flat_map(|instance| &instance.records)
+    };
     for (&id, instance) in &exchange.data {
-        if instance.records.iter().any(|record| record.keyword == "LENGTH_UNIT")
+        if instance
+            .records
+            .iter()
+            .any(|record| record.keyword == "LENGTH_UNIT")
             && let Some(scale) = unit_length_scale(exchange, id)
         {
             return Ok(scale);
@@ -694,7 +725,11 @@ fn unit_length_scale(exchange: &Exchange, id: u64) -> Option<f64> {
             return si_prefix(record.parameters.first()).ok();
         }
     }
-    if instance.records.iter().any(|record| record.keyword == "LENGTH_UNIT") {
+    if instance
+        .records
+        .iter()
+        .any(|record| record.keyword == "LENGTH_UNIT")
+    {
         for record in &instance.records {
             if record.keyword == "CONVERSION_BASED_UNIT"
                 && let Some(Parameter::String(name)) = record.parameters.first()
@@ -711,7 +746,11 @@ fn unit_length_scale(exchange: &Exchange, id: u64) -> Option<f64> {
 /// `PLANE_ANGLE_MEASURE_WITH_UNIT` (present only for a conversion-based unit such
 /// as degrees), else 1 for an SI radian.
 fn file_angle_scale(exchange: &Exchange) -> Result<f64> {
-    for record in exchange.data.values().flat_map(|instance| &instance.records) {
+    for record in exchange
+        .data
+        .values()
+        .flat_map(|instance| &instance.records)
+    {
         // PMI sections carry many empty `PLANE_ANGLE_MEASURE_WITH_UNIT()`; the
         // real conversion is the one with a numeric measure.
         if record.keyword == "PLANE_ANGLE_MEASURE_WITH_UNIT"

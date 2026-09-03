@@ -28,7 +28,9 @@ fn axis(entries: [f64; 3]) -> Direction<3> {
 /// A 4-cube with a cylindrical boss on its +z face.
 fn block_with_boss() -> UnionAll<Primitive> {
     UnionAll::new(vec![
-        Cuboid::new(point([-2.0; 3]), point([2.0; 3])).unwrap().into(),
+        Cuboid::new(point([-2.0; 3]), point([2.0; 3]))
+            .unwrap()
+            .into(),
         Cylinder::new(point([0.0, 0.0, 2.0]), axis([0.0, 0.0, 1.0]), 1.0, 1.5)
             .unwrap()
             .into(),
@@ -48,7 +50,10 @@ fn heterogeneous_union_signed_distance() {
 
 #[test]
 fn block_with_boss_and_pore_meshes() {
-    let solid = Difference::new(block_with_boss(), Sphere::new(point([0.0; 3]), 1.0).unwrap());
+    let solid = Difference::new(
+        block_with_boss(),
+        Sphere::new(point([0.0; 3]), 1.0).unwrap(),
+    );
     let mesh = solid
         .mesh(
             &Uniform(length(0.4)),
@@ -91,5 +96,8 @@ fn block_with_boss_and_pore_meshes() {
     // The cube walls are intact on the other axes.
     assert!((high[0] - 2.0).abs() < 0.15 && (low[0] + 2.0).abs() < 0.15);
     // The spherical pore is hollow.
-    assert!(nearest > 1.0 - 0.25, "a node intruded the pore at r = {nearest}");
+    assert!(
+        nearest > 1.0 - 0.25,
+        "a node intruded the pore at r = {nearest}"
+    );
 }

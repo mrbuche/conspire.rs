@@ -80,5 +80,8 @@ fn nests_with_a_combinator() {
     }
     // Boss carried through; interior pore still hollow.
     assert!((top - 3.5).abs() < 0.2, "boss tip at z = {top}");
-    assert!(nearest > 1.0 - 0.25, "a node intruded the pore at r = {nearest}");
+    assert!(
+        nearest > 1.0 - 0.25,
+        "a node intruded the pore at r = {nearest}"
+    );
 }

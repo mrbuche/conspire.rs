@@ -210,9 +210,16 @@ impl Brep {
                     return Err("planar face has a straight loop of fewer than three vertices");
                 }
                 if outline.is_empty() {
-                    outline.extend(ring.iter().map(|&v| from_fn(|k| self.vertices[v][k].value())));
+                    outline.extend(
+                        ring.iter()
+                            .map(|&v| from_fn(|k| self.vertices[v][k].value())),
+                    );
                 }
-                rings.push(ring.iter().map(|&v| (uv(&self.vertices[v]), None)).collect());
+                rings.push(
+                    ring.iter()
+                        .map(|&v| (uv(&self.vertices[v]), None))
+                        .collect(),
+                );
             } else if let [Curve::Circle(circle)] = curves.as_slice() {
                 if !parallel(&circle.axis, &normal) {
                     return Err("planar face's circular edge is not in the face plane");
@@ -246,9 +253,16 @@ impl Brep {
                             let alignment = (0..D)
                                 .map(|k| circle.axis[k].value() * normal[k].value())
                                 .sum::<Scalar>();
-                            let ccw = if half_edge.forward { alignment > 0.0 } else { alignment < 0.0 };
-                            let arc =
-                                Arc2 { centre: uv(&circle.center), radius: circle.radius, ccw };
+                            let ccw = if half_edge.forward {
+                                alignment > 0.0
+                            } else {
+                                alignment < 0.0
+                            };
+                            let arc = Arc2 {
+                                centre: uv(&circle.center),
+                                radius: circle.radius,
+                                ccw,
+                            };
                             mixed.push((point, Some(arc)));
                         }
                         curve => {
@@ -270,8 +284,9 @@ impl Brep {
         }
 
         let aabb = BoundingBox::from(refs.into_iter().collect::<CoordinatesRef<'_, D>>());
-        let tolerance =
-            self.trim_tolerance(face, |curve| matches!(curve, Curve::Line(_) | Curve::Circle(_)));
+        let tolerance = self.trim_tolerance(face, |curve| {
+            matches!(curve, Curve::Line(_) | Curve::Circle(_))
+        });
         Ok(PlanarFace {
             origin,
             normal,
@@ -287,5 +302,9 @@ impl Brep {
 }
 
 fn parallel(a: &Direction<D>, b: &Direction<D>) -> bool {
-    (0..D).map(|k| a[k].value() * b[k].value()).sum::<Scalar>().abs() > 1.0 - 1.0e-6
+    (0..D)
+        .map(|k| a[k].value() * b[k].value())
+        .sum::<Scalar>()
+        .abs()
+        > 1.0 - 1.0e-6
 }

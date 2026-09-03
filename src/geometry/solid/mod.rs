@@ -18,7 +18,7 @@ use crate::{
 };
 use std::{
     array::from_fn,
-    collections::{VecDeque, hash_map::Entry, HashMap},
+    collections::{HashMap, VecDeque, hash_map::Entry},
     num::NonZeroU32,
     thread::{available_parallelism, scope},
 };
@@ -150,7 +150,11 @@ fn circumradius(hex: &[usize], coordinates: &Coordinates<D>) -> Scalar {
             high[k] = high[k].max(coordinates[node][k].value());
         }
     }
-    (0..D).map(|k| (high[k] - low[k]).powi(2)).sum::<Scalar>().sqrt() / 2.0
+    (0..D)
+        .map(|k| (high[k] - low[k]).powi(2))
+        .sum::<Scalar>()
+        .sqrt()
+        / 2.0
 }
 
 /// The six quad faces of a hexahedron, as corner indices into its node octet.
@@ -563,18 +567,21 @@ fn refine_octree(
         let chunk = frontier.len().div_ceil(threads).max(1);
         scope(|scope| {
             let (tree, physical, frontier) = (&tree, &physical, &frontier);
-            split.chunks_mut(chunk).enumerate().for_each(|(block, out)| {
-                scope.spawn(move || {
-                    let base = block * chunk;
-                    out.iter_mut().enumerate().for_each(|(local, coarse)| {
-                        let node = &tree.nodes[frontier[base + local]];
-                        let extent = cell * Scalar::from(node.length);
-                        let half = 0.5 * extent.value();
-                        *coarse = node.length > 1
-                            && extent > sizing.at_cell(&physical(node.center()), half);
+            split
+                .chunks_mut(chunk)
+                .enumerate()
+                .for_each(|(block, out)| {
+                    scope.spawn(move || {
+                        let base = block * chunk;
+                        out.iter_mut().enumerate().for_each(|(local, coarse)| {
+                            let node = &tree.nodes[frontier[base + local]];
+                            let extent = cell * Scalar::from(node.length);
+                            let half = 0.5 * extent.value();
+                            *coarse = node.length > 1
+                                && extent > sizing.at_cell(&physical(node.center()), half);
+                        });
                     });
                 });
-            });
         });
         let mut next = Vec::new();
         for (&index, &coarse) in frontier.iter().zip(&split) {

@@ -28,7 +28,10 @@ pub type Body = Difference<Primitive, UnionAll<Primitive>>;
 pub fn assemble(breps: &[Brep]) -> Result<Vec<Body>, &'static str> {
     let primitives = breps
         .iter()
-        .map(|brep| brep.primitive().ok_or("solid is not a recognised primitive"))
+        .map(|brep| {
+            brep.primitive()
+                .ok_or("solid is not a recognised primitive")
+        })
         .collect::<Result<Vec<_>, _>>()?;
     let count = primitives.len();
 
@@ -39,7 +42,11 @@ pub fn assemble(breps: &[Brep]) -> Result<Vec<Body>, &'static str> {
         let (low, high) = primitive.bounding_box()?;
         let mid: [f64; D] = from_fn(|k| 0.5 * (low[k].value() + high[k].value()));
         centre.push(Coordinate::from(mid));
-        volume.push((0..D).map(|k| high[k].value() - low[k].value()).product::<f64>());
+        volume.push(
+            (0..D)
+                .map(|k| high[k].value() - low[k].value())
+                .product::<f64>(),
+        );
         oracle.push(primitive.oracle()?);
     }
 
