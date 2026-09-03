@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod test;
 
-pub(crate) mod facets;
 mod dualization;
+pub(crate) mod facets;
 mod polyhedra;
 mod tetrahedra;
 
