@@ -1,4 +1,3 @@
-use std::num::NonZeroU32;
 #[cfg(test)]
 mod test;
 
@@ -19,15 +18,14 @@ use crate::{
         Coordinate, Direction,
         mesh::{
             Mesh,
-            tessellation::{D, Tessellation},
+            tessellation::{D, Tessellation, cut::geometry::contained},
         },
         ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
     },
     math::{Quantity, Scalar},
     units::Length,
 };
-use geometry::contained;
-use std::collections::HashMap;
+use std::{collections::HashMap, num::NonZeroU32};
 
 const COLLAPSE_FRACTION: Scalar = 0.2;
 const CROSSING_TOLERANCE: Quantity<Length> = Length::meters(1.0e-8);
