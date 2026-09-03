@@ -7,6 +7,8 @@ mod pixels;
 mod segmentation;
 mod voxels;
 
+pub(crate) use ntree::Dualization;
+
 use crate::{
     geometry::{
         Coordinates,

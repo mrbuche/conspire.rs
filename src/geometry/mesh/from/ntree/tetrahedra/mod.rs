@@ -1,13 +1,16 @@
 #[cfg(test)]
 mod test;
 
-use super::facets::{Facets, corner_length, leaves};
 use crate::{
     geometry::{
         Coordinate, Coordinates,
         mesh::{
             Connectivity, Mesh,
-            from::{kuhn, orient},
+            from::{
+                kuhn,
+                ntree::facets::{Facets, corner_length, leaves},
+                orient,
+            },
         },
         ntree::{
             Octree,

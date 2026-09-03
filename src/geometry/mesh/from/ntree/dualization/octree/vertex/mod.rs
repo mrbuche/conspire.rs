@@ -5,10 +5,9 @@ pub(crate) mod test;
 mod star;
 
 use super::{D, N};
-use crate::geometry::ntree::{
-    Octree,
-    dual::{NodeMap, Star},
-    node::cell::Cell,
+use crate::geometry::{
+    mesh::from::ntree::dualization::{NodeMap, Star},
+    ntree::{Octree, node::cell::Cell},
 };
 
 pub(super) fn vertex_transitions<T, U>(

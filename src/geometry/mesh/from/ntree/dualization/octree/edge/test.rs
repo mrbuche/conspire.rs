@@ -4,12 +4,10 @@ use crate::geometry::ntree::node::slot::Slot;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
+        mesh::from::ntree::dualization::NodeMap,
         ntree::{
-            Balance, Octree,
-            balance::Balancing,
-            dual::NodeMap,
+            Balance, Balancing, Octree, Pairing,
             node::{Kind, Node},
-            pair::Pairing,
             rescale::Rescaling,
         },
     },
@@ -60,13 +58,10 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
 fn write_weak_edge_dual() {
     use super::super::test::verify_dual;
     use crate::{
-        geometry::{
-            mesh::{ExodusFormat, Output},
-            ntree::Dualization,
-        },
+        geometry::mesh::{Dualization, ExodusFormat, Output},
         io::Write,
     };
-    let mut octree = weak_edge_tree(Balancing::Weak(1));
+    let octree = weak_edge_tree(Balancing::Weak(1));
     let mesh = octree.dualize();
     if let Err(error) = verify_dual(&mesh) {
         panic!("weak dual failed verification: {error}");
@@ -115,7 +110,7 @@ type Transitions = (
 );
 
 fn transitions(octree: &Octree<u16, usize>) -> Transitions {
-    use crate::geometry::ntree::dual::Initialize;
+    use crate::geometry::mesh::from::ntree::dualization::Initialize;
     let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
     let mut nodes_map = NodeMap::new();
     super::super::face::face_transition(

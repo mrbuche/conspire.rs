@@ -12,7 +12,8 @@ mod transition_5;
 use super::{D, N};
 use crate::geometry::{
     Coordinates,
-    ntree::{Octree, balance::Balancing, dual::NodeMap},
+    mesh::from::ntree::dualization::NodeMap,
+    ntree::{Balancing, Octree},
 };
 
 #[allow(clippy::too_many_arguments)]

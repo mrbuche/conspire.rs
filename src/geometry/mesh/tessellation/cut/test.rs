@@ -2,15 +2,16 @@ use super::{Class, geometry::star_volume};
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, PolytopalConnectivity, Verdict, tessellation::Tessellation},
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
+        mesh::{
+            Connectivity, Dualization, Mesh, PolytopalConnectivity, Verdict,
+            tessellation::Tessellation,
+        },
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
     math::{CrossProduct, Quantity, Tensor},
 };
 use std::collections::HashMap;
 
-/// Composes the two cut phases, as the callers of the old one-shot entry
-/// points did.
 fn cut(
     tessellation: &Tessellation,
     balancing: Balancing,
@@ -412,7 +413,6 @@ fn volume_of(mesh: &Mesh<3>) -> f64 {
     mesh.volumes().into_iter().flatten().sum()
 }
 
-/// The volume of the box the mesh's nodes span.
 fn spanned(mesh: &Mesh<3>) -> f64 {
     let coordinates = mesh.coordinates();
     let mut low = [f64::INFINITY; 3];
@@ -426,8 +426,6 @@ fn spanned(mesh: &Mesh<3>) -> f64 {
     (0..3).map(|axis| high[axis] - low[axis]).product()
 }
 
-/// Counts the triangular faces used by one tetrahedron alone, which for a
-/// conforming mesh are exactly its surface.
 fn boundary_faces(mesh: &Mesh<3>) -> usize {
     let mut faces = HashMap::<[usize; 3], usize>::new();
     tets(mesh).iter().for_each(|tet| {
@@ -446,8 +444,6 @@ fn boundary_faces(mesh: &Mesh<3>) -> usize {
     faces.values().filter(|&&count| count == 1).count()
 }
 
-/// A background filling a box is conforming when every singly-used face lies
-/// on that box's hull, an interior one meaning a torn interface.
 fn conforming_in_a_box(mesh: &Mesh<3>) {
     let coordinates = mesh.coordinates();
     let mut low = [f64::INFINITY; 3];
@@ -499,7 +495,6 @@ fn lattice_tet_background_is_six_tets_per_cell() {
     assert_eq!(mesh.number_of_elements(), 6 * hexes.number_of_elements());
     assert_eq!(classes.len(), mesh.number_of_elements());
     assert_eq!(cells.len(), hexes.number_of_elements());
-    // Each cell's class is repeated over the six tetrahedra it became.
     cells
         .iter()
         .zip(classes.chunks(6))
@@ -511,9 +506,6 @@ fn lattice_tet_background_is_six_tets_per_cell() {
         "{} vs {cubes}",
         volume_of(&mesh)
     );
-    // The lattice is a blob, not a box, so conformity is pinned against the
-    // hexahedral background instead: every exterior quadrilateral becomes two
-    // triangles, and a torn interior would leave more singly-used faces.
     assert_eq!(boundary_faces(&mesh), 2 * hexes.exterior_faces().len())
 }
 
@@ -527,14 +519,10 @@ fn classify_agrees_between_the_hex_and_tet_lattices() {
     let hex_found = tessellation.classify(&hexes);
     assert_eq!(found.len(), mesh.number_of_elements());
     assert_eq!(hex_found.len(), hexes.number_of_elements());
-    // Every Kuhn tetrahedron spans its cell's main diagonal, so it carries the
-    // cell's own bounding box and classifies exactly as the cell does.
     hex_found
         .iter()
         .zip(found.chunks(6))
         .for_each(|(&cell, tets)| assert!(tets.iter().all(|&class| class == cell)));
-    // Rasterizing and classifying differ on a few cells of this fixture, and
-    // they are the same cells either way, so nothing about that is tetrahedral.
     let cells_differing: std::collections::BTreeSet<usize> = classes
         .iter()
         .zip(&found)
@@ -563,14 +551,12 @@ fn check_octree_tet_background(tessellation: &Tessellation, graded: bool) {
     assert_eq!(classes.len(), mesh.number_of_elements());
     assert!(worst_scaled_jacobian(&mesh) > 0.0);
     conforming_in_a_box(&mesh);
-    // The octree meshes all of its leaves, so the tetrahedra fill its root.
     let root = spanned(&mesh);
     assert!(
         (volume_of(&mesh) - root).abs() < 1.0e-9 * root,
         "{} vs {root}",
         volume_of(&mesh)
     );
-    // Six tetrahedra to a plain leaf, eight or fourteen to a graded one.
     let (polyhedra, _) = tessellation
         .octree_background(Balancing::Strong(1), 1.0)
         .unwrap();
@@ -587,15 +573,11 @@ fn check_octree_tet_background(tessellation: &Tessellation, graded: bool) {
     }
 }
 
-/// A sphere's thickness and curvature are uniform, so its octree is too and
-/// every leaf takes the plain six-tetrahedron split.
 #[test]
 fn octree_tet_background_of_a_sphere_is_uniform() {
     check_octree_tet_background(&sphere(3), false)
 }
 
-/// A slab grades, so its octree exercises the templates filling a leaf that
-/// meets finer neighbors.
 #[test]
 fn octree_tet_background_of_a_slab_is_conforming() {
     check_octree_tet_background(&box_surface([-2.0, -1.0, -0.15], [2.0, 1.0, 0.15]), true)

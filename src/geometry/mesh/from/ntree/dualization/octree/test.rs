@@ -1,7 +1,7 @@
 use crate::geometry::{
     Coordinate, Coordinates,
-    mesh::Mesh,
-    ntree::{Balance, Dualization, Octree, balance::Balancing, dual::Initialize, pair::Pairing},
+    mesh::{Dualization, Mesh, from::ntree::dualization::Initialize},
+    ntree::{Balance, Balancing, Octree, Pairing},
 };
 use crate::math::Quantity;
 use std::collections::{HashMap, HashSet};
@@ -121,7 +121,7 @@ fn refine_sets() -> Vec<Vec<usize>> {
 #[test]
 fn dual_is_conformal_on_strong_trees() {
     for macros in refine_sets() {
-        let mut octree = tree_refine_macros(&macros);
+        let octree = tree_refine_macros(&macros);
         let mesh = octree.dualize();
         assert!(
             mesh.iter().flatten().count() > 0,

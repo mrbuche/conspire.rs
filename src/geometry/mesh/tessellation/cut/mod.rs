@@ -17,10 +17,10 @@ use crate::{
     geometry::{
         Coordinate, Direction,
         mesh::{
-            Mesh,
+            Dualization, Mesh,
             tessellation::{D, Tessellation, cut::geometry::contained},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, Sizing},
     },
     math::{Quantity, Scalar},
     units::Length,

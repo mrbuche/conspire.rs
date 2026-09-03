@@ -4,8 +4,7 @@ use crate::geometry::{
     Coordinate,
     mesh::Mesh,
     ntree::{
-        Octree,
-        balance::Balancing,
+        Balancing, Octree,
         node::{Kind, cell::Cell},
     },
 };
@@ -117,13 +116,13 @@ fn min_scaled_jacobian(mesh: &Mesh<3>) -> f64 {
 
 fn survey(configs: &[[usize; 8]], balancing: Balancing) {
     use super::super::test::verify_dual;
-    use crate::geometry::ntree::Dualization;
+    use crate::geometry::mesh::Dualization;
     let mut failures = Vec::new();
     for (which, config) in configs.iter().enumerate() {
         for (way, rotation) in ROTATIONS.iter().enumerate() {
             let mut depths = [0usize; 8];
             (0..8).for_each(|octant| depths[rotation[octant]] = config[octant] + 1);
-            let mut octree = super::super::edge::test::weak_tree(depths, balancing);
+            let octree = super::super::edge::test::weak_tree(depths, balancing);
             let expected: usize = depths.iter().map(|&d| 8usize.pow(d as u32)).sum();
             let leaves = octree.iter().filter(|node| node.is_leaf()).count();
             if leaves != expected {
@@ -183,14 +182,11 @@ fn weak_vertex_depths(fine: usize) -> [usize; 8] {
 fn write_weak_vertex_dual() {
     use super::super::test::verify_dual;
     use crate::{
-        geometry::{
-            mesh::{ExodusFormat, Output},
-            ntree::Dualization,
-        },
+        geometry::mesh::{Dualization, ExodusFormat, Output},
         io::Write,
     };
     for fine in 0..8 {
-        let mut octree =
+        let octree =
             super::super::edge::test::weak_tree(weak_vertex_depths(fine), Balancing::Weak(1));
         let mesh = octree.dualize();
         if let Err(error) = verify_dual(&mesh) {
@@ -258,7 +254,7 @@ where
 }
 
 fn fuzz_tree(seed: u64, balancing: Balancing) -> Octree<u16, usize> {
-    use crate::geometry::ntree::{Balance, node::Node, pair::Pairing, rescale::Rescaling};
+    use crate::geometry::ntree::{Balance, Pairing, node::Node, rescale::Rescaling};
     let mut state = seed
         .wrapping_mul(6364136223846793005)
         .wrapping_add(1442695040888963407);
@@ -305,10 +301,10 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Octree<u16, usize> {
 
 fn fuzz_duals(balancing: Balancing) {
     use super::super::test::verify_dual;
-    use crate::geometry::ntree::Dualization;
+    use crate::geometry::mesh::Dualization;
     let mut failures = Vec::new();
     for seed in 0..200u64 {
-        let mut octree = fuzz_tree(seed, balancing);
+        let octree = fuzz_tree(seed, balancing);
         let mesh = octree.dualize();
         if let Err(error) = verify_dual(&mesh) {
             failures.push(format!("seed {seed}: {error}"));

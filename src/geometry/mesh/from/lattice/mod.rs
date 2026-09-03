@@ -104,15 +104,6 @@ impl Mesh<3> {
         )
             .into()
     }
-    /// Meshes lattice cells as six tetrahedra apiece, by the Kuhn/Freudenthal
-    /// split about the diagonal from each cell's lowest-numbered corner to its
-    /// highest.
-    ///
-    /// Node numbering increases with each coordinate, so those two corners are
-    /// the lexicographic extremes of the cell, and each square face is cut by
-    /// the diagonal joining its own two extremes. Neighboring cells share a
-    /// face's extremes, so they cut it the same way and the mesh is conforming
-    /// without any parity rule.
     pub(crate) fn from_lattice_tets<I>(
         cells: I,
         nel: [usize; 3],

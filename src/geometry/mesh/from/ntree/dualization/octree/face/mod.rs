@@ -3,13 +3,11 @@ use crate::geometry::ntree::node::slot::Slot;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        ntree::{
-            Octree,
-            dual::{
-                NodeMap,
-                octree::{D, L, M, N},
-            },
+        mesh::from::ntree::dualization::{
+            NodeMap,
+            octree::{D, L, M, N},
         },
+        ntree::Octree,
     },
     math::{Scalar, TensorVec},
 };

@@ -7,10 +7,8 @@ use crate::{
         Coordinate, Coordinates,
         mesh::Mesh,
         ntree::{
-            Orthotree,
-            balance::Balancing,
+            Balancing, Orthotree, Pairing,
             node::{Kind, cell::Cell},
-            pair::Pairing,
         },
     },
     math::{Scalar, TensorVec},
@@ -38,7 +36,7 @@ fn get_or_add<const D: usize>(
 }
 
 pub trait Dualization<const D: usize> {
-    fn dualize(&mut self) -> Mesh<D>;
+    fn dualize(&self) -> Mesh<D>;
 }
 
 pub(super) trait Star<const D: usize, const N: usize> {

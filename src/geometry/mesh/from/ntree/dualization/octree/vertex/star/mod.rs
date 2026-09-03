@@ -1,11 +1,13 @@
 use crate::geometry::ntree::node::slot::Slot;
-use crate::geometry::ntree::{
-    Octree,
-    dual::{
+use crate::geometry::{
+    mesh::from::ntree::dualization::{
         NodeMap,
         octree::{D, N},
     },
-    node::{Kind, cell::Cell},
+    ntree::{
+        Octree,
+        node::{Kind, cell::Cell},
+    },
 };
 use std::array::from_fn;
 

@@ -86,7 +86,6 @@ fn buffer_snaps_to_surface() -> Result<(), AssertionError> {
     Ok(())
 }
 
-/// A sphere and a tetrahedral lattice background trimmed to it.
 fn trimmed_tets(spacing: Scalar) -> (Tessellation, Mesh<3>) {
     let tessellation = sphere(12, 16, 1.0);
     let (mut mesh, _) = tessellation
@@ -96,7 +95,6 @@ fn trimmed_tets(spacing: Scalar) -> (Tessellation, Mesh<3>) {
     (tessellation, mesh)
 }
 
-/// How far the nodes from `first` on lie off the target.
 fn deviation(mesh: &Mesh<3>, target: &Tessellation, first: usize) -> Scalar {
     let surface = target.mesh();
     let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
@@ -135,10 +133,6 @@ fn buffer_tets_raises_three_tetrahedra_per_boundary_triangle() {
     assert_eq!(mesh.number_of_elements(), elements + 3 * faces);
     assert_eq!(mesh.number_of_nodes(), nodes + boundary.len());
     assert!(worst_scaled_jacobian(&mesh) > 0.0);
-    // The layer wraps the trimmed mesh, so the only triangles used by one
-    // tetrahedron alone are its outer surface, one over each boundary triangle
-    // it stands on. Prisms cutting a shared lateral face two different ways
-    // would leave more.
     let mut counts = HashMap::<[usize; 3], usize>::new();
     mesh.iter().flatten().for_each(|tet| {
         [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
@@ -185,8 +179,6 @@ fn buffer_tets_rejects_a_hexahedral_mesh() {
     );
 }
 
-/// A slender bar whose faces land exactly on lattice planes -- the axis-aligned
-/// degeneracy that leaves `trim` with a pinched tetrahedral boundary.
 fn bar() -> Tessellation {
     let min = [0.0, 0.0, 0.0];
     let max = [3.0, 0.3, 0.3];
@@ -220,8 +212,6 @@ fn bar() -> Tessellation {
     )))
 }
 
-/// Panics unless every boundary edge of `mesh` is shared by exactly two
-/// boundary faces.
 fn assert_manifold_boundary(mesh: &Mesh<3>) {
     let mut edges: HashMap<[usize; 2], u32> = HashMap::new();
     for face in mesh.exterior_faces() {

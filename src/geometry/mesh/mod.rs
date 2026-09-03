@@ -15,6 +15,8 @@ mod smooth;
 mod tessellation;
 mod write;
 
+pub(crate) use from::Dualization;
+
 pub use self::{
     buffer::Fitting,
     connectivity::{

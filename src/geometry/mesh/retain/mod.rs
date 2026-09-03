@@ -10,41 +10,6 @@ use crate::{
 };
 use std::array::from_fn;
 
-fn primitive<const N: usize>(
-    kept: &[&[usize]],
-    id: &mut impl FnMut(usize) -> usize,
-) -> Vec<[usize; N]> {
-    kept.iter()
-        .map(|element| from_fn(|i| id(element[i])))
-        .collect()
-}
-
-fn polytopal(
-    faces_nodes: &[Vec<usize>],
-    kept: &[&[usize]],
-    id: &mut impl FnMut(usize) -> usize,
-) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
-    let mut faces = vec![usize::MAX; faces_nodes.len()];
-    let mut new_faces_nodes = Vec::new();
-    let elements_faces = kept
-        .iter()
-        .map(|element| {
-            element
-                .iter()
-                .map(|&face| {
-                    if faces[face] == usize::MAX {
-                        faces[face] = new_faces_nodes.len();
-                        new_faces_nodes
-                            .push(faces_nodes[face].iter().map(|&node| id(node)).collect())
-                    }
-                    faces[face]
-                })
-                .collect()
-        })
-        .collect();
-    (elements_faces, new_faces_nodes)
-}
-
 impl<const D: usize> Mesh<D> {
     pub(crate) fn retain_elements(
         &mut self,
@@ -105,4 +70,39 @@ impl<const D: usize> Mesh<D> {
         };
         *self = (connectivities, Set::from(new_coordinates)).into()
     }
+}
+
+fn primitive<const N: usize>(
+    kept: &[&[usize]],
+    id: &mut impl FnMut(usize) -> usize,
+) -> Vec<[usize; N]> {
+    kept.iter()
+        .map(|element| from_fn(|i| id(element[i])))
+        .collect()
+}
+
+fn polytopal(
+    faces_nodes: &[Vec<usize>],
+    kept: &[&[usize]],
+    id: &mut impl FnMut(usize) -> usize,
+) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
+    let mut faces = vec![usize::MAX; faces_nodes.len()];
+    let mut new_faces_nodes = Vec::new();
+    let elements_faces = kept
+        .iter()
+        .map(|element| {
+            element
+                .iter()
+                .map(|&face| {
+                    if faces[face] == usize::MAX {
+                        faces[face] = new_faces_nodes.len();
+                        new_faces_nodes
+                            .push(faces_nodes[face].iter().map(|&node| id(node)).collect())
+                    }
+                    faces[face]
+                })
+                .collect()
+        })
+        .collect();
+    (elements_faces, new_faces_nodes)
 }

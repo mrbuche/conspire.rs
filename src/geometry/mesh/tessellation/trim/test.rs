@@ -2,10 +2,10 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{
-            Connectivity, Fitting, Mesh, Verdict,
+            Connectivity, Dualization, Fitting, Mesh, Verdict,
             tessellation::{D, Tessellation},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing},
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
     math::{Quantity, Scalar},
 };
@@ -18,8 +18,6 @@ fn worst_scaled_jacobian(mesh: &Mesh<D>) -> Scalar {
         .fold(Scalar::INFINITY, Scalar::min)
 }
 
-/// A trimmed tetrahedral background: one tetrahedral block, smaller than the
-/// input, non-empty, and not inverted.
 fn check_trimmed(background: usize, mesh: &Mesh<D>) {
     assert_eq!(mesh.number_of_element_blocks(), 1);
     assert!(matches!(

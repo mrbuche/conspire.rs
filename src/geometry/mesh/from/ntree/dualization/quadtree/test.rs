@@ -1,12 +1,10 @@
 use super::{D, N};
 use crate::geometry::{
     Coordinate,
-    mesh::Mesh,
+    mesh::{Dualization, Mesh},
     ntree::{
-        Balance, Dualization, Quadtree,
-        balance::Balancing,
+        Balance, Balancing, Pairing, Quadtree,
         node::{Kind, Node},
-        pair::Pairing,
         rescale::Rescaling,
     },
 };
@@ -159,7 +157,7 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Quadtree<u16, usize> {
 fn fuzz_duals(balancing: Balancing) {
     let mut failures = Vec::new();
     for seed in 0..200u64 {
-        let mut quadtree = fuzz_tree(seed, balancing);
+        let quadtree = fuzz_tree(seed, balancing);
         let mesh = quadtree.dualize();
         if let Err(error) = verify_dual(&mesh) {
             failures.push(format!("seed {seed}: {error}"));

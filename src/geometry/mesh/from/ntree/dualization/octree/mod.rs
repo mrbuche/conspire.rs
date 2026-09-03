@@ -6,17 +6,14 @@ mod edge;
 mod face;
 mod vertex;
 
+use self::{edge::edge_transitions, face::face_transition, vertex::vertex_transitions};
 use crate::geometry::{
     Coordinate,
-    mesh::{Connectivity, Mesh},
-    ntree::{
-        Octree,
-        dual::{
-            Dualization, Initialize, NodeMap,
-            octree::{edge::edge_transitions, face::face_transition, vertex::vertex_transitions},
-        },
-        node::cell::Cell,
+    mesh::{
+        Connectivity, Mesh,
+        from::ntree::dualization::{Dualization, Initialize, NodeMap},
     },
+    ntree::{Octree, node::cell::Cell},
 };
 
 const D: usize = 3;
@@ -41,7 +38,7 @@ where
     T: Cell,
     U: Slot,
 {
-    fn dualize(&mut self) -> Mesh<D> {
+    fn dualize(&self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         let mut nodes_map = NodeMap::new();
         face_transition(

@@ -5,12 +5,11 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh},
-        ntree::{
-            Quadtree,
-            dual::{Dualization, Initialize, NodeMap, Star},
-            node::cell::Cell,
+        mesh::{
+            Connectivity, Mesh,
+            from::ntree::dualization::{Dualization, Initialize, NodeMap, Star},
         },
+        ntree::{Quadtree, node::cell::Cell},
     },
     math::{Scalar, TensorVec},
 };
@@ -23,7 +22,7 @@ where
     T: Cell,
     U: Slot,
 {
-    fn dualize(&mut self) -> Mesh<D> {
+    fn dualize(&self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         let mut nodes_map = NodeMap::new();
         edge_transition(

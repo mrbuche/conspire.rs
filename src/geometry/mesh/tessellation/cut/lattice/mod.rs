@@ -79,9 +79,6 @@ impl Lattice {
     pub(super) fn tets(&self) -> (Mesh<D>, Vec<Class>) {
         self.build(Mesh::from_lattice_tets, TETS_PER_CELL)
     }
-    /// Meshes the cells and repeats each one's class over the `per_cell`
-    /// elements it becomes, since the cells are meshed and so classed in
-    /// order.
     fn build(&self, mesher: Mesher, per_cell: usize) -> (Mesh<D>, Vec<Class>) {
         let cells = self.cells();
         let classes = cells
