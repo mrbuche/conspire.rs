@@ -7,8 +7,6 @@ use crate::{
     units::Volume,
 };
 
-/// Nodes `0..3` are the bottom triangle, `3..6` the top triangle, node `3+i`
-/// above node `i`. Every corner meets exactly three edges.
 pub(crate) const CORNERS: [(usize, [usize; 3]); 6] = [
     (0, [1, 2, 3]),
     (1, [2, 0, 4]),

@@ -7,7 +7,6 @@ fn wedge(coordinates: Vec<[f64; 3]>) -> Mesh<3> {
 
 const HALF_SQRT_3: f64 = 0.866_025_403_784_438_6;
 
-/// Equilateral triangular faces, unit height: every edge has unit length.
 const PERFECT: [[f64; 3]; 6] = [
     [0.0, 0.0, 0.0],
     [1.0, 0.0, 0.0],
