@@ -14,13 +14,11 @@ use crate::{
 };
 use std::array::from_fn;
 
-/// Checks the scattered energy gradient of one element against a central
-/// difference of the energy itself.
 fn gradient<const N: usize>(
     corners: &[(usize, [usize; 3]); N],
     mut coordinates: Coordinates<3>,
 ) -> Result<(), AssertionError> {
-    let element = from_fn(|i| i);
+    let element: [usize; N] = from_fn(|i| i);
     for epsilon in [1.0, 1.0e-3] {
         let scattered = scatter(corners, &element, &coordinates, epsilon);
         for node in 0..N {

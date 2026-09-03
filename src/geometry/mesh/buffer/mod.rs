@@ -227,10 +227,10 @@ impl Mesh<3> {
         )?;
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit_tets(&nodes, target)?;
+        mesh.fit(&nodes, target)?;
         if let Fitting::Snap = fitting {
             mesh.project(target, &layer)?;
-            mesh.fit_tets(&(0..count).collect::<Vec<_>>(), target)?;
+            mesh.fit(&(0..count).collect::<Vec<_>>(), target)?;
         }
         Ok(mesh)
     }
