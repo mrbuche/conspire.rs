@@ -2,9 +2,11 @@
 mod test;
 
 pub(crate) mod hexahedron;
+pub(crate) mod pyramid;
 mod quadrilateral;
 pub(crate) mod tetrahedron;
 mod triangle;
+pub(crate) mod wedge;
 
 use crate::{
     geometry::{
@@ -47,10 +49,17 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::maximum_edge_ratio(element, coordinates))
                     .collect(),
-                Connectivity::Polygonal(_)
-                | Connectivity::Polyhedral(_)
-                | Connectivity::Pyramidal(_)
-                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
+                Connectivity::Pyramidal(elements) => elements
+                    .iter()
+                    .map(|element| pyramid::maximum_edge_ratio(element, coordinates))
+                    .collect(),
+                Connectivity::Wedge(elements) => elements
+                    .iter()
+                    .map(|element| wedge::maximum_edge_ratio(element, coordinates))
+                    .collect(),
+                Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => {
+                    vec![Scalar::NAN; block.number_of_elements()]
+                }
             })
             .collect()
     }
@@ -74,10 +83,17 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::minimum_jacobian(element, coordinates))
                     .collect(),
-                Connectivity::Polygonal(_)
-                | Connectivity::Polyhedral(_)
-                | Connectivity::Pyramidal(_)
-                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
+                Connectivity::Pyramidal(elements) => elements
+                    .iter()
+                    .map(|element| pyramid::minimum_jacobian(element, coordinates))
+                    .collect(),
+                Connectivity::Wedge(elements) => elements
+                    .iter()
+                    .map(|element| wedge::minimum_jacobian(element, coordinates))
+                    .collect(),
+                Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => {
+                    vec![Scalar::NAN; block.number_of_elements()]
+                }
             })
             .collect()
     }
@@ -101,10 +117,17 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::minimum_scaled_jacobian(element, coordinates))
                     .collect(),
-                Connectivity::Polygonal(_)
-                | Connectivity::Polyhedral(_)
-                | Connectivity::Pyramidal(_)
-                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
+                Connectivity::Pyramidal(elements) => elements
+                    .iter()
+                    .map(|element| pyramid::minimum_scaled_jacobian(element, coordinates))
+                    .collect(),
+                Connectivity::Wedge(elements) => elements
+                    .iter()
+                    .map(|element| wedge::minimum_scaled_jacobian(element, coordinates))
+                    .collect(),
+                Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => {
+                    vec![Scalar::NAN; block.number_of_elements()]
+                }
             })
             .collect()
     }
@@ -128,10 +151,17 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::maximum_skew(element, coordinates))
                     .collect(),
-                Connectivity::Polygonal(_)
-                | Connectivity::Polyhedral(_)
-                | Connectivity::Pyramidal(_)
-                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
+                Connectivity::Pyramidal(elements) => elements
+                    .iter()
+                    .map(|element| pyramid::maximum_skew(element, coordinates))
+                    .collect(),
+                Connectivity::Wedge(elements) => elements
+                    .iter()
+                    .map(|element| wedge::maximum_skew(element, coordinates))
+                    .collect(),
+                Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => {
+                    vec![Scalar::NAN; block.number_of_elements()]
+                }
             })
             .collect()
     }
@@ -155,10 +185,17 @@ impl<const D: usize> Verdict for Mesh<D> {
                     .iter()
                     .map(|element| hexahedron::volume(element, coordinates).value())
                     .collect(),
-                Connectivity::Polygonal(_)
-                | Connectivity::Polyhedral(_)
-                | Connectivity::Pyramidal(_)
-                | Connectivity::Wedge(_) => vec![Scalar::NAN; block.number_of_elements()],
+                Connectivity::Pyramidal(elements) => elements
+                    .iter()
+                    .map(|element| pyramid::volume(element, coordinates).value())
+                    .collect(),
+                Connectivity::Wedge(elements) => elements
+                    .iter()
+                    .map(|element| wedge::volume(element, coordinates).value())
+                    .collect(),
+                Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => {
+                    vec![Scalar::NAN; block.number_of_elements()]
+                }
             })
             .collect()
     }
@@ -254,7 +291,7 @@ fn maximum_edge_ratio<const D: usize, const E: usize>(
 }
 
 fn min_jacobian<const D: usize, const K: usize, const C: usize>(
-    table: &[[usize; K]; C],
+    table: &[(usize, [usize; K]); C],
     element: &[usize],
     coordinates: &Coordinates<D>,
 ) -> Scalar {
@@ -265,7 +302,7 @@ fn min_jacobian<const D: usize, const K: usize, const C: usize>(
 }
 
 fn min_scaled_jacobian<const D: usize, const K: usize, const C: usize>(
-    table: &[[usize; K]; C],
+    table: &[(usize, [usize; K]); C],
     element: &[usize],
     coordinates: &Coordinates<D>,
     scale: Scalar,
@@ -282,18 +319,40 @@ fn min_scaled_jacobian<const D: usize, const K: usize, const C: usize>(
         .fold(Scalar::INFINITY, Scalar::min)
 }
 
+/// One `(origin, neighbours)` entry per corner. The origin is carried
+/// explicitly so a node may appear as more than one corner — the pyramid apex
+/// meets four edges and is fanned into four three-edge corners.
 fn corners<const D: usize, const K: usize, const C: usize>(
-    table: &[[usize; K]; C],
+    table: &[(usize, [usize; K]); C],
     element: &[usize],
     coordinates: &Coordinates<D>,
 ) -> [(Scalar, Scalar); C] {
     from_fn(|corner| {
-        let origin = &coordinates[element[corner]];
+        let (origin, neighbors) = &table[corner];
+        let origin = &coordinates[element[*origin]];
         let edges: [Coordinate<D>; K] =
-            from_fn(|edge| &coordinates[element[table[corner][edge]]] - origin);
+            from_fn(|edge| &coordinates[element[neighbors[edge]]] - origin);
         let normalizer: Scalar = edges.iter().map(|edge| edge.norm().value()).product();
         (corner_measure(&edges), normalizer)
     })
+}
+
+/// Cosine between the two principal axes of a quadrilateral, as used for the
+/// quadrilateral faces of a pyramid or wedge.
+fn quad_skew<const D: usize>(
+    p0: &Coordinate<D>,
+    p1: &Coordinate<D>,
+    p2: &Coordinate<D>,
+    p3: &Coordinate<D>,
+) -> Scalar {
+    let x1 = (p1 - p0) + (p2 - p3);
+    let x2 = (p3 - p0) + (p2 - p1);
+    let (n1, n2) = (x1.norm(), x2.norm());
+    if n1 > Quantity::default() && n2 > Quantity::default() {
+        ((&x1 * &x2) / (n1 * n2)).abs().value()
+    } else {
+        0.0
+    }
 }
 
 fn corner_measure<const D: usize, const K: usize>(edges: &[Coordinate<D>; K]) -> Scalar {
@@ -315,6 +374,8 @@ pub(crate) enum Kind {
     Quadrilateral,
     Tetrahedron,
     Hexahedron,
+    Pyramid,
+    Wedge,
 }
 
 impl Kind {
@@ -324,6 +385,8 @@ impl Kind {
             Connectivity::Quadrilateral(_) => Some(Self::Quadrilateral),
             Connectivity::Tetrahedral(_) => Some(Self::Tetrahedron),
             Connectivity::Hexahedral(_) => Some(Self::Hexahedron),
+            Connectivity::Pyramidal(_) => Some(Self::Pyramid),
+            Connectivity::Wedge(_) => Some(Self::Wedge),
             _ => None,
         }
     }
@@ -339,6 +402,8 @@ pub(super) fn minimum_jacobian<const D: usize>(
         Kind::Quadrilateral => quadrilateral::minimum_jacobian(element, coordinates),
         Kind::Tetrahedron => tetrahedron::minimum_jacobian(element, coordinates),
         Kind::Hexahedron => hexahedron::minimum_jacobian(element, coordinates),
+        Kind::Pyramid => pyramid::minimum_jacobian(element, coordinates),
+        Kind::Wedge => wedge::minimum_jacobian(element, coordinates),
     }
 }
 
@@ -352,5 +417,7 @@ pub(crate) fn minimum_scaled_jacobian<const D: usize>(
         Kind::Quadrilateral => quadrilateral::minimum_scaled_jacobian(element, coordinates),
         Kind::Tetrahedron => tetrahedron::minimum_scaled_jacobian(element, coordinates),
         Kind::Hexahedron => hexahedron::minimum_scaled_jacobian(element, coordinates),
+        Kind::Pyramid => pyramid::minimum_scaled_jacobian(element, coordinates),
+        Kind::Wedge => wedge::minimum_scaled_jacobian(element, coordinates),
     }
 }

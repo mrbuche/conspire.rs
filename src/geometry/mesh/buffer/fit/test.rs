@@ -17,7 +17,7 @@ use std::array::from_fn;
 /// Checks the scattered energy gradient of one element against a central
 /// difference of the energy itself.
 fn gradient<const N: usize>(
-    corners: &[[usize; 3]; N],
+    corners: &[(usize, [usize; 3]); N],
     mut coordinates: Coordinates<3>,
 ) -> Result<(), AssertionError> {
     let element = from_fn(|i| i);
