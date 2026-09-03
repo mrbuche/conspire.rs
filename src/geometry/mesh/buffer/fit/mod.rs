@@ -28,8 +28,6 @@ type Slope = TensorRank1<3, Reference, ReciprocalLength>;
 type Gradient = TensorRank1Vec<3, Reference, Dimensionless>;
 type Target = (Coordinate<3>, Direction<3>, Quantity<Area>);
 
-/// `(origin, neighbours)` per corner; every corner meets three edges. No
-/// supported cell has more than eight nodes.
 type CornerTable = [(usize, [usize; 3])];
 
 const ARMIJO: Scalar = 1.0e-4;
@@ -54,7 +52,6 @@ struct Oracle<'a> {
     normals: DirectionsRef<'a, 3>,
 }
 
-/// One pass of the fit over a mixed mesh.
 struct Sweep<'a> {
     element_chunk: usize,
     elements: &'a [(&'static CornerTable, Vec<usize>)],
@@ -72,34 +69,6 @@ struct Sweep<'a> {
 
 impl Mesh<3> {
     pub(super) fn fit(
-        &mut self,
-        nodes: &[usize],
-        target: &Tessellation,
-    ) -> Result<(), &'static str> {
-        if self
-            .iter()
-            .any(|block| !matches!(block, Connectivity::Hexahedral(_)))
-        {
-            return Err("fit requires a hexahedral mesh");
-        }
-        self.fit_mixed(nodes, target)
-    }
-    pub(super) fn fit_tets(
-        &mut self,
-        nodes: &[usize],
-        target: &Tessellation,
-    ) -> Result<(), &'static str> {
-        if self
-            .iter()
-            .any(|block| !matches!(block, Connectivity::Tetrahedral(_)))
-        {
-            return Err("fit requires a tetrahedral mesh");
-        }
-        self.fit_mixed(nodes, target)
-    }
-    /// Balances element quality against the distance to the target over the
-    /// given nodes, for any mix of hexahedra, tetrahedra, pyramids and wedges.
-    pub(super) fn fit_mixed(
         &mut self,
         nodes: &[usize],
         target: &Tessellation,
