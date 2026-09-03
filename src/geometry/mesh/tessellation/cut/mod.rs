@@ -186,6 +186,7 @@ impl Tessellation {
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         let mesh = self.octree_mesh(
             balancing,
+            Pairing::Regular,
             scale,
             CurvatureSizing::default(),
             Cells::Polyhedral,
@@ -217,13 +218,20 @@ impl Tessellation {
             tolerance,
             ..Default::default()
         };
-        let mesh = self.octree_mesh(balancing, scale, curvature, Cells::Tetrahedral)?;
+        let mesh = self.octree_mesh(
+            balancing,
+            Pairing::Regular,
+            scale,
+            curvature,
+            Cells::Tetrahedral,
+        )?;
         let classes = self.classify(&mesh);
         Ok((mesh, classes))
     }
     fn octree_mesh(
         &self,
         balancing: Balancing,
+        pairing: Pairing,
         scale: Scalar,
         curvature: CurvatureSizing,
         cells: Cells,
@@ -231,14 +239,14 @@ impl Tessellation {
         let sizing = Sizing::new(self, scale, curvature, PADDING);
         if sizing.fits::<u16>() {
             let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
-            octree.equilibrate(balancing, Pairing::Regular)?;
+            octree.equilibrate(balancing, pairing)?;
             Ok(match cells {
                 Cells::Polyhedral => Mesh::from(octree),
                 Cells::Tetrahedral => Mesh::tetrahedra_from(octree),
             })
         } else {
             let mut octree = Octree::<u32, NonZeroU32>::refine(&sizing)?;
-            octree.equilibrate(balancing, Pairing::Regular)?;
+            octree.equilibrate(balancing, pairing)?;
             Ok(match cells {
                 Cells::Polyhedral => Mesh::from(octree),
                 Cells::Tetrahedral => Mesh::tetrahedra_from(octree),
