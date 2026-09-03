@@ -51,8 +51,8 @@ fit quality is a separate concern). A *change* in that number is the signal.
 | `cad/brep/{classify,inside,orient,planar,tessellate,primitive,features}` | — | trimming/topology |
 | `cad/sizing` | — | feature-size field |
 | `cad/{assemble,mesh}` | — | orchestration |
-| `csg/*` | `5422e853` (Sonnet high + Opus deep) | 10 findings; 5, 6 fixed (`59a2df88`, `a7075224`); 1, 8, 10 open |
-| `solid` | `5422e853` (Sonnet high + Opus deep) | findings 2-4, 9 open; 7 fixed (`e4d9debb`) |
+| `csg/*` | `5422e853` (Sonnet high + Opus deep) | 10 findings; 1, 5, 6 fixed; 8, 10 open (notes) |
+| `solid` | `5422e853` (Sonnet high + Opus deep) | 3, 7 fixed; 2 (not cheap), 4, 9 open |
 | `geometry/mesh/buffer` edits | — | regression surface on existing code |
 
 ## Risk register (re-check every pass)
@@ -63,7 +63,9 @@ fit quality is a separate concern). A *change* in that number is the signal.
 - `EllipsoidOracle` on a symmetry plane inside the focal set returns a
   stationary point, not the global nearest — csg/solid finding 5 residual.
 - CSG classify path lacks the flood-fill thin-wall/void guards — csg/solid
-  findings 4, 9 (finding 7 fixed).
+  findings 4, 9 (7 fixed).
+- `Solid::mesh` double-evaluates corner SDFs — csg/solid finding 2 (needs a
+  classify→mesh contract change).
 - Cone/chamfer distance — see FINDING cone-distance below.
 - `BrepOracle` fillet/chamfer faces still error (`primitive()` deferred).
 - Mismatched-arc / two-edge planar trimming loops (recent commits).
@@ -107,6 +109,8 @@ All verified against the code. None block; fix opportunistically.
    `tube_frame` (or `axis`) as the fallback — both are genuine tube-frame
    directions and land on the surface. Severity low (measure-zero input,
    `1e-30` guard) but a real `project` correctness bug.
+   **FIXED `702daceb`** — `tube_frame` returns the ring point's `radial_unit`;
+   `project` uses it as the on-centre-circle fallback.
 
 2. **`Solid::mesh` evaluates corner SDFs twice** (`solid/mod.rs:434`).
    `dual_background` → `classify` already does one `signed_distance` per node
@@ -114,14 +118,17 @@ All verified against the code. None block; fix opportunistically.
    recomputes corner SDFs via `signed_distances` at :452. The centroid work and
    one full corner pass are wasted. `mesh` only needs an "entirely outside"
    predicate. Costs most on the ray-casting B-rep oracle this driver is built
-   to share.
+   to share. **Not cheap** — the real fix threads the node SDFs `classify`
+   computed out through `dual_background`, a `pub(crate)` signature + trait
+   change; deferred to a dedicated pass.
 
 3. **`classify_by_signed_distance` is single-threaded** (`solid/mod.rs:105`).
    The default `Solid::classify` for every CSG primitive evaluates the oracle in
    a plain `.iter().map()` for nodes and again per centroid, while the sibling
    `classify_by_flood_fill` uses the threaded `signed_distances` helper (whose
    own doc calls SDF eval "the expensive part"). Route both passes through
-   `signed_distances`.
+   `signed_distances`. **FIXED `ff56840e`** — node pass + masked centroid pass,
+   both via `signed_distances`.
 
 4. **CSG combinators silently use the naive classifier** (`solid/mod.rs:347`).
    `classify_by_flood_fill` (thin-wall centroid probe, detached-`Cut`-island
