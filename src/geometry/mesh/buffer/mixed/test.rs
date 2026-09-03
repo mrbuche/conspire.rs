@@ -33,8 +33,6 @@ fn assert_manifold_boundary(mesh: &Mesh<3>) {
     );
 }
 
-/// A closed triangular prism: a ridge crease at `z = 1` running the length of
-/// `x`, two roof slants down to `z = 0`, a floor, and two end caps.
 fn ridge_prism() -> Tessellation {
     let coordinates = Coordinates::from(vec![
         [0.0, -1.5, 0.0],
@@ -60,8 +58,6 @@ fn ridge_prism() -> Tessellation {
     )))
 }
 
-/// A flat hexahedral slab under the prism ridge: its top face sits within a
-/// face size of the crease, every other face well clear of one.
 fn ridge_core() -> Mesh<3> {
     let coordinates = Coordinates::from(vec![
         [1.75, -0.25, 0.42],
@@ -175,19 +171,10 @@ fn buffer_mixed_snaps_its_layer_onto_the_surface() {
     assert!(worst_scaled_jacobian(&mesh) > 0.2);
 }
 
-/// Distance from a point to the prism ridge line `{(x, 0, 1)}`.
 fn ridge_distance(point: &Coordinate<3>) -> Scalar {
     (point[1].value().powi(2) + (point[2].value() - 1.0).powi(2)).sqrt()
 }
 
-/// The reason the pyramid fan exists: its apex is free to sit on the ridge, so
-/// the crease is meshed at scaled Jacobian ~0.4, where the single hexahedron
-/// `buffer` raises there -- four outer nodes forced to stay a planar
-/// quadrilateral astride the crease -- manages only ~0.2.
-///
-/// The comparison is against that one straddling cell, not the whole mesh: the
-/// worst element of either result is an unrelated shell hexahedron over the
-/// core's floor-facing quadrilateral, which the two results share.
 #[test]
 fn buffer_mixed_beats_the_hexahedral_shell_across_the_crease() {
     let hexahedral = ridge_core().buffer(&ridge_prism(), Fitting::Soft).unwrap();
