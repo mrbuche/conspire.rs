@@ -31,24 +31,47 @@ pub enum Placement {
     Crossing(Scalar),
 }
 
-/// How the boundary is placed and then drawn onto the surface.
+/// What to do with the boundary once the lattice has been cut and split.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Finish {
+    /// Leave the boundary where the cut placed it.
+    Cut,
+    /// Draw each boundary node onto the surface by bisection, keeping the
+    /// given share of the scaled Jacobian its incident hexahedra were cut
+    /// with. Moves the boundary alone, no volume degrees of freedom.
+    Draw(Scalar),
+    /// Deform the mesh onto the surface by energy fitting, after Protais:
+    /// vertices move through the volume, connectivity does not, and no
+    /// elements are added.
+    Fit(Freedom),
+}
+
+/// Which nodes an energy [`Fit`](Finish::Fit) is free to move.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Freedom {
+    /// Every node of the mesh.
+    Whole,
+    /// The boundary nodes and their immediate neighbours only.
+    Shell,
+}
+
+/// How the boundary is placed and then settled onto the surface.
 ///
-/// The default holds the crossings a fifth of an edge off either end and lets
-/// the boundary settle for seven tenths of the quality it was cut with, which
-/// on a bone leaves the mesh within a hundredth of a cell of the surface.
+/// The default holds the crossings a fifth of an edge off either end and
+/// draws the boundary on for seven tenths of the quality it was cut with,
+/// which on a bone leaves the mesh within a hundredth of a cell of the
+/// surface.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Marching {
     pub placement: Placement,
-    /// The share of its scaled Jacobian every hexahedron must keep while the
-    /// boundary is drawn onto the surface, or `None` to leave it as cut.
-    pub keep: Option<Scalar>,
+    pub finish: Finish,
 }
 
 impl Default for Marching {
     fn default() -> Self {
         Self {
             placement: Placement::Crossing(0.2),
-            keep: Some(0.7),
+            finish: Finish::Draw(0.7),
         }
     }
 }
@@ -135,13 +158,13 @@ impl Tessellation {
         spacing: Quantity<Length>,
         marching: Marching,
     ) -> Result<Mesh<D>, &'static str> {
-        let Marching { placement, keep } = marching;
+        let Marching { placement, finish } = marching;
         if let Placement::Crossing(guard) = placement
             && !(0.0..0.5).contains(&guard)
         {
             return Err("crossing guard must be within [0, 0.5)");
         }
-        if let Some(keep) = keep
+        if let Finish::Draw(keep) = finish
             && !(0.0..=1.0).contains(&keep)
         {
             return Err("the share of quality kept must be within [0, 1]");
@@ -165,8 +188,36 @@ impl Tessellation {
             return Err("no cell of the lattice has a corner inside the surface");
         }
         let points = self.placements(&cells, &signs, placement)?;
-        split::hexahedra(cells, &points, keep.map(|keep| (self, keep)))
+        let draw = match finish {
+            Finish::Draw(keep) => Some((self, keep)),
+            _ => None,
+        };
+        let mut mesh = split::hexahedra(cells, &points, draw)?;
+        if let Finish::Fit(freedom) = finish {
+            let nodes = match freedom {
+                Freedom::Whole => (0..mesh.number_of_nodes()).collect::<Vec<_>>(),
+                Freedom::Shell => shell(&mesh),
+            };
+            mesh.fit(&nodes, self)?;
+        }
+        Ok(mesh)
     }
+}
+
+/// The boundary nodes of `mesh` together with their immediate neighbours.
+fn shell(mesh: &Mesh<D>) -> Vec<usize> {
+    let mut nodes: Vec<usize> = mesh.exterior_faces().into_iter().flatten().collect();
+    nodes.sort_unstable();
+    nodes.dedup();
+    let neighbors = mesh.node_node_connectivity();
+    let ring: Vec<usize> = nodes
+        .iter()
+        .flat_map(|&node| neighbors[node].iter().copied())
+        .collect();
+    nodes.extend(ring);
+    nodes.sort_unstable();
+    nodes.dedup();
+    nodes
 }
 
 const SHIFTS: [[Scalar; D]; 5] = [

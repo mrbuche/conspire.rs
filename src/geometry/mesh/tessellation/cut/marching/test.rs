@@ -1,4 +1,4 @@
-use super::{Marching, Placement};
+use super::{Finish, Freedom, Marching, Placement};
 use crate::{
     geometry::mesh::{
         Connectivity, Verdict,
@@ -56,7 +56,7 @@ fn placements_compared() {
                 Quantity::new(spacing),
                 Marching {
                     placement,
-                    keep: None,
+                    finish: Finish::Cut,
                 },
             ) {
                 Ok(mesh) => {
@@ -75,7 +75,7 @@ fn a_sphere_is_all_hexahedra_and_none_inverted() {
             Quantity::new(0.2),
             Marching {
                 placement: Placement::Midpoint,
-                keep: None,
+                finish: Finish::Cut,
             },
         )
         .unwrap();
@@ -96,7 +96,7 @@ fn a_creased_surface_is_all_hexahedra_and_none_inverted() {
             Quantity::new(0.25),
             Marching {
                 placement: Placement::Midpoint,
-                keep: None,
+                finish: Finish::Cut,
             },
         )
         .unwrap();
@@ -134,7 +134,7 @@ fn bone_marching() {
                     spacing,
                     Marching {
                         placement,
-                        keep: draw.then_some(0.5),
+                        finish: if draw { Finish::Draw(0.5) } else { Finish::Cut },
                     },
                 ) {
                     Err(error) => {
@@ -187,7 +187,7 @@ fn guard_swept() {
                     spacing,
                     Marching {
                         placement: Placement::Crossing(guard),
-                        keep: draw.then_some(0.5),
+                        finish: if draw { Finish::Draw(0.5) } else { Finish::Cut },
                     },
                 )
                 .unwrap();
@@ -232,7 +232,7 @@ fn guard_against_keep() {
                     spacing,
                     Marching {
                         placement: Placement::Crossing(guard),
-                        keep: Some(keep),
+                        finish: Finish::Draw(keep),
                     },
                 )
                 .unwrap();
@@ -265,6 +265,89 @@ fn the_default_holds_quality_and_draws_the_boundary_close() {
     };
     let (_, mean) = tessellation.conformance(&hexes, mesh.coordinates(), spacing);
     assert!(mean < 0.02, "{mean}");
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn inflation_compared() {
+    use crate::geometry::mesh::{Fitting, Mesh};
+    use std::time::Instant;
+    let hexes_of = |mesh: &Mesh<3>| match &mesh.connectivities()[0] {
+        Connectivity::Hexahedral(hexes) => hexes.iter().copied().collect::<Vec<[usize; 8]>>(),
+        _ => panic!("expected a hexahedral block"),
+    };
+    println!(
+        "{:>22}  {:>8}  {:>7}  {:>8}  {:>8}  {:>5}  {:>8}  {:>8}",
+        "case", "hexes", "s", "min SJ", "mean SJ", "bad", "max gap", "avg gap"
+    );
+    for (name, tessellation, spacing) in [
+        ("sphere", sphere(3), 0.12),
+        ("star", star(1, 2.0), 0.2),
+        ("star fine", star(2, 1.6), 0.09),
+        (
+            "slab",
+            box_surface([-2.0, -2.0, -0.35], [2.0, 2.0, 0.35]),
+            0.2,
+        ),
+    ] {
+        let spacing = Quantity::new(spacing);
+        let run = |label: &str, mesh: Result<Mesh<3>, &'static str>, seconds: f64| {
+            match mesh {
+                Err(error) => println!("{name:>12}/{label:<9}  {error}"),
+                Ok(mesh) => {
+                    let scaled: Vec<f64> = mesh.minimum_scaled_jacobians().into_iter().flatten().collect();
+                    let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
+                    let mean = scaled.iter().sum::<f64>() / scaled.len() as f64;
+                    let bad = scaled.iter().filter(|&&value| value <= 0.0).count();
+                    let (worst, average) =
+                        tessellation.conformance(&hexes_of(&mesh), mesh.coordinates(), spacing);
+                    println!(
+                        "{:>22}  {:>8}  {seconds:>7.2}  {minimum:>8.4}  {mean:>8.4}  {bad:>5}  {worst:>8.4}  {average:>8.4}",
+                        format!("{name}/{label}"),
+                        scaled.len()
+                    );
+                }
+            }
+        };
+        for (label, finish) in [
+            ("draw", Finish::Draw(0.7)),
+            ("fit whole", Finish::Fit(Freedom::Whole)),
+            ("fit shell", Finish::Fit(Freedom::Shell)),
+        ] {
+            let start = Instant::now();
+            let mesh = tessellation.marching_hex(
+                spacing,
+                Marching {
+                    placement: Placement::Crossing(0.2),
+                    finish,
+                },
+            );
+            run(label, mesh, start.elapsed().as_secs_f64());
+        }
+        let start = Instant::now();
+        let baseline = (|| -> Result<Mesh<3>, &'static str> {
+            let mut background = tessellation.lattice_background(spacing)?.0;
+            tessellation.trim(&mut background)?;
+            background.buffer(&tessellation, Fitting::Soft)
+        })();
+        run("buffer", baseline, start.elapsed().as_secs_f64());
+    }
+}
+
+#[test]
+fn inflation_meshes_a_sphere_without_inverting() {
+    let mesh = sphere(2)
+        .marching_hex(
+            Quantity::new(0.35),
+            Marching {
+                placement: Placement::Crossing(0.2),
+                finish: Finish::Fit(Freedom::Shell),
+            },
+        )
+        .unwrap();
+    let (count, minimum, negative) = report("sphere", &mesh);
+    assert!(count > 0);
+    assert_eq!(negative, 0, "min SJ {minimum}");
 }
 
 #[test]
