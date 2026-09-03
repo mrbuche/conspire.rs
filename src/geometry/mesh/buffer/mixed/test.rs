@@ -205,9 +205,6 @@ fn buffer_mixed_beats_the_hexahedral_shell_across_the_crease() {
     );
 }
 
-/// End to end on a real background: a lattice trimmed to the prism gives a
-/// many-hexahedron core whose ridge-facing boundary spans several faces, so
-/// adjacent faces both fan and their shared side quadrilaterals are exercised.
 #[test]
 fn buffer_mixed_on_a_trimmed_multi_hexahedron_core() {
     let target = ridge_prism();
