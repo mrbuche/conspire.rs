@@ -7,7 +7,7 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity, Mesh, Tessellation,
-            quality::metrics::{chi, hexahedron, regularized, tetrahedron},
+            quality::metrics::{chi, hexahedron, pyramid, regularized, tetrahedron, wedge},
         },
     },
     math::{
@@ -27,6 +27,10 @@ type EdgeList = TensorRank1List<3, Reference, 3>;
 type Slope = TensorRank1<3, Reference, ReciprocalLength>;
 type Gradient = TensorRank1Vec<3, Reference, Dimensionless>;
 type Target = (Coordinate<3>, Direction<3>, Quantity<Area>);
+
+/// `(origin, neighbours)` per corner; every corner meets three edges. No
+/// supported cell has more than eight nodes.
+type CornerTable = [(usize, [usize; 3])];
 
 const ARMIJO: Scalar = 1.0e-4;
 const BACKTRACKS: usize = 32;
@@ -50,11 +54,10 @@ struct Oracle<'a> {
     normals: DirectionsRef<'a, 3>,
 }
 
-/// One pass of the fit over a mesh of `N`-node elements.
-struct Sweep<'a, const N: usize> {
-    corners: &'static [(usize, [usize; 3]); N],
+/// One pass of the fit over a mixed mesh.
+struct Sweep<'a> {
     element_chunk: usize,
-    elements: &'a [[usize; N]],
+    elements: &'a [(&'static CornerTable, Vec<usize>)],
     epsilon: Scalar,
     lengths: Vec<Quantity<Length>>,
     node_chunk: usize,
@@ -73,39 +76,45 @@ impl Mesh<3> {
         nodes: &[usize],
         target: &Tessellation,
     ) -> Result<(), &'static str> {
-        let mut hexes = Vec::new();
-        for block in self.iter() {
-            match block {
-                Connectivity::Hexahedral(block) => hexes.extend(block.iter().copied()),
-                _ => return Err("fit requires a hexahedral mesh"),
-            }
+        if self
+            .iter()
+            .any(|block| !matches!(block, Connectivity::Hexahedral(_)))
+        {
+            return Err("fit requires a hexahedral mesh");
         }
-        self.fit_elements::<8, 4>(nodes, target, &hexahedron::CORNERS, &hexes)
+        self.fit_mixed(nodes, target)
     }
     pub(super) fn fit_tets(
         &mut self,
         nodes: &[usize],
         target: &Tessellation,
     ) -> Result<(), &'static str> {
-        let mut tets = Vec::new();
-        for block in self.iter() {
-            match block {
-                Connectivity::Tetrahedral(block) => tets.extend(block.iter().copied()),
-                _ => return Err("fit requires a tetrahedral mesh"),
-            }
+        if self
+            .iter()
+            .any(|block| !matches!(block, Connectivity::Tetrahedral(_)))
+        {
+            return Err("fit requires a tetrahedral mesh");
         }
-        self.fit_elements::<4, 3>(nodes, target, &tetrahedron::CORNERS, &tets)
+        self.fit_mixed(nodes, target)
     }
     /// Balances element quality against the distance to the target over the
-    /// given nodes, for elements of any arity whose corners each meet three
-    /// edges.
-    fn fit_elements<const N: usize, const F: usize>(
+    /// given nodes, for any mix of hexahedra, tetrahedra, pyramids and wedges.
+    pub(super) fn fit_mixed(
         &mut self,
         nodes: &[usize],
         target: &Tessellation,
-        corners: &'static [(usize, [usize; 3]); N],
-        elements: &[[usize; N]],
     ) -> Result<(), &'static str> {
+        let mut elements: Vec<(&'static CornerTable, Vec<usize>)> = Vec::new();
+        for block in self.iter() {
+            let corners: &'static CornerTable = match block {
+                Connectivity::Hexahedral(_) => &hexahedron::CORNERS,
+                Connectivity::Tetrahedral(_) => &tetrahedron::CORNERS,
+                Connectivity::Pyramidal(_) => &pyramid::CORNERS,
+                Connectivity::Wedge(_) => &wedge::CORNERS,
+                _ => return Err("fit requires hexahedra, tetrahedra, pyramids or wedges"),
+            };
+            elements.extend(block.iter().map(|element| (corners, element.to_vec())));
+        }
         let oracle = Oracle::new(target);
         let number_of_nodes = self.number_of_nodes();
         let mut free = vec![false; number_of_nodes];
@@ -119,11 +128,10 @@ impl Mesh<3> {
                 .filter(|&element| !replace(&mut seen[element], true))
                 .collect()
         };
-        let faces: Vec<[usize; F]> = self
+        let faces: Vec<Vec<usize>> = self
             .exterior_faces()
-            .iter()
+            .into_iter()
             .filter(|face| face.iter().any(|&node| free[node]))
-            .map(|face| from_fn(|i| face[i]))
             .collect();
         let mut node_faces = vec![Vec::new(); number_of_nodes];
         faces.iter().enumerate().for_each(|(index, face)| {
@@ -149,11 +157,10 @@ impl Mesh<3> {
         let mut previous = Quantity::<Length>::new(Scalar::INFINITY);
         let mut window = VecDeque::<Quantity<Length>>::with_capacity(WINDOW);
         for sweep in 0..SWEEPS {
-            let (lengths, scales) = sizes(&neighbors, elements, coordinates);
+            let (lengths, scales) = sizes(&neighbors, &elements, coordinates);
             let mut state = Sweep {
-                corners,
                 element_chunk,
-                elements,
+                elements: &elements,
                 epsilon,
                 lengths,
                 node_chunk,
@@ -198,9 +205,9 @@ impl<'a> Oracle<'a> {
             normals: target.normals().iter().flatten().collect(),
         }
     }
-    fn targets<const F: usize>(
+    fn targets(
         &self,
-        faces: &[[usize; F]],
+        faces: &[Vec<usize>],
         coordinates: &Coordinates<3>,
         chunk: usize,
     ) -> Result<Vec<Target>, &'static str> {
@@ -216,7 +223,7 @@ impl<'a> Oracle<'a> {
                                 .iter()
                                 .map(|&node| &coordinates[node])
                                 .sum::<Coordinate<3>>()
-                                / F as Scalar;
+                                / face.len() as Scalar;
                             *target = self
                                 .bvh
                                 .closest_point(&centroid, self.coordinates, &self.elements)
@@ -242,21 +249,17 @@ impl<'a> Oracle<'a> {
     }
 }
 
-impl<const N: usize> Sweep<'_, N> {
+impl Sweep<'_> {
     fn measure(&self, coordinates: &Coordinates<3>) -> (Quantity<Length>, Scalar) {
         self.tracked
             .iter()
             .map(|&element| {
                 let scale = self.scales[element].value();
+                let (corners, nodes) = &self.elements[element];
                 (
                     self.scales[element]
-                        * energy(
-                            self.corners,
-                            &self.elements[element],
-                            coordinates,
-                            scale.powi(3) * self.epsilon,
-                        ),
-                    determinant(self.corners, &self.elements[element], coordinates) / scale.powi(3),
+                        * energy(corners, nodes, coordinates, scale.powi(3) * self.epsilon),
+                    determinant(corners, nodes, coordinates) / scale.powi(3),
                 )
             })
             .fold(
@@ -273,10 +276,11 @@ impl<const N: usize> Sweep<'_, N> {
                         chunk
                             .iter()
                             .map(|&element| {
+                                let (corners, nodes) = &self.elements[element];
                                 self.scales[element]
                                     * energy(
-                                        self.corners,
-                                        &self.elements[element],
+                                        corners,
+                                        nodes,
                                         coordinates,
                                         self.scales[element].value().powi(3) * self.epsilon,
                                     )
@@ -324,19 +328,18 @@ impl<const N: usize> Sweep<'_, N> {
                     scope.spawn(move || {
                         let mut partial = self.empty();
                         chunk.iter().for_each(|&element| {
+                            let (corners, nodes) = &self.elements[element];
                             let local = scatter(
-                                self.corners,
-                                &self.elements[element],
+                                corners,
+                                nodes,
                                 coordinates,
                                 self.scales[element].value().powi(3) * self.epsilon,
                             );
-                            self.elements[element].iter().zip(local).for_each(
-                                |(&node, contribution)| {
-                                    if let Some(index) = self.slot[node] {
-                                        partial[index] += contribution * self.scales[element]
-                                    }
-                                },
-                            )
+                            nodes.iter().zip(local).for_each(|(&node, contribution)| {
+                                if let Some(index) = self.slot[node] {
+                                    partial[index] += contribution * self.scales[element]
+                                }
+                            })
                         });
                         partial
                     })
@@ -459,9 +462,9 @@ impl<const N: usize> Sweep<'_, N> {
     }
 }
 
-fn sizes<const N: usize>(
+fn sizes(
     neighbors: &[Vec<usize>],
-    elements: &[[usize; N]],
+    elements: &[(&'static CornerTable, Vec<usize>)],
     coordinates: &Coordinates<3>,
 ) -> (Vec<Quantity<Length>>, Vec<Quantity<Length>>) {
     let lengths: Vec<Quantity<Length>> = (0..coordinates.len())
@@ -475,12 +478,12 @@ fn sizes<const N: usize>(
         .collect();
     let scales = elements
         .iter()
-        .map(|element| {
+        .map(|(_, element)| {
             element
                 .iter()
                 .map(|&node| lengths[node])
                 .sum::<Quantity<Length>>()
-                / N as Scalar
+                / element.len() as Scalar
         })
         .collect();
     (lengths, scales)
@@ -531,10 +534,10 @@ fn direction(
     q
 }
 
-fn edges<const N: usize>(
+fn edges(
     corner: usize,
     adjacent: &[usize; 3],
-    element: &[usize; N],
+    element: &[usize],
     coordinates: &Coordinates<3>,
 ) -> EdgeList {
     let origin = &coordinates[element[corner]];
@@ -547,9 +550,9 @@ fn weight(distance: Quantity<Area>, length: Quantity<Length>) -> Quantity<Dimens
     1.0 / (distance / (length * length)).max(WEIGHT_FLOOR)
 }
 
-fn energy<const N: usize>(
-    corners: &[(usize, [usize; 3]); N],
-    element: &[usize; N],
+fn energy(
+    corners: &CornerTable,
+    element: &[usize],
     coordinates: &Coordinates<3>,
     epsilon: Scalar,
 ) -> Scalar {
@@ -561,13 +564,13 @@ fn energy<const N: usize>(
         .sum()
 }
 
-fn scatter<const N: usize>(
-    corners: &[(usize, [usize; 3]); N],
-    element: &[usize; N],
+fn scatter(
+    corners: &CornerTable,
+    element: &[usize],
     coordinates: &Coordinates<3>,
     epsilon: Scalar,
-) -> [Slope; N] {
-    let mut local = from_fn(|_| TensorRank1::<3, Reference>::const_from([0.0; 3]));
+) -> [Slope; 8] {
+    let mut local: [TensorRank1<3, Reference>; 8] = from_fn(|_| TensorRank1::const_from([0.0; 3]));
     corners.iter().for_each(|(corner, adjacent)| {
         let edges = edges(*corner, adjacent, element, coordinates);
         let trace = edges.norm_squared().value();
@@ -591,11 +594,7 @@ fn scatter<const N: usize>(
     local.map(|entry| entry.with_unit())
 }
 
-fn determinant<const N: usize>(
-    corners: &[(usize, [usize; 3]); N],
-    element: &[usize; N],
-    coordinates: &Coordinates<3>,
-) -> Scalar {
+fn determinant(corners: &CornerTable, element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
     corners
         .iter()
         .map(|(corner, adjacent)| {
