@@ -116,6 +116,39 @@ fn rejects_truncated_file() {
     assert!(parse("ISO-10303-21;\nHEADER;\n").is_err());
 }
 
+#[test]
+fn rejects_pathologically_nested_parameters() {
+    // Without a depth cap this recursion overflows the stack (an uncatchable
+    // abort); it must come back as an ordinary Err.
+    let deep = format!("#1 = A({}{});", "(".repeat(5000), ")".repeat(5000));
+    let error = parse(&wrap(&deep)).unwrap_err().to_string();
+    assert!(error.contains("depth limit"), "{error}");
+}
+
+#[test]
+fn rejects_a_non_finite_real() {
+    let error = parse(&wrap("#1 = P(1.0E400);")).unwrap_err().to_string();
+    assert!(error.contains("out-of-range real"), "{error}");
+}
+
+#[test]
+fn tolerates_a_leading_bom() {
+    let text = format!("\u{feff}{}", wrap("#1 = A();"));
+    assert!(parse(&text).is_ok());
+}
+
+#[test]
+fn rejects_trailing_content() {
+    let mut text = wrap("#1 = A();");
+    text.push_str("STRAY DATA");
+    assert!(
+        parse(&text)
+            .unwrap_err()
+            .to_string()
+            .contains("trailing content")
+    );
+}
+
 fn wrap(data: &str) -> String {
     format!("ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n{data}\nENDSEC;\nEND-ISO-10303-21;\n")
 }

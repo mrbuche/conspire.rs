@@ -44,7 +44,7 @@ fit quality is a separate concern). A *change* in that number is the signal.
 
 | Module | Reviewed through | Notes |
 |---|---|---|
-| `cad/part_21` | — | ISO-10303-21 tokenizer/parser; fuzz it |
+| `cad/part_21` | `756f042d` (Sonnet high; Opus pass 529'd, retry) | 6 findings, no panics/loops found; see below |
 | `cad/read/step/brep` | — | STEP entity graph → `Brep` |
 | `cad/brep/{curve,surface}` | — | primitive curve/surface eval |
 | `cad/brep/oracle/{mod,patch,sampled}` | — | **highest risk**; harness covers primitives + closed quadrics |
@@ -222,3 +222,43 @@ adjacency, and the `needed`/`keep_hexes` index alignment all checked out clean.
     feature-preservation failure mode recorded for the tessellation path.
     Snapping the normal to the dominant clamped axis keeps `p` identical while
     restoring a face normal.
+
+### part_21 pass 1 (Sonnet `/code-review high`, `756f042d`) — 6 open
+
+No panics or infinite loops found: every `from_utf8().unwrap()` is on an
+ASCII-only span, every loop makes progress or returns `Err`, `position` never
+runs past `bytes.len()`. The findings are robustness / spec-coverage gaps.
+(Opus pass 529'd mid-run — retry for a second opinion.)
+
+P1. **Unbounded recursion in `parameter()`/`parameters()`** (`part_21/mod.rs:274`).
+    `parameter → List → parameters → parameter` and `Typed → Box::new(parameter)`
+    carry no depth limit. A crafted/corrupt `.stp` with `((((…))))` nested tens
+    of thousands deep overflows the thread stack → uncatchable `SIGABRT`, a bad
+    file crashes the whole meshing run. Fix: thread a depth counter, `Err` past
+    a bound (~256).
+
+P2. **Exactly one HEADER + one DATA section** (`part_21/mod.rs:72`). Valid Part 21
+    files with multiple `DATA;` blocks, or edition-3 `ANCHOR`/`REFERENCE`/
+    `SIGNATURE` sections, are rejected at the `literal("END-ISO-10303-21")` after
+    the first `ENDSEC`. (No corpus file hits this — NIST e3 files parse — so
+    lower priority.)
+
+P3. **`string()` doesn't decode STEP control directives** (`part_21/mod.rs:302`).
+    Only `''` un-doubling; `\X\`, `\X2\…\X0\`, `\X4\…\X0\`, `\S\`, `\P…` pass
+    through literally, so any non-ASCII string value is returned corrupted (e.g.
+    `'caf\X2\00E9\X0\'` → `caf\X2\00E9\X0\`). Latent — today's reader only reads
+    ASCII fields — but the module is billed as the shared Part 21 parser.
+
+P4. **`number()` maps out-of-range reals to ±inf, rejects >i64 integers**
+    (`part_21/mod.rs:366`). `1.0E400` → `Ok(f64::INFINITY)` with no error → an
+    infinite coordinate flows into geometry. A STEP INTEGER beyond i64 (spec
+    says unbounded) aborts the whole file parse. Fix: reject non-finite reals.
+
+P5. **`trivia()` doesn't skip a UTF-8 BOM** (`part_21/mod.rs:62`). A file saved
+    with a leading `EF BB BF` fails on the first token (`expected ISO-10303-21
+    at byte 0`). Fix: strip a leading BOM in `parse()`.
+
+P6. **No EOF check after `END-ISO-10303-21;`** (`part_21/mod.rs:85`). Trailing
+    garbage or a second concatenated document is silently ignored and the file
+    reported valid. Fix: after the trailing terminator, error if `trivia()`
+    leaves anything.

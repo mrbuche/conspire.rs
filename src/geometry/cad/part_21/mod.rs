@@ -55,9 +55,12 @@ impl FromStr for Exchange {
 }
 
 pub fn parse(text: &str) -> Result<Exchange> {
+    // Tolerate a leading UTF-8 BOM some exporters prepend.
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
     let mut scanner = Scanner {
         bytes: text.as_bytes(),
         position: 0,
+        depth: 0,
     };
     scanner.literal("ISO-10303-21")?;
     scanner.terminator()?;
@@ -84,6 +87,10 @@ pub fn parse(text: &str) -> Result<Exchange> {
     scanner.terminator()?;
     scanner.literal("END-ISO-10303-21")?;
     scanner.terminator()?;
+    scanner.trivia();
+    if scanner.peek().is_some() {
+        return Err(scanner.error("trailing content after `END-ISO-10303-21;`"));
+    }
     for (id, instance) in &data {
         instance
             .records
@@ -109,9 +116,14 @@ fn is_keyword(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'!')
 }
 
+/// Cap on nested list / typed-parameter depth. A corrupt or crafted file with
+/// pathological nesting errors here instead of overflowing the stack.
+const MAX_DEPTH: usize = 256;
+
 struct Scanner<'a> {
     bytes: &'a [u8],
     position: usize,
+    depth: usize,
 }
 
 impl Scanner<'_> {
@@ -272,6 +284,17 @@ impl Scanner<'_> {
     }
 
     fn parameter(&mut self) -> Result<Parameter> {
+        self.depth += 1;
+        let result = if self.depth > MAX_DEPTH {
+            Err(self.error("parameter nesting exceeds the depth limit"))
+        } else {
+            self.parameter_value()
+        };
+        self.depth -= 1;
+        result
+    }
+
+    fn parameter_value(&mut self) -> Result<Parameter> {
         self.trivia();
         match self.peek() {
             None => Err(self.error("expected a parameter")),
@@ -365,9 +388,12 @@ impl Scanner<'_> {
         }
         let text = from_utf8(&self.bytes[start..self.position]).unwrap();
         if real {
-            text.parse()
-                .map(Parameter::Real)
-                .map_err(|_| self.error(format!("malformed real `{text}`")))
+            match text.parse::<f64>() {
+                Ok(value) if value.is_finite() => Ok(Parameter::Real(value)),
+                // `str::parse` maps an overflowing literal to ±inf, not an
+                // error; reject it rather than feed an infinite coordinate on.
+                _ => Err(self.error(format!("malformed or out-of-range real `{text}`"))),
+            }
         } else {
             text.parse()
                 .map(Parameter::Integer)
