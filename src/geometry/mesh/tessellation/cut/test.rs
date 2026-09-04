@@ -775,3 +775,68 @@ fn dual_inflation_holds_a_creased_star() {
         worst_scaled_jacobian(&mesh)
     );
 }
+
+/// Boundary nodes at which an exterior quad opens past `alpha` radians — the
+/// §4.1.2 signature of one hex placing two edges along the same feature
+/// (automesh#750 item 7).
+fn open_angle_nodes(mesh: &Mesh<3>, alpha: f64) -> std::collections::BTreeSet<usize> {
+    let coordinates = mesh.coordinates();
+    let mut flagged = std::collections::BTreeSet::new();
+    for face in mesh.exterior_faces() {
+        let count = face.len();
+        for corner in 0..count {
+            let here = &coordinates[face[corner]];
+            let before = &coordinates[face[(corner + count - 1) % count]];
+            let after = &coordinates[face[(corner + 1) % count]];
+            let one = (before - here).normalized();
+            let two = (after - here).normalized();
+            if (&one * &two).value().clamp(-1.0, 1.0).acos() > alpha {
+                flagged.insert(face[corner]);
+            }
+        }
+    }
+    flagged
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn open_angle_probe() {
+    for (name, tessellation, scale) in [("sphere", sphere(3), 12.0), ("star", star(1, 2.0), 8.0)] {
+        let mesh = dual_inflation(&tessellation, scale, true).unwrap();
+        let scaled = mesh
+            .minimum_scaled_jacobians()
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        let hexes = match &mesh.connectivities()[0] {
+            Connectivity::Hexahedral(hexes) => hexes.iter().copied().collect::<Vec<[usize; 8]>>(),
+            _ => panic!("expected hexahedra"),
+        };
+        let mut order: Vec<usize> = (0..scaled.len()).collect();
+        order.sort_by(|&a, &b| scaled[a].partial_cmp(&scaled[b]).unwrap());
+        let worst = &order[..100.min(order.len())];
+        for degrees in [150.0_f64, 160.0, 170.0] {
+            let flagged = open_angle_nodes(&mesh, degrees.to_radians());
+            let incident: Vec<usize> = hexes
+                .iter()
+                .enumerate()
+                .filter(|(_, hex)| hex.iter().any(|node| flagged.contains(node)))
+                .map(|(cell, _)| cell)
+                .collect();
+            let incident_min = incident
+                .iter()
+                .map(|&cell| scaled[cell])
+                .fold(f64::INFINITY, f64::min);
+            let caught = worst.iter().filter(|cell| incident.contains(cell)).count();
+            println!(
+                "{name:>7} a={degrees:>5}   {:>5} nodes   {:>5} hexes   their min SJ {incident_min:>8.4}   {caught:>3}/100 worst caught",
+                flagged.len(),
+                incident.len(),
+            );
+        }
+        println!(
+            "{name:>7}                 overall min SJ {:.4}",
+            scaled.iter().cloned().fold(f64::INFINITY, f64::min)
+        );
+    }
+}
