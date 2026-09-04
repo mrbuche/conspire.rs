@@ -150,9 +150,9 @@ impl Tessellation {
     /// `relief`, when set, runs the Protais et al. §4.1.2 pass once after the
     /// first fit: pillow the low-quality hexahedra around boundary nodes where
     /// a face opens past that angle (radians), then fit again. It is
-    /// best-effort and currently experimental — on a sharply creased surface
-    /// the zero-thickness pillow re-fits worse, not better, so it stays off by
-    /// default.
+    /// best-effort and currently experimental — the pillow is valid but a
+    /// whole-mesh re-fit does not improve a sharply creased surface (a local
+    /// re-fit is the missing piece), so it stays off by default.
     pub fn inflate(
         &self,
         balancing: Balancing,

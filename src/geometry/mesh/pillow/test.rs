@@ -1,6 +1,9 @@
-use crate::geometry::{
-    Coordinates,
-    mesh::{Connectivity, Mesh, Verdict},
+use crate::{
+    geometry::{
+        Coordinates,
+        mesh::{Connectivity, Mesh, Verdict},
+    },
+    math::Tensor,
 };
 use std::collections::HashMap;
 
@@ -54,6 +57,40 @@ fn volume(mesh: &Mesh<3>) -> f64 {
     mesh.volumes().into_iter().flatten().sum()
 }
 
+/// Rebuilds `mesh` with `moved` nodes pulled a third of the way to their
+/// collective centroid, giving a just-pillowed layer real thickness so its
+/// hexahedra can be checked for inversion.
+fn thicken(mesh: &Mesh<3>, moved: &[usize]) -> Mesh<3> {
+    let mut points: Vec<[f64; 3]> = mesh
+        .coordinates()
+        .iter()
+        .map(|point| [point[0].value(), point[1].value(), point[2].value()])
+        .collect();
+    let centroid: [f64; 3] = std::array::from_fn(|axis| {
+        moved.iter().map(|&node| points[node][axis]).sum::<f64>() / moved.len() as f64
+    });
+    for &node in moved {
+        for axis in 0..3 {
+            points[node][axis] += 0.3 * (centroid[axis] - points[node][axis]);
+        }
+    }
+    let hexes: Vec<[usize; 8]> = match &mesh.connectivities()[0] {
+        Connectivity::Hexahedral(hexes) => hexes.iter().copied().collect(),
+        _ => panic!("expected hexahedra"),
+    };
+    Mesh::from((
+        vec![Connectivity::Hexahedral(hexes.into())],
+        Coordinates::from(points),
+    ))
+}
+
+fn worst_scaled_jacobian(mesh: &Mesh<3>) -> f64 {
+    mesh.minimum_scaled_jacobians()
+        .into_iter()
+        .flatten()
+        .fold(f64::INFINITY, f64::min)
+}
+
 #[test]
 fn pillowing_an_interior_hex_wraps_it_in_a_layer() {
     let mut mesh = grid(3);
@@ -71,6 +108,12 @@ fn pillowing_an_interior_hex_wraps_it_in_a_layer() {
         "outer surface changed"
     );
     assert!((volume(&mesh) - 27.0).abs() < 1e-9, "{}", volume(&mesh));
+    let thick = thicken(&mesh, &twins);
+    assert!(
+        worst_scaled_jacobian(&thick) > 0.0,
+        "sheet hex inverted: min SJ {}",
+        worst_scaled_jacobian(&thick)
+    );
 }
 
 #[test]
@@ -95,6 +138,10 @@ fn pillowing_a_block_of_hexes_wraps_the_whole_block() {
     assert_eq!(mesh.number_of_elements(), 64 + 24);
     assert!(face_counts(&mesh).values().all(|&c| c <= 2));
     assert!((volume(&mesh) - 64.0).abs() < 1e-9, "{}", volume(&mesh));
+    assert!(
+        worst_scaled_jacobian(&thicken(&mesh, &twins)) > 0.0,
+        "sheet hex inverted"
+    );
 }
 
 #[test]
