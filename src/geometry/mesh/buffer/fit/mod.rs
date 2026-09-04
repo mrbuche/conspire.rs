@@ -68,7 +68,7 @@ struct Sweep<'a, const N: usize> {
 }
 
 impl Mesh<3> {
-    pub(super) fn fit(
+    pub(crate) fn fit(
         &mut self,
         nodes: &[usize],
         target: &Tessellation,

@@ -602,3 +602,97 @@ fn octree_tet_background_requires_strong_1() {
             .is_ok()
     )
 }
+
+/// Route B of automesh#760: skip the staircase `trim`, keep every dual cell
+/// classified `Inside` or `Cut`, and hand the whole node set to `fit`.
+fn dual_inflation(
+    tessellation: &Tessellation,
+    scale: f64,
+    freedom_whole: bool,
+) -> Result<Mesh<3>, &'static str> {
+    let (mut mesh, classes) = tessellation.dual_background(Balancing::Strong(1), scale, None)?;
+    mesh.retain_elements(|element, _, _| classes[element] != Class::Outside);
+    let nodes: Vec<usize> = if freedom_whole {
+        (0..mesh.number_of_nodes()).collect()
+    } else {
+        mesh.exterior_faces()
+            .into_iter()
+            .flatten()
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    };
+    mesh.fit(&nodes, tessellation)?;
+    Ok(mesh)
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn dual_inflation_compared() {
+    let minmax = |mesh: &Mesh<3>| {
+        let scaled: Vec<f64> = mesh
+            .minimum_scaled_jacobians()
+            .into_iter()
+            .flatten()
+            .collect();
+        let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
+        let mean = scaled.iter().sum::<f64>() / scaled.len() as f64;
+        let bad = scaled.iter().filter(|&&value| value <= 0.0).count();
+        (scaled.len(), minimum, mean, bad)
+    };
+    println!(
+        "{:>26}  {:>7}  {:>7}  {:>8}  {:>8}  {:>6}  {:>10}",
+        "case", "hexes", "s", "min SJ", "mean SJ", "bad", "vol err"
+    );
+    for (name, tessellation, scale, exact) in [
+        ("sphere", sphere(3), 12.0, 4.0 / 3.0 * std::f64::consts::PI),
+        (
+            "cube",
+            box_surface([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]),
+            6.0,
+            8.0,
+        ),
+        (
+            "slab",
+            box_surface([-2.0, -2.0, -0.35], [2.0, 2.0, 0.35]),
+            6.0,
+            4.0 * 4.0 * 0.7,
+        ),
+    ] {
+        let run = |label: &str, mesh: Result<Mesh<3>, &'static str>, seconds: f64| match mesh {
+            Err(error) => println!("{:>26}  {error}", format!("{name}/{label}")),
+            Ok(mesh) => {
+                let (cells, minimum, mean, bad) = minmax(&mesh);
+                let error = (volume_of(&mesh) - exact).abs() / exact;
+                let (minimum, mean) = if cells == 0 {
+                    (f64::NAN, f64::NAN)
+                } else {
+                    (minimum, mean)
+                };
+                println!(
+                    "{:>26}  {cells:>7}  {seconds:>7.2}  {minimum:>8.4}  {mean:>8.4}  {bad:>6}  {error:>10.5}",
+                    format!("{name}/{label}")
+                );
+            }
+        };
+        for (label, whole) in [("fit whole", true), ("fit shell", false)] {
+            let start = std::time::Instant::now();
+            let mesh = dual_inflation(&tessellation, scale, whole);
+            run(label, mesh, start.elapsed().as_secs_f64());
+        }
+        let start = std::time::Instant::now();
+        let baseline = cut(&tessellation, Balancing::Strong(1), scale);
+        run("cut", baseline, start.elapsed().as_secs_f64());
+    }
+}
+
+#[test]
+fn dual_inflation_meshes_a_sphere_without_inverting() {
+    let mesh = dual_inflation(&sphere(2), 8.0, true).unwrap();
+    assert!(mesh.number_of_elements() > 0);
+    assert!(
+        worst_scaled_jacobian(&mesh) > 0.0,
+        "min SJ {}",
+        worst_scaled_jacobian(&mesh)
+    );
+}
