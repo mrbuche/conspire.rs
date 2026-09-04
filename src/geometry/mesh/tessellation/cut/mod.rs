@@ -140,6 +140,35 @@ impl Tessellation {
         let classes = self.classify(&mesh);
         Ok((mesh, classes))
     }
+    /// Meshes this tessellation by inflating the dual background onto it
+    /// (automesh#760 Route B): keep every cell the surface passes through or
+    /// encloses, then deform the whole node set onto the surface by energy
+    /// fitting — no staircase trim, no buffer layer, no elements added.
+    ///
+    /// `tolerance` is the curvature refinement tolerance (`None` disables it).
+    /// `relief`, when set, runs the Protais et al. §4.1.2 pass once after the
+    /// first fit: pillow the hexahedra around every boundary node where a face
+    /// opens past that angle (radians), then fit again. It is best-effort — a
+    /// flagged region whose boundary pinches is left as fitted.
+    pub fn inflate(
+        &self,
+        balancing: Balancing,
+        scale: Scalar,
+        tolerance: Option<Quantity<Length>>,
+        relief: Option<Scalar>,
+    ) -> Result<Mesh<D>, &'static str> {
+        let (mut mesh, classes) = self.dual_background(balancing, scale, tolerance)?;
+        mesh.retain_elements(|cell, _, _| classes[cell] != Class::Outside);
+        let free: Vec<usize> = (0..mesh.number_of_nodes()).collect();
+        mesh.fit(&free, self)?;
+        if let Some(alpha) = relief
+            && !mesh.relieve_open_angles(alpha).is_empty()
+        {
+            let free: Vec<usize> = (0..mesh.number_of_nodes()).collect();
+            mesh.fit(&free, self)?;
+        }
+        Ok(mesh)
+    }
     /// Builds a uniform lattice of cubes of the given edge length around this
     /// tessellation, with each cell classified against the surface.
     ///

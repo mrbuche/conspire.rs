@@ -642,23 +642,26 @@ fn octree_tet_background_requires_strong_1() {
 
 /// Route B of automesh#760: skip the staircase `trim`, keep every dual cell
 /// classified `Inside` or `Cut`, and hand the whole node set to `fit`.
+///
+/// `freedom_whole` routes through [`Tessellation::inflate`]; the shell variant
+/// (boundary nodes and one ring only) stays here for the comparison harness.
 fn dual_inflation(
     tessellation: &Tessellation,
     scale: f64,
     freedom_whole: bool,
 ) -> Result<Mesh<3>, &'static str> {
+    if freedom_whole {
+        return tessellation.inflate(Balancing::Strong(1), scale, None, None);
+    }
     let (mut mesh, classes) = tessellation.dual_background(Balancing::Strong(1), scale, None)?;
     mesh.retain_elements(|element, _, _| classes[element] != Class::Outside);
-    let nodes: Vec<usize> = if freedom_whole {
-        (0..mesh.number_of_nodes()).collect()
-    } else {
-        mesh.exterior_faces()
-            .into_iter()
-            .flatten()
-            .collect::<std::collections::BTreeSet<_>>()
-            .into_iter()
-            .collect()
-    };
+    let nodes: Vec<usize> = mesh
+        .exterior_faces()
+        .into_iter()
+        .flatten()
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
     mesh.fit(&nodes, tessellation)?;
     Ok(mesh)
 }
@@ -776,31 +779,10 @@ fn dual_inflation_holds_a_creased_star() {
     );
 }
 
-/// Boundary nodes at which an exterior quad opens past `alpha` radians — the
-/// §4.1.2 signature of one hex placing two edges along the same feature
-/// (automesh#750 item 7).
-fn open_angle_nodes(mesh: &Mesh<3>, alpha: f64) -> std::collections::BTreeSet<usize> {
-    let coordinates = mesh.coordinates();
-    let mut flagged = std::collections::BTreeSet::new();
-    for face in mesh.exterior_faces() {
-        let count = face.len();
-        for corner in 0..count {
-            let here = &coordinates[face[corner]];
-            let before = &coordinates[face[(corner + count - 1) % count]];
-            let after = &coordinates[face[(corner + 1) % count]];
-            let one = (before - here).normalized();
-            let two = (after - here).normalized();
-            if (&one * &two).value().clamp(-1.0, 1.0).acos() > alpha {
-                flagged.insert(face[corner]);
-            }
-        }
-    }
-    flagged
-}
-
 #[test]
 #[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
 fn open_angle_probe() {
+    use crate::geometry::mesh::pillow::open_angle_nodes;
     for (name, tessellation, scale) in [("sphere", sphere(3), 12.0), ("star", star(1, 2.0), 8.0)] {
         let mesh = dual_inflation(&tessellation, scale, true).unwrap();
         let scaled = mesh
@@ -838,5 +820,45 @@ fn open_angle_probe() {
             "{name:>7}                 overall min SJ {:.4}",
             scaled.iter().cloned().fold(f64::INFINITY, f64::min)
         );
+    }
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn relief_compared() {
+    println!(
+        "{:>20}  {:>7}  {:>7}  {:>8}  {:>8}  {:>5}",
+        "case", "hexes", "s", "min SJ", "mean SJ", "bad"
+    );
+    for (name, tessellation, scale) in [("sphere", sphere(3), 12.0), ("star", star(1, 2.0), 8.0)] {
+        for relief in [
+            None,
+            Some(150.0_f64.to_radians()),
+            Some(160.0_f64.to_radians()),
+        ] {
+            let start = std::time::Instant::now();
+            let mesh = tessellation.inflate(Balancing::Strong(1), scale, None, relief);
+            let seconds = start.elapsed().as_secs_f64();
+            match mesh {
+                Err(error) => println!("{name:>13}/{relief:?}  {error}"),
+                Ok(mesh) => {
+                    let scaled: Vec<f64> = mesh
+                        .minimum_scaled_jacobians()
+                        .into_iter()
+                        .flatten()
+                        .collect();
+                    let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
+                    let mean = scaled.iter().sum::<f64>() / scaled.len() as f64;
+                    let bad = scaled.iter().filter(|&&value| value <= 0.0).count();
+                    let label =
+                        relief.map_or("none".to_string(), |a| format!("{:.0}", a.to_degrees()));
+                    println!(
+                        "{:>20}  {:>7}  {seconds:>7.1}  {minimum:>8.4}  {mean:>8.4}  {bad:>5}",
+                        format!("{name}/{label}"),
+                        scaled.len()
+                    );
+                }
+            }
+        }
     }
 }
