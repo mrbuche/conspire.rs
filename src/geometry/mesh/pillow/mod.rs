@@ -101,9 +101,12 @@ impl Mesh<3> {
                 }
             }
         }
+        // Sheet hex: twins (region side) as the base, originals (rest side) as
+        // the cap. The boundary face is outward-CCW from the region, so its
+        // normal points at the cap — twins first keeps the sheet hex positive.
         for face in boundary {
             let [a, b, c, d] = face;
-            hexes.push([a, b, c, d, twin[&a], twin[&b], twin[&c], twin[&d]]);
+            hexes.push([twin[&a], twin[&b], twin[&c], twin[&d], a, b, c, d]);
         }
         *self = Mesh::from((vec![Connectivity::Hexahedral(hexes.into())], coordinates));
         Ok(twins)
