@@ -176,6 +176,43 @@ pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation 
     )))
 }
 
+/// A sphere with a pyramidal spike raised out of every triangle: sharp convex
+/// ridges and concave reentrant valleys between them.
+pub(super) fn star(refinements: usize, height: f64) -> Tessellation {
+    let base = sphere(refinements);
+    let mut coordinates: Vec<[f64; 3]> = base
+        .mesh()
+        .coordinates()
+        .iter()
+        .map(|point| [point[0].value(), point[1].value(), point[2].value()])
+        .collect();
+    let mut faces = Vec::new();
+    base.mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .for_each(|triangle| {
+            let [a, b, c] = [triangle[0], triangle[1], triangle[2]];
+            let centroid: [f64; 3] = std::array::from_fn(|d| {
+                (coordinates[a][d] + coordinates[b][d] + coordinates[c][d]) / 3.0
+            });
+            let norm = centroid
+                .iter()
+                .map(|value| value * value)
+                .sum::<f64>()
+                .sqrt();
+            coordinates.push(std::array::from_fn(|d| centroid[d] / norm * height));
+            let apex = coordinates.len() - 1;
+            faces.push([a, b, apex]);
+            faces.push([b, c, apex]);
+            faces.push([c, a, apex]);
+        });
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        Coordinates::from(coordinates),
+    )))
+}
+
 pub(super) fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
     let [x0, y0, z0] = minimum;
     let [x1, y1, z1] = maximum;
@@ -601,4 +638,227 @@ fn octree_tet_background_requires_strong_1() {
             .octree_tet_background(Balancing::Strong(1), Pairing::Regular, 1.0, None)
             .is_ok()
     )
+}
+
+/// Route B of automesh#760: skip the staircase `trim`, keep every dual cell
+/// classified `Inside` or `Cut`, and hand the whole node set to `fit`.
+///
+/// `freedom_whole` routes through [`Tessellation::inflate`]; the shell variant
+/// (boundary nodes and one ring only) stays here for the comparison harness.
+fn dual_inflation(
+    tessellation: &Tessellation,
+    scale: f64,
+    freedom_whole: bool,
+) -> Result<Mesh<3>, &'static str> {
+    if freedom_whole {
+        return tessellation.inflate(Balancing::Strong(1), scale, None, None);
+    }
+    let (mut mesh, classes) = tessellation.dual_background(Balancing::Strong(1), scale, None)?;
+    mesh.retain_elements(|element, _, _| classes[element] != Class::Outside);
+    let nodes: Vec<usize> = mesh
+        .exterior_faces()
+        .into_iter()
+        .flatten()
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    mesh.fit(&nodes, tessellation)?;
+    Ok(mesh)
+}
+
+/// Volume enclosed by an outward-oriented triangulated surface.
+fn enclosed_volume(tessellation: &Tessellation) -> f64 {
+    let surface = tessellation.mesh();
+    let coordinates = surface.coordinates();
+    surface
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|triangle| {
+            let point = |node: usize| {
+                let value = &coordinates[node];
+                [value[0].value(), value[1].value(), value[2].value()]
+            };
+            let [a, b, c] = [point(triangle[0]), point(triangle[1]), point(triangle[2])];
+            let cross = [
+                b[1] * c[2] - b[2] * c[1],
+                b[2] * c[0] - b[0] * c[2],
+                b[0] * c[1] - b[1] * c[0],
+            ];
+            (a[0] * cross[0] + a[1] * cross[1] + a[2] * cross[2]) / 6.0
+        })
+        .sum::<f64>()
+        .abs()
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn dual_inflation_compared() {
+    let minmax = |mesh: &Mesh<3>| {
+        let scaled: Vec<f64> = mesh
+            .minimum_scaled_jacobians()
+            .into_iter()
+            .flatten()
+            .collect();
+        let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
+        let mean = scaled.iter().sum::<f64>() / scaled.len() as f64;
+        let bad = scaled.iter().filter(|&&value| value <= 0.0).count();
+        (scaled.len(), minimum, mean, bad)
+    };
+    println!(
+        "{:>26}  {:>7}  {:>7}  {:>8}  {:>8}  {:>6}  {:>10}",
+        "case", "hexes", "s", "min SJ", "mean SJ", "bad", "vol err"
+    );
+    for (name, tessellation, scale) in [
+        ("sphere", sphere(3), 12.0),
+        (
+            "cube",
+            box_surface([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]),
+            6.0,
+        ),
+        (
+            "slab",
+            box_surface([-2.0, -2.0, -0.35], [2.0, 2.0, 0.35]),
+            6.0,
+        ),
+        ("star", star(1, 2.0), 8.0),
+    ] {
+        let exact = enclosed_volume(&tessellation);
+        eprintln!("  [{name}] scale {scale}");
+        let run = |label: &str, mesh: Result<Mesh<3>, &'static str>, seconds: f64| match mesh {
+            Err(error) => println!("{:>26}  {error}", format!("{name}/{label}")),
+            Ok(mesh) => {
+                let (cells, minimum, mean, bad) = minmax(&mesh);
+                let error = (volume_of(&mesh) - exact).abs() / exact;
+                let (minimum, mean) = if cells == 0 {
+                    (f64::NAN, f64::NAN)
+                } else {
+                    (minimum, mean)
+                };
+                println!(
+                    "{:>26}  {cells:>7}  {seconds:>7.2}  {minimum:>8.4}  {mean:>8.4}  {bad:>6}  {error:>10.5}",
+                    format!("{name}/{label}")
+                );
+            }
+        };
+        for (label, whole) in [("fit whole", true), ("fit shell", false)] {
+            let start = std::time::Instant::now();
+            let mesh = dual_inflation(&tessellation, scale, whole);
+            run(label, mesh, start.elapsed().as_secs_f64());
+        }
+        let start = std::time::Instant::now();
+        let baseline = cut(&tessellation, Balancing::Strong(1), scale);
+        run("cut", baseline, start.elapsed().as_secs_f64());
+    }
+}
+
+#[test]
+fn dual_inflation_meshes_a_sphere_without_inverting() {
+    let mesh = dual_inflation(&sphere(2), 8.0, true).unwrap();
+    assert!(mesh.number_of_elements() > 0);
+    assert!(
+        worst_scaled_jacobian(&mesh) > 0.0,
+        "min SJ {}",
+        worst_scaled_jacobian(&mesh)
+    );
+}
+
+/// The concave reentrant valleys of a star are where fit-only on the uniform
+/// lattice tangled (automesh#753); on the adaptive dual background `Fit(Whole)`
+/// holds them. `Fit(Shell)` does not, so freedom over the interior is load
+/// bearing here.
+#[test]
+#[ignore = "slow; the star spikes force heavy refinement"]
+fn dual_inflation_holds_a_creased_star() {
+    let mesh = dual_inflation(&star(1, 2.0), 4.0, true).unwrap();
+    assert!(mesh.number_of_elements() > 0);
+    assert!(
+        worst_scaled_jacobian(&mesh) > 0.0,
+        "min SJ {}",
+        worst_scaled_jacobian(&mesh)
+    );
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn open_angle_probe() {
+    use crate::geometry::mesh::pillow::open_angle_nodes;
+    for (name, tessellation, scale) in [("sphere", sphere(3), 12.0), ("star", star(1, 2.0), 8.0)] {
+        let mesh = dual_inflation(&tessellation, scale, true).unwrap();
+        let scaled = mesh
+            .minimum_scaled_jacobians()
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
+        let hexes = match &mesh.connectivities()[0] {
+            Connectivity::Hexahedral(hexes) => hexes.iter().copied().collect::<Vec<[usize; 8]>>(),
+            _ => panic!("expected hexahedra"),
+        };
+        let mut order: Vec<usize> = (0..scaled.len()).collect();
+        order.sort_by(|&a, &b| scaled[a].partial_cmp(&scaled[b]).unwrap());
+        let worst = &order[..100.min(order.len())];
+        for degrees in [150.0_f64, 160.0, 170.0] {
+            let flagged = open_angle_nodes(&mesh, degrees.to_radians());
+            let incident: Vec<usize> = hexes
+                .iter()
+                .enumerate()
+                .filter(|(_, hex)| hex.iter().any(|node| flagged.contains(node)))
+                .map(|(cell, _)| cell)
+                .collect();
+            let incident_min = incident
+                .iter()
+                .map(|&cell| scaled[cell])
+                .fold(f64::INFINITY, f64::min);
+            let caught = worst.iter().filter(|cell| incident.contains(cell)).count();
+            println!(
+                "{name:>7} a={degrees:>5}   {:>5} nodes   {:>5} hexes   their min SJ {incident_min:>8.4}   {caught:>3}/100 worst caught",
+                flagged.len(),
+                incident.len(),
+            );
+        }
+        println!(
+            "{name:>7}                 overall min SJ {:.4}",
+            scaled.iter().cloned().fold(f64::INFINITY, f64::min)
+        );
+    }
+}
+
+#[test]
+#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
+fn relief_compared() {
+    println!(
+        "{:>20}  {:>7}  {:>7}  {:>8}  {:>8}  {:>5}",
+        "case", "hexes", "s", "min SJ", "mean SJ", "bad"
+    );
+    for (name, tessellation, scale) in [("sphere", sphere(3), 12.0), ("star", star(1, 2.0), 8.0)] {
+        for relief in [
+            None,
+            Some(150.0_f64.to_radians()),
+            Some(160.0_f64.to_radians()),
+        ] {
+            let start = std::time::Instant::now();
+            let mesh = tessellation.inflate(Balancing::Strong(1), scale, None, relief);
+            let seconds = start.elapsed().as_secs_f64();
+            match mesh {
+                Err(error) => println!("{name:>13}/{relief:?}  {error}"),
+                Ok(mesh) => {
+                    let scaled: Vec<f64> = mesh
+                        .minimum_scaled_jacobians()
+                        .into_iter()
+                        .flatten()
+                        .collect();
+                    let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
+                    let mean = scaled.iter().sum::<f64>() / scaled.len() as f64;
+                    let bad = scaled.iter().filter(|&&value| value <= 0.0).count();
+                    let label =
+                        relief.map_or("none".to_string(), |a| format!("{:.0}", a.to_degrees()));
+                    println!(
+                        "{:>20}  {:>7}  {seconds:>7.1}  {minimum:>8.4}  {mean:>8.4}  {bad:>5}",
+                        format!("{name}/{label}"),
+                        scaled.len()
+                    );
+                }
+            }
+        }
+    }
 }

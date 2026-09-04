@@ -37,6 +37,7 @@ const EPSILON_FLOOR: Scalar = 1.0e-12;
 const HISTORY: usize = 8;
 const ITERATIONS: usize = 100;
 const RELAXATION: Scalar = 0.1;
+const SMOOTH_CONE: Scalar = 0.94;
 const STAGNATION: Scalar = 5.0e-4;
 const SWEEPS: usize = 50;
 const TOLERANCE: Scalar = 1.0e-3;
@@ -48,6 +49,11 @@ struct Oracle<'a> {
     coordinates: &'a Coordinates<3>,
     elements: Vec<&'a [usize]>,
     normals: DirectionsRef<'a, 3>,
+    /// Angle-weighted vertex normals of the target surface. Interpolated at
+    /// the closest point they give a normal field continuous across facet
+    /// boundaries, so a node sliding tangentially does not see the target
+    /// plane jump when its closest facet flips (Protais et al. §4.2.1).
+    vertex_normals: Vec<Direction<3>>,
 }
 
 /// One pass of the fit over a mesh of `N`-node elements.
@@ -68,7 +74,7 @@ struct Sweep<'a, const N: usize> {
 }
 
 impl Mesh<3> {
-    pub(super) fn fit(
+    pub(crate) fn fit(
         &mut self,
         nodes: &[usize],
         target: &Tessellation,
@@ -196,6 +202,7 @@ impl<'a> Oracle<'a> {
             coordinates: surface.coordinates(),
             elements: surface.connectivities().iter().flatten().collect(),
             normals: target.normals().iter().flatten().collect(),
+            vertex_normals: vertex_normals(surface),
         }
     }
     fn targets<const F: usize>(
@@ -221,7 +228,7 @@ impl<'a> Oracle<'a> {
                                 .bvh
                                 .closest_point(&centroid, self.coordinates, &self.elements)
                                 .map(|(point, index)| {
-                                    let normal = self.normals[index].clone();
+                                    let normal = self.smooth_normal(index, &point);
                                     let distance = face
                                         .iter()
                                         .map(|&node| {
@@ -240,6 +247,71 @@ impl<'a> Oracle<'a> {
             .collect::<Option<_>>()
             .ok_or("empty tessellation")
     }
+    /// The surface normal at `point`, taken to lie on triangle `index`, as the
+    /// barycentric blend of that triangle's vertex normals: a field continuous
+    /// across facet boundaries wherever the surface is smooth.
+    ///
+    /// Falls back to the flat facet normal for a degenerate triangle, and
+    /// wherever the blend leans more than [`SMOOTH_CONE`] off the facet — the
+    /// signature of a crease, where a blended normal would pull nodes off the
+    /// feature instead of onto it.
+    fn smooth_normal(&self, index: usize, point: &Coordinate<3>) -> Direction<3> {
+        let facet = self.normals[index].clone();
+        let triangle = self.elements[index];
+        let a = &self.coordinates[triangle[0]];
+        let b = &self.coordinates[triangle[1]];
+        let c = &self.coordinates[triangle[2]];
+        let (v0, v1, v2) = (b - a, c - a, point - a);
+        let d00 = (&v0 * &v0).value();
+        let d01 = (&v0 * &v1).value();
+        let d11 = (&v1 * &v1).value();
+        let d20 = (&v2 * &v0).value();
+        let d21 = (&v2 * &v1).value();
+        let denominator = d00 * d11 - d01 * d01;
+        if denominator.abs() < CURVATURE_FLOOR {
+            return facet;
+        }
+        let beta = (d11 * d20 - d01 * d21) / denominator;
+        let gamma = (d00 * d21 - d01 * d20) / denominator;
+        let alpha = 1.0 - beta - gamma;
+        let mut normal = &self.vertex_normals[triangle[0]] * alpha;
+        normal += &self.vertex_normals[triangle[1]] * beta;
+        normal += &self.vertex_normals[triangle[2]] * gamma;
+        let normal = normal.normalized();
+        if normal.contract_with(&facet).value() < SMOOTH_CONE {
+            facet
+        } else {
+            normal
+        }
+    }
+}
+
+/// Angle-weighted vertex normals of a triangulated surface.
+fn vertex_normals(surface: &Mesh<3>) -> Vec<Direction<3>> {
+    let coordinates = surface.coordinates();
+    let mut normals = vec![TensorRank1::<3, Reference>::const_from([0.0; 3]); coordinates.len()];
+    surface
+        .connectivities()
+        .iter()
+        .flatten()
+        .for_each(|triangle| {
+            let node = [triangle[0], triangle[1], triangle[2]];
+            let point = node.map(|node| &coordinates[node]);
+            let facet = (point[1] - point[0])
+                .cross(point[2] - point[0])
+                .normalized();
+            (0..3).for_each(|corner| {
+                let here = point[corner];
+                let one = (point[(corner + 1) % 3] - here).normalized();
+                let two = (point[(corner + 2) % 3] - here).normalized();
+                let angle = (&one * &two).value().clamp(-1.0, 1.0).acos();
+                normals[node[corner]] += &facet * angle;
+            })
+        });
+    normals
+        .into_iter()
+        .map(|normal| normal.normalized())
+        .collect()
 }
 
 impl<const N: usize> Sweep<'_, N> {
