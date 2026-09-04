@@ -176,6 +176,43 @@ pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation 
     )))
 }
 
+/// A sphere with a pyramidal spike raised out of every triangle: sharp convex
+/// ridges and concave reentrant valleys between them.
+pub(super) fn star(refinements: usize, height: f64) -> Tessellation {
+    let base = sphere(refinements);
+    let mut coordinates: Vec<[f64; 3]> = base
+        .mesh()
+        .coordinates()
+        .iter()
+        .map(|point| [point[0].value(), point[1].value(), point[2].value()])
+        .collect();
+    let mut faces = Vec::new();
+    base.mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .for_each(|triangle| {
+            let [a, b, c] = [triangle[0], triangle[1], triangle[2]];
+            let centroid: [f64; 3] = std::array::from_fn(|d| {
+                (coordinates[a][d] + coordinates[b][d] + coordinates[c][d]) / 3.0
+            });
+            let norm = centroid
+                .iter()
+                .map(|value| value * value)
+                .sum::<f64>()
+                .sqrt();
+            coordinates.push(std::array::from_fn(|d| centroid[d] / norm * height));
+            let apex = coordinates.len() - 1;
+            faces.push([a, b, apex]);
+            faces.push([b, c, apex]);
+            faces.push([c, a, apex]);
+        });
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        Coordinates::from(coordinates),
+    )))
+}
+
 pub(super) fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
     let [x0, y0, z0] = minimum;
     let [x1, y1, z1] = maximum;
@@ -626,6 +663,31 @@ fn dual_inflation(
     Ok(mesh)
 }
 
+/// Volume enclosed by an outward-oriented triangulated surface.
+fn enclosed_volume(tessellation: &Tessellation) -> f64 {
+    let surface = tessellation.mesh();
+    let coordinates = surface.coordinates();
+    surface
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|triangle| {
+            let point = |node: usize| {
+                let value = &coordinates[node];
+                [value[0].value(), value[1].value(), value[2].value()]
+            };
+            let [a, b, c] = [point(triangle[0]), point(triangle[1]), point(triangle[2])];
+            let cross = [
+                b[1] * c[2] - b[2] * c[1],
+                b[2] * c[0] - b[0] * c[2],
+                b[0] * c[1] - b[1] * c[0],
+            ];
+            (a[0] * cross[0] + a[1] * cross[1] + a[2] * cross[2]) / 6.0
+        })
+        .sum::<f64>()
+        .abs()
+}
+
 #[test]
 #[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
 fn dual_inflation_compared() {
@@ -644,21 +706,22 @@ fn dual_inflation_compared() {
         "{:>26}  {:>7}  {:>7}  {:>8}  {:>8}  {:>6}  {:>10}",
         "case", "hexes", "s", "min SJ", "mean SJ", "bad", "vol err"
     );
-    for (name, tessellation, scale, exact) in [
-        ("sphere", sphere(3), 12.0, 4.0 / 3.0 * std::f64::consts::PI),
+    for (name, tessellation, scale) in [
+        ("sphere", sphere(3), 12.0),
         (
             "cube",
             box_surface([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]),
             6.0,
-            8.0,
         ),
         (
             "slab",
             box_surface([-2.0, -2.0, -0.35], [2.0, 2.0, 0.35]),
             6.0,
-            4.0 * 4.0 * 0.7,
         ),
+        ("star", star(1, 2.0), 8.0),
     ] {
+        let exact = enclosed_volume(&tessellation);
+        eprintln!("  [{name}] scale {scale}");
         let run = |label: &str, mesh: Result<Mesh<3>, &'static str>, seconds: f64| match mesh {
             Err(error) => println!("{:>26}  {error}", format!("{name}/{label}")),
             Ok(mesh) => {
@@ -689,6 +752,22 @@ fn dual_inflation_compared() {
 #[test]
 fn dual_inflation_meshes_a_sphere_without_inverting() {
     let mesh = dual_inflation(&sphere(2), 8.0, true).unwrap();
+    assert!(mesh.number_of_elements() > 0);
+    assert!(
+        worst_scaled_jacobian(&mesh) > 0.0,
+        "min SJ {}",
+        worst_scaled_jacobian(&mesh)
+    );
+}
+
+/// The concave reentrant valleys of a star are where fit-only on the uniform
+/// lattice tangled (automesh#753); on the adaptive dual background `Fit(Whole)`
+/// holds them. `Fit(Shell)` does not, so freedom over the interior is load
+/// bearing here.
+#[test]
+#[ignore = "slow; the star spikes force heavy refinement"]
+fn dual_inflation_holds_a_creased_star() {
+    let mesh = dual_inflation(&star(1, 2.0), 4.0, true).unwrap();
     assert!(mesh.number_of_elements() > 0);
     assert!(
         worst_scaled_jacobian(&mesh) > 0.0,
