@@ -41,12 +41,9 @@ fn test_consistency() -> Result<(), AssertionError> {
         rest_angle: 1.5,
         stiffness: 1.2,
     };
+    Assert::default().eq_within_tols(model.energy(model.rest_angle), &Quantity::new(0.0))?;
     Assert::default().eq_within_tols(
-        &model.energy(model.rest_angle),
-        &Quantity::new(0.0),
-    )?;
-    Assert::default().eq_within_tols(
-        &model.energy(model.rest_angle + 0.3),
+        model.energy(model.rest_angle + 0.3),
         &model.energy(model.rest_angle - 0.3),
     )
 }
@@ -166,7 +163,7 @@ fn finite_difference() -> Result<(), AssertionError> {
         .into_iter()
         .try_for_each(|x| {
             Assert::default().eq_within_tols(
-                &potential.energy(x),
+                potential.energy(x),
                 &Quantity::new(e * (1.0 - (x - x0).cos())),
             )
         })
