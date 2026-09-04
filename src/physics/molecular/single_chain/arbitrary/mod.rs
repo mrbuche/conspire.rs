@@ -1,6 +1,9 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
     math::{
-        Current, CrossProduct, Quantity, Scalar, Tensor,
+        CrossProduct, Current, Quantity, Scalar, Tensor,
         random::{random_uniform, random_x2_normal},
     },
     mechanics::Vector,
@@ -33,7 +36,8 @@ pub struct ArbitraryDiscrete {
     pub link_potential: ArbitraryDiscretePotential<Harmonic>,
     /// The angular potential $`u_\theta`$.
     pub angular_potential: ArbitraryDiscretePotential<Cosine>,
-    /// The torsional potential $`u_\phi`$.
+    /// The torsional potential $`u_\phi`$. The dihedral $`\phi`$ is measured from
+    /// the preceding bond, with $`\phi = 0`$ the anti/extended state.
     pub torsional_potential: ArbitraryDiscretePotential<Cosine>,
     /// The thermodynamic ensemble.
     pub ensemble: Ensemble,
