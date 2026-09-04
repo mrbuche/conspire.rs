@@ -9,6 +9,7 @@ mod fit;
 mod from;
 mod into;
 mod partition;
+mod pillow;
 mod quality;
 mod read;
 mod remesh;
