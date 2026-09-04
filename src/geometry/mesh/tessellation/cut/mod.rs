@@ -31,6 +31,7 @@ const COLLAPSE_FRACTION: Scalar = 0.2;
 const CROSSING_TOLERANCE: Quantity<Length> = Length::meters(1.0e-8);
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
+const RELIEF_GATE: Scalar = 0.1;
 const SLIVER_FRACTION: Scalar = 0.1;
 const SNAP_FEATURE: Scalar = 0.5;
 const SNAP_HARD: Scalar = 0.05;
@@ -147,9 +148,11 @@ impl Tessellation {
     ///
     /// `tolerance` is the curvature refinement tolerance (`None` disables it).
     /// `relief`, when set, runs the Protais et al. §4.1.2 pass once after the
-    /// first fit: pillow the hexahedra around every boundary node where a face
-    /// opens past that angle (radians), then fit again. It is best-effort — a
-    /// flagged region whose boundary pinches is left as fitted.
+    /// first fit: pillow the low-quality hexahedra around boundary nodes where
+    /// a face opens past that angle (radians), then fit again. It is
+    /// best-effort and currently experimental — on a sharply creased surface
+    /// the zero-thickness pillow re-fits worse, not better, so it stays off by
+    /// default.
     pub fn inflate(
         &self,
         balancing: Balancing,
@@ -162,7 +165,7 @@ impl Tessellation {
         let free: Vec<usize> = (0..mesh.number_of_nodes()).collect();
         mesh.fit(&free, self)?;
         if let Some(alpha) = relief
-            && !mesh.relieve_open_angles(alpha).is_empty()
+            && !mesh.relieve_open_angles(alpha, RELIEF_GATE).is_empty()
         {
             let free: Vec<usize> = (0..mesh.number_of_nodes()).collect();
             mesh.fit(&free, self)?;

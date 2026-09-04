@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{
-    geometry::mesh::{Connectivity, Mesh},
+    geometry::mesh::{Connectivity, Mesh, Verdict},
     math::{Scalar, Tensor, TensorVec},
 };
 use std::collections::{BTreeSet, HashMap};
@@ -108,28 +108,84 @@ impl Mesh<3> {
         *self = Mesh::from((vec![Connectivity::Hexahedral(hexes.into())], coordinates));
         Ok(twins)
     }
-    /// Pillows the hexahedra around every boundary node where an exterior quad
+    /// Pillows the hexahedra around the boundary nodes where an exterior quad
     /// opens past `alpha` radians — the Protais et al. §4.1.2 signature of one
-    /// hex forced to place two edges along the same feature.
+    /// hex forced to place two edges along the same feature — restricted to
+    /// cells whose scaled Jacobian is below `gate`.
     ///
-    /// Returns the twin nodes to free in a re-fit. Empty when nothing is
-    /// flagged, or when the flagged region's boundary pinches — the relief pass
-    /// is best-effort and never blocks the mesh.
-    pub(crate) fn relieve_open_angles(&mut self, alpha: Scalar) -> Vec<usize> {
+    /// Each face-connected component of that set is pillowed on its own, so a
+    /// worst spot gets relief even where the full flagged region would not
+    /// bound a manifold. Best-effort: a component that still pinches is left as
+    /// fitted, and a relief request never blocks the mesh. Returns the twin
+    /// nodes to free in a re-fit.
+    pub(crate) fn relieve_open_angles(&mut self, alpha: Scalar, gate: Scalar) -> Vec<usize> {
         let flagged = open_angle_nodes(self, alpha);
         if flagged.is_empty() {
             return Vec::new();
         }
-        let mut region = Vec::new();
+        let mut hexes: Vec<[usize; 8]> = Vec::new();
         for block in self.iter() {
-            for (cell, element) in block.iter().enumerate() {
-                if element.iter().any(|node| flagged.contains(node)) {
-                    region.push(cell);
+            match block {
+                Connectivity::Hexahedral(block) => hexes.extend(block.iter().copied()),
+                _ => return Vec::new(),
+            }
+        }
+        let scaled: Vec<Scalar> = self
+            .minimum_scaled_jacobians()
+            .into_iter()
+            .flatten()
+            .collect();
+        let region: Vec<usize> = hexes
+            .iter()
+            .enumerate()
+            .filter(|(cell, hex)| {
+                scaled[*cell] < gate && hex.iter().any(|node| flagged.contains(node))
+            })
+            .map(|(cell, _)| cell)
+            .collect();
+        if region.is_empty() {
+            return Vec::new();
+        }
+        let mut twins = Vec::new();
+        for component in components(&region, &hexes) {
+            twins.extend(self.pillow(&component).unwrap_or_default());
+        }
+        twins
+    }
+}
+
+/// Face-connected components of a set of hexahedra.
+fn components(region: &[usize], hexes: &[[usize; 8]]) -> Vec<Vec<usize>> {
+    let mut parent: Vec<usize> = (0..region.len()).collect();
+    fn root(parent: &mut [usize], mut node: usize) -> usize {
+        while parent[node] != node {
+            parent[node] = parent[parent[node]];
+            node = parent[node];
+        }
+        node
+    }
+    let mut owners: HashMap<[usize; 4], usize> = HashMap::new();
+    for (index, &cell) in region.iter().enumerate() {
+        for face in FACES {
+            let mut key = face.map(|local| hexes[cell][local]);
+            key.sort_unstable();
+            match owners.get(&key) {
+                Some(&other) => {
+                    let (a, b) = (root(&mut parent, index), root(&mut parent, other));
+                    parent[a] = b;
+                }
+                None => {
+                    owners.insert(key, index);
                 }
             }
         }
-        self.pillow(&region).unwrap_or_default()
     }
+    let mut grouped: HashMap<usize, Vec<usize>> = HashMap::new();
+    for (index, &cell) in region.iter().enumerate() {
+        let r = root(&mut parent, index);
+        grouped.entry(r).or_default().push(cell);
+    }
+    grouped.into_values().collect()
 }
 
 /// Boundary nodes at which an exterior quad opens past `alpha` radians.
