@@ -175,9 +175,12 @@ impl LdlDecomposition {
         let Self { ldl, column, .. } = self;
         let source = &column[k + 1..n];
         let back = &mut ldl.0[k + 1..];
-        back.chunks_mut(4).enumerate().for_each(|(chunk, rows)| {
-            let base = 4 * chunk;
-            if let [a, b, c, d] = rows {
+        let (quads, tail) = back.as_chunks_mut::<4>();
+        quads
+            .iter_mut()
+            .enumerate()
+            .for_each(|(chunk, [a, b, c, d])| {
+                let base = 4 * chunk;
                 let u = [-a[k], -b[k], -c[k], -d[k]];
                 let common = base + 1;
                 simd::rank_one_quad(
@@ -194,16 +197,15 @@ impl LdlDecomposition {
                 d[k + 1 + common] += u[3] * source[common];
                 d[k + 2 + common] += u[3] * source[common + 1];
                 d[k + 3 + common] += u[3] * source[common + 2]
-            } else {
-                rows.iter_mut().enumerate().for_each(|(row, entries)| {
-                    let factor = entries[k];
-                    simd::axpy(
-                        &mut entries.as_mut_slice()[k + 1..k + 2 + base + row],
-                        &source[..base + row + 1],
-                        factor,
-                    )
-                })
-            }
+            });
+        let base = 4 * quads.len();
+        tail.iter_mut().enumerate().for_each(|(row, entries)| {
+            let factor = entries[k];
+            simd::axpy(
+                &mut entries.as_mut_slice()[k + 1..k + 2 + base + row],
+                &source[..base + row + 1],
+                factor,
+            )
         })
     }
     /// Applies a two-by-two pivot to the trailing lower triangle.
@@ -214,9 +216,12 @@ impl LdlDecomposition {
         let source = &column[k + 2..n];
         let paired = &other[k + 2..n];
         let back = &mut ldl.0[k + 2..];
-        back.chunks_mut(4).enumerate().for_each(|(chunk, rows)| {
-            let base = 4 * chunk;
-            if let [a, b, c, d] = rows {
+        let (quads, tail) = back.as_chunks_mut::<4>();
+        quads
+            .iter_mut()
+            .enumerate()
+            .for_each(|(chunk, [a, b, c, d])| {
+                let base = 4 * chunk;
                 let u = [-a[k], -b[k], -c[k], -d[k]];
                 let w = [-a[k + 1], -b[k + 1], -c[k + 1], -d[k + 1]];
                 let common = base + 1;
@@ -236,18 +241,15 @@ impl LdlDecomposition {
                 d[k + 2 + common] += u[3] * source[common] + w[3] * paired[common];
                 d[k + 3 + common] += u[3] * source[common + 1] + w[3] * paired[common + 1];
                 d[k + 4 + common] += u[3] * source[common + 2] + w[3] * paired[common + 2]
-            } else {
-                rows.iter_mut().enumerate().for_each(|(row, entries)| {
-                    let (u, w) = (entries[k], entries[k + 1]);
-                    entries.as_mut_slice()[k + 2..k + 3 + base + row]
-                        .iter_mut()
-                        .zip(source[..base + row + 1].iter())
-                        .zip(paired[..base + row + 1].iter())
-                        .for_each(|((entry, source_j), paired_j)| {
-                            *entry -= u * source_j + w * paired_j
-                        })
-                })
-            }
+            });
+        let base = 4 * quads.len();
+        tail.iter_mut().enumerate().for_each(|(row, entries)| {
+            let (u, w) = (entries[k], entries[k + 1]);
+            entries.as_mut_slice()[k + 2..k + 3 + base + row]
+                .iter_mut()
+                .zip(source[..base + row + 1].iter())
+                .zip(paired[..base + row + 1].iter())
+                .for_each(|((entry, source_j), paired_j)| *entry -= u * source_j + w * paired_j)
         })
     }
     /// Solve a system of linear equations for another right-hand side.
