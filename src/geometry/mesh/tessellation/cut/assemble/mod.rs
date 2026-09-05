@@ -21,7 +21,7 @@ use crate::{
 };
 use std::{array::from_fn, collections::HashMap, collections::HashSet};
 
-#[allow(clippy::type_complexity)]
+#[expect(clippy::type_complexity)]
 fn build_cut_cells(
     mesh: &Mesh<D>,
     classes: &[Class],

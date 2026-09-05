@@ -160,7 +160,7 @@ where
         Self::slopes(&mut function, y, t, dt, k, y_trial)?;
         self.error(dt, k)
     }
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn step(
         &self,
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
@@ -279,7 +279,7 @@ where
         k[Self::SLOPES - 1] = function(t + dt, y_trial)?;
         self.error(dt, k)
     }
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn step_fsal(
         &self,
         y: &mut Y,

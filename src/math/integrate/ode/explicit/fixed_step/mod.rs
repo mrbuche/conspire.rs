@@ -83,7 +83,6 @@ where
         }
         Ok((t_sol, y_sol, dydt_sol))
     }
-    #[allow(clippy::too_many_arguments)]
     fn step(
         &self,
         function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,

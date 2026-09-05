@@ -81,7 +81,7 @@ pub(super) fn solve_cubic_symmetric(
                 *lambda -= f / f_prime;
             }
         });
-        lambdas.sort_by(|a, b| b.partial_cmp(a).unwrap());
+        lambdas.sort_by(|a, b| b.total_cmp(a));
         Ok(TensorRank0List::from(lambdas))
     } else {
         Err(TensorError::SymmetricMatrixComplexEigenvalues)
@@ -134,7 +134,7 @@ fn orthogonal_unit_vector<I>(
     let axis = vector
         .iter()
         .enumerate()
-        .min_by(|(_, a), (_, b)| a.abs().partial_cmp(&b.abs()).unwrap())
+        .min_by(|(_, a), (_, b)| a.abs().total_cmp(&b.abs()))
         .map(|(i, _)| i)
         .unwrap();
     let mut other = TensorRank1::<3, I, Dimensionless>::zero();
@@ -149,7 +149,7 @@ fn eigenvector_symmetric<I>(
     let m = tensor - TensorRank2::identity() * eigenvalue;
     [m[1].cross(&m[2]), m[0].cross(&m[2]), m[0].cross(&m[1])]
         .into_iter()
-        .max_by(|a, b| a.norm().partial_cmp(&b.norm()).unwrap())
+        .max_by(|a, b| a.norm().total_cmp(&b.norm()))
         .unwrap()
         .normalized()
 }

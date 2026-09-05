@@ -17,7 +17,7 @@ fn seed() -> u64 {
         .unwrap_or_default();
     let t = now.as_nanos() as u64;
     let x = 0u8;
-    let addr = (&x as *const u8 as usize) as u64;
+    let addr = (&raw const x).expose_provenance() as u64;
     let mut s = t ^ addr.wrapping_mul(0x9E3779B97F4A7C15);
     if s == 0 {
         s = 1;
@@ -161,7 +161,7 @@ pub fn random_x2_normal(mean: f64, std: f64) -> f64 {
     let norm = x2_normal_norm(mean, std);
     let u = random_uniform();
 
-    let mut lo = 0.0;
+    let mut lo = 0.0_f64;
     let mut hi = mean + 8.0 * std;
     if hi <= 0.0 {
         hi = 1.0;
@@ -179,11 +179,11 @@ pub fn random_x2_normal(mean: f64, std: f64) -> f64 {
         let mut x_new = if dfx > 0.0 {
             x - fx / dfx
         } else {
-            0.5 * (lo + hi)
+            lo.midpoint(hi)
         };
 
         if !x_new.is_finite() || x_new <= lo || x_new >= hi {
-            x_new = 0.5 * (lo + hi);
+            x_new = lo.midpoint(hi);
         }
 
         let f_new = x2_normal_cdf(x_new, mean, std, norm);

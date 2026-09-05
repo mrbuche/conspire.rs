@@ -58,7 +58,7 @@ pub(super) fn template<T, U>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn cap<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],

@@ -41,7 +41,7 @@ where
     V: TensorVec<Item = Z>,
     W: TensorVec<Item = Derivative<Y, T>>,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn integrate(
         &self,
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
@@ -63,7 +63,7 @@ where
     V: TensorVec<Item = Z>,
     W: TensorVec<Item = Derivative<Y, T>>,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn integrate(
         &self,
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
@@ -85,7 +85,7 @@ where
     V: TensorVec<Item = Z>,
     W: TensorVec<Item = Derivative<Y, T>>,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn integrate(
         &self,
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
@@ -142,7 +142,6 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    #[allow(clippy::too_many_arguments)]
     fn integrate(
         &self,
         function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
@@ -161,7 +160,7 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn integrate(
         &self,
         function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,

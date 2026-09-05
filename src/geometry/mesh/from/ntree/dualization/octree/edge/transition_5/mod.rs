@@ -158,7 +158,7 @@ fn find(coordinate: &Coordinate<D>, nodes_map: &NodeMap<D>) -> Option<usize> {
         .copied()
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn corner(
     steiner: Coordinate<D>,
     config: &Config,
@@ -183,7 +183,6 @@ fn corner(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn chamber(
     config: &Config,
     facet_m: usize,
@@ -285,7 +284,6 @@ fn chamber(
     ]);
 }
 
-#[allow(clippy::too_many_arguments)]
 fn pair(
     config_a: &Config,
     config_b: &Config,
