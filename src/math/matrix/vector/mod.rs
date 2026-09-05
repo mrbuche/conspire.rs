@@ -455,8 +455,8 @@ impl Mul for Vector {
     fn mul(self, vector: Self) -> Self::Output {
         self.iter()
             .zip(vector.iter())
-            .map(|(self_i, vector_i)| self_i * vector_i)
-            .sum()
+            .map(|(self_i, vector_i)| self_i.algebraic_mul(*vector_i))
+            .fold(0.0, f64::algebraic_add)
     }
 }
 
@@ -465,8 +465,8 @@ impl Mul<&Self> for Vector {
     fn mul(self, vector: &Self) -> Self::Output {
         self.iter()
             .zip(vector.iter())
-            .map(|(self_i, vector_i)| self_i * vector_i)
-            .sum()
+            .map(|(self_i, vector_i)| self_i.algebraic_mul(*vector_i))
+            .fold(0.0, f64::algebraic_add)
     }
 }
 
@@ -475,8 +475,8 @@ impl Mul<Vector> for &Vector {
     fn mul(self, vector: Vector) -> Self::Output {
         self.iter()
             .zip(vector.iter())
-            .map(|(self_i, vector_i)| self_i * vector_i)
-            .sum()
+            .map(|(self_i, vector_i)| self_i.algebraic_mul(*vector_i))
+            .fold(0.0, f64::algebraic_add)
     }
 }
 
@@ -485,8 +485,8 @@ impl Mul for &Vector {
     fn mul(self, vector: Self) -> Self::Output {
         self.iter()
             .zip(vector.iter())
-            .map(|(self_i, vector_i)| self_i * vector_i)
-            .sum()
+            .map(|(self_i, vector_i)| self_i.algebraic_mul(*vector_i))
+            .fold(0.0, f64::algebraic_add)
     }
 }
 
@@ -578,10 +578,10 @@ impl<const D: usize, I, U> Mul<&TensorRank1Vec<D, I, U>> for &Vector {
                 entry_a
                     .iter()
                     .enumerate()
-                    .map(|(i, entry_a_i)| self[D * a + i] * entry_a_i.value())
-                    .sum::<Scalar>()
+                    .map(|(i, entry_a_i)| self[D * a + i].algebraic_mul(entry_a_i.value()))
+                    .fold(0.0, f64::algebraic_add)
             })
-            .sum()
+            .fold(0.0, f64::algebraic_add)
     }
 }
 
@@ -591,8 +591,8 @@ impl<U> Mul<&QuantityVector<U>> for &Vector {
         quantity_vector
             .iter()
             .enumerate()
-            .map(|(a, entry_a)| self[a] * entry_a.value())
-            .sum()
+            .map(|(a, entry_a)| self[a].algebraic_mul(entry_a.value()))
+            .fold(0.0, f64::algebraic_add)
     }
 }
 
@@ -606,10 +606,10 @@ impl<const D: usize, I, J, U> Mul<&TensorRank2<D, I, J, U>> for &Vector {
                 entry_i
                     .iter()
                     .enumerate()
-                    .map(|(j, entry_ij)| self[D * i + j] * entry_ij.value())
-                    .sum::<Scalar>()
+                    .map(|(j, entry_ij)| self[D * i + j].algebraic_mul(entry_ij.value()))
+                    .fold(0.0, f64::algebraic_add)
             })
-            .sum()
+            .fold(0.0, f64::algebraic_add)
     }
 }
 

@@ -266,7 +266,9 @@ impl LdlDecomposition {
             .for_each(|(&p_i, y_i)| *y_i = b[p_i]);
         for i in 0..n {
             let stop = if i > 0 && self.pair[i - 1] { i - 1 } else { i };
-            let sum: Scalar = (0..stop).map(|j| self.ldl[i][j] * y[j]).sum();
+            let sum = (0..stop)
+                .map(|j| self.ldl[i][j].algebraic_mul(y[j]))
+                .fold(0.0, f64::algebraic_add);
             y[i] -= sum
         }
         let mut k = 0;
@@ -285,7 +287,9 @@ impl LdlDecomposition {
         }
         for i in (0..n).rev() {
             let start = if self.pair[i] { i + 2 } else { i + 1 };
-            let sum: Scalar = (start..n).map(|j| self.ldl[j][i] * y[j]).sum();
+            let sum = (start..n)
+                .map(|j| self.ldl[j][i].algebraic_mul(y[j]))
+                .fold(0.0, f64::algebraic_add);
             y[i] -= sum
         }
         self.permutation

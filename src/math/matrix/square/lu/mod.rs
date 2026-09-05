@@ -4,7 +4,7 @@ mod test;
 use super::{SquareMatrix, SquareMatrixError};
 use crate::{
     ABS_TOL, REL_TOL,
-    math::{Scalar, Tensor, Vector, simd},
+    math::{Tensor, Vector, simd},
 };
 
 impl SquareMatrix {
@@ -145,8 +145,8 @@ fn forward_substitution(x: &mut Vector, a: &SquareMatrix) {
             .iter()
             .take(i)
             .zip(x.iter().take(i))
-            .map(|(a_ij, x_j)| a_ij * x_j)
-            .sum::<Scalar>()
+            .map(|(a_ij, x_j)| a_ij.algebraic_mul(*x_j))
+            .fold(0.0, f64::algebraic_add)
     })
 }
 
@@ -156,8 +156,8 @@ fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
             .iter()
             .skip(i + 1)
             .zip(x.iter().skip(i + 1))
-            .map(|(a_ij, x_j)| a_ij * x_j)
-            .sum::<Scalar>();
+            .map(|(a_ij, x_j)| a_ij.algebraic_mul(*x_j))
+            .fold(0.0, f64::algebraic_add);
         x[i] /= a_i[i];
     })
 }
