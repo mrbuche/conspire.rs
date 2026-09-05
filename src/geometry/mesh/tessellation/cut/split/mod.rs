@@ -15,7 +15,7 @@ pub(super) enum Split {
     Cut(CutCell),
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(super) fn split_cell(
     faces: &[Vec<usize>],
     edges: &[[usize; 2]],

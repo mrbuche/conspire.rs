@@ -50,7 +50,7 @@ pub(super) fn face_transition<T, U>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn template<T, U>(
     leaves: [U; L],
     center_nodes: &[usize],
@@ -126,7 +126,6 @@ fn template<T, U>(
     )
 }
 
-#[allow(clippy::too_many_arguments)]
 fn connectivity_template(
     center_nodes: &[usize],
     leaves_center_nodes: [usize; L],

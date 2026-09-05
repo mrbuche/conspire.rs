@@ -384,7 +384,6 @@ where
     for<'a> &'a Derivative<Y, T>:
         Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
-    #[allow(clippy::too_many_arguments)]
     fn integrate_implicit_dae_variable_step_explicit_minimize_1(
         &self,
         mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
@@ -474,7 +473,7 @@ where
     for<'a> &'a Derivative<Y, T>:
         Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn integrate_implicit_dae_variable_step_explicit_minimize_2(
         &self,
         mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,

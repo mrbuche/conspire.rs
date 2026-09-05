@@ -52,7 +52,7 @@ pub(crate) fn rank_one_quad(
 
 /// Applies a source slice pair to four target slices with multipliers `u`
 /// and `w`, streaming both sources from memory once for all four.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn rank_two_quad(
     temp_0: &mut [Scalar],
     temp_1: &mut [Scalar],

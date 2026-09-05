@@ -451,7 +451,7 @@ fn backtrack_penalty(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn kkt_entry<Kuu, Kvu, Kuv, Kvv>(
     row: usize,
     column: usize,
@@ -616,7 +616,7 @@ fn kkt_residual<R, T>(
 /// The condensed strategy treats the local variables as a function of the
 /// global ones, so anywhere the global variables are moved to, this is what
 /// the local ones become.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn converge_local<U, V, Rv, Kuu, Kvu, Kuv, Kvv>(
     local_solver: &NewtonRaphson,
     residual_local: &mut impl FnMut(&U, &V) -> Result<Rv, String>,
@@ -669,7 +669,7 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     newton_raphson: &NewtonRaphson,
     mut function: impl FnMut(&U, &V) -> Result<Scalar, String>,
@@ -1111,7 +1111,7 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn constrained_fixed<J, H, X, E>(
     newton_raphson: &NewtonRaphson,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
@@ -1218,7 +1218,7 @@ where
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,

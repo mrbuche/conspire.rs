@@ -247,7 +247,7 @@ where
 }
 
 /// Common methods for tensors.
-#[allow(clippy::len_without_is_empty)]
+#[expect(clippy::len_without_is_empty)]
 pub trait Tensor
 where
     for<'a> Self: Sized

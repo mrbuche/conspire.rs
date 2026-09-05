@@ -70,7 +70,7 @@ pub(super) unsafe fn rank_one_quad(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 #[target_feature(enable = "avx2", enable = "fma")]
 pub(super) unsafe fn rank_two_quad(
     temp_0: &mut [Scalar],

@@ -30,7 +30,6 @@ where
     V: TensorVec<Item = Derivative<Y, T>>,
 {
     /// Solution interpolation.
-    #[allow(clippy::too_many_arguments)]
     fn interpolate(
         &self,
         time: &Times<T>,

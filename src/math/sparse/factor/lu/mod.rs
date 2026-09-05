@@ -521,7 +521,7 @@ fn trisolve(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, wi
 
 /// Nonzero pattern of the solution to Lx = b, as the topologically ordered reach
 /// of the pattern of b in the graph of L, placed in order[top..] with top returned.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn reach(
     starts: impl Iterator<Item = usize>,
     l_cols: &[Vec<(usize, Scalar)>],

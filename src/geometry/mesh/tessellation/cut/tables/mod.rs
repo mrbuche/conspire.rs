@@ -40,7 +40,7 @@ impl GenericTables {
 }
 
 impl Tessellation {
-    #[allow(clippy::type_complexity)]
+    #[expect(clippy::type_complexity)]
     fn edges_signs_crossings(
         &self,
         mesh: &Mesh<D>,

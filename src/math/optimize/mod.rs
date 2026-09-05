@@ -119,7 +119,7 @@ pub trait SecondOrderOptimization<F, J, H, X> {
 /// eliminated variables are already standing where the trial puts them by the
 /// time the energy there is asked for.
 pub trait SecondOrderOptimizationIncremental<F, J, H, X> {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn minimize_incremental(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
@@ -133,7 +133,7 @@ pub trait SecondOrderOptimizationIncremental<F, J, H, X> {
 }
 
 /// First-order root-finding algorithms for problems split into global and local variables.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub trait FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     fn root_block(
         &self,
@@ -149,7 +149,7 @@ pub trait FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
 }
 
 /// Second-order optimization algorithms for problems split into global and local variables.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub trait SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     fn minimize_block(
         &self,

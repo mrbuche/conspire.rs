@@ -106,7 +106,7 @@ pub(super) fn agglomerate(
 }
 
 impl Tessellation {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub(super) fn collapse_short_edges(
         &self,
         coordinates: &mut Coordinates<D>,

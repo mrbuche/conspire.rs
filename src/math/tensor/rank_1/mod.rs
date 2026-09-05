@@ -713,7 +713,7 @@ where
     }
 }
 
-#[allow(clippy::suspicious_arithmetic_impl)]
+#[expect(clippy::suspicious_arithmetic_impl)]
 impl<const D: usize, I, J, U, V> Div<TensorRank2<D, I, J, V>> for &TensorRank1<D, I, U>
 where
     U: UnitDiv<V>,
