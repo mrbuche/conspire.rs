@@ -3,7 +3,15 @@ use std::simd::{Simd, StdFloat};
 
 type F64x4 = Simd<Scalar, 4>;
 
-pub(super) fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
+// SAFETY (all three): the x86_64 build enables avx2 + fma, so the caller must
+// only dispatch here once those features are detected at runtime; every other
+// target compiles without extra features and is sound at its own baseline.
+
+#[cfg_attr(
+    target_arch = "x86_64",
+    target_feature(enable = "avx2", enable = "fma")
+)]
+pub(super) unsafe fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
     let len = target.len();
     let spread = F64x4::splat(-w);
     let mut r = 0;
@@ -17,7 +25,11 @@ pub(super) fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
     (r..len).for_each(|i| target[i] -= column[i] * w);
 }
 
-pub(super) fn rank_one_quad(
+#[cfg_attr(
+    target_arch = "x86_64",
+    target_feature(enable = "avx2", enable = "fma")
+)]
+pub(super) unsafe fn rank_one_quad(
     temp_0: &mut [Scalar],
     temp_1: &mut [Scalar],
     temp_2: &mut [Scalar],
@@ -56,7 +68,11 @@ pub(super) fn rank_one_quad(
 }
 
 #[expect(clippy::too_many_arguments)]
-pub(super) fn rank_two_quad(
+#[cfg_attr(
+    target_arch = "x86_64",
+    target_feature(enable = "avx2", enable = "fma")
+)]
+pub(super) unsafe fn rank_two_quad(
     temp_0: &mut [Scalar],
     temp_1: &mut [Scalar],
     temp_2: &mut [Scalar],

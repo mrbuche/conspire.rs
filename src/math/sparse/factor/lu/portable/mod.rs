@@ -10,7 +10,13 @@ type F64s = Simd<Scalar, CHUNK>;
 /// columns are fused 4 / 2 / 1 at a time so each trailing tile row is streamed
 /// once per group, and a group whose pivot rows are all `+0.0` is skipped.
 /// One `F64s` spans a whole `CHUNK`-wide row, so there is no per-lane loop.
-pub(super) fn trisolve(
+// SAFETY: the x86_64 build enables avx2 + fma, so the caller must only dispatch
+// here once those features are detected at runtime.
+#[cfg_attr(
+    target_arch = "x86_64",
+    target_feature(enable = "avx2", enable = "fma")
+)]
+pub(super) unsafe fn trisolve(
     tile: &mut [Scalar],
     panel: &[Scalar],
     m: usize,

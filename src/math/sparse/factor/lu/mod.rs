@@ -5,6 +5,14 @@ mod portable;
 #[cfg(test)]
 mod test;
 
+// The x86_64 `trisolve` kernel behind `simd::isa`: the AVX2 intrinsics on
+// stable, the `std::simd` port under `--features nightly`. Both require
+// avx2 + fma at the call site.
+#[cfg(all(not(feature = "nightly"), target_arch = "x86_64"))]
+use avx::trisolve as trisolve_backend;
+#[cfg(all(feature = "nightly", target_arch = "x86_64"))]
+use portable::trisolve as trisolve_backend;
+
 use super::super::{SparseError, matrix::CscMatrix};
 use super::gemm::{CHUNK, NONE, etree, gemm_wide, max_below, reach_sorted, supernodes};
 use crate::{
@@ -499,34 +507,40 @@ impl CscLu {
 /// tile of CHUNK target columns, as a dense unit-lower triangular solve
 /// vectorized across the targets.
 fn trisolve(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, width: usize) {
-    #[cfg(feature = "nightly")]
-    return portable::trisolve(tile, panel, m, consumed, width);
-    #[cfg(not(feature = "nightly"))]
-    {
-        #[cfg(target_arch = "x86_64")]
-        if simd::isa() == simd::Isa::Avx2 {
-            // SAFETY: `Isa::Avx2` is produced only after `is_x86_feature_detected!` confirms
-            // avx2 + fma, so `avx::trisolve`'s target-feature precondition holds; it stays
-            // within `tile` / `panel` bounds for the given `m`, `consumed`, `width`.
-            return unsafe { avx::trisolve(tile, panel, m, consumed, width) };
-        }
-        (0..consumed).for_each(|c| {
-            let (row, rest) = tile[c * CHUNK..].split_at_mut(CHUNK);
-            if row.iter().any(|&u| u != 0.0) {
-                rest[..(width - c - 1) * CHUNK]
-                    .as_chunks_mut::<CHUNK>()
-                    .0
-                    .iter_mut()
-                    .zip(panel[c * m + c + 1..c * m + width].iter())
-                    .for_each(|(target, &value)| {
-                        target
-                            .iter_mut()
-                            .zip(row.iter())
-                            .for_each(|(entry, &u)| *entry -= value * u)
-                    });
-            }
-        });
+    #[cfg(target_arch = "x86_64")]
+    if simd::isa() == simd::Isa::Avx2 {
+        // SAFETY: `Isa::Avx2` is produced only after `is_x86_feature_detected!`
+        // confirms avx2 + fma, so the backend's target-feature precondition
+        // holds; it stays within `tile` / `panel` bounds for the given `m`,
+        // `consumed`, `width`.
+        return unsafe { trisolve_backend(tile, panel, m, consumed, width) };
     }
+    #[cfg(all(feature = "nightly", not(target_arch = "x86_64")))]
+    // SAFETY: on a non-x86_64 target `portable::trisolve` enables no features
+    // beyond the platform baseline.
+    return unsafe { portable::trisolve(tile, panel, m, consumed, width) };
+    #[cfg(not(all(feature = "nightly", not(target_arch = "x86_64"))))]
+    trisolve_scalar(tile, panel, m, consumed, width);
+}
+
+#[cfg(any(not(feature = "nightly"), target_arch = "x86_64"))]
+fn trisolve_scalar(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, width: usize) {
+    (0..consumed).for_each(|c| {
+        let (row, rest) = tile[c * CHUNK..].split_at_mut(CHUNK);
+        if row.iter().any(|&u| u != 0.0) {
+            rest[..(width - c - 1) * CHUNK]
+                .as_chunks_mut::<CHUNK>()
+                .0
+                .iter_mut()
+                .zip(panel[c * m + c + 1..c * m + width].iter())
+                .for_each(|(target, &value)| {
+                    target
+                        .iter_mut()
+                        .zip(row.iter())
+                        .for_each(|(entry, &u)| *entry -= value * u)
+                });
+        }
+    });
 }
 
 /// Nonzero pattern of the solution to Lx = b, as the topologically ordered reach
