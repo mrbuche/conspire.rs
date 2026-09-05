@@ -306,8 +306,6 @@ where
         }
     }
     /// Returns the full contraction with another tensor.
-    ///
-    /// Reduces with reassociable float ops so it vectorizes; not bit-reproducible.
     fn full_contraction(&self, tensor: &Self) -> TensorRank0 {
         self.iter()
             .zip(tensor.iter())
