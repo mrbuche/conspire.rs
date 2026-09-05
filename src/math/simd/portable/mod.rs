@@ -2,6 +2,7 @@ use crate::math::Scalar;
 use std::simd::{Simd, StdFloat};
 
 type F64x4 = Simd<Scalar, 4>;
+type F64x8 = Simd<Scalar, 8>;
 
 // SAFETY (all three): the x86_64 build enables avx2 + fma, so the caller must
 // only dispatch here once those features are detected at runtime; every other
@@ -13,12 +14,20 @@ type F64x4 = Simd<Scalar, 4>;
 )]
 pub(super) unsafe fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
     let len = target.len();
-    let spread = F64x4::splat(-w);
+    let spread_8 = F64x8::splat(-w);
+    let spread_4 = F64x4::splat(-w);
     let mut r = 0;
-    while r + 4 <= len {
+    while r + 8 <= len {
+        let t = F64x8::from_slice(&target[r..]);
+        F64x8::from_slice(&column[r..])
+            .mul_add(spread_8, t)
+            .copy_to_slice(&mut target[r..]);
+        r += 8;
+    }
+    if r + 4 <= len {
         let t = F64x4::from_slice(&target[r..]);
         F64x4::from_slice(&column[r..])
-            .mul_add(spread, t)
+            .mul_add(spread_4, t)
             .copy_to_slice(&mut target[r..]);
         r += 4;
     }
