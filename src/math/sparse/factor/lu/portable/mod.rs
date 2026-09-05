@@ -23,9 +23,16 @@ pub(super) unsafe fn trisolve(
     consumed: usize,
     width: usize,
 ) {
-    let load = |tile: &[Scalar], r: usize| F64s::from_slice(&tile[r * CHUNK..]);
-    let store = |tile: &mut [Scalar], r: usize, val: F64s| {
-        val.copy_to_slice(&mut tile[r * CHUNK..r * CHUNK + CHUNK])
+    // Unaligned row load/store, matching `avx::trisolve`'s `_mm256_loadu_pd`;
+    // every `r` here satisfies `r < width` so `r * CHUNK + CHUNK <= tile.len()`.
+    let load = |tile: &[Scalar], r: usize| unsafe {
+        tile.as_ptr().add(r * CHUNK).cast::<F64s>().read_unaligned()
+    };
+    let store = |tile: &mut [Scalar], r: usize, val: F64s| unsafe {
+        tile.as_mut_ptr()
+            .add(r * CHUNK)
+            .cast::<F64s>()
+            .write_unaligned(val)
     };
     let mut c = 0;
     while c + 4 <= consumed {
