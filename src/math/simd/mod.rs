@@ -4,14 +4,38 @@ mod avx;
 use crate::math::Scalar;
 
 #[cfg(target_arch = "x86_64")]
-pub(crate) fn enabled() -> bool {
-    std::arch::is_x86_feature_detected!("avx2") && std::arch::is_x86_feature_detected!("fma")
+use std::sync::LazyLock;
+
+/// The widest SIMD backend usable at runtime.
+#[cfg(target_arch = "x86_64")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Isa {
+    None,
+    Avx2,
+}
+
+#[cfg(target_arch = "x86_64")]
+static ISA: LazyLock<Isa> = LazyLock::new(|| {
+    if std::arch::is_x86_feature_detected!("avx2") && std::arch::is_x86_feature_detected!("fma") {
+        Isa::Avx2
+    } else {
+        Isa::None
+    }
+});
+
+/// The SIMD backend selected for this run, resolved once.
+#[cfg(target_arch = "x86_64")]
+pub(crate) fn isa() -> Isa {
+    *ISA
 }
 
 /// Applies a source slice to a target slice with multiplier `w`.
 pub(crate) fn axpy(target: &mut [Scalar], column: &[Scalar], w: Scalar) {
     #[cfg(target_arch = "x86_64")]
-    if enabled() {
+    if isa() == Isa::Avx2 {
+        // SAFETY: `Isa::Avx2` is produced only after `is_x86_feature_detected!` confirms
+        // avx2 + fma, so `avx::axpy`'s target-feature precondition holds. It reads
+        // `column.len()` elements and writes the same count into `target`.
         return unsafe { avx::axpy(target, column, w) };
     }
     target
@@ -31,7 +55,10 @@ pub(crate) fn rank_one_quad(
     u: [Scalar; 4],
 ) {
     #[cfg(target_arch = "x86_64")]
-    if enabled() {
+    if isa() == Isa::Avx2 {
+        // SAFETY: `Isa::Avx2` implies avx2 + fma were detected, satisfying the
+        // target-feature precondition. Each `temp_*` is at least `column.len()` long
+        // (caller invariant), which is all the kernel touches.
         return unsafe { avx::rank_one_quad(temp_0, temp_1, temp_2, temp_3, column, u) };
     }
     column
@@ -64,7 +91,10 @@ pub(crate) fn rank_two_quad(
     w: [Scalar; 4],
 ) {
     #[cfg(target_arch = "x86_64")]
-    if enabled() {
+    if isa() == Isa::Avx2 {
+        // SAFETY: `Isa::Avx2` implies avx2 + fma were detected, satisfying the
+        // target-feature precondition. Each `temp_*` is at least `column.len()` long
+        // and `other` at least `column.len()` (caller invariant).
         return unsafe { avx::rank_two_quad(temp_0, temp_1, temp_2, temp_3, column, other, u, w) };
     }
     column
