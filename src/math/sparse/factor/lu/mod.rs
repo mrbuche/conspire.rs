@@ -1,4 +1,4 @@
-#[cfg(target_arch = "x86_64")]
+#[cfg(all(not(feature = "nightly"), target_arch = "x86_64"))]
 mod avx;
 #[cfg(test)]
 mod test;
@@ -497,7 +497,9 @@ impl CscLu {
 /// tile of CHUNK target columns, as a dense unit-lower triangular solve
 /// vectorized across the targets.
 fn trisolve(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, width: usize) {
-    #[cfg(target_arch = "x86_64")]
+    // TODO(portable-simd): no `std::simd` port of this kernel yet; the `nightly`
+    // build falls through to the scalar solve below.
+    #[cfg(all(not(feature = "nightly"), target_arch = "x86_64"))]
     if simd::isa() == simd::Isa::Avx2 {
         // SAFETY: `Isa::Avx2` is produced only after `is_x86_feature_detected!` confirms
         // avx2 + fma, so `avx::trisolve`'s target-feature precondition holds; it stays

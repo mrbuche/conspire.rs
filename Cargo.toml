@@ -13,6 +13,7 @@ version = "0.7.8"
 
 [features]
 all = ['vem']
+nightly = []
 constitutive = ['physics']
 doc = []
 fem = ['constitutive', 'geometry']
