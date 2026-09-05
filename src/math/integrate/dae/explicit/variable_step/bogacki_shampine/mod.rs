@@ -76,7 +76,6 @@ where
             y, z, t, y_sol, z_sol, t_sol, dydt_sol, k_sol, dt, k, y_trial, z_trial, e,
         )
     }
-    #[allow(clippy::too_many_arguments)]
     fn interpolate_explicit_dae_variable_step(
         &self,
         _evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,

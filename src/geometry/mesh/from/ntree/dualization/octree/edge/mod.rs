@@ -16,7 +16,6 @@ use crate::geometry::{
     ntree::{Balancing, Octree},
 };
 
-#[allow(clippy::too_many_arguments)]
 pub(super) fn edge_transitions<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],

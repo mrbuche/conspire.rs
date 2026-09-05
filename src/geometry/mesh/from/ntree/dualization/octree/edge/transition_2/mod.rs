@@ -79,7 +79,7 @@ pub(super) fn template<T, U>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn template_inner<T, U>(
     facet: usize,
     row: [usize; 13],

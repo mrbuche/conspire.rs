@@ -498,7 +498,10 @@ impl CscLu {
 /// vectorized across the targets.
 fn trisolve(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, width: usize) {
     #[cfg(target_arch = "x86_64")]
-    if simd::enabled() {
+    if simd::isa() == simd::Isa::Avx2 {
+        // SAFETY: `Isa::Avx2` is produced only after `is_x86_feature_detected!` confirms
+        // avx2 + fma, so `avx::trisolve`'s target-feature precondition holds; it stays
+        // within `tile` / `panel` bounds for the given `m`, `consumed`, `width`.
         return unsafe { avx::trisolve(tile, panel, m, consumed, width) };
     }
     (0..consumed).for_each(|c| {
@@ -521,7 +524,7 @@ fn trisolve(tile: &mut [Scalar], panel: &[Scalar], m: usize, consumed: usize, wi
 
 /// Nonzero pattern of the solution to Lx = b, as the topologically ordered reach
 /// of the pattern of b in the graph of L, placed in order[top..] with top returned.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn reach(
     starts: impl Iterator<Item = usize>,
     l_cols: &[Vec<(usize, Scalar)>],

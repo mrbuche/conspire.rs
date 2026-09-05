@@ -1357,7 +1357,7 @@ where
 
 // Solving against a rank 4 divides the units, as it undoes multiplying by one.
 
-#[allow(clippy::suspicious_arithmetic_impl)]
+#[expect(clippy::suspicious_arithmetic_impl)]
 impl<I, J, K, L, U, V> Div<TensorRank4<3, I, J, K, L, V>> for &TensorRank2<3, I, J, U>
 where
     U: UnitDiv<V>,

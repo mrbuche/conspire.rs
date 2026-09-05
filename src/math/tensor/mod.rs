@@ -247,7 +247,7 @@ where
 }
 
 /// Common methods for tensors.
-#[allow(clippy::len_without_is_empty)]
+#[expect(clippy::len_without_is_empty)]
 pub trait Tensor
 where
     for<'a> Self: Sized
@@ -310,7 +310,7 @@ where
         self.iter()
             .zip(tensor.iter())
             .map(|(self_entry, tensor_entry)| self_entry.full_contraction(tensor_entry))
-            .sum()
+            .fold(0.0, f64::algebraic_add)
     }
     /// Checks whether the tensor is the zero tensor.
     fn is_zero(&self) -> bool {

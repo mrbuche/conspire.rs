@@ -14,7 +14,7 @@ fn fill_buf(fill: &[u8], out_elems: usize, elem: usize) -> Vec<u8> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(in crate::io::netcdf) fn read_data(
     file: &[u8],
     layout: &Layout,
@@ -84,7 +84,7 @@ fn gather(blob: &[u8], shape: &[u64], start: &[usize], count: &[usize], elem: us
     out
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn btree(
     file: &[u8],
     addr: usize,
@@ -153,7 +153,7 @@ fn unfilter(raw: &[u8], filters: &[Filter], mask: u32, elem: usize) -> Vec<u8> {
     data.into_owned()
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn scatter(
     out: &mut [u8],
     shape: &[u64],

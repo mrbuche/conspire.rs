@@ -49,7 +49,6 @@ pub(super) fn template<T, U>(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn template_inner<T, U>(
     edge: Edge,
     cell_subnodes: &[Option<U>; N],

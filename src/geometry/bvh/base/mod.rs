@@ -37,7 +37,7 @@ impl<const D: usize> BoundingVolumeHierarchy<D> {
         let axis = bounding_box.longest_axis();
         let mid = primitives.len() / 2;
         primitives.select_nth_unstable_by(mid, |a, b| {
-            a.centroid()[axis].partial_cmp(&b.centroid()[axis]).unwrap()
+            a.centroid()[axis].total_cmp(&b.centroid()[axis])
         });
         let (left_primitives, right_primitives) = primitives.split_at_mut(mid);
         let left = self.build_node(left_primitives, leaf_size);
@@ -84,7 +84,7 @@ impl BoundingVolumeHierarchy<3> {
         if !self.nodes.is_empty() {
             self.all_node(0, ray, coordinates, elements, &mut hits);
         }
-        hits.sort_by(|one, two| one.distance().partial_cmp(&two.distance()).unwrap());
+        hits.sort_by(|one, two| one.distance().total_cmp(&two.distance()));
         hits
     }
     fn all_node(

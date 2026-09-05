@@ -72,7 +72,7 @@ where
         let root_length = 1usize << (levels - 1);
         let cell = Quantity::new((hi[0] - lo[0]) / root_length as Scalar);
         let rescale = Rescaling {
-            center: Coordinate::from(from_fn(|axis| 0.5 * (lo[axis] + hi[axis]))),
+            center: Coordinate::from(from_fn(|axis| lo[axis].midpoint(hi[axis]))),
             cell,
             half: 0.5 * root_length as Scalar,
         };

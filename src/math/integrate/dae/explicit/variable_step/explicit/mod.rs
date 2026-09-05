@@ -139,7 +139,7 @@ where
             Ok((t_sol, y_sol, dydt_sol, z_sol))
         }
     }
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn interpolate_explicit_dae_variable_step(
         &self,
         mut evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
@@ -193,7 +193,7 @@ where
         }
         Ok((y_int, dydt_int, z_int))
     }
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn slopes_solve(
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
         solution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Z, String>,
@@ -205,7 +205,7 @@ where
         y_trial: &mut Y,
         z_trial: &mut Z,
     ) -> Result<(), String>;
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn slopes_solve_and_error(
         &self,
         mut evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
@@ -231,7 +231,7 @@ where
         )?;
         self.error(dt, k)
     }
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn step_solve(
         &self,
         mut evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
@@ -278,7 +278,7 @@ where
     for<'a> &'a Derivative<Y, T>:
         Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn slopes_solve_and_error_fsal(
         &self,
         mut evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
@@ -305,7 +305,7 @@ where
         k[Self::SLOPES - 1] = evolution(t + dt, y_trial, z_trial)?;
         self.error(dt, k)
     }
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn step_solve_fsal(
         &self,
         y: &mut Y,
@@ -431,7 +431,7 @@ where
     for<'a> &'a Derivative<Y, T>:
         Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn integrate_explicit_dae_variable_step_explicit_root_1(
         &self,
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
@@ -520,7 +520,7 @@ where
     for<'a> &'a Derivative<Y, T>:
         Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn integrate_explicit_dae_variable_step_explicit_minimize_1(
         &self,
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
@@ -608,7 +608,7 @@ where
     for<'a> &'a Derivative<Y, T>:
         Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn integrate_explicit_dae_variable_step_explicit_minimize_2(
         &self,
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,

@@ -124,7 +124,7 @@ fn weighted_diameter(samples: Vec<(Quantity<Length>, Scalar)>) -> Quantity<Lengt
     }
     let mut distances: Vec<Quantity<Length>> =
         samples.iter().map(|&(distance, _)| distance).collect();
-    distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    distances.sort_by(|a, b| a.total_cmp(b));
     let median = distances[distances.len() / 2];
     let mean = distances.iter().copied().sum::<Quantity<Length>>() / distances.len() as Scalar;
     let standard_deviation = Quantity::new(
