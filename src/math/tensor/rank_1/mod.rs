@@ -310,8 +310,8 @@ impl<const D: usize, I, U> Tensor for TensorRank1<D, I, U> {
     fn full_contraction(&self, tensor_rank_1: &Self) -> TensorRank0 {
         self.iter()
             .zip(tensor_rank_1.iter())
-            .map(|(self_i, other_i)| self_i.value() * other_i.value())
-            .sum()
+            .map(|(self_i, other_i)| self_i.value().algebraic_mul(other_i.value()))
+            .fold(0.0, f64::algebraic_add)
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         self.0.iter()

@@ -306,11 +306,13 @@ where
         }
     }
     /// Returns the full contraction with another tensor.
+    ///
+    /// Reduces with reassociable float ops so it vectorizes; not bit-reproducible.
     fn full_contraction(&self, tensor: &Self) -> TensorRank0 {
         self.iter()
             .zip(tensor.iter())
             .map(|(self_entry, tensor_entry)| self_entry.full_contraction(tensor_entry))
-            .sum()
+            .fold(0.0, f64::algebraic_add)
     }
     /// Checks whether the tensor is the zero tensor.
     fn is_zero(&self) -> bool {

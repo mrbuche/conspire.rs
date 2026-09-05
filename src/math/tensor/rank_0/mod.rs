@@ -97,7 +97,7 @@ impl Tensor for TensorRank0 {
         }
     }
     fn full_contraction(&self, tensor_rank_0: &Self) -> TensorRank0 {
-        self * tensor_rank_0
+        self.algebraic_mul(*tensor_rank_0)
     }
     fn is_zero(&self) -> bool {
         self == &0.0
