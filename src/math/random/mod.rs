@@ -17,7 +17,7 @@ fn seed() -> u64 {
         .unwrap_or_default();
     let t = now.as_nanos() as u64;
     let x = 0u8;
-    let addr = (&x as *const u8 as usize) as u64;
+    let addr = (&raw const x).expose_provenance() as u64;
     let mut s = t ^ addr.wrapping_mul(0x9E3779B97F4A7C15);
     if s == 0 {
         s = 1;
