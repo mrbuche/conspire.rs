@@ -7,7 +7,11 @@
 //! `Hyperelastic` API. Maintained models keep their hand-written impls.
 
 pub mod neo_hookean;
+pub mod saint_venant_kirchhoff;
 
+pub use self::{
+    neo_hookean::AutodiffNeoHookean, saint_venant_kirchhoff::AutodiffSaintVenantKirchhoff,
+};
 pub use crate::constitutive::solid::elastic::autodiff::{Autodiff, AutodiffElastic};
 
 use crate::{

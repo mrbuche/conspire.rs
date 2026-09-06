@@ -1,13 +1,15 @@
 use super::AutodiffNeoHookean;
 use crate::{
-    constitutive::{
-        ConstitutiveError,
-        solid::{
-            elastic::{Elastic, autodiff::Autodiff},
-            hyperelastic::{Hyperelastic, NeoHookean},
+    constitutive::solid::{
+        elastic::{
+            Elastic,
+            autodiff::{
+                Autodiff,
+                test::{assert_close_2, assert_close_4, ok},
+            },
         },
+        hyperelastic::{Hyperelastic, NeoHookean},
     },
-    math::{TensorRank2, TensorRank4},
     mechanics::{DeformationGradient, test::get_deformation_gradient},
     units::Stress,
 };
@@ -24,49 +26,6 @@ fn autodiff() -> Autodiff<AutodiffNeoHookean> {
         bulk_modulus: Stress::pascals(1.3),
         shear_modulus: Stress::pascals(0.7),
     })
-}
-
-fn ok<T>(result: Result<T, ConstitutiveError>) -> T {
-    match result {
-        Ok(value) => value,
-        Err(_) => panic!("evaluation failed"),
-    }
-}
-
-fn assert_close_2<I, J>(
-    ad: &TensorRank2<3, I, J, Stress>,
-    hand: &TensorRank2<3, I, J, Stress>,
-    tol: f64,
-) {
-    for i in 0..3 {
-        for j in 0..3 {
-            let (a, b) = (ad[i][j].value(), hand[i][j].value());
-            assert!(
-                (a - b).abs() <= tol * (1.0 + b.abs()),
-                "[{i}][{j}]: {a} vs {b}"
-            );
-        }
-    }
-}
-
-fn assert_close_4<I, J, K, L>(
-    ad: &TensorRank4<3, I, J, K, L, Stress>,
-    hand: &TensorRank4<3, I, J, K, L, Stress>,
-    tol: f64,
-) {
-    for i in 0..3 {
-        for j in 0..3 {
-            for k in 0..3 {
-                for l in 0..3 {
-                    let (a, b) = (ad[i][j][k][l].value(), hand[i][j][k][l].value());
-                    assert!(
-                        (a - b).abs() <= tol * (1.0 + b.abs()),
-                        "[{i}][{j}][{k}][{l}]: {a} vs {b}"
-                    );
-                }
-            }
-        }
-    }
 }
 
 #[test]

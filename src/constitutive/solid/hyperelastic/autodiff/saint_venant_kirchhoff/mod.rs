@@ -1,28 +1,27 @@
-#![allow(clippy::needless_range_loop)]
-
 #[cfg(test)]
 mod test;
 
 use super::{AutodiffElastic, AutodiffHyperelastic};
 use crate::{
-    constitutive::solid::elastic::autodiff::{determinant, push_cauchy, push_second_piola},
+    constitutive::solid::elastic::autodiff::{push_cauchy, push_second_piola},
     math::Quantity,
     units::Stress,
 };
 use std::autodiff::{autodiff_forward, autodiff_reverse};
 
-/// [`NeoHookean`](crate::constitutive::solid::hyperelastic::NeoHookean) as
-/// autodiff kernels; wrap in [`Autodiff`](super::Autodiff) for the `Elastic` /
-/// `Hyperelastic` API.
+/// The hyperelastic
+/// [`SaintVenantKirchhoff`](crate::constitutive::solid::hyperelastic::SaintVenantKirchhoff)
+/// as autodiff kernels; wrap in [`Autodiff`](super::Autodiff) for the `Elastic`
+/// / `Hyperelastic` API.
 #[derive(Clone, Debug)]
-pub struct AutodiffNeoHookean {
+pub struct AutodiffSaintVenantKirchhoff {
     /// The bulk modulus.
     pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus.
     pub shear_modulus: Quantity<Stress>,
 }
 
-impl AutodiffElastic for AutodiffNeoHookean {
+impl AutodiffElastic for AutodiffSaintVenantKirchhoff {
     type Parameters = [f64; 2];
     fn parameters(&self) -> [f64; 2] {
         [self.bulk_modulus.value(), self.shear_modulus.value()]
@@ -71,7 +70,7 @@ impl AutodiffElastic for AutodiffNeoHookean {
     }
 }
 
-impl AutodiffHyperelastic for AutodiffNeoHookean {
+impl AutodiffHyperelastic for AutodiffSaintVenantKirchhoff {
     fn energy(p: &[f64], f: &[f64; 9]) -> f64 {
         energy(p[0], p[1], f)
     }
@@ -79,16 +78,26 @@ impl AutodiffHyperelastic for AutodiffNeoHookean {
 
 /// Helmholtz free energy density, `f` row-major.
 ///
-/// Mirrors `<NeoHookean as Hyperelastic>::helmholtz_free_energy_density`.
+/// Mirrors `<SaintVenantKirchhoff as Hyperelastic>::helmholtz_free_energy_density`:
+/// `E = (F^T F - I) / 2`, `Psi = mu tr(E^2) + (kappa - 2 mu / 3) (tr E)^2 / 2`.
+/// Strain invariants are kept as scalars (no memset'd buffer for Enzyme to
+/// mis-type).
 #[autodiff_reverse(d_energy, Const, Const, Duplicated, Active)]
 fn energy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9]) -> f64 {
-    let mut trace_b = 0.0;
-    for k in 0..9 {
-        trace_b += f[k] * f[k];
-    }
-    let jacobian = determinant(f);
-    0.5 * (shear_modulus * (trace_b * jacobian.powf(-2.0 / 3.0) - 3.0)
-        + bulk_modulus * (0.5 * (jacobian * jacobian - 1.0) - jacobian.ln()))
+    let c00 = f[0] * f[0] + f[3] * f[3] + f[6] * f[6];
+    let c11 = f[1] * f[1] + f[4] * f[4] + f[7] * f[7];
+    let c22 = f[2] * f[2] + f[5] * f[5] + f[8] * f[8];
+    let c01 = f[0] * f[1] + f[3] * f[4] + f[6] * f[7];
+    let c02 = f[0] * f[2] + f[3] * f[5] + f[6] * f[8];
+    let c12 = f[1] * f[2] + f[4] * f[5] + f[7] * f[8];
+    let trace_c = c00 + c11 + c22;
+    let trace_e = 0.5 * (trace_c - 3.0);
+    let squared_trace_e = 0.25
+        * (c00 * c00 + c11 * c11 + c22 * c22 + 2.0 * (c01 * c01 + c02 * c02 + c12 * c12)
+            - 2.0 * trace_c
+            + 3.0);
+    shear_modulus * squared_trace_e
+        + 0.5 * (bulk_modulus - 2.0 / 3.0 * shear_modulus) * trace_e * trace_e
 }
 
 /// `P_iJ = dPsi/dF_iJ`, reverse mode.
