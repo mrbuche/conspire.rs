@@ -13,8 +13,6 @@ version = "0.7.8"
 
 [features]
 all = ['vem']
-# Requires a nightly rustc with the Enzyme backend and a fat-LTO profile:
-#   RUSTFLAGS="-Zautodiff=Enable" cargo +nightly test --release --features autodiff
 autodiff = ['constitutive']
 constitutive = ['physics']
 doc = []

@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
-#![cfg_attr(feature = "nightly", feature(portable_simd))]
+
 #![cfg_attr(feature = "autodiff", feature(autodiff))]
+
+#![cfg_attr(feature = "nightly", feature(portable_simd))]
 
 #[cfg(feature = "constitutive")]
 pub mod constitutive;
