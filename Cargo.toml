@@ -20,6 +20,7 @@ geometry = ['io', 'math']
 io = []
 math = []
 mechanics = ['math']
+nightly = []
 physics = ['mechanics']
 vem = ['fem']
 
