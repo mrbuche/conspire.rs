@@ -1,15 +1,15 @@
-#[cfg(all(not(feature = "nightly"), target_arch = "x86_64"))]
-mod avx;
-#[cfg(feature = "nightly")]
-mod portable;
 #[cfg(test)]
 mod test;
 
-// The x86_64 `trisolve` kernel behind `simd::isa`: the AVX2 intrinsics on
-// stable, the `std::simd` port under `--features nightly`. Both require
-// avx2 + fma at the call site.
+#[cfg(all(not(feature = "nightly"), target_arch = "x86_64"))]
+mod avx;
+
+#[cfg(feature = "nightly")]
+mod portable;
+
 #[cfg(all(not(feature = "nightly"), target_arch = "x86_64"))]
 use avx::trisolve as trisolve_backend;
+
 #[cfg(all(feature = "nightly", target_arch = "x86_64"))]
 use portable::trisolve as trisolve_backend;
 

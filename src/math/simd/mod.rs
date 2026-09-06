@@ -1,5 +1,6 @@
 #[cfg(all(not(feature = "nightly"), target_arch = "x86_64"))]
 mod avx;
+
 #[cfg(feature = "nightly")]
 mod portable;
 
@@ -8,11 +9,9 @@ use crate::math::Scalar;
 #[cfg(target_arch = "x86_64")]
 use std::sync::LazyLock;
 
-// The x86_64 SIMD kernels behind `isa`, selected at compile time: the
-// hand-written AVX2 intrinsics on stable, the `std::simd` port under
-// `--features nightly`. Both require avx2 + fma at the call site.
 #[cfg(all(not(feature = "nightly"), target_arch = "x86_64"))]
 use avx as backend;
+
 #[cfg(all(feature = "nightly", target_arch = "x86_64"))]
 use portable as backend;
 
