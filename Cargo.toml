@@ -13,7 +13,7 @@ version = "0.7.8"
 
 [features]
 all = ['vem']
-autodiff = ['constitutive']
+autodiff = []
 constitutive = ['physics']
 doc = []
 fem = ['constitutive', 'geometry']

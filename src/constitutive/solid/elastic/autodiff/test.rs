@@ -57,7 +57,8 @@ pub(crate) fn assert_close_4<I, J, K, L>(
 // defeat constant folding; the reported figure is the min over trials. Run
 // serially:
 //
-//   cargo +nightly test --release --features autodiff --lib -j1 \
+//   RUSTFLAGS=-Zautodiff=Enable cargo +nightly test --release \
+//     --features autodiff,constitutive --lib -j1 \
 //     time_ -- --ignored --nocapture --test-threads=1
 
 pub(crate) fn deformation_gradients() -> Vec<DeformationGradient> {

@@ -108,4 +108,4 @@ jobs:
       - name: Enzyme
         run: rustup component add enzyme
       - name: Test
-        run: "cargo test --release --features autodiff --lib -j1 autodiff::"
+        run: "cargo test --release --features autodiff,constitutive --lib -j1 autodiff::"

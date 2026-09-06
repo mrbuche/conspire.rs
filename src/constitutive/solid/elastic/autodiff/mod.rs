@@ -1,10 +1,13 @@
 //! Autodiff-backed elastic constitutive models (`std::autodiff` / Enzyme).
 //!
-//! Opt-in, `--features autodiff`; needs a nightly `rustc` with the Enzyme
-//! backend (`rustup component add enzyme`) and a fat-LTO profile:
+//! Opt-in bonus feature `autodiff` (no feature dependencies of its own, like
+//! `nightly`); this module compiles only when `constitutive` is also on. Needs
+//! a nightly `rustc` with the Enzyme backend (`rustup component add enzyme`)
+//! and a fat-LTO profile:
 //!
 //! ```text
-//! RUSTFLAGS="-Zautodiff=Enable" cargo +nightly test --release --features autodiff -j1
+//! RUSTFLAGS="-Zautodiff=Enable" \
+//!   cargo +nightly test --release --features autodiff,constitutive -j1
 //! ```
 //!
 //! A model that supplies `#[autodiff]`-differentiable scalar stress kernels
