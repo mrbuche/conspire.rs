@@ -1,13 +1,77 @@
-use super::{flatten, unflatten_stress, unflatten_tangent};
+use super::{AutodiffHyperelastic, flatten, unflatten_stress, unflatten_tangent};
 use crate::{
     constitutive::solid::{Solid, hyperelastic::NeoHookean},
+    math::Quantity,
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness,
     },
+    units::Stress,
 };
 use std::autodiff::{autodiff_forward, autodiff_reverse};
+
+/// [`NeoHookean`] expressed as autodiff kernels; wrap in [`super::Autodiff`] for
+/// the `Elastic` / `Hyperelastic` API.
+#[derive(Clone, Debug)]
+pub struct AutodiffNeoHookean {
+    /// The bulk modulus.
+    pub bulk_modulus: Quantity<Stress>,
+    /// The shear modulus.
+    pub shear_modulus: Quantity<Stress>,
+}
+
+impl AutodiffHyperelastic for AutodiffNeoHookean {
+    type Parameters = [f64; 2];
+    fn parameters(&self) -> [f64; 2] {
+        [self.bulk_modulus.value(), self.shear_modulus.value()]
+    }
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        self.bulk_modulus
+    }
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        self.shear_modulus
+    }
+    fn energy(p: &[f64], f: &[f64; 9]) -> f64 {
+        energy(p[0], p[1], f)
+    }
+    fn piola(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
+        piola(p[0], p[1], f, out)
+    }
+    fn cauchy(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
+        cauchy(p[0], p[1], f, out)
+    }
+    fn second_piola(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
+        second_piola(p[0], p[1], f, out)
+    }
+    fn piola_tangent(
+        p: &[f64],
+        f: &[f64; 9],
+        df: &[f64; 9],
+        primal: &mut [f64; 9],
+        seed: &mut [f64; 9],
+    ) {
+        d_piola(p[0], p[1], f, df, primal, seed)
+    }
+    fn cauchy_tangent(
+        p: &[f64],
+        f: &[f64; 9],
+        df: &[f64; 9],
+        primal: &mut [f64; 9],
+        seed: &mut [f64; 9],
+    ) {
+        d_cauchy(p[0], p[1], f, df, primal, seed)
+    }
+    fn second_piola_tangent(
+        p: &[f64],
+        f: &[f64; 9],
+        df: &[f64; 9],
+        primal: &mut [f64; 9],
+        seed: &mut [f64; 9],
+    ) {
+        d_second_piola(p[0], p[1], f, df, primal, seed)
+    }
+}
 
 fn determinant(f: &[f64; 9]) -> f64 {
     f[0] * (f[4] * f[8] - f[5] * f[7]) - f[1] * (f[3] * f[8] - f[5] * f[6])
