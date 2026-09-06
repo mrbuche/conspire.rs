@@ -22,7 +22,6 @@ pub struct AutodiffSaintVenantKirchhoff {
 }
 
 impl AutodiffElastic for AutodiffSaintVenantKirchhoff {
-    type Parameters = [f64; 2];
     fn parameters(&self) -> [f64; 2] {
         [self.bulk_modulus.value(), self.shear_modulus.value()]
     }
@@ -32,17 +31,17 @@ impl AutodiffElastic for AutodiffSaintVenantKirchhoff {
     fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
-    fn cauchy(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
+    fn cauchy(p: &[f64; 2], f: &[f64; 9], out: &mut [f64; 9]) {
         cauchy(p[0], p[1], f, out)
     }
-    fn piola(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
+    fn piola(p: &[f64; 2], f: &[f64; 9], out: &mut [f64; 9]) {
         piola(p[0], p[1], f, out)
     }
-    fn second_piola(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
+    fn second_piola(p: &[f64; 2], f: &[f64; 9], out: &mut [f64; 9]) {
         second_piola(p[0], p[1], f, out)
     }
     fn cauchy_tangent(
-        p: &[f64],
+        p: &[f64; 2],
         f: &[f64; 9],
         df: &[f64; 9],
         primal: &mut [f64; 9],
@@ -51,7 +50,7 @@ impl AutodiffElastic for AutodiffSaintVenantKirchhoff {
         d_cauchy(p[0], p[1], f, df, primal, seed)
     }
     fn piola_tangent(
-        p: &[f64],
+        p: &[f64; 2],
         f: &[f64; 9],
         df: &[f64; 9],
         primal: &mut [f64; 9],
@@ -60,7 +59,7 @@ impl AutodiffElastic for AutodiffSaintVenantKirchhoff {
         d_piola(p[0], p[1], f, df, primal, seed)
     }
     fn second_piola_tangent(
-        p: &[f64],
+        p: &[f64; 2],
         f: &[f64; 9],
         df: &[f64; 9],
         primal: &mut [f64; 9],
@@ -71,7 +70,7 @@ impl AutodiffElastic for AutodiffSaintVenantKirchhoff {
 }
 
 impl AutodiffHyperelastic for AutodiffSaintVenantKirchhoff {
-    fn energy(p: &[f64], f: &[f64; 9]) -> f64 {
+    fn energy(p: &[f64; 2], f: &[f64; 9]) -> f64 {
         energy(p[0], p[1], f)
     }
 }

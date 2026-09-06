@@ -29,7 +29,7 @@ use std::fmt::Debug;
 /// density as a scalar kernel (its first-Piola stress kernel being reverse mode
 /// over this).
 pub trait AutodiffHyperelastic: AutodiffElastic {
-    fn energy(parameters: &[f64], f: &[f64; 9]) -> f64;
+    fn energy(parameters: &[f64; 2], f: &[f64; 9]) -> f64;
 }
 
 impl<M> Hyperelastic for Autodiff<M>
@@ -41,9 +41,6 @@ where
         f: &DeformationGradient,
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         self.jacobian(f)?;
-        Ok(Quantity::new(M::energy(
-            self.0.parameters().as_ref(),
-            &flatten(f),
-        )))
+        Ok(Quantity::new(M::energy(&self.0.parameters(), &flatten(f))))
     }
 }
