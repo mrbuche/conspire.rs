@@ -1,4 +1,3 @@
-use super::neo_hookean;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -63,17 +62,17 @@ fn assert_close_4<I, J, K, L>(
 fn stresses_match_hand_written() {
     let (model, f) = (model(), get_deformation_gradient());
     assert_close_2(
-        &neo_hookean::cauchy_stress(&model, &f),
+        &super::cauchy_stress(&model, &f),
         &ok(model.cauchy_stress(&f)),
         1e-8,
     );
     assert_close_2(
-        &neo_hookean::first_piola_kirchhoff_stress(&model, &f),
+        &super::first_piola_kirchhoff_stress(&model, &f),
         &ok(model.first_piola_kirchhoff_stress(&f)),
         1e-8,
     );
     assert_close_2(
-        &neo_hookean::second_piola_kirchhoff_stress(&model, &f),
+        &super::second_piola_kirchhoff_stress(&model, &f),
         &ok(model.second_piola_kirchhoff_stress(&f)),
         1e-8,
     );
@@ -83,17 +82,17 @@ fn stresses_match_hand_written() {
 fn tangents_match_hand_written() {
     let (model, f) = (model(), get_deformation_gradient());
     assert_close_4(
-        &neo_hookean::cauchy_tangent_stiffness(&model, &f),
+        &super::cauchy_tangent_stiffness(&model, &f),
         &ok(model.cauchy_tangent_stiffness(&f)),
         1e-6,
     );
     assert_close_4(
-        &neo_hookean::first_piola_kirchhoff_tangent_stiffness(&model, &f),
+        &super::first_piola_kirchhoff_tangent_stiffness(&model, &f),
         &ok(model.first_piola_kirchhoff_tangent_stiffness(&f)),
         1e-6,
     );
     assert_close_4(
-        &neo_hookean::second_piola_kirchhoff_tangent_stiffness(&model, &f),
+        &super::second_piola_kirchhoff_tangent_stiffness(&model, &f),
         &ok(model.second_piola_kirchhoff_tangent_stiffness(&f)),
         1e-6,
     );
@@ -101,8 +100,9 @@ fn tangents_match_hand_written() {
 
 #[test]
 fn wrapper_matches_hand_written() {
-    use super::super::Hyperelastic;
-    use super::{Autodiff, neo_hookean::AutodiffNeoHookean};
+    use super::super::Autodiff;
+    use super::AutodiffNeoHookean;
+    use crate::constitutive::solid::hyperelastic::Hyperelastic;
     let hand = model();
     let ad = Autodiff(AutodiffNeoHookean {
         bulk_modulus: Stress::pascals(1.3),
@@ -230,7 +230,7 @@ timing!(
 timing!(
     time_enzyme_cauchy_stress,
     "enzyme  sigma stress",
-    |m: &NeoHookean, f: &_| neo_hookean::cauchy_stress(m, f)
+    |m: &NeoHookean, f: &_| super::cauchy_stress(m, f)
 );
 timing!(
     time_hand_first_piola_stress,
@@ -240,7 +240,7 @@ timing!(
 timing!(
     time_enzyme_first_piola_stress,
     "enzyme  P stress",
-    |m: &NeoHookean, f: &_| neo_hookean::first_piola_kirchhoff_stress(m, f)
+    |m: &NeoHookean, f: &_| super::first_piola_kirchhoff_stress(m, f)
 );
 timing!(
     time_hand_second_piola_stress,
@@ -250,7 +250,7 @@ timing!(
 timing!(
     time_enzyme_second_piola_stress,
     "enzyme  S stress",
-    |m: &NeoHookean, f: &_| neo_hookean::second_piola_kirchhoff_stress(m, f)
+    |m: &NeoHookean, f: &_| super::second_piola_kirchhoff_stress(m, f)
 );
 timing!(
     time_hand_cauchy_tangent,
@@ -260,7 +260,7 @@ timing!(
 timing!(
     time_enzyme_cauchy_tangent,
     "enzyme  sigma tangent",
-    |m: &NeoHookean, f: &_| neo_hookean::cauchy_tangent_stiffness(m, f)
+    |m: &NeoHookean, f: &_| super::cauchy_tangent_stiffness(m, f)
 );
 timing!(
     time_hand_first_piola_tangent,
@@ -270,7 +270,7 @@ timing!(
 timing!(
     time_enzyme_first_piola_tangent,
     "enzyme  P tangent",
-    |m: &NeoHookean, f: &_| neo_hookean::first_piola_kirchhoff_tangent_stiffness(m, f)
+    |m: &NeoHookean, f: &_| super::first_piola_kirchhoff_tangent_stiffness(m, f)
 );
 timing!(
     time_hand_second_piola_tangent,
@@ -280,5 +280,5 @@ timing!(
 timing!(
     time_enzyme_second_piola_tangent,
     "enzyme  S tangent",
-    |m: &NeoHookean, f: &_| neo_hookean::second_piola_kirchhoff_tangent_stiffness(m, f)
+    |m: &NeoHookean, f: &_| super::second_piola_kirchhoff_tangent_stiffness(m, f)
 );

@@ -16,9 +16,6 @@
 
 #![allow(clippy::needless_range_loop)]
 
-#[cfg(test)]
-mod test;
-
 pub mod neo_hookean;
 
 use crate::{

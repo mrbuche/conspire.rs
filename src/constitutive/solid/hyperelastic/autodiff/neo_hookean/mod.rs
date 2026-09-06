@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use super::{AutodiffHyperelastic, flatten, unflatten_stress, unflatten_tangent};
 use crate::{
     constitutive::solid::{Solid, hyperelastic::NeoHookean},
