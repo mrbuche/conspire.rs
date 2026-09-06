@@ -1,7 +1,7 @@
+use super::neo_hookean;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        autodiff::neo_hookean,
         solid::{elastic::Elastic, hyperelastic::NeoHookean},
     },
     math::{TensorRank2, TensorRank4},
@@ -101,10 +101,8 @@ fn tangents_match_hand_written() {
 
 #[test]
 fn wrapper_matches_hand_written() {
-    use crate::constitutive::{
-        autodiff::{Autodiff, neo_hookean::AutodiffNeoHookean},
-        solid::hyperelastic::Hyperelastic,
-    };
+    use super::super::Hyperelastic;
+    use super::{Autodiff, neo_hookean::AutodiffNeoHookean};
     let hand = model();
     let ad = Autodiff(AutodiffNeoHookean {
         bulk_modulus: Stress::pascals(1.3),
@@ -152,6 +150,7 @@ fn wrapper_matches_hand_written() {
 //
 //   cargo +nightly test --release --features autodiff --lib -j1 \
 //     autodiff::test::time_ -- --ignored --nocapture --test-threads=1
+// (the `autodiff::` filter still matches under the hyperelastic path)
 
 fn deformation_gradients() -> Vec<DeformationGradient> {
     let base = get_deformation_gradient();

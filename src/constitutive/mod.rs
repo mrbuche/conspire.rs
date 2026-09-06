@@ -3,8 +3,6 @@
 #[cfg(test)]
 pub mod test;
 
-#[cfg(feature = "autodiff")]
-pub mod autodiff;
 pub mod cohesive;
 pub mod fluid;
 pub mod hybrid;
