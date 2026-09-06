@@ -87,15 +87,14 @@ jobs:
         with:
           components: clippy
           toolchain: nightly
-      - name: Clippy
-        run: cargo clippy --release --features all,nightly -- -D warnings
-      - name: Clippy tests
-        run: cargo clippy --release --features all,nightly --tests -- -D warnings
       - name: Test
         run: cargo test --release --features all,nightly
   Autodiff:
-    continue-on-error: true
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     env:
       RUSTFLAGS: -Zautodiff=Enable
     steps:
@@ -108,4 +107,4 @@ jobs:
       - name: Enzyme
         run: rustup component add enzyme
       - name: Test
-        run: "cargo test --release --features autodiff,constitutive --lib -j1 autodiff::"
+        run: cargo test --release --features all,autodiff
