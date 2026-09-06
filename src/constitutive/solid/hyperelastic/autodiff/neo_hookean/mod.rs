@@ -1,21 +1,13 @@
 #[cfg(test)]
 mod test;
 
-use super::{AutodiffHyperelastic, flatten, unflatten_stress, unflatten_tangent};
-use crate::{
-    constitutive::solid::{Solid, hyperelastic::NeoHookean},
-    math::Quantity,
-    mechanics::{
-        CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffStress,
-        SecondPiolaKirchhoffTangentStiffness,
-    },
-    units::Stress,
-};
+use super::{AutodiffElastic, AutodiffHyperelastic};
+use crate::{math::Quantity, units::Stress};
 use std::autodiff::{autodiff_forward, autodiff_reverse};
 
-/// [`NeoHookean`] expressed as autodiff kernels; wrap in [`super::Autodiff`] for
-/// the `Elastic` / `Hyperelastic` API.
+/// [`NeoHookean`](crate::constitutive::solid::hyperelastic::NeoHookean) as
+/// autodiff kernels; wrap in [`Autodiff`](super::Autodiff) for the `Elastic` /
+/// `Hyperelastic` API.
 #[derive(Clone, Debug)]
 pub struct AutodiffNeoHookean {
     /// The bulk modulus.
@@ -24,7 +16,7 @@ pub struct AutodiffNeoHookean {
     pub shear_modulus: Quantity<Stress>,
 }
 
-impl AutodiffHyperelastic for AutodiffNeoHookean {
+impl AutodiffElastic for AutodiffNeoHookean {
     type Parameters = [f64; 2];
     fn parameters(&self) -> [f64; 2] {
         [self.bulk_modulus.value(), self.shear_modulus.value()]
@@ -35,26 +27,14 @@ impl AutodiffHyperelastic for AutodiffNeoHookean {
     fn shear_modulus(&self) -> Quantity<Stress> {
         self.shear_modulus
     }
-    fn energy(p: &[f64], f: &[f64; 9]) -> f64 {
-        energy(p[0], p[1], f)
+    fn cauchy(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
+        cauchy(p[0], p[1], f, out)
     }
     fn piola(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
         piola(p[0], p[1], f, out)
     }
-    fn cauchy(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
-        cauchy(p[0], p[1], f, out)
-    }
     fn second_piola(p: &[f64], f: &[f64; 9], out: &mut [f64; 9]) {
         second_piola(p[0], p[1], f, out)
-    }
-    fn piola_tangent(
-        p: &[f64],
-        f: &[f64; 9],
-        df: &[f64; 9],
-        primal: &mut [f64; 9],
-        seed: &mut [f64; 9],
-    ) {
-        d_piola(p[0], p[1], f, df, primal, seed)
     }
     fn cauchy_tangent(
         p: &[f64],
@@ -65,6 +45,15 @@ impl AutodiffHyperelastic for AutodiffNeoHookean {
     ) {
         d_cauchy(p[0], p[1], f, df, primal, seed)
     }
+    fn piola_tangent(
+        p: &[f64],
+        f: &[f64; 9],
+        df: &[f64; 9],
+        primal: &mut [f64; 9],
+        seed: &mut [f64; 9],
+    ) {
+        d_piola(p[0], p[1], f, df, primal, seed)
+    }
     fn second_piola_tangent(
         p: &[f64],
         f: &[f64; 9],
@@ -73,6 +62,12 @@ impl AutodiffHyperelastic for AutodiffNeoHookean {
         seed: &mut [f64; 9],
     ) {
         d_second_piola(p[0], p[1], f, df, primal, seed)
+    }
+}
+
+impl AutodiffHyperelastic for AutodiffNeoHookean {
+    fn energy(p: &[f64], f: &[f64; 9]) -> f64 {
+        energy(p[0], p[1], f)
     }
 }
 
@@ -143,100 +138,4 @@ fn second_piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [
                 + inverse[3 * i + 2] * p[6 + j];
         }
     }
-}
-
-fn eval_stress(
-    model: &NeoHookean,
-    deformation_gradient: &DeformationGradient,
-    kernel: impl Fn(f64, f64, &[f64; 9], &mut [f64; 9]),
-) -> [f64; 9] {
-    let f = flatten(deformation_gradient);
-    let mut out = [0.0; 9];
-    kernel(
-        model.bulk_modulus().value(),
-        model.shear_modulus().value(),
-        &f,
-        &mut out,
-    );
-    out
-}
-
-fn eval_tangent(
-    model: &NeoHookean,
-    deformation_gradient: &DeformationGradient,
-    kernel: impl Fn(f64, f64, &[f64; 9], &[f64; 9], &mut [f64; 9], &mut [f64; 9]),
-) -> [[[[f64; 3]; 3]; 3]; 3] {
-    let (bulk_modulus, shear_modulus) =
-        (model.bulk_modulus().value(), model.shear_modulus().value());
-    let f = flatten(deformation_gradient);
-    let mut c = [[[[0.0; 3]; 3]; 3]; 3];
-    for k in 0..3 {
-        for l in 0..3 {
-            let mut df = [0.0; 9];
-            df[3 * k + l] = 1.0;
-            let (mut primal, mut tangent) = ([0.0; 9], [0.0; 9]);
-            kernel(
-                bulk_modulus,
-                shear_modulus,
-                &f,
-                &df,
-                &mut primal,
-                &mut tangent,
-            );
-            for i in 0..3 {
-                for j in 0..3 {
-                    c[i][j][k][l] = tangent[3 * i + j];
-                }
-            }
-        }
-    }
-    c
-}
-
-/// First Piola-Kirchhoff stress, reverse-mode AD of the energy.
-pub fn first_piola_kirchhoff_stress(
-    model: &NeoHookean,
-    deformation_gradient: &DeformationGradient,
-) -> FirstPiolaKirchhoffStress {
-    unflatten_stress(eval_stress(model, deformation_gradient, piola))
-}
-
-/// Cauchy stress, from the AD first Piola-Kirchhoff stress.
-pub fn cauchy_stress(
-    model: &NeoHookean,
-    deformation_gradient: &DeformationGradient,
-) -> CauchyStress {
-    unflatten_stress(eval_stress(model, deformation_gradient, cauchy))
-}
-
-/// Second Piola-Kirchhoff stress, from the AD first Piola-Kirchhoff stress.
-pub fn second_piola_kirchhoff_stress(
-    model: &NeoHookean,
-    deformation_gradient: &DeformationGradient,
-) -> SecondPiolaKirchhoffStress {
-    unflatten_stress(eval_stress(model, deformation_gradient, second_piola))
-}
-
-/// `dP/dF`, forward-over-reverse AD.
-pub fn first_piola_kirchhoff_tangent_stiffness(
-    model: &NeoHookean,
-    deformation_gradient: &DeformationGradient,
-) -> FirstPiolaKirchhoffTangentStiffness {
-    unflatten_tangent(eval_tangent(model, deformation_gradient, d_piola))
-}
-
-/// `dsigma/dF`, forward mode over the Cauchy kernel.
-pub fn cauchy_tangent_stiffness(
-    model: &NeoHookean,
-    deformation_gradient: &DeformationGradient,
-) -> CauchyTangentStiffness {
-    unflatten_tangent(eval_tangent(model, deformation_gradient, d_cauchy))
-}
-
-/// `dS/dF`, forward mode over the second Piola-Kirchhoff kernel.
-pub fn second_piola_kirchhoff_tangent_stiffness(
-    model: &NeoHookean,
-    deformation_gradient: &DeformationGradient,
-) -> SecondPiolaKirchhoffTangentStiffness {
-    unflatten_tangent(eval_tangent(model, deformation_gradient, d_second_piola))
 }
