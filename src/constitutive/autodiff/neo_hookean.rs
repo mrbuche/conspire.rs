@@ -25,7 +25,9 @@ fn energy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9]) -> f64 {
 /// `P_iJ = dPsi/dF_iJ`, row-major, by reverse-mode AD of [`energy`].
 #[autodiff_forward(d_piola, Const, Const, Dual, Dual)]
 fn piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
-    *out = [0.0; 9];
+    for out_i in out.iter_mut() {
+        *out_i = 0.0;
+    }
     d_energy(bulk_modulus, shear_modulus, f, out, 1.0);
 }
 

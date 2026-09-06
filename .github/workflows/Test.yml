@@ -94,12 +94,13 @@ jobs:
       - name: Test
         run: cargo test --release --features all,nightly
   Autodiff:
-    # Best-effort until the Enzyme backend ships as a rustup component; the
-    # `autodiff` feature needs a nightly rustc built with Enzyme and fat LTO.
+    # The `autodiff` feature needs the Enzyme backend (x86_64 linux nightly only)
+    # and fat LTO; keep the build serial so it fits the runner.
     continue-on-error: true
     runs-on: ubuntu-latest
     env:
       RUSTFLAGS: -Zautodiff=Enable
+      CARGO_BUILD_JOBS: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -110,4 +111,4 @@ jobs:
       - name: Enzyme
         run: rustup component add enzyme
       - name: Test
-        run: cargo test --release --features autodiff
+        run: "cargo test --release --features autodiff --lib -j1 autodiff::"

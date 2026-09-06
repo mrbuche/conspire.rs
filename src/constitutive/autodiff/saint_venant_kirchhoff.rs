@@ -13,21 +13,20 @@ use std::autodiff::{autodiff_forward, autodiff_reverse};
 /// `E = (F^T F - I) / 2`, `Psi = mu tr(E^2) + (kappa - 2 mu / 3) (tr E)^2 / 2`.
 #[autodiff_reverse(d_energy, Const, Const, Duplicated, Active)]
 fn energy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9]) -> f64 {
-    let mut e = [0.0; 9];
-    for i in 0..3 {
-        for j in 0..3 {
-            let mut c_ij = 0.0;
-            for k in 0..3 {
-                c_ij += f[3 * k + i] * f[3 * k + j];
-            }
-            e[3 * i + j] = 0.5 * (c_ij - if i == j { 1.0 } else { 0.0 });
-        }
-    }
-    let trace_e = e[0] + e[4] + e[8];
-    let mut squared_trace_e = 0.0;
-    for k in 0..9 {
-        squared_trace_e += e[k] * e[k];
-    }
+    // C = F^T F, kept as scalars (no memset'd buffer for Enzyme to mis-type).
+    let c00 = f[0] * f[0] + f[3] * f[3] + f[6] * f[6];
+    let c11 = f[1] * f[1] + f[4] * f[4] + f[7] * f[7];
+    let c22 = f[2] * f[2] + f[5] * f[5] + f[8] * f[8];
+    let c01 = f[0] * f[1] + f[3] * f[4] + f[6] * f[7];
+    let c02 = f[0] * f[2] + f[3] * f[5] + f[6] * f[8];
+    let c12 = f[1] * f[2] + f[4] * f[5] + f[7] * f[8];
+    let trace_c = c00 + c11 + c22;
+    let trace_e = 0.5 * (trace_c - 3.0);
+    // tr(E^2) = (sum C_ij^2 - 2 tr C + 3) / 4
+    let squared_trace_e = 0.25
+        * (c00 * c00 + c11 * c11 + c22 * c22 + 2.0 * (c01 * c01 + c02 * c02 + c12 * c12)
+            - 2.0 * trace_c
+            + 3.0);
     shear_modulus * squared_trace_e
         + 0.5 * (bulk_modulus - 2.0 / 3.0 * shear_modulus) * trace_e * trace_e
 }
@@ -35,7 +34,9 @@ fn energy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9]) -> f64 {
 /// `P_iJ = dPsi/dF_iJ`, row-major, by reverse-mode AD of [`energy`].
 #[autodiff_forward(d_piola, Const, Const, Dual, Dual)]
 fn piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
-    *out = [0.0; 9];
+    for out_i in out.iter_mut() {
+        *out_i = 0.0;
+    }
     d_energy(bulk_modulus, shear_modulus, f, out, 1.0);
 }
 
