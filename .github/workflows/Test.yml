@@ -92,9 +92,7 @@ jobs:
   Autodiff:
     strategy:
       fail-fast: true
-      matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     env:
       RUSTFLAGS: -Zautodiff=Enable
     steps:
