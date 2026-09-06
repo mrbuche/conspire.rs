@@ -1,8 +1,5 @@
 use crate::{
-    constitutive::solid::{
-        elastic::Elastic,
-        hyperelastic::{NeoHookean, SaintVenantKirchhoff},
-    },
+    constitutive::solid::{elastic::Elastic, hyperelastic::NeoHookean},
     mechanics::test::get_deformation_gradient,
     units::Stress,
 };
@@ -68,4 +65,3 @@ macro_rules! model_tests {
 }
 
 model_tests!(neo_hookean, NeoHookean);
-model_tests!(saint_venant_kirchhoff, SaintVenantKirchhoff);

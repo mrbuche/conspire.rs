@@ -21,7 +21,6 @@
 mod test;
 
 pub mod neo_hookean;
-pub mod saint_venant_kirchhoff;
 
 use crate::mechanics::{
     DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
