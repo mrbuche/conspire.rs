@@ -1,10 +1,3 @@
-// Autodiff element residual / tangent prototype. The kernel compiles and gives
-// correct results in every standalone reproduction, but the full
-// `--features fem,autodiff` build hits an Enzyme TypeAnalysis crash
-// (`TypeTree.h:330`, "illegal insertion"). Re-enable this line once that is
-// fixed upstream; see `autodiff/mod.rs` for the design and workarounds.
-// #[cfg(feature = "autodiff")]
-// pub mod autodiff;
 pub mod internal_variables;
 
 use crate::{
