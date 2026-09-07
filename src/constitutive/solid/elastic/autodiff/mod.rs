@@ -1,22 +1,10 @@
 //! Autodiff-backed elastic constitutive models (`std::autodiff` / Enzyme).
 //!
-//! Opt-in bonus feature `autodiff` (no feature dependencies of its own, like
-//! `nightly`); this module compiles only when `constitutive` is also on. Needs
-//! a nightly `rustc` with the Enzyme backend (`rustup component add enzyme`)
-//! and a fat-LTO profile:
-//!
-//! ```text
-//! RUSTFLAGS="-Zautodiff=Enable" \
-//!   cargo +nightly test --release --features autodiff,constitutive -j1
-//! ```
-//!
 //! A model that supplies `#[autodiff]`-differentiable scalar stress kernels
 //! ([`AutodiffElastic`]) gets the full `Elastic` API by wrapping it in
 //! [`Autodiff`]. `Hyperelastic` builds on this in
 //! [`hyperelastic::autodiff`](crate::constitutive::solid::hyperelastic::autodiff).
 //! Maintained models keep their hand-written stress and tangent.
-//!
-//! Deformation gradients flatten row-major (`f[3 * i + j] = F_iJ`).
 
 #![allow(clippy::needless_range_loop)]
 
@@ -52,13 +40,11 @@ pub(crate) fn flatten(deformation_gradient: &DeformationGradient) -> [f64; 9] {
     f
 }
 
-/// `det F`, `f` row-major.
 pub(crate) fn determinant(f: &[f64; 9]) -> f64 {
     f[0] * (f[4] * f[8] - f[5] * f[7]) - f[1] * (f[3] * f[8] - f[5] * f[6])
         + f[2] * (f[3] * f[7] - f[4] * f[6])
 }
 
-/// `sigma = J^-1 P F^T` from first Piola-Kirchhoff `p`, all row-major.
 pub(crate) fn push_cauchy(p: &[f64; 9], f: &[f64; 9], out: &mut [f64; 9]) {
     let jacobian = determinant(f);
     for i in 0..3 {
@@ -70,7 +56,6 @@ pub(crate) fn push_cauchy(p: &[f64; 9], f: &[f64; 9], out: &mut [f64; 9]) {
     }
 }
 
-/// `F^-1`, row-major.
 pub(crate) fn inverse(f: &[f64; 9]) -> [f64; 9] {
     let jacobian = determinant(f);
     [
@@ -86,7 +71,6 @@ pub(crate) fn inverse(f: &[f64; 9]) -> [f64; 9] {
     ]
 }
 
-/// `S = F^-1 P` from first Piola-Kirchhoff `p`, all row-major.
 pub(crate) fn push_second_piola(p: &[f64; 9], f: &[f64; 9], out: &mut [f64; 9]) {
     let f_inverse = inverse(f);
     for i in 0..3 {
@@ -98,7 +82,6 @@ pub(crate) fn push_second_piola(p: &[f64; 9], f: &[f64; 9], out: &mut [f64; 9]) 
     }
 }
 
-/// `P = J sigma F^-T` from Cauchy stress `sigma`, all row-major.
 pub(crate) fn push_first_piola(sigma: &[f64; 9], f: &[f64; 9], out: &mut [f64; 9]) {
     let (jacobian, f_inverse) = (determinant(f), inverse(f));
     for i in 0..3 {
