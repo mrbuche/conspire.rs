@@ -3,9 +3,10 @@ use crate::math::assert::perturbation;
 use crate::units::{Rate, Stress};
 use crate::{
     constitutive::{
+        canonical::Canonical,
         fluid::viscoplastic::ViscoplasticFlow,
         solid::{
-            elastic_viscoplastic::{AppliedLoad, Canonical, ElasticPlasticOrViscoplastic},
+            elastic_viscoplastic::{AppliedLoad, ElasticPlasticOrViscoplastic},
             hyperelastic::SaintVenantKirchhoff,
         },
     },
