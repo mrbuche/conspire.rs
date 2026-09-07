@@ -36,7 +36,7 @@ pub fn levi_civita<I, J, K>() -> TensorRank3<3, I, J, K> {
 /// `D` is the dimension, `I`, `J`, `K` are the configurations.
 #[repr(transparent)]
 pub struct TensorRank3<const D: usize, I, J, K, U = Dimensionless>(
-    [TensorRank2<D, J, K, U>; D],
+    pub(super) [TensorRank2<D, J, K, U>; D],
     pub(super) PhantomData<I>,
 );
 
