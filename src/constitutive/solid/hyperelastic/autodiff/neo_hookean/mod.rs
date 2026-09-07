@@ -5,7 +5,7 @@ mod test;
 
 use super::{AutodiffElastic, AutodiffHyperelastic};
 use crate::{
-    constitutive::solid::elastic::autodiff::{determinant, push_cauchy, push_second_piola},
+    constitutive::solid::autodiff::{determinant, push_cauchy, push_second_piola},
     math::Quantity,
     units::Stress,
 };

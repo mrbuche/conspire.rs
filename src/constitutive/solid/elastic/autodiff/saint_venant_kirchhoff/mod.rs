@@ -3,7 +3,8 @@
 #[cfg(test)]
 mod test;
 
-use super::{AutodiffElastic, determinant, push_first_piola, push_second_piola};
+use super::AutodiffElastic;
+use crate::constitutive::solid::autodiff::{determinant, push_first_piola, push_second_piola};
 use crate::{math::Quantity, units::Stress};
 use std::autodiff::autodiff_forward;
 

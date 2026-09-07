@@ -17,7 +17,7 @@ pub use crate::constitutive::{autodiff::Autodiff, solid::elastic::autodiff::Auto
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::{Solid, elastic::autodiff::flatten, hyperelastic::Hyperelastic},
+        solid::{Solid, autodiff::flatten, hyperelastic::Hyperelastic},
     },
     math::Quantity,
     mechanics::DeformationGradient,
