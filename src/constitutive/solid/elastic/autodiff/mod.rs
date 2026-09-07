@@ -13,6 +13,7 @@ pub(crate) mod test;
 
 pub mod saint_venant_kirchhoff;
 
+pub use crate::constitutive::autodiff::Autodiff;
 pub use saint_venant_kirchhoff::AutodiffSaintVenantKirchhoff;
 
 use crate::{
@@ -65,12 +66,9 @@ pub trait AutodiffElastic {
     );
 }
 
-/// Gives any [`AutodiffElastic`] the full `Elastic` API (and, for an
-/// [`AutodiffHyperelastic`](crate::constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic),
-/// `Hyperelastic`), every stress and tangent obtained by autodiff of its kernels.
-#[derive(Clone, Debug)]
-pub struct Autodiff<M>(pub M);
-
+// [`Autodiff`] wrapper is defined in `crate::constitutive::autodiff` (family
+// agnostic); its `Solid` / `Elastic` impls live here because that is where the
+// `AutodiffElastic` bound lives.
 impl<M> Solid for Autodiff<M>
 where
     M: AutodiffElastic + Clone + Debug,
@@ -127,7 +125,6 @@ where
         Ok(tangent(&self.0.parameters(), f, M::second_piola_tangent))
     }
 }
-
 
 pub(crate) fn flatten(deformation_gradient: &DeformationGradient) -> [f64; 9] {
     let a = deformation_gradient.as_array();
