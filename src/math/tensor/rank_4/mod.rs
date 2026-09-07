@@ -124,6 +124,76 @@ fn relabel<const D: usize, I, J, K, L, U>(
     }
 }
 
+impl<I, J, K, L, U> TensorRank4<3, I, J, K, L, U> {
+    /// Returns the rank-4 tensor as a unitless flat array
+    pub const fn flatten(&self) -> [TensorRank0; 81] {
+        let mut array = [0.0; 81];
+        let mut i = 0;
+        while i < 3 {
+            let mut j = 0;
+            while j < 3 {
+                let mut k = 0;
+                while k < 3 {
+                    let mut l = 0;
+                    while l < 3 {
+                        array[27 * i + 9 * j + 3 * k + l] = self.0[i].0[j].0[k].0[l].value();
+                        l += 1;
+                    }
+                    k += 1;
+                }
+                j += 1;
+            }
+            i += 1;
+        }
+        array
+    }
+    /// Returns a rank-4 tensor from the unitless flat array.
+    pub const fn unflatten(array: [TensorRank0; 81]) -> Self {
+        const fn nine(array: &[TensorRank0; 81], base: usize) -> [TensorRank0; 9] {
+            [
+                array[base],
+                array[base + 1],
+                array[base + 2],
+                array[base + 3],
+                array[base + 4],
+                array[base + 5],
+                array[base + 6],
+                array[base + 7],
+                array[base + 8],
+            ]
+        }
+        Self(
+            [
+                TensorRank3(
+                    [
+                        TensorRank2::unflatten(nine(&array, 0)),
+                        TensorRank2::unflatten(nine(&array, 9)),
+                        TensorRank2::unflatten(nine(&array, 18)),
+                    ],
+                    PhantomData,
+                ),
+                TensorRank3(
+                    [
+                        TensorRank2::unflatten(nine(&array, 27)),
+                        TensorRank2::unflatten(nine(&array, 36)),
+                        TensorRank2::unflatten(nine(&array, 45)),
+                    ],
+                    PhantomData,
+                ),
+                TensorRank3(
+                    [
+                        TensorRank2::unflatten(nine(&array, 54)),
+                        TensorRank2::unflatten(nine(&array, 63)),
+                        TensorRank2::unflatten(nine(&array, 72)),
+                    ],
+                    PhantomData,
+                ),
+            ],
+            PhantomData,
+        )
+    }
+}
+
 impl<const D: usize> TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless> {
     fn as_array_core(&self) -> [[[[TensorRank0; D]; D]; D]; D] {
         let mut array = [[[[0.0; D]; D]; D]; D];

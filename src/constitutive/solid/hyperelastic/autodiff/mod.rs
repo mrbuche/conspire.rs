@@ -17,7 +17,7 @@ pub use crate::constitutive::{autodiff::Autodiff, solid::elastic::autodiff::Auto
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::{Solid, autodiff::flatten, hyperelastic::Hyperelastic},
+        solid::{Solid, hyperelastic::Hyperelastic},
     },
     math::Quantity,
     mechanics::DeformationGradient,
@@ -41,6 +41,6 @@ where
         f: &DeformationGradient,
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
         self.jacobian(f)?;
-        Ok(Quantity::new(M::energy(&self.0.parameters(), &flatten(f))))
+        Ok(Quantity::new(M::energy(&self.0.parameters(), &f.flatten())))
     }
 }

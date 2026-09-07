@@ -6,7 +6,7 @@
 //! [`hyperelastic::autodiff`](crate::constitutive::solid::hyperelastic::autodiff).
 //! Maintained models keep their hand-written stress and tangent.
 
-#![allow(clippy::needless_range_loop)]
+#![allow(clippy::needless_range_loop, clippy::type_complexity)]
 
 #[cfg(test)]
 pub(crate) mod test;
@@ -19,9 +19,9 @@ pub use saint_venant_kirchhoff::AutodiffSaintVenantKirchhoff;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::{Solid, autodiff::flatten, elastic::Elastic},
+        solid::{Solid, elastic::Elastic},
     },
-    math::Quantity,
+    math::{Quantity, TensorRank2, TensorRank4},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffStress,
@@ -121,32 +121,24 @@ where
     }
 }
 
-fn unflatten_stress<T: From<[[f64; 3]; 3]>>(m: [f64; 9]) -> T {
-    T::from([[m[0], m[1], m[2]], [m[3], m[4], m[5]], [m[6], m[7], m[8]]])
-}
-
-fn unflatten_tangent<T: From<[[[[f64; 3]; 3]; 3]; 3]>>(c: [[[[f64; 3]; 3]; 3]; 3]) -> T {
-    T::from(c)
-}
-
-fn stress<T: From<[[f64; 3]; 3]>>(
+fn stress<I, J>(
     parameters: &[f64; 2],
     deformation_gradient: &DeformationGradient,
     kernel: fn(&[f64; 2], &[f64; 9], &mut [f64; 9]),
-) -> T {
-    let f = flatten(deformation_gradient);
+) -> TensorRank2<3, I, J, Stress> {
+    let f = deformation_gradient.flatten();
     let mut out = [0.0; 9];
     kernel(parameters, &f, &mut out);
-    unflatten_stress(out)
+    TensorRank2::unflatten(out)
 }
 
-fn tangent<T: From<[[[[f64; 3]; 3]; 3]; 3]>>(
+fn tangent<I, J, K, L>(
     parameters: &[f64; 2],
     deformation_gradient: &DeformationGradient,
     kernel: fn(&[f64; 2], &[f64; 9], &[f64; 9], &mut [f64; 9], &mut [f64; 9]),
-) -> T {
-    let f = flatten(deformation_gradient);
-    let mut c = [[[[0.0; 3]; 3]; 3]; 3];
+) -> TensorRank4<3, I, J, K, L, Stress> {
+    let f = deformation_gradient.flatten();
+    let mut c = [0.0; 81];
     for k in 0..3 {
         for l in 0..3 {
             let mut df = [0.0; 9];
@@ -155,10 +147,10 @@ fn tangent<T: From<[[[[f64; 3]; 3]; 3]; 3]>>(
             kernel(parameters, &f, &df, &mut primal, &mut seed);
             for i in 0..3 {
                 for j in 0..3 {
-                    c[i][j][k][l] = seed[3 * i + j];
+                    c[27 * i + 9 * j + 3 * k + l] = seed[3 * i + j];
                 }
             }
         }
     }
-    unflatten_tangent(c)
+    TensorRank4::unflatten(c)
 }

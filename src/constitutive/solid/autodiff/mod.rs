@@ -1,18 +1,4 @@
-//! Shared plain-`f64` plumbing for autodiff solid constitutive kernels:
-//! `DeformationGradient` <-> row-major `[f64; 9]`, 3x3 determinant / inverse,
-//! and the stress-measure push-forwards. Used by both the `elastic::autodiff`
-//! and `hyperelastic::autodiff` model kernels.
-
 #![allow(clippy::needless_range_loop)]
-
-use crate::{math::TensorArray, mechanics::DeformationGradient};
-
-pub(crate) fn flatten(deformation_gradient: &DeformationGradient) -> [f64; 9] {
-    let a = deformation_gradient.as_array();
-    [
-        a[0][0], a[0][1], a[0][2], a[1][0], a[1][1], a[1][2], a[2][0], a[2][1], a[2][2],
-    ]
-}
 
 pub(crate) fn determinant(f: &[f64; 9]) -> f64 {
     f[0] * (f[4] * f[8] - f[5] * f[7]) - f[1] * (f[3] * f[8] - f[5] * f[6])
