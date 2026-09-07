@@ -20,7 +20,7 @@ use crate::{
         ConstitutiveError,
         solid::{Solid, elastic::Elastic},
     },
-    math::Quantity,
+    math::{Quantity, TensorArray},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffStress,
@@ -31,13 +31,10 @@ use crate::{
 use std::fmt::Debug;
 
 pub(crate) fn flatten(deformation_gradient: &DeformationGradient) -> [f64; 9] {
-    let mut f = [0.0; 9];
-    for i in 0..3 {
-        for j in 0..3 {
-            f[3 * i + j] = deformation_gradient[i][j].value();
-        }
-    }
-    f
+    let a = deformation_gradient.as_array();
+    [
+        a[0][0], a[0][1], a[0][2], a[1][0], a[1][1], a[1][2], a[2][0], a[2][1], a[2][2],
+    ]
 }
 
 pub(crate) fn determinant(f: &[f64; 9]) -> f64 {
