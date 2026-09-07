@@ -8,9 +8,6 @@
 
 #![allow(clippy::needless_range_loop, clippy::type_complexity)]
 
-#[cfg(test)]
-pub(crate) mod test;
-
 pub mod saint_venant_kirchhoff;
 
 pub use crate::constitutive::autodiff::Autodiff;
