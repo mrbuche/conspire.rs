@@ -1,169 +1,171 @@
-use crate::math::assert::Assert;
-use crate::math::assert::perturbation;
-use crate::units::{Rate, Stress};
 use crate::{
     constitutive::{
         canonical::Canonical,
         fluid::viscoplastic::ViscoplasticFlow,
         solid::{
-            elastic_viscoplastic::{AppliedLoad, ElasticPlasticOrViscoplastic},
-            hyperelastic::SaintVenantKirchhoff,
+            elastic_viscoplastic::{
+                AppliedLoad, ElasticPlasticOrViscoplastic, ElasticViscoplastic,
+            },
+            hyperelastic::{Hencky, SaintVenantKirchhoff},
         },
     },
     math::{
-        Quantity, Rank2, Tensor, TensorArray,
-        assert::{AssertionError, FiniteDifference},
-        integrate::BogackiShampine,
+        Quantity, Tensor, TensorArray,
+        assert::{Assert, AssertionError, FiniteDifference, perturbation},
+        integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
         optimize::{GradientDescent, NewtonRaphson},
     },
     mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
-    units::Time,
+    units::{Rate, Stress, Time},
 };
 
-#[test]
-fn finite_difference() -> Result<(), AssertionError> {
-    let deformation_gradient = DeformationGradient::from([
-        [1.31924942, 1.36431217, 0.41764434],
-        [0.09959341, 1.38409741, 1.48320137],
-        [0.21114106, 1.16675104, 1.98146028],
-    ]);
-    let deformation_gradient_p = DeformationGradientPlastic::from([
-        [0.79610657, 1.36265438, 0.58765375],
-        [0.71714877, 1.83110678, 0.69670465],
-        [1.82260662, 2.1921719, 3.16928404],
-    ]);
-    let model = Canonical::from((
-        SaintVenantKirchhoff {
-            bulk_modulus: Stress::pascals(13.0),
-            shear_modulus: Stress::pascals(3.0),
-        },
-        ViscoplasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
-            rate_sensitivity: 0.25,
-            reference_flow_rate: Rate::per_second(0.1),
-        },
-    ));
-    let tangent = model.cauchy_tangent_stiffness(&deformation_gradient, &deformation_gradient_p)?;
-    let mut fd = CauchyTangentStiffness::zero();
-    for k in 0..3 {
-        for l in 0..3 {
-            let mut deformation_gradient_plus = deformation_gradient.clone();
-            deformation_gradient_plus[k][l] += perturbation(0.5 * crate::EPSILON);
-            let cauchy_stress_plus =
-                model.cauchy_stress(&deformation_gradient_plus, &deformation_gradient_p)?;
-            let mut deformation_gradient_minus = deformation_gradient.clone();
-            deformation_gradient_minus[k][l] -= perturbation(0.5 * crate::EPSILON);
-            let cauchy_stress_minus =
-                model.cauchy_stress(&deformation_gradient_minus, &deformation_gradient_p)?;
-            for i in 0..3 {
-                for j in 0..3 {
-                    fd[i][j][k][l] =
-                        (cauchy_stress_plus[i][j] - cauchy_stress_minus[i][j]) / crate::EPSILON;
+macro_rules! test_canonical {
+    ($elastic:ident) => {
+        use super::*;
+
+        fn model() -> Canonical<$elastic, ViscoplasticFlow> {
+            Canonical::from((
+                $elastic {
+                    bulk_modulus: Stress::pascals(13.0),
+                    shear_modulus: Stress::pascals(3.0),
+                },
+                ViscoplasticFlow {
+                    yield_stress: Stress::pascals(2.0),
+                    hardening_slope: Stress::pascals(1.0),
+                    rate_sensitivity: 0.25,
+                    reference_flow_rate: Rate::per_second(0.1),
+                },
+            ))
+        }
+
+        #[test]
+        fn finite_difference() -> Result<(), AssertionError> {
+            let deformation_gradient = DeformationGradient::from([
+                [1.31924942, 1.36431217, 0.41764434],
+                [0.09959341, 1.38409741, 1.48320137],
+                [0.21114106, 1.16675104, 1.98146028],
+            ]);
+            let deformation_gradient_p = DeformationGradientPlastic::from([
+                [0.79610657, 1.36265438, 0.58765375],
+                [0.71714877, 1.83110678, 0.69670465],
+                [1.82260662, 2.1921719, 3.16928404],
+            ]);
+            let model = model();
+            let tangent =
+                model.cauchy_tangent_stiffness(&deformation_gradient, &deformation_gradient_p)?;
+            let mut fd = CauchyTangentStiffness::zero();
+            for k in 0..3 {
+                for l in 0..3 {
+                    let mut deformation_gradient_plus = deformation_gradient.clone();
+                    deformation_gradient_plus[k][l] += perturbation(0.5 * crate::EPSILON);
+                    let cauchy_stress_plus =
+                        model.cauchy_stress(&deformation_gradient_plus, &deformation_gradient_p)?;
+                    let mut deformation_gradient_minus = deformation_gradient.clone();
+                    deformation_gradient_minus[k][l] -= perturbation(0.5 * crate::EPSILON);
+                    let cauchy_stress_minus = model
+                        .cauchy_stress(&deformation_gradient_minus, &deformation_gradient_p)?;
+                    for i in 0..3 {
+                        for j in 0..3 {
+                            fd[i][j][k][l] = (cauchy_stress_plus[i][j] - cauchy_stress_minus[i][j])
+                                / crate::EPSILON;
+                        }
+                    }
                 }
             }
+            if tangent.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
+                Assert::default().eq_within_fd_tol(&tangent, &fd)
+            } else {
+                Ok(())
+            }
         }
-    }
-    if tangent.error_fd(&fd, 5e1 * crate::EPSILON).is_some() {
-        Assert::default().eq_within_fd_tol(&tangent, &fd)
-    } else {
-        Ok(())
-    }
+
+        macro_rules! test_integrator_with_solver {
+            ($integrator:ident, $solver:expr) => {
+                let model = model();
+                let (t, f, f_p) = model.root(
+                    AppliedLoad::UniaxialStress(
+                        |t: Quantity<Time>| 1.0 + t.value(),
+                        &[Quantity::new(0.0), Quantity::new(2.0)],
+                    ),
+                    $integrator {
+                        abs_tol: 1e-6,
+                        rel_tol: 1e-6,
+                        ..Default::default()
+                    },
+                    $solver,
+                )?;
+                for (_, (f_i, s_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
+                    Assert::non_negative(&model.internal_dissipation(f_i, s_i)?)?;
+                }
+                let (t, f, f_p) = model.minimize(
+                    AppliedLoad::UniaxialStress(
+                        |t: Quantity<Time>| 1.0 + t.value(),
+                        &[Quantity::new(0.0), Quantity::new(2.0)],
+                    ),
+                    $integrator {
+                        abs_tol: 1e-6,
+                        rel_tol: 1e-6,
+                        ..Default::default()
+                    },
+                    $solver,
+                )?;
+                for (_, (f_i, s_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
+                    Assert::non_negative(&model.internal_dissipation(f_i, s_i)?)?;
+                }
+            };
+        }
+
+        macro_rules! test_model_with_integrator {
+            ($integrator:ident) => {
+                #[test]
+                fn root_0_and_minimize_1() -> Result<(), AssertionError> {
+                    use crate::constitutive::solid::{
+                        elastic_viscoplastic::ZerothOrderRoot,
+                        hyperelastic_viscoplastic::FirstOrderMinimize,
+                    };
+                    test_integrator_with_solver!(
+                        $integrator,
+                        GradientDescent {
+                            dual: true,
+                            ..Default::default()
+                        }
+                    );
+                    Ok(())
+                }
+                #[test]
+                fn root_1_and_minimize_2() -> Result<(), AssertionError> {
+                    use crate::constitutive::solid::{
+                        elastic_viscoplastic::FirstOrderRoot,
+                        hyperelastic_viscoplastic::SecondOrderMinimize,
+                    };
+                    test_integrator_with_solver!($integrator, NewtonRaphson::default());
+                    Ok(())
+                }
+            };
+        }
+
+        mod bogacki_shampine {
+            use super::*;
+            test_model_with_integrator!(BogackiShampine);
+        }
+        mod dormand_prince {
+            use super::*;
+            test_model_with_integrator!(DormandPrince);
+        }
+        mod verner_8 {
+            use super::*;
+            test_model_with_integrator!(Verner8);
+        }
+        mod verner_9 {
+            use super::*;
+            test_model_with_integrator!(Verner9);
+        }
+    };
 }
 
-#[test]
-fn root_0() -> Result<(), AssertionError> {
-    use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
-    let model = Canonical::from((
-        SaintVenantKirchhoff {
-            bulk_modulus: Stress::pascals(13.0),
-            shear_modulus: Stress::pascals(3.0),
-        },
-        ViscoplasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
-            rate_sensitivity: 0.25,
-            reference_flow_rate: Rate::per_second(0.1),
-        },
-    ));
-    let (t, f, f_p) = model.root(
-        AppliedLoad::UniaxialStress(
-            |t: Quantity<Time>| 1.0 + t.value(),
-            &[Quantity::new(0.0), Quantity::new(2.0)],
-        ),
-        BogackiShampine {
-            abs_tol: 1e-6,
-            rel_tol: 1e-6,
-            ..Default::default()
-        },
-        GradientDescent {
-            dual: true,
-            ..Default::default()
-        },
-    )?;
-    for (t_i, (f_i, s_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
-        let (f_p_i, y_i) = s_i.into();
-        let f_e = f_i * f_p_i.inverse();
-        let c_e = model.cauchy_stress(f_i, f_p_i)?;
-        let m_e = f_e.transpose() * &c_e * f_e.inverse_transpose();
-        let m_e_dev_mag = m_e.deviatoric().norm();
-        println!(
-            "[{}, {}, {}, {}, {}, {}, {}],",
-            t_i,
-            f_i[0][0],
-            f_p_i[0][0],
-            y_i,
-            c_e[0][0],
-            f_p_i.determinant(),
-            m_e_dev_mag,
-        )
-    }
-    Ok(())
+mod hencky {
+    test_canonical!(Hencky);
 }
-
-#[test]
-fn root_1() -> Result<(), AssertionError> {
-    use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
-    let model = Canonical::from((
-        SaintVenantKirchhoff {
-            bulk_modulus: Stress::pascals(13.0),
-            shear_modulus: Stress::pascals(3.0),
-        },
-        ViscoplasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
-            rate_sensitivity: 0.25,
-            reference_flow_rate: Rate::per_second(0.1),
-        },
-    ));
-    let (t, f, f_p) = model.root(
-        AppliedLoad::UniaxialStress(
-            |t: Quantity<Time>| 1.0 + t.value(),
-            &[Quantity::new(0.0), Quantity::new(2.0)],
-        ),
-        BogackiShampine {
-            abs_tol: 1e-6,
-            rel_tol: 1e-6,
-            ..Default::default()
-        },
-        NewtonRaphson::default(),
-    )?;
-    for (t_i, (f_i, s_i)) in t.iter().zip(f.iter().zip(f_p.iter())) {
-        let (f_p_i, y_i) = s_i.into();
-        let f_e = f_i * f_p_i.inverse();
-        let c_e = model.cauchy_stress(f_i, f_p_i)?;
-        let m_e = f_e.transpose() * &c_e * f_e.inverse_transpose();
-        let m_e_dev_mag = m_e.deviatoric().norm();
-        println!(
-            "[{}, {}, {}, {}, {}, {}, {}],",
-            t_i,
-            f_i[0][0],
-            f_p_i[0][0],
-            y_i,
-            c_e[0][0],
-            f_p_i.determinant(),
-            m_e_dev_mag,
-        )
-    }
-    Ok(())
+mod saint_venant_kirchhoff {
+    test_canonical!(SaintVenantKirchhoff);
 }
