@@ -63,13 +63,3 @@ fn matches_hand_written() {
     );
     assert!((energy_ad - energy_hand).abs() <= 1e-8 * (1.0 + energy_hand.abs()));
 }
-
-use crate::constitutive::solid::elastic::autodiff::test::timing_all;
-
-timing_all!(
-    "NeoHookean  ",
-    hand(),
-    autodiff(),
-    NeoHookean,
-    Autodiff<AutodiffNeoHookean>
-);

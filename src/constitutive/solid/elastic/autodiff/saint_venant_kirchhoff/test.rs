@@ -4,7 +4,7 @@ use crate::{
         Elastic, SaintVenantKirchhoff,
         autodiff::{
             Autodiff,
-            test::{assert_close_2, assert_close_4, ok, timing_all},
+            test::{assert_close_2, assert_close_4, ok},
         },
     },
     mechanics::test::get_deformation_gradient,
@@ -55,11 +55,3 @@ fn matches_hand_written() {
         1e-6,
     );
 }
-
-timing_all!(
-    "elastic SVK ",
-    hand(),
-    autodiff(),
-    SaintVenantKirchhoff,
-    Autodiff<AutodiffSaintVenantKirchhoff>
-);

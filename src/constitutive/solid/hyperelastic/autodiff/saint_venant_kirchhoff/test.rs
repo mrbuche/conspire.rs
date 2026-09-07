@@ -5,7 +5,7 @@ use crate::{
             Elastic,
             autodiff::{
                 Autodiff,
-                test::{assert_close_2, assert_close_4, ok, timing_all},
+                test::{assert_close_2, assert_close_4, ok},
             },
         },
         hyperelastic::{Hyperelastic, SaintVenantKirchhoff},
@@ -63,11 +63,3 @@ fn matches_hand_written() {
     );
     assert!((energy_ad - energy_hand).abs() <= 1e-8 * (1.0 + energy_hand.abs()));
 }
-
-timing_all!(
-    "hyper SVK   ",
-    hand(),
-    autodiff(),
-    SaintVenantKirchhoff,
-    Autodiff<AutodiffSaintVenantKirchhoff>
-);
