@@ -46,7 +46,7 @@ type TriNeoHookean = Block<NeoHookean, Triangle, 1, 2, 3, 3>;
 type Hex = Block<AlmansiHamelEulerian, Hexahedron, 8, 3, 8, 8>;
 type TetNeoHookean = Block<NeoHookean, Tetrahedron, 1, 3, 4, 4>;
 type TetViscoplastic = Block<
-    ElasticMultiplicativeViscoplastic<AlmansiHamelEulerian, ViscoplasticFlow, Quantity>,
+    ElasticMultiplicativeViscoplastic<AlmansiHamelEulerian, ViscoplasticFlow>,
     Tetrahedron,
     1,
     3,
@@ -313,8 +313,8 @@ fn heterogeneous_blocks_nodal_forces() -> Result<(), AssertionError> {
     )
 }
 
-fn viscoplastic_model()
--> ElasticMultiplicativeViscoplastic<AlmansiHamelEulerian, ViscoplasticFlow, Quantity> {
+fn viscoplastic_model() -> ElasticMultiplicativeViscoplastic<AlmansiHamelEulerian, ViscoplasticFlow>
+{
     ElasticMultiplicativeViscoplastic::from((
         constitutive_model(),
         ViscoplasticFlow {

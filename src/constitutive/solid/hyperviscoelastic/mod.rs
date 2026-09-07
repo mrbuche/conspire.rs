@@ -10,9 +10,7 @@ pub mod doc;
 #[cfg(test)]
 pub mod test;
 
-mod saint_venant_kirchhoff;
-
-pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
+mod canonical;
 
 use super::{elastic_hyperviscous::ElasticHyperviscous, *};
 use crate::{math::Quantity, units::EnergyDensity};
