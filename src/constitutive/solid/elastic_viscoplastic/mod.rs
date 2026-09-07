@@ -7,13 +7,7 @@
 #[cfg(feature = "doc")]
 pub mod doc;
 
-#[cfg(test)]
-pub mod test;
-
-mod almansi_hamel_eulerian;
 mod canonical;
-
-pub use self::almansi_hamel_eulerian::AlmansiHamelEulerian;
 
 use crate::{
     constitutive::{
