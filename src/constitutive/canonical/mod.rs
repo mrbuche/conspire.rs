@@ -1,4 +1,4 @@
-//! The canonical construction of a constitutive model from two constituents.
+//! Constitutive models created through canonical compositions.
 
 use std::{
     any::type_name,
