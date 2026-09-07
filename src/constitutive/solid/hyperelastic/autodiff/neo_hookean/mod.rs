@@ -11,9 +11,6 @@ use crate::{
 };
 use std::autodiff::{autodiff_forward, autodiff_reverse};
 
-/// [`NeoHookean`](crate::constitutive::solid::hyperelastic::NeoHookean) as
-/// autodiff kernels; wrap in [`Autodiff`](super::Autodiff) for the `Elastic` /
-/// `Hyperelastic` API.
 #[derive(Clone, Debug)]
 pub struct AutodiffNeoHookean {
     /// The bulk modulus.
@@ -76,9 +73,6 @@ impl AutodiffHyperelastic for AutodiffNeoHookean {
     }
 }
 
-/// Helmholtz free energy density, `f` row-major.
-///
-/// Mirrors `<NeoHookean as Hyperelastic>::helmholtz_free_energy_density`.
 #[autodiff_reverse(d_energy, Const, Const, Duplicated, Active)]
 fn energy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9]) -> f64 {
     let mut trace_b = 0.0;
@@ -90,7 +84,6 @@ fn energy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9]) -> f64 {
         + bulk_modulus * (0.5 * (jacobian * jacobian - 1.0) - jacobian.ln()))
 }
 
-/// `P_iJ = dPsi/dF_iJ`, reverse mode.
 #[autodiff_forward(d_piola, Const, Const, Dual, Dual)]
 fn piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
     for out_i in out.iter_mut() {
@@ -99,7 +92,6 @@ fn piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]
     d_energy(bulk_modulus, shear_modulus, f, out, 1.0);
 }
 
-/// `sigma = J^-1 P F^T`.
 #[autodiff_forward(d_cauchy, Const, Const, Dual, Dual)]
 fn cauchy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
     let mut p = *f;
@@ -107,7 +99,6 @@ fn cauchy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9
     push_cauchy(&p, f, out);
 }
 
-/// `S = F^-1 P`.
 #[autodiff_forward(d_second_piola, Const, Const, Dual, Dual)]
 fn second_piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
     let mut p = *f;

@@ -9,10 +9,6 @@ use crate::{
 };
 use std::autodiff::{autodiff_forward, autodiff_reverse};
 
-/// The hyperelastic
-/// [`SaintVenantKirchhoff`](crate::constitutive::solid::hyperelastic::SaintVenantKirchhoff)
-/// as autodiff kernels; wrap in [`Autodiff`](super::Autodiff) for the `Elastic`
-/// / `Hyperelastic` API.
 #[derive(Clone, Debug)]
 pub struct AutodiffSaintVenantKirchhoff {
     /// The bulk modulus.
@@ -75,12 +71,6 @@ impl AutodiffHyperelastic for AutodiffSaintVenantKirchhoff {
     }
 }
 
-/// Helmholtz free energy density, `f` row-major.
-///
-/// Mirrors `<SaintVenantKirchhoff as Hyperelastic>::helmholtz_free_energy_density`:
-/// `E = (F^T F - I) / 2`, `Psi = mu tr(E^2) + (kappa - 2 mu / 3) (tr E)^2 / 2`.
-/// Strain invariants are kept as scalars (no memset'd buffer for Enzyme to
-/// mis-type).
 #[autodiff_reverse(d_energy, Const, Const, Duplicated, Active)]
 fn energy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9]) -> f64 {
     let c00 = f[0] * f[0] + f[3] * f[3] + f[6] * f[6];
@@ -99,7 +89,6 @@ fn energy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9]) -> f64 {
         + 0.5 * (bulk_modulus - 2.0 / 3.0 * shear_modulus) * trace_e * trace_e
 }
 
-/// `P_iJ = dPsi/dF_iJ`, reverse mode.
 #[autodiff_forward(d_piola, Const, Const, Dual, Dual)]
 fn piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
     for out_i in out.iter_mut() {
@@ -108,7 +97,6 @@ fn piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]
     d_energy(bulk_modulus, shear_modulus, f, out, 1.0);
 }
 
-/// `sigma = J^-1 P F^T`.
 #[autodiff_forward(d_cauchy, Const, Const, Dual, Dual)]
 fn cauchy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
     let mut p = *f;
@@ -116,7 +104,6 @@ fn cauchy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9
     push_cauchy(&p, f, out);
 }
 
-/// `S = F^-1 P`.
 #[autodiff_forward(d_second_piola, Const, Const, Dual, Dual)]
 fn second_piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
     let mut p = *f;

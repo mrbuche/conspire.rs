@@ -8,10 +8,6 @@ use crate::constitutive::solid::autodiff::{determinant, push_first_piola, push_s
 use crate::{math::Quantity, units::Stress};
 use std::autodiff::autodiff_forward;
 
-/// The elastic
-/// [`SaintVenantKirchhoff`](crate::constitutive::solid::elastic::SaintVenantKirchhoff)
-/// as autodiff kernels (Cauchy stress written directly on the spatial strain,
-/// no potential); wrap in [`Autodiff`](super::Autodiff) for the `Elastic` API.
 #[derive(Clone, Debug)]
 pub struct AutodiffSaintVenantKirchhoff {
     /// The bulk modulus.
@@ -68,10 +64,6 @@ impl AutodiffElastic for AutodiffSaintVenantKirchhoff {
     }
 }
 
-/// `sigma = J^-1 [2 mu eps + (kappa - 2 mu / 3) tr(eps) I]`,
-/// `eps = (F F^T - I) / 2`, row-major.
-///
-/// Mirrors `<SaintVenantKirchhoff as Elastic>::cauchy_stress`.
 #[autodiff_forward(d_cauchy, Const, Const, Dual, Dual)]
 fn cauchy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
     let strain = [
@@ -97,7 +89,6 @@ fn cauchy(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9
     out[8] += lambda_trace;
 }
 
-/// `P = J sigma F^-T`.
 #[autodiff_forward(d_piola, Const, Const, Dual, Dual)]
 fn piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
     let mut sigma = *f;
@@ -105,7 +96,6 @@ fn piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]
     push_first_piola(&sigma, f, out);
 }
 
-/// `S = F^-1 P`.
 #[autodiff_forward(d_second_piola, Const, Const, Dual, Dual)]
 fn second_piola(bulk_modulus: f64, shear_modulus: f64, f: &[f64; 9], out: &mut [f64; 9]) {
     let mut p = *f;
