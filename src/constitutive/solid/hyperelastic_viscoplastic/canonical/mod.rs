@@ -4,11 +4,9 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
+        canonical::Canonical,
         fluid::viscoplastic::Viscoplastic,
-        solid::{
-            canonical::Canonical, hyperelastic::Hyperelastic,
-            hyperelastic_viscoplastic::HyperelasticViscoplastic,
-        },
+        solid::{hyperelastic::Hyperelastic, hyperelastic_viscoplastic::HyperelasticViscoplastic},
     },
     math::{Differentiate, Quantity, Tensor},
     mechanics::{DeformationGradient, DeformationGradientPlastic},

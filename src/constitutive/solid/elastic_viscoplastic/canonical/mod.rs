@@ -4,12 +4,12 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
+        canonical::Canonical,
         fluid::{
             plastic::Plastic,
             viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
         },
         solid::{
-            canonical::Canonical,
             elastic::Elastic,
             elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
         },

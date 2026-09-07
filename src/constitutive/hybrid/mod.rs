@@ -12,7 +12,7 @@ pub use self::{
     },
 };
 
-pub use crate::constitutive::solid::canonical::Canonical as ElasticMultiplicativeViscoplastic;
+pub use crate::constitutive::canonical::Canonical as ElasticMultiplicativeViscoplastic;
 
 use std::{
     any::type_name,
