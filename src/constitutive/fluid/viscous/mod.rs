@@ -19,9 +19,6 @@ use crate::{
 const TWO_THIRDS: Scalar = 2.0 / 3.0;
 
 /// Required methods for viscous fluid constitutive models.
-///
-/// The methods return the viscous contribution only; a concrete model implements
-/// one stress measure and its rate tangent, and the rest follow.
 pub trait Viscous {
     /// Returns the bulk viscosity.
     fn bulk_viscosity(&self) -> Quantity<Viscosity>;
