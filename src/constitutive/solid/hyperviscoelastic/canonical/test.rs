@@ -39,7 +39,7 @@ mod consistency {
     #[test]
     fn helmholtz_free_energy_density() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &model().helmholtz_free_energy_density(&get_deformation_gradient())?,
+            model().helmholtz_free_energy_density(&get_deformation_gradient())?,
             &SaintVenantKirchhoff {
                 bulk_modulus: BULK_MODULUS,
                 shear_modulus: SHEAR_MODULUS,
