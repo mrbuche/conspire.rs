@@ -20,6 +20,10 @@ where
     Self: Viscous,
 {
     /// Calculates and returns the viscous dissipation.
+    ///
+    /// ```math
+    /// \psi = \psi(\mathbf{F},\dot{\mathbf{F}})
+    /// ```
     fn viscous_dissipation(
         &self,
         deformation_gradient: &DeformationGradient,

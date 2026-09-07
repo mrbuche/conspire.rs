@@ -16,7 +16,7 @@ use crate::{
     units::{Dissipation, Viscosity},
 };
 
-/// The Newtonian viscous fluid constitutive model.
+#[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct Newtonian {
     /// The bulk viscosity $`\zeta`$.
@@ -32,6 +32,7 @@ impl Viscous for Newtonian {
     fn shear_viscosity(&self) -> Quantity<Viscosity> {
         self.shear_viscosity
     }
+    #[doc = include_str!("viscous_cauchy_stress.md")]
     fn viscous_cauchy_stress(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -43,6 +44,7 @@ impl Viscous for Newtonian {
         Ok(deviatoric_strain_rate * (2.0 * self.shear_viscosity())
             + IDENTITY * (self.bulk_viscosity() * strain_rate_trace))
     }
+    #[doc = include_str!("viscous_cauchy_rate_tangent_stiffness.md")]
     fn viscous_cauchy_rate_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -66,6 +68,7 @@ impl Viscous for Newtonian {
 }
 
 impl Hyperviscous for Newtonian {
+    #[doc = include_str!("viscous_dissipation.md")]
     fn viscous_dissipation(
         &self,
         deformation_gradient: &DeformationGradient,

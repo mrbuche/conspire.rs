@@ -17,7 +17,7 @@ use crate::{
     units::{Dissipation, Viscosity},
 };
 
-/// The Saint Venant-Kirchhoff viscous fluid constitutive model.
+#[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct SaintVenantKirchhoff {
     /// The bulk viscosity $`\zeta`$.
@@ -33,6 +33,7 @@ impl Viscous for SaintVenantKirchhoff {
     fn shear_viscosity(&self) -> Quantity<Viscosity> {
         self.shear_viscosity
     }
+    #[doc = include_str!("viscous_second_piola_kirchhoff_stress.md")]
     fn viscous_second_piola_kirchhoff_stress(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -44,6 +45,7 @@ impl Viscous for SaintVenantKirchhoff {
         Ok(deviatoric_strain_rate * (2.0 * self.shear_viscosity())
             + IDENTITY_00 * (self.bulk_viscosity() * strain_rate_trace))
     }
+    #[doc = include_str!("viscous_second_piola_kirchhoff_rate_tangent_stiffness.md")]
     fn viscous_second_piola_kirchhoff_rate_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -63,6 +65,7 @@ impl Viscous for SaintVenantKirchhoff {
 }
 
 impl Hyperviscous for SaintVenantKirchhoff {
+    #[doc = include_str!("viscous_dissipation.md")]
     fn viscous_dissipation(
         &self,
         deformation_gradient: &DeformationGradient,
