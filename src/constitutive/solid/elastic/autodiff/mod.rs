@@ -35,8 +35,6 @@ use std::fmt::Debug;
 /// row-major deformation gradient: three stress measures, and by forward mode
 /// over each (one `F_kL` direction per call) their `d(stress)/dF` tangents.
 pub trait AutodiffElastic {
-    /// The `[bulk_modulus, shear_modulus]` values passed first to every kernel.
-    /// Fixed at two for now (a `const P: usize` would generalise it).
     fn parameters(&self) -> [f64; 2];
     fn bulk_modulus(&self) -> Quantity<Stress>;
     fn shear_modulus(&self) -> Quantity<Stress>;
@@ -66,9 +64,6 @@ pub trait AutodiffElastic {
     );
 }
 
-// [`Autodiff`] wrapper is defined in `crate::constitutive::autodiff` (family
-// agnostic); its `Solid` / `Elastic` impls live here because that is where the
-// `AutodiffElastic` bound lives.
 impl<M> Solid for Autodiff<M>
 where
     M: AutodiffElastic + Clone + Debug,
