@@ -3,6 +3,7 @@
 #[cfg(feature = "autodiff")]
 pub mod autodiff;
 
+pub mod canonical;
 pub mod elastic;
 pub mod elastic_hyperviscous;
 pub mod elastic_plastic;

@@ -12,9 +12,7 @@ pub use self::{
     },
 };
 
-/// The multiplicative elastic-viscoplastic model now lives in
-/// [`solid::elastic_viscoplastic`](crate::constitutive::solid::elastic_viscoplastic).
-pub use crate::constitutive::solid::elastic_viscoplastic::Canonical as ElasticMultiplicativeViscoplastic;
+pub use crate::constitutive::solid::canonical::Canonical as ElasticMultiplicativeViscoplastic;
 
 use std::{
     any::type_name,

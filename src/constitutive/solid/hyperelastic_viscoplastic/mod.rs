@@ -10,6 +10,7 @@ pub mod doc;
 #[cfg(test)]
 pub mod test;
 
+mod canonical;
 mod hencky;
 mod saint_venant_kirchhoff;
 
