@@ -197,7 +197,7 @@ impl Mesh<3> {
     /// boundary triangle raises a prism split into three tetrahedra rather
     /// than one hexahedron, so the result stays a single tetrahedral block.
     ///
-    /// It also runs no clearance pre-pass. [`restrict`](Self::restrict) is
+    /// It also runs no clearance pre-pass. The `restrict` pre-pass is
     /// defined on hexahedral boundary quadrilaterals and has no tetrahedral
     /// analogue yet, so a boundary leaving some node no feasible direction is
     /// fitted here rather than pruned first.
