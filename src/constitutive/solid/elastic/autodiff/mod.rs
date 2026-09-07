@@ -30,6 +30,105 @@ use crate::{
 };
 use std::fmt::Debug;
 
+/// An elastic model given as `#[autodiff]`-differentiable scalar kernels over a
+/// row-major deformation gradient: three stress measures, and by forward mode
+/// over each (one `F_kL` direction per call) their `d(stress)/dF` tangents.
+pub trait AutodiffElastic {
+    /// The `[bulk_modulus, shear_modulus]` values passed first to every kernel.
+    /// Fixed at two for now (a `const P: usize` would generalise it).
+    fn parameters(&self) -> [f64; 2];
+    fn bulk_modulus(&self) -> Quantity<Stress>;
+    fn shear_modulus(&self) -> Quantity<Stress>;
+    fn cauchy(parameters: &[f64; 2], f: &[f64; 9], out: &mut [f64; 9]);
+    fn piola(parameters: &[f64; 2], f: &[f64; 9], out: &mut [f64; 9]);
+    fn second_piola(parameters: &[f64; 2], f: &[f64; 9], out: &mut [f64; 9]);
+    fn cauchy_tangent(
+        parameters: &[f64; 2],
+        f: &[f64; 9],
+        df: &[f64; 9],
+        primal: &mut [f64; 9],
+        seed: &mut [f64; 9],
+    );
+    fn piola_tangent(
+        parameters: &[f64; 2],
+        f: &[f64; 9],
+        df: &[f64; 9],
+        primal: &mut [f64; 9],
+        seed: &mut [f64; 9],
+    );
+    fn second_piola_tangent(
+        parameters: &[f64; 2],
+        f: &[f64; 9],
+        df: &[f64; 9],
+        primal: &mut [f64; 9],
+        seed: &mut [f64; 9],
+    );
+}
+
+/// Gives any [`AutodiffElastic`] the full `Elastic` API (and, for an
+/// [`AutodiffHyperelastic`](crate::constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic),
+/// `Hyperelastic`), every stress and tangent obtained by autodiff of its kernels.
+#[derive(Clone, Debug)]
+pub struct Autodiff<M>(pub M);
+
+impl<M> Solid for Autodiff<M>
+where
+    M: AutodiffElastic + Clone + Debug,
+{
+    fn bulk_modulus(&self) -> Quantity<Stress> {
+        self.0.bulk_modulus()
+    }
+    fn shear_modulus(&self) -> Quantity<Stress> {
+        self.0.shear_modulus()
+    }
+}
+
+impl<M> Elastic for Autodiff<M>
+where
+    M: AutodiffElastic + Clone + Debug,
+{
+    fn cauchy_stress(&self, f: &DeformationGradient) -> Result<CauchyStress, ConstitutiveError> {
+        self.jacobian(f)?;
+        Ok(stress(&self.0.parameters(), f, M::cauchy))
+    }
+    fn first_piola_kirchhoff_stress(
+        &self,
+        f: &DeformationGradient,
+    ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
+        self.jacobian(f)?;
+        Ok(stress(&self.0.parameters(), f, M::piola))
+    }
+    fn second_piola_kirchhoff_stress(
+        &self,
+        f: &DeformationGradient,
+    ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
+        self.jacobian(f)?;
+        Ok(stress(&self.0.parameters(), f, M::second_piola))
+    }
+    fn cauchy_tangent_stiffness(
+        &self,
+        f: &DeformationGradient,
+    ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
+        self.jacobian(f)?;
+        Ok(tangent(&self.0.parameters(), f, M::cauchy_tangent))
+    }
+    fn first_piola_kirchhoff_tangent_stiffness(
+        &self,
+        f: &DeformationGradient,
+    ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
+        self.jacobian(f)?;
+        Ok(tangent(&self.0.parameters(), f, M::piola_tangent))
+    }
+    fn second_piola_kirchhoff_tangent_stiffness(
+        &self,
+        f: &DeformationGradient,
+    ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
+        self.jacobian(f)?;
+        Ok(tangent(&self.0.parameters(), f, M::second_piola_tangent))
+    }
+}
+
+
 pub(crate) fn flatten(deformation_gradient: &DeformationGradient) -> [f64; 9] {
     let a = deformation_gradient.as_array();
     [
@@ -131,102 +230,4 @@ fn tangent<T: From<[[[[f64; 3]; 3]; 3]; 3]>>(
         }
     }
     unflatten_tangent(c)
-}
-
-/// An elastic model given as `#[autodiff]`-differentiable scalar kernels over a
-/// row-major deformation gradient: three stress measures, and by forward mode
-/// over each (one `F_kL` direction per call) their `d(stress)/dF` tangents.
-pub trait AutodiffElastic {
-    /// The `[bulk_modulus, shear_modulus]` values passed first to every kernel.
-    /// Fixed at two for now (a `const P: usize` would generalise it).
-    fn parameters(&self) -> [f64; 2];
-    fn bulk_modulus(&self) -> Quantity<Stress>;
-    fn shear_modulus(&self) -> Quantity<Stress>;
-    fn cauchy(parameters: &[f64; 2], f: &[f64; 9], out: &mut [f64; 9]);
-    fn piola(parameters: &[f64; 2], f: &[f64; 9], out: &mut [f64; 9]);
-    fn second_piola(parameters: &[f64; 2], f: &[f64; 9], out: &mut [f64; 9]);
-    fn cauchy_tangent(
-        parameters: &[f64; 2],
-        f: &[f64; 9],
-        df: &[f64; 9],
-        primal: &mut [f64; 9],
-        seed: &mut [f64; 9],
-    );
-    fn piola_tangent(
-        parameters: &[f64; 2],
-        f: &[f64; 9],
-        df: &[f64; 9],
-        primal: &mut [f64; 9],
-        seed: &mut [f64; 9],
-    );
-    fn second_piola_tangent(
-        parameters: &[f64; 2],
-        f: &[f64; 9],
-        df: &[f64; 9],
-        primal: &mut [f64; 9],
-        seed: &mut [f64; 9],
-    );
-}
-
-/// Gives any [`AutodiffElastic`] the full `Elastic` API (and, for an
-/// [`AutodiffHyperelastic`](crate::constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic),
-/// `Hyperelastic`), every stress and tangent obtained by autodiff of its kernels.
-#[derive(Clone, Debug)]
-pub struct Autodiff<M>(pub M);
-
-impl<M> Solid for Autodiff<M>
-where
-    M: AutodiffElastic + Clone + Debug,
-{
-    fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.0.bulk_modulus()
-    }
-    fn shear_modulus(&self) -> Quantity<Stress> {
-        self.0.shear_modulus()
-    }
-}
-
-impl<M> Elastic for Autodiff<M>
-where
-    M: AutodiffElastic + Clone + Debug,
-{
-    fn cauchy_stress(&self, f: &DeformationGradient) -> Result<CauchyStress, ConstitutiveError> {
-        self.jacobian(f)?;
-        Ok(stress(&self.0.parameters(), f, M::cauchy))
-    }
-    fn first_piola_kirchhoff_stress(
-        &self,
-        f: &DeformationGradient,
-    ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
-        self.jacobian(f)?;
-        Ok(stress(&self.0.parameters(), f, M::piola))
-    }
-    fn second_piola_kirchhoff_stress(
-        &self,
-        f: &DeformationGradient,
-    ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
-        self.jacobian(f)?;
-        Ok(stress(&self.0.parameters(), f, M::second_piola))
-    }
-    fn cauchy_tangent_stiffness(
-        &self,
-        f: &DeformationGradient,
-    ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
-        self.jacobian(f)?;
-        Ok(tangent(&self.0.parameters(), f, M::cauchy_tangent))
-    }
-    fn first_piola_kirchhoff_tangent_stiffness(
-        &self,
-        f: &DeformationGradient,
-    ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        self.jacobian(f)?;
-        Ok(tangent(&self.0.parameters(), f, M::piola_tangent))
-    }
-    fn second_piola_kirchhoff_tangent_stiffness(
-        &self,
-        f: &DeformationGradient,
-    ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        self.jacobian(f)?;
-        Ok(tangent(&self.0.parameters(), f, M::second_piola_tangent))
-    }
 }
