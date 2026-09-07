@@ -5,8 +5,8 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::{
-            hyperviscous::Hyperviscous,
-            viscous::{TWO_THIRDS, Viscous},
+            hyperviscous::{Hyperviscous, TWO_THIRDS},
+            viscous::Viscous,
         },
     },
     math::{ContractWith, IDENTITY_00, Quantity, Rank2, TensorRank4},

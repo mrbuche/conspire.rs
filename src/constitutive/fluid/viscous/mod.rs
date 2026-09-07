@@ -1,13 +1,8 @@
 //! Viscous fluid constitutive models.
 
-mod newtonian;
-mod saint_venant_kirchhoff;
-
-pub use self::{newtonian::Newtonian, saint_venant_kirchhoff::SaintVenantKirchhoff};
-
 use crate::{
     constitutive::ConstitutiveError,
-    math::{ContractFirstSecondWithSecond, ContractSecondWithFirst, Quantity, Rank2, Scalar},
+    math::{ContractFirstSecondWithSecond, ContractSecondWithFirst, Quantity, Rank2},
     mechanics::{
         CauchyRateTangentStiffness, CauchyStress, DeformationGradient, DeformationGradientRate,
         FirstPiolaKirchhoffRateTangentStiffness, FirstPiolaKirchhoffStress,
@@ -15,8 +10,6 @@ use crate::{
     },
     units::Viscosity,
 };
-
-const TWO_THIRDS: Scalar = 2.0 / 3.0;
 
 /// Required methods for viscous fluid constitutive models.
 pub trait Viscous {
