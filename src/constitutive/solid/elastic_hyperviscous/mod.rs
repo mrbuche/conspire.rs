@@ -11,6 +11,7 @@ pub mod doc;
 pub mod test;
 
 mod almansi_hamel;
+mod canonical;
 
 pub use almansi_hamel::AlmansiHamel;
 

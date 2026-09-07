@@ -10,9 +10,13 @@ use crate::{
     },
     units::Viscosity,
 };
+use std::fmt::Debug;
 
 /// Required methods for viscous fluid constitutive models.
-pub trait Viscous {
+pub trait Viscous
+where
+    Self: Clone + Debug,
+{
     /// Returns the bulk viscosity.
     fn bulk_viscosity(&self) -> Quantity<Viscosity>;
     /// Returns the shear viscosity.

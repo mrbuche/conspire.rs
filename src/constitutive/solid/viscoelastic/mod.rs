@@ -10,6 +10,8 @@ pub mod doc;
 #[cfg(test)]
 pub mod test;
 
+mod canonical;
+
 use super::{super::fluid::viscous::Viscous, *};
 use crate::{
     math::{
