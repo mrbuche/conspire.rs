@@ -11,9 +11,6 @@ pub mod doc;
 pub mod test;
 
 mod canonical;
-mod saint_venant_kirchhoff;
-
-pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use super::{elastic_hyperviscous::ElasticHyperviscous, *};
 use crate::{math::Quantity, units::EnergyDensity};

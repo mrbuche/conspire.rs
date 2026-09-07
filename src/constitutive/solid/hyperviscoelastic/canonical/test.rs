@@ -1,43 +1,50 @@
 use super::*;
 use crate::{
     constitutive::{
-        fluid::hyperviscous::SaintVenantKirchhoff as ViscousSaintVenantKirchhoff,
-        solid::hyperelastic::SaintVenantKirchhoff,
+        fluid::{
+            hyperviscous::SaintVenantKirchhoff as ViscousSaintVenantKirchhoff, viscous::Viscous,
+        },
+        solid::{
+            elastic_hyperviscous::ElasticHyperviscous, hyperelastic::SaintVenantKirchhoff,
+            hyperviscoelastic::test::*, viscoelastic::Viscoelastic,
+        },
     },
-    math::assert::{Assert, AssertionError},
-    units::{Stress, Viscosity},
+    math::{Rank2, assert::Assert},
+    mechanics::{
+        CauchyRateTangentStiffness, DeformationGradient, DeformationGradientRate,
+        FirstPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffRateTangentStiffness,
+    },
 };
-
-fn elastic() -> SaintVenantKirchhoff {
-    SaintVenantKirchhoff {
-        bulk_modulus: Stress::pascals(13.0),
-        shear_modulus: Stress::pascals(3.0),
-    }
-}
 
 fn model() -> Canonical<SaintVenantKirchhoff, ViscousSaintVenantKirchhoff> {
     Canonical::from((
-        elastic(),
+        SaintVenantKirchhoff {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+        },
         ViscousSaintVenantKirchhoff {
-            bulk_viscosity: Viscosity::pascal_seconds(11.0),
-            shear_viscosity: Viscosity::pascal_seconds(1.0),
+            bulk_viscosity: BULK_VISCOSITY,
+            shear_viscosity: SHEAR_VISCOSITY,
         },
     ))
 }
 
-fn deformation_gradient() -> DeformationGradient {
-    DeformationGradient::from([
-        [1.31924942, 1.36431217, 0.41764434],
-        [0.09959341, 1.38409741, 1.48320137],
-        [0.21114106, 1.16675104, 1.98146028],
-    ])
-}
+test_solid_hyperviscoelastic_constitutive_model!(model());
 
-#[test]
-fn helmholtz_free_energy_density_matches_constituent() -> Result<(), AssertionError> {
-    let f = deformation_gradient();
-    Assert::default().eq_within_tols(
-        &model().helmholtz_free_energy_density(&f)?,
-        &elastic().helmholtz_free_energy_density(&f)?,
-    )
+mod consistency {
+    use super::*;
+    use crate::{
+        constitutive::solid::hyperelastic::Hyperelastic, mechanics::test::get_deformation_gradient,
+    };
+    #[test]
+    fn helmholtz_free_energy_density() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &model().helmholtz_free_energy_density(&get_deformation_gradient())?,
+            &SaintVenantKirchhoff {
+                bulk_modulus: BULK_MODULUS,
+                shear_modulus: SHEAR_MODULUS,
+            }
+            .helmholtz_free_energy_density(&get_deformation_gradient())?,
+        )
+    }
 }

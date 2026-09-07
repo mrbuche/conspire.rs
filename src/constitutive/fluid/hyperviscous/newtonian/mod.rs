@@ -38,11 +38,14 @@ impl Viscous for Newtonian {
         deformation_gradient: &DeformationGradient,
         deformation_gradient_rate: &DeformationGradientRate,
     ) -> Result<CauchyStress, ConstitutiveError> {
+        let jacobian = deformation_gradient.determinant();
         let velocity_gradient = deformation_gradient_rate * deformation_gradient.inverse();
         let (deviatoric_strain_rate, strain_rate_trace) =
             ((&velocity_gradient + velocity_gradient.transpose()) * 0.5).deviatoric_and_trace();
-        Ok(deviatoric_strain_rate * (2.0 * self.shear_viscosity())
-            + IDENTITY * (self.bulk_viscosity() * strain_rate_trace))
+        Ok(
+            deviatoric_strain_rate * (2.0 * self.shear_viscosity() / jacobian)
+                + IDENTITY * (self.bulk_viscosity() * strain_rate_trace / jacobian),
+        )
     }
     #[doc = include_str!("viscous_cauchy_rate_tangent_stiffness.md")]
     fn viscous_cauchy_rate_tangent_stiffness(
@@ -50,9 +53,10 @@ impl Viscous for Newtonian {
         deformation_gradient: &DeformationGradient,
         _: &DeformationGradientRate,
     ) -> Result<CauchyRateTangentStiffness, ConstitutiveError> {
+        let jacobian = deformation_gradient.determinant();
         let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
         let scaled_deformation_gradient_inverse_transpose =
-            &deformation_gradient_inverse_transpose * self.shear_viscosity();
+            &deformation_gradient_inverse_transpose * (self.shear_viscosity() / jacobian);
         Ok(
             TensorRank4::dyad_ik_jl(&IDENTITY, &scaled_deformation_gradient_inverse_transpose)
                 + TensorRank4::dyad_il_jk(
@@ -60,7 +64,9 @@ impl Viscous for Newtonian {
                     &IDENTITY,
                 )
                 + TensorRank4::dyad_ij_kl(
-                    &(IDENTITY * (self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())),
+                    &(IDENTITY
+                        * ((self.bulk_viscosity() - TWO_THIRDS * self.shear_viscosity())
+                            / jacobian)),
                     &deformation_gradient_inverse_transpose,
                 ),
         )

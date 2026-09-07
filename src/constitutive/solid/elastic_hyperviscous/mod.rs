@@ -10,12 +10,10 @@ pub mod doc;
 #[cfg(test)]
 pub mod test;
 
-mod almansi_hamel;
 mod canonical;
 
-pub use almansi_hamel::AlmansiHamel;
-
 use super::{
+    super::fluid::hyperviscous::Hyperviscous,
     viscoelastic::{AppliedLoad, Viscoelastic},
     *,
 };
@@ -31,7 +29,7 @@ use crate::{
 /// Required methods for elastic-hyperviscous solid constitutive models.
 pub trait ElasticHyperviscous
 where
-    Self: Viscoelastic,
+    Self: Viscoelastic + Hyperviscous,
 {
     /// Calculates and returns the dissipation potential.
     ///
@@ -68,16 +66,6 @@ where
                 )?
                 .contract_with(deformation_gradient_rate))
     }
-    /// Calculates and returns the viscous dissipation.
-    ///
-    /// ```math
-    /// \psi = \psi(\mathbf{F},\dot{\mathbf{F}})
-    /// ```
-    fn viscous_dissipation(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        deformation_gradient_rate: &DeformationGradientRate,
-    ) -> Result<Quantity<Dissipation>, ConstitutiveError>;
 }
 
 /// First-order optimization methods for elastic-hyperviscous solid constitutive models.

@@ -1,74 +1,49 @@
 use super::*;
 use crate::{
     constitutive::{
-        fluid::hyperviscous::Newtonian,
+        fluid::{hyperviscous::Newtonian, viscous::Viscous},
         solid::{
-            elastic::{AlmansiHamelEulerian, Elastic},
+            elastic::AlmansiHamelEulerian, elastic_hyperviscous::test::*,
             viscoelastic::Viscoelastic,
         },
     },
-    math::{
-        TensorArray,
-        assert::{Assert, AssertionError},
+    math::{Rank2, Tensor, assert::Assert},
+    mechanics::{
+        CauchyRateTangentStiffness, DeformationGradient, DeformationGradientRate,
+        FirstPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffRateTangentStiffness,
     },
-    units::{Stress, Viscosity},
 };
 
-fn flow() -> Newtonian {
-    Newtonian {
-        bulk_viscosity: Viscosity::pascal_seconds(11.0),
-        shear_viscosity: Viscosity::pascal_seconds(1.0),
-    }
-}
-
-fn elastic() -> AlmansiHamelEulerian {
-    AlmansiHamelEulerian {
-        bulk_modulus: Stress::pascals(13.0),
-        shear_modulus: Stress::pascals(3.0),
-    }
-}
-
 fn model() -> Canonical<AlmansiHamelEulerian, Newtonian> {
-    Canonical::from((elastic(), flow()))
+    Canonical::from((
+        AlmansiHamelEulerian {
+            bulk_modulus: BULK_MODULUS,
+            shear_modulus: SHEAR_MODULUS,
+        },
+        Newtonian {
+            bulk_viscosity: BULK_VISCOSITY,
+            shear_viscosity: SHEAR_VISCOSITY,
+        },
+    ))
 }
 
-fn deformation_gradient() -> DeformationGradient {
-    DeformationGradient::from([
-        [1.31924942, 1.36431217, 0.41764434],
-        [0.09959341, 1.38409741, 1.48320137],
-        [0.21114106, 1.16675104, 1.98146028],
-    ])
-}
+test_solid_elastic_hyperviscous_constitutive_model!(model());
 
-fn deformation_gradient_rate() -> DeformationGradientRate {
-    DeformationGradientRate::from([
-        [0.16276008, 0.16544806, 0.10516932],
-        [0.11349288, 0.16559786, 0.13899089],
-        [0.19497108, 0.11119965, 0.19226318],
-    ])
-}
-
-#[test]
-fn dissipation_non_negative() -> Result<(), AssertionError> {
-    let (model, f, f_rate) = (model(), deformation_gradient(), deformation_gradient_rate());
-    Assert::non_negative(&model.viscous_dissipation(&f, &f_rate)?)?;
-    Assert::non_negative(&model.internal_dissipation(&f, &f_rate)?)
-}
-
-#[test]
-fn viscous_dissipation_matches_constituent() -> Result<(), AssertionError> {
-    let (model, f, f_rate) = (model(), deformation_gradient(), deformation_gradient_rate());
-    Assert::default().eq_within_tols(
-        &model.viscous_dissipation(&f, &f_rate)?,
-        &flow().viscous_dissipation(&f, &f_rate)?,
-    )
-}
-
-#[test]
-fn zero_rate_reduces_to_elastic() -> Result<(), AssertionError> {
-    let f = deformation_gradient();
-    Assert::default().eq_within_tols(
-        &model().cauchy_stress(&f, &DeformationGradientRate::zero())?,
-        &elastic().cauchy_stress(&f)?,
-    )
+mod consistency {
+    use super::*;
+    use crate::{constitutive::solid::elastic::Elastic, mechanics::test::get_deformation_gradient};
+    #[test]
+    fn cauchy_stress() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &model().cauchy_stress(
+                &get_deformation_gradient(),
+                &DeformationGradientRate::zero(),
+            )?,
+            &AlmansiHamelEulerian {
+                bulk_modulus: BULK_MODULUS,
+                shear_modulus: SHEAR_MODULUS,
+            }
+            .cauchy_stress(&get_deformation_gradient())?,
+        )
+    }
 }

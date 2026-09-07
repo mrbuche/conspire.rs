@@ -5,7 +5,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         canonical::Canonical,
-        fluid::viscous::Viscous,
+        fluid::{hyperviscous::Hyperviscous, viscous::Viscous},
         solid::{elastic::Elastic, viscoelastic::Viscoelastic},
     },
     math::Quantity,
@@ -14,7 +14,7 @@ use crate::{
         FirstPiolaKirchhoffRateTangentStiffness, FirstPiolaKirchhoffStress,
         SecondPiolaKirchhoffRateTangentStiffness, SecondPiolaKirchhoffStress,
     },
-    units::Viscosity,
+    units::{Dissipation, Viscosity},
 };
 
 impl<C1, C2> Viscous for Canonical<C1, C2>
@@ -105,5 +105,20 @@ where
     ) -> Result<CauchyRateTangentStiffness, ConstitutiveError> {
         self.1
             .viscous_cauchy_rate_tangent_stiffness(deformation_gradient, deformation_gradient_rate)
+    }
+}
+
+impl<C1, C2> Hyperviscous for Canonical<C1, C2>
+where
+    C1: Elastic,
+    C2: Hyperviscous,
+{
+    fn viscous_dissipation(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_rate: &DeformationGradientRate,
+    ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
+        self.1
+            .viscous_dissipation(deformation_gradient, deformation_gradient_rate)
     }
 }
