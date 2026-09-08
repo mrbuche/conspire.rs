@@ -5,7 +5,7 @@ mod test;
 
 use crate::{
     constitutive::ConstitutiveError,
-    math::{Quantity, Tensor, TensorArray, TensorTuple},
+    math::{Quantity, Tensor, TensorArray, TensorTuple, TensorTupleVec},
     mechanics::{
         DeformationGradientPlastic, FlowDirectionPlastic, MandelStressElastic,
         StretchingRatePlastic,
@@ -16,6 +16,9 @@ use std::fmt::Debug;
 
 /// Rate-independent plastic state variables $`(\mathbf{F}_\mathrm{p},\,\varepsilon_\mathrm{p})`$.
 pub type PlasticStateVariables = TensorTuple<DeformationGradientPlastic, Quantity>;
+
+/// The history of the rate-independent plastic state variables.
+pub type PlasticStateVariablesHistory = TensorTupleVec<DeformationGradientPlastic, Quantity>;
 
 /// Required methods for plastic fluid constitutive models.
 pub trait Plastic

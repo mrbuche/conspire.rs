@@ -1,14 +1,25 @@
 //! Elastic-plastic solid constitutive models.
 
+mod canonical;
+
 use crate::{
-    constitutive::{ConstitutiveError, fluid::plastic::Plastic, solid::Solid},
+    constitutive::{
+        ConstitutiveError,
+        fluid::plastic::{
+            Plastic, PlasticStateVariables, PlasticStateVariablesHistory, RateIndependentPlastic,
+        },
+        solid::Solid,
+    },
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
+        TensorArray, Vector,
+        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
-        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, MandelStressElastic,
-        Scalar, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
+        DeformationGradients, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
+        FlowDirectionPlastic, MandelStressElastic, Scalar, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness, Times,
     },
     units::Time,
 };
@@ -205,6 +216,217 @@ where
 /// Required methods for elastic-plastic solid constitutive models.
 pub trait ElasticPlastic
 where
-    Self: ElasticPlasticOrViscoplastic,
+    Self: ElasticPlasticOrViscoplastic + RateIndependentPlastic,
 {
+    /// Return mapping over one load step.
+    ///
+    /// Given the total deformation gradient and the previously converged plastic
+    /// state, solves for the updated plastic state enforcing the Karush-Kuhn-Tucker
+    /// conditions
+    /// ```math
+    /// f \leq 0, \qquad \Delta\gamma \geq 0, \qquad \Delta\gamma\, f = 0
+    /// ```
+    /// via an elastic predictor and, if the trial state lies outside the yield
+    /// surface, a plastic corrector for the incremental multiplier $`\Delta\gamma`$
+    /// with the flow direction frozen at the trial state.
+    fn return_map(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        state_variables: &PlasticStateVariables,
+    ) -> Result<PlasticStateVariables, ConstitutiveError> {
+        let (deformation_gradient_p, &equivalent_plastic_strain): (
+            &DeformationGradientPlastic,
+            &Quantity,
+        ) = state_variables.into();
+        let deviatoric_trial = self
+            .mandel_stress(deformation_gradient, deformation_gradient_p)?
+            .deviatoric();
+        if self
+            .yield_function(&deviatoric_trial, equivalent_plastic_strain)?
+            .value()
+            <= 0.0
+        {
+            return Ok(state_variables.clone());
+        }
+        let flow_direction = self.flow_direction(&deviatoric_trial)?;
+        let plastic_deformation_gradient = |plastic_multiplier: Scalar| {
+            (FlowDirectionPlastic::identity() - &flow_direction * plastic_multiplier).inverse()
+                * deformation_gradient_p
+        };
+        let residual = |plastic_multiplier: Scalar| -> Result<Scalar, ConstitutiveError> {
+            let deviatoric = self
+                .mandel_stress(
+                    deformation_gradient,
+                    &plastic_deformation_gradient(plastic_multiplier),
+                )?
+                .deviatoric();
+            Ok(self
+                .yield_function(
+                    &deviatoric,
+                    equivalent_plastic_strain + Quantity::new(plastic_multiplier),
+                )?
+                .value())
+        };
+        // The flow direction is deviatoric, so `|N| = 1` bounds its eigenvalues
+        // below `sqrt(2/3)`; keeping `dg <= 0.9` keeps `I - dg N` positive definite
+        // and hence `F_p` invertible even for a wildly off-equilibrium trial state
+        // handed in by the outer iteration.
+        let (mut low, mut high) = (0.0, 1e-3);
+        while high < 0.9 && residual(high)? > 0.0 {
+            high = (2.0 * high).min(0.9);
+        }
+        for _ in 0..64 {
+            let midpoint = 0.5 * (low + high);
+            if residual(midpoint)? > 0.0 {
+                low = midpoint
+            } else {
+                high = midpoint
+            }
+        }
+        let plastic_multiplier = 0.5 * (low + high);
+        Ok((
+            plastic_deformation_gradient(plastic_multiplier),
+            equivalent_plastic_strain + Quantity::new(plastic_multiplier),
+        )
+            .into())
+    }
+}
+
+/// Zeroth-order root-finding methods for elastic-plastic solid constitutive models.
+pub trait ZerothOrderRoot {
+    /// Solve for the unknown components of the deformation gradients under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
+    /// The plastic state is updated by a nested return mapping at each load step.
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
+    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
+}
+
+impl<C> ZerothOrderRoot for C
+where
+    C: ElasticPlastic,
+{
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
+    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
+    {
+        let (matrix, prescribed, time) = bcs(applied_load);
+        let mut vector = Vector::zero(matrix.len());
+        let mut state = self.initial_state();
+        let mut deformation_gradient = DeformationGradient::identity();
+        let mut deformation_gradients = vec![deformation_gradient.clone()];
+        let mut states = vec![state.clone()];
+        for time_step in time.iter().skip(1) {
+            prescribed
+                .iter()
+                .for_each(|(index, function)| vector[*index] = function(*time_step));
+            let previous_state = state.clone();
+            deformation_gradient = solver
+                .root(
+                    |deformation_gradient: &DeformationGradient| {
+                        let updated_state =
+                            self.return_map(deformation_gradient, &previous_state)?;
+                        Ok(self
+                            .first_piola_kirchhoff_stress(deformation_gradient, &updated_state.0)?)
+                    },
+                    deformation_gradient.clone(),
+                    EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                )
+                .map_err(|error| ConstitutiveError::upstream(error, self))?;
+            state = self.return_map(&deformation_gradient, &previous_state)?;
+            deformation_gradients.push(deformation_gradient.clone());
+            states.push(state.clone());
+        }
+        Ok((
+            time.iter().copied().collect(),
+            deformation_gradients.into(),
+            states.into(),
+        ))
+    }
+}
+
+/// First-order root-finding methods for elastic-plastic solid constitutive models.
+pub trait FirstOrderRoot {
+    /// Solve for the unknown components of the deformation gradients under an applied load.
+    ///
+    /// ```math
+    /// \mathbf{P}(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
+    /// ```
+    /// The plastic state is updated by a nested return mapping at each load step. The
+    /// continuum tangent (at fixed plastic state) is supplied to the solver; the
+    /// consistent algorithmic tangent is not yet formed, so convergence is not quadratic.
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
+}
+
+impl<C> FirstOrderRoot for C
+where
+    C: ElasticPlastic,
+{
+    fn root(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
+    {
+        let (matrix, prescribed, time) = bcs(applied_load);
+        let mut vector = Vector::zero(matrix.len());
+        let mut state = self.initial_state();
+        let mut deformation_gradient = DeformationGradient::identity();
+        let mut deformation_gradients = vec![deformation_gradient.clone()];
+        let mut states = vec![state.clone()];
+        for time_step in time.iter().skip(1) {
+            prescribed
+                .iter()
+                .for_each(|(index, function)| vector[*index] = function(*time_step));
+            let previous_state = state.clone();
+            deformation_gradient = solver
+                .root(
+                    |deformation_gradient: &DeformationGradient| {
+                        let updated_state =
+                            self.return_map(deformation_gradient, &previous_state)?;
+                        Ok(self
+                            .first_piola_kirchhoff_stress(deformation_gradient, &updated_state.0)?)
+                    },
+                    |deformation_gradient: &DeformationGradient| {
+                        let updated_state =
+                            self.return_map(deformation_gradient, &previous_state)?;
+                        Ok(self.first_piola_kirchhoff_tangent_stiffness(
+                            deformation_gradient,
+                            &updated_state.0,
+                        )?)
+                    },
+                    deformation_gradient.clone(),
+                    EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                    None,
+                )
+                .map_err(|error| ConstitutiveError::upstream(error, self))?;
+            state = self.return_map(&deformation_gradient, &previous_state)?;
+            deformation_gradients.push(deformation_gradient.clone());
+            states.push(state.clone());
+        }
+        Ok((
+            time.iter().copied().collect(),
+            deformation_gradients.into(),
+            states.into(),
+        ))
+    }
 }
