@@ -1,5 +1,8 @@
 //! Viscous fluid constitutive models.
 
+#[cfg(feature = "autodiff")]
+pub mod autodiff;
+
 use crate::{
     constitutive::ConstitutiveError,
     math::{ContractFirstSecondWithSecond, ContractSecondWithFirst, Quantity, Rank2},

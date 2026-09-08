@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod test;
 
-use super::AutodiffHyperviscous;
+use super::{AutodiffHyperviscous, AutodiffViscous};
 use crate::{
     constitutive::solid::autodiff::{inverse, push_cauchy, push_second_piola},
     math::Quantity,
@@ -19,7 +19,7 @@ pub struct AutodiffNewtonian {
     pub shear_viscosity: Quantity<Viscosity>,
 }
 
-impl AutodiffHyperviscous for AutodiffNewtonian {
+impl AutodiffViscous for AutodiffNewtonian {
     fn parameters(&self) -> [f64; 2] {
         [self.bulk_viscosity.value(), self.shear_viscosity.value()]
     }
@@ -28,9 +28,6 @@ impl AutodiffHyperviscous for AutodiffNewtonian {
     }
     fn shear_viscosity(&self) -> Quantity<Viscosity> {
         self.shear_viscosity
-    }
-    fn dissipation(p: &[f64; 2], f: &[f64; 9], f_dot: &[f64; 9]) -> f64 {
-        dissipation(p[0], p[1], f, f_dot)
     }
     fn viscous_cauchy(p: &[f64; 2], f: &[f64; 9], f_dot: &[f64; 9], out: &mut [f64; 9]) {
         cauchy(p[0], p[1], f, f_dot, out)
@@ -70,6 +67,12 @@ impl AutodiffHyperviscous for AutodiffNewtonian {
         seed: &mut [f64; 9],
     ) {
         d_second_piola(p[0], p[1], f, f_dot, df_dot, primal, seed)
+    }
+}
+
+impl AutodiffHyperviscous for AutodiffNewtonian {
+    fn dissipation(p: &[f64; 2], f: &[f64; 9], f_dot: &[f64; 9]) -> f64 {
+        dissipation(p[0], p[1], f, f_dot)
     }
 }
 
