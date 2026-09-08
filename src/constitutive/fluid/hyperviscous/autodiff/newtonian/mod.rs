@@ -73,9 +73,6 @@ impl AutodiffHyperviscous for AutodiffNewtonian {
     }
 }
 
-// psi = eta * (D:D) + (zeta - 2/3 eta) * tr(D)^2 / 2,  D = sym(Fdot . F^-1).
-// F is a Const arg; scalars built from the active Fdot are never packed into an
-// array and passed by-ref to a callee (the forward-over-reverse footgun).
 #[autodiff_reverse(d_dissipation, Const, Const, Const, Duplicated, Active)]
 fn dissipation(bulk_viscosity: f64, shear_viscosity: f64, f: &[f64; 9], f_dot: &[f64; 9]) -> f64 {
     let finv = inverse(f);
@@ -105,7 +102,6 @@ fn dissipation(bulk_viscosity: f64, shear_viscosity: f64, f: &[f64; 9], f_dot: &
             * 0.5
 }
 
-// first Piola-Kirchhoff viscous stress P = d(psi)/d(Fdot).
 #[autodiff_forward(d_piola, Const, Const, Const, Dual, Dual)]
 fn piola(
     bulk_viscosity: f64,
