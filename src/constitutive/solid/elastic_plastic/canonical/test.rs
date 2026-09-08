@@ -216,3 +216,73 @@ fn algorithmic_tangent_keeps_the_outer_solve_within_a_tight_step_cap() -> Result
     assert!(states.as_slice().last().unwrap().1.value() > 0.0);
     Ok(())
 }
+
+#[test]
+fn monolithic_strategies_agree_with_the_nested_solve() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_plastic::{FirstOrderRoot, MonolithicRoot},
+        math::optimize::SolveStrategy,
+    };
+    let model = model(1.0);
+    let steps = times(0.5, 40);
+    let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &steps),
+        NewtonRaphson::default(),
+    )?;
+    let reference_gradient = reference_gradients.as_slice().last().unwrap();
+    let reference_strain = reference_states.as_slice().last().unwrap().1;
+    assert!(reference_strain.value() > 0.0);
+    for strategy in [
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::Monolithic { elimination: true },
+    ] {
+        let (_, gradients, states) = MonolithicRoot::root(
+            &model,
+            AppliedLoad::UniaxialStress(ramp, &steps),
+            NewtonRaphson::default(),
+            strategy,
+        )?;
+        Assert {
+            abs_tol: 1e-11,
+            rel_tol: 1e-11,
+            ..Default::default()
+        }
+        .eq_within_tols(gradients.as_slice().last().unwrap(), reference_gradient)?;
+        Assert {
+            abs_tol: 1e-11,
+            rel_tol: 1e-11,
+            ..Default::default()
+        }
+        .eq_within_tols(states.as_slice().last().unwrap().1, &reference_strain)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
+-> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_plastic::MonolithicRoot, math::optimize::SolveStrategy,
+    };
+    // A wrong K_uv / K_vu still converges to the same root, just slower, so the
+    // agreement test above cannot catch a bad coupling block. This one can: with the
+    // correct finite-difference blocks the Schur-eliminated Newton clears each step in
+    // a handful of iterations; zeroing a coupling block blows the cap.
+    let model = model(1.0);
+    let solver = NewtonRaphson {
+        max_steps: 9,
+        ..Default::default()
+    };
+    // Coarse steps (large plastic increments, cold local start) so the coupling-block
+    // quality actually shows up in the iteration count.
+    let (_, _, states) = MonolithicRoot::root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)),
+        solver,
+        SolveStrategy::Monolithic { elimination: true },
+    )?;
+    assert!(states.as_slice().last().unwrap().1.value() > 0.0);
+    Ok(())
+}
