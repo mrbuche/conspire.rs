@@ -3,8 +3,9 @@
 pub mod test;
 
 use crate::units::{
-    ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature, Rate,
-    ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
+    Dimensionless, ForcePerLength, ForcePerVelocity, Length, PowerPerArea,
+    PowerPerLengthTemperature, Rate, ReciprocalLength, Stress, TemperaturePerLength, Velocity,
+    Viscosity,
 };
 
 use crate::math::{Current, Intermediate, Reference};
@@ -364,6 +365,9 @@ pub type StretchingRate = TensorRank2<3, Current, Current, Rate>;
 
 /// The plastic stretching rate $`\mathbf{D}^\mathrm{p}`$.
 pub type StretchingRatePlastic = TensorRank2<3, Intermediate, Intermediate, Rate>;
+
+/// The associative plastic flow direction $`\mathbf{N}`$.
+pub type FlowDirectionPlastic = TensorRank2<3, Intermediate, Intermediate, Dimensionless>;
 
 /// A surface basis.
 pub type SurfaceBasis<I> = TensorRank1List<3, I, 2, Length>;
