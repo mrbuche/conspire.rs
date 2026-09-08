@@ -2,6 +2,7 @@
 
 #[cfg(feature = "autodiff")]
 pub mod autodiff;
+
 #[cfg(test)]
 mod test;
 
