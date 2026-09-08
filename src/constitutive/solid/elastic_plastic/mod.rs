@@ -3,6 +3,7 @@
 mod canonical;
 
 use crate::{
+    EPSILON,
     constitutive::{
         ConstitutiveError,
         fluid::plastic::{
@@ -13,12 +14,13 @@ use crate::{
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
         TensorArray, Vector,
+        assert::perturbation,
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
         DeformationGradients, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
-        FlowDirectionPlastic, MandelStressElastic, Scalar, SecondPiolaKirchhoffStress,
+        MandelStressElastic, Scalar, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness, Times,
     },
     units::Time,
@@ -226,9 +228,16 @@ where
     /// ```math
     /// f \leq 0, \qquad \Delta\gamma \geq 0, \qquad \Delta\gamma\, f = 0
     /// ```
-    /// via an elastic predictor and, if the trial state lies outside the yield
-    /// surface, a plastic corrector for the incremental multiplier $`\Delta\gamma`$
-    /// with the flow direction frozen at the trial state.
+    /// through an elastic predictor and, if the trial state lies outside the yield
+    /// surface, a plastic corrector for the incremental multiplier $`\Delta\gamma`$.
+    /// The flow direction is frozen at the trial state and the plastic deformation
+    /// gradient is updated by the exponential map
+    /// ```math
+    /// \mathbf{F}_\mathrm{p}^{n+1} = \exp(\Delta\gamma\,\mathbf{N})\cdot\mathbf{F}_\mathrm{p}^{n},
+    /// ```
+    /// which is unimodular for the trace-free $`\mathbf{N}`$ and so needs no step
+    /// limit. The scalar consistency equation is solved by a bracketed Newton
+    /// iteration that falls back to bisection.
     fn return_map(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -248,16 +257,22 @@ where
         {
             return Ok(state_variables.clone());
         }
-        let flow_direction = self.flow_direction(&deviatoric_trial)?;
-        let plastic_deformation_gradient = |plastic_multiplier: Scalar| {
-            (FlowDirectionPlastic::identity() - &flow_direction * plastic_multiplier).inverse()
-                * deformation_gradient_p
+        let flow_direction = {
+            let direction = self.flow_direction(&deviatoric_trial)?;
+            (&direction + direction.transpose()) * 0.5
         };
+        let plastic_deformation_gradient =
+            |plastic_multiplier: Scalar| -> Result<DeformationGradientPlastic, ConstitutiveError> {
+                Ok((&flow_direction * plastic_multiplier)
+                    .expm()
+                    .map_err(|error| ConstitutiveError::custom(format!("{error:?}"), self))?
+                    * deformation_gradient_p)
+            };
         let residual = |plastic_multiplier: Scalar| -> Result<Scalar, ConstitutiveError> {
             let deviatoric = self
                 .mandel_stress(
                     deformation_gradient,
-                    &plastic_deformation_gradient(plastic_multiplier),
+                    &plastic_deformation_gradient(plastic_multiplier)?,
                 )?
                 .deviatoric();
             Ok(self
@@ -267,28 +282,81 @@ where
                 )?
                 .value())
         };
-        // The flow direction is deviatoric, so `|N| = 1` bounds its eigenvalues
-        // below `sqrt(2/3)`; keeping `dg <= 0.9` keeps `I - dg N` positive definite
-        // and hence `F_p` invertible even for a wildly off-equilibrium trial state
-        // handed in by the outer iteration.
-        let (mut low, mut high) = (0.0, 1e-3);
-        while high < 0.9 && residual(high)? > 0.0 {
-            high = (2.0 * high).min(0.9);
-        }
-        for _ in 0..64 {
-            let midpoint = 0.5 * (low + high);
-            if residual(midpoint)? > 0.0 {
-                low = midpoint
-            } else {
-                high = midpoint
+        let (mut lower, mut upper) = (0.0, 1e-3);
+        while residual(upper)? > 0.0 {
+            upper *= 2.0;
+            if upper > 16.0 {
+                return Err(ConstitutiveError::custom(
+                    "Return mapping failed to bracket the plastic multiplier.",
+                    self,
+                ));
             }
         }
-        let plastic_multiplier = 0.5 * (low + high);
+        let tolerance = 1e-13 * self.initial_yield_stress().value().max(1.0);
+        let mut plastic_multiplier = 0.5 * (lower + upper);
+        for _ in 0..40 {
+            let value = residual(plastic_multiplier)?;
+            if value.abs() <= tolerance || upper - lower <= 1e-15 * (1.0 + plastic_multiplier) {
+                break;
+            }
+            if value > 0.0 {
+                lower = plastic_multiplier;
+            } else {
+                upper = plastic_multiplier;
+            }
+            let step = EPSILON * plastic_multiplier.max(1e-3);
+            let slope = (residual(plastic_multiplier + step)? - value) / step;
+            let newton = plastic_multiplier - value / slope;
+            plastic_multiplier = if slope < 0.0 && newton > lower && newton < upper {
+                newton
+            } else {
+                0.5 * (lower + upper)
+            };
+        }
         Ok((
-            plastic_deformation_gradient(plastic_multiplier),
+            plastic_deformation_gradient(plastic_multiplier)?,
             equivalent_plastic_strain + Quantity::new(plastic_multiplier),
         )
             .into())
+    }
+    /// Calculates and returns the algorithmic (consistent) tangent stiffness
+    /// associated with the first Piola-Kirchhoff stress.
+    ///
+    /// ```math
+    /// \frac{\mathrm{d}\mathbf{P}}{\mathrm{d}\mathbf{F}} = \frac{\partial\mathbf{P}}{\partial\mathbf{F}}
+    ///   + \frac{\partial\mathbf{P}}{\partial\mathbf{F}_\mathrm{p}}:\frac{\mathrm{d}\mathbf{F}_\mathrm{p}^{n+1}}{\mathrm{d}\mathbf{F}}
+    /// ```
+    /// Formed by central finite differencing of the return-mapped stress, so it
+    /// captures the dependence of the updated plastic state on the total
+    /// deformation gradient and restores quadratic convergence of the outer solve.
+    fn algorithmic_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        state_variables: &PlasticStateVariables,
+    ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
+        let mut tangent = FirstPiolaKirchhoffTangentStiffness::zero();
+        for k in 0..3 {
+            for l in 0..3 {
+                let mut plus = deformation_gradient.clone();
+                plus[k][l] += perturbation(0.5 * EPSILON);
+                let mut minus = deformation_gradient.clone();
+                minus[k][l] -= perturbation(0.5 * EPSILON);
+                let stress_plus = self.first_piola_kirchhoff_stress(
+                    &plus,
+                    &self.return_map(&plus, state_variables)?.0,
+                )?;
+                let stress_minus = self.first_piola_kirchhoff_stress(
+                    &minus,
+                    &self.return_map(&minus, state_variables)?.0,
+                )?;
+                for i in 0..3 {
+                    for j in 0..3 {
+                        tangent[i][j][k][l] = (stress_plus[i][j] - stress_minus[i][j]) / EPSILON;
+                    }
+                }
+            }
+        }
+        Ok(tangent)
     }
 }
 
@@ -359,9 +427,8 @@ pub trait FirstOrderRoot {
     /// ```math
     /// \mathbf{P}(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
     /// ```
-    /// The plastic state is updated by a nested return mapping at each load step. The
-    /// continuum tangent (at fixed plastic state) is supplied to the solver; the
-    /// consistent algorithmic tangent is not yet formed, so convergence is not quadratic.
+    /// The plastic state is updated by a nested return mapping at each load step, and
+    /// the algorithmic (consistent) tangent is supplied to the solver.
     fn root(
         &self,
         applied_load: AppliedLoad,
@@ -407,12 +474,8 @@ where
                             .first_piola_kirchhoff_stress(deformation_gradient, &updated_state.0)?)
                     },
                     |deformation_gradient: &DeformationGradient| {
-                        let updated_state =
-                            self.return_map(deformation_gradient, &previous_state)?;
-                        Ok(self.first_piola_kirchhoff_tangent_stiffness(
-                            deformation_gradient,
-                            &updated_state.0,
-                        )?)
+                        Ok(self
+                            .algorithmic_tangent_stiffness(deformation_gradient, &previous_state)?)
                     },
                     deformation_gradient.clone(),
                     EqualityConstraint::Linear(matrix.clone(), vector.clone()),
