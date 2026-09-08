@@ -3,8 +3,9 @@
 pub mod test;
 
 use crate::units::{
-    Fluidity, ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature,
-    Rate, ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
+    Dimensionless, Fluidity, ForcePerLength, ForcePerVelocity, Length, PowerPerArea,
+    PowerPerLengthTemperature, Rate, ReciprocalLength, Stress, TemperaturePerLength, Velocity,
+    Viscosity,
 };
 
 use crate::math::{Current, Intermediate, Reference};
@@ -387,6 +388,9 @@ pub type StretchingRatePlasticTangent =
 
 /// The tangent of the plastic stretching rate with respect to the yield stress.
 pub type StretchingRatePlasticTangentYield = TensorRank2<3, Intermediate, Intermediate, Fluidity>;
+
+/// The associative plastic flow direction $`\mathbf{N}`$.
+pub type FlowDirectionPlastic = TensorRank2<3, Intermediate, Intermediate, Dimensionless>;
 
 /// A surface basis.
 pub type SurfaceBasis<I> = TensorRank1List<3, I, 2, Length>;
