@@ -160,10 +160,13 @@ where
         Self::slopes(&mut function, y, t, dt, k, y_trial)?;
         self.error(dt, k)
     }
-    /// Fills `k[1..]` and writes the propagating solution to `y_trial` by walking a Butcher tableau.
+    /// Runge–Kutta stages and the propagating solution for a Butcher tableau.
     ///
-    /// Assumes `k[0]` already holds the slope at `(t, y)`. For a first-same-as-last pair the final
-    /// stage is left to [`VariableStepExplicitFirstSameAsLast::slopes_and_error_fsal`].
+    /// ```math
+    /// \mathbf{k}_i = \mathbf{f}\!\left(t + c_i h,\ \mathbf{y} + h \sum_{j<i} a_{ij}\, \mathbf{k}_j\right)
+    /// ,\qquad
+    /// \mathbf{y}_{n+1} = \mathbf{y} + h \textstyle\sum_i b_i\,\mathbf{k}_i
+    /// ```
     fn slopes_from_tableau<Tab>(
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
@@ -196,7 +199,11 @@ where
         *y_trial = &sum * dt + y;
         Ok(())
     }
-    /// Embedded local-error estimate `dt * Σ D[i] k[i]`, reduced through the error norm.
+    /// Embedded local-error estimate reduced through the error norm.
+    ///
+    /// ```math
+    /// e_{n+1} = \Big\Vert h \textstyle\sum_i d_i\,\mathbf{k}_i \Big\Vert
+    /// ```
     fn error_from_tableau<Tab>(
         &self,
         dt: Quantity<T>,
