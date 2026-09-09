@@ -8066,27 +8066,13 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
 fn temporary_elastic_plastic() -> Result<(), AssertionError> {
     use conspire::constitutive::solid::elastic_plastic::FirstOrderRoot as _;
     use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
-    use conspire::geometry::Coordinates;
-    // one unit cube of six linear tetrahedra, pulled in x with the transverse
-    // faces free (uniaxial stress), through the yield point.
-    let nodes = Coordinates::from([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 0.0, 1.0],
-        [1.0, 0.0, 1.0],
-        [1.0, 1.0, 1.0],
-        [0.0, 1.0, 1.0],
-    ]);
-    let cube_tets: Vec<[usize; N]> = vec![
-        [0, 1, 2, 6],
-        [0, 2, 3, 6],
-        [0, 3, 7, 6],
-        [0, 7, 4, 6],
-        [0, 4, 5, 6],
-        [0, 5, 1, 6],
-    ];
+    let tol = 1e-3;
+    let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
     let model = Canonical::from((
         NeoHookean {
             bulk_modulus: Stress::pascals(13.0),
@@ -8097,57 +8083,62 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
             hardening_slope: Stress::pascals(1.0),
         },
     ));
-    let mesh = Mesh::from((vec![Connectivity::Tetrahedral(cube_tets.into())], nodes));
-    let fem_model: conspire::fem::Model<
-        conspire::fem::block::Block<_, LinearTetrahedron, G, M, N, P>,
-        3,
-    > = (mesh, model.clone()).try_into()?;
-    // eighth-symmetry: x=0, y=0, z=0 faces are symmetry planes; x=1 face prescribed.
-    let bc = |stretch: f64| -> EqualityConstraint {
-        let mut matrix = Matrix::zero(16, 24);
-        let mut vector = Vector::zero(16);
-        for (row, node) in [0usize, 3, 4, 7].into_iter().enumerate() {
-            matrix[row][3 * node] = 1.0; // x on x=0 face
-        }
-        for (row, node) in [0usize, 1, 4, 5].into_iter().enumerate() {
-            matrix[4 + row][3 * node + 1] = 1.0; // y on y=0 face
-        }
-        for (row, node) in [0usize, 1, 2, 3].into_iter().enumerate() {
-            matrix[8 + row][3 * node + 2] = 1.0; // z on z=0 face
-        }
-        for (row, node) in [1usize, 2, 5, 6].into_iter().enumerate() {
-            matrix[12 + row][3 * node] = 1.0; // x on x=1 face
-            vector[12 + row] = stretch;
-        }
-        EqualityConstraint::Linear(matrix, vector)
-    };
-    let stretches = [1.1, 1.25, 1.35, 1.45];
-    let boundary_conditions: Vec<EqualityConstraint> = stretches.iter().map(|&s| bc(s)).collect();
-    let (_coordinates_history, state_history) =
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
+    // one uniaxial-stress boundary condition per load step (F11 = 1 + t)
+    let boundary_conditions: Vec<EqualityConstraint> = times
+        .iter()
+        .skip(1)
+        .map(|&t| bcs_temporary_elastic_viscoplastic(t))
+        .collect();
+    let (coordinates_history, state_history) =
         ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
-    let times: Vec<Quantity<Time>> = stretches.iter().map(|&s| Time::seconds(s - 1.0)).collect();
-    let (_, _, reference_states) = model.root(
+    let (_, deformation_gradients, state_variables) = model.root(
         AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + t.value(), times.as_slice()),
         NewtonRaphson::default(),
     )?;
-    let reference_strain = reference_states.iter().last().unwrap().1.value();
-    assert!(reference_strain > 0.0, "material point must have yielded");
-    let final_state = state_history.last().unwrap();
-    let mut any = false;
-    for element_state in final_state {
-        for state_g in element_state {
-            let (_, strain_g) = state_g.into();
-            assert!(strain_g.value() > 0.0, "quadrature point did not yield");
-            assert!(
-                strain_g.value() > 0.35 * reference_strain
-                    && strain_g.value() < 3.0 * reference_strain,
-                "quadrature-point plastic strain {} vs material point {}",
-                strain_g.value(),
-                reference_strain
-            );
-            any = true;
-        }
-    }
-    assert!(any);
-    Ok(())
+    coordinates_history
+        .iter()
+        .zip(state_history.iter())
+        .zip(deformation_gradients.iter().zip(state_variables.iter()))
+        .try_for_each(
+            |((coordinates, state_block), (deformation_gradient, state_model))| {
+                fem_model
+                    .blocks()
+                    .deformation_gradients(coordinates)
+                    .iter()
+                    .try_for_each(|element_gradients| {
+                        element_gradients.iter().try_for_each(|gradient_g| {
+                            Assert {
+                                abs_tol: 1e1 * tol,
+                                rel_tol: 1e1 * tol,
+                                ..Default::default()
+                            }
+                            .eq_within_tols(gradient_g, deformation_gradient)
+                        })
+                    })?;
+                let (plastic_model, strain_model) = state_model.into();
+                state_block.iter().try_for_each(|element_state| {
+                    element_state.iter().try_for_each(|state_g| {
+                        let (plastic_g, strain_g) = state_g.into();
+                        Assert {
+                            abs_tol: 1e1 * tol,
+                            rel_tol: 1e1 * tol,
+                            ..Default::default()
+                        }
+                        .eq_within_tols(plastic_g, plastic_model)?;
+                        Assert {
+                            abs_tol: 1e1 * tol,
+                            rel_tol: 1e1 * tol,
+                            ..Default::default()
+                        }
+                        .eq_within_tols(strain_g, strain_model)
+                    })
+                })
+            },
+        )
 }
