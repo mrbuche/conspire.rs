@@ -25,6 +25,31 @@ pub fn arruda_boyce<'a>() -> Vec<[&'a str; 2]> {
     ]
 }
 
+pub fn buche_silberstein<'a>() -> Vec<[&'a str; 2]> {
+    vec![
+        [
+            "constitutive/solid/hyperelastic/buche_silberstein",
+            include_str!("buche_silberstein/doc.md"),
+        ],
+        [
+            "cauchy_stress",
+            include_str!("buche_silberstein/cauchy_stress.md"),
+        ],
+        [
+            "cauchy_tangent_stiffness",
+            include_str!("buche_silberstein/cauchy_tangent_stiffness.md"),
+        ],
+        ["first_piola_kirchhoff_stress", ""],
+        ["first_piola_kirchhoff_tangent_stiffness", ""],
+        ["second_piola_kirchhoff_stress", ""],
+        ["second_piola_kirchhoff_tangent_stiffness", ""],
+        [
+            "helmholtz_free_energy_density",
+            include_str!("buche_silberstein/helmholtz_free_energy_density.md"),
+        ],
+    ]
+}
+
 pub fn eight_chain<'a>() -> Vec<[&'a str; 2]> {
     vec![
         [
