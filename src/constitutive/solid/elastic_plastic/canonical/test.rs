@@ -261,6 +261,123 @@ fn monolithic_strategies_agree_with_the_nested_solve() -> Result<(), AssertionEr
 }
 
 #[test]
+fn monolithic_tangents_match_finite_difference_at_a_plastic_state() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::{fluid::plastic::Plastic, solid::elastic_plastic::fischer_burmeister},
+        math::Rank2,
+        mechanics::{FirstPiolaKirchhoffStress, Scalar},
+    };
+    let model = model(1.0);
+    let (_, deformation_gradients, states) = model.root(
+        AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
+        solver(),
+    )?;
+    // Step 90: the block residual is assembled at F#90 with the state (and frozen
+    // flow direction) coming from the converged step 89.
+    let deformation_gradient = deformation_gradients.as_slice()[90].clone();
+    let previous_gradient = deformation_gradients.as_slice()[89].clone();
+    let previous_state = states.as_slice()[89].clone();
+    let strain_previous = previous_state.1;
+    let plastic_previous = previous_state.0.clone();
+    let plastic_multiplier = states.as_slice()[90].1.value() - strain_previous.value();
+    assert!(plastic_multiplier > 0.0, "step 90 must be plastic");
+    let flow_direction = {
+        let deviatoric = model
+            .mandel_stress(&previous_gradient, &plastic_previous)?
+            .deviatoric();
+        let direction = model.flow_direction(&deviatoric)?;
+        (&direction + direction.transpose()) * 0.5
+    };
+    let plastic =
+        |multiplier: Scalar| (&flow_direction * multiplier).expm().unwrap() * &plastic_previous;
+    let residual_global = |gradient: &DeformationGradient,
+                           multiplier: Scalar|
+     -> Result<FirstPiolaKirchhoffStress, AssertionError> {
+        Ok(model.first_piola_kirchhoff_stress(gradient, &plastic(multiplier))?)
+    };
+    let residual_local =
+        |gradient: &DeformationGradient, multiplier: Scalar| -> Result<Scalar, AssertionError> {
+            let scaled = model
+                .yield_function(
+                    &model
+                        .mandel_stress(gradient, &plastic(multiplier))?
+                        .deviatoric(),
+                    strain_previous + Quantity::new(multiplier),
+                )?
+                .value()
+                / model.initial_yield_stress().value();
+            Ok(fischer_burmeister(multiplier, -scaled))
+        };
+    let (_, k_vu, k_uv, k_vv) = model.monolithic_tangents(
+        &deformation_gradient,
+        &plastic_previous,
+        &flow_direction,
+        strain_previous,
+        plastic_multiplier,
+    )?;
+    let assert = Assert {
+        abs_tol: 1e-6,
+        rel_tol: 1e-6,
+        ..Default::default()
+    };
+    let step = 1.0e-6;
+    //
+    // K_uv = dP/d(plastic multiplier).
+    //
+    let mut analytic = FirstPiolaKirchhoffStress::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            analytic[i][j] = k_uv[i][j][0][0];
+        }
+    }
+    assert.eq_within_tols(
+        &analytic,
+        &((residual_global(&deformation_gradient, plastic_multiplier + step)?
+            - residual_global(&deformation_gradient, plastic_multiplier - step)?)
+            / (2.0 * step)),
+    )?;
+    //
+    // K_vu = d(Fischer-Burmeister)/dF.
+    //
+    let mut analytic = DeformationGradient::zero();
+    let mut finite_difference = DeformationGradient::zero();
+    for k in 0..3 {
+        for l in 0..3 {
+            analytic[k][l] = k_vu[0][0][k][l];
+            let mut plus = deformation_gradient.clone();
+            plus[k][l] += Quantity::new(step);
+            let mut minus = deformation_gradient.clone();
+            minus[k][l] -= Quantity::new(step);
+            finite_difference[k][l] = Quantity::new(
+                (residual_local(&plus, plastic_multiplier)?
+                    - residual_local(&minus, plastic_multiplier)?)
+                    / (2.0 * step),
+            );
+        }
+    }
+    assert.eq_within_tols(&analytic, &finite_difference)?;
+    //
+    // K_vv = d(Fischer-Burmeister)/d(plastic multiplier), plus the pinned identity.
+    //
+    assert.eq_within_tols(
+        k_vv[0][0][0][0].value(),
+        &((residual_local(&deformation_gradient, plastic_multiplier + step)?
+            - residual_local(&deformation_gradient, plastic_multiplier - step)?)
+            / (2.0 * step)),
+    )?;
+    for i in 0..3 {
+        for j in 0..3 {
+            if i != 0 || j != 0 {
+                assert_eq!(k_vv[i][j][i][j].value(), 1.0);
+            }
+        }
+    }
+    // Guard against a vacuous comparison: the coupling blocks must be non-negligible.
+    assert!(analytic.norm().value() > 1e-2);
+    Ok(())
+}
+
+#[test]
 fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
 -> Result<(), AssertionError> {
     use crate::{
@@ -268,11 +385,11 @@ fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
     };
     // A wrong K_uv / K_vu still converges to the same root, just slower, so the
     // agreement test above cannot catch a bad coupling block. This one can: with the
-    // correct finite-difference blocks the Schur-eliminated Newton clears each step in
-    // a handful of iterations; zeroing a coupling block blows the cap.
+    // correct blocks the Schur-eliminated Newton clears each step in six iterations;
+    // zeroing a coupling block blows the cap.
     let model = model(1.0);
     let solver = NewtonRaphson {
-        max_steps: 9,
+        max_steps: 6,
         ..Default::default()
     };
     // Coarse steps (large plastic increments, cold local start) so the coupling-block
