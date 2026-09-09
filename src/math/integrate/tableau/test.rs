@@ -3,7 +3,7 @@ use crate::math::integrate::ode::explicit::variable_step::{
     bogacki_shampine, dormand_prince, verner_8, verner_9,
 };
 
-tconst TOL_LOW_ORDER: f64 = 1e-12;
+const TOL_LOW_ORDER: f64 = 1e-12;
 const TOL_HIGH_ORDER: f64 = 1e-11;
 
 fn check_butcher<T: ButcherTableau>(tol: f64) {

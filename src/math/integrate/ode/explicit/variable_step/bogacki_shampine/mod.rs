@@ -132,19 +132,7 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
-        self.error_from_tableau::<Tableau>(dt, k)
-    }
-    fn slopes(
-        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
-        y: &Y,
-        t: Quantity<T>,
-        dt: Quantity<T>,
-        k: &mut [Derivative<Y, T>],
-        y_trial: &mut Y,
-    ) -> Result<(), String> {
-        Self::slopes_from_tableau::<Tableau>(function, y, t, dt, k, y_trial)
-    }
+    type Tableau = Tableau;
     fn slopes_and_error(
         &self,
         function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
