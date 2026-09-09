@@ -13,25 +13,6 @@ use crate::math::{
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
 
-pub(crate) const C_44_45: Scalar = 44.0 / 45.0;
-pub(crate) const C_56_15: Scalar = 56.0 / 15.0;
-pub(crate) const C_32_9: Scalar = 32.0 / 9.0;
-pub(crate) const C_8_9: Scalar = 8.0 / 9.0;
-pub(crate) const C_19372_6561: Scalar = 19372.0 / 6561.0;
-pub(crate) const C_25360_2187: Scalar = 25360.0 / 2187.0;
-pub(crate) const C_64448_6561: Scalar = 64448.0 / 6561.0;
-pub(crate) const C_212_729: Scalar = 212.0 / 729.0;
-pub(crate) const C_9017_3168: Scalar = 9017.0 / 3168.0;
-pub(crate) const C_355_33: Scalar = 355.0 / 33.0;
-pub(crate) const C_46732_5247: Scalar = 46732.0 / 5247.0;
-pub(crate) const C_49_176: Scalar = 49.0 / 176.0;
-pub(crate) const C_5103_18656: Scalar = 5103.0 / 18656.0;
-pub(crate) const C_35_384: Scalar = 35.0 / 384.0;
-pub(crate) const C_500_1113: Scalar = 500.0 / 1113.0;
-pub(crate) const C_125_192: Scalar = 125.0 / 192.0;
-pub(crate) const C_2187_6784: Scalar = 2187.0 / 6784.0;
-pub(crate) const C_11_84: Scalar = 11.0 / 84.0;
-
 pub(crate) const P_1_0: Scalar = 1.0;
 pub(crate) const P_1_1: Scalar = -8048581381.0 / 2820520608.0;
 pub(crate) const P_1_2: Scalar = 8663915743.0 / 2820520608.0;
