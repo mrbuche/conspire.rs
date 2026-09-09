@@ -403,3 +403,49 @@ fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
     assert!(states.as_slice().last().unwrap().1.value() > 0.0);
     Ok(())
 }
+
+#[test]
+fn consistent_tangent_matches_the_finite_difference_algorithmic_tangent()
+-> Result<(), AssertionError> {
+    let model = model(1.0);
+    let (_, deformation_gradients, states) = model.root(
+        AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
+        solver(),
+    )?;
+    let deformation_gradient = deformation_gradients.as_slice()[90].clone();
+    let previous_state = states.as_slice()[89].clone();
+    assert!(
+        states.as_slice()[90].1.value() > 0.0,
+        "step 90 must be plastic"
+    );
+    let (consistent, updated) =
+        model.consistent_tangent_stiffness(&deformation_gradient, &previous_state)?;
+    let finite_difference =
+        model.algorithmic_tangent_stiffness(&deformation_gradient, &previous_state)?;
+    // the return-mapped state the tangent is taken at
+    Assert::default().eq_within_tols(
+        updated.1,
+        &model.return_map(&deformation_gradient, &previous_state)?.1,
+    )?;
+    let directions = [
+        DeformationGradient::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        DeformationGradient::from([[0.0, 0.4, 0.0], [0.3, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        DeformationGradient::from([[0.2, 0.1, -0.15], [0.1, -0.3, 0.05], [-0.15, 0.05, 0.25]]),
+    ];
+    // The condensed analytic tangent freezes the flow direction, so it drops the
+    // radial-return geometric term (~dN/dF); against the fully finite-differenced
+    // algorithmic tangent that is a couple of percent for isotropic J2, small enough
+    // to keep quadratic-ish convergence of the outer solve.
+    for direction in &directions {
+        Assert {
+            abs_tol: 3e-2,
+            rel_tol: 3e-2,
+            ..Default::default()
+        }
+        .eq_within_tols(
+            contract(&consistent, direction),
+            &contract(&finite_difference, direction),
+        )?;
+    }
+    Ok(())
+}
