@@ -1,6 +1,9 @@
 #[cfg(test)]
 mod test;
 
+/// The reduced extensible freely-jointed chain, $`y = \mathcal{L}(\eta) + \eta/\varkappa`$.
+pub mod extensible_langevin;
+
 use super::{Erase, Scalar, Tensor};
 use crate::{ABS_TOL, REL_TOL};
 use std::f64::consts::E;
