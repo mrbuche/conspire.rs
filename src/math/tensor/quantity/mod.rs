@@ -631,11 +631,15 @@ fn error_fd_over<'a, U: 'a>(
 }
 
 impl<U> Solution for Quantity<U> {
-    fn decrement_from(&mut self, _other: &Vector) {
-        unimplemented!()
+    fn decrement_from(&mut self, other: &Vector) {
+        self.0 -= other[0]
     }
-    fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: &Vector) {
-        unimplemented!()
+    fn decrement_from_chained(&mut self, other: &mut Vector, vector: &Vector) {
+        self.0 -= vector[0];
+        other
+            .iter_mut()
+            .zip(vector.iter().skip(1))
+            .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
 }
 
@@ -652,31 +656,35 @@ impl<U> Hessian for Quantity<U> {
 }
 
 impl<U> Jacobian for Quantity<U> {
-    fn fill_into(&self, _vector: &mut Vector) {
-        unimplemented!()
+    fn fill_into(&self, vector: &mut Vector) {
+        vector[0] = self.0
     }
-    fn fill_into_chained(self, _other: Vector, _vector: &mut Vector) {
-        unimplemented!()
+    fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
+        vector[0] = self.0;
+        other
+            .into_iter()
+            .zip(vector.iter_mut().skip(1))
+            .for_each(|(entry_i, vector_i)| *vector_i = entry_i)
     }
 }
 
 impl<U> Sub<Vector> for Quantity<U> {
     type Output = Self;
-    fn sub(self, _vector: Vector) -> Self::Output {
-        unimplemented!()
+    fn sub(self, vector: Vector) -> Self::Output {
+        Self::new(self.0 - vector[0])
     }
 }
 
 impl<U> Sub<&Vector> for Quantity<U> {
     type Output = Self;
-    fn sub(self, _vector: &Vector) -> Self::Output {
-        unimplemented!()
+    fn sub(self, vector: &Vector) -> Self::Output {
+        Self::new(self.0 - vector[0])
     }
 }
 
 impl<U> From<Vector> for Quantity<U> {
-    fn from(_vector: Vector) -> Self {
-        unimplemented!()
+    fn from(vector: Vector) -> Self {
+        Self::new(vector[0])
     }
 }
 

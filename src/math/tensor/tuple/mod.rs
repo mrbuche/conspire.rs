@@ -1,8 +1,11 @@
+#[cfg(test)]
+mod test;
+
 pub(crate) mod list;
 pub(crate) mod vec;
 
 use crate::math::{
-    Differentiate, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank2, Vector,
+    Differentiate, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, Vector,
 };
 use crate::units::UnitHalves;
 use std::{
@@ -189,51 +192,56 @@ where
     }
 }
 
-impl<const D: usize, I, J, K, L, U> Jacobian
-    for TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, U>>
+impl<T1, T2> Jacobian for TensorTuple<T1, T2>
+where
+    T1: Jacobian,
+    T2: Jacobian,
 {
     fn fill_into(&self, vector: &mut Vector) {
-        self.0
-            .iter()
-            .flat_map(|entry| entry.iter())
-            .chain(self.1.iter().flat_map(|entry| entry.iter()))
+        let mut head = Vector::zero(self.0.size());
+        self.0.fill_into(&mut head);
+        let mut tail = Vector::zero(self.1.size());
+        self.1.fill_into(&mut tail);
+        head.into_iter()
+            .chain(tail)
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = self_i.value())
+            .for_each(|(entry, vector_i)| *vector_i = entry)
     }
     fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
-        self.0
-            .into_iter()
-            .flatten()
-            .chain(self.1.into_iter().flatten())
-            .map(|entry| entry.value())
+        let mut head = Vector::zero(self.0.size());
+        self.0.fill_into(&mut head);
+        let mut tail = Vector::zero(self.1.size());
+        self.1.fill_into(&mut tail);
+        head.into_iter()
+            .chain(tail)
             .chain(other)
             .zip(vector.iter_mut())
-            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+            .for_each(|(entry, vector_i)| *vector_i = entry)
     }
 }
 
-impl<const D: usize, I, J, K, L, U> Solution
-    for TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, U>>
+impl<T1, T2> Solution for TensorTuple<T1, T2>
+where
+    T1: Solution,
+    T2: Solution,
 {
     fn decrement_from(&mut self, other: &Vector) {
-        self.0
-            .iter_mut()
-            .flat_map(|x| x.iter_mut())
-            .chain(self.1.iter_mut().flat_map(|x| x.iter_mut()))
-            .zip(other.iter())
-            .for_each(|(self_i, vector_i)| *self_i -= Quantity::new(*vector_i))
+        let split = self.0.size();
+        let head: Vector = other.iter().take(split).copied().collect();
+        let tail: Vector = other.iter().skip(split).copied().collect();
+        self.0.decrement_from(&head);
+        self.1.decrement_from(&tail);
     }
     fn decrement_from_chained(&mut self, other: &mut Vector, vector: &Vector) {
-        let mut values = vector.iter();
-        self.0
-            .iter_mut()
-            .flat_map(|x| x.iter_mut())
-            .chain(self.1.iter_mut().flat_map(|x| x.iter_mut()))
-            .zip(values.by_ref())
-            .for_each(|(entry_i, vector_i)| *entry_i -= Quantity::new(*vector_i));
+        let split = self.0.size();
+        let tail_len = self.1.size();
+        let head: Vector = vector.iter().take(split).copied().collect();
+        let tail: Vector = vector.iter().skip(split).take(tail_len).copied().collect();
+        self.0.decrement_from(&head);
+        self.1.decrement_from(&tail);
         other
             .iter_mut()
-            .zip(values)
+            .zip(vector.iter().skip(split + tail_len))
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
 }
@@ -468,24 +476,30 @@ where
     }
 }
 
-impl<const D: usize, I, J, K, L, U> Sub<Vector>
-    for TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, U>>
+impl<T1, T2> Sub<Vector> for TensorTuple<T1, T2>
+where
+    T1: Tensor + Sub<Vector, Output = T1>,
+    T2: Tensor + Sub<Vector, Output = T2>,
 {
     type Output = Self;
     fn sub(mut self, vector: Vector) -> Self::Output {
-        self.0 = self.0 - vector.iter().take(D * D).copied().collect::<Vector>();
-        self.1 = self.1 - vector.iter().skip(D * D).copied().collect::<Vector>();
+        let split = self.0.size();
+        self.0 = self.0 - vector.iter().take(split).copied().collect::<Vector>();
+        self.1 = self.1 - vector.iter().skip(split).copied().collect::<Vector>();
         self
     }
 }
 
-impl<const D: usize, I, J, K, L, U> Sub<&Vector>
-    for TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, U>>
+impl<T1, T2> Sub<&Vector> for TensorTuple<T1, T2>
+where
+    T1: Tensor + Sub<Vector, Output = T1>,
+    T2: Tensor + Sub<Vector, Output = T2>,
 {
     type Output = Self;
     fn sub(mut self, vector: &Vector) -> Self::Output {
-        self.0 = self.0 - vector.iter().take(D * D).copied().collect::<Vector>();
-        self.1 = self.1 - vector.iter().skip(D * D).copied().collect::<Vector>();
+        let split = self.0.size();
+        self.0 = self.0 - vector.iter().take(split).copied().collect::<Vector>();
+        self.1 = self.1 - vector.iter().skip(split).copied().collect::<Vector>();
         self
     }
 }
