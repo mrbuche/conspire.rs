@@ -87,7 +87,6 @@ where
         }
         Ok((t_sol, y_sol, dydt_sol))
     }
-    /// One Runge–Kutta step: recompute `k[0]`, sweep the tableau, write the propagating solution.
     fn step(
         &self,
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
