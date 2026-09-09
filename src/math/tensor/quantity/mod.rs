@@ -6,8 +6,8 @@ pub(crate) mod sparse_vec_2d;
 pub(crate) mod vec;
 
 use super::{
-    Differentiate, Erase, Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector,
-    rank_0::TensorRank0,
+    Differentiate, Erase, Hessian, HessianBlock, Jacobian, Solution, SquareMatrix, Tensor,
+    TensorArray, Vector, rank_0::TensorRank0,
 };
 use crate::math::{TensorList, assert::FiniteDifference};
 use crate::units::{Dimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul};
@@ -15,7 +15,7 @@ use std::{
     cmp::Ordering,
     fmt::{self, Display, Formatter},
     marker::PhantomData,
-    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, DivAssign, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign},
 };
 
 /// Implemented only where the two types are the same, so that a unit may be
@@ -652,6 +652,25 @@ impl<U> Hessian for Quantity<U> {
     }
     fn fill_into(self, _square_matrix: &mut SquareMatrix) {
         unimplemented!()
+    }
+}
+
+/// A quantity is a 1x1 block.
+impl<U> HessianBlock for Quantity<U> {
+    fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
+        self.0
+    }
+    fn height(&self) -> usize {
+        1
+    }
+    fn width(&self) -> usize {
+        1
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        matrix[row][column] = self.0
     }
 }
 

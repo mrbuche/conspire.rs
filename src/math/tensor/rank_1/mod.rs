@@ -23,7 +23,7 @@ use crate::{
     math::{
         matrix::vector::Vector,
         tensor::{
-            Jacobian, Quantity, Solution, Tensor, TensorArray, rank_0::TensorRank0,
+            HessianBlock, Jacobian, Quantity, Solution, Tensor, TensorArray, rank_0::TensorRank0,
             rank_1::list::TensorRank1List, rank_2::TensorRank2,
         },
         write_tensor_rank_0,
@@ -235,6 +235,27 @@ impl<const D: usize, I, U> Jacobian for TensorRank1<D, I, U> {
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
+    }
+}
+
+/// A rank-1 tensor is a single-column block: `D` rows, one column.
+impl<const D: usize, I, U> HessianBlock for TensorRank1<D, I, U> {
+    fn entry(&self, row: usize, _column: usize) -> TensorRank0 {
+        self[row].value()
+    }
+    fn height(&self) -> usize {
+        D
+    }
+    fn width(&self) -> usize {
+        1
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        self.iter()
+            .enumerate()
+            .for_each(|(i, self_i)| matrix[row + i][column] = self_i.value())
     }
 }
 

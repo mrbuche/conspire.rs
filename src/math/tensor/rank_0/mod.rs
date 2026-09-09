@@ -8,8 +8,11 @@ use crate::units::Dimensionless;
 pub(crate) mod list;
 pub(crate) mod list_2d;
 
-use super::{Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
-use std::{ops::Sub, slice::from_ref};
+use super::{Hessian, HessianBlock, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
+use std::{
+    ops::{IndexMut, Sub},
+    slice::from_ref,
+};
 
 /// A tensor of rank 0 (a scalar).
 pub type TensorRank0 = f64;
@@ -68,6 +71,25 @@ impl Hessian for TensorRank0 {
     }
     fn fill_into(self, _square_matrix: &mut SquareMatrix) {
         unimplemented!()
+    }
+}
+
+/// A scalar is a 1x1 block.
+impl HessianBlock for TensorRank0 {
+    fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
+        *self
+    }
+    fn height(&self) -> usize {
+        1
+    }
+    fn width(&self) -> usize {
+        1
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        matrix[row][column] = *self
     }
 }
 
