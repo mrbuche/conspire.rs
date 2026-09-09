@@ -10,5 +10,7 @@
 mod test;
 
 mod gauss;
+mod sphere;
 
 pub use gauss::{gauss_hermite, gauss_laguerre, gauss_legendre};
+pub use sphere::{SphereNode, sphere_product};
