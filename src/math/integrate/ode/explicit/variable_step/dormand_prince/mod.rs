@@ -5,8 +5,8 @@ use crate::math::Norm;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        Explicit, IntegrationError, OdeIntegrator, Times, VariableStep, VariableStepExplicit,
-        VariableStepExplicitFirstSameAsLast,
+        DormandPrince54, Explicit, IntegrationError, OdeIntegrator, Times, VariableStep,
+        VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
 };
@@ -31,11 +31,6 @@ pub(crate) const C_500_1113: Scalar = 500.0 / 1113.0;
 pub(crate) const C_125_192: Scalar = 125.0 / 192.0;
 pub(crate) const C_2187_6784: Scalar = 2187.0 / 6784.0;
 pub(crate) const C_11_84: Scalar = 11.0 / 84.0;
-pub(crate) const C_71_57600: Scalar = 71.0 / 57600.0;
-pub(crate) const C_71_16695: Scalar = 71.0 / 16695.0;
-pub(crate) const C_71_1920: Scalar = 71.0 / 1920.0;
-pub(crate) const C_17253_339200: Scalar = 17253.0 / 339200.0;
-pub(crate) const C_22_525: Scalar = 22.0 / 525.0;
 
 pub(crate) const P_1_0: Scalar = 1.0;
 pub(crate) const P_1_1: Scalar = -8048581381.0 / 2820520608.0;
@@ -154,45 +149,17 @@ where
     V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
-        Ok(self.error_norm.measure(
-            &((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
-                - &k[4] * C_17253_339200
-                + &k[5] * C_22_525
-                - &k[6] * 0.025)
-                * dt),
-        ))
+        self.error_from_tableau::<DormandPrince54>(dt, k)
     }
     fn slopes(
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
         t: Quantity<T>,
         dt: Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
-        *y_trial = &k[0] * (0.2 * dt) + y;
-        k[1] = function(t + 0.2 * dt, y_trial)?;
-        *y_trial = &k[0] * (0.075 * dt) + &k[1] * (0.225 * dt) + y;
-        k[2] = function(t + 0.3 * dt, y_trial)?;
-        *y_trial = &k[0] * (C_44_45 * dt) - &k[1] * (C_56_15 * dt) + &k[2] * (C_32_9 * dt) + y;
-        k[3] = function(t + 0.8 * dt, y_trial)?;
-        *y_trial = &k[0] * (C_19372_6561 * dt) - &k[1] * (C_25360_2187 * dt)
-            + &k[2] * (C_64448_6561 * dt)
-            - &k[3] * (C_212_729 * dt)
-            + y;
-        k[4] = function(t + C_8_9 * dt, y_trial)?;
-        *y_trial = &k[0] * (C_9017_3168 * dt) - &k[1] * (C_355_33 * dt)
-            + &k[2] * (C_46732_5247 * dt)
-            + &k[3] * (C_49_176 * dt)
-            - &k[4] * (C_5103_18656 * dt)
-            + y;
-        k[5] = function(t + dt, y_trial)?;
-        *y_trial = (&k[0] * C_35_384 + &k[2] * C_500_1113 + &k[3] * C_125_192
-            - &k[4] * C_2187_6784
-            + &k[5] * C_11_84)
-            * dt
-            + y;
-        Ok(())
+        Self::slopes_from_tableau::<DormandPrince54>(function, y, t, dt, k, y_trial)
     }
     fn slopes_and_error(
         &self,

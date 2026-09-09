@@ -6,6 +6,7 @@ mod test;
 mod dae;
 mod error;
 mod ode;
+mod tableau;
 
 use crate::math::QuantityVector;
 use crate::units::Time;
@@ -14,6 +15,7 @@ use crate::units::Time;
 pub type Times<T = Time> = QuantityVector<T>;
 
 pub use error::IntegrationError;
+pub use tableau::{BogackiShampine32, ButcherTableau, DormandPrince54, EmbeddedTableau};
 
 pub use dae::{
     ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,

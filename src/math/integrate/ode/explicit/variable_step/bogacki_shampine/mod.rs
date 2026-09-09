@@ -5,8 +5,8 @@ use crate::math::Norm;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        Explicit, FreeInterpolant, IntegrationError, OdeIntegrator, Times, VariableStep,
-        VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
+        BogackiShampine32, Explicit, FreeInterpolant, IntegrationError, OdeIntegrator, Times,
+        VariableStep, VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
 };
@@ -110,24 +110,17 @@ where
     V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
-        Ok(self
-            .error_norm
-            .measure(&((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0))))
+        self.error_from_tableau::<BogackiShampine32>(dt, k)
     }
     fn slopes(
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
         t: Quantity<T>,
         dt: Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
-        *y_trial = &k[0] * (0.5 * dt) + y;
-        k[1] = function(t + 0.5 * dt, y_trial)?;
-        *y_trial = &k[1] * (0.75 * dt) + y;
-        k[2] = function(t + 0.75 * dt, y_trial)?;
-        *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
-        Ok(())
+        Self::slopes_from_tableau::<BogackiShampine32>(function, y, t, dt, k, y_trial)
     }
     fn slopes_and_error(
         &self,

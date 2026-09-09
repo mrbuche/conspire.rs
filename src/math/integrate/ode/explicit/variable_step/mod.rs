@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{Explicit, IntegrationError, Times, VariableStep},
+    integrate::{EmbeddedTableau, Explicit, IntegrationError, Times, VariableStep},
     interpolate::InterpolateSolution,
 };
 use crate::units::Time;
@@ -159,6 +159,57 @@ where
     ) -> Result<Scalar, String> {
         Self::slopes(&mut function, y, t, dt, k, y_trial)?;
         self.error(dt, k)
+    }
+    /// Fills `k[1..]` and writes the propagating solution to `y_trial` by walking a Butcher tableau.
+    ///
+    /// Assumes `k[0]` already holds the slope at `(t, y)`. For a first-same-as-last pair the final
+    /// stage is left to [`VariableStepExplicitFirstSameAsLast::slopes_and_error_fsal`].
+    fn slopes_from_tableau<Tab>(
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        y: &Y,
+        t: Quantity<T>,
+        dt: Quantity<T>,
+        k: &mut [Derivative<Y, T>],
+        y_trial: &mut Y,
+    ) -> Result<(), String>
+    where
+        Tab: EmbeddedTableau,
+    {
+        let last = if Tab::FSAL {
+            Tab::STAGES - 1
+        } else {
+            Tab::STAGES
+        };
+        for i in 1..last.min(k.len()) {
+            let row = Tab::A[i];
+            let mut stage = &k[0] * (row[0] * dt);
+            for j in 1..i {
+                stage += &k[j] * (row[j] * dt);
+            }
+            stage += y;
+            k[i] = function(t + Tab::C[i] * dt, &stage)?;
+        }
+        let mut sum = &k[0] * Tab::B[0];
+        for (b, slope) in Tab::B.iter().zip(k.iter()).skip(1) {
+            sum += slope * *b;
+        }
+        *y_trial = &sum * dt + y;
+        Ok(())
+    }
+    /// Embedded local-error estimate `dt * Σ D[i] k[i]`, reduced through the error norm.
+    fn error_from_tableau<Tab>(
+        &self,
+        dt: Quantity<T>,
+        k: &[Derivative<Y, T>],
+    ) -> Result<Scalar, String>
+    where
+        Tab: EmbeddedTableau,
+    {
+        let mut sum = &k[0] * Tab::D[0];
+        for (d, slope) in Tab::D.iter().zip(k.iter()).skip(1) {
+            sum += slope * *d;
+        }
+        Ok(self.error_norm().measure(&(&sum * dt)))
     }
     #[expect(clippy::too_many_arguments)]
     fn step(
