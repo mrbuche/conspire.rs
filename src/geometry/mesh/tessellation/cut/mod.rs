@@ -149,10 +149,10 @@ impl Tessellation {
     /// `tolerance` is the curvature refinement tolerance (`None` disables it).
     /// `relief`, when set, runs the Protais et al. §4.1.2 pass once after the
     /// first fit: pillow the low-quality hexahedra around boundary nodes where
-    /// a face opens past that angle (radians), then fit again. It is
-    /// best-effort and currently experimental — the pillow is valid but a
-    /// whole-mesh re-fit does not improve a sharply creased surface (a local
-    /// re-fit is the missing piece), so it stays off by default.
+    /// a face opens past that angle (radians), then re-fit only the new twins
+    /// and one ring of their neighbours, so the relieved region settles
+    /// without disturbing the rest of the mesh. Best-effort, still off by
+    /// default.
     pub fn inflate(
         &self,
         balancing: Balancing,
@@ -164,11 +164,20 @@ impl Tessellation {
         mesh.retain_elements(|cell, _, _| classes[cell] != Class::Outside);
         let free: Vec<usize> = (0..mesh.number_of_nodes()).collect();
         mesh.fit(&free, self)?;
-        if let Some(alpha) = relief
-            && !mesh.relieve_open_angles(alpha, RELIEF_GATE).is_empty()
-        {
-            let free: Vec<usize> = (0..mesh.number_of_nodes()).collect();
-            mesh.fit(&free, self)?;
+        if let Some(alpha) = relief {
+            let twins = mesh.relieve_open_angles(alpha, RELIEF_GATE);
+            if !twins.is_empty() {
+                let neighbors = mesh.node_node_connectivity();
+                let mut free: Vec<usize> = twins
+                    .iter()
+                    .flat_map(|&twin| {
+                        std::iter::once(twin).chain(neighbors[twin].iter().copied())
+                    })
+                    .collect();
+                free.sort_unstable();
+                free.dedup();
+                mesh.fit(&free, self)?;
+            }
         }
         Ok(mesh)
     }
