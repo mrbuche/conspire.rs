@@ -507,6 +507,67 @@ where
         }
         Ok((tangent, k_vu, k_uv, k_vv))
     }
+    /// Return maps one load step and returns the updated plastic state together with the
+    /// consistent (algorithmic) first Piola-Kirchhoff tangent stiffness at that state.
+    ///
+    /// The tangent is the static condensation of the analytic block system,
+    /// ```math
+    /// \frac{\mathrm{d}\mathbf{P}}{\mathrm{d}\mathbf{F}} = K_{uu} - K_{uv}\,K_{vv}^{-1}\,K_{vu},
+    /// ```
+    /// with the local block reduced to the single live entry (the plastic multiplier);
+    /// on an elastic step it is just the continuum tangent. This is the closed-form
+    /// counterpart of [`Self::algorithmic_tangent_stiffness`], cheap enough for use at
+    /// every quadrature point of a finite element assembly.
+    fn consistent_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        state_variables: &PlasticStateVariables,
+    ) -> Result<(FirstPiolaKirchhoffTangentStiffness, PlasticStateVariables), ConstitutiveError>
+    {
+        let (deformation_gradient_p, &equivalent_plastic_strain): (
+            &DeformationGradientPlastic,
+            &Quantity,
+        ) = state_variables.into();
+        let deviatoric = self
+            .mandel_stress(deformation_gradient, deformation_gradient_p)?
+            .deviatoric();
+        let updated_state = self.return_map(deformation_gradient, state_variables)?;
+        let plastic_multiplier = (updated_state.1 - equivalent_plastic_strain).value();
+        if plastic_multiplier <= 0.0 {
+            return Ok((
+                self.first_piola_kirchhoff_tangent_stiffness(
+                    deformation_gradient,
+                    deformation_gradient_p,
+                )?,
+                updated_state,
+            ));
+        }
+        let flow_direction = {
+            let direction = self.flow_direction(&deviatoric)?;
+            (&direction + direction.transpose()) * 0.5
+        };
+        let (mut tangent, k_vu, k_uv, k_vv) = self.monolithic_tangents(
+            deformation_gradient,
+            deformation_gradient_p,
+            &flow_direction,
+            equivalent_plastic_strain,
+            plastic_multiplier,
+        )?;
+        let inverse = 1.0 / k_vv[0][0][0][0].value();
+        for i in 0..3 {
+            for j in 0..3 {
+                for k in 0..3 {
+                    for l in 0..3 {
+                        tangent[i][j][k][l] = Quantity::new(
+                            tangent[i][j][k][l].value()
+                                - k_uv[i][j][0][0].value() * inverse * k_vu[0][0][k][l].value(),
+                        );
+                    }
+                }
+            }
+        }
+        Ok((tangent, updated_state))
+    }
 }
 
 /// Zeroth-order root-finding methods for elastic-plastic solid constitutive models.
