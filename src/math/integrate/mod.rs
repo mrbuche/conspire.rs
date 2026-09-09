@@ -6,6 +6,7 @@ mod test;
 mod dae;
 mod error;
 mod ode;
+pub mod quadrature;
 
 use crate::math::QuantityVector;
 use crate::units::Time;
