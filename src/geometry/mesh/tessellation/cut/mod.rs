@@ -31,6 +31,7 @@ const COLLAPSE_FRACTION: Scalar = 0.2;
 const CROSSING_TOLERANCE: Quantity<Length> = Length::meters(1.0e-8);
 const GRAZING_TOLERANCE: Scalar = 1.0e-4;
 const PADDING: u16 = 2;
+const RELIEF_GATE: Scalar = 0.1;
 const SLIVER_FRACTION: Scalar = 0.1;
 const SNAP_FEATURE: Scalar = 0.5;
 const SNAP_HARD: Scalar = 0.05;
@@ -66,6 +67,7 @@ const DIRECTIONS: [Direction<D>; 3] = [
 
 /// What an octree background's cells are meshed into.
 enum Cells {
+    Dual,
     Polyhedral,
     Tetrahedral,
 }
@@ -122,23 +124,55 @@ impl Tessellation {
     ///
     /// The background for [`cut`](Self::cut). `balancing` must be `Strong(1)`
     /// or `Weak(1)`, which is what dualization requires.
+    ///
+    /// `tolerance` is the Dunyach chord-error tolerance for curvature-driven
+    /// refinement; `None` disables it.
     pub fn dual_background(
         &self,
         balancing: Balancing,
         scale: Scalar,
+        tolerance: Option<Quantity<Length>>,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let sizing = Sizing::new(self, scale, CurvatureSizing::default(), PADDING);
-        let mesh = if sizing.fits::<u16>() {
-            let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
-            octree.equilibrate(balancing, Pairing::Regular)?;
-            octree.dualize()
-        } else {
-            let mut octree = Octree::<u32, NonZeroU32>::refine(&sizing)?;
-            octree.equilibrate(balancing, Pairing::Regular)?;
-            octree.dualize()
+        let curvature = CurvatureSizing {
+            tolerance,
+            ..Default::default()
         };
+        let mesh = self.octree_mesh(balancing, Pairing::Regular, scale, curvature, Cells::Dual)?;
         let classes = self.classify(&mesh);
         Ok((mesh, classes))
+    }
+    /// Meshes this tessellation by inflating the dual background onto it
+    /// (automesh#760 Route B): keep every cell the surface passes through or
+    /// encloses, then deform the whole node set onto the surface by energy
+    /// fitting — no staircase trim, no buffer layer, no elements added.
+    ///
+    /// `tolerance` is the curvature refinement tolerance (`None` disables it).
+    /// `relief`, when set, runs the Protais et al. §4.1.2 pass once after the
+    /// first fit: pillow the low-quality hexahedra around boundary nodes where
+    /// a face opens past that angle (radians), then fit again. It stays off by
+    /// default — the pillow is valid but does not improve a sharply creased
+    /// surface: both a whole-mesh re-fit and a local twins-plus-one-ring
+    /// re-fit (commit 19ba7869) measured no better than no relief, the pillow
+    /// only relocating the worst element into the sheet layer. An alternative
+    /// crease strategy is needed.
+    pub fn inflate(
+        &self,
+        balancing: Balancing,
+        scale: Scalar,
+        tolerance: Option<Quantity<Length>>,
+        relief: Option<Scalar>,
+    ) -> Result<Mesh<D>, &'static str> {
+        let (mut mesh, classes) = self.dual_background(balancing, scale, tolerance)?;
+        mesh.retain_elements(|cell, _, _| classes[cell] != Class::Outside);
+        let free: Vec<usize> = (0..mesh.number_of_nodes()).collect();
+        mesh.fit(&free, self)?;
+        if let Some(alpha) = relief
+            && !mesh.relieve_open_angles(alpha, RELIEF_GATE).is_empty()
+        {
+            let free: Vec<usize> = (0..mesh.number_of_nodes()).collect();
+            mesh.fit(&free, self)?;
+        }
+        Ok(mesh)
     }
     /// Builds a uniform lattice of cubes of the given edge length around this
     /// tessellation, with each cell classified against the surface.
@@ -179,16 +213,24 @@ impl Tessellation {
     /// on a face rather than something to be dualized away. `Weak(n)` and
     /// `Strong(n)` for `n > 1` are therefore available here, permitting
     /// coarser trees than dualization allows.
+    ///
+    /// `tolerance` is the Dunyach chord-error tolerance for curvature-driven
+    /// refinement; `None` disables it.
     pub fn octree_background(
         &self,
         balancing: Balancing,
         scale: Scalar,
+        tolerance: Option<Quantity<Length>>,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
+        let curvature = CurvatureSizing {
+            tolerance,
+            ..Default::default()
+        };
         let mesh = self.octree_mesh(
             balancing,
             Pairing::Regular,
             scale,
-            CurvatureSizing::default(),
+            curvature,
             Cells::Polyhedral,
         )?;
         let classes = self.classify(&mesh);
@@ -238,6 +280,7 @@ impl Tessellation {
             let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, pairing)?;
             Ok(match cells {
+                Cells::Dual => octree.dualize(),
                 Cells::Polyhedral => Mesh::from(octree),
                 Cells::Tetrahedral => Mesh::tetrahedra_from(octree),
             })
@@ -245,6 +288,7 @@ impl Tessellation {
             let mut octree = Octree::<u32, NonZeroU32>::refine(&sizing)?;
             octree.equilibrate(balancing, pairing)?;
             Ok(match cells {
+                Cells::Dual => octree.dualize(),
                 Cells::Polyhedral => Mesh::from(octree),
                 Cells::Tetrahedral => Mesh::tetrahedra_from(octree),
             })
