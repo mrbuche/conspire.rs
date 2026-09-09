@@ -15,7 +15,7 @@ use crate::units::Time;
 pub type Times<T = Time> = QuantityVector<T>;
 
 pub use error::IntegrationError;
-pub use tableau::{BogackiShampine32, ButcherTableau, DormandPrince54, EmbeddedTableau};
+pub use tableau::{ButcherTableau, EmbeddedTableau};
 
 pub use dae::{
     ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,

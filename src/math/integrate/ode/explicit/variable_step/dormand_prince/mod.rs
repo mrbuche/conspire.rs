@@ -5,8 +5,8 @@ use crate::math::Norm;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        DormandPrince54, Explicit, IntegrationError, OdeIntegrator, Times, VariableStep,
-        VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
+        ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, OdeIntegrator, Times,
+        VariableStep, VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
 };
@@ -51,6 +51,65 @@ pub(crate) const P_6_3: Scalar = -1453857185.0 / 822651844.0;
 pub(crate) const P_7_1: Scalar = 40617522.0 / 29380423.0;
 pub(crate) const P_7_2: Scalar = -110615467.0 / 29380423.0;
 pub(crate) const P_7_3: Scalar = 69997945.0 / 29380423.0;
+
+/// The Dormand–Prince 5(4) tableau.
+#[derive(Debug)]
+pub struct Tableau;
+
+impl ButcherTableau for Tableau {
+    const STAGES: usize = 7;
+    const ORDER: Scalar = 5.0;
+    const A: &'static [&'static [Scalar]] = &[
+        &[],
+        &[0.2],
+        &[0.075, 0.225],
+        &[44.0 / 45.0, -56.0 / 15.0, 32.0 / 9.0],
+        &[
+            19372.0 / 6561.0,
+            -25360.0 / 2187.0,
+            64448.0 / 6561.0,
+            -212.0 / 729.0,
+        ],
+        &[
+            9017.0 / 3168.0,
+            -355.0 / 33.0,
+            46732.0 / 5247.0,
+            49.0 / 176.0,
+            -5103.0 / 18656.0,
+        ],
+        &[
+            35.0 / 384.0,
+            0.0,
+            500.0 / 1113.0,
+            125.0 / 192.0,
+            -2187.0 / 6784.0,
+            11.0 / 84.0,
+        ],
+    ];
+    const C: &'static [Scalar] = &[0.0, 0.2, 0.3, 0.8, 8.0 / 9.0, 1.0, 1.0];
+    const B: &'static [Scalar] = &[
+        35.0 / 384.0,
+        0.0,
+        500.0 / 1113.0,
+        125.0 / 192.0,
+        -2187.0 / 6784.0,
+        11.0 / 84.0,
+        0.0,
+    ];
+}
+
+impl EmbeddedTableau for Tableau {
+    const D: &'static [Scalar] = &[
+        71.0 / 57600.0,
+        0.0,
+        -71.0 / 16695.0,
+        71.0 / 1920.0,
+        -17253.0 / 339200.0,
+        22.0 / 525.0,
+        -0.025,
+    ];
+    const FSAL: bool = true;
+}
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
@@ -149,7 +208,7 @@ where
     V: TensorVec<Item = Derivative<Y, T>>,
 {
     fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
-        self.error_from_tableau::<DormandPrince54>(dt, k)
+        self.error_from_tableau::<Tableau>(dt, k)
     }
     fn slopes(
         function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
@@ -159,7 +218,7 @@ where
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
-        Self::slopes_from_tableau::<DormandPrince54>(function, y, t, dt, k, y_trial)
+        Self::slopes_from_tableau::<Tableau>(function, y, t, dt, k, y_trial)
     }
     fn slopes_and_error(
         &self,

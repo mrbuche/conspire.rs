@@ -1,4 +1,5 @@
-use super::{BogackiShampine32, ButcherTableau, DormandPrince54, EmbeddedTableau};
+use super::{ButcherTableau, EmbeddedTableau};
+use crate::math::integrate::ode::explicit::variable_step::{bogacki_shampine, dormand_prince};
 
 const TOL: f64 = 1e-12;
 
@@ -43,12 +44,12 @@ fn check_embedded<T: EmbeddedTableau>() {
 
 #[test]
 fn bogacki_shampine() {
-    const { assert!(BogackiShampine32::FSAL) };
-    check_embedded::<BogackiShampine32>();
+    const { assert!(bogacki_shampine::Tableau::FSAL) };
+    check_embedded::<bogacki_shampine::Tableau>();
 }
 
 #[test]
 fn dormand_prince() {
-    const { assert!(DormandPrince54::FSAL) };
-    check_embedded::<DormandPrince54>();
+    const { assert!(dormand_prince::Tableau::FSAL) };
+    check_embedded::<dormand_prince::Tableau>();
 }
