@@ -149,10 +149,12 @@ impl Tessellation {
     /// `tolerance` is the curvature refinement tolerance (`None` disables it).
     /// `relief`, when set, runs the Protais et al. §4.1.2 pass once after the
     /// first fit: pillow the low-quality hexahedra around boundary nodes where
-    /// a face opens past that angle (radians), then fit again. It is
-    /// best-effort and currently experimental — the pillow is valid but a
-    /// whole-mesh re-fit does not improve a sharply creased surface (a local
-    /// re-fit is the missing piece), so it stays off by default.
+    /// a face opens past that angle (radians), then fit again. It stays off by
+    /// default — the pillow is valid but does not improve a sharply creased
+    /// surface: both a whole-mesh re-fit and a local twins-plus-one-ring
+    /// re-fit (commit 19ba7869) measured no better than no relief, the pillow
+    /// only relocating the worst element into the sheet layer. An alternative
+    /// crease strategy is needed.
     pub fn inflate(
         &self,
         balancing: Balancing,
