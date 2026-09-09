@@ -180,7 +180,6 @@ where
         let last = if Tab::FSAL {
             Tab::STAGES - 1
         } else {
-            // a first-same-as-last pair reuses the last stage; otherwise seed k[0] here
             k[0] = function(t, y)?;
             Tab::STAGES
         };
