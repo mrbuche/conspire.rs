@@ -8066,7 +8066,10 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
 fn temporary_elastic_plastic() -> Result<(), AssertionError> {
     use conspire::constitutive::solid::elastic_plastic::FirstOrderRoot as _;
     use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
-    let tol = 1e-3;
+    // the mesh is in a homogeneous uniaxial-stress state, which linear tetrahedra
+    // represent exactly, so with the exact algorithmic tangent the finite element
+    // solution reproduces the material point to solver tolerance (~4e-13 here).
+    let tol = 1e-10;
     let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
     let mut connectivity = connectivity();
     connectivity

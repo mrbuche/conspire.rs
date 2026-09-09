@@ -1,6 +1,6 @@
 use crate::math::Current;
 use crate::math::assert::{Assert, AssertionError};
-use crate::math::{Rank2, TensorArray, TensorRank2};
+use crate::math::{Quantity, Rank2, TensorArray, TensorRank2, TensorRank4};
 use crate::units::Dimensionless;
 
 fn rotation() -> TensorRank2<3, Current, Current> {
@@ -110,6 +110,119 @@ fn expm_deviatoric_has_unit_determinant() -> Result<(), AssertionError> {
     // exp of a trace-free tensor is unimodular.
     let deviatoric = from_eigenvalues([0.5, -0.3, -0.2]);
     Assert::default().eq_within_tols(deviatoric.expm()?.determinant(), &1.0)
+}
+
+fn contract_third_fourth_indices(
+    rank_4: &TensorRank4<3, Current, Current, Current, Current>,
+    tensor: &TensorRank2<3, Current, Current>,
+) -> TensorRank2<3, Current, Current> {
+    let mut result = TensorRank2::zero();
+    (0..3).for_each(|i| {
+        (0..3).for_each(|j| {
+            result[i][j] = (0..3)
+                .map(|k| {
+                    (0..3)
+                        .map(|l| rank_4[i][j][k][l] * tensor[k][l])
+                        .sum::<Quantity>()
+                })
+                .sum();
+        })
+    });
+    result
+}
+
+fn dexpm_matches_finite_difference(
+    tensor: &TensorRank2<3, Current, Current>,
+    tolerance: f64,
+) -> Result<(), AssertionError> {
+    let dexpm = tensor.dexpm()?;
+    let epsilon = 1e-6;
+    let directions = [
+        TensorRank2::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        TensorRank2::from([[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        TensorRank2::from([[0.3, 0.2, 0.1], [0.2, -0.4, 0.05], [0.1, 0.05, 0.1]]),
+    ];
+    for direction in directions.iter() {
+        let perturbation = direction * epsilon;
+        let finite_difference = ((tensor.clone() + perturbation.clone()).expm()?
+            - (tensor.clone() - perturbation).expm()?)
+            / (2.0 * epsilon);
+        Assert {
+            abs_tol: tolerance,
+            rel_tol: tolerance,
+            ..Default::default()
+        }
+        .eq_within_tols(
+            &finite_difference,
+            &contract_third_fourth_indices(&dexpm, direction),
+        )?
+    }
+    Ok(())
+}
+
+#[test]
+fn dexpm_diagonal_matches_finite_difference_of_expm() -> Result<(), AssertionError> {
+    dexpm_matches_finite_difference(
+        &TensorRank2::from([[0.7, 0.0, 0.0], [0.0, -0.4, 0.0], [0.0, 0.0, 0.2]]),
+        1e-6,
+    )
+}
+
+#[test]
+fn dexpm_symmetric_matches_finite_difference_of_expm() -> Result<(), AssertionError> {
+    dexpm_matches_finite_difference(&from_eigenvalues([0.9, -0.3, 0.15]), 1e-6)
+}
+
+#[test]
+fn dexpm_repeated_eigenvalue_matches_finite_difference_of_expm() -> Result<(), AssertionError> {
+    // the finite difference itself degrades where the eigenvectors are not unique.
+    dexpm_matches_finite_difference(&from_eigenvalues([0.4, 0.4, -0.2]), 1e-3)?;
+    dexpm_matches_finite_difference(&from_eigenvalues([0.4, -0.2, -0.2]), 1e-3)
+}
+
+#[test]
+fn dexpm_series_branch_matches_finite_difference_of_expm() -> Result<(), AssertionError> {
+    dexpm_matches_finite_difference(&from_eigenvalues([3.0e-3, -2.0e-3, 1.0e-3]), 1e-6)
+}
+
+#[test]
+fn dexpm_zero_is_the_fourth_order_identity() -> Result<(), AssertionError> {
+    let dexpm = TensorRank2::<3, Current, Current>::zero().dexpm()?;
+    let mut identity = TensorRank4::<3, Current, Current, Current, Current>::zero();
+    (0..3).for_each(|i| (0..3).for_each(|j| identity[i][j][i][j] = Quantity::new(1.0)));
+    TIGHT.eq_within_tols(&dexpm, &identity)
+}
+
+#[test]
+fn dexpm_inverts_dlogm() -> Result<(), AssertionError> {
+    // d(exp)|_{log B} composed with d(log)|_B is the fourth-order identity.
+    let tensor = from_eigenvalues([1.7, 0.6, 1.1]);
+    let dlogm = tensor.dlogm()?;
+    let dexpm = tensor.logm()?.dexpm()?;
+    let mut composition = TensorRank4::<3, Current, Current, Current, Current>::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            for k in 0..3 {
+                for l in 0..3 {
+                    composition[i][j][k][l] = (0..3)
+                        .map(|m| {
+                            (0..3)
+                                .map(|n| dexpm[i][j][m][n] * dlogm[m][n][k][l])
+                                .sum::<Quantity>()
+                        })
+                        .sum()
+                }
+            }
+        }
+    }
+    let mut identity = TensorRank4::<3, Current, Current, Current, Current>::zero();
+    (0..3).for_each(|i| (0..3).for_each(|j| identity[i][j][i][j] = Quantity::new(1.0)));
+    Assert {
+        abs_tol: 1e-8,
+        rel_tol: 1e-8,
+        ..Default::default()
+    }
+    .eq_within_tols(&composition, &identity)
 }
 
 #[test]

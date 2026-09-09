@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::Quantity;
+use crate::math::assert::Assert;
 use crate::units::Dimensionless;
 
 use super::{
-    super::{Rank2, Tensor, TensorArray, TensorError},
+    super::{Rank2, Tensor, TensorArray, TensorError, rank_4::TensorRank4},
     TensorRank2,
     eigen::{find_orthonormal_eigenvectors, reconstruct_symmetric, solve_cubic_symmetric},
 };
@@ -56,6 +58,125 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                     .iter_mut()
                     .for_each(|eigenvalue| *eigenvalue = eigenvalue.exp());
                 Ok(reconstruct_symmetric(eigenvalues, eigenvectors))
+            }
+        }
+    }
+    /// Returns the derivative of the matrix exponential of the 3x3 tensor.
+    ///
+    /// The Frechet derivative $`\mathrm{d}\exp(\mathbf{A})/\mathrm{d}\mathbf{A}`$, formed
+    /// diagonally entrywise, from a truncated series near zero, and otherwise from the
+    /// spectral decomposition with the divided differences
+    /// ```math
+    /// \frac{e^{\lambda_i} - e^{\lambda_j}}{\lambda_i - \lambda_j},
+    /// \qquad e^{\lambda_j} \text{ for } \lambda_i = \lambda_j.
+    /// ```
+    pub fn dexpm(&self) -> Result<TensorRank4<3, I, I, I, I, Dimensionless>, TensorError> {
+        if self.is_diagonal() {
+            let mut dexpm = TensorRank4::zero();
+            dexpm.iter_mut().enumerate().for_each(|(i, dexpm_i)| {
+                dexpm_i.iter_mut().enumerate().for_each(|(j, dexpm_ij)| {
+                    dexpm_ij.iter_mut().enumerate().for_each(|(k, dexpm_ijk)| {
+                        dexpm_ijk
+                            .iter_mut()
+                            .enumerate()
+                            .filter(|(l, _)| i == k && &j == l)
+                            .for_each(|(_, dexpm_ijkl)| {
+                                *dexpm_ijkl = if Assert::default()
+                                    .eq_within_tols(self[i][i], &self[j][j])
+                                    .is_ok()
+                                {
+                                    self[j][j].exp()
+                                } else {
+                                    (self[i][i].exp() - self[j][j].exp())
+                                        / (self[i][i] - self[j][j])
+                                }
+                            })
+                    })
+                })
+            });
+            Ok(dexpm)
+        } else {
+            let norm = self.norm().value();
+            if norm < 1e-2 {
+                //
+                // d(A^n)[H] = sum_{p=0}^{n-1} A^p . H . A^{n-1-p}, so the truncated series
+                // gives dexpm_{ijkl} = sum_n (1/n!) sum_p (A^p)_{ik} (A^{n-1-p})_{lj}.
+                //
+                let num_terms = if norm < 1e-4 {
+                    3
+                } else if norm < 1e-3 {
+                    5
+                } else {
+                    8
+                };
+                let mut power = Self::identity();
+                let mut powers = vec![power.clone()];
+                (1..num_terms).for_each(|_| {
+                    power *= self;
+                    powers.push(power.clone())
+                });
+                let mut dexpm = TensorRank4::zero();
+                let mut factorial = 1.0;
+                for n in 1..=num_terms {
+                    factorial *= n as f64;
+                    for p in 0..n {
+                        let (left, right) = (&powers[p], &powers[n - 1 - p]);
+                        for i in 0..3 {
+                            for j in 0..3 {
+                                for k in 0..3 {
+                                    for l in 0..3 {
+                                        dexpm[i][j][k][l] += Quantity::new(
+                                            left[i][k].value() * right[l][j].value() / factorial,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Ok(dexpm)
+            } else {
+                let transpose = self.transpose();
+                if !self.is_symmetric() && (self - &transpose).norm().value() >= 1e-9 * (1.0 + norm)
+                {
+                    panic!("Matrix exponential only implemented for symmetric cases")
+                }
+                let symmetric = (self + transpose) * 0.5;
+                let eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
+                let divided_difference: Self = eigenvalues
+                    .iter()
+                    .map(|eigenvalue_i| {
+                        eigenvalues
+                            .iter()
+                            .map(|eigenvalue_j| {
+                                if Assert::default()
+                                    .eq_within_tols(eigenvalue_i, eigenvalue_j)
+                                    .is_ok()
+                                {
+                                    eigenvalue_j.exp()
+                                } else {
+                                    (eigenvalue_i.exp() - eigenvalue_j.exp())
+                                        / (eigenvalue_i - eigenvalue_j)
+                                }
+                            })
+                            .collect()
+                    })
+                    .collect();
+                let eigenvectors =
+                    find_orthonormal_eigenvectors(&eigenvalues, &symmetric).transpose();
+                Ok(eigenvectors.iter().map(|eigenvector_i|
+                    eigenvectors.iter().map(|eigenvector_j|
+                        eigenvectors.iter().map(|eigenvector_k|
+                            eigenvectors.iter().map(|eigenvector_l|
+                                eigenvector_i.iter().zip(eigenvector_k.iter().zip(divided_difference.iter())).map(|(eigenvector_ip, (eigenvector_kp, divided_difference_p))|
+                                    eigenvector_j.iter().zip(eigenvector_l.iter().zip(divided_difference_p.iter())).map(|(eigenvector_jq, (eigenvector_lq, divided_difference_pq))|
+                                        eigenvector_ip * eigenvector_kp * divided_difference_pq * eigenvector_jq * eigenvector_lq
+                                    ).sum::<Quantity>()
+                                ).sum::<Quantity>()
+                            ).collect()
+                        ).collect()
+                    ).collect()
+                ).collect())
             }
         }
     }

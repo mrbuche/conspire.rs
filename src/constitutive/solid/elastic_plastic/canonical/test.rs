@@ -136,83 +136,16 @@ fn contract(
 }
 
 #[test]
-fn algorithmic_tangent_matches_finite_difference_through_the_return_map()
--> Result<(), AssertionError> {
-    let model = model(1.0);
-    // A converged plastic step: F at step 90, mapped from the state at step 89.
-    let (_, deformation_gradients, states) = model.root(
-        AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
-        solver(),
-    )?;
-    let deformation_gradient = deformation_gradients.as_slice()[90].clone();
-    let previous_state = states.as_slice()[89].clone();
-    assert!(
-        states.as_slice()[90].1.value() > 0.0,
-        "step 90 must be plastic"
-    );
-
-    let algorithmic =
-        model.algorithmic_tangent_stiffness(&deformation_gradient, &previous_state)?;
-    let continuum = model.first_piola_kirchhoff_tangent_stiffness(
-        &deformation_gradient,
-        &model.return_map(&deformation_gradient, &previous_state)?.0,
-    )?;
-
-    let step = 1.0e-5;
-    let directions = [
-        DeformationGradient::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
-        DeformationGradient::from([[0.0, 0.4, 0.0], [0.3, 0.0, 0.0], [0.0, 0.0, 0.0]]),
-        DeformationGradient::from([[0.2, 0.1, -0.15], [0.1, -0.3, 0.05], [-0.15, 0.05, 0.25]]),
-    ];
-    let mut continuum_departs = false;
-    for direction in &directions {
-        let mut plus = deformation_gradient.clone();
-        let mut minus = deformation_gradient.clone();
-        for k in 0..3 {
-            for l in 0..3 {
-                plus[k][l] += Quantity::new(step * direction[k][l].value());
-                minus[k][l] -= Quantity::new(step * direction[k][l].value());
-            }
-        }
-        let finite_difference = (model
-            .first_piola_kirchhoff_stress(&plus, &model.return_map(&plus, &previous_state)?.0)?
-            - model.first_piola_kirchhoff_stress(
-                &minus,
-                &model.return_map(&minus, &previous_state)?.0,
-            )?)
-            / (2.0 * step);
-        Assert {
-            abs_tol: 1e-5,
-            rel_tol: 1e-5,
-            ..Default::default()
-        }
-        .eq_within_tols(contract(&algorithmic, direction), &finite_difference)?;
-        if (contract(&continuum, direction) - finite_difference.clone())
-            .norm()
-            .value()
-            > 1e-3
-        {
-            continuum_departs = true;
-        }
-    }
-    // guard against a vacuous test: the plastic-corrector term must be non-negligible,
-    // so the continuum (fixed-plastic-state) tangent must NOT also match the difference.
-    assert!(
-        continuum_departs,
-        "continuum tangent matched the finite difference; test is not exercising plasticity"
-    );
-    Ok(())
-}
-
-#[test]
-fn algorithmic_tangent_keeps_the_outer_solve_within_a_tight_step_cap() -> Result<(), AssertionError>
+fn consistent_tangent_keeps_the_outer_solve_within_a_tight_step_cap() -> Result<(), AssertionError>
 {
+    // Coarse steps, so a degraded tangent shows up in the iteration count: three
+    // iterations per step is not enough even with the exact tangent.
     let model = model(1.0);
     let solver = NewtonRaphson {
-        max_steps: 6,
+        max_steps: 4,
         ..Default::default()
     };
-    let (_, _, states) = model.root(AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)), solver)?;
+    let (_, _, states) = model.root(AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)), solver)?;
     assert!(states.as_slice().last().unwrap().1.value() > 0.0);
     Ok(())
 }
@@ -272,35 +205,38 @@ fn monolithic_tangents_match_finite_difference_at_a_plastic_state() -> Result<()
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
         solver(),
     )?;
-    // Step 90: the block residual is assembled at F#90 with the state (and frozen
-    // flow direction) coming from the converged step 89.
+    // Step 90: the block residual is assembled at F#90 with the state coming from the
+    // converged step 89. The flow direction is taken at the previous plastic gradient
+    // but the current total deformation gradient, so it moves with F.
     let deformation_gradient = deformation_gradients.as_slice()[90].clone();
-    let previous_gradient = deformation_gradients.as_slice()[89].clone();
     let previous_state = states.as_slice()[89].clone();
     let strain_previous = previous_state.1;
     let plastic_previous = previous_state.0.clone();
     let plastic_multiplier = states.as_slice()[90].1.value() - strain_previous.value();
     assert!(plastic_multiplier > 0.0, "step 90 must be plastic");
-    let flow_direction = {
+    let flow_direction = |gradient: &DeformationGradient| -> Result<_, AssertionError> {
         let deviatoric = model
-            .mandel_stress(&previous_gradient, &plastic_previous)?
+            .mandel_stress(gradient, &plastic_previous)?
             .deviatoric();
         let direction = model.flow_direction(&deviatoric)?;
-        (&direction + direction.transpose()) * 0.5
+        Ok((&direction + direction.transpose()) * 0.5)
     };
-    let plastic =
-        |multiplier: Scalar| (&flow_direction * multiplier).expm().unwrap() * &plastic_previous;
+    let plastic = |gradient: &DeformationGradient,
+                   multiplier: Scalar|
+     -> Result<DeformationGradientPlastic, AssertionError> {
+        Ok((flow_direction(gradient)? * multiplier).expm().unwrap() * &plastic_previous)
+    };
     let residual_global = |gradient: &DeformationGradient,
                            multiplier: Scalar|
      -> Result<FirstPiolaKirchhoffStress, AssertionError> {
-        Ok(model.first_piola_kirchhoff_stress(gradient, &plastic(multiplier))?)
+        Ok(model.first_piola_kirchhoff_stress(gradient, &plastic(gradient, multiplier)?)?)
     };
     let residual_local =
         |gradient: &DeformationGradient, multiplier: Scalar| -> Result<Scalar, AssertionError> {
             let scaled = model
                 .yield_function(
                     &model
-                        .mandel_stress(gradient, &plastic(multiplier))?
+                        .mandel_stress(gradient, &plastic(gradient, multiplier)?)?
                         .deviatoric(),
                     strain_previous + Quantity::new(multiplier),
                 )?
@@ -308,10 +244,10 @@ fn monolithic_tangents_match_finite_difference_at_a_plastic_state() -> Result<()
                 / model.initial_yield_stress().value();
             Ok(fischer_burmeister(multiplier, -scaled))
         };
-    let (_, k_vu, k_uv, k_vv) = model.monolithic_tangents(
+    let (k_uu, k_vu, k_uv, k_vv) = model.monolithic_tangents(
         &deformation_gradient,
         &plastic_previous,
-        &flow_direction,
+        &flow_direction(&deformation_gradient)?,
         strain_previous,
         plastic_multiplier,
     )?;
@@ -321,6 +257,27 @@ fn monolithic_tangents_match_finite_difference_at_a_plastic_state() -> Result<()
         ..Default::default()
     };
     let step = 1.0e-6;
+    //
+    // K_uu = dP/dF at fixed multiplier, including the flow direction's dependence on F.
+    //
+    for k in 0..3 {
+        for l in 0..3 {
+            let mut plus = deformation_gradient.clone();
+            plus[k][l] += Quantity::new(step);
+            let mut minus = deformation_gradient.clone();
+            minus[k][l] -= Quantity::new(step);
+            let finite_difference = (residual_global(&plus, plastic_multiplier)?
+                - residual_global(&minus, plastic_multiplier)?)
+                / (2.0 * step);
+            let mut analytic = FirstPiolaKirchhoffStress::zero();
+            for i in 0..3 {
+                for j in 0..3 {
+                    analytic[i][j] = k_uu[i][j][k][l];
+                }
+            }
+            assert.eq_within_tols(&analytic, &finite_difference)?
+        }
+    }
     //
     // K_uv = dP/d(plastic multiplier).
     //
@@ -386,7 +343,9 @@ fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
     // A wrong K_uv / K_vu still converges to the same root, just slower, so the
     // agreement test above cannot catch a bad coupling block. This one can: with the
     // correct blocks the Schur-eliminated Newton clears each step in six iterations;
-    // zeroing a coupling block blows the cap.
+    // zeroing a coupling block blows the cap. The dN/dF term does not change the count
+    // on this proportional path (the flow direction barely moves along it) -- the
+    // finite-difference test above is what guards that term.
     let model = model(1.0);
     let solver = NewtonRaphson {
         max_steps: 6,
@@ -405,7 +364,7 @@ fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
 }
 
 #[test]
-fn consistent_tangent_matches_the_finite_difference_algorithmic_tangent()
+fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
 -> Result<(), AssertionError> {
     let model = model(1.0);
     let (_, deformation_gradients, states) = model.root(
@@ -420,32 +379,57 @@ fn consistent_tangent_matches_the_finite_difference_algorithmic_tangent()
     );
     let (consistent, updated) =
         model.consistent_tangent_stiffness(&deformation_gradient, &previous_state)?;
-    let finite_difference =
-        model.algorithmic_tangent_stiffness(&deformation_gradient, &previous_state)?;
+    let continuum =
+        model.first_piola_kirchhoff_tangent_stiffness(&deformation_gradient, &updated.0)?;
     // the return-mapped state the tangent is taken at
     Assert::default().eq_within_tols(
         updated.1,
         &model.return_map(&deformation_gradient, &previous_state)?.1,
     )?;
+    let step = 1.0e-6;
     let directions = [
         DeformationGradient::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
         DeformationGradient::from([[0.0, 0.4, 0.0], [0.3, 0.0, 0.0], [0.0, 0.0, 0.0]]),
         DeformationGradient::from([[0.2, 0.1, -0.15], [0.1, -0.3, 0.05], [-0.15, 0.05, 0.25]]),
     ];
-    // The condensed analytic tangent freezes the flow direction, so it drops the
-    // radial-return geometric term (~dN/dF); against the fully finite-differenced
-    // algorithmic tangent that is a couple of percent for isotropic J2, small enough
-    // to keep quadratic-ish convergence of the outer solve.
+    // The analytic tangent carries the radial-return dN/dF term, so it is exact and
+    // only the finite-difference truncation separates it from the difference quotient.
+    let mut continuum_departs = false;
     for direction in &directions {
+        let mut plus = deformation_gradient.clone();
+        let mut minus = deformation_gradient.clone();
+        for k in 0..3 {
+            for l in 0..3 {
+                plus[k][l] += Quantity::new(step * direction[k][l].value());
+                minus[k][l] -= Quantity::new(step * direction[k][l].value());
+            }
+        }
+        let finite_difference = (model
+            .first_piola_kirchhoff_stress(&plus, &model.return_map(&plus, &previous_state)?.0)?
+            - model.first_piola_kirchhoff_stress(
+                &minus,
+                &model.return_map(&minus, &previous_state)?.0,
+            )?)
+            / (2.0 * step);
         Assert {
-            abs_tol: 3e-2,
-            rel_tol: 3e-2,
+            abs_tol: 1e-5,
+            rel_tol: 1e-5,
             ..Default::default()
         }
-        .eq_within_tols(
-            contract(&consistent, direction),
-            &contract(&finite_difference, direction),
-        )?;
+        .eq_within_tols(contract(&consistent, direction), &finite_difference)?;
+        if (contract(&continuum, direction) - finite_difference.clone())
+            .norm()
+            .value()
+            > 1e-3
+        {
+            continuum_departs = true;
+        }
     }
+    // guard against a vacuous test: the plastic-corrector term must be non-negligible,
+    // so the continuum (fixed-plastic-state) tangent must NOT also match the difference.
+    assert!(
+        continuum_departs,
+        "continuum tangent matched the finite difference; test is not exercising plasticity"
+    );
     Ok(())
 }
