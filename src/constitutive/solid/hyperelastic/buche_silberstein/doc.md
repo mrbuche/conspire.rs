@@ -22,6 +22,5 @@ The Buche-Silberstein hyperelastic solid constitutive model.[^1]
   not yet implemented here.
 - Reduces to the [Arruda-Boyce model](super::ArrudaBoyce) as $`\varkappa\to\infty`$,
   and additionally to the [Neo-Hookean model](super::NeoHookean) as $`N_b\to\infty`$.
-- The tangent stiffness is not yet implemented (`todo!`).
 
 [^1]: M.R. Buche and M.N. Silberstein, [Phys. Rev. E **102**, 012501 (2020)](https://doi.org/10.1103/PhysRevE.102.012501).

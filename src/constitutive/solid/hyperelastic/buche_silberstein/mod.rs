@@ -4,10 +4,10 @@ mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::{Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
+        solid::{FIVE_THIRDS, Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
     },
     math::{
-        IDENTITY, Quantity, Rank2,
+        IDENTITY, Quantity, Rank2, TensorRank4,
         special::{langevin, langevin_derivative, sinhc},
     },
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
@@ -109,9 +109,46 @@ impl Elastic for BucheSilberstein {
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
     fn cauchy_tangent_stiffness(
         &self,
-        _deformation_gradient: &DeformationGradient,
+        deformation_gradient: &DeformationGradient,
     ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
-        todo!("analytic tangent stiffness for the Buche-Silberstein model")
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let inverse_transpose_deformation_gradient = deformation_gradient.inverse_transpose();
+        let left_cauchy_green_deformation = deformation_gradient.left_cauchy_green();
+        let deviatoric_left_cauchy_green_deformation = left_cauchy_green_deformation.deviatoric();
+        let (deviatoric_isochoric_left_cauchy_green_deformation, isochoric_trace) =
+            (left_cauchy_green_deformation / jacobian.powf(TWO_THIRDS)).deviatoric_and_trace();
+        let gamma = (isochoric_trace / 3.0 / self.number_of_links())
+            .sqrt()
+            .value();
+        let gamma_0 = (1.0 / self.number_of_links()).sqrt();
+        let kappa = self.link_stiffness();
+        let eta = self.nondimensional_force(gamma);
+        let scaled_shear_modulus =
+            gamma_0 / self.nondimensional_force(gamma_0) * self.shear_modulus() * eta
+                / gamma
+                / jacobian.powf(FIVE_THIRDS);
+        let scaled_deviatoric_isochoric_left_cauchy_green_deformation =
+            deviatoric_left_cauchy_green_deformation * scaled_shear_modulus;
+        // d(eta)/d(gamma) = 1 / (L'(eta) + 1/kappa)  for  gamma = L(eta) + eta/kappa
+        let term = TensorRank4::dyad_ij_kl(
+            &scaled_deviatoric_isochoric_left_cauchy_green_deformation,
+            &(deviatoric_isochoric_left_cauchy_green_deformation
+                * &inverse_transpose_deformation_gradient
+                * ((1.0 / eta / (langevin_derivative(eta) + 1.0 / kappa) - 1.0 / gamma)
+                    / 3.0
+                    / self.number_of_links()
+                    / gamma)),
+        );
+        Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
+            - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
+            * scaled_shear_modulus
+            + TensorRank4::dyad_ij_kl(
+                &(IDENTITY * (0.5 * self.bulk_modulus() * (jacobian + 1.0 / jacobian))
+                    - scaled_deviatoric_isochoric_left_cauchy_green_deformation * (FIVE_THIRDS)),
+                &inverse_transpose_deformation_gradient,
+            )
+            + term)
     }
 }
 
