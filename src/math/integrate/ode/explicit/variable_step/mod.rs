@@ -131,7 +131,6 @@ where
                 t = tp[i - 1];
                 y = &yp[i - 1];
                 dt = *time_k - t;
-                k[0] = function(t, y)?;
                 Self::slopes(&mut function, y, t, dt, &mut k, &mut y_trial)?;
             }
             dydt_int.push(function(t + dt, &y_trial)?);
@@ -181,6 +180,8 @@ where
         let last = if Tab::FSAL {
             Tab::STAGES - 1
         } else {
+            // a first-same-as-last pair reuses the last stage; otherwise seed k[0] here
+            k[0] = function(t, y)?;
             Tab::STAGES
         };
         for i in 1..last.min(k.len()) {

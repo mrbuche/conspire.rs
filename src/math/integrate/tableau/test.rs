@@ -1,9 +1,13 @@
 use super::{ButcherTableau, EmbeddedTableau};
-use crate::math::integrate::ode::explicit::variable_step::{bogacki_shampine, dormand_prince};
+use crate::math::integrate::ode::explicit::variable_step::{
+    bogacki_shampine, dormand_prince, verner_8, verner_9,
+};
 
-const TOL: f64 = 1e-12;
+// Verner's coefficients cancel from terms of magnitude ~10²; the low-order pairs are exact.
+const TOL_LOW_ORDER: f64 = 1e-12;
+const TOL_HIGH_ORDER: f64 = 1e-11;
 
-fn check_butcher<T: ButcherTableau>() {
+fn check_butcher<T: ButcherTableau>(tol: f64) {
     assert_eq!(T::A.len(), T::STAGES);
     assert_eq!(T::C.len(), T::STAGES);
     assert_eq!(T::B.len(), T::STAGES);
@@ -13,24 +17,24 @@ fn check_butcher<T: ButcherTableau>() {
         assert_eq!(row.len(), i, "row {i} has the wrong length");
         let row_sum: f64 = row.iter().sum();
         assert!(
-            (row_sum - T::C[i]).abs() < TOL,
+            (row_sum - T::C[i]).abs() < tol,
             "row {i} sums to {row_sum}, expected c = {}",
             T::C[i]
         );
     });
     let b_sum: f64 = T::B.iter().sum();
     assert!(
-        (b_sum - 1.0).abs() < TOL,
+        (b_sum - 1.0).abs() < tol,
         "propagating weights sum to {b_sum}"
     );
 }
 
-fn check_embedded<T: EmbeddedTableau>() {
-    check_butcher::<T>();
+fn check_embedded<T: EmbeddedTableau>(tol: f64) {
+    check_butcher::<T>(tol);
     assert_eq!(T::D.len(), T::STAGES);
     let d_sum: f64 = T::D.iter().sum();
     assert!(
-        d_sum.abs() < TOL,
+        d_sum.abs() < tol,
         "error weights sum to {d_sum}, expected 0"
     );
     if T::FSAL {
@@ -45,11 +49,23 @@ fn check_embedded<T: EmbeddedTableau>() {
 #[test]
 fn bogacki_shampine() {
     const { assert!(bogacki_shampine::Tableau::FSAL) };
-    check_embedded::<bogacki_shampine::Tableau>();
+    check_embedded::<bogacki_shampine::Tableau>(TOL_LOW_ORDER);
 }
 
 #[test]
 fn dormand_prince() {
     const { assert!(dormand_prince::Tableau::FSAL) };
-    check_embedded::<dormand_prince::Tableau>();
+    check_embedded::<dormand_prince::Tableau>(TOL_LOW_ORDER);
+}
+
+#[test]
+fn verner_8() {
+    const { assert!(!verner_8::Tableau::FSAL) };
+    check_embedded::<verner_8::Tableau>(TOL_HIGH_ORDER);
+}
+
+#[test]
+fn verner_9() {
+    const { assert!(!verner_9::Tableau::FSAL) };
+    check_embedded::<verner_9::Tableau>(TOL_HIGH_ORDER);
 }
