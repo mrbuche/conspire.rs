@@ -173,6 +173,7 @@ fn dexpm_symmetric_matches_finite_difference_of_expm() -> Result<(), AssertionEr
 
 #[test]
 fn dexpm_repeated_eigenvalue_matches_finite_difference_of_expm() -> Result<(), AssertionError> {
+    // the finite difference itself degrades where the eigenvectors are not unique.
     dexpm_matches_finite_difference(&from_eigenvalues([0.4, 0.4, -0.2]), 1e-3)?;
     dexpm_matches_finite_difference(&from_eigenvalues([0.4, -0.2, -0.2]), 1e-3)
 }
