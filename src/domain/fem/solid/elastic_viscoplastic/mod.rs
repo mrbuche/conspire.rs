@@ -303,7 +303,10 @@ where
 /// [`Block::state_variables_rkmk_step`](crate::fem::block::Block) with the
 /// deformation gradient frozen. First order in the coupling; a monolithic
 /// version is future work — see the heterogeneous-integration notes.
-pub trait RkmkRoot<const D: usize> {
+pub trait RkmkRoot<const D: usize, Y = Quantity>
+where
+    Y: Differentiate + Tensor,
+{
     /// The block's per-Gauss-point plastic-state history type.
     type History;
     /// Solve under an applied load, advancing the plastic state with a
@@ -322,24 +325,25 @@ pub trait RkmkRoot<const D: usize> {
         Tab: EmbeddedTableau;
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> RkmkRoot<3>
+impl<C, F, const G: usize, const N: usize, const P: usize, Y> RkmkRoot<3, Y>
     for Model<Block<C, F, G, 3, N, P>, 3>
 where
-    C: ElasticViscoplastic<Quantity>
+    Y: Clone + Differentiate<Time> + Tensor,
+    C: ElasticViscoplastic<Y>
         + StateEvolution<
             Time,
+            Y,
             Drive = DeformationGradient,
-            Field: IntegrableField<Point = PointStateVariables<Quantity>>,
+            Field: IntegrableField<Point = PointStateVariables<Y>>,
         >,
-    F: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Quantity> + SolidFiniteElement<G, 3, N, P>,
-    EvolvedIncrement<C, Time>: Clone + Differentiate<Time>,
+    F: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y> + SolidFiniteElement<G, 3, N, P>,
+    EvolvedIncrement<C, Time, Y>: Clone + Differentiate<Time>,
     Quantity<Time>: Mul<Scalar, Output = Quantity<Time>>,
-    for<'a> &'a Derivative<EvolvedIncrement<C, Time>, Time>:
-        Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time>>,
-    Model<Block<C, F, G, 3, N, P>, 3>:
-        ElasticViscoplasticElements<BlockStateVariables<G, Quantity>, 3>,
+    for<'a> &'a Derivative<EvolvedIncrement<C, Time, Y>, Time>:
+        Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time, Y>>,
+    Model<Block<C, F, G, 3, N, P>, 3>: ElasticViscoplasticElements<BlockStateVariables<G, Y>, 3>,
 {
-    type History = BlockStateVariablesHistory<G, Quantity>;
+    type History = BlockStateVariablesHistory<G, Y>;
     fn root_rkmk<Tab>(
         &self,
         solver: impl FirstOrderRootFinding<
@@ -375,7 +379,7 @@ where
                 .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
             state = self
                 .blocks
-                .state_variables_rkmk_step::<Tab>(
+                .state_variables_rkmk_step::<Tab, Y>(
                     &nodal_coordinates,
                     &state,
                     step[0],

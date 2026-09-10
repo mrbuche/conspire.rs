@@ -286,7 +286,10 @@ where
 /// the solved value. First order in the `F ↔ F_p` coupling; a monolithic RKMK
 /// return map (the group state threaded through the shared DAE solver) is future
 /// work — see the heterogeneous-integration notes.
-pub trait RkmkRoot {
+pub trait RkmkRoot<Y = Quantity>
+where
+    Y: Differentiate + Tensor,
+{
     /// Solve for the unknown deformation-gradient components under an applied
     /// load, advancing the plastic state with a `Tab`-tableau RKMK step.
     fn root_rkmk<Tab>(
@@ -301,7 +304,7 @@ pub trait RkmkRoot {
         (
             Times,
             DeformationGradients,
-            ViscoplasticStateVariablesHistory<Quantity>,
+            ViscoplasticStateVariablesHistory<Y>,
         ),
         ConstitutiveError,
     >
@@ -309,20 +312,22 @@ pub trait RkmkRoot {
         Tab: EmbeddedTableau;
 }
 
-impl<C1, C2> RkmkRoot for Canonical<C1, C2>
+impl<C1, C2, Y> RkmkRoot<Y> for Canonical<C1, C2>
 where
     C1: Elastic,
-    C2: Viscoplastic<Quantity>,
+    C2: Viscoplastic<Y>,
+    Y: Differentiate + Tensor,
     Self: ElasticPlasticOrViscoplastic
-        + Viscoplastic<Quantity>
+        + Viscoplastic<Y>
         + StateEvolution<
             Time,
+            Y,
             Drive = DeformationGradient,
-            Field: IntegrableField<Point = ViscoplasticStateVariables<Quantity>>,
+            Field: IntegrableField<Point = ViscoplasticStateVariables<Y>>,
         >,
-    EvolvedIncrement<Self, Time>: Clone + Differentiate<Time>,
-    for<'a> &'a Derivative<EvolvedIncrement<Self, Time>, Time>:
-        Mul<Quantity<Time>, Output = EvolvedIncrement<Self, Time>>,
+    EvolvedIncrement<Self, Time, Y>: Clone + Differentiate<Time>,
+    for<'a> &'a Derivative<EvolvedIncrement<Self, Time, Y>, Time>:
+        Mul<Quantity<Time>, Output = EvolvedIncrement<Self, Time, Y>>,
 {
     fn root_rkmk<Tab>(
         &self,
@@ -336,7 +341,7 @@ where
         (
             Times,
             DeformationGradients,
-            ViscoplasticStateVariablesHistory<Quantity>,
+            ViscoplasticStateVariablesHistory<Y>,
         ),
         ConstitutiveError,
     >
@@ -345,12 +350,12 @@ where
     {
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
-        let mut state = <Self as StateEvolution<Time>>::initial_state(self);
+        let mut state = <Self as StateEvolution<Time, Y>>::initial_state(self);
         let mut deformation_gradient = DeformationGradient::identity();
         let mut times = Times::new();
         let mut deformation_gradients = DeformationGradients::new();
         let mut state_variables = ViscoplasticStateVariablesHistory::new();
-        let mut scratch: Vec<EvolvedIncrement<Self, Time>> = Vec::new();
+        let mut scratch: Vec<EvolvedIncrement<Self, Time, Y>> = Vec::new();
         times.push(time[0]);
         deformation_gradients.push(deformation_gradient.clone());
         state_variables.push(state.clone());
@@ -379,7 +384,7 @@ where
                 )
                 .map_err(|error| ConstitutiveError::upstream(error, self))?;
             let frozen = deformation_gradient.clone();
-            state = rkmk_step::<<Self as StateEvolution<Time>>::Field, Tab, Time>(
+            state = rkmk_step::<<Self as StateEvolution<Time, Y>>::Field, Tab, Time>(
                 &mut |t, point| self.state_rate(t, &frozen, point),
                 &state,
                 step[0],

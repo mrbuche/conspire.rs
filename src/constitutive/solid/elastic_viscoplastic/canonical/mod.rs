@@ -7,10 +7,7 @@ use crate::{
         canonical::Canonical,
         fluid::{
             plastic::Plastic,
-            viscoplastic::{
-                Viscoplastic, ViscoplasticAlgebraRate, ViscoplasticEvolution,
-                ViscoplasticStateVariables,
-            },
+            viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
         },
         solid::{
             elastic::Elastic,
@@ -18,9 +15,9 @@ use crate::{
         },
     },
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, Differentiate, Intermediate,
-        Quantity, Rank2, Reference, Scalar, Tensor, TensorTuple,
-        integrate::{Flat, Product, StateEvolution, Unimodular},
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, Derivative, Differentiate,
+        Intermediate, Quantity, Rank2, Reference, Scalar, Tensor, TensorRank2, TensorTuple,
+        integrate::{Flat, IntegrableField, Product, StateEvolution, Unimodular},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, DeformationGradient,
@@ -32,6 +29,7 @@ use crate::{
     },
     units::{Dissipation, Rate, Stress, Time},
 };
+use std::ops::Add;
 
 impl<C1, C2> Plastic for Canonical<C1, C2>
 where
@@ -183,36 +181,42 @@ where
 {
 }
 
-/// The internal state `(F_p, ε_p)` evolves as `F_p` on the unimodular group
+/// The internal state `(F_p, Y)` evolves as `F_p` on the unimodular group
 /// (`Reference → Intermediate`, so its algebra element `D_p Δt` is
-/// `Intermediate → Intermediate`) and `ε_p` additively. The rate is the plastic
-/// stretching rate itself, `(D_p, |D_p|)`, driven by the total deformation
-/// gradient through the Mandel stress.
-impl<C1, C2> StateEvolution<Time> for Canonical<C1, C2>
+/// `Intermediate → Intermediate`) and the hardening variable `Y` additively. The
+/// rate is `(D_p, Ẏ)`, from the model's [`plastic_evolution`] (`D_p` recovered as
+/// `Ḟ_p F_p⁻¹`), driven by the total deformation gradient through the Mandel
+/// stress.
+///
+/// [`plastic_evolution`]: Viscoplastic::plastic_evolution
+impl<C1, C2, Y> StateEvolution<Time, Y> for Canonical<C1, C2>
 where
     C1: Elastic,
-    C2: Viscoplastic<Quantity>,
+    C2: Viscoplastic<Y>,
+    Y: Clone + Differentiate<Time> + Tensor,
+    for<'a> Y: Add<&'a Y, Output = Y>,
+    TensorTuple<TensorRank2<3, Intermediate, Intermediate>, Y>: Differentiate<
+            Time,
+            Derivative = TensorTuple<
+                TensorRank2<3, Intermediate, Intermediate, Rate>,
+                Derivative<Y>,
+            >,
+        >,
 {
-    type Field = Product<Unimodular<Intermediate, Reference>, Flat<Quantity>>;
+    type Field = Product<Unimodular<Intermediate, Reference>, Flat<Y>>;
     type Drive = DeformationGradient;
-    fn initial_state(&self) -> ViscoplasticStateVariables<Quantity> {
-        <Self as Viscoplastic<Quantity>>::initial_state(self)
+    fn initial_state(&self) -> ViscoplasticStateVariables<Y> {
+        <Self as Viscoplastic<Y>>::initial_state(self)
     }
     fn state_rate(
         &self,
         _time: Quantity<Time>,
         deformation_gradient: &DeformationGradient,
-        state: &ViscoplasticStateVariables<Quantity>,
-    ) -> Result<ViscoplasticAlgebraRate, String> {
-        let deviatoric_mandel_stress = self
-            .mandel_stress(deformation_gradient, &state.0)?
-            .deviatoric();
-        let plastic_stretching_rate =
-            self.plastic_stretching_rate(deviatoric_mandel_stress, self.yield_stress(state.1)?)?;
-        let equivalent_plastic_strain_rate = plastic_stretching_rate.norm();
-        Ok(TensorTuple(
-            plastic_stretching_rate,
-            equivalent_plastic_strain_rate,
-        ))
+        state: &ViscoplasticStateVariables<Y>,
+    ) -> Result<Derivative<<Self::Field as IntegrableField>::Increment, Time>, String> {
+        let mandel_stress = self.mandel_stress(deformation_gradient, &state.0)?;
+        let evolution = self.plastic_evolution(mandel_stress, state)?;
+        let plastic_stretching_rate = evolution.0 * state.0.inverse();
+        Ok(TensorTuple(plastic_stretching_rate, evolution.1))
     }
 }

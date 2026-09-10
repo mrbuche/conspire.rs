@@ -162,7 +162,7 @@ mod state_evolution {
     fn rkmk_state_keeps_the_plastic_deformation_unimodular() {
         let model = model();
         let (_, states): (Times, TensorVector<_>) =
-            integrate_rkmk_state::<_, BogackiShampineTableau, _, _>(
+            integrate_rkmk_state::<_, BogackiShampineTableau, _, _, _>(
                 &model,
                 |_| deformation_gradient(),
                 &time(20),
