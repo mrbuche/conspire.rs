@@ -7633,6 +7633,65 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
 }
 
 #[test]
+fn temporary_elastic_viscoplastic_rkmk() -> Result<(), AssertionError> {
+    use conspire::{
+        fem::solid::elastic_viscoplastic::RkmkRoot,
+        math::{TensorArray, integrate::BogackiShampineTableau},
+    };
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let model = Canonical::from((
+        AlmansiHamelEulerian {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        ViscoplasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            rate_sensitivity: 0.25,
+            reference_flow_rate: Rate::per_second(0.1),
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let time: Vec<Quantity<Time>> = (0..=8).map(|i| Time::seconds(0.25 * i as f64)).collect();
+    let (_, _, state_variables_history) = fem_model
+        .root_rkmk::<BogackiShampineTableau>(
+            NewtonRaphson::default(),
+            &time,
+            bcs_temporary_elastic_viscoplastic,
+        )
+        .unwrap();
+    let mut moved = false;
+    state_variables_history
+        .iter()
+        .last()
+        .unwrap()
+        .iter()
+        .flat_map(|element| element.iter())
+        .for_each(|point_state| {
+            // every Gauss point's F_p stays on the unimodular group
+            assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+            if (&point_state.0 - &conspire::mechanics::DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-4
+            {
+                moved = true
+            }
+        });
+    // and the plastic state actually flowed somewhere in the mesh
+    assert!(moved);
+    Ok(())
+}
+
+#[test]
 fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let tol = 1e-4;
     let strain_rate = 2.3; // also set below

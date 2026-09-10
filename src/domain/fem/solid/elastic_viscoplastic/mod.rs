@@ -1,18 +1,35 @@
 use crate::{
+    constitutive::{
+        fluid::viscoplastic::ViscoplasticStateVariables as PointStateVariables,
+        solid::elastic_viscoplastic::ElasticViscoplastic,
+    },
     fem::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
         NodalCoordinates, NodalCoordinatesHistory,
-        block::solid::elastic_viscoplastic::ElasticViscoplasticBCs,
+        block::{
+            Block,
+            element::solid::{
+                SolidFiniteElement, elastic_viscoplastic::ElasticViscoplasticFiniteElement,
+            },
+            solid::elastic_viscoplastic::{
+                ElasticViscoplasticBCs, ViscoplasticStateVariables as BlockStateVariables,
+                ViscoplasticStateVariablesHistory as BlockStateVariablesHistory,
+            },
+        },
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
-        Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorVec,
-        integrate::{ExplicitDaeFirstOrderRoot, IntegrationError},
+        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorVec,
+        integrate::{
+            EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderRoot, IntegrableField,
+            IntegrationError, StateEvolution,
+        },
         optimize::FirstOrderRootFinding,
     },
-    mechanics::Times,
+    mechanics::{DeformationGradient, Times},
     units::Time,
 };
+use std::ops::Mul;
 
 pub trait ElasticViscoplasticElements<S, const D: usize>
 where
@@ -273,5 +290,97 @@ where
             nodal_coordinates_history,
             state_variables_history,
         ))
+    }
+}
+
+/// Interim RKMK return map for a single viscoplastic block — an operator-split
+/// alternative to [`FirstOrderRoot::root`] that advances every Gauss point's
+/// plastic state on its manifold (`F_p` stays unimodular) rather than marching
+/// it additively.
+///
+/// Each load step solves the nodal equilibrium `nodal_forces = λ` with the
+/// plastic state held, then takes one
+/// [`Block::state_variables_rkmk_step`](crate::fem::block::Block) with the
+/// deformation gradient frozen. First order in the coupling; a monolithic
+/// version is future work — see the heterogeneous-integration notes.
+pub trait RkmkRoot<const D: usize> {
+    /// The block's per-Gauss-point plastic-state history type.
+    type History;
+    /// Solve under an applied load, advancing the plastic state with a
+    /// `Tab`-tableau RKMK step at every Gauss point.
+    fn root_rkmk<Tab>(
+        &self,
+        solver: impl FirstOrderRootFinding<
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
+        >,
+        time: &[Quantity<Time>],
+        bcs: ElasticViscoplasticBCs,
+    ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>
+    where
+        Tab: EmbeddedTableau;
+}
+
+impl<C, F, const G: usize, const N: usize, const P: usize> RkmkRoot<3>
+    for Model<Block<C, F, G, 3, N, P>, 3>
+where
+    C: ElasticViscoplastic<Quantity>
+        + StateEvolution<
+            Time,
+            Drive = DeformationGradient,
+            Field: IntegrableField<Point = PointStateVariables<Quantity>>,
+        >,
+    F: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Quantity> + SolidFiniteElement<G, 3, N, P>,
+    EvolvedIncrement<C, Time>: Clone + Differentiate<Time>,
+    Quantity<Time>: Mul<Scalar, Output = Quantity<Time>>,
+    for<'a> &'a Derivative<EvolvedIncrement<C, Time>, Time>:
+        Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time>>,
+    Model<Block<C, F, G, 3, N, P>, 3>:
+        ElasticViscoplasticElements<BlockStateVariables<G, Quantity>, 3>,
+{
+    type History = BlockStateVariablesHistory<G, Quantity>;
+    fn root_rkmk<Tab>(
+        &self,
+        solver: impl FirstOrderRootFinding<
+            NodalForcesSolid<3>,
+            NodalStiffnessesSolid<3>,
+            NodalCoordinates<3>,
+        >,
+        time: &[Quantity<Time>],
+        bcs: ElasticViscoplasticBCs,
+    ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError>
+    where
+        Tab: EmbeddedTableau,
+    {
+        let mut nodal_coordinates: NodalCoordinates<3> = self.coordinates().clone().into();
+        let mut state = self.blocks.initial_state();
+        let mut times = Times::new();
+        let mut nodal_coordinates_history = NodalCoordinatesHistory::new();
+        let mut state_variables_history = Self::History::new();
+        times.push(time[0]);
+        nodal_coordinates_history.push(nodal_coordinates.clone());
+        state_variables_history.push(state.clone());
+        for step in time.windows(2) {
+            nodal_coordinates = solver
+                .root(
+                    |coordinates: &NodalCoordinates<3>| Ok(self.nodal_forces(coordinates, &state)?),
+                    |coordinates: &NodalCoordinates<3>| {
+                        Ok(self.nodal_stiffnesses(coordinates, &state)?)
+                    },
+                    nodal_coordinates.clone(),
+                    bcs(step[0]),
+                    None,
+                )
+                .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
+            state = self
+                .blocks
+                .state_variables_rkmk_step::<Tab>(&nodal_coordinates, &state, step)
+                .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
+            times.push(step[1]);
+            nodal_coordinates_history.push(nodal_coordinates.clone());
+            state_variables_history.push(state.clone());
+        }
+        Ok((times, nodal_coordinates_history, state_variables_history))
     }
 }
