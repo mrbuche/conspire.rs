@@ -694,4 +694,3 @@ fn octree_tet_background_requires_strong_1() {
             .is_ok()
     )
 }
-
