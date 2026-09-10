@@ -2,8 +2,8 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorError, TensorRank2, TensorTuple,
-    TensorVec,
+    Derivative, Differentiate, Norm, Quantity, Scalar, Tensor, TensorError, TensorRank2,
+    TensorTuple, TensorVec,
     integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
 };
 use crate::units::{Dimensionless, Time};
@@ -369,7 +369,12 @@ where
 /// [`dexpinv`]: IntegrableField::dexpinv
 pub trait StateStep<T = Time>: Differentiate<T> + Tensor + Sized {
     /// `base` advanced by the rate combination `Σ cᵢ kᵢ` over the step `dt`.
-    fn advance(base: &Self, rate_combination: &Derivative<Self, T>, dt: Quantity<T>) -> Self;
+    /// Fails only for a manifold state whose reconstruction has no solution.
+    fn advance(
+        base: &Self,
+        rate_combination: &Derivative<Self, T>,
+        dt: Quantity<T>,
+    ) -> Result<Self, String>;
     /// Corrects a freshly evaluated stage rate at the rate combination `_sigma`
     /// already accumulated for that stage. The identity for a flat state.
     fn correct_stage_rate(
@@ -379,6 +384,10 @@ pub trait StateStep<T = Time>: Differentiate<T> + Tensor + Sized {
     ) -> Derivative<Self, T> {
         rate
     }
+    /// The embedded-error magnitude for the weighted rate combination `sum`
+    /// (`Σ dᵢ kᵢ`) over the step `dt`. Flat: `‖(Σ dᵢ kᵢ) dt‖`; a manifold state
+    /// measures the same increment in its algebra, without the exponential map.
+    fn error_measure(sum: &Derivative<Self, T>, dt: Quantity<T>, norm: &Norm) -> Scalar;
 }
 
 impl<T, Y> StateStep<T> for Y
@@ -387,7 +396,14 @@ where
     for<'a> Y: Add<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
 {
-    fn advance(base: &Self, rate_combination: &Derivative<Self, T>, dt: Quantity<T>) -> Self {
-        rate_combination * dt + base
+    fn advance(
+        base: &Self,
+        rate_combination: &Derivative<Self, T>,
+        dt: Quantity<T>,
+    ) -> Result<Self, String> {
+        Ok(rate_combination * dt + base)
+    }
+    fn error_measure(sum: &Derivative<Self, T>, dt: Quantity<T>, norm: &Norm) -> Scalar {
+        norm.measure(&(sum * dt))
     }
 }

@@ -3,7 +3,9 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, Times, VariableStep},
+    integrate::{
+        ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, StateStep, Times, VariableStep,
+    },
     interpolate::InterpolateSolution,
 };
 use crate::units::Time;
@@ -17,8 +19,8 @@ pub(crate) mod verner_9;
 /// Variable-step explicit integrators for ordinary differential equations.
 pub trait VariableStepExplicit<Y, U, V, T = Time>
 where
-    Self: InterpolateSolution<Y, U, V, T> + Explicit<Y, U, V, T> + VariableStep<T>,
-    Y: Differentiate<T> + Tensor,
+    Self: Explicit<Y, U, V, T> + VariableStep<T>,
+    Y: Differentiate<T> + StateStep<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -31,7 +33,10 @@ where
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         time: &[Quantity<T>],
         initial_condition: Y,
-    ) -> Result<(Times<T>, U, V), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError>
+    where
+        Self: InterpolateSolution<Y, U, V, T>,
+    {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
         if time.len() < 2 {
@@ -163,18 +168,19 @@ where
         };
         for i in 1..last.min(k.len()) {
             let row = Self::Tableau::A[i];
-            let mut stage = &k[0] * (row[0] * dt);
+            let mut sigma = &k[0] * row[0];
             for j in 1..i {
-                stage += &k[j] * (row[j] * dt);
+                sigma += &k[j] * row[j];
             }
-            stage += y;
-            k[i] = function(t + Self::Tableau::C[i] * dt, &stage)?;
+            let stage = Y::advance(y, &sigma, dt)?;
+            k[i] =
+                Y::correct_stage_rate(&sigma, function(t + Self::Tableau::C[i] * dt, &stage)?, dt);
         }
         let mut sum = &k[0] * Self::Tableau::B[0];
         for (b, slope) in Self::Tableau::B.iter().zip(k.iter()).skip(1) {
             sum += slope * *b;
         }
-        *y_trial = &sum * dt + y;
+        *y_trial = Y::advance(y, &sum, dt)?;
         Ok(())
     }
     /// Embedded local-error estimate reduced through the error norm.
@@ -187,7 +193,7 @@ where
         for (d, slope) in Self::Tableau::D.iter().zip(k.iter()).skip(1) {
             sum += slope * *d;
         }
-        Ok(self.error_norm().measure(&(&sum * dt)))
+        Ok(Y::error_measure(&sum, dt, self.error_norm()))
     }
     fn slopes_and_error(
         &self,
