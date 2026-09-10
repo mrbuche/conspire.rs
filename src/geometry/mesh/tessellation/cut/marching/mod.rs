@@ -40,6 +40,19 @@ pub enum Finish {
     /// given share of the scaled Jacobian its incident hexahedra were cut
     /// with. Moves the boundary alone, no volume degrees of freedom.
     Draw(Scalar),
+    /// Deform the mesh onto the surface by energy fitting, after Protais:
+    /// vertices move through the volume, connectivity does not, and no
+    /// elements are added.
+    Fit(Freedom),
+}
+
+/// Which nodes an energy [`Fit`](Finish::Fit) is free to move.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Freedom {
+    /// Every node of the mesh.
+    Whole,
+    /// The boundary nodes and their immediate neighbours only.
+    Shell,
 }
 
 /// How the boundary is placed and then settled onto the surface.
@@ -175,10 +188,34 @@ impl Tessellation {
         let points = self.placements(&cells, &signs, placement)?;
         let draw = match finish {
             Finish::Draw(keep) => Some((self, keep)),
-            Finish::Cut => None,
+            _ => None,
         };
-        split::hexahedra(cells, &points, draw)
+        let mut mesh = split::hexahedra(cells, &points, draw)?;
+        if let Finish::Fit(freedom) = finish {
+            let nodes = match freedom {
+                Freedom::Whole => (0..mesh.number_of_nodes()).collect::<Vec<_>>(),
+                Freedom::Shell => shell(&mesh),
+            };
+            mesh.fit(&nodes, self)?;
+        }
+        Ok(mesh)
     }
+}
+
+/// The boundary nodes of `mesh` together with their immediate neighbours.
+fn shell(mesh: &Mesh<D>) -> Vec<usize> {
+    let mut nodes: Vec<usize> = mesh.exterior_faces().into_iter().flatten().collect();
+    nodes.sort_unstable();
+    nodes.dedup();
+    let neighbors = mesh.node_node_connectivity();
+    let ring: Vec<usize> = nodes
+        .iter()
+        .flat_map(|&node| neighbors[node].iter().copied())
+        .collect();
+    nodes.extend(ring);
+    nodes.sort_unstable();
+    nodes.dedup();
+    nodes
 }
 
 const SHIFTS: [[Scalar; D]; 5] = [

@@ -1,4 +1,4 @@
-use super::{Finish, Marching, Placement};
+use super::{Finish, Freedom, Marching, Placement};
 use crate::{
     geometry::mesh::{
         Connectivity, Verdict,
@@ -83,6 +83,22 @@ fn the_default_holds_quality_and_draws_the_boundary_close() {
     };
     let (_, mean) = tessellation.conformance(&hexes, mesh.coordinates(), spacing);
     assert!(mean < 0.02, "{mean}");
+}
+
+#[test]
+fn inflation_meshes_a_sphere_without_inverting() {
+    let mesh = sphere(2)
+        .marching_hex(
+            Quantity::new(0.35),
+            Marching {
+                placement: Placement::Crossing(0.2),
+                finish: Finish::Fit(Freedom::Shell),
+            },
+        )
+        .unwrap();
+    let (count, minimum, negative) = report("sphere", &mesh);
+    assert!(count > 0);
+    assert_eq!(negative, 0, "min SJ {minimum}");
 }
 
 #[test]
