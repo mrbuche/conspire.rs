@@ -16,7 +16,10 @@ use crate::units::Time;
 pub type Times<T = Time> = QuantityVector<T>;
 
 pub use error::IntegrationError;
-pub use field::{Flat, IntegrableField, Product, Unimodular, integrate_euler, integrate_rkmk};
+pub use field::{
+    Flat, IntegrableField, Product, Unimodular, integrate_euler, integrate_rkmk,
+    integrate_rkmk_adaptive,
+};
 pub use tableau::{ButcherTableau, EmbeddedTableau};
 
 pub use dae::{

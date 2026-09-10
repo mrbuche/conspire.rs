@@ -1,4 +1,7 @@
-use super::{Flat, IntegrableField, Product, Unimodular, integrate_euler, integrate_rkmk};
+use super::{
+    Flat, IntegrableField, Product, Unimodular, integrate_euler, integrate_rkmk,
+    integrate_rkmk_adaptive,
+};
 use crate::math::{
     Current, Quantity, Tensor, TensorArray, TensorRank1, TensorRank2, TensorTuple, TensorVector,
     integrate::{Euler, Explicit, Times, ode::explicit::variable_step::bogacki_shampine},
@@ -176,4 +179,67 @@ fn rkmk_on_a_flat_field_is_the_plain_tableau() {
         )
         .unwrap();
     assert!((rkmk.iter().last().unwrap().value() - (-1.0_f64).exp()).abs() < 1e-4);
+}
+
+// span [0, 1], f = A/(1+t), exact endpoint exp(A ln 2); returns (accepted steps, endpoint error)
+fn rkmk_adaptive_run(abs_tol: f64) -> (usize, f64) {
+    let a = FpRate::from(constant_exponent());
+    let (times, points): (Times, TensorVector<Fp>) =
+        integrate_rkmk_adaptive::<Unimodular<Current>, BogackiShampine, _, _>(
+            |t: Quantity<Time>, _: &Fp| Ok(a.clone() * (1.0 / (1.0 + t.value()))),
+            &uniform_time(1),
+            Fp::identity(),
+            abs_tol,
+            0.0,
+        )
+        .unwrap();
+    let exact = (Fp::from(constant_exponent()) * 2.0_f64.ln())
+        .expm()
+        .unwrap();
+    (
+        times.iter().count(),
+        (points.iter().last().unwrap() - &exact).norm().value(),
+    )
+}
+
+#[test]
+fn rkmk_adaptive_meets_the_requested_tolerance() {
+    let (steps, error) = rkmk_adaptive_run(1e-7);
+    assert!(
+        steps > 2,
+        "the controller never sub-divided the span: {steps}"
+    );
+    assert!(
+        error < 1e-5,
+        "endpoint error {error} misses the requested tolerance"
+    );
+}
+
+#[test]
+fn rkmk_adaptive_subdivides_more_for_a_tighter_tolerance() {
+    let (loose, loose_error) = rkmk_adaptive_run(1e-4);
+    let (tight, tight_error) = rkmk_adaptive_run(1e-9);
+    assert!(
+        loose < tight && tight < 500,
+        "step counts are not monotone and sane: {loose} -> {tight}"
+    );
+    assert!(
+        tight_error < loose_error,
+        "a tighter tolerance was no more accurate: {loose_error} -> {tight_error}"
+    );
+}
+
+#[test]
+fn rkmk_adaptive_keeps_the_group_state_unimodular() {
+    let rate = trace_free_rate();
+    let (_, points): (Times, TensorVector<Fp>) =
+        integrate_rkmk_adaptive::<Unimodular<Current>, BogackiShampine, _, _>(
+            |_: Quantity<Time>, _: &Fp| Ok(rate.clone()),
+            &uniform_time(1),
+            Fp::identity(),
+            1e-8,
+            0.0,
+        )
+        .unwrap();
+    assert!((points.iter().last().unwrap().determinant() - 1.0).abs() < 1e-10);
 }

@@ -2,8 +2,9 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Quantity, Tensor, TensorError, TensorRank2, TensorTuple, TensorVec,
-    integrate::{ButcherTableau, IntegrationError, Times},
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorError, TensorRank2, TensorTuple,
+    TensorVec,
+    integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
 };
 use crate::units::Dimensionless;
 use std::{
@@ -127,6 +128,68 @@ where
     Ok((times, points))
 }
 
+fn reconstruct_or_err<Fld: IntegrableField>(
+    base: &Fld::Point,
+    increment: &Fld::Point,
+) -> Result<Fld::Point, IntegrationError> {
+    Fld::reconstruct(base, increment)
+        .map_err(|_| IntegrationError::from(RECONSTRUCT_FAILED.to_string()))
+}
+
+/// One RKMK step's corrected stage slopes `k̃ᵢ` in the field's Lie algebra: per
+/// stage combine the earlier `k̃ⱼ` by row `Aᵢ`, `reconstruct` the stage point,
+/// evaluate the rate, scale by `dt`, apply [`IntegrableField::dexpinv`] at the
+/// accumulated algebra element. The caller weights these by `B` (the step) and,
+/// for an embedded pair, by `D` (the error estimate).
+fn rkmk_stage_slopes<Fld, Tab, T>(
+    rate: &mut impl FnMut(Quantity<T>, &Fld::Point) -> Result<Derivative<Fld::Point, T>, String>,
+    point: &Fld::Point,
+    t: Quantity<T>,
+    dt: Quantity<T>,
+) -> Result<Vec<Fld::Point>, IntegrationError>
+where
+    Fld: IntegrableField,
+    Tab: ButcherTableau,
+    Fld::Point: Clone + Differentiate<T>,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<Fld::Point, T>: Mul<Quantity<T>, Output = Fld::Point>,
+{
+    let mut slopes: Vec<Fld::Point> = Vec::with_capacity(Tab::STAGES);
+    for i in 0..Tab::STAGES {
+        let sigma = if i == 0 {
+            None
+        } else {
+            let mut accumulated = slopes[0].clone() * Tab::A[i][0];
+            for (j, slope) in slopes.iter().enumerate().take(i).skip(1) {
+                accumulated += slope.clone() * Tab::A[i][j];
+            }
+            Some(accumulated)
+        };
+        let stage_point = match &sigma {
+            Some(sigma) => reconstruct_or_err::<Fld>(point, sigma)?,
+            None => point.clone(),
+        };
+        let increment = &rate(t + dt * Tab::C[i], &stage_point)? * dt;
+        slopes.push(match &sigma {
+            Some(sigma) => Fld::dexpinv(sigma, increment),
+            None => increment,
+        });
+    }
+    Ok(slopes)
+}
+
+fn weight<P>(slopes: &[P], weights: &[Scalar]) -> P
+where
+    P: Clone + Mul<Scalar, Output = P> + std::ops::AddAssign,
+{
+    let mut sum = slopes[0].clone() * weights[0];
+    for (i, slope) in slopes.iter().enumerate().skip(1) {
+        sum += slope.clone() * weights[i];
+    }
+    sum
+}
+
 /// Runge–Kutta–Munthe-Kaas: a fixed-step [`ButcherTableau`] run in the field's
 /// Lie algebra, with the [`IntegrableField::dexpinv`] correction per stage and a
 /// single [`IntegrableField::reconstruct`] per step. Reduces to the plain tableau
@@ -140,48 +203,88 @@ where
     Fld: IntegrableField,
     Tab: ButcherTableau,
     Fld::Point: Clone + Differentiate<T>,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<Fld::Point, T>: Mul<Quantity<T>, Output = Fld::Point>,
     U: TensorVec<Item = Fld::Point>,
 {
-    let reconstruct = |base: &Fld::Point, increment: &Fld::Point| {
-        Fld::reconstruct(base, increment)
-            .map_err(|_| IntegrationError::from(RECONSTRUCT_FAILED.to_string()))
-    };
     let mut point = initial_condition;
     let mut points = U::new();
     let mut times = Times::new();
     points.push(point.clone());
     times.push(time[0]);
     for step in time.windows(2) {
-        let dt = step[1] - step[0];
-        let mut slopes: Vec<Fld::Point> = Vec::with_capacity(Tab::STAGES);
-        for i in 0..Tab::STAGES {
-            let sigma = if i == 0 {
-                None
-            } else {
-                let mut accumulated = slopes[0].clone() * Tab::A[i][0];
-                for (j, slope) in slopes.iter().enumerate().take(i).skip(1) {
-                    accumulated += slope.clone() * Tab::A[i][j];
-                }
-                Some(accumulated)
-            };
-            let stage_point = match &sigma {
-                Some(sigma) => reconstruct(&point, sigma)?,
-                None => point.clone(),
-            };
-            let increment = &rate(step[0] + Tab::C[i] * dt, &stage_point)? * dt;
-            slopes.push(match &sigma {
-                Some(sigma) => Fld::dexpinv(sigma, increment),
-                None => increment,
-            });
-        }
-        let mut combined = slopes[0].clone() * Tab::B[0];
-        for (i, slope) in slopes.iter().enumerate().skip(1) {
-            combined += slope.clone() * Tab::B[i];
-        }
-        point = reconstruct(&point, &combined)?;
+        let slopes =
+            rkmk_stage_slopes::<Fld, Tab, T>(&mut rate, &point, step[0], step[1] - step[0])?;
+        point = reconstruct_or_err::<Fld>(&point, &weight(&slopes, Tab::B))?;
         points.push(point.clone());
         times.push(step[1]);
+    }
+    Ok((times, points))
+}
+
+/// Adaptive RKMK: [`integrate_rkmk`] with embedded local-error control from the
+/// tableau's `D` weights. `time` supplies only the span `[time[0], time[last]]`;
+/// the returned times are the steps the controller accepted. The step is grown or
+/// shrunk by `0.9 (tol / e)^{1/p}` (clamped to `[0.2, 5]`), and a step whose
+/// error `e` exceeds `abs_tol + rel_tol ‖x_{n+1}‖` is rejected.
+pub fn integrate_rkmk_adaptive<Fld, Tab, U, T>(
+    mut rate: impl FnMut(Quantity<T>, &Fld::Point) -> Result<Derivative<Fld::Point, T>, String>,
+    time: &[Quantity<T>],
+    initial_condition: Fld::Point,
+    abs_tol: Scalar,
+    rel_tol: Scalar,
+) -> Result<(Times<T>, U), IntegrationError>
+where
+    Fld: IntegrableField,
+    Tab: EmbeddedTableau,
+    Fld::Point: Clone + Differentiate<T>,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<Fld::Point, T>: Mul<Quantity<T>, Output = Fld::Point>,
+    U: TensorVec<Item = Fld::Point>,
+{
+    if time.len() < 2 {
+        return Err(IntegrationError::LengthTimeLessThanTwo);
+    }
+    let t_0 = time[0];
+    let t_f = time[time.len() - 1];
+    if t_0 >= t_f {
+        return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
+    }
+    let exponent = 1.0 / Tab::ORDER;
+    let dt_min = (t_f - t_0) * 1e-10;
+    let mut t = t_0;
+    let mut dt = t_f - t_0;
+    let mut point = initial_condition;
+    let mut points = U::new();
+    let mut times = Times::new();
+    points.push(point.clone());
+    times.push(t_0);
+    while t_f - t > dt_min {
+        dt = dt.min(t_f - t);
+        let slopes = rkmk_stage_slopes::<Fld, Tab, T>(&mut rate, &point, t, dt)?;
+        let trial = reconstruct_or_err::<Fld>(&point, &weight(&slopes, Tab::B))?;
+        let error = weight(&slopes, Tab::D).norm().value().abs();
+        let tolerance = abs_tol + rel_tol * trial.norm().value();
+        let accept = error <= tolerance || dt <= dt_min;
+        if accept {
+            t += dt;
+            point = trial;
+            points.push(point.clone());
+            times.push(t);
+        }
+        let scale = if error > 0.0 {
+            (0.9 * (tolerance / error).powf(exponent)).clamp(0.2, 5.0)
+        } else {
+            5.0
+        };
+        dt *= scale;
+        if !accept && dt <= dt_min {
+            return Err(IntegrationError::from(
+                "the adaptive RKMK step fell below the floor".to_string(),
+            ));
+        }
     }
     Ok((times, points))
 }
