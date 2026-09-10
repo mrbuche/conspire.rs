@@ -21,7 +21,7 @@ use crate::{
     },
     math::{
         Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTupleListVec,
-        TensorTupleListVec2D,
+        TensorTupleListVec2D, TensorVec,
         integrate::{
             EmbeddedTableau, EvolvedIncrement, IntegrableField, StateEvolution, rkmk_step,
         },
@@ -141,8 +141,8 @@ where
 /// `F_p` stays on the unimodular group (`det = 1`) instead of drifting. One
 /// stage-slope buffer is reused across the whole block, so the step allocates
 /// nothing per Gauss point.
-impl<C, F, const G: usize, const N: usize, const P: usize, Y>
-    ElasticViscoplasticRkmkElements<ViscoplasticStateVariables<G, Y>, 3> for Block<C, F, G, 3, N, P>
+impl<C, F, const G: usize, const N: usize, const P: usize, Y> ElasticViscoplasticRkmkElements<Y, 3>
+    for Block<C, F, G, 3, N, P>
 where
     F: SolidFiniteElement<G, 3, N, P> + ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
     Y: Clone + Differentiate<Time> + Tensor,
@@ -157,7 +157,11 @@ where
     Quantity<Time>: Mul<Scalar, Output = Quantity<Time>>,
     for<'a> &'a Derivative<EvolvedIncrement<C, Time, Y>, Time>:
         Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time, Y>>,
+    ViscoplasticStateVariables<G, Y>: Clone + Differentiate + Tensor,
+    ViscoplasticStateVariablesHistory<G, Y>: TensorVec<Item = ViscoplasticStateVariables<G, Y>>,
 {
+    type State = ViscoplasticStateVariables<G, Y>;
+    type History = ViscoplasticStateVariablesHistory<G, Y>;
     fn state_variables_rkmk_step<Tab>(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,

@@ -1,36 +1,18 @@
 use crate::{
-    constitutive::{
-        fluid::viscoplastic::ViscoplasticStateVariables as PointStateVariables,
-        solid::elastic_viscoplastic::ElasticViscoplastic,
-    },
     fem::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Elements, Model,
         NodalCoordinates, NodalCoordinatesHistory,
-        block::{
-            Block,
-            element::solid::{
-                SolidFiniteElement, elastic_viscoplastic::ElasticViscoplasticFiniteElement,
-            },
-            solid::elastic_viscoplastic::{
-                ElasticViscoplasticBCs, ViscoplasticStateVariables as BlockStateVariables,
-                ViscoplasticStateVariablesHistory as BlockStateVariablesHistory,
-            },
-        },
+        block::solid::elastic_viscoplastic::ElasticViscoplasticBCs,
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec,
-        TensorVec,
-        integrate::{
-            EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderRoot, IntegrableField,
-            IntegrationError, StateEvolution,
-        },
+        Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorTupleVec, TensorVec,
+        integrate::{EmbeddedTableau, ExplicitDaeFirstOrderRoot, IntegrationError},
         optimize::FirstOrderRootFinding,
     },
-    mechanics::{DeformationGradient, Times},
+    mechanics::Times,
     units::Time,
 };
-use std::ops::Mul;
 
 pub trait ElasticViscoplasticElements<S, const D: usize>
 where
@@ -295,39 +277,44 @@ where
 }
 
 /// The RKMK analogue of [`ElasticViscoplasticElements::state_variables_evolution`]:
-/// advances a whole block's plastic state one operator-split RKMK step with the
+/// advances a whole model's plastic state one operator-split RKMK step with the
 /// deformation gradient frozen at `nodal_coordinates`. Composes over the
-/// multi-block wrappers, so [`RkmkRoot`] serves `Blocks` and
-/// `ElasticViscoplasticAndElastic` too.
-pub trait ElasticViscoplasticRkmkElements<S, const D: usize>
+/// multi-block wrappers (recursively over nested [`Blocks`]), so [`RkmkRoot`]
+/// serves any block topology.
+pub trait ElasticViscoplasticRkmkElements<Y, const D: usize>
 where
     Self: Elements,
-    S: Differentiate,
 {
-    /// One RKMK step for the block's plastic state, `F` frozen.
+    /// The composite plastic state — a per-Gauss-point list for one block, a
+    /// [`TensorTuple`] of those for [`Blocks`].
+    type State: Clone + Differentiate + Tensor;
+    /// Time history of [`Self::State`].
+    type History: TensorVec<Item = Self::State>;
+    /// One RKMK step for the plastic state, `F` frozen.
     fn state_variables_rkmk_step<Tab>(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-        state_variables: &S,
+        state_variables: &Self::State,
         t: Quantity<Time>,
         dt: Quantity<Time>,
-    ) -> Result<S, ElementModelError>
+    ) -> Result<Self::State, ElementModelError>
     where
         Tab: EmbeddedTableau;
 }
 
-impl<B, S, const D: usize> ElasticViscoplasticRkmkElements<S, D> for Model<B, D>
+impl<B, Y, const D: usize> ElasticViscoplasticRkmkElements<Y, D> for Model<B, D>
 where
-    B: ElasticViscoplasticRkmkElements<S, D>,
-    S: Differentiate,
+    B: ElasticViscoplasticRkmkElements<Y, D>,
 {
+    type State = B::State;
+    type History = B::History;
     fn state_variables_rkmk_step<Tab>(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-        state_variables: &S,
+        state_variables: &Self::State,
         t: Quantity<Time>,
         dt: Quantity<Time>,
-    ) -> Result<S, ElementModelError>
+    ) -> Result<Self::State, ElementModelError>
     where
         Tab: EmbeddedTableau,
     {
@@ -336,23 +323,41 @@ where
     }
 }
 
-impl<B1, B2, S1, S2, const D: usize> ElasticViscoplasticRkmkElements<TensorTuple<S1, S2>, D>
-    for Blocks<B1, B2>
+impl<B1, B2, Y, const D: usize> ElasticViscoplasticRkmkElements<Y, D> for Blocks<B1, B2>
 where
-    B1: ElasticViscoplasticRkmkElements<S1, D>,
-    B2: ElasticViscoplasticRkmkElements<S2, D>,
-    S1: Differentiate + Tensor,
-    S2: Differentiate + Tensor,
-    Derivative<S1>: Tensor,
-    Derivative<S2>: Tensor,
+    B1: ElasticViscoplasticRkmkElements<Y, D>,
+    B2: ElasticViscoplasticRkmkElements<Y, D>,
+    Derivative<<B1 as ElasticViscoplasticRkmkElements<Y, D>>::State>: Tensor,
+    Derivative<<B2 as ElasticViscoplasticRkmkElements<Y, D>>::State>: Tensor,
+    TensorTuple<
+        <B1 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+        <B2 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+    >: Clone + Differentiate + Tensor,
+    TensorTupleVec<
+        <B1 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+        <B2 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+    >: TensorVec<
+        Item = TensorTuple<
+            <B1 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+            <B2 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+        >,
+    >,
 {
+    type State = TensorTuple<
+        <B1 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+        <B2 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+    >;
+    type History = TensorTupleVec<
+        <B1 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+        <B2 as ElasticViscoplasticRkmkElements<Y, D>>::State,
+    >;
     fn state_variables_rkmk_step<Tab>(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-        state_variables: &TensorTuple<S1, S2>,
+        state_variables: &Self::State,
         t: Quantity<Time>,
         dt: Quantity<Time>,
-    ) -> Result<TensorTuple<S1, S2>, ElementModelError>
+    ) -> Result<Self::State, ElementModelError>
     where
         Tab: EmbeddedTableau,
     {
@@ -374,20 +379,21 @@ where
     }
 }
 
-impl<B1, B2, S, const D: usize> ElasticViscoplasticRkmkElements<S, D>
+impl<B1, B2, Y, const D: usize> ElasticViscoplasticRkmkElements<Y, D>
     for ElasticViscoplasticAndElastic<B1, B2>
 where
-    B1: ElasticViscoplasticRkmkElements<S, D>,
+    B1: ElasticViscoplasticRkmkElements<Y, D>,
     B2: ElasticElements<D>,
-    S: Differentiate,
 {
+    type State = <B1 as ElasticViscoplasticRkmkElements<Y, D>>::State;
+    type History = <B1 as ElasticViscoplasticRkmkElements<Y, D>>::History;
     fn state_variables_rkmk_step<Tab>(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
-        state_variables: &S,
+        state_variables: &Self::State,
         t: Quantity<Time>,
         dt: Quantity<Time>,
-    ) -> Result<S, ElementModelError>
+    ) -> Result<Self::State, ElementModelError>
     where
         Tab: EmbeddedTableau,
     {
@@ -400,7 +406,8 @@ where
 /// equilibrium is solved once at the initial time, then each step advances the
 /// plastic state one RKMK step with `F` frozen and re-solves equilibrium at the
 /// new time with the advanced state held.
-fn root_rkmk_operator_split<M, S, H, Tab>(
+#[allow(clippy::type_complexity)]
+fn root_rkmk_operator_split<M, Y, Tab>(
     model: &M,
     solver: impl FirstOrderRootFinding<
         NodalForcesSolid<3>,
@@ -409,15 +416,23 @@ fn root_rkmk_operator_split<M, S, H, Tab>(
     >,
     time: &[Quantity<Time>],
     bcs: ElasticViscoplasticBCs,
-) -> Result<(Times, NodalCoordinatesHistory<3>, H), IntegrationError>
+) -> Result<
+    (
+        Times,
+        NodalCoordinatesHistory<3>,
+        <M as ElasticViscoplasticRkmkElements<Y, 3>>::History,
+    ),
+    IntegrationError,
+>
 where
-    M: ElementModel<3> + ElasticViscoplasticElements<S, 3> + ElasticViscoplasticRkmkElements<S, 3>,
-    S: Clone + Differentiate + Tensor,
-    H: TensorVec<Item = S>,
+    M: ElementModel<3>
+        + ElasticViscoplasticRkmkElements<Y, 3>
+        + ElasticViscoplasticElements<<M as ElasticViscoplasticRkmkElements<Y, 3>>::State, 3>,
     Tab: EmbeddedTableau,
 {
-    let mut state = ElasticViscoplasticElements::initial_state(model);
-    let equilibrate = |state: &S,
+    let mut state: <M as ElasticViscoplasticRkmkElements<Y, 3>>::State =
+        ElasticViscoplasticElements::initial_state(model);
+    let equilibrate = |state: &<M as ElasticViscoplasticRkmkElements<Y, 3>>::State,
                        guess: &NodalCoordinates<3>,
                        t: Quantity<Time>|
      -> Result<NodalCoordinates<3>, IntegrationError> {
@@ -437,7 +452,7 @@ where
     let mut nodal_coordinates = equilibrate(&state, &guess, time[0])?;
     let mut times = Times::new();
     let mut nodal_coordinates_history = NodalCoordinatesHistory::new();
-    let mut state_variables_history = H::new();
+    let mut state_variables_history = <M as ElasticViscoplasticRkmkElements<Y, 3>>::History::new();
     times.push(time[0]);
     nodal_coordinates_history.push(nodal_coordinates.clone());
     state_variables_history.push(state.clone());
@@ -467,14 +482,12 @@ where
 /// advances every viscoplastic block's plastic state one RKMK step with the
 /// deformation gradient frozen and re-solves equilibrium at the new time with the
 /// advanced plastic state held — so every recorded `(t, coordinates, state)` is
-/// mutually consistent. Impl'd for a single [`Block`], for two viscoplastic
-/// blocks ([`Blocks`]), and for a viscoplastic block paired with a pure-elastic
-/// one ([`ElasticViscoplasticAndElastic`]). First order in the coupling; a
-/// monolithic version is future work — see the heterogeneous-integration notes.
-pub trait RkmkRoot<const D: usize, Y = Quantity>
-where
-    Y: Differentiate + Tensor,
-{
+/// mutually consistent. One blanket impl over any [`Model`] whose blocks are
+/// [`ElasticViscoplasticRkmkElements`] — a single [`Block`], nested [`Blocks`] to
+/// any depth, or an [`ElasticViscoplasticAndElastic`] pairing. First order in the
+/// coupling; a monolithic version is future work — see the
+/// heterogeneous-integration notes.
+pub trait RkmkRoot<const D: usize, Y = Quantity> {
     /// The model's plastic-state history type — a per-Gauss-point list history
     /// for one block, a [`TensorTuple`] of those for [`Blocks`].
     type History;
@@ -494,99 +507,16 @@ where
         Tab: EmbeddedTableau;
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize, Y> RkmkRoot<3, Y>
-    for Model<Block<C, F, G, 3, N, P>, 3>
+impl<B, Y> RkmkRoot<3, Y> for Model<B, 3>
 where
-    Y: Clone + Differentiate<Time> + Tensor,
-    C: ElasticViscoplastic<Y>
-        + StateEvolution<
-            Time,
-            Y,
-            Drive = DeformationGradient,
-            Field: IntegrableField<Point = PointStateVariables<Y>>,
-        >,
-    F: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y> + SolidFiniteElement<G, 3, N, P>,
-    EvolvedIncrement<C, Time, Y>: Clone + Differentiate<Time>,
-    Quantity<Time>: Mul<Scalar, Output = Quantity<Time>>,
-    for<'a> &'a Derivative<EvolvedIncrement<C, Time, Y>, Time>:
-        Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time, Y>>,
-    BlockStateVariables<G, Y>: Clone + Tensor,
-    Self: ElasticViscoplasticElements<BlockStateVariables<G, Y>, 3>
-        + ElasticViscoplasticRkmkElements<BlockStateVariables<G, Y>, 3>,
-{
-    type History = BlockStateVariablesHistory<G, Y>;
-    fn root_rkmk<Tab>(
-        &self,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<3>,
-            NodalStiffnessesSolid<3>,
-            NodalCoordinates<3>,
-        >,
-        time: &[Quantity<Time>],
-        bcs: ElasticViscoplasticBCs,
-    ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError>
-    where
-        Tab: EmbeddedTableau,
-    {
-        root_rkmk_operator_split::<Self, BlockStateVariables<G, Y>, Self::History, Tab>(
-            self, solver, time, bcs,
-        )
-    }
-}
-
-impl<
-    C1,
-    F1,
-    C2,
-    F2,
-    const G1: usize,
-    const N1: usize,
-    const P1: usize,
-    const G2: usize,
-    const N2: usize,
-    const P2: usize,
-    Y,
-> RkmkRoot<3, Y> for Model<Blocks<Block<C1, F1, G1, 3, N1, P1>, Block<C2, F2, G2, 3, N2, P2>>, 3>
-where
-    Y: Clone + Differentiate<Time> + Tensor,
-    C1: ElasticViscoplastic<Y>
-        + StateEvolution<
-            Time,
-            Y,
-            Drive = DeformationGradient,
-            Field: IntegrableField<Point = PointStateVariables<Y>>,
-        >,
-    C2: ElasticViscoplastic<Y>
-        + StateEvolution<
-            Time,
-            Y,
-            Drive = DeformationGradient,
-            Field: IntegrableField<Point = PointStateVariables<Y>>,
-        >,
-    F1: ElasticViscoplasticFiniteElement<C1, G1, 3, N1, P1, Y> + SolidFiniteElement<G1, 3, N1, P1>,
-    F2: ElasticViscoplasticFiniteElement<C2, G2, 3, N2, P2, Y> + SolidFiniteElement<G2, 3, N2, P2>,
-    EvolvedIncrement<C1, Time, Y>: Clone + Differentiate<Time>,
-    EvolvedIncrement<C2, Time, Y>: Clone + Differentiate<Time>,
-    Quantity<Time>: Mul<Scalar, Output = Quantity<Time>>,
-    for<'a> &'a Derivative<EvolvedIncrement<C1, Time, Y>, Time>:
-        Mul<Quantity<Time>, Output = EvolvedIncrement<C1, Time, Y>>,
-    for<'a> &'a Derivative<EvolvedIncrement<C2, Time, Y>, Time>:
-        Mul<Quantity<Time>, Output = EvolvedIncrement<C2, Time, Y>>,
-    BlockStateVariables<G1, Y>: Clone + Differentiate + Tensor,
-    BlockStateVariables<G2, Y>: Clone + Differentiate + Tensor,
-    Derivative<BlockStateVariables<G1, Y>>: Tensor,
-    Derivative<BlockStateVariables<G2, Y>>: Tensor,
-    TensorTuple<BlockStateVariables<G1, Y>, BlockStateVariables<G2, Y>>:
-        Clone + Differentiate + Tensor,
-    Self: ElasticViscoplasticElements<
-            TensorTuple<BlockStateVariables<G1, Y>, BlockStateVariables<G2, Y>>,
-            3,
-        > + ElasticViscoplasticRkmkElements<
-            TensorTuple<BlockStateVariables<G1, Y>, BlockStateVariables<G2, Y>>,
+    B: ElasticViscoplasticRkmkElements<Y, 3>,
+    Model<B, 3>: ElementModel<3>
+        + ElasticViscoplasticElements<
+            <Model<B, 3> as ElasticViscoplasticRkmkElements<Y, 3>>::State,
             3,
         >,
 {
-    type History = TensorTupleVec<BlockStateVariables<G1, Y>, BlockStateVariables<G2, Y>>;
+    type History = <Model<B, 3> as ElasticViscoplasticRkmkElements<Y, 3>>::History;
     fn root_rkmk<Tab>(
         &self,
         solver: impl FirstOrderRootFinding<
@@ -600,67 +530,6 @@ where
     where
         Tab: EmbeddedTableau,
     {
-        root_rkmk_operator_split::<
-            Self,
-            TensorTuple<BlockStateVariables<G1, Y>, BlockStateVariables<G2, Y>>,
-            Self::History,
-            Tab,
-        >(self, solver, time, bcs)
-    }
-}
-
-impl<
-    C1,
-    F1,
-    C2,
-    F2,
-    const G1: usize,
-    const N1: usize,
-    const P1: usize,
-    const G2: usize,
-    const N2: usize,
-    const P2: usize,
-    Y,
-> RkmkRoot<3, Y>
-    for Model<
-        ElasticViscoplasticAndElastic<Block<C1, F1, G1, 3, N1, P1>, Block<C2, F2, G2, 3, N2, P2>>,
-        3,
-    >
-where
-    Y: Clone + Differentiate<Time> + Tensor,
-    C1: ElasticViscoplastic<Y>
-        + StateEvolution<
-            Time,
-            Y,
-            Drive = DeformationGradient,
-            Field: IntegrableField<Point = PointStateVariables<Y>>,
-        >,
-    F1: ElasticViscoplasticFiniteElement<C1, G1, 3, N1, P1, Y> + SolidFiniteElement<G1, 3, N1, P1>,
-    Block<C2, F2, G2, 3, N2, P2>: ElasticElements<3>,
-    EvolvedIncrement<C1, Time, Y>: Clone + Differentiate<Time>,
-    Quantity<Time>: Mul<Scalar, Output = Quantity<Time>>,
-    for<'a> &'a Derivative<EvolvedIncrement<C1, Time, Y>, Time>:
-        Mul<Quantity<Time>, Output = EvolvedIncrement<C1, Time, Y>>,
-    BlockStateVariables<G1, Y>: Clone + Tensor,
-    Self: ElasticViscoplasticElements<BlockStateVariables<G1, Y>, 3>
-        + ElasticViscoplasticRkmkElements<BlockStateVariables<G1, Y>, 3>,
-{
-    type History = BlockStateVariablesHistory<G1, Y>;
-    fn root_rkmk<Tab>(
-        &self,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<3>,
-            NodalStiffnessesSolid<3>,
-            NodalCoordinates<3>,
-        >,
-        time: &[Quantity<Time>],
-        bcs: ElasticViscoplasticBCs,
-    ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError>
-    where
-        Tab: EmbeddedTableau,
-    {
-        root_rkmk_operator_split::<Self, BlockStateVariables<G1, Y>, Self::History, Tab>(
-            self, solver, time, bcs,
-        )
+        root_rkmk_operator_split::<Model<B, 3>, Y, Tab>(self, solver, time, bcs)
     }
 }

@@ -7757,6 +7757,23 @@ fn temporary_elastic_viscoplastic_rkmk_two_blocks() -> Result<(), AssertionError
     Ok(())
 }
 
+// Compile-only: RkmkRoot resolves for a viscoplastic + pure-elastic pairing and
+// for nested Blocks (three viscoplastic blocks), not just a flat pair. There is
+// no 3-block mesh constructor yet, so these are not exercised at runtime.
+#[test]
+fn rkmk_root_covers_nested_and_mixed_block_topologies() {
+    use conspire::fem::{
+        Blocks, ElasticViscoplasticAndElastic, solid::elastic_viscoplastic::RkmkRoot,
+    };
+    fn assert_rkmk_root<T: RkmkRoot<3>>() {}
+    type Viscoplastic =
+        Block<Canonical<AlmansiHamelEulerian, ViscoplasticFlow>, LinearTetrahedron, G, M, N, P>;
+    type Elastic = Block<AlmansiHamelEulerian, LinearTetrahedron, G, M, N, P>;
+    assert_rkmk_root::<Model<ElasticViscoplasticAndElastic<Viscoplastic, Elastic>, 3>>();
+    assert_rkmk_root::<Model<Blocks<Blocks<Viscoplastic, Viscoplastic>, Viscoplastic>, 3>>();
+    assert_rkmk_root::<Model<Blocks<Viscoplastic, Blocks<Viscoplastic, Viscoplastic>>, 3>>();
+}
+
 #[test]
 fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let tol = 1e-4;
