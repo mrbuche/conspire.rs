@@ -28,47 +28,6 @@ fn report(name: &str, mesh: &crate::geometry::mesh::Mesh<3>) -> (usize, f64, usi
 }
 
 #[test]
-#[ignore = "diagnostic; run with --release -- --ignored --nocapture --test-threads=1"]
-fn placements_compared() {
-    for (name, tessellation, spacing) in [
-        ("sphere", sphere(3), 0.2),
-        ("sphere fine", sphere(3), 0.1),
-        ("box", box_surface([-0.5; 3], [0.5; 3]), 0.2),
-        (
-            "box tilted",
-            rotated(&box_surface([-0.5; 3], [0.5; 3]), [0.3, 0.4, 0.5]),
-            0.1,
-        ),
-        ("star", star(1, 2.0), 0.2),
-        ("star fine", star(2, 1.6), 0.08),
-        ("spike", star(1, 4.0), 0.2),
-        (
-            "slab",
-            box_surface([-2.0, -2.0, -0.05], [2.0, 2.0, 0.05]),
-            0.25,
-        ),
-    ] {
-        for (label, placement) in [
-            ("midpoint", Placement::Midpoint),
-            ("crossing", Placement::Crossing(0.2)),
-        ] {
-            match tessellation.marching_hex(
-                Quantity::new(spacing),
-                Marching {
-                    placement,
-                    finish: Finish::Cut,
-                },
-            ) {
-                Ok(mesh) => {
-                    report(&format!("{name}/{label}"), &mesh);
-                }
-                Err(error) => println!("{name:>12}/{label}  {error}"),
-            }
-        }
-    }
-}
-
-#[test]
 fn a_sphere_is_all_hexahedra_and_none_inverted() {
     let mesh = sphere(3)
         .marching_hex(

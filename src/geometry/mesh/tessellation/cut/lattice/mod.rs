@@ -16,7 +16,6 @@ use crate::{
 };
 use std::{array::from_fn, iter::repeat_n, vec::IntoIter};
 
-/// Tetrahedra in the Kuhn/Freudenthal split of one cell.
 const TETS_PER_CELL: usize = 6;
 
 type Mesher =
@@ -76,9 +75,6 @@ impl Lattice {
     pub(super) fn frame(&self) -> (Coordinate<D>, Quantity<Length>) {
         (self.origin.clone(), self.spacing)
     }
-    /// The mesh of the occupied cells, with how each meets the surface, which
-    /// rasterizing already determined and [`classify`](Tessellation::classify)
-    /// would otherwise have to find again.
     pub(super) fn mesh(&self) -> (Mesh<D>, Vec<Class>) {
         self.build(Mesh::from_lattice_cells, 1)
     }
