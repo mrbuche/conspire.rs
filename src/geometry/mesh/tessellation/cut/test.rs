@@ -214,60 +214,6 @@ pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation 
     )))
 }
 
-pub(super) fn rotated(tessellation: &Tessellation, angles: [f64; 3]) -> Tessellation {
-    let [x, y, z] = angles;
-    let rotate = |point: &Coordinate<3>| {
-        let (a, b, c) = (point[0].value(), point[1].value(), point[2].value());
-        let (b, c) = (b * x.cos() - c * x.sin(), b * x.sin() + c * x.cos());
-        let (a, c) = (a * y.cos() + c * y.sin(), -a * y.sin() + c * y.cos());
-        let (a, b) = (a * z.cos() - b * z.sin(), a * z.sin() + b * z.cos());
-        [a, b, c]
-    };
-    let coordinates: Vec<[f64; 3]> = tessellation
-        .mesh()
-        .coordinates()
-        .iter()
-        .map(rotate)
-        .collect();
-    let faces: Vec<[usize; 3]> = tessellation
-        .mesh()
-        .connectivities()
-        .iter()
-        .flatten()
-        .map(|triangle| [triangle[0], triangle[1], triangle[2]])
-        .collect();
-    Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        Coordinates::from(coordinates),
-    )))
-}
-
-pub(super) fn shifted(tessellation: &Tessellation, offset: [f64; 3]) -> Tessellation {
-    let coordinates: Vec<[f64; 3]> = tessellation
-        .mesh()
-        .coordinates()
-        .iter()
-        .map(|point| {
-            [
-                point[0].value() + offset[0],
-                point[1].value() + offset[1],
-                point[2].value() + offset[2],
-            ]
-        })
-        .collect();
-    let faces: Vec<[usize; 3]> = tessellation
-        .mesh()
-        .connectivities()
-        .iter()
-        .flatten()
-        .map(|triangle| [triangle[0], triangle[1], triangle[2]])
-        .collect();
-    Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        Coordinates::from(coordinates),
-    )))
-}
-
 pub(super) fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
     let [x0, y0, z0] = minimum;
     let [x1, y1, z1] = maximum;
