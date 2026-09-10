@@ -1,7 +1,8 @@
 #[cfg(test)]
-mod test;
+pub(crate) mod test;
 
 use crate::{geometry::Coordinates, math::Scalar};
+use std::array::from_fn;
 
 const NODES: [[usize; 3]; 8] = [
     [0, 0, 0],
@@ -27,8 +28,7 @@ fn determinant(element: &[usize], coordinates: &Coordinates<3>, at: [Scalar; 3])
                 1.0 - at[d]
             }
         });
-        let slope: [Scalar; 3] =
-            std::array::from_fn(|d| if exponents[d] == 1 { 1.0 } else { -1.0 });
+        let slope: [Scalar; 3] = from_fn(|d| if exponents[d] == 1 { 1.0 } else { -1.0 });
         (0..3).for_each(|d| {
             let weight = slope[d] * value[(d + 1) % 3] * value[(d + 2) % 3];
             (0..3).for_each(|component| columns[d][component] += weight * point[component].value())
@@ -67,44 +67,11 @@ pub(crate) fn coefficients(element: &[usize], coordinates: &Coordinates<3>) -> [
             (0..3).for_each(|k| values[k][j][i] = lifted[k])
         })
     });
-    std::array::from_fn(|index| values[index / 9][index / 3 % 3][index % 3])
+    from_fn(|index| values[index / 9][index / 3 % 3][index % 3])
 }
 
 pub(crate) fn certifies(element: &[usize], coordinates: &Coordinates<3>) -> bool {
     coefficients(element, coordinates)
         .iter()
         .all(|&coefficient| coefficient > 0.0)
-}
-
-#[cfg(test)]
-pub(crate) fn margin(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
-    let coefficients = coefficients(element, coordinates);
-    let maximum = coefficients.iter().cloned().fold(0.0, Scalar::max);
-    let minimum = coefficients
-        .iter()
-        .cloned()
-        .fold(Scalar::INFINITY, Scalar::min);
-    if maximum > 0.0 {
-        minimum / maximum
-    } else {
-        minimum
-    }
-}
-
-#[cfg(test)]
-pub(crate) fn sampled_minimum(
-    element: &[usize],
-    coordinates: &Coordinates<3>,
-    divisions: usize,
-) -> Scalar {
-    let mut minimum = Scalar::INFINITY;
-    (0..=divisions).for_each(|k| {
-        (0..=divisions).for_each(|j| {
-            (0..=divisions).for_each(|i| {
-                let at = [i, j, k].map(|index| index as Scalar / divisions as Scalar);
-                minimum = minimum.min(determinant(element, coordinates, at))
-            })
-        })
-    });
-    minimum
 }

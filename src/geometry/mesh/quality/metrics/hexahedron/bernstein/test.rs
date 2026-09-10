@@ -1,8 +1,35 @@
-use super::{certifies, coefficients, margin, sampled_minimum};
+use super::{certifies, coefficients, determinant};
 use crate::{
     geometry::Coordinates,
     math::{Quantity, Scalar},
 };
+
+pub(crate) fn margin(element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
+    let coefficients = coefficients(element, coordinates);
+    let maximum = coefficients.iter().cloned().fold(0.0, Scalar::max);
+    let minimum = coefficients
+        .iter()
+        .cloned()
+        .fold(Scalar::INFINITY, Scalar::min);
+    if maximum > 0.0 {
+        minimum / maximum
+    } else {
+        minimum
+    }
+}
+
+fn sampled_minimum(element: &[usize], coordinates: &Coordinates<3>, divisions: usize) -> Scalar {
+    let mut minimum = Scalar::INFINITY;
+    (0..=divisions).for_each(|k| {
+        (0..=divisions).for_each(|j| {
+            (0..=divisions).for_each(|i| {
+                let at = [i, j, k].map(|index| index as Scalar / divisions as Scalar);
+                minimum = minimum.min(determinant(element, coordinates, at))
+            })
+        })
+    });
+    minimum
+}
 
 const ELEMENT: [usize; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
 
@@ -51,8 +78,6 @@ fn an_inverted_element_is_not_certified() {
     assert!(margin(&ELEMENT, &coordinates) < 0.0);
 }
 
-/// Certification must imply the determinant is positive throughout, not
-/// merely where it happens to be sampled.
 #[test]
 fn certification_is_sound() {
     let mut seed = 0x5eed;
@@ -68,8 +93,6 @@ fn certification_is_sound() {
     assert!(certified > 20, "only {certified} certified");
 }
 
-/// The corner Jacobians the existing metrics use miss inversions away from
-/// the corners, which is the whole reason to certify instead of sample.
 #[test]
 fn corners_alone_can_miss_what_certification_catches() {
     let mut seed = 0xc0ffee;
