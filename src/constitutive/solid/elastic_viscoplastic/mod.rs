@@ -29,8 +29,8 @@ use crate::{
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
     mechanics::{
-        DeformationGradient, DeformationGradients, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, Times,
+        DeformationGradient, DeformationGradientPlastic, DeformationGradients,
+        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, Times,
     },
     units::{Dissipation, Time},
 };
@@ -281,11 +281,13 @@ where
 /// [`FirstOrderRoot::root`] that advances the plastic state on its manifold
 /// (`F_p` stays unimodular) instead of marching it additively.
 ///
-/// Each step: solve `P(F, F_p) - λ - P_0 = 0` for `F` with `F_p` held, then take
-/// one [`rkmk_step`] for `(F_p, ε_p)` from the current state with `F` frozen at
-/// the solved value. First order in the `F ↔ F_p` coupling; a monolithic RKMK
-/// return map (the group state threaded through the shared DAE solver) is future
-/// work — see the heterogeneous-integration notes.
+/// A Lie–Trotter split: equilibrium is solved once at the initial time, then each
+/// step takes one [`rkmk_step`] for `(F_p, ε_p)` with `F` frozen at the current
+/// equilibrium, and re-solves `P(F, F_p) - λ - P_0 = 0` for `F` at the new time
+/// with the advanced `F_p` held — so every recorded `(t, F, state)` is mutually
+/// consistent. First order in the `F ↔ F_p` coupling; a monolithic RKMK return
+/// map (the group state threaded through the shared DAE solver) is future work —
+/// see the heterogeneous-integration notes.
 pub trait RkmkRoot<Y = Quantity>
 where
     Y: Differentiate + Tensor,
@@ -351,38 +353,47 @@ where
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
         let mut state = <Self as StateEvolution<Time, Y>>::initial_state(self);
-        let mut deformation_gradient = DeformationGradient::identity();
-        let mut times = Times::new();
-        let mut deformation_gradients = DeformationGradients::new();
-        let mut state_variables = ViscoplasticStateVariablesHistory::new();
         let mut scratch: Vec<EvolvedIncrement<Self, Time, Y>> = Vec::new();
-        times.push(time[0]);
-        deformation_gradients.push(deformation_gradient.clone());
-        state_variables.push(state.clone());
-        for step in time.windows(2) {
-            let deformation_gradient_p = state.0.clone();
+        let mut equilibrate = |deformation_gradient_p: &DeformationGradientPlastic,
+                               guess: &DeformationGradient,
+                               t: Quantity<Time>|
+         -> Result<DeformationGradient, ConstitutiveError> {
             prescribed
                 .iter()
-                .for_each(|(index, function)| vector[*index] = function(step[0]));
-            deformation_gradient = solver
+                .for_each(|(index, function)| vector[*index] = function(t));
+            solver
                 .root(
                     |deformation_gradient: &DeformationGradient| {
                         Ok(self.first_piola_kirchhoff_stress(
                             deformation_gradient,
-                            &deformation_gradient_p,
+                            deformation_gradient_p,
                         )?)
                     },
                     |deformation_gradient: &DeformationGradient| {
                         Ok(self.first_piola_kirchhoff_tangent_stiffness(
                             deformation_gradient,
-                            &deformation_gradient_p,
+                            deformation_gradient_p,
                         )?)
                     },
-                    deformation_gradient.clone(),
+                    guess.clone(),
                     EqualityConstraint::Linear(matrix.clone(), vector.clone()),
                     None,
                 )
-                .map_err(|error| ConstitutiveError::upstream(error, self))?;
+                .map_err(|error| ConstitutiveError::upstream(error, self))
+        };
+        let deformation_gradient_p = state.0.clone();
+        let mut deformation_gradient = equilibrate(
+            &deformation_gradient_p,
+            &DeformationGradient::identity(),
+            time[0],
+        )?;
+        let mut times = Times::new();
+        let mut deformation_gradients = DeformationGradients::new();
+        let mut state_variables = ViscoplasticStateVariablesHistory::new();
+        times.push(time[0]);
+        deformation_gradients.push(deformation_gradient.clone());
+        state_variables.push(state.clone());
+        for step in time.windows(2) {
             let frozen = deformation_gradient.clone();
             state = rkmk_step::<<Self as StateEvolution<Time, Y>>::Field, Tab, Time>(
                 &mut |t, point| self.state_rate(t, &frozen, point),
@@ -392,6 +403,9 @@ where
                 &mut scratch,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
+            let deformation_gradient_p = state.0.clone();
+            deformation_gradient =
+                equilibrate(&deformation_gradient_p, &deformation_gradient, step[1])?;
             times.push(step[1]);
             deformation_gradients.push(deformation_gradient.clone());
             state_variables.push(state.clone());

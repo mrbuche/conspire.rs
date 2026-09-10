@@ -260,6 +260,97 @@ mod state_evolution {
         );
     }
 
+    // The operator split is only first order in the F <-> F_p coupling, so as the
+    // step shrinks its solution must approach the monolithic DAE first-order root,
+    // and its own step-to-step change must halve as dt halves.
+    #[test]
+    fn root_rkmk_converges_to_the_first_order_root_under_step_refinement() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RkmkRoot},
+            math::{integrate::BogackiShampine, optimize::NewtonRaphson},
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
+        let (_, deformation_gradients_reference, _) = model()
+            .root(
+                AppliedLoad::UniaxialStress(load, &span),
+                BogackiShampine {
+                    abs_tol: 1e-8,
+                    rel_tol: 1e-8,
+                    ..Default::default()
+                },
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let reference = deformation_gradients_reference
+            .iter()
+            .last()
+            .unwrap()
+            .clone();
+        let final_deformation_gradient = |steps: usize| {
+            let times: Vec<Quantity<Time>> = (0..=steps)
+                .map(|i| Quantity::new(i as f64 / steps as f64))
+                .collect();
+            let (_, deformation_gradients, _) = model()
+                .root_rkmk::<BogackiShampineTableau>(
+                    AppliedLoad::UniaxialStress(load, &times),
+                    NewtonRaphson::default(),
+                )
+                .unwrap();
+            deformation_gradients.iter().last().unwrap().clone()
+        };
+        let f_10 = final_deformation_gradient(10);
+        let f_20 = final_deformation_gradient(20);
+        let f_40 = final_deformation_gradient(40);
+        let f_80 = final_deformation_gradient(80);
+        let e_20 = (&f_20 - &reference).norm().value();
+        let e_40 = (&f_40 - &reference).norm().value();
+        let e_80 = (&f_80 - &reference).norm().value();
+        assert!(
+            e_40 < e_20 && e_80 < e_40,
+            "not monotone toward the DAE root: {e_20}, {e_40}, {e_80}"
+        );
+        assert!(e_80 < e_20 / 2.0, "not converging: {e_20} -> {e_80}");
+        assert!(e_80 < 1e-2, "n=80 disagreement with the DAE root: {e_80}");
+        let ratio_1 = (&f_20 - &f_10).norm().value() / (&f_40 - &f_20).norm().value();
+        let ratio_2 = (&f_40 - &f_20).norm().value() / (&f_80 - &f_40).norm().value();
+        assert!(
+            (1.4..2.8).contains(&ratio_1) && (1.4..2.8).contains(&ratio_2),
+            "self-convergence not first order: {ratio_1}, {ratio_2}"
+        );
+    }
+
+    // The recorded (F, state) pairs must not violate the second law along the
+    // whole loading history.
+    #[test]
+    fn root_rkmk_keeps_the_internal_dissipation_non_negative() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{
+                AppliedLoad, ElasticViscoplastic, RkmkRoot,
+            },
+            math::{assert::Assert, optimize::NewtonRaphson},
+        };
+        let times = time(24);
+        let model = model();
+        let (_, deformation_gradients, state_variables) = model
+            .root_rkmk::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 2.0 * t.value(), &times),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        deformation_gradients
+            .iter()
+            .zip(state_variables.iter())
+            .for_each(|(deformation_gradient, state)| {
+                Assert::non_negative(
+                    &model
+                        .internal_dissipation(deformation_gradient, state)
+                        .unwrap(),
+                )
+                .unwrap()
+            });
+    }
+
     // Cost of one material-point RKMK step vs its four rate evaluations alone
     // (Bogacki–Shampine has four stages) — the difference is the `expm`/`dexpinv`
     // overhead. Prints the ratio; asserts only a loose gross-regression bound

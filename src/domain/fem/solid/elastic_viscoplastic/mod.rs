@@ -298,11 +298,13 @@ where
 /// plastic state on its manifold (`F_p` stays unimodular) rather than marching
 /// it additively.
 ///
-/// Each load step solves the nodal equilibrium `nodal_forces = λ` with the
-/// plastic state held, then takes one
+/// A Lie–Trotter split: nodal equilibrium `nodal_forces = λ` is solved once at
+/// the initial time, then each load step takes one
 /// [`Block::state_variables_rkmk_step`](crate::fem::block::Block) with the
-/// deformation gradient frozen. First order in the coupling; a monolithic
-/// version is future work — see the heterogeneous-integration notes.
+/// deformation gradient frozen and re-solves equilibrium at the new time with the
+/// advanced plastic state held — so every recorded `(t, coordinates, state)` is
+/// mutually consistent. First order in the coupling; a monolithic version is
+/// future work — see the heterogeneous-integration notes.
 pub trait RkmkRoot<const D: usize, Y = Quantity>
 where
     Y: Differentiate + Tensor,
@@ -357,8 +359,25 @@ where
     where
         Tab: EmbeddedTableau,
     {
-        let mut nodal_coordinates: NodalCoordinates<3> = self.coordinates().clone().into();
         let mut state = self.blocks.initial_state();
+        let equilibrate = |state: &BlockStateVariables<G, Y>,
+                           guess: &NodalCoordinates<3>,
+                           t: Quantity<Time>|
+         -> Result<NodalCoordinates<3>, IntegrationError> {
+            solver
+                .root(
+                    |coordinates: &NodalCoordinates<3>| Ok(self.nodal_forces(coordinates, state)?),
+                    |coordinates: &NodalCoordinates<3>| {
+                        Ok(self.nodal_stiffnesses(coordinates, state)?)
+                    },
+                    guess.clone(),
+                    bcs(t),
+                    None,
+                )
+                .map_err(|error| IntegrationError::from(format!("{error:?}")))
+        };
+        let guess: NodalCoordinates<3> = self.coordinates().clone().into();
+        let mut nodal_coordinates = equilibrate(&state, &guess, time[0])?;
         let mut times = Times::new();
         let mut nodal_coordinates_history = NodalCoordinatesHistory::new();
         let mut state_variables_history = Self::History::new();
@@ -366,17 +385,6 @@ where
         nodal_coordinates_history.push(nodal_coordinates.clone());
         state_variables_history.push(state.clone());
         for step in time.windows(2) {
-            nodal_coordinates = solver
-                .root(
-                    |coordinates: &NodalCoordinates<3>| Ok(self.nodal_forces(coordinates, &state)?),
-                    |coordinates: &NodalCoordinates<3>| {
-                        Ok(self.nodal_stiffnesses(coordinates, &state)?)
-                    },
-                    nodal_coordinates.clone(),
-                    bcs(step[0]),
-                    None,
-                )
-                .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
             state = self
                 .blocks
                 .state_variables_rkmk_step::<Tab, Y>(
@@ -386,6 +394,7 @@ where
                     step[1] - step[0],
                 )
                 .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
+            nodal_coordinates = equilibrate(&state, &nodal_coordinates, step[1])?;
             times.push(step[1]);
             nodal_coordinates_history.push(nodal_coordinates.clone());
             state_variables_history.push(state.clone());
