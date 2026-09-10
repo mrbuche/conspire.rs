@@ -194,9 +194,11 @@ fn rejects_a_header_entity_reference() {
 }
 
 #[test]
-fn rejects_control_characters_in_a_string() {
-    let error = parse(&wrap("#1 = L('a\nb');")).unwrap_err().to_string();
-    assert!(error.contains("control character"), "{error}");
+fn keeps_control_characters_in_a_string() {
+    // Real STEP exporters wrap long description strings across lines, so a raw
+    // newline (or CR) inside a quote must be kept, not rejected.
+    let params = &parse(&wrap("#1 = L('two\nlines');")).unwrap().data[&1].records[0].parameters;
+    assert_eq!(params[0], Parameter::String("two\nlines".into()));
 }
 
 #[test]

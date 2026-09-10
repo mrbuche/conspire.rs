@@ -44,7 +44,7 @@ fit quality is a separate concern). A *change* in that number is the signal.
 
 | Module | Reviewed through | Notes |
 |---|---|---|
-| `cad/part_21` | (Sonnet high + Opus deep) | 6 + 15 findings, no memory-safety issues; P1/P4/P5/P6 + O1/O4/O6/O7/O9/O10/O11/O15 fixed; P2/P3 + O2/O3/O5/O8/O12/O13/O14 open |
+| `cad/part_21` | (Sonnet high + Opus deep) | 6 + 15 findings, no memory-safety issues; P1/P4/P5/P6 + O1/O4/O6/O7/O9/O10/O15 fixed; O11 tried then reverted (real files embed newlines in strings); P2/P3 + O2/O3/O5/O8/O12/O13/O14 open |
 | `cad/read/step/brep` | — | STEP entity graph → `Brep` |
 | `cad/brep/{curve,surface}` | — | primitive curve/surface eval |
 | `cad/brep/oracle/{mod,patch,sampled}` | — | **highest risk**; harness covers primitives + closed quadrics |
@@ -286,8 +286,10 @@ grammar/semantic conformance.
   of P4).
 - O10 — unterminated `/*` swallowed to EOF, defeating the P6 check → `trivia`
   stops and `parse` errors.
-- O11 — raw control bytes (a bare newline) allowed in a string literal, so one
-  runaway `'` eats the following records → rejected.
+- O11 — raw control bytes in a string literal. Tried rejecting them, but the
+  corpus parse snapshot then failed on 8 real files (NIST/steptools wrap long
+  description strings across lines — a literal CR/LF inside the quote).
+  **Reverted**; a bare newline in a STEP string is legal in practice.
 - O15 — a stripped BOM made every reported byte offset 3 short → `base_offset`
   carried into `error()`.
 

@@ -379,12 +379,6 @@ impl Scanner<'_> {
                     self.position += 1;
                     return Ok(String::from_utf8_lossy(&value).into_owned());
                 }
-                // A raw control byte (a bare newline especially) is the mark of
-                // a truncated quote; without this one runaway `'` swallows the
-                // records that follow it as string content.
-                Some(byte) if byte < 0x20 => {
-                    return Err(self.error("control character in a string literal"));
-                }
                 Some(byte) => {
                     value.push(byte);
                     self.position += 1;
