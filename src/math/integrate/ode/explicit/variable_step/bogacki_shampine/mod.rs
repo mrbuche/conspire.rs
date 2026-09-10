@@ -5,13 +5,36 @@ use crate::math::Norm;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        Explicit, FreeInterpolant, IntegrationError, OdeIntegrator, Times, VariableStep,
-        VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
+        ButcherTableau, EmbeddedTableau, Explicit, FreeInterpolant, IntegrationError,
+        OdeIntegrator, Times, VariableStep, VariableStepExplicit,
+        VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Div, Mul, Sub};
+
+/// The Bogacki–Shampine 3(2) tableau.
+#[derive(Debug)]
+pub struct Tableau;
+
+impl ButcherTableau for Tableau {
+    const STAGES: usize = 4;
+    const ORDER: Scalar = 3.0;
+    const A: &'static [&'static [Scalar]] = &[
+        &[],
+        &[0.5],
+        &[0.0, 0.75],
+        &[2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0],
+    ];
+    const C: &'static [Scalar] = &[0.0, 0.5, 0.75, 1.0];
+    const B: &'static [Scalar] = &[2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0, 0.0];
+}
+
+impl EmbeddedTableau for Tableau {
+    const D: &'static [Scalar] = &[-5.0 / 72.0, 6.0 / 72.0, 8.0 / 72.0, -9.0 / 72.0];
+    const FSAL: bool = true;
+}
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
@@ -109,26 +132,7 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
-        Ok(self
-            .error_norm
-            .measure(&((&k[0] * -5.0 + &k[1] * 6.0 + &k[2] * 8.0 + &k[3] * -9.0) * (dt / 72.0))))
-    }
-    fn slopes(
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
-        y: &Y,
-        t: Quantity<T>,
-        dt: Quantity<T>,
-        k: &mut [Derivative<Y, T>],
-        y_trial: &mut Y,
-    ) -> Result<(), String> {
-        *y_trial = &k[0] * (0.5 * dt) + y;
-        k[1] = function(t + 0.5 * dt, y_trial)?;
-        *y_trial = &k[1] * (0.75 * dt) + y;
-        k[2] = function(t + 0.75 * dt, y_trial)?;
-        *y_trial = (&k[0] * 2.0 + &k[1] * 3.0 + &k[2] * 4.0) * (dt / 9.0) + y;
-        Ok(())
-    }
+    type Tableau = Tableau;
     fn slopes_and_error(
         &self,
         function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,

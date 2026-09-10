@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{Explicit, IntegrationError, Times, VariableStep},
+    integrate::{ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, Times, VariableStep},
     interpolate::InterpolateSolution,
 };
 use crate::units::Time;
@@ -131,7 +131,6 @@ where
                 t = tp[i - 1];
                 y = &yp[i - 1];
                 dt = *time_k - t;
-                k[0] = function(t, y)?;
                 Self::slopes(&mut function, y, t, dt, &mut k, &mut y_trial)?;
             }
             dydt_int.push(function(t + dt, &y_trial)?);
@@ -139,15 +138,57 @@ where
         }
         Ok((y_int, dydt_int))
     }
-    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String>;
+    /// Butcher tableau of this method's embedded pair.
+    type Tableau: EmbeddedTableau;
+    /// Runge–Kutta stages and the propagating solution.
+    ///
+    /// ```math
+    /// \mathbf{k}_i = \mathbf{f}\!\left(t + c_i h,\ \mathbf{y} + h \sum_{j<i} a_{ij}\, \mathbf{k}_j\right)
+    /// ,\qquad
+    /// \mathbf{y}_{n+1} = \mathbf{y} + h \textstyle\sum_i b_i\,\mathbf{k}_i
+    /// ```
     fn slopes(
-        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
         t: Quantity<T>,
         dt: Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
-    ) -> Result<(), String>;
+    ) -> Result<(), String> {
+        let last = if Self::Tableau::FSAL {
+            Self::Tableau::STAGES - 1
+        } else {
+            k[0] = function(t, y)?;
+            Self::Tableau::STAGES
+        };
+        for i in 1..last.min(k.len()) {
+            let row = Self::Tableau::A[i];
+            let mut stage = &k[0] * (row[0] * dt);
+            for j in 1..i {
+                stage += &k[j] * (row[j] * dt);
+            }
+            stage += y;
+            k[i] = function(t + Self::Tableau::C[i] * dt, &stage)?;
+        }
+        let mut sum = &k[0] * Self::Tableau::B[0];
+        for (b, slope) in Self::Tableau::B.iter().zip(k.iter()).skip(1) {
+            sum += slope * *b;
+        }
+        *y_trial = &sum * dt + y;
+        Ok(())
+    }
+    /// Embedded local-error estimate reduced through the error norm.
+    ///
+    /// ```math
+    /// e_{n+1} = \Big\Vert h \textstyle\sum_i d_i\,\mathbf{k}_i \Big\Vert
+    /// ```
+    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
+        let mut sum = &k[0] * Self::Tableau::D[0];
+        for (d, slope) in Self::Tableau::D.iter().zip(k.iter()).skip(1) {
+            sum += slope * *d;
+        }
+        Ok(self.error_norm().measure(&(&sum * dt)))
+    }
     fn slopes_and_error(
         &self,
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,

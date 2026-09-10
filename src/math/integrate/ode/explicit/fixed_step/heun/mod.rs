@@ -3,9 +3,24 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator, Times},
+    integrate::{
+        ButcherTableau, Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator,
+        Times,
+    },
 };
 use std::ops::{Add, Mul};
+
+/// The Heun (explicit trapezoidal) tableau.
+#[derive(Debug)]
+pub struct Tableau;
+
+impl ButcherTableau for Tableau {
+    const STAGES: usize = 2;
+    const ORDER: Scalar = 2.0;
+    const A: &'static [&'static [Scalar]] = &[&[], &[1.0]];
+    const C: &'static [Scalar] = &[0.0, 1.0];
+    const B: &'static [Scalar] = &[0.5, 0.5];
+}
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug, Default)]
@@ -56,19 +71,5 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn step(
-        &self,
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
-        y: &Y,
-        t: Quantity<T>,
-        dt: Quantity<T>,
-        k: &mut [Derivative<Y, T>],
-        y_trial: &mut Y,
-    ) -> Result<(), String> {
-        *y_trial = &k[0] * dt + y;
-        k[1] = function(t + dt, y_trial)?;
-        *y_trial = (&k[0] + &k[1]) * (0.5 * dt) + y;
-        k[0] = k[1].clone();
-        Ok(())
-    }
+    type Tableau = Tableau;
 }

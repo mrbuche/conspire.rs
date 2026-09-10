@@ -4,10 +4,11 @@ mod test;
 use crate::{
     math::{
         Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-        integrate::{Explicit, FixedStep, IntegrationError, Times},
+        integrate::{ButcherTableau, Explicit, FixedStep, IntegrationError, Times},
     },
     units::Time,
 };
+use std::ops::Mul;
 
 pub(crate) mod bogacki_shampine;
 pub(crate) mod dormand_prince;
@@ -23,9 +24,12 @@ pub trait FixedStepExplicit<Y, U, V, T = Time>
 where
     Self: Explicit<Y, U, V, T> + FixedStep<T>,
     Y: Differentiate<T> + Tensor,
+    for<'a> &'a Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
+    /// Butcher tableau of this method.
+    type Tableau: ButcherTableau;
     fn integrate_fixed_step(
         &self,
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
@@ -85,11 +89,27 @@ where
     }
     fn step(
         &self,
-        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         y: &Y,
         t: Quantity<T>,
         dt: Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
-    ) -> Result<(), String>;
+    ) -> Result<(), String> {
+        k[0] = function(t, y)?;
+        for i in 1..Self::Tableau::STAGES.min(k.len()) {
+            let row = Self::Tableau::A[i];
+            let mut stage = &k[0] * (row[0] * dt);
+            for j in 1..i {
+                stage += &k[j] * (row[j] * dt);
+            }
+            k[i] = function(t + Self::Tableau::C[i] * dt, &(stage + y))?;
+        }
+        let mut sum = &k[0] * (Self::Tableau::B[0] * dt);
+        for (b, slope) in Self::Tableau::B.iter().zip(k.iter()).skip(1) {
+            sum += slope * (*b * dt);
+        }
+        *y_trial = sum + y;
+        Ok(())
+    }
 }

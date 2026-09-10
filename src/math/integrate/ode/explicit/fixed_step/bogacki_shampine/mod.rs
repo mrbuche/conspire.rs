@@ -4,8 +4,8 @@ mod test;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        BogackiShampine as BogackiShampineVariableStep, Explicit, FixedStep, FixedStepExplicit,
-        IntegrationError, OdeIntegrator, Times, VariableStepExplicit,
+        Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator, Times,
+        ode::explicit::variable_step::bogacki_shampine::Tableau as BogackiShampineTableau,
     },
 };
 use std::ops::{Div, Mul, Sub};
@@ -53,7 +53,6 @@ where
 
 impl<Y, U, V, T> FixedStepExplicit<Y, U, V, T> for BogackiShampine
 where
-    BogackiShampineVariableStep: VariableStepExplicit<Y, U, V, T>,
     Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -62,16 +61,5 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn step(
-        &self,
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
-        y: &Y,
-        t: Quantity<T>,
-        dt: Quantity<T>,
-        k: &mut [Derivative<Y, T>],
-        y_trial: &mut Y,
-    ) -> Result<(), String> {
-        k[0] = function(t, y)?;
-        BogackiShampineVariableStep::slopes(function, y, t, dt, k, y_trial)
-    }
+    type Tableau = BogackiShampineTableau;
 }

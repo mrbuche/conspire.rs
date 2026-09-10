@@ -3,9 +3,9 @@ use crate::{
         Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
         assert::Assert,
         integrate::{
-            ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot,
-            ExplicitDaeSecondOrderMinimize, ExplicitDaeZerothOrderRoot, IntegrationError, Times,
-            VariableStepExplicit,
+            ButcherTableau, EmbeddedTableau, ExplicitDaeFirstOrderMinimize,
+            ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize, ExplicitDaeZerothOrderRoot,
+            IntegrationError, Times, VariableStepExplicit,
         },
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,
@@ -193,10 +193,11 @@ where
         }
         Ok((y_int, dydt_int, z_int))
     }
+    /// [`VariableStepExplicit::slopes`] with the algebraic constraint resolved before each stage.
     #[expect(clippy::too_many_arguments)]
     fn slopes_solve(
-        evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
-        solution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Z, String>,
+        mut evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
+        mut solution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Z, String>,
         y: &Y,
         z: &Z,
         t: Quantity<T>,
@@ -204,7 +205,33 @@ where
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
         z_trial: &mut Z,
-    ) -> Result<(), String>;
+    ) -> Result<(), String> {
+        let last = if Self::Tableau::FSAL {
+            Self::Tableau::STAGES - 1
+        } else {
+            k[0] = evolution(t, y, z)?;
+            Self::Tableau::STAGES
+        };
+        *z_trial = z.clone();
+        for i in 1..last.min(k.len()) {
+            let row = Self::Tableau::A[i];
+            let mut stage = &k[0] * (row[0] * dt);
+            for j in 1..i {
+                stage += &k[j] * (row[j] * dt);
+            }
+            *y_trial = stage + y;
+            let t_stage = t + Self::Tableau::C[i] * dt;
+            *z_trial = solution(t_stage, y_trial, z_trial)?;
+            k[i] = evolution(t_stage, y_trial, z_trial)?;
+        }
+        let mut sum = &k[0] * Self::Tableau::B[0];
+        for (b, slope) in Self::Tableau::B.iter().zip(k.iter()).skip(1) {
+            sum += slope * *b;
+        }
+        *y_trial = &sum * dt + y;
+        *z_trial = solution(t + dt, y_trial, z_trial)?;
+        Ok(())
+    }
     #[expect(clippy::too_many_arguments)]
     fn slopes_solve_and_error(
         &self,
