@@ -12,14 +12,20 @@ mod canonical;
 use crate::{
     constitutive::{
         ConstitutiveError,
+        canonical::Canonical,
         fluid::viscoplastic::{
             Viscoplastic, ViscoplasticEvolution, ViscoplasticEvolutionHistory,
             ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
         },
+        solid::elastic::Elastic,
     },
     math::{
-        ContractWith, Differentiate, Quantity, Rank2, Tensor, TensorArray, Vector,
-        integrate::{ExplicitDaeFirstOrderRoot, ExplicitDaeZerothOrderRoot},
+        ContractWith, Derivative, Differentiate, Quantity, Rank2, Tensor, TensorArray, TensorVec,
+        TensorVector, Vector,
+        integrate::{
+            EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderRoot,
+            ExplicitDaeZerothOrderRoot, IntegrableField, StateEvolution, integrate_rkmk_state,
+        },
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
     mechanics::{
@@ -31,6 +37,7 @@ use crate::{
 
 use crate::constitutive::solid::elastic_plastic::bcs;
 pub use crate::constitutive::solid::elastic_plastic::{AppliedLoad, ElasticPlasticOrViscoplastic};
+use std::ops::Mul;
 
 /// Required methods for elastic-viscoplastic solid constitutive models.
 pub trait ElasticViscoplastic<Y>
@@ -266,6 +273,127 @@ where
                 },
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        Ok((times, deformation_gradients, state_variables))
+    }
+}
+
+/// Interim RKMK return map — an operator-split alternative to
+/// [`FirstOrderRoot::root`] that advances the plastic state on its manifold
+/// (`F_p` stays unimodular) instead of marching it additively.
+///
+/// Each step: solve `P(F, F_p) - λ - P_0 = 0` for `F` with `F_p` held, then take
+/// one [`integrate_rkmk_state`] step for `(F_p, ε_p)` with `F` frozen at the
+/// solved value. First order in the `F ↔ F_p` coupling; a monolithic RKMK
+/// return map (the group state threaded through the shared DAE solver) is future
+/// work — see the heterogeneous-integration notes.
+pub trait RkmkRoot {
+    /// Solve for the unknown deformation-gradient components under an applied
+    /// load, advancing the plastic state with a `Tab`-tableau RKMK step.
+    fn root_rkmk<Tab>(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<
+        (
+            Times,
+            DeformationGradients,
+            ViscoplasticStateVariablesHistory<Quantity>,
+        ),
+        ConstitutiveError,
+    >
+    where
+        Tab: EmbeddedTableau;
+}
+
+impl<C1, C2> RkmkRoot for Canonical<C1, C2>
+where
+    C1: Elastic,
+    C2: Viscoplastic<Quantity>,
+    Self: ElasticPlasticOrViscoplastic
+        + Viscoplastic<Quantity>
+        + StateEvolution<
+            Time,
+            Drive = DeformationGradient,
+            Field: IntegrableField<Point = ViscoplasticStateVariables<Quantity>>,
+        >,
+    EvolvedIncrement<Self, Time>: Clone + Differentiate<Time>,
+    for<'a> &'a Derivative<EvolvedIncrement<Self, Time>, Time>:
+        Mul<Quantity<Time>, Output = EvolvedIncrement<Self, Time>>,
+{
+    fn root_rkmk<Tab>(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<
+        (
+            Times,
+            DeformationGradients,
+            ViscoplasticStateVariablesHistory<Quantity>,
+        ),
+        ConstitutiveError,
+    >
+    where
+        Tab: EmbeddedTableau,
+    {
+        let (matrix, prescribed, time) = bcs(applied_load);
+        let mut vector = Vector::zero(matrix.len());
+        let mut state = <Self as StateEvolution<Time>>::initial_state(self);
+        let mut deformation_gradient = DeformationGradient::identity();
+        let mut times = Times::new();
+        let mut deformation_gradients = DeformationGradients::new();
+        let mut state_variables = ViscoplasticStateVariablesHistory::new();
+        times.push(time[0]);
+        deformation_gradients.push(deformation_gradient.clone());
+        state_variables.push(state.clone());
+        for step in time.windows(2) {
+            let deformation_gradient_p = state.0.clone();
+            prescribed
+                .iter()
+                .for_each(|(index, function)| vector[*index] = function(step[0]));
+            deformation_gradient = solver
+                .root(
+                    |deformation_gradient: &DeformationGradient| {
+                        Ok(self.first_piola_kirchhoff_stress(
+                            deformation_gradient,
+                            &deformation_gradient_p,
+                        )?)
+                    },
+                    |deformation_gradient: &DeformationGradient| {
+                        Ok(self.first_piola_kirchhoff_tangent_stiffness(
+                            deformation_gradient,
+                            &deformation_gradient_p,
+                        )?)
+                    },
+                    deformation_gradient.clone(),
+                    EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                    None,
+                )
+                .map_err(|error| ConstitutiveError::upstream(error, self))?;
+            let deformation_gradient_frozen = deformation_gradient.clone();
+            let (_, states): (Times, TensorVector<ViscoplasticStateVariables<Quantity>>) =
+                integrate_rkmk_state::<Self, Tab, _, _>(
+                    self,
+                    |_| deformation_gradient_frozen.clone(),
+                    &[step[0], step[1]],
+                )
+                .map_err(|error| ConstitutiveError::upstream(error, self))?;
+            state = states
+                .iter()
+                .last()
+                .expect("the RKMK step yields at least the endpoint")
+                .clone();
+            times.push(step[1]);
+            deformation_gradients.push(deformation_gradient.clone());
+            state_variables.push(state.clone());
+        }
         Ok((times, deformation_gradients, state_variables))
     }
 }

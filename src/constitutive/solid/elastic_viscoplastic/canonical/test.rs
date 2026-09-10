@@ -196,4 +196,29 @@ mod state_evolution {
         }
         assert!((fp.determinant() - 1.0).abs() > 1e-4);
     }
+
+    #[test]
+    fn root_rkmk_solves_uniaxial_stress_and_keeps_f_p_unimodular() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, RkmkRoot},
+            math::optimize::NewtonRaphson,
+        };
+        let times = time(16);
+        let (_, _, state_variables) = model()
+            .root_rkmk::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 4.0 * t.value(), &times),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let deformation_gradient_p = &state_variables.iter().last().unwrap().0;
+        // the operator-split RKMK step keeps det F_p = 1 through the coupled solve
+        assert!((deformation_gradient_p.determinant() - 1.0).abs() < 1e-10);
+        // and the plastic state actually flowed under the applied load
+        assert!(
+            (deformation_gradient_p - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+    }
 }
