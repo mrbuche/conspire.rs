@@ -45,9 +45,7 @@ pub enum Finish {
 /// How the boundary is placed and then settled onto the surface.
 ///
 /// The default holds the crossings a fifth of an edge off either end and
-/// draws the boundary on for seven tenths of the quality it was cut with,
-/// which on a bone leaves the mesh within a hundredth of a cell of the
-/// surface.
+/// draws the boundary on for seven tenths of the quality it was cut with.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Marching {
     pub placement: Placement,

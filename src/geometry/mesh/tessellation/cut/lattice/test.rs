@@ -142,7 +142,6 @@ fn rejects_nonpositive_spacing() {
     );
 }
 
-/// The lattice, trimmed and buffered, is an all-hexahedral mesh of the solid.
 #[test]
 fn lattice_trimmed_and_buffered_is_all_hexahedral_and_not_inverted() {
     let tessellation = sphere(3);
@@ -210,48 +209,3 @@ fn sphere_volume_is_bracketed_ever_more_tightly() {
     }
 }
 
-#[test]
-#[ignore = "diagnostic"]
-fn bone_lattice_before_snap() {
-    use crate::geometry::mesh::quality::metrics::Verdict;
-    use std::path::Path;
-    let tessellation =
-        crate::geometry::mesh::tessellation::Tessellation::try_from(Path::new("bone_tri.stl"))
-            .unwrap();
-    for divisions in [16.0, 64.0] {
-        let spacing = Quantity::new(0.9 / divisions);
-        let (mesh, _) = tessellation.lattice_cells(spacing).unwrap().mesh();
-        let scaled = &mesh.minimum_scaled_jacobians()[0];
-        let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
-        let maximum = scaled.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-        println!(
-            "divisions {divisions}: {} cells, SJ in [{minimum}, {maximum}]",
-            scaled.len()
-        );
-        let (background, classes) = tessellation.lattice_background(spacing).unwrap();
-        let cut = tessellation.cut(background, &classes).unwrap();
-        let after = &crate::geometry::mesh::Mesh::from((
-            vec![match &cut.connectivities()[0] {
-                crate::geometry::mesh::Connectivity::Hexahedral(hexes) => {
-                    crate::geometry::mesh::Connectivity::Hexahedral(
-                        hexes.iter().copied().collect::<Vec<_>>().into(),
-                    )
-                }
-                _ => panic!(),
-            }],
-            cut.coordinates().clone(),
-        ))
-        .minimum_scaled_jacobians()[0];
-        let pristine = after.iter().filter(|&&v| v > 0.999).count();
-        let mut sorted = after.clone();
-        sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        println!(
-            "  after cut: {} hexes, {pristine} untouched ({:.1}%), min {:.4}, 1st pct {:.4}, median {:.4}",
-            after.len(),
-            100.0 * pristine as f64 / after.len() as f64,
-            sorted[0],
-            sorted[after.len() / 100],
-            sorted[after.len() / 2],
-        );
-    }
-}
