@@ -5,7 +5,7 @@ use crate::{
         integrate::{
             ButcherTableau, EmbeddedTableau, ExplicitDaeFirstOrderMinimize,
             ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize, ExplicitDaeZerothOrderRoot,
-            IntegrationError, Times, VariableStepExplicit,
+            IntegrationError, StateStep, Times, VariableStepExplicit,
         },
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,
@@ -21,7 +21,7 @@ use std::ops::{Mul, Sub};
 pub trait ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T = Time>
 where
     Self: VariableStepExplicit<Y, U, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiate<T> + StateStep<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -215,20 +215,20 @@ where
         *z_trial = z.clone();
         for i in 1..last.min(k.len()) {
             let row = Self::Tableau::A[i];
-            let mut stage = &k[0] * (row[0] * dt);
+            let mut sigma = &k[0] * row[0];
             for j in 1..i {
-                stage += &k[j] * (row[j] * dt);
+                sigma += &k[j] * row[j];
             }
-            *y_trial = stage + y;
             let t_stage = t + Self::Tableau::C[i] * dt;
+            *y_trial = Y::advance(y, &sigma, dt);
             *z_trial = solution(t_stage, y_trial, z_trial)?;
-            k[i] = evolution(t_stage, y_trial, z_trial)?;
+            k[i] = Y::correct_stage_rate(&sigma, evolution(t_stage, y_trial, z_trial)?, dt);
         }
         let mut sum = &k[0] * Self::Tableau::B[0];
         for (b, slope) in Self::Tableau::B.iter().zip(k.iter()).skip(1) {
             sum += slope * *b;
         }
-        *y_trial = &sum * dt + y;
+        *y_trial = Y::advance(y, &sum, dt);
         *z_trial = solution(t + dt, y_trial, z_trial)?;
         Ok(())
     }

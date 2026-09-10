@@ -359,3 +359,35 @@ where
         initial,
     )
 }
+
+/// How a Runge–Kutta integrator advances its evolving unknown from the stage
+/// slopes. The blanket impl is additive — `xₙ₊₁ = xₙ + (Σ cᵢ kᵢ) Δt` — which is
+/// what every flat state wants; a group-valued state overrides it to stay on its
+/// manifold (RKMK: [`IntegrableField::reconstruct`] plus the [`dexpinv`] slope
+/// correction).
+///
+/// [`dexpinv`]: IntegrableField::dexpinv
+pub trait StateStep<T = Time>: Differentiate<T> + Tensor + Sized {
+    /// `base` advanced by the rate combination `Σ cᵢ kᵢ` over the step `dt`.
+    fn advance(base: &Self, rate_combination: &Derivative<Self, T>, dt: Quantity<T>) -> Self;
+    /// Corrects a freshly evaluated stage rate at the rate combination `_sigma`
+    /// already accumulated for that stage. The identity for a flat state.
+    fn correct_stage_rate(
+        _sigma: &Derivative<Self, T>,
+        rate: Derivative<Self, T>,
+        _dt: Quantity<T>,
+    ) -> Derivative<Self, T> {
+        rate
+    }
+}
+
+impl<T, Y> StateStep<T> for Y
+where
+    Y: Differentiate<T> + Tensor,
+    for<'a> Y: Add<&'a Y, Output = Y>,
+    for<'a> &'a Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
+{
+    fn advance(base: &Self, rate_combination: &Derivative<Self, T>, dt: Quantity<T>) -> Self {
+        rate_combination * dt + base
+    }
+}
