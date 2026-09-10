@@ -1,9 +1,11 @@
-use super::{Flat, IntegrableField, Product, Unimodular, integrate_euler};
+use super::{Flat, IntegrableField, Product, Unimodular, integrate_euler, integrate_rkmk};
 use crate::math::{
     Current, Quantity, Tensor, TensorArray, TensorRank1, TensorRank2, TensorTuple, TensorVector,
-    integrate::{Euler, Explicit, Times},
+    integrate::{Euler, Explicit, Times, ode::explicit::variable_step::bogacki_shampine},
 };
 use crate::units::{Dimensionless, Rate, Time};
+
+type BogackiShampine = bogacki_shampine::Tableau;
 
 const RATE: Quantity<Rate> = Rate::per_second(1.0);
 
@@ -99,4 +101,79 @@ fn three_deep_product_field_round_trips_through_the_driver() {
     assert!((last.1.1.determinant() - 1.0).abs() < 1e-10);
     // the scalar leaf advanced additively over a total time of 1.0
     assert!((last.0.value() - 1.5).abs() < 1e-12);
+}
+
+fn constant_exponent() -> [[f64; 3]; 3] {
+    // trace 0, materially non-symmetric
+    [[0.0, 0.4, -0.2], [-0.3, 0.0, 0.5], [0.1, -0.15, 0.0]]
+}
+
+fn uniform_time(steps: usize) -> Vec<Quantity<Time>> {
+    (0..=steps)
+        .map(|i| Quantity::new(i as f64 / steps as f64))
+        .collect()
+}
+
+// X' = g(t) A X with a fixed A and a non-polynomial scalar g; the exact solution
+// is exp(A ∫g) X0, and RKMK's error is the tableau's quadrature error on ∫g.
+fn rkmk_endpoint_error(steps: usize) -> f64 {
+    let a = FpRate::from(constant_exponent());
+    let (_, points): (Times, TensorVector<Fp>) =
+        integrate_rkmk::<Unimodular<Current>, BogackiShampine, _, _>(
+            |t: Quantity<Time>, _: &Fp| Ok(a.clone() * (1.0 / (1.0 + t.value()))),
+            &uniform_time(steps),
+            Fp::identity(),
+        )
+        .unwrap();
+    // ∫_0^1 1/(1+t) dt = ln 2
+    let exact = (Fp::from(constant_exponent()) * 2.0_f64.ln())
+        .expm()
+        .unwrap();
+    (points.iter().last().unwrap() - &exact).norm().value()
+}
+
+#[test]
+fn rkmk_matches_the_exact_exponential_for_a_constant_rate() {
+    assert!(rkmk_endpoint_error(64) < 1e-3);
+}
+
+#[test]
+fn rkmk_bogacki_shampine_is_third_order() {
+    let coarse = rkmk_endpoint_error(8);
+    let fine = rkmk_endpoint_error(16);
+    // genuine truncation error, not the machine-precision floor
+    assert!(
+        (1e-9..1e-1).contains(&coarse),
+        "vacuous or diverged: {coarse}"
+    );
+    assert!(
+        fine < coarse / 6.0,
+        "halving the step should cut the error ~8x: {coarse} -> {fine}"
+    );
+}
+
+#[test]
+fn rkmk_keeps_the_group_state_unimodular() {
+    let rate = trace_free_rate();
+    let (_, points): (Times, TensorVector<Fp>) =
+        integrate_rkmk::<Unimodular<Current>, BogackiShampine, _, _>(
+            |_: Quantity<Time>, _: &Fp| Ok(rate.clone()),
+            &steps(),
+            Fp::identity(),
+        )
+        .unwrap();
+    assert!((points.iter().last().unwrap().determinant() - 1.0).abs() < 1e-10);
+}
+
+#[test]
+fn rkmk_on_a_flat_field_is_the_plain_tableau() {
+    let time = uniform_time(10);
+    let (_, rkmk): (Times, TensorVector<Quantity>) =
+        integrate_rkmk::<Flat<Quantity>, BogackiShampine, _, _>(
+            |_: Quantity<Time>, y: &Quantity| Ok(y * -RATE),
+            &time,
+            Quantity::new(1.0),
+        )
+        .unwrap();
+    assert!((rkmk.iter().last().unwrap().value() - (-1.0_f64).exp()).abs() < 1e-4);
 }
