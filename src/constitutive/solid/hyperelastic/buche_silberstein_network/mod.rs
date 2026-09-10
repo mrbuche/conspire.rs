@@ -7,8 +7,8 @@ use crate::{
         solid::{Solid, TWO_THIRDS, elastic::Elastic, hyperelastic::Hyperelastic},
     },
     math::{
-        Current, IDENTITY, Quantity, Rank2, TensorArray, TensorRank2,
-        integrate::quadrature::{SphereNode, gauss_laguerre, sphere_product},
+        Current, IDENTITY, Quantity, Rank2, TensorRank2,
+        integrate::quadrature::{gauss_laguerre, sphere_product},
         special::extensible_langevin,
     },
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
@@ -21,8 +21,8 @@ use std::{
 };
 
 const NUMBER_OF_LAGUERRE_NODES: usize = 64;
-const NUMBER_OF_POLAR_NODES: usize = 24;
-const NUMBER_OF_AZIMUTHAL_NODES: usize = 48;
+const NUMBER_OF_POLAR_NODES: usize = 20;
+const NUMBER_OF_AZIMUTHAL_NODES: usize = 40;
 
 /// Chebyshev fit of `w^{5/2} G_a(w)` in `xi = ln w` over `[LN_W_MIN, LN_W_MAX]`.
 /// The kernel is bounded and smooth for all `w > 0` (the chain force is
@@ -40,11 +40,85 @@ const LN_W_MAX: Scalar = 13.0;
 /// as a constant.
 const REFERENCE_MATRIX: [[Scalar; 3]; 3] = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
 
+/// One direction of the sphere quadrature, with the pieces that do not depend
+/// on the deformation precomputed.
+struct SphereNode {
+    direction: [Scalar; 3],
+    weight: Scalar,
+    /// `u . 1 . u`, computed exactly as [`BucheSilbersteinNetwork::stretch_squared`]
+    /// against [`REFERENCE_MATRIX`] so the reference subtraction cancels to the bit.
+    reference_stretch: Scalar,
+    /// Upper triangle of `u (x) u`: `[xx, yy, zz, xy, xz, yz]`.
+    dyad: [Scalar; 6],
+}
+
 /// Generalized Gauss-Laguerre ($`\alpha = 1`$): $`\int_0^\infty x\,f(x)\,e^{-x}\,dx \approx \sum_j w_j f(x_j)`$.
 static LAGUERRE: LazyLock<(Vec<Scalar>, Vec<Scalar>)> =
     LazyLock::new(|| gauss_laguerre(NUMBER_OF_LAGUERRE_NODES, 1.0));
-static SPHERE: LazyLock<Vec<SphereNode>> =
-    LazyLock::new(|| sphere_product(NUMBER_OF_POLAR_NODES, NUMBER_OF_AZIMUTHAL_NODES));
+
+/// Product rule over the unit sphere, with the per-direction quantities that do
+/// not depend on the deformation precomputed.
+static SPHERE: LazyLock<Vec<SphereNode>> = LazyLock::new(|| {
+    sphere_product(NUMBER_OF_POLAR_NODES, NUMBER_OF_AZIMUTHAL_NODES)
+        .into_iter()
+        .map(|(direction, weight)| {
+            let [x, y, z] = direction;
+            SphereNode {
+                direction,
+                weight,
+                reference_stretch: BucheSilbersteinNetwork::stretch_squared(
+                    &direction,
+                    &REFERENCE_MATRIX,
+                ),
+                dyad: [x * x, y * y, z * z, x * y, x * z, y * z],
+            }
+        })
+        .collect()
+});
+
+/// Per-`(w_0, kappa)` quantities that do not depend on the deformation: the
+/// fifth radial moment used for the modulus normalization, and the per-node
+/// radial kernels evaluated at $`\mathbf{F} = \mathbf{1}`$ (subtracted per node
+/// so the reference cancels to the bit there).
+struct ModelConstants {
+    fifth_moment: Scalar,
+    reference_stress: Vec<Scalar>,
+    reference_energy: Vec<Scalar>,
+}
+
+type Cache<K, V> = LazyLock<RwLock<HashMap<K, Arc<V>>>>;
+
+static MODEL_CONSTANTS: Cache<(u64, u64), ModelConstants> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+
+impl ModelConstants {
+    fn get(reference_w: Scalar, link_stiffness: Scalar) -> Arc<Self> {
+        let key = (reference_w.to_bits(), link_stiffness.to_bits());
+        if let Some(constants) = MODEL_CONSTANTS.read().unwrap().get(&key) {
+            return constants.clone();
+        }
+        let kernels = RadialKernels::get(link_stiffness);
+        let constants = Arc::new(Self {
+            fifth_moment: radial_moment(reference_w, 5.0, |lambda| {
+                extensible_langevin::inverse(lambda, link_stiffness)
+            }),
+            reference_stress: SPHERE
+                .iter()
+                .map(|node| kernels.radial_stress(reference_w * node.reference_stretch))
+                .collect(),
+            reference_energy: SPHERE
+                .iter()
+                .map(|node| kernels.radial_energy(reference_w * node.reference_stretch))
+                .collect(),
+        });
+        MODEL_CONSTANTS
+            .write()
+            .unwrap()
+            .entry(key)
+            .or_insert_with(|| constants.clone())
+            .clone()
+    }
+}
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
@@ -139,8 +213,7 @@ struct RadialKernels {
     energy_fit_derivative: Vec<Scalar>,
 }
 
-static RADIAL_KERNELS: LazyLock<RwLock<HashMap<u64, Arc<RadialKernels>>>> =
-    LazyLock::new(|| RwLock::new(HashMap::new()));
+static RADIAL_KERNELS: Cache<u64, RadialKernels> = LazyLock::new(|| RwLock::new(HashMap::new()));
 
 impl RadialKernels {
     fn get(link_stiffness: Scalar) -> Arc<Self> {
@@ -215,15 +288,10 @@ impl BucheSilbersteinNetwork {
     }
     /// The raw (un-normalized) small-stretch shear modulus of the network
     /// integral, in units of the shear modulus; equals 1 in the ideal-chain
-    /// limit and drifts above it for finite `number_of_links`.
-    fn raw_shear_modulus(&self) -> Scalar {
-        let (w_0, kappa) = (self.reference_w(), self.link_stiffness());
-        8.0 * PI / 15.0
-            * self.prefactor()
-            * w_0
-            * radial_moment(w_0, 5.0, |lambda| {
-                extensible_langevin::inverse(lambda, kappa)
-            })
+    /// limit and drifts above it for finite `number_of_links`. `fifth_moment`
+    /// is `int eta(l) l^5 e^{-w_0 l^2} dl`.
+    fn raw_shear_modulus(&self, fifth_moment: Scalar) -> Scalar {
+        8.0 * PI / 15.0 * self.prefactor() * self.reference_w() * fifth_moment
     }
     /// $`\mathbf{u}\cdot\bar{\mathbf{B}}^{-1}\cdot\mathbf{u}`$ for a unit vector.
     fn stretch_squared(
@@ -262,18 +330,24 @@ impl Elastic for BucheSilbersteinNetwork {
         let matrix: [[Scalar; 3]; 3] = std::array::from_fn(|i| {
             std::array::from_fn(|j| isochoric_left_cauchy_green_inverse[i][j].value())
         });
-        let w_0 = self.reference_w();
-        let kernels = RadialKernels::get(self.link_stiffness());
-        let mut network = TensorRank2::<3, Current, Current>::zero();
-        for (direction, weight) in SPHERE.iter() {
-            let radial = kernels.radial_stress(w_0 * Self::stretch_squared(direction, &matrix))
-                - kernels.radial_stress(w_0 * Self::stretch_squared(direction, &REFERENCE_MATRIX));
-            network += TensorRank2::from(std::array::from_fn(|i| {
-                std::array::from_fn(|j| direction[i] * direction[j])
-            })) * (weight * radial);
+        let (w_0, kappa) = (self.reference_w(), self.link_stiffness());
+        let kernels = RadialKernels::get(kappa);
+        let constants = ModelConstants::get(w_0, kappa);
+        let mut network = [0.0; 6];
+        for (node, &reference) in SPHERE.iter().zip(&constants.reference_stress) {
+            let radial = kernels
+                .radial_stress(w_0 * Self::stretch_squared(&node.direction, &matrix))
+                - reference;
+            let coefficient = node.weight * radial;
+            (0..6).for_each(|k| network[k] += coefficient * node.dyad[k]);
         }
+        let [xx, yy, zz, xy, xz, yz] = network;
+        let network =
+            TensorRank2::<3, Current, Current>::from([[xx, xy, xz], [xy, yy, yz], [xz, yz, zz]]);
         Ok(network.deviatoric()
-            * (self.shear_modulus() * self.prefactor() / self.raw_shear_modulus() / jacobian)
+            * (self.shear_modulus() * self.prefactor()
+                / self.raw_shear_modulus(constants.fifth_moment)
+                / jacobian)
             + IDENTITY * self.bulk_modulus() * 0.5 * (jacobian - 1.0 / jacobian))
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -297,20 +371,22 @@ impl Hyperelastic for BucheSilbersteinNetwork {
         let matrix: [[Scalar; 3]; 3] = std::array::from_fn(|i| {
             std::array::from_fn(|j| isochoric_left_cauchy_green_inverse[i][j].value())
         });
-        let w_0 = self.reference_w();
-        let kernels = RadialKernels::get(self.link_stiffness());
+        let (w_0, kappa) = (self.reference_w(), self.link_stiffness());
+        let kernels = RadialKernels::get(kappa);
+        let constants = ModelConstants::get(w_0, kappa);
         let network: Scalar = SPHERE
             .iter()
-            .map(|(direction, weight)| {
-                weight
-                    * (kernels.radial_energy(w_0 * Self::stretch_squared(direction, &matrix))
-                        - kernels.radial_energy(
-                            w_0 * Self::stretch_squared(direction, &REFERENCE_MATRIX),
-                        ))
+            .zip(&constants.reference_energy)
+            .map(|(node, &reference)| {
+                node.weight
+                    * (kernels.radial_energy(w_0 * Self::stretch_squared(&node.direction, &matrix))
+                        - reference)
             })
             .sum();
         Ok(
-            self.shear_modulus() / self.raw_shear_modulus() * self.prefactor() * network
+            self.shear_modulus() / self.raw_shear_modulus(constants.fifth_moment)
+                * self.prefactor()
+                * network
                 + 0.5 * self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()),
         )
     }
