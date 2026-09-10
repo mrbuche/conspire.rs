@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Quantity, Tensor, TensorError, TensorRank2, TensorVec,
+    Derivative, Differentiate, Quantity, Tensor, TensorError, TensorRank2, TensorTuple, TensorVec,
     integrate::{IntegrationError, Times},
 };
 use crate::units::Dimensionless;
@@ -57,6 +57,28 @@ where
         increment: &Self::Point,
     ) -> Result<Self::Point, TensorError> {
         Ok(increment.expm()? * base)
+    }
+}
+
+/// A composite of two fields; its state is the matching [`TensorTuple`], and an
+/// increment reconstructs component-wise. Nests right for three or more fields.
+pub struct Product<H, T>(PhantomData<(H, T)>);
+
+impl<H, T> IntegrableField for Product<H, T>
+where
+    H: IntegrableField,
+    T: IntegrableField,
+    TensorTuple<H::Point, T::Point>: Tensor,
+{
+    type Point = TensorTuple<H::Point, T::Point>;
+    fn reconstruct(
+        base: &Self::Point,
+        increment: &Self::Point,
+    ) -> Result<Self::Point, TensorError> {
+        Ok(TensorTuple(
+            H::reconstruct(&base.0, &increment.0)?,
+            T::reconstruct(&base.1, &increment.1)?,
+        ))
     }
 }
 
