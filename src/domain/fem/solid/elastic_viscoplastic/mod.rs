@@ -375,7 +375,12 @@ where
                 .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
             state = self
                 .blocks
-                .state_variables_rkmk_step::<Tab>(&nodal_coordinates, &state, step)
+                .state_variables_rkmk_step::<Tab>(
+                    &nodal_coordinates,
+                    &state,
+                    step[0],
+                    step[1] - step[0],
+                )
                 .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
             times.push(step[1]);
             nodal_coordinates_history.push(nodal_coordinates.clone());

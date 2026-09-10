@@ -21,10 +21,10 @@ use crate::{
     },
     math::{
         ContractWith, Derivative, Differentiate, Quantity, Rank2, Tensor, TensorArray, TensorVec,
-        TensorVector, Vector,
+        Vector,
         integrate::{
             EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderRoot,
-            ExplicitDaeZerothOrderRoot, IntegrableField, StateEvolution, integrate_rkmk_state,
+            ExplicitDaeZerothOrderRoot, IntegrableField, StateEvolution, rkmk_step,
         },
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
@@ -282,8 +282,8 @@ where
 /// (`F_p` stays unimodular) instead of marching it additively.
 ///
 /// Each step: solve `P(F, F_p) - λ - P_0 = 0` for `F` with `F_p` held, then take
-/// one [`integrate_rkmk_state`] step for `(F_p, ε_p)` with `F` frozen at the
-/// solved value. First order in the `F ↔ F_p` coupling; a monolithic RKMK
+/// one [`rkmk_step`] for `(F_p, ε_p)` from the current state with `F` frozen at
+/// the solved value. First order in the `F ↔ F_p` coupling; a monolithic RKMK
 /// return map (the group state threaded through the shared DAE solver) is future
 /// work — see the heterogeneous-integration notes.
 pub trait RkmkRoot {
@@ -350,6 +350,7 @@ where
         let mut times = Times::new();
         let mut deformation_gradients = DeformationGradients::new();
         let mut state_variables = ViscoplasticStateVariablesHistory::new();
+        let mut scratch: Vec<EvolvedIncrement<Self, Time>> = Vec::new();
         times.push(time[0]);
         deformation_gradients.push(deformation_gradient.clone());
         state_variables.push(state.clone());
@@ -377,19 +378,15 @@ where
                     None,
                 )
                 .map_err(|error| ConstitutiveError::upstream(error, self))?;
-            let deformation_gradient_frozen = deformation_gradient.clone();
-            let (_, states): (Times, TensorVector<ViscoplasticStateVariables<Quantity>>) =
-                integrate_rkmk_state::<Self, Tab, _, _>(
-                    self,
-                    |_| deformation_gradient_frozen.clone(),
-                    &[step[0], step[1]],
-                )
-                .map_err(|error| ConstitutiveError::upstream(error, self))?;
-            state = states
-                .iter()
-                .last()
-                .expect("the RKMK step yields at least the endpoint")
-                .clone();
+            let frozen = deformation_gradient.clone();
+            state = rkmk_step::<<Self as StateEvolution<Time>>::Field, Tab, Time>(
+                &mut |t, point| self.state_rate(t, &frozen, point),
+                &state,
+                step[0],
+                step[1] - step[0],
+                &mut scratch,
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
             times.push(step[1]);
             deformation_gradients.push(deformation_gradient.clone());
             state_variables.push(state.clone());

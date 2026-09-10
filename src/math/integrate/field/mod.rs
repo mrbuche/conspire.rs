@@ -149,17 +149,20 @@ fn reconstruct_or_err<Fld: IntegrableField>(
         .map_err(|_| IntegrationError::from(RECONSTRUCT_FAILED.to_string()))
 }
 
-/// One RKMK step's corrected stage slopes `k̃ᵢ` in the field's Lie algebra: per
-/// stage combine the earlier `k̃ⱼ` by row `Aᵢ`, `reconstruct` the stage point,
-/// evaluate the rate, scale by `dt`, apply [`IntegrableField::dexpinv`] at the
-/// accumulated algebra element. The caller weights these by `B` (the step) and,
-/// for an embedded pair, by `D` (the error estimate).
-fn rkmk_stage_slopes<Fld, Tab, T>(
+/// Fills `slopes` with one RKMK step's corrected stage slopes `k̃ᵢ` in the
+/// field's Lie algebra: per stage combine the earlier `k̃ⱼ` by row `Aᵢ`,
+/// `reconstruct` the stage point, evaluate the rate, scale by `dt`, apply
+/// [`IntegrableField::dexpinv`] at the accumulated algebra element. `slopes` is
+/// cleared first and reused, so a caller that steps in a loop allocates nothing.
+/// The caller weights the entries by `B` (the step) and, for an embedded pair,
+/// by `D` (the error estimate).
+fn rkmk_stage_slopes_into<Fld, Tab, T>(
     rate: &mut impl FnMut(Quantity<T>, &Fld::Point) -> Result<Derivative<Fld::Increment, T>, String>,
     point: &Fld::Point,
     t: Quantity<T>,
     dt: Quantity<T>,
-) -> Result<Vec<Fld::Increment>, IntegrationError>
+    slopes: &mut Vec<Fld::Increment>,
+) -> Result<(), IntegrationError>
 where
     Fld: IntegrableField,
     Tab: ButcherTableau,
@@ -169,7 +172,8 @@ where
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
 {
-    let mut slopes: Vec<Fld::Increment> = Vec::with_capacity(Tab::STAGES);
+    slopes.clear();
+    slopes.reserve(Tab::STAGES);
     for i in 0..Tab::STAGES {
         let sigma = if i == 0 {
             None
@@ -190,7 +194,7 @@ where
             None => increment,
         });
     }
-    Ok(slopes)
+    Ok(())
 }
 
 fn weight<P>(slopes: &[P], weights: &[Scalar]) -> P
@@ -204,10 +208,34 @@ where
     sum
 }
 
+/// Advances `point` one RKMK step from `t` to `t + dt` with the `Tab` tableau —
+/// [`integrate_rkmk`] without the history, and with the stage-slope buffer
+/// `scratch` passed in so a stepping loop allocates nothing per step. `scratch`
+/// may start empty; its contents are overwritten.
+pub fn rkmk_step<Fld, Tab, T>(
+    rate: &mut impl FnMut(Quantity<T>, &Fld::Point) -> Result<Derivative<Fld::Increment, T>, String>,
+    point: &Fld::Point,
+    t: Quantity<T>,
+    dt: Quantity<T>,
+    scratch: &mut Vec<Fld::Increment>,
+) -> Result<Fld::Point, IntegrationError>
+where
+    Fld: IntegrableField,
+    Tab: ButcherTableau,
+    Fld::Point: Clone,
+    Fld::Increment: Clone + Differentiate<T>,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
+{
+    rkmk_stage_slopes_into::<Fld, Tab, T>(rate, point, t, dt, scratch)?;
+    reconstruct_or_err::<Fld>(point, &weight(scratch, Tab::B))
+}
+
 /// Runge–Kutta–Munthe-Kaas: a fixed-step [`ButcherTableau`] run in the field's
 /// Lie algebra, with the [`IntegrableField::dexpinv`] correction per stage and a
 /// single [`IntegrableField::reconstruct`] per step. Reduces to the plain tableau
-/// on a flat field.
+/// on a flat field. See [`rkmk_step`] for the allocation-free single step.
 pub fn integrate_rkmk<Fld, Tab, U, T>(
     mut rate: impl FnMut(Quantity<T>, &Fld::Point) -> Result<Derivative<Fld::Increment, T>, String>,
     time: &[Quantity<T>],
@@ -226,12 +254,12 @@ where
     let mut point = initial_condition;
     let mut points = U::new();
     let mut times = Times::new();
+    let mut scratch = Vec::new();
     points.push(point.clone());
     times.push(time[0]);
     for step in time.windows(2) {
-        let slopes =
-            rkmk_stage_slopes::<Fld, Tab, T>(&mut rate, &point, step[0], step[1] - step[0])?;
-        point = reconstruct_or_err::<Fld>(&point, &weight(&slopes, Tab::B))?;
+        point =
+            rkmk_step::<Fld, Tab, T>(&mut rate, &point, step[0], step[1] - step[0], &mut scratch)?;
         points.push(point.clone());
         times.push(step[1]);
     }
@@ -275,11 +303,12 @@ where
     let mut point = initial_condition;
     let mut points = U::new();
     let mut times = Times::new();
+    let mut slopes = Vec::new();
     points.push(point.clone());
     times.push(t_0);
     while t_f - t > dt_min {
         dt = dt.min(t_f - t);
-        let slopes = rkmk_stage_slopes::<Fld, Tab, T>(&mut rate, &point, t, dt)?;
+        rkmk_stage_slopes_into::<Fld, Tab, T>(&mut rate, &point, t, dt, &mut slopes)?;
         let trial = reconstruct_or_err::<Fld>(&point, &weight(&slopes, Tab::B))?;
         let error = weight(&slopes, Tab::D).norm().value().abs();
         let tolerance = abs_tol + rel_tol * trial.norm().value();

@@ -21,10 +21,9 @@ use crate::{
     },
     math::{
         Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTupleListVec,
-        TensorTupleListVec2D, TensorVector,
+        TensorTupleListVec2D,
         integrate::{
-            EmbeddedTableau, EvolvedIncrement, IntegrableField, StateEvolution, Times,
-            integrate_rkmk,
+            EmbeddedTableau, EvolvedIncrement, IntegrableField, StateEvolution, rkmk_step,
         },
         optimize::EqualityConstraint,
     },
@@ -151,19 +150,23 @@ where
     for<'a> &'a Derivative<EvolvedIncrement<C, Time>, Time>:
         Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time>>,
 {
-    /// Advances every Gauss point's plastic state by one RKMK step over `span`,
-    /// with the deformation gradient held frozen at `nodal_coordinates`. `F_p`
-    /// stays on the unimodular group (`det = 1`) instead of drifting.
+    /// Advances every Gauss point's plastic state by one RKMK step from `t` over
+    /// `dt`, with the deformation gradient held frozen at `nodal_coordinates`.
+    /// `F_p` stays on the unimodular group (`det = 1`) instead of drifting. One
+    /// stage-slope buffer is reused across the whole block, so the step allocates
+    /// nothing per Gauss point.
     pub(crate) fn state_variables_rkmk_step<Tab>(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Quantity>,
-        span: &[Quantity<Time>],
+        t: Quantity<Time>,
+        dt: Quantity<Time>,
     ) -> Result<ViscoplasticStateVariables<G, Quantity>, ElementModelError>
     where
         Tab: EmbeddedTableau,
     {
         let model = self.constitutive_model();
+        let mut scratch: Vec<EvolvedIncrement<C, Time>> = Vec::new();
         self.elements()
             .iter()
             .zip(self.connectivity())
@@ -176,18 +179,14 @@ where
                     .zip(element_state)
                     .map(|(deformation_gradient, point_state)| {
                         let frozen = deformation_gradient.clone();
-                        let (_, states): (Times, TensorVector<PointStateVariables<Quantity>>) =
-                            integrate_rkmk::<<C as StateEvolution<Time>>::Field, Tab, _, _>(
-                                |t, state| model.state_rate(t, &frozen, state),
-                                span,
-                                point_state.clone(),
-                            )
-                            .map_err(|error| FiniteElementError::upstream(error, element))?;
-                        Ok(states
-                            .iter()
-                            .last()
-                            .expect("the RKMK step yields at least the endpoint")
-                            .clone())
+                        rkmk_step::<<C as StateEvolution<Time>>::Field, Tab, Time>(
+                            &mut |t, state| model.state_rate(t, &frozen, state),
+                            point_state,
+                            t,
+                            dt,
+                            &mut scratch,
+                        )
+                        .map_err(|error| FiniteElementError::upstream(error, element))
                     })
                     .collect::<Result<_, FiniteElementError>>()
             })

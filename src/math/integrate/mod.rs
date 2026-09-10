@@ -19,6 +19,7 @@ pub use error::IntegrationError;
 pub use field::{
     EvolvedIncrement, EvolvedState, Flat, IntegrableField, Product, StateEvolution, StateStep,
     Unimodular, integrate_euler, integrate_rkmk, integrate_rkmk_adaptive, integrate_rkmk_state,
+    rkmk_step,
 };
 pub use tableau::{ButcherTableau, EmbeddedTableau};
 

@@ -221,4 +221,65 @@ mod state_evolution {
                 > 1e-3
         );
     }
+
+    // Cost of one material-point RKMK step vs its four rate evaluations alone
+    // (Bogacki–Shampine has four stages) — the difference is the `expm`/`dexpinv`
+    // overhead. Prints the ratio; asserts only a loose gross-regression bound
+    // since wall-clock timing is noisy.
+    #[test]
+    fn rkmk_step_cost_relative_to_the_rate_evaluations_alone() {
+        use crate::math::integrate::{StateEvolution, rkmk_step};
+        use std::time::Instant;
+        type Model = super::Canonical<super::AlmansiHamelEulerian, super::ViscoplasticFlow>;
+        type Field = <Model as StateEvolution<Time>>::Field;
+        let model = model();
+        let f = deformation_gradient();
+        let t = Quantity::<Time>::new(0.0);
+        let dt = Quantity::<Time>::new(0.05);
+        let initial = <Model as StateEvolution<Time>>::initial_state(&model);
+        let iterations = 20_000;
+        let mut scratch = Vec::new();
+        let mut sink = 0.0;
+        // warm-up
+        for _ in 0..2_000 {
+            sink += rkmk_step::<Field, BogackiShampineTableau, Time>(
+                &mut |tt, s| model.state_rate(tt, &f, s),
+                &initial,
+                t,
+                dt,
+                &mut scratch,
+            )
+            .unwrap()
+            .0
+            .determinant();
+        }
+        let start = Instant::now();
+        for _ in 0..iterations {
+            sink += rkmk_step::<Field, BogackiShampineTableau, Time>(
+                &mut |tt, s| model.state_rate(tt, &f, s),
+                &initial,
+                t,
+                dt,
+                &mut scratch,
+            )
+            .unwrap()
+            .0
+            .determinant();
+        }
+        let rkmk = start.elapsed();
+        let start = Instant::now();
+        for _ in 0..iterations {
+            for _ in 0..4 {
+                let rate = StateEvolution::state_rate(&model, t, &f, &initial).unwrap();
+                sink += rate.0.norm().value();
+            }
+        }
+        let rates = start.elapsed();
+        println!(
+            "rkmk_step {rkmk:?}  vs  4x state_rate {rates:?}  =>  {:.2}x",
+            rkmk.as_secs_f64() / rates.as_secs_f64()
+        );
+        assert!(sink.is_finite());
+        assert!(rkmk.as_secs_f64() < 20.0 * rates.as_secs_f64());
+    }
 }
