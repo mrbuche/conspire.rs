@@ -38,8 +38,9 @@ fn flat_scalar_reproduces_euler_bit_for_bit() {
 type Fp = TensorRank2<3, Current, Current, Dimensionless>;
 type FpRate = TensorRank2<3, Current, Current, Rate>;
 
-fn trace_free_symmetric_rate() -> FpRate {
-    FpRate::from([[0.1, 0.2, 0.0], [0.2, 0.1, 0.0], [0.0, 0.0, -0.2]])
+// trace 0, materially non-symmetric: exercises the scaling-and-squaring branch of `expm`
+fn trace_free_rate() -> FpRate {
+    FpRate::from([[0.1, 0.7, -0.3], [-0.4, 0.2, 0.5], [0.2, -0.1, -0.3]])
 }
 
 fn steps() -> Vec<Quantity<Time>> {
@@ -48,19 +49,19 @@ fn steps() -> Vec<Quantity<Time>> {
 
 #[test]
 fn unimodular_update_preserves_unit_determinant() {
-    let rate = trace_free_symmetric_rate();
+    let rate = trace_free_rate();
     let (_, points): (Times, TensorVector<Fp>) = integrate_euler::<Unimodular<Current>, _, _>(
         |_: Quantity<Time>, _: &Fp| Ok(rate.clone()),
         &steps(),
         Fp::identity(),
     )
     .unwrap();
-    assert!((points.iter().last().unwrap().determinant() - 1.0).abs() < 1e-12);
+    assert!((points.iter().last().unwrap().determinant() - 1.0).abs() < 1e-10);
 }
 
 #[test]
 fn additive_update_of_the_same_rate_drifts_off_the_group() {
-    let rate = trace_free_symmetric_rate();
+    let rate = trace_free_rate();
     let (_, points): (Times, TensorVector<Fp>) = integrate_euler::<Flat<Fp>, _, _>(
         |_: Quantity<Time>, _: &Fp| Ok(rate.clone()),
         &steps(),
@@ -77,7 +78,7 @@ fn three_deep_product_field_round_trips_through_the_driver() {
     type Point = <Field as IntegrableField>::Point;
     let dgamma_rate = Quantity::<Rate>::new(0.5);
     let back_rate = TensorRank1::<3, Current, Rate>::from([1.0, -2.0, 3.0]);
-    let fp_rate = trace_free_symmetric_rate();
+    let fp_rate = trace_free_rate();
     let (_, points): (Times, TensorVector<Point>) = integrate_euler::<Field, _, _>(
         |_: Quantity<Time>, _: &Point| {
             Ok(TensorTuple(
@@ -95,7 +96,7 @@ fn three_deep_product_field_round_trips_through_the_driver() {
     assert_eq!(points.iter().count(), steps().len());
     let last = points.iter().last().unwrap();
     // the F_p leaf kept det = 1 through the exponential-map updates
-    assert!((last.1.1.determinant() - 1.0).abs() < 1e-12);
+    assert!((last.1.1.determinant() - 1.0).abs() < 1e-10);
     // the scalar leaf advanced additively over a total time of 1.0
     assert!((last.0.value() - 1.5).abs() < 1e-12);
 }

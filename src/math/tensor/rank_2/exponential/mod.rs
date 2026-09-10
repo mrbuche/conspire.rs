@@ -14,10 +14,10 @@ use super::{
 impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// Returns the matrix exponential of the 3x3 tensor.
     ///
-    /// Implemented for diagonal and symmetric tensors: diagonal entrywise, and
-    /// symmetric through the spectral decomposition, with a truncated Taylor
-    /// series near zero. A tensor that is symmetric only up to round-off is
-    /// symmetrized; a materially non-symmetric tensor panics.
+    /// Diagonal tensors go entrywise; symmetric tensors (exactly or up to
+    /// round-off) through the spectral decomposition; anything with a small
+    /// enough norm through a truncated Taylor series; and a general tensor
+    /// through scaling and squaring of that series.
     pub fn expm(&self) -> Result<Self, TensorError> {
         if self.is_diagonal() {
             let mut expm = TensorRank2::zero();
@@ -25,41 +25,43 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                 .enumerate()
                 .zip(self.iter())
                 .for_each(|((i, expm_i), self_i)| expm_i[i] = self_i[i].exp());
-            Ok(expm)
-        } else {
-            let norm = self.norm().value();
-            if norm < 1e-2 {
-                let num_terms = if norm < 1e-4 {
-                    3
-                } else if norm < 1e-3 {
-                    5
-                } else {
-                    8
-                };
-                let mut expm = self + TensorRank2::identity();
-                let mut power = self.clone();
-                let mut factorial = 1.0;
-                (2..=num_terms).for_each(|k| {
-                    power *= self;
-                    factorial *= k as f64;
-                    expm += &power / factorial;
-                });
-                Ok(expm)
-            } else {
-                let transpose = self.transpose();
-                if !self.is_symmetric() && (self - &transpose).norm().value() >= 1e-9 * (1.0 + norm)
-                {
-                    panic!("Matrix exponential only implemented for symmetric cases")
-                }
-                let symmetric = (self + transpose) * 0.5;
-                let mut eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
-                let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, &symmetric);
-                eigenvalues
-                    .iter_mut()
-                    .for_each(|eigenvalue| *eigenvalue = eigenvalue.exp());
-                Ok(reconstruct_symmetric(eigenvalues, eigenvectors))
-            }
+            return Ok(expm);
         }
+        let norm = self.norm().value();
+        if norm < 1e-2 {
+            return Ok(self.expm_series());
+        }
+        let transpose = self.transpose();
+        if self.is_symmetric() || (self - &transpose).norm().value() < 1e-9 * (1.0 + norm) {
+            let symmetric = (self + transpose) * 0.5;
+            let mut eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
+            let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, &symmetric);
+            eigenvalues
+                .iter_mut()
+                .for_each(|eigenvalue| *eigenvalue = eigenvalue.exp());
+            return Ok(reconstruct_symmetric(eigenvalues, eigenvectors));
+        }
+        let squarings = (norm / 5e-3).log2().ceil().max(1.0) as u32;
+        let mut expm = (self / 2.0_f64.powi(squarings as i32)).expm_series();
+        (0..squarings).for_each(|_| expm = &expm * &expm);
+        Ok(expm)
+    }
+    /// The truncated Taylor series `Σ Aᵏ/k!`; accurate only for a small norm.
+    fn expm_series(&self) -> Self {
+        let num_terms = match self.norm().value() {
+            norm if norm < 1e-4 => 3,
+            norm if norm < 1e-3 => 5,
+            _ => 8,
+        };
+        let mut expm = self + TensorRank2::identity();
+        let mut power = self.clone();
+        let mut factorial = 1.0;
+        (2..=num_terms).for_each(|k| {
+            power *= self;
+            factorial *= k as f64;
+            expm += &power / factorial;
+        });
+        expm
     }
     /// Returns the derivative of the matrix exponential of the 3x3 tensor.
     ///

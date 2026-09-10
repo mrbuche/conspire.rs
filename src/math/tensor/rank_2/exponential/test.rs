@@ -226,12 +226,24 @@ fn dexpm_inverts_dlogm() -> Result<(), AssertionError> {
 }
 
 #[test]
-#[should_panic(expected = "Matrix exponential only implemented for symmetric cases")]
-fn expm_non_symmetric_panics() {
-    let _ = TensorRank2::<3, Current, Current>::from([
-        [1.0, 4.0, 6.0],
-        [7.0, 2.0, 5.0],
-        [9.0, 8.0, 3.0],
-    ])
-    .expm();
+fn expm_non_symmetric_matches_a_high_order_taylor_reference() -> Result<(), AssertionError> {
+    let a = TensorRank2::<3, Current, Current>::from([
+        [1.2, 3.3, -2.1],
+        [-2.7, 0.6, 1.8],
+        [1.5, -0.9, -1.8],
+    ]);
+    let mut reference = TensorRank2::identity() + &a;
+    let mut power = a.clone();
+    let mut factorial = 1.0;
+    (2..40).for_each(|k| {
+        power = &power * &a;
+        factorial *= k as f64;
+        reference += &power / factorial;
+    });
+    Assert {
+        abs_tol: 1e-10,
+        rel_tol: 1e-10,
+        ..Default::default()
+    }
+    .eq_within_tols(a.expm().unwrap(), &reference)
 }
