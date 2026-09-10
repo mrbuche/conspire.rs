@@ -300,3 +300,28 @@ fn dexpinv_correction_is_non_trivial() {
     ]);
     assert!((sigma.dexpinv(&rate()) - &rate()).norm().value() > 1e-2)
 }
+
+fn sigma_direction() -> TensorRank2<3, Current, Current> {
+    [[0.1, 0.6, -0.3], [-0.2, 0.4, 0.5], [0.7, -0.15, -0.5]].into()
+}
+
+fn rate_direction() -> TensorRank2<3, Current, Current> {
+    [[-0.3, 0.2, 0.8], [0.5, -0.6, 0.1], [-0.4, 0.9, 0.9]].into()
+}
+
+#[test]
+fn dexpinv_tangent_matches_finite_difference() -> Result<(), AssertionError> {
+    let sigma = TensorRank2::<3, Current, Current>::from([
+        [0.0, 0.4, -0.2],
+        [-0.3, 0.0, 0.5],
+        [0.1, -0.15, 0.0],
+    ]);
+    let (d_sigma, d_rate) = (sigma_direction(), rate_direction());
+    let step = crate::EPSILON * 0.5;
+    let plus = (&sigma + (&d_sigma * step)).dexpinv(&(&rate() + (&d_rate * step)));
+    let minus = (&sigma - (&d_sigma * step)).dexpinv(&(&rate() - (&d_rate * step)));
+    Assert::default().eq_within_fd_tol(
+        sigma.dexpinv_tangent(&rate(), &d_sigma, &d_rate),
+        &((plus - minus) / crate::EPSILON),
+    )
+}

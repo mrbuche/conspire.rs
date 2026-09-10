@@ -233,10 +233,9 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// ```
     /// Pure matrix products — total on any input, no symmetry needed.
     pub fn dexpinv(&self, rate: &Self) -> Self {
-        const COEFFICIENTS: [f64; 5] = [1.0, -0.5, 1.0 / 12.0, 0.0, -1.0 / 720.0];
         let mut term = rate.clone();
-        let mut result = term.clone() * COEFFICIENTS[0];
-        for &coefficient in COEFFICIENTS.iter().skip(1) {
+        let mut result = term.clone() * DEXPINV_COEFFICIENTS[0];
+        for &coefficient in DEXPINV_COEFFICIENTS.iter().skip(1) {
             term = self * &term - &term * self;
             if coefficient != 0.0 {
                 result += term.clone() * coefficient;
@@ -244,4 +243,29 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
         }
         result
     }
+    /// The directional derivative of [`Self::dexpinv`] in the direction
+    /// `(d_sigma, d_rate)`.
+    ///
+    /// Forward-mode through the same truncated series: with `T_0 = A` and
+    /// `T_k = [\sigma, T_{k-1}]`,
+    /// ```math
+    /// \mathrm{d}T_0 = \mathrm{d}A, \qquad
+    /// \mathrm{d}T_k = [\mathrm{d}\sigma, T_{k-1}] + [\sigma, \mathrm{d}T_{k-1}] .
+    /// ```
+    pub fn dexpinv_tangent(&self, rate: &Self, d_sigma: &Self, d_rate: &Self) -> Self {
+        let mut term = rate.clone();
+        let mut d_term = d_rate.clone();
+        let mut result = d_term.clone() * DEXPINV_COEFFICIENTS[0];
+        for &coefficient in DEXPINV_COEFFICIENTS.iter().skip(1) {
+            d_term = d_sigma * &term - &term * d_sigma + (self * &d_term - &d_term * self);
+            term = self * &term - &term * self;
+            if coefficient != 0.0 {
+                result += d_term.clone() * coefficient;
+            }
+        }
+        result
+    }
 }
+
+/// The Bernoulli numbers `Bₖ/k!` of the `dexpinv` series, truncated at four terms.
+const DEXPINV_COEFFICIENTS: [f64; 5] = [1.0, -0.5, 1.0 / 12.0, 0.0, -1.0 / 720.0];
