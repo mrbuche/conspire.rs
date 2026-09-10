@@ -3,8 +3,8 @@
 pub mod test;
 
 use crate::units::{
-    ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature, Rate,
-    ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
+    Fluidity, ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature,
+    Rate, ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
 };
 
 use crate::math::{Current, Intermediate, Reference};
@@ -380,6 +380,13 @@ pub type StretchingRate = TensorRank2<3, Current, Current, Rate>;
 
 /// The plastic stretching rate $`\mathbf{D}^\mathrm{p}`$.
 pub type StretchingRatePlastic = TensorRank2<3, Intermediate, Intermediate, Rate>;
+
+/// The tangent of the plastic stretching rate with respect to the deviatoric Mandel stress.
+pub type StretchingRatePlasticTangent =
+    TensorRank4<3, Intermediate, Intermediate, Intermediate, Intermediate, Fluidity>;
+
+/// The tangent of the plastic stretching rate with respect to the yield stress.
+pub type StretchingRatePlasticTangentYield = TensorRank2<3, Intermediate, Intermediate, Fluidity>;
 
 /// A surface basis.
 pub type SurfaceBasis<I> = TensorRank1List<3, I, 2, Length>;

@@ -76,3 +76,57 @@ fn fenchel_equality() -> Result<(), AssertionError> {
         &ContractWith::contract_with(&deviatoric_mandel_stress(), &plastic_stretching_rate),
     )
 }
+
+#[test]
+fn plastic_stretching_rate_tangent_matches_finite_difference() -> Result<(), AssertionError> {
+    let model = model();
+    let yield_stress = model.yield_stress;
+    let tangent =
+        model.plastic_stretching_rate_tangent(&deviatoric_mandel_stress(), yield_stress)?;
+    let mut finite_difference = StretchingRatePlasticTangent::zero();
+    for k in 0..3 {
+        for l in 0..3 {
+            let mut plus = deviatoric_mandel_stress();
+            plus[k][l] += perturbation(0.5 * EPSILON);
+            let rate_plus = model.plastic_stretching_rate(plus, yield_stress)?;
+            let mut minus = deviatoric_mandel_stress();
+            minus[k][l] -= perturbation(0.5 * EPSILON);
+            let rate_minus = model.plastic_stretching_rate(minus, yield_stress)?;
+            for i in 0..3 {
+                for j in 0..3 {
+                    finite_difference[i][j][k][l] =
+                        (rate_plus[i][j] - rate_minus[i][j]) / Quantity::<Stress>::new(EPSILON);
+                }
+            }
+        }
+    }
+    Assert::default().eq_within_fd_tol(&tangent, &finite_difference)
+}
+
+#[test]
+fn plastic_stretching_rate_tangent_yield_matches_finite_difference() -> Result<(), AssertionError> {
+    let model = model();
+    let yield_stress = model.yield_stress;
+    let tangent =
+        model.plastic_stretching_rate_tangent_yield(deviatoric_mandel_stress(), yield_stress)?;
+    let rate_plus = model.plastic_stretching_rate(
+        deviatoric_mandel_stress(),
+        yield_stress + Quantity::new(0.5 * EPSILON),
+    )?;
+    let rate_minus = model.plastic_stretching_rate(
+        deviatoric_mandel_stress(),
+        yield_stress - Quantity::new(0.5 * EPSILON),
+    )?;
+    Assert::default().eq_within_fd_tol(
+        &tangent,
+        &((rate_plus - rate_minus) / Quantity::<Stress>::new(EPSILON)),
+    )
+}
+
+#[test]
+fn yield_stress_slope_is_the_hardening_slope() -> Result<(), AssertionError> {
+    let model = model();
+    let plus = model.yield_stress(Quantity::new(0.5 * EPSILON))?;
+    let minus = model.yield_stress(Quantity::new(-0.5 * EPSILON))?;
+    Assert::default().eq_within_fd_tol(model.hardening_slope(), &((plus - minus) / EPSILON))
+}

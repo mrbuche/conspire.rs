@@ -9,15 +9,17 @@ mod test;
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
     math::{
-        Derivative, Differentiate, Quantity, Rank2, Scalar, Tensor, TensorArray, TensorTuple,
-        TensorTupleVec,
+        Derivative, Differentiate, IDENTITY_22, Intermediate, Quantity, Rank2, Scalar, Tensor,
+        TensorArray, TensorRank4, TensorTuple, TensorTupleVec,
     },
     mechanics::{
         DeformationGradientPlastic, DeformationGradientRatePlastic, MandelStressElastic,
-        StretchingRatePlastic,
+        StretchingRatePlastic, StretchingRatePlasticTangent, StretchingRatePlasticTangentYield,
     },
     units::{Dissipation, Rate, Stress},
 };
+
+type IntermediateRank4 = TensorRank4<3, Intermediate, Intermediate, Intermediate, Intermediate>;
 
 /// Viscoplastic state variables.
 pub type ViscoplasticStateVariables<Y> = TensorTuple<DeformationGradientPlastic, Y>;
@@ -74,6 +76,49 @@ where
                 * (reference_flow_rate / magnitude
                     * (magnitude / yield_stress).powf(1.0 / self.rate_sensitivity())))
         }
+    }
+    /// Calculates and returns the tangent of the plastic stretching rate with
+    /// respect to the deviatoric Mandel stress.
+    ///
+    /// ```math
+    /// \frac{\partial D^\mathrm{p}_{ij}}{\partial M'_{kl}} = g\,\delta_{ik}\delta_{jl} + g\left(\frac{1}{m} - 1\right)\frac{M'_{ij}M'_{kl}}{|\mathbf{M}'|^2},
+    /// \qquad g = \frac{d_0}{|\mathbf{M}'|}\left(\frac{|\mathbf{M}'|}{Y}\right)^{\footnotesize\tfrac{1}{m}}
+    /// ```
+    fn plastic_stretching_rate_tangent(
+        &self,
+        deviatoric_mandel_stress: &MandelStressElastic,
+        yield_stress: Quantity<Stress>,
+    ) -> Result<StretchingRatePlasticTangent, ConstitutiveError> {
+        let magnitude = deviatoric_mandel_stress.norm();
+        if magnitude.is_zero() {
+            Ok(StretchingRatePlasticTangent::zero())
+        } else {
+            let rate_sensitivity = self.rate_sensitivity();
+            let flow = self.reference_flow_rate() / magnitude
+                * (magnitude / yield_stress).powf(1.0 / rate_sensitivity);
+            let normal = deviatoric_mandel_stress / magnitude;
+            Ok(
+                IntermediateRank4::dyad_ik_jl(&IDENTITY_22, &IDENTITY_22) * flow
+                    + IntermediateRank4::dyad_ij_kl(&normal, &normal)
+                        * (flow * (1.0 / rate_sensitivity - 1.0)),
+            )
+        }
+    }
+    /// Calculates and returns the tangent of the plastic stretching rate with
+    /// respect to the yield stress.
+    ///
+    /// ```math
+    /// \frac{\partial\mathbf{D}^\mathrm{p}}{\partial Y} = -\frac{\mathbf{D}^\mathrm{p}}{mY}
+    /// ```
+    fn plastic_stretching_rate_tangent_yield(
+        &self,
+        deviatoric_mandel_stress: MandelStressElastic,
+        yield_stress: Quantity<Stress>,
+    ) -> Result<StretchingRatePlasticTangentYield, ConstitutiveError> {
+        Ok(
+            self.plastic_stretching_rate(deviatoric_mandel_stress, yield_stress)? / yield_stress
+                * (-1.0 / self.rate_sensitivity()),
+        )
     }
     /// Calculates and returns the dissipation potential.
     ///
