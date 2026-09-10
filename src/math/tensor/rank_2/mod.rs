@@ -5,6 +5,7 @@ use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
 use crate::units::{Dimensionless, UnitDiv, UnitMul};
 
 mod eigen;
+mod exponential;
 mod inverse;
 pub(crate) mod list;
 pub(crate) mod list_2d;
