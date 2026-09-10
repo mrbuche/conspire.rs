@@ -186,6 +186,15 @@ fn dexpm_series_branch_matches_finite_difference_of_expm() -> Result<(), Asserti
 }
 
 #[test]
+fn dexpm_non_symmetric_matches_finite_difference_of_expm() -> Result<(), AssertionError> {
+    // norm ~0.35, materially non-symmetric: the scaling-and-squaring branch
+    dexpm_matches_finite_difference(
+        &TensorRank2::from([[0.1, 0.25, -0.05], [-0.2, 0.05, 0.15], [0.1, -0.1, -0.15]]),
+        1e-6,
+    )
+}
+
+#[test]
 fn dexpm_zero_is_the_fourth_order_identity() -> Result<(), AssertionError> {
     let dexpm = TensorRank2::<3, Current, Current>::zero().dexpm()?;
     let mut identity = TensorRank4::<3, Current, Current, Current, Current>::zero();
@@ -266,8 +275,7 @@ fn dexpinv_is_the_right_trivialized_inverse() -> Result<(), AssertionError> {
     // `dexpm(σ)[H] = dexp_σ(H)·exp(σ)`, and `dexpinv` inverts `dexp_σ`, so
     // `dexpm(σ) : dexpinv_σ(A) = A·exp(σ)`.
     //
-    // small norm so dexpm stays on its series branch (it still panics on a
-    // materially non-symmetric argument of larger norm)
+    // small norm so the truncated dexpinv is exact enough for the identity
     let sigma = TensorRank2::<3, Current, Current>::from([
         [0.0, 0.5, -0.25],
         [-0.4, 0.0, 0.3],

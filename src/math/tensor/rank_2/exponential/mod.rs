@@ -66,8 +66,9 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// Returns the derivative of the matrix exponential of the 3x3 tensor.
     ///
     /// The Frechet derivative $`\mathrm{d}\exp(\mathbf{A})/\mathrm{d}\mathbf{A}`$, formed
-    /// diagonally entrywise, from a truncated series near zero, and otherwise from the
-    /// spectral decomposition with the divided differences
+    /// diagonally entrywise, from a truncated series near zero, from scaling and
+    /// squaring of that series for a general (non-symmetric, larger-norm) tensor,
+    /// and otherwise from the spectral decomposition with the divided differences
     /// ```math
     /// \frac{e^{\lambda_i} - e^{\lambda_j}}{\lambda_i - \lambda_j},
     /// \qquad e^{\lambda_j} \text{ for } \lambda_i = \lambda_j.
@@ -141,7 +142,45 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                 let transpose = self.transpose();
                 if !self.is_symmetric() && (self - &transpose).norm().value() >= 1e-9 * (1.0 + norm)
                 {
-                    panic!("Matrix exponential only implemented for symmetric cases")
+                    //
+                    // Non-symmetric: scaling and squaring of the Fréchet derivative.
+                    // With E = exp(B), L = dexp(B), the squaring B → 2B gives
+                    // E → E² and L → L·E + E·L (contracting the middle index);
+                    // one final 1/scale converts d/dB back to d/dA.
+                    //
+                    let squarings = (norm / 5e-3).log2().ceil().max(1.0) as u32;
+                    let scale = 2.0_f64.powi(squarings as i32);
+                    let mut expm = (self / scale).expm_series();
+                    let mut dexpm = (self / scale).dexpm()?;
+                    for _ in 0..squarings {
+                        let mut next = TensorRank4::zero();
+                        for i in 0..3 {
+                            for j in 0..3 {
+                                for k in 0..3 {
+                                    for l in 0..3 {
+                                        let mut value = 0.0;
+                                        for p in 0..3 {
+                                            value += dexpm[i][p][k][l].value() * expm[p][j].value()
+                                                + expm[i][p].value() * dexpm[p][j][k][l].value();
+                                        }
+                                        next[i][j][k][l] = Quantity::new(value);
+                                    }
+                                }
+                            }
+                        }
+                        dexpm = next;
+                        expm = &expm * &expm;
+                    }
+                    dexpm.iter_mut().for_each(|dexpm_i| {
+                        dexpm_i.iter_mut().for_each(|dexpm_ij| {
+                            dexpm_ij.iter_mut().for_each(|dexpm_ijk| {
+                                dexpm_ijk
+                                    .iter_mut()
+                                    .for_each(|dexpm_ijkl| *dexpm_ijkl /= scale)
+                            })
+                        })
+                    });
+                    return Ok(dexpm);
                 }
                 let symmetric = (self + transpose) * 0.5;
                 let eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
