@@ -3,7 +3,7 @@ use crate::{
     geometry::mesh::{
         Connectivity, Verdict,
         quality::metrics::hexahedron::bernstein,
-        tessellation::cut::test::{box_surface, rotated, sphere, star},
+        tessellation::cut::test::{sphere, star},
     },
     math::Quantity,
 };
