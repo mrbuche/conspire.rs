@@ -182,4 +182,27 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
             }
         }
     }
+    /// Applies the inverse matrix-exponential Fréchet derivative at `self` (the
+    /// algebra element `σ`) to `rate`.
+    ///
+    /// The Bernoulli commutator series, truncated at four terms (exact to fifth
+    /// order); with `\mathrm{ad}_\sigma(A) = \sigma A - A\sigma`,
+    /// ```math
+    /// \mathrm{dexpinv}_\sigma(A) = A - \tfrac{1}{2}[\sigma, A]
+    ///     + \tfrac{1}{12}[\sigma, [\sigma, A]]
+    ///     - \tfrac{1}{720}[\sigma, [\sigma, [\sigma, [\sigma, A]]]] .
+    /// ```
+    /// Pure matrix products — total on any input, no symmetry needed.
+    pub fn dexpinv(&self, rate: &Self) -> Self {
+        const COEFFICIENTS: [f64; 5] = [1.0, -0.5, 1.0 / 12.0, 0.0, -1.0 / 720.0];
+        let mut term = rate.clone();
+        let mut result = term.clone() * COEFFICIENTS[0];
+        for &coefficient in COEFFICIENTS.iter().skip(1) {
+            term = self * &term - &term * self;
+            if coefficient != 0.0 {
+                result += term.clone() * coefficient;
+            }
+        }
+        result
+    }
 }

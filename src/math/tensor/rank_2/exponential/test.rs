@@ -247,3 +247,48 @@ fn expm_non_symmetric_matches_a_high_order_taylor_reference() -> Result<(), Asse
     }
     .eq_within_tols(a.expm().unwrap(), &reference)
 }
+
+fn rate() -> TensorRank2<3, Current, Current> {
+    [[1.0, -0.5, 0.3], [0.2, 0.7, -0.1], [-0.4, 0.6, 0.9]].into()
+}
+
+#[test]
+fn dexpinv_at_zero_is_the_identity() -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(
+        TensorRank2::<3, Current, Current>::zero().dexpinv(&rate()),
+        &rate(),
+    )
+}
+
+#[test]
+fn dexpinv_is_the_right_trivialized_inverse() -> Result<(), AssertionError> {
+    // The Fréchet derivative and the right-trivialized differential are related by
+    // `dexpm(σ)[H] = dexp_σ(H)·exp(σ)`, and `dexpinv` inverts `dexp_σ`, so
+    // `dexpm(σ) : dexpinv_σ(A) = A·exp(σ)`.
+    //
+    // small norm so dexpm stays on its series branch (it still panics on a
+    // materially non-symmetric argument of larger norm)
+    let sigma = TensorRank2::<3, Current, Current>::from([
+        [0.0, 0.5, -0.25],
+        [-0.4, 0.0, 0.3],
+        [0.15, -0.1, 0.0],
+    ]) * 0.008;
+    let recovered = contract_third_fourth_indices(&sigma.dexpm()?, &sigma.dexpinv(&rate()));
+    Assert {
+        abs_tol: 1e-8,
+        rel_tol: 1e-8,
+        ..Default::default()
+    }
+    .eq_within_tols(&recovered, &(&rate() * &sigma.expm()?))
+}
+
+#[test]
+fn dexpinv_correction_is_non_trivial() {
+    use crate::math::Tensor;
+    let sigma = TensorRank2::<3, Current, Current>::from([
+        [0.0, 0.4, -0.2],
+        [-0.3, 0.0, 0.5],
+        [0.1, -0.15, 0.0],
+    ]);
+    assert!((sigma.dexpinv(&rate()) - &rate()).norm().value() > 1e-2)
+}
