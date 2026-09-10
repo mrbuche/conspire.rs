@@ -14,6 +14,34 @@ test_solid_hyperelastic_constitutive_model_no_tangents!(BucheSilbersteinNetwork 
     link_stiffness: LINK_STIFFNESS,
 });
 
+mod radial_kernel_fit {
+    use super::*;
+    use crate::math::special::extensible_langevin;
+
+    /// The Chebyshev fit of `G_a` must match the live Gauss-Laguerre quadrature
+    /// over the link stiffnesses and Gaussian widths the model reaches
+    /// (`w = k1 N_b s / 2`, `ln w` roughly in `[-4, 12]` for any realistic
+    /// deformation). Consistency of the derived stress kernel `G` with this fit
+    /// is covered by the free-energy finite-difference test.
+    #[test]
+    fn matches_live_quadrature() {
+        for kappa in [1.0, 3.0, 10.0, 50.0] {
+            let kernels = RadialKernels::get(kappa);
+            for i in 0..40 {
+                let w = (-4.0 + i as f64 * 0.4_f64).exp();
+                let energy = radial_moment(w, 2.0, |lambda| {
+                    extensible_langevin::helmholtz_free_energy(lambda, kappa)
+                });
+                let relative = (kernels.radial_energy(w) - energy).abs() / energy.abs();
+                assert!(
+                    relative < 5e-8,
+                    "kappa={kappa} w={w:e}: G_a rel {relative:e}"
+                );
+            }
+        }
+    }
+}
+
 mod neo_hookean_limit {
     use super::*;
     use crate::constitutive::solid::hyperelastic::NeoHookean;
@@ -28,8 +56,8 @@ mod neo_hookean_limit {
         let network = BucheSilbersteinNetwork {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
-            number_of_links: 800.0,
-            link_stiffness: 1e4,
+            number_of_links: 2000.0,
+            link_stiffness: LINK_STIFFNESS,
         };
         let neo_hookean = NeoHookean {
             bulk_modulus: BULK_MODULUS,

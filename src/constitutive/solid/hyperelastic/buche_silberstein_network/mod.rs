@@ -14,11 +14,24 @@ use crate::{
     mechanics::{CauchyStress, CauchyTangentStiffness, Deformation, DeformationGradient, Scalar},
     units::{EnergyDensity, Stress},
 };
-use std::{f64::consts::PI, sync::LazyLock};
+use std::{
+    collections::HashMap,
+    f64::consts::PI,
+    sync::{Arc, LazyLock, RwLock},
+};
 
-const NUMBER_OF_LAGUERRE_NODES: usize = 32;
+const NUMBER_OF_LAGUERRE_NODES: usize = 64;
 const NUMBER_OF_POLAR_NODES: usize = 24;
 const NUMBER_OF_AZIMUTHAL_NODES: usize = 48;
+
+/// Chebyshev fit of `w^{5/2} G_a(w)` in `xi = ln w` over `[LN_W_MIN, LN_W_MAX]`.
+/// The kernel is bounded and smooth for all `w > 0` (the chain force is
+/// asymptotically linear at both ends), so a modest spectral order matches the
+/// live quadrature to full working precision; the stress kernel `G` is derived
+/// from this fit and its derivative so the two stay exactly consistent.
+const CHEBYSHEV_ORDER: usize = 192;
+const LN_W_MIN: Scalar = -9.0;
+const LN_W_MAX: Scalar = 13.0;
 
 /// Reference (undeformed) value of the isochoric $`\bar{\mathbf{B}}^{-1}`$.
 /// Subtracting the network response evaluated here makes the stress and free
@@ -61,6 +74,120 @@ fn radial_moment(w: Scalar, m: Scalar, f: impl Fn(Scalar) -> Scalar) -> Scalar {
             .zip(weights)
             .map(|(&x, &weight)| weight * x.powf(power) * f((x / w).sqrt()))
             .sum::<Scalar>()
+}
+
+/// Chebyshev coefficients of `f` on `[a, b]` from `n` Chebyshev-Lobatto samples.
+fn chebyshev_coefficients(
+    f: impl Fn(Scalar) -> Scalar,
+    a: Scalar,
+    b: Scalar,
+    n: usize,
+) -> Vec<Scalar> {
+    let samples: Vec<Scalar> = (0..n)
+        .map(|k| {
+            let x = (PI * k as Scalar / (n - 1) as Scalar).cos();
+            f(0.5 * (a + b) + 0.5 * (b - a) * x)
+        })
+        .collect();
+    (0..n)
+        .map(|j| {
+            let scale = if j == 0 || j == n - 1 { 1.0 } else { 2.0 } / (n - 1) as Scalar;
+            scale
+                * (0..n)
+                    .map(|k| {
+                        let edge = if k == 0 || k == n - 1 { 0.5 } else { 1.0 };
+                        edge * samples[k]
+                            * (PI * j as Scalar * k as Scalar / (n - 1) as Scalar).cos()
+                    })
+                    .sum::<Scalar>()
+        })
+        .collect()
+}
+
+/// Coefficients of the derivative (with respect to the mapped variable on
+/// `[a, b]`) of a Chebyshev series.
+fn chebyshev_derivative(coefficients: &[Scalar], a: Scalar, b: Scalar) -> Vec<Scalar> {
+    let n = coefficients.len();
+    let mut derivative = vec![0.0; n];
+    if n >= 2 {
+        derivative[n - 2] = 2.0 * (n - 1) as Scalar * coefficients[n - 1];
+        for k in (0..n - 2).rev() {
+            derivative[k] = derivative[k + 2] + 2.0 * (k + 1) as Scalar * coefficients[k + 1];
+        }
+        derivative[0] *= 0.5;
+    }
+    let factor = 2.0 / (b - a);
+    derivative.iter_mut().for_each(|d| *d *= factor);
+    derivative
+}
+
+/// Clenshaw evaluation of a Chebyshev series on `[a, b]`.
+fn chebyshev_evaluate(coefficients: &[Scalar], a: Scalar, b: Scalar, x: Scalar) -> Scalar {
+    let t = ((2.0 * x - a - b) / (b - a)).clamp(-1.0, 1.0);
+    let (two_t, mut d, mut dd) = (2.0 * t, 0.0, 0.0);
+    for &c in coefficients.iter().skip(1).rev() {
+        (d, dd) = (two_t * d - dd + c, d);
+    }
+    t * d - dd + coefficients[0]
+}
+
+/// Precomputed radial kernels for one link stiffness. Stores the Chebyshev fit
+/// of `hat G_a(xi) = w^{5/2} G_a(w)` and its `xi`-derivative; the stress kernel
+/// follows from `G(w) = 2 w^{-5/2}[hat G_a - hat G_a']`.
+struct RadialKernels {
+    energy_fit: Vec<Scalar>,
+    energy_fit_derivative: Vec<Scalar>,
+}
+
+static RADIAL_KERNELS: LazyLock<RwLock<HashMap<u64, Arc<RadialKernels>>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
+
+impl RadialKernels {
+    fn get(link_stiffness: Scalar) -> Arc<Self> {
+        let key = link_stiffness.to_bits();
+        if let Some(kernels) = RADIAL_KERNELS.read().unwrap().get(&key) {
+            return kernels.clone();
+        }
+        let kernels = Arc::new(Self::build(link_stiffness));
+        RADIAL_KERNELS
+            .write()
+            .unwrap()
+            .entry(key)
+            .or_insert_with(|| kernels.clone())
+            .clone()
+    }
+    fn build(kappa: Scalar) -> Self {
+        let energy_fit = chebyshev_coefficients(
+            |ln_w| {
+                let w = ln_w.exp();
+                w.powf(2.5)
+                    * radial_moment(w, 2.0, |lambda| {
+                        extensible_langevin::helmholtz_free_energy(lambda, kappa)
+                    })
+            },
+            LN_W_MIN,
+            LN_W_MAX,
+            CHEBYSHEV_ORDER,
+        );
+        let energy_fit_derivative = chebyshev_derivative(&energy_fit, LN_W_MIN, LN_W_MAX);
+        Self {
+            energy_fit,
+            energy_fit_derivative,
+        }
+    }
+    /// `G_a(w) = int psi*(lambda) lambda^2 e^{-w lambda^2} dlambda`.
+    fn radial_energy(&self, w: Scalar) -> Scalar {
+        chebyshev_evaluate(&self.energy_fit, LN_W_MIN, LN_W_MAX, w.ln()) / (w * w * w.sqrt())
+    }
+    /// `G(w) = int eta(lambda) lambda^3 e^{-w lambda^2} dlambda`, from the same
+    /// fit as [`Self::radial_energy`] so the two are exactly consistent.
+    fn radial_stress(&self, w: Scalar) -> Scalar {
+        let ln_w = w.ln();
+        let g_a = chebyshev_evaluate(&self.energy_fit, LN_W_MIN, LN_W_MAX, ln_w);
+        let g_a_derivative =
+            chebyshev_evaluate(&self.energy_fit_derivative, LN_W_MIN, LN_W_MAX, ln_w);
+        2.0 * (g_a - g_a_derivative) / (w * w * w.sqrt())
+    }
 }
 
 impl BucheSilbersteinNetwork {
@@ -135,16 +262,12 @@ impl Elastic for BucheSilbersteinNetwork {
         let matrix: [[Scalar; 3]; 3] = std::array::from_fn(|i| {
             std::array::from_fn(|j| isochoric_left_cauchy_green_inverse[i][j].value())
         });
-        let (w_0, kappa) = (self.reference_w(), self.link_stiffness());
-        let force = |lambda: Scalar| extensible_langevin::inverse(lambda, kappa);
+        let w_0 = self.reference_w();
+        let kernels = RadialKernels::get(self.link_stiffness());
         let mut network = TensorRank2::<3, Current, Current>::zero();
         for (direction, weight) in SPHERE.iter() {
-            let radial = radial_moment(w_0 * Self::stretch_squared(direction, &matrix), 3.0, force)
-                - radial_moment(
-                    w_0 * Self::stretch_squared(direction, &REFERENCE_MATRIX),
-                    3.0,
-                    force,
-                );
+            let radial = kernels.radial_stress(w_0 * Self::stretch_squared(direction, &matrix))
+                - kernels.radial_stress(w_0 * Self::stretch_squared(direction, &REFERENCE_MATRIX));
             network += TensorRank2::from(std::array::from_fn(|i| {
                 std::array::from_fn(|j| direction[i] * direction[j])
             })) * (weight * radial);
@@ -174,18 +297,16 @@ impl Hyperelastic for BucheSilbersteinNetwork {
         let matrix: [[Scalar; 3]; 3] = std::array::from_fn(|i| {
             std::array::from_fn(|j| isochoric_left_cauchy_green_inverse[i][j].value())
         });
-        let (w_0, kappa) = (self.reference_w(), self.link_stiffness());
-        let psi = |w: Scalar| {
-            radial_moment(w, 2.0, |lambda| {
-                extensible_langevin::helmholtz_free_energy(lambda, kappa)
-            })
-        };
+        let w_0 = self.reference_w();
+        let kernels = RadialKernels::get(self.link_stiffness());
         let network: Scalar = SPHERE
             .iter()
             .map(|(direction, weight)| {
                 weight
-                    * (psi(w_0 * Self::stretch_squared(direction, &matrix))
-                        - psi(w_0 * Self::stretch_squared(direction, &REFERENCE_MATRIX)))
+                    * (kernels.radial_energy(w_0 * Self::stretch_squared(direction, &matrix))
+                        - kernels.radial_energy(
+                            w_0 * Self::stretch_squared(direction, &REFERENCE_MATRIX),
+                        ))
             })
             .sum();
         Ok(
