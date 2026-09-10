@@ -394,6 +394,38 @@ where
     )
 }
 
+/// Runs [`integrate_rkmk_adaptive`] over a [`StateEvolution`] model, sampling
+/// `drive` at each stage time and starting from the model's own initial state.
+/// `time` supplies only the span `[time[0], time[last]]`; the returned times are
+/// the steps the controller accepted.
+pub fn integrate_rkmk_state_adaptive<M, Tab, U, T, Y>(
+    model: &M,
+    mut drive: impl FnMut(Quantity<T>) -> M::Drive,
+    time: &[Quantity<T>],
+    abs_tol: Scalar,
+    rel_tol: Scalar,
+) -> Result<(Times<T>, U), IntegrationError>
+where
+    M: StateEvolution<T, Y>,
+    Tab: EmbeddedTableau,
+    EvolvedState<M, T, Y>: Clone,
+    EvolvedIncrement<M, T, Y>: Clone + Differentiate<T>,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<EvolvedIncrement<M, T, Y>, T>:
+        Mul<Quantity<T>, Output = EvolvedIncrement<M, T, Y>>,
+    U: TensorVec<Item = EvolvedState<M, T, Y>>,
+{
+    let initial = model.initial_state();
+    integrate_rkmk_adaptive::<M::Field, Tab, U, T>(
+        |t, state| model.state_rate(t, &drive(t), state),
+        time,
+        initial,
+        abs_tol,
+        rel_tol,
+    )
+}
+
 /// How a Runge–Kutta integrator advances its evolving unknown from the stage
 /// slopes. The blanket impl is additive — `xₙ₊₁ = xₙ + (Σ cᵢ kᵢ) Δt` — which is
 /// what every flat state wants; a group-valued state overrides it to stay on its

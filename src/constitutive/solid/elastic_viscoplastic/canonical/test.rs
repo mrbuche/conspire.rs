@@ -141,7 +141,10 @@ mod state_evolution {
     use crate::{
         math::{
             Quantity, Tensor, TensorArray, TensorTuple, TensorVector,
-            integrate::{BogackiShampineTableau, StateEvolution, Times, integrate_rkmk_state},
+            integrate::{
+                BogackiShampineTableau, StateEvolution, Times, integrate_rkmk_state,
+                integrate_rkmk_state_adaptive,
+            },
         },
         mechanics::{DeformationGradient, DeformationGradientPlastic},
         units::Time,
@@ -177,6 +180,41 @@ mod state_evolution {
                 .value()
                 > 1e-3
         );
+    }
+
+    #[test]
+    fn rkmk_state_adaptive_keeps_the_plastic_deformation_unimodular_and_meets_tolerance() {
+        let model = model();
+        let (times, states): (Times, TensorVector<_>) =
+            integrate_rkmk_state_adaptive::<_, BogackiShampineTableau, _, _, _>(
+                &model,
+                |_| deformation_gradient(),
+                &time(1),
+                1e-8,
+                1e-8,
+            )
+            .unwrap();
+        // the controller subdivided the single [0, 1] span
+        assert!(times.len() > 2);
+        let final_state = states.iter().last().unwrap();
+        assert!((final_state.0.determinant() - 1.0).abs() < 1e-10);
+        assert!(
+            (&final_state.0 - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+        // a much looser tolerance takes fewer steps
+        let (loose_times, _): (Times, TensorVector<_>) =
+            integrate_rkmk_state_adaptive::<_, BogackiShampineTableau, _, _, _>(
+                &model,
+                |_| deformation_gradient(),
+                &time(1),
+                1e-3,
+                1e-3,
+            )
+            .unwrap();
+        assert!(loose_times.len() < times.len());
     }
 
     #[test]
