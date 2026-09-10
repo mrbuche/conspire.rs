@@ -16,7 +16,7 @@ use crate::{
         },
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
-            elastic_viscoplastic::ElasticViscoplasticElements,
+            elastic_viscoplastic::{ElasticViscoplasticElements, ElasticViscoplasticRkmkElements},
         },
     },
     math::{
@@ -136,16 +136,29 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> Block<C, F, G, 3, N, P>
+/// Advances every Gauss point's plastic state by one RKMK step from `t` over
+/// `dt`, with the deformation gradient held frozen at `nodal_coordinates`.
+/// `F_p` stays on the unimodular group (`det = 1`) instead of drifting. One
+/// stage-slope buffer is reused across the whole block, so the step allocates
+/// nothing per Gauss point.
+impl<C, F, const G: usize, const N: usize, const P: usize, Y>
+    ElasticViscoplasticRkmkElements<ViscoplasticStateVariables<G, Y>, 3> for Block<C, F, G, 3, N, P>
 where
-    F: SolidFiniteElement<G, 3, N, P>,
+    F: SolidFiniteElement<G, 3, N, P> + ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
+    Y: Clone + Differentiate<Time> + Tensor,
+    C: ElasticViscoplastic<Y>
+        + StateEvolution<
+            Time,
+            Y,
+            Drive = DeformationGradient,
+            Field: IntegrableField<Point = PointStateVariables<Y>>,
+        >,
+    EvolvedIncrement<C, Time, Y>: Clone + Differentiate<Time>,
+    Quantity<Time>: Mul<Scalar, Output = Quantity<Time>>,
+    for<'a> &'a Derivative<EvolvedIncrement<C, Time, Y>, Time>:
+        Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time, Y>>,
 {
-    /// Advances every Gauss point's plastic state by one RKMK step from `t` over
-    /// `dt`, with the deformation gradient held frozen at `nodal_coordinates`.
-    /// `F_p` stays on the unimodular group (`det = 1`) instead of drifting. One
-    /// stage-slope buffer is reused across the whole block, so the step allocates
-    /// nothing per Gauss point.
-    pub(crate) fn state_variables_rkmk_step<Tab, Y>(
+    fn state_variables_rkmk_step<Tab>(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &ViscoplasticStateVariables<G, Y>,
@@ -154,19 +167,6 @@ where
     ) -> Result<ViscoplasticStateVariables<G, Y>, ElementModelError>
     where
         Tab: EmbeddedTableau,
-        Y: Clone + Differentiate<Time> + Tensor,
-        C: ElasticViscoplastic<Y>
-            + StateEvolution<
-                Time,
-                Y,
-                Drive = DeformationGradient,
-                Field: IntegrableField<Point = PointStateVariables<Y>>,
-            >,
-        F: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
-        EvolvedIncrement<C, Time, Y>: Clone + Differentiate<Time>,
-        Quantity<Time>: Mul<Scalar, Output = Quantity<Time>>,
-        for<'a> &'a Derivative<EvolvedIncrement<C, Time, Y>, Time>:
-            Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time, Y>>,
     {
         let model = self.constitutive_model();
         let mut scratch: Vec<EvolvedIncrement<C, Time, Y>> = Vec::new();
