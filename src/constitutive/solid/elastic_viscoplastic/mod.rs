@@ -20,11 +20,12 @@ use crate::{
         solid::elastic::Elastic,
     },
     math::{
-        ContractWith, Derivative, Differentiate, Quantity, Rank2, Tensor, TensorArray, TensorVec,
-        Vector,
+        ContractWith, Derivative, Differentiate, Quantity, Rank2, Scalar, Tensor, TensorArray,
+        TensorVec, TensorVector, Vector,
         integrate::{
             EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderRoot,
-            ExplicitDaeZerothOrderRoot, IntegrableField, StateEvolution, rkmk_step,
+            ExplicitDaeZerothOrderRoot, IntegrableField, StateEvolution, integrate_rkmk_adaptive,
+            rkmk_step,
         },
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
@@ -293,7 +294,8 @@ where
     Y: Differentiate + Tensor,
 {
     /// Solve for the unknown deformation-gradient components under an applied
-    /// load, advancing the plastic state with a `Tab`-tableau RKMK step.
+    /// load, advancing the plastic state one fixed `Tab`-tableau RKMK step per
+    /// load-step window.
     fn root_rkmk<Tab>(
         &self,
         applied_load: AppliedLoad,
@@ -312,26 +314,12 @@ where
     >
     where
         Tab: EmbeddedTableau;
-}
-
-impl<C1, C2, Y> RkmkRoot<Y> for Canonical<C1, C2>
-where
-    C1: Elastic,
-    C2: Viscoplastic<Y>,
-    Y: Differentiate + Tensor,
-    Self: ElasticPlasticOrViscoplastic
-        + Viscoplastic<Y>
-        + StateEvolution<
-            Time,
-            Y,
-            Drive = DeformationGradient,
-            Field: IntegrableField<Point = ViscoplasticStateVariables<Y>>,
-        >,
-    EvolvedIncrement<Self, Time, Y>: Clone + Differentiate<Time>,
-    for<'a> &'a Derivative<EvolvedIncrement<Self, Time, Y>, Time>:
-        Mul<Quantity<Time>, Output = EvolvedIncrement<Self, Time, Y>>,
-{
-    fn root_rkmk<Tab>(
+    /// As [`Self::root_rkmk`], but the group leg substeps within each load-step
+    /// window under embedded (`Tab::D`) error control to meet `abs_tol` /
+    /// `rel_tol`. The equilibrium solve stays once per window, so the split is
+    /// still first order in the `F ↔ F_p` coupling — this only tightens the
+    /// plastic-flow integration for a given load-step grid.
+    fn root_rkmk_adaptive<Tab>(
         &self,
         applied_load: AppliedLoad,
         solver: impl FirstOrderRootFinding<
@@ -339,6 +327,36 @@ where
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
         >,
+        abs_tol: Scalar,
+        rel_tol: Scalar,
+    ) -> Result<
+        (
+            Times,
+            DeformationGradients,
+            ViscoplasticStateVariablesHistory<Y>,
+        ),
+        ConstitutiveError,
+    >
+    where
+        Tab: EmbeddedTableau;
+}
+
+impl<C1, C2> Canonical<C1, C2>
+where
+    C1: Elastic,
+{
+    /// Shared operator-split loop; `tolerances` selects a fixed [`rkmk_step`]
+    /// per window (`None`) or adaptive [`integrate_rkmk_adaptive`] substepping.
+    #[allow(clippy::type_complexity)]
+    fn root_rkmk_split<Tab, Y>(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+        tolerances: Option<(Scalar, Scalar)>,
     ) -> Result<
         (
             Times,
@@ -349,6 +367,19 @@ where
     >
     where
         Tab: EmbeddedTableau,
+        C2: Viscoplastic<Y>,
+        Y: Differentiate + Tensor,
+        Self: ElasticPlasticOrViscoplastic
+            + Viscoplastic<Y>
+            + StateEvolution<
+                Time,
+                Y,
+                Drive = DeformationGradient,
+                Field: IntegrableField<Point = ViscoplasticStateVariables<Y>>,
+            >,
+        EvolvedIncrement<Self, Time, Y>: Clone + Differentiate<Time>,
+        for<'a> &'a Derivative<EvolvedIncrement<Self, Time, Y>, Time>:
+            Mul<Quantity<Time>, Output = EvolvedIncrement<Self, Time, Y>>,
     {
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
@@ -395,14 +426,39 @@ where
         state_variables.push(state.clone());
         for step in time.windows(2) {
             let frozen = deformation_gradient.clone();
-            state = rkmk_step::<<Self as StateEvolution<Time, Y>>::Field, Tab, Time>(
-                &mut |t, point| self.state_rate(t, &frozen, point),
-                &state,
-                step[0],
-                step[1] - step[0],
-                &mut scratch,
-            )
-            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+            state = match tolerances {
+                None => rkmk_step::<<Self as StateEvolution<Time, Y>>::Field, Tab, Time>(
+                    &mut |t, point| self.state_rate(t, &frozen, point),
+                    &state,
+                    step[0],
+                    step[1] - step[0],
+                    &mut scratch,
+                )
+                .map_err(|error| ConstitutiveError::upstream(error, self))?,
+                Some((abs_tol, rel_tol)) => {
+                    let (_, window): (
+                        TensorVector<Quantity<Time>>,
+                        TensorVector<ViscoplasticStateVariables<Y>>,
+                    ) = integrate_rkmk_adaptive::<
+                        <Self as StateEvolution<Time, Y>>::Field,
+                        Tab,
+                        _,
+                        Time,
+                    >(
+                        |t, point| self.state_rate(t, &frozen, point),
+                        &[step[0], step[1]],
+                        state.clone(),
+                        abs_tol,
+                        rel_tol,
+                    )
+                    .map_err(|error| ConstitutiveError::upstream(error, self))?;
+                    window
+                        .iter()
+                        .last()
+                        .cloned()
+                        .expect("adaptive RKMK window produced no state")
+                }
+            };
             let deformation_gradient_p = state.0.clone();
             deformation_gradient =
                 equilibrate(&deformation_gradient_p, &deformation_gradient, step[1])?;
@@ -411,5 +467,68 @@ where
             state_variables.push(state.clone());
         }
         Ok((times, deformation_gradients, state_variables))
+    }
+}
+
+impl<C1, C2, Y> RkmkRoot<Y> for Canonical<C1, C2>
+where
+    C1: Elastic,
+    C2: Viscoplastic<Y>,
+    Y: Differentiate + Tensor,
+    Self: ElasticPlasticOrViscoplastic
+        + Viscoplastic<Y>
+        + StateEvolution<
+            Time,
+            Y,
+            Drive = DeformationGradient,
+            Field: IntegrableField<Point = ViscoplasticStateVariables<Y>>,
+        >,
+    EvolvedIncrement<Self, Time, Y>: Clone + Differentiate<Time>,
+    for<'a> &'a Derivative<EvolvedIncrement<Self, Time, Y>, Time>:
+        Mul<Quantity<Time>, Output = EvolvedIncrement<Self, Time, Y>>,
+{
+    fn root_rkmk<Tab>(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<
+        (
+            Times,
+            DeformationGradients,
+            ViscoplasticStateVariablesHistory<Y>,
+        ),
+        ConstitutiveError,
+    >
+    where
+        Tab: EmbeddedTableau,
+    {
+        self.root_rkmk_split::<Tab, Y>(applied_load, solver, None)
+    }
+    fn root_rkmk_adaptive<Tab>(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+        abs_tol: Scalar,
+        rel_tol: Scalar,
+    ) -> Result<
+        (
+            Times,
+            DeformationGradients,
+            ViscoplasticStateVariablesHistory<Y>,
+        ),
+        ConstitutiveError,
+    >
+    where
+        Tab: EmbeddedTableau,
+    {
+        self.root_rkmk_split::<Tab, Y>(applied_load, solver, Some((abs_tol, rel_tol)))
     }
 }

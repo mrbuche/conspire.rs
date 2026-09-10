@@ -3,9 +3,9 @@ use crate::{
         Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
         assert::Assert,
         integrate::{
-            ButcherTableau, EmbeddedTableau, ExplicitDaeFirstOrderMinimize,
-            ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize, ExplicitDaeZerothOrderRoot,
-            IntegrationError, StateStep, Times, VariableStepExplicit,
+            ButcherTableau, ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot,
+            ExplicitDaeSecondOrderMinimize, ExplicitDaeZerothOrderRoot, IntegrationError,
+            StateStep, Times, VariableStepExplicit,
         },
         optimize::{
             EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,

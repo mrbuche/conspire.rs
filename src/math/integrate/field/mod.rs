@@ -156,13 +156,19 @@ fn reconstruct_or_err<Fld: IntegrableField>(
 /// cleared first and reused, so a caller that steps in a loop allocates nothing.
 /// The caller weights the entries by `B` (the step) and, for an embedded pair,
 /// by `D` (the error estimate).
+///
+/// FSAL: `first_rate` seeds stage 0 (`C[0] == 0`) with a rate carried from the
+/// previous step, skipping that evaluation; when `Tab::FSAL`, the raw rate at
+/// the final stage (whose point is the step solution) is returned for the next
+/// step to seed with.
 fn rkmk_stage_slopes_into<Fld, Tab, T>(
     rate: &mut impl FnMut(Quantity<T>, &Fld::Point) -> Result<Derivative<Fld::Increment, T>, String>,
     point: &Fld::Point,
     t: Quantity<T>,
     dt: Quantity<T>,
     slopes: &mut Vec<Fld::Increment>,
-) -> Result<(), IntegrationError>
+    first_rate: Option<&Derivative<Fld::Increment, T>>,
+) -> Result<Option<Derivative<Fld::Increment, T>>, IntegrationError>
 where
     Fld: IntegrableField,
     Tab: ButcherTableau,
@@ -174,6 +180,7 @@ where
 {
     slopes.clear();
     slopes.reserve(Tab::STAGES);
+    let mut carry = None;
     for i in 0..Tab::STAGES {
         let sigma = if i == 0 {
             None
@@ -188,13 +195,23 @@ where
             Some(sigma) => reconstruct_or_err::<Fld>(point, sigma)?,
             None => point.clone(),
         };
-        let increment = &rate(t + dt * Tab::C[i], &stage_point)? * dt;
+        let increment = match (i, first_rate) {
+            (0, Some(seed)) => seed * dt,
+            _ => {
+                let raw = rate(t + dt * Tab::C[i], &stage_point)?;
+                let increment = &raw * dt;
+                if Tab::FSAL && i + 1 == Tab::STAGES {
+                    carry = Some(raw);
+                }
+                increment
+            }
+        };
         slopes.push(match &sigma {
             Some(sigma) => Fld::dexpinv(sigma, increment),
             None => increment,
         });
     }
-    Ok(())
+    Ok(carry)
 }
 
 fn weight<P>(slopes: &[P], weights: &[Scalar]) -> P
@@ -228,7 +245,7 @@ where
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
 {
-    rkmk_stage_slopes_into::<Fld, Tab, T>(rate, point, t, dt, scratch)?;
+    rkmk_stage_slopes_into::<Fld, Tab, T>(rate, point, t, dt, scratch, None)?;
     reconstruct_or_err::<Fld>(point, &weight(scratch, Tab::B))
 }
 
@@ -255,11 +272,19 @@ where
     let mut points = U::new();
     let mut times = Times::new();
     let mut scratch = Vec::new();
+    let mut carry: Option<Derivative<Fld::Increment, T>> = None;
     points.push(point.clone());
     times.push(time[0]);
     for step in time.windows(2) {
-        point =
-            rkmk_step::<Fld, Tab, T>(&mut rate, &point, step[0], step[1] - step[0], &mut scratch)?;
+        carry = rkmk_stage_slopes_into::<Fld, Tab, T>(
+            &mut rate,
+            &point,
+            step[0],
+            step[1] - step[0],
+            &mut scratch,
+            carry.as_ref(),
+        )?;
+        point = reconstruct_or_err::<Fld>(&point, &weight(&scratch, Tab::B))?;
         points.push(point.clone());
         times.push(step[1]);
     }
@@ -304,11 +329,19 @@ where
     let mut points = U::new();
     let mut times = Times::new();
     let mut slopes = Vec::new();
+    let mut carry: Option<Derivative<Fld::Increment, T>> = None;
     points.push(point.clone());
     times.push(t_0);
     while t_f - t > dt_min {
         dt = dt.min(t_f - t);
-        rkmk_stage_slopes_into::<Fld, Tab, T>(&mut rate, &point, t, dt, &mut slopes)?;
+        let next_carry = rkmk_stage_slopes_into::<Fld, Tab, T>(
+            &mut rate,
+            &point,
+            t,
+            dt,
+            &mut slopes,
+            carry.as_ref(),
+        )?;
         let trial = reconstruct_or_err::<Fld>(&point, &weight(&slopes, Tab::B))?;
         let error = weight(&slopes, Tab::D).norm().value().abs();
         let tolerance = abs_tol + rel_tol * trial.norm().value();
@@ -316,6 +349,7 @@ where
         if accept {
             t += dt;
             point = trial;
+            carry = next_carry;
             points.push(point.clone());
             times.push(t);
         }

@@ -260,6 +260,50 @@ mod state_evolution {
         );
     }
 
+    // The adaptive group leg substeps within each load window but keeps the same
+    // operator-split coupling as the fixed step, so on a moderately fine load grid
+    // (where one BS step per window is already accurate) the two must agree.
+    #[test]
+    fn root_rkmk_adaptive_agrees_with_the_fixed_step_on_a_fine_grid() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, RkmkRoot},
+            math::optimize::NewtonRaphson,
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let times = time(24);
+        let (_, deformation_gradients_adaptive, state_variables_adaptive) = model()
+            .root_rkmk_adaptive::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(load, &times),
+                NewtonRaphson::default(),
+                1e-9,
+                1e-9,
+            )
+            .unwrap();
+        let (_, deformation_gradients_fixed, state_variables_fixed) = model()
+            .root_rkmk::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(load, &times),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let f_p_adaptive = &state_variables_adaptive.iter().last().unwrap().0;
+        let f_p_fixed = &state_variables_fixed.iter().last().unwrap().0;
+        assert!((f_p_adaptive.determinant() - 1.0).abs() < 1e-10);
+        assert!((f_p_adaptive - f_p_fixed).norm().value() < 5e-4);
+        assert!(
+            (deformation_gradients_adaptive.iter().last().unwrap()
+                - deformation_gradients_fixed.iter().last().unwrap())
+            .norm()
+            .value()
+                < 5e-4
+        );
+        assert!(
+            (f_p_adaptive - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+    }
+
     // The operator split is only first order in the F <-> F_p coupling, so as the
     // step shrinks its solution must approach the monolithic DAE first-order root,
     // and its own step-to-step change must halve as dt halves.

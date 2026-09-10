@@ -29,11 +29,11 @@ impl ButcherTableau for Tableau {
     ];
     const C: &'static [Scalar] = &[0.0, 0.5, 0.75, 1.0];
     const B: &'static [Scalar] = &[2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0, 0.0];
+    const FSAL: bool = true;
 }
 
 impl EmbeddedTableau for Tableau {
     const D: &'static [Scalar] = &[-5.0 / 72.0, 6.0 / 72.0, 8.0 / 72.0, -9.0 / 72.0];
-    const FSAL: bool = true;
 }
 
 #[doc = include_str!("doc.md")]

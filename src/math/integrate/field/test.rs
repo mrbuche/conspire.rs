@@ -157,6 +157,32 @@ fn rkmk_bogacki_shampine_is_third_order() {
 }
 
 #[test]
+fn rkmk_reuses_the_fsal_stage_across_steps() {
+    use std::cell::Cell;
+    let a = FpRate::from(constant_exponent());
+    let evaluations = Cell::new(0_usize);
+    let steps = 8;
+    let (_, points): (Times, TensorVector<Fp>) =
+        integrate_rkmk::<Unimodular<Current>, BogackiShampine, _, _>(
+            |t: Quantity<Time>, _: &Fp| {
+                evaluations.set(evaluations.get() + 1);
+                Ok(a.clone() * (1.0 / (1.0 + t.value())))
+            },
+            &uniform_time(steps),
+            Fp::identity(),
+        )
+        .unwrap();
+    // Bogacki–Shampine is FSAL: 4 rate evaluations for the first window, then the
+    // last stage of each step seeds the first stage of the next, so 3 per window
+    // after that.
+    assert_eq!(evaluations.get(), 3 * steps + 1);
+    let exact = (Fp::from(constant_exponent()) * 2.0_f64.ln())
+        .expm()
+        .unwrap();
+    assert!((points.iter().last().unwrap() - &exact).norm().value() < 1e-2);
+}
+
+#[test]
 fn rkmk_keeps_the_group_state_unimodular() {
     let rate = trace_free_rate();
     let (_, points): (Times, TensorVector<Fp>) =

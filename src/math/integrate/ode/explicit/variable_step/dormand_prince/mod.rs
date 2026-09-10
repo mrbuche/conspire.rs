@@ -77,6 +77,7 @@ impl ButcherTableau for Tableau {
         11.0 / 84.0,
         0.0,
     ];
+    const FSAL: bool = true;
 }
 
 impl EmbeddedTableau for Tableau {
@@ -89,7 +90,6 @@ impl EmbeddedTableau for Tableau {
         22.0 / 525.0,
         -0.025,
     ];
-    const FSAL: bool = true;
 }
 
 #[doc = include_str!("doc.md")]
