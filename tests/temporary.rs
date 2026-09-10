@@ -7668,6 +7668,16 @@ fn temporary_elastic_viscoplastic_rkmk() -> Result<(), AssertionError> {
             bcs_temporary_elastic_viscoplastic,
         )
         .unwrap();
+    // adaptive: the group leg substeps within each load window, same coupling
+    let (_, _, state_variables_history_adaptive) = fem_model
+        .root_rkmk_adaptive::<BogackiShampineTableau>(
+            NewtonRaphson::default(),
+            &time,
+            bcs_temporary_elastic_viscoplastic,
+            1e-9,
+            1e-9,
+        )
+        .unwrap();
     let mut moved = false;
     state_variables_history
         .iter()
@@ -7675,9 +7685,20 @@ fn temporary_elastic_viscoplastic_rkmk() -> Result<(), AssertionError> {
         .unwrap()
         .iter()
         .flat_map(|element| element.iter())
-        .for_each(|point_state| {
-            // every Gauss point's F_p stays on the unimodular group
+        .zip(
+            state_variables_history_adaptive
+                .iter()
+                .last()
+                .unwrap()
+                .iter()
+                .flat_map(|element| element.iter()),
+        )
+        .for_each(|(point_state, point_state_adaptive)| {
+            // every Gauss point's F_p stays on the unimodular group, both schemes
             assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+            assert!((point_state_adaptive.0.determinant() - 1.0).abs() < 1e-9);
+            // and the fixed step is already fine at dt = 0.25, so they agree
+            assert!((&point_state.0 - &point_state_adaptive.0).norm().value() < 5e-4);
             if (&point_state.0 - &conspire::mechanics::DeformationGradientPlastic::identity())
                 .norm()
                 .value()

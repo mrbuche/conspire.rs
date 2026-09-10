@@ -21,9 +21,10 @@ use crate::{
     },
     math::{
         Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTupleListVec,
-        TensorTupleListVec2D, TensorVec,
+        TensorTupleListVec2D, TensorVec, TensorVector,
         integrate::{
-            EmbeddedTableau, EvolvedIncrement, IntegrableField, StateEvolution, rkmk_step,
+            EmbeddedTableau, EvolvedIncrement, IntegrableField, StateEvolution,
+            integrate_rkmk_adaptive, rkmk_step,
         },
         optimize::EqualityConstraint,
     },
@@ -136,11 +137,11 @@ where
     }
 }
 
-/// Advances every Gauss point's plastic state by one RKMK step from `t` over
-/// `dt`, with the deformation gradient held frozen at `nodal_coordinates`.
-/// `F_p` stays on the unimodular group (`det = 1`) instead of drifting. One
-/// stage-slope buffer is reused across the whole block, so the step allocates
-/// nothing per Gauss point.
+/// Advances every Gauss point's plastic state over `[t, t + dt]` with the
+/// deformation gradient held frozen at `nodal_coordinates` — a single RKMK step
+/// (`tolerances` `None`, one reused stage-slope buffer, no per-Gauss-point
+/// allocation) or embedded adaptive substepping (`Some`). `F_p` stays on the
+/// unimodular group (`det = 1`) instead of drifting.
 impl<C, F, const G: usize, const N: usize, const P: usize, Y> ElasticViscoplasticRkmkElements<Y, 3>
     for Block<C, F, G, 3, N, P>
 where
@@ -168,6 +169,7 @@ where
         state_variables: &ViscoplasticStateVariables<G, Y>,
         t: Quantity<Time>,
         dt: Quantity<Time>,
+        tolerances: Option<(Scalar, Scalar)>,
     ) -> Result<ViscoplasticStateVariables<G, Y>, ElementModelError>
     where
         Tab: EmbeddedTableau,
@@ -186,13 +188,34 @@ where
                     .zip(element_state)
                     .map(|(deformation_gradient, point_state)| {
                         let frozen = deformation_gradient.clone();
-                        rkmk_step::<<C as StateEvolution<Time, Y>>::Field, Tab, Time>(
-                            &mut |t, state| model.state_rate(t, &frozen, state),
-                            point_state,
-                            t,
-                            dt,
-                            &mut scratch,
-                        )
+                        match tolerances {
+                            None => rkmk_step::<<C as StateEvolution<Time, Y>>::Field, Tab, Time>(
+                                &mut |t, state| model.state_rate(t, &frozen, state),
+                                point_state,
+                                t,
+                                dt,
+                                &mut scratch,
+                            ),
+                            Some((abs_tol, rel_tol)) => integrate_rkmk_adaptive::<
+                                <C as StateEvolution<Time, Y>>::Field,
+                                Tab,
+                                TensorVector<PointStateVariables<Y>>,
+                                Time,
+                            >(
+                                |t, state| model.state_rate(t, &frozen, state),
+                                &[t, t + dt],
+                                point_state.clone(),
+                                abs_tol,
+                                rel_tol,
+                            )
+                            .map(|(_, history)| {
+                                history
+                                    .iter()
+                                    .last()
+                                    .cloned()
+                                    .expect("adaptive RKMK window produced no state")
+                            }),
+                        }
                         .map_err(|error| FiniteElementError::upstream(error, element))
                     })
                     .collect::<Result<_, FiniteElementError>>()

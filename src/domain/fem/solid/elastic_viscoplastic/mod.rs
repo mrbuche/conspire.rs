@@ -6,7 +6,8 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
-        Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorTupleVec, TensorVec,
+        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec,
+        TensorVec,
         integrate::{EmbeddedTableau, ExplicitDaeFirstOrderRoot, IntegrationError},
         optimize::FirstOrderRootFinding,
     },
@@ -290,13 +291,16 @@ where
     type State: Clone + Differentiate + Tensor;
     /// Time history of [`Self::State`].
     type History: TensorVec<Item = Self::State>;
-    /// One RKMK step for the plastic state, `F` frozen.
+    /// Advance the plastic state over `[t, t + dt]` with `F` frozen: one fixed
+    /// RKMK step when `tolerances` is `None`, or embedded (`Tab::D`) adaptive
+    /// substepping to meet `(abs_tol, rel_tol)` when `Some`.
     fn state_variables_rkmk_step<Tab>(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &Self::State,
         t: Quantity<Time>,
         dt: Quantity<Time>,
+        tolerances: Option<(Scalar, Scalar)>,
     ) -> Result<Self::State, ElementModelError>
     where
         Tab: EmbeddedTableau;
@@ -314,12 +318,18 @@ where
         state_variables: &Self::State,
         t: Quantity<Time>,
         dt: Quantity<Time>,
+        tolerances: Option<(Scalar, Scalar)>,
     ) -> Result<Self::State, ElementModelError>
     where
         Tab: EmbeddedTableau,
     {
-        self.blocks
-            .state_variables_rkmk_step::<Tab>(nodal_coordinates, state_variables, t, dt)
+        self.blocks.state_variables_rkmk_step::<Tab>(
+            nodal_coordinates,
+            state_variables,
+            t,
+            dt,
+            tolerances,
+        )
     }
 }
 
@@ -357,6 +367,7 @@ where
         state_variables: &Self::State,
         t: Quantity<Time>,
         dt: Quantity<Time>,
+        tolerances: Option<(Scalar, Scalar)>,
     ) -> Result<Self::State, ElementModelError>
     where
         Tab: EmbeddedTableau,
@@ -367,12 +378,14 @@ where
                 &state_variables.0,
                 t,
                 dt,
+                tolerances,
             )?,
             self.1.state_variables_rkmk_step::<Tab>(
                 nodal_coordinates,
                 &state_variables.1,
                 t,
                 dt,
+                tolerances,
             )?,
         )
             .into())
@@ -393,19 +406,26 @@ where
         state_variables: &Self::State,
         t: Quantity<Time>,
         dt: Quantity<Time>,
+        tolerances: Option<(Scalar, Scalar)>,
     ) -> Result<Self::State, ElementModelError>
     where
         Tab: EmbeddedTableau,
     {
-        self.0
-            .state_variables_rkmk_step::<Tab>(nodal_coordinates, state_variables, t, dt)
+        self.0.state_variables_rkmk_step::<Tab>(
+            nodal_coordinates,
+            state_variables,
+            t,
+            dt,
+            tolerances,
+        )
     }
 }
 
 /// The shared operator-split (Lie–Trotter) loop behind every [`RkmkRoot`] impl:
 /// equilibrium is solved once at the initial time, then each step advances the
-/// plastic state one RKMK step with `F` frozen and re-solves equilibrium at the
-/// new time with the advanced state held.
+/// plastic state with `F` frozen — one fixed RKMK step when `tolerances` is
+/// `None`, adaptive substepping to `(abs_tol, rel_tol)` when `Some` — and
+/// re-solves equilibrium at the new time with the advanced state held.
 #[allow(clippy::type_complexity)]
 fn root_rkmk_operator_split<M, Y, Tab>(
     model: &M,
@@ -416,6 +436,7 @@ fn root_rkmk_operator_split<M, Y, Tab>(
     >,
     time: &[Quantity<Time>],
     bcs: ElasticViscoplasticBCs,
+    tolerances: Option<(Scalar, Scalar)>,
 ) -> Result<
     (
         Times,
@@ -463,6 +484,7 @@ where
                 &state,
                 step[0],
                 step[1] - step[0],
+                tolerances,
             )
             .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
         nodal_coordinates = equilibrate(&state, &nodal_coordinates, step[1])?;
@@ -491,8 +513,8 @@ pub trait RkmkRoot<const D: usize, Y = Quantity> {
     /// The model's plastic-state history type — a per-Gauss-point list history
     /// for one block, a [`TensorTuple`] of those for [`Blocks`].
     type History;
-    /// Solve under an applied load, advancing the plastic state with a
-    /// `Tab`-tableau RKMK step at every Gauss point.
+    /// Solve under an applied load, advancing every Gauss point's plastic state
+    /// one fixed `Tab`-tableau RKMK step per load-step window.
     fn root_rkmk<Tab>(
         &self,
         solver: impl FirstOrderRootFinding<
@@ -502,6 +524,25 @@ pub trait RkmkRoot<const D: usize, Y = Quantity> {
         >,
         time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
+    ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>
+    where
+        Tab: EmbeddedTableau;
+    /// As [`Self::root_rkmk`], but every Gauss point's plastic state substeps
+    /// within each load-step window under embedded (`Tab::D`) error control to
+    /// meet `abs_tol` / `rel_tol`. The equilibrium solve stays once per window,
+    /// so the split is still first order in the coupling — this only tightens
+    /// the plastic-flow integration for a given load-step grid.
+    fn root_rkmk_adaptive<Tab>(
+        &self,
+        solver: impl FirstOrderRootFinding<
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
+        >,
+        time: &[Quantity<Time>],
+        bcs: ElasticViscoplasticBCs,
+        abs_tol: Scalar,
+        rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>
     where
         Tab: EmbeddedTableau;
@@ -530,6 +571,29 @@ where
     where
         Tab: EmbeddedTableau,
     {
-        root_rkmk_operator_split::<Model<B, 3>, Y, Tab>(self, solver, time, bcs)
+        root_rkmk_operator_split::<Model<B, 3>, Y, Tab>(self, solver, time, bcs, None)
+    }
+    fn root_rkmk_adaptive<Tab>(
+        &self,
+        solver: impl FirstOrderRootFinding<
+            NodalForcesSolid<3>,
+            NodalStiffnessesSolid<3>,
+            NodalCoordinates<3>,
+        >,
+        time: &[Quantity<Time>],
+        bcs: ElasticViscoplasticBCs,
+        abs_tol: Scalar,
+        rel_tol: Scalar,
+    ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError>
+    where
+        Tab: EmbeddedTableau,
+    {
+        root_rkmk_operator_split::<Model<B, 3>, Y, Tab>(
+            self,
+            solver,
+            time,
+            bcs,
+            Some((abs_tol, rel_tol)),
+        )
     }
 }
