@@ -27,7 +27,8 @@ use crate::{
         CauchyTangentStiffnessPlastic, DeformationGradient, DeformationGradientPlastic,
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
         FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessElastic,
-        MandelStressElastic, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffStressElastic,
+        FirstPiolaKirchhoffTangentStiffnessPlastic, MandelStressElastic,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffStressElastic,
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffnessElastic,
         StretchingRatePlastic,
     },
@@ -195,6 +196,29 @@ where
         )
         .contract_third_with_first(&deformation_gradient_e)
             * deformation_gradient_p_inverse.transpose()
+            * -1.0)
+    }
+    fn first_piola_kirchhoff_tangent_stiffness_p(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_p: &DeformationGradientPlastic,
+    ) -> Result<FirstPiolaKirchhoffTangentStiffnessPlastic, ConstitutiveError> {
+        let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
+        let deformation_gradient_p_inverse_transpose = deformation_gradient_p_inverse.transpose();
+        let deformation_gradient_e = deformation_gradient * &deformation_gradient_p_inverse;
+        let first_piola_kirchhoff_stress =
+            self.first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?;
+        Ok(((FirstPiolaKirchhoffTangentStiffnessElastic::from(
+            self.0
+                .first_piola_kirchhoff_tangent_stiffness(&deformation_gradient_e.clone().into())?,
+        )
+        .contract_third_with_first(&deformation_gradient_e)
+            * &deformation_gradient_p_inverse_transpose)
+            .contract_second_with_first(&deformation_gradient_p_inverse_transpose)
+            + FirstPiolaKirchhoffTangentStiffnessPlastic::dyad_il_kj(
+                &first_piola_kirchhoff_stress,
+                &deformation_gradient_p_inverse_transpose,
+            ))
             * -1.0)
     }
 }

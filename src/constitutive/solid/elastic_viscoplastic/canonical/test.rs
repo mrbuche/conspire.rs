@@ -174,6 +174,38 @@ fn cauchy_tangent_stiffness_p_matches_finite_difference() -> Result<(), Assertio
     Assert::default().eq_within_fd_tol(&tangent, &fd)
 }
 
+#[test]
+fn first_piola_kirchhoff_tangent_stiffness_p_matches_finite_difference()
+-> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_viscoplastic::PlasticTangents,
+        mechanics::FirstPiolaKirchhoffTangentStiffnessPlastic,
+    };
+    let (deformation_gradient, deformation_gradient_p) = deformation_gradients();
+    let model = model();
+    let tangent = model.first_piola_kirchhoff_tangent_stiffness_p(
+        &deformation_gradient,
+        &deformation_gradient_p,
+    )?;
+    let mut fd = FirstPiolaKirchhoffTangentStiffnessPlastic::zero();
+    for k in 0..3 {
+        for l in 0..3 {
+            let mut plus = deformation_gradient_p.clone();
+            plus[k][l] += perturbation(0.5 * crate::EPSILON);
+            let stress_plus = model.first_piola_kirchhoff_stress(&deformation_gradient, &plus)?;
+            let mut minus = deformation_gradient_p.clone();
+            minus[k][l] -= perturbation(0.5 * crate::EPSILON);
+            let stress_minus = model.first_piola_kirchhoff_stress(&deformation_gradient, &minus)?;
+            for i in 0..3 {
+                for j in 0..3 {
+                    fd[i][j][k][l] = (stress_plus[i][j] - stress_minus[i][j]) / crate::EPSILON;
+                }
+            }
+        }
+    }
+    Assert::default().eq_within_fd_tol(&tangent, &fd)
+}
+
 macro_rules! test_integrator_with_solver {
     ($integrator:ident, $solver:expr, $final_time:literal) => {
         let model = model();

@@ -9,7 +9,8 @@ use crate::{
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessPlastic, DeformationGradient,
         DeformationGradientPlastic, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
-        MandelStressElastic, MandelStressTangentElastic, MandelStressTangentElasticPlastic, Scalar,
+        FirstPiolaKirchhoffTangentStiffnessPlastic, MandelStressElastic,
+        MandelStressTangentElastic, MandelStressTangentElasticPlastic, Scalar,
         SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
     units::Time,
@@ -314,6 +315,17 @@ where
         deformation_gradient: &DeformationGradient,
         deformation_gradient_p: &DeformationGradientPlastic,
     ) -> Result<CauchyTangentStiffnessPlastic, ConstitutiveError>;
+    /// Calculates and returns the tangent stiffness of the first Piola-Kirchhoff
+    /// stress with respect to the plastic deformation gradient.
+    ///
+    /// ```math
+    /// \frac{\partial P_{iJ}}{\partial F^\mathrm{p}_{NO}} = -\mathcal{C}^\mathrm{e}_{iAmB} F^\mathrm{e}_{mN} F^{\mathrm{p}-1}_{OB} F^{\mathrm{p}-1}_{JA} - P_{iO} F^{\mathrm{p}-1}_{JN}
+    /// ```
+    fn first_piola_kirchhoff_tangent_stiffness_p(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_p: &DeformationGradientPlastic,
+    ) -> Result<FirstPiolaKirchhoffTangentStiffnessPlastic, ConstitutiveError>;
     /// Calculates and returns the tangent stiffness of the Mandel stress with
     /// respect to the deformation gradient.
     fn mandel_stress_tangent(
