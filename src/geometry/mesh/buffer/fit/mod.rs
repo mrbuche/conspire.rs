@@ -7,7 +7,7 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity, Mesh, Tessellation,
-            quality::metrics::{chi, hexahedron::CORNERS, regularized},
+            quality::metrics::{chi, hexahedron, pyramid, regularized, tetrahedron, wedge},
         },
     },
     math::{
@@ -27,6 +27,8 @@ type EdgeList = TensorRank1List<3, Reference, 3>;
 type Slope = TensorRank1<3, Reference, ReciprocalLength>;
 type Gradient = TensorRank1Vec<3, Reference, Dimensionless>;
 type Target = (Coordinate<3>, Direction<3>, Quantity<Area>);
+
+type CornerTable = [(usize, [usize; 3])];
 
 const ARMIJO: Scalar = 1.0e-4;
 const BACKTRACKS: usize = 32;
@@ -61,12 +63,12 @@ pub(super) struct Facets<'a> {
 }
 
 struct Sweep<'a> {
+    element_chunk: usize,
+    elements: &'a [(&'static CornerTable, Vec<usize>)],
     epsilon: Scalar,
-    hex_chunk: usize,
-    hexes: &'a [[usize; 8]],
     lengths: Vec<Quantity<Length>>,
     node_chunk: usize,
-    node_quads: &'a [Vec<usize>],
+    node_faces: &'a [Vec<usize>],
     nodes: &'a [usize],
     scales: Vec<Quantity<Length>>,
     slot: &'a [Option<usize>],
@@ -81,43 +83,46 @@ impl Mesh<3> {
         nodes: &[usize],
         oracle: &O,
     ) -> Result<(), &'static str> {
+        let mut elements: Vec<(&'static CornerTable, Vec<usize>)> = Vec::new();
+        for block in self.iter() {
+            let corners: &'static CornerTable = match block {
+                Connectivity::Hexahedral(_) => &hexahedron::CORNERS,
+                Connectivity::Tetrahedral(_) => &tetrahedron::CORNERS,
+                Connectivity::Pyramidal(_) => &pyramid::CORNERS,
+                Connectivity::Wedge(_) => &wedge::CORNERS,
+                _ => return Err("fit requires hexahedra, tetrahedra, pyramids or wedges"),
+            };
+            elements.extend(block.iter().map(|element| (corners, element.to_vec())));
+        }
         let number_of_nodes = self.number_of_nodes();
         let mut free = vec![false; number_of_nodes];
         nodes.iter().for_each(|&node| free[node] = true);
-        let mut hexes = Vec::new();
-        for block in self.iter() {
-            match block {
-                Connectivity::Hexahedral(block) => hexes.extend(block.iter().copied()),
-                _ => return Err("fit requires a hexahedral mesh"),
-            }
-        }
-        let node_hexes = self.node_element_connectivity().to_vec();
+        let node_elements = self.node_element_connectivity().to_vec();
         let tracked: Vec<usize> = {
-            let mut seen = vec![false; hexes.len()];
+            let mut seen = vec![false; elements.len()];
             nodes
                 .iter()
-                .flat_map(|&node| node_hexes[node].iter().copied())
-                .filter(|&hex| !replace(&mut seen[hex], true))
+                .flat_map(|&node| node_elements[node].iter().copied())
+                .filter(|&element| !replace(&mut seen[element], true))
                 .collect()
         };
-        let quads: Vec<[usize; 4]> = self
+        let faces: Vec<Vec<usize>> = self
             .exterior_faces()
-            .iter()
+            .into_iter()
             .filter(|face| face.iter().any(|&node| free[node]))
-            .map(|face| from_fn(|i| face[i]))
             .collect();
-        let mut node_quads = vec![Vec::new(); number_of_nodes];
-        quads.iter().enumerate().for_each(|(index, quad)| {
-            quad.iter().for_each(|&node| {
+        let mut node_faces = vec![Vec::new(); number_of_nodes];
+        faces.iter().enumerate().for_each(|(index, face)| {
+            face.iter().for_each(|&node| {
                 if free[node] {
-                    node_quads[node].push(index)
+                    node_faces[node].push(index)
                 }
             })
         });
         let neighbors = self.node_node_connectivity().to_vec();
         let threads = available_parallelism().map_or(1, |threads| threads.get());
-        let quad_chunk = quads.len().div_ceil(threads).max(1);
-        let hex_chunk = tracked.len().div_ceil(threads).max(1);
+        let face_chunk = faces.len().div_ceil(threads).max(1);
+        let element_chunk = tracked.len().div_ceil(threads).max(1);
         let node_chunk = nodes.len().div_ceil(threads).max(1);
         let coordinates = self.coordinates.members_mut();
         let mut slot = vec![None; number_of_nodes];
@@ -130,18 +135,18 @@ impl Mesh<3> {
         let mut previous = Quantity::<Length>::new(Scalar::INFINITY);
         let mut window = VecDeque::<Quantity<Length>>::with_capacity(WINDOW);
         for sweep in 0..SWEEPS {
-            let (lengths, scales) = sizes(&neighbors, &hexes, coordinates);
+            let (lengths, scales) = sizes(&neighbors, &elements, coordinates);
             let mut state = Sweep {
+                element_chunk,
+                elements: &elements,
                 epsilon,
-                hex_chunk,
-                hexes: &hexes,
                 lengths,
                 node_chunk,
-                node_quads: &node_quads,
+                node_faces: &node_faces,
                 nodes,
                 scales,
                 slot: &slot,
-                targets: project(oracle, &quads, coordinates, quad_chunk)?,
+                targets: project(oracle, &faces, coordinates, face_chunk)?,
                 tracked: &tracked,
                 unknowns,
             };
@@ -192,25 +197,25 @@ impl Oracle for Facets<'_> {
 /// the worst tangent-plane deviation among the quad's four nodes.
 fn project<O: Oracle>(
     oracle: &O,
-    quads: &[[usize; 4]],
+    faces: &[Vec<usize>],
     coordinates: &Coordinates<3>,
     chunk: usize,
 ) -> Result<Vec<Target>, &'static str> {
-    let mut targets = vec![None; quads.len()];
+    let mut targets = vec![None; faces.len()];
     scope(|scope| {
         targets
             .chunks_mut(chunk)
-            .zip(quads.chunks(chunk))
-            .for_each(|(targets, quads)| {
+            .zip(faces.chunks(chunk))
+            .for_each(|(targets, faces)| {
                 scope.spawn(move || {
-                    targets.iter_mut().zip(quads).for_each(|(target, quad)| {
-                        let centroid = quad
+                    targets.iter_mut().zip(faces).for_each(|(target, face)| {
+                        let centroid = face
                             .iter()
                             .map(|&node| &coordinates[node])
                             .sum::<Coordinate<3>>()
-                            / 4.0;
+                            / face.len() as Scalar;
                         *target = oracle.project(&centroid).map(|(point, normal)| {
-                            let distance = quad
+                            let distance = face
                                 .iter()
                                 .map(|&node| {
                                     let deviation = (&coordinates[node] - &point) * &normal;
@@ -233,12 +238,13 @@ impl Sweep<'_> {
     fn measure(&self, coordinates: &Coordinates<3>) -> (Quantity<Length>, Scalar) {
         self.tracked
             .iter()
-            .map(|&hex| {
-                let scale = self.scales[hex].value();
+            .map(|&element| {
+                let scale = self.scales[element].value();
+                let (corners, nodes) = &self.elements[element];
                 (
-                    self.scales[hex]
-                        * energy(&self.hexes[hex], coordinates, scale.powi(3) * self.epsilon),
-                    determinant(&self.hexes[hex], coordinates) / scale.powi(3),
+                    self.scales[element]
+                        * energy(corners, nodes, coordinates, scale.powi(3) * self.epsilon),
+                    determinant(corners, nodes, coordinates) / scale.powi(3),
                 )
             })
             .fold(
@@ -249,17 +255,19 @@ impl Sweep<'_> {
     fn objective(&self, coordinates: &Coordinates<3>) -> Quantity<Length> {
         scope(|scope| {
             self.tracked
-                .chunks(self.hex_chunk)
+                .chunks(self.element_chunk)
                 .map(|chunk| {
                     scope.spawn(move || {
                         chunk
                             .iter()
-                            .map(|&hex| {
-                                self.scales[hex]
+                            .map(|&element| {
+                                let (corners, nodes) = &self.elements[element];
+                                self.scales[element]
                                     * energy(
-                                        &self.hexes[hex],
+                                        corners,
+                                        nodes,
                                         coordinates,
-                                        self.scales[hex].value().powi(3) * self.epsilon,
+                                        self.scales[element].value().powi(3) * self.epsilon,
                                     )
                             })
                             .sum::<Quantity<Length>>()
@@ -278,10 +286,10 @@ impl Sweep<'_> {
                             .iter()
                             .map(|&node| {
                                 BALANCE / self.lengths[node]
-                                    * self.node_quads[node]
+                                    * self.node_faces[node]
                                         .iter()
-                                        .map(|&quad| {
-                                            let (point, normal, distance) = &self.targets[quad];
+                                        .map(|&face| {
+                                            let (point, normal, distance) = &self.targets[face];
                                             let weight = weight(*distance, self.lengths[node]);
                                             let deviation = (&coordinates[node] - point) * normal;
                                             deviation * deviation * weight
@@ -300,24 +308,23 @@ impl Sweep<'_> {
     fn derivative(&self, coordinates: &Coordinates<3>) -> Gradient {
         let mut gradient = scope(|scope| {
             self.tracked
-                .chunks(self.hex_chunk)
+                .chunks(self.element_chunk)
                 .map(|chunk| {
                     scope.spawn(move || {
                         let mut partial = self.empty();
-                        chunk.iter().for_each(|&hex| {
+                        chunk.iter().for_each(|&element| {
+                            let (corners, nodes) = &self.elements[element];
                             let local = scatter(
-                                &self.hexes[hex],
+                                corners,
+                                nodes,
                                 coordinates,
-                                self.scales[hex].value().powi(3) * self.epsilon,
+                                self.scales[element].value().powi(3) * self.epsilon,
                             );
-                            self.hexes[hex]
-                                .iter()
-                                .zip(local)
-                                .for_each(|(&node, contribution)| {
-                                    if let Some(index) = self.slot[node] {
-                                        partial[index] += contribution * self.scales[hex]
-                                    }
-                                })
+                            nodes.iter().zip(local).for_each(|(&node, contribution)| {
+                                if let Some(index) = self.slot[node] {
+                                    partial[index] += contribution * self.scales[element]
+                                }
+                            })
                         });
                         partial
                     })
@@ -338,8 +345,8 @@ impl Sweep<'_> {
                 .for_each(|(entries, nodes)| {
                     scope.spawn(move || {
                         entries.iter_mut().zip(nodes).for_each(|(entry, &node)| {
-                            self.node_quads[node].iter().for_each(|&quad| {
-                                let (point, normal, distance) = &self.targets[quad];
+                            self.node_faces[node].iter().for_each(|&face| {
+                                let (point, normal, distance) = &self.targets[face];
                                 let weight = weight(*distance, self.lengths[node]);
                                 let deviation = (&coordinates[node] - point) * normal;
                                 let factor =
@@ -442,7 +449,7 @@ impl Sweep<'_> {
 
 fn sizes(
     neighbors: &[Vec<usize>],
-    hexes: &[[usize; 8]],
+    elements: &[(&'static CornerTable, Vec<usize>)],
     coordinates: &Coordinates<3>,
 ) -> (Vec<Quantity<Length>>, Vec<Quantity<Length>>) {
     let lengths: Vec<Quantity<Length>> = (0..coordinates.len())
@@ -454,13 +461,14 @@ fn sizes(
                 / neighbors[node].len().max(1) as Scalar
         })
         .collect();
-    let scales = hexes
+    let scales = elements
         .iter()
-        .map(|hex| {
-            hex.iter()
+        .map(|(_, element)| {
+            element
+                .iter()
                 .map(|&node| lengths[node])
                 .sum::<Quantity<Length>>()
-                / 8.0
+                / element.len() as Scalar
         })
         .collect();
     (lengths, scales)
@@ -514,12 +522,12 @@ fn direction(
 fn edges(
     corner: usize,
     adjacent: &[usize; 3],
-    hex: &[usize; 8],
+    element: &[usize],
     coordinates: &Coordinates<3>,
 ) -> EdgeList {
-    let origin = &coordinates[hex[corner]];
+    let origin = &coordinates[element[corner]];
     (0..3)
-        .map(|i| (&coordinates[hex[adjacent[i]]] - origin).with_unit())
+        .map(|i| (&coordinates[element[adjacent[i]]] - origin).with_unit())
         .collect()
 }
 
@@ -527,18 +535,29 @@ fn weight(distance: Quantity<Area>, length: Quantity<Length>) -> Quantity<Dimens
     1.0 / (distance / (length * length)).max(WEIGHT_FLOOR)
 }
 
-fn energy(hex: &[usize; 8], coordinates: &Coordinates<3>, epsilon: Scalar) -> Scalar {
-    CORNERS
+fn energy(
+    corners: &CornerTable,
+    element: &[usize],
+    coordinates: &Coordinates<3>,
+    epsilon: Scalar,
+) -> Scalar {
+    corners
         .iter()
-        .enumerate()
-        .map(|(corner, adjacent)| regularized(&edges(corner, adjacent, hex, coordinates), epsilon))
+        .map(|(corner, adjacent)| {
+            regularized(&edges(*corner, adjacent, element, coordinates), epsilon)
+        })
         .sum()
 }
 
-fn scatter(hex: &[usize; 8], coordinates: &Coordinates<3>, epsilon: Scalar) -> [Slope; 8] {
-    let mut local = from_fn(|_| TensorRank1::<3, Reference>::const_from([0.0; 3]));
-    CORNERS.iter().enumerate().for_each(|(corner, adjacent)| {
-        let edges = edges(corner, adjacent, hex, coordinates);
+fn scatter(
+    corners: &CornerTable,
+    element: &[usize],
+    coordinates: &Coordinates<3>,
+    epsilon: Scalar,
+) -> [Slope; 8] {
+    let mut local: [TensorRank1<3, Reference>; 8] = from_fn(|_| TensorRank1::const_from([0.0; 3]));
+    corners.iter().for_each(|(corner, adjacent)| {
+        let edges = edges(*corner, adjacent, element, coordinates);
         let trace = edges.norm_squared().value();
         let determinant = edges.scalar_triple_product();
         let denominator = chi(epsilon, determinant);
@@ -553,17 +572,18 @@ fn scatter(hex: &[usize; 8], coordinates: &Coordinates<3>, epsilon: Scalar) -> [
             edges[0].cross(&edges[1]),
         ];
         (0..3).for_each(|i| {
-            local[corner] += &crosses[i] * beta - &edges[i] * alpha;
+            local[*corner] += &crosses[i] * beta - &edges[i] * alpha;
             local[adjacent[i]] += &edges[i] * alpha - &crosses[i] * beta;
         });
     });
     local.map(|entry| entry.with_unit())
 }
 
-fn determinant(hex: &[usize; 8], coordinates: &Coordinates<3>) -> Scalar {
-    CORNERS
+fn determinant(corners: &CornerTable, element: &[usize], coordinates: &Coordinates<3>) -> Scalar {
+    corners
         .iter()
-        .enumerate()
-        .map(|(corner, adjacent)| edges(corner, adjacent, hex, coordinates).scalar_triple_product())
+        .map(|(corner, adjacent)| {
+            edges(*corner, adjacent, element, coordinates).scalar_triple_product()
+        })
         .fold(Scalar::INFINITY, Scalar::min)
 }

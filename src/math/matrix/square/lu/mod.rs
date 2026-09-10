@@ -4,7 +4,7 @@ mod test;
 use super::{SquareMatrix, SquareMatrixError};
 use crate::{
     ABS_TOL, REL_TOL,
-    math::{Scalar, Tensor, Vector, simd},
+    math::{Tensor, Vector, simd},
 };
 
 impl SquareMatrix {
@@ -93,23 +93,21 @@ impl LuDecomposition {
                         .for_each(|(row_k, column_k)| *row_k -= factor * column_k)
                 })
             } else {
-                back[..count].chunks_mut(4).for_each(|chunk| {
-                    if let [a, b, c, d] = chunk {
-                        let u = [-a[i], -b[i], -c[i], -d[i]];
-                        simd::rank_one_quad(
-                            &mut a.as_mut_slice()[i + 1..],
-                            &mut b.as_mut_slice()[i + 1..],
-                            &mut c.as_mut_slice()[i + 1..],
-                            &mut d.as_mut_slice()[i + 1..],
-                            column,
-                            u,
-                        )
-                    } else {
-                        chunk.iter_mut().for_each(|row| {
-                            let factor = row[i];
-                            simd::axpy(&mut row.as_mut_slice()[i + 1..], column, factor)
-                        })
-                    }
+                let (quads, tail) = back[..count].as_chunks_mut::<4>();
+                quads.iter_mut().for_each(|[a, b, c, d]| {
+                    let u = [-a[i], -b[i], -c[i], -d[i]];
+                    simd::rank_one_quad(
+                        &mut a.as_mut_slice()[i + 1..],
+                        &mut b.as_mut_slice()[i + 1..],
+                        &mut c.as_mut_slice()[i + 1..],
+                        &mut d.as_mut_slice()[i + 1..],
+                        column,
+                        u,
+                    )
+                });
+                tail.iter_mut().for_each(|row| {
+                    let factor = row[i];
+                    simd::axpy(&mut row.as_mut_slice()[i + 1..], column, factor)
                 })
             }
         }
@@ -145,8 +143,8 @@ fn forward_substitution(x: &mut Vector, a: &SquareMatrix) {
             .iter()
             .take(i)
             .zip(x.iter().take(i))
-            .map(|(a_ij, x_j)| a_ij * x_j)
-            .sum::<Scalar>()
+            .map(|(a_ij, x_j)| a_ij.algebraic_mul(*x_j))
+            .fold(0.0, f64::algebraic_add)
     })
 }
 
@@ -156,8 +154,8 @@ fn backward_substitution(x: &mut Vector, a: &SquareMatrix) {
             .iter()
             .skip(i + 1)
             .zip(x.iter().skip(i + 1))
-            .map(|(a_ij, x_j)| a_ij * x_j)
-            .sum::<Scalar>();
+            .map(|(a_ij, x_j)| a_ij.algebraic_mul(*x_j))
+            .fold(0.0, f64::algebraic_add);
         x[i] /= a_i[i];
     })
 }

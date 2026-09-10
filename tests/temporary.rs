@@ -3,12 +3,14 @@
 use conspire::math::assert::Assert;
 use conspire::{
     constitutive::{
+        canonical::Canonical,
+        fluid::{hyperviscous::Newtonian, viscoplastic::ViscoplasticFlow},
         solid::{
-            elastic::AppliedLoad as AppliedDeformation,
-            elastic_hyperviscous::{AlmansiHamel, SecondOrderMinimize as _},
+            elastic::{AlmansiHamelEulerian, AppliedLoad as AppliedDeformation},
+            elastic_hyperviscous::SecondOrderMinimize as _,
             elastic_viscoplastic::AppliedLoad,
-            hyperelastic::{NeoHookean, SecondOrderMinimize as _},
-            hyperelastic_viscoplastic::{SaintVenantKirchhoff, SecondOrderMinimize as _},
+            hyperelastic::{NeoHookean, SaintVenantKirchhoff, SecondOrderMinimize as _},
+            hyperelastic_viscoplastic::SecondOrderMinimize as _,
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
         thermal::conduction::Fourier,
@@ -7519,14 +7521,18 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
         .iter_mut()
         .flatten()
         .for_each(|entry| *entry -= 1);
-    let model = SaintVenantKirchhoff {
-        bulk_modulus: Stress::pascals(13.0),
-        shear_modulus: Stress::pascals(3.0),
-        yield_stress: Stress::pascals(2.0),
-        hardening_slope: Stress::pascals(1.0),
-        rate_sensitivity: 0.25,
-        reference_flow_rate: Rate::per_second(0.1),
-    };
+    let model = Canonical::from((
+        SaintVenantKirchhoff {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        ViscoplasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            rate_sensitivity: 0.25,
+            reference_flow_rate: Rate::per_second(0.1),
+        },
+    ));
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let mesh = Mesh::from((
@@ -7638,12 +7644,16 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
         .flatten()
         .for_each(|entry| *entry -= 1);
     let num_nodes = ref_coordinates.len();
-    let model = AlmansiHamel {
-        bulk_modulus: Stress::pascals(13.0),
-        shear_modulus: Stress::pascals(3.0),
-        bulk_viscosity: Viscosity::pascal_seconds(11.0),
-        shear_viscosity: Viscosity::pascal_seconds(1.0),
-    };
+    let model = Canonical::from((
+        AlmansiHamelEulerian {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        Newtonian {
+            bulk_viscosity: Viscosity::pascal_seconds(11.0),
+            shear_viscosity: Viscosity::pascal_seconds(1.0),
+        },
+    ));
     let length = ref_coordinates
         .iter()
         .filter(|coordinate| coordinate[0].abs().value() == 0.5)

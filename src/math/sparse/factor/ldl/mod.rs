@@ -567,7 +567,7 @@ impl CscLdl {
 }
 
 /// Applies a finalized own-supernode column's update to a work column.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn finalize_update(
     column: &mut [Scalar],
     sn_values: &[Scalar],

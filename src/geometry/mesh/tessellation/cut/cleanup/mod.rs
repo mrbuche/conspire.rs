@@ -47,8 +47,7 @@ pub(super) fn agglomerate(
         .collect();
     slivers.sort_by(|&one, &two| {
         fractions[one]
-            .partial_cmp(&fractions[two])
-            .unwrap()
+            .total_cmp(&fractions[two])
             .then(one.cmp(&two))
     });
     slivers.into_iter().for_each(|sliver| {
@@ -67,7 +66,7 @@ pub(super) fn agglomerate(
         if let Some(target) = areas
             .into_iter()
             .max_by(|(one, area_one), (two, area_two)| {
-                area_one.partial_cmp(area_two).unwrap().then(two.cmp(one))
+                area_one.total_cmp(area_two).then(two.cmp(one))
             })
             .map(|(other, _)| other)
         {
@@ -106,7 +105,7 @@ pub(super) fn agglomerate(
 }
 
 impl Tessellation {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub(super) fn collapse_short_edges(
         &self,
         coordinates: &mut Coordinates<D>,

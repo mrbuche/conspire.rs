@@ -1,4 +1,3 @@
-use std::num::NonZeroU32;
 #[cfg(test)]
 mod test;
 
@@ -18,16 +17,15 @@ use crate::{
     geometry::{
         Coordinate, Direction,
         mesh::{
-            Mesh,
-            tessellation::{D, Tessellation},
+            Dualization, Mesh,
+            tessellation::{D, Tessellation, cut::geometry::contained},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Dualization, Octree, Pairing, Sizing},
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, Sizing},
     },
     math::{Quantity, Scalar},
     units::Length,
 };
-use geometry::contained;
-use std::collections::HashMap;
+use std::{collections::HashMap, num::NonZeroU32};
 
 const COLLAPSE_FRACTION: Scalar = 0.2;
 const CROSSING_TOLERANCE: Quantity<Length> = Length::meters(1.0e-8);
@@ -65,6 +63,12 @@ const DIRECTIONS: [Direction<D>; 3] = [
     Direction::const_from([0.097_153_2, 1.0, 0.131_771_4]),
     Direction::const_from([0.123_456_7, 0.087_654_3, 1.0]),
 ];
+
+/// What an octree background's cells are meshed into.
+enum Cells {
+    Polyhedral,
+    Tetrahedral,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Class {
@@ -153,6 +157,19 @@ impl Tessellation {
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
         Ok(self.lattice_cells(spacing)?.mesh())
     }
+    /// Builds a uniform lattice around this tessellation and splits every cell
+    /// into six tetrahedra, with each one classified against the surface.
+    ///
+    /// The tetrahedral counterpart of
+    /// [`lattice_background`](Self::lattice_background). The cells are still
+    /// classified by rasterizing, so the six tetrahedra of a cell all take the
+    /// class of the cell they came from.
+    pub fn lattice_tet_background(
+        &self,
+        spacing: Quantity<Length>,
+    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
+        Ok(self.lattice_cells(spacing)?.tets())
+    }
     /// Builds an octree fitted to this tessellation, with each cell
     /// classified against the surface.
     ///
@@ -167,18 +184,71 @@ impl Tessellation {
         balancing: Balancing,
         scale: Scalar,
     ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
-        let sizing = Sizing::new(self, scale, CurvatureSizing::default(), PADDING);
-        let mesh = if sizing.fits::<u16>() {
-            let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
-            octree.equilibrate(balancing, Pairing::Regular)?;
-            Mesh::from(octree)
-        } else {
-            let mut octree = Octree::<u32, NonZeroU32>::refine(&sizing)?;
-            octree.equilibrate(balancing, Pairing::Regular)?;
-            Mesh::from(octree)
-        };
+        let mesh = self.octree_mesh(
+            balancing,
+            Pairing::Regular,
+            scale,
+            CurvatureSizing::default(),
+            Cells::Polyhedral,
+        )?;
         let classes = self.classify(&mesh);
         Ok((mesh, classes))
+    }
+    /// Builds an octree fitted to this tessellation and meshes it as
+    /// tetrahedra, with each one classified against the surface.
+    ///
+    /// The tetrahedral counterpart of
+    /// [`octree_background`](Self::octree_background), to be
+    /// [trimmed](Self::trim). `balancing` must be `Strong(1)`: the templates
+    /// filling a graded cell only span a one-level difference, and only a
+    /// balance over edges and vertices as well as faces holds them to it.
+    /// `pairing` need not be `Regular`; the tetrahedra conform under any
+    /// pairing, and `None` yields a smaller background.
+    ///
+    /// `tolerance` is the Dunyach chord-error tolerance for curvature-driven
+    /// refinement; `None` disables it.
+    pub fn octree_tet_background(
+        &self,
+        balancing: Balancing,
+        pairing: Pairing,
+        scale: Scalar,
+        tolerance: Option<Quantity<Length>>,
+    ) -> Result<(Mesh<D>, Vec<Class>), &'static str> {
+        if !matches!(balancing, Balancing::Strong(1)) {
+            return Err("tetrahedra require Strong(1) balancing");
+        }
+        let curvature = CurvatureSizing {
+            tolerance,
+            ..Default::default()
+        };
+        let mesh = self.octree_mesh(balancing, pairing, scale, curvature, Cells::Tetrahedral)?;
+        let classes = self.classify(&mesh);
+        Ok((mesh, classes))
+    }
+    fn octree_mesh(
+        &self,
+        balancing: Balancing,
+        pairing: Pairing,
+        scale: Scalar,
+        curvature: CurvatureSizing,
+        cells: Cells,
+    ) -> Result<Mesh<D>, &'static str> {
+        let sizing = Sizing::new(self, scale, curvature, PADDING);
+        if sizing.fits::<u16>() {
+            let mut octree = Octree::<u16, NonZeroU32>::refine(&sizing)?;
+            octree.equilibrate(balancing, pairing)?;
+            Ok(match cells {
+                Cells::Polyhedral => Mesh::from(octree),
+                Cells::Tetrahedral => Mesh::tetrahedra_from(octree),
+            })
+        } else {
+            let mut octree = Octree::<u32, NonZeroU32>::refine(&sizing)?;
+            octree.equilibrate(balancing, pairing)?;
+            Ok(match cells {
+                Cells::Polyhedral => Mesh::from(octree),
+                Cells::Tetrahedral => Mesh::tetrahedra_from(octree),
+            })
+        }
     }
     /// Cuts a classified background mesh to this tessellation, leaving
     /// hexahedra everywhere but at the boundary.

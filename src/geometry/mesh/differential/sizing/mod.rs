@@ -31,7 +31,7 @@ pub(crate) enum Creases {
     Excluded,
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) fn sizing_field(
     connectivity: &[[usize; N]],
     coordinates: &Coordinates<D>,

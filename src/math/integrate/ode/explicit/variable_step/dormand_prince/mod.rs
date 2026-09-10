@@ -5,37 +5,13 @@ use crate::math::Norm;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        Explicit, IntegrationError, OdeIntegrator, Times, VariableStep, VariableStepExplicit,
-        VariableStepExplicitFirstSameAsLast,
+        ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, OdeIntegrator, Times,
+        VariableStep, VariableStepExplicit, VariableStepExplicitFirstSameAsLast,
     },
     interpolate::InterpolateSolution,
 };
 use crate::{ABS_TOL, REL_TOL};
 use std::ops::{Mul, Sub};
-
-pub(crate) const C_44_45: Scalar = 44.0 / 45.0;
-pub(crate) const C_56_15: Scalar = 56.0 / 15.0;
-pub(crate) const C_32_9: Scalar = 32.0 / 9.0;
-pub(crate) const C_8_9: Scalar = 8.0 / 9.0;
-pub(crate) const C_19372_6561: Scalar = 19372.0 / 6561.0;
-pub(crate) const C_25360_2187: Scalar = 25360.0 / 2187.0;
-pub(crate) const C_64448_6561: Scalar = 64448.0 / 6561.0;
-pub(crate) const C_212_729: Scalar = 212.0 / 729.0;
-pub(crate) const C_9017_3168: Scalar = 9017.0 / 3168.0;
-pub(crate) const C_355_33: Scalar = 355.0 / 33.0;
-pub(crate) const C_46732_5247: Scalar = 46732.0 / 5247.0;
-pub(crate) const C_49_176: Scalar = 49.0 / 176.0;
-pub(crate) const C_5103_18656: Scalar = 5103.0 / 18656.0;
-pub(crate) const C_35_384: Scalar = 35.0 / 384.0;
-pub(crate) const C_500_1113: Scalar = 500.0 / 1113.0;
-pub(crate) const C_125_192: Scalar = 125.0 / 192.0;
-pub(crate) const C_2187_6784: Scalar = 2187.0 / 6784.0;
-pub(crate) const C_11_84: Scalar = 11.0 / 84.0;
-pub(crate) const C_71_57600: Scalar = 71.0 / 57600.0;
-pub(crate) const C_71_16695: Scalar = 71.0 / 16695.0;
-pub(crate) const C_71_1920: Scalar = 71.0 / 1920.0;
-pub(crate) const C_17253_339200: Scalar = 17253.0 / 339200.0;
-pub(crate) const C_22_525: Scalar = 22.0 / 525.0;
 
 pub(crate) const P_1_0: Scalar = 1.0;
 pub(crate) const P_1_1: Scalar = -8048581381.0 / 2820520608.0;
@@ -56,6 +32,65 @@ pub(crate) const P_6_3: Scalar = -1453857185.0 / 822651844.0;
 pub(crate) const P_7_1: Scalar = 40617522.0 / 29380423.0;
 pub(crate) const P_7_2: Scalar = -110615467.0 / 29380423.0;
 pub(crate) const P_7_3: Scalar = 69997945.0 / 29380423.0;
+
+/// The Dormand–Prince 5(4) tableau.
+#[derive(Debug)]
+pub struct Tableau;
+
+impl ButcherTableau for Tableau {
+    const STAGES: usize = 7;
+    const ORDER: Scalar = 5.0;
+    const A: &'static [&'static [Scalar]] = &[
+        &[],
+        &[0.2],
+        &[0.075, 0.225],
+        &[44.0 / 45.0, -56.0 / 15.0, 32.0 / 9.0],
+        &[
+            19372.0 / 6561.0,
+            -25360.0 / 2187.0,
+            64448.0 / 6561.0,
+            -212.0 / 729.0,
+        ],
+        &[
+            9017.0 / 3168.0,
+            -355.0 / 33.0,
+            46732.0 / 5247.0,
+            49.0 / 176.0,
+            -5103.0 / 18656.0,
+        ],
+        &[
+            35.0 / 384.0,
+            0.0,
+            500.0 / 1113.0,
+            125.0 / 192.0,
+            -2187.0 / 6784.0,
+            11.0 / 84.0,
+        ],
+    ];
+    const C: &'static [Scalar] = &[0.0, 0.2, 0.3, 0.8, 8.0 / 9.0, 1.0, 1.0];
+    const B: &'static [Scalar] = &[
+        35.0 / 384.0,
+        0.0,
+        500.0 / 1113.0,
+        125.0 / 192.0,
+        -2187.0 / 6784.0,
+        11.0 / 84.0,
+        0.0,
+    ];
+}
+
+impl EmbeddedTableau for Tableau {
+    const D: &'static [Scalar] = &[
+        71.0 / 57600.0,
+        0.0,
+        -71.0 / 16695.0,
+        71.0 / 1920.0,
+        -17253.0 / 339200.0,
+        22.0 / 525.0,
+        -0.025,
+    ];
+    const FSAL: bool = true;
+}
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
@@ -153,47 +188,7 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
-        Ok(self.error_norm.measure(
-            &((&k[0] * C_71_57600 - &k[2] * C_71_16695 + &k[3] * C_71_1920
-                - &k[4] * C_17253_339200
-                + &k[5] * C_22_525
-                - &k[6] * 0.025)
-                * dt),
-        ))
-    }
-    fn slopes(
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
-        y: &Y,
-        t: Quantity<T>,
-        dt: Quantity<T>,
-        k: &mut [Derivative<Y, T>],
-        y_trial: &mut Y,
-    ) -> Result<(), String> {
-        *y_trial = &k[0] * (0.2 * dt) + y;
-        k[1] = function(t + 0.2 * dt, y_trial)?;
-        *y_trial = &k[0] * (0.075 * dt) + &k[1] * (0.225 * dt) + y;
-        k[2] = function(t + 0.3 * dt, y_trial)?;
-        *y_trial = &k[0] * (C_44_45 * dt) - &k[1] * (C_56_15 * dt) + &k[2] * (C_32_9 * dt) + y;
-        k[3] = function(t + 0.8 * dt, y_trial)?;
-        *y_trial = &k[0] * (C_19372_6561 * dt) - &k[1] * (C_25360_2187 * dt)
-            + &k[2] * (C_64448_6561 * dt)
-            - &k[3] * (C_212_729 * dt)
-            + y;
-        k[4] = function(t + C_8_9 * dt, y_trial)?;
-        *y_trial = &k[0] * (C_9017_3168 * dt) - &k[1] * (C_355_33 * dt)
-            + &k[2] * (C_46732_5247 * dt)
-            + &k[3] * (C_49_176 * dt)
-            - &k[4] * (C_5103_18656 * dt)
-            + y;
-        k[5] = function(t + dt, y_trial)?;
-        *y_trial = (&k[0] * C_35_384 + &k[2] * C_500_1113 + &k[3] * C_125_192
-            - &k[4] * C_2187_6784
-            + &k[5] * C_11_84)
-            * dt
-            + y;
-        Ok(())
-    }
+    type Tableau = Tableau;
     fn slopes_and_error(
         &self,
         function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,

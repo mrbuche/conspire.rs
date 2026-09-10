@@ -5,7 +5,8 @@ use crate::math::Norm;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        Explicit, IntegrationError, OdeIntegrator, Times, VariableStep, VariableStepExplicit,
+        ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, OdeIntegrator, Times,
+        VariableStep, VariableStepExplicit,
     },
     interpolate::InterpolateSolution,
 };
@@ -124,6 +125,46 @@ pub(crate) const D_14: Scalar = 0.13643174034822156;
 pub(crate) const D_15: Scalar = 0.030570139830827976;
 pub(crate) const D_16: Scalar = -0.04834231373823958;
 
+/// The Verner 9(8) tableau.
+#[derive(Debug)]
+pub struct Tableau;
+
+impl ButcherTableau for Tableau {
+    const STAGES: usize = 16;
+    const ORDER: Scalar = 9.0;
+    #[rustfmt::skip]
+    const A: &'static [&'static [Scalar]] = &[
+        &[],
+        &[A_2_1],
+        &[A_3_1, A_3_2],
+        &[A_4_1, 0.0, A_4_3],
+        &[A_5_1, 0.0, A_5_3, A_5_4],
+        &[A_6_1, 0.0, 0.0, A_6_4, A_6_5],
+        &[A_7_1, 0.0, 0.0, A_7_4, A_7_5, A_7_6],
+        &[A_8_1, 0.0, 0.0, 0.0, 0.0, A_8_6, A_8_7],
+        &[A_9_1, 0.0, 0.0, 0.0, 0.0, A_9_6, A_9_7, A_9_8],
+        &[A_10_1, 0.0, 0.0, 0.0, 0.0, A_10_6, A_10_7, A_10_8, A_10_9],
+        &[A_11_1, 0.0, 0.0, 0.0, 0.0, A_11_6, A_11_7, A_11_8, A_11_9, A_11_10],
+        &[A_12_1, 0.0, 0.0, 0.0, 0.0, A_12_6, A_12_7, A_12_8, A_12_9, A_12_10, A_12_11],
+        &[A_13_1, 0.0, 0.0, 0.0, 0.0, A_13_6, A_13_7, A_13_8, A_13_9, A_13_10, A_13_11, A_13_12],
+        &[A_14_1, 0.0, 0.0, 0.0, 0.0, A_14_6, A_14_7, A_14_8, A_14_9, A_14_10, A_14_11, A_14_12, A_14_13],
+        &[A_15_1, 0.0, 0.0, 0.0, 0.0, A_15_6, A_15_7, A_15_8, A_15_9, A_15_10, A_15_11, A_15_12, A_15_13, A_15_14],
+        &[A_16_1, 0.0, 0.0, 0.0, 0.0, A_16_6, A_16_7, A_16_8, A_16_9, A_16_10, A_16_11, A_16_12, A_16_13, 0.0, 0.0],
+    ];
+    #[rustfmt::skip]
+    const C: &'static [Scalar] =
+        &[0.0, C_2, C_3, C_4, C_5, C_6, C_7, C_8, C_9, C_10, C_11, C_12, C_13, C_14, 1.0, 1.0];
+    #[rustfmt::skip]
+    const B: &'static [Scalar] =
+        &[B_1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, B_8, B_9, B_10, B_11, B_12, B_13, B_14, B_15, 0.0];
+}
+
+impl EmbeddedTableau for Tableau {
+    #[rustfmt::skip]
+    const D: &'static [Scalar] =
+        &[D_1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, D_8, D_9, D_10, D_11, D_12, D_13, D_14, D_15, D_16];
+}
+
 #[doc = include_str!("doc.md")]
 #[derive(Debug)]
 pub struct Verner9 {
@@ -220,137 +261,7 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
-        Ok(self.error_norm.measure(
-            &((&k[0] * D_1
-                + &k[7] * D_8
-                + &k[8] * D_9
-                + &k[9] * D_10
-                + &k[10] * D_11
-                + &k[11] * D_12
-                + &k[12] * D_13
-                + &k[13] * D_14
-                + &k[14] * D_15
-                + &k[15] * D_16)
-                * dt),
-        ))
-    }
-    fn slopes(
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
-        y: &Y,
-        t: Quantity<T>,
-        dt: Quantity<T>,
-        k: &mut [Derivative<Y, T>],
-        y_trial: &mut Y,
-    ) -> Result<(), String> {
-        k[0] = function(t, y)?;
-        *y_trial = &k[0] * (A_2_1 * dt) + y;
-        k[1] = function(t + C_2 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_3_1 * dt) + &k[1] * (A_3_2 * dt) + y;
-        k[2] = function(t + C_3 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_4_1 * dt) + &k[2] * (A_4_3 * dt) + y;
-        k[3] = function(t + C_4 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_5_1 * dt) + &k[2] * (A_5_3 * dt) + &k[3] * (A_5_4 * dt) + y;
-        k[4] = function(t + C_5 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_6_1 * dt) + &k[3] * (A_6_4 * dt) + &k[4] * (A_6_5 * dt) + y;
-        k[5] = function(t + C_6 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_7_1 * dt)
-            + &k[3] * (A_7_4 * dt)
-            + &k[4] * (A_7_5 * dt)
-            + &k[5] * (A_7_6 * dt)
-            + y;
-        k[6] = function(t + C_7 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_8_1 * dt) + &k[5] * (A_8_6 * dt) + &k[6] * (A_8_7 * dt) + y;
-        k[7] = function(t + C_8 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_9_1 * dt)
-            + &k[5] * (A_9_6 * dt)
-            + &k[6] * (A_9_7 * dt)
-            + &k[7] * (A_9_8 * dt)
-            + y;
-        k[8] = function(t + C_9 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_10_1 * dt)
-            + &k[5] * (A_10_6 * dt)
-            + &k[6] * (A_10_7 * dt)
-            + &k[7] * (A_10_8 * dt)
-            + &k[8] * (A_10_9 * dt)
-            + y;
-        k[9] = function(t + C_10 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_11_1 * dt)
-            + &k[5] * (A_11_6 * dt)
-            + &k[6] * (A_11_7 * dt)
-            + &k[7] * (A_11_8 * dt)
-            + &k[8] * (A_11_9 * dt)
-            + &k[9] * (A_11_10 * dt)
-            + y;
-        k[10] = function(t + C_11 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_12_1 * dt)
-            + &k[5] * (A_12_6 * dt)
-            + &k[6] * (A_12_7 * dt)
-            + &k[7] * (A_12_8 * dt)
-            + &k[8] * (A_12_9 * dt)
-            + &k[9] * (A_12_10 * dt)
-            + &k[10] * (A_12_11 * dt)
-            + y;
-        k[11] = function(t + C_12 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_13_1 * dt)
-            + &k[5] * (A_13_6 * dt)
-            + &k[6] * (A_13_7 * dt)
-            + &k[7] * (A_13_8 * dt)
-            + &k[8] * (A_13_9 * dt)
-            + &k[9] * (A_13_10 * dt)
-            + &k[10] * (A_13_11 * dt)
-            + &k[11] * (A_13_12 * dt)
-            + y;
-        k[12] = function(t + C_13 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_14_1 * dt)
-            + &k[5] * (A_14_6 * dt)
-            + &k[6] * (A_14_7 * dt)
-            + &k[7] * (A_14_8 * dt)
-            + &k[8] * (A_14_9 * dt)
-            + &k[9] * (A_14_10 * dt)
-            + &k[10] * (A_14_11 * dt)
-            + &k[11] * (A_14_12 * dt)
-            + &k[12] * (A_14_13 * dt)
-            + y;
-        k[13] = function(t + C_14 * dt, y_trial)?;
-        *y_trial = &k[0] * (A_15_1 * dt)
-            + &k[5] * (A_15_6 * dt)
-            + &k[6] * (A_15_7 * dt)
-            + &k[7] * (A_15_8 * dt)
-            + &k[8] * (A_15_9 * dt)
-            + &k[9] * (A_15_10 * dt)
-            + &k[10] * (A_15_11 * dt)
-            + &k[11] * (A_15_12 * dt)
-            + &k[12] * (A_15_13 * dt)
-            + &k[13] * (A_15_14 * dt)
-            + y;
-        k[14] = function(t + dt, y_trial)?;
-        *y_trial = &k[0] * (A_16_1 * dt)
-            + &k[5] * (A_16_6 * dt)
-            + &k[6] * (A_16_7 * dt)
-            + &k[7] * (A_16_8 * dt)
-            + &k[8] * (A_16_9 * dt)
-            + &k[9] * (A_16_10 * dt)
-            + &k[10] * (A_16_11 * dt)
-            + &k[11] * (A_16_12 * dt)
-            + &k[12] * (A_16_13 * dt)
-            + y;
-        if k.len() == Self::SLOPES {
-            k[15] = function(t + dt, y_trial)?;
-        }
-        *y_trial = (&k[0] * B_1
-            + &k[7] * B_8
-            + &k[8] * B_9
-            + &k[9] * B_10
-            + &k[10] * B_11
-            + &k[11] * B_12
-            + &k[12] * B_13
-            + &k[13] * B_14
-            + &k[14] * B_15)
-            * dt
-            + y;
-        Ok(())
-    }
+    type Tableau = Tableau;
 }
 
 impl<Y, U, V, T> InterpolateSolution<Y, U, V, T> for Verner9

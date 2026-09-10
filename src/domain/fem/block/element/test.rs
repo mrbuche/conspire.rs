@@ -982,9 +982,13 @@ macro_rules! test_finite_element_inner {
             mod elastic_hyperviscous {
                 use super::*;
                 use crate::{
-                    constitutive::solid::elastic_hyperviscous::{
-                        AlmansiHamel,
-                        test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                    constitutive::{
+                        canonical::Canonical,
+                        fluid::hyperviscous::Newtonian,
+                        solid::{
+                            elastic::AlmansiHamelEulerian,
+                            elastic_hyperviscous::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                        },
                     },
                     fem::block::element::solid::{
                         ElementNodalDampingsSolid, ElementNodalForcesSolid,
@@ -992,16 +996,21 @@ macro_rules! test_finite_element_inner {
                         viscoelastic::ViscoelasticFiniteElement,
                     },
                 };
+                type AlmansiHamel = Canonical<AlmansiHamelEulerian, Newtonian>;
                 mod almansi_hamel {
                     use super::*;
                     test_finite_element_with_elastic_hyperviscous_constitutive_model!(
                         $element,
-                        AlmansiHamel {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            bulk_viscosity: BULK_VISCOSITY,
-                            shear_viscosity: SHEAR_VISCOSITY,
-                        },
+                        AlmansiHamel::from((
+                            AlmansiHamelEulerian {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            Newtonian {
+                                bulk_viscosity: BULK_VISCOSITY,
+                                shear_viscosity: SHEAR_VISCOSITY,
+                            },
+                        )),
                         AlmansiHamel
                     );
                 }
@@ -1009,9 +1018,13 @@ macro_rules! test_finite_element_inner {
             mod hyperviscoelastic {
                 use super::*;
                 use crate::{
-                    constitutive::solid::hyperviscoelastic::{
-                        SaintVenantKirchhoff,
-                        test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                    constitutive::{
+                        canonical::Canonical,
+                        fluid::hyperviscous::SaintVenantKirchhoff as ViscousSaintVenantKirchhoff,
+                        solid::{
+                            hyperelastic::SaintVenantKirchhoff as HyperelasticSaintVenantKirchhoff,
+                            hyperviscoelastic::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                        },
                     },
                     fem::block::element::solid::{
                         ElementNodalDampingsSolid, ElementNodalForcesSolid,
@@ -1020,16 +1033,22 @@ macro_rules! test_finite_element_inner {
                         viscoelastic::ViscoelasticFiniteElement,
                     },
                 };
+                type SaintVenantKirchhoff =
+                    Canonical<HyperelasticSaintVenantKirchhoff, ViscousSaintVenantKirchhoff>;
                 mod saint_venant_kirchhoff {
                     use super::*;
                     test_finite_element_with_hyperviscoelastic_constitutive_model!(
                         $element,
-                        SaintVenantKirchhoff {
-                            bulk_modulus: BULK_MODULUS,
-                            shear_modulus: SHEAR_MODULUS,
-                            bulk_viscosity: BULK_VISCOSITY,
-                            shear_viscosity: SHEAR_VISCOSITY,
-                        },
+                        SaintVenantKirchhoff::from((
+                            HyperelasticSaintVenantKirchhoff {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            ViscousSaintVenantKirchhoff {
+                                bulk_viscosity: BULK_VISCOSITY,
+                                shear_viscosity: SHEAR_VISCOSITY,
+                            },
+                        )),
                         SaintVenantKirchhoff
                     );
                 }

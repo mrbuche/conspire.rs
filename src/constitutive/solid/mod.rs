@@ -1,5 +1,10 @@
 //! Solid constitutive models.
 
+#[cfg(feature = "autodiff")]
+pub mod autodiff;
+
+mod canonical;
+
 pub mod elastic;
 pub mod elastic_hyperviscous;
 pub mod elastic_plastic;

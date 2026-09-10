@@ -23,7 +23,7 @@ impl<const D: usize> BoundingBox<D> {
             .zip(self.minimum.iter())
             .enumerate()
             .map(|(i, (&max, &min))| (i, max - min))
-            .max_by(|(_, length_a), (_, length_b)| length_a.partial_cmp(length_b).unwrap())
+            .max_by(|(_, length_a), (_, length_b)| length_a.total_cmp(length_b))
             .unwrap()
             .0
     }
@@ -33,7 +33,7 @@ impl<const D: usize> BoundingBox<D> {
             .zip(self.minimum.iter())
             .enumerate()
             .map(|(i, (&max, &min))| (i, max - min))
-            .min_by(|(_, length_a), (_, length_b)| length_a.partial_cmp(length_b).unwrap())
+            .min_by(|(_, length_a), (_, length_b)| length_a.total_cmp(length_b))
             .unwrap()
             .0
     }
@@ -46,7 +46,8 @@ impl BoundingBox<3> {
         b: &Coordinate<3>,
         c: &Coordinate<3>,
     ) -> bool {
-        let center: [Scalar; 3] = from_fn(|k| (self.minimum[k] + self.maximum[k]).value() * 0.5);
+        let center: [Scalar; 3] =
+            from_fn(|k| self.minimum[k].value().midpoint(self.maximum[k].value()));
         let half: [Scalar; 3] = from_fn(|k| (self.maximum[k] - self.minimum[k]).value() * 0.5);
         let v: [[Scalar; 3]; 3] = [a, b, c].map(|p| from_fn(|k| p[k].value() - center[k]));
         let edges: [[Scalar; 3]; 3] = [

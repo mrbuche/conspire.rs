@@ -13,6 +13,7 @@ version = "0.7.8"
 
 [features]
 all = ['vem']
+autodiff = []
 constitutive = ['physics']
 doc = []
 fem = ['constitutive', 'geometry']
@@ -20,6 +21,7 @@ geometry = ['io', 'math']
 io = []
 math = []
 mechanics = ['math']
+nightly = []
 physics = ['mechanics']
 vem = ['fem']
 

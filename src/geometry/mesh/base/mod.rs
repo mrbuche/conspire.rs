@@ -9,10 +9,9 @@ use crate::{
         bbox::{BoundingBox, BoundingBoxes},
         mesh::{Connectivity, Mesh, NodeSets, SideSets},
     },
-    math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D, TensorVec},
+    math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D},
     units::Dimensionless,
 };
-use std::array::from_fn;
 
 impl Mesh<3> {
     pub fn normals(&self) -> TensorRank1Vec2D<3, Reference, Dimensionless> {
@@ -29,38 +28,6 @@ impl Mesh<3> {
                 _ => panic!(),
             })
             .collect()
-    }
-    pub(crate) fn keep_hexes(
-        &mut self,
-        mut keep: impl FnMut(usize, &[usize; 8], &Coordinates<3>) -> bool,
-    ) -> Result<(), &'static str> {
-        let [Connectivity::Hexahedral(block)] = self.connectivities() else {
-            return Err("keep_hexes requires a single hexahedral block");
-        };
-        let coordinates = self.coordinates();
-        let mut remap = vec![usize::MAX; coordinates.len()];
-        let mut new_coordinates = Coordinates::new();
-        let mut connectivity = Vec::new();
-        block
-            .iter()
-            .enumerate()
-            .filter(|(index, hex)| keep(*index, hex, coordinates))
-            .for_each(|(_, hex)| {
-                connectivity.push(from_fn(|i| {
-                    let node = hex[i];
-                    if remap[node] == usize::MAX {
-                        remap[node] = new_coordinates.len();
-                        new_coordinates.push(coordinates[node].clone());
-                    }
-                    remap[node]
-                }))
-            });
-        *self = (
-            vec![Connectivity::Hexahedral(connectivity.into())],
-            new_coordinates,
-        )
-            .into();
-        Ok(())
     }
 }
 

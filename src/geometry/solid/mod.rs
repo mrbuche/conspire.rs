@@ -7,9 +7,9 @@ mod test;
 use crate::{
     geometry::{
         Coordinate, Coordinates, Direction,
-        mesh::{Class, Connectivity, Fitting, Mesh, buffer::fit::Oracle},
+        mesh::{Class, Connectivity, Dualization, Fitting, Mesh, buffer::fit::Oracle},
         ntree::{
-            Balance, Balancing, Dualization, Orthotree, Pairing, Rescaling,
+            Balance, Balancing, Orthotree, Pairing, Rescaling,
             node::{Kind, Node, slot::Slot},
         },
     },
@@ -424,7 +424,7 @@ pub trait Solid {
             .iter()
             .map(|&class| class != Class::Outside)
             .collect();
-        mesh.keep_hexes(|index, _, _| keep[index])?;
+        mesh.retain_elements(|index, _, _| keep[index]);
         let classes = classes
             .into_iter()
             .zip(&keep)
@@ -465,7 +465,7 @@ pub trait Solid {
             });
         }
         let signed = signed_distances(&oracle, mesh.coordinates(), Some(&needed));
-        mesh.keep_hexes(|index, hex, _| {
+        mesh.retain_elements(|index, hex, _| {
             if outside[index] {
                 return false;
             }
@@ -474,7 +474,7 @@ pub trait Solid {
                 |(minimum, maximum), &node| (minimum.min(signed[node]), maximum.max(signed[node])),
             );
             survives_trim(cut[index], minimum, maximum)
-        })?;
+        });
         mesh.buffer_with(&Fit(&oracle), fitting)
     }
 }

@@ -3,9 +3,24 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator, Times},
+    integrate::{
+        ButcherTableau, Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator,
+        Times,
+    },
 };
 use std::ops::Mul;
+
+/// The explicit midpoint tableau.
+#[derive(Debug)]
+pub struct Tableau;
+
+impl ButcherTableau for Tableau {
+    const STAGES: usize = 2;
+    const ORDER: Scalar = 2.0;
+    const A: &'static [&'static [Scalar]] = &[&[], &[0.5]];
+    const C: &'static [Scalar] = &[0.0, 0.5];
+    const B: &'static [Scalar] = &[0.0, 1.0];
+}
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug, Default)]
@@ -52,19 +67,5 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn step(
-        &self,
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
-        y: &Y,
-        t: Quantity<T>,
-        dt: Quantity<T>,
-        k: &mut [Derivative<Y, T>],
-        y_trial: &mut Y,
-    ) -> Result<(), String> {
-        k[0] = function(t, y)?;
-        *y_trial = &k[0] * (0.5 * dt) + y;
-        k[1] = function(t + 0.5 * dt, y_trial)?;
-        *y_trial = &k[1] * dt + y;
-        Ok(())
-    }
+    type Tableau = Tableau;
 }

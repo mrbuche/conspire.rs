@@ -1,0 +1,55 @@
+#![allow(clippy::needless_range_loop)]
+
+pub(crate) fn determinant(f: &[f64; 9]) -> f64 {
+    f[0] * (f[4] * f[8] - f[5] * f[7]) - f[1] * (f[3] * f[8] - f[5] * f[6])
+        + f[2] * (f[3] * f[7] - f[4] * f[6])
+}
+
+pub(crate) fn inverse(f: &[f64; 9]) -> [f64; 9] {
+    let jacobian = determinant(f);
+    [
+        (f[4] * f[8] - f[5] * f[7]) / jacobian,
+        (f[2] * f[7] - f[1] * f[8]) / jacobian,
+        (f[1] * f[5] - f[2] * f[4]) / jacobian,
+        (f[5] * f[6] - f[3] * f[8]) / jacobian,
+        (f[0] * f[8] - f[2] * f[6]) / jacobian,
+        (f[2] * f[3] - f[0] * f[5]) / jacobian,
+        (f[3] * f[7] - f[4] * f[6]) / jacobian,
+        (f[1] * f[6] - f[0] * f[7]) / jacobian,
+        (f[0] * f[4] - f[1] * f[3]) / jacobian,
+    ]
+}
+
+pub(crate) fn push_cauchy(p: &[f64; 9], f: &[f64; 9], out: &mut [f64; 9]) {
+    let jacobian = determinant(f);
+    for i in 0..3 {
+        for j in 0..3 {
+            out[3 * i + j] =
+                (p[3 * i] * f[3 * j] + p[3 * i + 1] * f[3 * j + 1] + p[3 * i + 2] * f[3 * j + 2])
+                    / jacobian;
+        }
+    }
+}
+
+pub(crate) fn push_second_piola(p: &[f64; 9], f: &[f64; 9], out: &mut [f64; 9]) {
+    let f_inverse = inverse(f);
+    for i in 0..3 {
+        for j in 0..3 {
+            out[3 * i + j] = f_inverse[3 * i] * p[j]
+                + f_inverse[3 * i + 1] * p[3 + j]
+                + f_inverse[3 * i + 2] * p[6 + j];
+        }
+    }
+}
+
+pub(crate) fn push_first_piola(sigma: &[f64; 9], f: &[f64; 9], out: &mut [f64; 9]) {
+    let (jacobian, f_inverse) = (determinant(f), inverse(f));
+    for i in 0..3 {
+        for k in 0..3 {
+            out[3 * i + k] = jacobian
+                * (sigma[3 * i] * f_inverse[3 * k]
+                    + sigma[3 * i + 1] * f_inverse[3 * k + 1]
+                    + sigma[3 * i + 2] * f_inverse[3 * k + 2]);
+        }
+    }
+}

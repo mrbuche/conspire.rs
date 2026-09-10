@@ -831,8 +831,7 @@ fn probe_mesh(
         let (mut only, only_classes) = brep
             .dual_background(sizing, levels, 0.1, Balancing::Strong(1))
             .expect("dual_background failed");
-        only.keep_hexes(|index, _, _| only_classes[index] == want)
-            .expect("keep_hexes failed");
+        only.retain_elements(|index, _, _| only_classes[index] == want);
         eprintln!("  {label}: {} hexes", only.number_of_elements());
         dump(&only, &format!("{out}_{label}.vtu"));
     }

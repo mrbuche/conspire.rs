@@ -97,7 +97,7 @@ pub(super) fn reach_sorted(
 
 /// Applies a source column pair to four target slices with multipliers `u`
 /// and `w`, skipping all-zero multiplier quads.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn pair_quad(
     temp_0: &mut [Scalar],
     temp_1: &mut [Scalar],
@@ -122,7 +122,7 @@ fn pair_quad(
 /// Contributions of the first `consumed` columns of a panel's rows
 /// `[lo, lo + count)` to up to CHUNK dense target columns, streaming each
 /// panel column pair from memory once for both target quads.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(super) fn gemm_wide(
     temp: &mut [Scalar],
     work: &[Scalar],

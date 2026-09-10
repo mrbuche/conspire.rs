@@ -1,6 +1,10 @@
 use crate::{
-    geometry::{Coordinate, Coordinates, grid::Voxels, mesh::Mesh},
-    math::{Tensor, TensorVec},
+    geometry::{
+        Coordinate, Coordinates,
+        grid::Voxels,
+        mesh::{Connectivity, Mesh, Verdict},
+    },
+    math::{FxHashMap, Tensor, TensorVec},
 };
 
 const RADIUS: usize = 3;
@@ -96,4 +100,105 @@ fn empty_bounding_box_costs_nothing() {
     );
     assert_eq!(mesh.number_of_nodes(), 8);
     assert_eq!(mesh.number_of_elements(), 1);
+}
+
+fn box_cells(nel: [usize; 3]) -> Vec<([usize; 3], usize)> {
+    let mut cells = Vec::new();
+    for k in 0..nel[2] {
+        for j in 0..nel[1] {
+            for i in 0..nel[0] {
+                cells.push(([i, j, k], 1))
+            }
+        }
+    }
+    cells
+}
+
+fn tets(mesh: &Mesh<3>) -> Vec<[usize; 4]> {
+    mesh.connectivities()
+        .iter()
+        .flat_map(|block| match block {
+            Connectivity::Tetrahedral(elements) => elements.iter().copied(),
+            _ => panic!("expected a tetrahedral block"),
+        })
+        .collect()
+}
+
+#[test]
+fn tets_are_six_per_cell() {
+    let nel = [3, 4, 5];
+    let cells = box_cells(nel);
+    let mesh = Mesh::from_lattice_tets(cells.clone(), nel, &UNIT, &ORIGIN);
+    assert_eq!(mesh.number_of_elements(), 6 * cells.len());
+    assert_eq!(mesh.number_of_element_blocks(), 1);
+    assert_eq!(mesh.number_of_nodes(), 4 * 5 * 6)
+}
+
+#[test]
+fn tets_are_conforming() {
+    let nel = [3, 4, 5];
+    let mesh = Mesh::from_lattice_tets(box_cells(nel), nel, &UNIT, &ORIGIN);
+    let mut faces = FxHashMap::<[usize; 3], usize>::default();
+    tets(&mesh).iter().for_each(|tet| {
+        [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]]
+            .iter()
+            .for_each(|local| {
+                let mut face = [tet[local[0]], tet[local[1]], tet[local[2]]];
+                face.sort_unstable();
+                *faces.entry(face).or_default() += 1
+            })
+    });
+    assert!(faces.values().all(|&count| count == 1 || count == 2));
+    let boundary = faces.values().filter(|&&count| count == 1).count();
+    assert_eq!(boundary, mesh.exterior_faces().len());
+    let [nx, ny, nz] = nel;
+    assert_eq!(boundary, 4 * (nx * ny + ny * nz + nz * nx))
+}
+
+#[test]
+fn tets_are_positively_oriented() {
+    let nel = [2, 3, 4];
+    [
+        (UNIT, ORIGIN),
+        (
+            Coordinate::const_from([0.5, 2.0, 1.5]),
+            Coordinate::const_from([-3.0, 1.0, 7.0]),
+        ),
+    ]
+    .iter()
+    .for_each(|(scale, translate)| {
+        let mesh = Mesh::from_lattice_tets(box_cells(nel), nel, scale, translate);
+        let worst = mesh
+            .minimum_scaled_jacobians()
+            .into_iter()
+            .flatten()
+            .fold(f64::INFINITY, f64::min);
+        assert!(worst > 0.0, "{worst}")
+    })
+}
+
+#[test]
+fn tets_fill_the_lattice() {
+    let nel = [3, 4, 5];
+    let scale = Coordinate::const_from([0.5, 2.0, 1.5]);
+    let cells = box_cells(nel);
+    let mesh = Mesh::from_lattice_tets(cells.clone(), nel, &scale, &ORIGIN);
+    let total: f64 = mesh.volumes().into_iter().flatten().sum();
+    let cell = scale[0].value() * scale[1].value() * scale[2].value();
+    assert!((total - cell * cells.len() as f64).abs() < 1e-12, "{total}")
+}
+
+#[test]
+fn tets_carry_materials_like_cells() {
+    let nel = [2, 2, 2];
+    let cells: Vec<_> = box_cells(nel)
+        .into_iter()
+        .enumerate()
+        .map(|(index, (cell, _))| (cell, 1 + index % 3))
+        .collect();
+    let mesh = Mesh::from_lattice_tets(cells, nel, &UNIT, &ORIGIN);
+    assert_eq!(mesh.blocks(), Some(&[1, 2, 3][..]));
+    mesh.connectivities()
+        .iter()
+        .for_each(|block| assert!(matches!(block, Connectivity::Tetrahedral(_))))
 }

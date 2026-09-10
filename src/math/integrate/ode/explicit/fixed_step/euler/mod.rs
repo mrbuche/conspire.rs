@@ -3,9 +3,24 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator, Times},
+    integrate::{
+        ButcherTableau, Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator,
+        Times,
+    },
 };
 use std::ops::Mul;
+
+/// The forward Euler tableau.
+#[derive(Debug)]
+pub struct Tableau;
+
+impl ButcherTableau for Tableau {
+    const STAGES: usize = 1;
+    const ORDER: Scalar = 1.0;
+    const A: &'static [&'static [Scalar]] = &[&[]];
+    const C: &'static [Scalar] = &[0.0];
+    const B: &'static [Scalar] = &[1.0];
+}
 
 #[doc = include_str!("doc.md")]
 #[derive(Debug, Default)]
@@ -52,17 +67,5 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn step(
-        &self,
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
-        y: &Y,
-        t: Quantity<T>,
-        dt: Quantity<T>,
-        k: &mut [Derivative<Y, T>],
-        y_trial: &mut Y,
-    ) -> Result<(), String> {
-        k[0] = function(t, y)?;
-        *y_trial = &k[0] * dt + y;
-        Ok(())
-    }
+    type Tableau = Tableau;
 }

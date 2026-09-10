@@ -48,7 +48,7 @@ use crate::math::assert::FiniteDifference;
 /// `D` is the dimension, `I`, `J` are the configurations.
 #[repr(transparent)]
 pub struct TensorRank2<const D: usize, I, J, U = Dimensionless>(
-    [TensorRank1<D, J, U>; D],
+    pub(super) [TensorRank1<D, J, U>; D],
     pub(super) PhantomData<I>,
 );
 
@@ -499,6 +499,34 @@ impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
                 .for_each(|(j, self_ij)| tensor_rank_1[3 * i + j] = *self_ij)
         });
         tensor_rank_1
+    }
+}
+
+impl<I, J, U> TensorRank2<3, I, J, U> {
+    /// Returns the rank-2 tensor as a unitless flat array.
+    pub const fn flatten(&self) -> [TensorRank0; 9] {
+        [
+            self.0[0].0[0].value(),
+            self.0[0].0[1].value(),
+            self.0[0].0[2].value(),
+            self.0[1].0[0].value(),
+            self.0[1].0[1].value(),
+            self.0[1].0[2].value(),
+            self.0[2].0[0].value(),
+            self.0[2].0[1].value(),
+            self.0[2].0[2].value(),
+        ]
+    }
+    /// Returns a rank-2 tensor from the unitless flat array.
+    pub const fn unflatten(array: [TensorRank0; 9]) -> Self {
+        Self(
+            [
+                TensorRank1::const_from([array[0], array[1], array[2]]),
+                TensorRank1::const_from([array[3], array[4], array[5]]),
+                TensorRank1::const_from([array[6], array[7], array[8]]),
+            ],
+            PhantomData,
+        )
     }
 }
 
@@ -1357,7 +1385,7 @@ where
 
 // Solving against a rank 4 divides the units, as it undoes multiplying by one.
 
-#[allow(clippy::suspicious_arithmetic_impl)]
+#[expect(clippy::suspicious_arithmetic_impl)]
 impl<I, J, K, L, U, V> Div<TensorRank4<3, I, J, K, L, V>> for &TensorRank2<3, I, J, U>
 where
     U: UnitDiv<V>,

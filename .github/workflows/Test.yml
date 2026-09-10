@@ -73,3 +73,36 @@ jobs:
         run: cargo llvm-cov test --profile release --features ${{ matrix.features }} --fail-under-functions 50 --fail-under-lines 50 --fail-under-regions 50
       - name: Tree
         run: $([[ $(cargo tree --color always --edges normal --features ${{ matrix.features }} | wc -l) -eq 1 ]])
+  Nightly:
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          components: clippy
+          toolchain: nightly
+      - name: Test
+        run: cargo test --release --features all,nightly
+  Autodiff:
+    strategy:
+      fail-fast: true
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Zautodiff=Enable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        with:
+          toolchain: nightly
+      - name: Enzyme
+        run: rustup component add enzyme
+      - name: Test
+        run: cargo test --release --features autodiff,constitutive --lib autodiff

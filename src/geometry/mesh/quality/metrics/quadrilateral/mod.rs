@@ -3,11 +3,11 @@ mod test;
 
 use crate::{
     geometry::Coordinates,
-    math::{Quantity, Scalar, Tensor},
+    math::{Quantity, Scalar},
     units::Area,
 };
 
-const CORNERS: [[usize; 2]; 4] = [[1, 3], [2, 0], [3, 1], [0, 2]];
+const CORNERS: [(usize, [usize; 2]); 4] = [(0, [1, 3]), (1, [2, 0]), (2, [3, 1]), (3, [0, 2])];
 
 const EDGES: [[usize; 2]; 4] = [[0, 1], [1, 2], [2, 3], [3, 0]];
 
@@ -36,15 +36,12 @@ pub(super) fn maximum_skew<const D: usize>(
     element: &[usize],
     coordinates: &Coordinates<D>,
 ) -> Scalar {
-    let p = |i: usize| &coordinates[element[i]];
-    let x1 = (p(1) - p(0)) + (p(2) - p(3));
-    let x2 = (p(3) - p(0)) + (p(2) - p(1));
-    let (n1, n2) = (x1.norm(), x2.norm());
-    if n1 > Quantity::default() && n2 > Quantity::default() {
-        ((&x1 * &x2) / (n1 * n2)).abs().value()
-    } else {
-        0.0
-    }
+    super::quad_skew(
+        &coordinates[element[0]],
+        &coordinates[element[1]],
+        &coordinates[element[2]],
+        &coordinates[element[3]],
+    )
 }
 
 pub(super) fn volume<const D: usize>(

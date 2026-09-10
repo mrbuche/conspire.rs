@@ -4,8 +4,8 @@ mod test;
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        DormandPrince as DormandPrinceVariableStep, Explicit, FixedStep, FixedStepExplicit,
-        IntegrationError, OdeIntegrator, Times, VariableStepExplicit,
+        Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator, Times,
+        ode::explicit::variable_step::dormand_prince::Tableau as DormandPrinceTableau,
     },
 };
 use std::ops::{Mul, Sub};
@@ -53,7 +53,6 @@ where
 
 impl<Y, U, V, T> FixedStepExplicit<Y, U, V, T> for DormandPrince
 where
-    DormandPrinceVariableStep: VariableStepExplicit<Y, U, V, T>,
     Y: Differentiate<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
@@ -62,16 +61,5 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
-    fn step(
-        &self,
-        mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
-        y: &Y,
-        t: Quantity<T>,
-        dt: Quantity<T>,
-        k: &mut [Derivative<Y, T>],
-        y_trial: &mut Y,
-    ) -> Result<(), String> {
-        k[0] = function(t, y)?;
-        DormandPrinceVariableStep::slopes(function, y, t, dt, k, y_trial)
-    }
+    type Tableau = DormandPrinceTableau;
 }
