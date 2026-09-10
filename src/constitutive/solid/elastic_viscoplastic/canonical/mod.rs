@@ -11,16 +11,17 @@ use crate::{
         },
         solid::{
             elastic::Elastic,
+            elastic_plastic::{Matrix3, entries_4, matrix_3, rank_2, rank_4},
             elastic_viscoplastic::{
                 ElasticPlasticOrViscoplastic, ElasticViscoplastic, PlasticTangents,
             },
         },
     },
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, ContractThirdWithFirst, Derivative,
-        Differentiate, Intermediate, Quantity, Rank2, Reference, Scalar, Tensor, TensorRank2,
-        TensorTuple,
-        integrate::{Flat, IntegrableField, Product, StateEvolution, Unimodular},
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, ContractThirdWithFirst, Current,
+        Derivative, Differentiate, Intermediate, Quantity, Rank2, Reference, Scalar, Tensor,
+        TensorRank2, TensorRank4, TensorTuple,
+        integrate::{ButcherTableau, Flat, IntegrableField, Product, StateEvolution, Unimodular},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic,
@@ -34,7 +35,7 @@ use crate::{
     },
     units::{Dissipation, Rate, Stress, Time},
 };
-use std::ops::Add;
+use std::{array::from_fn, ops::Add};
 
 impl<C1, C2> Plastic for Canonical<C1, C2>
 where
@@ -268,5 +269,287 @@ where
         let evolution = self.plastic_evolution(mandel_stress, state)?;
         let plastic_stretching_rate = evolution.0 * state.0.inverse();
         Ok(TensorTuple(plastic_stretching_rate, evolution.1))
+    }
+}
+
+type AlgebraElement = TensorRank2<3, Intermediate, Intermediate>;
+type Directions = [Matrix3; 9];
+
+const ZERO_3: Matrix3 = [[0.0; 3]; 3];
+const ZERO_9: Directions = [ZERO_3; 9];
+
+fn multiply(a: &Matrix3, b: &Matrix3) -> Matrix3 {
+    from_fn(|i| from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum()))
+}
+
+fn add_scaled(target: &mut Matrix3, factor: Scalar, source: &Matrix3) {
+    (0..3).for_each(|i| (0..3).for_each(|j| target[i][j] += factor * source[i][j]))
+}
+
+fn scaled(source: &Matrix3, factor: Scalar) -> Matrix3 {
+    from_fn(|i| from_fn(|j| factor * source[i][j]))
+}
+
+/// One RKMK step of the plastic state together with its algorithmic tangents
+/// with respect to the deformation gradient held fixed across the step.
+pub struct RkmkStepTangent {
+    /// The advanced state.
+    pub state: ViscoplasticStateVariables<Quantity>,
+    /// The tangent of the plastic deformation gradient.
+    pub deformation_gradient_p_tangent: TensorRank4<3, Intermediate, Reference, Current, Reference>,
+    /// The tangent of the hardening variable.
+    pub hardening_tangent: TensorRank2<3, Current, Reference>,
+}
+
+impl<C1, C2> Canonical<C1, C2>
+where
+    C1: Elastic,
+    C2: Viscoplastic<Quantity>,
+{
+    //
+    // D_p = D_p(dev M(F, F_p), Y(S)), so a direction in F moves it through
+    // dM/dF, through dM/dF_p seen by the carried dF_p/dF, and through the
+    // hardening slope seen by the carried dS/dF. The equivalent rate |D_p|
+    // differentiates as the flow direction contracted with dD_p.
+    //
+    #[allow(clippy::type_complexity)]
+    fn plastic_rate_and_tangent(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_p: &Matrix3,
+        hardening: Scalar,
+        deformation_gradient_p_tangent: &Directions,
+        hardening_tangent: &[Scalar; 9],
+    ) -> Result<(Matrix3, Scalar, Directions, [Scalar; 9]), ConstitutiveError> {
+        let plastic: DeformationGradientPlastic = rank_2(deformation_gradient_p);
+        let mandel_stress = self.mandel_stress(deformation_gradient, &plastic)?;
+        let deviatoric = mandel_stress.deviatoric();
+        let yield_stress = self.yield_stress(Quantity::new(hardening))?;
+        let plastic_stretching_rate = <Self as Viscoplastic<Quantity>>::plastic_stretching_rate(
+            self,
+            deviatoric.clone(),
+            yield_stress,
+        )?;
+        let magnitude = plastic_stretching_rate.norm().value();
+        let rate = matrix_3(&plastic_stretching_rate);
+        let flow_direction = if magnitude > 0.0 {
+            scaled(&rate, 1.0 / magnitude)
+        } else {
+            ZERO_3
+        };
+        let mandel_tangent =
+            entries_4(&self.mandel_stress_tangent(deformation_gradient, &plastic)?);
+        let mandel_tangent_p =
+            entries_4(&self.mandel_stress_tangent_p(deformation_gradient, &plastic)?);
+        let rate_tangent = entries_4(
+            &<Self as Viscoplastic<Quantity>>::plastic_stretching_rate_tangent(
+                self,
+                &deviatoric,
+                yield_stress,
+            )?,
+        );
+        let rate_tangent_yield = matrix_3(
+            &<Self as Viscoplastic<Quantity>>::plastic_stretching_rate_tangent_yield(
+                self,
+                deviatoric,
+                yield_stress,
+            )?,
+        );
+        let hardening_slope = self.hardening_slope().value();
+        let mut rate_directions = ZERO_9;
+        let mut equivalent_directions = [0.0; 9];
+        for (direction, (rate_direction, equivalent_direction)) in rate_directions
+            .iter_mut()
+            .zip(equivalent_directions.iter_mut())
+            .enumerate()
+        {
+            let (k, l) = (direction / 3, direction % 3);
+            let mut mandel: Matrix3 = from_fn(|i| {
+                from_fn(|j| {
+                    mandel_tangent[i][j][k][l]
+                        + (0..3)
+                            .map(|n| {
+                                (0..3)
+                                    .map(|o| {
+                                        mandel_tangent_p[i][j][n][o]
+                                            * deformation_gradient_p_tangent[direction][n][o]
+                                    })
+                                    .sum::<Scalar>()
+                            })
+                            .sum::<Scalar>()
+                })
+            });
+            let trace = (mandel[0][0] + mandel[1][1] + mandel[2][2]) / 3.0;
+            (0..3).for_each(|i| mandel[i][i] -= trace);
+            *rate_direction = from_fn(|i| {
+                from_fn(|j| {
+                    (0..3)
+                        .map(|a| {
+                            (0..3)
+                                .map(|b| rate_tangent[i][j][a][b] * mandel[a][b])
+                                .sum::<Scalar>()
+                        })
+                        .sum::<Scalar>()
+                        + rate_tangent_yield[i][j] * hardening_slope * hardening_tangent[direction]
+                })
+            });
+            *equivalent_direction = (0..3)
+                .map(|i| {
+                    (0..3)
+                        .map(|j| flow_direction[i][j] * rate_direction[i][j])
+                        .sum::<Scalar>()
+                })
+                .sum();
+        }
+        Ok((rate, magnitude, rate_directions, equivalent_directions))
+    }
+    //
+    // exp(sigma) F_p, and its directions through the Frechet derivative of the
+    // exponential contracted with the carried directions of sigma.
+    //
+    fn exponential_action(
+        &self,
+        sigma: &Matrix3,
+        sigma_tangent: &Directions,
+        base: &Matrix3,
+    ) -> Result<(Matrix3, Directions), ConstitutiveError> {
+        let algebra: AlgebraElement = rank_2(sigma);
+        let exponential = matrix_3(
+            &algebra
+                .expm()
+                .map_err(|error| ConstitutiveError::upstream(error, self))?,
+        );
+        let exponential_tangent = entries_4(
+            &algebra
+                .dexpm()
+                .map_err(|error| ConstitutiveError::upstream(error, self))?,
+        );
+        let mut directions = ZERO_9;
+        for (direction, entry) in directions.iter_mut().enumerate() {
+            let derivative: Matrix3 = from_fn(|a| {
+                from_fn(|c| {
+                    (0..3)
+                        .map(|p| {
+                            (0..3)
+                                .map(|q| {
+                                    exponential_tangent[a][c][p][q] * sigma_tangent[direction][p][q]
+                                })
+                                .sum::<Scalar>()
+                        })
+                        .sum::<Scalar>()
+                })
+            });
+            *entry = multiply(&derivative, base)
+        }
+        Ok((multiply(&exponential, base), directions))
+    }
+    /// Advances `state` one fixed `Tab`-tableau RKMK step with the deformation
+    /// gradient frozen, carrying the algorithmic tangents `dF_p/dF` and `dY/dF`
+    /// forward through the stage sweep.
+    ///
+    /// The step is `F_p^{n+1} = exp(σ) F_p^n` with `σ = Σᵢ bᵢ k̃ᵢ`,
+    /// `k̃ᵢ = dexpinv_{σᵢ}(fᵢ Δt)` and `σᵢ = Σ_{j<i} aᵢⱼ k̃ⱼ`, so a direction in
+    /// `F` propagates through [`TensorRank2::dexpm`] at each stage point, the
+    /// rate linearization, and [`TensorRank2::dexpinv_tangent`].
+    pub fn rkmk_step_tangent<Tab>(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        state: &ViscoplasticStateVariables<Quantity>,
+        time_step: Quantity<Time>,
+    ) -> Result<RkmkStepTangent, ConstitutiveError>
+    where
+        Tab: ButcherTableau,
+    {
+        let initial = matrix_3(&state.0);
+        let initial_hardening = state.1.value();
+        let step = time_step.value();
+        let mut slopes: Vec<(Matrix3, Scalar)> = Vec::with_capacity(Tab::STAGES);
+        let mut slope_tangents: Vec<(Directions, [Scalar; 9])> = Vec::with_capacity(Tab::STAGES);
+        for i in 0..Tab::STAGES {
+            let mut sigma = ZERO_3;
+            let mut sigma_hardening = 0.0;
+            let mut sigma_tangent = ZERO_9;
+            let mut sigma_hardening_tangent = [0.0; 9];
+            for j in 0..i {
+                let weight = Tab::A[i][j];
+                add_scaled(&mut sigma, weight, &slopes[j].0);
+                sigma_hardening += weight * slopes[j].1;
+                for direction in 0..9 {
+                    add_scaled(
+                        &mut sigma_tangent[direction],
+                        weight,
+                        &slope_tangents[j].0[direction],
+                    );
+                    sigma_hardening_tangent[direction] += weight * slope_tangents[j].1[direction];
+                }
+            }
+            let (point, point_tangent) = if i == 0 {
+                (initial, ZERO_9)
+            } else {
+                self.exponential_action(&sigma, &sigma_tangent, &initial)?
+            };
+            let (rate, equivalent_rate, rate_tangent, equivalent_rate_tangent) = self
+                .plastic_rate_and_tangent(
+                    deformation_gradient,
+                    &point,
+                    initial_hardening + sigma_hardening,
+                    &point_tangent,
+                    &sigma_hardening_tangent,
+                )?;
+            let increment = scaled(&rate, step);
+            let increment_tangent: Directions =
+                from_fn(|direction| scaled(&rate_tangent[direction], step));
+            let increment_hardening_tangent: [Scalar; 9] =
+                from_fn(|direction| equivalent_rate_tangent[direction] * step);
+            if i == 0 {
+                slopes.push((increment, equivalent_rate * step));
+                slope_tangents.push((increment_tangent, increment_hardening_tangent));
+            } else {
+                let algebra: AlgebraElement = rank_2(&sigma);
+                let rate_element: AlgebraElement = rank_2(&increment);
+                let mut slope_tangent = ZERO_9;
+                for (direction, entry) in slope_tangent.iter_mut().enumerate() {
+                    *entry = matrix_3(&algebra.dexpinv_tangent(
+                        &rate_element,
+                        &rank_2(&sigma_tangent[direction]),
+                        &rank_2(&increment_tangent[direction]),
+                    ))
+                }
+                slopes.push((
+                    matrix_3(&algebra.dexpinv(&rate_element)),
+                    equivalent_rate * step,
+                ));
+                slope_tangents.push((slope_tangent, increment_hardening_tangent));
+            }
+        }
+        let mut sigma = ZERO_3;
+        let mut sigma_hardening = 0.0;
+        let mut sigma_tangent = ZERO_9;
+        let mut sigma_hardening_tangent = [0.0; 9];
+        for (i, weight) in Tab::B.iter().enumerate().take(Tab::STAGES) {
+            add_scaled(&mut sigma, *weight, &slopes[i].0);
+            sigma_hardening += weight * slopes[i].1;
+            for direction in 0..9 {
+                add_scaled(
+                    &mut sigma_tangent[direction],
+                    *weight,
+                    &slope_tangents[i].0[direction],
+                );
+                sigma_hardening_tangent[direction] += weight * slope_tangents[i].1[direction];
+            }
+        }
+        let (point, point_tangent) = self.exponential_action(&sigma, &sigma_tangent, &initial)?;
+        Ok(RkmkStepTangent {
+            state: TensorTuple(
+                rank_2(&point),
+                Quantity::new(initial_hardening + sigma_hardening),
+            ),
+            deformation_gradient_p_tangent: rank_4(&from_fn(|a| {
+                from_fn(|b| from_fn(|k| from_fn(|l| point_tangent[3 * k + l][a][b])))
+            })),
+            hardening_tangent: rank_2(&from_fn(|k| {
+                from_fn(|l| sigma_hardening_tangent[3 * k + l])
+            })),
+        })
     }
 }

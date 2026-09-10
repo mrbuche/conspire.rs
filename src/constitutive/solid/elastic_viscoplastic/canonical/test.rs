@@ -271,8 +271,10 @@ mod verner_9 {
 mod state_evolution {
     use super::model;
     use crate::{
+        constitutive::solid::elastic_viscoplastic::ViscoplasticStateVariables,
         math::{
             Quantity, Tensor, TensorArray, TensorTuple, TensorVector,
+            assert::{Assert, AssertionError},
             integrate::{
                 BogackiShampineTableau, StateEvolution, Times, integrate_rkmk_state,
                 integrate_rkmk_state_adaptive,
@@ -586,5 +588,80 @@ mod state_evolution {
         );
         assert!(sink.is_finite());
         assert!(rkmk.as_secs_f64() < 20.0 * rates.as_secs_f64());
+    }
+
+    type Model = super::Canonical<super::AlmansiHamelEulerian, super::ViscoplasticFlow>;
+    type Field = <Model as StateEvolution<Time>>::Field;
+
+    fn advance(
+        model: &Model,
+        deformation_gradient: &DeformationGradient,
+        state: &ViscoplasticStateVariables<Quantity>,
+        time_step: Quantity<Time>,
+    ) -> ViscoplasticStateVariables<Quantity> {
+        crate::math::integrate::rkmk_step::<Field, BogackiShampineTableau, Time>(
+            &mut |t, point| model.state_rate(t, deformation_gradient, point),
+            state,
+            Quantity::new(0.0),
+            time_step,
+            &mut Vec::new(),
+        )
+        .unwrap()
+    }
+
+    // an evolved state, so F_p is off the identity and the hardening has accrued
+    fn evolved_state(
+        model: &Model,
+        deformation_gradient: &DeformationGradient,
+        time_step: Quantity<Time>,
+    ) -> ViscoplasticStateVariables<Quantity> {
+        let mut state = <Model as StateEvolution<Time>>::initial_state(model);
+        for _ in 0..3 {
+            state = advance(model, deformation_gradient, &state, time_step)
+        }
+        state
+    }
+
+    #[test]
+    fn rkmk_step_tangent_matches_finite_difference() -> Result<(), AssertionError> {
+        use crate::math::{
+            Current, Intermediate, Reference, TensorRank2, TensorRank4, assert::perturbation,
+        };
+        let model = model();
+        let deformation_gradient = deformation_gradient();
+        let time_step = Quantity::<Time>::new(0.25);
+        let state = evolved_state(&model, &deformation_gradient, time_step);
+        let tangent = model
+            .rkmk_step_tangent::<BogackiShampineTableau>(&deformation_gradient, &state, time_step)
+            .unwrap();
+        let reference = advance(&model, &deformation_gradient, &state, time_step);
+        Assert::default().eq_within_tols(&tangent.state.0, &reference.0)?;
+        Assert::default().eq_within_tols(tangent.state.1, &reference.1)?;
+        let mut plastic_difference =
+            TensorRank4::<3, Intermediate, Reference, Current, Reference>::zero();
+        let mut hardening_difference = TensorRank2::<3, Current, Reference>::zero();
+        for k in 0..3 {
+            for l in 0..3 {
+                let mut plus = deformation_gradient.clone();
+                plus[k][l] += perturbation(0.5 * crate::EPSILON);
+                let plus = advance(&model, &plus, &state, time_step);
+                let mut minus = deformation_gradient.clone();
+                minus[k][l] -= perturbation(0.5 * crate::EPSILON);
+                let minus = advance(&model, &minus, &state, time_step);
+                for a in 0..3 {
+                    for b in 0..3 {
+                        plastic_difference[a][b][k][l] =
+                            (plus.0[a][b] - minus.0[a][b]) / crate::EPSILON
+                    }
+                }
+                hardening_difference[k][l] = (plus.1 - minus.1) / crate::EPSILON
+            }
+        }
+        // not vacuous: the step really does move with F
+        assert!(plastic_difference.norm().value() > 1e-3);
+        assert!(hardening_difference.norm().value() > 1e-3);
+        Assert::default()
+            .eq_within_fd_tol(&tangent.deformation_gradient_p_tangent, &plastic_difference)?;
+        Assert::default().eq_within_fd_tol(&tangent.hardening_tangent, &hardening_difference)
     }
 }

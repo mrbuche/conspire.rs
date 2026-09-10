@@ -206,18 +206,24 @@ where
     }
 }
 
-type Matrix3 = [[Scalar; 3]; 3];
-type Entries4 = [[[[Scalar; 3]; 3]; 3]; 3];
+pub(crate) type Matrix3 = [[Scalar; 3]; 3];
+pub(crate) type Entries4 = [[[[Scalar; 3]; 3]; 3]; 3];
 
-fn matrix_3<I, J, U>(tensor: &TensorRank2<3, I, J, U>) -> Matrix3 {
+pub(crate) fn matrix_3<I, J, U>(tensor: &TensorRank2<3, I, J, U>) -> Matrix3 {
     from_fn(|i| from_fn(|j| tensor[i][j].value()))
 }
 
-fn entries_4<I, J, K, L, U>(tensor: &TensorRank4<3, I, J, K, L, U>) -> Entries4 {
+pub(crate) fn entries_4<I, J, K, L, U>(tensor: &TensorRank4<3, I, J, K, L, U>) -> Entries4 {
     from_fn(|i| from_fn(|j| from_fn(|k| from_fn(|l| tensor[i][j][k][l].value()))))
 }
 
-fn rank_4<I, J, K, L, U>(entries: &Entries4) -> TensorRank4<3, I, J, K, L, U> {
+pub(crate) fn rank_2<I, J, U>(matrix: &Matrix3) -> TensorRank2<3, I, J, U> {
+    let mut tensor = TensorRank2::zero();
+    (0..3).for_each(|i| (0..3).for_each(|j| tensor[i][j] = Quantity::new(matrix[i][j])));
+    tensor
+}
+
+pub(crate) fn rank_4<I, J, K, L, U>(entries: &Entries4) -> TensorRank4<3, I, J, K, L, U> {
     let mut tensor = TensorRank4::zero();
     (0..3).for_each(|i| {
         (0..3).for_each(|j| {
