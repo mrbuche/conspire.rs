@@ -6,7 +6,7 @@ use crate::math::{
     TensorVec,
     integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
 };
-use crate::units::Dimensionless;
+use crate::units::{Dimensionless, Time};
 use std::{
     marker::PhantomData,
     ops::{Add, Mul},
@@ -303,4 +303,59 @@ where
         }
     }
     Ok((times, points))
+}
+
+/// The `Point` type of a [`StateEvolution`] model's field.
+pub type EvolvedState<M, T = Time> = <<M as StateEvolution<T>>::Field as IntegrableField>::Point;
+
+/// The `Increment` (Lie-algebra) type of a [`StateEvolution`] model's field.
+pub type EvolvedIncrement<M, T = Time> =
+    <<M as StateEvolution<T>>::Field as IntegrableField>::Increment;
+
+/// A model whose internal state evolves as a product of Lie-algebra rates,
+/// ready for the field drivers. [`Self::Drive`] is the externally-imposed input
+/// the rate needs beside the state (e.g. the total deformation gradient).
+pub trait StateEvolution<T = Time>
+where
+    <Self::Field as IntegrableField>::Increment: Differentiate<T>,
+{
+    /// Geometry of the composite internal state.
+    type Field: IntegrableField;
+    /// The externally-imposed driving input.
+    type Drive;
+    /// The initial internal state.
+    fn initial_state(&self) -> <Self::Field as IntegrableField>::Point;
+    /// The product of Lie-algebra rates at `(time, drive, state)`.
+    fn state_rate(
+        &self,
+        time: Quantity<T>,
+        drive: &Self::Drive,
+        state: &<Self::Field as IntegrableField>::Point,
+    ) -> Result<Derivative<<Self::Field as IntegrableField>::Increment, T>, String>;
+}
+
+/// Runs [`integrate_rkmk`] over a [`StateEvolution`] model, sampling `drive` at
+/// each stage time and starting from the model's own initial state.
+pub fn integrate_rkmk_state<M, Tab, U, T>(
+    model: &M,
+    mut drive: impl FnMut(Quantity<T>) -> M::Drive,
+    time: &[Quantity<T>],
+) -> Result<(Times<T>, U), IntegrationError>
+where
+    M: StateEvolution<T>,
+    Tab: ButcherTableau,
+    EvolvedState<M, T>: Clone,
+    EvolvedIncrement<M, T>: Clone + Differentiate<T>,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<EvolvedIncrement<M, T>, T>:
+        Mul<Quantity<T>, Output = EvolvedIncrement<M, T>>,
+    U: TensorVec<Item = EvolvedState<M, T>>,
+{
+    let initial = model.initial_state();
+    integrate_rkmk::<M::Field, Tab, U, T>(
+        |t, state| model.state_rate(t, &drive(t), state),
+        time,
+        initial,
+    )
 }

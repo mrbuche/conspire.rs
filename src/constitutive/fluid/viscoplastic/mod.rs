@@ -28,6 +28,11 @@ pub type ViscoplasticStateVariablesHistory<Y> = TensorTupleVec<DeformationGradie
 /// The evolution of the viscoplastic state variables.
 pub type ViscoplasticEvolution<Y> = Derivative<ViscoplasticStateVariables<Y>>;
 
+/// The viscoplastic state's Lie-algebra rate `(D_p, ε̇_p)`, as consumed by the
+/// field time-integration drivers — the plastic stretching rate itself, not the
+/// group velocity `Ḟ_p = D_p F_p`.
+pub type ViscoplasticAlgebraRate = TensorTuple<StretchingRatePlastic, Quantity<Rate>>;
+
 /// The history of the evolution of the viscoplastic state variables.
 pub type ViscoplasticEvolutionHistory<Y> =
     TensorTupleVec<DeformationGradientRatePlastic, Derivative<Y>>;

@@ -7,7 +7,10 @@ use crate::{
         canonical::Canonical,
         fluid::{
             plastic::Plastic,
-            viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
+            viscoplastic::{
+                Viscoplastic, ViscoplasticAlgebraRate, ViscoplasticEvolution,
+                ViscoplasticStateVariables,
+            },
         },
         solid::{
             elastic::Elastic,
@@ -15,8 +18,9 @@ use crate::{
         },
     },
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, Differentiate, Quantity, Rank2,
-        Scalar, Tensor,
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, Differentiate, Intermediate,
+        Quantity, Rank2, Reference, Scalar, Tensor, TensorTuple,
+        integrate::{Flat, Product, StateEvolution, Unimodular},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, DeformationGradient,
@@ -26,7 +30,7 @@ use crate::{
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffnessElastic,
         StretchingRatePlastic,
     },
-    units::{Dissipation, Rate, Stress},
+    units::{Dissipation, Rate, Stress, Time},
 };
 
 impl<C1, C2> Plastic for Canonical<C1, C2>
@@ -177,4 +181,38 @@ where
     C2: Viscoplastic<Y2>,
     Y2: Differentiate + Tensor,
 {
+}
+
+/// The internal state `(F_p, ε_p)` evolves as `F_p` on the unimodular group
+/// (`Reference → Intermediate`, so its algebra element `D_p Δt` is
+/// `Intermediate → Intermediate`) and `ε_p` additively. The rate is the plastic
+/// stretching rate itself, `(D_p, |D_p|)`, driven by the total deformation
+/// gradient through the Mandel stress.
+impl<C1, C2> StateEvolution<Time> for Canonical<C1, C2>
+where
+    C1: Elastic,
+    C2: Viscoplastic<Quantity>,
+{
+    type Field = Product<Unimodular<Intermediate, Reference>, Flat<Quantity>>;
+    type Drive = DeformationGradient;
+    fn initial_state(&self) -> ViscoplasticStateVariables<Quantity> {
+        <Self as Viscoplastic<Quantity>>::initial_state(self)
+    }
+    fn state_rate(
+        &self,
+        _time: Quantity<Time>,
+        deformation_gradient: &DeformationGradient,
+        state: &ViscoplasticStateVariables<Quantity>,
+    ) -> Result<ViscoplasticAlgebraRate, String> {
+        let deviatoric_mandel_stress = self
+            .mandel_stress(deformation_gradient, &state.0)?
+            .deviatoric();
+        let plastic_stretching_rate =
+            self.plastic_stretching_rate(deviatoric_mandel_stress, self.yield_stress(state.1)?)?;
+        let equivalent_plastic_strain_rate = plastic_stretching_rate.norm();
+        Ok(TensorTuple(
+            plastic_stretching_rate,
+            equivalent_plastic_strain_rate,
+        ))
+    }
 }

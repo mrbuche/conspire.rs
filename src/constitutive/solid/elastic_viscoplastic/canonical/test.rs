@@ -135,3 +135,65 @@ mod verner_9 {
     use super::*;
     test_model_with_integrator!(Verner9);
 }
+
+mod state_evolution {
+    use super::model;
+    use crate::{
+        math::{
+            Quantity, Tensor, TensorArray, TensorTuple, TensorVector,
+            integrate::{BogackiShampineTableau, StateEvolution, Times, integrate_rkmk_state},
+        },
+        mechanics::{DeformationGradient, DeformationGradientPlastic},
+        units::Time,
+    };
+
+    // simple shear, det = 1; large enough that the deviatoric Mandel stress yields
+    fn deformation_gradient() -> DeformationGradient {
+        DeformationGradient::from([[1.0, 0.6, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+    }
+
+    fn time(steps: usize) -> Vec<Quantity<Time>> {
+        (0..=steps)
+            .map(|i| Quantity::new(i as f64 / steps as f64))
+            .collect()
+    }
+
+    #[test]
+    fn rkmk_state_keeps_the_plastic_deformation_unimodular() {
+        let model = model();
+        let (_, states): (Times, TensorVector<_>) =
+            integrate_rkmk_state::<_, BogackiShampineTableau, _, _>(
+                &model,
+                |_| deformation_gradient(),
+                &time(20),
+            )
+            .unwrap();
+        let final_state = states.iter().last().unwrap();
+        assert!((final_state.0.determinant() - 1.0).abs() < 1e-10);
+        // and F_p actually flowed
+        assert!(
+            (&final_state.0 - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+    }
+
+    #[test]
+    fn the_legacy_additive_march_drifts_off_the_group_where_rkmk_does_not() {
+        let model = model();
+        let f = deformation_gradient();
+        let steps = time(20);
+        let mut fp = DeformationGradientPlastic::identity();
+        let mut eps = Quantity::new(0.0);
+        for w in steps.windows(2) {
+            let dt = w[1] - w[0];
+            let rate = StateEvolution::state_rate(&model, w[0], &f, &TensorTuple(fp.clone(), eps))
+                .unwrap();
+            // forward Euler on Ḟ_p = D_p F_p — never re-projected onto the group
+            fp = &(&rate.0 * &fp) * dt + &fp;
+            eps += rate.1 * dt;
+        }
+        assert!((fp.determinant() - 1.0).abs() > 1e-4);
+    }
+}
