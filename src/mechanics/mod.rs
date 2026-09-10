@@ -114,6 +114,22 @@ pub type CauchyTangentStiffness1 = TensorRank4<3, Current, Current, Current, Int
 pub type CauchyTangentStiffnessElastic =
     TensorRank4<3, Current, Current, Current, Intermediate, Stress>;
 
+/// The tangent stiffness of the Cauchy stress with respect to the plastic deformation gradient.
+pub type CauchyTangentStiffnessPlastic =
+    TensorRank4<3, Current, Current, Intermediate, Reference, Stress>;
+
+/// The tangent stiffness of the elastic Mandel stress with respect to the deformation gradient.
+pub type MandelStressTangentElastic =
+    TensorRank4<3, Intermediate, Intermediate, Current, Reference, Stress>;
+
+/// The tangent stiffness of the elastic Mandel stress with respect to the plastic deformation gradient.
+pub type MandelStressTangentElasticPlastic =
+    TensorRank4<3, Intermediate, Intermediate, Intermediate, Reference, Stress>;
+
+/// The tangent stiffness of the first Piola-Kirchhoff stress with respect to the plastic deformation gradient.
+pub type FirstPiolaKirchhoffTangentStiffnessPlastic =
+    TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>;
+
 /// The rate tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{V}}`$.
 pub type CauchyRateTangentStiffness =
     TensorRank4<3, Current, Current, Current, Reference, Viscosity>;

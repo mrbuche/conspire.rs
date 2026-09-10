@@ -11,17 +11,21 @@ use crate::{
         },
         solid::{
             elastic::Elastic,
-            elastic_viscoplastic::{ElasticPlasticOrViscoplastic, ElasticViscoplastic},
+            elastic_viscoplastic::{
+                ElasticPlasticOrViscoplastic, ElasticViscoplastic, PlasticTangents,
+            },
         },
     },
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, Derivative, Differentiate,
-        Intermediate, Quantity, Rank2, Reference, Scalar, Tensor, TensorRank2, TensorTuple,
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, ContractThirdWithFirst, Derivative,
+        Differentiate, Intermediate, Quantity, Rank2, Reference, Scalar, Tensor, TensorRank2,
+        TensorTuple,
         integrate::{Flat, IntegrableField, Product, StateEvolution, Unimodular},
     },
     mechanics::{
-        CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic, DeformationGradient,
-        DeformationGradientPlastic, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
+        CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic,
+        CauchyTangentStiffnessPlastic, DeformationGradient, DeformationGradientPlastic,
+        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
         FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessElastic,
         MandelStressElastic, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffStressElastic,
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffnessElastic,
@@ -170,6 +174,28 @@ where
             &deformation_gradient_p_inverse,
             &deformation_gradient_p_inverse,
         ))
+    }
+}
+
+impl<C1, C2> PlasticTangents for Canonical<C1, C2>
+where
+    C1: Elastic,
+    C2: Plastic,
+{
+    fn cauchy_tangent_stiffness_p(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        deformation_gradient_p: &DeformationGradientPlastic,
+    ) -> Result<CauchyTangentStiffnessPlastic, ConstitutiveError> {
+        let deformation_gradient_p_inverse = deformation_gradient_p.inverse();
+        let deformation_gradient_e = deformation_gradient * &deformation_gradient_p_inverse;
+        Ok(CauchyTangentStiffnessElastic::from(
+            self.0
+                .cauchy_tangent_stiffness(&deformation_gradient_e.clone().into())?,
+        )
+        .contract_third_with_first(&deformation_gradient_e)
+            * deformation_gradient_p_inverse.transpose()
+            * -1.0)
     }
 }
 

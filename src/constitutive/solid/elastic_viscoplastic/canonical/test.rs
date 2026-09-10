@@ -74,6 +74,106 @@ fn finite_difference() -> Result<(), AssertionError> {
     }
 }
 
+fn deformation_gradients() -> (DeformationGradient, DeformationGradientPlastic) {
+    (
+        DeformationGradient::from([
+            [1.31924942, 1.36431217, 0.41764434],
+            [0.09959341, 1.38409741, 1.48320137],
+            [0.21114106, 1.16675104, 1.98146028],
+        ]),
+        DeformationGradientPlastic::from([
+            [0.79610657, 1.36265438, 0.58765375],
+            [0.71714877, 1.83110678, 0.69670465],
+            [1.82260662, 2.1921719, 3.16928404],
+        ]),
+    )
+}
+
+#[test]
+fn mandel_stress_tangent_matches_finite_difference() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_viscoplastic::PlasticTangents,
+        mechanics::MandelStressTangentElastic,
+    };
+    let (deformation_gradient, deformation_gradient_p) = deformation_gradients();
+    let model = model();
+    let tangent = model.mandel_stress_tangent(&deformation_gradient, &deformation_gradient_p)?;
+    let mut fd = MandelStressTangentElastic::zero();
+    for k in 0..3 {
+        for l in 0..3 {
+            let mut plus = deformation_gradient.clone();
+            plus[k][l] += perturbation(0.5 * crate::EPSILON);
+            let mandel_plus = model.mandel_stress(&plus, &deformation_gradient_p)?;
+            let mut minus = deformation_gradient.clone();
+            minus[k][l] -= perturbation(0.5 * crate::EPSILON);
+            let mandel_minus = model.mandel_stress(&minus, &deformation_gradient_p)?;
+            for i in 0..3 {
+                for j in 0..3 {
+                    fd[i][j][k][l] = (mandel_plus[i][j] - mandel_minus[i][j]) / crate::EPSILON;
+                }
+            }
+        }
+    }
+    Assert::default().eq_within_fd_tol(&tangent, &fd)
+}
+
+#[test]
+fn mandel_stress_tangent_p_matches_finite_difference() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_viscoplastic::PlasticTangents,
+        mechanics::MandelStressTangentElasticPlastic,
+    };
+    let (deformation_gradient, deformation_gradient_p) = deformation_gradients();
+    let model = model();
+    let tangent = model.mandel_stress_tangent_p(&deformation_gradient, &deformation_gradient_p)?;
+    let mut fd = MandelStressTangentElasticPlastic::zero();
+    for k in 0..3 {
+        for l in 0..3 {
+            let mut plus = deformation_gradient_p.clone();
+            plus[k][l] += perturbation(0.5 * crate::EPSILON);
+            let mandel_plus = model.mandel_stress(&deformation_gradient, &plus)?;
+            let mut minus = deformation_gradient_p.clone();
+            minus[k][l] -= perturbation(0.5 * crate::EPSILON);
+            let mandel_minus = model.mandel_stress(&deformation_gradient, &minus)?;
+            for i in 0..3 {
+                for j in 0..3 {
+                    fd[i][j][k][l] = (mandel_plus[i][j] - mandel_minus[i][j]) / crate::EPSILON;
+                }
+            }
+        }
+    }
+    Assert::default().eq_within_fd_tol(&tangent, &fd)
+}
+
+#[test]
+fn cauchy_tangent_stiffness_p_matches_finite_difference() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_viscoplastic::PlasticTangents,
+        mechanics::CauchyTangentStiffnessPlastic,
+    };
+    let (deformation_gradient, deformation_gradient_p) = deformation_gradients();
+    let model = model();
+    let tangent =
+        model.cauchy_tangent_stiffness_p(&deformation_gradient, &deformation_gradient_p)?;
+    let mut fd = CauchyTangentStiffnessPlastic::zero();
+    for k in 0..3 {
+        for l in 0..3 {
+            let mut plus = deformation_gradient_p.clone();
+            plus[k][l] += perturbation(0.5 * crate::EPSILON);
+            let stress_plus = model.cauchy_stress(&deformation_gradient, &plus)?;
+            let mut minus = deformation_gradient_p.clone();
+            minus[k][l] -= perturbation(0.5 * crate::EPSILON);
+            let stress_minus = model.cauchy_stress(&deformation_gradient, &minus)?;
+            for i in 0..3 {
+                for j in 0..3 {
+                    fd[i][j][k][l] = (stress_plus[i][j] - stress_minus[i][j]) / crate::EPSILON;
+                }
+            }
+        }
+    }
+    Assert::default().eq_within_fd_tol(&tangent, &fd)
+}
+
 macro_rules! test_integrator_with_solver {
     ($integrator:ident, $solver:expr, $final_time:literal) => {
         let model = model();
