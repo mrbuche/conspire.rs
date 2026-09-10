@@ -763,7 +763,8 @@ fn bone_uniform() {
                                     count
                                         + bernstein::certifies(&element, only.coordinates())
                                             as usize,
-                                    worst.min(bernstein::margin(&element, only.coordinates())),
+                                    worst
+                                        .min(bernstein::test::margin(&element, only.coordinates())),
                                 )
                             })
                     }
@@ -892,7 +893,8 @@ fn certification_on_sharp_features() {
                                     count
                                         + bernstein::certifies(&element, mesh.coordinates())
                                             as usize,
-                                    worst.min(bernstein::margin(&element, mesh.coordinates())),
+                                    worst
+                                        .min(bernstein::test::margin(&element, mesh.coordinates())),
                                 )
                             });
                     let hexes = block.len();
