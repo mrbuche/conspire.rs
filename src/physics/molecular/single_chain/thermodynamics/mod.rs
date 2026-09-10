@@ -636,6 +636,22 @@ where
             number_of_threads,
         )
     }
+    // Reweighted to force eta: (<gamma>, <cos phi_i>, Cov(cos phi_i, gamma)) for
+    // the N-2 dihedrals. First-order weak-torsion correction to gamma(eta) is
+    // beta*k*cos(phi_0) * sum_i Cov(cos phi_i, gamma).
+    fn dihedral_extension_covariance(
+        &self,
+        nondimensional_force: Scalar,
+        number_of_samples: usize,
+        number_of_threads: usize,
+    ) -> (Scalar, Vector, Vector) {
+        dihedral_extension_covariance_reweighted(
+            self,
+            nondimensional_force,
+            number_of_samples,
+            number_of_threads,
+        )
+    }
     fn nondimensional_longitudinal_extension(
         &self,
         nondimensional_force: Scalar,
@@ -964,6 +980,135 @@ fn cosine_moments_reweighted_inner<T: MonteCarlo>(
         cos1cos1_scaled,
         cos2_scaled,
         cos2cos1_scaled,
+    )
+}
+
+// Dihedral phi about link `b1`, recovered from the frame the previous link fixes
+// (same construction as ArbitraryDiscrete::frame_propagated_link_vectors).
+fn dihedral(b0: [Scalar; 3], b1: [Scalar; 3], b2: [Scalar; 3]) -> Scalar {
+    let dot = |a: [Scalar; 3], b: [Scalar; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let unit = |a: [Scalar; 3]| {
+        let s = dot(a, a).sqrt();
+        [a[0] / s, a[1] / s, a[2] / s]
+    };
+    let axis = unit(b1);
+    let perp = |v: [Scalar; 3]| {
+        let d = dot(v, axis);
+        [v[0] - axis[0] * d, v[1] - axis[1] * d, v[2] - axis[2] * d]
+    };
+    let e1 = unit(perp(b0));
+    let e2 = [
+        axis[1] * e1[2] - axis[2] * e1[1],
+        axis[2] * e1[0] - axis[0] * e1[2],
+        axis[0] * e1[1] - axis[1] * e1[0],
+    ];
+    let p = perp(b2);
+    dot(p, e2).atan2(dot(p, e1))
+}
+
+pub(super) fn dihedral_extension_covariance_reweighted<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_samples: usize,
+    number_of_threads: usize,
+) -> (Scalar, Vector, Vector) {
+    let base = number_of_samples / number_of_threads;
+    let remainder = number_of_samples % number_of_threads;
+    scope(|s| {
+        (0..number_of_threads)
+            .map(|t| {
+                s.spawn(move || {
+                    dihedral_extension_covariance_reweighted_inner(
+                        model,
+                        nondimensional_force,
+                        base + usize::from(t < remainder),
+                    )
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|handle| handle.join().unwrap())
+            .reduce(
+                |mut acc, (x_max, z_scaled, gamma_scaled, cos_phi_scaled, cos_phi_gamma_scaled)| {
+                    let x_max_new = acc.0.max(x_max);
+                    let scale_acc = (acc.0 - x_max_new).exp();
+                    let scale_new = (x_max - x_max_new).exp();
+                    acc.1 = acc.1 * scale_acc + z_scaled * scale_new;
+                    acc.2 = acc.2 * scale_acc + gamma_scaled * scale_new;
+                    acc.3 = acc.3 * scale_acc + cos_phi_scaled * scale_new;
+                    acc.4 = acc.4 * scale_acc + cos_phi_gamma_scaled * scale_new;
+                    acc.0 = x_max_new;
+                    acc
+                },
+            )
+            .map(
+                |(_x_max, z_scaled, gamma_scaled, cos_phi_scaled, cos_phi_gamma_scaled)| {
+                    let z_inv = 1.0 / z_scaled;
+                    let gamma_mean = gamma_scaled * z_inv;
+                    let cos_phi_mean = cos_phi_scaled * z_inv;
+                    let mut covariance = cos_phi_gamma_scaled * z_inv;
+                    (0..covariance.len())
+                        .for_each(|i| covariance[i] -= cos_phi_mean[i] * gamma_mean);
+                    (gamma_mean, cos_phi_mean, covariance)
+                },
+            )
+            .unwrap()
+    })
+}
+
+fn dihedral_extension_covariance_reweighted_inner<T: MonteCarlo>(
+    model: &T,
+    nondimensional_force: Scalar,
+    number_of_samples: usize,
+) -> (Scalar, Scalar, Scalar, Vector, Vector) {
+    let num_links = model.number_of_links() as usize;
+    let num_dihedrals = num_links.saturating_sub(2);
+    let mut x_max = Scalar::NEG_INFINITY;
+    let mut z_scaled = 0.0;
+    let mut gamma_scaled = 0.0;
+    let mut cos_phi_scaled = Vector::zero(num_dihedrals);
+    let mut cos_phi_gamma_scaled = Vector::zero(num_dihedrals);
+    for _ in 0..number_of_samples {
+        let links = model.random_nondimensional_link_vectors(0.0);
+        let bonds: Vec<[Scalar; 3]> = links
+            .iter()
+            .map(|link| [link[0].value(), link[1].value(), link[2].value()])
+            .collect();
+        let sum_cos: Scalar = bonds
+            .iter()
+            .map(|b| b[2] / (b[0] * b[0] + b[1] * b[1] + b[2] * b[2]).sqrt())
+            .sum();
+        let gamma = sum_cos / num_links as Scalar;
+        let cos_phi: Vec<Scalar> = (0..num_dihedrals)
+            .map(|i| dihedral(bonds[i], bonds[i + 1], bonds[i + 2]).cos())
+            .collect();
+        let x = nondimensional_force * sum_cos;
+        if x > x_max {
+            let scale = if x_max.is_finite() {
+                (x_max - x).exp()
+            } else {
+                0.0
+            };
+            z_scaled *= scale;
+            gamma_scaled *= scale;
+            cos_phi_scaled *= scale;
+            cos_phi_gamma_scaled *= scale;
+            x_max = x;
+        }
+        let w = (x - x_max).exp();
+        z_scaled += w;
+        gamma_scaled += gamma * w;
+        (0..num_dihedrals).for_each(|i| {
+            cos_phi_scaled[i] += cos_phi[i] * w;
+            cos_phi_gamma_scaled[i] += cos_phi[i] * gamma * w;
+        });
+    }
+    (
+        x_max,
+        z_scaled,
+        gamma_scaled,
+        cos_phi_scaled,
+        cos_phi_gamma_scaled,
     )
 }
 
