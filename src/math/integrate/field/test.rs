@@ -3,7 +3,8 @@ use super::{
     integrate_rkmk_adaptive,
 };
 use crate::math::{
-    Current, Quantity, Tensor, TensorArray, TensorRank1, TensorRank2, TensorTuple, TensorVector,
+    Current, Intermediate, Quantity, Reference, Tensor, TensorArray, TensorRank1, TensorRank2,
+    TensorTuple, TensorVector,
     integrate::{Euler, Explicit, Times, ode::explicit::variable_step::bogacki_shampine},
 };
 use crate::units::{Dimensionless, Rate, Time};
@@ -179,6 +180,27 @@ fn rkmk_on_a_flat_field_is_the_plain_tableau() {
         )
         .unwrap();
     assert!((rkmk.iter().last().unwrap().value() - (-1.0_f64).exp()).abs() < 1e-4);
+}
+
+#[test]
+fn rkmk_on_a_field_whose_increment_is_not_its_point() {
+    // F_p: Reference -> Intermediate, its algebra element D_p Δt: Intermediate -> Intermediate.
+    type PlasticField = Unimodular<Intermediate, Reference>;
+    type Fp = TensorRank2<3, Intermediate, Reference, Dimensionless>;
+    type Dp = TensorRank2<3, Intermediate, Intermediate, Rate>;
+    let d_p = Dp::from([[0.0, 0.4, -0.2], [-0.3, 0.0, 0.5], [0.1, -0.15, 0.0]]); // trace 0
+    let (_, points): (Times, TensorVector<Fp>) =
+        integrate_rkmk::<PlasticField, BogackiShampine, _, _>(
+            |_: Quantity<Time>, _: &Fp| Ok(d_p.clone()),
+            &uniform_time(16),
+            Fp::identity(),
+        )
+        .unwrap();
+    let last = points.iter().last().unwrap();
+    // the exponential of a trace-free algebra element keeps det F_p = 1 exactly
+    assert!((last.determinant() - 1.0).abs() < 1e-10);
+    // and F_p actually advanced off the identity
+    assert!((last - &Fp::identity()).norm().value() > 1e-2);
 }
 
 // span [0, 1], f = A/(1+t), exact endpoint exp(A ln 2); returns (accepted steps, endpoint error)
