@@ -208,4 +208,3 @@ fn sphere_volume_is_bracketed_ever_more_tightly() {
         previous = high - low;
     }
 }
-
