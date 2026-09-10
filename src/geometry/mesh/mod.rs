@@ -34,7 +34,7 @@ pub use self::{
         Tessellation,
         cut::{
             Class,
-            marching::{Marching, Placement},
+            marching::{Finish, Marching, Placement},
         },
         write::Stl,
     },

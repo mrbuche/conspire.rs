@@ -1,4 +1,4 @@
-use super::{Marching, Placement};
+use super::{Finish, Marching, Placement};
 use crate::{
     geometry::mesh::{
         Connectivity, Verdict,
@@ -56,7 +56,7 @@ fn placements_compared() {
                 Quantity::new(spacing),
                 Marching {
                     placement,
-                    keep: None,
+                    finish: Finish::Cut,
                 },
             ) {
                 Ok(mesh) => {
@@ -75,7 +75,7 @@ fn a_sphere_is_all_hexahedra_and_none_inverted() {
             Quantity::new(0.2),
             Marching {
                 placement: Placement::Midpoint,
-                keep: None,
+                finish: Finish::Cut,
             },
         )
         .unwrap();
@@ -96,7 +96,7 @@ fn a_creased_surface_is_all_hexahedra_and_none_inverted() {
             Quantity::new(0.25),
             Marching {
                 placement: Placement::Midpoint,
-                keep: None,
+                finish: Finish::Cut,
             },
         )
         .unwrap();
@@ -134,7 +134,7 @@ fn bone_marching() {
                     spacing,
                     Marching {
                         placement,
-                        keep: draw.then_some(0.5),
+                        finish: if draw { Finish::Draw(0.5) } else { Finish::Cut },
                     },
                 ) {
                     Err(error) => {
@@ -187,7 +187,7 @@ fn guard_swept() {
                     spacing,
                     Marching {
                         placement: Placement::Crossing(guard),
-                        keep: draw.then_some(0.5),
+                        finish: if draw { Finish::Draw(0.5) } else { Finish::Cut },
                     },
                 )
                 .unwrap();
@@ -232,7 +232,7 @@ fn guard_against_keep() {
                     spacing,
                     Marching {
                         placement: Placement::Crossing(guard),
-                        keep: Some(keep),
+                        finish: Finish::Draw(keep),
                     },
                 )
                 .unwrap();
