@@ -186,3 +186,52 @@ fn anti_torsion_extends_chain() {
         "anti={anti}, free={free}, syn={syn}"
     );
 }
+
+// Free torsion: dihedral is uniform and, at zero force, uncorrelated with the
+// extension, so every Cov_0(cos phi_i, gamma) vanishes.
+#[test]
+fn free_torsion_zero_covariance() {
+    let (_gamma, cos_phi, cov) = rigid_bend(8, ArbitraryDiscretePotential::Free)
+        .dihedral_extension_covariance(0.0, 600_000, 8);
+    cos_phi
+        .iter()
+        .zip(cov.iter())
+        .enumerate()
+        .for_each(|(i, (c, v))| {
+            assert!(c.abs() < 5e-3, "<cos phi_{i}> = {c}");
+            assert!(v.abs() < 5e-3, "Cov_0(cos phi_{i}, gamma) = {v}");
+        });
+}
+
+// First-order weak-torsion perturbation theory:
+//   gamma(eta) ~ gamma_free(eta) + beta*k*cos(phi_0) * sum_i Cov_eta(cos phi_i, gamma)
+// with the covariance taken in the (reweighted) free-torsion FRC ensemble.
+#[test]
+fn weak_torsion_first_order() {
+    let eta = 1.0;
+    let phi_0 = 1.0_f64;
+    let beta_k = 0.2;
+    let stiffness = beta_k * BOLTZMANN_CONSTANT.value() * T;
+    let samples = 2_000_000;
+    let (gamma_free, _cos_phi, cov) = rigid_bend(8, ArbitraryDiscretePotential::Free)
+        .dihedral_extension_covariance(eta, samples, 12);
+    let correction = beta_k * phi_0.cos() * cov.iter().sum::<f64>();
+    let gamma_predicted = gamma_free + correction;
+    let gamma_direct = rigid_bend(
+        8,
+        ArbitraryDiscretePotential::Weak(Cosine {
+            rest_angle: phi_0,
+            stiffness,
+        }),
+    )
+    .nondimensional_longitudinal_extension(eta, samples, 12);
+    // The correction must move gamma_free toward the true value, and land close.
+    assert!(
+        (gamma_predicted - gamma_direct).abs() < 0.5 * (gamma_free - gamma_direct).abs(),
+        "no improvement: free={gamma_free}, predicted={gamma_predicted}, direct={gamma_direct}"
+    );
+    assert!(
+        (gamma_predicted - gamma_direct).abs() < 8e-3,
+        "predicted={gamma_predicted}, direct={gamma_direct}, correction={correction}"
+    );
+}
