@@ -17,9 +17,10 @@ pub type Times<T = Time> = QuantityVector<T>;
 
 pub use error::IntegrationError;
 pub use field::{
-    EvolvedIncrement, EvolvedState, Flat, IntegrableField, Product, StateEvolution, Unimodular,
-    integrate_euler, integrate_rkmk, integrate_rkmk_adaptive, integrate_rkmk_dae_adaptive,
-    integrate_rkmk_state, integrate_rkmk_state_adaptive, rkmk_dae_step, rkmk_step,
+    EvolvedIncrement, EvolvedState, Flat, HermiteSegment, IntegrableField, Product, StateEvolution,
+    Unimodular, integrate_euler, integrate_rkmk, integrate_rkmk_adaptive,
+    integrate_rkmk_dae_adaptive, integrate_rkmk_state, integrate_rkmk_state_adaptive,
+    interpolate_hermite, rkmk_dae_step, rkmk_step,
 };
 pub use tableau::{ButcherTableau, EmbeddedTableau};
 
