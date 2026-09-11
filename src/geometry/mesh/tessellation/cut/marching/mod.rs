@@ -202,7 +202,6 @@ impl Tessellation {
     }
 }
 
-/// The boundary nodes of `mesh` together with their immediate neighbours.
 fn shell(mesh: &Mesh<D>) -> Vec<usize> {
     let mut nodes: Vec<usize> = mesh.exterior_faces().into_iter().flatten().collect();
     nodes.sort_unstable();
