@@ -145,6 +145,44 @@ pub(super) fn sphere(refinements: usize) -> Tessellation {
     )))
 }
 
+pub(super) fn star(refinements: usize, height: f64) -> Tessellation {
+    let base = sphere(refinements);
+    let coordinates_base = base.mesh().coordinates();
+    let mut coordinates: Vec<[f64; 3]> = coordinates_base
+        .iter()
+        .map(|point| [point[0].value(), point[1].value(), point[2].value()])
+        .collect();
+    let mut faces = Vec::new();
+    base.mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .for_each(|triangle| {
+            let [a, b, c] = [triangle[0], triangle[1], triangle[2]];
+            let centroid: Vec<f64> = (0..3)
+                .map(|d| (coordinates[a][d] + coordinates[b][d] + coordinates[c][d]) / 3.0)
+                .collect();
+            let norm = centroid
+                .iter()
+                .map(|value| value * value)
+                .sum::<f64>()
+                .sqrt();
+            coordinates.push([
+                centroid[0] / norm * height,
+                centroid[1] / norm * height,
+                centroid[2] / norm * height,
+            ]);
+            let apex = coordinates.len() - 1;
+            faces.push([a, b, apex]);
+            faces.push([b, c, apex]);
+            faces.push([c, a, apex]);
+        });
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        Coordinates::from(coordinates),
+    )))
+}
+
 pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
     let [x0, y0, z0] = minimum;
     let [x1, y1, z1] = maximum;

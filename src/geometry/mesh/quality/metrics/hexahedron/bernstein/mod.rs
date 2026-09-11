@@ -1,0 +1,77 @@
+#[cfg(test)]
+pub(crate) mod test;
+
+use crate::{geometry::Coordinates, math::Scalar};
+use std::array::from_fn;
+
+const NODES: [[usize; 3]; 8] = [
+    [0, 0, 0],
+    [1, 0, 0],
+    [1, 1, 0],
+    [0, 1, 0],
+    [0, 0, 1],
+    [1, 0, 1],
+    [1, 1, 1],
+    [0, 1, 1],
+];
+
+const SAMPLES: [Scalar; 3] = [0.0, 0.5, 1.0];
+
+fn determinant(element: &[usize], coordinates: &Coordinates<3>, at: [Scalar; 3]) -> Scalar {
+    let mut columns = [[0.0; 3]; 3];
+    NODES.iter().enumerate().for_each(|(node, exponents)| {
+        let point = &coordinates[element[node]];
+        let value: [Scalar; 3] = std::array::from_fn(|d| {
+            if exponents[d] == 1 {
+                at[d]
+            } else {
+                1.0 - at[d]
+            }
+        });
+        let slope: [Scalar; 3] = from_fn(|d| if exponents[d] == 1 { 1.0 } else { -1.0 });
+        (0..3).for_each(|d| {
+            let weight = slope[d] * value[(d + 1) % 3] * value[(d + 2) % 3];
+            (0..3).for_each(|component| columns[d][component] += weight * point[component].value())
+        })
+    });
+    let [a, b, c] = columns;
+    a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0])
+        + a[2] * (b[0] * c[1] - b[1] * c[0])
+}
+
+fn lift([low, middle, high]: [Scalar; 3]) -> [Scalar; 3] {
+    [low, 0.5 * (4.0 * middle - low - high), high]
+}
+
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn coefficients(element: &[usize], coordinates: &Coordinates<3>) -> [Scalar; 27] {
+    let mut values = [[[0.0; 3]; 3]; 3];
+    (0..3).for_each(|k| {
+        (0..3).for_each(|j| {
+            (0..3).for_each(|i| {
+                values[k][j][i] =
+                    determinant(element, coordinates, [SAMPLES[i], SAMPLES[j], SAMPLES[k]])
+            })
+        })
+    });
+    (0..3).for_each(|k| (0..3).for_each(|j| values[k][j] = lift(values[k][j])));
+    (0..3).for_each(|k| {
+        (0..3).for_each(|i| {
+            let lifted = lift(std::array::from_fn(|j| values[k][j][i]));
+            (0..3).for_each(|j| values[k][j][i] = lifted[j])
+        })
+    });
+    (0..3).for_each(|j| {
+        (0..3).for_each(|i| {
+            let lifted = lift(std::array::from_fn(|k| values[k][j][i]));
+            (0..3).for_each(|k| values[k][j][i] = lifted[k])
+        })
+    });
+    from_fn(|index| values[index / 9][index / 3 % 3][index % 3])
+}
+
+pub(crate) fn certifies(element: &[usize], coordinates: &Coordinates<3>) -> bool {
+    coefficients(element, coordinates)
+        .iter()
+        .all(|&coefficient| coefficient > 0.0)
+}
