@@ -12,7 +12,12 @@ use super::{
 use crate::math::assert::Assert;
 
 impl<I> TensorRank2<3, I, I, Dimensionless> {
-    /// Returns the matrix logarithm of the 3x3 symmetric tensor.
+    /// Returns the matrix logarithm of the 3x3 tensor.
+    ///
+    /// Diagonal tensors go entrywise; symmetric tensors (exactly or up to
+    /// round-off) through the spectral decomposition; anything within the
+    /// series' radius through a truncated series; and a general tensor
+    /// through inverse scaling and squaring of that series.
     pub fn logm(&self) -> Result<Self, TensorError> {
         if self.is_diagonal() {
             if self.iter().enumerate().any(|(i, self_i)| self_i[i] <= 0.0) {
@@ -23,39 +28,78 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                 .enumerate()
                 .zip(self.iter())
                 .for_each(|((i, logm_i), self_i)| logm_i[i] = self_i[i].ln());
-            Ok(logm)
-        } else {
-            let tensor = self - &TensorRank2::identity();
-            let norm = tensor.norm();
-            if norm < 1e-2 {
-                let num_terms = if norm < 1e-4 {
-                    2
-                } else if norm < 1e-3 {
-                    3
-                } else {
-                    5
-                };
-                let mut logm = tensor.clone();
-                let mut power = tensor.clone();
-                (2..=num_terms).for_each(|k| {
-                    power *= &tensor;
-                    logm += &power * (if k % 2 == 0 { -1.0 } else { 1.0 } / k as f64);
-                });
-                Ok(logm)
-            } else if self.is_symmetric() {
-                let mut eigenvalues = solve_cubic_symmetric(self.invariants())?;
-                if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
-                    return Err(TensorError::NotPositiveDefinite);
-                }
-                let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, self);
-                eigenvalues
-                    .iter_mut()
-                    .for_each(|eigenvalue| *eigenvalue = eigenvalue.ln());
-                Ok(reconstruct_symmetric(eigenvalues, eigenvectors))
-            } else {
-                panic!("Matrix logarithm only implemented for symmetric cases")
-            }
+            return Ok(logm);
         }
+        let norm = (self - &TensorRank2::identity()).norm();
+        if norm < 1e-2 {
+            return Ok(self.logm_series());
+        }
+        let transpose = self.transpose();
+        if self.is_symmetric() || (self - &transpose).norm().value() < 1e-9 * (1.0 + norm.value()) {
+            let symmetric = (self + transpose) * 0.5;
+            let mut eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
+            if eigenvalues.iter().any(|eigenvalue| eigenvalue <= &0.0) {
+                return Err(TensorError::NotPositiveDefinite);
+            }
+            let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, &symmetric);
+            eigenvalues
+                .iter_mut()
+                .for_each(|eigenvalue| *eigenvalue = eigenvalue.ln());
+            return Ok(reconstruct_symmetric(eigenvalues, eigenvectors));
+        }
+        //
+        // Non-symmetric, outside the series' radius: inverse scaling and
+        // squaring. Repeated matrix square roots (Denman-Beavers) bring
+        // `self` within the series branch's radius; log(A) = 2^m log(A^{1/2^m}).
+        //
+        let mut root = self.clone();
+        let mut squarings: i32 = 0;
+        while (&root - &TensorRank2::identity()).norm().value() >= 1e-2 {
+            root = root.sqrtm()?;
+            squarings += 1;
+        }
+        Ok(root.logm_series() * 2.0_f64.powi(squarings))
+    }
+    /// The truncated series `-Σ (-(A-I))ᵏ/k`; accurate only within a small
+    /// norm of the identity. Pure matrix products, no symmetry needed.
+    fn logm_series(&self) -> Self {
+        let tensor = self - &TensorRank2::identity();
+        let norm = tensor.norm();
+        let num_terms = if norm < 1e-4 {
+            2
+        } else if norm < 1e-3 {
+            3
+        } else {
+            5
+        };
+        let mut logm = tensor.clone();
+        let mut power = tensor.clone();
+        (2..=num_terms).for_each(|k| {
+            power *= &tensor;
+            logm += &power * (if k % 2 == 0 { -1.0 } else { 1.0 } / k as f64);
+        });
+        logm
+    }
+    /// Returns a principal square root of the 3x3 tensor via the
+    /// Denman-Beavers iteration `Y_{k+1} = (Y_k + Z_k⁻¹)/2, Z_{k+1} = (Z_k +
+    /// Y_k⁻¹)/2` (`Y_0 = A, Z_0 = I`), which converges quadratically to
+    /// `(√A, √A⁻¹)` for a matrix with no eigenvalues on the non-positive real
+    /// axis.
+    fn sqrtm(&self) -> Result<Self, TensorError> {
+        let mut y = self.clone();
+        let mut z = Self::identity();
+        for _ in 0..64 {
+            let y_inverse = y.inverse();
+            let z_inverse = z.inverse();
+            let y_next = (&y + z_inverse) * 0.5;
+            let z_next = (&z + y_inverse) * 0.5;
+            if (&y_next - &y).norm().value() < 1e-13 * (1.0 + y_next.norm().value()) {
+                return Ok(y_next);
+            }
+            y = y_next;
+            z = z_next;
+        }
+        Err(TensorError::SquareRootDidNotConverge)
     }
     /// Returns the derivative of the matrix logarithm of the 3x3 symmetric tensor.
     pub fn dlogm(&self) -> Result<TensorRank4<3, I, I, I, I, Dimensionless>, TensorError> {

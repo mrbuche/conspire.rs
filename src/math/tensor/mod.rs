@@ -48,6 +48,7 @@ pub type ScalarListVec<const N: usize> = TensorRank0ListVec<N>;
 #[derive(PartialEq)]
 pub enum TensorError {
     NotPositiveDefinite,
+    SquareRootDidNotConverge,
     SymmetricMatrixComplexEigenvalues,
 }
 
@@ -56,6 +57,9 @@ impl StyledError for TensorError {
         let h = style.headline;
         match self {
             Self::NotPositiveDefinite => format!("{h}Result is not positive definite."),
+            Self::SquareRootDidNotConverge => {
+                format!("{h}Matrix square root iteration did not converge.")
+            }
             Self::SymmetricMatrixComplexEigenvalues => {
                 format!("{h}Symmetric matrix produced complex eigenvalues")
             }
