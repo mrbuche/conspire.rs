@@ -1,6 +1,6 @@
 use super::{
     Flat, HermiteSegment, IntegrableField, Product, Unimodular, integrate_euler, integrate_rkmk,
-    integrate_rkmk_adaptive, integrate_rkmk_dae_adaptive,
+    integrate_rkmk_adaptive, integrate_rkmk_dae_adaptive, rkmk_dae_step,
 };
 use crate::math::{
     Current, Intermediate, Quantity, Reference, Tensor, TensorArray, TensorRank1, TensorRank2,
@@ -183,6 +183,53 @@ fn rkmk_reuses_the_fsal_stage_across_steps() {
         .expm()
         .unwrap();
     assert!((points.iter().last().unwrap() - &exact).norm().value() < 1e-2);
+}
+
+#[test]
+fn rkmk_dae_reuses_the_fsal_stage_across_steps() {
+    use std::cell::Cell;
+    let rate = trace_free_rate();
+    let rate_evaluations = Cell::new(0_usize);
+    let solve_evaluations = Cell::new(0_usize);
+    let steps = 8_usize;
+    let dt = Quantity::<Time>::new(1.0 / steps as f64);
+    let mut scratch = Vec::new();
+    let mut point = Fp::identity();
+    let mut z = Quantity::new(0.0);
+    let mut carry = None;
+    let mut t = Quantity::<Time>::new(0.0);
+    for _ in 0..steps {
+        let (advanced_point, advanced_z, next_carry) =
+            rkmk_dae_step::<Unimodular<Current>, BogackiShampine, Quantity, Time>(
+                &mut |_: Quantity<Time>, _: &Fp, _: &Quantity| {
+                    rate_evaluations.set(rate_evaluations.get() + 1);
+                    Ok(rate.clone())
+                },
+                &mut |t: Quantity<Time>, _: &Fp, _: &Quantity| {
+                    solve_evaluations.set(solve_evaluations.get() + 1);
+                    Ok(Quantity::new(t.value()))
+                },
+                &point,
+                &z,
+                t,
+                dt,
+                &mut scratch,
+                carry.as_ref(),
+            )
+            .unwrap();
+        point = advanced_point;
+        z = advanced_z;
+        carry = next_carry;
+        t += dt;
+    }
+    // Bogacki–Shampine is FSAL: 4 rate+solve evaluations for the first window's
+    // stages, then the last stage of each step seeds the first stage of the
+    // next, so 3 per window's stages after that -- plus one endpoint solve
+    // every window, FSAL or not.
+    assert_eq!(rate_evaluations.get(), 3 * steps + 1);
+    assert_eq!(solve_evaluations.get(), 4 * steps + 1);
+    assert!((point.determinant() - 1.0).abs() < 1e-10);
+    assert!((z.value() - t.value()).abs() < 1e-12);
 }
 
 #[test]

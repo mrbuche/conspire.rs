@@ -789,6 +789,7 @@ where
         let mut times = Times::new();
         let mut deformation_gradients = DeformationGradients::new();
         let mut state_variables = ViscoplasticStateVariablesHistory::new();
+        let mut carry = None;
         times.push(time[0]);
         deformation_gradients.push(deformation_gradient.clone());
         state_variables.push(state.clone());
@@ -808,10 +809,12 @@ where
                 step[0],
                 step[1] - step[0],
                 &mut scratch,
+                carry.as_ref(),
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
             state = advanced.0;
             deformation_gradient = advanced.1;
+            carry = advanced.2;
             times.push(step[1]);
             deformation_gradients.push(deformation_gradient.clone());
             state_variables.push(state.clone());

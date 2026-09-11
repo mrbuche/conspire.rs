@@ -262,6 +262,13 @@ where
 /// `solve` is seeded with the previous stage's `z` and must return a `z`
 /// satisfying the constraint at the stage it is given; the returned `z` is the
 /// one consistent with the step's own endpoint.
+///
+/// FSAL: `first_rate` seeds stage 0 with a rate carried from the previous
+/// step, skipping both that rate evaluation and its constraint solve (`z`
+/// stays the `z` passed in, which is already consistent with `(t, point)`);
+/// when `Tab::FSAL`, the raw rate at the final stage is returned for the next
+/// step to seed with.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn rkmk_dae_step<Fld, Tab, Z, T>(
     rate: &mut impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Derivative<Fld::Increment, T>, String>,
     solve: &mut impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Z, String>,
@@ -270,7 +277,8 @@ pub fn rkmk_dae_step<Fld, Tab, Z, T>(
     t: Quantity<T>,
     dt: Quantity<T>,
     scratch: &mut Vec<Fld::Increment>,
-) -> Result<(Fld::Point, Z), IntegrationError>
+    first_rate: Option<&Derivative<Fld::Increment, T>>,
+) -> Result<(Fld::Point, Z, Option<Derivative<Fld::Increment, T>>), IntegrationError>
 where
     Fld: IntegrableField,
     Tab: ButcherTableau,
@@ -281,18 +289,21 @@ where
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
 {
-    let z_stage =
-        rkmk_dae_stage_slopes_into::<Fld, Tab, Z, T>(rate, solve, point, z, t, dt, scratch)?;
+    let (z_stage, carry) = rkmk_dae_stage_slopes_into::<Fld, Tab, Z, T>(
+        rate, solve, point, z, t, dt, scratch, first_rate,
+    )?;
     let advanced = reconstruct_or_err::<Fld>(point, &weight(scratch, Tab::B))?;
     let z_final = solve(t + dt, &advanced, &z_stage)?;
-    Ok((advanced, z_final))
+    Ok((advanced, z_final, carry))
 }
 
 /// Fills `slopes` with one RKMK-DAE step's corrected stage slopes, resolving the
 /// algebraic unknown at each stage abscissa; returns the last stage's `z` as the
-/// seed for the caller's endpoint solve. [`rkmk_dae_step`] without the endpoint,
-/// so an adaptive driver can weight the slopes by `D` and reject a step before
-/// paying for that solve.
+/// seed for the caller's endpoint solve, and the FSAL carry (see
+/// [`rkmk_dae_step`]). [`rkmk_dae_step`] without the endpoint, so an adaptive
+/// driver can weight the slopes by `D` and reject a step before paying for that
+/// solve.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
 fn rkmk_dae_stage_slopes_into<Fld, Tab, Z, T>(
     rate: &mut impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Derivative<Fld::Increment, T>, String>,
     solve: &mut impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Z, String>,
@@ -301,7 +312,8 @@ fn rkmk_dae_stage_slopes_into<Fld, Tab, Z, T>(
     t: Quantity<T>,
     dt: Quantity<T>,
     slopes: &mut Vec<Fld::Increment>,
-) -> Result<Z, IntegrationError>
+    first_rate: Option<&Derivative<Fld::Increment, T>>,
+) -> Result<(Z, Option<Derivative<Fld::Increment, T>>), IntegrationError>
 where
     Fld: IntegrableField,
     Tab: ButcherTableau,
@@ -315,6 +327,7 @@ where
     slopes.clear();
     slopes.reserve(Tab::STAGES);
     let mut z_stage = z.clone();
+    let mut carry = None;
     for i in 0..Tab::STAGES {
         let sigma = if i == 0 {
             None
@@ -330,14 +343,24 @@ where
             None => point.clone(),
         };
         let t_stage = t + dt * Tab::C[i];
-        z_stage = solve(t_stage, &stage_point, &z_stage)?;
-        let increment = &rate(t_stage, &stage_point, &z_stage)? * dt;
+        let increment = match (i, first_rate) {
+            (0, Some(seed)) => seed * dt,
+            _ => {
+                z_stage = solve(t_stage, &stage_point, &z_stage)?;
+                let raw = rate(t_stage, &stage_point, &z_stage)?;
+                let increment = &raw * dt;
+                if Tab::FSAL && i + 1 == Tab::STAGES {
+                    carry = Some(raw);
+                }
+                increment
+            }
+        };
         slopes.push(match &sigma {
             Some(sigma) => Fld::dexpinv(sigma, increment),
             None => increment,
         });
     }
-    Ok(z_stage)
+    Ok((z_stage, carry))
 }
 
 /// Cubic Hermite dense output over one accepted step, built in the field's Lie
@@ -503,12 +526,13 @@ where
     let mut times = Times::new();
     let mut slopes = Vec::new();
     let mut segments = Vec::new();
+    let mut carry: Option<Derivative<Fld::Increment, T>> = None;
     points.push(point.clone());
     algebraics.push(z.clone());
     times.push(t_0);
     while t_f - t > dt_min {
         dt = dt.min(t_f - t);
-        let z_stage = rkmk_dae_stage_slopes_into::<Fld, Tab, Z, T>(
+        let (z_stage, next_carry) = rkmk_dae_stage_slopes_into::<Fld, Tab, Z, T>(
             &mut rate,
             &mut solve,
             &point,
@@ -516,6 +540,7 @@ where
             t,
             dt,
             &mut slopes,
+            carry.as_ref(),
         )?;
         let sigma = weight(&slopes, Tab::B);
         let trial = reconstruct_or_err::<Fld>(&point, &sigma)?;
@@ -526,6 +551,7 @@ where
             let t_previous = t;
             t += dt;
             z = solve(t, &trial, &z_stage)?;
+            carry = next_carry;
             if dense {
                 let slope_1 = Fld::dexpinv(&sigma, &rate(t, &trial, &z)? * dt);
                 segments.push(HermiteSegment::<Fld, T> {
