@@ -993,6 +993,73 @@ mod state_evolution {
         assert!(loose_times.len() < times.len());
     }
 
+    // More than two times request report times rather than a span: the state is
+    // interpolated off the accepted steps in the algebra, so it stays on the
+    // group there too.
+    #[test]
+    fn rkmk_dae_adaptive_reports_on_the_group_at_requested_times() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::AppliedLoad, math::optimize::NewtonRaphson,
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let requested = time(13);
+        let span = [requested[0], *requested.last().unwrap()];
+        // reference: the fixed-step stage-resolved map on a grid 40x finer, whose
+        // every 40th sample is a requested time
+        let (_, reference, reference_state) = model()
+            .root_rkmk_dae::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(load, &time(13 * 40)),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let (times, deformation_gradients, state_variables) = model()
+            .root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(load, &requested),
+                NewtonRaphson::default(),
+                1e-9,
+                1e-9,
+            )
+            .unwrap();
+        assert_eq!(times.len(), requested.len());
+        times
+            .iter()
+            .zip(requested.iter())
+            .for_each(|(reported, request)| assert_eq!(reported.value(), request.value()));
+        // the accepted steps the controller actually took are not the requested ones
+        let (accepted, _, _) = model()
+            .root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(load, &span),
+                NewtonRaphson::default(),
+                1e-9,
+                1e-9,
+            )
+            .unwrap();
+        assert!(accepted.len() > 4 * requested.len());
+        let mut worst = 0.0_f64;
+        for (k, (state, deformation_gradient)) in state_variables
+            .iter()
+            .zip(deformation_gradients.iter())
+            .enumerate()
+        {
+            assert!(
+                (state.0.determinant() - 1.0).abs() < 1e-10,
+                "off the group at requested time {k}"
+            );
+            worst = worst
+                .max((deformation_gradient - &reference[40 * k]).norm().value())
+                .max((&state.0 - &reference_state[40 * k].0).norm().value());
+        }
+        println!("dense output vs refined reference: {worst:e}");
+        assert!(worst < 1e-6, "dense output disagrees: {worst:e}");
+        // and the plastic state actually flowed, so none of this is vacuous
+        assert!(
+            (&state_variables.iter().last().unwrap().0 - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+    }
+
     #[test]
     fn rkmk_dae_keeps_the_internal_dissipation_non_negative() {
         use crate::{

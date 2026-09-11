@@ -819,9 +819,16 @@ where
         Ok((times, deformation_gradients, state_variables))
     }
     /// As [`Self::root_rkmk_dae`], but the whole span is stepped under embedded
-    /// (`Tab::D`) error control rather than on the supplied load grid — the
-    /// returned times are the steps the controller accepted. `applied_load`
-    /// supplies only the span and the load history.
+    /// (`Tab::D`) error control rather than on the supplied load grid.
+    ///
+    /// Two times in `applied_load` give only the span, and the controller's own
+    /// accepted steps are reported. More than two are requested report times —
+    /// the convention of the flat DAE loop — and `F_p` is served at each from
+    /// the geodesic [`HermiteSegment`] of the accepted step containing it, so it
+    /// is on the unimodular group at every reported time and not just at the
+    /// accepted ones; `F` is then re-solved from equilibrium there.
+    ///
+    /// [`HermiteSegment`]: crate::math::integrate::HermiteSegment
     #[allow(clippy::type_complexity)]
     pub fn root_rkmk_dae_adaptive<Tab>(
         &self,
