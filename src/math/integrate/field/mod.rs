@@ -2,8 +2,8 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Norm, Quantity, Scalar, Tensor, TensorError, TensorRank2,
-    TensorTuple, TensorVec,
+    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorError, TensorRank2, TensorTuple,
+    TensorVec,
     integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
 };
 use crate::units::{Dimensionless, Time};
@@ -281,15 +281,46 @@ where
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
 {
-    scratch.clear();
-    scratch.reserve(Tab::STAGES);
+    let z_stage =
+        rkmk_dae_stage_slopes_into::<Fld, Tab, Z, T>(rate, solve, point, z, t, dt, scratch)?;
+    let advanced = reconstruct_or_err::<Fld>(point, &weight(scratch, Tab::B))?;
+    let z_final = solve(t + dt, &advanced, &z_stage)?;
+    Ok((advanced, z_final))
+}
+
+/// Fills `slopes` with one RKMK-DAE step's corrected stage slopes, resolving the
+/// algebraic unknown at each stage abscissa; returns the last stage's `z` as the
+/// seed for the caller's endpoint solve. [`rkmk_dae_step`] without the endpoint,
+/// so an adaptive driver can weight the slopes by `D` and reject a step before
+/// paying for that solve.
+fn rkmk_dae_stage_slopes_into<Fld, Tab, Z, T>(
+    rate: &mut impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Derivative<Fld::Increment, T>, String>,
+    solve: &mut impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Z, String>,
+    point: &Fld::Point,
+    z: &Z,
+    t: Quantity<T>,
+    dt: Quantity<T>,
+    slopes: &mut Vec<Fld::Increment>,
+) -> Result<Z, IntegrationError>
+where
+    Fld: IntegrableField,
+    Tab: ButcherTableau,
+    Fld::Point: Clone,
+    Fld::Increment: Clone + Differentiate<T>,
+    Z: Clone,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
+{
+    slopes.clear();
+    slopes.reserve(Tab::STAGES);
     let mut z_stage = z.clone();
     for i in 0..Tab::STAGES {
         let sigma = if i == 0 {
             None
         } else {
-            let mut accumulated = scratch[0].clone() * Tab::A[i][0];
-            for (j, slope) in scratch.iter().enumerate().take(i).skip(1) {
+            let mut accumulated = slopes[0].clone() * Tab::A[i][0];
+            for (j, slope) in slopes.iter().enumerate().take(i).skip(1) {
                 accumulated += slope.clone() * Tab::A[i][j];
             }
             Some(accumulated)
@@ -301,14 +332,96 @@ where
         let t_stage = t + dt * Tab::C[i];
         z_stage = solve(t_stage, &stage_point, &z_stage)?;
         let increment = &rate(t_stage, &stage_point, &z_stage)? * dt;
-        scratch.push(match &sigma {
+        slopes.push(match &sigma {
             Some(sigma) => Fld::dexpinv(sigma, increment),
             None => increment,
         });
     }
-    let advanced = reconstruct_or_err::<Fld>(point, &weight(scratch, Tab::B))?;
-    let z_final = solve(t + dt, &advanced, &z_stage)?;
-    Ok((advanced, z_final))
+    Ok(z_stage)
+}
+
+/// Adaptive [`rkmk_dae_step`]: embedded local-error control from the tableau's
+/// `D` weights over the span `[time[0], time[last]]`, with the same controller as
+/// [`integrate_rkmk_adaptive`]. A rejected step costs no endpoint constraint
+/// solve. Returns the accepted times, the state history, and the matching
+/// algebraic history.
+#[allow(clippy::type_complexity)]
+pub fn integrate_rkmk_dae_adaptive<Fld, Tab, Z, U, V, T>(
+    mut rate: impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Derivative<Fld::Increment, T>, String>,
+    mut solve: impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Z, String>,
+    time: &[Quantity<T>],
+    initial_condition: (Fld::Point, Z),
+    abs_tol: Scalar,
+    rel_tol: Scalar,
+) -> Result<(Times<T>, U, V), IntegrationError>
+where
+    Fld: IntegrableField,
+    Tab: EmbeddedTableau,
+    Fld::Point: Clone,
+    Fld::Increment: Clone + Differentiate<T>,
+    Z: Clone,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
+    U: TensorVec<Item = Fld::Point>,
+    V: TensorVec<Item = Z>,
+{
+    if time.len() < 2 {
+        return Err(IntegrationError::LengthTimeLessThanTwo);
+    }
+    let t_0 = time[0];
+    let t_f = time[time.len() - 1];
+    if t_0 >= t_f {
+        return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
+    }
+    let exponent = 1.0 / Tab::ORDER;
+    let dt_min = (t_f - t_0) * 1e-10;
+    let mut t = t_0;
+    let mut dt = t_f - t_0;
+    let (mut point, mut z) = initial_condition;
+    let mut points = U::new();
+    let mut algebraics = V::new();
+    let mut times = Times::new();
+    let mut slopes = Vec::new();
+    points.push(point.clone());
+    algebraics.push(z.clone());
+    times.push(t_0);
+    while t_f - t > dt_min {
+        dt = dt.min(t_f - t);
+        let z_stage = rkmk_dae_stage_slopes_into::<Fld, Tab, Z, T>(
+            &mut rate,
+            &mut solve,
+            &point,
+            &z,
+            t,
+            dt,
+            &mut slopes,
+        )?;
+        let trial = reconstruct_or_err::<Fld>(&point, &weight(&slopes, Tab::B))?;
+        let error = weight(&slopes, Tab::D).norm().value().abs();
+        let tolerance = abs_tol + rel_tol * trial.norm().value();
+        let accept = error <= tolerance || dt <= dt_min;
+        if accept {
+            t += dt;
+            z = solve(t, &trial, &z_stage)?;
+            point = trial;
+            points.push(point.clone());
+            algebraics.push(z.clone());
+            times.push(t);
+        }
+        let scale = if error > 0.0 {
+            (0.9 * (tolerance / error).powf(exponent)).clamp(0.2, 5.0)
+        } else {
+            5.0
+        };
+        dt *= scale;
+        if !accept && dt <= dt_min {
+            return Err(IntegrationError::from(
+                "the adaptive RKMK-DAE step fell below the floor".to_string(),
+            ));
+        }
+    }
+    Ok((times, points, algebraics))
 }
 
 /// Runge–Kutta–Munthe-Kaas: a fixed-step [`ButcherTableau`] run in the field's
@@ -522,50 +635,18 @@ where
     )
 }
 
-/// How a Runge–Kutta integrator advances its evolving unknown from the stage
-/// slopes. The blanket impl is additive — `xₙ₊₁ = xₙ + (Σ cᵢ kᵢ) Δt` — which is
-/// what every flat state wants; a group-valued state overrides it to stay on its
-/// manifold (RKMK: [`IntegrableField::reconstruct`] plus the [`dexpinv`] slope
-/// correction).
-///
-/// [`dexpinv`]: IntegrableField::dexpinv
-pub trait StateStep<T = Time>: Differentiate<T> + Tensor + Sized {
-    /// `base` advanced by the rate combination `Σ cᵢ kᵢ` over the step `dt`.
-    /// Fails only for a manifold state whose reconstruction has no solution.
-    fn advance(
-        base: &Self,
-        rate_combination: &Derivative<Self, T>,
-        dt: Quantity<T>,
-    ) -> Result<Self, String>;
-    /// Corrects a freshly evaluated stage rate at the rate combination `_sigma`
-    /// already accumulated for that stage. The identity for a flat state.
-    fn correct_stage_rate(
-        _sigma: &Derivative<Self, T>,
-        rate: Derivative<Self, T>,
-        _dt: Quantity<T>,
-    ) -> Derivative<Self, T> {
-        rate
-    }
-    /// The embedded-error magnitude for the weighted rate combination `sum`
-    /// (`Σ dᵢ kᵢ`) over the step `dt`. Flat: `‖(Σ dᵢ kᵢ) dt‖`; a manifold state
-    /// measures the same increment in its algebra, without the exponential map.
-    fn error_measure(sum: &Derivative<Self, T>, dt: Quantity<T>, norm: &Norm) -> Scalar;
-}
-
-impl<T, Y> StateStep<T> for Y
-where
-    Y: Differentiate<T> + Tensor,
-    for<'a> Y: Add<&'a Y, Output = Y>,
-    for<'a> &'a Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
-{
-    fn advance(
-        base: &Self,
-        rate_combination: &Derivative<Self, T>,
-        dt: Quantity<T>,
-    ) -> Result<Self, String> {
-        Ok(rate_combination * dt + base)
-    }
-    fn error_measure(sum: &Derivative<Self, T>, dt: Quantity<T>, norm: &Norm) -> Scalar {
-        norm.measure(&(sum * dt))
-    }
-}
+//
+// `StateStep` used to sit here: a seam meant to let a group-valued state
+// override the additive Runge–Kutta march. It could never work. Its slope was
+// typed `Derivative<Self, T>`, and `Differentiate` admits exactly one
+// `Derivative` per state — for `(F_p, Y)` that is the group velocity `Ḟ_p`
+// (`Intermediate ← Reference`), while RKMK needs the algebra element `D_p`
+// (`Intermediate ← Intermediate`) for the same state. No impl can supply a
+// second slope type, so the manifold branch the trait advertised was
+// unreachable (the coherence error it surfaced as was only a symptom).
+//
+// Manifold stepping instead dispatches on the field — `IntegrableField`, whose
+// `Point`/`Increment` split carries exactly that distinction and which no state
+// type can collide with. The additive march is now inline in the two
+// Runge–Kutta loops that used the trait.
+//

@@ -25,8 +25,8 @@ use crate::{
         Derivative, Differentiate, Intermediate, Quantity, Rank2, Reference, Scalar, Tensor,
         TensorArray, TensorRank2, TensorRank4, TensorTuple, TensorVec, Vector,
         integrate::{
-            ButcherTableau, Flat, IntegrableField, Product, StateEvolution, Unimodular,
-            rkmk_dae_step,
+            ButcherTableau, EmbeddedTableau, Flat, IntegrableField, Product, StateEvolution,
+            Unimodular, integrate_rkmk_dae_adaptive, rkmk_dae_step,
         },
         optimize::{EqualityConstraint, FirstOrderRootFinding},
     },
@@ -816,6 +816,75 @@ where
             deformation_gradients.push(deformation_gradient.clone());
             state_variables.push(state.clone());
         }
+        Ok((times, deformation_gradients, state_variables))
+    }
+    /// As [`Self::root_rkmk_dae`], but the whole span is stepped under embedded
+    /// (`Tab::D`) error control rather than on the supplied load grid — the
+    /// returned times are the steps the controller accepted. `applied_load`
+    /// supplies only the span and the load history.
+    #[allow(clippy::type_complexity)]
+    pub fn root_rkmk_dae_adaptive<Tab>(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+        abs_tol: Scalar,
+        rel_tol: Scalar,
+    ) -> Result<
+        (
+            Times,
+            DeformationGradients,
+            ViscoplasticStateVariablesHistory<Quantity>,
+        ),
+        ConstitutiveError,
+    >
+    where
+        Tab: EmbeddedTableau,
+    {
+        let (matrix, prescribed, time) = bcs(applied_load);
+        let mut vector = Vector::zero(matrix.len());
+        let state = <Self as Viscoplastic<Quantity>>::initial_state(self);
+        let mut solve = |t: Quantity<Time>,
+                         state: &ViscoplasticStateVariables<Quantity>,
+                         guess: &DeformationGradient|
+         -> Result<DeformationGradient, String> {
+            prescribed
+                .iter()
+                .for_each(|(index, function)| vector[*index] = function(t));
+            Ok(solver.root(
+                |deformation_gradient: &DeformationGradient| {
+                    Ok(self.first_piola_kirchhoff_stress(deformation_gradient, &state.0)?)
+                },
+                |deformation_gradient: &DeformationGradient| {
+                    Ok(self
+                        .first_piola_kirchhoff_tangent_stiffness(deformation_gradient, &state.0)?)
+                },
+                guess.clone(),
+                EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                None,
+            )?)
+        };
+        let deformation_gradient = solve(time[0], &state, &DeformationGradient::identity())
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        let (times, state_variables, deformation_gradients) = integrate_rkmk_dae_adaptive::<
+            <Self as StateEvolution<Time, Quantity>>::Field,
+            Tab,
+            DeformationGradient,
+            ViscoplasticStateVariablesHistory<Quantity>,
+            DeformationGradients,
+            Time,
+        >(
+            |t, state, deformation_gradient| self.state_rate(t, deformation_gradient, state),
+            &mut solve,
+            time,
+            (state, deformation_gradient),
+            abs_tol,
+            rel_tol,
+        )
+        .map_err(|error| ConstitutiveError::upstream(error, self))?;
         Ok((times, deformation_gradients, state_variables))
     }
 }

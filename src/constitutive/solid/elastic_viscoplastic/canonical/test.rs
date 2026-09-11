@@ -942,6 +942,58 @@ mod state_evolution {
     }
 
     #[test]
+    fn rkmk_dae_adaptive_subdivides_and_meets_its_tolerance() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
+            math::{Scalar, integrate::BogackiShampine, optimize::NewtonRaphson},
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
+        let (_, reference, _) = model()
+            .root(
+                AppliedLoad::UniaxialStress(load, &span),
+                BogackiShampine {
+                    abs_tol: 1e-10,
+                    rel_tol: 1e-10,
+                    ..Default::default()
+                },
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let reference = reference.iter().last().unwrap().clone();
+        let run = |tol: Scalar| {
+            model()
+                .root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                    AppliedLoad::UniaxialStress(load, &span),
+                    NewtonRaphson::default(),
+                    tol,
+                    tol,
+                )
+                .unwrap()
+        };
+        let (times, deformation_gradients, state_variables) = run(1e-9);
+        // the controller subdivided the single [0, 1] span
+        assert!(times.len() > 2);
+        let error = (deformation_gradients.iter().last().unwrap() - &reference)
+            .norm()
+            .value();
+        println!("adaptive: {} steps, error {error:e}", times.len() - 1);
+        assert!(error < 1e-6, "tolerance not met: {error:e}");
+        state_variables
+            .iter()
+            .for_each(|state| assert!((state.0.determinant() - 1.0).abs() < 1e-13));
+        assert!(
+            (&state_variables.iter().last().unwrap().0 - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+        // a much looser tolerance takes fewer steps
+        let (loose_times, _, _) = run(1e-4);
+        assert!(loose_times.len() < times.len());
+    }
+
+    #[test]
     fn rkmk_dae_keeps_the_internal_dissipation_non_negative() {
         use crate::{
             constitutive::solid::elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
