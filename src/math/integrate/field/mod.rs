@@ -249,6 +249,68 @@ where
     reconstruct_or_err::<Fld>(point, &weight(scratch, Tab::B))
 }
 
+/// One RKMK step of a semi-explicit DAE: the differential field advances on its
+/// manifold while the algebraic unknown is re-solved from its constraint at
+/// every stage abscissa.
+///
+/// [`rkmk_step`] freezes the drive across the whole window, which caps the
+/// coupling at first order however the two legs are ordered. Here `solve`
+/// supplies `z` at each stage time `t + cᵢ Δt` from the stage point, so the
+/// drive is resolved *within* the window — the half-explicit RK treatment of an
+/// index-1 DAE, but with the state leg kept on its group.
+///
+/// `solve` is seeded with the previous stage's `z` and must return a `z`
+/// satisfying the constraint at the stage it is given; the returned `z` is the
+/// one consistent with the step's own endpoint.
+pub fn rkmk_dae_step<Fld, Tab, Z, T>(
+    rate: &mut impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Derivative<Fld::Increment, T>, String>,
+    solve: &mut impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Z, String>,
+    point: &Fld::Point,
+    z: &Z,
+    t: Quantity<T>,
+    dt: Quantity<T>,
+    scratch: &mut Vec<Fld::Increment>,
+) -> Result<(Fld::Point, Z), IntegrationError>
+where
+    Fld: IntegrableField,
+    Tab: ButcherTableau,
+    Fld::Point: Clone,
+    Fld::Increment: Clone + Differentiate<T>,
+    Z: Clone,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
+{
+    scratch.clear();
+    scratch.reserve(Tab::STAGES);
+    let mut z_stage = z.clone();
+    for i in 0..Tab::STAGES {
+        let sigma = if i == 0 {
+            None
+        } else {
+            let mut accumulated = scratch[0].clone() * Tab::A[i][0];
+            for (j, slope) in scratch.iter().enumerate().take(i).skip(1) {
+                accumulated += slope.clone() * Tab::A[i][j];
+            }
+            Some(accumulated)
+        };
+        let stage_point = match &sigma {
+            Some(sigma) => reconstruct_or_err::<Fld>(point, sigma)?,
+            None => point.clone(),
+        };
+        let t_stage = t + dt * Tab::C[i];
+        z_stage = solve(t_stage, &stage_point, &z_stage)?;
+        let increment = &rate(t_stage, &stage_point, &z_stage)? * dt;
+        scratch.push(match &sigma {
+            Some(sigma) => Fld::dexpinv(sigma, increment),
+            None => increment,
+        });
+    }
+    let advanced = reconstruct_or_err::<Fld>(point, &weight(scratch, Tab::B))?;
+    let z_final = solve(t + dt, &advanced, &z_stage)?;
+    Ok((advanced, z_final))
+}
+
 /// Runge–Kutta–Munthe-Kaas: a fixed-step [`ButcherTableau`] run in the field's
 /// Lie algebra, with the [`IntegrableField::dexpinv`] correction per stage and a
 /// single [`IntegrableField::reconstruct`] per step. Reduces to the plain tableau

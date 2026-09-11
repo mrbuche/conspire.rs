@@ -838,6 +838,135 @@ mod state_evolution {
         });
     }
 
+    // Both frozen-drive maps are first order; resolving F at every stage
+    // abscissa lifts the return map to the tableau's own order.
+    #[test]
+    fn rkmk_dae_is_third_order_where_the_frozen_drive_maps_are_first() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RkmkRoot},
+            math::{integrate::BogackiShampine, optimize::NewtonRaphson},
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
+        let (_, reference, _) = model()
+            .root(
+                AppliedLoad::UniaxialStress(load, &span),
+                BogackiShampine {
+                    abs_tol: 1e-10,
+                    rel_tol: 1e-10,
+                    ..Default::default()
+                },
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let reference = reference.iter().last().unwrap().clone();
+        let mut errors = Vec::new();
+        for steps in [5, 10, 20, 40] {
+            let times = time(steps);
+            let (_, dae, state_variables) = model()
+                .root_rkmk_dae::<BogackiShampineTableau>(
+                    AppliedLoad::UniaxialStress(load, &times),
+                    NewtonRaphson::default(),
+                )
+                .unwrap();
+            let (_, split, _) = model()
+                .root_rkmk::<BogackiShampineTableau>(
+                    AppliedLoad::UniaxialStress(load, &times),
+                    NewtonRaphson::default(),
+                )
+                .unwrap();
+            let error = (dae.iter().last().unwrap() - &reference).norm().value();
+            let error_split = (split.iter().last().unwrap() - &reference).norm().value();
+            println!("{steps}: dae {error:e}, split {error_split:e}");
+            assert!(
+                error < error_split / 100.0,
+                "stage-resolved not far better at {steps}: {error:e} vs {error_split:e}"
+            );
+            errors.push(error);
+            let deformation_gradient_p = &state_variables.iter().last().unwrap().0;
+            assert!(
+                (deformation_gradient_p - &DeformationGradientPlastic::identity())
+                    .norm()
+                    .value()
+                    > 1e-3
+            );
+        }
+        // Bogacki-Shampine is third order, so each halving must cut the error ~8x
+        errors.windows(2).for_each(|pair| {
+            let ratio = pair[0] / pair[1];
+            assert!(
+                (6.0..12.0).contains(&ratio),
+                "not third order: {ratio}, {errors:?}"
+            )
+        });
+    }
+
+    // The additive DAE root only gets det F_p = 1 by integrating accurately
+    // enough -- its drift tracks the tolerance. Reconstructing through `expm`
+    // makes it structural instead, at any step size.
+    #[test]
+    fn rkmk_dae_keeps_the_group_structurally_where_the_additive_root_earns_it() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
+            math::{Scalar, integrate::BogackiShampine, optimize::NewtonRaphson},
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
+        let drift = |tol: Scalar| {
+            let (_, _, state_variables) = model()
+                .root(
+                    AppliedLoad::UniaxialStress(load, &span),
+                    BogackiShampine {
+                        abs_tol: tol,
+                        rel_tol: tol,
+                        ..Default::default()
+                    },
+                    NewtonRaphson::default(),
+                )
+                .unwrap();
+            (state_variables.iter().last().unwrap().0.determinant() - 1.0).abs()
+        };
+        let (loose, tight) = (drift(1e-4), drift(1e-8));
+        println!("additive drift: {loose:e} at 1e-4, {tight:e} at 1e-8");
+        assert!(loose > 1e-7, "additive root did not drift: {loose:e}");
+        assert!(tight < loose / 100.0, "drift did not track the tolerance");
+        let (_, _, state_variables) = model()
+            .root_rkmk_dae::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(load, &time(5)),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        state_variables
+            .iter()
+            .for_each(|state| assert!((state.0.determinant() - 1.0).abs() < 1e-13));
+    }
+
+    #[test]
+    fn rkmk_dae_keeps_the_internal_dissipation_non_negative() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
+            math::optimize::NewtonRaphson,
+        };
+        let model = model();
+        let (_, deformation_gradients, state_variables) = model
+            .root_rkmk_dae::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 2.0 * t.value(), &time(24)),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        deformation_gradients
+            .iter()
+            .zip(state_variables.iter())
+            .for_each(|(deformation_gradient, state)| {
+                Assert::non_negative(
+                    &model
+                        .internal_dissipation(deformation_gradient, state)
+                        .unwrap(),
+                )
+                .unwrap()
+            });
+    }
+
     #[test]
     fn coupled_keeps_the_internal_dissipation_non_negative() {
         use crate::{

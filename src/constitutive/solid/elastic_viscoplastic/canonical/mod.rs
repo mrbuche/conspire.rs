@@ -24,7 +24,10 @@ use crate::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, ContractThirdWithFirst, Current,
         Derivative, Differentiate, Intermediate, Quantity, Rank2, Reference, Scalar, Tensor,
         TensorArray, TensorRank2, TensorRank4, TensorTuple, TensorVec, Vector,
-        integrate::{ButcherTableau, Flat, IntegrableField, Product, StateEvolution, Unimodular},
+        integrate::{
+            ButcherTableau, Flat, IntegrableField, Product, StateEvolution, Unimodular,
+            rkmk_dae_step,
+        },
         optimize::{EqualityConstraint, FirstOrderRootFinding},
     },
     mechanics::{
@@ -714,6 +717,101 @@ where
             let advanced = equilibrate(&state, &deformation_gradient, step[1], step[1] - step[0])?;
             deformation_gradient = advanced.0;
             state = advanced.1;
+            times.push(step[1]);
+            deformation_gradients.push(deformation_gradient.clone());
+            state_variables.push(state.clone());
+        }
+        Ok((times, deformation_gradients, state_variables))
+    }
+    /// RKMK-DAE return map: `F` is re-solved from equilibrium at every stage
+    /// abscissa of the window while `F_p` advances on its group.
+    ///
+    /// Both [`root_rkmk`] and [`Self::root_rkmk_coupled`] hold `F` fixed across a
+    /// window, which is O(Δt) whichever end they hold it at — the error is a
+    /// quadrature error, not a coupling-algebra one. Here the tableau drives both
+    /// legs: stage `i` reconstructs `F_p` at `σᵢ`, solves
+    /// `P(F, F_p^i) - λ(t + cᵢ Δt) - P_0 = 0` for `F` there, and evaluates the
+    /// plastic rate at that consistent pair, so the order is the tableau's.
+    ///
+    /// This is the half-explicit RK treatment of the index-1 DAE that
+    /// [`FirstOrderRoot::root`] already performs, with the state leg moved off
+    /// the additive march onto `expm`/`dexpinv` — so `det F_p = 1` is kept
+    /// rather than drifting.
+    ///
+    /// [`root_rkmk`]: crate::constitutive::solid::elastic_viscoplastic::RkmkRoot::root_rkmk
+    /// [`FirstOrderRoot::root`]: crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot::root
+    #[allow(clippy::type_complexity)]
+    pub fn root_rkmk_dae<Tab>(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<
+        (
+            Times,
+            DeformationGradients,
+            ViscoplasticStateVariablesHistory<Quantity>,
+        ),
+        ConstitutiveError,
+    >
+    where
+        Tab: ButcherTableau,
+    {
+        let (matrix, prescribed, time) = bcs(applied_load);
+        let mut vector = Vector::zero(matrix.len());
+        let mut state = <Self as Viscoplastic<Quantity>>::initial_state(self);
+        let mut scratch = Vec::new();
+        let mut solve = |t: Quantity<Time>,
+                         state: &ViscoplasticStateVariables<Quantity>,
+                         guess: &DeformationGradient|
+         -> Result<DeformationGradient, String> {
+            prescribed
+                .iter()
+                .for_each(|(index, function)| vector[*index] = function(t));
+            Ok(solver.root(
+                |deformation_gradient: &DeformationGradient| {
+                    Ok(self.first_piola_kirchhoff_stress(deformation_gradient, &state.0)?)
+                },
+                |deformation_gradient: &DeformationGradient| {
+                    Ok(self
+                        .first_piola_kirchhoff_tangent_stiffness(deformation_gradient, &state.0)?)
+                },
+                guess.clone(),
+                EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                None,
+            )?)
+        };
+        let mut deformation_gradient = solve(time[0], &state, &DeformationGradient::identity())
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        let mut times = Times::new();
+        let mut deformation_gradients = DeformationGradients::new();
+        let mut state_variables = ViscoplasticStateVariablesHistory::new();
+        times.push(time[0]);
+        deformation_gradients.push(deformation_gradient.clone());
+        state_variables.push(state.clone());
+        for step in time.windows(2) {
+            let advanced = rkmk_dae_step::<
+                <Self as StateEvolution<Time, Quantity>>::Field,
+                Tab,
+                DeformationGradient,
+                Time,
+            >(
+                &mut |t, state, deformation_gradient| {
+                    self.state_rate(t, deformation_gradient, state)
+                },
+                &mut solve,
+                &state,
+                &deformation_gradient,
+                step[0],
+                step[1] - step[0],
+                &mut scratch,
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+            state = advanced.0;
+            deformation_gradient = advanced.1;
             times.push(step[1]);
             deformation_gradients.push(deformation_gradient.clone());
             state_variables.push(state.clone());
