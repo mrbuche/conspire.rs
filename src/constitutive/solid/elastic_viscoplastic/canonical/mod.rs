@@ -7,31 +7,35 @@ use crate::{
         canonical::Canonical,
         fluid::{
             plastic::Plastic,
-            viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
+            viscoplastic::{
+                Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables,
+                ViscoplasticStateVariablesHistory,
+            },
         },
         solid::{
             elastic::Elastic,
-            elastic_plastic::{Matrix3, entries_4, matrix_3, rank_2, rank_4},
+            elastic_plastic::{Matrix3, bcs, entries_4, matrix_3, rank_2, rank_4},
             elastic_viscoplastic::{
-                ElasticPlasticOrViscoplastic, ElasticViscoplastic, PlasticTangents,
+                AppliedLoad, ElasticPlasticOrViscoplastic, ElasticViscoplastic, PlasticTangents,
             },
         },
     },
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, ContractThirdWithFirst, Current,
         Derivative, Differentiate, Intermediate, Quantity, Rank2, Reference, Scalar, Tensor,
-        TensorRank2, TensorRank4, TensorTuple,
+        TensorArray, TensorRank2, TensorRank4, TensorTuple, TensorVec, Vector,
         integrate::{ButcherTableau, Flat, IntegrableField, Product, StateEvolution, Unimodular},
+        optimize::{EqualityConstraint, FirstOrderRootFinding},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessElastic,
         CauchyTangentStiffnessPlastic, DeformationGradient, DeformationGradientPlastic,
-        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
+        DeformationGradients, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressElastic,
         FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessElastic,
         FirstPiolaKirchhoffTangentStiffnessPlastic, MandelStressElastic,
         SecondPiolaKirchhoffStress, SecondPiolaKirchhoffStressElastic,
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffTangentStiffnessElastic,
-        StretchingRatePlastic,
+        StretchingRatePlastic, Times,
     },
     units::{Dissipation, Rate, Stress, Time},
 };
@@ -551,5 +555,169 @@ where
                 from_fn(|l| sigma_hardening_tangent[3 * k + l])
             })),
         })
+    }
+    /// The first Piola-Kirchhoff stress and its *algorithmic* tangent for one
+    /// coupled RKMK step, with the advanced state.
+    ///
+    /// The plastic state is not held: it is `F_p^{n+1}(F)` from
+    /// [`Self::rkmk_step_tangent`], so the tangent picks up the algorithmic term
+    /// ```math
+    /// \frac{\mathrm{d}\mathbf{P}}{\mathrm{d}\mathbf{F}} =
+    ///   \frac{\partial\mathbf{P}}{\partial\mathbf{F}}
+    ///   + \frac{\partial\mathbf{P}}{\partial\mathbf{F}_\mathrm{p}} :
+    ///     \frac{\mathrm{d}\mathbf{F}_\mathrm{p}^{n+1}}{\mathrm{d}\mathbf{F}} .
+    /// ```
+    #[allow(clippy::type_complexity)]
+    pub fn first_piola_kirchhoff_stress_rkmk<Tab>(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        state: &ViscoplasticStateVariables<Quantity>,
+        time_step: Quantity<Time>,
+    ) -> Result<
+        (
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            ViscoplasticStateVariables<Quantity>,
+        ),
+        ConstitutiveError,
+    >
+    where
+        Tab: ButcherTableau,
+    {
+        let advanced = self.rkmk_step_tangent::<Tab>(deformation_gradient, state, time_step)?;
+        let deformation_gradient_p = &advanced.state.0;
+        let stress =
+            self.first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)?;
+        let tangent = entries_4(&self.first_piola_kirchhoff_tangent_stiffness(
+            deformation_gradient,
+            deformation_gradient_p,
+        )?);
+        let tangent_p = entries_4(&self.first_piola_kirchhoff_tangent_stiffness_p(
+            deformation_gradient,
+            deformation_gradient_p,
+        )?);
+        let plastic_tangent = entries_4(&advanced.deformation_gradient_p_tangent);
+        Ok((
+            stress,
+            rank_4(&from_fn(|i| {
+                from_fn(|j| {
+                    from_fn(|k| {
+                        from_fn(|l| {
+                            tangent[i][j][k][l]
+                                + (0..3)
+                                    .map(|a| {
+                                        (0..3)
+                                            .map(|b| {
+                                                tangent_p[i][j][a][b] * plastic_tangent[a][b][k][l]
+                                            })
+                                            .sum::<Scalar>()
+                                    })
+                                    .sum::<Scalar>()
+                        })
+                    })
+                })
+            })),
+            advanced.state,
+        ))
+    }
+    /// Fully coupled RKMK return map: one Newton solve per load-step window over
+    /// the residual `P(F, F_p^{n+1}(F)) - λ - P_0`, with `F_p^{n+1}(F)` the RKMK
+    /// step taken from the converged previous state and its algorithmic tangent
+    /// folded into the Jacobian.
+    ///
+    /// Unlike the Lie–Trotter [`root_rkmk`], the plastic flow over a window is
+    /// driven by the same `F` that equilibrates at the end of it, so the two legs
+    /// are not split — one Newton solves them together, quadratically, on the
+    /// exact algorithmic tangent. Both maps still freeze `F` across a window, so
+    /// both remain first order in `Δt`; they approach the same limit from
+    /// opposite sides (the split lags a window, this leads one). `F_p` leaves
+    /// each step through `exp`, so it stays unimodular.
+    ///
+    /// [`root_rkmk`]: crate::constitutive::solid::elastic_viscoplastic::RkmkRoot::root_rkmk
+    #[allow(clippy::type_complexity)]
+    pub fn root_rkmk_coupled<Tab>(
+        &self,
+        applied_load: AppliedLoad,
+        solver: impl FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+        >,
+    ) -> Result<
+        (
+            Times,
+            DeformationGradients,
+            ViscoplasticStateVariablesHistory<Quantity>,
+        ),
+        ConstitutiveError,
+    >
+    where
+        Tab: ButcherTableau,
+    {
+        let (matrix, prescribed, time) = bcs(applied_load);
+        let mut vector = Vector::zero(matrix.len());
+        let mut state = <Self as Viscoplastic<Quantity>>::initial_state(self);
+        let mut equilibrate = |state: &ViscoplasticStateVariables<Quantity>,
+                               guess: &DeformationGradient,
+                               t: Quantity<Time>,
+                               time_step: Quantity<Time>|
+         -> Result<
+            (DeformationGradient, ViscoplasticStateVariables<Quantity>),
+            ConstitutiveError,
+        > {
+            prescribed
+                .iter()
+                .for_each(|(index, function)| vector[*index] = function(t));
+            let deformation_gradient = solver
+                .root(
+                    |deformation_gradient: &DeformationGradient| {
+                        Ok(self
+                            .first_piola_kirchhoff_stress_rkmk::<Tab>(
+                                deformation_gradient,
+                                state,
+                                time_step,
+                            )?
+                            .0)
+                    },
+                    |deformation_gradient: &DeformationGradient| {
+                        Ok(self
+                            .first_piola_kirchhoff_stress_rkmk::<Tab>(
+                                deformation_gradient,
+                                state,
+                                time_step,
+                            )?
+                            .1)
+                    },
+                    guess.clone(),
+                    EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                    None,
+                )
+                .map_err(|error| ConstitutiveError::upstream(error, self))?;
+            let advanced = self
+                .first_piola_kirchhoff_stress_rkmk::<Tab>(&deformation_gradient, state, time_step)?
+                .2;
+            Ok((deformation_gradient, advanced))
+        };
+        let (mut deformation_gradient, _) = equilibrate(
+            &state,
+            &DeformationGradient::identity(),
+            time[0],
+            Quantity::new(0.0),
+        )?;
+        let mut times = Times::new();
+        let mut deformation_gradients = DeformationGradients::new();
+        let mut state_variables = ViscoplasticStateVariablesHistory::new();
+        times.push(time[0]);
+        deformation_gradients.push(deformation_gradient.clone());
+        state_variables.push(state.clone());
+        for step in time.windows(2) {
+            let advanced = equilibrate(&state, &deformation_gradient, step[1], step[1] - step[0])?;
+            deformation_gradient = advanced.0;
+            state = advanced.1;
+            times.push(step[1]);
+            deformation_gradients.push(deformation_gradient.clone());
+            state_variables.push(state.clone());
+        }
+        Ok((times, deformation_gradients, state_variables))
     }
 }

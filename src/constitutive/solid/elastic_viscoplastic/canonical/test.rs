@@ -664,4 +664,205 @@ mod state_evolution {
             .eq_within_fd_tol(&tangent.deformation_gradient_p_tangent, &plastic_difference)?;
         Assert::default().eq_within_fd_tol(&tangent.hardening_tangent, &hardening_difference)
     }
+
+    #[test]
+    fn coupled_tangent_matches_finite_difference() -> Result<(), AssertionError> {
+        use crate::{math::assert::perturbation, mechanics::FirstPiolaKirchhoffTangentStiffness};
+        let model = model();
+        let deformation_gradient = deformation_gradient();
+        let time_step = Quantity::<Time>::new(0.25);
+        let state = evolved_state(&model, &deformation_gradient, time_step);
+        let stress_and_tangent = |deformation_gradient: &DeformationGradient| {
+            model
+                .first_piola_kirchhoff_stress_rkmk::<BogackiShampineTableau>(
+                    deformation_gradient,
+                    &state,
+                    time_step,
+                )
+                .unwrap()
+        };
+        let tangent = stress_and_tangent(&deformation_gradient).1;
+        let mut difference = FirstPiolaKirchhoffTangentStiffness::zero();
+        for k in 0..3 {
+            for l in 0..3 {
+                let mut plus = deformation_gradient.clone();
+                plus[k][l] += perturbation(0.5 * crate::EPSILON);
+                let plus = stress_and_tangent(&plus).0;
+                let mut minus = deformation_gradient.clone();
+                minus[k][l] -= perturbation(0.5 * crate::EPSILON);
+                let minus = stress_and_tangent(&minus).0;
+                for i in 0..3 {
+                    for j in 0..3 {
+                        difference[i][j][k][l] = (plus[i][j] - minus[i][j]) / crate::EPSILON
+                    }
+                }
+            }
+        }
+        Assert::default().eq_within_fd_tol(&tangent, &difference)
+    }
+
+    // The algorithmic tangent is exact, so a Newton on the coupled residual
+    // P(F, F_p^{n+1}(F)) = P* must converge quadratically.
+    #[test]
+    fn coupled_newton_converges_quadratically() {
+        use crate::math::{SquareMatrix, Vector};
+        let model = model();
+        let time_step = Quantity::<Time>::new(0.25);
+        let state = evolved_state(&model, &deformation_gradient(), time_step);
+        let target = DeformationGradient::from([[1.0, 0.4, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
+        let stress = model
+            .first_piola_kirchhoff_stress_rkmk::<BogackiShampineTableau>(&target, &state, time_step)
+            .unwrap()
+            .0;
+        let scale = stress.norm().value();
+        let mut deformation_gradient = DeformationGradient::from([
+            [1.002, 0.39, 0.003],
+            [0.0, 0.998, -0.003],
+            [0.0, 0.003, 1.0],
+        ]);
+        let mut errors = Vec::new();
+        for _ in 0..6 {
+            let (predicted, tangent, _) = model
+                .first_piola_kirchhoff_stress_rkmk::<BogackiShampineTableau>(
+                    &deformation_gradient,
+                    &state,
+                    time_step,
+                )
+                .unwrap();
+            let residual = predicted - &stress;
+            errors.push(residual.norm().value() / scale);
+            if errors.last().unwrap() < &1e-14 {
+                break;
+            }
+            let mut matrix = SquareMatrix::zero(9);
+            let mut right_hand_side = Vector::zero(9);
+            for i in 0..3 {
+                for j in 0..3 {
+                    right_hand_side[3 * i + j] = -residual[i][j].value();
+                    for k in 0..3 {
+                        for l in 0..3 {
+                            matrix[3 * i + j][3 * k + l] = tangent[i][j][k][l].value()
+                        }
+                    }
+                }
+            }
+            let increment = matrix.solve_lu(&right_hand_side).unwrap();
+            for i in 0..3 {
+                for j in 0..3 {
+                    deformation_gradient[i][j] += Quantity::new(increment[3 * i + j])
+                }
+            }
+        }
+        println!("relative residuals: {errors:?}");
+        assert!(
+            errors.windows(2).all(|pair| pair[1] < pair[0]),
+            "not monotone: {errors:?}"
+        );
+        assert!(*errors.last().unwrap() < 1e-12, "not converged: {errors:?}");
+        // e_{k+1} <= C e_k^2 across the whole asymptotic tail, above round-off
+        let asymptotic: Vec<usize> = (0..errors.len() - 1)
+            .filter(|k| errors[*k] < 1e-3 && errors[k + 1] > 1e-13)
+            .collect();
+        assert!(asymptotic.len() > 1, "too short a tail: {errors:?}");
+        asymptotic.iter().for_each(|k| {
+            assert!(
+                errors[k + 1] < 50.0 * errors[*k].powi(2),
+                "not quadratic at {k}: {errors:?}"
+            )
+        });
+    }
+
+    // Both maps freeze F across a window, so both stay first order in dt; what
+    // separates them is which end they freeze at. The split drives the flow with
+    // the F converged at the *start* of the window, the coupled map with the F
+    // that equilibrates at its *end*, so their endpoints must straddle the
+    // refined reference — the sign check is what proves the coupling is real and
+    // not a relabelled split.
+    #[test]
+    fn coupled_straddles_the_refined_reference_opposite_the_operator_split() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, RkmkRoot},
+            math::optimize::NewtonRaphson,
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let reference_times = time(2000);
+        let (_, reference, _) = model()
+            .root_rkmk::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(load, &reference_times),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let reference = reference.iter().last().unwrap().clone();
+        let mut errors = Vec::new();
+        for steps in [10, 20, 40, 80] {
+            let times = time(steps);
+            let (_, coupled, state_variables) = model()
+                .root_rkmk_coupled::<BogackiShampineTableau>(
+                    AppliedLoad::UniaxialStress(load, &times),
+                    NewtonRaphson::default(),
+                )
+                .unwrap();
+            let (_, split, _) = model()
+                .root_rkmk::<BogackiShampineTableau>(
+                    AppliedLoad::UniaxialStress(load, &times),
+                    NewtonRaphson::default(),
+                )
+                .unwrap();
+            let coupled = coupled.iter().last().unwrap().clone();
+            let signed = |deformation_gradient: &DeformationGradient| {
+                deformation_gradient[1][1].value() - reference[1][1].value()
+            };
+            let (lead, lag) = (signed(&coupled), signed(split.iter().last().unwrap()));
+            println!("{steps}: coupled {lead:e}, split {lag:e}");
+            assert!(
+                lead < 0.0 && lag > 0.0,
+                "the two maps do not straddle the reference at {steps} steps: {lead:e}, {lag:e}"
+            );
+            errors.push((&coupled - &reference).norm().value());
+            let deformation_gradient_p = &state_variables.iter().last().unwrap().0;
+            assert!((deformation_gradient_p.determinant() - 1.0).abs() < 1e-10);
+            assert!(
+                (deformation_gradient_p - &DeformationGradientPlastic::identity())
+                    .norm()
+                    .value()
+                    > 1e-3
+            );
+        }
+        assert!(*errors.last().unwrap() < 1e-3, "not accurate: {errors:?}");
+        errors.windows(2).for_each(|pair| {
+            let ratio = pair[0] / pair[1];
+            assert!(
+                (1.7..2.4).contains(&ratio),
+                "not first order: {ratio}, {errors:?}"
+            )
+        });
+    }
+
+    #[test]
+    fn coupled_keeps_the_internal_dissipation_non_negative() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
+            math::optimize::NewtonRaphson,
+        };
+        let times = time(24);
+        let model = model();
+        let (_, deformation_gradients, state_variables) = model
+            .root_rkmk_coupled::<BogackiShampineTableau>(
+                AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 2.0 * t.value(), &times),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        deformation_gradients
+            .iter()
+            .zip(state_variables.iter())
+            .for_each(|(deformation_gradient, state)| {
+                assert!((state.0.determinant() - 1.0).abs() < 1e-10);
+                Assert::non_negative(
+                    &model
+                        .internal_dissipation(deformation_gradient, state)
+                        .unwrap(),
+                )
+                .unwrap()
+            });
+    }
 }
