@@ -402,7 +402,6 @@ pub struct HermiteSegment<Fld: IntegrableField, T = Time> {
 impl<Fld, T> HermiteSegment<Fld, T>
 where
     Fld: IntegrableField,
-    T: Copy,
 {
     /// A segment of the accepted step `[t_0, t_0 + h]` from `base`, the algebra
     /// displacement `sigma` over it, and the step-scaled algebra rates at its
@@ -445,7 +444,6 @@ fn hermite_at<Fld, T>(
 ) -> Result<Fld::Point, IntegrationError>
 where
     Fld: IntegrableField,
-    T: Copy,
 {
     segments
         .iter()
@@ -461,7 +459,6 @@ pub fn interpolate_hermite<Fld, U, T>(
 ) -> Result<U, IntegrationError>
 where
     Fld: IntegrableField,
-    T: Copy,
     U: TensorVec<Item = Fld::Point>,
 {
     let mut points = U::new();
@@ -639,10 +636,16 @@ where
 }
 
 /// Adaptive RKMK: [`integrate_rkmk`] with embedded local-error control from the
-/// tableau's `D` weights. `time` supplies only the span `[time[0], time[last]]`;
-/// the returned times are the steps the controller accepted. The step is grown or
-/// shrunk by `0.9 (tol / e)^{1/p}` (clamped to `[0.2, 5]`), and a step whose
-/// error `e` exceeds `abs_tol + rel_tol ‖x_{n+1}‖` is rejected.
+/// tableau's `D` weights. The step is grown or shrunk by `0.9 (tol / e)^{1/p}`
+/// (clamped to `[0.2, 5]`), and a step whose error `e` exceeds
+/// `abs_tol + rel_tol ‖x_{n+1}‖` is rejected.
+///
+/// Dense output follows the convention of [`integrate_rkmk_dae_adaptive`]: `time`
+/// of length two supplies only the span and the accepted steps are reported,
+/// while a longer `time` is a list of requested report times, each served by the
+/// geodesic [`HermiteSegment`] of the accepted step containing it. Building the
+/// segments costs one extra rate evaluation per accepted step, so it is skipped
+/// when not requested.
 pub fn integrate_rkmk_adaptive<Fld, Tab, U, T>(
     mut rate: impl FnMut(Quantity<T>, &Fld::Point) -> Result<Derivative<Fld::Increment, T>, String>,
     time: &[Quantity<T>],
@@ -672,10 +675,12 @@ where
     let dt_min = (t_f - t_0) * 1e-10;
     let mut t = t_0;
     let mut dt = t_f - t_0;
+    let dense = time.len() > 2;
     let mut point = initial_condition;
     let mut points = U::new();
     let mut times = Times::new();
     let mut slopes = Vec::new();
+    let mut segments = Vec::new();
     let mut carry: Option<Derivative<Fld::Increment, T>> = None;
     points.push(point.clone());
     times.push(t_0);
@@ -689,14 +694,27 @@ where
             &mut slopes,
             carry.as_ref(),
         )?;
-        let trial = reconstruct_or_err::<Fld>(&point, &weight(&slopes, Tab::B))?;
+        let sigma = weight(&slopes, Tab::B);
+        let trial = reconstruct_or_err::<Fld>(&point, &sigma)?;
         let error = weight(&slopes, Tab::D).norm().value().abs();
         let tolerance = abs_tol + rel_tol * trial.norm().value();
         let accept = error <= tolerance || dt <= dt_min;
         if accept {
+            let t_previous = t;
             t += dt;
-            point = trial;
             carry = next_carry;
+            if dense {
+                let slope_1 = Fld::dexpinv(&sigma, &rate(t, &trial)? * dt);
+                segments.push(HermiteSegment::<Fld, T> {
+                    t_0: t_previous,
+                    h: dt,
+                    base: point.clone(),
+                    sigma,
+                    slope_0: slopes[0].clone(),
+                    slope_1,
+                });
+            }
+            point = trial;
             points.push(point.clone());
             times.push(t);
         }
@@ -712,7 +730,14 @@ where
             ));
         }
     }
-    Ok((times, points))
+    if dense {
+        Ok((
+            Times::from(time),
+            interpolate_hermite::<Fld, U, T>(&segments, time)?,
+        ))
+    } else {
+        Ok((times, points))
+    }
 }
 
 /// The `Point` type of a [`StateEvolution`] model's field.

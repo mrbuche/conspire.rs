@@ -3,7 +3,10 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, Times, VariableStep},
+    integrate::{
+        ButcherTableau, EmbeddedTableau, Explicit, Flat, HermiteSegment, IntegrationError, Times,
+        VariableStep, interpolate_hermite,
+    },
     interpolate::InterpolateSolution,
 };
 use crate::units::Time;
@@ -259,34 +262,39 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
+    /// The state, via [`HermiteSegment`] built pointwise over `Flat<Y>` — the
+    /// state is a flat vector space, so this is the same cubic Hermite as
+    /// before, just built once instead of duplicated here.
     fn interpolate_free(time: &Times<T>, tp: &Times<T>, yp: &U, dydtp: &V) -> (U, V) {
-        let mut y_int = U::new();
+        let segments: Vec<HermiteSegment<Flat<Y>, T>> = (1..tp.len())
+            .map(|i| {
+                let h = tp[i] - tp[i - 1];
+                HermiteSegment::new(
+                    tp[i - 1],
+                    h,
+                    yp[i - 1].clone(),
+                    &yp[i] - &yp[i - 1],
+                    &dydtp[i - 1] * h,
+                    &dydtp[i] * h,
+                )
+            })
+            .collect();
+        let y_int = interpolate_hermite::<Flat<Y>, U, T>(&segments, time.as_slice())
+            .expect("Flat::reconstruct is infallible");
         let mut dydt_int = V::new();
         for time_k in time.iter() {
             let i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
             if time_k == &tp[i] {
-                y_int.push(yp[i].clone());
                 dydt_int.push(dydtp[i].clone());
             } else {
                 let t_0 = tp[i - 1];
                 let h = tp[i] - t_0;
                 let theta = (*time_k - t_0).value() / h.value();
                 let theta2 = theta * theta;
-                let theta3 = theta2 * theta;
-                let h00 = 2.0 * theta3 - 3.0 * theta2 + 1.0;
-                let h10 = theta3 - 2.0 * theta2 + theta;
-                let h01 = -2.0 * theta3 + 3.0 * theta2;
-                let h11 = theta3 - theta2;
                 let dh00 = 6.0 * theta2 - 6.0 * theta;
                 let dh10 = 3.0 * theta2 - 4.0 * theta + 1.0;
                 let dh01 = -6.0 * theta2 + 6.0 * theta;
                 let dh11 = 3.0 * theta2 - 2.0 * theta;
-                y_int.push(
-                    &yp[i - 1] * h00
-                        + &dydtp[i - 1] * (h10 * h)
-                        + &yp[i] * h01
-                        + &dydtp[i] * (h11 * h),
-                );
                 dydt_int.push(
                     (&yp[i - 1] * dh00 + &yp[i] * dh01) / h
                         + &dydtp[i - 1] * dh10

@@ -342,6 +342,37 @@ fn rkmk_adaptive_keeps_the_group_state_unimodular() {
     assert!((points.iter().last().unwrap().determinant() - 1.0).abs() < 1e-10);
 }
 
+#[test]
+fn rkmk_adaptive_reports_on_the_group_at_requested_times() {
+    let a = FpRate::from(constant_exponent());
+    let requested: Vec<Quantity<Time>> = (0..=10).map(|i| Quantity::new(0.1 * i as f64)).collect();
+    let (reported, points): (Times, TensorVector<Fp>) =
+        integrate_rkmk_adaptive::<Unimodular<Current>, BogackiShampine, _, _>(
+            |t: Quantity<Time>, _: &Fp| Ok(a.clone() * (1.0 / (1.0 + t.value()))),
+            &requested,
+            Fp::identity(),
+            1e-10,
+            0.0,
+        )
+        .unwrap();
+    assert_eq!(reported.iter().count(), requested.len());
+    reported
+        .iter()
+        .zip(requested.iter())
+        .for_each(|(a, b)| assert_eq!(a, b));
+    requested
+        .iter()
+        .zip(points.iter())
+        .skip(1)
+        .for_each(|(t, point)| {
+            let exact = (Fp::from(constant_exponent()) * (1.0 + t.value()).ln())
+                .expm()
+                .unwrap();
+            assert!((point - &exact).norm().value() < 1e-3);
+            assert!((point.determinant() - 1.0).abs() < 1e-10);
+        });
+}
+
 fn hermite_grid(points: usize) -> Vec<f64> {
     (0..=points).map(|i| i as f64 / points as f64).collect()
 }
