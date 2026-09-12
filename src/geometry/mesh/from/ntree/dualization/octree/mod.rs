@@ -11,7 +11,7 @@ use crate::geometry::{
     Coordinate,
     mesh::{
         Connectivity, Mesh,
-        from::ntree::dualization::{Dualization, Initialize, NodeMap},
+        from::ntree::dualization::{Dualization, Initialize, NodeMap, build_leaf_index},
     },
     ntree::{Octree, node::cell::Cell},
 };
@@ -41,8 +41,10 @@ where
     fn dualize(&self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         let mut nodes_map = NodeMap::new();
+        let leaf_index = build_leaf_index(self);
         face_transition(
             self,
+            &leaf_index,
             &center_nodes,
             &mut coordinates,
             &mut connectivity,
@@ -51,6 +53,7 @@ where
         );
         edge_transitions(
             self,
+            &leaf_index,
             &center_nodes,
             &mut coordinates,
             &mut connectivity,

@@ -4,7 +4,7 @@ use crate::{
     geometry::{
         Coordinate, Coordinates,
         mesh::from::ntree::dualization::{
-            NodeMap,
+            LeafIndex, NodeMap,
             octree::{D, N, facet_direction},
         },
         ntree::Octree,
@@ -25,6 +25,7 @@ use std::array::from_fn;
 /// slab facing its own `n` neighbour.
 pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
+    leaf_index: &LeafIndex<D>,
     center_nodes: &[usize],
     coordinates: &Coordinates<D>,
     connectivity: &mut Vec<[usize; N]>,
@@ -54,9 +55,9 @@ pub(super) fn template<T, U>(
             let mut partner = origin;
             partner[along] += coarse;
             let (first_cell, second) = if lower {
-                (Some(index), tree.cell_at(&partner, coarse))
+                (Some(index), tree.cell_at(leaf_index, &partner, coarse))
             } else {
-                (tree.cell_at(&origin, coarse), Some(index))
+                (tree.cell_at(leaf_index, &origin, coarse), Some(index))
             };
             if first_cell.is_some() != lower {
                 continue;
@@ -116,12 +117,18 @@ pub(super) fn template<T, U>(
                     {
                         continue;
                     }
-                    let side_m_cells: [Option<usize>; 4] =
-                        from_fn(|k| tree.cell_at(&corner_at(far_m, near_n, k as i64 * fine), fine));
-                    let side_n_cells: [Option<usize>; 4] =
-                        from_fn(|k| tree.cell_at(&corner_at(near_m, far_n, k as i64 * fine), fine));
+                    let side_m_cells: [Option<usize>; 4] = from_fn(|k| {
+                        tree.cell_at(leaf_index, &corner_at(far_m, near_n, k as i64 * fine), fine)
+                    });
+                    let side_n_cells: [Option<usize>; 4] = from_fn(|k| {
+                        tree.cell_at(leaf_index, &corner_at(near_m, far_n, k as i64 * fine), fine)
+                    });
                     let diagonal: [Option<usize>; 2] = from_fn(|j| {
-                        tree.cell_at(&corner_at(out_m, out_n, j as i64 * coarse), coarse)
+                        tree.cell_at(
+                            leaf_index,
+                            &corner_at(out_m, out_n, j as i64 * coarse),
+                            coarse,
+                        )
                     });
                     // A half is one end of the wedge: one coarse leaf, its coarse diagonal, and
                     // two fine cells from each refined column. Take a half only when whole, and

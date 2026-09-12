@@ -4,7 +4,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::from::ntree::dualization::{
-            NodeMap,
+            LeafIndex, NodeMap,
             octree::{D, N, facet_direction},
         },
         ntree::Octree,
@@ -25,6 +25,7 @@ use std::array::from_fn;
 /// points, which this template only reads - the face slabs placed them.
 pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
+    leaf_index: &LeafIndex<D>,
     center_nodes: &[usize],
     coordinates: &Coordinates<D>,
     connectivity: &mut Vec<[usize; N]>,
@@ -69,6 +70,7 @@ pub(super) fn template<T, U>(
                 let column = |sideways: i64| -> [Option<usize>; 4] {
                     from_fn(|k| {
                         tree.cell_at(
+                            leaf_index,
                             &corner_at(inside, sideways, center[along] - coarse + k as i64 * fine),
                             fine,
                         )
@@ -77,6 +79,7 @@ pub(super) fn template<T, U>(
                 let row = |sideways: i64| -> [Option<usize>; 2] {
                     from_fn(|j| {
                         tree.cell_at(
+                            leaf_index,
                             &corner_at(
                                 outside,
                                 sideways,

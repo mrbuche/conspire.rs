@@ -1,7 +1,7 @@
 use crate::geometry::{
     Coordinate, Coordinates,
-    mesh::{Dualization, Mesh, from::ntree::dualization::Initialize},
-    ntree::{Balance, Balancing, Octree, Pairing},
+    mesh::{Dualization, Mesh, Tessellation, from::ntree::dualization::Initialize},
+    ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
 };
 use crate::math::Quantity;
 use std::collections::{HashMap, HashSet};
@@ -173,10 +173,13 @@ fn tree_refine_macros(fine_macros: &[usize]) -> Octree<u16, usize> {
 
 fn edge_counts(octree: &Octree<u16, usize>) -> [usize; 4] {
     use super::{edge::test::edge_transition_counts, face::face_transition};
+    use crate::geometry::mesh::from::ntree::dualization::build_leaf_index;
     let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
     let mut nodes_map = HashMap::new();
+    let leaf_index = build_leaf_index(octree);
     face_transition(
         octree,
+        &leaf_index,
         &center_nodes,
         &mut coordinates,
         &mut connectivity,
@@ -185,6 +188,7 @@ fn edge_counts(octree: &Octree<u16, usize>) -> [usize; 4] {
     );
     edge_transition_counts(
         octree,
+        &leaf_index,
         &center_nodes,
         &mut coordinates,
         &mut connectivity,
@@ -278,4 +282,60 @@ fn star_fires_on_synthetic_checkerboard() {
             "star hex {hex:?} is not a vertex star"
         );
     });
+}
+
+// Not a correctness test: prints before/after timings for the generalized-pairing
+// leaf-index cache fix, on a real STL, at a few resolutions, so the effect can be
+// compared against Regular pairing and against the equilibrate/dualize split.
+// `cargo test --profile release-dev --features geometry -- --ignored --nocapture
+//  bench_bone_generalized_pairing`
+#[test]
+#[ignore]
+fn bench_bone_generalized_pairing() {
+    use std::{path::Path, time::Instant};
+    let path = std::env::var("BONE_STL")
+        .unwrap_or_else(|_| "/home/mrbuche/GitHub/autotwin/automesh/bone_tri.stl".to_string());
+    let t0 = Instant::now();
+    let tessellation = Tessellation::try_from(Path::new(&path)).unwrap();
+    println!("read {path}: {:?}", t0.elapsed());
+    for scale in [2.0, 4.0, 6.0, 8.0, 10.0, 12.0] {
+        println!("=== scale = {scale} ===");
+        let t0 = Instant::now();
+        let octree = Octree::<u16, usize>::from_features(
+            &tessellation,
+            scale,
+            CurvatureSizing::default(),
+            1,
+        )
+        .unwrap();
+        let leaves_initial = octree.iter().filter(|node| node.is_leaf()).count();
+        println!(
+            "  build: {:?} ({} nodes, {leaves_initial} leaves before balance/pair)",
+            t0.elapsed(),
+            octree.len()
+        );
+        for (label, pairing) in [
+            ("Regular", Pairing::Regular),
+            ("Generalized", Pairing::Generalized),
+        ] {
+            let mut tree = Octree::<u16, usize>::from_features(
+                &tessellation,
+                scale,
+                CurvatureSizing::default(),
+                1,
+            )
+            .unwrap();
+            let t1 = Instant::now();
+            tree.equilibrate(Balancing::Weak(1), pairing).unwrap();
+            let equilibrate_time = t1.elapsed();
+            let leaves = tree.iter().filter(|node| node.is_leaf()).count();
+            let t2 = Instant::now();
+            let mesh = tree.dualize();
+            let dualize_time = t2.elapsed();
+            let elements = mesh.iter().flatten().count();
+            println!(
+                "  {label:>11}: equilibrate {equilibrate_time:>10?}  dualize {dualize_time:>10?}  ({leaves} leaves -> {elements} elements)"
+            );
+        }
+    }
 }

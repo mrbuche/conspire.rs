@@ -4,7 +4,7 @@ use crate::{
     geometry::{
         Coordinate, Coordinates,
         mesh::from::ntree::dualization::{
-            NodeMap, get_or_add,
+            LeafIndex, NodeMap, get_or_add,
             octree::{D, M, N, facet_direction},
         },
         ntree::{Octree, node::Node},
@@ -46,6 +46,7 @@ struct Config {
 /// anchoring leaf - the 4:1 jump only weak balancing admits.
 pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
+    leaf_index: &LeafIndex<D>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,
     connectivity: &mut Vec<[usize; N]>,
@@ -60,7 +61,15 @@ pub(super) fn template<T, U>(
             continue;
         }
         for &(facet_m, facet_n) in EDGES.iter() {
-            if let Some(config_a) = config(tree, node, index, facet_m, facet_n, center_nodes) {
+            if let Some(config_a) = config(
+                tree,
+                leaf_index,
+                node,
+                index,
+                facet_m,
+                facet_n,
+                center_nodes,
+            ) {
                 chamber(
                     &config_a,
                     facet_m,
@@ -88,9 +97,10 @@ pub(super) fn template<T, U>(
                 if tree.shares_cluster(&column(&[facet_m]), coarse, axis)
                     && tree.shares_cluster(&column(&[facet_n]), coarse, axis)
                     && tree.shares_cluster(&column(&[facet_m, facet_n]), coarse, axis)
-                    && let Some(above) = tree.cell_at(&upper, coarse)
+                    && let Some(above) = tree.cell_at(leaf_index, &upper, coarse)
                     && let Some(config_b) = config(
                         tree,
+                        leaf_index,
                         &tree.nodes[above],
                         above,
                         facet_m,
@@ -115,6 +125,7 @@ pub(super) fn template<T, U>(
 
 fn config<T, U>(
     tree: &Octree<T, U>,
+    leaf_index: &LeafIndex<D>,
     node: &Node<D, M, N, T, U>,
     index: usize,
     facet_m: usize,
@@ -158,14 +169,18 @@ where
         if side_m == 1 { coarse } else { -quarter },
         if side_n == 1 { coarse } else { -quarter },
     );
-    let m_lo = tree.cell_at(&corner_at(beyond_m, beside_n, 0), half)?;
-    let m_hi = tree.cell_at(&corner_at(beyond_m, beside_n, half), half)?;
-    let n_lo = tree.cell_at(&corner_at(beside_m, beyond_n, 0), half)?;
-    let n_hi = tree.cell_at(&corner_at(beside_m, beyond_n, half), half)?;
+    let m_lo = tree.cell_at(leaf_index, &corner_at(beyond_m, beside_n, 0), half)?;
+    let m_hi = tree.cell_at(leaf_index, &corner_at(beyond_m, beside_n, half), half)?;
+    let n_lo = tree.cell_at(leaf_index, &corner_at(beside_m, beyond_n, 0), half)?;
+    let n_hi = tree.cell_at(leaf_index, &corner_at(beside_m, beyond_n, half), half)?;
     // Four cells along the edge on the diagonal; the middle two carry the Steiner ladder.
     let rungs: [usize; 4] = from_fn(|k| {
-        tree.cell_at(&corner_at(far_m, far_n, k as i64 * quarter), quarter)
-            .unwrap_or(usize::MAX)
+        tree.cell_at(
+            leaf_index,
+            &corner_at(far_m, far_n, k as i64 * quarter),
+            quarter,
+        )
+        .unwrap_or(usize::MAX)
     });
     if rungs.contains(&usize::MAX) {
         return None;

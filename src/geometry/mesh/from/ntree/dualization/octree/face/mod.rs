@@ -4,7 +4,7 @@ use crate::{
     geometry::{
         Coordinate, Coordinates,
         mesh::from::ntree::dualization::{
-            NodeMap, leaf_containing,
+            LeafIndex, NodeMap,
             octree::{D, L, M, N},
         },
         ntree::Octree,
@@ -33,6 +33,7 @@ const EXTERIOR_ANCHORS: [usize; 8] = [1, 4, 7, 13, 14, 11, 8, 2];
 /// survives is exactly the truncated template.
 pub(super) fn face_transition<T, U>(
     tree: &Octree<T, U>,
+    leaf_index: &LeafIndex<D>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,
     connectivity: &mut Vec<[usize; N]>,
@@ -42,20 +43,12 @@ pub(super) fn face_transition<T, U>(
     T: Cell,
     U: Slot,
 {
+    let cell_at = |corner: [i64; D], length: i64| -> Option<usize> {
+        tree.cell_at(leaf_index, &corner, length)
+    };
     let root = &tree.nodes[0];
     let low: [i64; D] = from_fn(|axis| root.corner[axis].cells() as i64);
     let high: [i64; D] = from_fn(|axis| low[axis] + root.length.cells() as i64);
-    let cell_at = |corner: [i64; D], length: i64| -> Option<usize> {
-        if (0..D).any(|axis| corner[axis] < low[axis] || corner[axis] + length > high[axis]) {
-            return None;
-        }
-        let point = from_fn(|axis| corner[axis] as usize);
-        let index = leaf_containing(tree, &point);
-        let node = &tree.nodes[index];
-        (length as usize == node.length.cells()
-            && (0..D).all(|axis| point[axis] == node.corner[axis].cells()))
-        .then_some(index)
-    };
     let mut clusters: Vec<([usize; D], usize)> = tree.pairing_vertices.iter().copied().collect();
     clusters.sort_unstable();
     for (cluster, length) in clusters {
