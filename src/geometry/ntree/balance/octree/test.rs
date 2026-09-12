@@ -31,6 +31,7 @@ fn fuzz_tree(seed: u64, length: u16, picks: usize) -> Octree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([length as f64 / 2.0; 3]),
             cell: Quantity::new(1.0),
@@ -90,6 +91,7 @@ fn build_jump() -> Octree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([4.0; 3]),
             cell: Quantity::new(1.0),

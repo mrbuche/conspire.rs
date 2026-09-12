@@ -148,6 +148,7 @@ fn tree_refine_macros(fine_macros: &[usize]) -> Octree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([4.0, 4.0, 4.0]),
             cell: Quantity::new(1.0),
@@ -226,6 +227,7 @@ fn star_fires_on_synthetic_checkerboard() {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([4.0, 4.0, 4.0]),
             cell: Quantity::new(1.0),
@@ -243,6 +245,7 @@ fn star_fires_on_synthetic_checkerboard() {
         }
     }
     octree.balanced = Balancing::Strong(1);
+    assert!(octree.pair(Pairing::Regular).unwrap());
     octree.paired = Pairing::Regular;
 
     let (center_nodes, coordinates, ..) = octree.initialize();

@@ -5,15 +5,13 @@ use crate::{
         Coordinate, Coordinates,
         mesh::from::ntree::dualization::{
             NodeMap, get_or_add,
-            octree::{D, N, facet_direction},
+            octree::{D, M, N, facet_direction},
         },
         ntree::{Octree, node::Node},
     },
     math::Scalar,
 };
 use std::array::from_fn;
-
-const M: usize = 6;
 
 const EDGES: [(usize, usize); 12] = [
     (1, 3),
@@ -43,6 +41,9 @@ struct Config {
     ring_hi: usize,
 }
 
+/// Weak-balancing only: fills the chamber along a cluster edge where the two adjoining
+/// neighbours are one level finer and the diagonal neighbour is two levels finer than the
+/// anchoring leaf - the 4:1 jump only weak balancing admits.
 pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
     center_nodes: &[usize],
@@ -70,15 +71,28 @@ pub(super) fn template<T, U>(
                     nodes_map,
                 );
                 let axis = 3 - (facet_m >> 1) - (facet_n >> 1);
-                let corner: usize = node.corner[axis].cells();
-                let length: usize = node.length.cells();
-                if !(corner + length).is_multiple_of(2 * length)
-                    && let Some(above) = node.facets[2 * axis + 1]
-                    && tree.nodes[above.slot()].is_leaf()
+                // This leaf and the one above it must be paired. A coarse leaf belongs to no
+                // cluster itself, so read it off the refined columns beside them, the way the
+                // neighbouring wedge does.
+                let origin: [i64; D] = from_fn(|a| node.corner[a].cells() as i64);
+                let coarse = node.length.cells() as i64;
+                let column = |facets: &[usize]| {
+                    let mut corner = origin;
+                    for &facet in facets {
+                        corner[facet >> 1] += if facet & 1 == 1 { coarse } else { -coarse };
+                    }
+                    corner
+                };
+                let mut upper = origin;
+                upper[axis] += coarse;
+                if tree.shares_cluster(&column(&[facet_m]), coarse, axis)
+                    && tree.shares_cluster(&column(&[facet_n]), coarse, axis)
+                    && tree.shares_cluster(&column(&[facet_m, facet_n]), coarse, axis)
+                    && let Some(above) = tree.cell_at(&upper, coarse)
                     && let Some(config_b) = config(
                         tree,
-                        &tree.nodes[above.slot()],
-                        above.slot(),
+                        &tree.nodes[above],
+                        above,
                         facet_m,
                         facet_n,
                         center_nodes,
@@ -116,39 +130,58 @@ where
     let axis = 3 - axis_m - axis_n;
     let side_m = facet_m & 1;
     let side_n = facet_n & 1;
-    let c = ((1 - side_m) << axis_m) | (side_n << axis_n);
-    let e = c | (1 << axis);
-    let d = (side_m << axis_m) | ((1 - side_n) << axis_n);
-    let f = d | (1 << axis);
-    let g = ((1 - side_m) << axis_m) | ((1 - side_n) << axis_n);
-    let g_hi = g | (1 << axis);
-    let tree_m = node.facets[facet_m]?;
-    let tree_n = node.facets[facet_n]?;
-    let leaves_m = tree.leaves(&tree.nodes[tree_m.slot()]);
-    let leaves_n = tree.leaves(&tree.nodes[tree_n.slot()]);
-    let m_lo = leaves_m[c]?;
-    let m_hi = leaves_m[e]?;
-    let n_lo = leaves_n[d]?;
-    let n_hi = leaves_n[f]?;
-    let diagonal_lo = tree.nodes[m_lo.slot()].facets[facet_n]?;
-    let diagonal_hi = tree.nodes[m_hi.slot()].facets[facet_n]?;
-    let leaves_lo = tree.leaves(&tree.nodes[diagonal_lo.slot()]);
-    let leaves_hi = tree.leaves(&tree.nodes[diagonal_hi.slot()]);
-    let ring_lo = leaves_lo[g]?;
-    let ladder_lo = leaves_lo[g_hi]?;
-    let ladder_hi = leaves_hi[g]?;
-    let ring_hi = leaves_hi[g_hi]?;
+    // The two adjoining neighbours are one level finer than this leaf and the diagonal one is
+    // two levels finer, which is the 4:1 jump only `Weak` balancing permits. Every cell below is
+    // therefore fixed by position alone.
+    let coarse = node.length.cells() as i64;
+    let (half, quarter) = (coarse / 2, coarse / 4);
+    if quarter == 0 {
+        return None;
+    }
+    let origin: [i64; D] = from_fn(|a| node.corner[a].cells() as i64);
+    let corner_at = |offset_m: i64, offset_n: i64, offset: i64| {
+        let mut corner = origin;
+        corner[axis_m] += offset_m;
+        corner[axis_n] += offset_n;
+        corner[axis] += offset;
+        corner
+    };
+    let (beyond_m, beside_m) = (
+        if side_m == 1 { coarse } else { -half },
+        side_m as i64 * half,
+    );
+    let (beyond_n, beside_n) = (
+        if side_n == 1 { coarse } else { -half },
+        side_n as i64 * half,
+    );
+    let (far_m, far_n) = (
+        if side_m == 1 { coarse } else { -quarter },
+        if side_n == 1 { coarse } else { -quarter },
+    );
+    let m_lo = tree.cell_at(&corner_at(beyond_m, beside_n, 0), half)?;
+    let m_hi = tree.cell_at(&corner_at(beyond_m, beside_n, half), half)?;
+    let n_lo = tree.cell_at(&corner_at(beside_m, beyond_n, 0), half)?;
+    let n_hi = tree.cell_at(&corner_at(beside_m, beyond_n, half), half)?;
+    // Four cells along the edge on the diagonal; the middle two carry the Steiner ladder.
+    let rungs: [usize; 4] = from_fn(|k| {
+        tree.cell_at(&corner_at(far_m, far_n, k as i64 * quarter), quarter)
+            .unwrap_or(usize::MAX)
+    });
+    if rungs.contains(&usize::MAX) {
+        return None;
+    }
+    let [ring_lo, ladder_lo, ladder_hi, ring_hi] = rungs;
     Some(Config {
         center: center_nodes[index],
-        length: tree.nodes[ring_lo.slot()].length.scalar(),
-        n_lo: center_nodes[n_lo.slot()],
-        n_hi: center_nodes[n_hi.slot()],
-        m_lo: center_nodes[m_lo.slot()],
-        m_hi: center_nodes[m_hi.slot()],
-        ring_lo: center_nodes[ring_lo.slot()],
-        ladder_lo: center_nodes[ladder_lo.slot()],
-        ladder_hi: center_nodes[ladder_hi.slot()],
-        ring_hi: center_nodes[ring_hi.slot()],
+        length: tree.nodes[ring_lo].length.scalar(),
+        n_lo: center_nodes[n_lo],
+        n_hi: center_nodes[n_hi],
+        m_lo: center_nodes[m_lo],
+        m_hi: center_nodes[m_hi],
+        ring_lo: center_nodes[ring_lo],
+        ladder_lo: center_nodes[ladder_lo],
+        ladder_hi: center_nodes[ladder_hi],
+        ring_hi: center_nodes[ring_hi],
     })
 }
 

@@ -17,6 +17,9 @@ mod tessellation;
 mod write;
 
 pub use from::Dualization;
+#[cfg(test)]
+pub(crate) use from::verify_dual;
+pub(crate) use from::leaf_containing;
 
 pub use self::{
     buffer::Fitting,
