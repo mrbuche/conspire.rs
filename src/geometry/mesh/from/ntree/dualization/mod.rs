@@ -200,7 +200,32 @@ where
     T: Cell,
     U: Slot,
 {
-    let mut index = 0;
+    leaf_containing_from(tree, 0, point)
+}
+
+/// Same as `leaf_containing`, but descends from `start` instead of the root. Correct for any
+/// `start` whose cell actually contains `point` - the caller is on the hook for that, since nothing
+/// here can check it without doing the very root descent this exists to skip. Callers that already
+/// know a node close to `point` (e.g. one exactly `length` away on the same coarse grid) use this
+/// to turn an O(depth) walk into a walk bounded by how much finer `point`'s leaf is than `start`.
+pub(crate) fn leaf_containing_from<
+    const D: usize,
+    const L: usize,
+    const M: usize,
+    const N: usize,
+    T,
+    U,
+    V,
+>(
+    tree: &Orthotree<D, L, M, N, T, U, V>,
+    start: usize,
+    point: &[usize; D],
+) -> usize
+where
+    T: Cell,
+    U: Slot,
+{
+    let mut index = start;
     loop {
         match &tree.nodes[index].kind {
             Kind::Leaf => return index,

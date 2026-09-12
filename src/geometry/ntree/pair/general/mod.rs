@@ -3,13 +3,14 @@ mod ilp;
 mod test;
 
 use crate::geometry::{
-    mesh::leaf_containing,
+    mesh::{leaf_containing, leaf_containing_from},
     ntree::{
         Orthotree,
         balance::Balancing,
         node::{cell::Cell, slot::Slot},
     },
 };
+use crate::math::FxHashMap;
 use ilp::Instance;
 use std::{
     array::from_fn,
@@ -83,10 +84,21 @@ where
                     candidates.insert(vertex);
                 }
             }
+            // `straddling_jump` only ever samples points within a couple of `coarse` lengths of
+            // a vertex, i.e. inside one of the up-to-2^D coarse-length cells touching it or their
+            // immediate neighbours - almost always cells this level's own scan already found. A
+            // free index from that scan turns most of its lookups from a root descent into an
+            // O(1) hit plus a descent bounded by how much finer the found cell's subtree is, not
+            // by the tree's whole depth. Off-grid or coarser-than-`coarse` neighbourhoods aren't
+            // in the map and fall back to `leaf_containing`'s ordinary root descent.
+            let coarse_index: FxHashMap<[i32; D], usize> = coarse_nodes
+                .iter()
+                .map(|&(index, corner, _)| (corner, index))
+                .collect();
             refused.extend(
                 candidates
                     .into_iter()
-                    .filter(|vertex| self.straddling_jump(vertex, coarse)),
+                    .filter(|vertex| self.straddling_jump(&coarse_index, vertex, coarse)),
             );
         }
         let instance = Instance::new(
@@ -133,7 +145,12 @@ where
     /// which is why regular never meets this; generalized ones need not be. A four-fold span at
     /// the edge is in turn the jump only weak balancing admits. Neither alone is a problem, and
     /// the rule is inert unless both hold.
-    fn straddling_jump(&self, vertex: &[i32; D], coarse: usize) -> bool {
+    fn straddling_jump(
+        &self,
+        coarse_index: &FxHashMap<[i32; D], usize>,
+        vertex: &[i32; D],
+        coarse: usize,
+    ) -> bool {
         let root = &self.nodes[0];
         let extent = root.length.cells() as i64;
         let low: [i64; D] = from_fn(|axis| root.corner[axis].cells() as i64);
@@ -144,6 +161,14 @@ where
                 return None;
             }
             let inside: [usize; D] = from_fn(|axis| point[axis] as usize);
+            let cell: [i32; D] = from_fn(|axis| (point[axis] / length) as i32);
+            if let Some(&anchor) = coarse_index.get(&cell) {
+                return Some(if self.nodes[anchor].is_leaf() {
+                    anchor
+                } else {
+                    leaf_containing_from(self, anchor, &inside)
+                });
+            }
             Some(leaf_containing(self, &inside))
         };
         (0..D).filter(|&along| vertex[along] % 2 == 0).any(|along| {
