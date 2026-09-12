@@ -19,7 +19,7 @@ mod write;
 pub use from::Dualization;
 #[cfg(test)]
 pub(crate) use from::verify_dual;
-pub(crate) use from::leaf_containing;
+pub(crate) use from::{leaf_containing, leaf_containing_from};
 
 pub use self::{
     buffer::Fitting,
