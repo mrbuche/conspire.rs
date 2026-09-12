@@ -25,8 +25,8 @@ use crate::{
         Derivative, Differentiate, Intermediate, Quantity, Rank2, Reference, Scalar, Tensor,
         TensorArray, TensorRank2, TensorRank4, TensorTuple, TensorVec, Vector,
         integrate::{
-            ButcherTableau, EmbeddedTableau, Flat, IntegrableField, Product, StateEvolution,
-            Unimodular, integrate_rkmk_dae_adaptive, rkmk_dae_step,
+            ButcherTableau, EmbeddedTableau, EvolvedIncrement, Flat, IntegrableField, Product,
+            StateEvolution, Unimodular, integrate_rkmk_dae_adaptive, rkmk_dae_step,
         },
         optimize::{EqualityConstraint, FirstOrderRootFinding},
     },
@@ -42,7 +42,10 @@ use crate::{
     },
     units::{Dissipation, Rate, Stress, Time},
 };
-use std::{array::from_fn, ops::Add};
+use std::{
+    array::from_fn,
+    ops::{Add, Mul},
+};
 
 impl<C1, C2> Plastic for Canonical<C1, C2>
 where
@@ -723,8 +726,18 @@ where
         }
         Ok((times, deformation_gradients, state_variables))
     }
+}
+
+impl<C1, C2> Canonical<C1, C2>
+where
+    C1: Elastic,
+{
     /// RKMK-DAE return map: `F` is re-solved from equilibrium at every stage
-    /// abscissa of the window while `F_p` advances on its group.
+    /// abscissa of the window while `F_p` advances on its group. Generic over
+    /// the hardening variable `Y` — unlike [`Self::root_rkmk_coupled`] and its
+    /// analytic tangent stack (pinned to `Quantity` since their hand-rolled
+    /// scalar/`[Scalar;9]` tangent arrays assume one), this map never needed
+    /// that machinery.
     ///
     /// Both [`root_rkmk`] and [`Self::root_rkmk_coupled`] hold `F` fixed across a
     /// window, which is O(Δt) whichever end they hold it at — the error is a
@@ -739,9 +752,10 @@ where
     /// rather than drifting.
     ///
     /// [`root_rkmk`]: crate::constitutive::solid::elastic_viscoplastic::RkmkRoot::root_rkmk
+    /// [`Self::root_rkmk_coupled`]: Canonical::root_rkmk_coupled
     /// [`FirstOrderRoot::root`]: crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot::root
     #[allow(clippy::type_complexity)]
-    pub fn root_rkmk_dae<Tab>(
+    pub fn root_rkmk_dae<Tab, Y>(
         &self,
         applied_load: AppliedLoad,
         solver: impl FirstOrderRootFinding<
@@ -753,19 +767,32 @@ where
         (
             Times,
             DeformationGradients,
-            ViscoplasticStateVariablesHistory<Quantity>,
+            ViscoplasticStateVariablesHistory<Y>,
         ),
         ConstitutiveError,
     >
     where
         Tab: ButcherTableau,
+        C2: Viscoplastic<Y>,
+        Y: Differentiate + Tensor,
+        Self: ElasticPlasticOrViscoplastic
+            + Viscoplastic<Y>
+            + StateEvolution<
+                Time,
+                Y,
+                Drive = DeformationGradient,
+                Field: IntegrableField<Point = ViscoplasticStateVariables<Y>>,
+            >,
+        EvolvedIncrement<Self, Time, Y>: Clone + Differentiate<Time>,
+        for<'a> &'a Derivative<EvolvedIncrement<Self, Time, Y>, Time>:
+            Mul<Quantity<Time>, Output = EvolvedIncrement<Self, Time, Y>>,
     {
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
-        let mut state = <Self as Viscoplastic<Quantity>>::initial_state(self);
+        let mut state = <Self as StateEvolution<Time, Y>>::initial_state(self);
         let mut scratch = Vec::new();
         let mut solve = |t: Quantity<Time>,
-                         state: &ViscoplasticStateVariables<Quantity>,
+                         state: &ViscoplasticStateVariables<Y>,
                          guess: &DeformationGradient|
          -> Result<DeformationGradient, String> {
             prescribed
@@ -795,7 +822,7 @@ where
         state_variables.push(state.clone());
         for step in time.windows(2) {
             let advanced = rkmk_dae_step::<
-                <Self as StateEvolution<Time, Quantity>>::Field,
+                <Self as StateEvolution<Time, Y>>::Field,
                 Tab,
                 DeformationGradient,
                 Time,
@@ -833,7 +860,7 @@ where
     ///
     /// [`HermiteSegment`]: crate::math::integrate::HermiteSegment
     #[allow(clippy::type_complexity)]
-    pub fn root_rkmk_dae_adaptive<Tab>(
+    pub fn root_rkmk_dae_adaptive<Tab, Y>(
         &self,
         applied_load: AppliedLoad,
         solver: impl FirstOrderRootFinding<
@@ -847,18 +874,31 @@ where
         (
             Times,
             DeformationGradients,
-            ViscoplasticStateVariablesHistory<Quantity>,
+            ViscoplasticStateVariablesHistory<Y>,
         ),
         ConstitutiveError,
     >
     where
         Tab: EmbeddedTableau,
+        C2: Viscoplastic<Y>,
+        Y: Differentiate + Tensor,
+        Self: ElasticPlasticOrViscoplastic
+            + Viscoplastic<Y>
+            + StateEvolution<
+                Time,
+                Y,
+                Drive = DeformationGradient,
+                Field: IntegrableField<Point = ViscoplasticStateVariables<Y>>,
+            >,
+        EvolvedIncrement<Self, Time, Y>: Clone + Differentiate<Time>,
+        for<'a> &'a Derivative<EvolvedIncrement<Self, Time, Y>, Time>:
+            Mul<Quantity<Time>, Output = EvolvedIncrement<Self, Time, Y>>,
     {
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut vector = Vector::zero(matrix.len());
-        let state = <Self as Viscoplastic<Quantity>>::initial_state(self);
+        let state = <Self as StateEvolution<Time, Y>>::initial_state(self);
         let mut solve = |t: Quantity<Time>,
-                         state: &ViscoplasticStateVariables<Quantity>,
+                         state: &ViscoplasticStateVariables<Y>,
                          guess: &DeformationGradient|
          -> Result<DeformationGradient, String> {
             prescribed
@@ -880,10 +920,10 @@ where
         let deformation_gradient = solve(time[0], &state, &DeformationGradient::identity())
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
         let (times, state_variables, deformation_gradients) = integrate_rkmk_dae_adaptive::<
-            <Self as StateEvolution<Time, Quantity>>::Field,
+            <Self as StateEvolution<Time, Y>>::Field,
             Tab,
             DeformationGradient,
-            ViscoplasticStateVariablesHistory<Quantity>,
+            ViscoplasticStateVariablesHistory<Y>,
             DeformationGradients,
             Time,
         >(

@@ -864,7 +864,7 @@ mod state_evolution {
         for steps in [5, 10, 20, 40] {
             let times = time(steps);
             let (_, dae, state_variables) = model()
-                .root_rkmk_dae::<BogackiShampineTableau>(
+                .root_rkmk_dae::<BogackiShampineTableau, Quantity>(
                     AppliedLoad::UniaxialStress(load, &times),
                     NewtonRaphson::default(),
                 )
@@ -931,7 +931,7 @@ mod state_evolution {
         assert!(loose > 1e-7, "additive root did not drift: {loose:e}");
         assert!(tight < loose / 100.0, "drift did not track the tolerance");
         let (_, _, state_variables) = model()
-            .root_rkmk_dae::<BogackiShampineTableau>(
+            .root_rkmk_dae::<BogackiShampineTableau, Quantity>(
                 AppliedLoad::UniaxialStress(load, &time(5)),
                 NewtonRaphson::default(),
             )
@@ -963,7 +963,7 @@ mod state_evolution {
         let reference = reference.iter().last().unwrap().clone();
         let run = |tol: Scalar| {
             model()
-                .root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                .root_rkmk_dae_adaptive::<BogackiShampineTableau, Quantity>(
                     AppliedLoad::UniaxialStress(load, &span),
                     NewtonRaphson::default(),
                     tol,
@@ -1007,13 +1007,13 @@ mod state_evolution {
         // reference: the fixed-step stage-resolved map on a grid 40x finer, whose
         // every 40th sample is a requested time
         let (_, reference, reference_state) = model()
-            .root_rkmk_dae::<BogackiShampineTableau>(
+            .root_rkmk_dae::<BogackiShampineTableau, Quantity>(
                 AppliedLoad::UniaxialStress(load, &time(13 * 40)),
                 NewtonRaphson::default(),
             )
             .unwrap();
         let (times, deformation_gradients, state_variables) = model()
-            .root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+            .root_rkmk_dae_adaptive::<BogackiShampineTableau, Quantity>(
                 AppliedLoad::UniaxialStress(load, &requested),
                 NewtonRaphson::default(),
                 1e-9,
@@ -1027,7 +1027,7 @@ mod state_evolution {
             .for_each(|(reported, request)| assert_eq!(reported.value(), request.value()));
         // the accepted steps the controller actually took are not the requested ones
         let (accepted, _, _) = model()
-            .root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+            .root_rkmk_dae_adaptive::<BogackiShampineTableau, Quantity>(
                 AppliedLoad::UniaxialStress(load, &span),
                 NewtonRaphson::default(),
                 1e-9,
@@ -1068,7 +1068,7 @@ mod state_evolution {
         };
         let model = model();
         let (_, deformation_gradients, state_variables) = model
-            .root_rkmk_dae::<BogackiShampineTableau>(
+            .root_rkmk_dae::<BogackiShampineTableau, Quantity>(
                 AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 2.0 * t.value(), &time(24)),
                 NewtonRaphson::default(),
             )
