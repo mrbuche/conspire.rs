@@ -166,7 +166,7 @@ macro_rules! test_canonical {
             use crate::{
                 constitutive::solid::{
                     elastic_viscoplastic::AppliedLoad,
-                    hyperelastic_viscoplastic::SecondOrderMinimize,
+                    hyperelastic_viscoplastic::{RootRkmkDaeMinimize, SecondOrderMinimize},
                 },
                 math::{
                     Quantity, Tensor, TensorArray,
@@ -209,8 +209,11 @@ macro_rules! test_canonical {
                 // grid sits in for this stiffer model
                 for steps in [10, 20, 40, 80] {
                     let times = time(steps);
-                    let (_, dae, state_variables) = model()
-                        .root_rkmk_dae_minimize::<BogackiShampineTableau, Quantity>(
+                    let (_, dae, state_variables) =
+                        RootRkmkDaeMinimize::<Quantity>::root_rkmk_dae_minimize::<
+                            BogackiShampineTableau,
+                        >(
+                            &model(),
                             AppliedLoad::UniaxialStress(load, &times),
                             NewtonRaphson::default(),
                         )
@@ -240,8 +243,11 @@ macro_rules! test_canonical {
             fn rkmk_dae_minimize_adaptive_keeps_the_plastic_deformation_unimodular() {
                 let load = |t: Quantity<Time>| 1.0 + 0.3 * t.value();
                 let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
-                let (times, _, state_variables) = model()
-                    .root_rkmk_dae_adaptive_minimize::<BogackiShampineTableau, Quantity>(
+                let (times, _, state_variables) =
+                    RootRkmkDaeMinimize::<Quantity>::root_rkmk_dae_adaptive_minimize::<
+                        BogackiShampineTableau,
+                    >(
+                        &model(),
                         AppliedLoad::UniaxialStress(load, &span),
                         NewtonRaphson::default(),
                         1e-8,
