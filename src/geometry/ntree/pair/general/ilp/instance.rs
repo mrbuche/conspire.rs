@@ -168,81 +168,56 @@ impl<const D: usize> Instance<D> {
         {
             excluded[cover[0]] = false;
         }
-        // Two vertices of the same cell always conflict, so no cover straddles two components
-        // of the conflict graph and the components are independent problems. Solving them
-        // apart keeps the search exponential in the largest component rather than in the whole
-        // level, and the objective is a sum, so the pieces still compose to the optimum.
-        let mut parent: Vec<usize> = (0..count).collect();
-        (0..count).for_each(|i| {
-            conflicts_of[i].iter().for_each(|&j| {
-                let (a, b) = (find(&mut parent, i), find(&mut parent, j));
-                if a != b {
-                    parent[a] = b;
+        // Every cover of the same required cell's candidates always conflicts pairwise (any two
+        // vertices of one cell are within the doubled-grid spacing of each other), so in
+        // principle covers could split into independent components with no candidate in common.
+        // Measured on real adaptive-mesh geometry (2026-09, bone STL benchmark): they never do -
+        // every level solve is one component - so a union-find here to isolate them costs real
+        // time (~3% of a solve) to confirm something already true, not to avoid exponential
+        // search. Solve the whole candidate set directly instead.
+        let cover_of: Vec<Vec<usize>> = {
+            let mut cover_of = vec![Vec::new(); count];
+            for (c, cover) in covers.iter().enumerate() {
+                for &i in cover {
+                    cover_of[i].push(c);
                 }
-            })
-        });
-        let mut component_of = vec![0; count];
-        let mut local_of = vec![0; count];
-        let mut of_root = vec![usize::MAX; count];
-        let mut members: Vec<Vec<usize>> = Vec::new();
-        for i in 0..count {
-            let root = find(&mut parent, i);
-            if of_root[root] == usize::MAX {
-                of_root[root] = members.len();
-                members.push(Vec::new());
             }
-            component_of[i] = of_root[root];
-            local_of[i] = members[of_root[root]].len();
-            members[of_root[root]].push(i);
-        }
-        let mut grouped: Vec<Vec<Vec<usize>>> = vec![Vec::new(); members.len()];
-        covers.iter().for_each(|cover| {
-            if let Some(&first) = cover.first() {
-                grouped[component_of[first]].push(cover.iter().map(|&i| local_of[i]).collect())
-            }
-        });
-        let mut total = 0;
-        let mut assignment = HashSet::new();
-        for (component, cover) in members.iter().zip(grouped) {
-            let valences: Vec<usize> = component.iter().map(|&i| valences[i]).collect();
-            let conflicts_of: Vec<Vec<usize>> = component
-                .iter()
-                .map(|&i| conflicts_of[i].iter().map(|&j| local_of[j]).collect())
-                .collect();
-            let mut solver = Solver {
-                valences: &valences,
-                conflicts_of: &conflicts_of,
-                covers: &cover,
-                selected: vec![false; component.len()],
-                excluded_count: component.iter().map(|&i| excluded[i] as u32).collect(),
-                best: None,
-            };
-            solver.branch(0);
-            let (cost, selected) = solver.best.expect("no feasible assignment found");
-            total += cost;
-            assignment.extend(
-                selected
-                    .into_iter()
-                    .enumerate()
-                    .filter_map(|(i, chosen)| chosen.then_some(candidates[component[i]])),
-            );
-        }
-        (assignment, total)
+            cover_of
+        };
+        let covered: Vec<u32> = vec![0; covers.len()];
+        let viable: Vec<u32> = covers
+            .iter()
+            .map(|cover| cover.iter().filter(|&&i| !excluded[i]).count() as u32)
+            .collect();
+        let mut solver = Solver {
+            valences: &valences,
+            conflicts_of: &conflicts_of,
+            covers: &covers,
+            cover_of: &cover_of,
+            selected: vec![false; count],
+            excluded_count: excluded.iter().map(|&b| b as u32).collect(),
+            covered,
+            viable,
+            best: None,
+        };
+        solver.branch(0);
+        let (cost, selected) = solver.best.expect("no feasible assignment found");
+        let assignment = selected
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, chosen)| chosen.then_some(candidates[i]))
+            .collect();
+        (assignment, cost)
     }
-}
-
-fn find(parent: &mut [usize], mut i: usize) -> usize {
-    while parent[i] != i {
-        parent[i] = parent[parent[i]];
-        i = parent[i];
-    }
-    i
 }
 
 struct Solver<'a> {
     valences: &'a [usize],
     conflicts_of: &'a [Vec<usize>],
     covers: &'a [Vec<usize>],
+    /// Which covers each candidate belongs to - `covers` inverted, so selecting or excluding a
+    /// candidate can update exactly the covers it touches instead of rescanning every cover.
+    cover_of: &'a [Vec<usize>],
     selected: Vec<bool>,
     /// How many currently-selected candidates (plus, for a candidate the alignment rule refused
     /// outright, one permanent count of its own) exclude this one. `> 0` is `excluded`. Tracking
@@ -250,43 +225,65 @@ struct Solver<'a> {
     /// incrementing and decrementing around a selection is self-inverse regardless of who else
     /// currently excludes the same candidate, so it also needs no allocation per branch.
     excluded_count: Vec<u32>,
+    /// Per cover: how many of its candidates are currently selected. `> 0` is "covered". Finding
+    /// the most-constrained uncovered cover used to rescan every cover's members from scratch at
+    /// every branch node; maintaining this (and `viable` below) incrementally turns that into an
+    /// O(1) check per cover instead of O(cover size), which is what most of that scan cost was.
+    covered: Vec<u32>,
+    /// Per cover: how many of its candidates are not excluded right now.
+    viable: Vec<u32>,
     best: Option<(usize, Vec<bool>)>,
 }
 
 impl Solver<'_> {
+    fn select(&mut self, i: usize) {
+        self.selected[i] = true;
+        for &c in &self.cover_of[i] {
+            self.covered[c] += 1;
+        }
+        for &j in &self.conflicts_of[i] {
+            self.excluded_count[j] += 1;
+            if self.excluded_count[j] == 1 {
+                for &c in &self.cover_of[j] {
+                    self.viable[c] -= 1;
+                }
+            }
+        }
+    }
+    fn deselect(&mut self, i: usize) {
+        for &j in &self.conflicts_of[i] {
+            if self.excluded_count[j] == 1 {
+                for &c in &self.cover_of[j] {
+                    self.viable[c] += 1;
+                }
+            }
+            self.excluded_count[j] -= 1;
+        }
+        for &c in &self.cover_of[i] {
+            self.covered[c] -= 1;
+        }
+        self.selected[i] = false;
+    }
     fn branch(&mut self, cost: usize) {
         if let Some((best_cost, _)) = &self.best
             && cost >= *best_cost
         {
             return;
         }
-        let uncovered = self
-            .covers
-            .iter()
-            .filter(|cover| !cover.iter().any(|&i| self.selected[i]))
-            .min_by_key(|cover| {
-                cover
-                    .iter()
-                    .filter(|&&i| self.excluded_count[i] == 0)
-                    .count()
-            });
-        let Some(cover) = uncovered else {
+        let uncovered = (0..self.covers.len())
+            .filter(|&c| self.covered[c] == 0)
+            .min_by_key(|&c| self.viable[c]);
+        let Some(c) = uncovered else {
             self.best = Some((cost, self.selected.clone()));
             return;
         };
-        for &i in cover {
+        for &i in &self.covers[c] {
             if self.excluded_count[i] > 0 {
                 continue;
             }
-            self.selected[i] = true;
-            for &j in &self.conflicts_of[i] {
-                self.excluded_count[j] += 1;
-            }
+            self.select(i);
             self.branch(cost + self.valences[i]);
-            for &j in &self.conflicts_of[i] {
-                self.excluded_count[j] -= 1;
-            }
-            self.selected[i] = false;
+            self.deselect(i);
         }
     }
 }
