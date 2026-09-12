@@ -1,5 +1,6 @@
-use super::super::Class;
-use super::super::test::{dual, hexahedron, sphere};
+use super::super::test::{box_surface, dual, hexahedron, sphere};
+use super::super::{Class, RegionClass};
+use super::classify_regions;
 use crate::math::Tensor;
 use std::collections::HashMap;
 
@@ -53,4 +54,63 @@ fn classify_sphere_dual() {
     faces.values().for_each(|classes| {
         assert!(!(classes.contains(&Class::Inside) && classes.contains(&Class::Outside)))
     })
+}
+
+#[test]
+fn classify_regions_disjoint_boxes() {
+    let surfaces = [
+        box_surface([-1.0; 3], [-0.5; 3]),
+        box_surface([0.5; 3], [1.0; 3]),
+    ];
+    assert_eq!(
+        classify_regions(&surfaces, &hexahedron([-0.9; 3], [-0.6; 3])),
+        vec![RegionClass::Inside(0)]
+    );
+    assert_eq!(
+        classify_regions(&surfaces, &hexahedron([0.6; 3], [0.9; 3])),
+        vec![RegionClass::Inside(1)]
+    );
+    assert_eq!(
+        classify_regions(&surfaces, &hexahedron([-0.1; 3], [0.1; 3])),
+        vec![RegionClass::Outside]
+    );
+    assert_eq!(
+        classify_regions(
+            &surfaces,
+            &hexahedron([-0.6, -0.6, -0.6], [-0.4, -0.4, -0.4])
+        ),
+        vec![RegionClass::Cut(vec![0])]
+    );
+}
+
+#[test]
+fn classify_regions_nested_priority() {
+    let surfaces = [
+        box_surface([-1.0; 3], [1.0; 3]),
+        box_surface([-2.0; 3], [2.0; 3]),
+    ];
+    assert_eq!(
+        classify_regions(&surfaces, &hexahedron([-0.1; 3], [0.1; 3])),
+        vec![RegionClass::Inside(0)]
+    );
+    assert_eq!(
+        classify_regions(&surfaces, &hexahedron([1.2, 1.2, 1.2], [1.4, 1.4, 1.4])),
+        vec![RegionClass::Inside(1)]
+    );
+    assert_eq!(
+        classify_regions(&surfaces, &hexahedron([2.5; 3], [2.8; 3])),
+        vec![RegionClass::Outside]
+    );
+}
+
+#[test]
+fn classify_regions_shared_boundary_cut() {
+    let surfaces = [
+        box_surface([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]),
+        box_surface([1.0, 0.0, 0.0], [2.0, 1.0, 1.0]),
+    ];
+    assert_eq!(
+        classify_regions(&surfaces, &hexahedron([0.9, 0.4, 0.4], [1.1, 0.6, 0.6])),
+        vec![RegionClass::Cut(vec![0, 1])]
+    );
 }

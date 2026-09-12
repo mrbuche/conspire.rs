@@ -13,6 +13,8 @@ mod split;
 mod tables;
 mod topology;
 
+pub use classify::classify_regions;
+
 use crate::{
     geometry::{
         Coordinate, Direction,
@@ -74,6 +76,22 @@ enum Cells {
 pub enum Class {
     Inside,
     Cut,
+    Outside,
+}
+
+/// A background cell's classification against an ordered list of surfaces.
+///
+/// The multi-surface counterpart of [`Class`], produced by
+/// [`classify_regions`](classify::classify_regions). `Inside` carries the
+/// index, into the surfaces slice that was classified against, of the
+/// surface whose interior the cell lies in; the first surface (in slice
+/// order) found to enclose the cell wins, so surfaces should be given in
+/// containment/priority order. `Cut` carries the sorted, deduplicated
+/// indices of every surface whose triangles overlap the cell.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RegionClass {
+    Inside(usize),
+    Cut(Vec<usize>),
     Outside,
 }
 
