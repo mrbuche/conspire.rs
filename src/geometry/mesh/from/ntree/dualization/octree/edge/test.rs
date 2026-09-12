@@ -35,6 +35,8 @@ pub(crate) fn weak_tree(depths: [usize; 8], balancing: Balancing) -> Octree<u16,
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([8.0, 8.0, 8.0]),
             cell: Quantity::new(1.0),
@@ -55,6 +57,7 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
 }
 
 #[test]
+#[cfg(feature = "io")]
 fn write_weak_edge_dual() {
     use super::super::test::verify_dual;
     use crate::{
@@ -74,13 +77,16 @@ fn write_weak_edge_dual() {
 
 #[test]
 fn transition_5_fills_weak_edge_config_only() {
+    use crate::geometry::mesh::from::ntree::dualization::build_leaf_index;
     let hexes = |balancing| {
         let octree = weak_edge_tree(balancing);
+        let leaf_index = build_leaf_index(&octree);
         let (center_nodes, mut coordinates, mut node_index, mut connectivity, mut nodes_map) =
             transitions(&octree);
         let filled = connectivity.len();
         super::transition_5::template(
             &octree,
+            &leaf_index,
             &center_nodes,
             &mut coordinates,
             &mut connectivity,
@@ -110,11 +116,13 @@ type Transitions = (
 );
 
 fn transitions(octree: &Octree<u16, usize>) -> Transitions {
-    use crate::geometry::mesh::from::ntree::dualization::Initialize;
+    use crate::geometry::mesh::from::ntree::dualization::{Initialize, build_leaf_index};
     let (center_nodes, mut coordinates, mut node_index, mut connectivity) = octree.initialize();
     let mut nodes_map = NodeMap::new();
+    let leaf_index = build_leaf_index(octree);
     super::super::face::face_transition(
         octree,
+        &leaf_index,
         &center_nodes,
         &mut coordinates,
         &mut connectivity,
@@ -123,6 +131,7 @@ fn transitions(octree: &Octree<u16, usize>) -> Transitions {
     );
     edge_transition_counts(
         octree,
+        &leaf_index,
         &center_nodes,
         &mut coordinates,
         &mut connectivity,
@@ -141,6 +150,7 @@ fn transitions(octree: &Octree<u16, usize>) -> Transitions {
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn edge_transition_counts<T, U>(
     tree: &Octree<T, U>,
+    leaf_index: &crate::geometry::mesh::from::ntree::dualization::LeafIndex<D>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,
     connectivity: &mut Vec<[usize; N]>,
@@ -155,6 +165,7 @@ where
     let mut len = connectivity.len();
     super::transition_1::template(
         tree,
+        leaf_index,
         center_nodes,
         coordinates,
         connectivity,
@@ -165,6 +176,7 @@ where
     len = connectivity.len();
     super::transition_3::template(
         tree,
+        leaf_index,
         center_nodes,
         coordinates,
         connectivity,
@@ -173,10 +185,24 @@ where
     );
     counts[2] = connectivity.len() - len;
     len = connectivity.len();
-    super::transition_2::template(tree, center_nodes, coordinates, connectivity, nodes_map);
+    super::transition_2::template(
+        tree,
+        leaf_index,
+        center_nodes,
+        coordinates,
+        connectivity,
+        nodes_map,
+    );
     counts[1] = connectivity.len() - len;
     len = connectivity.len();
-    super::transition_4::template(tree, center_nodes, coordinates, connectivity, nodes_map);
+    super::transition_4::template(
+        tree,
+        leaf_index,
+        center_nodes,
+        coordinates,
+        connectivity,
+        nodes_map,
+    );
     counts[3] = connectivity.len() - len;
     counts
 }

@@ -106,10 +106,20 @@ pub(crate) fn verify_dual(mesh: &Mesh<D>) -> Result<(), String> {
             vertices.len()
         ));
     }
+    let used: HashSet<usize> = mesh.iter().flatten().flatten().copied().collect();
+    let faces = mesh.iter().flatten().count();
+    let euler = used.len() as isize - edges.len() as isize + faces as isize;
+    if euler != 1 {
+        return Err(format!(
+            "euler characteristic {euler}, not a disc ({} vertices, {} edges, {faces} faces)",
+            used.len(),
+            edges.len()
+        ));
+    }
     Ok(())
 }
 
-fn fuzz_tree(seed: u64, balancing: Balancing) -> Quadtree<u16, usize> {
+fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Quadtree<u16, usize> {
     let mut state = seed
         .wrapping_mul(6364136223846793005)
         .wrapping_add(1442695040888963407);
@@ -129,6 +139,8 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Quadtree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([16.0; D]),
             cell: Quantity::new(1.0),
@@ -136,12 +148,12 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Quadtree<u16, usize> {
         },
     };
     quadtree.subdivide(0).unwrap();
-    for _ in 0..40 {
+    for _ in 0..60 {
         let leaves: Vec<usize> = quadtree
             .nodes
             .iter()
             .enumerate()
-            .filter(|(_, node)| node.is_leaf() && node.length >= 4)
+            .filter(|(_, node)| node.is_leaf() && node.length >= 2)
             .map(|(i, _)| i)
             .collect();
         if leaves.is_empty() {
@@ -150,14 +162,14 @@ fn fuzz_tree(seed: u64, balancing: Balancing) -> Quadtree<u16, usize> {
         let pick = leaves[rand() % leaves.len()];
         quadtree.subdivide(pick).unwrap();
     }
-    quadtree.equilibrate(balancing, Pairing::Regular).unwrap();
+    quadtree.equilibrate(balancing, pairing).unwrap();
     quadtree
 }
 
-fn fuzz_duals(balancing: Balancing) {
+fn fuzz_duals(balancing: Balancing, pairing: Pairing) {
     let mut failures = Vec::new();
-    for seed in 0..200u64 {
-        let quadtree = fuzz_tree(seed, balancing);
+    for seed in 0..100u64 {
+        let quadtree = fuzz_tree(seed, balancing, pairing);
         let mesh = quadtree.dualize();
         if let Err(error) = verify_dual(&mesh) {
             failures.push(format!("seed {seed}: {error}"));
@@ -180,10 +192,97 @@ fn fuzz_duals(balancing: Balancing) {
 
 #[test]
 fn fuzz_strong_duals() {
-    fuzz_duals(Balancing::Strong(1))
+    fuzz_duals(Balancing::Strong(1), Pairing::Regular)
 }
 
 #[test]
 fn fuzz_weak_duals() {
-    fuzz_duals(Balancing::Weak(1))
+    fuzz_duals(Balancing::Weak(1), Pairing::Regular)
+}
+
+#[test]
+fn fuzz_strong_duals_generalized() {
+    fuzz_duals(Balancing::Strong(1), Pairing::Generalized)
+}
+
+#[test]
+fn fuzz_weak_duals_generalized() {
+    fuzz_duals(Balancing::Weak(1), Pairing::Generalized)
+}
+
+// The transition takes a half of a cluster facet - one coarse leaf and the two fine cells behind
+// it - only when the half is whole, and treats a facet as truncated only when every absent half
+// is provably outside the domain. A half absent for any other reason (the outside cell refined,
+// the inside cells refined deeper) means the transition belongs to a different cluster, and
+// guessing a template there would double-cover it. This asserts that mixed facets - one half
+// present, the other absent while still inside the domain - never arise, so the classification
+// the template relies on is total rather than merely sound.
+#[test]
+fn every_cluster_facet_is_classifiable() {
+    use crate::geometry::mesh::leaf_containing;
+    for pairing in [Pairing::Regular, Pairing::Generalized] {
+        let mut mixed = Vec::new();
+        for seed in 0..100u64 {
+            let tree = fuzz_tree(seed, Balancing::Weak(1), pairing);
+            let root = &tree.nodes[0];
+            let low: [i64; D] = std::array::from_fn(|a| root.corner[a] as i64);
+            let high: [i64; D] = std::array::from_fn(|a| low[a] + root.length as i64);
+            let cell_at = |corner: [i64; D], length: i64| -> Option<usize> {
+                if (0..D).any(|a| corner[a] < low[a] || corner[a] + length > high[a]) {
+                    return None;
+                }
+                let point = std::array::from_fn(|a| corner[a] as usize);
+                let index = leaf_containing(&tree, &point);
+                let node = &tree.nodes[index];
+                (length as usize == node.length as usize
+                    && (0..D).all(|a| point[a] == node.corner[a] as usize))
+                .then_some(index)
+            };
+            for &(cluster, length) in tree.pairing_vertices.iter() {
+                let center: [i64; D] = std::array::from_fn(|a| cluster[a] as i64);
+                let (coarse, fine) = (length as i64, length as i64 / 2);
+                for facet in 0..4 {
+                    let (axis, side) = (facet >> 1, facet & 1);
+                    let tangent = 1 - axis;
+                    let interface = center[axis] + if side == 1 { coarse } else { -coarse };
+                    let outside = if side == 1 {
+                        interface
+                    } else {
+                        interface - coarse
+                    };
+                    let inside = if side == 1 {
+                        interface - fine
+                    } else {
+                        interface
+                    };
+                    let base = center[tangent] - coarse;
+                    let at = |along, across| {
+                        let mut c = [0; D];
+                        c[axis] = along;
+                        c[tangent] = across;
+                        c
+                    };
+                    let present = |h: i64| {
+                        cell_at(at(outside, base + h * coarse), coarse).is_some()
+                            && cell_at(at(inside, base + 2 * h * fine), fine).is_some()
+                            && cell_at(at(inside, base + (2 * h + 1) * fine), fine).is_some()
+                    };
+                    let outside_domain = |h: i64| {
+                        base + h * coarse < low[tangent] || base + (h + 1) * coarse > high[tangent]
+                    };
+                    let any = (0..2).any(present);
+                    let stray = (0..2).any(|h| !present(h) && !outside_domain(h));
+                    if any && stray {
+                        mixed.push(format!("seed {seed} cluster {cluster:?} facet {facet}"));
+                    }
+                }
+            }
+        }
+        assert!(
+            mixed.is_empty(),
+            "{} facets mix a present half with an absent in-domain one:\n{}",
+            mixed.len(),
+            mixed.join("\n")
+        );
+    }
 }

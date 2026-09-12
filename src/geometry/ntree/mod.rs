@@ -23,11 +23,20 @@ pub use crate::geometry::ntree::{
     sizing::{Sizing, curvature::CurvatureSizing},
     write::Output,
 };
+use crate::math::FxHashSet;
 
 pub struct Orthotree<const D: usize, const L: usize, const M: usize, const N: usize, T, U, V = ()> {
     pub(crate) balanced: Balancing,
     pub(crate) nodes: Nodes<D, M, N, T, U, V>,
     pub(crate) paired: Pairing,
+    // Centers of the 2x2 clusters of refined cells the pairing settled on, each with the
+    // length of the cells it groups. Recorded by every pairing scheme; read by the dual.
+    pub(crate) pairing_vertices: FxHashSet<([usize; D], usize)>,
+    // The node count last time `Pairing::Generalized` found the tree already fully paired.
+    // `subdivide` is the only way the tree structure ever changes, and always grows `nodes`,
+    // so an unchanged length here is a cheap, exact proof that nothing has changed anywhere
+    // (not just at any one level) since that pairing was computed - not a heuristic.
+    pub(crate) pairing_stable_len: Option<usize>,
     pub(crate) rescale: Rescaling<D>,
 }
 
