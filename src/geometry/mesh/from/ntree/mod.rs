@@ -6,4 +6,6 @@ pub(crate) mod facets;
 mod polyhedra;
 mod tetrahedra;
 
-pub(crate) use dualization::Dualization;
+#[cfg(test)]
+pub(crate) use dualization::verify_dual;
+pub(crate) use dualization::{Dualization, leaf_containing};

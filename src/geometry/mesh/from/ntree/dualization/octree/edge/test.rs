@@ -35,6 +35,7 @@ pub(crate) fn weak_tree(depths: [usize; 8], balancing: Balancing) -> Octree<u16,
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([8.0, 8.0, 8.0]),
             cell: Quantity::new(1.0),
@@ -55,6 +56,7 @@ fn weak_edge_tree(balancing: Balancing) -> Octree<u16, usize> {
 }
 
 #[test]
+#[cfg(feature = "io")]
 fn write_weak_edge_dual() {
     use super::super::test::verify_dual;
     use crate::{

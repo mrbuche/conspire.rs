@@ -7,7 +7,9 @@ mod pixels;
 mod segmentation;
 mod voxels;
 
-pub(crate) use ntree::Dualization;
+#[cfg(test)]
+pub(crate) use ntree::verify_dual;
+pub(crate) use ntree::{Dualization, leaf_containing};
 
 use crate::{
     geometry::{
