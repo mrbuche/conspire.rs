@@ -302,7 +302,7 @@ mod state_evolution {
     #[test]
     fn rkmk_dae_is_third_order() {
         use crate::{
-            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RootRkmkDae},
             math::{integrate::BogackiShampine, optimize::NewtonRaphson},
         };
         let load = |t: Quantity<Time>| 1.0 + t.value();
@@ -322,8 +322,9 @@ mod state_evolution {
         let mut errors = Vec::new();
         for steps in [5, 10, 20, 40] {
             let times = time(steps);
-            let (_, dae, state_variables) = model()
-                .root_rkmk_dae::<BogackiShampineTableau, Quantity>(
+            let (_, dae, state_variables) =
+                RootRkmkDae::<Quantity>::root_rkmk_dae::<BogackiShampineTableau>(
+                    &model(),
                     AppliedLoad::UniaxialStress(load, &times),
                     NewtonRaphson::default(),
                 )
@@ -355,7 +356,7 @@ mod state_evolution {
     #[test]
     fn rkmk_dae_keeps_the_group_structurally_where_the_additive_root_earns_it() {
         use crate::{
-            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RootRkmkDae},
             math::{Scalar, integrate::BogackiShampine, optimize::NewtonRaphson},
         };
         let load = |t: Quantity<Time>| 1.0 + t.value();
@@ -378,8 +379,9 @@ mod state_evolution {
         println!("additive drift: {loose:e} at 1e-4, {tight:e} at 1e-8");
         assert!(loose > 1e-7, "additive root did not drift: {loose:e}");
         assert!(tight < loose / 100.0, "drift did not track the tolerance");
-        let (_, _, state_variables) = model()
-            .root_rkmk_dae::<BogackiShampineTableau, Quantity>(
+        let (_, _, state_variables) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae::<BogackiShampineTableau>(
+                &model(),
                 AppliedLoad::UniaxialStress(load, &time(5)),
                 NewtonRaphson::default(),
             )
@@ -392,7 +394,7 @@ mod state_evolution {
     #[test]
     fn rkmk_dae_adaptive_subdivides_and_meets_its_tolerance() {
         use crate::{
-            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot},
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RootRkmkDae},
             math::{Scalar, integrate::BogackiShampine, optimize::NewtonRaphson},
         };
         let load = |t: Quantity<Time>| 1.0 + t.value();
@@ -410,14 +412,14 @@ mod state_evolution {
             .unwrap();
         let reference = reference.iter().last().unwrap().clone();
         let run = |tol: Scalar| {
-            model()
-                .root_rkmk_dae_adaptive::<BogackiShampineTableau, Quantity>(
-                    AppliedLoad::UniaxialStress(load, &span),
-                    NewtonRaphson::default(),
-                    tol,
-                    tol,
-                )
-                .unwrap()
+            RootRkmkDae::<Quantity>::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                &model(),
+                AppliedLoad::UniaxialStress(load, &span),
+                NewtonRaphson::default(),
+                tol,
+                tol,
+            )
+            .unwrap()
         };
         let (times, deformation_gradients, state_variables) = run(1e-9);
         // the controller subdivided the single [0, 1] span
@@ -447,21 +449,24 @@ mod state_evolution {
     #[test]
     fn rkmk_dae_adaptive_reports_on_the_group_at_requested_times() {
         use crate::{
-            constitutive::solid::elastic_viscoplastic::AppliedLoad, math::optimize::NewtonRaphson,
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, RootRkmkDae},
+            math::optimize::NewtonRaphson,
         };
         let load = |t: Quantity<Time>| 1.0 + t.value();
         let requested = time(13);
         let span = [requested[0], *requested.last().unwrap()];
         // reference: the fixed-step stage-resolved map on a grid 40x finer, whose
         // every 40th sample is a requested time
-        let (_, reference, reference_state) = model()
-            .root_rkmk_dae::<BogackiShampineTableau, Quantity>(
+        let (_, reference, reference_state) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae::<BogackiShampineTableau>(
+                &model(),
                 AppliedLoad::UniaxialStress(load, &time(13 * 40)),
                 NewtonRaphson::default(),
             )
             .unwrap();
-        let (times, deformation_gradients, state_variables) = model()
-            .root_rkmk_dae_adaptive::<BogackiShampineTableau, Quantity>(
+        let (times, deformation_gradients, state_variables) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                &model(),
                 AppliedLoad::UniaxialStress(load, &requested),
                 NewtonRaphson::default(),
                 1e-9,
@@ -474,8 +479,9 @@ mod state_evolution {
             .zip(requested.iter())
             .for_each(|(reported, request)| assert_eq!(reported.value(), request.value()));
         // the accepted steps the controller actually took are not the requested ones
-        let (accepted, _, _) = model()
-            .root_rkmk_dae_adaptive::<BogackiShampineTableau, Quantity>(
+        let (accepted, _, _) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                &model(),
                 AppliedLoad::UniaxialStress(load, &span),
                 NewtonRaphson::default(),
                 1e-9,
@@ -511,12 +517,15 @@ mod state_evolution {
     #[test]
     fn rkmk_dae_keeps_the_internal_dissipation_non_negative() {
         use crate::{
-            constitutive::solid::elastic_viscoplastic::{AppliedLoad, ElasticViscoplastic},
+            constitutive::solid::elastic_viscoplastic::{
+                AppliedLoad, ElasticViscoplastic, RootRkmkDae,
+            },
             math::optimize::NewtonRaphson,
         };
         let model = model();
-        let (_, deformation_gradients, state_variables) = model
-            .root_rkmk_dae::<BogackiShampineTableau, Quantity>(
+        let (_, deformation_gradients, state_variables) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae::<BogackiShampineTableau>(
+                &model,
                 AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 2.0 * t.value(), &time(24)),
                 NewtonRaphson::default(),
             )
