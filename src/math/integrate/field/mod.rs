@@ -5,7 +5,8 @@ use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorError, TensorRank2, TensorTuple,
     TensorVec,
     integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
-    optimize::{EqualityConstraint, FirstOrderRootFinding},
+    optimize::{EqualityConstraint, FirstOrderRootFinding, SecondOrderOptimization},
+    sparse::SparseSolver,
 };
 use crate::units::{Dimensionless, Time};
 use std::{
@@ -343,6 +344,51 @@ where
     rkmk_dae_step::<Fld, Tab, Z, T>(rate, &mut solve, point, z, t, dt, scratch, first_rate)
 }
 
+/// [`rkmk_dae_step`] with the algebraic unknown resolved by second-order
+/// minimization at every stage abscissa, built from `function`/`jacobian`/
+/// `hessian`/`solver` the same way [`rkmk_dae_step_first_order_root`] builds
+/// it for root-finding — the two are siblings so a model whose equilibrium is
+/// naturally posed as a potential (rather than a residual) gets the same
+/// manifold-aware return map.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub fn rkmk_dae_step_second_order_minimize<Fld, Tab, F, J, H, Z, T>(
+    rate: &mut impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Derivative<Fld::Increment, T>, String>,
+    mut function: impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<F, String>,
+    mut jacobian: impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<J, String>,
+    mut hessian: impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<H, String>,
+    solver: &impl SecondOrderOptimization<F, J, H, Z>,
+    point: &Fld::Point,
+    z: &Z,
+    t: Quantity<T>,
+    dt: Quantity<T>,
+    scratch: &mut Vec<Fld::Increment>,
+    first_rate: Option<&Derivative<Fld::Increment, T>>,
+    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+    sparse: Option<SparseSolver>,
+) -> Result<(Fld::Point, Z, Option<Derivative<Fld::Increment, T>>), IntegrationError>
+where
+    Fld: IntegrableField,
+    Tab: ButcherTableau,
+    Fld::Point: Clone,
+    Fld::Increment: Clone + Differentiate<T>,
+    Z: Clone,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
+{
+    let mut solve = |t: Quantity<T>, point: &Fld::Point, z_guess: &Z| -> Result<Z, String> {
+        Ok(solver.minimize(
+            |z| function(t, point, z),
+            |z| jacobian(t, point, z),
+            |z| hessian(t, point, z),
+            z_guess.clone(),
+            equality_constraint(t),
+            sparse.clone(),
+        )?)
+    };
+    rkmk_dae_step::<Fld, Tab, Z, T>(rate, &mut solve, point, z, t, dt, scratch, first_rate)
+}
+
 /// Fills `slopes` with one RKMK-DAE step's corrected stage slopes, resolving the
 /// algebraic unknown at each stage abscissa; returns the last stage's `z` as the
 /// seed for the caller's endpoint solve, and the FSAL carry (see
@@ -674,6 +720,56 @@ where
             z_guess.clone(),
             equality_constraint(t),
             None,
+        )?)
+    };
+    integrate_rkmk_dae_adaptive::<Fld, Tab, Z, U, V, T>(
+        rate,
+        solve,
+        time,
+        initial_condition,
+        abs_tol,
+        rel_tol,
+    )
+}
+
+/// [`integrate_rkmk_dae_adaptive`] with the algebraic unknown resolved by
+/// second-order minimization at every stage abscissa, built from
+/// `function`/`jacobian`/`hessian`/`solver` the same way
+/// [`rkmk_dae_step_second_order_minimize`] builds it for a single step.
+#[allow(clippy::too_many_arguments, clippy::type_complexity)]
+pub fn integrate_rkmk_dae_adaptive_second_order_minimize<Fld, Tab, F, J, H, Z, U, V, T>(
+    rate: impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<Derivative<Fld::Increment, T>, String>,
+    mut function: impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<F, String>,
+    mut jacobian: impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<J, String>,
+    mut hessian: impl FnMut(Quantity<T>, &Fld::Point, &Z) -> Result<H, String>,
+    solver: &impl SecondOrderOptimization<F, J, H, Z>,
+    time: &[Quantity<T>],
+    initial_condition: (Fld::Point, Z),
+    abs_tol: Scalar,
+    rel_tol: Scalar,
+    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+    sparse: Option<SparseSolver>,
+) -> Result<(Times<T>, U, V), IntegrationError>
+where
+    Fld: IntegrableField,
+    Tab: EmbeddedTableau,
+    Fld::Point: Clone,
+    Fld::Increment: Clone + Differentiate<T>,
+    Z: Clone,
+    T: Copy,
+    Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
+    for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
+    U: TensorVec<Item = Fld::Point>,
+    V: TensorVec<Item = Z>,
+{
+    let solve = |t: Quantity<T>, point: &Fld::Point, z_guess: &Z| -> Result<Z, String> {
+        Ok(solver.minimize(
+            |z| function(t, point, z),
+            |z| jacobian(t, point, z),
+            |z| hessian(t, point, z),
+            z_guess.clone(),
+            equality_constraint(t),
+            sparse.clone(),
         )?)
     };
     integrate_rkmk_dae_adaptive::<Fld, Tab, Z, U, V, T>(

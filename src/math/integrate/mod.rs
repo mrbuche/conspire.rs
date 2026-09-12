@@ -20,8 +20,9 @@ pub use field::{
     EvolvedIncrement, EvolvedState, Flat, HermiteSegment, IntegrableField, Product, StateEvolution,
     Unimodular, integrate_euler, integrate_rkmk, integrate_rkmk_adaptive,
     integrate_rkmk_dae_adaptive, integrate_rkmk_dae_adaptive_first_order_root,
-    integrate_rkmk_state, integrate_rkmk_state_adaptive, interpolate_hermite, rkmk_dae_step,
-    rkmk_dae_step_first_order_root, rkmk_step,
+    integrate_rkmk_dae_adaptive_second_order_minimize, integrate_rkmk_state,
+    integrate_rkmk_state_adaptive, interpolate_hermite, rkmk_dae_step,
+    rkmk_dae_step_first_order_root, rkmk_dae_step_second_order_minimize, rkmk_step,
 };
 pub use tableau::{ButcherTableau, EmbeddedTableau};
 
