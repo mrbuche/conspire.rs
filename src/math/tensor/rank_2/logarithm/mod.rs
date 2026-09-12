@@ -101,6 +101,77 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
         }
         Err(TensorError::SquareRootDidNotConverge)
     }
+    /// Returns a principal square root of the 3x3 tensor together with its
+    /// Fréchet derivative, by forward-differentiating the same
+    /// Denman-Beavers iteration [`Self::sqrtm`] uses: with
+    /// `d(X⁻¹)[H] = -X⁻¹HX⁻¹` carried as a rank-4 operator (via
+    /// [`sandwich_negated`]), `dY_{k+1} = (dY_k + d(Z_k⁻¹))/2`,
+    /// `dZ_{k+1} = (dZ_k + d(Y_k⁻¹))/2`, seeded `dY_0 = I⊗I`, `dZ_0 = 0`.
+    #[allow(clippy::type_complexity)]
+    fn dsqrtm(&self) -> Result<(Self, TensorRank4<3, I, I, I, I, Dimensionless>), TensorError> {
+        let mut y = self.clone();
+        let mut z = Self::identity();
+        let mut dy: TensorRank4<3, I, I, I, I, Dimensionless> =
+            TensorRank4::dyad_ik_jl(&Self::identity(), &Self::identity());
+        let mut dz = TensorRank4::zero();
+        for _ in 0..64 {
+            let y_inverse = y.inverse();
+            let z_inverse = z.inverse();
+            let dy_inverse = sandwich_negated(&y_inverse, &dy);
+            let dz_inverse = sandwich_negated(&z_inverse, &dz);
+            let y_next = (&y + z_inverse) * 0.5;
+            let z_next = (&z + y_inverse) * 0.5;
+            let dy_next = (dy + dz_inverse) * 0.5;
+            let dz_next = (dz + dy_inverse) * 0.5;
+            if (&y_next - &y).norm().value() < 1e-13 * (1.0 + y_next.norm().value()) {
+                return Ok((y_next, dy_next));
+            }
+            y = y_next;
+            z = z_next;
+            dy = dy_next;
+            dz = dz_next;
+        }
+        Err(TensorError::SquareRootDidNotConverge)
+    }
+    /// The derivative of [`Self::logm_series`]; the same power-derivative
+    /// identity `d(Aᵏ)[H] = Σₚ Aᵖ H Aᵏ⁻¹⁻ᵖ` used by `dexpm`'s small-norm
+    /// branch, applied to `A - I` with the log series' coefficients.
+    fn dlogm_series(&self) -> TensorRank4<3, I, I, I, I, Dimensionless> {
+        let tensor = self - &TensorRank2::identity();
+        let norm = tensor.norm();
+        let num_terms = if norm < 1e-4 {
+            2
+        } else if norm < 1e-3 {
+            3
+        } else {
+            5
+        };
+        let mut power = Self::identity();
+        let mut powers = vec![power.clone()];
+        (1..num_terms).for_each(|_| {
+            power *= &tensor;
+            powers.push(power.clone())
+        });
+        let mut dlogm = TensorRank4::zero();
+        for n in 1..=num_terms {
+            let coefficient = (if n % 2 == 0 { -1.0 } else { 1.0 }) / n as f64;
+            for p in 0..n {
+                let (left, right) = (&powers[p], &powers[n - 1 - p]);
+                for i in 0..3 {
+                    for j in 0..3 {
+                        for k in 0..3 {
+                            for l in 0..3 {
+                                dlogm[i][j][k][l] += Quantity::new(
+                                    left[i][k].value() * right[l][j].value() * coefficient,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        dlogm
+    }
     /// Returns the derivative of the matrix logarithm of the 3x3 symmetric tensor.
     pub fn dlogm(&self) -> Result<TensorRank4<3, I, I, I, I, Dimensionless>, TensorError> {
         if self.is_diagonal() {
@@ -168,7 +239,75 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                 ).collect()
             ).collect())
         } else {
-            panic!("Matrix logarithm only implemented for symmetric cases")
+            //
+            // Non-symmetric: chain rule through the same inverse scaling and
+            // squaring as logm, composing dsqrtm's rank-4 Jacobian at each
+            // square root with the accumulated derivative so far.
+            //
+            let mut root = self.clone();
+            let mut total_derivative: TensorRank4<3, I, I, I, I, Dimensionless> =
+                TensorRank4::dyad_ik_jl(&Self::identity(), &Self::identity());
+            let mut squarings: i32 = 0;
+            while (&root - &TensorRank2::identity()).norm().value() >= 1e-2 {
+                let (next_root, derivative) = root.dsqrtm()?;
+                total_derivative = compose(&derivative, &total_derivative);
+                root = next_root;
+                squarings += 1;
+            }
+            Ok(compose(&root.dlogm_series(), &total_derivative) * 2.0_f64.powi(squarings))
         }
     }
+}
+
+/// `-middle · d · middle` with `d` a rank-4 operator: the Fréchet derivative
+/// of `X ↦ X⁻¹` at `middle = X⁻¹`, `d(X⁻¹)[H] = -X⁻¹HX⁻¹`, applied to every
+/// direction `d` carries at once.
+fn sandwich_negated<I>(
+    middle: &TensorRank2<3, I, I, Dimensionless>,
+    d: &TensorRank4<3, I, I, I, I, Dimensionless>,
+) -> TensorRank4<3, I, I, I, I, Dimensionless> {
+    let mut result = TensorRank4::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            for k in 0..3 {
+                for l in 0..3 {
+                    let mut value = 0.0;
+                    for a in 0..3 {
+                        for b in 0..3 {
+                            value +=
+                                middle[i][a].value() * d[a][b][k][l].value() * middle[b][j].value();
+                        }
+                    }
+                    result[i][j][k][l] = Quantity::new(-value);
+                }
+            }
+        }
+    }
+    result
+}
+
+/// Composes two rank-4 operators, contracting `outer`'s last two indices with
+/// `inner`'s first two: `(outer ∘ inner)[i][j][k][l] = Σ outer[i][j][a][b]
+/// inner[a][b][k][l]` — the chain rule for two linearizations in sequence.
+fn compose<I>(
+    outer: &TensorRank4<3, I, I, I, I, Dimensionless>,
+    inner: &TensorRank4<3, I, I, I, I, Dimensionless>,
+) -> TensorRank4<3, I, I, I, I, Dimensionless> {
+    let mut result = TensorRank4::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            for k in 0..3 {
+                for l in 0..3 {
+                    let mut value = 0.0;
+                    for a in 0..3 {
+                        for b in 0..3 {
+                            value += outer[i][j][a][b].value() * inner[a][b][k][l].value();
+                        }
+                    }
+                    result[i][j][k][l] = Quantity::new(value);
+                }
+            }
+        }
+    }
+    result
 }
