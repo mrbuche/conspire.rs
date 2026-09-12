@@ -4,7 +4,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::from::ntree::dualization::{
-            NodeMap, get_or_add,
+            LeafIndex, NodeMap, get_or_add,
             octree::{D, N, facet_direction},
         },
         ntree::Octree,
@@ -22,6 +22,7 @@ use std::array::from_fn;
 /// Steiner rings, the outer two join the coarse centres directly.
 pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
+    leaf_index: &LeafIndex<D>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,
     connectivity: &mut Vec<[usize; N]>,
@@ -72,16 +73,32 @@ pub(super) fn template<T, U>(
                             if side_n == 1 { 0 } else { -coarse },
                         );
                         let fine_cells: [Option<usize>; 4] = from_fn(|k| {
-                            tree.cell_at(&corner_at(inner_m, inner_n, k as i64 * fine), fine)
+                            tree.cell_at(
+                                leaf_index,
+                                &corner_at(inner_m, inner_n, k as i64 * fine),
+                                fine,
+                            )
                         });
                         let face_m: [Option<usize>; 2] = from_fn(|j| {
-                            tree.cell_at(&corner_at(outer_m, near_n, j as i64 * coarse), coarse)
+                            tree.cell_at(
+                                leaf_index,
+                                &corner_at(outer_m, near_n, j as i64 * coarse),
+                                coarse,
+                            )
                         });
                         let face_n: [Option<usize>; 2] = from_fn(|j| {
-                            tree.cell_at(&corner_at(near_m, outer_n, j as i64 * coarse), coarse)
+                            tree.cell_at(
+                                leaf_index,
+                                &corner_at(near_m, outer_n, j as i64 * coarse),
+                                coarse,
+                            )
                         });
                         let diagonal: [Option<usize>; 2] = from_fn(|j| {
-                            tree.cell_at(&corner_at(outer_m, outer_n, j as i64 * coarse), coarse)
+                            tree.cell_at(
+                                leaf_index,
+                                &corner_at(outer_m, outer_n, j as i64 * coarse),
+                                coarse,
+                            )
                         });
                         // A half is one end of the wedge along the edge: two fine cells and one
                         // coarse cell from each of the three outside groups. Truncation can only

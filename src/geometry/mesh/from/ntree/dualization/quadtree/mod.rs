@@ -10,7 +10,7 @@ use crate::{
         mesh::{
             Connectivity, Mesh,
             from::ntree::dualization::{
-                Dualization, Initialize, NodeMap, Star, get_or_add, leaf_containing,
+                Dualization, Initialize, LeafIndex, NodeMap, Star, build_leaf_index, get_or_add,
             },
         },
         ntree::{Quadtree, node::cell::Cell},
@@ -30,7 +30,9 @@ where
     fn dualize(&self) -> Mesh<D> {
         let (center_nodes, mut coordinates, mut node_index, mut connectivity) = self.initialize();
         let mut nodes_map = NodeMap::new();
+        let leaf_index = build_leaf_index(self);
         self.transitions(
+            &leaf_index,
             &center_nodes,
             &mut coordinates,
             &mut connectivity,
@@ -59,25 +61,17 @@ where
     /// the facet midpoint.
     fn transitions(
         &self,
+        leaf_index: &LeafIndex<D>,
         center_nodes: &[usize],
         coordinates: &mut Coordinates<D>,
         connectivity: &mut Vec<[usize; N]>,
         node_index: &mut usize,
         nodes_map: &mut NodeMap<D>,
     ) {
-        let root = &self.nodes[0];
-        let low: [i64; D] = from_fn(|axis| root.corner[axis].cells() as i64);
-        let high: [i64; D] = from_fn(|axis| low[axis] + root.length.cells() as i64);
+        let low: [i64; D] = from_fn(|axis| self.nodes[0].corner[axis].cells() as i64);
+        let high: [i64; D] = from_fn(|axis| low[axis] + self.nodes[0].length.cells() as i64);
         let cell_at = |corner: [i64; D], length: i64| -> Option<usize> {
-            if (0..D).any(|axis| corner[axis] < low[axis] || corner[axis] + length > high[axis]) {
-                return None;
-            }
-            let point = from_fn(|axis| corner[axis] as usize);
-            let index = leaf_containing(self, &point);
-            let node = &self.nodes[index];
-            (length as usize == node.length.cells()
-                && (0..D).all(|axis| point[axis] == node.corner[axis].cells()))
-            .then_some(index)
+            self.cell_at(leaf_index, &corner, length)
         };
         let mut clusters: Vec<([usize; D], usize)> =
             self.pairing_vertices.iter().copied().collect();

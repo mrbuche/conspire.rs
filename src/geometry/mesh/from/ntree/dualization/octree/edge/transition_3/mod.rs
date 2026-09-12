@@ -4,7 +4,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::from::ntree::dualization::{
-            NodeMap, get_or_add,
+            LeafIndex, NodeMap, get_or_add,
             octree::{D, N, facet_direction},
         },
         ntree::Octree,
@@ -30,6 +30,7 @@ type Lane = [Option<usize>; 4];
 /// is what fixes the grouping of four fine cells the slices rely on.
 pub(super) fn template<T, U>(
     tree: &Octree<T, U>,
+    leaf_index: &LeafIndex<D>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,
     connectivity: &mut Vec<[usize; N]>,
@@ -60,9 +61,9 @@ pub(super) fn template<T, U>(
             let mut partner = origin;
             partner[along] += coarse;
             let (first_cell, second) = if lower {
-                (Some(index), tree.cell_at(&partner, coarse))
+                (Some(index), tree.cell_at(leaf_index, &partner, coarse))
             } else {
-                (tree.cell_at(&origin, coarse), Some(index))
+                (tree.cell_at(leaf_index, &origin, coarse), Some(index))
             };
             if first_cell.is_some() != lower {
                 continue;
@@ -122,11 +123,11 @@ pub(super) fn template<T, U>(
                         corner
                     };
                     let side_m_cells: [Option<usize>; 4] =
-                        from_fn(|k| tree.cell_at(&corner_at(far_m, near_n, k), fine));
+                        from_fn(|k| tree.cell_at(leaf_index, &corner_at(far_m, near_n, k), fine));
                     let side_n_cells: [Option<usize>; 4] =
-                        from_fn(|k| tree.cell_at(&corner_at(near_m, far_n, k), fine));
+                        from_fn(|k| tree.cell_at(leaf_index, &corner_at(near_m, far_n, k), fine));
                     let diagonal: [Option<usize>; 4] =
-                        from_fn(|k| tree.cell_at(&corner_at(far_m, far_n, k), fine));
+                        from_fn(|k| tree.cell_at(leaf_index, &corner_at(far_m, far_n, k), fine));
                     // A half is one end of the wedge along the edge: one coarse centre and two
                     // fine cells from each of the three refined columns. Take a half only when
                     // whole, and the wedge only when every absent half is provably off-domain.

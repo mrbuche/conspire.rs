@@ -13,11 +13,40 @@ use crate::{
             node::{Kind, cell::Cell},
         },
     },
-    math::{Scalar, TensorVec},
+    math::{FxHashMap, Scalar, TensorVec},
 };
 use std::{array::from_fn, collections::HashMap};
 
 type NodeMap<const D: usize> = HashMap<[usize; D], usize>;
+
+/// `(corner, length) -> leaf index`, built once per dualization so every template's lookups are
+/// O(1) instead of a fresh root-to-leaf descent each. Keyed the same way `pairing_vertices` and
+/// `NodeMap` are: raw cell-grid coordinates, not tree-node indices, so a query needs no tree walk
+/// at all.
+pub(super) type LeafIndex<const D: usize> = FxHashMap<([usize; D], usize), usize>;
+
+pub(super) fn build_leaf_index<
+    const D: usize,
+    const L: usize,
+    const M: usize,
+    const N: usize,
+    T,
+    U,
+>(
+    tree: &Orthotree<D, L, M, N, T, U>,
+) -> LeafIndex<D>
+where
+    T: Cell,
+{
+    tree.iter()
+        .enumerate()
+        .filter(|(_, node)| node.is_leaf())
+        .map(|(index, node)| {
+            let corner: [usize; D] = from_fn(|axis| node.corner[axis].cells());
+            ((corner, node.length.cells()), index)
+        })
+        .collect()
+}
 
 fn get_or_add<const D: usize>(
     coordinate: Coordinate<D>,
@@ -86,21 +115,16 @@ impl<const D: usize, const L: usize, const M: usize, const N: usize, T, U>
 {
     /// Index of the leaf with exactly this `corner` and `length`, if one exists inside the
     /// root. Absence means either off-domain or a cell of some other size covering the spot;
-    /// callers that care which must test the bounds themselves.
-    pub(super) fn cell_at(&self, corner: &[i64; D], length: i64) -> Option<usize>
-    where
-        T: Cell,
-        U: Slot,
-    {
-        if self.off_domain(corner, length) {
-            return None;
-        }
-        let point = from_fn(|axis| corner[axis] as usize);
-        let index = leaf_containing(self, &point);
-        let node = &self.nodes[index];
-        (length as usize == node.length.cells()
-            && (0..D).all(|axis| point[axis] == node.corner[axis].cells()))
-        .then_some(index)
+    /// callers that care which must test the bounds themselves. O(1) against a `LeafIndex`
+    /// built once per dualization by `build_leaf_index`, rather than a tree descent per call.
+    pub(super) fn cell_at(
+        &self,
+        leaf_index: &LeafIndex<D>,
+        corner: &[i64; D],
+        length: i64,
+    ) -> Option<usize> {
+        let key: ([usize; D], usize) = (from_fn(|axis| corner[axis] as usize), length as usize);
+        leaf_index.get(&key).copied()
     }
     /// Whether the cell of this `corner` and `length` reaches outside the root. This is the only
     /// reason a template may treat a missing cell as truncation: missing for any other reason
