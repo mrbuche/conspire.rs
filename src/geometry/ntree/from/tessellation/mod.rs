@@ -67,6 +67,7 @@ where
                 }],
                 paired: Pairing::None,
                 pairing_vertices: Default::default(),
+                pairing_stable_len: Default::default(),
                 rescale: Rescaling {
                     center: Coordinate::const_from([0.0; D]),
                     cell: Quantity::new(1.0),
@@ -95,6 +96,7 @@ where
             }],
             paired: Pairing::None,
             pairing_vertices: Default::default(),
+            pairing_stable_len: Default::default(),
         };
         let overlaps = |bbox: &BoundingBox<3>, triangle: usize| {
             let element = elements[triangle];

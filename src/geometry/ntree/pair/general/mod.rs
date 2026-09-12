@@ -24,6 +24,14 @@ where
     V: Copy,
 {
     pub(super) fn pair_generalized(&mut self) -> Result<bool, &'static str> {
+        // `equilibrate`'s fixed-point loop calls this again every round even once nothing is
+        // left to do, re-deriving the same answer from scratch each time. Skip the whole thing
+        // when the tree is provably identical to the last time this returned fully paired -
+        // see `pairing_stable_len`'s doc comment for why an unchanged length is a proof, not a
+        // guess, and why it must be invalidated by `pair_regular` writing over the same state.
+        if self.pairing_stable_len == Some(self.len()) {
+            return Ok(true);
+        }
         let lengths: BTreeSet<usize> = (0..self.len())
             .map(|index| self.nodes[index].length.cells())
             .collect();
@@ -36,6 +44,7 @@ where
                 paired = false;
             }
         }
+        self.pairing_stable_len = paired.then(|| self.len());
         Ok(paired)
     }
     fn pair_level(&mut self, coarse: usize, fine: usize) -> Result<bool, &'static str> {

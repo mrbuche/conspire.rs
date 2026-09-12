@@ -1,5 +1,5 @@
 use super::conflicts;
-use crate::math::FxHashSet;
+use crate::math::{FxHashMap, FxHashSet};
 use std::{array::from_fn, collections::HashSet};
 
 pub(crate) struct Instance<const D: usize> {
@@ -106,26 +106,37 @@ impl<const D: usize> Instance<D> {
     pub(crate) fn solve(&self) -> (HashSet<[i32; D]>, usize) {
         let candidates = self.candidates();
         let count = candidates.len();
+        // `candidates` is sorted, so a binary search per lookup would do, but a hash lookup is
+        // O(1) rather than O(log count) and this runs ~5^D times per candidate plus 2^D times
+        // per required cell - both dominated by the probe, not by comparisons.
+        let index: FxHashMap<[i32; D], usize> = candidates
+            .iter()
+            .enumerate()
+            .map(|(i, &vertex)| (vertex, i))
+            .collect();
         let valences: Vec<usize> = candidates
             .iter()
             .map(|&vertex| self.valence(vertex))
             .collect();
         // Conflict needs every axis within two, so a vertex can only conflict with the `5^D`
         // around it. Walking those beats comparing every pair, which is quadratic in a set that
-        // grows with the level.
+        // grows with the level. Which of the `5^D` offsets actually conflict never depends on
+        // the candidate, so that filter runs once here rather than once per candidate.
+        let conflict_offsets: Vec<[i32; D]> = (0..5usize.pow(D as u32))
+            .filter_map(|code| {
+                let offset: [i32; D] =
+                    from_fn(|axis| (code / 5usize.pow(axis as u32) % 5) as i32 - 2);
+                (offset.iter().any(|&step| step != 0) && conflicts(offset)).then_some(offset)
+            })
+            .collect();
         let conflicts_of: Vec<Vec<usize>> = candidates
             .iter()
             .map(|&vertex| {
-                let mut conflicting: Vec<usize> = (0..5usize.pow(D as u32))
-                    .filter_map(|code| {
-                        let offset: [i32; D] =
-                            from_fn(|axis| (code / 5usize.pow(axis as u32) % 5) as i32 - 2);
-                        (offset.iter().any(|&step| step != 0) && conflicts(offset))
-                            .then(|| {
-                                let other = from_fn(|axis| vertex[axis] + offset[axis]);
-                                candidates.binary_search(&other).ok()
-                            })
-                            .flatten()
+                let mut conflicting: Vec<usize> = conflict_offsets
+                    .iter()
+                    .filter_map(|offset| {
+                        let other: [i32; D] = from_fn(|axis| vertex[axis] + offset[axis]);
+                        index.get(&other).copied()
                     })
                     .collect();
                 conflicting.sort_unstable();
@@ -139,7 +150,7 @@ impl<const D: usize> Instance<D> {
             .map(|(cell, _)| {
                 let mut cover: Vec<usize> = Self::vertices_of(*cell)
                     .iter()
-                    .filter_map(|vertex| candidates.binary_search(vertex).ok())
+                    .filter_map(|vertex| index.get(vertex).copied())
                     .collect();
                 cover.sort_unstable();
                 cover

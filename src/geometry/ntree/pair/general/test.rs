@@ -25,6 +25,7 @@ fn one_quadrant_refined() -> Quadtree<u16, usize> {
         }],
         paired: Pairing::None,
         pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([16.0; D]),
             cell: Quantity::new(1.0),
@@ -80,6 +81,7 @@ fn sandwiched_run() -> BinaryTree<u16, usize> {
             .collect(),
         paired: Pairing::None,
         pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([0.0; 1]),
             cell: Quantity::new(1.0),
@@ -130,6 +132,7 @@ fn nested_sandwiched_runs() -> BinaryTree<u16, usize> {
             .collect(),
         paired: Pairing::None,
         pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([0.0; 1]),
             cell: Quantity::new(1.0),

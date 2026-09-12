@@ -277,6 +277,7 @@ pub(crate) fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Oc
         }],
         paired: Pairing::None,
         pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([16.0; 3]),
             cell: Quantity::new(1.0),

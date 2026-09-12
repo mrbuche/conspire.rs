@@ -88,6 +88,7 @@ where
             }],
             paired: Pairing::None,
             pairing_vertices: Default::default(),
+            pairing_stable_len: Default::default(),
             rescale,
         };
         let mut queue = VecDeque::<usize>::from([0]);
