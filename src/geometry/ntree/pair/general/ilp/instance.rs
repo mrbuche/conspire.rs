@@ -12,14 +12,6 @@ pub(crate) struct Instance<const D: usize> {
     forbidden: HashSet<[i32; D]>,
 }
 
-fn offset<const D: usize>(a: [i32; D], b: [i32; D]) -> [i32; D] {
-    let mut offset = [0; D];
-    for axis in 0..D {
-        offset[axis] = b[axis] - a[axis];
-    }
-    offset
-}
-
 impl<const D: usize> Instance<D> {
     pub(crate) fn new(cells: Vec<([i32; D], bool)>, forbidden: HashSet<[i32; D]>) -> Self {
         let positions = cells.iter().map(|&(cell, _)| cell).collect();
@@ -73,15 +65,21 @@ impl<const D: usize> Instance<D> {
         }) {
             return false;
         }
-        let vertices: Vec<_> = assignment.iter().collect();
-        for (i, vertex_i) in vertices.iter().enumerate() {
-            for vertex_j in &vertices[i + 1..] {
-                if conflicts(offset(**vertex_i, **vertex_j)) {
-                    return false;
+        // Conflict needs every axis within two, so only the `5^D` neighbourhood around each
+        // vertex can possibly conflict with it - the same walk `solve` uses, instead of the
+        // O(n^2) all-pairs check this replaces. Each conflicting pair is found from both ends,
+        // which is redundant but still linear in the assignment size.
+        assignment.iter().all(|&vertex| {
+            (0..5usize.pow(D as u32)).all(|code| {
+                let step: [i32; D] =
+                    from_fn(|axis| (code / 5usize.pow(axis as u32) % 5) as i32 - 2);
+                if step.iter().all(|&s| s == 0) || !conflicts(step) {
+                    return true;
                 }
-            }
-        }
-        true
+                let other: [i32; D] = from_fn(|axis| vertex[axis] + step[axis]);
+                !assignment.contains(&other)
+            })
+        })
     }
     #[cfg(test)]
     pub(crate) fn cost(&self, assignment: &HashSet<[i32; D]>) -> usize {
@@ -205,7 +203,7 @@ impl<const D: usize> Instance<D> {
                 conflicts_of: &conflicts_of,
                 covers: &cover,
                 selected: vec![false; component.len()],
-                excluded: component.iter().map(|&i| excluded[i]).collect(),
+                excluded_count: component.iter().map(|&i| excluded[i] as u32).collect(),
                 best: None,
             };
             solver.branch(0);
@@ -235,7 +233,12 @@ struct Solver<'a> {
     conflicts_of: &'a [Vec<usize>],
     covers: &'a [Vec<usize>],
     selected: Vec<bool>,
-    excluded: Vec<bool>,
+    /// How many currently-selected candidates (plus, for a candidate the alignment rule refused
+    /// outright, one permanent count of its own) exclude this one. `> 0` is `excluded`. Tracking
+    /// a count instead of a bool needs no separate "newly excluded" set to undo on backtrack:
+    /// incrementing and decrementing around a selection is self-inverse regardless of who else
+    /// currently excludes the same candidate, so it also needs no allocation per branch.
+    excluded_count: Vec<u32>,
     best: Option<(usize, Vec<bool>)>,
 }
 
@@ -250,31 +253,29 @@ impl Solver<'_> {
             .covers
             .iter()
             .filter(|cover| !cover.iter().any(|&i| self.selected[i]))
-            .min_by_key(|cover| cover.iter().filter(|&&i| !self.excluded[i]).count());
+            .min_by_key(|cover| {
+                cover
+                    .iter()
+                    .filter(|&&i| self.excluded_count[i] == 0)
+                    .count()
+            });
         let Some(cover) = uncovered else {
             self.best = Some((cost, self.selected.clone()));
             return;
         };
-        let options: Vec<usize> = cover
-            .iter()
-            .copied()
-            .filter(|&i| !self.excluded[i])
-            .collect();
-        for i in options {
+        for &i in cover {
+            if self.excluded_count[i] > 0 {
+                continue;
+            }
             self.selected[i] = true;
-            let newly_excluded: Vec<usize> = self.conflicts_of[i]
-                .iter()
-                .copied()
-                .filter(|&j| !self.excluded[j])
-                .collect();
-            for &j in &newly_excluded {
-                self.excluded[j] = true;
+            for &j in &self.conflicts_of[i] {
+                self.excluded_count[j] += 1;
             }
             self.branch(cost + self.valences[i]);
-            self.selected[i] = false;
-            for &j in &newly_excluded {
-                self.excluded[j] = false;
+            for &j in &self.conflicts_of[i] {
+                self.excluded_count[j] -= 1;
             }
+            self.selected[i] = false;
         }
     }
 }
