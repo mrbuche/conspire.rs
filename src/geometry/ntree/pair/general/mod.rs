@@ -60,6 +60,10 @@ where
         // Only weak balancing admits the jump at all, so the rule is skipped otherwise.
         let mut refused = HashSet::new();
         if matches!(self.balanced, Balancing::Weak(_)) {
+            // Adjacent coarse nodes share vertices, so testing every required node's own 2^D
+            // corners retests each distinct vertex up to 2^D times. Collecting the candidates
+            // first and testing each exactly once is the same result for 1/2^D the calls.
+            let mut candidates = HashSet::new();
             for &(_, corner, required) in coarse_nodes.iter() {
                 if !required {
                     continue;
@@ -67,11 +71,14 @@ where
                 for bits in 0..1usize << D {
                     let vertex: [i32; D] =
                         from_fn(|axis| corner[axis] + ((bits >> axis) & 1) as i32);
-                    if self.straddling_jump(&vertex, coarse) {
-                        refused.insert(vertex);
-                    }
+                    candidates.insert(vertex);
                 }
             }
+            refused.extend(
+                candidates
+                    .into_iter()
+                    .filter(|vertex| self.straddling_jump(vertex, coarse)),
+            );
         }
         let instance = Instance::new(
             coarse_nodes
