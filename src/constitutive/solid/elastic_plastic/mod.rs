@@ -217,12 +217,6 @@ pub(crate) fn entries_4<I, J, K, L, U>(tensor: &TensorRank4<3, I, J, K, L, U>) -
     from_fn(|i| from_fn(|j| from_fn(|k| from_fn(|l| tensor[i][j][k][l].value()))))
 }
 
-pub(crate) fn rank_2<I, J, U>(matrix: &Matrix3) -> TensorRank2<3, I, J, U> {
-    let mut tensor = TensorRank2::zero();
-    (0..3).for_each(|i| (0..3).for_each(|j| tensor[i][j] = Quantity::new(matrix[i][j])));
-    tensor
-}
-
 pub(crate) fn rank_4<I, J, K, L, U>(entries: &Entries4) -> TensorRank4<3, I, J, K, L, U> {
     let mut tensor = TensorRank4::zero();
     (0..3).for_each(|i| {
