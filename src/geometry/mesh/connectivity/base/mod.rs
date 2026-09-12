@@ -1,4 +1,6 @@
-use crate::geometry::mesh::connectivity::{Connectivities, Connectivity, iter::ElementIter};
+use crate::geometry::mesh::connectivity::{
+    Connectivities, Connectivity, iter::ElementIter, polytopal::PolytopalConnectivity,
+};
 use std::{fmt::Debug, num::TryFromIntError};
 
 pub(crate) trait ConnectivityImpl {
@@ -270,6 +272,70 @@ impl Connectivity {
             Connectivity::Tetrahedral(c) => c.flat_connectivity(),
             Connectivity::Triangular(c) => c.flat_connectivity(),
         }
+    }
+    /// Shifts every node index this block refers to by `offset`, preserving
+    /// its own element numbers if it has any.
+    ///
+    /// Used to fuse independently-numbered meshes into one, where the nodes
+    /// of every block after the first must be renumbered past those already
+    /// placed into the combined coordinates.
+    pub(crate) fn offset(&self, offset: usize) -> Self {
+        let mut shifted = match self {
+            Connectivity::Hexahedral(c) => Connectivity::Hexahedral(
+                c.iter()
+                    .map(|&nodes| nodes.map(|node| node + offset))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            Connectivity::Pyramidal(c) => Connectivity::Pyramidal(
+                c.iter()
+                    .map(|&nodes| nodes.map(|node| node + offset))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            Connectivity::Wedge(c) => Connectivity::Wedge(
+                c.iter()
+                    .map(|&nodes| nodes.map(|node| node + offset))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            Connectivity::Quadrilateral(c) => Connectivity::Quadrilateral(
+                c.iter()
+                    .map(|&nodes| nodes.map(|node| node + offset))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            Connectivity::Tetrahedral(c) => Connectivity::Tetrahedral(
+                c.iter()
+                    .map(|&nodes| nodes.map(|node| node + offset))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            Connectivity::Triangular(c) => Connectivity::Triangular(
+                c.iter()
+                    .map(|&nodes| nodes.map(|node| node + offset))
+                    .collect::<Vec<_>>()
+                    .into(),
+            ),
+            Connectivity::Polyhedral(c) => Connectivity::Polyhedral(PolytopalConnectivity::from((
+                c.elements_faces().to_vec(),
+                c.faces_nodes()
+                    .iter()
+                    .map(|face| face.iter().map(|&node| node + offset).collect())
+                    .collect(),
+            ))),
+            Connectivity::Polygonal(c) => Connectivity::Polygonal(PolytopalConnectivity::from((
+                c.elements_faces().to_vec(),
+                c.faces_nodes()
+                    .iter()
+                    .map(|face| face.iter().map(|&node| node + offset).collect())
+                    .collect(),
+            ))),
+        };
+        if let Some(numbers) = self.element_numbers() {
+            shifted.number_elements(numbers.to_vec());
+        }
+        shifted
     }
 }
 
