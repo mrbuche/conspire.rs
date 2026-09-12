@@ -140,6 +140,7 @@ fn fuzz_tree(seed: u64, balancing: Balancing, pairing: Pairing) -> Quadtree<u16,
         }],
         paired: Pairing::None,
         pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([16.0; D]),
             cell: Quantity::new(1.0),

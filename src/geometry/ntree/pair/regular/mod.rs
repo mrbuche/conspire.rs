@@ -13,6 +13,10 @@ where
         let mut index = 0;
         let mut paired = true;
         self.pairing_vertices.clear();
+        // Writes over the same state `Pairing::Generalized`'s stability shortcut trusts, so an
+        // interleaved Regular pairing must invalidate it or a later Generalized call could skip
+        // recomputing on an unchanged length and reuse Regular's clusters instead of its own.
+        self.pairing_stable_len = None;
         while index < self.len() {
             if let Some(nodes) = self.nodes[index].orthants() {
                 let mut any_leaf = false;
