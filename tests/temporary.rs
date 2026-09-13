@@ -10,7 +10,6 @@ use conspire::{
             elastic_hyperviscous::SecondOrderMinimize as _,
             elastic_viscoplastic::AppliedLoad,
             hyperelastic::{NeoHookean, SaintVenantKirchhoff, SecondOrderMinimize as _},
-            hyperelastic_viscoplastic::SecondOrderMinimize as _,
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
         thermal::conduction::Fourier,
@@ -7513,9 +7512,12 @@ fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
 
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
-    use conspire::math::integrate::BogackiShampine;
+    use conspire::{
+        constitutive::solid::hyperelastic_viscoplastic::RootRkmkDaeMinimize as ConstitutiveRootRkmkDaeMinimize,
+        fem::solid::hyperelastic_viscoplastic::RootRkmkDaeMinimize,
+        math::integrate::BogackiShampineTableau,
+    };
     let tol = 1e-4;
-    let tspan = [Time::seconds(0.0), Time::seconds(2.0)];
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
@@ -7541,40 +7543,27 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
         (mesh, model.clone()).try_into()?;
-    let (times, coordinates_history, state_variables_history) =
-        conspire::fem::solid::hyperelastic_viscoplastic::SecondOrderMinimize::<
-            conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticStateVariables<
-                G,
-                Quantity,
-            >,
-            conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticEvolutionHistory<
-                G,
-                Quantity,
-            >,
-            conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticStateVariablesHistory<
-                G,
-                Quantity,
-            >,
-            3,
-        >::minimize(
-            &fem_model,
-            BogackiShampine {
-                abs_tol: tol,
-                rel_tol: tol,
-                ..Default::default()
-            },
+    let times: Vec<Quantity<Time>> = (0..=8).map(|i| Time::seconds(0.25 * i as f64)).collect();
+    let (times, coordinates_history, state_variables_history) = fem_model
+        .root_rkmk_dae_minimize::<BogackiShampineTableau>(
             NewtonRaphson::default(),
-            &tspan,
+            &times,
             bcs_temporary_elastic_viscoplastic,
         )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (_, deformation_gradients, state_variables) = model.minimize(
-        AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 1.0 * t.value(), times.as_slice()),
-        BogackiShampine::default(),
-        NewtonRaphson::default(),
-    )?;
+    let (_, deformation_gradients, state_variables) =
+        ConstitutiveRootRkmkDaeMinimize::<Quantity>::root_rkmk_dae_minimize::<
+            BogackiShampineTableau,
+        >(
+            &model,
+            AppliedLoad::UniaxialStress(
+                |t: Quantity<Time>| 1.0 + 1.0 * t.value(),
+                times.as_slice(),
+            ),
+            NewtonRaphson::default(),
+        )?;
     coordinates_history
         .iter()
         .zip(
