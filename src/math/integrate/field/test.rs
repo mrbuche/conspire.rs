@@ -1,6 +1,6 @@
 use super::{
-    Flat, HermiteSegment, IntegrableField, Product, Unimodular, integrate_euler, integrate_rkmk,
-    integrate_rkmk_adaptive, integrate_rkmk_dae_adaptive, rkmk_dae_step,
+    Flat, HermiteSegment, IntegrableField, List, Product, Unimodular, integrate_euler,
+    integrate_rkmk, integrate_rkmk_adaptive, integrate_rkmk_dae_adaptive, rkmk_dae_step,
 };
 use crate::math::{
     Current, Derivative, Intermediate, Quantity, Reference, Tensor, TensorArray, TensorRank1,
@@ -108,6 +108,68 @@ fn three_deep_product_field_round_trips_through_the_driver() {
     assert!((last.1.1.determinant() - 1.0).abs() < 1e-10);
     // the scalar leaf advanced additively over a total time of 1.0
     assert!((last.0.value() - 1.5).abs() < 1e-12);
+}
+
+#[test]
+fn list_field_advances_each_entry_by_its_own_flat_rate() {
+    let time = times();
+    let rates = [-RATE, RATE * 2.0, Quantity::<Rate>::new(0.0)];
+    let starts: TensorVector<Quantity> =
+        [Quantity::new(1.0), Quantity::new(1.0), Quantity::new(1.0)].into();
+    let (_, points): (Times, TensorVector<TensorVector<Quantity>>) =
+        integrate_euler::<List<Flat<Quantity>>, _, _>(
+            |_: Quantity<Time>, y: &TensorVector<Quantity>| {
+                Ok(y.iter()
+                    .zip(rates.iter())
+                    .map(|(y, rate)| y * rate)
+                    .collect())
+            },
+            &time,
+            starts,
+        )
+        .unwrap();
+    let last = points.iter().last().unwrap();
+    rates.iter().zip(last.iter()).for_each(|(rate, entry)| {
+        let (_, reference): (Times, TensorVector<Quantity>) =
+            integrate_euler::<Flat<Quantity>, _, _>(
+                |_: Quantity<Time>, y: &Quantity| Ok(y * rate),
+                &time,
+                Quantity::new(1.0),
+            )
+            .unwrap();
+        assert_eq!(entry.value(), reference.iter().last().unwrap().value());
+    });
+}
+
+#[test]
+fn list_field_keeps_every_entry_on_the_group_through_rkmk() {
+    let rate_a = trace_free_rate();
+    let rate_b = rate_a.clone() * -2.0;
+    let starts: TensorVector<Fp> = [Fp::identity(), Fp::identity()].into();
+    let (_, points): (Times, TensorVector<TensorVector<Fp>>) =
+        integrate_rkmk::<List<Unimodular<Current>>, BogackiShampine, _, _>(
+            |_: Quantity<Time>, _: &TensorVector<Fp>| Ok([rate_a.clone(), rate_b.clone()].into()),
+            &steps(),
+            starts,
+        )
+        .unwrap();
+    let last = points.iter().last().unwrap();
+    last.iter()
+        .for_each(|fp| assert!((fp.determinant() - 1.0).abs() < 1e-10));
+    // matches running rkmk on each entry independently, bit for bit
+    let (_, reference_a): (Times, TensorVector<Fp>) =
+        integrate_rkmk::<Unimodular<Current>, BogackiShampine, _, _>(
+            |_: Quantity<Time>, _: &Fp| Ok(rate_a.clone()),
+            &steps(),
+            Fp::identity(),
+        )
+        .unwrap();
+    last.iter()
+        .next()
+        .unwrap()
+        .iter()
+        .zip(reference_a.iter().last().unwrap().iter())
+        .for_each(|(a, b)| assert_eq!(a, b));
 }
 
 fn constant_exponent() -> [[f64; 3]; 3] {

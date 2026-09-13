@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiate, Quantity, Scalar, Tensor, TensorError, TensorRank2, TensorTuple,
-    TensorVec,
+    TensorVec, TensorVector,
     integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
     optimize::{EqualityConstraint, FirstOrderRootFinding, SecondOrderOptimization},
     sparse::SparseSolver,
@@ -108,6 +108,37 @@ where
             H::dexpinv(&sigma.0, increment.0),
             T::dexpinv(&sigma.1, increment.1),
         )
+    }
+}
+
+/// A list of independent copies of one field, e.g. every Gauss point's plastic
+/// state across a mesh; an increment reconstructs entry-wise. Composes with
+/// [`Product`] for a multi-block mesh (`Product<List<Fld1>, List<Fld2>>`).
+pub struct List<Fld>(PhantomData<Fld>);
+
+impl<Fld> IntegrableField for List<Fld>
+where
+    Fld: IntegrableField,
+    TensorVector<Fld::Point>: Tensor<Item = Fld::Point>,
+    TensorVector<Fld::Increment>: Tensor<Item = Fld::Increment>,
+{
+    type Point = TensorVector<Fld::Point>;
+    type Increment = TensorVector<Fld::Increment>;
+    fn reconstruct(
+        base: &Self::Point,
+        increment: &Self::Increment,
+    ) -> Result<Self::Point, TensorError> {
+        base.iter()
+            .zip(increment.iter())
+            .map(|(base, increment)| Fld::reconstruct(base, increment))
+            .collect()
+    }
+    fn dexpinv(sigma: &Self::Increment, increment: Self::Increment) -> Self::Increment {
+        sigma
+            .iter()
+            .zip(increment)
+            .map(|(sigma, increment)| Fld::dexpinv(sigma, increment))
+            .collect()
     }
 }
 
