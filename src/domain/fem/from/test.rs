@@ -14,24 +14,18 @@ use crate::{
                 linear::{Hexahedron, Tetrahedron, Wedge},
                 planar::{Quadrilateral, Triangle},
             },
-            solid::elastic_viscoplastic::{
-                ViscoplasticEvolution, ViscoplasticEvolutionHistory, ViscoplasticStateVariables,
-                ViscoplasticStateVariablesHistory,
-            },
         },
         nodal_coordinates,
-        solid::{
-            elastic::ElasticElements, elastic_viscoplastic::FirstOrderRoot as DaeFirstOrderRoot,
-        },
+        solid::{elastic::ElasticElements, elastic_viscoplastic::RootRkmkDae},
     },
     geometry::{
         Coordinates,
         mesh::{Connectivity, Mesh},
     },
     math::{
-        Matrix, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec, Vector,
+        Matrix, Quantity, Scalar, Tensor, Vector,
         assert::AssertionError,
-        integrate::BogackiShampine,
+        integrate::BogackiShampineTableau,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
     units::{Rate, Stress, Time},
@@ -346,18 +340,8 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
         (mesh, (viscoplastic_model(), constitutive_model()))
             .try_into()
             .map_err(|error: String| AssertionError { message: error })?;
-    let (_, coordinates_history, _) = DaeFirstOrderRoot::<
-        ViscoplasticStateVariables<1, Quantity>,
-        ViscoplasticEvolutionHistory<1, Quantity>,
-        ViscoplasticStateVariablesHistory<1, Quantity>,
-        3,
-    >::root(
+    let (_, coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
         &model,
-        BogackiShampine {
-            abs_tol: 1e-6,
-            rel_tol: 1e-6,
-            ..Default::default()
-        },
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
         bcs,
@@ -385,24 +369,8 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
         (mesh, (viscoplastic_model(), viscoplastic_model()))
             .try_into()
             .map_err(|error: String| AssertionError { message: error })?;
-    let (_, coordinates_history, _) = DaeFirstOrderRoot::<
-        TensorTuple<
-            ViscoplasticStateVariables<1, Quantity>,
-            ViscoplasticStateVariables<1, Quantity>,
-        >,
-        TensorTupleVec<ViscoplasticEvolution<1, Quantity>, ViscoplasticEvolution<1, Quantity>>,
-        TensorTupleVec<
-            ViscoplasticStateVariables<1, Quantity>,
-            ViscoplasticStateVariables<1, Quantity>,
-        >,
-        3,
-    >::root(
+    let (_, coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
         &model,
-        BogackiShampine {
-            abs_tol: 1e-6,
-            rel_tol: 1e-6,
-            ..Default::default()
-        },
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
         bcs,
