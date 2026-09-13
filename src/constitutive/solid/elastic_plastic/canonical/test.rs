@@ -281,12 +281,7 @@ fn monolithic_tangents_match_finite_difference_at_a_plastic_state() -> Result<()
     //
     // K_uv = dP/d(plastic multiplier).
     //
-    let mut analytic = FirstPiolaKirchhoffStress::zero();
-    for i in 0..3 {
-        for j in 0..3 {
-            analytic[i][j] = k_uv[i][j][0][0];
-        }
-    }
+    let analytic = k_uv.clone();
     assert.eq_within_tols(
         &analytic,
         &((residual_global(&deformation_gradient, plastic_multiplier + step)?
@@ -300,7 +295,7 @@ fn monolithic_tangents_match_finite_difference_at_a_plastic_state() -> Result<()
     let mut finite_difference = DeformationGradient::zero();
     for k in 0..3 {
         for l in 0..3 {
-            analytic[k][l] = k_vu[0][0][k][l];
+            analytic[k][l] = k_vu.0[k][l];
             let mut plus = deformation_gradient.clone();
             plus[k][l] += Quantity::new(step);
             let mut minus = deformation_gradient.clone();
@@ -314,21 +309,14 @@ fn monolithic_tangents_match_finite_difference_at_a_plastic_state() -> Result<()
     }
     assert.eq_within_tols(&analytic, &finite_difference)?;
     //
-    // K_vv = d(Fischer-Burmeister)/d(plastic multiplier), plus the pinned identity.
+    // K_vv = d(Fischer-Burmeister)/d(plastic multiplier).
     //
     assert.eq_within_tols(
-        k_vv[0][0][0][0].value(),
+        k_vv.value(),
         &((residual_local(&deformation_gradient, plastic_multiplier + step)?
             - residual_local(&deformation_gradient, plastic_multiplier - step)?)
             / (2.0 * step)),
     )?;
-    for i in 0..3 {
-        for j in 0..3 {
-            if i != 0 || j != 0 {
-                assert_eq!(k_vv[i][j][i][j].value(), 1.0);
-            }
-        }
-    }
     // Guard against a vacuous comparison: the coupling blocks must be non-negligible.
     assert!(analytic.norm().value() > 1e-2);
     Ok(())

@@ -13,8 +13,8 @@ use crate::{
     },
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, ContractThirdFourthWithFirstSecond,
-        Current, IDENTITY, Intermediate, Matrix, Quantity, Rank2, Reference, Tensor, TensorArray,
-        TensorRank2, TensorRank4, Vector,
+        Current, IDENTITY, Matrix, Quantity, Rank2, Reference, Tensor, TensorArray, TensorRank2,
+        TensorRank4, Transposed, Vector,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock, SolveStrategy,
             ZerothOrderRootFinding,
@@ -29,7 +29,7 @@ use crate::{
         MandelStressTangentElasticPlastic, Scalar, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness, Times,
     },
-    units::{Dimensionless, Stress, Time},
+    units::{Dimensionless, Time},
 };
 use std::array::from_fn;
 
@@ -559,20 +559,14 @@ where
         let deviatoric = mandel.deviatoric();
         let magnitude = deviatoric.norm();
         //
-        // K_uv = dP/d(dg), stored in slot [.][.][0][0].
+        // K_uv = dP/d(dg).
         //
         let stress_slope = (tangent
             .clone()
             .contract_third_fourth_with_first_second(&(&elastic * flow_direction * &plastic))
             + &stress * &plastic_transpose * flow_direction * &plastic_inverse_transpose)
             * -1.0;
-        let mut k_uv =
-            TensorRank4::<3, Current, Reference, Intermediate, Reference, Stress>::zero();
-        for i in 0..3 {
-            for j in 0..3 {
-                k_uv[i][j][0][0] = stress_slope[i][j];
-            }
-        }
+        let k_uv = stress_slope.clone();
         //
         // dN/dF, and through it dF_p^{n+1}/dF at fixed multiplier. The flow direction is
         // taken at the previous plastic gradient, which is fixed over the step but still
@@ -811,29 +805,14 @@ where
             (1.0, 1.0)
         };
         let factor = -partial_b / reference_yield_stress;
-        let mut k_vu =
-            TensorRank4::<3, Intermediate, Reference, Current, Reference, Dimensionless>::zero();
+        let mut k_vu_rank_2 = TensorRank2::<3, Current, Reference, Dimensionless>::zero();
         for k in 0..3 {
             for l in 0..3 {
-                k_vu[0][0][k][l] = Quantity::new(factor * yield_slope_global[k][l].value());
+                k_vu_rank_2[k][l] = Quantity::new(factor * yield_slope_global[k][l].value());
             }
         }
-        let mut k_vv = TensorRank4::<
-            3,
-            Intermediate,
-            Reference,
-            Intermediate,
-            Reference,
-            Dimensionless,
-        >::zero();
-        k_vv[0][0][0][0] = Quantity::new(partial_a + factor * yield_slope_local);
-        for i in 0..3 {
-            for j in 0..3 {
-                if i != 0 || j != 0 {
-                    k_vv[i][j][i][j] = Quantity::new(1.0);
-                }
-            }
-        }
+        let k_vu = Transposed(k_vu_rank_2);
+        let k_vv = Quantity::new(partial_a + factor * yield_slope_local);
         let mut tangent = tangent;
         for i in 0..3 {
             for j in 0..3 {
@@ -891,14 +870,14 @@ where
             equivalent_plastic_strain,
             plastic_multiplier,
         )?;
-        let inverse = 1.0 / k_vv[0][0][0][0].value();
+        let inverse = 1.0 / k_vv.value();
         for i in 0..3 {
             for j in 0..3 {
                 for k in 0..3 {
                     for l in 0..3 {
                         tangent[i][j][k][l] = Quantity::new(
                             tangent[i][j][k][l].value()
-                                - k_uv[i][j][0][0].value() * inverse * k_vu[0][0][k][l].value(),
+                                - k_uv[i][j].value() * inverse * k_vu.0[k][l].value(),
                         );
                     }
                 }
@@ -1043,17 +1022,22 @@ where
     }
 }
 
-/// Local block variable / residual for the monolithic solve: the plastic multiplier
-/// increment $`\Delta\gamma`$ lives in slot `[0][0]` of a rank-2 container so it fits
-/// the rank-2 block-solver interface; the other eight components are pinned to zero.
-type PlasticMultiplierBlock = DeformationGradientPlastic;
+/// Local block variable / residual for the monolithic solve: a genuine scalar, the
+/// plastic multiplier increment $`\Delta\gamma`$.
+type PlasticMultiplierBlock = Quantity;
+
+/// The `K_vu` coupling block's underlying rank-2 payload, wrapped in [`Transposed`] to
+/// act as the 1-row block a scalar local unknown's global-derivative needs (`K_uv`, by
+/// contrast, is genuinely column-shaped and needs no wrapper: [`HessianBlock`](crate::math::HessianBlock)
+/// treats any `TensorRank2` as its flattened single column).
+type PlasticMultiplierGlobalSlope = Transposed<TensorRank2<3, Current, Reference, Dimensionless>>;
 
 /// Tangent blocks $`(K_{uu}, K_{vu}, K_{uv}, K_{vv})`$ in the order the block solver takes them.
 type MonolithicTangents = (
     FirstPiolaKirchhoffTangentStiffness,
-    TensorRank4<3, Intermediate, Reference, Current, Reference, Dimensionless>,
-    TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>,
-    TensorRank4<3, Intermediate, Reference, Intermediate, Reference, Dimensionless>,
+    PlasticMultiplierGlobalSlope,
+    FirstPiolaKirchhoffStress,
+    Quantity,
 );
 
 /// The Fischer-Burmeister complementarity function.
@@ -1085,9 +1069,9 @@ pub trait MonolithicRoot {
             FirstPiolaKirchhoffStress,
             PlasticMultiplierBlock,
             FirstPiolaKirchhoffTangentStiffness,
-            TensorRank4<3, Intermediate, Reference, Current, Reference, Dimensionless>,
-            TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>,
-            TensorRank4<3, Intermediate, Reference, Intermediate, Reference, Dimensionless>,
+            PlasticMultiplierGlobalSlope,
+            FirstPiolaKirchhoffStress,
+            Quantity,
         >,
         strategy: SolveStrategy,
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
@@ -1106,9 +1090,9 @@ where
             FirstPiolaKirchhoffStress,
             PlasticMultiplierBlock,
             FirstPiolaKirchhoffTangentStiffness,
-            TensorRank4<3, Intermediate, Reference, Current, Reference, Dimensionless>,
-            TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>,
-            TensorRank4<3, Intermediate, Reference, Intermediate, Reference, Dimensionless>,
+            PlasticMultiplierGlobalSlope,
+            FirstPiolaKirchhoffStress,
+            Quantity,
         >,
         strategy: SolveStrategy,
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
@@ -1125,10 +1109,9 @@ where
         let mut global_matrix = CscMatrix::from_pattern(matrix.len(), 9, global_pattern);
         global_matrix.fill(|_, _| 1.0);
         let mut global_vector = Vector::zero(matrix.len());
-        let local_pattern: Vec<(usize, usize)> = (0..8).map(|row| (row, row + 1)).collect();
-        let mut local_matrix = CscMatrix::from_pattern(8, 9, local_pattern);
-        local_matrix.fill(|_, _| 1.0);
-        let local_constraint = (local_matrix, Vector::zero(8));
+        // The plastic multiplier is a genuine scalar unknown now, so there is nothing
+        // internal to it that needs pinning: an empty (zero-row) local constraint.
+        let local_constraint = (CscMatrix::from_pattern(0, 1, Vec::new()), Vector::zero(0));
 
         let reference_yield_stress = self.initial_yield_stress().value();
         let mut state = self.initial_state();
@@ -1177,22 +1160,16 @@ where
                 |global: &DeformationGradient,
                  local: &PlasticMultiplierBlock|
                  -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
-                    let plastic = plastic_deformation_gradient(global, local[0][0].value())?;
+                    let plastic = plastic_deformation_gradient(global, local.value())?;
                     self.first_piola_kirchhoff_stress(global, &plastic)
                 };
             let residual_local = |global: &DeformationGradient, local: &PlasticMultiplierBlock| {
-                let plastic_multiplier = local[0][0].value();
+                let plastic_multiplier = local.value();
                 let scaled = scaled_yield_function(global, plastic_multiplier)?;
-                let mut residual = PlasticMultiplierBlock::zero();
-                residual[0][0] = Quantity::new(fischer_burmeister(plastic_multiplier, -scaled));
-                for i in 0..3 {
-                    for j in 0..3 {
-                        if i != 0 || j != 0 {
-                            residual[i][j] = local[i][j];
-                        }
-                    }
-                }
-                Ok::<_, ConstitutiveError>(residual)
+                Ok::<_, ConstitutiveError>(Quantity::new(fischer_burmeister(
+                    plastic_multiplier,
+                    -scaled,
+                )))
             };
             let tangents = |global: &DeformationGradient,
                             local: &PlasticMultiplierBlock|
@@ -1202,7 +1179,7 @@ where
                     &plastic_deformation_gradient_previous,
                     &flow_direction(global)?,
                     equivalent_plastic_strain_previous,
-                    local[0][0].value(),
+                    local.value(),
                 )
             };
             let (deformation_gradient_new, local_new) = solver
@@ -1216,14 +1193,14 @@ where
                     |global, local| {
                         tangents(global, local).map_err(|e: ConstitutiveError| e.to_string())
                     },
-                    (deformation_gradient.clone(), PlasticMultiplierBlock::zero()),
+                    (deformation_gradient.clone(), Quantity::new(0.0)),
                     (global_matrix.clone(), global_vector.clone()),
                     local_constraint.clone(),
                     None,
                     strategy.clone(),
                 )
                 .map_err(|error| ConstitutiveError::upstream(error, self))?;
-            let plastic_multiplier = local_new[0][0].value();
+            let plastic_multiplier = local_new.value();
             let plastic_deformation_gradient_new =
                 plastic_deformation_gradient(&deformation_gradient_new, plastic_multiplier)?;
             deformation_gradient = deformation_gradient_new;
