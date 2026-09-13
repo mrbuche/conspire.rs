@@ -3,7 +3,7 @@ mod test;
 
 mod amd;
 
-use crate::math::{Scalar, TensorRank1Vec, TensorRank2, Vector};
+use crate::math::{Quantity, Scalar, TensorRank1Vec, TensorRank2, Vector};
 use std::ops::Mul;
 
 /// A sparse matrix in compressed sparse column format.
@@ -22,7 +22,10 @@ impl CscMatrix {
     /// Builds the sparsity structure from a list of nonzero (row, column) positions,
     /// with all values initialized to zero.
     pub fn from_pattern(height: usize, width: usize, pattern: Vec<(usize, usize)>) -> Self {
-        assert!(!pattern.is_empty(), "Matrix must have at least one entry.");
+        assert!(
+            !pattern.is_empty() || height == 0,
+            "Matrix must have at least one entry."
+        );
         let mut order: Vec<usize> = (0..pattern.len()).collect();
         order.sort_unstable_by_key(|&k| (pattern[k].1, pattern[k].0));
         let mut col_ptr = vec![0; width + 1];
@@ -232,6 +235,13 @@ impl<const D: usize, I> Mul<&TensorRank1Vec<D, I>> for &CscMatrix {
     type Output = Vector;
     fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
         self.multiply(|j| tensor_rank_1_vec[j / D][j % D].value())
+    }
+}
+
+impl<U> Mul<&Quantity<U>> for &CscMatrix {
+    type Output = Vector;
+    fn mul(self, quantity: &Quantity<U>) -> Self::Output {
+        self.multiply(|_| quantity.value())
     }
 }
 
