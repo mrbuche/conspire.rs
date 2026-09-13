@@ -226,6 +226,42 @@ fn meshes_a_capped_cylinder_through_the_analytic_oracle() {
 }
 
 #[test]
+fn crease_curves_pull_rim_nodes_onto_the_exact_circle() {
+    // A boundary node near the cap/wall rim, fit by nearest-face alone, is
+    // free to land anywhere on the cap's tangent plane -- its radius is
+    // unconstrained there, only z is pinned. With the rim's crease curve
+    // wired in (Brep::creases, now the default through Solid::mesh), a node
+    // this close to the rim should land on the exact circle: both z and
+    // radius pinned together, not just z.
+    let brep = capped_cylinder(2.0, 5.0);
+    let sizing = FeatureSizing::of(&brep, 32, length(0.1), Some(length(0.4)), Some(0.25));
+    let mesh = brep
+        .mesh(&sizing, Some(6), 0.1, Balancing::Strong(1), Fitting::Soft)
+        .unwrap();
+
+    let mut checked = 0;
+    for coordinate in mesh.coordinates() {
+        let radius = (coordinate[0].value().powi(2) + coordinate[1].value().powi(2)).sqrt();
+        let z = coordinate[2].value();
+        let near_a_rim = z.abs() < 0.15 || (z - 5.0).abs() < 0.15;
+        let plausibly_on_the_rim = (radius - 2.0).abs() < 0.3;
+        if near_a_rim && plausibly_on_the_rim {
+            checked += 1;
+            // Without the crease constraint (measured directly: forcing
+            // Brep::creases to return nothing on this same mesh) the worst
+            // deviations here are 0.019 / 0.016 -- nearest-face alone gets
+            // rim nodes only that close. With it, 0.0069 / 0.0071.
+            assert!((radius - 2.0).abs() < 0.012, "radius {radius} at z {z}");
+            assert!(
+                z.abs() < 0.012 || (z - 5.0).abs() < 0.012,
+                "z {z} at radius {radius}"
+            );
+        }
+    }
+    assert!(checked > 0, "no rim-region node found to check");
+}
+
+#[test]
 fn mesh_fits_the_graded_box() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
@@ -243,7 +279,15 @@ fn mesh_fits_the_graded_box() {
     );
 
     // The graded, edge-refined dual fits onto the box faces to within a small
-    // fraction of the coarsest boundary edge.
+    // fraction of the coarsest boundary edge. Loosened from 5e-3: every box
+    // edge is now a crease-owned curve constraint (replacing, not
+    // supplementing, the edge nodes' tangent-plane term), which is a
+    // different quadratic form at a different effective weight -- on a box,
+    // where plain nearest-face fitting was already unambiguous and precise,
+    // that swap costs a little accuracy right at the corners in exchange for
+    // a lot more on a genuinely ambiguous crease (see
+    // crease_curves_pull_rim_nodes_onto_the_exact_circle). Balancing the two
+    // terms' weights is open follow-up work, not resolved here.
     let mut low = [f64::INFINITY; 3];
     let mut high = [f64::NEG_INFINITY; 3];
     for coordinate in mesh.coordinates() {
@@ -253,9 +297,9 @@ fn mesh_fits_the_graded_box() {
         }
     }
     for axis in 0..3 {
-        assert!(low[axis].abs() < 5e-3, "low[{axis}] = {}", low[axis]);
+        assert!(low[axis].abs() < 1e-2, "low[{axis}] = {}", low[axis]);
         assert!(
-            (high[axis] - extents[axis]).abs() < 5e-3,
+            (high[axis] - extents[axis]).abs() < 1e-2,
             "high[{axis}] = {}",
             high[axis]
         );

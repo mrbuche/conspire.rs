@@ -6,7 +6,7 @@ mod restrict;
 
 use super::{Connectivity, Mesh, PrimitiveConnectivity, Tessellation};
 use crate::{
-    geometry::Coordinates,
+    geometry::{Coordinate, Coordinates},
     math::{Tensor, TensorVec},
 };
 use std::{
@@ -153,14 +153,20 @@ impl Mesh<3> {
     /// Inflates a one-hex boundary layer and fits it to `target`, a triangulated
     /// surface.
     pub fn buffer(self, target: &Tessellation, fitting: Fitting) -> Result<Self, &'static str> {
-        self.buffer_with(&fit::Facets::new(target), fitting)
+        self.buffer_with(&fit::Facets::new(target), &[], fitting)
     }
 
     /// Inflates a one-hex boundary layer and fits it to whatever surface
-    /// `oracle` projects onto.
+    /// `oracle` projects onto. `creases` are exact 1D curves a coincident
+    /// boundary node is constrained onto instead of `oracle`'s ambiguous
+    /// nearest-face target, each paired with the `oracle.feature` ids it
+    /// borders (see [`fit::Oracle::feature`]) so a node whose nearest surface
+    /// isn't one of them is never pulled onto it; empty for a target with no
+    /// such topology.
     pub(crate) fn buffer_with<O: fit::Oracle>(
         mut self,
         oracle: &O,
+        creases: &[(Vec<Coordinate<3>>, Vec<usize>)],
         fitting: Fitting,
     ) -> Result<Self, &'static str> {
         self.restrict()?;
@@ -195,7 +201,7 @@ impl Mesh<3> {
         )?;
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit(&nodes, oracle)?;
+        mesh.fit(&nodes, oracle, creases)?;
         if let Fitting::Snap = fitting {
             let coordinates = mesh.coordinates.members_mut();
             layer.iter().try_for_each(|&node| {
@@ -205,7 +211,7 @@ impl Mesh<3> {
                 coordinates[node] = point;
                 Ok::<_, &'static str>(())
             })?;
-            mesh.fit(&(0..count).collect::<Vec<_>>(), oracle)?;
+            mesh.fit(&(0..count).collect::<Vec<_>>(), oracle, creases)?;
         }
         Ok(mesh)
     }
@@ -247,10 +253,10 @@ impl Mesh<3> {
         let oracle = fit::Facets::new(target);
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit(&nodes, &oracle)?;
+        mesh.fit(&nodes, &oracle, &[])?;
         if let Fitting::Snap = fitting {
             mesh.project(target, &layer)?;
-            mesh.fit(&(0..count).collect::<Vec<_>>(), &oracle)?;
+            mesh.fit(&(0..count).collect::<Vec<_>>(), &oracle, &[])?;
         }
         Ok(mesh)
     }

@@ -747,21 +747,52 @@ impl BrepOracle {
         (low.into(), high.into())
     }
 
-    fn nearest(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar)> {
+    /// `(point, normal, distance, patch index)` of the nearest trimmed face --
+    /// the index is into [`Brep::faces`](super::Brep), this oracle's patches
+    /// sharing that order (see [`oracle`](super::Brep::oracle)).
+    fn nearest(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar, usize)> {
         let point: [Scalar; D] = from_fn(|k| query[k].value());
-        let mut best: Option<(Coordinate<D>, Direction<D>, Scalar)> = None;
-        for (patch, boxed) in self.patches.iter().zip(&self.boxes) {
+        let mut best: Option<(Coordinate<D>, Direction<D>, Scalar, usize)> = None;
+        for (index, (patch, boxed)) in self.patches.iter().zip(&self.boxes).enumerate() {
             // Skip a patch whose box is already farther than the best hit.
             if best
                 .as_ref()
-                .is_some_and(|(_, _, d)| point_box_distance(point, boxed) >= *d)
+                .is_some_and(|(_, _, d, _)| point_box_distance(point, boxed) >= *d)
             {
                 continue;
             }
-            let candidate = patch.closest(query);
-            if best.as_ref().is_none_or(|(_, _, d)| candidate.2 < *d) {
-                best = Some(candidate);
+            let (point, normal, distance) = patch.closest(query);
+            if best.as_ref().is_none_or(|(_, _, d, _)| distance < *d) {
+                best = Some((point, normal, distance, index));
             }
+        }
+        best
+    }
+
+    /// The index into [`Brep::faces`](super::Brep) of the nearest trimmed
+    /// face to `query`, or `None` if this oracle has no patches.
+    pub(in crate::geometry::cad) fn nearest_face(&self, query: &Coordinate<D>) -> Option<usize> {
+        self.nearest(query).map(|(.., index)| index)
+    }
+
+    /// Unsigned distance from `query` to the nearest trimmed face, skipping
+    /// the faces at `excluded` indices (into [`Brep::faces`](super::Brep) --
+    /// this oracle's patches share that order). Used to measure how close a
+    /// feature (a crease, say) passes to an *unrelated* surface, without the
+    /// feature's own bordering faces (which it touches by construction)
+    /// drowning out the query.
+    pub(in crate::geometry::cad) fn distance_excluding(
+        &self,
+        query: &Coordinate<D>,
+        excluded: &[usize],
+    ) -> Scalar {
+        let point: [Scalar; D] = from_fn(|k| query[k].value());
+        let mut best = Scalar::INFINITY;
+        for (index, (patch, boxed)) in self.patches.iter().zip(&self.boxes).enumerate() {
+            if excluded.contains(&index) || point_box_distance(point, boxed) >= best {
+                continue;
+            }
+            best = best.min(patch.closest(query).2);
         }
         best
     }
@@ -782,7 +813,7 @@ impl BrepOracle {
     /// Unsigned distance from `query` to the nearest trimmed face.
     pub fn distance(&self, query: &Coordinate<D>) -> Scalar {
         self.nearest(query)
-            .map_or(Scalar::INFINITY, |(_, _, distance)| distance)
+            .map_or(Scalar::INFINITY, |(_, _, distance, _)| distance)
     }
 
     /// Distance to the first trimmed face along `origin + t·direction`, `t > 0`,
@@ -815,7 +846,7 @@ impl BrepOracle {
         let mut directions: Vec<[Scalar; D]> = (0..D)
             .map(|axis| from_fn(|k| if k == axis { 1.0 } else { 0.0 }))
             .collect();
-        if let Some((_, normal, _)) = self.nearest(query) {
+        if let Some((_, normal, _, _)) = self.nearest(query) {
             directions.push(from_fn(|k| normal[k].value()));
         }
         directions
@@ -944,14 +975,14 @@ impl BrepOracle {
 impl SolidOracle for BrepOracle {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
         self.nearest(query)
-            .map(|(point, normal, _)| (point, normal))
+            .map(|(point, normal, _, _)| (point, normal))
     }
 
     /// Magnitude is the distance to the nearest trimmed face; the sign is the
     /// ray parity of the exact trimmed boundary (positive inside), which stays
     /// right at a void's medial axis where a nearest-face normal cannot.
     fn signed_distance(&self, query: &Coordinate<D>) -> Scalar {
-        let Some((_, _, distance)) = self.nearest(query) else {
+        let Some((_, _, distance, _)) = self.nearest(query) else {
             return Scalar::NEG_INFINITY;
         };
         if self.encloses(query) {
@@ -959,6 +990,15 @@ impl SolidOracle for BrepOracle {
         } else {
             -distance
         }
+    }
+
+    /// The index into [`Brep::faces`](super::Brep) of the nearest trimmed
+    /// face -- used to gate a crease's fit constraint so a node whose nearest
+    /// face isn't one of the crease's own two bordering faces (an unrelated
+    /// wall that merely happens to sit close by, such as the far side of a
+    /// thin flange) is never pulled onto it.
+    fn feature(&self, query: &Coordinate<D>) -> Option<usize> {
+        self.nearest_face(query)
     }
 }
 

@@ -74,6 +74,24 @@ impl Brep {
             delta
         }
     }
+
+    /// Indices into [`Brep::faces`] bordering `edge` -- the faces an edge (a
+    /// crease, typically) touches by construction, so an "is a different
+    /// surface nearby" query can exclude them: they are not the unrelated
+    /// feature such a query is looking for.
+    pub(in crate::geometry::cad) fn incident_faces(&self, edge: usize) -> Vec<usize> {
+        self.faces
+            .iter()
+            .enumerate()
+            .filter(|(_, face)| {
+                face.bounds
+                    .iter()
+                    .flat_map(|bound| &bound.half_edges)
+                    .any(|half_edge| half_edge.edge == edge)
+            })
+            .map(|(index, _)| index)
+            .collect()
+    }
 }
 
 fn dot(a: [f64; D], b: [f64; D]) -> f64 {

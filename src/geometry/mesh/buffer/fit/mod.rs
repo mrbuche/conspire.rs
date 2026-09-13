@@ -34,6 +34,17 @@ const ARMIJO: Scalar = 1.0e-4;
 const BACKTRACKS: usize = 32;
 const BALANCE: Scalar = 2.5e3;
 const CONVERGENCE: Scalar = 1.0e-5;
+/// A boundary node within this many local edge lengths of a crease curve,
+/// *before any fit sweep moves it*, is treated as sitting on it. A pre-fit
+/// octree-dual boundary node is typically a bit over one local length from
+/// the true B-rep surface (it is a blocky Cartesian approximation, not yet
+/// fit to anything) -- calibrated on `capped_cylinder`'s rim by sweeping this
+/// constant and measuring the fitted rim's radius/height error: 0.5-1.05
+/// caught too few nodes to matter, 2.0 caught nodes far enough from the
+/// crease that including them made the fit *worse*. 1.35 was the best of the
+/// values tried on that one fixture; not yet validated against a real
+/// crease-tangle case (see `cad/REVIEW.md`).
+const CREASE_TOLERANCE: Scalar = 1.35;
 const CURVATURE_FLOOR: Scalar = 1.0e-12;
 const EPSILON_FLOOR: Scalar = 1.0e-12;
 const HISTORY: usize = 8;
@@ -51,6 +62,13 @@ pub(crate) trait Oracle: Sync {
     /// The closest point on the target surface to `query`, and the outward unit
     /// normal there.
     fn project(&self, query: &Coordinate<3>) -> Option<(Coordinate<3>, Direction<3>)>;
+    /// A discrete id for whatever surface region `query`'s nearest point
+    /// belongs to, if this oracle can distinguish regions at all. `None` --
+    /// the default -- disables the topological crease-ownership gate in
+    /// [`Mesh::fit`] rather than denying every node.
+    fn feature(&self, _query: &Coordinate<3>) -> Option<usize> {
+        None
+    }
 }
 
 /// [`Oracle`] backed by a triangulated [`Tessellation`]: BVH closest-point plus
@@ -63,6 +81,7 @@ pub(super) struct Facets<'a> {
 }
 
 struct Sweep<'a> {
+    crease_targets: &'a [Option<CreaseTarget>],
     element_chunk: usize,
     elements: &'a [(&'static CornerTable, Vec<usize>)],
     epsilon: Scalar,
@@ -77,11 +96,17 @@ struct Sweep<'a> {
     unknowns: usize,
 }
 
+/// A crease-owned node's fit target: the nearest point on its crease curve set
+/// at the start of this sweep, the curve's local unit tangent there (all-zero
+/// if degenerate), and the squared perpendicular deviation, for [`weight`].
+type CreaseTarget = (Coordinate<3>, [Scalar; 3], Quantity<Area>);
+
 impl Mesh<3> {
     pub(super) fn fit<O: Oracle>(
         &mut self,
         nodes: &[usize],
         oracle: &O,
+        creases: &[(Vec<Coordinate<3>>, Vec<usize>)],
     ) -> Result<(), &'static str> {
         let mut elements: Vec<(&'static CornerTable, Vec<usize>)> = Vec::new();
         for block in self.iter() {
@@ -131,12 +156,70 @@ impl Mesh<3> {
             .enumerate()
             .for_each(|(index, &node)| slot[node] = Some(index));
         let unknowns = nodes.len();
+        let curve_only: Vec<Vec<Coordinate<3>>> =
+            creases.iter().map(|(curve, _)| curve.clone()).collect();
+        // Which boundary nodes a crease curve owns, and *which curve*, decided
+        // once from the pre-fit mesh -- the same "freeze early" principle that
+        // keeps a face target from a nearest-face flip, applied at the node
+        // level instead. Freezing the curve identity too (not just the
+        // ownership bool) matters whenever two creases pass close together
+        // (a thin flange's top and bottom rim): re-searching all curves fresh
+        // every sweep would let a node between them flip which one it targets
+        // as it moves, reintroducing the same discrete-flip instability this
+        // mechanism exists to remove, one level down.
+        //
+        // Proximity to the curve alone is also not enough: a node can sit
+        // just as close to an unrelated crease's curve as to its own (the far
+        // side of a thin flange, say). `touches_one_of` requires that at
+        // least one of the node's own incident faces currently projects (via
+        // `oracle.feature`) onto one of *this* curve's bordering faces --
+        // topological ownership, not just Euclidean distance. An oracle that
+        // cannot report features (`feature` returns `None` everywhere) skips
+        // this gate entirely, preserving old behaviour.
+        let crease_curve: Vec<Option<usize>> = if creases.is_empty() {
+            vec![None; number_of_nodes]
+        } else {
+            let (initial_lengths, _) = sizes(&neighbors, &elements, coordinates);
+            (0..number_of_nodes)
+                .map(|node| -> Option<usize> {
+                    if node_faces[node].is_empty() {
+                        return None;
+                    }
+                    let (index, _, distance, _) =
+                        nearest_on_polylines(&curve_only, &coordinates[node])?;
+                    if distance > CREASE_TOLERANCE * initial_lengths[node].value() {
+                        return None;
+                    }
+                    touches_one_of(
+                        oracle,
+                        &faces,
+                        &node_faces[node],
+                        coordinates,
+                        &creases[index].1,
+                    )
+                    .then_some(index)
+                })
+                .collect()
+        };
         let mut epsilon: Scalar = 1.0;
         let mut previous = Quantity::<Length>::new(Scalar::INFINITY);
         let mut window = VecDeque::<Quantity<Length>>::with_capacity(WINDOW);
         for sweep in 0..SWEEPS {
             let (lengths, scales) = sizes(&neighbors, &elements, coordinates);
+            let crease_targets: Vec<Option<CreaseTarget>> = (0..number_of_nodes)
+                .map(|node| {
+                    crease_curve[node].map(|index| {
+                        let (_, point, distance, tangent) = nearest_on_polylines(
+                            std::slice::from_ref(&curve_only[index]),
+                            &coordinates[node],
+                        )
+                        .expect("a crease-owned node has a nearest point on its frozen curve");
+                        (point, tangent, Quantity::<Area>::new(distance * distance))
+                    })
+                })
+                .collect();
             let mut state = Sweep {
+                crease_targets: &crease_targets,
                 element_chunk,
                 elements: &elements,
                 epsilon,
@@ -234,6 +317,82 @@ fn project<O: Oracle>(
         .ok_or("no projection onto target surface")
 }
 
+/// The closest point over the union of `curves` to `query`, which curve
+/// (index into `curves`) it landed on, its distance, and the unit tangent of
+/// the segment it landed on (all-zero if that segment is degenerate) --
+/// `None` only when `curves` is empty. Plain polylines, not a `cad`-specific
+/// type: this stays generic over whatever supplied them. A single-curve slice
+/// restricts the search to that curve, for tracking a node against a curve
+/// already chosen (see `crease_curve` in [`Mesh::fit`]).
+fn nearest_on_polylines(
+    curves: &[Vec<Coordinate<3>>],
+    query: &Coordinate<3>,
+) -> Option<(usize, Coordinate<3>, Scalar, [Scalar; 3])> {
+    let point: [Scalar; 3] = from_fn(|k| query[k].value());
+    let mut best: Option<(usize, Coordinate<3>, Scalar, [Scalar; 3])> = None;
+    for (curve_index, curve) in curves.iter().enumerate() {
+        for pair in curve.windows(2) {
+            let a: [Scalar; 3] = from_fn(|k| pair[0][k].value());
+            let b: [Scalar; 3] = from_fn(|k| pair[1][k].value());
+            let edge: [Scalar; 3] = from_fn(|k| b[k] - a[k]);
+            let span = edge.iter().map(|x| x * x).sum::<Scalar>();
+            let t = if span > 0.0 {
+                ((0..3).map(|k| (point[k] - a[k]) * edge[k]).sum::<Scalar>() / span).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let foot: [Scalar; 3] = from_fn(|k| a[k] + t * edge[k]);
+            let distance = (0..3)
+                .map(|k| (point[k] - foot[k]).powi(2))
+                .sum::<Scalar>()
+                .sqrt();
+            if best
+                .as_ref()
+                .is_none_or(|&(_, _, best_distance, _)| distance < best_distance)
+            {
+                let tangent = if span > 0.0 {
+                    let norm = span.sqrt();
+                    from_fn(|k| edge[k] / norm)
+                } else {
+                    [0.0; 3]
+                };
+                best = Some((curve_index, Coordinate::from(foot), distance, tangent));
+            }
+        }
+    }
+    best
+}
+
+/// Whether any of `node`'s incident boundary faces currently projects (via
+/// `oracle.feature` at the face's centroid) onto one of `faces`. If the
+/// oracle never reports a feature id (every face gives `None`), the gate does
+/// not apply -- every node passes, matching the old (topology-blind)
+/// behaviour for an oracle with no concept of discrete surface regions.
+fn touches_one_of<O: Oracle>(
+    oracle: &O,
+    boundary_faces: &[Vec<usize>],
+    node_faces: &[usize],
+    coordinates: &Coordinates<3>,
+    faces: &[usize],
+) -> bool {
+    let mut saw_a_feature = false;
+    for &face in node_faces {
+        let boundary_face = &boundary_faces[face];
+        let centroid = boundary_face
+            .iter()
+            .map(|&node| &coordinates[node])
+            .sum::<Coordinate<3>>()
+            / boundary_face.len() as Scalar;
+        if let Some(id) = oracle.feature(&centroid) {
+            saw_a_feature = true;
+            if faces.contains(&id) {
+                return true;
+            }
+        }
+    }
+    !saw_a_feature
+}
+
 impl Sweep<'_> {
     fn measure(&self, coordinates: &Coordinates<3>) -> (Quantity<Length>, Scalar) {
         self.tracked
@@ -286,15 +445,23 @@ impl Sweep<'_> {
                             .iter()
                             .map(|&node| {
                                 BALANCE / self.lengths[node]
-                                    * self.node_faces[node]
-                                        .iter()
-                                        .map(|&face| {
-                                            let (point, normal, distance) = &self.targets[face];
+                                    * match &self.crease_targets[node] {
+                                        Some((point, tangent, distance)) => {
                                             let weight = weight(*distance, self.lengths[node]);
-                                            let deviation = (&coordinates[node] - point) * normal;
-                                            deviation * deviation * weight
-                                        })
-                                        .sum::<Quantity<Area>>()
+                                            crease_term(&coordinates[node], point, tangent).0
+                                                * weight
+                                        }
+                                        None => self.node_faces[node]
+                                            .iter()
+                                            .map(|&face| {
+                                                let (point, normal, distance) = &self.targets[face];
+                                                let weight = weight(*distance, self.lengths[node]);
+                                                let deviation =
+                                                    (&coordinates[node] - point) * normal;
+                                                deviation * deviation * weight
+                                            })
+                                            .sum::<Quantity<Area>>(),
+                                    }
                             })
                             .sum::<Quantity<Length>>()
                     })
@@ -345,14 +512,23 @@ impl Sweep<'_> {
                 .for_each(|(entries, nodes)| {
                     scope.spawn(move || {
                         entries.iter_mut().zip(nodes).for_each(|(entry, &node)| {
-                            self.node_faces[node].iter().for_each(|&face| {
-                                let (point, normal, distance) = &self.targets[face];
-                                let weight = weight(*distance, self.lengths[node]);
-                                let deviation = (&coordinates[node] - point) * normal;
-                                let factor =
-                                    2.0 * BALANCE / self.lengths[node] * weight * deviation;
-                                *entry += normal * factor.value()
-                            })
+                            match &self.crease_targets[node] {
+                                Some((point, tangent, distance)) => {
+                                    let weight = weight(*distance, self.lengths[node]);
+                                    let perp = crease_term(&coordinates[node], point, tangent).1;
+                                    let factor =
+                                        (2.0 * BALANCE / self.lengths[node] * weight).value();
+                                    *entry += TensorRank1::const_from(perp) * factor
+                                }
+                                None => self.node_faces[node].iter().for_each(|&face| {
+                                    let (point, normal, distance) = &self.targets[face];
+                                    let weight = weight(*distance, self.lengths[node]);
+                                    let deviation = (&coordinates[node] - point) * normal;
+                                    let factor =
+                                        2.0 * BALANCE / self.lengths[node] * weight * deviation;
+                                    *entry += normal * factor.value()
+                                }),
+                            }
                         });
                     });
                 });
@@ -529,6 +705,24 @@ fn edges(
     (0..3)
         .map(|i| (&coordinates[element[adjacent[i]]] - origin).with_unit())
         .collect()
+}
+
+/// The crease-line squared deviation `|delta|² − (delta·t)²` (`delta = x −
+/// point`) and its gradient `2·(delta − (delta·t)·t)` w.r.t. `x`, both raw
+/// (unit-stripped, matching how `nearest_on_polylines` already works). This
+/// pulls a node onto the curve but leaves it free to slide along `tangent`;
+/// an all-zero `tangent` (a degenerate segment) falls back to plain point
+/// attraction, since `delta·t = 0` then and `delta` passes through unchanged.
+fn crease_term(
+    x: &Coordinate<3>,
+    point: &Coordinate<3>,
+    tangent: &[Scalar; 3],
+) -> (Quantity<Area>, [Scalar; 3]) {
+    let delta: [Scalar; 3] = from_fn(|k| x[k].value() - point[k].value());
+    let along = (0..3).map(|k| delta[k] * tangent[k]).sum::<Scalar>();
+    let perp: [Scalar; 3] = from_fn(|k| delta[k] - along * tangent[k]);
+    let squared = perp.iter().map(|p| p * p).sum::<Scalar>();
+    (Quantity::<Area>::new(squared.max(0.0)), perp)
 }
 
 fn weight(distance: Quantity<Area>, length: Quantity<Length>) -> Quantity<Dimensionless> {

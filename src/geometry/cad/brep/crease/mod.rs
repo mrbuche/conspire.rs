@@ -16,21 +16,26 @@ use super::{Brep, D, curve::chords};
 use crate::geometry::Coordinate;
 
 impl Brep {
-    /// The exact chord polyline of every sharp edge ([`Brep::features`]).
-    pub fn crease_curves(&self) -> Vec<Vec<Coordinate<D>>> {
+    /// The exact chord polyline of every sharp edge ([`Brep::features`]),
+    /// paired with the [`Brep::faces`] indices it borders -- the faces a
+    /// crease-owned node is allowed to come from; a node whose nearest face is
+    /// none of these (an unrelated wall merely sitting close by, such as the
+    /// far side of a thin flange) must never be pulled onto this curve.
+    pub fn crease_curves(&self) -> Vec<(Vec<Coordinate<D>>, Vec<usize>)> {
         self.features()
             .creases
             .into_iter()
             .map(|index| {
                 let edge = &self.edges[index];
                 let [a, b] = edge.vertices;
-                chords(
+                let curve = chords(
                     &edge.curve,
                     &self.vertices[a],
                     &self.vertices[b],
                     true,
                     a == b,
-                )
+                );
+                (curve, self.incident_faces(index))
             })
             .collect()
     }

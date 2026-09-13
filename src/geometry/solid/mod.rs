@@ -62,6 +62,14 @@ pub trait SolidOracle: Sync {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)>;
     /// Signed distance from `query` to the surface, positive inside the solid.
     fn signed_distance(&self, query: &Coordinate<D>) -> Scalar;
+    /// A discrete id for whatever surface region `query`'s nearest point
+    /// belongs to, if this oracle can distinguish regions at all (a B-rep
+    /// oracle can, by face; a CSG primitive's single implicit surface
+    /// cannot). `None` -- the default -- means the concept does not apply
+    /// here, not that the query missed.
+    fn feature(&self, _query: &Coordinate<D>) -> Option<usize> {
+        None
+    }
 }
 
 /// `oracle.signed_distance` at every coordinate, evaluated across threads
@@ -341,6 +349,10 @@ impl<O: SolidOracle> Oracle for Fit<'_, O> {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
         self.0.project(query)
     }
+
+    fn feature(&self, query: &Coordinate<D>) -> Option<usize> {
+        self.0.feature(query)
+    }
 }
 
 /// A solid the shared driver can mesh: a bounding box, a classifier against a
@@ -353,6 +365,16 @@ pub trait Solid {
 
     /// An analytic oracle projecting onto the exact surface.
     fn oracle(&self) -> Result<Self::Oracle, &'static str>;
+
+    /// Exact 1D curves the boundary fit should constrain a coincident node
+    /// onto, rather than a nearest-face target that is ambiguous right where a
+    /// crease needs one most, each paired with the [`SolidOracle::feature`]
+    /// ids it borders (a node whose nearest surface isn't one of them is never
+    /// pulled onto it). The default is none, unaffected; only a solid with
+    /// real topology (a B-rep) has any.
+    fn creases(&self) -> Vec<(Vec<Coordinate<D>>, Vec<usize>)> {
+        Vec::new()
+    }
 
     /// Labels every cell of `mesh` `Inside`, `Cut`, or `Outside`. The default
     /// reads the [`oracle`](Self::oracle): a cell whose corner signed distances
@@ -475,7 +497,7 @@ pub trait Solid {
             );
             survives_trim(cut[index], minimum, maximum)
         });
-        mesh.buffer_with(&Fit(&oracle), fitting)
+        mesh.buffer_with(&Fit(&oracle), &self.creases(), fitting)
     }
 }
 

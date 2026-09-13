@@ -50,6 +50,10 @@ impl Solid for Brep {
         Brep::oracle(self)
     }
 
+    fn creases(&self) -> Vec<(Vec<Coordinate<D>>, Vec<usize>)> {
+        Brep::crease_curves(self)
+    }
+
     fn classify(&self, mesh: &Mesh<D>) -> Result<Vec<Class>, &'static str> {
         if self
             .faces
