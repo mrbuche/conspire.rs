@@ -530,18 +530,10 @@ where
 impl<T> Sub for &TensorVector<T>
 where
     T: Tensor,
-    // for <'a> &'a T: Sub<&'a T, Output=T>
 {
     type Output = TensorVector<T>;
-    fn sub(self, _tensor_vec: Self) -> Self::Output {
-        unimplemented!()
-        // self
-        //     .iter()
-        //     .zip(tensor_vec.iter())
-        //     .map(|(self_entry, entry)| {
-        //         self_entry - entry
-        //     })
-        //     .collect()
+    fn sub(self, tensor_vec: Self) -> Self::Output {
+        self.clone() - tensor_vec
     }
 }
 
