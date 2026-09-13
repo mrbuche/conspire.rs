@@ -13,9 +13,10 @@ use crate::{
         },
     },
     math::{
-        Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorVec,
+        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorVec, TensorVector,
         integrate::{
-            ButcherTableau, IntegrableField, IntegrationError, rkmk_dae_step_second_order_minimize,
+            ButcherTableau, EmbeddedTableau, IntegrableField, IntegrationError,
+            integrate_rkmk_dae_adaptive_second_order_minimize, rkmk_dae_step_second_order_minimize,
         },
         optimize::SecondOrderOptimization,
     },
@@ -122,6 +123,29 @@ pub trait RootRkmkDaeMinimize<const D: usize, Y = Quantity> {
         >,
         time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
+    ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
+    /// As [`Self::root_rkmk_dae_minimize`], but the whole span is stepped
+    /// under embedded (`Tab::D`) error control rather than on the supplied
+    /// load grid.
+    ///
+    /// Two times in `time` give only the span, and the controller's own
+    /// accepted steps are reported. More than two are requested report
+    /// times — the convention of the flat DAE loop — and every Gauss point's
+    /// plastic state is served at each from the geodesic `HermiteSegment` of
+    /// the accepted step containing it, so nodal equilibrium is then
+    /// re-solved (by minimization) there.
+    fn root_rkmk_dae_adaptive_minimize<Tab: EmbeddedTableau>(
+        &self,
+        solver: impl SecondOrderOptimization<
+            Quantity<Energy>,
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
+        >,
+        time: &[Quantity<Time>],
+        bcs: ElasticViscoplasticBCs,
+        abs_tol: Scalar,
+        rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
 }
 
@@ -233,6 +257,91 @@ where
             nodal_coordinates_history.push(nodal_coordinates.clone());
             state_variables_history.push(B::unflatten(&state));
         }
+        Ok((times, nodal_coordinates_history, state_variables_history))
+    }
+    #[allow(clippy::type_complexity)]
+    fn root_rkmk_dae_adaptive_minimize<Tab: EmbeddedTableau>(
+        &self,
+        solver: impl SecondOrderOptimization<
+            Quantity<Energy>,
+            NodalForcesSolid<3>,
+            NodalStiffnessesSolid<3>,
+            NodalCoordinates<3>,
+        >,
+        time: &[Quantity<Time>],
+        bcs: ElasticViscoplasticBCs,
+        abs_tol: Scalar,
+        rel_tol: Scalar,
+    ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
+        let blocks = self.blocks();
+        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+        self.node_neighbors(&mut neighbors);
+        finalize_node_neighbors(&mut neighbors);
+        let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), 3, true);
+        let function = |_: Quantity<Time>,
+                        state: &<B::Field as IntegrableField>::Point,
+                        nodal_coordinates: &NodalCoordinates<3>|
+         -> Result<Quantity<Energy>, String> {
+            Ok(blocks.helmholtz_free_energy(nodal_coordinates, &B::unflatten(state))?)
+        };
+        let jacobian = |_: Quantity<Time>,
+                        state: &<B::Field as IntegrableField>::Point,
+                        nodal_coordinates: &NodalCoordinates<3>|
+         -> Result<NodalForcesSolid<3>, String> {
+            Ok(blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?)
+        };
+        let hessian = |_: Quantity<Time>,
+                       state: &<B::Field as IntegrableField>::Point,
+                       nodal_coordinates: &NodalCoordinates<3>|
+         -> Result<NodalStiffnessesSolid<3>, String> {
+            Ok(blocks.nodal_stiffnesses(nodal_coordinates, &B::unflatten(state))?)
+        };
+        let rate = |t: Quantity<Time>,
+                    state: &<B::Field as IntegrableField>::Point,
+                    nodal_coordinates: &NodalCoordinates<3>|
+         -> Result<
+            Derivative<<B::Field as IntegrableField>::Increment, Time>,
+            String,
+        > { Ok(blocks.dae_rate(t, nodal_coordinates, state)?) };
+        let equality_constraint = bcs;
+        let state = B::flatten(&ElasticViscoplasticElements::initial_state(blocks));
+        let guess: NodalCoordinates<3> = self.coordinates().clone().into();
+        let nodal_coordinates = solver
+            .minimize(
+                |x: &NodalCoordinates<3>| function(time[0], &state, x),
+                |x: &NodalCoordinates<3>| jacobian(time[0], &state, x),
+                |x: &NodalCoordinates<3>| hessian(time[0], &state, x),
+                guess,
+                equality_constraint(time[0]),
+                Some(sparse.clone()),
+            )
+            .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
+        let (times, state_points_history, nodal_coordinates_history) =
+            integrate_rkmk_dae_adaptive_second_order_minimize::<
+                B::Field,
+                Tab,
+                Quantity<Energy>,
+                NodalForcesSolid<3>,
+                NodalStiffnessesSolid<3>,
+                NodalCoordinates<3>,
+                TensorVector<<B::Field as IntegrableField>::Point>,
+                NodalCoordinatesHistory<3>,
+                Time,
+            >(
+                |t, state, nodal_coordinates| rate(t, state, nodal_coordinates),
+                function,
+                jacobian,
+                hessian,
+                &solver,
+                time,
+                (state, nodal_coordinates),
+                abs_tol,
+                rel_tol,
+                equality_constraint,
+                Some(sparse),
+            )
+            .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
+        let state_variables_history = state_points_history.iter().map(B::unflatten).collect();
         Ok((times, nodal_coordinates_history, state_variables_history))
     }
 }
