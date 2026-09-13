@@ -207,6 +207,9 @@ pub trait HessianBlock {
 }
 
 /// A [`HessianBlock`] with its rows and columns swapped.
+///
+/// Lets one flat sensitivity type serve both an off-diagonal coupling block
+/// and its transpose (`K_uv` a column, `K_vu` a row).
 pub struct Transposed<H>(pub H);
 
 impl<H: HessianBlock> HessianBlock for Transposed<H> {
