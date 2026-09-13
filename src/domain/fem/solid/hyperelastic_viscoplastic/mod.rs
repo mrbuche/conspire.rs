@@ -15,8 +15,7 @@ use crate::{
     math::{
         Derivative, Differentiate, Quantity, Tensor, TensorTuple, TensorVec,
         integrate::{
-            ButcherTableau, ExplicitDaeSecondOrderMinimize, IntegrableField, IntegrationError,
-            rkmk_dae_step_second_order_minimize,
+            ButcherTableau, IntegrableField, IntegrationError, rkmk_dae_step_second_order_minimize,
         },
         optimize::SecondOrderOptimization,
     },
@@ -235,113 +234,5 @@ where
             state_variables_history.push(B::unflatten(&state));
         }
         Ok((times, nodal_coordinates_history, state_variables_history))
-    }
-}
-
-pub trait SecondOrderMinimize<S, R, H, const D: usize>
-where
-    S: Differentiate + Tensor,
-    R: TensorVec<Item = Derivative<S>>,
-    H: TensorVec<Item = S>,
-{
-    fn minimize(
-        &self,
-        integrator: impl ExplicitDaeSecondOrderMinimize<
-            Quantity<Energy>,
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            S,
-            NodalCoordinates<D>,
-            H,
-            NodalCoordinatesHistory<D>,
-            R,
-        >,
-        solver: impl SecondOrderOptimization<
-            Quantity<Energy>,
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
-        >,
-        time: &[Quantity<Time>],
-        bcs: ElasticViscoplasticBCs,
-    ) -> Result<(Times, NodalCoordinatesHistory<D>, H), IntegrationError>;
-}
-
-impl<B, S, R, H, const D: usize> SecondOrderMinimize<S, R, H, D> for Model<B, D>
-where
-    B: HyperelasticViscoplasticElements<S, D>,
-    S: Differentiate + Tensor,
-    R: TensorVec<Item = Derivative<S>>,
-    H: TensorVec<Item = S>,
-{
-    fn minimize(
-        &self,
-        integrator: impl ExplicitDaeSecondOrderMinimize<
-            Quantity<Energy>,
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            S,
-            NodalCoordinates<D>,
-            H,
-            NodalCoordinatesHistory<D>,
-            R,
-        >,
-        solver: impl SecondOrderOptimization<
-            Quantity<Energy>,
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
-        >,
-        time: &[Quantity<Time>],
-        bcs: ElasticViscoplasticBCs,
-    ) -> Result<(Times, NodalCoordinatesHistory<D>, H), IntegrationError> {
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), D, true);
-        let (time_history, state_variables_history, _, nodal_coordinates_history) = integrator
-            .integrate(
-                |_: Quantity<Time>,
-                 state_variables: &S,
-                 nodal_coordinates: &NodalCoordinates<D>| {
-                    Ok(self
-                        .blocks
-                        .state_variables_evolution(nodal_coordinates, state_variables)?)
-                },
-                |_: Quantity<Time>,
-                 state_variables: &S,
-                 nodal_coordinates: &NodalCoordinates<D>| {
-                    Ok(self
-                        .blocks
-                        .helmholtz_free_energy(nodal_coordinates, state_variables)?)
-                },
-                |_: Quantity<Time>,
-                 state_variables: &S,
-                 nodal_coordinates: &NodalCoordinates<D>| {
-                    Ok(self
-                        .blocks
-                        .nodal_forces(nodal_coordinates, state_variables)?)
-                },
-                |_: Quantity<Time>,
-                 state_variables: &S,
-                 nodal_coordinates: &NodalCoordinates<D>| {
-                    Ok(self
-                        .blocks
-                        .nodal_stiffnesses(nodal_coordinates, state_variables)?)
-                },
-                solver,
-                time,
-                (
-                    self.blocks.initial_state(),
-                    self.coordinates().clone().into(),
-                ),
-                bcs,
-                Some(sparse),
-            )?;
-        Ok((
-            time_history,
-            nodal_coordinates_history,
-            state_variables_history,
-        ))
     }
 }
