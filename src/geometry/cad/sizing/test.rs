@@ -229,3 +229,56 @@ fn obeys_the_gradation_bound() {
         }
     }
 }
+
+#[test]
+fn crease_proximity_resolves_a_thin_ribbon() {
+    use crate::geometry::cad::brep::test::axis_aligned_box;
+    // 0.2 thin in x, long in y and z: the top face (z = 8) is a 0.2 x 4 ribbon
+    // bounded by two long parallel sharp edges 0.2 apart, with the flat top
+    // between them. The solid below is not thin, so the through-thickness term
+    // is blind to it — only the crease-separation term catches the gap.
+    let brep = axis_aligned_box([0.2, 4.0, 8.0]);
+    let plain = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), None);
+    // hops = 0: the two facing edges of one face are one hop apart (a shared
+    // corner), so a single hop would exclude them; the ribbon still counts.
+    let ribbed = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), None)
+        .with_crease_proximity(&brep, length(1.0), 4, 0)
+        .unwrap();
+    let on_top = point([0.1, 2.0, 8.0]);
+    // Without the term the interior of the top face rides at `maximum`.
+    assert!(plain.at_cell(&on_top, 0.02).value() > 1.0);
+    // With it, the gap is resolved at 0.2 / 4 = 0.05.
+    let got = ribbed.at_cell(&on_top, 0.02).value();
+    assert!(
+        (got - 0.2 / 4.0).abs() < 1e-2,
+        "got {got}, expected ~{}",
+        0.2 / 4.0
+    );
+}
+
+#[test]
+fn crease_proximity_leaves_the_far_field_alone() {
+    use crate::geometry::cad::brep::test::axis_aligned_box;
+    let brep = axis_aligned_box([0.2, 4.0, 8.0]);
+    let ribbed = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), None)
+        .with_crease_proximity(&brep, length(1.0), 4, 0)
+        .unwrap();
+    // Deep in the thick middle, far from the thin top/bottom ribbons: no
+    // separation box reaches, so it rides the crease ramp / `maximum`.
+    assert!(ribbed.at_cell(&point([0.1, 2.0, 4.0]), 0.02).value() > 1.0);
+}
+
+#[test]
+fn crease_proximity_defaults_off() {
+    use crate::geometry::cad::brep::test::axis_aligned_box;
+    // Not calling `with_crease_proximity` leaves the field identical to `of`.
+    let brep = axis_aligned_box([0.2, 4.0, 8.0]);
+    let field = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), None);
+    let same = FeatureSizing::of(&brep, 2, length(1e-3), Some(length(10.0)), None);
+    for p in [[0.1, 2.0, 8.0], [0.1, 2.0, 4.0], [0.1, 0.0, 4.0]] {
+        assert_eq!(
+            field.at_cell(&point(p), 0.02).value(),
+            same.at_cell(&point(p), 0.02).value()
+        );
+    }
+}

@@ -41,6 +41,25 @@ pub struct BrepOracle {
     /// One axis-aligned box per patch, the ray/point broad-phase: a ray or
     /// query that misses a patch's box skips its narrow-phase entirely.
     boxes: Vec<([Scalar; D], [Scalar; D])>,
+    /// The sharp edges (creases), each as its exact-endpoint chord polyline
+    /// plus an AABB broad-phase box. A boundary node near a crease is snapped
+    /// onto this 1D polyline rather than onto a contested face — a curve cannot
+    /// flip between the two surfaces that meet along it, which is what tangled
+    /// the fit where the crease's own wall ran micron-close to unrelated faces.
+    creases: Vec<CreaseCurve>,
+    /// Exact world positions of the hard points (corner vertices). A crease
+    /// snap that lands within [`CORNER_SNAP_RADIUS`] of one is pulled onto the
+    /// corner exactly, so the multi-surface junctions at a crease's ends get a
+    /// single stable 0D target instead of a flipping nearest-face.
+    corner_points: Vec<Coordinate<D>>,
+}
+
+/// One crease edge, precomputed for the fit's snap target: its chord polyline
+/// (exact endpoints, [`curve::chords`]-agreed with the trimmed faces) and a
+/// padded AABB for broad-phase rejection.
+struct CreaseCurve {
+    polyline: Vec<Coordinate<D>>,
+    aabb: ([Scalar; D], [Scalar; D]),
 }
 
 impl Brep {
@@ -55,7 +74,7 @@ impl Brep {
             .iter()
             .map(|face| self.face_patch(face))
             .collect::<Result<Vec<_>, _>>()?;
-        let boxes = patches
+        let boxes: Vec<([Scalar; D], [Scalar; D])> = patches
             .iter()
             .map(|patch| {
                 let (mut low, mut high) = patch.bounds();
@@ -70,7 +89,48 @@ impl Brep {
                 (low, high)
             })
             .collect();
-        Ok(BrepOracle { patches, boxes })
+        let features = self.features();
+        let creases = features
+            .creases
+            .iter()
+            .map(|&edge| {
+                let [ia, ib] = self.edges[edge].vertices;
+                let (start, end) = (&self.vertices[ia], &self.vertices[ib]);
+                // A crease edge has distinct endpoints, so it is never a closed
+                // loop; `forward` only picks an arc's turn direction, and the
+                // endpoints already fix that, so the sense is immaterial to the
+                // point set we measure distance against.
+                let polyline = curve::chords(&self.edges[edge].curve, start, end, true, false);
+                let mut low = [Scalar::INFINITY; D];
+                let mut high = [Scalar::NEG_INFINITY; D];
+                for point in &polyline {
+                    for k in 0..D {
+                        low[k] = low[k].min(point[k].value());
+                        high[k] = high[k].max(point[k].value());
+                    }
+                }
+                let pad = (0..D)
+                    .map(|k| high[k] - low[k])
+                    .fold(0.0, Scalar::max)
+                    .max(1.0)
+                    * 1.0e-9;
+                CreaseCurve {
+                    polyline,
+                    aabb: (from_fn(|k| low[k] - pad), from_fn(|k| high[k] + pad)),
+                }
+            })
+            .collect();
+        let corner_points = features
+            .corners
+            .iter()
+            .map(|&vertex| self.vertices[vertex].clone())
+            .collect();
+        Ok(BrepOracle {
+            patches,
+            boxes,
+            creases,
+            corner_points,
+        })
     }
 
     fn face_patch(&self, face: &Face) -> Result<FacePatch, &'static str> {
@@ -747,20 +807,184 @@ impl BrepOracle {
         (low.into(), high.into())
     }
 
+    /// The plain global-minimum scan: the single patch whose `closest(query)`
+    /// reports the smallest distance, with box-distance pruning. Used by
+    /// every caller except the boundary-fit's [`project`](SolidOracle::project) —
+    /// classification (`signed_distance`/`encloses`-adjacent code) needs the
+    /// *exact* trimmed boundary's distance, not a tie-broken blend, so it goes
+    /// through this unmodified path.
     fn nearest(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar)> {
+        self.nearest_scan(query).0
+    }
+
+    /// Shared plain scan, also returning the winning patch index (test-only
+    /// consumers want it; non-test callers ignore it).
+    fn nearest_scan(
+        &self,
+        query: &Coordinate<D>,
+    ) -> (Option<(Coordinate<D>, Direction<D>, Scalar)>, Option<usize>) {
+        let (best, index, _) = self.nearest_scan_gap(query);
+        (best, index)
+    }
+
+    /// As [`nearest_scan`](Self::nearest_scan) but also reports the distance to
+    /// the *second*-nearest patch (the runner-up), or `+∞` if there is only one
+    /// candidate. Ownership carry-through uses the gap between winner and
+    /// runner-up to detect a query that sits at a near-tie between two faces —
+    /// a corner or feature junction — where freezing a single owner is unsafe.
+    fn nearest_scan_gap(
+        &self,
+        query: &Coordinate<D>,
+    ) -> (Option<(Coordinate<D>, Direction<D>, Scalar)>, Option<usize>, Scalar) {
         let point: [Scalar; D] = from_fn(|k| query[k].value());
         let mut best: Option<(Coordinate<D>, Direction<D>, Scalar)> = None;
-        for (patch, boxed) in self.patches.iter().zip(&self.boxes) {
-            // Skip a patch whose box is already farther than the best hit.
-            if best
-                .as_ref()
-                .is_some_and(|(_, _, d)| point_box_distance(point, boxed) >= *d)
-            {
+        let mut best_index: Option<usize> = None;
+        let mut runner_up = Scalar::INFINITY;
+        for (index, (patch, boxed)) in self.patches.iter().zip(&self.boxes).enumerate() {
+            // Skip a patch whose box is already farther than the runner-up:
+            // it can be neither the winner nor the runner-up.
+            if point_box_distance(point, boxed) >= runner_up {
                 continue;
             }
             let candidate = patch.closest(query);
             if best.as_ref().is_none_or(|(_, _, d)| candidate.2 < *d) {
+                if let Some((_, _, d)) = best.as_ref() {
+                    runner_up = *d;
+                }
                 best = Some(candidate);
+                best_index = Some(index);
+            } else if candidate.2 < runner_up {
+                runner_up = candidate.2;
+            }
+        }
+        (best, best_index, runner_up)
+    }
+
+    /// The nearest crease's index and the distance to it, or `None` if the
+    /// solid has no creases. Broad-phase rejects a crease whose padded AABB is
+    /// already farther than the running best.
+    fn nearest_crease(&self, query: &Coordinate<D>) -> Option<(usize, Scalar)> {
+        let point: [Scalar; D] = from_fn(|k| query[k].value());
+        let mut best: Option<(usize, Scalar)> = None;
+        for (i, crease) in self.creases.iter().enumerate() {
+            if best
+                .as_ref()
+                .is_some_and(|(_, d)| point_box_distance(point, &crease.aabb) >= *d)
+            {
+                continue;
+            }
+            for segment in crease.polyline.windows(2) {
+                let (_, distance) = closest_on_segment(&point, &segment[0], &segment[1]);
+                if best.as_ref().is_none_or(|(_, d)| distance < *d) {
+                    best = Some((i, distance));
+                }
+            }
+        }
+        best
+    }
+
+    /// Owner indices in `[patches.len(), patches.len() + creases.len())` encode
+    /// a crease target rather than a face patch, so a single `Option<usize>`
+    /// channel (see [`SolidOracle::owner`]) carries either.
+    fn is_crease_owner(&self, index: usize) -> bool {
+        index >= self.patches.len()
+    }
+
+    fn crease_index(&self, index: usize) -> usize {
+        index - self.patches.len()
+    }
+
+    fn crease_owner(&self, crease: usize) -> usize {
+        self.patches.len() + crease
+    }
+
+    /// The crease-snap target for `query`: the closest point on crease
+    /// `crease`, pulled onto the nearest corner vertex when it lands within
+    /// [`CORNER_SNAP_RADIUS`] · `patch_distance` of one (the crease ends are
+    /// multi-surface junctions that want one stable 0D target). The returned
+    /// normal points from `query` straight at the target — a crease/corner has
+    /// no single surface normal, and aiming the fit's move at the feature is
+    /// exactly the intent.
+    fn crease_target(
+        &self,
+        query: &Coordinate<D>,
+        crease: usize,
+        patch_distance: Scalar,
+    ) -> Option<(Coordinate<D>, Direction<D>)> {
+        let crease = self.creases.get(crease)?;
+        let point: [Scalar; D] = from_fn(|k| query[k].value());
+        let mut target: Option<(Coordinate<D>, Scalar)> = None;
+        for segment in crease.polyline.windows(2) {
+            let (candidate, distance) = closest_on_segment(&point, &segment[0], &segment[1]);
+            if target.as_ref().is_none_or(|(_, d)| distance < *d) {
+                target = Some((candidate, distance));
+            }
+        }
+        let (mut snapped, _) = target?;
+        let corner_reach = patch_distance * CORNER_SNAP_RADIUS;
+        let snapped_point: [Scalar; D] = from_fn(|k| snapped[k].value());
+        for corner in &self.corner_points {
+            let distance = (0..D)
+                .map(|k| (corner[k].value() - snapped_point[k]).powi(2))
+                .sum::<Scalar>()
+                .sqrt();
+            if distance <= corner_reach {
+                snapped = corner.clone();
+                break;
+            }
+        }
+        let direction: [Scalar; D] = from_fn(|k| snapped[k].value() - point[k]);
+        let norm = direction.iter().map(|v| v * v).sum::<Scalar>().sqrt();
+        let normal = if norm > 0.0 {
+            Direction::const_from(from_fn(|k| direction[k] / norm))
+        } else {
+            // Query already on the feature; any unit normal orients a zero move.
+            Direction::const_from([0.0, 0.0, 1.0])
+        };
+        Some((snapped, normal))
+    }
+
+    /// The target used by the boundary fit: the plain [`nearest`](Self::nearest)
+    /// scan, with an optional trace hook (`STEP_NEAREST_TRACE`) for catching a
+    /// live fit sweep's target-patch flips in the act. Kept a separate entry
+    /// point from [`nearest`](Self::nearest) so this fit-only diagnostic never
+    /// touches classification's exact-boundary distance.
+    ///
+    /// Note the *stability* of the target across sweeps is handled a level up,
+    /// by freezing each boundary quad's owning patch from its pre-fit centroid
+    /// (see [`owner`](SolidOracle::owner) /
+    /// [`project_owned`](SolidOracle::project_owned)) — not by tie-breaking
+    /// here, where a per-query heuristic cannot see which face the quad came
+    /// from.
+    fn nearest_for_fit(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar)> {
+        #[cfg_attr(not(test), allow(unused_variables))]
+        let (best, best_index) = self.nearest_scan(query);
+        #[cfg(test)]
+        if let Ok(spec) = std::env::var("STEP_NEAREST_TRACE") {
+            let point: [Scalar; D] = from_fn(|k| query[k].value());
+            // "x,y,z,radius": logs which patch `nearest_for_fit` picked
+            // whenever `query` falls within `radius` of the probe point, so a
+            // live fit sweep's target-patch flips can be caught in the act
+            // (not just inferred from static probes at fixed points).
+            let parts: Vec<Scalar> = spec.split(',').filter_map(|s| s.parse().ok()).collect();
+            if parts.len() == 4 {
+                let (px, py, pz, radius) = (parts[0], parts[1], parts[2], parts[3]);
+                let d2 = (point[0] - px).powi(2) + (point[1] - py).powi(2) + (point[2] - pz).powi(2);
+                if d2 <= radius * radius {
+                    let target: [Scalar; D] =
+                        best.as_ref().map_or([0.0; 3], |(p, _, _)| from_fn(|k| p[k].value()));
+                    eprintln!(
+                        "nearest-trace: query=[{:.7},{:.7},{:.7}] -> patch #{:?} dist={:.7} point=[{:.7},{:.7},{:.7}]",
+                        point[0],
+                        point[1],
+                        point[2],
+                        best_index,
+                        best.as_ref().map_or(Scalar::NAN, |(_, _, d)| *d),
+                        target[0],
+                        target[1],
+                        target[2],
+                    );
+                }
             }
         }
         best
@@ -790,7 +1014,7 @@ impl BrepOracle {
     pub fn ray_distance(&self, origin: &Coordinate<D>, direction: [Scalar; D]) -> Option<Scalar> {
         let origin: [Scalar; D] = from_fn(|k| origin[k].value());
         self.ray_candidates(origin, direction)
-            .flat_map(|patch| patch.ray_hits(origin, direction).0)
+            .flat_map(|patch| patch.ray_hits(origin, direction, 0.0).0)
             .filter(|&t| t > 1.0e-9)
             .fold(None, |best, t| Some(best.map_or(t, |b: Scalar| b.min(t))))
     }
@@ -808,7 +1032,7 @@ impl BrepOracle {
         let graze = self.distance(query).max(1.0e-9) * 1.0e-3;
         let nearest_along = |direction: [Scalar; D]| {
             self.ray_candidates(origin, direction)
-                .flat_map(|patch| patch.ray_hits(origin, direction).0)
+                .flat_map(|patch| patch.ray_hits(origin, direction, 0.0).0)
                 .filter(|&t| t > graze)
                 .fold(Scalar::INFINITY, Scalar::min)
         };
@@ -822,6 +1046,18 @@ impl BrepOracle {
             .into_iter()
             .map(|direction| nearest_along(direction) + nearest_along(from_fn(|k| -direction[k])))
             .fold(Scalar::INFINITY, Scalar::min)
+    }
+
+    /// The owner index the boundary fit now freezes for `query`, and the target
+    /// point it projects onto. The index is the encoded owner: a face patch when
+    /// `< patches.len()`, else a crease (see [`crease_owner`](Self::crease_owner));
+    /// `None` where no owner is frozen (the free global-nearest target is used).
+    /// A probe for the ownership the fit carries per boundary quad.
+    #[cfg(test)]
+    pub(crate) fn fit_target(&self, query: &Coordinate<D>) -> Option<(usize, [Scalar; D])> {
+        let index = self.owner(query)?;
+        let (point, _) = self.project_owned(query, Some(index))?;
+        Some((index, from_fn(|k| point[k].value())))
     }
 
     /// Every ray hit along `direction` from `query`, as `(patch index, kind,
@@ -841,7 +1077,7 @@ impl BrepOracle {
             .filter(|(_, boxed)| ray_hits_box(origin, direction, boxed))
             .flat_map(|((index, patch), _)| {
                 patch
-                    .ray_hits(origin, direction)
+                    .ray_hits(origin, direction, 0.0)
                     .0
                     .into_iter()
                     .map(move |t| (index, patch_kind(patch), t))
@@ -851,21 +1087,50 @@ impl BrepOracle {
         rows
     }
 
-    /// Every patch's `(surface type, distance, closest point, outward normal)`
-    /// for `query`, nearest first — a probe for why a query picks the face it
-    /// does.
+    /// Every ray hit along `direction` from `query`, as `(patch index, kind,
+    /// t, grazed)` at the given world-space graze `floor`, sorted by `t` — a
+    /// probe for which crossings the parity test flags degenerate.
+    #[cfg(test)]
+    pub(crate) fn ray_report_grazed(
+        &self,
+        query: &Coordinate<D>,
+        direction: [Scalar; D],
+        floor: Scalar,
+    ) -> Vec<(usize, &'static str, Scalar, bool)> {
+        let origin: [Scalar; D] = from_fn(|k| query[k].value());
+        let mut rows: Vec<_> = self
+            .patches
+            .iter()
+            .enumerate()
+            .zip(&self.boxes)
+            .filter(|(_, boxed)| ray_hits_box(origin, direction, boxed))
+            .flat_map(|((index, patch), _)| {
+                let (hits, grazed) = patch.ray_hits(origin, direction, floor);
+                hits.into_iter()
+                    .map(move |t| (index, patch_kind(patch), t, grazed))
+            })
+            .collect();
+        rows.sort_by(|a, b| a.2.total_cmp(&b.2));
+        rows
+    }
+
+    /// Every patch's `(patch index, surface type, distance, closest point,
+    /// outward normal)` for `query`, nearest first — a probe for why a query
+    /// picks the face it does.
     #[cfg(test)]
     pub(crate) fn patch_report(
         &self,
         query: &Coordinate<D>,
-    ) -> Vec<(&'static str, Scalar, [Scalar; D], [Scalar; D])> {
+    ) -> Vec<(usize, &'static str, Scalar, [Scalar; D], [Scalar; D])> {
         let mut rows: Vec<_> = self
             .patches
             .iter()
-            .map(|patch| {
+            .enumerate()
+            .map(|(index, patch)| {
                 let kind = patch_kind(patch);
                 let (point, normal, distance) = patch.closest(query);
                 (
+                    index,
                     kind,
                     distance,
                     from_fn(|k| point[k].value()),
@@ -873,78 +1138,314 @@ impl BrepOracle {
                 )
             })
             .collect();
-        rows.sort_by(|a, b| a.1.total_cmp(&b.1));
+        rows.sort_by(|a, b| a.2.total_cmp(&b.2));
         rows
     }
+
+    /// [`Self::nearest`]'s own answer, plus for comparison the box-distance
+    /// lower bound and index of every patch — a probe for whether the
+    /// broad-phase box culling in [`Self::nearest`] is skipping a patch whose
+    /// true closest point beats the one it settles on.
+    #[cfg(test)]
+    pub(crate) fn nearest_report(
+        &self,
+        query: &Coordinate<D>,
+    ) -> (Option<(Scalar, [Scalar; D])>, Vec<(usize, &'static str, Scalar)>) {
+        let point: [Scalar; D] = from_fn(|k| query[k].value());
+        let nearest = self
+            .nearest(query)
+            .map(|(p, _, d)| (d, from_fn(|k| p[k].value())));
+        let boxes: Vec<_> = self
+            .patches
+            .iter()
+            .enumerate()
+            .zip(&self.boxes)
+            .map(|((index, patch), boxed)| {
+                (index, patch_kind(patch), point_box_distance(point, boxed))
+            })
+            .collect();
+        (nearest, boxes)
+    }
+
 }
 
-/// Three fixed ray directions with pairwise-irrational-ish components, so a
-/// ray is unlikely to graze an edge or lie in a face for all three at once.
-const RAY_DIRECTIONS: [[Scalar; D]; 3] = [
-    [0.862_667, 0.411_988, 0.291_536],
+/// Three fixed ray directions with pairwise-irrational-ish components, tried
+/// first because they are clean for almost every query and keep classification
+/// a deterministic, thread-independent function of the point. When all three
+/// are degenerate — a ray grazing an edge, threading a vertex, or lying in a
+/// face — [`encloses`](BrepOracle::encloses) falls through to random
+/// resampling.
+/// Ownership carry-through freezes a boundary quad's owning patch only when
+/// that patch is *decisively* the nearest at inflation time: the runner-up
+/// patch must be at least this fraction farther. Below the margin the quad
+/// sits at a near-tie between two faces (a crease terminus or feature
+/// junction), where pinning either owner inverts the corner element; there the
+/// owner is left unfrozen and the fit uses its free global-nearest target.
+const OWNER_GAP: Scalar = 0.10;
+
+/// A boundary quad whose pre-fit centroid lies within this multiple of its
+/// nearest-patch distance of a crease polyline is snapped onto that crease (a
+/// 1D target) instead of frozen to a single face. Kept small so only the one
+/// ring of nodes sitting *on* the seam snaps — a wider reach bunches
+/// off-crease nodes onto the line and elongates the rows perpendicular to it.
+/// Off-seam quads keep their face-carry target, which grades cleanly.
+const CREASE_SNAP_RADIUS: Scalar = 1.5;
+
+/// A crease snap landing within this multiple of its nearest-patch distance of
+/// a corner vertex is pulled onto that corner exactly — the multi-surface
+/// junctions at a crease's ends need one stable 0D target, not a point sliding
+/// along the curve.
+const CORNER_SNAP_RADIUS: Scalar = 0.75;
+
+const RAY_DIRECTIONS: [[Scalar; D]; 3] = [    [0.862_667, 0.411_988, 0.291_536],
     [0.301_511, 0.904_534, 0.301_511],
     [0.334_412, 0.243_975, 0.910_367],
 ];
 
+/// How many random rays to try before giving up and taking the majority of
+/// whatever (degenerate) counts we saw. A clean ray misses every edge and
+/// vertex with probability one, so this is only ever exhausted in pathological
+/// cases; the cap just bounds the worst case.
+const MAX_RAY_TRIES: usize = 24;
+
+/// How many *clean* rays must agree (by majority) before `encloses` returns.
+/// Polling several directions rather than trusting the first outvotes a lone
+/// direction that miscounts a convex corner where exact faces meet. Odd so a
+/// strict majority is always decisive.
+const AGREEMENT_RAYS: usize = 5;
+
 impl BrepOracle {
     /// Whether `query` is inside the solid, by ray parity against the exact
     /// trimmed faces (OCCT's `BRepClass3d_SolidClassifier` approach): count the
-    /// crossings of a ray from `query`; odd is inside. A ray that grazes an
-    /// edge — two hits at the same parameter — is discarded and the next
-    /// direction tried.
+    /// crossings of a ray from `query`; odd is inside.
+    ///
+    /// Two layers of robustness. First, a *degenerate* ray is never interpreted:
+    /// one that starts on the surface, grazes a patch's trim boundary, or has
+    /// two crossings closer than the feature scale (a shared edge) casts no
+    /// vote. Second — because a ray can still miscount cleanly, e.g. threading a
+    /// convex corner where several exact faces meet so an exterior point counts
+    /// odd — we do not trust a single ray: we poll several clean directions
+    /// (three fixed first, then random directions seeded by the query for
+    /// determinism) and take their majority. A lone miscounting direction is
+    /// then outvoted by the ones that see the corner truly.
     fn encloses(&self, query: &Coordinate<D>) -> bool {
         let origin: [Scalar; D] = from_fn(|k| query[k].value());
         let (low, high) = self.bounds();
-        let graze = (0..D)
+        let extent = (0..D)
             .map(|k| high[k].value() - low[k].value())
-            .fold(0.0, Scalar::max)
-            * 1.0e-7;
-        let mut votes = 0i32;
-        for direction in RAY_DIRECTIONS {
-            // A ray landing within a patch's trim tolerance of its boundary
-            // has no reliable side: the neighbour approximating that same edge
-            // may claim it too, or neither may. Treat the whole direction as
-            // ambiguous and let another one settle the parity.
-            let mut grazed = false;
-            let mut hits: Vec<Scalar> = self
-                .ray_candidates(origin, direction)
-                .flat_map(|patch| {
-                    let (hits, graze) = patch.ray_hits(origin, direction);
-                    grazed |= graze;
-                    hits
-                })
-                .collect();
-            hits.sort_by(Scalar::total_cmp);
-            if hits.first().is_some_and(|&t| t < graze) {
-                return true; // on the surface
+            .fold(0.0, Scalar::max);
+        // On-surface tolerance: a first hit this close means the point sits on
+        // the boundary. Kept tight so a genuine thin wall is not swallowed.
+        let surface = extent * 1.0e-7;
+        // Two crossings closer than this in world distance are treated as one
+        // near-degenerate event (a shared edge or a corner threaded by the
+        // ray), which makes the whole ray unclean. This only ever triggers a
+        // resample, never a miscount, so it can be comfortably larger than the
+        // exact-coincidence tolerance without risking a real thin feature.
+        let coincident = extent * 1.0e-4;
+
+        // Robustness by *agreement*, not by trusting a single ray. A convex
+        // corner where several exact faces meet can hand one ray a clean-looking
+        // but wrong parity (each incident face reports its own crossing, so an
+        // exterior point counts odd). A different direction misses that corner
+        // and counts right. So we poll several clean rays and take the majority
+        // rather than returning on the first: the lone miscounting direction is
+        // outvoted by the ones that see the corner truly. Only rays that are
+        // themselves clean (not on-surface / grazing / near-coincident) vote.
+        let mut rng = Rng::seeded(origin);
+        let mut inside_votes = 0usize;
+        let mut clean = 0usize;
+
+        // The three fixed directions first (clean for almost every point and
+        // deterministic), then random directions seeded by the query, until
+        // enough clean rays have voted to make a lone corner-miscount a clear
+        // minority — or the retry budget is spent.
+        let mut tries = 0;
+        while clean < AGREEMENT_RAYS && tries < RAY_DIRECTIONS.len() + MAX_RAY_TRIES {
+            let direction = if tries < RAY_DIRECTIONS.len() {
+                RAY_DIRECTIONS[tries]
+            } else {
+                rng.unit_direction()
+            };
+            tries += 1;
+            if let Some(inside) = self.ray_parity(origin, direction, surface, coincident) {
+                clean += 1;
+                inside_votes += inside as usize;
             }
-            let mut crossings = 0usize;
-            let mut ambiguous = grazed;
-            let mut previous = Scalar::NEG_INFINITY;
-            for &t in &hits {
-                if t - previous < graze {
-                    ambiguous = true; // grazed a shared edge or vertex
-                } else {
-                    crossings += 1;
-                    previous = t;
-                }
-            }
-            let parity = crossings % 2 == 1;
-            if !ambiguous {
-                return parity;
-            }
-            votes += if parity { 1 } else { -1 };
         }
-        // Every direction grazed an edge; take the majority of their counts
-        // rather than an arbitrary one.
-        votes > 0
+
+        // No clean ray at all (a point pinned on the surface or in a sliver):
+        // magnitude is ~0 there and the sign rarely matters, so treat as out.
+        // Otherwise the strict majority of the clean rays.
+        clean > 0 && 2 * inside_votes > clean
+    }
+
+    /// Parity of one ray. `Some(inside)` when the ray is clean; `None` when it
+    /// is degenerate (on-surface, grazing, or corner-threading) and casts no
+    /// vote.
+    fn ray_parity(
+        &self,
+        origin: [Scalar; D],
+        direction: [Scalar; D],
+        surface: Scalar,
+        coincident: Scalar,
+    ) -> Option<bool> {
+        let mut grazed = false;
+        let mut hits: Vec<Scalar> = self
+            .ray_candidates(origin, direction)
+            .flat_map(|patch| {
+                // floor 0: the graze band is the patch's own chord tolerance
+                // (nonzero only for approximated edges). Corner-threading is
+                // caught by ray *agreement* in `encloses`, not by a boundary
+                // band, so no world-space floor is needed here.
+                let (hits, graze) = patch.ray_hits(origin, direction, 0.0);
+                grazed |= graze;
+                hits
+            })
+            .collect();
+        hits.sort_by(Scalar::total_cmp);
+        if hits.first().is_some_and(|&t| t < surface) {
+            return Some(true); // on the surface — an exact, clean answer
+        }
+        // Count crossings, flagging any pair closer than the feature scale as a
+        // degenerate near-coincidence (a shared edge or a corner the ray
+        // threads, incident faces each reporting their own hit).
+        let mut crossings = 0usize;
+        let mut degenerate = grazed;
+        let mut previous = Scalar::NEG_INFINITY;
+        for &t in &hits {
+            if t - previous < coincident {
+                degenerate = true;
+            } else {
+                crossings += 1;
+                previous = t;
+            }
+        }
+        if degenerate {
+            None
+        } else {
+            Some(crossings % 2 == 1)
+        }
+    }
+}
+
+/// A tiny xorshift64* generator seeded deterministically from a query point, so
+/// [`encloses`](BrepOracle::encloses)'s random ray directions are reproducible
+/// for a given point and independent of thread timing.
+struct Rng(u64);
+
+impl Rng {
+    fn seeded(origin: [Scalar; D]) -> Self {
+        // Mix the point's bit pattern into a non-zero seed.
+        let mut s: u64 = 0x9E37_79B9_7F4A_7C15;
+        for value in origin {
+            s ^= value.to_bits();
+            s = s.wrapping_mul(0x1000_0000_1B3);
+        }
+        Self(s | 1)
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        let mut s = self.0;
+        s ^= s >> 12;
+        s ^= s << 25;
+        s ^= s >> 27;
+        self.0 = s;
+        s.wrapping_mul(0x2545_F491_4F6C_DD1D)
+    }
+
+    fn uniform(&mut self) -> Scalar {
+        (self.next_u64() >> 11) as Scalar * (1.0 / ((1u64 << 53) as Scalar))
+    }
+
+    /// A random unit vector, roughly uniform on the sphere (Marsaglia).
+    fn unit_direction(&mut self) -> [Scalar; D] {
+        loop {
+            let a = 2.0 * self.uniform() - 1.0;
+            let b = 2.0 * self.uniform() - 1.0;
+            let s = a * a + b * b;
+            if s > 0.0 && s < 1.0 {
+                let factor = 2.0 * (1.0 - s).sqrt();
+                return [a * factor, b * factor, 1.0 - 2.0 * s];
+            }
+        }
     }
 }
 
 impl SolidOracle for BrepOracle {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
-        self.nearest(query)
+        self.nearest_for_fit(query)
             .map(|(point, normal, _)| (point, normal))
+    }
+    /// The frozen target for a boundary quad, from its pre-fit centroid. A quad
+    /// straddling a crease is owned by that crease (a 1D target that cannot flip
+    /// between the two faces meeting along it); otherwise its owning face, but
+    /// only where that face is decisively nearest — at a near-tie the owner is
+    /// left free (see below). Crease owners are index-encoded above the patch
+    /// range (see [`crease_owner`](Self::crease_owner)).
+    fn owner(&self, query: &Coordinate<D>) -> Option<usize> {
+        // TEMPORARY diagnostic gate: disables ownership carry-through so a true
+        // pre-fix baseline can be regenerated under identical bucketing. Remove
+        // once the carry-through fix is signed off.
+        if std::env::var("STEP_DISABLE_OWNER_CARRY").is_ok() {
+            return None;
+        }
+        let (best, index, runner_up) = self.nearest_scan_gap(query);
+        let best_distance = best.map(|(_, _, d)| d)?;
+        // A quad whose centroid sits within CREASE_SNAP_RADIUS · (its nearest
+        // patch distance) of a crease straddles that crease. Snap it onto the
+        // crease's 1D polyline: the two faces meeting there can no longer trade
+        // the target between them under microns of node motion, which is what
+        // tangled the whole crease and its ends. This is checked first, before
+        // any face freeze, because the crease-adjacent quads are exactly the
+        // near-tie cases the face path cannot stabilise.
+        if let Some((crease, crease_distance)) = self.nearest_crease(query) {
+            if crease_distance <= best_distance * CREASE_SNAP_RADIUS {
+                return Some(self.crease_owner(crease));
+            }
+        }
+        // Freeze a face owner only where it is unambiguous. At inflation a quad
+        // sits squarely against its own wall, so if that wall is decisively the
+        // nearest patch the owner is safe to freeze. At a near-tie not caught by
+        // the crease snap (e.g. a smooth thin wall), decline to freeze and let
+        // `project_owned` fall through to the free global-nearest target.
+        if runner_up.is_finite() && runner_up < best_distance * (1.0 + OWNER_GAP) {
+            return None;
+        }
+        index
+    }
+
+    /// The frozen target's closest point: the crease/corner snap for a crease
+    /// owner, else the closest point on the owning face patch. Falls back to the
+    /// free target when there is no owner (a quad the tessellation-style path
+    /// left unowned) or — defensively — if a frozen index is out of range.
+    fn project_owned(
+        &self,
+        query: &Coordinate<D>,
+        owner: Option<usize>,
+    ) -> Option<(Coordinate<D>, Direction<D>)> {
+        let Some(index) = owner else {
+            return self.project(query);
+        };
+        if self.is_crease_owner(index) {
+            // Corner-snap reach scales with the local cell size, taken from the
+            // nearest patch distance (the crease line runs one layer off the
+            // walls, so that distance tracks the boundary-layer thickness).
+            let patch_distance = self
+                .nearest_scan_gap(query)
+                .0
+                .map_or(Scalar::INFINITY, |(_, _, d)| d);
+            return self
+                .crease_target(query, self.crease_index(index), patch_distance)
+                .or_else(|| self.project(query));
+        }
+        match self.patches.get(index) {
+            Some(patch) => {
+                let (point, normal, _) = patch.closest(query);
+                Some((point, normal))
+            }
+            None => self.project(query),
+        }
     }
 
     /// Magnitude is the distance to the nearest trimmed face; the sign is the
@@ -1017,6 +1518,28 @@ fn point_box_distance(point: [Scalar; D], (low, high): &([Scalar; D], [Scalar; D
         .map(|k| (low[k] - point[k]).max(point[k] - high[k]).max(0.0).powi(2))
         .sum::<Scalar>()
         .sqrt()
+}
+
+/// The closest point on the segment `a`-`b` to `point`, and its distance.
+fn closest_on_segment(
+    point: &[Scalar; D],
+    a: &Coordinate<D>,
+    b: &Coordinate<D>,
+) -> (Coordinate<D>, Scalar) {
+    let ab: [Scalar; D] = from_fn(|k| b[k].value() - a[k].value());
+    let ap: [Scalar; D] = from_fn(|k| point[k] - a[k].value());
+    let span = (0..D).map(|k| ab[k] * ab[k]).sum::<Scalar>();
+    let t = if span > 0.0 {
+        ((0..D).map(|k| ap[k] * ab[k]).sum::<Scalar>() / span).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let closest: [Scalar; D] = from_fn(|k| a[k].value() + t * ab[k]);
+    let distance = (0..D)
+        .map(|k| (point[k] - closest[k]).powi(2))
+        .sum::<Scalar>()
+        .sqrt();
+    (Coordinate::from(closest), distance)
 }
 
 /// The `[low, high]` span of `points` projected onto `axis` from `origin`.

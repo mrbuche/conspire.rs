@@ -62,6 +62,30 @@ pub trait SolidOracle: Sync {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)>;
     /// Signed distance from `query` to the surface, positive inside the solid.
     fn signed_distance(&self, query: &Coordinate<D>) -> Scalar;
+
+    /// An opaque token naming the surface component nearest `query`, so the
+    /// boundary fit can freeze a boundary quad's owning face from its pre-fit
+    /// centroid and never re-associate it as the quad moves. The default
+    /// (`None`) opts out — an oracle with no discrete components is fit with
+    /// the free [`project`](Self::project) as before.
+    fn owner(&self, query: &Coordinate<D>) -> Option<usize> {
+        let _ = query;
+        None
+    }
+
+    /// The closest point on the specific component named by `owner` (or the
+    /// free [`project`](Self::project) when `owner` is `None`). Constraining to
+    /// the quad's frozen owner is what stops a boundary node being pulled
+    /// through its own wall onto an unrelated nearby surface. The default
+    /// ignores `owner`.
+    fn project_owned(
+        &self,
+        query: &Coordinate<D>,
+        owner: Option<usize>,
+    ) -> Option<(Coordinate<D>, Direction<D>)> {
+        let _ = owner;
+        self.project(query)
+    }
 }
 
 /// `oracle.signed_distance` at every coordinate, evaluated across threads
@@ -340,6 +364,16 @@ struct Fit<'a, O>(&'a O);
 impl<O: SolidOracle> Oracle for Fit<'_, O> {
     fn project(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>)> {
         self.0.project(query)
+    }
+    fn owner(&self, query: &Coordinate<D>) -> Option<usize> {
+        self.0.owner(query)
+    }
+    fn project_owned(
+        &self,
+        query: &Coordinate<D>,
+        owner: Option<usize>,
+    ) -> Option<(Coordinate<D>, Direction<D>)> {
+        self.0.project_owned(query, owner)
     }
 }
 

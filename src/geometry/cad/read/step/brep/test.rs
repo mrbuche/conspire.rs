@@ -1174,9 +1174,10 @@ fn probe_signed_distance_sign() {
                 continue;
             }
             let p = crate::geometry::Coordinate::from([c[0], c[1], c[2]]);
-            let (kind, d, pt, n) = oracle.patch_report(&p).into_iter().next().unwrap();
+            let report = oracle.patch_report(&p);
+            let (_, kind, d, pt, n) = report.iter().next().cloned().unwrap();
             eprintln!(
-                "probe {c:?}: sd={:.5} local_diameter={:.5}  nearest {kind} d={d:.5} at [{:.4},{:.4},{:.4}] n=[{:.2},{:.2},{:.2}]",
+                "probe {c:?}: sd={:.7} local_diameter={:.7}  nearest {kind} d={d:.7} at [{:.6},{:.6},{:.6}] n=[{:.4},{:.4},{:.4}]",
                 oracle.signed_distance(&p),
                 oracle.local_diameter(&p),
                 pt[0],
@@ -1186,6 +1187,12 @@ fn probe_signed_distance_sign() {
                 n[1],
                 n[2],
             );
+            for (index, kind, dist, point, normal) in report.iter().take(6) {
+                eprintln!(
+                    "    patch #{index:<3} [{kind:<8}] dist {dist:.7} at [{:.6},{:.6},{:.6}] n=[{:.4},{:.4},{:.4}]",
+                    point[0], point[1], point[2], normal[0], normal[1], normal[2],
+                );
+            }
         }
     }
 
@@ -2024,4 +2031,1463 @@ fn corpus_mesh_snapshot() {
     }
     report.push_str(&format!("\n{} files\n", files.len()));
     check_snapshot("corpus_mesh.txt", &report);
+}
+
+/// Meshes the `STEP_MESH_FILE` solid with the same feature-sizing knobs as
+/// `probe_mesh_real_file` (`STEP_MESH_MIN`/`_CELL`/`_SEGMENTS`/`_GRADATION`/
+/// `_PROXIMITY`/`_CURVATURE`, plus `STEP_MESH_CREASE`+`STEP_MESH_CREASE_CELLS`)
+/// then prints **where** the poor hexes are: every element whose minimum
+/// scaled Jacobian is at or below `STEP_INVERT_SJ` (default 0.0 -> only
+/// inverted), reported as a centroid and edge scale, followed by the bounding
+/// box of that set. If the tangle is a buffer-fit inversion on a specific
+/// micro-feature, the bad hexes cluster there; a reader/reconstruction bug
+/// would smear them across the whole face instead.
+#[test]
+#[ignore = "locates inverted hexes for STEP_MESH_FILE (SJ <= STEP_INVERT_SJ)"]
+fn probe_inverted_hexes() {
+    use crate::{
+        geometry::{
+            cad::sizing::FeatureSizing,
+            mesh::{Connectivity, Fitting, Verdict},
+            ntree::Balancing,
+            solid::Solid,
+        },
+        math::Quantity,
+        units::Length,
+    };
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let length = |v| Quantity::<Length>::new(v);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    let levels = std::env::var("STEP_MESH_LEVELS")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let maximum =
+        (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none")).then(|| length(cell));
+    let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
+        Ok("none") => None,
+        Ok(v) => Some(v.parse().expect("STEP_MESH_GRADATION")),
+        Err(_) => Some(0.2),
+    };
+    let threshold = env_f64("STEP_INVERT_SJ", 0.0);
+
+    for (index, brep) in breps.iter().enumerate() {
+        eprintln!("--- solid {index}: {} faces ---", brep.faces.len());
+        let mut sizing = FeatureSizing::of(
+            brep,
+            env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
+            length(env_f64("STEP_MESH_MIN", cell / 8.0)),
+            maximum,
+            gradation,
+        );
+        if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+            sizing = sizing
+                .with_proximity(brep, n.parse().expect("STEP_MESH_PROXIMITY"))
+                .expect("with_proximity");
+        }
+        if let Ok(n) = std::env::var("STEP_MESH_CURVATURE") {
+            sizing = sizing
+                .with_curvature(brep, n.parse().expect("STEP_MESH_CURVATURE"))
+                .expect("with_curvature");
+        }
+        if let Ok(r) = std::env::var("STEP_MESH_CREASE") {
+            let cells = std::env::var("STEP_MESH_CREASE_CELLS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1);
+            let hops = std::env::var("STEP_MESH_CREASE_HOPS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1);
+            sizing = sizing
+                .with_crease_proximity(brep, length(r.parse().expect("STEP_MESH_CREASE")), cells, hops)
+                .expect("with_crease_proximity");
+        }
+        let mesh = brep
+            .mesh(&sizing, levels, 0.1, Balancing::Strong(1), Fitting::Soft)
+            .expect("mesh failed");
+        let coords = mesh.coordinates();
+        let sj = mesh.minimum_scaled_jacobians();
+        let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
+            eprintln!("  not a single hex block");
+            continue;
+        };
+        let mut bad = 0usize;
+        let mut low = [f64::INFINITY; 3];
+        let mut high = [f64::NEG_INFINITY; 3];
+        let mut worst = f64::INFINITY;
+        let mut worst_c = [0.0; 3];
+        let bin = env_f64("STEP_INVERT_BIN", 2.0e-4);
+        let mut bins: std::collections::HashMap<[i64; 3], (usize, [f64; 3], f64)> =
+            std::collections::HashMap::new();
+        for (element, hex) in block.iter().enumerate() {
+            let j = sj[0][element];
+            worst = worst.min(j);
+            if !(j <= threshold) {
+                continue;
+            }
+            bad += 1;
+            let centroid: [f64; 3] = std::array::from_fn(|k| {
+                hex.iter().map(|&n| coords[n][k].value()).sum::<f64>() / 8.0
+            });
+            for k in 0..3 {
+                low[k] = low[k].min(centroid[k]);
+                high[k] = high[k].max(centroid[k]);
+            }
+            let key = std::array::from_fn(|k| (centroid[k] / bin).floor() as i64);
+            let entry = bins.entry(key).or_insert((0, [0.0; 3], 0.0));
+            entry.0 += 1;
+            for k in 0..3 {
+                entry.1[k] += centroid[k];
+            }
+            entry.2 = entry.2.min(j);
+            // Edge scale: mean of the three axis spans of the hex's nodes.
+            let (mut elo, mut ehi) = ([f64::INFINITY; 3], [f64::NEG_INFINITY; 3]);
+            for &n in hex.iter() {
+                for k in 0..3 {
+                    elo[k] = elo[k].min(coords[n][k].value());
+                    ehi[k] = ehi[k].max(coords[n][k].value());
+                }
+            }
+            let scale = (0..3).map(|k| ehi[k] - elo[k]).sum::<f64>() / 3.0;
+            if j <= worst + 1e-12 {
+                worst_c = centroid;
+            }
+            if bad <= env_f64("STEP_INVERT_LIST", 40.0) as usize {
+                eprintln!(
+                    "  bad hex: SJ {j:+.4}  centroid [{:.5} {:.5} {:.5}]  edge ~{scale:.6}",
+                    centroid[0], centroid[1], centroid[2],
+                );
+            }
+        }
+        eprintln!(
+            "  {bad} / {} hexes with SJ <= {threshold}; worst SJ {worst:.4} near [{:.5} {:.5} {:.5}]",
+            mesh.number_of_elements(),
+            worst_c[0], worst_c[1], worst_c[2],
+        );
+        if bad > 0 {
+            eprintln!(
+                "  bad-hex centroid bbox: x [{:.5} {:.5}]  y [{:.5} {:.5}]  z [{:.5} {:.5}]",
+                low[0], high[0], low[1], high[1], low[2], high[2],
+            );
+            let mut clusters: Vec<_> = bins
+                .values()
+                .map(|(n, sum, wj)| {
+                    (*n, std::array::from_fn::<f64, 3, _>(|k| sum[k] / *n as f64), *wj)
+                })
+                .collect();
+            clusters.sort_by(|a, b| b.0.cmp(&a.0));
+            eprintln!("  fold clusters (bin {bin:.0e}m):");
+            for (n, c, wj) in clusters.iter().take(10) {
+                eprintln!(
+                    "      {n:4} bad near [{:.5} {:.5} {:.5}]  worst SJ {wj:+.3}",
+                    c[0], c[1], c[2]
+                );
+            }
+        }
+    }
+}
+
+/// Global hole census on the **pre-fit** trimmed mesh (`brep.trim`). A "hole" is
+/// a boundary face of the kept mesh (a face owned by exactly one kept cell)
+/// whose centroid sits strictly **inside** the solid (signed distance
+/// `> STEP_HOLE_DEPTH`, default 25um) — a face that should have had a neighbour
+/// cell but doesn't, i.e. a missing element. Scans the whole mesh and bins the
+/// offending faces into clusters (`STEP_HOLE_BIN`, default 5e-4 m). For the
+/// deepest hole it dumps the oracle's ray-parity per direction so a classifier
+/// false-`Outside` (the flip-side risk of the spur agreement-voting fix) is
+/// visible as a should-be-inside point the vote dropped.
+#[test]
+#[ignore = "global interior-hole census on the trimmed mesh for STEP_MESH_FILE"]
+fn probe_holes() {
+    use crate::{
+        geometry::{
+            Coordinate,
+            cad::sizing::FeatureSizing,
+            mesh::Connectivity,
+            ntree::Balancing,
+            solid::{Solid, SolidOracle},
+        },
+        math::Quantity,
+        units::Length,
+    };
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let length = |v| Quantity::<Length>::new(v);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    let levels = std::env::var("STEP_MESH_LEVELS")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let maximum =
+        (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none")).then(|| length(cell));
+    let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
+        Ok("none") => None,
+        Ok(v) => Some(v.parse().expect("STEP_MESH_GRADATION")),
+        Err(_) => Some(0.2),
+    };
+    let depth = env_f64("STEP_HOLE_DEPTH", 2.5e-5);
+    let bin = env_f64("STEP_HOLE_BIN", 5.0e-4);
+
+    for (index, brep) in breps.iter().enumerate() {
+        eprintln!("--- solid {index}: {} faces ---", brep.faces.len());
+        let mut sizing = FeatureSizing::of(
+            brep,
+            env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
+            length(env_f64("STEP_MESH_MIN", cell / 8.0)),
+            maximum,
+            gradation,
+        );
+        if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+            sizing = sizing.with_proximity(brep, n.parse().unwrap()).unwrap();
+        }
+        if let Ok(n) = std::env::var("STEP_MESH_CURVATURE") {
+            sizing = sizing.with_curvature(brep, n.parse().unwrap()).unwrap();
+        }
+
+        let (mesh, _) = brep
+            .trim(&sizing, levels, 0.1, Balancing::Strong(1))
+            .expect("trim failed");
+        let coords = mesh.coordinates();
+        let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
+            eprintln!("  not a single hex block");
+            continue;
+        };
+        let oracle = brep.oracle().expect("oracle");
+
+        const FACES: [[usize; 4]; 6] = [
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [0, 1, 5, 4],
+            [1, 2, 6, 5],
+            [2, 3, 7, 6],
+            [3, 0, 4, 7],
+        ];
+        // Count owners per face so boundary faces (exactly one owner) are known.
+        let mut face_count: std::collections::HashMap<[usize; 4], usize> =
+            std::collections::HashMap::new();
+        for hex in block.iter() {
+            for f in FACES {
+                let mut key = [hex[f[0]], hex[f[1]], hex[f[2]], hex[f[3]]];
+                key.sort_unstable();
+                *face_count.entry(key).or_insert(0) += 1;
+            }
+        }
+
+        // Scan boundary faces; a hole face has its centroid strictly inside.
+        let mut holes = 0usize;
+        let mut bins: std::collections::HashMap<[i64; 3], (usize, [f64; 3], f64)> =
+            std::collections::HashMap::new();
+        let mut deepest = (0.0f64, [0.0f64; 3]);
+        for hex in block.iter() {
+            for f in FACES {
+                let mut key = [hex[f[0]], hex[f[1]], hex[f[2]], hex[f[3]]];
+                key.sort_unstable();
+                if face_count.get(&key).copied().unwrap_or(0) != 1 {
+                    continue;
+                }
+                let fc: [f64; 3] = std::array::from_fn(|k| {
+                    f.iter().map(|&i| coords[hex[i]][k].value()).sum::<f64>() / 4.0
+                });
+                let sd = oracle.signed_distance(&Coordinate::from(fc));
+                if sd <= depth {
+                    continue; // on/near the true boundary -> legitimate face
+                }
+                holes += 1;
+                let b = std::array::from_fn(|k| (fc[k] / bin).floor() as i64);
+                let e = bins.entry(b).or_insert((0, [0.0; 3], 0.0));
+                e.0 += 1;
+                for k in 0..3 {
+                    e.1[k] += fc[k];
+                }
+                e.2 = e.2.max(sd);
+                if sd > deepest.0 {
+                    deepest = (sd, fc);
+                }
+            }
+        }
+        eprintln!(
+            "  {holes} interior-hole faces (centroid inside by > {depth:.1e} m) over {} kept cells",
+            mesh.number_of_elements()
+        );
+        if holes == 0 {
+            continue;
+        }
+        let mut clusters: Vec<_> = bins
+            .values()
+            .map(|(n, s, d)| (*n, std::array::from_fn::<f64, 3, _>(|k| s[k] / *n as f64), *d))
+            .collect();
+        clusters.sort_by(|a, b| b.0.cmp(&a.0));
+        eprintln!("  hole clusters (bin {bin:.0e} m):");
+        for (n, c, d) in clusters.iter().take(12) {
+            eprintln!(
+                "      {n:5} faces near [{:.5} {:.5} {:.5}]  deepest inside {d:.6}",
+                c[0], c[1], c[2]
+            );
+        }
+        eprintln!(
+            "  deepest hole face at [{:.5} {:.5} {:.5}], inside by {:.6}",
+            deepest.1[0], deepest.1[1], deepest.1[2], deepest.0
+        );
+        // Probe the oracle right at the deepest hole: is a should-be-inside
+        // point being classified Outside by the ray-parity vote? Dump the per-
+        // direction crossing parity for the three fixed directions; an even
+        // (outside) parity here on a point the SDF says is inside is a
+        // classifier false-`Outside`.
+        let p = Coordinate::from(deepest.1);
+        eprintln!(
+            "  oracle at deepest hole: signed {:.9} distance {:.9} (positive => inside) p=[{:.9} {:.9} {:.9}]",
+            oracle.signed_distance(&p),
+            oracle.distance(&p),
+            deepest.1[0], deepest.1[1], deepest.1[2],
+        );
+        let dirs = [
+            [0.862_667, 0.411_988, 0.291_536],
+            [0.301_511, 0.904_534, 0.301_511],
+            [0.334_412, 0.243_975, 0.910_367],
+        ];
+        for dir in dirs {
+            let report = oracle.ray_report(&p, dir);
+            eprintln!(
+                "    dir {dir:?}: {} hits (parity {} => {})",
+                report.len(),
+                report.len() % 2,
+                if report.len() % 2 == 1 { "inside" } else { "outside" },
+            );
+            for (patch, kind, t) in &report {
+                eprintln!("        patch #{patch} [{kind}] t = {t:.8}");
+            }
+        }
+        eprintln!("  nearest patches at deepest hole:");
+        for (index, kind, dist, point, normal) in oracle.patch_report(&p).into_iter().take(6) {
+            let diff = [deepest.1[0] - point[0], deepest.1[1] - point[1], deepest.1[2] - point[2]];
+            let dot = diff[0] * normal[0] + diff[1] * normal[1] + diff[2] * normal[2];
+            eprintln!(
+                "      patch #{index} [{kind}] dist {dist:.9} at [{:.9} {:.9} {:.9}] n [{:.4} {:.4} {:.4}] (q-p).n={dot:+.9}",
+                point[0], point[1], point[2], normal[0], normal[1], normal[2]
+            );
+        }
+        let (best, boxes) = oracle.nearest_report(&p);
+        eprintln!("  nearest() itself: {best:?}");
+        let mut boxes_sorted = boxes.clone();
+        boxes_sorted.sort_by(|a, b| a.2.total_cmp(&b.2));
+        eprintln!("  patch boxes nearest first:");
+        for (index, kind, boxdist) in boxes_sorted.iter().take(8) {
+            eprintln!("      patch #{index} [{kind}] box-distance {boxdist:.9}");
+        }
+        eprintln!("  graze sweep on dir0:");
+        for floor in [0.0, 1e-8, 1e-7, 1e-6, 5e-6, 1e-5, 5e-5, 1e-4] {
+            let rep = oracle.ray_report_grazed(&p, dirs[0], floor);
+            let flags: Vec<String> = rep
+                .iter()
+                .map(|(patch, _, _, g)| format!("#{patch}{}", if *g { "*" } else { "" }))
+                .collect();
+            eprintln!("    floor {floor:.0e}: {} hits [{}]", rep.len(), flags.join(" "));
+        }
+    }
+}
+
+/// Trims the `STEP_MESH_FILE` solid (dual + classify, no fit) and hunts the
+/// **spur**: kept (`Inside`/`Cut`) cells whose centroid lies more than
+/// `STEP_SPUR_MARGIN` (default 0.2mm, in metres) outside the tight bounding
+/// box of the solid's own vertices. A phantom diagonal escaping the part is a
+/// ray-parity misclassification, so for the spur cell farthest out we dump the
+/// oracle's ray crossings along all three parity directions and the nearest
+/// patches, naming the surface whose hit count is wrong.
+#[test]
+#[ignore = "locates trim spur cells for STEP_MESH_FILE and interrogates the oracle"]
+fn probe_trim_spur() {
+    use crate::{
+        geometry::{
+            Coordinate,
+            cad::sizing::FeatureSizing,
+            mesh::{Class, Connectivity},
+            ntree::Balancing,
+            solid::{Solid, SolidOracle},
+        },
+        math::Quantity,
+        units::Length,
+    };
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let length = |v| Quantity::<Length>::new(v);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    let levels = std::env::var("STEP_MESH_LEVELS")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let maximum =
+        (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none")).then(|| length(cell));
+    let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
+        Ok("none") => None,
+        Ok(v) => Some(v.parse().expect("STEP_MESH_GRADATION")),
+        Err(_) => Some(0.2),
+    };
+    let margin = env_f64("STEP_SPUR_MARGIN", 2.0e-4);
+
+    for (index, brep) in breps.iter().enumerate() {
+        eprintln!("--- solid {index}: {} faces ---", brep.faces.len());
+        // Tight bbox of the B-rep's own vertices (the true part extent).
+        let mut vlo = [f64::INFINITY; 3];
+        let mut vhi = [f64::NEG_INFINITY; 3];
+        for v in &brep.vertices {
+            for k in 0..3 {
+                vlo[k] = vlo[k].min(v[k].value());
+                vhi[k] = vhi[k].max(v[k].value());
+            }
+        }
+        eprintln!(
+            "  vertex bbox: x [{:.5} {:.5}] y [{:.5} {:.5}] z [{:.5} {:.5}]",
+            vlo[0], vhi[0], vlo[1], vhi[1], vlo[2], vhi[2]
+        );
+
+        let mut sizing = FeatureSizing::of(
+            brep,
+            env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
+            length(env_f64("STEP_MESH_MIN", cell / 8.0)),
+            maximum,
+            gradation,
+        );
+        if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+            sizing = sizing.with_proximity(brep, n.parse().unwrap()).unwrap();
+        }
+        if let Ok(n) = std::env::var("STEP_MESH_CURVATURE") {
+            sizing = sizing.with_curvature(brep, n.parse().unwrap()).unwrap();
+        }
+
+        let (mesh, classes) = brep
+            .trim(&sizing, levels, 0.1, Balancing::Strong(1))
+            .expect("trim failed");
+        let coords = mesh.coordinates();
+        let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
+            eprintln!("  not a single hex block");
+            continue;
+        };
+
+        let mut spur = 0usize;
+        let mut worst_out = 0.0;
+        let mut worst_centroid = [0.0; 3];
+        let mut worst_elem = usize::MAX;
+        let mut slo = [f64::INFINITY; 3];
+        let mut shi = [f64::NEG_INFINITY; 3];
+        for (element, hex) in block.iter().enumerate() {
+            if classes[element] == Class::Outside {
+                continue;
+            }
+            let c: [f64; 3] =
+                std::array::from_fn(|k| hex.iter().map(|&n| coords[n][k].value()).sum::<f64>() / 8.0);
+            // How far the centroid pokes past the vertex bbox, any axis.
+            let out = (0..3)
+                .map(|k| (vlo[k] - c[k]).max(c[k] - vhi[k]).max(0.0))
+                .fold(0.0_f64, f64::max);
+            if out > margin {
+                spur += 1;
+                for k in 0..3 {
+                    slo[k] = slo[k].min(c[k]);
+                    shi[k] = shi[k].max(c[k]);
+                }
+                if out > worst_out {
+                    worst_out = out;
+                    worst_centroid = c;
+                    worst_elem = element;
+                }
+            }
+        }
+        eprintln!(
+            "  {spur} kept cells > {margin} outside vertex bbox (of {} kept)",
+            mesh.number_of_elements()
+        );
+        if spur == 0 {
+            continue;
+        }
+        eprintln!(
+            "  spur centroid bbox: x [{:.5} {:.5}] y [{:.5} {:.5}] z [{:.5} {:.5}]",
+            slo[0], shi[0], slo[1], shi[1], slo[2], shi[2]
+        );
+        eprintln!(
+            "  farthest spur cell: [{:.5} {:.5} {:.5}] pokes {worst_out:.5} out; class {:?}",
+            worst_centroid[0], worst_centroid[1], worst_centroid[2], classes[worst_elem],
+        );
+
+        // Per-corner: the oracle's ray-parity verdict and signed distance at
+        // each of the eight nodes. The flood seeds `Outside` only where all
+        // eight read outside; a single spuriously-inside corner keeps the cell.
+        let oracle = brep.oracle().expect("oracle");
+        let hex: Vec<usize> = block.iter().nth(worst_elem).unwrap().to_vec();
+        eprintln!("  eight corners (enclose / signed distance):");
+        let dirs = [
+            [0.862_667, 0.411_988, 0.291_536],
+            [0.301_511, 0.904_534, 0.301_511],
+            [0.334_412, 0.243_975, 0.910_367],
+        ];
+        let mut positive_node = None;
+        for &n in &hex {
+            let p = Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| coords[n][k].value()));
+            let sd = oracle.signed_distance(&p);
+            eprintln!(
+                "      [{:.5} {:.5} {:.5}]  signed {sd:+.6}",
+                coords[n][0].value(),
+                coords[n][1].value(),
+                coords[n][2].value(),
+            );
+            if sd > 0.0 {
+                positive_node = Some(n);
+            }
+        }
+
+        // The false-positive corner: dump the raw ray crossings for each of the
+        // three parity directions, sorted by t, so a grazed / doubled / missed
+        // hit that flips the parity vote is visible.
+        if let Some(n) = positive_node {
+            let p = Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| coords[n][k].value()));
+            eprintln!(
+                "  false-positive corner [{:.6} {:.6} {:.6}] ray crossings:",
+                coords[n][0].value(),
+                coords[n][1].value(),
+                coords[n][2].value(),
+            );
+            for dir in dirs {
+                let mut report = oracle.ray_report(&p, dir);
+                report.sort_by(|a, b| a.2.total_cmp(&b.2));
+                eprintln!("    dir {dir:?}: {} hits (parity {})", report.len(), report.len() % 2);
+                for (patch, kind, t) in &report {
+                    eprintln!("        patch #{patch} [{kind}] t = {t:.8}");
+                }
+            }
+            // For the first direction, sweep graze floors so the boundary
+            // proximity at which each hit is flagged degenerate is visible.
+            eprintln!("  graze sweep on dir {:?}:", dirs[0]);
+            for floor in [0.0, 1e-7, 1e-6, 1e-5, 5e-5, 1e-4, 2e-4, 5e-4] {
+                let rep = oracle.ray_report_grazed(&p, dirs[0], floor);
+                let flags: Vec<String> = rep
+                    .iter()
+                    .map(|(patch, _, _, g)| format!("#{patch}{}", if *g { "*" } else { "" }))
+                    .collect();
+                eprintln!(
+                    "    floor {floor:.0e}: {} hits [{}]",
+                    rep.len(),
+                    flags.join(" ")
+                );
+            }
+        }
+
+        // Interrogate the oracle at the centroid: ray crossings per direction,
+        // and the nearest patches.
+        let q = Coordinate::from(worst_centroid);
+        for dir in dirs {
+            let report = oracle.ray_report(&q, dir);
+            eprintln!("  centroid ray {dir:?}: {} hits", report.len());
+            for (patch, kind, t) in &report {
+                eprintln!("      patch #{patch} [{kind}] t = {t:.6}");
+            }
+        }
+        eprintln!("  nearest patches to the false-positive corner:");
+        let probe = positive_node
+            .map(|n| Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| coords[n][k].value())))
+            .unwrap_or(q);
+        for (kind, dist, point, normal) in oracle.patch_report(&probe).into_iter().map(|(_, k, d, pt, n)| (k, d, pt, n)).take(8) {
+            eprintln!(
+                "      [{kind}] dist {dist:.6} at [{:.5} {:.5} {:.5}] n [{:.3} {:.3} {:.3}]",
+                point[0], point[1], point[2], normal[0], normal[1], normal[2]
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore]
+/// Scan every kept `Cut` cell for the corner-threading signature — a lopsided
+/// split where a lone corner disagrees in sign with the other seven. A genuine
+/// boundary cut has a balanced split (a face passing through); a lone minority
+/// corner is the classic ray-parity false-positive. Reports the census, then
+/// clusters the offenders by an axis-aligned grid so the on-part hot spots
+/// (e.g. the flange) are visible even though nothing pokes outside the bbox.
+fn probe_lopsided_cut() {
+    use crate::{
+        geometry::{
+            Coordinate,
+            cad::sizing::FeatureSizing,
+            mesh::{Class, Connectivity},
+            ntree::Balancing,
+            solid::{Solid, SolidOracle},
+        },
+        math::Quantity,
+        units::Length,
+    };
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let length = |v| Quantity::<Length>::new(v);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    let levels = std::env::var("STEP_MESH_LEVELS")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let maximum =
+        (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none")).then(|| length(cell));
+    let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
+        Ok("none") => None,
+        Ok(v) => Some(v.parse().expect("STEP_MESH_GRADATION")),
+        Err(_) => Some(0.2),
+    };
+    // Cell size to bin offenders into clusters for the census (default 0.2mm).
+    let bin = env_f64("STEP_LOPSIDED_BIN", 2.0e-4);
+
+    for (index, brep) in breps.iter().enumerate() {
+        eprintln!("--- solid {index}: {} faces ---", brep.faces.len());
+        let mut sizing = FeatureSizing::of(
+            brep,
+            env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
+            length(env_f64("STEP_MESH_MIN", cell / 8.0)),
+            maximum,
+            gradation,
+        );
+        if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+            sizing = sizing.with_proximity(brep, n.parse().unwrap()).unwrap();
+        }
+        if let Ok(n) = std::env::var("STEP_MESH_CURVATURE") {
+            sizing = sizing.with_curvature(brep, n.parse().unwrap()).unwrap();
+        }
+
+        let (mesh, classes) = brep
+            .trim(&sizing, levels, 0.1, Balancing::Strong(1))
+            .expect("trim failed");
+        let coords = mesh.coordinates();
+        let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
+            eprintln!("  not a single hex block");
+            continue;
+        };
+        let oracle = brep.oracle().expect("oracle");
+
+        // Precompute the signed distance at every used node once.
+        let mut signed: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
+        let mut sign_of = |n: usize| -> f64 {
+            *signed.entry(n).or_insert_with(|| {
+                let p =
+                    Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| coords[n][k].value()));
+                oracle.signed_distance(&p)
+            })
+        };
+
+        let mut lopsided: Vec<([f64; 3], usize)> = Vec::new();
+        for (element, hex) in block.iter().enumerate() {
+            if classes[element] != Class::Cut {
+                continue;
+            }
+            let positives = hex.iter().filter(|&&n| sign_of(n) > 0.0).count();
+            // A lone-minority corner (1 in / 7 out, or 7 in / 1 out) is the
+            // corner-threading false-positive signature.
+            if positives == 1 || positives == 7 {
+                let c: [f64; 3] = std::array::from_fn(|k| {
+                    hex.iter().map(|&n| coords[n][k].value()).sum::<f64>() / 8.0
+                });
+                lopsided.push((c, positives));
+            }
+        }
+        let cut = classes.iter().filter(|&&c| c == Class::Cut).count();
+        eprintln!(
+            "  {} lopsided (1/7) Cut cells of {cut} Cut ({} kept total)",
+            lopsided.len(),
+            mesh.number_of_elements(),
+        );
+        if lopsided.is_empty() {
+            continue;
+        }
+
+        // Bin offenders into a coarse grid and report the densest clusters.
+        let mut bins: std::collections::HashMap<[i64; 3], (usize, [f64; 3])> =
+            std::collections::HashMap::new();
+        for (c, _) in &lopsided {
+            let key = std::array::from_fn(|k| (c[k] / bin).floor() as i64);
+            let entry = bins.entry(key).or_insert((0, [0.0; 3]));
+            entry.0 += 1;
+            for k in 0..3 {
+                entry.1[k] += c[k];
+            }
+        }
+        let mut clusters: Vec<_> = bins
+            .values()
+            .map(|(n, sum)| (*n, std::array::from_fn::<f64, 3, _>(|k| sum[k] / *n as f64)))
+            .collect();
+        clusters.sort_by(|a, b| b.0.cmp(&a.0));
+        eprintln!("  top clusters (bin {bin:.0e}m):");
+        for (n, c) in clusters.iter().take(12) {
+            eprintln!("      {n:4} cells near [{:.5} {:.5} {:.5}]", c[0], c[1], c[2]);
+        }
+
+        // Dive on the densest cluster: for a handful of its lopsided cells, dump
+        // the lone-minority corner, its signed distance and nearest patch, and
+        // how many rays `encloses` needed — a false positive threads a corner
+        // (many rays, tiny |signed|, nearest patch far), a real cut sits on a
+        // face (clean, |signed| ~ the sliver thickness, nearest patch touching).
+        let (_, hot) = clusters[0];
+        eprintln!("  dive on densest cluster near [{:.5} {:.5} {:.5}]:", hot[0], hot[1], hot[2]);
+        let mut shown = 0;
+        for (element, hex) in block.iter().enumerate() {
+            if shown >= 6 || classes[element] != Class::Cut {
+                continue;
+            }
+            let c: [f64; 3] = std::array::from_fn(|k| {
+                hex.iter().map(|&n| coords[n][k].value()).sum::<f64>() / 8.0
+            });
+            let near_hot = (0..3).all(|k| (c[k] - hot[k]).abs() < bin);
+            if !near_hot {
+                continue;
+            }
+            let positives = hex.iter().filter(|&&n| sign_of(n) > 0.0).count();
+            if positives != 1 && positives != 7 {
+                continue;
+            }
+            let minority = if positives == 1 { 1 } else { 7 };
+            let lone = *hex
+                .iter()
+                .find(|&&n| (sign_of(n) > 0.0) == (minority == 1 && positives == 1))
+                .unwrap_or(&hex[0]);
+            let p = Coordinate::from(std::array::from_fn::<f64, 3, _>(|k| coords[lone][k].value()));
+            let sd = oracle.signed_distance(&p);
+            let nearest = oracle.patch_report(&p).into_iter().next();
+            eprintln!(
+                "    cell {element} pos={positives} lone [{:.5} {:.5} {:.5}] signed {sd:+.6}{}",
+                coords[lone][0].value(),
+                coords[lone][1].value(),
+                coords[lone][2].value(),
+                nearest
+                    .map(|(_, k, d, _, _)| format!("  nearest {k} @ {d:.6}"))
+                    .unwrap_or_default(),
+            );
+            shown += 1;
+        }
+    }
+}
+
+/// Lists every crease edge (`Brep::features().creases`) of `STEP_MESH_FILE`
+/// with its chord length and world-space endpoints/midpoint, sorted longest
+/// first — locates a specific crease (e.g. "the long one behind the radius
+/// below the flange") without opening a viewer, and lets a per-crease damage
+/// census (see `probe_crease_damage`) be pointed at the right one.
+#[test]
+#[ignore = "lists STEP_MESH_FILE's crease edges by chord length"]
+fn probe_creases() {
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    for (index, brep) in breps.iter().enumerate() {
+        let features = brep.features();
+        eprintln!(
+            "--- solid {index}: {} faces, {} creases, {} corners ---",
+            brep.faces.len(),
+            features.creases.len(),
+            features.corners.len(),
+        );
+        let mut rows: Vec<(usize, f64, [f64; 3], [f64; 3], [f64; 3])> = features
+            .creases
+            .iter()
+            .map(|&edge| {
+                let [ia, ib] = brep.edges[edge].vertices;
+                let a: [f64; 3] = std::array::from_fn(|k| brep.vertices[ia][k].value());
+                let b: [f64; 3] = std::array::from_fn(|k| brep.vertices[ib][k].value());
+                let mid: [f64; 3] = std::array::from_fn(|k| 0.5 * (a[k] + b[k]));
+                let length = (0..3).map(|k| (a[k] - b[k]).powi(2)).sum::<f64>().sqrt();
+                (edge, length, a, b, mid)
+            })
+            .collect();
+        rows.sort_by(|x, y| y.1.total_cmp(&x.1));
+        for (edge, length, a, b, mid) in rows.iter().take(30) {
+            eprintln!(
+                "  edge #{edge}: chord {length:.6}  a=[{:.5} {:.5} {:.5}]  b=[{:.5} {:.5} {:.5}]  mid=[{:.5} {:.5} {:.5}]",
+                a[0], a[1], a[2], b[0], b[1], b[2], mid[0], mid[1], mid[2],
+            );
+        }
+        // Region filter: STEP_CREASE_NEAR="x,y,z,radius" prints every crease
+        // (not just the longest 30) whose midpoint or either endpoint falls
+        // within radius of the given point, so a crease matching a known
+        // damage cluster (e.g. the bad-hex centroid bbox from
+        // `probe_inverted_hexes`) can be picked out directly.
+        if let Ok(spec) = std::env::var("STEP_CREASE_NEAR") {
+            let parts: Vec<f64> = spec.split(',').filter_map(|s| s.parse().ok()).collect();
+            if parts.len() == 4 {
+                let (px, py, pz, radius) = (parts[0], parts[1], parts[2], parts[3]);
+                let near = |p: [f64; 3]| {
+                    ((p[0] - px).powi(2) + (p[1] - py).powi(2) + (p[2] - pz).powi(2)).sqrt()
+                        <= radius
+                };
+                eprintln!("  creases within {radius} of [{px} {py} {pz}]:");
+                for (edge, length, a, b, mid) in &rows {
+                    if near(*a) || near(*b) || near(*mid) {
+                        eprintln!(
+                            "    edge #{edge}: chord {length:.6}  a=[{:.5} {:.5} {:.5}]  b=[{:.5} {:.5} {:.5}]  mid=[{:.5} {:.5} {:.5}]",
+                            a[0], a[1], a[2], b[0], b[1], b[2], mid[0], mid[1], mid[2],
+                        );
+                    }
+                }
+            }
+        }
+        // STEP_CREASE_EDGE=N: names the two faces incident to brep edge #N
+        // (as printed above) and their surface kind, so a specific crease
+        // (once located above) can be matched to "the fillet behind the
+        // radius" by eye.
+        if let Ok(spec) = std::env::var("STEP_CREASE_EDGE") {
+            let edge: usize = spec.parse().expect("STEP_CREASE_EDGE");
+            eprintln!("  edge #{edge}:");
+            for (index, face) in brep.faces.iter().enumerate() {
+                let touches = face
+                    .bounds
+                    .iter()
+                    .any(|bound| bound.half_edges.iter().any(|he| he.edge == edge));
+                if touches {
+                    let kind = match &face.surface {
+                        crate::geometry::cad::brep::surface::Surface::Plane(p) => {
+                            let o: [f64; 3] = std::array::from_fn(|k| p.origin[k].value());
+                            let n: [f64; 3] = std::array::from_fn(|k| p.normal[k].value());
+                            format!(
+                                "plane origin=[{:.5} {:.5} {:.5}] normal=[{:.5} {:.5} {:.5}]",
+                                o[0], o[1], o[2], n[0], n[1], n[2],
+                            )
+                        }
+                        crate::geometry::cad::brep::surface::Surface::Cylinder(_) => {
+                            "cylinder".into()
+                        }
+                        crate::geometry::cad::brep::surface::Surface::Cone(_) => "cone".into(),
+                        crate::geometry::cad::brep::surface::Surface::Sphere(_) => "sphere".into(),
+                        crate::geometry::cad::brep::surface::Surface::Torus(_) => "torus".into(),
+                        crate::geometry::cad::brep::surface::Surface::BSpline(_) => {
+                            "bspline".into()
+                        }
+                        crate::geometry::cad::brep::surface::Surface::Revolution(_) => {
+                            "revolution".into()
+                        }
+                    };
+                    eprintln!("    face #{index}: {kind}, forward={}", face.forward);
+                    for (bi, bound) in face.bounds.iter().enumerate() {
+                        eprint!("      bound {bi}:");
+                        for he in &bound.half_edges {
+                            eprint!(" e{}{}", he.edge, if he.forward { "+" } else { "-" });
+                        }
+                        eprintln!();
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Whole-crease damage census: walks the straight line between the two
+/// endpoint vertices of `STEP_CREASE_DAMAGE_EDGE` (a brep edge index, as
+/// printed by `probe_creases`), and for every fitted hex whose centroid falls
+/// within `STEP_CREASE_DAMAGE_BAND` (default 3e-4 m) of that line, reports its
+/// max edge ratio, max skew, and min scaled Jacobian, binned by the point's
+/// position along the line (`t` in 0..1). If the fit is dragging a whole band
+/// of elements onto the crease uniformly along its length (not just at the two
+/// ends), the edge-ratio/skew values will be elevated across the *entire*
+/// `t` range, not just near `t=0` and `t=1` where the existing SJ<=0.1 census
+/// already looks.
+#[test]
+#[ignore = "whole-crease elongation census for STEP_MESH_FILE / STEP_CREASE_DAMAGE_EDGE"]
+fn probe_crease_damage() {
+    use crate::{
+        geometry::{
+            cad::sizing::FeatureSizing,
+            mesh::{Connectivity, Fitting, Verdict},
+            ntree::Balancing,
+            solid::Solid,
+        },
+        math::Quantity,
+        units::Length,
+    };
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let Ok(edge_spec) = std::env::var("STEP_CREASE_DAMAGE_EDGE") else {
+        return;
+    };
+    let edge: usize = edge_spec.parse().expect("STEP_CREASE_DAMAGE_EDGE");
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let length = |v| Quantity::<Length>::new(v);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    let levels = std::env::var("STEP_MESH_LEVELS")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let maximum =
+        (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none")).then(|| length(cell));
+    let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
+        Ok("none") => None,
+        Ok(v) => Some(v.parse().expect("STEP_MESH_GRADATION")),
+        Err(_) => Some(0.2),
+    };
+    let band = env_f64("STEP_CREASE_DAMAGE_BAND", 3.0e-4);
+    // When set, discard any hex whose perpendicular foot falls off the segment
+    // ends (or within this t-margin of an end). This purges the clamp
+    // catch-all so buckets 0.00 and 0.95 contain only genuinely near-endpoint
+    // hexes rather than the whole far mesh clamped to t=0/1.
+    let interior_margin = std::env::var("STEP_CREASE_DAMAGE_INTERIOR")
+        .ok()
+        .and_then(|v| v.parse::<f64>().ok());
+
+    for (index, brep) in breps.iter().enumerate() {
+        eprintln!("--- solid {index}: {} faces ---", brep.faces.len());
+        let [ia, ib] = brep.edges[edge].vertices;
+        let a: [f64; 3] = std::array::from_fn(|k| brep.vertices[ia][k].value());
+        let b: [f64; 3] = std::array::from_fn(|k| brep.vertices[ib][k].value());
+        let d: [f64; 3] = std::array::from_fn(|k| b[k] - a[k]);
+        let len2 = d.iter().map(|v| v * v).sum::<f64>();
+        eprintln!(
+            "  edge #{edge}: a=[{:.5} {:.5} {:.5}] b=[{:.5} {:.5} {:.5}] len={:.6}",
+            a[0], a[1], a[2], b[0], b[1], b[2], len2.sqrt(),
+        );
+
+        let mut sizing = FeatureSizing::of(
+            brep,
+            env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
+            length(env_f64("STEP_MESH_MIN", cell / 8.0)),
+            maximum,
+            gradation,
+        );
+        if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+            sizing = sizing.with_proximity(brep, n.parse().unwrap()).unwrap();
+        }
+        if let Ok(n) = std::env::var("STEP_MESH_CURVATURE") {
+            sizing = sizing.with_curvature(brep, n.parse().unwrap()).unwrap();
+        }
+
+        let mesh = brep
+            .mesh(&sizing, levels, 0.1, Balancing::Strong(1), Fitting::Soft)
+            .expect("mesh failed");
+        let coords = mesh.coordinates();
+        let ratios = mesh.maximum_edge_ratios();
+        let skews = mesh.maximum_skews();
+        let sj = mesh.minimum_scaled_jacobians();
+        let [Connectivity::Hexahedral(block)] = mesh.connectivities() else {
+            eprintln!("  not a single hex block");
+            continue;
+        };
+
+        // Bin by t along the line into 20 buckets; track the worst (max)
+        // edge-ratio/skew and worst (min) SJ per bucket, plus how many hexes
+        // in-band land in that bucket.
+        const BUCKETS: usize = 20;
+        let mut bins = vec![(0usize, 0.0f64, 0.0f64, f64::INFINITY); BUCKETS];
+        let mut in_band = 0usize;
+        for (element, hex) in block.iter().enumerate() {
+            let c: [f64; 3] = std::array::from_fn(|k| {
+                hex.iter().map(|&n| coords[n][k].value()).sum::<f64>() / 8.0
+            });
+            // Project c onto the line, clamp to segment, measure perpendicular distance.
+            let ac: [f64; 3] = std::array::from_fn(|k| c[k] - a[k]);
+            let t_raw = ac.iter().zip(&d).map(|(x, y)| x * y).sum::<f64>() / len2;
+            if let Some(m) = interior_margin {
+                if t_raw < m || t_raw > 1.0 - m {
+                    continue;
+                }
+            }
+            let t = t_raw.clamp(0.0, 1.0);
+            let proj: [f64; 3] = std::array::from_fn(|k| a[k] + t * d[k]);
+            let dist = (0..3).map(|k| (c[k] - proj[k]).powi(2)).sum::<f64>().sqrt();
+            if dist > band {
+                continue;
+            }
+            in_band += 1;
+            let bucket = ((t * BUCKETS as f64) as usize).min(BUCKETS - 1);
+            let entry = &mut bins[bucket];
+            entry.0 += 1;
+            entry.1 = entry.1.max(ratios[0][element]);
+            entry.2 = entry.2.max(skews[0][element]);
+            entry.3 = entry.3.min(sj[0][element]);
+        }
+        eprintln!("  {in_band} hexes within {band:.1e} m of the crease line");
+        eprintln!("  t-bucket  count  max-edge-ratio  max-skew  min-SJ");
+        for (i, (n, ratio, skew, sjmin)) in bins.iter().enumerate() {
+            if *n == 0 {
+                eprintln!("    {:.2}       0      -               -         -", i as f64 / BUCKETS as f64);
+                continue;
+            }
+            eprintln!(
+                "    {:.2}    {n:5}      {ratio:8.3}      {skew:6.3}   {sjmin:+.4}",
+                i as f64 / BUCKETS as f64,
+            );
+        }
+    }
+}
+
+/// Walks straight along `STEP_CREASE_TIE_EDGE` (a brep edge index) and, at
+/// each of `STEP_CREASE_TIE_SAMPLES` points offset `STEP_CREASE_TIE_OFFSET`
+/// (default 5e-5 m) into the solid along the bisector of the two faces
+/// adjacent to that edge, dumps `patch_report`'s top two nearest patches and
+/// their normals. If the winning patch index alternates between the two
+/// adjacent faces along the crease's length — rather than staying fixed or
+/// changing only where a third face actually takes over — that is direct
+/// evidence the fit's single-nearest-patch target is unstable along a sharp
+/// concave edge (hypothesis b), which would explain uniformly elevated skew
+/// down the whole crease even though the *position* target stays converged
+/// (so SJ and interior-hole census don't flag it).
+#[test]
+#[ignore = "nearest-patch stability walk along a crease edge for STEP_MESH_FILE"]
+fn probe_crease_tie() {
+    use crate::geometry::Coordinate;
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let Ok(edge_spec) = std::env::var("STEP_CREASE_TIE_EDGE") else {
+        return;
+    };
+    let edge: usize = edge_spec.parse().expect("STEP_CREASE_TIE_EDGE");
+    let samples: usize = std::env::var("STEP_CREASE_TIE_SAMPLES")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(40);
+    let offset: f64 = std::env::var("STEP_CREASE_TIE_OFFSET")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(5.0e-5);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    for (index, brep) in breps.iter().enumerate() {
+        eprintln!("--- solid {index}: {} faces ---", brep.faces.len());
+        let [ia, ib] = brep.edges[edge].vertices;
+        let a: [f64; 3] = std::array::from_fn(|k| brep.vertices[ia][k].value());
+        let b: [f64; 3] = std::array::from_fn(|k| brep.vertices[ib][k].value());
+        let d: [f64; 3] = std::array::from_fn(|k| b[k] - a[k]);
+
+        // Find the two faces touching this edge and grab their plane normals
+        // to build an inward bisector offset.
+        let mut normals: Vec<[f64; 3]> = Vec::new();
+        for face in &brep.faces {
+            let touches = face
+                .bounds
+                .iter()
+                .any(|bound| bound.half_edges.iter().any(|he| he.edge == edge));
+            if touches {
+                if let crate::geometry::cad::brep::surface::Surface::Plane(p) = &face.surface {
+                    let sign = if face.forward { 1.0 } else { -1.0 };
+                    normals.push(std::array::from_fn(|k| sign * p.normal[k].value()));
+                }
+            }
+        }
+        if normals.len() != 2 {
+            eprintln!("  edge #{edge}: expected 2 planar faces, found {}", normals.len());
+            continue;
+        }
+        // Bisector pointing into the solid: average of the two outward
+        // normals, negated (outward normals of a concave edge point apart;
+        // their negated sum points into the material wedge between them).
+        let mut bis: [f64; 3] = std::array::from_fn(|k| -(normals[0][k] + normals[1][k]));
+        let bn = bis.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if bn > 1e-12 {
+            for v in &mut bis {
+                *v /= bn;
+            }
+        }
+        eprintln!(
+            "  face normals: {:?} {:?}  bisector (inward) {:?}",
+            normals[0], normals[1], bis
+        );
+
+        let oracle = brep.oracle().expect("oracle");
+        let mut last_patch: Option<usize> = None;
+        let mut flips = 0usize;
+        for i in 0..=samples {
+            let t = i as f64 / samples as f64;
+            let p: [f64; 3] = std::array::from_fn(|k| a[k] + t * d[k] + offset * bis[k]);
+            let q = Coordinate::from(p);
+            let report = oracle.patch_report(&q);
+            let (i0, k0, d0, _, n0) = report[0];
+            let (i1, k1, d1, _, n1) = report.get(1).copied().unwrap_or((usize::MAX, "-", f64::NAN, [0.0; 3], [0.0; 3]));
+            if let Some(prev) = last_patch {
+                if prev != i0 {
+                    flips += 1;
+                }
+            }
+            last_patch = Some(i0);
+            eprintln!(
+                "    t={t:.3} p=[{:.6} {:.6} {:.6}]  best #{i0} [{k0}] d={d0:.7} n=[{:.4} {:.4} {:.4}]  runner #{i1} [{k1}] d={d1:.7} n=[{:.4} {:.4} {:.4}]  gap={:.2e}",
+                p[0], p[1], p[2], n0[0], n0[1], n0[2], n1[0], n1[1], n1[2], d1 - d0,
+            );
+        }
+        eprintln!("  {flips} winning-patch flips over {samples} samples");
+    }
+}
+
+#[test]
+#[ignore = "dumps geometry + trim extent for one brep face, by index"]
+fn probe_face_info() {
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let Ok(spec) = std::env::var("STEP_FACE_INFO") else {
+        return;
+    };
+    let index: usize = spec.parse().expect("STEP_FACE_INFO");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    for brep in &breps {
+        let face = &brep.faces[index];
+        eprintln!("face #{index}: forward={}", face.forward);
+        match &face.surface {
+            crate::geometry::cad::brep::surface::Surface::Cylinder(c) => {
+                let o: [f64; 3] = std::array::from_fn(|k| c.origin[k].value());
+                let a: [f64; 3] = std::array::from_fn(|k| c.axis[k].value());
+                eprintln!("  cylinder origin=[{:.6} {:.6} {:.6}] axis=[{:.5} {:.5} {:.5}] radius={:.6}", o[0], o[1], o[2], a[0], a[1], a[2], c.radius);
+            }
+            crate::geometry::cad::brep::surface::Surface::Plane(p) => {
+                let o: [f64; 3] = std::array::from_fn(|k| p.origin[k].value());
+                let n: [f64; 3] = std::array::from_fn(|k| p.normal[k].value());
+                eprintln!("  plane origin=[{:.6} {:.6} {:.6}] normal=[{:.5} {:.5} {:.5}]", o[0], o[1], o[2], n[0], n[1], n[2]);
+            }
+            _ => eprintln!("  other surface kind"),
+        }
+        for (bi, bound) in face.bounds.iter().enumerate() {
+            eprint!("  bound {bi}:");
+            for he in &bound.half_edges {
+                let [ia, ib] = brep.edges[he.edge].vertices;
+                let a: [f64; 3] = std::array::from_fn(|k| brep.vertices[ia][k].value());
+                let b: [f64; 3] = std::array::from_fn(|k| brep.vertices[ib][k].value());
+                eprint!(" e{}{}[{:.5},{:.5},{:.5} -> {:.5},{:.5},{:.5}]", he.edge, if he.forward {"+"} else {"-"}, a[0],a[1],a[2], b[0],b[1],b[2]);
+            }
+            eprintln!();
+        }
+    }
+}
+
+#[test]
+#[ignore = "sizing field vs true nearby-surface gap along a crease's inward bisector"]
+fn probe_crease_sizing() {
+    use crate::{
+        geometry::cad::sizing::FeatureSizing,
+        math::Quantity,
+        units::Length,
+    };
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let Ok(edge_spec) = std::env::var("STEP_CREASE_SIZING_EDGE") else {
+        return;
+    };
+    let edge: usize = edge_spec.parse().expect("STEP_CREASE_SIZING_EDGE");
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+    };
+    let length = |v| Quantity::<Length>::new(v);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let maximum = (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none")).then(|| length(cell));
+    let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
+        Ok("none") => None,
+        Ok(v) => Some(v.parse().expect("STEP_MESH_GRADATION")),
+        Err(_) => Some(0.2),
+    };
+    for brep in &breps {
+        let sizing = {
+            let mut s = FeatureSizing::of(
+                brep,
+                env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
+                length(env_f64("STEP_MESH_MIN", cell / 8.0)),
+                maximum,
+                gradation,
+            );
+            if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+                s = s.with_proximity(brep, n.parse().unwrap()).unwrap();
+            }
+            if let Ok(n) = std::env::var("STEP_MESH_CURVATURE") {
+                s = s.with_curvature(brep, n.parse().unwrap()).unwrap();
+            }
+            s
+        };
+        let oracle = brep.oracle().expect("oracle");
+        let [ia, ib] = brep.edges[edge].vertices;
+        let a: [f64; 3] = std::array::from_fn(|k| brep.vertices[ia][k].value());
+        let b: [f64; 3] = std::array::from_fn(|k| brep.vertices[ib][k].value());
+        let d: [f64; 3] = std::array::from_fn(|k| b[k] - a[k]);
+        let mut normals: Vec<[f64; 3]> = Vec::new();
+        for face in &brep.faces {
+            let touches = face.bounds.iter().any(|bound| bound.half_edges.iter().any(|he| he.edge == edge));
+            if touches {
+                if let crate::geometry::cad::brep::surface::Surface::Plane(p) = &face.surface {
+                    let sign = if face.forward { 1.0 } else { -1.0 };
+                    normals.push(std::array::from_fn(|k| sign * p.normal[k].value()));
+                }
+            }
+        }
+        let mut bis: [f64; 3] = std::array::from_fn(|k| -(normals[0][k] + normals[1][k]));
+        let bn = bis.iter().map(|v| v * v).sum::<f64>().sqrt();
+        for v in &mut bis { *v /= bn; }
+        for off in [1.0e-5, 2.0e-5, 3.0e-5, 5.0e-5, 8.0e-5, 1.5e-4] {
+            let t = 0.5;
+            let p: [f64; 3] = std::array::from_fn(|k| a[k] + t * d[k] + off * bis[k]);
+            let q = crate::geometry::Coordinate::from(p);
+            let target = sizing.at(&q).value();
+            let report = oracle.patch_report(&q);
+            let (i0, k0, d0, _, _) = report[0];
+            eprintln!(
+                "  offset {off:.1e}: sizing target = {target:.7}  nearest patch #{i0} [{k0}] d={d0:.7}",
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "checks BrepOracle::local_diameter along a crease's inward bisector"]
+fn probe_crease_local_diameter() {
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let Ok(edge_spec) = std::env::var("STEP_CREASE_LD_EDGE") else {
+        return;
+    };
+    let edge: usize = edge_spec.parse().expect("STEP_CREASE_LD_EDGE");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    for brep in &breps {
+        let oracle = brep.oracle().expect("oracle");
+        let [ia, ib] = brep.edges[edge].vertices;
+        let a: [f64; 3] = std::array::from_fn(|k| brep.vertices[ia][k].value());
+        let b: [f64; 3] = std::array::from_fn(|k| brep.vertices[ib][k].value());
+        let d: [f64; 3] = std::array::from_fn(|k| b[k] - a[k]);
+        let mut normals: Vec<[f64; 3]> = Vec::new();
+        for face in &brep.faces {
+            let touches = face.bounds.iter().any(|bound| bound.half_edges.iter().any(|he| he.edge == edge));
+            if touches {
+                if let crate::geometry::cad::brep::surface::Surface::Plane(p) = &face.surface {
+                    let sign = if face.forward { 1.0 } else { -1.0 };
+                    normals.push(std::array::from_fn(|k| sign * p.normal[k].value()));
+                }
+            }
+        }
+        let mut bis: [f64; 3] = std::array::from_fn(|k| -(normals[0][k] + normals[1][k]));
+        let bn = bis.iter().map(|v| v * v).sum::<f64>().sqrt();
+        for v in &mut bis { *v /= bn; }
+        for off in [1.0e-5, 2.0e-5, 3.0e-5, 5.0e-5] {
+            for t in [0.0, 0.25, 0.5, 0.75, 1.0] {
+                let p: [f64; 3] = std::array::from_fn(|k| a[k] + t * d[k] + off * bis[k]);
+                let q = crate::geometry::Coordinate::from(p);
+                let ld = oracle.local_diameter(&q);
+                eprintln!("  off={off:.1e} t={t:.2}: local_diameter = {ld:.7}");
+            }
+        }
+    }
+}
+
+#[test]
+#[ignore = "validates the ray_distance-along-bisector thickness measure for crease proximity"]
+fn probe_crease_thickness_ray() {
+    use crate::geometry::Coordinate;
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let Ok(edge_spec) = std::env::var("STEP_CREASE_RAY_EDGE") else {
+        return;
+    };
+    let edge: usize = edge_spec.parse().expect("STEP_CREASE_RAY_EDGE");
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    for brep in &breps {
+        let oracle = brep.oracle().expect("oracle");
+        let [ia, ib] = brep.edges[edge].vertices;
+        let a: [f64; 3] = std::array::from_fn(|k| brep.vertices[ia][k].value());
+        let b: [f64; 3] = std::array::from_fn(|k| brep.vertices[ib][k].value());
+        let d: [f64; 3] = std::array::from_fn(|k| b[k] - a[k]);
+        let mut normals: Vec<[f64; 3]> = Vec::new();
+        for face in &brep.faces {
+            let touches = face.bounds.iter().any(|bound| bound.half_edges.iter().any(|he| he.edge == edge));
+            if touches {
+                if let crate::geometry::cad::brep::surface::Surface::Plane(p) = &face.surface {
+                    let sign = if face.forward { 1.0 } else { -1.0 };
+                    normals.push(std::array::from_fn(|k| sign * p.normal[k].value()));
+                }
+            }
+        }
+        let mut bis: [f64; 3] = std::array::from_fn(|k| -(normals[0][k] + normals[1][k]));
+        let bn = bis.iter().map(|v| v * v).sum::<f64>().sqrt();
+        for v in &mut bis { *v /= bn; }
+        let eps = 1.0e-6;
+        for t in [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] {
+            let base: [f64; 3] = std::array::from_fn(|k| a[k] + t * d[k]);
+            let origin: [f64; 3] = std::array::from_fn(|k| base[k] + eps * bis[k]);
+            let hit = oracle.ray_distance(&Coordinate::from(origin), bis);
+            let thickness = hit.map(|h| h + eps);
+            eprintln!("  t={t:.2}: ray-along-bisector thickness = {thickness:?}");
+        }
+    }
+}
+
+/// Verifies the medial-axis-ambiguity hypothesis directly on the real
+/// trimmed-mesh boundary quads near a crease, rather than on a synthetic
+/// bisector line: builds the actual `trim()` mesh (no fitting), finds every
+/// exterior boundary quad whose centroid lies within `STEP_CREASE_QUAD_BAND`
+/// of the crease edge's segment, and for each reports the top-2
+/// `patch_report` candidates plus which one is closer — so a real flip
+/// between neighboring quads (not just a hypothetical offset line) is either
+/// confirmed or ruled out.
+#[test]
+#[ignore = "checks whether real trimmed-mesh boundary quads near a crease flip target patch"]
+fn probe_crease_quad_flips() {
+    use crate::{
+        geometry::{
+            cad::sizing::FeatureSizing,
+            ntree::Balancing,
+            solid::Solid,
+        },
+        math::Quantity,
+        units::Length,
+    };
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let Ok(edge_spec) = std::env::var("STEP_CREASE_QUAD_EDGE") else {
+        return;
+    };
+    let edge: usize = edge_spec.parse().expect("STEP_CREASE_QUAD_EDGE");
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let length = |v| Quantity::<Length>::new(v);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    let levels = std::env::var("STEP_MESH_LEVELS")
+        .ok()
+        .and_then(|v| v.parse().ok());
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let maximum =
+        (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none")).then(|| length(cell));
+    let gradation = match std::env::var("STEP_MESH_GRADATION").as_deref() {
+        Ok("none") => None,
+        Ok(v) => Some(v.parse().expect("STEP_MESH_GRADATION")),
+        Err(_) => Some(0.2),
+    };
+    let band = env_f64("STEP_CREASE_QUAD_BAND", 3.0e-4);
+
+    for (index, brep) in breps.iter().enumerate() {
+        eprintln!("--- solid {index}: {} faces ---", brep.faces.len());
+        let [ia, ib] = brep.edges[edge].vertices;
+        let a: [f64; 3] = std::array::from_fn(|k| brep.vertices[ia][k].value());
+        let b: [f64; 3] = std::array::from_fn(|k| brep.vertices[ib][k].value());
+        let d: [f64; 3] = std::array::from_fn(|k| b[k] - a[k]);
+        let len2 = d.iter().map(|v| v * v).sum::<f64>();
+
+        let mut sizing = FeatureSizing::of(
+            brep,
+            env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
+            length(env_f64("STEP_MESH_MIN", cell / 8.0)),
+            maximum,
+            gradation,
+        );
+        if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+            sizing = sizing.with_proximity(brep, n.parse().unwrap()).unwrap();
+        }
+        if let Ok(n) = std::env::var("STEP_MESH_CURVATURE") {
+            sizing = sizing.with_curvature(brep, n.parse().unwrap()).unwrap();
+        }
+
+        let (trimmed, _) = brep
+            .trim(&sizing, levels, 0.1, Balancing::Strong(1))
+            .expect("trim failed");
+        let oracle = brep.oracle().expect("oracle");
+        let coords = trimmed.coordinates();
+        let quads = trimmed.exterior_faces();
+
+        // Bin surviving quads by t along the crease's segment (clamp to
+        // [0,1]) so output reads in order along the crease's length. Each row
+        // carries both the plain-nearest winner (i0) and the visibility-gated
+        // fit target (ig), so the flip reduction is measured directly.
+        let mut rows: Vec<(f64, [f64; 3], usize, &'static str, f64, usize, &'static str, f64, usize)> =
+            Vec::new();
+        for quad in &quads {
+            if quad.len() != 4 {
+                continue;
+            }
+            let centroid: [f64; 3] = std::array::from_fn(|k| {
+                quad.iter().map(|&n| coords[n][k].value()).sum::<f64>() / 4.0
+            });
+            let ac: [f64; 3] = std::array::from_fn(|k| centroid[k] - a[k]);
+            let t = ac.iter().zip(&d).map(|(x, y)| x * y).sum::<f64>() / len2;
+            let tc = t.clamp(0.0, 1.0);
+            let closest: [f64; 3] = std::array::from_fn(|k| a[k] + tc * d[k]);
+            let perp = centroid
+                .iter()
+                .zip(&closest)
+                .map(|(c, l)| (c - l).powi(2))
+                .sum::<f64>()
+                .sqrt();
+            if perp > band {
+                continue;
+            }
+            let q = crate::geometry::Coordinate::from(centroid);
+            let report = oracle.patch_report(&q);
+            let (i0, k0, d0, _, _) = report[0];
+            let (i1, k1, d1, _, _) = report.get(1).copied().unwrap_or((usize::MAX, "-", f64::NAN, [0.0; 3], [0.0; 3]));
+            let ig = oracle.fit_target(&q).map_or(usize::MAX, |(i, _)| i);
+            rows.push((t, centroid, i0, k0, d0, i1, k1, d1 - d0, ig));
+        }
+        rows.sort_by(|a, b| a.0.total_cmp(&b.0));
+        eprintln!("  {} boundary quads within {band:.1e} m of crease #{edge}", rows.len());
+        let mut last: Option<usize> = None;
+        let mut last_gated: Option<usize> = None;
+        let mut flips = 0usize;
+        let mut gated_flips = 0usize;
+        for (t, c, i0, k0, d0, i1, k1, gap, ig) in &rows {
+            if let Some(prev) = last {
+                if prev != *i0 {
+                    flips += 1;
+                }
+            }
+            if let Some(prev) = last_gated {
+                if prev != *ig {
+                    gated_flips += 1;
+                }
+            }
+            last = Some(*i0);
+            last_gated = Some(*ig);
+            eprintln!(
+                "    t={t:6.3} c=[{:.6} {:.6} {:.6}]  best #{i0} [{k0}] d={d0:.7}  runner #{i1} [{k1}] gap={gap:.2e}  gated #{ig}",
+                c[0], c[1], c[2],
+            );
+        }
+        eprintln!(
+            "  {flips} plain-nearest flips, {gated_flips} gated flips over {} quads",
+            rows.len()
+        );
+    }
 }

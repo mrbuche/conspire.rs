@@ -14,7 +14,7 @@ use crate::{
         },
         solid::Sizing,
     },
-    math::{Quantity, Scalar, Tensor},
+    math::{FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
     units::Length,
 };
 use std::{
@@ -23,6 +23,15 @@ use std::{
 };
 
 const D: usize = 3;
+
+/// How many places along a pair of creases the surface between them is
+/// sampled to decide whether they bound a ribbon of surface (see `joined`).
+const JOINED_SAMPLES: usize = 5;
+
+/// How far, as a fraction of a pair's own gap, the surface joining two creases
+/// may stray from the straight line between them and still count as joining
+/// them (see `joined`).
+const JOINED_FRACTION: Scalar = 0.25;
 
 /// A binary AABB tree over sizing primitives: proximity slabs (a surface tile
 /// pushed inward along its face normal by the local wall thickness, so a cell
@@ -149,8 +158,11 @@ struct CreaseSeg {
 /// thin geometry the crease term is blind to (a thin wall or a small cavity
 /// need not be near any sharp edge). [`with_curvature`](Self::with_curvature)
 /// adds a term that resolves a curved face by its own radius, not only at its
-/// sharp rims. The field is the clamped minimum of all contributions, so it is
-/// defined everywhere.
+/// sharp rims. [`with_crease_proximity`](Self::with_crease_proximity) adds a
+/// term for narrow features bounded by *two* sharp edges — a thin rib, a slot,
+/// a stair-step — that the through-thickness term misses because the solid
+/// either side of such a gap need not itself be thin. The field is the clamped
+/// minimum of all contributions, so it is defined everywhere.
 pub struct FeatureSizing {
     crease: Option<Bvh<CreaseSeg>>,
     minimum: Quantity<Length>,
@@ -159,6 +171,7 @@ pub struct FeatureSizing {
     gradation: Option<Scalar>,
     proximity: Option<BoxField>,
     curvature: Option<BoxField>,
+    separation: Option<BoxField>,
 }
 
 impl FeatureSizing {
@@ -221,6 +234,7 @@ impl FeatureSizing {
             gradation,
             proximity: None,
             curvature: None,
+            separation: None,
         }
     }
 
@@ -343,6 +357,121 @@ impl FeatureSizing {
                 }
             }
         }
+        // Crease-adjacent thickness: a sharp concave edge between two planar
+        // faces can run close and parallel to a third, unrelated face (a
+        // nearby fillet or bore) without either adjacent face itself being
+        // thin anywhere the face-tiling above samples — the gap only shows up
+        // right at the crease. Fire one ray per crease sample, inward along
+        // the bisector of the two adjacent planes, and slab the same way.
+        //
+        // Proof-of-concept scope: only creases whose *both* incident faces
+        // are planar get a bisector (matches the case this was built against,
+        // a sharp corner between two planes running near a third surface);
+        // a crease touching a curved face is left to the through-thickness
+        // tiling of that curved face instead.
+        //
+        // TEMPORARY: gated behind STEP_DISABLE_CREASE_PROXIMITY so a baseline
+        // (pre-this-session) mesh can still be produced for comparison while
+        // this term is under evaluation — remove the gate once a verdict is
+        // reached either way.
+        const CREASE_SAMPLES: usize = 9;
+        if std::env::var("STEP_DISABLE_CREASE_PROXIMITY").is_err() {
+        for &edge in &brep.features().creases {
+            let brep_edge = &brep.edges[edge];
+            let mut normals: Vec<[Scalar; D]> = Vec::new();
+            for face in &brep.faces {
+                let touches = face
+                    .bounds
+                    .iter()
+                    .any(|bound| bound.half_edges.iter().any(|he| he.edge == edge));
+                if touches {
+                    let Surface::Plane(plane) = &face.surface else {
+                        normals.clear();
+                        break;
+                    };
+                    let sign = if face.forward { 1.0 } else { -1.0 };
+                    normals.push(from_fn(|k| sign * plane.normal[k].value()));
+                }
+            }
+            let [n0, n1] = match normals.as_slice() {
+                [a, b] => [*a, *b],
+                _ => continue,
+            };
+            let bisector_raw: [Scalar; D] = from_fn(|k| -(n0[k] + n1[k]));
+            let norm = dot(bisector_raw, bisector_raw).sqrt();
+            if norm <= 1.0e-12 {
+                continue; // faces back-to-back: not a real concave wedge
+            }
+            let bisector: [Scalar; D] = from_fn(|k| bisector_raw[k] / norm);
+            // `sample_edge` special-cases `Curve::Line` to just the two
+            // endpoints (a straight chord has no interior geometry to
+            // resolve), which is exactly wrong here: we want densely-spaced
+            // ray origins along the *whole* crease, straight or not, so a
+            // gap that is uniform along a long straight edge still gets
+            // sampled in its interior and not just at its two ends.
+            let polyline = if let Curve::Line(_) = &brep_edge.curve {
+                let [ia, ib] = brep_edge.vertices;
+                let (a, b) = (point(&brep.vertices[ia]), point(&brep.vertices[ib]));
+                (0..=CREASE_SAMPLES)
+                    .map(|i| {
+                        let t = i as Scalar / CREASE_SAMPLES as Scalar;
+                        Coordinate::<D>::from(from_fn(|k| a[k] + t * (b[k] - a[k])))
+                    })
+                    .collect()
+            } else {
+                sample_edge(brep, brep_edge, CREASE_SAMPLES)
+            };
+            // A box built around a single ray (inflated only by `eps`) is a
+            // near-zero-width sliver: with samples spaced along a >1mm edge,
+            // consecutive slivers leave the whole interior of the crease
+            // uncovered. Instead, deposit one box per *segment* of the
+            // polyline, spanning both its ray origins and both hit tips, so
+            // adjacent boxes butt up and the crease's whole length is
+            // continuously covered end to end.
+            for pair in polyline.windows(2) {
+                let bases: [[Scalar; D]; 2] =
+                    from_fn(|i| from_fn(|k| pair[i][k].value()));
+                let mut thicknesses = [Scalar::NAN; 2];
+                let mut ok = true;
+                for (i, base) in bases.iter().enumerate() {
+                    let origin = Coordinate::<D>::from(from_fn::<Scalar, D, _>(|k| {
+                        base[k] + eps * bisector[k]
+                    }));
+                    match oracle.ray_distance(&origin, bisector) {
+                        Some(hit) if (hit + eps).is_finite() && hit + eps > 0.0 => {
+                            thicknesses[i] = hit + eps;
+                        }
+                        _ => ok = false,
+                    }
+                }
+                if !ok {
+                    continue;
+                }
+                let thickness = thicknesses[0].min(thicknesses[1]);
+                // Unlike every other term here, don't clamp this one up to
+                // `self.minimum`: the whole point is a *genuinely* narrow
+                // gap that is finer than the user's chosen floor. Clamping
+                // it up to the floor is what produced a uniform near-floor
+                // band down the entire crease and tangled where that band
+                // met the surrounding coarser field. Let the octree's own
+                // `levels` cap be the real floor instead; only cap above at
+                // `maximum` so the term never *coarsens* anything.
+                let target = (thickness / cells).min(self.maximum.value());
+                if target >= self.maximum.value() {
+                    continue; // does not constrain anything
+                }
+                let (mut low, mut high) = ([Scalar::INFINITY; D], [Scalar::NEG_INFINITY; D]);
+                for (base, thick) in bases.iter().zip(thicknesses) {
+                    let tip: [Scalar; D] = from_fn(|k| base[k] + thick * bisector[k]);
+                    for k in 0..D {
+                        low[k] = low[k].min(base[k]).min(tip[k]) - eps;
+                        high[k] = high[k].max(base[k]).max(tip[k]) + eps;
+                    }
+                }
+                slabs.push((low, high, target, target));
+            }
+        }
+        }
         self.proximity = (!slabs.is_empty()).then(|| BoxField {
             bvh: Bvh::build(slabs),
         });
@@ -403,6 +532,196 @@ impl FeatureSizing {
         Ok(self)
     }
 
+    /// Adds a crease-separation term: wherever two sharp edges run close
+    /// together with surface between them the whole way — the two edges of a
+    /// thin rib, the walls of a slot, the tread of a stair-step — a band of
+    /// boxes spanning the gap is stored with a target of `gap / cells_across`,
+    /// forcing that many elements across the narrow region.
+    ///
+    /// This is the local-feature-size case the through-thickness term is blind
+    /// to: the solid on either side of such a gap need not itself be thin, so
+    /// no inward ray finds a short chord. It reads the sharp edges straight off
+    /// [`Brep::features`] — no tessellation, no angle inference.
+    ///
+    /// Two creases are compared only when they belong to *unrelated* chains: a
+    /// chain is a maximal run of creases meeting end to end at non-corner
+    /// vertices, and a crease never sees a chain within `hops` steps of its own
+    /// (so a sharp edge does not read its own smoothly-continuing neighbours as
+    /// a narrow feature). A pair counts only when surface runs between the two
+    /// the whole way they face each other (`joined`), which rejects the open
+    /// mouth of a slot — sharp on both lips but empty between them.
+    pub fn with_crease_proximity(
+        mut self,
+        brep: &Brep,
+        radius: Quantity<Length>,
+        cells_across: usize,
+        hops: usize,
+    ) -> Result<Self, &'static str> {
+        let features = brep.features();
+        if features.creases.is_empty() {
+            return Ok(self);
+        }
+        let oracle = brep.oracle()?;
+        let cells = cells_across.max(1) as Scalar;
+        let radius = radius.value();
+        let (minimum, maximum) = (self.minimum.value(), self.maximum.value());
+
+        // Each crease as its two endpoints (for segment-distance) plus the
+        // chord polyline (to lay boxes down its length).
+        let creases: Vec<([Scalar; D], [Scalar; D])> = features
+            .creases
+            .iter()
+            .map(|&edge| {
+                let [a, b] = brep.edges[edge].vertices;
+                (point(&brep.vertices[a]), point(&brep.vertices[b]))
+            })
+            .collect();
+
+        // Vertex -> incident creases, by inverting `edge.vertices` over the
+        // sharp edges (mirrors `Brep::features`).
+        let mut incident: Vec<Vec<usize>> = vec![Vec::new(); brep.vertices.len()];
+        for (index, &edge) in features.creases.iter().enumerate() {
+            let [a, b] = brep.edges[edge].vertices;
+            incident[a].push(index);
+            incident[b].push(index);
+        }
+        let corner: Vec<bool> = {
+            let mut is_corner = vec![false; brep.vertices.len()];
+            for &vertex in &features.corners {
+                is_corner[vertex] = true;
+            }
+            is_corner
+        };
+
+        // Chains: union two creases meeting at a non-corner vertex with
+        // exactly two creases through it.
+        let mut parent: Vec<usize> = (0..creases.len()).collect();
+        fn root(parent: &mut [usize], mut crease: usize) -> usize {
+            while parent[crease] != crease {
+                parent[crease] = parent[parent[crease]];
+                crease = parent[crease];
+            }
+            crease
+        }
+        for vertex in 0..brep.vertices.len() {
+            let through = &incident[vertex];
+            if !corner[vertex] && through.len() == 2 {
+                let (one, two) = (root(&mut parent, through[0]), root(&mut parent, through[1]));
+                parent[one] = two;
+            }
+        }
+        let chain: Vec<usize> = (0..creases.len())
+            .map(|crease| root(&mut parent, crease))
+            .collect();
+
+        // Chain adjacency: two chains are adjacent when creases of each meet at
+        // a shared vertex.
+        let mut adjacent: FxHashMap<usize, FxHashSet<usize>> =
+            FxHashMap::default();
+        for through in &incident {
+            for &one in through {
+                for &two in through {
+                    if chain[one] != chain[two] {
+                        adjacent.entry(chain[one]).or_default().insert(chain[two]);
+                    }
+                }
+            }
+        }
+        // Chains excluded from a chain: itself and everything within `hops`.
+        let mut excluded: FxHashMap<usize, FxHashSet<usize>> =
+            FxHashMap::default();
+        for &start in &chain {
+            excluded.entry(start).or_insert_with(|| {
+                let mut reached = FxHashSet::default();
+                reached.insert(start);
+                let mut frontier = vec![start];
+                for _ in 0..hops {
+                    let mut next = Vec::new();
+                    for near in &frontier {
+                        if let Some(neighbors) = adjacent.get(near) {
+                            for &other in neighbors {
+                                if reached.insert(other) {
+                                    next.push(other);
+                                }
+                            }
+                        }
+                    }
+                    frontier = next;
+                }
+                reached
+            });
+        }
+
+        // The crease of each other chain nearest each crease, recorded from
+        // both ends so the two agree.
+        let mut nearest: Vec<FxHashMap<usize, (usize, Scalar)>> =
+            vec![FxHashMap::default(); creases.len()];
+        let record = |nearest: &mut Vec<FxHashMap<usize, (usize, Scalar)>>,
+                          this: usize,
+                          other: usize,
+                          distance: Scalar| {
+            let entry = nearest[this]
+                .entry(chain[other])
+                .or_insert((other, distance));
+            if (distance, other) < (entry.1, entry.0) {
+                *entry = (other, distance);
+            }
+        };
+        for this in 0..creases.len() {
+            for other in (this + 1)..creases.len() {
+                if excluded[&chain[this]].contains(&chain[other]) {
+                    continue;
+                }
+                let distance = segment_distance(&creases[this], &creases[other]);
+                if distance < radius && joined(&creases[this], &creases[other], &oracle) {
+                    record(&mut nearest, this, other, distance);
+                    record(&mut nearest, other, this, distance);
+                }
+            }
+        }
+
+        // Deposit boxes for every pair where each crease is its own chain's
+        // nearest to the other.
+        let eps = minimum * 1.0e-3;
+        let mut boxes: Vec<Item<Scalar>> = Vec::new();
+        for this in 0..creases.len() {
+            for &(other, distance) in nearest[this].values() {
+                // Mutual-nearest: `other` must report `this` back.
+                let mutual = nearest[other]
+                    .get(&chain[this])
+                    .is_some_and(|&(back, _)| back == this);
+                // Each pair once (this < other), and only when mutual.
+                if !mutual || this >= other {
+                    continue;
+                }
+                let target = (distance / cells).max(minimum).min(maximum);
+                if target >= maximum {
+                    continue;
+                }
+                // Walk `this` and drop to `other`, boxing each gap span.
+                let (from, to) = (&creases[this], &creases[other]);
+                for sample in 0..JOINED_SAMPLES {
+                    let fraction = sample as Scalar / (JOINED_SAMPLES - 1) as Scalar;
+                    let here: [Scalar; D] = from_fn(|k| from.0[k] + fraction * (from.1[k] - from.0[k]));
+                    let there = closest_on(to, &here);
+                    let gap = dot(sub(there, here), sub(there, here)).sqrt();
+                    if gap > radius {
+                        continue;
+                    }
+                    let half = 0.5 * gap + target;
+                    let midpoint: [Scalar; D] = from_fn(|k| 0.5 * (here[k] + there[k]));
+                    let low = from_fn(|k| midpoint[k] - half - eps);
+                    let high = from_fn(|k| midpoint[k] + half + eps);
+                    boxes.push((low, high, target, target));
+                }
+            }
+        }
+        self.separation = (!boxes.is_empty()).then(|| BoxField {
+            bvh: Bvh::build(boxes),
+        });
+        Ok(self)
+    }
+
     /// The crease term alone: the smallest feature size the sharp edges impose
     /// on a cube centred at `center` with half-edge `half`, unclamped. Distance
     /// is measured from the nearest point of the cube, not its centre (the
@@ -443,14 +762,36 @@ impl FeatureSizing {
     /// The target element size for a cube centred at `center` with half-edge
     /// `half`: the crease term, further capped wherever a proximity slab
     /// reaches into the cell.
+    ///
+    /// `minimum` is intentionally *not* applied as a floor here anymore: a
+    /// genuinely narrow real gap (crease-adjacent proximity, thin walls,
+    /// tight curvature) can legitimately need elements finer than the
+    /// user's chosen `--min-size`, and re-clamping the *combined* field up
+    /// to that floor after every term has already picked its target just
+    /// forces a hard, badly-graded size discontinuity wherever the floor
+    /// bites — which is what was producing new inversions right where a
+    /// correctly-fine region met the surrounding coarser field. The octree's
+    /// own `--max-levels` remains the real backstop against runaway depth.
+    ///
+    /// TEMPORARY: gated behind STEP_DISABLE_CREASE_PROXIMITY (same flag as
+    /// the crease-adjacent term) so a byte-for-byte pre-this-session
+    /// baseline mesh can still be produced for comparison — remove the gate
+    /// once a verdict is reached either way.
     pub fn at_cell(&self, center: &Coordinate<D>, half: Scalar) -> Quantity<Length> {
         let mut size = self.crease(center, half);
-        for field in [&self.proximity, &self.curvature].into_iter().flatten() {
+        for field in [&self.proximity, &self.curvature, &self.separation]
+            .into_iter()
+            .flatten()
+        {
             if let Some(target) = field.target(center, half) {
                 size = size.min(Quantity::<Length>::new(target));
             }
         }
-        size.max(self.minimum).min(self.maximum)
+        if std::env::var("STEP_DISABLE_CREASE_PROXIMITY").is_ok() {
+            size.max(self.minimum).min(self.maximum)
+        } else {
+            size.min(self.maximum)
+        }
     }
 }
 
@@ -1001,6 +1342,92 @@ fn proximity_ruled(
 
 fn point(coordinate: &Coordinate<D>) -> [Scalar; D] {
     from_fn(|k| coordinate[k].value())
+}
+
+/// Whether surface runs between two creases the whole way along the stretch
+/// they face each other over, so that the two of them bound one narrow ribbon
+/// of surface rather than straddling open space. Each sample walks a point
+/// along one crease, drops to the nearest point of the other, and asks whether
+/// the surface passes through the middle: a flat ribbon passes through it
+/// exactly and a curved one misses by only its sagitta, whereas across an open
+/// gap the nearest surface is one of the creases' own, half a gap away. Both
+/// creases are walked, since one may face only part of the other.
+fn joined(
+    one: &([Scalar; D], [Scalar; D]),
+    two: &([Scalar; D], [Scalar; D]),
+    oracle: &BrepOracle,
+) -> bool {
+    [(one, two), (two, one)].into_iter().all(|(from, to)| {
+        (0..JOINED_SAMPLES).all(|sample| {
+            let fraction = sample as Scalar / (JOINED_SAMPLES - 1) as Scalar;
+            let here: [Scalar; D] = from_fn(|k| from.0[k] + fraction * (from.1[k] - from.0[k]));
+            let there = closest_on(to, &here);
+            let gap = dot(sub(there, here), sub(there, here)).sqrt();
+            if gap <= 0.0 {
+                return true;
+            }
+            let middle =
+                Coordinate::<D>::from(from_fn::<Scalar, D, _>(|k| 0.5 * (here[k] + there[k])));
+            oracle.distance(&middle) <= gap * JOINED_FRACTION
+        })
+    })
+}
+
+/// The point of segment `.0`–`.1` closest to `p`, in raw coordinates.
+fn closest_on(segment: &([Scalar; D], [Scalar; D]), p: &[Scalar; D]) -> [Scalar; D] {
+    let along = sub(segment.1, segment.0);
+    let length = dot(along, along);
+    if length <= 0.0 {
+        return segment.0;
+    }
+    let t = (dot(sub(*p, segment.0), along) / length).clamp(0.0, 1.0);
+    from_fn(|k| segment.0[k] + t * along[k])
+}
+
+/// Closest-point distance between two segments (Ericson, *Real-Time Collision
+/// Detection*, section 5.1.9).
+fn segment_distance(one: &([Scalar; D], [Scalar; D]), two: &([Scalar; D], [Scalar; D])) -> Scalar {
+    let (p1, q1, p2, q2) = (one.0, one.1, two.0, two.1);
+    let d1 = sub(q1, p1);
+    let d2 = sub(q2, p2);
+    let r = sub(p1, p2);
+    let a = dot(d1, d1);
+    let e = dot(d2, d2);
+    let f = dot(d2, r);
+    const EPSILON: Scalar = 1.0e-12;
+    let (s, t) = if a <= EPSILON && e <= EPSILON {
+        (0.0, 0.0)
+    } else if a <= EPSILON {
+        (0.0, (f / e).clamp(0.0, 1.0))
+    } else {
+        let c = dot(d1, r);
+        if e <= EPSILON {
+            ((-c / a).clamp(0.0, 1.0), 0.0)
+        } else {
+            let b = dot(d1, d2);
+            let denominator = a * e - b * b;
+            let s = if denominator.abs() > EPSILON {
+                ((b * f - c * e) / denominator).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let t = (b * s + f) / e;
+            if t < 0.0 {
+                ((-c / a).clamp(0.0, 1.0), 0.0)
+            } else if t > 1.0 {
+                (((b - c) / a).clamp(0.0, 1.0), 1.0)
+            } else {
+                (s, t)
+            }
+        }
+    };
+    let closest_one: [Scalar; D] = from_fn(|k| p1[k] + d1[k] * s);
+    let closest_two: [Scalar; D] = from_fn(|k| p2[k] + d2[k] * t);
+    dot(
+        sub(closest_one, closest_two),
+        sub(closest_one, closest_two),
+    )
+    .sqrt()
 }
 
 fn axis(direction: &crate::geometry::Direction<D>) -> [Scalar; D] {

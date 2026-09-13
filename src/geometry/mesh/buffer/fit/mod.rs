@@ -38,7 +38,7 @@ const HISTORY: usize = 8;
 const ITERATIONS: usize = 100;
 const RELAXATION: Scalar = 0.1;
 const STAGNATION: Scalar = 5.0e-4;
-const SWEEPS: usize = 50;
+const SWEEPS: usize = 100;
 const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
@@ -49,6 +49,38 @@ pub(crate) trait Oracle: Sync {
     /// The closest point on the target surface to `query`, and the outward unit
     /// normal there.
     fn project(&self, query: &Coordinate<3>) -> Option<(Coordinate<3>, Direction<3>)>;
+
+    /// An opaque token naming the target-surface component this query belongs
+    /// to, computed *once* per boundary quad from its pre-fit centroid — while
+    /// the quad still sits squarely against its own wall, before any sweep
+    /// drifts it toward a near-tie. The fit carries the token back on every
+    /// subsequent [`project_owned`](Self::project_owned) call so the quad
+    /// cannot be re-associated with a different surface as it moves.
+    ///
+    /// The default (`None`) opts out: an oracle with no notion of distinct
+    /// components (the [`Facets`] tessellation, whose BVH is one connected
+    /// surface) leaves ownership unset and every `project_owned` falls back to
+    /// the free [`project`](Self::project).
+    fn owner(&self, query: &Coordinate<3>) -> Option<usize> {
+        let _ = query;
+        None
+    }
+
+    /// The closest point on the specific component named by `owner`, or — when
+    /// `owner` is `None` — the free [`project`](Self::project). Constraining the
+    /// projection to the quad's frozen owner is what stops a boundary node from
+    /// being pulled through its own wall onto an unrelated surface that has
+    /// drifted closer (the crease/near-feature tangle). The default ignores
+    /// `owner` and projects freely, so an oracle that does not override
+    /// [`owner`](Self::owner) is wholly unaffected.
+    fn project_owned(
+        &self,
+        query: &Coordinate<3>,
+        owner: Option<usize>,
+    ) -> Option<(Coordinate<3>, Direction<3>)> {
+        let _ = owner;
+        self.project(query)
+    }
 }
 
 /// [`Oracle`] backed by a triangulated [`Tessellation`]: BVH closest-point plus
@@ -126,6 +158,12 @@ impl Mesh<3> {
             .enumerate()
             .for_each(|(index, &node)| slot[node] = Some(index));
         let unknowns = nodes.len();
+        // Freeze each boundary quad's owning surface component from its pre-fit
+        // centroid — computed once here, before any sweep moves a node toward a
+        // near-tie — then constrain every sweep's projection to it. An oracle
+        // that does not distinguish components returns `None` throughout, and
+        // the fit is byte-for-byte unchanged.
+        let owners: Vec<Option<usize>> = owners(oracle, &quads, coordinates, quad_chunk);
         let mut epsilon: Scalar = 1.0;
         let mut previous = Quantity::<Length>::new(Scalar::INFINITY);
         let mut window = VecDeque::<Quantity<Length>>::with_capacity(WINDOW);
@@ -141,7 +179,7 @@ impl Mesh<3> {
                 nodes,
                 scales,
                 slot: &slot,
-                targets: project(oracle, &quads, coordinates, quad_chunk)?,
+                targets: project(oracle, &quads, &owners, coordinates, quad_chunk)?,
                 tracked: &tracked,
                 unknowns,
             };
@@ -156,7 +194,14 @@ impl Mesh<3> {
                 && window.iter().fold(value, |high, &entry| high.max(entry))
                     - window.iter().fold(value, |low, &entry| low.min(entry))
                     <= value.abs() * STAGNATION;
-            if settled || shift < TOLERANCE || stagnant {
+            // The stagnation / small-shift early-stops watch the global objective,
+            // which is dominated by the many healthy hexes and flattens long before
+            // a stubborn handful of crease cells finish untangling. Suppress them
+            // while any tracked hex is still inverted so the fit does not abandon a
+            // fold it is actively working out; `settled` (true L-BFGS convergence at
+            // the first iteration) remains a valid stop.
+            let untangled = state.worst(coordinates) > 0.0;
+            if settled || (untangled && (shift < TOLERANCE || stagnant)) {
                 break;
             }
             if window.len() == WINDOW {
@@ -188,11 +233,43 @@ impl Oracle for Facets<'_> {
     }
 }
 
-/// Projects every boundary-quad centroid onto the target, pairing each hit with
-/// the worst tangent-plane deviation among the quad's four nodes.
+/// Each boundary quad's owning surface component, from its centroid, computed
+/// once (see [`Oracle::owner`]). Parallel to `quads`; `None` where the oracle
+/// opts out of ownership.
+fn owners<O: Oracle>(
+    oracle: &O,
+    quads: &[[usize; 4]],
+    coordinates: &Coordinates<3>,
+    chunk: usize,
+) -> Vec<Option<usize>> {
+    let mut owners = vec![None; quads.len()];
+    scope(|scope| {
+        owners
+            .chunks_mut(chunk)
+            .zip(quads.chunks(chunk))
+            .for_each(|(owners, quads)| {
+                scope.spawn(move || {
+                    owners.iter_mut().zip(quads).for_each(|(owner, quad)| {
+                        let centroid = quad
+                            .iter()
+                            .map(|&node| &coordinates[node])
+                            .sum::<Coordinate<3>>()
+                            / 4.0;
+                        *owner = oracle.owner(&centroid);
+                    })
+                });
+            });
+    });
+    owners
+}
+
+/// Projects every boundary-quad centroid onto the target — constrained to the
+/// quad's frozen `owner` — pairing each hit with the worst tangent-plane
+/// deviation among the quad's four nodes.
 fn project<O: Oracle>(
     oracle: &O,
     quads: &[[usize; 4]],
+    owners: &[Option<usize>],
     coordinates: &Coordinates<3>,
     chunk: usize,
 ) -> Result<Vec<Target>, &'static str> {
@@ -201,25 +278,31 @@ fn project<O: Oracle>(
         targets
             .chunks_mut(chunk)
             .zip(quads.chunks(chunk))
-            .for_each(|(targets, quads)| {
+            .zip(owners.chunks(chunk))
+            .for_each(|((targets, quads), owners)| {
                 scope.spawn(move || {
-                    targets.iter_mut().zip(quads).for_each(|(target, quad)| {
-                        let centroid = quad
-                            .iter()
-                            .map(|&node| &coordinates[node])
-                            .sum::<Coordinate<3>>()
-                            / 4.0;
-                        *target = oracle.project(&centroid).map(|(point, normal)| {
-                            let distance = quad
+                    targets
+                        .iter_mut()
+                        .zip(quads)
+                        .zip(owners)
+                        .for_each(|((target, quad), &owner)| {
+                            let centroid = quad
                                 .iter()
-                                .map(|&node| {
-                                    let deviation = (&coordinates[node] - &point) * &normal;
-                                    deviation * deviation
-                                })
-                                .fold(Quantity::default(), Quantity::max);
-                            (point, normal, distance)
-                        });
-                    })
+                                .map(|&node| &coordinates[node])
+                                .sum::<Coordinate<3>>()
+                                / 4.0;
+                            *target =
+                                oracle.project_owned(&centroid, owner).map(|(point, normal)| {
+                                    let distance = quad
+                                        .iter()
+                                        .map(|&node| {
+                                            let deviation = (&coordinates[node] - &point) * &normal;
+                                            deviation * deviation
+                                        })
+                                        .fold(Quantity::default(), Quantity::max);
+                                    (point, normal, distance)
+                                });
+                        })
                 });
             });
     });
@@ -245,6 +328,14 @@ impl Sweep<'_> {
                 (Quantity::default(), Scalar::INFINITY),
                 |(quality, worst), (q, d)| (quality + q, worst.min(d)),
             )
+    }
+    /// Worst scaled determinant over the tracked hexes; `<= 0` means at least one
+    /// element is still inverted, so the mesh is not yet untangled.
+    fn worst(&self, coordinates: &Coordinates<3>) -> Scalar {
+        self.tracked
+            .iter()
+            .map(|&hex| determinant(&self.hexes[hex], coordinates) / self.scales[hex].value().powi(3))
+            .fold(Scalar::INFINITY, Scalar::min)
     }
     fn objective(&self, coordinates: &Coordinates<3>) -> Quantity<Length> {
         scope(|scope| {

@@ -127,6 +127,25 @@ impl FacePatch {
                         high[k] = high[k].max(world + extent);
                     }
                 }
+                // `face.aabb` is built only from the loop's topological
+                // vertices (see `Brep::planar_face`); a "mixed" ring can also
+                // carry chorded points from a non-exact curve (B-spline, or
+                // an ellipse not on a cylinder) that were never folded into
+                // that vertex set, so union every ring point's world position
+                // in here too. For straight/vertex points this repeats work
+                // `face.aabb` already covers; for chorded points it is the
+                // only place their extent is ever accounted for.
+                for ring in &face.rings {
+                    for &(p, _) in ring {
+                        for k in 0..D {
+                            let world = face.origin[k].value()
+                                + p[0] * face.u[k].value()
+                                + p[1] * face.v[k].value();
+                            low[k] = low[k].min(world);
+                            high[k] = high[k].max(world);
+                        }
+                    }
+                }
                 // A circular-arc edge in a mixed loop can bulge past every ring
                 // vertex; for each world axis, the arc's extreme sits where the
                 // world-k coordinate's derivative in the sweep angle vanishes
@@ -173,10 +192,17 @@ impl FacePatch {
     /// the trim boundary — where the neighbour sharing that edge may claim the
     /// crossing too, or neither may, so the parity cannot be trusted. The
     /// basis of the ray-parity inside/outside test.
+    ///
+    /// `floor` is a world-space minimum for the boundary band: a hit within it
+    /// of the trim boundary grazes even where the edge is carried exactly (chord
+    /// tolerance zero). Threading a shared edge or corner of exact faces is just
+    /// as untrustworthy as an approximated one, so the caller supplies a small
+    /// fraction of the model extent here to make the graze test always active.
     pub(super) fn ray_hits(
         &self,
         origin: [Scalar; D],
         direction: [Scalar; D],
+        floor: Scalar,
     ) -> (Vec<Scalar>, bool) {
         match self {
             Self::Planar(face) => {
@@ -193,9 +219,10 @@ impl FacePatch {
                 let hit =
                     Coordinate::from(from_fn::<Scalar, D, _>(|k| origin[k] + t * direction[k]));
                 let uv = face.project(&hit);
-                let grazing = face.tolerance > 0.0 && {
+                let band = face.tolerance.max(floor);
+                let grazing = band > 0.0 && {
                     let near = face.nearest_boundary(uv);
-                    (near[0] - uv[0]).hypot(near[1] - uv[1]) < face.tolerance
+                    (near[0] - uv[0]).hypot(near[1] - uv[1]) < band
                 };
                 if face.contains(uv) {
                     (vec![t], grazing)
@@ -205,7 +232,7 @@ impl FacePatch {
             }
             Self::Curved {
                 curved, tolerance, ..
-            } => curved.ray_hits(origin, direction, *tolerance),
+            } => curved.ray_hits(origin, direction, tolerance.max(floor)),
             Self::Sampled(sampled) => sampled.ray_hits(origin, direction),
         }
     }
