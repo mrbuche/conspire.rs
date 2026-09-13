@@ -39,11 +39,17 @@ impl Brep {
             })
             .collect();
 
+        // A crease that closes on itself (a whole circle used as one edge, its
+        // two vertex indices coincident) has no through-neighbour at its seam:
+        // the curve is smooth there by construction, and the seam is just where
+        // the parametrisation happens to cut, not a real discontinuity.
         let mut through: Vec<Vec<usize>> = vec![Vec::new(); self.vertices.len()];
         for &edge in &creases {
             let [a, b] = self.edges[edge].vertices;
-            through[a].push(b);
-            through[b].push(a);
+            if a != b {
+                through[a].push(b);
+                through[b].push(a);
+            }
         }
         let corners: Vec<usize> = (0..self.vertices.len())
             .filter(|&vertex| match through[vertex].as_slice() {

@@ -1,4 +1,4 @@
-use super::super::test::{coplanar_squares, unit_cube};
+use super::super::test::{capped_cylinder, coplanar_squares, unit_cube};
 
 #[test]
 fn every_cube_edge_and_corner_is_sharp() {
@@ -12,6 +12,21 @@ fn flat_shared_edge_is_not_a_crease() {
     let features = coplanar_squares().features();
     assert_eq!(features.creases, vec![0, 2, 3, 4, 5, 6]);
     assert_eq!(features.corners, vec![0, 2, 3, 5]);
+}
+
+#[test]
+fn a_closed_loop_crease_has_no_corner_at_its_seam() {
+    // Each rim of a capped cylinder is a single circular edge with coincident
+    // start/end vertices (the seam where the parametrisation cuts, not a real
+    // discontinuity) and a genuinely sharp cap/wall dihedral either side of it.
+    let brep = capped_cylinder(2.0, 5.0);
+    let features = brep.features();
+    assert_eq!(features.creases.len(), 2, "both rims are sharp creases");
+    assert!(
+        features.corners.is_empty(),
+        "smooth seam vertices reported as corners: {:?}",
+        features.corners
+    );
 }
 
 #[test]

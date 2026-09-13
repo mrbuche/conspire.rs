@@ -8,6 +8,7 @@
 pub mod test;
 
 pub mod classify;
+pub mod crease;
 pub mod curve;
 pub mod features;
 pub mod inside;
