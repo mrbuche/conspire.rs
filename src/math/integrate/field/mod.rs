@@ -652,7 +652,13 @@ where
     times.push(t_0);
     while t_f - t > dt_min {
         dt = dt.min(t_f - t);
-        let (z_stage, next_carry) = rkmk_dae_stage_slopes_into::<Fld, Tab, Z, T>(
+        // A solver failure partway through a trial step (e.g. the stage or
+        // accept-time algebraic solve diverging because the trial inverted an
+        // element) is treated the same as an error estimate exceeding
+        // tolerance: shrink dt and retry, rather than aborting the whole
+        // integration. Below dt_min there is nowhere smaller left to retry
+        // at, so the failure is finally propagated.
+        let stage = rkmk_dae_stage_slopes_into::<Fld, Tab, Z, T>(
             &mut rate,
             &mut solve,
             &point,
@@ -661,32 +667,63 @@ where
             dt,
             &mut slopes,
             carry.as_ref(),
-        )?;
+        );
+        let (z_stage, next_carry) = match stage {
+            Ok(stage) => stage,
+            Err(error) => {
+                if dt <= dt_min {
+                    return Err(error);
+                }
+                dt *= 0.2;
+                continue;
+            }
+        };
         let sigma = weight(&slopes, Tab::B);
-        let trial = reconstruct_or_err::<Fld>(&point, &sigma)?;
+        let trial = match reconstruct_or_err::<Fld>(&point, &sigma) {
+            Ok(trial) => trial,
+            Err(error) => {
+                if dt <= dt_min {
+                    return Err(error);
+                }
+                dt *= 0.2;
+                continue;
+            }
+        };
         let error = weight(&slopes, Tab::D).norm().value().abs();
         let tolerance = abs_tol + rel_tol * trial.norm().value();
         let accept = error <= tolerance || dt <= dt_min;
         if accept {
             let t_previous = t;
-            t += dt;
-            z = solve(t, &trial, &z_stage)?;
-            carry = next_carry;
-            if dense {
-                let slope_1 = Fld::dexpinv(&sigma, &rate(t, &trial, &z)? * dt);
-                segments.push(HermiteSegment::<Fld, T> {
-                    t_0: t_previous,
-                    h: dt,
-                    base: point.clone(),
-                    sigma,
-                    slope_0: slopes[0].clone(),
-                    slope_1,
-                });
+            let t_next = t + dt;
+            match solve(t_next, &trial, &z_stage) {
+                Ok(z_next) => {
+                    t = t_next;
+                    z = z_next;
+                    carry = next_carry;
+                    if dense {
+                        let slope_1 = Fld::dexpinv(&sigma, &rate(t, &trial, &z)? * dt);
+                        segments.push(HermiteSegment::<Fld, T> {
+                            t_0: t_previous,
+                            h: dt,
+                            base: point.clone(),
+                            sigma,
+                            slope_0: slopes[0].clone(),
+                            slope_1,
+                        });
+                    }
+                    point = trial;
+                    points.push(point.clone());
+                    algebraics.push(z.clone());
+                    times.push(t);
+                }
+                Err(error) => {
+                    if dt <= dt_min {
+                        return Err(IntegrationError::from(error));
+                    }
+                    dt *= 0.2;
+                    continue;
+                }
             }
-            point = trial;
-            points.push(point.clone());
-            algebraics.push(z.clone());
-            times.push(t);
         }
         let scale = if error > 0.0 {
             (0.9 * (tolerance / error).powf(exponent)).clamp(0.2, 5.0)
