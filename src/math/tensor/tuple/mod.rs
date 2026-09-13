@@ -441,8 +441,8 @@ where
     T2: Tensor,
 {
     type Output = TensorTuple<T1, T2>;
-    fn sub(self, _tensor_tuple: Self) -> Self::Output {
-        unimplemented!("Avoiding trait recursion nightmare")
+    fn sub(self, tensor_tuple: Self) -> Self::Output {
+        self.clone() - tensor_tuple
     }
 }
 
