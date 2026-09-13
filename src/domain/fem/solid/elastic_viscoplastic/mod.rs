@@ -8,7 +8,7 @@ use crate::{
     math::{
         Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec,
         TensorVec,
-        integrate::{EmbeddedTableau, ExplicitDaeFirstOrderRoot, IntegrationError},
+        integrate::{ButcherTableau, EmbeddedTableau, ExplicitDaeFirstOrderRoot, IntegrationError},
         optimize::FirstOrderRootFinding,
     },
     mechanics::Times,
@@ -596,4 +596,37 @@ where
             Some((abs_tol, rel_tol)),
         )
     }
+}
+
+/// The RKMK-DAE analogue of [`RkmkRoot`], mirroring the constitutive-level
+/// `RootRkmkDae`: `F` (here, nodal equilibrium) is resolved at every RK stage
+/// abscissa from every Gauss point's stage-consistent plastic state, rather
+/// than frozen across the load-step window — so the coupling is the tableau's
+/// own order instead of first order, at the cost of `Tab::STAGES` equilibrium
+/// solves per window instead of one.
+///
+/// Single-block only for now (impl'd directly for `Model<Block<...>, 3>` in
+/// `fem::block::solid::elastic_viscoplastic`, not blanket over
+/// [`ElasticViscoplasticRkmkElements`]): the per-Gauss-point deformation
+/// gradients a stage's rate needs aren't exposed through that trait's
+/// whole-state interface. A `Blocks`/`AndElastic` generalization would need
+/// the whole-mesh field to be `Product<List<Fld1>, List<Fld2>>` (see
+/// [`crate::math::integrate::List`]) recursing the same way
+/// `ElasticViscoplasticRkmkElements::State` does — future work.
+pub trait RootRkmkDae<const D: usize, Y = Quantity> {
+    /// The model's plastic-state history type.
+    type History;
+    /// Solve under an applied load, resolving nodal equilibrium at every RK
+    /// stage of every load-step window while every Gauss point's plastic
+    /// state advances on its group.
+    fn root_rkmk_dae<Tab: ButcherTableau>(
+        &self,
+        solver: impl FirstOrderRootFinding<
+            NodalForcesSolid<D>,
+            NodalStiffnessesSolid<D>,
+            NodalCoordinates<D>,
+        >,
+        time: &[Quantity<Time>],
+        bcs: ElasticViscoplasticBCs,
+    ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
 }

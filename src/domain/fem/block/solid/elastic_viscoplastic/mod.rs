@@ -1,10 +1,11 @@
+use crate::mechanics::Times;
 use crate::{
     constitutive::{
         fluid::viscoplastic::ViscoplasticStateVariables as PointStateVariables,
         solid::elastic_viscoplastic::ElasticViscoplastic,
     },
     fem::{
-        ElementModelError, NodalCoordinates,
+        ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         block::{
             Block,
             element::{
@@ -16,17 +17,20 @@ use crate::{
         },
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
-            elastic_viscoplastic::{ElasticViscoplasticElements, ElasticViscoplasticRkmkElements},
+            elastic_viscoplastic::{
+                ElasticViscoplasticElements, ElasticViscoplasticRkmkElements, RootRkmkDae,
+            },
         },
     },
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTupleListVec,
+        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTupleList, TensorTupleListVec,
         TensorTupleListVec2D, TensorVec, TensorVector,
         integrate::{
-            EmbeddedTableau, EvolvedIncrement, IntegrableField, StateEvolution,
-            integrate_rkmk_adaptive, rkmk_step,
+            ButcherTableau, EmbeddedTableau, EvolvedIncrement, IntegrableField, IntegrationError,
+            List, StateEvolution, integrate_rkmk_adaptive, rkmk_dae_step_first_order_root,
+            rkmk_step,
         },
-        optimize::EqualityConstraint,
+        optimize::{EqualityConstraint, FirstOrderRootFinding},
     },
     mechanics::{DeformationGradient, DeformationGradientPlastic, DeformationGradientRatePlastic},
     units::Time,
@@ -222,5 +226,174 @@ where
             })
             .collect::<Result<_, FiniteElementError>>()
             .map_err(|error| ElementModelError::upstream(error, self))
+    }
+}
+
+/// Flattens the block's grouped per-element state into one Gauss-point list
+/// (the [`List`] field's `Point`), in the same element-major order
+/// [`ElasticViscoplasticElements`]/[`ElasticViscoplasticRkmkElements`] already
+/// iterate — so the round trip through [`unflatten_state`] is exact.
+fn flatten_state<const G: usize, Y>(
+    state: &ViscoplasticStateVariables<G, Y>,
+) -> TensorVector<PointStateVariables<Y>>
+where
+    Y: Clone + Tensor,
+{
+    state
+        .iter()
+        .flat_map(|element_state| element_state.iter().cloned())
+        .collect()
+}
+
+/// The inverse of [`flatten_state`]: regroups a flat Gauss-point list back
+/// into the block's per-element shape, `G` entries per element.
+fn unflatten_state<const G: usize, Y>(
+    flat: &TensorVector<PointStateVariables<Y>>,
+) -> ViscoplasticStateVariables<G, Y>
+where
+    Y: Clone + Tensor,
+{
+    flat.as_slice()
+        .chunks(G)
+        .map(|chunk| {
+            chunk
+                .iter()
+                .cloned()
+                .collect::<TensorTupleList<DeformationGradientPlastic, Y, G>>()
+        })
+        .collect()
+}
+
+/// FEM-level RKMK-DAE return map for a single block: nodal equilibrium is
+/// resolved from every Gauss point's stage-consistent plastic state at every
+/// RK stage abscissa of a load-step window, rather than frozen across it, so
+/// the coupling is `Tab`'s own order instead of first order. See
+/// [`RootRkmkDae`].
+impl<C, F, const G: usize, const N: usize, const P: usize, Y> RootRkmkDae<3, Y>
+    for Model<Block<C, F, G, 3, N, P>, 3>
+where
+    F: SolidFiniteElement<G, 3, N, P> + ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
+    Y: Clone + Differentiate<Time> + Tensor,
+    C: ElasticViscoplastic<Y>
+        + StateEvolution<
+            Time,
+            Y,
+            Drive = DeformationGradient,
+            Field: IntegrableField<Point = PointStateVariables<Y>>,
+        >,
+    EvolvedIncrement<C, Time, Y>: Clone + Differentiate<Time>,
+    Quantity<Time>: Mul<Scalar, Output = Quantity<Time>>,
+    for<'a> &'a Derivative<EvolvedIncrement<C, Time, Y>, Time>:
+        Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time, Y>>,
+    Derivative<EvolvedIncrement<C, Time, Y>, Time>:
+        Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time, Y>>,
+    TensorVector<PointStateVariables<Y>>: Tensor<Item = PointStateVariables<Y>>,
+    TensorVector<EvolvedIncrement<C, Time, Y>>: Tensor<Item = EvolvedIncrement<C, Time, Y>>,
+    ViscoplasticStateVariables<G, Y>: Clone,
+    ViscoplasticStateVariablesHistory<G, Y>: TensorVec<Item = ViscoplasticStateVariables<G, Y>>,
+{
+    type History = ViscoplasticStateVariablesHistory<G, Y>;
+    #[allow(clippy::type_complexity)]
+    fn root_rkmk_dae<Tab: ButcherTableau>(
+        &self,
+        solver: impl FirstOrderRootFinding<
+            NodalForcesSolid<3>,
+            NodalStiffnessesSolid<3>,
+            NodalCoordinates<3>,
+        >,
+        time: &[Quantity<Time>],
+        bcs: ElasticViscoplasticBCs,
+    ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
+        type Fld<C, Y> = List<<C as StateEvolution<Time, Y>>::Field>;
+        let block = self.blocks();
+        let model = block.constitutive_model();
+        let function = |_: Quantity<Time>,
+                        state: &TensorVector<PointStateVariables<Y>>,
+                        nodal_coordinates: &NodalCoordinates<3>|
+         -> Result<NodalForcesSolid<3>, String> {
+            Ok(block.nodal_forces(nodal_coordinates, &unflatten_state::<G, Y>(state))?)
+        };
+        let jacobian = |_: Quantity<Time>,
+                        state: &TensorVector<PointStateVariables<Y>>,
+                        nodal_coordinates: &NodalCoordinates<3>|
+         -> Result<NodalStiffnessesSolid<3>, String> {
+            Ok(block.nodal_stiffnesses(nodal_coordinates, &unflatten_state::<G, Y>(state))?)
+        };
+        let rate = |t: Quantity<Time>,
+                    state: &TensorVector<PointStateVariables<Y>>,
+                    nodal_coordinates: &NodalCoordinates<3>|
+         -> Result<
+            TensorVector<Derivative<EvolvedIncrement<C, Time, Y>, Time>>,
+            String,
+        > {
+            block
+                .elements()
+                .iter()
+                .zip(block.connectivity())
+                .enumerate()
+                .flat_map(|(e, (element, nodes))| {
+                    let element_coordinates =
+                        Block::<C, F, G, 3, N, P>::element_coordinates(nodal_coordinates, nodes);
+                    element
+                        .deformation_gradients(&element_coordinates)
+                        .iter()
+                        .enumerate()
+                        .map(|(g, deformation_gradient)| {
+                            model.state_rate(t, deformation_gradient, &state[e * G + g])
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect()
+        };
+        let equality_constraint = bcs;
+        let mut state = flatten_state::<G, Y>(&ElasticViscoplasticElements::initial_state(block));
+        let guess: NodalCoordinates<3> = self.coordinates().clone().into();
+        let mut nodal_coordinates = solver
+            .root(
+                |x: &NodalCoordinates<3>| function(time[0], &state, x),
+                |x: &NodalCoordinates<3>| jacobian(time[0], &state, x),
+                guess,
+                equality_constraint(time[0]),
+                None,
+            )
+            .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
+        let mut times = Times::new();
+        let mut nodal_coordinates_history = NodalCoordinatesHistory::new();
+        let mut state_variables_history = Self::History::new();
+        let mut scratch = Vec::new();
+        let mut carry = None;
+        times.push(time[0]);
+        nodal_coordinates_history.push(nodal_coordinates.clone());
+        state_variables_history.push(unflatten_state::<G, Y>(&state));
+        for step in time.windows(2) {
+            let advanced = rkmk_dae_step_first_order_root::<
+                Fld<C, Y>,
+                Tab,
+                NodalForcesSolid<3>,
+                NodalStiffnessesSolid<3>,
+                NodalCoordinates<3>,
+                Time,
+            >(
+                &mut |t, state, nodal_coordinates| rate(t, state, nodal_coordinates),
+                function,
+                jacobian,
+                &solver,
+                &state,
+                &nodal_coordinates,
+                step[0],
+                step[1] - step[0],
+                &mut scratch,
+                carry.as_ref(),
+                equality_constraint,
+            )
+            .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
+            state = advanced.0;
+            nodal_coordinates = advanced.1;
+            carry = advanced.2;
+            times.push(step[1]);
+            nodal_coordinates_history.push(nodal_coordinates.clone());
+            state_variables_history.push(unflatten_state::<G, Y>(&state));
+        }
+        Ok((times, nodal_coordinates_history, state_variables_history))
     }
 }
