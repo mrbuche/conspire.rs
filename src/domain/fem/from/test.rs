@@ -462,6 +462,80 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive() -> Result<(), AssertionEr
 }
 
 #[test]
+fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive_dense_output() -> Result<(), AssertionError> {
+    let (connectivity_1, connectivity_2) = split_connectivities();
+    let mesh = Mesh::from((
+        vec![
+            Connectivity::Tetrahedral(connectivity_1.into()),
+            Connectivity::Tetrahedral(connectivity_2.into()),
+        ],
+        coordinates(),
+    ));
+    let model: Model<Blocks<TetViscoplastic, TetViscoplastic>, 3> = (
+        mesh,
+        (yielding_viscoplastic_model(), yielding_viscoplastic_model()),
+    )
+        .try_into()
+        .map_err(|error: String| AssertionError { message: error })?;
+    let (_, reference_coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
+        &model,
+        NewtonRaphson::default(),
+        &[Quantity::new(0.0), Quantity::new(1.0)],
+        bcs,
+    )?;
+    let reference = reference_coordinates_history.iter().last().unwrap().clone();
+    // requesting more than the [t_0, t_end] span switches the driver from
+    // reporting only its own accepted steps to Hermite dense output at every
+    // one of these interior times
+    let requested: Vec<Quantity<Time>> = (0..=4).map(|i| Quantity::new(0.25 * i as f64)).collect();
+    let (times, coordinates_history, state_variables_history) =
+        RootRkmkDae::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+            &model,
+            NewtonRaphson::default(),
+            &requested,
+            bcs,
+            1e-6,
+            1e-6,
+        )?;
+    assert_eq!(times.iter().count(), requested.len());
+    times
+        .iter()
+        .zip(requested.iter())
+        .for_each(|(reported, requested)| assert_eq!(reported, requested));
+    let error = (coordinates_history.iter().last().unwrap() - &reference)
+        .norm()
+        .value();
+    assert!(
+        error < 1e-3,
+        "dense-output adaptive result drifted from the fixed-step FEM reference: {error:e}"
+    );
+    use crate::{math::TensorArray, mechanics::DeformationGradientPlastic};
+    // every Gauss point stays on the unimodular group at every reported
+    // time, not only the accepted-step endpoints the dense interpolant is
+    // built from
+    let mut moved = false;
+    state_variables_history.iter().for_each(|state| {
+        [&state.0, &state.1].into_iter().for_each(|block_state| {
+            block_state
+                .iter()
+                .flat_map(|element| element.iter())
+                .for_each(|point_state| {
+                    assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+                    if (&point_state.0 - &DeformationGradientPlastic::identity())
+                        .norm()
+                        .value()
+                        > 1e-4
+                    {
+                        moved = true;
+                    }
+                });
+        });
+    });
+    assert!(moved, "plastic state never flowed away from identity");
+    Ok(())
+}
+
+#[test]
 fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
     let (a, b) = constraint();
     let model = heterogeneous_model()?;
