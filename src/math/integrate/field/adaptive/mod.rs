@@ -82,12 +82,6 @@ where
     times.push(t_0);
     while t_f - t > dt_min {
         dt = dt.min(t_f - t);
-        // A solver failure partway through a trial step (e.g. the stage or
-        // accept-time algebraic solve diverging because the trial inverted an
-        // element) is treated the same as an error estimate exceeding
-        // tolerance: shrink dt and retry, rather than aborting the whole
-        // integration. Below dt_min there is nowhere smaller left to retry
-        // at, so the failure is finally propagated.
         let stage = rkmk_dae_stage_slopes_into::<Field, Tab, Z, T>(
             &mut rate,
             &mut solve,
