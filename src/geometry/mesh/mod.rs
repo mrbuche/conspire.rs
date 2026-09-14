@@ -7,6 +7,7 @@ mod connectivity;
 pub(crate) mod differential;
 mod from;
 mod into;
+mod pillow;
 mod quality;
 mod read;
 mod remesh;
