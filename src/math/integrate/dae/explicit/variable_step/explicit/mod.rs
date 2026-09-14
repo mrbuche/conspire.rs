@@ -276,6 +276,9 @@ where
         z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String> {
+        let tolerance = self
+            .abs_tol()
+            .max(self.rel_tol() * self.error_norm().measure(y_trial));
         if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
             k_sol.push(k.iter().cloned().collect());
             *t += *dt;
@@ -286,7 +289,7 @@ where
             z_sol.push(z.clone());
             dydt_sol.push(evolution(*t, y, z)?);
         }
-        self.time_step(e, dt);
+        self.time_step(e, tolerance, dt);
         Ok(())
     }
 }
@@ -349,6 +352,9 @@ where
         z_trial: &Z,
         e: Scalar,
     ) -> Result<(), String> {
+        let tolerance = self
+            .abs_tol()
+            .max(self.rel_tol() * self.error_norm().measure(y_trial));
         if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
             k_sol.push(k.iter().cloned().collect());
             k[0] = k[Self::SLOPES - 1].clone();
@@ -360,7 +366,7 @@ where
             z_sol.push(z.clone());
             dydt_sol.push(k[0].clone());
         }
-        self.time_step(e, dt);
+        self.time_step(e, tolerance, dt);
         Ok(())
     }
 }

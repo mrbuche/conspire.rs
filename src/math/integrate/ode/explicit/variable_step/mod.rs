@@ -222,6 +222,9 @@ where
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
+        let tolerance = self
+            .abs_tol()
+            .max(self.rel_tol() * self.error_norm().measure(y_trial));
         if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
             k_sol.push(k.iter().cloned().collect());
             *t += *dt;
@@ -230,18 +233,26 @@ where
             y_sol.push(y.clone());
             dydt_sol.push(function(*t, y)?);
         }
-        self.time_step(e, dt);
+        self.time_step(e, tolerance, dt);
         Ok(())
     }
-    /// Provides the adaptive time step as a function of the error.
+    /// Provides the adaptive time step as a function of the error and the
+    /// same `max(abs_tol, rel_tol * ‖y‖)` tolerance the accept decision's
+    /// `e < abs_tol || e < rel_tol * ‖y‖` reduces to.
     ///
     /// ```math
     /// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
     /// ```
-    fn time_step(&self, error: Scalar, dt: &mut Quantity<T>) {
+    ///
+    /// An exactly-zero error carries no information about how much `dt`
+    /// could grow, but is the best evidence available that it safely can;
+    /// it is treated as if the ratio above were at its clamp ceiling.
+    fn time_step(&self, error: Scalar, tolerance: Scalar, dt: &mut Quantity<T>) {
         if error > 0.0 {
-            *dt *= (self.dt_beta() * (self.abs_tol() / error).powf(1.0 / self.dt_expn()))
+            *dt *= (self.dt_beta() * (tolerance / error).powf(1.0 / self.dt_expn()))
                 .clamp(self.dt_cut(), self.dt_grow())
+        } else {
+            *dt *= self.dt_grow();
         }
     }
 }
@@ -345,6 +356,9 @@ where
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
+        let tolerance = self
+            .abs_tol()
+            .max(self.rel_tol() * self.error_norm().measure(y_trial));
         if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
             k_sol.push(k.iter().cloned().collect());
             k[0] = k[Self::SLOPES - 1].clone();
@@ -354,7 +368,7 @@ where
             y_sol.push(y.clone());
             dydt_sol.push(k[0].clone());
         }
-        self.time_step(e, dt);
+        self.time_step(e, tolerance, dt);
         Ok(())
     }
 }
