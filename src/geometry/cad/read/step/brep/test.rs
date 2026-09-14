@@ -2030,10 +2030,14 @@ fn corpus_mesh_snapshot() {
 /// solid, how many crease curves it has, the worst scaled Jacobian, and how
 /// closely the nodes near a crease actually landed on it: `STEP_CREASE_BAND`
 /// (default 2x the sizing cell) picks which nodes count as "near"; among
-/// those, the worst and mean distance to the nearest crease curve. Also
-/// writes the fitted mesh to `{STEP_MESH_OUT}_fitted.vtu` (default
-/// `target/step_mesh`) for a look in ParaView -- the numbers here are no
-/// substitute for seeing whether the tangle is actually gone.
+/// those, the worst and mean distance to the nearest crease curve. The sizing
+/// field includes `with_feature_separation` (`STEP_MESH_SEPARATION` cells
+/// across a crease-to-crease or crease-to-face gap, default 3) -- the term
+/// meant to resolve the "divot" artifact the crease constraint alone leaves
+/// where a crease runs close to an unrelated feature. Also writes the fitted
+/// mesh to `{STEP_MESH_OUT}_fitted.vtu` (default `target/step_mesh`) for a
+/// look in ParaView -- the numbers here are no substitute for seeing whether
+/// the tangle is actually gone.
 #[test]
 #[ignore = "meshes STEP_MESH_FILE with Fitting::Soft, reports crease adherence"]
 fn probe_crease_adherence() {
@@ -2111,7 +2115,9 @@ fn probe_crease_adherence() {
             Quantity::<Length>::new(minimum),
             Some(Quantity::<Length>::new(cell)),
             Some(0.2),
-        );
+        )
+        .with_feature_separation(brep, env_f64("STEP_MESH_SEPARATION", 3.0) as usize)
+        .expect("with_feature_separation");
         let mesh = match brep.mesh(&sizing, None, 0.1, Balancing::Strong(1), Fitting::Soft) {
             Ok(mesh) => mesh,
             Err(error) => {
