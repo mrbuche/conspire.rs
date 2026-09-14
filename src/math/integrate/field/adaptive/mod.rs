@@ -15,6 +15,12 @@ use crate::math::{
 };
 use std::ops::Mul;
 
+/// The floor on how much a single step may shrink `dt`: both the routine
+/// Richardson-based grow/shrink (clamped to `[DT_CUT, 5.0]`) and an outright
+/// failure retry (a stage or endpoint solve diverging, e.g. because the trial
+/// inverted an element) back off by no more than this factor.
+const DT_CUT: Scalar = 0.2;
+
 /// Adaptive [`super::rkmk_dae_step`]: embedded local-error control from the
 /// tableau's `D` weights over the span `[time[0], time[last]]`, with the same
 /// controller as [`integrate_rkmk_adaptive`]. A rejected step costs no
@@ -102,7 +108,7 @@ where
                 if dt <= dt_min {
                     return Err(error);
                 }
-                dt *= 0.2;
+                dt *= DT_CUT;
                 continue;
             }
         };
@@ -113,7 +119,7 @@ where
                 if dt <= dt_min {
                     return Err(error);
                 }
-                dt *= 0.2;
+                dt *= DT_CUT;
                 continue;
             }
         };
@@ -148,13 +154,13 @@ where
                     if dt <= dt_min {
                         return Err(IntegrationError::from(error));
                     }
-                    dt *= 0.2;
+                    dt *= DT_CUT;
                     continue;
                 }
             }
         }
         let scale = if error > 0.0 {
-            (0.9 * (tolerance / error).powf(exponent)).clamp(0.2, 5.0)
+            (0.9 * (tolerance / error).powf(exponent)).clamp(DT_CUT, 5.0)
         } else {
             5.0
         };
@@ -323,8 +329,9 @@ where
 
 /// Adaptive RKMK: [`integrate_rkmk`] with embedded local-error control from the
 /// tableau's `D` weights. The step is grown or shrunk by `0.9 (tol / e)^{1/p}`
-/// (clamped to `[0.2, 5]`), and a step whose error `e` exceeds
-/// `abs_tol + rel_tol ‖x_{n+1}‖` is rejected.
+/// (clamped to `[DT_CUT, 5]`), and a step whose error `e` exceeds
+/// `abs_tol + rel_tol ‖x_{n+1}‖` is rejected. A rate-evaluation failure is
+/// retried with `dt *= DT_CUT`, the same as a rejected accuracy estimate.
 ///
 /// Dense output follows the convention of [`integrate_rkmk_dae_adaptive`]: `time`
 /// of length two supplies only the span and the accepted steps are reported,
@@ -372,25 +379,65 @@ where
     times.push(t_0);
     while t_f - t > dt_min {
         dt = dt.min(t_f - t);
-        let next_carry = rkmk_stage_slopes_into::<Field, Tab, T>(
+        // A rate evaluation failing partway through a trial step (e.g. the
+        // dense-output rate at the accepted endpoint, if the model's own
+        // rate closure performs an internal solve that diverges because the
+        // trial inverted an element) is treated the same as an error
+        // estimate exceeding tolerance: shrink dt and retry, rather than
+        // aborting the whole integration. Below dt_min there is nowhere
+        // smaller left to retry at, so the failure is finally propagated.
+        let stage = rkmk_stage_slopes_into::<Field, Tab, T>(
             &mut rate,
             &point,
             t,
             dt,
             &mut slopes,
             carry.as_ref(),
-        )?;
+        );
+        let next_carry = match stage {
+            Ok(next_carry) => next_carry,
+            Err(error) => {
+                if dt <= dt_min {
+                    return Err(error);
+                }
+                dt *= DT_CUT;
+                continue;
+            }
+        };
         let sigma = weight(&slopes, Tab::B);
-        let trial = reconstruct_or_err::<Field>(&point, &sigma)?;
+        let trial = match reconstruct_or_err::<Field>(&point, &sigma) {
+            Ok(trial) => trial,
+            Err(error) => {
+                if dt <= dt_min {
+                    return Err(error);
+                }
+                dt *= DT_CUT;
+                continue;
+            }
+        };
         let error = weight(&slopes, Tab::D).norm().value().abs();
         let tolerance = abs_tol + rel_tol * trial.norm().value();
         let accept = error <= tolerance;
         if accept {
             let t_previous = t;
-            t += dt;
+            let t_next = t + dt;
+            let slope_1 = if dense {
+                match rate(t_next, &trial) {
+                    Ok(raw) => Some(Field::dexpinv(&sigma, &raw * dt)),
+                    Err(error) => {
+                        if dt <= dt_min {
+                            return Err(IntegrationError::from(error));
+                        }
+                        dt *= DT_CUT;
+                        continue;
+                    }
+                }
+            } else {
+                None
+            };
+            t = t_next;
             carry = next_carry;
-            if dense {
-                let slope_1 = Field::dexpinv(&sigma, &rate(t, &trial)? * dt);
+            if let Some(slope_1) = slope_1 {
                 segments.push(HermiteSegment::new(
                     t_previous,
                     dt,
@@ -405,7 +452,7 @@ where
             times.push(t);
         }
         let scale = if error > 0.0 {
-            (0.9 * (tolerance / error).powf(exponent)).clamp(0.2, 5.0)
+            (0.9 * (tolerance / error).powf(exponent)).clamp(DT_CUT, 5.0)
         } else {
             5.0
         };

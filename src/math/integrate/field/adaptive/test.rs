@@ -87,6 +87,30 @@ fn rkmk_adaptive_keeps_the_group_state_unimodular() {
 }
 
 #[test]
+fn rkmk_adaptive_retries_with_a_smaller_step_after_a_rate_failure() {
+    use std::cell::Cell;
+    let rate = trace_free_rate();
+    let calls = Cell::new(0_usize);
+    let (_, points): (Times, TensorVector<Fp>) =
+        integrate_rkmk_adaptive::<Unimodular<Current>, BogackiShampine, _, _>(
+            |_: Quantity<Time>, _: &Fp| {
+                calls.set(calls.get() + 1);
+                if calls.get() <= 2 {
+                    Err("simulated divergence: trial inverted an element".to_string())
+                } else {
+                    Ok(rate.clone())
+                }
+            },
+            &uniform_time(1),
+            Fp::identity(),
+            1e-6,
+            0.0,
+        )
+        .unwrap();
+    assert!((points.iter().last().unwrap().determinant() - 1.0).abs() < 1e-10);
+}
+
+#[test]
 fn rkmk_adaptive_errors_when_the_requested_tolerance_is_unreachable() {
     let a = FpRate::from(constant_exponent());
     let result: Result<(Times, TensorVector<Fp>), _> =
