@@ -1,6 +1,12 @@
-use super::FeatureSizing;
+use super::{FeatureSizing, shares_a_vertex};
 use crate::{
-    geometry::{Coordinate, cad::brep::test::unit_cube},
+    geometry::{
+        Coordinate,
+        cad::brep::{
+            Brep, Shell,
+            test::{edge, face, unit_cube},
+        },
+    },
     math::Quantity,
     units::Length,
 };
@@ -228,4 +234,167 @@ fn obeys_the_gradation_bound() {
             );
         }
     }
+}
+
+/// Two unconnected unit squares in the z = 0 plane, `gap` apart along x and
+/// sharing no vertex: square A spans x in [0, 1], square B spans
+/// [1 + gap, 2 + gap]. Every edge is incident to only its own face, so
+/// `features()` reads all eight as creases (open-shell edges are sharp by
+/// the "not exactly two incident faces" rule).
+fn two_close_squares(gap: f64) -> Brep {
+    let vertices = [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0 + gap, 0.0, 0.0],
+        [2.0 + gap, 0.0, 0.0],
+        [2.0 + gap, 1.0, 0.0],
+        [1.0 + gap, 1.0, 0.0],
+    ]
+    .into_iter()
+    .map(Coordinate::const_from)
+    .collect();
+    let edges = vec![
+        edge(0, 1), // 0
+        edge(1, 2), // 1  nearest to square B
+        edge(2, 3), // 2
+        edge(3, 0), // 3
+        edge(4, 5), // 4
+        edge(5, 6), // 5
+        edge(6, 7), // 6
+        edge(7, 4), // 7  nearest to square A
+    ];
+    let up = [0.0, 0.0, 1.0];
+    let reference = [1.0, 0.0, 0.0];
+    let faces = vec![
+        face(up, reference, &[(0, true), (1, true), (2, true), (3, true)]),
+        face(up, reference, &[(4, true), (5, true), (6, true), (7, true)]),
+    ];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell {
+            faces: vec![0, 1],
+            closed: false,
+        }],
+    }
+}
+
+#[test]
+fn feature_separation_resolves_a_narrow_gap_between_unrelated_creases() {
+    let brep = two_close_squares(0.1);
+    let field = FeatureSizing::of(&brep, 2, length(1e-4), Some(length(10.0)), None)
+        .with_feature_separation(&brep, 4)
+        .unwrap();
+    // Midpoint of the gap between edge 1 (square A) and edge 7 (square B),
+    // exactly 0.1 apart and sharing no vertex: capped at 0.1 / 4, not the
+    // crease term's own (edge-length-derived, much coarser) value.
+    let mid = point([1.05, 0.5, 0.0]);
+    assert!(
+        (field.at(&mid).value() - 0.1 / 4.0).abs() < 5.0e-3,
+        "{}",
+        field.at(&mid).value()
+    );
+}
+
+#[test]
+fn feature_separation_needs_the_builder_to_engage() {
+    // Mutation check: without with_feature_separation, nothing pulls that
+    // midpoint's target down to the gap size -- the plain crease term sees
+    // only its own edges' lengths, both 1 unit, far coarser than the gap.
+    let brep = two_close_squares(0.1);
+    let plain = FeatureSizing::of(&brep, 2, length(1e-4), Some(length(10.0)), None);
+    let mid = point([1.05, 0.5, 0.0]);
+    assert!(plain.at(&mid).value() > 0.1, "{}", plain.at(&mid).value());
+}
+
+/// A unit square (its own crease-only shell, as [`two_close_squares`]) sitting
+/// `gap` above a much larger floor plate, well inside the floor's own
+/// footprint -- so the square's edges pass close to the floor's *surface*
+/// while staying far (`>> gap`) from any of the floor's own boundary edges.
+/// The nearest unrelated feature here is a face, not another crease.
+fn crease_over_a_distant_floor(gap: f64) -> Brep {
+    let vertices = [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [-10.0, -10.0, -gap],
+        [10.0, -10.0, -gap],
+        [10.0, 10.0, -gap],
+        [-10.0, 10.0, -gap],
+    ]
+    .into_iter()
+    .map(Coordinate::const_from)
+    .collect();
+    let edges = vec![
+        edge(0, 1),
+        edge(1, 2),
+        edge(2, 3),
+        edge(3, 0),
+        edge(4, 5),
+        edge(5, 6),
+        edge(6, 7),
+        edge(7, 4),
+    ];
+    let up = [0.0, 0.0, 1.0];
+    let reference = [1.0, 0.0, 0.0];
+    let faces = vec![
+        face(up, reference, &[(0, true), (1, true), (2, true), (3, true)]),
+        face(up, reference, &[(4, true), (5, true), (6, true), (7, true)]),
+    ];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell {
+            faces: vec![0, 1],
+            closed: false,
+        }],
+    }
+}
+
+#[test]
+fn feature_separation_resolves_a_crease_passing_close_to_an_unrelated_face() {
+    let brep = crease_over_a_distant_floor(0.1);
+    let field = FeatureSizing::of(&brep, 2, length(1e-4), Some(length(10.0)), None)
+        .with_feature_separation(&brep, 4)
+        .unwrap();
+    // Midpoint of square A's edge 0: on the crease itself, 0.1 above the
+    // floor (directly beneath the whole square) and > 9 units from the
+    // floor's own edges: only the crease-to-face measurement can see this.
+    let on_crease = point([0.5, 0.0, 0.0]);
+    assert!(
+        (field.at(&on_crease).value() - 0.1 / 4.0).abs() < 5.0e-3,
+        "{}",
+        field.at(&on_crease).value()
+    );
+}
+
+#[test]
+fn feature_separation_needs_the_face_query_to_engage() {
+    // Mutation check: crease-to-crease alone (the old with_crease_separation
+    // behaviour) does not see this gap -- the floor's own edges are >9 units
+    // away, so its crease-to-crease minimum stays at the far corner distance,
+    // nowhere near 0.1 / 4.
+    let brep = crease_over_a_distant_floor(0.1);
+    let creases_only = FeatureSizing::of(&brep, 2, length(1e-4), Some(length(10.0)), None);
+    let on_crease = point([0.5, 0.0, 0.0]);
+    assert!(
+        creases_only.at(&on_crease).value() > 0.2,
+        "{}",
+        creases_only.at(&on_crease).value()
+    );
+}
+
+#[test]
+fn shares_a_vertex_is_precise() {
+    let brep = two_close_squares(0.1);
+    // Edge 0 (0,1) and edge 1 (1,2) meet at vertex 1: a real corner.
+    assert!(shares_a_vertex(&brep, 0, 1));
+    // Edge 1 (1,2) and edge 7 (7,4), the two nearest edges of the separate
+    // squares, share no vertex.
+    assert!(!shares_a_vertex(&brep, 1, 7));
 }

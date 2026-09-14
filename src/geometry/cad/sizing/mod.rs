@@ -149,8 +149,12 @@ struct CreaseSeg {
 /// thin geometry the crease term is blind to (a thin wall or a small cavity
 /// need not be near any sharp edge). [`with_curvature`](Self::with_curvature)
 /// adds a term that resolves a curved face by its own radius, not only at its
-/// sharp rims. The field is the clamped minimum of all contributions, so it is
-/// defined everywhere.
+/// sharp rims. [`with_feature_separation`](Self::with_feature_separation) adds
+/// a term for a crease passing close to another, unrelated feature -- another
+/// crease, or a face it does not itself border -- the crease term alone only
+/// sees a point's distance to its own nearest edge, not that a second,
+/// unrelated feature is sitting right next to it. The field is the clamped
+/// minimum of all contributions, so it is defined everywhere.
 pub struct FeatureSizing {
     crease: Option<Bvh<CreaseSeg>>,
     minimum: Quantity<Length>,
@@ -159,6 +163,7 @@ pub struct FeatureSizing {
     gradation: Option<Scalar>,
     proximity: Option<BoxField>,
     curvature: Option<BoxField>,
+    separation: Option<BoxField>,
 }
 
 impl FeatureSizing {
@@ -221,6 +226,7 @@ impl FeatureSizing {
             gradation,
             proximity: None,
             curvature: None,
+            separation: None,
         }
     }
 
@@ -403,6 +409,80 @@ impl FeatureSizing {
         Ok(self)
     }
 
+    /// Adds a local-feature-size term between a crease and any *other*,
+    /// unrelated feature passing close to it in 3D space -- another crease
+    /// (no shared vertex; two edges meeting at a real corner is not this), or
+    /// a face surface the crease does not itself border. Either way, targets
+    /// `cells_across` elements across the gap.
+    ///
+    /// The crease term alone only knows a point's distance to its *own*
+    /// nearest edge; it has no way to see that a second, unrelated feature is
+    /// sitting right next to it -- another edge, or (just as often) a surface
+    /// with no sharp edge of its own nearby. That gap is exactly the case a
+    /// nearest-face fit target cannot survive (two different walls, or a wall
+    /// and the crease's own wall, become near-equidistant there) --
+    /// under-resolving it is a plausible root enabler of the tangle this term
+    /// exists to prevent, not just a refinement nicety.
+    pub fn with_feature_separation(
+        mut self,
+        brep: &Brep,
+        cells_across: usize,
+    ) -> Result<Self, &'static str> {
+        const SAMPLES: usize = 33;
+        let oracle = brep.oracle()?;
+        let cells = cells_across.max(1) as Scalar;
+        let creases = &brep.features().creases;
+        let polylines: Vec<Vec<[Scalar; D]>> = creases
+            .iter()
+            .map(|&edge| {
+                sample_edge(brep, &brep.edges[edge], SAMPLES)
+                    .iter()
+                    .map(|point| from_fn(|k| point[k].value()))
+                    .collect()
+            })
+            .collect();
+        let bordering: Vec<Vec<usize>> = creases
+            .iter()
+            .map(|&edge| incident_faces(brep, edge))
+            .collect();
+
+        let mut slabs: Vec<Item<Scalar>> = Vec::new();
+        for (i, &edge_i) in creases.iter().enumerate() {
+            for pair in polylines[i].windows(2) {
+                let mid: [Scalar; D] = from_fn(|k| 0.5 * (pair[0][k] + pair[1][k]));
+                let mut nearest = Scalar::INFINITY;
+                for (j, &edge_j) in creases.iter().enumerate() {
+                    if i == j || shares_a_vertex(brep, edge_i, edge_j) {
+                        continue;
+                    }
+                    for other in polylines[j].windows(2) {
+                        nearest = nearest.min(point_segment_distance(&mid, &other[0], &other[1]));
+                    }
+                }
+                nearest = nearest.min(oracle.distance_excluding(&mid.into(), &bordering[i]));
+                if !nearest.is_finite() {
+                    continue;
+                }
+                let target = (nearest / cells)
+                    .max(self.minimum.value())
+                    .min(self.maximum.value());
+                if target >= self.maximum.value() {
+                    continue; // does not constrain anything
+                }
+                // A box around the segment reaching halfway across the gap --
+                // enough that the octree sees the constraint from either side.
+                let radius = (nearest * 0.5).max(self.minimum.value());
+                let low: [Scalar; D] = from_fn(|k| pair[0][k].min(pair[1][k]) - radius);
+                let high: [Scalar; D] = from_fn(|k| pair[0][k].max(pair[1][k]) + radius);
+                slabs.push((low, high, target, target));
+            }
+        }
+        self.separation = (!slabs.is_empty()).then(|| BoxField {
+            bvh: Bvh::build(slabs),
+        });
+        Ok(self)
+    }
+
     /// The crease term alone: the smallest feature size the sharp edges impose
     /// on a cube centred at `center` with half-edge `half`, unclamped. Distance
     /// is measured from the nearest point of the cube, not its centre (the
@@ -445,7 +525,10 @@ impl FeatureSizing {
     /// reaches into the cell.
     pub fn at_cell(&self, center: &Coordinate<D>, half: Scalar) -> Quantity<Length> {
         let mut size = self.crease(center, half);
-        for field in [&self.proximity, &self.curvature].into_iter().flatten() {
+        for field in [&self.proximity, &self.curvature, &self.separation]
+            .into_iter()
+            .flatten()
+        {
             if let Some(target) = field.target(center, half) {
                 size = size.min(Quantity::<Length>::new(target));
             }
@@ -530,6 +613,32 @@ pub(in crate::geometry::cad) fn arc_polyline(
             let (c, s) = (theta.cos(), theta.sin());
             Coordinate::from(from_fn(|k| centre[k] + major * c * u[k] + minor * s * w[k]))
         })
+        .collect()
+}
+
+/// Whether edges `a` and `b` (indices into [`Brep::edges`]) share an endpoint
+/// vertex -- two edges meeting at a real corner, not two unrelated creases
+/// that happen to pass close to each other in space.
+fn shares_a_vertex(brep: &Brep, a: usize, b: usize) -> bool {
+    let [a0, a1] = brep.edges[a].vertices;
+    let [b0, b1] = brep.edges[b].vertices;
+    a0 == b0 || a0 == b1 || a1 == b0 || a1 == b1
+}
+
+/// Indices into [`Brep::faces`] bordering `edge` -- the faces a crease
+/// touches by construction, and so must be excluded from an "is another
+/// surface nearby" query or the crease's own wall would always win.
+fn incident_faces(brep: &Brep, edge: usize) -> Vec<usize> {
+    brep.faces
+        .iter()
+        .enumerate()
+        .filter(|(_, face)| {
+            face.bounds
+                .iter()
+                .flat_map(|bound| &bound.half_edges)
+                .any(|half_edge| half_edge.edge == edge)
+        })
+        .map(|(index, _)| index)
         .collect()
 }
 
