@@ -22,10 +22,10 @@ use crate::{
         },
     },
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorArray, TensorVec, Vector,
+        Derivative, Differentiable, Quantity, Scalar, Tensor, TensorArray, TensorVec, Vector,
         integrate::{
             ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderMinimize,
-            ExplicitDaeSecondOrderMinimize, IntegrableField, StateEvolution,
+            ExplicitDaeSecondOrderMinimize, Integrable, StateEvolution,
             integrate_rkmk_dae_adaptive_second_order_minimize, rkmk_dae_step_second_order_minimize,
         },
         optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
@@ -42,7 +42,7 @@ use std::ops::Mul;
 pub trait HyperelasticViscoplastic<Y>
 where
     Self: ElasticViscoplastic<Y>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///
@@ -59,7 +59,7 @@ where
 /// First-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
 pub trait FirstOrderMinimize<Y>
 where
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -96,7 +96,7 @@ where
 /// Second-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
 pub trait SecondOrderMinimize<Y>
 where
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -135,7 +135,7 @@ where
 impl<C, Y> FirstOrderMinimize<Y> for C
 where
     C: HyperelasticViscoplastic<Y>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn minimize(
         &self,
@@ -207,7 +207,7 @@ where
 impl<C, Y> SecondOrderMinimize<Y> for C
 where
     C: HyperelasticViscoplastic<Y>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn minimize(
         &self,
@@ -298,7 +298,7 @@ where
 /// [`SecondOrderMinimize`] itself.
 pub trait RootRkmkDaeMinimize<Y>
 where
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     /// `F` is re-solved by potential minimization at every stage abscissa of
     /// the window while `F_p` advances on its group, generic over the
@@ -351,10 +351,10 @@ where
             Time,
             Y,
             Drive = DeformationGradient,
-            Field: IntegrableField<Point = ViscoplasticStateVariables<Y>>,
+            Field: Integrable<Point = ViscoplasticStateVariables<Y>>,
         >,
-    Y: Differentiate + Tensor,
-    EvolvedIncrement<C, Time, Y>: Clone + Differentiate<Time>,
+    Y: Differentiable + Tensor,
+    EvolvedIncrement<C, Time, Y>: Clone + Differentiable<Time>,
     for<'a> &'a Derivative<EvolvedIncrement<C, Time, Y>, Time>:
         Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time, Y>>,
 {

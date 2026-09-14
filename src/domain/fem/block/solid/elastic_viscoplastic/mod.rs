@@ -20,9 +20,9 @@ use crate::{
         },
     },
     math::{
-        Derivative, Differentiate, Quantity, Tensor, TensorTupleList, TensorTupleListVec,
+        Derivative, Differentiable, Quantity, Tensor, TensorTupleList, TensorTupleListVec,
         TensorTupleListVec2D, TensorVec, TensorVector,
-        integrate::{EvolvedIncrement, IntegrableField, List, StateEvolution},
+        integrate::{EvolvedIncrement, Integrable, List, StateEvolution},
         optimize::EqualityConstraint,
     },
     mechanics::{DeformationGradient, DeformationGradientPlastic, DeformationGradientRatePlastic},
@@ -49,7 +49,7 @@ impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
 where
     C: ElasticViscoplastic<Y>,
     F: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn initial_state(&self) -> ViscoplasticStateVariables<G, Y> {
         self.elements()
@@ -181,18 +181,18 @@ impl<C, F, const G: usize, const N: usize, const P: usize, Y> ElasticViscoplasti
     for Block<C, F, G, 3, N, P>
 where
     F: SolidFiniteElement<G, 3, N, P> + ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
-    Y: Clone + Differentiate<Time> + Tensor,
+    Y: Clone + Differentiable<Time> + Tensor,
     C: ElasticViscoplastic<Y>
         + StateEvolution<
             Time,
             Y,
             Drive = DeformationGradient,
-            Field: IntegrableField<Point = PointStateVariables<Y>>,
+            Field: Integrable<Point = PointStateVariables<Y>>,
         >,
-    EvolvedIncrement<C, Time, Y>: Clone + Differentiate<Time>,
+    EvolvedIncrement<C, Time, Y>: Clone + Differentiable<Time>,
     TensorVector<PointStateVariables<Y>>: Tensor<Item = PointStateVariables<Y>>,
     TensorVector<EvolvedIncrement<C, Time, Y>>: Tensor<Item = EvolvedIncrement<C, Time, Y>>,
-    ViscoplasticStateVariables<G, Y>: Clone + Differentiate + Tensor,
+    ViscoplasticStateVariables<G, Y>: Clone + Differentiable + Tensor,
     ViscoplasticStateVariablesHistory<G, Y>: TensorVec<Item = ViscoplasticStateVariables<G, Y>>,
 {
     type Field = List<<C as StateEvolution<Time, Y>>::Field>;

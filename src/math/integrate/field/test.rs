@@ -1,6 +1,6 @@
 use super::{
-    Flat, HermiteSegment, IntegrableField, List, Product, Unimodular, integrate_euler,
-    integrate_rkmk, integrate_rkmk_adaptive, integrate_rkmk_dae_adaptive, rkmk_dae_step,
+    Flat, HermiteSegment, Integrable, List, Product, Unimodular, integrate_euler, integrate_rkmk,
+    integrate_rkmk_adaptive, integrate_rkmk_dae_adaptive, rkmk_dae_step,
 };
 use crate::math::{
     Current, Derivative, Intermediate, Quantity, Reference, Tensor, TensorArray, TensorRank1,
@@ -84,7 +84,7 @@ fn additive_update_of_the_same_rate_drifts_off_the_group() {
 fn three_deep_product_field_round_trips_through_the_driver() {
     type Back = TensorRank1<3, Current>;
     type Field = Product<Flat<Quantity>, Product<Flat<Back>, Unimodular<Current>>>;
-    type Point = <Field as IntegrableField>::Point;
+    type Point = <Field as Integrable>::Point;
     let dgamma_rate = Quantity::<Rate>::new(0.5);
     let back_rate = TensorRank1::<3, Current, Rate>::from([1.0, -2.0, 3.0]);
     let fp_rate = trace_free_rate();
@@ -514,8 +514,7 @@ fn hermite_reproduces_both_endpoints_exactly() {
     let a = Fp::from(constant_exponent());
     let left = (&a * (1.0 + t_0).ln()).expm().unwrap();
     let displacement = &a * ((1.0 + t_0 + h) / (1.0 + t_0)).ln();
-    let right =
-        <Unimodular<Current> as IntegrableField>::reconstruct(&left, &displacement).unwrap();
+    let right = <Unimodular<Current> as Integrable>::reconstruct(&left, &displacement).unwrap();
     assert_eq!(
         (segment.evaluate(Quantity::new(t_0)).unwrap() - &left)
             .norm()

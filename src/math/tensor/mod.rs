@@ -79,7 +79,7 @@ styled_error!(TensorError);
 /// The variable of integration need not be a time — an arclength or a load
 /// parameter is just as ordinary — so it is named rather than assumed, with time
 /// as the default for the common case.
-pub trait Differentiate<T = Time>
+pub trait Differentiable<T = Time>
 where
     Self: Tensor,
 {
@@ -92,7 +92,7 @@ where
 /// Spelling the projection out at every use would crowd out the signatures it
 /// appears in, since a tensor names a derivative for each variable it might be
 /// differentiated against.
-pub type Derivative<Y, T = Time> = <Y as Differentiate<T>>::Derivative;
+pub type Derivative<Y, T = Time> = <Y as Differentiable<T>>::Derivative;
 
 /// The unit a quantity of unit `U` carries once squared.
 ///

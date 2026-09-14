@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::Norm;
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ButcherTableau, EmbeddedTableau, Explicit, FreeInterpolant, IntegrationError,
         OdeIntegrator, Times, VariableStep, VariableStepExplicit,
@@ -102,7 +102,7 @@ impl<T> VariableStep<T> for BogackiShampine {
 
 impl<Y, U, V, T> Explicit<Y, U, V, T> for BogackiShampine
 where
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -124,7 +124,7 @@ where
 impl<Y, U, V, T> VariableStepExplicit<Y, U, V, T> for BogackiShampine
 where
     Self: Explicit<Y, U, V, T>,
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -175,7 +175,7 @@ where
 
 impl<Y, U, V, T> VariableStepExplicitFirstSameAsLast<Y, U, V, T> for BogackiShampine
 where
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -187,7 +187,7 @@ where
 
 impl<Y, U, V, T> FreeInterpolant<Y, U, V, T> for BogackiShampine
 where
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -199,7 +199,7 @@ where
 
 impl<Y, U, V, T> InterpolateSolution<Y, U, V, T> for BogackiShampine
 where
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:

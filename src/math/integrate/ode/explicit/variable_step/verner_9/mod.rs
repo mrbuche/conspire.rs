@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::Norm;
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, OdeIntegrator, Times,
         VariableStep, VariableStepExplicit,
@@ -231,7 +231,7 @@ impl<T> VariableStep<T> for Verner9 {
 
 impl<Y, U, V, T> Explicit<Y, U, V, T> for Verner9
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -253,7 +253,7 @@ where
 impl<Y, U, V, T> VariableStepExplicit<Y, U, V, T> for Verner9
 where
     Self: Explicit<Y, U, V, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -266,7 +266,7 @@ where
 
 impl<Y, U, V, T> InterpolateSolution<Y, U, V, T> for Verner9
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:

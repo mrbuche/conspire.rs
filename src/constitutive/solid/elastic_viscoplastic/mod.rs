@@ -18,11 +18,11 @@ use crate::{
         },
     },
     math::{
-        ContractWith, Derivative, Differentiate, Intermediate, Quantity, Rank2, Reference, Scalar,
+        ContractWith, Derivative, Differentiable, Intermediate, Quantity, Rank2, Reference, Scalar,
         Tensor, TensorArray, TensorRank2, TensorTuple, TensorVec, Vector,
         integrate::{
             ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderRoot,
-            ExplicitDaeZerothOrderRoot, Flat, IntegrableField, Product, StateEvolution, Unimodular,
+            ExplicitDaeZerothOrderRoot, Flat, Integrable, Product, StateEvolution, Unimodular,
             integrate_rkmk_dae_adaptive_first_order_root, rkmk_dae_step_first_order_root,
         },
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
@@ -44,7 +44,7 @@ pub use crate::constitutive::solid::elastic_plastic::{
 pub trait ElasticViscoplastic<Y>
 where
     Self: ElasticPlasticOrViscoplastic + Viscoplastic<Y>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     /// Calculates and returns the internal dissipation.
     ///
@@ -82,7 +82,7 @@ where
 /// Zeroth-order root-finding methods for elastic-viscoplastic solid constitutive models.
 pub trait ZerothOrderRoot<Y>
 where
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -114,7 +114,7 @@ where
 /// First-order root-finding methods for elastic-viscoplastic solid constitutive models.
 pub trait FirstOrderRoot<Y>
 where
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
@@ -151,7 +151,7 @@ where
 impl<C, Y> ZerothOrderRoot<Y> for C
 where
     C: ElasticViscoplastic<Y>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn root(
         &self,
@@ -209,7 +209,7 @@ where
 impl<C, Y> FirstOrderRoot<Y> for C
 where
     C: ElasticViscoplastic<Y>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn root(
         &self,
@@ -291,9 +291,9 @@ where
 impl<C, Y> StateEvolution<Time, Y> for C
 where
     C: ElasticViscoplastic<Y>,
-    Y: Clone + Differentiate<Time> + Tensor,
+    Y: Clone + Differentiable<Time> + Tensor,
     for<'a> Y: Add<&'a Y, Output = Y>,
-    TensorTuple<TensorRank2<3, Intermediate, Intermediate>, Y>: Differentiate<
+    TensorTuple<TensorRank2<3, Intermediate, Intermediate>, Y>: Differentiable<
             Time,
             Derivative = TensorTuple<
                 TensorRank2<3, Intermediate, Intermediate, Rate>,
@@ -311,7 +311,7 @@ where
         _time: Quantity<Time>,
         deformation_gradient: &DeformationGradient,
         state: &ViscoplasticStateVariables<Y>,
-    ) -> Result<Derivative<<Self::Field as IntegrableField>::Increment, Time>, String> {
+    ) -> Result<Derivative<<Self::Field as Integrable>::Increment, Time>, String> {
         let mandel_stress = self.mandel_stress(deformation_gradient, &state.0)?;
         let evolution = self.plastic_evolution(mandel_stress, state)?;
         let plastic_stretching_rate = evolution.0 * state.0.inverse();
@@ -327,7 +327,7 @@ where
 /// [`ElasticViscoplastic`] model, same as [`FirstOrderRoot`] itself.
 pub trait RootRkmkDae<Y>
 where
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     /// `F` is re-solved from equilibrium at every stage abscissa of the
     /// window while `F_p` advances on its group, generic over the hardening
@@ -393,10 +393,10 @@ where
             Time,
             Y,
             Drive = DeformationGradient,
-            Field: IntegrableField<Point = ViscoplasticStateVariables<Y>>,
+            Field: Integrable<Point = ViscoplasticStateVariables<Y>>,
         >,
-    Y: Differentiate + Tensor,
-    EvolvedIncrement<C, Time, Y>: Clone + Differentiate<Time>,
+    Y: Differentiable + Tensor,
+    EvolvedIncrement<C, Time, Y>: Clone + Differentiable<Time>,
     for<'a> &'a Derivative<EvolvedIncrement<C, Time, Y>, Time>:
         Mul<Quantity<Time>, Output = EvolvedIncrement<C, Time, Y>>,
 {

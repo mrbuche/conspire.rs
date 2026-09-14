@@ -14,7 +14,7 @@ use crate::{
             elastic_viscoplastic::ElasticViscoplastic,
         },
     },
-    math::{Differentiate, Quantity, Tensor},
+    math::{Differentiable, Quantity, Tensor},
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
         FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, MandelStressElastic,
@@ -28,7 +28,7 @@ impl<C1, C2, Y1> Solid for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Differentiate + Tensor,
+    Y1: Differentiable + Tensor,
 {
     fn bulk_modulus(&self) -> Quantity<Stress> {
         self.0.bulk_modulus() + self.1.bulk_modulus()
@@ -42,7 +42,7 @@ impl<C1, C2, Y1> Plastic for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Differentiate + Tensor,
+    Y1: Differentiable + Tensor,
 {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.0.initial_yield_stress()
@@ -56,7 +56,7 @@ impl<C1, C2, Y1> Viscoplastic<Y1> for ElasticViscoplasticAdditiveElastic<C1, C2,
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Differentiate + Tensor,
+    Y1: Differentiable + Tensor,
 {
     fn initial_state(&self) -> ViscoplasticStateVariables<Y1> {
         self.0.initial_state()
@@ -104,7 +104,7 @@ impl<C1, C2, Y1> ElasticPlasticOrViscoplastic for ElasticViscoplasticAdditiveEla
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Differentiate + Tensor,
+    Y1: Differentiable + Tensor,
 {
     /// Calculates and returns the Cauchy stress.
     ///
@@ -206,7 +206,7 @@ impl<C1, C2, Y1> ElasticViscoplastic<Y1> for ElasticViscoplasticAdditiveElastic<
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
-    Y1: Differentiate + Tensor,
+    Y1: Differentiable + Tensor,
 {
     fn state_variables_evolution(
         &self,

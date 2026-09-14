@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test;
-use super::{ContractWith, Differentiate, Erase};
+use super::{ContractWith, Differentiable, Erase};
 use crate::math::{Current, Projection, Reference};
 
 pub(crate) mod cross;
@@ -734,7 +734,7 @@ where
     }
 }
 
-impl<const D: usize, I, U, T> Differentiate<T> for TensorRank1<D, I, U>
+impl<const D: usize, I, U, T> Differentiable<T> for TensorRank1<D, I, U>
 where
     U: UnitDiv<T>,
 {

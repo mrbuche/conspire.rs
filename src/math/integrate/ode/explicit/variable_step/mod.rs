@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ButcherTableau, EmbeddedTableau, Explicit, Flat, HermiteSegment, IntegrationError, Times,
         VariableStep, interpolate_hermite,
@@ -21,7 +21,7 @@ pub(crate) mod verner_9;
 pub trait VariableStepExplicit<Y, U, V, T = Time>
 where
     Self: Explicit<Y, U, V, T> + VariableStep<T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -254,7 +254,7 @@ where
 pub trait FreeInterpolant<Y, U, V, T = Time>
 where
     Self: VariableStepExplicit<Y, U, V, T>,
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -310,7 +310,7 @@ where
 pub trait VariableStepExplicitFirstSameAsLast<Y, U, V, T = Time>
 where
     Self: VariableStepExplicit<Y, U, V, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:

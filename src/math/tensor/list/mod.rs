@@ -1,4 +1,6 @@
-use crate::math::{ContractWith, Differentiate, Erase, Quantity, Tensor, TensorArray, TensorRank0};
+use crate::math::{
+    ContractWith, Differentiable, Erase, Quantity, Tensor, TensorArray, TensorRank0,
+};
 use std::{
     array::{self, from_fn},
     fmt::{Display, Formatter, Result},
@@ -433,10 +435,10 @@ where
     }
 }
 
-impl<E, T, const N: usize> Differentiate<T> for TensorList<E, N>
+impl<E, T, const N: usize> Differentiable<T> for TensorList<E, N>
 where
-    E: Differentiate<T> + Tensor,
-    <E as Differentiate<T>>::Derivative: Tensor,
+    E: Differentiable<T> + Tensor,
+    <E as Differentiable<T>>::Derivative: Tensor,
 {
-    type Derivative = TensorList<<E as Differentiate<T>>::Derivative, N>;
+    type Derivative = TensorList<<E as Differentiable<T>>::Derivative, N>;
 }

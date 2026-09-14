@@ -6,7 +6,7 @@ pub(crate) mod sparse_vec_2d;
 pub(crate) mod vec;
 
 use super::{
-    Differentiate, Erase, Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector,
+    Differentiable, Erase, Hessian, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
 };
 use crate::math::{TensorList, assert::FiniteDifference};
@@ -680,7 +680,7 @@ impl<U> From<Vector> for Quantity<U> {
     }
 }
 
-impl<U, T> Differentiate<T> for Quantity<U>
+impl<U, T> Differentiable<T> for Quantity<U>
 where
     U: UnitDiv<T>,
 {

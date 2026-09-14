@@ -6,10 +6,10 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec,
+        Derivative, Differentiable, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec,
         TensorVec, TensorVector,
         integrate::{
-            ButcherTableau, EmbeddedTableau, IntegrableField, IntegrationError, Product,
+            ButcherTableau, EmbeddedTableau, Integrable, IntegrationError, Product,
             integrate_rkmk_dae_adaptive_first_order_root, rkmk_dae_step_first_order_root,
         },
         optimize::FirstOrderRootFinding,
@@ -22,7 +22,7 @@ use std::ops::Mul;
 pub trait ElasticViscoplasticElements<S, const D: usize>
 where
     Self: Elements,
-    S: Differentiate,
+    S: Differentiable,
 {
     fn initial_state(&self) -> S;
     fn nodal_forces_into(
@@ -65,7 +65,7 @@ where
 impl<B, S, const D: usize> ElasticViscoplasticElements<S, D> for Model<B, D>
 where
     B: ElasticViscoplasticElements<S, D>,
-    S: Differentiate,
+    S: Differentiable,
 {
     fn initial_state(&self) -> S {
         self.blocks.initial_state()
@@ -103,7 +103,7 @@ impl<B1, B2, S, const D: usize> ElasticViscoplasticElements<S, D>
 where
     B1: ElasticViscoplasticElements<S, D>,
     B2: ElasticElements<D>,
-    S: Differentiate,
+    S: Differentiable,
 {
     fn initial_state(&self) -> S {
         self.0.initial_state()
@@ -144,8 +144,8 @@ impl<B1, B2, S1, S2, const D: usize> ElasticViscoplasticElements<TensorTuple<S1,
 where
     B1: ElasticViscoplasticElements<S1, D>,
     B2: ElasticViscoplasticElements<S2, D>,
-    S1: Differentiate + Tensor,
-    S2: Differentiate + Tensor,
+    S1: Differentiable + Tensor,
+    S2: Differentiable + Tensor,
     Derivative<S1>: Tensor,
     Derivative<S2>: Tensor,
 {
@@ -238,7 +238,7 @@ pub trait RootRkmkDae<const D: usize, Y = Quantity> {
 }
 
 /// Per-topology machinery behind [`RootRkmkDae`]: the whole-mesh
-/// [`IntegrableField`] every Gauss point's plastic state lives on (a
+/// [`Integrable`] every Gauss point's plastic state lives on (a
 /// per-Gauss-point [`List`](crate::math::integrate::List) for one [`Block`],
 /// a [`Product`] of those for [`Blocks`]), how to flatten/unflatten between
 /// it and the block's native per-element [`State`](Self::State), and how to
@@ -251,36 +251,32 @@ where
     Self: Elements,
 {
     /// The whole-mesh field this topology's plastic state lives on.
-    type Field: IntegrableField<Increment: Differentiate<Time>>;
+    type Field: Integrable<Increment: Differentiable<Time>>;
     /// The per-element grouped state — a per-Gauss-point list for one block,
     /// a [`TensorTuple`] of those for [`Blocks`].
-    type State: Clone + Differentiate + Tensor;
+    type State: Clone + Differentiable + Tensor;
     /// Time history of [`Self::State`].
     type History: TensorVec<Item = Self::State>;
     /// Flattens [`Self::State`] into [`Self::Field`]'s `Point`.
-    fn flatten(state: &Self::State) -> <Self::Field as IntegrableField>::Point;
+    fn flatten(state: &Self::State) -> <Self::Field as Integrable>::Point;
     /// The inverse of [`Self::flatten`].
-    fn unflatten(flat: &<Self::Field as IntegrableField>::Point) -> Self::State;
+    fn unflatten(flat: &<Self::Field as Integrable>::Point) -> Self::State;
     /// Evaluates every Gauss point's plastic rate at `nodal_coordinates`.
     fn dae_rate(
         &self,
         t: Quantity<Time>,
         nodal_coordinates: &NodalCoordinates<D>,
-        flat: &<Self::Field as IntegrableField>::Point,
-    ) -> Result<Derivative<<Self::Field as IntegrableField>::Increment, Time>, ElementModelError>;
+        flat: &<Self::Field as Integrable>::Point,
+    ) -> Result<Derivative<<Self::Field as Integrable>::Increment, Time>, ElementModelError>;
 }
 
 impl<B1, B2, Y, const D: usize> ElasticViscoplasticDaeElements<Y, D> for Blocks<B1, B2>
 where
     B1: ElasticViscoplasticDaeElements<Y, D>,
     B2: ElasticViscoplasticDaeElements<Y, D>,
-    TensorTuple<<B1::Field as IntegrableField>::Point, <B2::Field as IntegrableField>::Point>:
-        Tensor,
-    TensorTuple<
-        <B1::Field as IntegrableField>::Increment,
-        <B2::Field as IntegrableField>::Increment,
-    >: Tensor,
-    TensorTuple<B1::State, B2::State>: Clone + Differentiate + Tensor,
+    TensorTuple<<B1::Field as Integrable>::Point, <B2::Field as Integrable>::Point>: Tensor,
+    TensorTuple<<B1::Field as Integrable>::Increment, <B2::Field as Integrable>::Increment>: Tensor,
+    TensorTuple<B1::State, B2::State>: Clone + Differentiable + Tensor,
     Derivative<B1::State>: Tensor,
     Derivative<B2::State>: Tensor,
     TensorTupleVec<B1::State, B2::State>: TensorVec<Item = TensorTuple<B1::State, B2::State>>,
@@ -288,19 +284,18 @@ where
     type Field = Product<B1::Field, B2::Field>;
     type State = TensorTuple<B1::State, B2::State>;
     type History = TensorTupleVec<B1::State, B2::State>;
-    fn flatten(state: &Self::State) -> <Self::Field as IntegrableField>::Point {
+    fn flatten(state: &Self::State) -> <Self::Field as Integrable>::Point {
         TensorTuple(B1::flatten(&state.0), B2::flatten(&state.1))
     }
-    fn unflatten(flat: &<Self::Field as IntegrableField>::Point) -> Self::State {
+    fn unflatten(flat: &<Self::Field as Integrable>::Point) -> Self::State {
         TensorTuple(B1::unflatten(&flat.0), B2::unflatten(&flat.1))
     }
     fn dae_rate(
         &self,
         t: Quantity<Time>,
         nodal_coordinates: &NodalCoordinates<D>,
-        flat: &<Self::Field as IntegrableField>::Point,
-    ) -> Result<Derivative<<Self::Field as IntegrableField>::Increment, Time>, ElementModelError>
-    {
+        flat: &<Self::Field as Integrable>::Point,
+    ) -> Result<Derivative<<Self::Field as Integrable>::Increment, Time>, ElementModelError> {
         Ok((
             self.0.dae_rate(t, nodal_coordinates, &flat.0)?,
             self.1.dae_rate(t, nodal_coordinates, &flat.1)?,
@@ -318,19 +313,18 @@ where
     type Field = B1::Field;
     type State = B1::State;
     type History = B1::History;
-    fn flatten(state: &Self::State) -> <Self::Field as IntegrableField>::Point {
+    fn flatten(state: &Self::State) -> <Self::Field as Integrable>::Point {
         B1::flatten(state)
     }
-    fn unflatten(flat: &<Self::Field as IntegrableField>::Point) -> Self::State {
+    fn unflatten(flat: &<Self::Field as Integrable>::Point) -> Self::State {
         B1::unflatten(flat)
     }
     fn dae_rate(
         &self,
         t: Quantity<Time>,
         nodal_coordinates: &NodalCoordinates<D>,
-        flat: &<Self::Field as IntegrableField>::Point,
-    ) -> Result<Derivative<<Self::Field as IntegrableField>::Increment, Time>, ElementModelError>
-    {
+        flat: &<Self::Field as Integrable>::Point,
+    ) -> Result<Derivative<<Self::Field as Integrable>::Increment, Time>, ElementModelError> {
         self.0.dae_rate(t, nodal_coordinates, flat)
     }
 }
@@ -338,12 +332,12 @@ where
 impl<B, Y> RootRkmkDae<3, Y> for Model<B, 3>
 where
     B: ElasticViscoplasticDaeElements<Y, 3> + ElasticViscoplasticElements<B::State, 3>,
-    <B::Field as IntegrableField>::Point: Clone,
-    <B::Field as IntegrableField>::Increment: Clone + Differentiate<Time>,
-    for<'a> &'a Derivative<<B::Field as IntegrableField>::Increment, Time>:
-        Mul<Quantity<Time>, Output = <B::Field as IntegrableField>::Increment>,
-    Derivative<<B::Field as IntegrableField>::Increment, Time>:
-        Mul<Quantity<Time>, Output = <B::Field as IntegrableField>::Increment>,
+    <B::Field as Integrable>::Point: Clone,
+    <B::Field as Integrable>::Increment: Clone + Differentiable<Time>,
+    for<'a> &'a Derivative<<B::Field as Integrable>::Increment, Time>:
+        Mul<Quantity<Time>, Output = <B::Field as Integrable>::Increment>,
+    Derivative<<B::Field as Integrable>::Increment, Time>:
+        Mul<Quantity<Time>, Output = <B::Field as Integrable>::Increment>,
     B::State: Clone,
     B::History: TensorVec<Item = B::State>,
 {
@@ -361,24 +355,24 @@ where
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
         let blocks = self.blocks();
         let function = |_: Quantity<Time>,
-                        state: &<B::Field as IntegrableField>::Point,
+                        state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalForcesSolid<3>, String> {
             Ok(blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?)
         };
         let jacobian = |_: Quantity<Time>,
-                        state: &<B::Field as IntegrableField>::Point,
+                        state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalStiffnessesSolid<3>, String> {
             Ok(blocks.nodal_stiffnesses(nodal_coordinates, &B::unflatten(state))?)
         };
-        let rate = |t: Quantity<Time>,
-                    state: &<B::Field as IntegrableField>::Point,
-                    nodal_coordinates: &NodalCoordinates<3>|
-         -> Result<
-            Derivative<<B::Field as IntegrableField>::Increment, Time>,
-            String,
-        > { Ok(blocks.dae_rate(t, nodal_coordinates, state)?) };
+        let rate =
+            |t: Quantity<Time>,
+             state: &<B::Field as Integrable>::Point,
+             nodal_coordinates: &NodalCoordinates<3>|
+             -> Result<Derivative<<B::Field as Integrable>::Increment, Time>, String> {
+                Ok(blocks.dae_rate(t, nodal_coordinates, state)?)
+            };
         let equality_constraint = bcs;
         let mut state = B::flatten(&ElasticViscoplasticElements::initial_state(blocks));
         let guess: NodalCoordinates<3> = self.coordinates().clone().into();
@@ -445,24 +439,24 @@ where
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
         let blocks = self.blocks();
         let function = |_: Quantity<Time>,
-                        state: &<B::Field as IntegrableField>::Point,
+                        state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalForcesSolid<3>, String> {
             Ok(blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?)
         };
         let jacobian = |_: Quantity<Time>,
-                        state: &<B::Field as IntegrableField>::Point,
+                        state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalStiffnessesSolid<3>, String> {
             Ok(blocks.nodal_stiffnesses(nodal_coordinates, &B::unflatten(state))?)
         };
-        let rate = |t: Quantity<Time>,
-                    state: &<B::Field as IntegrableField>::Point,
-                    nodal_coordinates: &NodalCoordinates<3>|
-         -> Result<
-            Derivative<<B::Field as IntegrableField>::Increment, Time>,
-            String,
-        > { Ok(blocks.dae_rate(t, nodal_coordinates, state)?) };
+        let rate =
+            |t: Quantity<Time>,
+             state: &<B::Field as Integrable>::Point,
+             nodal_coordinates: &NodalCoordinates<3>|
+             -> Result<Derivative<<B::Field as Integrable>::Increment, Time>, String> {
+                Ok(blocks.dae_rate(t, nodal_coordinates, state)?)
+            };
         let equality_constraint = bcs;
         let state = B::flatten(&ElasticViscoplasticElements::initial_state(blocks));
         let guess: NodalCoordinates<3> = self.coordinates().clone().into();
@@ -482,7 +476,7 @@ where
                 NodalForcesSolid<3>,
                 NodalStiffnessesSolid<3>,
                 NodalCoordinates<3>,
-                TensorVector<<B::Field as IntegrableField>::Point>,
+                TensorVector<<B::Field as Integrable>::Point>,
                 NodalCoordinatesHistory<3>,
                 Time,
             >(

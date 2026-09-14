@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     math::{
-        Derivative, Differentiate, Quantity, Tensor, TensorVec,
+        Derivative, Differentiable, Quantity, Tensor, TensorVec,
         integrate::{IntegrationError, OdeIntegrator, Times},
     },
     units::Time,
@@ -16,7 +16,7 @@ pub(crate) mod variable_step;
 pub trait Explicit<Y, U, V, T = Time>
 where
     Self: OdeIntegrator<Y, U>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {

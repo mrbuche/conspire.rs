@@ -12,7 +12,7 @@ use crate::{
             hyperelastic_viscoplastic::HyperelasticViscoplasticElements,
         },
     },
-    math::{Differentiate, Quantity, Tensor},
+    math::{Differentiable, Quantity, Tensor},
     units::Energy,
 };
 
@@ -23,7 +23,7 @@ where
     C: HyperelasticViscoplastic<Y>,
     F: HyperelasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
     Self: ElasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn helmholtz_free_energy(
         &self,

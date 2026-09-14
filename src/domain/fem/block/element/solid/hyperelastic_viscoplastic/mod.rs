@@ -7,7 +7,7 @@ use crate::{
             viscoplastic::ViscoplasticStateVariables,
         },
     },
-    math::{Differentiate, Quantity, Tensor},
+    math::{Differentiable, Quantity, Tensor},
     units::Energy,
 };
 
@@ -21,7 +21,7 @@ pub trait HyperelasticViscoplasticFiniteElement<
 > where
     C: HyperelasticViscoplastic<Y>,
     Self: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn helmholtz_free_energy(
         &self,
@@ -36,7 +36,7 @@ impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
 where
     C: HyperelasticViscoplastic<Y>,
     Self: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn helmholtz_free_energy(
         &self,

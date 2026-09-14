@@ -1,6 +1,6 @@
 use crate::{
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+        Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
         assert::Assert,
         integrate::{
             ButcherTableau, ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot,
@@ -21,7 +21,7 @@ use std::ops::{Mul, Sub};
 pub trait ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T = Time>
 where
     Self: VariableStepExplicit<Y, U, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -295,7 +295,7 @@ where
 pub trait ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V, W, T = Time>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -369,7 +369,7 @@ where
 pub trait ExplicitDaeVariableStepExplicitZerothOrderRoot<G, Y, Z, U, V, W, T = Time>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -399,7 +399,7 @@ impl<I, G, Y, Z, U, V, W, T> ExplicitDaeVariableStepExplicitZerothOrderRoot<G, Y
     for I
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -414,7 +414,7 @@ where
 impl<I, G, Y, Z, U, V, W, T> ExplicitDaeZerothOrderRoot<G, Y, Z, U, V, W, T> for I
 where
     I: ExplicitDaeVariableStepExplicitZerothOrderRoot<G, Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -448,7 +448,7 @@ where
 pub trait ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, Z, U, V, W, T = Time>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -486,7 +486,7 @@ impl<I, F, J, Y, Z, U, V, W, T>
     ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, Z, U, V, W, T> for I
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -501,7 +501,7 @@ where
 impl<I, F, J, Y, Z, U, V, W, T> ExplicitDaeFirstOrderRoot<F, J, Y, Z, U, V, W, T> for I
 where
     I: ExplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -537,7 +537,7 @@ where
 pub trait ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, Y, Z, U, V, W, T = Time>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -574,7 +574,7 @@ impl<I, F, G, Y, Z, U, V, W, T>
     ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, Y, Z, U, V, W, T> for I
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -589,7 +589,7 @@ where
 impl<I, F, G, Y, Z, U, V, W, T> ExplicitDaeFirstOrderMinimize<F, G, Y, Z, U, V, W, T> for I
 where
     I: ExplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -625,7 +625,7 @@ where
 pub trait ExplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, Z, U, V, W, T = Time>
 where
     Self: ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -666,7 +666,7 @@ impl<I, F, J, H, Y, Z, U, V, W, T>
     ExplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, Z, U, V, W, T> for I
 where
     I: ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -681,7 +681,7 @@ where
 impl<I, F, J, H, Y, Z, U, V, W, T> ExplicitDaeSecondOrderMinimize<F, J, H, Y, Z, U, V, W, T> for I
 where
     Self: ExplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,

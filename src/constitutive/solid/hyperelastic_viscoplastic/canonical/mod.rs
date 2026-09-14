@@ -8,7 +8,7 @@ use crate::{
         fluid::viscoplastic::Viscoplastic,
         solid::{hyperelastic::Hyperelastic, hyperelastic_viscoplastic::HyperelasticViscoplastic},
     },
-    math::{Differentiate, Quantity, Tensor},
+    math::{Differentiable, Quantity, Tensor},
     mechanics::{DeformationGradient, DeformationGradientPlastic},
     units::EnergyDensity,
 };
@@ -17,7 +17,7 @@ impl<C1, C2, Y2> HyperelasticViscoplastic<Y2> for Canonical<C1, C2>
 where
     C1: Hyperelastic,
     C2: Viscoplastic<Y2>,
-    Y2: Differentiate + Tensor,
+    Y2: Differentiable + Tensor,
 {
     fn helmholtz_free_energy_density(
         &self,

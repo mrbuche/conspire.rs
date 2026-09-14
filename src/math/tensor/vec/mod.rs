@@ -1,5 +1,5 @@
 use crate::math::{
-    ContractWith, Differentiate, Erase, Quantity, Tensor, TensorRank0, TensorRank1,
+    ContractWith, Differentiable, Erase, Quantity, Tensor, TensorRank0, TensorRank1,
     TensorRank1List, TensorVec,
 };
 use crate::units::Dimensionless;
@@ -574,10 +574,10 @@ where
     }
 }
 
-impl<E, T> Differentiate<T> for TensorVector<E>
+impl<E, T> Differentiable<T> for TensorVector<E>
 where
-    E: Differentiate<T> + Tensor,
-    <E as Differentiate<T>>::Derivative: Tensor,
+    E: Differentiable<T> + Tensor,
+    <E as Differentiable<T>>::Derivative: Tensor,
 {
-    type Derivative = TensorVector<<E as Differentiate<T>>::Derivative>;
+    type Derivative = TensorVector<<E as Differentiable<T>>::Derivative>;
 }

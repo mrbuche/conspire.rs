@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorError, TensorRank2, TensorTuple,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorError, TensorRank2, TensorTuple,
     TensorVec, TensorVector,
     integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
     optimize::{EqualityConstraint, FirstOrderRootFinding, SecondOrderOptimization},
@@ -23,7 +23,7 @@ const RECONSTRUCT_FAILED: &str =
 /// for a group-valued field). It equals [`Self::Point`] for a flat field, but not
 /// in general — e.g. `F_p` is a `Reference → Intermediate` map while its algebra
 /// element `D_p Δt` maps `Intermediate → Intermediate`.
-pub trait IntegrableField {
+pub trait Integrable {
     /// The state value this field carries.
     type Point: Tensor;
     /// The tangent/algebra element that advances a [`Self::Point`].
@@ -43,7 +43,7 @@ pub trait IntegrableField {
 /// A state in a flat vector space: the increment simply adds.
 pub struct Flat<T>(PhantomData<T>);
 
-impl<T> IntegrableField for Flat<T>
+impl<T> Integrable for Flat<T>
 where
     T: Clone + Tensor,
     for<'a> T: Add<&'a T, Output = T>,
@@ -61,7 +61,7 @@ where
 /// so `F_p` (`Reference → Intermediate`) is `Unimodular<Intermediate, Reference>`.
 pub struct Unimodular<A, B = A>(PhantomData<(A, B)>);
 
-impl<A, B> IntegrableField for Unimodular<A, B>
+impl<A, B> Integrable for Unimodular<A, B>
 where
     TensorRank2<3, A, B, Dimensionless>: Tensor,
     TensorRank2<3, A, A, Dimensionless>: Tensor,
@@ -85,10 +85,10 @@ where
 /// increment reconstructs component-wise. Nests right for three or more fields.
 pub struct Product<H, T>(PhantomData<(H, T)>);
 
-impl<H, T> IntegrableField for Product<H, T>
+impl<H, T> Integrable for Product<H, T>
 where
-    H: IntegrableField,
-    T: IntegrableField,
+    H: Integrable,
+    T: Integrable,
     TensorTuple<H::Point, T::Point>: Tensor,
     TensorTuple<H::Increment, T::Increment>: Tensor,
 {
@@ -116,9 +116,9 @@ where
 /// [`Product`] for a multi-block mesh (`Product<List<Fld1>, List<Fld2>>`).
 pub struct List<Fld>(PhantomData<Fld>);
 
-impl<Fld> IntegrableField for List<Fld>
+impl<Fld> Integrable for List<Fld>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     TensorVector<Fld::Point>: Tensor<Item = Fld::Point>,
     TensorVector<Fld::Increment>: Tensor<Item = Fld::Increment>,
 {
@@ -142,7 +142,7 @@ where
     }
 }
 
-/// Explicit Euler for a single [`IntegrableField`], one step per interval of `time`.
+/// Explicit Euler for a single [`Integrable`], one step per interval of `time`.
 ///
 /// ```math
 /// \mathbf{x}_{n+1} = \mathrm{reconstruct}\!\left(\mathbf{x}_n,\ h\,\mathbf{f}(t_n, \mathbf{x}_n)\right)
@@ -153,9 +153,9 @@ pub fn integrate_euler<Fld, U, T>(
     initial_condition: Fld::Point,
 ) -> Result<(Times<T>, U), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Fld::Point: Clone,
-    Fld::Increment: Differentiate<T>,
+    Fld::Increment: Differentiable<T>,
     for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
     U: TensorVec<Item = Fld::Point>,
 {
@@ -174,7 +174,7 @@ where
     Ok((times, points))
 }
 
-fn reconstruct_or_err<Fld: IntegrableField>(
+fn reconstruct_or_err<Fld: Integrable>(
     base: &Fld::Point,
     increment: &Fld::Increment,
 ) -> Result<Fld::Point, IntegrationError> {
@@ -185,7 +185,7 @@ fn reconstruct_or_err<Fld: IntegrableField>(
 /// Fills `slopes` with one RKMK step's corrected stage slopes `k̃ᵢ` in the
 /// field's Lie algebra: per stage combine the earlier `k̃ⱼ` by row `Aᵢ`,
 /// `reconstruct` the stage point, evaluate the rate, scale by `dt`, apply
-/// [`IntegrableField::dexpinv`] at the accumulated algebra element. `slopes` is
+/// [`Integrable::dexpinv`] at the accumulated algebra element. `slopes` is
 /// cleared first and reused, so a caller that steps in a loop allocates nothing.
 /// The caller weights the entries by `B` (the step) and, for an embedded pair,
 /// by `D` (the error estimate).
@@ -203,10 +203,10 @@ fn rkmk_stage_slopes_into<Fld, Tab, T>(
     first_rate: Option<&Derivative<Fld::Increment, T>>,
 ) -> Result<Option<Derivative<Fld::Increment, T>>, IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: ButcherTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
@@ -270,10 +270,10 @@ pub fn rkmk_step<Fld, Tab, T>(
     scratch: &mut Vec<Fld::Increment>,
 ) -> Result<Fld::Point, IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: ButcherTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
@@ -313,10 +313,10 @@ pub fn rkmk_dae_step<Fld, Tab, Z, T>(
     first_rate: Option<&Derivative<Fld::Increment, T>>,
 ) -> Result<(Fld::Point, Z, Option<Derivative<Fld::Increment, T>>), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: ButcherTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     Z: Clone,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
@@ -354,10 +354,10 @@ pub fn rkmk_dae_step_first_order_root<Fld, Tab, F, J, Z, T>(
     mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
 ) -> Result<(Fld::Point, Z, Option<Derivative<Fld::Increment, T>>), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: ButcherTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     Z: Clone,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
@@ -398,10 +398,10 @@ pub fn rkmk_dae_step_second_order_minimize<Fld, Tab, F, J, H, Z, T>(
     sparse: Option<SparseSolver>,
 ) -> Result<(Fld::Point, Z, Option<Derivative<Fld::Increment, T>>), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: ButcherTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     Z: Clone,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
@@ -438,10 +438,10 @@ fn rkmk_dae_stage_slopes_into<Fld, Tab, Z, T>(
     first_rate: Option<&Derivative<Fld::Increment, T>>,
 ) -> Result<(Z, Option<Derivative<Fld::Increment, T>>), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: ButcherTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     Z: Clone,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
@@ -510,10 +510,10 @@ where
 /// and every interior point is an `expm` of a trace-free element — on the group
 /// by construction. `slope_0` is the raw stage-0 slope (`dexpinv` at zero
 /// displacement is the identity); `slope_1` is the endpoint rate pulled back
-/// through [`IntegrableField::dexpinv`] at `sigma`, both already scaled by the
+/// through [`Integrable::dexpinv`] at `sigma`, both already scaled by the
 /// step. On a [`Flat`] field `reconstruct` adds and `dexpinv` is the identity,
 /// and `h_{00} + h_{01} = 1` collapses this to the usual flat formula.
-pub struct HermiteSegment<Fld: IntegrableField, T = Time> {
+pub struct HermiteSegment<Fld: Integrable, T = Time> {
     t_0: Quantity<T>,
     h: Quantity<T>,
     base: Fld::Point,
@@ -524,12 +524,12 @@ pub struct HermiteSegment<Fld: IntegrableField, T = Time> {
 
 impl<Fld, T> HermiteSegment<Fld, T>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
 {
     /// A segment of the accepted step `[t_0, t_0 + h]` from `base`, the algebra
     /// displacement `sigma` over it, and the step-scaled algebra rates at its
     /// two ends (`slope_1` already pulled back through
-    /// [`IntegrableField::dexpinv`] at `sigma`).
+    /// [`Integrable::dexpinv`] at `sigma`).
     pub fn new(
         t_0: Quantity<T>,
         h: Quantity<T>,
@@ -566,7 +566,7 @@ fn hermite_at<Fld, T>(
     time_k: Quantity<T>,
 ) -> Result<Fld::Point, IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
 {
     segments
         .iter()
@@ -581,7 +581,7 @@ pub fn interpolate_hermite<Fld, U, T>(
     time: &[Quantity<T>],
 ) -> Result<U, IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     U: TensorVec<Item = Fld::Point>,
 {
     let mut points = U::new();
@@ -615,10 +615,10 @@ pub fn integrate_rkmk_dae_adaptive<Fld, Tab, Z, U, V, T>(
     rel_tol: Scalar,
 ) -> Result<(Times<T>, U, V), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: EmbeddedTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     Z: Clone,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
@@ -770,10 +770,10 @@ pub fn integrate_rkmk_dae_adaptive_first_order_root<Fld, Tab, F, J, Z, U, V, T>(
     mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
 ) -> Result<(Times<T>, U, V), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: EmbeddedTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     Z: Clone,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
@@ -819,10 +819,10 @@ pub fn integrate_rkmk_dae_adaptive_second_order_minimize<Fld, Tab, F, J, H, Z, U
     sparse: Option<SparseSolver>,
 ) -> Result<(Times<T>, U, V), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: EmbeddedTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     Z: Clone,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
@@ -851,8 +851,8 @@ where
 }
 
 /// Runge–Kutta–Munthe-Kaas: a fixed-step [`ButcherTableau`] run in the field's
-/// Lie algebra, with the [`IntegrableField::dexpinv`] correction per stage and a
-/// single [`IntegrableField::reconstruct`] per step. Reduces to the plain tableau
+/// Lie algebra, with the [`Integrable::dexpinv`] correction per stage and a
+/// single [`Integrable::reconstruct`] per step. Reduces to the plain tableau
 /// on a flat field. See [`rkmk_step`] for the allocation-free single step.
 pub fn integrate_rkmk<Fld, Tab, U, T>(
     mut rate: impl FnMut(Quantity<T>, &Fld::Point) -> Result<Derivative<Fld::Increment, T>, String>,
@@ -860,10 +860,10 @@ pub fn integrate_rkmk<Fld, Tab, U, T>(
     initial_condition: Fld::Point,
 ) -> Result<(Times<T>, U), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: ButcherTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
@@ -911,10 +911,10 @@ pub fn integrate_rkmk_adaptive<Fld, Tab, U, T>(
     rel_tol: Scalar,
 ) -> Result<(Times<T>, U), IntegrationError>
 where
-    Fld: IntegrableField,
+    Fld: Integrable,
     Tab: EmbeddedTableau,
     Fld::Point: Clone,
-    Fld::Increment: Clone + Differentiate<T>,
+    Fld::Increment: Clone + Differentiable<T>,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<Fld::Increment, T>: Mul<Quantity<T>, Output = Fld::Increment>,
@@ -999,11 +999,11 @@ where
 
 /// The `Point` type of a [`StateEvolution`] model's field.
 pub type EvolvedState<M, T = Time, Y = Quantity> =
-    <<M as StateEvolution<T, Y>>::Field as IntegrableField>::Point;
+    <<M as StateEvolution<T, Y>>::Field as Integrable>::Point;
 
 /// The `Increment` (Lie-algebra) type of a [`StateEvolution`] model's field.
 pub type EvolvedIncrement<M, T = Time, Y = Quantity> =
-    <<M as StateEvolution<T, Y>>::Field as IntegrableField>::Increment;
+    <<M as StateEvolution<T, Y>>::Field as Integrable>::Increment;
 
 /// A model whose internal state evolves as a product of Lie-algebra rates,
 /// ready for the field drivers. [`Self::Drive`] is the externally-imposed input
@@ -1014,21 +1014,21 @@ pub type EvolvedIncrement<M, T = Time, Y = Quantity> =
 /// even though nothing in the trait names it.
 pub trait StateEvolution<T = Time, Y = Quantity>
 where
-    <Self::Field as IntegrableField>::Increment: Differentiate<T>,
+    <Self::Field as Integrable>::Increment: Differentiable<T>,
 {
     /// Geometry of the composite internal state.
-    type Field: IntegrableField;
+    type Field: Integrable;
     /// The externally-imposed driving input.
     type Drive;
     /// The initial internal state.
-    fn initial_state(&self) -> <Self::Field as IntegrableField>::Point;
+    fn initial_state(&self) -> <Self::Field as Integrable>::Point;
     /// The product of Lie-algebra rates at `(time, drive, state)`.
     fn state_rate(
         &self,
         time: Quantity<T>,
         drive: &Self::Drive,
-        state: &<Self::Field as IntegrableField>::Point,
-    ) -> Result<Derivative<<Self::Field as IntegrableField>::Increment, T>, String>;
+        state: &<Self::Field as Integrable>::Point,
+    ) -> Result<Derivative<<Self::Field as Integrable>::Increment, T>, String>;
 }
 
 /// Runs [`integrate_rkmk`] over a [`StateEvolution`] model, sampling `drive` at
@@ -1042,7 +1042,7 @@ where
     M: StateEvolution<T, Y>,
     Tab: ButcherTableau,
     EvolvedState<M, T, Y>: Clone,
-    EvolvedIncrement<M, T, Y>: Clone + Differentiate<T>,
+    EvolvedIncrement<M, T, Y>: Clone + Differentiable<T>,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<EvolvedIncrement<M, T, Y>, T>:
@@ -1072,7 +1072,7 @@ where
     M: StateEvolution<T, Y>,
     Tab: EmbeddedTableau,
     EvolvedState<M, T, Y>: Clone,
-    EvolvedIncrement<M, T, Y>: Clone + Differentiate<T>,
+    EvolvedIncrement<M, T, Y>: Clone + Differentiable<T>,
     T: Copy,
     Quantity<T>: Mul<Scalar, Output = Quantity<T>>,
     for<'a> &'a Derivative<EvolvedIncrement<M, T, Y>, T>:
@@ -1092,14 +1092,14 @@ where
 //
 // `StateStep` used to sit here: a seam meant to let a group-valued state
 // override the additive Runge–Kutta march. It could never work. Its slope was
-// typed `Derivative<Self, T>`, and `Differentiate` admits exactly one
+// typed `Derivative<Self, T>`, and `Differentiable` admits exactly one
 // `Derivative` per state — for `(F_p, Y)` that is the group velocity `Ḟ_p`
 // (`Intermediate ← Reference`), while RKMK needs the algebra element `D_p`
 // (`Intermediate ← Intermediate`) for the same state. No impl can supply a
 // second slope type, so the manifold branch the trait advertised was
 // unreachable (the coherence error it surfaced as was only a symptom).
 //
-// Manifold stepping instead dispatches on the field — `IntegrableField`, whose
+// Manifold stepping instead dispatches on the field — `Integrable`, whose
 // `Point`/`Increment` split carries exactly that distinction and which no state
 // type can collide with. The additive march is now inline in the two
 // Runge–Kutta loops that used the trait.

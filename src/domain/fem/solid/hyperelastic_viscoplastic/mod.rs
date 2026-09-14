@@ -13,9 +13,9 @@ use crate::{
         },
     },
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorTuple, TensorVec, TensorVector,
+        Derivative, Differentiable, Quantity, Scalar, Tensor, TensorTuple, TensorVec, TensorVector,
         integrate::{
-            ButcherTableau, EmbeddedTableau, IntegrableField, IntegrationError,
+            ButcherTableau, EmbeddedTableau, Integrable, IntegrationError,
             integrate_rkmk_dae_adaptive_second_order_minimize, rkmk_dae_step_second_order_minimize,
         },
         optimize::SecondOrderOptimization,
@@ -28,7 +28,7 @@ use std::ops::Mul;
 pub trait HyperelasticViscoplasticElements<S, const D: usize>
 where
     Self: ElasticViscoplasticElements<S, D>,
-    S: Differentiate,
+    S: Differentiable,
 {
     fn helmholtz_free_energy(
         &self,
@@ -40,7 +40,7 @@ where
 impl<B, S, const D: usize> HyperelasticViscoplasticElements<S, D> for Model<B, D>
 where
     B: HyperelasticViscoplasticElements<S, D>,
-    S: Differentiate,
+    S: Differentiable,
 {
     fn helmholtz_free_energy(
         &self,
@@ -57,7 +57,7 @@ impl<B1, B2, S, const D: usize> HyperelasticViscoplasticElements<S, D>
 where
     B1: HyperelasticViscoplasticElements<S, D>,
     B2: HyperelasticElements<D>,
-    S: Differentiate,
+    S: Differentiable,
 {
     fn helmholtz_free_energy(
         &self,
@@ -76,8 +76,8 @@ impl<B1, B2, S1, S2, const D: usize> HyperelasticViscoplasticElements<TensorTupl
 where
     B1: HyperelasticViscoplasticElements<S1, D>,
     B2: HyperelasticViscoplasticElements<S2, D>,
-    S1: Differentiate + Tensor,
-    S2: Differentiate + Tensor,
+    S1: Differentiable + Tensor,
+    S2: Differentiable + Tensor,
     Derivative<S1>: Tensor,
     Derivative<S2>: Tensor,
 {
@@ -152,12 +152,12 @@ pub trait RootRkmkDaeMinimize<const D: usize, Y = Quantity> {
 impl<B, Y> RootRkmkDaeMinimize<3, Y> for Model<B, 3>
 where
     B: ElasticViscoplasticDaeElements<Y, 3> + HyperelasticViscoplasticElements<B::State, 3>,
-    <B::Field as IntegrableField>::Point: Clone,
-    <B::Field as IntegrableField>::Increment: Clone + Differentiate<Time>,
-    for<'a> &'a Derivative<<B::Field as IntegrableField>::Increment, Time>:
-        Mul<Quantity<Time>, Output = <B::Field as IntegrableField>::Increment>,
-    Derivative<<B::Field as IntegrableField>::Increment, Time>:
-        Mul<Quantity<Time>, Output = <B::Field as IntegrableField>::Increment>,
+    <B::Field as Integrable>::Point: Clone,
+    <B::Field as Integrable>::Increment: Clone + Differentiable<Time>,
+    for<'a> &'a Derivative<<B::Field as Integrable>::Increment, Time>:
+        Mul<Quantity<Time>, Output = <B::Field as Integrable>::Increment>,
+    Derivative<<B::Field as Integrable>::Increment, Time>:
+        Mul<Quantity<Time>, Output = <B::Field as Integrable>::Increment>,
     B::State: Clone,
     B::History: TensorVec<Item = B::State>,
 {
@@ -180,30 +180,30 @@ where
         finalize_node_neighbors(&mut neighbors);
         let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), 3, true);
         let function = |_: Quantity<Time>,
-                        state: &<B::Field as IntegrableField>::Point,
+                        state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<Quantity<Energy>, String> {
             Ok(blocks.helmholtz_free_energy(nodal_coordinates, &B::unflatten(state))?)
         };
         let jacobian = |_: Quantity<Time>,
-                        state: &<B::Field as IntegrableField>::Point,
+                        state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalForcesSolid<3>, String> {
             Ok(blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?)
         };
         let hessian = |_: Quantity<Time>,
-                       state: &<B::Field as IntegrableField>::Point,
+                       state: &<B::Field as Integrable>::Point,
                        nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalStiffnessesSolid<3>, String> {
             Ok(blocks.nodal_stiffnesses(nodal_coordinates, &B::unflatten(state))?)
         };
-        let rate = |t: Quantity<Time>,
-                    state: &<B::Field as IntegrableField>::Point,
-                    nodal_coordinates: &NodalCoordinates<3>|
-         -> Result<
-            Derivative<<B::Field as IntegrableField>::Increment, Time>,
-            String,
-        > { Ok(blocks.dae_rate(t, nodal_coordinates, state)?) };
+        let rate =
+            |t: Quantity<Time>,
+             state: &<B::Field as Integrable>::Point,
+             nodal_coordinates: &NodalCoordinates<3>|
+             -> Result<Derivative<<B::Field as Integrable>::Increment, Time>, String> {
+                Ok(blocks.dae_rate(t, nodal_coordinates, state)?)
+            };
         let equality_constraint = bcs;
         let mut state = B::flatten(&ElasticViscoplasticElements::initial_state(blocks));
         let guess: NodalCoordinates<3> = self.coordinates().clone().into();
@@ -279,30 +279,30 @@ where
         finalize_node_neighbors(&mut neighbors);
         let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), 3, true);
         let function = |_: Quantity<Time>,
-                        state: &<B::Field as IntegrableField>::Point,
+                        state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<Quantity<Energy>, String> {
             Ok(blocks.helmholtz_free_energy(nodal_coordinates, &B::unflatten(state))?)
         };
         let jacobian = |_: Quantity<Time>,
-                        state: &<B::Field as IntegrableField>::Point,
+                        state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalForcesSolid<3>, String> {
             Ok(blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?)
         };
         let hessian = |_: Quantity<Time>,
-                       state: &<B::Field as IntegrableField>::Point,
+                       state: &<B::Field as Integrable>::Point,
                        nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalStiffnessesSolid<3>, String> {
             Ok(blocks.nodal_stiffnesses(nodal_coordinates, &B::unflatten(state))?)
         };
-        let rate = |t: Quantity<Time>,
-                    state: &<B::Field as IntegrableField>::Point,
-                    nodal_coordinates: &NodalCoordinates<3>|
-         -> Result<
-            Derivative<<B::Field as IntegrableField>::Increment, Time>,
-            String,
-        > { Ok(blocks.dae_rate(t, nodal_coordinates, state)?) };
+        let rate =
+            |t: Quantity<Time>,
+             state: &<B::Field as Integrable>::Point,
+             nodal_coordinates: &NodalCoordinates<3>|
+             -> Result<Derivative<<B::Field as Integrable>::Increment, Time>, String> {
+                Ok(blocks.dae_rate(t, nodal_coordinates, state)?)
+            };
         let equality_constraint = bcs;
         let state = B::flatten(&ElasticViscoplasticElements::initial_state(blocks));
         let guess: NodalCoordinates<3> = self.coordinates().clone().into();
@@ -324,7 +324,7 @@ where
                 NodalForcesSolid<3>,
                 NodalStiffnessesSolid<3>,
                 NodalCoordinates<3>,
-                TensorVector<<B::Field as IntegrableField>::Point>,
+                TensorVector<<B::Field as Integrable>::Point>,
                 NodalCoordinatesHistory<3>,
                 Time,
             >(

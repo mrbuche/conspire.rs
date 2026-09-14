@@ -9,7 +9,7 @@ mod test;
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::Plastic},
     math::{
-        Derivative, Differentiate, IDENTITY_22, Intermediate, Quantity, Rank2, Scalar, Tensor,
+        Derivative, Differentiable, IDENTITY_22, Intermediate, Quantity, Rank2, Scalar, Tensor,
         TensorArray, TensorRank4, TensorTuple, TensorTupleVec,
     },
     mechanics::{
@@ -43,7 +43,7 @@ pub type ViscoplasticEvolutionHistory<Y> =
 pub trait Viscoplastic<Y>
 where
     Self: Plastic,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     /// Returns the initial state of the variables.
     fn initial_state(&self) -> ViscoplasticStateVariables<Y>;

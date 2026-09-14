@@ -17,7 +17,7 @@ pub type Times<T = Time> = QuantityVector<T>;
 
 pub use error::IntegrationError;
 pub use field::{
-    EvolvedIncrement, EvolvedState, Flat, HermiteSegment, IntegrableField, List, Product,
+    EvolvedIncrement, EvolvedState, Flat, HermiteSegment, Integrable, List, Product,
     StateEvolution, Unimodular, integrate_euler, integrate_rkmk, integrate_rkmk_adaptive,
     integrate_rkmk_dae_adaptive, integrate_rkmk_dae_adaptive_first_order_root,
     integrate_rkmk_dae_adaptive_second_order_minimize, integrate_rkmk_state,

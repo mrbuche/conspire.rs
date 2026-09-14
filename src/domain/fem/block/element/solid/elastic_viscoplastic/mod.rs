@@ -7,7 +7,7 @@ use crate::{
             viscoplastic::{ViscoplasticEvolution, ViscoplasticStateVariables},
         },
     },
-    math::{ContractSecondFourthWithFirst, Differentiate, Tensor},
+    math::{ContractSecondFourthWithFirst, Differentiable, Tensor},
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
 
@@ -21,7 +21,7 @@ pub trait ElasticViscoplasticFiniteElement<
 > where
     C: ElasticViscoplastic<Y>,
     Self: SolidFiniteElement<G, M, N, P>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn nodal_forces(
         &self,
@@ -48,7 +48,7 @@ impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
 where
     C: ElasticViscoplastic<Y>,
     Self: SolidFiniteElement<G, 3, N, P>,
-    Y: Differentiate + Tensor,
+    Y: Differentiable + Tensor,
 {
     fn nodal_forces(
         &self,
