@@ -8,6 +8,8 @@ mod cleanup;
 mod face;
 mod geometry;
 mod lattice;
+pub mod marching;
+
 mod snap;
 mod split;
 mod tables;
