@@ -2030,7 +2030,10 @@ fn corpus_mesh_snapshot() {
 /// solid, how many crease curves it has, the worst scaled Jacobian, and how
 /// closely the nodes near a crease actually landed on it: `STEP_CREASE_BAND`
 /// (default 2x the sizing cell) picks which nodes count as "near"; among
-/// those, the worst and mean distance to the nearest crease curve.
+/// those, the worst and mean distance to the nearest crease curve. Also
+/// writes the fitted mesh to `{STEP_MESH_OUT}_fitted.vtu` (default
+/// `target/step_mesh`) for a look in ParaView -- the numbers here are no
+/// substitute for seeing whether the tangle is actually gone.
 #[test]
 #[ignore = "meshes STEP_MESH_FILE with Fitting::Soft, reports crease adherence"]
 fn probe_crease_adherence() {
@@ -2038,10 +2041,11 @@ fn probe_crease_adherence() {
         geometry::{
             Coordinate,
             cad::sizing::FeatureSizing,
-            mesh::{Fitting, Verdict},
+            mesh::{Fitting, Output, Verdict, Vtk},
             ntree::Balancing,
             solid::Solid,
         },
+        io::{Write, write::Compression},
         math::Quantity,
         units::Length,
     };
@@ -2060,6 +2064,7 @@ fn probe_crease_adherence() {
     let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
     let minimum = env_f64("STEP_MESH_MIN", cell / 8.0);
     let band = env_f64("STEP_CREASE_BAND", cell * 2.0);
+    let out = std::env::var("STEP_MESH_OUT").unwrap_or_else(|_| "target/step_mesh".into());
 
     // Closest point on the union of `curves` to `query`, or None if empty --
     // a standalone copy of mesh::buffer::fit's private nearest_on_polylines,
@@ -2114,6 +2119,14 @@ fn probe_crease_adherence() {
                 continue;
             }
         };
+        let path = if breps.len() == 1 {
+            format!("{out}_fitted.vtu")
+        } else {
+            format!("{out}_solid{index}_fitted.vtu")
+        };
+        mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(&path))))
+            .unwrap();
+        eprintln!("  wrote {path}");
         let worst_sj = mesh.minimum_scaled_jacobians()[0]
             .iter()
             .copied()
