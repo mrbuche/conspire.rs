@@ -384,6 +384,86 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
     Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
 }
 
+fn yielding_viscoplastic_model()
+-> ElasticMultiplicativeViscoplastic<AlmansiHamelEulerian, ViscoplasticFlow> {
+    ElasticMultiplicativeViscoplastic::from((
+        constitutive_model(),
+        ViscoplasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            rate_sensitivity: 0.25,
+            reference_flow_rate: Rate::per_second(0.1),
+        },
+    ))
+}
+
+#[test]
+fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive() -> Result<(), AssertionError> {
+    let (connectivity_1, connectivity_2) = split_connectivities();
+    let mesh = Mesh::from((
+        vec![
+            Connectivity::Tetrahedral(connectivity_1.into()),
+            Connectivity::Tetrahedral(connectivity_2.into()),
+        ],
+        coordinates(),
+    ));
+    let model: Model<Blocks<TetViscoplastic, TetViscoplastic>, 3> = (
+        mesh,
+        (yielding_viscoplastic_model(), yielding_viscoplastic_model()),
+    )
+        .try_into()
+        .map_err(|error: String| AssertionError { message: error })?;
+    let (_, reference_coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
+        &model,
+        NewtonRaphson::default(),
+        &[Quantity::new(0.0), Quantity::new(1.0)],
+        bcs,
+    )?;
+    let reference = reference_coordinates_history.iter().last().unwrap().clone();
+    let (times, coordinates_history, state_variables_history) =
+        RootRkmkDae::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+            &model,
+            NewtonRaphson::default(),
+            &[Quantity::new(0.0), Quantity::new(1.0)],
+            bcs,
+            1e-6,
+            1e-6,
+        )?;
+    // the controller subdivided the single [t_0, t_end] span
+    assert!(times.len() > 2);
+    let error = (coordinates_history.iter().last().unwrap() - &reference)
+        .norm()
+        .value();
+    assert!(
+        error < 1e-3,
+        "adaptive result drifted from the fixed-step FEM reference: {error:e}"
+    );
+    use crate::{math::TensorArray, mechanics::DeformationGradientPlastic};
+    // every Gauss point in both blocks stays on the unimodular group, and
+    // plastic flow actually occurred somewhere across the two blocks
+    let last_state = state_variables_history.iter().last().unwrap();
+    let mut moved = false;
+    [&last_state.0, &last_state.1]
+        .into_iter()
+        .for_each(|block_state| {
+            block_state
+                .iter()
+                .flat_map(|element| element.iter())
+                .for_each(|point_state| {
+                    assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+                    if (&point_state.0 - &DeformationGradientPlastic::identity())
+                        .norm()
+                        .value()
+                        > 1e-4
+                    {
+                        moved = true;
+                    }
+                });
+        });
+    assert!(moved, "plastic state never flowed away from identity");
+    Ok(())
+}
+
 #[test]
 fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
     let (a, b) = constraint();
