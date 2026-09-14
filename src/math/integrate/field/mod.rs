@@ -129,31 +129,31 @@ where
 
 /// A list of independent copies of one field, e.g. every Gauss point's plastic
 /// state across a mesh; an increment reconstructs entry-wise. Composes with
-/// [`Product`] for a multi-block mesh (`Product<List<Fld1>, List<Fld2>>`).
-pub struct List<Fld>(PhantomData<Fld>);
+/// [`Product`] for a multi-block mesh (`Product<List<Field1>, List<Field2>>`).
+pub struct List<Field>(PhantomData<Field>);
 
-impl<Fld> Integrable for List<Fld>
+impl<Field> Integrable for List<Field>
 where
-    Fld: Integrable,
-    TensorVector<Fld::Point>: Tensor<Item = Fld::Point>,
-    TensorVector<Fld::Increment>: Tensor<Item = Fld::Increment>,
+    Field: Integrable,
+    TensorVector<Field::Point>: Tensor<Item = Field::Point>,
+    TensorVector<Field::Increment>: Tensor<Item = Field::Increment>,
 {
-    type Point = TensorVector<Fld::Point>;
-    type Increment = TensorVector<Fld::Increment>;
+    type Point = TensorVector<Field::Point>;
+    type Increment = TensorVector<Field::Increment>;
     fn reconstruct(
         base: &Self::Point,
         increment: &Self::Increment,
     ) -> Result<Self::Point, TensorError> {
         base.iter()
             .zip(increment.iter())
-            .map(|(base, increment)| Fld::reconstruct(base, increment))
+            .map(|(base, increment)| Field::reconstruct(base, increment))
             .collect()
     }
     fn dexpinv(sigma: &Self::Increment, increment: Self::Increment) -> Self::Increment {
         sigma
             .iter()
             .zip(increment)
-            .map(|(sigma, increment)| Fld::dexpinv(sigma, increment))
+            .map(|(sigma, increment)| Field::dexpinv(sigma, increment))
             .collect()
     }
 }
