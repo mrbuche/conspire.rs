@@ -375,13 +375,6 @@ where
     times.push(t_0);
     while t_f - t > dt_min {
         dt = dt.min(t_f - t);
-        // A rate evaluation failing partway through a trial step (e.g. the
-        // dense-output rate at the accepted endpoint, if the model's own
-        // rate closure performs an internal solve that diverges because the
-        // trial inverted an element) is treated the same as an error
-        // estimate exceeding tolerance: shrink dt and retry, rather than
-        // aborting the whole integration. Below dt_min there is nowhere
-        // smaller left to retry at, so the failure is finally propagated.
         let stage = rkmk_stage_slopes_into::<Field, Tab, T>(
             &mut rate,
             &point,
