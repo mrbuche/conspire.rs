@@ -1,4 +1,4 @@
-use super::integrate_rkmk_adaptive;
+use super::{integrate_rkmk_adaptive, integrate_rkmk_dae_adaptive};
 use crate::math::{
     Current, Quantity, Tensor, TensorArray, TensorRank2, TensorVector,
     integrate::{Times, field::Unimodular, ode::explicit::variable_step::bogacki_shampine},
@@ -84,6 +84,41 @@ fn rkmk_adaptive_keeps_the_group_state_unimodular() {
         )
         .unwrap();
     assert!((points.iter().last().unwrap().determinant() - 1.0).abs() < 1e-10);
+}
+
+#[test]
+fn rkmk_adaptive_errors_when_the_requested_tolerance_is_unreachable() {
+    let a = FpRate::from(constant_exponent());
+    let result: Result<(Times, TensorVector<Fp>), _> =
+        integrate_rkmk_adaptive::<Unimodular<Current>, BogackiShampine, _, _>(
+            |t: Quantity<Time>, _: &Fp| Ok(a.clone() * (1.0 / (1.0 + t.value()))),
+            &uniform_time(1),
+            Fp::identity(),
+            0.0,
+            0.0,
+        );
+    assert!(
+        result.is_err(),
+        "an unreachable tolerance should error instead of silently accepting a step below the floor"
+    );
+}
+
+#[test]
+fn rkmk_dae_adaptive_errors_when_the_requested_tolerance_is_unreachable() {
+    let rate = FpRate::from(constant_exponent());
+    let result: Result<(Times, TensorVector<Fp>, TensorVector<Quantity>), _> =
+        integrate_rkmk_dae_adaptive::<Unimodular<Current>, BogackiShampine, _, _, _, _>(
+            |t: Quantity<Time>, _: &Fp, _: &Quantity| Ok(&rate * (1.0 / (1.0 + t.value()))),
+            |_: Quantity<Time>, point: &Fp, _: &Quantity| Ok(Quantity::new(point.norm().value())),
+            &uniform_time(1),
+            (Fp::identity(), Quantity::new(3.0_f64.sqrt())),
+            0.0,
+            0.0,
+        );
+    assert!(
+        result.is_err(),
+        "an unreachable tolerance should error instead of silently accepting a step below the floor"
+    );
 }
 
 #[test]

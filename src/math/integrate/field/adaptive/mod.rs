@@ -119,7 +119,7 @@ where
         };
         let error = weight(&slopes, Tab::D).norm().value().abs();
         let tolerance = abs_tol + rel_tol * trial.norm().value();
-        let accept = error <= tolerance || dt <= dt_min;
+        let accept = error <= tolerance;
         if accept {
             let t_previous = t;
             let t_next = t + dt;
@@ -384,7 +384,7 @@ where
         let trial = reconstruct_or_err::<Field>(&point, &sigma)?;
         let error = weight(&slopes, Tab::D).norm().value().abs();
         let tolerance = abs_tol + rel_tol * trial.norm().value();
-        let accept = error <= tolerance || dt <= dt_min;
+        let accept = error <= tolerance;
         if accept {
             let t_previous = t;
             t += dt;
