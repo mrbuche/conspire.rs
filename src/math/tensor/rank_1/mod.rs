@@ -23,7 +23,7 @@ use crate::{
     math::{
         matrix::vector::Vector,
         tensor::{
-            Jacobian, Quantity, Solution, Tensor, TensorArray, rank_0::TensorRank0,
+            HessianBlock, Jacobian, Quantity, Solution, Tensor, TensorArray, rank_0::TensorRank0,
             rank_1::list::TensorRank1List, rank_2::TensorRank2,
         },
         write_tensor_rank_0,
@@ -206,34 +206,75 @@ impl<const D: usize, I, U> FiniteDifference for TensorRank1<D, I, U> {
 }
 
 impl<const D: usize, I, U> Solution for TensorRank1<D, I, U> {
-    fn decrement_from(&mut self, _other: &Vector) {
-        unimplemented!()
+    fn decrement_from(&mut self, other: &Vector) {
+        self.iter_mut()
+            .zip(other.iter())
+            .for_each(|(self_i, vector_i)| *self_i -= Quantity::new(*vector_i))
     }
-    fn decrement_from_chained(&mut self, _other: &mut Vector, _vector: &Vector) {
-        unimplemented!()
+    fn decrement_from_chained(&mut self, other: &mut Vector, vector: &Vector) {
+        let mut values = vector.iter();
+        self.iter_mut()
+            .zip(values.by_ref())
+            .for_each(|(entry_i, vector_i)| *entry_i -= Quantity::new(*vector_i));
+        other
+            .iter_mut()
+            .zip(values)
+            .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
 }
 
 impl<const D: usize, I, U> Jacobian for TensorRank1<D, I, U> {
-    fn fill_into(&self, _vector: &mut Vector) {
-        unimplemented!()
+    fn fill_into(&self, vector: &mut Vector) {
+        self.iter()
+            .zip(vector.iter_mut())
+            .for_each(|(self_i, vector_i)| *vector_i = self_i.value())
     }
-    fn fill_into_chained(self, _other: Vector, _vector: &mut Vector) {
-        unimplemented!()
+    fn fill_into_chained(self, other: Vector, vector: &mut Vector) {
+        self.into_iter()
+            .map(|entry| entry.value())
+            .chain(other)
+            .zip(vector.iter_mut())
+            .for_each(|(self_i, vector_i)| *vector_i = self_i)
+    }
+}
+
+impl<const D: usize, I, U> HessianBlock for TensorRank1<D, I, U> {
+    fn entry(&self, row: usize, _column: usize) -> TensorRank0 {
+        self[row].value()
+    }
+    fn height(&self) -> usize {
+        D
+    }
+    fn width(&self) -> usize {
+        1
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        self.iter()
+            .enumerate()
+            .for_each(|(i, self_i)| matrix[row + i][column] = self_i.value())
     }
 }
 
 impl<const D: usize, I, U> Sub<Vector> for TensorRank1<D, I, U> {
     type Output = Self;
-    fn sub(self, _vector: Vector) -> Self::Output {
-        unimplemented!()
+    fn sub(mut self, vector: Vector) -> Self::Output {
+        self.iter_mut()
+            .enumerate()
+            .for_each(|(i, self_i)| *self_i -= Quantity::new(vector[i]));
+        self
     }
 }
 
 impl<const D: usize, I, U> Sub<&Vector> for TensorRank1<D, I, U> {
     type Output = Self;
-    fn sub(self, _vector: &Vector) -> Self::Output {
-        unimplemented!()
+    fn sub(mut self, vector: &Vector) -> Self::Output {
+        self.iter_mut()
+            .enumerate()
+            .for_each(|(i, self_i)| *self_i -= Quantity::new(vector[i]));
+        self
     }
 }
 
@@ -395,8 +436,8 @@ impl<const D: usize, I, U> From<TensorRank1<D, I, U>> for Vec<TensorRank0> {
 }
 
 impl<const D: usize, I, U> From<Vector> for TensorRank1<D, I, U> {
-    fn from(_vector: Vector) -> Self {
-        unimplemented!()
+    fn from(vector: Vector) -> Self {
+        vector.into_iter().take(D).collect()
     }
 }
 
