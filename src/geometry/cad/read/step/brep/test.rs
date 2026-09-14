@@ -2024,3 +2024,115 @@ fn corpus_mesh_snapshot() {
     report.push_str(&format!("\n{} files\n", files.len()));
     check_snapshot("corpus_mesh.txt", &report);
 }
+
+/// Meshes `STEP_MESH_FILE` end to end (with the fit -- unlike the corpus
+/// snapshots, so this exercises the crease constraint) and reports, per
+/// solid, how many crease curves it has, the worst scaled Jacobian, and how
+/// closely the nodes near a crease actually landed on it: `STEP_CREASE_BAND`
+/// (default 2x the sizing cell) picks which nodes count as "near"; among
+/// those, the worst and mean distance to the nearest crease curve.
+#[test]
+#[ignore = "meshes STEP_MESH_FILE with Fitting::Soft, reports crease adherence"]
+fn probe_crease_adherence() {
+    use crate::{
+        geometry::{
+            Coordinate,
+            cad::sizing::FeatureSizing,
+            mesh::{Fitting, Verdict},
+            ntree::Balancing,
+            solid::Solid,
+        },
+        math::Quantity,
+        units::Length,
+    };
+
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    let env_f64 = |key: &str, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let minimum = env_f64("STEP_MESH_MIN", cell / 8.0);
+    let band = env_f64("STEP_CREASE_BAND", cell * 2.0);
+
+    // Closest point on the union of `curves` to `query`, or None if empty --
+    // a standalone copy of mesh::buffer::fit's private nearest_on_polylines,
+    // for a probe that cannot reach across that module boundary.
+    fn nearest(curves: &[Vec<Coordinate<3>>], query: &Coordinate<3>) -> Option<f64> {
+        let point: [f64; 3] = std::array::from_fn(|k| query[k].value());
+        let mut best = f64::INFINITY;
+        for curve in curves {
+            for pair in curve.windows(2) {
+                let a: [f64; 3] = std::array::from_fn(|k| pair[0][k].value());
+                let b: [f64; 3] = std::array::from_fn(|k| pair[1][k].value());
+                let edge: [f64; 3] = std::array::from_fn(|k| b[k] - a[k]);
+                let span = edge.iter().map(|x| x * x).sum::<f64>();
+                let t = if span > 0.0 {
+                    ((0..3).map(|k| (point[k] - a[k]) * edge[k]).sum::<f64>() / span)
+                        .clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                let foot: [f64; 3] = std::array::from_fn(|k| a[k] + t * edge[k]);
+                let distance = (0..3)
+                    .map(|k| (point[k] - foot[k]).powi(2))
+                    .sum::<f64>()
+                    .sqrt();
+                best = best.min(distance);
+            }
+        }
+        (best.is_finite()).then_some(best)
+    }
+
+    for (index, brep) in breps.iter().enumerate() {
+        let creases = brep.crease_curves();
+        eprintln!(
+            "solid {index}: {} faces, {} crease curves",
+            brep.faces.len(),
+            creases.len()
+        );
+        if creases.is_empty() {
+            continue;
+        }
+        let sizing = FeatureSizing::of(
+            brep,
+            24,
+            Quantity::<Length>::new(minimum),
+            Some(Quantity::<Length>::new(cell)),
+            Some(0.2),
+        );
+        let mesh = match brep.mesh(&sizing, None, 0.1, Balancing::Strong(1), Fitting::Soft) {
+            Ok(mesh) => mesh,
+            Err(error) => {
+                eprintln!("  mesh failed: {error}");
+                continue;
+            }
+        };
+        let worst_sj = mesh.minimum_scaled_jacobians()[0]
+            .iter()
+            .copied()
+            .fold(f64::INFINITY, f64::min);
+        let (mut near, mut worst, mut sum) = (0usize, 0.0_f64, 0.0_f64);
+        for point in mesh.coordinates() {
+            if let Some(distance) = nearest(&creases, point)
+                && distance < band
+            {
+                near += 1;
+                worst = worst.max(distance);
+                sum += distance;
+            }
+        }
+        eprintln!(
+            "  {} hexes, worst SJ {worst_sj:.4}, {near} near-crease nodes (band {band:.5}), \
+             worst adherence {worst:.5}, mean {:.5}",
+            mesh.number_of_elements(),
+            if near > 0 { sum / near as f64 } else { 0.0 },
+        );
+    }
+}
