@@ -206,6 +206,29 @@ pub trait HessianBlock {
         M: IndexMut<usize, Output = Vector>;
 }
 
+/// A [`HessianBlock`] with its rows and columns swapped.
+pub struct Transposed<H>(pub H);
+
+impl<H: HessianBlock> HessianBlock for Transposed<H> {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        self.0.entry(column, row)
+    }
+    fn height(&self) -> usize {
+        self.0.width()
+    }
+    fn width(&self) -> usize {
+        self.0.height()
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        (0..self.0.height()).for_each(|i| {
+            (0..self.0.width()).for_each(|j| matrix[row + j][column + i] = self.0.entry(i, j))
+        })
+    }
+}
+
 /// Accumulates rank-2 blocks into a sparse Hessian-like structure.
 ///
 /// Symmetric-safe: the caller guarantees `block` at (a, b) equals the
