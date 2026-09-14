@@ -21,6 +21,8 @@ fn octree() -> Octree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([4.0, 4.0, 4.0]),
             cell: Quantity::new(1.0),
@@ -42,6 +44,8 @@ fn quadtree() -> Quadtree<u16, usize> {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([4.0, 4.0]),
             cell: Quantity::new(1.0),
