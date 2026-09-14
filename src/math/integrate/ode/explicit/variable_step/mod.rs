@@ -236,17 +236,11 @@ where
         self.time_step(e, tolerance, dt);
         Ok(())
     }
-    /// Provides the adaptive time step as a function of the error and the
-    /// same `max(abs_tol, rel_tol * ‖y‖)` tolerance the accept decision's
-    /// `e < abs_tol || e < rel_tol * ‖y‖` reduces to.
+    /// Provides the adaptive time step as a function of the error.
     ///
     /// ```math
     /// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
     /// ```
-    ///
-    /// An exactly-zero error carries no information about how much `dt`
-    /// could grow, but is the best evidence available that it safely can;
-    /// it is treated as if the ratio above were at its clamp ceiling.
     fn time_step(&self, error: Scalar, tolerance: Scalar, dt: &mut Quantity<T>) {
         if error > 0.0 {
             *dt *= (self.dt_beta() * (tolerance / error).powf(1.0 / self.dt_expn()))
