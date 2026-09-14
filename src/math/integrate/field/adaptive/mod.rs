@@ -15,10 +15,6 @@ use crate::math::{
 };
 use std::ops::Mul;
 
-/// The floor on how much a single step may shrink `dt`: both the routine
-/// Richardson-based grow/shrink (clamped to `[DT_CUT, 5.0]`) and an outright
-/// failure retry (a stage or endpoint solve diverging, e.g. because the trial
-/// inverted an element) back off by no more than this factor.
 const DT_CUT: Scalar = 0.2;
 
 /// Adaptive [`super::rkmk_dae_step`]: embedded local-error control from the
