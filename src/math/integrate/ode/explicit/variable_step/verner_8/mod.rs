@@ -152,6 +152,8 @@ pub struct Verner8 {
     pub dt_expn: Scalar,
     /// Cut back factor for the time step.
     pub dt_cut: Scalar,
+    /// Growth factor ceiling for the time step.
+    pub dt_grow: Scalar,
     /// Minimum value for the time step.
     pub dt_min: Scalar,
     /// Norm type for error evaluation.
@@ -166,6 +168,7 @@ impl Default for Verner8 {
             dt_beta: 0.9,
             dt_expn: 8.0,
             dt_cut: 0.5,
+            dt_grow: 5.0,
             dt_min: ABS_TOL,
             error_norm: Norm::Chebyshev,
         }
@@ -194,6 +197,9 @@ impl<T> VariableStep<T> for Verner8 {
     }
     fn dt_cut(&self) -> Scalar {
         self.dt_cut
+    }
+    fn dt_grow(&self) -> Scalar {
+        self.dt_grow
     }
     fn dt_min(&self) -> Quantity<T> {
         Quantity::new(self.dt_min)

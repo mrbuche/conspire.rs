@@ -241,7 +241,7 @@ where
     fn time_step(&self, error: Scalar, dt: &mut Quantity<T>) {
         if error > 0.0 {
             *dt *= (self.dt_beta() * (self.abs_tol() / error).powf(1.0 / self.dt_expn()))
-                .max(self.dt_cut())
+                .clamp(self.dt_cut(), self.dt_grow())
         }
     }
 }
