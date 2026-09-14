@@ -655,7 +655,6 @@ impl<U> Hessian for Quantity<U> {
     }
 }
 
-/// A quantity is a 1x1 block.
 impl<U> HessianBlock for Quantity<U> {
     fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
         self.0

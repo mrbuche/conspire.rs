@@ -74,7 +74,6 @@ impl Hessian for TensorRank0 {
     }
 }
 
-/// A scalar is a 1x1 block.
 impl HessianBlock for TensorRank0 {
     fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
         *self

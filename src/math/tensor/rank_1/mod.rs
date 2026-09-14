@@ -238,7 +238,6 @@ impl<const D: usize, I, U> Jacobian for TensorRank1<D, I, U> {
     }
 }
 
-/// A rank-1 tensor is a single-column block: `D` rows, one column.
 impl<const D: usize, I, U> HessianBlock for TensorRank1<D, I, U> {
     fn entry(&self, row: usize, _column: usize) -> TensorRank0 {
         self[row].value()
