@@ -310,7 +310,6 @@ fn logm_non_symmetric_matches_expm_round_trip() -> Result<(), AssertionError> {
 
 #[test]
 fn logm_non_symmetric_matches_scipy() -> Result<(), AssertionError> {
-    // scipy.linalg.logm of the same tensor.
     let expected = TensorRank2::from([
         [-1.15679362, -7.12855027, 7.81792533],
         [3.21893439, 7.52366705, -5.69142684],

@@ -84,7 +84,6 @@ fn expm_symmetric_matches_eigenvalue_exponentials() -> Result<(), AssertionError
 
 #[test]
 fn expm_series_branch_matches_eigenvalue_branch() -> Result<(), AssertionError> {
-    // norm below 1e-2 takes the truncated series; compare against the spectral result.
     TIGHT.eq_within_tols(
         &from_eigenvalues([3.0e-3, -2.0e-3, 1.0e-3]).expm()?,
         &from_eigenvalues([(3.0e-3_f64).exp(), (-2.0e-3_f64).exp(), (1.0e-3_f64).exp()]),
@@ -107,7 +106,6 @@ fn expm_repeated_eigenvalue() -> Result<(), AssertionError> {
 
 #[test]
 fn expm_deviatoric_has_unit_determinant() -> Result<(), AssertionError> {
-    // exp of a trace-free tensor is unimodular.
     let deviatoric = from_eigenvalues([0.5, -0.3, -0.2]);
     Assert::default().eq_within_tols(deviatoric.expm()?.determinant(), &1.0)
 }
@@ -175,7 +173,6 @@ fn dexpm_symmetric_matches_finite_difference_of_expm() -> Result<(), AssertionEr
 
 #[test]
 fn dexpm_repeated_eigenvalue_matches_finite_difference_of_expm() -> Result<(), AssertionError> {
-    // the finite difference itself degrades where the eigenvectors are not unique.
     dexpm_matches_finite_difference(&from_eigenvalues([0.4, 0.4, -0.2]), 1e-3)?;
     dexpm_matches_finite_difference(&from_eigenvalues([0.4, -0.2, -0.2]), 1e-3)
 }
@@ -187,7 +184,6 @@ fn dexpm_series_branch_matches_finite_difference_of_expm() -> Result<(), Asserti
 
 #[test]
 fn dexpm_non_symmetric_matches_finite_difference_of_expm() -> Result<(), AssertionError> {
-    // norm ~0.35, materially non-symmetric: the scaling-and-squaring branch
     dexpm_matches_finite_difference(
         &TensorRank2::from([[0.1, 0.25, -0.05], [-0.2, 0.05, 0.15], [0.1, -0.1, -0.15]]),
         1e-6,
@@ -204,7 +200,6 @@ fn dexpm_zero_is_the_fourth_order_identity() -> Result<(), AssertionError> {
 
 #[test]
 fn dexpm_inverts_dlogm() -> Result<(), AssertionError> {
-    // d(exp)|_{log B} composed with d(log)|_B is the fourth-order identity.
     let tensor = from_eigenvalues([1.7, 0.6, 1.1]);
     let dlogm = tensor.dlogm()?;
     let dexpm = tensor.logm()?.dexpm()?;
@@ -271,11 +266,6 @@ fn dexpinv_at_zero_is_the_identity() -> Result<(), AssertionError> {
 
 #[test]
 fn dexpinv_is_the_right_trivialized_inverse() -> Result<(), AssertionError> {
-    // The Fréchet derivative and the right-trivialized differential are related by
-    // `dexpm(σ)[H] = dexp_σ(H)·exp(σ)`, and `dexpinv` inverts `dexp_σ`, so
-    // `dexpm(σ) : dexpinv_σ(A) = A·exp(σ)`.
-    //
-    // small norm so the truncated dexpinv is exact enough for the identity
     let sigma = TensorRank2::<3, Current, Current>::from([
         [0.0, 0.5, -0.25],
         [-0.4, 0.0, 0.3],

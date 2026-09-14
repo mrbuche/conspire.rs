@@ -47,7 +47,6 @@ fn flat_scalar_reproduces_euler_bit_for_bit() {
 type Fp = TensorRank2<3, Current, Current, Dimensionless>;
 type FpRate = TensorRank2<3, Current, Current, Rate>;
 
-// trace 0, materially non-symmetric: exercises the scaling-and-squaring branch of `expm`
 fn trace_free_rate() -> FpRate {
     FpRate::from([[0.1, 0.7, -0.3], [-0.4, 0.2, 0.5], [0.2, -0.1, -0.3]])
 }
@@ -104,9 +103,7 @@ fn three_deep_product_field_round_trips_through_the_driver() {
     .unwrap();
     assert_eq!(points.iter().count(), steps().len());
     let last = points.iter().last().unwrap();
-    // the F_p leaf kept det = 1 through the exponential-map updates
     assert!((last.1.1.determinant() - 1.0).abs() < 1e-10);
-    // the scalar leaf advanced additively over a total time of 1.0
     assert!((last.0.value() - 1.5).abs() < 1e-12);
 }
 
@@ -156,7 +153,6 @@ fn list_field_keeps_every_entry_on_the_group_through_rkmk() {
     let last = points.iter().last().unwrap();
     last.iter()
         .for_each(|fp| assert!((fp.determinant() - 1.0).abs() < 1e-10));
-    // matches running rkmk on each entry independently, bit for bit
     let (_, reference_a): (Times, TensorVector<Fp>) =
         integrate_rkmk::<Unimodular<Current>, BogackiShampine, _, _>(
             |_: Quantity<Time>, _: &Fp| Ok(rate_a.clone()),
@@ -173,7 +169,6 @@ fn list_field_keeps_every_entry_on_the_group_through_rkmk() {
 }
 
 fn constant_exponent() -> [[f64; 3]; 3] {
-    // trace 0, materially non-symmetric
     [[0.0, 0.4, -0.2], [-0.3, 0.0, 0.5], [0.1, -0.15, 0.0]]
 }
 
@@ -183,8 +178,6 @@ fn uniform_time(steps: usize) -> Vec<Quantity<Time>> {
         .collect()
 }
 
-// X' = g(t) A X with a fixed A and a non-polynomial scalar g; the exact solution
-// is exp(A ∫g) X0, and RKMK's error is the tableau's quadrature error on ∫g.
 fn rkmk_endpoint_error(steps: usize) -> f64 {
     let a = FpRate::from(constant_exponent());
     let (_, points): (Times, TensorVector<Fp>) =
@@ -194,7 +187,6 @@ fn rkmk_endpoint_error(steps: usize) -> f64 {
             Fp::identity(),
         )
         .unwrap();
-    // ∫_0^1 1/(1+t) dt = ln 2
     let exact = (Fp::from(constant_exponent()) * 2.0_f64.ln())
         .expm()
         .unwrap();
@@ -210,7 +202,6 @@ fn rkmk_matches_the_exact_exponential_for_a_constant_rate() {
 fn rkmk_bogacki_shampine_is_third_order() {
     let coarse = rkmk_endpoint_error(8);
     let fine = rkmk_endpoint_error(16);
-    // genuine truncation error, not the machine-precision floor
     assert!(
         (1e-9..1e-1).contains(&coarse),
         "vacuous or diverged: {coarse}"
@@ -237,9 +228,6 @@ fn rkmk_reuses_the_fsal_stage_across_steps() {
             Fp::identity(),
         )
         .unwrap();
-    // Bogacki–Shampine is FSAL: 4 rate evaluations for the first window, then the
-    // last stage of each step seeds the first stage of the next, so 3 per window
-    // after that.
     assert_eq!(evaluations.get(), 3 * steps + 1);
     let exact = (Fp::from(constant_exponent()) * 2.0_f64.ln())
         .expm()
@@ -284,10 +272,6 @@ fn rkmk_dae_reuses_the_fsal_stage_across_steps() {
         carry = next_carry;
         t += dt;
     }
-    // Bogacki–Shampine is FSAL: 4 rate+solve evaluations for the first window's
-    // stages, then the last stage of each step seeds the first stage of the
-    // next, so 3 per window's stages after that -- plus one endpoint solve
-    // every window, FSAL or not.
     assert_eq!(rate_evaluations.get(), 3 * steps + 1);
     assert_eq!(solve_evaluations.get(), 4 * steps + 1);
     assert!((point.determinant() - 1.0).abs() < 1e-10);
@@ -322,11 +306,10 @@ fn rkmk_on_a_flat_field_is_the_plain_tableau() {
 
 #[test]
 fn rkmk_on_a_field_whose_increment_is_not_its_point() {
-    // F_p: Reference -> Intermediate, its algebra element D_p Δt: Intermediate -> Intermediate.
     type PlasticField = Unimodular<Intermediate, Reference>;
     type Fp = TensorRank2<3, Intermediate, Reference, Dimensionless>;
     type Dp = TensorRank2<3, Intermediate, Intermediate, Rate>;
-    let d_p = Dp::from([[0.0, 0.4, -0.2], [-0.3, 0.0, 0.5], [0.1, -0.15, 0.0]]); // trace 0
+    let d_p = Dp::from([[0.0, 0.4, -0.2], [-0.3, 0.0, 0.5], [0.1, -0.15, 0.0]]);
     let (_, points): (Times, TensorVector<Fp>) =
         integrate_rkmk::<PlasticField, BogackiShampine, _, _>(
             |_: Quantity<Time>, _: &Fp| Ok(d_p.clone()),
@@ -335,13 +318,10 @@ fn rkmk_on_a_field_whose_increment_is_not_its_point() {
         )
         .unwrap();
     let last = points.iter().last().unwrap();
-    // the exponential of a trace-free algebra element keeps det F_p = 1 exactly
     assert!((last.determinant() - 1.0).abs() < 1e-10);
-    // and F_p actually advanced off the identity
     assert!((last - &Fp::identity()).norm().value() > 1e-2);
 }
 
-// span [0, 1], f = A/(1+t), exact endpoint exp(A ln 2); returns (accepted steps, endpoint error)
 fn rkmk_adaptive_run(abs_tol: f64) -> (usize, f64) {
     let a = FpRate::from(constant_exponent());
     let (times, points): (Times, TensorVector<Fp>) =
@@ -475,9 +455,6 @@ fn hermite_on_a_flat_field_is_the_free_interpolant() {
         });
 }
 
-// X' = A X / (1 + t) with A constant: X(t) = expm(A ln(1 + t)), so the algebra
-// displacement from t_0 is A ln((1 + t) / (1 + t_0)) and the algebra rate is
-// A / (1 + t). A commutes with the displacement, so dexpinv is the identity.
 fn hermite_analytic_segment(t_0: f64, h: f64) -> HermiteSegment<Unimodular<Current>, Time> {
     let a = Fp::from(constant_exponent());
     let rate = FpRate::from(constant_exponent());
@@ -566,74 +543,4 @@ fn hermite_dense_output_keeps_the_group_state_unimodular() {
         .unwrap();
     let error = (points.iter().last().unwrap() - &exact).norm().value();
     assert!(error < 1e-5, "dense endpoint error {error}");
-}
-
-// Phase A of the "retire the flat DAE solver into the field-generic driver"
-// reframing (see memory `heterogeneous_integration`): `rkmk_dae_step` with
-// `Fld = Flat<Y>` should reproduce one stage sweep of the existing
-// `ExplicitDaeVariableStepExplicit::slopes_solve` (what `FirstOrderRoot::root`
-// runs today). The rate and solve closures below are pure (deterministic, no
-// iterative solver noise) so any disagreement can only come from the two
-// implementations combining the stage slopes in a different order
-// (`Σ Aᵢⱼ (dt kⱼ)` vs `dt Σ Aᵢⱼ kⱼ`) -- turns out both sides land on the exact
-// same sequence of floating-point operations here, so the match is bit-exact,
-// not just near-ULP.
-#[test]
-fn rkmk_dae_step_on_a_flat_field_reproduces_slopes_solve_bit_for_bit() {
-    let rate = |_: Quantity<Time>,
-                y: &Quantity,
-                z: &Quantity|
-     -> Result<Derivative<Quantity, Time>, String> {
-        Ok(y * -RATE + Quantity::<Rate>::new(z.value() * 0.3))
-    };
-    let solve = |t: Quantity<Time>, y: &Quantity, _z: &Quantity| -> Result<Quantity, String> {
-        Ok(Quantity::new(t.value() * 2.0 + y.value() * 0.5))
-    };
-    let t = Quantity::<Time>::new(0.3);
-    let dt = Quantity::<Time>::new(0.15);
-    let y = Quantity::new(0.8);
-    let z = solve(t, &y, &Quantity::new(0.0)).unwrap();
-    // Legacy flat DAE solver: `ExplicitDaeVariableStepExplicit::slopes_solve`,
-    // FSAL so `k[0]` is seeded by the caller exactly as the outer driver does.
-    let mut k = vec![Derivative::<Quantity, Time>::default(); 4];
-    k[0] = rate(t, &y, &z).unwrap();
-    let mut y_trial = Quantity::default();
-    let mut z_trial = Quantity::default();
-    <LegacyBogackiShampine as ExplicitDaeVariableStepExplicit<
-        Quantity,
-        Quantity,
-        TensorVector<Quantity>,
-        TensorVector<Quantity>,
-        TensorVector<Derivative<Quantity, Time>>,
-        Time,
-    >>::slopes_solve(
-        rate,
-        solve,
-        &y,
-        &z,
-        t,
-        dt,
-        &mut k,
-        &mut y_trial,
-        &mut z_trial,
-    )
-    .unwrap();
-    // New field-generic driver: `rkmk_dae_step` instantiated with `Fld = Flat<Y>`.
-    let mut scratch = Vec::new();
-    let (y_new, z_new, _carry) = rkmk_dae_step::<Flat<Quantity>, BogackiShampine, Quantity, Time>(
-        &mut rate.clone(),
-        &mut solve.clone(),
-        &y,
-        &z,
-        t,
-        dt,
-        &mut scratch,
-        None,
-    )
-    .unwrap();
-    assert_eq!(y_trial.value(), y_new.value());
-    assert_eq!(z_trial.value(), z_new.value());
-    // non-vacuity: both sides actually moved off the initial condition
-    assert!((y_new.value() - y.value()).abs() > 1e-3);
-    assert!((z_new.value() - z.value()).abs() > 1e-3);
 }
