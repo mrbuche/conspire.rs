@@ -443,7 +443,7 @@ impl FeatureSizing {
             .collect();
         let bordering: Vec<Vec<usize>> = creases
             .iter()
-            .map(|&edge| incident_faces(brep, edge))
+            .map(|&edge| brep.incident_faces(edge))
             .collect();
 
         let mut slabs: Vec<Item<Scalar>> = Vec::new();
@@ -623,23 +623,6 @@ fn shares_a_vertex(brep: &Brep, a: usize, b: usize) -> bool {
     let [a0, a1] = brep.edges[a].vertices;
     let [b0, b1] = brep.edges[b].vertices;
     a0 == b0 || a0 == b1 || a1 == b0 || a1 == b1
-}
-
-/// Indices into [`Brep::faces`] bordering `edge` -- the faces a crease
-/// touches by construction, and so must be excluded from an "is another
-/// surface nearby" query or the crease's own wall would always win.
-fn incident_faces(brep: &Brep, edge: usize) -> Vec<usize> {
-    brep.faces
-        .iter()
-        .enumerate()
-        .filter(|(_, face)| {
-            face.bounds
-                .iter()
-                .flat_map(|bound| &bound.half_edges)
-                .any(|half_edge| half_edge.edge == edge)
-        })
-        .map(|(index, _)| index)
-        .collect()
 }
 
 /// Euclidean distance from `p` to the segment `a`–`b`, in raw coordinates.

@@ -750,7 +750,10 @@ impl BrepOracle {
     /// `(point, normal, distance, patch index)` of the nearest trimmed face --
     /// the index is into [`Brep::faces`](super::Brep), this oracle's patches
     /// sharing that order (see [`oracle`](super::Brep::oracle)).
-    fn nearest(&self, query: &Coordinate<D>) -> Option<(Coordinate<D>, Direction<D>, Scalar, usize)> {
+    fn nearest(
+        &self,
+        query: &Coordinate<D>,
+    ) -> Option<(Coordinate<D>, Direction<D>, Scalar, usize)> {
         let point: [Scalar; D] = from_fn(|k| query[k].value());
         let mut best: Option<(Coordinate<D>, Direction<D>, Scalar, usize)> = None;
         for (index, (patch, boxed)) in self.patches.iter().zip(&self.boxes).enumerate() {
@@ -814,28 +817,6 @@ impl BrepOracle {
     pub fn distance(&self, query: &Coordinate<D>) -> Scalar {
         self.nearest(query)
             .map_or(Scalar::INFINITY, |(_, _, distance, _)| distance)
-    }
-
-    /// Unsigned distance from `query` to the nearest trimmed face, skipping
-    /// the faces at `excluded` indices (into [`Brep::faces`](super::Brep) --
-    /// this oracle's patches share that order). Used to measure how close a
-    /// feature (a crease, say) passes to an *unrelated* surface, without the
-    /// feature's own bordering faces (which it touches by construction)
-    /// drowning out the query.
-    pub(in crate::geometry::cad) fn distance_excluding(
-        &self,
-        query: &Coordinate<D>,
-        excluded: &[usize],
-    ) -> Scalar {
-        let point: [Scalar; D] = from_fn(|k| query[k].value());
-        let mut best = Scalar::INFINITY;
-        for (index, (patch, boxed)) in self.patches.iter().zip(&self.boxes).enumerate() {
-            if excluded.contains(&index) || point_box_distance(point, boxed) >= best {
-                continue;
-            }
-            best = best.min(patch.closest(query).2);
-        }
-        best
     }
 
     /// Distance to the first trimmed face along `origin + t·direction`, `t > 0`,

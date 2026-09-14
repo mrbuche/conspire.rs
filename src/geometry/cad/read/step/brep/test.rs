@@ -2137,9 +2137,11 @@ fn probe_crease_adherence() {
             .iter()
             .copied()
             .fold(f64::INFINITY, f64::min);
+        let curve_only: Vec<Vec<Coordinate<3>>> =
+            creases.iter().map(|(curve, _)| curve.clone()).collect();
         let (mut near, mut worst, mut sum) = (0usize, 0.0_f64, 0.0_f64);
         for point in mesh.coordinates() {
-            if let Some(distance) = nearest(&creases, point)
+            if let Some(distance) = nearest(&curve_only, point)
                 && distance < band
             {
                 near += 1;
