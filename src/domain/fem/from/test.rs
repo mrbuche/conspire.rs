@@ -429,7 +429,6 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive() -> Result<(), AssertionEr
             1e-6,
             1e-6,
         )?;
-    // the controller subdivided the single [t_0, t_end] span
     assert!(times.len() > 2);
     let error = (coordinates_history.iter().last().unwrap() - &reference)
         .norm()
@@ -439,8 +438,6 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive() -> Result<(), AssertionEr
         "adaptive result drifted from the fixed-step FEM reference: {error:e}"
     );
     use crate::{math::TensorArray, mechanics::DeformationGradientPlastic};
-    // every Gauss point in both blocks stays on the unimodular group, and
-    // plastic flow actually occurred somewhere across the two blocks
     let last_state = state_variables_history.iter().last().unwrap();
     let mut moved = false;
     [&last_state.0, &last_state.1]
