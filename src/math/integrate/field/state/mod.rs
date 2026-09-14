@@ -101,18 +101,7 @@ where
     )
 }
 
-//
-// `StateStep` used to sit here: a seam meant to let a group-valued state
-// override the additive Runge–Kutta march. It could never work. Its slope was
-// typed `Derivative<Self, T>`, and `Differentiable` admits exactly one
-// `Derivative` per state — for `(F_p, Y)` that is the group velocity `Ḟ_p`
-// (`Intermediate ← Reference`), while RKMK needs the algebra element `D_p`
-// (`Intermediate ← Intermediate`) for the same state. No impl can supply a
-// second slope type, so the manifold branch the trait advertised was
-// unreachable (the coherence error it surfaced as was only a symptom).
-//
-// Manifold stepping instead dispatches on the field — `Integrable`, whose
-// `Point`/`Increment` split carries exactly that distinction and which no state
-// type can collide with. The additive march is now inline in the two
-// Runge–Kutta loops that used the trait.
-//
+// A per-state StateStep seam for overriding the RK march can't work here:
+// Differentiate admits exactly one Derivative per state, but RKMK needs a
+// second slope type (the algebra element, not the group velocity) for the
+// same group-valued state. Dispatch on the field (IntegrableField) instead.
