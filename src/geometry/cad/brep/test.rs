@@ -385,6 +385,71 @@ pub(crate) fn bulged_plate() -> Brep {
     }
 }
 
+/// Like [`bulged_plate`], but the top edge is a quadratic B-spline bulging to
+/// `y = 6` instead of a circular arc -- a chorded (non-exact) curve, not one
+/// [`FacePatch::bounds`](super::oracle::patch::FacePatch::bounds) can measure
+/// analytically the way it does an arc.
+pub(crate) fn bulged_plate_splined() -> Brep {
+    let vertices = [
+        [0.0, 0.0, 0.0],
+        [4.0, 0.0, 0.0],
+        [4.0, 4.0, 0.0],
+        [0.0, 4.0, 0.0],
+    ]
+    .map(Coordinate::const_from)
+    .to_vec();
+    let line = |a: usize, b: usize| Edge {
+        vertices: [a, b],
+        curve: Curve::Line(Line {
+            origin: vertices[a].clone(),
+            direction: direction([1.0, 0.0, 0.0]),
+        }),
+    };
+    let edges = vec![
+        line(0, 1),
+        line(1, 2),
+        Edge {
+            vertices: [2, 3],
+            curve: Curve::BSpline(BSpline {
+                degree: 2,
+                control_points: vec![
+                    Coordinate::const_from([4.0, 4.0, 0.0]),
+                    Coordinate::const_from([2.0, 6.0, 0.0]),
+                    Coordinate::const_from([0.0, 4.0, 0.0]),
+                ],
+                knots: vec![0.0, 1.0],
+                multiplicities: vec![3, 3],
+                weights: None,
+            }),
+        },
+        line(3, 0),
+    ];
+    let faces = vec![Face {
+        surface: Surface::Plane(Plane {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            normal: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+        }),
+        bounds: vec![Loop {
+            half_edges: [(0, true), (1, true), (2, true), (3, true)]
+                .into_iter()
+                .map(|(edge, forward)| HalfEdge { edge, forward })
+                .collect(),
+        }],
+        poles: vec![],
+        forward: true,
+    }];
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell {
+            faces: vec![0],
+            closed: false,
+        }],
+    }
+}
+
 /// A spherical face bounded by a single equator circle traversed once — a
 /// genuine partial (hemisphere) patch, not a whole sphere closed by a seam.
 pub(crate) fn partial_sphere(radius: f64) -> Brep {

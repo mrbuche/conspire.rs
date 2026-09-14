@@ -116,6 +116,24 @@ impl FacePatch {
                 // has one seam vertex, so union its circles' extents in.
                 let mut low = from_fn(|k| face.aabb.minimum()[k].value());
                 let mut high = from_fn(|k| face.aabb.maximum()[k].value());
+                // `aabb` spans only the loop's *topological* vertices; a mixed
+                // ring can also carry chorded points sampled along a non-arc
+                // curve (a B-spline edge, or an ellipse not on a cylinder)
+                // that bulge between those vertices and were never folded
+                // into `aabb`. Union every ring point's world position here
+                // too -- redundant for a vertex the aabb already has, the
+                // only place a chorded point's extent is ever accounted for.
+                for ring in &face.rings {
+                    for &(p, _) in ring {
+                        for k in 0..D {
+                            let world = face.origin[k].value()
+                                + p[0] * face.u[k].value()
+                                + p[1] * face.v[k].value();
+                            low[k] = low[k].min(world);
+                            high[k] = high[k].max(world);
+                        }
+                    }
+                }
                 for &(centre, radius) in &face.circles {
                     for k in 0..D {
                         let world = face.origin[k].value()

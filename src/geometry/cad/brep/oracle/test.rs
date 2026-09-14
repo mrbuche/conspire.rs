@@ -4,11 +4,12 @@ use crate::{
         cad::brep::{
             curve::Ellipse,
             test::{
-                ball, bulged_plate, capped_cylinder, cone, cone_split_at_apex,
-                cube_with_bspline_top, cylinder_with_elliptical_rim, cylinder_with_slanted_edge,
-                cylinder_with_splined_rim, direction, hemisphere_solid, partial_cone_to_apex,
-                partial_cylinder, partial_sphere, partial_torus, revolved_cylinder,
-                square_with_rounded_hole, square_with_splined_hole, torus, unit_cube,
+                ball, bulged_plate, bulged_plate_splined, capped_cylinder, cone,
+                cone_split_at_apex, cube_with_bspline_top, cylinder_with_elliptical_rim,
+                cylinder_with_slanted_edge, cylinder_with_splined_rim, direction, hemisphere_solid,
+                partial_cone_to_apex, partial_cylinder, partial_sphere, partial_torus,
+                revolved_cylinder, square_with_rounded_hole, square_with_splined_hole, torus,
+                unit_cube,
             },
         },
         solid::SolidOracle,
@@ -300,6 +301,24 @@ fn a_planar_patch_box_covers_a_bulging_arc_edge() {
     assert!(
         high[1] >= 6.0 - 1e-9,
         "arc bulge to y=6 not in the box: {low:?}..{high:?}"
+    );
+}
+
+#[test]
+fn a_planar_patch_box_covers_a_bulging_bspline_edge() {
+    // Unlike an arc, a B-spline edge has no closed-form bulge extreme: the
+    // only place its extent is ever recorded is the sampled ring points
+    // FacePatch::bounds unions in. Without that (mutation-checked below),
+    // the box would only see the loop's topological vertices, all at y <= 4.
+    // The quadratic Bezier's true peak is y=5 (its midpoint control point at
+    // y=6 is not itself on the curve), which the chord sampling should reach
+    // almost exactly.
+    let brep = bulged_plate_splined();
+    let face = brep.planar_face(&brep.faces[0]).unwrap();
+    let (low, high) = super::patch::FacePatch::Planar(face).bounds();
+    assert!(
+        high[1] >= 5.0 - 1e-2,
+        "B-spline bulge to y=5 not in the box: {low:?}..{high:?}"
     );
 }
 
