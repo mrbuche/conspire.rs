@@ -484,9 +484,6 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive_dense_output() -> Result<()
         bcs,
     )?;
     let reference = reference_coordinates_history.iter().last().unwrap().clone();
-    // requesting more than the [t_0, t_end] span switches the driver from
-    // reporting only its own accepted steps to Hermite dense output at every
-    // one of these interior times
     let requested: Vec<Quantity<Time>> = (0..=4).map(|i| Quantity::new(0.25 * i as f64)).collect();
     let (times, coordinates_history, state_variables_history) =
         RootRkmkDae::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
@@ -510,9 +507,6 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive_dense_output() -> Result<()
         "dense-output adaptive result drifted from the fixed-step FEM reference: {error:e}"
     );
     use crate::{math::TensorArray, mechanics::DeformationGradientPlastic};
-    // every Gauss point stays on the unimodular group at every reported
-    // time, not only the accepted-step endpoints the dense interpolant is
-    // built from
     let mut moved = false;
     state_variables_history.iter().for_each(|state| {
         [&state.0, &state.1].into_iter().for_each(|block_state| {

@@ -20,8 +20,8 @@ use crate::{
         },
     },
     math::{
-        Derivative, Differentiable, Quantity, Tensor, TensorTupleList, TensorTupleListVec,
-        TensorTupleListVec2D, TensorVec, TensorVector,
+        Derivative, Differentiable, Quantity, Tensor, TensorTupleListVec, TensorTupleListVec2D,
+        TensorVec, TensorVector,
         integrate::{EvolvedIncrement, Integrable, List, StateEvolution},
         optimize::EqualityConstraint,
     },
@@ -133,13 +133,6 @@ where
     }
 }
 
-/// Flattens the block's grouped per-element state into one Gauss-point list
-/// (the [`List`] field's `Point`), in the same element-major order
-/// [`ElasticViscoplasticElements`] already iterates — so the round trip
-/// through [`unflatten_state`] is exact. A free function, not a trait method
-/// body, because normalizing the nested [`Tensor::Item`] projections here
-/// fails inside the [`ElasticViscoplasticDaeElements`] impl's larger
-/// where-clause environment.
 fn flatten_state<const G: usize, Y>(
     state: &ViscoplasticStateVariables<G, Y>,
 ) -> TensorVector<PointStateVariables<Y>>
@@ -152,8 +145,6 @@ where
         .collect()
 }
 
-/// The inverse of [`flatten_state`]: regroups a flat Gauss-point list back
-/// into the block's per-element shape, `G` entries per element.
 fn unflatten_state<const G: usize, Y>(
     flat: &TensorVector<PointStateVariables<Y>>,
 ) -> ViscoplasticStateVariables<G, Y>
@@ -162,21 +153,10 @@ where
 {
     flat.as_slice()
         .chunks(G)
-        .map(|chunk| {
-            chunk
-                .iter()
-                .cloned()
-                .collect::<TensorTupleList<DeformationGradientPlastic, Y, G>>()
-        })
+        .map(|chunk| chunk.iter().cloned().collect())
         .collect()
 }
 
-/// The [`ElasticViscoplasticDaeElements`] machinery for a single block: the
-/// whole-mesh field is a per-Gauss-point [`List`] of the constitutive model's
-/// own [`StateEvolution`] field, flattened/unflattened in the same
-/// element-major order [`ElasticViscoplasticElements`] iterates, and the rate
-/// at a stage recomputes every Gauss point's deformation gradient from the
-/// stage's nodal coordinates before evaluating [`StateEvolution::state_rate`].
 impl<C, F, const G: usize, const N: usize, const P: usize, Y> ElasticViscoplasticDaeElements<Y, 3>
     for Block<C, F, G, 3, N, P>
 where
