@@ -8436,3 +8436,130 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
             },
         )
 }
+
+#[test]
+fn temporary_elastic_plastic_block() -> Result<(), AssertionError> {
+    use conspire::fem::solid::elastic_plastic::{ElasticPlasticRoot, FirstOrderRootBlock};
+    use conspire::math::optimize::SolveStrategy;
+    // A single tetrahedron: the block solve's dense K_uv/K_vu assembly is O(num_global^2
+    // * num_local), so it is only tractable on a tiny mesh -- the ~6000-element mesh the
+    // other temporary_elastic_plastic tests share would never finish. Node 0 pinned fully,
+    // node 1 pinned in y/z with x displacement-controlled, node 2 pinned in z: 7
+    // constraints removing rigid-body modes and driving a stretch, leaving node 2's x/y
+    // and node 3's x/y/z (5 dof) for the solve.
+    let tol = 1e-9;
+    let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        conspire::constitutive::fluid::plastic::PlasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+        },
+    ));
+    let reference_coordinates = Coordinates::from([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+    ]);
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(vec![[0, 1, 2, 3]].into())],
+        reference_coordinates,
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let boundary_conditions: Vec<EqualityConstraint> = times
+        .iter()
+        .skip(1)
+        .map(|&t| {
+            let mut matrix = Matrix::zero(7, 12);
+            let mut vector = Vector::zero(7);
+            matrix[0][0] = 1.0; // node 0, x
+            matrix[1][1] = 1.0; // node 0, y
+            matrix[2][2] = 1.0; // node 0, z
+            matrix[3][4] = 1.0; // node 1, y
+            matrix[4][5] = 1.0; // node 1, z
+            matrix[5][3] = 1.0; // node 1, x (displacement-controlled)
+            vector[5] = 1.0 + t.value();
+            matrix[6][8] = 1.0; // node 2, z
+            EqualityConstraint::Linear(matrix, vector)
+        })
+        .collect();
+    // Warm up allocator/cache state before timing anything: whichever solve runs first
+    // otherwise pays a one-time cost (first-touch cache misses, allocator arena growth)
+    // that has nothing to do with the strategy and would make it look artificially slow.
+    let _ = ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
+    let time = std::time::Instant::now();
+    println!("Solving (hand-rolled nested)...");
+    let (coordinates_nested, state_nested) =
+        ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
+    println!("Done ({:?}).", time.elapsed());
+    let time = std::time::Instant::now();
+    println!("Solving (block, condensed -- short-circuits to hand-rolled)...");
+    let (coordinates_condensed, state_condensed) = FirstOrderRootBlock::root(
+        &fem_model,
+        NewtonRaphson::default(),
+        &boundary_conditions,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    println!("Done ({:?}).", time.elapsed());
+    let time = std::time::Instant::now();
+    println!("Solving (block, monolithic eliminated)...");
+    let (coordinates_monolithic, state_monolithic) = FirstOrderRootBlock::root(
+        &fem_model,
+        NewtonRaphson::default(),
+        &boundary_conditions,
+        SolveStrategy::Monolithic { elimination: true },
+    )?;
+    println!("Done ({:?}).", time.elapsed());
+    let compare = |coordinates_other: &conspire::fem::NodalCoordinatesHistory<3>,
+                   state_other: &Vec<
+        conspire::fem::block::solid::elastic_plastic::PlasticStateVariablesField<G>,
+    >|
+     -> Result<(), AssertionError> {
+        coordinates_nested
+            .iter()
+            .zip(coordinates_other.iter())
+            .try_for_each(|(nested, other)| {
+                Assert {
+                    abs_tol: tol,
+                    rel_tol: tol,
+                    ..Default::default()
+                }
+                .eq_within_tols(nested, other)
+            })?;
+        state_nested
+            .iter()
+            .zip(state_other.iter())
+            .try_for_each(|(nested, other)| {
+                nested
+                    .iter()
+                    .zip(other.iter())
+                    .try_for_each(|(nested_element, other_element)| {
+                        nested_element
+                            .iter()
+                            .zip(other_element.iter())
+                            .try_for_each(|(nested_g, other_g)| {
+                                let (nested_plastic, nested_strain) = nested_g.into();
+                                let (other_plastic, other_strain) = other_g.into();
+                                Assert {
+                                    abs_tol: tol,
+                                    rel_tol: tol,
+                                    ..Default::default()
+                                }
+                                .eq_within_tols(nested_plastic, other_plastic)?;
+                                Assert {
+                                    abs_tol: tol,
+                                    rel_tol: tol,
+                                    ..Default::default()
+                                }
+                                .eq_within_tols(nested_strain, other_strain)
+                            })
+                    })
+            })
+    };
+    compare(&coordinates_condensed, &state_condensed)?;
+    compare(&coordinates_monolithic, &state_monolithic)
+}
