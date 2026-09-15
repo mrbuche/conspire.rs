@@ -54,10 +54,6 @@ impl Solid for Brep {
         Brep::crease_curves(self)
     }
 
-    fn corners(&self) -> Vec<Coordinate<D>> {
-        Brep::corner_points(self)
-    }
-
     fn classify(&self, mesh: &Mesh<D>) -> Result<Vec<Class>, &'static str> {
         if self
             .faces

@@ -262,56 +262,6 @@ fn crease_curves_pull_rim_nodes_onto_the_exact_circle() {
 }
 
 #[test]
-fn corner_points_pin_a_cube_vertex_more_tightly() {
-    // Three creases converge at each cube corner; a node landing there has no
-    // single tangent to slide along, so the corner term should pull far more
-    // near-corner nodes down to tight (< 0.006) precision than plain
-    // nearest-face/crease-curve adherence ever reaches by chance -- measured
-    // directly (forcing CORNER_TOLERANCE to 0.0 on this same mesh): only 1 of
-    // 31 near-corner nodes lands that tight. With the term engaged, ~19 do.
-    let brep = unit_cube();
-    let sizing = FeatureSizing::of(&brep, 16, length(0.05), Some(length(0.3)), Some(0.25));
-    let mesh = brep
-        .mesh(&sizing, Some(6), 0.1, Balancing::Strong(1), Fitting::Soft)
-        .unwrap();
-    let corners: [[f64; 3]; 8] = [
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.0, 0.0, 1.0],
-        [1.0, 0.0, 1.0],
-        [1.0, 1.0, 1.0],
-        [0.0, 1.0, 1.0],
-    ];
-    let (mut checked, mut tight) = (0, 0);
-    for coordinate in mesh.coordinates() {
-        let p = [
-            coordinate[0].value(),
-            coordinate[1].value(),
-            coordinate[2].value(),
-        ];
-        for corner in corners {
-            let distance = (0..3)
-                .map(|k| (p[k] - corner[k]).powi(2))
-                .sum::<f64>()
-                .sqrt();
-            if distance < 0.05 {
-                checked += 1;
-                if distance < 0.006 {
-                    tight += 1;
-                }
-            }
-        }
-    }
-    assert!(checked > 0, "no near-corner node found to check");
-    assert!(
-        tight >= 10,
-        "expected most near-corner nodes to pin tightly, only {tight}/{checked} did"
-    );
-}
-
-#[test]
 fn mesh_fits_the_graded_box() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);

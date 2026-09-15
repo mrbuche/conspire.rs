@@ -45,17 +45,6 @@ const CONVERGENCE: Scalar = 1.0e-5;
 /// values tried on that one fixture; not yet validated against a real
 /// crease-tangle case (see `cad/REVIEW.md`).
 const CREASE_TOLERANCE: Scalar = 1.35;
-/// A crease-owned boundary node within this many local edge lengths of a hard
-/// corner point ([`Brep::features`](crate::geometry::cad::brep::Brep::features)
-/// corners) pins toward it (a weighted energy term, not a hard constraint --
-/// still tightens by 1-2 orders of magnitude in practice) instead of sliding
-/// freely along its crease curve's tangent. Several creases converge at a
-/// corner, so "along the curve" is not one direction there -- the same
-/// instability the crease term itself exists to remove, one level up.
-/// Uncalibrated against a real multi-junction fixture (see `cad/REVIEW.md`);
-/// set equal to `CREASE_TOLERANCE` since a pre-fit node this close to its own
-/// crease curve's endpoint is exactly the node a corner term should catch.
-const CORNER_TOLERANCE: Scalar = CREASE_TOLERANCE;
 const CURVATURE_FLOOR: Scalar = 1.0e-12;
 const EPSILON_FLOOR: Scalar = 1.0e-12;
 const HISTORY: usize = 8;
@@ -118,7 +107,6 @@ impl Mesh<3> {
         nodes: &[usize],
         oracle: &O,
         creases: &[(Vec<Coordinate<3>>, Vec<usize>)],
-        corner_points: &[Coordinate<3>],
     ) -> Result<(), &'static str> {
         let mut elements: Vec<(&'static CornerTable, Vec<usize>)> = Vec::new();
         for block in self.iter() {
@@ -188,53 +176,31 @@ impl Mesh<3> {
         // topological ownership, not just Euclidean distance. An oracle that
         // cannot report features (`feature` returns `None` everywhere) skips
         // this gate entirely, preserving old behaviour.
-        let (crease_curve, corner_owned): (Vec<Option<usize>>, Vec<Option<usize>>) =
-            if creases.is_empty() {
-                (vec![None; number_of_nodes], vec![None; number_of_nodes])
-            } else {
-                let (initial_lengths, _) = sizes(&neighbors, &elements, coordinates);
-                let crease_curve: Vec<Option<usize>> = (0..number_of_nodes)
-                    .map(|node| -> Option<usize> {
-                        if node_faces[node].is_empty() {
-                            return None;
-                        }
-                        let (index, _, distance, _) =
-                            nearest_on_polylines(&curve_only, &coordinates[node])?;
-                        if distance > CREASE_TOLERANCE * initial_lengths[node].value() {
-                            return None;
-                        }
-                        touches_one_of(
-                            oracle,
-                            &faces,
-                            &node_faces[node],
-                            coordinates,
-                            &creases[index].1,
-                        )
-                        .then_some(index)
-                    })
-                    .collect();
-                // Several creases converge at a hard corner, so a crease-owned
-                // node that lands here has no single tangent to slide along --
-                // pin it to the exact corner point instead. Frozen alongside
-                // crease_curve for the same reason: recomputing which corner is
-                // nearest every sweep from a moving position could flip between
-                // two close corners, reintroducing the instability this whole
-                // mechanism exists to remove. Only a node the crease term already
-                // owns is a candidate -- an unrelated node merely passing near a
-                // corner (a different part of a complex model) must not pin here.
-                let corner_owned: Vec<Option<usize>> = (0..number_of_nodes)
-                    .map(|node| {
-                        crease_curve[node]?;
-                        nearest_point(corner_points, &coordinates[node]).and_then(
-                            |(index, distance)| {
-                                (distance <= CORNER_TOLERANCE * initial_lengths[node].value())
-                                    .then_some(index)
-                            },
-                        )
-                    })
-                    .collect();
-                (crease_curve, corner_owned)
-            };
+        let crease_curve: Vec<Option<usize>> = if creases.is_empty() {
+            vec![None; number_of_nodes]
+        } else {
+            let (initial_lengths, _) = sizes(&neighbors, &elements, coordinates);
+            (0..number_of_nodes)
+                .map(|node| -> Option<usize> {
+                    if node_faces[node].is_empty() {
+                        return None;
+                    }
+                    let (index, _, distance, _) =
+                        nearest_on_polylines(&curve_only, &coordinates[node])?;
+                    if distance > CREASE_TOLERANCE * initial_lengths[node].value() {
+                        return None;
+                    }
+                    touches_one_of(
+                        oracle,
+                        &faces,
+                        &node_faces[node],
+                        coordinates,
+                        &creases[index].1,
+                    )
+                    .then_some(index)
+                })
+                .collect()
+        };
         let mut epsilon: Scalar = 1.0;
         let mut previous = Quantity::<Length>::new(Scalar::INFINITY);
         let mut window = VecDeque::<Quantity<Length>>::with_capacity(WINDOW);
@@ -242,11 +208,6 @@ impl Mesh<3> {
             let (lengths, scales) = sizes(&neighbors, &elements, coordinates);
             let crease_targets: Vec<Option<CreaseTarget>> = (0..number_of_nodes)
                 .map(|node| {
-                    if let Some(index) = corner_owned[node] {
-                        let point = corner_points[index].clone();
-                        let distance = (&coordinates[node] - &point).norm().value();
-                        return Some((point, [0.0; 3], Quantity::<Area>::new(distance * distance)));
-                    }
                     crease_curve[node].map(|index| {
                         let (_, point, distance, tangent) = nearest_on_polylines(
                             std::slice::from_ref(&curve_only[index]),
@@ -400,16 +361,6 @@ fn nearest_on_polylines(
         }
     }
     best
-}
-
-/// The index into `points` nearest `query`, and its distance -- `None` only
-/// when `points` is empty.
-fn nearest_point(points: &[Coordinate<3>], query: &Coordinate<3>) -> Option<(usize, Scalar)> {
-    points
-        .iter()
-        .enumerate()
-        .map(|(index, point)| (index, (point - query).norm().value()))
-        .min_by(|(_, a), (_, b)| a.total_cmp(b))
 }
 
 /// Whether any of `node`'s incident boundary faces currently projects (via
