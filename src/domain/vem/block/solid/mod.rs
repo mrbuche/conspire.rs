@@ -10,9 +10,9 @@ use crate::{
     },
 };
 
-pub type NodalForcesSolid = crate::fem::solid::NodalForcesSolid<3>;
-pub type NodalStiffnessesSolid = crate::fem::solid::NodalStiffnessesSolid<3>;
-pub type NodalStiffnessesSolidSymmetric = crate::fem::solid::NodalStiffnessesSolidSymmetric<3>;
+pub type NodalForcesSolid = crate::domain::solid::NodalForcesSolid<3>;
+pub type NodalStiffnessesSolid = crate::domain::solid::NodalStiffnessesSolid<3>;
+pub type NodalStiffnessesSolidSymmetric = crate::domain::solid::NodalStiffnessesSolidSymmetric<3>;
 
 pub trait SolidVirtualElements<C, F>
 where

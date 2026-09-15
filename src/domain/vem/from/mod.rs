@@ -2,8 +2,7 @@
 mod test;
 
 use crate::{
-    domain::nodal_coordinates,
-    fem::Model,
+    domain::{Model, nodal_coordinates},
     geometry::{
         Coordinates,
         mesh::{Connectivities, Mesh, PolytopalConnectivity},

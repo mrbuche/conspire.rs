@@ -329,7 +329,7 @@ fn temporary_poly_0() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::fem::solid::elastic::ElasticElements;
+    use crate::domain::solid::elastic::ElasticElements;
     use crate::units::Stress;
     use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
@@ -341,7 +341,7 @@ fn temporary_poly_0() {
         face_node_connectivity.clone(),
         &coordinates,
     ));
-    use crate::fem::solid::NodalForcesSolid;
+    use crate::domain::solid::NodalForcesSolid;
     use crate::math::TensorArray;
     use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
@@ -406,7 +406,7 @@ fn temporary_poly_1() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::fem::solid::elastic::ElasticElements;
+    use crate::domain::solid::elastic::ElasticElements;
     use crate::units::Stress;
     use crate::vem::block::{Block, solid::SolidVirtualElements};
     let block = Block::<_, Element>::from((
@@ -418,7 +418,7 @@ fn temporary_poly_1() {
         face_node_connectivity.clone(),
         &coordinates,
     ));
-    use crate::fem::solid::NodalForcesSolid;
+    use crate::domain::solid::NodalForcesSolid;
     use crate::math::TensorArray;
     use crate::mechanics::DeformationGradient;
     use crate::vem::NodalCoordinates;
@@ -490,7 +490,7 @@ fn temporary_poly_2() {
     ];
     let element_face_connectivity = vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]];
     use crate::constitutive::solid::hyperelastic::NeoHookean;
-    use crate::fem::solid::elastic::ElasticElements;
+    use crate::domain::solid::elastic::ElasticElements;
     use crate::units::Stress;
     use crate::vem::block::Block;
     let block = Block::<_, Element>::from((
@@ -588,7 +588,7 @@ fn temporary_poly_2() {
 fn temporary_poly_3() {
     use crate::{
         constitutive::solid::hyperelastic::NeoHookean,
-        fem::solid::elastic::ElasticElements,
+        domain::solid::elastic::ElasticElements,
         units::Stress,
         vem::{
             NodalCoordinates, NodalReferenceCoordinates,

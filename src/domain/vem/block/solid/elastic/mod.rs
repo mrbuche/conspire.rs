@@ -1,6 +1,6 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
-    fem::{ElementModelError, solid::elastic::ElasticElements},
+    domain::{ElementModelError, solid::elastic::ElasticElements},
     vem::{
         NodalCoordinates,
         block::{

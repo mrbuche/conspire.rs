@@ -1,6 +1,7 @@
 //! Shared, discretization-method-agnostic layer for fem/vem/etc.
 
 pub(crate) mod block;
+pub(crate) mod solid;
 
 use crate::{
     domain::block::element::Elements,

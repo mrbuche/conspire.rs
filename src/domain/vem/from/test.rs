@@ -1,7 +1,7 @@
 use crate::math::assert::Assert;
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
-    fem::{Model, nodal_coordinates, solid::elastic::ElasticElements},
+    domain::{Model, nodal_coordinates, solid::elastic::ElasticElements},
     geometry::{
         Coordinates,
         mesh::{Connectivity, Mesh, PolytopalConnectivity},
