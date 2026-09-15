@@ -16,7 +16,8 @@ use crate::{
         Current, IDENTITY, Matrix, Quantity, Rank2, Reference, Tensor, TensorArray, TensorRank2,
         TensorRank4, Transposed, Vector,
         optimize::{
-            EqualityConstraint, FirstOrderRootFindingBlock, SolveStrategy, ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock, SolveStrategy,
+            ZerothOrderRootFinding,
         },
         sparse::CscMatrix,
     },
@@ -969,21 +970,76 @@ type MonolithicTangents = (
 /// ```math
 /// \varphi(a, b) = a + b - \sqrt{a^2 + b^2}, \qquad \varphi(a,b) = 0 \iff a \geq 0,\ b \geq 0,\ ab = 0
 /// ```
-fn fischer_burmeister(a: Scalar, b: Scalar) -> Scalar {
+pub(crate) fn fischer_burmeister(a: Scalar, b: Scalar) -> Scalar {
     a + b - (a * a + b * b).sqrt()
 }
 
-/// First-order (block) root-finding methods for elastic-plastic solid constitutive models.
+/// The nested return-mapping solve: the plastic multiplier is converged at each load
+/// step via [`ElasticPlastic::return_map`], with the analytically eliminated tangent
+/// from [`ElasticPlastic::consistent_tangent_stiffness`] supplied to the solver.
+fn nested_root<C: ElasticPlastic>(
+    model: &C,
+    applied_load: AppliedLoad,
+    solver: impl FirstOrderRootFinding<
+        FirstPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness,
+        DeformationGradient,
+    >,
+) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError> {
+    let (matrix, prescribed, time) = bcs(applied_load);
+    let mut vector = Vector::zero(matrix.len());
+    let mut state = model.initial_state();
+    let mut deformation_gradient = DeformationGradient::identity();
+    let mut deformation_gradients = vec![deformation_gradient.clone()];
+    let mut states = vec![state.clone()];
+    for time_step in time.iter().skip(1) {
+        prescribed
+            .iter()
+            .for_each(|(index, function)| vector[*index] = function(*time_step));
+        let previous_state = state.clone();
+        deformation_gradient = solver
+            .root(
+                |deformation_gradient: &DeformationGradient| {
+                    let updated_state = model.return_map(deformation_gradient, &previous_state)?;
+                    Ok(model
+                        .first_piola_kirchhoff_stress(deformation_gradient, &updated_state.0)?)
+                },
+                |deformation_gradient: &DeformationGradient| {
+                    Ok(model
+                        .consistent_tangent_stiffness(deformation_gradient, &previous_state)?
+                        .0)
+                },
+                deformation_gradient.clone(),
+                EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                None,
+            )
+            .map_err(|error| ConstitutiveError::upstream(error, model))?;
+        state = model.return_map(&deformation_gradient, &previous_state)?;
+        deformation_gradients.push(deformation_gradient.clone());
+        states.push(state.clone());
+    }
+    Ok((
+        time.iter().copied().collect(),
+        deformation_gradients.into(),
+        states.into(),
+    ))
+}
+
+/// First-order root-finding methods for elastic-plastic solid constitutive models.
 pub trait FirstOrderRoot {
-    /// Solve for the unknown components of the deformation gradients under an applied load,
-    /// stepping the deformation gradient and the plastic multiplier increment together.
+    /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
-    /// The yield inequality is imposed by a Fischer-Burmeister complementarity residual, so
-    /// every load step goes through the same block solve and elastic steps recover
-    /// $`\Delta\gamma = 0`$ on their own. The flow direction is taken at the previous
-    /// plastic gradient and the current total deformation gradient, so the block system
-    /// is the one [`ElasticPlastic::return_map`] solves. `strategy` selects the block linear solve
-    /// ([`SolveStrategy::Condensed`] or [`SolveStrategy::Monolithic`]).
+    /// With [`SolveStrategy::Condensed`], this is the same nested return-mapping solve as
+    /// [`ElasticPlastic::consistent_tangent_stiffness`] uses directly (the analytically
+    /// eliminated block system, formed by hand rather than through the generic block
+    /// solver): cheaper, since the block solver's `Kuv`/`Kvu` assembly and per-step
+    /// factorization are pure overhead on a system whose local block is one scalar.
+    /// [`SolveStrategy::Monolithic`] genuinely needs the block solver, since the
+    /// deformation gradient and plastic multiplier increment step together rather than
+    /// one at fixed local equilibrium; that case goes through
+    /// [`FirstOrderRootFindingBlock::root_block`], with the yield inequality imposed by a
+    /// Fischer-Burmeister complementarity residual so elastic steps recover
+    /// $`\Delta\gamma = 0`$ on their own.
     fn root(
         &self,
         applied_load: AppliedLoad,
@@ -996,6 +1052,10 @@ pub trait FirstOrderRoot {
             PlasticMultiplierGlobalSlope,
             FirstPiolaKirchhoffStress,
             Quantity,
+        > + FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
         >,
         strategy: SolveStrategy,
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
@@ -1017,10 +1077,17 @@ where
             PlasticMultiplierGlobalSlope,
             FirstPiolaKirchhoffStress,
             Quantity,
+        > + FirstOrderRootFinding<
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
         >,
         strategy: SolveStrategy,
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
     {
+        if let SolveStrategy::Condensed(_) = strategy {
+            return nested_root(self, applied_load, solver);
+        }
         let (matrix, prescribed, time) = bcs(applied_load);
         let mut global_pattern = Vec::new();
         for row in 0..matrix.len() {

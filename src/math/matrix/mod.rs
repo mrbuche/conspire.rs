@@ -2,8 +2,8 @@ pub(super) mod square;
 pub(super) mod vector;
 
 use crate::math::{
-    Quantity, QuantityVector, Scalar, Tensor, TensorRank1, TensorRank1Vec, TensorRank2,
-    TensorTuple, TensorVec,
+    HessianBlock, Quantity, QuantityVector, Scalar, Tensor, TensorRank1, TensorRank1Vec,
+    TensorRank2, TensorTuple, TensorVec,
 };
 use std::{
     iter::Sum,
@@ -47,6 +47,28 @@ impl Matrix {
     }
     pub fn zero(height: usize, width: usize) -> Self {
         (0..height).map(|_| Vector::zero(width)).collect()
+    }
+}
+
+/// A dense coupling block between a flattened global and local unknown, for
+/// problems (such as a whole-mesh block solve) with no smaller fixed-size
+/// tensor shape to specialize on.
+impl HessianBlock for Matrix {
+    fn entry(&self, row: usize, column: usize) -> Scalar {
+        self[row][column]
+    }
+    fn height(&self) -> usize {
+        Matrix::height(self)
+    }
+    fn width(&self) -> usize {
+        Matrix::width(self)
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        (0..self.height())
+            .for_each(|i| (0..self.width()).for_each(|j| matrix[row + i][column + j] = self[i][j]))
     }
 }
 
