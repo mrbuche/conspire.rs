@@ -2,7 +2,7 @@ pub mod element;
 pub mod solid;
 
 use crate::{
-    fem::Elements,
+    domain::block::element::Elements,
     geometry::mesh::PolytopalConnectivity,
     vem::{
         NodalCoordinates, NodalReferenceCoordinates,

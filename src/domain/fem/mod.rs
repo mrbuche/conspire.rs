@@ -62,12 +62,7 @@ where
     fn coordinates(&self) -> &NodalReferenceCoordinates<D>;
 }
 
-pub trait Elements
-where
-    Self: Debug,
-{
-    fn node_neighbors(&self, neighbors: &mut [Vec<usize>]);
-}
+pub use crate::domain::block::element::Elements;
 
 impl<B, const D: usize> Elements for Model<B, D>
 where
