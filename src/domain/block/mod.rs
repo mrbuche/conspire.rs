@@ -1,6 +1,17 @@
 pub(crate) mod element;
 
 use crate::math::{Tensor, optimize::EqualityConstraint, sparse::SparseSolver};
+use std::any::type_name;
+
+pub(crate) fn trimmed_type_name<T>() -> &'static str {
+    type_name::<T>()
+        .rsplit("::")
+        .next()
+        .unwrap()
+        .split('<')
+        .next()
+        .unwrap()
+}
 
 pub(crate) fn add_node_neighbors<'a>(
     elements_nodes: impl Iterator<Item = &'a [usize]>,

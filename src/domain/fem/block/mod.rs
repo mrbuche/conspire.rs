@@ -18,10 +18,7 @@ use crate::{
     math::{Quantity, TensorRank1List, TensorRank1Vec},
     units::Volume,
 };
-use std::{
-    any::type_name,
-    fmt::{self, Debug, Formatter},
-};
+use std::fmt::{self, Debug, Formatter};
 
 pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
     constitutive_model: C,
@@ -65,13 +62,7 @@ where
         write!(
             f,
             "Block {{ constitutive model: {}, {} elements }}",
-            type_name::<C>()
-                .rsplit("::")
-                .next()
-                .unwrap()
-                .split("<")
-                .next()
-                .unwrap(),
+            crate::domain::block::trimmed_type_name::<C>(),
             self.elements().len()
         )
     }

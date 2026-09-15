@@ -9,10 +9,7 @@ use crate::{
         block::element::{ElementNodalCoordinates, VirtualElement},
     },
 };
-use std::{
-    any::type_name,
-    fmt::{self, Debug, Formatter},
-};
+use std::fmt::{self, Debug, Formatter};
 
 pub struct Block<C, F> {
     constitutive_model: C,
@@ -50,13 +47,7 @@ impl<C, F> Debug for Block<C, F> {
         write!(
             f,
             "Block {{ constitutive model: {}, elements: [Virtual; {}] }}",
-            type_name::<C>()
-                .rsplit("::")
-                .next()
-                .unwrap()
-                .split("<")
-                .next()
-                .unwrap(),
+            crate::domain::block::trimmed_type_name::<C>(),
             self.elements().len()
         )
     }
