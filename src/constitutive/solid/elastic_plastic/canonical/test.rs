@@ -12,11 +12,33 @@ use crate::{
     math::{
         Quantity, Rank2, Tensor, TensorArray,
         assert::{Assert, AssertionError},
-        optimize::NewtonRaphson,
+        optimize::{NewtonRaphson, SolveStrategy},
     },
     mechanics::{DeformationGradient, DeformationGradientPlastic, FirstPiolaKirchhoffStress},
     units::{Stress, Time},
 };
+
+/// `FirstOrderRoot::root` with the default (condensed) strategy, for tests that
+/// don't care which strategy is used.
+fn root(
+    model: &Canonical<NeoHookean, PlasticFlow>,
+    applied_load: AppliedLoad,
+    solver: NewtonRaphson,
+) -> Result<
+    (
+        crate::mechanics::Times,
+        crate::mechanics::DeformationGradients,
+        crate::constitutive::fluid::plastic::PlasticStateVariablesHistory,
+    ),
+    crate::constitutive::ConstitutiveError,
+> {
+    FirstOrderRoot::root(
+        model,
+        applied_load,
+        solver,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )
+}
 
 fn model(hardening_slope: f64) -> Canonical<NeoHookean, PlasticFlow> {
     Canonical::from((
@@ -48,8 +70,11 @@ fn ramp(t: Quantity<Time>) -> f64 {
 #[test]
 fn stays_elastic_below_yield() -> Result<(), AssertionError> {
     let model = model(1.0);
-    let (_, _, states) =
-        model.root(AppliedLoad::UniaxialStress(ramp, &times(0.02, 4)), solver())?;
+    let (_, _, states) = root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &times(0.02, 4)),
+        solver(),
+    )?;
     states.as_slice().iter().try_for_each(|state| {
         assert_eq!(state.1.value(), 0.0);
         Assert::default().eq_within_tols(&state.0, &DeformationGradientPlastic::identity())
@@ -59,7 +84,8 @@ fn stays_elastic_below_yield() -> Result<(), AssertionError> {
 #[test]
 fn yields_and_returns_to_the_surface() -> Result<(), AssertionError> {
     let model = model(1.0);
-    let (_, deformation_gradients, states) = model.root(
+    let (_, deformation_gradients, states) = root(
+        &model,
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
         solver(),
     )?;
@@ -83,7 +109,8 @@ fn yields_and_returns_to_the_surface() -> Result<(), AssertionError> {
 fn perfect_plasticity_caps_the_flow_stress() -> Result<(), AssertionError> {
     let model = model(0.0);
     let flow_stress = |final_time: f64| -> Result<Quantity<Stress>, AssertionError> {
-        let (_, deformation_gradients, states) = model.root(
+        let (_, deformation_gradients, states) = root(
+            &model,
             AppliedLoad::UniaxialStress(ramp, &times(final_time, 100)),
             solver(),
         )?;
@@ -102,7 +129,8 @@ fn perfect_plasticity_caps_the_flow_stress() -> Result<(), AssertionError> {
 #[test]
 fn hardening_raises_the_flow_stress_with_plastic_strain() -> Result<(), AssertionError> {
     let model = model(1.0);
-    let (_, deformation_gradients, states) = model.root(
+    let (_, deformation_gradients, states) = root(
+        &model,
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
         solver(),
     )?;
@@ -145,33 +173,37 @@ fn consistent_tangent_keeps_the_outer_solve_within_a_tight_step_cap() -> Result<
         max_steps: 4,
         ..Default::default()
     };
-    let (_, _, states) = model.root(AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)), solver)?;
+    let (_, _, states) = root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)),
+        solver,
+    )?;
     assert!(states.as_slice().last().unwrap().1.value() > 0.0);
     Ok(())
 }
 
 #[test]
-fn monolithic_strategies_agree_with_the_nested_solve() -> Result<(), AssertionError> {
+fn monolithic_strategies_agree_with_each_other() -> Result<(), AssertionError> {
     use crate::{
-        constitutive::solid::elastic_plastic::{FirstOrderRoot, MonolithicRoot},
-        math::optimize::SolveStrategy,
+        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
     };
     let model = model(1.0);
     let steps = times(0.5, 40);
+    // Condensed is the reference: it converges the local block before every outer step.
     let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
         &model,
         AppliedLoad::UniaxialStress(ramp, &steps),
         NewtonRaphson::default(),
+        SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
     let reference_gradient = reference_gradients.as_slice().last().unwrap();
     let reference_strain = reference_states.as_slice().last().unwrap().1;
     assert!(reference_strain.value() > 0.0);
     for strategy in [
-        SolveStrategy::Condensed(NewtonRaphson::default()),
         SolveStrategy::Monolithic { elimination: false },
         SolveStrategy::Monolithic { elimination: true },
     ] {
-        let (_, gradients, states) = MonolithicRoot::root(
+        let (_, gradients, states) = FirstOrderRoot::root(
             &model,
             AppliedLoad::UniaxialStress(ramp, &steps),
             NewtonRaphson::default(),
@@ -201,7 +233,8 @@ fn monolithic_tangents_match_finite_difference_at_a_plastic_state() -> Result<()
         mechanics::{FirstPiolaKirchhoffStress, Scalar},
     };
     let model = model(1.0);
-    let (_, deformation_gradients, states) = model.root(
+    let (_, deformation_gradients, states) = root(
+        &model,
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
         solver(),
     )?;
@@ -326,7 +359,7 @@ fn monolithic_tangents_match_finite_difference_at_a_plastic_state() -> Result<()
 fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
 -> Result<(), AssertionError> {
     use crate::{
-        constitutive::solid::elastic_plastic::MonolithicRoot, math::optimize::SolveStrategy,
+        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
     };
     // A wrong K_uv / K_vu still converges to the same root, just slower, so the
     // agreement test above cannot catch a bad coupling block. This one can: with the
@@ -341,7 +374,7 @@ fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
     };
     // Coarse steps (large plastic increments, cold local start) so the coupling-block
     // quality actually shows up in the iteration count.
-    let (_, _, states) = MonolithicRoot::root(
+    let (_, _, states) = FirstOrderRoot::root(
         &model,
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)),
         solver,
@@ -355,7 +388,8 @@ fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
 fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
 -> Result<(), AssertionError> {
     let model = model(1.0);
-    let (_, deformation_gradients, states) = model.root(
+    let (_, deformation_gradients, states) = root(
+        &model,
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
         solver(),
     )?;
