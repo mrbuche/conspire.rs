@@ -18,7 +18,7 @@ use std::{
 };
 
 use super::{
-    Differentiate, Erase, Hessian, HessianBlock, Rank2, SquareMatrix, Tensor, TensorArray, Vector,
+    Differentiable, Erase, Hessian, HessianBlock, Rank2, SquareMatrix, Tensor, TensorArray, Vector,
     rank_0::TensorRank0,
     rank_1::TensorRank1,
     rank_2::TensorRank2,
@@ -1457,7 +1457,7 @@ fn canonical_transform_fourth<const D: usize>(
     output
 }
 
-impl<const D: usize, I, J, K, L, U, T> Differentiate<T> for TensorRank4<D, I, J, K, L, U>
+impl<const D: usize, I, J, K, L, U, T> Differentiable<T> for TensorRank4<D, I, J, K, L, U>
 where
     U: UnitDiv<T>,
 {

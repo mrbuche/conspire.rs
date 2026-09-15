@@ -1,10 +1,13 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
     constitutive::{
         ConstitutiveError,
         hybrid::ElasticViscoplasticAdditiveElastic,
         solid::{hyperelastic::Hyperelastic, hyperelastic_viscoplastic::HyperelasticViscoplastic},
     },
-    math::{Differentiate, Quantity, Tensor},
+    math::{Differentiable, Quantity, Tensor},
     mechanics::{DeformationGradient, DeformationGradientPlastic},
     units::EnergyDensity,
 };
@@ -13,7 +16,7 @@ impl<C1, C2, Y1> HyperelasticViscoplastic<Y1> for ElasticViscoplasticAdditiveEla
 where
     C1: HyperelasticViscoplastic<Y1>,
     C2: Hyperelastic,
-    Y1: Differentiate + Tensor,
+    Y1: Differentiable + Tensor,
 {
     /// Calculates and returns the Helmholtz free energy density.
     ///

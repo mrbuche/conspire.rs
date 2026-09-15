@@ -160,6 +160,103 @@ macro_rules! test_canonical {
             use super::*;
             test_model_with_integrator!(Verner9);
         }
+
+        mod state_evolution {
+            use super::model;
+            use crate::{
+                constitutive::solid::{
+                    elastic_viscoplastic::AppliedLoad,
+                    hyperelastic_viscoplastic::{RootRkmkDaeMinimize, SecondOrderMinimize},
+                },
+                math::{
+                    Quantity, Tensor, TensorArray,
+                    integrate::{BogackiShampine, BogackiShampineTableau},
+                    optimize::NewtonRaphson,
+                },
+                mechanics::DeformationGradientPlastic,
+                units::Time,
+            };
+
+            fn time(steps: usize) -> Vec<Quantity<Time>> {
+                (0..=steps)
+                    .map(|i| Quantity::new(i as f64 / steps as f64))
+                    .collect()
+            }
+
+            #[test]
+            fn rkmk_dae_minimize_is_third_order() {
+                let load = |t: Quantity<Time>| 1.0 + 0.3 * t.value();
+                let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
+                let (_, reference, _) = model()
+                    .minimize(
+                        AppliedLoad::UniaxialStress(load, &span),
+                        BogackiShampine {
+                            abs_tol: 1e-10,
+                            rel_tol: 1e-10,
+                            ..Default::default()
+                        },
+                        NewtonRaphson::default(),
+                    )
+                    .unwrap();
+                let reference = reference.iter().last().unwrap().clone();
+                let mut errors = Vec::new();
+                for steps in [10, 20, 40, 80] {
+                    let times = time(steps);
+                    let (_, dae, state_variables) =
+                        RootRkmkDaeMinimize::<Quantity>::root_rkmk_dae_minimize::<
+                            BogackiShampineTableau,
+                        >(
+                            &model(),
+                            AppliedLoad::UniaxialStress(load, &times),
+                            NewtonRaphson::default(),
+                        )
+                        .unwrap();
+                    let error = (dae.iter().last().unwrap() - &reference).norm().value();
+                    println!("{steps}: {error:e}");
+                    errors.push(error);
+                    let deformation_gradient_p = &state_variables.iter().last().unwrap().0;
+                    assert!(
+                        (deformation_gradient_p - &DeformationGradientPlastic::identity())
+                            .norm()
+                            .value()
+                            > 1e-3
+                    );
+                }
+                errors.windows(2).for_each(|pair| {
+                    let ratio = pair[0] / pair[1];
+                    assert!(
+                        (6.0..12.0).contains(&ratio),
+                        "not third order: {ratio}, {errors:?}"
+                    )
+                });
+            }
+
+            #[test]
+            fn rkmk_dae_minimize_adaptive_keeps_the_plastic_deformation_unimodular() {
+                let load = |t: Quantity<Time>| 1.0 + 0.3 * t.value();
+                let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
+                let (times, _, state_variables) =
+                    RootRkmkDaeMinimize::<Quantity>::root_rkmk_dae_adaptive_minimize::<
+                        BogackiShampineTableau,
+                    >(
+                        &model(),
+                        AppliedLoad::UniaxialStress(load, &span),
+                        NewtonRaphson::default(),
+                        1e-8,
+                        1e-8,
+                    )
+                    .unwrap();
+                assert!(times.len() > 2);
+                let deformation_gradient_p = &state_variables.iter().last().unwrap().0;
+                assert!((deformation_gradient_p.determinant() - 1.0).abs() < 1e-10);
+                assert!(
+                    (deformation_gradient_p - &DeformationGradientPlastic::identity())
+                        .norm()
+                        .value()
+                        > 1e-3
+                );
+            }
+        }
     };
 }
 

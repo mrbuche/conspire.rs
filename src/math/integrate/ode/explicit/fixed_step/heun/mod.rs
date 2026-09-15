@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ButcherTableau, Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator,
         Times,
@@ -44,7 +44,7 @@ impl<T> FixedStep<T> for Heun {
 
 impl<Y, U, V, T> Explicit<Y, U, V, T> for Heun
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
         Add<&'a Derivative<Y, T>, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
@@ -64,7 +64,7 @@ where
 
 impl<Y, U, V, T> FixedStepExplicit<Y, U, V, T> for Heun
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
         Add<&'a Derivative<Y, T>, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,

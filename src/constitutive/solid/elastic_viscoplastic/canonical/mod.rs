@@ -15,7 +15,7 @@ use crate::{
         },
     },
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, Differentiate, Quantity, Rank2,
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, Differentiable, Quantity, Rank2,
         Scalar, Tensor,
     },
     mechanics::{
@@ -46,7 +46,7 @@ impl<C1, C2, Y2> Viscoplastic<Y2> for Canonical<C1, C2>
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
-    Y2: Differentiate + Tensor,
+    Y2: Differentiable + Tensor,
 {
     fn initial_state(&self) -> ViscoplasticStateVariables<Y2> {
         self.1.initial_state()
@@ -175,6 +175,6 @@ impl<C1, C2, Y2> ElasticViscoplastic<Y2> for Canonical<C1, C2>
 where
     C1: Elastic,
     C2: Viscoplastic<Y2>,
-    Y2: Differentiate + Tensor,
+    Y2: Differentiable + Tensor,
 {
 }

@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::Norm;
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ButcherTableau, EmbeddedTableau, Explicit, FreeInterpolant, IntegrationError,
         OdeIntegrator, Times, VariableStep, VariableStepExplicit,
@@ -29,11 +29,11 @@ impl ButcherTableau for Tableau {
     ];
     const C: &'static [Scalar] = &[0.0, 0.5, 0.75, 1.0];
     const B: &'static [Scalar] = &[2.0 / 9.0, 1.0 / 3.0, 4.0 / 9.0, 0.0];
+    const FSAL: bool = true;
 }
 
 impl EmbeddedTableau for Tableau {
     const D: &'static [Scalar] = &[-5.0 / 72.0, 6.0 / 72.0, 8.0 / 72.0, -9.0 / 72.0];
-    const FSAL: bool = true;
 }
 
 #[doc = include_str!("doc.md")]
@@ -49,6 +49,8 @@ pub struct BogackiShampine {
     pub dt_expn: Scalar,
     /// Cut back factor for the time step.
     pub dt_cut: Scalar,
+    /// Growth factor ceiling for the time step.
+    pub dt_grow: Scalar,
     /// Minimum value for the time step.
     pub dt_min: Scalar,
     /// Norm type for error evaluation.
@@ -63,6 +65,7 @@ impl Default for BogackiShampine {
             dt_beta: 0.9,
             dt_expn: 3.0,
             dt_cut: 0.5,
+            dt_grow: 5.0,
             dt_min: ABS_TOL,
             error_norm: Norm::Chebyshev,
         }
@@ -92,6 +95,9 @@ impl<T> VariableStep<T> for BogackiShampine {
     fn dt_cut(&self) -> Scalar {
         self.dt_cut
     }
+    fn dt_grow(&self) -> Scalar {
+        self.dt_grow
+    }
     fn dt_min(&self) -> Quantity<T> {
         Quantity::new(self.dt_min)
     }
@@ -102,7 +108,7 @@ impl<T> VariableStep<T> for BogackiShampine {
 
 impl<Y, U, V, T> Explicit<Y, U, V, T> for BogackiShampine
 where
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -124,7 +130,7 @@ where
 impl<Y, U, V, T> VariableStepExplicit<Y, U, V, T> for BogackiShampine
 where
     Self: Explicit<Y, U, V, T>,
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -175,7 +181,7 @@ where
 
 impl<Y, U, V, T> VariableStepExplicitFirstSameAsLast<Y, U, V, T> for BogackiShampine
 where
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -187,7 +193,7 @@ where
 
 impl<Y, U, V, T> FreeInterpolant<Y, U, V, T> for BogackiShampine
 where
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -199,7 +205,7 @@ where
 
 impl<Y, U, V, T> InterpolateSolution<Y, U, V, T> for BogackiShampine
 where
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:

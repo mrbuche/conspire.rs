@@ -10,7 +10,6 @@ use conspire::{
             elastic_hyperviscous::SecondOrderMinimize as _,
             elastic_viscoplastic::AppliedLoad,
             hyperelastic::{NeoHookean, SaintVenantKirchhoff, SecondOrderMinimize as _},
-            hyperelastic_viscoplastic::SecondOrderMinimize as _,
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
         thermal::conduction::Fourier,
@@ -7513,9 +7512,12 @@ fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
 
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
-    use conspire::math::integrate::BogackiShampine;
+    use conspire::{
+        constitutive::solid::hyperelastic_viscoplastic::RootRkmkDaeMinimize as ConstitutiveRootRkmkDaeMinimize,
+        fem::solid::hyperelastic_viscoplastic::RootRkmkDaeMinimize,
+        math::integrate::BogackiShampineTableau,
+    };
     let tol = 1e-4;
-    let tspan = [Time::seconds(0.0), Time::seconds(2.0)];
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
@@ -7541,40 +7543,27 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
         (mesh, model.clone()).try_into()?;
-    let (times, coordinates_history, state_variables_history) =
-        conspire::fem::solid::hyperelastic_viscoplastic::SecondOrderMinimize::<
-            conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticStateVariables<
-                G,
-                Quantity,
-            >,
-            conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticEvolutionHistory<
-                G,
-                Quantity,
-            >,
-            conspire::fem::block::solid::elastic_viscoplastic::ViscoplasticStateVariablesHistory<
-                G,
-                Quantity,
-            >,
-            3,
-        >::minimize(
-            &fem_model,
-            BogackiShampine {
-                abs_tol: tol,
-                rel_tol: tol,
-                ..Default::default()
-            },
+    let times: Vec<Quantity<Time>> = (0..=8).map(|i| Time::seconds(0.25 * i as f64)).collect();
+    let (times, coordinates_history, state_variables_history) = fem_model
+        .root_rkmk_dae_minimize::<BogackiShampineTableau>(
             NewtonRaphson::default(),
-            &tspan,
+            &times,
             bcs_temporary_elastic_viscoplastic,
         )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
-    let (_, deformation_gradients, state_variables) = model.minimize(
-        AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 1.0 * t.value(), times.as_slice()),
-        BogackiShampine::default(),
-        NewtonRaphson::default(),
-    )?;
+    let (_, deformation_gradients, state_variables) =
+        ConstitutiveRootRkmkDaeMinimize::<Quantity>::root_rkmk_dae_minimize::<
+            BogackiShampineTableau,
+        >(
+            &model,
+            AppliedLoad::UniaxialStress(
+                |t: Quantity<Time>| 1.0 + 1.0 * t.value(),
+                times.as_slice(),
+            ),
+            NewtonRaphson::default(),
+        )?;
     coordinates_history
         .iter()
         .zip(
@@ -7630,6 +7619,305 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
         )?;
     println!("Done ({:?}).", time.elapsed());
     Ok(())
+}
+
+#[test]
+fn temporary_elastic_viscoplastic_rkmk_dae_adaptive_minimize() -> Result<(), AssertionError> {
+    use conspire::{
+        fem::solid::hyperelastic_viscoplastic::RootRkmkDaeMinimize,
+        math::integrate::BogackiShampineTableau,
+    };
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let model = Canonical::from((
+        SaintVenantKirchhoff {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        ViscoplasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            rate_sensitivity: 0.25,
+            reference_flow_rate: Rate::per_second(0.1),
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let time: Vec<Quantity<Time>> = (0..=4).map(|i| Time::seconds(0.25 * i as f64)).collect();
+    let (_, reference_coordinates_history, _) = fem_model
+        .root_rkmk_dae_minimize::<BogackiShampineTableau>(
+            NewtonRaphson::default(),
+            &time,
+            bcs_temporary_elastic_viscoplastic,
+        )
+        .unwrap();
+    // one load window only: a single [t_0, t_end] adaptive step across the
+    // whole [0, 1] span (as the sibling root-finding test exercises) starts
+    // with a full-span trial step, which is too large a jump for this
+    // hyperelastic (SaintVenantKirchhoff) potential's minimize solve near the
+    // onset of yield and inverts an element before the controller can react
+    let reference = reference_coordinates_history.iter().nth(1).unwrap().clone();
+    let span = [time[0], time[1]];
+    let (times, nodal_coordinates_history, state_variables_history) = fem_model
+        .root_rkmk_dae_adaptive_minimize::<BogackiShampineTableau>(
+            NewtonRaphson::default(),
+            &span,
+            bcs_temporary_elastic_viscoplastic,
+            1e-6,
+            1e-6,
+        )
+        .unwrap();
+    // the controller subdivided the single [t_0, t_end] span
+    assert!(times.len() > 2);
+    // the fixed-step reference is a single coarse (0.25s) window, not a
+    // converged trajectory, so it only bounds the adaptive result's relative
+    // error loosely rather than to the adaptive controller's own abs/rel_tol
+    let error = (nodal_coordinates_history.iter().last().unwrap() - &reference)
+        .norm()
+        .value()
+        / reference.norm().value();
+    assert!(
+        error < 1e-2,
+        "adaptive result drifted from the fixed-step FEM reference: {error:e}"
+    );
+    state_variables_history
+        .iter()
+        .last()
+        .unwrap()
+        .iter()
+        .flat_map(|element| element.iter())
+        .for_each(|point_state| {
+            // every Gauss point's F_p stays on the unimodular group
+            assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+        });
+    Ok(())
+}
+
+#[test]
+fn temporary_elastic_viscoplastic_rkmk_dae() -> Result<(), AssertionError> {
+    use conspire::{
+        fem::solid::elastic_viscoplastic::RootRkmkDae,
+        math::{TensorArray, integrate::BogackiShampineTableau},
+    };
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let model = Canonical::from((
+        AlmansiHamelEulerian {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        ViscoplasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            rate_sensitivity: 0.25,
+            reference_flow_rate: Rate::per_second(0.1),
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let time: Vec<Quantity<Time>> = (0..=4).map(|i| Time::seconds(0.25 * i as f64)).collect();
+    let (_, _, state_variables_history) = fem_model
+        .root_rkmk_dae::<BogackiShampineTableau>(
+            NewtonRaphson::default(),
+            &time,
+            bcs_temporary_elastic_viscoplastic,
+        )
+        .unwrap();
+    let mut moved = false;
+    state_variables_history
+        .iter()
+        .last()
+        .unwrap()
+        .iter()
+        .flat_map(|element| element.iter())
+        .for_each(|point_state| {
+            // every Gauss point's F_p stays on the unimodular group
+            assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+            if (&point_state.0 - &conspire::mechanics::DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-4
+            {
+                moved = true
+            }
+        });
+    // and the plastic state actually flowed somewhere in the mesh
+    assert!(moved);
+    Ok(())
+}
+
+#[test]
+fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionError> {
+    use conspire::{
+        fem::solid::elastic_viscoplastic::RootRkmkDae,
+        math::{TensorArray, integrate::BogackiShampineTableau},
+    };
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let model = Canonical::from((
+        AlmansiHamelEulerian {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        ViscoplasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            rate_sensitivity: 0.25,
+            reference_flow_rate: Rate::per_second(0.1),
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let time: Vec<Quantity<Time>> = (0..=4).map(|i| Time::seconds(0.25 * i as f64)).collect();
+    let (_, reference_coordinates_history, _) = fem_model
+        .root_rkmk_dae::<BogackiShampineTableau>(
+            NewtonRaphson::default(),
+            &time,
+            bcs_temporary_elastic_viscoplastic,
+        )
+        .unwrap();
+    let reference = reference_coordinates_history.iter().last().unwrap().clone();
+    let span = [time[0], *time.last().unwrap()];
+    let (times, nodal_coordinates_history, state_variables_history) = fem_model
+        .root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+            NewtonRaphson::default(),
+            &span,
+            bcs_temporary_elastic_viscoplastic,
+            1e-6,
+            1e-6,
+        )
+        .unwrap();
+    // the controller subdivided the single [t_0, t_end] span
+    assert!(times.len() > 2);
+    let error = (nodal_coordinates_history.iter().last().unwrap() - &reference)
+        .norm()
+        .value();
+    assert!(
+        error < 1e-3,
+        "adaptive result drifted from the fixed-step FEM reference: {error:e}"
+    );
+    let mut moved = false;
+    state_variables_history
+        .iter()
+        .last()
+        .unwrap()
+        .iter()
+        .flat_map(|element| element.iter())
+        .for_each(|point_state| {
+            // every Gauss point's F_p stays on the unimodular group
+            assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+            if (&point_state.0 - &conspire::mechanics::DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-4
+            {
+                moved = true
+            }
+        });
+    // and the plastic state actually flowed somewhere in the mesh
+    assert!(moved);
+    Ok(())
+}
+
+#[test]
+fn temporary_elastic_viscoplastic_rkmk_dae_two_blocks() -> Result<(), AssertionError> {
+    use conspire::{
+        fem::{Blocks, solid::elastic_viscoplastic::RootRkmkDae},
+        math::{TensorArray, integrate::BogackiShampineTableau},
+    };
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let split = connectivity.len() / 2;
+    let connectivity_2 = connectivity.split_off(split);
+    let model = Canonical::from((
+        AlmansiHamelEulerian {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        ViscoplasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            rate_sensitivity: 0.25,
+            reference_flow_rate: Rate::per_second(0.1),
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![
+            Connectivity::Tetrahedral(connectivity.into()),
+            Connectivity::Tetrahedral(connectivity_2.into()),
+        ],
+        coordinates(),
+    ));
+    let fem_model: Model<
+        Blocks<Block<_, LinearTetrahedron, G, M, N, P>, Block<_, LinearTetrahedron, G, M, N, P>>,
+        3,
+    > = (mesh, (model.clone(), model)).try_into()?;
+    let time: Vec<Quantity<Time>> = (0..=4).map(|i| Time::seconds(0.25 * i as f64)).collect();
+    let (_, _, state_variables_history) = fem_model
+        .root_rkmk_dae::<BogackiShampineTableau>(
+            NewtonRaphson::default(),
+            &time,
+            bcs_temporary_elastic_viscoplastic,
+        )
+        .unwrap();
+    let final_state = state_variables_history.iter().last().unwrap();
+    let mut moved = false;
+    final_state
+        .0
+        .iter()
+        .flat_map(|element| element.iter())
+        .chain(final_state.1.iter().flat_map(|element| element.iter()))
+        .for_each(|point_state| {
+            // every Gauss point's F_p stays on the unimodular group in both blocks
+            assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+            if (&point_state.0 - &conspire::mechanics::DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-4
+            {
+                moved = true
+            }
+        });
+    assert!(moved);
+    Ok(())
+}
+
+// Compile-only, covers a viscoplastic + pure-elastic pairing and nested Blocks
+// (three viscoplastic blocks), not just a flat pair. There is no 3-block mesh
+// constructor yet, so these are not exercised at runtime.
+#[test]
+fn root_rkmk_dae_covers_nested_and_mixed_block_topologies() {
+    use conspire::fem::{
+        Blocks, ElasticViscoplasticAndElastic, solid::elastic_viscoplastic::RootRkmkDae,
+    };
+    fn assert_root_rkmk_dae<T: RootRkmkDae<3>>() {}
+    type Viscoplastic =
+        Block<Canonical<AlmansiHamelEulerian, ViscoplasticFlow>, LinearTetrahedron, G, M, N, P>;
+    type Elastic = Block<AlmansiHamelEulerian, LinearTetrahedron, G, M, N, P>;
+    assert_root_rkmk_dae::<Model<ElasticViscoplasticAndElastic<Viscoplastic, Elastic>, 3>>();
+    assert_root_rkmk_dae::<Model<Blocks<Blocks<Viscoplastic, Viscoplastic>, Viscoplastic>, 3>>();
+    assert_root_rkmk_dae::<Model<Blocks<Viscoplastic, Blocks<Viscoplastic, Viscoplastic>>, 3>>();
 }
 
 #[test]

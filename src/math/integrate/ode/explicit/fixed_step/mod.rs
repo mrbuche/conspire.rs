@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+        Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
         integrate::{ButcherTableau, Explicit, FixedStep, IntegrationError, Times},
     },
     units::Time,
@@ -23,7 +23,7 @@ pub(crate) mod verner_9;
 pub trait FixedStepExplicit<Y, U, V, T = Time>
 where
     Self: Explicit<Y, U, V, T> + FixedStep<T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     for<'a> &'a Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,

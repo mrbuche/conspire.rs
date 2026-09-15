@@ -15,12 +15,12 @@ pub trait ButcherTableau {
     const C: &'static [Scalar];
     /// Propagating weights.
     const B: &'static [Scalar];
+    /// Whether the last stage of a step is the first stage of the next.
+    const FSAL: bool = false;
 }
 
 /// An embedded explicit Runge–Kutta pair.
 pub trait EmbeddedTableau: ButcherTableau {
     /// Difference of the propagating and embedded weights.
     const D: &'static [Scalar];
-    /// Whether the last stage of an accepted step is the first stage of the next.
-    const FSAL: bool = false;
 }

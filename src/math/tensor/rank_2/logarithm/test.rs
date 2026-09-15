@@ -297,9 +297,30 @@ fn logm_non_positive_diagonal_entry_errors() {
 }
 
 #[test]
-#[should_panic(expected = "Matrix logarithm only implemented for symmetric cases")]
-fn logm_non_symmetric_panics() {
-    let _ = get_non_symmetric_tensor().logm();
+fn logm_non_symmetric_matches_expm_round_trip() -> Result<(), AssertionError> {
+    let tensor = get_non_symmetric_tensor();
+    let logm = tensor.logm()?;
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(logm.expm().unwrap(), &tensor)
+}
+
+#[test]
+fn logm_non_symmetric_matches_scipy() -> Result<(), AssertionError> {
+    let expected = TensorRank2::from([
+        [-1.15679362, -7.12855027, 7.81792533],
+        [3.21893439, 7.52366705, -5.69142684],
+        [1.26428975, 3.44883494, -0.69699251],
+    ]);
+    Assert {
+        abs_tol: 1e-7,
+        rel_tol: 1e-7,
+        ..Default::default()
+    }
+    .eq_within_tols(&get_non_symmetric_tensor().logm()?, &expected)
 }
 
 #[test]
@@ -324,7 +345,27 @@ fn dlogm_non_positive_diagonal_entry_errors() {
 }
 
 #[test]
-#[should_panic(expected = "Matrix logarithm only implemented for symmetric cases")]
-fn dlogm_non_symmetric_panics() {
-    let _ = get_non_symmetric_tensor().dlogm();
+fn dlogm_non_symmetric_matches_finite_difference_of_logm() -> Result<(), AssertionError> {
+    let tensor = get_non_symmetric_tensor();
+    let dlogm = tensor.dlogm()?;
+    let epsilon = 1e-6;
+    let directions = [
+        TensorRank2::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        TensorRank2::from([[0.0, 1.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        TensorRank2::from([[0.3, 0.2, 0.1], [0.2, -0.4, 0.05], [0.1, 0.05, 0.1]]),
+    ];
+    for direction in directions.iter() {
+        let perturbation = direction * epsilon;
+        let tensor_plus = tensor.clone() + perturbation.clone();
+        let tensor_minus = tensor.clone() - perturbation;
+        let finite_difference = (tensor_plus.logm()? - tensor_minus.logm()?) / (2.0 * epsilon);
+        let predicted = contract_third_fourth_indices(&dlogm, direction);
+        Assert {
+            abs_tol: 1e-5,
+            rel_tol: 1e-5,
+            ..Default::default()
+        }
+        .eq_within_tols(&finite_difference, &predicted)?;
+    }
+    Ok(())
 }

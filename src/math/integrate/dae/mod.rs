@@ -1,5 +1,5 @@
 use crate::math::{
-    Derivative, Differentiate, Quantity, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Tensor, TensorVec,
     integrate::{IntegrationError, Times},
     optimize::{
         EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, SecondOrderOptimization,
@@ -15,7 +15,7 @@ pub(super) mod explicit;
 /// Integrators for explicit differential-algebraic equations using zeroth-order root-finding.
 pub trait ExplicitDaeZerothOrderRoot<G, Y, Z, U, V, W, T = Time>
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
@@ -35,7 +35,7 @@ where
 /// Integrators for explicit differential-algebraic equations using first-order root-finding.
 pub trait ExplicitDaeFirstOrderRoot<F, J, Y, Z, U, V, W, T = Time>
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
@@ -57,7 +57,7 @@ where
 /// Integrators for explicit differential-algebraic equations using first-order minimization.
 pub trait ExplicitDaeFirstOrderMinimize<F, G, Y, Z, U, V, W, T = Time>
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
@@ -79,7 +79,7 @@ where
 /// Integrators for explicit differential-algebraic equations using second-order minimization.
 pub trait ExplicitDaeSecondOrderMinimize<F, J, H, Y, Z, U, V, W, T = Time>
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Z>,
@@ -103,7 +103,7 @@ where
 /// Integrators for implicit differential-algebraic equations using zeroth-order root-finding.
 pub trait ImplicitDaeZerothOrderRoot<G, Y, U, V, T = Time>
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
@@ -120,7 +120,7 @@ where
 /// Integrators for implicit differential-algebraic equations using first-order root-finding.
 pub trait ImplicitDaeFirstOrderRoot<F, J, Y, U, V, T = Time>
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
@@ -138,7 +138,7 @@ where
 /// Integrators for implicit differential-algebraic equations using first-order minimization.
 pub trait ImplicitDaeFirstOrderMinimize<F, G, Y, U, V, T = Time>
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
@@ -156,7 +156,7 @@ where
 /// Integrators for implicit differential-algebraic equations using second-order minimization.
 pub trait ImplicitDaeSecondOrderMinimize<F, J, H, Y, U, V, T = Time>
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {

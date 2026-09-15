@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator, Times,
         ode::explicit::variable_step::verner_8::Tableau as Verner8Tableau,
@@ -32,7 +32,7 @@ impl<T> FixedStep<T> for Verner8 {
 
 impl<Y, U, V, T> Explicit<Y, U, V, T> for Verner8
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -53,7 +53,7 @@ where
 
 impl<Y, U, V, T> FixedStepExplicit<Y, U, V, T> for Verner8
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:

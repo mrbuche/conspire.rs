@@ -2,8 +2,11 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, Times, VariableStep},
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
+    integrate::{
+        ButcherTableau, EmbeddedTableau, Explicit, Flat, HermiteSegment, IntegrationError, Times,
+        VariableStep, interpolate_hermite,
+    },
     interpolate::InterpolateSolution,
 };
 use crate::units::Time;
@@ -17,8 +20,8 @@ pub(crate) mod verner_9;
 /// Variable-step explicit integrators for ordinary differential equations.
 pub trait VariableStepExplicit<Y, U, V, T = Time>
 where
-    Self: InterpolateSolution<Y, U, V, T> + Explicit<Y, U, V, T> + VariableStep<T>,
-    Y: Differentiate<T> + Tensor,
+    Self: Explicit<Y, U, V, T> + VariableStep<T>,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -31,7 +34,10 @@ where
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
         time: &[Quantity<T>],
         initial_condition: Y,
-    ) -> Result<(Times<T>, U, V), IntegrationError> {
+    ) -> Result<(Times<T>, U, V), IntegrationError>
+    where
+        Self: InterpolateSolution<Y, U, V, T>,
+    {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
         if time.len() < 2 {
@@ -163,11 +169,11 @@ where
         };
         for i in 1..last.min(k.len()) {
             let row = Self::Tableau::A[i];
-            let mut stage = &k[0] * (row[0] * dt);
+            let mut sigma = &k[0] * row[0];
             for j in 1..i {
-                stage += &k[j] * (row[j] * dt);
+                sigma += &k[j] * row[j];
             }
-            stage += y;
+            let stage = &sigma * dt + y;
             k[i] = function(t + Self::Tableau::C[i] * dt, &stage)?;
         }
         let mut sum = &k[0] * Self::Tableau::B[0];
@@ -216,6 +222,9 @@ where
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
+        let tolerance = self
+            .abs_tol()
+            .max(self.rel_tol() * self.error_norm().measure(y_trial));
         if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
             k_sol.push(k.iter().cloned().collect());
             *t += *dt;
@@ -224,7 +233,7 @@ where
             y_sol.push(y.clone());
             dydt_sol.push(function(*t, y)?);
         }
-        self.time_step(e, dt);
+        self.time_step(e, tolerance, dt);
         Ok(())
     }
     /// Provides the adaptive time step as a function of the error.
@@ -232,10 +241,12 @@ where
     /// ```math
     /// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
     /// ```
-    fn time_step(&self, error: Scalar, dt: &mut Quantity<T>) {
+    fn time_step(&self, error: Scalar, tolerance: Scalar, dt: &mut Quantity<T>) {
         if error > 0.0 {
-            *dt *= (self.dt_beta() * (self.abs_tol() / error).powf(1.0 / self.dt_expn()))
-                .max(self.dt_cut())
+            *dt *= (self.dt_beta() * (tolerance / error).powf(1.0 / self.dt_expn()))
+                .clamp(self.dt_cut(), self.dt_grow())
+        } else {
+            *dt *= self.dt_grow();
         }
     }
 }
@@ -248,7 +259,7 @@ where
 pub trait FreeInterpolant<Y, U, V, T = Time>
 where
     Self: VariableStepExplicit<Y, U, V, T>,
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -256,34 +267,39 @@ where
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
+    /// The state, via [`HermiteSegment`] built pointwise over `Flat<Y>` — the
+    /// state is a flat vector space, so this is the same cubic Hermite as
+    /// before, just built once instead of duplicated here.
     fn interpolate_free(time: &Times<T>, tp: &Times<T>, yp: &U, dydtp: &V) -> (U, V) {
-        let mut y_int = U::new();
+        let segments: Vec<HermiteSegment<Flat<Y>, T>> = (1..tp.len())
+            .map(|i| {
+                let h = tp[i] - tp[i - 1];
+                HermiteSegment::new(
+                    tp[i - 1],
+                    h,
+                    yp[i - 1].clone(),
+                    &yp[i] - &yp[i - 1],
+                    &dydtp[i - 1] * h,
+                    &dydtp[i] * h,
+                )
+            })
+            .collect();
+        let y_int = interpolate_hermite::<Flat<Y>, U, T>(&segments, time.as_slice())
+            .expect("Flat::reconstruct is infallible");
         let mut dydt_int = V::new();
         for time_k in time.iter() {
             let i = tp.iter().position(|tp_i| tp_i >= time_k).unwrap();
             if time_k == &tp[i] {
-                y_int.push(yp[i].clone());
                 dydt_int.push(dydtp[i].clone());
             } else {
                 let t_0 = tp[i - 1];
                 let h = tp[i] - t_0;
                 let theta = (*time_k - t_0).value() / h.value();
                 let theta2 = theta * theta;
-                let theta3 = theta2 * theta;
-                let h00 = 2.0 * theta3 - 3.0 * theta2 + 1.0;
-                let h10 = theta3 - 2.0 * theta2 + theta;
-                let h01 = -2.0 * theta3 + 3.0 * theta2;
-                let h11 = theta3 - theta2;
                 let dh00 = 6.0 * theta2 - 6.0 * theta;
                 let dh10 = 3.0 * theta2 - 4.0 * theta + 1.0;
                 let dh01 = -6.0 * theta2 + 6.0 * theta;
                 let dh11 = 3.0 * theta2 - 2.0 * theta;
-                y_int.push(
-                    &yp[i - 1] * h00
-                        + &dydtp[i - 1] * (h10 * h)
-                        + &yp[i] * h01
-                        + &dydtp[i] * (h11 * h),
-                );
                 dydt_int.push(
                     (&yp[i - 1] * dh00 + &yp[i] * dh01) / h
                         + &dydtp[i - 1] * dh10
@@ -299,7 +315,7 @@ where
 pub trait VariableStepExplicitFirstSameAsLast<Y, U, V, T = Time>
 where
     Self: VariableStepExplicit<Y, U, V, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -334,6 +350,9 @@ where
         y_trial: &Y,
         e: Scalar,
     ) -> Result<(), String> {
+        let tolerance = self
+            .abs_tol()
+            .max(self.rel_tol() * self.error_norm().measure(y_trial));
         if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
             k_sol.push(k.iter().cloned().collect());
             k[0] = k[Self::SLOPES - 1].clone();
@@ -343,7 +362,7 @@ where
             y_sol.push(y.clone());
             dydt_sol.push(k[0].clone());
         }
-        self.time_step(e, dt);
+        self.time_step(e, tolerance, dt);
         Ok(())
     }
 }

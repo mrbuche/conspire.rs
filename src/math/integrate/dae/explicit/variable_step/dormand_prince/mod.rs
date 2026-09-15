@@ -1,5 +1,5 @@
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepFirstSameAsLast, IntegrationError,
         Times, ode::explicit::variable_step::dormand_prince::*,
@@ -10,7 +10,7 @@ use std::ops::{Mul, Sub};
 impl<Y, Z, U, V, W, T> ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T> for DormandPrince
 where
     Self: ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -82,7 +82,7 @@ where
 
 impl<Y, Z, U, V, W, T> ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V, W, T> for DormandPrince
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,

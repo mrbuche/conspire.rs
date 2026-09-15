@@ -5,7 +5,7 @@ pub(crate) mod list;
 pub(crate) mod vec;
 
 use crate::math::{
-    Differentiate, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, Vector,
+    Differentiable, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, Vector,
 };
 use crate::units::UnitHalves;
 use std::{
@@ -449,8 +449,8 @@ where
     T2: Tensor,
 {
     type Output = TensorTuple<T1, T2>;
-    fn sub(self, _tensor_tuple: Self) -> Self::Output {
-        unimplemented!("Avoiding trait recursion nightmare")
+    fn sub(self, tensor_tuple: Self) -> Self::Output {
+        self.clone() - tensor_tuple
     }
 }
 
@@ -517,13 +517,13 @@ where
     }
 }
 
-impl<T1, T2, T> Differentiate<T> for TensorTuple<T1, T2>
+impl<T1, T2, T> Differentiable<T> for TensorTuple<T1, T2>
 where
-    T1: Differentiate<T> + Tensor,
-    T2: Differentiate<T> + Tensor,
-    <T1 as Differentiate<T>>::Derivative: Tensor,
-    <T2 as Differentiate<T>>::Derivative: Tensor,
+    T1: Differentiable<T> + Tensor,
+    T2: Differentiable<T> + Tensor,
+    <T1 as Differentiable<T>>::Derivative: Tensor,
+    <T2 as Differentiable<T>>::Derivative: Tensor,
 {
     type Derivative =
-        TensorTuple<<T1 as Differentiate<T>>::Derivative, <T2 as Differentiate<T>>::Derivative>;
+        TensorTuple<<T1 as Differentiable<T>>::Derivative, <T2 as Differentiable<T>>::Derivative>;
 }

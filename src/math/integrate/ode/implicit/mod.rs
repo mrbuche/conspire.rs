@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     math::{
-        Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+        Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
         integrate::{FixedStep, IntegrationError, OdeIntegrator, Times},
         optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
     },
@@ -18,7 +18,7 @@ pub(crate) mod trapezoidal;
 pub trait ImplicitZerothOrder<Y, U, V, T = Time>
 where
     Self: FixedStep<T> + OdeIntegrator<Y, U>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {
@@ -100,8 +100,8 @@ where
 pub trait ImplicitFirstOrder<Y, J, U, V, T = Time>
 where
     Self: ImplicitZerothOrder<Y, U, V, T>,
-    Y: Differentiate<T> + Tensor,
-    J: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
+    J: Differentiable<T> + Tensor,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
 {

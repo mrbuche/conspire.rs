@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorArray, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorArray, TensorVec,
     integrate::{
         FixedStep, ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeIntegrator,
     },
@@ -34,7 +34,7 @@ impl<T> FixedStep<T> for BackwardEuler {
 
 impl<Y, U, V, T> ImplicitZerothOrder<Y, U, V, T> for BackwardEuler
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -55,9 +55,9 @@ where
 
 impl<Y, J, U, V, T> ImplicitFirstOrder<Y, J, U, V, T> for BackwardEuler
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
-    J: Differentiate<T> + Tensor + TensorArray,
+    J: Differentiable<T> + Tensor + TensorArray,
     Derivative<J, T>: Mul<Quantity<T>, Output = J>,
     for<'a> &'a Y: Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,

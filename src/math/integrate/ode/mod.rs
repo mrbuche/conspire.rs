@@ -32,6 +32,8 @@ pub trait VariableStep<T = Time> {
     fn dt_expn(&self) -> Scalar;
     /// Returns the cut back factor for function errors.
     fn dt_cut(&self) -> Scalar;
+    /// Returns the growth factor ceiling for adaptive time steps.
+    fn dt_grow(&self) -> Scalar;
     /// Returns the minimum value for the time step.
     fn dt_min(&self) -> Quantity<T>;
     /// Returns the norm type for error evaluation.

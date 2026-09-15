@@ -8,7 +8,7 @@ use crate::{
         hybrid::ElasticViscoplasticAdditiveViscoplastic,
         solid::elastic_viscoplastic::ElasticViscoplastic,
     },
-    math::{Differentiate, Quantity, Rank2, Tensor, TensorTuple},
+    math::{Differentiable, Quantity, Rank2, Tensor, TensorTuple},
     mechanics::{MandelStressElastic, Scalar},
     units::{Rate, Stress},
 };
@@ -23,8 +23,8 @@ impl<C1, C2, Y1, Y2> Plastic for ElasticViscoplasticAdditiveViscoplastic<C1, C2,
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Viscoplastic<Y2>,
-    Y1: Differentiate + Tensor,
-    Y2: Differentiate + Tensor,
+    Y1: Differentiable + Tensor,
+    Y2: Differentiable + Tensor,
 {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.1.initial_yield_stress()
@@ -39,8 +39,8 @@ impl<C1, C2, Y1, Y2> Viscoplastic<GroupedViscoplasticStateVariables<Y1, Y2>>
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Viscoplastic<Y2>,
-    Y1: Differentiate + Tensor,
-    Y2: Differentiate + Tensor,
+    Y1: Differentiable + Tensor,
+    Y2: Differentiable + Tensor,
 {
     fn initial_state(&self) -> NestedViscoplasticStateVariables<Y1, Y2> {
         let initial_state_1 = self.0.initial_state();
