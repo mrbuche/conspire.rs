@@ -15,27 +15,19 @@ use crate::{
     mechanics::DeformationGradientList,
 };
 
-pub trait SolidElements<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-where
-    C: Solid,
-    F: SolidFiniteElement<G, M, N, P>,
-{
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Vec<DeformationGradientList<G>>;
-}
+pub use crate::domain::solid::SolidElements;
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    SolidElements<C, F, G, M, N, P> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> SolidElements
+    for Block<C, F, G, M, N, P>
 where
     C: Solid,
     F: SolidFiniteElement<G, M, N, P>,
 {
+    type DeformationGradients = DeformationGradientList<G>;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Vec<DeformationGradientList<G>> {
+    ) -> Vec<Self::DeformationGradients> {
         self.elements()
             .iter()
             .zip(self.connectivity())

@@ -331,7 +331,7 @@ fn temporary_poly_0() {
     use crate::constitutive::solid::hyperelastic::NeoHookean;
     use crate::domain::solid::elastic::ElasticElements;
     use crate::units::Stress;
-    use crate::vem::block::{Block, solid::SolidVirtualElements};
+    use crate::{domain::solid::SolidElements, vem::block::Block};
     let block = Block::<_, Element>::from((
         NeoHookean {
             shear_modulus: Stress::pascals(3.0),
@@ -408,7 +408,7 @@ fn temporary_poly_1() {
     use crate::constitutive::solid::hyperelastic::NeoHookean;
     use crate::domain::solid::elastic::ElasticElements;
     use crate::units::Stress;
-    use crate::vem::block::{Block, solid::SolidVirtualElements};
+    use crate::{domain::solid::SolidElements, vem::block::Block};
     let block = Block::<_, Element>::from((
         NeoHookean {
             shear_modulus: Stress::pascals(3.0),
@@ -588,12 +588,9 @@ fn temporary_poly_2() {
 fn temporary_poly_3() {
     use crate::{
         constitutive::solid::hyperelastic::NeoHookean,
-        domain::solid::elastic::ElasticElements,
+        domain::solid::{SolidElements, elastic::ElasticElements},
         units::Stress,
-        vem::{
-            NodalCoordinates, NodalReferenceCoordinates,
-            block::{Block, solid::SolidVirtualElements},
-        },
+        vem::{NodalCoordinates, NodalReferenceCoordinates, block::Block},
     };
     let phi = (1.0 + 5.0_f64.sqrt()) / 2.0;
     let unit = [

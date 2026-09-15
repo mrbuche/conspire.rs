@@ -1,6 +1,7 @@
 pub(crate) mod elastic;
 
 use crate::{
+    domain::NodalCoordinates,
     math::{Current, TensorRank1Vec, TensorRank2SparseVec2D, TensorRank2SparseVec2DSymmetric},
     units::{Force, ForcePerLength, ForcePerVelocity},
 };
@@ -14,3 +15,11 @@ pub type NodalDampingsSolidSymmetric<const D: usize> =
     TensorRank2SparseVec2DSymmetric<D, Current, Current, ForcePerVelocity>;
 pub type NodalStiffnessesSolidSymmetric<const D: usize> =
     TensorRank2SparseVec2DSymmetric<D, Current, Current, ForcePerLength>;
+
+pub trait SolidElements {
+    type DeformationGradients;
+    fn deformation_gradients(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Vec<Self::DeformationGradients>;
+}
