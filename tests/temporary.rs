@@ -8461,8 +8461,9 @@ mod cbm_forces_smoke {
 
 #[test]
 fn temporary_elastic_plastic() -> Result<(), AssertionError> {
-    use conspire::constitutive::solid::elastic_plastic::FirstOrderRoot as _;
+    use conspire::constitutive::solid::elastic_plastic::FirstOrderRoot;
     use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
+    use conspire::math::optimize::SolveStrategy;
     // the mesh is in a homogeneous uniaxial-stress state, which linear tetrahedra
     // represent exactly, so with the exact algorithmic tangent the finite element
     // solution reproduces the material point to solver tolerance (~4e-13 here).
@@ -8497,9 +8498,11 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
         .collect();
     let (coordinates_history, state_history) =
         ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
-    let (_, deformation_gradients, state_variables) = model.root(
+    let (_, deformation_gradients, state_variables) = FirstOrderRoot::root(
+        &model,
         AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + t.value(), times.as_slice()),
         NewtonRaphson::default(),
+        SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
     coordinates_history
         .iter()
