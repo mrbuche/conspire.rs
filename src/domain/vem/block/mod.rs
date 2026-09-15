@@ -64,13 +64,10 @@ impl<C, F> Debug for Block<C, F> {
 
 impl<C, F> Elements for Block<C, F> {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        self.elements_nodes().iter().for_each(|nodes| {
-            nodes.iter().for_each(|&node_a| {
-                nodes
-                    .iter()
-                    .for_each(|&node_b| neighbors[node_a].push(node_b))
-            })
-        })
+        crate::domain::block::add_node_neighbors(
+            self.elements_nodes().iter().map(|nodes| nodes.as_slice()),
+            neighbors,
+        )
     }
 }
 
