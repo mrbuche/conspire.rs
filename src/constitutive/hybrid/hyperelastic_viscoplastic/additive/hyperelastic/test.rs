@@ -15,11 +15,6 @@ use crate::{
     units::{Rate, Stress, Time},
 };
 
-// Smoke test for Phase C of the "retire the flat DAE solver into the
-// field-generic driver" reframing (see memory `heterogeneous_integration`):
-// the same hybrid additive struct also gets the minimize-based RKMK-DAE
-// return map automatically, purely because it implements
-// HyperelasticViscoplastic<Y>.
 fn model()
 -> ElasticViscoplasticAdditiveElastic<Canonical<Hencky, ViscoplasticFlow>, Hencky, Quantity> {
     (
@@ -62,7 +57,6 @@ fn root_rkmk_dae_minimize_keeps_the_plastic_deformation_unimodular() {
     assert_eq!(deformation_gradients.iter().count(), 21);
     let deformation_gradient_p = &state_variables.iter().last().unwrap().0;
     assert!((deformation_gradient_p.determinant() - 1.0).abs() < 1e-10);
-    // and F_p actually flowed
     assert!(
         (deformation_gradient_p - &DeformationGradientPlastic::identity())
             .norm()

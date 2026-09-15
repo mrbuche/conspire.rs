@@ -13,11 +13,6 @@ use crate::{
     units::{Rate, Stress, Time},
 };
 
-// Smoke test for Phase C of the "retire the flat DAE solver into the
-// field-generic driver" reframing (see memory `heterogeneous_integration`):
-// a hybrid additive model gets the RKMK-DAE return map automatically, with no
-// per-model StateEvolution/RootRkmkDae code, purely because it implements
-// ElasticViscoplastic<Y> -- both traits are now blanket over that bound.
 fn model() -> ElasticViscoplasticAdditiveElastic<
     Canonical<AlmansiHamelEulerian, ViscoplasticFlow>,
     AlmansiHamelEulerian,
@@ -63,7 +58,6 @@ fn root_rkmk_dae_keeps_the_plastic_deformation_unimodular() {
     assert_eq!(deformation_gradients.iter().count(), 21);
     let deformation_gradient_p = &state_variables.iter().last().unwrap().0;
     assert!((deformation_gradient_p.determinant() - 1.0).abs() < 1e-10);
-    // and F_p actually flowed
     assert!(
         (deformation_gradient_p - &DeformationGradientPlastic::identity())
             .norm()

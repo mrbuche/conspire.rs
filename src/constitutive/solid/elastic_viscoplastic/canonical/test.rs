@@ -151,7 +151,6 @@ mod state_evolution {
         units::Time,
     };
 
-    // simple shear, det = 1; large enough that the deviatoric Mandel stress yields
     fn deformation_gradient() -> DeformationGradient {
         DeformationGradient::from([[1.0, 0.6, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
     }
@@ -174,7 +173,6 @@ mod state_evolution {
             .unwrap();
         let final_state = states.iter().last().unwrap();
         assert!((final_state.0.determinant() - 1.0).abs() < 1e-10);
-        // and F_p actually flowed
         assert!(
             (&final_state.0 - &DeformationGradientPlastic::identity())
                 .norm()
@@ -195,7 +193,6 @@ mod state_evolution {
                 1e-8,
             )
             .unwrap();
-        // the controller subdivided the single [0, 1] span
         assert!(times.len() > 2);
         let final_state = states.iter().last().unwrap();
         assert!((final_state.0.determinant() - 1.0).abs() < 1e-10);
@@ -205,7 +202,6 @@ mod state_evolution {
                 .value()
                 > 1e-3
         );
-        // a much looser tolerance takes fewer steps
         let (loose_times, _): (Times, TensorVector<_>) =
             integrate_rkmk_state_adaptive::<_, BogackiShampineTableau, _, _, _>(
                 &model,
@@ -229,17 +225,12 @@ mod state_evolution {
             let dt = w[1] - w[0];
             let rate = StateEvolution::state_rate(&model, w[0], &f, &TensorTuple(fp.clone(), eps))
                 .unwrap();
-            // forward Euler on Ḟ_p = D_p F_p — never re-projected onto the group
             fp = &(&rate.0 * &fp) * dt + &fp;
             eps += rate.1 * dt;
         }
         assert!((fp.determinant() - 1.0).abs() > 1e-4);
     }
 
-    // Cost of one material-point RKMK step vs its four rate evaluations alone
-    // (Bogacki–Shampine has four stages) — the difference is the `expm`/`dexpinv`
-    // overhead. Prints the ratio; asserts only a loose gross-regression bound
-    // since wall-clock timing is noisy.
     #[test]
     fn rkmk_step_cost_relative_to_the_rate_evaluations_alone() {
         use crate::math::integrate::{StateEvolution, rkmk_step};
@@ -254,7 +245,6 @@ mod state_evolution {
         let iterations = 20_000;
         let mut scratch = Vec::new();
         let mut sink = 0.0;
-        // warm-up
         for _ in 0..2_000 {
             sink += rkmk_step::<Field, BogackiShampineTableau, Time>(
                 &mut |tt, s| model.state_rate(tt, &f, s),
@@ -297,8 +287,6 @@ mod state_evolution {
         assert!(rkmk.as_secs_f64() < 20.0 * rates.as_secs_f64());
     }
 
-    // Resolving F at every stage abscissa lifts the return map to the
-    // tableau's own order.
     #[test]
     fn rkmk_dae_is_third_order() {
         use crate::{
@@ -340,7 +328,6 @@ mod state_evolution {
                     > 1e-3
             );
         }
-        // Bogacki-Shampine is third order, so each halving must cut the error ~8x
         errors.windows(2).for_each(|pair| {
             let ratio = pair[0] / pair[1];
             assert!(
@@ -350,9 +337,6 @@ mod state_evolution {
         });
     }
 
-    // The additive DAE root only gets det F_p = 1 by integrating accurately
-    // enough -- its drift tracks the tolerance. Reconstructing through `expm`
-    // makes it structural instead, at any step size.
     #[test]
     fn rkmk_dae_keeps_the_group_structurally_where_the_additive_root_earns_it() {
         use crate::{
@@ -422,7 +406,6 @@ mod state_evolution {
             .unwrap()
         };
         let (times, deformation_gradients, state_variables) = run(1e-9);
-        // the controller subdivided the single [0, 1] span
         assert!(times.len() > 2);
         let error = (deformation_gradients.iter().last().unwrap() - &reference)
             .norm()
@@ -438,14 +421,10 @@ mod state_evolution {
                 .value()
                 > 1e-3
         );
-        // a much looser tolerance takes fewer steps
         let (loose_times, _, _) = run(1e-4);
         assert!(loose_times.len() < times.len());
     }
 
-    // More than two times request report times rather than a span: the state is
-    // interpolated off the accepted steps in the algebra, so it stays on the
-    // group there too.
     #[test]
     fn rkmk_dae_adaptive_reports_on_the_group_at_requested_times() {
         use crate::{
@@ -455,8 +434,6 @@ mod state_evolution {
         let load = |t: Quantity<Time>| 1.0 + t.value();
         let requested = time(13);
         let span = [requested[0], *requested.last().unwrap()];
-        // reference: the fixed-step stage-resolved map on a grid 40x finer, whose
-        // every 40th sample is a requested time
         let (_, reference, reference_state) =
             RootRkmkDae::<Quantity>::root_rkmk_dae::<BogackiShampineTableau>(
                 &model(),
@@ -478,7 +455,6 @@ mod state_evolution {
             .iter()
             .zip(requested.iter())
             .for_each(|(reported, request)| assert_eq!(reported.value(), request.value()));
-        // the accepted steps the controller actually took are not the requested ones
         let (accepted, _, _) =
             RootRkmkDae::<Quantity>::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
                 &model(),
@@ -505,7 +481,6 @@ mod state_evolution {
         }
         println!("dense output vs refined reference: {worst:e}");
         assert!(worst < 1e-6, "dense output disagrees: {worst:e}");
-        // and the plastic state actually flowed, so none of this is vacuous
         assert!(
             (&state_variables.iter().last().unwrap().0 - &DeformationGradientPlastic::identity())
                 .norm()

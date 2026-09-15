@@ -183,13 +183,8 @@ macro_rules! test_canonical {
                     .collect()
             }
 
-            // Resolving F at every stage abscissa by minimization lifts the
-            // return map to the tableau's own order, the minimize sibling of
-            // `elastic_viscoplastic`'s `rkmk_dae_is_third_order`.
             #[test]
             fn rkmk_dae_minimize_is_third_order() {
-                // a modest stretch range -- Saint-Venant-Kirchhoff's tangent
-                // degrades away from the asymptotic regime at large stretch
                 let load = |t: Quantity<Time>| 1.0 + 0.3 * t.value();
                 let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
                 let (_, reference, _) = model()
@@ -205,8 +200,6 @@ macro_rules! test_canonical {
                     .unwrap();
                 let reference = reference.iter().last().unwrap().clone();
                 let mut errors = Vec::new();
-                // start past the pre-asymptotic regime that a coarser 5-step
-                // grid sits in for this stiffer model
                 for steps in [10, 20, 40, 80] {
                     let times = time(steps);
                     let (_, dae, state_variables) =
@@ -229,7 +222,6 @@ macro_rules! test_canonical {
                             > 1e-3
                     );
                 }
-                // Bogacki-Shampine is third order, so each halving must cut the error ~8x
                 errors.windows(2).for_each(|pair| {
                     let ratio = pair[0] / pair[1];
                     assert!(
