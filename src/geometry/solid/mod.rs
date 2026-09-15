@@ -376,6 +376,13 @@ pub trait Solid {
         Vec::new()
     }
 
+    /// World positions of the hard points several creases meet at, where a
+    /// node should pin exactly rather than slide along any one curve's
+    /// tangent. The default is none; only a solid with real topology has any.
+    fn corners(&self) -> Vec<Coordinate<D>> {
+        Vec::new()
+    }
+
     /// Labels every cell of `mesh` `Inside`, `Cut`, or `Outside`. The default
     /// reads the [`oracle`](Self::oracle): a cell whose corner signed distances
     /// straddle zero is `Cut`, otherwise its centroid's sign decides.
@@ -497,7 +504,7 @@ pub trait Solid {
             );
             survives_trim(cut[index], minimum, maximum)
         });
-        mesh.buffer_with(&Fit(&oracle), &self.creases(), fitting)
+        mesh.buffer_with(&Fit(&oracle), &self.creases(), &self.corners(), fitting)
     }
 }
 

@@ -39,4 +39,18 @@ impl Brep {
             })
             .collect()
     }
+
+    /// World positions of every hard point ([`Brep::features`] corners) --
+    /// where two or more creases (and three or more faces) meet. A crease
+    /// curve alone still lets a node near one of these slide freely along
+    /// its own tangent; right at the junction that freedom is the problem
+    /// (several creases converge, so "along the curve" is not one direction),
+    /// so the fit pins a node that lands here onto the exact point instead.
+    pub fn corner_points(&self) -> Vec<Coordinate<D>> {
+        self.features()
+            .corners
+            .into_iter()
+            .map(|vertex| self.vertices[vertex].clone())
+            .collect()
+    }
 }
