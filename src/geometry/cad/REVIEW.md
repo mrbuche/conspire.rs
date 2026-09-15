@@ -74,8 +74,26 @@ fit quality is a separate concern). A *change* in that number is the signal.
 - Partial (open-shell) quadric patches: `signed_distance` is undefined on them;
   only `project` is meaningful. No standing invariant covers partial-face
   trimming accuracy yet — harness gap.
+- Minimum scaled Jacobian appears to disagree with Cubit's own MSJ on the same
+  mesh — see FINDING msj-vs-cubit below. Any cross-tool quality comparison
+  (ours vs Cubit) should be treated as suspect until this is resolved.
 
 ## Findings
+
+### FINDING msj-vs-cubit — open, unverified
+
+User observation (2026-09-14, real-file testing): our reported minimum scaled
+Jacobian does not seem to agree with Cubit's MSJ on what should be the same
+mesh. Not yet root-caused — could be a genuine formula difference (corner
+ordering/orientation convention, a different normalization, a different
+per-element reduction), or just two runs not actually comparing the same
+mesh. Our implementation:
+`geometry::mesh::quality::metrics::{hexahedron,tetrahedron,pyramid,wedge,
+quadrilateral,triangle}::minimum_scaled_jacobian` (dispatched via
+`metrics/mod.rs::minimum_scaled_jacobian`). Needs a side-by-side comparison
+on one exported mesh (same element, same node ordering) before trusting any
+absolute MSJ number against a Cubit-reported one; relative comparisons
+(before/after a change, our own numbers) are presumably still fine.
 
 ### FINDING cone-distance — open
 
