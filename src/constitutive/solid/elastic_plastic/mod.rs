@@ -16,8 +16,7 @@ use crate::{
         Current, IDENTITY, Matrix, Quantity, Rank2, Reference, Tensor, TensorArray, TensorRank2,
         TensorRank4, Transposed, Vector,
         optimize::{
-            EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock, SolveStrategy,
-            ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderRootFindingBlock, SolveStrategy, ZerothOrderRootFinding,
         },
         sparse::CscMatrix,
     },
@@ -947,81 +946,6 @@ where
     }
 }
 
-/// First-order root-finding methods for elastic-plastic solid constitutive models.
-pub trait FirstOrderRoot {
-    /// Solve for the unknown components of the deformation gradients under an applied load.
-    ///
-    /// ```math
-    /// \mathbf{P}(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
-    /// ```
-    /// The plastic state is updated by a nested return mapping at each load step, and
-    /// the algorithmic (consistent) tangent is supplied to the solver.
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
-        >,
-    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
-}
-
-impl<C> FirstOrderRoot for C
-where
-    C: ElasticPlastic,
-{
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
-            FirstPiolaKirchhoffStress,
-            FirstPiolaKirchhoffTangentStiffness,
-            DeformationGradient,
-        >,
-    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
-    {
-        let (matrix, prescribed, time) = bcs(applied_load);
-        let mut vector = Vector::zero(matrix.len());
-        let mut state = self.initial_state();
-        let mut deformation_gradient = DeformationGradient::identity();
-        let mut deformation_gradients = vec![deformation_gradient.clone()];
-        let mut states = vec![state.clone()];
-        for time_step in time.iter().skip(1) {
-            prescribed
-                .iter()
-                .for_each(|(index, function)| vector[*index] = function(*time_step));
-            let previous_state = state.clone();
-            deformation_gradient = solver
-                .root(
-                    |deformation_gradient: &DeformationGradient| {
-                        let updated_state =
-                            self.return_map(deformation_gradient, &previous_state)?;
-                        Ok(self
-                            .first_piola_kirchhoff_stress(deformation_gradient, &updated_state.0)?)
-                    },
-                    |deformation_gradient: &DeformationGradient| {
-                        Ok(self
-                            .consistent_tangent_stiffness(deformation_gradient, &previous_state)?
-                            .0)
-                    },
-                    deformation_gradient.clone(),
-                    EqualityConstraint::Linear(matrix.clone(), vector.clone()),
-                    None,
-                )
-                .map_err(|error| ConstitutiveError::upstream(error, self))?;
-            state = self.return_map(&deformation_gradient, &previous_state)?;
-            deformation_gradients.push(deformation_gradient.clone());
-            states.push(state.clone());
-        }
-        Ok((
-            time.iter().copied().collect(),
-            deformation_gradients.into(),
-            states.into(),
-        ))
-    }
-}
-
 /// Local block variable / residual for the monolithic solve: a genuine scalar, the
 /// plastic multiplier increment $`\Delta\gamma`$.
 type PlasticMultiplierBlock = Quantity;
@@ -1049,8 +973,8 @@ fn fischer_burmeister(a: Scalar, b: Scalar) -> Scalar {
     a + b - (a * a + b * b).sqrt()
 }
 
-/// Monolithic (block) root-finding methods for elastic-plastic solid constitutive models.
-pub trait MonolithicRoot {
+/// First-order (block) root-finding methods for elastic-plastic solid constitutive models.
+pub trait FirstOrderRoot {
     /// Solve for the unknown components of the deformation gradients under an applied load,
     /// stepping the deformation gradient and the plastic multiplier increment together.
     ///
@@ -1077,7 +1001,7 @@ pub trait MonolithicRoot {
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
 }
 
-impl<C> MonolithicRoot for C
+impl<C> FirstOrderRoot for C
 where
     C: ElasticPlastic,
 {
