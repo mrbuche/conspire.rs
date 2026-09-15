@@ -189,7 +189,7 @@ where
     }
 }
 
-/// The RKMK-DAE return map, mirroring the constitutive-level
+/// The RKMK-DAE stage-equilibrium step, mirroring the constitutive-level
 /// `RootRkmkDae`: `F` (here, nodal equilibrium) is resolved at every RK stage
 /// abscissa from every Gauss point's stage-consistent plastic state, rather
 /// than frozen across the load-step window — so the coupling is the tableau's

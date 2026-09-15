@@ -319,7 +319,7 @@ where
     }
 }
 
-/// RKMK-DAE return-map methods for elastic-viscoplastic solid constitutive
+/// RKMK-DAE stage-equilibrium methods for elastic-viscoplastic solid constitutive
 /// models. The sibling of [`FirstOrderRoot`] that keeps `F_p` on its manifold
 /// instead of marching it additively, by resolving `F` from equilibrium at
 /// every stage abscissa rather than freezing it across the window — so the

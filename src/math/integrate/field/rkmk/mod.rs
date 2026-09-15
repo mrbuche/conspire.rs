@@ -170,7 +170,7 @@ where
 /// on, so this is the one place that wrapping happens for the RKMK-DAE path.
 /// Any [`super::StateEvolution`] model that also supplies a residual and its
 /// Jacobian in terms of the *whole* field state gets the manifold-aware
-/// return map for free, without hand-rolling this closure itself.
+/// stage-equilibrium step for free, without hand-rolling this closure itself.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn rkmk_dae_step_first_order_root<Field, Tab, F, J, Z, T>(
     rate: &mut impl FnMut(
@@ -216,7 +216,7 @@ where
 /// `hessian`/`solver` the same way [`rkmk_dae_step_first_order_root`] builds
 /// it for root-finding — the two are siblings so a model whose equilibrium is
 /// naturally posed as a potential (rather than a residual) gets the same
-/// manifold-aware return map.
+/// manifold-aware stage-equilibrium step.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
 pub fn rkmk_dae_step_second_order_minimize<Field, Tab, F, J, H, Z, T>(
     rate: &mut impl FnMut(
