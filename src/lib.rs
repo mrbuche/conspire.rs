@@ -5,7 +5,7 @@
 #[cfg(feature = "constitutive")]
 pub mod constitutive;
 
-#[cfg(feature = "domain")]
+#[cfg(any(feature = "fem", feature = "vem"))]
 #[path = "domain/mod.rs"]
 pub(crate) mod domain;
 
