@@ -2,14 +2,15 @@ use crate::math::Reference;
 pub mod solid;
 
 use crate::{
+    domain::block::element::{ElementError, ElementKind},
     fem::block::element::{
         ElementNodalCoordinates as FemElementNodalCoordinates,
         ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates, FiniteElement,
         linear::Tetrahedron,
     },
     math::{
-        CrossProduct, Quantity, Scalar, Style, StyledError, Tensor, TensorArray, TensorRank1,
-        TensorRank1Vec, TensorRank1Vec2D, TensorVector, assert::AssertionError, styled_error,
+        CrossProduct, Quantity, Scalar, Tensor, TensorArray, TensorRank1, TensorRank1Vec,
+        TensorRank1Vec2D, TensorVector,
     },
     mechanics::{CurrentCoordinate, ReferenceCoordinate},
     units::{Area, Length, ReciprocalLength, Volume},
@@ -39,7 +40,7 @@ pub struct Element {
 
 impl Element {
     pub(crate) fn upstream(&self, error: impl Display) -> VirtualElementError {
-        VirtualElementError::Upstream(format!("{error}"), format!("{self:?}"))
+        VirtualElementError::upstream(error, self)
     }
 }
 
@@ -247,37 +248,13 @@ impl Debug for Element {
     }
 }
 
-pub enum VirtualElementError {
-    Upstream(String, String),
+pub struct VirtualElementKind;
+
+impl ElementKind for VirtualElementKind {
+    const NAME: &'static str = "virtual element";
 }
 
-impl VirtualElementError {
-    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
-        Self::Upstream(format!("{error}"), format!("{context:?}"))
-    }
-}
-
-impl From<VirtualElementError> for AssertionError {
-    fn from(error: VirtualElementError) -> Self {
-        Self {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl StyledError for VirtualElementError {
-    fn message(&self, style: &Style) -> String {
-        let c = style.frame;
-        match self {
-            Self::Upstream(error, element) => format!(
-                "{error}{c}\n\
-                In virtual element: {element}."
-            ),
-        }
-    }
-}
-
-styled_error!(VirtualElementError);
+pub type VirtualElementError = ElementError<VirtualElementKind>;
 
 #[test]
 fn temporary_poly_0() {

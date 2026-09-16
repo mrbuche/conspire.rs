@@ -132,3 +132,13 @@ fn three_blocks_two_fem_one_vem_combine_via_mesh() {
         .expect("3-block mixed model should compute nodal forces");
     assert_eq!(forces.len(), 12);
 }
+
+#[test]
+fn element_error_messages_name_their_kind() {
+    use crate::fem::block::element::FiniteElementError;
+    use crate::vem::block::element::VirtualElementError;
+    let fem_message = FiniteElementError::upstream("bad model", &"ctx").to_string();
+    let vem_message = VirtualElementError::upstream("bad model", &"ctx").to_string();
+    assert!(fem_message.contains("In finite element: \"ctx\"."));
+    assert!(vem_message.contains("In virtual element: \"ctx\"."));
+}

@@ -12,14 +12,15 @@ pub mod surface;
 pub mod thermal;
 
 use crate::{
+    domain::block::element::{ElementError, ElementKind},
     math::{
-        Projection, Quantity, Reference, Scalar, ScalarList, Style, StyledError, TensorList,
-        TensorRank1, TensorRank1List, TensorRank1List2D, assert::AssertionError, styled_error,
+        Projection, Quantity, Reference, Scalar, ScalarList, TensorList, TensorRank1,
+        TensorRank1List, TensorRank1List2D,
     },
     mechanics::{CoordinateList, CurrentCoordinates, CurrentVelocities, ReferenceCoordinates},
     units::{Length, ReciprocalLength, Volume},
 };
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{self, Debug, Formatter};
 
 const FRAC_1_SQRT_3: Scalar = 0.577_350_269_189_625_8; // nightly feature
 const FRAC_SQRT_3_5: Scalar = 0.774_596_669_241_483;
@@ -134,34 +135,10 @@ where
     }
 }
 
-pub enum FiniteElementError {
-    Upstream(String, String),
+pub struct FiniteElementKind;
+
+impl ElementKind for FiniteElementKind {
+    const NAME: &'static str = "finite element";
 }
 
-impl FiniteElementError {
-    pub fn upstream(error: impl Display, context: &(impl Debug + ?Sized)) -> Self {
-        Self::Upstream(format!("{error}"), format!("{context:?}"))
-    }
-}
-
-impl From<FiniteElementError> for AssertionError {
-    fn from(error: FiniteElementError) -> Self {
-        Self {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl StyledError for FiniteElementError {
-    fn message(&self, style: &Style) -> String {
-        let c = style.frame;
-        match self {
-            Self::Upstream(error, element) => format!(
-                "{error}{c}\n\
-                In finite element: {element}."
-            ),
-        }
-    }
-}
-
-styled_error!(FiniteElementError);
+pub type FiniteElementError = ElementError<FiniteElementKind>;
