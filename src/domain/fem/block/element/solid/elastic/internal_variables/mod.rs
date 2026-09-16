@@ -7,7 +7,9 @@ use crate::{
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, GradientVectors,
         IntegrationWeights,
-        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement, SolidFiniteElement},
+        solid::{
+            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement, SolidFiniteElement,
+        },
     },
     math::{
         ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, Solution,

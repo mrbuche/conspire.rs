@@ -3,7 +3,9 @@ use crate::{
     fem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
         FiniteElementError, GradientVectors,
-        solid::{ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidElement, SolidFiniteElement},
+        solid::{
+            ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidElement, SolidFiniteElement,
+        },
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
     math::{ContractSecondFourthWithFirst, Current, IDENTITY, Quantity, Tensor, TensorRank2},

@@ -1,7 +1,10 @@
 //! Shared, discretization-method-agnostic layer for fem/vem/etc.
 
 pub(crate) mod block;
+pub(crate) mod from;
 pub(crate) mod solid;
+#[cfg(all(test, feature = "vem"))]
+mod test;
 
 use crate::{
     domain::block::element::Elements,
