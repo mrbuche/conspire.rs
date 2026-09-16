@@ -1,7 +1,7 @@
 use crate::math::Quantity;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
-    fem::block::element::solid::hyperelastic::HyperelasticFiniteElement,
+    domain::block::element::solid::hyperelastic::HyperelasticElement,
     math::Tensor,
     units::Energy,
     vem::block::element::{
@@ -13,36 +13,37 @@ use crate::{
 pub trait HyperelasticVirtualElement<C>
 where
     C: Hyperelastic,
-    Self: ElasticVirtualElement<C>,
+    Self: ElasticVirtualElement<C> + HyperelasticElement<C, 0>,
 {
-    fn helmholtz_free_energy(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: ElementNodalCoordinates,
-    ) -> Result<Quantity<Energy>, VirtualElementError>;
 }
 
-impl<C> HyperelasticVirtualElement<C> for Element
+impl<T, C> HyperelasticVirtualElement<C> for T
 where
     C: Hyperelastic,
-    Self: ElasticVirtualElement<C>,
+    T: ElasticVirtualElement<C> + HyperelasticElement<C, 0>,
+{
+}
+
+impl<C, const P: usize> HyperelasticElement<C, P> for Element
+where
+    C: Hyperelastic,
 {
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: ElementNodalCoordinates,
+        nodal_coordinates: &ElementNodalCoordinates,
     ) -> Result<Quantity<Energy>, VirtualElementError> {
         let tetrahedra_energy = self
             .tetrahedra()
             .iter()
-            .zip(self.tetrahedra_coordinates(&nodal_coordinates).iter())
+            .zip(self.tetrahedra_coordinates(nodal_coordinates).iter())
             .map(|(tetrahedron, tetrahedron_coordinates)| {
                 tetrahedron.helmholtz_free_energy(constitutive_model, tetrahedron_coordinates)
             })
             .sum::<Result<Quantity<Energy>, _>>()
             .map_err(|error| self.upstream(error))?;
         let polyhedron_energy = self
-            .deformation_gradients(&nodal_coordinates)
+            .deformation_gradients(nodal_coordinates)
             .iter()
             .zip(self.integration_weights())
             .map(|(deformation_gradient, integration_weight)| {

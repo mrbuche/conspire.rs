@@ -832,10 +832,11 @@ macro_rules! test_finite_element_inner {
                             YEOH_MODULI,
                         },
                     },
-                    domain::block::element::solid::elastic::ElasticElement,
+                    domain::block::element::solid::{
+                        elastic::ElasticElement, hyperelastic::HyperelasticElement,
+                    },
                     fem::block::element::solid::{
                         ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
-                        hyperelastic::HyperelasticFiniteElement,
                     },
                 };
                 mod arruda_boyce {
