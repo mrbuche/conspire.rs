@@ -6,7 +6,7 @@ use crate::{
     units::Energy,
     vem::block::element::{
         Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
-        solid::{SolidVirtualElement, elastic::ElasticVirtualElement},
+        solid::{SolidElement, elastic::ElasticVirtualElement},
     },
 };
 
@@ -42,7 +42,7 @@ where
             .sum::<Result<Quantity<Energy>, _>>()
             .map_err(|error| self.upstream(error))?;
         let polyhedron_energy = self
-            .deformation_gradients(nodal_coordinates)
+            .deformation_gradients(&nodal_coordinates)
             .iter()
             .zip(self.integration_weights())
             .map(|(deformation_gradient, integration_weight)| {

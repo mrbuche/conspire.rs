@@ -3,7 +3,7 @@ use crate::{
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{
-            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
+            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement, SolidFiniteElement,
             viscoplastic::{ViscoplasticEvolution, ViscoplasticStateVariables},
         },
     },

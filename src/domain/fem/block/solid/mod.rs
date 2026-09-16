@@ -9,10 +9,10 @@ pub mod viscoelastic;
 use crate::{
     constitutive::solid::Solid,
     fem::{
-        NodalCoordinates,
+        NodalCoordinates, NodalVelocities,
         block::{Block, element::solid::SolidFiniteElement},
     },
-    mechanics::DeformationGradientList,
+    mechanics::{DeformationGradientList, DeformationGradientRateList},
 };
 
 pub use crate::domain::solid::SolidElements;
@@ -24,6 +24,7 @@ where
     F: SolidFiniteElement<G, M, N, P>,
 {
     type DeformationGradients = DeformationGradientList<G>;
+    type DeformationGradientRates = DeformationGradientRateList<G>;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
@@ -33,6 +34,22 @@ where
             .zip(self.connectivity())
             .map(|(element, nodes)| {
                 element.deformation_gradients(&Self::element_coordinates(nodal_coordinates, nodes))
+            })
+            .collect()
+    }
+    fn deformation_gradient_rates(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
+    ) -> Vec<Self::DeformationGradientRates> {
+        self.elements()
+            .iter()
+            .zip(self.connectivity())
+            .map(|(element, nodes)| {
+                element.deformation_gradient_rates(
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    &Self::element_coordinates(nodal_velocities, nodes),
+                )
             })
             .collect()
     }

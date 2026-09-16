@@ -6,7 +6,7 @@ use crate::{
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{
-            SolidFiniteElement,
+            SolidElement, SolidFiniteElement,
             elastic::internal_variables::{ElasticIVFiniteElement, InternalVariables},
         },
     },

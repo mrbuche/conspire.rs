@@ -19,7 +19,6 @@ use crate::{
                     tetrahedron_get_velocities_block as get_velocities_block,
                     tetrahedron_reference_coordinates as reference_coordinates,
                 },
-                solid::SolidFiniteElement,
                 test::test_finite_element,
             },
             test::test_finite_element_block,

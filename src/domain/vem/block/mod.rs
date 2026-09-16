@@ -4,10 +4,8 @@ pub mod solid;
 use crate::{
     domain::block::element::Elements,
     geometry::mesh::PolytopalConnectivity,
-    vem::{
-        NodalCoordinates, NodalReferenceCoordinates,
-        block::element::{ElementNodalCoordinates, VirtualElement},
-    },
+    math::TensorRank1Vec,
+    vem::{NodalReferenceCoordinates, block::element::VirtualElement},
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -25,10 +23,10 @@ impl<C, F> Block<C, F> {
     fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates(
-        coordinates: &NodalCoordinates,
+    fn element_coordinates<I, U>(
+        coordinates: &TensorRank1Vec<3, I, U>,
         nodes: &[usize],
-    ) -> ElementNodalCoordinates {
+    ) -> TensorRank1Vec<3, I, U> {
         nodes
             .iter()
             .map(|&node| coordinates[node].clone())

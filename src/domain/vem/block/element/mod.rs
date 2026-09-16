@@ -13,7 +13,7 @@ use crate::{
     },
     mechanics::{CurrentCoordinate, ReferenceCoordinate},
     units::{Area, Length, ReciprocalLength, Volume},
-    vem::{NodalCoordinates, NodalReferenceCoordinates},
+    vem::{NodalCoordinates, NodalReferenceCoordinates, NodalVelocities},
 };
 
 #[cfg(test)]
@@ -21,6 +21,7 @@ use crate::math::assert::Assert;
 use std::fmt::{self, Debug, Display, Formatter};
 
 pub type ElementNodalCoordinates = NodalCoordinates;
+pub type ElementNodalVelocities = NodalVelocities;
 pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, Reference, Length>;
 pub type GradientVectors = TensorRank1Vec2D<3, Reference, ReciprocalLength>;
 pub type IntegrationWeights = TensorVector<Quantity<Volume>>;

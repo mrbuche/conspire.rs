@@ -19,30 +19,42 @@ use crate::{
     },
 };
 
+pub use crate::domain::block::element::solid::SolidElement;
+
 pub type ElementNodalForcesSolid<const N: usize> = ForceList<N>;
 pub type ElementNodalStiffnessesSolid<const N: usize> = StiffnessList2D<N>;
 pub type ElementNodalDampingsSolid<const N: usize> = DampingList2D<N>;
 
 pub trait SolidFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElement<G, M, N, P>,
+    Self: FiniteElement<G, M, N, P>
+        + SolidElement<
+            Coordinates = ElementNodalCoordinates<N>,
+            Velocities = ElementNodalVelocities<N>,
+            DeformationGradients = DeformationGradientList<G>,
+            DeformationGradientRates = DeformationGradientRateList<G>,
+        >,
 {
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-    ) -> DeformationGradientList<G>;
-    fn deformation_gradient_rates(
-        &self,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> DeformationGradientRateList<G>;
 }
 
-impl<const G: usize, const N: usize, const O: usize, const P: usize> SolidFiniteElement<G, 3, N, P>
-    for Element<3, G, N, O>
+impl<T, const G: usize, const M: usize, const N: usize, const P: usize>
+    SolidFiniteElement<G, M, N, P> for T
 where
-    Self: FiniteElement<G, 3, N, P>,
+    T: FiniteElement<G, M, N, P>
+        + SolidElement<
+            Coordinates = ElementNodalCoordinates<N>,
+            Velocities = ElementNodalVelocities<N>,
+            DeformationGradients = DeformationGradientList<G>,
+            DeformationGradientRates = DeformationGradientRateList<G>,
+        >,
 {
+}
+
+impl<const G: usize, const N: usize, const O: usize> SolidElement for Element<3, G, N, O> {
+    type Coordinates = ElementNodalCoordinates<N>;
+    type Velocities = ElementNodalVelocities<N>;
+    type DeformationGradients = DeformationGradientList<G>;
+    type DeformationGradientRates = DeformationGradientRateList<G>;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &ElementNodalCoordinates<N>,
@@ -80,11 +92,14 @@ where
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize> SolidFiniteElement<G, 2, N, N>
-    for SurfaceElement<G, N, O>
+impl<const G: usize, const N: usize, const O: usize> SolidElement for SurfaceElement<G, N, O>
 where
     Self: SurfaceFiniteElement<G, N, N>,
 {
+    type Coordinates = ElementNodalCoordinates<N>;
+    type Velocities = ElementNodalVelocities<N>;
+    type DeformationGradients = DeformationGradientList<G>;
+    type DeformationGradientRates = DeformationGradientRateList<G>;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &ElementNodalCoordinates<N>,

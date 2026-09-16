@@ -2,7 +2,7 @@ pub(crate) mod elastic;
 pub(crate) mod hyperelastic;
 
 use crate::{
-    domain::NodalCoordinates,
+    domain::{NodalCoordinates, NodalVelocities},
     math::{Current, TensorRank1Vec, TensorRank2SparseVec2D, TensorRank2SparseVec2DSymmetric},
     units::{Force, ForcePerLength, ForcePerVelocity},
 };
@@ -19,8 +19,14 @@ pub type NodalStiffnessesSolidSymmetric<const D: usize> =
 
 pub trait SolidElements {
     type DeformationGradients;
+    type DeformationGradientRates;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
     ) -> Vec<Self::DeformationGradients>;
+    fn deformation_gradient_rates(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
+    ) -> Vec<Self::DeformationGradientRates>;
 }

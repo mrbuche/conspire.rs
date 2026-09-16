@@ -3,7 +3,6 @@ use crate::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
         FiniteElement, GradientVectors,
         linear::pyramid::{G, M, N, Pyramid},
-        solid::SolidFiniteElement,
         test::test_finite_element,
     },
     math::{ScalarList, Tensor},

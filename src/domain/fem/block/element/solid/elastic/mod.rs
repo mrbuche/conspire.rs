@@ -4,7 +4,7 @@ use crate::{
     constitutive::solid::elastic::Elastic,
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, GradientVectors,
-        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement},
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement, SolidFiniteElement},
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
     math::{ContractSecondFourthWithFirst, Current, IDENTITY, Quantity, Tensor, TensorRank2},

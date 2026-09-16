@@ -3,7 +3,6 @@ use crate::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
         FiniteElement, GradientVectors,
         quadratic::hexahedron::{G, Hexahedron, M, N},
-        solid::SolidFiniteElement,
         test::test_finite_element,
     },
     math::{ScalarList, Tensor},

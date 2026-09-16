@@ -4,9 +4,9 @@ pub mod hyperelastic;
 use crate::{
     constitutive::solid::Solid,
     domain::solid::SolidElements,
-    mechanics::DeformationGradients,
+    mechanics::{DeformationGradientRates, DeformationGradients},
     vem::{
-        NodalCoordinates,
+        NodalCoordinates, NodalVelocities,
         block::{Block, element::solid::SolidVirtualElement},
     },
 };
@@ -21,6 +21,7 @@ where
     F: SolidVirtualElement,
 {
     type DeformationGradients = DeformationGradients;
+    type DeformationGradientRates = DeformationGradientRates;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates,
@@ -29,7 +30,23 @@ where
             .iter()
             .zip(self.elements_nodes())
             .map(|(element, nodes)| {
-                element.deformation_gradients(Self::element_coordinates(nodal_coordinates, nodes))
+                element.deformation_gradients(&Self::element_coordinates(nodal_coordinates, nodes))
+            })
+            .collect()
+    }
+    fn deformation_gradient_rates(
+        &self,
+        nodal_coordinates: &NodalCoordinates,
+        nodal_velocities: &NodalVelocities,
+    ) -> Vec<Self::DeformationGradientRates> {
+        self.elements()
+            .iter()
+            .zip(self.elements_nodes())
+            .map(|(element, nodes)| {
+                element.deformation_gradient_rates(
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    &Self::element_coordinates(nodal_velocities, nodes),
+                )
             })
             .collect()
     }

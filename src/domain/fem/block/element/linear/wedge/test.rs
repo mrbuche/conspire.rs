@@ -3,7 +3,6 @@ use crate::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
         FiniteElement, GradientVectors,
         linear::wedge::{G, M, N, Wedge},
-        solid::SolidFiniteElement,
         test::test_finite_element,
     },
     math::{ScalarList, Tensor},

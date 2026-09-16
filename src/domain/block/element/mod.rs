@@ -1,3 +1,5 @@
+pub(crate) mod solid;
+
 use std::fmt::Debug;
 
 pub trait Elements

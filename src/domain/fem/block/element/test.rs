@@ -4,6 +4,7 @@ pub const THICKNESS: Quantity<Length> = Length::meters(1.23);
 
 macro_rules! test_finite_element {
     ($element: ident) => {
+        use crate::domain::block::element::solid::SolidElement;
         use crate::mechanics::test::{get_deformation_gradient, get_deformation_gradient_rate};
         crate::fem::block::element::test::setup!();
         fn coordinates() -> ElementNodalCoordinates<N> {
@@ -44,6 +45,7 @@ pub(crate) use test_finite_element;
 macro_rules! test_surface_finite_element {
     ($element: ident) => {
         use crate::{
+            domain::block::element::solid::SolidElement,
             fem::block::element::test::setup,
             math::{Rank2, TensorArray},
             mechanics::RotationCurrentConfiguration,

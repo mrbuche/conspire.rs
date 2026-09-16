@@ -7,7 +7,10 @@ use crate::{
     },
     vem::block::element::{
         Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
-        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidVirtualElement},
+        solid::{
+            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement,
+            SolidVirtualElement,
+        },
     },
 };
 
@@ -41,7 +44,7 @@ where
         let inverse_num_nodes = 1.0 / nodal_coordinates.len() as Scalar;
         let tetrahedra_coordinates = self.tetrahedra_coordinates(&nodal_coordinates);
         let mut forces = self
-            .deformation_gradients(nodal_coordinates)
+            .deformation_gradients(&nodal_coordinates)
             .iter()
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
@@ -107,7 +110,7 @@ where
         let inverse_num_nodes = 1.0 / num_nodes as Scalar;
         let tetrahedra_coordinates = self.tetrahedra_coordinates(&nodal_coordinates);
         let mut stiffnesses = self
-            .deformation_gradients(nodal_coordinates)
+            .deformation_gradients(&nodal_coordinates)
             .iter()
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)

@@ -6,7 +6,6 @@ use crate::{
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
-                solid::SolidFiniteElement,
                 surface::{
                     Normals, SurfaceFiniteElement,
                     linear::{
