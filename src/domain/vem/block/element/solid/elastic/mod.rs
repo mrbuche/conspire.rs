@@ -1,6 +1,7 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
-    fem::block::element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
+    domain::block::element::solid::elastic::ElasticElement,
+    fem::block::element::FiniteElementError,
     math::{ContractSecondFourthWithFirst, Scalar, Tensor, TensorArray},
     mechanics::{
         FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Force, Stiffness,
@@ -17,34 +18,48 @@ use crate::{
 pub trait ElasticVirtualElement<C>
 where
     C: Elastic,
-    Self: SolidVirtualElement,
+    Self: SolidVirtualElement
+        + ElasticElement<
+            C,
+            0,
+            Forces = ElementNodalForcesSolid,
+            Stiffnesses = ElementNodalStiffnessesSolid,
+            Error = VirtualElementError,
+        >,
 {
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: ElementNodalCoordinates,
-    ) -> Result<ElementNodalForcesSolid, VirtualElementError>;
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: ElementNodalCoordinates,
-    ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError>;
 }
 
-impl<C> ElasticVirtualElement<C> for Element
+impl<T, C> ElasticVirtualElement<C> for T
+where
+    C: Elastic,
+    T: SolidVirtualElement
+        + ElasticElement<
+            C,
+            0,
+            Forces = ElementNodalForcesSolid,
+            Stiffnesses = ElementNodalStiffnessesSolid,
+            Error = VirtualElementError,
+        >,
+{
+}
+
+impl<C, const P: usize> ElasticElement<C, P> for Element
 where
     C: Elastic,
 {
+    type Forces = ElementNodalForcesSolid;
+    type Stiffnesses = ElementNodalStiffnessesSolid;
+    type Error = VirtualElementError;
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: ElementNodalCoordinates,
+        nodal_coordinates: &ElementNodalCoordinates,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError> {
         let stabilization = self.stabilization();
         let inverse_num_nodes = 1.0 / nodal_coordinates.len() as Scalar;
-        let tetrahedra_coordinates = self.tetrahedra_coordinates(&nodal_coordinates);
+        let tetrahedra_coordinates = self.tetrahedra_coordinates(nodal_coordinates);
         let mut forces = self
-            .deformation_gradients(&nodal_coordinates)
+            .deformation_gradients(nodal_coordinates)
             .iter()
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_stress(deformation_gradient)
@@ -103,14 +118,14 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_coordinates: ElementNodalCoordinates,
+        nodal_coordinates: &ElementNodalCoordinates,
     ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
         let num_nodes = nodal_coordinates.len();
         let stabilization = self.stabilization();
         let inverse_num_nodes = 1.0 / num_nodes as Scalar;
-        let tetrahedra_coordinates = self.tetrahedra_coordinates(&nodal_coordinates);
+        let tetrahedra_coordinates = self.tetrahedra_coordinates(nodal_coordinates);
         let mut stiffnesses = self
-            .deformation_gradients(&nodal_coordinates)
+            .deformation_gradients(nodal_coordinates)
             .iter()
             .map(|deformation_gradient| {
                 constitutive_model.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)

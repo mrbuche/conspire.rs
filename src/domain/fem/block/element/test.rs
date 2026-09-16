@@ -733,9 +733,9 @@ macro_rules! test_finite_element_inner {
                         BazantItskovLagrangian, Hencky, SaintVenantKirchhoff, SethHillLagrangian,
                         test::{BULK_MODULUS, EXPONENT, SHEAR_MODULUS},
                     },
+                    domain::block::element::solid::elastic::ElasticElement,
                     fem::block::element::solid::{
                         ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
-                        elastic::ElasticFiniteElement,
                     },
                 };
                 mod almansi_hamel_eulerian {
@@ -832,9 +832,10 @@ macro_rules! test_finite_element_inner {
                             YEOH_MODULI,
                         },
                     },
+                    domain::block::element::solid::elastic::ElasticElement,
                     fem::block::element::solid::{
                         ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
-                        elastic::ElasticFiniteElement, hyperelastic::HyperelasticFiniteElement,
+                        hyperelastic::HyperelasticFiniteElement,
                     },
                 };
                 mod arruda_boyce {

@@ -46,7 +46,7 @@ where
                 element
                     .nodal_stiffnesses(
                         self.constitutive_model(),
-                        Self::element_coordinates(nodal_coordinates, nodes),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
                     )?
                     .into_iter()
                     .zip(nodes)
