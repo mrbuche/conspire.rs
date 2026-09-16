@@ -1,5 +1,7 @@
 pub mod element;
 pub mod solid;
+#[cfg(test)]
+mod test;
 
 use crate::{
     domain::block::element::Elements,

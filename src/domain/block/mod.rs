@@ -1,4 +1,6 @@
 pub(crate) mod element;
+#[cfg(test)]
+pub(crate) mod test;
 
 use crate::math::{Tensor, optimize::EqualityConstraint, sparse::SparseSolver};
 use std::any::type_name;
