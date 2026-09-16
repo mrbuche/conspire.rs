@@ -1,6 +1,6 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
-    fem::{ElementModelError, solid::hyperelastic::HyperelasticElements},
+    domain::{ElementModelError, solid::hyperelastic::HyperelasticElements},
     math::{HessianAccumulate, Quantity},
     units::Energy,
     vem::{

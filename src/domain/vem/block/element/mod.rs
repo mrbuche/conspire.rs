@@ -526,7 +526,7 @@ fn temporary_poly_2() {
         [0.12293689, -0.48172557, 1.4158596],
     ]);
     use crate::EPSILON;
-    use crate::fem::solid::hyperelastic::HyperelasticElements;
+    use crate::domain::solid::hyperelastic::HyperelasticElements;
     let mut finite_difference = crate::math::Quantity::default();
     let nodal_forces_fd = (0..coordinates.len())
         .map(|node| {
@@ -702,7 +702,7 @@ fn temporary_poly_3() {
             .collect::<Vec<_>>(),
     );
     use crate::EPSILON;
-    use crate::fem::solid::hyperelastic::HyperelasticElements;
+    use crate::domain::solid::hyperelastic::HyperelasticElements;
     let mut finite_difference = crate::math::Quantity::default();
     let nodal_forces_fd = (0..coordinates.len())
         .map(|node| {

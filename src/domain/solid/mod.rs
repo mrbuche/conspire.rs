@@ -1,4 +1,5 @@
 pub(crate) mod elastic;
+pub(crate) mod hyperelastic;
 
 use crate::{
     domain::NodalCoordinates,
