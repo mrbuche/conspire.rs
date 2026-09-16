@@ -283,56 +283,6 @@ macro_rules! test_nodal_forces_and_nodal_stiffnesses {
                 }
             }
         }
-        #[test]
-        fn nodal_stiffnesses_deformed_symmetry() -> Result<(), AssertionError> {
-            let nodal_stiffness = get_nodal_stiffnesses(true, false)?;
-            nodal_stiffness
-                .iter()
-                .enumerate()
-                .try_for_each(|(a, nodal_stiffness_a)| {
-                    nodal_stiffness_a
-                        .entries()
-                        .try_for_each(|(b, nodal_stiffness_ab)| {
-                            nodal_stiffness_ab.iter().enumerate().try_for_each(
-                                |(i, nodal_stiffness_ab_i)| {
-                                    nodal_stiffness_ab_i.iter().enumerate().try_for_each(
-                                        |(j, nodal_stiffness_ab_ij)| {
-                                            $crate::math::assert::Assert::default().eq_within_tols(
-                                                nodal_stiffness_ab_ij,
-                                                &nodal_stiffness[b][a][j][i],
-                                            )
-                                        },
-                                    )
-                                },
-                            )
-                        })
-                })
-        }
-        #[test]
-        fn nodal_stiffnesses_undeformed_symmetry() -> Result<(), AssertionError> {
-            let nodal_stiffness = get_nodal_stiffnesses(false, false)?;
-            nodal_stiffness
-                .iter()
-                .enumerate()
-                .try_for_each(|(a, nodal_stiffness_a)| {
-                    nodal_stiffness_a
-                        .entries()
-                        .try_for_each(|(b, nodal_stiffness_ab)| {
-                            nodal_stiffness_ab.iter().enumerate().try_for_each(
-                                |(i, nodal_stiffness_ab_i)| {
-                                    nodal_stiffness_ab_i.iter().enumerate().try_for_each(
-                                        |(j, nodal_stiffness_ab_ij)| {
-                                            $crate::math::assert::Assert::default().eq_within_tols(
-                                                nodal_stiffness_ab_ij,
-                                                &nodal_stiffness[b][a][j][i],
-                                            )
-                                        },
-                                    )
-                                },
-                            )
-                        })
-                })
-        }
     };
 }
 pub(crate) use test_nodal_forces_and_nodal_stiffnesses;
@@ -524,6 +474,56 @@ macro_rules! test_helmholtz_free_energy {
                     )
                 }
             }
+        }
+        #[test]
+        fn nodal_stiffnesses_deformed_symmetry() -> Result<(), AssertionError> {
+            let nodal_stiffness = get_nodal_stiffnesses(true, false)?;
+            nodal_stiffness
+                .iter()
+                .enumerate()
+                .try_for_each(|(a, nodal_stiffness_a)| {
+                    nodal_stiffness_a
+                        .entries()
+                        .try_for_each(|(b, nodal_stiffness_ab)| {
+                            nodal_stiffness_ab.iter().enumerate().try_for_each(
+                                |(i, nodal_stiffness_ab_i)| {
+                                    nodal_stiffness_ab_i.iter().enumerate().try_for_each(
+                                        |(j, nodal_stiffness_ab_ij)| {
+                                            $crate::math::assert::Assert::default().eq_within_tols(
+                                                nodal_stiffness_ab_ij,
+                                                &nodal_stiffness[b][a][j][i],
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                        })
+                })
+        }
+        #[test]
+        fn nodal_stiffnesses_undeformed_symmetry() -> Result<(), AssertionError> {
+            let nodal_stiffness = get_nodal_stiffnesses(false, false)?;
+            nodal_stiffness
+                .iter()
+                .enumerate()
+                .try_for_each(|(a, nodal_stiffness_a)| {
+                    nodal_stiffness_a
+                        .entries()
+                        .try_for_each(|(b, nodal_stiffness_ab)| {
+                            nodal_stiffness_ab.iter().enumerate().try_for_each(
+                                |(i, nodal_stiffness_ab_i)| {
+                                    nodal_stiffness_ab_i.iter().enumerate().try_for_each(
+                                        |(j, nodal_stiffness_ab_ij)| {
+                                            $crate::math::assert::Assert::default().eq_within_tols(
+                                                nodal_stiffness_ab_ij,
+                                                &nodal_stiffness[b][a][j][i],
+                                            )
+                                        },
+                                    )
+                                },
+                            )
+                        })
+                })
         }
     };
 }
