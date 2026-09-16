@@ -16,15 +16,15 @@ where
     C: Elastic,
     Self: SolidVirtualElement,
 {
-    fn nodal_forces<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    fn nodal_forces(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: ElementNodalCoordinates,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError>;
-    fn nodal_stiffnesses<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    fn nodal_stiffnesses(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: ElementNodalCoordinates,
     ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError>;
 }
 
@@ -32,10 +32,10 @@ impl<C> ElasticVirtualElement<C> for Element
 where
     C: Elastic,
 {
-    fn nodal_forces<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    fn nodal_forces(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: ElementNodalCoordinates,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError> {
         let stabilization = self.stabilization();
         let inverse_num_nodes = 1.0 / nodal_coordinates.len() as Scalar;
@@ -97,10 +97,10 @@ where
         forces.iter_mut().for_each(|force| *force += &center_force);
         Ok(forces)
     }
-    fn nodal_stiffnesses<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    fn nodal_stiffnesses(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: ElementNodalCoordinates,
     ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
         let num_nodes = nodal_coordinates.len();
         let stabilization = self.stabilization();

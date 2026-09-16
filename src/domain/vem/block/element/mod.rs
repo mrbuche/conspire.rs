@@ -11,7 +11,7 @@ use crate::{
         CrossProduct, Quantity, Scalar, Style, StyledError, Tensor, TensorArray, TensorRank1,
         TensorRank1Vec, TensorRank1Vec2D, TensorVector, assert::AssertionError, styled_error,
     },
-    mechanics::{CurrentCoordinate, CurrentCoordinatesRef, ReferenceCoordinate},
+    mechanics::{CurrentCoordinate, ReferenceCoordinate},
     units::{Area, Length, ReciprocalLength, Volume},
     vem::{NodalCoordinates, NodalReferenceCoordinates},
 };
@@ -20,7 +20,7 @@ use crate::{
 use crate::math::assert::Assert;
 use std::fmt::{self, Debug, Display, Formatter};
 
-pub type ElementNodalCoordinates<'a> = CurrentCoordinatesRef<'a>;
+pub type ElementNodalCoordinates = NodalCoordinates;
 pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, Reference, Length>;
 pub type GradientVectors = TensorRank1Vec2D<3, Reference, ReciprocalLength>;
 pub type IntegrationWeights = TensorVector<Quantity<Volume>>;
@@ -51,35 +51,26 @@ where
         &'a [Vec<usize>],
     )>,
 {
-    fn element_center<'a>(nodal_coordinates: &ElementNodalCoordinates<'a>) -> CurrentCoordinate;
-    fn faces_centers<'a>(
-        &'a self,
-        nodal_coordinates: &ElementNodalCoordinates<'a>,
-    ) -> NodalCoordinates;
+    fn element_center(nodal_coordinates: &ElementNodalCoordinates) -> CurrentCoordinate;
+    fn faces_centers(&self, nodal_coordinates: &ElementNodalCoordinates) -> NodalCoordinates;
     fn faces_nodes(&self) -> &[Vec<usize>];
     fn gradient_vectors(&self) -> &GradientVectors;
     fn integration_weights(&self) -> &IntegrationWeights;
     fn stabilization(&self) -> Scalar;
     fn tetrahedra(&self) -> &[Tetrahedron];
-    fn tetrahedra_coordinates<'a>(
-        &'a self,
-        nodal_coordinates: &ElementNodalCoordinates<'a>,
+    fn tetrahedra_coordinates(
+        &self,
+        nodal_coordinates: &ElementNodalCoordinates,
     ) -> TetrahedraCoordinates;
     fn tetrahedra_nodes(&self) -> &[[usize; 3]];
 }
 
 impl VirtualElement for Element {
-    fn element_center<'a>(nodal_coordinates: &ElementNodalCoordinates<'a>) -> CurrentCoordinate {
-        nodal_coordinates
-            .iter()
-            .map(|&nodal_coordinate| nodal_coordinate.clone())
-            .sum::<CurrentCoordinate>()
+    fn element_center(nodal_coordinates: &ElementNodalCoordinates) -> CurrentCoordinate {
+        nodal_coordinates.iter().cloned().sum::<CurrentCoordinate>()
             / nodal_coordinates.len() as Scalar
     }
-    fn faces_centers<'a>(
-        &'a self,
-        nodal_coordinates: &ElementNodalCoordinates<'a>,
-    ) -> NodalCoordinates {
+    fn faces_centers(&self, nodal_coordinates: &ElementNodalCoordinates) -> NodalCoordinates {
         self.faces_nodes()
             .iter()
             .map(|face_nodes| {
@@ -106,9 +97,9 @@ impl VirtualElement for Element {
     fn tetrahedra(&self) -> &[Tetrahedron] {
         &self.tetrahedra
     }
-    fn tetrahedra_coordinates<'a>(
-        &'a self,
-        nodal_coordinates: &ElementNodalCoordinates<'a>,
+    fn tetrahedra_coordinates(
+        &self,
+        nodal_coordinates: &ElementNodalCoordinates,
     ) -> TetrahedraCoordinates {
         let element_center = Self::element_center(nodal_coordinates);
         let faces_centers = self.faces_centers(nodal_coordinates);

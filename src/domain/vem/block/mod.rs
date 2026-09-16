@@ -25,11 +25,14 @@ impl<C, F> Block<C, F> {
     fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates<'a>(
-        coordinates: &'a NodalCoordinates,
+    fn element_coordinates(
+        coordinates: &NodalCoordinates,
         nodes: &[usize],
-    ) -> ElementNodalCoordinates<'a> {
-        nodes.iter().map(|&node| &coordinates[node]).collect()
+    ) -> ElementNodalCoordinates {
+        nodes
+            .iter()
+            .map(|&node| coordinates[node].clone())
+            .collect()
     }
     pub fn elements_faces(&self) -> &[Vec<usize>] {
         self.connectivity.elements_faces()

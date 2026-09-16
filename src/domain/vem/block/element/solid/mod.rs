@@ -14,9 +14,9 @@ pub trait SolidVirtualElement
 where
     Self: VirtualElement,
 {
-    fn deformation_gradients<'a>(
-        &'a self,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    fn deformation_gradients(
+        &self,
+        nodal_coordinates: ElementNodalCoordinates,
     ) -> DeformationGradients;
 }
 
@@ -24,9 +24,9 @@ impl SolidVirtualElement for Element
 where
     Self: VirtualElement,
 {
-    fn deformation_gradients<'a>(
-        &'a self,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    fn deformation_gradients(
+        &self,
+        nodal_coordinates: ElementNodalCoordinates,
     ) -> DeformationGradients {
         self.gradient_vectors()
             .iter()
@@ -34,7 +34,7 @@ where
                 nodal_coordinates
                     .iter()
                     .zip(gradient_vectors)
-                    .map(|(&nodal_coordinate, gradient_vector)| {
+                    .map(|(nodal_coordinate, gradient_vector)| {
                         DeformationGradient::from((nodal_coordinate, gradient_vector))
                     })
                     .sum()

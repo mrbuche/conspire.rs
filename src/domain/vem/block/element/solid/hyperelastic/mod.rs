@@ -15,10 +15,10 @@ where
     C: Hyperelastic,
     Self: ElasticVirtualElement<C>,
 {
-    fn helmholtz_free_energy<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    fn helmholtz_free_energy(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: ElementNodalCoordinates,
     ) -> Result<Quantity<Energy>, VirtualElementError>;
 }
 
@@ -27,10 +27,10 @@ where
     C: Hyperelastic,
     Self: ElasticVirtualElement<C>,
 {
-    fn helmholtz_free_energy<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    fn helmholtz_free_energy(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: ElementNodalCoordinates,
     ) -> Result<Quantity<Energy>, VirtualElementError> {
         let tetrahedra_energy = self
             .tetrahedra()
