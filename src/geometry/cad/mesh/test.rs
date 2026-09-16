@@ -230,13 +230,22 @@ fn crease_curves_pull_rim_nodes_onto_the_exact_circle() {
     // A boundary node near the cap/wall rim, fit by nearest-face alone, is
     // free to land anywhere on the cap's tangent plane -- its radius is
     // unconstrained there, only z is pinned. With the rim's crease curve
-    // wired in (Brep::creases, now the default through Solid::mesh), a node
-    // this close to the rim should land on the exact circle: both z and
+    // wired in explicitly via Solid::mesh_with_creases (Solid::mesh itself
+    // no longer applies a crease constraint by default -- see its doc), a
+    // node this close to the rim should land on the exact circle: both z and
     // radius pinned together, not just z.
     let brep = capped_cylinder(2.0, 5.0);
     let sizing = FeatureSizing::of(&brep, 32, length(0.1), Some(length(0.4)), Some(0.25));
+    let creases = brep.creases();
     let mesh = brep
-        .mesh(&sizing, Some(6), 0.1, Balancing::Strong(1), Fitting::Soft)
+        .mesh_with_creases(
+            &sizing,
+            Some(6),
+            0.1,
+            Balancing::Strong(1),
+            Fitting::Soft,
+            &creases,
+        )
         .unwrap();
 
     let mut checked = 0;
@@ -279,15 +288,9 @@ fn mesh_fits_the_graded_box() {
     );
 
     // The graded, edge-refined dual fits onto the box faces to within a small
-    // fraction of the coarsest boundary edge. Loosened from 5e-3: every box
-    // edge is now a crease-owned curve constraint (replacing, not
-    // supplementing, the edge nodes' tangent-plane term), which is a
-    // different quadratic form at a different effective weight -- on a box,
-    // where plain nearest-face fitting was already unambiguous and precise,
-    // that swap costs a little accuracy right at the corners in exchange for
-    // a lot more on a genuinely ambiguous crease (see
-    // crease_curves_pull_rim_nodes_onto_the_exact_circle). Balancing the two
-    // terms' weights is open follow-up work, not resolved here.
+    // fraction of the coarsest boundary edge. `mesh()` applies no crease
+    // constraint (see `crease_curves_pull_rim_nodes_onto_the_exact_circle`
+    // for the constrained variant, via `mesh_with_creases`).
     let mut low = [f64::INFINITY; 3];
     let mut high = [f64::NEG_INFINITY; 3];
     for coordinate in mesh.coordinates() {

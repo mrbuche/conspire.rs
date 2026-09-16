@@ -458,7 +458,8 @@ pub trait Solid {
     /// Meshes this solid end to end: refine the octree from `sizing`, balance,
     /// dualize, trim interior cells back to the surface by Tong's per-hex SDF
     /// ratio rule, then inflate a boundary layer and fit it to the exact
-    /// geometry with the analytic [`oracle`](Self::oracle).
+    /// geometry with the analytic [`oracle`](Self::oracle). No crease
+    /// constraint -- see [`mesh_with_creases`](Self::mesh_with_creases).
     fn mesh(
         &self,
         sizing: &impl Sizing,
@@ -466,6 +467,24 @@ pub trait Solid {
         padding: Scalar,
         balancing: Balancing,
         fitting: Fitting,
+    ) -> Result<Mesh<D>, &'static str> {
+        self.mesh_with_creases(sizing, max_levels, padding, balancing, fitting, &[])
+    }
+
+    /// [`mesh`](Self::mesh), but additionally constraining crease-owned
+    /// boundary nodes onto `creases` (typically [`Self::creases`]) instead of
+    /// letting nearest-face fitting place them freely on the tangent plane.
+    /// On real files this has so far cost worst-case mesh quality and a
+    /// visible node-pinching artifact for no measured adherence gain -- kept
+    /// available for A/B testing, not the default.
+    fn mesh_with_creases(
+        &self,
+        sizing: &impl Sizing,
+        max_levels: Option<u32>,
+        padding: Scalar,
+        balancing: Balancing,
+        fitting: Fitting,
+        creases: &[(Vec<Coordinate<D>>, Vec<usize>)],
     ) -> Result<Mesh<D>, &'static str> {
         let (mut mesh, classes) = self.dual_background(sizing, max_levels, padding, balancing)?;
         let oracle = self.oracle()?;
@@ -497,7 +516,7 @@ pub trait Solid {
             );
             survives_trim(cut[index], minimum, maximum)
         });
-        mesh.buffer_with(&Fit(&oracle), &self.creases(), fitting)
+        mesh.buffer_with(&Fit(&oracle), creases, fitting)
     }
 }
 

@@ -2116,9 +2116,21 @@ fn probe_crease_adherence() {
             Some(Quantity::<Length>::new(cell)),
             Some(0.2),
         )
+        .with_proximity(brep, env_f64("STEP_MESH_PROXIMITY", 3.0) as usize)
+        .expect("with_proximity")
         .with_feature_separation(brep, env_f64("STEP_MESH_SEPARATION", 3.0) as usize)
         .expect("with_feature_separation");
-        let mesh = match brep.mesh(&sizing, None, 0.1, Balancing::Strong(1), Fitting::Soft) {
+        // Crease constraint is off by default (Solid::mesh) -- real files so
+        // far show no measured adherence gain and a real quality/visual cost
+        // (node-pinching along creases). STEP_MESH_CREASE=1 opts back in for
+        // A/B testing against more real files.
+        let with_crease = std::env::var("STEP_MESH_CREASE").as_deref() == Ok("1");
+        let mesh_result = if with_crease {
+            brep.mesh_with_creases(&sizing, None, 0.1, Balancing::Strong(1), Fitting::Soft, &creases)
+        } else {
+            brep.mesh(&sizing, None, 0.1, Balancing::Strong(1), Fitting::Soft)
+        };
+        let mesh = match mesh_result {
             Ok(mesh) => mesh,
             Err(error) => {
                 eprintln!("  mesh failed: {error}");
