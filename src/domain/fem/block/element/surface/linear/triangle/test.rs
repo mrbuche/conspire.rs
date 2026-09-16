@@ -17,10 +17,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{ScalarList, Tensor, optimize::EqualityConstraint},
-    mechanics::{
-        DeformationGradient, DeformationGradientList, DeformationGradientRate,
-        DeformationGradientRateList,
-    },
+    mechanics::{DeformationGradient, DeformationGradientRate},
 };
 
 pub const D: usize = 16;

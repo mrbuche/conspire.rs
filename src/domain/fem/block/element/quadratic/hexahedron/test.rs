@@ -6,7 +6,7 @@ use crate::{
         test::test_finite_element,
     },
     math::{ScalarList, Tensor},
-    mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
+    mechanics::DeformationGradient,
 };
 
 fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {

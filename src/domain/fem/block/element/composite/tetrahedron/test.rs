@@ -26,7 +26,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{ScalarList, Tensor, TensorRank2, optimize::EqualityConstraint},
-    mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
+    mechanics::DeformationGradient,
 };
 
 test_finite_element!(Tetrahedron);

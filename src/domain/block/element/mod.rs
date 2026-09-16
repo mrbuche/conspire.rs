@@ -1,4 +1,6 @@
 pub(crate) mod solid;
+#[cfg(test)]
+pub(crate) mod test;
 
 use crate::math::{Style, StyledError, assert::AssertionError};
 use std::{
