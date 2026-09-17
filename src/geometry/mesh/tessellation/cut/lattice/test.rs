@@ -142,7 +142,6 @@ fn rejects_nonpositive_spacing() {
     );
 }
 
-/// The lattice, trimmed and buffered, is an all-hexahedral mesh of the solid.
 #[test]
 fn lattice_trimmed_and_buffered_is_all_hexahedral_and_not_inverted() {
     let tessellation = sphere(3);
