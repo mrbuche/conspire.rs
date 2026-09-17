@@ -15,10 +15,13 @@ use crate::{
     vem::block::{Block, element::Element},
 };
 
-const D: usize = 20;
+const D: usize = 21;
 
 fn get_element_face_connectivity() -> Vec<Vec<usize>> {
-    vec![vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]]
+    vec![
+        vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+        vec![12, 13, 14, 15, 16, 17],
+    ]
 }
 
 fn get_face_node_connectivity() -> Vec<Vec<usize>> {
@@ -35,6 +38,12 @@ fn get_face_node_connectivity() -> Vec<Vec<usize>> {
         vec![6, 15, 14, 4, 17],
         vec![5, 14, 15, 7, 19],
         vec![6, 10, 11, 7, 15],
+        vec![0, 8, 4, 17, 16],
+        vec![8, 0, 20],
+        vec![4, 8, 20],
+        vec![17, 4, 20],
+        vec![16, 17, 20],
+        vec![0, 16, 20],
     ]
 }
 
@@ -61,6 +70,7 @@ fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
         [1.0 / phi, 0.0, -phi],
         [-1.0 / phi, 0.0, phi],
         [1.0 / phi, 0.0, phi],
+        [0.0, -1.25, -2.0],
     ])
 }
 
