@@ -8372,7 +8372,7 @@ mod cbm_kinematics_smoke {
         .into_iter()
         .collect();
         let reference_coordinates = coordinates;
-        let cbm = Cbm::from((connectivity, &reference_coordinates));
+        let cbm = Cbm::from(((), connectivity, &reference_coordinates));
         let deformation_gradient =
             DeformationGradient::from([[1.1, 0.05, 0.0], [0.0, 0.9, 0.02], [-0.03, 0.0, 1.2]]);
         let current_coordinates = reference_coordinates
@@ -8386,5 +8386,74 @@ mod cbm_kinematics_smoke {
                     .eq_within_tols(particle_deformation_gradient, &deformation_gradient)
                     .unwrap()
             })
+    }
+}
+
+#[cfg(feature = "cbm")]
+mod cbm_forces_smoke {
+    use conspire::{
+        EPSILON,
+        cbm::{Cbm, ElasticElements, NodalReferenceCoordinates, NodalStiffnessesSolid},
+        constitutive::solid::elastic::AlmansiHamelEulerian,
+        geometry::{Coordinate, Coordinates, mesh::PrimitiveConnectivity},
+        math::{
+            Tensor,
+            assert::{Assert, perturbation},
+        },
+        mechanics::{DeformationGradient, Displacement},
+        units::{Length, Stress},
+    };
+
+    fn two_tetrahedra_reference() -> (PrimitiveConnectivity<3, 4>, NodalReferenceCoordinates<3>) {
+        let connectivity = PrimitiveConnectivity::from(vec![[0, 1, 2, 3], [1, 4, 2, 3]]);
+        let coordinates: Coordinates<3> = vec![
+            Coordinate::from([0.0, 0.0, 0.0]),
+            Coordinate::from([1.0, 0.0, 0.0]),
+            Coordinate::from([0.0, 1.0, 0.0]),
+            Coordinate::from([0.0, 0.0, 1.0]),
+            Coordinate::from([1.0, 1.0, 1.0]),
+        ]
+        .into_iter()
+        .collect();
+        (connectivity, coordinates)
+    }
+
+    #[test]
+    fn nodal_forces_and_stiffnesses_finite_difference() {
+        let (connectivity, reference_coordinates) = two_tetrahedra_reference();
+        let constitutive_model = AlmansiHamelEulerian {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        };
+        let cbm = Cbm::from((constitutive_model, connectivity, &reference_coordinates));
+        let deformation_gradient =
+            DeformationGradient::from([[1.05, 0.02, 0.0], [0.0, 0.95, 0.01], [-0.01, 0.0, 1.1]]);
+        let mut coordinates = reference_coordinates
+            .iter()
+            .map(|reference_coordinate| &deformation_gradient * reference_coordinate)
+            .collect::<conspire::cbm::NodalCoordinates<3>>();
+        coordinates[4] += Displacement::from([0.03, -0.02, 0.015]);
+        let nodal_stiffnesses = cbm.nodal_stiffnesses(&coordinates).unwrap();
+        let number_of_nodes = reference_coordinates.len();
+        let mut finite_difference = NodalStiffnessesSolid::<3>::zero(number_of_nodes);
+        (0..number_of_nodes).for_each(|node_b| {
+            (0..3).for_each(|j| {
+                let mut perturbed = coordinates.clone();
+                perturbed[node_b][j] += perturbation::<Length>(0.5 * EPSILON);
+                let forces_plus = cbm.nodal_forces(&perturbed).unwrap();
+                perturbed[node_b][j] -= perturbation::<Length>(EPSILON);
+                let forces_minus = cbm.nodal_forces(&perturbed).unwrap();
+                (0..number_of_nodes).for_each(|node_a| {
+                    (0..3).for_each(|i| {
+                        finite_difference[node_a][node_b][i][j] = (forces_plus[node_a][i]
+                            - forces_minus[node_a][i])
+                            / perturbation::<Length>(EPSILON);
+                    })
+                })
+            })
+        });
+        Assert::default()
+            .eq_within_fd_tol(&nodal_stiffnesses, &finite_difference)
+            .unwrap()
     }
 }
