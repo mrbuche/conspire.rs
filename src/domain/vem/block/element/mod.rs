@@ -6,16 +6,15 @@ mod test;
 use crate::{
     domain::block::element::{ElementError, ElementKind},
     fem::block::element::{
-        ElementNodalCoordinates as FemElementNodalCoordinates,
         ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates, FiniteElement,
         linear::Tetrahedron,
     },
     math::{
-        CrossProduct, Quantity, Scalar, Tensor, TensorArray, TensorRank1, TensorRank1Vec,
-        TensorRank1Vec2D, TensorVector,
+        CrossProduct, Current, Quantity, Scalar, Tensor, TensorArray, TensorRank1, TensorRank1List,
+        TensorRank1Vec, TensorRank1Vec2D, TensorVector,
     },
-    mechanics::{CurrentCoordinate, ReferenceCoordinate},
-    units::{Area, Length, ReciprocalLength, Volume},
+    mechanics::ReferenceCoordinate,
+    units::{Area, Length, ReciprocalLength, Velocity, Volume},
     vem::{NodalCoordinates, NodalReferenceCoordinates, NodalVelocities},
 };
 
@@ -27,7 +26,9 @@ pub type ElementNodalReferenceCoordinates = TensorRank1Vec2D<3, Reference, Lengt
 pub type GradientVectors = TensorRank1Vec2D<3, Reference, ReciprocalLength>;
 pub type IntegrationWeights = TensorVector<Quantity<Volume>>;
 
-pub type TetrahedraCoordinates = Vec<FemElementNodalCoordinates<4>>;
+pub type TetrahedraQuantities<U> = Vec<TensorRank1List<3, Current, 4, U>>;
+pub type TetrahedraCoordinates = TetrahedraQuantities<Length>;
+pub type TetrahedraVelocities = TetrahedraQuantities<Velocity>;
 
 pub struct Element {
     faces_nodes: Vec<Vec<usize>>,
@@ -53,33 +54,46 @@ where
         &'a [Vec<usize>],
     )>,
 {
-    fn element_center(nodal_coordinates: &ElementNodalCoordinates) -> CurrentCoordinate;
-    fn faces_centers(&self, nodal_coordinates: &ElementNodalCoordinates) -> NodalCoordinates;
+    fn element_center<U>(
+        nodal_quantities: &TensorRank1Vec<3, Current, U>,
+    ) -> TensorRank1<3, Current, U>;
+    fn faces_centers<U>(
+        &self,
+        nodal_quantities: &TensorRank1Vec<3, Current, U>,
+    ) -> TensorRank1Vec<3, Current, U>;
     fn faces_nodes(&self) -> &[Vec<usize>];
     fn gradient_vectors(&self) -> &GradientVectors;
     fn integration_weights(&self) -> &IntegrationWeights;
     fn stabilization(&self) -> Scalar;
     fn tetrahedra(&self) -> &[Tetrahedron];
-    fn tetrahedra_coordinates(
+    fn tetrahedra_coordinates<U>(
         &self,
-        nodal_coordinates: &ElementNodalCoordinates,
-    ) -> TetrahedraCoordinates;
+        nodal_quantities: &TensorRank1Vec<3, Current, U>,
+    ) -> TetrahedraQuantities<U>;
     fn tetrahedra_nodes(&self) -> &[[usize; 3]];
 }
 
 impl VirtualElement for Element {
-    fn element_center(nodal_coordinates: &ElementNodalCoordinates) -> CurrentCoordinate {
-        nodal_coordinates.iter().cloned().sum::<CurrentCoordinate>()
-            / nodal_coordinates.len() as Scalar
+    fn element_center<U>(
+        nodal_quantities: &TensorRank1Vec<3, Current, U>,
+    ) -> TensorRank1<3, Current, U> {
+        nodal_quantities
+            .iter()
+            .cloned()
+            .sum::<TensorRank1<3, Current, U>>()
+            / nodal_quantities.len() as Scalar
     }
-    fn faces_centers(&self, nodal_coordinates: &ElementNodalCoordinates) -> NodalCoordinates {
+    fn faces_centers<U>(
+        &self,
+        nodal_quantities: &TensorRank1Vec<3, Current, U>,
+    ) -> TensorRank1Vec<3, Current, U> {
         self.faces_nodes()
             .iter()
             .map(|face_nodes| {
                 face_nodes
                     .iter()
-                    .map(|&face_node| nodal_coordinates[face_node].clone())
-                    .sum::<CurrentCoordinate>()
+                    .map(|&face_node| nodal_quantities[face_node].clone())
+                    .sum::<TensorRank1<3, Current, U>>()
                     / (face_nodes.len() as Scalar)
             })
             .collect()
@@ -99,19 +113,19 @@ impl VirtualElement for Element {
     fn tetrahedra(&self) -> &[Tetrahedron] {
         &self.tetrahedra
     }
-    fn tetrahedra_coordinates(
+    fn tetrahedra_coordinates<U>(
         &self,
-        nodal_coordinates: &ElementNodalCoordinates,
-    ) -> TetrahedraCoordinates {
-        let element_center = Self::element_center(nodal_coordinates);
-        let faces_centers = self.faces_centers(nodal_coordinates);
+        nodal_quantities: &TensorRank1Vec<3, Current, U>,
+    ) -> TetrahedraQuantities<U> {
+        let element_center = Self::element_center(nodal_quantities);
+        let faces_centers = self.faces_centers(nodal_quantities);
         self.tetrahedra_nodes()
             .iter()
             .map(|&[face, node_b, node_a]| {
                 [
                     faces_centers[face].clone(),
-                    nodal_coordinates[node_b].clone(),
-                    nodal_coordinates[node_a].clone(),
+                    nodal_quantities[node_b].clone(),
+                    nodal_quantities[node_a].clone(),
                     element_center.clone(),
                 ]
                 .into()

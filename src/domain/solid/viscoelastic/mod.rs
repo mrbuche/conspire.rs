@@ -1,0 +1,165 @@
+use crate::{
+    domain::{
+        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
+        NodalVelocities, NodalVelocitiesHistory,
+        block::element::Elements,
+        solid::{NodalDampingsSolid, NodalForcesSolid},
+    },
+    math::{
+        Quantity, Tensor,
+        integrate::{ImplicitDaeFirstOrderRoot, IntegrationError},
+        optimize::{EqualityConstraint, FirstOrderRootFinding},
+    },
+    mechanics::Times,
+    units::Time,
+};
+
+pub trait ViscoelasticElements<const D: usize>
+where
+    Self: Elements,
+{
+    fn nodal_forces_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError>;
+    fn nodal_forces(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
+        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+        self.nodal_forces_into(nodal_coordinates, nodal_velocities, &mut nodal_forces)?;
+        Ok(nodal_forces)
+    }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
+    ) -> Result<(), ElementModelError>;
+    fn nodal_stiffnesses(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+    ) -> Result<NodalDampingsSolid<D>, ElementModelError> {
+        let mut nodal_stiffnesses = NodalDampingsSolid::zero(nodal_coordinates.len());
+        self.nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, &mut nodal_stiffnesses)?;
+        Ok(nodal_stiffnesses)
+    }
+}
+
+impl<B, const D: usize> ViscoelasticElements<D> for Model<B, D>
+where
+    B: ViscoelasticElements<D>,
+{
+    fn nodal_forces_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.blocks
+            .nodal_forces_into(nodal_coordinates, nodal_velocities, nodal_forces)
+    }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.blocks
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)
+    }
+}
+
+impl<B1, B2, const D: usize> ViscoelasticElements<D> for Blocks<B1, B2>
+where
+    B1: ViscoelasticElements<D>,
+    B2: ViscoelasticElements<D>,
+{
+    fn nodal_forces_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_forces: &mut NodalForcesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_forces_into(nodal_coordinates, nodal_velocities, nodal_forces)?;
+        self.1
+            .nodal_forces_into(nodal_coordinates, nodal_velocities, nodal_forces)
+    }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        nodal_velocities: &NodalVelocities<D>,
+        nodal_stiffnesses: &mut NodalDampingsSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)?;
+        self.1
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_velocities, nodal_stiffnesses)
+    }
+}
+
+pub trait FirstOrderRoot<const D: usize> {
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl ImplicitDaeFirstOrderRoot<
+            NodalForcesSolid<D>,
+            NodalDampingsSolid<D>,
+            NodalCoordinates<D>,
+            NodalCoordinatesHistory<D>,
+            NodalVelocitiesHistory<D>,
+        >,
+        time: &[Quantity<Time>],
+        solver: impl FirstOrderRootFinding<
+            NodalForcesSolid<D>,
+            NodalDampingsSolid<D>,
+            NodalVelocities<D>,
+        >,
+    ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>;
+}
+
+impl<B, const D: usize> FirstOrderRoot<D> for Model<B, D>
+where
+    B: ViscoelasticElements<D>,
+{
+    fn root(
+        &self,
+        equality_constraint: EqualityConstraint,
+        integrator: impl ImplicitDaeFirstOrderRoot<
+            NodalForcesSolid<D>,
+            NodalDampingsSolid<D>,
+            NodalCoordinates<D>,
+            NodalCoordinatesHistory<D>,
+            NodalVelocitiesHistory<D>,
+        >,
+        time: &[Quantity<Time>],
+        solver: impl FirstOrderRootFinding<
+            NodalForcesSolid<D>,
+            NodalDampingsSolid<D>,
+            NodalVelocities<D>,
+        >,
+    ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>
+    {
+        integrator.integrate(
+            |_: Quantity<Time>,
+             nodal_coordinates: &NodalCoordinates<D>,
+             nodal_velocities: &NodalVelocities<D>| {
+                Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
+            },
+            |_: Quantity<Time>,
+             nodal_coordinates: &NodalCoordinates<D>,
+             nodal_velocities: &NodalVelocities<D>| {
+                Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
+            },
+            solver,
+            time,
+            self.coordinates().clone().into(),
+            |_: Quantity<Time>| equality_constraint.clone(),
+        )
+    }
+}

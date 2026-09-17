@@ -251,8 +251,12 @@ pub type FirstPiolaKirchhoffRateTangentStiffness =
     TensorRank4<3, Current, Reference, Current, Reference, Viscosity>;
 
 /// A list of first Piola-Kirchhoff rate tangent stiffnesses.
-pub type FirstPiolaKirchhoffRateTangentStiffnesses<const W: usize> =
+pub type FirstPiolaKirchhoffRateTangentStiffnessList<const W: usize> =
     TensorRank4List<3, Current, Reference, Current, Reference, W, Viscosity>;
+
+/// A vector of first Piola-Kirchhoff rate tangent stiffnesses.
+pub type FirstPiolaKirchhoffRateTangentStiffnesses =
+    TensorRank4Vec<3, Current, Reference, Current, Reference, Viscosity>;
 
 /// A force.
 pub type Force = TensorRank1<3, Current, crate::units::Force>;

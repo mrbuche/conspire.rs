@@ -1,5 +1,6 @@
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
+    domain::block::element::solid::viscoelastic::ViscoelasticElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
         FiniteElementError, GradientVectors,
@@ -9,7 +10,7 @@ use crate::{
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
     math::{ContractSecondFourthWithFirst, Current, IDENTITY, Quantity, Tensor, TensorRank2},
-    mechanics::{FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStressList},
+    mechanics::{FirstPiolaKirchhoffRateTangentStiffnessList, FirstPiolaKirchhoffStressList},
     units::ViscosityPerArea,
 };
 
@@ -21,28 +22,41 @@ pub trait ViscoelasticFiniteElement<
     const P: usize,
 > where
     C: Viscoelastic,
-    Self: SolidFiniteElement<G, M, N, P>,
+    Self: SolidFiniteElement<G, M, N, P>
+        + ViscoelasticElement<
+            C,
+            P,
+            Forces = ElementNodalForcesSolid<N>,
+            Dampings = ElementNodalDampingsSolid<N>,
+            Error = FiniteElementError,
+        >,
 {
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<ElementNodalDampingsSolid<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    ViscoelasticFiniteElement<C, G, 3, N, P> for Element<3, G, N, O>
+impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
+    ViscoelasticFiniteElement<C, G, M, N, P> for T
+where
+    C: Viscoelastic,
+    T: SolidFiniteElement<G, M, N, P>
+        + ViscoelasticElement<
+            C,
+            P,
+            Forces = ElementNodalForcesSolid<N>,
+            Dampings = ElementNodalDampingsSolid<N>,
+            Error = FiniteElementError,
+        >,
+{
+}
+
+impl<C, const G: usize, const N: usize, const O: usize, const P: usize> ViscoelasticElement<C, P>
+    for Element<3, G, N, O>
 where
     C: Viscoelastic,
     Self: SolidFiniteElement<G, 3, N, P>,
 {
+    type Forces = ElementNodalForcesSolid<N>;
+    type Dampings = ElementNodalDampingsSolid<N>;
+    type Error = FiniteElementError;
     fn nodal_forces(
         &self,
         constitutive_model: &C,
@@ -76,7 +90,7 @@ where
                     deformation_gradient_rate,
                 )
             })
-            .collect::<Result<FirstPiolaKirchhoffRateTangentStiffnesses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffRateTangentStiffnessList<G>, _>>()
             .map_err(|error| FiniteElementError::upstream(error, self))?;
         Ok(first_piola_kirchhoff_rate_tangent_stiffnesses
             .iter()
@@ -114,12 +128,15 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticFiniteElement<C, G, 2, N, N>
+impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticElement<C, N>
     for SurfaceElement<G, N, O>
 where
     C: Viscoelastic,
     Self: SolidFiniteElement<G, 2, N, N>,
 {
+    type Forces = ElementNodalForcesSolid<N>;
+    type Dampings = ElementNodalDampingsSolid<N>;
+    type Error = FiniteElementError;
     fn nodal_forces(
         &self,
         constitutive_model: &C,
@@ -153,7 +170,7 @@ where
                     deformation_gradient_rate,
                 )
             })
-            .collect::<Result<FirstPiolaKirchhoffRateTangentStiffnesses<G>, _>>()
+            .collect::<Result<FirstPiolaKirchhoffRateTangentStiffnessList<G>, _>>()
             .map_err(|error| FiniteElementError::upstream(error, self))?;
         Ok(first_piola_kirchhoff_rate_tangent_stiffnesses
             .iter()

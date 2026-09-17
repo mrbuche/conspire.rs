@@ -1,5 +1,8 @@
 pub mod elastic;
+pub mod elastic_hyperviscous;
 pub mod hyperelastic;
+pub mod hyperviscoelastic;
+pub mod viscoelastic;
 
 use crate::{
     constitutive::solid::Solid,
@@ -11,6 +14,7 @@ use crate::{
     },
 };
 
+pub type NodalDampingsSolid = crate::domain::solid::NodalDampingsSolid<3>;
 pub type NodalForcesSolid = crate::domain::solid::NodalForcesSolid<3>;
 pub type NodalStiffnessesSolid = crate::domain::solid::NodalStiffnessesSolid<3>;
 pub type NodalStiffnessesSolidSymmetric = crate::domain::solid::NodalStiffnessesSolidSymmetric<3>;

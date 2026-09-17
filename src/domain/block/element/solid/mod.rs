@@ -1,5 +1,8 @@
 pub(crate) mod elastic;
+pub(crate) mod elastic_hyperviscous;
 pub(crate) mod hyperelastic;
+pub(crate) mod hyperviscoelastic;
+pub(crate) mod viscoelastic;
 
 pub trait SolidElement {
     type Coordinates;

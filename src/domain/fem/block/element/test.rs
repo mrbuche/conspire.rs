@@ -873,10 +873,12 @@ macro_rules! test_finite_element_inner {
                             elastic_hyperviscous::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                         },
                     },
+                    domain::block::element::solid::{
+                        elastic_hyperviscous::ElasticHyperviscousElement,
+                        viscoelastic::ViscoelasticElement,
+                    },
                     fem::block::element::solid::{
                         ElementNodalDampingsSolid, ElementNodalForcesSolid,
-                        elastic_hyperviscous::ElasticHyperviscousFiniteElement,
-                        viscoelastic::ViscoelasticFiniteElement,
                     },
                 };
                 type AlmansiHamel = Canonical<AlmansiHamelEulerian, Newtonian>;
@@ -909,11 +911,13 @@ macro_rules! test_finite_element_inner {
                             hyperviscoelastic::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                         },
                     },
+                    domain::block::element::solid::{
+                        elastic_hyperviscous::ElasticHyperviscousElement,
+                        hyperviscoelastic::HyperviscoelasticElement,
+                        viscoelastic::ViscoelasticElement,
+                    },
                     fem::block::element::solid::{
                         ElementNodalDampingsSolid, ElementNodalForcesSolid,
-                        elastic_hyperviscous::ElasticHyperviscousFiniteElement,
-                        hyperviscoelastic::HyperviscoelasticFiniteElement,
-                        viscoelastic::ViscoelasticFiniteElement,
                     },
                 };
                 type SaintVenantKirchhoff =

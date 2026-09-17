@@ -1,10 +1,13 @@
 pub mod elastic;
+pub mod elastic_hyperviscous;
 pub mod hyperelastic;
+pub mod hyperviscoelastic;
+pub mod viscoelastic;
 
 use crate::{
     math::Tensor,
     mechanics::{
-        DeformationGradient, DeformationGradientRate, DeformationGradientRates,
+        Dampings, DeformationGradient, DeformationGradientRate, DeformationGradientRates,
         DeformationGradients, Forces, Stiffnesses,
     },
     vem::block::element::{
@@ -14,6 +17,7 @@ use crate::{
 
 pub use crate::domain::block::element::solid::SolidElement;
 
+pub type ElementNodalDampingsSolid = Dampings;
 pub type ElementNodalForcesSolid = Forces;
 pub type ElementNodalStiffnessesSolid = Stiffnesses;
 

@@ -1,5 +1,6 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic_hyperviscous::ElasticHyperviscous},
+    domain::block::element::solid::elastic_hyperviscous::ElasticHyperviscousElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
         solid::viscoelastic::ViscoelasticFiniteElement, surface::SurfaceElement,
@@ -16,24 +17,20 @@ pub trait ElasticHyperviscousFiniteElement<
     const P: usize,
 > where
     C: ElasticHyperviscous,
-    Self: ViscoelasticFiniteElement<C, G, M, N, P>,
+    Self: ViscoelasticFiniteElement<C, G, M, N, P> + ElasticHyperviscousElement<C, P>,
 {
-    fn viscous_dissipation(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<Quantity<Power>, FiniteElementError>;
-    fn dissipation_potential(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        nodal_velocities: &ElementNodalVelocities<N>,
-    ) -> Result<Quantity<Power>, FiniteElementError>;
+}
+
+impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
+    ElasticHyperviscousFiniteElement<C, G, M, N, P> for T
+where
+    C: ElasticHyperviscous,
+    T: ViscoelasticFiniteElement<C, G, M, N, P> + ElasticHyperviscousElement<C, P>,
+{
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    ElasticHyperviscousFiniteElement<C, G, 3, N, P> for Element<3, G, N, O>
+    ElasticHyperviscousElement<C, P> for Element<3, G, N, O>
 where
     C: ElasticHyperviscous,
     Self: ViscoelasticFiniteElement<C, G, 3, N, P>,
@@ -66,11 +63,11 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    ElasticHyperviscousFiniteElement<C, G, 2, N, P> for SurfaceElement<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticHyperviscousElement<C, N>
+    for SurfaceElement<G, N, O>
 where
     C: ElasticHyperviscous,
-    Self: ViscoelasticFiniteElement<C, G, 2, N, P>,
+    Self: ViscoelasticFiniteElement<C, G, 2, N, N>,
 {
     fn viscous_dissipation(
         &self,

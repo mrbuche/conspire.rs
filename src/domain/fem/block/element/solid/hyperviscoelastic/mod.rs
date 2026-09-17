@@ -1,5 +1,6 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperviscoelastic::Hyperviscoelastic},
+    domain::block::element::solid::hyperviscoelastic::HyperviscoelasticElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElementError,
         solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement, surface::SurfaceElement,
@@ -16,17 +17,20 @@ pub trait HyperviscoelasticFiniteElement<
     const P: usize,
 > where
     C: Hyperviscoelastic,
-    Self: ElasticHyperviscousFiniteElement<C, G, M, N, P>,
+    Self: ElasticHyperviscousFiniteElement<C, G, M, N, P> + HyperviscoelasticElement<C, P>,
 {
-    fn helmholtz_free_energy(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-    ) -> Result<Quantity<Energy>, FiniteElementError>;
+}
+
+impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
+    HyperviscoelasticFiniteElement<C, G, M, N, P> for T
+where
+    C: Hyperviscoelastic,
+    T: ElasticHyperviscousFiniteElement<C, G, M, N, P> + HyperviscoelasticElement<C, P>,
+{
 }
 
 impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    HyperviscoelasticFiniteElement<C, G, 3, N, P> for Element<3, G, N, O>
+    HyperviscoelasticElement<C, P> for Element<3, G, N, O>
 where
     C: Hyperviscoelastic,
     Self: ElasticHyperviscousFiniteElement<C, G, 3, N, P>,
@@ -40,11 +44,11 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    HyperviscoelasticFiniteElement<C, G, 2, N, P> for SurfaceElement<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize> HyperviscoelasticElement<C, N>
+    for SurfaceElement<G, N, O>
 where
     C: Hyperviscoelastic,
-    Self: ElasticHyperviscousFiniteElement<C, G, 2, N, P>,
+    Self: ElasticHyperviscousFiniteElement<C, G, 2, N, N>,
 {
     fn helmholtz_free_energy(
         &self,
