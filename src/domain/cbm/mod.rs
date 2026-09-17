@@ -20,7 +20,7 @@ use std::{
 };
 
 pub use crate::domain::{
-    ElementModelError, FirstOrderRoot, NodalCoordinates, NodalReferenceCoordinates,
+    ElementModelError, FirstOrderRoot, Model, NodalCoordinates, NodalReferenceCoordinates,
     NodalVelocities, ZerothOrderRoot,
     block::element::Elements,
     solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
