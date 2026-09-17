@@ -5,7 +5,7 @@ pub(crate) mod list;
 pub(crate) mod vec;
 
 use crate::math::{
-    Differentiable, Erase, Jacobian, Quantity, Solution, Tensor, TensorRank0, Vector,
+    Differentiable, Erase, Jacobian, Quantity, Scalar, Solution, Tensor, TensorRank0, Vector,
 };
 use crate::units::UnitHalves;
 use std::{
@@ -147,7 +147,7 @@ where
     T2: Tensor,
 {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "Need to implement Display")
+        write!(f, "({}, {})", self.0, self.1)
     }
 }
 
@@ -158,8 +158,35 @@ where
 {
     type Item = T1::Item;
     type Unit = (<T1 as Tensor>::Unit, <T2 as Tensor>::Unit);
+    fn error_count_zero(&self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
+        let error_count = self.0.error_count_zero(tol_abs, tol_rel).unwrap_or(0)
+            + self.1.error_count_zero(tol_abs, tol_rel).unwrap_or(0);
+        if error_count > 0 {
+            Some(error_count)
+        } else {
+            None
+        }
+    }
+    fn error_count(&self, tensor_tuple: &Self, tol_abs: Scalar, tol_rel: Scalar) -> Option<usize> {
+        let error_count = self
+            .0
+            .error_count(&tensor_tuple.0, tol_abs, tol_rel)
+            .unwrap_or(0)
+            + self
+                .1
+                .error_count(&tensor_tuple.1, tol_abs, tol_rel)
+                .unwrap_or(0);
+        if error_count > 0 {
+            Some(error_count)
+        } else {
+            None
+        }
+    }
     fn full_contraction(&self, tensor_tuple: &Self) -> TensorRank0 {
         self.0.full_contraction(&tensor_tuple.0) + self.1.full_contraction(&tensor_tuple.1)
+    }
+    fn is_zero(&self) -> bool {
+        self.0.is_zero() && self.1.is_zero()
     }
     fn iter(&self) -> impl Iterator<Item = &Self::Item> {
         if self.size() == 0 {
@@ -189,6 +216,18 @@ where
     }
     fn size(&self) -> usize {
         self.0.size() + self.1.size()
+    }
+    fn sub_abs(&self, tensor_tuple: &Self) -> Self {
+        Self(
+            self.0.sub_abs(&tensor_tuple.0),
+            self.1.sub_abs(&tensor_tuple.1),
+        )
+    }
+    fn sub_rel(&self, tensor_tuple: &Self) -> Self {
+        Self(
+            self.0.sub_rel(&tensor_tuple.0),
+            self.1.sub_rel(&tensor_tuple.1),
+        )
     }
 }
 

@@ -201,4 +201,75 @@ mod block_viscous {
             );
         }
     }
+    mod elastic_viscoplastic {
+        use super::*;
+        use crate::{
+            constitutive::{
+                canonical::Canonical, fluid::viscoplastic::ViscoplasticFlow,
+                solid::elastic::AlmansiHamelEulerian,
+            },
+            domain::{
+                block::test::test_finite_element_block_with_elastic_viscoplastic_constitutive_model,
+                solid::elastic_viscoplastic::ElasticViscoplasticElements,
+            },
+        };
+        type AlmansiHamel = Canonical<AlmansiHamelEulerian, ViscoplasticFlow>;
+        mod almansi_hamel {
+            use super::*;
+            test_finite_element_block_with_elastic_viscoplastic_constitutive_model!(
+                Element,
+                Element,
+                AlmansiHamel::from((
+                    AlmansiHamelEulerian {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    ViscoplasticFlow {
+                        yield_stress: crate::units::Stress::pascals(2.0),
+                        hardening_slope: crate::units::Stress::pascals(1.0),
+                        rate_sensitivity: 0.25,
+                        reference_flow_rate: crate::units::Rate::per_second(0.1),
+                    },
+                )),
+                AlmansiHamel
+            );
+        }
+    }
+    mod hyperelastic_viscoplastic {
+        use super::*;
+        use crate::{
+            constitutive::{
+                canonical::Canonical, fluid::viscoplastic::ViscoplasticFlow,
+                solid::hyperelastic::NeoHookean,
+            },
+            domain::{
+                block::test::test_finite_element_block_with_hyperelastic_viscoplastic_constitutive_model,
+                solid::{
+                    elastic_viscoplastic::ElasticViscoplasticElements,
+                    hyperelastic_viscoplastic::HyperelasticViscoplasticElements,
+                },
+            },
+        };
+        type NeoHookeanViscoplastic = Canonical<NeoHookean, ViscoplasticFlow>;
+        mod neo_hookean {
+            use super::*;
+            test_finite_element_block_with_hyperelastic_viscoplastic_constitutive_model!(
+                Element,
+                Element,
+                NeoHookeanViscoplastic::from((
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    ViscoplasticFlow {
+                        yield_stress: crate::units::Stress::pascals(2.0),
+                        hardening_slope: crate::units::Stress::pascals(1.0),
+                        rate_sensitivity: 0.25,
+                        reference_flow_rate: crate::units::Rate::per_second(0.1),
+                    },
+                )),
+                NeoHookeanViscoplastic
+            );
+        }
+    }
 }

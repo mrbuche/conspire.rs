@@ -20,6 +20,88 @@ macro_rules! test_finite_element_block {
             };
         }
         crate::fem::block::test::test_finite_element_block_inner!($element);
+        mod block_plastic {
+            use super::*;
+            use crate::{
+                EPSILON,
+                math::{Rank2, TensorRank2, assert::AssertionError},
+                mechanics::test::{
+                    get_rotation_current_configuration, get_rotation_reference_configuration,
+                    get_translation_current_configuration, get_translation_reference_configuration,
+                },
+            };
+            mod elastic_viscoplastic {
+                use super::*;
+                use crate::{
+                    constitutive::{
+                        canonical::Canonical, fluid::viscoplastic::ViscoplasticFlow,
+                        solid::elastic::AlmansiHamelEulerian,
+                    },
+                    domain::block::test::test_finite_element_block_with_elastic_viscoplastic_constitutive_model,
+                    fem::solid::{
+                        NodalForcesSolid, NodalStiffnessesSolid,
+                        elastic_viscoplastic::ElasticViscoplasticElements,
+                    },
+                };
+                type AlmansiHamel = Canonical<AlmansiHamelEulerian, ViscoplasticFlow>;
+                mod almansi_hamel {
+                    use super::*;
+                    test_finite_element_block_with_elastic_viscoplastic_constitutive_model!(
+                        ElementBlock,
+                        $element,
+                        AlmansiHamel::from((
+                            AlmansiHamelEulerian {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            ViscoplasticFlow {
+                                yield_stress: $crate::units::Stress::pascals(2.0),
+                                hardening_slope: $crate::units::Stress::pascals(1.0),
+                                rate_sensitivity: 0.25,
+                                reference_flow_rate: $crate::units::Rate::per_second(0.1),
+                            },
+                        )),
+                        AlmansiHamel
+                    );
+                }
+            }
+            mod hyperelastic_viscoplastic {
+                use super::*;
+                use crate::{
+                    constitutive::{
+                        canonical::Canonical, fluid::viscoplastic::ViscoplasticFlow,
+                        solid::hyperelastic::NeoHookean,
+                    },
+                    domain::block::test::test_finite_element_block_with_hyperelastic_viscoplastic_constitutive_model,
+                    fem::solid::{
+                        NodalForcesSolid, NodalStiffnessesSolid,
+                        elastic_viscoplastic::ElasticViscoplasticElements,
+                        hyperelastic_viscoplastic::HyperelasticViscoplasticElements,
+                    },
+                };
+                type NeoHookeanViscoplastic = Canonical<NeoHookean, ViscoplasticFlow>;
+                mod neo_hookean {
+                    use super::*;
+                    test_finite_element_block_with_hyperelastic_viscoplastic_constitutive_model!(
+                        ElementBlock,
+                        $element,
+                        NeoHookeanViscoplastic::from((
+                            NeoHookean {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            ViscoplasticFlow {
+                                yield_stress: $crate::units::Stress::pascals(2.0),
+                                hardening_slope: $crate::units::Stress::pascals(1.0),
+                                rate_sensitivity: 0.25,
+                                reference_flow_rate: $crate::units::Rate::per_second(0.1),
+                            },
+                        )),
+                        NeoHookeanViscoplastic
+                    );
+                }
+            }
+        }
     };
 }
 pub(crate) use test_finite_element_block;

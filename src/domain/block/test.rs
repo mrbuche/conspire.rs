@@ -1192,3 +1192,466 @@ macro_rules! test_finite_element_block_with_hyperviscoelastic_constitutive_model
     };
 }
 pub(crate) use test_finite_element_block_with_hyperviscoelastic_constitutive_model;
+
+macro_rules! test_finite_element_block_with_elastic_viscoplastic_constitutive_model {
+    ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
+        fn get_nodal_forces(
+            is_deformed: bool,
+            is_rotated: bool,
+        ) -> Result<NodalForcesSolid<3>, AssertionError> {
+            if is_rotated {
+                let block = get_block_transformed();
+                let state_variables = block.initial_state();
+                if is_deformed {
+                    Ok(get_rotation_current_configuration().transpose()
+                        * block
+                            .nodal_forces(&get_coordinates_transformed_block(), &state_variables)?)
+                } else {
+                    let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
+                        get_rotation_reference_configuration().into();
+                    Ok(converted.transpose()
+                        * block.nodal_forces(
+                            &get_reference_coordinates_transformed_block().into(),
+                            &state_variables,
+                        )?)
+                }
+            } else {
+                let block = get_block();
+                let state_variables = block.initial_state();
+                if is_deformed {
+                    Ok(block.nodal_forces(&get_coordinates_block(), &state_variables)?)
+                } else {
+                    Ok(block.nodal_forces(
+                        &get_reference_coordinates_block().into(),
+                        &state_variables,
+                    )?)
+                }
+            }
+        }
+        fn get_nodal_stiffnesses(
+            is_deformed: bool,
+            is_rotated: bool,
+        ) -> Result<NodalStiffnessesSolid<3>, AssertionError> {
+            if is_rotated {
+                let block = get_block_transformed();
+                let state_variables = block.initial_state();
+                if is_deformed {
+                    Ok(get_rotation_current_configuration().transpose()
+                        * block.nodal_stiffnesses(
+                            &get_coordinates_transformed_block(),
+                            &state_variables,
+                        )?
+                        * get_rotation_current_configuration())
+                } else {
+                    let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
+                        get_rotation_reference_configuration().into();
+                    Ok(converted.transpose()
+                        * block.nodal_stiffnesses(
+                            &get_reference_coordinates_transformed_block().into(),
+                            &state_variables,
+                        )?
+                        * converted)
+                }
+            } else {
+                let block = get_block();
+                let state_variables = block.initial_state();
+                if is_deformed {
+                    Ok(block.nodal_stiffnesses(&get_coordinates_block(), &state_variables)?)
+                } else {
+                    Ok(block.nodal_stiffnesses(
+                        &get_reference_coordinates_block().into(),
+                        &state_variables,
+                    )?)
+                }
+            }
+        }
+        fn get_finite_difference_of_nodal_forces(
+            is_deformed: bool,
+        ) -> Result<NodalStiffnessesSolid<3>, AssertionError> {
+            let block = get_block();
+            let state_variables = block.initial_state();
+            let mut finite_difference = $crate::math::Quantity::default();
+            (0..D)
+                .map(|node_a| {
+                    (0..D)
+                        .map(|node_b| {
+                            (0..3)
+                                .map(|i| {
+                                    (0..3)
+                                        .map(|j| {
+                                            let mut nodal_coordinates = if is_deformed {
+                                                get_coordinates_block()
+                                            } else {
+                                                get_reference_coordinates_block().into()
+                                            };
+                                            nodal_coordinates[node_b][j] +=
+                                                $crate::math::assert::perturbation(0.5 * EPSILON);
+                                            finite_difference = block.nodal_forces(
+                                                &nodal_coordinates,
+                                                &state_variables,
+                                            )?[node_a][i];
+                                            nodal_coordinates = if is_deformed {
+                                                get_coordinates_block()
+                                            } else {
+                                                get_reference_coordinates_block().into()
+                                            };
+                                            nodal_coordinates[node_b][j] -=
+                                                $crate::math::assert::perturbation(0.5 * EPSILON);
+                                            finite_difference -= block.nodal_forces(
+                                                &nodal_coordinates,
+                                                &state_variables,
+                                            )?[node_a][i];
+                                            Ok(finite_difference
+                                                / $crate::math::assert::perturbation::<
+                                                    $crate::units::Length,
+                                                >(EPSILON))
+                                        })
+                                        .collect()
+                                })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect()
+        }
+        crate::domain::block::test::test_nodal_forces_and_nodal_stiffnesses!(
+            $block,
+            $element,
+            $constitutive_model,
+            $constitutive_model_type
+        );
+        mod state_variables_evolution {
+            use super::*;
+            use $crate::math::{Tensor, TensorTuple};
+            #[test]
+            fn objectivity_deformed() -> Result<(), AssertionError> {
+                let block = get_block();
+                let state_variables = block.initial_state();
+                let block_transformed = get_block_transformed();
+                let rotation_transpose = get_rotation_reference_configuration().transpose();
+                let state_variables_transformed = state_variables
+                    .iter()
+                    .map(|element_state| {
+                        element_state
+                            .iter()
+                            .map(|state_variable| {
+                                TensorTuple(
+                                    &state_variable.0 * &rotation_transpose,
+                                    state_variable.1.clone(),
+                                )
+                            })
+                            .collect()
+                    })
+                    .collect();
+                let evolution =
+                    block.state_variables_evolution(&get_coordinates_block(), &state_variables)?;
+                let evolution_transformed = block_transformed.state_variables_evolution(
+                    &get_coordinates_transformed_block(),
+                    &state_variables_transformed,
+                )?;
+                let evolution_expected = evolution
+                    .iter()
+                    .map(|element_evolution| {
+                        element_evolution
+                            .iter()
+                            .map(|rate| TensorTuple(&rate.0 * &rotation_transpose, rate.1.clone()))
+                            .collect()
+                    })
+                    .collect();
+                $crate::math::assert::Assert::default()
+                    .eq_within_tols(&evolution_transformed, &evolution_expected)
+            }
+            #[test]
+            fn objectivity_undeformed() -> Result<(), AssertionError> {
+                let block = get_block();
+                let state_variables = block.initial_state();
+                let block_transformed = get_block_transformed();
+                let rotation_transpose = get_rotation_reference_configuration().transpose();
+                let state_variables_transformed = state_variables
+                    .iter()
+                    .map(|element_state| {
+                        element_state
+                            .iter()
+                            .map(|state_variable| {
+                                TensorTuple(
+                                    &state_variable.0 * &rotation_transpose,
+                                    state_variable.1.clone(),
+                                )
+                            })
+                            .collect()
+                    })
+                    .collect();
+                let evolution = block.state_variables_evolution(
+                    &get_reference_coordinates_block().into(),
+                    &state_variables,
+                )?;
+                let evolution_transformed = block_transformed.state_variables_evolution(
+                    &get_reference_coordinates_transformed_block().into(),
+                    &state_variables_transformed,
+                )?;
+                let evolution_expected = evolution
+                    .iter()
+                    .map(|element_evolution| {
+                        element_evolution
+                            .iter()
+                            .map(|rate| TensorTuple(&rate.0 * &rotation_transpose, rate.1.clone()))
+                            .collect()
+                    })
+                    .collect();
+                $crate::math::assert::Assert::default()
+                    .eq_within_tols(&evolution_transformed, &evolution_expected)
+            }
+        }
+        mod plastic_gauge_invariance {
+            use super::*;
+            use $crate::math::{Tensor, TensorTuple};
+            fn get_rotation_intermediate_configuration()
+            -> TensorRank2<3, $crate::math::Intermediate, $crate::math::Intermediate> {
+                get_rotation_reference_configuration().into()
+            }
+            #[test]
+            fn nodal_forces() -> Result<(), AssertionError> {
+                let block = get_block();
+                let nodal_coordinates = get_coordinates_block();
+                let state_variables = block.initial_state();
+                let q = get_rotation_intermediate_configuration();
+                let state_variables_rotated = state_variables
+                    .iter()
+                    .map(|element_state| {
+                        element_state
+                            .iter()
+                            .map(|state_variable| {
+                                TensorTuple(&q * &state_variable.0, state_variable.1.clone())
+                            })
+                            .collect()
+                    })
+                    .collect();
+                $crate::math::assert::Assert::default().eq_within_tols(
+                    &block.nodal_forces(&nodal_coordinates, &state_variables)?,
+                    &block.nodal_forces(&nodal_coordinates, &state_variables_rotated)?,
+                )
+            }
+            #[test]
+            fn nodal_stiffnesses() -> Result<(), AssertionError> {
+                let block = get_block();
+                let nodal_coordinates = get_coordinates_block();
+                let state_variables = block.initial_state();
+                let q = get_rotation_intermediate_configuration();
+                let state_variables_rotated = state_variables
+                    .iter()
+                    .map(|element_state| {
+                        element_state
+                            .iter()
+                            .map(|state_variable| {
+                                TensorTuple(&q * &state_variable.0, state_variable.1.clone())
+                            })
+                            .collect()
+                    })
+                    .collect();
+                $crate::math::assert::Assert::default().eq_within_tols(
+                    &block.nodal_stiffnesses(&nodal_coordinates, &state_variables)?,
+                    &block.nodal_stiffnesses(&nodal_coordinates, &state_variables_rotated)?,
+                )
+            }
+            #[test]
+            fn state_variables_evolution() -> Result<(), AssertionError> {
+                let block = get_block();
+                let nodal_coordinates = get_coordinates_block();
+                let state_variables = block.initial_state();
+                let q = get_rotation_intermediate_configuration();
+                let state_variables_rotated = state_variables
+                    .iter()
+                    .map(|element_state| {
+                        element_state
+                            .iter()
+                            .map(|state_variable| {
+                                TensorTuple(&q * &state_variable.0, state_variable.1.clone())
+                            })
+                            .collect()
+                    })
+                    .collect();
+                let evolution =
+                    block.state_variables_evolution(&nodal_coordinates, &state_variables)?;
+                let evolution_rotated = block
+                    .state_variables_evolution(&nodal_coordinates, &state_variables_rotated)?;
+                let evolution_expected = evolution
+                    .iter()
+                    .map(|element_evolution| {
+                        element_evolution
+                            .iter()
+                            .map(|rate| TensorTuple(&q * &rate.0, rate.1.clone()))
+                            .collect()
+                    })
+                    .collect();
+                $crate::math::assert::Assert::default()
+                    .eq_within_tols(&evolution_rotated, &evolution_expected)
+            }
+        }
+    };
+}
+pub(crate) use test_finite_element_block_with_elastic_viscoplastic_constitutive_model;
+
+macro_rules! test_finite_element_block_with_hyperelastic_viscoplastic_constitutive_model {
+    ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
+        crate::domain::block::test::test_finite_element_block_with_elastic_viscoplastic_constitutive_model!(
+            $block,
+            $element,
+            $constitutive_model,
+            $constitutive_model_type
+        );
+        fn get_finite_difference_of_helmholtz_free_energy(
+            is_deformed: bool,
+        ) -> Result<NodalForcesSolid<3>, AssertionError> {
+            let block = get_block();
+            let state_variables = block.initial_state();
+            let mut finite_difference = $crate::math::Quantity::default();
+            (0..D)
+                .map(|node| {
+                    (0..3)
+                        .map(|i| {
+                            let mut nodal_coordinates = if is_deformed {
+                                get_coordinates_block()
+                            } else {
+                                get_reference_coordinates_block().into()
+                            };
+                            nodal_coordinates[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
+                            finite_difference = block
+                                .helmholtz_free_energy(&nodal_coordinates, &state_variables)?;
+                            nodal_coordinates = if is_deformed {
+                                get_coordinates_block()
+                            } else {
+                                get_reference_coordinates_block().into()
+                            };
+                            nodal_coordinates[node][i] -=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
+                            finite_difference -= block
+                                .helmholtz_free_energy(&nodal_coordinates, &state_variables)?;
+                            Ok((finite_difference
+                                / $crate::math::Quantity::<$crate::units::Length>::new(EPSILON))
+                            .value_as::<$crate::units::Force>())
+                        })
+                        .collect()
+                })
+                .collect()
+        }
+        mod helmholtz_free_energy {
+            use super::*;
+            mod deformed {
+                use super::*;
+                #[test]
+                fn finite_difference() -> Result<(), AssertionError> {
+                    let block = get_block();
+                    let state_variables = block.initial_state();
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
+                        &block.nodal_forces(&get_coordinates_block(), &state_variables)?,
+                        &get_finite_difference_of_helmholtz_free_energy(true)?,
+                    )
+                }
+                #[test]
+                fn objectivity() -> Result<(), AssertionError> {
+                    let block = get_block();
+                    let state_variables = block.initial_state();
+                    let block_transformed = get_block_transformed();
+                    let rotation_transpose = get_rotation_reference_configuration().transpose();
+                    let state_variables_transformed = state_variables
+                        .iter()
+                        .map(|element_state| {
+                            element_state
+                                .iter()
+                                .map(|state_variable| {
+                                    $crate::math::TensorTuple(
+                                        &state_variable.0 * &rotation_transpose,
+                                        state_variable.1.clone(),
+                                    )
+                                })
+                                .collect()
+                        })
+                        .collect();
+                    $crate::math::assert::Assert::default().eq_within_tols(
+                        &block
+                            .helmholtz_free_energy(&get_coordinates_block(), &state_variables)?,
+                        &block_transformed.helmholtz_free_energy(
+                            &get_coordinates_transformed_block(),
+                            &state_variables_transformed,
+                        )?,
+                    )
+                }
+            }
+            mod undeformed {
+                use super::*;
+                #[test]
+                fn finite_difference() -> Result<(), AssertionError> {
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
+                        &get_finite_difference_of_helmholtz_free_energy(false)?,
+                        &NodalForcesSolid::zero(D),
+                    )
+                }
+                #[test]
+                fn objectivity() -> Result<(), AssertionError> {
+                    let block = get_block();
+                    let state_variables = block.initial_state();
+                    let block_transformed = get_block_transformed();
+                    let rotation_transpose = get_rotation_reference_configuration().transpose();
+                    let state_variables_transformed = state_variables
+                        .iter()
+                        .map(|element_state| {
+                            element_state
+                                .iter()
+                                .map(|state_variable| {
+                                    $crate::math::TensorTuple(
+                                        &state_variable.0 * &rotation_transpose,
+                                        state_variable.1.clone(),
+                                    )
+                                })
+                                .collect()
+                        })
+                        .collect();
+                    $crate::math::assert::Assert::default().eq_within_tols(
+                        &block.helmholtz_free_energy(
+                            &get_reference_coordinates_block().into(),
+                            &state_variables,
+                        )?,
+                        &block_transformed.helmholtz_free_energy(
+                            &get_reference_coordinates_transformed_block().into(),
+                            &state_variables_transformed,
+                        )?,
+                    )
+                }
+            }
+        }
+        mod plastic_gauge_invariance_helmholtz {
+            use super::*;
+            fn get_rotation_intermediate_configuration(
+            ) -> TensorRank2<3, $crate::math::Intermediate, $crate::math::Intermediate> {
+                get_rotation_reference_configuration().into()
+            }
+            #[test]
+            fn helmholtz_free_energy() -> Result<(), AssertionError> {
+                let block = get_block();
+                let nodal_coordinates = get_coordinates_block();
+                let state_variables = block.initial_state();
+                let q = get_rotation_intermediate_configuration();
+                let state_variables_rotated = state_variables
+                    .iter()
+                    .map(|element_state| {
+                        element_state
+                            .iter()
+                            .map(|state_variable| {
+                                $crate::math::TensorTuple(
+                                    &q * &state_variable.0,
+                                    state_variable.1.clone(),
+                                )
+                            })
+                            .collect()
+                    })
+                    .collect();
+                $crate::math::assert::Assert::default().eq_within_tols(
+                    &block.helmholtz_free_energy(&nodal_coordinates, &state_variables)?,
+                    &block.helmholtz_free_energy(&nodal_coordinates, &state_variables_rotated)?,
+                )
+            }
+        }
+    };
+}
+pub(crate) use test_finite_element_block_with_hyperelastic_viscoplastic_constitutive_model;
