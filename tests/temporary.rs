@@ -8349,3 +8349,42 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     }
     .eq_within_tols(&condensed, &eliminated)
 }
+
+#[cfg(feature = "cbm")]
+mod cbm_kinematics_smoke {
+    use conspire::{
+        cbm::{Cbm, SolidElements},
+        geometry::{Coordinate, Coordinates, mesh::PrimitiveConnectivity},
+        math::{Tensor, assert::Assert},
+        mechanics::DeformationGradient,
+    };
+
+    #[test]
+    fn patch_test() {
+        let connectivity = PrimitiveConnectivity::from(vec![[0, 1, 2, 3], [1, 4, 2, 3]]);
+        let coordinates: Coordinates<3> = vec![
+            Coordinate::from([0.0, 0.0, 0.0]),
+            Coordinate::from([1.0, 0.0, 0.0]),
+            Coordinate::from([0.0, 1.0, 0.0]),
+            Coordinate::from([0.0, 0.0, 1.0]),
+            Coordinate::from([1.0, 1.0, 1.0]),
+        ]
+        .into_iter()
+        .collect();
+        let reference_coordinates = coordinates;
+        let cbm = Cbm::from((connectivity, &reference_coordinates));
+        let deformation_gradient =
+            DeformationGradient::from([[1.1, 0.05, 0.0], [0.0, 0.9, 0.02], [-0.03, 0.0, 1.2]]);
+        let current_coordinates = reference_coordinates
+            .iter()
+            .map(|reference_coordinate| &deformation_gradient * reference_coordinate)
+            .collect();
+        cbm.deformation_gradients(&current_coordinates)
+            .iter()
+            .for_each(|particle_deformation_gradient| {
+                Assert::default()
+                    .eq_within_tols(particle_deformation_gradient, &deformation_gradient)
+                    .unwrap()
+            })
+    }
+}

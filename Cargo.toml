@@ -12,8 +12,9 @@ repository = "https://github.com/mrbuche/conspire.rs"
 version = "0.7.8"
 
 [features]
-all = ['vem']
+all = ['cbm', 'vem']
 autodiff = []
+cbm = ['fem']
 constitutive = ['physics']
 doc = []
 fem = ['constitutive', 'geometry']
