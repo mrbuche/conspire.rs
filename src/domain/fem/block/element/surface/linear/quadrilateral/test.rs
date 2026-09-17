@@ -6,7 +6,6 @@ use crate::{
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
-                solid::SolidFiniteElement,
                 surface::{
                     Normals, SurfaceFiniteElement,
                     linear::{
@@ -25,10 +24,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{ScalarList, Tensor, optimize::EqualityConstraint},
-    mechanics::{
-        DeformationGradient, DeformationGradientList, DeformationGradientRate,
-        DeformationGradientRateList,
-    },
+    mechanics::{DeformationGradient, DeformationGradientRate},
 };
 
 fn get_connectivity() -> Vec<[usize; N]> {

@@ -6,7 +6,6 @@ use crate::{
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
-                solid::SolidFiniteElement,
                 surface::{
                     Normals, SurfaceFiniteElement,
                     linear::triangle::{G, M, N, P, Triangle},
@@ -18,10 +17,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{ScalarList, Tensor, optimize::EqualityConstraint},
-    mechanics::{
-        DeformationGradient, DeformationGradientList, DeformationGradientRate,
-        DeformationGradientRateList,
-    },
+    mechanics::{DeformationGradient, DeformationGradientRate},
 };
 
 pub const D: usize = 16;

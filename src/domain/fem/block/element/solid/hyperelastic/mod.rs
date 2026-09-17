@@ -2,6 +2,7 @@ pub mod internal_variables;
 
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
+    domain::block::element::solid::hyperelastic::HyperelasticElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElementError, solid::elastic::ElasticFiniteElement,
         surface::SurfaceElement,
@@ -18,20 +19,23 @@ pub trait HyperelasticFiniteElement<
     const P: usize,
 > where
     C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, M, N, P>,
+    Self: ElasticFiniteElement<C, G, M, N, P> + HyperelasticElement<C>,
 {
-    fn helmholtz_free_energy(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-    ) -> Result<Quantity<Energy>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    HyperelasticFiniteElement<C, G, 3, N, P> for Element<3, G, N, O>
+impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
+    HyperelasticFiniteElement<C, G, M, N, P> for T
 where
     C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, 3, N, P>,
+    T: ElasticFiniteElement<C, G, M, N, P> + HyperelasticElement<C>,
+{
+}
+
+impl<C, const G: usize, const N: usize, const O: usize> HyperelasticElement<C>
+    for Element<3, G, N, O>
+where
+    C: Hyperelastic,
+    Self: ElasticFiniteElement<C, G, 3, N, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -42,11 +46,11 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    HyperelasticFiniteElement<C, G, 2, N, P> for SurfaceElement<G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize> HyperelasticElement<C>
+    for SurfaceElement<G, N, O>
 where
     C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, 2, N, P>,
+    Self: ElasticFiniteElement<C, G, 2, N, N>,
 {
     fn helmholtz_free_energy(
         &self,

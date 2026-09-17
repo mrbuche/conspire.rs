@@ -20,29 +20,20 @@ use crate::{
         },
     },
     math::{
-        Derivative, Differentiable, Quantity, Tensor, TensorTupleListVec, TensorTupleListVec2D,
-        TensorVec, TensorVector,
+        Derivative, Differentiable, Quantity, Tensor, TensorVec, TensorVector,
         integrate::{EvolvedIncrement, Integrable, List, StateEvolution},
-        optimize::EqualityConstraint,
     },
-    mechanics::{DeformationGradient, DeformationGradientPlastic, DeformationGradientRatePlastic},
+    mechanics::DeformationGradient,
     units::Time,
 };
 use std::array::from_fn;
 
-pub type ViscoplasticStateVariables<const G: usize, Y> =
-    TensorTupleListVec<DeformationGradientPlastic, Y, G>;
-
-pub type ViscoplasticStateVariablesHistory<const G: usize, Y> =
-    TensorTupleListVec2D<DeformationGradientPlastic, Y, G>;
-
-pub type ViscoplasticEvolution<const G: usize, Y> =
-    TensorTupleListVec<DeformationGradientRatePlastic, Derivative<Y>, G>;
-
-pub type ViscoplasticEvolutionHistory<const G: usize, Y> =
-    TensorTupleListVec2D<DeformationGradientRatePlastic, Derivative<Y>, G>;
-
-pub type ElasticViscoplasticBCs = fn(Quantity<Time>) -> EqualityConstraint;
+pub use crate::domain::{
+    block::solid::viscoplastic::{
+        ViscoplasticEvolution, ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
+    },
+    solid::elastic_viscoplastic::ElasticViscoplasticBCs,
+};
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y>
     ElasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3> for Block<C, F, G, M, N, P>

@@ -2,23 +2,20 @@
 mod test;
 
 use crate::{
-    fem::{Model, nodal_coordinates},
-    geometry::{
-        Coordinates,
-        mesh::{Connectivities, Mesh, PolytopalConnectivity},
-    },
+    domain::{NodalReferenceCoordinates, from::FromConnectivities},
+    geometry::mesh::{Connectivity, PolytopalConnectivity},
     vem::block::{Block, element::VirtualElement},
 };
 
-impl<C, F> TryFrom<(Mesh<3>, C)> for Model<Block<C, F>, 3>
+impl<C, F> FromConnectivities<3, C> for Block<C, F>
 where
     F: VirtualElement,
 {
-    type Error = String;
-    fn try_from((mesh, constitutive_model): (Mesh<3>, C)) -> Result<Self, Self::Error> {
-        let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh.into();
-        let coordinates = nodal_coordinates(coordinates);
-        let mut connectivities = connectivities.into_members();
+    fn from_connectivities(
+        mut connectivities: Vec<Connectivity>,
+        constitutive_model: C,
+        coordinates: &NodalReferenceCoordinates<3>,
+    ) -> Result<Self, String> {
         if connectivities.len() != 1 {
             return Err(format!(
                 "mesh has {} blocks, model type expects 1",
@@ -26,9 +23,6 @@ where
             ));
         }
         let connectivity = PolytopalConnectivity::<3>::try_from(connectivities.remove(0))?;
-        Ok(Model::from((
-            Block::from((constitutive_model, connectivity, &coordinates)),
-            coordinates,
-        )))
+        Ok(Block::from((constitutive_model, connectivity, coordinates)))
     }
 }

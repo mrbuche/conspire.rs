@@ -3,11 +3,10 @@ use crate::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
         FiniteElement, GradientVectors,
         quadratic::wedge::{G, M, N, Wedge},
-        solid::SolidFiniteElement,
         test::test_finite_element,
     },
     math::{ScalarList, Tensor},
-    mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
+    mechanics::DeformationGradient,
 };
 
 fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
