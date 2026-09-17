@@ -12,12 +12,14 @@ mod transition_5;
 use super::{D, N};
 use crate::geometry::{
     Coordinates,
-    mesh::from::ntree::dualization::NodeMap,
+    mesh::from::ntree::dualization::{LeafIndex, NodeMap},
     ntree::{Balancing, Octree},
 };
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn edge_transitions<T, U>(
     tree: &Octree<T, U>,
+    leaf_index: &LeafIndex<D>,
     center_nodes: &[usize],
     coordinates: &mut Coordinates<D>,
     connectivity: &mut Vec<[usize; N]>,
@@ -30,6 +32,7 @@ pub(super) fn edge_transitions<T, U>(
 {
     transition_1::template(
         tree,
+        leaf_index,
         center_nodes,
         coordinates,
         connectivity,
@@ -38,17 +41,33 @@ pub(super) fn edge_transitions<T, U>(
     );
     transition_3::template(
         tree,
+        leaf_index,
         center_nodes,
         coordinates,
         connectivity,
         node_index,
         nodes_map,
     );
-    transition_2::template(tree, center_nodes, coordinates, connectivity, nodes_map);
-    transition_4::template(tree, center_nodes, coordinates, connectivity, nodes_map);
+    transition_2::template(
+        tree,
+        leaf_index,
+        center_nodes,
+        coordinates,
+        connectivity,
+        nodes_map,
+    );
+    transition_4::template(
+        tree,
+        leaf_index,
+        center_nodes,
+        coordinates,
+        connectivity,
+        nodes_map,
+    );
     if matches!(balancing, Balancing::Weak(_)) {
         transition_5::template(
             tree,
+            leaf_index,
             center_nodes,
             coordinates,
             connectivity,

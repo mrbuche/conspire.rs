@@ -123,6 +123,8 @@ fn polygonal_boundary_edges() {
             value: None,
         }],
         paired: Pairing::None,
+        pairing_vertices: Default::default(),
+        pairing_stable_len: Default::default(),
         rescale: Rescaling {
             center: Coordinate::const_from([1.0; 2]),
             cell: Quantity::new(1.0),
