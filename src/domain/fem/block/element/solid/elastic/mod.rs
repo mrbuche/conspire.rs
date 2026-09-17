@@ -21,7 +21,6 @@ where
     Self: SolidFiniteElement<G, M, N, P>
         + ElasticElement<
             C,
-            P,
             Forces = ElementNodalForcesSolid<N>,
             Stiffnesses = ElementNodalStiffnessesSolid<N>,
             Error = FiniteElementError,
@@ -36,7 +35,6 @@ where
     T: SolidFiniteElement<G, M, N, P>
         + ElasticElement<
             C,
-            P,
             Forces = ElementNodalForcesSolid<N>,
             Stiffnesses = ElementNodalStiffnessesSolid<N>,
             Error = FiniteElementError,
@@ -44,11 +42,10 @@ where
 {
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize> ElasticElement<C, P>
-    for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticElement<C> for Element<3, G, N, O>
 where
     C: Elastic,
-    Self: SolidFiniteElement<G, 3, N, P>,
+    Self: SolidFiniteElement<G, 3, N, N>,
 {
     type Forces = ElementNodalForcesSolid<N>;
     type Stiffnesses = ElementNodalStiffnessesSolid<N>;
@@ -79,7 +76,7 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ElasticElement<C, N>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticElement<C>
     for SurfaceElement<G, N, O>
 where
     C: Elastic,

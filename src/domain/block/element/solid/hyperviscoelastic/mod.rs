@@ -4,10 +4,10 @@ use crate::{
     math::Quantity, units::Energy,
 };
 
-pub trait HyperviscoelasticElement<C, const P: usize>
+pub trait HyperviscoelasticElement<C>
 where
     C: Hyperviscoelastic,
-    Self: ElasticHyperviscousElement<C, P>,
+    Self: ElasticHyperviscousElement<C>,
 {
     fn helmholtz_free_energy(
         &self,

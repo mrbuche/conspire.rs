@@ -1,73 +1,80 @@
 use crate::{
-    constitutive::solid::viscoelastic::Viscoelastic,
-    domain::block::element::solid::viscoelastic::ViscoelasticElement,
+    constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
+    domain::block::element::solid::{
+        elastic_viscoplastic::ElasticViscoplasticElement,
+        viscoplastic::{ViscoplasticEvolution, ViscoplasticStateVariables},
+    },
     fem::block::element::FiniteElementError,
-    math::{ContractSecondFourthWithFirst, Scalar, Tensor, TensorArray},
+    math::{ContractSecondFourthWithFirst, Differentiable, Scalar, Tensor, TensorArray},
     mechanics::{
-        Damping, FirstPiolaKirchhoffRateTangentStiffnesses, FirstPiolaKirchhoffStresses, Force,
+        FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Force, Stiffness,
     },
     vem::block::element::{
-        Element, ElementNodalCoordinates, ElementNodalVelocities, VirtualElement,
-        VirtualElementError,
+        Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
         solid::{
-            ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidElement, SolidVirtualElement,
+            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement,
+            SolidVirtualElement,
         },
     },
 };
 
-pub trait ViscoelasticVirtualElement<C>
+pub trait ElasticViscoplasticVirtualElement<C, Y>
 where
-    C: Viscoelastic,
+    C: ElasticViscoplastic<Y>,
+    Y: Differentiable + Tensor,
     Self: SolidVirtualElement
-        + ViscoelasticElement<
+        + ElasticViscoplasticElement<
             C,
+            1,
+            Y,
             Forces = ElementNodalForcesSolid,
-            Dampings = ElementNodalDampingsSolid,
+            Stiffnesses = ElementNodalStiffnessesSolid,
             Error = VirtualElementError,
         >,
 {
 }
 
-impl<T, C> ViscoelasticVirtualElement<C> for T
+impl<T, C, Y> ElasticViscoplasticVirtualElement<C, Y> for T
 where
-    C: Viscoelastic,
+    C: ElasticViscoplastic<Y>,
+    Y: Differentiable + Tensor,
     T: SolidVirtualElement
-        + ViscoelasticElement<
+        + ElasticViscoplasticElement<
             C,
+            1,
+            Y,
             Forces = ElementNodalForcesSolid,
-            Dampings = ElementNodalDampingsSolid,
+            Stiffnesses = ElementNodalStiffnessesSolid,
             Error = VirtualElementError,
         >,
 {
 }
 
-impl<C> ViscoelasticElement<C> for Element
+impl<C, Y> ElasticViscoplasticElement<C, 1, Y> for Element
 where
-    C: Viscoelastic,
+    C: ElasticViscoplastic<Y>,
+    Y: Differentiable + Tensor,
 {
     type Forces = ElementNodalForcesSolid;
-    type Dampings = ElementNodalDampingsSolid;
+    type Stiffnesses = ElementNodalStiffnessesSolid;
     type Error = VirtualElementError;
     fn nodal_forces(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates,
-        nodal_velocities: &ElementNodalVelocities,
+        state_variables: &ViscoplasticStateVariables<1, Y>,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError> {
         let stabilization = self.stabilization();
         let inverse_num_nodes = 1.0 / nodal_coordinates.len() as Scalar;
         let tetrahedra_coordinates = self.tetrahedra_coordinates(nodal_coordinates);
-        let tetrahedra_velocities = self.tetrahedra_coordinates(nodal_velocities);
         let mut forces = self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(
-                self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
-                    .iter(),
-            )
-            .map(|(deformation_gradient, deformation_gradient_rate)| {
+            .zip(state_variables)
+            .map(|(deformation_gradient, state_variable)| {
+                let (deformation_gradient_p, _) = state_variable.into();
                 constitutive_model
-                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_rate)
+                    .first_piola_kirchhoff_stress(deformation_gradient, deformation_gradient_p)
             })
             .collect::<Result<FirstPiolaKirchhoffStresses, _>>()
             .map_err(|error| self.upstream(error))?
@@ -93,21 +100,14 @@ where
         let mut center_force = Force::zero();
         self.tetrahedra()
             .iter()
-            .zip(
-                tetrahedra_coordinates
-                    .iter()
-                    .zip(tetrahedra_velocities.iter()),
-            )
+            .zip(tetrahedra_coordinates.iter())
             .zip(self.tetrahedra_nodes().iter())
             .try_for_each(
-                |(
-                    (tetrahedron, (tetrahedron_coordinates, tetrahedron_velocities)),
-                    &[face, node_b, node_a],
-                )| {
+                |((tetrahedron, tetrahedron_coordinates), &[face, node_b, node_a])| {
                     let nodal_forces = tetrahedron.nodal_forces(
                         constitutive_model,
                         tetrahedron_coordinates,
-                        tetrahedron_velocities,
+                        state_variables,
                     )?;
                     faces_forces[face] += &nodal_forces[0];
                     forces[node_b] += &nodal_forces[1] * stabilization;
@@ -134,27 +134,24 @@ where
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates,
-        nodal_velocities: &ElementNodalVelocities,
-    ) -> Result<ElementNodalDampingsSolid, VirtualElementError> {
+        state_variables: &ViscoplasticStateVariables<1, Y>,
+    ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
         let num_nodes = nodal_coordinates.len();
         let stabilization = self.stabilization();
         let inverse_num_nodes = 1.0 / num_nodes as Scalar;
         let tetrahedra_coordinates = self.tetrahedra_coordinates(nodal_coordinates);
-        let tetrahedra_velocities = self.tetrahedra_coordinates(nodal_velocities);
         let mut stiffnesses = self
             .deformation_gradients(nodal_coordinates)
             .iter()
-            .zip(
-                self.deformation_gradient_rates(nodal_coordinates, nodal_velocities)
-                    .iter(),
-            )
-            .map(|(deformation_gradient, deformation_gradient_rate)| {
-                constitutive_model.first_piola_kirchhoff_rate_tangent_stiffness(
+            .zip(state_variables)
+            .map(|(deformation_gradient, state_variable)| {
+                let (deformation_gradient_p, _) = state_variable.into();
+                constitutive_model.first_piola_kirchhoff_tangent_stiffness(
                     deformation_gradient,
-                    deformation_gradient_rate,
+                    deformation_gradient_p,
                 )
             })
-            .collect::<Result<FirstPiolaKirchhoffRateTangentStiffnesses, _>>()
+            .collect::<Result<FirstPiolaKirchhoffTangentStiffnesses, _>>()
             .map_err(|error| self.upstream(error))?
             .iter()
             .zip(
@@ -164,7 +161,7 @@ where
             )
             .map(
                 |(
-                    first_piola_kirchhoff_rate_tangent_stiffness,
+                    first_piola_kirchhoff_tangent_stiffness,
                     (gradient_vectors, integration_weight),
                 )| {
                     let weight = integration_weight * (1.0 - stabilization);
@@ -174,7 +171,7 @@ where
                             gradient_vectors
                                 .iter()
                                 .map(|gradient_vector_b| {
-                                    first_piola_kirchhoff_rate_tangent_stiffness
+                                    first_piola_kirchhoff_tangent_stiffness
                                         .contract_second_fourth_with_first(
                                             gradient_vector_a,
                                             gradient_vector_b,
@@ -186,31 +183,24 @@ where
                         .collect()
                 },
             )
-            .sum::<ElementNodalDampingsSolid>();
+            .sum::<ElementNodalStiffnessesSolid>();
         let num_faces = self.faces_nodes().len();
-        let mut faces_stiffnesses = vec![Damping::zero(); num_faces];
-        let mut faces_rows = vec![Damping::zero(); num_faces];
-        let mut faces_columns = vec![Damping::zero(); num_faces];
-        let mut rows = vec![Damping::zero(); num_nodes];
-        let mut columns = vec![Damping::zero(); num_nodes];
-        let mut center_stiffness = Damping::zero();
+        let mut faces_stiffnesses = vec![Stiffness::zero(); num_faces];
+        let mut faces_rows = vec![Stiffness::zero(); num_faces];
+        let mut faces_columns = vec![Stiffness::zero(); num_faces];
+        let mut rows = vec![Stiffness::zero(); num_nodes];
+        let mut columns = vec![Stiffness::zero(); num_nodes];
+        let mut center_stiffness = Stiffness::zero();
         self.tetrahedra()
             .iter()
-            .zip(
-                tetrahedra_coordinates
-                    .iter()
-                    .zip(tetrahedra_velocities.iter()),
-            )
+            .zip(tetrahedra_coordinates.iter())
             .zip(self.tetrahedra_nodes().iter())
             .try_for_each(
-                |(
-                    (tetrahedron, (tetrahedron_coordinates, tetrahedron_velocities)),
-                    &[face, node_b, node_a],
-                )| {
+                |((tetrahedron, tetrahedron_coordinates), &[face, node_b, node_a])| {
                     let nodal_stiffnesses = tetrahedron.nodal_stiffnesses(
                         constitutive_model,
                         tetrahedron_coordinates,
-                        tetrahedron_velocities,
+                        state_variables,
                     )?;
                     let face_nodes = &self.faces_nodes()[face];
                     let weight = stabilization / face_nodes.len() as Scalar;
@@ -280,5 +270,20 @@ where
                     })
             });
         Ok(stiffnesses)
+    }
+    fn state_variables_evolution(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates,
+        state_variables: &ViscoplasticStateVariables<1, Y>,
+    ) -> Result<ViscoplasticEvolution<1, Y>, VirtualElementError> {
+        self.deformation_gradients(nodal_coordinates)
+            .iter()
+            .zip(state_variables)
+            .map(|(deformation_gradient, state_variable)| {
+                constitutive_model.state_variables_evolution(deformation_gradient, state_variable)
+            })
+            .collect::<Result<ViscoplasticEvolution<1, Y>, _>>()
+            .map_err(|error| self.upstream(error))
     }
 }

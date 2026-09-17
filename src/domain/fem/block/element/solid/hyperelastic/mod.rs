@@ -19,7 +19,7 @@ pub trait HyperelasticFiniteElement<
     const P: usize,
 > where
     C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, M, N, P> + HyperelasticElement<C, P>,
+    Self: ElasticFiniteElement<C, G, M, N, P> + HyperelasticElement<C>,
 {
 }
 
@@ -27,15 +27,15 @@ impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
     HyperelasticFiniteElement<C, G, M, N, P> for T
 where
     C: Hyperelastic,
-    T: ElasticFiniteElement<C, G, M, N, P> + HyperelasticElement<C, P>,
+    T: ElasticFiniteElement<C, G, M, N, P> + HyperelasticElement<C>,
 {
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize> HyperelasticElement<C, P>
+impl<C, const G: usize, const N: usize, const O: usize> HyperelasticElement<C>
     for Element<3, G, N, O>
 where
     C: Hyperelastic,
-    Self: ElasticFiniteElement<C, G, 3, N, P>,
+    Self: ElasticFiniteElement<C, G, 3, N, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -46,7 +46,7 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> HyperelasticElement<C, N>
+impl<C, const G: usize, const N: usize, const O: usize> HyperelasticElement<C>
     for SurfaceElement<G, N, O>
 where
     C: Hyperelastic,

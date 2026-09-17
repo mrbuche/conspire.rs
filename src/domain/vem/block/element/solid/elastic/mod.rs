@@ -21,7 +21,6 @@ where
     Self: SolidVirtualElement
         + ElasticElement<
             C,
-            0,
             Forces = ElementNodalForcesSolid,
             Stiffnesses = ElementNodalStiffnessesSolid,
             Error = VirtualElementError,
@@ -35,7 +34,6 @@ where
     T: SolidVirtualElement
         + ElasticElement<
             C,
-            0,
             Forces = ElementNodalForcesSolid,
             Stiffnesses = ElementNodalStiffnessesSolid,
             Error = VirtualElementError,
@@ -43,7 +41,7 @@ where
 {
 }
 
-impl<C, const P: usize> ElasticElement<C, P> for Element
+impl<C> ElasticElement<C> for Element
 where
     C: Elastic,
 {

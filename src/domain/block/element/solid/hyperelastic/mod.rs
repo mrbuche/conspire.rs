@@ -3,10 +3,10 @@ use crate::{
     domain::block::element::solid::elastic::ElasticElement, math::Quantity, units::Energy,
 };
 
-pub trait HyperelasticElement<C, const P: usize>
+pub trait HyperelasticElement<C>
 where
     C: Hyperelastic,
-    Self: ElasticElement<C, P>,
+    Self: ElasticElement<C>,
 {
     fn helmholtz_free_energy(
         &self,

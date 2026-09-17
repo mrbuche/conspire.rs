@@ -17,7 +17,7 @@ pub trait HyperviscoelasticFiniteElement<
     const P: usize,
 > where
     C: Hyperviscoelastic,
-    Self: ElasticHyperviscousFiniteElement<C, G, M, N, P> + HyperviscoelasticElement<C, P>,
+    Self: ElasticHyperviscousFiniteElement<C, G, M, N, P> + HyperviscoelasticElement<C>,
 {
 }
 
@@ -25,15 +25,15 @@ impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
     HyperviscoelasticFiniteElement<C, G, M, N, P> for T
 where
     C: Hyperviscoelastic,
-    T: ElasticHyperviscousFiniteElement<C, G, M, N, P> + HyperviscoelasticElement<C, P>,
+    T: ElasticHyperviscousFiniteElement<C, G, M, N, P> + HyperviscoelasticElement<C>,
 {
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    HyperviscoelasticElement<C, P> for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize> HyperviscoelasticElement<C>
+    for Element<3, G, N, O>
 where
     C: Hyperviscoelastic,
-    Self: ElasticHyperviscousFiniteElement<C, G, 3, N, P>,
+    Self: ElasticHyperviscousFiniteElement<C, G, 3, N, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -44,7 +44,7 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> HyperviscoelasticElement<C, N>
+impl<C, const G: usize, const N: usize, const O: usize> HyperviscoelasticElement<C>
     for SurfaceElement<G, N, O>
 where
     C: Hyperviscoelastic,

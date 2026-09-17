@@ -3,10 +3,10 @@ use crate::{
     domain::block::element::solid::viscoelastic::ViscoelasticElement, math::Quantity, units::Power,
 };
 
-pub trait ElasticHyperviscousElement<C, const P: usize>
+pub trait ElasticHyperviscousElement<C>
 where
     C: ElasticHyperviscous,
-    Self: ViscoelasticElement<C, P>,
+    Self: ViscoelasticElement<C>,
 {
     fn viscous_dissipation(
         &self,

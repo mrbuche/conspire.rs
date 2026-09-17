@@ -13,18 +13,18 @@ use crate::{
 pub trait ElasticHyperviscousVirtualElement<C>
 where
     C: ElasticHyperviscous,
-    Self: ViscoelasticVirtualElement<C> + ElasticHyperviscousElement<C, 0>,
+    Self: ViscoelasticVirtualElement<C> + ElasticHyperviscousElement<C>,
 {
 }
 
 impl<T, C> ElasticHyperviscousVirtualElement<C> for T
 where
     C: ElasticHyperviscous,
-    T: ViscoelasticVirtualElement<C> + ElasticHyperviscousElement<C, 0>,
+    T: ViscoelasticVirtualElement<C> + ElasticHyperviscousElement<C>,
 {
 }
 
-impl<C, const P: usize> ElasticHyperviscousElement<C, P> for Element
+impl<C> ElasticHyperviscousElement<C> for Element
 where
     C: ElasticHyperviscous,
 {

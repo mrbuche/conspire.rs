@@ -17,7 +17,7 @@ pub trait ElasticHyperviscousFiniteElement<
     const P: usize,
 > where
     C: ElasticHyperviscous,
-    Self: ViscoelasticFiniteElement<C, G, M, N, P> + ElasticHyperviscousElement<C, P>,
+    Self: ViscoelasticFiniteElement<C, G, M, N, P> + ElasticHyperviscousElement<C>,
 {
 }
 
@@ -25,15 +25,15 @@ impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
     ElasticHyperviscousFiniteElement<C, G, M, N, P> for T
 where
     C: ElasticHyperviscous,
-    T: ViscoelasticFiniteElement<C, G, M, N, P> + ElasticHyperviscousElement<C, P>,
+    T: ViscoelasticFiniteElement<C, G, M, N, P> + ElasticHyperviscousElement<C>,
 {
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    ElasticHyperviscousElement<C, P> for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticHyperviscousElement<C>
+    for Element<3, G, N, O>
 where
     C: ElasticHyperviscous,
-    Self: ViscoelasticFiniteElement<C, G, 3, N, P>,
+    Self: ViscoelasticFiniteElement<C, G, 3, N, N>,
 {
     fn viscous_dissipation(
         &self,
@@ -63,7 +63,7 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ElasticHyperviscousElement<C, N>
+impl<C, const G: usize, const N: usize, const O: usize> ElasticHyperviscousElement<C>
     for SurfaceElement<G, N, O>
 where
     C: ElasticHyperviscous,

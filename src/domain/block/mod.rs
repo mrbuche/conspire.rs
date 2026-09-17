@@ -1,4 +1,5 @@
 pub(crate) mod element;
+pub(crate) mod solid;
 #[cfg(test)]
 pub(crate) mod test;
 

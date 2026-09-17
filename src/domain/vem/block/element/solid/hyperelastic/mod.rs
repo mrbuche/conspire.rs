@@ -13,18 +13,18 @@ use crate::{
 pub trait HyperelasticVirtualElement<C>
 where
     C: Hyperelastic,
-    Self: ElasticVirtualElement<C> + HyperelasticElement<C, 0>,
+    Self: ElasticVirtualElement<C> + HyperelasticElement<C>,
 {
 }
 
 impl<T, C> HyperelasticVirtualElement<C> for T
 where
     C: Hyperelastic,
-    T: ElasticVirtualElement<C> + HyperelasticElement<C, 0>,
+    T: ElasticVirtualElement<C> + HyperelasticElement<C>,
 {
 }
 
-impl<C, const P: usize> HyperelasticElement<C, P> for Element
+impl<C> HyperelasticElement<C> for Element
 where
     C: Hyperelastic,
 {

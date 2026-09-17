@@ -1,9 +1,3 @@
-use crate::{
-    math::{Derivative, TensorTupleList},
-    mechanics::{DeformationGradientPlastic, DeformationGradientRatePlastic},
+pub use crate::domain::block::element::solid::viscoplastic::{
+    ViscoplasticEvolution, ViscoplasticStateVariables,
 };
-
-pub type ViscoplasticStateVariables<const G: usize, Y> =
-    TensorTupleList<DeformationGradientPlastic, Y, G>;
-pub type ViscoplasticEvolution<const G: usize, Y> =
-    TensorTupleList<DeformationGradientRatePlastic, Derivative<Y>, G>;

@@ -25,7 +25,6 @@ pub trait ViscoelasticFiniteElement<
     Self: SolidFiniteElement<G, M, N, P>
         + ViscoelasticElement<
             C,
-            P,
             Forces = ElementNodalForcesSolid<N>,
             Dampings = ElementNodalDampingsSolid<N>,
             Error = FiniteElementError,
@@ -40,7 +39,6 @@ where
     T: SolidFiniteElement<G, M, N, P>
         + ViscoelasticElement<
             C,
-            P,
             Forces = ElementNodalForcesSolid<N>,
             Dampings = ElementNodalDampingsSolid<N>,
             Error = FiniteElementError,
@@ -48,11 +46,11 @@ where
 {
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize> ViscoelasticElement<C, P>
+impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticElement<C>
     for Element<3, G, N, O>
 where
     C: Viscoelastic,
-    Self: SolidFiniteElement<G, 3, N, P>,
+    Self: SolidFiniteElement<G, 3, N, N>,
 {
     type Forces = ElementNodalForcesSolid<N>;
     type Dampings = ElementNodalDampingsSolid<N>;
@@ -128,7 +126,7 @@ where
     }
 }
 
-impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticElement<C, N>
+impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticElement<C>
     for SurfaceElement<G, N, O>
 where
     C: Viscoelastic,

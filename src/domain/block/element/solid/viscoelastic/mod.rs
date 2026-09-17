@@ -2,7 +2,7 @@ use crate::{
     constitutive::solid::viscoelastic::Viscoelastic, domain::block::element::solid::SolidElement,
 };
 
-pub trait ViscoelasticElement<C, const P: usize>
+pub trait ViscoelasticElement<C>
 where
     C: Viscoelastic,
     Self: SolidElement,

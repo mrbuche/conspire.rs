@@ -1,6 +1,6 @@
 use crate::{constitutive::solid::elastic::Elastic, domain::block::element::solid::SolidElement};
 
-pub trait ElasticElement<C, const P: usize>
+pub trait ElasticElement<C>
 where
     C: Elastic,
     Self: SolidElement,
