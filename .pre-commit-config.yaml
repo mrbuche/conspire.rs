@@ -58,6 +58,9 @@ repos:
         args: ['--features', 'vem', '--tests', '--', '-D',  'warnings']
         name: cargo clippy vem tests
     -   id: clippy
+        args: ['--features', 'cbm', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy cbm tests
+    -   id: clippy
         args: ['--features', 'all', '--', '-D',  'warnings']
         name: cargo clippy all
     -   id: clippy

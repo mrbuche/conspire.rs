@@ -1,14 +1,4 @@
-//! Continuum Bond Method (CBM) kinematics.
-//!
-//! Sperling, Hoefnagels, van den Broek, Geers, "A continuum consistent
-//! discrete particle method for continuum-discontinuum transitions and
-//! complex fracture problems," CMAME 390 (2022) 114460.
-//! <https://doi.org/10.1016/j.cma.2021.114460>
-//!
-//! Particle deformation gradients are volume-weighted averages of the
-//! per-tetrahedron constant deformation gradients over the tetrahedra
-//! incident to each particle (Eqs. 1-2 of the paper, generalized from
-//! triangles to tetrahedra).
+//! Continuum bond methods
 
 #[cfg(test)]
 mod test;
@@ -89,14 +79,12 @@ impl SolidElements for Cbm {
             .iter()
             .zip(self.elements.iter())
             .for_each(|(nodes, element)| {
-                let element_deformation_gradient = element
-                    .deformation_gradients(&Self::element_coordinates(nodal_coordinates, nodes))[0]
-                    .clone();
+                let element_deformation_gradient = &element
+                    .deformation_gradients(&Self::element_coordinates(nodal_coordinates, nodes))[0];
                 let quarter_volume = element.volume() / 4.0;
                 nodes.iter().for_each(|&node| {
                     let weight = (quarter_volume / self.node_volumes[node]).value();
-                    particle_deformation_gradients[node] +=
-                        element_deformation_gradient.clone() * weight
+                    particle_deformation_gradients[node] += element_deformation_gradient * weight
                 })
             });
         particle_deformation_gradients
@@ -112,16 +100,15 @@ impl SolidElements for Cbm {
             .iter()
             .zip(self.elements.iter())
             .for_each(|(nodes, element)| {
-                let element_deformation_gradient_rate = element.deformation_gradient_rates(
+                let element_deformation_gradient_rate = &element.deformation_gradient_rates(
                     &Self::element_coordinates(nodal_coordinates, nodes),
                     &Self::element_coordinates(nodal_velocities, nodes),
-                )[0]
-                .clone();
+                )[0];
                 let quarter_volume = element.volume() / 4.0;
                 nodes.iter().for_each(|&node| {
                     let weight = (quarter_volume / self.node_volumes[node]).value();
                     particle_deformation_gradient_rates[node] +=
-                        element_deformation_gradient_rate.clone() * weight
+                        element_deformation_gradient_rate * weight
                 })
             });
         particle_deformation_gradient_rates
