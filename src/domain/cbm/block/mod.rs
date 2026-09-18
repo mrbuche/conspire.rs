@@ -1,8 +1,8 @@
+pub(crate) mod node;
 #[cfg(test)]
 mod test;
 
 use crate::{
-    cbm::node::Node,
     constitutive::{ConstitutiveError, solid::elastic::Elastic},
     domain::{
         ElementModelError, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
@@ -13,6 +13,7 @@ use crate::{
     math::ContractSecondFourthWithFirst,
     mechanics::{DeformationGradient, DeformationGradientRate},
 };
+use node::Node;
 use std::fmt::{self, Debug, Formatter};
 
 pub struct Cbm<C> {
