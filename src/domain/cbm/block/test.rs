@@ -123,10 +123,6 @@ fn nodal_forces_and_stiffnesses_finite_difference()
     Assert::default().eq_within_fd_tol(&nodal_stiffnesses, &finite_difference)
 }
 
-// Reuses fem's tetrahedron block fixture (same connectivity/coordinates,
-// src/domain/fem/block/element/linear/tetrahedron/test.rs) to run the same
-// shared FD/objectivity/symmetry battery fem/vem run, directly against
-// cbm's own Block/Node -- elastic only, cbm has no HyperelasticElement yet.
 mod shared_battery {
     use super::Block;
     use crate::{
