@@ -10,7 +10,6 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
     },
     geometry::mesh::PrimitiveConnectivity,
-    math::ContractSecondFourthWithFirst,
     mechanics::{DeformationGradient, DeformationGradientRate},
 };
 use node::Node;
@@ -69,17 +68,7 @@ impl<C> SolidElements for Cbm<C> {
     ) -> Vec<Self::DeformationGradients> {
         self.nodes
             .iter()
-            .map(|node| {
-                node.gradient_vectors()
-                    .iter()
-                    .map(|(neighbor, bond_gradient_vector)| {
-                        DeformationGradient::from((
-                            &nodal_coordinates[*neighbor],
-                            bond_gradient_vector,
-                        ))
-                    })
-                    .sum()
-            })
+            .map(|node| node.deformation_gradient(nodal_coordinates))
             .collect()
     }
     fn deformation_gradient_rates(
@@ -89,17 +78,7 @@ impl<C> SolidElements for Cbm<C> {
     ) -> Vec<Self::DeformationGradientRates> {
         self.nodes
             .iter()
-            .map(|node| {
-                node.gradient_vectors()
-                    .iter()
-                    .map(|(neighbor, bond_gradient_vector)| {
-                        DeformationGradientRate::from((
-                            &nodal_velocities[*neighbor],
-                            bond_gradient_vector,
-                        ))
-                    })
-                    .sum()
-            })
+            .map(|node| node.deformation_gradient_rate(nodal_velocities))
             .collect()
     }
 }
@@ -113,19 +92,13 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_forces: &mut NodalForcesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        SolidElements::deformation_gradients(self, nodal_coordinates)
+        self.nodes
             .iter()
-            .zip(self.nodes.iter())
-            .try_for_each(|(deformation_gradient, node)| {
-                let first_piola_kirchhoff_stress = self
-                    .constitutive_model
-                    .first_piola_kirchhoff_stress(deformation_gradient)?;
-                node.gradient_vectors()
-                    .iter()
-                    .for_each(|(neighbor, bond_gradient_vector)| {
-                        nodal_forces[*neighbor] +=
-                            (&first_piola_kirchhoff_stress * bond_gradient_vector) * node.volume()
-                    });
+            .try_for_each(|node| {
+                node.nodal_forces(&self.constitutive_model, nodal_coordinates)?
+                    .into_iter()
+                    .zip(node.gradient_vectors())
+                    .for_each(|(force, (neighbor, _))| nodal_forces[*neighbor] += force);
                 Ok::<(), ConstitutiveError>(())
             })
             .map_err(|error| ElementModelError::upstream(error, self))
@@ -135,25 +108,16 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
-        SolidElements::deformation_gradients(self, nodal_coordinates)
+        self.nodes
             .iter()
-            .zip(self.nodes.iter())
-            .try_for_each(|(deformation_gradient, node)| {
-                let first_piola_kirchhoff_tangent_stiffness = self
-                    .constitutive_model
-                    .first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?;
-                node.gradient_vectors()
-                    .iter()
-                    .for_each(|(neighbor_a, bond_gradient_vector_a)| {
-                        node.gradient_vectors().iter().for_each(
-                            |(neighbor_b, bond_gradient_vector_b)| {
-                                nodal_stiffnesses[*neighbor_a][*neighbor_b] +=
-                                    first_piola_kirchhoff_tangent_stiffness
-                                        .contract_second_fourth_with_first(
-                                            bond_gradient_vector_a,
-                                            bond_gradient_vector_b,
-                                        )
-                                        * node.volume()
+            .try_for_each(|node| {
+                node.nodal_stiffnesses(&self.constitutive_model, nodal_coordinates)?
+                    .into_iter()
+                    .zip(node.gradient_vectors())
+                    .for_each(|(row, (neighbor_a, _))| {
+                        row.into_iter().zip(node.gradient_vectors()).for_each(
+                            |(block, (neighbor_b, _))| {
+                                nodal_stiffnesses[*neighbor_a][*neighbor_b] += block
                             },
                         )
                     });
