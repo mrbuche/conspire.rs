@@ -1,9 +1,11 @@
 pub mod solid;
 
 use crate::{
-    domain::NodalReferenceCoordinates,
-    fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, GradientVectors, linear::Tetrahedron,
+    domain::{
+        NodalReferenceCoordinates,
+        block::element::tetrahedron::{
+            ElementNodalReferenceCoordinates, GradientVectors, Tetrahedron,
+        },
     },
     geometry::mesh::PrimitiveConnectivity,
     math::{Quantity, Reference, Tensor, TensorRank1, TensorRank1List, TensorRank1Vec},
@@ -53,9 +55,9 @@ impl Node {
             .zip(elements.iter())
             .for_each(|(nodes, element)| {
                 let quarter_volume = element.volume() / 4.0;
-                let gradient_vectors: &GradientVectors<3, 1, 4> = element.gradient_vectors();
+                let gradient_vectors: &GradientVectors = element.gradient_vectors();
                 nodes.iter().for_each(|&node_a| {
-                    nodes.iter().zip(gradient_vectors[0].iter()).for_each(
+                    nodes.iter().zip(gradient_vectors.iter()).for_each(
                         |(&node_b, gradient_vector_b)| {
                             if node_a != node_b {
                                 let contribution = gradient_vector_b * quarter_volume;
@@ -78,7 +80,7 @@ impl Node {
     ) -> Vec<Self> {
         let elements: Vec<Tetrahedron> = connectivity
             .iter()
-            .map(|nodes| -> ElementNodalReferenceCoordinates<4> {
+            .map(|nodes| -> ElementNodalReferenceCoordinates {
                 Self::element_coordinates(reference_coordinates, nodes)
             })
             .map(Tetrahedron::from)

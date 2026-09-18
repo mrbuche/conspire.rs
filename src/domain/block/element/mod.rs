@@ -1,6 +1,8 @@
 pub(crate) mod solid;
 #[cfg(test)]
 pub(crate) mod test;
+#[cfg(feature = "cbm")]
+pub(crate) mod tetrahedron;
 
 use crate::math::{Style, StyledError, assert::AssertionError};
 use std::{
