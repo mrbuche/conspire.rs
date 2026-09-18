@@ -56,9 +56,7 @@ impl Node {
                                 let contribution = gradient_vector_b * quarter_volume;
                                 bonds
                                     .entry((node_a, node_b))
-                                    .and_modify(|bond_gradient_vector| {
-                                        *bond_gradient_vector += &contribution
-                                    })
+                                    .and_modify(|gradient_vector| *gradient_vector += &contribution)
                                     .or_insert(contribution);
                             }
                         },
@@ -102,7 +100,7 @@ impl Node {
             .for_each(|(node, bonds)| {
                 let self_gradient_vector = -bonds
                     .iter()
-                    .map(|(_, bond_gradient_vector)| bond_gradient_vector)
+                    .map(|(_, gradient_vector)| gradient_vector)
                     .sum::<UnnormalizedBondGradientVector>();
                 bonds.push((node, self_gradient_vector));
             });

@@ -19,8 +19,8 @@ impl SolidElement for Node {
     ) -> DeformationGradient {
         self.gradient_vectors()
             .iter()
-            .map(|(neighbor, bond_gradient_vector)| {
-                DeformationGradient::from((&nodal_coordinates[*neighbor], bond_gradient_vector))
+            .map(|(neighbor, gradient_vector)| {
+                DeformationGradient::from((&nodal_coordinates[*neighbor], gradient_vector))
             })
             .sum()
     }
@@ -31,8 +31,8 @@ impl SolidElement for Node {
     ) -> DeformationGradientRate {
         self.gradient_vectors()
             .iter()
-            .map(|(neighbor, bond_gradient_vector)| {
-                DeformationGradientRate::from((&nodal_velocities[*neighbor], bond_gradient_vector))
+            .map(|(neighbor, gradient_vector)| {
+                DeformationGradientRate::from((&nodal_velocities[*neighbor], gradient_vector))
             })
             .sum()
     }

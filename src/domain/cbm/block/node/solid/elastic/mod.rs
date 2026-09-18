@@ -33,8 +33,8 @@ where
         Ok(self
             .gradient_vectors()
             .iter()
-            .map(|(_, bond_gradient_vector)| {
-                (&first_piola_kirchhoff_stress * bond_gradient_vector) * self.volume
+            .map(|(_, gradient_vector)| {
+                (&first_piola_kirchhoff_stress * gradient_vector) * self.volume
             })
             .collect())
     }
@@ -53,14 +53,13 @@ where
         Ok(self
             .gradient_vectors()
             .iter()
-            .map(|(_, bond_gradient_vector_a)| {
+            .map(|(_, gradient_vector_a)| {
                 self.gradient_vectors()
                     .iter()
-                    .map(|(_, bond_gradient_vector_b)| {
-                        first_piola_kirchhoff_tangent_stiffness.contract_second_fourth_with_first(
-                            bond_gradient_vector_a,
-                            bond_gradient_vector_b,
-                        ) * self.volume
+                    .map(|(_, gradient_vector_b)| {
+                        first_piola_kirchhoff_tangent_stiffness
+                            .contract_second_fourth_with_first(gradient_vector_a, gradient_vector_b)
+                            * self.volume
                     })
                     .collect()
             })
