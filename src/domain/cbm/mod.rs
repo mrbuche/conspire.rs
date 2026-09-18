@@ -8,4 +8,3 @@ pub use crate::domain::{
     block::element::Elements,
     solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
 };
-pub use block::Cbm;

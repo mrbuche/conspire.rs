@@ -1,35 +1,27 @@
-pub(crate) mod node;
+pub mod node;
+pub mod solid;
 #[cfg(test)]
 mod test;
 
 use crate::{
-    constitutive::{ConstitutiveError, solid::elastic::Elastic},
     domain::{
-        ElementModelError, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
-        block::{
-            add_node_neighbors,
-            element::{
-                Elements,
-                solid::{SolidElement, elastic::ElasticElement},
-            },
-        },
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
+        NodalReferenceCoordinates,
+        block::{add_node_neighbors, element::Elements},
     },
     geometry::mesh::PrimitiveConnectivity,
-    mechanics::{DeformationGradient, DeformationGradientRate},
 };
 use node::Node;
 use std::fmt::{self, Debug, Formatter};
 
-pub struct Cbm<C> {
+pub struct Block<C> {
     constitutive_model: C,
     connectivity: PrimitiveConnectivity<3, 4>,
     nodes: Vec<Node>,
 }
 
-impl<C> Debug for Cbm<C> {
+impl<C> Debug for Block<C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Cbm {{ {} particles }}", self.nodes.len())
+        write!(f, "Block {{ {} particles }}", self.nodes.len())
     }
 }
 
@@ -38,7 +30,7 @@ impl<C>
         C,
         PrimitiveConnectivity<3, 4>,
         &NodalReferenceCoordinates<3>,
-    )> for Cbm<C>
+    )> for Block<C>
 {
     fn from(
         (constitutive_model, connectivity, reference_coordinates): (
@@ -56,79 +48,11 @@ impl<C>
     }
 }
 
-impl<C> Elements for Cbm<C> {
+impl<C> Elements for Block<C> {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
         add_node_neighbors(
             self.connectivity.iter().map(|nodes| nodes.as_slice()),
             neighbors,
         )
-    }
-}
-
-impl<C> SolidElements for Cbm<C> {
-    type DeformationGradients = DeformationGradient;
-    type DeformationGradientRates = DeformationGradientRate;
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Vec<Self::DeformationGradients> {
-        self.nodes
-            .iter()
-            .map(|node| node.deformation_gradients(nodal_coordinates))
-            .collect()
-    }
-    fn deformation_gradient_rates(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        nodal_velocities: &NodalVelocities<3>,
-    ) -> Vec<Self::DeformationGradientRates> {
-        self.nodes
-            .iter()
-            .map(|node| node.deformation_gradient_rates(nodal_coordinates, nodal_velocities))
-            .collect()
-    }
-}
-
-impl<C> ElasticElements<3> for Cbm<C>
-where
-    C: Elastic,
-{
-    fn nodal_forces_into(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        nodal_forces: &mut NodalForcesSolid<3>,
-    ) -> Result<(), ElementModelError> {
-        self.nodes
-            .iter()
-            .try_for_each(|node| {
-                node.nodal_forces(&self.constitutive_model, nodal_coordinates)?
-                    .into_iter()
-                    .zip(node.gradient_vectors())
-                    .for_each(|(force, (neighbor, _))| nodal_forces[*neighbor] += force);
-                Ok::<(), ConstitutiveError>(())
-            })
-            .map_err(|error| ElementModelError::upstream(error, self))
-    }
-    fn nodal_stiffnesses_into(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
-    ) -> Result<(), ElementModelError> {
-        self.nodes
-            .iter()
-            .try_for_each(|node| {
-                node.nodal_stiffnesses(&self.constitutive_model, nodal_coordinates)?
-                    .into_iter()
-                    .zip(node.gradient_vectors())
-                    .for_each(|(row, (neighbor_a, _))| {
-                        row.into_iter().zip(node.gradient_vectors()).for_each(
-                            |(block, (neighbor_b, _))| {
-                                nodal_stiffnesses[*neighbor_a][*neighbor_b] += block
-                            },
-                        )
-                    });
-                Ok::<(), ConstitutiveError>(())
-            })
-            .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

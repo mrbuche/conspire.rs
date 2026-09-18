@@ -1,4 +1,4 @@
-use super::Cbm;
+use super::Block;
 use crate::{
     EPSILON,
     cbm::SolidElements,
@@ -40,11 +40,12 @@ fn apply(
 #[test]
 fn patch_test_uniform_deformation_gradient() {
     let (connectivity, reference_coordinates) = two_tetrahedra_reference();
-    let cbm = Cbm::from(((), connectivity, &reference_coordinates));
+    let block = Block::from(((), connectivity, &reference_coordinates));
     let deformation_gradient =
         DeformationGradient::from([[1.1, 0.05, 0.0], [0.0, 0.9, 0.02], [-0.03, 0.0, 1.2]]);
     let current_coordinates = apply(&deformation_gradient, &reference_coordinates);
-    cbm.deformation_gradients(&current_coordinates)
+    block
+        .deformation_gradients(&current_coordinates)
         .iter()
         .try_for_each(|particle_deformation_gradient| {
             Assert::default().eq_within_tols(particle_deformation_gradient, &deformation_gradient)
@@ -55,7 +56,7 @@ fn patch_test_uniform_deformation_gradient() {
 #[test]
 fn patch_test_uniform_deformation_gradient_rate() {
     let (connectivity, reference_coordinates) = two_tetrahedra_reference();
-    let cbm = Cbm::from(((), connectivity, &reference_coordinates));
+    let block = Block::from(((), connectivity, &reference_coordinates));
     let deformation_gradient =
         DeformationGradient::from([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]);
     let current_coordinates = apply(&deformation_gradient, &reference_coordinates);
@@ -65,7 +66,8 @@ fn patch_test_uniform_deformation_gradient_rate() {
         .iter()
         .map(|reference_coordinate| &deformation_gradient_rate * reference_coordinate)
         .collect();
-    cbm.deformation_gradient_rates(&current_coordinates, &velocities)
+    block
+        .deformation_gradient_rates(&current_coordinates, &velocities)
         .iter()
         .try_for_each(|particle_deformation_gradient_rate| {
             Assert::default().eq_within_tols(
@@ -97,18 +99,18 @@ fn non_uniformly_deformed_coordinates(
 fn nodal_forces_and_stiffnesses_finite_difference()
 -> Result<(), crate::math::assert::AssertionError> {
     let (connectivity, reference_coordinates) = two_tetrahedra_reference();
-    let cbm = Cbm::from((constitutive_model(), connectivity, &reference_coordinates));
+    let block = Block::from((constitutive_model(), connectivity, &reference_coordinates));
     let coordinates = non_uniformly_deformed_coordinates(&reference_coordinates);
-    let nodal_stiffnesses = cbm.nodal_stiffnesses(&coordinates).unwrap();
+    let nodal_stiffnesses = block.nodal_stiffnesses(&coordinates).unwrap();
     let number_of_nodes = reference_coordinates.len();
     let mut finite_difference = NodalStiffnessesSolid::<3>::zero(number_of_nodes);
     (0..number_of_nodes).for_each(|node_b| {
         (0..3).for_each(|j| {
             let mut perturbed = coordinates.clone();
             perturbed[node_b][j] += perturbation::<Length>(0.5 * EPSILON);
-            let forces_plus = cbm.nodal_forces(&perturbed).unwrap();
+            let forces_plus = block.nodal_forces(&perturbed).unwrap();
             perturbed[node_b][j] -= perturbation::<Length>(EPSILON);
-            let forces_minus = cbm.nodal_forces(&perturbed).unwrap();
+            let forces_minus = block.nodal_forces(&perturbed).unwrap();
             (0..number_of_nodes).for_each(|node_a| {
                 (0..3).for_each(|i| {
                     finite_difference[node_a][node_b][i][j] = (forces_plus[node_a][i]
