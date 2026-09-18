@@ -11,3 +11,4 @@ pub use crate::domain::{
         hyperelastic::HyperelasticElements,
     },
 };
+pub use block::node::Weighting;

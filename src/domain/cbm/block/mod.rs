@@ -10,7 +10,7 @@ use crate::{
     },
     geometry::mesh::PrimitiveConnectivity,
 };
-use node::Node;
+use node::{Node, Weighting};
 use std::fmt::{self, Debug, Formatter};
 
 pub struct Block<C> {
@@ -39,7 +39,32 @@ impl<C>
             &NodalReferenceCoordinates<3>,
         ),
     ) -> Self {
-        let nodes = Node::vec_from(&connectivity, reference_coordinates);
+        Self::from((
+            constitutive_model,
+            connectivity,
+            reference_coordinates,
+            Weighting::default(),
+        ))
+    }
+}
+
+impl<C>
+    From<(
+        C,
+        PrimitiveConnectivity<3, 4>,
+        &NodalReferenceCoordinates<3>,
+        Weighting,
+    )> for Block<C>
+{
+    fn from(
+        (constitutive_model, connectivity, reference_coordinates, weighting): (
+            C,
+            PrimitiveConnectivity<3, 4>,
+            &NodalReferenceCoordinates<3>,
+            Weighting,
+        ),
+    ) -> Self {
+        let nodes = Node::vec_from(&connectivity, reference_coordinates, weighting);
         Self {
             constitutive_model,
             connectivity,

@@ -1,4 +1,4 @@
-use super::Block;
+use super::{Block, node::Weighting};
 use crate::{
     EPSILON,
     cbm::SolidElements,
@@ -78,6 +78,27 @@ fn patch_test_uniform_deformation_gradient_rate() {
         .unwrap()
 }
 
+#[test]
+fn patch_test_uniform_deformation_gradient_solid_angle_weighting() {
+    let (connectivity, reference_coordinates) = two_tetrahedra_reference();
+    let block = Block::from((
+        (),
+        connectivity,
+        &reference_coordinates,
+        Weighting::SolidAngle,
+    ));
+    let deformation_gradient =
+        DeformationGradient::from([[1.1, 0.05, 0.0], [0.0, 0.9, 0.02], [-0.03, 0.0, 1.2]]);
+    let current_coordinates = apply(&deformation_gradient, &reference_coordinates);
+    block
+        .deformation_gradients(&current_coordinates)
+        .iter()
+        .try_for_each(|particle_deformation_gradient| {
+            Assert::default().eq_within_tols(particle_deformation_gradient, &deformation_gradient)
+        })
+        .unwrap()
+}
+
 fn constitutive_model() -> AlmansiHamelEulerian {
     AlmansiHamelEulerian {
         bulk_modulus: Stress::pascals(13.0),
@@ -100,6 +121,39 @@ fn nodal_forces_and_stiffnesses_finite_difference()
 -> Result<(), crate::math::assert::AssertionError> {
     let (connectivity, reference_coordinates) = two_tetrahedra_reference();
     let block = Block::from((constitutive_model(), connectivity, &reference_coordinates));
+    let coordinates = non_uniformly_deformed_coordinates(&reference_coordinates);
+    let nodal_stiffnesses = block.nodal_stiffnesses(&coordinates).unwrap();
+    let number_of_nodes = reference_coordinates.len();
+    let mut finite_difference = NodalStiffnessesSolid::<3>::zero(number_of_nodes);
+    (0..number_of_nodes).for_each(|node_b| {
+        (0..3).for_each(|j| {
+            let mut perturbed = coordinates.clone();
+            perturbed[node_b][j] += perturbation::<Length>(0.5 * EPSILON);
+            let forces_plus = block.nodal_forces(&perturbed).unwrap();
+            perturbed[node_b][j] -= perturbation::<Length>(EPSILON);
+            let forces_minus = block.nodal_forces(&perturbed).unwrap();
+            (0..number_of_nodes).for_each(|node_a| {
+                (0..3).for_each(|i| {
+                    finite_difference[node_a][node_b][i][j] = (forces_plus[node_a][i]
+                        - forces_minus[node_a][i])
+                        / perturbation::<Length>(EPSILON);
+                })
+            })
+        })
+    });
+    Assert::default().eq_within_fd_tol(&nodal_stiffnesses, &finite_difference)
+}
+
+#[test]
+fn nodal_forces_and_stiffnesses_finite_difference_solid_angle_weighting()
+-> Result<(), crate::math::assert::AssertionError> {
+    let (connectivity, reference_coordinates) = two_tetrahedra_reference();
+    let block = Block::from((
+        constitutive_model(),
+        connectivity,
+        &reference_coordinates,
+        Weighting::SolidAngle,
+    ));
     let coordinates = non_uniformly_deformed_coordinates(&reference_coordinates);
     let nodal_stiffnesses = block.nodal_stiffnesses(&coordinates).unwrap();
     let number_of_nodes = reference_coordinates.len();
