@@ -264,24 +264,54 @@ mod shared_battery {
         ])
     }
 
-    macro_rules! setup_block {
-        ($constitutive_model: expr, $constitutive_model_type: ident) => {
-            fn get_block() -> Block<$constitutive_model_type> {
-                Block::<$constitutive_model_type>::from((
-                    $constitutive_model,
-                    get_connectivity(),
-                    &get_reference_coordinates_block(),
-                ))
-            }
-            fn get_block_transformed() -> Block<$constitutive_model_type> {
-                Block::<$constitutive_model_type>::from((
-                    $constitutive_model,
-                    get_connectivity(),
-                    &get_reference_coordinates_transformed_block(),
-                ))
-            }
-        };
+    mod uniform {
+        use super::*;
+        macro_rules! setup_block {
+            ($constitutive_model: expr, $constitutive_model_type: ident) => {
+                fn get_block() -> Block<$constitutive_model_type> {
+                    Block::<$constitutive_model_type>::from((
+                        $constitutive_model,
+                        get_connectivity(),
+                        &get_reference_coordinates_block(),
+                    ))
+                }
+                fn get_block_transformed() -> Block<$constitutive_model_type> {
+                    Block::<$constitutive_model_type>::from((
+                        $constitutive_model,
+                        get_connectivity(),
+                        &get_reference_coordinates_transformed_block(),
+                    ))
+                }
+            };
+        }
+
+        crate::domain::block::test::test_block_elastic_and_hyperelastic!(Particle);
     }
 
-    crate::domain::block::test::test_block_elastic_and_hyperelastic!(Particle);
+    mod solid_angle {
+        use super::*;
+        use crate::cbm::Weighting;
+        macro_rules! setup_block {
+            ($constitutive_model: expr, $constitutive_model_type: ident) => {
+                fn get_block() -> Block<$constitutive_model_type> {
+                    Block::<$constitutive_model_type>::from((
+                        $constitutive_model,
+                        get_connectivity(),
+                        &get_reference_coordinates_block(),
+                        Weighting::SolidAngle,
+                    ))
+                }
+                fn get_block_transformed() -> Block<$constitutive_model_type> {
+                    Block::<$constitutive_model_type>::from((
+                        $constitutive_model,
+                        get_connectivity(),
+                        &get_reference_coordinates_transformed_block(),
+                        Weighting::SolidAngle,
+                    ))
+                }
+            };
+        }
+
+        crate::domain::block::test::test_block_elastic_and_hyperelastic!(Particle);
+    }
 }
