@@ -33,16 +33,22 @@ type BondGradientVector = TensorRank1<3, Reference, ReciprocalLength>;
 type UnnormalizedBondGradientVector =
     TensorRank1<3, Reference, <ReciprocalLength as UnitMul<Volume>>::Output>;
 
+/// A particle: its reference volume and the bond gradient vectors — including
+/// its own self term — of the neighbors spanning its bond neighborhood.
+struct Node {
+    volume: Quantity<Volume>,
+    gradient_vectors: Vec<(usize, BondGradientVector)>,
+}
+
 pub struct Cbm<C> {
     constitutive_model: C,
     connectivity: PrimitiveConnectivity<3, 4>,
-    node_volumes: Vec<Quantity<Volume>>,
-    gradient_vectors: Vec<Vec<(usize, BondGradientVector)>>,
+    nodes: Vec<Node>,
 }
 
 impl<C> Debug for Cbm<C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "Cbm {{ {} particles }}", self.node_volumes.len())
+        write!(f, "Cbm {{ {} particles }}", self.nodes.len())
     }
 }
 
@@ -108,7 +114,7 @@ impl<C>
             })
             .map(Tetrahedron::from)
             .collect();
-        let mut node_volumes = vec![Quantity::<Volume>::new(0.0); reference_coordinates.len()];
+        let mut volumes = vec![Quantity::<Volume>::new(0.0); reference_coordinates.len()];
         connectivity
             .iter()
             .zip(elements.iter())
@@ -116,11 +122,11 @@ impl<C>
                 let quarter_volume = element.volume() / 4.0;
                 nodes
                     .iter()
-                    .for_each(|&node| node_volumes[node] += &quarter_volume)
+                    .for_each(|&node| volumes[node] += &quarter_volume)
             });
         let bonds = Self::accumulate_bonds(&connectivity, &elements);
         let mut unnormalized: Vec<Vec<(usize, UnnormalizedBondGradientVector)>> =
-            vec![Vec::new(); node_volumes.len()];
+            vec![Vec::new(); volumes.len()];
         bonds
             .into_iter()
             .for_each(|((node_a, node_b), bond)| unnormalized[node_a].push((node_b, bond)));
@@ -134,21 +140,21 @@ impl<C>
                     .sum::<UnnormalizedBondGradientVector>();
                 bonds.push((node, self_gradient_vector));
             });
-        let gradient_vectors: Vec<Vec<(usize, BondGradientVector)>> = unnormalized
+        let nodes = unnormalized
             .into_iter()
-            .zip(node_volumes.iter())
-            .map(|(bonds, node_volume)| {
-                bonds
+            .zip(volumes)
+            .map(|(bonds, volume)| Node {
+                volume,
+                gradient_vectors: bonds
                     .into_iter()
-                    .map(|(node, bond)| (node, bond / *node_volume))
-                    .collect()
+                    .map(|(node, bond)| (node, bond / volume))
+                    .collect(),
             })
             .collect();
         Self {
             constitutive_model,
             connectivity,
-            node_volumes,
-            gradient_vectors,
+            nodes,
         }
     }
 }
@@ -169,13 +175,16 @@ impl<C> SolidElements for Cbm<C> {
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
     ) -> Vec<Self::DeformationGradients> {
-        self.gradient_vectors
+        self.nodes
             .iter()
-            .map(|bonds| {
-                bonds
+            .map(|node| {
+                node.gradient_vectors
                     .iter()
-                    .map(|(node, bond_gradient_vector)| {
-                        DeformationGradient::from((&nodal_coordinates[*node], bond_gradient_vector))
+                    .map(|(neighbor, bond_gradient_vector)| {
+                        DeformationGradient::from((
+                            &nodal_coordinates[*neighbor],
+                            bond_gradient_vector,
+                        ))
                     })
                     .sum()
             })
@@ -186,14 +195,14 @@ impl<C> SolidElements for Cbm<C> {
         _nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
     ) -> Vec<Self::DeformationGradientRates> {
-        self.gradient_vectors
+        self.nodes
             .iter()
-            .map(|bonds| {
-                bonds
+            .map(|node| {
+                node.gradient_vectors
                     .iter()
-                    .map(|(node, bond_gradient_vector)| {
+                    .map(|(neighbor, bond_gradient_vector)| {
                         DeformationGradientRate::from((
-                            &nodal_velocities[*node],
+                            &nodal_velocities[*neighbor],
                             bond_gradient_vector,
                         ))
                     })
@@ -214,15 +223,17 @@ where
     ) -> Result<(), ElementModelError> {
         SolidElements::deformation_gradients(self, nodal_coordinates)
             .iter()
-            .zip(self.gradient_vectors.iter().zip(self.node_volumes.iter()))
-            .try_for_each(|(deformation_gradient, (bonds, node_volume))| {
+            .zip(self.nodes.iter())
+            .try_for_each(|(deformation_gradient, node)| {
                 let first_piola_kirchhoff_stress = self
                     .constitutive_model
                     .first_piola_kirchhoff_stress(deformation_gradient)?;
-                bonds.iter().for_each(|(node, bond_gradient_vector)| {
-                    nodal_forces[*node] +=
-                        (&first_piola_kirchhoff_stress * bond_gradient_vector) * node_volume
-                });
+                node.gradient_vectors
+                    .iter()
+                    .for_each(|(neighbor, bond_gradient_vector)| {
+                        nodal_forces[*neighbor] +=
+                            (&first_piola_kirchhoff_stress * bond_gradient_vector) * node.volume
+                    });
                 Ok::<(), ConstitutiveError>(())
             })
             .map_err(|error| ElementModelError::upstream(error, self))
@@ -234,22 +245,26 @@ where
     ) -> Result<(), ElementModelError> {
         SolidElements::deformation_gradients(self, nodal_coordinates)
             .iter()
-            .zip(self.gradient_vectors.iter().zip(self.node_volumes.iter()))
-            .try_for_each(|(deformation_gradient, (bonds, node_volume))| {
+            .zip(self.nodes.iter())
+            .try_for_each(|(deformation_gradient, node)| {
                 let first_piola_kirchhoff_tangent_stiffness = self
                     .constitutive_model
                     .first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?;
-                bonds.iter().for_each(|(node_a, bond_gradient_vector_a)| {
-                    bonds.iter().for_each(|(node_b, bond_gradient_vector_b)| {
-                        nodal_stiffnesses[*node_a][*node_b] +=
-                            first_piola_kirchhoff_tangent_stiffness
-                                .contract_second_fourth_with_first(
-                                    bond_gradient_vector_a,
-                                    bond_gradient_vector_b,
-                                )
-                                * node_volume
-                    })
-                });
+                node.gradient_vectors
+                    .iter()
+                    .for_each(|(neighbor_a, bond_gradient_vector_a)| {
+                        node.gradient_vectors.iter().for_each(
+                            |(neighbor_b, bond_gradient_vector_b)| {
+                                nodal_stiffnesses[*neighbor_a][*neighbor_b] +=
+                                    first_piola_kirchhoff_tangent_stiffness
+                                        .contract_second_fourth_with_first(
+                                            bond_gradient_vector_a,
+                                            bond_gradient_vector_b,
+                                        )
+                                        * node.volume
+                            },
+                        )
+                    });
                 Ok::<(), ConstitutiveError>(())
             })
             .map_err(|error| ElementModelError::upstream(error, self))
