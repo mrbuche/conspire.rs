@@ -6,8 +6,8 @@ use crate::{
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{
-            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
-            plastic::PlasticStateVariables,
+            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement,
+            SolidFiniteElement, plastic::PlasticStateVariables,
         },
     },
     math::{ContractSecondFourthWithFirst, Quantity, Rank2, Scalar, Tensor},
