@@ -6,5 +6,8 @@ pub use crate::domain::{
     ElementModelError, FirstOrderRoot, Model, NodalCoordinates, NodalReferenceCoordinates,
     NodalVelocities, ZerothOrderRoot,
     block::element::Elements,
-    solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
+    solid::{
+        NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements,
+        hyperelastic::HyperelasticElements,
+    },
 };

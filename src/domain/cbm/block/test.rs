@@ -126,21 +126,18 @@ fn nodal_forces_and_stiffnesses_finite_difference()
 mod shared_battery {
     use super::Block;
     use crate::{
-        EPSILON,
-        constitutive::solid::elastic::{
-            AlmansiHamelEulerian, AlmansiHamelLagrangian, SaintVenantKirchhoff,
-            test::{BULK_MODULUS, SHEAR_MODULUS},
-        },
+        constitutive::solid::elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
         domain::{
             NodalCoordinates, NodalReferenceCoordinates,
-            solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
+            block::test::{
+                test_finite_element_block_with_elastic_constitutive_model,
+                test_finite_element_block_with_hyperelastic_constitutive_model,
+            },
+            solid::{NodalForcesSolid, NodalStiffnessesSolid},
         },
         geometry::mesh::PrimitiveConnectivity,
-        math::{Rank2, Tensor, TensorRank2, assert::AssertionError},
-        mechanics::test::{
-            get_rotation_current_configuration, get_rotation_reference_configuration,
-            get_translation_current_configuration, get_translation_reference_configuration,
-        },
+        math::Tensor,
+        mechanics::DeformationGradient,
     };
 
     const D: usize = 14;
@@ -232,40 +229,5 @@ mod shared_battery {
         };
     }
 
-    mod almansi_hamel_eulerian {
-        use super::*;
-        crate::domain::block::test::test_finite_element_block_with_elastic_constitutive_model!(
-            ElementBlock,
-            Particle,
-            AlmansiHamelEulerian {
-                bulk_modulus: BULK_MODULUS,
-                shear_modulus: SHEAR_MODULUS,
-            },
-            AlmansiHamelEulerian
-        );
-    }
-    mod almansi_hamel_lagrangian {
-        use super::*;
-        crate::domain::block::test::test_finite_element_block_with_elastic_constitutive_model!(
-            ElementBlock,
-            Particle,
-            AlmansiHamelLagrangian {
-                bulk_modulus: BULK_MODULUS,
-                shear_modulus: SHEAR_MODULUS,
-            },
-            AlmansiHamelLagrangian
-        );
-    }
-    mod saint_venant_kirchhoff {
-        use super::*;
-        crate::domain::block::test::test_finite_element_block_with_elastic_constitutive_model!(
-            ElementBlock,
-            Particle,
-            SaintVenantKirchhoff {
-                bulk_modulus: BULK_MODULUS,
-                shear_modulus: SHEAR_MODULUS,
-            },
-            SaintVenantKirchhoff
-        );
-    }
+    crate::domain::block::test::test_block_elastic_and_hyperelastic!(Particle);
 }

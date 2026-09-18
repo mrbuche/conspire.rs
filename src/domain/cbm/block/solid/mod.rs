@@ -1,4 +1,5 @@
 pub mod elastic;
+pub mod hyperelastic;
 
 use super::{Block, node::solid::SolidElement};
 use crate::{
