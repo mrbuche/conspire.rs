@@ -6,6 +6,9 @@ pub(crate) mod test;
 use crate::math::{Tensor, optimize::EqualityConstraint, sparse::SparseSolver};
 use std::any::type_name;
 
+// Not yet used by cbm alone (only via fem/vem's Debug impls); not dead in the
+// architectural sense, so suppress rather than gate out.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) fn trimmed_type_name<T>() -> &'static str {
     type_name::<T>()
         .rsplit("::")

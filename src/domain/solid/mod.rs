@@ -1,9 +1,17 @@
 pub(crate) mod elastic;
+// Not yet used by cbm alone (only via fem/vem); not dead in the architectural
+// sense, so suppress rather than gate out
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod elastic_hyperviscous;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod elastic_viscoplastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperelastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperelastic_viscoplastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperviscoelastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod viscoelastic;
 
 use crate::{
@@ -15,10 +23,13 @@ use crate::{
 pub type NodalForcesSolid<const D: usize> = TensorRank1Vec<D, Current, Force>;
 pub type NodalStiffnessesSolid<const D: usize> =
     TensorRank2SparseVec2D<D, Current, Current, ForcePerLength>;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalDampingsSolid<const D: usize> =
     TensorRank2SparseVec2D<D, Current, Current, ForcePerVelocity>;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalDampingsSolidSymmetric<const D: usize> =
     TensorRank2SparseVec2DSymmetric<D, Current, Current, ForcePerVelocity>;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalStiffnessesSolidSymmetric<const D: usize> =
     TensorRank2SparseVec2DSymmetric<D, Current, Current, ForcePerLength>;
 

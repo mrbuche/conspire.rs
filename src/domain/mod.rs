@@ -37,9 +37,13 @@ pub(crate) fn nodal_coordinates<const D: usize>(
 }
 
 pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, Current, Length>;
+// Not yet used by cbm alone (only via fem/vem); not dead in the architectural
+// sense, so suppress rather than gate out.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Length>;
 pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, Reference, Length>;
 pub type NodalVelocities<const D: usize> = TensorRank1Vec<D, Current, Velocity>;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Velocity>;
 
 #[derive(Debug)]
@@ -48,9 +52,11 @@ pub struct Model<B, const D: usize> {
     pub(crate) coordinates: NodalReferenceCoordinates<D>,
 }
 
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 #[derive(Debug)]
 pub struct Blocks<B1, B2>(pub(crate) B1, pub(crate) B2);
 
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 #[derive(Debug)]
 pub struct ElasticViscoplasticAndElastic<B1, B2>(pub(crate) B1, pub(crate) B2);
 
@@ -153,6 +159,7 @@ pub trait FirstOrderRoot<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub trait FirstOrderMinimize<F, J, X> {
     fn minimize(
         &self,
@@ -161,6 +168,7 @@ pub trait FirstOrderMinimize<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub trait SecondOrderMinimize<F, J, H, X> {
     fn minimize(
         &self,

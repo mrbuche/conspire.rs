@@ -1,17 +1,14 @@
 pub mod solid;
+mod tetrahedron;
 
 use crate::{
-    domain::{
-        NodalReferenceCoordinates,
-        block::element::tetrahedron::{
-            ElementNodalReferenceCoordinates, GradientVectors, Tetrahedron,
-        },
-    },
+    domain::NodalReferenceCoordinates,
     geometry::mesh::PrimitiveConnectivity,
     math::{Quantity, Reference, Tensor, TensorRank1, TensorRank1List, TensorRank1Vec},
     units::{ReciprocalLength, UnitMul, Volume},
 };
 use std::collections::HashMap;
+use tetrahedron::{ElementNodalReferenceCoordinates, GradientVectors, Tetrahedron};
 
 /// A reference-configuration gradient vector, `\zeta_{ip}` in the source paper.
 pub(crate) type BondGradientVector = TensorRank1<3, Reference, ReciprocalLength>;

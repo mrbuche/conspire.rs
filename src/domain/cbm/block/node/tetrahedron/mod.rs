@@ -4,24 +4,20 @@ use crate::{
     units::{ReciprocalLength, Volume},
 };
 
-pub type ElementNodalReferenceCoordinates = ReferenceCoordinates<4>;
-pub type GradientVectors = TensorRank1List<3, Reference, 4, ReciprocalLength>;
+pub(crate) type ElementNodalReferenceCoordinates = ReferenceCoordinates<4>;
+pub(crate) type GradientVectors = TensorRank1List<3, Reference, 4, ReciprocalLength>;
 
-/// A linear tetrahedron's reference-configuration gradient vectors and volume
-/// — the one piece of fem's element machinery vem/cbm actually need, kept
-/// here so they don't have to pull in fem's generic `FiniteElement<G,M,N,P,W>`
-/// machinery just for this.
 #[derive(Clone, Debug)]
-pub struct Tetrahedron {
+pub(crate) struct Tetrahedron {
     gradient_vectors: GradientVectors,
     volume: Quantity<Volume>,
 }
 
 impl Tetrahedron {
-    pub fn gradient_vectors(&self) -> &GradientVectors {
+    pub(crate) fn gradient_vectors(&self) -> &GradientVectors {
         &self.gradient_vectors
     }
-    pub fn volume(&self) -> Quantity<Volume> {
+    pub(crate) fn volume(&self) -> Quantity<Volume> {
         self.volume
     }
 }

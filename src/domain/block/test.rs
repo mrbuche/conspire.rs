@@ -1,3 +1,11 @@
+// These shared macros/imports are exercised by fem::block::test/vem::block::test;
+// not yet used by cbm alone. Not dead in the architectural sense, so suppress
+// rather than gate out.
+#![cfg_attr(
+    not(any(feature = "fem", feature = "vem")),
+    allow(unused_macros, unused_imports)
+)]
+
 macro_rules! test_block_elastic_and_hyperelastic {
     ($element: ident) => {
         mod block {
