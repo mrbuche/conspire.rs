@@ -6,7 +6,13 @@ use crate::{
     constitutive::{ConstitutiveError, solid::elastic::Elastic},
     domain::{
         ElementModelError, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
-        block::{add_node_neighbors, element::Elements},
+        block::{
+            add_node_neighbors,
+            element::{
+                Elements,
+                solid::{SolidElement, elastic::ElasticElement},
+            },
+        },
         solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
     },
     geometry::mesh::PrimitiveConnectivity,
@@ -68,17 +74,17 @@ impl<C> SolidElements for Cbm<C> {
     ) -> Vec<Self::DeformationGradients> {
         self.nodes
             .iter()
-            .map(|node| node.deformation_gradient(nodal_coordinates))
+            .map(|node| node.deformation_gradients(nodal_coordinates))
             .collect()
     }
     fn deformation_gradient_rates(
         &self,
-        _nodal_coordinates: &NodalCoordinates<3>,
+        nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
     ) -> Vec<Self::DeformationGradientRates> {
         self.nodes
             .iter()
-            .map(|node| node.deformation_gradient_rate(nodal_velocities))
+            .map(|node| node.deformation_gradient_rates(nodal_coordinates, nodal_velocities))
             .collect()
     }
 }

@@ -1,6 +1,9 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic::Elastic},
-    domain::{NodalCoordinates, NodalReferenceCoordinates, NodalVelocities},
+    domain::{
+        NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        block::element::solid::{SolidElement, elastic::ElasticElement},
+    },
     fem::block::element::{
         ElementNodalReferenceCoordinates, FiniteElement, GradientVectors, linear::Tetrahedron,
     },
@@ -36,79 +39,6 @@ pub(crate) struct Node {
 impl Node {
     pub(crate) fn gradient_vectors(&self) -> &[(usize, BondGradientVector)] {
         &self.gradient_vectors
-    }
-    pub(crate) fn deformation_gradient(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-    ) -> DeformationGradient {
-        self.gradient_vectors
-            .iter()
-            .map(|(neighbor, bond_gradient_vector)| {
-                DeformationGradient::from((&nodal_coordinates[*neighbor], bond_gradient_vector))
-            })
-            .sum()
-    }
-    pub(crate) fn deformation_gradient_rate(
-        &self,
-        nodal_velocities: &NodalVelocities<3>,
-    ) -> DeformationGradientRate {
-        self.gradient_vectors
-            .iter()
-            .map(|(neighbor, bond_gradient_vector)| {
-                DeformationGradientRate::from((&nodal_velocities[*neighbor], bond_gradient_vector))
-            })
-            .sum()
-    }
-    /// The forces this particle's stress contributes to each of its bonded
-    /// neighbors (including itself), ordered the same as its bond list.
-    pub(crate) fn nodal_forces<C>(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<Vec<NodalForce>, ConstitutiveError>
-    where
-        C: Elastic,
-    {
-        let first_piola_kirchhoff_stress = constitutive_model
-            .first_piola_kirchhoff_stress(&self.deformation_gradient(nodal_coordinates))?;
-        Ok(self
-            .gradient_vectors
-            .iter()
-            .map(|(_, bond_gradient_vector)| {
-                (&first_piola_kirchhoff_stress * bond_gradient_vector) * self.volume
-            })
-            .collect())
-    }
-    /// The stiffness blocks this particle's tangent contributes between each
-    /// pair of its bonded neighbors (including itself), ordered the same as
-    /// its bond list on both axes.
-    pub(crate) fn nodal_stiffnesses<C>(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<Vec<Vec<NodalStiffness>>, ConstitutiveError>
-    where
-        C: Elastic,
-    {
-        let first_piola_kirchhoff_tangent_stiffness = constitutive_model
-            .first_piola_kirchhoff_tangent_stiffness(
-                &self.deformation_gradient(nodal_coordinates),
-            )?;
-        Ok(self
-            .gradient_vectors
-            .iter()
-            .map(|(_, bond_gradient_vector_a)| {
-                self.gradient_vectors
-                    .iter()
-                    .map(|(_, bond_gradient_vector_b)| {
-                        first_piola_kirchhoff_tangent_stiffness.contract_second_fourth_with_first(
-                            bond_gradient_vector_a,
-                            bond_gradient_vector_b,
-                        ) * self.volume
-                    })
-                    .collect()
-            })
-            .collect())
     }
     fn element_coordinates<const D: usize, I, U>(
         coordinates: &TensorRank1Vec<D, I, U>,
@@ -198,5 +128,89 @@ impl Node {
                     .collect(),
             })
             .collect()
+    }
+}
+
+impl SolidElement for Node {
+    type Coordinates = NodalCoordinates<3>;
+    type Velocities = NodalVelocities<3>;
+    type DeformationGradients = DeformationGradient;
+    type DeformationGradientRates = DeformationGradientRate;
+    fn deformation_gradients(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> DeformationGradient {
+        self.gradient_vectors
+            .iter()
+            .map(|(neighbor, bond_gradient_vector)| {
+                DeformationGradient::from((&nodal_coordinates[*neighbor], bond_gradient_vector))
+            })
+            .sum()
+    }
+    fn deformation_gradient_rates(
+        &self,
+        _nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
+    ) -> DeformationGradientRate {
+        self.gradient_vectors
+            .iter()
+            .map(|(neighbor, bond_gradient_vector)| {
+                DeformationGradientRate::from((&nodal_velocities[*neighbor], bond_gradient_vector))
+            })
+            .sum()
+    }
+}
+
+impl<C> ElasticElement<C> for Node
+where
+    C: Elastic,
+{
+    type Forces = Vec<NodalForce>;
+    type Stiffnesses = Vec<Vec<NodalStiffness>>;
+    type Error = ConstitutiveError;
+    /// The forces this particle's stress contributes to each of its bonded
+    /// neighbors (including itself), ordered the same as its bond list.
+    fn nodal_forces(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<Vec<NodalForce>, ConstitutiveError> {
+        let first_piola_kirchhoff_stress = constitutive_model
+            .first_piola_kirchhoff_stress(&self.deformation_gradients(nodal_coordinates))?;
+        Ok(self
+            .gradient_vectors
+            .iter()
+            .map(|(_, bond_gradient_vector)| {
+                (&first_piola_kirchhoff_stress * bond_gradient_vector) * self.volume
+            })
+            .collect())
+    }
+    /// The stiffness blocks this particle's tangent contributes between each
+    /// pair of its bonded neighbors (including itself), ordered the same as
+    /// its bond list on both axes.
+    fn nodal_stiffnesses(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<Vec<Vec<NodalStiffness>>, ConstitutiveError> {
+        let first_piola_kirchhoff_tangent_stiffness = constitutive_model
+            .first_piola_kirchhoff_tangent_stiffness(
+                &self.deformation_gradients(nodal_coordinates),
+            )?;
+        Ok(self
+            .gradient_vectors
+            .iter()
+            .map(|(_, bond_gradient_vector_a)| {
+                self.gradient_vectors
+                    .iter()
+                    .map(|(_, bond_gradient_vector_b)| {
+                        first_piola_kirchhoff_tangent_stiffness.contract_second_fourth_with_first(
+                            bond_gradient_vector_a,
+                            bond_gradient_vector_b,
+                        ) * self.volume
+                    })
+                    .collect()
+            })
+            .collect())
     }
 }
