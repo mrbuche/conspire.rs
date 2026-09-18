@@ -33,9 +33,7 @@ where
         Ok(self
             .gradient_vectors()
             .iter()
-            .map(|(_, gradient_vector)| {
-                (&first_piola_kirchhoff_stress * gradient_vector) * self.volume
-            })
+            .map(|gradient_vector| (&first_piola_kirchhoff_stress * gradient_vector) * self.volume)
             .collect())
     }
     /// The stiffness blocks this particle's tangent contributes between each
@@ -53,10 +51,10 @@ where
         Ok(self
             .gradient_vectors()
             .iter()
-            .map(|(_, gradient_vector_a)| {
+            .map(|gradient_vector_a| {
                 self.gradient_vectors()
                     .iter()
-                    .map(|(_, gradient_vector_b)| {
+                    .map(|gradient_vector_b| {
                         first_piola_kirchhoff_tangent_stiffness
                             .contract_second_fourth_with_first(gradient_vector_a, gradient_vector_b)
                             * self.volume

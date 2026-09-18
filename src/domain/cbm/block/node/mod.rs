@@ -19,14 +19,19 @@ type UnnormalizedBondGradientVector =
     TensorRank1<3, Reference, <ReciprocalLength as UnitMul<Volume>>::Output>;
 
 /// A particle: its reference volume and the bond gradient vectors — including
-/// its own self term — of the neighbors spanning its bond neighborhood.
+/// its own self term — of the neighbors spanning its bond neighborhood, kept
+/// parallel to (and in the same order as) [`Self::neighbors`].
 pub(crate) struct Node {
     volume: Quantity<Volume>,
-    gradient_vectors: Vec<(usize, BondGradientVector)>,
+    neighbors: Vec<usize>,
+    gradient_vectors: Vec<BondGradientVector>,
 }
 
 impl Node {
-    pub(crate) fn gradient_vectors(&self) -> &[(usize, BondGradientVector)] {
+    pub(crate) fn neighbors(&self) -> &[usize] {
+        &self.neighbors
+    }
+    pub(crate) fn gradient_vectors(&self) -> &[BondGradientVector] {
         &self.gradient_vectors
     }
     fn element_coordinates<const D: usize, I, U>(
@@ -107,12 +112,16 @@ impl Node {
         unnormalized
             .into_iter()
             .zip(volumes)
-            .map(|(bonds, volume)| Node {
-                volume,
-                gradient_vectors: bonds
+            .map(|(bonds, volume)| {
+                let (neighbors, gradient_vectors) = bonds
                     .into_iter()
                     .map(|(node, bond)| (node, bond / volume))
-                    .collect(),
+                    .unzip();
+                Node {
+                    volume,
+                    neighbors,
+                    gradient_vectors,
+                }
             })
             .collect()
     }

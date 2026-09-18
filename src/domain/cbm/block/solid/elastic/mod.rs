@@ -23,8 +23,8 @@ where
             .try_for_each(|node| {
                 node.nodal_forces(&self.constitutive_model, nodal_coordinates)?
                     .into_iter()
-                    .zip(node.gradient_vectors())
-                    .for_each(|(force, (neighbor, _))| nodal_forces[*neighbor] += force);
+                    .zip(node.neighbors())
+                    .for_each(|(force, &neighbor)| nodal_forces[neighbor] += force);
                 Ok::<(), ConstitutiveError>(())
             })
             .map_err(|error| ElementModelError::upstream(error, self))
@@ -39,13 +39,13 @@ where
             .try_for_each(|node| {
                 node.nodal_stiffnesses(&self.constitutive_model, nodal_coordinates)?
                     .into_iter()
-                    .zip(node.gradient_vectors())
-                    .for_each(|(row, (neighbor_a, _))| {
-                        row.into_iter().zip(node.gradient_vectors()).for_each(
-                            |(block, (neighbor_b, _))| {
-                                nodal_stiffnesses[*neighbor_a][*neighbor_b] += block
-                            },
-                        )
+                    .zip(node.neighbors())
+                    .for_each(|(row, &neighbor_a)| {
+                        row.into_iter()
+                            .zip(node.neighbors())
+                            .for_each(|(block, &neighbor_b)| {
+                                nodal_stiffnesses[neighbor_a][neighbor_b] += block
+                            })
                     });
                 Ok::<(), ConstitutiveError>(())
             })
