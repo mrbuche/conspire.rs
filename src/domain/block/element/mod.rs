@@ -15,8 +15,6 @@ where
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]);
 }
 
-/// Names the kind of element an [`ElementError`] was raised for, e.g. "finite
-/// element" or "virtual element".
 pub trait ElementKind {
     const NAME: &'static str;
 }

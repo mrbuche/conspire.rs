@@ -6,15 +6,6 @@ use crate::{
     },
 };
 
-/// Builds `Self` from a right-nested list of block connectivities, consuming
-/// one connectivity (and its corresponding constitutive model) per level of
-/// nesting, from the last connectivity/model out.
-///
-/// A single block (fem or vem) is the base case, consuming one connectivity
-/// directly from its constitutive model `M`. `Blocks<B1, B2>` is the
-/// recursive case: it peels the last connectivity off for `B2` (itself a
-/// single block) and hands the rest to `B1`, so any right-nested mix of fem
-/// and vem blocks, in any number, is buildable this way.
 pub(crate) trait FromConnectivities<const D: usize, M>: Sized {
     fn from_connectivities(
         connectivities: Vec<Connectivity>,

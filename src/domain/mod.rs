@@ -29,11 +29,6 @@ use crate::{
 };
 use std::fmt::{Debug, Display};
 
-/// The coordinates of a mesh, given the length they are measured in.
-///
-/// A mesh is a shape rather than a body, so its coordinates carry no unit until
-/// a model is made of it. This is the one place a length is named, and every
-/// unit a model carries follows from it.
 pub(crate) fn nodal_coordinates<const D: usize>(
     coordinates: Coordinates<D>,
 ) -> NodalReferenceCoordinates<D> {
@@ -44,8 +39,6 @@ pub(crate) fn nodal_coordinates<const D: usize>(
 }
 
 pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, Current, Length>;
-// Not yet used by cbm alone (only via fem/vem); not dead in the architectural
-// sense, so suppress rather than gate out.
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Length>;
 pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, Reference, Length>;

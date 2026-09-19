@@ -1,4 +1,4 @@
-//! Continuum bond methods
+//! Continuum bond methods.
 
 pub mod block;
 
