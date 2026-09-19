@@ -15,16 +15,11 @@ use crate::{
 use std::collections::HashMap;
 use tetrahedron::{ElementNodalReferenceCoordinates, GradientVectors, Tetrahedron};
 
-/// How a tetrahedron's volume is split among its 4 vertices when building
-/// each particle's tributary volume and bond gradient vectors.
 #[derive(Clone, Copy, Debug, Default)]
 pub enum Weighting {
-    /// The source paper's scheme: each vertex gets an equal 1/4 share.
+    SolidAngle,
     #[default]
     Uniform,
-    /// Each vertex gets a share proportional to its solid angle within the
-    /// tetrahedron (Van Oosterom-Strackee formula), normalized to sum to 1.
-    SolidAngle,
 }
 
 impl Weighting {
@@ -59,16 +54,10 @@ fn solid_angle_weights(coordinates: &ElementNodalReferenceCoordinates) -> [Scala
     angles.map(|angle| angle / sum)
 }
 
-/// A reference-configuration gradient vector, `\zeta_{ip}` in the source paper.
 pub(crate) type BondGradientVector = TensorRank1<3, Reference, ReciprocalLength>;
-/// The intermediate, unnormalized accumulation of a bond gradient vector across
-/// the incident tetrahedra, before dividing through by the particle's volume.
 type UnnormalizedBondGradientVector =
     TensorRank1<3, Reference, <ReciprocalLength as UnitMul<Volume>>::Output>;
 
-/// A particle: its reference volume and the bond gradient vectors — including
-/// its own self term — of the neighbors spanning its bond neighborhood, kept
-/// parallel to (and in the same order as) [`Self::neighbors`].
 pub(crate) struct Node {
     volume: Quantity<Volume>,
     neighbors: Vec<usize>,
@@ -120,8 +109,6 @@ impl Node {
             });
         bonds
     }
-    /// Builds one [`Node`] per particle from the reference-configuration tet
-    /// connectivity and coordinates.
     pub(crate) fn vec_from(
         connectivity: &PrimitiveConnectivity<3, 4>,
         reference_coordinates: &NodalReferenceCoordinates<3>,
