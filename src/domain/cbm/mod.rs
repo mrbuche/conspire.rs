@@ -7,8 +7,10 @@ pub use crate::domain::{
     NodalVelocities, ZerothOrderRoot,
     block::element::Elements,
     solid::{
-        NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements,
-        hyperelastic::HyperelasticElements,
+        NodalDampingsSolid, NodalForcesSolid, NodalStiffnessesSolid, SolidElements,
+        elastic::ElasticElements, elastic_hyperviscous::ElasticHyperviscousElements,
+        hyperelastic::HyperelasticElements, hyperviscoelastic::HyperviscoelasticElements,
+        viscoelastic::ViscoelasticElements,
     },
 };
 pub use block::node::Weighting;

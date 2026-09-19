@@ -1,5 +1,8 @@
 pub mod elastic;
+pub mod elastic_hyperviscous;
 pub mod hyperelastic;
+pub mod hyperviscoelastic;
+pub mod viscoelastic;
 
 use super::{Block, node::solid::SolidElement};
 use crate::{

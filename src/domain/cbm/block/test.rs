@@ -17,7 +17,9 @@ use crate::{
     },
     geometry::{Coordinate, Coordinates, mesh::PrimitiveConnectivity},
     math::{Tensor, assert::Assert, assert::perturbation},
-    mechanics::{DeformationGradient, DeformationGradientRate},
+    mechanics::{
+        DeformationGradient, DeformationGradientRate, test::get_deformation_gradient_rate,
+    },
     units::{Length, Stress},
 };
 
@@ -255,6 +257,13 @@ fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
     ])
 }
 
+fn get_velocities_block() -> NodalVelocities<3> {
+    get_reference_coordinates_block()
+        .iter()
+        .map(|reference_coordinate| get_deformation_gradient_rate() * reference_coordinate)
+        .collect()
+}
+
 mod uniform {
     use super::*;
     macro_rules! setup_block {
@@ -277,6 +286,94 @@ mod uniform {
     }
 
     crate::domain::block::test::test_block_elastic_and_hyperelastic!(Particle);
+
+    mod block_viscous {
+        use super::*;
+        use crate::{
+            EPSILON,
+            domain::block::test::{
+                test_finite_element_block_with_elastic_hyperviscous_constitutive_model,
+                test_finite_element_block_with_hyperviscoelastic_constitutive_model,
+            },
+            math::{Rank2, TensorRank2, assert::AssertionError},
+            mechanics::test::{
+                get_rotation_current_configuration, get_rotation_rate_current_configuration,
+                get_rotation_reference_configuration, get_translation_current_configuration,
+                get_translation_rate_current_configuration,
+                get_translation_reference_configuration,
+            },
+        };
+        mod elastic_hyperviscous {
+            use super::*;
+            use crate::{
+                constitutive::{
+                    canonical::Canonical,
+                    fluid::hyperviscous::Newtonian,
+                    solid::elastic_hyperviscous::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                },
+                domain::solid::{
+                    NodalDampingsSolid, elastic_hyperviscous::ElasticHyperviscousElements,
+                    viscoelastic::ViscoelasticElements,
+                },
+            };
+            type AlmansiHamel = Canonical<AlmansiHamelEulerian, Newtonian>;
+            mod almansi_hamel {
+                use super::*;
+                test_finite_element_block_with_elastic_hyperviscous_constitutive_model!(
+                    Particle,
+                    Particle,
+                    AlmansiHamel::from((
+                        AlmansiHamelEulerian {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                        },
+                        Newtonian {
+                            bulk_viscosity: BULK_VISCOSITY,
+                            shear_viscosity: SHEAR_VISCOSITY,
+                        },
+                    )),
+                    AlmansiHamel
+                );
+            }
+        }
+        mod hyperviscoelastic {
+            use super::*;
+            use crate::{
+                constitutive::{
+                    canonical::Canonical,
+                    fluid::hyperviscous::SaintVenantKirchhoff as ViscousSaintVenantKirchhoff,
+                    solid::{
+                        hyperelastic::SaintVenantKirchhoff as HyperelasticSaintVenantKirchhoff,
+                        hyperviscoelastic::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                    },
+                },
+                domain::solid::{
+                    NodalDampingsSolid, elastic_hyperviscous::ElasticHyperviscousElements,
+                    viscoelastic::ViscoelasticElements,
+                },
+            };
+            type SaintVenantKirchhoff =
+                Canonical<HyperelasticSaintVenantKirchhoff, ViscousSaintVenantKirchhoff>;
+            mod saint_venant_kirchhoff {
+                use super::*;
+                test_finite_element_block_with_hyperviscoelastic_constitutive_model!(
+                    Particle,
+                    Particle,
+                    SaintVenantKirchhoff::from((
+                        HyperelasticSaintVenantKirchhoff {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                        },
+                        ViscousSaintVenantKirchhoff {
+                            bulk_viscosity: BULK_VISCOSITY,
+                            shear_viscosity: SHEAR_VISCOSITY,
+                        },
+                    )),
+                    SaintVenantKirchhoff
+                );
+            }
+        }
+    }
 }
 
 mod solid_angle {
@@ -303,4 +400,92 @@ mod solid_angle {
     }
 
     crate::domain::block::test::test_block_elastic_and_hyperelastic!(Particle);
+
+    mod block_viscous {
+        use super::*;
+        use crate::{
+            EPSILON,
+            domain::block::test::{
+                test_finite_element_block_with_elastic_hyperviscous_constitutive_model,
+                test_finite_element_block_with_hyperviscoelastic_constitutive_model,
+            },
+            math::{Rank2, TensorRank2, assert::AssertionError},
+            mechanics::test::{
+                get_rotation_current_configuration, get_rotation_rate_current_configuration,
+                get_rotation_reference_configuration, get_translation_current_configuration,
+                get_translation_rate_current_configuration,
+                get_translation_reference_configuration,
+            },
+        };
+        mod elastic_hyperviscous {
+            use super::*;
+            use crate::{
+                constitutive::{
+                    canonical::Canonical,
+                    fluid::hyperviscous::Newtonian,
+                    solid::elastic_hyperviscous::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                },
+                domain::solid::{
+                    NodalDampingsSolid, elastic_hyperviscous::ElasticHyperviscousElements,
+                    viscoelastic::ViscoelasticElements,
+                },
+            };
+            type AlmansiHamel = Canonical<AlmansiHamelEulerian, Newtonian>;
+            mod almansi_hamel {
+                use super::*;
+                test_finite_element_block_with_elastic_hyperviscous_constitutive_model!(
+                    Particle,
+                    Particle,
+                    AlmansiHamel::from((
+                        AlmansiHamelEulerian {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                        },
+                        Newtonian {
+                            bulk_viscosity: BULK_VISCOSITY,
+                            shear_viscosity: SHEAR_VISCOSITY,
+                        },
+                    )),
+                    AlmansiHamel
+                );
+            }
+        }
+        mod hyperviscoelastic {
+            use super::*;
+            use crate::{
+                constitutive::{
+                    canonical::Canonical,
+                    fluid::hyperviscous::SaintVenantKirchhoff as ViscousSaintVenantKirchhoff,
+                    solid::{
+                        hyperelastic::SaintVenantKirchhoff as HyperelasticSaintVenantKirchhoff,
+                        hyperviscoelastic::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                    },
+                },
+                domain::solid::{
+                    NodalDampingsSolid, elastic_hyperviscous::ElasticHyperviscousElements,
+                    viscoelastic::ViscoelasticElements,
+                },
+            };
+            type SaintVenantKirchhoff =
+                Canonical<HyperelasticSaintVenantKirchhoff, ViscousSaintVenantKirchhoff>;
+            mod saint_venant_kirchhoff {
+                use super::*;
+                test_finite_element_block_with_hyperviscoelastic_constitutive_model!(
+                    Particle,
+                    Particle,
+                    SaintVenantKirchhoff::from((
+                        HyperelasticSaintVenantKirchhoff {
+                            bulk_modulus: BULK_MODULUS,
+                            shear_modulus: SHEAR_MODULUS,
+                        },
+                        ViscousSaintVenantKirchhoff {
+                            bulk_viscosity: BULK_VISCOSITY,
+                            shear_viscosity: SHEAR_VISCOSITY,
+                        },
+                    )),
+                    SaintVenantKirchhoff
+                );
+            }
+        }
+    }
 }
