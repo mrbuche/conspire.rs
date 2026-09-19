@@ -8,8 +8,12 @@ pub use crate::domain::{
     block::element::Elements,
     solid::{
         NodalDampingsSolid, NodalForcesSolid, NodalStiffnessesSolid, SolidElements,
-        elastic::ElasticElements, elastic_hyperviscous::ElasticHyperviscousElements,
-        hyperelastic::HyperelasticElements, hyperviscoelastic::HyperviscoelasticElements,
+        elastic::ElasticElements,
+        elastic_hyperviscous::ElasticHyperviscousElements,
+        elastic_viscoplastic::{ElasticViscoplasticBCs, ElasticViscoplasticElements},
+        hyperelastic::HyperelasticElements,
+        hyperelastic_viscoplastic::HyperelasticViscoplasticElements,
+        hyperviscoelastic::HyperviscoelasticElements,
         viscoelastic::ViscoelasticElements,
     },
 };
