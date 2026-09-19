@@ -3,19 +3,19 @@
 #![cfg_attr(feature = "nightly", feature(portable_simd))]
 
 #[cfg(feature = "cbm")]
-#[path = "domain/cbm/mod.rs"]
-pub mod cbm;
+#[doc(hidden)]
+pub use domain::cbm;
 
 #[cfg(feature = "constitutive")]
 pub mod constitutive;
 
 #[cfg(any(feature = "cbm", feature = "fem", feature = "vem"))]
 #[path = "domain/mod.rs"]
-pub(crate) mod domain;
+pub mod domain;
 
 #[cfg(feature = "fem")]
-#[path = "domain/fem/mod.rs"]
-pub mod fem;
+#[doc(hidden)]
+pub use domain::fem;
 
 #[cfg(feature = "geometry")]
 pub mod geometry;
@@ -36,8 +36,8 @@ pub mod physics;
 pub mod units;
 
 #[cfg(feature = "vem")]
-#[path = "domain/vem/mod.rs"]
-pub mod vem;
+#[doc(hidden)]
+pub use domain::vem;
 
 /// Absolute tolerance.
 pub const ABS_TOL: f64 = 1e-12;

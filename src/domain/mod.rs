@@ -1,10 +1,17 @@
-//! Shared, discretization-method-agnostic layer for fem/vem/etc.
+//! Domain discretization methods.
 
-pub(crate) mod block;
-pub(crate) mod from;
-pub(crate) mod solid;
 #[cfg(all(test, feature = "vem"))]
 mod test;
+
+pub(crate) mod block;
+#[cfg(feature = "cbm")]
+pub mod cbm;
+#[cfg(feature = "fem")]
+pub mod fem;
+pub(crate) mod from;
+pub(crate) mod solid;
+#[cfg(feature = "vem")]
+pub mod vem;
 
 use crate::{
     domain::block::element::Elements,

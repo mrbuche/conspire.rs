@@ -197,7 +197,7 @@ where
 /// than frozen across the load-step window — so the coupling is the tableau's
 /// own order instead of first order, at the cost of `Tab::STAGES` equilibrium
 /// solves per window instead of one. One blanket impl over any [`Model`] whose
-/// blocks are [`ElasticViscoplasticDaeElements`] — a single [`Block`], nested
+/// blocks are [`ElasticViscoplasticDaeElements`] — a single block, nested
 /// [`Blocks`] to any depth, or an [`ElasticViscoplasticAndElastic`] pairing.
 pub trait RootRkmkDae<const D: usize, Y = Quantity> {
     /// The model's plastic-state history type.
@@ -241,7 +241,7 @@ pub trait RootRkmkDae<const D: usize, Y = Quantity> {
 
 /// Per-topology machinery behind [`RootRkmkDae`]: the whole-mesh
 /// [`Integrable`] every Gauss point's plastic state lives on (a
-/// per-Gauss-point [`List`](crate::math::integrate::List) for one [`Block`],
+/// per-Gauss-point [`List`](crate::math::integrate::List) for one block,
 /// a [`Product`] of those for [`Blocks`]), how to flatten/unflatten between
 /// it and the block's native per-element [`State`](Self::State), and how to
 /// evaluate every Gauss point's plastic rate at a stage's nodal coordinates.
