@@ -2,7 +2,7 @@ use crate::{
     domain::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Model,
         NodalCoordinates, NodalCoordinatesHistory,
-        block::element::Elements,
+        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
@@ -356,6 +356,10 @@ where
         bcs: ElasticViscoplasticBCs,
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
         let blocks = self.blocks();
+        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+        self.node_neighbors(&mut neighbors);
+        finalize_node_neighbors(&mut neighbors);
+        let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), 3, false);
         let function = |_: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
@@ -384,7 +388,7 @@ where
                 |x: &NodalCoordinates<3>| jacobian(time[0], &state, x),
                 guess,
                 equality_constraint(time[0]),
-                None,
+                Some(sparse.clone()),
             )
             .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
         let mut times = Times::new();
@@ -415,6 +419,7 @@ where
                 &mut scratch,
                 carry.as_ref(),
                 equality_constraint,
+                Some(sparse.clone()),
             )
             .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
             state = advanced.0;
@@ -440,6 +445,10 @@ where
         rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
         let blocks = self.blocks();
+        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+        self.node_neighbors(&mut neighbors);
+        finalize_node_neighbors(&mut neighbors);
+        let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), 3, false);
         let function = |_: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
@@ -468,7 +477,7 @@ where
                 |x: &NodalCoordinates<3>| jacobian(time[0], &state, x),
                 guess,
                 equality_constraint(time[0]),
-                None,
+                Some(sparse.clone()),
             )
             .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
         let (times, state_points_history, nodal_coordinates_history) =
@@ -491,6 +500,7 @@ where
                 abs_tol,
                 rel_tol,
                 equality_constraint,
+                Some(sparse),
             )
             .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
         let state_variables_history = state_points_history.iter().map(B::unflatten).collect();

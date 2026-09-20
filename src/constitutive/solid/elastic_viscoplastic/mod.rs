@@ -481,6 +481,7 @@ where
                 &mut scratch,
                 carry.as_ref(),
                 equality_constraint,
+                None,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
             state = advanced.0;
@@ -565,6 +566,7 @@ where
                 abs_tol,
                 rel_tol,
                 equality_constraint,
+                None,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
         Ok((times, deformation_gradients, state_variables))
