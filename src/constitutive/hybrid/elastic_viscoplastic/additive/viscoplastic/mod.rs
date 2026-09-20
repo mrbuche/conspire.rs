@@ -32,6 +32,18 @@ where
     fn hardening_slope(&self) -> Quantity<Stress> {
         self.1.hardening_slope()
     }
+    fn yield_stress(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        self.1.yield_stress(equivalent_plastic_strain)
+    }
+    fn hardening_modulus(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        self.1.hardening_modulus(equivalent_plastic_strain)
+    }
 }
 
 impl<C1, C2, Y1, Y2> Viscoplastic<GroupedViscoplasticStateVariables<Y1, Y2>>

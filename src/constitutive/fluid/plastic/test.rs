@@ -83,6 +83,67 @@ fn deviatoric_mandel_stress_from_finite_difference_of_dissipation_potential()
     Assert::default().eq_within_fd_tol(&mandel_stress_on_surface, &finite_difference)
 }
 
+fn voce() -> VoceFlow {
+    VoceFlow {
+        yield_stress: Stress::pascals(2.0),
+        hardening_slope: Stress::pascals(0.2),
+        saturation_stress: Stress::pascals(1.5),
+        saturation_rate: 8.0,
+    }
+}
+
+#[test]
+fn the_default_hardening_modulus_is_the_slope() -> Result<(), AssertionError> {
+    let model = model();
+    [0.0, 0.3, 2.0].into_iter().try_for_each(|strain| {
+        Assert::default().eq_within_tols(
+            model.hardening_modulus(Quantity::new(strain))?,
+            &model.hardening_slope(),
+        )
+    })
+}
+
+#[test]
+fn hardening_modulus_is_the_derivative_of_the_yield_stress() -> Result<(), AssertionError> {
+    let (model, step) = (voce(), 1e-6);
+    for strain in [0.0, 0.01, 0.05, 0.3, 1.0] {
+        let finite_difference = (model.yield_stress(Quantity::new(strain + step))?
+            - model.yield_stress(Quantity::new(strain - step))?)
+            / (2.0 * step);
+        let modulus = model.hardening_modulus(Quantity::new(strain))?;
+        assert!(
+            (modulus.value() - finite_difference.value()).abs()
+                <= 1e-6 * (1.0 + modulus.value().abs()),
+            "strain {strain}: modulus {} vs finite difference {}",
+            modulus.value(),
+            finite_difference.value(),
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn voce_hardening_starts_at_the_initial_yield_stress_and_saturates() -> Result<(), AssertionError> {
+    let model = voce();
+    Assert::default().eq_within_tols(
+        model.yield_stress(Quantity::default())?,
+        &model.initial_yield_stress(),
+    )?;
+    // the initial slope is H + Q b, and past saturation only the linear part H remains
+    Assert::default().eq_within_tols(
+        model.hardening_modulus(Quantity::default())?,
+        &model.hardening_slope(),
+    )?;
+    Assert::default().eq_within_tols(
+        model.hardening_slope(),
+        &(Stress::pascals(0.2) + Stress::pascals(1.5) * 8.0),
+    )?;
+    Assert::default().eq_within_tols(
+        model.hardening_modulus(Quantity::new(10.0))?,
+        &Stress::pascals(0.2),
+    )
+}
+
 #[test]
 fn fenchel_equality() -> Result<(), AssertionError> {
     let model = model();

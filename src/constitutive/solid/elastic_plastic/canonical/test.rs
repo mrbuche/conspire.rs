@@ -1,7 +1,9 @@
 use crate::{
     constitutive::{
         canonical::Canonical,
-        fluid::plastic::{PlasticFlow, PlasticStateVariables, RateIndependentPlastic},
+        fluid::plastic::{
+            Plastic, PlasticFlow, PlasticStateVariables, RateIndependentPlastic, VoceFlow,
+        },
         solid::{
             elastic_plastic::{
                 AppliedLoad, ElasticPlastic, ElasticPlasticOrViscoplastic, FirstOrderRoot,
@@ -51,6 +53,57 @@ fn model(hardening_slope: f64) -> Canonical<NeoHookean, PlasticFlow> {
             hardening_slope: Stress::pascals(hardening_slope),
         },
     ))
+}
+
+// saturates within a few percent plastic strain, so the hardening modulus changes a lot
+// over a step
+fn voce_model() -> Canonical<NeoHookean, VoceFlow> {
+    Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        VoceFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(0.2),
+            saturation_stress: Stress::pascals(1.5),
+            saturation_rate: 8.0,
+        },
+    ))
+}
+
+#[test]
+fn a_composed_model_forwards_the_hardening_law() -> Result<(), AssertionError> {
+    // a wrapper that forwarded only the initial yield stress and slope would silently
+    // fall back to the linear default
+    let model = voce_model();
+    for strain in [0.0, 0.01, 0.05, 0.4] {
+        let strain = Quantity::new(strain);
+        Assert::default()
+            .eq_within_tols(model.yield_stress(strain)?, &model.1.yield_stress(strain)?)?;
+        Assert::default().eq_within_tols(
+            model.hardening_modulus(strain)?,
+            &model.1.hardening_modulus(strain)?,
+        )?;
+    }
+    assert!(
+        (model.hardening_modulus(Quantity::new(0.4))? - model.hardening_slope())
+            .value()
+            .abs()
+            > 1e-3,
+        "the modulus must vary with strain for this test to mean anything"
+    );
+    Ok(())
+}
+
+#[test]
+fn return_map_satisfies_the_implicit_step_with_nonlinear_hardening() -> Result<(), AssertionError> {
+    let model = voce_model();
+    let first = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let second = DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]);
+    let state = assert_implicit_step(&model, &first, &model.initial_state())?;
+    assert_implicit_step(&model, &second, &state)?;
+    Ok(())
 }
 
 fn times(final_time: f64, steps: usize) -> Vec<Quantity<Time>> {
@@ -326,8 +379,8 @@ fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
     Ok(())
 }
 
-fn assert_implicit_step(
-    model: &Canonical<NeoHookean, PlasticFlow>,
+fn assert_implicit_step<M: ElasticPlastic>(
+    model: &M,
     deformation_gradient: &DeformationGradient,
     previous_state: &PlasticStateVariables,
 ) -> Result<PlasticStateVariables, AssertionError> {
@@ -497,10 +550,20 @@ fn monolithic_blocks_match_finite_difference_at_a_plastic_state() -> Result<(), 
 #[test]
 fn monolithic_strategies_agree_when_the_loading_is_not_proportional() -> Result<(), AssertionError>
 {
+    assert_strategies_agree_under_biaxial_loading(&model(1.0))
+}
+
+#[test]
+fn monolithic_strategies_agree_with_nonlinear_hardening() -> Result<(), AssertionError> {
+    assert_strategies_agree_under_biaxial_loading(&voce_model())
+}
+
+fn assert_strategies_agree_under_biaxial_loading<M: ElasticPlastic>(
+    model: &M,
+) -> Result<(), AssertionError> {
     use crate::{
         constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
     };
-    let model = model(1.0);
     let steps = times(0.5, 40);
     // F_11 and F_22 follow different histories, so the plastic flow direction rotates
     // and a direction frozen at the start of the step would no longer be the converged
@@ -513,7 +576,7 @@ fn monolithic_strategies_agree_when_the_loading_is_not_proportional() -> Result<
         )
     };
     let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
-        &model,
+        model,
         load(),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
@@ -526,7 +589,7 @@ fn monolithic_strategies_agree_when_the_loading_is_not_proportional() -> Result<
         SolveStrategy::Monolithic { elimination: true },
     ] {
         let (_, gradients, states) =
-            FirstOrderRoot::root(&model, load(), NewtonRaphson::default(), strategy)?;
+            FirstOrderRoot::root(model, load(), NewtonRaphson::default(), strategy)?;
         let assert = Assert {
             abs_tol: 1e-9,
             rel_tol: 1e-9,

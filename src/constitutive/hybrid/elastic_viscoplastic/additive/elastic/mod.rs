@@ -50,6 +50,18 @@ where
     fn hardening_slope(&self) -> Quantity<Stress> {
         self.0.hardening_slope()
     }
+    fn yield_stress(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        self.0.yield_stress(equivalent_plastic_strain)
+    }
+    fn hardening_modulus(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        self.0.hardening_modulus(equivalent_plastic_strain)
+    }
 }
 
 impl<C1, C2, Y1> Viscoplastic<Y1> for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
