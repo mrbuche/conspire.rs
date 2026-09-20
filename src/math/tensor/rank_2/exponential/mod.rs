@@ -6,18 +6,30 @@ use crate::math::assert::Assert;
 use crate::units::Dimensionless;
 
 use super::{
-    super::{Rank2, Tensor, TensorArray, TensorError, rank_4::TensorRank4},
+    super::{
+        Rank2, Tensor, TensorArray, TensorError, rank_0::list::TensorRank0List, rank_4::TensorRank4,
+    },
     TensorRank2,
     eigen::{find_orthonormal_eigenvectors, reconstruct_symmetric, solve_cubic_symmetric},
 };
+
+/// Whether the eigenvalues from the cubic are far enough apart for the spectral
+/// decomposition to be accurate: the roots of a nearly repeated pair are ill-conditioned,
+/// and the error they carry (about a part in 10^9 for a gap of 10^-11) passes straight
+/// into the exponential.
+fn well_separated(eigenvalues: &TensorRank0List<3>, norm: f64) -> bool {
+    let gap = |i: usize, j: usize| (eigenvalues[i] - eigenvalues[j]).abs();
+    gap(0, 1).min(gap(0, 2)).min(gap(1, 2)) >= 1e-2 * (1.0 + norm)
+}
 
 impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// Returns the matrix exponential of the 3x3 tensor.
     ///
     /// Diagonal tensors go entrywise; symmetric tensors (exactly or up to
-    /// round-off) through the spectral decomposition; anything with a small
-    /// enough norm through a truncated Taylor series; and a general tensor
-    /// through scaling and squaring of that series.
+    /// round-off) with well-separated eigenvalues through the spectral decomposition;
+    /// anything with a small enough norm through a truncated Taylor series; and
+    /// everything else, including symmetric tensors with a nearly repeated
+    /// eigenvalue, through scaling and squaring of that series.
     pub fn expm(&self) -> Result<Self, TensorError> {
         if self.is_diagonal() {
             let mut expm = TensorRank2::zero();
@@ -35,11 +47,13 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
         if self.is_symmetric() || (self - &transpose).norm().value() < 1e-9 * (1.0 + norm) {
             let symmetric = (self + transpose) * 0.5;
             let mut eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
-            let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, &symmetric);
-            eigenvalues
-                .iter_mut()
-                .for_each(|eigenvalue| *eigenvalue = eigenvalue.exp());
-            return Ok(reconstruct_symmetric(eigenvalues, eigenvectors));
+            if well_separated(&eigenvalues, norm) {
+                let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, &symmetric);
+                eigenvalues
+                    .iter_mut()
+                    .for_each(|eigenvalue| *eigenvalue = eigenvalue.exp());
+                return Ok(reconstruct_symmetric(eigenvalues, eigenvectors));
+            }
         }
         let squarings = (norm / 5e-3).log2().ceil().max(1.0) as u32;
         let mut expm = (self / 2.0_f64.powi(squarings as i32)).expm_series();
