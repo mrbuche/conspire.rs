@@ -3,7 +3,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         canonical::Canonical,
-        fluid::plastic::{Plastic, PlasticFlow, RateIndependentPlastic, VoceFlow},
+        fluid::plastic::{PlasticFlow, RateIndependentPlastic, VoceFlow},
         solid::{
             elastic_plastic::{ElasticPlastic, ElasticPlasticOrViscoplastic},
             hyperelastic::{Hencky, NeoHookean, SaintVenantKirchhoff},
@@ -68,11 +68,7 @@ macro_rules! test_models {
                 0.030, 0.010, 0.004, 0.012, -0.020, 0.005, 0.003, -0.002, -0.010, 0.030,
             ];
             let iterate = Iterate::new(&model, &f, f_p_n, strain_n, &x)?;
-            let hardening_modulus = model
-                .hardening_modulus(Quantity::new(strain_n + x[9]))?
-                .value();
-            let analytic = Sensitivities::new(&model, &f, f_p_n, &x, &iterate)?
-                .jacobian(x[9], hardening_modulus);
+            let analytic = Sensitivities::new(&model, &f, f_p_n, &x, &iterate)?.jacobian();
             let h = 1e-7;
             for column in 0..SIZE {
                 let (mut plus, mut minus) = (x, x);
