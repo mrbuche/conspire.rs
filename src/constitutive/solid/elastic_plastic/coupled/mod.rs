@@ -141,13 +141,16 @@ impl Linearization {
 }
 
 /// Everything evaluated once per iterate: the plastic deformation gradient, the
-/// deviatoric Mandel stress with its unit direction, and the residual.
+/// deviatoric Mandel stress with its unit direction, the residual, and the multiplier
+/// with the hardening modulus at its plastic strain, which the Jacobian needs.
 struct Iterate {
     plastic: DeformationGradientPlastic,
     unit: Matrix3,
     direction: Matrix3,
     magnitude: Scalar,
     residual: Unknowns,
+    gamma: Scalar,
+    hardening_modulus: Scalar,
 }
 
 impl Iterate {
@@ -184,6 +187,10 @@ impl Iterate {
             direction,
             magnitude,
             residual,
+            gamma: x[9],
+            hardening_modulus: model
+                .hardening_modulus(Quantity::new(strain_n + x[9]))?
+                .value(),
         })
     }
 }
@@ -252,7 +259,12 @@ impl<'a> Sensitivities<'a> {
     }
 
     /// The Jacobian of the residual with respect to $`(\mathbf{E},\Delta\gamma)`$.
-    fn jacobian(&self, gamma: Scalar, hardening_modulus: Scalar) -> [[Scalar; SIZE]; SIZE] {
+    fn jacobian(&self) -> [[Scalar; SIZE]; SIZE] {
+        let Iterate {
+            gamma,
+            hardening_modulus,
+            ..
+        } = self.iterate;
         let mut jacobian = [[0.0; SIZE]; SIZE];
         for a in 0..3 {
             for b in 0..3 {
@@ -274,7 +286,7 @@ impl<'a> Sensitivities<'a> {
                 jacobian[3 * i + j][9] = -self.iterate.direction[i][j];
             }
         }
-        jacobian[9][9] = -hardening_modulus;
+        jacobian[9][9] = -*hardening_modulus;
         jacobian
     }
 }
@@ -330,11 +342,7 @@ pub(super) fn solve<C: ElasticPlastic>(
         if size(&iterate.residual) < TOLERANCE {
             return Ok(Some(Converged { x, iterate }));
         }
-        let hardening_modulus = model
-            .hardening_modulus(Quantity::new(strain_n + x[9]))?
-            .value();
-        let matrix =
-            Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian(x[9], hardening_modulus);
+        let matrix = Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian();
         let mut rhs = Vector::zero(SIZE);
         (0..SIZE).for_each(|row| rhs[row] = -iterate.residual[row]);
         let step = SquareMatrix::from(matrix)
@@ -382,15 +390,12 @@ pub(super) fn consistent_tangent<C: ElasticPlastic>(
     state: &PlasticStateVariables,
     converged: Option<&Converged>,
 ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-    let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
+    let (f_p_n, _): (&DeformationGradientPlastic, &Quantity) = state.into();
     let Some(Converged { x, iterate }) = converged else {
         return model.first_piola_kirchhoff_tangent_stiffness(f, f_p_n);
     };
     let sensitivities = Sensitivities::new(model, f, f_p_n, x, iterate)?;
-    let hardening_modulus = model
-        .hardening_modulus(Quantity::new(strain_n.value() + x[9]))?
-        .value();
-    let lu = SquareMatrix::from(sensitivities.jacobian(x[9], hardening_modulus))
+    let lu = SquareMatrix::from(sensitivities.jacobian())
         .factorize_lu()
         .map_err(|error| failure(model, &error))?;
     let columns: [[Matrix3; 3]; 3] = from_fn(|k| {
@@ -509,10 +514,7 @@ pub(super) fn monolithic_tangents<C: ElasticPlastic>(
         (1.0, 1.0)
     };
     let factor = -partial_b / reference;
-    let hardening_modulus = model
-        .hardening_modulus(Quantity::new(strain_n.value() + a))?
-        .value();
-    let jacobian = sensitivities.jacobian(a, hardening_modulus);
+    let jacobian = sensitivities.jacobian();
     let mut k_vv = Matrix::zero(SIZE, SIZE);
     for row in 0..SIZE - 1 {
         for column in 0..SIZE {
