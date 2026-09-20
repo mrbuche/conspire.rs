@@ -81,8 +81,10 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
     ///
     /// The Frechet derivative $`\mathrm{d}\exp(\mathbf{A})/\mathrm{d}\mathbf{A}`$, formed
     /// diagonally entrywise, from a truncated series near zero, from scaling and
-    /// squaring of that series for a general (non-symmetric, larger-norm) tensor,
-    /// and otherwise from the spectral decomposition with the divided differences
+    /// squaring of that series for a general (non-symmetric, larger-norm) tensor or a
+    /// symmetric one with a nearly repeated eigenvalue, and otherwise, for a symmetric
+    /// tensor with well-separated eigenvalues, from the spectral decomposition with the
+    /// divided differences
     /// ```math
     /// \frac{e^{\lambda_i} - e^{\lambda_j}}{\lambda_i - \lambda_j},
     /// \qquad e^{\lambda_j} \text{ for } \lambda_i = \lambda_j.
@@ -154,10 +156,20 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                 Ok(dexpm)
             } else {
                 let transpose = self.transpose();
-                if !self.is_symmetric() && (self - &transpose).norm().value() >= 1e-9 * (1.0 + norm)
-                {
+                let nearly_symmetric =
+                    self.is_symmetric() || (self - &transpose).norm().value() < 1e-9 * (1.0 + norm);
+                let spectral = if nearly_symmetric {
+                    let symmetric = (self + transpose.clone()) * 0.5;
+                    let eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
+                    well_separated(&eigenvalues, norm).then_some((symmetric, eigenvalues))
+                } else {
+                    None
+                };
+                let Some((symmetric, eigenvalues)) = spectral else {
                     //
-                    // Non-symmetric: scaling and squaring of the Fréchet derivative.
+                    // Non-symmetric, or symmetric with a nearly repeated eigenvalue (whose
+                    // divided differences would lose accuracy): scaling and squaring of the
+                    // Fréchet derivative.
                     // With E = exp(B), L = dexp(B), the squaring B → 2B gives
                     // E → E² and L → L·E + E·L (contracting the middle index);
                     // one final 1/scale converts d/dB back to d/dA.
@@ -195,9 +207,7 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                         })
                     });
                     return Ok(dexpm);
-                }
-                let symmetric = (self + transpose) * 0.5;
-                let eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
+                };
                 let divided_difference: Self = eigenvalues
                     .iter()
                     .map(|eigenvalue_i| {

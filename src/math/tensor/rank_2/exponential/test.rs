@@ -132,9 +132,26 @@ fn expm_nearly_repeated_eigenvalue_matches_a_high_order_taylor_reference()
     Ok(())
 }
 
+/// The exact directional derivative $`\sum_n \frac{1}{n!}\sum_p A^p H A^{n-1-p}`$.
+fn dexpm_taylor_reference(
+    a: &TensorRank2<3, Current, Current>,
+    direction: &TensorRank2<3, Current, Current>,
+) -> TensorRank2<3, Current, Current> {
+    let mut powers = vec![TensorRank2::<3, Current, Current>::identity()];
+    (1..40).for_each(|k| powers.push(&powers[k - 1] * a));
+    let mut reference = TensorRank2::zero();
+    let mut factorial = 1.0;
+    (1..40).for_each(|n| {
+        factorial *= n as f64;
+        (0..n).for_each(|p| {
+            reference += &(&(&powers[p] * direction) * &powers[n - 1 - p]) / factorial;
+        })
+    });
+    reference
+}
+
 #[test]
-fn dexpm_nearly_repeated_eigenvalue_matches_finite_difference_of_a_taylor_reference()
--> Result<(), AssertionError> {
+fn dexpm_nearly_repeated_eigenvalue_matches_the_taylor_series() -> Result<(), AssertionError> {
     for gap in [1e-13, 1e-11, 1e-9, 1e-7, 1e-5, 1e-3] {
         let tensor = from_eigenvalues([0.16, -0.08 + 0.5 * gap, -0.08 - 0.5 * gap]);
         let direction = TensorRank2::<3, Current, Current>::from([
@@ -142,18 +159,14 @@ fn dexpm_nearly_repeated_eigenvalue_matches_finite_difference_of_a_taylor_refere
             [0.2, -0.4, 0.05],
             [0.1, 0.05, 0.1],
         ]);
-        let epsilon = 1e-5;
-        let finite_difference = (taylor_reference(&(tensor.clone() + &direction * epsilon))
-            - taylor_reference(&(tensor.clone() - &direction * epsilon)))
-            / (2.0 * epsilon);
         Assert {
-            abs_tol: 1e-9,
-            rel_tol: 1e-9,
+            abs_tol: 1e-12,
+            rel_tol: 1e-12,
             ..Default::default()
         }
         .eq_within_tols(
             contract_third_fourth_indices(&tensor.dexpm()?, &direction),
-            &finite_difference,
+            &dexpm_taylor_reference(&tensor, &direction),
         )
         .inspect_err(|_| println!("gap {gap:e}"))?;
     }
