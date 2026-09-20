@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use super::{ElasticPlastic, Entries4, Matrix3, entries_4, fischer_burmeister, matrix_3, rank_4};
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariables},
