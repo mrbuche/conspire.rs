@@ -12,9 +12,8 @@ use crate::{
         solid::Solid,
     },
     math::{
-        ContractFirstSecondWithSecond, ContractSecondWithFirst, ContractThirdFourthWithFirstSecond,
-        Current, IDENTITY, Matrix, Quantity, Rank2, Reference, Tensor, TensorArray, TensorRank2,
-        TensorRank4, Transposed, Vector,
+        ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
+        TensorArray, TensorRank2, TensorRank4, Vector,
         optimize::{
             EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock, SolveStrategy,
             ZerothOrderRootFinding,
@@ -25,11 +24,10 @@ use crate::{
         CauchyStress, CauchyTangentStiffness, CauchyTangentStiffnessPlastic, DeformationGradient,
         DeformationGradientPlastic, DeformationGradients, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffTangentStiffnessPlastic,
-        FlowDirectionPlastic, MandelStressElastic, MandelStressTangentElastic,
-        MandelStressTangentElasticPlastic, Scalar, SecondPiolaKirchhoffStress,
-        SecondPiolaKirchhoffTangentStiffness, Times,
+        MandelStressElastic, MandelStressTangentElastic, MandelStressTangentElasticPlastic, Scalar,
+        SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness, Times,
     },
-    units::{Dimensionless, Time},
+    units::Time,
 };
 use std::array::from_fn;
 
@@ -422,337 +420,6 @@ where
         let converged = coupled::solve(self, deformation_gradient, state_variables)?;
         Ok(coupled::updated_state(state_variables, converged.as_ref()))
     }
-    /// Calculates and returns the tangent blocks of the monolithic (block) residual.
-    ///
-    /// The plastic deformation gradient and its derivative are
-    /// ```math
-    /// \mathbf{F}_\mathrm{p}(\Delta\gamma) = \exp(\Delta\gamma\mathbf{N})\cdot\mathbf{F}_\mathrm{p}^n,
-    /// \qquad \frac{\mathrm{d}\mathbf{F}_\mathrm{p}}{\mathrm{d}\Delta\gamma} = \mathbf{N}\cdot\mathbf{F}_\mathrm{p}.
-    /// ```
-    /// The Mandel stress satisfies $`\mathbf{M} = \mathbf{F}_\mathrm{e}^T\cdot\mathbf{P}\cdot\mathbf{F}_\mathrm{p}^T`$,
-    /// from which
-    /// ```math
-    /// \frac{\partial\mathbf{P}}{\partial\Delta\gamma} = -\mathcal{C}:(\mathbf{F}_\mathrm{e}\cdot\mathbf{N}\cdot\mathbf{F}_\mathrm{p})
-    ///   - \mathbf{P}\cdot\mathbf{F}_\mathrm{p}^T\cdot\mathbf{N}\cdot\mathbf{F}_\mathrm{p}^{-T},
-    /// \qquad
-    /// \frac{\mathrm{d}\mathbf{M}}{\mathrm{d}\Delta\gamma} = \mathbf{M}\cdot\mathbf{N} - \mathbf{N}\cdot\mathbf{M}
-    ///   + \mathbf{F}_\mathrm{e}^T\cdot\frac{\partial\mathbf{P}}{\partial\Delta\gamma}\cdot\mathbf{F}_\mathrm{p}^T,
-    /// ```
-    /// and, at fixed $`\mathbf{F}_\mathrm{p}`$,
-    /// ```math
-    /// \frac{\partial M_{AB}}{\partial F_{kL}} = F^{\mathrm{p}-1}_{LA} P_{kJ} F^\mathrm{p}_{BJ}
-    ///   + F^\mathrm{e}_{iA}\mathcal{C}_{iJkL}F^\mathrm{p}_{BJ},
-    /// ```
-    /// where $`\mathcal{C} = \partial\mathbf{P}/\partial\mathbf{F}`$ at fixed
-    /// $`\mathbf{F}_\mathrm{p}`$. The yield-function derivatives follow by contracting
-    /// with $`\hat{\mathbf{s}} = \mathbf{M}'/|\mathbf{M}'|`$, and the complementarity
-    /// residual by the chain rule through the Fischer-Burmeister partials.
-    ///
-    /// The flow direction is not frozen: it is evaluated at the previous plastic
-    /// gradient, which is fixed over the step, but still depends on the total
-    /// deformation gradient through $`\mathbf{M}_n = \mathbf{M}(\mathbf{F},\mathbf{F}_\mathrm{p}^n)`$,
-    /// ```math
-    /// \frac{\mathrm{d}\mathbf{N}}{\mathrm{d}\mathbf{F}} = \frac{1}{|\mathbf{M}_n'|}
-    ///   \left(\mathrm{dev}\frac{\mathrm{d}\mathbf{M}_n}{\mathrm{d}\mathbf{F}}
-    ///   - \mathbf{N}\otimes\left(\mathbf{N}:\mathrm{dev}\frac{\mathrm{d}\mathbf{M}_n}{\mathrm{d}\mathbf{F}}\right)\right),
-    /// \qquad
-    /// \frac{\partial\mathbf{F}_\mathrm{p}^{n+1}}{\partial\mathbf{F}}\bigg|_{\Delta\gamma}
-    ///   = \left[\mathrm{d}\exp(\Delta\gamma\mathbf{N}):\Delta\gamma\frac{\mathrm{d}\mathbf{N}}{\mathrm{d}\mathbf{F}}\right]\cdot\mathbf{F}_\mathrm{p}^n,
-    /// ```
-    /// so $`K_{uu}`$ and $`K_{vu}`$ pick up $`\partial\mathbf{P}/\partial\mathbf{F}_\mathrm{p}`$
-    /// and $`\partial\mathbf{M}/\partial\mathbf{F}_\mathrm{p}`$ contracted with that slope.
-    /// These are the same two expressions as the $`\Delta\gamma`$ derivatives above with
-    /// $`\mathbf{N}\cdot\mathbf{F}_\mathrm{p}`$ promoted to the rank-four slope. $`K_{uv}`$
-    /// and $`K_{vv}`$ are unaffected, since $`\mathbf{N}`$ does not depend on $`\Delta\gamma`$.
-    fn monolithic_tangents(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        plastic_deformation_gradient_previous: &DeformationGradientPlastic,
-        flow_direction: &FlowDirectionPlastic,
-        equivalent_plastic_strain_previous: Quantity,
-        plastic_multiplier: Scalar,
-    ) -> Result<MonolithicTangents, ConstitutiveError> {
-        let plastic = (flow_direction * plastic_multiplier)
-            .expm()
-            .map_err(|error| ConstitutiveError::custom(format!("{error:?}"), self))?
-            * plastic_deformation_gradient_previous;
-        let plastic_inverse = plastic.inverse();
-        let plastic_inverse_transpose = plastic.inverse_transpose();
-        let plastic_transpose = plastic.transpose();
-        let elastic = deformation_gradient * &plastic_inverse;
-        let stress = self.first_piola_kirchhoff_stress(deformation_gradient, &plastic)?;
-        let tangent =
-            self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient, &plastic)?;
-        let mandel = self.mandel_stress(deformation_gradient, &plastic)?;
-        let deviatoric = mandel.deviatoric();
-        let magnitude = deviatoric.norm();
-        //
-        // K_uv = dP/d(dg).
-        //
-        let stress_slope = (tangent
-            .clone()
-            .contract_third_fourth_with_first_second(&(&elastic * flow_direction * &plastic))
-            + &stress * &plastic_transpose * flow_direction * &plastic_inverse_transpose)
-            * -1.0;
-        let k_uv = stress_slope.clone();
-        //
-        // dN/dF, and through it dF_p^{n+1}/dF at fixed multiplier. The flow direction is
-        // taken at the previous plastic gradient, which is fixed over the step but still
-        // depends on the total deformation gradient.
-        //
-        let previous_inverse = plastic_deformation_gradient_previous.inverse();
-        let elastic_previous = deformation_gradient * &previous_inverse;
-        let stress_previous = self.first_piola_kirchhoff_stress(
-            deformation_gradient,
-            plastic_deformation_gradient_previous,
-        )?;
-        let tangent_previous = self.first_piola_kirchhoff_tangent_stiffness(
-            deformation_gradient,
-            plastic_deformation_gradient_previous,
-        )?;
-        let magnitude_previous = self
-            .mandel_stress(deformation_gradient, plastic_deformation_gradient_previous)?
-            .deviatoric()
-            .norm()
-            .value();
-        let mut plastic_gradient_slope = [[[[0.0; 3]; 3]; 3]; 3];
-        if magnitude_previous > 0.0 {
-            let mut direction_slope = [[[[0.0; 3]; 3]; 3]; 3];
-            for k in 0..3 {
-                for l in 0..3 {
-                    //
-                    // dM_n/dF at fixed F_p^n, symmetrized and deviatoric so that it
-                    // differentiates the deviator the flow direction normalizes.
-                    //
-                    let mut mandel_slope = [[0.0; 3]; 3];
-                    for a in 0..3 {
-                        for b in 0..3 {
-                            let mut sum = 0.0;
-                            for j in 0..3 {
-                                sum += previous_inverse[l][a].value()
-                                    * stress_previous[k][j].value()
-                                    * plastic_deformation_gradient_previous[b][j].value();
-                                for i in 0..3 {
-                                    sum += elastic_previous[i][a].value()
-                                        * tangent_previous[i][j][k][l].value()
-                                        * plastic_deformation_gradient_previous[b][j].value();
-                                }
-                            }
-                            mandel_slope[a][b] = sum;
-                        }
-                    }
-                    let mut symmetric = [[0.0; 3]; 3];
-                    for a in 0..3 {
-                        for b in 0..3 {
-                            symmetric[a][b] = 0.5 * (mandel_slope[a][b] + mandel_slope[b][a]);
-                        }
-                    }
-                    let trace = symmetric[0][0] + symmetric[1][1] + symmetric[2][2];
-                    (0..3).for_each(|a| symmetric[a][a] -= trace / 3.0);
-                    let mut projection = 0.0;
-                    for a in 0..3 {
-                        for b in 0..3 {
-                            projection += flow_direction[a][b].value() * symmetric[a][b];
-                        }
-                    }
-                    for a in 0..3 {
-                        for b in 0..3 {
-                            direction_slope[a][b][k][l] = (symmetric[a][b]
-                                - flow_direction[a][b].value() * projection)
-                                / magnitude_previous;
-                        }
-                    }
-                }
-            }
-            //
-            // dF_p^{n+1}/dF = [dexp(dg N) : (dg dN/dF)] . F_p^n.
-            //
-            let exponential_slope = (flow_direction * plastic_multiplier)
-                .dexpm()
-                .map_err(|error| ConstitutiveError::custom(format!("{error:?}"), self))?;
-            for k in 0..3 {
-                for l in 0..3 {
-                    let mut increment_slope = [[0.0; 3]; 3];
-                    for a in 0..3 {
-                        for b in 0..3 {
-                            let mut sum = 0.0;
-                            for c in 0..3 {
-                                for d in 0..3 {
-                                    sum += exponential_slope[a][b][c][d].value()
-                                        * direction_slope[c][d][k][l];
-                                }
-                            }
-                            increment_slope[a][b] = sum * plastic_multiplier;
-                        }
-                    }
-                    for a in 0..3 {
-                        for j in 0..3 {
-                            plastic_gradient_slope[a][j][k][l] = (0..3)
-                                .map(|b| {
-                                    increment_slope[a][b]
-                                        * plastic_deformation_gradient_previous[b][j].value()
-                                })
-                                .sum();
-                        }
-                    }
-                }
-            }
-        }
-        //
-        // dP/dF_p contracted with dF_p^{n+1}/dF, the same two terms as dP/d(dg) with
-        // N . F_p replaced by the rank-four slope.
-        //
-        let mut stress_gradient_slope = [[[[0.0; 3]; 3]; 3]; 3];
-        for k in 0..3 {
-            for l in 0..3 {
-                let mut mixed = [[0.0; 3]; 3];
-                for m in 0..3 {
-                    for n in 0..3 {
-                        mixed[m][n] = (0..3)
-                            .map(|a| elastic[m][a].value() * plastic_gradient_slope[a][n][k][l])
-                            .sum();
-                    }
-                }
-                for i in 0..3 {
-                    for j in 0..3 {
-                        let mut sum = 0.0;
-                        for m in 0..3 {
-                            for n in 0..3 {
-                                sum -= tangent[i][j][m][n].value() * mixed[m][n];
-                                sum -= stress[i][n].value()
-                                    * plastic_gradient_slope[m][n][k][l]
-                                    * plastic_inverse[j][m].value();
-                            }
-                        }
-                        stress_gradient_slope[i][j][k][l] = sum;
-                    }
-                }
-            }
-        }
-        //
-        // dM/dF_p contracted with the same slope, from M = F_e^T . P . F_p^T.
-        //
-        let mut mandel_gradient_slope = [[[[0.0; 3]; 3]; 3]; 3];
-        {
-            let mut pulled = [[0.0; 3]; 3];
-            for a in 0..3 {
-                for n in 0..3 {
-                    pulled[a][n] = (0..3)
-                        .map(|i| elastic[i][a].value() * stress[i][n].value())
-                        .sum();
-                }
-            }
-            for k in 0..3 {
-                for l in 0..3 {
-                    for a in 0..3 {
-                        for b in 0..3 {
-                            let mut sum = 0.0;
-                            for n in 0..3 {
-                                sum += pulled[a][n] * plastic_gradient_slope[b][n][k][l];
-                                for c in 0..3 {
-                                    sum -= plastic_inverse_transpose[a][n].value()
-                                        * plastic_gradient_slope[c][n][k][l]
-                                        * mandel[c][b].value();
-                                }
-                                for i in 0..3 {
-                                    sum += elastic[i][a].value()
-                                        * stress_gradient_slope[i][n][k][l]
-                                        * plastic[b][n].value();
-                                }
-                            }
-                            mandel_gradient_slope[a][b][k][l] = sum;
-                        }
-                    }
-                }
-            }
-        }
-        //
-        // Derivatives of the yield function, zero when the deviator vanishes (the norm
-        // is not differentiable there, but the step is then elastic anyway).
-        //
-        let reference_yield_stress = self.initial_yield_stress().value();
-        let scaled = self
-            .yield_function(
-                &deviatoric,
-                equivalent_plastic_strain_previous + Quantity::new(plastic_multiplier),
-            )?
-            .value()
-            / reference_yield_stress;
-        let mut yield_slope_global = FirstPiolaKirchhoffStress::zero();
-        let mut yield_slope_local = -self.hardening_slope().value();
-        if !magnitude.is_zero() {
-            let direction = deviatoric / magnitude;
-            let weighted = &direction * &plastic;
-            yield_slope_global = &stress * (&plastic_inverse * &weighted).transpose() + {
-                let mixed = &elastic * &weighted;
-                let mut term = FirstPiolaKirchhoffStress::zero();
-                for k in 0..3 {
-                    for l in 0..3 {
-                        let mut sum = 0.0;
-                        for i in 0..3 {
-                            for j in 0..3 {
-                                sum += mixed[i][j].value() * tangent[i][j][k][l].value();
-                            }
-                        }
-                        term[k][l] = Quantity::new(sum);
-                    }
-                }
-                term
-            };
-            for k in 0..3 {
-                for l in 0..3 {
-                    let mut sum = 0.0;
-                    for a in 0..3 {
-                        for b in 0..3 {
-                            sum += direction[a][b].value() * mandel_gradient_slope[a][b][k][l];
-                        }
-                    }
-                    yield_slope_global[k][l] += Quantity::new(sum);
-                }
-            }
-            let mandel_slope = &mandel * flow_direction - flow_direction * &mandel
-                + elastic.transpose() * &stress_slope * &plastic_transpose;
-            let mut slope = 0.0;
-            for i in 0..3 {
-                for j in 0..3 {
-                    slope += direction[i][j].value() * mandel_slope[i][j].value();
-                }
-            }
-            yield_slope_local += slope;
-        }
-        //
-        // Chain rule through the Fischer-Burmeister residual, with a = dg and
-        // b = -f/Y0. At the origin the function is not differentiable; the
-        // subgradient (1, 1) is used there.
-        //
-        let (a, b) = (plastic_multiplier, -scaled);
-        let radius = (a * a + b * b).sqrt();
-        let (partial_a, partial_b) = if radius > 0.0 {
-            (1.0 - a / radius, 1.0 - b / radius)
-        } else {
-            (1.0, 1.0)
-        };
-        let factor = -partial_b / reference_yield_stress;
-        let mut k_vu_rank_2 = TensorRank2::<3, Current, Reference, Dimensionless>::zero();
-        for k in 0..3 {
-            for l in 0..3 {
-                k_vu_rank_2[k][l] = Quantity::new(factor * yield_slope_global[k][l].value());
-            }
-        }
-        let k_vu = Transposed(k_vu_rank_2);
-        let k_vv = Quantity::new(partial_a + factor * yield_slope_local);
-        let mut tangent = tangent;
-        for i in 0..3 {
-            for j in 0..3 {
-                for k in 0..3 {
-                    for l in 0..3 {
-                        tangent[i][j][k][l] += Quantity::new(stress_gradient_slope[i][j][k][l])
-                    }
-                }
-            }
-        }
-        Ok((tangent, k_vu, k_uv, k_vv))
-    }
     /// Return maps one load step and returns the updated plastic state together with the
     /// consistent (algorithmic) first Piola-Kirchhoff tangent stiffness at that state.
     ///
@@ -840,24 +507,6 @@ where
     }
 }
 
-/// Local block variable / residual for the monolithic solve: a genuine scalar, the
-/// plastic multiplier increment $`\Delta\gamma`$.
-type PlasticMultiplierBlock = Quantity;
-
-/// The `K_vu` coupling block's underlying rank-2 payload, wrapped in [`Transposed`] to
-/// act as the 1-row block a scalar local unknown's global-derivative needs (`K_uv`, by
-/// contrast, is genuinely column-shaped and needs no wrapper: [`HessianBlock`](crate::math::HessianBlock)
-/// treats any `TensorRank2` as its flattened single column).
-type PlasticMultiplierGlobalSlope = Transposed<TensorRank2<3, Current, Reference, Dimensionless>>;
-
-/// Tangent blocks $`(K_{uu}, K_{vu}, K_{uv}, K_{vv})`$ in the order the block solver takes them.
-type MonolithicTangents = (
-    FirstPiolaKirchhoffTangentStiffness,
-    PlasticMultiplierGlobalSlope,
-    FirstPiolaKirchhoffStress,
-    Quantity,
-);
-
 /// The Fischer-Burmeister complementarity function.
 ///
 /// ```math
@@ -922,29 +571,33 @@ fn nested_root<C: ElasticPlastic>(
 pub trait FirstOrderRoot {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
-    /// With [`SolveStrategy::Condensed`], this is the same nested return-mapping solve as
-    /// [`ElasticPlastic::consistent_tangent_stiffness`] uses directly (the analytically
-    /// eliminated block system, formed by hand rather than through the generic block
-    /// solver): cheaper, since the block solver's `Kuv`/`Kvu` assembly and per-step
-    /// factorization are pure overhead on a system whose local block is one scalar.
-    /// [`SolveStrategy::Monolithic`] genuinely needs the block solver, since the
-    /// deformation gradient and plastic multiplier increment step together rather than
-    /// one at fixed local equilibrium; that case goes through
-    /// [`FirstOrderRootFindingBlock::root_block`], with the yield inequality imposed by a
-    /// Fischer-Burmeister complementarity residual so elastic steps recover
-    /// $`\Delta\gamma = 0`$ on their own.
+    /// With [`SolveStrategy::Condensed`], this is the nested return-mapping solve: the
+    /// plastic step is converged at each outer iterate by [`ElasticPlastic::return_map`]
+    /// and the analytically eliminated tangent from
+    /// [`ElasticPlastic::consistent_tangent_stiffness`] is supplied to the solver. That is
+    /// cheaper than the block solver, whose `K_uv`/`K_vu` assembly and per-step
+    /// factorization are pure overhead on a system this small.
+    ///
+    /// [`SolveStrategy::Monolithic`] steps the deformation gradient and the coupled local
+    /// unknowns $`(\mathbf{E},\Delta\gamma)`$ of the return map together through
+    /// [`FirstOrderRootFindingBlock::root_block`], rather than converging the local
+    /// block before every outer step. The local residual is the same coupled system the
+    /// return map solves, with the yield inequality imposed by a Fischer-Burmeister
+    /// complementarity residual so elastic steps recover $`\Delta\gamma = 0`$ on their
+    /// own. It converges to the same step as [`SolveStrategy::Condensed`], also under
+    /// non-proportional loading.
     fn root(
         &self,
         applied_load: AppliedLoad,
         solver: impl FirstOrderRootFindingBlock<
             DeformationGradient,
-            PlasticMultiplierBlock,
+            Vector,
             FirstPiolaKirchhoffStress,
-            PlasticMultiplierBlock,
+            Vector,
             FirstPiolaKirchhoffTangentStiffness,
-            PlasticMultiplierGlobalSlope,
-            FirstPiolaKirchhoffStress,
-            Quantity,
+            Matrix,
+            Matrix,
+            Matrix,
         > + FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -963,13 +616,13 @@ where
         applied_load: AppliedLoad,
         solver: impl FirstOrderRootFindingBlock<
             DeformationGradient,
-            PlasticMultiplierBlock,
+            Vector,
             FirstPiolaKirchhoffStress,
-            PlasticMultiplierBlock,
+            Vector,
             FirstPiolaKirchhoffTangentStiffness,
-            PlasticMultiplierGlobalSlope,
-            FirstPiolaKirchhoffStress,
-            Quantity,
+            Matrix,
+            Matrix,
+            Matrix,
         > + FirstOrderRootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -993,11 +646,12 @@ where
         let mut global_matrix = CscMatrix::from_pattern(matrix.len(), 9, global_pattern);
         global_matrix.fill(|_, _| 1.0);
         let mut global_vector = Vector::zero(matrix.len());
-        // The plastic multiplier is a genuine scalar unknown now, so there is nothing
-        // internal to it that needs pinning: an empty (zero-row) local constraint.
-        let local_constraint = (CscMatrix::from_pattern(0, 1, Vec::new()), Vector::zero(0));
-
-        let reference_yield_stress = self.initial_yield_stress().value();
+        // Every local unknown is free, so there is nothing internal to pin: an empty
+        // (zero-row) local constraint.
+        let local_constraint = (
+            CscMatrix::from_pattern(0, coupled::SIZE, Vec::new()),
+            Vector::zero(0),
+        );
         let mut state = self.initial_state();
         let mut deformation_gradient = DeformationGradient::identity();
         let mut deformation_gradients = vec![deformation_gradient.clone()];
@@ -1006,93 +660,31 @@ where
             prescribed
                 .iter()
                 .for_each(|(index, function)| global_vector[*index] = function(*time_step));
-            let plastic_deformation_gradient_previous = state.0.clone();
-            let equivalent_plastic_strain_previous = state.1;
-            let flow_direction =
-                |global: &DeformationGradient| -> Result<FlowDirectionPlastic, ConstitutiveError> {
-                    let deviatoric = self
-                        .mandel_stress(global, &plastic_deformation_gradient_previous)?
-                        .deviatoric();
-                    let direction = self.flow_direction(&deviatoric)?;
-                    Ok((&direction + direction.transpose()) * 0.5)
-                };
-            let plastic_deformation_gradient =
-                |global: &DeformationGradient, plastic_multiplier: Scalar| {
-                    (flow_direction(global)? * plastic_multiplier)
-                        .expm()
-                        .map(|increment| increment * &plastic_deformation_gradient_previous)
-                        .map_err(|error| ConstitutiveError::custom(format!("{error:?}"), self))
-                };
-            let scaled_yield_function = |global: &DeformationGradient,
-                                         plastic_multiplier: Scalar|
-             -> Result<Scalar, ConstitutiveError> {
-                let deviatoric = self
-                    .mandel_stress(
-                        global,
-                        &plastic_deformation_gradient(global, plastic_multiplier)?,
-                    )?
-                    .deviatoric();
-                Ok(self
-                    .yield_function(
-                        &deviatoric,
-                        equivalent_plastic_strain_previous + Quantity::new(plastic_multiplier),
-                    )?
-                    .value()
-                    / reference_yield_stress)
-            };
-            let residual_global =
-                |global: &DeformationGradient,
-                 local: &PlasticMultiplierBlock|
-                 -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
-                    let plastic = plastic_deformation_gradient(global, local.value())?;
-                    self.first_piola_kirchhoff_stress(global, &plastic)
-                };
-            let residual_local = |global: &DeformationGradient, local: &PlasticMultiplierBlock| {
-                let plastic_multiplier = local.value();
-                let scaled = scaled_yield_function(global, plastic_multiplier)?;
-                Ok::<_, ConstitutiveError>(Quantity::new(fischer_burmeister(
-                    plastic_multiplier,
-                    -scaled,
-                )))
-            };
-            let tangents = |global: &DeformationGradient,
-                            local: &PlasticMultiplierBlock|
-             -> Result<MonolithicTangents, ConstitutiveError> {
-                self.monolithic_tangents(
-                    global,
-                    &plastic_deformation_gradient_previous,
-                    &flow_direction(global)?,
-                    equivalent_plastic_strain_previous,
-                    local.value(),
-                )
-            };
+            let previous_state = state.clone();
             let (deformation_gradient_new, local_new) = solver
                 .root_block(
-                    |global, local| {
-                        residual_global(global, local).map_err(|e: ConstitutiveError| e.to_string())
+                    |global: &DeformationGradient, local: &Vector| {
+                        coupled::monolithic_plastic(self, &previous_state, local)
+                            .and_then(|plastic| self.first_piola_kirchhoff_stress(global, &plastic))
+                            .map_err(|error| error.to_string())
                     },
-                    |global, local| {
-                        residual_local(global, local).map_err(|e: ConstitutiveError| e.to_string())
+                    |global: &DeformationGradient, local: &Vector| {
+                        coupled::monolithic_residual_local(self, global, &previous_state, local)
+                            .map_err(|error| error.to_string())
                     },
-                    |global, local| {
-                        tangents(global, local).map_err(|e: ConstitutiveError| e.to_string())
+                    |global: &DeformationGradient, local: &Vector| {
+                        coupled::monolithic_tangents(self, global, &previous_state, local)
+                            .map_err(|error| error.to_string())
                     },
-                    (deformation_gradient.clone(), Quantity::new(0.0)),
+                    (deformation_gradient.clone(), Vector::zero(coupled::SIZE)),
                     (global_matrix.clone(), global_vector.clone()),
                     local_constraint.clone(),
                     None,
                     strategy.clone(),
                 )
                 .map_err(|error| ConstitutiveError::upstream(error, self))?;
-            let plastic_multiplier = local_new.value();
-            let plastic_deformation_gradient_new =
-                plastic_deformation_gradient(&deformation_gradient_new, plastic_multiplier)?;
+            state = coupled::monolithic_state(self, &previous_state, &local_new)?;
             deformation_gradient = deformation_gradient_new;
-            state = (
-                plastic_deformation_gradient_new,
-                equivalent_plastic_strain_previous + Quantity::new(plastic_multiplier),
-            )
-                .into();
             deformation_gradients.push(deformation_gradient.clone());
             states.push(state.clone());
         }
