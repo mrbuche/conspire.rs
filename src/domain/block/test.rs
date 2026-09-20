@@ -1198,7 +1198,7 @@ macro_rules! test_finite_element_block_with_hyperviscoelastic_constitutive_model
 }
 pub(crate) use test_finite_element_block_with_hyperviscoelastic_constitutive_model;
 
-macro_rules! test_finite_element_block_with_elastic_viscoplastic_constitutive_model {
+macro_rules! test_finite_element_block_with_internal_state_constitutive_model {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         fn get_nodal_forces(
             is_deformed: bool,
@@ -1320,6 +1320,18 @@ macro_rules! test_finite_element_block_with_elastic_viscoplastic_constitutive_mo
                 .collect()
         }
         crate::domain::block::test::test_nodal_forces_and_nodal_stiffnesses!(
+            $block,
+            $element,
+            $constitutive_model,
+            $constitutive_model_type
+        );
+    };
+}
+pub(crate) use test_finite_element_block_with_internal_state_constitutive_model;
+
+macro_rules! test_finite_element_block_with_elastic_viscoplastic_constitutive_model {
+    ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
+        crate::domain::block::test::test_finite_element_block_with_internal_state_constitutive_model!(
             $block,
             $element,
             $constitutive_model,
@@ -1495,6 +1507,44 @@ macro_rules! test_finite_element_block_with_elastic_viscoplastic_constitutive_mo
     };
 }
 pub(crate) use test_finite_element_block_with_elastic_viscoplastic_constitutive_model;
+
+macro_rules! test_finite_element_block_with_elastic_plastic_constitutive_model {
+    ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
+        crate::domain::block::test::test_finite_element_block_with_internal_state_constitutive_model!(
+            $block,
+            $element,
+            $constitutive_model,
+            $constitutive_model_type
+        );
+        mod updated_state {
+            use super::*;
+            use $crate::math::Tensor;
+            #[test]
+            fn yields_when_deformed() {
+                let block = get_block();
+                let state_variables = block.initial_state();
+                let updated = block
+                    .updated_state(&get_coordinates_block(), &state_variables)
+                    .unwrap();
+                assert!(
+                    updated
+                        .iter()
+                        .flat_map(|element_state| element_state.iter())
+                        .all(|state_variable| state_variable.1 > $crate::math::Quantity::default())
+                )
+            }
+            #[test]
+            fn stays_elastic_at_reference() -> Result<(), AssertionError> {
+                let block = get_block();
+                let state_variables = block.initial_state();
+                let updated = block
+                    .updated_state(&get_reference_coordinates_block().into(), &state_variables)?;
+                $crate::math::assert::Assert::default().eq_within_tols(&updated, &state_variables)
+            }
+        }
+    };
+}
+pub(crate) use test_finite_element_block_with_elastic_plastic_constitutive_model;
 
 macro_rules! test_finite_element_block_with_hyperelastic_viscoplastic_constitutive_model {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {

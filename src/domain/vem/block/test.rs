@@ -235,6 +235,35 @@ mod block_viscous {
             );
         }
     }
+    mod elastic_plastic {
+        use super::*;
+        use crate::{
+            constitutive::{
+                canonical::Canonical, fluid::plastic::PlasticFlow, solid::hyperelastic::NeoHookean,
+            },
+            domain::block::test::test_finite_element_block_with_elastic_plastic_constitutive_model,
+            domain::solid::elastic_plastic::ElasticPlasticElements,
+        };
+        type NeoHookeanPlastic = Canonical<NeoHookean, PlasticFlow>;
+        mod neo_hookean {
+            use super::*;
+            test_finite_element_block_with_elastic_plastic_constitutive_model!(
+                Element,
+                Element,
+                NeoHookeanPlastic::from((
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                    },
+                    PlasticFlow {
+                        yield_stress: crate::units::Stress::pascals(0.01),
+                        hardening_slope: crate::units::Stress::pascals(1.0),
+                    },
+                )),
+                NeoHookeanPlastic
+            );
+        }
+    }
     mod hyperelastic_viscoplastic {
         use super::*;
         use crate::{

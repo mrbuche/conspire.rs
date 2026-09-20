@@ -1,5 +1,6 @@
 use crate::{
     constitutive::solid::elastic_plastic::ElasticPlastic,
+    domain::block::element::solid::elastic_plastic::ElasticPlasticElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{
@@ -19,34 +20,41 @@ pub trait ElasticPlasticFiniteElement<
     const P: usize,
 > where
     C: ElasticPlastic,
-    Self: SolidFiniteElement<G, M, N, P>,
+    Self: SolidFiniteElement<G, M, N, P>
+        + ElasticPlasticElement<
+            C,
+            G,
+            Forces = ElementNodalForcesSolid<N>,
+            Stiffnesses = ElementNodalStiffnessesSolid<N>,
+            Error = FiniteElementError,
+        >,
 {
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &PlasticStateVariables<G>,
-    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &PlasticStateVariables<G>,
-    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
-    fn updated_state(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &PlasticStateVariables<G>,
-    ) -> Result<PlasticStateVariables<G>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    ElasticPlasticFiniteElement<C, G, 3, N, P> for Element<3, G, N, O>
+impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
+    ElasticPlasticFiniteElement<C, G, M, N, P> for T
 where
     C: ElasticPlastic,
-    Self: SolidFiniteElement<G, 3, N, P>,
+    T: SolidFiniteElement<G, M, N, P>
+        + ElasticPlasticElement<
+            C,
+            G,
+            Forces = ElementNodalForcesSolid<N>,
+            Stiffnesses = ElementNodalStiffnessesSolid<N>,
+            Error = FiniteElementError,
+        >,
 {
+}
+
+impl<C, const G: usize, const N: usize, const O: usize> ElasticPlasticElement<C, G>
+    for Element<3, G, N, O>
+where
+    C: ElasticPlastic,
+    Self: SolidFiniteElement<G, 3, N, N>,
+{
+    type Forces = ElementNodalForcesSolid<N>;
+    type Stiffnesses = ElementNodalStiffnessesSolid<N>;
+    type Error = FiniteElementError;
     fn nodal_forces(
         &self,
         constitutive_model: &C,

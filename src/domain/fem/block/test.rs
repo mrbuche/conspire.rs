@@ -30,6 +30,35 @@ macro_rules! test_finite_element_block {
                     get_translation_current_configuration, get_translation_reference_configuration,
                 },
             };
+            mod elastic_plastic {
+                use super::*;
+                use crate::{
+                    constitutive::{
+                        canonical::Canonical, fluid::plastic::PlasticFlow, solid::hyperelastic::NeoHookean,
+                    },
+                    domain::block::test::test_finite_element_block_with_elastic_plastic_constitutive_model,
+                    fem::solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic_plastic::ElasticPlasticElements},
+                };
+                type NeoHookeanPlastic = Canonical<NeoHookean, PlasticFlow>;
+                mod neo_hookean {
+                    use super::*;
+                    test_finite_element_block_with_elastic_plastic_constitutive_model!(
+                        ElementBlock,
+                        $element,
+                        NeoHookeanPlastic::from((
+                            NeoHookean {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            PlasticFlow {
+                                yield_stress: $crate::units::Stress::pascals(0.01),
+                                hardening_slope: $crate::units::Stress::pascals(1.0),
+                            },
+                        )),
+                        NeoHookeanPlastic
+                    );
+                }
+            }
             mod elastic_viscoplastic {
                 use super::*;
                 use crate::{
