@@ -7,7 +7,7 @@ use crate::{
     constitutive::ConstitutiveError,
     math::{Quantity, Tensor, TensorArray, TensorTuple, TensorTupleVec},
     mechanics::{
-        DeformationGradientPlastic, FlowDirectionPlastic, MandelStressElastic,
+        DeformationGradientPlastic, FlowDirectionPlastic, MandelStressElastic, Scalar,
         StretchingRatePlastic,
     },
     units::{Dissipation, Rate, Stress},
@@ -39,6 +39,21 @@ where
         equivalent_plastic_strain: Quantity,
     ) -> Result<Quantity<Stress>, ConstitutiveError> {
         Ok(self.initial_yield_stress() + self.hardening_slope() * equivalent_plastic_strain)
+    }
+    /// Calculates and returns the hardening modulus, the derivative of the yield stress
+    /// with respect to the equivalent plastic strain.
+    ///
+    /// ```math
+    /// \frac{\mathrm{d}Y}{\mathrm{d}\varepsilon_\mathrm{p}} = H
+    /// ```
+    ///
+    /// This is the derivative of [`Self::yield_stress`]: a model that overrides one
+    /// must override the other, and a wrapper must forward both.
+    fn hardening_modulus(
+        &self,
+        _equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        Ok(self.hardening_slope())
     }
 }
 
@@ -125,3 +140,49 @@ impl Plastic for PlasticFlow {
 }
 
 impl RateIndependentPlastic for PlasticFlow {}
+
+/// The rate-independent von Mises plastic flow model with Voce (saturating) isotropic
+/// hardening.
+///
+/// ```math
+/// Y(\varepsilon_\mathrm{p}) = Y_0 + H\,\varepsilon_\mathrm{p} + Q\left(1 - e^{-b\,\varepsilon_\mathrm{p}}\right)
+/// ```
+#[derive(Clone, Debug)]
+pub struct VoceFlow {
+    /// The initial yield stress $`Y_0`$.
+    pub yield_stress: Quantity<Stress>,
+    /// The linear hardening slope $`H`$, which persists after saturation.
+    pub hardening_slope: Quantity<Stress>,
+    /// The saturation stress $`Q`$ added to the yield stress at full saturation.
+    pub saturation_stress: Quantity<Stress>,
+    /// The saturation rate $`b`$.
+    pub saturation_rate: Scalar,
+}
+
+impl Plastic for VoceFlow {
+    fn initial_yield_stress(&self) -> Quantity<Stress> {
+        self.yield_stress
+    }
+    /// The initial hardening slope $`H + Qb`$, at zero plastic strain.
+    fn hardening_slope(&self) -> Quantity<Stress> {
+        self.hardening_slope + self.saturation_stress * self.saturation_rate
+    }
+    fn yield_stress(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        let saturation = 1.0 - (-self.saturation_rate * equivalent_plastic_strain.value()).exp();
+        Ok(self.yield_stress
+            + self.hardening_slope * equivalent_plastic_strain
+            + self.saturation_stress * saturation)
+    }
+    fn hardening_modulus(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        let decay = (-self.saturation_rate * equivalent_plastic_strain.value()).exp();
+        Ok(self.hardening_slope + self.saturation_stress * (self.saturation_rate * decay))
+    }
+}
+
+impl RateIndependentPlastic for VoceFlow {}

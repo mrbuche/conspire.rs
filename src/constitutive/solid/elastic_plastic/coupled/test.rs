@@ -3,7 +3,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         canonical::Canonical,
-        fluid::plastic::{Plastic, PlasticFlow, RateIndependentPlastic},
+        fluid::plastic::{Plastic, PlasticFlow, RateIndependentPlastic, VoceFlow},
         solid::{
             elastic_plastic::{ElasticPlastic, ElasticPlasticOrViscoplastic},
             hyperelastic::{Hencky, NeoHookean, SaintVenantKirchhoff},
@@ -22,26 +22,41 @@ fn stretch_shear(s: f64) -> DeformationGradient {
     ])
 }
 
+fn linear() -> PlasticFlow {
+    PlasticFlow {
+        yield_stress: Stress::pascals(2.0),
+        hardening_slope: Stress::pascals(1.0),
+    }
+}
+
+// saturates within a few percent plastic strain, so the modulus changes a lot over a step
+fn voce() -> VoceFlow {
+    VoceFlow {
+        yield_stress: Stress::pascals(2.0),
+        hardening_slope: Stress::pascals(0.2),
+        saturation_stress: Stress::pascals(1.5),
+        saturation_rate: 8.0,
+    }
+}
+
 macro_rules! test_models {
-    ($elastic:ident) => {
+    ($elastic:ident, $flow:ty, $make:expr) => {
         use super::*;
 
-        fn model() -> Canonical<$elastic, PlasticFlow> {
+        fn model() -> Canonical<$elastic, $flow> {
             Canonical::from((
                 $elastic {
                     bulk_modulus: Stress::pascals(13.0),
                     shear_modulus: Stress::pascals(3.0),
                 },
-                PlasticFlow {
-                    yield_stress: Stress::pascals(2.0),
-                    hardening_slope: Stress::pascals(1.0),
-                },
+                $make,
             ))
         }
 
         /// The analytic Jacobian of the coupled residual against central differences at
         /// an iterate whose plastic increment is not symmetric, so the nine-component
-        /// parametrization is exercised beyond the symmetric trace-free subspace.
+        /// parametrization is exercised beyond the symmetric trace-free subspace, and
+        /// with the hardening modulus taken at the iterate's plastic strain.
         #[test]
         fn jacobian_matches_finite_difference() -> Result<(), ConstitutiveError> {
             let model = model();
@@ -53,8 +68,11 @@ macro_rules! test_models {
                 0.030, 0.010, 0.004, 0.012, -0.020, 0.005, 0.003, -0.002, -0.010, 0.030,
             ];
             let iterate = Iterate::new(&model, &f, f_p_n, strain_n, &x)?;
+            let hardening_modulus = model
+                .hardening_modulus(Quantity::new(strain_n + x[9]))?
+                .value();
             let analytic = Sensitivities::new(&model, &f, f_p_n, &x, &iterate)?
-                .jacobian(x[9], model.hardening_slope().value());
+                .jacobian(x[9], hardening_modulus);
             let h = 1e-7;
             for column in 0..SIZE {
                 let (mut plus, mut minus) = (x, x);
@@ -123,13 +141,25 @@ macro_rules! test_models {
 }
 
 mod hencky {
-    test_models!(Hencky);
+    test_models!(Hencky, PlasticFlow, linear());
 }
 
 mod neo_hookean {
-    test_models!(NeoHookean);
+    test_models!(NeoHookean, PlasticFlow, linear());
 }
 
 mod saint_venant_kirchhoff {
-    test_models!(SaintVenantKirchhoff);
+    test_models!(SaintVenantKirchhoff, PlasticFlow, linear());
+}
+
+mod hencky_voce {
+    test_models!(Hencky, VoceFlow, voce());
+}
+
+mod neo_hookean_voce {
+    test_models!(NeoHookean, VoceFlow, voce());
+}
+
+mod saint_venant_kirchhoff_voce {
+    test_models!(SaintVenantKirchhoff, VoceFlow, voce());
 }
