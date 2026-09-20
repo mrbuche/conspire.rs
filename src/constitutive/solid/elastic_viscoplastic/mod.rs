@@ -36,9 +36,7 @@ use crate::{
 use std::ops::{Add, Mul};
 
 use crate::constitutive::solid::elastic_plastic::bcs;
-pub use crate::constitutive::solid::elastic_plastic::{
-    AppliedLoad, ElasticPlasticOrViscoplastic, PlasticTangents,
-};
+pub use crate::constitutive::solid::elastic_plastic::{AppliedLoad, ElasticPlasticOrViscoplastic};
 
 /// Required methods for elastic-viscoplastic solid constitutive models.
 pub trait ElasticViscoplastic<Y>
