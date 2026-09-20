@@ -1,7 +1,7 @@
 use crate::{
     constitutive::{
         canonical::Canonical,
-        fluid::plastic::{PlasticFlow, RateIndependentPlastic},
+        fluid::plastic::{PlasticFlow, PlasticStateVariables, RateIndependentPlastic},
         solid::{
             elastic_plastic::{
                 AppliedLoad, ElasticPlastic, ElasticPlasticOrViscoplastic, FirstOrderRoot,
@@ -453,5 +453,58 @@ fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
         continuum_departs,
         "continuum tangent matched the finite difference; test is not exercising plasticity"
     );
+    Ok(())
+}
+
+fn assert_implicit_step(
+    model: &Canonical<NeoHookean, PlasticFlow>,
+    deformation_gradient: &DeformationGradient,
+    previous_state: &PlasticStateVariables,
+) -> Result<PlasticStateVariables, AssertionError> {
+    let (previous_f_p, &previous_strain): (&DeformationGradientPlastic, &Quantity) =
+        previous_state.into();
+    let updated_state = model.return_map(deformation_gradient, previous_state)?;
+    let (f_p, &strain): (&DeformationGradientPlastic, &Quantity) = (&updated_state).into();
+    let plastic_multiplier = (strain - previous_strain).value();
+    assert!(plastic_multiplier > 0.0, "the step must be plastic");
+    let deviatoric = model.mandel_stress(deformation_gradient, f_p)?.deviatoric();
+    // the yield condition holds at the end of the step
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(model.yield_function(&deviatoric, strain)?.value(), &0.0)?;
+    // and the flow direction is the end-of-step one, not the trial one
+    let direction = {
+        let direction = model.flow_direction(&deviatoric)?;
+        (&direction + direction.transpose()) * 0.5
+    };
+    let implicit_f_p = (&direction * plastic_multiplier).expm().unwrap() * previous_f_p;
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(f_p, &implicit_f_p)?;
+    Ok(updated_state)
+}
+
+#[test]
+fn return_map_is_the_fully_implicit_step_when_the_loading_is_not_proportional()
+-> Result<(), AssertionError> {
+    let model = model(1.0);
+    let first = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let second = DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]);
+    let state = assert_implicit_step(&model, &first, &model.initial_state())?;
+    assert_implicit_step(&model, &second, &state)?;
+    Ok(())
+}
+
+#[test]
+fn return_map_solves_a_step_too_large_for_a_frozen_flow_direction() -> Result<(), AssertionError> {
+    let model = model(1.0);
+    let large = DeformationGradient::from([[2.6, 1.12, 0.32], [0.0, 0.68, 0.64], [0.0, 0.0, 1.48]]);
+    assert_implicit_step(&model, &large, &model.initial_state())?;
     Ok(())
 }

@@ -1,9 +1,9 @@
 //! Elastic-plastic solid constitutive models.
 
 mod canonical;
+mod coupled;
 
 use crate::{
-    EPSILON,
     constitutive::{
         ConstitutiveError,
         fluid::plastic::{
@@ -404,95 +404,23 @@ where
     /// f \leq 0, \qquad \Delta\gamma \geq 0, \qquad \Delta\gamma\, f = 0
     /// ```
     /// through an elastic predictor and, if the trial state lies outside the yield
-    /// surface, a plastic corrector for the incremental multiplier $`\Delta\gamma`$.
-    /// The flow direction is frozen at the trial state and the plastic deformation
-    /// gradient is updated by the exponential map
+    /// surface, a plastic corrector. The corrector is the fully implicit step,
     /// ```math
-    /// \mathbf{F}_\mathrm{p}^{n+1} = \exp(\Delta\gamma\,\mathbf{N})\cdot\mathbf{F}_\mathrm{p}^{n},
+    /// \mathbf{F}_\mathrm{p}^{n+1} = \exp(\Delta\gamma\,\mathbf{N}^{n+1})\cdot\mathbf{F}_\mathrm{p}^{n},
     /// ```
-    /// which is unimodular for the trace-free $`\mathbf{N}`$ and so needs no step
-    /// limit. The scalar consistency equation is solved by a bracketed Newton
-    /// iteration that falls back to bisection.
+    /// with the flow direction $`\mathbf{N}^{n+1}`$ taken at the end of the step, solved
+    /// together with $`\Delta\gamma`$ by a coupled Newton iteration on
+    /// $`(\Delta\gamma\,\mathbf{N},\Delta\gamma)`$. The exponential map is unimodular
+    /// for the trace-free $`\mathbf{N}`$ and so needs no step limit, and, unlike a
+    /// direction frozen at the trial state, the solve is exact for any elastic model
+    /// and does not depend on the step size to be solvable.
     fn return_map(
         &self,
         deformation_gradient: &DeformationGradient,
         state_variables: &PlasticStateVariables,
     ) -> Result<PlasticStateVariables, ConstitutiveError> {
-        let (deformation_gradient_p, &equivalent_plastic_strain): (
-            &DeformationGradientPlastic,
-            &Quantity,
-        ) = state_variables.into();
-        let deviatoric_trial = self
-            .mandel_stress(deformation_gradient, deformation_gradient_p)?
-            .deviatoric();
-        if self
-            .yield_function(&deviatoric_trial, equivalent_plastic_strain)?
-            .value()
-            <= 0.0
-        {
-            return Ok(state_variables.clone());
-        }
-        let flow_direction = {
-            let direction = self.flow_direction(&deviatoric_trial)?;
-            (&direction + direction.transpose()) * 0.5
-        };
-        let plastic_deformation_gradient =
-            |plastic_multiplier: Scalar| -> Result<DeformationGradientPlastic, ConstitutiveError> {
-                Ok((&flow_direction * plastic_multiplier)
-                    .expm()
-                    .map_err(|error| ConstitutiveError::custom(format!("{error:?}"), self))?
-                    * deformation_gradient_p)
-            };
-        let residual = |plastic_multiplier: Scalar| -> Result<Scalar, ConstitutiveError> {
-            let deviatoric = self
-                .mandel_stress(
-                    deformation_gradient,
-                    &plastic_deformation_gradient(plastic_multiplier)?,
-                )?
-                .deviatoric();
-            Ok(self
-                .yield_function(
-                    &deviatoric,
-                    equivalent_plastic_strain + Quantity::new(plastic_multiplier),
-                )?
-                .value())
-        };
-        let (mut lower, mut upper) = (0.0, 1e-3);
-        while residual(upper)? > 0.0 {
-            upper *= 2.0;
-            if upper > 16.0 {
-                return Err(ConstitutiveError::custom(
-                    "Return mapping failed to bracket the plastic multiplier.",
-                    self,
-                ));
-            }
-        }
-        let tolerance = 1e-13 * self.initial_yield_stress().value().max(1.0);
-        let mut plastic_multiplier = 0.5 * (lower + upper);
-        for _ in 0..40 {
-            let value = residual(plastic_multiplier)?;
-            if value.abs() <= tolerance || upper - lower <= 1e-15 * (1.0 + plastic_multiplier) {
-                break;
-            }
-            if value > 0.0 {
-                lower = plastic_multiplier;
-            } else {
-                upper = plastic_multiplier;
-            }
-            let step = EPSILON * plastic_multiplier.max(1e-3);
-            let slope = (residual(plastic_multiplier + step)? - value) / step;
-            let newton = plastic_multiplier - value / slope;
-            plastic_multiplier = if slope < 0.0 && newton > lower && newton < upper {
-                newton
-            } else {
-                0.5 * (lower + upper)
-            };
-        }
-        Ok((
-            plastic_deformation_gradient(plastic_multiplier)?,
-            equivalent_plastic_strain + Quantity::new(plastic_multiplier),
-        )
-            .into())
+        let converged = coupled::solve(self, deformation_gradient, state_variables)?;
+        Ok(coupled::updated_state(state_variables, converged.as_ref()))
     }
     /// Calculates and returns the tangent blocks of the monolithic (block) residual.
     ///
@@ -828,62 +756,27 @@ where
     /// Return maps one load step and returns the updated plastic state together with the
     /// consistent (algorithmic) first Piola-Kirchhoff tangent stiffness at that state.
     ///
-    /// The tangent is the static condensation of the analytic block system,
-    /// ```math
-    /// \frac{\mathrm{d}\mathbf{P}}{\mathrm{d}\mathbf{F}} = K_{uu} - K_{uv}\,K_{vv}^{-1}\,K_{vu},
-    /// ```
-    /// with the local block reduced to the single live entry (the plastic multiplier);
-    /// on an elastic step it is just the continuum tangent. It is exact, and cheap
-    /// enough for use at every quadrature point of a finite element assembly.
+    /// The tangent follows from the implicit function theorem applied to the converged
+    /// coupled system, which yields the exact derivative of the stress with respect to
+    /// the deformation gradient through the return map; on an elastic step it is just
+    /// the continuum tangent. The solve is shared with the state update, so calling this
+    /// costs one return mapping.
     fn consistent_tangent_stiffness(
         &self,
         deformation_gradient: &DeformationGradient,
         state_variables: &PlasticStateVariables,
     ) -> Result<(FirstPiolaKirchhoffTangentStiffness, PlasticStateVariables), ConstitutiveError>
     {
-        let (deformation_gradient_p, &equivalent_plastic_strain): (
-            &DeformationGradientPlastic,
-            &Quantity,
-        ) = state_variables.into();
-        let deviatoric = self
-            .mandel_stress(deformation_gradient, deformation_gradient_p)?
-            .deviatoric();
-        let updated_state = self.return_map(deformation_gradient, state_variables)?;
-        let plastic_multiplier = (updated_state.1 - equivalent_plastic_strain).value();
-        if plastic_multiplier <= 0.0 {
-            return Ok((
-                self.first_piola_kirchhoff_tangent_stiffness(
-                    deformation_gradient,
-                    deformation_gradient_p,
-                )?,
-                updated_state,
-            ));
-        }
-        let flow_direction = {
-            let direction = self.flow_direction(&deviatoric)?;
-            (&direction + direction.transpose()) * 0.5
-        };
-        let (mut tangent, k_vu, k_uv, k_vv) = self.monolithic_tangents(
-            deformation_gradient,
-            deformation_gradient_p,
-            &flow_direction,
-            equivalent_plastic_strain,
-            plastic_multiplier,
-        )?;
-        let inverse = 1.0 / k_vv.value();
-        for i in 0..3 {
-            for j in 0..3 {
-                for k in 0..3 {
-                    for l in 0..3 {
-                        tangent[i][j][k][l] = Quantity::new(
-                            tangent[i][j][k][l].value()
-                                - k_uv[i][j].value() * inverse * k_vu.0[k][l].value(),
-                        );
-                    }
-                }
-            }
-        }
-        Ok((tangent, updated_state))
+        let converged = coupled::solve(self, deformation_gradient, state_variables)?;
+        Ok((
+            coupled::consistent_tangent(
+                self,
+                deformation_gradient,
+                state_variables,
+                converged.as_ref(),
+            )?,
+            coupled::updated_state(state_variables, converged.as_ref()),
+        ))
     }
 }
 
