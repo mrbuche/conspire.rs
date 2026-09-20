@@ -192,6 +192,7 @@ pub fn integrate_rkmk_dae_adaptive_first_order_root<Field, Tab, F, J, Z, U, V, T
     abs_tol: Scalar,
     rel_tol: Scalar,
     mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+    sparse: Option<SparseSolver>,
 ) -> Result<(Times<T>, U, V), IntegrationError>
 where
     Field: Integrable,
@@ -211,7 +212,7 @@ where
             |z| jacobian(t, point, z),
             z_guess.clone(),
             equality_constraint(t),
-            None,
+            sparse.clone(),
         )?)
     };
     integrate_rkmk_dae_adaptive::<Field, Tab, Z, U, V, T>(

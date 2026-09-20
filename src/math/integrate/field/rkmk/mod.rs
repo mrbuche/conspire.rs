@@ -188,6 +188,7 @@ pub fn rkmk_dae_step_first_order_root<Field, Tab, F, J, Z, T>(
     scratch: &mut Vec<Field::Increment>,
     first_rate: Option<&Derivative<Field::Increment, T>>,
     mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+    sparse: Option<SparseSolver>,
 ) -> Result<(Field::Point, Z, Option<Derivative<Field::Increment, T>>), IntegrationError>
 where
     Field: Integrable,
@@ -205,7 +206,7 @@ where
             |z| jacobian(t, point, z),
             z_guess.clone(),
             equality_constraint(t),
-            None,
+            sparse.clone(),
         )?)
     };
     rkmk_dae_step::<Field, Tab, Z, T>(rate, &mut solve, point, z, t, dt, scratch, first_rate)
