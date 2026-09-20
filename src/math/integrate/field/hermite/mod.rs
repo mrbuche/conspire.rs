@@ -94,7 +94,8 @@ where
         .evaluate(time_k)
 }
 
-/// [`hermite_at`] over a whole grid of requested times.
+/// Finds the containing segment and evaluates it there, over a whole grid of
+/// requested times.
 pub fn interpolate_hermite<Field, U, T>(
     segments: &[HermiteSegment<Field, T>],
     time: &[Quantity<T>],

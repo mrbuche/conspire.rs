@@ -1,11 +1,13 @@
-pub(crate) mod element;
-pub(crate) mod solid;
 #[cfg(test)]
 pub(crate) mod test;
+
+pub(crate) mod element;
+pub(crate) mod solid;
 
 use crate::math::{Tensor, optimize::EqualityConstraint, sparse::SparseSolver};
 use std::any::type_name;
 
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) fn trimmed_type_name<T>() -> &'static str {
     type_name::<T>()
         .rsplit("::")
@@ -36,7 +38,6 @@ pub(crate) fn finalize_node_neighbors(neighbors: &mut [Vec<usize>]) {
     })
 }
 
-/// The sparse solver for the positions a mesh makes nonzero.
 pub(crate) fn solver_from_neighbors(
     neighbors: &[Vec<usize>],
     equality_constraint: &EqualityConstraint,

@@ -1,3 +1,8 @@
+#![cfg_attr(
+    not(any(feature = "fem", feature = "vem")),
+    allow(unused_macros, unused_imports)
+)]
+
 macro_rules! test_solid_deformation_gradient {
     () => {
         mod solid {

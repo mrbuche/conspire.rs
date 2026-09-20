@@ -22,6 +22,7 @@ jobs:
           - constitutive
           - fem
           - vem
+          - cbm
           - all
         os: [macos-latest, windows-latest, ubuntu-latest]
         toolchain: [beta, stable]

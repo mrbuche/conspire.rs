@@ -1,10 +1,17 @@
 pub(crate) mod elastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod elastic_hyperviscous;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod elastic_viscoplastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperelastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperelastic_viscoplastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperviscoelastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod viscoelastic;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod viscoplastic;
 
 pub trait SolidElement {

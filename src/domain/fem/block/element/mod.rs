@@ -79,7 +79,7 @@ pub struct Element<const D: usize, const G: usize, const N: usize, const O: usiz
 }
 
 impl<const D: usize, const G: usize, const N: usize, const O: usize> Element<D, G, N, O> {
-    fn gradient_vectors(&self) -> &GradientVectors<D, G, N> {
+    pub(crate) fn gradient_vectors(&self) -> &GradientVectors<D, G, N> {
         &self.gradient_vectors
     }
 }
