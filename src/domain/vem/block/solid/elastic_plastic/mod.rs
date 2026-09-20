@@ -1,26 +1,26 @@
 use crate::{
     constitutive::solid::elastic_plastic::ElasticPlastic,
-    domain::solid::elastic_plastic::ElasticPlasticElements,
-    fem::{
-        ElementModelError, NodalCoordinates,
+    domain::{
+        ElementModelError, block::solid::plastic::PlasticStateVariablesField,
+        solid::elastic_plastic::ElasticPlasticElements,
+    },
+    vem::{
+        NodalCoordinates,
         block::{
             Block,
-            element::{FiniteElementError, solid::elastic_plastic::ElasticPlasticFiniteElement},
+            element::{VirtualElementError, solid::elastic_plastic::ElasticPlasticVirtualElement},
+            solid::{NodalForcesSolid, NodalStiffnessesSolid},
         },
-        solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
 };
 use std::array::from_fn;
 
-pub use crate::domain::block::solid::plastic::PlasticStateVariablesField;
-
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElasticPlasticElements<PlasticStateVariablesField<G>, 3> for Block<C, F, G, M, N, P>
+impl<C, F> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C, F>
 where
     C: ElasticPlastic,
-    F: ElasticPlasticFiniteElement<C, G, M, N, P>,
+    F: ElasticPlasticVirtualElement<C>,
 {
-    fn initial_state(&self) -> PlasticStateVariablesField<G> {
+    fn initial_state(&self) -> PlasticStateVariablesField<1> {
         self.elements()
             .iter()
             .map(|_| from_fn(|_| self.constitutive_model().initial_state()).into())
@@ -28,13 +28,13 @@ where
     }
     fn nodal_forces_into(
         &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        state_variables: &PlasticStateVariablesField<G>,
-        nodal_forces: &mut NodalForcesSolid<3>,
+        nodal_coordinates: &NodalCoordinates,
+        state_variables: &PlasticStateVariablesField<1>,
+        nodal_forces: &mut NodalForcesSolid,
     ) -> Result<(), ElementModelError> {
         self.elements()
             .iter()
-            .zip(self.connectivity())
+            .zip(self.elements_nodes())
             .zip(state_variables)
             .try_for_each(|((element, nodes), state_variables_element)| {
                 element
@@ -46,19 +46,19 @@ where
                     .into_iter()
                     .zip(nodes)
                     .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), FiniteElementError>(())
+                Ok::<(), VirtualElementError>(())
             })
             .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_stiffnesses_into(
         &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        state_variables: &PlasticStateVariablesField<G>,
-        nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
+        nodal_coordinates: &NodalCoordinates,
+        state_variables: &PlasticStateVariablesField<1>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid,
     ) -> Result<(), ElementModelError> {
         self.elements()
             .iter()
-            .zip(self.connectivity())
+            .zip(self.elements_nodes())
             .zip(state_variables)
             .try_for_each(|((element, nodes), state_variables_element)| {
                 element
@@ -77,27 +77,27 @@ where
                                 nodal_stiffnesses[node_a][node_b] += nodal_stiffness
                             })
                     });
-                Ok::<(), FiniteElementError>(())
+                Ok::<(), VirtualElementError>(())
             })
             .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn updated_state(
         &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        state_variables: &PlasticStateVariablesField<G>,
-    ) -> Result<PlasticStateVariablesField<G>, ElementModelError> {
+        nodal_coordinates: &NodalCoordinates,
+        state_variables: &PlasticStateVariablesField<1>,
+    ) -> Result<PlasticStateVariablesField<1>, ElementModelError> {
         self.elements()
             .iter()
-            .zip(self.connectivity())
+            .zip(self.elements_nodes())
             .zip(state_variables)
-            .map(|((element, nodes), state_variables_element)| {
+            .map(|((element, nodes), element_state_variables)| {
                 element.updated_state(
                     self.constitutive_model(),
                     &Self::element_coordinates(nodal_coordinates, nodes),
-                    state_variables_element,
+                    element_state_variables,
                 )
             })
-            .collect::<Result<_, FiniteElementError>>()
+            .collect::<Result<_, VirtualElementError>>()
             .map_err(|error| ElementModelError::upstream(error, self))
     }
 }
