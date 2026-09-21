@@ -15,6 +15,7 @@ use super::{
 use crate::math::Norm;
 use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
 use std::{
+    collections::BTreeMap,
     fmt::{self, Debug, Formatter},
     ops::{Div, Mul},
 };
@@ -669,6 +670,139 @@ where
     }
 }
 
+/// Eliminates the local unknowns from a Newton step in which the local block is
+/// independent square blocks, one factorization each, so that only the global system,
+/// with the Schur complement $`K_{uu}-K_{uv}K_{vv}^{-1}K_{vu}`$ accumulated onto its
+/// sparsity pattern, is handed to the sparse solver. The local step follows by back
+/// substitution.
+#[expect(clippy::too_many_arguments)]
+fn eliminate_blocks<Kuu, Kvu, Kuv, Kvv>(
+    solver: &SparseSolver,
+    schur: &mut CscMatrix,
+    tangent_uu: &Kuu,
+    tangent_vu: &Kvu,
+    tangent_uv: &Kuv,
+    tangent_vv: &Kvv,
+    constraint_matrix_global: &CscMatrix,
+    (num_global, num_outer, num_local): (usize, usize, usize),
+    update_outer: &mut Vector,
+    update_inner: &Vector,
+    decrement_outer: &mut Vector,
+    decrement_inner: &mut Vector,
+) -> Result<(), OptimizationError>
+where
+    Kuu: HessianBlock,
+    Kvu: HessianBlock,
+    Kuv: HessianBlock,
+    Kvv: HessianBlock,
+{
+    let size = tangent_vv
+        .block_size()
+        .expect("Eliminating the local block sparsely needs it held as independent blocks.");
+    let num_blocks = num_local / size;
+    let mut coupling_local = vec![Vec::new(); num_blocks];
+    let mut coupling_global = vec![Vec::new(); num_blocks];
+    let mut blocks = vec![0.0; num_blocks * size * size];
+    let held = tangent_vu.for_each_entry(&mut |row, column, value| {
+        coupling_local[row / size].push((row % size, column, value))
+    }) && tangent_uv.for_each_entry(&mut |row, column, value| {
+        coupling_global[column / size].push((row, column % size, value))
+    }) && tangent_vv.for_each_entry(&mut |row, column, value| {
+        assert_eq!(
+            row / size,
+            column / size,
+            "The local block is not block diagonal."
+        );
+        blocks[(row / size) * size * size + (row % size) * size + column % size] += value
+    });
+    assert!(
+        held,
+        "Eliminating the local block sparsely needs the couplings held as sparse entries."
+    );
+    schur.clear();
+    let mut eliminated = Vec::with_capacity(num_blocks);
+    for (block, (coupling_local, coupling_global)) in coupling_local
+        .iter()
+        .zip(coupling_global.iter())
+        .enumerate()
+    {
+        let offset = block * size;
+        let lu = (0..size)
+            .map(|i| {
+                let start = block * size * size + i * size;
+                Vector::from(blocks[start..start + size].to_vec())
+            })
+            .collect::<SquareMatrix>()
+            .factorize_lu()?;
+        let step = lu.solve(&Vector::from(
+            update_inner.as_slice()[offset..offset + size].to_vec(),
+        ));
+        (0..size).for_each(|l| decrement_inner[offset + l] = step[l]);
+        let mut columns = BTreeMap::new();
+        coupling_local.iter().for_each(|&(row, column, value)| {
+            columns.entry(column).or_insert_with(|| vec![0.0; size])[row] += value
+        });
+        let solved: Vec<(usize, Vector)> = columns
+            .into_iter()
+            .map(|(column, entries)| (column, lu.solve(&Vector::from(entries))))
+            .collect();
+        let mut rows = BTreeMap::new();
+        coupling_global.iter().for_each(|&(row, column, value)| {
+            rows.entry(row).or_insert_with(|| vec![0.0; size])[column] += value
+        });
+        rows.into_iter().for_each(|(row, entries)| {
+            update_outer[row] -= entries
+                .iter()
+                .zip(step.iter())
+                .map(|(entry, step_l)| entry * step_l)
+                .sum::<Scalar>();
+            solved.iter().for_each(|(column, solution)| {
+                schur.accumulate(
+                    row,
+                    *column,
+                    entries
+                        .iter()
+                        .zip(solution.iter())
+                        .map(|(entry, solution_l)| entry * solution_l)
+                        .sum::<Scalar>(),
+                )
+            })
+        });
+        eliminated.push(solved)
+    }
+    let no_local = CscMatrix::from_pattern(0, 0, Vec::new());
+    let schur = &*schur;
+    *decrement_outer = solver.solve(
+        |i, j| {
+            kkt_entry(
+                i,
+                j,
+                num_global,
+                num_outer,
+                0,
+                tangent_uu,
+                tangent_vu,
+                tangent_uv,
+                tangent_vv,
+                constraint_matrix_global,
+                &no_local,
+            ) - if i < num_global && j < num_global {
+                schur.entry(i, j)
+            } else {
+                0.0
+            }
+        },
+        update_outer,
+    )?;
+    eliminated.iter().enumerate().for_each(|(block, solved)| {
+        solved.iter().for_each(|(column, solution)| {
+            let decrement = decrement_outer[*column];
+            (0..size).for_each(|l| decrement_inner[block * size + l] -= solution[l] * decrement)
+        })
+    });
+    Ok(())
+}
+
 #[expect(clippy::too_many_arguments)]
 fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     newton_raphson: &NewtonRaphson,
@@ -709,12 +843,22 @@ where
         SolveStrategy::Condensed(ref local_solver) => Some(local_solver),
         SolveStrategy::Monolithic { .. } => None,
     };
-    if sparse.is_some() && eliminating {
-        unimplemented!(
-            "Eliminating the local block sparsely wants it held as the blocks it is, not as one matrix."
+    //
+    // With a sparse solver the local block is eliminated as the independent blocks it
+    // is held as, never as one matrix, so nothing dense in both the global and the
+    // local unknowns is ever formed.
+    //
+    let structured = sparse.is_some() && eliminating && condensed.is_none();
+    if sparse.is_some() && eliminating && !structured {
+        unimplemented!("Condensing the local block sparsely is not supported.")
+    }
+    if structured {
+        assert!(
+            constraint_rhs_local.len() == 0,
+            "Eliminating the local block sparsely does not support constraints on it."
         )
     }
-    let (inner, outer) = if eliminating {
+    let (inner, outer) = if eliminating && !structured {
         (num_inner, num_outer)
     } else {
         (0, 0)
@@ -742,6 +886,10 @@ where
     let mut tangent_outer = SquareMatrix::zero(outer);
     let mut update_inner = Vector::zero(num_inner);
     let mut update_outer = Vector::zero(num_outer);
+    let mut schur = sparse
+        .as_ref()
+        .filter(|_| structured)
+        .map(|solver| CscMatrix::from_pattern(num_outer, num_outer, solver.pattern().to_vec()));
     let mut steps = 0;
     loop {
         if let Some(local_solver) = condensed {
@@ -795,7 +943,22 @@ where
         }
         steps += 1;
         let (tangent_uu, tangent_vu, tangent_uv, tangent_vv) = tangents(&global, &local)?;
-        if eliminating {
+        if structured {
+            eliminate_blocks(
+                sparse.as_ref().unwrap(),
+                schur.as_mut().unwrap(),
+                &tangent_uu,
+                &tangent_vu,
+                &tangent_uv,
+                &tangent_vv,
+                &constraint_matrix_global,
+                (num_global, num_outer, num_local),
+                &mut update_outer,
+                &update_inner,
+                &mut decrement_outer,
+                &mut decrement_inner,
+            )?;
+        } else if eliminating {
             kkt_block(
                 &tangent_uu,
                 &constraint_matrix_global,

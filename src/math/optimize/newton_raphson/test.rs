@@ -514,3 +514,217 @@ mod fixed {
         )
     }
 }
+
+mod block {
+    use super::*;
+    use crate::math::{
+        Matrix, Vector,
+        optimize::{FirstOrderRootFindingBlock, SolveStrategy},
+        sparse::{CscMatrix, SparseSolver},
+    };
+    use std::collections::BTreeSet;
+
+    const GLOBAL: usize = 6;
+    const BLOCKS: usize = 3;
+    const SIZE: usize = 2;
+    const LOCAL: usize = BLOCKS * SIZE;
+
+    fn a(i: usize, j: usize) -> Scalar {
+        if i == j {
+            4.0
+        } else if i.abs_diff(j) == 1 {
+            -1.0
+        } else {
+            0.0
+        }
+    }
+    fn m(l: usize, k: usize) -> Scalar {
+        [[2.0, 0.5], [0.5, 2.0]][l][k]
+    }
+    fn b(q: usize, l: usize, k: usize) -> Scalar {
+        0.3 + 0.1 * q as Scalar + 0.05 * l as Scalar - 0.02 * k as Scalar
+    }
+    fn e(q: usize, k: usize, l: usize) -> Scalar {
+        0.2 - 0.03 * k as Scalar + 0.04 * l as Scalar + 0.01 * q as Scalar
+    }
+    fn load(i: usize) -> Scalar {
+        1.0 + 0.2 * i as Scalar
+    }
+    /// Block `q` couples to the global unknowns `q..q + 4`.
+    fn window(q: usize, i: usize) -> Option<usize> {
+        (q..q + 4).contains(&i).then(|| i - q)
+    }
+    fn residual_global(u: &Vector, v: &Vector) -> Vector {
+        (0..GLOBAL)
+            .map(|i| {
+                (0..GLOBAL).map(|j| a(i, j) * u[j]).sum::<Scalar>() + 0.05 * u[i].powi(3) - load(i)
+                    + (0..BLOCKS)
+                        .filter_map(|q| {
+                            window(q, i).map(|k| {
+                                (0..SIZE)
+                                    .map(|l| e(q, k, l) * v[SIZE * q + l])
+                                    .sum::<Scalar>()
+                            })
+                        })
+                        .sum::<Scalar>()
+            })
+            .collect()
+    }
+    fn residual_local(u: &Vector, v: &Vector) -> Vector {
+        (0..LOCAL)
+            .map(|i| {
+                let (q, l) = (i / SIZE, i % SIZE);
+                (0..SIZE).map(|k| m(l, k) * v[SIZE * q + k]).sum::<Scalar>() + 0.1 * v[i].powi(3)
+                    - (0..4).map(|k| b(q, l, k) * u[q + k]).sum::<Scalar>()
+            })
+            .collect()
+    }
+    fn kuu(i: usize, j: usize, u: &Vector) -> Scalar {
+        a(i, j) + if i == j { 0.15 * u[i].powi(2) } else { 0.0 }
+    }
+    fn kuv(i: usize, j: usize) -> Scalar {
+        let (q, l) = (j / SIZE, j % SIZE);
+        window(q, i).map_or(0.0, |k| e(q, k, l))
+    }
+    fn kvu(i: usize, j: usize) -> Scalar {
+        let (q, l) = (i / SIZE, i % SIZE);
+        window(q, j).map_or(0.0, |k| -b(q, l, k))
+    }
+    fn kvv(i: usize, j: usize, v: &Vector) -> Scalar {
+        if i / SIZE != j / SIZE {
+            return 0.0;
+        }
+        m(i % SIZE, j % SIZE) + if i == j { 0.3 * v[i].powi(2) } else { 0.0 }
+    }
+    fn patterns() -> [Vec<(usize, usize)>; 4] {
+        let mut uu = BTreeSet::new();
+        let (mut uv, mut vu, mut vv) = (Vec::new(), Vec::new(), Vec::new());
+        (0..BLOCKS).for_each(|q| {
+            (q..q + 4).for_each(|i| {
+                (q..q + 4).for_each(|j| {
+                    uu.insert((i, j));
+                });
+                (0..SIZE).for_each(|l| {
+                    uv.push((i, SIZE * q + l));
+                    vu.push((SIZE * q + l, i))
+                })
+            });
+            (0..SIZE).for_each(|l| (0..SIZE).for_each(|k| vv.push((SIZE * q + l, SIZE * q + k))))
+        });
+        (0..GLOBAL).for_each(|i| {
+            uu.insert((i, i));
+            if i > 0 {
+                uu.insert((i, i - 1));
+                uu.insert((i - 1, i));
+            }
+        });
+        [uu.into_iter().collect(), uv, vu, vv]
+    }
+    fn constraint() -> (CscMatrix, Vector) {
+        let mut matrix = CscMatrix::from_pattern(1, GLOBAL, vec![(0, 0)]);
+        matrix.fill(|_, _| 1.0);
+        (matrix, Vector::from(vec![0.3]))
+    }
+    fn none() -> (CscMatrix, Vector) {
+        (
+            CscMatrix::from_pattern(0, LOCAL, Vec::new()),
+            Vector::zero(0),
+        )
+    }
+    fn dense(strategy: SolveStrategy) -> Result<(Vector, Vector), OptimizationError> {
+        NewtonRaphson::default().root_block(
+            |u: &Vector, v: &Vector| Ok(residual_global(u, v)),
+            |u: &Vector, v: &Vector| Ok(residual_local(u, v)),
+            |u: &Vector, v: &Vector| {
+                let build = |height: usize, width: usize, f: &dyn Fn(usize, usize) -> Scalar| {
+                    let mut matrix = Matrix::zero(height, width);
+                    (0..height).for_each(|i| (0..width).for_each(|j| matrix[i][j] = f(i, j)));
+                    matrix
+                };
+                Ok((
+                    build(GLOBAL, GLOBAL, &|i, j| kuu(i, j, u)),
+                    build(LOCAL, GLOBAL, &kvu),
+                    build(GLOBAL, LOCAL, &kuv),
+                    build(LOCAL, LOCAL, &|i, j| kvv(i, j, v)),
+                ))
+            },
+            (Vector::zero(GLOBAL), Vector::zero(LOCAL)),
+            constraint(),
+            none(),
+            None,
+            strategy,
+        )
+    }
+    fn sparse(strategy: SolveStrategy) -> Result<(Vector, Vector), OptimizationError> {
+        let [uu, uv, vu, vv] = patterns();
+        let mut pattern = uu.clone();
+        pattern.extend([(GLOBAL, 0), (0, GLOBAL)]);
+        let solver = if matches!(strategy, SolveStrategy::Monolithic { elimination: true }) {
+            SparseSolver::from_pattern(GLOBAL + 1, pattern, false)
+        } else {
+            let outer = GLOBAL + 1;
+            pattern.extend(uv.iter().map(|&(i, j)| (i, outer + j)));
+            pattern.extend(vu.iter().map(|&(i, j)| (outer + i, j)));
+            pattern.extend(vv.iter().map(|&(i, j)| (outer + i, outer + j)));
+            SparseSolver::from_pattern(outer + LOCAL, pattern, false)
+        };
+        NewtonRaphson::default().root_block(
+            |u: &Vector, v: &Vector| Ok(residual_global(u, v)),
+            |u: &Vector, v: &Vector| Ok(residual_local(u, v)),
+            |u: &Vector, v: &Vector| {
+                let build = |height: usize,
+                             width: usize,
+                             pattern: &Vec<(usize, usize)>,
+                             f: &dyn Fn(usize, usize) -> Scalar| {
+                    let mut matrix = CscMatrix::from_pattern(height, width, pattern.clone());
+                    matrix.fill(f);
+                    matrix
+                };
+                Ok((
+                    build(GLOBAL, GLOBAL, &uu, &|i, j| kuu(i, j, u)),
+                    build(LOCAL, GLOBAL, &vu, &kvu),
+                    build(GLOBAL, LOCAL, &uv, &kuv),
+                    build(LOCAL, LOCAL, &vv, &|i, j| kvv(i, j, v)).with_block_size(SIZE),
+                ))
+            },
+            (Vector::zero(GLOBAL), Vector::zero(LOCAL)),
+            constraint(),
+            none(),
+            Some(solver),
+            strategy,
+        )
+    }
+    fn agree(reference: &(Vector, Vector), other: &(Vector, Vector)) -> Result<(), AssertionError> {
+        let assert = Assert {
+            abs_tol: 1e-10,
+            rel_tol: 1e-10,
+            ..Default::default()
+        };
+        assert.eq_within_tols(&reference.0, &other.0)?;
+        assert.eq_within_tols(&reference.1, &other.1)
+    }
+    #[test]
+    fn dense_strategies_agree_and_satisfy_the_constraint() -> Result<(), AssertionError> {
+        let full = dense(SolveStrategy::Monolithic { elimination: false })?;
+        Assert::default().eq_within_tols(full.0[0], &0.3)?;
+        assert!(full.1.iter().any(|entry| entry.abs() > 1e-3));
+        agree(
+            &full,
+            &dense(SolveStrategy::Monolithic { elimination: true })?,
+        )
+    }
+    #[test]
+    fn sparse_elimination_matches_dense_elimination() -> Result<(), AssertionError> {
+        agree(
+            &dense(SolveStrategy::Monolithic { elimination: true })?,
+            &sparse(SolveStrategy::Monolithic { elimination: true })?,
+        )
+    }
+    #[test]
+    fn sparse_elimination_matches_the_sparse_full_system() -> Result<(), AssertionError> {
+        agree(
+            &sparse(SolveStrategy::Monolithic { elimination: false })?,
+            &sparse(SolveStrategy::Monolithic { elimination: true })?,
+        )
+    }
+}

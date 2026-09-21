@@ -3,8 +3,8 @@ mod test;
 
 mod amd;
 
-use crate::math::{Quantity, Scalar, TensorRank1Vec, TensorRank2, Vector};
-use std::ops::Mul;
+use crate::math::{HessianBlock, Quantity, Scalar, TensorRank1Vec, TensorRank2, Vector};
+use std::ops::{IndexMut, Mul};
 
 /// A sparse matrix in compressed sparse column format.
 #[derive(Clone, Debug, PartialEq)]
@@ -16,6 +16,7 @@ pub struct CscMatrix {
     values: Vec<Scalar>,
     pattern: Vec<(usize, usize)>,
     scatter: Vec<usize>,
+    block_size: Option<usize>,
 }
 
 impl CscMatrix {
@@ -52,7 +53,14 @@ impl CscMatrix {
             values,
             pattern,
             scatter,
+            block_size: None,
         }
+    }
+    /// Declares the matrix block diagonal with independent square blocks of this size.
+    pub fn with_block_size(mut self, size: usize) -> Self {
+        assert!(size > 0 && self.height.is_multiple_of(size) && self.width == self.height);
+        self.block_size = Some(size);
+        self
     }
     /// Fills the values from a source, summing duplicate positions in the pattern.
     pub fn fill(&mut self, mut source: impl FnMut(usize, usize) -> Scalar) {
@@ -61,6 +69,19 @@ impl CscMatrix {
             .iter()
             .zip(self.scatter.iter())
             .for_each(|(&(i, j), &k)| self.values[k] += source(i, j));
+    }
+    /// Sets every value to zero, keeping the sparsity structure.
+    pub fn clear(&mut self) {
+        self.values.fill(0.0)
+    }
+    /// Adds to the value at a position the sparsity structure holds.
+    pub fn accumulate(&mut self, row: usize, column: usize, value: Scalar) {
+        let (start, end) = (self.col_ptr[column], self.col_ptr[column + 1]);
+        let k = start
+            + self.row_idx[start..end]
+                .binary_search(&row)
+                .expect("Position is not in the sparsity structure.");
+        self.values[k] += value
     }
     /// Iterates over the nonzero entries of a column as (row, value).
     pub fn column(&self, j: usize) -> impl Iterator<Item = (usize, &Scalar)> {
@@ -106,6 +127,7 @@ impl CscMatrix {
             values,
             pattern: self.pattern.iter().map(|&(i, j)| (j, i)).collect(),
             scatter: self.scatter.iter().map(|&k| perm[k]).collect(),
+            block_size: self.block_size,
         }
     }
     /// A column-to-row matching pairing every column with a structurally
@@ -214,6 +236,32 @@ impl CscMatrix {
                 .for_each(|k| output[self.row_idx[k]] += self.values[k] * entry_j)
         });
         output
+    }
+}
+
+impl HessianBlock for CscMatrix {
+    fn entry(&self, row: usize, column: usize) -> Scalar {
+        CscMatrix::entry(self, row, column)
+    }
+    fn height(&self) -> usize {
+        self.height
+    }
+    fn width(&self) -> usize {
+        self.width
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        self.iter()
+            .for_each(|(i, j, value)| matrix[row + i][column + j] = *value)
+    }
+    fn block_size(&self) -> Option<usize> {
+        self.block_size
+    }
+    fn for_each_entry(&self, function: &mut dyn FnMut(usize, usize, Scalar)) -> bool {
+        self.iter().for_each(|(i, j, value)| function(i, j, *value));
+        true
     }
 }
 
