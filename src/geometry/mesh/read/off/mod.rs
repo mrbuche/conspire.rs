@@ -2,10 +2,7 @@
 mod test;
 
 use crate::{
-    geometry::{
-        Coordinates,
-        mesh::{Connectivity, Mesh},
-    },
+    geometry::mesh::{Connectivity, Mesh},
     math::Scalar,
 };
 use std::{
@@ -108,7 +105,7 @@ where
         for _ in 0..faces {
             let (number, line) = lines.next().ok_or_else(end_of_file)?;
             let tokens: Vec<&str> = line.split_whitespace().collect();
-            let size: usize = parse(tokens[0], number)?;
+            let size = parse(tokens[0], number)?;
             if size > tokens.len() - 1 {
                 return Err(invalid(format!(
                     "line {number}: a face of {size} vertices has only {} indices",
@@ -117,7 +114,7 @@ where
             }
             let mut nodes = Vec::with_capacity(size);
             for token in &tokens[1..=size] {
-                let node: usize = parse(token, number)?;
+                let node = parse(token, number)?;
                 if node >= vertices {
                     return Err(invalid(format!(
                         "line {number}: vertex index {node} is out of range for {vertices} vertices"
@@ -147,9 +144,7 @@ where
         if !quadrilaterals.is_empty() {
             blocks.push(Connectivity::Quadrilateral(quadrilaterals.into()));
         }
-        let coordinates: Coordinates<D> =
-            coordinates.into_iter().map(|point| point.into()).collect();
-        Ok((blocks, coordinates).into())
+        Ok((blocks, coordinates.into()).into())
     }
 }
 
