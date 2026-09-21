@@ -377,58 +377,6 @@ pub(super) fn updated_state(
     }
 }
 
-/// The consistent tangent $`\mathrm{d}\mathbf{P}/\mathrm{d}\mathbf{F}`$ of the converged
-/// step by the implicit function theorem,
-/// ```math
-/// \frac{\mathrm{d}\mathbf{x}}{\mathrm{d}\mathbf{F}} = -J^{-1}\frac{\partial\mathbf{R}}{\partial\mathbf{F}},
-/// \qquad
-/// \frac{\mathrm{d}\mathbf{P}}{\mathrm{d}\mathbf{F}} = \frac{\partial\mathbf{P}}{\partial\mathbf{F}}
-///   + \frac{\partial\mathbf{P}}{\partial\mathbf{F}_\mathrm{p}}:\frac{\partial\mathbf{F}_\mathrm{p}}{\partial\mathbf{E}}:\frac{\mathrm{d}\mathbf{E}}{\mathrm{d}\mathbf{F}}.
-/// ```
-pub(super) fn consistent_tangent<C: ElasticPlastic>(
-    model: &C,
-    f: &DeformationGradient,
-    state: &PlasticStateVariables,
-    converged: Option<&Converged>,
-) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-    let (f_p_n, _): (&DeformationGradientPlastic, &Quantity) = state.into();
-    let Some(Converged { x, iterate }) = converged else {
-        return model.first_piola_kirchhoff_tangent_stiffness(f, f_p_n);
-    };
-    let sensitivities = Sensitivities::new(model, f, f_p_n, x, iterate)?;
-    let lu = SquareMatrix::from(sensitivities.jacobian())
-        .factorize_lu()
-        .map_err(|error| failure(model, &error))?;
-    let columns: [[Matrix3; 3]; 3] = from_fn(|k| {
-        from_fn(|l| {
-            let d_m = sensitivities
-                .linearization
-                .mandel_derivative(&basis(k, l), &ZERO);
-            let (d_direction, d_magnitude) = sensitivities.direction_slope(&d_m);
-            let mut rhs = Vector::zero(SIZE);
-            (0..3).for_each(|i| (0..3).for_each(|j| rhs[3 * i + j] = x[9] * d_direction[i][j]));
-            rhs[9] = -d_magnitude;
-            let z = lu.solve(&rhs);
-            let d_f_p: Matrix3 = from_fn(|i| {
-                from_fn(|j| {
-                    (0..3)
-                        .map(|a| {
-                            (0..3)
-                                .map(|b| z[3 * a + b] * sensitivities.slopes[a][b][i][j])
-                                .sum::<Scalar>()
-                        })
-                        .sum()
-                })
-            });
-            sensitivities
-                .linearization
-                .stress_derivative(&basis(k, l), &d_f_p)
-        })
-    });
-    let entries: Entries4 = from_fn(|i| from_fn(|j| from_fn(|k| from_fn(|l| columns[k][l][i][j]))));
-    Ok(rank_4(&entries))
-}
-
 /// The plastic deformation gradient of a monolithic trial state: the local unknowns
 /// are $`(\mathbf{E},\Delta\gamma)`$ and $`\mathbf{F}_\mathrm{p}=\exp(\mathbf{E})\mathbf{F}_\mathrm{p}^n`$.
 pub(super) fn monolithic_plastic<C: ElasticPlastic>(

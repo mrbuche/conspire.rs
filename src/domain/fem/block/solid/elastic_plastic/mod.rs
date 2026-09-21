@@ -3,9 +3,9 @@ use crate::{
         ConstitutiveError,
         solid::elastic_plastic::{ElasticPlastic, coupled},
     },
-    domain::solid::elastic_plastic::ElasticPlasticElements,
+    domain::solid::elastic_plastic::{ElasticPlasticElements, MonolithicSystem},
     fem::{
-        ElementModelError, Elements, NodalCoordinates,
+        ElementModelError, NodalCoordinates,
         block::{
             Block,
             element::{
@@ -27,7 +27,7 @@ impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
     ElasticPlasticElements<PlasticStateVariablesField<G>, 3> for Block<C, F, G, M, N, P>
 where
     C: ElasticPlastic,
-    F: ElasticPlasticFiniteElement<C, G, M, N, P>,
+    F: ElasticPlasticFiniteElement<C, G, M, N, P> + MonolithicElasticPlasticFiniteElement<C, G, N>,
 {
     fn initial_state(&self) -> PlasticStateVariablesField<G> {
         self.elements()
@@ -90,93 +90,6 @@ where
             .collect::<Result<_, FiniteElementError>>()
             .map_err(|error| ElementModelError::upstream(error, self))
     }
-}
-
-/// The assembled residuals and tangent blocks of the monolithic system. The unknowns
-/// are the nodal coordinates, then the local unknowns of every integration point of
-/// every element in turn.
-pub struct MonolithicSystem {
-    pub residual_global: Vector,
-    pub residual_local: Vector,
-    pub tangent_uu: CscMatrix,
-    pub tangent_uv: CscMatrix,
-    pub tangent_vu: CscMatrix,
-    pub tangent_vv: CscMatrix,
-}
-
-impl MonolithicSystem {
-    pub fn num_global(&self) -> usize {
-        self.tangent_uu.height()
-    }
-    pub fn num_local(&self) -> usize {
-        self.tangent_vv.height()
-    }
-    fn clear(&mut self) {
-        self.residual_global = Vector::zero(self.num_global());
-        self.residual_local = Vector::zero(self.num_local());
-        self.tangent_uu.clear();
-        self.tangent_uv.clear();
-        self.tangent_vu.clear();
-        self.tangent_vv.clear();
-    }
-    /// The positions of the tangent of the monolithic system, unknowns ordered as the
-    /// nodal coordinates, then `constraints` multipliers, then the local unknowns.
-    pub fn pattern(&self, constraints: usize) -> Vec<(usize, usize)> {
-        let num_outer = self.num_global() + constraints;
-        let mut pattern = self.tangent_uu.pattern().to_vec();
-        pattern.extend(
-            self.tangent_uv
-                .pattern()
-                .iter()
-                .map(|&(row, column)| (row, num_outer + column)),
-        );
-        pattern.extend(
-            self.tangent_vu
-                .pattern()
-                .iter()
-                .map(|&(row, column)| (num_outer + row, column)),
-        );
-        pattern.extend(
-            self.tangent_vv
-                .pattern()
-                .iter()
-                .map(|&(row, column)| (num_outer + row, num_outer + column)),
-        );
-        pattern
-    }
-}
-
-/// Assembly for the monolithic (block) solve of rate-independent elastic-plastic solids,
-/// with the local unknowns of the return map at every integration point free unknowns
-/// of the outer solve instead of condensed out at each point.
-pub trait MonolithicElasticPlasticElements<const G: usize>
-where
-    Self: Elements,
-{
-    /// An empty system holding the sparsity structure of the blocks.
-    fn monolithic_system(&self, num_nodes: usize) -> MonolithicSystem;
-    /// Evaluates the system at the given coordinates and trial local unknowns.
-    fn monolithic_into(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        state_variables: &PlasticStateVariablesField<G>,
-        local: &Vector,
-        system: &mut MonolithicSystem,
-    ) -> Result<(), ElementModelError>;
-    /// The plastic state the local unknowns arrive at.
-    fn monolithic_state(
-        &self,
-        state_variables: &PlasticStateVariablesField<G>,
-        local: &Vector,
-    ) -> Result<PlasticStateVariablesField<G>, ElementModelError>;
-}
-
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    MonolithicElasticPlasticElements<G> for Block<C, F, G, M, N, P>
-where
-    C: ElasticPlastic,
-    F: ElasticPlasticFiniteElement<C, G, M, N, P> + MonolithicElasticPlasticFiniteElement<C, G, N>,
-{
     fn monolithic_system(&self, num_nodes: usize) -> MonolithicSystem {
         let size = coupled::SIZE * G;
         let num_global = 3 * num_nodes;

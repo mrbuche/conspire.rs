@@ -8371,8 +8371,12 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
         .skip(1)
         .map(|&t| bcs_temporary_elastic_viscoplastic(t))
         .collect();
-    let (coordinates_history, state_history) =
-        ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
+    let (coordinates_history, state_history) = ElasticPlasticRoot::root(
+        &fem_model,
+        NewtonRaphson::default(),
+        &boundary_conditions,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
     let (_, deformation_gradients, state_variables) = FirstOrderRoot::root(
         &model,
         AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + t.value(), times.as_slice()),
@@ -8466,7 +8470,7 @@ fn assert_same_plastic_solution(
 
 #[test]
 fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
-    use conspire::fem::solid::elastic_plastic::{ElasticPlasticRoot, FirstOrderRootBlock};
+    use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
     use conspire::math::optimize::SolveStrategy;
     let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
     let mut connectivity = connectivity();
@@ -8494,23 +8498,19 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
         .skip(1)
         .map(|&t| bcs_temporary_elastic_viscoplastic(t))
         .collect();
-    let time = std::time::Instant::now();
-    let (coordinates_nested, state_nested) =
-        ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
-    println!("MESHBENCH condensed: {:?}", time.elapsed());
-    let reference = (coordinates_nested, state_nested);
-    for (label, elimination) in [
-        ("monolithic sparse", false),
-        ("monolithic eliminated", true),
-    ] {
-        let time = std::time::Instant::now();
-        let solution = FirstOrderRootBlock::root(
+    let reference = ElasticPlasticRoot::root(
+        &fem_model,
+        NewtonRaphson::default(),
+        &boundary_conditions,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    for elimination in [false, true] {
+        let solution = ElasticPlasticRoot::root(
             &fem_model,
             NewtonRaphson::default(),
             &boundary_conditions,
             SolveStrategy::Monolithic { elimination },
         )?;
-        println!("MESHBENCH {label}: {:?}", time.elapsed());
         assert_same_plastic_solution(&reference, &solution, 1e-8)?;
     }
     Ok(())
@@ -8518,7 +8518,6 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
 
 #[test]
 fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), AssertionError> {
-    use conspire::fem::block::solid::elastic_plastic::MonolithicElasticPlasticElements;
     use conspire::fem::solid::elastic_plastic::ElasticPlasticElements;
     let model = Canonical::from((
         NeoHookean {
@@ -8603,7 +8602,7 @@ fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), Asserti
 
 #[test]
 fn temporary_elastic_plastic_block() -> Result<(), AssertionError> {
-    use conspire::fem::solid::elastic_plastic::{ElasticPlasticRoot, FirstOrderRootBlock};
+    use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
     use conspire::math::optimize::SolveStrategy;
     // A single tetrahedron: node 0 pinned fully, node 1 pinned in y/z with x
     // displacement-controlled, node 2 pinned in z, leaving node 2's x/y and node 3's
@@ -8648,24 +8647,19 @@ fn temporary_elastic_plastic_block() -> Result<(), AssertionError> {
             EqualityConstraint::Linear(matrix, vector)
         })
         .collect();
-    let _ = ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
-    let time = std::time::Instant::now();
-    let (coordinates_nested, state_nested) =
-        ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
-    println!("BLOCKBENCH condensed: {:?}", time.elapsed());
-    let reference = (coordinates_nested, state_nested);
-    for (label, elimination) in [
-        ("monolithic sparse", false),
-        ("monolithic eliminated", true),
-    ] {
-        let time = std::time::Instant::now();
-        let solution = FirstOrderRootBlock::root(
+    let reference = ElasticPlasticRoot::root(
+        &fem_model,
+        NewtonRaphson::default(),
+        &boundary_conditions,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    for elimination in [false, true] {
+        let solution = ElasticPlasticRoot::root(
             &fem_model,
             NewtonRaphson::default(),
             &boundary_conditions,
             SolveStrategy::Monolithic { elimination },
         )?;
-        println!("BLOCKBENCH {label}: {:?}", time.elapsed());
         assert_same_plastic_solution(&reference, &solution, tol)?;
     }
     Ok(())

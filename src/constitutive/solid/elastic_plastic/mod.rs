@@ -295,31 +295,6 @@ where
     > {
         coupled::condensed(self, deformation_gradient, state_variables)
     }
-    /// Return maps one load step and returns the updated plastic state together with the
-    /// consistent (algorithmic) first Piola-Kirchhoff tangent stiffness at that state.
-    ///
-    /// The tangent follows from the implicit function theorem applied to the converged
-    /// coupled system, which yields the exact derivative of the stress with respect to
-    /// the deformation gradient through the return map; on an elastic step it is just
-    /// the continuum tangent. The solve is shared with the state update, so calling this
-    /// costs one return mapping.
-    fn consistent_tangent_stiffness(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        state_variables: &PlasticStateVariables,
-    ) -> Result<(FirstPiolaKirchhoffTangentStiffness, PlasticStateVariables), ConstitutiveError>
-    {
-        let converged = coupled::solve(self, deformation_gradient, state_variables)?;
-        Ok((
-            coupled::consistent_tangent(
-                self,
-                deformation_gradient,
-                state_variables,
-                converged.as_ref(),
-            )?,
-            coupled::updated_state(state_variables, converged.as_ref()),
-        ))
-    }
 }
 
 /// Zeroth-order root-finding methods for elastic-plastic solid constitutive models.

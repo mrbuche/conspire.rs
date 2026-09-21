@@ -107,7 +107,7 @@ fn return_map_satisfies_the_implicit_step_with_nonlinear_hardening() -> Result<(
 }
 
 #[test]
-fn condensed_matches_the_return_map_and_the_consistent_tangent() -> Result<(), AssertionError> {
+fn condensed_matches_the_return_map() -> Result<(), AssertionError> {
     assert_condensed_matches(&model(1.0))?;
     assert_condensed_matches(&voce_model())
 }
@@ -125,12 +125,10 @@ fn assert_condensed_matches<M: ElasticPlastic>(model: &M) -> Result<(), Assertio
     };
     let mut state = model.initial_state();
     for deformation_gradient in &steps {
-        let (stress, tangent, updated) = model.condensed(deformation_gradient, &state)?;
-        let (reference_tangent, reference_state) =
-            model.consistent_tangent_stiffness(deformation_gradient, &state)?;
+        let (stress, _, updated) = model.condensed(deformation_gradient, &state)?;
+        let reference_state = model.return_map(deformation_gradient, &state)?;
         assert.eq_within_tols(&updated.0, &reference_state.0)?;
         assert.eq_within_tols(updated.1, &reference_state.1)?;
-        assert.eq_within_tols(&tangent, &reference_tangent)?;
         assert.eq_within_tols(
             &stress,
             &model.first_piola_kirchhoff_stress(deformation_gradient, &reference_state.0)?,
@@ -357,8 +355,7 @@ fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
         states.as_slice()[90].1.value() > 0.0,
         "step 90 must be plastic"
     );
-    let (consistent, updated) =
-        model.consistent_tangent_stiffness(&deformation_gradient, &previous_state)?;
+    let (_, consistent, updated) = model.condensed(&deformation_gradient, &previous_state)?;
     let continuum =
         model.first_piola_kirchhoff_tangent_stiffness(&deformation_gradient, &updated.0)?;
     // the return-mapped state the tangent is taken at
