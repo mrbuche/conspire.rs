@@ -2,10 +2,7 @@
 mod test;
 
 use crate::{
-    geometry::{
-        Coordinates,
-        mesh::{Connectivity, Mesh},
-    },
+    geometry::mesh::{Connectivity, Mesh},
     math::Scalar,
 };
 use std::{
@@ -82,9 +79,7 @@ where
                 other => return Err(invalid(format!("unsupported .mesh keyword: {other}"))),
             }
         }
-        let coordinates: Coordinates<D> =
-            coordinates.into_iter().map(|point| point.into()).collect();
-        Ok((blocks, coordinates).into())
+        Ok((blocks, coordinates.into()).into())
     }
 }
 

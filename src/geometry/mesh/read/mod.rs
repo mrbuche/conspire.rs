@@ -1,11 +1,13 @@
 pub(super) mod abaqus;
 pub(super) mod exodus;
 pub(super) mod medit;
+pub(super) mod off;
 pub(super) mod vtk;
 
 pub(super) use self::abaqus::ReadAbaqus;
 pub(super) use self::exodus::ReadExodus;
 pub(super) use self::medit::ReadMedit;
+pub(super) use self::off::ReadOff;
 pub(super) use self::vtk::{multi_block::ReadVtkMultiBlock, unstructured::ReadVtkUnstructured};
 
 use crate::geometry::mesh::Mesh;
@@ -18,6 +20,7 @@ where
     Abaqus(P),
     Exodus(P),
     Medit(P),
+    Off(P),
     VtkUnstructured(P),
     VtkMultiBlock(P),
 }
@@ -31,6 +34,7 @@ where
             Input::Abaqus(path) => path.as_ref(),
             Input::Exodus(path) => path.as_ref(),
             Input::Medit(path) => path.as_ref(),
+            Input::Off(path) => path.as_ref(),
             Input::VtkUnstructured(path) => path.as_ref(),
             Input::VtkMultiBlock(path) => path.as_ref(),
         }
@@ -47,6 +51,7 @@ where
             Input::Abaqus(path) => Ok(Mesh::read_abaqus(path)?),
             Input::Exodus(path) => Ok(Mesh::read_exodus(path)?),
             Input::Medit(path) => Ok(Mesh::read_medit(path)?),
+            Input::Off(path) => Ok(Mesh::read_off(path)?),
             Input::VtkUnstructured(path) => Ok(Mesh::read_vtk_unstructured(path)?),
             Input::VtkMultiBlock(path) => Ok(Mesh::read_vtk_multi_block(path)?),
         }
