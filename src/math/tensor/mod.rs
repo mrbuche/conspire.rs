@@ -204,6 +204,16 @@ pub trait HessianBlock {
     fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
     where
         M: IndexMut<usize, Output = Vector>;
+    /// The size of the independent square blocks along the diagonal that the block
+    /// consists of, if that is what it is.
+    fn block_size(&self) -> Option<usize> {
+        None
+    }
+    /// Calls the function with every entry the block holds explicitly, and says whether
+    /// the block has any such notion.
+    fn for_each_entry(&self, _function: &mut dyn FnMut(usize, usize, TensorRank0)) -> bool {
+        false
+    }
 }
 
 /// A [`HessianBlock`] with its rows and columns swapped.
