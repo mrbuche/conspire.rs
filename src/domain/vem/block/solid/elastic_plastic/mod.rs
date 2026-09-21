@@ -26,34 +26,11 @@ where
             .map(|_| from_fn(|_| self.constitutive_model().initial_state()).into())
             .collect()
     }
-    fn nodal_forces_into(
+    fn nodal_forces_and_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates,
         state_variables: &PlasticStateVariablesField<1>,
         nodal_forces: &mut NodalForcesSolid,
-    ) -> Result<(), ElementModelError> {
-        self.elements()
-            .iter()
-            .zip(self.elements_nodes())
-            .zip(state_variables)
-            .try_for_each(|((element, nodes), state_variables_element)| {
-                element
-                    .nodal_forces(
-                        self.constitutive_model(),
-                        &Self::element_coordinates(nodal_coordinates, nodes),
-                        state_variables_element,
-                    )?
-                    .into_iter()
-                    .zip(nodes)
-                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), VirtualElementError>(())
-            })
-            .map_err(|error| ElementModelError::upstream(error, self))
-    }
-    fn nodal_stiffnesses_into(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-        state_variables: &PlasticStateVariablesField<1>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid,
     ) -> Result<(), ElementModelError> {
         self.elements()
@@ -61,12 +38,16 @@ where
             .zip(self.elements_nodes())
             .zip(state_variables)
             .try_for_each(|((element, nodes), state_variables_element)| {
-                element
-                    .nodal_stiffnesses(
-                        self.constitutive_model(),
-                        &Self::element_coordinates(nodal_coordinates, nodes),
-                        state_variables_element,
-                    )?
+                let (forces, stiffnesses) = element.nodal_forces_and_stiffnesses(
+                    self.constitutive_model(),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    state_variables_element,
+                )?;
+                forces
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
+                stiffnesses
                     .into_iter()
                     .zip(nodes)
                     .for_each(|(object, &node_a)| {

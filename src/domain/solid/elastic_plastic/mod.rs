@@ -9,44 +9,57 @@ use crate::{
         optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
     },
 };
+use std::cell::RefCell;
 
-/// Assembly for rate-independent elastic-plastic solids, with the plastic state
-/// condensed at each integration point.
+/// Assembly for rate-independent elastic-plastic solids, with the local unknowns of the
+/// plastic step at each integration point converged and eliminated there, so the force
+/// and the stiffness of a point come from the same solve.
 pub trait ElasticPlasticElements<S, const D: usize>
 where
     Self: Elements,
 {
     /// The initial (unyielded) plastic state field.
     fn initial_state(&self) -> S;
-    fn nodal_forces_into(
+    /// Adds the nodal forces and the nodal stiffnesses.
+    fn nodal_forces_and_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
         nodal_forces: &mut NodalForcesSolid<D>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError>;
+    fn nodal_forces_and_stiffnesses(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+    ) -> Result<(NodalForcesSolid<D>, NodalStiffnessesSolid<D>), ElementModelError> {
+        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
+        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
+        self.nodal_forces_and_stiffnesses_into(
+            nodal_coordinates,
+            state_variables,
+            &mut nodal_forces,
+            &mut nodal_stiffnesses,
+        )?;
+        Ok((nodal_forces, nodal_stiffnesses))
+    }
     fn nodal_forces(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
     ) -> Result<NodalForcesSolid<D>, ElementModelError> {
-        let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
-        self.nodal_forces_into(nodal_coordinates, state_variables, &mut nodal_forces)?;
-        Ok(nodal_forces)
+        Ok(self
+            .nodal_forces_and_stiffnesses(nodal_coordinates, state_variables)?
+            .0)
     }
-    fn nodal_stiffnesses_into(
-        &self,
-        nodal_coordinates: &NodalCoordinates<D>,
-        state_variables: &S,
-        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
-    ) -> Result<(), ElementModelError>;
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
     ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
-        let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
-        self.nodal_stiffnesses_into(nodal_coordinates, state_variables, &mut nodal_stiffnesses)?;
-        Ok(nodal_stiffnesses)
+        Ok(self
+            .nodal_forces_and_stiffnesses(nodal_coordinates, state_variables)?
+            .1)
     }
     /// Commit the plastic state at the converged coordinates of a load step.
     fn updated_state(
@@ -63,23 +76,19 @@ where
     fn initial_state(&self) -> S {
         self.blocks().initial_state()
     }
-    fn nodal_forces_into(
+    fn nodal_forces_and_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
         nodal_forces: &mut NodalForcesSolid<D>,
-    ) -> Result<(), ElementModelError> {
-        self.blocks()
-            .nodal_forces_into(nodal_coordinates, state_variables, nodal_forces)
-    }
-    fn nodal_stiffnesses_into(
-        &self,
-        nodal_coordinates: &NodalCoordinates<D>,
-        state_variables: &S,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError> {
-        self.blocks()
-            .nodal_stiffnesses_into(nodal_coordinates, state_variables, nodal_stiffnesses)
+        self.blocks().nodal_forces_and_stiffnesses_into(
+            nodal_coordinates,
+            state_variables,
+            nodal_forces,
+            nodal_stiffnesses,
+        )
     }
     fn updated_state(
         &self,
@@ -91,8 +100,8 @@ where
     }
 }
 
-/// Static load-stepping: solve nodal equilibrium with the plastic state frozen, then
-/// commit the return-mapped state, once per prescribed boundary condition.
+/// Static load-stepping: solve nodal equilibrium with the plastic state of the previous
+/// step, then commit the updated state, once per prescribed boundary condition.
 pub trait ElasticPlasticRoot<S, const D: usize> {
     fn root(
         &self,
@@ -104,6 +113,12 @@ pub trait ElasticPlasticRoot<S, const D: usize> {
         boundary_conditions: &[EqualityConstraint],
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError>;
 }
+
+type Evaluation<const D: usize> = (
+    NodalCoordinates<D>,
+    NodalForcesSolid<D>,
+    NodalStiffnessesSolid<D>,
+);
 
 impl<B, S, const D: usize> ElasticPlasticRoot<S, D> for Model<B, D>
 where
@@ -131,16 +146,33 @@ where
         for constraint in boundary_conditions {
             let sparse = solver_from_neighbors(&neighbors, constraint, D, false);
             let frozen_state = state.clone();
+            //
+            // The force and the stiffness are asked for at the same coordinates in a
+            // row, and both come from one solve of every integration point.
+            //
+            let cache: RefCell<Option<Evaluation<D>>> = RefCell::new(None);
+            let evaluate = |coordinates: &NodalCoordinates<D>| -> Result<(), String> {
+                let mut cache = cache.borrow_mut();
+                if let Some((cached, ..)) = cache.as_ref()
+                    && cached == coordinates
+                {
+                    return Ok(());
+                }
+                let (forces, stiffnesses) = self
+                    .blocks()
+                    .nodal_forces_and_stiffnesses(coordinates, &frozen_state)
+                    .map_err(|error| error.to_string())?;
+                *cache = Some((coordinates.clone(), forces, stiffnesses));
+                Ok(())
+            };
             nodal_coordinates = solver.root(
                 |coordinates: &NodalCoordinates<D>| {
-                    self.blocks()
-                        .nodal_forces(coordinates, &frozen_state)
-                        .map_err(|error| error.to_string())
+                    evaluate(coordinates)?;
+                    Ok(cache.borrow().as_ref().unwrap().1.clone())
                 },
                 |coordinates: &NodalCoordinates<D>| {
-                    self.blocks()
-                        .nodal_stiffnesses(coordinates, &frozen_state)
-                        .map_err(|error| error.to_string())
+                    evaluate(coordinates)?;
+                    Ok(cache.borrow().as_ref().unwrap().2.clone())
                 },
                 nodal_coordinates.clone(),
                 constraint.clone(),

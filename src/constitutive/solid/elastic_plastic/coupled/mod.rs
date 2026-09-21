@@ -6,15 +6,16 @@ use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariables},
     math::{Matrix, Quantity, Rank2, SquareMatrix, Tensor, Vector},
     mechanics::{
-        DeformationGradient, DeformationGradientPlastic, FirstPiolaKirchhoffTangentStiffness,
-        FlowDirectionPlastic, MandelStressElastic, Scalar,
+        DeformationGradient, DeformationGradientPlastic, FirstPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness, FlowDirectionPlastic, MandelStressElastic, Scalar,
     },
 };
 use std::{array::from_fn, fmt::Debug};
 
-pub(super) const SIZE: usize = 10;
+pub(crate) const SIZE: usize = 10;
 const MAX_ITERATIONS: usize = 30;
 const TOLERANCE: Scalar = 1e-12;
+const LOCAL_TOLERANCE: Scalar = 1e-11;
 const INITIAL_MULTIPLIER: Scalar = 1e-3;
 const ZERO: Matrix3 = [[0.0; 3]; 3];
 const EYE: Matrix3 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
@@ -444,7 +445,7 @@ pub(super) fn monolithic_plastic<C: ElasticPlastic>(
 }
 
 /// The plastic state a monolithic solve arrives at.
-pub(super) fn monolithic_state<C: ElasticPlastic>(
+pub(crate) fn monolithic_state<C: ElasticPlastic>(
     model: &C,
     state: &PlasticStateVariables,
     local: &Vector,
@@ -501,12 +502,19 @@ pub(super) fn monolithic_tangents<C: ElasticPlastic>(
     state: &PlasticStateVariables,
     local: &Vector,
 ) -> Result<(FirstPiolaKirchhoffTangentStiffness, Matrix, Matrix, Matrix), ConstitutiveError> {
-    let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
-    let x: Unknowns = from_fn(|i| local[i]);
-    let iterate = Iterate::new(model, f, f_p_n, strain_n.value(), &x)?;
-    let sensitivities = Sensitivities::new(model, f, f_p_n, &x, &iterate)?;
-    let reference = model.initial_yield_stress().value();
-    let (a, b) = (x[SIZE - 1], -iterate.residual[SIZE - 1] / reference);
+    let (_, _, k_uu, k_vu, k_uv, k_vv) = monolithic_evaluate(model, f, state, local)?;
+    Ok((k_uu, k_vu, k_uv, k_vv))
+}
+
+/// The local block $`K_{vv}`$ of the monolithic system from the coupled Jacobian: its
+/// yield row is replaced by the Fischer-Burmeister function of
+/// $`(a,b)=(\Delta\gamma,-f/Y_0)`$. Also returns the factor that row was scaled by.
+fn local_jacobian(
+    jacobian: &[[Scalar; SIZE]; SIZE],
+    a: Scalar,
+    b: Scalar,
+    reference: Scalar,
+) -> (Matrix, Scalar) {
     let radius = (a * a + b * b).sqrt();
     let (partial_a, partial_b) = if radius > 0.0 {
         (1.0 - a / radius, 1.0 - b / radius)
@@ -514,7 +522,6 @@ pub(super) fn monolithic_tangents<C: ElasticPlastic>(
         (1.0, 1.0)
     };
     let factor = -partial_b / reference;
-    let jacobian = sensitivities.jacobian();
     let mut k_vv = Matrix::zero(SIZE, SIZE);
     for row in 0..SIZE - 1 {
         for column in 0..SIZE {
@@ -525,6 +532,153 @@ pub(super) fn monolithic_tangents<C: ElasticPlastic>(
         k_vv[SIZE - 1][column] = factor * jacobian[SIZE - 1][column];
     }
     k_vv[SIZE - 1][SIZE - 1] = partial_a + factor * jacobian[SIZE - 1][SIZE - 1];
+    (k_vv, factor)
+}
+
+/// The local residual and the local block $`K_{vv}`$ alone, all a Newton iteration on the
+/// local unknowns needs.
+fn monolithic_local<C: ElasticPlastic>(
+    model: &C,
+    f: &DeformationGradient,
+    state: &PlasticStateVariables,
+    x: &Unknowns,
+) -> Result<(Vector, Matrix), ConstitutiveError> {
+    let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
+    let iterate = Iterate::new(model, f, f_p_n, strain_n.value(), x)?;
+    let reference = model.initial_yield_stress().value();
+    let residual = monolithic_local_residual(&iterate, x[SIZE - 1], reference);
+    if residual.iter().all(|entry| entry.abs() < LOCAL_TOLERANCE) {
+        return Ok((residual, Matrix::zero(0, 0)));
+    }
+    let sensitivities = Sensitivities::new(model, f, f_p_n, x, &iterate)?;
+    let b = -iterate.residual[SIZE - 1] / reference;
+    let (k_vv, _) = local_jacobian(&sensitivities.jacobian(), x[SIZE - 1], b, reference);
+    Ok((residual, k_vv))
+}
+
+/// The stress, the consistent tangent and the updated plastic state of one step, from a
+/// local solve of the monolithic system's unknowns $`(\mathbf{E},\Delta\gamma)`$ alone
+/// followed by the Schur complement that eliminates them,
+/// $`\mathcal{C}_\mathrm{eff} = K_{uu} - K_{uv}K_{vv}^{-1}K_{vu}`$.
+///
+/// This is the condensed strategy of the block solver at one integration point, with
+/// no state carried between calls. An elastic step has nothing to solve for.
+#[allow(clippy::type_complexity)]
+pub(crate) fn condensed<C: ElasticPlastic>(
+    model: &C,
+    f: &DeformationGradient,
+    state: &PlasticStateVariables,
+) -> Result<
+    (
+        FirstPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness,
+        PlasticStateVariables,
+    ),
+    ConstitutiveError,
+> {
+    let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
+    let deviatoric = model.mandel_stress(f, f_p_n)?.deviatoric();
+    if model
+        .yield_function(&deviatoric, Quantity::new(strain_n.value()))?
+        .value()
+        <= 0.0
+    {
+        return Ok((
+            model.first_piola_kirchhoff_stress(f, f_p_n)?,
+            model.first_piola_kirchhoff_tangent_stiffness(f, f_p_n)?,
+            state.clone(),
+        ));
+    }
+    let direction = {
+        let direction = model.flow_direction(&deviatoric)?;
+        (&direction + direction.transpose()) * 0.5
+    };
+    let mut x = [0.0; SIZE];
+    (0..3).for_each(|i| {
+        (0..3).for_each(|j| x[3 * i + j] = INITIAL_MULTIPLIER * direction[i][j].value())
+    });
+    x[SIZE - 1] = INITIAL_MULTIPLIER;
+    let mut local = Vector::from(x.to_vec());
+    let mut converged = false;
+    for _ in 0..MAX_ITERATIONS {
+        let unknowns: Unknowns = from_fn(|i| local[i]);
+        let (residual, k_vv) = monolithic_local(model, f, state, &unknowns)?;
+        if residual.iter().all(|entry| entry.abs() < LOCAL_TOLERANCE) {
+            converged = true;
+            break;
+        }
+        let step = k_vv
+            .iter()
+            .cloned()
+            .collect::<SquareMatrix>()
+            .solve_lu(&residual)
+            .map_err(|error| failure(model, &error))?;
+        (0..SIZE).for_each(|i| local[i] -= step[i])
+    }
+    if !converged {
+        return Err(failure(model, &"the local solve did not converge"));
+    }
+    let (stress, _, tangent, k_vu, k_uv, k_vv) = monolithic_evaluate(model, f, state, &local)?;
+    let lu = k_vv
+        .iter()
+        .cloned()
+        .collect::<SquareMatrix>()
+        .factorize_lu()
+        .map_err(|error| failure(model, &error))?;
+    let solved: Vec<Vector> = (0..9)
+        .map(|column| {
+            lu.solve(&Vector::from(
+                (0..SIZE).map(|row| k_vu[row][column]).collect::<Vec<_>>(),
+            ))
+        })
+        .collect();
+    let continuum = entries_4(&tangent);
+    let entries: Entries4 = from_fn(|i| {
+        from_fn(|j| {
+            from_fn(|k| {
+                from_fn(|l| {
+                    continuum[i][j][k][l]
+                        - (0..SIZE)
+                            .map(|m| k_uv[3 * i + j][m] * solved[3 * k + l][m])
+                            .sum::<Scalar>()
+                })
+            })
+        })
+    });
+    Ok((
+        stress,
+        rank_4(&entries),
+        monolithic_state(model, state, &local)?,
+    ))
+}
+
+/// Everything the monolithic system needs at a point from one evaluation: the first
+/// Piola-Kirchhoff stress at the trial plastic state, the local residual, and the
+/// tangent blocks $`(K_{uu},K_{vu},K_{uv},K_{vv})`$ of [`monolithic_tangents`].
+#[allow(clippy::type_complexity)]
+pub(crate) fn monolithic_evaluate<C: ElasticPlastic>(
+    model: &C,
+    f: &DeformationGradient,
+    state: &PlasticStateVariables,
+    local: &Vector,
+) -> Result<
+    (
+        FirstPiolaKirchhoffStress,
+        Vector,
+        FirstPiolaKirchhoffTangentStiffness,
+        Matrix,
+        Matrix,
+        Matrix,
+    ),
+    ConstitutiveError,
+> {
+    let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
+    let x: Unknowns = from_fn(|i| local[i]);
+    let iterate = Iterate::new(model, f, f_p_n, strain_n.value(), &x)?;
+    let sensitivities = Sensitivities::new(model, f, f_p_n, &x, &iterate)?;
+    let reference = model.initial_yield_stress().value();
+    let (a, b) = (x[SIZE - 1], -iterate.residual[SIZE - 1] / reference);
+    let (k_vv, factor) = local_jacobian(&sensitivities.jacobian(), a, b, reference);
     let mut k_vu = Matrix::zero(SIZE, 9);
     for k in 0..3 {
         for l in 0..3 {
@@ -554,6 +708,8 @@ pub(super) fn monolithic_tangents<C: ElasticPlastic>(
         }
     }
     Ok((
+        model.first_piola_kirchhoff_stress(f, &iterate.plastic)?,
+        monolithic_local_residual(&iterate, x[SIZE - 1], reference),
         model.first_piola_kirchhoff_tangent_stiffness(f, &iterate.plastic)?,
         k_vu,
         k_uv,

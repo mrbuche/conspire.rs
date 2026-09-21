@@ -106,6 +106,41 @@ fn return_map_satisfies_the_implicit_step_with_nonlinear_hardening() -> Result<(
     Ok(())
 }
 
+#[test]
+fn condensed_matches_the_return_map_and_the_consistent_tangent() -> Result<(), AssertionError> {
+    assert_condensed_matches(&model(1.0))?;
+    assert_condensed_matches(&voce_model())
+}
+
+fn assert_condensed_matches<M: ElasticPlastic>(model: &M) -> Result<(), AssertionError> {
+    let steps = [
+        DeformationGradient::from([[1.01, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
+        DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]),
+        DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]),
+    ];
+    let assert = Assert {
+        abs_tol: 1e-8,
+        rel_tol: 1e-8,
+        ..Default::default()
+    };
+    let mut state = model.initial_state();
+    for deformation_gradient in &steps {
+        let (stress, tangent, updated) = model.condensed(deformation_gradient, &state)?;
+        let (reference_tangent, reference_state) =
+            model.consistent_tangent_stiffness(deformation_gradient, &state)?;
+        assert.eq_within_tols(&updated.0, &reference_state.0)?;
+        assert.eq_within_tols(updated.1, &reference_state.1)?;
+        assert.eq_within_tols(&tangent, &reference_tangent)?;
+        assert.eq_within_tols(
+            &stress,
+            &model.first_piola_kirchhoff_stress(deformation_gradient, &reference_state.0)?,
+        )?;
+        state = updated
+    }
+    assert!(state.1.value() > 0.0);
+    Ok(())
+}
+
 fn times(final_time: f64, steps: usize) -> Vec<Quantity<Time>> {
     (0..=steps)
         .map(|step| Quantity::new(final_time * step as f64 / steps as f64))
