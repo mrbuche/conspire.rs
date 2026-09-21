@@ -81,7 +81,7 @@ where
         let _edges: usize = parse(counts[2], counts_number)?;
         // A vertex takes at least one byte, so the file size bounds the reservation.
         // A wrong count in the header then cannot request more than the file holds.
-        let mut coordinates: Vec<[Scalar; D]> = Vec::with_capacity(vertices.min(text.len()));
+        let mut coordinates = Vec::<[Scalar; D]>::with_capacity(vertices.min(text.len()));
         for _ in 0..vertices {
             let (number, line) = lines.next().ok_or_else(end_of_file)?;
             let tokens: Vec<&str> = line.split_whitespace().collect();
@@ -103,8 +103,8 @@ where
             }
             coordinates.push(point);
         }
-        let mut triangles: Vec<[usize; 3]> = Vec::new();
-        let mut quadrilaterals: Vec<[usize; 4]> = Vec::new();
+        let mut triangles = Vec::<[usize; 3]>::new();
+        let mut quadrilaterals = Vec::<[usize; 4]>::new();
         for _ in 0..faces {
             let (number, line) = lines.next().ok_or_else(end_of_file)?;
             let tokens: Vec<&str> = line.split_whitespace().collect();
@@ -140,7 +140,7 @@ where
                 "line {number}: unexpected content after the last face, check the counts in the header"
             )));
         }
-        let mut blocks: Vec<Connectivity> = Vec::new();
+        let mut blocks = Vec::<Connectivity>::new();
         if !triangles.is_empty() {
             blocks.push(Connectivity::Triangular(triangles.into()));
         }
