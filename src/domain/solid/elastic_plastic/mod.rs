@@ -5,11 +5,69 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
-        Tensor, TensorVec,
-        optimize::{EqualityConstraint, FirstOrderRootFinding, OptimizationError},
+        Jacobian, Tensor, TensorVec, Vector,
+        optimize::{
+            EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
+            OptimizationError, SolveStrategy,
+        },
+        sparse::{CscMatrix, SparseSolver},
     },
 };
 use std::cell::RefCell;
+
+/// The assembled residuals and tangent blocks of the monolithic system. The unknowns
+/// are the nodal coordinates, then the local unknowns of every integration point of
+/// every element in turn.
+pub struct MonolithicSystem {
+    pub residual_global: Vector,
+    pub residual_local: Vector,
+    pub tangent_uu: CscMatrix,
+    pub tangent_uv: CscMatrix,
+    pub tangent_vu: CscMatrix,
+    pub tangent_vv: CscMatrix,
+}
+
+impl MonolithicSystem {
+    pub fn num_global(&self) -> usize {
+        self.tangent_uu.height()
+    }
+    pub fn num_local(&self) -> usize {
+        self.tangent_vv.height()
+    }
+    pub(crate) fn clear(&mut self) {
+        self.residual_global = Vector::zero(self.num_global());
+        self.residual_local = Vector::zero(self.num_local());
+        self.tangent_uu.clear();
+        self.tangent_uv.clear();
+        self.tangent_vu.clear();
+        self.tangent_vv.clear();
+    }
+    /// The positions of the tangent of the monolithic system, unknowns ordered as the
+    /// nodal coordinates, then `constraints` multipliers, then the local unknowns.
+    pub fn pattern(&self, constraints: usize) -> Vec<(usize, usize)> {
+        let num_outer = self.num_global() + constraints;
+        let mut pattern = self.tangent_uu.pattern().to_vec();
+        pattern.extend(
+            self.tangent_uv
+                .pattern()
+                .iter()
+                .map(|&(row, column)| (row, num_outer + column)),
+        );
+        pattern.extend(
+            self.tangent_vu
+                .pattern()
+                .iter()
+                .map(|&(row, column)| (num_outer + row, column)),
+        );
+        pattern.extend(
+            self.tangent_vv
+                .pattern()
+                .iter()
+                .map(|&(row, column)| (num_outer + row, num_outer + column)),
+        );
+        pattern
+    }
+}
 
 /// Assembly for rate-independent elastic-plastic solids, with the local unknowns of the
 /// plastic step at each integration point converged and eliminated there, so the force
@@ -61,6 +119,29 @@ where
             .nodal_forces_and_stiffnesses(nodal_coordinates, state_variables)?
             .1)
     }
+    /// An empty monolithic system holding the sparsity structure of its blocks, for
+    /// domains that support [`SolveStrategy::Monolithic`].
+    fn monolithic_system(&self, _num_nodes: usize) -> MonolithicSystem {
+        unimplemented!("The monolithic solve is not supported for this domain.")
+    }
+    /// Evaluates the monolithic system at the given coordinates and trial local unknowns.
+    fn monolithic_into(
+        &self,
+        _nodal_coordinates: &NodalCoordinates<D>,
+        _state_variables: &S,
+        _local: &Vector,
+        _system: &mut MonolithicSystem,
+    ) -> Result<(), ElementModelError> {
+        unimplemented!("The monolithic solve is not supported for this domain.")
+    }
+    /// The plastic state the local unknowns of a monolithic solve arrive at.
+    fn monolithic_state(
+        &self,
+        _state_variables: &S,
+        _local: &Vector,
+    ) -> Result<S, ElementModelError> {
+        unimplemented!("The monolithic solve is not supported for this domain.")
+    }
     /// Commit the plastic state at the converged coordinates of a load step.
     fn updated_state(
         &self,
@@ -90,6 +171,26 @@ where
             nodal_stiffnesses,
         )
     }
+    fn monolithic_system(&self, num_nodes: usize) -> MonolithicSystem {
+        self.blocks().monolithic_system(num_nodes)
+    }
+    fn monolithic_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        local: &Vector,
+        system: &mut MonolithicSystem,
+    ) -> Result<(), ElementModelError> {
+        self.blocks()
+            .monolithic_into(nodal_coordinates, state_variables, local, system)
+    }
+    fn monolithic_state(
+        &self,
+        state_variables: &S,
+        local: &Vector,
+    ) -> Result<S, ElementModelError> {
+        self.blocks().monolithic_state(state_variables, local)
+    }
     fn updated_state(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -102,6 +203,13 @@ where
 
 /// Static load-stepping: solve nodal equilibrium with the plastic state of the previous
 /// step, then commit the updated state, once per prescribed boundary condition.
+///
+/// With [`SolveStrategy::Condensed`] the local unknowns of the plastic step are converged
+/// and eliminated at each integration point, so the solver only sees the nodal
+/// coordinates. With [`SolveStrategy::Monolithic`] they are unknowns of the solve too,
+/// stepped together with the nodal coordinates through one sparse system, with or
+/// without eliminating them; that needs a domain that supports it, and only
+/// [`EqualityConstraint::Linear`] boundary conditions.
 pub trait ElasticPlasticRoot<S, const D: usize> {
     fn root(
         &self,
@@ -109,8 +217,18 @@ pub trait ElasticPlasticRoot<S, const D: usize> {
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
+        > + FirstOrderRootFindingBlock<
+            Vector,
+            Vector,
+            Vector,
+            Vector,
+            CscMatrix,
+            CscMatrix,
+            CscMatrix,
+            CscMatrix,
         >,
         boundary_conditions: &[EqualityConstraint],
+        strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError>;
 }
 
@@ -131,57 +249,177 @@ where
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
+        > + FirstOrderRootFindingBlock<
+            Vector,
+            Vector,
+            Vector,
+            Vector,
+            CscMatrix,
+            CscMatrix,
+            CscMatrix,
+            CscMatrix,
         >,
         boundary_conditions: &[EqualityConstraint],
+        strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError> {
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
         let mut nodal_coordinates: NodalCoordinates<D> = self.coordinates().clone().into();
         let mut state = self.blocks().initial_state();
         let mut coordinates_history = NodalCoordinatesHistory::new();
         let mut state_history = Vec::new();
         coordinates_history.push(nodal_coordinates.clone());
         state_history.push(state.clone());
+        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+        self.node_neighbors(&mut neighbors);
+        finalize_node_neighbors(&mut neighbors);
+        let mut system = match strategy {
+            SolveStrategy::Condensed(_) => None,
+            SolveStrategy::Monolithic { .. } => {
+                Some(self.blocks().monolithic_system(nodal_coordinates.len()))
+            }
+        };
         for constraint in boundary_conditions {
-            let sparse = solver_from_neighbors(&neighbors, constraint, D, false);
             let frozen_state = state.clone();
-            //
-            // The force and the stiffness are asked for at the same coordinates in a
-            // row, and both come from one solve of every integration point.
-            //
-            let cache: RefCell<Option<Evaluation<D>>> = RefCell::new(None);
-            let evaluate = |coordinates: &NodalCoordinates<D>| -> Result<(), String> {
-                let mut cache = cache.borrow_mut();
-                if let Some((cached, ..)) = cache.as_ref()
-                    && cached == coordinates
-                {
-                    return Ok(());
-                }
-                let (forces, stiffnesses) = self
+            if let (Some(monolithic), SolveStrategy::Monolithic { elimination }) =
+                (system.take(), &strategy)
+            {
+                let EqualityConstraint::Linear(matrix, vector) = constraint else {
+                    panic!("The monolithic solve only supports EqualityConstraint::Linear")
+                };
+                let (num_global, num_local) = (monolithic.num_global(), monolithic.num_local());
+                //
+                // Eliminating the local unknowns leaves the sparse solver the global
+                // system alone, whose pattern is that of the stiffness.
+                //
+                let mut pattern = if *elimination {
+                    monolithic.tangent_uu.pattern().to_vec()
+                } else {
+                    monolithic.pattern(matrix.len())
+                };
+                let mut constraint_pattern = Vec::new();
+                (0..matrix.len()).for_each(|row| {
+                    (0..matrix.width()).for_each(|column| {
+                        if matrix[row][column] != 0.0 {
+                            constraint_pattern.push((row, column));
+                            pattern.push((num_global + row, column));
+                            pattern.push((column, num_global + row))
+                        }
+                    })
+                });
+                pattern.sort_unstable();
+                pattern.dedup();
+                let sparse = SparseSolver::from_pattern(
+                    num_global + matrix.len() + if *elimination { 0 } else { num_local },
+                    pattern,
+                    false,
+                );
+                let mut constraint_matrix =
+                    CscMatrix::from_pattern(matrix.len(), matrix.width(), constraint_pattern);
+                constraint_matrix.fill(|row, column| matrix[row][column]);
+                let mut initial = Vector::zero(num_global);
+                nodal_coordinates.fill_into(&mut initial);
+                //
+                // The three closures are called at the same point in a row, so one
+                // evaluation of the system serves them all.
+                //
+                let cache: RefCell<Option<(Vector, Vector)>> = RefCell::new(None);
+                let evaluate = |global: &Vector,
+                                local: &Vector,
+                                system: &mut MonolithicSystem|
+                 -> Result<(), String> {
+                    let mut cache = cache.borrow_mut();
+                    if let Some((cached_global, cached_local)) = cache.as_ref()
+                        && cached_global == global
+                        && cached_local == local
+                    {
+                        return Ok(());
+                    }
+                    self.blocks()
+                        .monolithic_into(
+                            &NodalCoordinates::from(global.clone()),
+                            &frozen_state,
+                            local,
+                            system,
+                        )
+                        .map_err(|error| error.to_string())?;
+                    *cache = Some((global.clone(), local.clone()));
+                    Ok(())
+                };
+                let cell = RefCell::new(monolithic);
+                let (new_global, new_local) = solver.root_block(
+                    |global: &Vector, local: &Vector| {
+                        let mut system = cell.borrow_mut();
+                        evaluate(global, local, &mut system)?;
+                        Ok(system.residual_global.clone())
+                    },
+                    |global: &Vector, local: &Vector| {
+                        let mut system = cell.borrow_mut();
+                        evaluate(global, local, &mut system)?;
+                        Ok(system.residual_local.clone())
+                    },
+                    |global: &Vector, local: &Vector| {
+                        let mut system = cell.borrow_mut();
+                        evaluate(global, local, &mut system)?;
+                        Ok((
+                            system.tangent_uu.clone(),
+                            system.tangent_vu.clone(),
+                            system.tangent_uv.clone(),
+                            system.tangent_vv.clone(),
+                        ))
+                    },
+                    (initial, Vector::zero(num_local)),
+                    (constraint_matrix, vector.clone()),
+                    (
+                        CscMatrix::from_pattern(0, num_local, Vec::new()),
+                        Vector::zero(0),
+                    ),
+                    Some(sparse),
+                    strategy.clone(),
+                )?;
+                nodal_coordinates = NodalCoordinates::from(new_global);
+                state = self
                     .blocks()
-                    .nodal_forces_and_stiffnesses(coordinates, &frozen_state)
+                    .monolithic_state(&frozen_state, &new_local)
                     .map_err(|error| error.to_string())?;
-                *cache = Some((coordinates.clone(), forces, stiffnesses));
-                Ok(())
-            };
-            nodal_coordinates = solver.root(
-                |coordinates: &NodalCoordinates<D>| {
-                    evaluate(coordinates)?;
-                    Ok(cache.borrow().as_ref().unwrap().1.clone())
-                },
-                |coordinates: &NodalCoordinates<D>| {
-                    evaluate(coordinates)?;
-                    Ok(cache.borrow().as_ref().unwrap().2.clone())
-                },
-                nodal_coordinates.clone(),
-                constraint.clone(),
-                Some(sparse),
-            )?;
-            state = self
-                .blocks()
-                .updated_state(&nodal_coordinates, &frozen_state)
-                .map_err(|error| error.to_string())?;
+                system = Some(cell.into_inner());
+            } else {
+                let sparse = solver_from_neighbors(&neighbors, constraint, D, false);
+                //
+                // The force and the stiffness are asked for at the same coordinates in
+                // a row, and both come from one solve of every integration point.
+                //
+                let cache: RefCell<Option<Evaluation<D>>> = RefCell::new(None);
+                let evaluate = |coordinates: &NodalCoordinates<D>| -> Result<(), String> {
+                    let mut cache = cache.borrow_mut();
+                    if let Some((cached, ..)) = cache.as_ref()
+                        && cached == coordinates
+                    {
+                        return Ok(());
+                    }
+                    let (forces, stiffnesses) = self
+                        .blocks()
+                        .nodal_forces_and_stiffnesses(coordinates, &frozen_state)
+                        .map_err(|error| error.to_string())?;
+                    *cache = Some((coordinates.clone(), forces, stiffnesses));
+                    Ok(())
+                };
+                nodal_coordinates = solver.root(
+                    |coordinates: &NodalCoordinates<D>| {
+                        evaluate(coordinates)?;
+                        Ok(cache.borrow().as_ref().unwrap().1.clone())
+                    },
+                    |coordinates: &NodalCoordinates<D>| {
+                        evaluate(coordinates)?;
+                        Ok(cache.borrow().as_ref().unwrap().2.clone())
+                    },
+                    nodal_coordinates.clone(),
+                    constraint.clone(),
+                    Some(sparse),
+                )?;
+                state = self
+                    .blocks()
+                    .updated_state(&nodal_coordinates, &frozen_state)
+                    .map_err(|error| error.to_string())?;
+            }
             coordinates_history.push(nodal_coordinates.clone());
             state_history.push(state.clone());
         }

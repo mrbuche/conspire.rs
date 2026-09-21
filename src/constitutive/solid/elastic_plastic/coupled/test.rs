@@ -106,7 +106,7 @@ macro_rules! test_models {
             ];
             let h = 1e-4;
             for (case, (f, state)) in cases.iter().enumerate() {
-                let (tangent, _) = model.consistent_tangent_stiffness(f, state)?;
+                let (_, tangent, _) = model.condensed(f, state)?;
                 for k in 0..3 {
                     for l in 0..3 {
                         let stress_at = |sign: f64| -> Result<_, ConstitutiveError> {
