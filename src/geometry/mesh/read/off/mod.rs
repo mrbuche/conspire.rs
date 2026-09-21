@@ -76,8 +76,6 @@ where
         let vertices: usize = parse(counts[0], counts_number)?;
         let faces: usize = parse(counts[1], counts_number)?;
         let _edges: usize = parse(counts[2], counts_number)?;
-        // A vertex takes at least one byte, so the file size bounds the reservation.
-        // A wrong count in the header then cannot request more than the file holds.
         let mut coordinates = Vec::<[Scalar; D]>::with_capacity(vertices.min(text.len()));
         for _ in 0..vertices {
             let (number, line) = lines.next().ok_or_else(end_of_file)?;
