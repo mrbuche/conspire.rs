@@ -12,23 +12,6 @@ use std::{
     str::FromStr,
 };
 
-/// Reads an Object File Format (`.off`) surface mesh.
-///
-/// The file holds the magic word `OFF` in any case, the counts of vertices,
-/// faces, and edges, the vertices as `x y z`, and the faces as `n i_1 ... i_n`.
-/// Face indices are 0-based.
-/// The edge count is read but not used, since writers often leave it at zero.
-/// Comments start with `#`, and blank lines are skipped.
-/// Values after the last index of a face, such as a face color, are ignored.
-///
-/// Triangles and quadrilaterals become [`Connectivity::Triangular`] and
-/// [`Connectivity::Quadrilateral`] blocks, in that order.
-/// A file that mixes the two therefore reorders its faces by block.
-/// Other face sizes, and the color, normal, texture, and higher-dimensional
-/// variants of the format (`COFF`, `NOFF`, `STOFF`, `4OFF`, ...), return an error.
-/// So does a coordinate that is not finite, such as `nan`, `inf`, or `1e999`.
-/// So does any content after the last face, because that means a count in the
-/// header is too small.
 pub(crate) trait ReadOff<P>
 where
     P: AsRef<Path>,
