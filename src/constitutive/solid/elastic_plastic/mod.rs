@@ -1,7 +1,7 @@
 //! Elastic-plastic solid constitutive models.
 
 mod canonical;
-mod coupled;
+pub(crate) mod coupled;
 
 use crate::{
     constitutive::{
@@ -272,6 +272,28 @@ where
     ) -> Result<PlasticStateVariables, ConstitutiveError> {
         let converged = coupled::solve(self, deformation_gradient, state_variables)?;
         Ok(coupled::updated_state(state_variables, converged.as_ref()))
+    }
+    /// The first Piola-Kirchhoff stress, the consistent tangent stiffness and the updated
+    /// plastic state of one load step, from one local solve.
+    ///
+    /// The local unknowns $`(\mathbf{E},\Delta\gamma)`$ of the step are converged as in
+    /// [`SolveStrategy::Condensed`] and eliminated from the tangent by a Schur
+    /// complement, so a caller needing both the force and the stiffness pays for one
+    /// solve.
+    #[allow(clippy::type_complexity)]
+    fn condensed(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        state_variables: &PlasticStateVariables,
+    ) -> Result<
+        (
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            PlasticStateVariables,
+        ),
+        ConstitutiveError,
+    > {
+        coupled::condensed(self, deformation_gradient, state_variables)
     }
     /// Return maps one load step and returns the updated plastic state together with the
     /// consistent (algorithmic) first Piola-Kirchhoff tangent stiffness at that state.
