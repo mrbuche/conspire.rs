@@ -8420,3 +8420,253 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
             },
         )
 }
+
+fn assert_same_plastic_solution(
+    reference: &(
+        conspire::fem::NodalCoordinatesHistory<3>,
+        Vec<conspire::fem::block::solid::elastic_plastic::PlasticStateVariablesField<G>>,
+    ),
+    other: &(
+        conspire::fem::NodalCoordinatesHistory<3>,
+        Vec<conspire::fem::block::solid::elastic_plastic::PlasticStateVariablesField<G>>,
+    ),
+    tol: f64,
+) -> Result<(), AssertionError> {
+    let assert = Assert {
+        abs_tol: tol,
+        rel_tol: tol,
+        ..Default::default()
+    };
+    reference
+        .0
+        .iter()
+        .zip(other.0.iter())
+        .try_for_each(|(reference, other)| assert.eq_within_tols(reference, other))?;
+    reference
+        .1
+        .iter()
+        .zip(other.1.iter())
+        .try_for_each(|(reference, other)| {
+            reference
+                .iter()
+                .zip(other.iter())
+                .try_for_each(|(reference_element, other_element)| {
+                    reference_element
+                        .iter()
+                        .zip(other_element.iter())
+                        .try_for_each(|(reference_g, other_g)| {
+                            let (reference_plastic, reference_strain) = reference_g.into();
+                            let (other_plastic, other_strain) = other_g.into();
+                            assert.eq_within_tols(reference_plastic, other_plastic)?;
+                            assert.eq_within_tols(reference_strain, other_strain)
+                        })
+                })
+        })
+}
+
+#[test]
+fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
+    use conspire::fem::solid::elastic_plastic::{ElasticPlasticRoot, FirstOrderRootBlock};
+    use conspire::math::optimize::SolveStrategy;
+    let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        conspire::constitutive::fluid::plastic::PlasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let boundary_conditions: Vec<EqualityConstraint> = times
+        .iter()
+        .skip(1)
+        .map(|&t| bcs_temporary_elastic_viscoplastic(t))
+        .collect();
+    let time = std::time::Instant::now();
+    let (coordinates_nested, state_nested) =
+        ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
+    println!("MESHBENCH condensed: {:?}", time.elapsed());
+    let reference = (coordinates_nested, state_nested);
+    for (label, elimination) in [
+        ("monolithic sparse", false),
+        ("monolithic eliminated", true),
+    ] {
+        let time = std::time::Instant::now();
+        let solution = FirstOrderRootBlock::root(
+            &fem_model,
+            NewtonRaphson::default(),
+            &boundary_conditions,
+            SolveStrategy::Monolithic { elimination },
+        )?;
+        println!("MESHBENCH {label}: {:?}", time.elapsed());
+        assert_same_plastic_solution(&reference, &solution, 1e-8)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), AssertionError> {
+    use conspire::fem::block::solid::elastic_plastic::MonolithicElasticPlasticElements;
+    use conspire::fem::solid::elastic_plastic::ElasticPlasticElements;
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        conspire::constitutive::fluid::plastic::PlasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(vec![[0, 1, 2, 3]].into())],
+        Coordinates::from([
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let blocks = fem_model.blocks();
+    let state = blocks.initial_state();
+    let base_global = Vector::from(vec![
+        0.0, 0.0, 0.0, 1.6, 0.05, -0.02, 0.1, 0.9, 0.03, -0.04, 0.02, 1.1,
+    ]);
+    let base_local = Vector::from(vec![
+        0.012, 0.004, -0.003, 0.004, -0.008, 0.002, -0.003, 0.002, -0.004, 0.02,
+    ]);
+    let evaluate = |global: &Vector, local: &Vector| {
+        let mut system = blocks.monolithic_system(4);
+        blocks
+            .monolithic_into(
+                &conspire::fem::NodalCoordinates::from(global.clone()),
+                &state,
+                local,
+                &mut system,
+            )
+            .unwrap();
+        system
+    };
+    let system = evaluate(&base_global, &base_local);
+    let h = 1e-6;
+    let assert = Assert {
+        abs_tol: 1e-6,
+        rel_tol: 1e-6,
+        ..Default::default()
+    };
+    for column in 0..12 {
+        let (mut plus, mut minus) = (base_global.clone(), base_global.clone());
+        plus[column] += h;
+        minus[column] -= h;
+        let (plus, minus) = (evaluate(&plus, &base_local), evaluate(&minus, &base_local));
+        for row in 0..12 {
+            let finite = (plus.residual_global[row] - minus.residual_global[row]) / (2.0 * h);
+            assert.eq_within_tols(system.tangent_uu.entry(row, column), &finite)?;
+        }
+        for row in 0..10 {
+            let finite = (plus.residual_local[row] - minus.residual_local[row]) / (2.0 * h);
+            assert.eq_within_tols(system.tangent_vu.entry(row, column), &finite)?;
+        }
+    }
+    for column in 0..10 {
+        let (mut plus, mut minus) = (base_local.clone(), base_local.clone());
+        plus[column] += h;
+        minus[column] -= h;
+        let (plus, minus) = (
+            evaluate(&base_global, &plus),
+            evaluate(&base_global, &minus),
+        );
+        for row in 0..12 {
+            let finite = (plus.residual_global[row] - minus.residual_global[row]) / (2.0 * h);
+            assert.eq_within_tols(system.tangent_uv.entry(row, column), &finite)?;
+        }
+        for row in 0..10 {
+            let finite = (plus.residual_local[row] - minus.residual_local[row]) / (2.0 * h);
+            assert.eq_within_tols(system.tangent_vv.entry(row, column), &finite)?;
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn temporary_elastic_plastic_block() -> Result<(), AssertionError> {
+    use conspire::fem::solid::elastic_plastic::{ElasticPlasticRoot, FirstOrderRootBlock};
+    use conspire::math::optimize::SolveStrategy;
+    // A single tetrahedron: node 0 pinned fully, node 1 pinned in y/z with x
+    // displacement-controlled, node 2 pinned in z, leaving node 2's x/y and node 3's
+    // x/y/z free.
+    let tol = 1e-9;
+    let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        conspire::constitutive::fluid::plastic::PlasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+        },
+    ));
+    let reference_coordinates = Coordinates::from([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+    ]);
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(vec![[0, 1, 2, 3]].into())],
+        reference_coordinates,
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let boundary_conditions: Vec<EqualityConstraint> = times
+        .iter()
+        .skip(1)
+        .map(|&t| {
+            let mut matrix = Matrix::zero(7, 12);
+            let mut vector = Vector::zero(7);
+            matrix[0][0] = 1.0;
+            matrix[1][1] = 1.0;
+            matrix[2][2] = 1.0;
+            matrix[3][4] = 1.0;
+            matrix[4][5] = 1.0;
+            matrix[5][3] = 1.0;
+            vector[5] = 1.0 + t.value();
+            matrix[6][8] = 1.0;
+            EqualityConstraint::Linear(matrix, vector)
+        })
+        .collect();
+    let _ = ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
+    let time = std::time::Instant::now();
+    let (coordinates_nested, state_nested) =
+        ElasticPlasticRoot::root(&fem_model, NewtonRaphson::default(), &boundary_conditions)?;
+    println!("BLOCKBENCH condensed: {:?}", time.elapsed());
+    let reference = (coordinates_nested, state_nested);
+    for (label, elimination) in [
+        ("monolithic sparse", false),
+        ("monolithic eliminated", true),
+    ] {
+        let time = std::time::Instant::now();
+        let solution = FirstOrderRootBlock::root(
+            &fem_model,
+            NewtonRaphson::default(),
+            &boundary_conditions,
+            SolveStrategy::Monolithic { elimination },
+        )?;
+        println!("BLOCKBENCH {label}: {:?}", time.elapsed());
+        assert_same_plastic_solution(&reference, &solution, tol)?;
+    }
+    Ok(())
+}
