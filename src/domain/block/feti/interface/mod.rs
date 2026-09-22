@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+use super::dual_primal::CornerSelection;
 use crate::math::{Scalar, Vector};
 use std::collections::HashMap;
 
@@ -55,7 +56,15 @@ impl Interface {
 /// k subdomains contributes k-1 multipliers per dimension, chaining consecutive
 /// subdomains (in ascending subdomain index) so continuity is enforced
 /// transitively across the whole shared node.
-pub(crate) fn build_interfaces(partition: &Partition, dimension: usize) -> (Vec<Interface>, usize) {
+///
+/// A corner (primal) node is excluded even where shared: it is already
+/// enforced exactly continuous by direct assembly into the coarse problem
+/// (see `dual_primal::coarse`), not weakly via a multiplier.
+pub(crate) fn build_interfaces(
+    partition: &Partition,
+    corners: &CornerSelection,
+    dimension: usize,
+) -> (Vec<Interface>, usize) {
     let num_subdomains = partition.num_subdomains();
     let mut node_occurrences: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
     partition
@@ -76,7 +85,7 @@ pub(crate) fn build_interfaces(partition: &Partition, dimension: usize) -> (Vec<
     let mut num_multipliers = 0;
     let mut shared_nodes: Vec<_> = node_occurrences
         .into_iter()
-        .filter(|(_, occurrences)| occurrences.len() > 1)
+        .filter(|(node, occurrences)| occurrences.len() > 1 && !corners.contains(*node))
         .collect();
     shared_nodes.sort_unstable_by_key(|&(node, _)| node);
     shared_nodes.into_iter().for_each(|(_, mut occurrences)| {

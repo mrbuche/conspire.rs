@@ -35,7 +35,7 @@ impl CornerSelection {
                 .collect(),
         )
     }
-    fn contains(&self, node: usize) -> bool {
+    pub(crate) fn contains(&self, node: usize) -> bool {
         self.nodes.binary_search(&node).is_ok()
     }
     fn global_index(&self, node: usize) -> Option<usize> {
