@@ -1,3 +1,4 @@
+pub(crate) mod condense;
 #[cfg(test)]
 mod test;
 
@@ -47,6 +48,10 @@ pub(crate) struct DualPrimalSplit {
 }
 
 impl DualPrimalSplit {
+    #[cfg(test)]
+    pub(crate) fn new(primal: Vec<usize>, dual: Vec<usize>) -> Self {
+        Self { primal, dual }
+    }
     fn from_subdomain_nodes(
         subdomain_nodes: &[usize],
         corners: &CornerSelection,
