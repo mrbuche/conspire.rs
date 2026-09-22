@@ -7,6 +7,7 @@ pub mod surface;
 pub mod thermal;
 
 use crate::{
+    domain::block::feti::LocalSupport,
     fem::{
         Elements, NodalReferenceCoordinates,
         block::element::{
@@ -24,6 +25,11 @@ pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: 
     constitutive_model: C,
     connectivity: PrimitiveConnectivity<M, N>,
     elements: Vec<F>,
+}
+
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> LocalSupport
+    for Block<C, F, G, M, N, P>
+{
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Block<C, F, G, M, N, P>

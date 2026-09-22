@@ -4,7 +4,7 @@ pub mod solid;
 mod test;
 
 use crate::{
-    domain::block::element::Elements,
+    domain::block::{element::Elements, feti::LocalSupport},
     geometry::mesh::PolytopalConnectivity,
     math::TensorRank1Vec,
     vem::{NodalReferenceCoordinates, block::element::VirtualElement},
@@ -17,6 +17,8 @@ pub struct Block<C, F> {
     elements: Vec<F>,
     elements_nodes: Vec<Vec<usize>>,
 }
+
+impl<C, F> LocalSupport for Block<C, F> {}
 
 impl<C, F> Block<C, F> {
     fn constitutive_model(&self) -> &C {
