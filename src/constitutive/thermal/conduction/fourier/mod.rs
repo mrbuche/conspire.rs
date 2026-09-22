@@ -32,8 +32,6 @@ impl ThermalConduction for Fourier {
         &self,
         temperature_gradient: &TemperatureGradient,
     ) -> Result<Quantity<PowerTemperatureDensity>, ConstitutiveError> {
-        // A temperature gradient squared names nothing, so the potential is
-        // stated as the flux it gives contracted with the gradient.
         Ok(
             (temperature_gradient * self.thermal_conductivity())
                 .contract_with(temperature_gradient)
