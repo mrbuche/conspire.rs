@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+#[cfg(feature = "fem")]
+pub(crate) mod assemble;
 pub(crate) mod dual_primal;
 pub(crate) mod interface;
 #[cfg(test)]

@@ -30,16 +30,16 @@ impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Block
 where
     F: FiniteElement<G, M, N, P>,
 {
-    fn constitutive_model(&self) -> &C {
+    pub(crate) fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
-    fn connectivity(&self) -> &PrimitiveConnectivity<M, N> {
+    pub(crate) fn connectivity(&self) -> &PrimitiveConnectivity<M, N> {
         &self.connectivity
     }
-    fn elements(&self) -> &[F] {
+    pub(crate) fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates<const D: usize, I, U>(
+    pub(crate) fn element_coordinates<const D: usize, I, U>(
         coordinates: &TensorRank1Vec<D, I, U>,
         nodes: &[usize; N],
     ) -> TensorRank1List<D, I, N, U> {
