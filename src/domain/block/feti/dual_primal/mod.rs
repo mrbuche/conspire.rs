@@ -4,7 +4,34 @@ pub(crate) mod condense;
 mod test;
 
 use super::interface::Partition;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+/// Which (global node, component) pairs are prescribed rather than free.
+/// Only zero-displacement (homogeneous) Dirichlet conditions are supported:
+/// a fixed DOF is simply excluded from both the primal and dual sets, never
+/// appears in any local solve or scatter, and so is left at its
+/// zero-initialized value everywhere — which is exactly correct for a
+/// zero prescribed displacement, and needs no force-correction term the way
+/// a nonzero prescribed value would.
+pub(crate) struct BoundaryConditions {
+    fixed: HashSet<(usize, usize)>,
+}
+
+impl BoundaryConditions {
+    pub(crate) fn new(fixed: Vec<(usize, usize)>) -> Self {
+        Self {
+            fixed: fixed.into_iter().collect(),
+        }
+    }
+    pub(crate) fn none() -> Self {
+        Self {
+            fixed: HashSet::new(),
+        }
+    }
+    fn is_fixed(&self, node: usize, component: usize) -> bool {
+        self.fixed.contains(&(node, component))
+    }
+}
 
 pub(crate) struct CornerSelection {
     nodes: Vec<usize>,
@@ -67,6 +94,7 @@ impl DualPrimalSplit {
     fn from_subdomain_nodes(
         subdomain_nodes: &[usize],
         corners: &CornerSelection,
+        boundary_conditions: &BoundaryConditions,
         dimension: usize,
     ) -> Self {
         let mut primal = Vec::new();
@@ -76,16 +104,18 @@ impl DualPrimalSplit {
             .iter()
             .enumerate()
             .for_each(|(local, &node)| {
-                let dofs = (dimension * local)..(dimension * (local + 1));
-                if let Some(global_node) = corners.global_index(node) {
-                    dofs.for_each(|dof| {
-                        let component = dof - dimension * local;
+                (0..dimension).for_each(|component| {
+                    if boundary_conditions.is_fixed(node, component) {
+                        return;
+                    }
+                    let dof = dimension * local + component;
+                    if let Some(global_node) = corners.global_index(node) {
                         primal.push(dof);
                         primal_global.push(dimension * global_node + component);
-                    });
-                } else {
-                    dual.extend(dofs);
-                }
+                    } else {
+                        dual.push(dof);
+                    }
+                })
             });
         Self {
             primal,
@@ -107,11 +137,14 @@ impl DualPrimalSplit {
 pub(crate) fn build_splits(
     partition: &Partition,
     corners: &CornerSelection,
+    boundary_conditions: &BoundaryConditions,
     dimension: usize,
 ) -> Vec<DualPrimalSplit> {
     partition
         .subdomains_nodes()
         .iter()
-        .map(|nodes| DualPrimalSplit::from_subdomain_nodes(nodes, corners, dimension))
+        .map(|nodes| {
+            DualPrimalSplit::from_subdomain_nodes(nodes, corners, boundary_conditions, dimension)
+        })
         .collect()
 }

@@ -43,7 +43,7 @@ impl Matrix {
             .collect()
     }
     pub fn width(&self) -> usize {
-        self.0[0].len()
+        self.0.first().map(|row| row.len()).unwrap_or(0)
     }
     pub fn zero(height: usize, width: usize) -> Self {
         (0..height).map(|_| Vector::zero(width)).collect()

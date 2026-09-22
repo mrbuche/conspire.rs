@@ -322,13 +322,19 @@ impl From<KrylovError> for SolveError {
 ///
 /// `partition` is the mesh decomposition, assumed given (an external
 /// decomposer's job, not this solver's). Corners are chosen by
-/// [`CornerSelection::from_partition`]'s standard heuristic.
+/// [`CornerSelection::from_partition`]'s standard heuristic. `boundary_conditions`
+/// pins whichever (global node, component) DOFs are externally supported —
+/// without at least enough of them to remove every global rigid-body mode,
+/// the assembled coarse problem is singular and `solve` fails; corner
+/// condensation alone only removes each subdomain's own LOCAL floating
+/// modes, never a mode that moves the whole structure together.
 #[cfg(feature = "fem")]
 #[allow(clippy::type_complexity)]
 pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
     block: &Block<C, F, G, M, N, P>,
     nodal_coordinates: &NodalCoordinates<3>,
     partition: &interface::Partition,
+    boundary_conditions: &dual_primal::BoundaryConditions,
     dimension: usize,
 ) -> Result<Vector, SolveError>
 where
@@ -337,7 +343,7 @@ where
 {
     let corners = dual_primal::CornerSelection::from_partition(partition);
     let (interfaces, num_multipliers) = interface::build_interfaces(partition, &corners, dimension);
-    let splits = dual_primal::build_splits(partition, &corners, dimension);
+    let splits = dual_primal::build_splits(partition, &corners, boundary_conditions, dimension);
     let subdomain_nodes = partition.subdomains_nodes();
     let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = subdomain_nodes
         .iter()

@@ -3,7 +3,7 @@ use super::{
 };
 use crate::domain::block::feti::{
     dual_primal::{
-        CornerSelection, build_splits, coarse,
+        BoundaryConditions, CornerSelection, build_splits, coarse,
         condense::{Condensed, condense},
     },
     interface::{Partition, build_interfaces},
@@ -30,7 +30,7 @@ fn setup() -> Setup {
     let partition = Partition::new(vec![vec![99, 50], vec![99, 50]]);
     let corners = CornerSelection::new(vec![99]);
     let (interfaces, _) = build_interfaces(&partition, &corners, 1);
-    let splits = build_splits(&partition, &corners, 1);
+    let splits = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
     let stiffnesses = [
         stiffness([[4.0, 1.0], [1.0, 3.0]]),
         stiffness([[5.0, 2.0], [2.0, 4.0]]),
@@ -133,11 +133,12 @@ mod solve_test {
             AlmansiHamelEulerian,
             test::{BULK_MODULUS, SHEAR_MODULUS},
         },
-        domain::block::feti::interface::Partition,
+        domain::block::feti::{dual_primal::BoundaryConditions, interface::Partition},
         fem::{
             NodalCoordinates, NodalReferenceCoordinates,
             block::{Block, element::linear::Tetrahedron},
         },
+        math::Tensor,
     };
 
     /// Three tetrahedra sharing one face {1,2,3} — each subdomain is one
@@ -147,15 +148,15 @@ mod solve_test {
     /// are the codebase's standard reference tetrahedron; nodes 4 and 5 are
     /// chosen so elements [1,2,3,4] and [1,2,3,5] both have positive volume.
     ///
-    /// This assembly is completely free-floating — no Dirichlet boundary
-    /// condition pins it anywhere in space — so it still has 6 GLOBAL
-    /// rigid-body modes. Corner condensation only removes a subdomain's own
-    /// local floating modes; it can't remove a mode that moves the whole
-    /// structure together, since a Schur complement can't have lower rank
-    /// than the directions of the original system's null space that survive
-    /// projection onto the corner DOFs. `solve()` has no boundary-condition
-    /// mechanism yet, so the assembled coarse problem is correctly singular
-    /// here, and `solve()` correctly refuses rather than returning garbage.
+    /// With no boundary conditions applied, this assembly is completely
+    /// free-floating in space and so still has 6 GLOBAL rigid-body modes.
+    /// Corner condensation only removes a subdomain's own local floating
+    /// modes; it can't remove a mode that moves the whole structure
+    /// together, since a Schur complement can't have lower rank than the
+    /// directions of the original system's null space that survive
+    /// projection onto the corner DOFs — see the two tests below for both
+    /// the unsupported (singular, correctly refused) and supported
+    /// (well-posed) cases.
     fn coordinates() -> Vec<[f64; 3]> {
         vec![
             [0.0, 0.0, 0.0],
@@ -179,21 +180,80 @@ mod solve_test {
         ))
     }
 
+    fn partition() -> Partition {
+        Partition::new(vec![vec![0, 1, 2, 3], vec![1, 2, 3, 4], vec![1, 2, 3, 5]])
+    }
+
     /// A free-floating assembly with no Dirichlet boundary condition has
     /// global rigid-body modes that corner condensation alone can't remove
     /// (see `coordinates`' doc comment) — `solve()` correctly refuses this
     /// rather than silently returning garbage. Runs the whole pipeline
     /// (real-Block extraction through condensation, coarse assembly, dual
     /// PCG wiring, and primal recovery) up to that point without panicking
-    /// anywhere else, which is what this test actually exercises; a
-    /// well-posed (externally supported) end-to-end solve needs boundary
-    /// condition support that doesn't exist yet.
+    /// anywhere else, which is what this test actually exercises.
     #[test]
     #[should_panic(expected = "singular")]
     fn a_free_floating_assembly_has_no_boundary_condition_to_pin_it() {
         let block = block();
         let nodal_coordinates = NodalCoordinates::from(coordinates());
-        let partition = Partition::new(vec![vec![0, 1, 2, 3], vec![1, 2, 3, 4], vec![1, 2, 3, 5]]);
-        let _ = solve(&block, &nodal_coordinates, &partition, 3);
+        let _ = solve(
+            &block,
+            &nodal_coordinates,
+            &partition(),
+            &BoundaryConditions::none(),
+            3,
+        );
+    }
+
+    /// Fixes nodes 0, 4 and 5 — the three exclusive apex nodes, one per
+    /// subdomain, none of them shared/corner nodes — completely. Three
+    /// non-collinear fully-fixed points remove all 6 global rigid-body
+    /// modes (more than sufficient; redundant on the translations).
+    ///
+    /// Deliberately avoids fixing ANY component of a corner node (1, 2 or
+    /// 3): `coarse::assemble` sizes the assembled coarse problem as
+    /// `corners.num_corners() * dimension`, assuming every corner node
+    /// contributes all `dimension` components as free primal DOFs. A
+    /// boundary condition on a corner component never appears in any
+    /// subdomain's `primal_global()` list, so that row/column of the
+    /// assembled `S_pp` stays permanently zero — a real, confirmed gap
+    /// (`coarse::assemble`/`CornerSelection` don't know about boundary
+    /// conditions at all), not a modeling mistake; two earlier versions of
+    /// this test hit exactly that and the coarse problem was singular
+    /// either way. Fixed in a follow-up commit if it becomes a blocker;
+    /// tracked in memory for now. Non-corner boundary conditions have no
+    /// such issue, since dual DOFs never go through global corner indexing.
+    ///
+    /// With zero applied force and every prescribed value equal to the
+    /// reference position, the unique equilibrium is zero displacement
+    /// everywhere.
+    #[test]
+    fn a_supported_assembly_at_zero_deformation_solves_to_zero_displacement() {
+        let block = block();
+        let nodal_coordinates = NodalCoordinates::from(coordinates());
+        let boundary_conditions = BoundaryConditions::new(vec![
+            (0, 0),
+            (0, 1),
+            (0, 2),
+            (4, 0),
+            (4, 1),
+            (4, 2),
+            (5, 0),
+            (5, 1),
+            (5, 2),
+        ]);
+        let solution = solve(
+            &block,
+            &nodal_coordinates,
+            &partition(),
+            &boundary_conditions,
+            3,
+        )
+        .unwrap_or_else(|_| panic!("solve failed"));
+        assert_eq!(solution.len(), 6 * 3);
+        solution.iter().for_each(|&entry| {
+            assert!(entry.is_finite());
+            assert!(entry.abs() < 1e-8);
+        });
     }
 }
