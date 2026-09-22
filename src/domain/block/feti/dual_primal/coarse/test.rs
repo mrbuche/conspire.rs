@@ -1,4 +1,4 @@
-use super::assemble;
+use super::{assemble, solve};
 use crate::domain::block::feti::dual_primal::{
     CornerSelection, DualPrimalSplit, condense::Condensed,
 };
@@ -41,4 +41,12 @@ fn shares_corner_contributions_across_subdomains() {
     );
     assert_eq!(schur[0][0], 5.0);
     assert_eq!(force[0], 5.0);
+}
+
+#[test]
+fn solves_the_assembled_system() {
+    let schur = one_by_one(5.0);
+    let force: crate::math::Vector = [5.0].into_iter().collect();
+    let solution = solve(&schur, &force);
+    assert_eq!(solution[0], 1.0);
 }

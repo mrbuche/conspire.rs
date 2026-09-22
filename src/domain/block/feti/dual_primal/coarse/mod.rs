@@ -31,3 +31,11 @@ pub(crate) fn assemble(
         });
     (schur, force)
 }
+
+/// Directly solves the small, dense, assembled corner problem — no
+/// iteration needed, unlike the dual (interface) problem.
+pub(crate) fn solve(schur: &SquareMatrix, force: &Vector) -> Vector {
+    schur
+        .solve_lu(force)
+        .expect("assembled coarse problem is singular")
+}
