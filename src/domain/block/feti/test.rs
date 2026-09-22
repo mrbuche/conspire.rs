@@ -1,4 +1,4 @@
-use super::{Subdomain, dual_action, dual_operator, projected_pcg};
+use super::{Subdomain, dual_action, dual_operator, dual_precondition, projected_pcg};
 use crate::domain::block::feti::{
     dual_primal::{
         CornerSelection, build_splits, coarse,
@@ -55,6 +55,7 @@ fn setup() -> Setup {
             Subdomain::new(
                 (),
                 interface,
+                k_dd,
                 dual_factor,
                 dual_dofs,
                 2,
@@ -83,6 +84,15 @@ fn dual_operator_includes_the_coarse_coupling_correction() {
     // Hand-derived: F = 7/12, S_pp = 23/3, C^T.1 = -1/6, C.(S_pp^-1.C^T) = 1/276.
     // F_aug = 7/12 + 1/276 = 27/46.
     assert!((f_aug_lambda[0] - 27.0 / 46.0).abs() < 1e-10);
+}
+
+#[test]
+fn lumped_preconditioner_matches_the_hand_derived_operator() {
+    let setup = setup();
+    let lambda: Vector = [1.0].into_iter().collect();
+    let preconditioned = dual_precondition(&setup.subdomains, &lambda);
+    // sum_s B_s K_dd,s B_s^T . 1 = K_dd,0 + K_dd,1 = 3 + 4 = 7.
+    assert!((preconditioned[0] - 7.0).abs() < 1e-12);
 }
 
 #[test]

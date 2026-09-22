@@ -19,6 +19,15 @@ const PROGRESS: Scalar = 0.9;
 /// anything, whatever it says about not being able to do better.
 const ACCEPTABLE: Scalar = 1e-3;
 
+/// Something a residual can be put through on its way to becoming a
+/// direction. Implemented for `Preconditioning`'s built-in choices and, via
+/// the blanket impl below, for any bare closure — an operator-shaped
+/// preconditioner (itself another matrix-free reduction, such as FETI's
+/// lumped preconditioner) needs no variant of its own here.
+pub trait Precondition {
+    fn apply(&self, residual: &Vector) -> Vector;
+}
+
 /// A preconditioner already built from whatever the caller's operator is.
 ///
 /// Ported (trimmed) from the unmerged `line-search` branch, where this was
@@ -31,8 +40,7 @@ pub enum Preconditioning {
     Diagonal(Vector),
 }
 
-impl Preconditioning {
-    /// What the residual becomes on its way to being a direction.
+impl Precondition for Preconditioning {
     fn apply(&self, residual: &Vector) -> Vector {
         match self {
             Self::None => residual.clone(),
@@ -42,6 +50,15 @@ impl Preconditioning {
                 .map(|(entry, scale)| entry / scale)
                 .collect(),
         }
+    }
+}
+
+impl<F> Precondition for F
+where
+    F: Fn(&Vector) -> Vector,
+{
+    fn apply(&self, residual: &Vector) -> Vector {
+        self(residual)
     }
 }
 
@@ -107,7 +124,7 @@ impl Krylov {
     pub fn solve_operator(
         &self,
         apply: impl FnMut(&Vector) -> Vector,
-        preconditioning: Preconditioning,
+        preconditioning: impl Precondition,
         right_hand_side: &Vector,
     ) -> Result<Vector, KrylovError> {
         self.walk(apply, preconditioning, right_hand_side)
@@ -115,7 +132,7 @@ impl Krylov {
     fn walk(
         &self,
         apply: impl FnMut(&Vector) -> Vector,
-        preconditioning: Preconditioning,
+        preconditioning: impl Precondition,
         right_hand_side: &Vector,
     ) -> Result<Vector, KrylovError> {
         match self.method {
@@ -137,7 +154,7 @@ impl Krylov {
     fn descend(
         &self,
         mut apply: impl FnMut(&Vector) -> Vector,
-        preconditioning: Preconditioning,
+        preconditioning: impl Precondition,
         right_hand_side: &Vector,
     ) -> Result<Vector, KrylovError> {
         let scale = right_hand_side.norm().value();
@@ -192,7 +209,7 @@ impl Krylov {
     fn minimize_residual(
         &self,
         mut apply: impl FnMut(&Vector) -> Vector,
-        preconditioning: Preconditioning,
+        preconditioning: impl Precondition,
         right_hand_side: &Vector,
     ) -> Result<Vector, KrylovError> {
         let size = right_hand_side.len();

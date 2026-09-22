@@ -12,7 +12,7 @@ mod trust_region;
 
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
-pub use krylov::{Krylov, KrylovError, KrylovMethod, Preconditioning};
+pub use krylov::{Krylov, KrylovError, KrylovMethod, Precondition, Preconditioning};
 pub use line_search::{LineSearch, LineSearchError};
 pub use newton_raphson::NewtonRaphson;
 pub use strategy::SolveStrategy;

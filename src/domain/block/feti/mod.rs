@@ -7,7 +7,7 @@ mod test;
 
 use crate::math::{
     LuDecomposition, Matrix, SquareMatrix, Tensor, Vector,
-    optimize::{Krylov, KrylovError, Preconditioning},
+    optimize::{Krylov, KrylovError},
 };
 use dual_primal::coarse;
 use interface::Interface;
@@ -15,6 +15,10 @@ use interface::Interface;
 pub(crate) struct Subdomain<B> {
     blocks: B,
     interface: Interface,
+    /// The dual (non-corner) block of the local stiffness, `K_dd,s`, kept
+    /// alongside its factorization for the lumped preconditioner's local
+    /// apply, which needs `K_dd,s` itself rather than its inverse.
+    dual_stiffness: SquareMatrix,
     dual_factor: LuDecomposition,
     dual_dofs: Vec<usize>,
     num_local: usize,
@@ -27,9 +31,11 @@ pub(crate) struct Subdomain<B> {
 }
 
 impl<B> Subdomain<B> {
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         blocks: B,
         interface: Interface,
+        dual_stiffness: SquareMatrix,
         dual_factor: LuDecomposition,
         dual_dofs: Vec<usize>,
         num_local: usize,
@@ -39,6 +45,7 @@ impl<B> Subdomain<B> {
         Self {
             blocks,
             interface,
+            dual_stiffness,
             dual_factor,
             dual_dofs,
             num_local,
@@ -77,12 +84,24 @@ impl<B> Subdomain<B> {
         let solved = self.dual_factor.solve(&self.dual_rhs(rhs));
         self.scatter_dual(&solved)
     }
+    /// Applies `K_dd` directly (no solve) to `rhs`'s dual-restricted part —
+    /// the local step the lumped preconditioner uses in place of a local
+    /// solve, since it only needs to be cheap, not the true local inverse.
+    fn local_apply(&self, rhs: &Vector) -> Vector {
+        let applied = self.dual_stiffness.clone() * self.dual_rhs(rhs);
+        self.scatter_dual(&applied)
+    }
 }
 
-/// The action of the FETI-DP dual operator `F = sum_s B_s K_dd,s^-1 B_s^T` on
-/// a multiplier vector: matrix-free, one independent local solve per
-/// subdomain plus a reduction, never assembled.
-pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector {
+/// Reduces a per-subdomain local step (`local_solve` for the dual operator,
+/// `local_apply` for the lumped preconditioner) into a multiplier-space
+/// vector: matrix-free, one independent local step per subdomain plus a
+/// reduction, never assembled.
+fn dual_reduce<B>(
+    subdomains: &[Subdomain<B>],
+    lambda: &Vector,
+    local_step: impl Fn(&Subdomain<B>, &Vector) -> Vector,
+) -> Vector {
     let num_multipliers = lambda.len();
     subdomains
         .iter()
@@ -90,12 +109,26 @@ pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Ve
             let rhs = subdomain
                 .interface
                 .apply_transpose(lambda, subdomain.num_local);
-            let local = subdomain.local_solve(&rhs);
+            let local = local_step(subdomain, &rhs);
             subdomain.interface.apply(&local, num_multipliers)
         })
         .fold(Vector::zero(num_multipliers), |sum, contribution| {
             sum + contribution
         })
+}
+
+/// The action of the FETI-DP dual operator `F = sum_s B_s K_dd,s^-1 B_s^T` on
+/// a multiplier vector.
+pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector {
+    dual_reduce(subdomains, lambda, Subdomain::local_solve)
+}
+
+/// The lumped FETI-DP preconditioner, `sum_s B_s K_dd,s B_s^T` — the same
+/// reduction as `F` but with each subdomain's raw `K_dd,s` in place of its
+/// inverse, trading a weaker convergence bound than the Dirichlet
+/// preconditioner for a local matrix-vector product instead of a local solve.
+fn dual_precondition<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector {
+    dual_reduce(subdomains, lambda, Subdomain::local_apply)
 }
 
 /// `C^T . lambda`, scattered into the global corner-DOF vector, where
@@ -155,8 +188,9 @@ pub(crate) fn dual_operator<B>(
 }
 
 /// Solves the dual (interface) problem `(F + C S_pp^-1 C^T) . lambda = rhs`
-/// by conjugate gradients — SPD given the corners are pinned, so this needs
-/// no projection against a rigid-body null space the way plain FETI would.
+/// by conjugate gradients, lumped-preconditioned — SPD given the corners are
+/// pinned, so this needs no projection against a rigid-body null space the
+/// way plain FETI would.
 pub(crate) fn projected_pcg<B>(
     subdomains: &[Subdomain<B>],
     schur: &SquareMatrix,
@@ -164,7 +198,7 @@ pub(crate) fn projected_pcg<B>(
 ) -> Result<Vector, KrylovError> {
     Krylov::default().solve_operator(
         |lambda| dual_operator(subdomains, lambda, schur),
-        Preconditioning::None,
+        |lambda: &Vector| dual_precondition(subdomains, lambda),
         rhs,
     )
 }
