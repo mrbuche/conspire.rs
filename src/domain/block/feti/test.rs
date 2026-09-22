@@ -1,4 +1,6 @@
-use super::{Subdomain, dual_action, dual_operator, dual_precondition, projected_pcg};
+use super::{
+    Subdomain, dual_action, dual_operator, dual_precondition, primal_recovery, projected_pcg,
+};
 use crate::domain::block::feti::{
     dual_primal::{
         CornerSelection, build_splits, coarse,
@@ -60,6 +62,7 @@ fn setup() -> Setup {
                 dual_dofs,
                 2,
                 condensed.dual_map.clone(),
+                split.primal().to_vec(),
                 split.primal_global().to_vec(),
             )
         })
@@ -102,4 +105,22 @@ fn projected_pcg_solves_the_augmented_dual_problem() {
     let lambda = projected_pcg(&setup.subdomains, &setup.schur, &rhs).unwrap();
     // F_aug * lambda = rhs, F_aug = 27/46, so lambda = 46/27.
     assert!((lambda[0] - 46.0 / 27.0).abs() < 1e-8);
+}
+
+#[test]
+fn primal_recovery_matches_the_hand_derived_solution() {
+    let setup = setup();
+    // Zero forces (as in setup()), lambda = 1: corner_solution = S_pp^-1 . C^T.1
+    // = -1/46, from the same derivation as dual_operator's F_aug test.
+    let local_forces = [Vector::zero(2), Vector::zero(2)];
+    let corner_solution: Vector = [-1.0 / 46.0].into_iter().collect();
+    let lambda: Vector = [1.0].into_iter().collect();
+    let recovered = primal_recovery(&setup.subdomains, &local_forces, &corner_solution, &lambda);
+    // Hand-derived (verified by substitution back into both subdomains' local
+    // equilibrium and the assembled corner equilibrium):
+    // u0 = [-1/46, -15/46], u1 = [-1/46, 6/23].
+    assert!((recovered[0][0] - (-1.0 / 46.0)).abs() < 1e-10);
+    assert!((recovered[0][1] - (-15.0 / 46.0)).abs() < 1e-10);
+    assert!((recovered[1][0] - (-1.0 / 46.0)).abs() < 1e-10);
+    assert!((recovered[1][1] - (6.0 / 23.0)).abs() < 1e-10);
 }

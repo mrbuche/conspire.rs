@@ -26,7 +26,11 @@ pub(crate) struct Subdomain<B> {
     /// this subdomain's dual correction, and is what carries the coarse-grid
     /// coupling term into the dual operator.
     dual_map: Matrix,
-    /// Each local primal DOF's position in the global corner-DOF vector.
+    /// Each local primal (corner) DOF's raw position in this subdomain's full
+    /// local numbering.
+    primal_dofs: Vec<usize>,
+    /// Each local primal DOF's position in the global corner-DOF vector,
+    /// parallel to `primal_dofs`.
     primal_global: Vec<usize>,
 }
 
@@ -40,6 +44,7 @@ impl<B> Subdomain<B> {
         dual_dofs: Vec<usize>,
         num_local: usize,
         dual_map: Matrix,
+        primal_dofs: Vec<usize>,
         primal_global: Vec<usize>,
     ) -> Self {
         Self {
@@ -50,6 +55,7 @@ impl<B> Subdomain<B> {
             dual_dofs,
             num_local,
             dual_map,
+            primal_dofs,
             primal_global,
         }
     }
@@ -90,6 +96,24 @@ impl<B> Subdomain<B> {
     fn local_apply(&self, rhs: &Vector) -> Vector {
         let applied = self.dual_stiffness.clone() * self.dual_rhs(rhs);
         self.scatter_dual(&applied)
+    }
+    /// Scatters a primal (corner)-DOF vector back to its raw positions in
+    /// the subdomain's full local numbering, leaving dual positions zero.
+    fn scatter_primal(&self, primal_vector: &Vector) -> Vector {
+        let mut local = Vector::zero(self.num_local);
+        self.primal_dofs
+            .iter()
+            .zip(primal_vector.iter())
+            .for_each(|(&dof, &value)| local[dof] = value);
+        local
+    }
+    /// Gathers this subdomain's local primal DOFs from the global
+    /// corner-DOF vector.
+    fn gather_primal(&self, corner_solution: &Vector) -> Vector {
+        self.primal_global
+            .iter()
+            .map(|&global| corner_solution[global])
+            .collect()
     }
 }
 
@@ -203,6 +227,35 @@ pub(crate) fn projected_pcg<B>(
     )
 }
 
-pub(crate) fn primal_recovery<B>(_subdomains: &[Subdomain<B>], _lambda: &Vector) -> Vec<Vector> {
-    todo!("u_s = K_s^+(f_s - B_s^T lambda) + R_s alpha_s")
+/// Recovers each subdomain's full local solution (corner and dual DOFs
+/// together) once the coarse (corner) solution and multipliers are known:
+/// `u_d,s = K_dd,s^-1 (f_d,s - K_dp,s . u_p - B_s^T . lambda)`, with `u_p`
+/// gathered into this subdomain's raw local corner positions and the
+/// coupling term `K_dd,s^-1 K_dp,s . u_p = dual_map_s . u_p` already
+/// available from `condense()`.
+pub(crate) fn primal_recovery<B>(
+    subdomains: &[Subdomain<B>],
+    local_forces: &[Vector],
+    corner_solution: &Vector,
+    lambda: &Vector,
+) -> Vec<Vector> {
+    subdomains
+        .iter()
+        .zip(local_forces.iter())
+        .map(|(subdomain, local_force)| {
+            let multiplier_rhs = subdomain
+                .interface
+                .apply_transpose(lambda, subdomain.num_local);
+            let combined_rhs: Vector = local_force
+                .iter()
+                .zip(multiplier_rhs.iter())
+                .map(|(&f, &m)| f - m)
+                .collect();
+            let dual_solution = subdomain.local_solve(&combined_rhs);
+            let primal_local = subdomain.gather_primal(corner_solution);
+            let coupling_correction =
+                subdomain.scatter_dual(&(&subdomain.dual_map * &primal_local));
+            dual_solution - coupling_correction + subdomain.scatter_primal(&primal_local)
+        })
+        .collect()
 }
