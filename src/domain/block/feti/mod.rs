@@ -14,6 +14,18 @@ use crate::math::{
 use dual_primal::coarse;
 use interface::Interface;
 
+#[cfg(feature = "fem")]
+use crate::{
+    constitutive::solid::elastic::Elastic,
+    fem::{
+        NodalCoordinates,
+        block::{
+            Block,
+            element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
+        },
+    },
+};
+
 pub(crate) struct Subdomain<B> {
     blocks: B,
     interface: Interface,
@@ -260,4 +272,135 @@ pub(crate) fn primal_recovery<B>(
             dual_solution - coupling_correction + subdomain.scatter_primal(&primal_local)
         })
         .collect()
+}
+
+/// `sum_s B_s K_dd,s^-1 f_d,s` — the dual (interface) problem's right-hand
+/// side contribution from the forces alone, before the coarse-coupling
+/// correction `solve` applies on top.
+#[cfg(feature = "fem")]
+fn rhs_from_forces<B>(
+    subdomains: &[Subdomain<B>],
+    local_forces: &[Vector],
+    num_multipliers: usize,
+) -> Vector {
+    subdomains.iter().zip(local_forces.iter()).fold(
+        Vector::zero(num_multipliers),
+        |sum, (subdomain, force)| {
+            let local = subdomain.local_solve(force);
+            sum + subdomain.interface.apply(&local, num_multipliers)
+        },
+    )
+}
+
+/// Errors a full FETI-DP solve can hit: either extracting a subdomain's
+/// local stiffness/force from the real `Block` fails, or the dual PCG does.
+#[cfg(feature = "fem")]
+pub(crate) enum SolveError {
+    Element(FiniteElementError),
+    Krylov(KrylovError),
+}
+
+#[cfg(feature = "fem")]
+impl From<FiniteElementError> for SolveError {
+    fn from(error: FiniteElementError) -> Self {
+        Self::Element(error)
+    }
+}
+
+#[cfg(feature = "fem")]
+impl From<KrylovError> for SolveError {
+    fn from(error: KrylovError) -> Self {
+        Self::Krylov(error)
+    }
+}
+
+/// Solves a real FEM `Block` by FETI-DP, end to end: extracts each
+/// subdomain's local stiffness/force, condenses the dual DOFs, assembles and
+/// solves the coarse corner problem, runs the lumped-preconditioned dual PCG
+/// with the coarse-coupling correction, recovers each subdomain's local
+/// solution, and scatters everything back into one global nodal vector.
+///
+/// `partition` is the mesh decomposition, assumed given (an external
+/// decomposer's job, not this solver's). Corners are chosen by
+/// [`CornerSelection::from_partition`]'s standard heuristic.
+#[cfg(feature = "fem")]
+#[allow(clippy::type_complexity)]
+pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
+    block: &Block<C, F, G, M, N, P>,
+    nodal_coordinates: &NodalCoordinates<3>,
+    partition: &interface::Partition,
+    dimension: usize,
+) -> Result<Vector, SolveError>
+where
+    C: Elastic,
+    F: ElasticFiniteElement<C, G, M, N, P>,
+{
+    let corners = dual_primal::CornerSelection::from_partition(partition);
+    let (interfaces, num_multipliers) = interface::build_interfaces(partition, &corners, dimension);
+    let splits = dual_primal::build_splits(partition, &corners, dimension);
+    let subdomain_nodes = partition.subdomains_nodes();
+    let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = subdomain_nodes
+        .iter()
+        .map(|nodes| assemble::local_stiffness_and_force(block, nodal_coordinates, nodes))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .unzip();
+    let condensed: Vec<_> = local_stiffnesses
+        .iter()
+        .zip(local_forces.iter())
+        .zip(splits.iter())
+        .map(|((stiffness, force), split)| dual_primal::condense::condense(stiffness, force, split))
+        .collect();
+    let (schur, reduced_force) = coarse::assemble(&condensed, &splits, &corners, dimension);
+    let subdomains: Vec<Subdomain<()>> = interfaces
+        .into_iter()
+        .zip(splits.iter())
+        .zip(local_stiffnesses.iter())
+        .zip(condensed.iter())
+        .zip(subdomain_nodes.iter())
+        .map(|((((interface, split), stiffness), condensed), nodes)| {
+            let dual_dofs = split.dual().to_vec();
+            let dual_stiffness: SquareMatrix = dual_dofs
+                .iter()
+                .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
+                .collect();
+            let dual_factor = dual_stiffness
+                .factorize_lu()
+                .expect("K_dd is singular, but corners should make every subdomain non-singular");
+            Subdomain::new(
+                (),
+                interface,
+                dual_stiffness,
+                dual_factor,
+                dual_dofs,
+                nodes.len() * dimension,
+                condensed.dual_map.clone(),
+                split.primal().to_vec(),
+                split.primal_global().to_vec(),
+            )
+        })
+        .collect();
+    let rhs = rhs_from_forces(&subdomains, &local_forces, num_multipliers)
+        - coupling(
+            &subdomains,
+            &coarse::solve(&schur, &reduced_force),
+            num_multipliers,
+        );
+    let lambda = projected_pcg(&subdomains, &schur, &rhs)?;
+    let ct_lambda = coupling_transpose(&subdomains, &lambda, schur.len());
+    let corner_solution = coarse::solve(&schur, &(reduced_force + ct_lambda));
+    let recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
+    let mut global = Vector::zero(nodal_coordinates.len() * dimension);
+    subdomain_nodes
+        .iter()
+        .zip(recovered.iter())
+        .for_each(|(nodes, local_solution)| {
+            nodes.iter().enumerate().for_each(|(local, &node)| {
+                (0..dimension).for_each(|component| {
+                    global[dimension * node + component] =
+                        local_solution[dimension * local + component]
+                })
+            })
+        });
+    Ok(global)
 }

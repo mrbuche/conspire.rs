@@ -124,3 +124,76 @@ fn primal_recovery_matches_the_hand_derived_solution() {
     assert!((recovered[1][0] - (-1.0 / 46.0)).abs() < 1e-10);
     assert!((recovered[1][1] - (6.0 / 23.0)).abs() < 1e-10);
 }
+
+#[cfg(feature = "fem")]
+mod solve_test {
+    use super::super::solve;
+    use crate::{
+        constitutive::solid::elastic::{
+            AlmansiHamelEulerian,
+            test::{BULK_MODULUS, SHEAR_MODULUS},
+        },
+        domain::block::feti::interface::Partition,
+        fem::{
+            NodalCoordinates, NodalReferenceCoordinates,
+            block::{Block, element::linear::Tetrahedron},
+        },
+    };
+
+    /// Three tetrahedra sharing one face {1,2,3} — each subdomain is one
+    /// element, and since all three meet at nodes 1, 2 and 3, the standard
+    /// heuristic (shared by >= 3 subdomains) makes all three corners, pinning
+    /// out each SUBDOMAIN's local rigid-body modes. Coordinates: nodes 0-3
+    /// are the codebase's standard reference tetrahedron; nodes 4 and 5 are
+    /// chosen so elements [1,2,3,4] and [1,2,3,5] both have positive volume.
+    ///
+    /// This assembly is completely free-floating — no Dirichlet boundary
+    /// condition pins it anywhere in space — so it still has 6 GLOBAL
+    /// rigid-body modes. Corner condensation only removes a subdomain's own
+    /// local floating modes; it can't remove a mode that moves the whole
+    /// structure together, since a Schur complement can't have lower rank
+    /// than the directions of the original system's null space that survive
+    /// projection onto the corner DOFs. `solve()` has no boundary-condition
+    /// mechanism yet, so the assembled coarse problem is correctly singular
+    /// here, and `solve()` correctly refuses rather than returning garbage.
+    fn coordinates() -> Vec<[f64; 3]> {
+        vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [1.0, 1.0, 1.0],
+            [1.0, 1.0, 2.0],
+        ]
+    }
+
+    fn block() -> Block<AlmansiHamelEulerian, Tetrahedron, 1, 3, 4, 4> {
+        let reference_coordinates = NodalReferenceCoordinates::from(coordinates());
+        Block::from((
+            AlmansiHamelEulerian {
+                bulk_modulus: BULK_MODULUS,
+                shear_modulus: SHEAR_MODULUS,
+            },
+            vec![[0, 1, 2, 3], [1, 2, 3, 4], [1, 2, 3, 5]],
+            &reference_coordinates,
+        ))
+    }
+
+    /// A free-floating assembly with no Dirichlet boundary condition has
+    /// global rigid-body modes that corner condensation alone can't remove
+    /// (see `coordinates`' doc comment) — `solve()` correctly refuses this
+    /// rather than silently returning garbage. Runs the whole pipeline
+    /// (real-Block extraction through condensation, coarse assembly, dual
+    /// PCG wiring, and primal recovery) up to that point without panicking
+    /// anywhere else, which is what this test actually exercises; a
+    /// well-posed (externally supported) end-to-end solve needs boundary
+    /// condition support that doesn't exist yet.
+    #[test]
+    #[should_panic(expected = "singular")]
+    fn a_free_floating_assembly_has_no_boundary_condition_to_pin_it() {
+        let block = block();
+        let nodal_coordinates = NodalCoordinates::from(coordinates());
+        let partition = Partition::new(vec![vec![0, 1, 2, 3], vec![1, 2, 3, 4], vec![1, 2, 3, 5]]);
+        let _ = solve(&block, &nodal_coordinates, &partition, 3);
+    }
+}
