@@ -1,56 +1,35 @@
 #![allow(dead_code)]
 
 pub(crate) mod dual_primal;
+pub(crate) mod interface;
 
-use crate::math::{Scalar, Tensor, Vector, sparse::SparseSolver};
+use crate::math::{Tensor, Vector, sparse::SparseSolver};
+use interface::Interface;
 
 pub(crate) trait LocalSupport {}
-
-pub(crate) struct Interface {
-    dofs: Vec<usize>,
-    signs: Vec<Scalar>,
-}
-
-impl Interface {
-    pub(crate) fn from_shared_dofs(dofs: Vec<usize>, signs: Vec<Scalar>) -> Self {
-        Self { dofs, signs }
-    }
-    pub(crate) fn dofs(&self) -> &[usize] {
-        &self.dofs
-    }
-    fn apply(&self, local: &Vector) -> Vector {
-        self.dofs
-            .iter()
-            .zip(self.signs.iter())
-            .map(|(&dof, &sign)| sign * local[dof])
-            .collect()
-    }
-    fn apply_transpose(&self, lambda: &Vector, num_local: usize) -> Vector {
-        let mut local = Vector::zero(num_local);
-        self.dofs
-            .iter()
-            .zip(self.signs.iter())
-            .zip(lambda.iter())
-            .for_each(|((&dof, &sign), &value)| local[dof] += sign * value);
-        local
-    }
-}
 
 pub(crate) struct Subdomain<B> {
     blocks: B,
     interface: Interface,
     solver: SparseSolver,
+    num_local: usize,
 }
 
 impl<B> Subdomain<B>
 where
     B: LocalSupport,
 {
-    pub(crate) fn new(blocks: B, interface: Interface, solver: SparseSolver) -> Self {
+    pub(crate) fn new(
+        blocks: B,
+        interface: Interface,
+        solver: SparseSolver,
+        num_local: usize,
+    ) -> Self {
         Self {
             blocks,
             interface,
             solver,
+            num_local,
         }
     }
     pub(crate) fn blocks(&self) -> &B {
@@ -64,11 +43,23 @@ where
     }
 }
 
-pub(crate) fn dual_action<B>(_subdomains: &[Subdomain<B>], _lambda: &Vector) -> Vector
+pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector
 where
     B: LocalSupport,
 {
-    todo!("sum over subdomains of B_s K_s^+ B_s^T lambda")
+    let num_multipliers = lambda.len();
+    subdomains
+        .iter()
+        .map(|subdomain| {
+            let rhs = subdomain
+                .interface
+                .apply_transpose(lambda, subdomain.num_local);
+            let local = subdomain.local_solve(&rhs);
+            subdomain.interface.apply(&local, num_multipliers)
+        })
+        .fold(Vector::zero(num_multipliers), |sum, contribution| {
+            sum + contribution
+        })
 }
 
 pub(crate) fn projected_pcg<B>(_subdomains: &[Subdomain<B>], _rhs: &Vector) -> Vector
