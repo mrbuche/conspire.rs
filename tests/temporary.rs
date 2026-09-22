@@ -8080,18 +8080,6 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated, Armijo)...");
-    //
-    // Every trial the line search weighs moves the internal variables too, so
-    // this is the run that says they move by the same fraction of their own
-    // direction as the nodal coordinates move by of theirs.
-    //
-    // The step budget is the test, the solution being reached either way. A
-    // demanding control forces one backtrack, and the internal variables have
-    // to be somewhere consistent for the energy to be weighed against it:
-    // stepping them whole regardless makes the base energy that of a state
-    // already moved, which no trial can fail to improve on, so the search stops
-    // backtracking and the budget goes instead.
-    //
     let searched = SecondOrderMinimizeIV::minimize(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
@@ -8107,10 +8095,6 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         SolveStrategy::Monolithic { elimination: true },
     )?;
     println!("Done ({:?}).", time.elapsed());
-    //
-    // The internal variables are carried rather than solved, so agreeing with
-    // the condensed solution is what shows they were carried correctly.
-    //
     Assert {
         abs_tol: 1e-9,
         rel_tol: 1e-9,
@@ -8197,12 +8181,6 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
-    //
-    // The step budget is the point of the test as much as the solution is. The
-    // internal variables are stepped by the increment rather than solved, so
-    // dropping that coupling still arrives at the same root, only staggered
-    // instead of Newton: six steps become nine.
-    //
     let eliminated = FirstOrderRootIV::root(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
@@ -8213,10 +8191,6 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         SolveStrategy::Monolithic { elimination: true },
     )?;
     println!("Done ({:?}).", time.elapsed());
-    //
-    // The internal variables are carried rather than solved, so agreeing with
-    // the condensed solution is what shows they were carried correctly.
-    //
     Assert {
         abs_tol: 1e-9,
         rel_tol: 1e-9,
@@ -8339,9 +8313,6 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
     use conspire::constitutive::solid::elastic_plastic::FirstOrderRoot;
     use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
     use conspire::math::optimize::SolveStrategy;
-    // the mesh is in a homogeneous uniaxial-stress state, which linear tetrahedra
-    // represent exactly, so with the exact algorithmic tangent the finite element
-    // solution reproduces the material point to solver tolerance (~4e-13 here).
     let tol = 1e-10;
     let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
     let mut connectivity = connectivity();
@@ -8365,7 +8336,6 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
         (mesh, model.clone()).try_into()?;
-    // one uniaxial-stress boundary condition per load step (F11 = 1 + t)
     let boundary_conditions: Vec<EqualityConstraint> = times
         .iter()
         .skip(1)
@@ -8601,12 +8571,9 @@ fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), Asserti
 }
 
 #[test]
-fn temporary_elastic_plastic_block() -> Result<(), AssertionError> {
+fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
     use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
     use conspire::math::optimize::SolveStrategy;
-    // A single tetrahedron: node 0 pinned fully, node 1 pinned in y/z with x
-    // displacement-controlled, node 2 pinned in z, leaving node 2's x/y and node 3's
-    // x/y/z free.
     let tol = 1e-9;
     let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
     let model = Canonical::from((
