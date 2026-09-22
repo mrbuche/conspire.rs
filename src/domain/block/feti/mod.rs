@@ -6,8 +6,6 @@ pub(crate) mod interface;
 use crate::math::{Tensor, Vector, sparse::SparseSolver};
 use interface::Interface;
 
-pub(crate) trait LocalSupport {}
-
 pub(crate) struct Subdomain<B> {
     blocks: B,
     interface: Interface,
@@ -15,10 +13,7 @@ pub(crate) struct Subdomain<B> {
     num_local: usize,
 }
 
-impl<B> Subdomain<B>
-where
-    B: LocalSupport,
-{
+impl<B> Subdomain<B> {
     pub(crate) fn new(
         blocks: B,
         interface: Interface,
@@ -43,10 +38,7 @@ where
     }
 }
 
-pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector
-where
-    B: LocalSupport,
-{
+pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector {
     let num_multipliers = lambda.len();
     subdomains
         .iter()
@@ -62,16 +54,10 @@ where
         })
 }
 
-pub(crate) fn projected_pcg<B>(_subdomains: &[Subdomain<B>], _rhs: &Vector) -> Vector
-where
-    B: LocalSupport,
-{
+pub(crate) fn projected_pcg<B>(_subdomains: &[Subdomain<B>], _rhs: &Vector) -> Vector {
     todo!("PCG on the dual interface problem, projected against the coarse space")
 }
 
-pub(crate) fn primal_recovery<B>(_subdomains: &[Subdomain<B>], _lambda: &Vector) -> Vec<Vector>
-where
-    B: LocalSupport,
-{
+pub(crate) fn primal_recovery<B>(_subdomains: &[Subdomain<B>], _lambda: &Vector) -> Vec<Vector> {
     todo!("u_s = K_s^+(f_s - B_s^T lambda) + R_s alpha_s")
 }

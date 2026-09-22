@@ -3,7 +3,7 @@ pub(crate) mod condense;
 #[cfg(test)]
 mod test;
 
-use super::{LocalSupport, Subdomain, interface::Partition};
+use super::{Subdomain, interface::Partition};
 use crate::math::Vector;
 use std::collections::HashMap;
 
@@ -117,10 +117,7 @@ pub(crate) fn build_splits(
         .collect()
 }
 
-pub(crate) fn solve<B>(_subdomains: &[Subdomain<B>], _splits: &[DualPrimalSplit]) -> Vector
-where
-    B: LocalSupport,
-{
+pub(crate) fn solve<B>(_subdomains: &[Subdomain<B>], _splits: &[DualPrimalSplit]) -> Vector {
     todo!(
         "assemble the corner coarse problem, condense to non-singular local K_s, projected PCG on the dual DOFs"
     )
