@@ -1,6 +1,6 @@
 use super::{assemble, solve};
 use crate::domain::block::feti::dual_primal::{
-    CornerSelection, DualPrimalSplit, condense::Condensed,
+    BoundaryConditions, CornerDofs, CornerSelection, DualPrimalSplit, condense::Condensed,
 };
 use crate::math::{Matrix, SquareMatrix};
 
@@ -21,6 +21,7 @@ fn one_by_one_matrix(value: f64) -> Matrix {
 #[test]
 fn shares_corner_contributions_across_subdomains() {
     let corners = CornerSelection::new(vec![42]);
+    let corner_dofs = CornerDofs::new(&corners, &BoundaryConditions::none(), 1);
     let split_a = DualPrimalSplit::new(vec![0], vec![1]);
     let split_b = DualPrimalSplit::new(vec![0], vec![1]);
     let condensed_a = Condensed {
@@ -36,8 +37,7 @@ fn shares_corner_contributions_across_subdomains() {
     let (schur, force) = assemble(
         &[condensed_a, condensed_b],
         &[split_a, split_b],
-        &corners,
-        1,
+        &corner_dofs,
     );
     assert_eq!(schur[0][0], 5.0);
     assert_eq!(force[0], 5.0);

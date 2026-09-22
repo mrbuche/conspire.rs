@@ -30,7 +30,7 @@ fn setup() -> Setup {
     let partition = Partition::new(vec![vec![99, 50], vec![99, 50]]);
     let corners = CornerSelection::new(vec![99]);
     let (interfaces, _) = build_interfaces(&partition, &corners, 1);
-    let splits = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
+    let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
     let stiffnesses = [
         stiffness([[4.0, 1.0], [1.0, 3.0]]),
         stiffness([[5.0, 2.0], [2.0, 4.0]]),
@@ -41,7 +41,7 @@ fn setup() -> Setup {
         .zip(stiffnesses.iter())
         .map(|(split, stiffness)| condense(stiffness, &zero_force, split))
         .collect();
-    let (schur, _) = coarse::assemble(&condensed, &splits, &corners, 1);
+    let (schur, _) = coarse::assemble(&condensed, &splits, &corner_dofs);
     let subdomains = interfaces
         .into_iter()
         .zip(splits.iter())
@@ -210,20 +210,6 @@ mod solve_test {
     /// non-collinear fully-fixed points remove all 6 global rigid-body
     /// modes (more than sufficient; redundant on the translations).
     ///
-    /// Deliberately avoids fixing ANY component of a corner node (1, 2 or
-    /// 3): `coarse::assemble` sizes the assembled coarse problem as
-    /// `corners.num_corners() * dimension`, assuming every corner node
-    /// contributes all `dimension` components as free primal DOFs. A
-    /// boundary condition on a corner component never appears in any
-    /// subdomain's `primal_global()` list, so that row/column of the
-    /// assembled `S_pp` stays permanently zero — a real, confirmed gap
-    /// (`coarse::assemble`/`CornerSelection` don't know about boundary
-    /// conditions at all), not a modeling mistake; two earlier versions of
-    /// this test hit exactly that and the coarse problem was singular
-    /// either way. Fixed in a follow-up commit if it becomes a blocker;
-    /// tracked in memory for now. Non-corner boundary conditions have no
-    /// such issue, since dual DOFs never go through global corner indexing.
-    ///
     /// With zero applied force and every prescribed value equal to the
     /// reference position, the unique equilibrium is zero displacement
     /// everywhere.
@@ -242,6 +228,39 @@ mod solve_test {
             (5, 1),
             (5, 2),
         ]);
+        let solution = solve(
+            &block,
+            &nodal_coordinates,
+            &partition(),
+            &boundary_conditions,
+            3,
+        )
+        .unwrap_or_else(|_| panic!("solve failed"));
+        assert_eq!(solution.len(), 6 * 3);
+        solution.iter().for_each(|&entry| {
+            assert!(entry.is_finite());
+            assert!(entry.abs() < 1e-8);
+        });
+    }
+
+    /// Fixes node 0 (exclusive) fully, plus node 1 and node 2 — both
+    /// CORNER nodes, shared by all three subdomains — fully and z-only
+    /// respectively: node0(xyz) removes translations, node1(xyz) removes 2
+    /// rotations (about axes through both node0 and node1), node2(z)
+    /// removes the third. This is the same scheme an earlier version of
+    /// this test used when `coarse::assemble` still sized the coarse
+    /// problem from raw corner-node count rather than the DOFs that
+    /// actually survive boundary conditions — it hit a singular coarse
+    /// problem then purely from that sizing bug, now fixed
+    /// (`CornerDofs`), not from anything wrong with this boundary
+    /// condition placement. This test is the direct regression check for
+    /// that fix: boundary conditions on corner-node components now work.
+    #[test]
+    fn a_boundary_condition_on_a_corner_node_solves_correctly() {
+        let block = block();
+        let nodal_coordinates = NodalCoordinates::from(coordinates());
+        let boundary_conditions =
+            BoundaryConditions::new(vec![(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 2)]);
         let solution = solve(
             &block,
             &nodal_coordinates,

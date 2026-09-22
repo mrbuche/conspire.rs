@@ -343,7 +343,8 @@ where
 {
     let corners = dual_primal::CornerSelection::from_partition(partition);
     let (interfaces, num_multipliers) = interface::build_interfaces(partition, &corners, dimension);
-    let splits = dual_primal::build_splits(partition, &corners, boundary_conditions, dimension);
+    let (splits, corner_dofs) =
+        dual_primal::build_splits(partition, &corners, boundary_conditions, dimension);
     let subdomain_nodes = partition.subdomains_nodes();
     let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = subdomain_nodes
         .iter()
@@ -357,7 +358,7 @@ where
         .zip(splits.iter())
         .map(|((stiffness, force), split)| dual_primal::condense::condense(stiffness, force, split))
         .collect();
-    let (schur, reduced_force) = coarse::assemble(&condensed, &splits, &corners, dimension);
+    let (schur, reduced_force) = coarse::assemble(&condensed, &splits, &corner_dofs);
     let subdomains: Vec<Subdomain<()>> = interfaces
         .into_iter()
         .zip(splits.iter())

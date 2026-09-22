@@ -64,14 +64,48 @@ impl CornerSelection {
     pub(crate) fn contains(&self, node: usize) -> bool {
         self.nodes.binary_search(&node).is_ok()
     }
-    fn global_index(&self, node: usize) -> Option<usize> {
-        self.nodes.binary_search(&node).ok()
-    }
     pub(crate) fn nodes(&self) -> &[usize] {
         &self.nodes
     }
-    pub(crate) fn num_corners(&self) -> usize {
-        self.nodes.len()
+}
+
+/// The global numbering of corner DOFs that actually survive as free primal
+/// unknowns, combining `CornerSelection` (which NODES are corners) with
+/// `BoundaryConditions` (which of their components are pinned rather than
+/// free). A `(node, component)` pair only gets a slot here if the node is a
+/// corner AND that component isn't fixed — unlike numbering every corner
+/// node's `dimension` components unconditionally, this keeps the assembled
+/// coarse problem exactly the size of its genuinely free DOFs, so a
+/// boundary condition on a corner component can never leave a
+/// permanently-zero (singular) row/column behind.
+pub(crate) struct CornerDofs {
+    index: HashMap<(usize, usize), usize>,
+    count: usize,
+}
+
+impl CornerDofs {
+    pub(crate) fn new(
+        corners: &CornerSelection,
+        boundary_conditions: &BoundaryConditions,
+        dimension: usize,
+    ) -> Self {
+        let mut index = HashMap::new();
+        let mut count = 0;
+        corners.nodes().iter().for_each(|&node| {
+            (0..dimension).for_each(|component| {
+                if !boundary_conditions.is_fixed(node, component) {
+                    index.insert((node, component), count);
+                    count += 1;
+                }
+            })
+        });
+        Self { index, count }
+    }
+    fn global_index(&self, node: usize, component: usize) -> Option<usize> {
+        self.index.get(&(node, component)).copied()
+    }
+    pub(crate) fn count(&self) -> usize {
+        self.count
     }
 }
 
@@ -93,7 +127,7 @@ impl DualPrimalSplit {
     }
     fn from_subdomain_nodes(
         subdomain_nodes: &[usize],
-        corners: &CornerSelection,
+        corner_dofs: &CornerDofs,
         boundary_conditions: &BoundaryConditions,
         dimension: usize,
     ) -> Self {
@@ -109,9 +143,9 @@ impl DualPrimalSplit {
                         return;
                     }
                     let dof = dimension * local + component;
-                    if let Some(global_node) = corners.global_index(node) {
+                    if let Some(global) = corner_dofs.global_index(node, component) {
                         primal.push(dof);
-                        primal_global.push(dimension * global_node + component);
+                        primal_global.push(global);
                     } else {
                         dual.push(dof);
                     }
@@ -139,12 +173,19 @@ pub(crate) fn build_splits(
     corners: &CornerSelection,
     boundary_conditions: &BoundaryConditions,
     dimension: usize,
-) -> Vec<DualPrimalSplit> {
-    partition
+) -> (Vec<DualPrimalSplit>, CornerDofs) {
+    let corner_dofs = CornerDofs::new(corners, boundary_conditions, dimension);
+    let splits = partition
         .subdomains_nodes()
         .iter()
         .map(|nodes| {
-            DualPrimalSplit::from_subdomain_nodes(nodes, corners, boundary_conditions, dimension)
+            DualPrimalSplit::from_subdomain_nodes(
+                nodes,
+                &corner_dofs,
+                boundary_conditions,
+                dimension,
+            )
         })
-        .collect()
+        .collect();
+    (splits, corner_dofs)
 }

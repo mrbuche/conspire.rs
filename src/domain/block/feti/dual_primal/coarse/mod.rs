@@ -1,20 +1,22 @@
 #[cfg(test)]
 mod test;
 
-use super::{CornerSelection, DualPrimalSplit, condense::Condensed};
+use super::{CornerDofs, DualPrimalSplit, condense::Condensed};
 use crate::math::{SquareMatrix, Vector};
 
 /// Assembles the global corner (coarse) problem by scatter-adding each
 /// subdomain's local corner Schur complement and reduced force at the
 /// shared global corner DOFs, exactly like standard finite element
-/// assembly restricted to the primal DOFs.
+/// assembly restricted to the primal DOFs. Sized by `corner_dofs.count()` —
+/// the count of DOFs that actually survive as free primal unknowns after
+/// boundary conditions, not a raw node count — so a boundary condition on a
+/// corner node's component can never leave a permanently-zero row/column.
 pub(crate) fn assemble(
     condensed: &[Condensed],
     splits: &[DualPrimalSplit],
-    corners: &CornerSelection,
-    dimension: usize,
+    corner_dofs: &CornerDofs,
 ) -> (SquareMatrix, Vector) {
-    let num_corner_dofs = corners.num_corners() * dimension;
+    let num_corner_dofs = corner_dofs.count();
     let mut schur = SquareMatrix::zero(num_corner_dofs);
     let mut force = Vector::zero(num_corner_dofs);
     condensed
