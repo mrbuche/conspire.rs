@@ -1,3 +1,4 @@
+pub(crate) mod coarse;
 pub(crate) mod condense;
 #[cfg(test)]
 mod test;
@@ -37,20 +38,32 @@ impl CornerSelection {
     fn contains(&self, node: usize) -> bool {
         self.nodes.binary_search(&node).is_ok()
     }
+    fn global_index(&self, node: usize) -> Option<usize> {
+        self.nodes.binary_search(&node).ok()
+    }
     pub(crate) fn nodes(&self) -> &[usize] {
         &self.nodes
+    }
+    pub(crate) fn num_corners(&self) -> usize {
+        self.nodes.len()
     }
 }
 
 pub(crate) struct DualPrimalSplit {
     primal: Vec<usize>,
+    primal_global: Vec<usize>,
     dual: Vec<usize>,
 }
 
 impl DualPrimalSplit {
     #[cfg(test)]
     pub(crate) fn new(primal: Vec<usize>, dual: Vec<usize>) -> Self {
-        Self { primal, dual }
+        let primal_global = primal.clone();
+        Self {
+            primal,
+            primal_global,
+            dual,
+        }
     }
     fn from_subdomain_nodes(
         subdomain_nodes: &[usize],
@@ -58,22 +71,34 @@ impl DualPrimalSplit {
         dimension: usize,
     ) -> Self {
         let mut primal = Vec::new();
+        let mut primal_global = Vec::new();
         let mut dual = Vec::new();
         subdomain_nodes
             .iter()
             .enumerate()
             .for_each(|(local, &node)| {
                 let dofs = (dimension * local)..(dimension * (local + 1));
-                if corners.contains(node) {
-                    primal.extend(dofs);
+                if let Some(global_node) = corners.global_index(node) {
+                    dofs.for_each(|dof| {
+                        let component = dof - dimension * local;
+                        primal.push(dof);
+                        primal_global.push(dimension * global_node + component);
+                    });
                 } else {
                     dual.extend(dofs);
                 }
             });
-        Self { primal, dual }
+        Self {
+            primal,
+            primal_global,
+            dual,
+        }
     }
     pub(crate) fn primal(&self) -> &[usize] {
         &self.primal
+    }
+    pub(crate) fn primal_global(&self) -> &[usize] {
+        &self.primal_global
     }
     pub(crate) fn dual(&self) -> &[usize] {
         &self.dual

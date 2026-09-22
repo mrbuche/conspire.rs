@@ -7,7 +7,7 @@ use crate::math::{Matrix, Scalar, SquareMatrix, Vector};
 pub(crate) struct Condensed {
     pub(crate) schur: SquareMatrix,
     pub(crate) reduced_force: Vector,
-    pub(crate) primal_map: Matrix,
+    pub(crate) dual_map: Matrix,
 }
 
 fn extract_vector(source: &Vector, indices: &[usize]) -> Vector {
@@ -27,9 +27,13 @@ fn extract_rectangular(source: &SquareMatrix, rows: &[usize], columns: &[usize])
         .collect()
 }
 
-/// Statically condenses the primal (corner) DOFs out of a subdomain's local
-/// stiffness, leaving a non-singular Schur complement on the dual DOFs and
-/// the map back from a coarse primal solution to this subdomain's interior.
+/// Statically condenses the dual (remainder boundary) DOFs out of a
+/// subdomain's local stiffness — they are never shared beyond this
+/// subdomain, so this elimination is purely local and embarrassingly
+/// parallel across subdomains — leaving a non-singular Schur complement
+/// on the corner DOFs, which is what gets assembled into the global
+/// coarse problem. dual_map = K_dd^-1 K_dp recovers the eliminated
+/// dual solution once the corner (and multiplier) unknowns are known.
 pub(crate) fn condense(
     local_stiffness: &SquareMatrix,
     local_force: &Vector,
@@ -43,46 +47,50 @@ pub(crate) fn condense(
     let k_dd = extract_square(local_stiffness, dual);
     let f_p = extract_vector(local_force, primal);
     let f_d = extract_vector(local_force, dual);
-    let columns: Matrix = (0..dual.len())
+    let columns: Matrix = (0..primal.len())
         .map(|column| {
-            let rhs: Vector = k_pd.iter().map(|row| row[column]).collect();
-            k_pp.solve_lu(&rhs).expect("corner block K_pp is singular")
+            let rhs: Vector = k_dp.iter().map(|row| row[column]).collect();
+            k_dd.solve_lu(&rhs)
+                .expect("remainder block K_dd is singular")
         })
         .collect();
-    let primal_map = columns.transpose();
-    let schur = dual
+    let dual_map = columns.transpose();
+    let schur = primal
         .iter()
         .enumerate()
         .map(|(row, _)| {
-            dual.iter()
+            primal
+                .iter()
                 .enumerate()
                 .map(|(column, _)| {
-                    k_dd[row][column]
-                        - primal
+                    k_pp[row][column]
+                        - dual
                             .iter()
                             .enumerate()
-                            .map(|(p, _)| k_dp[row][p] * primal_map[p][column])
+                            .map(|(d, _)| k_pd[row][d] * dual_map[d][column])
                             .sum::<Scalar>()
                 })
                 .collect()
         })
         .collect();
-    let y = k_pp.solve_lu(&f_p).expect("corner block K_pp is singular");
-    let reduced_force = dual
+    let y = k_dd
+        .solve_lu(&f_d)
+        .expect("remainder block K_dd is singular");
+    let reduced_force = primal
         .iter()
         .enumerate()
         .map(|(row, _)| {
-            f_d[row]
-                - primal
+            f_p[row]
+                - dual
                     .iter()
                     .enumerate()
-                    .map(|(p, _)| k_dp[row][p] * y[p])
+                    .map(|(d, _)| k_pd[row][d] * y[d])
                     .sum::<Scalar>()
         })
         .collect();
     Condensed {
         schur,
         reduced_force,
-        primal_map,
+        dual_map,
     }
 }
