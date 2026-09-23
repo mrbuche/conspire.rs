@@ -206,14 +206,12 @@ mod root {
 mod constrained {
     use super::*;
     use crate::math::{Matrix, SquareMatrix, Vector, optimize::Tolerances};
-
     fn constraint() -> EqualityConstraint {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][0] = 1.0;
         matrix[0][1] = 1.0;
         EqualityConstraint::Linear(matrix, Vector::from([2.0]))
     }
-
     fn minimized(line_search: LineSearch) -> Result<Vector, AssertionError> {
         Ok(NewtonRaphson {
             line_search,
@@ -229,12 +227,10 @@ mod constrained {
             None,
         )?)
     }
-
     #[test]
     fn none() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(&minimized(LineSearch::None)?, &Vector::from([1.0, 1.0]))
     }
-
     fn scaled(rel_tol: Option<Scalar>) -> Result<Vector, OptimizationError> {
         const SCALE: Scalar = 1e12;
         NewtonRaphson {
@@ -255,17 +251,14 @@ mod constrained {
             None,
         )
     }
-
     #[test]
     fn relative() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(&scaled(Some(1e-8))?, &Vector::from([1.0, 1.0]))
     }
-
     #[test]
     fn relative_is_what_absolute_cannot_be() {
         assert!(scaled(None).is_err())
     }
-
     #[test]
     fn armijo() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
@@ -277,7 +270,6 @@ mod constrained {
             &Vector::from([1.0, 1.0]),
         )
     }
-
     #[test]
     fn goldstein() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
@@ -289,7 +281,6 @@ mod constrained {
             &Vector::from([1.0, 1.0]),
         )
     }
-
     #[test]
     fn error() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
@@ -300,7 +291,6 @@ mod constrained {
             &Vector::from([1.0, 1.0]),
         )
     }
-
     #[test]
     fn error_root() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
@@ -322,7 +312,6 @@ mod constrained {
             &Vector::from([1.0, 1.0]),
         )
     }
-
     fn barrier(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
         NewtonRaphson {
             line_search,
@@ -347,7 +336,6 @@ mod constrained {
             None,
         )
     }
-
     #[test]
     fn error_backtracks() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
@@ -358,12 +346,10 @@ mod constrained {
             &Vector::from([4.0, 1.0]),
         )
     }
-
     #[test]
     fn error_backtracks_needed() {
         assert!(barrier(LineSearch::None).is_err())
     }
-
     fn overshooting(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][1] = 1.0;
@@ -387,7 +373,6 @@ mod constrained {
             None,
         )
     }
-
     #[test]
     fn overshooting_armijo() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
@@ -399,7 +384,6 @@ mod constrained {
             &Vector::zero(2),
         )
     }
-
     #[test]
     fn overshooting_none() {
         assert!(match overshooting(LineSearch::None) {
@@ -407,7 +391,6 @@ mod constrained {
             Err(_) => true,
         })
     }
-
     fn steep(
         trust_region: TrustRegion,
         line_search: LineSearch,
@@ -434,7 +417,6 @@ mod constrained {
             None,
         )
     }
-
     #[test]
     fn trust_region() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
@@ -448,7 +430,6 @@ mod constrained {
             &Vector::zero(2),
         )
     }
-
     #[test]
     fn trust_region_needed() {
         assert!(match steep(TrustRegion::None, LineSearch::None) {
@@ -456,7 +437,6 @@ mod constrained {
             Err(_) => true,
         })
     }
-
     fn wide(norm: Norm) -> Result<Vector, OptimizationError> {
         const WIDTH: usize = 100;
         let mut constraint_matrix = Matrix::zero(1, WIDTH);
@@ -482,17 +462,14 @@ mod constrained {
             None,
         )
     }
-
     #[test]
     fn trust_region_norm_chebyshev() -> Result<(), AssertionError> {
         Assert::default().zero_within_tols(&wide(Norm::Chebyshev)?)
     }
-
     #[test]
     fn trust_region_norm_euclidean() {
         assert!(wide(Norm::Euclidean).is_err())
     }
-
     #[test]
     fn trust_region_beyond_errors() {
         assert!(match steep(
@@ -534,12 +511,10 @@ mod block {
         sparse::{CscMatrix, SparseSolver},
     };
     use std::collections::BTreeSet;
-
     const GLOBAL: usize = 6;
     const BLOCKS: usize = 3;
     const SIZE: usize = 2;
     const LOCAL: usize = BLOCKS * SIZE;
-
     fn a(i: usize, j: usize) -> Scalar {
         if i == j {
             4.0
@@ -561,7 +536,6 @@ mod block {
     fn load(i: usize) -> Scalar {
         1.0 + 0.2 * i as Scalar
     }
-    /// Block `q` couples to the global unknowns `q..q + 4`.
     fn window(q: usize, i: usize) -> Option<usize> {
         (q..q + 4).contains(&i).then(|| i - q)
     }

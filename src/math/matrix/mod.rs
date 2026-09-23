@@ -50,9 +50,6 @@ impl Matrix {
     }
 }
 
-/// A dense coupling block between a flattened global and local unknown, for
-/// problems (such as a whole-mesh block solve) with no smaller fixed-size
-/// tensor shape to specialize on.
 impl HessianBlock for Matrix {
     fn entry(&self, row: usize, column: usize) -> Scalar {
         self[row][column]

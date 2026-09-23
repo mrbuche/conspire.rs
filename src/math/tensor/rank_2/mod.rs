@@ -531,7 +531,6 @@ impl<I, J, U> TensorRank2<3, I, J, U> {
     }
 }
 
-/// A rank-2 tensor is a single-column block: `D * D` rows, one column.
 impl<const D: usize, I, J, U> HessianBlock for TensorRank2<D, I, J, U> {
     fn entry(&self, row: usize, _column: usize) -> TensorRank0 {
         self[row / D][row % D].value()
