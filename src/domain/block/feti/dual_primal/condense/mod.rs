@@ -45,11 +45,13 @@ pub(crate) fn condense(
     let k_dd = extract_square(local_stiffness, dual);
     let f_p = extract_vector(local_force, primal);
     let f_d = extract_vector(local_force, dual);
+    let factor = k_dd
+        .factorize_lu()
+        .expect("remainder block K_dd is singular");
     let columns: Matrix = (0..primal.len())
         .map(|column| {
             let rhs: Vector = k_dp.iter().map(|row| row[column]).collect();
-            k_dd.solve_lu(&rhs)
-                .expect("remainder block K_dd is singular")
+            factor.solve(&rhs)
         })
         .collect();
     let dual_map = columns.transpose();
@@ -71,9 +73,7 @@ pub(crate) fn condense(
                 .collect()
         })
         .collect();
-    let y = k_dd
-        .solve_lu(&f_d)
-        .expect("remainder block K_dd is singular");
+    let y = factor.solve(&f_d);
     let reduced_force = primal
         .iter()
         .enumerate()

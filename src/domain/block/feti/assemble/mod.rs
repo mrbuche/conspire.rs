@@ -2,12 +2,12 @@
 mod test;
 
 use crate::{
-    constitutive::solid::elastic::Elastic,
+    constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
         NodalCoordinates,
         block::{
             Block,
-            element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
+            element::{FiniteElementError, solid::hyperelastic::HyperelasticFiniteElement},
         },
     },
     math::{SquareMatrix, Vector},
@@ -33,8 +33,8 @@ pub(crate) fn local_stiffness_and_force<
     subdomain_nodes: &[usize],
 ) -> Result<(SquareMatrix, Vector), FiniteElementError>
 where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P>,
+    C: Hyperelastic,
+    F: HyperelasticFiniteElement<C, G, M, N, P>,
 {
     const D: usize = 3;
     let local_index: HashMap<usize, usize> = subdomain_nodes

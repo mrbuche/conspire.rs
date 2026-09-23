@@ -268,9 +268,9 @@ fn primal_recovery_matches_the_hand_derived_solution() {
 mod solve_test {
     use super::super::solve;
     use crate::{
-        constitutive::solid::elastic::{
-            AlmansiHamelEulerian,
-            test::{BULK_MODULUS, SHEAR_MODULUS},
+        constitutive::solid::{
+            elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
+            hyperelastic::NeoHookean,
         },
         domain::block::feti::dual_primal::BoundaryConditions,
         fem::{
@@ -308,10 +308,10 @@ mod solve_test {
         ]
     }
 
-    fn block() -> Block<AlmansiHamelEulerian, Tetrahedron, 1, 3, 4, 4> {
+    fn block() -> Block<NeoHookean, Tetrahedron, 1, 3, 4, 4> {
         let reference_coordinates = NodalReferenceCoordinates::from(coordinates());
         Block::from((
-            AlmansiHamelEulerian {
+            NeoHookean {
                 bulk_modulus: BULK_MODULUS,
                 shear_modulus: SHEAR_MODULUS,
             },

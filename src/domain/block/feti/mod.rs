@@ -3,18 +3,23 @@
 #[cfg(feature = "fem")]
 pub(crate) mod assemble;
 pub(crate) mod dual_primal;
+#[cfg(all(test, feature = "fem"))]
+mod hex_test;
 pub(crate) mod interface;
 #[cfg(test)]
 mod test;
 
 use crate::math::{
-    LuDecomposition, Matrix, SquareMatrix, Tensor, Vector,
+    LuDecomposition, Matrix, Scalar, SquareMatrix, Tensor, Vector,
     optimize::{Krylov, KrylovError},
 };
 use dual_primal::coarse;
 use interface::Interface;
 use std::collections::HashSet;
 use std::thread::{available_parallelism, scope};
+use std::time::Duration;
+#[cfg(feature = "fem")]
+use std::time::Instant;
 
 /// Below this many subdomains, `dual_reduce` stays on the serial path —
 /// thread-spawn overhead can otherwise exceed the per-subdomain work itself
@@ -26,12 +31,12 @@ const PARALLEL_THRESHOLD: usize = 4;
 
 #[cfg(feature = "fem")]
 use crate::{
-    constitutive::solid::elastic::Elastic,
+    constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
         NodalCoordinates,
         block::{
             Block,
-            element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
+            element::{FiniteElementError, solid::hyperelastic::HyperelasticFiniteElement},
         },
     },
 };
@@ -398,11 +403,64 @@ pub(crate) fn projected_pcg<B>(
 where
     B: Sync,
 {
-    Krylov::default().solve_operator(
-        |lambda| dual_operator(subdomains, lambda, schur),
-        |lambda: &Vector| dual_precondition_dirichlet(subdomains, lambda),
+    projected_pcg_counted(
+        subdomains,
+        schur,
         rhs,
+        Preconditioner::Dirichlet,
+        Krylov::default().rel_tol,
     )
+    .map(|(lambda, _)| lambda)
+}
+
+/// Wall time of each stage of a `solve_with`, and the number of dual
+/// operator applications the PCG took.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct SolveStats {
+    pub(crate) applications: usize,
+    pub(crate) assemble: Duration,
+    pub(crate) condense: Duration,
+    pub(crate) subdomains: Duration,
+    pub(crate) coarse: Duration,
+    pub(crate) pcg: Duration,
+    pub(crate) recover: Duration,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Preconditioner {
+    Lumped,
+    Dirichlet,
+}
+
+/// `projected_pcg` with the preconditioner chosen explicitly, also returning
+/// how many times the dual operator was applied (one per PCG iteration).
+pub(crate) fn projected_pcg_counted<B>(
+    subdomains: &[Subdomain<B>],
+    schur: &SquareMatrix,
+    rhs: &Vector,
+    preconditioner: Preconditioner,
+    rel_tol: Scalar,
+) -> Result<(Vector, usize), KrylovError>
+where
+    B: Sync,
+{
+    let mut applications = 0;
+    let lambda = Krylov {
+        rel_tol,
+        ..Krylov::default()
+    }
+    .solve_operator(
+        |lambda| {
+            applications += 1;
+            dual_operator(subdomains, lambda, schur)
+        },
+        |lambda: &Vector| match preconditioner {
+            Preconditioner::Lumped => dual_precondition(subdomains, lambda),
+            Preconditioner::Dirichlet => dual_precondition_dirichlet(subdomains, lambda),
+        },
+        rhs,
+    )?;
+    Ok((lambda, applications))
 }
 
 /// Recovers each subdomain's full local solution (corner and dual DOFs
@@ -480,9 +538,15 @@ impl From<KrylovError> for SolveError {
 
 /// Solves a real FEM `Block` by FETI-DP, end to end: extracts each
 /// subdomain's local stiffness/force, condenses the dual DOFs, assembles and
-/// solves the coarse corner problem, runs the lumped-preconditioned dual PCG
+/// solves the coarse corner problem, runs the Dirichlet-preconditioned dual PCG
 /// with the coarse-coupling correction, recovers each subdomain's local
 /// solution, and scatters everything back into one global nodal vector.
+///
+/// Hyperelastic models only: FETI-DP as built needs a symmetric tangent
+/// (`C^T = dual_map^T`, and the dual PCG is conjugate gradients), and an
+/// elastic-only model such as `AlmansiHamelEulerian` has an asymmetric one
+/// away from zero deformation — measured 1e-2 asymmetry gave a 1e-4 error
+/// against a dense global solve, where `NeoHookean` matched to 1e-12.
 ///
 /// `partition` is the mesh decomposition, assumed given (an external
 /// decomposer's job, not this solver's). Corners are chosen by
@@ -502,20 +566,53 @@ pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const 
     dimension: usize,
 ) -> Result<Vector, SolveError>
 where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P>,
+    C: Hyperelastic,
+    F: HyperelasticFiniteElement<C, G, M, N, P>,
 {
+    solve_with(
+        block,
+        nodal_coordinates,
+        partition,
+        boundary_conditions,
+        dimension,
+        Preconditioner::Dirichlet,
+        Krylov::default().rel_tol,
+    )
+    .map(|(solution, _)| solution)
+}
+
+/// `solve` with the dual PCG preconditioner chosen explicitly, also
+/// returning the number of dual operator applications the PCG took.
+#[cfg(feature = "fem")]
+#[allow(clippy::type_complexity)]
+pub(crate) fn solve_with<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
+    block: &Block<C, F, G, M, N, P>,
+    nodal_coordinates: &NodalCoordinates<3>,
+    partition: &crate::geometry::mesh::Partition,
+    boundary_conditions: &dual_primal::BoundaryConditions,
+    dimension: usize,
+    preconditioner: Preconditioner,
+    rel_tol: Scalar,
+) -> Result<(Vector, SolveStats), SolveError>
+where
+    C: Hyperelastic,
+    F: HyperelasticFiniteElement<C, G, M, N, P>,
+{
+    let mut stats = SolveStats::default();
     let corners = dual_primal::CornerSelection::from_partition(partition);
     let (interfaces, num_multipliers) = interface::build_interfaces(partition, &corners, dimension);
     let (splits, corner_dofs) =
         dual_primal::build_splits(partition, &corners, boundary_conditions, dimension);
     let subdomain_nodes = partition.parts_nodes();
+    let clock = Instant::now();
     let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = subdomain_nodes
         .iter()
         .map(|nodes| assemble::local_stiffness_and_force(block, nodal_coordinates, nodes))
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .unzip();
+    stats.assemble = clock.elapsed();
+    let clock = Instant::now();
     let condensed: Vec<_> = local_stiffnesses
         .iter()
         .zip(local_forces.iter())
@@ -524,7 +621,11 @@ where
             dual_primal::condense::condense(stiffness, force, split.primal(), split.dual())
         })
         .collect();
+    stats.condense = clock.elapsed();
+    let clock = Instant::now();
     let (schur, reduced_force) = coarse::assemble(&condensed, &splits, &corner_dofs);
+    stats.coarse = clock.elapsed();
+    let clock = Instant::now();
     let subdomains: Vec<Subdomain<()>> = interfaces
         .into_iter()
         .zip(splits.iter())
@@ -557,13 +658,21 @@ where
             )
         })
         .collect();
+    stats.subdomains = clock.elapsed();
+    let clock = Instant::now();
     let rhs = rhs_from_forces(&subdomains, &local_forces, num_multipliers)
         - coupling(
             &subdomains,
             &coarse::solve(&schur, &reduced_force),
             num_multipliers,
         );
-    let lambda = projected_pcg(&subdomains, &schur, &rhs)?;
+    stats.coarse += clock.elapsed();
+    let clock = Instant::now();
+    let (lambda, applications) =
+        projected_pcg_counted(&subdomains, &schur, &rhs, preconditioner, rel_tol)?;
+    stats.applications = applications;
+    stats.pcg = clock.elapsed();
+    let clock = Instant::now();
     let ct_lambda = coupling_transpose(&subdomains, &lambda, schur.len());
     let corner_solution = coarse::solve(&schur, &(reduced_force + ct_lambda));
     let recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
@@ -579,5 +688,6 @@ where
                 })
             })
         });
-    Ok(global)
+    stats.recover = clock.elapsed();
+    Ok((global, stats))
 }

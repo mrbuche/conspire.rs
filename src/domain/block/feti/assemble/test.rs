@@ -1,8 +1,8 @@
 use super::local_stiffness_and_force;
 use crate::{
-    constitutive::solid::elastic::{
-        AlmansiHamelEulerian,
-        test::{BULK_MODULUS, SHEAR_MODULUS},
+    constitutive::solid::{
+        elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
+        hyperelastic::NeoHookean,
     },
     fem::{
         NodalCoordinates, NodalReferenceCoordinates,
@@ -11,10 +11,10 @@ use crate::{
     math::Tensor,
 };
 
-/// A single, standard reference tetrahedron: `AlmansiHamelEulerian` gives
+/// A single, standard reference tetrahedron: `NeoHookean` gives
 /// zero force at zero deformation (current coordinates equal to reference),
 /// so this is hand-verifiable without any element algebra of our own.
-fn block() -> Block<AlmansiHamelEulerian, Tetrahedron, 1, 3, 4, 4> {
+fn block() -> Block<NeoHookean, Tetrahedron, 1, 3, 4, 4> {
     let reference_coordinates = NodalReferenceCoordinates::from([
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
@@ -22,7 +22,7 @@ fn block() -> Block<AlmansiHamelEulerian, Tetrahedron, 1, 3, 4, 4> {
         [0.0, 0.0, 1.0],
     ]);
     Block::from((
-        AlmansiHamelEulerian {
+        NeoHookean {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
         },
