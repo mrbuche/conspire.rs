@@ -8,7 +8,7 @@ use crate::domain::block::feti::{
     },
     interface::{Partition, build_interfaces},
 };
-use crate::math::{SquareMatrix, Vector};
+use crate::math::{SquareMatrix, Tensor, Vector};
 
 fn stiffness(entries: [[f64; 2]; 2]) -> SquareMatrix {
     let mut matrix = SquareMatrix::zero(2);
@@ -19,6 +19,7 @@ fn stiffness(entries: [[f64; 2]; 2]) -> SquareMatrix {
 struct Setup {
     subdomains: Vec<Subdomain<()>>,
     schur: SquareMatrix,
+    num_multipliers: usize,
 }
 
 /// Two subdomains sharing a corner (node 99, explicit, pins out the rigid-body
@@ -29,7 +30,7 @@ struct Setup {
 fn setup() -> Setup {
     let partition = Partition::new(vec![vec![99, 50], vec![99, 50]]);
     let corners = CornerSelection::new(vec![99]);
-    let (interfaces, _) = build_interfaces(&partition, &corners, 1);
+    let (interfaces, num_multipliers) = build_interfaces(&partition, &corners, 1);
     let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
     let stiffnesses = [
         stiffness([[4.0, 1.0], [1.0, 3.0]]),
@@ -67,7 +68,104 @@ fn setup() -> Setup {
             )
         })
         .collect();
-    Setup { subdomains, schur }
+    Setup {
+        subdomains,
+        schur,
+        num_multipliers,
+    }
+}
+
+/// A chain of `count` subdomains, nodes `0..=count`, subdomain `i`
+/// connecting node `i` to node `i+1`. Corners are the even-indexed nodes,
+/// dual (interface) nodes the odd-indexed ones — consecutive integers
+/// always have opposite parity, so every subdomain gets exactly one corner
+/// and one dual node regardless of `count`, the same well-posed shape as
+/// `setup()`'s 2-subdomain example, just repeated. Distinct, non-rank-1 SPD
+/// stiffness per subdomain (as in `setup()`, avoiding the degenerate
+/// corner-Schur-vanishes case a plain bar would hit).
+fn chain_setup(count: usize) -> Setup {
+    let partition = Partition::new((0..count).map(|i| vec![i, i + 1]).collect());
+    let corners = CornerSelection::new((0..=count).step_by(2).collect());
+    let (interfaces, num_multipliers) = build_interfaces(&partition, &corners, 1);
+    let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
+    let stiffnesses: Vec<SquareMatrix> = (0..count)
+        .map(|i| stiffness([[i as f64 + 4.0, 1.0], [1.0, i as f64 + 3.0]]))
+        .collect();
+    let zero_force = Vector::zero(2);
+    let condensed: Vec<Condensed> = splits
+        .iter()
+        .zip(stiffnesses.iter())
+        .map(|(split, stiffness)| condense(stiffness, &zero_force, split))
+        .collect();
+    let (schur, _) = coarse::assemble(&condensed, &splits, &corner_dofs);
+    let subdomains = interfaces
+        .into_iter()
+        .zip(splits.iter())
+        .zip(stiffnesses.iter())
+        .zip(condensed.iter())
+        .map(|(((interface, split), stiffness), condensed)| {
+            let dual_dofs = split.dual().to_vec();
+            let k_dd: SquareMatrix = dual_dofs
+                .iter()
+                .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
+                .collect();
+            let dual_factor = k_dd.factorize_lu().unwrap();
+            Subdomain::new(
+                (),
+                interface,
+                k_dd,
+                dual_factor,
+                dual_dofs,
+                2,
+                condensed.dual_map.clone(),
+                split.primal().to_vec(),
+                split.primal_global().to_vec(),
+            )
+        })
+        .collect();
+    Setup {
+        subdomains,
+        schur,
+        num_multipliers,
+    }
+}
+
+/// Reference (deliberately serial, no threading) recomputation of
+/// `dual_reduce`'s reduction — bypasses `dual_action` entirely by calling
+/// the same private `Subdomain` primitives directly, so this is an
+/// independent check on the parallel path, not a re-test of the same code.
+fn serial_dual_action(
+    subdomains: &[Subdomain<()>],
+    lambda: &Vector,
+    num_multipliers: usize,
+) -> Vector {
+    subdomains
+        .iter()
+        .map(|subdomain| {
+            let rhs = subdomain.interface().apply_transpose(lambda, 2);
+            let local = subdomain.local_solve(&rhs);
+            subdomain.interface().apply(&local, num_multipliers)
+        })
+        .fold(Vector::zero(num_multipliers), |sum, contribution| {
+            sum + contribution
+        })
+}
+
+#[test]
+fn dual_reduce_parallel_path_matches_serial_reference() {
+    // 8 >= PARALLEL_THRESHOLD, so dual_action here genuinely exercises the
+    // multithreaded path in dual_reduce, not just the serial fallback every
+    // other test in this file uses (all well below the threshold).
+    let count = 8;
+    let setup = chain_setup(count);
+    let lambda: Vector = (0..setup.num_multipliers).map(|i| 1.0 + i as f64).collect();
+    let parallel = dual_action(&setup.subdomains, &lambda);
+    let serial = serial_dual_action(&setup.subdomains, &lambda, setup.num_multipliers);
+    assert_eq!(parallel.len(), serial.len());
+    parallel
+        .iter()
+        .zip(serial.iter())
+        .for_each(|(&p, &s)| assert!((p - s).abs() < 1e-12));
 }
 
 #[test]

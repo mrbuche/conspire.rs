@@ -13,6 +13,15 @@ use crate::math::{
 };
 use dual_primal::coarse;
 use interface::Interface;
+use std::thread::{available_parallelism, scope};
+
+/// Below this many subdomains, `dual_reduce` stays on the serial path —
+/// thread-spawn overhead can otherwise exceed the per-subdomain work itself
+/// (the same failure mode found and documented for parallel FEM assembly in
+/// `[[parallel_assembly_plan]]`: "forces ~1ms of work can't pay per-call
+/// spawn"). This threshold is a placeholder, not a benchmarked value — no
+/// real multi-subdomain FETI-DP problem exists yet to tune it against.
+const PARALLEL_THRESHOLD: usize = 4;
 
 #[cfg(feature = "fem")]
 use crate::{
@@ -138,26 +147,62 @@ impl<B> Subdomain<B> {
 fn dual_reduce<B>(
     subdomains: &[Subdomain<B>],
     lambda: &Vector,
-    local_step: impl Fn(&Subdomain<B>, &Vector) -> Vector,
-) -> Vector {
+    local_step: impl Fn(&Subdomain<B>, &Vector) -> Vector + Sync,
+) -> Vector
+where
+    B: Sync,
+{
     let num_multipliers = lambda.len();
-    subdomains
-        .iter()
-        .map(|subdomain| {
-            let rhs = subdomain
-                .interface
-                .apply_transpose(lambda, subdomain.num_local);
-            let local = local_step(subdomain, &rhs);
-            subdomain.interface.apply(&local, num_multipliers)
-        })
-        .fold(Vector::zero(num_multipliers), |sum, contribution| {
-            sum + contribution
-        })
+    // All captures here (`lambda`, `local_step`, `num_multipliers`) are
+    // references or Copy, so this closure is itself Copy — sharing it across
+    // spawned threads below is just copying a handful of references, not
+    // moving anything that can only live in one place.
+    let reduce = |chunk: &[Subdomain<B>]| {
+        chunk
+            .iter()
+            .map(|subdomain| {
+                let rhs = subdomain
+                    .interface
+                    .apply_transpose(lambda, subdomain.num_local);
+                let local = local_step(subdomain, &rhs);
+                subdomain.interface.apply(&local, num_multipliers)
+            })
+            .fold(Vector::zero(num_multipliers), |sum, contribution| {
+                sum + contribution
+            })
+    };
+    if subdomains.len() < PARALLEL_THRESHOLD {
+        return reduce(subdomains);
+    }
+    // Each subdomain's local step is fully independent (no shared mutable
+    // state during the parallel phase), so this is the simple map-then-
+    // reduce case from [[parallel_assembly_plan]] (option 2 there, "per-
+    // thread accumulators + reduction") rather than anything needing
+    // coloring or row-gather — those solve write conflicts scattering into
+    // one shared structure, which doesn't arise here since each thread only
+    // ever produces its own small partial-sum `Vector`.
+    let threads = available_parallelism().map_or(1, |threads| threads.get());
+    let chunk_size = subdomains.len().div_ceil(threads).max(1);
+    let partials: Vec<Vector> = scope(|scope| {
+        subdomains
+            .chunks(chunk_size)
+            .map(|chunk| scope.spawn(move || reduce(chunk)))
+            .collect::<Vec<_>>()
+            .into_iter()
+            .map(|handle| handle.join().expect("subdomain reduction thread panicked"))
+            .collect()
+    });
+    partials
+        .into_iter()
+        .fold(Vector::zero(num_multipliers), |sum, partial| sum + partial)
 }
 
 /// The action of the FETI-DP dual operator `F = sum_s B_s K_dd,s^-1 B_s^T` on
 /// a multiplier vector.
-pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector {
+pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector
+where
+    B: Sync,
+{
     dual_reduce(subdomains, lambda, Subdomain::local_solve)
 }
 
@@ -165,7 +210,10 @@ pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Ve
 /// reduction as `F` but with each subdomain's raw `K_dd,s` in place of its
 /// inverse, trading a weaker convergence bound than the Dirichlet
 /// preconditioner for a local matrix-vector product instead of a local solve.
-fn dual_precondition<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector {
+fn dual_precondition<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector
+where
+    B: Sync,
+{
     dual_reduce(subdomains, lambda, Subdomain::local_apply)
 }
 
@@ -218,7 +266,10 @@ pub(crate) fn dual_operator<B>(
     subdomains: &[Subdomain<B>],
     lambda: &Vector,
     schur: &SquareMatrix,
-) -> Vector {
+) -> Vector
+where
+    B: Sync,
+{
     let num_corner_dofs = schur.len();
     let ct_lambda = coupling_transpose(subdomains, lambda, num_corner_dofs);
     let coarse_solved = coarse::solve(schur, &ct_lambda);
@@ -233,7 +284,10 @@ pub(crate) fn projected_pcg<B>(
     subdomains: &[Subdomain<B>],
     schur: &SquareMatrix,
     rhs: &Vector,
-) -> Result<Vector, KrylovError> {
+) -> Result<Vector, KrylovError>
+where
+    B: Sync,
+{
     Krylov::default().solve_operator(
         |lambda| dual_operator(subdomains, lambda, schur),
         |lambda: &Vector| dual_precondition(subdomains, lambda),
