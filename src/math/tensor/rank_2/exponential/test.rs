@@ -132,7 +132,6 @@ fn expm_nearly_repeated_eigenvalue_matches_a_high_order_taylor_reference()
     Ok(())
 }
 
-/// The exact directional derivative $`\sum_n \frac{1}{n!}\sum_p A^p H A^{n-1-p}`$.
 fn dexpm_taylor_reference(
     a: &TensorRank2<3, Current, Current>,
     direction: &TensorRank2<3, Current, Current>,
@@ -242,7 +241,6 @@ fn dexpm_symmetric_matches_finite_difference_of_expm() -> Result<(), AssertionEr
 
 #[test]
 fn dexpm_repeated_eigenvalue_matches_finite_difference_of_expm() -> Result<(), AssertionError> {
-    // the finite difference itself degrades where the eigenvectors are not unique.
     dexpm_matches_finite_difference(&from_eigenvalues([0.4, 0.4, -0.2]), 1e-3)?;
     dexpm_matches_finite_difference(&from_eigenvalues([0.4, -0.2, -0.2]), 1e-3)
 }
