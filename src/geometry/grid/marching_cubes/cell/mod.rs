@@ -2,6 +2,7 @@
 mod test;
 
 use super::{EDGES_X, EDGES_Y, EDGES_Z, lut::Lut};
+use std::array::from_fn;
 
 const EPSILON: f64 = f64::EPSILON;
 
@@ -52,7 +53,6 @@ impl Cell {
             faces: Vec::new(),
         }
     }
-
     #[expect(clippy::type_complexity)]
     pub(super) fn finish(self) -> (Vec<[f32; 3]>, Vec<[usize; 3]>, Vec<[f32; 3]>, Vec<f32>) {
         let normals = self
@@ -73,12 +73,10 @@ impl Cell {
         let faces = self.faces.as_chunks::<3>().0.to_vec();
         (self.vertices, faces, normals, self.values)
     }
-
     pub(super) fn new_z_value(&mut self) {
         self.layers.swap(0, 1);
         self.layers[1].fill(-1);
     }
-
     pub(super) fn set_cube(
         &mut self,
         isovalue: f64,
@@ -98,7 +96,6 @@ impl Cell {
             .sum();
         self.center = None;
     }
-
     pub(super) fn add_triangles<const N: usize>(
         &mut self,
         lut: &Lut<N>,
@@ -113,8 +110,7 @@ impl Cell {
             }
         }
     }
-
-    pub(super) fn add_triangles2<const N: usize>(
+    pub(super) fn add_triangles_2<const N: usize>(
         &mut self,
         lut: &Lut<N>,
         index: usize,
@@ -129,30 +125,25 @@ impl Cell {
             }
         }
     }
-
     fn add_vertex(&mut self, x: f64, y: f64, z: f64) -> usize {
         self.vertices.push([x as f32, y as f32, z as f32]);
         self.normals.push([0.0; 3]);
         self.values.push(0.0);
         self.vertices.len() - 1
     }
-
     fn add_gradient(&mut self, vertex: usize, gradient: [f32; 3]) {
         (0..3).for_each(|k| self.normals[vertex][k] += gradient[k]);
     }
-
     fn add_gradient_from_index(&mut self, vertex: usize, i: usize, strength: f32) {
         let gradient = self.vg[i].map(|component| (component * f64::from(strength)) as f32);
         self.add_gradient(vertex, gradient);
     }
-
     fn add_face(&mut self, index: usize) {
         self.faces.push(index);
         if self.vmax > f64::from(self.values[index]) {
             self.values[index] = self.vmax as f32;
         }
     }
-
     fn add_face_from_edge(&mut self, edge: usize) {
         let (layer, slot) = self.face_layer_index(edge);
         let existing = self.layers[layer][slot];
@@ -192,7 +183,6 @@ impl Cell {
             self.add_gradient_from_index(vertex, index2, strength2 as f32);
         }
     }
-
     fn face_layer_index(&self, mut edge: usize) -> (usize, usize) {
         let [x, y, _] = self.origin;
         let mut i = self.nx * y + x;
@@ -229,7 +219,6 @@ impl Cell {
         }
         (layer, 4 * i + j)
     }
-
     fn prepare(&mut self) {
         let v = self.v;
         self.vv = [v[0], v[1], v[3], v[2], v[4], v[5], v[7], v[6]];
@@ -254,7 +243,6 @@ impl Cell {
             [v[7] - v[6], v[4] - v[7], v[3] - v[7]],
         ];
     }
-
     fn center_vertex(&mut self) -> ([f64; 3], [f64; 3]) {
         if let Some(center) = self.center {
             return center;
@@ -268,10 +256,9 @@ impl Cell {
         };
         let ff = sum(&|i| strength[i]);
         let step = self.step as f64;
-        let position = std::array::from_fn(|k| {
-            self.origin[k] as f64 + step * sum(&|i| CORNERS[i][k] * strength[i]) / ff
-        });
-        let gradient = std::array::from_fn(|k| sum(&|i| strength[i] * self.vg[i][k]));
+        let position =
+            from_fn(|k| self.origin[k] as f64 + step * sum(&|i| CORNERS[i][k] * strength[i]) / ff);
+        let gradient = from_fn(|k| sum(&|i| strength[i] * self.vg[i][k]));
         self.center = Some((position, gradient));
         (position, gradient)
     }

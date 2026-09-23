@@ -8,6 +8,7 @@ mod tables;
 
 use self::{cell::Cell, tables::*};
 use super::Voxels;
+use std::array::from_fn;
 
 const EDGES_X: [[usize; 2]; 12] = [
     [0, 1],
@@ -209,7 +210,7 @@ impl MarchingCubes {
         let vertices: Vec<[f64; 3]> = vertices
             .iter()
             .map(|vertex| {
-                std::array::from_fn(|axis| {
+                from_fn(|axis| {
                     let coordinate = f64::from(vertex[axis]);
                     if scaled {
                         coordinate * self.spacing[axis]

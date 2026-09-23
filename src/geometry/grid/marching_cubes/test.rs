@@ -1,6 +1,6 @@
 use super::{Gradient, MarchingCubes, Method};
 use crate::geometry::grid::Voxels;
-use std::str::Lines;
+use std::{array::from_fn, str::Lines};
 
 fn f32s(line: &str) -> Vec<f32> {
     line.split_whitespace()
@@ -18,9 +18,6 @@ fn next<'a>(lines: &mut Lines<'a>) -> &'a str {
     lines.next().unwrap()
 }
 
-// fixtures.txt holds scikit-image 0.26.0 `marching_cubes` output for every non-trivial
-// single-cube sign pattern, cubes reaching each Lewiner table branch, and larger volumes
-// exercising step size, spacing, gradient direction, masks and degenerate removal.
 #[test]
 fn matches_scikit_image() {
     let mut lines = include_str!("fixtures.txt").lines();
@@ -31,10 +28,10 @@ fn matches_scikit_image() {
         .unwrap();
     for case in 0..total {
         let header: Vec<&str> = next(&mut lines).split_whitespace().collect();
-        let nel: [usize; 3] = std::array::from_fn(|axis| header[1 + axis].parse().unwrap());
+        let nel: [usize; 3] = from_fn(|axis| header[1 + axis].parse().unwrap());
         let marching = MarchingCubes {
             level: (header[4] != "x").then(|| header[4].parse().unwrap()),
-            spacing: std::array::from_fn(|axis| header[5 + axis].parse().unwrap()),
+            spacing: from_fn(|axis| header[5 + axis].parse().unwrap()),
             gradient: if header[8] == "descent" {
                 Gradient::Descent
             } else {
