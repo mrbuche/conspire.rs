@@ -6,7 +6,6 @@ use std::array::from_fn;
 
 const EPSILON: f64 = f64::EPSILON;
 
-/// A summed normal shorter than this fraction of the contributions to it is rounding noise.
 const NEGLIGIBLE: f64 = 1e-12;
 
 const CORNERS: [[f64; 3]; 8] = [
