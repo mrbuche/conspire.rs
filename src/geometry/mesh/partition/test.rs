@@ -6,6 +6,7 @@ use crate::{
     },
     math::Tensor,
 };
+use std::f64::consts::FRAC_PI_6;
 
 fn blocks(nel: [usize; 3]) -> Mesh<3> {
     Mesh::from_voxels(Voxels::new(vec![1u8; nel.iter().product()], nel), None)
@@ -126,7 +127,7 @@ fn rcb_parts_are_connected_on_blocks() {
 
 #[test]
 fn rib_beats_rcb_on_rotated_slab() {
-    let mesh = rotated(&blocks([32, 8, 1]), std::f64::consts::FRAC_PI_6);
+    let mesh = rotated(&blocks([32, 8, 1]), FRAC_PI_6);
     let coordinate = mesh
         .partition_bisection(8, Bisection::Coordinate)
         .quality(&mesh);
