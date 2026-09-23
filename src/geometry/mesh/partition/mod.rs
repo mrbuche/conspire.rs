@@ -2,7 +2,7 @@
 mod test;
 
 use crate::{geometry::mesh::Mesh, math::Tensor};
-use std::cmp::Ordering;
+use std::{array::from_fn, cmp::Ordering};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Bisection {
@@ -181,7 +181,7 @@ impl<const D: usize> Mesh<D> {
     fn element_points(&self) -> Vec<[f64; D]> {
         self.centroids()
             .iter()
-            .map(|centroid| std::array::from_fn(|axis| centroid[axis].value()))
+            .map(|centroid| from_fn(|axis| centroid[axis].value()))
             .collect()
     }
     fn element_nodes(&self) -> impl Iterator<Item = Vec<usize>> {
@@ -264,12 +264,12 @@ fn widest_axis<const D: usize>(elements: &[usize], points: &[[f64; D]]) -> [f64;
             best
         }
     });
-    std::array::from_fn(|index| if index == widest { 1.0 } else { 0.0 })
+    from_fn(|index| if index == widest { 1.0 } else { 0.0 })
 }
 
 fn principal_axis<const D: usize>(elements: &[usize], points: &[[f64; D]]) -> [f64; D] {
     let count = elements.len() as f64;
-    let mean: [f64; D] = std::array::from_fn(|axis| {
+    let mean: [f64; D] = from_fn(|axis| {
         elements
             .iter()
             .map(|&element| points[element][axis])
@@ -285,16 +285,16 @@ fn principal_axis<const D: usize>(elements: &[usize], points: &[[f64; D]]) -> [f
             })
         })
     });
-    let mut direction: [f64; D] = std::array::from_fn(|axis| 1.0 + 0.1 * axis as f64);
+    let mut direction: [f64; D] = from_fn(|axis| 1.0 + 0.1 * axis as f64);
     (0..64).for_each(|_| {
-        let next: [f64; D] = std::array::from_fn(|row| {
+        let next: [f64; D] = from_fn(|row| {
             (0..D)
                 .map(|column| covariance[row][column] * direction[column])
                 .sum()
         });
         let norm = next.iter().map(|x| x * x).sum::<f64>().sqrt();
         if norm > 0.0 {
-            direction = std::array::from_fn(|axis| next[axis] / norm);
+            direction = from_fn(|axis| next[axis] / norm);
         }
     });
     if direction.iter().all(|x| x.is_finite()) && direction.iter().any(|&x| x != 0.0) {
