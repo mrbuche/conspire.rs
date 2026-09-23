@@ -20,8 +20,6 @@ use crate::{
     units::{Stress, Time},
 };
 
-/// `FirstOrderRoot::root` with the default (condensed) strategy, for tests that
-/// don't care which strategy is used.
 fn root(
     model: &Canonical<NeoHookean, PlasticFlow>,
     applied_load: AppliedLoad,
@@ -55,8 +53,6 @@ fn model(hardening_slope: f64) -> Canonical<NeoHookean, PlasticFlow> {
     ))
 }
 
-// saturates within a few percent plastic strain, so the hardening modulus changes a lot
-// over a step
 fn voce_model() -> Canonical<NeoHookean, VoceFlow> {
     Canonical::from((
         NeoHookean {
@@ -74,8 +70,6 @@ fn voce_model() -> Canonical<NeoHookean, VoceFlow> {
 
 #[test]
 fn a_composed_model_forwards_the_hardening_law() -> Result<(), AssertionError> {
-    // a wrapper that forwarded only the initial yield stress and slope would silently
-    // fall back to the linear default
     let model = voce_model();
     for strain in [0.0, 0.01, 0.05, 0.4] {
         let strain = Quantity::new(strain);
@@ -252,8 +246,6 @@ fn contract(
 #[test]
 fn consistent_tangent_keeps_the_outer_solve_within_a_tight_step_cap() -> Result<(), AssertionError>
 {
-    // Coarse steps, so a degraded tangent shows up in the iteration count: three
-    // iterations per step is not enough even with the exact tangent.
     let model = model(1.0);
     let solver = NewtonRaphson {
         max_steps: 4,
@@ -275,7 +267,6 @@ fn monolithic_strategies_agree_with_each_other() -> Result<(), AssertionError> {
     };
     let model = model(1.0);
     let steps = times(0.5, 40);
-    // Condensed is the reference: it converges the local block before every outer step.
     let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
         &model,
         AppliedLoad::UniaxialStress(ramp, &steps),
@@ -317,19 +308,11 @@ fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
     use crate::{
         constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
     };
-    // A wrong K_uv / K_vu still converges to the same root, just slower, so the
-    // agreement test above cannot catch a bad coupling block. This one can: with the
-    // correct blocks the Schur-eliminated Newton clears each step in six iterations;
-    // zeroing a coupling block blows the cap. The dN/dF term does not change the count
-    // on this proportional path (the flow direction barely moves along it) -- the
-    // finite-difference test above is what guards that term.
     let model = model(1.0);
     let solver = NewtonRaphson {
         max_steps: 6,
         ..Default::default()
     };
-    // Coarse steps (large plastic increments, cold local start) so the coupling-block
-    // quality actually shows up in the iteration count.
     let (_, _, states) = FirstOrderRoot::root(
         &model,
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)),
@@ -358,7 +341,6 @@ fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
     let (_, consistent, updated) = model.condensed(&deformation_gradient, &previous_state)?;
     let continuum =
         model.first_piola_kirchhoff_tangent_stiffness(&deformation_gradient, &updated.0)?;
-    // the return-mapped state the tangent is taken at
     Assert::default().eq_within_tols(
         updated.1,
         &model.return_map(&deformation_gradient, &previous_state)?.1,
@@ -369,8 +351,6 @@ fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
         DeformationGradient::from([[0.0, 0.4, 0.0], [0.3, 0.0, 0.0], [0.0, 0.0, 0.0]]),
         DeformationGradient::from([[0.2, 0.1, -0.15], [0.1, -0.3, 0.05], [-0.15, 0.05, 0.25]]),
     ];
-    // The analytic tangent carries the radial-return dN/dF term, so it is exact and
-    // only the finite-difference truncation separates it from the difference quotient.
     let mut continuum_departs = false;
     for direction in &directions {
         let mut plus = deformation_gradient.clone();
@@ -402,8 +382,6 @@ fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
             continuum_departs = true;
         }
     }
-    // guard against a vacuous test: the plastic-corrector term must be non-negligible,
-    // so the continuum (fixed-plastic-state) tangent must NOT also match the difference.
     assert!(
         continuum_departs,
         "continuum tangent matched the finite difference; test is not exercising plasticity"
@@ -423,14 +401,12 @@ fn assert_implicit_step<M: ElasticPlastic>(
     let plastic_multiplier = (strain - previous_strain).value();
     assert!(plastic_multiplier > 0.0, "the step must be plastic");
     let deviatoric = model.mandel_stress(deformation_gradient, f_p)?.deviatoric();
-    // the yield condition holds at the end of the step
     Assert {
         abs_tol: 1e-9,
         rel_tol: 1e-9,
         ..Default::default()
     }
     .eq_within_tols(model.yield_function(&deviatoric, strain)?.value(), &0.0)?;
-    // and the flow direction is the end-of-step one, not the trial one
     let direction = {
         let direction = model.flow_direction(&deviatoric)?;
         (&direction + direction.transpose()) * 0.5
@@ -481,8 +457,6 @@ fn monolithic_blocks_match_finite_difference_at_a_plastic_state() -> Result<(), 
     );
     let deformation_gradient =
         DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]);
-    // a symmetric, trace-free plastic increment and a multiplier that puts the trial
-    // state off the yield surface, so the complementarity function is smooth here
     let mut local = Vector::zero(SIZE);
     [0.02, 0.01, 0.005, 0.01, -0.03, 0.0, 0.005, 0.0, 0.01, 0.04]
         .iter()
@@ -574,7 +548,6 @@ fn monolithic_blocks_match_finite_difference_at_a_plastic_state() -> Result<(), 
             );
         }
     }
-    // guard against a vacuous comparison: the coupling blocks must be non-negligible
     assert!(coupling_u > 1e-2 && coupling_v > 1e-2);
     Ok(())
 }
@@ -597,9 +570,6 @@ fn assert_strategies_agree_under_biaxial_loading<M: ElasticPlastic>(
         constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
     };
     let steps = times(0.5, 40);
-    // F_11 and F_22 follow different histories, so the plastic flow direction rotates
-    // and a direction frozen at the start of the step would no longer be the converged
-    // step's own.
     let load = || {
         AppliedLoad::BiaxialStress(
             ramp,
