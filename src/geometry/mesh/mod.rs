@@ -7,6 +7,7 @@ mod connectivity;
 pub(crate) mod differential;
 mod from;
 mod into;
+mod partition;
 mod quality;
 mod read;
 mod remesh;
@@ -24,6 +25,7 @@ pub use self::{
         primitive::PrimitiveConnectivity,
     },
     differential::laplace::Weighting,
+    partition::{Bisection, PartitionQuality},
     quality::metrics::Verdict,
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
