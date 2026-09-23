@@ -13,6 +13,7 @@ use crate::math::{
 };
 use dual_primal::coarse;
 use interface::Interface;
+use std::collections::HashSet;
 use std::thread::{available_parallelism, scope};
 
 /// Below this many subdomains, `dual_reduce` stays on the serial path —
@@ -55,6 +56,16 @@ pub(crate) struct Subdomain<B> {
     /// Each local primal DOF's position in the global corner-DOF vector,
     /// parallel to `primal_dofs`.
     primal_global: Vec<usize>,
+    /// The subset of `dual_dofs` that actually carry a Lagrange multiplier
+    /// (this subdomain's boundary/Γ dofs) — raw local positions, ordered to
+    /// match `dirichlet_schur`'s rows/columns.
+    boundary_dofs: Vec<usize>,
+    /// The Dirichlet preconditioner's local contribution,
+    /// `S_GammaGamma,s = K_GammaGamma,s - K_Gamma-i,s K_ii,s^-1 K_i-Gamma,s`
+    /// — the Schur complement of this subdomain's interior (non-interface)
+    /// dual dofs, computed once via the same static condensation `condense()`
+    /// uses for corners.
+    dirichlet_schur: SquareMatrix,
 }
 
 impl<B> Subdomain<B> {
@@ -69,6 +80,8 @@ impl<B> Subdomain<B> {
         dual_map: Matrix,
         primal_dofs: Vec<usize>,
         primal_global: Vec<usize>,
+        boundary_dofs: Vec<usize>,
+        dirichlet_schur: SquareMatrix,
     ) -> Self {
         Self {
             blocks,
@@ -80,6 +93,8 @@ impl<B> Subdomain<B> {
             dual_map,
             primal_dofs,
             primal_global,
+            boundary_dofs,
+            dirichlet_schur,
         }
     }
     pub(crate) fn blocks(&self) -> &B {
@@ -119,6 +134,33 @@ impl<B> Subdomain<B> {
     fn local_apply(&self, rhs: &Vector) -> Vector {
         let applied = self.dual_stiffness.clone() * self.dual_rhs(rhs);
         self.scatter_dual(&applied)
+    }
+    /// Restricts a full-local vector to this subdomain's boundary (Γ) dofs.
+    fn boundary_rhs(&self, full_local: &Vector) -> Vector {
+        self.boundary_dofs
+            .iter()
+            .map(|&dof| full_local[dof])
+            .collect()
+    }
+    /// Scatters a boundary-dof vector back to its raw positions in the
+    /// subdomain's full local numbering, leaving every other position zero.
+    fn scatter_boundary(&self, boundary_vector: &Vector) -> Vector {
+        let mut local = Vector::zero(self.num_local);
+        self.boundary_dofs
+            .iter()
+            .zip(boundary_vector.iter())
+            .for_each(|(&dof, &value)| local[dof] = value);
+        local
+    }
+    /// Applies the Dirichlet preconditioner's local contribution `S_GammaGamma`
+    /// (no solve, `dirichlet_schur` is precomputed) to `rhs`'s boundary-
+    /// restricted part — the local step the Dirichlet preconditioner uses in
+    /// place of `local_apply`'s raw `K_dd`, giving the theoretically optimal
+    /// (near mesh-independent) condition number bound at the cost of the one
+    /// extra local Schur complement computed once up front.
+    fn local_dirichlet_apply(&self, rhs: &Vector) -> Vector {
+        let applied = self.dirichlet_schur.clone() * self.boundary_rhs(rhs);
+        self.scatter_boundary(&applied)
     }
     /// Scatters a primal (corner)-DOF vector back to its raw positions in
     /// the subdomain's full local numbering, leaving dual positions zero.
@@ -215,6 +257,62 @@ where
     B: Sync,
 {
     dual_reduce(subdomains, lambda, Subdomain::local_apply)
+}
+
+/// The Dirichlet FETI-DP preconditioner, `sum_s B_Gamma,s S_GammaGamma,s
+/// B_Gamma,s^T` — the theoretically optimal (near mesh-independent) choice,
+/// trading `dual_precondition`'s cheap local matvec for one extra local
+/// Schur complement per subdomain (precomputed once, in `dirichlet_local`,
+/// not per PCG iteration).
+#[allow(dead_code)]
+fn dual_precondition_dirichlet<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector
+where
+    B: Sync,
+{
+    dual_reduce(subdomains, lambda, Subdomain::local_dirichlet_apply)
+}
+
+/// Splits a subdomain's dual dofs into interior (never touched by a
+/// multiplier) and boundary/Γ (touched by at least one), then eliminates the
+/// interior dofs via the same static condensation `condense()` uses for
+/// corners — reusing that ~60-line algorithm rather than duplicating it,
+/// since both are "keep this subset, eliminate the rest" on the same local
+/// stiffness. Interior-interior is a principal submatrix of the (SPD, once
+/// corners are condensed out) `K_dd,s`, hence always itself non-singular, so
+/// this elimination can't fail the way `condense()`'s corner elimination
+/// could on a floating subdomain.
+fn dirichlet_local(
+    local_stiffness: &SquareMatrix,
+    dual_dofs: &[usize],
+    interface_dofs: &[usize],
+) -> (Vec<usize>, SquareMatrix) {
+    let on_interface: HashSet<usize> = interface_dofs.iter().copied().collect();
+    let boundary: Vec<usize> = dual_dofs
+        .iter()
+        .copied()
+        .filter(|dof| on_interface.contains(dof))
+        .collect();
+    let interior: Vec<usize> = dual_dofs
+        .iter()
+        .copied()
+        .filter(|dof| !on_interface.contains(dof))
+        .collect();
+    if interior.is_empty() {
+        let schur = boundary
+            .iter()
+            .map(|&row| {
+                boundary
+                    .iter()
+                    .map(|&column| local_stiffness[row][column])
+                    .collect()
+            })
+            .collect();
+        return (boundary, schur);
+    }
+    let zero_force = Vector::zero(local_stiffness.len());
+    let condensed =
+        dual_primal::condense::condense(local_stiffness, &zero_force, &boundary, &interior);
+    (boundary, condensed.schur)
 }
 
 /// `C^T . lambda`, scattered into the global corner-DOF vector, where
@@ -410,7 +508,9 @@ where
         .iter()
         .zip(local_forces.iter())
         .zip(splits.iter())
-        .map(|((stiffness, force), split)| dual_primal::condense::condense(stiffness, force, split))
+        .map(|((stiffness, force), split)| {
+            dual_primal::condense::condense(stiffness, force, split.primal(), split.dual())
+        })
         .collect();
     let (schur, reduced_force) = coarse::assemble(&condensed, &splits, &corner_dofs);
     let subdomains: Vec<Subdomain<()>> = interfaces
@@ -428,6 +528,8 @@ where
             let dual_factor = dual_stiffness
                 .factorize_lu()
                 .expect("K_dd is singular, but corners should make every subdomain non-singular");
+            let (boundary_dofs, dirichlet_schur) =
+                dirichlet_local(stiffness, &dual_dofs, interface.dofs());
             Subdomain::new(
                 (),
                 interface,
@@ -438,6 +540,8 @@ where
                 condensed.dual_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
+                boundary_dofs,
+                dirichlet_schur,
             )
         })
         .collect();

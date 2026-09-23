@@ -1,5 +1,6 @@
 use super::{
-    Subdomain, dual_action, dual_operator, dual_precondition, primal_recovery, projected_pcg,
+    Subdomain, dirichlet_local, dual_action, dual_operator, dual_precondition,
+    dual_precondition_dirichlet, primal_recovery, projected_pcg,
 };
 use crate::domain::block::feti::{
     dual_primal::{
@@ -40,7 +41,7 @@ fn setup() -> Setup {
     let condensed: Vec<Condensed> = splits
         .iter()
         .zip(stiffnesses.iter())
-        .map(|(split, stiffness)| condense(stiffness, &zero_force, split))
+        .map(|(split, stiffness)| condense(stiffness, &zero_force, split.primal(), split.dual()))
         .collect();
     let (schur, _) = coarse::assemble(&condensed, &splits, &corner_dofs);
     let subdomains = interfaces
@@ -55,6 +56,8 @@ fn setup() -> Setup {
                 .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
                 .collect();
             let dual_factor = k_dd.factorize_lu().unwrap();
+            let (boundary_dofs, dirichlet_schur) =
+                dirichlet_local(stiffness, &dual_dofs, interface.dofs());
             Subdomain::new(
                 (),
                 interface,
@@ -65,6 +68,8 @@ fn setup() -> Setup {
                 condensed.dual_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
+                boundary_dofs,
+                dirichlet_schur,
             )
         })
         .collect();
@@ -95,7 +100,7 @@ fn chain_setup(count: usize) -> Setup {
     let condensed: Vec<Condensed> = splits
         .iter()
         .zip(stiffnesses.iter())
-        .map(|(split, stiffness)| condense(stiffness, &zero_force, split))
+        .map(|(split, stiffness)| condense(stiffness, &zero_force, split.primal(), split.dual()))
         .collect();
     let (schur, _) = coarse::assemble(&condensed, &splits, &corner_dofs);
     let subdomains = interfaces
@@ -110,6 +115,8 @@ fn chain_setup(count: usize) -> Setup {
                 .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
                 .collect();
             let dual_factor = k_dd.factorize_lu().unwrap();
+            let (boundary_dofs, dirichlet_schur) =
+                dirichlet_local(stiffness, &dual_dofs, interface.dofs());
             Subdomain::new(
                 (),
                 interface,
@@ -120,6 +127,8 @@ fn chain_setup(count: usize) -> Setup {
                 condensed.dual_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
+                boundary_dofs,
+                dirichlet_schur,
             )
         })
         .collect();
@@ -194,6 +203,37 @@ fn lumped_preconditioner_matches_the_hand_derived_operator() {
     let preconditioned = dual_precondition(&setup.subdomains, &lambda);
     // sum_s B_s K_dd,s B_s^T . 1 = K_dd,0 + K_dd,1 = 3 + 4 = 7.
     assert!((preconditioned[0] - 7.0).abs() < 1e-12);
+}
+
+/// Independent hand-derived check of `dirichlet_local`'s classification and
+/// Schur complement, on a 3-dof local stiffness reused from
+/// `condense`'s own hand-derived test — dual dofs {1, 2}, but only dof 1 is
+/// declared on the interface here, so dof 2 is interior and gets eliminated:
+/// S_GammaGamma = K_11 - K_12 . K_22^-1 . K_21 = 4 - 1*(1/4)*1 = 3.75.
+#[test]
+fn dirichlet_local_splits_interior_and_boundary_and_computes_the_schur_complement() {
+    let stiffness: SquareMatrix = [[4.0, 1.0, 0.0], [1.0, 4.0, 1.0], [0.0, 1.0, 4.0]]
+        .into_iter()
+        .map(|row| row.into_iter().collect())
+        .collect();
+    let dual_dofs = vec![1, 2];
+    let interface_dofs = vec![1];
+    let (boundary_dofs, schur) = dirichlet_local(&stiffness, &dual_dofs, &interface_dofs);
+    assert_eq!(boundary_dofs, vec![1]);
+    assert!((schur[0][0] - 3.75).abs() < 1e-12);
+}
+
+/// `setup()`'s subdomains each have exactly one dual dof, and it's always on
+/// the interface (no interior dof to eliminate) — so `S_GammaGamma = K_dd`
+/// exactly and the Dirichlet preconditioner must coincide with the lumped
+/// one here, even though the two are generally different reductions.
+#[test]
+fn dirichlet_preconditioner_matches_lumped_when_every_dual_dof_is_on_the_interface() {
+    let setup = setup();
+    let lambda: Vector = [1.0].into_iter().collect();
+    let lumped = dual_precondition(&setup.subdomains, &lambda);
+    let dirichlet = dual_precondition_dirichlet(&setup.subdomains, &lambda);
+    assert!((dirichlet[0] - lumped[0]).abs() < 1e-12);
 }
 
 #[test]

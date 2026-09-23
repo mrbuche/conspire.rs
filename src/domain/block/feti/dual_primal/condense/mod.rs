@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod test;
 
-use super::DualPrimalSplit;
 use crate::math::{Matrix, Scalar, SquareMatrix, Vector};
 
 pub(crate) struct Condensed {
@@ -37,10 +36,9 @@ fn extract_rectangular(source: &SquareMatrix, rows: &[usize], columns: &[usize])
 pub(crate) fn condense(
     local_stiffness: &SquareMatrix,
     local_force: &Vector,
-    split: &DualPrimalSplit,
+    primal: &[usize],
+    dual: &[usize],
 ) -> Condensed {
-    let primal = split.primal();
-    let dual = split.dual();
     let k_pp = extract_square(local_stiffness, primal);
     let k_pd = extract_rectangular(local_stiffness, primal, dual);
     let k_dp = extract_rectangular(local_stiffness, dual, primal);
