@@ -55,6 +55,8 @@ where
                 value: None,
             }],
             paired: Pairing::None,
+            pairing_vertices: Default::default(),
+            pairing_stable_len: Default::default(),
             rescale: Rescaling {
                 center: Coordinate::const_from([half; D]),
                 cell: Quantity::new(1.0),
