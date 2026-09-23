@@ -7,8 +7,9 @@ use crate::domain::block::feti::{
         BoundaryConditions, CornerSelection, build_splits, coarse,
         condense::{Condensed, condense},
     },
-    interface::{Partition, build_interfaces},
+    interface::build_interfaces,
 };
+use crate::geometry::mesh::Partition;
 use crate::math::{SquareMatrix, Tensor, Vector};
 
 fn stiffness(entries: [[f64; 2]; 2]) -> SquareMatrix {
@@ -29,7 +30,7 @@ struct Setup {
 /// 2x2, not a degenerate rank-1 bar — a rank-1 bar's corner Schur complement
 /// vanishes identically, which would make the coarse problem singular.
 fn setup() -> Setup {
-    let partition = Partition::new(vec![vec![99, 50], vec![99, 50]]);
+    let partition = Partition::from_parts_nodes(vec![vec![99, 50], vec![99, 50]]);
     let corners = CornerSelection::new(vec![99]);
     let (interfaces, num_multipliers) = build_interfaces(&partition, &corners, 1);
     let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
@@ -89,7 +90,7 @@ fn setup() -> Setup {
 /// stiffness per subdomain (as in `setup()`, avoiding the degenerate
 /// corner-Schur-vanishes case a plain bar would hit).
 fn chain_setup(count: usize) -> Setup {
-    let partition = Partition::new((0..count).map(|i| vec![i, i + 1]).collect());
+    let partition = Partition::from_parts_nodes((0..count).map(|i| vec![i, i + 1]).collect());
     let corners = CornerSelection::new((0..=count).step_by(2).collect());
     let (interfaces, num_multipliers) = build_interfaces(&partition, &corners, 1);
     let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
@@ -271,11 +272,12 @@ mod solve_test {
             AlmansiHamelEulerian,
             test::{BULK_MODULUS, SHEAR_MODULUS},
         },
-        domain::block::feti::{dual_primal::BoundaryConditions, interface::Partition},
+        domain::block::feti::dual_primal::BoundaryConditions,
         fem::{
             NodalCoordinates, NodalReferenceCoordinates,
             block::{Block, element::linear::Tetrahedron},
         },
+        geometry::mesh::Partition,
         math::Tensor,
     };
 
@@ -319,7 +321,7 @@ mod solve_test {
     }
 
     fn partition() -> Partition {
-        Partition::new(vec![vec![0, 1, 2, 3], vec![1, 2, 3, 4], vec![1, 2, 3, 5]])
+        Partition::from_parts_nodes(vec![vec![0, 1, 2, 3], vec![1, 2, 3, 4], vec![1, 2, 3, 5]])
     }
 
     /// A free-floating assembly with no Dirichlet boundary condition has

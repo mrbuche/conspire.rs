@@ -2,24 +2,11 @@
 mod test;
 
 use super::dual_primal::CornerSelection;
-use crate::math::{Scalar, Vector};
+use crate::{
+    geometry::mesh::Partition,
+    math::{Scalar, Vector},
+};
 use std::collections::HashMap;
-
-pub(crate) struct Partition {
-    subdomains_nodes: Vec<Vec<usize>>,
-}
-
-impl Partition {
-    pub(crate) fn new(subdomains_nodes: Vec<Vec<usize>>) -> Self {
-        Self { subdomains_nodes }
-    }
-    pub(crate) fn subdomains_nodes(&self) -> &[Vec<usize>] {
-        &self.subdomains_nodes
-    }
-    pub(crate) fn num_subdomains(&self) -> usize {
-        self.subdomains_nodes.len()
-    }
-}
 
 pub(crate) struct Interface {
     multipliers: Vec<usize>,
@@ -65,10 +52,10 @@ pub(crate) fn build_interfaces(
     corners: &CornerSelection,
     dimension: usize,
 ) -> (Vec<Interface>, usize) {
-    let num_subdomains = partition.num_subdomains();
+    let num_subdomains = partition.number_of_parts();
     let mut node_occurrences: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
     partition
-        .subdomains_nodes()
+        .parts_nodes()
         .iter()
         .enumerate()
         .for_each(|(subdomain, nodes)| {

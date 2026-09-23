@@ -3,7 +3,7 @@ pub(crate) mod condense;
 #[cfg(test)]
 mod test;
 
-use super::interface::Partition;
+use crate::geometry::mesh::Partition;
 use std::collections::{HashMap, HashSet};
 
 /// Which (global node, component) pairs are prescribed rather than free.
@@ -48,7 +48,7 @@ impl CornerSelection {
     /// on the dual (Lagrange-multiplier) interface.
     pub(crate) fn from_partition(partition: &Partition) -> Self {
         let mut counts: HashMap<usize, usize> = HashMap::new();
-        partition.subdomains_nodes().iter().for_each(|nodes| {
+        partition.parts_nodes().iter().for_each(|nodes| {
             nodes.iter().for_each(|&node| {
                 *counts.entry(node).or_insert(0) += 1;
             })
@@ -176,7 +176,7 @@ pub(crate) fn build_splits(
 ) -> (Vec<DualPrimalSplit>, CornerDofs) {
     let corner_dofs = CornerDofs::new(corners, boundary_conditions, dimension);
     let splits = partition
-        .subdomains_nodes()
+        .parts_nodes()
         .iter()
         .map(|nodes| {
             DualPrimalSplit::from_subdomain_nodes(

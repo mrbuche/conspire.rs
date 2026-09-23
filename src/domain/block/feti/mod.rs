@@ -497,7 +497,7 @@ impl From<KrylovError> for SolveError {
 pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
     block: &Block<C, F, G, M, N, P>,
     nodal_coordinates: &NodalCoordinates<3>,
-    partition: &interface::Partition,
+    partition: &crate::geometry::mesh::Partition,
     boundary_conditions: &dual_primal::BoundaryConditions,
     dimension: usize,
 ) -> Result<Vector, SolveError>
@@ -509,7 +509,7 @@ where
     let (interfaces, num_multipliers) = interface::build_interfaces(partition, &corners, dimension);
     let (splits, corner_dofs) =
         dual_primal::build_splits(partition, &corners, boundary_conditions, dimension);
-    let subdomain_nodes = partition.subdomains_nodes();
+    let subdomain_nodes = partition.parts_nodes();
     let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = subdomain_nodes
         .iter()
         .map(|nodes| assemble::local_stiffness_and_force(block, nodal_coordinates, nodes))

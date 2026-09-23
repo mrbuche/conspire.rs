@@ -1,23 +1,23 @@
 use super::{BoundaryConditions, CornerSelection, build_splits};
-use crate::domain::block::feti::interface::Partition;
+use crate::geometry::mesh::Partition;
 
 #[test]
 fn three_subdomains_share_one_corner() {
-    let partition = Partition::new(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
+    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
     let corners = CornerSelection::from_partition(&partition);
     assert_eq!(corners.nodes(), &[2]);
 }
 
 #[test]
 fn two_subdomains_share_no_corner() {
-    let partition = Partition::new(vec![vec![0, 1, 2], vec![2, 3, 4]]);
+    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
     let corners = CornerSelection::from_partition(&partition);
     assert!(corners.nodes().is_empty());
 }
 
 #[test]
 fn split_separates_primal_and_dual_dofs() {
-    let partition = Partition::new(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
+    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
     let corners = CornerSelection::from_partition(&partition);
     let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 3);
     assert_eq!(corner_dofs.count(), 3);
@@ -31,7 +31,7 @@ fn split_separates_primal_and_dual_dofs() {
 
 #[test]
 fn a_fixed_dof_is_excluded_from_both_primal_and_dual() {
-    let partition = Partition::new(vec![vec![0, 1, 2], vec![2, 3, 4]]);
+    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
     let corners = CornerSelection::from_partition(&partition);
     // No automatic corners here (only 2 subdomains share node 2), but node 0
     // component 1 is pinned externally.
@@ -47,7 +47,7 @@ fn a_fixed_dof_is_excluded_from_both_primal_and_dual() {
 
 #[test]
 fn a_boundary_condition_on_a_corner_component_shrinks_the_coarse_problem() {
-    let partition = Partition::new(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
+    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4], vec![2, 5, 6]]);
     let corners = CornerSelection::from_partition(&partition);
     assert_eq!(corners.nodes(), &[2]);
     // Node 2 is the only corner (3 free components, dimension 3). Pinning
