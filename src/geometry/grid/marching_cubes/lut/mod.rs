@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 pub(super) struct Lut<const N: usize> {
     pub(super) l1: usize,
     pub(super) l2: usize,

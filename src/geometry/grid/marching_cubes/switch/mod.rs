@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use super::{cell::Cell, tables::*};
 
 const EPSILON: f64 = f64::EPSILON;

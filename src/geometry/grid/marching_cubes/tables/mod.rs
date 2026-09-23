@@ -1,5 +1,5 @@
-// Generated from scikit-image 0.26.0 `_marching_cubes_lewiner_luts.py` (BSD-3-Clause), itself generated from
-// the reference implementation of Lewiner, Lopes, Vieira and Tavares (2003). Do not edit by hand.
+#[cfg(test)]
+mod test;
 
 use super::lut::Lut;
 
