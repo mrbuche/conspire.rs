@@ -33,7 +33,7 @@ fn isosurface_faces_outward() {
     let data = (0..216)
         .map(|i| {
             let [z, y, x] = [i / 36, i / 6 % 6, i % 6];
-            f32::from(u8::from(
+            f64::from(u8::from(
                 (2..4).contains(&z) && (2..4).contains(&y) && (2..4).contains(&x),
             ))
         })

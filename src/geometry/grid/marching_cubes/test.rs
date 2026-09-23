@@ -1,5 +1,8 @@
 use super::{Gradient, MarchingCubes, Method};
-use crate::geometry::grid::Voxels;
+use crate::{
+    geometry::{Coordinate, grid::Voxels},
+    math::Tensor,
+};
 use std::{array::from_fn, str::Lines};
 
 fn f32s(line: &str) -> Vec<f32> {
@@ -31,7 +34,7 @@ fn matches_scikit_image() {
         let nel: [usize; 3] = from_fn(|axis| header[1 + axis].parse().unwrap());
         let marching = MarchingCubes {
             level: (header[4] != "x").then(|| header[4].parse().unwrap()),
-            spacing: from_fn(|axis| header[5 + axis].parse().unwrap()),
+            spacing: Coordinate::const_from(from_fn(|axis| header[5 + axis].parse().unwrap())),
             gradient: if header[8] == "descent" {
                 Gradient::Descent
             } else {
@@ -45,7 +48,10 @@ fn matches_scikit_image() {
                 Method::Lorensen
             },
         };
-        let volume = Voxels::new_row_major(f32s(next(&mut lines)), nel);
+        let volume = Voxels::new_row_major(
+            f32s(next(&mut lines)).into_iter().map(f64::from).collect(),
+            nel,
+        );
         let mask = (header[12] == "1").then(|| {
             let flags = next(&mut lines)
                 .split_whitespace()
@@ -58,7 +64,7 @@ fn matches_scikit_image() {
             .skip(1)
             .map(|token| token.parse().unwrap())
             .collect();
-        let vertices = if marching.spacing == [1.0; 3] {
+        let vertices = if header[5..8].iter().all(|&token| token == "1.0") {
             f32s(next(&mut lines)).into_iter().map(f64::from).collect()
         } else {
             f64s(next(&mut lines))
@@ -67,8 +73,8 @@ fn matches_scikit_image() {
             .split_whitespace()
             .map(|token| token.parse().unwrap())
             .collect();
-        let normals = f32s(next(&mut lines));
-        let values = f32s(next(&mut lines));
+        let normals: Vec<f64> = f32s(next(&mut lines)).into_iter().map(f64::from).collect();
+        let values: Vec<f64> = f32s(next(&mut lines)).into_iter().map(f64::from).collect();
         let surface = marching.extract(&volume, mask.as_ref()).unwrap();
         assert_eq!(
             surface.vertices.len(),
@@ -76,26 +82,35 @@ fn matches_scikit_image() {
             "case {case} vertex count"
         );
         assert_eq!(surface.faces.len(), counts[1], "case {case} face count");
-        let bits = |a: &[f64]| a.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
-        assert_eq!(
-            bits(&surface.vertices.concat()),
-            bits(&vertices),
-            "case {case} vertices"
-        );
         assert_eq!(surface.faces.concat(), faces, "case {case} faces");
-        let bits = |a: &[f32]| a.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
-        assert_eq!(
-            bits(&surface.normals.concat()),
-            bits(&normals),
-            "case {case} normals"
-        );
-        assert_eq!(bits(&surface.values), bits(&values), "case {case} values");
+        let close = |name: &str, found: Vec<f64>, expected: &[f64], tolerance: f64| {
+            assert_eq!(found.len(), expected.len(), "case {case} {name}");
+            found.iter().zip(expected).for_each(|(a, b)| {
+                assert!(
+                    (a - b).abs() <= tolerance * (1.0 + b.abs()),
+                    "case {case} {name}: {a} vs {b}"
+                )
+            });
+        };
+        let vertex_values = surface
+            .vertices
+            .iter()
+            .flat_map(|point| (0..3).map(|axis| point[axis].value()))
+            .collect();
+        let normal_values = surface
+            .normals
+            .iter()
+            .flat_map(|normal| (0..3).map(|axis| normal[axis].value()))
+            .collect();
+        close("vertices", vertex_values, &vertices, 1e-6);
+        close("normals", normal_values, &normals, 1e-5);
+        close("values", surface.values, &values, 1e-6);
     }
 }
 
-fn ramp(nel: [usize; 3]) -> Voxels<f32> {
+fn ramp(nel: [usize; 3]) -> Voxels<f64> {
     let data = (0..nel.iter().product::<usize>())
-        .map(|i| (i % nel[2]) as f32)
+        .map(|i| (i % nel[2]) as f64)
         .collect();
     Voxels::new_row_major(data, nel)
 }

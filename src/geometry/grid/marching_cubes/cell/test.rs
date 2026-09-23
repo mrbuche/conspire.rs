@@ -1,6 +1,6 @@
 use super::Cell;
 
-fn cell_with(corners: [f32; 8]) -> Cell {
+fn cell_with(corners: [f64; 8]) -> Cell {
     let mut cell = Cell::new(4, 4);
     cell.set_cube(0.0, [1, 2, 0], 1, corners);
     cell
@@ -55,7 +55,23 @@ fn normals_are_unit_length_and_zero_stays_zero() {
     cell.add_vertex(1.0, 1.0, 1.0);
     cell.add_gradient(first, [3.0, 0.0, 4.0]);
     let (_, _, normals, _) = cell.finish();
-    assert_eq!(normals, vec![[0.6, 0.0, 0.8], [0.0; 3]]);
+    assert!(
+        normals[0]
+            .iter()
+            .zip([0.6, 0.0, 0.8])
+            .all(|(a, b)| (a - b).abs() < 1e-15)
+    );
+    assert_eq!(normals[1], [0.0; 3]);
+}
+
+#[test]
+fn a_normal_that_cancels_to_rounding_noise_is_zero() {
+    let mut cell = Cell::new(2, 2);
+    let vertex = cell.add_vertex(0.0, 0.0, 0.0);
+    cell.add_gradient(vertex, [1.0e15, 2.0e15, 3.0e15]);
+    cell.add_gradient(vertex, [-1.0e15, -2.0e15, -3.0e15 + 0.5]);
+    let (_, _, normals, _) = cell.finish();
+    assert_eq!(normals, vec![[0.0; 3]]);
 }
 
 #[test]

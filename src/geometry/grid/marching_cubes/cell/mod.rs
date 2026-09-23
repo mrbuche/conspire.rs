@@ -6,6 +6,9 @@ use std::array::from_fn;
 
 const EPSILON: f64 = f64::EPSILON;
 
+/// A summed normal shorter than this fraction of the contributions to it is rounding noise.
+const NEGLIGIBLE: f64 = 1e-12;
+
 const CORNERS: [[f64; 3]; 8] = [
     [0.0, 0.0, 0.0],
     [1.0, 0.0, 0.0],
@@ -28,9 +31,10 @@ pub(super) struct Cell {
     center: Option<([f64; 3], [f64; 3])>,
     nx: usize,
     layers: [Vec<i32>; 2],
-    vertices: Vec<[f32; 3]>,
-    normals: Vec<[f32; 3]>,
-    values: Vec<f32>,
+    vertices: Vec<[f64; 3]>,
+    normals: Vec<[f64; 3]>,
+    scales: Vec<f64>,
+    values: Vec<f64>,
     faces: Vec<usize>,
 }
 
@@ -49,25 +53,24 @@ impl Cell {
             layers: [vec![-1; nx * ny * 4], vec![-1; nx * ny * 4]],
             vertices: Vec::new(),
             normals: Vec::new(),
+            scales: Vec::new(),
             values: Vec::new(),
             faces: Vec::new(),
         }
     }
     #[expect(clippy::type_complexity)]
-    pub(super) fn finish(self) -> (Vec<[f32; 3]>, Vec<[usize; 3]>, Vec<[f32; 3]>, Vec<f32>) {
+    pub(super) fn finish(self) -> (Vec<[f64; 3]>, Vec<[usize; 3]>, Vec<[f64; 3]>, Vec<f64>) {
         let normals = self
             .normals
             .iter()
-            .map(|normal| {
-                let mut length = 0.0f64;
-                for &component in normal {
-                    let component = f64::from(component);
-                    length += component * component;
+            .zip(&self.scales)
+            .map(|(normal, scale)| {
+                let length = f64::sqrt(normal.iter().map(|component| component * component).sum());
+                if length > NEGLIGIBLE * scale {
+                    normal.map(|component| component / length)
+                } else {
+                    [0.0; 3]
                 }
-                if length > 0.0 {
-                    length = 1.0 / length.powf(0.5);
-                }
-                normal.map(|component| (f64::from(component) * length) as f32)
             })
             .collect();
         let faces = self.faces.as_chunks::<3>().0.to_vec();
@@ -82,11 +85,11 @@ impl Cell {
         isovalue: f64,
         origin: [usize; 3],
         step: usize,
-        corners: [f32; 8],
+        corners: [f64; 8],
     ) {
         self.origin = origin;
         self.step = step;
-        self.v = corners.map(|corner| f64::from(corner) - isovalue);
+        self.v = corners.map(|corner| corner - isovalue);
         self.index = self
             .v
             .iter()
@@ -126,22 +129,27 @@ impl Cell {
         }
     }
     fn add_vertex(&mut self, x: f64, y: f64, z: f64) -> usize {
-        self.vertices.push([x as f32, y as f32, z as f32]);
+        self.vertices.push([x, y, z]);
         self.normals.push([0.0; 3]);
+        self.scales.push(0.0);
         self.values.push(0.0);
         self.vertices.len() - 1
     }
-    fn add_gradient(&mut self, vertex: usize, gradient: [f32; 3]) {
+    fn add_gradient(&mut self, vertex: usize, gradient: [f64; 3]) {
         (0..3).for_each(|k| self.normals[vertex][k] += gradient[k]);
+        self.scales[vertex] += gradient
+            .iter()
+            .map(|component| component.abs())
+            .sum::<f64>();
     }
-    fn add_gradient_from_index(&mut self, vertex: usize, i: usize, strength: f32) {
-        let gradient = self.vg[i].map(|component| (component * f64::from(strength)) as f32);
+    fn add_gradient_from_index(&mut self, vertex: usize, i: usize, strength: f64) {
+        let gradient = self.vg[i].map(|component| component * strength);
         self.add_gradient(vertex, gradient);
     }
     fn add_face(&mut self, index: usize) {
         self.faces.push(index);
-        if self.vmax > f64::from(self.values[index]) {
-            self.values[index] = self.vmax as f32;
+        if self.vmax > self.values[index] {
+            self.values[index] = self.vmax;
         }
     }
     fn add_face_from_edge(&mut self, edge: usize) {
@@ -159,7 +167,7 @@ impl Cell {
                 vertex
             };
             self.add_face(vertex);
-            self.add_gradient(vertex, gradient.map(|component| component as f32));
+            self.add_gradient(vertex, gradient);
         } else {
             let (dx, dy, dz) = (EDGES_X[edge], EDGES_Y[edge], EDGES_Z[edge]);
             let index1 = dz[0] * 4 + dy[0] * 2 + dx[0];
@@ -179,8 +187,8 @@ impl Cell {
                 vertex
             };
             self.add_face(vertex);
-            self.add_gradient_from_index(vertex, index1, strength1 as f32);
-            self.add_gradient_from_index(vertex, index2, strength2 as f32);
+            self.add_gradient_from_index(vertex, index1, strength1);
+            self.add_gradient_from_index(vertex, index2, strength2);
         }
     }
     fn face_layer_index(&self, mut edge: usize) -> (usize, usize) {

@@ -8,6 +8,11 @@ mod tables;
 
 use self::{cell::Cell, tables::*};
 use super::Voxels;
+use crate::{
+    geometry::{Coordinate, Coordinates, Direction, Directions},
+    math::TensorVec,
+    units::Length,
+};
 use std::array::from_fn;
 
 const EDGES_X: [[usize; 2]; 12] = [
@@ -68,7 +73,7 @@ pub enum Gradient {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MarchingCubes {
     pub level: Option<f64>,
-    pub spacing: [f64; 3],
+    pub spacing: Coordinate<3>,
     pub gradient: Gradient,
     pub step: usize,
     pub degenerate: bool,
@@ -79,7 +84,7 @@ impl Default for MarchingCubes {
     fn default() -> Self {
         Self {
             level: None,
-            spacing: [1.0; 3],
+            spacing: Coordinate::from([Length::meters(1.0); 3]),
             gradient: Gradient::Descent,
             step: 1,
             degenerate: true,
@@ -90,16 +95,16 @@ impl Default for MarchingCubes {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Isosurface {
-    pub vertices: Vec<[f64; 3]>,
+    pub vertices: Coordinates<3>,
     pub faces: Vec<[usize; 3]>,
-    pub normals: Vec<[f32; 3]>,
-    pub values: Vec<f32>,
+    pub normals: Directions<3>,
+    pub values: Vec<f64>,
 }
 
 impl MarchingCubes {
     pub fn extract(
         &self,
-        volume: &Voxels<f32>,
+        volume: &Voxels<f64>,
         mask: Option<&Voxels<bool>>,
     ) -> Result<Isosurface, &'static str> {
         let nel = *volume.nel();
@@ -115,12 +120,12 @@ impl MarchingCubes {
             return Err("volume and mask must have the same shape.");
         }
         let data = volume.data();
-        let minimum = data.iter().copied().fold(f32::INFINITY, f32::min);
-        let maximum = data.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+        let minimum = data.iter().copied().fold(f64::INFINITY, f64::min);
+        let maximum = data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         let level = match self.level {
-            None => f64::from(0.5 * (minimum + maximum)),
+            None => 0.5 * (minimum + maximum),
             Some(level) => {
-                if level < f64::from(minimum) || level > f64::from(maximum) {
+                if level < minimum || level > maximum {
                     return Err("Surface level must be within volume data range.");
                 }
                 level
@@ -190,7 +195,7 @@ impl MarchingCubes {
             return Err("No surface found at the given iso value.");
         }
         vertices.iter_mut().for_each(|vertex| vertex.reverse());
-        let normals: Vec<[f32; 3]> = normals
+        let normals: Vec<[f64; 3]> = normals
             .into_iter()
             .map(|mut normal| {
                 normal.reverse();
@@ -200,40 +205,40 @@ impl MarchingCubes {
         if self.gradient == Gradient::Descent {
             faces.iter_mut().for_each(|face| face.reverse());
         }
-        let scaled = self.spacing != [1.0; 3];
         let vertices: Vec<[f64; 3]> = vertices
             .iter()
-            .map(|vertex| {
-                from_fn(|axis| {
-                    let coordinate = f64::from(vertex[axis]);
-                    if scaled {
-                        coordinate * self.spacing[axis]
-                    } else {
-                        coordinate
-                    }
-                })
-            })
+            .map(|vertex| from_fn(|axis| vertex[axis] * self.spacing[axis].value()))
             .collect();
-        if self.degenerate {
-            Ok(Isosurface {
-                vertices,
-                faces,
-                normals,
-                values,
-            })
+        let (vertices, faces, normals, values) = if self.degenerate {
+            (vertices, faces, normals, values)
         } else {
-            Ok(remove_degenerate_faces(vertices, faces, normals, values))
-        }
+            remove_degenerate_faces(vertices, faces, normals, values)
+        };
+        let mut coordinates = Coordinates::new();
+        vertices
+            .into_iter()
+            .for_each(|vertex| coordinates.push(Coordinate::const_from(vertex)));
+        let mut directions = Directions::new();
+        normals
+            .into_iter()
+            .for_each(|normal| directions.push(Direction::const_from(normal)));
+        Ok(Isosurface {
+            vertices: coordinates,
+            faces,
+            normals: directions,
+            values,
+        })
     }
 }
 
+#[expect(clippy::type_complexity)]
 fn remove_degenerate_faces(
     vertices: Vec<[f64; 3]>,
     faces: Vec<[usize; 3]>,
-    normals: Vec<[f32; 3]>,
-    values: Vec<f32>,
-) -> Isosurface {
-    let vertices: Vec<[f32; 3]> = vertices
+    normals: Vec<[f64; 3]>,
+    values: Vec<f64>,
+) -> (Vec<[f64; 3]>, Vec<[usize; 3]>, Vec<[f64; 3]>, Vec<f64>) {
+    let single: Vec<[f32; 3]> = vertices
         .iter()
         .map(|vertex| vertex.map(|coordinate| coordinate as f32))
         .collect();
@@ -242,7 +247,7 @@ fn remove_degenerate_faces(
     for (j, face) in faces.iter().enumerate() {
         let [i1, i2, i3] = *face;
         for (a, b) in [(i1, i2), (i1, i3), (i2, i3)] {
-            if vertices[a] == vertices[b] {
+            if single[a] == single[b] {
                 let lowest = map[a].min(map[b]);
                 map[a] = lowest;
                 map[b] = lowest;
@@ -259,30 +264,30 @@ fn remove_degenerate_faces(
             count += 1;
         }
     }
-    Isosurface {
-        vertices: vertices
+    (
+        vertices
             .iter()
             .zip(&ok)
             .filter(|(_, ok)| **ok)
-            .map(|(vertex, _)| vertex.map(f64::from))
+            .map(|(vertex, _)| *vertex)
             .collect(),
-        faces: faces
+        faces
             .iter()
             .zip(&keep)
             .filter(|(_, keep)| **keep)
             .map(|(face, _)| face.map(|index| renumber[map[index]]))
             .collect(),
-        normals: normals
+        normals
             .into_iter()
             .zip(&ok)
             .filter(|(_, ok)| **ok)
             .map(|(normal, _)| normal)
             .collect(),
-        values: values
+        values
             .into_iter()
             .zip(&ok)
             .filter(|(_, ok)| **ok)
             .map(|(value, _)| value)
             .collect(),
-    }
+    )
 }
