@@ -25,7 +25,7 @@ pub use self::{
         primitive::PrimitiveConnectivity,
     },
     differential::laplace::Weighting,
-    partition::{Bisection, PartitionQuality},
+    partition::{Bisection, Partition, PartitionQuality},
     quality::metrics::Verdict,
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},

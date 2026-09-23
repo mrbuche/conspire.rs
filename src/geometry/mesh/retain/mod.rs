@@ -13,15 +13,23 @@ use std::array::from_fn;
 impl<const D: usize> Mesh<D> {
     pub(crate) fn retain_elements(
         &mut self,
-        mut keep: impl FnMut(usize, &[usize], &Coordinates<D>) -> bool,
+        keep: impl FnMut(usize, &[usize], &Coordinates<D>) -> bool,
     ) {
+        *self = self.retained_elements(keep).0
+    }
+    pub(crate) fn retained_elements(
+        &self,
+        mut keep: impl FnMut(usize, &[usize], &Coordinates<D>) -> bool,
+    ) -> (Self, Vec<usize>) {
         let coordinates = self.coordinates();
         let numbers = self.blocks().map(<[usize]>::to_vec);
         let mut remap = vec![usize::MAX; coordinates.len()];
+        let mut old_nodes = Vec::new();
         let mut new_coordinates = Coordinates::new();
         let mut id = |node: usize| {
             if remap[node] == usize::MAX {
                 remap[node] = new_coordinates.len();
+                old_nodes.push(node);
                 new_coordinates.push(coordinates[node].clone())
             }
             remap[node]
@@ -68,7 +76,10 @@ impl<const D: usize> Mesh<D> {
             Some(numbers) => Connectivities::from((blocks, numbers)),
             None => Connectivities::from(blocks),
         };
-        *self = (connectivities, Set::from(new_coordinates)).into()
+        (
+            (connectivities, Set::from(new_coordinates)).into(),
+            old_nodes,
+        )
     }
 }
 

@@ -18,14 +18,125 @@ pub struct PartitionQuality {
     pub disconnected_parts: usize,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Partition {
+    elements_parts: Vec<usize>,
+    parts_elements: Vec<Vec<usize>>,
+    parts_nodes: Vec<Vec<usize>>,
+    nodes_parts: Vec<Vec<usize>>,
+}
+
+impl Partition {
+    pub fn new<const D: usize>(mesh: &Mesh<D>, elements_parts: Vec<usize>) -> Self {
+        assert_eq!(
+            elements_parts.len(),
+            mesh.number_of_elements(),
+            "assignment must have one entry per element"
+        );
+        let number_of_parts = elements_parts
+            .iter()
+            .map(|&part| part + 1)
+            .max()
+            .unwrap_or(0);
+        let mut parts_elements = vec![Vec::new(); number_of_parts];
+        elements_parts
+            .iter()
+            .enumerate()
+            .for_each(|(element, &part)| parts_elements[part].push(element));
+        let mut parts_nodes = vec![Vec::new(); number_of_parts];
+        mesh.element_nodes()
+            .zip(&elements_parts)
+            .for_each(|(nodes, &part)| parts_nodes[part].extend(nodes));
+        parts_nodes.iter_mut().for_each(|nodes| {
+            nodes.sort_unstable();
+            nodes.dedup();
+        });
+        let mut nodes_parts = vec![Vec::new(); mesh.number_of_nodes()];
+        parts_nodes
+            .iter()
+            .enumerate()
+            .for_each(|(part, nodes)| nodes.iter().for_each(|&node| nodes_parts[node].push(part)));
+        Self {
+            elements_parts,
+            parts_elements,
+            parts_nodes,
+            nodes_parts,
+        }
+    }
+    pub fn number_of_parts(&self) -> usize {
+        self.parts_elements.len()
+    }
+    pub fn elements_parts(&self) -> &[usize] {
+        &self.elements_parts
+    }
+    pub fn part_of(&self, element: usize) -> usize {
+        self.elements_parts[element]
+    }
+    pub fn part_elements(&self, part: usize) -> &[usize] {
+        &self.parts_elements[part]
+    }
+    pub fn part_nodes(&self, part: usize) -> &[usize] {
+        &self.parts_nodes[part]
+    }
+    pub fn parts_nodes(&self) -> &[Vec<usize>] {
+        &self.parts_nodes
+    }
+    pub fn node_parts(&self, node: usize) -> &[usize] {
+        &self.nodes_parts[node]
+    }
+    pub fn interface_nodes(&self) -> Vec<usize> {
+        self.nodes_parts
+            .iter()
+            .enumerate()
+            .filter(|(_, parts)| parts.len() > 1)
+            .map(|(node, _)| node)
+            .collect()
+    }
+    pub fn part_mesh<const D: usize>(&self, mesh: &Mesh<D>, part: usize) -> (Mesh<D>, Vec<usize>) {
+        mesh.retained_elements(|element, _, _| self.elements_parts[element] == part)
+    }
+    pub fn quality<const D: usize>(&self, mesh: &Mesh<D>) -> PartitionQuality {
+        let sizes = self.parts_elements.iter().map(Vec::len).collect::<Vec<_>>();
+        let mean = self.elements_parts.len() as f64 / sizes.len() as f64;
+        let mut roots = (0..self.elements_parts.len()).collect::<Vec<_>>();
+        mesh.node_element_connectivity()
+            .iter()
+            .for_each(|elements| {
+                let mut firsts: Vec<(usize, usize)> = Vec::new();
+                elements.iter().for_each(|&element| {
+                    match firsts
+                        .iter()
+                        .find(|&&(part, _)| part == self.elements_parts[element])
+                    {
+                        Some(&(_, first)) => {
+                            let (a, b) = (find(&mut roots, first), find(&mut roots, element));
+                            roots[b] = a;
+                        }
+                        None => firsts.push((self.elements_parts[element], element)),
+                    }
+                })
+            });
+        let mut components = vec![0usize; sizes.len()];
+        (0..self.elements_parts.len())
+            .filter(|&element| find(&mut roots, element) == element)
+            .for_each(|element| components[self.elements_parts[element]] += 1);
+        PartitionQuality {
+            imbalance: sizes.iter().copied().max().unwrap_or(0) as f64 / mean,
+            interface_nodes: self.interface_nodes().len(),
+            disconnected_parts: components.iter().filter(|&&count| count > 1).count(),
+            sizes,
+        }
+    }
+}
+
 impl<const D: usize> Mesh<D> {
-    pub fn partition_rcb(&self, parts: usize) -> Vec<usize> {
+    pub fn partition_rcb(&self, parts: usize) -> Partition {
         self.partition_bisection(parts, Bisection::Coordinate)
     }
-    pub fn partition_rib(&self, parts: usize) -> Vec<usize> {
+    pub fn partition_rib(&self, parts: usize) -> Partition {
         self.partition_bisection(parts, Bisection::Principal)
     }
-    pub fn partition_bisection(&self, parts: usize, bisection: Bisection) -> Vec<usize> {
+    pub fn partition_bisection(&self, parts: usize, bisection: Bisection) -> Partition {
         let points = self.element_points();
         assert!(
             (1..=points.len()).contains(&parts),
@@ -34,9 +145,9 @@ impl<const D: usize> Mesh<D> {
         let mut assignment = vec![0; points.len()];
         let mut elements = (0..points.len()).collect::<Vec<_>>();
         bisect(&mut elements, parts, 0, &points, bisection, &mut assignment);
-        assignment
+        Partition::new(self, assignment)
     }
-    pub fn partition_box(&self, divisions: [usize; D]) -> Vec<usize> {
+    pub fn partition_box(&self, divisions: [usize; D]) -> Partition {
         assert!(
             divisions.iter().all(|&n| n > 0),
             "divisions must be positive"
@@ -50,7 +161,7 @@ impl<const D: usize> Mesh<D> {
                 upper[axis] = upper[axis].max(point[axis]);
             })
         });
-        points
+        let assignment = points
             .iter()
             .map(|point| {
                 (0..D).rev().fold(0, |part, axis| {
@@ -64,62 +175,8 @@ impl<const D: usize> Mesh<D> {
                     part * divisions[axis] + cell
                 })
             })
-            .collect()
-    }
-    pub fn partition_nodes(&self, assignment: &[usize]) -> Vec<Vec<usize>> {
-        assert_eq!(
-            assignment.len(),
-            self.number_of_elements(),
-            "assignment must have one entry per element"
-        );
-        let mut nodes = vec![Vec::new(); assignment.iter().map(|&p| p + 1).max().unwrap_or(0)];
-        self.element_nodes()
-            .zip(assignment)
-            .for_each(|(element, &part)| nodes[part].extend(element));
-        nodes.iter_mut().for_each(|part| {
-            part.sort_unstable();
-            part.dedup();
-        });
-        nodes
-    }
-    pub fn partition_quality(&self, assignment: &[usize]) -> PartitionQuality {
-        let nodes = self.partition_nodes(assignment);
-        let mut sizes = vec![0; nodes.len()];
-        assignment.iter().for_each(|&part| sizes[part] += 1);
-        let mean = assignment.len() as f64 / sizes.len() as f64;
-        let mut multiplicity = vec![0usize; self.number_of_nodes()];
-        nodes
-            .iter()
-            .flatten()
-            .for_each(|&node| multiplicity[node] += 1);
-        let mut roots = (0..assignment.len()).collect::<Vec<_>>();
-        self.node_element_connectivity()
-            .iter()
-            .for_each(|elements| {
-                let mut firsts: Vec<(usize, usize)> = Vec::new();
-                elements.iter().for_each(|&element| {
-                    match firsts
-                        .iter()
-                        .find(|&&(part, _)| part == assignment[element])
-                    {
-                        Some(&(_, first)) => {
-                            let (a, b) = (find(&mut roots, first), find(&mut roots, element));
-                            roots[b] = a;
-                        }
-                        None => firsts.push((assignment[element], element)),
-                    }
-                })
-            });
-        let mut components = vec![0usize; sizes.len()];
-        (0..assignment.len())
-            .filter(|&element| find(&mut roots, element) == element)
-            .for_each(|element| components[assignment[element]] += 1);
-        PartitionQuality {
-            imbalance: sizes.iter().copied().max().unwrap_or(0) as f64 / mean,
-            interface_nodes: multiplicity.iter().filter(|&&count| count > 1).count(),
-            disconnected_parts: components.iter().filter(|&&count| count > 1).count(),
-            sizes,
-        }
+            .collect();
+        Partition::new(self, assignment)
     }
     fn element_points(&self) -> Vec<[f64; D]> {
         self.centroids()
