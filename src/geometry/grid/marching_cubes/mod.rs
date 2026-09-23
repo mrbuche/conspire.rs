@@ -59,11 +59,6 @@ pub enum Method {
     Lorensen,
 }
 
-/// Face winding, as scikit-image's `gradient_direction`.
-///
-/// Vertices are in (axis 0, 1, 2) order, so with the object above the level,
-/// `Ascent` winds counter-clockwise seen from outside (right-handed, as `Tessellation` expects)
-/// and `Descent` winds the other way.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Gradient {
     Descent,
@@ -93,7 +88,6 @@ impl Default for MarchingCubes {
     }
 }
 
-/// Vertices are in the index order of the volume, as scikit-image returns them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Isosurface {
     pub vertices: Vec<[f64; 3]>,
