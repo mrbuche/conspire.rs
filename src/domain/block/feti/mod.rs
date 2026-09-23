@@ -13,7 +13,9 @@ use crate::math::{
     LuDecomposition, Matrix, Scalar, SquareMatrix, Tensor, Vector,
     optimize::{Krylov, KrylovError},
 };
+#[cfg(feature = "fem")]
 use dual_primal::coarse;
+use dual_primal::coarse::Coarse;
 use interface::Interface;
 use std::collections::HashSet;
 use std::thread::{available_parallelism, scope};
@@ -40,6 +42,13 @@ use crate::{
         },
     },
 };
+
+/// `matrix . vector` by reference — the preconditioner applies a dense local
+/// matrix on every PCG iteration, so cloning it per application is a cost of
+/// its own.
+fn matvec(matrix: &SquareMatrix, vector: &Vector) -> Vector {
+    matrix.iter().map(|row| row * vector).collect()
+}
 
 pub(crate) struct Subdomain<B> {
     blocks: B,
@@ -137,7 +146,7 @@ impl<B> Subdomain<B> {
     /// the local step the lumped preconditioner uses in place of a local
     /// solve, since it only needs to be cheap, not the true local inverse.
     fn local_apply(&self, rhs: &Vector) -> Vector {
-        let applied = self.dual_stiffness.clone() * self.dual_rhs(rhs);
+        let applied = matvec(&self.dual_stiffness, &self.dual_rhs(rhs));
         self.scatter_dual(&applied)
     }
     /// Restricts a full-local vector to this subdomain's boundary (Γ) dofs.
@@ -164,7 +173,7 @@ impl<B> Subdomain<B> {
     /// (near mesh-independent) condition number bound at the cost of the one
     /// extra local Schur complement computed once up front.
     fn local_dirichlet_apply(&self, rhs: &Vector) -> Vector {
-        let applied = self.dirichlet_schur.clone() * self.boundary_rhs(rhs);
+        let applied = matvec(&self.dirichlet_schur, &self.boundary_rhs(rhs));
         self.scatter_boundary(&applied)
     }
     /// Scatters a primal (corner)-DOF vector back to its raw positions in
@@ -372,14 +381,13 @@ fn coupling<B>(subdomains: &[Subdomain<B>], v: &Vector, num_multipliers: usize) 
 pub(crate) fn dual_operator<B>(
     subdomains: &[Subdomain<B>],
     lambda: &Vector,
-    schur: &SquareMatrix,
+    coarse: &Coarse,
 ) -> Vector
 where
     B: Sync,
 {
-    let num_corner_dofs = schur.len();
-    let ct_lambda = coupling_transpose(subdomains, lambda, num_corner_dofs);
-    let coarse_solved = coarse::solve(schur, &ct_lambda);
+    let ct_lambda = coupling_transpose(subdomains, lambda, coarse.len());
+    let coarse_solved = coarse.solve(&ct_lambda);
     dual_action(subdomains, lambda) + coupling(subdomains, &coarse_solved, lambda.len())
 }
 
@@ -397,7 +405,7 @@ where
 /// pay for itself.
 pub(crate) fn projected_pcg<B>(
     subdomains: &[Subdomain<B>],
-    schur: &SquareMatrix,
+    coarse: &Coarse,
     rhs: &Vector,
 ) -> Result<Vector, KrylovError>
 where
@@ -405,7 +413,7 @@ where
 {
     projected_pcg_counted(
         subdomains,
-        schur,
+        coarse,
         rhs,
         Preconditioner::Dirichlet,
         Krylov::default().rel_tol,
@@ -436,7 +444,7 @@ pub(crate) enum Preconditioner {
 /// how many times the dual operator was applied (one per PCG iteration).
 pub(crate) fn projected_pcg_counted<B>(
     subdomains: &[Subdomain<B>],
-    schur: &SquareMatrix,
+    coarse: &Coarse,
     rhs: &Vector,
     preconditioner: Preconditioner,
     rel_tol: Scalar,
@@ -452,7 +460,7 @@ where
     .solve_operator(
         |lambda| {
             applications += 1;
-            dual_operator(subdomains, lambda, schur)
+            dual_operator(subdomains, lambda, coarse)
         },
         |lambda: &Vector| match preconditioner {
             Preconditioner::Lumped => dual_precondition(subdomains, lambda),
@@ -624,6 +632,7 @@ where
     stats.condense = clock.elapsed();
     let clock = Instant::now();
     let (schur, reduced_force) = coarse::assemble(&condensed, &splits, &corner_dofs);
+    let coarse_problem = Coarse::new(&schur);
     stats.coarse = clock.elapsed();
     let clock = Instant::now();
     let subdomains: Vec<Subdomain<()>> = interfaces
@@ -663,18 +672,18 @@ where
     let rhs = rhs_from_forces(&subdomains, &local_forces, num_multipliers)
         - coupling(
             &subdomains,
-            &coarse::solve(&schur, &reduced_force),
+            &coarse_problem.solve(&reduced_force),
             num_multipliers,
         );
     stats.coarse += clock.elapsed();
     let clock = Instant::now();
     let (lambda, applications) =
-        projected_pcg_counted(&subdomains, &schur, &rhs, preconditioner, rel_tol)?;
+        projected_pcg_counted(&subdomains, &coarse_problem, &rhs, preconditioner, rel_tol)?;
     stats.applications = applications;
     stats.pcg = clock.elapsed();
     let clock = Instant::now();
-    let ct_lambda = coupling_transpose(&subdomains, &lambda, schur.len());
-    let corner_solution = coarse::solve(&schur, &(reduced_force + ct_lambda));
+    let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
+    let corner_solution = coarse_problem.solve(&(reduced_force + ct_lambda));
     let recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
     let mut global = Vector::zero(nodal_coordinates.len() * dimension);
     subdomain_nodes

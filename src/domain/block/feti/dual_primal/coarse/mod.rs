@@ -2,7 +2,7 @@
 mod test;
 
 use super::{CornerDofs, DualPrimalSplit, condense::Condensed};
-use crate::math::{SquareMatrix, Vector};
+use crate::math::{LuDecomposition, SquareMatrix, Tensor, Vector};
 
 /// Assembles the global corner (coarse) problem by scatter-adding each
 /// subdomain's local corner Schur complement and reduced force at the
@@ -34,10 +34,27 @@ pub(crate) fn assemble(
     (schur, force)
 }
 
-/// Directly solves the small, dense, assembled corner problem — no
-/// iteration needed, unlike the dual (interface) problem.
-pub(crate) fn solve(schur: &SquareMatrix, force: &Vector) -> Vector {
-    schur
-        .solve_lu(force)
-        .expect("assembled coarse problem is singular")
+/// The assembled corner problem, factorized once: the dual operator solves
+/// it on every application, so refactorizing per solve would dominate the
+/// dual PCG once there are many corners.
+pub(crate) struct Coarse {
+    factor: LuDecomposition,
+    len: usize,
+}
+
+impl Coarse {
+    pub(crate) fn new(schur: &SquareMatrix) -> Self {
+        Self {
+            factor: schur
+                .factorize_lu()
+                .expect("assembled coarse problem is singular"),
+            len: schur.len(),
+        }
+    }
+    pub(crate) fn len(&self) -> usize {
+        self.len
+    }
+    pub(crate) fn solve(&self, force: &Vector) -> Vector {
+        self.factor.solve(force)
+    }
 }

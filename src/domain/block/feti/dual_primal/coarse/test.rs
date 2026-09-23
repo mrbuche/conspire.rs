@@ -1,4 +1,4 @@
-use super::{assemble, solve};
+use super::{Coarse, assemble};
 use crate::domain::block::feti::dual_primal::{
     BoundaryConditions, CornerDofs, CornerSelection, DualPrimalSplit, condense::Condensed,
 };
@@ -47,6 +47,6 @@ fn shares_corner_contributions_across_subdomains() {
 fn solves_the_assembled_system() {
     let schur = one_by_one(5.0);
     let force: crate::math::Vector = [5.0].into_iter().collect();
-    let solution = solve(&schur, &force);
+    let solution = Coarse::new(&schur).solve(&force);
     assert_eq!(solution[0], 1.0);
 }

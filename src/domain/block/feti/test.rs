@@ -4,7 +4,8 @@ use super::{
 };
 use crate::domain::block::feti::{
     dual_primal::{
-        BoundaryConditions, CornerSelection, build_splits, coarse,
+        BoundaryConditions, CornerSelection, build_splits,
+        coarse::{self, Coarse},
         condense::{Condensed, condense},
     },
     interface::build_interfaces,
@@ -20,7 +21,7 @@ fn stiffness(entries: [[f64; 2]; 2]) -> SquareMatrix {
 
 struct Setup {
     subdomains: Vec<Subdomain<()>>,
-    schur: SquareMatrix,
+    coarse: Coarse,
     num_multipliers: usize,
 }
 
@@ -76,7 +77,7 @@ fn setup() -> Setup {
         .collect();
     Setup {
         subdomains,
-        schur,
+        coarse: Coarse::new(&schur),
         num_multipliers,
     }
 }
@@ -135,7 +136,7 @@ fn chain_setup(count: usize) -> Setup {
         .collect();
     Setup {
         subdomains,
-        schur,
+        coarse: Coarse::new(&schur),
         num_multipliers,
     }
 }
@@ -191,7 +192,7 @@ fn dual_action_matches_the_hand_derived_operator() {
 fn dual_operator_includes_the_coarse_coupling_correction() {
     let setup = setup();
     let lambda: Vector = [1.0].into_iter().collect();
-    let f_aug_lambda = dual_operator(&setup.subdomains, &lambda, &setup.schur);
+    let f_aug_lambda = dual_operator(&setup.subdomains, &lambda, &setup.coarse);
     // Hand-derived: F = 7/12, S_pp = 23/3, C^T.1 = -1/6, C.(S_pp^-1.C^T) = 1/276.
     // F_aug = 7/12 + 1/276 = 27/46.
     assert!((f_aug_lambda[0] - 27.0 / 46.0).abs() < 1e-10);
@@ -241,7 +242,7 @@ fn dirichlet_preconditioner_matches_lumped_when_every_dual_dof_is_on_the_interfa
 fn projected_pcg_solves_the_augmented_dual_problem() {
     let setup = setup();
     let rhs: Vector = [1.0].into_iter().collect();
-    let lambda = projected_pcg(&setup.subdomains, &setup.schur, &rhs).unwrap();
+    let lambda = projected_pcg(&setup.subdomains, &setup.coarse, &rhs).unwrap();
     // F_aug * lambda = rhs, F_aug = 27/46, so lambda = 46/27.
     assert!((lambda[0] - 46.0 / 27.0).abs() < 1e-8);
 }
