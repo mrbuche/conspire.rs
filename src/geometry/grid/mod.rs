@@ -3,10 +3,15 @@ mod test;
 
 mod defeature;
 mod from;
+mod marching_cubes;
 mod read;
 mod write;
 
-pub use self::{read::Input, write::Output};
+pub use self::{
+    marching_cubes::{Gradient, Isosurface, MarchingCubes, Method},
+    read::Input,
+    write::Output,
+};
 
 use std::{
     array,
