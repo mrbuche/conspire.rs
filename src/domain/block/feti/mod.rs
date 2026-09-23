@@ -251,7 +251,12 @@ where
 /// The lumped FETI-DP preconditioner, `sum_s B_s K_dd,s B_s^T` — the same
 /// reduction as `F` but with each subdomain's raw `K_dd,s` in place of its
 /// inverse, trading a weaker convergence bound than the Dirichlet
-/// preconditioner for a local matrix-vector product instead of a local solve.
+/// preconditioner for a local matrix-vector product instead of a local
+/// solve. Kept for the pathologically-small-subdomain case where Dirichlet's
+/// extra setup cost doesn't pay for itself — not currently wired into
+/// `projected_pcg` as the default (Dirichlet is), so only reachable from
+/// tests without a runtime choice exposed yet.
+#[allow(dead_code)]
 fn dual_precondition<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector
 where
     B: Sync,
@@ -264,7 +269,6 @@ where
 /// trading `dual_precondition`'s cheap local matvec for one extra local
 /// Schur complement per subdomain (precomputed once, in `dirichlet_local`,
 /// not per PCG iteration).
-#[allow(dead_code)]
 fn dual_precondition_dirichlet<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector
 where
     B: Sync,
@@ -375,9 +379,17 @@ where
 }
 
 /// Solves the dual (interface) problem `(F + C S_pp^-1 C^T) . lambda = rhs`
-/// by conjugate gradients, lumped-preconditioned — SPD given the corners are
-/// pinned, so this needs no projection against a rigid-body null space the
-/// way plain FETI would.
+/// by conjugate gradients, Dirichlet-preconditioned — SPD given the corners
+/// are pinned, so this needs no projection against a rigid-body null space
+/// the way plain FETI would. Dirichlet is the default over lumped: its
+/// condition-number bound is near mesh-independent (`1 + log(H/h)^2`) where
+/// lumped's degrades with the subdomain-to-mesh-size ratio, and its extra
+/// cost (one local Schur complement per subdomain) is paid once at setup in
+/// `dirichlet_local`, not per PCG iteration — so it wins as soon as a
+/// subdomain has more than a handful of elements per edge, the realistic
+/// regime. `dual_precondition` (lumped) stays available for the
+/// pathologically-small-subdomain case where the Schur setup cost doesn't
+/// pay for itself.
 pub(crate) fn projected_pcg<B>(
     subdomains: &[Subdomain<B>],
     schur: &SquareMatrix,
@@ -388,7 +400,7 @@ where
 {
     Krylov::default().solve_operator(
         |lambda| dual_operator(subdomains, lambda, schur),
-        |lambda: &Vector| dual_precondition(subdomains, lambda),
+        |lambda: &Vector| dual_precondition_dirichlet(subdomains, lambda),
         rhs,
     )
 }
