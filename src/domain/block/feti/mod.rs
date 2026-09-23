@@ -18,6 +18,7 @@ use dual_primal::coarse;
 use dual_primal::coarse::Coarse;
 use interface::Interface;
 use std::collections::HashSet;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread::{available_parallelism, scope};
 use std::time::Duration;
 #[cfg(feature = "fem")]
@@ -30,6 +31,49 @@ use std::time::Instant;
 /// spawn"). This threshold is a placeholder, not a benchmarked value — no
 /// real multi-subdomain FETI-DP problem exists yet to tune it against.
 const PARALLEL_THRESHOLD: usize = 4;
+
+/// Most threads the per-subdomain setup (assembly, condensation, local
+/// factorizations) spreads over.
+const SETUP_THREADS: usize = 4;
+
+/// `items.iter().map(f).collect()` spread over up to `SETUP_THREADS` threads.
+/// Threads pull the next unclaimed item, not a fixed chunk, because
+/// subdomains cost different amounts (an interior subdomain carries more dual
+/// dofs than a corner one), and results come back in item order.
+fn parallel_map<T, R>(items: &[T], f: impl Fn(&T) -> R + Sync) -> Vec<R>
+where
+    T: Sync,
+    R: Send,
+{
+    let threads = SETUP_THREADS
+        .min(available_parallelism().map_or(1, |threads| threads.get()))
+        .min(items.len());
+    if threads <= 1 {
+        return items.iter().map(f).collect();
+    }
+    let next = AtomicUsize::new(0);
+    let mut results: Vec<(usize, R)> = scope(|scope| {
+        (0..threads)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut done = Vec::new();
+                    loop {
+                        let index = next.fetch_add(1, Ordering::Relaxed);
+                        if index >= items.len() {
+                            break done;
+                        }
+                        done.push((index, f(&items[index])));
+                    }
+                })
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .flat_map(|handle| handle.join().expect("setup thread panicked"))
+            .collect()
+    });
+    results.sort_unstable_by_key(|&(index, _)| index);
+    results.into_iter().map(|(_, result)| result).collect()
+}
 
 #[cfg(feature = "fem")]
 use crate::{
@@ -620,38 +664,50 @@ where
         .into_iter()
         .unzip();
     stats.assemble = clock.elapsed();
+    let indices: Vec<usize> = (0..subdomain_nodes.len()).collect();
     let clock = Instant::now();
-    let condensed: Vec<_> = local_stiffnesses
-        .iter()
-        .zip(local_forces.iter())
-        .zip(splits.iter())
-        .map(|((stiffness, force), split)| {
-            dual_primal::condense::condense(stiffness, force, split.primal(), split.dual())
-        })
-        .collect();
+    let condensed: Vec<_> = parallel_map(&indices, |&index| {
+        dual_primal::condense::condense(
+            &local_stiffnesses[index],
+            &local_forces[index],
+            splits[index].primal(),
+            splits[index].dual(),
+        )
+    });
     stats.condense = clock.elapsed();
     let clock = Instant::now();
     let (schur, reduced_force) = coarse::assemble(&condensed, &splits, &corner_dofs);
     let coarse_problem = Coarse::new(&schur);
     stats.coarse = clock.elapsed();
     let clock = Instant::now();
+    let locals = parallel_map(&indices, |&index| {
+        let stiffness = &local_stiffnesses[index];
+        let dual_dofs = splits[index].dual().to_vec();
+        let dual_stiffness: SquareMatrix = dual_dofs
+            .iter()
+            .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
+            .collect();
+        let dual_factor = dual_stiffness
+            .factorize_lu()
+            .expect("K_dd is singular, but corners should make every subdomain non-singular");
+        let (boundary_dofs, dirichlet_schur) =
+            dirichlet_local(stiffness, &dual_dofs, interfaces[index].dofs());
+        (
+            dual_dofs,
+            dual_stiffness,
+            dual_factor,
+            boundary_dofs,
+            dirichlet_schur,
+        )
+    });
     let subdomains: Vec<Subdomain<()>> = interfaces
         .into_iter()
+        .zip(locals)
         .zip(splits.iter())
-        .zip(local_stiffnesses.iter())
         .zip(condensed.iter())
         .zip(subdomain_nodes.iter())
-        .map(|((((interface, split), stiffness), condensed), nodes)| {
-            let dual_dofs = split.dual().to_vec();
-            let dual_stiffness: SquareMatrix = dual_dofs
-                .iter()
-                .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
-                .collect();
-            let dual_factor = dual_stiffness
-                .factorize_lu()
-                .expect("K_dd is singular, but corners should make every subdomain non-singular");
-            let (boundary_dofs, dirichlet_schur) =
-                dirichlet_local(stiffness, &dual_dofs, interface.dofs());
+        .map(|((((interface, local), split), condensed), nodes)| {
+            let (dual_dofs, dual_stiffness, dual_factor, boundary_dofs, dirichlet_schur) = local;
             Subdomain::new(
                 (),
                 interface,

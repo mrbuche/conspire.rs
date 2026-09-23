@@ -1,6 +1,6 @@
 use super::{
-    Subdomain, dirichlet_local, dual_action, dual_operator, dual_precondition,
-    dual_precondition_dirichlet, primal_recovery, projected_pcg,
+    SETUP_THREADS, Subdomain, dirichlet_local, dual_action, dual_operator, dual_precondition,
+    dual_precondition_dirichlet, parallel_map, primal_recovery, projected_pcg,
 };
 use crate::domain::block::feti::{
     dual_primal::{
@@ -177,6 +177,33 @@ fn dual_reduce_parallel_path_matches_serial_reference() {
         .iter()
         .zip(serial.iter())
         .for_each(|(&p, &s)| assert!((p - s).abs() < 1e-12));
+}
+
+#[test]
+fn parallel_map_keeps_item_order_under_uneven_work() {
+    let items: Vec<usize> = (0..53).collect();
+    let mapped = parallel_map(&items, |&item| {
+        if item % 7 == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(3));
+        }
+        item * item
+    });
+    assert_eq!(mapped, items.iter().map(|&i| i * i).collect::<Vec<_>>());
+}
+
+#[test]
+fn parallel_map_uses_no_more_than_the_setup_thread_cap() {
+    let items: Vec<usize> = (0..64).collect();
+    let threads = std::sync::Mutex::new(std::collections::HashSet::new());
+    parallel_map(&items, |_| {
+        threads.lock().unwrap().insert(std::thread::current().id());
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    });
+    let used = threads.lock().unwrap().len();
+    assert!(used <= SETUP_THREADS, "used {used} threads");
+    if std::thread::available_parallelism().map_or(1, |n| n.get()) > 1 {
+        assert!(used > 1, "never left the calling thread");
+    }
 }
 
 #[test]
