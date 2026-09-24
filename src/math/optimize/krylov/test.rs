@@ -1,5 +1,5 @@
-use super::{Krylov, KrylovMethod, Preconditioning};
-use crate::math::{SquareMatrix, Vector, assert::Assert};
+use super::{Krylov, KrylovMethod};
+use crate::math::{SquareMatrix, Vector, assert::Assert, optimize::Preconditioning};
 
 fn krylov() -> Krylov {
     Krylov {

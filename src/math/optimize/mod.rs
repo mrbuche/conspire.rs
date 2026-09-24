@@ -6,15 +6,17 @@ mod gradient_descent;
 mod krylov;
 mod line_search;
 mod newton_raphson;
+mod precondition;
 mod strategy;
 mod tolerance;
 mod trust_region;
 
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
-pub use krylov::{Krylov, KrylovError, KrylovMethod, Precondition, Preconditioning};
+pub use krylov::{Krylov, KrylovError, KrylovMethod};
 pub use line_search::{LineSearch, LineSearchError};
 pub use newton_raphson::NewtonRaphson;
+pub use precondition::{Precondition, Preconditioning};
 pub use strategy::SolveStrategy;
 pub use tolerance::Tolerances;
 pub use trust_region::TrustRegion;

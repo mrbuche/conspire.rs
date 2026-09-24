@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::OptimizationError;
+use super::{OptimizationError, Precondition};
 use crate::math::{
     Scalar, Style, StyledError, Tensor, Vector, assert::AssertionError, styled_error,
 };
@@ -9,49 +9,6 @@ use crate::math::{
 const PATIENCE: usize = 30;
 const PROGRESS: Scalar = 0.9;
 const ACCEPTABLE: Scalar = 1e-3;
-
-/// Something a residual can be put through on its way to becoming a
-/// direction. Implemented for `Preconditioning`'s built-in choices and, via
-/// the blanket impl below, for any bare closure — an operator-shaped
-/// preconditioner (itself another matrix-free reduction, such as FETI's
-/// lumped preconditioner) needs no variant of its own here.
-pub trait Precondition {
-    fn apply(&self, residual: &Vector) -> Vector;
-}
-
-/// A preconditioner already built from whatever the caller's operator is.
-///
-/// Ported (trimmed) from the unmerged `line-search` branch, where this was
-/// built from an assembled `Hessian`; here the caller builds it directly, since
-/// an operator given only as a matvec closure has no entries to read one from.
-pub enum Preconditioning {
-    /// Nothing to put the residual through.
-    None,
-    /// A diagonal to divide it by.
-    Diagonal(Vector),
-}
-
-impl Precondition for Preconditioning {
-    fn apply(&self, residual: &Vector) -> Vector {
-        match self {
-            Self::None => residual.clone(),
-            Self::Diagonal(diagonal) => residual
-                .iter()
-                .zip(diagonal.iter())
-                .map(|(entry, scale)| entry / scale)
-                .collect(),
-        }
-    }
-}
-
-impl<F> Precondition for F
-where
-    F: Fn(&Vector) -> Vector,
-{
-    fn apply(&self, residual: &Vector) -> Vector {
-        self(residual)
-    }
-}
 
 /// Which walk through the Krylov subspace to take.
 ///
@@ -209,14 +166,6 @@ impl Krylov {
         let mut previous = right_hand_side.clone();
         let mut current = previous.clone();
         let mut preconditioned = divide(&previous);
-        //
-        // The walk measures the residual through the preconditioner, which is
-        // only a length at all if the preconditioner is positive definite. That
-        // is a promise the preconditioner makes and nothing here can check in
-        // advance — but a negative one of these is proof it was broken, and
-        // going on from it would be minimizing something that is not a length
-        // and reporting a residual that is not the residual.
-        //
         let squared = previous.full_contraction(&preconditioned);
         if squared < 0.0 {
             return Err(KrylovError::PreconditionerNotPositiveDefinite(squared));
@@ -225,10 +174,6 @@ impl Krylov {
         if scale == 0.0 {
             return Ok(solution);
         }
-        //
-        // The rotation starts as a half turn so that the first iteration takes
-        // the diagonal of the tridiagonal system as it stands.
-        //
         let (mut cosine, mut sine) = (-1.0, 0.0);
         let mut length = scale;
         let mut off_diagonal = scale;
@@ -237,12 +182,6 @@ impl Krylov {
         let mut older;
         let mut old = Vector::zero(size);
         let mut basis;
-        //
-        // The residual is measured against the load rather than against what it
-        // started at through the preconditioner, those being different lengths
-        // of different things. At no steps taken the residual is the load, so
-        // it is watched from one.
-        //
         let load = right_hand_side.norm().value();
         let mut watched = 1.0;
         let mut demanded = self.rel_tol;
@@ -258,20 +197,10 @@ impl Krylov {
             preconditioned = divide(&current);
             previous_off = off_diagonal;
             let squared = current.full_contraction(&preconditioned);
-            //
-            // Rounding alone can take this a little below zero once the
-            // residual is spent, so what is refused is a negative too large to
-            // have come from rounding against the residual started from.
-            //
             if squared < -Scalar::EPSILON * scale * scale {
                 return Err(KrylovError::PreconditionerNotPositiveDefinite(squared));
             }
             off_diagonal = squared.max(0.0).sqrt();
-            //
-            // The rotation of the iteration before reaches two entries ahead,
-            // so what it left behind is applied before a rotation of this one
-            // is found to annihilate the entry below the diagonal.
-            //
             let reached = carried;
             let shifted = cosine * trailing + sine * diagonal_entry;
             let remaining = sine * trailing - cosine * diagonal_entry;
@@ -286,17 +215,6 @@ impl Krylov {
             direction = (basis - &older * reached - &old * shifted) * rotated.recip();
             solution += &direction * (cosine * length);
             length *= sine;
-            //
-            // Nothing is decided on the estimate alone. What the rotations
-            // leave behind is the residual measured through the
-            // preconditioner, and that is the same thing as the residual only
-            // up to how well conditioned the preconditioner is. A
-            // preconditioner far enough from the operator parts the two
-            // entirely, and the walk then stops early on an answer that is not
-            // one and reports a residual that is not the residual — so the
-            // estimate is used only to decide when to ask, and what is asked
-            // is the residual itself.
-            //
             let estimate = length.abs() / scale;
             let checkpoint = step % PATIENCE == PATIENCE - 1;
             if estimate <= demanded || checkpoint {
@@ -304,15 +222,6 @@ impl Krylov {
                 if truth <= self.rel_tol {
                     return Ok(solution);
                 }
-                //
-                // The residual this walk leaves never lengthens, so one that
-                // has stopped shortening is the shortest the walk can make it
-                // and every further iteration is spent. Where it stops is not
-                // the tolerance asked for but what the arithmetic allows: on
-                // an ill-conditioned system that floor sits well above zero,
-                // and a tolerance set beneath it is one no number of
-                // iterations ever reaches.
-                //
                 if checkpoint {
                     if truth > PROGRESS * watched {
                         return if truth <= ACCEPTABLE {
@@ -323,13 +232,6 @@ impl Krylov {
                     }
                     watched = truth
                 }
-                //
-                // The estimate promised more than the residual delivered, so
-                // it is not believed again until it has fallen a decade
-                // further. That is what keeps this to a product now and again
-                // rather than one every iteration once the estimate has run
-                // ahead.
-                //
                 demanded = demanded.min(estimate * 0.1)
             }
         }
