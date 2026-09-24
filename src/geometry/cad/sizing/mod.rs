@@ -250,17 +250,16 @@ impl FeatureSizing {
     ) -> Result<Self, &'static str> {
         let oracle = brep.oracle()?;
         let cells = cells_across.max(1) as Scalar;
-        // Sample each face at roughly `maximum`, but no coarser than 1/16 of
-        // the part (so an unbounded `maximum` still tiles).
-        let (bounds_low, bounds_high) = oracle.bounds();
-        let span = (0..D)
-            .map(|k| bounds_high[k].value() - bounds_low[k].value())
-            .fold(0.0_f64, Scalar::max);
-        let tile = self
-            .maximum
-            .value()
-            .min(span / 16.0)
-            .max(self.minimum.value());
+        // Face-sampling pitch for the wall-thickness probes. It must be fine
+        // enough to land a probe inside a thin feature, so it is driven by the
+        // sizing `minimum` (the finest the mesh resolves) -- NOT by `maximum`:
+        // an unbounded ceiling (`maximum` = INFINITY, from a `None` caller)
+        // must still sample thin walls finely. The `counts` clamp below caps a
+        // face at 24 probes per axis, so a large face is always sampled at
+        // `extent / 24` regardless of how fine `tile` is; making `tile` fine
+        // only densifies the *small* faces (a narrow crease slab), which is
+        // exactly where the old `span / 16` pitch skipped the feature.
+        let tile = self.minimum.value().max(f64::MIN_POSITIVE);
         let eps = tile * 1.0e-4;
         let mut slabs: Vec<Item<Scalar>> = Vec::new();
         for face in &brep.faces {

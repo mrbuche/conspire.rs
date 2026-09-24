@@ -933,7 +933,19 @@ impl BrepOracle {
             .map(|k| high[k].value() - low[k].value())
             .fold(0.0, Scalar::max)
             * 1.0e-7;
-        let mut votes = 0i32;
+        // The parity of every direction, split into the clean (non-grazing,
+        // reliable) reads and the ambiguous ones. A single clean ray is
+        // topologically exact for a closed manifold, so historically the first
+        // clean ray decided outright -- but a ray landing in the trim tolerance
+        // of a fillet seam can flip its own grazed flag on and off over sub-
+        // micron motion, and when it clears it can carry a lone wrong parity
+        // (a cone/cylinder fillet junction is the observed culprit). So gather
+        // all three: a clean ray that is outvoted by the other clean rays must
+        // not decide alone.
+        let mut clean_inside = 0i32;
+        let mut clean_outside = 0i32;
+        let mut first_clean: Option<bool> = None;
+        let mut graze_votes = 0i32;
         for direction in RAY_DIRECTIONS {
             // A ray landing within a patch's trim tolerance of its boundary
             // has no reliable side: the neighbour approximating that same edge
@@ -964,14 +976,27 @@ impl BrepOracle {
                 }
             }
             let parity = crossings % 2 == 1;
-            if !ambiguous {
-                return parity;
+            if ambiguous {
+                graze_votes += if parity { 1 } else { -1 };
+            } else {
+                first_clean.get_or_insert(parity);
+                if parity {
+                    clean_inside += 1;
+                } else {
+                    clean_outside += 1;
+                }
             }
-            votes += if parity { 1 } else { -1 };
         }
-        // Every direction grazed an edge; take the majority of their counts
-        // rather than an arbitrary one.
-        votes > 0
+        // Prefer the clean rays: take their majority. A tie between two clean
+        // rays (no majority) keeps the first clean ray's read, matching the
+        // long-standing first-clean-ray-decides behaviour; the only decisions
+        // this changes are where a clean ray was outvoted 2-to-1. With no clean
+        // ray at all, fall back to the majority of the grazing directions.
+        match clean_inside.cmp(&clean_outside) {
+            std::cmp::Ordering::Greater => true,
+            std::cmp::Ordering::Less => false,
+            std::cmp::Ordering::Equal => first_clean.unwrap_or(graze_votes > 0),
+        }
     }
 }
 

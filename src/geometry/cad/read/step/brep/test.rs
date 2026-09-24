@@ -970,6 +970,153 @@ fn probe_sizing_ring() {
     }
 }
 
+/// Census of the classified dual's connected non-`Outside` components. The
+/// flood-fill classifier keeps the largest component and any component holding
+/// an `Inside` cell; a phantom limb jutting into air survives when a B-spline
+/// ray-parity sign flip plants a spurious `Inside` cell inside it. This prints
+/// every non-largest surviving component with its cell count, `Inside` count,
+/// and bounding box, so the phantom limb can be measured before a fix.
+#[test]
+#[ignore = "censuses classified-dual components for STEP_MESH_FILE"]
+fn probe_component_census() {
+    use crate::{
+        geometry::{
+            cad::sizing::FeatureSizing,
+            mesh::{Class, Connectivity},
+            ntree::Balancing,
+            solid::Solid,
+        },
+        math::Quantity,
+        units::Length,
+    };
+
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let brep = read(&std::fs::read_to_string(&path).unwrap()).expect("read failed");
+    let env_f64 = |key, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let length = |v| Quantity::<Length>::new(v);
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let mut sizing = FeatureSizing::of(
+        &brep,
+        env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
+        Some(length(env_f64("STEP_MESH_MIN", cell / 8.0))),
+        Some(length(cell)),
+        Some(0.2),
+    );
+    if let Ok(n) = std::env::var("STEP_MESH_PROXIMITY") {
+        sizing = sizing
+            .with_proximity(&brep, n.parse().expect("STEP_MESH_PROXIMITY"))
+            .expect("with_proximity");
+    }
+    let levels = std::env::var("STEP_MESH_LEVELS")
+        .ok()
+        .and_then(|value| value.parse().ok());
+
+    let (dual, classes) = brep
+        .dual_background(&sizing, levels, 0.1, Balancing::Strong(1))
+        .expect("dual_background failed");
+    let [Connectivity::Hexahedral(block)] = dual.connectivities() else {
+        panic!("expected a single hexahedral block");
+    };
+    let coordinates = dual.coordinates();
+    let hexes: Vec<[usize; 8]> = block
+        .iter()
+        .map(|hex| std::array::from_fn(|k| hex[k]))
+        .collect();
+    let count = hexes.len();
+
+    // Face adjacency, same construction as classify_by_flood_fill.
+    const HEX_FACES: [[usize; 4]; 6] = [
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+        [0, 1, 5, 4],
+        [1, 2, 6, 5],
+        [2, 3, 7, 6],
+        [3, 0, 4, 7],
+    ];
+    let mut seen: std::collections::HashMap<[usize; 4], usize> = std::collections::HashMap::new();
+    let mut adjacency: Vec<Vec<usize>> = vec![Vec::new(); count];
+    for (index, hex) in hexes.iter().enumerate() {
+        for face in HEX_FACES {
+            let mut key = face.map(|corner| hex[corner]);
+            key.sort_unstable();
+            match seen.entry(key) {
+                std::collections::hash_map::Entry::Occupied(slot) => {
+                    let other = slot.remove();
+                    adjacency[index].push(other);
+                    adjacency[other].push(index);
+                }
+                std::collections::hash_map::Entry::Vacant(slot) => {
+                    slot.insert(index);
+                }
+            }
+        }
+    }
+
+    // Label connected non-Outside components (Inside + Cut).
+    let mut component = vec![usize::MAX; count];
+    let mut report: Vec<(usize, usize, [f64; 3], [f64; 3])> = Vec::new();
+    for start in 0..count {
+        if classes[start] == Class::Outside || component[start] != usize::MAX {
+            continue;
+        }
+        let id = report.len();
+        let (mut size, mut inside) = (0usize, 0usize);
+        let mut low = [f64::INFINITY; 3];
+        let mut high = [f64::NEG_INFINITY; 3];
+        let mut stack = vec![start];
+        component[start] = id;
+        while let Some(index) = stack.pop() {
+            size += 1;
+            if classes[index] == Class::Inside {
+                inside += 1;
+            }
+            for &node in hexes[index].iter() {
+                for k in 0..3 {
+                    let v = coordinates[node][k].value();
+                    low[k] = low[k].min(v);
+                    high[k] = high[k].max(v);
+                }
+            }
+            for &neighbour in &adjacency[index] {
+                if classes[neighbour] != Class::Outside && component[neighbour] == usize::MAX {
+                    component[neighbour] = id;
+                    stack.push(neighbour);
+                }
+            }
+        }
+        report.push((size, inside, low, high));
+    }
+
+    let main = (0..report.len()).max_by_key(|&id| report[id].0);
+    eprintln!("{} non-Outside component(s):", report.len());
+    let mut ids: Vec<usize> = (0..report.len()).collect();
+    ids.sort_by_key(|&id| std::cmp::Reverse(report[id].0));
+    for id in ids {
+        let (size, inside, low, high) = report[id];
+        let tag = if Some(id) == main { " [MAIN]" } else { "" };
+        eprintln!(
+            "  comp {id}{tag}: {size} cells, {inside} inside; \
+             bbox [{:.5},{:.5},{:.5}]..[{:.5},{:.5},{:.5}]  span [{:.5},{:.5},{:.5}]",
+            low[0],
+            low[1],
+            low[2],
+            high[0],
+            high[1],
+            high[2],
+            high[0] - low[0],
+            high[1] - low[1],
+            high[2] - low[2],
+        );
+    }
+}
+
 #[test]
 #[ignore = "meshes a local .stp given by STEP_MESH_FILE"]
 fn probe_mesh_real_file() {
