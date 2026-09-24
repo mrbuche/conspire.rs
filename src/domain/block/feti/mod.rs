@@ -677,7 +677,7 @@ where
     stats.condense = clock.elapsed();
     let clock = Instant::now();
     let (schur, reduced_force) = coarse::assemble(&condensed, &splits, &corner_dofs);
-    let coarse_problem = Coarse::new(&schur);
+    let coarse_problem = Coarse::new(schur);
     stats.coarse = clock.elapsed();
     let clock = Instant::now();
     let locals = parallel_map(&indices, |&index| {

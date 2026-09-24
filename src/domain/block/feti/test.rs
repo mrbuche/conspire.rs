@@ -77,7 +77,7 @@ fn setup() -> Setup {
         .collect();
     Setup {
         subdomains,
-        coarse: Coarse::new(&schur),
+        coarse: Coarse::new(schur),
         num_multipliers,
     }
 }
@@ -136,7 +136,7 @@ fn chain_setup(count: usize) -> Setup {
         .collect();
     Setup {
         subdomains,
-        coarse: Coarse::new(&schur),
+        coarse: Coarse::new(schur),
         num_multipliers,
     }
 }
