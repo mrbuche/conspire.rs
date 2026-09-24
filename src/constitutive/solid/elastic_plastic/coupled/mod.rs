@@ -5,7 +5,7 @@ use super::{ElasticPlastic, Entries4, Matrix3, entries_4, fischer_burmeister, ma
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariables},
     math::{
-        Matrix, Quantity, Rank2, SquareMatrix, Tensor, Vector,
+        Matrix, Quantity, Rank2, SquareMatrix, Vector,
         optimize::{NewtonRaphson, converged, limit_decrement},
     },
     mechanics::{
@@ -144,10 +144,12 @@ impl Linearization {
 }
 
 /// Everything evaluated once per iterate: the plastic deformation gradient, the
-/// deviatoric Mandel stress with its unit direction, the residual, and the multiplier
-/// with the hardening modulus at its plastic strain, which the Jacobian needs.
+/// deviatoric Mandel stress with its equivalent stress and flow direction, the residual,
+/// and the multiplier with the hardening modulus at its plastic strain, which the
+/// Jacobian needs.
 struct Iterate {
     plastic: DeformationGradientPlastic,
+    deviatoric: MandelStressElastic,
     unit: Matrix3,
     direction: Matrix3,
     magnitude: Scalar,
@@ -169,13 +171,8 @@ impl Iterate {
             .map_err(|error| failure(model, &error))?
             * f_p_n;
         let deviatoric: MandelStressElastic = model.mandel_stress(f, &plastic)?.deviatoric();
-        let magnitude = deviatoric.norm().value();
-        let raw = matrix_3(&deviatoric);
-        let unit: Matrix3 = if magnitude > 0.0 {
-            from_fn(|i| from_fn(|j| raw[i][j] / magnitude))
-        } else {
-            ZERO
-        };
+        let magnitude = model.equivalent_stress(&deviatoric)?.value();
+        let unit = matrix_3(&model.flow_direction(&deviatoric)?);
         let direction = symmetric(&unit);
         let mut residual = [0.0; SIZE];
         (0..3).for_each(|i| {
@@ -186,6 +183,7 @@ impl Iterate {
             .value();
         Ok(Self {
             plastic,
+            deviatoric,
             unit,
             direction,
             magnitude,
@@ -200,15 +198,16 @@ impl Iterate {
 
 /// The linearization at an iterate together with the slopes
 /// $`\partial\mathbf{F}_\mathrm{p}/\partial E_{ab}`$ of the exponential map.
-struct Sensitivities<'a> {
+struct Sensitivities<'a, C> {
+    model: &'a C,
     linearization: Linearization,
     iterate: &'a Iterate,
     slopes: [[Matrix3; 3]; 3],
 }
 
-impl<'a> Sensitivities<'a> {
-    fn new<C: ElasticPlastic>(
-        model: &C,
+impl<'a, C: ElasticPlastic> Sensitivities<'a, C> {
+    fn new(
+        model: &'a C,
         f: &DeformationGradient,
         f_p_n: &DeformationGradientPlastic,
         x: &Unknowns,
@@ -221,6 +220,7 @@ impl<'a> Sensitivities<'a> {
         );
         let f_p_n = matrix_3(f_p_n);
         Ok(Self {
+            model,
             linearization: Linearization::new(model, f, &iterate.plastic)?,
             iterate,
             slopes: from_fn(|a| {
@@ -237,32 +237,34 @@ impl<'a> Sensitivities<'a> {
         })
     }
 
-    /// The slope of the symmetrized flow direction and of $`|\mathbf{M}'|`$ along a
+    /// The slope of the symmetrized flow direction and of the equivalent stress along a
     /// Mandel stress increment.
-    fn direction_slope(&self, d_m: &Matrix3) -> (Matrix3, Scalar) {
+    fn direction_slope(&self, d_m: &Matrix3) -> Result<(Matrix3, Scalar), ConstitutiveError> {
         let Iterate {
-            unit, magnitude, ..
+            unit,
+            magnitude,
+            deviatoric,
+            ..
         } = self.iterate;
-        // the norm is not differentiable where the deviator vanishes, and the flow
-        // direction is zero there: the trial state is elastic
+        // the equivalent stress is not differentiable where the deviator vanishes, and
+        // the flow direction is zero there: the trial state is elastic
         if *magnitude == 0.0 {
-            return (ZERO, 0.0);
+            return Ok((ZERO, 0.0));
         }
-        let deviatoric = add(d_m, &EYE, -trace(d_m) / 3.0);
+        let increment = add(d_m, &EYE, -trace(d_m) / 3.0);
         let d_magnitude = (0..3)
-            .map(|i| {
-                (0..3)
-                    .map(|j| unit[i][j] * deviatoric[i][j])
-                    .sum::<Scalar>()
-            })
+            .map(|i| (0..3).map(|j| unit[i][j] * increment[i][j]).sum::<Scalar>())
             .sum();
-        let d_unit: Matrix3 =
-            from_fn(|i| from_fn(|j| (deviatoric[i][j] - unit[i][j] * d_magnitude) / magnitude));
-        (symmetric(&d_unit), d_magnitude)
+        let d_unit = matrix_3(
+            &self
+                .model
+                .flow_direction_slope(deviatoric, &MandelStressElastic::from(increment))?,
+        );
+        Ok((symmetric(&d_unit), d_magnitude))
     }
 
     /// The Jacobian of the residual with respect to $`(\mathbf{E},\Delta\gamma)`$.
-    fn jacobian(&self) -> [[Scalar; SIZE]; SIZE] {
+    fn jacobian(&self) -> Result<[[Scalar; SIZE]; SIZE], ConstitutiveError> {
         let Iterate {
             gamma,
             hardening_modulus,
@@ -274,7 +276,7 @@ impl<'a> Sensitivities<'a> {
                 let d_m = self
                     .linearization
                     .mandel_derivative(&ZERO, &self.slopes[a][b]);
-                let (d_direction, d_magnitude) = self.direction_slope(&d_m);
+                let (d_direction, d_magnitude) = self.direction_slope(&d_m)?;
                 for i in 0..3 {
                     for j in 0..3 {
                         let identity = if i == a && j == b { 1.0 } else { 0.0 };
@@ -290,7 +292,7 @@ impl<'a> Sensitivities<'a> {
             }
         }
         jacobian[9][9] = -*hardening_modulus;
-        jacobian
+        Ok(jacobian)
     }
 }
 
@@ -345,7 +347,7 @@ pub(super) fn solve<C: ElasticPlastic>(
         if size(&iterate.residual) < TOLERANCE {
             return Ok(Some(Converged { x, iterate }));
         }
-        let matrix = Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian();
+        let matrix = Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian()?;
         let mut rhs = Vector::zero(SIZE);
         (0..SIZE).for_each(|row| rhs[row] = -iterate.residual[row]);
         let step = SquareMatrix::from(matrix)
@@ -553,7 +555,7 @@ pub(crate) fn condensed<C: ElasticPlastic>(
         }
         steps += 1;
         let (k_vv, _) = local_jacobian(
-            &Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian(),
+            &Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian()?,
             x[SIZE - 1],
             -iterate.residual[SIZE - 1] / reference,
             reference,
@@ -644,14 +646,14 @@ fn evaluate<C: ElasticPlastic>(
     let sensitivities = Sensitivities::new(model, f, f_p_n, x, iterate)?;
     let reference = model.initial_yield_stress().value();
     let (a, b) = (x[SIZE - 1], -iterate.residual[SIZE - 1] / reference);
-    let (k_vv, factor) = local_jacobian(&sensitivities.jacobian(), a, b, reference);
+    let (k_vv, factor) = local_jacobian(&sensitivities.jacobian()?, a, b, reference);
     let mut k_vu = Matrix::zero(SIZE, 9);
     for k in 0..3 {
         for l in 0..3 {
             let d_m = sensitivities
                 .linearization
                 .mandel_derivative(&basis(k, l), &ZERO);
-            let (d_direction, d_magnitude) = sensitivities.direction_slope(&d_m);
+            let (d_direction, d_magnitude) = sensitivities.direction_slope(&d_m)?;
             for i in 0..3 {
                 for j in 0..3 {
                     k_vu[3 * i + j][3 * k + l] = -a * d_direction[i][j];

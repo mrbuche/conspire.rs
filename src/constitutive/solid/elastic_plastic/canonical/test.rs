@@ -2,7 +2,7 @@ use crate::{
     constitutive::{
         canonical::Canonical,
         fluid::plastic::{
-            Plastic, PlasticFlow, PlasticStateVariables, RateIndependentPlastic, VoceFlow,
+            Hill, Plastic, PlasticFlow, PlasticStateVariables, RateIndependentPlastic, VoceFlow,
         },
         solid::{
             elastic_plastic::{
@@ -66,6 +66,168 @@ fn voce_model() -> Canonical<NeoHookean, VoceFlow> {
             saturation_rate: 8.0,
         },
     ))
+}
+
+fn hill_model(coefficients: [f64; 6]) -> Canonical<NeoHookean, Hill> {
+    let [f, g, h, l, m, n] = coefficients;
+    Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        Hill {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            f,
+            g,
+            h,
+            l,
+            m,
+            n,
+        },
+    ))
+}
+
+const ANISOTROPIC: [f64; 6] = [0.4, 0.25, 0.3, 1.3, 0.8, 1.1];
+const ISOTROPIC: [f64; 6] = [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 1.0, 1.0, 1.0];
+
+#[test]
+fn a_composed_model_forwards_the_yield_surface() -> Result<(), AssertionError> {
+    let model = hill_model(ANISOTROPIC);
+    let stress = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let deviatoric = model
+        .mandel_stress(&stress, &DeformationGradientPlastic::identity())?
+        .deviatoric();
+    let increment = deviatoric.clone() * 0.1;
+    let strain = Quantity::new(0.02);
+    let assert = Assert::default();
+    assert.eq_within_tols(
+        model.equivalent_stress(&deviatoric)?,
+        &model.1.equivalent_stress(&deviatoric)?,
+    )?;
+    assert.eq_within_tols(
+        model.yield_function(&deviatoric, strain)?,
+        &model.1.yield_function(&deviatoric, strain)?,
+    )?;
+    assert.eq_within_tols(
+        &model.flow_direction(&deviatoric)?,
+        &model.1.flow_direction(&deviatoric)?,
+    )?;
+    assert.eq_within_tols(
+        &model.flow_direction_slope(&deviatoric, &increment)?,
+        &model.1.flow_direction_slope(&deviatoric, &increment)?,
+    )?;
+    let von_mises = model.1.equivalent_stress(&deviatoric)? - deviatoric.norm();
+    assert!(
+        von_mises.value().abs() > 1e-3,
+        "the surface must differ from von Mises for this test to mean anything"
+    );
+    Ok(())
+}
+
+#[test]
+fn an_isotropic_hill_return_map_is_the_von_mises_one() -> Result<(), AssertionError> {
+    let (hill, mises) = (hill_model(ISOTROPIC), model(1.0));
+    let assert = Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    };
+    let steps = [
+        DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]),
+        DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]),
+    ];
+    let (mut hill_state, mut mises_state) = (hill.initial_state(), mises.initial_state());
+    for step in &steps {
+        hill_state = hill.return_map(step, &hill_state)?;
+        mises_state = mises.return_map(step, &mises_state)?;
+        assert.eq_within_tols(&hill_state.0, &mises_state.0)?;
+        assert.eq_within_tols(hill_state.1, &mises_state.1)?;
+    }
+    assert!(hill_state.1.value() > 0.0);
+    Ok(())
+}
+
+fn plastic_strain_along<M: ElasticPlastic>(
+    model: &M,
+    axis: usize,
+) -> Result<Quantity, AssertionError> {
+    let mut stretch = DeformationGradient::identity();
+    stretch[axis][axis] = Quantity::new(2.0);
+    Ok(model.return_map(&stretch, &model.initial_state())?.1)
+}
+
+#[test]
+fn hill_yielding_depends_on_the_direction_of_the_load() -> Result<(), AssertionError> {
+    let (hill, mises) = (hill_model(ANISOTROPIC), model(1.0));
+    assert!(
+        (plastic_strain_along(&hill, 0)? - plastic_strain_along(&hill, 1)?)
+            .value()
+            .abs()
+            > 1e-3,
+        "a Hill model must yield differently along different axes"
+    );
+    Assert::default().eq_within_tols(
+        plastic_strain_along(&mises, 0)?,
+        &plastic_strain_along(&mises, 1)?,
+    )
+}
+
+#[test]
+fn hill_return_map_is_the_fully_implicit_step() -> Result<(), AssertionError> {
+    let model = hill_model(ANISOTROPIC);
+    let first = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let second = DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]);
+    let state = assert_implicit_step(&model, &first, &model.initial_state())?;
+    assert_implicit_step(&model, &second, &state)?;
+    Ok(())
+}
+
+#[test]
+fn hill_condensed_matches_the_return_map() -> Result<(), AssertionError> {
+    assert_condensed_matches(&hill_model(ANISOTROPIC))
+}
+
+#[test]
+fn hill_strategies_agree_under_non_proportional_loading() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
+    };
+    let model = hill_model(ANISOTROPIC);
+    let steps = times(0.5, 40);
+    let load = || AppliedLoad::BiaxialStress(ramp, |t| 1.0 + 0.3 * t.value(), &steps);
+    let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
+        &model,
+        load(),
+        NewtonRaphson::default(),
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    let reference_strain = reference_states.as_slice().last().unwrap().1;
+    assert!(reference_strain.value() > 0.0);
+    for elimination in [false, true] {
+        let (_, gradients, states) = FirstOrderRoot::root(
+            &model,
+            load(),
+            NewtonRaphson::default(),
+            SolveStrategy::Monolithic { elimination },
+        )?;
+        Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Default::default()
+        }
+        .eq_within_tols(
+            gradients.as_slice().last().unwrap(),
+            reference_gradients.as_slice().last().unwrap(),
+        )?;
+        Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Default::default()
+        }
+        .eq_within_tols(states.as_slice().last().unwrap().1, &reference_strain)?;
+    }
+    Ok(())
 }
 
 #[test]
