@@ -156,3 +156,201 @@ fn fenchel_equality() -> Result<(), AssertionError> {
         &ContractWith::contract_with(&mandel_stress_on_surface, &plastic_stretching_rate),
     )
 }
+
+fn hill() -> Hill {
+    Hill {
+        yield_stress: Stress::pascals(2.0),
+        hardening_slope: Stress::pascals(1.0),
+        f: 0.4,
+        g: 0.25,
+        h: 0.3,
+        l: 1.3,
+        m: 0.8,
+        n: 1.1,
+    }
+}
+
+fn isotropic_hill() -> Hill {
+    Hill {
+        f: 1.0 / 3.0,
+        g: 1.0 / 3.0,
+        h: 1.0 / 3.0,
+        l: 1.0,
+        m: 1.0,
+        n: 1.0,
+        ..hill()
+    }
+}
+
+fn stress_increment() -> MandelStressElastic {
+    MandelStressElastic::from([[0.3, -0.2, 0.5], [-0.2, 0.4, 0.1], [0.5, 0.1, -0.7]])
+}
+
+fn assert_flow_direction_is_the_gradient_of_the_equivalent_stress(
+    model: &impl RateIndependentPlastic,
+) -> Result<(), AssertionError> {
+    let stress = deviatoric_mandel_stress();
+    let mut finite_difference = FlowDirectionPlastic::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            let mut plus = stress.clone();
+            plus[i][j] += perturbation(0.5 * EPSILON);
+            let mut minus = stress.clone();
+            minus[i][j] -= perturbation(0.5 * EPSILON);
+            finite_difference[i][j] = (model.equivalent_stress(&plus)?
+                - model.equivalent_stress(&minus)?)
+                / Quantity::<Stress>::new(EPSILON);
+        }
+    }
+    Assert::default().eq_within_fd_tol(&model.flow_direction(&stress)?, &finite_difference)
+}
+
+fn assert_slope_matches_finite_difference(
+    model: &impl RateIndependentPlastic,
+) -> Result<(), AssertionError> {
+    let (stress, increment) = (deviatoric_mandel_stress(), stress_increment());
+    let step = 1e-6;
+    let direction_at =
+        |sign: f64| model.flow_direction(&(stress.clone() + increment.clone() * (sign * step)));
+    let finite_difference = (direction_at(1.0)? - direction_at(-1.0)?) / (2.0 * step);
+    Assert {
+        abs_tol: 1e-6,
+        rel_tol: 1e-6,
+        ..Default::default()
+    }
+    .eq_within_tols(
+        &model.flow_direction_slope(&stress, &increment)?,
+        &finite_difference,
+    )
+}
+
+#[test]
+fn von_mises_flow_direction_is_the_gradient_of_the_equivalent_stress() -> Result<(), AssertionError>
+{
+    assert_flow_direction_is_the_gradient_of_the_equivalent_stress(&model())
+}
+
+#[test]
+fn hill_flow_direction_is_the_gradient_of_the_equivalent_stress() -> Result<(), AssertionError> {
+    assert_flow_direction_is_the_gradient_of_the_equivalent_stress(&hill())
+}
+
+#[test]
+fn von_mises_flow_direction_slope_matches_finite_difference() -> Result<(), AssertionError> {
+    assert_slope_matches_finite_difference(&model())
+}
+
+#[test]
+fn hill_flow_direction_slope_matches_finite_difference() -> Result<(), AssertionError> {
+    assert_slope_matches_finite_difference(&hill())
+}
+
+#[test]
+fn an_isotropic_hill_model_is_von_mises() -> Result<(), AssertionError> {
+    let (hill, mises) = (isotropic_hill(), model());
+    let (stress, increment) = (deviatoric_mandel_stress(), stress_increment());
+    let yield_stress = mises.initial_yield_stress();
+    let assert = Assert::default();
+    assert.eq_within_tols(
+        hill.equivalent_stress(&stress)?,
+        &mises.equivalent_stress(&stress)?,
+    )?;
+    assert.eq_within_tols(
+        &hill.flow_direction(&stress)?,
+        &mises.flow_direction(&stress)?,
+    )?;
+    assert.eq_within_tols(
+        &hill.flow_direction_slope(&stress, &increment)?,
+        &mises.flow_direction_slope(&stress, &increment)?,
+    )?;
+    let rate = mises.flow_direction(&stress)? * Rate::per_second(0.3);
+    assert.eq_within_tols(
+        hill.dissipation_potential(rate.clone(), yield_stress)?,
+        &mises.dissipation_potential(rate, yield_stress)?,
+    )
+}
+
+#[test]
+fn hill_is_anisotropic_and_its_flow_is_deviatoric() -> Result<(), AssertionError> {
+    let (hill, mises) = (hill(), model());
+    let stress = deviatoric_mandel_stress();
+    assert!(
+        (hill.equivalent_stress(&stress)? - mises.equivalent_stress(&stress)?)
+            .value()
+            .abs()
+            > 1e-2,
+        "the coefficients must move the surface for this test to mean anything"
+    );
+    let direction = hill.flow_direction(&stress)?;
+    Assert::default().eq_within_tols((0..3).map(|i| direction[i][i].value()).sum::<f64>(), &0.0)
+}
+
+#[test]
+fn hill_equivalent_stress_is_homogeneous_of_degree_one() -> Result<(), AssertionError> {
+    let hill = hill();
+    let stress = deviatoric_mandel_stress();
+    let scaled = stress.clone() * 2.5;
+    Assert::default().eq_within_tols(
+        hill.equivalent_stress(&scaled)?,
+        &(hill.equivalent_stress(&stress)? * 2.5),
+    )?;
+    Assert::default().eq_within_tols(
+        hill.equivalent_stress(&stress)?,
+        &ContractWith::contract_with(&stress, &hill.flow_direction(&stress)?),
+    )
+}
+
+fn hill_stress_on_the_surface(model: &Hill) -> Result<MandelStressElastic, AssertionError> {
+    let stress = deviatoric_mandel_stress();
+    let scale = model.initial_yield_stress().value() / model.equivalent_stress(&stress)?.value();
+    Ok(stress * scale)
+}
+
+#[test]
+fn hill_dissipation_potential_is_the_yield_stress_times_the_multiplier()
+-> Result<(), AssertionError> {
+    let model = hill();
+    let yield_stress = model.initial_yield_stress();
+    let rate = model.flow_direction(&deviatoric_mandel_stress())? * Rate::per_second(0.3);
+    Assert::default().eq_within_tols(
+        model.dissipation_potential(rate, yield_stress)?,
+        &(yield_stress * Quantity::<Rate>::new(0.3)),
+    )
+}
+
+#[test]
+fn hill_deviatoric_mandel_stress_from_finite_difference_of_dissipation_potential()
+-> Result<(), AssertionError> {
+    let model = hill();
+    let yield_stress = model.initial_yield_stress();
+    let plastic_stretching_rate =
+        model.flow_direction(&deviatoric_mandel_stress())? * Rate::per_second(0.3);
+    let mut finite_difference = MandelStressElastic::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            let mut plus = plastic_stretching_rate.clone();
+            plus[i][j] += perturbation(0.5 * EPSILON);
+            let mut minus = plastic_stretching_rate.clone();
+            minus[i][j] -= perturbation(0.5 * EPSILON);
+            finite_difference[i][j] = (model.dissipation_potential(plus, yield_stress)?
+                - model.dissipation_potential(minus, yield_stress)?)
+                / Quantity::<Rate>::new(EPSILON);
+        }
+    }
+    Assert::default().eq_within_fd_tol(&hill_stress_on_the_surface(&model)?, &finite_difference)
+}
+
+#[test]
+fn hill_fenchel_equality() -> Result<(), AssertionError> {
+    let model = hill();
+    let yield_stress = model.initial_yield_stress();
+    let plastic_stretching_rate =
+        model.flow_direction(&deviatoric_mandel_stress())? * Rate::per_second(0.3);
+    Assert::default().eq_within_tols(
+        model.dissipation_potential(plastic_stretching_rate.clone(), yield_stress)?,
+        &ContractWith::contract_with(
+            &hill_stress_on_the_surface(&model)?,
+            &plastic_stretching_rate,
+        ),
+    )
+}

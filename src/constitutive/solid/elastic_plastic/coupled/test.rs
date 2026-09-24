@@ -3,7 +3,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         canonical::Canonical,
-        fluid::plastic::{PlasticFlow, RateIndependentPlastic, VoceFlow},
+        fluid::plastic::{Hill, PlasticFlow, RateIndependentPlastic, VoceFlow},
         solid::{
             elastic_plastic::{ElasticPlastic, ElasticPlasticOrViscoplastic},
             hyperelastic::{Hencky, NeoHookean, SaintVenantKirchhoff},
@@ -39,6 +39,19 @@ fn voce() -> VoceFlow {
     }
 }
 
+fn hill() -> Hill {
+    Hill {
+        yield_stress: Stress::pascals(2.0),
+        hardening_slope: Stress::pascals(1.0),
+        f: 0.4,
+        g: 0.25,
+        h: 0.3,
+        l: 1.3,
+        m: 0.8,
+        n: 1.1,
+    }
+}
+
 macro_rules! test_models {
     ($elastic:ident, $flow:ty, $make:expr) => {
         use super::*;
@@ -68,7 +81,7 @@ macro_rules! test_models {
                 0.030, 0.010, 0.004, 0.012, -0.020, 0.005, 0.003, -0.002, -0.010, 0.030,
             ];
             let iterate = Iterate::new(&model, &f, f_p_n, strain_n, &x)?;
-            let analytic = Sensitivities::new(&model, &f, f_p_n, &x, &iterate)?.jacobian();
+            let analytic = Sensitivities::new(&model, &f, f_p_n, &x, &iterate)?.jacobian()?;
             let h = 1e-7;
             for column in 0..SIZE {
                 let (mut plus, mut minus) = (x, x);
@@ -159,4 +172,16 @@ mod neo_hookean_voce {
 
 mod saint_venant_kirchhoff_voce {
     test_models!(SaintVenantKirchhoff, VoceFlow, voce());
+}
+
+mod hencky_hill {
+    test_models!(Hencky, Hill, hill());
+}
+
+mod neo_hookean_hill {
+    test_models!(NeoHookean, Hill, hill());
+}
+
+mod saint_venant_kirchhoff_hill {
+    test_models!(SaintVenantKirchhoff, Hill, hill());
 }
