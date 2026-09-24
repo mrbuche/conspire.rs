@@ -10,42 +10,25 @@ use crate::{constitutive::ConstitutiveError, math::Quantity, units::Stress};
 use std::fmt::Debug;
 
 /// Required methods for isotropic hardening laws.
-///
-/// A hardening law gives the yield stress $`Y`$ as a function of the equivalent plastic
-/// strain $`\varepsilon_\mathrm{p}`$, and is independent of the shape of the yield
-/// surface it is combined with.
 pub trait PlasticHardening
 where
     Self: Clone + Debug,
 {
-    /// Returns the initial yield stress.
+    /// Returns the initial yield stress $`Y_0 = Y(0)`$.
     fn initial_yield_stress(&self) -> Quantity<Stress>;
-    /// Returns the isotropic hardening slope.
-    fn hardening_slope(&self) -> Quantity<Stress>;
-    /// Calculates and returns the yield stress.
-    ///
-    /// ```math
-    /// Y = Y_0 + H\,\varepsilon_\mathrm{p}
-    /// ```
+    /// Calculates and returns the yield stress $`Y(\varepsilon_\mathrm{p})`$.
     fn yield_stress(
         &self,
         equivalent_plastic_strain: Quantity,
-    ) -> Result<Quantity<Stress>, ConstitutiveError> {
-        Ok(self.initial_yield_stress() + self.hardening_slope() * equivalent_plastic_strain)
-    }
+    ) -> Result<Quantity<Stress>, ConstitutiveError>;
     /// Calculates and returns the hardening modulus, the derivative of the yield stress
     /// with respect to the equivalent plastic strain.
     ///
     /// ```math
-    /// \frac{\mathrm{d}Y}{\mathrm{d}\varepsilon_\mathrm{p}} = H
+    /// \frac{\mathrm{d}Y}{\mathrm{d}\varepsilon_\mathrm{p}}
     /// ```
-    ///
-    /// This is the derivative of [`Self::yield_stress`]: a model that overrides one
-    /// must override the other, and a wrapper must forward both.
     fn hardening_modulus(
         &self,
-        _equivalent_plastic_strain: Quantity,
-    ) -> Result<Quantity<Stress>, ConstitutiveError> {
-        Ok(self.hardening_slope())
-    }
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError>;
 }

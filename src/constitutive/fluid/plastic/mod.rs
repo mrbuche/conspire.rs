@@ -83,9 +83,6 @@ where
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.hardening.initial_yield_stress()
     }
-    fn hardening_slope(&self) -> Quantity<Stress> {
-        self.hardening.hardening_slope()
-    }
     fn yield_stress(
         &self,
         equivalent_plastic_strain: Quantity,

@@ -52,7 +52,8 @@ fn yield_function_hardens_with_equivalent_plastic_strain() -> Result<(), Asserti
     let stress = deviatoric_mandel_stress();
     Assert::default().eq_within_tols(
         model.yield_function(&stress, Quantity::new(1.0))?,
-        &(model.yield_function(&stress, Quantity::default())? - model.hardening_slope()),
+        &(model.yield_function(&stress, Quantity::default())?
+            - model.hardening_modulus(Quantity::default())?),
     )
 }
 
@@ -103,12 +104,12 @@ fn voce() -> PlasticFlow<VonMises, Voce> {
 }
 
 #[test]
-fn the_default_hardening_modulus_is_the_slope() -> Result<(), AssertionError> {
+fn the_linear_hardening_modulus_is_the_slope() -> Result<(), AssertionError> {
     let model = model();
     [0.0, 0.3, 2.0].into_iter().try_for_each(|strain| {
         Assert::default().eq_within_tols(
             model.hardening_modulus(Quantity::new(strain))?,
-            &model.hardening_slope(),
+            &Stress::pascals(1.0),
         )
     })
 }
@@ -142,10 +143,6 @@ fn voce_hardening_starts_at_the_initial_yield_stress_and_saturates() -> Result<(
     // the initial slope is H + Q b, and past saturation only the linear part H remains
     Assert::default().eq_within_tols(
         model.hardening_modulus(Quantity::default())?,
-        &model.hardening_slope(),
-    )?;
-    Assert::default().eq_within_tols(
-        model.hardening_slope(),
         &(Stress::pascals(0.2) + Stress::pascals(1.5) * 8.0),
     )?;
     Assert::default().eq_within_tols(
