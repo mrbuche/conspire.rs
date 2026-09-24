@@ -24,10 +24,6 @@ impl PlasticHardening for Voce {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.yield_stress
     }
-    /// The initial hardening slope $`H + Qb`$, at zero plastic strain.
-    fn hardening_slope(&self) -> Quantity<Stress> {
-        self.hardening_slope + self.saturation_stress * self.saturation_rate
-    }
     fn yield_stress(
         &self,
         equivalent_plastic_strain: Quantity,

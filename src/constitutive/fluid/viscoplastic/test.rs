@@ -128,5 +128,8 @@ fn yield_stress_slope_is_the_hardening_slope() -> Result<(), AssertionError> {
     let model = model();
     let plus = model.yield_stress(Quantity::new(0.5 * EPSILON))?;
     let minus = model.yield_stress(Quantity::new(-0.5 * EPSILON))?;
-    Assert::default().eq_within_fd_tol(model.hardening_slope(), &((plus - minus) / EPSILON))
+    Assert::default().eq_within_fd_tol(
+        model.hardening_modulus(Quantity::default())?,
+        &((plus - minus) / EPSILON),
+    )
 }

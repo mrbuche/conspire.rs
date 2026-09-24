@@ -66,8 +66,17 @@ where
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.0.initial_yield_stress()
     }
-    fn hardening_slope(&self) -> Quantity<Stress> {
-        self.0.hardening_slope()
+    fn yield_stress(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        Ok(self.0.initial_yield_stress() + self.0.hardening_slope() * equivalent_plastic_strain)
+    }
+    fn hardening_modulus(
+        &self,
+        _equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        Ok(self.0.hardening_slope())
     }
 }
 

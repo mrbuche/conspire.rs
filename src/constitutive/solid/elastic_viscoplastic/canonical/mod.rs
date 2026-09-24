@@ -37,9 +37,6 @@ where
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.1.initial_yield_stress()
     }
-    fn hardening_slope(&self) -> Quantity<Stress> {
-        self.1.hardening_slope()
-    }
     fn yield_stress(
         &self,
         equivalent_plastic_strain: Quantity,

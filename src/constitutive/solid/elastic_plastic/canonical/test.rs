@@ -252,9 +252,10 @@ fn a_composed_model_forwards_the_hardening_law() -> Result<(), AssertionError> {
         )?;
     }
     assert!(
-        (model.hardening_modulus(Quantity::new(0.4))? - model.hardening_slope())
-            .value()
-            .abs()
+        (model.hardening_modulus(Quantity::new(0.4))?
+            - model.hardening_modulus(Quantity::default())?)
+        .value()
+        .abs()
             > 1e-3,
         "the modulus must vary with strain for this test to mean anything"
     );
