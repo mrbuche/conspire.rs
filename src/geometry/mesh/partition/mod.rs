@@ -63,29 +63,6 @@ impl Partition {
             nodes_parts,
         }
     }
-    #[cfg(test)]
-    #[cfg_attr(
-        not(any(feature = "cbm", feature = "fem", feature = "vem")),
-        allow(dead_code)
-    )]
-    pub(crate) fn from_parts_nodes(parts_nodes: Vec<Vec<usize>>) -> Self {
-        let number_of_nodes = parts_nodes
-            .iter()
-            .flatten()
-            .max()
-            .map_or(0, |&node| node + 1);
-        let mut nodes_parts = vec![Vec::new(); number_of_nodes];
-        parts_nodes
-            .iter()
-            .enumerate()
-            .for_each(|(part, nodes)| nodes.iter().for_each(|&node| nodes_parts[node].push(part)));
-        Self {
-            elements_parts: Vec::new(),
-            parts_elements: vec![Vec::new(); parts_nodes.len()],
-            parts_nodes,
-            nodes_parts,
-        }
-    }
     pub fn number_of_parts(&self) -> usize {
         self.parts_elements.len()
     }
