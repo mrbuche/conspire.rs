@@ -19,7 +19,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::{
-            plastic::Plastic,
+            plastic::PlasticHardening,
             viscoplastic::{
                 Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables,
                 default_plastic_evolution,
@@ -59,7 +59,7 @@ pub trait AutodiffViscoplastic {
     );
 }
 
-impl<M> Plastic for Autodiff<M>
+impl<M> PlasticHardening for Autodiff<M>
 where
     M: AutodiffViscoplastic + Clone + Debug,
 {

@@ -5,7 +5,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::{
-            plastic::Plastic,
+            plastic::PlasticHardening,
             viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
         },
         hybrid::ElasticViscoplasticAdditiveElastic,
@@ -38,7 +38,7 @@ where
     }
 }
 
-impl<C1, C2, Y1> Plastic for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
+impl<C1, C2, Y1> PlasticHardening for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,

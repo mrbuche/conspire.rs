@@ -3,7 +3,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         canonical::Canonical,
-        fluid::plastic::{Hill, PlasticFlow, RateIndependentPlastic, VoceFlow},
+        fluid::plastic::{Hill, Linear, PlasticFlow, RateIndependentPlastic, Voce, VonMises},
         solid::{
             elastic_plastic::{ElasticPlastic, ElasticPlasticOrViscoplastic},
             hyperelastic::{Hencky, NeoHookean, SaintVenantKirchhoff},
@@ -22,33 +22,48 @@ fn stretch_shear(s: f64) -> DeformationGradient {
     ])
 }
 
-fn linear() -> PlasticFlow {
-    PlasticFlow {
+type MisesLinear = PlasticFlow<VonMises, Linear>;
+type MisesVoce = PlasticFlow<VonMises, Voce>;
+type HillLinear = PlasticFlow<Hill, Linear>;
+
+fn linear_hardening() -> Linear {
+    Linear {
         yield_stress: Stress::pascals(2.0),
         hardening_slope: Stress::pascals(1.0),
+    }
+}
+
+fn linear() -> MisesLinear {
+    PlasticFlow {
+        surface: VonMises,
+        hardening: linear_hardening(),
     }
 }
 
 // saturates within a few percent plastic strain, so the modulus changes a lot over a step
-fn voce() -> VoceFlow {
-    VoceFlow {
-        yield_stress: Stress::pascals(2.0),
-        hardening_slope: Stress::pascals(0.2),
-        saturation_stress: Stress::pascals(1.5),
-        saturation_rate: 8.0,
+fn voce() -> MisesVoce {
+    PlasticFlow {
+        surface: VonMises,
+        hardening: Voce {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(0.2),
+            saturation_stress: Stress::pascals(1.5),
+            saturation_rate: 8.0,
+        },
     }
 }
 
-fn hill() -> Hill {
-    Hill {
-        yield_stress: Stress::pascals(2.0),
-        hardening_slope: Stress::pascals(1.0),
-        f: 0.4,
-        g: 0.25,
-        h: 0.3,
-        l: 1.3,
-        m: 0.8,
-        n: 1.1,
+fn hill() -> HillLinear {
+    PlasticFlow {
+        surface: Hill {
+            f: 0.4,
+            g: 0.25,
+            h: 0.3,
+            l: 1.3,
+            m: 0.8,
+            n: 1.1,
+        },
+        hardening: linear_hardening(),
     }
 }
 
@@ -151,37 +166,37 @@ macro_rules! test_models {
 }
 
 mod hencky {
-    test_models!(Hencky, PlasticFlow, linear());
+    test_models!(Hencky, MisesLinear, linear());
 }
 
 mod neo_hookean {
-    test_models!(NeoHookean, PlasticFlow, linear());
+    test_models!(NeoHookean, MisesLinear, linear());
 }
 
 mod saint_venant_kirchhoff {
-    test_models!(SaintVenantKirchhoff, PlasticFlow, linear());
+    test_models!(SaintVenantKirchhoff, MisesLinear, linear());
 }
 
 mod hencky_voce {
-    test_models!(Hencky, VoceFlow, voce());
+    test_models!(Hencky, MisesVoce, voce());
 }
 
 mod neo_hookean_voce {
-    test_models!(NeoHookean, VoceFlow, voce());
+    test_models!(NeoHookean, MisesVoce, voce());
 }
 
 mod saint_venant_kirchhoff_voce {
-    test_models!(SaintVenantKirchhoff, VoceFlow, voce());
+    test_models!(SaintVenantKirchhoff, MisesVoce, voce());
 }
 
 mod hencky_hill {
-    test_models!(Hencky, Hill, hill());
+    test_models!(Hencky, HillLinear, hill());
 }
 
 mod neo_hookean_hill {
-    test_models!(NeoHookean, Hill, hill());
+    test_models!(NeoHookean, HillLinear, hill());
 }
 
 mod saint_venant_kirchhoff_hill {
-    test_models!(SaintVenantKirchhoff, Hill, hill());
+    test_models!(SaintVenantKirchhoff, HillLinear, hill());
 }

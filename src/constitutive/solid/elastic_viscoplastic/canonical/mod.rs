@@ -6,7 +6,7 @@ use crate::{
         ConstitutiveError,
         canonical::Canonical,
         fluid::{
-            plastic::Plastic,
+            plastic::PlasticHardening,
             viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
         },
         solid::{
@@ -29,10 +29,10 @@ use crate::{
     units::{Dissipation, Rate, Stress},
 };
 
-impl<C1, C2> Plastic for Canonical<C1, C2>
+impl<C1, C2> PlasticHardening for Canonical<C1, C2>
 where
     C1: Elastic,
-    C2: Plastic,
+    C2: PlasticHardening,
 {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.1.initial_yield_stress()
@@ -105,7 +105,7 @@ where
 impl<C1, C2> ElasticPlasticOrViscoplastic for Canonical<C1, C2>
 where
     C1: Elastic,
-    C2: Plastic,
+    C2: PlasticHardening,
 {
     fn cauchy_stress(
         &self,
