@@ -17,7 +17,7 @@ use crate::{
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
-    math::{Tensor, Vector, sparse::CscMatrix},
+    math::{Tensor, Vector, optimize::NewtonRaphson, sparse::CscMatrix},
 };
 use std::array::from_fn;
 
@@ -39,6 +39,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariablesField<G>,
+        local_solver: &NewtonRaphson,
         nodal_forces: &mut NodalForcesSolid<3>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
@@ -51,6 +52,7 @@ where
                     self.constitutive_model(),
                     &Self::element_coordinates(nodal_coordinates, nodes),
                     state_variables_element,
+                    local_solver,
                 )?;
                 forces
                     .into_iter()
@@ -75,6 +77,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariablesField<G>,
+        local_solver: &NewtonRaphson,
     ) -> Result<PlasticStateVariablesField<G>, ElementModelError> {
         self.elements()
             .iter()
@@ -85,12 +88,13 @@ where
                     self.constitutive_model(),
                     &Self::element_coordinates(nodal_coordinates, nodes),
                     state_variables_element,
+                    local_solver,
                 )
             })
             .collect::<Result<_, FiniteElementError>>()
             .map_err(|error| ElementModelError::upstream(error, self))
     }
-    fn monolithic_system(&self, num_nodes: usize) -> MonolithicSystem {
+    fn monolithic_system(&self, num_nodes: usize) -> Option<MonolithicSystem> {
         let size = coupled::SIZE * G;
         let num_global = 3 * num_nodes;
         let num_local = size * self.elements().len();
@@ -125,14 +129,14 @@ where
             pattern.dedup();
             CscMatrix::from_pattern(height, width, pattern)
         };
-        MonolithicSystem {
+        Some(MonolithicSystem {
             residual_global: Vector::zero(num_global),
             residual_local: Vector::zero(num_local),
             tangent_uu: finish(uu, num_global, num_global),
             tangent_uv: finish(uv, num_global, num_local),
             tangent_vu: finish(vu, num_local, num_global),
             tangent_vv: finish(vv, num_local, num_local).with_block_size(coupled::SIZE),
-        }
+        })
     }
     fn monolithic_into(
         &self,

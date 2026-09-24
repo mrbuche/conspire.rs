@@ -7,7 +7,7 @@ use crate::{
     math::{
         Jacobian, Tensor, TensorVec, Vector,
         optimize::{
-            EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
+            EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock, NewtonRaphson,
             OptimizationError, SolveStrategy,
         },
         sparse::{CscMatrix, SparseSolver},
@@ -69,9 +69,15 @@ impl MonolithicSystem {
     }
 }
 
+const MONOLITHIC_UNSUPPORTED: &str = "The monolithic solve is not supported for this domain.";
+
+fn monolithic_unsupported() -> ElementModelError {
+    ElementModelError::Upstream(MONOLITHIC_UNSUPPORTED.to_string(), String::new())
+}
+
 /// Assembly for rate-independent elastic-plastic solids, with the local unknowns of the
-/// plastic step at each integration point converged and eliminated there, so the force
-/// and the stiffness of a point come from the same solve.
+/// plastic step at each integration point converged by the local solver and eliminated
+/// there, so the force and the stiffness of a point come from the same solve.
 pub trait ElasticPlasticElements<S, const D: usize>
 where
     Self: Elements,
@@ -83,6 +89,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
+        local_solver: &NewtonRaphson,
         nodal_forces: &mut NodalForcesSolid<D>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError>;
@@ -90,12 +97,14 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
+        local_solver: &NewtonRaphson,
     ) -> Result<(NodalForcesSolid<D>, NodalStiffnessesSolid<D>), ElementModelError> {
         let mut nodal_forces = NodalForcesSolid::zero(nodal_coordinates.len());
         let mut nodal_stiffnesses = NodalStiffnessesSolid::zero(nodal_coordinates.len());
         self.nodal_forces_and_stiffnesses_into(
             nodal_coordinates,
             state_variables,
+            local_solver,
             &mut nodal_forces,
             &mut nodal_stiffnesses,
         )?;
@@ -105,24 +114,26 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
+        local_solver: &NewtonRaphson,
     ) -> Result<NodalForcesSolid<D>, ElementModelError> {
         Ok(self
-            .nodal_forces_and_stiffnesses(nodal_coordinates, state_variables)?
+            .nodal_forces_and_stiffnesses(nodal_coordinates, state_variables, local_solver)?
             .0)
     }
     fn nodal_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
+        local_solver: &NewtonRaphson,
     ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
         Ok(self
-            .nodal_forces_and_stiffnesses(nodal_coordinates, state_variables)?
+            .nodal_forces_and_stiffnesses(nodal_coordinates, state_variables, local_solver)?
             .1)
     }
-    /// An empty monolithic system holding the sparsity structure of its blocks, for
-    /// domains that support [`SolveStrategy::Monolithic`].
-    fn monolithic_system(&self, _num_nodes: usize) -> MonolithicSystem {
-        unimplemented!("The monolithic solve is not supported for this domain.")
+    /// An empty monolithic system holding the sparsity structure of its blocks, or
+    /// `None` for a domain that does not support [`SolveStrategy::Monolithic`].
+    fn monolithic_system(&self, _num_nodes: usize) -> Option<MonolithicSystem> {
+        None
     }
     /// Evaluates the monolithic system at the given coordinates and trial local unknowns.
     fn monolithic_into(
@@ -132,7 +143,7 @@ where
         _local: &Vector,
         _system: &mut MonolithicSystem,
     ) -> Result<(), ElementModelError> {
-        unimplemented!("The monolithic solve is not supported for this domain.")
+        Err(monolithic_unsupported())
     }
     /// The plastic state the local unknowns of a monolithic solve arrive at.
     fn monolithic_state(
@@ -140,13 +151,14 @@ where
         _state_variables: &S,
         _local: &Vector,
     ) -> Result<S, ElementModelError> {
-        unimplemented!("The monolithic solve is not supported for this domain.")
+        Err(monolithic_unsupported())
     }
     /// Commit the plastic state at the converged coordinates of a load step.
     fn updated_state(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
+        local_solver: &NewtonRaphson,
     ) -> Result<S, ElementModelError>;
 }
 
@@ -161,17 +173,19 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
+        local_solver: &NewtonRaphson,
         nodal_forces: &mut NodalForcesSolid<D>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError> {
         self.blocks().nodal_forces_and_stiffnesses_into(
             nodal_coordinates,
             state_variables,
+            local_solver,
             nodal_forces,
             nodal_stiffnesses,
         )
     }
-    fn monolithic_system(&self, num_nodes: usize) -> MonolithicSystem {
+    fn monolithic_system(&self, num_nodes: usize) -> Option<MonolithicSystem> {
         self.blocks().monolithic_system(num_nodes)
     }
     fn monolithic_into(
@@ -195,9 +209,10 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
         state_variables: &S,
+        local_solver: &NewtonRaphson,
     ) -> Result<S, ElementModelError> {
         self.blocks()
-            .updated_state(nodal_coordinates, state_variables)
+            .updated_state(nodal_coordinates, state_variables, local_solver)
     }
 }
 
@@ -273,9 +288,11 @@ where
         finalize_node_neighbors(&mut neighbors);
         let mut system = match strategy {
             SolveStrategy::Condensed(_) => None,
-            SolveStrategy::Monolithic { .. } => {
-                Some(self.blocks().monolithic_system(nodal_coordinates.len()))
-            }
+            SolveStrategy::Monolithic { .. } => Some(
+                self.blocks()
+                    .monolithic_system(nodal_coordinates.len())
+                    .ok_or_else(|| MONOLITHIC_UNSUPPORTED.to_string())?,
+            ),
         };
         for constraint in boundary_conditions {
             let frozen_state = state.clone();
@@ -283,7 +300,10 @@ where
                 (system.take(), &strategy)
             {
                 let EqualityConstraint::Linear(matrix, vector) = constraint else {
-                    panic!("The monolithic solve only supports EqualityConstraint::Linear")
+                    return Err(OptimizationError::Intermediate(
+                        "The monolithic solve only supports EqualityConstraint::Linear."
+                            .to_string(),
+                    ));
                 };
                 let (num_global, num_local) = (monolithic.num_global(), monolithic.num_local());
                 //
@@ -381,7 +401,7 @@ where
                     .monolithic_state(&frozen_state, &new_local)
                     .map_err(|error| error.to_string())?;
                 system = Some(cell.into_inner());
-            } else {
+            } else if let SolveStrategy::Condensed(local_solver) = &strategy {
                 let sparse = solver_from_neighbors(&neighbors, constraint, D, false);
                 //
                 // The force and the stiffness are asked for at the same coordinates in
@@ -397,7 +417,7 @@ where
                     }
                     let (forces, stiffnesses) = self
                         .blocks()
-                        .nodal_forces_and_stiffnesses(coordinates, &frozen_state)
+                        .nodal_forces_and_stiffnesses(coordinates, &frozen_state, local_solver)
                         .map_err(|error| error.to_string())?;
                     *cache = Some((coordinates.clone(), forces, stiffnesses));
                     Ok(())
@@ -417,7 +437,7 @@ where
                 )?;
                 state = self
                     .blocks()
-                    .updated_state(&nodal_coordinates, &frozen_state)
+                    .updated_state(&nodal_coordinates, &frozen_state, local_solver)
                     .map_err(|error| error.to_string())?;
             }
             coordinates_history.push(nodal_coordinates.clone());

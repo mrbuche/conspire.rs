@@ -15,7 +15,8 @@ use crate::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
         TensorArray, TensorRank2, TensorRank4, Vector,
         optimize::{
-            EqualityConstraint, FirstOrderRootFindingBlock, SolveStrategy, ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderRootFindingBlock, NewtonRaphson, SolveStrategy,
+            ZerothOrderRootFinding,
         },
         sparse::CscMatrix,
     },
@@ -276,14 +277,15 @@ where
     /// The first Piola-Kirchhoff stress, the consistent tangent stiffness and the updated
     /// plastic state of one load step, from one local solve.
     ///
-    /// The local unknowns $`(\mathbf{E},\Delta\gamma)`$ of the step are converged as in
-    /// [`SolveStrategy::Condensed`] and eliminated from the tangent by a Schur
-    /// complement, so a caller needing both the force and the stiffness pays for one
-    /// solve.
+    /// The local unknowns $`(\mathbf{E},\Delta\gamma)`$ of the step are converged by the
+    /// local solver of [`SolveStrategy::Condensed`] and eliminated from the tangent by a
+    /// Schur complement, so a caller needing both the force and the stiffness pays for
+    /// one solve.
     fn condensed(
         &self,
         deformation_gradient: &DeformationGradient,
         state_variables: &PlasticStateVariables,
+        local_solver: &NewtonRaphson,
     ) -> Result<
         (
             FirstPiolaKirchhoffStress,
@@ -292,7 +294,7 @@ where
         ),
         ConstitutiveError,
     > {
-        coupled::condensed(self, deformation_gradient, state_variables)
+        coupled::condensed(self, deformation_gradient, state_variables, local_solver)
     }
 }
 

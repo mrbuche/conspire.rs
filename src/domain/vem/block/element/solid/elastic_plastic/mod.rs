@@ -10,7 +10,7 @@ use crate::{
             ElementNodalStiffnessesSolid as TetrahedronStiffnesses,
         },
     },
-    math::{ContractSecondFourthWithFirst, Scalar, Tensor, TensorArray},
+    math::{ContractSecondFourthWithFirst, Scalar, Tensor, TensorArray, optimize::NewtonRaphson},
     mechanics::{
         FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Force, Stiffness,
     },
@@ -236,6 +236,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates,
         state_variables: &PlasticStateVariables<1>,
+        local_solver: &NewtonRaphson,
     ) -> Result<(ElementNodalForcesSolid, ElementNodalStiffnessesSolid), VirtualElementError> {
         let evaluations = self
             .deformation_gradients(nodal_coordinates)
@@ -243,7 +244,7 @@ where
             .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 constitutive_model
-                    .condensed(deformation_gradient, state_variable)
+                    .condensed(deformation_gradient, state_variable, local_solver)
                     .map(|(stress, tangent, _)| (stress, tangent))
             })
             .collect::<Result<Vec<_>, _>>()
@@ -265,6 +266,7 @@ where
                     constitutive_model,
                     tetrahedron_coordinates,
                     state_variables,
+                    local_solver,
                 )
             })
             .collect::<Result<Vec<_>, FiniteElementError>>()
@@ -294,13 +296,14 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates,
         state_variables: &PlasticStateVariables<1>,
+        local_solver: &NewtonRaphson,
     ) -> Result<PlasticStateVariables<1>, VirtualElementError> {
         self.deformation_gradients(nodal_coordinates)
             .iter()
             .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 constitutive_model
-                    .condensed(deformation_gradient, state_variable)
+                    .condensed(deformation_gradient, state_variable, local_solver)
                     .map(|(_, _, state)| state)
             })
             .collect::<Result<PlasticStateVariables<1>, _>>()
