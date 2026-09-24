@@ -207,13 +207,19 @@ where
             .zip(state_variables)
             .enumerate()
             .try_for_each(|(g, (deformation_gradient, state_variable))| {
-                let (stress, residual_local, tangent, k_vu, k_uv, k_vv) =
-                    coupled::monolithic_evaluate(
-                        constitutive_model,
-                        deformation_gradient,
-                        state_variable,
-                        &Vector::from(local[coupled::SIZE * g..coupled::SIZE * (g + 1)].to_vec()),
-                    )?;
+                let coupled::Monolithic {
+                    stress,
+                    residual_local,
+                    tangent_uu: tangent,
+                    tangent_vu: k_vu,
+                    tangent_uv: k_uv,
+                    tangent_vv: k_vv,
+                } = coupled::monolithic_evaluate(
+                    constitutive_model,
+                    deformation_gradient,
+                    state_variable,
+                    &Vector::from(local[coupled::SIZE * g..coupled::SIZE * (g + 1)].to_vec()),
+                )?;
                 let weight = self.integration_weights()[g].value();
                 let gradient: [[Scalar; 3]; N] =
                     from_fn(|a| from_fn(|j| self.gradient_vectors()[g][a][j].value()));
