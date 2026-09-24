@@ -334,3 +334,21 @@ fn benchmark_monolithic_baseline() {
         .into_iter()
         .for_each(|nel| monolithic_baseline([nel; 3]));
 }
+
+/// 30^3 (89.4k dofs), the largest size the sparse baseline was run at. Local
+/// matrices are dense, so memory grows with the number of subdomains: this
+/// case holds about 125 subdomains of 1029 dofs (roughly 3.6 GB).
+#[test]
+#[ignore]
+fn benchmark_scaling_30_large_subdomains() {
+    println!("{HEADER}");
+    benchmark([30; 3], [5; 3]);
+}
+
+/// The same mesh in 216 smaller subdomains of 648 dofs (roughly 2.5 GB).
+#[test]
+#[ignore]
+fn benchmark_scaling_30_small_subdomains() {
+    println!("{HEADER}");
+    benchmark([30; 3], [6; 3]);
+}
