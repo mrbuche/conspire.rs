@@ -32,11 +32,14 @@ use std::time::Instant;
 /// real multi-subdomain FETI-DP problem exists yet to tune it against.
 const PARALLEL_THRESHOLD: usize = 4;
 
-/// Most threads the per-subdomain setup (assembly, condensation, local
-/// factorizations) spreads over.
-const SETUP_THREADS: usize = 4;
+/// Most threads any parallel stage of the solve uses, setup and PCG alike.
+const THREADS: usize = 4;
 
-/// `items.iter().map(f).collect()` spread over up to `SETUP_THREADS` threads.
+fn thread_count() -> usize {
+    THREADS.min(available_parallelism().map_or(1, |threads| threads.get()))
+}
+
+/// `items.iter().map(f).collect()` spread over up to `THREADS` threads.
 /// Threads pull the next unclaimed item, not a fixed chunk, because
 /// subdomains cost different amounts (an interior subdomain carries more dual
 /// dofs than a corner one), and results come back in item order.
@@ -45,9 +48,7 @@ where
     T: Sync,
     R: Send,
 {
-    let threads = SETUP_THREADS
-        .min(available_parallelism().map_or(1, |threads| threads.get()))
-        .min(items.len());
+    let threads = thread_count().min(items.len());
     if threads <= 1 {
         return items.iter().map(f).collect();
     }
@@ -306,8 +307,7 @@ where
     // coloring or row-gather — those solve write conflicts scattering into
     // one shared structure, which doesn't arise here since each thread only
     // ever produces its own small partial-sum `Vector`.
-    let threads = available_parallelism().map_or(1, |threads| threads.get());
-    let chunk_size = subdomains.len().div_ceil(threads).max(1);
+    let chunk_size = subdomains.len().div_ceil(thread_count()).max(1);
     let partials: Vec<Vector> = scope(|scope| {
         subdomains
             .chunks(chunk_size)
