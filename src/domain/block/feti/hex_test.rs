@@ -1,4 +1,11 @@
-use super::{Preconditioner, SolveStats, assemble::local_stiffness_and_force, solve_with};
+use super::{
+    Preconditioner, SolveStats,
+    assemble::local_stiffness_and_force,
+    dirichlet_local,
+    dual_primal::{CornerSelection, build_splits, condense::condense},
+    interface::build_interfaces,
+    solve_with,
+};
 use crate::{
     constitutive::solid::{
         elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
@@ -351,4 +358,104 @@ fn benchmark_scaling_30_large_subdomains() {
 fn benchmark_scaling_30_small_subdomains() {
     println!("{HEADER}");
     benchmark([30; 3], [6; 3]);
+}
+
+/// Times each step of one subdomain's setup, serially, on the subdomain with
+/// the most dual dofs. The parallel stages can only be timed as a whole, so
+/// this is where the split inside the subdomain build shows up. The
+/// implicit Dirichlet application is also checked against the explicitly
+/// formed Schur complement, which `condense` computes.
+fn profile_subdomain_setup(nel: [usize; 3], divisions: [usize; 3]) {
+    let fixture = fixture(nel, divisions);
+    let partition = &fixture.partition;
+    let corners = CornerSelection::from_partition(partition);
+    let (interfaces, _) = build_interfaces(partition, &corners, 3);
+    let (splits, _) = build_splits(partition, &corners, &fixture.boundary_conditions, 3);
+    let index = (0..splits.len())
+        .max_by_key(|&index| (splits[index].dual().len(), usize::MAX - index))
+        .unwrap();
+    let nodes = &partition.parts_nodes()[index];
+    let (stiffness, force) =
+        local_stiffness_and_force(&fixture.block, &fixture.nodal_coordinates, nodes)
+            .unwrap_or_else(|_| panic!("assembly failed"));
+    let (primal, dual) = (splits[index].primal(), splits[index].dual());
+    let time = |work: &mut dyn FnMut()| {
+        let start = Instant::now();
+        work();
+        milliseconds(start.elapsed())
+    };
+    let mut dual_stiffness = SquareMatrix::zero(0);
+    let extract = time(&mut || {
+        dual_stiffness = dual
+            .iter()
+            .map(|&row| dual.iter().map(|&col| stiffness[row][col]).collect())
+            .collect();
+    });
+    let lu_dual = time(&mut || {
+        dual_stiffness.factorize_lu().unwrap();
+    });
+    let corner_condense = time(&mut || {
+        condense(&stiffness, &force, primal, dual);
+    });
+    let mut local = None;
+    let dirichlet_setup = time(&mut || {
+        local = Some(dirichlet_local(&stiffness, dual, interfaces[index].dofs()));
+    });
+    let local = local.unwrap();
+    let boundary_dofs = local.boundary_dofs().to_vec();
+    let interior: Vec<usize> = dual
+        .iter()
+        .copied()
+        .filter(|dof| !boundary_dofs.contains(dof))
+        .collect();
+    let x: Vector = (0..boundary_dofs.len()).map(|i| 1.0 + i as f64).collect();
+    let mut applied = Vector::zero(0);
+    let apply = time(&mut || applied = local.apply(&x));
+    let mut explicit = None;
+    let explicit_schur = time(&mut || {
+        explicit = Some(condense(&stiffness, &force, &boundary_dofs, &interior).schur);
+    });
+    let explicit = explicit.unwrap();
+    let reference: Vec<f64> = (0..boundary_dofs.len())
+        .map(|row| {
+            (0..boundary_dofs.len())
+                .map(|column| explicit[row][column] * x[column])
+                .sum()
+        })
+        .collect();
+    let disagreement = reference
+        .iter()
+        .zip(applied.iter())
+        .fold(0.0_f64, |m, (&r, &a)| m.max((r - a).abs()))
+        / reference.iter().fold(0.0_f64, |m, &r| m.max(r.abs()));
+    assert!(
+        disagreement < 1e-9,
+        "implicit and explicit disagree by {disagreement:e}"
+    );
+    println!(
+        "{:>9} {:>9} | dofs {:>5} dual {:>5} boundary {:>5} interior {:>5} corner {:>4} | \
+         K_dd extract {:>6.0} LU {:>6.0} | corner condense {:>6.0} | Dirichlet: implicit setup \
+         {:>6.0} + {:>6.1} per apply, vs explicit Schur {:>7.0} ms (agree to {disagreement:.0e})",
+        format!("{nel:?}").replace(' ', ""),
+        format!("{divisions:?}").replace(' ', ""),
+        3 * nodes.len(),
+        dual.len(),
+        boundary_dofs.len(),
+        interior.len(),
+        primal.len(),
+        extract,
+        lu_dual,
+        corner_condense,
+        dirichlet_setup,
+        apply,
+        explicit_schur,
+    );
+}
+
+#[test]
+#[ignore]
+fn profile_one_subdomain_setup() {
+    profile_subdomain_setup([24; 3], [3; 3]);
+    profile_subdomain_setup([30; 3], [5; 3]);
+    profile_subdomain_setup([30; 3], [6; 3]);
 }

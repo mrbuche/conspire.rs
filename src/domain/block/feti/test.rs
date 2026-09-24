@@ -58,8 +58,7 @@ fn setup() -> Setup {
                 .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
                 .collect();
             let dual_factor = k_dd.factorize_lu().unwrap();
-            let (boundary_dofs, dirichlet_schur) =
-                dirichlet_local(stiffness, &dual_dofs, interface.dofs());
+            let dirichlet = dirichlet_local(stiffness, &dual_dofs, interface.dofs());
             Subdomain::new(
                 (),
                 interface,
@@ -70,8 +69,7 @@ fn setup() -> Setup {
                 condensed.dual_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
-                boundary_dofs,
-                dirichlet_schur,
+                dirichlet,
             )
         })
         .collect();
@@ -117,8 +115,7 @@ fn chain_setup(count: usize) -> Setup {
                 .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
                 .collect();
             let dual_factor = k_dd.factorize_lu().unwrap();
-            let (boundary_dofs, dirichlet_schur) =
-                dirichlet_local(stiffness, &dual_dofs, interface.dofs());
+            let dirichlet = dirichlet_local(stiffness, &dual_dofs, interface.dofs());
             Subdomain::new(
                 (),
                 interface,
@@ -129,8 +126,7 @@ fn chain_setup(count: usize) -> Setup {
                 condensed.dual_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
-                boundary_dofs,
-                dirichlet_schur,
+                dirichlet,
             )
         })
         .collect();
@@ -247,9 +243,41 @@ fn dirichlet_local_splits_interior_and_boundary_and_computes_the_schur_complemen
         .collect();
     let dual_dofs = vec![1, 2];
     let interface_dofs = vec![1];
-    let (boundary_dofs, schur) = dirichlet_local(&stiffness, &dual_dofs, &interface_dofs);
-    assert_eq!(boundary_dofs, vec![1]);
-    assert!((schur[0][0] - 3.75).abs() < 1e-12);
+    let local = dirichlet_local(&stiffness, &dual_dofs, &interface_dofs);
+    assert_eq!(local.boundary_dofs(), &[1]);
+    let x: Vector = [1.0].into_iter().collect();
+    assert!((local.apply(&x)[0] - 3.75).abs() < 1e-12);
+}
+
+/// The implicit application must equal multiplying by the explicitly formed
+/// Schur complement, which `condense` computes by an independent route
+/// (eliminate the interior, keep the boundary) — on a 6-dof SPD matrix with
+/// boundary {1, 3, 4} and interior {0, 2, 5}, so every block is nontrivial.
+#[test]
+fn the_implicit_dirichlet_application_matches_the_explicit_schur_complement() {
+    let stiffness: SquareMatrix = (0..6)
+        .map(|i| {
+            (0..6)
+                .map(|j| {
+                    if i == j {
+                        5.0
+                    } else {
+                        1.0 / (1.0 + (i as f64 - j as f64).abs())
+                    }
+                })
+                .collect()
+        })
+        .collect();
+    let dual_dofs: Vec<usize> = (0..6).collect();
+    let local = dirichlet_local(&stiffness, &dual_dofs, &[1, 3, 4]);
+    assert_eq!(local.boundary_dofs(), &[1, 3, 4]);
+    let explicit = condense(&stiffness, &Vector::zero(6), &[1, 3, 4], &[0, 2, 5]).schur;
+    let x: Vector = [1.0, -2.0, 0.5].into_iter().collect();
+    let implicit = local.apply(&x);
+    (0..3).for_each(|row| {
+        let reference: f64 = (0..3).map(|column| explicit[row][column] * x[column]).sum();
+        assert!((implicit[row] - reference).abs() < 1e-12);
+    });
 }
 
 /// `setup()`'s subdomains each have exactly one dual dof, and it's always on

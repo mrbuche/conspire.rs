@@ -114,16 +114,43 @@ pub(crate) struct Subdomain<B> {
     /// Each local primal DOF's position in the global corner-DOF vector,
     /// parallel to `primal_dofs`.
     primal_global: Vec<usize>,
-    /// The subset of `dual_dofs` that actually carry a Lagrange multiplier
-    /// (this subdomain's boundary/Γ dofs) — raw local positions, ordered to
-    /// match `dirichlet_schur`'s rows/columns.
+    /// What the Dirichlet preconditioner needs from this subdomain.
+    dirichlet: DirichletLocal,
+}
+
+/// A subdomain's part of the Dirichlet preconditioner,
+/// `S_s = K_bb - K_bi K_ii^-1 K_ib`, the Schur complement of its interior
+/// (never touched by a multiplier) dual dofs `i` onto its boundary (touched
+/// by one) dual dofs `b`. `S_s` is applied implicitly, as `K_bb x` minus one
+/// interior solve and two rectangular matvecs, instead of being formed: the
+/// preconditioner runs a few dozen times, and forming `S_s` costs one interior
+/// solve per boundary dof.
+pub(crate) struct DirichletLocal {
+    /// Raw local positions of the boundary dofs, in the row order of the
+    /// blocks below.
     boundary_dofs: Vec<usize>,
-    /// The Dirichlet preconditioner's local contribution,
-    /// `S_GammaGamma,s = K_GammaGamma,s - K_Gamma-i,s K_ii,s^-1 K_i-Gamma,s`
-    /// — the Schur complement of this subdomain's interior (non-interface)
-    /// dual dofs, computed once via the same static condensation `condense()`
-    /// uses for corners.
-    dirichlet_schur: SquareMatrix,
+    k_bb: SquareMatrix,
+    k_bi: Matrix,
+    k_ib: Matrix,
+    /// `None` when the subdomain has no interior dofs.
+    interior_factor: Option<LuDecomposition>,
+}
+
+impl DirichletLocal {
+    pub(crate) fn boundary_dofs(&self) -> &[usize] {
+        &self.boundary_dofs
+    }
+    /// `S_s . x` for `x` given on the boundary dofs.
+    pub(crate) fn apply(&self, x: &Vector) -> Vector {
+        let direct = matvec(&self.k_bb, x);
+        match &self.interior_factor {
+            None => direct,
+            Some(factor) => {
+                let interior = factor.solve(&(&self.k_ib * x));
+                direct - &self.k_bi * &interior
+            }
+        }
+    }
 }
 
 impl<B> Subdomain<B> {
@@ -138,8 +165,7 @@ impl<B> Subdomain<B> {
         dual_map: Matrix,
         primal_dofs: Vec<usize>,
         primal_global: Vec<usize>,
-        boundary_dofs: Vec<usize>,
-        dirichlet_schur: SquareMatrix,
+        dirichlet: DirichletLocal,
     ) -> Self {
         Self {
             blocks,
@@ -151,8 +177,7 @@ impl<B> Subdomain<B> {
             dual_map,
             primal_dofs,
             primal_global,
-            boundary_dofs,
-            dirichlet_schur,
+            dirichlet,
         }
     }
     pub(crate) fn blocks(&self) -> &B {
@@ -195,7 +220,8 @@ impl<B> Subdomain<B> {
     }
     /// Restricts a full-local vector to this subdomain's boundary (Γ) dofs.
     fn boundary_rhs(&self, full_local: &Vector) -> Vector {
-        self.boundary_dofs
+        self.dirichlet
+            .boundary_dofs()
             .iter()
             .map(|&dof| full_local[dof])
             .collect()
@@ -204,20 +230,19 @@ impl<B> Subdomain<B> {
     /// subdomain's full local numbering, leaving every other position zero.
     fn scatter_boundary(&self, boundary_vector: &Vector) -> Vector {
         let mut local = Vector::zero(self.num_local);
-        self.boundary_dofs
+        self.dirichlet
+            .boundary_dofs()
             .iter()
             .zip(boundary_vector.iter())
             .for_each(|(&dof, &value)| local[dof] = value);
         local
     }
-    /// Applies the Dirichlet preconditioner's local contribution `S_GammaGamma`
-    /// (no solve, `dirichlet_schur` is precomputed) to `rhs`'s boundary-
-    /// restricted part — the local step the Dirichlet preconditioner uses in
-    /// place of `local_apply`'s raw `K_dd`, giving the theoretically optimal
-    /// (near mesh-independent) condition number bound at the cost of the one
-    /// extra local Schur complement computed once up front.
+    /// Applies the Dirichlet preconditioner's local contribution `S_s` to
+    /// `rhs`'s boundary-restricted part — the local step the Dirichlet
+    /// preconditioner uses in place of `local_apply`'s raw `K_dd`, giving the
+    /// near mesh-independent condition number bound.
     fn local_dirichlet_apply(&self, rhs: &Vector) -> Vector {
-        let applied = matvec(&self.dirichlet_schur, &self.boundary_rhs(rhs));
+        let applied = self.dirichlet.apply(&self.boundary_rhs(rhs));
         self.scatter_boundary(&applied)
     }
     /// Scatters a primal (corner)-DOF vector back to its raw positions in
@@ -322,11 +347,11 @@ where
     dual_reduce(subdomains, lambda, Subdomain::local_apply)
 }
 
-/// The Dirichlet FETI-DP preconditioner, `sum_s B_Gamma,s S_GammaGamma,s
-/// B_Gamma,s^T` — the theoretically optimal (near mesh-independent) choice,
-/// trading `dual_precondition`'s cheap local matvec for one extra local
-/// Schur complement per subdomain (precomputed once, in `dirichlet_local`,
-/// not per PCG iteration).
+/// The Dirichlet FETI-DP preconditioner, `sum_s B_b,s S_s B_b,s^T` — the
+/// theoretically optimal (near mesh-independent) choice, trading
+/// `dual_precondition`'s cheap local matvec for one interior solve and two
+/// rectangular matvecs per subdomain per application (`S_s` is never formed,
+/// see `DirichletLocal`).
 fn dual_precondition_dirichlet<B>(subdomains: &[Subdomain<B>], lambda: &Vector) -> Vector
 where
     B: Sync,
@@ -335,19 +360,18 @@ where
 }
 
 /// Splits a subdomain's dual dofs into interior (never touched by a
-/// multiplier) and boundary/Γ (touched by at least one), then eliminates the
-/// interior dofs via the same static condensation `condense()` uses for
-/// corners — reusing that ~60-line algorithm rather than duplicating it,
-/// since both are "keep this subset, eliminate the rest" on the same local
-/// stiffness. Interior-interior is a principal submatrix of the (SPD, once
-/// corners are condensed out) `K_dd,s`, hence always itself non-singular, so
-/// this elimination can't fail the way `condense()`'s corner elimination
-/// could on a floating subdomain.
+/// multiplier) and boundary (touched by at least one), and extracts the
+/// blocks the Dirichlet preconditioner applies, factorizing `K_ii`.
+/// Interior-interior is a principal submatrix of the (SPD, once corners are
+/// condensed out) `K_dd,s`, hence always itself non-singular, so the
+/// factorization can't fail the way a corner elimination could on a floating
+/// subdomain. `K_bi` and `K_ib` are both kept, so the application needs no
+/// transposed products.
 fn dirichlet_local(
     local_stiffness: &SquareMatrix,
     dual_dofs: &[usize],
     interface_dofs: &[usize],
-) -> (Vec<usize>, SquareMatrix) {
+) -> DirichletLocal {
     let on_interface: HashSet<usize> = interface_dofs.iter().copied().collect();
     let boundary: Vec<usize> = dual_dofs
         .iter()
@@ -359,22 +383,49 @@ fn dirichlet_local(
         .copied()
         .filter(|dof| !on_interface.contains(dof))
         .collect();
-    if interior.is_empty() {
-        let schur = boundary
+    let block = |rows: &[usize], columns: &[usize]| -> Matrix {
+        rows.iter()
+            .map(|&row| {
+                columns
+                    .iter()
+                    .map(|&column| local_stiffness[row][column])
+                    .collect()
+            })
+            .collect()
+    };
+    let k_bb: SquareMatrix = boundary
+        .iter()
+        .map(|&row| {
+            boundary
+                .iter()
+                .map(|&column| local_stiffness[row][column])
+                .collect()
+        })
+        .collect();
+    let interior_factor = if interior.is_empty() {
+        None
+    } else {
+        let k_ii: SquareMatrix = interior
             .iter()
             .map(|&row| {
-                boundary
+                interior
                     .iter()
                     .map(|&column| local_stiffness[row][column])
                     .collect()
             })
             .collect();
-        return (boundary, schur);
+        Some(
+            k_ii.factorize_lu()
+                .expect("K_ii is singular, but it is a principal block of a non-singular K_dd"),
+        )
+    };
+    DirichletLocal {
+        k_bi: block(&boundary, &interior),
+        k_ib: block(&interior, &boundary),
+        boundary_dofs: boundary,
+        k_bb,
+        interior_factor,
     }
-    let zero_force = Vector::zero(local_stiffness.len());
-    let condensed =
-        dual_primal::condense::condense(local_stiffness, &zero_force, &boundary, &interior);
-    (boundary, condensed.schur)
 }
 
 /// `C^T . lambda`, scattered into the global corner-DOF vector, where
@@ -440,13 +491,11 @@ where
 /// are pinned, so this needs no projection against a rigid-body null space
 /// the way plain FETI would. Dirichlet is the default over lumped: its
 /// condition-number bound is near mesh-independent (`1 + log(H/h)^2`) where
-/// lumped's degrades with the subdomain-to-mesh-size ratio, and its extra
-/// cost (one local Schur complement per subdomain) is paid once at setup in
-/// `dirichlet_local`, not per PCG iteration — so it wins as soon as a
-/// subdomain has more than a handful of elements per edge, the realistic
-/// regime. `dual_precondition` (lumped) stays available for the
-/// pathologically-small-subdomain case where the Schur setup cost doesn't
-/// pay for itself.
+/// lumped's degrades with the subdomain-to-mesh-size ratio, at the price of
+/// one local interior solve per subdomain per iteration, so it wins as soon
+/// as a subdomain has more than a handful of elements per edge, the
+/// realistic regime. `dual_precondition` (lumped) stays available for the
+/// pathologically-small-subdomain case.
 pub(crate) fn projected_pcg<B>(
     subdomains: &[Subdomain<B>],
     coarse: &Coarse,
@@ -690,15 +739,8 @@ where
         let dual_factor = dual_stiffness
             .factorize_lu()
             .expect("K_dd is singular, but corners should make every subdomain non-singular");
-        let (boundary_dofs, dirichlet_schur) =
-            dirichlet_local(stiffness, &dual_dofs, interfaces[index].dofs());
-        (
-            dual_dofs,
-            dual_stiffness,
-            dual_factor,
-            boundary_dofs,
-            dirichlet_schur,
-        )
+        let dirichlet = dirichlet_local(stiffness, &dual_dofs, interfaces[index].dofs());
+        (dual_dofs, dual_stiffness, dual_factor, dirichlet)
     });
     let subdomains: Vec<Subdomain<()>> = interfaces
         .into_iter()
@@ -707,7 +749,7 @@ where
         .zip(condensed.iter())
         .zip(subdomain_nodes.iter())
         .map(|((((interface, local), split), condensed), nodes)| {
-            let (dual_dofs, dual_stiffness, dual_factor, boundary_dofs, dirichlet_schur) = local;
+            let (dual_dofs, dual_stiffness, dual_factor, dirichlet) = local;
             Subdomain::new(
                 (),
                 interface,
@@ -718,8 +760,7 @@ where
                 condensed.dual_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
-                boundary_dofs,
-                dirichlet_schur,
+                dirichlet,
             )
         })
         .collect();
