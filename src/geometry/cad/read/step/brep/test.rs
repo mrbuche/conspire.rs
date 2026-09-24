@@ -342,7 +342,7 @@ fn read_cylinder_meshes_through_the_analytic_oracle() {
     let length = |v| Quantity::<Length>::new(v);
     let mesh = brep
         .mesh(
-            &FeatureSizing::of(&brep, 32, length(0.2), Some(length(1.0)), Some(0.25)),
+            &FeatureSizing::of(&brep, 32, Some(length(0.2)), Some(length(1.0)), Some(0.25)),
             Some(6),
             0.1,
             Balancing::Strong(1),
@@ -681,7 +681,7 @@ fn probe_mesh_step_dir() {
                     let mut sizing = FeatureSizing::of(
                         brep,
                         segments,
-                        Quantity::<Length>::new(minimum),
+                        Some(Quantity::<Length>::new(minimum)),
                         maximum,
                         gradation,
                     );
@@ -937,7 +937,7 @@ fn probe_sizing_ring() {
     let sizing = FeatureSizing::of(
         &brep,
         env_f64("STEP_MESH_SEGMENTS", 36.0) as usize,
-        length(env_f64("STEP_MESH_MIN", 6.0e-4)),
+        Some(length(env_f64("STEP_MESH_MIN", 6.0e-4))),
         Some(length(cell)),
         Some(env_f64("STEP_MESH_GRADATION", 0.15)),
     )
@@ -1035,7 +1035,8 @@ fn probe_mesh_real_file() {
         let mut sizing = FeatureSizing::of(
             brep,
             env_f64("STEP_MESH_SEGMENTS", 24.0) as usize,
-            length(env_f64("STEP_MESH_MIN", cell / 8.0)),
+            (std::env::var("STEP_MESH_MIN").as_deref() != Ok("none"))
+                .then(|| length(env_f64("STEP_MESH_MIN", cell / 8.0))),
             maximum,
             gradation,
         );
@@ -1985,7 +1986,7 @@ fn corpus_mesh_snapshot() {
                     let sizing = FeatureSizing::of(
                         brep,
                         32,
-                        Quantity::<Length>::new(4.0e-4),
+                        Some(Quantity::<Length>::new(4.0e-4)),
                         Some(cell()),
                         Some(0.2),
                     );
@@ -2112,7 +2113,7 @@ fn probe_crease_adherence() {
         let sizing = FeatureSizing::of(
             brep,
             24,
-            Quantity::<Length>::new(minimum),
+            Some(Quantity::<Length>::new(minimum)),
             Some(Quantity::<Length>::new(cell)),
             Some(0.2),
         )
@@ -2126,7 +2127,14 @@ fn probe_crease_adherence() {
         // A/B testing against more real files.
         let with_crease = std::env::var("STEP_MESH_CREASE").as_deref() == Ok("1");
         let mesh_result = if with_crease {
-            brep.mesh_with_creases(&sizing, None, 0.1, Balancing::Strong(1), Fitting::Soft, &creases)
+            brep.mesh_with_creases(
+                &sizing,
+                None,
+                0.1,
+                Balancing::Strong(1),
+                Fitting::Soft,
+                &creases,
+            )
         } else {
             brep.mesh(&sizing, None, 0.1, Balancing::Strong(1), Fitting::Soft)
         };

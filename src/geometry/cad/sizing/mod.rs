@@ -141,6 +141,9 @@ struct CreaseSeg {
 /// likes — the feature size within one target-size of the edge, `maximum`
 /// beyond, a single fine layer per feature.
 ///
+/// `minimum` is `None` for no floor: every term refines as finely as the
+/// geometry asks, bounded only by the octree's depth cap.
+///
 /// `maximum` is `None` for no ceiling: cells far from every feature grow as
 /// large as the octree root, so the mesh adapts away from the part instead of
 /// filling the empty bounding box with `maximum`-sized cells.
@@ -170,10 +173,11 @@ impl FeatureSizing {
     pub fn of(
         brep: &Brep,
         segments_per_edge: usize,
-        minimum: Quantity<Length>,
+        minimum: Option<Quantity<Length>>,
         maximum: Option<Quantity<Length>>,
         gradation: Option<Scalar>,
     ) -> Self {
+        let minimum = minimum.unwrap_or_default();
         let maximum = maximum.unwrap_or_else(|| Quantity::new(Scalar::INFINITY));
         let samples = segments_per_edge.max(1);
         let divisor = samples as Scalar;

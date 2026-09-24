@@ -1,12 +1,16 @@
 use crate::{
     geometry::{
+        Coordinate,
         cad::{
-            brep::test::{axis_aligned_box, ball, capped_cylinder, cone, torus, unit_cube},
+            brep::test::{
+                axis_aligned_box, ball, capped_cylinder, cone, notched_bore_block,
+                notched_bore_pocket, torus, unit_cube,
+            },
             sizing::FeatureSizing,
         },
         mesh::{Class, Connectivity, Fitting, Mesh, Output, Verdict, Vtk},
         ntree::Balancing,
-        solid::Solid,
+        solid::{Solid, SolidOracle},
     },
     io::{Write, write::Compression},
     math::Quantity,
@@ -78,7 +82,7 @@ fn sizing_field_grades_the_octree() {
     // overhangs the geometry on the two shorter axes.
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
-    let sizing = FeatureSizing::of(&brep, 64, length(0.01), Some(length(2.0)), Some(0.25));
+    let sizing = FeatureSizing::of(&brep, 64, Some(length(0.01)), Some(length(2.0)), Some(0.25));
     let mesh = brep.sizing_octree(&sizing, Some(7), 0.0).unwrap();
     let cells = hexes(&mesh);
 
@@ -130,7 +134,7 @@ fn sizing_field_grades_the_octree() {
 #[test]
 fn max_levels_is_bounded() {
     let brep = unit_cube();
-    let sizing = FeatureSizing::of(&brep, 16, length(0.01), Some(length(2.0)), Some(0.25));
+    let sizing = FeatureSizing::of(&brep, 16, Some(length(0.01)), Some(length(2.0)), Some(0.25));
     assert!(brep.sizing_octree(&sizing, Some(0), 0.0).is_err());
     assert!(brep.sizing_octree(&sizing, Some(16), 0.0).is_err());
     // `None` is uncapped: the coarse `maximum` still settles it well short of
@@ -141,7 +145,7 @@ fn max_levels_is_bounded() {
 #[test]
 fn dual_background_classifies_the_dual_mesh() {
     let brep = unit_cube();
-    let sizing = FeatureSizing::of(&brep, 16, length(0.01), Some(length(2.0)), Some(0.25));
+    let sizing = FeatureSizing::of(&brep, 16, Some(length(0.01)), Some(length(2.0)), Some(0.25));
     let (mesh, classes) = brep
         .dual_background(&sizing, Some(5), 0.1, Balancing::Strong(1))
         .unwrap();
@@ -167,7 +171,7 @@ fn dual_background_classifies_the_dual_mesh() {
 fn trim_hugs_the_geometry() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
-    let sizing = FeatureSizing::of(&brep, 64, length(0.05), Some(length(1.0)), Some(0.25));
+    let sizing = FeatureSizing::of(&brep, 64, Some(length(0.05)), Some(length(1.0)), Some(0.25));
     let (mesh, classes) = brep
         .trim(&sizing, Some(6), 0.1, Balancing::Strong(1))
         .unwrap();
@@ -196,7 +200,7 @@ fn trim_hugs_the_geometry() {
 #[test]
 fn meshes_a_capped_cylinder_through_the_analytic_oracle() {
     let brep = capped_cylinder(2.0, 5.0);
-    let sizing = FeatureSizing::of(&brep, 32, length(0.1), Some(length(1.0)), Some(0.25));
+    let sizing = FeatureSizing::of(&brep, 32, Some(length(0.1)), Some(length(1.0)), Some(0.25));
     let mesh = brep
         .mesh(&sizing, Some(6), 0.1, Balancing::Strong(1), Fitting::Soft)
         .unwrap();
@@ -235,7 +239,7 @@ fn crease_curves_pull_rim_nodes_onto_the_exact_circle() {
     // node this close to the rim should land on the exact circle: both z and
     // radius pinned together, not just z.
     let brep = capped_cylinder(2.0, 5.0);
-    let sizing = FeatureSizing::of(&brep, 32, length(0.1), Some(length(0.4)), Some(0.25));
+    let sizing = FeatureSizing::of(&brep, 32, Some(length(0.1)), Some(length(0.4)), Some(0.25));
     let creases = brep.creases();
     let mesh = brep
         .mesh_with_creases(
@@ -274,7 +278,7 @@ fn crease_curves_pull_rim_nodes_onto_the_exact_circle() {
 fn mesh_fits_the_graded_box() {
     let extents = [2.0, 4.0, 8.0];
     let brep = axis_aligned_box(extents);
-    let sizing = FeatureSizing::of(&brep, 64, length(0.05), Some(length(1.0)), Some(0.25));
+    let sizing = FeatureSizing::of(&brep, 64, Some(length(0.05)), Some(length(1.0)), Some(0.25));
     let mesh = brep
         .mesh(&sizing, Some(6), 0.1, Balancing::Strong(1), Fitting::Soft)
         .unwrap();
@@ -322,7 +326,7 @@ fn dump_curved_brep_meshes() {
                     &FeatureSizing::of(
                         &capped_cylinder(2.0, 5.0),
                         48,
-                        length(0.15),
+                        Some(length(0.15)),
                         Some(length(1.0)),
                         Some(0.2),
                     ),
@@ -340,7 +344,7 @@ fn dump_curved_brep_meshes() {
                     &FeatureSizing::of(
                         &cone(3.0, 1.0, 5.0),
                         48,
-                        length(0.15),
+                        Some(length(0.15)),
                         Some(length(1.0)),
                         Some(0.2),
                     ),
@@ -357,7 +361,13 @@ fn dump_curved_brep_meshes() {
             "target/cad_sphere.vtu",
             ball(3.0)
                 .mesh(
-                    &FeatureSizing::of(&ball(3.0), 48, length(0.15), Some(length(0.5)), Some(0.2)),
+                    &FeatureSizing::of(
+                        &ball(3.0),
+                        48,
+                        Some(length(0.15)),
+                        Some(length(0.5)),
+                        Some(0.2),
+                    ),
                     Some(7),
                     0.1,
                     Balancing::Strong(1),
@@ -372,7 +382,7 @@ fn dump_curved_brep_meshes() {
                     &FeatureSizing::of(
                         &torus(4.0, 1.5),
                         48,
-                        length(0.12),
+                        Some(length(0.12)),
                         Some(length(0.4)),
                         Some(0.2),
                     ),
@@ -395,5 +405,345 @@ fn dump_curved_brep_meshes() {
         );
         mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))))
             .unwrap();
+    }
+}
+
+/// Face-connected component count, the size of the smallest component, and
+/// the nodes on boundary faces (a quad used by exactly one hex).
+fn topology(mesh: &Mesh<3>) -> (usize, usize, Vec<usize>) {
+    use std::collections::HashMap;
+    const FACES: [[usize; 4]; 6] = [
+        [0, 1, 2, 3],
+        [4, 5, 6, 7],
+        [0, 1, 5, 4],
+        [1, 2, 6, 5],
+        [2, 3, 7, 6],
+        [3, 0, 4, 7],
+    ];
+    let hexes = hexes(mesh);
+    let mut parent: Vec<usize> = (0..hexes.len()).collect();
+    fn find(parent: &mut [usize], mut i: usize) -> usize {
+        while parent[i] != i {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        i
+    }
+    let mut seen: HashMap<[usize; 4], (usize, usize)> = HashMap::new();
+    for (index, hex) in hexes.iter().enumerate() {
+        for face in FACES {
+            let mut key = face.map(|corner| hex[corner]);
+            key.sort_unstable();
+            match seen.get_mut(&key) {
+                Some((first, count)) => {
+                    *count += 1;
+                    let (a, b) = (find(&mut parent, *first), find(&mut parent, index));
+                    parent[a] = b;
+                }
+                None => {
+                    seen.insert(key, (index, 1));
+                }
+            }
+        }
+    }
+    let mut sizes: HashMap<usize, usize> = HashMap::new();
+    for index in 0..hexes.len() {
+        *sizes.entry(find(&mut parent, index)).or_default() += 1;
+    }
+    let mut boundary: Vec<usize> = seen
+        .into_iter()
+        .filter(|(_, (_, count))| *count == 1)
+        .flat_map(|(key, _)| key)
+        .collect();
+    boundary.sort_unstable();
+    boundary.dedup();
+    (
+        sizes.len(),
+        sizes.values().copied().min().unwrap_or(0),
+        boundary,
+    )
+}
+
+/// Nodes lying strictly inside a hex they do not belong to: a positive-Jacobian
+/// element pushed through a neighbour, which per-element quality cannot see.
+fn penetrating_nodes(mesh: &Mesh<3>) -> usize {
+    use std::collections::HashMap;
+    const TETS: [[usize; 4]; 6] = [
+        [0, 1, 2, 6],
+        [0, 2, 3, 6],
+        [0, 3, 7, 6],
+        [0, 7, 4, 6],
+        [0, 4, 5, 6],
+        [0, 5, 1, 6],
+    ];
+    let hexes = hexes(mesh);
+    let position = |node: usize| -> [f64; 3] {
+        std::array::from_fn(|axis| mesh.coordinates()[node][axis].value())
+    };
+    let cell = hexes
+        .iter()
+        .map(|hex| cell_size(hex, mesh))
+        .fold(0.0_f64, f64::max);
+    let key = |p: [f64; 3]| -> [i64; 3] { p.map(|x| (x / cell).floor() as i64) };
+    let mut grid: HashMap<[i64; 3], Vec<usize>> = HashMap::new();
+    for (index, hex) in hexes.iter().enumerate() {
+        let points = hex.map(position);
+        let low = key(std::array::from_fn(|k| {
+            points.iter().map(|p| p[k]).fold(f64::INFINITY, f64::min)
+        }));
+        let high = key(std::array::from_fn(|k| {
+            points
+                .iter()
+                .map(|p| p[k])
+                .fold(f64::NEG_INFINITY, f64::max)
+        }));
+        for i in low[0]..=high[0] {
+            for j in low[1]..=high[1] {
+                for k in low[2]..=high[2] {
+                    grid.entry([i, j, k]).or_default().push(index);
+                }
+            }
+        }
+    }
+    let determinant = |a: [f64; 3], b: [f64; 3], c: [f64; 3]| -> f64 {
+        a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0])
+            + a[2] * (b[0] * c[1] - b[1] * c[0])
+    };
+    let sub = |a: [f64; 3], b: [f64; 3]| -> [f64; 3] { std::array::from_fn(|k| a[k] - b[k]) };
+    let inside = |p: [f64; 3], hex: &[usize; 8]| -> bool {
+        let epsilon = 1e-6 * cell;
+        TETS.iter().any(|tet| {
+            let v = tet.map(|corner| position(hex[corner]));
+            let volume = determinant(sub(v[1], v[0]), sub(v[2], v[0]), sub(v[3], v[0]));
+            if volume.abs() < 1e-14 {
+                return false;
+            }
+            let weights = [
+                determinant(sub(v[1], p), sub(v[2], p), sub(v[3], p)),
+                determinant(sub(p, v[0]), sub(v[2], v[0]), sub(v[3], v[0])),
+                determinant(sub(v[1], v[0]), sub(p, v[0]), sub(v[3], v[0])),
+                determinant(sub(v[1], v[0]), sub(v[2], v[0]), sub(p, v[0])),
+            ];
+            weights
+                .iter()
+                .all(|w| w / volume > epsilon / cell.max(1e-12) && w / volume < 1.0)
+        })
+    };
+    let mut used: Vec<usize> = hexes.iter().flatten().copied().collect();
+    used.sort_unstable();
+    used.dedup();
+    let mut count = 0;
+    for node in used {
+        let p = position(node);
+        let hit = grid.get(&key(p)).is_some_and(|candidates| {
+            candidates
+                .iter()
+                .any(|&index| !hexes[index].contains(&node) && inside(p, &hexes[index]))
+        });
+        if hit {
+            count += 1;
+        }
+    }
+    count
+}
+
+/// `(hex count, low corner, high corner)` of every face-connected component.
+fn component_boxes(mesh: &Mesh<3>) -> Vec<(usize, [f64; 3], [f64; 3])> {
+    use std::collections::HashMap;
+    let hexes = hexes(mesh);
+    let mut owner: HashMap<[usize; 4], usize> = HashMap::new();
+    let mut parent: Vec<usize> = (0..hexes.len()).collect();
+    fn find(parent: &mut [usize], mut i: usize) -> usize {
+        while parent[i] != i {
+            parent[i] = parent[parent[i]];
+            i = parent[i];
+        }
+        i
+    }
+    for (index, hex) in hexes.iter().enumerate() {
+        for face in [
+            [0, 1, 2, 3],
+            [4, 5, 6, 7],
+            [0, 1, 5, 4],
+            [1, 2, 6, 5],
+            [2, 3, 7, 6],
+            [3, 0, 4, 7],
+        ] {
+            let mut key = face.map(|corner| hex[corner]);
+            key.sort_unstable();
+            if let Some(&other) = owner.get(&key) {
+                let (a, b) = (find(&mut parent, other), find(&mut parent, index));
+                parent[a] = b;
+            } else {
+                owner.insert(key, index);
+            }
+        }
+    }
+    let mut boxes: HashMap<usize, (usize, [f64; 3], [f64; 3])> = HashMap::new();
+    for (index, hex) in hexes.iter().enumerate() {
+        let root = find(&mut parent, index);
+        let entry = boxes
+            .entry(root)
+            .or_insert((0, [f64::INFINITY; 3], [f64::NEG_INFINITY; 3]));
+        entry.0 += 1;
+        for &node in hex {
+            for axis in 0..3 {
+                let value = mesh.coordinates()[node][axis].value();
+                entry.1[axis] = entry.1[axis].min(value);
+                entry.2[axis] = entry.2[axis].max(value);
+            }
+        }
+    }
+    let mut boxes: Vec<_> = boxes.into_values().collect();
+    boxes.sort_by_key(|entry| std::cmp::Reverse(entry.0));
+    boxes
+}
+
+#[test]
+fn notched_bore_block_is_a_valid_solid() {
+    let (gap, radius) = (0.3, 1.6);
+    let brep = notched_bore_block(gap, radius, 2.0, std::f64::consts::FRAC_PI_4);
+    let oracle = brep.oracle().unwrap();
+    let sd = |x: f64, y: f64| oracle.signed_distance(&Coordinate::const_from([x, y, 1.0]));
+    let apex = 3.4 - radius - gap;
+    assert!(sd(1.0, 5.0) > 0.0, "solid interior");
+    assert!(sd(3.0, 3.4) < 0.0, "inside the bore");
+    assert!(sd(3.0, 0.3) < 0.0, "inside the notch");
+    assert!(sd(3.0, apex + gap / 2.0) > 0.0, "inside the ligament");
+    assert!((sd(3.0, apex + gap / 2.0) - gap / 2.0).abs() < 1e-6);
+    assert!(sd(-1.0, 3.0) < 0.0, "outside the block");
+}
+
+#[test]
+fn notched_bore_pocket_is_a_valid_solid() {
+    let (gap, radius) = (0.3, 1.6);
+    let brep = notched_bore_pocket(gap, radius, 2.0, std::f64::consts::FRAC_PI_4, [0.5, 1.5]);
+    let oracle = brep.oracle().unwrap();
+    let sd = |x: f64, y: f64, z: f64| oracle.signed_distance(&Coordinate::const_from([x, y, z]));
+    let apex = 3.4 - radius - gap;
+    assert!(sd(1.0, 5.0, 1.0) > 0.0, "solid interior");
+    assert!(sd(3.0, 3.4, 1.0) < 0.0, "inside the bore");
+    assert!(sd(3.0, 0.3, 1.0) < 0.0, "inside the pocket");
+    assert!(sd(3.0, 0.3, 0.25) > 0.0, "solid below the pocket");
+    assert!(sd(3.0, 0.3, 1.75) > 0.0, "solid above the pocket");
+    assert!((sd(3.0, apex + gap / 2.0, 1.0) - gap / 2.0).abs() < 1e-6);
+    assert!(sd(-1.0, 3.0, 1.0) < 0.0, "outside the block");
+    assert!(!brep.crease_curves().is_empty());
+}
+
+/// Meshes `notched_bore_block` over ligament thicknesses `gap / h` with and
+/// without the crease constraint and reports validity; writes
+/// `target/notched_g{ratio}_{plain,crease}.vtu`.
+#[test]
+#[ignore = "diagnostic: reports and writes target/notched_*.vtu"]
+fn probe_notched_bore_block() {
+    let (radius, height) = (1.6, 1.2);
+    for (h, ratio, graded) in [0.3, 0.55, 0.8].into_iter().flat_map(|h| {
+        [1.0, 0.5, 0.25].into_iter().flat_map(move |ratio| {
+            [false, true]
+                .into_iter()
+                .map(move |graded| (h, ratio, graded))
+        })
+    }) {
+        let gap = ratio * h;
+        let brep = notched_bore_pocket(
+            gap,
+            radius,
+            height,
+            std::f64::consts::FRAC_PI_4,
+            [0.3 * height, 0.7 * height],
+        );
+        let minimum = (!graded).then(|| length(h));
+        let mut sizing = FeatureSizing::of(&brep, 24, minimum, Some(length(h)), Some(0.2))
+            .with_proximity(&brep, 3)
+            .unwrap();
+        if graded {
+            sizing = sizing.with_feature_separation(&brep, 3).unwrap();
+        }
+        let oracle = brep.oracle().unwrap();
+        let ligament = [3.0, 3.4 - radius - gap / 2.0, 0.6 * height];
+        for with_crease in [false, true] {
+            let creases = if with_crease { brep.creases() } else { vec![] };
+            let mesh = brep
+                .mesh_with_creases(
+                    &sizing,
+                    None,
+                    0.1,
+                    Balancing::Strong(1),
+                    Fitting::Soft,
+                    &creases,
+                )
+                .unwrap();
+            let jacobians = mesh.minimum_scaled_jacobians();
+            let worst = jacobians[0].iter().cloned().fold(f64::INFINITY, f64::min);
+            let inverted = jacobians[0].iter().filter(|&&j| j <= 0.0).count();
+            let outside = hexes(&mesh)
+                .iter()
+                .filter(|hex| {
+                    let [x, y, z] = cell_center(hex, &mesh);
+                    oracle.signed_distance(&Coordinate::const_from([x, y, z])) < -0.05 * h
+                })
+                .count();
+            let tag = if with_crease { "crease" } else { "plain" };
+            let mode = if graded { "graded" } else { "flat" };
+            let across = hexes(&mesh)
+                .iter()
+                .filter_map(|hex| {
+                    let coordinates = mesh.coordinates();
+                    let bounds = |axis: usize| {
+                        let values = hex.map(|node| coordinates[node][axis].value());
+                        (
+                            values.iter().cloned().fold(f64::INFINITY, f64::min),
+                            values.iter().cloned().fold(f64::NEG_INFINITY, f64::max),
+                        )
+                    };
+                    (0..3)
+                        .all(|axis| {
+                            let (low, high) = bounds(axis);
+                            low <= ligament[axis] && ligament[axis] <= high
+                        })
+                        .then(|| gap / (bounds(1).1 - bounds(1).0))
+                })
+                .fold(0.0_f64, f64::max);
+            let (components, smallest, boundary) = topology(&mesh);
+            let surface_error = boundary
+                .iter()
+                .map(|&node| {
+                    let c = &mesh.coordinates()[node];
+                    oracle
+                        .signed_distance(&Coordinate::const_from([
+                            c[0].value(),
+                            c[1].value(),
+                            c[2].value(),
+                        ]))
+                        .abs()
+                })
+                .fold(0.0_f64, f64::max);
+            eprintln!(
+                "h {h} g/h {ratio} {mode:>6} {tag:>6}: {} hexes, worst SJ {worst:.4}, {inverted} inverted, \
+                 {outside} outside, {components} comp (smallest {smallest}), \
+                 boundary err {:.3} h, ligament cells across {across:.2}, \
+                 {} penetrating nodes, volume {:.4} of exact",
+                hexes(&mesh).len(),
+                surface_error / h,
+                penetrating_nodes(&mesh),
+                mesh.volumes()[0].iter().sum::<f64>()
+                    / (36.0 * height
+                        - std::f64::consts::PI * radius * radius * height
+                        - (3.4 - radius - gap).powi(2) * 0.4 * height)
+            );
+            if components > 1 && with_crease {
+                for (size, low, high) in component_boxes(&mesh) {
+                    eprintln!(
+                        "    component of {size} hexes: x {:.2}..{:.2}, y {:.2}..{:.2}, z {:.2}..{:.2}",
+                        low[0], high[0], low[1], high[1], low[2], high[2]
+                    );
+                }
+            }
+            mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+                &format!("target/notched_h{h}_g{ratio}_{mode}_{tag}.vtu"),
+            ))))
+            .unwrap();
+        }
     }
 }

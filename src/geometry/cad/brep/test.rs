@@ -1441,3 +1441,298 @@ pub(crate) fn hemisphere_solid(radius: f64) -> Brep {
         }],
     }
 }
+
+/// A 6 x 6 x `height` block with a through-bore (radius `radius`, axis `+z`)
+/// and a V-notch cut into its `y = 0` side whose apex (a convex ridge pointing
+/// into the material) sits `gap` below the bore: a thin ligament of solid
+/// between a crease and a curved surface.
+pub(crate) fn notched_bore_block(gap: f64, radius: f64, height: f64, half_angle: f64) -> Brep {
+    let bore_y = 3.4;
+    let apex = bore_y - radius - gap;
+    let half_width = apex * half_angle.tan();
+    let profile = [
+        [0.0, 0.0],
+        [3.0 - half_width, 0.0],
+        [3.0, apex],
+        [3.0 + half_width, 0.0],
+        [6.0, 0.0],
+        [6.0, 6.0],
+        [0.0, 6.0],
+    ];
+    let n = profile.len();
+    let mut vertices: Vec<Coordinate<3>> = [0.0, height]
+        .into_iter()
+        .flat_map(|z| {
+            profile
+                .iter()
+                .map(move |&[x, y]| Coordinate::const_from([x, y, z]))
+        })
+        .collect();
+    vertices.push(Coordinate::const_from([3.0 + radius, bore_y, 0.0]));
+    vertices.push(Coordinate::const_from([3.0 + radius, bore_y, height]));
+    let line = |a: usize, b: usize| {
+        let (p, q) = (&vertices[a], &vertices[b]);
+        let d: [f64; 3] = std::array::from_fn(|k| q[k].value() - p[k].value());
+        let length = d.iter().map(|x| x * x).sum::<f64>().sqrt();
+        Edge {
+            vertices: [a, b],
+            curve: Curve::Line(Line {
+                origin: p.clone(),
+                direction: direction(d.map(|x| x / length)),
+            }),
+        }
+    };
+    let rim = |vertex: usize, z: f64| Edge {
+        vertices: [vertex, vertex],
+        curve: Curve::Circle(Circle {
+            center: Coordinate::const_from([3.0, bore_y, z]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+    };
+    let mut edges: Vec<Edge> = (0..n).map(|i| line(i, (i + 1) % n)).collect();
+    edges.extend((0..n).map(|i| line(n + i, n + (i + 1) % n)));
+    edges.extend((0..n).map(|i| line(i, n + i)));
+    edges.push(rim(2 * n, 0.0));
+    edges.push(rim(2 * n + 1, height));
+    edges.push(line(2 * n, 2 * n + 1));
+    let (bottom_rim, top_rim, seam) = (3 * n, 3 * n + 1, 3 * n + 2);
+    let single = |edge: usize| Loop {
+        half_edges: vec![HalfEdge {
+            edge,
+            forward: true,
+        }],
+    };
+    let mut bottom = face(
+        [0.0, 0.0, -1.0],
+        [1.0, 0.0, 0.0],
+        &(0..n).rev().map(|i| (i, false)).collect::<Vec<_>>(),
+    );
+    bottom.bounds.push(single(bottom_rim));
+    let mut top = face(
+        [0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.0],
+        &(0..n).map(|i| (n + i, true)).collect::<Vec<_>>(),
+    );
+    top.bounds.push(single(top_rim));
+    let mut faces = vec![bottom, top];
+    for i in 0..n {
+        let [x0, y0] = profile[i];
+        let [x1, y1] = profile[(i + 1) % n];
+        let (dx, dy) = (x1 - x0, y1 - y0);
+        let length = dx.hypot(dy);
+        faces.push(face(
+            [dy / length, -dx / length, 0.0],
+            [0.0, 0.0, 1.0],
+            &[
+                (i, true),
+                (2 * n + (i + 1) % n, true),
+                (n + i, false),
+                (2 * n + i, false),
+            ],
+        ));
+    }
+    faces.push(Face {
+        surface: Surface::Cylinder(Cylinder {
+            origin: Coordinate::const_from([3.0, bore_y, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+        bounds: vec![Loop {
+            half_edges: [
+                (bottom_rim, true),
+                (seam, true),
+                (top_rim, false),
+                (seam, false),
+            ]
+            .into_iter()
+            .map(|(edge, forward)| HalfEdge { edge, forward })
+            .collect(),
+        }],
+        poles: vec![],
+        forward: false,
+    });
+    let count = faces.len();
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell {
+            faces: (0..count).collect(),
+            closed: true,
+        }],
+    }
+}
+
+/// [`notched_bore_block`], but the V-notch is a pocket spanning only
+/// `notch_z = [z0, z1]` of the block's height: its ridge is shorter than the
+/// bore, ends at two corners where the slanted walls meet a triangular end
+/// wall, and the bore runs the full height.
+pub(crate) fn notched_bore_pocket(
+    gap: f64,
+    radius: f64,
+    height: f64,
+    half_angle: f64,
+    notch_z: [f64; 2],
+) -> Brep {
+    let bore_y = 3.4;
+    let apex = bore_y - radius - gap;
+    let half_width = apex * half_angle.tan();
+    let [z0, z1] = notch_z;
+    let point = |x: f64, y: f64, z: f64| Coordinate::const_from([x, y, z]);
+    let vertices = vec![
+        point(0.0, 0.0, 0.0),
+        point(6.0, 0.0, 0.0),
+        point(6.0, 6.0, 0.0),
+        point(0.0, 6.0, 0.0),
+        point(0.0, 0.0, height),
+        point(6.0, 0.0, height),
+        point(6.0, 6.0, height),
+        point(0.0, 6.0, height),
+        point(3.0 + radius, bore_y, 0.0),
+        point(3.0 + radius, bore_y, height),
+        point(3.0 - half_width, 0.0, z0),
+        point(3.0 + half_width, 0.0, z0),
+        point(3.0 + half_width, 0.0, z1),
+        point(3.0 - half_width, 0.0, z1),
+        point(3.0, apex, z0),
+        point(3.0, apex, z1),
+    ];
+    let line = |a: usize, b: usize| {
+        let (p, q) = (&vertices[a], &vertices[b]);
+        let d: [f64; 3] = std::array::from_fn(|k| q[k].value() - p[k].value());
+        let length = d.iter().map(|x| x * x).sum::<f64>().sqrt();
+        Edge {
+            vertices: [a, b],
+            curve: Curve::Line(Line {
+                origin: p.clone(),
+                direction: direction(d.map(|x| x / length)),
+            }),
+        }
+    };
+    let rim = |vertex: usize, z: f64| Edge {
+        vertices: [vertex, vertex],
+        curve: Curve::Circle(Circle {
+            center: point(3.0, bore_y, z),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+    };
+    let edges = vec![
+        line(0, 1),
+        line(1, 2),
+        line(2, 3),
+        line(3, 0),
+        line(4, 5),
+        line(5, 6),
+        line(6, 7),
+        line(7, 4),
+        line(0, 4),
+        line(1, 5),
+        line(2, 6),
+        line(3, 7),
+        rim(8, 0.0),
+        rim(9, height),
+        line(8, 9),
+        line(10, 11),
+        line(11, 12),
+        line(12, 13),
+        line(13, 10),
+        line(14, 15),
+        line(10, 14),
+        line(11, 14),
+        line(13, 15),
+        line(12, 15),
+    ];
+    let hole = |half_edges: &[(usize, bool)]| Loop {
+        half_edges: half_edges
+            .iter()
+            .map(|&(edge, forward)| HalfEdge { edge, forward })
+            .collect(),
+    };
+    let mut bottom = face(
+        [0.0, 0.0, -1.0],
+        [1.0, 0.0, 0.0],
+        &[(3, false), (2, false), (1, false), (0, false)],
+    );
+    bottom.bounds.push(hole(&[(12, true)]));
+    let mut top = face(
+        [0.0, 0.0, 1.0],
+        [1.0, 0.0, 0.0],
+        &[(4, true), (5, true), (6, true), (7, true)],
+    );
+    top.bounds.push(hole(&[(13, true)]));
+    let mut front = face(
+        [0.0, -1.0, 0.0],
+        [1.0, 0.0, 0.0],
+        &[(0, true), (9, true), (4, false), (8, false)],
+    );
+    front
+        .bounds
+        .push(hole(&[(15, true), (16, true), (17, true), (18, true)]));
+    let norm = apex.hypot(half_width);
+    let faces = vec![
+        bottom,
+        top,
+        front,
+        face(
+            [0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            &[(11, true), (6, false), (10, false), (2, true)],
+        ),
+        face(
+            [-1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            &[(8, true), (7, false), (11, false), (3, true)],
+        ),
+        face(
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            &[(1, true), (10, true), (5, false), (9, false)],
+        ),
+        Face {
+            surface: Surface::Cylinder(Cylinder {
+                origin: point(3.0, bore_y, 0.0),
+                axis: direction([0.0, 0.0, 1.0]),
+                reference_direction: direction([1.0, 0.0, 0.0]),
+                radius,
+            }),
+            bounds: vec![hole(&[(12, true), (14, true), (13, false), (14, false)])],
+            poles: vec![],
+            forward: false,
+        },
+        face(
+            [apex / norm, -half_width / norm, 0.0],
+            [0.0, 0.0, 1.0],
+            &[(20, true), (19, true), (22, false), (18, true)],
+        ),
+        face(
+            [-apex / norm, -half_width / norm, 0.0],
+            [0.0, 0.0, 1.0],
+            &[(21, false), (16, true), (23, true), (19, false)],
+        ),
+        face(
+            [0.0, 0.0, 1.0],
+            [1.0, 0.0, 0.0],
+            &[(15, true), (21, true), (20, false)],
+        ),
+        face(
+            [0.0, 0.0, -1.0],
+            [1.0, 0.0, 0.0],
+            &[(22, true), (23, false), (17, true)],
+        ),
+    ];
+    let count = faces.len();
+    Brep {
+        vertices,
+        edges,
+        faces,
+        shells: vec![Shell {
+            faces: (0..count).collect(),
+            closed: true,
+        }],
+    }
+}
