@@ -29,8 +29,8 @@ use std::{
 };
 
 use super::{
-    Differentiable, Erase, Hessian, HessianBlock, Jacobian, Rank2, Solution, SquareMatrix, Tensor,
-    TensorArray, Vector,
+    Differentiable, Erase, Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray,
+    Vector,
     rank_0::TensorRank0,
     rank_1::{
         TensorRank1, list::TensorRank1List, relabel as relabel_rank_1, vec::TensorRank1Vec,
@@ -528,27 +528,6 @@ impl<I, J, U> TensorRank2<3, I, J, U> {
             ],
             PhantomData,
         )
-    }
-}
-
-impl<const D: usize, I, J, U> HessianBlock for TensorRank2<D, I, J, U> {
-    fn entry(&self, row: usize, _column: usize) -> TensorRank0 {
-        self[row / D][row % D].value()
-    }
-    fn height(&self) -> usize {
-        D * D
-    }
-    fn width(&self) -> usize {
-        1
-    }
-    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
-    where
-        M: IndexMut<usize, Output = Vector>,
-    {
-        self.iter()
-            .flat_map(|entry| entry.iter())
-            .enumerate()
-            .for_each(|(i, self_i)| matrix[row + i][column] = self_i.value())
     }
 }
 

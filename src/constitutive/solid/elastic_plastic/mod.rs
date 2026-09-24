@@ -280,7 +280,6 @@ where
     /// [`SolveStrategy::Condensed`] and eliminated from the tangent by a Schur
     /// complement, so a caller needing both the force and the stiffness pays for one
     /// solve.
-    #[allow(clippy::type_complexity)]
     fn condensed(
         &self,
         deformation_gradient: &DeformationGradient,
@@ -429,7 +428,7 @@ where
             }
         }
         let mut global_matrix = CscMatrix::from_pattern(matrix.len(), 9, global_pattern);
-        global_matrix.fill(|_, _| 1.0);
+        global_matrix.fill(|row, column| matrix[row][column]);
         let mut global_vector = Vector::zero(matrix.len());
         // Every local unknown is free, so there is nothing internal to pin: an empty
         // (zero-row) local constraint.

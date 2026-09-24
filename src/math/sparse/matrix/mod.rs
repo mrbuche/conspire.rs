@@ -3,7 +3,7 @@ mod test;
 
 mod amd;
 
-use crate::math::{HessianBlock, Quantity, Scalar, TensorRank1Vec, TensorRank2, Vector};
+use crate::math::{HessianBlock, Scalar, TensorRank1Vec, TensorRank2, Vector};
 use std::ops::{IndexMut, Mul};
 
 /// A sparse matrix in compressed sparse column format.
@@ -283,13 +283,6 @@ impl<const D: usize, I> Mul<&TensorRank1Vec<D, I>> for &CscMatrix {
     type Output = Vector;
     fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
         self.multiply(|j| tensor_rank_1_vec[j / D][j % D].value())
-    }
-}
-
-impl<U> Mul<&Quantity<U>> for &CscMatrix {
-    type Output = Vector;
-    fn mul(self, quantity: &Quantity<U>) -> Self::Output {
-        self.multiply(|_| quantity.value())
     }
 }
 

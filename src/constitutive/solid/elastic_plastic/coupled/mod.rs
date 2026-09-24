@@ -443,15 +443,20 @@ pub(super) fn monolithic_residual_local<C: ElasticPlastic>(
 /// carrying the extra $`\partial\varphi/\partial a`$. $`K_{uu}`$ is the continuum
 /// tangent, since the flow direction depends on $`\mathbf{F}`$ only through the local
 /// unknowns.
-#[allow(clippy::type_complexity)]
 pub(super) fn monolithic_tangents<C: ElasticPlastic>(
     model: &C,
     f: &DeformationGradient,
     state: &PlasticStateVariables,
     local: &Vector,
 ) -> Result<(FirstPiolaKirchhoffTangentStiffness, Matrix, Matrix, Matrix), ConstitutiveError> {
-    let (_, _, k_uu, k_vu, k_uv, k_vv) = monolithic_evaluate(model, f, state, local)?;
-    Ok((k_uu, k_vu, k_uv, k_vv))
+    let Monolithic {
+        tangent_uu,
+        tangent_vu,
+        tangent_uv,
+        tangent_vv,
+        ..
+    } = monolithic_evaluate(model, f, state, local)?;
+    Ok((tangent_uu, tangent_vu, tangent_uv, tangent_vv))
 }
 
 /// The local block $`K_{vv}`$ of the monolithic system from the coupled Jacobian: its
@@ -511,7 +516,6 @@ fn monolithic_local<C: ElasticPlastic>(
 ///
 /// This is the condensed strategy of the block solver at one integration point, with
 /// no state carried between calls. An elastic step has nothing to solve for.
-#[allow(clippy::type_complexity)]
 pub(crate) fn condensed<C: ElasticPlastic>(
     model: &C,
     f: &DeformationGradient,
@@ -566,7 +570,14 @@ pub(crate) fn condensed<C: ElasticPlastic>(
     if !converged {
         return Err(failure(model, &"the local solve did not converge"));
     }
-    let (stress, _, tangent, k_vu, k_uv, k_vv) = monolithic_evaluate(model, f, state, &local)?;
+    let Monolithic {
+        stress,
+        tangent_uu: tangent,
+        tangent_vu: k_vu,
+        tangent_uv: k_uv,
+        tangent_vv: k_vv,
+        ..
+    } = monolithic_evaluate(model, f, state, &local)?;
     let lu = k_vv
         .iter()
         .cloned()
@@ -603,23 +614,22 @@ pub(crate) fn condensed<C: ElasticPlastic>(
 /// Everything the monolithic system needs at a point from one evaluation: the first
 /// Piola-Kirchhoff stress at the trial plastic state, the local residual, and the
 /// tangent blocks $`(K_{uu},K_{vu},K_{uv},K_{vv})`$ of [`monolithic_tangents`].
-#[allow(clippy::type_complexity)]
+pub(crate) struct Monolithic {
+    pub(crate) stress: FirstPiolaKirchhoffStress,
+    #[cfg_attr(not(feature = "fem"), allow(dead_code))]
+    pub(crate) residual_local: Vector,
+    pub(crate) tangent_uu: FirstPiolaKirchhoffTangentStiffness,
+    pub(crate) tangent_vu: Matrix,
+    pub(crate) tangent_uv: Matrix,
+    pub(crate) tangent_vv: Matrix,
+}
+
 pub(crate) fn monolithic_evaluate<C: ElasticPlastic>(
     model: &C,
     f: &DeformationGradient,
     state: &PlasticStateVariables,
     local: &Vector,
-) -> Result<
-    (
-        FirstPiolaKirchhoffStress,
-        Vector,
-        FirstPiolaKirchhoffTangentStiffness,
-        Matrix,
-        Matrix,
-        Matrix,
-    ),
-    ConstitutiveError,
-> {
+) -> Result<Monolithic, ConstitutiveError> {
     let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
     let x: Unknowns = from_fn(|i| local[i]);
     let iterate = Iterate::new(model, f, f_p_n, strain_n.value(), &x)?;
@@ -655,12 +665,12 @@ pub(crate) fn monolithic_evaluate<C: ElasticPlastic>(
             }
         }
     }
-    Ok((
-        model.first_piola_kirchhoff_stress(f, &iterate.plastic)?,
-        monolithic_local_residual(&iterate, x[SIZE - 1], reference),
-        model.first_piola_kirchhoff_tangent_stiffness(f, &iterate.plastic)?,
-        k_vu,
-        k_uv,
-        k_vv,
-    ))
+    Ok(Monolithic {
+        stress: model.first_piola_kirchhoff_stress(f, &iterate.plastic)?,
+        residual_local: monolithic_local_residual(&iterate, x[SIZE - 1], reference),
+        tangent_uu: model.first_piola_kirchhoff_tangent_stiffness(f, &iterate.plastic)?,
+        tangent_vu: k_vu,
+        tangent_uv: k_uv,
+        tangent_vv: k_vv,
+    })
 }
