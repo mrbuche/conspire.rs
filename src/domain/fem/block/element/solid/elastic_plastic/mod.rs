@@ -11,7 +11,7 @@ use crate::{
             SolidFiniteElement, plastic::PlasticStateVariables,
         },
     },
-    math::{ContractSecondFourthWithFirst, Tensor, Vector},
+    math::{ContractSecondFourthWithFirst, Tensor, Vector, optimize::NewtonRaphson},
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList, Scalar},
 };
 use std::array::from_fn;
@@ -64,6 +64,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &PlasticStateVariables<G>,
+        local_solver: &NewtonRaphson,
     ) -> Result<(ElementNodalForcesSolid<N>, ElementNodalStiffnessesSolid<N>), FiniteElementError>
     {
         let evaluations = self
@@ -72,7 +73,7 @@ where
             .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 constitutive_model
-                    .condensed(deformation_gradient, state_variable)
+                    .condensed(deformation_gradient, state_variable, local_solver)
                     .map(|(stress, tangent, _)| (stress, tangent))
             })
             .collect::<Result<Vec<_>, _>>()
@@ -141,13 +142,14 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         state_variables: &PlasticStateVariables<G>,
+        local_solver: &NewtonRaphson,
     ) -> Result<PlasticStateVariables<G>, FiniteElementError> {
         self.deformation_gradients(nodal_coordinates)
             .iter()
             .zip(state_variables)
             .map(|(deformation_gradient, state_variable)| {
                 constitutive_model
-                    .condensed(deformation_gradient, state_variable)
+                    .condensed(deformation_gradient, state_variable, local_solver)
                     .map(|(_, _, state)| state)
             })
             .collect::<Result<PlasticStateVariables<G>, _>>()

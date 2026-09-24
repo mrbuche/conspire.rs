@@ -4,7 +4,10 @@ mod test;
 use super::{ElasticPlastic, Entries4, Matrix3, entries_4, fischer_burmeister, matrix_3, rank_4};
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariables},
-    math::{Matrix, Quantity, Rank2, SquareMatrix, Tensor, Vector},
+    math::{
+        Matrix, Quantity, Rank2, SquareMatrix, Tensor, Vector,
+        optimize::{NewtonRaphson, converged, limit_decrement},
+    },
     mechanics::{
         DeformationGradient, DeformationGradientPlastic, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, FlowDirectionPlastic, MandelStressElastic, Scalar,
@@ -15,7 +18,6 @@ use std::{array::from_fn, fmt::Debug};
 pub(crate) const SIZE: usize = 10;
 const MAX_ITERATIONS: usize = 30;
 const TOLERANCE: Scalar = 1e-12;
-const LOCAL_TOLERANCE: Scalar = 1e-11;
 const INITIAL_MULTIPLIER: Scalar = 1e-3;
 const ZERO: Matrix3 = [[0.0; 3]; 3];
 const EYE: Matrix3 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
@@ -488,38 +490,19 @@ fn local_jacobian(
     (k_vv, factor)
 }
 
-/// The local residual and the local block $`K_{vv}`$ alone, all a Newton iteration on the
-/// local unknowns needs.
-fn monolithic_local<C: ElasticPlastic>(
-    model: &C,
-    f: &DeformationGradient,
-    state: &PlasticStateVariables,
-    x: &Unknowns,
-) -> Result<(Vector, Matrix), ConstitutiveError> {
-    let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
-    let iterate = Iterate::new(model, f, f_p_n, strain_n.value(), x)?;
-    let reference = model.initial_yield_stress().value();
-    let residual = monolithic_local_residual(&iterate, x[SIZE - 1], reference);
-    if residual.iter().all(|entry| entry.abs() < LOCAL_TOLERANCE) {
-        return Ok((residual, Matrix::zero(0, 0)));
-    }
-    let sensitivities = Sensitivities::new(model, f, f_p_n, x, &iterate)?;
-    let b = -iterate.residual[SIZE - 1] / reference;
-    let (k_vv, _) = local_jacobian(&sensitivities.jacobian(), x[SIZE - 1], b, reference);
-    Ok((residual, k_vv))
-}
-
 /// The stress, the consistent tangent and the updated plastic state of one step, from a
 /// local solve of the monolithic system's unknowns $`(\mathbf{E},\Delta\gamma)`$ alone
 /// followed by the Schur complement that eliminates them,
 /// $`\mathcal{C}_\mathrm{eff} = K_{uu} - K_{uv}K_{vv}^{-1}K_{vu}`$.
 ///
 /// This is the condensed strategy of the block solver at one integration point, with
-/// no state carried between calls. An elastic step has nothing to solve for.
+/// no state carried between calls, the local solve converged and limited as the local
+/// solver says. An elastic step has nothing to solve for.
 pub(crate) fn condensed<C: ElasticPlastic>(
     model: &C,
     f: &DeformationGradient,
     state: &PlasticStateVariables,
+    local_solver: &NewtonRaphson,
 ) -> Result<
     (
         FirstPiolaKirchhoffStress,
@@ -529,9 +512,10 @@ pub(crate) fn condensed<C: ElasticPlastic>(
     ConstitutiveError,
 > {
     let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
+    let strain_n = strain_n.value();
     let deviatoric = model.mandel_stress(f, f_p_n)?.deviatoric();
     if model
-        .yield_function(&deviatoric, Quantity::new(strain_n.value()))?
+        .yield_function(&deviatoric, Quantity::new(strain_n))?
         .value()
         <= 0.0
     {
@@ -545,30 +529,43 @@ pub(crate) fn condensed<C: ElasticPlastic>(
         let direction = model.flow_direction(&deviatoric)?;
         (&direction + direction.transpose()) * 0.5
     };
+    let reference = model.initial_yield_stress().value();
     let mut x = [0.0; SIZE];
     (0..3).for_each(|i| {
         (0..3).for_each(|j| x[3 * i + j] = INITIAL_MULTIPLIER * direction[i][j].value())
     });
     x[SIZE - 1] = INITIAL_MULTIPLIER;
-    let mut local = Vector::from(x.to_vec());
-    let mut converged = false;
-    for _ in 0..MAX_ITERATIONS {
-        let unknowns: Unknowns = from_fn(|i| local[i]);
-        let (residual, k_vv) = monolithic_local(model, f, state, &unknowns)?;
-        if residual.iter().all(|entry| entry.abs() < LOCAL_TOLERANCE) {
-            converged = true;
+    let mut iterate = Iterate::new(model, f, f_p_n, strain_n, &x)?;
+    let mut scales = None;
+    let mut steps = 0;
+    loop {
+        let residual = monolithic_local_residual(&iterate, x[SIZE - 1], reference);
+        if converged(local_solver, &residual, SIZE, &mut scales) {
             break;
+        } else if steps == local_solver.max_steps {
+            return Err(failure(
+                model,
+                &format!(
+                    "The local solve did not converge in {} steps.",
+                    local_solver.max_steps
+                ),
+            ));
         }
-        let step = k_vv
-            .iter()
-            .cloned()
+        steps += 1;
+        let (k_vv, _) = local_jacobian(
+            &Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian(),
+            x[SIZE - 1],
+            -iterate.residual[SIZE - 1] / reference,
+            reference,
+        );
+        let mut decrement = k_vv
+            .into_iter()
             .collect::<SquareMatrix>()
             .solve_lu(&residual)
             .map_err(|error| failure(model, &error))?;
-        (0..SIZE).for_each(|i| local[i] -= step[i])
-    }
-    if !converged {
-        return Err(failure(model, &"the local solve did not converge"));
+        limit_decrement(local_solver, &mut [(&mut decrement, SIZE)]);
+        (0..SIZE).for_each(|i| x[i] -= decrement[i]);
+        iterate = Iterate::new(model, f, f_p_n, strain_n, &x)?;
     }
     let Monolithic {
         stress,
@@ -577,10 +574,9 @@ pub(crate) fn condensed<C: ElasticPlastic>(
         tangent_uv: k_uv,
         tangent_vv: k_vv,
         ..
-    } = monolithic_evaluate(model, f, state, &local)?;
+    } = evaluate(model, f, f_p_n, &x, &iterate)?;
     let lu = k_vv
-        .iter()
-        .cloned()
+        .into_iter()
         .collect::<SquareMatrix>()
         .factorize_lu()
         .map_err(|error| failure(model, &error))?;
@@ -607,7 +603,7 @@ pub(crate) fn condensed<C: ElasticPlastic>(
     Ok((
         stress,
         rank_4(&entries),
-        monolithic_state(model, state, &local)?,
+        updated_state(state, Some(&Converged { x, iterate })),
     ))
 }
 
@@ -633,7 +629,19 @@ pub(crate) fn monolithic_evaluate<C: ElasticPlastic>(
     let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
     let x: Unknowns = from_fn(|i| local[i]);
     let iterate = Iterate::new(model, f, f_p_n, strain_n.value(), &x)?;
-    let sensitivities = Sensitivities::new(model, f, f_p_n, &x, &iterate)?;
+    evaluate(model, f, f_p_n, &x, &iterate)
+}
+
+/// [`monolithic_evaluate`] at an iterate already in hand, with the stress and the
+/// continuum tangent taken from the linearization rather than evaluated again.
+fn evaluate<C: ElasticPlastic>(
+    model: &C,
+    f: &DeformationGradient,
+    f_p_n: &DeformationGradientPlastic,
+    x: &Unknowns,
+    iterate: &Iterate,
+) -> Result<Monolithic, ConstitutiveError> {
+    let sensitivities = Sensitivities::new(model, f, f_p_n, x, iterate)?;
     let reference = model.initial_yield_stress().value();
     let (a, b) = (x[SIZE - 1], -iterate.residual[SIZE - 1] / reference);
     let (k_vv, factor) = local_jacobian(&sensitivities.jacobian(), a, b, reference);
@@ -665,10 +673,13 @@ pub(crate) fn monolithic_evaluate<C: ElasticPlastic>(
             }
         }
     }
+    let Linearization {
+        stress, tangent, ..
+    } = &sensitivities.linearization;
     Ok(Monolithic {
-        stress: model.first_piola_kirchhoff_stress(f, &iterate.plastic)?,
-        residual_local: monolithic_local_residual(&iterate, x[SIZE - 1], reference),
-        tangent_uu: model.first_piola_kirchhoff_tangent_stiffness(f, &iterate.plastic)?,
+        stress: FirstPiolaKirchhoffStress::from(*stress),
+        residual_local: monolithic_local_residual(iterate, a, reference),
+        tangent_uu: rank_4(tangent),
         tangent_vu: k_vu,
         tangent_uv: k_uv,
         tangent_vv: k_vv,

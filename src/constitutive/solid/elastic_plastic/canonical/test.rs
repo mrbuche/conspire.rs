@@ -119,7 +119,7 @@ fn assert_condensed_matches<M: ElasticPlastic>(model: &M) -> Result<(), Assertio
     };
     let mut state = model.initial_state();
     for deformation_gradient in &steps {
-        let (stress, _, updated) = model.condensed(deformation_gradient, &state)?;
+        let (stress, _, updated) = model.condensed(deformation_gradient, &state, &solver())?;
         let reference_state = model.return_map(deformation_gradient, &state)?;
         assert.eq_within_tols(&updated.0, &reference_state.0)?;
         assert.eq_within_tols(updated.1, &reference_state.1)?;
@@ -338,7 +338,8 @@ fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
         states.as_slice()[90].1.value() > 0.0,
         "step 90 must be plastic"
     );
-    let (_, consistent, updated) = model.condensed(&deformation_gradient, &previous_state)?;
+    let (_, consistent, updated) =
+        model.condensed(&deformation_gradient, &previous_state, &solver())?;
     let continuum =
         model.first_piola_kirchhoff_tangent_stiffness(&deformation_gradient, &updated.0)?;
     Assert::default().eq_within_tols(

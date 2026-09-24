@@ -106,7 +106,8 @@ macro_rules! test_models {
             ];
             let h = 1e-4;
             for (case, (f, state)) in cases.iter().enumerate() {
-                let (_, tangent, _) = model.condensed(f, state)?;
+                let (_, tangent, _) =
+                    model.condensed(f, state, &crate::math::optimize::NewtonRaphson::default())?;
                 for k in 0..3 {
                     for l in 0..3 {
                         let stress_at = |sign: f64| -> Result<_, ConstitutiveError> {

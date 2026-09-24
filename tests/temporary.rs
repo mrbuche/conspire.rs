@@ -8518,7 +8518,7 @@ fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), Asserti
         0.012, 0.004, -0.003, 0.004, -0.008, 0.002, -0.003, 0.002, -0.004, 0.02,
     ]);
     let evaluate = |global: &Vector, local: &Vector| {
-        let mut system = blocks.monolithic_system(4);
+        let mut system = blocks.monolithic_system(4).unwrap();
         blocks
             .monolithic_into(
                 &conspire::fem::NodalCoordinates::from(global.clone()),

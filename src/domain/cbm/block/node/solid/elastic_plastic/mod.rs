@@ -2,7 +2,9 @@ use super::{super::Node, SolidElement};
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic_plastic::ElasticPlastic},
     domain::{NodalCoordinates, block::element::solid::plastic::PlasticStateVariables},
-    math::{ContractSecondFourthWithFirst, Current, TensorRank1, TensorRank2},
+    math::{
+        ContractSecondFourthWithFirst, Current, TensorRank1, TensorRank2, optimize::NewtonRaphson,
+    },
     units::{Force, ForcePerLength},
 };
 
@@ -23,11 +25,13 @@ where
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariables<1>,
+        local_solver: &NewtonRaphson,
     ) -> Result<(Vec<NodalForce>, Vec<Vec<NodalStiffness>>), ConstitutiveError> {
         let (first_piola_kirchhoff_stress, first_piola_kirchhoff_tangent_stiffness, _) =
             constitutive_model.condensed(
                 &self.deformation_gradients(nodal_coordinates),
                 &state_variables[0],
+                local_solver,
             )?;
         Ok((
             self.gradient_vectors()
@@ -59,10 +63,12 @@ where
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariables<1>,
+        local_solver: &NewtonRaphson,
     ) -> Result<PlasticStateVariables<1>, ConstitutiveError> {
         let (_, _, state) = constitutive_model.condensed(
             &self.deformation_gradients(nodal_coordinates),
             &state_variables[0],
+            local_solver,
         )?;
         Ok([state].into())
     }

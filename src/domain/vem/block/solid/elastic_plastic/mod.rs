@@ -4,6 +4,7 @@ use crate::{
         ElementModelError, block::solid::plastic::PlasticStateVariablesField,
         solid::elastic_plastic::ElasticPlasticElements,
     },
+    math::optimize::NewtonRaphson,
     vem::{
         NodalCoordinates,
         block::{
@@ -30,6 +31,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates,
         state_variables: &PlasticStateVariablesField<1>,
+        local_solver: &NewtonRaphson,
         nodal_forces: &mut NodalForcesSolid,
         nodal_stiffnesses: &mut NodalStiffnessesSolid,
     ) -> Result<(), ElementModelError> {
@@ -42,6 +44,7 @@ where
                     self.constitutive_model(),
                     &Self::element_coordinates(nodal_coordinates, nodes),
                     state_variables_element,
+                    local_solver,
                 )?;
                 forces
                     .into_iter()
@@ -66,6 +69,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates,
         state_variables: &PlasticStateVariablesField<1>,
+        local_solver: &NewtonRaphson,
     ) -> Result<PlasticStateVariablesField<1>, ElementModelError> {
         self.elements()
             .iter()
@@ -76,6 +80,7 @@ where
                     self.constitutive_model(),
                     &Self::element_coordinates(nodal_coordinates, nodes),
                     element_state_variables,
+                    local_solver,
                 )
             })
             .collect::<Result<_, VirtualElementError>>()

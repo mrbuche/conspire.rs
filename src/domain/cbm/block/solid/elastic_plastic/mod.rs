@@ -5,6 +5,7 @@ use crate::{
         ElementModelError, NodalCoordinates,
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
+    math::optimize::NewtonRaphson,
 };
 
 pub use crate::domain::block::solid::plastic::PlasticStateVariablesField;
@@ -24,6 +25,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariablesField<1>,
+        local_solver: &NewtonRaphson,
         nodal_forces: &mut NodalForcesSolid<3>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
@@ -35,6 +37,7 @@ where
                     &self.constitutive_model,
                     nodal_coordinates,
                     state_variables_node,
+                    local_solver,
                 )?;
                 forces
                     .into_iter()
@@ -58,6 +61,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariablesField<1>,
+        local_solver: &NewtonRaphson,
     ) -> Result<PlasticStateVariablesField<1>, ElementModelError> {
         self.nodes
             .iter()
@@ -67,6 +71,7 @@ where
                     &self.constitutive_model,
                     nodal_coordinates,
                     state_variables_node,
+                    local_solver,
                 )
             })
             .collect::<Result<_, ConstitutiveError>>()

@@ -537,7 +537,7 @@ fn backtrack_errors(
 /// The scales are what each block was on the first step, so that the relative
 /// tolerance is compared against a ratio of two norms of the same kind, and
 /// means the same thing whatever units that kind is measured in.
-fn converged(
+pub(crate) fn converged(
     newton_raphson: &NewtonRaphson,
     residual: &Vector,
     variables: usize,
@@ -566,7 +566,10 @@ fn converged(
 ///
 /// Only the variables are measured, the multipliers being of another kind
 /// entirely, but everything is scaled together so that the direction survives.
-fn limit_decrement(newton_raphson: &NewtonRaphson, decrements: &mut [(&mut Vector, usize)]) {
+pub(crate) fn limit_decrement(
+    newton_raphson: &NewtonRaphson,
+    decrements: &mut [(&mut Vector, usize)],
+) {
     if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
         let size = norm.over(
             decrements
