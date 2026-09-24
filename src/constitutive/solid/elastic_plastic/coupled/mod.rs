@@ -16,8 +16,6 @@ use crate::{
 use std::{array::from_fn, fmt::Debug};
 
 pub(crate) const SIZE: usize = 10;
-const MAX_ITERATIONS: usize = 30;
-const TOLERANCE: Scalar = 1e-12;
 const INITIAL_MULTIPLIER: Scalar = 1e-3;
 const ZERO: Matrix3 = [[0.0; 3]; 3];
 const EYE: Matrix3 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
@@ -311,11 +309,15 @@ pub(super) struct Converged {
 /// \mathbf{E} - \Delta\gamma\,\mathbf{N}\big(\mathbf{M}'(\mathbf{F},\exp(\mathbf{E})\mathbf{F}_\mathrm{p}^n)\big) = \mathbf{0},
 /// \qquad f\big(\mathbf{M}',\varepsilon_\mathrm{p}^n+\Delta\gamma\big) = 0,
 /// ```
-/// so the flow direction is the end-of-step one. Returns `None` for an elastic step.
+/// so the flow direction is the end-of-step one. The yield equation is solved as the
+/// Fischer-Burmeister function of the monolithic system, which has the same root for a
+/// plastic step, so this is the local solve of every strategy. It is converged and limited
+/// as `local_solver` says. Returns `None` for an elastic step.
 pub(super) fn solve<C: ElasticPlastic>(
     model: &C,
     f: &DeformationGradient,
     state: &PlasticStateVariables,
+    local_solver: &NewtonRaphson,
 ) -> Result<Option<Converged>, ConstitutiveError> {
     let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
     let strain_n = strain_n.value();
@@ -327,45 +329,55 @@ pub(super) fn solve<C: ElasticPlastic>(
     {
         return Ok(None);
     }
-    let scale = model.initial_yield_stress().value().max(1.0);
-    let size = |r: &Unknowns| {
-        r[..9]
-            .iter()
-            .fold(r[9].abs() / scale, |norm, value| norm.max(value.abs()))
-    };
     let direction = {
         let direction = model.flow_direction(&deviatoric)?;
         (&direction + direction.transpose()) * 0.5
     };
+    let reference = reference(model);
     let mut x = [0.0; SIZE];
     (0..3).for_each(|i| {
         (0..3).for_each(|j| x[3 * i + j] = INITIAL_MULTIPLIER * direction[i][j].value())
     });
-    x[9] = INITIAL_MULTIPLIER;
+    x[SIZE - 1] = INITIAL_MULTIPLIER;
     let mut iterate = Iterate::new(model, f, f_p_n, strain_n, &x)?;
-    for _ in 0..MAX_ITERATIONS {
-        if size(&iterate.residual) < TOLERANCE {
+    let mut scales = None;
+    let mut steps = 0;
+    loop {
+        let residual = monolithic_local_residual(&iterate, x[SIZE - 1], reference);
+        if converged(local_solver, &residual, SIZE, &mut scales) {
             return Ok(Some(Converged { x, iterate }));
+        } else if steps == local_solver.max_steps {
+            return Err(failure(
+                model,
+                &format!(
+                    "The coupled return mapping did not converge in {} steps.",
+                    local_solver.max_steps
+                ),
+            ));
         }
-        let matrix = Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian()?;
-        let mut rhs = Vector::zero(SIZE);
-        (0..SIZE).for_each(|row| rhs[row] = -iterate.residual[row]);
-        let step = SquareMatrix::from(matrix)
-            .solve_lu(&rhs)
+        steps += 1;
+        let (k_vv, _) = local_jacobian(
+            &Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian()?,
+            x[SIZE - 1],
+            -iterate.residual[SIZE - 1] / reference,
+            reference,
+        );
+        let mut decrement = k_vv
+            .into_iter()
+            .collect::<SquareMatrix>()
+            .solve_lu(&residual)
             .map_err(|error| failure(model, &error))?;
-        (0..SIZE).for_each(|row| x[row] += step[row]);
+        limit_decrement(local_solver, &mut [(&mut decrement, SIZE)]);
+        (0..SIZE).for_each(|i| x[i] -= decrement[i]);
         iterate = Iterate::new(model, f, f_p_n, strain_n, &x)?;
     }
-    if size(&iterate.residual) < TOLERANCE {
-        return Ok(Some(Converged { x, iterate }));
-    }
-    Err(ConstitutiveError::custom(
-        format!(
-            "The coupled return mapping did not converge, |R| = {:.3e}.",
-            size(&iterate.residual)
-        ),
-        model,
-    ))
+}
+
+/// The scale of the yield row of the local residual, the initial yield stress, or unity
+/// where a perfectly weak material has none.
+fn reference<C: ElasticPlastic>(model: &C) -> Scalar {
+    let initial = model.initial_yield_stress().value();
+    if initial > 0.0 { initial } else { 1.0 }
 }
 
 pub(super) fn updated_state(
@@ -433,7 +445,7 @@ pub(super) fn monolithic_residual_local<C: ElasticPlastic>(
     Ok(monolithic_local_residual(
         &iterate,
         x[SIZE - 1],
-        model.initial_yield_stress().value(),
+        reference(model),
     ))
 }
 
@@ -513,62 +525,14 @@ pub(crate) fn condensed<C: ElasticPlastic>(
     ),
     ConstitutiveError,
 > {
-    let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
-    let strain_n = strain_n.value();
-    let deviatoric = model.mandel_stress(f, f_p_n)?.deviatoric();
-    if model
-        .yield_function(&deviatoric, Quantity::new(strain_n))?
-        .value()
-        <= 0.0
-    {
+    let (f_p_n, _): (&DeformationGradientPlastic, &Quantity) = state.into();
+    let Some(Converged { x, iterate }) = solve(model, f, state, local_solver)? else {
         return Ok((
             model.first_piola_kirchhoff_stress(f, f_p_n)?,
             model.first_piola_kirchhoff_tangent_stiffness(f, f_p_n)?,
             state.clone(),
         ));
-    }
-    let direction = {
-        let direction = model.flow_direction(&deviatoric)?;
-        (&direction + direction.transpose()) * 0.5
     };
-    let reference = model.initial_yield_stress().value();
-    let mut x = [0.0; SIZE];
-    (0..3).for_each(|i| {
-        (0..3).for_each(|j| x[3 * i + j] = INITIAL_MULTIPLIER * direction[i][j].value())
-    });
-    x[SIZE - 1] = INITIAL_MULTIPLIER;
-    let mut iterate = Iterate::new(model, f, f_p_n, strain_n, &x)?;
-    let mut scales = None;
-    let mut steps = 0;
-    loop {
-        let residual = monolithic_local_residual(&iterate, x[SIZE - 1], reference);
-        if converged(local_solver, &residual, SIZE, &mut scales) {
-            break;
-        } else if steps == local_solver.max_steps {
-            return Err(failure(
-                model,
-                &format!(
-                    "The local solve did not converge in {} steps.",
-                    local_solver.max_steps
-                ),
-            ));
-        }
-        steps += 1;
-        let (k_vv, _) = local_jacobian(
-            &Sensitivities::new(model, f, f_p_n, &x, &iterate)?.jacobian()?,
-            x[SIZE - 1],
-            -iterate.residual[SIZE - 1] / reference,
-            reference,
-        );
-        let mut decrement = k_vv
-            .into_iter()
-            .collect::<SquareMatrix>()
-            .solve_lu(&residual)
-            .map_err(|error| failure(model, &error))?;
-        limit_decrement(local_solver, &mut [(&mut decrement, SIZE)]);
-        (0..SIZE).for_each(|i| x[i] -= decrement[i]);
-        iterate = Iterate::new(model, f, f_p_n, strain_n, &x)?;
-    }
     let Monolithic {
         stress,
         tangent_uu: tangent,
@@ -644,7 +608,7 @@ fn evaluate<C: ElasticPlastic>(
     iterate: &Iterate,
 ) -> Result<Monolithic, ConstitutiveError> {
     let sensitivities = Sensitivities::new(model, f, f_p_n, x, iterate)?;
-    let reference = model.initial_yield_stress().value();
+    let reference = reference(model);
     let (a, b) = (x[SIZE - 1], -iterate.residual[SIZE - 1] / reference);
     let (k_vv, factor) = local_jacobian(&sensitivities.jacobian()?, a, b, reference);
     let mut k_vu = Matrix::zero(SIZE, 9);

@@ -272,7 +272,12 @@ where
         deformation_gradient: &DeformationGradient,
         state_variables: &PlasticStateVariables,
     ) -> Result<PlasticStateVariables, ConstitutiveError> {
-        let converged = coupled::solve(self, deformation_gradient, state_variables)?;
+        let converged = coupled::solve(
+            self,
+            deformation_gradient,
+            state_variables,
+            &NewtonRaphson::default(),
+        )?;
         Ok(coupled::updated_state(state_variables, converged.as_ref()))
     }
     /// The first Piola-Kirchhoff stress, the consistent tangent stiffness and the updated
