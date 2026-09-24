@@ -311,8 +311,11 @@ pub(super) struct Converged {
 /// ```
 /// so the flow direction is the end-of-step one. The yield equation is solved as the
 /// Fischer-Burmeister function of the monolithic system, which has the same root for a
-/// plastic step, so this is the local solve of every strategy. It is converged and limited
-/// as `local_solver` says. Returns `None` for an elastic step.
+/// plastic step and the same residual, so this is the nested local solve of
+/// [`return_map`](super::ElasticPlastic::return_map) and [`condensed`]. The monolithic
+/// strategies do not call it: they step the deformation gradient and these unknowns
+/// together. It is converged and limited as `local_solver` says. Returns `None` for an
+/// elastic step.
 pub(super) fn solve<C: ElasticPlastic>(
     model: &C,
     f: &DeformationGradient,
