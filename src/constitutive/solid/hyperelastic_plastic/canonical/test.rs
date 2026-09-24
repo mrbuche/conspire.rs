@@ -2,7 +2,7 @@ use crate::{
     EPSILON,
     constitutive::{
         canonical::Canonical,
-        fluid::plastic::{PlasticFlow, RateIndependentPlastic},
+        fluid::plastic::{Linear, PlasticFlow, VonMises, YieldSurface},
         solid::{
             elastic_plastic::ElasticPlasticOrViscoplastic,
             hyperelastic::{Hencky, NeoHookean, SaintVenantKirchhoff},
@@ -20,15 +20,18 @@ use crate::{
 macro_rules! test_canonical {
     ($elastic:ident) => {
         use super::*;
-        fn model() -> Canonical<$elastic, PlasticFlow> {
+        fn model() -> Canonical<$elastic, PlasticFlow<VonMises, Linear>> {
             Canonical::from((
                 $elastic {
                     bulk_modulus: Stress::pascals(13.0),
                     shear_modulus: Stress::pascals(3.0),
                 },
                 PlasticFlow {
-                    yield_stress: Stress::pascals(2.0),
-                    hardening_slope: Stress::pascals(1.0),
+                    surface: VonMises,
+                    hardening: Linear {
+                        yield_stress: Stress::pascals(2.0),
+                        hardening_slope: Stress::pascals(1.0),
+                    },
                 },
             ))
         }

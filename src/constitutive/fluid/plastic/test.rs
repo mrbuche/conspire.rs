@@ -2,13 +2,20 @@ use super::*;
 use crate::{
     EPSILON,
     math::assert::{Assert, AssertionError, perturbation},
-    math::{ContractWith, TensorArray},
+    math::{ContractWith, Tensor, TensorArray},
 };
 
-fn model() -> PlasticFlow {
-    PlasticFlow {
+fn linear() -> Linear {
+    Linear {
         yield_stress: Stress::pascals(2.0),
         hardening_slope: Stress::pascals(1.0),
+    }
+}
+
+fn model() -> PlasticFlow<VonMises, Linear> {
+    PlasticFlow {
+        surface: VonMises,
+        hardening: linear(),
     }
 }
 
@@ -83,12 +90,15 @@ fn deviatoric_mandel_stress_from_finite_difference_of_dissipation_potential()
     Assert::default().eq_within_fd_tol(&mandel_stress_on_surface, &finite_difference)
 }
 
-fn voce() -> VoceFlow {
-    VoceFlow {
-        yield_stress: Stress::pascals(2.0),
-        hardening_slope: Stress::pascals(0.2),
-        saturation_stress: Stress::pascals(1.5),
-        saturation_rate: 8.0,
+fn voce() -> PlasticFlow<VonMises, Voce> {
+    PlasticFlow {
+        surface: VonMises,
+        hardening: Voce {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(0.2),
+            saturation_stress: Stress::pascals(1.5),
+            saturation_rate: 8.0,
+        },
     }
 }
 
@@ -157,28 +167,31 @@ fn fenchel_equality() -> Result<(), AssertionError> {
     )
 }
 
-fn hill() -> Hill {
-    Hill {
-        yield_stress: Stress::pascals(2.0),
-        hardening_slope: Stress::pascals(1.0),
-        f: 0.4,
-        g: 0.25,
-        h: 0.3,
-        l: 1.3,
-        m: 0.8,
-        n: 1.1,
+fn hill() -> PlasticFlow<Hill, Linear> {
+    PlasticFlow {
+        surface: Hill {
+            f: 0.4,
+            g: 0.25,
+            h: 0.3,
+            l: 1.3,
+            m: 0.8,
+            n: 1.1,
+        },
+        hardening: linear(),
     }
 }
 
-fn isotropic_hill() -> Hill {
-    Hill {
-        f: 1.0 / 3.0,
-        g: 1.0 / 3.0,
-        h: 1.0 / 3.0,
-        l: 1.0,
-        m: 1.0,
-        n: 1.0,
-        ..hill()
+fn isotropic_hill() -> PlasticFlow<Hill, Linear> {
+    PlasticFlow {
+        surface: Hill {
+            f: 1.0 / 3.0,
+            g: 1.0 / 3.0,
+            h: 1.0 / 3.0,
+            l: 1.0,
+            m: 1.0,
+            n: 1.0,
+        },
+        hardening: linear(),
     }
 }
 
@@ -300,7 +313,9 @@ fn hill_equivalent_stress_is_homogeneous_of_degree_one() -> Result<(), Assertion
     )
 }
 
-fn hill_stress_on_the_surface(model: &Hill) -> Result<MandelStressElastic, AssertionError> {
+fn hill_stress_on_the_surface(
+    model: &PlasticFlow<Hill, Linear>,
+) -> Result<MandelStressElastic, AssertionError> {
     let stress = deviatoric_mandel_stress();
     let scale = model.initial_yield_stress().value() / model.equivalent_stress(&stress)?.value();
     Ok(stress * scale)

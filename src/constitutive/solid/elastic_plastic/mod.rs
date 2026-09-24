@@ -7,7 +7,8 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::plastic::{
-            Plastic, PlasticStateVariables, PlasticStateVariablesHistory, RateIndependentPlastic,
+            PlasticHardening, PlasticStateVariables, PlasticStateVariablesHistory,
+            RateIndependentPlastic,
         },
         solid::Solid,
     },
@@ -69,7 +70,7 @@ pub fn bcs(applied_load: AppliedLoad<'_>) -> (Matrix, Prescribed, &'_ [Quantity<
 /// Required methods for elastic-plastic or elastic-viscoplastic solid constitutive models.
 pub trait ElasticPlasticOrViscoplastic
 where
-    Self: Solid + Plastic,
+    Self: Solid + PlasticHardening,
 {
     /// Calculates and returns the Cauchy stress.
     ///

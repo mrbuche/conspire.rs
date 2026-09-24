@@ -8330,8 +8330,11 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
             shear_modulus: Stress::pascals(3.0),
         },
         conspire::constitutive::fluid::plastic::PlasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
+            surface: conspire::constitutive::fluid::plastic::VonMises,
+            hardening: conspire::constitutive::fluid::plastic::Linear {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
         },
     ));
     let mesh = Mesh::from((
@@ -8458,8 +8461,11 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
             shear_modulus: Stress::pascals(3.0),
         },
         conspire::constitutive::fluid::plastic::PlasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
+            surface: conspire::constitutive::fluid::plastic::VonMises,
+            hardening: conspire::constitutive::fluid::plastic::Linear {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
         },
     ));
     let mesh = Mesh::from((
@@ -8499,8 +8505,11 @@ fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), Asserti
             shear_modulus: Stress::pascals(3.0),
         },
         conspire::constitutive::fluid::plastic::PlasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
+            surface: conspire::constitutive::fluid::plastic::VonMises,
+            hardening: conspire::constitutive::fluid::plastic::Linear {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
         },
     ));
     let mesh = Mesh::from((
@@ -8586,8 +8595,11 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
             shear_modulus: Stress::pascals(3.0),
         },
         conspire::constitutive::fluid::plastic::PlasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
+            surface: conspire::constitutive::fluid::plastic::VonMises,
+            hardening: conspire::constitutive::fluid::plastic::Linear {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
         },
     ));
     let reference_coordinates = Coordinates::from([

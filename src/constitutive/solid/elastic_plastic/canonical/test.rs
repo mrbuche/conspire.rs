@@ -2,7 +2,8 @@ use crate::{
     constitutive::{
         canonical::Canonical,
         fluid::plastic::{
-            Hill, Plastic, PlasticFlow, PlasticStateVariables, RateIndependentPlastic, VoceFlow,
+            Hill, Linear, PlasticFlow, PlasticHardening, PlasticStateVariables,
+            RateIndependentPlastic, Voce, VonMises, YieldSurface,
         },
         solid::{
             elastic_plastic::{
@@ -20,8 +21,19 @@ use crate::{
     units::{Stress, Time},
 };
 
+type Mises = PlasticFlow<VonMises, Linear>;
+type MisesVoce = PlasticFlow<VonMises, Voce>;
+type HillLinear = PlasticFlow<Hill, Linear>;
+
+fn linear_hardening(hardening_slope: f64) -> Linear {
+    Linear {
+        yield_stress: Stress::pascals(2.0),
+        hardening_slope: Stress::pascals(hardening_slope),
+    }
+}
+
 fn root(
-    model: &Canonical<NeoHookean, PlasticFlow>,
+    model: &Canonical<NeoHookean, Mises>,
     applied_load: AppliedLoad,
     solver: NewtonRaphson,
 ) -> Result<
@@ -40,50 +52,47 @@ fn root(
     )
 }
 
-fn model(hardening_slope: f64) -> Canonical<NeoHookean, PlasticFlow> {
+fn model(hardening_slope: f64) -> Canonical<NeoHookean, Mises> {
     Canonical::from((
         NeoHookean {
             bulk_modulus: Stress::pascals(13.0),
             shear_modulus: Stress::pascals(3.0),
         },
         PlasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(hardening_slope),
+            surface: VonMises,
+            hardening: linear_hardening(hardening_slope),
         },
     ))
 }
 
-fn voce_model() -> Canonical<NeoHookean, VoceFlow> {
+fn voce_model() -> Canonical<NeoHookean, MisesVoce> {
     Canonical::from((
         NeoHookean {
             bulk_modulus: Stress::pascals(13.0),
             shear_modulus: Stress::pascals(3.0),
         },
-        VoceFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(0.2),
-            saturation_stress: Stress::pascals(1.5),
-            saturation_rate: 8.0,
+        PlasticFlow {
+            surface: VonMises,
+            hardening: Voce {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(0.2),
+                saturation_stress: Stress::pascals(1.5),
+                saturation_rate: 8.0,
+            },
         },
     ))
 }
 
-fn hill_model(coefficients: [f64; 6]) -> Canonical<NeoHookean, Hill> {
+fn hill_model(coefficients: [f64; 6]) -> Canonical<NeoHookean, HillLinear> {
     let [f, g, h, l, m, n] = coefficients;
     Canonical::from((
         NeoHookean {
             bulk_modulus: Stress::pascals(13.0),
             shear_modulus: Stress::pascals(3.0),
         },
-        Hill {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
-            f,
-            g,
-            h,
-            l,
-            m,
-            n,
+        PlasticFlow {
+            surface: Hill { f, g, h, l, m, n },
+            hardening: linear_hardening(1.0),
         },
     ))
 }
