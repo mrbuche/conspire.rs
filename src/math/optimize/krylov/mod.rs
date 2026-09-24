@@ -6,17 +6,8 @@ use crate::math::{
     Scalar, Style, StyledError, Tensor, Vector, assert::AssertionError, styled_error,
 };
 
-/// How many iterations the residual is given to shorten before the walk is
-/// taken to have stopped shortening it, and by how much of itself it has to
-/// shorten over that span to count as still going.
 const PATIENCE: usize = 30;
 const PROGRESS: Scalar = 0.9;
-
-/// How far the residual has to have come for a walk that has stopped shortening
-/// it to be an answer rather than a failure.
-///
-/// A walk that stalls at nearly the residual it started from has not solved
-/// anything, whatever it says about not being able to do better.
 const ACCEPTABLE: Scalar = 1e-3;
 
 /// Something a residual can be put through on its way to becoming a
