@@ -606,6 +606,37 @@ fn return_map_is_the_fully_implicit_step_when_the_loading_is_not_proportional()
 }
 
 #[test]
+fn a_material_with_no_initial_yield_stress_is_solved() -> Result<(), AssertionError> {
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        PlasticFlow {
+            surface: VonMises,
+            hardening: Linear {
+                yield_stress: Stress::pascals(0.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
+        },
+    ));
+    let first = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let state = assert_implicit_step(&model, &first, &model.initial_state())?;
+    let (_, tangent, _) = model.condensed(&first, &model.initial_state(), &solver())?;
+    for i in 0..3 {
+        for j in 0..3 {
+            for k in 0..3 {
+                for l in 0..3 {
+                    assert!(tangent[i][j][k][l].value().is_finite());
+                }
+            }
+        }
+    }
+    assert!(state.1.value() > 0.0);
+    Ok(())
+}
+
+#[test]
 fn return_map_solves_a_step_too_large_for_a_frozen_flow_direction() -> Result<(), AssertionError> {
     let model = model(1.0);
     let large = DeformationGradient::from([[2.6, 1.12, 0.32], [0.0, 0.68, 0.64], [0.0, 0.0, 1.48]]);

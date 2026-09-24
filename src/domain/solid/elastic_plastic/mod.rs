@@ -253,6 +253,51 @@ type Evaluation<const D: usize> = (
     NodalStiffnessesSolid<D>,
 );
 
+/// What of a constraint the sparsity pattern of the sparse solver depends on: which
+/// coordinates are fixed, or where the rows of the linear constraint are nonzero, but not
+/// the values, which change from one load step to the next.
+#[derive(PartialEq)]
+enum ConstraintPattern {
+    None,
+    Fixed(Vec<usize>),
+    Linear(usize, usize, Vec<(usize, usize)>),
+}
+
+impl From<&EqualityConstraint> for ConstraintPattern {
+    fn from(constraint: &EqualityConstraint) -> Self {
+        match constraint {
+            EqualityConstraint::None => Self::None,
+            EqualityConstraint::Fixed(indices) => Self::Fixed(indices.clone()),
+            EqualityConstraint::Linear(matrix, _) => {
+                let mut nonzeros = Vec::new();
+                (0..matrix.len()).for_each(|row| {
+                    (0..matrix.width()).for_each(|column| {
+                        if matrix[row][column] != 0.0 {
+                            nonzeros.push((row, column))
+                        }
+                    })
+                });
+                Self::Linear(matrix.len(), matrix.width(), nonzeros)
+            }
+        }
+    }
+}
+
+/// The value built for a constraint, built again only when the pattern of the constraint
+/// changes, since symbolic analysis of the sparse system is the same for every step of
+/// the same pattern.
+fn cached<'a, T>(
+    cache: &'a mut Option<(ConstraintPattern, T)>,
+    constraint: &EqualityConstraint,
+    build: impl FnOnce() -> T,
+) -> &'a T {
+    let pattern = ConstraintPattern::from(constraint);
+    if cache.as_ref().is_none_or(|(cached, _)| *cached != pattern) {
+        *cache = Some((pattern, build()));
+    }
+    &cache.as_ref().unwrap().1
+}
+
 impl<B, S, const D: usize> ElasticPlasticRoot<S, D> for Model<B, D>
 where
     B: ElasticPlasticElements<S, D>,
@@ -294,6 +339,8 @@ where
                     .ok_or_else(|| MONOLITHIC_UNSUPPORTED.to_string())?,
             ),
         };
+        let mut condensed_cache = None;
+        let mut monolithic_cache = None;
         for constraint in boundary_conditions {
             let frozen_state = state.clone();
             if let (Some(monolithic), SolveStrategy::Monolithic { elimination }) =
@@ -306,34 +353,45 @@ where
                     ));
                 };
                 let (num_global, num_local) = (monolithic.num_global(), monolithic.num_local());
-                //
-                // Eliminating the local unknowns leaves the sparse solver the global
-                // system alone, whose pattern is that of the stiffness.
-                //
-                let mut pattern = if *elimination {
-                    monolithic.tangent_uu.pattern().to_vec()
-                } else {
-                    monolithic.pattern(matrix.len())
-                };
-                let mut constraint_pattern = Vec::new();
-                (0..matrix.len()).for_each(|row| {
-                    (0..matrix.width()).for_each(|column| {
-                        if matrix[row][column] != 0.0 {
-                            constraint_pattern.push((row, column));
-                            pattern.push((num_global + row, column));
-                            pattern.push((column, num_global + row))
-                        }
+                let (sparse, mut constraint_matrix) =
+                    cached(&mut monolithic_cache, constraint, || {
+                        //
+                        // Eliminating the local unknowns leaves the sparse solver the
+                        // global system alone, whose pattern is that of the stiffness.
+                        //
+                        let mut pattern = if *elimination {
+                            monolithic.tangent_uu.pattern().to_vec()
+                        } else {
+                            monolithic.pattern(matrix.len())
+                        };
+                        let mut constraint_pattern = Vec::new();
+                        (0..matrix.len()).for_each(|row| {
+                            (0..matrix.width()).for_each(|column| {
+                                if matrix[row][column] != 0.0 {
+                                    constraint_pattern.push((row, column));
+                                    pattern.push((num_global + row, column));
+                                    pattern.push((column, num_global + row))
+                                }
+                            })
+                        });
+                        pattern.sort_unstable();
+                        pattern.dedup();
+                        (
+                            SparseSolver::from_pattern(
+                                num_global
+                                    + matrix.len()
+                                    + if *elimination { 0 } else { num_local },
+                                pattern,
+                                false,
+                            ),
+                            CscMatrix::from_pattern(
+                                matrix.len(),
+                                matrix.width(),
+                                constraint_pattern,
+                            ),
+                        )
                     })
-                });
-                pattern.sort_unstable();
-                pattern.dedup();
-                let sparse = SparseSolver::from_pattern(
-                    num_global + matrix.len() + if *elimination { 0 } else { num_local },
-                    pattern,
-                    false,
-                );
-                let mut constraint_matrix =
-                    CscMatrix::from_pattern(matrix.len(), matrix.width(), constraint_pattern);
+                    .clone();
                 constraint_matrix.fill(|row, column| matrix[row][column]);
                 let mut initial = Vector::zero(num_global);
                 nodal_coordinates.fill_into(&mut initial);
@@ -402,7 +460,10 @@ where
                     .map_err(|error| error.to_string())?;
                 system = Some(cell.into_inner());
             } else if let SolveStrategy::Condensed(local_solver) = &strategy {
-                let sparse = solver_from_neighbors(&neighbors, constraint, D, false);
+                let sparse = cached(&mut condensed_cache, constraint, || {
+                    solver_from_neighbors(&neighbors, constraint, D, false)
+                })
+                .clone();
                 //
                 // The force and the stiffness are asked for at the same coordinates in
                 // a row, and both come from one solve of every integration point.
