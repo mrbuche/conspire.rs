@@ -45,32 +45,7 @@ impl<const D: usize> Mesh<D> {
                     keeping
                 })
                 .collect();
-            blocks.push(match block {
-                Connectivity::Hexahedral(_) => {
-                    Connectivity::Hexahedral(primitive::<8>(&kept, &mut id).into())
-                }
-                Connectivity::Pyramidal(_) => {
-                    Connectivity::Pyramidal(primitive::<5>(&kept, &mut id).into())
-                }
-                Connectivity::Quadrilateral(_) => {
-                    Connectivity::Quadrilateral(primitive::<4>(&kept, &mut id).into())
-                }
-                Connectivity::Tetrahedral(_) => {
-                    Connectivity::Tetrahedral(primitive::<4>(&kept, &mut id).into())
-                }
-                Connectivity::Triangular(_) => {
-                    Connectivity::Triangular(primitive::<3>(&kept, &mut id).into())
-                }
-                Connectivity::Wedge(_) => {
-                    Connectivity::Wedge(primitive::<6>(&kept, &mut id).into())
-                }
-                Connectivity::Polyhedral(c) => {
-                    Connectivity::Polyhedral(polytopal(c.faces_nodes(), &kept, &mut id).into())
-                }
-                Connectivity::Polygonal(c) => {
-                    Connectivity::Polygonal(polytopal(c.faces_nodes(), &kept, &mut id).into())
-                }
-            })
+            blocks.push(subset(block, &kept, &mut id))
         }
         let connectivities = match numbers {
             Some(numbers) => Connectivities::from((blocks, numbers)),
@@ -80,6 +55,29 @@ impl<const D: usize> Mesh<D> {
             (connectivities, Set::from(new_coordinates)).into(),
             old_nodes,
         )
+    }
+}
+
+pub(super) fn subset(
+    block: &Connectivity,
+    kept: &[&[usize]],
+    id: &mut impl FnMut(usize) -> usize,
+) -> Connectivity {
+    match block {
+        Connectivity::Hexahedral(_) => Connectivity::Hexahedral(primitive::<8>(kept, id).into()),
+        Connectivity::Pyramidal(_) => Connectivity::Pyramidal(primitive::<5>(kept, id).into()),
+        Connectivity::Quadrilateral(_) => {
+            Connectivity::Quadrilateral(primitive::<4>(kept, id).into())
+        }
+        Connectivity::Tetrahedral(_) => Connectivity::Tetrahedral(primitive::<4>(kept, id).into()),
+        Connectivity::Triangular(_) => Connectivity::Triangular(primitive::<3>(kept, id).into()),
+        Connectivity::Wedge(_) => Connectivity::Wedge(primitive::<6>(kept, id).into()),
+        Connectivity::Polyhedral(c) => {
+            Connectivity::Polyhedral(polytopal(c.faces_nodes(), kept, id).into())
+        }
+        Connectivity::Polygonal(c) => {
+            Connectivity::Polygonal(polytopal(c.faces_nodes(), kept, id).into())
+        }
     }
 }
 

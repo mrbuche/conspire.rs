@@ -131,3 +131,17 @@ fn unused_part_indices_are_empty_parts() {
 fn partition_rejects_wrong_length_assignment() {
     Partition::new(&blocks([2, 1, 1]), vec![0]);
 }
+
+#[test]
+fn blocked_mesh_has_one_block_per_part_with_shared_nodes() {
+    let mesh = blocks([4, 2, 2]);
+    let partition = mesh.partition_box([2, 1, 1]);
+    let blocked = partition.blocked_mesh(&mesh);
+    assert_eq!(blocked.number_of_element_blocks(), 2);
+    assert_eq!(blocked.blocks(), Some([1, 2].as_slice()));
+    assert_eq!(blocked.number_of_nodes(), mesh.number_of_nodes());
+    assert_eq!(blocked.number_of_elements(), mesh.number_of_elements());
+    blocked.iter().enumerate().for_each(|(part, block)| {
+        assert_eq!(block.iter().count(), partition.part_elements(part).len())
+    });
+}
