@@ -1442,6 +1442,80 @@ pub(crate) fn hemisphere_solid(radius: f64) -> Brep {
     }
 }
 
+/// A hollow cylinder about `+z`: outer radius `outer`, bore radius `inner`,
+/// two annular end caps.
+pub(crate) fn hollow_cylinder(outer: f64, inner: f64, height: f64) -> Brep {
+    let vertices = vec![
+        Coordinate::const_from([outer, 0.0, 0.0]),
+        Coordinate::const_from([outer, 0.0, height]),
+        Coordinate::const_from([inner, 0.0, 0.0]),
+        Coordinate::const_from([inner, 0.0, height]),
+    ];
+    let rim = |vertex: usize, radius: f64, z: f64| Edge {
+        vertices: [vertex, vertex],
+        curve: Curve::Circle(Circle {
+            center: Coordinate::const_from([0.0, 0.0, z]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+    };
+    let seam = |a: usize, b: usize, radius: f64| Edge {
+        vertices: [a, b],
+        curve: Curve::Line(Line {
+            origin: Coordinate::const_from([radius, 0.0, 0.0]),
+            direction: direction([0.0, 0.0, 1.0]),
+        }),
+    };
+    let edges = vec![
+        rim(0, outer, 0.0),
+        rim(1, outer, height),
+        seam(0, 1, outer),
+        rim(2, inner, 0.0),
+        rim(3, inner, height),
+        seam(2, 3, inner),
+    ];
+    let bound = |half_edges: &[(usize, bool)]| Loop {
+        half_edges: half_edges
+            .iter()
+            .map(|&(edge, forward)| HalfEdge { edge, forward })
+            .collect(),
+    };
+    let wall = |radius: f64, forward: bool, half_edges: &[(usize, bool)]| Face {
+        surface: Surface::Cylinder(Cylinder {
+            origin: Coordinate::const_from([0.0, 0.0, 0.0]),
+            axis: direction([0.0, 0.0, 1.0]),
+            reference_direction: direction([1.0, 0.0, 0.0]),
+            radius,
+        }),
+        bounds: vec![bound(half_edges)],
+        poles: vec![],
+        forward,
+    };
+    let mut bottom = face([0.0, 0.0, -1.0], [1.0, 0.0, 0.0], &[(0, false)]);
+    bottom.bounds.push(bound(&[(3, true)]));
+    let mut top = face([0.0, 0.0, 1.0], [1.0, 0.0, 0.0], &[(1, true)]);
+    top.bounds.push(bound(&[(4, true)]));
+    Brep {
+        vertices,
+        edges,
+        faces: vec![
+            bottom,
+            top,
+            wall(outer, true, &[(0, true), (2, true), (1, false), (2, false)]),
+            wall(
+                inner,
+                false,
+                &[(3, true), (5, true), (4, false), (5, false)],
+            ),
+        ],
+        shells: vec![Shell {
+            faces: vec![0, 1, 2, 3],
+            closed: true,
+        }],
+    }
+}
+
 /// A 6 x 6 x `height` block with a through-bore (radius `radius`, axis `+z`)
 /// and a V-notch cut into its `y = 0` side whose apex (a convex ridge pointing
 /// into the material) sits `gap` below the bore: a thin ligament of solid

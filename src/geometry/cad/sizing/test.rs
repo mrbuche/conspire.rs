@@ -159,6 +159,24 @@ fn proximity_survives_a_face_with_flipped_orientation() {
 }
 
 #[test]
+fn proximity_sees_a_thin_cylindrical_wall() {
+    use crate::geometry::cad::brep::test::hollow_cylinder;
+    // A 0.05 wall on a unit radius: thinner than a tenth of the radius, so a
+    // probe offset proportional to the radius lands outside the wall.
+    let brep = hollow_cylinder(1.0, 0.95, 4.0);
+    let field = FeatureSizing::of(&brep, 2, None, Some(length(10.0)), None)
+        .with_proximity(&brep, 4)
+        .unwrap();
+    for deg in [0, 45, 90, 135, 180, 270] {
+        let t = (deg as f64).to_radians();
+        let size = field
+            .at(&point([0.975 * t.cos(), 0.975 * t.sin(), 2.0]))
+            .value();
+        assert!((size - 0.05 / 4.0).abs() < 5e-3, "deg {deg}: {size}");
+    }
+}
+
+#[test]
 fn proximity_sees_a_thin_slab_with_no_minimum() {
     use crate::geometry::cad::brep::test::axis_aligned_box;
     let brep = axis_aligned_box([0.2, 4.0, 8.0]);

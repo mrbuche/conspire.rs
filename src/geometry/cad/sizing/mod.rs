@@ -1005,6 +1005,7 @@ fn proximity_revolved(
                 u,
                 w,
                 |_z| radius,
+                0.0,
                 out,
             );
         }
@@ -1026,6 +1027,7 @@ fn proximity_revolved(
                 u,
                 w,
                 |z| (base + z * tan).max(0.0),
+                tan,
                 out,
             );
         }
@@ -1050,6 +1052,7 @@ fn proximity_ruled(
     u: [Scalar; D],
     w: [Scalar; D],
     radius_at: impl Fn(Scalar) -> Scalar,
+    slope: Scalar,
     out: &mut Vec<Item<Scalar>>,
 ) {
     let (mut heights, mut angles) = (Vec::new(), Vec::new());
@@ -1082,6 +1085,7 @@ fn proximity_ruled(
         let r = radius_at(z);
         from_fn(|k| origin[k] + z * a[k] + r * (co * u[k] + si * w[k]))
     };
+    let mut side: Option<Scalar> = None;
     for iu in 0..n_ang {
         for iz in 0..n_z {
             let tc = a0 + (iu as Scalar + 0.5) * d_ang;
@@ -1089,6 +1093,26 @@ fn proximity_ruled(
             let here = surface(tc, zc);
             let (co, si) = (tc.cos(), tc.sin());
             let radial: [Scalar; D] = from_fn(|k| co * u[k] + si * w[k]);
+            // The wall's own thickness: a ray along the surface normal into the
+            // solid, as the planar path does. The chord probes below sit a
+            // fixed fraction of the radius off the face, so a wall thinner than
+            // that puts both probes in air and they measure the cavity instead.
+            let normal = normalize(from_fn(|k| radial[k] - slope * a[k]));
+            let sign = *side.get_or_insert_with(|| {
+                let offset = 1.0e-3 * radius_at(zc).max(tile);
+                let sd = |s: Scalar| {
+                    oracle.signed_distance(&Coordinate::<D>::from(from_fn::<Scalar, D, _>(|k| {
+                        here[k] + s * offset * normal[k]
+                    })))
+                };
+                if sd(-1.0) > sd(1.0) { -1.0 } else { 1.0 }
+            });
+            let toward: [Scalar; D] = from_fn(|k| sign * normal[k]);
+            let start =
+                Coordinate::<D>::from(from_fn::<Scalar, D, _>(|k| here[k] + eps * toward[k]));
+            let wall = oracle
+                .ray_distance(&start, toward)
+                .map_or(Scalar::INFINITY, |hit| hit + eps);
             // Querying exactly on the face grazes the rim edge and the ray hit
             // test is unreliable there, so probe just off it to each side and
             // take the shorter chord: outward finds a bore's wall, inward a
@@ -1101,7 +1125,7 @@ fn proximity_ruled(
                         here[k] + d * radial[k]
                     })))
                 })
-                .fold(Scalar::INFINITY, Scalar::min);
+                .fold(wall, Scalar::min);
             if !(thickness.is_finite() && thickness > 0.0) {
                 continue;
             }
