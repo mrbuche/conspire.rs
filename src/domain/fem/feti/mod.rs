@@ -20,7 +20,7 @@ use crate::{
 };
 
 pub use crate::domain::block::feti::{
-    Preconditioner, SolveError, SolveStats,
+    Preconditioner, SolveError,
     dual_primal::BoundaryConditions,
     element_systems::{DecomposableElements, ElementSystems},
 };
@@ -69,21 +69,6 @@ impl Feti {
         C: Hyperelastic,
         F: HyperelasticFiniteElement<C, G, M, N, P>,
     {
-        self.solve_with_stats(block, nodal_coordinates, boundary_conditions)
-            .map(|(solution, _)| solution)
-    }
-    /// Like [`Feti::solve`], also returning the time spent in each stage.
-    #[allow(clippy::type_complexity)]
-    pub fn solve_with_stats<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
-        &self,
-        block: &Block<C, F, G, M, N, P>,
-        nodal_coordinates: &NodalCoordinates<3>,
-        boundary_conditions: &BoundaryConditions,
-    ) -> Result<(Vector, SolveStats), SolveError>
-    where
-        C: Hyperelastic,
-        F: HyperelasticFiniteElement<C, G, M, N, P>,
-    {
         solve_with(
             block,
             nodal_coordinates,
@@ -116,7 +101,7 @@ impl LinearSolver for Feti {
                 .map(|(dof, _)| (dof / 3, dof % 3))
                 .collect(),
         );
-        let (solution, _) = solve_local_systems(
+        let solution = solve_local_systems(
             &self.partition,
             &boundary_conditions,
             stiffnesses,
