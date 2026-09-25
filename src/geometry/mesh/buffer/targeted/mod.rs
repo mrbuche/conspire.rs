@@ -16,6 +16,9 @@ use std::array::from_fn;
 /// outer face meets a feature, are candidates for pyramid fans.
 const BOWTIE: Scalar = 0.1;
 
+/// Rings of neighbouring nodes, around each converted cell, freed in the refit.
+const RINGS: usize = 2;
+
 fn worst(mesh: &Mesh<3>) -> Scalar {
     mesh.minimum_scaled_jacobians()
         .iter()
@@ -130,6 +133,7 @@ impl Mesh<3> {
         };
         let assemble = |flags: &[bool]| -> Result<Self, &'static str> {
             let mut coordinates = fitted_coordinates.clone();
+            let fitted_count = coordinates.len();
             let mut layer = layer.clone();
             let mut blocks = blocks.clone();
             let mut pyramids: Vec<[usize; 5]> = Vec::new();
@@ -158,10 +162,34 @@ impl Mesh<3> {
             let mut connectivities = hexahedra(blocks);
             connectivities.push(Connectivity::Pyramidal(pyramids.into()));
             let mut mesh = Self::from((connectivities, coordinates));
-            let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-            mesh.fit(&nodes, target)?;
+            let neighbors = mesh.node_node_connectivity().to_vec();
+            let mut free = vec![false; mesh.number_of_nodes()];
+            let mut front: Vec<usize> = (fitted_count..free.len())
+                .chain(
+                    shell
+                        .iter()
+                        .zip(flags)
+                        .filter(|&(_, &flag)| flag)
+                        .flat_map(|(cell, _)| cell.iter().copied()),
+                )
+                .collect();
+            front.iter().for_each(|&node| free[node] = true);
+            for _ in 0..RINGS {
+                front = front
+                    .into_iter()
+                    .flat_map(|node| neighbors[node].iter().copied())
+                    .filter(|&node| !std::mem::replace(&mut free[node], true))
+                    .collect();
+            }
+            let free: Vec<usize> = (0..free.len()).filter(|&node| free[node]).collect();
+            let layer: Vec<usize> = layer
+                .into_iter()
+                .filter(|node| free.binary_search(node).is_ok())
+                .collect();
+            mesh.fit(&free, target)?;
             mesh.project(target, &layer)?;
-            mesh.fit(&(0..count).collect::<Vec<_>>(), target)?;
+            let core: Vec<usize> = free.into_iter().filter(|&node| node < count).collect();
+            mesh.fit(&core, target)?;
             Ok(mesh)
         };
         let unchanged = || Self::from((hexahedra(blocks.clone()), fitted_coordinates.clone()));
