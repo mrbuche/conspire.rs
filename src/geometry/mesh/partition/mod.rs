@@ -94,10 +94,10 @@ impl Partition {
             .map(|(node, _)| node)
             .collect()
     }
-    pub fn part_mesh<const D: usize>(&self, mesh: &Mesh<D>, part: usize) -> (Mesh<D>, Vec<usize>) {
+    pub fn part<const D: usize>(&self, mesh: &Mesh<D>, part: usize) -> (Mesh<D>, Vec<usize>) {
         mesh.retained_elements(|element, _, _| self.elements_parts[element] == part)
     }
-    pub fn blocked_mesh<const D: usize>(&self, mesh: &Mesh<D>) -> Mesh<D> {
+    pub fn blocked<const D: usize>(&self, mesh: &Mesh<D>) -> Mesh<D> {
         let mut blocks = Vec::new();
         for part in 0..self.number_of_parts() {
             let mut index = 0;

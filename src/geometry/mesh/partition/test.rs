@@ -101,11 +101,11 @@ fn part_elements_invert_the_assignment() {
 }
 
 #[test]
-fn part_mesh_extracts_subdomain_with_node_map() {
+fn part_extracts_subdomain_with_node_map() {
     let mesh = blocks([4, 2, 2]);
     let partition = mesh.partition_box([2, 1, 1]);
     (0..2).for_each(|part| {
-        let (submesh, old_nodes) = partition.part_mesh(&mesh, part);
+        let (submesh, old_nodes) = partition.part(&mesh, part);
         assert_eq!(submesh.number_of_elements(), 8);
         assert_eq!(submesh.number_of_nodes(), 27);
         let mut sorted = old_nodes.clone();
@@ -133,10 +133,10 @@ fn partition_rejects_wrong_length_assignment() {
 }
 
 #[test]
-fn blocked_mesh_has_one_block_per_part_with_shared_nodes() {
+fn blocked_has_one_block_per_part_with_shared_nodes() {
     let mesh = blocks([4, 2, 2]);
     let partition = mesh.partition_box([2, 1, 1]);
-    let blocked = partition.blocked_mesh(&mesh);
+    let blocked = partition.blocked(&mesh);
     assert_eq!(blocked.number_of_element_blocks(), 2);
     assert_eq!(blocked.blocks(), Some([1, 2].as_slice()));
     assert_eq!(blocked.number_of_nodes(), mesh.number_of_nodes());
