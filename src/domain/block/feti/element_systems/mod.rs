@@ -31,9 +31,6 @@ pub(crate) struct ElementSystem {
 }
 
 impl ElementSystem {
-    /// Packs an element's forces, `force(a, i)`, and stiffnesses,
-    /// `stiffness(a, b, i, j)`, indexed by its nodes and components, into dense
-    /// arrays over its degrees of freedom.
     pub(crate) fn pack(
         nodes: Vec<usize>,
         force: impl Fn(usize, usize) -> Scalar,
