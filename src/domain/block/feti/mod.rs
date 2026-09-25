@@ -3,8 +3,7 @@
 #[cfg(feature = "fem")]
 pub(crate) mod assemble;
 pub(crate) mod dual_primal;
-#[cfg(all(test, feature = "fem"))]
-mod hex_test;
+pub(crate) mod element_systems;
 pub(crate) mod interface;
 #[cfg(test)]
 mod test;
@@ -13,6 +12,8 @@ use crate::math::{
     LuDecomposition, Matrix, Scalar, SquareMatrix, Tensor, Vector,
     optimize::{Krylov, KrylovError},
 };
+#[cfg(feature = "fem")]
+use crate::math::{Style, StyledError, styled_error};
 #[cfg(feature = "fem")]
 use dual_primal::coarse;
 use dual_primal::coarse::Coarse;
@@ -517,18 +518,18 @@ where
 /// Wall time of each stage of a `solve_with`, and the number of dual
 /// operator applications the PCG took.
 #[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct SolveStats {
-    pub(crate) applications: usize,
-    pub(crate) assemble: Duration,
-    pub(crate) condense: Duration,
-    pub(crate) subdomains: Duration,
-    pub(crate) coarse: Duration,
-    pub(crate) pcg: Duration,
-    pub(crate) recover: Duration,
+pub struct SolveStats {
+    pub applications: usize,
+    pub assemble: Duration,
+    pub condense: Duration,
+    pub subdomains: Duration,
+    pub coarse: Duration,
+    pub pcg: Duration,
+    pub recover: Duration,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Preconditioner {
+pub enum Preconditioner {
     Lumped,
     Dirichlet,
 }
@@ -618,10 +619,23 @@ fn rhs_from_forces<B>(
 /// Errors a full FETI-DP solve can hit: either extracting a subdomain's
 /// local stiffness/force from the real `Block` fails, or the dual PCG does.
 #[cfg(feature = "fem")]
-pub(crate) enum SolveError {
+pub enum SolveError {
     Element(FiniteElementError),
     Krylov(KrylovError),
 }
+
+#[cfg(feature = "fem")]
+impl StyledError for SolveError {
+    fn message(&self, style: &Style) -> String {
+        match self {
+            Self::Element(error) => error.message(style),
+            Self::Krylov(error) => error.message(style),
+        }
+    }
+}
+
+#[cfg(feature = "fem")]
+styled_error!(SolveError);
 
 #[cfg(feature = "fem")]
 impl From<FiniteElementError> for SolveError {
@@ -699,20 +713,49 @@ where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N, P>,
 {
+    let clock = Instant::now();
+    let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = partition
+        .parts_nodes()
+        .iter()
+        .map(|nodes| assemble::local_stiffness_and_force(block, nodal_coordinates, nodes))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .unzip();
+    let assemble = clock.elapsed();
+    let (solution, mut stats) = solve_local_systems(
+        partition,
+        boundary_conditions,
+        local_stiffnesses,
+        local_forces,
+        nodal_coordinates.len(),
+        dimension,
+        preconditioner,
+        rel_tol,
+    )?;
+    stats.assemble = assemble;
+    Ok((solution, stats))
+}
+
+/// The FETI-DP solve once each subdomain's local stiffness and force are in
+/// hand, however they were assembled.
+#[cfg(feature = "fem")]
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn solve_local_systems(
+    partition: &crate::geometry::mesh::Partition,
+    boundary_conditions: &dual_primal::BoundaryConditions,
+    local_stiffnesses: Vec<SquareMatrix>,
+    local_forces: Vec<Vector>,
+    number_of_nodes: usize,
+    dimension: usize,
+    preconditioner: Preconditioner,
+    rel_tol: Scalar,
+) -> Result<(Vector, SolveStats), SolveError> {
     let mut stats = SolveStats::default();
     let corners = dual_primal::CornerSelection::from_partition(partition);
     let (interfaces, num_multipliers) = interface::build_interfaces(partition, &corners, dimension);
     let (splits, corner_dofs) =
         dual_primal::build_splits(partition, &corners, boundary_conditions, dimension);
     let subdomain_nodes = partition.parts_nodes();
-    let clock = Instant::now();
-    let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = subdomain_nodes
-        .iter()
-        .map(|nodes| assemble::local_stiffness_and_force(block, nodal_coordinates, nodes))
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .unzip();
-    stats.assemble = clock.elapsed();
     let indices: Vec<usize> = (0..subdomain_nodes.len()).collect();
     let clock = Instant::now();
     let condensed: Vec<_> = parallel_map(&indices, |&index| {
@@ -782,7 +825,7 @@ where
     let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
     let corner_solution = coarse_problem.solve(&(reduced_force + ct_lambda));
     let recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
-    let mut global = Vector::zero(nodal_coordinates.len() * dimension);
+    let mut global = Vector::zero(number_of_nodes * dimension);
     subdomain_nodes
         .iter()
         .zip(recovered.iter())

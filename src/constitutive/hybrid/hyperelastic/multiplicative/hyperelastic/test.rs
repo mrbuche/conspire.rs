@@ -16,7 +16,9 @@ use crate::{
     constitutive::solid::elastic::AppliedLoad,
     math::{
         Norm,
-        optimize::{GradientDescent, LineSearch, NewtonRaphson, SolveStrategy, TrustRegion},
+        optimize::{
+            Direct, GradientDescent, LineSearch, NewtonRaphson, SolveStrategy, TrustRegion,
+        },
     },
     mechanics::*,
 };
@@ -130,6 +132,7 @@ fn searched(name: &str, strategy: SolveStrategy) -> Result<(), AssertionError> {
         AppliedLoad::UniaxialStress(STRETCH),
         NewtonRaphson {
             line_search: line_search(name),
+            linear_solver: Direct,
             ..Default::default()
         },
         strategy.clone(),
@@ -166,6 +169,7 @@ fn far(
         NewtonRaphson {
             trust_region,
             max_steps: 200,
+            linear_solver: Direct,
             ..Default::default()
         },
         strategy,
@@ -233,6 +237,7 @@ fn root_line_search_error() -> Result<(), AssertionError> {
             AppliedLoad::UniaxialStress(STRETCH),
             NewtonRaphson {
                 line_search: line_search("error"),
+                linear_solver: Direct,
                 ..Default::default()
             },
             strategy,

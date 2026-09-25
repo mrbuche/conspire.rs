@@ -177,6 +177,22 @@ pub trait SecondOrderMinimize<F, J, H, X> {
     ) -> Result<X, OptimizationError>;
 }
 
+/// Minimization that hands the solver the unassembled tangent, for linear
+/// solvers that work on a decomposition of the model rather than on the
+/// assembled system.
+///
+/// A trait of its own, since a second implementation of
+/// [`SecondOrderMinimize`] for a model would leave the tangent a solver is
+/// given to be inferred from a solver that accepts any.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait SecondOrderMinimizeDecomposed<F, J, H, X> {
+    fn minimize_decomposed(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl SecondOrderOptimization<F, J, H, X>,
+    ) -> Result<X, OptimizationError>;
+}
+
 impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> {
     fn from((blocks, coordinates): (B, NodalReferenceCoordinates<D>)) -> Self {
         Self {

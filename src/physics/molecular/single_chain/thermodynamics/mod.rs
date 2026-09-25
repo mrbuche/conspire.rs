@@ -2,7 +2,8 @@ use crate::{
     math::{
         Current, Quantity, Scalar, SquareMatrix, Tensor, TensorArray, TensorRank1, Vector,
         optimize::{
-            EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization, Tolerances,
+            Direct, EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization,
+            Tolerances,
         },
     },
     mechanics::Vectors,
@@ -472,6 +473,7 @@ where
                 cut_back: 5e-1,
                 max_steps: 10,
             },
+            linear_solver: Direct,
             ..Default::default()
         }
         .minimize(
@@ -577,6 +579,7 @@ where
                 cut_back: 5e-1,
                 max_steps: 10,
             },
+            linear_solver: Direct,
             ..Default::default()
         }
         .minimize(

@@ -29,7 +29,7 @@ use conspire::{
         Matrix, Quantity, Tensor, Vector,
         assert::AssertionError,
         integrate::DormandPrince,
-        optimize::{EqualityConstraint, NewtonRaphson},
+        optimize::{Direct, EqualityConstraint, NewtonRaphson},
     },
     mechanics::TemperatureGradient,
     units::{PowerPerLengthTemperature, Rate, Stress, Time, Viscosity},
@@ -8099,6 +8099,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
             max_steps: 1,
+            linear_solver: Direct,
             ..Default::default()
         },
     )?;
@@ -8198,6 +8199,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         EqualityConstraint::Linear(matrix.clone(), vector.clone()),
         NewtonRaphson {
             max_steps: 6,
+            linear_solver: Direct,
             ..Default::default()
         },
         SolveStrategy::Monolithic { elimination: true },
@@ -8227,6 +8229,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
                 max_steps: 25,
             },
             max_steps: 5,
+            linear_solver: Direct,
             ..Default::default()
         },
         SolveStrategy::Monolithic { elimination: true },
@@ -8333,6 +8336,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
             max_steps: 6,
+            linear_solver: Direct,
             ..Default::default()
         },
         SolveStrategy::Monolithic { elimination: true },

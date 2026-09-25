@@ -1,8 +1,12 @@
 use crate::{
     domain::{
         Blocks, ElementModel, ElementModelError, FirstOrderMinimize, Model, NodalCoordinates,
-        SecondOrderMinimize,
-        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        SecondOrderMinimize, SecondOrderMinimizeDecomposed,
+        block::{
+            element::Elements,
+            feti::element_systems::{DecomposableElements, ElementSystems},
+            finalize_node_neighbors, solver_from_neighbors,
+        },
         solid::{NodalForcesSolid, NodalStiffnessesSolidSymmetric, elastic::ElasticElements},
     },
     math::{
@@ -137,6 +141,39 @@ where
             self.coordinates().clone().into(),
             equality_constraint,
             Some(sparse),
+        )
+    }
+}
+
+impl<B>
+    SecondOrderMinimizeDecomposed<
+        Quantity<Energy>,
+        NodalForcesSolid<3>,
+        ElementSystems,
+        NodalCoordinates<3>,
+    > for Model<B, 3>
+where
+    B: HyperelasticElements<3> + DecomposableElements,
+{
+    fn minimize_decomposed(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: impl SecondOrderOptimization<
+            Quantity<Energy>,
+            NodalForcesSolid<3>,
+            ElementSystems,
+            NodalCoordinates<3>,
+        >,
+    ) -> Result<NodalCoordinates<3>, OptimizationError> {
+        solver.minimize(
+            |nodal_coordinates: &NodalCoordinates<3>| {
+                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
+            },
+            |nodal_coordinates: &NodalCoordinates<3>| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinates<3>| Ok(self.element_systems(nodal_coordinates)?),
+            self.coordinates().clone().into(),
+            equality_constraint,
+            None,
         )
     }
 }

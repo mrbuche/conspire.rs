@@ -13,17 +13,17 @@ use std::collections::{HashMap, HashSet};
 /// zero-initialized value everywhere — which is exactly correct for a
 /// zero prescribed displacement, and needs no force-correction term the way
 /// a nonzero prescribed value would.
-pub(crate) struct BoundaryConditions {
+pub struct BoundaryConditions {
     fixed: HashSet<(usize, usize)>,
 }
 
 impl BoundaryConditions {
-    pub(crate) fn new(fixed: Vec<(usize, usize)>) -> Self {
+    pub fn new(fixed: Vec<(usize, usize)>) -> Self {
         Self {
             fixed: fixed.into_iter().collect(),
         }
     }
-    pub(crate) fn none() -> Self {
+    pub fn none() -> Self {
         Self {
             fixed: HashSet::new(),
         }
