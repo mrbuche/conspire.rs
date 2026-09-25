@@ -2324,3 +2324,134 @@ fn probe_crease_adherence() {
         );
     }
 }
+
+/// Lists every face of `STEP_MESH_FILE` with its surface type, whether the
+/// planar path accepted it (and its extent), and how many wall-thickness
+/// proximity boxes `with_proximity` produced for it: a face with zero boxes
+/// is one the thin-wall term is blind to. `STEP_MESH_PROXIMITY` cells across
+/// (default 3), `STEP_MESH_CELL` maximum (`none` for unbounded), and
+/// `STEP_MESH_MIN` minimum (`none` for no floor; default cell/8).
+#[test]
+#[ignore = "audits proximity coverage per face of STEP_MESH_FILE"]
+fn probe_proximity_coverage() {
+    use crate::{
+        geometry::{
+            Coordinate,
+            cad::{brep::surface::Surface, sizing::FeatureSizing},
+            solid::SolidOracle,
+        },
+        math::Quantity,
+        units::Length,
+    };
+
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let text = std::fs::read_to_string(&path).unwrap();
+    let env_f64 = |key: &str, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let maximum = (std::env::var("STEP_MESH_CELL").as_deref() != Ok("none"))
+        .then(|| Quantity::<Length>::new(cell));
+    let minimum = (std::env::var("STEP_MESH_MIN").as_deref() != Ok("none"))
+        .then(|| Quantity::<Length>::new(env_f64("STEP_MESH_MIN", cell / 8.0)));
+    let cells = env_f64("STEP_MESH_PROXIMITY", 3.0) as usize;
+    for (solid, brep) in read_all(&text).expect("read failed").iter().enumerate() {
+        let sizing = FeatureSizing::of(brep, 24, minimum, maximum, Some(0.2))
+            .with_proximity(brep, cells)
+            .expect("with_proximity");
+        let mut blind = std::collections::BTreeMap::<&str, usize>::new();
+        let oracle = brep.oracle().expect("oracle");
+        eprintln!("solid {solid}: {} faces", brep.faces.len());
+        for (index, face) in brep.faces.iter().enumerate() {
+            let kind = match face.surface {
+                Surface::Plane(_) => "plane",
+                Surface::Cylinder(_) => "cylinder",
+                Surface::Cone(_) => "cone",
+                Surface::Sphere(_) => "sphere",
+                Surface::Torus(_) => "torus",
+                Surface::BSpline(_) => "bspline",
+                Surface::Revolution(_) => "revolution",
+                #[allow(unreachable_patterns)]
+                _ => "other",
+            };
+            let [boxes, probes, no_hit, thick] = sizing.proximity_per_face()[index];
+            let detail = match brep.planar_face(face) {
+                Ok(planar) => {
+                    let (mut low, mut high) = ([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]);
+                    for ring in &planar.rings {
+                        for &(uv, _) in ring {
+                            for a in 0..2 {
+                                low[a] = low[a].min(uv[a]);
+                                high[a] = high[a].max(uv[a]);
+                            }
+                        }
+                    }
+                    for &(centre, radius) in &planar.circles {
+                        for a in 0..2 {
+                            low[a] = low[a].min(centre[a] - radius);
+                            high[a] = high[a].max(centre[a] + radius);
+                        }
+                    }
+                    let (mut outward, mut flipped, mut unclear) = (0, 0, 0);
+                    let offset = 0.05 * (high[0] - low[0]).min(high[1] - low[1]);
+                    for i in 0..8 {
+                        for j in 0..8 {
+                            let uv = [
+                                low[0] + (i as f64 + 0.5) / 8.0 * (high[0] - low[0]),
+                                low[1] + (j as f64 + 0.5) / 8.0 * (high[1] - low[1]),
+                            ];
+                            if !planar.contains(uv) {
+                                continue;
+                            }
+                            let p = planar.unproject(uv);
+                            let at = |sign: f64| {
+                                oracle.signed_distance(&Coordinate::<3>::from(
+                                    std::array::from_fn::<f64, 3, _>(|k| {
+                                        p[k].value() + sign * offset * planar.normal[k].value()
+                                    }),
+                                ))
+                            };
+                            let (behind, front) = (at(-1.0), at(1.0));
+                            if behind > 0.0 && front < 0.0 {
+                                outward += 1;
+                            } else if behind < 0.0 && front > 0.0 {
+                                flipped += 1;
+                            } else {
+                                unclear += 1;
+                            }
+                        }
+                    }
+                    format!(
+                        "planar ok, extent {:.4} x {:.4}; {probes} probes, {no_hit} no ray hit, \
+                         {thick} too thick; normal outward/flipped/unclear \
+                         {outward}/{flipped}/{unclear}",
+                        high[0] - low[0],
+                        high[1] - low[1]
+                    )
+                }
+                Err(error) => format!("planar REJECTED: {error}"),
+            };
+            eprintln!("  face {index:>3} {kind:<10} {boxes:>5} boxes  {detail}");
+            if kind == "plane" && boxes == 0 {
+                let reason = if probes == 0 {
+                    "no probe centre inside the face (narrow or tiny)"
+                } else if no_hit == probes {
+                    "every ray missed (orientation or open geometry?)"
+                } else if thick == probes {
+                    "wall thick enough, correctly unconstrained"
+                } else {
+                    "mixed"
+                };
+                *blind.entry(reason).or_default() += 1;
+            }
+        }
+        for (reason, count) in blind {
+            eprintln!("  planar faces with no boxes: {count} -- {reason}");
+        }
+    }
+}

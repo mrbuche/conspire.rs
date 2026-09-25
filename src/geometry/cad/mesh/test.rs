@@ -638,12 +638,15 @@ fn notched_bore_pocket_is_a_valid_solid() {
 #[ignore = "diagnostic: reports and writes target/notched_*.vtu"]
 fn probe_notched_bore_block() {
     let (radius, height) = (1.6, 1.2);
+    let modes: &[bool] = if std::env::var("PROBE_GRADED").is_ok() {
+        &[false, true]
+    } else {
+        &[false]
+    };
     for (h, ratio, graded) in [0.3, 0.55, 0.8].into_iter().flat_map(|h| {
-        [1.0, 0.5, 0.25].into_iter().flat_map(move |ratio| {
-            [false, true]
-                .into_iter()
-                .map(move |graded| (h, ratio, graded))
-        })
+        [1.0, 0.5, 0.25]
+            .into_iter()
+            .flat_map(move |ratio| modes.iter().map(move |&graded| (h, ratio, graded)))
     }) {
         let gap = ratio * h;
         let brep = notched_bore_pocket(

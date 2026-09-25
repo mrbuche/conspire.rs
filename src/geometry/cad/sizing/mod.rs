@@ -12,7 +12,7 @@ use crate::{
             oracle::BrepOracle,
             surface::{Cone, Cylinder, Sphere, Surface, Torus},
         },
-        solid::Sizing,
+        solid::{Sizing, SolidOracle},
     },
     math::{Quantity, Scalar, Tensor},
     units::Length,
@@ -167,6 +167,9 @@ pub struct FeatureSizing {
     proximity: Option<BoxField>,
     curvature: Option<BoxField>,
     separation: Option<BoxField>,
+    /// Proximity boxes emitted per face (indexed like `Brep::faces`), for
+    /// auditing which faces the wall-thickness term is blind to.
+    proximity_per_face: Vec<[usize; 4]>,
 }
 
 impl FeatureSizing {
@@ -231,6 +234,7 @@ impl FeatureSizing {
             proximity: None,
             curvature: None,
             separation: None,
+            proximity_per_face: Vec::new(),
         }
     }
 
@@ -262,7 +266,13 @@ impl FeatureSizing {
         let tile = self.minimum.value().max(f64::MIN_POSITIVE);
         let eps = tile * 1.0e-4;
         let mut slabs: Vec<Item<Scalar>> = Vec::new();
-        for face in &brep.faces {
+        let mut per_face = vec![[0usize; 4]; brep.faces.len()];
+        let mut mark = 0;
+        for (index, face) in brep.faces.iter().enumerate() {
+            if index > 0 {
+                per_face[index - 1][0] = slabs.len() - mark;
+            }
+            mark = slabs.len();
             let planar = match brep.planar_face(face) {
                 Ok(planar) => planar,
                 Err(_) => {
@@ -280,7 +290,8 @@ impl FeatureSizing {
                     continue;
                 }
             };
-            let normal = from_fn::<Scalar, D, _>(|k| planar.normal[k].value());
+            let mut normal = from_fn::<Scalar, D, _>(|k| planar.normal[k].value());
+            let mut oriented = false;
             let (mut min_uv, mut max_uv) = ([Scalar::INFINITY; 2], [Scalar::NEG_INFINITY; 2]);
             for ring in &planar.rings {
                 for &(uv, _) in ring {
@@ -311,12 +322,30 @@ impl FeatureSizing {
                     if !planar.contains(centre) {
                         continue;
                     }
+                    per_face[index][1] += 1;
                     let surface = planar.unproject(centre);
+                    if !oriented {
+                        // The face's stored orientation can disagree with where
+                        // the solid is, and a ray fired the wrong way finds no
+                        // wall and silently drops the face. Ask the oracle
+                        // which side is solid, once, and aim the rays there.
+                        oriented = true;
+                        let offset = 1.0e-3 * (max_uv[0] - min_uv[0]).min(max_uv[1] - min_uv[1]);
+                        let side = |sign: Scalar| {
+                            oracle.signed_distance(&Coordinate::<D>::from(from_fn::<Scalar, D, _>(
+                                |k| surface[k].value() + sign * offset * normal[k],
+                            )))
+                        };
+                        if side(-1.0) < 0.0 && side(1.0) > 0.0 {
+                            normal = from_fn(|k| -normal[k]);
+                        }
+                    }
                     let inside = Coordinate::<D>::from(from_fn::<Scalar, D, _>(|k| {
                         surface[k].value() - eps * normal[k]
                     }));
                     let inward = from_fn::<Scalar, D, _>(|k| -normal[k]);
                     let Some(hit) = oracle.ray_distance(&inside, inward) else {
+                        per_face[index][2] += 1;
                         continue;
                     };
                     let thickness = hit + eps;
@@ -327,6 +356,7 @@ impl FeatureSizing {
                         .max(self.minimum.value())
                         .min(self.maximum.value());
                     if target >= self.maximum.value() {
+                        per_face[index][3] += 1;
                         continue; // does not constrain anything
                     }
                     let (mut low, mut high) = ([Scalar::INFINITY; D], [Scalar::NEG_INFINITY; D]);
@@ -352,10 +382,20 @@ impl FeatureSizing {
                 }
             }
         }
+        if let Some(last) = per_face.last_mut() {
+            last[0] = slabs.len() - mark;
+        }
+        self.proximity_per_face = per_face;
         self.proximity = (!slabs.is_empty()).then(|| BoxField {
             bvh: Bvh::build(slabs),
         });
         Ok(self)
+    }
+
+    /// Proximity boxes emitted per face by [`with_proximity`](Self::with_proximity),
+    /// indexed like `Brep::faces`; empty until it has run.
+    pub fn proximity_per_face(&self) -> &[[usize; 4]] {
+        &self.proximity_per_face
     }
 
     /// Adds a curvature term: every cylindrical, conical, spherical or toroidal

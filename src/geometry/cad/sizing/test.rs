@@ -139,6 +139,42 @@ fn proximity_sees_a_thin_slab() {
 }
 
 #[test]
+fn proximity_survives_a_face_with_flipped_orientation() {
+    use crate::geometry::cad::brep::test::axis_aligned_box;
+    let mut brep = axis_aligned_box([0.2, 4.0, 8.0]);
+    // The two big faces of the slab (normals along x) claim the opposite
+    // orientation, as a real file's inconsistent `same_sense` can leave them.
+    for face in [4, 5] {
+        brep.faces[face].forward = false;
+    }
+    let field = FeatureSizing::of(&brep, 2, Some(length(1e-4)), Some(length(10.0)), None)
+        .with_proximity(&brep, 4)
+        .unwrap();
+    assert!(
+        (field.at(&point([0.1, 2.0, 4.0])).value() - 0.2 / 4.0).abs() < 5e-3,
+        "{}",
+        field.at(&point([0.1, 2.0, 4.0])).value()
+    );
+    assert!(field.proximity_per_face()[4][0] > 0 && field.proximity_per_face()[5][0] > 0);
+}
+
+#[test]
+fn proximity_sees_a_thin_slab_with_no_minimum() {
+    use crate::geometry::cad::brep::test::axis_aligned_box;
+    let brep = axis_aligned_box([0.2, 4.0, 8.0]);
+    let field = FeatureSizing::of(&brep, 2, None, Some(length(10.0)), None)
+        .with_proximity(&brep, 4)
+        .unwrap();
+    for x in [0.02, 0.1, 0.18] {
+        assert!(
+            (field.at(&point([x, 2.0, 4.0])).value() - 0.2 / 4.0).abs() < 5e-3,
+            "x = {x}: {}",
+            field.at(&point([x, 2.0, 4.0])).value()
+        );
+    }
+}
+
+#[test]
 fn curvature_resolves_a_bare_cylinder_wall() {
     use crate::geometry::cad::brep::test::capped_cylinder;
     // Radius 1, height 4: mid-height the lateral wall is two radii from either
@@ -169,6 +205,15 @@ fn proximity_anchors_a_curved_wall_all_the_way_around() {
     let prox = FeatureSizing::of(&brep, 2, Some(length(1e-3)), Some(length(10.0)), None)
         .with_proximity(&brep, 4)
         .unwrap();
+    let unfloored = FeatureSizing::of(&brep, 2, None, Some(length(10.0)), None)
+        .with_proximity(&brep, 4)
+        .unwrap();
+    for deg in [0, 45, 90, 135, 180, 225, 270, 315] {
+        let t = (deg as f64).to_radians();
+        let p = point([t.cos(), t.sin(), 2.0]);
+        let size = unfloored.at(&p).value();
+        assert!(size < 0.5 && size > 0.05, "no minimum, deg {deg}: {size}");
+    }
     for deg in [0, 45, 90, 135, 180, 225, 270, 315] {
         let t = (deg as f64).to_radians();
         let p = point([t.cos(), t.sin(), 2.0]);
