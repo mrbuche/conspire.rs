@@ -7,6 +7,7 @@ mod connectivity;
 pub(crate) mod differential;
 mod from;
 mod into;
+mod partition;
 mod quality;
 mod read;
 mod remesh;
@@ -15,7 +16,7 @@ mod smooth;
 mod tessellation;
 mod write;
 
-pub(crate) use from::Dualization;
+pub use from::Dualization;
 
 pub use self::{
     buffer::Fitting,
@@ -24,6 +25,7 @@ pub use self::{
         primitive::PrimitiveConnectivity,
     },
     differential::laplace::Weighting,
+    partition::{Bisection, Partition, PartitionQuality},
     quality::metrics::Verdict,
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},

@@ -6,4 +6,4 @@ pub(crate) mod facets;
 mod polyhedra;
 mod tetrahedra;
 
-pub(crate) use dualization::Dualization;
+pub use dualization::Dualization;
