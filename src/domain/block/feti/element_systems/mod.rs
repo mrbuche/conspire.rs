@@ -10,7 +10,7 @@ use crate::{
 use crate::{
     domain::{Blocks, ElementModelError, Model, NodalCoordinates},
     geometry::mesh::Partition,
-    math::{SquareMatrix, Vector},
+    math::{Scalar, SquareMatrix, Vector},
 };
 use std::collections::HashMap;
 
@@ -28,6 +28,37 @@ pub(crate) struct ElementSystem {
     pub(crate) nodes: Vec<usize>,
     pub(crate) stiffness: SquareMatrix,
     pub(crate) force: Vector,
+}
+
+impl ElementSystem {
+    /// Packs an element's forces, `force(a, i)`, and stiffnesses,
+    /// `stiffness(a, b, i, j)`, indexed by its nodes and components, into dense
+    /// arrays over its degrees of freedom.
+    pub(crate) fn pack(
+        nodes: Vec<usize>,
+        force: impl Fn(usize, usize) -> Scalar,
+        stiffness: impl Fn(usize, usize, usize, usize) -> Scalar,
+    ) -> Self {
+        const D: usize = 3;
+        let number_of_nodes = nodes.len();
+        let mut packed_stiffness = SquareMatrix::zero(D * number_of_nodes);
+        let mut packed_force = Vector::zero(D * number_of_nodes);
+        (0..number_of_nodes).for_each(|a| {
+            (0..D).for_each(|i| packed_force[D * a + i] = force(a, i));
+            (0..number_of_nodes).for_each(|b| {
+                (0..D).for_each(|i| {
+                    (0..D).for_each(|j| {
+                        packed_stiffness[D * a + i][D * b + j] = stiffness(a, b, i, j)
+                    })
+                })
+            })
+        });
+        Self {
+            nodes,
+            stiffness: packed_stiffness,
+            force: packed_force,
+        }
+    }
 }
 
 /// Elements that can hand out their systems one by one.
@@ -82,7 +113,6 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
     ) -> Result<ElementSystems, ElementModelError> {
-        const D: usize = 3;
         let elements = self
             .connectivity()
             .iter()
@@ -92,23 +122,11 @@ where
                 let forces = element.nodal_forces(self.constitutive_model(), &coordinates)?;
                 let stiffnesses =
                     element.nodal_stiffnesses(self.constitutive_model(), &coordinates)?;
-                let mut stiffness = SquareMatrix::zero(D * N);
-                let mut force = Vector::zero(D * N);
-                (0..N).for_each(|a| {
-                    (0..D).for_each(|i| force[D * a + i] = forces[a][i].value());
-                    (0..N).for_each(|b| {
-                        (0..D).for_each(|i| {
-                            (0..D).for_each(|j| {
-                                stiffness[D * a + i][D * b + j] = stiffnesses[a][b][i][j].value()
-                            })
-                        })
-                    })
-                });
-                Ok::<_, FiniteElementError>(ElementSystem {
-                    nodes: nodes.to_vec(),
-                    stiffness,
-                    force,
-                })
+                Ok::<_, FiniteElementError>(ElementSystem::pack(
+                    nodes.to_vec(),
+                    |a, i| forces[a][i].value(),
+                    |a, b, i, j| stiffnesses[a][b][i][j].value(),
+                ))
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| ElementModelError::upstream(error, self))?;
