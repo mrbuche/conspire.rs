@@ -16,7 +16,6 @@ fn minres() -> Krylov {
     }
 }
 
-/// Positive definite, and coupled off the diagonal.
 fn coupled() -> SquareMatrix {
     let mut matrix = SquareMatrix::zero(3);
     matrix[0][0] = 4.0;
@@ -29,8 +28,6 @@ fn coupled() -> SquareMatrix {
     matrix
 }
 
-/// Symmetric, and indefinite: the leading block is positive and the trailing
-/// one negative, which is the shape a constraint gives a system.
 fn indefinite() -> SquareMatrix {
     let mut matrix = SquareMatrix::zero(3);
     matrix[0][0] = 2.0;
