@@ -14,7 +14,7 @@ use std::array::from_fn;
 
 /// Shell hexahedra whose worst scaled Jacobian falls below this, and whose
 /// outer face meets a feature, are replaced by pyramid fans.
-const BOWTIE: Scalar = 0.15;
+const BOWTIE: Scalar = 0.1;
 
 impl Mesh<3> {
     /// Adds a buffer layer as [`buffer`](Self::buffer) does, then replaces

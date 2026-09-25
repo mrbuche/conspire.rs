@@ -87,3 +87,59 @@ fn diagnostic_oblique_ridge() {
         }
     }
 }
+
+fn cylinder(radius: Scalar, height: Scalar, segments: usize) -> Tessellation {
+    let mut points: Vec<[Scalar; 3]> = (0..segments)
+        .map(|i| {
+            let a = std::f64::consts::TAU * i as f64 / segments as f64;
+            [radius * a.cos(), radius * a.sin(), 0.0]
+        })
+        .chain((0..segments).map(|i| {
+            let a = std::f64::consts::TAU * i as f64 / segments as f64;
+            [radius * a.cos(), radius * a.sin(), height]
+        }))
+        .collect();
+    points.push([0.0, 0.0, 0.0]);
+    points.push([0.0, 0.0, height]);
+    let (bottom, top) = (2 * segments, 2 * segments + 1);
+    let mut triangles: Vec<[usize; 3]> = Vec::new();
+    for i in 0..segments {
+        let j = (i + 1) % segments;
+        triangles.push([i, j, segments + j]);
+        triangles.push([i, segments + j, segments + i]);
+        triangles.push([bottom, j, i]);
+        triangles.push([top, segments + i, segments + j]);
+    }
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(triangles.into())],
+        Coordinates::from(points),
+    )))
+}
+
+#[test]
+fn diagnostic_cylinder() {
+    let target = cylinder(1.5, 2.0, 32);
+    for size in [0.5_f64, 0.35] {
+        let background = || {
+            let (mut background, _) = target.lattice_background(Quantity::new(size)).unwrap();
+            target.trim(&mut background).unwrap();
+            background
+        };
+        eprintln!(
+            "--- h {size}, core hexes {}",
+            background().number_of_elements()
+        );
+        for fitting in [Fitting::Soft, Fitting::Snap] {
+            eprintln!("{fitting:?}");
+            report("buffer", &background().buffer(&target, fitting).unwrap());
+            report(
+                "mixed",
+                &background().buffer_mixed(&target, fitting).unwrap(),
+            );
+            report(
+                "targeted",
+                &background().buffer_targeted(&target, fitting).unwrap(),
+            );
+        }
+    }
+}
