@@ -1,8 +1,7 @@
 use crate::{
     domain::{
         Blocks, ElementModel, ElementModelError, FirstOrderMinimize, Model, NodalCoordinates,
-        ProvidesTangent, SecondOrderMinimize, SecondOrderMinimizeDecomposed,
-        SecondOrderMinimizeSingle, SolverFor,
+        ProvidesTangent, SecondOrderMinimize, SolverFor,
         block::{
             element::Elements,
             feti::element_systems::{DecomposableElements, ElementSystems},
@@ -108,78 +107,6 @@ where
     }
 }
 
-impl<B, const D: usize>
-    SecondOrderMinimize<
-        Quantity<Energy>,
-        NodalForcesSolid<D>,
-        NodalStiffnessesSolidSymmetric<D>,
-        NodalCoordinates<D>,
-    > for Model<B, D>
-where
-    B: HyperelasticElements<D>,
-{
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<
-            Quantity<Energy>,
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolidSymmetric<D>,
-            NodalCoordinates<D>,
-        >,
-    ) -> Result<NodalCoordinates<D>, OptimizationError> {
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, true);
-        solver.minimize(
-            |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
-            },
-            |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
-            |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.nodal_stiffnesses_symmetric(nodal_coordinates)?)
-            },
-            self.coordinates().clone().into(),
-            equality_constraint,
-            Some(sparse),
-        )
-    }
-}
-
-impl<B>
-    SecondOrderMinimizeDecomposed<
-        Quantity<Energy>,
-        NodalForcesSolid<3>,
-        ElementSystems,
-        NodalCoordinates<3>,
-    > for Model<B, 3>
-where
-    B: HyperelasticElements<3> + DecomposableElements,
-{
-    fn minimize_decomposed(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<
-            Quantity<Energy>,
-            NodalForcesSolid<3>,
-            ElementSystems,
-            NodalCoordinates<3>,
-        >,
-    ) -> Result<NodalCoordinates<3>, OptimizationError> {
-        solver.minimize(
-            |nodal_coordinates: &NodalCoordinates<3>| {
-                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
-            },
-            |nodal_coordinates: &NodalCoordinates<3>| Ok(self.nodal_forces(nodal_coordinates)?),
-            |nodal_coordinates: &NodalCoordinates<3>| Ok(self.element_systems(nodal_coordinates)?),
-            self.coordinates().clone().into(),
-            equality_constraint,
-            None,
-        )
-    }
-}
-
 impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<Energy>, NodalForcesSolid<D>>
     for NewtonRaphson
 where
@@ -215,12 +142,11 @@ where
 }
 
 impl<B, const D: usize>
-    SecondOrderMinimizeSingle<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>>
-    for Model<B, D>
+    SecondOrderMinimize<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>> for Model<B, D>
 where
     B: HyperelasticElements<D>,
 {
-    fn minimize_single<S>(
+    fn minimize<S>(
         &self,
         equality_constraint: EqualityConstraint,
         solver: S,

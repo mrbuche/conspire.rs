@@ -1,8 +1,7 @@
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, FirstOrderRoot,
-        Model, ProvidesTangent, SecondOrderMinimize, SecondOrderMinimizeSingle, SolverFor,
-        ZerothOrderRoot,
+        Model, ProvidesTangent, SecondOrderMinimize, SolverFor, ZerothOrderRoot,
         block::{
             finalize_node_neighbors, solver_from_neighbors,
             thermal::{
@@ -187,46 +186,6 @@ where
     }
 }
 
-impl<B, const D: usize>
-    SecondOrderMinimize<
-        Quantity<PowerTemperature>,
-        NodalForcesThermal,
-        NodalStiffnessesThermal,
-        NodalTemperatures,
-    > for Model<B, D>
-where
-    B: ThermalConductionElements,
-{
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<
-            Quantity<PowerTemperature>,
-            NodalForcesThermal,
-            NodalStiffnessesThermal,
-            NodalTemperatures,
-        >,
-    ) -> Result<NodalTemperatures, OptimizationError> {
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1, true);
-        solver.minimize(
-            |nodal_temperatures: &NodalTemperatures| {
-                Ok(self
-                    .potential(nodal_temperatures)?)
-            },
-            |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
-            |nodal_temperatures: &NodalTemperatures| {
-                Ok(self.nodal_stiffnesses(nodal_temperatures)?)
-            },
-            NodalTemperatures::zero(self.coordinates().len()),
-            equality_constraint,
-            Some(sparse),
-        )
-    }
-}
-
 impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<PowerTemperature>, NodalForcesThermal>
     for NewtonRaphson
 where
@@ -249,12 +208,12 @@ where
 }
 
 impl<B, const D: usize>
-    SecondOrderMinimizeSingle<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
+    SecondOrderMinimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
     for Model<B, D>
 where
     B: ThermalConductionElements,
 {
-    fn minimize_single<S>(
+    fn minimize<S>(
         &self,
         equality_constraint: EqualityConstraint,
         solver: S,
