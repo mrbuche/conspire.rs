@@ -7,7 +7,6 @@ use crate::{
 };
 use std::collections::HashMap;
 
-/// Trusts the stored winding: outward for the lowest-index owner, reversed for the other.
 fn signed_volumes(mesh: &Mesh<3>) -> Vec<f64> {
     let Some(Connectivity::Polyhedral(polyhedra)) = mesh.iter().next() else {
         panic!("expected polyhedra")
@@ -72,10 +71,7 @@ fn number_of_faces(mesh: &Mesh<3>) -> usize {
 #[test]
 fn hexes_box_split_has_shared_interface_and_no_interior_nodes() {
     let mesh = blocks([4, 2, 2]);
-    let agglomerated = mesh
-        .partition_box([2, 1, 1])
-        .agglomerated_mesh(&mesh)
-        .unwrap();
+    let agglomerated = mesh.partition_box([2, 1, 1]).agglomerate(&mesh).unwrap();
     assert_eq!(agglomerated.number_of_elements(), 2);
     assert_eq!(number_of_faces(&agglomerated), 24 + 24 - 4);
     assert_eq!(agglomerated.number_of_nodes(), 45 - 2);
@@ -85,12 +81,9 @@ fn hexes_box_split_has_shared_interface_and_no_interior_nodes() {
 #[test]
 fn hexes_volumes_are_conserved_for_many_parts() {
     let mesh = blocks([6, 6, 6]);
-    let agglomerated = mesh
-        .partition_box([2, 2, 2])
-        .agglomerated_mesh(&mesh)
-        .unwrap();
+    let agglomerated = mesh.partition_box([2, 2, 2]).agglomerate(&mesh).unwrap();
     assert_volumes(&agglomerated, &[27.0; 8]);
-    let agglomerated = mesh.partition_rcb(5).agglomerated_mesh(&mesh).unwrap();
+    let agglomerated = mesh.partition_rcb(5).agglomerate(&mesh).unwrap();
     let volumes = signed_volumes(&agglomerated);
     assert!(volumes.iter().all(|&volume| volume > 0.0));
     assert!((volumes.iter().sum::<f64>() - 216.0).abs() < 1e-9);
@@ -104,10 +97,7 @@ fn tets_are_agglomerated() {
         &Coordinate::from([1.0, 1.0, 1.0]),
         &Coordinate::from([0.0, 0.0, 0.0]),
     );
-    let agglomerated = mesh
-        .partition_box([2, 1, 1])
-        .agglomerated_mesh(&mesh)
-        .unwrap();
+    let agglomerated = mesh.partition_box([2, 1, 1]).agglomerate(&mesh).unwrap();
     assert_volumes(&agglomerated, &[2.0, 2.0]);
 }
 
@@ -132,7 +122,7 @@ fn mixed_elements_are_agglomerated() {
         coordinates,
     ));
     let agglomerated = Partition::new(&mesh, vec![0, 1, 1])
-        .agglomerated_mesh(&mesh)
+        .agglomerate(&mesh)
         .unwrap();
     let volumes = signed_volumes(&agglomerated);
     assert!((volumes[0] - 1.0).abs() < 1e-12, "{volumes:?}");
@@ -142,17 +132,14 @@ fn mixed_elements_are_agglomerated() {
 #[test]
 fn polyhedra_are_agglomerated_again() {
     let mesh = blocks([6, 1, 1]);
-    let once = mesh
-        .partition_box([3, 1, 1])
-        .agglomerated_mesh(&mesh)
-        .unwrap();
+    let once = mesh.partition_box([3, 1, 1]).agglomerate(&mesh).unwrap();
     assert_volumes(&once, &[2.0, 2.0, 2.0]);
     let twice = Partition::new(&once, vec![0, 0, 1])
-        .agglomerated_mesh(&once)
+        .agglomerate(&once)
         .unwrap();
     assert_volumes(&twice, &[4.0, 2.0]);
     let thrice = Partition::new(&twice, vec![0, 0])
-        .agglomerated_mesh(&twice)
+        .agglomerate(&twice)
         .unwrap();
     assert_volumes(&thrice, &[6.0]);
 }
@@ -162,7 +149,7 @@ fn disconnected_part_is_an_error() {
     let mesh = blocks([4, 1, 1]);
     assert!(
         Partition::new(&mesh, vec![0, 1, 0, 1])
-            .agglomerated_mesh(&mesh)
+            .agglomerate(&mesh)
             .is_err()
     );
 }
@@ -172,7 +159,7 @@ fn parts_touching_only_at_an_edge_are_an_error() {
     let mesh = blocks([2, 2, 1]);
     assert!(
         Partition::new(&mesh, vec![0, 1, 1, 0])
-            .agglomerated_mesh(&mesh)
+            .agglomerate(&mesh)
             .is_err()
     );
 }
@@ -182,7 +169,7 @@ fn surface_elements_are_an_error() {
     let mesh = crate::geometry::mesh::test::mesh();
     assert!(
         Partition::new(&mesh, vec![0; mesh.number_of_elements()])
-            .agglomerated_mesh(&mesh)
+            .agglomerate(&mesh)
             .is_err()
     );
 }
@@ -190,12 +177,9 @@ fn surface_elements_are_an_error() {
 #[test]
 fn polyhedra_owned_by_a_later_part_are_reoriented() {
     let mesh = blocks([6, 1, 1]);
-    let once = mesh
-        .partition_box([3, 1, 1])
-        .agglomerated_mesh(&mesh)
-        .unwrap();
+    let once = mesh.partition_box([3, 1, 1]).agglomerate(&mesh).unwrap();
     let twice = Partition::new(&once, vec![1, 1, 0])
-        .agglomerated_mesh(&once)
+        .agglomerate(&once)
         .unwrap();
     assert_volumes(&twice, &[2.0, 4.0]);
 }

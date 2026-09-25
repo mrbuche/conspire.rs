@@ -12,7 +12,7 @@ use crate::{
 use std::collections::HashMap;
 
 impl Partition {
-    pub fn agglomerated_mesh(&self, mesh: &Mesh<3>) -> Result<Mesh<3>, &'static str> {
+    pub fn agglomerate(&self, mesh: &Mesh<3>) -> Result<Mesh<3>, &'static str> {
         let elements_faces = outward_faces(mesh)?;
         let mut faces_nodes: Vec<Vec<usize>> = Vec::new();
         let mut indices: HashMap<Vec<usize>, usize> = HashMap::new();
