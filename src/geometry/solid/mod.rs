@@ -486,8 +486,38 @@ pub trait Solid {
         fitting: Fitting,
         creases: &[(Vec<Coordinate<D>>, Vec<usize>)],
     ) -> Result<Mesh<D>, &'static str> {
-        let (mut mesh, classes) = self.dual_background(sizing, max_levels, padding, balancing)?;
         let oracle = self.oracle()?;
+        let mesh = self.trimmed(&oracle, sizing, max_levels, padding, balancing)?;
+        mesh.buffer_with(&Fit(&oracle), creases, fitting)
+    }
+
+    /// [`mesh`](Self::mesh), but the boundary layer is
+    /// [`buffer_targeted`](Mesh::buffer_targeted): under [`Fitting::Snap`],
+    /// shell hexahedra that projection left badly shaped along a crease curve
+    /// of the solid become pyramid fans.
+    fn mesh_targeted(
+        &self,
+        sizing: &impl Sizing,
+        max_levels: Option<u32>,
+        padding: Scalar,
+        balancing: Balancing,
+        fitting: Fitting,
+    ) -> Result<Mesh<D>, &'static str> {
+        let oracle = self.oracle()?;
+        let mesh = self.trimmed(&oracle, sizing, max_levels, padding, balancing)?;
+        mesh.targeted_along(&Fit(&oracle), &[], &self.creases(), fitting)
+    }
+
+    /// The trimmed dual background [`mesh`](Self::mesh) inflates a layer on.
+    fn trimmed(
+        &self,
+        oracle: &Self::Oracle,
+        sizing: &impl Sizing,
+        max_levels: Option<u32>,
+        padding: Scalar,
+        balancing: Balancing,
+    ) -> Result<Mesh<D>, &'static str> {
+        let (mut mesh, classes) = self.dual_background(sizing, max_levels, padding, balancing)?;
         let outside: Vec<bool> = classes
             .iter()
             .map(|&class| class == Class::Outside)
@@ -505,7 +535,7 @@ pub trait Solid {
                 }
             });
         }
-        let signed = signed_distances(&oracle, mesh.coordinates(), Some(&needed));
+        let signed = signed_distances(oracle, mesh.coordinates(), Some(&needed));
         mesh.retain_elements(|index, hex, _| {
             if outside[index] {
                 return false;
@@ -516,7 +546,7 @@ pub trait Solid {
             );
             survives_trim(cut[index], minimum, maximum)
         });
-        mesh.buffer_with(&Fit(&oracle), creases, fitting)
+        Ok(mesh)
     }
 }
 

@@ -1,7 +1,12 @@
 #[cfg(test)]
 mod test;
 
-use super::{Fitting, Peeled, fit::Facets, merge, mixed::face_size};
+use super::{
+    Fitting, Peeled,
+    fit::{Facets, Oracle},
+    merge,
+    mixed::face_size,
+};
 use crate::{
     geometry::{
         Coordinate,
@@ -19,6 +24,29 @@ const BOWTIE: Scalar = 0.1;
 /// Rings of neighbouring nodes, around each converted cell, freed in the refit.
 const RINGS: usize = 2;
 
+/// The shortest distance from `point` to the polyline through `curve`.
+pub(crate) fn distance_to_curve(point: &Coordinate<3>, curve: &[Coordinate<3>]) -> Scalar {
+    let p: [Scalar; 3] = from_fn(|k| point[k].value());
+    curve
+        .windows(2)
+        .map(|pair| {
+            let a: [Scalar; 3] = from_fn(|k| pair[0][k].value());
+            let b: [Scalar; 3] = from_fn(|k| pair[1][k].value());
+            let ab: [Scalar; 3] = from_fn(|k| b[k] - a[k]);
+            let length: Scalar = ab.iter().map(|x| x * x).sum();
+            let along = if length > 0.0 {
+                ((0..3).map(|k| (p[k] - a[k]) * ab[k]).sum::<Scalar>() / length).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            (0..3)
+                .map(|k| (p[k] - a[k] - along * ab[k]).powi(2))
+                .sum::<Scalar>()
+                .sqrt()
+        })
+        .fold(Scalar::INFINITY, Scalar::min)
+}
+
 fn worst(mesh: &Mesh<3>) -> Scalar {
     mesh.minimum_scaled_jacobians()
         .iter()
@@ -27,6 +55,16 @@ fn worst(mesh: &Mesh<3>) -> Scalar {
 }
 
 impl Mesh<3> {
+    fn snap<O: Oracle>(&mut self, oracle: &O, layer: &[usize]) -> Result<(), &'static str> {
+        let coordinates = self.coordinates.members_mut();
+        layer.iter().try_for_each(|&node| {
+            let (point, _) = oracle
+                .project(&coordinates[node])
+                .ok_or("no projection onto target surface")?;
+            coordinates[node] = point;
+            Ok(())
+        })
+    }
     /// Adds a buffer layer as [`buffer`](Self::buffer) does, then, for
     /// [`Fitting::Snap`], replaces the shell hexahedra that projection left
     /// badly shaped along a feature with pyramid fans.
@@ -42,11 +80,68 @@ impl Mesh<3> {
         self.targeted(target, fitting, BOWTIE)
     }
     fn targeted(
-        mut self,
+        self,
         target: &Tessellation,
         fitting: Fitting,
         threshold: Scalar,
     ) -> Result<Self, &'static str> {
+        self.targeted_with(
+            &Facets::new(target),
+            &[],
+            |size| {
+                let index = target.features().index(size);
+                move |point: &Coordinate<3>, size| {
+                    index.nearest_corner(point, size).is_some()
+                        || index.nearest_crease(point, size).is_some()
+                }
+            },
+            fitting,
+            threshold,
+        )
+    }
+
+    /// [`targeted_with`](Self::targeted_with), where a feature is any of the
+    /// crease `curves`.
+    pub(crate) fn targeted_along<O: Oracle>(
+        self,
+        oracle: &O,
+        creases: &[(Vec<Coordinate<3>>, Vec<usize>)],
+        curves: &[(Vec<Coordinate<3>>, Vec<usize>)],
+        fitting: Fitting,
+    ) -> Result<Self, &'static str> {
+        self.targeted_with(
+            oracle,
+            creases,
+            |_| {
+                |point: &Coordinate<3>, size: Quantity<Length>| {
+                    curves
+                        .iter()
+                        .any(|(curve, _)| distance_to_curve(point, curve) < size.value())
+                }
+            },
+            fitting,
+            BOWTIE,
+        )
+    }
+
+    /// [`buffer_targeted`](Self::buffer_targeted) against any fit [`Oracle`].
+    ///
+    /// `creases` constrain the fit as in [`buffer_with`](Self::buffer_with).
+    /// `near` is built from the largest boundary face size and says whether
+    /// a point is within a face size of a feature.
+    pub(crate) fn targeted_with<O, G, N>(
+        mut self,
+        oracle: &O,
+        creases: &[(Vec<Coordinate<3>>, Vec<usize>)],
+        near: G,
+        fitting: Fitting,
+        threshold: Scalar,
+    ) -> Result<Self, &'static str>
+    where
+        O: Oracle,
+        G: FnOnce(Quantity<Length>) -> N,
+        N: Fn(&Coordinate<3>, Quantity<Length>) -> bool,
+    {
         self.restrict()?;
         let boundary = self.exterior_faces();
         let Peeled {
@@ -60,7 +155,7 @@ impl Mesh<3> {
             .iter()
             .map(|face| face_size(face, &coordinates))
             .collect();
-        let index = target.features().index(
+        let near = near(
             sizes
                 .iter()
                 .copied()
@@ -80,15 +175,14 @@ impl Mesh<3> {
             |connectivity| matches!(connectivity, Connectivity::Hexahedral(_)),
             Connectivity::Hexahedral,
         )?;
-        let oracle = Facets::new(target);
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit(&nodes, &oracle, &[])?;
+        mesh.fit(&nodes, oracle, creases)?;
         let Fitting::Snap = fitting else {
             return Ok(mesh);
         };
-        mesh.project(target, &layer)?;
-        mesh.fit(&(0..count).collect::<Vec<_>>(), &oracle, &[])?;
+        mesh.snap(oracle, &layer)?;
+        mesh.fit(&(0..count).collect::<Vec<_>>(), oracle, creases)?;
         if !mesh
             .connectivities()
             .iter()
@@ -108,9 +202,7 @@ impl Mesh<3> {
                     .map(|&node| &mesh.coordinates()[node])
                     .sum::<Coordinate<3>>()
                     / 4.0;
-                old[face] < threshold
-                    && (index.nearest_corner(&centroid, sizes[face]).is_some()
-                        || index.nearest_crease(&centroid, sizes[face]).is_some())
+                old[face] < threshold && near(&centroid, sizes[face])
             })
             .collect();
         if !bad.iter().any(|&flag| flag) {
@@ -187,10 +279,10 @@ impl Mesh<3> {
                 .into_iter()
                 .filter(|node| free.binary_search(node).is_ok())
                 .collect();
-            mesh.fit(&free, &oracle, &[])?;
-            mesh.project(target, &layer)?;
+            mesh.fit(&free, oracle, creases)?;
+            mesh.snap(oracle, &layer)?;
             let core: Vec<usize> = free.into_iter().filter(|&node| node < count).collect();
-            mesh.fit(&core, &oracle, &[])?;
+            mesh.fit(&core, oracle, creases)?;
             Ok(mesh)
         };
         let unchanged = || Self::from((hexahedra(blocks.clone()), fitted_coordinates.clone()));

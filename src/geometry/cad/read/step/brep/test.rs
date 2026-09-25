@@ -2325,6 +2325,100 @@ fn probe_crease_adherence() {
     }
 }
 
+/// Meshes `STEP_MESH_FILE` with `Fitting::Snap` twice, all-hexahedral and
+/// `mesh_targeted`, and reports the worst scaled Jacobian, the tail counts,
+/// the pyramids, and the time of each. Writes the targeted mesh to
+/// `{STEP_MESH_OUT}_targeted.vtu`. Sizing as `probe_crease_adherence`.
+#[test]
+#[ignore = "meshes STEP_MESH_FILE with Fitting::Snap, all-hex vs mesh_targeted"]
+fn probe_targeted_fans() {
+    use crate::{
+        geometry::{
+            cad::sizing::FeatureSizing,
+            mesh::{Connectivity, Fitting, Mesh, Output, Verdict, Vtk},
+            ntree::Balancing,
+            solid::Solid,
+        },
+        io::{Write, write::Compression},
+        math::Quantity,
+        units::Length,
+    };
+
+    let Ok(path) = std::env::var("STEP_MESH_FILE") else {
+        return;
+    };
+    let text = std::fs::read_to_string(&path).unwrap();
+    let breps = read_all(&text).expect("read failed");
+    let env_f64 = |key: &str, default: f64| -> f64 {
+        std::env::var(key)
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(default)
+    };
+    let cell = env_f64("STEP_MESH_CELL", 6.0e-3);
+    let minimum = env_f64("STEP_MESH_MIN", cell / 8.0);
+    let out = std::env::var("STEP_MESH_OUT").unwrap_or_else(|_| "target/step_mesh".into());
+    let report = |label: &str, mesh: &Mesh<3>, seconds: f64| {
+        let all: Vec<f64> = mesh
+            .minimum_scaled_jacobians()
+            .iter()
+            .flatten()
+            .copied()
+            .collect();
+        let worst = all.iter().copied().fold(f64::INFINITY, f64::min);
+        let below = |threshold: f64| all.iter().filter(|&&quality| quality < threshold).count();
+        let pyramids = mesh
+            .connectivities()
+            .iter()
+            .filter(|connectivity| matches!(connectivity, Connectivity::Pyramidal(_)))
+            .flatten()
+            .count();
+        eprintln!(
+            "  {label:>9}: cells {:>6} pyramids {pyramids:>4} worst {worst:.3} \
+             <0.1: {} <0.2: {} <0.3: {} ({seconds:.1}s)",
+            all.len(),
+            below(0.1),
+            below(0.2),
+            below(0.3),
+        );
+    };
+    for (index, brep) in breps.iter().enumerate() {
+        let sizing = FeatureSizing::of(
+            brep,
+            24,
+            Some(Quantity::<Length>::new(minimum)),
+            Some(Quantity::<Length>::new(cell)),
+            Some(0.2),
+        )
+        .with_proximity(brep, 3)
+        .expect("with_proximity")
+        .with_feature_separation(brep, 3)
+        .expect("with_feature_separation");
+        eprintln!("solid {index}: {} faces, cell {cell}", brep.faces.len());
+        for fitting in [Fitting::Soft, Fitting::Snap] {
+            eprintln!("{fitting:?}");
+            let start = std::time::Instant::now();
+            match brep.mesh(&sizing, None, 0.1, Balancing::Strong(1), fitting) {
+                Ok(mesh) => report("all-hex", &mesh, start.elapsed().as_secs_f64()),
+                Err(error) => eprintln!("  all-hex failed: {error}"),
+            }
+            let start = std::time::Instant::now();
+            match brep.mesh_targeted(&sizing, None, 0.1, Balancing::Strong(1), fitting) {
+                Ok(mesh) => {
+                    report("targeted", &mesh, start.elapsed().as_secs_f64());
+                    if let Fitting::Snap = fitting {
+                        mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(
+                            &format!("{out}_{index}_targeted.vtu"),
+                        ))))
+                        .unwrap();
+                    }
+                }
+                Err(error) => eprintln!("  targeted failed: {error}"),
+            }
+        }
+    }
+}
+
 /// Lists every face of `STEP_MESH_FILE` with its surface type, whether the
 /// planar path accepted it (and its extent), and how many wall-thickness
 /// proximity boxes `with_proximity` produced for it: a face with zero boxes
