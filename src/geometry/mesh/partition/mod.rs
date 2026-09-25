@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+mod agglomerate;
 mod rcb;
 
 pub use self::rcb::Bisection;
