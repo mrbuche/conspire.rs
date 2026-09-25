@@ -3,8 +3,7 @@
 use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{
-        Model, NodalCoordinates, NodalReferenceCoordinates, SecondOrderMinimize,
-        SecondOrderMinimizeDecomposed,
+        Model, NodalCoordinates, NodalReferenceCoordinates, SecondOrderMinimizeSingle,
         block::{Block, element::linear::Hexahedron},
         feti::Feti,
     },
@@ -106,7 +105,7 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
     let (model, constraint) = problem(nel);
     let clock = Instant::now();
     let sparse = model
-        .minimize(
+        .minimize_single(
             constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
@@ -128,7 +127,7 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
     };
     let clock = Instant::now();
     let decomposed = model
-        .minimize_decomposed(constraint, feti)
+        .minimize_single(constraint, feti)
         .unwrap_or_else(|error| panic!("FETI solve failed: {error}"));
     let feti_time = clock.elapsed();
     (

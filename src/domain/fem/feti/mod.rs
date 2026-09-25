@@ -2,16 +2,21 @@
 
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
-    domain::block::feti::{solve_local_systems, solve_with},
     domain::fem::{
         NodalCoordinates,
         block::{Block, element::solid::hyperelastic::HyperelasticFiniteElement},
     },
+    domain::{
+        Model, SolverFor,
+        block::feti::{solve_local_systems, solve_with},
+        solid::NodalForcesSolid,
+    },
     geometry::mesh::Partition,
     math::{
-        Scalar, Vector,
-        optimize::{Krylov, LinearSolver},
+        Quantity, Scalar, Vector,
+        optimize::{Krylov, LinearSolver, NewtonRaphson},
     },
+    units::Energy,
 };
 
 pub use crate::domain::block::feti::{
@@ -124,4 +129,12 @@ impl LinearSolver for Feti {
         .map_err(|error| error.to_string())?;
         Ok(retained.iter().map(|&dof| solution[dof]).collect())
     }
+}
+
+impl<B> SolverFor<Model<B, 3>, Quantity<Energy>, NodalForcesSolid<3>> for NewtonRaphson<Feti>
+where
+    B: DecomposableElements,
+{
+    type Tangent = ElementSystems;
+    const SPARSE: bool = false;
 }

@@ -209,3 +209,36 @@ impl From<ElementModelError> for AssertionError {
         }
     }
 }
+
+/// A solver that can minimize a model, and the tangent it works from.
+///
+/// The family of the model, being carried by the energy and force types,
+/// keeps the implementations for one solver from overlapping.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait SolverFor<M, F, J> {
+    type Tangent;
+    /// Whether the solver wants the sparse structure of the assembled tangent.
+    const SPARSE: bool;
+}
+
+/// A model that can hand out its tangent in the form a solver asks for.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait ProvidesTangent<X, T> {
+    fn provide_tangent(&self, argument: &X) -> Result<T, ElementModelError>;
+}
+
+/// Minimization where the solver, not the caller, determines the tangent.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait SecondOrderMinimizeSingle<F, J, X>
+where
+    Self: Sized,
+{
+    fn minimize_single<S>(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: S,
+    ) -> Result<X, OptimizationError>
+    where
+        S: SolverFor<Self, F, J> + SecondOrderOptimization<F, J, S::Tangent, X>,
+        Self: ProvidesTangent<X, S::Tangent>;
+}

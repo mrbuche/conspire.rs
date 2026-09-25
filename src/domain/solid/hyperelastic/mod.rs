@@ -1,7 +1,8 @@
 use crate::{
     domain::{
         Blocks, ElementModel, ElementModelError, FirstOrderMinimize, Model, NodalCoordinates,
-        SecondOrderMinimize, SecondOrderMinimizeDecomposed,
+        ProvidesTangent, SecondOrderMinimize, SecondOrderMinimizeDecomposed,
+        SecondOrderMinimizeSingle, SolverFor,
         block::{
             element::Elements,
             feti::element_systems::{DecomposableElements, ElementSystems},
@@ -12,7 +13,8 @@ use crate::{
     math::{
         Quantity, Tensor,
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, OptimizationError, SecondOrderOptimization,
+            EqualityConstraint, FirstOrderOptimization, NewtonRaphson, OptimizationError,
+            SecondOrderOptimization,
         },
     },
     units::Energy,
@@ -174,6 +176,80 @@ where
             self.coordinates().clone().into(),
             equality_constraint,
             None,
+        )
+    }
+}
+
+impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<Energy>, NodalForcesSolid<D>>
+    for NewtonRaphson
+where
+    B: HyperelasticElements<D>,
+{
+    type Tangent = NodalStiffnessesSolidSymmetric<D>;
+    const SPARSE: bool = true;
+}
+
+impl<B, const D: usize> ProvidesTangent<NodalCoordinates<D>, NodalStiffnessesSolidSymmetric<D>>
+    for Model<B, D>
+where
+    B: HyperelasticElements<D>,
+{
+    fn provide_tangent(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+    ) -> Result<NodalStiffnessesSolidSymmetric<D>, ElementModelError> {
+        self.nodal_stiffnesses_symmetric(nodal_coordinates)
+    }
+}
+
+impl<B> ProvidesTangent<NodalCoordinates<3>, ElementSystems> for Model<B, 3>
+where
+    B: DecomposableElements,
+{
+    fn provide_tangent(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<ElementSystems, ElementModelError> {
+        self.element_systems(nodal_coordinates)
+    }
+}
+
+impl<B, const D: usize>
+    SecondOrderMinimizeSingle<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>>
+    for Model<B, D>
+where
+    B: HyperelasticElements<D>,
+{
+    fn minimize_single<S>(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: S,
+    ) -> Result<NodalCoordinates<D>, OptimizationError>
+    where
+        S: SolverFor<Self, Quantity<Energy>, NodalForcesSolid<D>>
+            + SecondOrderOptimization<
+                Quantity<Energy>,
+                NodalForcesSolid<D>,
+                S::Tangent,
+                NodalCoordinates<D>,
+            >,
+        Self: ProvidesTangent<NodalCoordinates<D>, S::Tangent>,
+    {
+        let sparse = S::SPARSE.then(|| {
+            let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+            self.node_neighbors(&mut neighbors);
+            finalize_node_neighbors(&mut neighbors);
+            solver_from_neighbors(&neighbors, &equality_constraint, D, true)
+        });
+        solver.minimize(
+            |nodal_coordinates: &NodalCoordinates<D>| {
+                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
+            },
+            |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinates<D>| Ok(self.provide_tangent(nodal_coordinates)?),
+            self.coordinates().clone().into(),
+            equality_constraint,
+            sparse,
         )
     }
 }
