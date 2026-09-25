@@ -1,5 +1,5 @@
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         BogackiShampine, ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepFirstSameAsLast,
         FreeInterpolant, IntegrationError, Times,
@@ -10,7 +10,7 @@ use std::ops::{Div, Mul, Sub};
 impl<Y, Z, U, V, W, T> ExplicitDaeVariableStepExplicit<Y, Z, U, V, W, T> for BogackiShampine
 where
     Self: ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V, W, T>,
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -82,7 +82,7 @@ where
 
 impl<Y, Z, U, V, W, T> ExplicitDaeVariableStepFirstSameAsLast<Y, Z, U, V, W, T> for BogackiShampine
 where
-    Y: Differentiate<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
+    Y: Differentiable<T> + Div<Quantity<T>, Output = Derivative<Y, T>> + Tensor,
     Z: PartialEq + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,

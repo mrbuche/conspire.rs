@@ -3,8 +3,8 @@
 pub mod test;
 
 use crate::units::{
-    ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature, Rate,
-    ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
+    Fluidity, ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature,
+    Rate, ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
 };
 
 use crate::math::{Current, Intermediate, Reference};
@@ -113,6 +113,22 @@ pub type CauchyTangentStiffness1 = TensorRank4<3, Current, Current, Current, Int
 /// The tangent stiffness associated with the elastic Cauchy stress $`\boldsymbol{\mathcal{T}}_\mathrm{e}`$.
 pub type CauchyTangentStiffnessElastic =
     TensorRank4<3, Current, Current, Current, Intermediate, Stress>;
+
+/// The tangent stiffness of the Cauchy stress with respect to the plastic deformation gradient.
+pub type CauchyTangentStiffnessPlastic =
+    TensorRank4<3, Current, Current, Intermediate, Reference, Stress>;
+
+/// The tangent stiffness of the elastic Mandel stress with respect to the deformation gradient.
+pub type MandelStressTangentElastic =
+    TensorRank4<3, Intermediate, Intermediate, Current, Reference, Stress>;
+
+/// The tangent stiffness of the elastic Mandel stress with respect to the plastic deformation gradient.
+pub type MandelStressTangentElasticPlastic =
+    TensorRank4<3, Intermediate, Intermediate, Intermediate, Reference, Stress>;
+
+/// The tangent stiffness of the first Piola-Kirchhoff stress with respect to the plastic deformation gradient.
+pub type FirstPiolaKirchhoffTangentStiffnessPlastic =
+    TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>;
 
 /// The rate tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{V}}`$.
 pub type CauchyRateTangentStiffness =
@@ -235,8 +251,12 @@ pub type FirstPiolaKirchhoffRateTangentStiffness =
     TensorRank4<3, Current, Reference, Current, Reference, Viscosity>;
 
 /// A list of first Piola-Kirchhoff rate tangent stiffnesses.
-pub type FirstPiolaKirchhoffRateTangentStiffnesses<const W: usize> =
+pub type FirstPiolaKirchhoffRateTangentStiffnessList<const W: usize> =
     TensorRank4List<3, Current, Reference, Current, Reference, W, Viscosity>;
+
+/// A vector of first Piola-Kirchhoff rate tangent stiffnesses.
+pub type FirstPiolaKirchhoffRateTangentStiffnesses =
+    TensorRank4Vec<3, Current, Reference, Current, Reference, Viscosity>;
 
 /// A force.
 pub type Force = TensorRank1<3, Current, crate::units::Force>;
@@ -364,6 +384,13 @@ pub type StretchingRate = TensorRank2<3, Current, Current, Rate>;
 
 /// The plastic stretching rate $`\mathbf{D}^\mathrm{p}`$.
 pub type StretchingRatePlastic = TensorRank2<3, Intermediate, Intermediate, Rate>;
+
+/// The tangent of the plastic stretching rate with respect to the deviatoric Mandel stress.
+pub type StretchingRatePlasticTangent =
+    TensorRank4<3, Intermediate, Intermediate, Intermediate, Intermediate, Fluidity>;
+
+/// The tangent of the plastic stretching rate with respect to the yield stress.
+pub type StretchingRatePlasticTangentYield = TensorRank2<3, Intermediate, Intermediate, Fluidity>;
 
 /// A surface basis.
 pub type SurfaceBasis<I> = TensorRank1List<3, I, 2, Length>;

@@ -135,3 +135,386 @@ mod verner_9 {
     use super::*;
     test_model_with_integrator!(Verner9);
 }
+
+mod state_evolution {
+    use super::model;
+    use crate::{
+        math::{
+            Quantity, Tensor, TensorArray, TensorTuple, TensorVector,
+            assert::Assert,
+            integrate::{
+                BogackiShampineTableau, StateEvolution, Times, integrate_rkmk_state,
+                integrate_rkmk_state_adaptive,
+            },
+        },
+        mechanics::{DeformationGradient, DeformationGradientPlastic},
+        units::Time,
+    };
+
+    fn deformation_gradient() -> DeformationGradient {
+        DeformationGradient::from([[1.0, 0.6, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+    }
+
+    fn time(steps: usize) -> Vec<Quantity<Time>> {
+        (0..=steps)
+            .map(|i| Quantity::new(i as f64 / steps as f64))
+            .collect()
+    }
+
+    #[test]
+    fn rkmk_state_keeps_the_plastic_deformation_unimodular() {
+        let model = model();
+        let (_, states): (Times, TensorVector<_>) =
+            integrate_rkmk_state::<_, BogackiShampineTableau, _, _, _>(
+                &model,
+                |_| deformation_gradient(),
+                &time(20),
+            )
+            .unwrap();
+        let final_state = states.iter().last().unwrap();
+        assert!((final_state.0.determinant() - 1.0).abs() < 1e-10);
+        assert!(
+            (&final_state.0 - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+    }
+
+    #[test]
+    fn rkmk_state_adaptive_keeps_the_plastic_deformation_unimodular_and_meets_tolerance() {
+        let model = model();
+        let (times, states): (Times, TensorVector<_>) =
+            integrate_rkmk_state_adaptive::<_, BogackiShampineTableau, _, _, _>(
+                &model,
+                |_| deformation_gradient(),
+                &time(1),
+                1e-8,
+                1e-8,
+            )
+            .unwrap();
+        assert!(times.len() > 2);
+        let final_state = states.iter().last().unwrap();
+        assert!((final_state.0.determinant() - 1.0).abs() < 1e-10);
+        assert!(
+            (&final_state.0 - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+        let (loose_times, _): (Times, TensorVector<_>) =
+            integrate_rkmk_state_adaptive::<_, BogackiShampineTableau, _, _, _>(
+                &model,
+                |_| deformation_gradient(),
+                &time(1),
+                1e-3,
+                1e-3,
+            )
+            .unwrap();
+        assert!(loose_times.len() < times.len());
+    }
+
+    #[test]
+    fn the_legacy_additive_march_drifts_off_the_group_where_rkmk_does_not() {
+        let model = model();
+        let f = deformation_gradient();
+        let steps = time(20);
+        let mut fp = DeformationGradientPlastic::identity();
+        let mut eps = Quantity::new(0.0);
+        for w in steps.windows(2) {
+            let dt = w[1] - w[0];
+            let rate = StateEvolution::state_rate(&model, w[0], &f, &TensorTuple(fp.clone(), eps))
+                .unwrap();
+            fp = &(&rate.0 * &fp) * dt + &fp;
+            eps += rate.1 * dt;
+        }
+        assert!((fp.determinant() - 1.0).abs() > 1e-4);
+    }
+
+    #[test]
+    fn rkmk_step_cost_relative_to_the_rate_evaluations_alone() {
+        use crate::math::integrate::{StateEvolution, rkmk_step};
+        use std::time::Instant;
+        type Model = super::Canonical<super::AlmansiHamelEulerian, super::ViscoplasticFlow>;
+        type Field = <Model as StateEvolution<Time>>::Field;
+        let model = model();
+        let f = deformation_gradient();
+        let t = Quantity::<Time>::new(0.0);
+        let dt = Quantity::<Time>::new(0.05);
+        let initial = <Model as StateEvolution<Time>>::initial_state(&model);
+        let iterations = 20_000;
+        let mut scratch = Vec::new();
+        let mut sink = 0.0;
+        for _ in 0..2_000 {
+            sink += rkmk_step::<Field, BogackiShampineTableau, Time>(
+                &mut |tt, s| model.state_rate(tt, &f, s),
+                &initial,
+                t,
+                dt,
+                &mut scratch,
+            )
+            .unwrap()
+            .0
+            .determinant();
+        }
+        let start = Instant::now();
+        for _ in 0..iterations {
+            sink += rkmk_step::<Field, BogackiShampineTableau, Time>(
+                &mut |tt, s| model.state_rate(tt, &f, s),
+                &initial,
+                t,
+                dt,
+                &mut scratch,
+            )
+            .unwrap()
+            .0
+            .determinant();
+        }
+        let rkmk = start.elapsed();
+        let start = Instant::now();
+        for _ in 0..iterations {
+            for _ in 0..4 {
+                let rate = StateEvolution::state_rate(&model, t, &f, &initial).unwrap();
+                sink += rate.0.norm().value();
+            }
+        }
+        let rates = start.elapsed();
+        println!(
+            "rkmk_step {rkmk:?}  vs  4x state_rate {rates:?}  =>  {:.2}x",
+            rkmk.as_secs_f64() / rates.as_secs_f64()
+        );
+        assert!(sink.is_finite());
+        assert!(rkmk.as_secs_f64() < 20.0 * rates.as_secs_f64());
+    }
+
+    #[test]
+    fn rkmk_dae_is_third_order() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RootRkmkDae},
+            math::{integrate::BogackiShampine, optimize::NewtonRaphson},
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
+        let (_, reference, _) = model()
+            .root(
+                AppliedLoad::UniaxialStress(load, &span),
+                BogackiShampine {
+                    abs_tol: 1e-10,
+                    rel_tol: 1e-10,
+                    ..Default::default()
+                },
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let reference = reference.iter().last().unwrap().clone();
+        let mut errors = Vec::new();
+        for steps in [5, 10, 20, 40] {
+            let times = time(steps);
+            let (_, dae, state_variables) =
+                RootRkmkDae::<Quantity>::root_rkmk_dae::<BogackiShampineTableau>(
+                    &model(),
+                    AppliedLoad::UniaxialStress(load, &times),
+                    NewtonRaphson::default(),
+                )
+                .unwrap();
+            let error = (dae.iter().last().unwrap() - &reference).norm().value();
+            println!("{steps}: {error:e}");
+            errors.push(error);
+            let deformation_gradient_p = &state_variables.iter().last().unwrap().0;
+            assert!(
+                (deformation_gradient_p - &DeformationGradientPlastic::identity())
+                    .norm()
+                    .value()
+                    > 1e-3
+            );
+        }
+        errors.windows(2).for_each(|pair| {
+            let ratio = pair[0] / pair[1];
+            assert!(
+                (6.0..12.0).contains(&ratio),
+                "not third order: {ratio}, {errors:?}"
+            )
+        });
+    }
+
+    #[test]
+    fn rkmk_dae_keeps_the_group_structurally_where_the_additive_root_earns_it() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RootRkmkDae},
+            math::{Scalar, integrate::BogackiShampine, optimize::NewtonRaphson},
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
+        let drift = |tol: Scalar| {
+            let (_, _, state_variables) = model()
+                .root(
+                    AppliedLoad::UniaxialStress(load, &span),
+                    BogackiShampine {
+                        abs_tol: tol,
+                        rel_tol: tol,
+                        ..Default::default()
+                    },
+                    NewtonRaphson::default(),
+                )
+                .unwrap();
+            (state_variables.iter().last().unwrap().0.determinant() - 1.0).abs()
+        };
+        let (loose, tight) = (drift(1e-4), drift(1e-8));
+        println!("additive drift: {loose:e} at 1e-4, {tight:e} at 1e-8");
+        assert!(loose > 1e-7, "additive root did not drift: {loose:e}");
+        assert!(tight < loose / 100.0, "drift did not track the tolerance");
+        let (_, _, state_variables) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae::<BogackiShampineTableau>(
+                &model(),
+                AppliedLoad::UniaxialStress(load, &time(5)),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        state_variables
+            .iter()
+            .for_each(|state| assert!((state.0.determinant() - 1.0).abs() < 1e-13));
+    }
+
+    #[test]
+    fn rkmk_dae_adaptive_subdivides_and_meets_its_tolerance() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RootRkmkDae},
+            math::{Scalar, integrate::BogackiShampine, optimize::NewtonRaphson},
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let span = [Quantity::<Time>::new(0.0), Quantity::<Time>::new(1.0)];
+        let (_, reference, _) = model()
+            .root(
+                AppliedLoad::UniaxialStress(load, &span),
+                BogackiShampine {
+                    abs_tol: 1e-10,
+                    rel_tol: 1e-10,
+                    ..Default::default()
+                },
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let reference = reference.iter().last().unwrap().clone();
+        let run = |tol: Scalar| {
+            RootRkmkDae::<Quantity>::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                &model(),
+                AppliedLoad::UniaxialStress(load, &span),
+                NewtonRaphson::default(),
+                tol,
+                tol,
+            )
+            .unwrap()
+        };
+        let (times, deformation_gradients, state_variables) = run(1e-9);
+        assert!(times.len() > 2);
+        let error = (deformation_gradients.iter().last().unwrap() - &reference)
+            .norm()
+            .value();
+        println!("adaptive: {} steps, error {error:e}", times.len() - 1);
+        assert!(error < 1e-6, "tolerance not met: {error:e}");
+        state_variables
+            .iter()
+            .for_each(|state| assert!((state.0.determinant() - 1.0).abs() < 1e-13));
+        assert!(
+            (&state_variables.iter().last().unwrap().0 - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+        let (loose_times, _, _) = run(1e-4);
+        assert!(loose_times.len() < times.len());
+    }
+
+    #[test]
+    fn rkmk_dae_adaptive_reports_on_the_group_at_requested_times() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, RootRkmkDae},
+            math::optimize::NewtonRaphson,
+        };
+        let load = |t: Quantity<Time>| 1.0 + t.value();
+        let requested = time(13);
+        let span = [requested[0], *requested.last().unwrap()];
+        let (_, reference, reference_state) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae::<BogackiShampineTableau>(
+                &model(),
+                AppliedLoad::UniaxialStress(load, &time(13 * 40)),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let (times, deformation_gradients, state_variables) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                &model(),
+                AppliedLoad::UniaxialStress(load, &requested),
+                NewtonRaphson::default(),
+                1e-9,
+                1e-9,
+            )
+            .unwrap();
+        assert_eq!(times.len(), requested.len());
+        times
+            .iter()
+            .zip(requested.iter())
+            .for_each(|(reported, request)| assert_eq!(reported.value(), request.value()));
+        let (accepted, _, _) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+                &model(),
+                AppliedLoad::UniaxialStress(load, &span),
+                NewtonRaphson::default(),
+                1e-9,
+                1e-9,
+            )
+            .unwrap();
+        assert!(accepted.len() > 4 * requested.len());
+        let mut worst = 0.0_f64;
+        for (k, (state, deformation_gradient)) in state_variables
+            .iter()
+            .zip(deformation_gradients.iter())
+            .enumerate()
+        {
+            assert!(
+                (state.0.determinant() - 1.0).abs() < 1e-10,
+                "off the group at requested time {k}"
+            );
+            worst = worst
+                .max((deformation_gradient - &reference[40 * k]).norm().value())
+                .max((&state.0 - &reference_state[40 * k].0).norm().value());
+        }
+        println!("dense output vs refined reference: {worst:e}");
+        assert!(worst < 1e-6, "dense output disagrees: {worst:e}");
+        assert!(
+            (&state_variables.iter().last().unwrap().0 - &DeformationGradientPlastic::identity())
+                .norm()
+                .value()
+                > 1e-3
+        );
+    }
+
+    #[test]
+    fn rkmk_dae_keeps_the_internal_dissipation_non_negative() {
+        use crate::{
+            constitutive::solid::elastic_viscoplastic::{
+                AppliedLoad, ElasticViscoplastic, RootRkmkDae,
+            },
+            math::optimize::NewtonRaphson,
+        };
+        let model = model();
+        let (_, deformation_gradients, state_variables) =
+            RootRkmkDae::<Quantity>::root_rkmk_dae::<BogackiShampineTableau>(
+                &model,
+                AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + 2.0 * t.value(), &time(24)),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        deformation_gradients
+            .iter()
+            .zip(state_variables.iter())
+            .for_each(|(deformation_gradient, state)| {
+                Assert::non_negative(
+                    &model
+                        .internal_dissipation(deformation_gradient, state)
+                        .unwrap(),
+                )
+                .unwrap()
+            });
+    }
+}

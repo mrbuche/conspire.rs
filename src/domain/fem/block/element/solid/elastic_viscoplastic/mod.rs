@@ -1,13 +1,15 @@
 use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
+    domain::block::element::solid::elastic_viscoplastic::ElasticViscoplasticElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{
-            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidFiniteElement,
+            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement,
+            SolidFiniteElement,
             viscoplastic::{ViscoplasticEvolution, ViscoplasticStateVariables},
         },
     },
-    math::{ContractSecondFourthWithFirst, Differentiate, Tensor},
+    math::{ContractSecondFourthWithFirst, Differentiable, Tensor},
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
 
@@ -20,36 +22,46 @@ pub trait ElasticViscoplasticFiniteElement<
     Y,
 > where
     C: ElasticViscoplastic<Y>,
-    Self: SolidFiniteElement<G, M, N, P>,
-    Y: Differentiate + Tensor,
+    Self: SolidFiniteElement<G, M, N, P>
+        + ElasticViscoplasticElement<
+            C,
+            G,
+            Y,
+            Forces = ElementNodalForcesSolid<N>,
+            Stiffnesses = ElementNodalStiffnessesSolid<N>,
+            Error = FiniteElementError,
+        >,
+    Y: Differentiable + Tensor,
 {
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>;
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<ElementNodalStiffnessesSolid<N>, FiniteElementError>;
-    fn state_variables_evolution(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<ViscoplasticEvolution<G, Y>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
-    ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y> for Element<3, G, N, O>
+impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize, Y>
+    ElasticViscoplasticFiniteElement<C, G, M, N, P, Y> for T
 where
     C: ElasticViscoplastic<Y>,
-    Self: SolidFiniteElement<G, 3, N, P>,
-    Y: Differentiate + Tensor,
+    T: SolidFiniteElement<G, M, N, P>
+        + ElasticViscoplasticElement<
+            C,
+            G,
+            Y,
+            Forces = ElementNodalForcesSolid<N>,
+            Stiffnesses = ElementNodalStiffnessesSolid<N>,
+            Error = FiniteElementError,
+        >,
+    Y: Differentiable + Tensor,
 {
+}
+
+impl<C, const G: usize, const N: usize, const O: usize, Y> ElasticViscoplasticElement<C, G, Y>
+    for Element<3, G, N, O>
+where
+    C: ElasticViscoplastic<Y>,
+    Self: SolidFiniteElement<G, 3, N, N>,
+    Y: Differentiable + Tensor,
+{
+    type Forces = ElementNodalForcesSolid<N>;
+    type Stiffnesses = ElementNodalStiffnessesSolid<N>;
+    type Error = FiniteElementError;
     fn nodal_forces(
         &self,
         constitutive_model: &C,

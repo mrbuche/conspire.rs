@@ -1,8 +1,10 @@
 #[cfg(test)]
-mod test;
+pub mod test;
 
 pub(crate) mod fit;
+mod mixed;
 mod restrict;
+mod targeted;
 
 use super::{Connectivity, Mesh, PrimitiveConnectivity, Tessellation};
 use crate::{

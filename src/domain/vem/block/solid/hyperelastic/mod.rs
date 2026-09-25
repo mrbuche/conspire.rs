@@ -1,6 +1,6 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
-    fem::{ElementModelError, solid::hyperelastic::HyperelasticElements},
+    domain::{ElementModelError, solid::hyperelastic::HyperelasticElements},
     math::{HessianAccumulate, Quantity},
     units::Energy,
     vem::{
@@ -28,7 +28,7 @@ where
             .map(|(element, nodes)| {
                 element.helmholtz_free_energy(
                     self.constitutive_model(),
-                    Self::element_coordinates(nodal_coordinates, nodes),
+                    &Self::element_coordinates(nodal_coordinates, nodes),
                 )
             })
             .sum::<Result<_, VirtualElementError>>()
@@ -46,7 +46,7 @@ where
                 element
                     .nodal_stiffnesses(
                         self.constitutive_model(),
-                        Self::element_coordinates(nodal_coordinates, nodes),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
                     )?
                     .into_iter()
                     .zip(nodes)

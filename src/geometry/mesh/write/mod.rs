@@ -4,6 +4,7 @@ mod test;
 pub(super) mod abaqus;
 pub(super) mod exodus;
 pub(super) mod medit;
+pub(super) mod off;
 pub(super) mod vtk;
 
 use crate::{
@@ -15,6 +16,7 @@ use std::{io::Error as ErrorIO, path::Path};
 use self::abaqus::WriteAbaqus;
 use self::exodus::{ExodusFormat, WriteExodus};
 use self::medit::WriteMedit;
+use self::off::WriteOff;
 use self::vtk::{Vtk, multi_block::WriteVtkMultiBlock, unstructured::WriteVtkUnstructured};
 
 pub enum Output<P>
@@ -24,6 +26,7 @@ where
     Abaqus(P),
     Exodus(ExodusFormat<P>),
     Medit(P),
+    Off(P),
     Vtk(Vtk<P>),
 }
 
@@ -36,6 +39,7 @@ where
             Output::Abaqus(path) => path.as_ref(),
             Output::Exodus(format) => format.as_ref(),
             Output::Medit(path) => path.as_ref(),
+            Output::Off(path) => path.as_ref(),
             Output::Vtk(vtk) => vtk.as_ref(),
         }
     }
@@ -54,6 +58,7 @@ where
                 self.write_exodus_compressed(path, threads)?
             }
             Output::Medit(path) => self.write_medit(path)?,
+            Output::Off(path) => self.write_off(path)?,
             Output::Vtk(Vtk::UnstructuredGrid(Compression::On(path))) => {
                 self.write_vtk_unstructured_compressed(path)?
             }

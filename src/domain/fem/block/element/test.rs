@@ -4,6 +4,7 @@ pub const THICKNESS: Quantity<Length> = Length::meters(1.23);
 
 macro_rules! test_finite_element {
     ($element: ident) => {
+        use crate::domain::block::element::solid::SolidElement;
         use crate::mechanics::test::{get_deformation_gradient, get_deformation_gradient_rate};
         crate::fem::block::element::test::setup!();
         fn coordinates() -> ElementNodalCoordinates<N> {
@@ -36,7 +37,189 @@ macro_rules! test_finite_element {
                 }
             };
         }
-        crate::fem::block::element::test::test_finite_element_inner!($element);
+        crate::fem::block::element::test::test_finite_element_inner!(
+            $element,
+            mod elastic_viscoplastic {
+                use super::*;
+                use crate::{
+                    constitutive::{
+                        canonical::Canonical,
+                        fluid::viscoplastic::{Viscoplastic, ViscoplasticFlow},
+                        solid::elastic::{
+                            AlmansiHamelEulerian, AlmansiHamelLagrangian, BazantItskovEulerian,
+                            BazantItskovLagrangian, Hencky, SaintVenantKirchhoff,
+                            SethHillLagrangian,
+                            test::{BULK_MODULUS, EXPONENT, SHEAR_MODULUS},
+                        },
+                    },
+                    domain::block::element::solid::elastic_viscoplastic::ElasticViscoplasticElement,
+                    fem::block::element::solid::{
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+                        viscoplastic::ViscoplasticStateVariables,
+                    },
+                };
+                fn viscoplastic_flow() -> ViscoplasticFlow {
+                    ViscoplasticFlow {
+                        yield_stress: $crate::units::Stress::pascals(2.0),
+                        hardening_slope: $crate::units::Stress::pascals(1.0),
+                        rate_sensitivity: 0.25,
+                        reference_flow_rate: $crate::units::Rate::per_second(0.1),
+                    }
+                }
+                mod almansi_hamel_eulerian {
+                    use super::*;
+                    type AlmansiHamel = Canonical<AlmansiHamelEulerian, ViscoplasticFlow>;
+                    test_finite_element_with_elastic_viscoplastic_constitutive_model!(
+                        $element,
+                        AlmansiHamel::from((
+                            AlmansiHamelEulerian {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            viscoplastic_flow(),
+                        )),
+                        AlmansiHamel
+                    );
+                }
+                mod almansi_hamel_lagrangian {
+                    use super::*;
+                    type AlmansiHamel = Canonical<AlmansiHamelLagrangian, ViscoplasticFlow>;
+                    test_finite_element_with_elastic_viscoplastic_constitutive_model!(
+                        $element,
+                        AlmansiHamel::from((
+                            AlmansiHamelLagrangian {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            viscoplastic_flow(),
+                        )),
+                        AlmansiHamel
+                    );
+                }
+                mod bazant_itskov_lagrangian {
+                    use super::*;
+                    type BazantItskov = Canonical<BazantItskovLagrangian, ViscoplasticFlow>;
+                    test_finite_element_with_elastic_viscoplastic_constitutive_model!(
+                        $element,
+                        BazantItskov::from((
+                            BazantItskovLagrangian {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                                exponent: EXPONENT,
+                            },
+                            viscoplastic_flow(),
+                        )),
+                        BazantItskov
+                    );
+                }
+                mod bazant_itskov_eulerian {
+                    use super::*;
+                    type BazantItskov = Canonical<BazantItskovEulerian, ViscoplasticFlow>;
+                    test_finite_element_with_elastic_viscoplastic_constitutive_model!(
+                        $element,
+                        BazantItskov::from((
+                            BazantItskovEulerian {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                                exponent: EXPONENT,
+                            },
+                            viscoplastic_flow(),
+                        )),
+                        BazantItskov
+                    );
+                }
+                mod hencky {
+                    use super::*;
+                    type Hencky_ = Canonical<Hencky, ViscoplasticFlow>;
+                    test_finite_element_with_elastic_viscoplastic_constitutive_model!(
+                        $element,
+                        Hencky_::from((
+                            Hencky {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            viscoplastic_flow(),
+                        )),
+                        Hencky_
+                    );
+                }
+                mod saint_venant_kirchhoff {
+                    use super::*;
+                    type SaintVenantKirchhoff_ = Canonical<SaintVenantKirchhoff, ViscoplasticFlow>;
+                    test_finite_element_with_elastic_viscoplastic_constitutive_model!(
+                        $element,
+                        SaintVenantKirchhoff_::from((
+                            SaintVenantKirchhoff {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            viscoplastic_flow(),
+                        )),
+                        SaintVenantKirchhoff_
+                    );
+                }
+                mod seth_hill {
+                    use super::*;
+                    type SethHill = Canonical<SethHillLagrangian, ViscoplasticFlow>;
+                    test_finite_element_with_elastic_viscoplastic_constitutive_model!(
+                        $element,
+                        SethHill::from((
+                            SethHillLagrangian {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                                exponent: EXPONENT,
+                            },
+                            viscoplastic_flow(),
+                        )),
+                        SethHill
+                    );
+                }
+            },
+            mod hyperelastic_viscoplastic {
+                use super::*;
+                use crate::{
+                    constitutive::{
+                        canonical::Canonical,
+                        fluid::viscoplastic::{Viscoplastic, ViscoplasticFlow},
+                        solid::hyperelastic::{
+                            NeoHookean,
+                            test::{BULK_MODULUS, SHEAR_MODULUS},
+                        },
+                    },
+                    domain::block::element::solid::{
+                        elastic_viscoplastic::ElasticViscoplasticElement,
+                        hyperelastic_viscoplastic::HyperelasticViscoplasticElement,
+                    },
+                    fem::block::element::solid::{
+                        ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
+                        viscoplastic::ViscoplasticStateVariables,
+                    },
+                };
+                fn viscoplastic_flow() -> ViscoplasticFlow {
+                    ViscoplasticFlow {
+                        yield_stress: $crate::units::Stress::pascals(2.0),
+                        hardening_slope: $crate::units::Stress::pascals(1.0),
+                        rate_sensitivity: 0.25,
+                        reference_flow_rate: $crate::units::Rate::per_second(0.1),
+                    }
+                }
+                mod neo_hookean {
+                    use super::*;
+                    type NeoHookeanViscoplastic = Canonical<NeoHookean, ViscoplasticFlow>;
+                    test_finite_element_with_hyperelastic_viscoplastic_constitutive_model!(
+                        $element,
+                        NeoHookeanViscoplastic::from((
+                            NeoHookean {
+                                bulk_modulus: BULK_MODULUS,
+                                shear_modulus: SHEAR_MODULUS,
+                            },
+                            viscoplastic_flow(),
+                        )),
+                        NeoHookeanViscoplastic
+                    );
+                }
+            }
+        );
     };
 }
 pub(crate) use test_finite_element;
@@ -44,6 +227,7 @@ pub(crate) use test_finite_element;
 macro_rules! test_surface_finite_element {
     ($element: ident) => {
         use crate::{
+            domain::block::element::solid::SolidElement,
             fem::block::element::test::setup,
             math::{Rank2, TensorArray},
             mechanics::RotationCurrentConfiguration,
@@ -442,7 +626,7 @@ macro_rules! setup {
 pub(crate) use setup;
 
 macro_rules! test_finite_element_inner {
-    ($element: ident) => {
+    ($element: ident $(, $plastic: item)*) => {
         mod element {
             use super::*;
             use crate::{
@@ -453,6 +637,12 @@ macro_rules! test_finite_element_inner {
                     test_finite_element_with_hyperelastic_constitutive_model,
                     test_finite_element_with_hyperviscoelastic_constitutive_model,
                 },
+            };
+            #[allow(unused_imports)]
+            use crate::fem::block::element::test::test_finite_element_with_elastic_viscoplastic_constitutive_model;
+            #[allow(unused_imports)]
+            use crate::fem::block::element::test::test_finite_element_with_hyperelastic_viscoplastic_constitutive_model;
+            use crate::{
                 math::{Rank2, TensorArray, TensorRank2, assert::AssertionError},
                 mechanics::test::{
                     get_rotation_current_configuration, get_rotation_rate_current_configuration,
@@ -587,142 +777,21 @@ macro_rules! test_finite_element_inner {
                     }
                 }
             }
-            mod solid {
-                use super::*;
-                fn deformation_gradients() -> DeformationGradientList<G> {
-                    (0..G).map(|_| get_deformation_gradient()).collect()
-                }
-                fn deformation_gradient_rates() -> DeformationGradientRateList<G> {
-                    (0..G).map(|_| get_deformation_gradient_rate()).collect()
-                }
-                mod deformation_gradient {
-                    use super::*;
-                    mod deformed {
-                        use super::*;
-                        #[test]
-                        fn calculate() -> Result<(), AssertionError> {
-                            $crate::math::assert::Assert::default().eq_within_tols(
-                                &element().deformation_gradients(&coordinates()),
-                                &deformation_gradients(),
-                            )
-                        }
-                        #[test]
-                        fn objectivity() -> Result<(), AssertionError> {
-                            element()
-                                .deformation_gradients(&coordinates())
-                                .iter()
-                                .zip(
-                                    element_transformed()
-                                        .deformation_gradients(&coordinates_transformed())
-                                        .iter(),
-                                )
-                                .try_for_each(
-                                    |(deformation_gradient, deformation_gradient_transformed)| {
-                                        $crate::math::assert::Assert::default().eq_within_tols(
-                                            deformation_gradient,
-                                            &(get_rotation_current_configuration().transpose()
-                                                * deformation_gradient_transformed
-                                                * get_rotation_reference_configuration()),
-                                        )
-                                    },
-                                )
-                        }
-                    }
-                    mod undeformed {
-                        use super::*;
-                        #[test]
-                        fn calculate() -> Result<(), AssertionError> {
-                            $crate::math::assert::Assert::default().eq_within_tols(
-                                &element().deformation_gradients(&reference_coordinates().into()),
-                                &DeformationGradientList::identity(),
-                            )
-                        }
-                        #[test]
-                        fn objectivity() -> Result<(), AssertionError> {
-                            $crate::math::assert::Assert::default().eq_within_tols(
-                                &element_transformed().deformation_gradients(
-                                    &reference_coordinates_transformed().into(),
-                                ),
-                                &DeformationGradientList::identity(),
-                            )
-                        }
-                    }
-                }
-                mod deformation_gradient_rate {
-                    use super::*;
-                    mod deformed {
-                        use super::*;
-                        #[test]
-                        fn calculate() -> Result<(), AssertionError> {
-                            $crate::math::assert::Assert::default().eq_within_tols(
-                                &element()
-                                    .deformation_gradient_rates(&coordinates(), &velocities()),
-                                &deformation_gradient_rates(),
-                            )
-                        }
-                        #[test]
-                        fn objectivity() -> Result<(), AssertionError> {
-                            element()
-                                .deformation_gradients(&coordinates())
-                                .iter()
-                                .zip(
-                                    element()
-                                        .deformation_gradient_rates(&coordinates(), &velocities())
-                                        .iter()
-                                        .zip(
-                                            element_transformed()
-                                                .deformation_gradient_rates(
-                                                    &coordinates_transformed(),
-                                                    &velocities_transformed(),
-                                                )
-                                                .iter(),
-                                        ),
-                                )
-                                .try_for_each(
-                                    |(
-                                        deformation_gradient,
-                                        (
-                                            deformation_gradient_rate,
-                                            deformation_gradient_rate_transformed,
-                                        ),
-                                    )| {
-                                        $crate::math::assert::Assert::default().eq_within_tols(
-                                            deformation_gradient_rate,
-                                            &(get_rotation_current_configuration().transpose()
-                                                * (deformation_gradient_rate_transformed
-                                                    * get_rotation_reference_configuration()
-                                                    - get_rotation_rate_current_configuration()
-                                                        * deformation_gradient)),
-                                        )
-                                    },
-                                )
-                        }
-                    }
-                    mod undeformed {
-                        use super::*;
-                        #[test]
-                        fn calculate() -> Result<(), AssertionError> {
-                            $crate::math::assert::Assert::default().eq_within_tols(
-                                &element().deformation_gradient_rates(
-                                    &reference_coordinates().into(),
-                                    &ElementNodalVelocities::zero().into(),
-                                ),
-                                &DeformationGradientRateList::zero(),
-                            )
-                        }
-                        #[test]
-                        fn objectivity() -> Result<(), AssertionError> {
-                            $crate::math::assert::Assert::default().eq_within_tols(
-                                &element_transformed().deformation_gradient_rates(
-                                    &reference_coordinates_transformed().into(),
-                                    &ElementNodalVelocities::zero().into(),
-                                ),
-                                &DeformationGradientRateList::zero(),
-                            )
-                        }
-                    }
-                }
+            type DeformationGradientList = crate::mechanics::DeformationGradientList<G>;
+            type DeformationGradientRateList = crate::mechanics::DeformationGradientRateList<G>;
+            fn number_of_gradients() -> usize {
+                G
             }
+            fn identity_deformation_gradients() -> DeformationGradientList {
+                DeformationGradientList::identity()
+            }
+            fn zero_deformation_gradient_rates() -> DeformationGradientRateList {
+                DeformationGradientRateList::zero()
+            }
+            fn zero_velocities() -> ElementNodalVelocities<N> {
+                ElementNodalVelocities::zero()
+            }
+            crate::domain::block::element::test::test_solid_deformation_gradient!();
             mod elastic {
                 use super::*;
                 use crate::{
@@ -731,9 +800,9 @@ macro_rules! test_finite_element_inner {
                         BazantItskovLagrangian, Hencky, SaintVenantKirchhoff, SethHillLagrangian,
                         test::{BULK_MODULUS, EXPONENT, SHEAR_MODULUS},
                     },
+                    domain::block::element::solid::elastic::ElasticElement,
                     fem::block::element::solid::{
                         ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
-                        elastic::ElasticFiniteElement,
                     },
                 };
                 mod almansi_hamel_eulerian {
@@ -817,6 +886,7 @@ macro_rules! test_finite_element_inner {
                     );
                 }
             }
+            $($plastic)*
             mod hyperelastic {
                 use super::*;
                 use crate::{
@@ -830,9 +900,11 @@ macro_rules! test_finite_element_inner {
                             YEOH_MODULI,
                         },
                     },
+                    domain::block::element::solid::{
+                        elastic::ElasticElement, hyperelastic::HyperelasticElement,
+                    },
                     fem::block::element::solid::{
                         ElementNodalForcesSolid, ElementNodalStiffnessesSolid,
-                        elastic::ElasticFiniteElement, hyperelastic::HyperelasticFiniteElement,
                     },
                 };
                 mod arruda_boyce {
@@ -990,10 +1062,12 @@ macro_rules! test_finite_element_inner {
                             elastic_hyperviscous::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                         },
                     },
+                    domain::block::element::solid::{
+                        elastic_hyperviscous::ElasticHyperviscousElement,
+                        viscoelastic::ViscoelasticElement,
+                    },
                     fem::block::element::solid::{
                         ElementNodalDampingsSolid, ElementNodalForcesSolid,
-                        elastic_hyperviscous::ElasticHyperviscousFiniteElement,
-                        viscoelastic::ViscoelasticFiniteElement,
                     },
                 };
                 type AlmansiHamel = Canonical<AlmansiHamelEulerian, Newtonian>;
@@ -1026,11 +1100,13 @@ macro_rules! test_finite_element_inner {
                             hyperviscoelastic::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
                         },
                     },
+                    domain::block::element::solid::{
+                        elastic_hyperviscous::ElasticHyperviscousElement,
+                        hyperviscoelastic::HyperviscoelasticElement,
+                        viscoelastic::ViscoelasticElement,
+                    },
                     fem::block::element::solid::{
                         ElementNodalDampingsSolid, ElementNodalForcesSolid,
-                        elastic_hyperviscous::ElasticHyperviscousFiniteElement,
-                        hyperviscoelastic::HyperviscoelasticFiniteElement,
-                        viscoelastic::ViscoelasticFiniteElement,
                     },
                 };
                 type SaintVenantKirchhoff =
@@ -2175,3 +2251,471 @@ macro_rules! test_finite_element_with_hyperviscoelastic_constitutive_model {
     }
 }
 pub(crate) use test_finite_element_with_hyperviscoelastic_constitutive_model;
+
+macro_rules! test_finite_element_with_elastic_viscoplastic_constitutive_model {
+    ($element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
+        fn get_nodal_forces(
+            is_deformed: bool,
+            is_rotated: bool,
+            _: bool,
+        ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
+            if is_rotated {
+                let element = get_element_transformed();
+                let state_variables =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                if is_deformed {
+                    Ok(get_rotation_current_configuration().transpose()
+                        * element.nodal_forces(
+                            &$constitutive_model,
+                            &coordinates_transformed(),
+                            &state_variables,
+                        )?)
+                } else {
+                    Ok(get_element().nodal_forces(
+                        &$constitutive_model,
+                        &reference_coordinates_transformed().into(),
+                        &state_variables,
+                    )?)
+                }
+            } else {
+                let element = get_element();
+                let state_variables =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                if is_deformed {
+                    Ok(element.nodal_forces(
+                        &$constitutive_model,
+                        &coordinates(),
+                        &state_variables,
+                    )?)
+                } else {
+                    Ok(element.nodal_forces(
+                        &$constitutive_model,
+                        &reference_coordinates().into(),
+                        &state_variables,
+                    )?)
+                }
+            }
+        }
+        fn get_nodal_stiffnesses(
+            is_deformed: bool,
+            is_rotated: bool,
+        ) -> Result<ElementNodalStiffnessesSolid<N>, AssertionError> {
+            if is_rotated {
+                let element = get_element_transformed();
+                let state_variables =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                if is_deformed {
+                    Ok(get_rotation_current_configuration().transpose()
+                        * element.nodal_stiffnesses(
+                            &$constitutive_model,
+                            &coordinates_transformed(),
+                            &state_variables,
+                        )?
+                        * get_rotation_current_configuration())
+                } else {
+                    let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
+                        get_rotation_reference_configuration().into();
+                    Ok(converted.transpose()
+                        * element.nodal_stiffnesses(
+                            &$constitutive_model,
+                            &reference_coordinates_transformed().into(),
+                            &state_variables,
+                        )?
+                        * converted)
+                }
+            } else {
+                let element = get_element();
+                let state_variables =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                if is_deformed {
+                    Ok(element.nodal_stiffnesses(
+                        &$constitutive_model,
+                        &coordinates(),
+                        &state_variables,
+                    )?)
+                } else {
+                    Ok(element.nodal_stiffnesses(
+                        &$constitutive_model,
+                        &reference_coordinates().into(),
+                        &state_variables,
+                    )?)
+                }
+            }
+        }
+        fn get_finite_difference_of_nodal_forces(
+            is_deformed: bool,
+        ) -> Result<ElementNodalStiffnessesSolid<N>, AssertionError> {
+            let element = get_element();
+            let state_variables =
+                std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+            let mut finite_difference = $crate::math::Quantity::default();
+            (0..N)
+                .map(|a| {
+                    (0..N)
+                        .map(|b| {
+                            (0..3)
+                                .map(|i| {
+                                    (0..3)
+                                        .map(|j| {
+                                            let mut nodal_coordinates = if is_deformed {
+                                                coordinates()
+                                            } else {
+                                                reference_coordinates().into()
+                                            };
+                                            nodal_coordinates[b][j] +=
+                                                $crate::math::assert::perturbation(0.5 * EPSILON);
+                                            finite_difference = element.nodal_forces(
+                                                &$constitutive_model,
+                                                &nodal_coordinates,
+                                                &state_variables,
+                                            )?[a][i];
+                                            nodal_coordinates[b][j] -=
+                                                $crate::math::assert::perturbation(EPSILON);
+                                            finite_difference -= element.nodal_forces(
+                                                &$constitutive_model,
+                                                &nodal_coordinates,
+                                                &state_variables,
+                                            )?[a][i];
+                                            Ok(finite_difference
+                                                / $crate::math::assert::perturbation::<
+                                                    $crate::units::Length,
+                                                >(EPSILON))
+                                        })
+                                        .collect()
+                                })
+                                .collect()
+                        })
+                        .collect()
+                })
+                .collect()
+        }
+        crate::fem::block::element::test::test_nodal_forces_and_nodal_stiffnesses!(
+            $element,
+            $constitutive_model,
+            $constitutive_model_type
+        );
+        mod state_variables_evolution {
+            use super::*;
+            use $crate::math::{Tensor, TensorTuple};
+            #[test]
+            fn objectivity_deformed() -> Result<(), AssertionError> {
+                let element = get_element();
+                let state_variables: ViscoplasticStateVariables<G, _> =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                let element_transformed = get_element_transformed();
+                let rotation_transpose = get_rotation_reference_configuration().transpose();
+                let state_variables_transformed = state_variables
+                    .iter()
+                    .map(|state_variable| {
+                        TensorTuple(
+                            &state_variable.0 * &rotation_transpose,
+                            state_variable.1.clone(),
+                        )
+                    })
+                    .collect();
+                let evolution = element.state_variables_evolution(
+                    &$constitutive_model,
+                    &coordinates(),
+                    &state_variables,
+                )?;
+                let evolution_transformed = element_transformed.state_variables_evolution(
+                    &$constitutive_model,
+                    &coordinates_transformed(),
+                    &state_variables_transformed,
+                )?;
+                let evolution_expected = evolution
+                    .iter()
+                    .map(|rate| TensorTuple(&rate.0 * &rotation_transpose, rate.1.clone()))
+                    .collect();
+                $crate::math::assert::Assert::default()
+                    .eq_within_tols(&evolution_transformed, &evolution_expected)
+            }
+            #[test]
+            fn objectivity_undeformed() -> Result<(), AssertionError> {
+                let element = get_element();
+                let state_variables: ViscoplasticStateVariables<G, _> =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                let element_transformed = get_element_transformed();
+                let rotation_transpose = get_rotation_reference_configuration().transpose();
+                let state_variables_transformed = state_variables
+                    .iter()
+                    .map(|state_variable| {
+                        TensorTuple(
+                            &state_variable.0 * &rotation_transpose,
+                            state_variable.1.clone(),
+                        )
+                    })
+                    .collect();
+                let evolution = element.state_variables_evolution(
+                    &$constitutive_model,
+                    &reference_coordinates().into(),
+                    &state_variables,
+                )?;
+                let evolution_transformed = element_transformed.state_variables_evolution(
+                    &$constitutive_model,
+                    &reference_coordinates_transformed().into(),
+                    &state_variables_transformed,
+                )?;
+                let evolution_expected = evolution
+                    .iter()
+                    .map(|rate| TensorTuple(&rate.0 * &rotation_transpose, rate.1.clone()))
+                    .collect();
+                $crate::math::assert::Assert::default()
+                    .eq_within_tols(&evolution_transformed, &evolution_expected)
+            }
+        }
+        mod plastic_gauge_invariance {
+            use super::*;
+            use $crate::math::{Tensor, TensorTuple};
+            fn get_rotation_intermediate_configuration()
+            -> TensorRank2<3, $crate::math::Intermediate, $crate::math::Intermediate> {
+                get_rotation_reference_configuration().into()
+            }
+            #[test]
+            fn nodal_forces() -> Result<(), AssertionError> {
+                let element = get_element();
+                let nodal_coordinates = coordinates();
+                let state_variables: ViscoplasticStateVariables<G, _> =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                let q = get_rotation_intermediate_configuration();
+                let state_variables_rotated = state_variables
+                    .iter()
+                    .map(|state_variable| {
+                        TensorTuple(&q * &state_variable.0, state_variable.1.clone())
+                    })
+                    .collect();
+                $crate::math::assert::Assert::default().eq_within_tols(
+                    &element.nodal_forces(
+                        &$constitutive_model,
+                        &nodal_coordinates,
+                        &state_variables,
+                    )?,
+                    &element.nodal_forces(
+                        &$constitutive_model,
+                        &nodal_coordinates,
+                        &state_variables_rotated,
+                    )?,
+                )
+            }
+            #[test]
+            fn nodal_stiffnesses() -> Result<(), AssertionError> {
+                let element = get_element();
+                let nodal_coordinates = coordinates();
+                let state_variables: ViscoplasticStateVariables<G, _> =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                let q = get_rotation_intermediate_configuration();
+                let state_variables_rotated = state_variables
+                    .iter()
+                    .map(|state_variable| {
+                        TensorTuple(&q * &state_variable.0, state_variable.1.clone())
+                    })
+                    .collect();
+                $crate::math::assert::Assert::default().eq_within_tols(
+                    &element.nodal_stiffnesses(
+                        &$constitutive_model,
+                        &nodal_coordinates,
+                        &state_variables,
+                    )?,
+                    &element.nodal_stiffnesses(
+                        &$constitutive_model,
+                        &nodal_coordinates,
+                        &state_variables_rotated,
+                    )?,
+                )
+            }
+            #[test]
+            fn state_variables_evolution() -> Result<(), AssertionError> {
+                let element = get_element();
+                let nodal_coordinates = coordinates();
+                let state_variables: ViscoplasticStateVariables<G, _> =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                let q = get_rotation_intermediate_configuration();
+                let state_variables_rotated = state_variables
+                    .iter()
+                    .map(|state_variable| {
+                        TensorTuple(&q * &state_variable.0, state_variable.1.clone())
+                    })
+                    .collect();
+                let evolution = element.state_variables_evolution(
+                    &$constitutive_model,
+                    &nodal_coordinates,
+                    &state_variables,
+                )?;
+                let evolution_rotated = element.state_variables_evolution(
+                    &$constitutive_model,
+                    &nodal_coordinates,
+                    &state_variables_rotated,
+                )?;
+                let evolution_expected = evolution
+                    .iter()
+                    .map(|rate| TensorTuple(&q * &rate.0, rate.1.clone()))
+                    .collect();
+                $crate::math::assert::Assert::default()
+                    .eq_within_tols(&evolution_rotated, &evolution_expected)
+            }
+        }
+    };
+}
+pub(crate) use test_finite_element_with_elastic_viscoplastic_constitutive_model;
+
+macro_rules! test_finite_element_with_hyperelastic_viscoplastic_constitutive_model {
+    ($element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
+        crate::fem::block::element::test::test_finite_element_with_elastic_viscoplastic_constitutive_model!(
+            $element,
+            $constitutive_model,
+            $constitutive_model_type
+        );
+        fn get_finite_difference_of_helmholtz_free_energy(
+            is_deformed: bool,
+        ) -> Result<ElementNodalForcesSolid<N>, AssertionError> {
+            let element = get_element();
+            let state_variables = std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+            let mut finite_difference = $crate::math::Quantity::default();
+            (0..N)
+                .map(|node| {
+                    (0..3)
+                        .map(|i| {
+                            let mut nodal_coordinates = if is_deformed {
+                                coordinates()
+                            } else {
+                                reference_coordinates().into()
+                            };
+                            nodal_coordinates[node][i] +=
+                                $crate::math::assert::perturbation(0.5 * EPSILON);
+                            finite_difference = element.helmholtz_free_energy(
+                                &$constitutive_model,
+                                &nodal_coordinates,
+                                &state_variables,
+                            )?;
+                            nodal_coordinates[node][i] -=
+                                $crate::math::assert::perturbation(EPSILON);
+                            finite_difference -= element.helmholtz_free_energy(
+                                &$constitutive_model,
+                                &nodal_coordinates,
+                                &state_variables,
+                            )?;
+                            Ok((finite_difference
+                                / $crate::math::Quantity::<$crate::units::Length>::new(EPSILON))
+                            .value_as::<$crate::units::Force>())
+                        })
+                        .collect()
+                })
+                .collect()
+        }
+        mod helmholtz_free_energy {
+            use super::*;
+            mod deformed {
+                use super::*;
+                #[test]
+                fn finite_difference() -> Result<(), AssertionError> {
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
+                        &get_nodal_forces(true, false, false)?,
+                        &get_finite_difference_of_helmholtz_free_energy(true)?,
+                    )
+                }
+                #[test]
+                fn objectivity() -> Result<(), AssertionError> {
+                    let element = get_element();
+                    let state_variables: ViscoplasticStateVariables<G, _> =
+                        std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    let element_transformed = get_element_transformed();
+                    let rotation_transpose = get_rotation_reference_configuration().transpose();
+                    let state_variables_transformed = state_variables
+                        .iter()
+                        .map(|state_variable| {
+                            $crate::math::TensorTuple(
+                                &state_variable.0 * &rotation_transpose,
+                                state_variable.1.clone(),
+                            )
+                        })
+                        .collect();
+                    $crate::math::assert::Assert::default().eq_within_tols(
+                        &element.helmholtz_free_energy(
+                            &$constitutive_model,
+                            &coordinates(),
+                            &state_variables,
+                        )?,
+                        &element_transformed.helmholtz_free_energy(
+                            &$constitutive_model,
+                            &coordinates_transformed(),
+                            &state_variables_transformed,
+                        )?,
+                    )
+                }
+            }
+            mod undeformed {
+                use super::*;
+                #[test]
+                fn finite_difference() -> Result<(), AssertionError> {
+                    $crate::math::assert::Assert::default().eq_within_fd_tol(
+                        &get_finite_difference_of_helmholtz_free_energy(false)?,
+                        &ElementNodalForcesSolid::zero(),
+                    )
+                }
+                #[test]
+                fn objectivity() -> Result<(), AssertionError> {
+                    let element = get_element();
+                    let state_variables: ViscoplasticStateVariables<G, _> =
+                        std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                    let element_transformed = get_element_transformed();
+                    let rotation_transpose = get_rotation_reference_configuration().transpose();
+                    let state_variables_transformed = state_variables
+                        .iter()
+                        .map(|state_variable| {
+                            $crate::math::TensorTuple(
+                                &state_variable.0 * &rotation_transpose,
+                                state_variable.1.clone(),
+                            )
+                        })
+                        .collect();
+                    $crate::math::assert::Assert::default().eq_within_tols(
+                        &element.helmholtz_free_energy(
+                            &$constitutive_model,
+                            &reference_coordinates().into(),
+                            &state_variables,
+                        )?,
+                        &element_transformed.helmholtz_free_energy(
+                            &$constitutive_model,
+                            &reference_coordinates_transformed().into(),
+                            &state_variables_transformed,
+                        )?,
+                    )
+                }
+            }
+        }
+        mod plastic_gauge_invariance_helmholtz {
+            use super::*;
+            fn get_rotation_intermediate_configuration(
+            ) -> TensorRank2<3, $crate::math::Intermediate, $crate::math::Intermediate> {
+                get_rotation_reference_configuration().into()
+            }
+            #[test]
+            fn helmholtz_free_energy() -> Result<(), AssertionError> {
+                let element = get_element();
+                let nodal_coordinates = coordinates();
+                let state_variables: ViscoplasticStateVariables<G, _> =
+                    std::array::from_fn(|_| $constitutive_model.initial_state()).into();
+                let q = get_rotation_intermediate_configuration();
+                let state_variables_rotated = state_variables
+                    .iter()
+                    .map(|state_variable| {
+                        $crate::math::TensorTuple(&q * &state_variable.0, state_variable.1.clone())
+                    })
+                    .collect();
+                $crate::math::assert::Assert::default().eq_within_tols(
+                    &element.helmholtz_free_energy(
+                        &$constitutive_model,
+                        &nodal_coordinates,
+                        &state_variables,
+                    )?,
+                    &element.helmholtz_free_energy(
+                        &$constitutive_model,
+                        &nodal_coordinates,
+                        &state_variables_rotated,
+                    )?,
+                )
+            }
+        }
+    };
+}
+pub(crate) use test_finite_element_with_hyperelastic_viscoplastic_constitutive_model;

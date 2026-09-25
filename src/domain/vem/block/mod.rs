@@ -1,18 +1,15 @@
 pub mod element;
 pub mod solid;
+#[cfg(test)]
+mod test;
 
 use crate::{
-    fem::Elements,
+    domain::block::element::Elements,
     geometry::mesh::PolytopalConnectivity,
-    vem::{
-        NodalCoordinates, NodalReferenceCoordinates,
-        block::element::{ElementNodalCoordinates, VirtualElement},
-    },
+    math::TensorRank1Vec,
+    vem::{NodalReferenceCoordinates, block::element::VirtualElement},
 };
-use std::{
-    any::type_name,
-    fmt::{self, Debug, Formatter},
-};
+use std::fmt::{self, Debug, Formatter};
 
 pub struct Block<C, F> {
     constitutive_model: C,
@@ -28,11 +25,14 @@ impl<C, F> Block<C, F> {
     fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates<'a>(
-        coordinates: &'a NodalCoordinates,
+    fn element_coordinates<I, U>(
+        coordinates: &TensorRank1Vec<3, I, U>,
         nodes: &[usize],
-    ) -> ElementNodalCoordinates<'a> {
-        nodes.iter().map(|&node| &coordinates[node]).collect()
+    ) -> TensorRank1Vec<3, I, U> {
+        nodes
+            .iter()
+            .map(|&node| coordinates[node].clone())
+            .collect()
     }
     pub fn elements_faces(&self) -> &[Vec<usize>] {
         self.connectivity.elements_faces()
@@ -50,13 +50,7 @@ impl<C, F> Debug for Block<C, F> {
         write!(
             f,
             "Block {{ constitutive model: {}, elements: [Virtual; {}] }}",
-            type_name::<C>()
-                .rsplit("::")
-                .next()
-                .unwrap()
-                .split("<")
-                .next()
-                .unwrap(),
+            crate::domain::block::trimmed_type_name::<C>(),
             self.elements().len()
         )
     }
@@ -64,13 +58,10 @@ impl<C, F> Debug for Block<C, F> {
 
 impl<C, F> Elements for Block<C, F> {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        self.elements_nodes().iter().for_each(|nodes| {
-            nodes.iter().for_each(|&node_a| {
-                nodes
-                    .iter()
-                    .for_each(|&node_b| neighbors[node_a].push(node_b))
-            })
-        })
+        crate::domain::block::add_node_neighbors(
+            self.elements_nodes().iter().map(|nodes| nodes.as_slice()),
+            neighbors,
+        )
     }
 }
 

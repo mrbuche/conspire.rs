@@ -7,7 +7,6 @@ use crate::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
                 linear::tetrahedron::{G, M, N, P, Tetrahedron},
-                solid::SolidFiniteElement,
                 test::test_finite_element,
             },
             test::test_finite_element_block,
@@ -15,7 +14,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{ScalarList, Tensor, optimize::EqualityConstraint},
-    mechanics::{DeformationGradient, DeformationGradientList, DeformationGradientRateList},
+    mechanics::DeformationGradient,
 };
 
 const D: usize = 14;

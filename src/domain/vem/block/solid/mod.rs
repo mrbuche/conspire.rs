@@ -1,44 +1,58 @@
 pub mod elastic;
+pub mod elastic_hyperviscous;
+pub mod elastic_viscoplastic;
 pub mod hyperelastic;
+pub mod hyperelastic_viscoplastic;
+pub mod hyperviscoelastic;
+pub mod viscoelastic;
 
 use crate::{
     constitutive::solid::Solid,
-    mechanics::DeformationGradients,
+    domain::solid::SolidElements,
+    mechanics::{DeformationGradientRates, DeformationGradients},
     vem::{
-        NodalCoordinates,
+        NodalCoordinates, NodalVelocities,
         block::{Block, element::solid::SolidVirtualElement},
     },
 };
 
-pub type NodalForcesSolid = crate::fem::solid::NodalForcesSolid<3>;
-pub type NodalStiffnessesSolid = crate::fem::solid::NodalStiffnessesSolid<3>;
-pub type NodalStiffnessesSolidSymmetric = crate::fem::solid::NodalStiffnessesSolidSymmetric<3>;
+pub type NodalDampingsSolid = crate::domain::solid::NodalDampingsSolid<3>;
+pub type NodalForcesSolid = crate::domain::solid::NodalForcesSolid<3>;
+pub type NodalStiffnessesSolid = crate::domain::solid::NodalStiffnessesSolid<3>;
+pub type NodalStiffnessesSolidSymmetric = crate::domain::solid::NodalStiffnessesSolidSymmetric<3>;
 
-pub trait SolidVirtualElements<C, F>
+impl<C, F> SolidElements for Block<C, F>
 where
     C: Solid,
     F: SolidVirtualElement,
 {
+    type DeformationGradients = DeformationGradients;
+    type DeformationGradientRates = DeformationGradientRates;
     fn deformation_gradients(
         &self,
         nodal_coordinates: &NodalCoordinates,
-    ) -> Vec<DeformationGradients>;
-}
-
-impl<C, F> SolidVirtualElements<C, F> for Block<C, F>
-where
-    C: Solid,
-    F: SolidVirtualElement,
-{
-    fn deformation_gradients(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Vec<DeformationGradients> {
+    ) -> Vec<Self::DeformationGradients> {
         self.elements()
             .iter()
             .zip(self.elements_nodes())
             .map(|(element, nodes)| {
-                element.deformation_gradients(Self::element_coordinates(nodal_coordinates, nodes))
+                element.deformation_gradients(&Self::element_coordinates(nodal_coordinates, nodes))
+            })
+            .collect()
+    }
+    fn deformation_gradient_rates(
+        &self,
+        nodal_coordinates: &NodalCoordinates,
+        nodal_velocities: &NodalVelocities,
+    ) -> Vec<Self::DeformationGradientRates> {
+        self.elements()
+            .iter()
+            .zip(self.elements_nodes())
+            .map(|(element, nodes)| {
+                element.deformation_gradient_rates(
+                    &Self::element_coordinates(nodal_coordinates, nodes),
+                    &Self::element_coordinates(nodal_velocities, nodes),
+                )
             })
             .collect()
     }

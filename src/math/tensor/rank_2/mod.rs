@@ -5,6 +5,7 @@ use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
 use crate::units::{Dimensionless, UnitDiv, UnitMul};
 
 mod eigen;
+mod exponential;
 mod inverse;
 pub(crate) mod list;
 pub(crate) mod list_2d;
@@ -28,7 +29,7 @@ use std::{
 };
 
 use super::{
-    Differentiate, Erase, Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray,
+    Differentiable, Erase, Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray,
     Vector,
     rank_0::TensorRank0,
     rank_1::{
@@ -1476,7 +1477,7 @@ where
     }
 }
 
-impl<const D: usize, I, J, U, T> Differentiate<T> for TensorRank2<D, I, J, U>
+impl<const D: usize, I, J, U, T> Differentiable<T> for TensorRank2<D, I, J, U>
 where
     U: UnitDiv<T>,
 {

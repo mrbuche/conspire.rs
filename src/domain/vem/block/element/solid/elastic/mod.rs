@@ -1,45 +1,61 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
-    fem::block::element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
+    domain::block::element::solid::elastic::ElasticElement,
+    fem::block::element::FiniteElementError,
     math::{ContractSecondFourthWithFirst, Scalar, Tensor, TensorArray},
     mechanics::{
         FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Force, Stiffness,
     },
     vem::block::element::{
         Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
-        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidVirtualElement},
+        solid::{
+            ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement,
+            SolidVirtualElement,
+        },
     },
 };
 
 pub trait ElasticVirtualElement<C>
 where
     C: Elastic,
-    Self: SolidVirtualElement,
+    Self: SolidVirtualElement
+        + ElasticElement<
+            C,
+            Forces = ElementNodalForcesSolid,
+            Stiffnesses = ElementNodalStiffnessesSolid,
+            Error = VirtualElementError,
+        >,
 {
-    fn nodal_forces<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
-    ) -> Result<ElementNodalForcesSolid, VirtualElementError>;
-    fn nodal_stiffnesses<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
-    ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError>;
 }
 
-impl<C> ElasticVirtualElement<C> for Element
+impl<T, C> ElasticVirtualElement<C> for T
+where
+    C: Elastic,
+    T: SolidVirtualElement
+        + ElasticElement<
+            C,
+            Forces = ElementNodalForcesSolid,
+            Stiffnesses = ElementNodalStiffnessesSolid,
+            Error = VirtualElementError,
+        >,
+{
+}
+
+impl<C> ElasticElement<C> for Element
 where
     C: Elastic,
 {
-    fn nodal_forces<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    type Forces = ElementNodalForcesSolid;
+    type Stiffnesses = ElementNodalStiffnessesSolid;
+    type Error = VirtualElementError;
+    fn nodal_forces(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates,
     ) -> Result<ElementNodalForcesSolid, VirtualElementError> {
         let stabilization = self.stabilization();
         let inverse_num_nodes = 1.0 / nodal_coordinates.len() as Scalar;
-        let tetrahedra_coordinates = self.tetrahedra_coordinates(&nodal_coordinates);
+        let tetrahedra_coordinates = self.tetrahedra_coordinates(nodal_coordinates);
         let mut forces = self
             .deformation_gradients(nodal_coordinates)
             .iter()
@@ -97,15 +113,15 @@ where
         forces.iter_mut().for_each(|force| *force += &center_force);
         Ok(forces)
     }
-    fn nodal_stiffnesses<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+    fn nodal_stiffnesses(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates,
     ) -> Result<ElementNodalStiffnessesSolid, VirtualElementError> {
         let num_nodes = nodal_coordinates.len();
         let stabilization = self.stabilization();
         let inverse_num_nodes = 1.0 / num_nodes as Scalar;
-        let tetrahedra_coordinates = self.tetrahedra_coordinates(&nodal_coordinates);
+        let tetrahedra_coordinates = self.tetrahedra_coordinates(nodal_coordinates);
         let mut stiffnesses = self
             .deformation_gradients(nodal_coordinates)
             .iter()

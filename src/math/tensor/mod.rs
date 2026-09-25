@@ -48,6 +48,7 @@ pub type ScalarListVec<const N: usize> = TensorRank0ListVec<N>;
 #[derive(PartialEq)]
 pub enum TensorError {
     NotPositiveDefinite,
+    SquareRootDidNotConverge,
     SymmetricMatrixComplexEigenvalues,
 }
 
@@ -56,6 +57,9 @@ impl StyledError for TensorError {
         let h = style.headline;
         match self {
             Self::NotPositiveDefinite => format!("{h}Result is not positive definite."),
+            Self::SquareRootDidNotConverge => {
+                format!("{h}Matrix square root iteration did not converge.")
+            }
             Self::SymmetricMatrixComplexEigenvalues => {
                 format!("{h}Symmetric matrix produced complex eigenvalues")
             }
@@ -75,7 +79,7 @@ styled_error!(TensorError);
 /// The variable of integration need not be a time — an arclength or a load
 /// parameter is just as ordinary — so it is named rather than assumed, with time
 /// as the default for the common case.
-pub trait Differentiate<T = Time>
+pub trait Differentiable<T = Time>
 where
     Self: Tensor,
 {
@@ -88,7 +92,7 @@ where
 /// Spelling the projection out at every use would crowd out the signatures it
 /// appears in, since a tensor names a derivative for each variable it might be
 /// differentiated against.
-pub type Derivative<Y, T = Time> = <Y as Differentiate<T>>::Derivative;
+pub type Derivative<Y, T = Time> = <Y as Differentiable<T>>::Derivative;
 
 /// The unit a quantity of unit `U` carries once squared.
 ///
@@ -200,6 +204,29 @@ pub trait HessianBlock {
     fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
     where
         M: IndexMut<usize, Output = Vector>;
+}
+
+/// A [`HessianBlock`] with its rows and columns swapped.
+pub struct Transposed<H>(pub H);
+
+impl<H: HessianBlock> HessianBlock for Transposed<H> {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        self.0.entry(column, row)
+    }
+    fn height(&self) -> usize {
+        self.0.width()
+    }
+    fn width(&self) -> usize {
+        self.0.height()
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        (0..self.0.height()).for_each(|i| {
+            (0..self.0.width()).for_each(|j| matrix[row + j][column + i] = self.0.entry(i, j))
+        })
+    }
 }
 
 /// Accumulates rank-2 blocks into a sparse Hessian-like structure.

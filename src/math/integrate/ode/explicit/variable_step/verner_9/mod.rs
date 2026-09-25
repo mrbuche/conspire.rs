@@ -3,7 +3,7 @@ mod test;
 
 use crate::math::Norm;
 use crate::math::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ButcherTableau, EmbeddedTableau, Explicit, IntegrationError, OdeIntegrator, Times,
         VariableStep, VariableStepExplicit,
@@ -178,6 +178,8 @@ pub struct Verner9 {
     pub dt_expn: Scalar,
     /// Cut back factor for the time step.
     pub dt_cut: Scalar,
+    /// Growth factor ceiling for the time step.
+    pub dt_grow: Scalar,
     /// Minimum value for the time step.
     pub dt_min: Scalar,
     /// Norm type for error evaluation.
@@ -192,6 +194,7 @@ impl Default for Verner9 {
             dt_beta: 0.9,
             dt_expn: 9.0,
             dt_cut: 0.5,
+            dt_grow: 5.0,
             dt_min: ABS_TOL,
             error_norm: Norm::Chebyshev,
         }
@@ -221,6 +224,9 @@ impl<T> VariableStep<T> for Verner9 {
     fn dt_cut(&self) -> Scalar {
         self.dt_cut
     }
+    fn dt_grow(&self) -> Scalar {
+        self.dt_grow
+    }
     fn dt_min(&self) -> Quantity<T> {
         Quantity::new(self.dt_min)
     }
@@ -231,7 +237,7 @@ impl<T> VariableStep<T> for Verner9 {
 
 impl<Y, U, V, T> Explicit<Y, U, V, T> for Verner9
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -253,7 +259,7 @@ where
 impl<Y, U, V, T> VariableStepExplicit<Y, U, V, T> for Verner9
 where
     Self: Explicit<Y, U, V, T>,
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:
@@ -266,7 +272,7 @@ where
 
 impl<Y, U, V, T> InterpolateSolution<Y, U, V, T> for Verner9
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     for<'a> &'a Derivative<Y, T>:

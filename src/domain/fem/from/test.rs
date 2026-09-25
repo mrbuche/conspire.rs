@@ -14,24 +14,18 @@ use crate::{
                 linear::{Hexahedron, Tetrahedron, Wedge},
                 planar::{Quadrilateral, Triangle},
             },
-            solid::elastic_viscoplastic::{
-                ViscoplasticEvolution, ViscoplasticEvolutionHistory, ViscoplasticStateVariables,
-                ViscoplasticStateVariablesHistory,
-            },
         },
         nodal_coordinates,
-        solid::{
-            elastic::ElasticElements, elastic_viscoplastic::FirstOrderRoot as DaeFirstOrderRoot,
-        },
+        solid::{elastic::ElasticElements, elastic_viscoplastic::RootRkmkDae},
     },
     geometry::{
         Coordinates,
         mesh::{Connectivity, Mesh},
     },
     math::{
-        Matrix, Quantity, Scalar, Tensor, TensorTuple, TensorTupleVec, Vector,
+        Matrix, Quantity, Scalar, Tensor, Vector,
         assert::AssertionError,
-        integrate::BogackiShampine,
+        integrate::BogackiShampineTableau,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
     units::{Rate, Stress, Time},
@@ -346,18 +340,8 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
         (mesh, (viscoplastic_model(), constitutive_model()))
             .try_into()
             .map_err(|error: String| AssertionError { message: error })?;
-    let (_, coordinates_history, _) = DaeFirstOrderRoot::<
-        ViscoplasticStateVariables<1, Quantity>,
-        ViscoplasticEvolutionHistory<1, Quantity>,
-        ViscoplasticStateVariablesHistory<1, Quantity>,
-        3,
-    >::root(
+    let (_, coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
         &model,
-        BogackiShampine {
-            abs_tol: 1e-6,
-            rel_tol: 1e-6,
-            ..Default::default()
-        },
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
         bcs,
@@ -385,24 +369,8 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
         (mesh, (viscoplastic_model(), viscoplastic_model()))
             .try_into()
             .map_err(|error: String| AssertionError { message: error })?;
-    let (_, coordinates_history, _) = DaeFirstOrderRoot::<
-        TensorTuple<
-            ViscoplasticStateVariables<1, Quantity>,
-            ViscoplasticStateVariables<1, Quantity>,
-        >,
-        TensorTupleVec<ViscoplasticEvolution<1, Quantity>, ViscoplasticEvolution<1, Quantity>>,
-        TensorTupleVec<
-            ViscoplasticStateVariables<1, Quantity>,
-            ViscoplasticStateVariables<1, Quantity>,
-        >,
-        3,
-    >::root(
+    let (_, coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
         &model,
-        BogackiShampine {
-            abs_tol: 1e-6,
-            rel_tol: 1e-6,
-            ..Default::default()
-        },
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
         bcs,
@@ -414,6 +382,151 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
         NewtonRaphson::default(),
     )?;
     Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
+}
+
+fn yielding_viscoplastic_model()
+-> ElasticMultiplicativeViscoplastic<AlmansiHamelEulerian, ViscoplasticFlow> {
+    ElasticMultiplicativeViscoplastic::from((
+        constitutive_model(),
+        ViscoplasticFlow {
+            yield_stress: Stress::pascals(2.0),
+            hardening_slope: Stress::pascals(1.0),
+            rate_sensitivity: 0.25,
+            reference_flow_rate: Rate::per_second(0.1),
+        },
+    ))
+}
+
+#[test]
+fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive() -> Result<(), AssertionError> {
+    let (connectivity_1, connectivity_2) = split_connectivities();
+    let mesh = Mesh::from((
+        vec![
+            Connectivity::Tetrahedral(connectivity_1.into()),
+            Connectivity::Tetrahedral(connectivity_2.into()),
+        ],
+        coordinates(),
+    ));
+    let model: Model<Blocks<TetViscoplastic, TetViscoplastic>, 3> = (
+        mesh,
+        (yielding_viscoplastic_model(), yielding_viscoplastic_model()),
+    )
+        .try_into()
+        .map_err(|error: String| AssertionError { message: error })?;
+    let (_, reference_coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
+        &model,
+        NewtonRaphson::default(),
+        &[Quantity::new(0.0), Quantity::new(1.0)],
+        bcs,
+    )?;
+    let reference = reference_coordinates_history.iter().last().unwrap().clone();
+    let (times, coordinates_history, state_variables_history) =
+        RootRkmkDae::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+            &model,
+            NewtonRaphson::default(),
+            &[Quantity::new(0.0), Quantity::new(1.0)],
+            bcs,
+            1e-6,
+            1e-6,
+        )?;
+    assert!(times.len() > 2);
+    let error = (coordinates_history.iter().last().unwrap() - &reference)
+        .norm()
+        .value();
+    assert!(
+        error < 1e-3,
+        "adaptive result drifted from the fixed-step FEM reference: {error:e}"
+    );
+    use crate::{math::TensorArray, mechanics::DeformationGradientPlastic};
+    let last_state = state_variables_history.iter().last().unwrap();
+    let mut moved = false;
+    [&last_state.0, &last_state.1]
+        .into_iter()
+        .for_each(|block_state| {
+            block_state
+                .iter()
+                .flat_map(|element| element.iter())
+                .for_each(|point_state| {
+                    assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+                    if (&point_state.0 - &DeformationGradientPlastic::identity())
+                        .norm()
+                        .value()
+                        > 1e-4
+                    {
+                        moved = true;
+                    }
+                });
+        });
+    assert!(moved, "plastic state never flowed away from identity");
+    Ok(())
+}
+
+#[test]
+fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive_dense_output() -> Result<(), AssertionError> {
+    let (connectivity_1, connectivity_2) = split_connectivities();
+    let mesh = Mesh::from((
+        vec![
+            Connectivity::Tetrahedral(connectivity_1.into()),
+            Connectivity::Tetrahedral(connectivity_2.into()),
+        ],
+        coordinates(),
+    ));
+    let model: Model<Blocks<TetViscoplastic, TetViscoplastic>, 3> = (
+        mesh,
+        (yielding_viscoplastic_model(), yielding_viscoplastic_model()),
+    )
+        .try_into()
+        .map_err(|error: String| AssertionError { message: error })?;
+    let (_, reference_coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
+        &model,
+        NewtonRaphson::default(),
+        &[Quantity::new(0.0), Quantity::new(1.0)],
+        bcs,
+    )?;
+    let reference = reference_coordinates_history.iter().last().unwrap().clone();
+    let requested: Vec<Quantity<Time>> = (0..=4).map(|i| Quantity::new(0.25 * i as f64)).collect();
+    let (times, coordinates_history, state_variables_history) =
+        RootRkmkDae::root_rkmk_dae_adaptive::<BogackiShampineTableau>(
+            &model,
+            NewtonRaphson::default(),
+            &requested,
+            bcs,
+            1e-6,
+            1e-6,
+        )?;
+    assert_eq!(times.iter().count(), requested.len());
+    times
+        .iter()
+        .zip(requested.iter())
+        .for_each(|(reported, requested)| assert_eq!(reported, requested));
+    let error = (coordinates_history.iter().last().unwrap() - &reference)
+        .norm()
+        .value();
+    assert!(
+        error < 1e-3,
+        "dense-output adaptive result drifted from the fixed-step FEM reference: {error:e}"
+    );
+    use crate::{math::TensorArray, mechanics::DeformationGradientPlastic};
+    let mut moved = false;
+    state_variables_history.iter().for_each(|state| {
+        [&state.0, &state.1].into_iter().for_each(|block_state| {
+            block_state
+                .iter()
+                .flat_map(|element| element.iter())
+                .for_each(|point_state| {
+                    assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
+                    if (&point_state.0 - &DeformationGradientPlastic::identity())
+                        .norm()
+                        .value()
+                        > 1e-4
+                    {
+                        moved = true;
+                    }
+                });
+        });
+    });
+    assert!(moved, "plastic state never flowed away from identity");
+    Ok(())
 }
 
 #[test]

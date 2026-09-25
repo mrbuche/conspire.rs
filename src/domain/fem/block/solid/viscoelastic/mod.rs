@@ -8,31 +8,7 @@ use crate::{
         },
         solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
-    mechanics::DeformationGradientRateList,
 };
-
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Block<C, F, G, M, N, P>
-where
-    C: Viscoelastic,
-    F: ViscoelasticFiniteElement<C, G, M, N, P>,
-{
-    pub fn deformation_gradient_rates(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        nodal_velocities: &NodalVelocities<3>,
-    ) -> Vec<DeformationGradientRateList<G>> {
-        self.elements()
-            .iter()
-            .zip(self.connectivity())
-            .map(|(element, nodes)| {
-                element.deformation_gradient_rates(
-                    &Self::element_coordinates(nodal_coordinates, nodes),
-                    &Self::element_coordinates(nodal_velocities, nodes),
-                )
-            })
-            .collect()
-    }
-}
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ViscoelasticElements<3>
     for Block<C, F, G, M, N, P>

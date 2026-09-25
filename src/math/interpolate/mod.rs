@@ -2,7 +2,7 @@
 mod test;
 
 use super::{
-    Derivative, Differentiate, Quantity, Scalar, Tensor, TensorVec, Vector,
+    Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec, Vector,
     integrate::{IntegrationError, Times},
 };
 use crate::units::Time;
@@ -24,7 +24,7 @@ where
 /// Solution interpolation schemes.
 pub trait InterpolateSolution<Y, U, V, T = Time>
 where
-    Y: Differentiate<T> + Tensor,
+    Y: Differentiable<T> + Tensor,
     for<'a> &'a Y: Mul<Scalar, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,

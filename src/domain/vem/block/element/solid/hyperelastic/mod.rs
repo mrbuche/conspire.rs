@@ -1,41 +1,42 @@
 use crate::math::Quantity;
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::Hyperelastic},
-    fem::block::element::solid::hyperelastic::HyperelasticFiniteElement,
+    domain::block::element::solid::hyperelastic::HyperelasticElement,
     math::Tensor,
     units::Energy,
     vem::block::element::{
         Element, ElementNodalCoordinates, VirtualElement, VirtualElementError,
-        solid::{SolidVirtualElement, elastic::ElasticVirtualElement},
+        solid::{SolidElement, elastic::ElasticVirtualElement},
     },
 };
 
 pub trait HyperelasticVirtualElement<C>
 where
     C: Hyperelastic,
-    Self: ElasticVirtualElement<C>,
+    Self: ElasticVirtualElement<C> + HyperelasticElement<C>,
 {
-    fn helmholtz_free_energy<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
-    ) -> Result<Quantity<Energy>, VirtualElementError>;
 }
 
-impl<C> HyperelasticVirtualElement<C> for Element
+impl<T, C> HyperelasticVirtualElement<C> for T
 where
     C: Hyperelastic,
-    Self: ElasticVirtualElement<C>,
+    T: ElasticVirtualElement<C> + HyperelasticElement<C>,
 {
-    fn helmholtz_free_energy<'a>(
-        &'a self,
-        constitutive_model: &'a C,
-        nodal_coordinates: ElementNodalCoordinates<'a>,
+}
+
+impl<C> HyperelasticElement<C> for Element
+where
+    C: Hyperelastic,
+{
+    fn helmholtz_free_energy(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates,
     ) -> Result<Quantity<Energy>, VirtualElementError> {
         let tetrahedra_energy = self
             .tetrahedra()
             .iter()
-            .zip(self.tetrahedra_coordinates(&nodal_coordinates).iter())
+            .zip(self.tetrahedra_coordinates(nodal_coordinates).iter())
             .map(|(tetrahedron, tetrahedron_coordinates)| {
                 tetrahedron.helmholtz_free_energy(constitutive_model, tetrahedron_coordinates)
             })

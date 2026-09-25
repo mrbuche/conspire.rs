@@ -1,13 +1,15 @@
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic_viscoplastic::HyperelasticViscoplastic},
+    domain::block::element::solid::hyperelastic_viscoplastic::HyperelasticViscoplasticElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
         solid::{
-            SolidFiniteElement, elastic_viscoplastic::ElasticViscoplasticFiniteElement,
+            SolidElement, SolidFiniteElement,
+            elastic_viscoplastic::ElasticViscoplasticFiniteElement,
             viscoplastic::ViscoplasticStateVariables,
         },
     },
-    math::{Differentiate, Quantity, Tensor},
+    math::{Differentiable, Quantity, Tensor},
     units::Energy,
 };
 
@@ -20,23 +22,28 @@ pub trait HyperelasticViscoplasticFiniteElement<
     Y,
 > where
     C: HyperelasticViscoplastic<Y>,
-    Self: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
-    Y: Differentiate + Tensor,
+    Self: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>
+        + HyperelasticViscoplasticElement<C, G, Y>,
+    Y: Differentiable + Tensor,
 {
-    fn helmholtz_free_energy(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &ElementNodalCoordinates<N>,
-        state_variables: &ViscoplasticStateVariables<G, Y>,
-    ) -> Result<Quantity<Energy>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize, Y>
-    HyperelasticViscoplasticFiniteElement<C, G, 3, N, P, Y> for Element<3, G, N, O>
+impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize, Y>
+    HyperelasticViscoplasticFiniteElement<C, G, M, N, P, Y> for T
 where
     C: HyperelasticViscoplastic<Y>,
-    Self: ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
-    Y: Differentiate + Tensor,
+    T: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>
+        + HyperelasticViscoplasticElement<C, G, Y>,
+    Y: Differentiable + Tensor,
+{
+}
+
+impl<C, const G: usize, const N: usize, const O: usize, Y> HyperelasticViscoplasticElement<C, G, Y>
+    for Element<3, G, N, O>
+where
+    C: HyperelasticViscoplastic<Y>,
+    Self: SolidFiniteElement<G, 3, N, N>,
+    Y: Differentiable + Tensor,
 {
     fn helmholtz_free_energy(
         &self,

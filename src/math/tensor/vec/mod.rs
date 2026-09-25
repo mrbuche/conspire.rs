@@ -1,5 +1,5 @@
 use crate::math::{
-    ContractWith, Differentiate, Erase, Quantity, Tensor, TensorRank0, TensorRank1,
+    ContractWith, Differentiable, Erase, Quantity, Tensor, TensorRank0, TensorRank1,
     TensorRank1List, TensorVec,
 };
 use crate::units::Dimensionless;
@@ -530,18 +530,10 @@ where
 impl<T> Sub for &TensorVector<T>
 where
     T: Tensor,
-    // for <'a> &'a T: Sub<&'a T, Output=T>
 {
     type Output = TensorVector<T>;
-    fn sub(self, _tensor_vec: Self) -> Self::Output {
-        unimplemented!()
-        // self
-        //     .iter()
-        //     .zip(tensor_vec.iter())
-        //     .map(|(self_entry, entry)| {
-        //         self_entry - entry
-        //     })
-        //     .collect()
+    fn sub(self, tensor_vec: Self) -> Self::Output {
+        self.clone() - tensor_vec
     }
 }
 
@@ -582,10 +574,10 @@ where
     }
 }
 
-impl<E, T> Differentiate<T> for TensorVector<E>
+impl<E, T> Differentiable<T> for TensorVector<E>
 where
-    E: Differentiate<T> + Tensor,
-    <E as Differentiate<T>>::Derivative: Tensor,
+    E: Differentiable<T> + Tensor,
+    <E as Differentiable<T>>::Derivative: Tensor,
 {
-    type Derivative = TensorVector<<E as Differentiate<T>>::Derivative>;
+    type Derivative = TensorVector<<E as Differentiable<T>>::Derivative>;
 }

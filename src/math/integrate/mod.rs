@@ -5,6 +5,7 @@ mod test;
 
 mod dae;
 mod error;
+mod field;
 mod ode;
 mod tableau;
 
@@ -15,7 +16,21 @@ use crate::units::Time;
 pub type Times<T = Time> = QuantityVector<T>;
 
 pub use error::IntegrationError;
+pub use field::{
+    EvolvedIncrement, EvolvedState, Flat, HermiteSegment, Integrable, List, Product,
+    StateEvolution, Unimodular, integrate_euler, integrate_rkmk, integrate_rkmk_adaptive,
+    integrate_rkmk_dae_adaptive, integrate_rkmk_dae_adaptive_first_order_root,
+    integrate_rkmk_dae_adaptive_second_order_minimize, integrate_rkmk_state,
+    integrate_rkmk_state_adaptive, interpolate_hermite, rkmk_dae_step,
+    rkmk_dae_step_first_order_root, rkmk_dae_step_second_order_minimize, rkmk_step,
+};
 pub use tableau::{ButcherTableau, EmbeddedTableau};
+
+pub use ode::explicit::variable_step::{
+    bogacki_shampine::Tableau as BogackiShampineTableau,
+    dormand_prince::Tableau as DormandPrinceTableau, verner_8::Tableau as Verner8Tableau,
+    verner_9::Tableau as Verner9Tableau,
+};
 
 pub use dae::{
     ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,

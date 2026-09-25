@@ -46,6 +46,12 @@ repos:
         args: ['--features', 'constitutive', '--tests', '--', '-D',  'warnings']
         name: cargo clippy constitutive tests
     -   id: clippy
+        args: ['--features', 'cbm', '--', '-D',  'warnings']
+        name: cargo clippy cbm
+    -   id: clippy
+        args: ['--features', 'cbm', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy cbm tests
+    -   id: clippy
         args: ['--features', 'fem', '--', '-D',  'warnings']
         name: cargo clippy fem
     -   id: clippy
