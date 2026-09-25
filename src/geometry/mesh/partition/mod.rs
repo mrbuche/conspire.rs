@@ -2,14 +2,12 @@
 mod test;
 
 mod agglomerate;
+mod part;
 mod rcb;
 
 pub use self::rcb::Bisection;
 
-use crate::{
-    geometry::mesh::{Connectivities, Mesh, retain::subset},
-    math::{Set, Tensor},
-};
+use crate::{geometry::mesh::Mesh, math::Tensor};
 use std::array::from_fn;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -93,33 +91,6 @@ impl Partition {
             .filter(|(_, parts)| parts.len() > 1)
             .map(|(node, _)| node)
             .collect()
-    }
-    pub fn part<const D: usize>(&self, mesh: &Mesh<D>, part: usize) -> (Mesh<D>, Vec<usize>) {
-        mesh.retained_elements(|element, _, _| self.elements_parts[element] == part)
-    }
-    pub fn blocked<const D: usize>(&self, mesh: &Mesh<D>) -> Mesh<D> {
-        let mut blocks = Vec::new();
-        for part in 0..self.number_of_parts() {
-            let mut index = 0;
-            for block in mesh.iter() {
-                let kept: Vec<&[usize]> = block
-                    .iter()
-                    .filter(|_| {
-                        index += 1;
-                        self.elements_parts[index - 1] == part
-                    })
-                    .collect();
-                if !kept.is_empty() {
-                    blocks.push(subset(block, &kept, &mut |node| node))
-                }
-            }
-        }
-        let numbers = (1..=blocks.len()).collect::<Vec<usize>>();
-        (
-            Connectivities::from((blocks, numbers)),
-            Set::from(mesh.coordinates().clone()),
-        )
-            .into()
     }
     pub fn quality<const D: usize>(&self, mesh: &Mesh<D>) -> PartitionQuality {
         let sizes = self.parts_elements.iter().map(Vec::len).collect::<Vec<_>>();

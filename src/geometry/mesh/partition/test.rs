@@ -1,6 +1,6 @@
 use crate::geometry::{
     grid::Voxels,
-    mesh::{Mesh, Partition},
+    mesh::{Mesh, NodeSets, Partition, SideSets},
 };
 
 pub(super) fn blocks(nel: [usize; 3]) -> Mesh<3> {
@@ -132,16 +132,58 @@ fn partition_rejects_wrong_length_assignment() {
     Partition::new(&blocks([2, 1, 1]), vec![0]);
 }
 
+fn materials() -> Mesh<3> {
+    Mesh::from_voxels(Voxels::new(vec![5u8, 5, 7, 7], [4, 1, 1]), None)
+}
+
 #[test]
-fn blocked_has_one_block_per_part_with_shared_nodes() {
-    let mesh = blocks([4, 2, 2]);
+fn part_keeps_block_ids_drops_empty_blocks_and_records_global_numbers() {
+    let mesh = materials();
+    assert_eq!(mesh.blocks(), Some([5, 7].as_slice()));
     let partition = mesh.partition_box([2, 1, 1]);
-    let blocked = partition.blocked(&mesh);
-    assert_eq!(blocked.number_of_element_blocks(), 2);
-    assert_eq!(blocked.blocks(), Some([1, 2].as_slice()));
-    assert_eq!(blocked.number_of_nodes(), mesh.number_of_nodes());
-    assert_eq!(blocked.number_of_elements(), mesh.number_of_elements());
-    blocked.iter().enumerate().for_each(|(part, block)| {
-        assert_eq!(block.iter().count(), partition.part_elements(part).len())
-    });
+    let (first, first_nodes) = partition.part(&mesh, 0);
+    let (second, second_nodes) = partition.part(&mesh, 1);
+    assert_eq!(first.blocks(), Some([5].as_slice()));
+    assert_eq!(second.blocks(), Some([7].as_slice()));
+    assert_eq!(
+        second.iter().next().unwrap().element_numbers(),
+        Some([3, 4].as_slice())
+    );
+    assert_eq!(first_nodes, [0, 1, 2, 5, 6, 7, 10, 11, 12, 15, 16, 17]);
+    assert_eq!(
+        second.coordinates.numbers(),
+        Some(
+            second_nodes
+                .iter()
+                .map(|node| node + 1)
+                .collect::<Vec<_>>()
+                .as_slice()
+        )
+    );
+}
+
+#[test]
+fn part_carries_node_and_side_sets() {
+    let mut mesh = materials();
+    mesh.set_node_sets(NodeSets::from((
+        vec![vec![0, 5, 10, 15], vec![2, 7, 12, 17]],
+        vec![7, 9],
+    )));
+    mesh.set_side_sets(SideSets::from((vec![vec![(0, 3), (3, 1)]], vec![4])));
+    let partition = mesh.partition_box([2, 1, 1]);
+    let (first, first_nodes) = partition.part(&mesh, 0);
+    let (second, second_nodes) = partition.part(&mesh, 1);
+    assert_eq!(first.node_set_numbers(), Some([7, 9].as_slice()));
+    assert_eq!(second.node_set_numbers(), Some([9].as_slice()));
+    first.node_sets()[0]
+        .iter()
+        .zip([0, 5, 10, 15])
+        .for_each(|(&local, old)| assert_eq!(first_nodes[local], old));
+    second.node_sets()[0]
+        .iter()
+        .zip([2, 7, 12, 17])
+        .for_each(|(&local, old)| assert_eq!(second_nodes[local], old));
+    assert_eq!(first.side_sets(), [vec![(0, 3)]]);
+    assert_eq!(second.side_sets(), [vec![(1, 1)]]);
+    assert_eq!(first.side_set_numbers(), Some([4].as_slice()));
 }
