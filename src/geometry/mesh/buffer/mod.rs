@@ -4,6 +4,7 @@ pub mod test;
 mod fit;
 mod mixed;
 mod restrict;
+mod targeted;
 
 use super::{Connectivity, Mesh, PrimitiveConnectivity, Tessellation};
 use crate::{

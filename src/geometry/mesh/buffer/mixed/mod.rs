@@ -105,7 +105,7 @@ impl Mesh<3> {
     }
 }
 
-fn face_size(face: &[usize], coordinates: &Coordinates<3>) -> Quantity<Length> {
+pub(super) fn face_size(face: &[usize], coordinates: &Coordinates<3>) -> Quantity<Length> {
     (0..4)
         .map(|i| (&coordinates[face[(i + 1) % 4]] - &coordinates[face[i]]).norm())
         .sum::<Quantity<Length>>()
