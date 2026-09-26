@@ -29,9 +29,10 @@ macro_rules! viscous_tests {
                         viscoelastic::ViscoelasticElement,
                     },
                 },
+                math::assert::{Assert, AssertionError},
                 units::{Stress, Viscosity},
             };
-            use $crate::common::{BULK_MODULUS, SHEAR_MODULUS, apply, close, deformed, reference};
+            use $crate::common::{BULK_MODULUS, SHEAR_MODULUS, apply, deformed, reference};
             use $crate::hyperviscoelastic::L;
 
             #[allow(clippy::type_complexity)]
@@ -94,7 +95,7 @@ macro_rules! viscous_tests {
             }
 
             #[test]
-            fn nodal_forces_match_analytic() {
+            fn nodal_forces_match_analytic() -> Result<(), AssertionError> {
                 let (element, coordinates, velocities, autodiff, hand) = setup();
                 let ad = element.autodiff_viscoelastic_nodal_forces(
                     &autodiff,
@@ -104,18 +105,11 @@ macro_rules! viscous_tests {
                 let hd =
                     ViscoelasticElement::nodal_forces(&element, &hand, &coordinates, &velocities)
                         .unwrap();
-                for a in 0..$n {
-                    for i in 0..3 {
-                        assert!(
-                            close(ad[a][i].value(), hd[a][i].value(), 1e-8),
-                            "force [{a}][{i}]"
-                        );
-                    }
-                }
+                Assert::default().eq_within_tols(&ad, &hd)
             }
 
             #[test]
-            fn nodal_dampings_match_analytic() {
+            fn nodal_dampings_match_analytic() -> Result<(), AssertionError> {
                 let (element, coordinates, velocities, autodiff, hand) = setup();
                 let ad = element.autodiff_nodal_dampings(&autodiff, &coordinates, &velocities);
                 let hd = ViscoelasticElement::nodal_stiffnesses(
@@ -125,22 +119,16 @@ macro_rules! viscous_tests {
                     &velocities,
                 )
                 .unwrap();
-                for a in 0..$n {
-                    for b in 0..$n {
-                        for i in 0..3 {
-                            for j in 0..3 {
-                                assert!(
-                                    close(ad[a][b][i][j].value(), hd[a][b][i][j].value(), 1e-6),
-                                    "damping [{a}][{b}][{i}][{j}]"
-                                );
-                            }
-                        }
-                    }
+                Assert {
+                    abs_tol: 1e-6,
+                    rel_tol: 1e-6,
+                    ..Default::default()
                 }
+                .eq_within_tols(&ad, &hd)
             }
 
             #[test]
-            fn energies_match_analytic() {
+            fn energies_match_analytic() -> Result<(), AssertionError> {
                 let (element, coordinates, velocities, autodiff, hand) = setup();
                 let ad = element.autodiff_viscous_dissipation(&autodiff, &coordinates, &velocities);
                 let hd = ElasticHyperviscousElement::viscous_dissipation(
@@ -150,15 +138,12 @@ macro_rules! viscous_tests {
                     &velocities,
                 )
                 .unwrap();
-                assert!(close(ad.value(), hd.value(), 1e-10), "viscous dissipation");
+                Assert::default().eq_within_tols(&ad, &hd)?;
                 let ad = element.autodiff_helmholtz_free_energy(&autodiff, &coordinates);
                 let hd =
                     HyperviscoelasticElement::helmholtz_free_energy(&element, &hand, &coordinates)
                         .unwrap();
-                assert!(
-                    close(ad.value(), hd.value(), 1e-10),
-                    "helmholtz free energy"
-                );
+                Assert::default().eq_within_tols(&ad, &hd)
             }
         }
     };

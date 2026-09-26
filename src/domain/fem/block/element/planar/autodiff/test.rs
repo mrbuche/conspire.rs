@@ -1,4 +1,4 @@
-use crate::common::{BULK_MODULUS, SHEAR_MODULUS, close};
+use crate::common::{BULK_MODULUS, SHEAR_MODULUS};
 use conspire::{
     constitutive::solid::hyperelastic::{NeoHookean, autodiff::AutodiffNeoHookean},
     fem::block::element::{
@@ -9,6 +9,7 @@ use conspire::{
         },
         solid::hyperelastic::autodiff::AutodiffElement,
     },
+    math::assert::{Assert, AssertionError},
     units::Stress,
 };
 
@@ -50,35 +51,22 @@ fn setup() -> (
 }
 
 #[test]
-fn nodal_forces_match_analytic() {
+fn nodal_forces_match_analytic() -> Result<(), AssertionError> {
     let (element, coordinates, autodiff, hand) = setup();
     let ad = element.autodiff_nodal_forces(&autodiff, &coordinates);
     let hd = PlanarElasticFiniteElement::nodal_forces(&element, &hand, &coordinates).unwrap();
-    for a in 0..3 {
-        for i in 0..2 {
-            assert!(
-                close(ad[a][i].value(), hd[a][i].value(), 1e-8),
-                "force [{a}][{i}]"
-            );
-        }
-    }
+    Assert::default().eq_within_tols(&ad, &hd)
 }
 
 #[test]
-fn nodal_stiffnesses_match_analytic() {
+fn nodal_stiffnesses_match_analytic() -> Result<(), AssertionError> {
     let (element, coordinates, autodiff, hand) = setup();
     let ad = element.autodiff_nodal_stiffnesses(&autodiff, &coordinates);
     let hd = PlanarElasticFiniteElement::nodal_stiffnesses(&element, &hand, &coordinates).unwrap();
-    for a in 0..3 {
-        for b in 0..3 {
-            for i in 0..2 {
-                for j in 0..2 {
-                    assert!(
-                        close(ad[a][b][i][j].value(), hd[a][b][i][j].value(), 1e-5),
-                        "stiffness [{a}][{b}][{i}][{j}]"
-                    );
-                }
-            }
-        }
+    Assert {
+        abs_tol: 1e-5,
+        rel_tol: 1e-5,
+        ..Default::default()
     }
+    .eq_within_tols(&ad, &hd)
 }
