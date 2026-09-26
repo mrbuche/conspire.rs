@@ -1,5 +1,3 @@
-// shared helpers and test macro for the planar autodiff element tests
-
 pub const A2: [[f64; 2]; 2] = [[1.1, 0.1], [0.05, 0.9]];
 pub const F2: [[f64; 2]; 2] = [[1.04936674, -0.12393166], [0.01618241, 1.08463046]];
 

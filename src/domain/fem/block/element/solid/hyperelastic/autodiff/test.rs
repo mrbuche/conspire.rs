@@ -1,5 +1,3 @@
-// shared helpers and test macros for the autodiff element tests
-
 pub const BULK_MODULUS: f64 = 1.3;
 pub const SHEAR_MODULUS: f64 = 0.7;
 

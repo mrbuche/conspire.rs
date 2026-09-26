@@ -1,5 +1,3 @@
-// tests for the autodiff hyperviscoelastic elements
-
 pub const L: [[f64; 3]; 3] = [
     [0.05, -0.02, 0.01],
     [0.03, 0.04, -0.06],
