@@ -63,10 +63,5 @@ fn nodal_stiffnesses_match_analytic() -> Result<(), AssertionError> {
     let (element, coordinates, autodiff, hand) = setup();
     let ad = element.autodiff_nodal_stiffnesses(&autodiff, &coordinates);
     let hd = PlanarElasticFiniteElement::nodal_stiffnesses(&element, &hand, &coordinates).unwrap();
-    Assert {
-        abs_tol: 1e-5,
-        rel_tol: 1e-5,
-        ..Default::default()
-    }
-    .eq_within_tols(&ad, &hd)
+    Assert::default().eq_within_tols(&ad, &hd)
 }

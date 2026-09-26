@@ -2,16 +2,16 @@
 
 use crate::{
     constitutive::{
-        fluid::hyperviscous::autodiff::AutodiffHyperviscous,
+        fluid::{hyperviscous::autodiff::AutodiffHyperviscous, viscous::autodiff::AutodiffViscous},
         solid::hyperviscoelastic::autodiff::AutodiffHyperviscoelastic,
     },
     fem::block::element::{
         Element, FiniteElement,
-        autodiff::{Coordinates, central_difference, flatten, unflatten},
+        autodiff::{Coordinates, flatten, unflatten},
         solid::{
             autodiff::{
-                Dampings, Forces, Velocities, deformation_gradient, deformation_gradient_rate,
-                flatten_velocities,
+                Dampings, Forces, Velocities, assemble_tangent, deformation_gradient,
+                deformation_gradient_rate, flatten_velocities, tangent_matrix,
             },
             hyperelastic::autodiff::{element_energy, forces_flat},
         },
@@ -123,10 +123,15 @@ where
     let parameters = model.viscous_parameters();
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
     let v = flatten_velocities::<D, N, DOF>(velocities);
-    central_difference::<D, N, DOF>(&v, |v| {
-        viscous_forces_flat::<M::Viscous, D, N, G, DOF, GN>(&parameters, &grad_n, &weights, &x, v)
-    })
-    .into()
+    let mut tangents = [[0.0; 81]; G];
+    for g in 0..G {
+        let f = deformation_gradient::<D, N, DOF, GN>(&grad_n, g, &x);
+        let f_dot = deformation_gradient_rate::<D, N, DOF, GN>(&grad_n, g, &v);
+        tangents[g] = tangent_matrix(|direction, primal, seed| {
+            M::Viscous::viscous_piola_tangent(&parameters, &f, &f_dot, direction, primal, seed)
+        });
+    }
+    assemble_tangent::<D, N, G, GN>(&tangents, &grad_n, &weights).into()
 }
 
 pub(crate) fn viscous_dissipation<

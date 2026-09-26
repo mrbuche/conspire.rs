@@ -119,12 +119,7 @@ macro_rules! viscous_tests {
                     &velocities,
                 )
                 .unwrap();
-                Assert {
-                    abs_tol: 1e-6,
-                    rel_tol: 1e-6,
-                    ..Default::default()
-                }
-                .eq_within_tols(&ad, &hd)
+                Assert::default().eq_within_tols(&ad, &hd)
             }
 
             #[test]

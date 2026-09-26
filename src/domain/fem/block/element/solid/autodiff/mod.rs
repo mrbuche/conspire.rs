@@ -116,3 +116,48 @@ pub(crate) fn flatten_velocities<const D: usize, const N: usize, const DOF: usiz
     }
     v
 }
+
+pub(crate) fn tangent_matrix(
+    mut directional: impl FnMut(&[f64; 9], &mut [f64; 9], &mut [f64; 9]),
+) -> [f64; 81] {
+    let mut tangent = [0.0; 81];
+    for kl in 0..9 {
+        let mut direction = [0.0; 9];
+        direction[kl] = 1.0;
+        let (mut primal, mut seed) = ([0.0; 9], [0.0; 9]);
+        directional(&direction, &mut primal, &mut seed);
+        for ij in 0..9 {
+            tangent[9 * ij + kl] = seed[ij];
+        }
+    }
+    tangent
+}
+
+pub(crate) fn assemble_tangent<const D: usize, const N: usize, const G: usize, const GN: usize>(
+    tangents: &[[f64; 81]; G],
+    grad_n: &[f64; GN],
+    weights: &[f64; G],
+) -> [[[[f64; D]; D]; N]; N] {
+    let mut out = [[[[0.0; D]; D]; N]; N];
+    for g in 0..G {
+        let base = D * N * g;
+        for a in 0..N {
+            for b in 0..N {
+                for i in 0..D {
+                    for k in 0..D {
+                        let mut sum = 0.0;
+                        for j in 0..D {
+                            for l in 0..D {
+                                sum += grad_n[base + D * a + j]
+                                    * tangents[g][9 * (3 * i + j) + 3 * k + l]
+                                    * grad_n[base + D * b + l];
+                            }
+                        }
+                        out[a][b][i][k] += weights[g] * sum;
+                    }
+                }
+            }
+        }
+    }
+    out
+}

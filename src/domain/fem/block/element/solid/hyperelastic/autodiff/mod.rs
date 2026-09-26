@@ -4,8 +4,10 @@ use crate::{
     constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic,
     fem::block::element::{
         Element, FiniteElement,
-        autodiff::{Coordinates, central_difference, flatten, unflatten},
-        solid::autodiff::{Forces, Stiffnesses, deformation_gradient},
+        autodiff::{Coordinates, flatten, unflatten},
+        solid::autodiff::{
+            Forces, Stiffnesses, assemble_tangent, deformation_gradient, tangent_matrix,
+        },
     },
 };
 use std::autodiff::autodiff_reverse;
@@ -89,10 +91,14 @@ where
 {
     let parameters = model.parameters();
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
-    central_difference::<D, N, DOF>(&x, |x| {
-        forces_flat::<M, D, N, G, DOF, GN>(&parameters, &grad_n, &weights, x)
-    })
-    .into()
+    let mut tangents = [[0.0; 81]; G];
+    for g in 0..G {
+        let f = deformation_gradient::<D, N, DOF, GN>(&grad_n, g, &x);
+        tangents[g] = tangent_matrix(|direction, primal, seed| {
+            M::piola_tangent(&parameters, &f, direction, primal, seed)
+        });
+    }
+    assemble_tangent::<D, N, G, GN>(&tangents, &grad_n, &weights).into()
 }
 
 pub trait AutodiffElement<M>
