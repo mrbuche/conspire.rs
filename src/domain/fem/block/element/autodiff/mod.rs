@@ -55,26 +55,3 @@ pub(crate) fn unflatten<const D: usize, const N: usize, const DOF: usize>(
     }
     out
 }
-
-pub(crate) fn central_difference<const D: usize, const N: usize, const DOF: usize>(
-    x: &[f64; DOF],
-    mut flat_function: impl FnMut(&[f64; DOF]) -> [f64; DOF],
-) -> [[[[f64; D]; D]; N]; N] {
-    const EPSILON: f64 = 1e-6;
-    let mut out = [[[[0.0; D]; D]; N]; N];
-    for b in 0..N {
-        for j in 0..D {
-            let (mut plus, mut minus) = (*x, *x);
-            plus[D * b + j] += EPSILON;
-            minus[D * b + j] -= EPSILON;
-            let fp = flat_function(&plus);
-            let fm = flat_function(&minus);
-            for a in 0..N {
-                for i in 0..D {
-                    out[a][b][i][j] = (fp[D * a + i] - fm[D * a + i]) / (2.0 * EPSILON);
-                }
-            }
-        }
-    }
-    out
-}
