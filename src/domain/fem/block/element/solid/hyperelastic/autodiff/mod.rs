@@ -8,18 +8,13 @@ use crate::{
 };
 use std::autodiff::autodiff_reverse;
 
-pub(crate) mod viscous;
-
-pub use viscous::AutodiffViscoelasticElement;
-pub(crate) use viscous::autodiff_viscoelastic_element;
-
 pub(crate) type Coordinates<const D: usize, const N: usize> =
     TensorRank1List<D, Current, N, Length>;
 pub(crate) type Forces<const D: usize, const N: usize> = TensorRank1List<D, Current, N, Force>;
 pub(crate) type Stiffnesses<const D: usize, const N: usize> =
     TensorRank2List2D<D, Current, Current, N, N, ForcePerLength>;
 
-fn component<const D: usize, const N: usize, const DOF: usize, const GN: usize>(
+pub(crate) fn component<const D: usize, const N: usize, const DOF: usize, const GN: usize>(
     grad_n: &[f64; GN],
     base: usize,
     x: &[f64; DOF],
@@ -49,7 +44,12 @@ fn entry<const D: usize, const N: usize, const DOF: usize, const GN: usize>(
     }
 }
 
-fn deformation_gradient<const D: usize, const N: usize, const DOF: usize, const GN: usize>(
+pub(crate) fn deformation_gradient<
+    const D: usize,
+    const N: usize,
+    const DOF: usize,
+    const GN: usize,
+>(
     grad_n: &[f64; GN],
     g: usize,
     x: &[f64; DOF],
@@ -69,7 +69,7 @@ fn deformation_gradient<const D: usize, const N: usize, const DOF: usize, const 
 }
 
 #[autodiff_reverse(d_element_energy, Const, Const, Const, Duplicated, Active)]
-fn element_energy<
+pub(crate) fn element_energy<
     M: AutodiffHyperelastic,
     const D: usize,
     const N: usize,
@@ -90,7 +90,7 @@ fn element_energy<
     potential
 }
 
-fn forces_flat<
+pub(crate) fn forces_flat<
     M: AutodiffHyperelastic,
     const D: usize,
     const N: usize,
@@ -108,7 +108,7 @@ fn forces_flat<
     out
 }
 
-fn flatten<
+pub(crate) fn flatten<
     const D: usize,
     const G: usize,
     const N: usize,
