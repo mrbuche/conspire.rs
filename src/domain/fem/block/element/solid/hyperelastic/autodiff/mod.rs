@@ -8,13 +8,15 @@ use crate::{
 };
 use std::autodiff::autodiff_reverse;
 
-mod viscous;
+pub(crate) mod viscous;
 
 pub use viscous::AutodiffViscoelasticElement;
+pub(crate) use viscous::autodiff_viscoelastic_element;
 
-type Coordinates<const D: usize, const N: usize> = TensorRank1List<D, Current, N, Length>;
-type Forces<const D: usize, const N: usize> = TensorRank1List<D, Current, N, Force>;
-type Stiffnesses<const D: usize, const N: usize> =
+pub(crate) type Coordinates<const D: usize, const N: usize> =
+    TensorRank1List<D, Current, N, Length>;
+pub(crate) type Forces<const D: usize, const N: usize> = TensorRank1List<D, Current, N, Force>;
+pub(crate) type Stiffnesses<const D: usize, const N: usize> =
     TensorRank2List2D<D, Current, Current, N, N, ForcePerLength>;
 
 fn component<const D: usize, const N: usize, const DOF: usize, const GN: usize>(
@@ -141,7 +143,7 @@ where
     (grad_n, weights, x)
 }
 
-fn forces<
+pub(crate) fn forces<
     M: AutodiffHyperelastic,
     const D: usize,
     const G: usize,
@@ -168,7 +170,7 @@ where
     out.into()
 }
 
-fn stiffnesses<
+pub(crate) fn stiffnesses<
     M: AutodiffHyperelastic,
     const D: usize,
     const G: usize,
@@ -220,37 +222,51 @@ where
     ) -> Self::Stiffnesses;
 }
 
-macro_rules! shape {
+macro_rules! autodiff_element {
     ($d:literal, $g:literal, $n:literal, $o:literal) => {
-        impl<M> AutodiffElement<M> for Element<$d, $g, $n, $o>
+        impl<M> $crate::fem::block::element::solid::hyperelastic::autodiff::AutodiffElement<M>
+            for $crate::fem::block::element::Element<$d, $g, $n, $o>
         where
-            M: AutodiffHyperelastic,
+            M: $crate::constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic,
         {
-            type Coordinates = Coordinates<$d, $n>;
-            type Forces = Forces<$d, $n>;
-            type Stiffnesses = Stiffnesses<$d, $n>;
+            type Coordinates =
+                $crate::fem::block::element::solid::hyperelastic::autodiff::Coordinates<$d, $n>;
+            type Forces =
+                $crate::fem::block::element::solid::hyperelastic::autodiff::Forces<$d, $n>;
+            type Stiffnesses =
+                $crate::fem::block::element::solid::hyperelastic::autodiff::Stiffnesses<$d, $n>;
             fn autodiff_nodal_forces(
                 &self,
                 model: &M,
                 coordinates: &Self::Coordinates,
             ) -> Self::Forces {
-                forces::<M, $d, $g, $n, $o, { $d * $n }, { $d * $n * $g }>(model, self, coordinates)
+                $crate::fem::block::element::solid::hyperelastic::autodiff::forces::<
+                    M,
+                    $d,
+                    $g,
+                    $n,
+                    $o,
+                    { $d * $n },
+                    { $d * $n * $g },
+                >(model, self, coordinates)
             }
             fn autodiff_nodal_stiffnesses(
                 &self,
                 model: &M,
                 coordinates: &Self::Coordinates,
             ) -> Self::Stiffnesses {
-                stiffnesses::<M, $d, $g, $n, $o, { $d * $n }, { $d * $n * $g }>(
-                    model,
-                    self,
-                    coordinates,
-                )
+                $crate::fem::block::element::solid::hyperelastic::autodiff::stiffnesses::<
+                    M,
+                    $d,
+                    $g,
+                    $n,
+                    $o,
+                    { $d * $n },
+                    { $d * $n * $g },
+                >(model, self, coordinates)
             }
         }
     };
 }
 
-shape!(3, 8, 8, 1);
-shape!(3, 1, 4, 1);
-shape!(2, 1, 3, 1);
+pub(crate) use autodiff_element;
