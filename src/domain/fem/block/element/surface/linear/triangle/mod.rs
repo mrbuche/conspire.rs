@@ -1,5 +1,3 @@
-#[cfg(feature = "autodiff")]
-mod autodiff;
 #[cfg(test)]
 pub mod test;
 

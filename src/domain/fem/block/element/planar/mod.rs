@@ -1,3 +1,6 @@
+mod quadrilateral;
+mod triangle;
+
 use crate::{
     constitutive::{
         ConstitutiveError,

@@ -1,0 +1,10 @@
+elastic_tests!(
+    conspire::fem::block::element::serendipity::Hexahedron,
+    27,
+    20
+);
+viscous_tests!(
+    conspire::fem::block::element::serendipity::Hexahedron,
+    27,
+    20
+);
