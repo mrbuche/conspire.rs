@@ -1,6 +1,7 @@
+pub use crate::domain::block::element::solid::hyperviscoelastic::HyperviscoelasticElement;
+
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperviscoelastic::Hyperviscoelastic},
-    domain::block::element::solid::hyperviscoelastic::HyperviscoelasticElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElementError,
         solid::elastic_hyperviscous::ElasticHyperviscousFiniteElement, surface::SurfaceElement,

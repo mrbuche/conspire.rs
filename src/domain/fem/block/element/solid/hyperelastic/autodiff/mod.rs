@@ -8,6 +8,10 @@ use crate::{
 };
 use std::autodiff::autodiff_reverse;
 
+mod viscous;
+
+pub use viscous::AutodiffViscoelasticElement;
+
 type Coordinates<const D: usize, const N: usize> = TensorRank1List<D, Current, N, Length>;
 type Forces<const D: usize, const N: usize> = TensorRank1List<D, Current, N, Force>;
 type Stiffnesses<const D: usize, const N: usize> =
