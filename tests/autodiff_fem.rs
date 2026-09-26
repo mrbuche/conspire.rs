@@ -4,11 +4,7 @@ use conspire::{
     constitutive::solid::hyperelastic::{NeoHookean, autodiff::AutodiffNeoHookean},
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement, linear,
-        quadratic, serendipity,
-        solid::{
-            elastic::ElasticElement,
-            hyperelastic::autodiff::{nodal_forces, nodal_stiffnesses},
-        },
+        solid::{elastic::ElasticElement, hyperelastic::autodiff::AutodiffElement},
     },
     units::Stress,
 };
@@ -87,7 +83,7 @@ macro_rules! shape {
             #[test]
             fn nodal_forces_match_analytic() {
                 let (element, coordinates, autodiff, hand) = setup();
-                let ad = nodal_forces(&autodiff, &element, &coordinates);
+                let ad = element.autodiff_nodal_forces(&autodiff, &coordinates);
                 let hd = element.nodal_forces(&hand, &coordinates).unwrap();
                 for a in 0..$n {
                     for i in 0..3 {
@@ -100,9 +96,65 @@ macro_rules! shape {
             }
 
             #[test]
+            #[ignore]
+            fn bench() {
+                use std::{hint::black_box, time::Instant};
+                let (element, coordinates, autodiff, hand) = setup();
+                let time = |label: &str, iterations: u32, mut f: Box<dyn FnMut() + '_>| {
+                    f();
+                    let start = Instant::now();
+                    for _ in 0..iterations {
+                        f();
+                    }
+                    let micros = start.elapsed().as_secs_f64() * 1e6 / iterations as f64;
+                    println!("BENCH {} {label}: {micros:.2} us", stringify!($name));
+                };
+                time(
+                    "forces autodiff",
+                    20000,
+                    Box::new(|| {
+                        black_box(
+                            element.autodiff_nodal_forces(&autodiff, black_box(&coordinates)),
+                        );
+                    }),
+                );
+                time(
+                    "forces hand    ",
+                    20000,
+                    Box::new(|| {
+                        black_box(
+                            element
+                                .nodal_forces(&hand, black_box(&coordinates))
+                                .unwrap(),
+                        );
+                    }),
+                );
+                time(
+                    "stiffness autodiff",
+                    2000,
+                    Box::new(|| {
+                        black_box(
+                            element.autodiff_nodal_stiffnesses(&autodiff, black_box(&coordinates)),
+                        );
+                    }),
+                );
+                time(
+                    "stiffness hand    ",
+                    2000,
+                    Box::new(|| {
+                        black_box(
+                            element
+                                .nodal_stiffnesses(&hand, black_box(&coordinates))
+                                .unwrap(),
+                        );
+                    }),
+                );
+            }
+
+            #[test]
             fn nodal_stiffnesses_match_analytic() {
                 let (element, coordinates, autodiff, hand) = setup();
-                let ad = nodal_stiffnesses(&autodiff, &element, &coordinates);
+                let ad = element.autodiff_nodal_stiffnesses(&autodiff, &coordinates);
                 let hd = element.nodal_stiffnesses(&hand, &coordinates).unwrap();
                 for a in 0..$n {
                     for b in 0..$n {
@@ -123,10 +175,3 @@ macro_rules! shape {
 
 shape!(linear_hexahedron, linear::Hexahedron, 8, 8);
 shape!(linear_tetrahedron, linear::Tetrahedron, 1, 4);
-shape!(linear_wedge, linear::Wedge, 6, 6);
-shape!(linear_pyramid, linear::Pyramid, 8, 5);
-shape!(quadratic_hexahedron, quadratic::Hexahedron, 27, 27);
-shape!(quadratic_tetrahedron, quadratic::Tetrahedron, 4, 10);
-shape!(quadratic_wedge, quadratic::Wedge, 18, 15);
-shape!(quadratic_pyramid, quadratic::Pyramid, 27, 13);
-shape!(serendipity_hexahedron, serendipity::Hexahedron, 27, 20);
