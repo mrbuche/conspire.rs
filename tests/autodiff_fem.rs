@@ -12,5 +12,5 @@ mod hyperviscoelastic;
 mod linear_hexahedron;
 #[path = "../src/domain/fem/block/element/linear/tetrahedron/autodiff/test.rs"]
 mod linear_tetrahedron;
-#[path = "../src/domain/fem/block/element/planar/autodiff/test.rs"]
+#[path = "../src/domain/fem/block/element/surface/linear/triangle/autodiff/test.rs"]
 mod linear_triangle;
