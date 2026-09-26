@@ -12,6 +12,9 @@ pub mod test;
 
 mod canonical;
 
+#[cfg(feature = "autodiff")]
+pub mod autodiff;
+
 use super::{elastic_hyperviscous::ElasticHyperviscous, *};
 use crate::{math::Quantity, units::EnergyDensity};
 

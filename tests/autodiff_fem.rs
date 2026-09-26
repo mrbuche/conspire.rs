@@ -1,16 +1,30 @@
 #![cfg(all(feature = "fem", feature = "autodiff"))]
 
 use conspire::{
-    constitutive::solid::hyperelastic::{NeoHookean, autodiff::AutodiffNeoHookean},
+    constitutive::{
+        canonical::Canonical,
+        fluid::hyperviscous::{Newtonian, autodiff::AutodiffNewtonian},
+        solid::hyperelastic::{
+            NeoHookean,
+            autodiff::{Autodiff, AutodiffNeoHookean},
+        },
+    },
     fem::block::element::{
-        ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement, linear,
+        ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
+        FiniteElement, linear,
         planar::{
             PlanarElasticFiniteElement, PlanarElementNodalCoordinates,
             PlanarElementNodalReferenceCoordinates, Triangle,
         },
-        solid::{elastic::ElasticElement, hyperelastic::autodiff::AutodiffElement},
+        solid::{
+            elastic::ElasticElement,
+            elastic_hyperviscous::ElasticHyperviscousElement,
+            hyperelastic::autodiff::{AutodiffElement, AutodiffViscoelasticElement},
+            hyperviscoelastic::HyperviscoelasticElement,
+            viscoelastic::ViscoelasticElement,
+        },
     },
-    units::Stress,
+    units::{Stress, Viscosity},
 };
 
 const BULK_MODULUS: f64 = 1.3;
@@ -88,7 +102,7 @@ macro_rules! shape {
             fn nodal_forces_match_analytic() {
                 let (element, coordinates, autodiff, hand) = setup();
                 let ad = element.autodiff_nodal_forces(&autodiff, &coordinates);
-                let hd = element.nodal_forces(&hand, &coordinates).unwrap();
+                let hd = ElasticElement::nodal_forces(&element, &hand, &coordinates).unwrap();
                 for a in 0..$n {
                     for i in 0..3 {
                         assert!(
@@ -127,8 +141,7 @@ macro_rules! shape {
                     20000,
                     Box::new(|| {
                         black_box(
-                            element
-                                .nodal_forces(&hand, black_box(&coordinates))
+                            ElasticElement::nodal_forces(&element, &hand, black_box(&coordinates))
                                 .unwrap(),
                         );
                     }),
@@ -147,9 +160,12 @@ macro_rules! shape {
                     2000,
                     Box::new(|| {
                         black_box(
-                            element
-                                .nodal_stiffnesses(&hand, black_box(&coordinates))
-                                .unwrap(),
+                            ElasticElement::nodal_stiffnesses(
+                                &element,
+                                &hand,
+                                black_box(&coordinates),
+                            )
+                            .unwrap(),
                         );
                     }),
                 );
@@ -159,7 +175,7 @@ macro_rules! shape {
             fn nodal_stiffnesses_match_analytic() {
                 let (element, coordinates, autodiff, hand) = setup();
                 let ad = element.autodiff_nodal_stiffnesses(&autodiff, &coordinates);
-                let hd = element.nodal_stiffnesses(&hand, &coordinates).unwrap();
+                let hd = ElasticElement::nodal_stiffnesses(&element, &hand, &coordinates).unwrap();
                 for a in 0..$n {
                     for b in 0..$n {
                         for i in 0..3 {
@@ -224,7 +240,7 @@ mod linear_triangle {
     fn nodal_forces_match_analytic() {
         let (element, coordinates, autodiff, hand) = setup();
         let ad = element.autodiff_nodal_forces(&autodiff, &coordinates);
-        let hd = element.nodal_forces(&hand, &coordinates).unwrap();
+        let hd = PlanarElasticFiniteElement::nodal_forces(&element, &hand, &coordinates).unwrap();
         for a in 0..3 {
             for i in 0..2 {
                 assert!(
@@ -239,7 +255,8 @@ mod linear_triangle {
     fn nodal_stiffnesses_match_analytic() {
         let (element, coordinates, autodiff, hand) = setup();
         let ad = element.autodiff_nodal_stiffnesses(&autodiff, &coordinates);
-        let hd = element.nodal_stiffnesses(&hand, &coordinates).unwrap();
+        let hd =
+            PlanarElasticFiniteElement::nodal_stiffnesses(&element, &hand, &coordinates).unwrap();
         for a in 0..3 {
             for b in 0..3 {
                 for i in 0..2 {
@@ -254,3 +271,147 @@ mod linear_triangle {
         }
     }
 }
+
+const L: [[f64; 3]; 3] = [
+    [0.05, -0.02, 0.01],
+    [0.03, 0.04, -0.06],
+    [-0.01, 0.02, 0.07],
+];
+
+macro_rules! viscous_shape {
+    ($name:ident, $element:ty, $g:literal, $n:literal) => {
+        mod $name {
+            use super::*;
+
+            #[allow(clippy::type_complexity)]
+            fn setup() -> (
+                $element,
+                ElementNodalCoordinates<$n>,
+                ElementNodalVelocities<$n>,
+                Canonical<Autodiff<AutodiffNeoHookean>, Autodiff<AutodiffNewtonian>>,
+                Canonical<NeoHookean, Newtonian>,
+            ) {
+                let parametric = <$element as FiniteElement<$g, 3, $n, $n>>::parametric_reference();
+                let mut nodes = [[0.0; 3]; $n];
+                for a in 0..$n {
+                    for k in 0..3 {
+                        nodes[a][k] = parametric[a][k].value();
+                    }
+                }
+                let reference = reference(nodes);
+                let mut velocities = [[0.0; 3]; $n];
+                for a in 0..$n {
+                    let x = reference[a];
+                    velocities[a] = apply(&L, &x);
+                    velocities[a][0] += 0.02 * x[1] * x[2];
+                    velocities[a][1] += 0.02 * x[2] * x[0];
+                    velocities[a][2] += 0.02 * x[0] * x[1];
+                }
+                let element =
+                    <$element>::from(ElementNodalReferenceCoordinates::<$n>::from(reference));
+                let coordinates = ElementNodalCoordinates::<$n>::from(deformed(&reference));
+                let velocities = ElementNodalVelocities::<$n>::from(velocities);
+                let (bulk_modulus, shear_modulus) = (
+                    Stress::pascals(BULK_MODULUS),
+                    Stress::pascals(SHEAR_MODULUS),
+                );
+                let (bulk_viscosity, shear_viscosity) = (
+                    Viscosity::pascal_seconds(1.1),
+                    Viscosity::pascal_seconds(0.5),
+                );
+                let autodiff = Canonical::from((
+                    Autodiff(AutodiffNeoHookean {
+                        bulk_modulus,
+                        shear_modulus,
+                    }),
+                    Autodiff(AutodiffNewtonian {
+                        bulk_viscosity,
+                        shear_viscosity,
+                    }),
+                ));
+                let hand = Canonical::from((
+                    NeoHookean {
+                        bulk_modulus,
+                        shear_modulus,
+                    },
+                    Newtonian {
+                        bulk_viscosity,
+                        shear_viscosity,
+                    },
+                ));
+                (element, coordinates, velocities, autodiff, hand)
+            }
+
+            #[test]
+            fn nodal_forces_match_analytic() {
+                let (element, coordinates, velocities, autodiff, hand) = setup();
+                let ad = element.autodiff_viscoelastic_nodal_forces(
+                    &autodiff,
+                    &coordinates,
+                    &velocities,
+                );
+                let hd =
+                    ViscoelasticElement::nodal_forces(&element, &hand, &coordinates, &velocities)
+                        .unwrap();
+                for a in 0..$n {
+                    for i in 0..3 {
+                        assert!(
+                            close(ad[a][i].value(), hd[a][i].value(), 1e-8),
+                            "force [{a}][{i}]"
+                        );
+                    }
+                }
+            }
+
+            #[test]
+            fn nodal_dampings_match_analytic() {
+                let (element, coordinates, velocities, autodiff, hand) = setup();
+                let ad = element.autodiff_nodal_dampings(&autodiff, &coordinates, &velocities);
+                let hd = ViscoelasticElement::nodal_stiffnesses(
+                    &element,
+                    &hand,
+                    &coordinates,
+                    &velocities,
+                )
+                .unwrap();
+                for a in 0..$n {
+                    for b in 0..$n {
+                        for i in 0..3 {
+                            for j in 0..3 {
+                                assert!(
+                                    close(ad[a][b][i][j].value(), hd[a][b][i][j].value(), 1e-6),
+                                    "damping [{a}][{b}][{i}][{j}]"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+
+            #[test]
+            fn energies_match_analytic() {
+                let (element, coordinates, velocities, autodiff, hand) = setup();
+                let ad = element.autodiff_viscous_dissipation(&autodiff, &coordinates, &velocities);
+                let hd = ElasticHyperviscousElement::viscous_dissipation(
+                    &element,
+                    &hand,
+                    &coordinates,
+                    &velocities,
+                )
+                .unwrap();
+                assert!(close(ad.value(), hd.value(), 1e-10), "viscous dissipation");
+                let ad = element.autodiff_helmholtz_free_energy(&autodiff, &coordinates);
+                let hd =
+                    HyperviscoelasticElement::helmholtz_free_energy(&element, &hand, &coordinates)
+                        .unwrap();
+                assert!(
+                    close(ad.value(), hd.value(), 1e-10),
+                    "helmholtz free energy"
+                );
+            }
+        }
+    };
+}
+
+viscous_shape!(viscous_hexahedron, linear::Hexahedron, 8, 8);
+viscous_shape!(viscous_tetrahedron, linear::Tetrahedron, 1, 4);
