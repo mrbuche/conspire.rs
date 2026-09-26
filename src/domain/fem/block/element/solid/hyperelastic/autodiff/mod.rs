@@ -2,126 +2,182 @@
 
 use crate::{
     constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic,
-    fem::block::element::{Element, ElementNodalCoordinates, FiniteElement},
+    fem::block::element::{
+        Element, ElementNodalCoordinates, FiniteElement,
+        solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
+    },
 };
 use std::autodiff::autodiff_reverse;
 
-const N: usize = 8;
-const G: usize = 8;
-const DOF: usize = 3 * N;
-const GN: usize = 3 * N * G;
+const N_MAX: usize = 27;
+const G_MAX: usize = 27;
+const DOF_MAX: usize = 3 * N_MAX;
+const GN_MAX: usize = 3 * N_MAX * G_MAX;
 
-fn component(grad_n: &[f64; GN], base: usize, x: &[f64; DOF], i: usize, j: usize) -> f64 {
+fn component(
+    grad_n: &[f64; GN_MAX],
+    base: usize,
+    x: &[f64; DOF_MAX],
+    n: usize,
+    i: usize,
+    j: usize,
+) -> f64 {
     let mut sum = 0.0;
-    for a in 0..N {
+    for a in 0..n {
         sum += x[3 * a + i] * grad_n[base + 3 * a + j];
     }
     sum
 }
 
-fn deformation_gradient(grad_n: &[f64; GN], g: usize, x: &[f64; DOF]) -> [f64; 9] {
-    let b = 3 * N * g;
+fn deformation_gradient(
+    grad_n: &[f64; GN_MAX],
+    g: usize,
+    x: &[f64; DOF_MAX],
+    n: usize,
+) -> [f64; 9] {
+    let b = 3 * n * g;
     [
-        component(grad_n, b, x, 0, 0),
-        component(grad_n, b, x, 0, 1),
-        component(grad_n, b, x, 0, 2),
-        component(grad_n, b, x, 1, 0),
-        component(grad_n, b, x, 1, 1),
-        component(grad_n, b, x, 1, 2),
-        component(grad_n, b, x, 2, 0),
-        component(grad_n, b, x, 2, 1),
-        component(grad_n, b, x, 2, 2),
+        component(grad_n, b, x, n, 0, 0),
+        component(grad_n, b, x, n, 0, 1),
+        component(grad_n, b, x, n, 0, 2),
+        component(grad_n, b, x, n, 1, 0),
+        component(grad_n, b, x, n, 1, 1),
+        component(grad_n, b, x, n, 1, 2),
+        component(grad_n, b, x, n, 2, 0),
+        component(grad_n, b, x, n, 2, 1),
+        component(grad_n, b, x, n, 2, 2),
     ]
 }
 
-#[autodiff_reverse(d_element_energy, Const, Const, Const, Duplicated, Active)]
+#[autodiff_reverse(
+    d_element_energy,
+    Const,
+    Const,
+    Const,
+    Duplicated,
+    Const,
+    Const,
+    Active
+)]
 fn element_energy<M: AutodiffHyperelastic>(
     parameters: &[f64; 2],
-    grad_n: &[f64; GN],
-    weights: &[f64; G],
-    x: &[f64; DOF],
+    grad_n: &[f64; GN_MAX],
+    weights: &[f64; G_MAX],
+    x: &[f64; DOF_MAX],
+    n: usize,
+    g: usize,
 ) -> f64 {
     let mut potential = 0.0;
-    for g in 0..G {
-        let f = deformation_gradient(grad_n, g, x);
-        potential += weights[g] * M::energy(parameters, &f);
+    for k in 0..g {
+        let f = deformation_gradient(grad_n, k, x, n);
+        potential += weights[k] * M::energy(parameters, &f);
     }
     potential
 }
 
 fn forces_flat<M: AutodiffHyperelastic>(
     parameters: &[f64; 2],
-    grad_n: &[f64; GN],
-    weights: &[f64; G],
-    x: &[f64; DOF],
-) -> [f64; DOF] {
-    let mut out = [0.0; DOF];
-    d_element_energy::<M>(parameters, grad_n, weights, x, &mut out, 1.0);
+    grad_n: &[f64; GN_MAX],
+    weights: &[f64; G_MAX],
+    x: &[f64; DOF_MAX],
+    n: usize,
+    g: usize,
+) -> [f64; DOF_MAX] {
+    let mut out = [0.0; DOF_MAX];
+    d_element_energy::<M>(parameters, grad_n, weights, x, &mut out, n, g, 1.0);
     out
 }
 
-fn gradient_vectors_flat(element: &Element<3, G, N, 1>) -> [f64; GN] {
-    let mut out = [0.0; GN];
+struct Flat {
+    grad_n: [f64; GN_MAX],
+    weights: [f64; G_MAX],
+    x: [f64; DOF_MAX],
+}
+
+fn flatten<const G: usize, const N: usize, const O: usize>(
+    element: &Element<3, G, N, O>,
+    coordinates: &ElementNodalCoordinates<N>,
+) -> Flat
+where
+    Element<3, G, N, O>: FiniteElement<G, 3, N, N>,
+{
+    const { assert!(N <= N_MAX && G <= G_MAX) };
+    let mut flat = Flat {
+        grad_n: [0.0; GN_MAX],
+        weights: [0.0; G_MAX],
+        x: [0.0; DOF_MAX],
+    };
     for (g, node_gradients) in element.gradient_vectors().into_iter().enumerate() {
         for (a, gradient) in node_gradients.into_iter().enumerate() {
             for k in 0..3 {
-                out[3 * N * g + 3 * a + k] = gradient[k].value();
+                flat.grad_n[3 * N * g + 3 * a + k] = gradient[k].value();
             }
         }
     }
-    out
-}
-
-fn weights_flat(element: &Element<3, G, N, 1>) -> [f64; G] {
-    let mut out = [0.0; G];
     for (g, weight) in element.integration_weights().into_iter().enumerate() {
-        out[g] = weight.value();
+        flat.weights[g] = weight.value();
     }
-    out
-}
-
-fn coordinates_flat(coordinates: &ElementNodalCoordinates<N>) -> [f64; DOF] {
-    let mut out = [0.0; DOF];
     for (a, coordinate) in coordinates.into_iter().enumerate() {
         for i in 0..3 {
-            out[3 * a + i] = coordinate[i].value();
+            flat.x[3 * a + i] = coordinate[i].value();
         }
     }
-    out
+    flat
 }
 
-pub fn nodal_forces<M: AutodiffHyperelastic>(
+pub fn nodal_forces<M, const G: usize, const N: usize, const O: usize>(
     model: &M,
-    element: &Element<3, G, N, 1>,
+    element: &Element<3, G, N, O>,
     coordinates: &ElementNodalCoordinates<N>,
-) -> [f64; DOF] {
-    forces_flat::<M>(
+) -> ElementNodalForcesSolid<N>
+where
+    M: AutodiffHyperelastic,
+    Element<3, G, N, O>: FiniteElement<G, 3, N, N>,
+{
+    let flat = flatten(element, coordinates);
+    let forces = forces_flat::<M>(
         &model.parameters(),
-        &gradient_vectors_flat(element),
-        &weights_flat(element),
-        &coordinates_flat(coordinates),
-    )
+        &flat.grad_n,
+        &flat.weights,
+        &flat.x,
+        N,
+        G,
+    );
+    let mut out = [[0.0; 3]; N];
+    for a in 0..N {
+        for i in 0..3 {
+            out[a][i] = forces[3 * a + i];
+        }
+    }
+    out.into()
 }
 
-pub fn nodal_stiffnesses<M: AutodiffHyperelastic>(
+pub fn nodal_stiffnesses<M, const G: usize, const N: usize, const O: usize>(
     model: &M,
-    element: &Element<3, G, N, 1>,
+    element: &Element<3, G, N, O>,
     coordinates: &ElementNodalCoordinates<N>,
-) -> [[f64; DOF]; DOF] {
+) -> ElementNodalStiffnessesSolid<N>
+where
+    M: AutodiffHyperelastic,
+    Element<3, G, N, O>: FiniteElement<G, 3, N, N>,
+{
     const EPSILON: f64 = 1e-6;
     let parameters = model.parameters();
-    let (grad_n, weights) = (gradient_vectors_flat(element), weights_flat(element));
-    let x = coordinates_flat(coordinates);
-    let mut stiffness = [[0.0; DOF]; DOF];
-    for column in 0..DOF {
-        let (mut plus, mut minus) = (x, x);
-        plus[column] += EPSILON;
-        minus[column] -= EPSILON;
-        let fp = forces_flat::<M>(&parameters, &grad_n, &weights, &plus);
-        let fm = forces_flat::<M>(&parameters, &grad_n, &weights, &minus);
-        for row in 0..DOF {
-            stiffness[row][column] = (fp[row] - fm[row]) / (2.0 * EPSILON);
+    let flat = flatten(element, coordinates);
+    let mut out = [[[[0.0; 3]; 3]; N]; N];
+    for b in 0..N {
+        for j in 0..3 {
+            let (mut plus, mut minus) = (flat.x, flat.x);
+            plus[3 * b + j] += EPSILON;
+            minus[3 * b + j] -= EPSILON;
+            let fp = forces_flat::<M>(&parameters, &flat.grad_n, &flat.weights, &plus, N, G);
+            let fm = forces_flat::<M>(&parameters, &flat.grad_n, &flat.weights, &minus, N, G);
+            for a in 0..N {
+                for i in 0..3 {
+                    out[a][b][i][j] = (fp[3 * a + i] - fm[3 * a + i]) / (2.0 * EPSILON);
+                }
+            }
         }
     }
-    stiffness
+    out.into()
 }
