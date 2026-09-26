@@ -1,8 +1,9 @@
 pub mod internal_variables;
 
+pub use crate::domain::block::element::solid::elastic::ElasticElement;
+
 use crate::{
     constitutive::solid::elastic::Elastic,
-    domain::block::element::solid::elastic::ElasticElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, GradientVectors,
         solid::{
