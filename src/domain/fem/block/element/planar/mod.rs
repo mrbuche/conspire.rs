@@ -1,6 +1,8 @@
 mod quadrilateral;
 mod triangle;
 
+pub use self::{quadrilateral::Quadrilateral, triangle::Triangle};
+
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -23,9 +25,6 @@ use crate::{
 };
 
 const M: usize = 2;
-
-pub type Quadrilateral = Element<2, 4, 4, 1>;
-pub type Triangle = Element<2, 1, 3, 1>;
 
 pub type PlanarElementNodalCoordinates<const N: usize> = TensorRank1List<M, Current, N, Length>;
 pub type PlanarElementNodalReferenceCoordinates<const N: usize> =
