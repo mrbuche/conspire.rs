@@ -5,3 +5,6 @@ use crate::fem::block::element::solid::{
 
 autodiff_element!(3, 18, 15, 2);
 autodiff_viscoelastic_element!(18, 15, 2);
+
+#[cfg(test)]
+mod test;

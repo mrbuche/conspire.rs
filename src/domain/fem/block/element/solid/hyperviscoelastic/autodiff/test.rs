@@ -9,7 +9,11 @@ pub const L: [[f64; 3]; 3] = [
 macro_rules! viscous_tests {
     ($element:ty, $g:literal, $n:literal) => {
         mod viscous {
-            use conspire::{
+            use crate::fem::block::element::solid::hyperelastic::autodiff::test::{
+                BULK_MODULUS, SHEAR_MODULUS, apply, deformed, reference,
+            };
+            use crate::fem::block::element::solid::hyperviscoelastic::autodiff::test::L;
+            use crate::{
                 constitutive::{
                     canonical::Canonical,
                     fluid::hyperviscous::{Newtonian, autodiff::AutodiffNewtonian},
@@ -32,8 +36,6 @@ macro_rules! viscous_tests {
                 math::assert::{Assert, AssertionError},
                 units::{Stress, Viscosity},
             };
-            use $crate::common::{BULK_MODULUS, SHEAR_MODULUS, apply, deformed, reference};
-            use $crate::hyperviscoelastic::L;
 
             #[allow(clippy::type_complexity)]
             fn setup() -> (
@@ -143,3 +145,5 @@ macro_rules! viscous_tests {
         }
     };
 }
+
+pub(crate) use viscous_tests;

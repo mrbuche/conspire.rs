@@ -1,5 +1,8 @@
 #![allow(clippy::needless_range_loop)]
 
+#[cfg(test)]
+pub(crate) mod test;
+
 use crate::{
     constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic,
     fem::block::element::{

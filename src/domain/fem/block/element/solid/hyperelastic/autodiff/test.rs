@@ -37,7 +37,10 @@ pub fn deformed<const N: usize>(reference: &[[f64; 3]; N]) -> [[f64; 3]; N] {
 macro_rules! elastic_tests {
     ($element:ty, $g:literal, $n:literal) => {
         mod elastic {
-            use conspire::{
+            use crate::fem::block::element::solid::hyperelastic::autodiff::test::{
+                BULK_MODULUS, SHEAR_MODULUS, deformed, reference,
+            };
+            use crate::{
                 constitutive::solid::hyperelastic::{NeoHookean, autodiff::AutodiffNeoHookean},
                 fem::block::element::{
                     ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement,
@@ -46,7 +49,6 @@ macro_rules! elastic_tests {
                 math::assert::{Assert, AssertionError},
                 units::Stress,
             };
-            use $crate::common::{BULK_MODULUS, SHEAR_MODULUS, deformed, reference};
 
             fn setup() -> (
                 $element,
@@ -152,3 +154,5 @@ macro_rules! elastic_tests {
         }
     };
 }
+
+pub(crate) use elastic_tests;

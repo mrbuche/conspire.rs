@@ -13,7 +13,11 @@ pub fn apply2(matrix: &[[f64; 2]; 2], x: &[f64; 2]) -> [f64; 2] {
 macro_rules! planar_elastic_tests {
     ($element:ty, $g:literal, $n:literal) => {
         mod elastic {
-            use conspire::{
+            use crate::fem::block::element::planar::autodiff::test::{A2, F2, apply2};
+            use crate::fem::block::element::solid::hyperelastic::autodiff::test::{
+                BULK_MODULUS, SHEAR_MODULUS,
+            };
+            use crate::{
                 constitutive::solid::hyperelastic::{NeoHookean, autodiff::AutodiffNeoHookean},
                 fem::block::element::{
                     FiniteElement,
@@ -26,8 +30,6 @@ macro_rules! planar_elastic_tests {
                 math::assert::{Assert, AssertionError},
                 units::Stress,
             };
-            use $crate::common::{BULK_MODULUS, SHEAR_MODULUS};
-            use $crate::planar::{A2, F2, apply2};
 
             fn setup() -> (
                 $element,
@@ -81,3 +83,5 @@ macro_rules! planar_elastic_tests {
         }
     };
 }
+
+pub(crate) use planar_elastic_tests;
