@@ -1,12 +1,12 @@
 #![allow(clippy::needless_range_loop)]
 
-use super::{
-    Coordinates, Forces, component, deformation_gradient, element_energy, flatten, forces_flat,
-};
 use crate::{
     constitutive::{
         fluid::hyperviscous::autodiff::AutodiffHyperviscous,
         solid::hyperviscoelastic::autodiff::AutodiffHyperviscoelastic,
+    },
+    fem::block::element::solid::hyperelastic::autodiff::{
+        Coordinates, Forces, component, deformation_gradient, element_energy, flatten, forces_flat,
     },
     fem::block::element::{Element, FiniteElement},
     math::{Current, Quantity, TensorRank1List, TensorRank2List2D},
@@ -286,7 +286,7 @@ where
 
 macro_rules! autodiff_viscoelastic_element {
     ($g:literal, $n:literal, $o:literal) => {
-        impl<M> $crate::fem::block::element::solid::hyperelastic::autodiff::AutodiffViscoelasticElement<M>
+        impl<M> $crate::fem::block::element::solid::hyperviscoelastic::autodiff::AutodiffViscoelasticElement<M>
             for $crate::fem::block::element::Element<3, $g, $n, $o>
         where
             M: $crate::constitutive::solid::hyperviscoelastic::autodiff::AutodiffHyperviscoelastic,
@@ -302,7 +302,7 @@ macro_rules! autodiff_viscoelastic_element {
                 coordinates: &Self::Coordinates,
                 velocities: &Self::Velocities,
             ) -> Self::Forces {
-                $crate::fem::block::element::solid::hyperelastic::autodiff::viscous::forces::<
+                $crate::fem::block::element::solid::hyperviscoelastic::autodiff::forces::<
                     M,
                     3,
                     $g,
@@ -318,7 +318,7 @@ macro_rules! autodiff_viscoelastic_element {
                 coordinates: &Self::Coordinates,
                 velocities: &Self::Velocities,
             ) -> Self::Dampings {
-                $crate::fem::block::element::solid::hyperelastic::autodiff::viscous::dampings::<
+                $crate::fem::block::element::solid::hyperviscoelastic::autodiff::dampings::<
                     M,
                     3,
                     $g,
@@ -334,7 +334,7 @@ macro_rules! autodiff_viscoelastic_element {
                 coordinates: &Self::Coordinates,
                 velocities: &Self::Velocities,
             ) -> $crate::math::Quantity<$crate::units::Power> {
-                $crate::fem::block::element::solid::hyperelastic::autodiff::viscous::viscous_dissipation::<
+                $crate::fem::block::element::solid::hyperviscoelastic::autodiff::viscous_dissipation::<
                     M,
                     3,
                     $g,
@@ -349,7 +349,7 @@ macro_rules! autodiff_viscoelastic_element {
                 model: &M,
                 coordinates: &Self::Coordinates,
             ) -> $crate::math::Quantity<$crate::units::Energy> {
-                $crate::fem::block::element::solid::hyperelastic::autodiff::viscous::helmholtz_free_energy::<
+                $crate::fem::block::element::solid::hyperviscoelastic::autodiff::helmholtz_free_energy::<
                     M,
                     3,
                     $g,
