@@ -34,10 +34,6 @@ pub fn deformed<const N: usize>(reference: &[[f64; 3]; N]) -> [[f64; 3]; N] {
     })
 }
 
-pub fn close(a: f64, b: f64, tolerance: f64) -> bool {
-    (a - b).abs() <= tolerance * (1.0 + b.abs())
-}
-
 macro_rules! elastic_tests {
     ($element:ty, $g:literal, $n:literal) => {
         mod elastic {
@@ -47,9 +43,10 @@ macro_rules! elastic_tests {
                     ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement,
                     solid::{elastic::ElasticElement, hyperelastic::autodiff::AutodiffElement},
                 },
+                math::assert::{Assert, AssertionError},
                 units::Stress,
             };
-            use $crate::common::{BULK_MODULUS, SHEAR_MODULUS, close, deformed, reference};
+            use $crate::common::{BULK_MODULUS, SHEAR_MODULUS, deformed, reference};
 
             fn setup() -> (
                 $element,
@@ -80,18 +77,11 @@ macro_rules! elastic_tests {
             }
 
             #[test]
-            fn nodal_forces_match_analytic() {
+            fn nodal_forces_match_analytic() -> Result<(), AssertionError> {
                 let (element, coordinates, autodiff, hand) = setup();
                 let ad = element.autodiff_nodal_forces(&autodiff, &coordinates);
                 let hd = ElasticElement::nodal_forces(&element, &hand, &coordinates).unwrap();
-                for a in 0..$n {
-                    for i in 0..3 {
-                        assert!(
-                            close(ad[a][i].value(), hd[a][i].value(), 1e-8),
-                            "force [{a}][{i}]"
-                        );
-                    }
-                }
+                Assert::default().eq_within_tols(&ad, &hd)
             }
 
             #[test]
@@ -153,22 +143,16 @@ macro_rules! elastic_tests {
             }
 
             #[test]
-            fn nodal_stiffnesses_match_analytic() {
+            fn nodal_stiffnesses_match_analytic() -> Result<(), AssertionError> {
                 let (element, coordinates, autodiff, hand) = setup();
                 let ad = element.autodiff_nodal_stiffnesses(&autodiff, &coordinates);
                 let hd = ElasticElement::nodal_stiffnesses(&element, &hand, &coordinates).unwrap();
-                for a in 0..$n {
-                    for b in 0..$n {
-                        for i in 0..3 {
-                            for j in 0..3 {
-                                assert!(
-                                    close(ad[a][b][i][j].value(), hd[a][b][i][j].value(), 1e-5),
-                                    "stiffness [{a}][{b}][{i}][{j}]"
-                                );
-                            }
-                        }
-                    }
+                Assert {
+                    abs_tol: 1e-5,
+                    rel_tol: 1e-5,
+                    ..Default::default()
                 }
+                .eq_within_tols(&ad, &hd)
             }
         }
     };
