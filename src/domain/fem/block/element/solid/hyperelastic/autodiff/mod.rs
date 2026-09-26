@@ -2,71 +2,13 @@
 
 use crate::{
     constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic,
-    fem::block::element::{Element, FiniteElement},
-    math::{Current, TensorRank1List, TensorRank2List2D},
-    units::{Force, ForcePerLength, Length},
+    fem::block::element::{
+        Element, FiniteElement,
+        autodiff::{Coordinates, central_difference, flatten, unflatten},
+        solid::autodiff::{Forces, Stiffnesses, deformation_gradient},
+    },
 };
 use std::autodiff::autodiff_reverse;
-
-pub(crate) type Coordinates<const D: usize, const N: usize> =
-    TensorRank1List<D, Current, N, Length>;
-pub(crate) type Forces<const D: usize, const N: usize> = TensorRank1List<D, Current, N, Force>;
-pub(crate) type Stiffnesses<const D: usize, const N: usize> =
-    TensorRank2List2D<D, Current, Current, N, N, ForcePerLength>;
-
-pub(crate) fn component<const D: usize, const N: usize, const DOF: usize, const GN: usize>(
-    grad_n: &[f64; GN],
-    base: usize,
-    x: &[f64; DOF],
-    i: usize,
-    j: usize,
-) -> f64 {
-    let mut sum = 0.0;
-    for a in 0..N {
-        sum += x[D * a + i] * grad_n[base + D * a + j];
-    }
-    sum
-}
-
-fn entry<const D: usize, const N: usize, const DOF: usize, const GN: usize>(
-    grad_n: &[f64; GN],
-    base: usize,
-    x: &[f64; DOF],
-    i: usize,
-    j: usize,
-) -> f64 {
-    if i < D && j < D {
-        component::<D, N, DOF, GN>(grad_n, base, x, i, j)
-    } else if i == j {
-        1.0
-    } else {
-        0.0
-    }
-}
-
-pub(crate) fn deformation_gradient<
-    const D: usize,
-    const N: usize,
-    const DOF: usize,
-    const GN: usize,
->(
-    grad_n: &[f64; GN],
-    g: usize,
-    x: &[f64; DOF],
-) -> [f64; 9] {
-    let b = D * N * g;
-    [
-        entry::<D, N, DOF, GN>(grad_n, b, x, 0, 0),
-        entry::<D, N, DOF, GN>(grad_n, b, x, 0, 1),
-        entry::<D, N, DOF, GN>(grad_n, b, x, 0, 2),
-        entry::<D, N, DOF, GN>(grad_n, b, x, 1, 0),
-        entry::<D, N, DOF, GN>(grad_n, b, x, 1, 1),
-        entry::<D, N, DOF, GN>(grad_n, b, x, 1, 2),
-        entry::<D, N, DOF, GN>(grad_n, b, x, 2, 0),
-        entry::<D, N, DOF, GN>(grad_n, b, x, 2, 1),
-        entry::<D, N, DOF, GN>(grad_n, b, x, 2, 2),
-    ]
-}
 
 #[autodiff_reverse(d_element_energy, Const, Const, Const, Duplicated, Active)]
 pub(crate) fn element_energy<
@@ -108,41 +50,6 @@ pub(crate) fn forces_flat<
     out
 }
 
-pub(crate) fn flatten<
-    const D: usize,
-    const G: usize,
-    const N: usize,
-    const O: usize,
-    const DOF: usize,
-    const GN: usize,
->(
-    element: &Element<D, G, N, O>,
-    coordinates: &Coordinates<D, N>,
-) -> ([f64; GN], [f64; G], [f64; DOF])
-where
-    Element<D, G, N, O>: FiniteElement<G, D, N, N>,
-{
-    let mut grad_n = [0.0; GN];
-    let mut weights = [0.0; G];
-    let mut x = [0.0; DOF];
-    for (g, node_gradients) in element.gradient_vectors().into_iter().enumerate() {
-        for (a, gradient) in node_gradients.into_iter().enumerate() {
-            for k in 0..D {
-                grad_n[D * N * g + D * a + k] = gradient[k].value();
-            }
-        }
-    }
-    for (g, weight) in element.integration_weights().into_iter().enumerate() {
-        weights[g] = weight.value();
-    }
-    for (a, coordinate) in coordinates.into_iter().enumerate() {
-        for i in 0..D {
-            x[D * a + i] = coordinate[i].value();
-        }
-    }
-    (grad_n, weights, x)
-}
-
 pub(crate) fn forces<
     M: AutodiffHyperelastic,
     const D: usize,
@@ -161,13 +68,7 @@ where
 {
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
     let flat = forces_flat::<M, D, N, G, DOF, GN>(&model.parameters(), &grad_n, &weights, &x);
-    let mut out = [[0.0; D]; N];
-    for a in 0..N {
-        for i in 0..D {
-            out[a][i] = flat[D * a + i];
-        }
-    }
-    out.into()
+    unflatten::<D, N, DOF>(&flat).into()
 }
 
 pub(crate) fn stiffnesses<
@@ -186,25 +87,12 @@ pub(crate) fn stiffnesses<
 where
     Element<D, G, N, O>: FiniteElement<G, D, N, N>,
 {
-    const EPSILON: f64 = 1e-6;
     let parameters = model.parameters();
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
-    let mut out = [[[[0.0; D]; D]; N]; N];
-    for b in 0..N {
-        for j in 0..D {
-            let (mut plus, mut minus) = (x, x);
-            plus[D * b + j] += EPSILON;
-            minus[D * b + j] -= EPSILON;
-            let fp = forces_flat::<M, D, N, G, DOF, GN>(&parameters, &grad_n, &weights, &plus);
-            let fm = forces_flat::<M, D, N, G, DOF, GN>(&parameters, &grad_n, &weights, &minus);
-            for a in 0..N {
-                for i in 0..D {
-                    out[a][b][i][j] = (fp[D * a + i] - fm[D * a + i]) / (2.0 * EPSILON);
-                }
-            }
-        }
-    }
-    out.into()
+    central_difference::<D, N, DOF>(&x, |x| {
+        forces_flat::<M, D, N, G, DOF, GN>(&parameters, &grad_n, &weights, x)
+    })
+    .into()
 }
 
 pub trait AutodiffElement<M>
@@ -229,12 +117,9 @@ macro_rules! autodiff_element {
         where
             M: $crate::constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic,
         {
-            type Coordinates =
-                $crate::fem::block::element::solid::hyperelastic::autodiff::Coordinates<$d, $n>;
-            type Forces =
-                $crate::fem::block::element::solid::hyperelastic::autodiff::Forces<$d, $n>;
-            type Stiffnesses =
-                $crate::fem::block::element::solid::hyperelastic::autodiff::Stiffnesses<$d, $n>;
+            type Coordinates = $crate::fem::block::element::autodiff::Coordinates<$d, $n>;
+            type Forces = $crate::fem::block::element::solid::autodiff::Forces<$d, $n>;
+            type Stiffnesses = $crate::fem::block::element::solid::autodiff::Stiffnesses<$d, $n>;
             fn autodiff_nodal_forces(
                 &self,
                 model: &M,
