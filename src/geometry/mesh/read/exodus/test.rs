@@ -381,7 +381,7 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
     ];
     u32be(&mut b, NC_DIMENSION);
     u32be(&mut b, dims.len() as u32);
-    for (n, len) in dims {
+    for &(n, len) in dims.iter() {
         name(&mut b, n);
         u32be(&mut b, len);
     }
