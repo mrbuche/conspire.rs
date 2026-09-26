@@ -5,51 +5,21 @@ use crate::{
         fluid::hyperviscous::autodiff::AutodiffHyperviscous,
         solid::hyperviscoelastic::autodiff::AutodiffHyperviscoelastic,
     },
-    fem::block::element::solid::hyperelastic::autodiff::{
-        Coordinates, Forces, component, deformation_gradient, element_energy, flatten, forces_flat,
+    fem::block::element::{
+        Element, FiniteElement,
+        autodiff::{Coordinates, central_difference, flatten, unflatten},
+        solid::{
+            autodiff::{
+                Dampings, Forces, Velocities, deformation_gradient, deformation_gradient_rate,
+                flatten_velocities,
+            },
+            hyperelastic::autodiff::{element_energy, forces_flat},
+        },
     },
-    fem::block::element::{Element, FiniteElement},
-    math::{Current, Quantity, TensorRank1List, TensorRank2List2D},
-    units::{Energy, ForcePerVelocity, Power, Velocity},
+    math::Quantity,
+    units::{Energy, Power},
 };
 use std::autodiff::autodiff_reverse;
-
-type Velocities<const D: usize, const N: usize> = TensorRank1List<D, Current, N, Velocity>;
-type Dampings<const D: usize, const N: usize> =
-    TensorRank2List2D<D, Current, Current, N, N, ForcePerVelocity>;
-
-fn rate_entry<const D: usize, const N: usize, const DOF: usize, const GN: usize>(
-    grad_n: &[f64; GN],
-    base: usize,
-    v: &[f64; DOF],
-    i: usize,
-    j: usize,
-) -> f64 {
-    if i < D && j < D {
-        component::<D, N, DOF, GN>(grad_n, base, v, i, j)
-    } else {
-        0.0
-    }
-}
-
-fn deformation_gradient_rate<const D: usize, const N: usize, const DOF: usize, const GN: usize>(
-    grad_n: &[f64; GN],
-    g: usize,
-    v: &[f64; DOF],
-) -> [f64; 9] {
-    let b = D * N * g;
-    [
-        rate_entry::<D, N, DOF, GN>(grad_n, b, v, 0, 0),
-        rate_entry::<D, N, DOF, GN>(grad_n, b, v, 0, 1),
-        rate_entry::<D, N, DOF, GN>(grad_n, b, v, 0, 2),
-        rate_entry::<D, N, DOF, GN>(grad_n, b, v, 1, 0),
-        rate_entry::<D, N, DOF, GN>(grad_n, b, v, 1, 1),
-        rate_entry::<D, N, DOF, GN>(grad_n, b, v, 1, 2),
-        rate_entry::<D, N, DOF, GN>(grad_n, b, v, 2, 0),
-        rate_entry::<D, N, DOF, GN>(grad_n, b, v, 2, 1),
-        rate_entry::<D, N, DOF, GN>(grad_n, b, v, 2, 2),
-    ]
-}
 
 #[autodiff_reverse(d_element_dissipation, Const, Const, Const, Const, Duplicated, Active)]
 fn element_dissipation<
@@ -94,18 +64,6 @@ fn viscous_forces_flat<
     out
 }
 
-fn flatten_velocities<const D: usize, const N: usize, const DOF: usize>(
-    velocities: &Velocities<D, N>,
-) -> [f64; DOF] {
-    let mut v = [0.0; DOF];
-    for (a, velocity) in velocities.into_iter().enumerate() {
-        for i in 0..D {
-            v[D * a + i] = velocity[i].value();
-        }
-    }
-    v
-}
-
 pub(crate) fn forces<
     M: AutodiffHyperviscoelastic,
     const D: usize,
@@ -138,13 +96,11 @@ where
         &x,
         &v,
     );
-    let mut out = [[0.0; D]; N];
-    for a in 0..N {
-        for i in 0..D {
-            out[a][i] = elastic[D * a + i] + viscous[D * a + i];
-        }
+    let mut total = [0.0; DOF];
+    for k in 0..DOF {
+        total[k] = elastic[k] + viscous[k];
     }
-    out.into()
+    unflatten::<D, N, DOF>(&total).into()
 }
 
 pub(crate) fn dampings<
@@ -164,38 +120,13 @@ pub(crate) fn dampings<
 where
     Element<D, G, N, O>: FiniteElement<G, D, N, N>,
 {
-    const EPSILON: f64 = 1e-6;
     let parameters = model.viscous_parameters();
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
     let v = flatten_velocities::<D, N, DOF>(velocities);
-    let mut out = [[[[0.0; D]; D]; N]; N];
-    for b in 0..N {
-        for j in 0..D {
-            let (mut plus, mut minus) = (v, v);
-            plus[D * b + j] += EPSILON;
-            minus[D * b + j] -= EPSILON;
-            let fp = viscous_forces_flat::<M::Viscous, D, N, G, DOF, GN>(
-                &parameters,
-                &grad_n,
-                &weights,
-                &x,
-                &plus,
-            );
-            let fm = viscous_forces_flat::<M::Viscous, D, N, G, DOF, GN>(
-                &parameters,
-                &grad_n,
-                &weights,
-                &x,
-                &minus,
-            );
-            for a in 0..N {
-                for i in 0..D {
-                    out[a][b][i][j] = (fp[D * a + i] - fm[D * a + i]) / (2.0 * EPSILON);
-                }
-            }
-        }
-    }
-    out.into()
+    central_difference::<D, N, DOF>(&v, |v| {
+        viscous_forces_flat::<M::Viscous, D, N, G, DOF, GN>(&parameters, &grad_n, &weights, &x, v)
+    })
+    .into()
 }
 
 pub(crate) fn viscous_dissipation<
@@ -294,7 +225,7 @@ macro_rules! autodiff_viscoelastic_element {
             type Coordinates = $crate::fem::block::element::ElementNodalCoordinates<$n>;
             type Velocities = $crate::fem::block::element::ElementNodalVelocities<$n>;
             type Forces =
-                $crate::fem::block::element::solid::hyperelastic::autodiff::Forces<3, $n>;
+                $crate::fem::block::element::solid::autodiff::Forces<3, $n>;
             type Dampings = $crate::fem::block::element::solid::ElementNodalDampingsSolid<$n>;
             fn autodiff_viscoelastic_nodal_forces(
                 &self,
