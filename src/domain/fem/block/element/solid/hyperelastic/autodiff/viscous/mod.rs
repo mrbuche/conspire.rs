@@ -8,10 +8,7 @@ use crate::{
         fluid::hyperviscous::autodiff::AutodiffHyperviscous,
         solid::hyperviscoelastic::autodiff::AutodiffHyperviscoelastic,
     },
-    fem::block::element::{
-        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
-        solid::ElementNodalDampingsSolid,
-    },
+    fem::block::element::{Element, FiniteElement},
     math::{Current, Quantity, TensorRank1List, TensorRank2List2D},
     units::{Energy, ForcePerVelocity, Power, Velocity},
 };
@@ -109,7 +106,7 @@ fn flatten_velocities<const D: usize, const N: usize, const DOF: usize>(
     v
 }
 
-fn forces<
+pub(crate) fn forces<
     M: AutodiffHyperviscoelastic,
     const D: usize,
     const G: usize,
@@ -150,7 +147,7 @@ where
     out.into()
 }
 
-fn dampings<
+pub(crate) fn dampings<
     M: AutodiffHyperviscoelastic,
     const D: usize,
     const G: usize,
@@ -201,7 +198,7 @@ where
     out.into()
 }
 
-fn viscous_dissipation<
+pub(crate) fn viscous_dissipation<
     M: AutodiffHyperviscoelastic,
     const D: usize,
     const G: usize,
@@ -229,7 +226,7 @@ where
     ))
 }
 
-fn helmholtz_free_energy<
+pub(crate) fn helmholtz_free_energy<
     M: AutodiffHyperviscoelastic,
     const D: usize,
     const G: usize,
@@ -287,28 +284,33 @@ where
     ) -> Quantity<Energy>;
 }
 
-macro_rules! shape {
+macro_rules! autodiff_viscoelastic_element {
     ($g:literal, $n:literal, $o:literal) => {
-        impl<M> AutodiffViscoelasticElement<M> for Element<3, $g, $n, $o>
+        impl<M> $crate::fem::block::element::solid::hyperelastic::autodiff::AutodiffViscoelasticElement<M>
+            for $crate::fem::block::element::Element<3, $g, $n, $o>
         where
-            M: AutodiffHyperviscoelastic,
+            M: $crate::constitutive::solid::hyperviscoelastic::autodiff::AutodiffHyperviscoelastic,
         {
-            type Coordinates = ElementNodalCoordinates<$n>;
-            type Velocities = ElementNodalVelocities<$n>;
-            type Forces = Forces<3, $n>;
-            type Dampings = ElementNodalDampingsSolid<$n>;
+            type Coordinates = $crate::fem::block::element::ElementNodalCoordinates<$n>;
+            type Velocities = $crate::fem::block::element::ElementNodalVelocities<$n>;
+            type Forces =
+                $crate::fem::block::element::solid::hyperelastic::autodiff::Forces<3, $n>;
+            type Dampings = $crate::fem::block::element::solid::ElementNodalDampingsSolid<$n>;
             fn autodiff_viscoelastic_nodal_forces(
                 &self,
                 model: &M,
                 coordinates: &Self::Coordinates,
                 velocities: &Self::Velocities,
             ) -> Self::Forces {
-                forces::<M, 3, $g, $n, $o, { 3 * $n }, { 3 * $n * $g }>(
-                    model,
-                    self,
-                    coordinates,
-                    velocities,
-                )
+                $crate::fem::block::element::solid::hyperelastic::autodiff::viscous::forces::<
+                    M,
+                    3,
+                    $g,
+                    $n,
+                    $o,
+                    { 3 * $n },
+                    { 3 * $n * $g },
+                >(model, self, coordinates, velocities)
             }
             fn autodiff_nodal_dampings(
                 &self,
@@ -316,40 +318,49 @@ macro_rules! shape {
                 coordinates: &Self::Coordinates,
                 velocities: &Self::Velocities,
             ) -> Self::Dampings {
-                dampings::<M, 3, $g, $n, $o, { 3 * $n }, { 3 * $n * $g }>(
-                    model,
-                    self,
-                    coordinates,
-                    velocities,
-                )
+                $crate::fem::block::element::solid::hyperelastic::autodiff::viscous::dampings::<
+                    M,
+                    3,
+                    $g,
+                    $n,
+                    $o,
+                    { 3 * $n },
+                    { 3 * $n * $g },
+                >(model, self, coordinates, velocities)
             }
             fn autodiff_viscous_dissipation(
                 &self,
                 model: &M,
                 coordinates: &Self::Coordinates,
                 velocities: &Self::Velocities,
-            ) -> Quantity<Power> {
-                viscous_dissipation::<M, 3, $g, $n, $o, { 3 * $n }, { 3 * $n * $g }>(
-                    model,
-                    self,
-                    coordinates,
-                    velocities,
-                )
+            ) -> $crate::math::Quantity<$crate::units::Power> {
+                $crate::fem::block::element::solid::hyperelastic::autodiff::viscous::viscous_dissipation::<
+                    M,
+                    3,
+                    $g,
+                    $n,
+                    $o,
+                    { 3 * $n },
+                    { 3 * $n * $g },
+                >(model, self, coordinates, velocities)
             }
             fn autodiff_helmholtz_free_energy(
                 &self,
                 model: &M,
                 coordinates: &Self::Coordinates,
-            ) -> Quantity<Energy> {
-                helmholtz_free_energy::<M, 3, $g, $n, $o, { 3 * $n }, { 3 * $n * $g }>(
-                    model,
-                    self,
-                    coordinates,
-                )
+            ) -> $crate::math::Quantity<$crate::units::Energy> {
+                $crate::fem::block::element::solid::hyperelastic::autodiff::viscous::helmholtz_free_energy::<
+                    M,
+                    3,
+                    $g,
+                    $n,
+                    $o,
+                    { 3 * $n },
+                    { 3 * $n * $g },
+                >(model, self, coordinates)
             }
         }
     };
 }
 
-shape!(8, 8, 1);
-shape!(1, 4, 1);
+pub(crate) use autodiff_viscoelastic_element;

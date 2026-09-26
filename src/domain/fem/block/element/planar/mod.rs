@@ -1,3 +1,6 @@
+#[cfg(feature = "autodiff")]
+mod autodiff;
+
 use crate::{
     constitutive::{
         ConstitutiveError,
