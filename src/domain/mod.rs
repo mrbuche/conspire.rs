@@ -168,15 +168,6 @@ pub trait FirstOrderMinimize<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub trait SecondOrderMinimize<F, J, H, X> {
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<F, J, H, X>,
-    ) -> Result<X, OptimizationError>;
-}
-
 impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> {
     fn from((blocks, coordinates): (B, NodalReferenceCoordinates<D>)) -> Self {
         Self {
@@ -192,4 +183,37 @@ impl From<ElementModelError> for AssertionError {
             message: error.to_string(),
         }
     }
+}
+
+/// A solver that can minimize a model, and the tangent it works from.
+///
+/// The family of the model, being carried by the energy and force types,
+/// keeps the implementations for one solver from overlapping.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait SolverFor<M, F, J> {
+    type Tangent;
+    /// Whether the solver wants the sparse structure of the assembled tangent.
+    const SPARSE: bool;
+}
+
+/// A model that can hand out its tangent in the form a solver asks for.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait ProvidesTangent<X, T> {
+    fn provide_tangent(&self, argument: &X) -> Result<T, ElementModelError>;
+}
+
+/// Minimization of a model, where the solver determines the tangent it works from.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait SecondOrderMinimize<F, J, X>
+where
+    Self: Sized,
+{
+    fn minimize<S>(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: S,
+    ) -> Result<X, OptimizationError>
+    where
+        S: SolverFor<Self, F, J> + SecondOrderOptimization<F, J, S::Tangent, X>,
+        Self: ProvidesTangent<X, S::Tangent>;
 }

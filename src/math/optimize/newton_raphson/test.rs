@@ -6,8 +6,8 @@ use super::{
         },
         // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
     },
-    EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson, OptimizationError,
-    Scalar, SecondOrderOptimization, TrustRegion,
+    Direct, EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson,
+    OptimizationError, Scalar, SecondOrderOptimization, TrustRegion,
 };
 use crate::math::{Norm, Tensor, assert::Assert};
 
@@ -70,6 +70,7 @@ mod minimize {
                         cut_back: CUT_BACK,
                         max_steps: MAX_STEPS,
                     },
+                    linear_solver: Direct,
                     ..Default::default()
                 }
                 .minimize(
@@ -91,6 +92,7 @@ mod minimize {
                         cut_back: CUT_BACK,
                         max_steps: MAX_STEPS,
                     },
+                    linear_solver: Direct,
                     ..Default::default()
                 }
                 .minimize(
@@ -116,6 +118,7 @@ mod minimize {
                             max_steps: MAX_STEPS,
                             strong: true,
                         },
+                        linear_solver: Direct,
                         ..Default::default()
                     }
                     .minimize(
@@ -139,6 +142,7 @@ mod minimize {
                             max_steps: MAX_STEPS,
                             strong: false,
                         },
+                        linear_solver: Direct,
                         ..Default::default()
                     }
                     .minimize(
@@ -213,6 +217,7 @@ mod constrained {
     fn minimized(line_search: LineSearch) -> Result<Vector, AssertionError> {
         Ok(NewtonRaphson {
             line_search,
+            linear_solver: Direct,
             ..Default::default()
         }
         .minimize(
@@ -238,6 +243,7 @@ mod constrained {
                 residual: 0.0,
             },
             rel_tol,
+            linear_solver: Direct,
             ..Default::default()
         }
         .minimize(
@@ -303,6 +309,7 @@ mod constrained {
                     cut_back: CUT_BACK,
                     max_steps: MAX_STEPS,
                 },
+                linear_solver: Direct,
                 ..Default::default()
             }
             .root(
@@ -319,6 +326,7 @@ mod constrained {
     fn barrier(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
         NewtonRaphson {
             line_search,
+            linear_solver: Direct,
             ..Default::default()
         }
         .root(
@@ -362,6 +370,7 @@ mod constrained {
         NewtonRaphson {
             line_search,
             max_steps: 100,
+            linear_solver: Direct,
             ..Default::default()
         }
         .minimize(
@@ -409,6 +418,7 @@ mod constrained {
             line_search,
             trust_region,
             max_steps: 100,
+            linear_solver: Direct,
             ..Default::default()
         }
         .root(
@@ -461,6 +471,7 @@ mod constrained {
         NewtonRaphson {
             max_steps: 10,
             trust_region: TrustRegion::Fixed { radius: 5e-1, norm },
+            linear_solver: Direct,
             ..Default::default()
         }
         .root(
