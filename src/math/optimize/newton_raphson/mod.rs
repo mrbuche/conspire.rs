@@ -28,7 +28,7 @@ pub struct NewtonRaphson<L = Direct> {
     pub error_norm: Norm,
     /// Line search algorithm.
     pub line_search: LineSearch,
-    /// How the linear system of each step is solved.
+    /// Linear solver for each step.
     pub linear_solver: L,
     /// Maximum number of steps.
     pub max_steps: usize,

@@ -1,7 +1,9 @@
 use crate::math::Vector;
 
-/// The built-in linear solver: a sparse factorization when the problem offers
-/// one, a dense factorization otherwise.
+/// The built-in direct linear solver.
+///
+/// A sparse factorization when the problem
+/// offers one, a dense factorization otherwise.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Direct;
 
