@@ -1,5 +1,5 @@
 use super::{Coarse, CoarseSystem};
-use crate::domain::block::feti::dual_primal::{
+use crate::domain::partition::feti::dual_primal::{
     BoundaryConditions, CornerDofs, CornerSelection, DualPrimalSplit, condense::Condensed,
 };
 use crate::math::{Matrix, Scalar, SquareMatrix, Tensor, Vector};

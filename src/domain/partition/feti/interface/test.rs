@@ -1,5 +1,5 @@
 use super::build_interfaces;
-use crate::domain::block::feti::dual_primal::CornerSelection;
+use crate::domain::partition::feti::dual_primal::CornerSelection;
 use crate::geometry::mesh::Partition;
 use crate::math::Vector;
 
