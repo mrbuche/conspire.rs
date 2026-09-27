@@ -2,6 +2,7 @@
 pub(crate) mod test;
 
 pub(crate) mod element;
+pub(crate) mod feti;
 pub(crate) mod solid;
 
 use crate::math::{Tensor, optimize::EqualityConstraint, sparse::SparseSolver};
