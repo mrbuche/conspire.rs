@@ -5,7 +5,7 @@ use crate::domain::partition::feti::{
     subdomain::Subdomain,
 };
 use crate::math::{
-    Scalar, Tensor, Vector,
+    Scalar, Vector,
     optimize::{Krylov, KrylovError},
 };
 
@@ -93,11 +93,7 @@ pub(crate) fn primal_recovery<B>(
             let multiplier_rhs = subdomain
                 .interface()
                 .apply_transpose(lambda, subdomain.num_local());
-            let combined_rhs: Vector = local_force
-                .iter()
-                .zip(multiplier_rhs.iter())
-                .map(|(&f, &m)| f - m)
-                .collect();
+            let combined_rhs = local_force - &multiplier_rhs;
             let dual_solution = subdomain.local_solve(&combined_rhs);
             let primal_local = subdomain.gather_primal(corner_solution);
             let coupling_correction =
