@@ -1,13 +1,23 @@
-use super::{Coarse, CoarseSystem, assemble};
+use super::{Coarse, CoarseSystem};
 use crate::domain::block::feti::dual_primal::{
     BoundaryConditions, CornerDofs, CornerSelection, DualPrimalSplit, condense::Condensed,
 };
-use crate::math::{Matrix, SquareMatrix, Tensor, Vector};
+use crate::math::{Matrix, Scalar, SquareMatrix, Tensor, Vector};
 
 impl Coarse {
     pub(crate) fn new(system: CoarseSystem) -> Self {
         Self::try_from(system).expect("assembled coarse problem is singular")
     }
+}
+
+fn entry(system: &CoarseSystem, row: usize, column: usize) -> Scalar {
+    system
+        .pattern
+        .iter()
+        .zip(system.values.iter())
+        .filter(|&(&position, _)| position == (row, column))
+        .map(|(_, &value)| value)
+        .sum()
 }
 
 fn one_by_one(value: f64) -> SquareMatrix {
@@ -40,12 +50,12 @@ fn shares_corner_contributions_across_subdomains() {
         reduced_force: [4.0].into_iter().collect(),
         dual_map: one_by_one_matrix(0.0),
     };
-    let (schur, force) = assemble(
+    let (schur, force) = CoarseSystem::assemble(
         &[condensed_a, condensed_b],
         &[split_a, split_b],
         &corner_dofs,
     );
-    assert_eq!(schur.entry(0, 0), 5.0);
+    assert_eq!(entry(&schur, 0, 0), 5.0);
     assert_eq!(force[0], 5.0);
 }
 

@@ -38,6 +38,12 @@ impl BoundaryConditions {
     }
 }
 
+/// A subdomain's local DOFs split into corner (primal) and the rest (dual).
+///
+/// `primal` numbers corner DOFs in this subdomain's own local numbering;
+/// `primal_global` numbers the same DOFs, in the same order, in the global
+/// corner-DOF numbering they share with every other subdomain that touches
+/// that corner.
 pub(crate) struct DualPrimalSplit {
     primal: Vec<usize>,
     primal_global: Vec<usize>,

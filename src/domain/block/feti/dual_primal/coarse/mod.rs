@@ -7,9 +7,11 @@ use crate::math::{
     sparse::{CscLdl, CscMatrix, SparseError},
 };
 
-/// The assembled corner (coarse) matrix as unsummed triplets, one per entry
-/// of each subdomain's local corner Schur complement, so entries that land on
-/// the same global position are summed only when the matrix is built.
+/// The assembled corner matrix as unsummed triplets.
+///
+/// One triplet per entry of each subdomain's local corner Schur complement,
+/// so entries landing on the same global position are summed only when the
+/// matrix is built.
 pub(crate) struct CoarseSystem {
     len: usize,
     pattern: Vec<(usize, usize)>,
@@ -17,72 +19,52 @@ pub(crate) struct CoarseSystem {
 }
 
 impl CoarseSystem {
+    pub(crate) fn assemble(
+        condensed: &[Condensed],
+        splits: &[DualPrimalSplit],
+        corner_dofs: &CornerDofs,
+    ) -> (Self, Vector) {
+        let num_corner_dofs = corner_dofs.count();
+        let capacity = splits
+            .iter()
+            .map(|split| split.primal_global().len().pow(2))
+            .sum();
+        let mut pattern = Vec::with_capacity(capacity);
+        let mut values = Vec::with_capacity(capacity);
+        let mut force = Vector::zero(num_corner_dofs);
+        condensed
+            .iter()
+            .zip(splits.iter())
+            .for_each(|(local, split)| {
+                let global = split.primal_global();
+                global.iter().enumerate().for_each(|(i, &row)| {
+                    force[row] += local.reduced_force[i];
+                    global.iter().enumerate().for_each(|(j, &column)| {
+                        pattern.push((row, column));
+                        values.push(local.schur[i][j]);
+                    });
+                });
+            });
+        (
+            Self {
+                len: num_corner_dofs,
+                pattern,
+                values,
+            },
+            force,
+        )
+    }
     pub(crate) fn len(&self) -> usize {
         self.len
     }
-    /// The summed value at `(row, column)`, scanning every triplet.
-    #[cfg(test)]
-    pub(crate) fn entry(&self, row: usize, column: usize) -> Scalar {
-        self.pattern
-            .iter()
-            .zip(self.values.iter())
-            .filter(|&(&position, _)| position == (row, column))
-            .map(|(_, &value)| value)
-            .sum()
-    }
 }
 
-/// Assembles the global corner (coarse) problem by scatter-adding each
-/// subdomain's local corner Schur complement and reduced force at the
-/// shared global corner DOFs, exactly like standard finite element
-/// assembly restricted to the primal DOFs. Sized by `corner_dofs.count()` —
-/// the count of DOFs that actually survive as free primal unknowns after
-/// boundary conditions, not a raw node count — so a boundary condition on a
-/// corner node's component can never leave a permanently-zero row/column.
+/// The assembled corner problem, factorized once.
 ///
-/// The matrix stays sparse: corners couple only to the corners of the
-/// subdomains they share, so a dense `n x n` matrix would be almost all
-/// zeros and, at many subdomains, the largest thing in memory.
-pub(crate) fn assemble(
-    condensed: &[Condensed],
-    splits: &[DualPrimalSplit],
-    corner_dofs: &CornerDofs,
-) -> (CoarseSystem, Vector) {
-    let num_corner_dofs = corner_dofs.count();
-    let capacity = splits
-        .iter()
-        .map(|split| split.primal_global().len().pow(2))
-        .sum();
-    let mut pattern = Vec::with_capacity(capacity);
-    let mut values = Vec::with_capacity(capacity);
-    let mut force = Vector::zero(num_corner_dofs);
-    condensed
-        .iter()
-        .zip(splits.iter())
-        .for_each(|(local, split)| {
-            let global = split.primal_global();
-            global.iter().enumerate().for_each(|(i, &row)| {
-                force[row] += local.reduced_force[i];
-                global.iter().enumerate().for_each(|(j, &column)| {
-                    pattern.push((row, column));
-                    values.push(local.schur[i][j]);
-                });
-            });
-        });
-    (
-        CoarseSystem {
-            len: num_corner_dofs,
-            pattern,
-            values,
-        },
-        force,
-    )
-}
-
-/// The assembled corner problem, factorized once: the dual operator solves
-/// it on every application, so refactorizing per solve would dominate the
-/// dual PCG once there are many corners. The factorization is a sparse
-/// LDLᵀ, which needs the symmetric tangent FETI-DP already requires.
+/// The dual operator solves it on every application, so refactorizing per
+/// solve would dominate the dual PCG once there are many corners. The
+/// factorization is a sparse LDLᵀ, which needs the symmetric tangent
+/// FETI-DP already requires.
 pub(crate) struct Coarse {
     factor: Option<CscLdl>,
     len: usize,

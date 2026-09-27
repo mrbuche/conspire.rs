@@ -1,4 +1,4 @@
-use super::try_condense;
+use super::Condensed;
 use crate::math::{SquareMatrix, Vector};
 
 fn condense(
@@ -6,8 +6,8 @@ fn condense(
     local_force: &Vector,
     primal: &[usize],
     dual: &[usize],
-) -> super::Condensed {
-    try_condense(local_stiffness, local_force, primal, dual)
+) -> Condensed {
+    Condensed::try_condense(local_stiffness, local_force, primal, dual)
         .expect("remainder block K_dd is singular")
 }
 
