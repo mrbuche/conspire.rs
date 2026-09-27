@@ -7,10 +7,10 @@ use super::{
         Solution, SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
-    BacktrackingLineSearch, EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock,
-    FirstOrderRootFindingIncremental, LineSearch, LineSearchError, OptimizationError,
-    SecondOrderOptimization, SecondOrderOptimizationBlock, SecondOrderOptimizationIncremental,
-    SolveStrategy, Tolerances, TrustRegion,
+    BacktrackingLineSearch, Direct, EqualityConstraint, FirstOrderRootFinding,
+    FirstOrderRootFindingBlock, FirstOrderRootFindingIncremental, LineSearch, LineSearchError,
+    LinearSolver, OptimizationError, SecondOrderOptimization, SecondOrderOptimizationBlock,
+    SecondOrderOptimizationIncremental, SolveStrategy, Tolerances, TrustRegion,
 };
 use crate::math::Norm;
 use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
@@ -21,13 +21,15 @@ use std::{
 
 /// The Newton-Raphson method.
 #[derive(Clone)]
-pub struct NewtonRaphson {
+pub struct NewtonRaphson<L = Direct> {
     /// Absolute error tolerances.
     pub abs_tol: Tolerances,
     /// Norm type for error evaluation.
     pub error_norm: Norm,
     /// Line search algorithm.
     pub line_search: LineSearch,
+    /// How the linear system of each step is solved.
+    pub linear_solver: L,
     /// Maximum number of steps.
     pub max_steps: usize,
     /// Relative error tolerance.
@@ -36,13 +38,13 @@ pub struct NewtonRaphson {
     pub trust_region: TrustRegion,
 }
 
-impl<J, X> BacktrackingLineSearch<J, X> for NewtonRaphson {
+impl<L, J, X> BacktrackingLineSearch<J, X> for NewtonRaphson<L> {
     fn get_line_search(&self) -> &LineSearch {
         &self.line_search
     }
 }
 
-impl Debug for NewtonRaphson {
+impl<L> Debug for NewtonRaphson<L> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -52,12 +54,26 @@ impl Debug for NewtonRaphson {
     }
 }
 
-impl Default for NewtonRaphson {
+impl NewtonRaphson {
+    #[allow(clippy::should_implement_trait)]
+    pub fn default() -> Self {
+        Self::with(Direct)
+    }
+}
+
+impl<L: Default> Default for NewtonRaphson<L> {
     fn default() -> Self {
+        Self::with(L::default())
+    }
+}
+
+impl<L> NewtonRaphson<L> {
+    fn with(linear_solver: L) -> Self {
         Self {
             abs_tol: Tolerances::default(),
             error_norm: Norm::Chebyshev,
             line_search: LineSearch::None,
+            linear_solver,
             max_steps: 25,
             rel_tol: None,
             trust_region: TrustRegion::None,
@@ -93,7 +109,7 @@ where
                 jacobian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
-                sparse,
+                direct(sparse),
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -149,7 +165,7 @@ where
                 jacobian,
                 update,
                 initial_guess,
-                sparse,
+                direct(sparse),
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -206,7 +222,7 @@ where
                 hessian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
-                sparse,
+                direct(sparse),
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -223,6 +239,53 @@ where
             EqualityConstraint::None => {
                 unconstrained(self, function, jacobian, hessian, initial_guess, sparse)
             }
+        }
+        .map_err(|error| OptimizationError::upstream(error, self))
+    }
+}
+
+impl<L, F, J, H, X, E> SecondOrderOptimization<F, J, H, X> for NewtonRaphson<L>
+where
+    L: LinearSolver<Tangent = H>,
+    F: Erase<Erased = Scalar> + Tensor,
+    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
+    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
+    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
+        Is<<F as Tensor>::Unit>,
+    J: Jacobian,
+    J: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+{
+    fn minimize(
+        &self,
+        mut function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        hessian: impl FnMut(&X) -> Result<H, String>,
+        initial_guess: X,
+        equality_constraint: EqualityConstraint,
+        _sparse: Option<SparseSolver>,
+    ) -> Result<X, OptimizationError> {
+        let function = move |argument: &X| function(argument).map(|value| *value.erase());
+        match equality_constraint {
+            EqualityConstraint::Fixed(indices) => constrained_fixed(
+                self,
+                function,
+                jacobian,
+                hessian,
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
+                initial_guess,
+                |tangent, _, retained, residual, decrement| {
+                    *decrement = self.linear_solver.solve(tangent, retained, residual)?;
+                    Ok(())
+                },
+                indices,
+            ),
+            _ => Err(OptimizationError::Intermediate(
+                "This linear solver requires a fixed equality constraint.".to_string(),
+            )),
         }
         .map_err(|error| OptimizationError::upstream(error, self))
     }
@@ -264,7 +327,7 @@ where
                 hessian,
                 update,
                 initial_guess,
-                sparse,
+                direct(sparse),
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -505,8 +568,8 @@ where
 /// point is, and what makes it reachable, is left to the formulation asking:
 /// whatever was eliminated is stepped alongside, so the state to test is the
 /// one everything arrives at together.
-fn backtrack_errors(
-    newton_raphson: &NewtonRaphson,
+fn backtrack_errors<L>(
+    newton_raphson: &NewtonRaphson<L>,
     mut reachable: impl FnMut(Scalar) -> bool,
     cut_back: Scalar,
     max_steps: usize,
@@ -565,7 +628,7 @@ fn converged(
 ///
 /// Only the variables are measured, the multipliers being of another kind
 /// entirely, but everything is scaled together so that the direction survives.
-fn limit_decrement(newton_raphson: &NewtonRaphson, decrements: &mut [(&mut Vector, usize)]) {
+fn limit_decrement<L>(newton_raphson: &NewtonRaphson<L>, decrements: &mut [(&mut Vector, usize)]) {
     if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
         let size = norm.over(
             decrements
@@ -1111,19 +1174,37 @@ where
     }
 }
 
+fn direct<H: Hessian>(
+    sparse: Option<SparseSolver>,
+) -> impl FnMut(H, &[bool], &[usize], &Vector, &mut Vector) -> Result<(), OptimizationError> {
+    let mut factorization = None;
+    move |hessian, retained, unmap, residual, decrement| {
+        if let Some(ref solver) = sparse {
+            *decrement = solver.solve(|i, j| hessian.entry(unmap[i], unmap[j]), residual)?
+        } else {
+            let factorization =
+                factorization.get_or_insert_with(|| LuDecomposition::zero(unmap.len()));
+            hessian
+                .retain_from(retained)
+                .factorize_lu_into(factorization)?;
+            factorization.solve_into(residual, decrement)
+        }
+        Ok(())
+    }
+}
+
 #[expect(clippy::too_many_arguments)]
-fn constrained_fixed<J, H, X, E>(
-    newton_raphson: &NewtonRaphson,
+fn constrained_fixed<L, J, H, X, E>(
+    newton_raphson: &NewtonRaphson<L>,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
-    sparse: Option<SparseSolver>,
+    mut solve: impl FnMut(H, &[bool], &[usize], &Vector, &mut Vector) -> Result<(), OptimizationError>,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
-    H: Hessian,
     J: Jacobian,
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
@@ -1140,7 +1221,6 @@ where
         .filter_map(|(index, &keep)| keep.then_some(index))
         .collect();
     let mut decrement = Vector::zero(unmap.len());
-    let mut factorization = LuDecomposition::zero(if sparse.is_none() { unmap.len() } else { 0 });
     let mut residual;
     let mut solution = initial_guess;
     let mut step_size;
@@ -1154,14 +1234,14 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
-        } else if let Some(ref solver) = sparse {
-            let hess = hessian(&solution)?;
-            decrement = solver.solve(|i, j| hess.entry(unmap[i], unmap[j]), &residual)?
         } else {
-            hessian(&solution)?
-                .retain_from(&retained)
-                .factorize_lu_into(&mut factorization)?;
-            factorization.solve_into(&residual, &mut decrement)
+            solve(
+                hessian(&solution)?,
+                &retained,
+                &unmap,
+                &residual,
+                &mut decrement,
+            )?
         }
         steps += 1;
         limit_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);

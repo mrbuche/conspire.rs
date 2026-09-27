@@ -12,6 +12,6 @@ pub(crate) use crate::domain::nodal_coordinates;
 pub use crate::domain::{
     Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, FirstOrderMinimize,
     FirstOrderRoot, Model, NodalCoordinates, NodalCoordinatesHistory, NodalReferenceCoordinates,
-    NodalVelocities, NodalVelocitiesHistory, SecondOrderMinimize, ZerothOrderRoot,
-    block::element::Elements,
+    NodalVelocities, NodalVelocitiesHistory, ProvidesTangent, SecondOrderMinimize, SolverFor,
+    ZerothOrderRoot, block::element::Elements,
 };

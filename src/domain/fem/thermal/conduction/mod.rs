@@ -1,7 +1,7 @@
 use crate::{
     fem::{
         Blocks, ElementModel, ElementModelError, Elements, FirstOrderMinimize, FirstOrderRoot,
-        Model, SecondOrderMinimize, ZerothOrderRoot,
+        Model, ProvidesTangent, SecondOrderMinimize, SolverFor, ZerothOrderRoot,
         block::{
             finalize_node_neighbors, solver_from_neighbors,
             thermal::{
@@ -13,8 +13,8 @@ use crate::{
     math::{
         Quantity, Tensor,
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
-            SecondOrderOptimization, ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, NewtonRaphson,
+            OptimizationError, SecondOrderOptimization, ZerothOrderRootFinding,
         },
     },
     units::PowerTemperature,
@@ -186,42 +186,61 @@ where
     }
 }
 
-impl<B, const D: usize>
-    SecondOrderMinimize<
-        Quantity<PowerTemperature>,
-        NodalForcesThermal,
-        NodalStiffnessesThermal,
-        NodalTemperatures,
-    > for Model<B, D>
+impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<PowerTemperature>, NodalForcesThermal>
+    for NewtonRaphson
 where
     B: ThermalConductionElements,
 {
-    fn minimize(
+    type Tangent = NodalStiffnessesThermal;
+    const SPARSE: bool = true;
+}
+
+impl<B, const D: usize> ProvidesTangent<NodalTemperatures, NodalStiffnessesThermal> for Model<B, D>
+where
+    B: ThermalConductionElements,
+{
+    fn provide_tangent(
+        &self,
+        nodal_temperatures: &NodalTemperatures,
+    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
+        self.nodal_stiffnesses(nodal_temperatures)
+    }
+}
+
+impl<B, const D: usize>
+    SecondOrderMinimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
+    for Model<B, D>
+where
+    B: ThermalConductionElements,
+{
+    fn minimize<S>(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<
-            Quantity<PowerTemperature>,
-            NodalForcesThermal,
-            NodalStiffnessesThermal,
-            NodalTemperatures,
-        >,
-    ) -> Result<NodalTemperatures, OptimizationError> {
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1, true);
+        solver: S,
+    ) -> Result<NodalTemperatures, OptimizationError>
+    where
+        S: SolverFor<Self, Quantity<PowerTemperature>, NodalForcesThermal>
+            + SecondOrderOptimization<
+                Quantity<PowerTemperature>,
+                NodalForcesThermal,
+                S::Tangent,
+                NodalTemperatures,
+            >,
+        Self: ProvidesTangent<NodalTemperatures, S::Tangent>,
+    {
+        let sparse = S::SPARSE.then(|| {
+            let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+            self.node_neighbors(&mut neighbors);
+            finalize_node_neighbors(&mut neighbors);
+            solver_from_neighbors(&neighbors, &equality_constraint, 1, true)
+        });
         solver.minimize(
-            |nodal_temperatures: &NodalTemperatures| {
-                Ok(self
-                    .potential(nodal_temperatures)?)
-            },
+            |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
-            |nodal_temperatures: &NodalTemperatures| {
-                Ok(self.nodal_stiffnesses(nodal_temperatures)?)
-            },
+            |nodal_temperatures: &NodalTemperatures| Ok(self.provide_tangent(nodal_temperatures)?),
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
-            Some(sparse),
+            sparse,
         )
     }
 }
