@@ -195,18 +195,6 @@ where
     const SPARSE: bool = true;
 }
 
-impl<B, const D: usize> ProvidesTangent<NodalTemperatures, NodalStiffnessesThermal> for Model<B, D>
-where
-    B: ThermalConductionElements,
-{
-    fn provide_tangent(
-        &self,
-        nodal_temperatures: &NodalTemperatures,
-    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
-        self.nodal_stiffnesses(nodal_temperatures)
-    }
-}
-
 impl<B, const D: usize>
     SecondOrderMinimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
     for Model<B, D>

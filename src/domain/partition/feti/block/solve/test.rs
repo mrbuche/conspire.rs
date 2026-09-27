@@ -1,5 +1,5 @@
-use super::super::super::dual_primal::BoundaryConditions;
-use super::{SolveError, solve};
+use super::super::super::{dual_primal::BoundaryConditions, pcg::Preconditioner};
+use super::{SolveError, solve, solve_local_systems};
 use crate::{
     constitutive::solid::{
         elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
@@ -10,7 +10,7 @@ use crate::{
         block::{Block, element::linear::Tetrahedron},
     },
     geometry::mesh::Partition,
-    math::Tensor,
+    math::{SquareMatrix, Tensor, Vector},
 };
 
 fn coordinates() -> Vec<[f64; 3]> {
@@ -49,7 +49,6 @@ fn a_free_floating_assembly_has_no_boundary_condition_to_pin_it() {
         &nodal_coordinates,
         &partition(),
         &BoundaryConditions::none(),
-        3,
     );
     assert!(matches!(result, Err(SolveError::SingularCoarseProblem)));
 }
@@ -74,7 +73,6 @@ fn a_supported_assembly_at_zero_deformation_solves_to_zero_displacement() {
         &nodal_coordinates,
         &partition(),
         &boundary_conditions,
-        3,
     )
     .unwrap_or_else(|_| panic!("solve failed"));
     assert_eq!(solution.len(), 6 * 3);
@@ -95,7 +93,6 @@ fn a_boundary_condition_on_a_corner_node_solves_correctly() {
         &nodal_coordinates,
         &partition(),
         &boundary_conditions,
-        3,
     )
     .unwrap_or_else(|_| panic!("solve failed"));
     assert_eq!(solution.len(), 6 * 3);
@@ -103,4 +100,39 @@ fn a_boundary_condition_on_a_corner_node_solves_correctly() {
         assert!(entry.is_finite());
         assert!(entry.abs() < 1e-8);
     });
+}
+
+fn identity(len: usize) -> SquareMatrix {
+    let mut matrix = SquareMatrix::zero(len);
+    (0..len).for_each(|i| matrix[i][i] = 1.0);
+    matrix
+}
+
+#[test]
+fn a_subdomain_with_no_corners_and_no_boundary_conditions_is_refused_as_floating() {
+    let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![1, 2, 3]]);
+    let local_stiffnesses = vec![identity(9), identity(9)];
+    let local_forces = vec![Vector::zero(9), Vector::zero(9)];
+    let positions = [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+    ];
+    let result = solve_local_systems(
+        &partition,
+        &BoundaryConditions::none(),
+        local_stiffnesses,
+        local_forces,
+        &positions,
+        Preconditioner::Dirichlet,
+        1e-8,
+    );
+    assert!(matches!(
+        result,
+        Err(SolveError::FloatingSubdomain {
+            part: 0,
+            removed: 0
+        })
+    ));
 }
