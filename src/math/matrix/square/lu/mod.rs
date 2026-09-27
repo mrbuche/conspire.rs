@@ -4,7 +4,7 @@ mod test;
 use super::{SquareMatrix, SquareMatrixError};
 use crate::{
     ABS_TOL, REL_TOL,
-    math::{Tensor, Vector, simd},
+    math::{Scalar, Tensor, Vector, simd},
 };
 
 impl SquareMatrix {
@@ -47,6 +47,19 @@ pub struct LuDecomposition {
 }
 
 impl LuDecomposition {
+    /// How many pivots are no larger than `relative_tol` times the largest.
+    ///
+    /// A matrix with a null space loses one pivot to rounding for each of its
+    /// dimensions, however large its entries are, so this counts them without
+    /// the absolute tolerance that [`SquareMatrix::factorize_lu`] compares
+    /// against.
+    pub fn near_zero_pivots(&self, relative_tol: Scalar) -> usize {
+        let pivots = (0..self.lu.len()).map(|i| self.lu[i][i].abs());
+        let largest = pivots.clone().fold(0.0, Scalar::max);
+        pivots
+            .filter(|&pivot| pivot <= relative_tol * largest)
+            .count()
+    }
     fn factorize(&mut self) -> Result<(), SquareMatrixError> {
         let Self { lu, permutation } = self;
         let n = lu.len();

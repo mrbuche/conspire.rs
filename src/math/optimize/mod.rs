@@ -3,18 +3,22 @@ mod test;
 
 mod constraint;
 mod gradient_descent;
+mod krylov;
 mod line_search;
 mod linear_solve;
 mod newton_raphson;
+mod precondition;
 mod strategy;
 mod tolerance;
 mod trust_region;
 
 pub use constraint::EqualityConstraint;
 pub use gradient_descent::GradientDescent;
+pub use krylov::{Krylov, KrylovError, KrylovMethod};
 pub use line_search::{LineSearch, LineSearchError};
 pub use linear_solve::{Direct, LinearSolver};
 pub use newton_raphson::NewtonRaphson;
+pub use precondition::{Precondition, Preconditioning};
 pub use strategy::SolveStrategy;
 pub use tolerance::Tolerances;
 pub use trust_region::TrustRegion;
