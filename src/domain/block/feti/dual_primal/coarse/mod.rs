@@ -64,7 +64,7 @@ impl CoarseSystem {
 /// The dual operator solves it on every application, so refactorizing per
 /// solve would dominate the dual PCG once there are many corners. The
 /// factorization is a sparse LDLᵀ, which needs the symmetric tangent
-/// FETI-DP already requires.
+/// that FETI-DP already requires.
 pub(crate) struct Coarse {
     factor: Option<CscLdl>,
     len: usize,

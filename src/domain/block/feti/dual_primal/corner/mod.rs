@@ -6,6 +6,13 @@ use crate::geometry::mesh::Partition;
 use std::collections::HashMap;
 
 /// Which nodes are corners.
+///
+/// A corner node is enforced exactly continuous by direct assembly into the
+/// coarse problem, rather than weakly through a Lagrange multiplier like the
+/// rest of the interface. The standard FETI-DP heuristic makes a node
+/// primal (a corner) when it's shared by three or more subdomains, since
+/// that's what a subdomain needs, alongside boundary conditions, to remove
+/// every one of its own rigid-body modes.
 pub(crate) struct CornerSelection {
     nodes: Vec<usize>,
 }
@@ -40,6 +47,14 @@ impl CornerSelection {
 }
 
 /// Which corner DOFs survive as free primal unknowns.
+///
+/// Combines `CornerSelection` (which nodes are corners) with
+/// `BoundaryConditions` (which of their components are pinned rather than
+/// free): a `(node, component)` pair only gets a slot here if the node is a
+/// corner AND that component isn't fixed. Numbering every corner node's
+/// components unconditionally would instead leave a permanently-zero
+/// (singular) row/column in the assembled coarse problem wherever a
+/// boundary condition pins a corner component.
 pub(crate) struct CornerDofs {
     index: HashMap<(usize, usize), usize>,
     count: usize,

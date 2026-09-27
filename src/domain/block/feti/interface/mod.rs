@@ -8,6 +8,13 @@ use crate::{
 };
 use std::collections::HashMap;
 
+/// One subdomain's block of the interface (jump) operator.
+///
+/// A sparse triplet representation: `multipliers[k]` is the shared Lagrange
+/// multiplier that local DOF `dofs[k]` participates in, weighted by
+/// `signs[k]` (+1 or -1, one sign per side of a shared node, so their
+/// difference enforces continuity there). `apply` and `apply_transpose` are
+/// `B_s` and `B_s^T` applied without ever being assembled as matrices.
 pub(crate) struct Interface {
     multipliers: Vec<usize>,
     dofs: Vec<usize>,
@@ -39,6 +46,14 @@ impl Interface {
     }
 }
 
+/// Builds every subdomain's block of the interface (jump) operator.
+///
+/// A node shared by k subdomains contributes k-1 multipliers per dimension,
+/// chaining consecutive subdomains (by ascending index) so continuity is
+/// enforced transitively across the whole shared node. A corner (primal)
+/// node is excluded even where shared: it's already enforced exactly
+/// continuous by direct assembly into the coarse problem, not weakly
+/// through a multiplier.
 pub(crate) fn build_interfaces(
     partition: &Partition,
     corners: &CornerSelection,
