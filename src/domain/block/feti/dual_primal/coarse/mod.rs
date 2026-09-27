@@ -4,7 +4,7 @@ mod test;
 use super::{CornerDofs, DualPrimalSplit, condense::Condensed};
 use crate::math::{
     Scalar, Vector,
-    sparse::{CscLdl, CscMatrix},
+    sparse::{CscLdl, CscMatrix, SparseError},
 };
 
 /// The assembled corner (coarse) matrix as unsummed triplets, one per entry
@@ -88,15 +88,12 @@ pub(crate) struct Coarse {
     len: usize,
 }
 
-impl Coarse {
-    #[cfg(test)]
-    pub(crate) fn new(system: CoarseSystem) -> Self {
-        Self::try_new(system).expect("assembled coarse problem is singular")
-    }
-    pub(crate) fn try_new(system: CoarseSystem) -> Option<Self> {
+impl TryFrom<CoarseSystem> for Coarse {
+    type Error = SparseError;
+    fn try_from(system: CoarseSystem) -> Result<Self, Self::Error> {
         let len = system.len;
         if len == 0 {
-            return Some(Self { factor: None, len });
+            return Ok(Self { factor: None, len });
         }
         let CoarseSystem {
             pattern, values, ..
@@ -108,13 +105,16 @@ impl Coarse {
             next += 1;
             value
         });
-        let mut factor = matrix.ldl_symbolic().ok()?;
-        factor.refactor(&matrix).ok()?;
-        Some(Self {
+        let mut factor = matrix.ldl_symbolic()?;
+        factor.refactor(&matrix)?;
+        Ok(Self {
             factor: Some(factor),
             len,
         })
     }
+}
+
+impl Coarse {
     pub(crate) fn len(&self) -> usize {
         self.len
     }

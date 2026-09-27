@@ -2,7 +2,13 @@ use super::{Coarse, CoarseSystem, assemble};
 use crate::domain::block::feti::dual_primal::{
     BoundaryConditions, CornerDofs, CornerSelection, DualPrimalSplit, condense::Condensed,
 };
-use crate::math::{Matrix, SquareMatrix, Tensor};
+use crate::math::{Matrix, SquareMatrix, Tensor, Vector};
+
+impl Coarse {
+    pub(crate) fn new(system: CoarseSystem) -> Self {
+        Self::try_from(system).expect("assembled coarse problem is singular")
+    }
+}
 
 fn one_by_one(value: f64) -> SquareMatrix {
     [[value]]
@@ -88,5 +94,5 @@ fn an_empty_coarse_problem_solves_to_nothing() {
     };
     let coarse = Coarse::new(system);
     assert_eq!(coarse.len(), 0);
-    assert_eq!(coarse.solve(&crate::math::Vector::zero(0)).len(), 0);
+    assert_eq!(coarse.solve(&Vector::zero(0)).len(), 0);
 }
