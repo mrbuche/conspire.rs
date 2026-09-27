@@ -53,7 +53,7 @@ fn matches_the_direct_solve() {
     let rhs = right_hand_side();
     let expected = matrix.clone().solve_lu(&rhs).unwrap();
     let solution = krylov()
-        .solve_operator(apply(&matrix), Preconditioning::None, &rhs)
+        .solve(apply(&matrix), Preconditioning::None, &rhs)
         .unwrap();
     Assert::default()
         .eq_within_tols(&solution, &expected)
@@ -67,7 +67,7 @@ fn diagonal_preconditioner_also_matches() {
     let expected = matrix.clone().solve_lu(&rhs).unwrap();
     let diagonal: Vector = (0..3).map(|i| matrix[i][i]).collect();
     let solution = krylov()
-        .solve_operator(apply(&matrix), Preconditioning::Diagonal(diagonal), &rhs)
+        .solve(apply(&matrix), Preconditioning::Diagonal(diagonal), &rhs)
         .unwrap();
     Assert::default()
         .eq_within_tols(&solution, &expected)
@@ -80,7 +80,7 @@ fn refuses_a_nonpositive_curvature() {
     let rhs = right_hand_side();
     assert!(
         krylov()
-            .solve_operator(apply(&matrix), Preconditioning::None, &rhs)
+            .solve(apply(&matrix), Preconditioning::None, &rhs)
             .is_err()
     );
 }
@@ -91,7 +91,7 @@ fn minres_serves_the_indefinite_system() {
     let rhs = right_hand_side();
     let expected = matrix.clone().solve_lu(&rhs).unwrap();
     let solution = minres()
-        .solve_operator(apply(&matrix), Preconditioning::None, &rhs)
+        .solve(apply(&matrix), Preconditioning::None, &rhs)
         .unwrap();
     Assert::default()
         .eq_within_tols(&solution, &expected)

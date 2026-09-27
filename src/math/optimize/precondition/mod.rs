@@ -1,24 +1,16 @@
 use crate::math::{Tensor, Vector};
 
-/// Something a residual can be put through on its way to becoming a
-/// direction. Implemented for `Preconditioning`'s built-in choices and, via
-/// the blanket impl below, for any bare closure — an operator-shaped
-/// preconditioner (itself another matrix-free reduction, such as FETI's
-/// lumped preconditioner) needs no variant of its own here.
+/// Residual modification to improve solver conditioning.
 pub trait Precondition {
     fn apply(&self, residual: &Vector) -> Vector;
 }
 
-/// A preconditioner already built from whatever the caller's operator is.
-///
-/// Ported (trimmed) from the unmerged `line-search` branch, where this was
-/// built from an assembled `Hessian`; here the caller builds it directly, since
-/// an operator given only as a matvec closure has no entries to read one from.
+/// Available preconditioning methods.
 pub enum Preconditioning {
-    /// Nothing to put the residual through.
-    None,
-    /// A diagonal to divide it by.
+    /// A diagonal matrix.
     Diagonal(Vector),
+    /// No preconditioning.
+    None,
 }
 
 impl Precondition for Preconditioning {
