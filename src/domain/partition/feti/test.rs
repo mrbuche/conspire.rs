@@ -37,11 +37,6 @@ struct Setup {
     num_multipliers: usize,
 }
 
-/// Two subdomains sharing a corner (node 99, explicit, pins out the rigid-body
-/// mode) and a dual interface node (node 50) — the minimal setup with a
-/// nontrivial coarse (corner) AND dual problem. Stiffnesses are arbitrary SPD
-/// 2x2, not a degenerate rank-1 bar — a rank-1 bar's corner Schur complement
-/// vanishes identically, which would make the coarse problem singular.
 fn setup() -> Setup {
     let partition = Partition::from_parts_nodes(vec![vec![99, 50], vec![99, 50]]);
     let corners = CornerSelection::new(vec![99]);
@@ -92,14 +87,6 @@ fn setup() -> Setup {
     }
 }
 
-/// A chain of `count` subdomains, nodes `0..=count`, subdomain `i`
-/// connecting node `i` to node `i+1`. Corners are the even-indexed nodes,
-/// dual (interface) nodes the odd-indexed ones — consecutive integers
-/// always have opposite parity, so every subdomain gets exactly one corner
-/// and one dual node regardless of `count`, the same well-posed shape as
-/// `setup()`'s 2-subdomain example, just repeated. Distinct, non-rank-1 SPD
-/// stiffness per subdomain (as in `setup()`, avoiding the degenerate
-/// corner-Schur-vanishes case a plain bar would hit).
 fn chain_setup(count: usize) -> Setup {
     let partition = Partition::from_parts_nodes((0..count).map(|i| vec![i, i + 1]).collect());
     let corners = CornerSelection::new((0..=count).step_by(2).collect());
@@ -149,10 +136,6 @@ fn chain_setup(count: usize) -> Setup {
     }
 }
 
-/// Reference (deliberately serial, no threading) recomputation of
-/// `dual_reduce`'s reduction — bypasses `dual_action` entirely by calling
-/// the same private `Subdomain` primitives directly, so this is an
-/// independent check on the parallel path, not a re-test of the same code.
 fn serial_dual_action(
     subdomains: &[Subdomain<()>],
     lambda: &Vector,
@@ -172,13 +155,6 @@ fn serial_dual_action(
 
 #[test]
 fn dual_reduce_parallel_path_matches_serial_reference() {
-    // 8 >= PARALLEL_THRESHOLD, so dual_action here exercises dual_reduce's
-    // spawn/chunk/fold path, not just the serial fallback every other test
-    // in this file uses (all well below the threshold). With THREADS
-    // defaulting to 1, that's a single chunk on a single spawned thread
-    // rather than many concurrent workers — see
-    // dual_reduce_uses_no_more_than_the_thread_cap for a check with an
-    // explicit max_threads that genuinely splits work across threads.
     let count = 8;
     let setup = chain_setup(count);
     let lambda: Vector = (0..setup.num_multipliers).map(|i| 1.0 + i as f64).collect();
@@ -214,7 +190,6 @@ fn dual_action_matches_the_hand_derived_operator() {
     let setup = setup();
     let lambda: Vector = [1.0].into_iter().collect();
     let f_lambda = dual_action(&setup.subdomains, &lambda, THREADS);
-    // F = 1/K_dd,0 + 1/K_dd,1 = 1/3 + 1/4 = 7/12.
     assert!((f_lambda[0] - 7.0 / 12.0).abs() < 1e-12);
 }
 
@@ -223,8 +198,6 @@ fn dual_operator_includes_the_coarse_coupling_correction() {
     let setup = setup();
     let lambda: Vector = [1.0].into_iter().collect();
     let f_aug_lambda = dual_operator(&setup.subdomains, &lambda, &setup.coarse, THREADS);
-    // Hand-derived: F = 7/12, S_pp = 23/3, C^T.1 = -1/6, C.(S_pp^-1.C^T) = 1/276.
-    // F_aug = 7/12 + 1/276 = 27/46.
     assert!((f_aug_lambda[0] - 27.0 / 46.0).abs() < 1e-10);
 }
 
@@ -233,14 +206,9 @@ fn lumped_preconditioner_matches_the_hand_derived_operator() {
     let setup = setup();
     let lambda: Vector = [1.0].into_iter().collect();
     let preconditioned = dual_precondition(&setup.subdomains, &lambda, THREADS);
-    // sum_s B_s K_dd,s B_s^T . 1 = K_dd,0 + K_dd,1 = 3 + 4 = 7.
     assert!((preconditioned[0] - 7.0).abs() < 1e-12);
 }
 
-/// `setup()`'s subdomains each have exactly one dual dof, and it's always on
-/// the interface (no interior dof to eliminate) — so `S_GammaGamma = K_dd`
-/// exactly and the Dirichlet preconditioner must coincide with the lumped
-/// one here, even though the two are generally different reductions.
 #[test]
 fn dirichlet_preconditioner_matches_lumped_when_every_dual_dof_is_on_the_interface() {
     let setup = setup();
@@ -255,22 +223,16 @@ fn projected_pcg_solves_the_augmented_dual_problem() {
     let setup = setup();
     let rhs: Vector = [1.0].into_iter().collect();
     let lambda = projected_pcg(&setup.subdomains, &setup.coarse, &rhs).unwrap();
-    // F_aug * lambda = rhs, F_aug = 27/46, so lambda = 46/27.
     assert!((lambda[0] - 46.0 / 27.0).abs() < 1e-8);
 }
 
 #[test]
 fn primal_recovery_matches_the_hand_derived_solution() {
     let setup = setup();
-    // Zero forces (as in setup()), lambda = 1: corner_solution = S_pp^-1 . C^T.1
-    // = -1/46, from the same derivation as dual_operator's F_aug test.
     let local_forces = [Vector::zero(2), Vector::zero(2)];
     let corner_solution: Vector = [-1.0 / 46.0].into_iter().collect();
     let lambda: Vector = [1.0].into_iter().collect();
     let recovered = primal_recovery(&setup.subdomains, &local_forces, &corner_solution, &lambda);
-    // Hand-derived (verified by substitution back into both subdomains' local
-    // equilibrium and the assembled corner equilibrium):
-    // u0 = [-1/46, -15/46], u1 = [-1/46, 6/23].
     assert!((recovered[0][0] - (-1.0 / 46.0)).abs() < 1e-10);
     assert!((recovered[0][1] - (-15.0 / 46.0)).abs() < 1e-10);
     assert!((recovered[1][0] - (-1.0 / 46.0)).abs() < 1e-10);
