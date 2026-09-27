@@ -18,7 +18,7 @@ pub struct PartitionQuality {
     pub disconnected_parts: usize,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Partition {
     elements_parts: Vec<usize>,
     parts_elements: Vec<Vec<usize>>,
