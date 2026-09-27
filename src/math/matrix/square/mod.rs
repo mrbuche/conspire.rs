@@ -421,6 +421,20 @@ impl Mul<&Vector> for SquareMatrix {
     }
 }
 
+impl Mul<Vector> for &SquareMatrix {
+    type Output = Vector;
+    fn mul(self, vector: Vector) -> Self::Output {
+        self.iter().map(|self_i| self_i * &vector).collect()
+    }
+}
+
+impl Mul<&Vector> for &SquareMatrix {
+    type Output = Vector;
+    fn mul(self, vector: &Vector) -> Self::Output {
+        self.iter().map(|self_i| self_i * vector).collect()
+    }
+}
+
 impl Add for SquareMatrix {
     type Output = Self;
     fn add(mut self, vector: Self) -> Self::Output {

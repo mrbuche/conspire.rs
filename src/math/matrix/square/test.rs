@@ -92,3 +92,14 @@ fn quadratic_form_matches_multiplication() {
         .eq_within_tols(form, &(&vector * (square_matrix * &vector)))
         .unwrap()
 }
+
+#[test]
+fn multiplication_by_reference_matches_multiplication_by_value() {
+    let mut square_matrix = SquareMatrix::zero(3);
+    (0..3).for_each(|i| (0..3).for_each(|j| square_matrix[i][j] = (1 + i * 3 + j) as f64));
+    let vector = Vector::from([1.0, -2.0, 3.0]);
+    let expected = square_matrix.clone() * &vector;
+    assert_eq!(&square_matrix * &vector, expected);
+    assert_eq!(&square_matrix * vector.clone(), expected);
+    assert_eq!(expected, Vector::from([6.0, 12.0, 18.0]));
+}

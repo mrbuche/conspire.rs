@@ -4,7 +4,7 @@ mod test;
 use super::{SquareMatrix, SquareMatrixError};
 use crate::{
     ABS_TOL, REL_TOL,
-    math::{Tensor, Vector, simd},
+    math::{Scalar, Tensor, Vector, simd},
 };
 
 impl SquareMatrix {
@@ -113,12 +113,13 @@ impl LuDecomposition {
         }
         Ok(())
     }
-    /// An unfactorized decomposition sized to hold that of a matrix of the given length.
-    pub fn zero(len: usize) -> Self {
-        Self {
-            lu: SquareMatrix::zero(len),
-            permutation: (0..len).collect(),
-        }
+    /// Counts pivots that are small relative to the largest pivot.
+    pub fn near_zero_pivots(&self, relative_tol: Scalar) -> usize {
+        let pivots = (0..self.lu.len()).map(|i| self.lu[i][i].abs());
+        let largest = pivots.clone().fold(0.0, Scalar::max);
+        pivots
+            .filter(|&pivot| pivot <= relative_tol * largest)
+            .count()
     }
     /// Solve a system of linear equations for another right-hand side.
     pub fn solve(&self, b: &Vector) -> Vector {
@@ -134,6 +135,13 @@ impl LuDecomposition {
             .for_each(|(&p_i, x_i)| *x_i = b[p_i]);
         forward_substitution(x, &self.lu);
         backward_substitution(x, &self.lu)
+    }
+    /// An unfactorized decomposition sized for a matrix of the given length.
+    pub fn zero(len: usize) -> Self {
+        Self {
+            lu: SquareMatrix::zero(len),
+            permutation: (0..len).collect(),
+        }
     }
 }
 

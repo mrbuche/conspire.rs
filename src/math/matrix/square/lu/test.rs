@@ -43,3 +43,59 @@ fn solve_lu_scaled_dim_25() -> Result<(), AssertionError> {
     let scaled = (kkt_dim_25() * scale).solve_lu(&(&rhs * scale)).unwrap();
     Assert::default().eq_within_tols(&scaled, &solution)
 }
+
+fn floppy(scale: f64) -> SquareMatrix {
+    let n = 6;
+    let direction: Vec<f64> = (1..=n).map(|i| (i as f64).sqrt()).collect();
+    let norm: f64 = direction.iter().map(|entry| entry * entry).sum();
+    let reflection = |i: usize, j: usize| {
+        (if i == j { 1.0 } else { 0.0 }) - 2.0 * direction[i] * direction[j] / norm
+    };
+    let mut matrix = SquareMatrix::zero(n);
+    (0..n).for_each(|i| {
+        (0..n).for_each(|j| {
+            matrix[i][j] = scale
+                * (0..n - 1)
+                    .map(|k| (k + 1) as f64 * reflection(i, k) * reflection(j, k))
+                    .sum::<f64>()
+        })
+    });
+    matrix
+}
+
+#[test]
+fn a_matrix_with_a_null_space_has_a_near_zero_pivot_at_any_scale() {
+    [1e-3, 1.0, 1e9, 1e15].into_iter().for_each(|scale| {
+        if let Ok(factorization) = floppy(scale).factorize_lu() {
+            assert_eq!(factorization.near_zero_pivots(1e-10), 1, "scale {scale:e}")
+        }
+    })
+}
+
+#[test]
+fn a_stiff_matrix_with_a_null_space_gets_through_the_factorization_but_not_the_count() {
+    let factorization = floppy(1e12)
+        .factorize_lu()
+        .expect("rounding error above the absolute tolerance is not taken for singular");
+    assert_eq!(factorization.near_zero_pivots(1e-10), 1);
+}
+
+#[test]
+fn a_well_posed_matrix_has_no_near_zero_pivot_at_any_scale() {
+    [1e-3, 1.0, 1e9, 1e15].into_iter().for_each(|scale| {
+        let mut matrix = floppy(scale);
+        (0..6).for_each(|i| matrix[i][i] += scale);
+        let factorization = matrix.factorize_lu().unwrap();
+        assert_eq!(factorization.near_zero_pivots(1e-10), 0, "scale {scale:e}")
+    })
+}
+
+#[test]
+fn an_ill_conditioned_matrix_is_not_mistaken_for_a_singular_one() {
+    let mut matrix = SquareMatrix::zero(4);
+    [1.0, 1e-2, 1e-4, 1e-6]
+        .iter()
+        .enumerate()
+        .for_each(|(i, &entry)| matrix[i][i] = entry);
+    assert_eq!(matrix.factorize_lu().unwrap().near_zero_pivots(1e-10), 0);
+}
