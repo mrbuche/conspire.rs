@@ -28,24 +28,6 @@ fn extract_rectangular(source: &SquareMatrix, rows: &[usize], columns: &[usize])
         .collect()
 }
 
-/// Statically condenses the dual (remainder boundary) DOFs out of a
-/// subdomain's local stiffness — they are never shared beyond this
-/// subdomain, so this elimination is purely local and embarrassingly
-/// parallel across subdomains — leaving a non-singular Schur complement
-/// on the corner DOFs, which is what gets assembled into the global
-/// coarse problem. dual_map = K_dd^-1 K_dp recovers the eliminated
-/// dual solution once the corner (and multiplier) unknowns are known.
-#[cfg(test)]
-pub(crate) fn condense(
-    local_stiffness: &SquareMatrix,
-    local_force: &Vector,
-    primal: &[usize],
-    dual: &[usize],
-) -> Condensed {
-    try_condense(local_stiffness, local_force, primal, dual)
-        .expect("remainder block K_dd is singular")
-}
-
 pub(crate) fn try_condense(
     local_stiffness: &SquareMatrix,
     local_force: &Vector,

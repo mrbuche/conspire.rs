@@ -1,5 +1,15 @@
-use super::condense;
+use super::try_condense;
 use crate::math::{SquareMatrix, Vector};
+
+fn condense(
+    local_stiffness: &SquareMatrix,
+    local_force: &Vector,
+    primal: &[usize],
+    dual: &[usize],
+) -> super::Condensed {
+    try_condense(local_stiffness, local_force, primal, dual)
+        .expect("remainder block K_dd is singular")
+}
 
 #[test]
 fn schur_complement_and_reduced_force() {
