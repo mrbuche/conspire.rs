@@ -5,6 +5,13 @@ use crate::domain::partition::feti::interface::Interface;
 use crate::math::{LuDecomposition, Matrix, SquareMatrix, Tensor, Vector};
 use std::collections::HashSet;
 
+/// One subdomain's local system, already condensed and interfaced.
+///
+/// `blocks` is whatever per-subdomain payload the caller hangs on it (kept
+/// generic over `B`, e.g. `()` in tests); everything else here is FETI-DP's
+/// own bookkeeping built from it: the interface (jump) operator, the
+/// condensed dual stiffness and its factorization, and the primal (corner)
+/// numbering that ties this subdomain into the global coarse problem.
 pub(crate) struct Subdomain<B> {
     blocks: B,
     interface: Interface,
@@ -29,13 +36,14 @@ pub(crate) struct Subdomain<B> {
     dirichlet: DirichletLocal,
 }
 
-/// A subdomain's part of the Dirichlet preconditioner,
+/// A subdomain's part of the Dirichlet preconditioner.
+///
 /// `S_s = K_bb - K_bi K_ii^-1 K_ib`, the Schur complement of its interior
 /// (never touched by a multiplier) dual dofs `i` onto its boundary (touched
-/// by one) dual dofs `b`. `S_s` is applied implicitly, as `K_bb x` minus one
-/// interior solve and two rectangular matvecs, instead of being formed: the
-/// preconditioner runs a few dozen times, and forming `S_s` costs one interior
-/// solve per boundary dof.
+/// by one) dual dofs `b`. Applied implicitly, as `K_bb x` minus one interior
+/// solve and two rectangular matvecs, instead of being formed: the
+/// preconditioner runs a few dozen times, and forming `S_s` costs one
+/// interior solve per boundary dof.
 pub(crate) struct DirichletLocal {
     boundary_dofs: Vec<usize>,
     k_bb: SquareMatrix,

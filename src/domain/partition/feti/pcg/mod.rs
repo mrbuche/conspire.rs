@@ -36,9 +36,17 @@ where
     )
 }
 
+/// Which FETI-DP preconditioner the dual PCG applies.
+///
+/// `Dirichlet` is the default: its condition-number bound is near
+/// mesh-independent, at the price of one interior solve per subdomain per
+/// iteration over `Lumped`'s cheap matvec — see `projected_pcg`'s own doc
+/// for the tradeoff in full.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Preconditioner {
+    /// `sum_s B_s K_dd,s B_s^T` — a local matvec in place of a local solve.
     Lumped,
+    /// `sum_s B_b,s S_s B_b,s^T` — near mesh-independent convergence.
     Dirichlet,
 }
 
