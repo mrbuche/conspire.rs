@@ -39,21 +39,13 @@ impl Interface {
     }
 }
 
-/// Builds a non-redundant jump operator per subdomain: a global node shared by
-/// k subdomains contributes k-1 multipliers per dimension, chaining consecutive
-/// subdomains (in ascending subdomain index) so continuity is enforced
-/// transitively across the whole shared node.
-///
-/// A corner (primal) node is excluded even where shared: it is already
-/// enforced exactly continuous by direct assembly into the coarse problem
-/// (see `dual_primal::coarse`), not weakly via a multiplier.
 pub(crate) fn build_interfaces(
     partition: &Partition,
     corners: &CornerSelection,
     dimension: usize,
 ) -> (Vec<Interface>, usize) {
     let num_subdomains = partition.number_of_parts();
-    let mut node_occurrences: HashMap<usize, Vec<(usize, usize)>> = HashMap::new();
+    let mut node_occurrences = HashMap::<usize, Vec<(usize, usize)>>::new();
     partition
         .parts_nodes()
         .iter()
