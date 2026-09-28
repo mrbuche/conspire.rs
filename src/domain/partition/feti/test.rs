@@ -166,7 +166,7 @@ fn dual_reduce_parallel_path_matches_serial_reference() {
     let count = 8;
     let setup = chain_setup(count);
     let lambda: Vector = (0..setup.num_multipliers).map(|i| 1.0 + i as f64).collect();
-    let parallel = dual_action(&setup.subdomains, &lambda, THREADS);
+    let parallel = dual_action(&setup.subdomains, &lambda, 4);
     let serial = serial_dual_action(&setup.subdomains, &lambda, setup.num_multipliers);
     assert_eq!(parallel.len(), serial.len());
     parallel

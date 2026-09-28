@@ -4,14 +4,6 @@ use crate::domain::partition::feti::{
 use crate::math::{Tensor, Vector};
 use std::thread::scope;
 
-/// Below this many subdomains, `dual_reduce` stays on the serial path —
-/// thread-spawn overhead can otherwise exceed the per-subdomain work itself
-/// (the same failure mode found and documented for parallel FEM assembly in
-/// `[[parallel_assembly_plan]]`: "forces ~1ms of work can't pay per-call
-/// spawn"). This threshold is a placeholder, not a benchmarked value — no
-/// real multi-subdomain FETI-DP problem exists yet to tune it against.
-const PARALLEL_THRESHOLD: usize = 4;
-
 /// Reduces a per-subdomain local step (`local_solve` for the dual operator,
 /// `local_apply` for the lumped preconditioner) into a multiplier-space
 /// vector: matrix-free, one independent local step per subdomain plus a
@@ -26,10 +18,6 @@ where
     B: Sync,
 {
     let num_multipliers = lambda.len();
-    // All captures here (`lambda`, `local_step`, `num_multipliers`) are
-    // references or Copy, so this closure is itself Copy — sharing it across
-    // spawned threads below is just copying a handful of references, not
-    // moving anything that can only live in one place.
     let reduce = |chunk: &[Subdomain<B>]| {
         chunk
             .iter()
@@ -44,17 +32,11 @@ where
                 sum + contribution
             })
     };
-    if subdomains.len() < PARALLEL_THRESHOLD {
+    let threads = thread_count(max_threads).min(subdomains.len());
+    if threads <= 1 {
         return reduce(subdomains);
     }
-    // Each subdomain's local step is fully independent (no shared mutable
-    // state during the parallel phase), so this is the simple map-then-
-    // reduce case from [[parallel_assembly_plan]] (option 2 there, "per-
-    // thread accumulators + reduction") rather than anything needing
-    // coloring or row-gather — those solve write conflicts scattering into
-    // one shared structure, which doesn't arise here since each thread only
-    // ever produces its own small partial-sum `Vector`.
-    let chunk_size = subdomains.len().div_ceil(thread_count(max_threads)).max(1);
+    let chunk_size = subdomains.len().div_ceil(threads);
     let partials: Vec<Vector> = scope(|scope| {
         subdomains
             .chunks(chunk_size)
