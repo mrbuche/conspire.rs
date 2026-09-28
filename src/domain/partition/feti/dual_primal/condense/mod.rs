@@ -59,18 +59,7 @@ impl Condensed {
             })
             .collect();
         let y = factor.solve(&f_d);
-        let reduced_force = primal
-            .iter()
-            .enumerate()
-            .map(|(row, _)| {
-                f_p[row]
-                    - dual
-                        .iter()
-                        .enumerate()
-                        .map(|(d, _)| k_pd[row][d] * y[d])
-                        .sum::<Scalar>()
-            })
-            .collect();
+        let reduced_force = &f_p - &(&k_pd * &y);
         Some(Self {
             schur,
             reduced_force,
