@@ -1,4 +1,4 @@
-use crate::domain::partition::feti::{
+use crate::domain::feti::{
     dual_primal::coarse::Coarse, parallel::thread_count, subdomain::Subdomain,
 };
 use crate::math::{Tensor, Vector};

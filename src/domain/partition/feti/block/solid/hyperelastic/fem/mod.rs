@@ -1,6 +1,6 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
-    domain::partition::feti::{
+    domain::feti::{
         Feti,
         block::{
             element::{DecomposableElements, ElementSystem, ElementSystems, positions},

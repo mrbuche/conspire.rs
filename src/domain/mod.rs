@@ -8,8 +8,10 @@ pub(crate) mod block;
 pub mod cbm;
 #[cfg(feature = "fem")]
 pub mod fem;
+#[cfg(feature = "fem")]
+#[path = "partition/feti/mod.rs"]
+pub mod feti;
 pub(crate) mod from;
-pub(crate) mod partition;
 pub(crate) mod solid;
 #[cfg(feature = "vem")]
 pub mod vem;

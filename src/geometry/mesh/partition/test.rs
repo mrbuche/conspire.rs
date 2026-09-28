@@ -4,10 +4,7 @@ use crate::geometry::{
 };
 
 impl Partition {
-    #[cfg_attr(
-        not(any(feature = "cbm", feature = "fem", feature = "vem")),
-        allow(dead_code)
-    )]
+    #[cfg_attr(not(feature = "fem"), allow(dead_code))]
     pub(crate) fn from_parts_nodes(parts_nodes: Vec<Vec<usize>>) -> Self {
         let number_of_nodes = parts_nodes
             .iter()

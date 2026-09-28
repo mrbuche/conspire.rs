@@ -2,9 +2,7 @@ use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     domain::{
         ElementModelError,
-        partition::feti::block::element::{
-            DecomposableElements, ElementSystem, ElementSystems, positions,
-        },
+        feti::block::element::{DecomposableElements, ElementSystem, ElementSystems, positions},
     },
     vem::{
         NodalCoordinates,

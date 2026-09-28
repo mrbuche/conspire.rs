@@ -14,6 +14,14 @@ pub(crate) mod subdomain;
 #[cfg(feature = "fem")]
 pub(crate) mod thermal;
 
+pub use block::element::{DecomposableElements, ElementSystems};
+#[cfg(feature = "fem")]
+pub use block::solve::SolveError;
+#[cfg(feature = "fem")]
+pub use dual_primal::BoundaryConditions;
+#[cfg(feature = "fem")]
+pub use pcg::Preconditioner;
+
 #[cfg(feature = "fem")]
 use crate::{
     geometry::mesh::Partition,
@@ -23,11 +31,7 @@ use crate::{
     },
 };
 #[cfg(feature = "fem")]
-use block::{element::ElementSystems, solve::solve_local_systems};
-#[cfg(feature = "fem")]
-use dual_primal::BoundaryConditions;
-#[cfg(feature = "fem")]
-use pcg::Preconditioner;
+use block::solve::solve_local_systems;
 
 pub(crate) const THREADS: usize = 1;
 
