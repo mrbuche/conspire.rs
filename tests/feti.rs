@@ -306,3 +306,38 @@ fn a_subdomain_hinged_about_an_edge_is_refused() {
         );
     })
 }
+
+#[test]
+#[ignore]
+fn benchmark_cg_vs_gmres() {
+    use conspire::math::optimize::KrylovMethod;
+    for (nel, divisions) in [([24; 3], [4; 3]), ([24; 3], [6; 3])] {
+        for method in [
+            KrylovMethod::ConjugateGradients,
+            GMRES,
+            KrylovMethod::ConjugateGradients,
+            GMRES,
+        ] {
+            let (model, constraint) = problem(nel);
+            let clock = Instant::now();
+            model
+                .minimize(
+                    constraint,
+                    NewtonRaphson {
+                        abs_tol: TOLERANCES,
+                        linear_solver: Feti {
+                            partition: mesh(nel).partition_box(divisions),
+                            method,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                )
+                .unwrap_or_else(|error| panic!("FETI solve failed: {error}"));
+            eprintln!(
+                "BENCH {nel:?} in {divisions:?} parts {method:?}: Newton total {:.0} ms",
+                clock.elapsed().as_secs_f64() * 1e3
+            );
+        }
+    }
+}
