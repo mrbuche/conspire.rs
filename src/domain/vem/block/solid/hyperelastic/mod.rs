@@ -91,7 +91,7 @@ where
                 let stiffnesses =
                     element.nodal_stiffnesses(self.constitutive_model(), &coordinates)?;
                 Ok::<_, VirtualElementError>(ElementSystem::pack(
-                    nodes.clone(),
+                    nodes.to_vec(),
                     |a, i| forces[a][i].value(),
                     |a, b, i, j| stiffnesses[a][b][i][j].value(),
                 ))

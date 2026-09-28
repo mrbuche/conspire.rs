@@ -19,13 +19,13 @@ pub struct Block<C, F> {
 }
 
 impl<C, F> Block<C, F> {
-    fn constitutive_model(&self) -> &C {
+    pub(crate) fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
-    fn elements(&self) -> &[F] {
+    pub(crate) fn elements(&self) -> &[F] {
         &self.elements
     }
-    fn element_coordinates<I, U>(
+    pub(crate) fn element_coordinates<I, U>(
         coordinates: &TensorRank1Vec<3, I, U>,
         nodes: &[usize],
     ) -> TensorRank1Vec<3, I, U> {
@@ -37,7 +37,7 @@ impl<C, F> Block<C, F> {
     pub fn elements_faces(&self) -> &[Vec<usize>] {
         self.connectivity.elements_faces()
     }
-    fn elements_nodes(&self) -> &[Vec<usize>] {
+    pub(crate) fn elements_nodes(&self) -> &[Vec<usize>] {
         &self.elements_nodes
     }
     pub fn faces_nodes(&self) -> &[Vec<usize>] {
