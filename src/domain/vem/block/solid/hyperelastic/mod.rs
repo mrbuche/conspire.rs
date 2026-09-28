@@ -1,12 +1,6 @@
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
-    domain::{
-        ElementModelError,
-        partition::feti::block::element::{
-            DecomposableElements, ElementSystem, ElementSystems, positions,
-        },
-        solid::hyperelastic::HyperelasticElements,
-    },
+    domain::{ElementModelError, solid::hyperelastic::HyperelasticElements},
     math::{HessianAccumulate, Quantity},
     units::Energy,
     vem::{
@@ -69,38 +63,5 @@ where
                 Ok::<(), VirtualElementError>(())
             })
             .map_err(|error| ElementModelError::upstream(error, self))
-    }
-}
-
-impl<C, F> DecomposableElements for Block<C, F>
-where
-    C: Hyperelastic,
-    F: HyperelasticVirtualElement<C>,
-{
-    fn element_systems(
-        &self,
-        nodal_coordinates: &NodalCoordinates,
-    ) -> Result<ElementSystems, ElementModelError> {
-        let elements = self
-            .elements()
-            .iter()
-            .zip(self.elements_nodes())
-            .map(|(element, nodes)| {
-                let coordinates = Self::element_coordinates(nodal_coordinates, nodes);
-                let forces = element.nodal_forces(self.constitutive_model(), &coordinates)?;
-                let stiffnesses =
-                    element.nodal_stiffnesses(self.constitutive_model(), &coordinates)?;
-                Ok::<_, VirtualElementError>(ElementSystem::pack(
-                    nodes.to_vec(),
-                    |a, i| forces[a][i].value(),
-                    |a, b, i, j| stiffnesses[a][b][i][j].value(),
-                ))
-            })
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| ElementModelError::upstream(error, self))?;
-        Ok(ElementSystems {
-            positions: positions(nodal_coordinates),
-            elements,
-        })
     }
 }
