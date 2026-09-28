@@ -242,6 +242,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
                 dual_dofs,
                 nodes.len() * D,
                 condensed.dual_map.clone(),
+                condensed.primal_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
                 dirichlet,

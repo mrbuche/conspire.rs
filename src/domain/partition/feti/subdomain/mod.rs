@@ -26,6 +26,7 @@ pub(crate) struct Subdomain<B> {
     /// this subdomain's dual correction, and is what carries the coarse-grid
     /// coupling term into the dual operator.
     dual_map: Matrix,
+    primal_map: Matrix,
     /// Each local primal (corner) DOF's raw position in this subdomain's full
     /// local numbering.
     primal_dofs: Vec<usize>,
@@ -146,6 +147,7 @@ impl<B> Subdomain<B> {
         dual_dofs: Vec<usize>,
         num_local: usize,
         dual_map: Matrix,
+        primal_map: Matrix,
         primal_dofs: Vec<usize>,
         primal_global: Vec<usize>,
         dirichlet: DirichletLocal,
@@ -158,6 +160,7 @@ impl<B> Subdomain<B> {
             dual_dofs,
             num_local,
             dual_map,
+            primal_map,
             primal_dofs,
             primal_global,
             dirichlet,
@@ -174,6 +177,9 @@ impl<B> Subdomain<B> {
     }
     pub(crate) fn dual_map(&self) -> &Matrix {
         &self.dual_map
+    }
+    pub(crate) fn primal_map(&self) -> &Matrix {
+        &self.primal_map
     }
     pub(crate) fn primal_global(&self) -> &[usize] {
         &self.primal_global

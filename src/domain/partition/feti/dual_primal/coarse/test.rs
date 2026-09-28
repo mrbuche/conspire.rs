@@ -44,11 +44,13 @@ fn shares_corner_contributions_across_subdomains() {
         schur: one_by_one(2.0),
         reduced_force: [1.0].into_iter().collect(),
         dual_map: one_by_one_matrix(0.0),
+        primal_map: one_by_one_matrix(0.0),
     };
     let condensed_b = Condensed {
         schur: one_by_one(3.0),
         reduced_force: [4.0].into_iter().collect(),
         dual_map: one_by_one_matrix(0.0),
+        primal_map: one_by_one_matrix(0.0),
     };
     let (schur, force) = CoarseSystem::assemble(
         &[condensed_a, condensed_b],
