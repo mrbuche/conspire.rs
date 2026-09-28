@@ -6,7 +6,7 @@ use conspire::{
         Model, NodalCoordinates, NodalReferenceCoordinates, SecondOrderMinimize,
         block::{Block, element::linear::Hexahedron},
     },
-    feti::Feti,
+    feti::{Feti, GMRES},
     geometry::{
         Coordinates,
         grid::Voxels,
@@ -144,6 +144,29 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
 #[test]
 fn newton_with_feti_matches_newton_with_the_sparse_solve() {
     let (difference, ..) = compare([6; 3], [2; 3]);
+    assert!(difference < 1e-6, "coordinates differ by {difference:e}");
+}
+
+#[test]
+fn gmres_on_the_dual_problem_matches_conjugate_gradients() {
+    let solve = |method| {
+        let (model, constraint) = problem([6; 3]);
+        model
+            .minimize(
+                constraint,
+                NewtonRaphson {
+                    abs_tol: TOLERANCES,
+                    linear_solver: Feti {
+                        partition: mesh([6; 3]).partition_box([2; 3]),
+                        method,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap_or_else(|error| panic!("FETI solve failed: {error}"))
+    };
+    let difference = largest_difference(&solve(GMRES), &solve(Default::default()));
     assert!(difference < 1e-6, "coordinates differ by {difference:e}");
 }
 

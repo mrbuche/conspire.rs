@@ -70,6 +70,7 @@ impl Feti {
             boundary_conditions,
             self.preconditioner,
             self.rel_tol,
+            self.method,
         )
     }
 }

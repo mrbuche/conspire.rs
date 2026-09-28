@@ -7,7 +7,7 @@ use crate::{
     },
     math::{
         Scalar, Vector,
-        optimize::{Krylov, KrylovError},
+        optimize::{Krylov, KrylovError, KrylovMethod},
     },
 };
 
@@ -35,6 +35,7 @@ where
         rhs,
         Preconditioner::Dirichlet,
         Krylov::default().rel_tol,
+        KrylovMethod::default(),
     )
 }
 
@@ -58,12 +59,14 @@ pub(crate) fn projected_pcg_with<B>(
     rhs: &Vector,
     preconditioner: Preconditioner,
     rel_tol: Scalar,
+    method: KrylovMethod,
 ) -> Result<Vector, KrylovError>
 where
     B: Sync,
 {
     Krylov {
         rel_tol,
+        method,
         ..Krylov::default()
     }
     .solve(

@@ -10,7 +10,7 @@ use crate::{
         block::{Block, element::linear::Tetrahedron},
     },
     geometry::mesh::Partition,
-    math::{SquareMatrix, Tensor, Vector},
+    math::{SquareMatrix, Tensor, Vector, optimize::KrylovMethod},
 };
 
 fn coordinates() -> Vec<[f64; 3]> {
@@ -127,6 +127,7 @@ fn a_subdomain_with_no_corners_and_no_boundary_conditions_is_refused_as_floating
         &positions,
         Preconditioner::Dirichlet,
         1e-8,
+        KrylovMethod::default(),
     );
     assert!(matches!(
         result,

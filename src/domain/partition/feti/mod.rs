@@ -27,13 +27,21 @@ use crate::{
     geometry::mesh::Partition,
     math::{
         Scalar, Vector,
-        optimize::{Krylov, LinearSolver},
+        optimize::{Krylov, KrylovMethod, LinearSolver},
     },
 };
 #[cfg(feature = "fem")]
 use block::solve::solve_local_systems;
 
 pub(crate) const THREADS: usize = 1;
+
+/// The dual solve by GMRES, for a nonsymmetric dual operator, restarting
+/// only after a generous 100 iterations since the solve converges in tens.
+///
+/// Not the default: conjugate gradients also refuses a singular subdomain
+/// through its positive-definiteness check, which GMRES has no way to do.
+#[cfg(feature = "fem")]
+pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
 
 /// FETI-DP solver for the linearized systems of a decomposable block.
 ///
@@ -54,6 +62,7 @@ pub struct Feti {
     pub partition: Partition,
     pub preconditioner: Preconditioner,
     pub rel_tol: Scalar,
+    pub method: KrylovMethod,
 }
 
 #[cfg(feature = "fem")]
@@ -63,6 +72,7 @@ impl Default for Feti {
             partition: Partition::default(),
             preconditioner: Preconditioner::Dirichlet,
             rel_tol: Krylov::default().rel_tol,
+            method: KrylovMethod::ConjugateGradients,
         }
     }
 }
@@ -95,6 +105,7 @@ impl LinearSolver for Feti {
             tangent.positions(),
             self.preconditioner,
             self.rel_tol,
+            self.method,
         )
         .map_err(|error| error.to_string())?;
         Ok(retained.iter().map(|&dof| solution[dof]).collect())

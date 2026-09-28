@@ -30,7 +30,7 @@ use crate::{
     geometry::mesh::Partition,
     math::{
         Scalar, SquareMatrix, Style, StyledError, Vector,
-        optimize::{Krylov, KrylovError},
+        optimize::{Krylov, KrylovError, KrylovMethod},
         styled_error,
     },
 };
@@ -126,6 +126,7 @@ where
         boundary_conditions,
         Preconditioner::Dirichlet,
         Krylov::default().rel_tol,
+        KrylovMethod::default(),
     )
 }
 
@@ -136,6 +137,7 @@ pub(crate) fn solve_with<C, F, const G: usize, const M: usize, const N: usize, c
     boundary_conditions: &BoundaryConditions,
     preconditioner: Preconditioner,
     rel_tol: Scalar,
+    method: KrylovMethod,
 ) -> Result<Vector, SolveError>
 where
     C: Hyperelastic,
@@ -156,6 +158,7 @@ where
         &positions(nodal_coordinates),
         preconditioner,
         rel_tol,
+        method,
     )
 }
 
@@ -168,6 +171,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
     positions: &[[f64; D]],
     preconditioner: Preconditioner,
     rel_tol: Scalar,
+    method: KrylovMethod,
 ) -> Result<Vector, SolveError> {
     let corners = CornerSelection::from_partition(partition);
     let (interfaces, num_multipliers) = build_interfaces(partition, &corners, D);
@@ -250,7 +254,14 @@ pub(crate) fn solve_local_systems<const D: usize>(
             &coarse_problem.solve(&reduced_force),
             num_multipliers,
         );
-    let lambda = projected_pcg_with(&subdomains, &coarse_problem, &rhs, preconditioner, rel_tol)?;
+    let lambda = projected_pcg_with(
+        &subdomains,
+        &coarse_problem,
+        &rhs,
+        preconditioner,
+        rel_tol,
+        method,
+    )?;
     let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
     let corner_solution = coarse_problem.solve(&(reduced_force + ct_lambda));
     let recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
