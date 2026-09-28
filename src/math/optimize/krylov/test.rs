@@ -97,3 +97,87 @@ fn minres_serves_the_indefinite_system() {
         .eq_within_tols(&solution, &expected)
         .unwrap();
 }
+
+fn gmres(restart: usize) -> Krylov {
+    Krylov {
+        method: KrylovMethod::Gmres(restart),
+        rel_tol: 1e-14,
+        ..Default::default()
+    }
+}
+
+fn nonsymmetric() -> SquareMatrix {
+    let mut matrix = SquareMatrix::zero(3);
+    matrix[0][0] = 4.0;
+    matrix[1][1] = 3.0;
+    matrix[2][2] = 5.0;
+    matrix[0][1] = 1.0;
+    matrix[1][0] = -2.0;
+    matrix[1][2] = 2.0;
+    matrix[2][1] = 0.5;
+    matrix[0][2] = -1.0;
+    matrix
+}
+
+#[test]
+fn gmres_serves_the_nonsymmetric_system() {
+    let matrix = nonsymmetric();
+    let rhs = right_hand_side();
+    let expected = matrix.clone().solve_lu(&rhs).unwrap();
+    let solution = gmres(30)
+        .solve(apply(&matrix), Preconditioning::None, &rhs)
+        .unwrap();
+    Assert::default()
+        .eq_within_tols(&solution, &expected)
+        .unwrap();
+}
+
+#[test]
+fn gmres_restarts() {
+    let matrix = nonsymmetric();
+    let rhs = right_hand_side();
+    let expected = matrix.clone().solve_lu(&rhs).unwrap();
+    let solution = gmres(2)
+        .solve(apply(&matrix), Preconditioning::None, &rhs)
+        .unwrap();
+    Assert::default()
+        .eq_within_tols(&solution, &expected)
+        .unwrap();
+}
+
+#[test]
+fn gmres_diagonal_preconditioner_matches() {
+    let matrix = nonsymmetric();
+    let rhs = right_hand_side();
+    let expected = matrix.clone().solve_lu(&rhs).unwrap();
+    let diagonal: Vector = (0..3).map(|i| matrix[i][i]).collect();
+    let solution = gmres(30)
+        .solve(apply(&matrix), Preconditioning::Diagonal(diagonal), &rhs)
+        .unwrap();
+    Assert::default()
+        .eq_within_tols(&solution, &expected)
+        .unwrap();
+}
+
+#[test]
+fn gmres_serves_the_indefinite_system() {
+    let matrix = indefinite();
+    let rhs = right_hand_side();
+    let expected = matrix.clone().solve_lu(&rhs).unwrap();
+    let solution = gmres(30)
+        .solve(apply(&matrix), Preconditioning::None, &rhs)
+        .unwrap();
+    Assert::default()
+        .eq_within_tols(&solution, &expected)
+        .unwrap();
+}
+
+#[test]
+fn gmres_zero_right_hand_side() {
+    let matrix = nonsymmetric();
+    let rhs = Vector::zero(3);
+    let solution = gmres(30)
+        .solve(apply(&matrix), Preconditioning::None, &rhs)
+        .unwrap();
+    Assert::default().eq_within_tols(&solution, &rhs).unwrap();
+}
