@@ -114,7 +114,6 @@ pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const 
     nodal_coordinates: &NodalCoordinates<3>,
     partition: &Partition,
     boundary_conditions: &BoundaryConditions,
-    dimension: usize,
 ) -> Result<Vector, SolveError>
 where
     C: Hyperelastic,
@@ -125,7 +124,6 @@ where
         nodal_coordinates,
         partition,
         boundary_conditions,
-        dimension,
         Preconditioner::Dirichlet,
         Krylov::default().rel_tol,
     )
@@ -136,7 +134,6 @@ pub(crate) fn solve_with<C, F, const G: usize, const M: usize, const N: usize, c
     nodal_coordinates: &NodalCoordinates<3>,
     partition: &Partition,
     boundary_conditions: &BoundaryConditions,
-    dimension: usize,
     preconditioner: Preconditioner,
     rel_tol: Scalar,
 ) -> Result<Vector, SolveError>
@@ -157,27 +154,26 @@ where
         local_stiffnesses,
         local_forces,
         &positions(nodal_coordinates),
-        dimension,
         preconditioner,
         rel_tol,
     )
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn solve_local_systems(
+pub(crate) fn solve_local_systems<const D: usize>(
     partition: &Partition,
     boundary_conditions: &BoundaryConditions,
     local_stiffnesses: Vec<SquareMatrix>,
     local_forces: Vec<Vector>,
-    positions: &[[f64; 3]],
-    dimension: usize,
+    positions: &[[f64; D]],
     preconditioner: Preconditioner,
     rel_tol: Scalar,
 ) -> Result<Vector, SolveError> {
     let corners = CornerSelection::from_partition(partition);
-    let (interfaces, num_multipliers) = build_interfaces(partition, &corners, dimension);
-    let (splits, corner_dofs) = build_splits(partition, &corners, boundary_conditions, dimension);
+    let (interfaces, num_multipliers) = build_interfaces(partition, &corners, D);
+    let (splits, corner_dofs) = build_splits(partition, &corners, boundary_conditions, D);
     let subdomain_nodes = partition.parts_nodes();
+    let removable = D + D * (D - 1) / 2;
     subdomain_nodes
         .iter()
         .zip(&splits)
@@ -187,12 +183,12 @@ pub(crate) fn solve_local_systems(
                 return Ok(());
             }
             let free: HashSet<usize> = split.dual().iter().copied().collect();
-            let constrained: Vec<usize> = (0..dimension * nodes.len())
+            let constrained: Vec<usize> = (0..D * nodes.len())
                 .filter(|dof| !free.contains(dof))
                 .collect();
-            let local: Vec<[f64; 3]> = nodes.iter().map(|&node| positions[node]).collect();
+            let local: Vec<[f64; D]> = nodes.iter().map(|&node| positions[node]).collect();
             let removed = removed_modes(&local, &constrained);
-            if removed < 6 {
+            if removed < removable {
                 Err(SolveError::FloatingSubdomain { part, removed })
             } else {
                 Ok(())
@@ -240,7 +236,7 @@ pub(crate) fn solve_local_systems(
                 dual_stiffness,
                 dual_factor,
                 dual_dofs,
-                nodes.len() * dimension,
+                nodes.len() * D,
                 condensed.dual_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
@@ -258,15 +254,14 @@ pub(crate) fn solve_local_systems(
     let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
     let corner_solution = coarse_problem.solve(&(reduced_force + ct_lambda));
     let recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
-    let mut global = Vector::zero(positions.len() * dimension);
+    let mut global = Vector::zero(positions.len() * D);
     subdomain_nodes
         .iter()
         .zip(recovered.iter())
         .for_each(|(nodes, local_solution)| {
             nodes.iter().enumerate().for_each(|(local, &node)| {
-                (0..dimension).for_each(|component| {
-                    global[dimension * node + component] =
-                        local_solution[dimension * local + component]
+                (0..D).for_each(|component| {
+                    global[D * node + component] = local_solution[D * local + component]
                 })
             })
         });

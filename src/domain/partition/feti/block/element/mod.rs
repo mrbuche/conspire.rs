@@ -11,7 +11,7 @@ use crate::{
     geometry::mesh::Partition,
     math::{Scalar, SquareMatrix, Tensor, Vector},
 };
-use std::collections::HashMap;
+use std::{array::from_fn, collections::HashMap};
 
 /// The tangent of a Newton step left unassembled.
 ///
@@ -57,16 +57,10 @@ impl ElementSystem {
     }
 }
 
-pub(crate) fn positions(nodal_coordinates: &NodalCoordinates<3>) -> Vec<[f64; 3]> {
+pub(crate) fn positions<const D: usize>(nodal_coordinates: &NodalCoordinates<D>) -> Vec<[f64; D]> {
     nodal_coordinates
         .iter()
-        .map(|coordinate| {
-            [
-                coordinate[0].value(),
-                coordinate[1].value(),
-                coordinate[2].value(),
-            ]
-        })
+        .map(|coordinate| from_fn(|axis| coordinate[axis].value()))
         .collect()
 }
 
