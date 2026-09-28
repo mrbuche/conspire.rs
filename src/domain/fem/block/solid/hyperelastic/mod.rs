@@ -2,8 +2,13 @@ pub mod internal_variables;
 
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
-    domain::partition::feti::block::element::{
-        DecomposableElements, ElementSystem, ElementSystems, positions,
+    domain::partition::feti::{
+        Feti,
+        block::{
+            element::{DecomposableElements, ElementSystem, ElementSystems, positions},
+            solve::{SolveError, solve_with},
+        },
+        dual_primal::BoundaryConditions,
     },
     fem::{
         ElementModelError, NodalCoordinates,
@@ -19,7 +24,7 @@ use crate::{
             hyperelastic::HyperelasticElements,
         },
     },
-    math::{HessianAccumulate, Quantity},
+    math::{HessianAccumulate, Quantity, Vector},
     units::Energy,
 };
 
@@ -109,6 +114,28 @@ where
             positions: positions(nodal_coordinates),
             elements,
         })
+    }
+}
+
+impl Feti {
+    pub fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
+        &self,
+        block: &Block<C, F, G, M, N, P>,
+        nodal_coordinates: &NodalCoordinates<3>,
+        boundary_conditions: &BoundaryConditions,
+    ) -> Result<Vector, SolveError>
+    where
+        C: Hyperelastic,
+        F: HyperelasticFiniteElement<C, G, M, N, P>,
+    {
+        solve_with(
+            block,
+            nodal_coordinates,
+            &self.partition,
+            boundary_conditions,
+            self.preconditioner,
+            self.rel_tol,
+        )
     }
 }
 
