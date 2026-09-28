@@ -249,8 +249,8 @@ fn restarted(
         let beta = residual.norm().value();
         let mut basis = vec![&residual * beta.recip()];
         let mut preconditioned = Vec::new();
-        let mut triangle: Vec<Vec<Scalar>> = Vec::new();
-        let mut rotations: Vec<(Scalar, Scalar)> = Vec::new();
+        let mut triangle = Vec:<Vec<Scalar>>::new();
+        let mut rotations = Vec::<(Scalar, Scalar)>::new();
         let mut projected = vec![beta];
         let mut inner = 0;
         while inner < restart && steps < max_steps {
