@@ -51,8 +51,7 @@ where
         .fold(Vector::zero(num_multipliers), |sum, partial| sum + partial)
 }
 
-/// The action of the FETI-DP dual operator `F = sum_s B_s K_dd,s^-1 B_s^T` on
-/// a multiplier vector.
+/// The action of the dual operator `F = sum_s B_s K_dd,s^-1 B_s^T` on a multiplier vector.
 pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector, threads: usize) -> Vector
 where
     B: Sync,

@@ -178,8 +178,7 @@ impl<B> Subdomain<B> {
     pub(crate) fn primal_global(&self) -> &[usize] {
         &self.primal_global
     }
-    /// Restricts a full-local vector to this subdomain's dual (non-corner)
-    /// DOFs.
+    /// Restricts a full-local vector to the subdomain dual (non-corner) DOFs.
     pub(crate) fn dual_rhs(&self, full_local: &Vector) -> Vector {
         self.dual_dofs.iter().map(|&dof| full_local[dof]).collect()
     }
@@ -210,7 +209,7 @@ impl<B> Subdomain<B> {
         let applied = &self.dual_stiffness * &self.dual_rhs(rhs);
         self.scatter_dual(&applied)
     }
-    /// Restricts a full-local vector to this subdomain's boundary (Γ) dofs.
+    /// Restricts a full-local vector to this subdomain's boundary (Γ) DOFs.
     fn boundary_rhs(&self, full_local: &Vector) -> Vector {
         self.dirichlet
             .boundary_dofs()

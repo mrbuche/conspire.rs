@@ -1,12 +1,14 @@
-use crate::domain::partition::feti::{
-    THREADS,
-    dual::{dual_operator, dual_precondition, dual_precondition_dirichlet},
-    dual_primal::coarse::Coarse,
-    subdomain::Subdomain,
-};
-use crate::math::{
-    Scalar, Vector,
-    optimize::{Krylov, KrylovError},
+use crate::{
+    domain::partition::feti::{
+        THREADS,
+        dual::{dual_operator, dual_precondition, dual_precondition_dirichlet},
+        dual_primal::coarse::Coarse,
+        subdomain::Subdomain,
+    },
+    math::{
+        Scalar, Vector,
+        optimize::{Krylov, KrylovError},
+    },
 };
 
 /// Solves the dual (interface) problem `(F + C S_pp^-1 C^T) . lambda = rhs`
