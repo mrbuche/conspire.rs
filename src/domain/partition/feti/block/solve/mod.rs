@@ -36,18 +36,17 @@ use crate::{
 };
 use std::collections::HashSet;
 
-/// Errors a full FETI-DP solve can hit: either extracting a subdomain's
-/// local stiffness/force from the real `Block` fails, or the dual PCG does.
+/// Possible errors encountered when solving with FETI.
 pub enum SolveError {
+    /// Downstream error from a finite element.
     Element(FiniteElementError),
+    /// Downstream error from the dual PCG.
     Krylov(KrylovError),
-    /// A subdomain whose corners and pinned degrees of freedom leave some of
-    /// its rigid-body modes free, and how many they remove of the six.
-    FloatingSubdomain {
-        part: usize,
-        removed: usize,
-    },
+    /// A subdomain left with some rigid-body modes free.
+    FloatingSubdomain { part: usize, removed: usize },
+    /// A subdomain with some part of it still free to move.
     SingularSubdomain(usize),
+    /// The assembled corner problem is singular.
     SingularCoarseProblem,
 }
 
@@ -109,21 +108,6 @@ impl From<KrylovError> for SolveError {
 /// solves the coarse corner problem, runs the Dirichlet-preconditioned dual PCG
 /// with the coarse-coupling correction, recovers each subdomain's local
 /// solution, and scatters everything back into one global nodal vector.
-///
-/// Hyperelastic models only: FETI-DP as built needs a symmetric tangent
-/// (`C^T = dual_map^T`, and the dual PCG is conjugate gradients), and an
-/// elastic-only model such as `AlmansiHamelEulerian` has an asymmetric one
-/// away from zero deformation — measured 1e-2 asymmetry gave a 1e-4 error
-/// against a dense global solve, where `NeoHookean` matched to 1e-12.
-///
-/// `partition` is the mesh decomposition, assumed given (an external
-/// decomposer's job, not this solver's). Corners are chosen by
-/// [`CornerSelection::from_partition`]'s standard heuristic. `boundary_conditions`
-/// pins whichever (global node, component) DOFs are externally supported —
-/// without at least enough of them to remove every global rigid-body mode,
-/// the assembled coarse problem is singular and `solve` fails; corner
-/// condensation alone only removes each subdomain's own LOCAL floating
-/// modes, never a mode that moves the whole structure together.
 #[allow(clippy::type_complexity)]
 pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
     block: &Block<C, F, G, M, N, P>,
@@ -147,7 +131,6 @@ where
     )
 }
 
-/// `solve` with the dual PCG preconditioner chosen explicitly.
 pub(crate) fn solve_with<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
     block: &Block<C, F, G, M, N, P>,
     nodal_coordinates: &NodalCoordinates<3>,
@@ -180,8 +163,6 @@ where
     )
 }
 
-/// The FETI-DP solve once each subdomain's local stiffness and force are in
-/// hand, however they were assembled.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_local_systems(
     partition: &Partition,

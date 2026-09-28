@@ -13,9 +13,9 @@ use crate::{
 };
 use std::collections::HashMap;
 
-/// The tangent of a Newton step left unassembled: each element's stiffness and
-/// force, in the order the elements were meshed.
+/// The tangent of a Newton step left unassembled.
 ///
+/// Each element's stiffness and force, in the order the elements were meshed.
 /// A decomposition assigns whole elements to subdomains, so this is what one
 /// needs to build each subdomain's own system.
 pub struct ElementSystems {
