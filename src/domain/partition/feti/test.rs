@@ -1,19 +1,27 @@
 use super::THREADS;
-use crate::domain::partition::feti::{
-    dual::{
-        dual_action, dual_operator, dual_precondition, dual_precondition_dirichlet, dual_reduce,
+use crate::{
+    domain::partition::feti::{
+        dual::{
+            dual_action, dual_operator, dual_precondition, dual_precondition_dirichlet, dual_reduce,
+        },
+        dual_primal::{
+            BoundaryConditions, CornerSelection, build_splits,
+            coarse::{Coarse, CoarseSystem},
+            condense::Condensed,
+        },
+        interface::build_interfaces,
+        pcg::{primal_recovery, projected_pcg},
+        subdomain::{DirichletLocal, Subdomain},
     },
-    dual_primal::{
-        BoundaryConditions, CornerSelection, build_splits,
-        coarse::{Coarse, CoarseSystem},
-        condense::Condensed,
-    },
-    interface::build_interfaces,
-    pcg::{primal_recovery, projected_pcg},
-    subdomain::{DirichletLocal, Subdomain},
+    geometry::mesh::Partition,
+    math::{SquareMatrix, Tensor, Vector},
 };
-use crate::geometry::mesh::Partition;
-use crate::math::{SquareMatrix, Tensor, Vector};
+use std::{
+    collections::HashSet,
+    sync::Mutex,
+    thread::{available_parallelism, current, sleep},
+    time::Duration,
+};
 
 fn stiffness(entries: [[f64; 2]; 2]) -> SquareMatrix {
     let mut matrix = SquareMatrix::zero(2);
@@ -171,16 +179,16 @@ fn dual_reduce_parallel_path_matches_serial_reference() {
 fn dual_reduce_uses_no_more_than_the_thread_cap() {
     let setup = chain_setup(16);
     let lambda: Vector = (0..setup.num_multipliers).map(|i| 1.0 + i as f64).collect();
-    let threads = std::sync::Mutex::new(std::collections::HashSet::new());
+    let threads = Mutex::new(HashSet::new());
     let max_threads = 4;
     dual_reduce(&setup.subdomains, &lambda, max_threads, |subdomain, rhs| {
-        threads.lock().unwrap().insert(std::thread::current().id());
-        std::thread::sleep(std::time::Duration::from_millis(2));
+        threads.lock().unwrap().insert(current().id());
+        sleep(Duration::from_millis(2));
         subdomain.local_solve(rhs)
     });
     let used = threads.lock().unwrap().len();
     assert!(used <= max_threads, "used {used} threads");
-    if std::thread::available_parallelism().map_or(1, |n| n.get()) > 1 {
+    if available_parallelism().map_or(1, |n| n.get()) > 1 {
         assert!(used > 1, "never left the calling thread");
     }
 }
