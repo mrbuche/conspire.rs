@@ -67,7 +67,6 @@ where
 /// extra setup cost doesn't pay for itself — not currently wired into
 /// `projected_pcg` as the default (Dirichlet is), so only reachable from
 /// tests without a runtime choice exposed yet.
-#[allow(dead_code)]
 pub(crate) fn dual_precondition<B>(
     subdomains: &[Subdomain<B>],
     lambda: &Vector,
@@ -100,9 +99,26 @@ where
     )
 }
 
+/// `sum_s B_s K_dd,s^-1 f_d,s` — the dual (interface) problem's right-hand
+/// side contribution from the forces alone, before the coarse-coupling
+/// correction applies on top.
+pub(crate) fn rhs_from_forces<B>(
+    subdomains: &[Subdomain<B>],
+    local_forces: &[Vector],
+    num_multipliers: usize,
+) -> Vector {
+    subdomains.iter().zip(local_forces.iter()).fold(
+        Vector::zero(num_multipliers),
+        |sum, (subdomain, force)| {
+            let local = subdomain.local_solve(force);
+            sum + subdomain.interface().apply(&local, num_multipliers)
+        },
+    )
+}
+
 /// `C^T . lambda`, scattered into the global corner-DOF vector, where
 /// `C = sum_s B_s K_dd,s^-1 K_dp,s = sum_s B_s . dual_map_s`.
-fn coupling_transpose<B>(
+pub(crate) fn coupling_transpose<B>(
     subdomains: &[Subdomain<B>],
     lambda: &Vector,
     num_corner_dofs: usize,
@@ -125,7 +141,11 @@ fn coupling_transpose<B>(
 }
 
 /// `C . v`, a global corner-DOF vector mapped into multiplier space.
-fn coupling<B>(subdomains: &[Subdomain<B>], v: &Vector, num_multipliers: usize) -> Vector {
+pub(crate) fn coupling<B>(
+    subdomains: &[Subdomain<B>],
+    v: &Vector,
+    num_multipliers: usize,
+) -> Vector {
     subdomains
         .iter()
         .fold(Vector::zero(num_multipliers), |sum, subdomain| {
