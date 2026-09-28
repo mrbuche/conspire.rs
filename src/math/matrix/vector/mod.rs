@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod test;
+
 use crate::math::assert::FiniteDifference;
 use crate::units::Dimensionless;
 
@@ -431,6 +434,25 @@ impl Add<&Self> for Vector {
     fn add(mut self, vector: &Self) -> Self::Output {
         self += vector;
         self
+    }
+}
+
+impl Add<Vector> for &Vector {
+    type Output = Vector;
+    fn add(self, mut vector: Vector) -> Self::Output {
+        vector += self;
+        vector
+    }
+}
+
+impl Add for &Vector {
+    type Output = Vector;
+    fn add(self, vector: Self) -> Self::Output {
+        vector
+            .iter()
+            .zip(self.iter())
+            .map(|(vector_i, self_i)| self_i + vector_i)
+            .collect()
     }
 }
 
