@@ -267,9 +267,6 @@ fn nonsymmetric_stiffnesses() -> [SquareMatrix; 2] {
     ]
 }
 
-/// The two-subdomain problem as one dense saddle-point system in the unknowns
-/// `[corner, dual of subdomain 0, dual of subdomain 1, multiplier]`, with the
-/// interface signs read off the subdomains themselves.
 fn dense_reference(
     setup: &Setup,
     stiffnesses: &[SquareMatrix; 2],
