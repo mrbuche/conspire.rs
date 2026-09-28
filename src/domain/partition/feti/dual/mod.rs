@@ -67,7 +67,6 @@ where
 /// extra setup cost doesn't pay for itself — not currently wired into
 /// `projected_pcg` as the default (Dirichlet is), so only reachable from
 /// tests without a runtime choice exposed yet.
-#[allow(dead_code)]
 pub(crate) fn dual_precondition<B>(
     subdomains: &[Subdomain<B>],
     lambda: &Vector,
