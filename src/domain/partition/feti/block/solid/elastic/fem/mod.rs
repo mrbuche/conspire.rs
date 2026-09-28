@@ -1,5 +1,5 @@
 use crate::{
-    constitutive::solid::hyperelastic::Hyperelastic,
+    constitutive::solid::elastic::Elastic,
     domain::feti::{
         Feti,
         block::{
@@ -12,7 +12,7 @@ use crate::{
         ElementModelError, NodalCoordinates,
         block::{
             Block,
-            element::{FiniteElementError, solid::hyperelastic::HyperelasticFiniteElement},
+            element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
         },
     },
     math::Vector,
@@ -21,8 +21,8 @@ use crate::{
 impl<C, F, const G: usize, const N: usize, const P: usize> DecomposableElements
     for Block<C, F, G, 3, N, P>
 where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, 3, N, P>,
+    C: Elastic,
+    F: ElasticFiniteElement<C, G, 3, N, P>,
 {
     fn element_systems(
         &self,
@@ -60,8 +60,8 @@ impl Feti {
         boundary_conditions: &BoundaryConditions,
     ) -> Result<Vector, SolveError>
     where
-        C: Hyperelastic,
-        F: HyperelasticFiniteElement<C, G, M, N, P>,
+        C: Elastic,
+        F: ElasticFiniteElement<C, G, M, N, P>,
     {
         solve_with(
             block,

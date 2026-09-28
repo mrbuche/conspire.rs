@@ -1,5 +1,5 @@
 use crate::{
-    constitutive::solid::hyperelastic::Hyperelastic,
+    constitutive::solid::elastic::Elastic,
     domain::{
         ElementModelError,
         feti::block::element::{DecomposableElements, ElementSystem, ElementSystems, positions},
@@ -8,15 +8,15 @@ use crate::{
         NodalCoordinates,
         block::{
             Block,
-            element::{VirtualElementError, solid::hyperelastic::HyperelasticVirtualElement},
+            element::{VirtualElementError, solid::elastic::ElasticVirtualElement},
         },
     },
 };
 
 impl<C, F> DecomposableElements for Block<C, F>
 where
-    C: Hyperelastic,
-    F: HyperelasticVirtualElement<C>,
+    C: Elastic,
+    F: ElasticVirtualElement<C>,
 {
     fn element_systems(
         &self,

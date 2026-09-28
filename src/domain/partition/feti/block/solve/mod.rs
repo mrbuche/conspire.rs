@@ -19,12 +19,12 @@ use super::{
     {assemble::local_stiffness_and_force, element::positions},
 };
 use crate::{
-    constitutive::solid::hyperelastic::Hyperelastic,
+    constitutive::solid::elastic::Elastic,
     fem::{
         NodalCoordinates,
         block::{
             Block,
-            element::{FiniteElementError, solid::hyperelastic::HyperelasticFiniteElement},
+            element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
         },
     },
     geometry::mesh::Partition,
@@ -116,8 +116,8 @@ pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const 
     boundary_conditions: &BoundaryConditions,
 ) -> Result<Vector, SolveError>
 where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, M, N, P>,
+    C: Elastic,
+    F: ElasticFiniteElement<C, G, M, N, P>,
 {
     solve_with(
         block,
@@ -140,8 +140,8 @@ pub(crate) fn solve_with<C, F, const G: usize, const M: usize, const N: usize, c
     method: KrylovMethod,
 ) -> Result<Vector, SolveError>
 where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, M, N, P>,
+    C: Elastic,
+    F: ElasticFiniteElement<C, G, M, N, P>,
 {
     let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = partition
         .parts_nodes()
