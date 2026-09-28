@@ -1,23 +1,18 @@
-#![allow(dead_code)]
-
-#[cfg(feature = "fem")]
-pub(crate) mod assemble;
-pub(crate) mod element_systems;
 #[cfg(test)]
 mod test;
 
-#[cfg(feature = "fem")]
+use super::super::{
+    THREADS,
+    dual::{coupling, coupling_transpose, rhs_from_forces},
+    dual_primal::{self, BoundaryConditions, coarse::Coarse},
+    interface,
+    parallel::parallel_map,
+    pcg::{Preconditioner, primal_recovery, projected_pcg_with},
+    subdomain::{DirichletLocal, Subdomain},
+};
+use super::{assemble, element_systems};
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
-    domain::partition::feti::{
-        THREADS,
-        dual::{coupling, coupling_transpose, rhs_from_forces},
-        dual_primal::{self, BoundaryConditions, coarse::Coarse},
-        interface,
-        parallel::parallel_map,
-        pcg::{Preconditioner, primal_recovery, projected_pcg_with},
-        subdomain::{DirichletLocal, Subdomain},
-    },
     fem::{
         NodalCoordinates,
         block::{
@@ -31,12 +26,10 @@ use crate::{
         styled_error,
     },
 };
-#[cfg(feature = "fem")]
 use std::collections::HashSet;
 
 /// Errors a full FETI-DP solve can hit: either extracting a subdomain's
 /// local stiffness/force from the real `Block` fails, or the dual PCG does.
-#[cfg(feature = "fem")]
 pub enum SolveError {
     Element(FiniteElementError),
     Krylov(KrylovError),
@@ -50,7 +43,6 @@ pub enum SolveError {
     SingularCoarseProblem,
 }
 
-#[cfg(feature = "fem")]
 impl StyledError for SolveError {
     fn message(&self, style: &Style) -> String {
         match self {
@@ -90,17 +82,14 @@ impl StyledError for SolveError {
     }
 }
 
-#[cfg(feature = "fem")]
 styled_error!(SolveError);
 
-#[cfg(feature = "fem")]
 impl From<FiniteElementError> for SolveError {
     fn from(error: FiniteElementError) -> Self {
         Self::Element(error)
     }
 }
 
-#[cfg(feature = "fem")]
 impl From<KrylovError> for SolveError {
     fn from(error: KrylovError) -> Self {
         Self::Krylov(error)
@@ -127,7 +116,6 @@ impl From<KrylovError> for SolveError {
 /// the assembled coarse problem is singular and `solve` fails; corner
 /// condensation alone only removes each subdomain's own LOCAL floating
 /// modes, never a mode that moves the whole structure together.
-#[cfg(feature = "fem")]
 #[allow(clippy::type_complexity)]
 pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
     block: &Block<C, F, G, M, N, P>,
@@ -152,7 +140,6 @@ where
 }
 
 /// `solve` with the dual PCG preconditioner chosen explicitly.
-#[cfg(feature = "fem")]
 pub(crate) fn solve_with<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
     block: &Block<C, F, G, M, N, P>,
     nodal_coordinates: &NodalCoordinates<3>,
@@ -187,7 +174,6 @@ where
 
 /// The FETI-DP solve once each subdomain's local stiffness and force are in
 /// hand, however they were assembled.
-#[cfg(feature = "fem")]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_local_systems(
     partition: &crate::geometry::mesh::Partition,

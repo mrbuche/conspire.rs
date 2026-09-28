@@ -3,6 +3,7 @@
 #[cfg(test)]
 mod test;
 
+pub(crate) mod block;
 pub(crate) mod dual;
 pub(crate) mod dual_primal;
 pub(crate) mod interface;

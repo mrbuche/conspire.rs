@@ -1,12 +1,10 @@
-#![cfg(feature = "fem")]
-
+use super::super::super::dual_primal::BoundaryConditions;
 use super::{SolveError, solve};
 use crate::{
     constitutive::solid::{
         elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
         hyperelastic::NeoHookean,
     },
-    domain::partition::feti::dual_primal::BoundaryConditions,
     fem::{
         NodalCoordinates, NodalReferenceCoordinates,
         block::{Block, element::linear::Tetrahedron},

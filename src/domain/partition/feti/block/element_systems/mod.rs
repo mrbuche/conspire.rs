@@ -150,7 +150,6 @@ impl ElementSystems {
     pub(crate) fn positions(&self) -> &[[f64; 3]] {
         &self.positions
     }
-    /// Each subdomain's own stiffness and force: the sum of its elements'.
     #[allow(clippy::type_complexity)]
     pub(crate) fn subdomains(
         &self,
