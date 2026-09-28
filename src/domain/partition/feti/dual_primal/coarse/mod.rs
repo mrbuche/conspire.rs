@@ -4,7 +4,7 @@ mod test;
 use super::{CornerDofs, DualPrimalSplit, condense::Condensed};
 use crate::math::{
     Scalar, Vector,
-    sparse::{CscLdl, CscMatrix, SparseError},
+    sparse::{CscLu, CscMatrix, SparseError},
 };
 
 /// The assembled corner matrix as unsummed triplets.
@@ -63,10 +63,10 @@ impl CoarseSystem {
 ///
 /// The dual operator solves it on every application, so refactorizing per
 /// solve would dominate the dual PCG once there are many corners. The
-/// factorization is a sparse LDLᵀ, which needs the symmetric tangent
-/// that FETI-DP already requires.
+/// factorization is a sparse LU, so the corner problem need not be
+/// symmetric.
 pub(crate) struct Coarse {
-    factor: Option<CscLdl>,
+    factor: Option<CscLu>,
     len: usize,
 }
 
@@ -87,7 +87,7 @@ impl TryFrom<CoarseSystem> for Coarse {
             next += 1;
             value
         });
-        let mut factor = matrix.ldl_symbolic()?;
+        let mut factor = matrix.lu_symbolic()?;
         factor.refactor(&matrix)?;
         Ok(Self {
             factor: Some(factor),
