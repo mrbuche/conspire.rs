@@ -1,16 +1,23 @@
 #[cfg(test)]
 mod test;
 
-use super::super::{
-    THREADS,
-    dual::{coupling, coupling_transpose, rhs_from_forces},
-    dual_primal::{self, BoundaryConditions, coarse::Coarse},
-    interface,
-    parallel::parallel_map,
-    pcg::{Preconditioner, primal_recovery, projected_pcg_with},
-    subdomain::{DirichletLocal, Subdomain},
+use super::{
+    super::{
+        THREADS,
+        dual::{coupling, coupling_transpose, rhs_from_forces},
+        dual_primal::{
+            BoundaryConditions, CornerSelection, build_splits,
+            coarse::{Coarse, CoarseSystem},
+            condense::Condensed,
+            rigid::removed_modes,
+        },
+        interface::build_interfaces,
+        parallel::parallel_map,
+        pcg::{Preconditioner, primal_recovery, projected_pcg_with},
+        subdomain::{DirichletLocal, Subdomain},
+    },
+    {assemble::local_stiffness_and_force, element::positions},
 };
-use super::{assemble, element_systems};
 use crate::{
     constitutive::solid::hyperelastic::Hyperelastic,
     fem::{
@@ -20,6 +27,7 @@ use crate::{
             element::{FiniteElementError, solid::hyperelastic::HyperelasticFiniteElement},
         },
     },
+    geometry::mesh::Partition,
     math::{
         Scalar, SquareMatrix, Style, StyledError, Vector,
         optimize::{Krylov, KrylovError},
@@ -120,7 +128,7 @@ impl From<KrylovError> for SolveError {
 pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
     block: &Block<C, F, G, M, N, P>,
     nodal_coordinates: &NodalCoordinates<3>,
-    partition: &crate::geometry::mesh::Partition,
+    partition: &Partition,
     boundary_conditions: &BoundaryConditions,
     dimension: usize,
 ) -> Result<Vector, SolveError>
@@ -143,7 +151,7 @@ where
 pub(crate) fn solve_with<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
     block: &Block<C, F, G, M, N, P>,
     nodal_coordinates: &NodalCoordinates<3>,
-    partition: &crate::geometry::mesh::Partition,
+    partition: &Partition,
     boundary_conditions: &BoundaryConditions,
     dimension: usize,
     preconditioner: Preconditioner,
@@ -156,7 +164,7 @@ where
     let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = partition
         .parts_nodes()
         .iter()
-        .map(|nodes| assemble::local_stiffness_and_force(block, nodal_coordinates, nodes))
+        .map(|nodes| local_stiffness_and_force(block, nodal_coordinates, nodes))
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
         .unzip();
@@ -165,7 +173,7 @@ where
         boundary_conditions,
         local_stiffnesses,
         local_forces,
-        &element_systems::positions(nodal_coordinates),
+        &positions(nodal_coordinates),
         dimension,
         preconditioner,
         rel_tol,
@@ -176,7 +184,7 @@ where
 /// hand, however they were assembled.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_local_systems(
-    partition: &crate::geometry::mesh::Partition,
+    partition: &Partition,
     boundary_conditions: &BoundaryConditions,
     local_stiffnesses: Vec<SquareMatrix>,
     local_forces: Vec<Vector>,
@@ -185,10 +193,9 @@ pub(crate) fn solve_local_systems(
     preconditioner: Preconditioner,
     rel_tol: Scalar,
 ) -> Result<Vector, SolveError> {
-    let corners = dual_primal::CornerSelection::from_partition(partition);
-    let (interfaces, num_multipliers) = interface::build_interfaces(partition, &corners, dimension);
-    let (splits, corner_dofs) =
-        dual_primal::build_splits(partition, &corners, boundary_conditions, dimension);
+    let corners = CornerSelection::from_partition(partition);
+    let (interfaces, num_multipliers) = build_interfaces(partition, &corners, dimension);
+    let (splits, corner_dofs) = build_splits(partition, &corners, boundary_conditions, dimension);
     let subdomain_nodes = partition.parts_nodes();
     subdomain_nodes
         .iter()
@@ -203,7 +210,7 @@ pub(crate) fn solve_local_systems(
                 .filter(|dof| !free.contains(dof))
                 .collect();
             let local: Vec<[f64; 3]> = nodes.iter().map(|&node| positions[node]).collect();
-            let removed = dual_primal::rigid::removed_modes(&local, &constrained);
+            let removed = removed_modes(&local, &constrained);
             if removed < 6 {
                 Err(SolveError::FloatingSubdomain { part, removed })
             } else {
@@ -212,7 +219,7 @@ pub(crate) fn solve_local_systems(
         })?;
     let indices: Vec<usize> = (0..subdomain_nodes.len()).collect();
     let condensed = parallel_map(&indices, THREADS, |&index| {
-        dual_primal::condense::Condensed::try_condense(
+        Condensed::try_condense(
             &local_stiffnesses[index],
             &local_forces[index],
             splits[index].primal(),
@@ -223,8 +230,7 @@ pub(crate) fn solve_local_systems(
     .enumerate()
     .map(|(part, condensed)| condensed.ok_or(SolveError::SingularSubdomain(part)))
     .collect::<Result<Vec<_>, _>>()?;
-    let (schur, reduced_force) =
-        dual_primal::coarse::CoarseSystem::assemble(&condensed, &splits, &corner_dofs);
+    let (schur, reduced_force) = CoarseSystem::assemble(&condensed, &splits, &corner_dofs);
     let coarse_problem = Coarse::try_from(schur).map_err(|_| SolveError::SingularCoarseProblem)?;
     let locals = parallel_map(&indices, THREADS, |&index| {
         let stiffness = &local_stiffnesses[index];
