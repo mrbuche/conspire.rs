@@ -16,6 +16,7 @@ mod remesh;
 mod reproducing;
 mod retain;
 mod sampling;
+mod simplex;
 mod smooth;
 mod tessellation;
 mod write;
