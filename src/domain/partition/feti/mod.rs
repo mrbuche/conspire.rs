@@ -45,6 +45,23 @@ pub(crate) const THREADS: usize = 1;
 #[cfg(feature = "fem")]
 pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
 
+/// How the subdomains are tied together.
+///
+/// Classical FETI ties every interface DOF with a Lagrange multiplier, so
+/// there are no corners and every subdomain is floating unless boundary
+/// conditions pin it. Its local solves and rigid-body mode projection are not
+/// yet implemented, so for now a subdomain left floating is refused, and
+/// only a partition whose subdomains are each pinned enough is solved.
+#[cfg(feature = "fem")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Formulation {
+    /// No corner nodes.
+    Classical,
+    /// Corner nodes are primal.
+    #[default]
+    DualPrimal,
+}
+
 /// FETI-DP solver for the linearized systems of a decomposable block.
 ///
 /// The block is split by a [`Partition`], and each subdomain is solved
@@ -63,27 +80,28 @@ pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
 #[cfg(feature = "fem")]
 #[derive(Clone, Debug)]
 pub struct Feti {
+    pub formulation: Formulation,
+    pub method: KrylovMethod,
     pub partition: Partition,
     pub preconditioner: Preconditioner,
     pub rel_tol: Scalar,
-    pub method: KrylovMethod,
 }
 
 #[cfg(feature = "fem")]
 impl Default for Feti {
     fn default() -> Self {
         Self {
+            method: KrylovMethod::ConjugateGradients,
+            formulation: Formulation::DualPrimal,
             partition: Partition::default(),
             preconditioner: Preconditioner::Dirichlet,
             rel_tol: Krylov::default().rel_tol,
-            method: KrylovMethod::ConjugateGradients,
         }
     }
 }
 
 #[cfg(feature = "fem")]
 impl Feti {
-    /// Solves the linearized system of a decomposable block.
     pub fn solve<B>(
         &self,
         block: &B,
@@ -113,6 +131,7 @@ impl Feti {
             self.preconditioner,
             self.rel_tol,
             self.method,
+            self.formulation,
         )
     }
 }

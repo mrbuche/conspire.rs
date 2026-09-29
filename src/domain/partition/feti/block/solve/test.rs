@@ -1,4 +1,4 @@
-use super::super::super::{dual_primal::BoundaryConditions, pcg::Preconditioner};
+use super::super::super::{Formulation, dual_primal::BoundaryConditions, pcg::Preconditioner};
 use super::{SolveError, solve_local_systems};
 use crate::{
     geometry::mesh::Partition,
@@ -31,6 +31,7 @@ fn a_subdomain_with_no_corners_and_no_boundary_conditions_is_refused_as_floating
         Preconditioner::Dirichlet,
         1e-8,
         KrylovMethod::default(),
+        Formulation::DualPrimal,
     );
     assert!(matches!(
         result,
@@ -78,6 +79,7 @@ fn a_subdomain_with_a_singular_interior_is_refused_though_its_dual_block_is_not(
         Preconditioner::Dirichlet,
         1e-8,
         KrylovMethod::default(),
+        Formulation::DualPrimal,
     );
     assert!(matches!(result, Err(SolveError::SingularInterior(0))));
 }

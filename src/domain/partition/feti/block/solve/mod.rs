@@ -2,7 +2,7 @@
 mod test;
 
 use super::super::{
-    THREADS,
+    Formulation, THREADS,
     dual::{coupling, coupling_transpose, rhs_from_forces},
     dual_primal::{
         BoundaryConditions, CornerSelection, build_splits,
@@ -122,8 +122,12 @@ pub(crate) fn solve_local_systems<const D: usize>(
     preconditioner: Preconditioner,
     rel_tol: Scalar,
     method: KrylovMethod,
+    formulation: Formulation,
 ) -> Result<Vector, SolveError> {
-    let corners = CornerSelection::from_partition(partition);
+    let corners = match formulation {
+        Formulation::Classical => CornerSelection::new(Vec::new()),
+        Formulation::DualPrimal => CornerSelection::from_partition(partition),
+    };
     let (interfaces, num_multipliers) = build_interfaces(partition, &corners, D);
     let (splits, corner_dofs) = build_splits(partition, &corners, boundary_conditions, D);
     let subdomain_nodes = partition.parts_nodes();

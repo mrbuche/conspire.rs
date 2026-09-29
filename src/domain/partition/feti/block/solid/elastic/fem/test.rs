@@ -3,7 +3,7 @@ use crate::{
         elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
         hyperelastic::NeoHookean,
     },
-    domain::feti::{Feti, SolveError, dual_primal::BoundaryConditions},
+    domain::feti::{Feti, Formulation, SolveError, dual_primal::BoundaryConditions},
     fem::{
         NodalCoordinates, NodalReferenceCoordinates,
         block::{Block, element::linear::Tetrahedron},
@@ -138,4 +138,48 @@ fn element_systems_are_stress_free_and_symmetric_at_zero_deformation() {
             })
         })
     });
+}
+
+fn solve_classical(boundary_conditions: &BoundaryConditions) -> Result<Vector, SolveError> {
+    Feti {
+        partition: partition(),
+        formulation: Formulation::Classical,
+        ..Default::default()
+    }
+    .solve(
+        &block(),
+        &NodalCoordinates::from(coordinates()),
+        boundary_conditions,
+    )
+}
+
+#[test]
+fn classical_refuses_a_subdomain_that_no_boundary_condition_pins() {
+    let result = solve_classical(&BoundaryConditions::new(vec![(0, 0), (0, 1), (0, 2)]));
+    assert!(matches!(
+        result,
+        Err(SolveError::FloatingSubdomain { removed: 3, .. })
+    ));
+}
+
+#[test]
+fn classical_matches_dual_primal_when_every_subdomain_is_pinned() {
+    let boundary_conditions = BoundaryConditions::new(
+        (1..4)
+            .flat_map(|node| (0..3).map(move |component| (node, component)))
+            .collect(),
+    );
+    let classical =
+        solve_classical(&boundary_conditions).unwrap_or_else(|_| panic!("classical solve failed"));
+    let dual_primal = solve(
+        &block(),
+        &NodalCoordinates::from(coordinates()),
+        &partition(),
+        &boundary_conditions,
+    )
+    .unwrap_or_else(|_| panic!("dual-primal solve failed"));
+    classical
+        .iter()
+        .zip(dual_primal.iter())
+        .for_each(|(a, b)| assert!((a - b).abs() < 1e-10));
 }
