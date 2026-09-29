@@ -13,6 +13,7 @@ mod quality;
 mod read;
 mod remesh;
 mod retain;
+mod sampling;
 mod smooth;
 mod tessellation;
 mod write;
