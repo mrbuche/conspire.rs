@@ -1,7 +1,10 @@
-use crate::geometry::{
-    Coordinate, Coordinates,
-    grid::Voxels,
-    mesh::{Connectivity, Mesh},
+use crate::{
+    geometry::{
+        Coordinate, Coordinates,
+        grid::Voxels,
+        mesh::{Connectivity, Mesh},
+    },
+    math::Quantity,
 };
 use std::collections::HashSet;
 
@@ -40,7 +43,7 @@ fn distance<const D: usize>(mesh: &Mesh<D>, a: usize, b: usize) -> f64 {
 }
 
 fn check<const D: usize>(mesh: &Mesh<D>, spacing: f64, seed: u64) {
-    let samples = mesh.sample(spacing, seed);
+    let samples = mesh.sample(Quantity::new(spacing), seed);
     samples.iter().enumerate().for_each(|(a, &i)| {
         samples[a + 1..]
             .iter()
@@ -91,17 +94,18 @@ fn packing_3d() {
 #[test]
 fn deterministic_in_seed() {
     let mesh = square(30);
-    assert_eq!(mesh.sample(0.1, 7), mesh.sample(0.1, 7));
-    assert_ne!(mesh.sample(0.1, 7), mesh.sample(0.1, 8));
+    let spacing = Quantity::new(0.1);
+    assert_eq!(mesh.sample(spacing, 7), mesh.sample(spacing, 7));
+    assert_ne!(mesh.sample(spacing, 7), mesh.sample(spacing, 8));
 }
 
 #[test]
 fn spacing_larger_than_the_domain_samples_one_node() {
-    assert_eq!(square(4).sample(10.0, 1).len(), 1);
+    assert_eq!(square(4).sample(Quantity::new(10.0), 1).len(), 1);
 }
 
 #[test]
 #[should_panic(expected = "Sampling spacing must be positive.")]
 fn nonpositive_spacing() {
-    square(2).sample(0.0, 1);
+    square(2).sample(Quantity::new(0.0), 1);
 }
