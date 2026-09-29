@@ -1,8 +1,12 @@
-use crate::geometry::{
-    Coordinate, Coordinates,
-    mesh::{Connectivity, Mesh},
+use crate::{
+    geometry::{
+        Coordinate, Coordinates,
+        mesh::{Connectivity, Mesh},
+    },
+    math::Quantity,
+    units::Length,
 };
-use std::{array::from_fn, collections::HashMap};
+use std::{array::from_fn, collections::HashMap, f64::consts::PI};
 
 const N: usize = 40;
 
@@ -68,6 +72,10 @@ fn nearest(mesh: &Mesh<3>, target: [f64; 3]) -> usize {
         .unwrap()
 }
 
+fn values(distances: Vec<Quantity<Length>>) -> Vec<f64> {
+    distances.iter().map(|d| d.value_as::<Length>()).collect()
+}
+
 fn worst_relative_error(mesh: &Mesh<3>, source: usize, distances: &[(usize, f64)]) -> f64 {
     let h = 1.0 / N as f64;
     distances
@@ -83,7 +91,7 @@ fn worst_relative_error(mesh: &Mesh<3>, source: usize, distances: &[(usize, f64)
 fn flat_square_matches_euclidean() {
     let mesh = flat(N, false);
     let source = nearest(&mesh, [0.5, 0.5, 0.0]);
-    let distances = mesh.geodesic_distances(source).unwrap();
+    let distances = values(mesh.geodesic_distances(source).unwrap());
     assert_eq!(distances[source], 0.0);
     let pairs: Vec<(usize, f64)> = distances.iter().copied().enumerate().collect();
     let worst = worst_relative_error(&mesh, source, &pairs);
@@ -95,9 +103,7 @@ fn tilted_plane_matches_euclidean() {
     let (c, s) = (0.6f64.cos(), 0.6f64.sin());
     let mesh = grid(N, false, |x, y| [x + 1.0, c * y - 2.0, s * y + 3.0]);
     let source = nearest(&mesh, [1.5, c * 0.5 - 2.0, s * 0.5 + 3.0]);
-    let pairs: Vec<(usize, f64)> = mesh
-        .geodesic_distances(source)
-        .unwrap()
+    let pairs: Vec<(usize, f64)> = values(mesh.geodesic_distances(source).unwrap())
         .into_iter()
         .enumerate()
         .collect();
@@ -110,7 +116,7 @@ fn wraps_around_a_slit() {
     let mesh = flat(N, true);
     let source = nearest(&mesh, [0.75, 0.6, 0.0]);
     let across = nearest(&mesh, [0.75, 0.4, 0.0]);
-    let d = mesh.geodesic_distances(source).unwrap();
+    let d = values(mesh.geodesic_distances(source).unwrap());
     let euclidean = distance(point(&mesh, across), point(&mesh, source));
     let expected = 2.0 * 0.25f64.hypot(0.1);
     assert!(euclidean < 0.25);
@@ -121,15 +127,15 @@ fn wraps_around_a_slit() {
 #[test]
 fn follows_a_curved_surface() {
     let mesh = grid(N, false, |t, z| {
-        let angle = std::f64::consts::PI * t;
+        let angle = PI * t;
         [angle.cos(), angle.sin(), z]
     });
     let source = nearest(&mesh, [1.0, 0.0, 0.5]);
     let opposite = nearest(&mesh, [-1.0, 0.0, 0.5]);
-    let d = mesh.geodesic_distances(source).unwrap();
+    let d = values(mesh.geodesic_distances(source).unwrap());
     let chord = distance(point(&mesh, source), point(&mesh, opposite));
     assert!((chord - 2.0).abs() < 1e-9);
-    let arc = std::f64::consts::PI;
+    let arc = PI;
     assert!(
         (d[opposite] - arc).abs() < 0.1 * arc,
         "{} vs arc {arc}",
@@ -152,7 +158,12 @@ fn subset_of_elements() {
                 .all(|&node| distance(point(&mesh, node), [0.5, 0.5, 0.0]) < 0.3)
         })
         .collect();
-    let distances = mesh.geodesic_distances_over(source, &elements).unwrap();
+    let distances: Vec<(usize, f64)> = mesh
+        .geodesic_distances_over(source, &elements)
+        .unwrap()
+        .into_iter()
+        .map(|(node, d)| (node, d.value_as::<Length>()))
+        .collect();
     assert!(distances.len() < mesh.number_of_nodes());
     assert!(distances.windows(2).all(|w| w[0].0 < w[1].0));
     let worst = worst_relative_error(&mesh, source, &distances);
@@ -169,7 +180,7 @@ fn unreached_nodes_are_infinitely_far() {
         vec![Connectivity::Triangular(vec![[0usize, 1, 2]].into())],
         Coordinates::from_iter(coordinates),
     ));
-    let d = mesh.geodesic_distances(0).unwrap();
+    let d = values(mesh.geodesic_distances(0).unwrap());
     assert_eq!(d[0], 0.0);
     assert!(d[1].is_finite() && d[2].is_finite());
     assert_eq!(d[3], f64::INFINITY);
