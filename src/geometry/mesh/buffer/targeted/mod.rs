@@ -10,13 +10,8 @@ use crate::{
     math::{Quantity, Scalar, Tensor, TensorVec},
     units::Length,
 };
-use std::array::from_fn;
+use std::{array::from_fn, mem::replace};
 
-/// Shell hexahedra whose worst scaled Jacobian falls below this, and whose
-/// outer face meets a feature, are candidates for pyramid fans.
-const BOWTIE: Scalar = 0.1;
-
-/// Rings of neighbouring nodes, around each converted cell, freed in the refit.
 const RINGS: usize = 2;
 
 fn worst(mesh: &Mesh<3>) -> Scalar {
@@ -35,13 +30,6 @@ impl Mesh<3> {
     /// beats the hexahedron it replaces. The result is never worse, by
     /// minimum scaled Jacobian, than the all-hexahedral buffer.
     pub fn buffer_targeted(
-        self,
-        target: &Tessellation,
-        fitting: Fitting,
-    ) -> Result<Self, &'static str> {
-        self.targeted(target, fitting, BOWTIE)
-    }
-    fn targeted(
         mut self,
         target: &Tessellation,
         fitting: Fitting,
@@ -178,7 +166,7 @@ impl Mesh<3> {
                 front = front
                     .into_iter()
                     .flat_map(|node| neighbors[node].iter().copied())
-                    .filter(|&node| !std::mem::replace(&mut free[node], true))
+                    .filter(|&node| !replace(&mut free[node], true))
                     .collect();
             }
             let free: Vec<usize> = (0..free.len()).filter(|&node| free[node]).collect();
