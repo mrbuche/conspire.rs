@@ -3,7 +3,10 @@ use std::cell::Cell;
 use crate::{
     domain::feti::{
         THREADS,
-        dual::{dual_action, dual_operator, dual_precondition, dual_precondition_dirichlet},
+        dual::{
+            dual_action, dual_operator, dual_precondition, dual_precondition_dirichlet,
+            dual_precondition_scaled_dirichlet,
+        },
         dual_primal::{coarse::Coarse, rigid_projector::RigidProjector},
         subdomain::Subdomain,
     },
@@ -54,6 +57,9 @@ pub enum Preconditioner {
     Lumped,
     /// `sum_s B_b,s S_s B_b,s^T` — near mesh-independent convergence.
     Dirichlet,
+    /// The Dirichlet preconditioner with each shared node's copies weighted
+    /// by multiplicity, `sum_s B_D,s S_s B_D,s^T`.
+    ScaledDirichlet,
 }
 
 pub(crate) fn projected_pcg_with<B>(
@@ -105,6 +111,9 @@ where
         |lambda: &Vector| match preconditioner {
             Preconditioner::Lumped => dual_precondition(subdomains, lambda, THREADS),
             Preconditioner::Dirichlet => dual_precondition_dirichlet(subdomains, lambda, THREADS),
+            Preconditioner::ScaledDirichlet => {
+                dual_precondition_scaled_dirichlet(subdomains, lambda, THREADS)
+            }
         },
         rhs,
     )
@@ -150,6 +159,9 @@ where
                 Preconditioner::Lumped => dual_precondition(subdomains, &residual, THREADS),
                 Preconditioner::Dirichlet => {
                     dual_precondition_dirichlet(subdomains, &residual, THREADS)
+                }
+                Preconditioner::ScaledDirichlet => {
+                    dual_precondition_scaled_dirichlet(subdomains, &residual, THREADS)
                 }
             })
         },

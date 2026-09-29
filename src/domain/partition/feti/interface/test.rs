@@ -43,6 +43,32 @@ fn no_shared_nodes_yields_no_multipliers() {
 }
 
 #[test]
+fn scaling_takes_each_copy_of_a_node_to_its_deviation_from_the_average() {
+    [2, 3, 5].into_iter().for_each(|copies| {
+        let partition = Partition::from_parts_nodes(vec![vec![0]; copies]);
+        let (interfaces, num_multipliers) =
+            build_interfaces(&partition, &CornerSelection::new(vec![]), 1);
+        assert_eq!(num_multipliers, copies - 1);
+        let values: Vec<f64> = (0..copies).map(|copy| (copy * copy) as f64 - 1.5).collect();
+        let jump = interfaces
+            .iter()
+            .zip(values.iter())
+            .map(|(interface, &value)| {
+                interface.apply(&[value].into_iter().collect::<Vector>(), num_multipliers)
+            })
+            .fold(Vector::zero(num_multipliers), |sum, part| sum + part);
+        let mean = values.iter().sum::<f64>() / copies as f64;
+        interfaces
+            .iter()
+            .zip(values.iter())
+            .for_each(|(interface, &value)| {
+                let scaled = interface.apply_transpose_scaled(&jump, 1);
+                assert!((scaled[0] - (value - mean)).abs() < 1e-12);
+            });
+    });
+}
+
+#[test]
 fn a_corner_node_gets_no_multiplier() {
     let partition = Partition::from_parts_nodes(vec![vec![0, 1, 2], vec![2, 3, 4]]);
     let (interfaces, num_multipliers) =

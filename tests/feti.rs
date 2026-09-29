@@ -507,7 +507,7 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
 
 #[test]
 fn classical_differs_from_dual_primal_by_the_prestress_and_takes_more_iterations() {
-    use conspire::feti::BoundaryConditions;
+    use conspire::feti::{BoundaryConditions, Preconditioner};
     let nel = [8; 3];
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
     let block = block(connectivities, &coordinates, 1.0);
@@ -543,17 +543,35 @@ fn classical_differs_from_dual_primal_by_the_prestress_and_takes_more_iterations
                 .collect::<Vec<[f64; 3]>>(),
         );
         [[2; 3], [4; 3]].into_iter().for_each(|divisions| {
-            let solve = |formulation| {
+            let solve_with = |formulation, preconditioner| {
                 Feti {
                     partition: mesh(nel).partition_box(divisions),
                     formulation,
+                    preconditioner,
+                    rel_tol: 1e-12,
                     ..Default::default()
                 }
                 .solve_with_statistics(&block, &current, &boundary_conditions)
                 .unwrap_or_else(|error| panic!("{error}"))
             };
+            let solve = |formulation| solve_with(formulation, Preconditioner::Dirichlet);
             let (dual_primal, dual_primal_statistics) = solve(Formulation::DualPrimal);
             let (classical, classical_statistics) = solve(Formulation::Classical);
+            [Formulation::DualPrimal, Formulation::Classical]
+                .into_iter()
+                .for_each(|formulation| {
+                    let (unscaled, _) = solve(formulation);
+                    let (scaled, _) = solve_with(formulation, Preconditioner::ScaledDirichlet);
+                    let size = unscaled.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
+                    let gap = unscaled
+                        .iter()
+                        .zip(scaled.iter())
+                        .fold(0.0_f64, |m, (&a, &b)| m.max((a - b).abs()));
+                    assert!(
+                        gap < 1e-6 * size,
+                        "{formulation:?}: scaled differs by {gap:e} of {size:e}"
+                    );
+                });
             let dual_primal_applications = dual_primal_statistics.dual_applications;
             let classical_applications = classical_statistics.dual_applications;
             let scale = dual_primal.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
@@ -581,7 +599,7 @@ fn classical_differs_from_dual_primal_by_the_prestress_and_takes_more_iterations
 #[test]
 #[ignore = "a benchmark, not a check"]
 fn benchmark_classical_against_dual_primal() {
-    use conspire::feti::{BoundaryConditions, SolveStatistics};
+    use conspire::feti::{BoundaryConditions, Preconditioner, SolveStatistics};
     const REPEATS: usize = 3;
     let nel = [12; 3];
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
@@ -622,16 +640,21 @@ fn benchmark_classical_against_dual_primal() {
         nel.iter().product::<usize>()
     );
     println!(
-        "{:>10} {:>11} {:>8} {:>9} {:>9} {:>9} {:>9}",
-        "per side", "method", "applied", "assembly", "setup", "solve", "total"
+        "{:>8} {:>11} {:>16} {:>8} {:>9} {:>9} {:>9} {:>9}",
+        "per side", "method", "preconditioner", "applied", "assembly", "setup", "solve", "total"
     );
     [2, 3, 4, 6].into_iter().for_each(|side| {
         [Formulation::DualPrimal, Formulation::Classical]
             .into_iter()
-            .for_each(|formulation| {
+            .flat_map(|formulation| {
+                [Preconditioner::Dirichlet, Preconditioner::ScaledDirichlet]
+                    .map(|preconditioner| (formulation, preconditioner))
+            })
+            .for_each(|(formulation, preconditioner)| {
                 let feti = Feti {
                     partition: mesh(nel).partition_box([side; 3]),
                     formulation,
+                    preconditioner,
                     ..Default::default()
                 };
                 let runs: Vec<SolveStatistics> = (0..REPEATS)
@@ -650,9 +673,10 @@ fn benchmark_classical_against_dual_primal() {
                     best(|s| s.dual_solve),
                 );
                 println!(
-                    "{:>10} {:>11} {:>8} {:>9.1} {:>9.1} {:>9.1} {:>9.1}",
+                    "{:>8} {:>11} {:>16} {:>8} {:>9.1} {:>9.1} {:>9.1} {:>9.1}",
                     format!("{side}^3"),
                     format!("{formulation:?}"),
+                    format!("{preconditioner:?}"),
                     runs[0].dual_applications,
                     assembly,
                     setup,

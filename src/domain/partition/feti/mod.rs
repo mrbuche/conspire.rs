@@ -62,9 +62,13 @@ pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
 /// error that grows with the strain: 2e-3 of the solution at the strains of
 /// the tests, and 1e-2 of the strain at most. Inside Newton's method the
 /// solution is still the right one, but each step is approximate. The tangent
-/// must also be symmetric. It also takes far more iterations: on an 8x8x8
-/// mesh cut into 2 and then 4 subdomains per side, about 150 and 380 dual
-/// applications, against about 20 for FETI-DP both times.
+/// must also be symmetric.
+///
+/// It needs [`Preconditioner::ScaledDirichlet`]. On a 12x12x12 mesh cut into
+/// 2 to 6 subdomains per side, the unscaled Dirichlet preconditioner took 160
+/// to 463 dual applications, and the scaled one 26 to 38, against about 20 for
+/// FETI-DP with either. Classical FETI then sets up faster, and is faster
+/// overall on 2 to 4 subdomains per side, but slower at 6.
 #[cfg(feature = "fem")]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Formulation {
