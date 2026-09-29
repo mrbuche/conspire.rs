@@ -49,7 +49,7 @@ impl<const D: usize> Mesh<D> {
         let points: Vec<[f64; D]> = self
             .coordinates()
             .iter()
-            .map(|x| std::array::from_fn(|k| x[k].value()))
+            .map(|x| from_fn(|k| x[k].value()))
             .collect();
         let on_boundary: HashSet<usize> = self.exterior_faces().into_iter().flatten().collect();
         let mut boundary: Vec<usize> = on_boundary.iter().copied().collect();
