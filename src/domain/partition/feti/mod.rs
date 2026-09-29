@@ -16,7 +16,7 @@ pub(crate) mod thermal;
 
 pub use block::element::{DecomposableElements, ElementSystems};
 #[cfg(feature = "fem")]
-pub use block::solve::SolveError;
+pub use block::solve::{SolveError, SolveStatistics};
 #[cfg(feature = "fem")]
 pub use dual_primal::BoundaryConditions;
 #[cfg(feature = "fem")]
@@ -35,7 +35,7 @@ use crate::{
 #[cfg(feature = "fem")]
 use block::solve::solve_local_systems_counting;
 #[cfg(feature = "fem")]
-use std::cell::Cell;
+use std::{cell::Cell, time::Instant};
 
 pub(crate) const THREADS: usize = 1;
 
@@ -127,39 +127,44 @@ impl Feti {
         let systems = block.element_systems(nodal_coordinates)?;
         self.solve_systems(&systems, boundary_conditions)
     }
-    /// Solves the linearized system of a decomposable block, also counting
-    /// the applications of the dual operator the Krylov solve took, which
-    /// is what the iterations of a solve cost.
-    pub fn solve_counting<B>(
+    /// Solves the linearized system of a decomposable block, also reporting
+    /// what the solve cost: the applications of the dual operator, which are
+    /// the iterations, and the time spent in each phase.
+    pub fn solve_with_statistics<B>(
         &self,
         block: &B,
         nodal_coordinates: &NodalCoordinates<3>,
         boundary_conditions: &BoundaryConditions,
-    ) -> Result<(Vector, usize), SolveError>
+    ) -> Result<(Vector, SolveStatistics), SolveError>
     where
         B: DecomposableElements,
     {
         let systems = block.element_systems(nodal_coordinates)?;
-        let applications = Cell::new(0);
-        let solution = self.solve_systems_counting(&systems, boundary_conditions, &applications)?;
-        Ok((solution, applications.get()))
+        let statistics = Cell::default();
+        let solution = self.solve_systems_counting(&systems, boundary_conditions, &statistics)?;
+        Ok((solution, statistics.get()))
     }
     fn solve_systems(
         &self,
         systems: &ElementSystems,
         boundary_conditions: &BoundaryConditions,
     ) -> Result<Vector, SolveError> {
-        self.solve_systems_counting(systems, boundary_conditions, &Cell::new(0))
+        self.solve_systems_counting(systems, boundary_conditions, &Cell::default())
     }
     fn solve_systems_counting(
         &self,
         systems: &ElementSystems,
         boundary_conditions: &BoundaryConditions,
-        applications: &Cell<usize>,
+        statistics: &Cell<SolveStatistics>,
     ) -> Result<Vector, SolveError> {
+        let start = Instant::now();
         let (stiffnesses, forces) = systems
             .subdomains(&self.partition)
             .map_err(SolveError::Partition)?;
+        statistics.set(SolveStatistics {
+            assembly: start.elapsed(),
+            ..statistics.get()
+        });
         solve_local_systems_counting(
             &self.partition,
             boundary_conditions,
@@ -170,7 +175,7 @@ impl Feti {
             self.rel_tol,
             self.method,
             self.formulation,
-            applications,
+            statistics,
         )
     }
 }

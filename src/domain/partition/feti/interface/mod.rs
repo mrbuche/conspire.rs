@@ -36,6 +36,17 @@ impl Interface {
             .for_each(|(&multiplier, (&dof, &sign))| global[multiplier] += sign * local[dof]);
         global
     }
+    /// `B_s` applied to `local`, as only the multipliers it is nonzero on.
+    pub(crate) fn apply_sparse(&self, local: &Vector) -> Vec<(usize, Scalar)> {
+        self.multipliers
+            .iter()
+            .zip(self.dofs.iter().zip(self.signs.iter()))
+            .filter_map(|(&multiplier, (&dof, &sign))| {
+                let value = sign * local[dof];
+                (value != 0.0).then_some((multiplier, value))
+            })
+            .collect()
+    }
     pub(crate) fn apply_transpose(&self, lambda: &Vector, num_local: usize) -> Vector {
         let mut local = Vector::zero(num_local);
         self.multipliers

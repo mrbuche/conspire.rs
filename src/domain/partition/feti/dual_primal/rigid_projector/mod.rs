@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     domain::feti::subdomain::Subdomain,
-    math::{LuDecomposition, SquareMatrix, Tensor, Vector},
+    math::{LuDecomposition, Scalar, SquareMatrix, Tensor, Vector},
 };
 
 const RELATIVE_PIVOT: f64 = 1e-10;
@@ -16,44 +16,74 @@ const RELATIVE_PIVOT: f64 = 1e-10;
 /// every subdomain's kernel vectors. `project` applies
 /// `P = I - G (G^T G)^-1 G^T`, and the small matrix `G^T G` is factorized once.
 ///
+/// A column of `G` is nonzero only on the multipliers of its own subdomain's
+/// interface, so the columns are kept sparse: applying `G` or its transpose
+/// costs the interfaces, not every mode against every multiplier.
+///
 /// `G` loses rank, and so `G^T G` is singular, when the whole block still has
 /// a rigid-body mode after the boundary conditions, or when the multipliers
 /// cannot tell some mode of a subdomain from a motion of the rest.
 pub(crate) struct RigidProjector {
-    columns: Vec<Vector>,
+    columns: Vec<Vec<(usize, Scalar)>>,
     factor: Option<LuDecomposition>,
 }
 
 impl RigidProjector {
-    pub(crate) fn try_new<B>(subdomains: &[Subdomain<B>], num_multipliers: usize) -> Option<Self> {
-        Self::from_columns(
+    pub(crate) fn try_new<B>(subdomains: &[Subdomain<B>]) -> Option<Self> {
+        Self::from_sparse_columns(
             subdomains
                 .iter()
                 .flat_map(|subdomain| {
                     subdomain
                         .kernel()
                         .iter()
-                        .map(|mode| subdomain.interface().apply(mode, num_multipliers))
+                        .map(|mode| subdomain.interface().apply_sparse(mode))
                 })
                 .collect(),
         )
     }
+    #[cfg(test)]
     pub(crate) fn from_columns(columns: Vec<Vector>) -> Option<Self> {
+        Self::from_sparse_columns(
+            columns
+                .iter()
+                .map(|column| {
+                    column
+                        .iter()
+                        .enumerate()
+                        .filter(|&(_, &value)| value != 0.0)
+                        .map(|(row, &value)| (row, value))
+                        .collect()
+                })
+                .collect(),
+        )
+    }
+    fn from_sparse_columns(columns: Vec<Vec<(usize, Scalar)>>) -> Option<Self> {
         if columns.is_empty() {
             return Some(Self {
                 columns,
                 factor: None,
             });
         }
-        let gram: SquareMatrix = columns
+        let height = columns
             .iter()
-            .map(|row| {
-                columns
-                    .iter()
-                    .map(|column| row.full_contraction(column))
-                    .collect()
+            .flatten()
+            .map(|&(row, _)| row + 1)
+            .max()
+            .unwrap_or(0);
+        let mut rows = vec![Vec::new(); height];
+        columns.iter().enumerate().for_each(|(column, entries)| {
+            entries
+                .iter()
+                .for_each(|&(row, value)| rows[row].push((column, value)))
+        });
+        let mut gram = SquareMatrix::zero(columns.len());
+        rows.iter().for_each(|row| {
+            row.iter().for_each(|&(a, value_a)| {
+                row.iter()
+                    .for_each(|&(b, value_b)| gram[a][b] += value_a * value_b)
             })
-            .collect();
+        });
         let factor = gram.factorize_lu().ok()?;
         if factor.near_zero_pivots(RELATIVE_PIVOT) > 0 {
             return None;
@@ -74,7 +104,9 @@ impl RigidProjector {
             .iter()
             .zip(coefficients.iter())
             .for_each(|(column, &coefficient)| {
-                (0..len).for_each(|row| sum[row] += coefficient * column[row])
+                column
+                    .iter()
+                    .for_each(|&(row, value)| sum[row] += coefficient * value)
             });
         sum
     }
@@ -82,7 +114,7 @@ impl RigidProjector {
     fn restrict(&self, v: &Vector) -> Vector {
         self.columns
             .iter()
-            .map(|column| column.full_contraction(v))
+            .map(|column| column.iter().map(|&(row, value)| value * v[row]).sum())
             .collect()
     }
     /// `(G^T G)^-1 G^T v`, the rigid-body amplitudes of `v`.

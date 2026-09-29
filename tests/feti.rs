@@ -549,11 +549,13 @@ fn classical_differs_from_dual_primal_by_the_prestress_and_takes_more_iterations
                     formulation,
                     ..Default::default()
                 }
-                .solve_counting(&block, &current, &boundary_conditions)
+                .solve_with_statistics(&block, &current, &boundary_conditions)
                 .unwrap_or_else(|error| panic!("{error}"))
             };
-            let (dual_primal, dual_primal_applications) = solve(Formulation::DualPrimal);
-            let (classical, classical_applications) = solve(Formulation::Classical);
+            let (dual_primal, dual_primal_statistics) = solve(Formulation::DualPrimal);
+            let (classical, classical_statistics) = solve(Formulation::Classical);
+            let dual_primal_applications = dual_primal_statistics.dual_applications;
+            let classical_applications = classical_statistics.dual_applications;
             let scale = dual_primal.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
             let difference = dual_primal
                 .iter()
@@ -571,5 +573,92 @@ fn classical_differs_from_dual_primal_by_the_prestress_and_takes_more_iterations
             );
             assert!(dual_primal_applications < classical_applications);
         });
+    });
+}
+
+/// Run with
+/// `cargo test -F fem --profile release-dev --test feti -- --ignored --nocapture benchmark`.
+#[test]
+#[ignore = "a benchmark, not a check"]
+fn benchmark_classical_against_dual_primal() {
+    use conspire::feti::{BoundaryConditions, SolveStatistics};
+    const REPEATS: usize = 3;
+    let nel = [12; 3];
+    let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
+    let block = block(connectivities, &coordinates, 1.0);
+    let boundary_conditions = BoundaryConditions::new(
+        coordinates
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c[0].value().abs() < 1e-9)
+            .flat_map(|(node, _)| (0..3).map(move |component| (node, component)))
+            .collect(),
+    );
+    let (model, constraint) = strained_problem(nel, 1.0, &[0.0], 0.01);
+    let converged = model
+        .minimize(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Direct,
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("sparse solve failed: {error}"));
+    let current = NodalCoordinates::from(
+        converged
+            .iter()
+            .enumerate()
+            .map(|(node, c)| {
+                std::array::from_fn(|axis| {
+                    c[axis].value() + 1e-7 * (((7919 * node + 104729 * axis) % 13) as f64 - 6.0)
+                })
+            })
+            .collect::<Vec<[f64; 3]>>(),
+    );
+    let milliseconds = |duration: Duration| duration.as_secs_f64() * 1e3;
+    println!(
+        "{} elements, best of {REPEATS}, one thread; times in ms",
+        nel.iter().product::<usize>()
+    );
+    println!(
+        "{:>10} {:>11} {:>8} {:>9} {:>9} {:>9} {:>9}",
+        "per side", "method", "applied", "assembly", "setup", "solve", "total"
+    );
+    [2, 3, 4, 6].into_iter().for_each(|side| {
+        [Formulation::DualPrimal, Formulation::Classical]
+            .into_iter()
+            .for_each(|formulation| {
+                let feti = Feti {
+                    partition: mesh(nel).partition_box([side; 3]),
+                    formulation,
+                    ..Default::default()
+                };
+                let runs: Vec<SolveStatistics> = (0..REPEATS)
+                    .map(|_| {
+                        feti.solve_with_statistics(&block, &current, &boundary_conditions)
+                            .unwrap_or_else(|error| panic!("{error}"))
+                            .1
+                    })
+                    .collect();
+                let best = |phase: fn(&SolveStatistics) -> Duration| {
+                    milliseconds(runs.iter().map(phase).min().unwrap())
+                };
+                let (assembly, setup, solve) = (
+                    best(|s| s.assembly),
+                    best(|s| s.setup),
+                    best(|s| s.dual_solve),
+                );
+                println!(
+                    "{:>10} {:>11} {:>8} {:>9.1} {:>9.1} {:>9.1} {:>9.1}",
+                    format!("{side}^3"),
+                    format!("{formulation:?}"),
+                    runs[0].dual_applications,
+                    assembly,
+                    setup,
+                    solve,
+                    assembly + setup + solve,
+                );
+            });
     });
 }

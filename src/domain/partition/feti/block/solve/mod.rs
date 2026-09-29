@@ -25,7 +25,27 @@ use crate::{
         styled_error,
     },
 };
-use std::{cell::Cell, collections::HashSet};
+use std::{
+    cell::Cell,
+    collections::HashSet,
+    time::{Duration, Instant},
+};
+
+/// What a FETI solve cost.
+///
+/// `dual_applications` counts the applications of the dual operator by the
+/// Krylov solve, which is its iterations. `assembly` is building each
+/// subdomain's stiffness and force from the elements. `setup` is everything
+/// between that and the dual solve: interfaces, corners, condensation, the
+/// coarse problem, the local factorizations and the projector. `dual_solve`
+/// is the Krylov solve alone.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SolveStatistics {
+    pub dual_applications: usize,
+    pub assembly: Duration,
+    pub setup: Duration,
+    pub dual_solve: Duration,
+}
 
 /// Possible errors encountered when solving with FETI.
 pub enum SolveError {
@@ -142,12 +162,11 @@ pub(crate) fn solve_local_systems<const D: usize>(
         rel_tol,
         method,
         formulation,
-        &Cell::new(0),
+        &Cell::default(),
     )
 }
 
-/// As `solve_local_systems`, adding each application of the dual operator
-/// to `applications`.
+/// As `solve_local_systems`, recording what the solve cost in `statistics`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_local_systems_counting<const D: usize>(
     partition: &Partition,
@@ -159,8 +178,10 @@ pub(crate) fn solve_local_systems_counting<const D: usize>(
     rel_tol: Scalar,
     method: KrylovMethod,
     formulation: Formulation,
-    applications: &Cell<usize>,
+    statistics: &Cell<SolveStatistics>,
 ) -> Result<Vector, SolveError> {
+    let start = Instant::now();
+    let applications = Cell::new(0);
     let corners = match formulation {
         Formulation::Classical => CornerSelection::new(Vec::new()),
         Formulation::DualPrimal => CornerSelection::from_partition(partition),
@@ -294,6 +315,8 @@ pub(crate) fn solve_local_systems_counting<const D: usize>(
             &coarse_problem.solve(&reduced_force),
             num_multipliers,
         );
+    let setup = start.elapsed();
+    let solving = Instant::now();
     let (lambda, alpha) = match formulation {
         Formulation::DualPrimal => (
             projected_pcg_counting(
@@ -303,13 +326,13 @@ pub(crate) fn solve_local_systems_counting<const D: usize>(
                 preconditioner,
                 rel_tol,
                 method,
-                applications,
+                &applications,
             )?,
             None,
         ),
         Formulation::Classical => {
-            let projector = RigidProjector::try_new(&subdomains, num_multipliers)
-                .ok_or(SolveError::SingularCoarseProblem)?;
+            let projector =
+                RigidProjector::try_new(&subdomains).ok_or(SolveError::SingularCoarseProblem)?;
             let (lambda, alpha) = rigid_projected_pcg(
                 &subdomains,
                 &projector,
@@ -318,11 +341,17 @@ pub(crate) fn solve_local_systems_counting<const D: usize>(
                 preconditioner,
                 rel_tol,
                 method,
-                applications,
+                &applications,
             )?;
             (lambda, Some(alpha))
         }
     };
+    statistics.set(SolveStatistics {
+        dual_applications: applications.get(),
+        setup,
+        dual_solve: solving.elapsed(),
+        ..statistics.get()
+    });
     let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
     let corner_solution = coarse_problem.solve(&(reduced_force + ct_lambda));
     let mut recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
