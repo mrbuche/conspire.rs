@@ -14,6 +14,7 @@ pub(crate) mod sizing;
 pub(crate) mod subdivide;
 mod write;
 
+pub use crate::geometry::mesh::Dualization;
 pub use crate::geometry::ntree::{
     balance::{Balance, Balancing},
     node::Nodes,
