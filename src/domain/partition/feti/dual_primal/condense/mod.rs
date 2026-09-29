@@ -22,8 +22,6 @@ pub(crate) struct Condensed {
 }
 
 impl Condensed {
-    /// The condensation of a subdomain with no corners, which has nothing to
-    /// eliminate or couple.
     pub(crate) fn without_corners(num_dual: usize) -> Self {
         Self {
             schur: SquareMatrix::zero(0),

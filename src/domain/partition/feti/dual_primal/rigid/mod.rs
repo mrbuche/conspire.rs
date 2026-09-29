@@ -101,9 +101,6 @@ fn rigid_modes<const D: usize>(positions: &[[f64; D]]) -> Vec<Vector> {
     modes
 }
 
-/// The rigid-body modes a subdomain still has once `constrained` DOFs are
-/// held at zero, as vectors over all its local DOFs. These span the kernel of
-/// its stiffness, which is what makes a floating subdomain singular.
 pub(crate) fn kernel<const D: usize>(positions: &[[f64; D]], constrained: &[usize]) -> Vec<Vector> {
     if positions.is_empty() {
         return Vec::new();
@@ -140,10 +137,6 @@ pub(crate) fn kernel<const D: usize>(positions: &[[f64; D]], constrained: &[usiz
     kernel
 }
 
-/// Picks, from the DOFs `free`, as many as there are kernel vectors, such
-/// that pinning them leaves the stiffness non-singular, by pivoting on the
-/// row of largest norm and orthogonalizing the rest against it. Returns
-/// positions within `free`, in ascending order.
 pub(crate) fn kernel_pins(kernel: &[Vector], free: &[usize]) -> Vec<usize> {
     let mut rows: Vec<Vec<f64>> = free
         .iter()
