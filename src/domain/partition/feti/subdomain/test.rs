@@ -1,6 +1,14 @@
-use super::DirichletLocal;
-use crate::domain::feti::dual_primal::condense::Condensed;
-use crate::math::{SquareMatrix, Vector};
+use super::{DirichletLocal, Subdomain};
+use crate::domain::feti::{
+    dual_primal::{
+        CornerSelection,
+        condense::Condensed,
+        rigid::{kernel, kernel_pins},
+    },
+    interface::build_interfaces,
+};
+use crate::geometry::mesh::Partition;
+use crate::math::{Matrix, SquareMatrix, Vector};
 
 #[test]
 fn splits_interior_and_boundary_and_computes_the_schur_complement() {
@@ -53,4 +61,44 @@ fn a_singular_interior_block_is_refused_though_the_dual_block_is_not() {
         .collect();
     assert!(stiffness.factorize_lu().is_ok());
     assert!(DirichletLocal::try_build(&stiffness, &[0, 1], &[1]).is_none());
+}
+
+#[test]
+fn a_floating_subdomain_solves_a_consistent_system_through_its_kernel() {
+    let partition = Partition::from_parts_nodes(vec![vec![0, 1], vec![1, 2]]);
+    let (interfaces, _) = build_interfaces(&partition, &CornerSelection::new(vec![]), 1);
+    let interface = interfaces.into_iter().next().unwrap();
+    let stiffness: SquareMatrix = [[1.0, -1.0], [-1.0, 1.0]]
+        .into_iter()
+        .map(|row| row.into_iter().collect())
+        .collect();
+    let dual_dofs = vec![0, 1];
+    let modes = kernel(&[[0.0], [1.0]], &[]);
+    assert_eq!(modes.len(), 1);
+    let pins = kernel_pins(&modes, &dual_dofs);
+    let keep: Vec<usize> = (0..2).filter(|position| !pins.contains(position)).collect();
+    let reduced: SquareMatrix = keep
+        .iter()
+        .map(|&row| keep.iter().map(|&col| stiffness[row][col]).collect())
+        .collect();
+    let dirichlet = DirichletLocal::try_build(&stiffness, &dual_dofs, interface.dofs()).unwrap();
+    let subdomain = Subdomain::new(
+        (),
+        interface,
+        stiffness.clone(),
+        reduced.factorize_lu().unwrap(),
+        dual_dofs,
+        2,
+        Matrix::zero(2, 0),
+        Matrix::zero(0, 2),
+        Vec::new(),
+        Vec::new(),
+        dirichlet,
+    )
+    .with_kernel(modes, keep);
+    assert_eq!(subdomain.kernel().len(), 1);
+    let force: Vector = [2.0, -2.0].into_iter().collect();
+    let solved = subdomain.local_solve(&force);
+    let applied = &stiffness * &solved;
+    (0..2).for_each(|dof| assert!((applied[dof] - force[dof]).abs() < 1e-12));
 }

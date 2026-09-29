@@ -22,6 +22,16 @@ pub(crate) struct Condensed {
 }
 
 impl Condensed {
+    /// The condensation of a subdomain with no corners, which has nothing to
+    /// eliminate or couple.
+    pub(crate) fn without_corners(num_dual: usize) -> Self {
+        Self {
+            schur: SquareMatrix::zero(0),
+            reduced_force: Vector::zero(0),
+            dual_map: Matrix::zero(num_dual, 0),
+            primal_map: Matrix::zero(0, num_dual),
+        }
+    }
     pub(crate) fn try_condense(
         local_stiffness: &SquareMatrix,
         local_force: &Vector,

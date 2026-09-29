@@ -35,6 +35,18 @@ pub(crate) struct Subdomain<B> {
     primal_global: Vec<usize>,
     /// What the Dirichlet preconditioner needs from this subdomain.
     dirichlet: DirichletLocal,
+    floating: Option<Floating>,
+}
+
+/// What a subdomain with a kernel carries beyond a non-singular one.
+///
+/// `kernel` spans the null space of its stiffness, as vectors over all its
+/// local DOFs. `keep` lists the positions within the dual DOFs that stay
+/// after pinning as many DOFs as the kernel is wide; the factorization is of
+/// `K_dd` restricted to them, so a local solve is a generalized inverse.
+struct Floating {
+    kernel: Vec<Vector>,
+    keep: Vec<usize>,
 }
 
 /// A subdomain's part of the Dirichlet preconditioner.
@@ -161,7 +173,21 @@ impl<B> Subdomain<B> {
             primal_dofs,
             primal_global,
             dirichlet,
+            floating: None,
         }
+    }
+    /// Makes this a floating subdomain, whose `dual_factor` is then the
+    /// factorization of `K_dd` restricted to the positions `keep` of its dual
+    /// DOFs rather than of the whole block.
+    pub(crate) fn with_kernel(mut self, kernel: Vec<Vector>, keep: Vec<usize>) -> Self {
+        self.floating = Some(Floating { kernel, keep });
+        self
+    }
+    pub(crate) fn kernel(&self) -> &[Vector] {
+        self.floating
+            .as_ref()
+            .map(|floating| floating.kernel.as_slice())
+            .unwrap_or(&[])
     }
     pub(crate) fn blocks(&self) -> &B {
         &self.blocks
@@ -201,9 +227,27 @@ impl<B> Subdomain<B> {
     /// continuous and handled by the coarse problem instead. Non-singular by
     /// construction: pinning the corners is exactly what removes a floating
     /// subdomain's rigid-body modes from `K_dd`.
+    ///
+    /// A floating subdomain has no such inverse. Its solve instead pins some
+    /// DOFs at zero, which is a generalized inverse: it inverts `K_dd` on a
+    /// right-hand side orthogonal to the kernel, the only one that has a
+    /// solution.
     pub(crate) fn local_solve(&self, rhs: &Vector) -> Vector {
-        let solved = self.dual_factor.solve(&self.dual_rhs(rhs));
-        self.scatter_dual(&solved)
+        let dual = self.dual_rhs(rhs);
+        match &self.floating {
+            None => self.scatter_dual(&self.dual_factor.solve(&dual)),
+            Some(floating) => {
+                let reduced: Vector = floating.keep.iter().map(|&index| dual[index]).collect();
+                let solved = self.dual_factor.solve(&reduced);
+                let mut full = Vector::zero(dual.len());
+                floating
+                    .keep
+                    .iter()
+                    .zip(solved.iter())
+                    .for_each(|(&index, &value)| full[index] = value);
+                self.scatter_dual(&full)
+            }
+        }
     }
     /// Applies `K_dd` directly (no solve) to `rhs`'s dual-restricted part —
     /// the local step the lumped preconditioner uses in place of a local
