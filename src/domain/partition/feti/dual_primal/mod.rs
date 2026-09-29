@@ -3,6 +3,7 @@ pub(crate) mod condense;
 pub(crate) mod corner;
 pub(crate) mod rigid;
 pub(crate) mod rigid_projector;
+pub(crate) mod select;
 #[cfg(test)]
 mod test;
 
@@ -20,8 +21,12 @@ pub(crate) use corner::{CornerDofs, CornerSelection};
 /// A constraint is a linear relation `sum_k a_k u_k = g` between the
 /// displacements of some nodes, enforced by a Lagrange multiplier, whose
 /// value is the constraint force. A single entry prescribes a displacement,
-/// possibly nonzero. Every node a constraint touches becomes a corner, so the
-/// multipliers only ever appear in the small corner problem.
+/// possibly nonzero, and is a row of the interface operator like the
+/// continuity of a shared node, unless its node is a corner, where it joins
+/// the corner problem. Only as many of these nodes are made corners as
+/// remove the rigid-body modes of the subdomains and of the whole block. A
+/// constraint of several entries is always in the corner problem, whose
+/// nodes are all made corners.
 pub struct BoundaryConditions {
     fixed: HashSet<(usize, usize)>,
     constraints: Vec<Constraint>,
@@ -56,22 +61,46 @@ impl BoundaryConditions {
     pub(crate) fn is_fixed(&self, node: usize, component: usize) -> bool {
         self.fixed.contains(&(node, component))
     }
-    pub(crate) fn constraints(&self) -> &[Constraint] {
-        &self.constraints
+    pub(crate) fn num_constraints(&self) -> usize {
+        self.constraints.len()
     }
-    pub(crate) fn constrained_nodes(&self) -> impl Iterator<Item = usize> + '_ {
+    pub(crate) fn fixed(&self) -> impl Iterator<Item = (usize, usize)> + '_ {
+        self.fixed.iter().copied()
+    }
+    /// The constraints with their fixed DOFs dropped, since those are held at
+    /// zero already, and those left with nothing to constrain dropped whole.
+    pub(crate) fn rows(&self) -> Vec<Row> {
         self.constraints
             .iter()
-            .flat_map(|constraint| constraint.entries.iter().map(|&(node, _, _)| node))
+            .enumerate()
+            .filter_map(|(index, constraint)| {
+                let entries: Vec<_> = constraint
+                    .entries
+                    .iter()
+                    .copied()
+                    .filter(|&(node, component, _)| !self.is_fixed(node, component))
+                    .collect();
+                (!entries.is_empty()).then_some(Row {
+                    index,
+                    entries,
+                    value: constraint.value,
+                })
+            })
+            .collect()
     }
 }
 
-impl Constraint {
-    pub(crate) fn entries(&self) -> &[(usize, usize, Scalar)] {
-        &self.entries
-    }
-    pub(crate) fn value(&self) -> Scalar {
-        self.value
+/// A constraint on the DOFs that are left free.
+pub(crate) struct Row {
+    pub(crate) index: usize,
+    pub(crate) entries: Vec<(usize, usize, Scalar)>,
+    pub(crate) value: Scalar,
+}
+
+impl Row {
+    /// The one DOF of a row that prescribes a displacement.
+    pub(crate) fn single(&self) -> Option<(usize, usize, Scalar)> {
+        (self.entries.len() == 1).then(|| self.entries[0])
     }
 }
 

@@ -65,6 +65,12 @@ impl Interface {
     pub(crate) fn dofs(&self) -> &[usize] {
         &self.dofs
     }
+    /// Adds a row acting on one local DOF, that of a constraint on it.
+    pub(crate) fn push(&mut self, multiplier: usize, dof: usize, sign: Scalar) {
+        self.multipliers.push(multiplier);
+        self.dofs.push(dof);
+        self.signs.push(sign);
+    }
     pub(crate) fn apply(&self, local: &Vector, num_multipliers: usize) -> Vector {
         let mut global = Vector::zero(num_multipliers);
         self.multipliers

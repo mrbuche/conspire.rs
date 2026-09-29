@@ -2,14 +2,15 @@
 mod test;
 
 use super::super::{
-    Formulation, THREADS,
+    Formulation, GMRES, THREADS,
     dual::{coupling, coupling_transpose, rhs_from_forces},
     dual_primal::{
-        BoundaryConditions, CornerSelection, build_splits,
+        BoundaryConditions, CornerSelection, Row, build_splits,
         coarse::{Coarse, CoarseSystem, CornerConstraint},
         condense::Condensed,
         rigid::{kernel, kernel_pins, removed_modes},
         rigid_projector::{RigidProjector, add_rigid_motion, rigid_rhs},
+        select::select_corners,
     },
     interface::build_interfaces,
     parallel::parallel_map,
@@ -20,12 +21,12 @@ use crate::{
     domain::ElementModelError,
     geometry::mesh::Partition,
     math::{
-        Scalar, SquareMatrix, Style, StyledError, Vector,
+        Scalar, SquareMatrix, Style, StyledError, Tensor, Vector,
         optimize::{KrylovError, KrylovMethod},
         styled_error,
     },
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// Possible errors encountered when solving with FETI.
 pub enum SolveError {
@@ -132,12 +133,56 @@ pub(crate) fn solve_local_systems<const D: usize>(
     method: KrylovMethod,
     formulation: Formulation,
 ) -> Result<(Vector, Vector), SolveError> {
+    let rows = boundary_conditions.rows();
+    if let Some(&(node, component, _)) = rows
+        .iter()
+        .flat_map(|row| row.entries.iter())
+        .find(|&&(node, component, _)| node >= positions.len() || component >= D)
+    {
+        return Err(SolveError::Partition(format!(
+            "constraint on node {node}, component {component}, which the model does not have"
+        )));
+    }
     let corners = match formulation {
         Formulation::Classical => CornerSelection::new(Vec::new()),
-        Formulation::DualPrimal => CornerSelection::from_partition(partition)
-            .with_nodes(boundary_conditions.constrained_nodes()),
+        Formulation::DualPrimal => select_corners(partition, positions, boundary_conditions, &rows),
     };
-    let (interfaces, num_multipliers) = build_interfaces(partition, &corners, D);
+    let (mut interfaces, num_interface_multipliers) = build_interfaces(partition, &corners, D);
+    let mut home = HashMap::<usize, (usize, usize)>::new();
+    partition
+        .parts_nodes()
+        .iter()
+        .enumerate()
+        .for_each(|(part, nodes)| {
+            nodes.iter().enumerate().for_each(|(local, &node)| {
+                home.entry(node).or_insert((part, local));
+            })
+        });
+    let (dual_rows, primal_rows): (Vec<&Row>, Vec<&Row>) = rows.iter().partition(|row| {
+        row.single()
+            .is_some_and(|(node, _, _)| !corners.contains(node))
+    });
+    if formulation == Formulation::Classical && !primal_rows.is_empty() {
+        return Err(SolveError::Partition(
+            "classical FETI takes constraints of a single DOF only".to_string(),
+        ));
+    }
+    let method = match method {
+        KrylovMethod::ConjugateGradients if !dual_rows.is_empty() => GMRES,
+        method => method,
+    };
+    let mut num_multipliers = num_interface_multipliers;
+    let mut prescribed = Vector::zero(dual_rows.len());
+    dual_rows.iter().enumerate().for_each(|(k, row)| {
+        let (node, component, coefficient) = row.single().expect("a row of one entry");
+        let (part, local) = home
+            .get(&node)
+            .copied()
+            .expect("a constrained node is in no subdomain");
+        interfaces[part].push(num_multipliers, D * local + component, coefficient);
+        prescribed[k] = row.value;
+        num_multipliers += 1;
+    });
     let (splits, corner_dofs) = build_splits(partition, &corners, boundary_conditions, D);
     let subdomain_nodes = partition.parts_nodes();
     let removable = D + D * (D - 1) / 2;
@@ -178,32 +223,24 @@ pub(crate) fn solve_local_systems<const D: usize>(
     .map(|(part, condensed)| condensed.ok_or(SolveError::SingularSubdomain(part)))
     .collect::<Result<Vec<_>, _>>()?;
     let (schur, reduced_force) = CoarseSystem::assemble(&condensed, &splits, &corner_dofs);
-    let constraints = boundary_conditions
-        .constraints()
+    let constraints = primal_rows
         .iter()
-        .map(|constraint| {
-            constraint
-                .entries()
+        .map(|row| CornerConstraint {
+            entries: row
+                .entries
                 .iter()
-                .filter(|&&(node, component, _)| !boundary_conditions.is_fixed(node, component))
                 .map(|&(node, component, coefficient)| {
-                    corner_dofs
-                        .global_index(node, component)
-                        .map(|corner| (corner, coefficient))
-                        .ok_or_else(|| {
-                            SolveError::Partition(format!(
-                                "constraint on node {node}, component {component}, \
-                                which the model does not have"
-                            ))
-                        })
+                    (
+                        corner_dofs
+                            .global_index(node, component)
+                            .expect("a constrained corner has a DOF"),
+                        coefficient,
+                    )
                 })
-                .collect::<Result<Vec<_>, _>>()
-                .map(|entries| CornerConstraint {
-                    entries,
-                    value: constraint.value(),
-                })
+                .collect(),
+            value: row.value,
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Vec<_>>();
     let constraint_values: Vector = constraints.iter().map(|row| row.value).collect();
     let coarse_problem =
         Coarse::try_new(schur, &constraints).map_err(|_| SolveError::SingularCoarseProblem)?;
@@ -288,7 +325,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
             }
         })
         .collect();
-    let rhs = rhs_from_forces(&subdomains, &local_forces, num_multipliers)
+    let mut rhs = rhs_from_forces(&subdomains, &local_forces, num_multipliers)
         - coupling(
             &subdomains,
             &coarse_problem
@@ -296,6 +333,10 @@ pub(crate) fn solve_local_systems<const D: usize>(
                 .0,
             num_multipliers,
         );
+    prescribed
+        .iter()
+        .enumerate()
+        .for_each(|(k, value)| rhs[num_interface_multipliers + k] -= value);
     let (lambda, alpha) = match formulation {
         Formulation::DualPrimal => (
             projected_pcg_with(
@@ -324,7 +365,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
         }
     };
     let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
-    let (corner_solution, constraint_multipliers) =
+    let (corner_solution, corner_multipliers) =
         coarse_problem.solve_constrained(&(reduced_force + ct_lambda), &constraint_values);
     let mut recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
     if let Some(alpha) = alpha {
@@ -341,5 +382,14 @@ pub(crate) fn solve_local_systems<const D: usize>(
                 })
             })
         });
-    Ok((global, constraint_multipliers))
+    let mut multipliers = Vector::zero(boundary_conditions.num_constraints());
+    primal_rows
+        .iter()
+        .zip(corner_multipliers.iter())
+        .for_each(|(row, &multiplier)| multipliers[row.index] = multiplier);
+    dual_rows
+        .iter()
+        .enumerate()
+        .for_each(|(k, row)| multipliers[row.index] = lambda[num_interface_multipliers + k]);
+    Ok((global, multipliers))
 }

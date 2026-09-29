@@ -4,6 +4,99 @@ mod test;
 use crate::math::{Tensor, Vector};
 use std::array::from_fn;
 
+/// The rigid-body modes that constrained DOFs remove, counted incrementally.
+///
+/// A constrained DOF is a row of the matrix of rigid modes, a translation
+/// along its axis and the rotations' reach along it, so the modes removed are
+/// the rank of the rows taken.
+pub(crate) struct ModeCover<'a, const D: usize> {
+    centroid: [f64; D],
+    scale: f64,
+    positions: &'a [[f64; D]],
+    basis: Vec<Vec<f64>>,
+}
+
+impl<'a, const D: usize> ModeCover<'a, D> {
+    pub(crate) fn new(positions: &'a [[f64; D]]) -> Self {
+        let count = positions.len().max(1) as f64;
+        let centroid: [f64; D] =
+            from_fn(|axis| positions.iter().map(|position| position[axis]).sum::<f64>() / count);
+        let scale = positions
+            .iter()
+            .map(|position| {
+                (0..D)
+                    .map(|axis| (position[axis] - centroid[axis]).powi(2))
+                    .sum::<f64>()
+                    .sqrt()
+            })
+            .fold(0.0, f64::max);
+        Self {
+            centroid,
+            scale: if scale > 0.0 { scale } else { 1.0 },
+            positions,
+            basis: Vec::new(),
+        }
+    }
+    pub(crate) fn rank(&self) -> usize {
+        self.basis.len()
+    }
+    /// Forgets the DOFs taken since the cover had this rank.
+    pub(crate) fn rollback(&mut self, rank: usize) {
+        self.basis.truncate(rank)
+    }
+    fn residual(&self, dof: usize) -> (Vec<f64>, f64, f64) {
+        let (node, component) = (dof / D, dof % D);
+        let r: [f64; D] =
+            from_fn(|axis| (self.positions[node][axis] - self.centroid[axis]) / self.scale);
+        let mut row = vec![0.0; D + D * (D - 1) / 2];
+        row[component] = 1.0;
+        let mut pair = 0;
+        (0..D).for_each(|i| {
+            ((i + 1)..D).for_each(|j| {
+                if component == i {
+                    row[D + pair] = r[j];
+                } else if component == j {
+                    row[D + pair] = -r[i];
+                }
+                pair += 1;
+            })
+        });
+        let before = row.iter().map(|entry| entry * entry).sum::<f64>().sqrt();
+        for _ in 0..2 {
+            self.basis.iter().for_each(|direction| {
+                let projection: f64 = direction.iter().zip(&row).map(|(a, b)| a * b).sum();
+                row.iter_mut()
+                    .zip(direction)
+                    .for_each(|(entry, direction)| *entry -= direction * projection);
+            })
+        }
+        let after = row.iter().map(|entry| entry * entry).sum::<f64>().sqrt();
+        (row, before, after)
+    }
+    /// How much of a constrained DOF is new to the cover, the more the
+    /// further the DOF is from the centroid and from those already taken.
+    ///
+    /// Where a choice is to be made, the DOF with the most holds the modes
+    /// most firmly, where the modes are held only weakly by DOFs that are
+    /// close together, and a stress in the tangent then tips the coarse
+    /// problem indefinite.
+    pub(crate) fn gain(&self, dof: usize) -> f64 {
+        let (_, before, after) = self.residual(dof);
+        if after > 1e-8 * before { after } else { 0.0 }
+    }
+    /// Takes a constrained DOF, saying whether it removed another mode.
+    pub(crate) fn add(&mut self, dof: usize) -> bool {
+        let (mut row, before, after) = self.residual(dof);
+        if after > 1e-8 * before {
+            row.iter_mut().for_each(|entry| *entry /= after);
+            self.basis.push(row);
+            true
+        } else {
+            false
+        }
+    }
+}
+
 pub(crate) fn removed_modes<const D: usize>(
     positions: &[[f64; D]],
     constrained: &[usize],
@@ -11,60 +104,11 @@ pub(crate) fn removed_modes<const D: usize>(
     if positions.is_empty() {
         return 0;
     }
-    let count = positions.len() as f64;
-    let centroid: [f64; D] =
-        from_fn(|axis| positions.iter().map(|position| position[axis]).sum::<f64>() / count);
-    let scale = positions
-        .iter()
-        .map(|position| {
-            (0..D)
-                .map(|axis| (position[axis] - centroid[axis]).powi(2))
-                .sum::<f64>()
-                .sqrt()
-        })
-        .fold(0.0, f64::max);
-    let scale = if scale > 0.0 { scale } else { 1.0 };
-    let num_rotations = D * (D - 1) / 2;
-    let mut columns = vec![Vector::zero(constrained.len()); D + num_rotations];
-    constrained.iter().enumerate().for_each(|(row, &dof)| {
-        let (node, component) = (dof / D, dof % D);
-        let r: [f64; D] = from_fn(|axis| (positions[node][axis] - centroid[axis]) / scale);
-        columns[component][row] = 1.0;
-        let mut pair = 0;
-        (0..D).for_each(|i| {
-            ((i + 1)..D).for_each(|j| {
-                if component == i {
-                    columns[D + pair][row] = r[j];
-                } else if component == j {
-                    columns[D + pair][row] = -r[i];
-                }
-                pair += 1;
-            })
-        });
+    let mut cover = ModeCover::new(positions);
+    constrained.iter().for_each(|&dof| {
+        cover.add(dof);
     });
-    rank(columns)
-}
-
-fn rank(columns: Vec<Vector>) -> usize {
-    let mut basis = Vec::<Vector>::new();
-    columns.into_iter().for_each(|mut column| {
-        let before = column.norm().value();
-        if before == 0.0 {
-            return;
-        }
-        for _ in 0..2 {
-            basis.iter().for_each(|direction| {
-                let projection = direction.full_contraction(&column);
-                column -= &(direction * projection);
-            })
-        }
-        let after = column.norm().value();
-        if after > 1e-8 * before {
-            column /= after;
-            basis.push(column)
-        }
-    });
-    basis.len()
+    cover.rank()
 }
 
 const KERNEL_TOLERANCE: f64 = 1e-8;

@@ -153,7 +153,7 @@ fn classical_reproduces_a_dense_solve_of_the_assembled_truss() {
         .factorize_lu()
         .unwrap()
         .solve(&free.iter().map(|&dof| load[dof]).collect());
-    let solution = solve_local_systems(
+    let (solution, _) = solve_local_systems(
         &partition,
         &BoundaryConditions::new(pinned),
         stiffnesses,

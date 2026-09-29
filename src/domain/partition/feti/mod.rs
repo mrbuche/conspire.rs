@@ -89,6 +89,12 @@ pub enum Formulation {
 /// displacement. Between them, enough DOFs must be constrained to remove
 /// every rigid-body mode of the whole block.
 ///
+/// A constraint of one DOF is a row of the interface operator, held by a
+/// multiplier there, with only as many of its nodes made corners as the
+/// rigid-body modes of the subdomains and of the block call for. With such
+/// rows the dual operator is no longer positive definite once the tangent is
+/// stressed, so the dual solve is [`GMRES`] in place of conjugate gradients.
+///
 /// As the linear solver of a [`NewtonRaphson`](crate::math::optimize::NewtonRaphson),
 /// it works with a fixed equality constraint, whose fixed DOFs are the pinned
 /// ones, or a linear one, whose rows are the constraints.

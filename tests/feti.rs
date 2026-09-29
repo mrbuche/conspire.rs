@@ -700,3 +700,33 @@ fn prescribed_displacements_by_multipliers_are_met_and_zero_ones_match_eliminati
         .for_each(|node| assert!((stretch[3 * node] - 0.25).abs() < 1e-8));
     assert!(multipliers.iter().any(|&force| force.abs() > 1e-6));
 }
+
+#[test]
+#[ignore]
+fn benchmark_clamped_face() {
+    use conspire::feti::BoundaryConditions;
+    let nel = [16; 3];
+    let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
+    let block = block(connectivities, &coordinates, 1.0);
+    let current = NodalCoordinates::from(
+        coordinates
+            .iter()
+            .map(|c| perturbed([c[0].value(), c[1].value(), c[2].value()], 16.0))
+            .collect::<Vec<_>>(),
+    );
+    let conditions = (0..coordinates.len())
+        .filter(|&node| coordinates[node][0].value().abs() < 1e-9)
+        .flat_map(|node| (0..3).map(move |component| (node, component)))
+        .fold(
+            BoundaryConditions::none(),
+            |conditions, (node, component)| conditions.prescribed(node, component, 0.0),
+        );
+    let feti = Feti {
+        partition: mesh(nel).partition_box([4; 3]),
+        ..Default::default()
+    };
+    let clock = Instant::now();
+    feti.solve_constrained(&block, &current, &conditions)
+        .unwrap_or_else(|error| panic!("{error}"));
+    println!("solve {:.0} ms", clock.elapsed().as_secs_f64() * 1e3);
+}
