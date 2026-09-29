@@ -88,9 +88,6 @@ impl<const D: usize> Mesh<D> {
     /// The share of the mesh assigned to each node, which is an equal part of
     /// the volume of each element the node belongs to, or nothing unless the
     /// mesh is all triangles or all tetrahedra.
-    ///
-    /// Shares are in the coordinate unit raised to the dimension of the
-    /// elements, and add up to the volume of the mesh.
     pub(crate) fn node_shares(&self) -> Option<Vec<f64>> {
         shares::<D, 3>(self).or_else(|| shares::<D, 4>(self))
     }
