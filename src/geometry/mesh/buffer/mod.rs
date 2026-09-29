@@ -3,6 +3,7 @@ mod test;
 
 mod fit;
 mod restrict;
+mod targeted;
 
 use super::{Connectivity, Mesh, PrimitiveConnectivity, Tessellation};
 use crate::{
