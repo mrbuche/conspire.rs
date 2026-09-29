@@ -157,7 +157,8 @@ impl<const D: usize> Instance<D> {
             })
             .collect();
         // Honour as much of the alignment rule as pairing allows: a refusal is withdrawn only
-        // where it would leave a cell with nothing to cover it, and only for that cell.
+        // where it would leave a cell with nothing to cover it, and only for that cell, restoring
+        // the lowest-valence candidate.
         let mut excluded: Vec<bool> = candidates
             .iter()
             .map(|vertex| self.forbidden.contains(vertex))
@@ -166,7 +167,8 @@ impl<const D: usize> Instance<D> {
             .iter()
             .find(|cover| !cover.is_empty() && cover.iter().all(|&i| excluded[i]))
         {
-            excluded[cover[0]] = false;
+            let cheapest = cover.iter().copied().min_by_key(|&i| valences[i]).unwrap();
+            excluded[cheapest] = false;
         }
         // Every cover of the same required cell's candidates always conflicts pairwise (any two
         // vertices of one cell are within the doubled-grid spacing of each other), so in
