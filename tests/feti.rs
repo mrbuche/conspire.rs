@@ -506,8 +506,8 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
 }
 
 #[test]
-fn classical_differs_from_dual_primal_by_the_prestress_and_takes_more_iterations() {
-    use conspire::feti::{BoundaryConditions, Preconditioner};
+fn classical_differs_from_dual_primal_by_the_prestress() {
+    use conspire::feti::BoundaryConditions;
     let nel = [8; 3];
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
     let block = block(connectivities, &coordinates, 1.0);
@@ -543,146 +543,26 @@ fn classical_differs_from_dual_primal_by_the_prestress_and_takes_more_iterations
                 .collect::<Vec<[f64; 3]>>(),
         );
         [[2; 3], [4; 3]].into_iter().for_each(|divisions| {
-            let solve_with = |formulation, preconditioner| {
+            let solve = |formulation| {
                 Feti {
                     partition: mesh(nel).partition_box(divisions),
                     formulation,
-                    preconditioner,
-                    rel_tol: 1e-12,
                     ..Default::default()
                 }
-                .solve_with_statistics(&block, &current, &boundary_conditions)
+                .solve(&block, &current, &boundary_conditions)
                 .unwrap_or_else(|error| panic!("{error}"))
             };
-            let solve = |formulation| solve_with(formulation, Preconditioner::Dirichlet);
-            let (dual_primal, dual_primal_statistics) = solve(Formulation::DualPrimal);
-            let (classical, classical_statistics) = solve(Formulation::Classical);
-            [Formulation::DualPrimal, Formulation::Classical]
-                .into_iter()
-                .for_each(|formulation| {
-                    let (unscaled, _) = solve(formulation);
-                    let (scaled, _) = solve_with(formulation, Preconditioner::ScaledDirichlet);
-                    let size = unscaled.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
-                    let gap = unscaled
-                        .iter()
-                        .zip(scaled.iter())
-                        .fold(0.0_f64, |m, (&a, &b)| m.max((a - b).abs()));
-                    assert!(
-                        gap < 1e-6 * size,
-                        "{formulation:?}: scaled differs by {gap:e} of {size:e}"
-                    );
-                });
-            let dual_primal_applications = dual_primal_statistics.dual_applications;
-            let classical_applications = classical_statistics.dual_applications;
+            let dual_primal = solve(Formulation::DualPrimal);
+            let classical = solve(Formulation::Classical);
             let scale = dual_primal.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
             let difference = dual_primal
                 .iter()
                 .zip(classical.iter())
                 .fold(0.0_f64, |m, (&a, &b)| m.max((a - b).abs()));
-            println!(
-                "strain {strain}, divisions {divisions:?}: dual-primal \
-                {dual_primal_applications} applications, classical {classical_applications}, \
-                relative difference {:e}",
-                difference / scale
-            );
             assert!(
                 difference < 1e-2 * strain * scale,
                 "differ by {difference:e} of {scale:e} at strain {strain}"
             );
-            assert!(dual_primal_applications < classical_applications);
         });
-    });
-}
-
-/// Run with
-/// `cargo test -F fem --profile release-dev --test feti -- --ignored --nocapture benchmark`.
-#[test]
-#[ignore = "a benchmark, not a check"]
-fn benchmark_classical_against_dual_primal() {
-    use conspire::feti::{BoundaryConditions, Preconditioner, SolveStatistics};
-    const REPEATS: usize = 3;
-    let nel = [12; 3];
-    let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
-    let block = block(connectivities, &coordinates, 1.0);
-    let boundary_conditions = BoundaryConditions::new(
-        coordinates
-            .iter()
-            .enumerate()
-            .filter(|(_, c)| c[0].value().abs() < 1e-9)
-            .flat_map(|(node, _)| (0..3).map(move |component| (node, component)))
-            .collect(),
-    );
-    let (model, constraint) = strained_problem(nel, 1.0, &[0.0], 0.01);
-    let converged = model
-        .minimize(
-            constraint,
-            NewtonRaphson {
-                abs_tol: TOLERANCES,
-                linear_solver: Direct,
-                ..Default::default()
-            },
-        )
-        .unwrap_or_else(|error| panic!("sparse solve failed: {error}"));
-    let current = NodalCoordinates::from(
-        converged
-            .iter()
-            .enumerate()
-            .map(|(node, c)| {
-                std::array::from_fn(|axis| {
-                    c[axis].value() + 1e-7 * (((7919 * node + 104729 * axis) % 13) as f64 - 6.0)
-                })
-            })
-            .collect::<Vec<[f64; 3]>>(),
-    );
-    let milliseconds = |duration: Duration| duration.as_secs_f64() * 1e3;
-    println!(
-        "{} elements, best of {REPEATS}, one thread; times in ms",
-        nel.iter().product::<usize>()
-    );
-    println!(
-        "{:>8} {:>11} {:>16} {:>8} {:>9} {:>9} {:>9} {:>9}",
-        "per side", "method", "preconditioner", "applied", "assembly", "setup", "solve", "total"
-    );
-    [2, 3, 4, 6].into_iter().for_each(|side| {
-        [Formulation::DualPrimal, Formulation::Classical]
-            .into_iter()
-            .flat_map(|formulation| {
-                [Preconditioner::Dirichlet, Preconditioner::ScaledDirichlet]
-                    .map(|preconditioner| (formulation, preconditioner))
-            })
-            .for_each(|(formulation, preconditioner)| {
-                let feti = Feti {
-                    partition: mesh(nel).partition_box([side; 3]),
-                    formulation,
-                    preconditioner,
-                    ..Default::default()
-                };
-                let runs: Vec<SolveStatistics> = (0..REPEATS)
-                    .map(|_| {
-                        feti.solve_with_statistics(&block, &current, &boundary_conditions)
-                            .unwrap_or_else(|error| panic!("{error}"))
-                            .1
-                    })
-                    .collect();
-                let best = |phase: fn(&SolveStatistics) -> Duration| {
-                    milliseconds(runs.iter().map(phase).min().unwrap())
-                };
-                let (assembly, setup, solve) = (
-                    best(|s| s.assembly),
-                    best(|s| s.setup),
-                    best(|s| s.dual_solve),
-                );
-                println!(
-                    "{:>8} {:>11} {:>16} {:>8} {:>9.1} {:>9.1} {:>9.1} {:>9.1}",
-                    format!("{side}^3"),
-                    format!("{formulation:?}"),
-                    format!("{preconditioner:?}"),
-                    runs[0].dual_applications,
-                    assembly,
-                    setup,
-                    solve,
-                    assembly + setup + solve,
-                );
-            });
     });
 }

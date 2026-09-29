@@ -1,5 +1,3 @@
-use std::cell::Cell;
-
 use crate::{
     domain::feti::{
         THREADS,
@@ -57,9 +55,6 @@ pub enum Preconditioner {
     Lumped,
     /// `sum_s B_b,s S_s B_b,s^T` — near mesh-independent convergence.
     Dirichlet,
-    /// The Dirichlet preconditioner with each shared node's copies weighted
-    /// by multiplicity, `sum_s B_D,s S_s B_D,s^T`.
-    ScaledDirichlet,
 }
 
 pub(crate) fn projected_pcg_with<B>(
@@ -73,47 +68,16 @@ pub(crate) fn projected_pcg_with<B>(
 where
     B: Sync,
 {
-    projected_pcg_counting(
-        subdomains,
-        coarse,
-        rhs,
-        preconditioner,
-        rel_tol,
-        method,
-        &Cell::new(0),
-    )
-}
-
-/// As `projected_pcg_with`, adding each application of the dual operator to
-/// `applications`.
-pub(crate) fn projected_pcg_counting<B>(
-    subdomains: &[Subdomain<B>],
-    coarse: &Coarse,
-    rhs: &Vector,
-    preconditioner: Preconditioner,
-    rel_tol: Scalar,
-    method: KrylovMethod,
-    applications: &Cell<usize>,
-) -> Result<Vector, KrylovError>
-where
-    B: Sync,
-{
     Krylov {
         rel_tol,
         method,
         ..Krylov::default()
     }
     .solve(
-        |lambda| {
-            applications.set(applications.get() + 1);
-            dual_operator(subdomains, lambda, coarse, THREADS)
-        },
+        |lambda| dual_operator(subdomains, lambda, coarse, THREADS),
         |lambda: &Vector| match preconditioner {
             Preconditioner::Lumped => dual_precondition(subdomains, lambda, THREADS),
             Preconditioner::Dirichlet => dual_precondition_dirichlet(subdomains, lambda, THREADS),
-            Preconditioner::ScaledDirichlet => {
-                dual_precondition_scaled_dirichlet(subdomains, lambda, THREADS)
-            }
         },
         rhs,
     )
@@ -124,10 +88,10 @@ where
 ///
 /// The multipliers are `lambda_0 + mu`, with `lambda_0 = G (G^T G)^-1 e`
 /// satisfying the constraint and `mu` found by the same Krylov solve as
-/// FETI-DP on `P F P mu = P (d - F lambda_0)`, preconditioned by `P M P`. The
+/// FETI-DP on `P F P mu = P (d - F lambda_0)`, preconditioned by `P M P`, with
+/// the Dirichlet preconditioner scaled by multiplicity. The
 /// projector `P` keeps every iterate in the space where `G^T mu = 0`, which is
 /// what makes the floating subdomains' local solves consistent.
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn rigid_projected_pcg<B>(
     subdomains: &[Subdomain<B>],
     projector: &RigidProjector,
@@ -136,7 +100,6 @@ pub(crate) fn rigid_projected_pcg<B>(
     preconditioner: Preconditioner,
     rel_tol: Scalar,
     method: KrylovMethod,
-    applications: &Cell<usize>,
 ) -> Result<(Vector, Vector), KrylovError>
 where
     B: Sync,
@@ -149,18 +112,12 @@ where
         ..Krylov::default()
     }
     .solve(
-        |mu: &Vector| {
-            applications.set(applications.get() + 1);
-            projector.project(&dual_action(subdomains, &projector.project(mu), THREADS))
-        },
+        |mu: &Vector| projector.project(&dual_action(subdomains, &projector.project(mu), THREADS)),
         |residual: &Vector| {
             let residual = projector.project(residual);
             projector.project(&match preconditioner {
                 Preconditioner::Lumped => dual_precondition(subdomains, &residual, THREADS),
                 Preconditioner::Dirichlet => {
-                    dual_precondition_dirichlet(subdomains, &residual, THREADS)
-                }
-                Preconditioner::ScaledDirichlet => {
                     dual_precondition_scaled_dirichlet(subdomains, &residual, THREADS)
                 }
             })

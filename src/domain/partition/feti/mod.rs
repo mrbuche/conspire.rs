@@ -16,7 +16,7 @@ pub(crate) mod thermal;
 
 pub use block::element::{DecomposableElements, ElementSystems};
 #[cfg(feature = "fem")]
-pub use block::solve::{SolveError, SolveStatistics};
+pub use block::solve::SolveError;
 #[cfg(feature = "fem")]
 pub use dual_primal::BoundaryConditions;
 #[cfg(feature = "fem")]
@@ -33,9 +33,7 @@ use crate::{
     },
 };
 #[cfg(feature = "fem")]
-use block::solve::solve_local_systems_counting;
-#[cfg(feature = "fem")]
-use std::{cell::Cell, time::Instant};
+use block::solve::solve_local_systems;
 
 pub(crate) const THREADS: usize = 1;
 
@@ -64,11 +62,9 @@ pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
 /// solution is still the right one, but each step is approximate. The tangent
 /// must also be symmetric.
 ///
-/// It needs [`Preconditioner::ScaledDirichlet`]. On a 12x12x12 mesh cut into
-/// 2 to 6 subdomains per side, the unscaled Dirichlet preconditioner took 160
-/// to 463 dual applications, and the scaled one 26 to 38, against about 20 for
-/// FETI-DP with either. Classical FETI then sets up faster, and is faster
-/// overall on 2 to 4 subdomains per side, but slower at 6.
+/// Its Dirichlet preconditioner is scaled by multiplicity, which it needs:
+/// unscaled it takes many times more iterations, growing with the number of
+/// subdomains. FETI-DP takes about the same either way, so it is not scaled.
 #[cfg(feature = "fem")]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Formulation {
@@ -131,45 +127,15 @@ impl Feti {
         let systems = block.element_systems(nodal_coordinates)?;
         self.solve_systems(&systems, boundary_conditions)
     }
-    /// Solves the linearized system of a decomposable block, also reporting
-    /// what the solve cost: the applications of the dual operator, which are
-    /// the iterations, and the time spent in each phase.
-    pub fn solve_with_statistics<B>(
-        &self,
-        block: &B,
-        nodal_coordinates: &NodalCoordinates<3>,
-        boundary_conditions: &BoundaryConditions,
-    ) -> Result<(Vector, SolveStatistics), SolveError>
-    where
-        B: DecomposableElements,
-    {
-        let systems = block.element_systems(nodal_coordinates)?;
-        let statistics = Cell::default();
-        let solution = self.solve_systems_counting(&systems, boundary_conditions, &statistics)?;
-        Ok((solution, statistics.get()))
-    }
     fn solve_systems(
         &self,
         systems: &ElementSystems,
         boundary_conditions: &BoundaryConditions,
     ) -> Result<Vector, SolveError> {
-        self.solve_systems_counting(systems, boundary_conditions, &Cell::default())
-    }
-    fn solve_systems_counting(
-        &self,
-        systems: &ElementSystems,
-        boundary_conditions: &BoundaryConditions,
-        statistics: &Cell<SolveStatistics>,
-    ) -> Result<Vector, SolveError> {
-        let start = Instant::now();
         let (stiffnesses, forces) = systems
             .subdomains(&self.partition)
             .map_err(SolveError::Partition)?;
-        statistics.set(SolveStatistics {
-            assembly: start.elapsed(),
-            ..statistics.get()
-        });
-        solve_local_systems_counting(
+        solve_local_systems(
             &self.partition,
             boundary_conditions,
             stiffnesses,
@@ -179,7 +145,6 @@ impl Feti {
             self.rel_tol,
             self.method,
             self.formulation,
-            statistics,
         )
     }
 }
