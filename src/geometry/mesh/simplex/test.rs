@@ -128,6 +128,47 @@ fn the_node_count_must_match_the_elements() {
 }
 
 #[test]
+fn node_shares_split_each_element_among_its_nodes() {
+    let shares = mesh().node_shares().unwrap();
+    assert_eq!(shares.len(), 4);
+    assert_close(shares.iter().sum::<f64>(), 1.0);
+    assert_close(shares[0], 0.5 / 3.0);
+    assert_close(shares[1], 1.0 / 3.0);
+    assert_close(shares[3], 0.5 / 3.0);
+}
+
+#[test]
+fn node_shares_of_a_tetrahedron() {
+    let tetrahedron = Mesh::from((
+        vec![Connectivity::Tetrahedral(vec![[0usize, 1, 2, 3]].into())],
+        Coordinates::from([
+            Coordinate::from([0.0, 0.0, 0.0]),
+            Coordinate::from([2.0, 0.0, 0.0]),
+            Coordinate::from([0.0, 2.0, 0.0]),
+            Coordinate::from([0.0, 0.0, 2.0]),
+        ]),
+    ));
+    let shares = tetrahedron.node_shares().unwrap();
+    shares
+        .iter()
+        .for_each(|&share| assert_close(share, 8.0 / 6.0 / 4.0));
+}
+
+#[test]
+fn non_simplicial_meshes_have_no_shares() {
+    let quadrilateral = Mesh::from((
+        vec![Connectivity::Quadrilateral(vec![[0usize, 1, 2, 3]].into())],
+        Coordinates::from([
+            Coordinate::from([0.0, 0.0]),
+            Coordinate::from([1.0, 0.0]),
+            Coordinate::from([1.0, 1.0]),
+            Coordinate::from([0.0, 1.0]),
+        ]),
+    ));
+    assert!(quadrilateral.node_shares().is_none());
+}
+
+#[test]
 fn non_simplicial_meshes_have_no_simplices() {
     let quadrilateral = Mesh::from((
         vec![Connectivity::Quadrilateral(vec![[0usize, 1, 2, 3]].into())],
