@@ -2,7 +2,6 @@
 pub mod test;
 
 mod base;
-mod basis;
 mod buffer;
 mod connectivity;
 pub(crate) mod differential;
@@ -14,6 +13,7 @@ mod patch;
 mod quality;
 mod read;
 mod remesh;
+mod reproducing;
 mod retain;
 mod sampling;
 mod sets;
@@ -25,7 +25,6 @@ pub use from::Dualization;
 pub use sets::{NodeSet, NodeSets, SideSet, SideSets};
 
 pub use self::{
-    basis::Basis,
     connectivity::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,
@@ -37,6 +36,7 @@ pub use self::{
     quality::metrics::Verdict,
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
+    reproducing::Basis,
     smooth::Smoothing,
     tessellation::{
         Tessellation,
