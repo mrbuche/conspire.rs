@@ -25,17 +25,48 @@ fn seed() -> u64 {
     s
 }
 
+/// A seedable pseudorandom number generator, deterministic in its seed.
+#[derive(Clone, Debug)]
+pub struct Rng(u64);
+
+impl Rng {
+    /// Constructs a generator from a seed.
+    pub fn new(seed: u64) -> Self {
+        Self(seed.max(1))
+    }
+    /// Returns a uniformly random `u64`.
+    pub fn next_u64(&mut self) -> u64 {
+        self.0 ^= self.0 >> 12;
+        self.0 ^= self.0 << 25;
+        self.0 ^= self.0 >> 27;
+        self.0.wrapping_mul(0x2545F4914F6CDD1D)
+    }
+    /// Returns a uniformly random `f64` in `[0, 1)`.
+    pub fn uniform(&mut self) -> f64 {
+        unit(self.next_u64())
+    }
+    /// Shuffles a slice in place, uniformly over its permutations.
+    pub fn shuffle<T>(&mut self, items: &mut [T]) {
+        (1..items.len()).rev().for_each(|k| {
+            let j = (self.next_u64() % (k as u64 + 1)) as usize;
+            items.swap(k, j)
+        })
+    }
+}
+
+fn unit(x: u64) -> f64 {
+    ((x >> 11) as f64) * (1.0 / ((1u64 << 53) as f64))
+}
+
 fn next_u64() -> u64 {
     STATE.with(|st| {
-        let mut s = st.get();
-        if s == 0 {
-            s = seed();
-        }
-        s ^= s >> 12;
-        s ^= s << 25;
-        s ^= s >> 27;
-        st.set(s);
-        s.wrapping_mul(0x2545F4914F6CDD1D)
+        let mut rng = Rng(match st.get() {
+            0 => seed(),
+            s => s,
+        });
+        let x = rng.next_u64();
+        st.set(rng.0);
+        x
     })
 }
 
@@ -65,8 +96,7 @@ pub fn random_u64() -> u64 {
 
 /// Returns a uniformly random `f64` in `[0, 1)`.
 pub fn random_uniform() -> f64 {
-    let x = next_u64() >> 11;
-    (x as f64) * (1.0 / ((1u64 << 53) as f64))
+    unit(next_u64())
 }
 
 thread_local! {
