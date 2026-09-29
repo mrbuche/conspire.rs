@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::{
     domain::feti::{
         THREADS,
@@ -65,13 +67,41 @@ pub(crate) fn projected_pcg_with<B>(
 where
     B: Sync,
 {
+    projected_pcg_counting(
+        subdomains,
+        coarse,
+        rhs,
+        preconditioner,
+        rel_tol,
+        method,
+        &Cell::new(0),
+    )
+}
+
+/// As `projected_pcg_with`, adding each application of the dual operator to
+/// `applications`.
+pub(crate) fn projected_pcg_counting<B>(
+    subdomains: &[Subdomain<B>],
+    coarse: &Coarse,
+    rhs: &Vector,
+    preconditioner: Preconditioner,
+    rel_tol: Scalar,
+    method: KrylovMethod,
+    applications: &Cell<usize>,
+) -> Result<Vector, KrylovError>
+where
+    B: Sync,
+{
     Krylov {
         rel_tol,
         method,
         ..Krylov::default()
     }
     .solve(
-        |lambda| dual_operator(subdomains, lambda, coarse, THREADS),
+        |lambda| {
+            applications.set(applications.get() + 1);
+            dual_operator(subdomains, lambda, coarse, THREADS)
+        },
         |lambda: &Vector| match preconditioner {
             Preconditioner::Lumped => dual_precondition(subdomains, lambda, THREADS),
             Preconditioner::Dirichlet => dual_precondition_dirichlet(subdomains, lambda, THREADS),
@@ -88,6 +118,7 @@ where
 /// FETI-DP on `P F P mu = P (d - F lambda_0)`, preconditioned by `P M P`. The
 /// projector `P` keeps every iterate in the space where `G^T mu = 0`, which is
 /// what makes the floating subdomains' local solves consistent.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn rigid_projected_pcg<B>(
     subdomains: &[Subdomain<B>],
     projector: &RigidProjector,
@@ -96,6 +127,7 @@ pub(crate) fn rigid_projected_pcg<B>(
     preconditioner: Preconditioner,
     rel_tol: Scalar,
     method: KrylovMethod,
+    applications: &Cell<usize>,
 ) -> Result<(Vector, Vector), KrylovError>
 where
     B: Sync,
@@ -108,7 +140,10 @@ where
         ..Krylov::default()
     }
     .solve(
-        |mu: &Vector| projector.project(&dual_action(subdomains, &projector.project(mu), THREADS)),
+        |mu: &Vector| {
+            applications.set(applications.get() + 1);
+            projector.project(&dual_action(subdomains, &projector.project(mu), THREADS))
+        },
         |residual: &Vector| {
             let residual = projector.project(residual);
             projector.project(&match preconditioner {

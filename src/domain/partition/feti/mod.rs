@@ -33,7 +33,9 @@ use crate::{
     },
 };
 #[cfg(feature = "fem")]
-use block::solve::solve_local_systems;
+use block::solve::solve_local_systems_counting;
+#[cfg(feature = "fem")]
+use std::cell::Cell;
 
 pub(crate) const THREADS: usize = 1;
 
@@ -53,10 +55,16 @@ pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
 /// rigid-body modes, so its local solve is a generalized inverse and the dual
 /// solve is projected against those modes.
 ///
-/// That holds only where the rigid-body modes are a true kernel, meaning
-/// near equilibrium. Far from it, as at a poor initial guess of a Newton
-/// solve, the tangent's prestress makes the rotations non-singular and the
-/// solution is wrong. The tangent must also be symmetric.
+/// A subdomain's rigid-body modes are an exact kernel of its tangent only
+/// where it carries no stress, which a subdomain cut out of a stressed body
+/// does at its interface. Classical FETI takes them as the kernel anyway, so
+/// unlike FETI-DP it is inexact for a geometrically nonlinear tangent, by an
+/// error that grows with the strain: 2e-3 of the solution at the strains of
+/// the tests, and 1e-2 of the strain at most. Inside Newton's method the
+/// solution is still the right one, but each step is approximate. The tangent
+/// must also be symmetric. It also takes far more iterations: on an 8x8x8
+/// mesh cut into 2 and then 4 subdomains per side, about 150 and 380 dual
+/// applications, against about 20 for FETI-DP both times.
 #[cfg(feature = "fem")]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Formulation {
@@ -119,15 +127,40 @@ impl Feti {
         let systems = block.element_systems(nodal_coordinates)?;
         self.solve_systems(&systems, boundary_conditions)
     }
+    /// Solves the linearized system of a decomposable block, also counting
+    /// the applications of the dual operator the Krylov solve took, which
+    /// is what the iterations of a solve cost.
+    pub fn solve_counting<B>(
+        &self,
+        block: &B,
+        nodal_coordinates: &NodalCoordinates<3>,
+        boundary_conditions: &BoundaryConditions,
+    ) -> Result<(Vector, usize), SolveError>
+    where
+        B: DecomposableElements,
+    {
+        let systems = block.element_systems(nodal_coordinates)?;
+        let applications = Cell::new(0);
+        let solution = self.solve_systems_counting(&systems, boundary_conditions, &applications)?;
+        Ok((solution, applications.get()))
+    }
     fn solve_systems(
         &self,
         systems: &ElementSystems,
         boundary_conditions: &BoundaryConditions,
     ) -> Result<Vector, SolveError> {
+        self.solve_systems_counting(systems, boundary_conditions, &Cell::new(0))
+    }
+    fn solve_systems_counting(
+        &self,
+        systems: &ElementSystems,
+        boundary_conditions: &BoundaryConditions,
+        applications: &Cell<usize>,
+    ) -> Result<Vector, SolveError> {
         let (stiffnesses, forces) = systems
             .subdomains(&self.partition)
             .map_err(SolveError::Partition)?;
-        solve_local_systems(
+        solve_local_systems_counting(
             &self.partition,
             boundary_conditions,
             stiffnesses,
@@ -137,6 +170,7 @@ impl Feti {
             self.rel_tol,
             self.method,
             self.formulation,
+            applications,
         )
     }
 }

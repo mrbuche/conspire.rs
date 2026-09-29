@@ -71,6 +71,15 @@ fn scaled_problem(
     scale: f64,
     fixed_planes: &[f64],
 ) -> (Model<HexBlock, 3>, EqualityConstraint) {
+    strained_problem(nel, scale, fixed_planes, 1.0)
+}
+
+fn strained_problem(
+    nel: [usize; 3],
+    scale: f64,
+    fixed_planes: &[f64],
+    strain: f64,
+) -> (Model<HexBlock, 3>, EqualityConstraint) {
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
     let reference: Vec<[f64; 3]> = coordinates
         .iter()
@@ -89,7 +98,14 @@ fn scaled_problem(
     let start = NodalReferenceCoordinates::from(
         reference
             .iter()
-            .map(|&point| perturbed(point, nel[0] as f64))
+            .map(|&point| {
+                let moved = perturbed(point, nel[0] as f64);
+                if strain == 1.0 {
+                    moved
+                } else {
+                    std::array::from_fn(|axis| point[axis] + strain * (moved[axis] - point[axis]))
+                }
+            })
             .collect::<Vec<_>>(),
     );
     (
@@ -487,4 +503,73 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
         .unwrap_or_else(|error| panic!("classical FETI solve failed: {error}"));
     let difference = largest_difference(&sparse, &classical);
     assert!(difference < 1e-6, "coordinates differ by {difference:e}");
+}
+
+#[test]
+fn classical_differs_from_dual_primal_by_the_prestress_and_takes_more_iterations() {
+    use conspire::feti::BoundaryConditions;
+    let nel = [8; 3];
+    let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
+    let block = block(connectivities, &coordinates, 1.0);
+    let boundary_conditions = BoundaryConditions::new(
+        coordinates
+            .iter()
+            .enumerate()
+            .filter(|(_, c)| c[0].value().abs() < 1e-9)
+            .flat_map(|(node, _)| (0..3).map(move |component| (node, component)))
+            .collect(),
+    );
+    [1.0, 0.1, 0.01].into_iter().for_each(|strain| {
+        let (model, constraint) = strained_problem(nel, 1.0, &[0.0], strain);
+        let converged = model
+            .minimize(
+                constraint,
+                NewtonRaphson {
+                    abs_tol: TOLERANCES,
+                    linear_solver: Direct,
+                    ..Default::default()
+                },
+            )
+            .unwrap_or_else(|error| panic!("sparse solve failed: {error}"));
+        let current = NodalCoordinates::from(
+            converged
+                .iter()
+                .enumerate()
+                .map(|(node, c)| {
+                    std::array::from_fn(|axis| {
+                        c[axis].value() + 1e-7 * (((7919 * node + 104729 * axis) % 13) as f64 - 6.0)
+                    })
+                })
+                .collect::<Vec<[f64; 3]>>(),
+        );
+        [[2; 3], [4; 3]].into_iter().for_each(|divisions| {
+            let solve = |formulation| {
+                Feti {
+                    partition: mesh(nel).partition_box(divisions),
+                    formulation,
+                    ..Default::default()
+                }
+                .solve_counting(&block, &current, &boundary_conditions)
+                .unwrap_or_else(|error| panic!("{error}"))
+            };
+            let (dual_primal, dual_primal_applications) = solve(Formulation::DualPrimal);
+            let (classical, classical_applications) = solve(Formulation::Classical);
+            let scale = dual_primal.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
+            let difference = dual_primal
+                .iter()
+                .zip(classical.iter())
+                .fold(0.0_f64, |m, (&a, &b)| m.max((a - b).abs()));
+            println!(
+                "strain {strain}, divisions {divisions:?}: dual-primal \
+                {dual_primal_applications} applications, classical {classical_applications}, \
+                relative difference {:e}",
+                difference / scale
+            );
+            assert!(
+                difference < 1e-2 * strain * scale,
+                "differ by {difference:e} of {scale:e} at strain {strain}"
+            );
+            assert!(dual_primal_applications < classical_applications);
+        });
+    });
 }
