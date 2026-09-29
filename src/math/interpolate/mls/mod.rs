@@ -2,6 +2,7 @@
 mod test;
 
 use crate::math::{SquareMatrix, SquareMatrixError, Vector};
+use std::array::from_fn;
 
 fn extend<const D: usize>(
     axis: usize,
@@ -47,7 +48,7 @@ fn monomials<const D: usize>(exponents: &[[usize; D]], x: &[f64; D]) -> Vec<f64>
 /// function at the point, returns the value of each basis function at the point.
 /// The basis functions reproduce polynomials up to the given degree, meaning
 /// the sum of each polynomial at the centers, weighted by the basis function
-/// values, is the polynomial at the point. In particular the values sum to one.
+/// values, is the polynomial at the point. In particular, the values sum to one.
 pub fn moving_least_squares<const D: usize>(
     point: [f64; D],
     centers: &[[f64; D]],
@@ -61,7 +62,7 @@ pub fn moving_least_squares<const D: usize>(
     }
     let shifted: Vec<[f64; D]> = centers
         .iter()
-        .map(|center| std::array::from_fn(|k| center[k] - point[k]))
+        .map(|center| from_fn(|k| center[k] - point[k]))
         .collect();
     let scale = shifted
         .iter()
@@ -72,7 +73,7 @@ pub fn moving_least_squares<const D: usize>(
     let q = exponents.len();
     let basis: Vec<Vec<f64>> = shifted
         .iter()
-        .map(|x| monomials(&exponents, &std::array::from_fn(|k| x[k] / scale)))
+        .map(|x| monomials(&exponents, &from_fn(|k| x[k] / scale)))
         .collect();
     let normalized: Vec<f64> = weights.iter().map(|w| w / top).collect();
     let mut moment = SquareMatrix::zero(q);
