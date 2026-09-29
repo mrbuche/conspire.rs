@@ -1,5 +1,5 @@
 use super::DirichletLocal;
-use crate::domain::partition::feti::dual_primal::condense::Condensed;
+use crate::domain::feti::dual_primal::condense::Condensed;
 use crate::math::{SquareMatrix, Vector};
 
 #[test]

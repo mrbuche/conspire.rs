@@ -1,6 +1,6 @@
 use super::THREADS;
 use crate::{
-    domain::partition::feti::{
+    domain::feti::{
         dual::{
             dual_action, dual_operator, dual_precondition, dual_precondition_dirichlet, dual_reduce,
         },

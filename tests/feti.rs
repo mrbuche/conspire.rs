@@ -5,8 +5,8 @@ use conspire::{
     fem::{
         Model, NodalCoordinates, NodalReferenceCoordinates, SecondOrderMinimize,
         block::{Block, element::linear::Hexahedron},
-        feti::Feti,
     },
+    feti::Feti,
     geometry::{
         Coordinates,
         grid::Voxels,
@@ -163,7 +163,7 @@ fn benchmark_scaling_24() {
 #[test]
 fn the_linear_solver_path_reproduces_the_block_solve() {
     use conspire::{
-        fem::feti::{BoundaryConditions, DecomposableElements},
+        feti::{BoundaryConditions, DecomposableElements},
         math::{Vector, optimize::LinearSolver},
     };
     let nel = [6; 3];

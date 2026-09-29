@@ -4,7 +4,6 @@
 mod test;
 
 pub mod block;
-pub mod feti;
 mod from;
 pub mod solid;
 pub mod thermal;

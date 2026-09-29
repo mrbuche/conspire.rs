@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::domain::partition::feti::interface::Interface;
+use crate::domain::feti::interface::Interface;
 use crate::math::{LuDecomposition, Matrix, SquareMatrix, Tensor, Vector};
 use std::collections::HashSet;
 
