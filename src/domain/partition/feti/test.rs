@@ -82,7 +82,8 @@ fn setup_with(stiffnesses: [SquareMatrix; 2], forces: [Vector; 2]) -> Setup {
                 .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
                 .collect();
             let dual_factor = k_dd.factorize_lu().unwrap();
-            let dirichlet = DirichletLocal::build(stiffness, &dual_dofs, interface.dofs());
+            let dirichlet =
+                DirichletLocal::try_build(stiffness, &dual_dofs, interface.dofs()).unwrap();
             Subdomain::new(
                 (),
                 interface,
@@ -133,7 +134,8 @@ fn chain_setup(count: usize) -> Setup {
                 .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
                 .collect();
             let dual_factor = k_dd.factorize_lu().unwrap();
-            let dirichlet = DirichletLocal::build(stiffness, &dual_dofs, interface.dofs());
+            let dirichlet =
+                DirichletLocal::try_build(stiffness, &dual_dofs, interface.dofs()).unwrap();
             Subdomain::new(
                 (),
                 interface,

@@ -38,6 +38,8 @@ pub enum SolveError {
     FloatingSubdomain { part: usize, removed: usize },
     /// A subdomain with some part of it still free to move.
     SingularSubdomain(usize),
+    /// The interior of a subdomain, away from the interface, is singular.
+    SingularInterior(usize),
     /// The assembled corner problem is singular.
     SingularCoarseProblem,
 }
@@ -71,6 +73,17 @@ impl StyledError for SolveError {
                     only a node or an edge, or cut off from it altogether. Change the partition \
                     so that every part of a subdomain is attached through faces. Otherwise the \
                     model itself has a mechanism or a collapsed element."
+                )
+            }
+            Self::SingularInterior(part) => {
+                let (h, c) = (style.headline, style.frame);
+                format!(
+                    "{h}The interior of subdomain {part} is singular.{c}\n\
+                    The degrees of freedom of the subdomain away from the interface form a \
+                    singular block, though the subdomain as a whole does not, which the \
+                    Dirichlet preconditioner cannot handle. The tangent is likely not \
+                    positive definite there, as under severe compression, or the partition \
+                    leaves part of the interior loosely attached."
                 )
             }
             Self::SingularCoarseProblem => {
@@ -160,9 +173,13 @@ pub(crate) fn solve_local_systems<const D: usize>(
         let dual_factor = dual_stiffness
             .factorize_lu()
             .expect("K_dd is singular, but corners should make every subdomain non-singular");
-        let dirichlet = DirichletLocal::build(stiffness, &dual_dofs, interfaces[index].dofs());
-        (dual_dofs, dual_stiffness, dual_factor, dirichlet)
-    });
+        DirichletLocal::try_build(stiffness, &dual_dofs, interfaces[index].dofs())
+            .map(|dirichlet| (dual_dofs, dual_stiffness, dual_factor, dirichlet))
+    })
+    .into_iter()
+    .enumerate()
+    .map(|(part, local)| local.ok_or(SolveError::SingularInterior(part)))
+    .collect::<Result<Vec<_>, _>>()?;
     let subdomains: Vec<Subdomain<()>> = interfaces
         .into_iter()
         .zip(locals)

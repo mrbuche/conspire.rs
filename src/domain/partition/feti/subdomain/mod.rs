@@ -59,16 +59,14 @@ impl DirichletLocal {
     /// blocks the Dirichlet preconditioner applies, factorizing `K_ii`.
     /// Interior-interior is a principal submatrix of `K_dd,s`. For a positive
     /// definite tangent, once corners are condensed out, that makes it
-    /// non-singular too, so the factorization can't fail the way a corner
-    /// elimination could on a floating subdomain. A nonsymmetric or indefinite
-    /// tangent has no such guarantee, and a singular `K_ii` panics here. `K_bi`
-    /// and `K_ib` are both kept, so the application needs no transposed
-    /// products.
-    pub(crate) fn build(
+    /// non-singular too. A nonsymmetric or indefinite tangent has no such
+    /// guarantee, so this is `None` when `K_ii` turns out singular. `K_bi` and
+    /// `K_ib` are both kept, so the application needs no transposed products.
+    pub(crate) fn try_build(
         local_stiffness: &SquareMatrix,
         dual_dofs: &[usize],
         interface_dofs: &[usize],
-    ) -> Self {
+    ) -> Option<Self> {
         let on_interface: HashSet<usize> = interface_dofs.iter().copied().collect();
         let boundary: Vec<usize> = dual_dofs
             .iter()
@@ -111,18 +109,15 @@ impl DirichletLocal {
                         .collect()
                 })
                 .collect();
-            Some(
-                k_ii.factorize_lu()
-                    .expect("K_ii is singular, so the Dirichlet preconditioner cannot be built"),
-            )
+            Some(k_ii.factorize_lu().ok()?)
         };
-        Self {
+        Some(Self {
             k_bi: block(&boundary, &interior),
             k_ib: block(&interior, &boundary),
             boundary_dofs: boundary,
             k_bb,
             interior_factor,
-        }
+        })
     }
     pub(crate) fn boundary_dofs(&self) -> &[usize] {
         &self.boundary_dofs
