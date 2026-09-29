@@ -1,7 +1,10 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh},
+        mesh::{
+            Connectivity, Mesh,
+            test::{square, tetrahedra},
+        },
     },
     math::Quantity,
     units::Length,
@@ -14,65 +17,6 @@ fn length(value: f64) -> Quantity<Length> {
 
 fn point<const D: usize>(mesh: &Mesh<D>, node: usize) -> [f64; D] {
     from_fn(|k| mesh.coordinates()[node][k].value())
-}
-
-fn square(n: usize) -> Mesh<2> {
-    let node = |i: usize, j: usize| j * (n + 1) + i;
-    let coordinates: Coordinates<2> = (0..=n)
-        .flat_map(|j| {
-            (0..=n).map(move |i| Coordinate::from([i as f64 / n as f64, j as f64 / n as f64]))
-        })
-        .collect();
-    let triangles: Vec<[usize; 3]> = (0..n)
-        .flat_map(|j| (0..n).map(move |i| (i, j)))
-        .flat_map(|(i, j)| {
-            [
-                [node(i, j), node(i + 1, j), node(i + 1, j + 1)],
-                [node(i, j), node(i + 1, j + 1), node(i, j + 1)],
-            ]
-        })
-        .collect();
-    Mesh::from((
-        vec![Connectivity::Triangular(triangles.into())],
-        coordinates,
-    ))
-}
-
-fn tetrahedra(n: usize) -> Mesh<3> {
-    let h = 1.0 / n as f64;
-    let node = |i: usize, j: usize, k: usize| (k * (n + 1) + j) * (n + 1) + i;
-    let coordinates: Coordinates<3> = (0..=n)
-        .flat_map(|k| {
-            (0..=n).flat_map(move |j| {
-                (0..=n).map(move |i| Coordinate::from([i as f64 * h, j as f64 * h, k as f64 * h]))
-            })
-        })
-        .collect();
-    let orders = [
-        [0, 1, 2],
-        [0, 2, 1],
-        [1, 0, 2],
-        [1, 2, 0],
-        [2, 0, 1],
-        [2, 1, 0],
-    ];
-    let tetrahedra: Vec<[usize; 4]> = (0..n)
-        .flat_map(|k| (0..n).flat_map(move |j| (0..n).map(move |i| [i, j, k])))
-        .flat_map(|cell| orders.map(|order| (cell, order)))
-        .map(|(cell, order)| {
-            let mut corner = cell;
-            let mut nodes = [node(corner[0], corner[1], corner[2]); 4];
-            for (step, axis) in order.into_iter().enumerate() {
-                corner[axis] += 1;
-                nodes[step + 1] = node(corner[0], corner[1], corner[2]);
-            }
-            nodes
-        })
-        .collect();
-    Mesh::from((
-        vec![Connectivity::Tetrahedral(tetrahedra.into())],
-        coordinates,
-    ))
 }
 
 fn quadrature_error(mesh: &Mesh<2>, h: f64, seed: u64) -> f64 {
