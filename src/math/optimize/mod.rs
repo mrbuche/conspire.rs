@@ -18,12 +18,13 @@ pub use krylov::{Krylov, KrylovError, KrylovMethod};
 pub use line_search::{LineSearch, LineSearchError};
 pub use linear_solve::{Direct, LinearSolver};
 pub use newton_raphson::NewtonRaphson;
-#[cfg(feature = "constitutive")]
-pub(crate) use newton_raphson::{converged, limit_decrement};
 pub use precondition::{Precondition, Preconditioning};
 pub use strategy::SolveStrategy;
 pub use tolerance::Tolerances;
 pub use trust_region::TrustRegion;
+
+#[cfg(feature = "constitutive")]
+pub(crate) use newton_raphson::{converged, limit_decrement};
 
 use crate::{
     math::{
