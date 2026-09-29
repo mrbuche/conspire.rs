@@ -7,12 +7,12 @@ use crate::{
 };
 use std::array::from_fn;
 
-/// A simplex of any order embedded in D dimensions, with the constant gradients
-/// of its linear shape functions.
-pub(crate) struct Simplex<const D: usize> {
-    pub(crate) nodes: Vec<usize>,
+/// A simplex with N nodes embedded in D dimensions, with the constant
+/// gradients of its linear shape functions.
+pub(crate) struct Simplex<const D: usize, const N: usize> {
+    pub(crate) nodes: [usize; N],
     pub(crate) volume: f64,
-    pub(crate) gradients: Vec<[f64; D]>,
+    pub(crate) gradients: [[f64; D]; N],
 }
 
 pub(crate) fn dot<const D: usize>(a: &[f64; D], b: &[f64; D]) -> f64 {
@@ -49,38 +49,40 @@ fn invert(mut matrix: Vec<Vec<f64>>) -> (Vec<Vec<f64>>, f64) {
     (inverse, determinant)
 }
 
-impl<const D: usize> Simplex<D> {
-    pub(crate) fn new(nodes: Vec<usize>, points: Vec<[f64; D]>) -> Self {
-        let k = nodes.len() - 1;
-        let edges: Vec<[f64; D]> = (1..=k)
+impl<const D: usize, const N: usize> Simplex<D, N> {
+    pub(crate) fn new(nodes: [usize; N], points: [[f64; D]; N]) -> Self {
+        let k = N - 1;
+        let edges: Vec<[f64; D]> = (1..N)
             .map(|i| from_fn(|c| points[i][c] - points[0][c]))
             .collect();
         let gram = (0..k)
             .map(|i| (0..k).map(|j| dot(&edges[i], &edges[j])).collect())
             .collect();
         let (inverse, determinant) = invert(gram);
-        let mut gradients: Vec<[f64; D]> = (0..k)
+        let last: Vec<[f64; D]> = (0..k)
             .map(|i| from_fn(|c| (0..k).map(|j| inverse[i][j] * edges[j][c]).sum()))
             .collect();
-        let first: [f64; D] = from_fn(|c| -gradients.iter().map(|g| g[c]).sum::<f64>());
-        gradients.insert(0, first);
+        let first: [f64; D] = from_fn(|c| -last.iter().map(|g| g[c]).sum::<f64>());
         Self {
             nodes,
             volume: determinant.sqrt() / (1..=k).product::<usize>() as f64,
-            gradients,
+            gradients: from_fn(|a| if a == 0 { first } else { last[a - 1] }),
         }
     }
 }
 
 impl<const D: usize> Mesh<D> {
-    /// The given elements as simplices, or nothing if any block of the mesh is
-    /// not triangles or tetrahedra.
-    pub(crate) fn simplices_over(&self, elements: &[usize]) -> Option<Vec<Simplex<D>>> {
+    /// The given elements as simplices with N nodes, or nothing unless every
+    /// block of the mesh is triangles (N = 3) or tetrahedra (N = 4).
+    pub(crate) fn simplices_over<const N: usize>(
+        &self,
+        elements: &[usize],
+    ) -> Option<Vec<Simplex<D, N>>> {
         if !self.iter().all(|block| {
             matches!(
                 block,
                 Connectivity::Triangular(_) | Connectivity::Tetrahedral(_)
-            )
+            ) && block.number_of_nodes_per_element() == Some(N)
         }) {
             return None;
         }
@@ -92,9 +94,8 @@ impl<const D: usize> Mesh<D> {
             elements
                 .iter()
                 .map(|&element| {
-                    let nodes = all[element].to_vec();
-                    let points = nodes.iter().map(|&node| point(node)).collect();
-                    Simplex::new(nodes, points)
+                    let nodes: [usize; N] = from_fn(|c| all[element][c]);
+                    Simplex::new(nodes, nodes.map(point))
                 })
                 .collect(),
         )
