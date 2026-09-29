@@ -136,6 +136,46 @@ where
     }
 }
 
+impl<L, F, J, X, E> FirstOrderRootFinding<F, J, X> for NewtonRaphson<L>
+where
+    L: LinearSolver<Tangent = J>,
+    F: Jacobian,
+    F: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+{
+    fn root(
+        &self,
+        function: impl FnMut(&X) -> Result<F, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        initial_guess: X,
+        equality_constraint: EqualityConstraint,
+        _sparse: Option<SparseSolver>,
+    ) -> Result<X, OptimizationError> {
+        match equality_constraint {
+            EqualityConstraint::Fixed(indices) => constrained_fixed(
+                self,
+                |_: &X| panic!("No line search in root finding"),
+                function,
+                jacobian,
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
+                initial_guess,
+                |tangent, _, retained, residual, decrement| {
+                    *decrement = self.linear_solver.solve(tangent, retained, residual)?;
+                    Ok(())
+                },
+                indices,
+            ),
+            _ => Err(OptimizationError::Intermediate(
+                "This linear solver requires a fixed equality constraint.".to_string(),
+            )),
+        }
+        .map_err(|error| OptimizationError::upstream(error, self))
+    }
+}
+
 impl<F, J, X, E> FirstOrderRootFindingIncremental<F, J, X> for NewtonRaphson
 where
     F: Jacobian,

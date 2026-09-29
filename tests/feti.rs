@@ -148,6 +148,40 @@ fn newton_with_feti_matches_newton_with_the_sparse_solve() {
 }
 
 #[test]
+fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
+    use conspire::fem::FirstOrderRoot;
+    let (model, constraint) = problem([6; 3]);
+    let sparse = model
+        .root(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Direct,
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("sparse root failed: {error}"));
+    drop(model);
+    let (model, constraint) = problem([6; 3]);
+    let decomposed = model
+        .root(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Feti {
+                    partition: mesh([6; 3]).partition_box([2; 3]),
+                    method: GMRES,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("FETI root failed: {error}"));
+    let difference = largest_difference(&sparse, &decomposed);
+    assert!(difference < 1e-6, "coordinates differ by {difference:e}");
+}
+
+#[test]
 fn gmres_on_the_dual_problem_matches_conjugate_gradients() {
     let solve = |method| {
         let (model, constraint) = problem([6; 3]);

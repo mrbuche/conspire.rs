@@ -17,13 +17,26 @@ where
 use super::Feti;
 #[cfg(feature = "fem")]
 use crate::{
-    domain::{SolverFor, solid::NodalForcesSolid},
+    domain::{
+        SolverFor,
+        solid::{NodalForcesSolid, NodalStiffnessesSolid},
+    },
     math::{Quantity, optimize::NewtonRaphson},
     units::Energy,
 };
 
 #[cfg(feature = "fem")]
 impl<B> SolverFor<Model<B, 3>, Quantity<Energy>, NodalForcesSolid<3>> for NewtonRaphson<Feti>
+where
+    B: DecomposableElements,
+{
+    type Tangent = ElementSystems;
+    const SPARSE: bool = false;
+}
+
+#[cfg(feature = "fem")]
+impl<B> SolverFor<Model<B, 3>, NodalForcesSolid<3>, NodalStiffnessesSolid<3>>
+    for NewtonRaphson<Feti>
 where
     B: DecomposableElements,
 {
