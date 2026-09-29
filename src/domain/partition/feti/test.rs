@@ -3,7 +3,7 @@ use crate::{
     domain::feti::{
         GMRES,
         dual::{
-            coupling, coupling_transpose, dual_action, dual_operator, dual_precondition,
+            Scaling, coupling, coupling_transpose, dual_action, dual_operator, dual_precondition,
             dual_precondition_dirichlet, dual_reduce, rhs_from_forces,
         },
         dual_primal::{
@@ -196,11 +196,17 @@ fn dual_reduce_uses_no_more_than_the_thread_cap() {
     let lambda: Vector = (0..setup.num_multipliers).map(|i| 1.0 + i as f64).collect();
     let threads = Mutex::new(HashSet::new());
     let max_threads = 4;
-    dual_reduce(&setup.subdomains, &lambda, max_threads, |subdomain, rhs| {
-        threads.lock().unwrap().insert(current().id());
-        sleep(Duration::from_millis(2));
-        subdomain.local_solve(rhs)
-    });
+    dual_reduce(
+        &setup.subdomains,
+        &lambda,
+        max_threads,
+        Scaling::Unscaled,
+        |subdomain, rhs| {
+            threads.lock().unwrap().insert(current().id());
+            sleep(Duration::from_millis(2));
+            subdomain.local_solve(rhs)
+        },
+    );
     let used = threads.lock().unwrap().len();
     assert!(used <= max_threads, "used {used} threads");
     if available_parallelism().map_or(1, |n| n.get()) > 1 {

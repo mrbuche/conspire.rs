@@ -2,6 +2,7 @@ pub(crate) mod coarse;
 pub(crate) mod condense;
 pub(crate) mod corner;
 pub(crate) mod rigid;
+pub(crate) mod rigid_projector;
 #[cfg(test)]
 mod test;
 

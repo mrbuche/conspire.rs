@@ -4,6 +4,14 @@ use crate::domain::feti::{
 use crate::math::{Tensor, Vector};
 use std::thread::scope;
 
+/// Which jump operator a dual reduction goes through on either side of its
+/// local step: `B`, or the multiplicity-scaled `B_D`.
+#[derive(Clone, Copy)]
+pub(crate) enum Scaling {
+    Unscaled,
+    Multiplicity,
+}
+
 /// Reduces a per-subdomain local step (`local_solve` for the dual operator,
 /// `local_apply` for the lumped preconditioner) into a multiplier-space
 /// vector: matrix-free, one independent local step per subdomain plus a
@@ -12,6 +20,7 @@ pub(crate) fn dual_reduce<B>(
     subdomains: &[Subdomain<B>],
     lambda: &Vector,
     max_threads: usize,
+    scaling: Scaling,
     local_step: impl Fn(&Subdomain<B>, &Vector) -> Vector + Sync,
 ) -> Vector
 where
@@ -22,11 +31,18 @@ where
         chunk
             .iter()
             .map(|subdomain| {
-                let rhs = subdomain
-                    .interface()
-                    .apply_transpose(lambda, subdomain.num_local());
+                let interface = subdomain.interface();
+                let rhs = match scaling {
+                    Scaling::Unscaled => interface.apply_transpose(lambda, subdomain.num_local()),
+                    Scaling::Multiplicity => {
+                        interface.apply_transpose_scaled(lambda, subdomain.num_local())
+                    }
+                };
                 let local = local_step(subdomain, &rhs);
-                subdomain.interface().apply(&local, num_multipliers)
+                match scaling {
+                    Scaling::Unscaled => interface.apply(&local, num_multipliers),
+                    Scaling::Multiplicity => interface.apply_scaled(&local, num_multipliers),
+                }
             })
             .fold(Vector::zero(num_multipliers), |sum, contribution| {
                 sum + contribution
@@ -56,7 +72,13 @@ pub(crate) fn dual_action<B>(subdomains: &[Subdomain<B>], lambda: &Vector, threa
 where
     B: Sync,
 {
-    dual_reduce(subdomains, lambda, threads, Subdomain::local_solve)
+    dual_reduce(
+        subdomains,
+        lambda,
+        threads,
+        Scaling::Unscaled,
+        Subdomain::local_solve,
+    )
 }
 
 /// The lumped FETI-DP preconditioner, `sum_s B_s K_dd,s B_s^T` — the same
@@ -75,7 +97,13 @@ pub(crate) fn dual_precondition<B>(
 where
     B: Sync,
 {
-    dual_reduce(subdomains, lambda, threads, Subdomain::local_apply)
+    dual_reduce(
+        subdomains,
+        lambda,
+        threads,
+        Scaling::Unscaled,
+        Subdomain::local_apply,
+    )
 }
 
 /// The Dirichlet FETI-DP preconditioner, `sum_s B_b,s S_s B_b,s^T` — the
@@ -95,6 +123,28 @@ where
         subdomains,
         lambda,
         threads,
+        Scaling::Unscaled,
+        Subdomain::local_dirichlet_apply,
+    )
+}
+
+/// The multiplicity-scaled Dirichlet preconditioner,
+/// `sum_s B_D,s S_s B_D,s^T`, which weights the copies of a node shared by
+/// several subdomains equally instead of leaving one copy to carry a
+/// multiplier's whole jump.
+pub(crate) fn dual_precondition_scaled_dirichlet<B>(
+    subdomains: &[Subdomain<B>],
+    lambda: &Vector,
+    threads: usize,
+) -> Vector
+where
+    B: Sync,
+{
+    dual_reduce(
+        subdomains,
+        lambda,
+        threads,
+        Scaling::Multiplicity,
         Subdomain::local_dirichlet_apply,
     )
 }

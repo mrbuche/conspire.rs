@@ -2,17 +2,18 @@
 mod test;
 
 use super::super::{
-    THREADS,
+    Formulation, THREADS,
     dual::{coupling, coupling_transpose, rhs_from_forces},
     dual_primal::{
         BoundaryConditions, CornerSelection, build_splits,
         coarse::{Coarse, CoarseSystem},
         condense::Condensed,
-        rigid::removed_modes,
+        rigid::{kernel, kernel_pins, removed_modes},
+        rigid_projector::{RigidProjector, add_rigid_motion, rigid_rhs},
     },
     interface::build_interfaces,
     parallel::parallel_map,
-    pcg::{Preconditioner, primal_recovery, projected_pcg_with},
+    pcg::{Preconditioner, primal_recovery, projected_pcg_with, rigid_projected_pcg},
     subdomain::{DirichletLocal, Subdomain},
 };
 use crate::{
@@ -112,6 +113,13 @@ impl From<KrylovError> for SolveError {
     }
 }
 
+const RELATIVE_PIVOT: Scalar = 1e-10;
+
+enum LocalError {
+    Singular,
+    Interior,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn solve_local_systems<const D: usize>(
     partition: &Partition,
@@ -122,8 +130,12 @@ pub(crate) fn solve_local_systems<const D: usize>(
     preconditioner: Preconditioner,
     rel_tol: Scalar,
     method: KrylovMethod,
+    formulation: Formulation,
 ) -> Result<Vector, SolveError> {
-    let corners = CornerSelection::from_partition(partition);
+    let corners = match formulation {
+        Formulation::Classical => CornerSelection::new(Vec::new()),
+        Formulation::DualPrimal => CornerSelection::from_partition(partition),
+    };
     let (interfaces, num_multipliers) = build_interfaces(partition, &corners, D);
     let (splits, corner_dofs) = build_splits(partition, &corners, boundary_conditions, D);
     let subdomain_nodes = partition.parts_nodes();
@@ -133,7 +145,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
         .zip(&splits)
         .enumerate()
         .try_for_each(|(part, (nodes, split))| {
-            if nodes.is_empty() {
+            if nodes.is_empty() || formulation == Formulation::Classical {
                 return Ok(());
             }
             let free: HashSet<usize> = split.dual().iter().copied().collect();
@@ -150,6 +162,9 @@ pub(crate) fn solve_local_systems<const D: usize>(
         })?;
     let indices: Vec<usize> = (0..subdomain_nodes.len()).collect();
     let condensed = parallel_map(&indices, THREADS, |&index| {
+        if formulation == Formulation::Classical {
+            return Some(Condensed::without_corners(splits[index].dual().len()));
+        }
         Condensed::try_condense(
             &local_stiffnesses[index],
             &local_forces[index],
@@ -170,15 +185,52 @@ pub(crate) fn solve_local_systems<const D: usize>(
             .iter()
             .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
             .collect();
-        let dual_factor = dual_stiffness
-            .factorize_lu()
-            .expect("K_dd is singular, but corners should make every subdomain non-singular");
+        let (dual_factor, floating) = if formulation == Formulation::Classical {
+            let free: HashSet<usize> = dual_dofs.iter().copied().collect();
+            let constrained: Vec<usize> = (0..D * subdomain_nodes[index].len())
+                .filter(|dof| !free.contains(dof))
+                .collect();
+            let local: Vec<[f64; D]> = subdomain_nodes[index]
+                .iter()
+                .map(|&node| positions[node])
+                .collect();
+            let kernel = kernel(&local, &constrained);
+            let pins = kernel_pins(&kernel, &dual_dofs);
+            let keep: Vec<usize> = (0..dual_dofs.len())
+                .filter(|position| pins.binary_search(position).is_err())
+                .collect();
+            let reduced: SquareMatrix = keep
+                .iter()
+                .map(|&row| keep.iter().map(|&col| dual_stiffness[row][col]).collect())
+                .collect();
+            let factor = reduced
+                .factorize_lu()
+                .ok()
+                .filter(|factor| factor.near_zero_pivots(RELATIVE_PIVOT) == 0)
+                .ok_or(LocalError::Singular)?;
+            if kernel.is_empty() {
+                (factor, None)
+            } else {
+                (factor, Some((kernel, keep)))
+            }
+        } else {
+            let factor = dual_stiffness
+                .factorize_lu()
+                .expect("K_dd is singular, but corners should make every subdomain non-singular");
+            (factor, None)
+        };
         DirichletLocal::try_build(stiffness, &dual_dofs, interfaces[index].dofs())
-            .map(|dirichlet| (dual_dofs, dual_stiffness, dual_factor, dirichlet))
+            .map(|dirichlet| (dual_dofs, dual_stiffness, dual_factor, dirichlet, floating))
+            .ok_or(LocalError::Interior)
     })
     .into_iter()
     .enumerate()
-    .map(|(part, local)| local.ok_or(SolveError::SingularInterior(part)))
+    .map(|(part, local)| {
+        local.map_err(|error| match error {
+            LocalError::Singular => SolveError::SingularSubdomain(part),
+            LocalError::Interior => SolveError::SingularInterior(part),
+        })
+    })
     .collect::<Result<Vec<_>, _>>()?;
     let subdomains: Vec<Subdomain<()>> = interfaces
         .into_iter()
@@ -187,8 +239,8 @@ pub(crate) fn solve_local_systems<const D: usize>(
         .zip(condensed.iter())
         .zip(subdomain_nodes.iter())
         .map(|((((interface, local), split), condensed), nodes)| {
-            let (dual_dofs, dual_stiffness, dual_factor, dirichlet) = local;
-            Subdomain::new(
+            let (dual_dofs, dual_stiffness, dual_factor, dirichlet, floating) = local;
+            let subdomain = Subdomain::new(
                 (),
                 interface,
                 dual_stiffness,
@@ -200,7 +252,11 @@ pub(crate) fn solve_local_systems<const D: usize>(
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
                 dirichlet,
-            )
+            );
+            match floating {
+                Some((kernel, keep)) => subdomain.with_kernel(kernel, keep),
+                None => subdomain,
+            }
         })
         .collect();
     let rhs = rhs_from_forces(&subdomains, &local_forces, num_multipliers)
@@ -209,17 +265,39 @@ pub(crate) fn solve_local_systems<const D: usize>(
             &coarse_problem.solve(&reduced_force),
             num_multipliers,
         );
-    let lambda = projected_pcg_with(
-        &subdomains,
-        &coarse_problem,
-        &rhs,
-        preconditioner,
-        rel_tol,
-        method,
-    )?;
+    let (lambda, alpha) = match formulation {
+        Formulation::DualPrimal => (
+            projected_pcg_with(
+                &subdomains,
+                &coarse_problem,
+                &rhs,
+                preconditioner,
+                rel_tol,
+                method,
+            )?,
+            None,
+        ),
+        Formulation::Classical => {
+            let projector =
+                RigidProjector::try_new(&subdomains).ok_or(SolveError::SingularCoarseProblem)?;
+            let (lambda, alpha) = rigid_projected_pcg(
+                &subdomains,
+                &projector,
+                &rhs,
+                &rigid_rhs(&subdomains, &local_forces),
+                preconditioner,
+                rel_tol,
+                method,
+            )?;
+            (lambda, Some(alpha))
+        }
+    };
     let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
     let corner_solution = coarse_problem.solve(&(reduced_force + ct_lambda));
-    let recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
+    let mut recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
+    if let Some(alpha) = alpha {
+        add_rigid_motion(&subdomains, &alpha, &mut recovered);
+    }
     let mut global = Vector::zero(positions.len() * D);
     subdomain_nodes
         .iter()
