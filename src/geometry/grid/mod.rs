@@ -3,7 +3,7 @@ mod test;
 
 mod defeature;
 mod from;
-mod marching_cubes;
+pub(crate) mod marching_cubes;
 mod read;
 mod write;
 

@@ -128,47 +128,54 @@ pub(super) fn hexahedra(
     )))
 }
 
-impl Tessellation {
-    pub(super) fn placements(
-        &self,
-        cells: &[Polyhedron],
-        signs: &Signs,
-        placement: super::Placement,
-    ) -> Result<FxHashMap<Vertex, Coordinate<D>>, &'static str> {
-        let surface = self.mesh();
-        let coordinates = surface.coordinates();
-        let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let bvh = self.bvh();
-        let mut points = FxHashMap::default();
-        for polyhedron in cells {
-            for vertex in polyhedron.vertices() {
-                if points.contains_key(&vertex) {
-                    continue;
-                }
-                let point = match vertex {
-                    Vertex::Inside(corner) => signs.point(corner),
-                    Vertex::Boundary([one, two]) => {
-                        let (start, end) = (signs.point(one), signs.point(two));
-                        let fraction = match placement {
-                            super::Placement::Midpoint => Quantity::new(0.5),
-                            super::Placement::Crossing(guard) => {
+pub(super) fn placements(
+    surface: Option<&Tessellation>,
+    cells: &[Polyhedron],
+    signs: &Signs,
+    placement: super::Placement,
+) -> Result<FxHashMap<Vertex, Coordinate<D>>, &'static str> {
+    let mesh = surface.map(Tessellation::mesh);
+    let geometry = surface.zip(mesh).map(|(tessellation, mesh)| {
+        let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
+        (tessellation.bvh(), mesh.coordinates(), elements)
+    });
+    let mut points = FxHashMap::default();
+    for polyhedron in cells {
+        for vertex in polyhedron.vertices() {
+            if points.contains_key(&vertex) {
+                continue;
+            }
+            let point = match vertex {
+                Vertex::Inside(corner) => signs.point(corner),
+                Vertex::Boundary([one, two]) => {
+                    let (start, end) = (signs.point(one), signs.point(two));
+                    let fraction = match placement {
+                        super::Placement::Midpoint => Quantity::new(0.5),
+                        super::Placement::Crossing(guard) => match signs.fraction(one, two) {
+                            Some(fraction) => Quantity::new(fraction)
+                                .max(Quantity::new(guard))
+                                .min(Quantity::new(1.0 - guard)),
+                            None => {
+                                let Some((bvh, coordinates, elements)) = &geometry else {
+                                    return Err("a crossing needs a surface or a field");
+                                };
                                 let along = &end - &start;
                                 let length = along.norm();
                                 let ray = (start.clone(), along / length).into();
-                                match bvh.intersect(&ray, coordinates, &elements) {
+                                match bvh.intersect(&ray, coordinates, elements) {
                                     Some(hit) => (hit.distance() / length)
                                         .max(Quantity::new(guard))
                                         .min(Quantity::new(1.0 - guard)),
                                     None => Quantity::new(0.5),
                                 }
                             }
-                        };
-                        &start + &((&end - &start) * fraction)
-                    }
-                };
-                points.insert(vertex, point);
-            }
+                        },
+                    };
+                    &start + &((&end - &start) * fraction)
+                }
+            };
+            points.insert(vertex, point);
         }
-        Ok(points)
     }
+    Ok(points)
 }

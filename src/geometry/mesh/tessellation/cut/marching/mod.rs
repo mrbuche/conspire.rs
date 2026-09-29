@@ -9,6 +9,7 @@ use super::{DIRECTIONS, lattice::Lattice};
 use crate::{
     geometry::{
         Coordinate, DirectionsRef,
+        grid::{Gradient, MarchingCubes, Voxels},
         mesh::{
             Mesh,
             tessellation::{D, Tessellation},
@@ -16,6 +17,11 @@ use crate::{
     },
     math::{FxHashMap, Quantity, Scalar, Tensor},
     units::Length,
+};
+use std::array::from_fn;
+
+pub(super) use crate::geometry::grid::marching_cubes::separated::{
+    CORNERS, Corner, Vertex, inside,
 };
 
 /// Where a boundary vertex sits on an edge whose ends straddle the surface.
@@ -74,43 +80,99 @@ impl Default for Marching {
     }
 }
 
-pub(super) type Corner = [usize; D];
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(super) enum Vertex {
-    Inside(Corner),
-    Boundary([Corner; 2]),
+struct Field<'a> {
+    volume: &'a Voxels<f64>,
+    level: Scalar,
+    gradient: Gradient,
 }
 
-impl Vertex {
-    pub(super) fn boundary(one: Corner, two: Corner) -> Self {
-        if one < two {
-            Self::Boundary([one, two])
-        } else {
-            Self::Boundary([two, one])
+impl Field<'_> {
+    fn value(&self, corner: Corner) -> Scalar {
+        self.volume.data()[self.volume.flat(corner)]
+    }
+}
+
+pub(super) struct Signs<'a> {
+    inside: FxHashMap<Corner, bool>,
+    field: Option<Field<'a>>,
+    origin: Coordinate<D>,
+    spacing: [Quantity<Length>; D],
+}
+
+impl Signs<'_> {
+    pub(super) fn at(&self, corner: Corner) -> bool {
+        match &self.field {
+            Some(field) => inside(field.value(corner), field.level, field.gradient),
+            None => self.inside[&corner],
         }
     }
-}
-
-pub(super) struct Signs {
-    inside: FxHashMap<Corner, bool>,
-    origin: Coordinate<D>,
-    spacing: Quantity<Length>,
-}
-
-impl Signs {
-    pub(super) fn at(&self, corner: Corner) -> bool {
-        self.inside[&corner]
-    }
     pub(super) fn point(&self, corner: Corner) -> Coordinate<D> {
-        Coordinate::from(std::array::from_fn(|d| {
-            self.origin[d] + corner[d] as Scalar * self.spacing
+        Coordinate::from(from_fn(|d| {
+            self.origin[d] + corner[d] as Scalar * self.spacing[d]
         }))
+    }
+    /// How far along the edge from `one` to `two` the field reaches its
+    /// level, when the signs come from a field.
+    pub(super) fn fraction(&self, one: Corner, two: Corner) -> Option<Scalar> {
+        self.field.as_ref().map(|field| {
+            let (a, b) = (field.value(one), field.value(two));
+            (field.level - a) / (b - a)
+        })
+    }
+}
+
+impl MarchingCubes {
+    /// Meshes the object where a scalar field, sampled on a regular grid,
+    /// reaches its level, with hexahedra alone, by clipping every cell of
+    /// the grid and splitting what is left about its midpoints.
+    ///
+    /// The samples are the nodes of the lattice and the spacing may differ
+    /// along each axis. The surface lies where the field is interpolated to
+    /// cross the level, held off either end as `placement` says, and an
+    /// object reaching the edge of the grid is cut flat there. The `method`,
+    /// `step` and `degenerate` of the extraction do not apply.
+    pub fn hexahedra(
+        &self,
+        volume: &Voxels<f64>,
+        placement: Placement,
+    ) -> Result<Mesh<D>, &'static str> {
+        let nel = *volume.nel();
+        if nel.iter().any(|&n| n < 2) {
+            return Err("Input array must be at least 2x2x2.");
+        }
+        if self.step != 1 {
+            return Err("Hexahedra take every sample.");
+        }
+        if let Placement::Crossing(guard) = placement
+            && !(0.0..0.5).contains(&guard)
+        {
+            return Err("crossing guard must be within [0, 0.5)");
+        }
+        let level = self.resolve(volume)?;
+        let signs = Signs {
+            inside: FxHashMap::default(),
+            field: Some(Field {
+                volume,
+                level,
+                gradient: self.gradient,
+            }),
+            origin: Coordinate::from([Length::meters(0.0); D]),
+            spacing: from_fn(|axis| self.spacing[axis]),
+        };
+        let cells = (0..nel[2] - 1).flat_map(|k| {
+            (0..nel[1] - 1).flat_map(move |j| (0..nel[0] - 1).map(move |i| [i, j, k]))
+        });
+        let cells = polyhedron::polyhedra(cells, &signs)?;
+        if cells.is_empty() {
+            return Err("No cell of the grid has a sample within the object.");
+        }
+        let points = split::placements(None, &cells, &signs, placement)?;
+        split::hexahedra(cells, &points, None)
     }
 }
 
 impl Tessellation {
-    pub(super) fn signs(&self, lattice: &Lattice) -> Result<Signs, &'static str> {
+    pub(super) fn signs(&self, lattice: &Lattice) -> Result<Signs<'_>, &'static str> {
         let surface = self.mesh();
         let coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
@@ -120,8 +182,9 @@ impl Tessellation {
         let (origin, spacing) = lattice.frame();
         let mut signs = Signs {
             inside: FxHashMap::default(),
+            field: None,
             origin,
-            spacing,
+            spacing: [spacing; D],
         };
         let mut corners: Vec<Corner> = lattice
             .cells()
@@ -181,11 +244,14 @@ impl Tessellation {
                 }
             })
             .unwrap_or(Err("every lattice tried meets the surface at a corner"))?;
-        let cells = polyhedron::polyhedra(&lattice, &signs)?;
+        let cells = polyhedron::polyhedra(
+            lattice.cells().into_iter().map(|(corner, _)| corner),
+            &signs,
+        )?;
         if cells.is_empty() {
             return Err("no cell of the lattice has a corner inside the surface");
         }
-        let points = self.placements(&cells, &signs, placement)?;
+        let points = split::placements(Some(self), &cells, &signs, placement)?;
         let draw = match finish {
             Finish::Draw(keep) => Some((self, keep)),
             _ => None,
@@ -223,24 +289,4 @@ const SHIFTS: [[Scalar; D]; 5] = [
     [0.041_351, 0.023_887, 0.011_729],
     [0.097_153, 0.061_771, 0.033_413],
     [0.187_411, 0.140_412, 0.092_153],
-];
-
-pub(super) const CORNERS: [[usize; D]; 8] = [
-    [0, 0, 0],
-    [1, 0, 0],
-    [1, 1, 0],
-    [0, 1, 0],
-    [0, 0, 1],
-    [1, 0, 1],
-    [1, 1, 1],
-    [0, 1, 1],
-];
-
-pub(super) const FACES: [[usize; 4]; 6] = [
-    [0, 3, 2, 1],
-    [4, 5, 6, 7],
-    [0, 1, 5, 4],
-    [1, 2, 6, 5],
-    [2, 3, 7, 6],
-    [3, 0, 4, 7],
 ];

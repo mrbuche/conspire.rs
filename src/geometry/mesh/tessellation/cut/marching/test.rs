@@ -142,3 +142,140 @@ fn every_configuration_of_signs_splits_into_hexahedra_that_hold_up() {
         }
     }
 }
+
+mod field {
+    use super::{Placement, report};
+    use crate::{
+        geometry::{
+            grid::{
+                Method,
+                marching_cubes::separated::test::{extractor, sample, sphere},
+            },
+            mesh::{Connectivity, Verdict},
+        },
+        math::Tensor,
+    };
+    use std::{array::from_fn, collections::HashMap};
+
+    fn volume_of(mesh: &crate::geometry::mesh::Mesh<3>) -> f64 {
+        mesh.volumes().into_iter().flatten().sum()
+    }
+
+    #[test]
+    fn a_sphere_sampled_at_uneven_spacing_meshes_to_its_volume() {
+        let spacing = [0.08, 0.12, 0.2];
+        let volume = sphere([30, 20, 12], spacing, 0.9);
+        let mesh = extractor(spacing, Method::Lewiner)
+            .hexahedra(&volume, Placement::Crossing(0.2))
+            .unwrap();
+        let (count, minimum, negative) = report("uneven", &mesh);
+        assert!(count > 0);
+        assert_eq!(negative, 0, "min SJ {minimum}");
+        let exact = 4.0 / 3.0 * std::f64::consts::PI * 0.9_f64.powi(3);
+        let found = volume_of(&mesh);
+        assert!(
+            (found - exact).abs() < 0.03 * exact,
+            "{found} against {exact}"
+        );
+    }
+
+    #[test]
+    fn the_surface_is_the_boundary_of_the_hexahedra() {
+        let spacing = [0.1, 0.1, 0.1];
+        let volume = sphere([24, 24, 24], spacing, 1.0);
+        let march = extractor(spacing, Method::Separated);
+        let surface = march.extract(&volume, None).unwrap();
+        let mesh = march.hexahedra(&volume, Placement::Crossing(0.0)).unwrap();
+        let hexes: Vec<[usize; 8]> = match &mesh.connectivities()[0] {
+            Connectivity::Hexahedral(block) => block.iter().copied().collect(),
+            _ => panic!(),
+        };
+        let boundary: Vec<usize> = mesh.exterior_faces().into_iter().flatten().collect();
+        assert!(!hexes.is_empty() && !boundary.is_empty());
+        let coordinates = mesh.coordinates();
+        let near = |vertex: usize| {
+            boundary.iter().any(|&node| {
+                (0..3).all(|axis| {
+                    (coordinates[node][axis].value() - surface.vertices[vertex][axis].value()).abs()
+                        < 1.0e-9
+                })
+            })
+        };
+        assert!((0..surface.vertices.len()).all(near));
+    }
+
+    /// A field of noise, full of alternating faces, still gives hexahedra
+    /// that meet face to face and enclose a closed boundary.
+    #[test]
+    fn a_field_of_noise_gives_conforming_hexahedra() {
+        let nel = [8, 8, 8];
+        let mut state = 0x9e37_79b9_7f4a_7c15_u64;
+        let mut noise = move || {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            (state >> 11) as f64 / (1u64 << 53) as f64 * 2.0 - 1.0
+        };
+        let volume = sample(nel, |[i, j, k]| {
+            if [i, j, k]
+                .iter()
+                .any(|&index| index == 0 || index == nel[0] - 1)
+            {
+                -1.0
+            } else {
+                noise()
+            }
+        });
+        let mesh = extractor([1.0, 1.3, 0.7], Method::Separated)
+            .hexahedra(&volume, Placement::Midpoint)
+            .unwrap();
+        let (_, minimum, negative) = report("noise", &mesh);
+        assert_eq!(negative, 0, "min SJ {minimum}");
+        let hexes: Vec<[usize; 8]> = match &mesh.connectivities()[0] {
+            Connectivity::Hexahedral(block) => block.iter().copied().collect(),
+            _ => panic!(),
+        };
+        const FACES: [[usize; 4]; 6] = [
+            [0, 3, 2, 1],
+            [4, 5, 6, 7],
+            [0, 1, 5, 4],
+            [1, 2, 6, 5],
+            [2, 3, 7, 6],
+            [3, 0, 4, 7],
+        ];
+        let mut faces = HashMap::<[usize; 4], u32>::new();
+        hexes.iter().for_each(|hex| {
+            FACES.iter().for_each(|face| {
+                let mut key: [usize; 4] = from_fn(|corner| hex[face[corner]]);
+                key.sort_unstable();
+                *faces.entry(key).or_default() += 1
+            })
+        });
+        assert!(faces.values().all(|&count| count <= 2));
+        let mut edges = HashMap::<[usize; 2], u32>::new();
+        faces
+            .iter()
+            .filter(|&(_, &count)| count == 1)
+            .for_each(|(face, _)| {
+                for edge in [[0, 1], [1, 3], [3, 2], [2, 0]] {
+                    let mut key = [face[edge[0]], face[edge[1]]];
+                    key.sort_unstable();
+                    *edges.entry(key).or_default() += 1
+                }
+            });
+        assert!(
+            edges.values().all(|&count| count % 2 == 0),
+            "the boundary is open"
+        );
+    }
+
+    #[test]
+    fn a_grid_without_room_for_a_cell_is_refused() {
+        let volume = sample([1, 4, 4], |_| 0.0);
+        assert!(
+            extractor([1.0; 3], Method::Lewiner)
+                .hexahedra(&volume, Placement::Midpoint)
+                .is_err()
+        );
+    }
+}
