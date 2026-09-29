@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     geometry::mesh::{Connectivity, Mesh},
-    math::{Tensor, Vector, sparse::SparseSolver},
+    math::{Quantity, Tensor, Vector, sparse::SparseSolver},
+    units::Length,
 };
 use std::{array::from_fn, collections::HashMap};
 
@@ -44,13 +45,11 @@ fn solve(entries: &Entries, b: &Vector) -> Result<Vector, &'static str> {
 }
 
 impl<const D: usize> Mesh<D> {
-    /// Approximate geodesic distances from a source node to every node, along
-    /// the surface of an all-triangular mesh, by the heat method.
-    ///
-    /// Nodes that no element touches are infinitely far away.
-    pub fn geodesic_distances(&self, source: usize) -> Result<Vec<f64>, &'static str> {
+    /// Approximate geodesic distances from a source node to every node,
+    /// along the surface of an all-triangular mesh, by the heat method.
+    pub fn geodesic_distances(&self, source: usize) -> Result<Vec<Quantity<Length>>, &'static str> {
         let elements: Vec<usize> = (0..self.number_of_elements()).collect();
-        let mut distances = vec![f64::INFINITY; self.number_of_nodes()];
+        let mut distances = vec![Quantity::new(f64::INFINITY); self.number_of_nodes()];
         self.geodesic_distances_over(source, &elements)?
             .into_iter()
             .for_each(|(node, distance)| distances[node] = distance);
@@ -62,7 +61,7 @@ impl<const D: usize> Mesh<D> {
         &self,
         source: usize,
         elements: &[usize],
-    ) -> Result<Vec<(usize, f64)>, &'static str> {
+    ) -> Result<Vec<(usize, Quantity<Length>)>, &'static str> {
         if !self
             .iter()
             .all(|block| matches!(block, Connectivity::Triangular(_)))
@@ -78,7 +77,8 @@ impl<const D: usize> Mesh<D> {
             })
             .collect();
         let coordinates = self.coordinates();
-        let point = |node: usize| -> [f64; D] { from_fn(|k| coordinates[node][k].value()) };
+        let point =
+            |node: usize| -> [f64; D] { from_fn(|k| coordinates[node][k].value_as::<Length>()) };
         let triangles: Vec<Triangle<D>> = elements
             .iter()
             .map(|&element| {
@@ -111,8 +111,8 @@ impl<const D: usize> Mesh<D> {
                 add(&mut stiffness, ids[b], ids[b], -weight);
                 length += (0..D)
                     .map(|k| {
-                        (coordinates[triangle.nodes[a]][k].value()
-                            - coordinates[triangle.nodes[b]][k].value())
+                        (coordinates[triangle.nodes[a]][k].value_as::<Length>()
+                            - coordinates[triangle.nodes[b]][k].value_as::<Length>())
                         .powi(2)
                     })
                     .sum::<f64>()
@@ -165,6 +165,9 @@ impl<const D: usize> Mesh<D> {
             .collect();
         let minimum = distances.iter().copied().fold(f64::INFINITY, f64::min);
         distances.iter_mut().for_each(|d| *d -= minimum);
-        Ok(nodes.into_iter().zip(distances).collect())
+        Ok(nodes
+            .into_iter()
+            .zip(distances.into_iter().map(Quantity::new))
+            .collect())
     }
 }
