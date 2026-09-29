@@ -6,7 +6,7 @@ use super::super::{
     dual::{coupling, coupling_transpose, rhs_from_forces},
     dual_primal::{
         BoundaryConditions, CornerSelection, build_splits,
-        coarse::{Coarse, CoarseSystem},
+        coarse::{Coarse, CoarseSystem, CornerConstraint},
         condense::Condensed,
         rigid::{kernel, kernel_pins, removed_modes},
         rigid_projector::{RigidProjector, add_rigid_motion, rigid_rhs},
@@ -131,10 +131,11 @@ pub(crate) fn solve_local_systems<const D: usize>(
     rel_tol: Scalar,
     method: KrylovMethod,
     formulation: Formulation,
-) -> Result<Vector, SolveError> {
+) -> Result<(Vector, Vector), SolveError> {
     let corners = match formulation {
         Formulation::Classical => CornerSelection::new(Vec::new()),
-        Formulation::DualPrimal => CornerSelection::from_partition(partition),
+        Formulation::DualPrimal => CornerSelection::from_partition(partition)
+            .with_nodes(boundary_conditions.constrained_nodes()),
     };
     let (interfaces, num_multipliers) = build_interfaces(partition, &corners, D);
     let (splits, corner_dofs) = build_splits(partition, &corners, boundary_conditions, D);
@@ -177,7 +178,35 @@ pub(crate) fn solve_local_systems<const D: usize>(
     .map(|(part, condensed)| condensed.ok_or(SolveError::SingularSubdomain(part)))
     .collect::<Result<Vec<_>, _>>()?;
     let (schur, reduced_force) = CoarseSystem::assemble(&condensed, &splits, &corner_dofs);
-    let coarse_problem = Coarse::try_from(schur).map_err(|_| SolveError::SingularCoarseProblem)?;
+    let constraints = boundary_conditions
+        .constraints()
+        .iter()
+        .map(|constraint| {
+            constraint
+                .entries()
+                .iter()
+                .filter(|&&(node, component, _)| !boundary_conditions.is_fixed(node, component))
+                .map(|&(node, component, coefficient)| {
+                    corner_dofs
+                        .global_index(node, component)
+                        .map(|corner| (corner, coefficient))
+                        .ok_or_else(|| {
+                            SolveError::Partition(format!(
+                                "constraint on node {node}, component {component}, \
+                                which the model does not have"
+                            ))
+                        })
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map(|entries| CornerConstraint {
+                    entries,
+                    value: constraint.value(),
+                })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let constraint_values: Vector = constraints.iter().map(|row| row.value).collect();
+    let coarse_problem =
+        Coarse::try_new(schur, &constraints).map_err(|_| SolveError::SingularCoarseProblem)?;
     let locals = parallel_map(&indices, THREADS, |&index| {
         let stiffness = &local_stiffnesses[index];
         let dual_dofs = splits[index].dual().to_vec();
@@ -262,7 +291,9 @@ pub(crate) fn solve_local_systems<const D: usize>(
     let rhs = rhs_from_forces(&subdomains, &local_forces, num_multipliers)
         - coupling(
             &subdomains,
-            &coarse_problem.solve(&reduced_force),
+            &coarse_problem
+                .solve_constrained(&reduced_force, &constraint_values)
+                .0,
             num_multipliers,
         );
     let (lambda, alpha) = match formulation {
@@ -293,7 +324,8 @@ pub(crate) fn solve_local_systems<const D: usize>(
         }
     };
     let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
-    let corner_solution = coarse_problem.solve(&(reduced_force + ct_lambda));
+    let (corner_solution, constraint_multipliers) =
+        coarse_problem.solve_constrained(&(reduced_force + ct_lambda), &constraint_values);
     let mut recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
     if let Some(alpha) = alpha {
         add_rigid_motion(&subdomains, &alpha, &mut recovered);
@@ -309,5 +341,5 @@ pub(crate) fn solve_local_systems<const D: usize>(
                 })
             })
         });
-    Ok(global)
+    Ok((global, constraint_multipliers))
 }

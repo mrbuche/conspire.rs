@@ -13,7 +13,7 @@ use conspire::{
         mesh::{Connectivities, Connectivity, Mesh, Partition},
     },
     math::{
-        Tensor,
+        Matrix, Tensor, Vector,
         optimize::{Direct, EqualityConstraint, NewtonRaphson, Tolerances},
     },
     units::Stress,
@@ -565,4 +565,138 @@ fn classical_differs_from_dual_primal_by_the_prestress() {
             );
         });
     });
+}
+
+fn multiplier_problem(nel: [usize; 3]) -> (Model<HexBlock, 3>, EqualityConstraint) {
+    let (model, _) = problem(nel);
+    let (_, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
+    let reference: Vec<[f64; 3]> = coordinates
+        .iter()
+        .map(|c| [c[0].value(), c[1].value(), c[2].value()])
+        .collect();
+    let length = nel[0] as f64;
+    let mut rows: Vec<(Vec<(usize, f64)>, f64)> = Vec::new();
+    reference.iter().enumerate().for_each(|(node, point)| {
+        if point[0].abs() < 1e-9 {
+            (0..3).for_each(|component| {
+                rows.push((vec![(3 * node + component, 1.0)], point[component]))
+            })
+        } else if (point[0] - length).abs() < 1e-9 {
+            rows.push((vec![(3 * node, 1.0)], 1.1 * length))
+        }
+    });
+    let far: Vec<usize> = (0..reference.len())
+        .filter(|&node| (reference[node][0] - length).abs() < 1e-9)
+        .collect();
+    let (a, b) = (far[0], far[far.len() - 1]);
+    rows.push((
+        vec![(3 * a + 2, 1.0), (3 * b + 2, -1.0)],
+        reference[a][2] - reference[b][2],
+    ));
+    let mut matrix = Matrix::zero(rows.len(), 3 * reference.len());
+    let mut vector = Vector::zero(rows.len());
+    rows.iter().enumerate().for_each(|(row, (entries, value))| {
+        entries
+            .iter()
+            .for_each(|&(dof, coefficient)| matrix[row][dof] = coefficient);
+        vector[row] = *value;
+    });
+    (model, EqualityConstraint::Linear(matrix, vector))
+}
+
+#[test]
+fn newton_with_feti_enforces_linear_constraints_by_multipliers() {
+    let nel = [6; 3];
+    let (model, constraint) = multiplier_problem(nel);
+    let sparse = model
+        .minimize(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Direct,
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("sparse solve failed: {error}"));
+    drop(model);
+    let (model, constraint) = multiplier_problem(nel);
+    let decomposed = model
+        .minimize(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Feti {
+                    partition: mesh(nel).partition_box([2; 3]),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("FETI solve failed: {error}"));
+    let difference = largest_difference(&sparse, &decomposed);
+    assert!(difference < 1e-6, "coordinates differ by {difference:e}");
+}
+
+#[test]
+fn prescribed_displacements_by_multipliers_are_met_and_zero_ones_match_elimination() {
+    use conspire::feti::BoundaryConditions;
+    let nel = [6; 3];
+    let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
+    let block = block(connectivities, &coordinates, 1.0);
+    let current = NodalCoordinates::from(
+        coordinates
+            .iter()
+            .map(|c| perturbed([c[0].value(), c[1].value(), c[2].value()], 6.0))
+            .collect::<Vec<_>>(),
+    );
+    let on_plane = |plane: f64| -> Vec<usize> {
+        (0..coordinates.len())
+            .filter(|&node| (coordinates[node][0].value() - plane).abs() < 1e-9)
+            .collect()
+    };
+    let feti = Feti {
+        partition: mesh(nel).partition_box([2; 3]),
+        ..Default::default()
+    };
+    let eliminated = feti
+        .solve(
+            &block,
+            &current,
+            &BoundaryConditions::new(
+                on_plane(0.0)
+                    .into_iter()
+                    .flat_map(|node| (0..3).map(move |component| (node, component)))
+                    .collect(),
+            ),
+        )
+        .unwrap_or_else(|error| panic!("{error}"));
+    let pinned = on_plane(0.0)
+        .into_iter()
+        .flat_map(|node| (0..3).map(move |component| (node, component)))
+        .fold(
+            BoundaryConditions::none(),
+            |conditions, (node, component)| conditions.prescribed(node, component, 0.0),
+        );
+    let (multiplied, _) = feti
+        .solve_constrained(&block, &current, &pinned)
+        .unwrap_or_else(|error| panic!("{error}"));
+    let scale = eliminated.iter().fold(0.0_f64, |m, &v| m.max(v.abs()));
+    let difference = eliminated
+        .iter()
+        .zip(multiplied.iter())
+        .fold(0.0_f64, |m, (a, b)| m.max((a - b).abs()));
+    assert!(
+        difference < 1e-8 * scale,
+        "differ by {difference:e} of {scale:e}"
+    );
+    let stretched = on_plane(6.0).into_iter().fold(pinned, |conditions, node| {
+        conditions.prescribed(node, 0, 0.25)
+    });
+    let (stretch, multipliers) = feti
+        .solve_constrained(&block, &current, &stretched)
+        .unwrap_or_else(|error| panic!("{error}"));
+    on_plane(6.0)
+        .into_iter()
+        .for_each(|node| assert!((stretch[3 * node] - 0.25).abs() < 1e-8));
+    assert!(multipliers.iter().any(|&force| force.abs() > 1e-6));
 }

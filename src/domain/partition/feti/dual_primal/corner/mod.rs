@@ -38,6 +38,9 @@ impl CornerSelection {
                 .collect(),
         )
     }
+    pub(crate) fn with_nodes(self, nodes: impl Iterator<Item = usize>) -> Self {
+        Self::new(self.nodes.into_iter().chain(nodes).collect())
+    }
     pub(crate) fn contains(&self, node: usize) -> bool {
         self.nodes.binary_search(&node).is_ok()
     }
