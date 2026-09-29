@@ -37,7 +37,7 @@ pub use self::{
     quality::metrics::Verdict,
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
-    reproducing::Basis,
+    reproducing::{Basis, GradientVector, Gradients},
     smooth::Smoothing,
     tessellation::{
         Tessellation,
