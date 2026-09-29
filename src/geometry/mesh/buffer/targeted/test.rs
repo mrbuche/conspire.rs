@@ -150,3 +150,82 @@ fn buffer_targeted_is_never_worse_than_buffer() {
         worst(&plain)
     );
 }
+
+fn tally(label: &str, mesh: &Mesh<3>, seconds: f64) {
+    let all: Vec<Scalar> = mesh
+        .minimum_scaled_jacobians()
+        .iter()
+        .flatten()
+        .copied()
+        .collect();
+    let below = |t: Scalar| all.iter().filter(|&&q| q < t).count();
+    let count = |kind: fn(&Connectivity) -> bool| {
+        mesh.connectivities()
+            .iter()
+            .filter(|c| kind(c))
+            .flatten()
+            .count()
+    };
+    let per_kind: Vec<String> = mesh
+        .connectivities()
+        .iter()
+        .zip(mesh.minimum_scaled_jacobians())
+        .map(|(c, q)| {
+            let name = match c {
+                Connectivity::Hexahedral(_) => "hex",
+                Connectivity::Pyramidal(_) => "pyr",
+                Connectivity::Tetrahedral(_) => "tet",
+                _ => "?",
+            };
+            let min = q.iter().copied().fold(Scalar::INFINITY, Scalar::min);
+            let median = {
+                let mut sorted = q.clone();
+                sorted.sort_by(Scalar::total_cmp);
+                sorted[sorted.len() / 2]
+            };
+            format!("{name} min {min:.3} med {median:.3}")
+        })
+        .collect();
+    eprintln!("          [{}]", per_kind.join(" | "));
+    eprintln!(
+        "  {label:>6}: cells {:>5} pyr {:>4} tet {:>4} worst {:>6.3} <0.1: {:>3} <0.2: {:>3} <0.3: {:>3} ({seconds:.1}s)",
+        all.len(),
+        count(|c| matches!(c, Connectivity::Pyramidal(_))),
+        count(|c| matches!(c, Connectivity::Tetrahedral(_))),
+        worst(mesh),
+        below(0.1),
+        below(0.2),
+        below(0.3),
+    );
+}
+
+#[test]
+fn tmp_compare_templates() {
+    let cases: Vec<(String, Tessellation, Scalar)> = vec![
+        ("cyl.35".into(), cylinder(1.5, 2.0, 32), 0.35),
+        ("cyl.3".into(), cylinder(1.5, 2.0, 32), 0.3),
+        ("rid0".into(), oblique_ridge(0.0), 0.35),
+        ("rid20".into(), oblique_ridge(20.0_f64.to_radians()), 0.35),
+        ("rid40".into(), oblique_ridge(40.0_f64.to_radians()), 0.35),
+    ];
+    for (name, target, size) in cases {
+        for threshold in [0.1, 0.2] {
+            eprintln!("{name} threshold {threshold}");
+            let start = std::time::Instant::now();
+            let plain = background(&target, size)
+                .buffer(&target, Fitting::Snap)
+                .unwrap();
+            tally("hex", &plain, start.elapsed().as_secs_f64());
+            for (label, template) in [
+                ("pyr", super::Template::Pyramids),
+                ("pyr+tet", super::Template::PyramidsAndTets),
+            ] {
+                let start = std::time::Instant::now();
+                let mesh = background(&target, size)
+                    .targeted(&target, Fitting::Snap, threshold, template)
+                    .unwrap();
+                tally(label, &mesh, start.elapsed().as_secs_f64());
+            }
+        }
+    }
+}

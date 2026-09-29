@@ -14,6 +14,12 @@ use std::{array::from_fn, mem::replace};
 
 const RINGS: usize = 2;
 
+#[derive(Clone, Copy)]
+enum Template {
+    Pyramids,
+    PyramidsAndTets,
+}
+
 fn worst(mesh: &Mesh<3>) -> Scalar {
     mesh.minimum_scaled_jacobians()
         .iter()
@@ -30,10 +36,19 @@ impl Mesh<3> {
     /// beats the hexahedron it replaces. The result is never worse, by
     /// minimum scaled Jacobian, than the all-hexahedral buffer.
     pub fn buffer_targeted(
+        self,
+        target: &Tessellation,
+        fitting: Fitting,
+        threshold: Scalar,
+    ) -> Result<Self, &'static str> {
+        self.targeted(target, fitting, threshold, Template::Pyramids)
+    }
+    fn targeted(
         mut self,
         target: &Tessellation,
         fitting: Fitting,
         threshold: Scalar,
+        template: Template,
     ) -> Result<Self, &'static str> {
         self.restrict()?;
         let boundary = self.exterior_faces();
@@ -125,19 +140,39 @@ impl Mesh<3> {
             let mut layer = layer.clone();
             let mut blocks = blocks.clone();
             let mut pyramids: Vec<[usize; 5]> = Vec::new();
+            let mut tets: Vec<[usize; 4]> = Vec::new();
             let last = blocks.last_mut().ok_or("no hexahedral block")?;
             last.truncate(first);
             shell.iter().zip(flags).for_each(|(cell, &flag)| {
                 if flag {
-                    let apex = coordinates.len();
-                    let centroid = cell[4..]
+                    let (n, m) = (&cell[..4], &cell[4..]);
+                    let outer = m
                         .iter()
                         .map(|&node| &coordinates[node])
                         .sum::<Coordinate<3>>()
                         / 4.0;
-                    coordinates.push(centroid);
-                    layer.push(apex);
-                    let (n, m) = (&cell[..4], &cell[4..]);
+                    let apex = coordinates.len();
+                    match template {
+                        Template::Pyramids => {
+                            coordinates.push(outer);
+                            layer.push(apex);
+                        }
+                        Template::PyramidsAndTets => {
+                            let inner = cell
+                                .iter()
+                                .map(|&node| &coordinates[node])
+                                .sum::<Coordinate<3>>()
+                                / 8.0;
+                            coordinates.push(inner);
+                            let center = coordinates.len();
+                            coordinates.push(outer);
+                            layer.push(center);
+                            (0..4).for_each(|i| {
+                                let j = (i + 1) % 4;
+                                tets.push([m[j], m[i], center, apex]);
+                            });
+                        }
+                    }
                     pyramids.push([n[0], n[1], n[2], n[3], apex]);
                     (0..4).for_each(|i| {
                         let j = (i + 1) % 4;
@@ -149,6 +184,9 @@ impl Mesh<3> {
             });
             let mut connectivities = hexahedra(blocks);
             connectivities.push(Connectivity::Pyramidal(pyramids.into()));
+            if !tets.is_empty() {
+                connectivities.push(Connectivity::Tetrahedral(tets.into()));
+            }
             let mut mesh = Self::from((connectivities, coordinates));
             let neighbors = mesh.node_node_connectivity().to_vec();
             let mut free = vec![false; mesh.number_of_nodes()];
@@ -170,22 +208,26 @@ impl Mesh<3> {
                     .collect();
             }
             let free: Vec<usize> = (0..free.len()).filter(|&node| free[node]).collect();
+            let mut on_layer = vec![false; mesh.number_of_nodes()];
+            layer.iter().for_each(|&node| on_layer[node] = true);
             let layer: Vec<usize> = layer
                 .into_iter()
                 .filter(|node| free.binary_search(node).is_ok())
                 .collect();
             mesh.fit(&free, target)?;
             mesh.project(target, &layer)?;
-            let core: Vec<usize> = free.into_iter().filter(|&node| node < count).collect();
+            let core: Vec<usize> = free.into_iter().filter(|&node| !on_layer[node]).collect();
             mesh.fit(&core, target)?;
             Ok(mesh)
         };
         let unchanged = || Self::from((hexahedra(blocks.clone()), fitted_coordinates.clone()));
         let trial = assemble(&bad)?;
-        let fans = trial
-            .minimum_scaled_jacobians()
-            .pop()
-            .ok_or("no pyramidal block")?;
+        let mut jacobians = trial.minimum_scaled_jacobians();
+        let tets = match template {
+            Template::Pyramids => Vec::new(),
+            Template::PyramidsAndTets => jacobians.pop().ok_or("no tetrahedral block")?,
+        };
+        let fans = jacobians.pop().ok_or("no pyramidal block")?;
         let mut fan = 0;
         let accepted: Vec<bool> = bad
             .iter()
@@ -194,6 +236,7 @@ impl Mesh<3> {
                 flag && {
                     let quality = fans[5 * fan..5 * fan + 5]
                         .iter()
+                        .chain(tets.get(4 * fan..4 * fan + 4).into_iter().flatten())
                         .fold(Scalar::INFINITY, |worst, &quality| worst.min(quality));
                     fan += 1;
                     quality >= old[face]
