@@ -26,6 +26,7 @@ pub(crate) struct Subdomain<B> {
     /// this subdomain's dual correction, and is what carries the coarse-grid
     /// coupling term into the dual operator.
     dual_map: Matrix,
+    primal_map: Matrix,
     /// Each local primal (corner) DOF's raw position in this subdomain's full
     /// local numbering.
     primal_dofs: Vec<usize>,
@@ -56,16 +57,16 @@ impl DirichletLocal {
     /// Splits a subdomain's dual dofs into interior (never touched by a
     /// multiplier) and boundary (touched by at least one), and extracts the
     /// blocks the Dirichlet preconditioner applies, factorizing `K_ii`.
-    /// Interior-interior is a principal submatrix of the (SPD, once corners
-    /// are condensed out) `K_dd,s`, hence always itself non-singular, so the
-    /// factorization can't fail the way a corner elimination could on a
-    /// floating subdomain. `K_bi` and `K_ib` are both kept, so the
-    /// application needs no transposed products.
-    pub(crate) fn build(
+    /// Interior-interior is a principal submatrix of `K_dd,s`. For a positive
+    /// definite tangent, once corners are condensed out, that makes it
+    /// non-singular too. A nonsymmetric or indefinite tangent has no such
+    /// guarantee, so this is `None` when `K_ii` turns out singular. `K_bi` and
+    /// `K_ib` are both kept, so the application needs no transposed products.
+    pub(crate) fn try_build(
         local_stiffness: &SquareMatrix,
         dual_dofs: &[usize],
         interface_dofs: &[usize],
-    ) -> Self {
+    ) -> Option<Self> {
         let on_interface: HashSet<usize> = interface_dofs.iter().copied().collect();
         let boundary: Vec<usize> = dual_dofs
             .iter()
@@ -108,18 +109,15 @@ impl DirichletLocal {
                         .collect()
                 })
                 .collect();
-            Some(
-                k_ii.factorize_lu()
-                    .expect("K_ii is singular, but it is a principal block of a non-singular K_dd"),
-            )
+            Some(k_ii.factorize_lu().ok()?)
         };
-        Self {
+        Some(Self {
             k_bi: block(&boundary, &interior),
             k_ib: block(&interior, &boundary),
             boundary_dofs: boundary,
             k_bb,
             interior_factor,
-        }
+        })
     }
     pub(crate) fn boundary_dofs(&self) -> &[usize] {
         &self.boundary_dofs
@@ -146,6 +144,7 @@ impl<B> Subdomain<B> {
         dual_dofs: Vec<usize>,
         num_local: usize,
         dual_map: Matrix,
+        primal_map: Matrix,
         primal_dofs: Vec<usize>,
         primal_global: Vec<usize>,
         dirichlet: DirichletLocal,
@@ -158,6 +157,7 @@ impl<B> Subdomain<B> {
             dual_dofs,
             num_local,
             dual_map,
+            primal_map,
             primal_dofs,
             primal_global,
             dirichlet,
@@ -174,6 +174,9 @@ impl<B> Subdomain<B> {
     }
     pub(crate) fn dual_map(&self) -> &Matrix {
         &self.dual_map
+    }
+    pub(crate) fn primal_map(&self) -> &Matrix {
+        &self.primal_map
     }
     pub(crate) fn primal_global(&self) -> &[usize] {
         &self.primal_global

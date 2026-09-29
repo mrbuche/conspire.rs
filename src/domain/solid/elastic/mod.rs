@@ -1,14 +1,15 @@
 use crate::{
     domain::{
         Blocks, ElementModel, ElementModelError, FirstOrderRoot, Model, NodalCoordinates,
-        ZerothOrderRoot,
+        ProvidesTangent, SolverFor, ZerothOrderRoot,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
         Tensor,
         optimize::{
-            EqualityConstraint, FirstOrderRootFinding, OptimizationError, ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizationError,
+            ZerothOrderRootFinding,
         },
     },
 };
@@ -109,33 +110,56 @@ where
     }
 }
 
+impl<B, const D: usize> SolverFor<Model<B, D>, NodalForcesSolid<D>, NodalStiffnessesSolid<D>>
+    for NewtonRaphson
+where
+    B: ElasticElements<D>,
+{
+    type Tangent = NodalStiffnessesSolid<D>;
+    const SPARSE: bool = true;
+}
+
+impl<B, const D: usize> ProvidesTangent<NodalCoordinates<D>, NodalStiffnessesSolid<D>>
+    for Model<B, D>
+where
+    B: ElasticElements<D>,
+{
+    fn provide_tangent(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
+        self.nodal_stiffnesses(nodal_coordinates)
+    }
+}
+
 impl<B, const D: usize>
     FirstOrderRoot<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
     for Model<B, D>
 where
     B: ElasticElements<D>,
 {
-    fn root(
+    fn root<S>(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
-        >,
-    ) -> Result<NodalCoordinates<D>, OptimizationError> {
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, false);
+        solver: S,
+    ) -> Result<NodalCoordinates<D>, OptimizationError>
+    where
+        S: SolverFor<Self, NodalForcesSolid<D>, NodalStiffnessesSolid<D>>
+            + FirstOrderRootFinding<NodalForcesSolid<D>, S::Tangent, NodalCoordinates<D>>,
+        Self: ProvidesTangent<NodalCoordinates<D>, S::Tangent>,
+    {
+        let sparse = S::SPARSE.then(|| {
+            let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+            self.node_neighbors(&mut neighbors);
+            finalize_node_neighbors(&mut neighbors);
+            solver_from_neighbors(&neighbors, &equality_constraint, D, false)
+        });
         solver.root(
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
-            |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.nodal_stiffnesses(nodal_coordinates)?)
-            },
+            |nodal_coordinates: &NodalCoordinates<D>| Ok(self.provide_tangent(nodal_coordinates)?),
             self.coordinates().clone().into(),
             equality_constraint,
-            Some(sparse),
+            sparse,
         )
     }
 }

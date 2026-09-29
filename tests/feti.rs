@@ -1,12 +1,12 @@
 #![cfg(feature = "fem")]
 
 use conspire::{
-    constitutive::solid::hyperelastic::NeoHookean,
+    constitutive::solid::{elastic::AlmansiHamelLagrangian, hyperelastic::NeoHookean},
     fem::{
         Model, NodalCoordinates, NodalReferenceCoordinates, SecondOrderMinimize,
         block::{Block, element::linear::Hexahedron},
     },
-    feti::Feti,
+    feti::{Feti, GMRES},
     geometry::{
         Coordinates,
         grid::Voxels,
@@ -148,6 +148,143 @@ fn newton_with_feti_matches_newton_with_the_sparse_solve() {
 }
 
 #[test]
+fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
+    use conspire::fem::FirstOrderRoot;
+    let (model, constraint) = problem([6; 3]);
+    let sparse = model
+        .root(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Direct,
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("sparse root failed: {error}"));
+    drop(model);
+    let (model, constraint) = problem([6; 3]);
+    let decomposed = model
+        .root(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Feti {
+                    partition: mesh([6; 3]).partition_box([2; 3]),
+                    method: GMRES,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("FETI root failed: {error}"));
+    let difference = largest_difference(&sparse, &decomposed);
+    assert!(difference < 1e-6, "coordinates differ by {difference:e}");
+}
+
+type NonsymmetricBlock = Block<AlmansiHamelLagrangian, Hexahedron, 8, 3, 8, 8>;
+
+fn nonsymmetric_problem(nel: [usize; 3]) -> (Model<NonsymmetricBlock, 3>, EqualityConstraint) {
+    let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
+    let reference: Vec<[f64; 3]> = coordinates
+        .iter()
+        .map(|c| [c[0].value(), c[1].value(), c[2].value()])
+        .collect();
+    let fixed = reference
+        .iter()
+        .enumerate()
+        .filter(|(_, point)| point[0].abs() < 1e-9)
+        .flat_map(|(node, _)| (0..3).map(move |component| 3 * node + component))
+        .collect();
+    let elements: Vec<[usize; 8]> = connectivities
+        .into_members()
+        .into_iter()
+        .flat_map(|connectivity| match connectivity {
+            Connectivity::Hexahedral(hexahedra) => hexahedra.into_iter().collect::<Vec<_>>(),
+            _ => panic!("expected a hexahedral mesh"),
+        })
+        .collect();
+    let block = NonsymmetricBlock::from((
+        AlmansiHamelLagrangian {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        elements,
+        &coordinates
+            .iter()
+            .map(|coordinate| coordinate.clone().with_unit())
+            .collect(),
+    ));
+    let start = NodalReferenceCoordinates::from(
+        reference
+            .iter()
+            .map(|&point| perturbed(point, nel[0] as f64))
+            .collect::<Vec<_>>(),
+    );
+    (
+        Model::from((block, start)),
+        EqualityConstraint::Fixed(fixed),
+    )
+}
+
+#[test]
+fn feti_solves_a_model_with_a_nonsymmetric_tangent() {
+    use conspire::fem::FirstOrderRoot;
+    let nel = [6; 3];
+    let (model, constraint) = nonsymmetric_problem(nel);
+    let sparse = model
+        .root(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Direct,
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("sparse root failed: {error}"));
+    drop(model);
+    let (model, constraint) = nonsymmetric_problem(nel);
+    let decomposed = model
+        .root(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Feti {
+                    partition: mesh(nel).partition_box([2; 3]),
+                    method: GMRES,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("FETI root failed: {error}"));
+    let difference = largest_difference(&sparse, &decomposed);
+    assert!(difference < 1e-6, "coordinates differ by {difference:e}");
+}
+
+#[test]
+fn gmres_on_the_dual_problem_matches_conjugate_gradients() {
+    let solve = |method| {
+        let (model, constraint) = problem([6; 3]);
+        model
+            .minimize(
+                constraint,
+                NewtonRaphson {
+                    abs_tol: TOLERANCES,
+                    linear_solver: Feti {
+                        partition: mesh([6; 3]).partition_box([2; 3]),
+                        method,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            )
+            .unwrap_or_else(|error| panic!("FETI solve failed: {error}"))
+    };
+    let difference = largest_difference(&solve(GMRES), &solve(Default::default()));
+    assert!(difference < 1e-6, "coordinates differ by {difference:e}");
+}
+
+#[test]
 #[ignore]
 fn benchmark_scaling_24() {
     let (difference, sparse, feti) = compare([24; 3], [4; 3]);
@@ -282,4 +419,39 @@ fn a_subdomain_hinged_about_an_edge_is_refused() {
             "scale {scale:e}: {message}"
         );
     })
+}
+
+#[test]
+#[ignore]
+fn benchmark_cg_vs_gmres() {
+    use conspire::math::optimize::KrylovMethod;
+    for (nel, divisions) in [([24; 3], [4; 3]), ([24; 3], [6; 3])] {
+        for method in [
+            KrylovMethod::ConjugateGradients,
+            GMRES,
+            KrylovMethod::ConjugateGradients,
+            GMRES,
+        ] {
+            let (model, constraint) = problem(nel);
+            let clock = Instant::now();
+            model
+                .minimize(
+                    constraint,
+                    NewtonRaphson {
+                        abs_tol: TOLERANCES,
+                        linear_solver: Feti {
+                            partition: mesh(nel).partition_box(divisions),
+                            method,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                )
+                .unwrap_or_else(|error| panic!("FETI solve failed: {error}"));
+            eprintln!(
+                "BENCH {nel:?} in {divisions:?} parts {method:?}: Newton total {:.0} ms",
+                clock.elapsed().as_secs_f64() * 1e3
+            );
+        }
+    }
 }

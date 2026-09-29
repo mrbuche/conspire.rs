@@ -1,5 +1,8 @@
 use super::super::{SquareMatrix, Vector};
-use crate::math::assert::{Assert, AssertionError};
+use crate::math::{
+    Rank2,
+    assert::{Assert, AssertionError},
+};
 
 fn kkt_dim_25() -> SquareMatrix {
     let (ng, cg, nl, cl) = (9, 4, 9, 3);
@@ -98,4 +101,15 @@ fn an_ill_conditioned_matrix_is_not_mistaken_for_a_singular_one() {
         .enumerate()
         .for_each(|(i, &entry)| matrix[i][i] = entry);
     assert_eq!(matrix.factorize_lu().unwrap().near_zero_pivots(1e-10), 0);
+}
+
+#[test]
+fn solve_transpose_matches_the_solve_of_the_transposed_matrix() -> Result<(), AssertionError> {
+    let matrix = kkt_dim_25();
+    let mut skewed = matrix.clone();
+    (0..25).for_each(|i| (0..25).for_each(|j| skewed[i][j] += 0.1 * ((i + 2 * j) % 5) as f64));
+    let rhs: Vector = (0..25).map(|i| (i as f64).sin() + 0.5).collect();
+    let factor = skewed.factorize_lu().unwrap();
+    let expected = skewed.transpose().solve_lu(&rhs).unwrap();
+    Assert::default().eq_within_tols(factor.solve_transpose(&rhs), &expected)
 }

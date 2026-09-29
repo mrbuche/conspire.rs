@@ -154,12 +154,19 @@ pub trait ZerothOrderRoot<F, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-pub trait FirstOrderRoot<F, J, X> {
-    fn root(
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait FirstOrderRoot<F, J, X>
+where
+    Self: Sized,
+{
+    fn root<S>(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<F, J, X>,
-    ) -> Result<X, OptimizationError>;
+        solver: S,
+    ) -> Result<X, OptimizationError>
+    where
+        S: SolverFor<Self, F, J> + FirstOrderRootFinding<F, S::Tangent, X>,
+        Self: ProvidesTangent<X, S::Tangent>;
 }
 
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]

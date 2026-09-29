@@ -116,8 +116,9 @@ pub(crate) fn rhs_from_forces<B>(
     )
 }
 
-/// `C^T . lambda`, scattered into the global corner-DOF vector, where
-/// `C = sum_s B_s K_dd,s^-1 K_dp,s = sum_s B_s . dual_map_s`.
+/// `C_2^T . lambda`, scattered into the global corner-DOF vector, where
+/// `C_2^T = sum_s K_pd,s K_dd,s^-1 B_s^T = sum_s primal_map_s . B_s^T`. This is
+/// the transpose of `coupling` only for a symmetric tangent.
 pub(crate) fn coupling_transpose<B>(
     subdomains: &[Subdomain<B>],
     lambda: &Vector,
@@ -130,7 +131,7 @@ pub(crate) fn coupling_transpose<B>(
                 .interface()
                 .apply_transpose(lambda, subdomain.num_local());
             let rhs_dual = subdomain.dual_rhs(&rhs);
-            let contribution = &subdomain.dual_map().transpose() * &rhs_dual;
+            let contribution = subdomain.primal_map() * &rhs_dual;
             subdomain
                 .primal_global()
                 .iter()

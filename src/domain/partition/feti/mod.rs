@@ -23,11 +23,13 @@ pub use dual_primal::BoundaryConditions;
 pub use pcg::Preconditioner;
 
 #[cfg(feature = "fem")]
+use crate::domain::NodalCoordinates;
+#[cfg(feature = "fem")]
 use crate::{
     geometry::mesh::Partition,
     math::{
         Scalar, Vector,
-        optimize::{Krylov, LinearSolver},
+        optimize::{Krylov, KrylovMethod, LinearSolver},
     },
 };
 #[cfg(feature = "fem")]
@@ -35,12 +37,22 @@ use block::solve::solve_local_systems;
 
 pub(crate) const THREADS: usize = 1;
 
+/// The dual solve by GMRES, for a nonsymmetric dual operator, restarting
+/// only after a generous 100 iterations since the solve converges in tens.
+///
+/// Not the default: conjugate gradients also refuses a singular subdomain
+/// through its positive-definiteness check, which GMRES has no way to do.
+#[cfg(feature = "fem")]
+pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
+
 /// FETI-DP solver for the linearized systems of a decomposable block.
 ///
 /// The block is split by a [`Partition`], and each subdomain is solved
 /// independently, tied together through the corner DOFs and Lagrange
-/// multipliers on the interface. Only hyperelastic models are supported, since
-/// the method needs a symmetric tangent.
+/// multipliers on the interface. Any elastic block is supported. The tangent
+/// need not be symmetric, but then the dual solve must be [`GMRES`], since
+/// conjugate gradients, the default, needs a symmetric positive definite dual
+/// operator, and is what refuses a tangent that is not.
 ///
 /// Only zero-displacement boundary conditions are supported. At least enough
 /// DOFs must be pinned to remove every rigid-body mode of the whole block.
@@ -54,6 +66,7 @@ pub struct Feti {
     pub partition: Partition,
     pub preconditioner: Preconditioner,
     pub rel_tol: Scalar,
+    pub method: KrylovMethod,
 }
 
 #[cfg(feature = "fem")]
@@ -63,7 +76,44 @@ impl Default for Feti {
             partition: Partition::default(),
             preconditioner: Preconditioner::Dirichlet,
             rel_tol: Krylov::default().rel_tol,
+            method: KrylovMethod::ConjugateGradients,
         }
+    }
+}
+
+#[cfg(feature = "fem")]
+impl Feti {
+    /// Solves the linearized system of a decomposable block.
+    pub fn solve<B>(
+        &self,
+        block: &B,
+        nodal_coordinates: &NodalCoordinates<3>,
+        boundary_conditions: &BoundaryConditions,
+    ) -> Result<Vector, SolveError>
+    where
+        B: DecomposableElements,
+    {
+        let systems = block.element_systems(nodal_coordinates)?;
+        self.solve_systems(&systems, boundary_conditions)
+    }
+    fn solve_systems(
+        &self,
+        systems: &ElementSystems,
+        boundary_conditions: &BoundaryConditions,
+    ) -> Result<Vector, SolveError> {
+        let (stiffnesses, forces) = systems
+            .subdomains(&self.partition)
+            .map_err(SolveError::Partition)?;
+        solve_local_systems(
+            &self.partition,
+            boundary_conditions,
+            stiffnesses,
+            forces,
+            systems.positions(),
+            self.preconditioner,
+            self.rel_tol,
+            self.method,
+        )
     }
 }
 
@@ -76,7 +126,6 @@ impl LinearSolver for Feti {
         retained: &[usize],
         _residual: &Vector,
     ) -> Result<Vector, String> {
-        let (stiffnesses, forces) = tangent.subdomains(&self.partition)?;
         let mut fixed = vec![true; 3 * tangent.positions().len()];
         retained.iter().for_each(|&dof| fixed[dof] = false);
         let boundary_conditions = BoundaryConditions::new(
@@ -87,16 +136,9 @@ impl LinearSolver for Feti {
                 .map(|(dof, _)| (dof / 3, dof % 3))
                 .collect(),
         );
-        let solution = solve_local_systems(
-            &self.partition,
-            &boundary_conditions,
-            stiffnesses,
-            forces,
-            tangent.positions(),
-            self.preconditioner,
-            self.rel_tol,
-        )
-        .map_err(|error| error.to_string())?;
+        let solution = self
+            .solve_systems(&tangent, &boundary_conditions)
+            .map_err(|error| error.to_string())?;
         Ok(retained.iter().map(|&dof| solution[dof]).collect())
     }
 }

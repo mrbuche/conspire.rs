@@ -29,6 +29,14 @@ pub enum KrylovMethod {
     /// length, so this asks only for symmetry and serves the systems conjugate
     /// gradients has to refuse.
     Minres,
+    /// The generalized minimal residual method, restarted after the given
+    /// number of iterations.
+    ///
+    /// Asks nothing of the operator, so it serves the nonsymmetric systems the
+    /// other two have to refuse. The preconditioner acts on the right, leaving
+    /// the residual it minimizes the true one, at the cost of keeping a basis
+    /// of up to twice the restart length.
+    Gmres(usize),
 }
 
 /// An iterative linear solver via Krylov subspaces.
@@ -70,6 +78,14 @@ impl Krylov {
             ),
             KrylovMethod::Minres => minimize_residual(
                 self.max_steps,
+                self.rel_tol,
+                apply,
+                preconditioning,
+                right_hand_side,
+            ),
+            KrylovMethod::Gmres(restart) => restarted(
+                self.max_steps,
+                restart,
                 self.rel_tol,
                 apply,
                 preconditioning,
@@ -210,6 +226,85 @@ fn minimize_residual(
         max_steps,
         (right_hand_side.clone() - apply(&solution)).norm().value() / load,
     ))
+}
+
+fn restarted(
+    max_steps: usize,
+    restart: usize,
+    rel_tol: Scalar,
+    mut apply: impl FnMut(&Vector) -> Vector,
+    preconditioning: impl Precondition,
+    right_hand_side: &Vector,
+) -> Result<Vector, KrylovError> {
+    let scale = right_hand_side.norm().value();
+    let mut solution = Vector::zero(right_hand_side.len());
+    if scale == 0.0 {
+        return Ok(solution);
+    }
+    let restart = restart.max(1);
+    let mut steps = 0;
+    let mut relative = 1.0;
+    let mut residual = right_hand_side.clone();
+    while steps < max_steps {
+        let beta = residual.norm().value();
+        let mut basis = vec![&residual * beta.recip()];
+        let mut preconditioned = Vec::new();
+        let mut triangle = Vec::<Vec<Scalar>>::new();
+        let mut rotations = Vec::<(Scalar, Scalar)>::new();
+        let mut projected = vec![beta];
+        let mut inner = 0;
+        while inner < restart && steps < max_steps {
+            preconditioned.push(preconditioning.apply(&basis[inner]));
+            let mut next = apply(&preconditioned[inner]);
+            let mut column = vec![0.0; inner + 2];
+            for (entry, vector) in column.iter_mut().zip(&basis) {
+                *entry = next.full_contraction(vector);
+                next -= vector * *entry;
+            }
+            let subdiagonal = next.norm().value();
+            column[inner + 1] = subdiagonal;
+            for (row, &(cosine, sine)) in rotations.iter().enumerate() {
+                let upper = cosine * column[row] + sine * column[row + 1];
+                column[row + 1] = cosine * column[row + 1] - sine * column[row];
+                column[row] = upper;
+            }
+            let length = column[inner].hypot(column[inner + 1]);
+            let (cosine, sine) = if length == 0.0 {
+                (1.0, 0.0)
+            } else {
+                (column[inner] / length, column[inner + 1] / length)
+            };
+            column[inner] = length;
+            column.truncate(inner + 1);
+            triangle.push(column);
+            rotations.push((cosine, sine));
+            projected.push(-sine * projected[inner]);
+            projected[inner] *= cosine;
+            inner += 1;
+            steps += 1;
+            relative = projected[inner].abs() / scale;
+            if relative <= rel_tol || subdiagonal <= Scalar::EPSILON * beta {
+                break;
+            }
+            basis.push(next * subdiagonal.recip());
+        }
+        let mut coefficients = vec![0.0; inner];
+        for row in (0..inner).rev() {
+            let tail: Scalar = (row + 1..inner)
+                .map(|column| triangle[column][row] * coefficients[column])
+                .sum();
+            coefficients[row] = (projected[row] - tail) / triangle[row][row];
+        }
+        for (coefficient, vector) in coefficients.iter().zip(&preconditioned) {
+            solution += vector * *coefficient;
+        }
+        residual = right_hand_side.clone() - apply(&solution);
+        relative = residual.norm().value() / scale;
+        if relative <= rel_tol {
+            return Ok(solution);
+        }
+    }
+    Err(KrylovError::MaximumStepsReached(max_steps, relative))
 }
 
 /// Possible errors encountered during an iterative linear solve.

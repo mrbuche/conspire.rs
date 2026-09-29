@@ -25,6 +25,36 @@ impl Partition {
     }
 }
 
+impl Partition {
+    #[cfg_attr(not(feature = "fem"), allow(dead_code))]
+    pub(crate) fn from_parts_elements(
+        parts_elements: Vec<Vec<usize>>,
+        elements_nodes: &[Vec<usize>],
+    ) -> Self {
+        let mut elements_parts = vec![0; elements_nodes.len()];
+        let mut parts_nodes: Vec<Vec<usize>> = Vec::new();
+        parts_elements
+            .iter()
+            .enumerate()
+            .for_each(|(part, elements)| {
+                let mut nodes: Vec<usize> = elements
+                    .iter()
+                    .flat_map(|&element| {
+                        elements_parts[element] = part;
+                        elements_nodes[element].iter().copied()
+                    })
+                    .collect();
+                nodes.sort_unstable();
+                nodes.dedup();
+                parts_nodes.push(nodes);
+            });
+        let mut partition = Self::from_parts_nodes(parts_nodes);
+        partition.elements_parts = elements_parts;
+        partition.parts_elements = parts_elements;
+        partition
+    }
+}
+
 pub(super) fn blocks(nel: [usize; 3]) -> Mesh<3> {
     Mesh::from_voxels(Voxels::new(vec![1u8; nel.iter().product()], nel), None)
 }

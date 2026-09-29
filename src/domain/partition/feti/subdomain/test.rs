@@ -10,7 +10,7 @@ fn splits_interior_and_boundary_and_computes_the_schur_complement() {
         .collect();
     let dual_dofs = vec![1, 2];
     let interface_dofs = vec![1];
-    let local = DirichletLocal::build(&stiffness, &dual_dofs, &interface_dofs);
+    let local = DirichletLocal::try_build(&stiffness, &dual_dofs, &interface_dofs).unwrap();
     assert_eq!(local.boundary_dofs(), &[1]);
     let x: Vector = [1.0].into_iter().collect();
     assert!((local.apply(&x)[0] - 3.75).abs() < 1e-12);
@@ -32,7 +32,7 @@ fn implicit_application_matches_the_explicit_schur_complement() {
         })
         .collect();
     let dual_dofs: Vec<usize> = (0..6).collect();
-    let local = DirichletLocal::build(&stiffness, &dual_dofs, &[1, 3, 4]);
+    let local = DirichletLocal::try_build(&stiffness, &dual_dofs, &[1, 3, 4]).unwrap();
     assert_eq!(local.boundary_dofs(), &[1, 3, 4]);
     let explicit = Condensed::try_condense(&stiffness, &Vector::zero(6), &[1, 3, 4], &[0, 2, 5])
         .unwrap()
@@ -43,4 +43,14 @@ fn implicit_application_matches_the_explicit_schur_complement() {
         let reference: f64 = (0..3).map(|column| explicit[row][column] * x[column]).sum();
         assert!((implicit[row] - reference).abs() < 1e-12);
     });
+}
+
+#[test]
+fn a_singular_interior_block_is_refused_though_the_dual_block_is_not() {
+    let stiffness: SquareMatrix = [[0.0, 1.0], [1.0, 0.0]]
+        .into_iter()
+        .map(|row| row.into_iter().collect())
+        .collect();
+    assert!(stiffness.factorize_lu().is_ok());
+    assert!(DirichletLocal::try_build(&stiffness, &[0, 1], &[1]).is_none());
 }

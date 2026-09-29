@@ -1,8 +1,10 @@
 use super::THREADS;
 use crate::{
     domain::feti::{
+        GMRES,
         dual::{
-            dual_action, dual_operator, dual_precondition, dual_precondition_dirichlet, dual_reduce,
+            coupling, coupling_transpose, dual_action, dual_operator, dual_precondition,
+            dual_precondition_dirichlet, dual_reduce, rhs_from_forces,
         },
         dual_primal::{
             BoundaryConditions, CornerSelection, build_splits,
@@ -10,7 +12,7 @@ use crate::{
             condense::Condensed,
         },
         interface::build_interfaces,
-        pcg::{primal_recovery, projected_pcg},
+        pcg::{Preconditioner, primal_recovery, projected_pcg, projected_pcg_with},
         subdomain::{DirichletLocal, Subdomain},
     },
     geometry::mesh::Partition,
@@ -43,24 +45,31 @@ struct Setup {
     subdomains: Vec<Subdomain<()>>,
     coarse: Coarse,
     num_multipliers: usize,
+    reduced_force: Vector,
 }
 
 fn setup() -> Setup {
+    setup_with(
+        [
+            stiffness([[4.0, 1.0], [1.0, 3.0]]),
+            stiffness([[5.0, 2.0], [2.0, 4.0]]),
+        ],
+        [Vector::zero(2), Vector::zero(2)],
+    )
+}
+
+fn setup_with(stiffnesses: [SquareMatrix; 2], forces: [Vector; 2]) -> Setup {
     let partition = Partition::from_parts_nodes(vec![vec![99, 50], vec![99, 50]]);
     let corners = CornerSelection::new(vec![99]);
     let (interfaces, num_multipliers) = build_interfaces(&partition, &corners, 1);
     let (splits, corner_dofs) = build_splits(&partition, &corners, &BoundaryConditions::none(), 1);
-    let stiffnesses = [
-        stiffness([[4.0, 1.0], [1.0, 3.0]]),
-        stiffness([[5.0, 2.0], [2.0, 4.0]]),
-    ];
-    let zero_force = Vector::zero(2);
     let condensed: Vec<Condensed> = splits
         .iter()
         .zip(stiffnesses.iter())
-        .map(|(split, stiffness)| condense(stiffness, &zero_force, split.primal(), split.dual()))
+        .zip(forces.iter())
+        .map(|((split, stiffness), force)| condense(stiffness, force, split.primal(), split.dual()))
         .collect();
-    let (schur, _) = CoarseSystem::assemble(&condensed, &splits, &corner_dofs);
+    let (schur, reduced_force) = CoarseSystem::assemble(&condensed, &splits, &corner_dofs);
     let subdomains = interfaces
         .into_iter()
         .zip(splits.iter())
@@ -73,7 +82,8 @@ fn setup() -> Setup {
                 .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
                 .collect();
             let dual_factor = k_dd.factorize_lu().unwrap();
-            let dirichlet = DirichletLocal::build(stiffness, &dual_dofs, interface.dofs());
+            let dirichlet =
+                DirichletLocal::try_build(stiffness, &dual_dofs, interface.dofs()).unwrap();
             Subdomain::new(
                 (),
                 interface,
@@ -82,6 +92,7 @@ fn setup() -> Setup {
                 dual_dofs,
                 2,
                 condensed.dual_map.clone(),
+                condensed.primal_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
                 dirichlet,
@@ -92,6 +103,7 @@ fn setup() -> Setup {
         subdomains,
         coarse: Coarse::new(schur),
         num_multipliers,
+        reduced_force,
     }
 }
 
@@ -122,7 +134,8 @@ fn chain_setup(count: usize) -> Setup {
                 .map(|&row| dual_dofs.iter().map(|&col| stiffness[row][col]).collect())
                 .collect();
             let dual_factor = k_dd.factorize_lu().unwrap();
-            let dirichlet = DirichletLocal::build(stiffness, &dual_dofs, interface.dofs());
+            let dirichlet =
+                DirichletLocal::try_build(stiffness, &dual_dofs, interface.dofs()).unwrap();
             Subdomain::new(
                 (),
                 interface,
@@ -131,6 +144,7 @@ fn chain_setup(count: usize) -> Setup {
                 dual_dofs,
                 2,
                 condensed.dual_map.clone(),
+                condensed.primal_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
                 dirichlet,
@@ -141,6 +155,7 @@ fn chain_setup(count: usize) -> Setup {
         subdomains,
         coarse: Coarse::new(schur),
         num_multipliers,
+        reduced_force: Vector::zero(0),
     }
 }
 
@@ -245,4 +260,94 @@ fn primal_recovery_matches_the_hand_derived_solution() {
     assert!((recovered[0][1] - (-15.0 / 46.0)).abs() < 1e-10);
     assert!((recovered[1][0] - (-1.0 / 46.0)).abs() < 1e-10);
     assert!((recovered[1][1] - (6.0 / 23.0)).abs() < 1e-10);
+}
+
+fn nonsymmetric_stiffnesses() -> [SquareMatrix; 2] {
+    [
+        stiffness([[4.0, 1.0], [3.0, 3.0]]),
+        stiffness([[5.0, 2.0], [-1.0, 4.0]]),
+    ]
+}
+
+fn dense_reference(
+    setup: &Setup,
+    stiffnesses: &[SquareMatrix; 2],
+    forces: &[Vector; 2],
+) -> (SquareMatrix, Vector) {
+    let one: Vector = [1.0].into_iter().collect();
+    let signs: Vec<f64> = setup
+        .subdomains
+        .iter()
+        .map(|subdomain| subdomain.interface().apply_transpose(&one, 2)[1])
+        .collect();
+    let [k0, k1] = stiffnesses;
+    let rows = [
+        [k0[0][0] + k1[0][0], k0[0][1], k1[0][1], 0.0],
+        [k0[1][0], k0[1][1], 0.0, signs[0]],
+        [k1[1][0], 0.0, k1[1][1], signs[1]],
+        [0.0, signs[0], signs[1], 0.0],
+    ];
+    let mut matrix = SquareMatrix::zero(4);
+    (0..4).for_each(|i| (0..4).for_each(|j| matrix[i][j] = rows[i][j]));
+    let rhs: Vector = [forces[0][0] + forces[1][0], forces[0][1], forces[1][1], 0.0]
+        .into_iter()
+        .collect();
+    (matrix, rhs)
+}
+
+#[test]
+fn dual_operator_matches_the_dense_elimination_for_a_nonsymmetric_tangent() {
+    let stiffnesses = nonsymmetric_stiffnesses();
+    let forces = [Vector::zero(2), Vector::zero(2)];
+    let setup = setup_with(stiffnesses.clone(), forces.clone());
+    let (dense, _) = dense_reference(&setup, &stiffnesses, &forces);
+    let mut unconstrained = SquareMatrix::zero(3);
+    (0..3).for_each(|i| (0..3).for_each(|j| unconstrained[i][j] = dense[i][j]));
+    let constraint: Vector = (0..3).map(|i| dense[3][i]).collect();
+    let expected = constraint.full_contraction(&unconstrained.solve_lu(&constraint).unwrap());
+    let lambda: Vector = [1.0].into_iter().collect();
+    let operator = dual_operator(&setup.subdomains, &lambda, &setup.coarse, THREADS);
+    assert!(
+        (operator[0] - expected).abs() < 1e-12,
+        "{} against {expected}",
+        operator[0]
+    );
+}
+
+#[test]
+fn a_nonsymmetric_tangent_is_solved_end_to_end_through_the_dual_problem() {
+    let stiffnesses = nonsymmetric_stiffnesses();
+    let forces: [Vector; 2] = [
+        [1.0, 2.0].into_iter().collect(),
+        [-3.0, 0.5].into_iter().collect(),
+    ];
+    let setup = setup_with(stiffnesses.clone(), forces.clone());
+    let (dense, rhs) = dense_reference(&setup, &stiffnesses, &forces);
+    let reference = dense.solve_lu(&rhs).unwrap();
+    let dual_rhs = rhs_from_forces(&setup.subdomains, &forces, setup.num_multipliers)
+        - coupling(
+            &setup.subdomains,
+            &setup.coarse.solve(&setup.reduced_force),
+            setup.num_multipliers,
+        );
+    let lambda = projected_pcg_with(
+        &setup.subdomains,
+        &setup.coarse,
+        &dual_rhs,
+        Preconditioner::Dirichlet,
+        1e-14,
+        GMRES,
+    )
+    .unwrap();
+    let corner_solution = setup.coarse.solve(
+        &(&setup.reduced_force
+            + &coupling_transpose(&setup.subdomains, &lambda, setup.coarse.len())),
+    );
+    let recovered = primal_recovery(&setup.subdomains, &forces, &corner_solution, &lambda);
+    let tolerance = 1e-10;
+    assert!((lambda[0] - reference[3]).abs() < tolerance);
+    assert!((recovered[0][0] - reference[0]).abs() < tolerance);
+    assert!((recovered[1][0] - reference[0]).abs() < tolerance);
+    assert!((recovered[0][1] - reference[1]).abs() < tolerance);
+    assert!((recovered[1][1] - reference[2]).abs() < tolerance);
 }

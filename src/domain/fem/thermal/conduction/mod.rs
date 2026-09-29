@@ -132,32 +132,42 @@ where
     }
 }
 
+impl<B, const D: usize> SolverFor<Model<B, D>, NodalForcesThermal, NodalStiffnessesThermal>
+    for NewtonRaphson
+where
+    B: ThermalConductionElements,
+{
+    type Tangent = NodalStiffnessesThermal;
+    const SPARSE: bool = true;
+}
+
 impl<B, const D: usize>
     FirstOrderRoot<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures> for Model<B, D>
 where
     B: ThermalConductionElements,
 {
-    fn root(
+    fn root<S>(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesThermal,
-            NodalStiffnessesThermal,
-            NodalTemperatures,
-        >,
-    ) -> Result<NodalTemperatures, OptimizationError> {
-        let mut neighbors = vec![Vec::new(); self.coordinates().len()];
-        self.node_neighbors(&mut neighbors);
-        finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1, true);
+        solver: S,
+    ) -> Result<NodalTemperatures, OptimizationError>
+    where
+        S: SolverFor<Self, NodalForcesThermal, NodalStiffnessesThermal>
+            + FirstOrderRootFinding<NodalForcesThermal, S::Tangent, NodalTemperatures>,
+        Self: ProvidesTangent<NodalTemperatures, S::Tangent>,
+    {
+        let sparse = S::SPARSE.then(|| {
+            let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+            self.node_neighbors(&mut neighbors);
+            finalize_node_neighbors(&mut neighbors);
+            solver_from_neighbors(&neighbors, &equality_constraint, 1, true)
+        });
         solver.root(
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
-            |nodal_temperatures: &NodalTemperatures| {
-                Ok(self.nodal_stiffnesses(nodal_temperatures)?)
-            },
+            |nodal_temperatures: &NodalTemperatures| Ok(self.provide_tangent(nodal_temperatures)?),
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
-            Some(sparse),
+            sparse,
         )
     }
 }

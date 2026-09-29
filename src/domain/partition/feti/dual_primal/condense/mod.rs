@@ -10,10 +10,15 @@ const RELATIVE_PIVOT: Scalar = 1e-10;
 /// `dual_map` maps a corner solution back to this subdomain's dual
 /// correction, which is what carries the coarse-grid coupling term into the
 /// dual operator.
+///
+/// `primal_map` is the other coupling, `K_pd K_dd^-1`, taking a dual
+/// correction back to the corners. It is the transpose of `dual_map` only when
+/// the tangent is symmetric.
 pub(crate) struct Condensed {
     pub(crate) schur: SquareMatrix,
     pub(crate) reduced_force: Vector,
     pub(crate) dual_map: Matrix,
+    pub(crate) primal_map: Matrix,
 }
 
 impl Condensed {
@@ -40,6 +45,7 @@ impl Condensed {
             })
             .collect();
         let dual_map = columns.transpose();
+        let primal_map: Matrix = k_pd.iter().map(|row| factor.solve_transpose(row)).collect();
         let schur = primal
             .iter()
             .enumerate()
@@ -64,6 +70,7 @@ impl Condensed {
             schur,
             reduced_force,
             dual_map,
+            primal_map,
         })
     }
 }

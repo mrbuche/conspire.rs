@@ -1,1 +1,1 @@
-pub(crate) mod hyperelastic;
+pub(crate) mod elastic;

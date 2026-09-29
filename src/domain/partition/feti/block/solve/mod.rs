@@ -1,36 +1,26 @@
 #[cfg(test)]
 mod test;
 
-use super::{
-    super::{
-        THREADS,
-        dual::{coupling, coupling_transpose, rhs_from_forces},
-        dual_primal::{
-            BoundaryConditions, CornerSelection, build_splits,
-            coarse::{Coarse, CoarseSystem},
-            condense::Condensed,
-            rigid::removed_modes,
-        },
-        interface::build_interfaces,
-        parallel::parallel_map,
-        pcg::{Preconditioner, primal_recovery, projected_pcg_with},
-        subdomain::{DirichletLocal, Subdomain},
+use super::super::{
+    THREADS,
+    dual::{coupling, coupling_transpose, rhs_from_forces},
+    dual_primal::{
+        BoundaryConditions, CornerSelection, build_splits,
+        coarse::{Coarse, CoarseSystem},
+        condense::Condensed,
+        rigid::removed_modes,
     },
-    {assemble::local_stiffness_and_force, element::positions},
+    interface::build_interfaces,
+    parallel::parallel_map,
+    pcg::{Preconditioner, primal_recovery, projected_pcg_with},
+    subdomain::{DirichletLocal, Subdomain},
 };
 use crate::{
-    constitutive::solid::hyperelastic::Hyperelastic,
-    fem::{
-        NodalCoordinates,
-        block::{
-            Block,
-            element::{FiniteElementError, solid::hyperelastic::HyperelasticFiniteElement},
-        },
-    },
+    domain::ElementModelError,
     geometry::mesh::Partition,
     math::{
         Scalar, SquareMatrix, Style, StyledError, Vector,
-        optimize::{Krylov, KrylovError},
+        optimize::{KrylovError, KrylovMethod},
         styled_error,
     },
 };
@@ -38,14 +28,18 @@ use std::collections::HashSet;
 
 /// Possible errors encountered when solving with FETI.
 pub enum SolveError {
-    /// Downstream error from a finite element.
-    Element(FiniteElementError),
+    /// Downstream error from an element.
+    Element(ElementModelError),
+    /// The partition does not describe the model it is meant to decompose.
+    Partition(String),
     /// Downstream error from the dual PCG.
     Krylov(KrylovError),
     /// A subdomain left with some rigid-body modes free.
     FloatingSubdomain { part: usize, removed: usize },
     /// A subdomain with some part of it still free to move.
     SingularSubdomain(usize),
+    /// The interior of a subdomain, away from the interface, is singular.
+    SingularInterior(usize),
     /// The assembled corner problem is singular.
     SingularCoarseProblem,
 }
@@ -54,6 +48,10 @@ impl StyledError for SolveError {
     fn message(&self, style: &Style) -> String {
         match self {
             Self::Element(error) => error.message(style),
+            Self::Partition(reason) => {
+                let (h, c) = (style.headline, style.frame);
+                format!("{h}The partition does not fit the model.{c}\n{reason}")
+            }
             Self::Krylov(error) => error.message(style),
             Self::FloatingSubdomain { part, removed } => {
                 let (h, c) = (style.headline, style.frame);
@@ -77,6 +75,17 @@ impl StyledError for SolveError {
                     model itself has a mechanism or a collapsed element."
                 )
             }
+            Self::SingularInterior(part) => {
+                let (h, c) = (style.headline, style.frame);
+                format!(
+                    "{h}The interior of subdomain {part} is singular.{c}\n\
+                    The degrees of freedom of the subdomain away from the interface form a \
+                    singular block, though the subdomain as a whole does not, which the \
+                    Dirichlet preconditioner cannot handle. The tangent is likely not \
+                    positive definite there, as under severe compression, or the partition \
+                    leaves part of the interior loosely attached."
+                )
+            }
             Self::SingularCoarseProblem => {
                 let (h, c) = (style.headline, style.frame);
                 format!(
@@ -91,8 +100,8 @@ impl StyledError for SolveError {
 
 styled_error!(SolveError);
 
-impl From<FiniteElementError> for SolveError {
-    fn from(error: FiniteElementError) -> Self {
+impl From<ElementModelError> for SolveError {
+    fn from(error: ElementModelError) -> Self {
         Self::Element(error)
     }
 }
@@ -101,62 +110,6 @@ impl From<KrylovError> for SolveError {
     fn from(error: KrylovError) -> Self {
         Self::Krylov(error)
     }
-}
-
-/// Solves a real FEM `Block` by FETI-DP, end to end: extracts each
-/// subdomain's local stiffness/force, condenses the dual DOFs, assembles and
-/// solves the coarse corner problem, runs the Dirichlet-preconditioned dual PCG
-/// with the coarse-coupling correction, recovers each subdomain's local
-/// solution, and scatters everything back into one global nodal vector.
-#[allow(clippy::type_complexity)]
-pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
-    block: &Block<C, F, G, M, N, P>,
-    nodal_coordinates: &NodalCoordinates<3>,
-    partition: &Partition,
-    boundary_conditions: &BoundaryConditions,
-) -> Result<Vector, SolveError>
-where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, M, N, P>,
-{
-    solve_with(
-        block,
-        nodal_coordinates,
-        partition,
-        boundary_conditions,
-        Preconditioner::Dirichlet,
-        Krylov::default().rel_tol,
-    )
-}
-
-pub(crate) fn solve_with<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
-    block: &Block<C, F, G, M, N, P>,
-    nodal_coordinates: &NodalCoordinates<3>,
-    partition: &Partition,
-    boundary_conditions: &BoundaryConditions,
-    preconditioner: Preconditioner,
-    rel_tol: Scalar,
-) -> Result<Vector, SolveError>
-where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, M, N, P>,
-{
-    let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = partition
-        .parts_nodes()
-        .iter()
-        .map(|nodes| local_stiffness_and_force(block, nodal_coordinates, nodes))
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .unzip();
-    solve_local_systems(
-        partition,
-        boundary_conditions,
-        local_stiffnesses,
-        local_forces,
-        &positions(nodal_coordinates),
-        preconditioner,
-        rel_tol,
-    )
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -168,6 +121,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
     positions: &[[f64; D]],
     preconditioner: Preconditioner,
     rel_tol: Scalar,
+    method: KrylovMethod,
 ) -> Result<Vector, SolveError> {
     let corners = CornerSelection::from_partition(partition);
     let (interfaces, num_multipliers) = build_interfaces(partition, &corners, D);
@@ -219,9 +173,13 @@ pub(crate) fn solve_local_systems<const D: usize>(
         let dual_factor = dual_stiffness
             .factorize_lu()
             .expect("K_dd is singular, but corners should make every subdomain non-singular");
-        let dirichlet = DirichletLocal::build(stiffness, &dual_dofs, interfaces[index].dofs());
-        (dual_dofs, dual_stiffness, dual_factor, dirichlet)
-    });
+        DirichletLocal::try_build(stiffness, &dual_dofs, interfaces[index].dofs())
+            .map(|dirichlet| (dual_dofs, dual_stiffness, dual_factor, dirichlet))
+    })
+    .into_iter()
+    .enumerate()
+    .map(|(part, local)| local.ok_or(SolveError::SingularInterior(part)))
+    .collect::<Result<Vec<_>, _>>()?;
     let subdomains: Vec<Subdomain<()>> = interfaces
         .into_iter()
         .zip(locals)
@@ -238,6 +196,7 @@ pub(crate) fn solve_local_systems<const D: usize>(
                 dual_dofs,
                 nodes.len() * D,
                 condensed.dual_map.clone(),
+                condensed.primal_map.clone(),
                 split.primal().to_vec(),
                 split.primal_global().to_vec(),
                 dirichlet,
@@ -250,7 +209,14 @@ pub(crate) fn solve_local_systems<const D: usize>(
             &coarse_problem.solve(&reduced_force),
             num_multipliers,
         );
-    let lambda = projected_pcg_with(&subdomains, &coarse_problem, &rhs, preconditioner, rel_tol)?;
+    let lambda = projected_pcg_with(
+        &subdomains,
+        &coarse_problem,
+        &rhs,
+        preconditioner,
+        rel_tol,
+        method,
+    )?;
     let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
     let corner_solution = coarse_problem.solve(&(reduced_force + ct_lambda));
     let recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);

@@ -136,6 +136,34 @@ impl LuDecomposition {
         forward_substitution(x, &self.lu);
         backward_substitution(x, &self.lu)
     }
+    /// Solve the transposed system of linear equations.
+    pub fn solve_transpose(&self, b: &Vector) -> Vector {
+        let mut z = b.clone();
+        let n = z.len();
+        for j in 0..n {
+            z[j] /= self.lu[j][j];
+            let value = z[j];
+            self.lu[j]
+                .iter()
+                .enumerate()
+                .skip(j + 1)
+                .for_each(|(i, u_ji)| z[i] -= u_ji * value);
+        }
+        for j in (0..n).rev() {
+            let value = z[j];
+            self.lu[j]
+                .iter()
+                .take(j)
+                .zip(z.iter_mut())
+                .for_each(|(l_ji, z_i)| *z_i -= l_ji * value);
+        }
+        let mut x = Vector::zero(n);
+        self.permutation
+            .iter()
+            .zip(z.iter())
+            .for_each(|(&p_i, &z_i)| x[p_i] = z_i);
+        x
+    }
     /// An unfactorized decomposition sized for a matrix of the given length.
     pub fn zero(len: usize) -> Self {
         Self {

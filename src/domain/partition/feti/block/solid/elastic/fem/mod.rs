@@ -1,28 +1,22 @@
 use crate::{
-    constitutive::solid::hyperelastic::Hyperelastic,
-    domain::feti::{
-        Feti,
-        block::{
-            element::{DecomposableElements, ElementSystem, ElementSystems, positions},
-            solve::{SolveError, solve_with},
-        },
-        dual_primal::BoundaryConditions,
+    constitutive::solid::elastic::Elastic,
+    domain::feti::block::element::{
+        DecomposableElements, ElementSystem, ElementSystems, positions,
     },
     fem::{
         ElementModelError, NodalCoordinates,
         block::{
             Block,
-            element::{FiniteElementError, solid::hyperelastic::HyperelasticFiniteElement},
+            element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
         },
     },
-    math::Vector,
 };
 
 impl<C, F, const G: usize, const N: usize, const P: usize> DecomposableElements
     for Block<C, F, G, 3, N, P>
 where
-    C: Hyperelastic,
-    F: HyperelasticFiniteElement<C, G, 3, N, P>,
+    C: Elastic,
+    F: ElasticFiniteElement<C, G, 3, N, P>,
 {
     fn element_systems(
         &self,
@@ -52,24 +46,5 @@ where
     }
 }
 
-impl Feti {
-    pub fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
-        &self,
-        block: &Block<C, F, G, M, N, P>,
-        nodal_coordinates: &NodalCoordinates<3>,
-        boundary_conditions: &BoundaryConditions,
-    ) -> Result<Vector, SolveError>
-    where
-        C: Hyperelastic,
-        F: HyperelasticFiniteElement<C, G, M, N, P>,
-    {
-        solve_with(
-            block,
-            nodal_coordinates,
-            &self.partition,
-            boundary_conditions,
-            self.preconditioner,
-            self.rel_tol,
-        )
-    }
-}
+#[cfg(test)]
+mod test;
