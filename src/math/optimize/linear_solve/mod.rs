@@ -1,4 +1,4 @@
-use crate::math::Vector;
+use crate::math::{Matrix, Vector};
 
 /// The built-in direct linear solver.
 ///
@@ -23,4 +23,17 @@ pub trait LinearSolver {
         retained: &[usize],
         residual: &Vector,
     ) -> Result<Vector, String>;
+    /// The decrement of the variables followed by that of the multipliers of
+    /// linear constraints, given the constraint matrix, the multipliers at
+    /// the current state, and the residual over the variables and constraints
+    /// chained together.
+    fn solve_constrained(
+        &self,
+        _tangent: Self::Tangent,
+        _constraint_matrix: &Matrix,
+        _multipliers: &Vector,
+        _residual: &Vector,
+    ) -> Result<Vector, String> {
+        Err("This linear solver does not support linear constraints.".to_string())
+    }
 }

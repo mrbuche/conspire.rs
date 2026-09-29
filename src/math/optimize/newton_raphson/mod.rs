@@ -119,9 +119,9 @@ where
                 jacobian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
-                sparse,
-                constraint_matrix,
-                constraint_rhs,
+                direct_constrained(sparse, &constraint_matrix),
+                &constraint_matrix,
+                &constraint_rhs,
             ),
             EqualityConstraint::None => unconstrained(
                 self,
@@ -145,6 +145,7 @@ where
     E: Tensor,
     <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn root(
         &self,
@@ -168,8 +169,27 @@ where
                 },
                 indices,
             ),
-            _ => Err(OptimizationError::Intermediate(
-                "This linear solver requires a fixed equality constraint.".to_string(),
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+                self,
+                |_: &X| panic!("No line search in root finding"),
+                function,
+                jacobian,
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
+                initial_guess,
+                |tangent, residual, multipliers, decrement| {
+                    *decrement = self.linear_solver.solve_constrained(
+                        tangent,
+                        &constraint_matrix,
+                        multipliers,
+                        residual,
+                    )?;
+                    Ok(())
+                },
+                &constraint_matrix,
+                &constraint_rhs,
+            ),
+            EqualityConstraint::None => Err(OptimizationError::Intermediate(
+                "This linear solver requires a fixed or linear equality constraint.".to_string(),
             )),
         }
         .map_err(|error| OptimizationError::upstream(error, self))
@@ -215,9 +235,9 @@ where
                 jacobian,
                 update,
                 initial_guess,
-                sparse,
-                constraint_matrix,
-                constraint_rhs,
+                direct_constrained(sparse, &constraint_matrix),
+                &constraint_matrix,
+                &constraint_rhs,
             ),
             EqualityConstraint::None => unimplemented!(
                 "An unconstrained solution has no chained vector to lend the increment through."
@@ -272,9 +292,9 @@ where
                 hessian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
-                sparse,
-                constraint_matrix,
-                constraint_rhs,
+                direct_constrained(sparse, &constraint_matrix),
+                &constraint_matrix,
+                &constraint_rhs,
             ),
             EqualityConstraint::None => {
                 unconstrained(self, function, jacobian, hessian, initial_guess, sparse)
@@ -298,6 +318,7 @@ where
     E: Tensor,
     <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
         &self,
@@ -323,8 +344,27 @@ where
                 },
                 indices,
             ),
-            _ => Err(OptimizationError::Intermediate(
-                "This linear solver requires a fixed equality constraint.".to_string(),
+            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+                self,
+                function,
+                jacobian,
+                hessian,
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
+                initial_guess,
+                |tangent, residual, multipliers, decrement| {
+                    *decrement = self.linear_solver.solve_constrained(
+                        tangent,
+                        &constraint_matrix,
+                        multipliers,
+                        residual,
+                    )?;
+                    Ok(())
+                },
+                &constraint_matrix,
+                &constraint_rhs,
+            ),
+            EqualityConstraint::None => Err(OptimizationError::Intermediate(
+                "This linear solver requires a fixed or linear equality constraint.".to_string(),
             )),
         }
         .map_err(|error| OptimizationError::upstream(error, self))
@@ -377,9 +417,9 @@ where
                 hessian,
                 update,
                 initial_guess,
-                sparse,
-                constraint_matrix,
-                constraint_rhs,
+                direct_constrained(sparse, &constraint_matrix),
+                &constraint_matrix,
+                &constraint_rhs,
             ),
             EqualityConstraint::None => unimplemented!(
                 "An unconstrained solution has no chained vector to lend the increment through."
@@ -538,8 +578,8 @@ fn merit_slope<'a>(
 /// against, which leaves the comparison a ratio and the threshold the
 /// precision that ratio is held in. A number of its own would carry units and
 /// mean something different at every scale.
-fn backtrack_penalty(
-    newton_raphson: &NewtonRaphson,
+fn backtrack_penalty<L>(
+    newton_raphson: &NewtonRaphson<L>,
     merit: impl FnMut(Scalar) -> Result<Scalar, String>,
     value: Scalar,
     slope: Scalar,
@@ -639,8 +679,8 @@ fn backtrack_errors<L>(
 /// The scales are what each block was on the first step, so that the relative
 /// tolerance is compared against a ratio of two norms of the same kind, and
 /// means the same thing whatever units that kind is measured in.
-fn converged(
-    newton_raphson: &NewtonRaphson,
+fn converged<L>(
+    newton_raphson: &NewtonRaphson<L>,
     residual: &Vector,
     variables: usize,
     scales: &mut Option<(Scalar, Scalar)>,
@@ -1233,6 +1273,54 @@ fn direct<H: Hessian>(
     }
 }
 
+fn direct_constrained<H: Hessian>(
+    sparse: Option<SparseSolver>,
+    constraint_matrix: &Matrix,
+) -> impl FnMut(H, &Vector, &Vector, &mut Vector) -> Result<(), OptimizationError> {
+    let mut factorization = None;
+    let mut tangent = None;
+    move |hessian, residual, _, decrement| {
+        let num_constraints = constraint_matrix.len();
+        let num_variables = residual.len() - num_constraints;
+        if let Some(ref solver) = sparse {
+            *decrement = solver.solve(
+                |i, j| {
+                    if i >= num_variables {
+                        -constraint_matrix[i - num_variables][j]
+                    } else if j >= num_variables {
+                        -constraint_matrix[j - num_variables][i]
+                    } else {
+                        hessian.entry(i, j)
+                    }
+                },
+                residual,
+            )?
+        } else {
+            let tangent = tangent.get_or_insert_with(|| {
+                let mut tangent = SquareMatrix::zero(residual.len());
+                constraint_matrix
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, constraint_matrix_i)| {
+                        constraint_matrix_i.iter().enumerate().for_each(
+                            |(j, constraint_matrix_ij)| {
+                                tangent[i + num_variables][j] = -constraint_matrix_ij;
+                                tangent[j][i + num_variables] = -constraint_matrix_ij;
+                            },
+                        )
+                    });
+                tangent
+            });
+            let factorization =
+                factorization.get_or_insert_with(|| LuDecomposition::zero(residual.len()));
+            hessian.fill_into(tangent);
+            tangent.factorize_lu_into(factorization)?;
+            factorization.solve_into(residual, decrement)
+        }
+        Ok(())
+    }
+}
+
 #[expect(clippy::too_many_arguments)]
 fn constrained_fixed<L, J, H, X, E>(
     newton_raphson: &NewtonRaphson<L>,
@@ -1339,19 +1427,18 @@ where
 }
 
 #[expect(clippy::too_many_arguments)]
-fn constrained<J, H, X>(
-    newton_raphson: &NewtonRaphson,
+fn constrained<L, J, H, X>(
+    newton_raphson: &NewtonRaphson<L>,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
-    sparse: Option<SparseSolver>,
-    constraint_matrix: Matrix,
-    constraint_rhs: Vector,
+    mut solve: impl FnMut(H, &Vector, &Vector, &mut Vector) -> Result<(), OptimizationError>,
+    constraint_matrix: &Matrix,
+    constraint_rhs: &Vector,
 ) -> Result<X, OptimizationError>
 where
-    H: Hessian,
     J: Jacobian,
     X: Solution,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -1362,30 +1449,14 @@ where
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
     let mut decrement = Vector::zero(num_total);
-    let mut factorization = LuDecomposition::zero(if sparse.is_none() { num_total } else { 0 });
     let mut multipliers = Vector::zero(num_constraints);
     let mut residual = Vector::zero(num_total);
     let mut scales = None;
     let mut solution = initial_guess;
-    let mut tangent = SquareMatrix::zero(if sparse.is_none() { num_total } else { 0 });
-    if sparse.is_none() {
-        constraint_matrix
-            .iter()
-            .enumerate()
-            .for_each(|(i, constraint_matrix_i)| {
-                constraint_matrix_i
-                    .iter()
-                    .enumerate()
-                    .for_each(|(j, constraint_matrix_ij)| {
-                        tangent[i + num_variables][j] = -constraint_matrix_ij;
-                        tangent[j][i + num_variables] = -constraint_matrix_ij;
-                    })
-            });
-    }
     let mut steps = 0;
     loop {
-        (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
-            &constraint_rhs - &constraint_matrix * &solution,
+        (jacobian(&solution)? - &multipliers * constraint_matrix).fill_into_chained(
+            constraint_rhs - constraint_matrix * &solution,
             &mut residual,
         );
         if converged(newton_raphson, &residual, num_variables, &mut scales) {
@@ -1395,24 +1466,8 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
-        } else if let Some(ref solver) = sparse {
-            let hess = hessian(&solution)?;
-            decrement = solver.solve(
-                |i, j| {
-                    if i >= num_variables {
-                        -constraint_matrix[i - num_variables][j]
-                    } else if j >= num_variables {
-                        -constraint_matrix[j - num_variables][i]
-                    } else {
-                        hess.entry(i, j)
-                    }
-                },
-                &residual,
-            )?;
         } else {
-            hessian(&solution)?.fill_into(&mut tangent);
-            tangent.factorize_lu_into(&mut factorization)?;
-            factorization.solve_into(&residual, &mut decrement)
+            solve(hessian(&solution)?, &residual, &multipliers, &mut decrement)?
         }
         steps += 1;
         limit_decrement(newton_raphson, &mut [(&mut decrement, num_variables)]);
@@ -1449,7 +1504,7 @@ where
                 penalty,
                 multipliers.iter().zip(decrement.iter().skip(num_variables)),
             );
-            let violated = penalty * violation(&constraint_matrix, &constraint_rhs, &solution);
+            let violated = penalty * violation(constraint_matrix, constraint_rhs, &solution);
             let mut gradient = Vector::zero(num_variables);
             jacobian(&solution)?.fill_into(&mut gradient);
             let slope = merit_slope(gradient.iter().zip(decrement.iter()), violated);
@@ -1463,7 +1518,7 @@ where
                     trial.decrement_from_chained(&mut trial_multipliers, &(&decrement * step));
                     update(&solution, &applied, step, false)?;
                     Ok(function(&trial)?
-                        + penalty * violation(&constraint_matrix, &constraint_rhs, &trial))
+                        + penalty * violation(constraint_matrix, constraint_rhs, &trial))
                 },
                 value,
                 slope,

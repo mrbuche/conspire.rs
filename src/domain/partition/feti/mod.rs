@@ -28,7 +28,7 @@ use crate::domain::NodalCoordinates;
 use crate::{
     geometry::mesh::Partition,
     math::{
-        Scalar, Vector,
+        Matrix, Scalar, Tensor, Vector,
         optimize::{Krylov, KrylovMethod, LinearSolver},
     },
 };
@@ -54,12 +54,14 @@ pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
 /// conjugate gradients, the default, needs a symmetric positive definite dual
 /// operator, and is what refuses a tangent that is not.
 ///
-/// Only zero-displacement boundary conditions are supported. At least enough
-/// DOFs must be pinned to remove every rigid-body mode of the whole block.
+/// Boundary conditions are pinned DOFs, held at zero by elimination, and
+/// linear constraints, enforced by multipliers, which may prescribe a nonzero
+/// displacement. Between them, enough DOFs must be constrained to remove
+/// every rigid-body mode of the whole block.
 ///
 /// As the linear solver of a [`NewtonRaphson`](crate::math::optimize::NewtonRaphson),
-/// it works with a fixed equality constraint only, whose fixed DOFs are the
-/// pinned ones.
+/// it works with a fixed equality constraint, whose fixed DOFs are the pinned
+/// ones, or a linear one, whose rows are the constraints.
 #[cfg(feature = "fem")]
 #[derive(Clone, Debug)]
 pub struct Feti {
@@ -93,6 +95,24 @@ impl Feti {
     where
         B: DecomposableElements,
     {
+        self.solve_constrained(block, nodal_coordinates, boundary_conditions)
+            .map(|(solution, _)| solution)
+    }
+    /// Solves the linearized system, also giving the multiplier of each
+    /// constraint of the boundary conditions, in the order they were added.
+    ///
+    /// The multipliers are the constraint forces, such that `K u + A^T mu = f`
+    /// for the constraint matrix `A`, so `-mu` is the reaction of a
+    /// prescribed displacement.
+    pub fn solve_constrained<B>(
+        &self,
+        block: &B,
+        nodal_coordinates: &NodalCoordinates<3>,
+        boundary_conditions: &BoundaryConditions,
+    ) -> Result<(Vector, Vector), SolveError>
+    where
+        B: DecomposableElements,
+    {
         let systems = block.element_systems(nodal_coordinates)?;
         self.solve_systems(&systems, boundary_conditions)
     }
@@ -100,7 +120,7 @@ impl Feti {
         &self,
         systems: &ElementSystems,
         boundary_conditions: &BoundaryConditions,
-    ) -> Result<Vector, SolveError> {
+    ) -> Result<(Vector, Vector), SolveError> {
         let (stiffnesses, forces) = systems
             .subdomains(&self.partition)
             .map_err(SolveError::Partition)?;
@@ -138,7 +158,44 @@ impl LinearSolver for Feti {
         );
         let solution = self
             .solve_systems(&tangent, &boundary_conditions)
-            .map_err(|error| error.to_string())?;
+            .map_err(|error| error.to_string())?
+            .0;
         Ok(retained.iter().map(|&dof| solution[dof]).collect())
+    }
+    fn solve_constrained(
+        &self,
+        tangent: ElementSystems,
+        constraint_matrix: &Matrix,
+        multipliers: &Vector,
+        residual: &Vector,
+    ) -> Result<Vector, String> {
+        let num_variables = residual.len() - constraint_matrix.len();
+        let boundary_conditions = constraint_matrix.iter().enumerate().fold(
+            BoundaryConditions::none(),
+            |boundary_conditions, (row, coefficients)| {
+                boundary_conditions.linear(
+                    coefficients
+                        .iter()
+                        .enumerate()
+                        .filter(|&(_, &coefficient)| coefficient != 0.0)
+                        .map(|(dof, &coefficient)| (dof / 3, dof % 3, coefficient))
+                        .collect(),
+                    -residual[num_variables + row],
+                )
+            },
+        );
+        let (decrement, constraint_forces) = self
+            .solve_systems(&tangent, &boundary_conditions)
+            .map_err(|error| error.to_string())?;
+        Ok(decrement
+            .iter()
+            .copied()
+            .chain(
+                multipliers
+                    .iter()
+                    .zip(constraint_forces.iter())
+                    .map(|(multiplier, force)| multiplier - force),
+            )
+            .collect())
     }
 }
