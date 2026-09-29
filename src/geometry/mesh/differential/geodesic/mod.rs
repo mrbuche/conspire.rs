@@ -10,25 +10,65 @@ use std::{array::from_fn, collections::HashMap};
 
 type Entries = HashMap<(usize, usize), f64>;
 
-struct Triangle<const D: usize> {
-    nodes: [usize; 3],
-    area: f64,
-    gradients: [[f64; D]; 3],
+struct Simplex<const D: usize> {
+    nodes: Vec<usize>,
+    volume: f64,
+    gradients: Vec<[f64; D]>,
 }
 
-impl<const D: usize> Triangle<D> {
-    fn new(nodes: [usize; 3], points: [[f64; D]; 3]) -> Self {
-        let u: [f64; D] = from_fn(|k| points[1][k] - points[0][k]);
-        let v: [f64; D] = from_fn(|k| points[2][k] - points[0][k]);
-        let dot = |a: &[f64; D], b: &[f64; D]| (0..D).map(|k| a[k] * b[k]).sum::<f64>();
-        let (uu, uv, vv) = (dot(&u, &u), dot(&u, &v), dot(&v, &v));
-        let determinant = uu * vv - uv * uv;
-        let g1: [f64; D] = from_fn(|k| (vv * u[k] - uv * v[k]) / determinant);
-        let g2: [f64; D] = from_fn(|k| (uu * v[k] - uv * u[k]) / determinant);
+fn dot<const D: usize>(a: &[f64; D], b: &[f64; D]) -> f64 {
+    (0..D).map(|k| a[k] * b[k]).sum()
+}
+
+fn invert(mut matrix: Vec<Vec<f64>>) -> (Vec<Vec<f64>>, f64) {
+    let n = matrix.len();
+    let mut inverse: Vec<Vec<f64>> = (0..n)
+        .map(|i| (0..n).map(|j| if i == j { 1.0 } else { 0.0 }).collect())
+        .collect();
+    let mut determinant = 1.0;
+    for c in 0..n {
+        let pivot = (c..n)
+            .max_by(|&a, &b| matrix[a][c].abs().total_cmp(&matrix[b][c].abs()))
+            .expect("nonempty matrix");
+        if pivot != c {
+            matrix.swap(pivot, c);
+            inverse.swap(pivot, c);
+            determinant = -determinant;
+        }
+        let diagonal = matrix[c][c];
+        determinant *= diagonal;
+        matrix[c].iter_mut().for_each(|x| *x /= diagonal);
+        inverse[c].iter_mut().for_each(|x| *x /= diagonal);
+        for r in (0..n).filter(|&r| r != c) {
+            let factor = matrix[r][c];
+            for j in 0..n {
+                matrix[r][j] -= factor * matrix[c][j];
+                inverse[r][j] -= factor * inverse[c][j];
+            }
+        }
+    }
+    (inverse, determinant)
+}
+
+impl<const D: usize> Simplex<D> {
+    fn new(nodes: Vec<usize>, points: Vec<[f64; D]>) -> Self {
+        let k = nodes.len() - 1;
+        let edges: Vec<[f64; D]> = (1..=k)
+            .map(|i| from_fn(|c| points[i][c] - points[0][c]))
+            .collect();
+        let gram = (0..k)
+            .map(|i| (0..k).map(|j| dot(&edges[i], &edges[j])).collect())
+            .collect();
+        let (inverse, determinant) = invert(gram);
+        let mut gradients: Vec<[f64; D]> = (0..k)
+            .map(|i| from_fn(|c| (0..k).map(|j| inverse[i][j] * edges[j][c]).sum()))
+            .collect();
+        let first: [f64; D] = from_fn(|c| -gradients.iter().map(|g| g[c]).sum::<f64>());
+        gradients.insert(0, first);
         Self {
             nodes,
-            area: 0.5 * determinant.sqrt(),
-            gradients: [from_fn(|k| -g1[k] - g2[k]), g1, g2],
+            volume: determinant.sqrt() / (1..=k).product::<usize>() as f64,
+            gradients,
         }
     }
 }
@@ -46,7 +86,7 @@ fn solve(entries: &Entries, b: &Vector) -> Result<Vector, &'static str> {
 
 impl<const D: usize> Mesh<D> {
     /// Approximate geodesic distances from a source node to every node,
-    /// along the surface of an all-triangular mesh, by the heat method.
+    /// through a mesh of triangles or tetrahedra, by the heat method.
     pub fn geodesic_distances(&self, source: usize) -> Result<Vec<Quantity<Length>>, &'static str> {
         let elements: Vec<usize> = (0..self.number_of_elements()).collect();
         let mut distances = vec![Quantity::new(f64::INFINITY); self.number_of_nodes()];
@@ -55,38 +95,45 @@ impl<const D: usize> Mesh<D> {
             .for_each(|(node, distance)| distances[node] = distance);
         Ok(distances)
     }
-    /// As [`Mesh::geodesic_distances`], but along only a subset of elements,
+    /// As [`Mesh::geodesic_distances`], but through only a subset of elements,
     /// returning the distance to each of their nodes in ascending node order.
     pub(crate) fn geodesic_distances_over(
         &self,
         source: usize,
         elements: &[usize],
     ) -> Result<Vec<(usize, Quantity<Length>)>, &'static str> {
-        if !self
-            .iter()
-            .all(|block| matches!(block, Connectivity::Triangular(_)))
-        {
-            return Err("geodesic distances require an all-triangular mesh");
+        if !self.iter().all(|block| {
+            matches!(
+                block,
+                Connectivity::Triangular(_) | Connectivity::Tetrahedral(_)
+            )
+        }) {
+            return Err("geodesic distances require a triangular or tetrahedral mesh");
         }
-        let triangles: Vec<[usize; 3]> = self
+        let all: Vec<Vec<usize>> = self
             .iter()
             .flat_map(|block| {
+                let m = block.number_of_nodes_per_element().expect("simplices");
                 block
                     .iter()
-                    .map(|element| [element[0], element[1], element[2]])
+                    .map(move |element| (0..m).map(|c| element[c]).collect())
             })
             .collect();
         let coordinates = self.coordinates();
         let point =
             |node: usize| -> [f64; D] { from_fn(|k| coordinates[node][k].value_as::<Length>()) };
-        let triangles: Vec<Triangle<D>> = elements
+        let simplices: Vec<Simplex<D>> = elements
             .iter()
             .map(|&element| {
-                let nodes = triangles[element];
-                Triangle::new(nodes, nodes.map(point))
+                let nodes = all[element].clone();
+                let points = nodes.iter().map(|&node| point(node)).collect();
+                Simplex::new(nodes, points)
             })
             .collect();
-        let mut nodes: Vec<usize> = triangles.iter().flat_map(|t| t.nodes).collect();
+        let mut nodes: Vec<usize> = simplices
+            .iter()
+            .flat_map(|s| s.nodes.iter().copied())
+            .collect();
         nodes.sort_unstable();
         nodes.dedup();
         let source = nodes
@@ -97,28 +144,21 @@ impl<const D: usize> Mesh<D> {
         let mut stiffness = Entries::new();
         let mut mass = vec![0.0; n];
         let (mut length, mut count) = (0.0, 0);
-        for triangle in &triangles {
-            let ids = triangle.nodes.map(local);
-            for a in 0..3 {
-                let b = (a + 1) % 3;
-                let weight: f64 = (0..D)
-                    .map(|k| triangle.gradients[a][k] * triangle.gradients[b][k])
-                    .sum::<f64>()
-                    * triangle.area;
-                add(&mut stiffness, ids[a], ids[b], weight);
-                add(&mut stiffness, ids[b], ids[a], weight);
-                add(&mut stiffness, ids[a], ids[a], -weight);
-                add(&mut stiffness, ids[b], ids[b], -weight);
-                length += (0..D)
-                    .map(|k| {
-                        (coordinates[triangle.nodes[a]][k].value_as::<Length>()
-                            - coordinates[triangle.nodes[b]][k].value_as::<Length>())
-                        .powi(2)
-                    })
-                    .sum::<f64>()
-                    .sqrt();
-                count += 1;
-                mass[ids[a]] += triangle.area / 3.0;
+        for simplex in &simplices {
+            let ids: Vec<usize> = simplex.nodes.iter().map(|&node| local(node)).collect();
+            let m = ids.len();
+            for a in 0..m {
+                mass[ids[a]] += simplex.volume / m as f64;
+                for b in a + 1..m {
+                    let weight = dot(&simplex.gradients[a], &simplex.gradients[b]) * simplex.volume;
+                    add(&mut stiffness, ids[a], ids[b], weight);
+                    add(&mut stiffness, ids[b], ids[a], weight);
+                    add(&mut stiffness, ids[a], ids[a], -weight);
+                    add(&mut stiffness, ids[b], ids[b], -weight);
+                    let (p, q) = (point(simplex.nodes[a]), point(simplex.nodes[b]));
+                    length += (0..D).map(|k| (p[k] - q[k]).powi(2)).sum::<f64>().sqrt();
+                    count += 1;
+                }
             }
         }
         let time = (length / count as f64).powi(2);
@@ -131,22 +171,19 @@ impl<const D: usize> Mesh<D> {
         delta[source] = 1.0;
         let u = solve(&heat, &delta)?;
         let mut divergence = vec![0.0; n];
-        for triangle in &triangles {
-            let ids = triangle.nodes.map(local);
+        for simplex in &simplices {
+            let ids: Vec<usize> = simplex.nodes.iter().map(|&node| local(node)).collect();
             let gradient: [f64; D] = from_fn(|k| {
-                (0..3)
-                    .map(|a| u[ids[a]] * triangle.gradients[a][k])
-                    .sum::<f64>()
+                ids.iter()
+                    .zip(&simplex.gradients)
+                    .map(|(&id, g)| u[id] * g[k])
+                    .sum()
             });
-            let norm = gradient.iter().map(|g| g * g).sum::<f64>().sqrt();
+            let norm = dot(&gradient, &gradient).sqrt();
             if norm > 0.0 {
-                for a in 0..3 {
-                    divergence[ids[a]] -= triangle.area
-                        * (0..D)
-                            .map(|k| triangle.gradients[a][k] * gradient[k])
-                            .sum::<f64>()
-                        / norm;
-                }
+                ids.iter().zip(&simplex.gradients).for_each(|(&id, g)| {
+                    divergence[id] -= simplex.volume * dot(g, &gradient) / norm
+                });
             }
         }
         let reduced = |i: usize| if i > source { i - 1 } else { i };
