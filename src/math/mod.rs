@@ -36,7 +36,7 @@ pub use hash::{FxHashMap, FxHashSet, FxHasher};
 pub use labels::Labels;
 pub use matrix::{
     Matrix,
-    square::{LdlDecomposition, LuDecomposition, SquareMatrix},
+    square::{LdlDecomposition, LuDecomposition, SquareMatrix, SquareMatrixError},
     vector::Vector,
 };
 pub use tensor::{

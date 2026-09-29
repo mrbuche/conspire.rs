@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod test;
 
+mod mls;
+
+pub use mls::{moving_least_squares, quartic_weight};
+
 use super::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec, Vector,
     integrate::{IntegrationError, Times},
