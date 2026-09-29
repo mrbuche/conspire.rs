@@ -9,6 +9,7 @@ mod fit;
 mod from;
 mod into;
 mod partition;
+mod patch;
 mod quality;
 mod read;
 mod remesh;
@@ -28,6 +29,7 @@ pub use self::{
     differential::laplace::Weighting,
     fit::{Fitting, Freedom},
     partition::{Bisection, Partition, PartitionQuality},
+    patch::Patch,
     quality::metrics::Verdict,
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
