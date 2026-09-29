@@ -12,16 +12,16 @@ fn assert_close(a: f64, b: f64) {
 
 #[test]
 fn unit_triangle() {
-    let s = Simplex::new(vec![0, 1, 2], vec![[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
+    let s = Simplex::new([0, 1, 2], [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]]);
     assert_close(s.volume, 0.5);
-    assert_eq!(s.gradients, vec![[-1.0, -1.0], [1.0, 0.0], [0.0, 1.0]]);
+    assert_eq!(s.gradients, [[-1.0, -1.0], [1.0, 0.0], [0.0, 1.0]]);
 }
 
 #[test]
 fn unit_tetrahedron() {
     let s = Simplex::new(
-        vec![0, 1, 2, 3],
-        vec![
+        [0, 1, 2, 3],
+        [
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
@@ -31,7 +31,7 @@ fn unit_tetrahedron() {
     assert_close(s.volume, 1.0 / 6.0);
     assert_eq!(
         s.gradients,
-        vec![
+        [
             [-1.0, -1.0, -1.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
@@ -45,8 +45,8 @@ fn triangle_embedded_in_space() {
     let (c, s) = (0.7f64.cos(), 0.7f64.sin());
     let place = |x: f64, y: f64| [x + 3.0, c * y - 1.0, s * y + 2.0];
     let simplex = Simplex::new(
-        vec![0, 1, 2],
-        vec![place(0.0, 0.0), place(2.0, 0.0), place(0.0, 3.0)],
+        [0, 1, 2],
+        [place(0.0, 0.0), place(2.0, 0.0), place(0.0, 3.0)],
     );
     assert_close(simplex.volume, 3.0);
     let field = |p: [f64; 3]| 2.0 * p[0] - p[1] + 0.5 * p[2];
@@ -65,13 +65,13 @@ fn triangle_embedded_in_space() {
 
 #[test]
 fn gradients_sum_to_zero_and_reproduce_linear_fields() {
-    let points = vec![
+    let points = [
         [0.1, 0.2, 0.0],
         [1.3, 0.1, 0.4],
         [0.4, 1.5, 0.2],
         [0.3, 0.4, 1.7],
     ];
-    let s = Simplex::new(vec![0, 1, 2, 3], points.clone());
+    let s = Simplex::new([0, 1, 2, 3], points);
     (0..3).for_each(|k| assert_close(s.gradients.iter().map(|g| g[k]).sum::<f64>(), 0.0));
     let slope = [1.5, -2.0, 0.25];
     let values: Vec<f64> = points.iter().map(|p| dot(&slope, p)).collect();
@@ -99,13 +99,32 @@ fn mesh() -> Mesh<2> {
 #[test]
 fn simplices_over_a_subset_of_elements() {
     let mesh = mesh();
-    let all = mesh.simplices_over(&[0, 1]).unwrap();
+    let all = mesh.simplices_over::<3>(&[0, 1]).unwrap();
     assert_eq!(all.len(), 2);
-    assert_eq!(all[1].nodes, vec![1, 3, 2]);
-    let second = mesh.simplices_over(&[1]).unwrap();
+    assert_eq!(all[1].nodes, [1, 3, 2]);
+    let second = mesh.simplices_over::<3>(&[1]).unwrap();
     assert_eq!(second.len(), 1);
     assert_close(second[0].volume, 0.5);
-    assert!(mesh.simplices_over(&[]).unwrap().is_empty());
+    assert!(mesh.simplices_over::<3>(&[]).unwrap().is_empty());
+}
+
+#[test]
+fn the_node_count_must_match_the_elements() {
+    assert!(mesh().simplices_over::<4>(&[0]).is_none());
+    let tetrahedron = Mesh::from((
+        vec![Connectivity::Tetrahedral(vec![[0usize, 1, 2, 3]].into())],
+        Coordinates::from([
+            Coordinate::from([0.0, 0.0, 0.0]),
+            Coordinate::from([1.0, 0.0, 0.0]),
+            Coordinate::from([0.0, 1.0, 0.0]),
+            Coordinate::from([0.0, 0.0, 1.0]),
+        ]),
+    ));
+    assert!(tetrahedron.simplices_over::<3>(&[0]).is_none());
+    assert_close(
+        tetrahedron.simplices_over::<4>(&[0]).unwrap()[0].volume,
+        1.0 / 6.0,
+    );
 }
 
 #[test]
@@ -119,5 +138,5 @@ fn non_simplicial_meshes_have_no_simplices() {
             Coordinate::from([0.0, 1.0]),
         ]),
     ));
-    assert!(quadrilateral.simplices_over(&[0]).is_none());
+    assert!(quadrilateral.simplices_over::<4>(&[0]).is_none());
 }

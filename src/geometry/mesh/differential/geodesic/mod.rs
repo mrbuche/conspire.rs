@@ -2,13 +2,18 @@
 mod test;
 
 use crate::{
-    geometry::mesh::{Mesh, simplex::dot},
+    geometry::mesh::{
+        Mesh,
+        simplex::{Simplex, dot},
+    },
     math::{Quantity, Tensor, Vector, sparse::SparseSolver},
     units::Length,
 };
 use std::{array::from_fn, collections::HashMap};
 
 type Entries = HashMap<(usize, usize), f64>;
+
+const NOT_SIMPLICIAL: &str = "geodesic distances require a triangular or tetrahedral mesh";
 
 fn add(entries: &mut Entries, i: usize, j: usize, value: f64) {
     *entries.entry((i, j)).or_insert(0.0) += value;
@@ -19,6 +24,84 @@ fn solve(entries: &Entries, b: &Vector) -> Result<Vector, &'static str> {
     SparseSolver::from_pattern(b.len(), pattern, true)
         .solve(|i, j| entries[&(i, j)], b)
         .map_err(|_| "geodesic linear solve failed")
+}
+
+fn heat<const D: usize, const N: usize>(
+    mesh: &Mesh<D>,
+    source: usize,
+    simplices: &[Simplex<D, N>],
+) -> Result<Vec<(usize, Quantity<Length>)>, &'static str> {
+    let coordinates = mesh.coordinates();
+    let point =
+        |node: usize| -> [f64; D] { from_fn(|k| coordinates[node][k].value_as::<Length>()) };
+    let mut nodes: Vec<usize> = simplices.iter().flat_map(|s| s.nodes).collect();
+    nodes.sort_unstable();
+    nodes.dedup();
+    let source = nodes
+        .binary_search(&source)
+        .map_err(|_| "source node is not in the elements")?;
+    let local = |node: usize| nodes.binary_search(&node).expect("node in elements");
+    let n = nodes.len();
+    let mut stiffness = Entries::new();
+    let mut mass = vec![0.0; n];
+    let (mut length, mut count) = (0.0, 0);
+    for simplex in simplices {
+        let ids = simplex.nodes.map(local);
+        for a in 0..N {
+            mass[ids[a]] += simplex.volume / N as f64;
+            for b in a + 1..N {
+                let weight = dot(&simplex.gradients[a], &simplex.gradients[b]) * simplex.volume;
+                add(&mut stiffness, ids[a], ids[b], weight);
+                add(&mut stiffness, ids[b], ids[a], weight);
+                add(&mut stiffness, ids[a], ids[a], -weight);
+                add(&mut stiffness, ids[b], ids[b], -weight);
+                let (p, q) = (point(simplex.nodes[a]), point(simplex.nodes[b]));
+                length += (0..D).map(|k| (p[k] - q[k]).powi(2)).sum::<f64>().sqrt();
+                count += 1;
+            }
+        }
+    }
+    let time = (length / count as f64).powi(2);
+    let mut heat: Entries = stiffness
+        .iter()
+        .map(|(&key, &value)| (key, time * value))
+        .collect();
+    (0..n).for_each(|i| add(&mut heat, i, i, mass[i]));
+    let mut delta = Vector::zero(n);
+    delta[source] = 1.0;
+    let u = solve(&heat, &delta)?;
+    let mut divergence = vec![0.0; n];
+    for simplex in simplices {
+        let ids = simplex.nodes.map(local);
+        let gradient: [f64; D] =
+            from_fn(|k| (0..N).map(|a| u[ids[a]] * simplex.gradients[a][k]).sum());
+        let norm = dot(&gradient, &gradient).sqrt();
+        if norm > 0.0 {
+            for a in 0..N {
+                divergence[ids[a]] -= simplex.volume * dot(&simplex.gradients[a], &gradient) / norm;
+            }
+        }
+    }
+    let reduced = |i: usize| if i > source { i - 1 } else { i };
+    let poisson: Entries = stiffness
+        .iter()
+        .filter(|&(&(i, j), _)| i != source && j != source)
+        .map(|(&(i, j), &value)| ((reduced(i), reduced(j)), value))
+        .collect();
+    let b: Vector = (0..n)
+        .filter(|&i| i != source)
+        .map(|i| divergence[i])
+        .collect();
+    let phi = solve(&poisson, &b)?;
+    let mut distances: Vec<f64> = (0..n)
+        .map(|i| if i == source { 0.0 } else { phi[reduced(i)] })
+        .collect();
+    let minimum = distances.iter().copied().fold(f64::INFINITY, f64::min);
+    distances.iter_mut().for_each(|d| *d -= minimum);
+    Ok(nodes
+        .into_iter()
+        .zip(distances.into_iter().map(Quantity::new))
+        .collect())
 }
 
 impl<const D: usize> Mesh<D> {
@@ -39,87 +122,12 @@ impl<const D: usize> Mesh<D> {
         source: usize,
         elements: &[usize],
     ) -> Result<Vec<(usize, Quantity<Length>)>, &'static str> {
-        let simplices = self
-            .simplices_over(elements)
-            .ok_or("geodesic distances require a triangular or tetrahedral mesh")?;
-        let coordinates = self.coordinates();
-        let point =
-            |node: usize| -> [f64; D] { from_fn(|k| coordinates[node][k].value_as::<Length>()) };
-        let mut nodes: Vec<usize> = simplices
-            .iter()
-            .flat_map(|s| s.nodes.iter().copied())
-            .collect();
-        nodes.sort_unstable();
-        nodes.dedup();
-        let source = nodes
-            .binary_search(&source)
-            .map_err(|_| "source node is not in the elements")?;
-        let local = |node: usize| nodes.binary_search(&node).expect("node in elements");
-        let n = nodes.len();
-        let mut stiffness = Entries::new();
-        let mut mass = vec![0.0; n];
-        let (mut length, mut count) = (0.0, 0);
-        for simplex in &simplices {
-            let ids: Vec<usize> = simplex.nodes.iter().map(|&node| local(node)).collect();
-            let m = ids.len();
-            for a in 0..m {
-                mass[ids[a]] += simplex.volume / m as f64;
-                for b in a + 1..m {
-                    let weight = dot(&simplex.gradients[a], &simplex.gradients[b]) * simplex.volume;
-                    add(&mut stiffness, ids[a], ids[b], weight);
-                    add(&mut stiffness, ids[b], ids[a], weight);
-                    add(&mut stiffness, ids[a], ids[a], -weight);
-                    add(&mut stiffness, ids[b], ids[b], -weight);
-                    let (p, q) = (point(simplex.nodes[a]), point(simplex.nodes[b]));
-                    length += (0..D).map(|k| (p[k] - q[k]).powi(2)).sum::<f64>().sqrt();
-                    count += 1;
-                }
-            }
+        if let Some(triangles) = self.simplices_over::<3>(elements) {
+            heat(self, source, &triangles)
+        } else if let Some(tetrahedra) = self.simplices_over::<4>(elements) {
+            heat(self, source, &tetrahedra)
+        } else {
+            Err(NOT_SIMPLICIAL)
         }
-        let time = (length / count as f64).powi(2);
-        let mut heat: Entries = stiffness
-            .iter()
-            .map(|(&key, &value)| (key, time * value))
-            .collect();
-        (0..n).for_each(|i| add(&mut heat, i, i, mass[i]));
-        let mut delta = Vector::zero(n);
-        delta[source] = 1.0;
-        let u = solve(&heat, &delta)?;
-        let mut divergence = vec![0.0; n];
-        for simplex in &simplices {
-            let ids: Vec<usize> = simplex.nodes.iter().map(|&node| local(node)).collect();
-            let gradient: [f64; D] = from_fn(|k| {
-                ids.iter()
-                    .zip(&simplex.gradients)
-                    .map(|(&id, g)| u[id] * g[k])
-                    .sum()
-            });
-            let norm = dot(&gradient, &gradient).sqrt();
-            if norm > 0.0 {
-                ids.iter().zip(&simplex.gradients).for_each(|(&id, g)| {
-                    divergence[id] -= simplex.volume * dot(g, &gradient) / norm
-                });
-            }
-        }
-        let reduced = |i: usize| if i > source { i - 1 } else { i };
-        let poisson: Entries = stiffness
-            .iter()
-            .filter(|&(&(i, j), _)| i != source && j != source)
-            .map(|(&(i, j), &value)| ((reduced(i), reduced(j)), value))
-            .collect();
-        let b: Vector = (0..n)
-            .filter(|&i| i != source)
-            .map(|i| divergence[i])
-            .collect();
-        let phi = solve(&poisson, &b)?;
-        let mut distances: Vec<f64> = (0..n)
-            .map(|i| if i == source { 0.0 } else { phi[reduced(i)] })
-            .collect();
-        let minimum = distances.iter().copied().fold(f64::INFINITY, f64::min);
-        distances.iter_mut().for_each(|d| *d -= minimum);
-        Ok(nodes
-            .into_iter()
-            .zip(distances.into_iter().map(Quantity::new))
-            .collect())
     }
 }
