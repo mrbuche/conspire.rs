@@ -151,16 +151,14 @@ mod field {
                 Method,
                 marching_cubes::separated::test::{extractor, sample, sphere},
             },
-            mesh::{Connectivity, Verdict},
+            mesh::{Connectivity, Mesh, Verdict},
         },
         math::Tensor,
     };
-    use std::{array::from_fn, collections::HashMap};
-
-    fn volume_of(mesh: &crate::geometry::mesh::Mesh<3>) -> f64 {
+    use std::{array::from_fn, collections::HashMap, f64::consts::PI};
+    fn volume_of(mesh: &Mesh<3>) -> f64 {
         mesh.volumes().into_iter().flatten().sum()
     }
-
     #[test]
     fn a_sphere_sampled_at_uneven_spacing_meshes_to_its_volume() {
         let spacing = [0.08, 0.12, 0.2];
@@ -171,14 +169,13 @@ mod field {
         let (count, minimum, negative) = report("uneven", &mesh);
         assert!(count > 0);
         assert_eq!(negative, 0, "min SJ {minimum}");
-        let exact = 4.0 / 3.0 * std::f64::consts::PI * 0.9_f64.powi(3);
+        let exact = 4.0 / 3.0 * PI * 0.9_f64.powi(3);
         let found = volume_of(&mesh);
         assert!(
             (found - exact).abs() < 0.03 * exact,
             "{found} against {exact}"
         );
     }
-
     #[test]
     fn the_surface_is_the_boundary_of_the_hexahedra() {
         let spacing = [0.1, 0.1, 0.1];
@@ -203,9 +200,6 @@ mod field {
         };
         assert!((0..surface.vertices.len()).all(near));
     }
-
-    /// A field of noise, full of alternating faces, still gives hexahedra
-    /// that meet face to face and enclose a closed boundary.
     #[test]
     fn a_field_of_noise_gives_conforming_hexahedra() {
         let nel = [8, 8, 8];
@@ -268,7 +262,6 @@ mod field {
             "the boundary is open"
         );
     }
-
     #[test]
     fn a_grid_without_room_for_a_cell_is_refused() {
         let volume = sample([1, 4, 4], |_| 0.0);

@@ -57,10 +57,6 @@ impl Polyhedron {
         vertices.dedup();
         vertices
     }
-    /// The faces lying in the surface rather than in a face of the cell.
-    ///
-    /// A face of the cell that is clipped keeps at least one corner of the
-    /// cell, whereas a cut runs between points on edges alone.
     pub(crate) fn cuts(&self) -> impl Iterator<Item = &Vec<Vertex>> {
         self.faces.iter().filter(|face| {
             face.iter()
@@ -69,7 +65,6 @@ impl Polyhedron {
     }
 }
 
-/// Whether a sample lies within the object.
 pub(crate) fn inside(value: f64, level: f64, gradient: Gradient) -> bool {
     match gradient {
         Gradient::Descent => value >= level,
@@ -163,11 +158,6 @@ fn pieces(mut faces: Vec<Vec<Vertex>>) -> Vec<Polyhedron> {
     pieces
 }
 
-/// Clips a cell to the object, giving the polyhedra that are left.
-///
-/// The topology follows from the signs at the corners alone, and every face
-/// of the cell whose signs alternate is cut so as to keep them apart. That is
-/// the only choice two cells sharing such a face are bound to make alike.
 pub(crate) fn cell(
     corners: [Corner; 8],
     inside: [bool; 8],
@@ -188,10 +178,6 @@ pub(crate) fn cell(
     })
 }
 
-/// Extracts the isosurface with the topology of [`cell`], each cut a fan of
-/// triangles, so that it is the boundary of the hexahedra clipped from the
-/// same samples. The triangles wind as those of the other methods do, which
-/// is against the hand of the samples' axes.
 pub(super) fn extract(
     volume: &Voxels<f64>,
     mask: Option<&Voxels<bool>>,

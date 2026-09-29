@@ -48,8 +48,6 @@ fn points(surface: &Isosurface) -> Vec<[f64; 3]> {
         .collect()
 }
 
-/// The volume enclosed, positive when the triangles wind as the extraction
-/// winds them about an object, which is against the hand of the axes.
 fn enclosed(surface: &Isosurface) -> f64 {
     let points = points(surface);
     -surface
@@ -86,8 +84,6 @@ fn area(surface: &Isosurface) -> f64 {
         .sum()
 }
 
-/// Each directed edge of a closed, consistently oriented surface is met once
-/// and its reverse once.
 fn closed_and_oriented(surface: &Isosurface) {
     let mut edges = HashMap::<(usize, usize), usize>::new();
     for &[a, b, c] in &surface.faces {
@@ -179,8 +175,6 @@ fn spacing_that_differs_along_each_axis_scales_the_surface() {
     );
 }
 
-/// Two cells sharing a face whose signs alternate must resolve it alike, or
-/// the surface tears. A field of noise is full of such faces.
 #[test]
 fn a_field_of_noise_gives_a_surface_without_tears() {
     let nel = [9, 9, 9];
@@ -235,8 +229,6 @@ fn stepping_over_samples_is_refused() {
     assert!(march.extract(&volume, None).is_err());
 }
 
-/// Two samples across a diagonal of a face, alone within the object, are
-/// kept apart: joining them is the choice that pinches the solid.
 #[test]
 fn an_ambiguous_face_is_kept_apart() {
     use super::{CORNERS, cell};

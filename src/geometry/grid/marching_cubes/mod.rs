@@ -63,10 +63,6 @@ const EDGES_Z: [[usize; 2]; 12] = [
 pub enum Method {
     Lewiner,
     Lorensen,
-    /// The topology of the hexahedra clipped from the same samples: cut by
-    /// the signs at the corners alone, every ambiguous face kept apart, so
-    /// that the surface is the boundary of a conforming hexahedral mesh.
-    /// Takes one sample per step only.
     Separated,
 }
 

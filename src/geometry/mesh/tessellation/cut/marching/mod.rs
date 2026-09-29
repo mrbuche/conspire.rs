@@ -111,8 +111,6 @@ impl Signs<'_> {
             self.origin[d] + corner[d] as Scalar * self.spacing[d]
         }))
     }
-    /// How far along the edge from `one` to `two` the field reaches its
-    /// level, when the signs come from a field.
     pub(super) fn fraction(&self, one: Corner, two: Corner) -> Option<Scalar> {
         self.field.as_ref().map(|field| {
             let (a, b) = (field.value(one), field.value(two));
