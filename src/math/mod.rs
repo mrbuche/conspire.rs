@@ -35,7 +35,7 @@ pub use graph::Graph;
 pub use hash::{FxHashMap, FxHashSet, FxHasher};
 pub use matrix::{
     Matrix,
-    square::{LdlDecomposition, LuDecomposition, SquareMatrix},
+    square::{LdlDecomposition, LuDecomposition, SquareMatrix, SquareMatrixError},
     vector::Vector,
 };
 pub use set::{Set, sets::Sets};
