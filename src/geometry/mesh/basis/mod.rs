@@ -39,7 +39,7 @@ fn interior_radius(
     exterior: &FxHashSet<Vec<usize>>,
     radius: f64,
 ) -> f64 {
-    let mut counts: FxHashMap<Vec<usize>, usize> = FxHashMap::default();
+    let mut counts = FxHashMap::<Vec<usize>, usize>::default();
     for &element in &patch.elements {
         let (block, nodes) = elements[element];
         for face in block.element_faces(nodes) {
@@ -81,7 +81,7 @@ impl<const D: usize> Mesh<D> {
             .iter()
             .flat_map(|block| block.iter().map(move |element| (block, element)))
             .collect();
-        let mut nodes_seeds: FxHashMap<usize, Vec<(usize, f64)>> = FxHashMap::default();
+        let mut nodes_seeds = FxHashMap::<usize, Vec<(usize, f64)>>::default();
         for (index, (&seed, patch)) in seeds.iter().zip(&patches).enumerate() {
             let distances: Vec<(usize, f64)> = self
                 .geodesic_distances_over(seed, &patch.elements)?
