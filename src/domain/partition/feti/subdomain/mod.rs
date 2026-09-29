@@ -57,11 +57,13 @@ impl DirichletLocal {
     /// Splits a subdomain's dual dofs into interior (never touched by a
     /// multiplier) and boundary (touched by at least one), and extracts the
     /// blocks the Dirichlet preconditioner applies, factorizing `K_ii`.
-    /// Interior-interior is a principal submatrix of the (SPD, once corners
-    /// are condensed out) `K_dd,s`, hence always itself non-singular, so the
-    /// factorization can't fail the way a corner elimination could on a
-    /// floating subdomain. `K_bi` and `K_ib` are both kept, so the
-    /// application needs no transposed products.
+    /// Interior-interior is a principal submatrix of `K_dd,s`. For a positive
+    /// definite tangent, once corners are condensed out, that makes it
+    /// non-singular too, so the factorization can't fail the way a corner
+    /// elimination could on a floating subdomain. A nonsymmetric or indefinite
+    /// tangent has no such guarantee, and a singular `K_ii` panics here. `K_bi`
+    /// and `K_ib` are both kept, so the application needs no transposed
+    /// products.
     pub(crate) fn build(
         local_stiffness: &SquareMatrix,
         dual_dofs: &[usize],
@@ -111,7 +113,7 @@ impl DirichletLocal {
                 .collect();
             Some(
                 k_ii.factorize_lu()
-                    .expect("K_ii is singular, but it is a principal block of a non-singular K_dd"),
+                    .expect("K_ii is singular, so the Dirichlet preconditioner cannot be built"),
             )
         };
         Self {

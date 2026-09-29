@@ -154,7 +154,6 @@ pub trait ZerothOrderRoot<F, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-/// Root finding of a model, where the solver determines the tangent it works from.
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub trait FirstOrderRoot<F, J, X>
 where

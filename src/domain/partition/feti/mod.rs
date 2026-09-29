@@ -49,8 +49,10 @@ pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
 ///
 /// The block is split by a [`Partition`], and each subdomain is solved
 /// independently, tied together through the corner DOFs and Lagrange
-/// multipliers on the interface. Only hyperelastic models are supported, since
-/// the method needs a symmetric tangent.
+/// multipliers on the interface. Any elastic block is supported. The tangent
+/// need not be symmetric, but then the dual solve must be [`GMRES`], since
+/// conjugate gradients, the default, needs a symmetric positive definite dual
+/// operator, and is what refuses a tangent that is not.
 ///
 /// Only zero-displacement boundary conditions are supported. At least enough
 /// DOFs must be pinned to remove every rigid-body mode of the whole block.

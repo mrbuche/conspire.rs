@@ -59,8 +59,7 @@ pub(crate) fn positions<const D: usize>(nodal_coordinates: &NodalCoordinates<D>)
 /// Elements that can hand out their systems one by one.
 ///
 /// This is what a decomposed solve asks of a model, and a model that cannot
-/// answer it, being elastic rather than hyperelastic or having couplings that
-/// cross any cut, is refused at compile time.
+/// answer it, having couplings that cross any cut, is refused at compile time.
 pub trait DecomposableElements {
     fn element_systems(
         &self,

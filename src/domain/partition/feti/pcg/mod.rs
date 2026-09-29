@@ -12,9 +12,10 @@ use crate::{
 };
 
 /// Solves the dual (interface) problem `(F + C S_pp^-1 C^T) . lambda = rhs`
-/// by conjugate gradients, Dirichlet-preconditioned — SPD given the corners
-/// are pinned, so this needs no projection against a rigid-body null space
-/// the way plain FETI would. Dirichlet is the default over lumped: its
+/// by conjugate gradients, Dirichlet-preconditioned. For a symmetric positive
+/// definite tangent the operator is SPD given the corners are pinned, so this
+/// needs no projection against a rigid-body null space the way plain FETI
+/// would; a nonsymmetric tangent needs GMRES instead. Dirichlet is the default over lumped: its
 /// condition-number bound is near mesh-independent (`1 + log(H/h)^2`) where
 /// lumped's degrades with the subdomain-to-mesh-size ratio, at the price of
 /// one local interior solve per subdomain per iteration, so it wins as soon
