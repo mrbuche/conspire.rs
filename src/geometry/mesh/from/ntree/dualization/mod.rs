@@ -1,8 +1,10 @@
 use crate::geometry::ntree::node::slot::Slot;
-pub(super) mod octree;
-pub(super) mod quadtree;
+
 #[cfg(test)]
 pub(crate) use quadtree::verify_dual;
+
+pub(super) mod octree;
+pub(super) mod quadtree;
 
 use crate::{
     geometry::{
