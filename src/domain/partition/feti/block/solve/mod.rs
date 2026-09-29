@@ -1,36 +1,26 @@
 #[cfg(test)]
 mod test;
 
-use super::{
-    super::{
-        THREADS,
-        dual::{coupling, coupling_transpose, rhs_from_forces},
-        dual_primal::{
-            BoundaryConditions, CornerSelection, build_splits,
-            coarse::{Coarse, CoarseSystem},
-            condense::Condensed,
-            rigid::removed_modes,
-        },
-        interface::build_interfaces,
-        parallel::parallel_map,
-        pcg::{Preconditioner, primal_recovery, projected_pcg_with},
-        subdomain::{DirichletLocal, Subdomain},
+use super::super::{
+    THREADS,
+    dual::{coupling, coupling_transpose, rhs_from_forces},
+    dual_primal::{
+        BoundaryConditions, CornerSelection, build_splits,
+        coarse::{Coarse, CoarseSystem},
+        condense::Condensed,
+        rigid::removed_modes,
     },
-    {assemble::local_stiffness_and_force, element::positions},
+    interface::build_interfaces,
+    parallel::parallel_map,
+    pcg::{Preconditioner, primal_recovery, projected_pcg_with},
+    subdomain::{DirichletLocal, Subdomain},
 };
 use crate::{
-    constitutive::solid::elastic::Elastic,
-    fem::{
-        NodalCoordinates,
-        block::{
-            Block,
-            element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
-        },
-    },
+    domain::ElementModelError,
     geometry::mesh::Partition,
     math::{
         Scalar, SquareMatrix, Style, StyledError, Vector,
-        optimize::{Krylov, KrylovError, KrylovMethod},
+        optimize::{KrylovError, KrylovMethod},
         styled_error,
     },
 };
@@ -38,8 +28,10 @@ use std::collections::HashSet;
 
 /// Possible errors encountered when solving with FETI.
 pub enum SolveError {
-    /// Downstream error from a finite element.
-    Element(FiniteElementError),
+    /// Downstream error from an element.
+    Element(ElementModelError),
+    /// The partition does not describe the model it is meant to decompose.
+    Partition(String),
     /// Downstream error from the dual PCG.
     Krylov(KrylovError),
     /// A subdomain left with some rigid-body modes free.
@@ -54,6 +46,10 @@ impl StyledError for SolveError {
     fn message(&self, style: &Style) -> String {
         match self {
             Self::Element(error) => error.message(style),
+            Self::Partition(reason) => {
+                let (h, c) = (style.headline, style.frame);
+                format!("{h}The partition does not fit the model.{c}\n{reason}")
+            }
             Self::Krylov(error) => error.message(style),
             Self::FloatingSubdomain { part, removed } => {
                 let (h, c) = (style.headline, style.frame);
@@ -91,8 +87,8 @@ impl StyledError for SolveError {
 
 styled_error!(SolveError);
 
-impl From<FiniteElementError> for SolveError {
-    fn from(error: FiniteElementError) -> Self {
+impl From<ElementModelError> for SolveError {
+    fn from(error: ElementModelError) -> Self {
         Self::Element(error)
     }
 }
@@ -101,65 +97,6 @@ impl From<KrylovError> for SolveError {
     fn from(error: KrylovError) -> Self {
         Self::Krylov(error)
     }
-}
-
-/// Solves a real FEM `Block` by FETI-DP, end to end: extracts each
-/// subdomain's local stiffness/force, condenses the dual DOFs, assembles and
-/// solves the coarse corner problem, runs the Dirichlet-preconditioned dual PCG
-/// with the coarse-coupling correction, recovers each subdomain's local
-/// solution, and scatters everything back into one global nodal vector.
-#[allow(clippy::type_complexity)]
-pub(crate) fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
-    block: &Block<C, F, G, M, N, P>,
-    nodal_coordinates: &NodalCoordinates<3>,
-    partition: &Partition,
-    boundary_conditions: &BoundaryConditions,
-) -> Result<Vector, SolveError>
-where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P>,
-{
-    solve_with(
-        block,
-        nodal_coordinates,
-        partition,
-        boundary_conditions,
-        Preconditioner::Dirichlet,
-        Krylov::default().rel_tol,
-        KrylovMethod::default(),
-    )
-}
-
-pub(crate) fn solve_with<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
-    block: &Block<C, F, G, M, N, P>,
-    nodal_coordinates: &NodalCoordinates<3>,
-    partition: &Partition,
-    boundary_conditions: &BoundaryConditions,
-    preconditioner: Preconditioner,
-    rel_tol: Scalar,
-    method: KrylovMethod,
-) -> Result<Vector, SolveError>
-where
-    C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P>,
-{
-    let (local_stiffnesses, local_forces): (Vec<SquareMatrix>, Vec<Vector>) = partition
-        .parts_nodes()
-        .iter()
-        .map(|nodes| local_stiffness_and_force(block, nodal_coordinates, nodes))
-        .collect::<Result<Vec<_>, _>>()?
-        .into_iter()
-        .unzip();
-    solve_local_systems(
-        partition,
-        boundary_conditions,
-        local_stiffnesses,
-        local_forces,
-        &positions(nodal_coordinates),
-        preconditioner,
-        rel_tol,
-        method,
-    )
 }
 
 #[allow(clippy::too_many_arguments)]

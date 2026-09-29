@@ -23,6 +23,8 @@ pub use dual_primal::BoundaryConditions;
 pub use pcg::Preconditioner;
 
 #[cfg(feature = "fem")]
+use crate::domain::NodalCoordinates;
+#[cfg(feature = "fem")]
 use crate::{
     geometry::mesh::Partition,
     math::{
@@ -78,6 +80,43 @@ impl Default for Feti {
 }
 
 #[cfg(feature = "fem")]
+impl Feti {
+    /// Solves the linearized system of a decomposable block, returning the
+    /// displacement of every degree of freedom, the pinned ones at zero.
+    pub fn solve<B>(
+        &self,
+        block: &B,
+        nodal_coordinates: &NodalCoordinates<3>,
+        boundary_conditions: &BoundaryConditions,
+    ) -> Result<Vector, SolveError>
+    where
+        B: DecomposableElements,
+    {
+        let systems = block.element_systems(nodal_coordinates)?;
+        self.solve_systems(&systems, boundary_conditions)
+    }
+    fn solve_systems(
+        &self,
+        systems: &ElementSystems,
+        boundary_conditions: &BoundaryConditions,
+    ) -> Result<Vector, SolveError> {
+        let (stiffnesses, forces) = systems
+            .subdomains(&self.partition)
+            .map_err(SolveError::Partition)?;
+        solve_local_systems(
+            &self.partition,
+            boundary_conditions,
+            stiffnesses,
+            forces,
+            systems.positions(),
+            self.preconditioner,
+            self.rel_tol,
+            self.method,
+        )
+    }
+}
+
+#[cfg(feature = "fem")]
 impl LinearSolver for Feti {
     type Tangent = ElementSystems;
     fn solve(
@@ -86,7 +125,6 @@ impl LinearSolver for Feti {
         retained: &[usize],
         _residual: &Vector,
     ) -> Result<Vector, String> {
-        let (stiffnesses, forces) = tangent.subdomains(&self.partition)?;
         let mut fixed = vec![true; 3 * tangent.positions().len()];
         retained.iter().for_each(|&dof| fixed[dof] = false);
         let boundary_conditions = BoundaryConditions::new(
@@ -97,17 +135,9 @@ impl LinearSolver for Feti {
                 .map(|(dof, _)| (dof / 3, dof % 3))
                 .collect(),
         );
-        let solution = solve_local_systems(
-            &self.partition,
-            &boundary_conditions,
-            stiffnesses,
-            forces,
-            tangent.positions(),
-            self.preconditioner,
-            self.rel_tol,
-            self.method,
-        )
-        .map_err(|error| error.to_string())?;
+        let solution = self
+            .solve_systems(&tangent, &boundary_conditions)
+            .map_err(|error| error.to_string())?;
         Ok(retained.iter().map(|&dof| solution[dof]).collect())
     }
 }

@@ -1,12 +1,7 @@
 use crate::{
     constitutive::solid::elastic::Elastic,
-    domain::feti::{
-        Feti,
-        block::{
-            element::{DecomposableElements, ElementSystem, ElementSystems, positions},
-            solve::{SolveError, solve_with},
-        },
-        dual_primal::BoundaryConditions,
+    domain::feti::block::element::{
+        DecomposableElements, ElementSystem, ElementSystems, positions,
     },
     fem::{
         ElementModelError, NodalCoordinates,
@@ -15,7 +10,6 @@ use crate::{
             element::{FiniteElementError, solid::elastic::ElasticFiniteElement},
         },
     },
-    math::Vector,
 };
 
 impl<C, F, const G: usize, const N: usize, const P: usize> DecomposableElements
@@ -52,25 +46,5 @@ where
     }
 }
 
-impl Feti {
-    pub fn solve<C, F, const G: usize, const M: usize, const N: usize, const P: usize>(
-        &self,
-        block: &Block<C, F, G, M, N, P>,
-        nodal_coordinates: &NodalCoordinates<3>,
-        boundary_conditions: &BoundaryConditions,
-    ) -> Result<Vector, SolveError>
-    where
-        C: Elastic,
-        F: ElasticFiniteElement<C, G, M, N, P>,
-    {
-        solve_with(
-            block,
-            nodal_coordinates,
-            &self.partition,
-            boundary_conditions,
-            self.preconditioner,
-            self.rel_tol,
-            self.method,
-        )
-    }
-}
+#[cfg(test)]
+mod test;
