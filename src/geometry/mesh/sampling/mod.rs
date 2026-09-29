@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     geometry::mesh::Mesh,
-    math::{Tensor, random::Rng},
+    math::{Quantity, Tensor, random::Rng},
+    units::Length,
 };
 use std::{
     array::from_fn,
@@ -44,12 +45,13 @@ impl<const D: usize> Mesh<D> {
     /// is left within `spacing` of a sampled node, and the boundary nodes are
     /// left within `spacing` of a sampled boundary node. The `seed` makes the
     /// sampling deterministic.
-    pub fn sample(&self, spacing: f64, seed: u64) -> Vec<usize> {
+    pub fn sample(&self, spacing: Quantity<Length>, seed: u64) -> Vec<usize> {
+        let spacing = spacing.value_as::<Length>();
         assert!(spacing > 0.0, "Sampling spacing must be positive.");
         let points: Vec<[f64; D]> = self
             .coordinates()
             .iter()
-            .map(|x| from_fn(|k| x[k].value()))
+            .map(|x| from_fn(|k| x[k].value_as::<Length>()))
             .collect();
         let on_boundary: HashSet<usize> = self.exterior_faces().into_iter().flatten().collect();
         let mut boundary: Vec<usize> = on_boundary.iter().copied().collect();
