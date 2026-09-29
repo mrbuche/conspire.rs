@@ -81,8 +81,7 @@ impl Default for Feti {
 
 #[cfg(feature = "fem")]
 impl Feti {
-    /// Solves the linearized system of a decomposable block, returning the
-    /// displacement of every degree of freedom, the pinned ones at zero.
+    /// Solves the linearized system of a decomposable block.
     pub fn solve<B>(
         &self,
         block: &B,
