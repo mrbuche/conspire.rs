@@ -2,6 +2,7 @@
 pub mod test;
 
 mod base;
+mod basis;
 mod buffer;
 mod connectivity;
 pub(crate) mod differential;
@@ -22,6 +23,7 @@ mod write;
 pub use from::Dualization;
 
 pub use self::{
+    basis::Basis,
     connectivity::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,
