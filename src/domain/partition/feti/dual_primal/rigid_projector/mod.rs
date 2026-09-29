@@ -122,3 +122,22 @@ pub(crate) fn rigid_rhs<B>(subdomains: &[Subdomain<B>], local_forces: &[Vector])
         })
         .collect()
 }
+
+/// Adds each subdomain's rigid-body motion `R_s alpha_s` to its local solution,
+/// with `alpha` in the same order as the columns of `G`.
+pub(crate) fn add_rigid_motion<B>(
+    subdomains: &[Subdomain<B>],
+    alpha: &Vector,
+    solutions: &mut [Vector],
+) {
+    let mut next = 0;
+    subdomains
+        .iter()
+        .zip(solutions.iter_mut())
+        .for_each(|(subdomain, solution)| {
+            subdomain.kernel().iter().for_each(|mode| {
+                (0..solution.len()).for_each(|dof| solution[dof] += alpha[next] * mode[dof]);
+                next += 1;
+            })
+        });
+}

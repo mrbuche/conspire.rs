@@ -1,12 +1,12 @@
 use crate::{
     domain::feti::{
         THREADS,
-        dual::{dual_operator, dual_precondition, dual_precondition_dirichlet},
-        dual_primal::coarse::Coarse,
+        dual::{dual_action, dual_operator, dual_precondition, dual_precondition_dirichlet},
+        dual_primal::{coarse::Coarse, rigid_projector::RigidProjector},
         subdomain::Subdomain,
     },
     math::{
-        Scalar, Vector,
+        Scalar, Tensor, Vector,
         optimize::{Krylov, KrylovError, KrylovMethod},
     },
 };
@@ -78,6 +78,51 @@ where
         },
         rhs,
     )
+}
+
+/// Solves the dual problem of classical FETI, `F lambda - G alpha = d` with
+/// `G^T lambda = e`, for the multipliers and the rigid-body amplitudes.
+///
+/// The multipliers are `lambda_0 + mu`, with `lambda_0 = G (G^T G)^-1 e`
+/// satisfying the constraint and `mu` found by the same Krylov solve as
+/// FETI-DP on `P F P mu = P (d - F lambda_0)`, preconditioned by `P M P`. The
+/// projector `P` keeps every iterate in the space where `G^T mu = 0`, which is
+/// what makes the floating subdomains' local solves consistent.
+pub(crate) fn rigid_projected_pcg<B>(
+    subdomains: &[Subdomain<B>],
+    projector: &RigidProjector,
+    d: &Vector,
+    e: &Vector,
+    preconditioner: Preconditioner,
+    rel_tol: Scalar,
+    method: KrylovMethod,
+) -> Result<(Vector, Vector), KrylovError>
+where
+    B: Sync,
+{
+    let particular = projector.particular(e, d.len());
+    let rhs = projector.project(&(d.clone() - dual_action(subdomains, &particular, THREADS)));
+    let correction = Krylov {
+        rel_tol,
+        method,
+        ..Krylov::default()
+    }
+    .solve(
+        |mu: &Vector| projector.project(&dual_action(subdomains, &projector.project(mu), THREADS)),
+        |residual: &Vector| {
+            let residual = projector.project(residual);
+            projector.project(&match preconditioner {
+                Preconditioner::Lumped => dual_precondition(subdomains, &residual, THREADS),
+                Preconditioner::Dirichlet => {
+                    dual_precondition_dirichlet(subdomains, &residual, THREADS)
+                }
+            })
+        },
+        &rhs,
+    )?;
+    let lambda = particular + projector.project(&correction);
+    let alpha = projector.amplitudes(&(dual_action(subdomains, &lambda, THREADS) - d.clone()));
+    Ok((lambda, alpha))
 }
 
 /// Recovers each subdomain's full local solution (corner and dual DOFs

@@ -154,12 +154,9 @@ fn solve_classical(boundary_conditions: &BoundaryConditions) -> Result<Vector, S
 }
 
 #[test]
-fn classical_refuses_a_subdomain_that_no_boundary_condition_pins() {
+fn classical_refuses_a_block_that_can_still_rotate() {
     let result = solve_classical(&BoundaryConditions::new(vec![(0, 0), (0, 1), (0, 2)]));
-    assert!(matches!(
-        result,
-        Err(SolveError::FloatingSubdomain { removed: 3, .. })
-    ));
+    assert!(matches!(result, Err(SolveError::SingularCoarseProblem)));
 }
 
 #[test]

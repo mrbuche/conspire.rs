@@ -6,7 +6,7 @@ use conspire::{
         Model, NodalCoordinates, NodalReferenceCoordinates, SecondOrderMinimize,
         block::{Block, element::linear::Hexahedron},
     },
-    feti::{Feti, GMRES},
+    feti::{Feti, Formulation, GMRES},
     geometry::{
         Coordinates,
         grid::Voxels,
@@ -454,4 +454,37 @@ fn benchmark_cg_vs_gmres() {
             );
         }
     }
+}
+
+#[test]
+fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
+    let nel = [6; 3];
+    let (model, constraint) = problem(nel);
+    let sparse = model
+        .minimize(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Direct,
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("sparse solve failed: {error}"));
+    let (model, constraint) = problem(nel);
+    let classical = model
+        .minimize(
+            constraint,
+            NewtonRaphson {
+                abs_tol: TOLERANCES,
+                linear_solver: Feti {
+                    partition: mesh(nel).partition_box([2; 3]),
+                    formulation: Formulation::Classical,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        )
+        .unwrap_or_else(|error| panic!("classical FETI solve failed: {error}"));
+    let difference = largest_difference(&sparse, &classical);
+    assert!(difference < 1e-6, "coordinates differ by {difference:e}");
 }

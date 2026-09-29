@@ -9,10 +9,11 @@ use super::super::{
         coarse::{Coarse, CoarseSystem},
         condense::Condensed,
         rigid::{kernel, kernel_pins, removed_modes},
+        rigid_projector::{RigidProjector, add_rigid_motion, rigid_rhs},
     },
     interface::build_interfaces,
     parallel::parallel_map,
-    pcg::{Preconditioner, primal_recovery, projected_pcg_with},
+    pcg::{Preconditioner, primal_recovery, projected_pcg_with, rigid_projected_pcg},
     subdomain::{DirichletLocal, Subdomain},
 };
 use crate::{
@@ -258,33 +259,45 @@ pub(crate) fn solve_local_systems<const D: usize>(
             }
         })
         .collect();
-    if let Some((part, subdomain)) = subdomains
-        .iter()
-        .enumerate()
-        .find(|(_, subdomain)| !subdomain.kernel().is_empty())
-    {
-        return Err(SolveError::FloatingSubdomain {
-            part,
-            removed: removable - subdomain.kernel().len(),
-        });
-    }
     let rhs = rhs_from_forces(&subdomains, &local_forces, num_multipliers)
         - coupling(
             &subdomains,
             &coarse_problem.solve(&reduced_force),
             num_multipliers,
         );
-    let lambda = projected_pcg_with(
-        &subdomains,
-        &coarse_problem,
-        &rhs,
-        preconditioner,
-        rel_tol,
-        method,
-    )?;
+    let (lambda, alpha) = match formulation {
+        Formulation::DualPrimal => (
+            projected_pcg_with(
+                &subdomains,
+                &coarse_problem,
+                &rhs,
+                preconditioner,
+                rel_tol,
+                method,
+            )?,
+            None,
+        ),
+        Formulation::Classical => {
+            let projector = RigidProjector::try_new(&subdomains, num_multipliers)
+                .ok_or(SolveError::SingularCoarseProblem)?;
+            let (lambda, alpha) = rigid_projected_pcg(
+                &subdomains,
+                &projector,
+                &rhs,
+                &rigid_rhs(&subdomains, &local_forces),
+                preconditioner,
+                rel_tol,
+                method,
+            )?;
+            (lambda, Some(alpha))
+        }
+    };
     let ct_lambda = coupling_transpose(&subdomains, &lambda, coarse_problem.len());
     let corner_solution = coarse_problem.solve(&(reduced_force + ct_lambda));
-    let recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
+    let mut recovered = primal_recovery(&subdomains, &local_forces, &corner_solution, &lambda);
+    if let Some(alpha) = alpha {
+        add_rigid_motion(&subdomains, &alpha, &mut recovered);
+    }
     let mut global = Vector::zero(positions.len() * D);
     subdomain_nodes
         .iter()

@@ -49,9 +49,14 @@ pub const GMRES: KrylovMethod = KrylovMethod::Gmres(100);
 ///
 /// Classical FETI ties every interface DOF with a Lagrange multiplier, so
 /// there are no corners and every subdomain is floating unless boundary
-/// conditions pin it. Its local solves and rigid-body mode projection are not
-/// yet implemented, so for now a subdomain left floating is refused, and
-/// only a partition whose subdomains are each pinned enough is solved.
+/// conditions pin it. A floating subdomain's stiffness is singular along its
+/// rigid-body modes, so its local solve is a generalized inverse and the dual
+/// solve is projected against those modes.
+///
+/// That holds only where the rigid-body modes are a true kernel, meaning
+/// near equilibrium. Far from it, as at a poor initial guess of a Newton
+/// solve, the tangent's prestress makes the rotations non-singular and the
+/// solution is wrong. The tangent must also be symmetric.
 #[cfg(feature = "fem")]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Formulation {
