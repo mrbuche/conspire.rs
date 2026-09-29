@@ -21,7 +21,7 @@ fn determinant(element: &[usize], coordinates: &Coordinates<3>, at: [Scalar; 3])
     let mut columns = [[0.0; 3]; 3];
     NODES.iter().enumerate().for_each(|(node, exponents)| {
         let point = &coordinates[element[node]];
-        let value: [Scalar; 3] = std::array::from_fn(|d| {
+        let value: [Scalar; 3] = from_fn(|d| {
             if exponents[d] == 1 {
                 at[d]
             } else {
@@ -63,7 +63,7 @@ pub(crate) fn coefficients(element: &[usize], coordinates: &Coordinates<3>) -> [
     });
     (0..3).for_each(|j| {
         (0..3).for_each(|i| {
-            let lifted = lift(std::array::from_fn(|k| values[k][j][i]));
+            let lifted = lift(from_fn(|k| values[k][j][i]));
             (0..3).for_each(|k| values[k][j][i] = lifted[k])
         })
     });

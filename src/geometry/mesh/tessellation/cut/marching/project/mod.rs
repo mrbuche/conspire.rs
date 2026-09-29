@@ -54,7 +54,7 @@ impl Tessellation {
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = self.bvh();
         let nodes = boundary(hexes);
-        let mut belongs: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
+        let mut belongs = FxHashMap::<usize, Vec<usize>>::default();
         hexes.iter().enumerate().for_each(|(index, hex)| {
             hex.iter().for_each(|&node| {
                 belongs.entry(node).or_default().push(index);

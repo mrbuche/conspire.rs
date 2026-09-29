@@ -1,14 +1,15 @@
 use super::{Finish, Freedom, Marching, Placement};
 use crate::{
     geometry::mesh::{
-        Connectivity, Verdict,
+        Connectivity, Mesh, Verdict,
         quality::metrics::hexahedron::bernstein,
         tessellation::cut::test::{sphere, star},
     },
     math::Quantity,
 };
+use std::array::from_fn;
 
-fn report(name: &str, mesh: &crate::geometry::mesh::Mesh<3>) -> (usize, f64, usize) {
+fn report(name: &str, mesh: &Mesh<3>) -> (usize, f64, usize) {
     let scaled = &mesh.minimum_scaled_jacobians()[0];
     let minimum = scaled.iter().cloned().fold(f64::INFINITY, f64::min);
     let negative = scaled.iter().filter(|&&value| value <= 0.0).count();
@@ -110,9 +111,7 @@ fn every_configuration_of_signs_splits_into_hexahedra_that_hold_up() {
     };
     let place = |vertex: &Vertex| {
         let at = |corner: [usize; D]| {
-            Coordinate::<D>::from(std::array::from_fn::<_, D, _>(|d| {
-                Quantity::new(corner[d] as Scalar)
-            }))
+            Coordinate::<D>::from(from_fn::<_, D, _>(|d| Quantity::new(corner[d] as Scalar)))
         };
         match vertex {
             Vertex::Inside(corner) => at(*corner),
@@ -120,7 +119,7 @@ fn every_configuration_of_signs_splits_into_hexahedra_that_hold_up() {
         }
     };
     for mask in 1u16..256 {
-        let inside: [bool; 8] = std::array::from_fn(|corner| mask >> corner & 1 == 1);
+        let inside: [bool; 8] = from_fn(|corner| mask >> corner & 1 == 1);
         let cells = cell(CORNERS, inside).unwrap_or_else(|error| panic!("{mask:08b}  {error}"));
         let points: FxHashMap<Vertex, Coordinate<D>> = cells
             .iter()

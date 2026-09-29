@@ -9,6 +9,7 @@ use crate::{
     },
     math::{FxHashMap, Quantity, Scalar, Tensor, TensorVec},
 };
+use std::array::from_fn;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Node {
@@ -45,7 +46,7 @@ pub(super) fn hexahedra(
             .sum::<Coordinate<D>>()
             / vertices.len() as f64;
         positions.insert(Node::Body(cell), body);
-        let mut links: FxHashMap<Vertex, Vec<Around>> = FxHashMap::default();
+        let mut links = FxHashMap::<Vertex, Vec<Around>>::default();
         for face in polyhedron.faces.iter() {
             let middle = face
                 .iter()
@@ -116,7 +117,7 @@ pub(super) fn hexahedra(
         .for_each(|node| coordinates.push(positions[node].clone()));
     let hexes: Vec<[usize; 8]> = connectivity
         .iter()
-        .map(|hex| std::array::from_fn(|corner| numbering[&hex[corner]]))
+        .map(|hex| from_fn(|corner| numbering[&hex[corner]]))
         .collect();
     if let Some((tessellation, keep)) = draw {
         tessellation.draw_onto(&hexes, &mut coordinates, keep)
