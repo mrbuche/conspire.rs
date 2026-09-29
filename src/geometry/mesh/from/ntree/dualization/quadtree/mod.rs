@@ -10,7 +10,8 @@ use crate::{
         mesh::{
             Connectivity, Mesh,
             from::ntree::dualization::{
-                Dualization, Initialize, LeafIndex, NodeMap, Star, build_leaf_index, get_or_add,
+                Dualization, Initialize, LeafIndex, NodeMap, Star, admits, build_leaf_index,
+                get_or_add,
             },
         },
         ntree::{Quadtree, node::cell::Cell},
@@ -123,8 +124,7 @@ where
                     let j = if reversed { 1 - k } else { k } as i64;
                     base + j * coarse < low[tangent] || base + (j + 1) * coarse > high[tangent]
                 };
-                if !(0..2).any(half_present) || (0..2).any(|k| !half_present(k) && !half_outside(k))
-                {
+                if !admits(half_present, half_outside) {
                     continue;
                 }
                 // Each Steiner point sits on the interface, opposite one of the two inner fine

@@ -4,7 +4,7 @@ use crate::{
     geometry::{
         Coordinate, Coordinates,
         mesh::from::ntree::dualization::{
-            LeafIndex, NodeMap,
+            LeafIndex, NodeMap, admits,
             octree::{D, N, facet_direction},
         },
         ntree::Octree,
@@ -154,7 +154,7 @@ pub(super) fn template<T, U>(
                         }) && tree.off_domain(&corner_at(out_m, out_n, t), coarse)
                             && tree.off_domain(&corner_at(0, 0, t), coarse)
                     };
-                    if !(0..2).any(whole) || (0..2).any(|j| !whole(j) && !truncated(j)) {
+                    if !admits(whole, truncated) {
                         continue;
                     }
                     let cell = |slot: Option<usize>| slot.map(|slot| center_nodes[slot]);
