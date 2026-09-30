@@ -6,6 +6,7 @@ use crate::{
     math::{Quantity, Reference, Tensor, TensorRank1},
     units::{Area, Length},
 };
+use std::array::from_fn;
 
 const NOT_TRIANGULAR: &str = "surface integrals require triangular faces";
 const NOT_ON_THE_BOUNDARY: &str = "surface normals require faces on the boundary of the mesh";
@@ -20,12 +21,12 @@ fn points(mesh: &Mesh<3>) -> Vec<Point> {
 }
 
 fn triangle(face: &[usize]) -> Result<[usize; 3], &'static str> {
-    <[usize; 3]>::try_from(face).map_err(|_| NOT_TRIANGULAR)
+    face.try_into().map_err(|_| NOT_TRIANGULAR)
 }
 
 fn area_vector(points: &[Point], [a, b, c]: [usize; 3]) -> Point {
-    let u: Point = std::array::from_fn(|k| points[b][k] - points[a][k]);
-    let v: Point = std::array::from_fn(|k| points[c][k] - points[a][k]);
+    let u: Point = from_fn(|k| points[b][k] - points[a][k]);
+    let v: Point = from_fn(|k| points[c][k] - points[a][k]);
     [
         0.5 * (u[1] * v[2] - u[2] * v[1]),
         0.5 * (u[2] * v[0] - u[0] * v[2]),
@@ -34,10 +35,9 @@ fn area_vector(points: &[Point], [a, b, c]: [usize; 3]) -> Point {
 }
 
 fn centroid(points: &[Point], nodes: &[usize]) -> Point {
-    std::array::from_fn(|k| nodes.iter().map(|&n| points[n][k]).sum::<f64>() / nodes.len() as f64)
+    from_fn(|k| nodes.iter().map(|&n| points[n][k]).sum::<f64>() / nodes.len() as f64)
 }
 
-/// For each node, a third of the area of the faces around it.
 fn area_shares(mesh: &Mesh<3>, faces: &[Vec<usize>]) -> Result<Vec<f64>, &'static str> {
     let points = points(mesh);
     let mut shares = vec![0.0; points.len()];
@@ -50,8 +50,6 @@ fn area_shares(mesh: &Mesh<3>, faces: &[Vec<usize>]) -> Result<Vec<f64>, &'stati
     Ok(shares)
 }
 
-/// For each node, a third of the area vectors of the faces around it, each
-/// pointing out of the element the face belongs to.
 fn vector_shares(mesh: &Mesh<3>, faces: &[Vec<usize>]) -> Result<Vec<Point>, &'static str> {
     let points = points(mesh);
     let elements: Vec<(&Connectivity, &[usize])> = mesh
