@@ -69,7 +69,6 @@ impl Discretization {
     pub fn coordinates(&self) -> &NodalReferenceCoordinates<3> {
         &self.coordinates
     }
-    /// The forces on the seeds from a uniform traction over faces of the mesh.
     pub fn traction(
         &self,
         mesh: &Mesh<3>,
@@ -83,8 +82,11 @@ impl Discretization {
             .collect())
     }
     pub fn model<C>(self, constitutive_model: C) -> Model<Block<C>, 3> {
-        let coordinates = self.coordinates.clone();
-        Model::from((Block::from((constitutive_model, self)), coordinates))
+        (
+            Block::from((constitutive_model, self)),
+            self.coordinates.clone(),
+        )
+            .into()
     }
     pub(crate) fn into_points(self) -> Vec<Point> {
         self.points
