@@ -1,65 +1,31 @@
 #[cfg(test)]
 mod test;
 
-use super::{ElasticPlastic, Entries4, Matrix3, entries_4, fischer_burmeister, matrix_3, rank_4};
+use super::{ElasticPlastic, fischer_burmeister};
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariables},
     math::{
-        Matrix, Quantity, Rank2, SquareMatrix, Vector,
+        ContractSecondWithFirst, ContractThirdFourthWithFirstSecond, ContractWith, Intermediate,
+        Matrix, Quantity, Rank2, Reference, SquareMatrix, Tensor, TensorArray, TensorRank2,
+        TensorRank4, Vector,
         optimize::{NewtonRaphson, converged, limit_decrement},
     },
     mechanics::{
-        DeformationGradient, DeformationGradientPlastic, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, FlowDirectionPlastic, MandelStressElastic, Scalar,
+        DeformationGradient, DeformationGradientElastic, DeformationGradientGeneral,
+        DeformationGradientPlastic, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
+        FlowDirectionPlastic, MandelStressElastic, Scalar,
     },
+    units::Stress,
 };
 use std::{array::from_fn, fmt::Debug};
 
 pub(crate) const SIZE: usize = 10;
 const INITIAL_MULTIPLIER: Scalar = 1e-3;
-const ZERO: Matrix3 = [[0.0; 3]; 3];
-const EYE: Matrix3 = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]];
 
 type Unknowns = [Scalar; SIZE];
 
-fn mul(a: &Matrix3, b: &Matrix3) -> Matrix3 {
-    from_fn(|i| from_fn(|j| (0..3).map(|k| a[i][k] * b[k][j]).sum()))
-}
-
-fn transpose(a: &Matrix3) -> Matrix3 {
-    from_fn(|i| from_fn(|j| a[j][i]))
-}
-
-fn add(a: &Matrix3, b: &Matrix3, scale: Scalar) -> Matrix3 {
-    from_fn(|i| from_fn(|j| a[i][j] + scale * b[i][j]))
-}
-
-fn symmetric(a: &Matrix3) -> Matrix3 {
-    from_fn(|i| from_fn(|j| 0.5 * (a[i][j] + a[j][i])))
-}
-
-fn trace(a: &Matrix3) -> Scalar {
-    a[0][0] + a[1][1] + a[2][2]
-}
-
-fn determinant(a: &Matrix3) -> Scalar {
-    a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1])
-        - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0])
-        + a[0][2] * (a[1][0] * a[2][1] - a[1][1] * a[2][0])
-}
-
-fn contract(c: &Entries4, x: &Matrix3) -> Matrix3 {
-    from_fn(|i| {
-        from_fn(|j| {
-            (0..3)
-                .map(|k| (0..3).map(|l| c[i][j][k][l] * x[k][l]).sum::<Scalar>())
-                .sum()
-        })
-    })
-}
-
-fn basis(a: usize, b: usize) -> Matrix3 {
-    from_fn(|i| from_fn(|j| if i == a && j == b { 1.0 } else { 0.0 }))
+fn basis<I, J>(a: usize, b: usize) -> TensorRank2<3, I, J> {
+    from_fn::<_, 3, _>(|i| from_fn::<_, 3, _>(|j| if i == a && j == b { 1.0 } else { 0.0 })).into()
 }
 
 fn failure<C: ElasticPlastic>(model: &C, error: &dyn Debug) -> ConstitutiveError {
@@ -79,12 +45,12 @@ fn increment(x: &Unknowns) -> FlowDirectionPlastic {
 /// $`\det\mathbf{F}_\mathrm{e}`$; the two differ by $`\det\mathbf{F}_\mathrm{p}`$,
 /// which the last step of `mandel_derivative` accounts for.
 struct Linearization {
-    tangent: Entries4,
-    stress: Matrix3,
-    f_p: Matrix3,
-    f_p_inverse: Matrix3,
-    f_e: Matrix3,
-    mandel: Matrix3,
+    tangent: FirstPiolaKirchhoffTangentStiffness,
+    stress: FirstPiolaKirchhoffStress,
+    f_p: DeformationGradientPlastic,
+    f_p_inverse: DeformationGradientGeneral<Reference, Intermediate>,
+    f_e: DeformationGradientElastic,
+    mandel: MandelStressElastic,
 }
 
 impl Linearization {
@@ -94,50 +60,43 @@ impl Linearization {
         f_p: &DeformationGradientPlastic,
     ) -> Result<Self, ConstitutiveError> {
         let f_p_inverse = f_p.inverse();
-        let stress = matrix_3(&model.first_piola_kirchhoff_stress(f, f_p)?);
-        let f_e = matrix_3(&(f * &f_p_inverse));
-        let f_p_matrix = matrix_3(f_p);
-        let mandel = mul(&mul(&transpose(&f_e), &stress), &transpose(&f_p_matrix));
+        let stress = model.first_piola_kirchhoff_stress(f, f_p)?;
+        let f_e = f * &f_p_inverse;
+        let mandel = f_e.transpose() * &stress * f_p.transpose();
         Ok(Self {
-            tangent: entries_4(&model.first_piola_kirchhoff_tangent_stiffness(f, f_p)?),
+            tangent: model.first_piola_kirchhoff_tangent_stiffness(f, f_p)?,
             stress,
-            f_p: f_p_matrix,
-            f_p_inverse: matrix_3(&f_p_inverse),
+            f_p: f_p.clone(),
+            f_p_inverse,
             f_e,
             mandel,
         })
     }
 
-    fn stress_derivative(&self, d_f: &Matrix3, d_f_p: &Matrix3) -> Matrix3 {
-        let by_f = contract(&self.tangent, d_f);
-        let by_f_p = contract(&self.tangent, &mul(&self.f_e, d_f_p));
-        let correction = mul(
-            &mul(&self.stress, &transpose(d_f_p)),
-            &transpose(&self.f_p_inverse),
-        );
-        from_fn(|i| from_fn(|j| by_f[i][j] - by_f_p[i][j] - correction[i][j]))
+    fn stress_derivative(
+        &self,
+        d_f: &DeformationGradient,
+        d_f_p: &DeformationGradientPlastic,
+    ) -> FirstPiolaKirchhoffStress {
+        let by_f = (&self.tangent).contract_third_fourth_with_first_second(d_f);
+        let by_f_p = (&self.tangent).contract_third_fourth_with_first_second(&(&self.f_e * d_f_p));
+        let correction = &self.stress * d_f_p.transpose() * self.f_p_inverse.transpose();
+        by_f - by_f_p - correction
     }
 
-    fn mandel_derivative(&self, d_f: &Matrix3, d_f_p: &Matrix3) -> Matrix3 {
-        let d_f_e = add(
-            &mul(d_f, &self.f_p_inverse),
-            &mul(&mul(&self.f_e, d_f_p), &self.f_p_inverse),
-            -1.0,
-        );
+    fn mandel_derivative(
+        &self,
+        d_f: &DeformationGradient,
+        d_f_p: &DeformationGradientPlastic,
+    ) -> MandelStressElastic {
+        let d_f_e = d_f * &self.f_p_inverse - &self.f_e * d_f_p * &self.f_p_inverse;
         let d_p = self.stress_derivative(d_f, d_f_p);
-        let (f_e_t, f_p_t) = (transpose(&self.f_e), transpose(&self.f_p));
-        let d_m = add(
-            &add(
-                &mul(&mul(&transpose(&d_f_e), &self.stress), &f_p_t),
-                &mul(&mul(&f_e_t, &d_p), &f_p_t),
-                1.0,
-            ),
-            &mul(&mul(&f_e_t, &self.stress), &transpose(d_f_p)),
-            1.0,
-        );
-        let d_m = add(&d_m, &self.mandel, trace(&mul(&self.f_p_inverse, d_f_p)));
-        let scale = determinant(&self.f_p);
-        from_fn(|i| from_fn(|j| scale * d_m[i][j]))
+        let (f_e_t, f_p_t) = (self.f_e.transpose(), self.f_p.transpose());
+        let d_m = d_f_e.transpose() * &self.stress * &f_p_t
+            + &f_e_t * &d_p * &f_p_t
+            + &f_e_t * &self.stress * d_f_p.transpose();
+        let d_m = d_m + &self.mandel * (&self.f_p_inverse * d_f_p).trace();
+        d_m * self.f_p.determinant()
     }
 }
 
@@ -148,9 +107,9 @@ impl Linearization {
 struct Iterate {
     plastic: DeformationGradientPlastic,
     deviatoric: MandelStressElastic,
-    unit: Matrix3,
-    direction: Matrix3,
-    magnitude: Scalar,
+    unit: FlowDirectionPlastic,
+    direction: FlowDirectionPlastic,
+    magnitude: Quantity<Stress>,
     residual: Unknowns,
     gamma: Scalar,
     hardening_modulus: Scalar,
@@ -169,13 +128,12 @@ impl Iterate {
             .map_err(|error| failure(model, &error))?
             * f_p_n;
         let deviatoric: MandelStressElastic = model.mandel_stress(f, &plastic)?.deviatoric();
-        let magnitude = model.equivalent_stress(&deviatoric)?.value();
-        let unit = matrix_3(&model.flow_direction(&deviatoric)?);
-        let direction = symmetric(&unit);
+        let magnitude = model.equivalent_stress(&deviatoric)?;
+        let unit = model.flow_direction(&deviatoric)?;
+        let direction = unit.symmetric_part();
         let mut residual = [0.0; SIZE];
-        (0..3).for_each(|i| {
-            (0..3).for_each(|j| residual[3 * i + j] = x[3 * i + j] - x[9] * direction[i][j])
-        });
+        let flow = increment(x) - &direction * x[9];
+        (0..3).for_each(|i| (0..3).for_each(|j| residual[3 * i + j] = flow[i][j].value()));
         residual[9] = model
             .yield_function(&deviatoric, Quantity::new(strain_n + x[9]))?
             .value();
@@ -200,7 +158,7 @@ struct Sensitivities<'a, C> {
     model: &'a C,
     linearization: Linearization,
     iterate: &'a Iterate,
-    slopes: [[Matrix3; 3]; 3],
+    slopes: TensorRank4<3, Intermediate, Reference, Intermediate, Intermediate>,
 }
 
 impl<'a, C: ElasticPlastic> Sensitivities<'a, C> {
@@ -211,33 +169,29 @@ impl<'a, C: ElasticPlastic> Sensitivities<'a, C> {
         x: &Unknowns,
         iterate: &'a Iterate,
     ) -> Result<Self, ConstitutiveError> {
-        let exponential_slope = entries_4(
-            &increment(x)
-                .dexpm()
-                .map_err(|error| failure(model, &error))?,
-        );
-        let f_p_n = matrix_3(f_p_n);
+        let slopes = increment(x)
+            .dexpm()
+            .map_err(|error| failure(model, &error))?
+            .contract_second_with_first(f_p_n);
         Ok(Self {
             model,
             linearization: Linearization::new(model, f, &iterate.plastic)?,
             iterate,
-            slopes: from_fn(|a| {
-                from_fn(|b| {
-                    from_fn(|i| {
-                        from_fn(|j| {
-                            (0..3)
-                                .map(|k| exponential_slope[i][k][a][b] * f_p_n[k][j])
-                                .sum()
-                        })
-                    })
-                })
-            }),
+            slopes,
         })
+    }
+
+    /// The slope of the plastic deformation gradient along the direction $`E_{ab}`$.
+    fn slope(&self, a: usize, b: usize) -> DeformationGradientPlastic {
+        (&self.slopes).contract_third_fourth_with_first_second(&basis(a, b))
     }
 
     /// The slope of the symmetrized flow direction and of the equivalent stress along a
     /// Mandel stress increment.
-    fn direction_slope(&self, d_m: &Matrix3) -> Result<(Matrix3, Scalar), ConstitutiveError> {
+    fn direction_slope(
+        &self,
+        d_m: &MandelStressElastic,
+    ) -> Result<(FlowDirectionPlastic, Scalar), ConstitutiveError> {
         let Iterate {
             unit,
             magnitude,
@@ -246,19 +200,13 @@ impl<'a, C: ElasticPlastic> Sensitivities<'a, C> {
         } = self.iterate;
         // the equivalent stress is not differentiable where the deviator vanishes, and
         // the flow direction is zero there: the trial state is elastic
-        if *magnitude == 0.0 {
-            return Ok((ZERO, 0.0));
+        if magnitude.is_zero() {
+            return Ok((FlowDirectionPlastic::zero(), 0.0));
         }
-        let increment = add(d_m, &EYE, -trace(d_m) / 3.0);
-        let d_magnitude = (0..3)
-            .map(|i| (0..3).map(|j| unit[i][j] * increment[i][j]).sum::<Scalar>())
-            .sum();
-        let d_unit = matrix_3(
-            &self
-                .model
-                .flow_direction_slope(deviatoric, &MandelStressElastic::from(increment))?,
-        );
-        Ok((symmetric(&d_unit), d_magnitude))
+        let increment = d_m.deviatoric();
+        let d_magnitude = increment.contract_with(unit).value();
+        let d_unit = self.model.flow_direction_slope(deviatoric, &increment)?;
+        Ok((d_unit.symmetric_part(), d_magnitude))
     }
 
     /// The Jacobian of the residual with respect to $`(\mathbf{E},\Delta\gamma)`$.
@@ -273,12 +221,13 @@ impl<'a, C: ElasticPlastic> Sensitivities<'a, C> {
             for b in 0..3 {
                 let d_m = self
                     .linearization
-                    .mandel_derivative(&ZERO, &self.slopes[a][b]);
+                    .mandel_derivative(&DeformationGradient::zero(), &self.slope(a, b));
                 let (d_direction, d_magnitude) = self.direction_slope(&d_m)?;
                 for i in 0..3 {
                     for j in 0..3 {
                         let identity = if i == a && j == b { 1.0 } else { 0.0 };
-                        jacobian[3 * i + j][3 * a + b] = identity - gamma * d_direction[i][j];
+                        jacobian[3 * i + j][3 * a + b] =
+                            identity - gamma * d_direction[i][j].value();
                     }
                 }
                 jacobian[9][3 * a + b] = d_magnitude;
@@ -286,7 +235,7 @@ impl<'a, C: ElasticPlastic> Sensitivities<'a, C> {
         }
         for i in 0..3 {
             for j in 0..3 {
-                jacobian[3 * i + j][9] = -self.iterate.direction[i][j];
+                jacobian[3 * i + j][9] = -self.iterate.direction[i][j].value();
             }
         }
         jacobian[9][9] = -*hardening_modulus;
@@ -332,10 +281,7 @@ pub(super) fn solve<C: ElasticPlastic>(
     {
         return Ok(None);
     }
-    let direction = {
-        let direction = model.flow_direction(&deviatoric)?;
-        (&direction + direction.transpose()) * 0.5
-    };
+    let direction = model.flow_direction(&deviatoric)?.symmetric_part();
     let reference = reference(model);
     let mut x = [0.0; SIZE];
     (0..3).for_each(|i| {
@@ -556,22 +502,23 @@ pub(crate) fn condensed<C: ElasticPlastic>(
             ))
         })
         .collect();
-    let continuum = entries_4(&tangent);
-    let entries: Entries4 = from_fn(|i| {
-        from_fn(|j| {
-            from_fn(|k| {
-                from_fn(|l| {
-                    continuum[i][j][k][l]
-                        - (0..SIZE)
+    let mut effective = tangent;
+    for i in 0..3 {
+        for j in 0..3 {
+            for k in 0..3 {
+                for l in 0..3 {
+                    effective[i][j][k][l] -= Quantity::new(
+                        (0..SIZE)
                             .map(|m| k_uv[3 * i + j][m] * solved[3 * k + l][m])
-                            .sum::<Scalar>()
-                })
-            })
-        })
-    });
+                            .sum::<Scalar>(),
+                    )
+                }
+            }
+        }
+    }
     Ok((
         stress,
-        rank_4(&entries),
+        effective,
         updated_state(state, Some(&Converged { x, iterate })),
     ))
 }
@@ -619,11 +566,11 @@ fn evaluate<C: ElasticPlastic>(
         for l in 0..3 {
             let d_m = sensitivities
                 .linearization
-                .mandel_derivative(&basis(k, l), &ZERO);
+                .mandel_derivative(&basis(k, l), &DeformationGradientPlastic::zero());
             let (d_direction, d_magnitude) = sensitivities.direction_slope(&d_m)?;
             for i in 0..3 {
                 for j in 0..3 {
-                    k_vu[3 * i + j][3 * k + l] = -a * d_direction[i][j];
+                    k_vu[3 * i + j][3 * k + l] = -a * d_direction[i][j].value();
                 }
             }
             k_vu[SIZE - 1][3 * k + l] = factor * d_magnitude;
@@ -634,21 +581,21 @@ fn evaluate<C: ElasticPlastic>(
         for d in 0..3 {
             let d_p = sensitivities
                 .linearization
-                .stress_derivative(&ZERO, &sensitivities.slopes[c][d]);
+                .stress_derivative(&DeformationGradient::zero(), &sensitivities.slope(c, d));
             for i in 0..3 {
                 for j in 0..3 {
-                    k_uv[3 * i + j][3 * c + d] = d_p[i][j];
+                    k_uv[3 * i + j][3 * c + d] = d_p[i][j].value();
                 }
             }
         }
     }
     let Linearization {
         stress, tangent, ..
-    } = &sensitivities.linearization;
+    } = sensitivities.linearization;
     Ok(Monolithic {
-        stress: FirstPiolaKirchhoffStress::from(*stress),
+        stress,
         residual_local: monolithic_local_residual(iterate, a, reference),
-        tangent_uu: rank_4(tangent),
+        tangent_uu: tangent,
         tangent_vu: k_vu,
         tangent_uv: k_uv,
         tangent_vv: k_vv,
