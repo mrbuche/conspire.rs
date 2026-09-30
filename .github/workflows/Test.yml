@@ -23,6 +23,7 @@ jobs:
           - fem
           - vem
           - cbm
+          - meshfree
           - all
         os: [macos-latest, windows-latest, ubuntu-latest]
         toolchain: [beta, stable]

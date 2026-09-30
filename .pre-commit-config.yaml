@@ -52,6 +52,12 @@ repos:
         args: ['--features', 'cbm', '--tests', '--', '-D',  'warnings']
         name: cargo clippy cbm tests
     -   id: clippy
+        args: ['--features', 'meshfree', '--', '-D',  'warnings']
+        name: cargo clippy meshfree
+    -   id: clippy
+        args: ['--features', 'meshfree', '--tests', '--', '-D',  'warnings']
+        name: cargo clippy meshfree tests
+    -   id: clippy
         args: ['--features', 'fem', '--', '-D',  'warnings']
         name: cargo clippy fem
     -   id: clippy
