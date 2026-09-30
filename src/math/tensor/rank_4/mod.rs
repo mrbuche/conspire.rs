@@ -828,26 +828,48 @@ where
         self,
         tensor_rank_2: &TensorRank2<D, K, L, V>,
     ) -> Self::Output {
+        (&self).contract_third_fourth_with_first_second(tensor_rank_2)
+    }
+}
+
+impl<const D: usize, I, J, K, L, U, V> ContractThirdFourthWithFirstSecond<&TensorRank2<D, K, L, V>>
+    for &TensorRank4<D, I, J, K, L, U>
+where
+    U: UnitMul<V>,
+{
+    type Output = TensorRank2<D, I, J, <U as UnitMul<V>>::Output>;
+    fn contract_third_fourth_with_first_second(
+        self,
+        tensor_rank_2: &TensorRank2<D, K, L, V>,
+    ) -> Self::Output {
         relabel_rank_2(canonical_contract_34_12_rank_2(
-            self.into_canonical(),
+            self.canonical(),
             tensor_rank_2.canonical(),
         ))
     }
 }
 
 fn canonical_contract_34_12_rank_2<const D: usize>(
-    tensor_rank_4: TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
+    tensor_rank_4: &TensorRank4<D, Reference, Reference, Reference, Reference, Dimensionless>,
     tensor_rank_2: &TensorRank2<D, Reference, Reference, Dimensionless>,
 ) -> TensorRank2<D, Reference, Reference, Dimensionless> {
-    tensor_rank_4
-        .into_iter()
-        .map(|self_i| {
-            self_i
-                .into_iter()
-                .map(|self_ij| self_ij.full_contraction(tensor_rank_2))
-                .collect()
-        })
-        .collect()
+    let mut contraction = TensorRank2::zero();
+    for i in 0..D {
+        for j in 0..D {
+            let mut sum: TensorRank0 = 0.0;
+            for k in 0..D {
+                for l in 0..D {
+                    sum = sum.algebraic_add(
+                        tensor_rank_4[i][j][k][l]
+                            .value()
+                            .algebraic_mul(tensor_rank_2[k][l].value()),
+                    );
+                }
+            }
+            contraction[i][j] = Quantity::new(sum);
+        }
+    }
+    contraction
 }
 
 impl<const D: usize, I, J, K, L, M, N, U, V>
