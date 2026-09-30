@@ -22,4 +22,4 @@ and the hardening modulus by $`\mathrm{d}Y/\mathrm{d}\varepsilon_\mathrm{p} = H 
 - The hardening modulus starts at $`H+Qb`$ and approaches $`H`$ as the plastic strain grows.
 - The law is independent of the yield surface it is combined with.
 
-[^1]: E. Voce, The relationship between stress and strain for homogeneous deformation, *J. Inst. Met.* **74**, 537 (1948).
+[^1]: E. Voce, J. Inst. Met. **74**, 537 (1948).
