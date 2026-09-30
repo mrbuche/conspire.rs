@@ -74,7 +74,7 @@ impl Mesh<3> {
         )?;
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit_to(&nodes, &layer, target, fitting)?;
+        mesh.fit_to(&nodes, &layer, target, fitting, None)?;
         if !mesh
             .connectivities()
             .iter()
@@ -173,7 +173,7 @@ impl Mesh<3> {
                 .into_iter()
                 .filter(|node| free.binary_search(node).is_ok())
                 .collect();
-            mesh.fit_to(&free, &layer, target, fitting)?;
+            mesh.fit_to(&free, &layer, target, fitting, None)?;
             Ok(mesh)
         };
         let unchanged = || Self::from((hexahedra(blocks.clone()), fitted_coordinates.clone()));

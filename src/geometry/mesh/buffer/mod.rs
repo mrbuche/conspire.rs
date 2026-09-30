@@ -4,7 +4,7 @@ mod test;
 mod restrict;
 mod targeted;
 
-use super::{Connectivity, Fitting, Mesh, PrimitiveConnectivity, Tessellation};
+use super::{Connectivity, Fitting, Mesh, PrimitiveConnectivity, Tessellation, fit::Symmetry};
 use crate::{
     geometry::Coordinates,
     math::{Tensor, TensorVec},
@@ -142,6 +142,7 @@ fn manifold_boundary(mut mesh: Mesh<3>) -> Result<Mesh<3>, &'static str> {
 impl Mesh<3> {
     pub fn buffer(mut self, target: &Tessellation, fitting: Fitting) -> Result<Self, &'static str> {
         self.restrict()?;
+        let symmetry = Symmetry::detect(&self, target);
         let boundary = self.exterior_faces();
         let Peeled {
             mut connectivities,
@@ -150,6 +151,8 @@ impl Mesh<3> {
             duplicates,
             layer,
         } = self.peel(&boundary, 4, "non-quadrilateral boundary face")?;
+        let symmetry =
+            symmetry.and_then(|symmetry| symmetry.extend(&duplicates, coordinates.len()));
         let cells = boundary
             .iter()
             .map(|face| {
@@ -173,7 +176,7 @@ impl Mesh<3> {
         )?;
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit_to(&nodes, &layer, target, fitting)?;
+        mesh.fit_to(&nodes, &layer, target, fitting, symmetry.as_ref())?;
         Ok(mesh)
     }
     /// Adds a buffer layer of tetrahedra to a tetrahedral mesh and fits it to
@@ -193,6 +196,7 @@ impl Mesh<3> {
         fitting: Fitting,
     ) -> Result<Self, &'static str> {
         let cleaned = manifold_boundary(self)?;
+        let symmetry = Symmetry::detect(&cleaned, target);
         let boundary = cleaned.exterior_faces();
         let Peeled {
             mut connectivities,
@@ -201,6 +205,8 @@ impl Mesh<3> {
             duplicates,
             layer,
         } = cleaned.peel(&boundary, 3, "non-triangular boundary face")?;
+        let symmetry =
+            symmetry.and_then(|symmetry| symmetry.extend(&duplicates, coordinates.len()));
         let cells: Vec<[usize; 4]> = boundary
             .iter()
             .flat_map(|face| prism(face, &duplicates))
@@ -213,7 +219,7 @@ impl Mesh<3> {
         )?;
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit_to(&nodes, &layer, target, fitting)?;
+        mesh.fit_to(&nodes, &layer, target, fitting, symmetry.as_ref())?;
         Ok(mesh)
     }
     /// Checks the boundary is a manifold of `arity`-node faces and duplicates
