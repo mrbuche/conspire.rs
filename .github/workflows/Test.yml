@@ -22,7 +22,7 @@ jobs:
           - constitutive
           - cbm
           - fem
-          - meshfree
+          - qmm
           - vem
           - all
         os: [macos-latest, windows-latest, ubuntu-latest]
