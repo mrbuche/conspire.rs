@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use super::{Fitting, Peeled, merge};
+use super::{Peeled, merge};
+use crate::geometry::mesh::Fitting;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -22,9 +23,12 @@ fn worst(mesh: &Mesh<3>) -> Scalar {
 }
 
 impl Mesh<3> {
-    /// Adds a buffer layer as [`buffer`](Self::buffer) does, then, for
-    /// [`Fitting::Snap`], replaces the shell hexahedra that projection left
-    /// badly shaped along a feature with pyramid fans.
+    /// Adds a buffer layer as [`buffer`](Self::buffer) does, then replaces the
+    /// shell hexahedra left badly shaped along a feature with pyramid fans.
+    ///
+    /// The fitting applies to both fits, the one that places the hexahedra and
+    /// the one that settles the fans: under [`Fitting::Snap`] each projects the
+    /// boundary onto the surface, and under [`Fitting::Soft`] neither does.
     ///
     /// Every candidate is converted and refitted, and a fan is kept only if it
     /// beats the hexahedron it replaces. The result is never worse, by
@@ -70,12 +74,7 @@ impl Mesh<3> {
         )?;
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit(&nodes, target)?;
-        let Fitting::Snap = fitting else {
-            return Ok(mesh);
-        };
-        mesh.project(target, &layer)?;
-        mesh.fit(&(0..count).collect::<Vec<_>>(), target)?;
+        mesh.fit_to(&nodes, &layer, target, fitting)?;
         if !mesh
             .connectivities()
             .iter()
@@ -174,10 +173,7 @@ impl Mesh<3> {
                 .into_iter()
                 .filter(|node| free.binary_search(node).is_ok())
                 .collect();
-            mesh.fit(&free, target)?;
-            mesh.project(target, &layer)?;
-            let core: Vec<usize> = free.into_iter().filter(|&node| node < count).collect();
-            mesh.fit(&core, target)?;
+            mesh.fit_to(&free, &layer, target, fitting)?;
             Ok(mesh)
         };
         let unchanged = || Self::from((hexahedra(blocks.clone()), fitted_coordinates.clone()));
