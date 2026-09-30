@@ -28,6 +28,8 @@ pub(crate) mod lumping;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod multiphysics;
 pub(crate) mod parallel;
+#[cfg(feature = "meshfree")]
+pub mod meshfree;
 pub(crate) mod solid;
 pub(crate) mod stability;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
