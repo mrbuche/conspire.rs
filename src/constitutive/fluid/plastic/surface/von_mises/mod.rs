@@ -7,11 +7,7 @@ use crate::{
 };
 use std::array::from_fn;
 
-/// The von Mises yield surface.
-///
-/// ```math
-/// \phi(\mathbf{M}_\mathrm{e}') = |\mathbf{M}_\mathrm{e}'|
-/// ```
+#[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct VonMises;
 

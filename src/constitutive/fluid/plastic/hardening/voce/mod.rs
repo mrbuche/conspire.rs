@@ -1,13 +1,7 @@
 use super::PlasticHardening;
 use crate::{constitutive::ConstitutiveError, math::Quantity, mechanics::Scalar, units::Stress};
 
-/// Voce (saturating) isotropic hardening with a linear term.
-///
-/// ```math
-/// Y(\varepsilon_\mathrm{p}) = Y_0 + H\,\varepsilon_\mathrm{p} + Q\left(1 - e^{-b\,\varepsilon_\mathrm{p}}\right)
-/// ```
-///
-/// The linear term vanishes for $`H = 0`$, which is the Voce law proper.
+#[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct Voce {
     /// The initial yield stress $`Y_0`$.
