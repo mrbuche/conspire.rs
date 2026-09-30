@@ -141,7 +141,7 @@ fn manifold_boundary(mut mesh: Mesh<3>) -> Result<Mesh<3>, &'static str> {
 }
 
 /// Constraint on how the buffer layer approaches the target surface.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Fitting {
     /// The layer settles wherever the quality and fit energies balance.
     Soft,
@@ -280,7 +280,11 @@ impl Mesh<3> {
         })
     }
     /// Moves the layer's nodes onto the closest point of the target.
-    fn project(&mut self, target: &Tessellation, layer: &[usize]) -> Result<(), &'static str> {
+    pub(crate) fn project(
+        &mut self,
+        target: &Tessellation,
+        layer: &[usize],
+    ) -> Result<(), &'static str> {
         let surface = target.mesh();
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();

@@ -1,7 +1,7 @@
 use super::{Finish, Freedom, Marching, Placement};
 use crate::{
     geometry::mesh::{
-        Connectivity, Mesh, Verdict,
+        Connectivity, Fitting, Mesh, Verdict,
         quality::metrics::hexahedron::bernstein,
         tessellation::cut::test::{sphere, star},
     },
@@ -93,13 +93,36 @@ fn inflation_meshes_a_sphere_without_inverting() {
             Quantity::new(0.35),
             Marching {
                 placement: Placement::Crossing(0.2),
-                finish: Finish::Fit(Freedom::Shell),
+                finish: Finish::Fit(Freedom::Shell, Fitting::Soft),
             },
         )
         .unwrap();
     let (count, minimum, negative) = report("sphere", &mesh);
     assert!(count > 0);
     assert_eq!(negative, 0, "min SJ {minimum}");
+}
+
+#[test]
+fn snapping_puts_the_boundary_on_the_surface_without_inverting() {
+    let tessellation = sphere(2);
+    let mesh = tessellation
+        .marching_hex(
+            Quantity::new(0.35),
+            Marching {
+                placement: Placement::Crossing(0.2),
+                finish: Finish::Fit(Freedom::Whole, Fitting::Snap),
+            },
+        )
+        .unwrap();
+    let (count, minimum, negative) = report("sphere snapped", &mesh);
+    assert!(count > 0);
+    assert_eq!(negative, 0, "min SJ {minimum}");
+    let hexes = match &mesh.connectivities()[0] {
+        Connectivity::Hexahedral(hexes) => hexes.iter().copied().collect::<Vec<[usize; 8]>>(),
+        _ => panic!(),
+    };
+    let (maximum, _) = tessellation.conformance(&hexes, mesh.coordinates(), Quantity::new(0.35));
+    assert!(maximum < 1e-6, "{maximum}");
 }
 
 #[test]

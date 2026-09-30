@@ -11,7 +11,7 @@ use crate::{
         Coordinate, DirectionsRef,
         grid::{Gradient, MarchingCubes, Voxels},
         mesh::{
-            Mesh,
+            Fitting, Mesh,
             tessellation::{D, Tessellation},
         },
     },
@@ -48,8 +48,9 @@ pub enum Finish {
     Draw(Scalar),
     /// Deform the mesh onto the surface by energy fitting, after Protais:
     /// vertices move through the volume, connectivity does not, and no
-    /// elements are added.
-    Fit(Freedom),
+    /// elements are added. With [`Fitting::Snap`] the boundary is then
+    /// projected onto the surface and the interior relaxes around it.
+    Fit(Freedom, Fitting),
 }
 
 /// Which nodes an energy [`Fit`](Finish::Fit) is free to move.
@@ -255,12 +256,24 @@ impl Tessellation {
             _ => None,
         };
         let mut mesh = split::hexahedra(cells, &points, draw)?;
-        if let Finish::Fit(freedom) = finish {
+        if let Finish::Fit(freedom, fitting) = finish {
             let nodes = match freedom {
                 Freedom::Whole => (0..mesh.number_of_nodes()).collect::<Vec<_>>(),
                 Freedom::Shell => shell(&mesh),
             };
             mesh.fit(&nodes, self)?;
+            if let Fitting::Snap = fitting {
+                let mut boundary: Vec<usize> =
+                    mesh.exterior_faces().into_iter().flatten().collect();
+                boundary.sort_unstable();
+                boundary.dedup();
+                mesh.project(self, &boundary)?;
+                let interior: Vec<usize> = nodes
+                    .into_iter()
+                    .filter(|node| boundary.binary_search(node).is_err())
+                    .collect();
+                mesh.fit(&interior, self)?;
+            }
         }
         Ok(mesh)
     }
