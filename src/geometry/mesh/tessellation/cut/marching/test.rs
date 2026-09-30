@@ -1,7 +1,7 @@
-use super::{Finish, Freedom, Marching, Placement};
+use super::{Finish, Marching, Placement};
 use crate::{
     geometry::mesh::{
-        Connectivity, Fitting, Mesh, Verdict,
+        Connectivity, Fitting, Freedom, Mesh, Verdict,
         quality::metrics::hexahedron::bernstein,
         tessellation::cut::test::{sphere, star},
     },

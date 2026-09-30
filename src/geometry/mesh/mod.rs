@@ -25,7 +25,7 @@ pub use self::{
         primitive::PrimitiveConnectivity,
     },
     differential::laplace::Weighting,
-    fit::Fitting,
+    fit::{Fitting, Freedom},
     partition::{Bisection, Partition, PartitionQuality},
     quality::metrics::Verdict,
     read::Input,
@@ -35,7 +35,7 @@ pub use self::{
         Tessellation,
         cut::{
             Class,
-            marching::{Finish, Freedom, Marching, Placement},
+            marching::{Finish, Marching, Placement},
         },
         write::Stl,
     },
