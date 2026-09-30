@@ -1,10 +1,7 @@
 use super::YieldSurface;
 use crate::{
     constitutive::ConstitutiveError,
-    math::{
-        ContractWith, Erase, Quantity, Rank2, SquareMatrix, Tensor, TensorArray, TensorRank2,
-        Vector,
-    },
+    math::{ContractWith, Erase, Quantity, SquareMatrix, Tensor, TensorArray, TensorRank2, Vector},
     mechanics::{FlowDirectionPlastic, MandelStressElastic, Scalar, StretchingRatePlastic},
     units::{Dissipation, Rate, Stress},
 };
@@ -24,10 +21,6 @@ pub struct Hill {
     pub m: Scalar,
     /// The coefficient $`N`$.
     pub n: Scalar,
-}
-
-fn symmetric<I, U>(tensor: &TensorRank2<3, I, I, U>) -> TensorRank2<3, I, I, U> {
-    (tensor + tensor.transpose()) * 0.5
 }
 
 impl Hill {
@@ -65,7 +58,7 @@ impl YieldSurface for Hill {
         &self,
         deviatoric_mandel_stress: &MandelStressElastic,
     ) -> Result<Quantity<Stress>, ConstitutiveError> {
-        Ok(self.equivalent(&symmetric(deviatoric_mandel_stress)))
+        Ok(self.equivalent(&deviatoric_mandel_stress.symmetric_part()))
     }
     /// ```math
     /// \mathbf{N} = \frac{\mathcal{H}:\mathbf{a}}{\phi}
@@ -74,7 +67,7 @@ impl YieldSurface for Hill {
         &self,
         deviatoric_mandel_stress: &MandelStressElastic,
     ) -> Result<FlowDirectionPlastic, ConstitutiveError> {
-        let a = symmetric(deviatoric_mandel_stress);
+        let a = deviatoric_mandel_stress.symmetric_part();
         let magnitude = self.equivalent(&a);
         if magnitude.is_zero() {
             Ok(FlowDirectionPlastic::zero())
@@ -91,13 +84,13 @@ impl YieldSurface for Hill {
         deviatoric_mandel_stress: &MandelStressElastic,
         increment: &MandelStressElastic,
     ) -> Result<FlowDirectionPlastic, ConstitutiveError> {
-        let a = symmetric(deviatoric_mandel_stress);
+        let a = deviatoric_mandel_stress.symmetric_part();
         let magnitude = self.equivalent(&a);
         if magnitude.is_zero() {
             return Ok(FlowDirectionPlastic::zero());
         }
         let direction = self.operator(&a) / magnitude;
-        let d_a = symmetric(increment);
+        let d_a = increment.symmetric_part();
         let slope = d_a.contract_with(&direction);
         Ok((self.operator(&d_a) - &(direction * slope)) / magnitude)
     }
@@ -110,9 +103,7 @@ impl YieldSurface for Hill {
         yield_stress: Quantity<Stress>,
     ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
         let Self { f, g, h, l, m, n } = *self;
-        let d = symmetric(&plastic_stretching_rate);
-        // the normal block of the form annihilates the hydrostatic direction, so adding
-        // its outer product makes it invertible without changing it on the deviatoric one
+        let d = plastic_stretching_rate.symmetric_part();
         let normal = SquareMatrix::from([
             [g + h + 1.0, 1.0 - h, 1.0 - g],
             [1.0 - h, f + h + 1.0, 1.0 - f],

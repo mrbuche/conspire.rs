@@ -419,6 +419,13 @@ impl<const D: usize, I, J, U> TensorRank2<D, I, J, U> {
     }
 }
 
+impl<const D: usize, I, U> TensorRank2<D, I, I, U> {
+    /// Returns the symmetric part of the tensor, $`\tfrac{1}{2}(\mathbf{A}+\mathbf{A}^T)`$.
+    pub fn symmetric_part(&self) -> Self {
+        (self + self.transpose()) * 0.5
+    }
+}
+
 fn recast<const D: usize, I, J, U, V>(tensor_rank_1: TensorRank1<D, I, U>) -> TensorRank1<D, J, V> {
     TensorRank1(
         tensor_rank_1.0.map(|entry| Quantity::new(entry.value())),
