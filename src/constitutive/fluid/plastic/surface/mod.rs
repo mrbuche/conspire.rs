@@ -35,8 +35,6 @@ where
     /// ```math
     /// \mathbf{N} = \frac{\partial\phi}{\partial\mathbf{M}_\mathrm{e}'}
     /// ```
-    ///
-    /// It is zero where the equivalent stress vanishes.
     fn flow_direction(
         &self,
         deviatoric_mandel_stress: &MandelStressElastic,

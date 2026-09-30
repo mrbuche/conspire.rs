@@ -33,7 +33,7 @@ fn failure<C: ElasticPlastic>(model: &C, error: &dyn Debug) -> ConstitutiveError
 }
 
 fn increment(x: &Unknowns) -> FlowDirectionPlastic {
-    FlowDirectionPlastic::from(from_fn::<_, 3, _>(|i| from_fn::<_, 3, _>(|j| x[3 * i + j])))
+    from_fn(|i| from_fn::<_, 3, _>(|j| x[3 * i + j])).into()
 }
 
 /// The elastic-plastic stress and its tangent at fixed plastic deformation gradient,
