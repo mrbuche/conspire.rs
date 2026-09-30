@@ -5,6 +5,7 @@ mod base;
 mod buffer;
 mod connectivity;
 pub(crate) mod differential;
+mod fit;
 mod from;
 mod into;
 mod partition;
@@ -19,12 +20,12 @@ mod write;
 pub use from::Dualization;
 
 pub use self::{
-    buffer::Fitting,
     connectivity::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,
     },
     differential::laplace::Weighting,
+    fit::Fitting,
     partition::{Bisection, Partition, PartitionQuality},
     quality::metrics::Verdict,
     read::Input,

@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod test;
 
-use super::{Fitting, Peeled, merge};
+use super::{Peeled, merge};
+use crate::geometry::mesh::Fitting;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -70,12 +71,10 @@ impl Mesh<3> {
         )?;
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit(&nodes, target)?;
+        mesh.fit_to(&nodes, &layer, target, fitting)?;
         let Fitting::Snap = fitting else {
             return Ok(mesh);
         };
-        mesh.project(target, &layer)?;
-        mesh.fit(&(0..count).collect::<Vec<_>>(), target)?;
         if !mesh
             .connectivities()
             .iter()
@@ -174,10 +173,7 @@ impl Mesh<3> {
                 .into_iter()
                 .filter(|node| free.binary_search(node).is_ok())
                 .collect();
-            mesh.fit(&free, target)?;
-            mesh.project(target, &layer)?;
-            let core: Vec<usize> = free.into_iter().filter(|&node| node < count).collect();
-            mesh.fit(&core, target)?;
+            mesh.fit_to(&free, &layer, target, Fitting::Snap)?;
             Ok(mesh)
         };
         let unchanged = || Self::from((hexahedra(blocks.clone()), fitted_coordinates.clone()));

@@ -1,11 +1,10 @@
 #[cfg(test)]
 mod test;
 
-mod fit;
 mod restrict;
 mod targeted;
 
-use super::{Connectivity, Mesh, PrimitiveConnectivity, Tessellation};
+use super::{Connectivity, Fitting, Mesh, PrimitiveConnectivity, Tessellation};
 use crate::{
     geometry::Coordinates,
     math::{Tensor, TensorVec},
@@ -140,16 +139,6 @@ fn manifold_boundary(mut mesh: Mesh<3>) -> Result<Mesh<3>, &'static str> {
     Err("non-manifold boundary")
 }
 
-/// Constraint on how the buffer layer approaches the target surface.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Fitting {
-    /// The layer settles wherever the quality and fit energies balance.
-    Soft,
-    /// The layer settles as above, but is then projected onto the surface,
-    /// after which the interior relaxes.
-    Snap,
-}
-
 impl Mesh<3> {
     pub fn buffer(mut self, target: &Tessellation, fitting: Fitting) -> Result<Self, &'static str> {
         self.restrict()?;
@@ -184,11 +173,7 @@ impl Mesh<3> {
         )?;
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit(&nodes, target)?;
-        if let Fitting::Snap = fitting {
-            mesh.project(target, &layer)?;
-            mesh.fit(&(0..count).collect::<Vec<_>>(), target)?;
-        }
+        mesh.fit_to(&nodes, &layer, target, fitting)?;
         Ok(mesh)
     }
     /// Adds a buffer layer of tetrahedra to a tetrahedral mesh and fits it to
@@ -228,11 +213,7 @@ impl Mesh<3> {
         )?;
         let mut mesh = Self::from((connectivities, coordinates));
         let nodes: Vec<usize> = layer.iter().copied().chain(0..count).collect();
-        mesh.fit(&nodes, target)?;
-        if let Fitting::Snap = fitting {
-            mesh.project(target, &layer)?;
-            mesh.fit(&(0..count).collect::<Vec<_>>(), target)?;
-        }
+        mesh.fit_to(&nodes, &layer, target, fitting)?;
         Ok(mesh)
     }
     /// Checks the boundary is a manifold of `arity`-node faces and duplicates
@@ -277,25 +258,6 @@ impl Mesh<3> {
             count,
             duplicates,
             layer,
-        })
-    }
-    /// Moves the layer's nodes onto the closest point of the target.
-    pub(crate) fn project(
-        &mut self,
-        target: &Tessellation,
-        layer: &[usize],
-    ) -> Result<(), &'static str> {
-        let surface = target.mesh();
-        let surface_coordinates = surface.coordinates();
-        let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
-        let bvh = target.bvh();
-        let coordinates = self.coordinates.members_mut();
-        layer.iter().try_for_each(|&node| {
-            let (point, _) = bvh
-                .closest_point(&coordinates[node], surface_coordinates, &elements)
-                .ok_or("empty tessellation")?;
-            coordinates[node] = point;
-            Ok(())
         })
     }
 }

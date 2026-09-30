@@ -261,19 +261,10 @@ impl Tessellation {
                 Freedom::Whole => (0..mesh.number_of_nodes()).collect::<Vec<_>>(),
                 Freedom::Shell => shell(&mesh),
             };
-            mesh.fit(&nodes, self)?;
-            if let Fitting::Snap = fitting {
-                let mut boundary: Vec<usize> =
-                    mesh.exterior_faces().into_iter().flatten().collect();
-                boundary.sort_unstable();
-                boundary.dedup();
-                mesh.project(self, &boundary)?;
-                let interior: Vec<usize> = nodes
-                    .into_iter()
-                    .filter(|node| boundary.binary_search(node).is_err())
-                    .collect();
-                mesh.fit(&interior, self)?;
-            }
+            let mut boundary: Vec<usize> = mesh.exterior_faces().into_iter().flatten().collect();
+            boundary.sort_unstable();
+            boundary.dedup();
+            mesh.fit_to(&nodes, &boundary, self, fitting)?;
         }
         Ok(mesh)
     }
