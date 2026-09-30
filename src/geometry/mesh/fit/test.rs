@@ -1,10 +1,13 @@
-use super::{energy, scatter};
+use super::{Oracle, energy, scatter};
 use crate::math::assert::perturbation;
 use crate::{
     EPSILON,
     geometry::{
         Coordinates,
-        mesh::quality::metrics::{hexahedron, tetrahedron},
+        mesh::{
+            quality::metrics::{hexahedron, tetrahedron},
+            test::octahedron,
+        },
     },
     math::{
         Reference, TensorRank1,
@@ -65,4 +68,99 @@ fn tetrahedral_gradient_matches_finite_difference() -> Result<(), AssertionError
             [0.09, 0.01, 0.88],
         ]),
     )
+}
+
+fn targets(queries: &[[f64; 3]]) -> Vec<([f64; 3], [f64; 3])> {
+    let tessellation = octahedron(0);
+    let oracle = Oracle::new(&tessellation);
+    let offsets = [
+        [0.01, 0.0, 0.0],
+        [-0.01, 0.0, 0.0],
+        [0.0, 0.01, 0.0],
+        [0.0, -0.01, 0.0],
+    ];
+    let coordinates = Coordinates::from(
+        queries
+            .iter()
+            .flat_map(|query| offsets.map(|offset| from_fn(|i| query[i] + offset[i])))
+            .collect::<Vec<[f64; 3]>>(),
+    );
+    let faces: Vec<Vec<usize>> = (0..queries.len())
+        .map(|query| (4 * query..4 * query + 4).collect())
+        .collect();
+    oracle
+        .targets(&faces, &coordinates, 1)
+        .unwrap()
+        .into_iter()
+        .map(|(point, normal, _)| {
+            (
+                from_fn(|i| point[i].value()),
+                from_fn(|i| normal[i].value()),
+            )
+        })
+        .collect()
+}
+
+fn close(a: [f64; 3], b: [f64; 3]) -> bool {
+    (0..3).all(|i| (a[i] - b[i]).abs() < 1.0e-12)
+}
+
+#[test]
+fn equidistant_faces_average_to_a_symmetric_target() {
+    let (point, normal) = targets(&[[0.0, 0.2, 0.2]])[0];
+    let unit = 0.5_f64.sqrt();
+    assert!(close(point, [0.0, 0.4, 0.4]), "{point:?}");
+    assert!(close(normal, [0.0, unit, unit]), "{normal:?}");
+}
+
+#[test]
+fn shared_edge_averages_the_face_normals() {
+    let (point, normal) = targets(&[[0.0, 0.8, 0.8]])[0];
+    let unit = 0.5_f64.sqrt();
+    assert!(close(point, [0.0, 0.5, 0.5]), "{point:?}");
+    assert!(close(normal, [0.0, unit, unit]), "{normal:?}");
+}
+
+#[test]
+fn unique_nearest_face_keeps_its_normal() {
+    let (point, normal) = targets(&[[0.3, 0.2, 0.2]])[0];
+    let unit = 3.0_f64.sqrt().recip();
+    assert!(close(point, [0.4, 0.3, 0.3]), "{point:?}");
+    assert!(close(normal, [unit, unit, unit]), "{normal:?}");
+}
+
+#[test]
+fn targets_are_mirror_symmetric() {
+    let queries = [
+        [0.0, 0.2, 0.2],
+        [0.0, 0.8, 0.8],
+        [0.3, 0.2, 0.2],
+        [0.0, 0.0, 0.9],
+    ];
+    let expected = targets(&queries);
+    for axis in 0..3 {
+        let mirrored: Vec<[f64; 3]> = queries
+            .iter()
+            .map(|query| {
+                let mut query = *query;
+                query[axis] = -query[axis];
+                query
+            })
+            .collect();
+        for ((point, normal), (reflected_point, reflected_normal)) in
+            expected.iter().zip(targets(&mirrored))
+        {
+            let (mut point, mut normal) = (*point, *normal);
+            point[axis] = -point[axis];
+            normal[axis] = -normal[axis];
+            assert!(
+                close(point, reflected_point),
+                "{point:?} {reflected_point:?}"
+            );
+            assert!(
+                close(normal, reflected_normal),
+                "{normal:?} {reflected_normal:?}"
+            );
+        }
+    }
 }

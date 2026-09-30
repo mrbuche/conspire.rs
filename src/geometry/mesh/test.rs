@@ -5,7 +5,10 @@ use crate::{
     },
     math::assert::AssertionError,
 };
-use std::f64::consts::{PI, TAU};
+use std::{
+    collections::HashMap,
+    f64::consts::{PI, TAU},
+};
 
 pub const CONNECTIVITY: [[usize; 3]; 12] = [
     [0, 2, 1],
@@ -142,4 +145,50 @@ pub fn perpendicular_facet(axis: usize, sign: f64, size: f64) -> Mesh<3> {
         vec![Connectivity::Triangular(vec![facet, [3, 4, 5]].into())],
         coordinates,
     ))
+}
+
+pub fn octahedron(levels: usize) -> Tessellation {
+    let mut points = vec![
+        [1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, -1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, -1.0],
+    ];
+    let mut faces = vec![
+        [0, 2, 4],
+        [2, 1, 4],
+        [1, 3, 4],
+        [3, 0, 4],
+        [2, 0, 5],
+        [1, 2, 5],
+        [3, 1, 5],
+        [0, 3, 5],
+    ];
+    for _ in 0..levels {
+        let mut midpoints = HashMap::new();
+        let mut midpoint = |a: usize, b: usize, points: &mut Vec<[f64; 3]>| {
+            *midpoints.entry((a.min(b), a.max(b))).or_insert_with(|| {
+                let sum = [0, 1, 2].map(|i| points[a][i] + points[b][i]);
+                let norm = sum.iter().map(|entry| entry * entry).sum::<f64>().sqrt();
+                points.push(sum.map(|entry| entry / norm));
+                points.len() - 1
+            })
+        };
+        faces = faces
+            .into_iter()
+            .flat_map(|[a, b, c]| {
+                let (ab, bc, ca) = (
+                    midpoint(a, b, &mut points),
+                    midpoint(b, c, &mut points),
+                    midpoint(c, a, &mut points),
+                );
+                [[a, ab, ca], [ab, b, bc], [ca, bc, c], [ab, bc, ca]]
+            })
+            .collect();
+    }
+    let coordinates = Coordinates::from(points);
+    let connectivities = vec![Connectivity::Triangular(faces.into())];
+    Tessellation::from(Mesh::from((connectivities, coordinates)))
 }
