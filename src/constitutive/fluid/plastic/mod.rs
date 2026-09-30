@@ -65,8 +65,7 @@ where
     }
 }
 
-/// The rate-independent plastic flow model: a yield surface $`S`$ combined with a
-/// hardening law $`H`$.
+/// A rate-independent plastic flow model: a yield surface $`S`$ and a hardening law $`H`$.
 #[derive(Clone, Debug)]
 pub struct PlasticFlow<S, H> {
     /// The yield surface.

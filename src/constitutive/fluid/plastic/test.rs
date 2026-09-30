@@ -140,7 +140,6 @@ fn voce_hardening_starts_at_the_initial_yield_stress_and_saturates() -> Result<(
         model.yield_stress(Quantity::default())?,
         &model.initial_yield_stress(),
     )?;
-    // the initial slope is H + Q b, and past saturation only the linear part H remains
     Assert::default().eq_within_tols(
         model.hardening_modulus(Quantity::default())?,
         &(Stress::pascals(0.2) + Stress::pascals(1.5) * 8.0),

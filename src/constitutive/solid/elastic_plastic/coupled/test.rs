@@ -40,7 +40,6 @@ fn linear() -> MisesLinear {
     }
 }
 
-// saturates within a few percent plastic strain, so the modulus changes a lot over a step
 fn voce() -> MisesVoce {
     PlasticFlow {
         surface: VonMises,
@@ -80,11 +79,6 @@ macro_rules! test_models {
                 $make,
             ))
         }
-
-        /// The analytic Jacobian of the coupled residual against central differences at
-        /// an iterate whose plastic increment is not symmetric, so the nine-component
-        /// parametrization is exercised beyond the symmetric trace-free subspace, and
-        /// with the hardening modulus taken at the iterate's plastic strain.
         #[test]
         fn jacobian_matches_finite_difference() -> Result<(), ConstitutiveError> {
             let model = model();
@@ -116,10 +110,6 @@ macro_rules! test_models {
             }
             Ok(())
         }
-
-        /// The consistent tangent against central differences of the stress through the
-        /// whole return map, from a virgin state, on a large step, and from a
-        /// pre-loaded state under a rotated load.
         #[test]
         fn consistent_tangent_matches_finite_difference() -> Result<(), ConstitutiveError> {
             let model = model();
