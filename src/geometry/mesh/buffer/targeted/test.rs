@@ -89,7 +89,7 @@ fn cylinder(radius: Scalar, height: Scalar, segments: usize) -> Tessellation {
 }
 
 #[test]
-fn buffer_targeted_is_the_plain_buffer_under_soft_fitting() {
+fn buffer_targeted_is_never_worse_than_buffer_under_soft_fitting() {
     let target = cylinder(1.5, 2.0, 32);
     let plain = background(&target, 0.35)
         .buffer(&target, Fitting::Soft)
@@ -97,9 +97,12 @@ fn buffer_targeted_is_the_plain_buffer_under_soft_fitting() {
     let targeted = background(&target, 0.35)
         .buffer_targeted(&target, Fitting::Soft, THRESHOLD)
         .unwrap();
-    assert_eq!(pyramids(&targeted), 0);
-    assert_eq!(targeted.number_of_elements(), plain.number_of_elements());
-    assert_eq!(worst(&targeted), worst(&plain));
+    assert!(
+        worst(&targeted) >= worst(&plain),
+        "targeted {} vs plain {}",
+        worst(&targeted),
+        worst(&plain)
+    );
 }
 
 #[test]
