@@ -14,9 +14,10 @@ use crate::{
         assert::{Assert, AssertionError, perturbation},
         optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson},
     },
-    mechanics::{DeformationGradient, Traction},
+    mechanics::{DeformationGradient, Displacement, Traction},
     units::{Length, Stress},
 };
+use std::array::from_fn;
 
 fn constitutive_model() -> NeoHookean {
     NeoHookean {
@@ -48,7 +49,7 @@ fn apply(
 }
 
 fn deformation_gradient() -> DeformationGradient {
-    DeformationGradient::from([[1.1, 0.05, 0.0], [0.0, 0.9, 0.02], [-0.03, 0.0, 1.2]])
+    [[1.1, 0.05, 0.0], [0.0, 0.9, 0.02], [-0.03, 0.0, 1.2]].into()
 }
 
 fn on_the_boundary(reference: &NodalReferenceCoordinates<3>, node: usize) -> bool {
@@ -80,7 +81,7 @@ fn nodal_forces_and_stiffnesses_finite_difference() -> Result<(), AssertionError
     let reference = discretization.coordinates().clone();
     let block = Block::from((constitutive_model(), discretization));
     let mut coordinates = apply(&deformation_gradient(), &reference);
-    coordinates[1] += crate::mechanics::Displacement::from([0.03, -0.02, 0.015]);
+    coordinates[1] += Displacement::from([0.03, -0.02, 0.015]);
     let nodal_stiffnesses = block.nodal_stiffnesses(&coordinates).unwrap();
     let number_of_nodes = reference.len();
     let mut finite_difference = NodalStiffnessesSolid::<3>::zero(number_of_nodes);
@@ -193,7 +194,7 @@ fn solve_recovers_an_affine_field_exactly_with_tractions() -> Result<(), Asserti
                         .all(|&node| (mesh.coordinates()[node][axis].value() - side).abs() < 1e-12)
                 })
                 .collect();
-            let traction = Traction::from(std::array::from_fn(|i| sign * stress[i][axis].value()));
+            let traction = Traction::from(from_fn(|i| sign * stress[i][axis].value()));
             external += &discretization.traction(&mesh, &faces, &traction).unwrap();
         }
     }
