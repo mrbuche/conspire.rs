@@ -1,6 +1,7 @@
+pub use crate::domain::block::element::solid::viscoelastic::ViscoelasticElement;
+
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
-    domain::block::element::solid::viscoelastic::ViscoelasticElement,
     fem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
         FiniteElementError, GradientVectors,

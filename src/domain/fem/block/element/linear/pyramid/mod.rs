@@ -1,3 +1,5 @@
+#[cfg(feature = "autodiff")]
+mod autodiff;
 #[cfg(test)]
 mod test;
 

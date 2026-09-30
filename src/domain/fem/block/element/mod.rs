@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod test;
 
+#[cfg(feature = "autodiff")]
+pub(crate) mod autodiff;
 pub mod cohesive;
 pub mod linear;
 pub mod planar;
