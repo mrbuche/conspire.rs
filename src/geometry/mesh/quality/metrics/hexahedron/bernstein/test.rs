@@ -1,4 +1,4 @@
-use super::{certifies, coefficients, determinant};
+use super::{super::minimum_scaled_jacobian, certifies, coefficients, determinant};
 use crate::{
     geometry::Coordinates,
     math::{Quantity, Scalar},
@@ -99,7 +99,7 @@ fn corners_alone_can_miss_what_certification_catches() {
     let mut missed = 0;
     (0..600).for_each(|_| {
         let coordinates = perturbed(&mut seed, 1.1);
-        let corners = super::super::minimum_scaled_jacobian(&ELEMENT, &coordinates);
+        let corners = minimum_scaled_jacobian(&ELEMENT, &coordinates);
         if corners > 0.0 && sampled_minimum(&ELEMENT, &coordinates, 12) <= 0.0 {
             missed += 1;
             assert!(!certifies(&ELEMENT, &coordinates));

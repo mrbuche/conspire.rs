@@ -6,7 +6,7 @@ use crate::{
     math::Tensor,
     units::Length,
 };
-use std::{array::from_fn, collections::HashMap};
+use std::{array::from_fn, collections::HashMap, f64::consts::PI};
 
 pub(crate) fn sample(nel: [usize; 3], mut field: impl FnMut([usize; 3]) -> f64) -> Voxels<f64> {
     let mut data = Vec::with_capacity(nel.iter().product());
@@ -112,7 +112,7 @@ fn the_surface_of_a_sphere_is_closed_and_oriented_like_lewiner() {
         .extract(&volume, None)
         .unwrap();
     closed_and_oriented(&separated);
-    let exact = 4.0 / 3.0 * std::f64::consts::PI;
+    let exact = 4.0 / 3.0 * PI;
     let (enclosed_separated, enclosed_lewiner) = (enclosed(&separated), enclosed(&lewiner));
     assert!(
         (enclosed_separated - exact).abs() < 0.05 * exact,
@@ -167,7 +167,7 @@ fn spacing_that_differs_along_each_axis_scales_the_surface() {
         .extract(&volume, None)
         .unwrap();
     closed_and_oriented(&surface);
-    let exact = 4.0 / 3.0 * std::f64::consts::PI * 0.9_f64.powi(3);
+    let exact = 4.0 / 3.0 * PI * 0.9_f64.powi(3);
     let volume = enclosed(&surface);
     assert!(
         (volume - exact).abs() < 0.08 * exact,

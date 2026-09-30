@@ -137,7 +137,7 @@ fn loops(cuts: Vec<[Vertex; 2]>) -> Result<Vec<Vec<Vertex>>, &'static str> {
 fn pieces(mut faces: Vec<Vec<Vertex>>) -> Vec<Polyhedron> {
     let mut pieces = Vec::new();
     while let Some(first) = faces.pop() {
-        let mut vertices: Vec<Vertex> = first.clone();
+        let mut vertices = first.clone();
         let mut piece = vec![first];
         let mut grown = true;
         while grown {
@@ -203,10 +203,10 @@ pub(super) fn extract(
         Gradient::Ascent => 1.0,
     };
     let mut indices = FxHashMap::<[Corner; 2], usize>::default();
-    let mut vertices: Vec<[f64; 3]> = Vec::new();
-    let mut normals: Vec<[f64; 3]> = Vec::new();
-    let mut values: Vec<f64> = Vec::new();
-    let mut faces: Vec<[usize; 3]> = Vec::new();
+    let mut vertices = Vec::<[f64; 3]>::new();
+    let mut normals = Vec::<[f64; 3]>::new();
+    let mut values = Vec::<f64>::new();
+    let mut faces = Vec::<[usize; 3]>::new();
     for k in 0..nel[2] - 1 {
         for j in 0..nel[1] - 1 {
             for i in 0..nel[0] - 1 {

@@ -57,7 +57,7 @@ pub(crate) fn coefficients(element: &[usize], coordinates: &Coordinates<3>) -> [
     (0..3).for_each(|k| (0..3).for_each(|j| values[k][j] = lift(values[k][j])));
     (0..3).for_each(|k| {
         (0..3).for_each(|i| {
-            let lifted = lift(std::array::from_fn(|j| values[k][j][i]));
+            let lifted = lift(from_fn(|j| values[k][j][i]));
             (0..3).for_each(|j| values[k][j][i] = lifted[j])
         })
     });
