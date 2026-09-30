@@ -13,7 +13,7 @@ repository = "https://github.com/mrbuche/conspire"
 version = "0.9.1"
 
 [features]
-all = ['cbm', 'meshfree', 'vem']
+all = ['cbm', 'qmm', 'vem']
 autodiff = []
 cbm = ['constitutive', 'geometry']
 constitutive = ['mechanics']
@@ -23,9 +23,9 @@ geometry = ['io', 'math']
 io = []
 math = []
 mechanics = ['math']
-meshfree = ['constitutive', 'geometry']
 nightly = []
 physics = ['mechanics']
+qmm = ['constitutive', 'geometry']
 vem = ['fem']
 
 [package.metadata.docs.rs]

@@ -5,7 +5,7 @@ mod test;
 
 use crate::domain::{
     block::{add_node_neighbors, element::Elements},
-    meshfree::Discretization,
+    qmm::Discretization,
 };
 use point::Point;
 use std::fmt::{self, Debug, Formatter};

@@ -9,12 +9,7 @@ pub use domain::cbm;
 #[cfg(feature = "constitutive")]
 pub mod constitutive;
 
-#[cfg(any(
-    feature = "cbm",
-    feature = "fem",
-    feature = "meshfree",
-    feature = "vem"
-))]
+#[cfg(any(feature = "cbm", feature = "fem", feature = "qmm", feature = "vem"))]
 #[path = "domain/mod.rs"]
 pub mod domain;
 
@@ -38,12 +33,12 @@ pub mod math;
 #[cfg(feature = "mechanics")]
 pub mod mechanics;
 
-#[cfg(feature = "meshfree")]
-#[doc(hidden)]
-pub use domain::meshfree;
-
 #[cfg(feature = "physics")]
 pub mod physics;
+
+#[cfg(feature = "qmm")]
+#[doc(hidden)]
+pub use domain::qmm;
 
 #[cfg(feature = "math")]
 pub mod units;
