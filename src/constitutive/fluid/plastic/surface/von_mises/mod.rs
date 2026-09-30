@@ -1,11 +1,10 @@
 use super::YieldSurface;
 use crate::{
     constitutive::ConstitutiveError,
-    math::{Quantity, Tensor, TensorArray},
-    mechanics::{FlowDirectionPlastic, MandelStressElastic, Scalar, StretchingRatePlastic},
+    math::{ContractWith, Quantity, Tensor, TensorArray},
+    mechanics::{FlowDirectionPlastic, MandelStressElastic, StretchingRatePlastic},
     units::{Dissipation, Stress},
 };
-use std::array::from_fn;
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
@@ -41,22 +40,13 @@ impl YieldSurface for VonMises {
         deviatoric_mandel_stress: &MandelStressElastic,
         increment: &MandelStressElastic,
     ) -> Result<FlowDirectionPlastic, ConstitutiveError> {
-        let magnitude = deviatoric_mandel_stress.norm().value();
-        if magnitude == 0.0 {
+        let magnitude = deviatoric_mandel_stress.norm();
+        if magnitude.is_zero() {
             return Ok(FlowDirectionPlastic::zero());
         }
-        let direction: [[Scalar; 3]; 3] =
-            from_fn(|i| from_fn(|j| deviatoric_mandel_stress[i][j].value() / magnitude));
-        let slope: Scalar = (0..3)
-            .map(|i| {
-                (0..3)
-                    .map(|j| direction[i][j] * increment[i][j].value())
-                    .sum::<Scalar>()
-            })
-            .sum();
-        Ok(FlowDirectionPlastic::from(from_fn::<_, 3, _>(|i| {
-            from_fn::<_, 3, _>(|j| (increment[i][j].value() - direction[i][j] * slope) / magnitude)
-        })))
+        let direction = deviatoric_mandel_stress / magnitude;
+        let slope = increment.contract_with(&direction);
+        Ok((increment - direction * slope) / magnitude)
     }
     /// ```math
     /// \phi_\mathrm{d}(\mathbf{D}_\mathrm{p}) = Y\,|\mathbf{D}_\mathrm{p}|

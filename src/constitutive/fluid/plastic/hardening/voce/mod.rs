@@ -22,16 +22,17 @@ impl PlasticHardening for Voce {
         &self,
         equivalent_plastic_strain: Quantity,
     ) -> Result<Quantity<Stress>, ConstitutiveError> {
-        let saturation = 1.0 - (-self.saturation_rate * equivalent_plastic_strain.value()).exp();
-        Ok(self.yield_stress
-            + self.hardening_slope * equivalent_plastic_strain
-            + self.saturation_stress * saturation)
+        let decay = (equivalent_plastic_strain * -self.saturation_rate).exp();
+        Ok(
+            self.yield_stress + self.saturation_stress - self.saturation_stress * decay
+                + self.hardening_slope * equivalent_plastic_strain,
+        )
     }
     fn hardening_modulus(
         &self,
         equivalent_plastic_strain: Quantity,
     ) -> Result<Quantity<Stress>, ConstitutiveError> {
-        let decay = (-self.saturation_rate * equivalent_plastic_strain.value()).exp();
-        Ok(self.hardening_slope + self.saturation_stress * (self.saturation_rate * decay))
+        let decay = (equivalent_plastic_strain * -self.saturation_rate).exp();
+        Ok(self.hardening_slope + self.saturation_stress * decay * self.saturation_rate)
     }
 }

@@ -1,9 +1,9 @@
 use super::YieldSurface;
 use crate::{
     constitutive::ConstitutiveError,
-    math::{ContractWith, Erase, Quantity, SquareMatrix, Tensor, TensorArray, TensorRank2, Vector},
+    math::{ContractWith, Intermediate, Quantity, Tensor, TensorArray, TensorRank1, TensorRank2},
     mechanics::{FlowDirectionPlastic, MandelStressElastic, Scalar, StretchingRatePlastic},
-    units::{Dissipation, Rate, Stress},
+    units::{Dimensionless, Dissipation, Rate, Stress},
 };
 
 #[doc = include_str!("doc.md")]
@@ -47,9 +47,9 @@ impl Hill {
         ])
     }
     fn equivalent(&self, a: &MandelStressElastic) -> Quantity<Stress> {
-        let operator = self.operator(a);
-        let squared = a.erase().contract_with(operator.erase()).value();
-        Stress::pascals(squared.max(0.0).sqrt())
+        a.contract_with(&self.operator(a))
+            .max(Quantity::default())
+            .sqrt()
     }
 }
 
@@ -104,18 +104,19 @@ impl YieldSurface for Hill {
     ) -> Result<Quantity<Dissipation>, ConstitutiveError> {
         let Self { f, g, h, l, m, n } = *self;
         let d = plastic_stretching_rate.symmetric_part();
-        let normal = SquareMatrix::from([
+        let normal = TensorRank2::<3, Intermediate, Intermediate, Dimensionless>::from([
             [g + h + 1.0, 1.0 - h, 1.0 - g],
             [1.0 - h, f + h + 1.0, 1.0 - f],
             [1.0 - g, 1.0 - f, f + g + 1.0],
         ]);
-        let rates = Vector::from(vec![d[0][0].value(), d[1][1].value(), d[2][2].value()]);
-        let solved = normal
-            .solve_lu(&rates)
-            .map_err(|error| ConstitutiveError::custom(format!("{error:?}"), self))?;
-        let (d_12, d_13, d_23) = (d[0][1].value(), d[0][2].value(), d[1][2].value());
-        let squared = (0..3).map(|i| rates[i] * solved[i]).sum::<Scalar>()
-            + 2.0 * (d_23 * d_23 / l + d_13 * d_13 / m + d_12 * d_12 / n);
-        Ok(yield_stress * Quantity::<Rate>::new(squared.max(0.0).sqrt()))
+        let rates = TensorRank1::<3, Intermediate, Rate>::from([d[0][0], d[1][1], d[2][2]]);
+        let solved = normal.inverse() * &rates;
+        let dual = TensorRank2::<3, Intermediate, Intermediate, Rate>::from([
+            [solved[0], d[0][1] / n, d[0][2] / m],
+            [d[0][1] / n, solved[1], d[1][2] / l],
+            [d[0][2] / m, d[1][2] / l, solved[2]],
+        ]);
+        let squared = d.contract_with(&dual);
+        Ok(yield_stress * squared.max(Quantity::default()).sqrt())
     }
 }
