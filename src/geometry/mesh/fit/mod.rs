@@ -1,6 +1,10 @@
 #[cfg(test)]
 mod test;
 
+mod symmetry;
+
+use self::symmetry::Orbits;
+pub(crate) use self::symmetry::Symmetry;
 use crate::{
     geometry::{
         Coordinate, Coordinates, Direction, DirectionsRef,
@@ -81,6 +85,7 @@ struct Sweep<'a> {
     node_chunk: usize,
     node_faces: &'a [Vec<usize>],
     nodes: &'a [usize],
+    orbits: Option<&'a Orbits>,
     scales: Vec<Quantity<Length>>,
     slot: &'a [Option<usize>],
     targets: Vec<Target>,
@@ -113,7 +118,7 @@ impl Mesh<3> {
                 nodes
             }
         };
-        self.fit_to(&free, &boundary, target, fitting)
+        self.fit_to(&free, &boundary, target, fitting, None)
     }
     pub(crate) fn fit_to(
         &mut self,
@@ -121,8 +126,9 @@ impl Mesh<3> {
         boundary: &[usize],
         target: &Tessellation,
         fitting: Fitting,
+        symmetry: Option<&Symmetry>,
     ) -> Result<(), &'static str> {
-        self.fit(free, target)?;
+        self.fit(free, target, symmetry)?;
         if let Fitting::Snap = fitting {
             self.project(target, boundary)?;
             let pinned: HashSet<usize> = boundary.iter().copied().collect();
@@ -131,7 +137,7 @@ impl Mesh<3> {
                 .copied()
                 .filter(|node| !pinned.contains(node))
                 .collect();
-            self.fit(&interior, target)?;
+            self.fit(&interior, target, None)?;
         }
         Ok(())
     }
@@ -157,6 +163,7 @@ impl Mesh<3> {
         &mut self,
         nodes: &[usize],
         target: &Tessellation,
+        symmetry: Option<&Symmetry>,
     ) -> Result<(), &'static str> {
         let mut elements: Vec<(&'static CornerTable, Vec<usize>)> = Vec::new();
         for block in self.iter() {
@@ -207,6 +214,17 @@ impl Mesh<3> {
             .enumerate()
             .for_each(|(index, &node)| slot[node] = Some(index));
         let unknowns = nodes.len();
+        let orbits = symmetry.and_then(|symmetry| symmetry.orbits(nodes));
+        if let Some(orbits) = &orbits {
+            let points: Vec<[Scalar; 3]> = nodes
+                .iter()
+                .map(|&node| from_fn(|i| coordinates[node][i].value()))
+                .collect();
+            nodes
+                .iter()
+                .zip(orbits.points(&points))
+                .for_each(|(&node, point)| coordinates[node] = Coordinate::const_from(point));
+        }
         let mut epsilon: Scalar = 1.0;
         let mut previous = Quantity::<Length>::new(Scalar::INFINITY);
         let mut window = VecDeque::<Quantity<Length>>::with_capacity(WINDOW);
@@ -220,6 +238,7 @@ impl Mesh<3> {
                 node_chunk,
                 node_faces: &node_faces,
                 nodes,
+                orbits: orbits.as_ref(),
                 scales,
                 slot: &slot,
                 targets: oracle.targets(&faces, coordinates, face_chunk)?,
@@ -459,6 +478,38 @@ impl Sweep<'_> {
         });
         gradient
     }
+    fn constrain(&self, gradient: Gradient) -> Gradient {
+        match self.orbits {
+            Some(orbits) => {
+                let vectors: Vec<[Scalar; 3]> = gradient
+                    .iter()
+                    .map(|entry| from_fn(|i| entry[i].value()))
+                    .collect();
+                orbits
+                    .vectors(&vectors)
+                    .into_iter()
+                    .map(TensorRank1::const_from)
+                    .collect()
+            }
+            None => gradient,
+        }
+    }
+    fn symmetrize(&self, direction: Coordinates<3>) -> Coordinates<3> {
+        match self.orbits {
+            Some(orbits) => {
+                let vectors: Vec<[Scalar; 3]> = direction
+                    .iter()
+                    .map(|entry| from_fn(|i| entry[i].value()))
+                    .collect();
+                orbits
+                    .vectors(&vectors)
+                    .into_iter()
+                    .map(Coordinate::const_from)
+                    .collect()
+            }
+            None => direction,
+        }
+    }
     fn empty(&self) -> Gradient {
         (0..self.unknowns)
             .map(|_| TensorRank1::const_from([0.0; 3]))
@@ -478,7 +529,7 @@ impl Sweep<'_> {
             .collect();
         let anchor = x.clone();
         let mut history = Vec::<(Coordinates<3>, Gradient)>::new();
-        let mut gradient = self.derivative(coordinates);
+        let mut gradient = self.constrain(self.derivative(coordinates));
         let mut value = self.objective(coordinates);
         let mut settled = false;
         for iteration in 0..ITERATIONS {
@@ -487,7 +538,7 @@ impl Sweep<'_> {
                 settled = iteration == 0;
                 break;
             }
-            let d = direction(&gradient, &history, typical / magnitude);
+            let d = self.symmetrize(direction(&gradient, &history, typical / magnitude));
             let slope = gradient.contract_with(&d);
             if slope >= Quantity::default() {
                 history.clear();
@@ -520,7 +571,22 @@ impl Sweep<'_> {
             };
             let s: Coordinates<3> = d.iter().map(|entry| entry * step).collect();
             x += &s;
-            let updated = self.derivative(coordinates);
+            if let Some(orbits) = self.orbits {
+                let points: Vec<[Scalar; 3]> = x
+                    .iter()
+                    .map(|point| from_fn(|i| point[i].value()))
+                    .collect();
+                x = orbits
+                    .points(&points)
+                    .into_iter()
+                    .map(Coordinate::const_from)
+                    .collect();
+                self.nodes
+                    .iter()
+                    .enumerate()
+                    .for_each(|(index, &node)| coordinates[node] = x[index].clone());
+            }
+            let updated = self.constrain(self.derivative(coordinates));
             let y: Gradient = updated
                 .iter()
                 .zip(gradient.iter())

@@ -290,3 +290,38 @@ fn buffer_preserves_mirror_symmetry() {
         assert!(mismatch < 1.0e-8, "axis {axis} mirror mismatch: {mismatch}");
     });
 }
+
+fn buffered_octahedron(levels: usize, scale: Scalar) -> Mesh<3> {
+    let target = octahedron(levels);
+    let mut octree = Octree::<u16, usize>::from_features(
+        &target,
+        scale,
+        CurvatureSizing {
+            tolerance: None,
+            ..Default::default()
+        },
+        0,
+    )
+    .unwrap();
+    octree
+        .equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    let mut mesh = octree.dualize();
+    target.trim(&mut mesh).unwrap();
+    mesh.buffer(&target, Fitting::Soft).unwrap()
+}
+
+#[test]
+fn buffer_keeps_mirror_symmetry_when_the_fit_would_break_it() {
+    let mesh = buffered_octahedron(1, 8.0);
+    (0..3).for_each(|axis| {
+        let mismatch = mirror_mismatch(&mesh, axis);
+        assert!(mismatch < 1.0e-8, "axis {axis} mirror mismatch: {mismatch}");
+    });
+    let worst = mesh
+        .minimum_scaled_jacobians()
+        .iter()
+        .flatten()
+        .fold(Scalar::INFINITY, |worst, &quality| worst.min(quality));
+    assert!(worst > 0.1, "minimum scaled jacobian: {worst}");
+}
