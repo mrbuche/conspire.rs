@@ -28,7 +28,7 @@ pub(crate) const SIZE: usize = 10;
 type Unknowns = [Scalar; SIZE];
 
 fn basis<I, J>(a: usize, b: usize) -> TensorRank2<3, I, J> {
-    from_fn::<_, 3, _>(|i| from_fn::<_, 3, _>(|j| if i == a && j == b { 1.0 } else { 0.0 })).into()
+    from_fn(|i| from_fn(|j| if i == a && j == b { 1.0 } else { 0.0 })).into()
 }
 
 fn failure<C: ElasticPlastic>(model: &C, error: &dyn Debug) -> ConstitutiveError {
@@ -36,11 +36,9 @@ fn failure<C: ElasticPlastic>(model: &C, error: &dyn Debug) -> ConstitutiveError
 }
 
 fn increment(x: &Unknowns) -> FlowDirectionPlastic {
-    from_fn(|i| from_fn::<_, 3, _>(|j| x[3 * i + j])).into()
+    from_fn(|i| from_fn(|j| x[3 * i + j])).into()
 }
 
-/// The scale of the yield row of the local residual, the initial yield stress, or unity
-/// where a perfectly weak material has none.
 fn reference<C: ElasticPlastic>(model: &C) -> Scalar {
     let initial = model.initial_yield_stress().value();
     if initial > 0.0 { initial } else { 1.0 }
