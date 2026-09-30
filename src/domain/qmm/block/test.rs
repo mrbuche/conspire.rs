@@ -5,7 +5,7 @@ use crate::{
     domain::{
         ElementModel, Elements, FirstOrderRoot, NodalCoordinates, NodalReferenceCoordinates,
         block::{finalize_node_neighbors, solver_from_neighbors},
-        meshfree::{Discretization, Support},
+        qmm::{Discretization, Support},
         solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
     },
     geometry::mesh::{Mesh, test::tetrahedra},
