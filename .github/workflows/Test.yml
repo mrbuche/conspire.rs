@@ -20,10 +20,10 @@ jobs:
           - mechanics
           - physics
           - constitutive
-          - fem
-          - vem
           - cbm
+          - fem
           - meshfree
+          - vem
           - all
         os: [macos-latest, windows-latest, ubuntu-latest]
         toolchain: [beta, stable]
@@ -55,8 +55,6 @@ jobs:
           - mechanics
           - physics
           - constitutive
-          # - fem
-          # - vem
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
