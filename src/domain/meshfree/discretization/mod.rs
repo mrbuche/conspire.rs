@@ -3,9 +3,14 @@ use crate::{
         Model, NodalReferenceCoordinates,
         meshfree::block::{Block, point::Point},
         nodal_coordinates,
+        solid::NodalForcesSolid,
     },
-    geometry::{Coordinates, mesh::Mesh},
+    geometry::{
+        Coordinates,
+        mesh::{Basis, Mesh},
+    },
     math::{Quantity, Scalar},
+    mechanics::Traction,
     units::Length,
 };
 
@@ -20,6 +25,7 @@ pub struct Support {
 #[derive(Clone, Debug)]
 pub struct Discretization {
     coordinates: NodalReferenceCoordinates<3>,
+    basis: Basis,
     points: Vec<Point>,
 }
 
@@ -56,11 +62,25 @@ impl Discretization {
             .collect();
         Ok(Self {
             coordinates: nodal_coordinates(coordinates),
+            basis: approximation,
             points,
         })
     }
     pub fn coordinates(&self) -> &NodalReferenceCoordinates<3> {
         &self.coordinates
+    }
+    /// The forces on the seeds from a uniform traction over faces of the mesh.
+    pub fn traction(
+        &self,
+        mesh: &Mesh<3>,
+        faces: &[Vec<usize>],
+        traction: &Traction,
+    ) -> Result<NodalForcesSolid<3>, &'static str> {
+        Ok(mesh
+            .face_integrals(&self.basis, faces)?
+            .into_iter()
+            .map(|area| traction * area)
+            .collect())
     }
     pub fn model<C>(self, constitutive_model: C) -> Model<Block<C>, 3> {
         let coordinates = self.coordinates.clone();
