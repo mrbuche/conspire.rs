@@ -38,9 +38,11 @@ const CURVATURE_FLOOR: Scalar = 1.0e-12;
 const EPSILON_FLOOR: Scalar = 1.0e-12;
 const HISTORY: usize = 8;
 const ITERATIONS: usize = 100;
+const NORMAL_FLOOR: Scalar = 1.0e-9;
 const RELAXATION: Scalar = 0.1;
 const STAGNATION: Scalar = 5.0e-4;
 const SWEEPS: usize = 50;
+const TIE_TOLERANCE: Scalar = 1.0e-6;
 const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
@@ -257,6 +259,32 @@ impl<'a> Oracle<'a> {
             normals: target.normals().iter().flatten().collect(),
         }
     }
+    fn tied_target(
+        &self,
+        centroid: &Coordinate<3>,
+        tolerance: Quantity<Length>,
+    ) -> Option<(Coordinate<3>, Direction<3>)> {
+        let ties = self
+            .bvh
+            .closest_points(centroid, self.coordinates, &self.elements, tolerance);
+        let (nearest, index) = ties
+            .iter()
+            .min_by(|(a, _), (b, _)| (a - centroid).norm().total_cmp(&(b - centroid).norm()))?;
+        if ties.len() == 1 {
+            return Some((nearest.clone(), self.normals[*index].clone()));
+        }
+        let point =
+            ties.iter().map(|(point, _)| point).sum::<Coordinate<3>>() / ties.len() as Scalar;
+        let normal = ties
+            .iter()
+            .map(|&(_, index)| self.normals[index].clone())
+            .sum::<Direction<3>>();
+        if normal.norm().value() > NORMAL_FLOOR {
+            Some((point, normal.normalized()))
+        } else {
+            Some((nearest.clone(), self.normals[*index].clone()))
+        }
+    }
     fn targets(
         &self,
         faces: &[Vec<usize>],
@@ -276,20 +304,25 @@ impl<'a> Oracle<'a> {
                                 .map(|&node| &coordinates[node])
                                 .sum::<Coordinate<3>>()
                                 / face.len() as Scalar;
-                            *target = self
-                                .bvh
-                                .closest_point(&centroid, self.coordinates, &self.elements)
-                                .map(|(point, index)| {
-                                    let normal = self.normals[index].clone();
-                                    let distance = face
-                                        .iter()
-                                        .map(|&node| {
-                                            let deviation = (&coordinates[node] - &point) * &normal;
-                                            deviation * deviation
-                                        })
-                                        .fold(Quantity::default(), Quantity::max);
-                                    (point, normal, distance)
-                                });
+                            let tolerance = face
+                                .iter()
+                                .map(|&node| (&coordinates[node] - &centroid).norm())
+                                .sum::<Quantity<Length>>()
+                                / face.len() as Scalar
+                                * TIE_TOLERANCE;
+                            *target =
+                                self.tied_target(&centroid, tolerance)
+                                    .map(|(point, normal)| {
+                                        let distance = face
+                                            .iter()
+                                            .map(|&node| {
+                                                let deviation =
+                                                    (&coordinates[node] - &point) * &normal;
+                                                deviation * deviation
+                                            })
+                                            .fold(Quantity::default(), Quantity::max);
+                                        (point, normal, distance)
+                                    });
                         })
                     });
                 });

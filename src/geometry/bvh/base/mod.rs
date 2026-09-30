@@ -12,9 +12,14 @@ use crate::{
             ray::Ray,
         },
     },
-    math::Quantity,
+    math::{Quantity, Scalar, Tensor},
     units::{Area, Length},
 };
+
+struct Ties {
+    found: Vec<(Quantity<Length>, Coordinate<3>, usize)>,
+    nearest: Quantity<Length>,
+}
 
 impl<const D: usize> BoundingVolumeHierarchy<D> {
     pub fn build_node(&mut self, primitives: &mut [Primitive<D>], leaf_size: usize) -> usize {
@@ -245,6 +250,73 @@ impl BoundingVolumeHierarchy<3> {
             self.closest_point_node(0, point, coordinates, elements, &mut closest);
         }
         closest.map(|(_, candidate, index)| (candidate, index))
+    }
+    pub fn closest_points(
+        &self,
+        point: &Coordinate<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+        tolerance: Quantity<Length>,
+    ) -> Vec<(Coordinate<3>, usize)> {
+        let mut ties = Ties {
+            found: Vec::new(),
+            nearest: Quantity::new(Scalar::INFINITY),
+        };
+        if !self.nodes.is_empty() {
+            self.closest_points_node(0, point, coordinates, elements, tolerance, &mut ties);
+        }
+        let radius = ties.nearest + tolerance;
+        ties.found.retain(|(distance, ..)| *distance <= radius);
+        ties.found.sort_unstable_by_key(|&(_, _, index)| index);
+        ties.found
+            .into_iter()
+            .map(|(_, candidate, index)| (candidate, index))
+            .collect()
+    }
+    fn closest_points_node(
+        &self,
+        node_index: usize,
+        point: &Coordinate<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+        tolerance: Quantity<Length>,
+        ties: &mut Ties,
+    ) {
+        let node = &self.nodes[node_index];
+        let radius = ties.nearest + tolerance;
+        if point_box_distance_squared(point, node.bounding_box()) > radius * radius {
+            return;
+        }
+        match node.kind() {
+            NodeKind::Leaf { start, end } => {
+                self.items[*start..*end].iter().for_each(|&item| {
+                    let element = elements[item];
+                    let candidate = closest_point_on_triangle(
+                        point,
+                        &coordinates[element[0]],
+                        &coordinates[element[1]],
+                        &coordinates[element[2]],
+                    );
+                    let distance = (&candidate - point).norm();
+                    if distance <= ties.nearest + tolerance {
+                        ties.found.push((distance, candidate, item));
+                        ties.nearest = ties.nearest.min(distance);
+                    }
+                });
+            }
+            NodeKind::Tree { left, right } => {
+                let (near, far) =
+                    if point_box_distance_squared(point, self.nodes[*left].bounding_box())
+                        <= point_box_distance_squared(point, self.nodes[*right].bounding_box())
+                    {
+                        (*left, *right)
+                    } else {
+                        (*right, *left)
+                    };
+                self.closest_points_node(near, point, coordinates, elements, tolerance, ties);
+                self.closest_points_node(far, point, coordinates, elements, tolerance, ties);
+            }
+        }
     }
     fn closest_point_node(
         &self,
