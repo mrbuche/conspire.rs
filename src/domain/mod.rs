@@ -18,8 +18,8 @@ pub mod feti;
 pub(crate) mod from;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod mass;
-#[cfg(feature = "meshfree")]
-pub mod meshfree;
+#[cfg(feature = "qmm")]
+pub mod qmm;
 pub(crate) mod solid;
 #[cfg(feature = "vem")]
 pub mod vem;

@@ -1,8 +1,7 @@
 use crate::{
     domain::{
-        Model, NodalReferenceCoordinates,
-        meshfree::block::{Block, point::Point},
-        nodal_coordinates,
+        Model, NodalReferenceCoordinates, nodal_coordinates,
+        qmm::block::{Block, point::Point},
         solid::NodalForcesSolid,
     },
     geometry::{
@@ -82,11 +81,8 @@ impl Discretization {
             .collect())
     }
     pub fn model<C>(self, constitutive_model: C) -> Model<Block<C>, 3> {
-        (
-            Block::from((constitutive_model, self)),
-            self.coordinates.clone(),
-        )
-            .into()
+        let coordinates = self.coordinates.clone();
+        (Block::from((constitutive_model, self)), coordinates).into()
     }
     pub(crate) fn into_points(self) -> Vec<Point> {
         self.points
