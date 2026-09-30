@@ -3,6 +3,7 @@ mod test;
 
 mod cell;
 mod lut;
+pub(crate) mod separated;
 mod switch;
 mod tables;
 
@@ -62,6 +63,7 @@ const EDGES_Z: [[usize; 2]; 12] = [
 pub enum Method {
     Lewiner,
     Lorensen,
+    Separated,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -102,6 +104,21 @@ pub struct Isosurface {
 }
 
 impl MarchingCubes {
+    pub(crate) fn resolve(&self, volume: &Voxels<f64>) -> Result<f64, &'static str> {
+        let data = volume.data();
+        let minimum = data.iter().copied().fold(f64::INFINITY, f64::min);
+        let maximum = data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        match self.level {
+            None => Ok(0.5 * (minimum + maximum)),
+            Some(level) => {
+                if level < minimum || level > maximum {
+                    Err("Surface level must be within volume data range.")
+                } else {
+                    Ok(level)
+                }
+            }
+        }
+    }
     pub fn extract(
         &self,
         volume: &Voxels<f64>,
@@ -120,17 +137,19 @@ impl MarchingCubes {
             return Err("volume and mask must have the same shape.");
         }
         let data = volume.data();
-        let minimum = data.iter().copied().fold(f64::INFINITY, f64::min);
-        let maximum = data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        let level = match self.level {
-            None => 0.5 * (minimum + maximum),
-            Some(level) => {
-                if level < minimum || level > maximum {
-                    return Err("Surface level must be within volume data range.");
-                }
-                level
+        let level = self.resolve(volume)?;
+        if self.method == Method::Separated {
+            if self.step != 1 {
+                return Err("The separated method takes every sample.");
             }
-        };
+            return separated::extract(
+                volume,
+                mask,
+                level,
+                self.gradient,
+                from_fn(|axis| self.spacing[axis].value()),
+            );
+        }
         let [nz, ny, nx] = nel;
         let at = |z: usize, y: usize, x: usize| data[volume.flat([z, y, x])];
         let masked =

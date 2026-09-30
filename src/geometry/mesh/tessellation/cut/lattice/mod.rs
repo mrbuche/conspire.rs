@@ -16,7 +16,6 @@ use crate::{
 };
 use std::{array::from_fn, iter::repeat_n, vec::IntoIter};
 
-/// Tetrahedra in the Kuhn/Freudenthal split of one cell.
 const TETS_PER_CELL: usize = 6;
 
 type Mesher =
@@ -73,6 +72,9 @@ impl Lattice {
         cells.sort_unstable_by_key(|&([i, j, k], _)| (k, j, i));
         cells
     }
+    pub(super) fn frame(&self) -> (Coordinate<D>, Quantity<Length>) {
+        (self.origin.clone(), self.spacing)
+    }
     pub(super) fn mesh(&self) -> (Mesh<D>, Vec<Class>) {
         self.build(Mesh::from_lattice_cells, 1)
     }
@@ -100,6 +102,13 @@ impl Lattice {
 
 impl Tessellation {
     pub(super) fn lattice_cells(&self, spacing: Quantity<Length>) -> Result<Lattice, &'static str> {
+        self.lattice_shifted(spacing, [0.0; D])
+    }
+    pub(super) fn lattice_shifted(
+        &self,
+        spacing: Quantity<Length>,
+        shift: [Scalar; D],
+    ) -> Result<Lattice, &'static str> {
         if spacing <= Quantity::new(0.0) || spacing.is_nan() {
             return Err("lattice spacing must be positive");
         }
@@ -107,7 +116,7 @@ impl Tessellation {
         let coordinates = surface.coordinates();
         let bounds = BoundingBox::from(coordinates.clone());
         let origin = Coordinate::from(from_fn(|d| {
-            bounds.minimum()[d] - spacing * PADDING as Scalar
+            bounds.minimum()[d] - (PADDING as Scalar + shift[d]) * spacing
         }));
         let nel = from_fn(|d| {
             ((bounds.maximum()[d] - bounds.minimum()[d]) / spacing)
