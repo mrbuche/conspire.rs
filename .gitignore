@@ -4,6 +4,7 @@ target/
 .vscode/
 **.exo
 **.stl
+**.swp
 **.vtm
 **.vtu
 **.vtm
