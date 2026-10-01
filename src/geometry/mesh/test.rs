@@ -117,3 +117,29 @@ fn connectivity_coordinates() -> Result<(), AssertionError> {
 //     let _ = TriangularMesh::from((&connectivity, &coordinates));
 //     Ok(())
 // }
+
+pub fn perpendicular_facet(axis: usize, sign: f64, size: f64) -> Mesh<3> {
+    let curve = 1.0 - 0.5 * size * size;
+    let place = |point: [f64; 3]| -> [f64; 3] {
+        let mut placed = [0.0; 3];
+        (0..3).for_each(|i| placed[(i + axis) % 3] = sign * point[i]);
+        placed
+    };
+    let coordinates = Coordinates::from(
+        [
+            [1.0, 0.0, 0.0],
+            [curve, size, 0.0],
+            [curve, 0.0, size],
+            [-1.0, -20.0, -20.0],
+            [-1.0, 20.0, -20.0],
+            [-1.0, 0.0, 20.0],
+        ]
+        .map(place)
+        .to_vec(),
+    );
+    let facet = if sign > 0.0 { [0, 1, 2] } else { [0, 2, 1] };
+    Mesh::from((
+        vec![Connectivity::Triangular(vec![facet, [3, 4, 5]].into())],
+        coordinates,
+    ))
+}

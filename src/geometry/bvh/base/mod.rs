@@ -16,6 +16,11 @@ use crate::{
     units::{Area, Length},
 };
 
+struct Nearest {
+    excluded: Option<usize>,
+    hit: Option<Hit>,
+}
+
 impl<const D: usize> BoundingVolumeHierarchy<D> {
     pub fn build_node(&mut self, primitives: &mut [Primitive<D>], leaf_size: usize) -> usize {
         assert!(leaf_size > 0);
@@ -54,13 +59,34 @@ impl BoundingVolumeHierarchy<3> {
         coordinates: &Coordinates<3>,
         elements: &[&[usize]],
     ) -> Option<Hit> {
-        let mut hit = None;
+        self.nearest(ray, coordinates, elements, None)
+    }
+    pub fn intersect_excluding(
+        &self,
+        ray: &Ray<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+        excluded: usize,
+    ) -> Option<Hit> {
+        self.nearest(ray, coordinates, elements, Some(excluded))
+    }
+    fn nearest(
+        &self,
+        ray: &Ray<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+        excluded: Option<usize>,
+    ) -> Option<Hit> {
+        let mut nearest = Nearest {
+            excluded,
+            hit: None,
+        };
         if !self.nodes.is_empty()
             && let Some(entry) = ray.intersects(self.nodes[0].bounding_box())
         {
-            self.intersect_node(0, entry, ray, coordinates, elements, &mut hit);
+            self.intersect_node(0, entry, ray, coordinates, elements, &mut nearest);
         }
-        hit
+        nearest.hit
     }
     pub fn intersections(
         &self,
@@ -162,9 +188,10 @@ impl BoundingVolumeHierarchy<3> {
         ray: &Ray<3>,
         coordinates: &Coordinates<3>,
         elements: &[&[usize]],
-        hit: &mut Option<Hit>,
+        nearest: &mut Nearest,
     ) {
-        if hit
+        if nearest
+            .hit
             .as_ref()
             .is_some_and(|closest| entry >= closest.distance())
         {
@@ -173,22 +200,26 @@ impl BoundingVolumeHierarchy<3> {
         let node = &self.nodes[node_index];
         match node.kind() {
             NodeKind::Leaf { start, end } => {
-                self.items[*start..*end].iter().for_each(|&item| {
-                    let element = elements[item];
-                    if let Some(distance) = ray.intersects_triangle(
-                        &coordinates[element[0]],
-                        &coordinates[element[1]],
-                        &coordinates[element[2]],
-                    ) && hit
-                        .as_ref()
-                        .is_none_or(|closest| distance < closest.distance())
-                    {
-                        *hit = Some(Hit {
-                            distance,
-                            index: item,
-                        });
-                    }
-                });
+                self.items[*start..*end]
+                    .iter()
+                    .filter(|&&item| nearest.excluded != Some(item))
+                    .for_each(|&item| {
+                        let element = elements[item];
+                        if let Some(distance) = ray.intersects_triangle(
+                            &coordinates[element[0]],
+                            &coordinates[element[1]],
+                            &coordinates[element[2]],
+                        ) && nearest
+                            .hit
+                            .as_ref()
+                            .is_none_or(|closest| distance < closest.distance())
+                        {
+                            nearest.hit = Some(Hit {
+                                distance,
+                                index: item,
+                            });
+                        }
+                    });
             }
             NodeKind::Tree { left, right } => {
                 let left_entry = ray.intersects(self.nodes[*left].bounding_box());
@@ -200,14 +231,21 @@ impl BoundingVolumeHierarchy<3> {
                         } else {
                             (*right, right_entry, *left, left_entry)
                         };
-                        self.intersect_node(near, near_entry, ray, coordinates, elements, hit);
-                        self.intersect_node(far, far_entry, ray, coordinates, elements, hit);
+                        self.intersect_node(near, near_entry, ray, coordinates, elements, nearest);
+                        self.intersect_node(far, far_entry, ray, coordinates, elements, nearest);
                     }
                     (Some(left_entry), None) => {
-                        self.intersect_node(*left, left_entry, ray, coordinates, elements, hit);
+                        self.intersect_node(*left, left_entry, ray, coordinates, elements, nearest);
                     }
                     (None, Some(right_entry)) => {
-                        self.intersect_node(*right, right_entry, ray, coordinates, elements, hit);
+                        self.intersect_node(
+                            *right,
+                            right_entry,
+                            ray,
+                            coordinates,
+                            elements,
+                            nearest,
+                        );
                     }
                     (None, None) => {}
                 }
