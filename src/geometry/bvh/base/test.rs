@@ -1,11 +1,15 @@
+use super::closest_point_on_triangle;
 use crate::math::assert::Assert;
 use crate::{
     geometry::{
         Coordinate, Coordinates,
         bvh::BoundingVolumeHierarchy,
-        mesh::{Connectivity, Mesh, test::perpendicular_facet},
+        mesh::{
+            Connectivity, Mesh,
+            test::{octahedron, perpendicular_facet},
+        },
     },
-    math::{CrossProduct, assert::AssertionError},
+    math::{CrossProduct, Quantity, Tensor, assert::AssertionError},
 };
 
 const CONNECTIVITY: [[usize; 3]; 2] = [[0, 1, 2], [3, 4, 5]];
@@ -121,6 +125,111 @@ fn intersect_excluding_finds_the_far_side_from_a_perpendicular_facet() {
                     "size {size}, axis {axis}, sign {sign}: {}",
                     hit.distance().value()
                 );
+            }
+        }
+    }
+}
+
+#[test]
+fn closest_points_returns_every_equidistant_face() -> Result<(), AssertionError> {
+    let mesh = mesh();
+    let bvh = BoundingVolumeHierarchy::from(&mesh);
+    let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
+    let query = Coordinate::const_from([0.2, 0.2, 1.0]);
+    let ties = bvh.closest_points(&query, mesh.coordinates(), &elements, Quantity::new(1.0e-9));
+    assert_eq!(ties.len(), 2);
+    assert_eq!(ties[0].1, 0);
+    assert_eq!(ties[1].1, 1);
+    Assert::default().eq_within_tols(&ties[0].0, &Coordinate::const_from([0.2, 0.2, 0.0]))?;
+    Assert::default().eq_within_tols(&ties[1].0, &Coordinate::const_from([0.2, 0.2, 2.0]))
+}
+
+#[test]
+fn closest_points_excludes_faces_beyond_the_tolerance() {
+    let mesh = mesh();
+    let bvh = BoundingVolumeHierarchy::from(&mesh);
+    let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
+    let query = Coordinate::const_from([0.2, 0.2, 0.5]);
+    let ties = bvh.closest_points(&query, mesh.coordinates(), &elements, Quantity::new(1.0e-9));
+    assert_eq!(ties.len(), 1);
+    assert_eq!(ties[0].1, 0);
+    let ties = bvh.closest_points(&query, mesh.coordinates(), &elements, Quantity::new(0.9));
+    assert_eq!(ties.len(), 1);
+    let ties = bvh.closest_points(&query, mesh.coordinates(), &elements, Quantity::new(1.1));
+    assert_eq!(ties.len(), 2);
+}
+
+#[test]
+fn closest_points_agrees_with_closest_point() -> Result<(), AssertionError> {
+    let mesh = mesh();
+    let bvh = BoundingVolumeHierarchy::from(&mesh);
+    let elements: Vec<&[usize]> = mesh.connectivities().iter().flatten().collect();
+    let query = Coordinate::const_from([-1.0, -1.0, 0.0]);
+    let (point, index) = bvh
+        .closest_point(&query, mesh.coordinates(), &elements)
+        .unwrap();
+    let ties = bvh.closest_points(&query, mesh.coordinates(), &elements, Quantity::new(1.0e-9));
+    assert_eq!(ties.len(), 1);
+    assert_eq!(ties[0].1, index);
+    Assert::default().eq_within_tols(&ties[0].0, &point)
+}
+
+#[test]
+fn closest_points_matches_a_scan_of_every_face() {
+    let tessellation = octahedron(3);
+    let surface = tessellation.mesh();
+    let bvh = BoundingVolumeHierarchy::from(surface);
+    let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+    let coordinates = surface.coordinates();
+    let levels = [-0.9, -0.3, 0.0, 0.3, 0.9, 1.6];
+    for &x in &levels {
+        for &y in &levels {
+            for &z in &levels {
+                let query = Coordinate::const_from([x, y, z]);
+                let scan: Vec<(Coordinate<3>, usize, f64)> = elements
+                    .iter()
+                    .enumerate()
+                    .map(|(index, element)| {
+                        let candidate = closest_point_on_triangle(
+                            &query,
+                            &coordinates[element[0]],
+                            &coordinates[element[1]],
+                            &coordinates[element[2]],
+                        );
+                        let distance = (&candidate - &query).norm().value();
+                        (candidate, index, distance)
+                    })
+                    .collect();
+                let nearest = scan
+                    .iter()
+                    .map(|&(_, _, d)| d)
+                    .fold(f64::INFINITY, f64::min);
+                for tolerance in [1.0e-9, 0.02, 0.4] {
+                    let expected: Vec<&(Coordinate<3>, usize, f64)> = scan
+                        .iter()
+                        .filter(|&&(_, _, distance)| distance <= nearest + tolerance)
+                        .collect();
+                    let found = bvh.closest_points(
+                        &query,
+                        coordinates,
+                        &elements,
+                        Quantity::new(tolerance),
+                    );
+                    assert_eq!(
+                        found.iter().map(|&(_, index)| index).collect::<Vec<_>>(),
+                        expected
+                            .iter()
+                            .map(|&&(_, index, _)| index)
+                            .collect::<Vec<_>>(),
+                        "query {x} {y} {z}, tolerance {tolerance}"
+                    );
+                    found
+                        .iter()
+                        .zip(&expected)
+                        .for_each(|((point, _), expected)| {
+                            assert!((point - &expected.0).norm().value() < 1.0e-12);
+                        });
+                }
             }
         }
     }

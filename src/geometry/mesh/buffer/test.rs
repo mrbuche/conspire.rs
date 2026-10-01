@@ -2,9 +2,11 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{
-            Connectivity, Fitting, Mesh, Tessellation, Verdict,
-            tessellation::from::test::tessellation, test::sphere,
+            Connectivity, Dualization, Fitting, Mesh, Tessellation, Verdict,
+            tessellation::from::test::tessellation,
+            test::{octahedron, sphere},
         },
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
     math::{Quantity, Scalar, Tensor, assert::AssertionError},
 };
@@ -238,4 +240,53 @@ fn buffer_tets_repairs_a_pinched_trim() -> Result<(), AssertionError> {
     assert_manifold_boundary(&mesh);
     assert!(worst_scaled_jacobian(&mesh) > 0.0);
     Ok(())
+}
+
+fn mirror_mismatch(mesh: &Mesh<3>, axis: usize) -> Scalar {
+    let points: Vec<[Scalar; 3]> = mesh
+        .coordinates()
+        .iter()
+        .map(|point| [point[0].value(), point[1].value(), point[2].value()])
+        .collect();
+    points
+        .iter()
+        .map(|point| {
+            let mut mirrored = *point;
+            mirrored[axis] = -mirrored[axis];
+            points
+                .iter()
+                .map(|other| {
+                    (0..3)
+                        .map(|i| (other[i] - mirrored[i]).powi(2))
+                        .sum::<Scalar>()
+                        .sqrt()
+                })
+                .fold(Scalar::INFINITY, Scalar::min)
+        })
+        .fold(0.0, Scalar::max)
+}
+
+#[test]
+fn buffer_preserves_mirror_symmetry() {
+    let target = octahedron(2);
+    let mut octree = Octree::<u16, usize>::from_features(
+        &target,
+        5.0,
+        CurvatureSizing {
+            tolerance: None,
+            ..Default::default()
+        },
+        0,
+    )
+    .unwrap();
+    octree
+        .equilibrate(Balancing::Weak(1), Pairing::Regular)
+        .unwrap();
+    let mut mesh = octree.dualize();
+    target.trim(&mut mesh).unwrap();
+    let mesh = mesh.buffer(&target, Fitting::Soft).unwrap();
+    (0..3).for_each(|axis| {
+        let mismatch = mirror_mismatch(&mesh, axis);
+        assert!(mismatch < 1.0e-8, "axis {axis} mirror mismatch: {mismatch}");
+    });
 }
