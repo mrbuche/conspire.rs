@@ -8,7 +8,7 @@ const TOLERANCE: f64 = 1e-9;
 
 fn basis(mesh: &Mesh<3>) -> Basis {
     let seeds = mesh.sample(Quantity::<Length>::new(0.4), 2);
-    mesh.reproducing_basis(&seeds, Quantity::new(1.1), 1)
+    mesh.reproducing_basis(&seeds, Quantity::new(1.1), 1, 1)
         .unwrap()
 }
 
