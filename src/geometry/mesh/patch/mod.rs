@@ -2,14 +2,11 @@
 mod test;
 
 use crate::{
-    geometry::mesh::{Connectivity, Mesh},
+    geometry::mesh::Mesh,
     math::{Quantity, Tensor},
     units::Length,
 };
-use std::{
-    array::from_fn,
-    collections::{HashSet, VecDeque},
-};
+use std::array::from_fn;
 
 /// The elements around a seed node, and the nodes they touch.
 #[derive(Clone, Debug, PartialEq)]
@@ -32,10 +29,15 @@ impl<const D: usize> Mesh<D> {
     pub fn patches(&self, seeds: &[usize], radius: Quantity<Length>) -> Vec<Patch> {
         let radius = radius.value_as::<Length>();
         assert!(radius >= 0.0, "Patch radius must not be negative.");
-        let elements: Vec<(&Connectivity, &[usize])> = self
-            .iter()
-            .flat_map(|block| block.iter().map(move |element| (block, element)))
-            .collect();
+        let mut element_nodes = Vec::new();
+        let mut pointers = vec![0];
+        for block in self.iter() {
+            for element in block.iter() {
+                element_nodes.extend(block.element_nodes(element));
+                pointers.push(element_nodes.len());
+            }
+        }
+        let nodes_of = |element: usize| &element_nodes[pointers[element]..pointers[element + 1]];
         let nodes_elements = self.node_element_connectivity();
         let nodes_nodes = self.node_node_connectivity();
         let points: Vec<[f64; D]> = self
@@ -43,9 +45,12 @@ impl<const D: usize> Mesh<D> {
             .iter()
             .map(|x| from_fn(|k| x[k].value_as::<Length>()))
             .collect();
+        let mut reached = vec![usize::MAX; points.len()];
+        let mut queue = Vec::new();
         seeds
             .iter()
-            .map(|&seed| {
+            .enumerate()
+            .map(|(index, &seed)| {
                 assert!(
                     seed < points.len(),
                     "Patch seed must be a node of the mesh."
@@ -56,34 +61,32 @@ impl<const D: usize> Mesh<D> {
                         .sum::<f64>()
                         <= radius * radius
                 };
-                let mut reached = HashSet::from([seed]);
-                let mut queue = VecDeque::from([seed]);
-                while let Some(node) = queue.pop_front() {
+                queue.clear();
+                queue.push(seed);
+                reached[seed] = index;
+                let mut head = 0;
+                while head < queue.len() {
+                    let node = queue[head];
+                    head += 1;
                     for &next in &nodes_nodes[node] {
-                        if inside(next) && reached.insert(next) {
-                            queue.push_back(next);
+                        if reached[next] != index && inside(next) {
+                            reached[next] = index;
+                            queue.push(next);
                         }
                     }
                 }
-                let mut found: Vec<usize> = reached
+                let mut found: Vec<usize> = queue
                     .iter()
                     .flat_map(|&node| nodes_elements[node].iter().copied())
                     .collect();
                 found.sort_unstable();
                 found.dedup();
                 found.retain(|&element| {
-                    let (block, nodes) = elements[element];
-                    block
-                        .element_nodes(nodes)
-                        .iter()
-                        .all(|node| reached.contains(node))
+                    nodes_of(element).iter().all(|&node| reached[node] == index)
                 });
                 let mut nodes: Vec<usize> = found
                     .iter()
-                    .flat_map(|&element| {
-                        let (block, nodes) = elements[element];
-                        block.element_nodes(nodes)
-                    })
+                    .flat_map(|&element| nodes_of(element).iter().copied())
                     .collect();
                 nodes.sort_unstable();
                 nodes.dedup();
