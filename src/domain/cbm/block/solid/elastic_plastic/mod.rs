@@ -8,8 +8,10 @@ use crate::{
     math::optimize::NewtonRaphson,
 };
 
-pub use crate::domain::block::solid::plastic::PlasticStateVariablesField;
-pub use crate::domain::solid::elastic_plastic::{ElasticPlasticElements, ElasticPlasticRoot};
+pub use crate::domain::{
+    block::solid::plastic::PlasticStateVariablesField,
+    solid::elastic_plastic::{ElasticPlasticElements, ElasticPlasticRoot},
+};
 
 impl<C> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C>
 where

@@ -11,7 +11,7 @@ use crate::{
             SolidFiniteElement, plastic::PlasticStateVariables,
         },
     },
-    math::{ContractSecondFourthWithFirst, Tensor, Vector, optimize::NewtonRaphson},
+    math::{ContractSecondFourthWithFirst, Tensor, optimize::NewtonRaphson},
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList, Scalar},
 };
 use std::array::from_fn;
@@ -152,7 +152,7 @@ where
                     .condensed(deformation_gradient, state_variable, local_solver)
                     .map(|(_, _, state)| state)
             })
-            .collect::<Result<PlasticStateVariables<G>, _>>()
+            .collect::<Result<_, _>>()
             .map_err(|error| FiniteElementError::upstream(error, self))
     }
 }
@@ -166,7 +166,6 @@ pub struct MonolithicElement {
     pub tangent_uu: Vec<Scalar>,
     pub tangent_uv: Vec<Scalar>,
     pub tangent_vu: Vec<Scalar>,
-    /// One `SIZE x SIZE` block per integration point.
     pub tangent_vv: Vec<Scalar>,
 }
 
@@ -220,7 +219,9 @@ where
                     constitutive_model,
                     deformation_gradient,
                     state_variable,
-                    &Vector::from(local[coupled::SIZE * g..coupled::SIZE * (g + 1)].to_vec()),
+                    &local[coupled::SIZE * g..coupled::SIZE * (g + 1)]
+                        .to_vec()
+                        .into(),
                 )?;
                 let weight = self.integration_weights()[g].value();
                 let gradient: [[Scalar; 3]; N] =

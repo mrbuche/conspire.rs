@@ -306,7 +306,7 @@ where
                     .condensed(deformation_gradient, state_variable, local_solver)
                     .map(|(_, _, state)| state)
             })
-            .collect::<Result<PlasticStateVariables<1>, _>>()
+            .collect::<Result<_, _>>()
             .map_err(|error| self.upstream(error))
     }
 }

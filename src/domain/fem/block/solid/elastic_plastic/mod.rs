@@ -229,7 +229,7 @@ where
                         )
                     })
                     .collect::<Result<Vec<_>, _>>()?;
-                Ok::<_, ConstitutiveError>(from_fn::<_, G, _>(|g| states[g].clone()).into())
+                Ok::<_, ConstitutiveError>(from_fn(|g| states[g].clone()).into())
             })
             .collect::<Result<_, _>>()
             .map_err(|error| {
