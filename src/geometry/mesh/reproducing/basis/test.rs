@@ -1,4 +1,4 @@
-use super::interior_radius;
+use super::{Faces, interior_radius};
 use crate::{
     geometry::{
         Coordinate, Coordinates,
@@ -164,6 +164,7 @@ fn interior_radius_ignores_the_domain_boundary() {
         .iter()
         .flat_map(|block| block.iter().map(move |element| (block, element)))
         .collect();
+    let faces = Faces::new(&elements, &exterior);
     let radius = 0.3;
     let radius_at = |target: [f64; 2]| {
         let seed = (0..mesh.number_of_nodes())
@@ -182,7 +183,13 @@ fn interior_radius_ignores_the_domain_boundary() {
             .into_iter()
             .map(|(node, d)| (node, d.value_as::<Length>()))
             .collect();
-        interior_radius(&elements, &patch, &distances, &exterior, radius)
+        interior_radius(
+            &faces,
+            &mut vec![0; faces.nodes.len()],
+            &patch,
+            &distances,
+            radius,
+        )
     };
     let interior = radius_at([0.5, 0.5]);
     assert!(interior > 0.8 * radius && interior <= radius, "{interior}");
