@@ -9,6 +9,7 @@ use std::array::from_fn;
 
 /// A simplex with N nodes embedded in D dimensions, with the constant
 /// gradients of its linear shape functions.
+#[derive(Clone, Copy)]
 pub(crate) struct Simplex<const D: usize, const N: usize> {
     pub(crate) nodes: [usize; N],
     pub(crate) volume: f64,
