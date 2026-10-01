@@ -21,7 +21,9 @@ fn point<const D: usize>(mesh: &Mesh<D>, node: usize) -> [f64; D] {
 
 fn quadrature_error(mesh: &Mesh<2>, h: f64, seed: u64) -> f64 {
     let seeds = mesh.sample(length(h), seed);
-    let basis = mesh.reproducing_basis(&seeds, length(2.6 * h), 1).unwrap();
+    let basis = mesh
+        .reproducing_basis(&seeds, length(2.6 * h), 1, 1)
+        .unwrap();
     let weights = mesh.integrals(&basis).unwrap();
     let sum: f64 = seeds
         .iter()
@@ -39,7 +41,7 @@ fn weights_integrate_constants_and_linear_fields() {
     let mesh = square(40);
     let seeds = mesh.sample(length(0.2), 3);
     let basis = mesh
-        .reproducing_basis(&seeds, length(2.6 * 0.2), 1)
+        .reproducing_basis(&seeds, length(2.6 * 0.2), 1, 1)
         .unwrap();
     let weights: Vec<f64> = mesh
         .integrals(&basis)
@@ -66,7 +68,7 @@ fn weights_integrate_constants_and_linear_fields() {
 fn weights_in_three_dimensions() {
     let mesh = tetrahedra(6);
     let seeds = mesh.sample(length(0.4), 2);
-    let basis = mesh.reproducing_basis(&seeds, length(1.1), 1).unwrap();
+    let basis = mesh.reproducing_basis(&seeds, length(1.1), 1, 1).unwrap();
     let weights: Vec<f64> = mesh
         .integrals(&basis)
         .unwrap()
