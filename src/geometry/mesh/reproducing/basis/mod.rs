@@ -2,7 +2,10 @@
 mod test;
 
 use crate::{
-    geometry::mesh::{Connectivity, Mesh, Patch},
+    geometry::mesh::{
+        Connectivity, Mesh, Patch, differential::geodesic::geodesic_distances_among,
+        simplex::Simplex,
+    },
     math::{
         FxHashMap, FxHashSet, Quantity,
         interpolate::{moving_least_squares, quartic_weight},
@@ -10,6 +13,8 @@ use crate::{
     units::Length,
 };
 use std::array::from_fn;
+
+const NOT_SIMPLICIAL: &str = "reproducing bases require a triangular or tetrahedral mesh";
 
 /// Reproducing basis functions on the nodes of a mesh, one for each seed.
 ///
@@ -73,58 +78,73 @@ impl<const D: usize> Mesh<D> {
         radius: Quantity<Length>,
         degree: usize,
     ) -> Result<Basis, &'static str> {
-        let reach = radius.value_as::<Length>();
-        let patches = self.patches(seeds, radius);
-        let exterior: FxHashSet<Vec<usize>> =
-            self.exterior_faces().into_iter().map(sorted).collect();
-        let elements: Vec<(&Connectivity, &[usize])> = self
-            .iter()
-            .flat_map(|block| block.iter().map(move |element| (block, element)))
-            .collect();
-        let mut nodes_seeds = FxHashMap::<usize, Vec<(usize, f64)>>::default();
-        for (index, (&seed, patch)) in seeds.iter().zip(&patches).enumerate() {
-            let distances: Vec<(usize, f64)> = self
-                .geodesic_distances_over(seed, &patch.elements)?
+        let elements: Vec<usize> = (0..self.number_of_elements()).collect();
+        if let Some(triangles) = self.simplices_over::<3>(&elements) {
+            basis(self, &triangles, seeds, radius, degree)
+        } else if let Some(tetrahedra) = self.simplices_over::<4>(&elements) {
+            basis(self, &tetrahedra, seeds, radius, degree)
+        } else {
+            Err(NOT_SIMPLICIAL)
+        }
+    }
+}
+
+fn basis<const D: usize, const N: usize>(
+    mesh: &Mesh<D>,
+    simplices: &[Simplex<D, N>],
+    seeds: &[usize],
+    radius: Quantity<Length>,
+    degree: usize,
+) -> Result<Basis, &'static str> {
+    let reach = radius.value_as::<Length>();
+    let patches = mesh.patches(seeds, radius);
+    let exterior: FxHashSet<Vec<usize>> = mesh.exterior_faces().into_iter().map(sorted).collect();
+    let elements: Vec<(&Connectivity, &[usize])> = mesh
+        .iter()
+        .flat_map(|block| block.iter().map(move |element| (block, element)))
+        .collect();
+    let mut nodes_seeds = FxHashMap::<usize, Vec<(usize, f64)>>::default();
+    for (index, (&seed, patch)) in seeds.iter().zip(&patches).enumerate() {
+        let distances: Vec<(usize, f64)> =
+            geodesic_distances_among(mesh, seed, simplices, &patch.elements)?
                 .into_iter()
                 .map(|(node, distance)| (node, distance.value_as::<Length>()))
                 .collect();
-            let cut = interior_radius(&elements, patch, &distances, &exterior, reach);
-            if cut <= 0.0 {
-                return Err("seed is on the interior boundary of its own patch");
+        let cut = interior_radius(&elements, patch, &distances, &exterior, reach);
+        if cut <= 0.0 {
+            return Err("seed is on the interior boundary of its own patch");
+        }
+        for &(node, distance) in &distances {
+            let weight = quartic_weight(distance / cut);
+            if weight > 0.0 {
+                nodes_seeds.entry(node).or_default().push((index, weight));
             }
-            for &(node, distance) in &distances {
-                let weight = quartic_weight(distance / cut);
-                if weight > 0.0 {
-                    nodes_seeds.entry(node).or_default().push((index, weight));
-                }
-            }
         }
-        let covered = (0..self.number_of_nodes()).all(|node| {
-            self.node_element_connectivity()[node].is_empty() || nodes_seeds.contains_key(&node)
-        });
-        if !covered {
-            return Err("seeds do not cover the mesh");
-        }
-        let point = |node: usize| -> [f64; D] {
-            from_fn(|k| self.coordinates()[node][k].value_as::<Length>())
-        };
-        let mut values = vec![Vec::new(); seeds.len()];
-        let mut nodes: Vec<usize> = nodes_seeds.keys().copied().collect();
-        nodes.sort_unstable();
-        for node in nodes {
-            let entries = &nodes_seeds[&node];
-            let centers: Vec<[f64; D]> = entries.iter().map(|&(i, _)| point(seeds[i])).collect();
-            let weights: Vec<f64> = entries.iter().map(|&(_, w)| w).collect();
-            let psi = moving_least_squares(point(node), &centers, &weights, degree)
-                .map_err(|_| "too few seeds reach a node; enlarge the radius or add seeds")?;
-            entries
-                .iter()
-                .zip(psi)
-                .for_each(|(&(index, _), value)| values[index].push((node, value)));
-        }
-        Ok(Basis {
-            seeds: seeds.to_vec(),
-            values,
-        })
     }
+    let covered = (0..mesh.number_of_nodes()).all(|node| {
+        mesh.node_element_connectivity()[node].is_empty() || nodes_seeds.contains_key(&node)
+    });
+    if !covered {
+        return Err("seeds do not cover the mesh");
+    }
+    let point =
+        |node: usize| -> [f64; D] { from_fn(|k| mesh.coordinates()[node][k].value_as::<Length>()) };
+    let mut values = vec![Vec::new(); seeds.len()];
+    let mut nodes: Vec<usize> = nodes_seeds.keys().copied().collect();
+    nodes.sort_unstable();
+    for node in nodes {
+        let entries = &nodes_seeds[&node];
+        let centers: Vec<[f64; D]> = entries.iter().map(|&(i, _)| point(seeds[i])).collect();
+        let weights: Vec<f64> = entries.iter().map(|&(_, w)| w).collect();
+        let psi = moving_least_squares(point(node), &centers, &weights, degree)
+            .map_err(|_| "too few seeds reach a node; enlarge the radius or add seeds")?;
+        entries
+            .iter()
+            .zip(psi)
+            .for_each(|(&(index, _), value)| values[index].push((node, value)));
+    }
+    Ok(Basis {
+        seeds: seeds.to_vec(),
+        values,
+    })
 }
