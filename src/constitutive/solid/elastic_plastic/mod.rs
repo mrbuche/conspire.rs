@@ -414,8 +414,6 @@ where
         let mut global_matrix = CscMatrix::from_pattern(matrix.len(), 9, global_pattern);
         global_matrix.fill(|row, column| matrix[row][column]);
         let mut global_vector = Vector::zero(matrix.len());
-        // Every local unknown is free, so there is nothing internal to pin: an empty
-        // (zero-row) local constraint.
         let local_constraint = (
             CscMatrix::from_pattern(0, coupled::SIZE, Vec::new()),
             Vector::zero(0),

@@ -18,7 +18,6 @@ use crate::{
 
 const INITIAL_MULTIPLIER: Scalar = 1e-3;
 
-/// A converged step: the unknowns and the state they were evaluated at.
 pub(crate) struct Converged {
     x: [Scalar; SIZE],
     iterate: Iterate,
@@ -154,9 +153,12 @@ pub(crate) fn condensed<C: ElasticPlastic>(
         .map_err(|error| failure(model, &error))?;
     let solved: Vec<Vector> = (0..9)
         .map(|column| {
-            lu.solve(&Vector::from(
-                (0..SIZE).map(|row| k_vu[row][column]).collect::<Vec<_>>(),
-            ))
+            lu.solve(
+                &(0..SIZE)
+                    .map(|row| k_vu[row][column])
+                    .collect::<Vec<_>>()
+                    .into(),
+            )
         })
         .collect();
     let mut effective = tangent;

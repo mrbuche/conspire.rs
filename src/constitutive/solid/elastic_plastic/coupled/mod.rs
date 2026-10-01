@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod test;
 
+mod condensed;
 mod linearization;
-mod local;
 mod monolithic;
 mod sensitivities;
 
-pub(crate) use local::{condensed, solve, updated_state};
+pub(crate) use condensed::{condensed, solve, updated_state};
 #[cfg(feature = "fem")]
 pub(crate) use monolithic::{Monolithic, monolithic_evaluate};
 pub(crate) use monolithic::{

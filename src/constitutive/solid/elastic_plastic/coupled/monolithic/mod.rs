@@ -29,7 +29,6 @@ pub(crate) fn monolithic_plastic<C: ElasticPlastic>(
         * f_p_n)
 }
 
-/// The plastic state a monolithic solve arrives at.
 pub(crate) fn monolithic_state<C: ElasticPlastic>(
     model: &C,
     state: &PlasticStateVariables,

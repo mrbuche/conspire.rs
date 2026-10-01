@@ -14,10 +14,6 @@ use crate::{
     units::Stress,
 };
 
-/// Everything evaluated once per iterate: the plastic deformation gradient, the
-/// deviatoric Mandel stress with its equivalent stress and flow direction, the residual,
-/// and the multiplier with the hardening modulus at its plastic strain, which the
-/// Jacobian needs.
 pub(super) struct Iterate {
     pub(super) plastic: DeformationGradientPlastic,
     deviatoric: MandelStressElastic,
@@ -66,8 +62,6 @@ impl Iterate {
     }
 }
 
-/// The linearization at an iterate together with the slopes
-/// $`\partial\mathbf{F}_\mathrm{p}/\partial E_{ab}`$ of the exponential map.
 pub(super) struct Sensitivities<'a, C> {
     model: &'a C,
     pub(super) linearization: Linearization,
@@ -94,14 +88,9 @@ impl<'a, C: ElasticPlastic> Sensitivities<'a, C> {
             slopes,
         })
     }
-
-    /// The slope of the plastic deformation gradient along the direction $`E_{ab}`$.
     pub(super) fn slope(&self, a: usize, b: usize) -> DeformationGradientPlastic {
         (&self.slopes).contract_third_fourth_with_first_second(&basis(a, b))
     }
-
-    /// The slope of the symmetrized flow direction and of the equivalent stress along a
-    /// Mandel stress increment.
     pub(super) fn direction_slope(
         &self,
         d_m: &MandelStressElastic,
@@ -112,8 +101,6 @@ impl<'a, C: ElasticPlastic> Sensitivities<'a, C> {
             deviatoric,
             ..
         } = self.iterate;
-        // the equivalent stress is not differentiable where the deviator vanishes, and
-        // the flow direction is zero there: the trial state is elastic
         if magnitude.is_zero() {
             return Ok((FlowDirectionPlastic::zero(), 0.0));
         }
@@ -122,8 +109,6 @@ impl<'a, C: ElasticPlastic> Sensitivities<'a, C> {
         let d_unit = self.model.flow_direction_slope(deviatoric, &increment)?;
         Ok((d_unit.symmetric_part(), d_magnitude))
     }
-
-    /// The Jacobian of the residual with respect to $`(\mathbf{E},\Delta\gamma)`$.
     pub(super) fn jacobian(&self) -> Result<[[Scalar; SIZE]; SIZE], ConstitutiveError> {
         let Iterate {
             gamma,
