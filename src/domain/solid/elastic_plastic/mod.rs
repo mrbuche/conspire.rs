@@ -91,6 +91,7 @@ where
         nodal_forces: &mut NodalForcesSolid<D>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
     ) -> Result<(), ElementModelError>;
+    /// Computes the nodal forces and the nodal stiffnesses.
     fn nodal_forces_and_stiffnesses(
         &self,
         nodal_coordinates: &NodalCoordinates<D>,
@@ -333,10 +334,6 @@ where
                 let (num_global, num_local) = (monolithic.num_global(), monolithic.num_local());
                 let (sparse, mut constraint_matrix) =
                     cached(&mut monolithic_cache, constraint, || {
-                        //
-                        // Eliminating the local unknowns leaves the sparse solver the
-                        // global system alone, whose pattern is that of the stiffness.
-                        //
                         let mut pattern = if *elimination {
                             monolithic.tangent_uu.pattern().to_vec()
                         } else {
@@ -373,11 +370,7 @@ where
                 constraint_matrix.fill(|row, column| matrix[row][column]);
                 let mut initial = Vector::zero(num_global);
                 nodal_coordinates.fill_into(&mut initial);
-                //
-                // The three closures are called at the same point in a row, so one
-                // evaluation of the system serves them all.
-                //
-                let cache: RefCell<Option<(Vector, Vector)>> = RefCell::new(None);
+                let cache = RefCell::<Option<(Vector, Vector)>>::new(None);
                 let evaluate = |global: &Vector,
                                 local: &Vector,
                                 system: &mut MonolithicSystem|
@@ -442,11 +435,7 @@ where
                     solver_from_neighbors(&neighbors, constraint, D, false)
                 })
                 .clone();
-                //
-                // The force and the stiffness are asked for at the same coordinates in
-                // a row, and both come from one solve of every integration point.
-                //
-                let cache: RefCell<Option<Evaluation<D>>> = RefCell::new(None);
+                let cache = RefCell::<Option<Evaluation<D>>>::new(None);
                 let evaluate = |coordinates: &NodalCoordinates<D>| -> Result<(), String> {
                     let mut cache = cache.borrow_mut();
                     if let Some((cached, ..)) = cache.as_ref()
