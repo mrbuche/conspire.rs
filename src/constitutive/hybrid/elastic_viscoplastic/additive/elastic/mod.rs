@@ -5,7 +5,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::{
-            plastic::Plastic,
+            plastic::PlasticHardening,
             viscoplastic::{Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables},
         },
         hybrid::ElasticViscoplasticAdditiveElastic,
@@ -38,7 +38,7 @@ where
     }
 }
 
-impl<C1, C2, Y1> Plastic for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
+impl<C1, C2, Y1> PlasticHardening for ElasticViscoplasticAdditiveElastic<C1, C2, Y1>
 where
     C1: ElasticViscoplastic<Y1>,
     C2: Elastic,
@@ -47,8 +47,17 @@ where
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.0.initial_yield_stress()
     }
-    fn hardening_slope(&self) -> Quantity<Stress> {
-        self.0.hardening_slope()
+    fn yield_stress(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        self.0.yield_stress(equivalent_plastic_strain)
+    }
+    fn hardening_modulus(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        self.0.hardening_modulus(equivalent_plastic_strain)
     }
 }
 

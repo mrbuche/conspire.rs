@@ -1,0 +1,810 @@
+use crate::{
+    constitutive::{
+        canonical::Canonical,
+        fluid::plastic::{
+            Hill, Linear, PlasticFlow, PlasticHardening, PlasticStateVariables,
+            RateIndependentPlastic, Voce, VonMises, YieldSurface,
+        },
+        solid::{
+            elastic_plastic::{
+                AppliedLoad, ElasticPlastic, ElasticPlasticOrViscoplastic, FirstOrderRoot,
+            },
+            hyperelastic::NeoHookean,
+        },
+    },
+    math::{
+        Quantity, Rank2, Tensor, TensorArray,
+        assert::{Assert, AssertionError},
+        optimize::{NewtonRaphson, SolveStrategy},
+    },
+    mechanics::{DeformationGradient, DeformationGradientPlastic, FirstPiolaKirchhoffStress},
+    units::{Stress, Time},
+};
+
+type Mises = PlasticFlow<VonMises, Linear>;
+type MisesVoce = PlasticFlow<VonMises, Voce>;
+type HillLinear = PlasticFlow<Hill, Linear>;
+
+fn linear_hardening(hardening_slope: f64) -> Linear {
+    Linear {
+        yield_stress: Stress::pascals(2.0),
+        hardening_slope: Stress::pascals(hardening_slope),
+    }
+}
+
+fn root(
+    model: &Canonical<NeoHookean, Mises>,
+    applied_load: AppliedLoad,
+    solver: NewtonRaphson,
+) -> Result<
+    (
+        crate::mechanics::Times,
+        crate::mechanics::DeformationGradients,
+        crate::constitutive::fluid::plastic::PlasticStateVariablesHistory,
+    ),
+    crate::constitutive::ConstitutiveError,
+> {
+    FirstOrderRoot::root(
+        model,
+        applied_load,
+        solver,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )
+}
+
+fn model(hardening_slope: f64) -> Canonical<NeoHookean, Mises> {
+    Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        PlasticFlow {
+            surface: VonMises,
+            hardening: linear_hardening(hardening_slope),
+        },
+    ))
+}
+
+fn voce_model() -> Canonical<NeoHookean, MisesVoce> {
+    Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        PlasticFlow {
+            surface: VonMises,
+            hardening: Voce {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(0.2),
+                saturation_stress: Stress::pascals(1.5),
+                saturation_rate: 8.0,
+            },
+        },
+    ))
+}
+
+fn hill_model(coefficients: [f64; 6]) -> Canonical<NeoHookean, HillLinear> {
+    let [f, g, h, l, m, n] = coefficients;
+    Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        PlasticFlow {
+            surface: Hill { f, g, h, l, m, n },
+            hardening: linear_hardening(1.0),
+        },
+    ))
+}
+
+const ANISOTROPIC: [f64; 6] = [0.4, 0.25, 0.3, 1.3, 0.8, 1.1];
+const ISOTROPIC: [f64; 6] = [1.0 / 3.0, 1.0 / 3.0, 1.0 / 3.0, 1.0, 1.0, 1.0];
+
+#[test]
+fn a_composed_model_forwards_the_yield_surface() -> Result<(), AssertionError> {
+    let model = hill_model(ANISOTROPIC);
+    let stress = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let deviatoric = model
+        .mandel_stress(&stress, &DeformationGradientPlastic::identity())?
+        .deviatoric();
+    let increment = deviatoric.clone() * 0.1;
+    let strain = Quantity::new(0.02);
+    let assert = Assert::default();
+    assert.eq_within_tols(
+        model.equivalent_stress(&deviatoric)?,
+        &model.1.equivalent_stress(&deviatoric)?,
+    )?;
+    assert.eq_within_tols(
+        model.yield_function(&deviatoric, strain)?,
+        &model.1.yield_function(&deviatoric, strain)?,
+    )?;
+    assert.eq_within_tols(
+        &model.flow_direction(&deviatoric)?,
+        &model.1.flow_direction(&deviatoric)?,
+    )?;
+    assert.eq_within_tols(
+        &model.flow_direction_slope(&deviatoric, &increment)?,
+        &model.1.flow_direction_slope(&deviatoric, &increment)?,
+    )?;
+    let von_mises = model.1.equivalent_stress(&deviatoric)? - deviatoric.norm();
+    assert!(
+        von_mises.value().abs() > 1e-3,
+        "the surface must differ from von Mises for this test to mean anything"
+    );
+    Ok(())
+}
+
+#[test]
+fn an_isotropic_hill_return_map_is_the_von_mises_one() -> Result<(), AssertionError> {
+    let (hill, mises) = (hill_model(ISOTROPIC), model(1.0));
+    let assert = Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    };
+    let steps = [
+        DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]),
+        DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]),
+    ];
+    let (mut hill_state, mut mises_state) = (hill.initial_state(), mises.initial_state());
+    for step in &steps {
+        hill_state = hill.return_map(step, &hill_state)?;
+        mises_state = mises.return_map(step, &mises_state)?;
+        assert.eq_within_tols(&hill_state.0, &mises_state.0)?;
+        assert.eq_within_tols(hill_state.1, &mises_state.1)?;
+    }
+    assert!(hill_state.1.value() > 0.0);
+    Ok(())
+}
+
+fn plastic_strain_along<M: ElasticPlastic>(
+    model: &M,
+    axis: usize,
+) -> Result<Quantity, AssertionError> {
+    let mut stretch = DeformationGradient::identity();
+    stretch[axis][axis] = Quantity::new(2.0);
+    Ok(model.return_map(&stretch, &model.initial_state())?.1)
+}
+
+#[test]
+fn hill_yielding_depends_on_the_direction_of_the_load() -> Result<(), AssertionError> {
+    let (hill, mises) = (hill_model(ANISOTROPIC), model(1.0));
+    assert!(
+        (plastic_strain_along(&hill, 0)? - plastic_strain_along(&hill, 1)?)
+            .value()
+            .abs()
+            > 1e-3,
+        "a Hill model must yield differently along different axes"
+    );
+    Assert::default().eq_within_tols(
+        plastic_strain_along(&mises, 0)?,
+        &plastic_strain_along(&mises, 1)?,
+    )
+}
+
+#[test]
+fn hill_return_map_is_the_fully_implicit_step() -> Result<(), AssertionError> {
+    let model = hill_model(ANISOTROPIC);
+    let first = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let second = DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]);
+    let state = assert_implicit_step(&model, &first, &model.initial_state())?;
+    assert_implicit_step(&model, &second, &state)?;
+    Ok(())
+}
+
+#[test]
+fn hill_condensed_matches_the_return_map() -> Result<(), AssertionError> {
+    assert_condensed_matches(&hill_model(ANISOTROPIC))
+}
+
+#[test]
+fn hill_strategies_agree_under_non_proportional_loading() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
+    };
+    let model = hill_model(ANISOTROPIC);
+    let steps = times(0.5, 40);
+    let load = || AppliedLoad::BiaxialStress(ramp, |t| 1.0 + 0.3 * t.value(), &steps);
+    let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
+        &model,
+        load(),
+        NewtonRaphson::default(),
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    let reference_strain = reference_states.as_slice().last().unwrap().1;
+    assert!(reference_strain.value() > 0.0);
+    for elimination in [false, true] {
+        let (_, gradients, states) = FirstOrderRoot::root(
+            &model,
+            load(),
+            NewtonRaphson::default(),
+            SolveStrategy::Monolithic { elimination },
+        )?;
+        Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Default::default()
+        }
+        .eq_within_tols(
+            gradients.as_slice().last().unwrap(),
+            reference_gradients.as_slice().last().unwrap(),
+        )?;
+        Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Default::default()
+        }
+        .eq_within_tols(states.as_slice().last().unwrap().1, &reference_strain)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn a_composed_model_forwards_the_hardening_law() -> Result<(), AssertionError> {
+    let model = voce_model();
+    for strain in [0.0, 0.01, 0.05, 0.4] {
+        let strain = Quantity::new(strain);
+        Assert::default()
+            .eq_within_tols(model.yield_stress(strain)?, &model.1.yield_stress(strain)?)?;
+        Assert::default().eq_within_tols(
+            model.hardening_modulus(strain)?,
+            &model.1.hardening_modulus(strain)?,
+        )?;
+    }
+    assert!(
+        (model.hardening_modulus(Quantity::new(0.4))?
+            - model.hardening_modulus(Quantity::default())?)
+        .value()
+        .abs()
+            > 1e-3,
+        "the modulus must vary with strain for this test to mean anything"
+    );
+    Ok(())
+}
+
+#[test]
+fn return_map_satisfies_the_implicit_step_with_nonlinear_hardening() -> Result<(), AssertionError> {
+    let model = voce_model();
+    let first = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let second = DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]);
+    let state = assert_implicit_step(&model, &first, &model.initial_state())?;
+    assert_implicit_step(&model, &second, &state)?;
+    Ok(())
+}
+
+#[test]
+fn condensed_matches_the_return_map() -> Result<(), AssertionError> {
+    assert_condensed_matches(&model(1.0))?;
+    assert_condensed_matches(&voce_model())
+}
+
+fn assert_condensed_matches<M: ElasticPlastic>(model: &M) -> Result<(), AssertionError> {
+    let steps = [
+        DeformationGradient::from([[1.01, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
+        DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]),
+        DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]),
+    ];
+    let assert = Assert {
+        abs_tol: 1e-8,
+        rel_tol: 1e-8,
+        ..Default::default()
+    };
+    let mut state = model.initial_state();
+    for deformation_gradient in &steps {
+        let (stress, _, updated) = model.condensed(deformation_gradient, &state, &solver())?;
+        let reference_state = model.return_map(deformation_gradient, &state)?;
+        assert.eq_within_tols(&updated.0, &reference_state.0)?;
+        assert.eq_within_tols(updated.1, &reference_state.1)?;
+        assert.eq_within_tols(
+            &stress,
+            &model.first_piola_kirchhoff_stress(deformation_gradient, &reference_state.0)?,
+        )?;
+        state = updated
+    }
+    assert!(state.1.value() > 0.0);
+    Ok(())
+}
+
+fn times(final_time: f64, steps: usize) -> Vec<Quantity<Time>> {
+    (0..=steps)
+        .map(|step| Quantity::new(final_time * step as f64 / steps as f64))
+        .collect()
+}
+
+fn solver() -> NewtonRaphson {
+    NewtonRaphson::default()
+}
+
+fn ramp(t: Quantity<Time>) -> f64 {
+    1.0 + t.value()
+}
+
+#[test]
+fn stays_elastic_below_yield() -> Result<(), AssertionError> {
+    let model = model(1.0);
+    let (_, _, states) = root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &times(0.02, 4)),
+        solver(),
+    )?;
+    states.as_slice().iter().try_for_each(|state| {
+        assert_eq!(state.1.value(), 0.0);
+        Assert::default().eq_within_tols(&state.0, &DeformationGradientPlastic::identity())
+    })
+}
+
+#[test]
+fn yields_and_returns_to_the_surface() -> Result<(), AssertionError> {
+    let model = model(1.0);
+    let (_, deformation_gradients, states) = root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
+        solver(),
+    )?;
+    let state = states.as_slice().last().unwrap();
+    assert!(state.1.value() > 0.0);
+    states
+        .as_slice()
+        .windows(2)
+        .try_for_each(|pair| Assert::non_negative(&(pair[1].1.value() - pair[0].1.value())))?;
+    Assert::default().zero_within_tols(
+        &model.yield_function(
+            &model
+                .mandel_stress(deformation_gradients.as_slice().last().unwrap(), &state.0)?
+                .deviatoric(),
+            state.1,
+        )?,
+    )
+}
+
+#[test]
+fn perfect_plasticity_caps_the_flow_stress() -> Result<(), AssertionError> {
+    let model = model(0.0);
+    let flow_stress = |final_time: f64| -> Result<Quantity<Stress>, AssertionError> {
+        let (_, deformation_gradients, states) = root(
+            &model,
+            AppliedLoad::UniaxialStress(ramp, &times(final_time, 100)),
+            solver(),
+        )?;
+        Ok(model
+            .mandel_stress(
+                deformation_gradients.as_slice().last().unwrap(),
+                &states.as_slice().last().unwrap().0,
+            )?
+            .deviatoric()
+            .norm())
+    };
+    Assert::default().eq_within_tols(flow_stress(0.4)?, &Stress::pascals(2.0))?;
+    Assert::default().eq_within_tols(flow_stress(0.5)?, &Stress::pascals(2.0))
+}
+
+#[test]
+fn hardening_raises_the_flow_stress_with_plastic_strain() -> Result<(), AssertionError> {
+    let model = model(1.0);
+    let (_, deformation_gradients, states) = root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
+        solver(),
+    )?;
+    let state = states.as_slice().last().unwrap();
+    Assert::default().eq_within_tols(
+        model
+            .mandel_stress(deformation_gradients.as_slice().last().unwrap(), &state.0)?
+            .deviatoric()
+            .norm(),
+        &(Stress::pascals(2.0) + Stress::pascals(1.0) * state.1),
+    )
+}
+
+fn contract(
+    tangent: &crate::mechanics::FirstPiolaKirchhoffTangentStiffness,
+    direction: &DeformationGradient,
+) -> FirstPiolaKirchhoffStress {
+    let mut out = FirstPiolaKirchhoffStress::zero();
+    for i in 0..3 {
+        for j in 0..3 {
+            let mut sum = 0.0;
+            for k in 0..3 {
+                for l in 0..3 {
+                    sum += tangent[i][j][k][l].value() * direction[k][l].value();
+                }
+            }
+            out[i][j] = Quantity::new(sum);
+        }
+    }
+    out
+}
+
+#[test]
+fn consistent_tangent_keeps_the_outer_solve_within_a_tight_step_cap() -> Result<(), AssertionError>
+{
+    let model = model(1.0);
+    let solver = NewtonRaphson {
+        max_steps: 4,
+        ..Default::default()
+    };
+    let (_, _, states) = root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)),
+        solver,
+    )?;
+    assert!(states.as_slice().last().unwrap().1.value() > 0.0);
+    Ok(())
+}
+
+#[test]
+fn monolithic_strategies_agree_with_each_other() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
+    };
+    let model = model(1.0);
+    let steps = times(0.5, 40);
+    let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &steps),
+        NewtonRaphson::default(),
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    let reference_gradient = reference_gradients.as_slice().last().unwrap();
+    let reference_strain = reference_states.as_slice().last().unwrap().1;
+    assert!(reference_strain.value() > 0.0);
+    for strategy in [
+        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::Monolithic { elimination: true },
+    ] {
+        let (_, gradients, states) = FirstOrderRoot::root(
+            &model,
+            AppliedLoad::UniaxialStress(ramp, &steps),
+            NewtonRaphson::default(),
+            strategy,
+        )?;
+        Assert {
+            abs_tol: 1e-11,
+            rel_tol: 1e-11,
+            ..Default::default()
+        }
+        .eq_within_tols(gradients.as_slice().last().unwrap(), reference_gradient)?;
+        Assert {
+            abs_tol: 1e-11,
+            rel_tol: 1e-11,
+            ..Default::default()
+        }
+        .eq_within_tols(states.as_slice().last().unwrap().1, &reference_strain)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
+-> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
+    };
+    let model = model(1.0);
+    let solver = NewtonRaphson {
+        max_steps: 6,
+        ..Default::default()
+    };
+    let (_, _, states) = FirstOrderRoot::root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)),
+        solver,
+        SolveStrategy::Monolithic { elimination: true },
+    )?;
+    assert!(states.as_slice().last().unwrap().1.value() > 0.0);
+    Ok(())
+}
+
+#[test]
+fn consistent_tangent_matches_the_finite_difference_through_the_return_map()
+-> Result<(), AssertionError> {
+    let model = model(1.0);
+    let (_, deformation_gradients, states) = root(
+        &model,
+        AppliedLoad::UniaxialStress(ramp, &times(0.5, 100)),
+        solver(),
+    )?;
+    let deformation_gradient = deformation_gradients.as_slice()[90].clone();
+    let previous_state = states.as_slice()[89].clone();
+    assert!(
+        states.as_slice()[90].1.value() > 0.0,
+        "step 90 must be plastic"
+    );
+    let (_, consistent, updated) =
+        model.condensed(&deformation_gradient, &previous_state, &solver())?;
+    let continuum =
+        model.first_piola_kirchhoff_tangent_stiffness(&deformation_gradient, &updated.0)?;
+    Assert::default().eq_within_tols(
+        updated.1,
+        &model.return_map(&deformation_gradient, &previous_state)?.1,
+    )?;
+    let step = 1.0e-6;
+    let directions = [
+        DeformationGradient::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        DeformationGradient::from([[0.0, 0.4, 0.0], [0.3, 0.0, 0.0], [0.0, 0.0, 0.0]]),
+        DeformationGradient::from([[0.2, 0.1, -0.15], [0.1, -0.3, 0.05], [-0.15, 0.05, 0.25]]),
+    ];
+    let mut continuum_departs = false;
+    for direction in &directions {
+        let mut plus = deformation_gradient.clone();
+        let mut minus = deformation_gradient.clone();
+        for k in 0..3 {
+            for l in 0..3 {
+                plus[k][l] += Quantity::new(step * direction[k][l].value());
+                minus[k][l] -= Quantity::new(step * direction[k][l].value());
+            }
+        }
+        let finite_difference = (model
+            .first_piola_kirchhoff_stress(&plus, &model.return_map(&plus, &previous_state)?.0)?
+            - model.first_piola_kirchhoff_stress(
+                &minus,
+                &model.return_map(&minus, &previous_state)?.0,
+            )?)
+            / (2.0 * step);
+        Assert {
+            abs_tol: 1e-5,
+            rel_tol: 1e-5,
+            ..Default::default()
+        }
+        .eq_within_tols(contract(&consistent, direction), &finite_difference)?;
+        if (contract(&continuum, direction) - finite_difference.clone())
+            .norm()
+            .value()
+            > 1e-3
+        {
+            continuum_departs = true;
+        }
+    }
+    assert!(
+        continuum_departs,
+        "continuum tangent matched the finite difference; test is not exercising plasticity"
+    );
+    Ok(())
+}
+
+fn assert_implicit_step<M: ElasticPlastic>(
+    model: &M,
+    deformation_gradient: &DeformationGradient,
+    previous_state: &PlasticStateVariables,
+) -> Result<PlasticStateVariables, AssertionError> {
+    let (previous_f_p, &previous_strain): (&DeformationGradientPlastic, &Quantity) =
+        previous_state.into();
+    let updated_state = model.return_map(deformation_gradient, previous_state)?;
+    let (f_p, &strain): (&DeformationGradientPlastic, &Quantity) = (&updated_state).into();
+    let plastic_multiplier = (strain - previous_strain).value();
+    assert!(plastic_multiplier > 0.0, "the step must be plastic");
+    let deviatoric = model.mandel_stress(deformation_gradient, f_p)?.deviatoric();
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(model.yield_function(&deviatoric, strain)?.value(), &0.0)?;
+    let direction = {
+        let direction = model.flow_direction(&deviatoric)?;
+        (&direction + direction.transpose()) * 0.5
+    };
+    let implicit_f_p = (&direction * plastic_multiplier).expm().unwrap() * previous_f_p;
+    Assert {
+        abs_tol: 1e-9,
+        rel_tol: 1e-9,
+        ..Default::default()
+    }
+    .eq_within_tols(f_p, &implicit_f_p)?;
+    Ok(updated_state)
+}
+
+#[test]
+fn return_map_is_the_fully_implicit_step_when_the_loading_is_not_proportional()
+-> Result<(), AssertionError> {
+    let model = model(1.0);
+    let first = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let second = DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]);
+    let state = assert_implicit_step(&model, &first, &model.initial_state())?;
+    assert_implicit_step(&model, &second, &state)?;
+    Ok(())
+}
+
+#[test]
+fn a_material_with_no_initial_yield_stress_is_solved() -> Result<(), AssertionError> {
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        PlasticFlow {
+            surface: VonMises,
+            hardening: Linear {
+                yield_stress: Stress::pascals(0.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
+        },
+    ));
+    let first = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let state = assert_implicit_step(&model, &first, &model.initial_state())?;
+    let (_, tangent, _) = model.condensed(&first, &model.initial_state(), &solver())?;
+    for i in 0..3 {
+        for j in 0..3 {
+            for k in 0..3 {
+                for l in 0..3 {
+                    assert!(tangent[i][j][k][l].value().is_finite());
+                }
+            }
+        }
+    }
+    assert!(state.1.value() > 0.0);
+    Ok(())
+}
+
+#[test]
+fn return_map_solves_a_step_too_large_for_a_frozen_flow_direction() -> Result<(), AssertionError> {
+    let model = model(1.0);
+    let large = DeformationGradient::from([[2.6, 1.12, 0.32], [0.0, 0.68, 0.64], [0.0, 0.0, 1.48]]);
+    assert_implicit_step(&model, &large, &model.initial_state())?;
+    Ok(())
+}
+
+#[test]
+fn monolithic_blocks_match_finite_difference_at_a_plastic_state() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_plastic::coupled::{
+            SIZE, monolithic_plastic, monolithic_residual_local, monolithic_tangents,
+        },
+        math::Vector,
+    };
+    let model = model(1.0);
+    let first = DeformationGradient::from([[1.5, 0.35, 0.1], [0.0, 0.9, 0.2], [0.0, 0.0, 1.15]]);
+    let previous_state = model.return_map(&first, &model.initial_state())?;
+    assert!(
+        previous_state.1.value() > 0.0,
+        "the previous step must be plastic"
+    );
+    let deformation_gradient =
+        DeformationGradient::from([[1.55, 0.5, 0.1], [0.2, 0.95, 0.3], [-0.1, 0.05, 1.1]]);
+    let mut local = Vector::zero(SIZE);
+    [0.02, 0.01, 0.005, 0.01, -0.03, 0.0, 0.005, 0.0, 0.01, 0.04]
+        .iter()
+        .enumerate()
+        .for_each(|(index, value)| local[index] = *value);
+    let residual_global = |gradient: &DeformationGradient, local: &Vector| {
+        Ok::<_, AssertionError>(model.first_piola_kirchhoff_stress(
+            gradient,
+            &monolithic_plastic(&model, &previous_state, local)?,
+        )?)
+    };
+    let residual_local = |gradient: &DeformationGradient, local: &Vector| {
+        Ok::<_, AssertionError>(monolithic_residual_local(
+            &model,
+            gradient,
+            &previous_state,
+            local,
+        )?)
+    };
+    let (k_uu, k_vu, k_uv, k_vv) =
+        monolithic_tangents(&model, &deformation_gradient, &previous_state, &local)?;
+    let step = 1.0e-6;
+    let close = |analytic: f64, finite_difference: f64, what: &str| {
+        assert!(
+            (analytic - finite_difference).abs() <= 1e-6 * (1.0 + analytic.abs()),
+            "{what}: analytic {analytic} vs finite difference {finite_difference}",
+        )
+    };
+    let perturbed = |k: usize, l: usize, sign: f64| {
+        let mut gradient = deformation_gradient.clone();
+        gradient[k][l] += Quantity::new(sign * step);
+        gradient
+    };
+    let shifted = |c: usize, sign: f64| {
+        let mut shifted = local.clone();
+        shifted[c] += sign * step;
+        shifted
+    };
+    let (mut coupling_u, mut coupling_v) = (0.0_f64, 0.0_f64);
+    for k in 0..3 {
+        for l in 0..3 {
+            let d_stress = (residual_global(&perturbed(k, l, 1.0), &local)?
+                - residual_global(&perturbed(k, l, -1.0), &local)?)
+                / (2.0 * step);
+            for i in 0..3 {
+                for j in 0..3 {
+                    close(
+                        k_uu[i][j][k][l].value(),
+                        d_stress[i][j].value(),
+                        &format!("K_uu[{i}][{j}][{k}][{l}]"),
+                    );
+                }
+            }
+            let d_local = (residual_local(&perturbed(k, l, 1.0), &local)?
+                - residual_local(&perturbed(k, l, -1.0), &local)?)
+                / (2.0 * step);
+            for row in 0..SIZE {
+                close(
+                    k_vu[row][3 * k + l],
+                    d_local[row],
+                    &format!("K_vu[{row}][{}]", 3 * k + l),
+                );
+                coupling_v = coupling_v.max(d_local[row].abs());
+            }
+        }
+    }
+    for column in 0..SIZE {
+        let d_stress = (residual_global(&deformation_gradient, &shifted(column, 1.0))?
+            - residual_global(&deformation_gradient, &shifted(column, -1.0))?)
+            / (2.0 * step);
+        for i in 0..3 {
+            for j in 0..3 {
+                close(
+                    k_uv[3 * i + j][column],
+                    d_stress[i][j].value(),
+                    &format!("K_uv[{}][{column}]", 3 * i + j),
+                );
+                coupling_u = coupling_u.max(d_stress[i][j].value().abs());
+            }
+        }
+        let d_local = (residual_local(&deformation_gradient, &shifted(column, 1.0))?
+            - residual_local(&deformation_gradient, &shifted(column, -1.0))?)
+            / (2.0 * step);
+        for row in 0..SIZE {
+            close(
+                k_vv[row][column],
+                d_local[row],
+                &format!("K_vv[{row}][{column}]"),
+            );
+        }
+    }
+    assert!(coupling_u > 1e-2 && coupling_v > 1e-2);
+    Ok(())
+}
+
+#[test]
+fn monolithic_strategies_agree_when_the_loading_is_not_proportional() -> Result<(), AssertionError>
+{
+    assert_strategies_agree_under_biaxial_loading(&model(1.0))
+}
+
+#[test]
+fn monolithic_strategies_agree_with_nonlinear_hardening() -> Result<(), AssertionError> {
+    assert_strategies_agree_under_biaxial_loading(&voce_model())
+}
+
+fn assert_strategies_agree_under_biaxial_loading<M: ElasticPlastic>(
+    model: &M,
+) -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
+    };
+    let steps = times(0.5, 40);
+    let load = || {
+        AppliedLoad::BiaxialStress(
+            ramp,
+            |t: Quantity<Time>| 1.0 + 0.6 * t.value() * t.value() - 0.2 * t.value(),
+            &steps,
+        )
+    };
+    let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
+        model,
+        load(),
+        NewtonRaphson::default(),
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    let reference_gradient = reference_gradients.as_slice().last().unwrap();
+    let reference_state = reference_states.as_slice().last().unwrap();
+    assert!(reference_state.1.value() > 0.0);
+    for strategy in [
+        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::Monolithic { elimination: true },
+    ] {
+        let (_, gradients, states) =
+            FirstOrderRoot::root(model, load(), NewtonRaphson::default(), strategy)?;
+        let assert = Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Default::default()
+        };
+        assert.eq_within_tols(gradients.as_slice().last().unwrap(), reference_gradient)?;
+        let state = states.as_slice().last().unwrap();
+        assert.eq_within_tols(state.1, &reference_state.1)?;
+        assert.eq_within_tols(&state.0, &reference_state.0)?;
+    }
+    Ok(())
+}

@@ -661,6 +661,24 @@ fn contract_third_fourth_with_first_second() {
 }
 
 #[test]
+fn contract_third_fourth_with_first_second_by_reference() {
+    let tensor_rank_4 = get_tensor_rank_4();
+    (&tensor_rank_4)
+        .contract_third_fourth_with_first_second(&get_tensor_rank_2())
+        .iter()
+        .zip(get_tensor_rank_4_contract_third_fourth_with_first_second_tensor_rank_2().iter())
+        .for_each(|(tensor_rank_4_i, res_tensor_rank_4_i)| {
+            tensor_rank_4_i
+                .iter()
+                .zip(res_tensor_rank_4_i.iter())
+                .for_each(|(tensor_rank_4_ij, res_tensor_rank_4_ij)| {
+                    assert_eq!(tensor_rank_4_ij, res_tensor_rank_4_ij)
+                })
+        });
+    assert_eq!(tensor_rank_4, get_tensor_rank_4())
+}
+
+#[test]
 fn div_tensor_rank_0_to_self() {
     (get_tensor_rank_4() / 3.3)
         .iter()

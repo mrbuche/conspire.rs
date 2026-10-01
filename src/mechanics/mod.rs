@@ -3,8 +3,9 @@
 pub mod test;
 
 use crate::units::{
-    Fluidity, ForcePerLength, ForcePerVelocity, Length, PowerPerArea, PowerPerLengthTemperature,
-    Rate, ReciprocalLength, Stress, TemperaturePerLength, Velocity, Viscosity,
+    Dimensionless, Fluidity, ForcePerLength, ForcePerVelocity, Length, PowerPerArea,
+    PowerPerLengthTemperature, Rate, ReciprocalLength, Stress, TemperaturePerLength, Velocity,
+    Viscosity,
 };
 
 use crate::math::{Current, Intermediate, Reference};
@@ -113,22 +114,6 @@ pub type CauchyTangentStiffness1 = TensorRank4<3, Current, Current, Current, Int
 /// The tangent stiffness associated with the elastic Cauchy stress $`\boldsymbol{\mathcal{T}}_\mathrm{e}`$.
 pub type CauchyTangentStiffnessElastic =
     TensorRank4<3, Current, Current, Current, Intermediate, Stress>;
-
-/// The tangent stiffness of the Cauchy stress with respect to the plastic deformation gradient.
-pub type CauchyTangentStiffnessPlastic =
-    TensorRank4<3, Current, Current, Intermediate, Reference, Stress>;
-
-/// The tangent stiffness of the elastic Mandel stress with respect to the deformation gradient.
-pub type MandelStressTangentElastic =
-    TensorRank4<3, Intermediate, Intermediate, Current, Reference, Stress>;
-
-/// The tangent stiffness of the elastic Mandel stress with respect to the plastic deformation gradient.
-pub type MandelStressTangentElasticPlastic =
-    TensorRank4<3, Intermediate, Intermediate, Intermediate, Reference, Stress>;
-
-/// The tangent stiffness of the first Piola-Kirchhoff stress with respect to the plastic deformation gradient.
-pub type FirstPiolaKirchhoffTangentStiffnessPlastic =
-    TensorRank4<3, Current, Reference, Intermediate, Reference, Stress>;
 
 /// The rate tangent stiffness associated with the Cauchy stress $`\boldsymbol{\mathcal{V}}`$.
 pub type CauchyRateTangentStiffness =
@@ -391,6 +376,9 @@ pub type StretchingRatePlasticTangent =
 
 /// The tangent of the plastic stretching rate with respect to the yield stress.
 pub type StretchingRatePlasticTangentYield = TensorRank2<3, Intermediate, Intermediate, Fluidity>;
+
+/// The associative plastic flow direction $`\mathbf{N}`$.
+pub type FlowDirectionPlastic = TensorRank2<3, Intermediate, Intermediate, Dimensionless>;
 
 /// A surface basis.
 pub type SurfaceBasis<I> = TensorRank1List<3, I, 2, Length>;

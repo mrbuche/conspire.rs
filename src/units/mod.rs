@@ -74,6 +74,15 @@ pub trait UnitInv {
     type Output;
 }
 
+/// The unit whose square this unit is, which a square root carries.
+///
+/// Left unimplemented for units that are no square this library names, so that
+/// taking the root of such a quantity fails to compile.
+pub trait UnitRoot {
+    /// The unit of the square root.
+    type Output;
+}
+
 macro_rules! units {
     ($($(#[$meta:meta])* $name:ident),+ $(,)?) => {
         $(
@@ -135,12 +144,16 @@ units!(
     ViscosityPerArea,
     /// A stress, and equally a stiffness, being a stress per unit strain.
     Stress,
+    /// A squared stress.
+    StressSquared,
     /// A reciprocal stress, as a compliance is.
     ReciprocalStress,
     /// A time.
     Time,
     /// A rate, being a reciprocal time.
     Rate,
+    /// A squared rate, being a squared reciprocal time.
+    RateSquared,
     /// A viscosity, being a stress per unit rate.
     Viscosity,
     /// A fluidity, being the reciprocal of a viscosity.
@@ -200,6 +213,18 @@ macro_rules! unit_products {
     };
 }
 
+impl UnitRoot for Dimensionless {
+    type Output = Dimensionless;
+}
+
+impl UnitRoot for RateSquared {
+    type Output = Rate;
+}
+
+impl UnitRoot for StressSquared {
+    type Output = Stress;
+}
+
 unit_products!(
     Dimensionless * Length = Length,
     Dimensionless * ReciprocalLength = ReciprocalLength,
@@ -226,6 +251,10 @@ unit_products!(
     Dimensionless * Time = Time,
     Rate * Time = Dimensionless,
     Time * Rate = Dimensionless,
+    Dimensionless * RateSquared = RateSquared,
+    Rate * Rate = RateSquared,
+    Dimensionless * StressSquared = StressSquared,
+    Stress * Stress = StressSquared,
     Stress * Time = Viscosity,
     Dimensionless * PowerDensity = PowerDensity,
     Stress * Rate = PowerDensity,

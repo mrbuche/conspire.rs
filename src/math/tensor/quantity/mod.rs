@@ -10,7 +10,7 @@ use super::{
     TensorArray, Vector, rank_0::TensorRank0,
 };
 use crate::math::{TensorList, assert::FiniteDifference};
-use crate::units::{Dimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul};
+use crate::units::{Dimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul, UnitRoot};
 use std::{
     cmp::Ordering,
     fmt::{self, Display, Formatter},
@@ -103,6 +103,16 @@ where
     }
 }
 
+impl<U> Quantity<U>
+where
+    U: UnitRoot,
+{
+    /// Returns the square root, which carries the unit this one is the square of.
+    pub fn sqrt(self) -> Quantity<<U as UnitRoot>::Output> {
+        Quantity::new(self.0.sqrt())
+    }
+}
+
 impl Quantity<Dimensionless> {
     /// Returns the smallest integer greater than or equal to the value.
     pub fn ceil(self) -> Self {
@@ -119,10 +129,6 @@ impl Quantity<Dimensionless> {
     /// Raises to a power.
     pub fn powf(self, n: TensorRank0) -> Self {
         Self::new(self.0.powf(n))
-    }
-    /// Returns the square root.
-    pub fn sqrt(self) -> Self {
-        Self::new(self.0.sqrt())
     }
     /// Returns the natural logarithm.
     pub fn ln(self) -> Self {
@@ -655,6 +661,7 @@ impl<U> Hessian for Quantity<U> {
     }
 }
 
+/// A quantity is a 1x1 block.
 impl<U> HessianBlock for Quantity<U> {
     fn entry(&self, _row: usize, _column: usize) -> TensorRank0 {
         self.0

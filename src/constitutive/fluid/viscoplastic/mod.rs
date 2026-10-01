@@ -7,7 +7,7 @@ pub mod autodiff;
 mod test;
 
 use crate::{
-    constitutive::{ConstitutiveError, fluid::plastic::Plastic},
+    constitutive::{ConstitutiveError, fluid::plastic::PlasticHardening},
     math::{
         Derivative, Differentiable, IDENTITY_22, Intermediate, Quantity, Rank2, Scalar, Tensor,
         TensorArray, TensorRank4, TensorTuple, TensorTupleVec,
@@ -42,7 +42,7 @@ pub type ViscoplasticEvolutionHistory<Y> =
 /// Required methods for viscoplastic fluid constitutive models.
 pub trait Viscoplastic<Y>
 where
-    Self: Plastic,
+    Self: PlasticHardening,
     Y: Differentiable + Tensor,
 {
     /// Returns the initial state of the variables.
@@ -174,12 +174,21 @@ pub struct ViscoplasticFlow {
     pub reference_flow_rate: Quantity<Rate>,
 }
 
-impl Plastic for ViscoplasticFlow {
+impl PlasticHardening for ViscoplasticFlow {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.yield_stress
     }
-    fn hardening_slope(&self) -> Quantity<Stress> {
-        self.hardening_slope
+    fn yield_stress(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        Ok(self.yield_stress + self.hardening_slope * equivalent_plastic_strain)
+    }
+    fn hardening_modulus(
+        &self,
+        _equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        Ok(self.hardening_slope)
     }
 }
 

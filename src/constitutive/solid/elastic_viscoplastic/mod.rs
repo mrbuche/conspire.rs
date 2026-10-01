@@ -36,9 +36,7 @@ use crate::{
 use std::ops::{Add, Mul};
 
 use crate::constitutive::solid::elastic_plastic::bcs;
-pub use crate::constitutive::solid::elastic_plastic::{
-    AppliedLoad, ElasticPlasticOrViscoplastic, PlasticTangents,
-};
+pub use crate::constitutive::solid::elastic_plastic::{AppliedLoad, ElasticPlasticOrViscoplastic};
 
 /// Required methods for elastic-viscoplastic solid constitutive models.
 pub trait ElasticViscoplastic<Y>
@@ -481,6 +479,7 @@ where
                 &mut scratch,
                 carry.as_ref(),
                 equality_constraint,
+                None,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
             state = advanced.0;
@@ -565,6 +564,7 @@ where
                 abs_tol,
                 rel_tol,
                 equality_constraint,
+                None,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
         Ok((times, deformation_gradients, state_variables))

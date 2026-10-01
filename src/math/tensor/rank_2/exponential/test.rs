@@ -104,6 +104,74 @@ fn expm_repeated_eigenvalue() -> Result<(), AssertionError> {
     )
 }
 
+fn taylor_reference(a: &TensorRank2<3, Current, Current>) -> TensorRank2<3, Current, Current> {
+    let mut reference = TensorRank2::identity() + a;
+    let mut power = a.clone();
+    let mut factorial = 1.0;
+    (2..40).for_each(|k| {
+        power = &power * a;
+        factorial *= k as f64;
+        reference += &power / factorial;
+    });
+    reference
+}
+
+#[test]
+fn expm_nearly_repeated_eigenvalue_matches_a_high_order_taylor_reference()
+-> Result<(), AssertionError> {
+    for gap in [1e-13, 1e-11, 1e-9, 1e-7, 1e-5, 1e-3] {
+        let tensor = from_eigenvalues([0.16, -0.08 + 0.5 * gap, -0.08 - 0.5 * gap]);
+        Assert {
+            abs_tol: 1e-13,
+            rel_tol: 1e-13,
+            ..Default::default()
+        }
+        .eq_within_tols(&tensor.expm()?, &taylor_reference(&tensor))
+        .inspect_err(|_| println!("gap {gap:e}"))?;
+    }
+    Ok(())
+}
+
+fn dexpm_taylor_reference(
+    a: &TensorRank2<3, Current, Current>,
+    direction: &TensorRank2<3, Current, Current>,
+) -> TensorRank2<3, Current, Current> {
+    let mut powers = vec![TensorRank2::<3, Current, Current>::identity()];
+    (1..40).for_each(|k| powers.push(&powers[k - 1] * a));
+    let mut reference = TensorRank2::zero();
+    let mut factorial = 1.0;
+    (1..40).for_each(|n| {
+        factorial *= n as f64;
+        (0..n).for_each(|p| {
+            reference += &(&(&powers[p] * direction) * &powers[n - 1 - p]) / factorial;
+        })
+    });
+    reference
+}
+
+#[test]
+fn dexpm_nearly_repeated_eigenvalue_matches_the_taylor_series() -> Result<(), AssertionError> {
+    for gap in [1e-13, 1e-11, 1e-9, 1e-7, 1e-5, 1e-3] {
+        let tensor = from_eigenvalues([0.16, -0.08 + 0.5 * gap, -0.08 - 0.5 * gap]);
+        let direction = TensorRank2::<3, Current, Current>::from([
+            [0.3, 0.2, 0.1],
+            [0.2, -0.4, 0.05],
+            [0.1, 0.05, 0.1],
+        ]);
+        Assert {
+            abs_tol: 1e-12,
+            rel_tol: 1e-12,
+            ..Default::default()
+        }
+        .eq_within_tols(
+            contract_third_fourth_indices(&tensor.dexpm()?, &direction),
+            &dexpm_taylor_reference(&tensor, &direction),
+        )
+        .inspect_err(|_| println!("gap {gap:e}"))?;
+    }
+    Ok(())
+}
+
 #[test]
 fn expm_deviatoric_has_unit_determinant() -> Result<(), AssertionError> {
     let deviatoric = from_eigenvalues([0.5, -0.3, -0.2]);

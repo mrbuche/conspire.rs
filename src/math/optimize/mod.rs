@@ -23,6 +23,9 @@ pub use strategy::SolveStrategy;
 pub use tolerance::Tolerances;
 pub use trust_region::TrustRegion;
 
+#[cfg(feature = "constitutive")]
+pub(crate) use newton_raphson::{converged, limit_decrement};
+
 use crate::{
     math::{
         Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,

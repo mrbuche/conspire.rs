@@ -2,10 +2,12 @@
 pub(crate) mod autodiff;
 pub mod elastic;
 pub mod elastic_hyperviscous;
+pub mod elastic_plastic;
 pub mod elastic_viscoplastic;
 pub mod hyperelastic;
 pub mod hyperelastic_viscoplastic;
 pub mod hyperviscoelastic;
+pub mod plastic;
 pub mod viscoelastic;
 pub mod viscoplastic;
 

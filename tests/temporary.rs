@@ -7700,65 +7700,6 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive_minimize() -> Result<(), Ass
 }
 
 #[test]
-fn temporary_elastic_viscoplastic_rkmk_dae() -> Result<(), AssertionError> {
-    use conspire::{
-        fem::solid::elastic_viscoplastic::RootRkmkDae,
-        math::{TensorArray, integrate::BogackiShampineTableau},
-    };
-    let mut connectivity = connectivity();
-    connectivity
-        .iter_mut()
-        .flatten()
-        .for_each(|entry| *entry -= 1);
-    let model = Canonical::from((
-        AlmansiHamelEulerian {
-            bulk_modulus: Stress::pascals(13.0),
-            shear_modulus: Stress::pascals(3.0),
-        },
-        ViscoplasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
-            rate_sensitivity: 0.25,
-            reference_flow_rate: Rate::per_second(0.1),
-        },
-    ));
-    let mesh = Mesh::from((
-        vec![Connectivity::Tetrahedral(connectivity.into())],
-        coordinates(),
-    ));
-    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
-    let time: Vec<Quantity<Time>> = (0..=4).map(|i| Time::seconds(0.25 * i as f64)).collect();
-    let (_, _, state_variables_history) = fem_model
-        .root_rkmk_dae::<BogackiShampineTableau>(
-            NewtonRaphson::default(),
-            &time,
-            bcs_temporary_elastic_viscoplastic,
-        )
-        .unwrap();
-    let mut moved = false;
-    state_variables_history
-        .iter()
-        .last()
-        .unwrap()
-        .iter()
-        .flat_map(|element| element.iter())
-        .for_each(|point_state| {
-            // every Gauss point's F_p stays on the unimodular group
-            assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
-            if (&point_state.0 - &conspire::mechanics::DeformationGradientPlastic::identity())
-                .norm()
-                .value()
-                > 1e-4
-            {
-                moved = true
-            }
-        });
-    // and the plastic state actually flowed somewhere in the mesh
-    assert!(moved);
-    Ok(())
-}
-
-#[test]
 fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionError> {
     use conspire::{
         fem::solid::elastic_viscoplastic::RootRkmkDae,
@@ -7833,72 +7774,6 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionErr
             }
         });
     // and the plastic state actually flowed somewhere in the mesh
-    assert!(moved);
-    Ok(())
-}
-
-#[test]
-fn temporary_elastic_viscoplastic_rkmk_dae_two_blocks() -> Result<(), AssertionError> {
-    use conspire::{
-        fem::{Blocks, solid::elastic_viscoplastic::RootRkmkDae},
-        math::{TensorArray, integrate::BogackiShampineTableau},
-    };
-    let mut connectivity = connectivity();
-    connectivity
-        .iter_mut()
-        .flatten()
-        .for_each(|entry| *entry -= 1);
-    let split = connectivity.len() / 2;
-    let connectivity_2 = connectivity.split_off(split);
-    let model = Canonical::from((
-        AlmansiHamelEulerian {
-            bulk_modulus: Stress::pascals(13.0),
-            shear_modulus: Stress::pascals(3.0),
-        },
-        ViscoplasticFlow {
-            yield_stress: Stress::pascals(2.0),
-            hardening_slope: Stress::pascals(1.0),
-            rate_sensitivity: 0.25,
-            reference_flow_rate: Rate::per_second(0.1),
-        },
-    ));
-    let mesh = Mesh::from((
-        vec![
-            Connectivity::Tetrahedral(connectivity.into()),
-            Connectivity::Tetrahedral(connectivity_2.into()),
-        ],
-        coordinates(),
-    ));
-    let fem_model: Model<
-        Blocks<Block<_, LinearTetrahedron, G, M, N, P>, Block<_, LinearTetrahedron, G, M, N, P>>,
-        3,
-    > = (mesh, (model.clone(), model)).try_into()?;
-    let time: Vec<Quantity<Time>> = (0..=4).map(|i| Time::seconds(0.25 * i as f64)).collect();
-    let (_, _, state_variables_history) = fem_model
-        .root_rkmk_dae::<BogackiShampineTableau>(
-            NewtonRaphson::default(),
-            &time,
-            bcs_temporary_elastic_viscoplastic,
-        )
-        .unwrap();
-    let final_state = state_variables_history.iter().last().unwrap();
-    let mut moved = false;
-    final_state
-        .0
-        .iter()
-        .flat_map(|element| element.iter())
-        .chain(final_state.1.iter().flat_map(|element| element.iter()))
-        .for_each(|point_state| {
-            // every Gauss point's F_p stays on the unimodular group in both blocks
-            assert!((point_state.0.determinant() - 1.0).abs() < 1e-9);
-            if (&point_state.0 - &conspire::mechanics::DeformationGradientPlastic::identity())
-                .norm()
-                .value()
-                > 1e-4
-            {
-                moved = true
-            }
-        });
     assert!(moved);
     Ok(())
 }
@@ -8207,18 +8082,6 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated, Armijo)...");
-    //
-    // Every trial the line search weighs moves the internal variables too, so
-    // this is the run that says they move by the same fraction of their own
-    // direction as the nodal coordinates move by of theirs.
-    //
-    // The step budget is the test, the solution being reached either way. A
-    // demanding control forces one backtrack, and the internal variables have
-    // to be somewhere consistent for the energy to be weighed against it:
-    // stepping them whole regardless makes the base energy that of a state
-    // already moved, which no trial can fail to improve on, so the search stops
-    // backtracking and the budget goes instead.
-    //
     let searched = SecondOrderMinimizeIV::minimize(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
@@ -8235,10 +8098,6 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         SolveStrategy::Monolithic { elimination: true },
     )?;
     println!("Done ({:?}).", time.elapsed());
-    //
-    // The internal variables are carried rather than solved, so agreeing with
-    // the condensed solution is what shows they were carried correctly.
-    //
     Assert {
         abs_tol: 1e-9,
         rel_tol: 1e-9,
@@ -8325,12 +8184,6 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
-    //
-    // The step budget is the point of the test as much as the solution is. The
-    // internal variables are stepped by the increment rather than solved, so
-    // dropping that coupling still arrives at the same root, only staggered
-    // instead of Newton: six steps become nine.
-    //
     let eliminated = FirstOrderRootIV::root(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
@@ -8342,10 +8195,6 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         SolveStrategy::Monolithic { elimination: true },
     )?;
     println!("Done ({:?}).", time.elapsed());
-    //
-    // The internal variables are carried rather than solved, so agreeing with
-    // the condensed solution is what shows they were carried correctly.
-    //
     Assert {
         abs_tol: 1e-9,
         rel_tol: 1e-9,
@@ -8461,4 +8310,340 @@ mod cbm_forces_smoke {
             .eq_within_fd_tol(&nodal_stiffnesses, &finite_difference)
             .unwrap()
     }
+}
+
+#[test]
+fn temporary_elastic_plastic() -> Result<(), AssertionError> {
+    use conspire::constitutive::solid::elastic_plastic::FirstOrderRoot;
+    use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
+    use conspire::math::optimize::SolveStrategy;
+    let tol = 1e-10;
+    let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        conspire::constitutive::fluid::plastic::PlasticFlow {
+            surface: conspire::constitutive::fluid::plastic::VonMises,
+            hardening: conspire::constitutive::fluid::plastic::Linear {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> =
+        (mesh, model.clone()).try_into()?;
+    let boundary_conditions: Vec<EqualityConstraint> = times
+        .iter()
+        .skip(1)
+        .map(|&t| bcs_temporary_elastic_viscoplastic(t))
+        .collect();
+    let (coordinates_history, state_history) = ElasticPlasticRoot::root(
+        &fem_model,
+        NewtonRaphson::default(),
+        &boundary_conditions,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    let (_, deformation_gradients, state_variables) = FirstOrderRoot::root(
+        &model,
+        AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + t.value(), times.as_slice()),
+        NewtonRaphson::default(),
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    coordinates_history
+        .iter()
+        .zip(state_history.iter())
+        .zip(deformation_gradients.iter().zip(state_variables.iter()))
+        .try_for_each(
+            |((coordinates, state_block), (deformation_gradient, state_model))| {
+                fem_model
+                    .blocks()
+                    .deformation_gradients(coordinates)
+                    .iter()
+                    .try_for_each(|element_gradients| {
+                        element_gradients.iter().try_for_each(|gradient_g| {
+                            Assert {
+                                abs_tol: 1e1 * tol,
+                                rel_tol: 1e1 * tol,
+                                ..Default::default()
+                            }
+                            .eq_within_tols(gradient_g, deformation_gradient)
+                        })
+                    })?;
+                let (plastic_model, strain_model) = state_model.into();
+                state_block.iter().try_for_each(|element_state| {
+                    element_state.iter().try_for_each(|state_g| {
+                        let (plastic_g, strain_g) = state_g.into();
+                        Assert {
+                            abs_tol: 1e1 * tol,
+                            rel_tol: 1e1 * tol,
+                            ..Default::default()
+                        }
+                        .eq_within_tols(plastic_g, plastic_model)?;
+                        Assert {
+                            abs_tol: 1e1 * tol,
+                            rel_tol: 1e1 * tol,
+                            ..Default::default()
+                        }
+                        .eq_within_tols(strain_g, strain_model)
+                    })
+                })
+            },
+        )
+}
+
+fn assert_same_plastic_solution(
+    reference: &(
+        conspire::fem::NodalCoordinatesHistory<3>,
+        Vec<conspire::fem::block::solid::elastic_plastic::PlasticStateVariablesField<G>>,
+    ),
+    other: &(
+        conspire::fem::NodalCoordinatesHistory<3>,
+        Vec<conspire::fem::block::solid::elastic_plastic::PlasticStateVariablesField<G>>,
+    ),
+    tol: f64,
+) -> Result<(), AssertionError> {
+    let assert = Assert {
+        abs_tol: tol,
+        rel_tol: tol,
+        ..Default::default()
+    };
+    reference
+        .0
+        .iter()
+        .zip(other.0.iter())
+        .try_for_each(|(reference, other)| assert.eq_within_tols(reference, other))?;
+    reference
+        .1
+        .iter()
+        .zip(other.1.iter())
+        .try_for_each(|(reference, other)| {
+            reference
+                .iter()
+                .zip(other.iter())
+                .try_for_each(|(reference_element, other_element)| {
+                    reference_element
+                        .iter()
+                        .zip(other_element.iter())
+                        .try_for_each(|(reference_g, other_g)| {
+                            let (reference_plastic, reference_strain) = reference_g.into();
+                            let (other_plastic, other_strain) = other_g.into();
+                            assert.eq_within_tols(reference_plastic, other_plastic)?;
+                            assert.eq_within_tols(reference_strain, other_strain)
+                        })
+                })
+        })
+}
+
+#[test]
+fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
+    use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
+    use conspire::math::optimize::SolveStrategy;
+    let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
+    let mut connectivity = connectivity();
+    connectivity
+        .iter_mut()
+        .flatten()
+        .for_each(|entry| *entry -= 1);
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        conspire::constitutive::fluid::plastic::PlasticFlow {
+            surface: conspire::constitutive::fluid::plastic::VonMises,
+            hardening: conspire::constitutive::fluid::plastic::Linear {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(connectivity.into())],
+        coordinates(),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let boundary_conditions: Vec<EqualityConstraint> = times
+        .iter()
+        .skip(1)
+        .map(|&t| bcs_temporary_elastic_viscoplastic(t))
+        .collect();
+    let reference = ElasticPlasticRoot::root(
+        &fem_model,
+        NewtonRaphson::default(),
+        &boundary_conditions,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    for elimination in [false, true] {
+        let solution = ElasticPlasticRoot::root(
+            &fem_model,
+            NewtonRaphson::default(),
+            &boundary_conditions,
+            SolveStrategy::Monolithic { elimination },
+        )?;
+        assert_same_plastic_solution(&reference, &solution, 1e-8)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), AssertionError> {
+    use conspire::fem::solid::elastic_plastic::ElasticPlasticElements;
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        conspire::constitutive::fluid::plastic::PlasticFlow {
+            surface: conspire::constitutive::fluid::plastic::VonMises,
+            hardening: conspire::constitutive::fluid::plastic::Linear {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
+        },
+    ));
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(vec![[0, 1, 2, 3]].into())],
+        Coordinates::from([
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]),
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let blocks = fem_model.blocks();
+    let state = blocks.initial_state();
+    let base_global = Vector::from(vec![
+        0.0, 0.0, 0.0, 1.6, 0.05, -0.02, 0.1, 0.9, 0.03, -0.04, 0.02, 1.1,
+    ]);
+    let base_local = Vector::from(vec![
+        0.012, 0.004, -0.003, 0.004, -0.008, 0.002, -0.003, 0.002, -0.004, 0.02,
+    ]);
+    let evaluate = |global: &Vector, local: &Vector| {
+        let mut system = blocks.monolithic_system(4).unwrap();
+        blocks
+            .monolithic_into(
+                &conspire::fem::NodalCoordinates::from(global.clone()),
+                &state,
+                local,
+                &mut system,
+            )
+            .unwrap();
+        system
+    };
+    let system = evaluate(&base_global, &base_local);
+    let h = 1e-6;
+    let assert = Assert {
+        abs_tol: 1e-6,
+        rel_tol: 1e-6,
+        ..Default::default()
+    };
+    for column in 0..12 {
+        let (mut plus, mut minus) = (base_global.clone(), base_global.clone());
+        plus[column] += h;
+        minus[column] -= h;
+        let (plus, minus) = (evaluate(&plus, &base_local), evaluate(&minus, &base_local));
+        for row in 0..12 {
+            let finite = (plus.residual_global[row] - minus.residual_global[row]) / (2.0 * h);
+            assert.eq_within_tols(system.tangent_uu.entry(row, column), &finite)?;
+        }
+        for row in 0..10 {
+            let finite = (plus.residual_local[row] - minus.residual_local[row]) / (2.0 * h);
+            assert.eq_within_tols(system.tangent_vu.entry(row, column), &finite)?;
+        }
+    }
+    for column in 0..10 {
+        let (mut plus, mut minus) = (base_local.clone(), base_local.clone());
+        plus[column] += h;
+        minus[column] -= h;
+        let (plus, minus) = (
+            evaluate(&base_global, &plus),
+            evaluate(&base_global, &minus),
+        );
+        for row in 0..12 {
+            let finite = (plus.residual_global[row] - minus.residual_global[row]) / (2.0 * h);
+            assert.eq_within_tols(system.tangent_uv.entry(row, column), &finite)?;
+        }
+        for row in 0..10 {
+            let finite = (plus.residual_local[row] - minus.residual_local[row]) / (2.0 * h);
+            assert.eq_within_tols(system.tangent_vv.entry(row, column), &finite)?;
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
+    use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
+    use conspire::math::optimize::SolveStrategy;
+    let tol = 1e-9;
+    let times: Vec<Quantity<Time>> = (0..=5).map(|i| Time::seconds(0.1 * i as f64)).collect();
+    let model = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        conspire::constitutive::fluid::plastic::PlasticFlow {
+            surface: conspire::constitutive::fluid::plastic::VonMises,
+            hardening: conspire::constitutive::fluid::plastic::Linear {
+                yield_stress: Stress::pascals(2.0),
+                hardening_slope: Stress::pascals(1.0),
+            },
+        },
+    ));
+    let reference_coordinates = Coordinates::from([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+    ]);
+    let mesh = Mesh::from((
+        vec![Connectivity::Tetrahedral(vec![[0, 1, 2, 3]].into())],
+        reference_coordinates,
+    ));
+    let fem_model: Model<Block<_, LinearTetrahedron, G, M, N, P>, 3> = (mesh, model).try_into()?;
+    let boundary_conditions: Vec<EqualityConstraint> = times
+        .iter()
+        .skip(1)
+        .map(|&t| {
+            let mut matrix = Matrix::zero(7, 12);
+            let mut vector = Vector::zero(7);
+            matrix[0][0] = 1.0;
+            matrix[1][1] = 1.0;
+            matrix[2][2] = 1.0;
+            matrix[3][4] = 1.0;
+            matrix[4][5] = 1.0;
+            matrix[5][3] = 1.0;
+            vector[5] = 1.0 + t.value();
+            matrix[6][8] = 1.0;
+            EqualityConstraint::Linear(matrix, vector)
+        })
+        .collect();
+    let reference = ElasticPlasticRoot::root(
+        &fem_model,
+        NewtonRaphson::default(),
+        &boundary_conditions,
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    )?;
+    for elimination in [false, true] {
+        let solution = ElasticPlasticRoot::root(
+            &fem_model,
+            NewtonRaphson::default(),
+            &boundary_conditions,
+            SolveStrategy::Monolithic { elimination },
+        )?;
+        assert_same_plastic_solution(&reference, &solution, tol)?;
+    }
+    Ok(())
 }

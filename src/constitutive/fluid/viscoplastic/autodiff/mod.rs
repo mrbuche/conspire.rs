@@ -19,7 +19,7 @@ use crate::{
     constitutive::{
         ConstitutiveError,
         fluid::{
-            plastic::Plastic,
+            plastic::PlasticHardening,
             viscoplastic::{
                 Viscoplastic, ViscoplasticEvolution, ViscoplasticStateVariables,
                 default_plastic_evolution,
@@ -59,15 +59,24 @@ pub trait AutodiffViscoplastic {
     );
 }
 
-impl<M> Plastic for Autodiff<M>
+impl<M> PlasticHardening for Autodiff<M>
 where
     M: AutodiffViscoplastic + Clone + Debug,
 {
     fn initial_yield_stress(&self) -> Quantity<Stress> {
         self.0.initial_yield_stress()
     }
-    fn hardening_slope(&self) -> Quantity<Stress> {
-        self.0.hardening_slope()
+    fn yield_stress(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        Ok(self.0.initial_yield_stress() + self.0.hardening_slope() * equivalent_plastic_strain)
+    }
+    fn hardening_modulus(
+        &self,
+        _equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<Stress>, ConstitutiveError> {
+        Ok(self.0.hardening_slope())
     }
 }
 

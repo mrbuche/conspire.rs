@@ -1202,6 +1202,33 @@ fn transpose() {
 }
 
 #[test]
+fn symmetric_part_is_the_average_with_the_transpose() {
+    let tensor_rank_2 = get_tensor_rank_2_dim_4();
+    let symmetric_part = tensor_rank_2.symmetric_part();
+    assert!(symmetric_part.is_symmetric());
+    (0..4).for_each(|i| {
+        (0..4).for_each(|j| {
+            assert_eq!(
+                symmetric_part[i][j].value(),
+                0.5 * (tensor_rank_2[i][j].value() + tensor_rank_2[j][i].value())
+            )
+        })
+    });
+}
+
+#[test]
+fn symmetric_part_keeps_a_symmetric_tensor_and_drops_an_antisymmetric_one() {
+    let tensor_rank_2 = get_tensor_rank_2_dim_4();
+    let symmetric = tensor_rank_2.symmetric_part();
+    assert_eq!(symmetric.symmetric_part(), symmetric);
+    let antisymmetric = (&tensor_rank_2 - tensor_rank_2.transpose()) * 0.5;
+    assert_eq!(
+        antisymmetric.symmetric_part(),
+        TensorRank2::<4, Current, Current>::zero()
+    );
+}
+
+#[test]
 fn zero_dim_2() {
     TensorRank2::<2, Current, Current>::zero()
         .iter()

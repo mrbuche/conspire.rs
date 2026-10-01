@@ -6,18 +6,30 @@ use crate::math::assert::Assert;
 use crate::units::Dimensionless;
 
 use super::{
-    super::{Rank2, Tensor, TensorArray, TensorError, rank_4::TensorRank4},
+    super::{
+        Rank2, Tensor, TensorArray, TensorError, rank_0::list::TensorRank0List, rank_4::TensorRank4,
+    },
     TensorRank2,
     eigen::{find_orthonormal_eigenvectors, reconstruct_symmetric, solve_cubic_symmetric},
 };
+
+/// Whether the eigenvalues from the cubic are far enough apart for the spectral
+/// decomposition to be accurate: the roots of a nearly repeated pair are ill-conditioned,
+/// and the error they carry (about a part in 10^9 for a gap of 10^-11) passes straight
+/// into the exponential.
+fn well_separated(eigenvalues: &TensorRank0List<3>, norm: f64) -> bool {
+    let gap = |i: usize, j: usize| (eigenvalues[i] - eigenvalues[j]).abs();
+    gap(0, 1).min(gap(0, 2)).min(gap(1, 2)) >= 1e-2 * (1.0 + norm)
+}
 
 impl<I> TensorRank2<3, I, I, Dimensionless> {
     /// Returns the matrix exponential of the 3x3 tensor.
     ///
     /// Diagonal tensors go entrywise; symmetric tensors (exactly or up to
-    /// round-off) through the spectral decomposition; anything with a small
-    /// enough norm through a truncated Taylor series; and a general tensor
-    /// through scaling and squaring of that series.
+    /// round-off) with well-separated eigenvalues through the spectral decomposition;
+    /// anything with a small enough norm through a truncated Taylor series; and
+    /// everything else, including symmetric tensors with a nearly repeated
+    /// eigenvalue, through scaling and squaring of that series.
     pub fn expm(&self) -> Result<Self, TensorError> {
         if self.is_diagonal() {
             let mut expm = TensorRank2::zero();
@@ -35,11 +47,13 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
         if self.is_symmetric() || (self - &transpose).norm().value() < 1e-9 * (1.0 + norm) {
             let symmetric = (self + transpose) * 0.5;
             let mut eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
-            let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, &symmetric);
-            eigenvalues
-                .iter_mut()
-                .for_each(|eigenvalue| *eigenvalue = eigenvalue.exp());
-            return Ok(reconstruct_symmetric(eigenvalues, eigenvectors));
+            if well_separated(&eigenvalues, norm) {
+                let eigenvectors = find_orthonormal_eigenvectors(&eigenvalues, &symmetric);
+                eigenvalues
+                    .iter_mut()
+                    .for_each(|eigenvalue| *eigenvalue = eigenvalue.exp());
+                return Ok(reconstruct_symmetric(eigenvalues, eigenvectors));
+            }
         }
         let squarings = (norm / 5e-3).log2().ceil().max(1.0) as u32;
         let mut expm = (self / 2.0_f64.powi(squarings as i32)).expm_series();
@@ -67,8 +81,10 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
     ///
     /// The Frechet derivative $`\mathrm{d}\exp(\mathbf{A})/\mathrm{d}\mathbf{A}`$, formed
     /// diagonally entrywise, from a truncated series near zero, from scaling and
-    /// squaring of that series for a general (non-symmetric, larger-norm) tensor,
-    /// and otherwise from the spectral decomposition with the divided differences
+    /// squaring of that series for a general (non-symmetric, larger-norm) tensor or a
+    /// symmetric one with a nearly repeated eigenvalue, and otherwise, for a symmetric
+    /// tensor with well-separated eigenvalues, from the spectral decomposition with the
+    /// divided differences
     /// ```math
     /// \frac{e^{\lambda_i} - e^{\lambda_j}}{\lambda_i - \lambda_j},
     /// \qquad e^{\lambda_j} \text{ for } \lambda_i = \lambda_j.
@@ -140,10 +156,20 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                 Ok(dexpm)
             } else {
                 let transpose = self.transpose();
-                if !self.is_symmetric() && (self - &transpose).norm().value() >= 1e-9 * (1.0 + norm)
-                {
+                let nearly_symmetric =
+                    self.is_symmetric() || (self - &transpose).norm().value() < 1e-9 * (1.0 + norm);
+                let spectral = if nearly_symmetric {
+                    let symmetric = (self + transpose.clone()) * 0.5;
+                    let eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
+                    well_separated(&eigenvalues, norm).then_some((symmetric, eigenvalues))
+                } else {
+                    None
+                };
+                let Some((symmetric, eigenvalues)) = spectral else {
                     //
-                    // Non-symmetric: scaling and squaring of the Fréchet derivative.
+                    // Non-symmetric, or symmetric with a nearly repeated eigenvalue (whose
+                    // divided differences would lose accuracy): scaling and squaring of the
+                    // Fréchet derivative.
                     // With E = exp(B), L = dexp(B), the squaring B → 2B gives
                     // E → E² and L → L·E + E·L (contracting the middle index);
                     // one final 1/scale converts d/dB back to d/dA.
@@ -181,9 +207,7 @@ impl<I> TensorRank2<3, I, I, Dimensionless> {
                         })
                     });
                     return Ok(dexpm);
-                }
-                let symmetric = (self + transpose) * 0.5;
-                let eigenvalues = solve_cubic_symmetric(symmetric.invariants())?;
+                };
                 let divided_difference: Self = eigenvalues
                     .iter()
                     .map(|eigenvalue_i| {
