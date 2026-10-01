@@ -32,36 +32,82 @@ fn sorted(mut face: Vec<usize>) -> Vec<usize> {
     face
 }
 
+/// The faces of every element, numbered once so that a patch can count how many
+/// of its elements touch each face without hashing the faces again.
+struct Faces {
+    elements: Vec<usize>,
+    members: Vec<usize>,
+    nodes: Vec<Vec<usize>>,
+    exterior: Vec<bool>,
+}
+
+impl Faces {
+    fn new(elements: &[(&Connectivity, &[usize])], exterior: &FxHashSet<Vec<usize>>) -> Self {
+        let mut numbers = FxHashMap::<Vec<usize>, usize>::default();
+        let mut nodes = Vec::new();
+        let mut exterior_faces = Vec::new();
+        let mut pointers = vec![0];
+        let mut members = Vec::new();
+        for &(block, element) in elements {
+            for face in block.element_faces(element) {
+                let face = sorted(face);
+                let number = *numbers.entry(face).or_insert_with_key(|face| {
+                    nodes.push(face.clone());
+                    exterior_faces.push(exterior.contains(face));
+                    nodes.len() - 1
+                });
+                members.push(number);
+            }
+            pointers.push(members.len());
+        }
+        Self {
+            elements: pointers,
+            members,
+            nodes,
+            exterior: exterior_faces,
+        }
+    }
+    fn of(&self, element: usize) -> &[usize] {
+        &self.members[self.elements[element]..self.elements[element + 1]]
+    }
+}
+
 /// The radius to which a weight function reaches, which is the distance to the
 /// nearest patch boundary that cuts through the mesh, if that is within the radius.
 ///
 /// The parts of the patch boundary that are the mesh boundary are excluded, so
 /// weight functions do not shrink away from where the domain simply ends.
 fn interior_radius(
-    elements: &[(&Connectivity, &[usize])],
+    faces: &Faces,
+    counts: &mut [u8],
     patch: &Patch,
     distances: &[(usize, f64)],
-    exterior: &FxHashSet<Vec<usize>>,
     radius: f64,
 ) -> f64 {
-    let mut counts = FxHashMap::<Vec<usize>, usize>::default();
     for &element in &patch.elements {
-        let (block, nodes) = elements[element];
-        for face in block.element_faces(nodes) {
-            *counts.entry(sorted(face)).or_insert(0) += 1;
+        for &face in faces.of(element) {
+            counts[face] += 1;
         }
     }
-    counts
-        .iter()
-        .filter(|(face, count)| **count == 1 && !exterior.contains(*face))
-        .flat_map(|(face, _)| face.iter())
-        .map(|&node| {
-            let at = distances
-                .binary_search_by_key(&node, |&(n, _)| n)
-                .expect("patch node has a distance");
-            distances[at].1
-        })
-        .fold(radius, f64::min)
+    let mut cut = radius;
+    for &element in &patch.elements {
+        for &face in faces.of(element) {
+            if counts[face] == 1 && !faces.exterior[face] {
+                for &node in &faces.nodes[face] {
+                    let at = distances
+                        .binary_search_by_key(&node, |&(n, _)| n)
+                        .expect("patch node has a distance");
+                    cut = cut.min(distances[at].1);
+                }
+            }
+        }
+    }
+    for &element in &patch.elements {
+        for &face in faces.of(element) {
+            counts[face] = 0;
+        }
+    }
+    cut
 }
 
 impl<const D: usize> Mesh<D> {
@@ -103,6 +149,8 @@ fn basis<const D: usize, const N: usize>(
         .iter()
         .flat_map(|block| block.iter().map(move |element| (block, element)))
         .collect();
+    let faces = Faces::new(&elements, &exterior);
+    let mut counts = vec![0_u8; faces.nodes.len()];
     let mut nodes_seeds = FxHashMap::<usize, Vec<(usize, f64)>>::default();
     for (index, (&seed, patch)) in seeds.iter().zip(&patches).enumerate() {
         let distances: Vec<(usize, f64)> =
@@ -110,7 +158,7 @@ fn basis<const D: usize, const N: usize>(
                 .into_iter()
                 .map(|(node, distance)| (node, distance.value_as::<Length>()))
                 .collect();
-        let cut = interior_radius(&elements, patch, &distances, &exterior, reach);
+        let cut = interior_radius(&faces, &mut counts, patch, &distances, reach);
         if cut <= 0.0 {
             return Err("seed is on the interior boundary of its own patch");
         }
