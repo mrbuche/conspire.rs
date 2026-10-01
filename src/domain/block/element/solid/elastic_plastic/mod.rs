@@ -21,38 +21,6 @@ where
         state_variables: &PlasticStateVariables<G>,
         local_solver: &NewtonRaphson,
     ) -> Result<(Self::Forces, Self::Stiffnesses), Self::Error>;
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &Self::Coordinates,
-        state_variables: &PlasticStateVariables<G>,
-        local_solver: &NewtonRaphson,
-    ) -> Result<Self::Forces, Self::Error> {
-        Ok(self
-            .nodal_forces_and_stiffnesses(
-                constitutive_model,
-                nodal_coordinates,
-                state_variables,
-                local_solver,
-            )?
-            .0)
-    }
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_coordinates: &Self::Coordinates,
-        state_variables: &PlasticStateVariables<G>,
-        local_solver: &NewtonRaphson,
-    ) -> Result<Self::Stiffnesses, Self::Error> {
-        Ok(self
-            .nodal_forces_and_stiffnesses(
-                constitutive_model,
-                nodal_coordinates,
-                state_variables,
-                local_solver,
-            )?
-            .1)
-    }
     fn updated_state(
         &self,
         constitutive_model: &C,
