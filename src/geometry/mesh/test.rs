@@ -39,7 +39,7 @@ pub const COORDINATES: [Coordinate<3>; 8] = [
 pub fn mesh() -> Mesh<3> {
     let connectivities = vec![Connectivity::Triangular(CONNECTIVITY.to_vec().into())];
     let coordinates = Coordinates::from(COORDINATES);
-    Mesh::from((connectivities, coordinates))
+    (connectivities, coordinates).into()
 }
 
 pub fn sphere(stacks: usize, slices: usize, radius: f64) -> Tessellation {
@@ -82,7 +82,7 @@ pub fn sphere(stacks: usize, slices: usize, radius: f64) -> Tessellation {
     }
     let coordinates = Coordinates::from(points);
     let connectivities = vec![Connectivity::Triangular(faces.into())];
-    Tessellation::from(Mesh::from((connectivities, coordinates)))
+    Mesh::from((connectivities, coordinates)).into()
 }
 
 pub fn mesh_with_node_sets() -> Mesh<3> {
@@ -141,10 +141,10 @@ pub fn perpendicular_facet(axis: usize, sign: f64, size: f64) -> Mesh<3> {
         .to_vec(),
     );
     let facet = if sign > 0.0 { [0, 1, 2] } else { [0, 2, 1] };
-    Mesh::from((
+    (
         vec![Connectivity::Triangular(vec![facet, [3, 4, 5]].into())],
         coordinates,
-    ))
+    ).into()
 }
 
 pub fn octahedron(levels: usize) -> Tessellation {
@@ -190,5 +190,5 @@ pub fn octahedron(levels: usize) -> Tessellation {
     }
     let coordinates = Coordinates::from(points);
     let connectivities = vec![Connectivity::Triangular(faces.into())];
-    Tessellation::from(Mesh::from((connectivities, coordinates)))
+    Mesh::from((connectivities, coordinates)).into()
 }
