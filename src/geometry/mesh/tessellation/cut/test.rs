@@ -214,43 +214,6 @@ pub(super) fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation 
     )))
 }
 
-/// A sphere with a pyramidal spike raised out of every triangle: sharp convex
-/// ridges and concave reentrant valleys between them.
-pub(super) fn star(refinements: usize, height: f64) -> Tessellation {
-    let base = sphere(refinements);
-    let mut coordinates: Vec<[f64; 3]> = base
-        .mesh()
-        .coordinates()
-        .iter()
-        .map(|point| [point[0].value(), point[1].value(), point[2].value()])
-        .collect();
-    let mut faces = Vec::new();
-    base.mesh()
-        .connectivities()
-        .iter()
-        .flatten()
-        .for_each(|triangle| {
-            let [a, b, c] = [triangle[0], triangle[1], triangle[2]];
-            let centroid: [f64; 3] = std::array::from_fn(|d| {
-                (coordinates[a][d] + coordinates[b][d] + coordinates[c][d]) / 3.0
-            });
-            let norm = centroid
-                .iter()
-                .map(|value| value * value)
-                .sum::<f64>()
-                .sqrt();
-            coordinates.push(std::array::from_fn(|d| centroid[d] / norm * height));
-            let apex = coordinates.len() - 1;
-            faces.push([a, b, apex]);
-            faces.push([b, c, apex]);
-            faces.push([c, a, apex]);
-        });
-    Tessellation::from(Mesh::from((
-        vec![Connectivity::Triangular(faces.into())],
-        Coordinates::from(coordinates),
-    )))
-}
-
 pub(super) fn hexahedron(minimum: [f64; 3], maximum: [f64; 3]) -> Mesh<3> {
     let [x0, y0, z0] = minimum;
     let [x1, y1, z1] = maximum;
