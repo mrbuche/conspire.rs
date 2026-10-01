@@ -277,7 +277,7 @@ impl<'a> Oracle<'a> {
             ties.iter().map(|(point, _)| point).sum::<Coordinate<3>>() / ties.len() as Scalar;
         let normal = ties
             .iter()
-            .map(|&(_, index)| self.normals[index].clone())
+            .map(|&(_, index)| &self.normals[index])
             .sum::<Direction<3>>();
         if normal.norm().value() > NORMAL_FLOOR {
             Some((point, normal.normalized()))

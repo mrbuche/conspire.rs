@@ -144,7 +144,8 @@ pub fn perpendicular_facet(axis: usize, sign: f64, size: f64) -> Mesh<3> {
     (
         vec![Connectivity::Triangular(vec![facet, [3, 4, 5]].into())],
         coordinates,
-    ).into()
+    )
+        .into()
 }
 
 pub fn octahedron(levels: usize) -> Tessellation {
