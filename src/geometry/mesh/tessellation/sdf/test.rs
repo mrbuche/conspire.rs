@@ -1,9 +1,9 @@
-use std::f64::consts::FRAC_PI_3;
+use std::f64::consts::{FRAC_PI_3, FRAC_PI_4};
 
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, Tessellation},
+        mesh::{Connectivity, Mesh, Tessellation, test::perpendicular_facet},
     },
     math::{Quantity, Tensor},
 };
@@ -70,4 +70,23 @@ fn cube_cone_stays_near_unit_thickness() {
         assert!(diameter > Quantity::default() && diameter.value().is_finite());
         assert!((diameter.value() - 1.0).abs() < 0.5);
     });
+}
+
+#[test]
+fn rays_from_a_perpendicular_facet_are_not_lost_to_the_facet_itself() {
+    for size in [0.001, 0.01] {
+        for axis in 0..3 {
+            for sign in [1.0, -1.0] {
+                let tessellation = Tessellation::from(perpendicular_facet(axis, sign, size));
+                let thickness = tessellation.shape_diameter_function(FRAC_PI_4, 3, 10);
+                (0..3).for_each(|node| {
+                    let value = thickness[node].value();
+                    assert!(
+                        (2.1..3.0).contains(&value),
+                        "size {size}, axis {axis}, sign {sign}, node {node}: {value}"
+                    )
+                });
+            }
+        }
+    }
 }

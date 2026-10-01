@@ -53,9 +53,13 @@ impl Tessellation {
                                         .into_iter()
                                         .filter_map(|(direction, weight)| {
                                             let ray = (centroids[face].clone(), direction).into();
-                                            bvh.intersect(&ray, coordinates, elements)
-                                                .filter(|hit| hit.index() != face)
-                                                .map(|hit| (hit.distance(), weight))
+                                            bvh.intersect_excluding(
+                                                &ray,
+                                                coordinates,
+                                                elements,
+                                                face,
+                                            )
+                                            .map(|hit| (hit.distance(), weight))
                                         })
                                         .collect();
                                 *diameter = weighted_diameter(samples);
