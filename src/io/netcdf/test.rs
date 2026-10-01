@@ -269,6 +269,23 @@ fn get_variable_on_writer_panics() {
 }
 
 #[test]
+#[should_panic(expected = "no variable named")]
+fn get_variable_widened_missing_panics() {
+    let netcdf = one_var_file("target/netcdf_widened_missing.nc");
+    let _ = netcdf.get_variable_widened("nope", 1);
+}
+
+#[test]
+#[should_panic(expected = "get_variable_widened on a NetCDF opened for writing")]
+fn get_variable_widened_on_writer_panics() {
+    let mut netcdf = NetCDF::create("target/netcdf_widened_on_writer.nc").unwrap();
+    netcdf.define_dimension("n", 1).unwrap();
+    netcdf.define_variable::<f64>("v", 1, &["n"]).unwrap();
+    netcdf.end_definition();
+    let _ = netcdf.get_variable_widened("v", 1);
+}
+
+#[test]
 #[should_panic(expected = "get_variable_slice on a NetCDF opened for writing")]
 fn get_variable_slice_on_writer_panics() {
     let mut netcdf = NetCDF::create("target/netcdf_slice_on_writer.nc").unwrap();
@@ -350,4 +367,26 @@ fn put_variable_attribute_missing_variable_panics() {
     let mut netcdf = NetCDF::create("target/netcdf_put_attr_missing.nc").unwrap();
     netcdf.define_dimension("n", 1).unwrap();
     let _ = netcdf.put_variable_attribute_text("absent", "a", "x");
+}
+
+#[test]
+fn widened_reads_both_precisions() {
+    let path = "target/netcdf_widened.nc";
+    {
+        let mut netcdf = NetCDF::try_from(Path::new(path)).unwrap();
+        netcdf.define_dimension("nodes", 3).unwrap();
+        netcdf
+            .define_variable::<f32>("single", 1, &["nodes"])
+            .unwrap();
+        netcdf
+            .define_variable::<f64>("double", 1, &["nodes"])
+            .unwrap();
+        netcdf.end_definition();
+        netcdf.put_variable("single", &[0.5_f32, 1.5, 2.5]).unwrap();
+        netcdf.put_variable("double", &[0.5_f64, 1.5, 2.5]).unwrap();
+    }
+    let netcdf = NetCDF::open(path).unwrap();
+    let expected = vec![0.5, 1.5, 2.5];
+    assert_eq!(netcdf.get_variable_widened("single", 3).unwrap(), expected);
+    assert_eq!(netcdf.get_variable_widened("double", 3).unwrap(), expected);
 }

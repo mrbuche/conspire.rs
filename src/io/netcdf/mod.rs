@@ -94,6 +94,8 @@ pub trait GetVariable {
         name: &str,
         len: usize,
     ) -> Result<Option<Vec<T>>, NulError>;
+    /// Read a floating-point variable of either precision, widening `f32` to `f64`.
+    fn get_variable_widened(&self, name: &str, len: usize) -> Result<Vec<f64>, NulError>;
     /// Read the hyperslab `start .. start + count` (element coordinates, one
     /// entry per dimension) of a variable, decompressing only the chunks it
     /// touches.
