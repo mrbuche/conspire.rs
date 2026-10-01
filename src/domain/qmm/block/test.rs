@@ -30,12 +30,22 @@ fn mesh() -> Mesh<3> {
     tetrahedra(8)
 }
 
-fn discretization() -> Discretization {
+fn discretization_of(mesh: &Mesh<3>, approximation: f64, quadrature: f64) -> Discretization {
     let support = |spacing, reach| Support {
         spacing: Quantity::new(spacing),
         reach,
     };
-    Discretization::new(&mesh(), support(0.4, 2.6), support(0.2, 3.6), 3).unwrap()
+    Discretization::new(
+        mesh,
+        support(approximation, 2.6),
+        support(quadrature, 3.6),
+        3,
+    )
+    .unwrap()
+}
+
+fn discretization() -> Discretization {
+    discretization_of(&mesh(), 0.4, 0.2)
 }
 
 fn apply(
@@ -161,10 +171,10 @@ fn solve_approximates_an_affine_field_from_its_boundary_values() -> Result<(), A
     Ok(())
 }
 
-#[test]
-fn solve_recovers_an_affine_field_exactly_with_tractions() -> Result<(), AssertionError> {
-    let mesh = mesh();
-    let discretization = discretization();
+fn recovers_an_affine_field_exactly_with_tractions(
+    mesh: Mesh<3>,
+    discretization: Discretization,
+) -> Result<(), AssertionError> {
     let reference = discretization.coordinates().clone();
     let number_of_nodes = reference.len();
     let boundary: Vec<usize> = (0..number_of_nodes)
@@ -222,4 +232,18 @@ fn solve_recovers_an_affine_field_exactly_with_tractions() -> Result<(), Asserti
         .try_for_each(|gradient| {
             Assert::default().eq_within_tols(gradient, &deformation_gradient())
         })
+}
+
+#[test]
+fn solve_recovers_an_affine_field_exactly_with_tractions() -> Result<(), AssertionError> {
+    recovers_an_affine_field_exactly_with_tractions(mesh(), discretization())
+}
+
+#[test]
+fn solve_recovers_an_affine_field_exactly_with_tractions_on_a_finer_seeding()
+-> Result<(), AssertionError> {
+    let mesh = tetrahedra(24);
+    let discretization = discretization_of(&mesh, 0.15, 0.075);
+    assert!(discretization.coordinates().len() > 200);
+    recovers_an_affine_field_exactly_with_tractions(mesh, discretization)
 }
