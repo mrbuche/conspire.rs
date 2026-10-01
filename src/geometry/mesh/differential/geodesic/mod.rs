@@ -109,6 +109,17 @@ fn heat<const D: usize, const N: usize>(
         .collect())
 }
 
+/// As [`Mesh::geodesic_distances_over`], from simplices already built for every element.
+pub(crate) fn geodesic_distances_among<const D: usize, const N: usize>(
+    mesh: &Mesh<D>,
+    source: usize,
+    simplices: &[Simplex<D, N>],
+    elements: &[usize],
+) -> Result<Vec<(usize, Quantity<Length>)>, &'static str> {
+    let among: Vec<Simplex<D, N>> = elements.iter().map(|&element| simplices[element]).collect();
+    heat(mesh, source, &among)
+}
+
 impl<const D: usize> Mesh<D> {
     /// Approximate geodesic distances from a source node to every node,
     /// through a mesh of triangles or tetrahedra, by the heat method.
