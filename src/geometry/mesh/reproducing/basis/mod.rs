@@ -9,6 +9,7 @@ use crate::{
     math::{
         FxHashMap, FxHashSet, Quantity,
         interpolate::{moving_least_squares, quartic_weight},
+        parallel::parallel_map_init,
     },
     units::Length,
 };
@@ -123,12 +124,13 @@ impl<const D: usize> Mesh<D> {
         seeds: &[usize],
         radius: Quantity<Length>,
         degree: usize,
+        threads: usize,
     ) -> Result<Basis, &'static str> {
         let elements: Vec<usize> = (0..self.number_of_elements()).collect();
         if let Some(triangles) = self.simplices_over::<3>(&elements) {
-            basis(self, &triangles, seeds, radius, degree)
+            basis(self, &triangles, seeds, radius, degree, threads)
         } else if let Some(tetrahedra) = self.simplices_over::<4>(&elements) {
-            basis(self, &tetrahedra, seeds, radius, degree)
+            basis(self, &tetrahedra, seeds, radius, degree, threads)
         } else {
             Err(NOT_SIMPLICIAL)
         }
@@ -141,32 +143,43 @@ fn basis<const D: usize, const N: usize>(
     seeds: &[usize],
     radius: Quantity<Length>,
     degree: usize,
+    threads: usize,
 ) -> Result<Basis, &'static str> {
     let reach = radius.value_as::<Length>();
-    let patches = mesh.patches(seeds, radius);
+    let patcher = mesh.patcher(radius);
     let exterior: FxHashSet<Vec<usize>> = mesh.exterior_faces().into_iter().map(sorted).collect();
     let elements: Vec<(&Connectivity, &[usize])> = mesh
         .iter()
         .flat_map(|block| block.iter().map(move |element| (block, element)))
         .collect();
     let faces = Faces::new(&elements, &exterior);
-    let mut counts = vec![0_u8; faces.nodes.len()];
-    let mut nodes_seeds = FxHashMap::<usize, Vec<(usize, f64)>>::default();
-    for (index, (&seed, patch)) in seeds.iter().zip(&patches).enumerate() {
-        let distances: Vec<(usize, f64)> =
-            geodesic_distances_among(mesh, seed, simplices, &patch.elements)?
-                .into_iter()
-                .map(|(node, distance)| (node, distance.value_as::<Length>()))
-                .collect();
-        let cut = interior_radius(&faces, &mut counts, patch, &distances, reach);
-        if cut <= 0.0 {
-            return Err("seed is on the interior boundary of its own patch");
-        }
-        for &(node, distance) in &distances {
-            let weight = quartic_weight(distance / cut);
-            if weight > 0.0 {
-                nodes_seeds.entry(node).or_default().push((index, weight));
+    let coordinates = mesh.coordinates();
+    let weights = parallel_map_init(
+        seeds,
+        threads,
+        || (patcher.scratch(), vec![0_u8; faces.nodes.len()]),
+        |(scratch, counts), &seed| -> Result<Vec<(usize, f64)>, &'static str> {
+            let patch = patcher.patch(scratch, seed);
+            let distances: Vec<(usize, f64)> =
+                geodesic_distances_among(coordinates, seed, simplices, &patch.elements)?
+                    .into_iter()
+                    .map(|(node, distance)| (node, distance.value_as::<Length>()))
+                    .collect();
+            let cut = interior_radius(&faces, counts, &patch, &distances, reach);
+            if cut <= 0.0 {
+                return Err("seed is on the interior boundary of its own patch");
             }
+            Ok(distances
+                .into_iter()
+                .map(|(node, distance)| (node, quartic_weight(distance / cut)))
+                .filter(|&(_, weight)| weight > 0.0)
+                .collect())
+        },
+    );
+    let mut nodes_seeds = FxHashMap::<usize, Vec<(usize, f64)>>::default();
+    for (index, entries) in weights.into_iter().enumerate() {
+        for (node, weight) in entries? {
+            nodes_seeds.entry(node).or_default().push((index, weight));
         }
     }
     let covered = (0..mesh.number_of_nodes()).all(|node| {

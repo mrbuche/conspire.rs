@@ -28,7 +28,7 @@ fn bases<const D: usize>(
 ) -> (Basis, Basis) {
     let build = |(h, reach): (f64, f64), seed: u64| {
         let seeds = mesh.sample(length(h), seed);
-        mesh.reproducing_basis(&seeds, length(reach * h), 1)
+        mesh.reproducing_basis(&seeds, length(reach * h), 1, 1)
             .unwrap()
     };
     (build(approximation, 3), build(quadrature, 5))
