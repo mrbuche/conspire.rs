@@ -1198,6 +1198,30 @@ macro_rules! test_finite_element_block_with_hyperviscoelastic_constitutive_model
 }
 pub(crate) use test_finite_element_block_with_hyperviscoelastic_constitutive_model;
 
+macro_rules! internal_state_nodal_forces {
+    ($block: expr, $coordinates: expr, $state: expr $(,)?) => {
+        $block.nodal_forces($coordinates, $state)
+    };
+    ($block: expr, $coordinates: expr, $state: expr, $solver: expr $(,)?) => {
+        $block
+            .nodal_forces_and_stiffnesses($coordinates, $state, $solver)
+            .map(|(forces, _)| forces)
+    };
+}
+pub(crate) use internal_state_nodal_forces;
+
+macro_rules! internal_state_nodal_stiffnesses {
+    ($block: expr, $coordinates: expr, $state: expr $(,)?) => {
+        $block.nodal_stiffnesses($coordinates, $state)
+    };
+    ($block: expr, $coordinates: expr, $state: expr, $solver: expr $(,)?) => {
+        $block
+            .nodal_forces_and_stiffnesses($coordinates, $state, $solver)
+            .map(|(_, stiffnesses)| stiffnesses)
+    };
+}
+pub(crate) use internal_state_nodal_stiffnesses;
+
 macro_rules! test_finite_element_block_with_internal_state_constitutive_model {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident $(, $argument: expr)*) => {
         fn get_nodal_forces(
@@ -1209,13 +1233,12 @@ macro_rules! test_finite_element_block_with_internal_state_constitutive_model {
                 let state_variables = block.initial_state();
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
-                        * block
-                            .nodal_forces(&get_coordinates_transformed_block(), &state_variables $(, $argument)*)?)
+                        * crate::domain::block::test::internal_state_nodal_forces!(block, &get_coordinates_transformed_block(), &state_variables $(, $argument)*)?)
                 } else {
                     let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
-                        * block.nodal_forces(
+                        * crate::domain::block::test::internal_state_nodal_forces!(block,
                             &get_reference_coordinates_transformed_block().into(),
                             &state_variables $(, $argument)*,
                         )?)
@@ -1224,9 +1247,9 @@ macro_rules! test_finite_element_block_with_internal_state_constitutive_model {
                 let block = get_block();
                 let state_variables = block.initial_state();
                 if is_deformed {
-                    Ok(block.nodal_forces(&get_coordinates_block(), &state_variables $(, $argument)*)?)
+                    Ok(crate::domain::block::test::internal_state_nodal_forces!(block, &get_coordinates_block(), &state_variables $(, $argument)*)?)
                 } else {
-                    Ok(block.nodal_forces(
+                    Ok(crate::domain::block::test::internal_state_nodal_forces!(block,
                         &get_reference_coordinates_block().into(),
                         &state_variables $(, $argument)*,
                     )?)
@@ -1242,7 +1265,7 @@ macro_rules! test_finite_element_block_with_internal_state_constitutive_model {
                 let state_variables = block.initial_state();
                 if is_deformed {
                     Ok(get_rotation_current_configuration().transpose()
-                        * block.nodal_stiffnesses(
+                        * crate::domain::block::test::internal_state_nodal_stiffnesses!(block,
                             &get_coordinates_transformed_block(),
                             &state_variables $(, $argument)*,
                         )?
@@ -1251,7 +1274,7 @@ macro_rules! test_finite_element_block_with_internal_state_constitutive_model {
                     let converted: TensorRank2<3, $crate::math::Current, $crate::math::Current> =
                         get_rotation_reference_configuration().into();
                     Ok(converted.transpose()
-                        * block.nodal_stiffnesses(
+                        * crate::domain::block::test::internal_state_nodal_stiffnesses!(block,
                             &get_reference_coordinates_transformed_block().into(),
                             &state_variables $(, $argument)*,
                         )?
@@ -1261,9 +1284,9 @@ macro_rules! test_finite_element_block_with_internal_state_constitutive_model {
                 let block = get_block();
                 let state_variables = block.initial_state();
                 if is_deformed {
-                    Ok(block.nodal_stiffnesses(&get_coordinates_block(), &state_variables $(, $argument)*)?)
+                    Ok(crate::domain::block::test::internal_state_nodal_stiffnesses!(block, &get_coordinates_block(), &state_variables $(, $argument)*)?)
                 } else {
-                    Ok(block.nodal_stiffnesses(
+                    Ok(crate::domain::block::test::internal_state_nodal_stiffnesses!(block,
                         &get_reference_coordinates_block().into(),
                         &state_variables $(, $argument)*,
                     )?)
@@ -1291,7 +1314,7 @@ macro_rules! test_finite_element_block_with_internal_state_constitutive_model {
                                             };
                                             nodal_coordinates[node_b][j] +=
                                                 $crate::math::assert::perturbation(0.5 * EPSILON);
-                                            finite_difference = block.nodal_forces(
+                                            finite_difference = crate::domain::block::test::internal_state_nodal_forces!(block,
                                                 &nodal_coordinates,
                                                 &state_variables $(, $argument)*,
                                             )?[node_a][i];
@@ -1302,7 +1325,7 @@ macro_rules! test_finite_element_block_with_internal_state_constitutive_model {
                                             };
                                             nodal_coordinates[node_b][j] -=
                                                 $crate::math::assert::perturbation(0.5 * EPSILON);
-                                            finite_difference -= block.nodal_forces(
+                                            finite_difference -= crate::domain::block::test::internal_state_nodal_forces!(block,
                                                 &nodal_coordinates,
                                                 &state_variables $(, $argument)*,
                                             )?[node_a][i];

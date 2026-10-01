@@ -42,8 +42,6 @@ impl MonolithicSystem {
         self.tangent_vu.clear();
         self.tangent_vv.clear();
     }
-    /// The positions of the tangent of the monolithic system, unknowns ordered as the
-    /// nodal coordinates, then `constraints` multipliers, then the local unknowns.
     pub fn pattern(&self, constraints: usize) -> Vec<(usize, usize)> {
         let num_outer = self.num_global() + constraints;
         let mut pattern = self.tangent_uu.pattern().to_vec();
@@ -109,26 +107,6 @@ where
             &mut nodal_stiffnesses,
         )?;
         Ok((nodal_forces, nodal_stiffnesses))
-    }
-    fn nodal_forces(
-        &self,
-        nodal_coordinates: &NodalCoordinates<D>,
-        state_variables: &S,
-        local_solver: &NewtonRaphson,
-    ) -> Result<NodalForcesSolid<D>, ElementModelError> {
-        Ok(self
-            .nodal_forces_and_stiffnesses(nodal_coordinates, state_variables, local_solver)?
-            .0)
-    }
-    fn nodal_stiffnesses(
-        &self,
-        nodal_coordinates: &NodalCoordinates<D>,
-        state_variables: &S,
-        local_solver: &NewtonRaphson,
-    ) -> Result<NodalStiffnessesSolid<D>, ElementModelError> {
-        Ok(self
-            .nodal_forces_and_stiffnesses(nodal_coordinates, state_variables, local_solver)?
-            .1)
     }
     /// An empty monolithic system holding the sparsity structure of its blocks, or
     /// `None` for a domain that does not support [`SolveStrategy::Monolithic`].
