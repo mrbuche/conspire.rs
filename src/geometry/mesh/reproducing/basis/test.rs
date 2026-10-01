@@ -100,9 +100,13 @@ fn reproduces_on_a_square() {
     let mesh = square(40, false);
     let h = 0.2;
     let seeds = mesh.sample(length(h), 3);
-    let linear = mesh.reproducing_basis(&seeds, length(2.6 * h), 1).unwrap();
+    let linear = mesh
+        .reproducing_basis(&seeds, length(2.6 * h), 1, 1)
+        .unwrap();
     assert_reproduces(&mesh, &linear, 1);
-    let quadratic = mesh.reproducing_basis(&seeds, length(3.2 * h), 2).unwrap();
+    let quadratic = mesh
+        .reproducing_basis(&seeds, length(3.2 * h), 2, 1)
+        .unwrap();
     assert_reproduces(&mesh, &quadratic, 2);
 }
 
@@ -111,7 +115,7 @@ fn covers_every_node_and_stays_in_the_patch() {
     let mesh = square(40, false);
     let seeds = mesh.sample(length(0.2), 5);
     let radius = length(0.2 * 2.6);
-    let basis = mesh.reproducing_basis(&seeds, radius, 1).unwrap();
+    let basis = mesh.reproducing_basis(&seeds, radius, 1, 1).unwrap();
     let patches = mesh.patches(&seeds, radius);
     let mut covered = FxHashSet::default();
     for (index, patch) in patches.iter().enumerate() {
@@ -128,7 +132,9 @@ fn slit_is_respected() {
     let mesh = square(40, true);
     let h = 0.15;
     let seeds = mesh.sample(length(h), 2);
-    let basis = mesh.reproducing_basis(&seeds, length(2.8 * h), 1).unwrap();
+    let basis = mesh
+        .reproducing_basis(&seeds, length(2.8 * h), 1, 1)
+        .unwrap();
     assert_reproduces(&mesh, &basis, 1);
     let reach = 2.8 * h;
     let tip = [0.5, 0.5];
@@ -205,7 +211,7 @@ fn vanishes_where_the_patch_is_cut() {
     let mesh = square(40, false);
     let seeds = mesh.sample(length(0.2), 4);
     let radius = length(0.2 * 2.6);
-    let basis = mesh.reproducing_basis(&seeds, radius, 1).unwrap();
+    let basis = mesh.reproducing_basis(&seeds, radius, 1, 1).unwrap();
     let patches = mesh.patches(&seeds, radius);
     let boundary: FxHashSet<usize> = mesh.exterior_faces().into_iter().flatten().collect();
     let mut checked = 0;
@@ -231,16 +237,45 @@ fn errors() {
     let mesh = square(20, false);
     let far = mesh.sample(length(0.5), 1);
     assert_eq!(
-        mesh.reproducing_basis(&far, length(0.1), 1).unwrap_err(),
+        mesh.reproducing_basis(&far, length(0.1), 1, 1).unwrap_err(),
         "seeds do not cover the mesh"
     );
     let seeds = mesh.sample(length(0.2), 1);
     assert_eq!(
-        mesh.reproducing_basis(&seeds, length(0.21), 1).unwrap_err(),
+        mesh.reproducing_basis(&seeds, length(0.21), 1, 1)
+            .unwrap_err(),
         "seeds do not cover the mesh"
     );
     assert!(
-        mesh.reproducing_basis(&seeds, length(10.0), 12).is_err(),
+        mesh.reproducing_basis(&seeds, length(10.0), 12, 1).is_err(),
         "an impossible degree must be an error"
+    );
+}
+
+#[test]
+fn threads_give_the_same_basis() {
+    for (slit, spacing, reach, seed) in [(false, 0.2, 2.6, 4), (true, 0.15, 2.8, 2)] {
+        let mesh = square(40, slit);
+        let seeds = mesh.sample(length(spacing), seed);
+        let radius = length(spacing * reach);
+        let serial = mesh.reproducing_basis(&seeds, radius, 1, 1).unwrap();
+        for threads in [1, 2, 3, usize::MAX] {
+            assert_eq!(
+                mesh.reproducing_basis(&seeds, radius, 1, threads).unwrap(),
+                serial,
+                "{threads} threads, slit {slit}"
+            );
+        }
+    }
+}
+
+#[test]
+fn threads_report_the_same_errors() {
+    let mesh = square(20, false);
+    let far = mesh.sample(length(0.5), 1);
+    assert_eq!(
+        mesh.reproducing_basis(&far, length(0.1), 1, usize::MAX)
+            .unwrap_err(),
+        "seeds do not cover the mesh"
     );
 }

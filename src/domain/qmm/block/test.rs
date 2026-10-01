@@ -30,7 +30,12 @@ fn mesh() -> Mesh<3> {
     tetrahedra(8)
 }
 
-fn discretization_of(mesh: &Mesh<3>, approximation: f64, quadrature: f64) -> Discretization {
+fn discretization_of(
+    mesh: &Mesh<3>,
+    approximation: f64,
+    quadrature: f64,
+    threads: usize,
+) -> Discretization {
     let support = |spacing, reach| Support {
         spacing: Quantity::new(spacing),
         reach,
@@ -40,12 +45,13 @@ fn discretization_of(mesh: &Mesh<3>, approximation: f64, quadrature: f64) -> Dis
         support(approximation, 2.6),
         support(quadrature, 3.6),
         3,
+        threads,
     )
     .unwrap()
 }
 
 fn discretization() -> Discretization {
-    discretization_of(&mesh(), 0.4, 0.2)
+    discretization_of(&mesh(), 0.4, 0.2, 1)
 }
 
 fn apply(
@@ -243,7 +249,7 @@ fn solve_recovers_an_affine_field_exactly_with_tractions() -> Result<(), Asserti
 fn solve_recovers_an_affine_field_exactly_with_tractions_on_a_finer_seeding()
 -> Result<(), AssertionError> {
     let mesh = tetrahedra(24);
-    let discretization = discretization_of(&mesh, 0.15, 0.075);
+    let discretization = discretization_of(&mesh, 0.15, 0.075, usize::MAX);
     assert!(discretization.coordinates().len() > 200);
     recovers_an_affine_field_exactly_with_tractions(mesh, discretization)
 }

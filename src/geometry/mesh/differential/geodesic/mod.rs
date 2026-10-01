@@ -2,9 +2,12 @@
 mod test;
 
 use crate::{
-    geometry::mesh::{
-        Mesh,
-        simplex::{Simplex, dot},
+    geometry::{
+        Coordinates,
+        mesh::{
+            Mesh,
+            simplex::{Simplex, dot},
+        },
     },
     math::{FxHashMap, Quantity, Tensor, Vector, sparse::SparseSolver},
     units::Length,
@@ -30,11 +33,10 @@ fn solve(
 }
 
 fn heat<const D: usize, const N: usize>(
-    mesh: &Mesh<D>,
+    coordinates: &Coordinates<D>,
     source: usize,
     simplices: &[Simplex<D, N>],
 ) -> Result<Vec<(usize, Quantity<Length>)>, &'static str> {
-    let coordinates = mesh.coordinates();
     let point =
         |node: usize| -> [f64; D] { from_fn(|k| coordinates[node][k].value_as::<Length>()) };
     let mut nodes: Vec<usize> = simplices.iter().flat_map(|s| s.nodes).collect();
@@ -111,13 +113,13 @@ fn heat<const D: usize, const N: usize>(
 
 /// As [`Mesh::geodesic_distances_over`], from simplices already built for every element.
 pub(crate) fn geodesic_distances_among<const D: usize, const N: usize>(
-    mesh: &Mesh<D>,
+    coordinates: &Coordinates<D>,
     source: usize,
     simplices: &[Simplex<D, N>],
     elements: &[usize],
 ) -> Result<Vec<(usize, Quantity<Length>)>, &'static str> {
     let among: Vec<Simplex<D, N>> = elements.iter().map(|&element| simplices[element]).collect();
-    heat(mesh, source, &among)
+    heat(coordinates, source, &among)
 }
 
 impl<const D: usize> Mesh<D> {
@@ -139,9 +141,9 @@ impl<const D: usize> Mesh<D> {
         elements: &[usize],
     ) -> Result<Vec<(usize, Quantity<Length>)>, &'static str> {
         if let Some(triangles) = self.simplices_over::<3>(elements) {
-            heat(self, source, &triangles)
+            heat(self.coordinates(), source, &triangles)
         } else if let Some(tetrahedra) = self.simplices_over::<4>(elements) {
-            heat(self, source, &tetrahedra)
+            heat(self.coordinates(), source, &tetrahedra)
         } else {
             Err(NOT_SIMPLICIAL)
         }

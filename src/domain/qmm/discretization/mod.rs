@@ -36,11 +36,12 @@ impl Discretization {
         approximation: Support,
         quadrature: Support,
         seed: u64,
+        threads: usize,
     ) -> Result<Self, &'static str> {
         let basis = |support: Support, seed: u64| {
             let seeds = mesh.sample(support.spacing, seed);
             let radius = support.spacing * support.reach;
-            mesh.reproducing_basis(&seeds, radius, 1)
+            mesh.reproducing_basis(&seeds, radius, 1, threads)
                 .map(|basis| (seeds, basis))
         };
         let (seeds, approximation) = basis(approximation, seed)?;
