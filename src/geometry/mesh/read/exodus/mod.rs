@@ -56,11 +56,11 @@ where
                 offset += count;
             });
         }
-        let coordx = netcdf.get_variable::<f64>("coordx", num_nodes)?;
-        let coordy = netcdf.get_variable::<f64>("coordy", num_nodes)?;
+        let coordx = netcdf.get_variable_widened("coordx", num_nodes)?;
+        let coordy = netcdf.get_variable_widened("coordy", num_nodes)?;
         let coordz = match D {
             2 => Vec::new(),
-            3 => netcdf.get_variable::<f64>("coordz", num_nodes)?,
+            3 => netcdf.get_variable_widened("coordz", num_nodes)?,
             _ => unimplemented!(),
         };
         let coordinates: Coordinates<D> = (0..num_nodes)

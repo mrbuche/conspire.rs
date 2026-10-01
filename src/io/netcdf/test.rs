@@ -351,3 +351,25 @@ fn put_variable_attribute_missing_variable_panics() {
     netcdf.define_dimension("n", 1).unwrap();
     let _ = netcdf.put_variable_attribute_text("absent", "a", "x");
 }
+
+#[test]
+fn widened_reads_both_precisions() {
+    let path = "target/netcdf_widened.nc";
+    {
+        let mut netcdf = NetCDF::try_from(Path::new(path)).unwrap();
+        netcdf.define_dimension("nodes", 3).unwrap();
+        netcdf
+            .define_variable::<f32>("single", 1, &["nodes"])
+            .unwrap();
+        netcdf
+            .define_variable::<f64>("double", 1, &["nodes"])
+            .unwrap();
+        netcdf.end_definition();
+        netcdf.put_variable("single", &[0.5_f32, 1.5, 2.5]).unwrap();
+        netcdf.put_variable("double", &[0.5_f64, 1.5, 2.5]).unwrap();
+    }
+    let netcdf = NetCDF::open(path).unwrap();
+    let expected = vec![0.5, 1.5, 2.5];
+    assert_eq!(netcdf.get_variable_widened("single", 3).unwrap(), expected);
+    assert_eq!(netcdf.get_variable_widened("double", 3).unwrap(), expected);
+}

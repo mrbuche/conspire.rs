@@ -245,6 +245,29 @@ impl GetVariable for NetCDF {
         let _guard = nc_lock();
         Ok(self.read_variable(name, len))
     }
+    fn get_variable_widened(&self, name: &str, len: usize) -> Result<Vec<f64>, NulError> {
+        reject_nul(name)?;
+        let _guard = nc_lock();
+        let xtype = match &self.state {
+            State::Read(reader) => reader
+                .parsed
+                .vars
+                .iter()
+                .find(|spec| spec.name == name)
+                .map(|spec| spec.xtype),
+            State::Write(_) => panic!("get_variable_widened on a NetCDF opened for writing"),
+        };
+        Ok(if xtype == Some(f32::XTYPE) {
+            self.read_variable::<f32>(name, len)
+                .unwrap_or_default()
+                .into_iter()
+                .map(f64::from)
+                .collect()
+        } else {
+            self.read_variable::<f64>(name, len)
+                .unwrap_or_else(|| panic!("no variable named {name}"))
+        })
+    }
     fn get_variable_slice<T: NcType>(
         &self,
         name: &str,
