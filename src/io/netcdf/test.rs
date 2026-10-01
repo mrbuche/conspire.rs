@@ -269,6 +269,23 @@ fn get_variable_on_writer_panics() {
 }
 
 #[test]
+#[should_panic(expected = "no variable named")]
+fn get_variable_widened_missing_panics() {
+    let netcdf = one_var_file("target/netcdf_widened_missing.nc");
+    let _ = netcdf.get_variable_widened("nope", 1);
+}
+
+#[test]
+#[should_panic(expected = "get_variable_widened on a NetCDF opened for writing")]
+fn get_variable_widened_on_writer_panics() {
+    let mut netcdf = NetCDF::create("target/netcdf_widened_on_writer.nc").unwrap();
+    netcdf.define_dimension("n", 1).unwrap();
+    netcdf.define_variable::<f64>("v", 1, &["n"]).unwrap();
+    netcdf.end_definition();
+    let _ = netcdf.get_variable_widened("v", 1);
+}
+
+#[test]
 #[should_panic(expected = "get_variable_slice on a NetCDF opened for writing")]
 fn get_variable_slice_on_writer_panics() {
     let mut netcdf = NetCDF::create("target/netcdf_slice_on_writer.nc").unwrap();
