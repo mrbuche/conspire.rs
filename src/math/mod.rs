@@ -12,6 +12,9 @@ pub mod interpolate;
 /// Optimization and root finding.
 pub mod optimize;
 
+#[cfg(feature = "geometry")]
+pub(crate) mod parallel;
+
 /// Random number generation.
 pub mod random;
 
