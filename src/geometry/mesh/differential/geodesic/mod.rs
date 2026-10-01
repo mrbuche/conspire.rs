@@ -6,12 +6,12 @@ use crate::{
         Mesh,
         simplex::{Simplex, dot},
     },
-    math::{Quantity, Tensor, Vector, sparse::SparseSolver},
+    math::{FxHashMap, Quantity, Tensor, Vector, sparse::SparseSolver},
     units::Length,
 };
-use std::{array::from_fn, collections::HashMap};
+use std::array::from_fn;
 
-type Entries = HashMap<(usize, usize), f64>;
+type Entries = FxHashMap<(usize, usize), f64>;
 
 const NOT_SIMPLICIAL: &str = "geodesic distances require a triangular or tetrahedral mesh";
 
@@ -19,10 +19,13 @@ fn add(entries: &mut Entries, i: usize, j: usize, value: f64) {
     *entries.entry((i, j)).or_insert(0.0) += value;
 }
 
-fn solve(entries: &Entries, b: &Vector) -> Result<Vector, &'static str> {
-    let pattern: Vec<(usize, usize)> = entries.keys().copied().collect();
-    SparseSolver::from_pattern(b.len(), pattern, true)
-        .solve(|i, j| entries[&(i, j)], b)
+fn solve(
+    solver: &SparseSolver,
+    value: impl Fn(usize, usize) -> f64,
+    b: &Vector,
+) -> Result<Vector, &'static str> {
+    solver
+        .solve(value, b)
         .map_err(|_| "geodesic linear solve failed")
 }
 
@@ -42,7 +45,7 @@ fn heat<const D: usize, const N: usize>(
         .map_err(|_| "source node is not in the elements")?;
     let local = |node: usize| nodes.binary_search(&node).expect("node in elements");
     let n = nodes.len();
-    let mut stiffness = Entries::new();
+    let mut stiffness = Entries::default();
     let mut mass = vec![0.0; n];
     let (mut length, mut count) = (0.0, 0);
     for simplex in simplices {
@@ -67,9 +70,10 @@ fn heat<const D: usize, const N: usize>(
         .map(|(&key, &value)| (key, time * value))
         .collect();
     (0..n).for_each(|i| add(&mut heat, i, i, mass[i]));
+    let solver = SparseSolver::from_pattern(n, heat.keys().copied().collect(), true);
     let mut delta = Vector::zero(n);
     delta[source] = 1.0;
-    let u = solve(&heat, &delta)?;
+    let u = solve(&solver, |i, j| heat[&(i, j)], &delta)?;
     let mut divergence = vec![0.0; n];
     for simplex in simplices {
         let ids = simplex.nodes.map(local);
@@ -82,20 +86,21 @@ fn heat<const D: usize, const N: usize>(
             }
         }
     }
-    let reduced = |i: usize| if i > source { i - 1 } else { i };
-    let poisson: Entries = stiffness
-        .iter()
-        .filter(|&(&(i, j), _)| i != source && j != source)
-        .map(|(&(i, j), &value)| ((reduced(i), reduced(j)), value))
-        .collect();
-    let b: Vector = (0..n)
-        .filter(|&i| i != source)
-        .map(|i| divergence[i])
-        .collect();
-    let phi = solve(&poisson, &b)?;
-    let mut distances: Vec<f64> = (0..n)
-        .map(|i| if i == source { 0.0 } else { phi[reduced(i)] })
-        .collect();
+    let mut b: Vector = divergence.into_iter().collect();
+    b[source] = 0.0;
+    let phi = solve(
+        &solver,
+        |i, j| {
+            if i == source || j == source {
+                f64::from(i == j)
+            } else {
+                stiffness[&(i, j)]
+            }
+        },
+        &b,
+    )?;
+    let mut distances: Vec<f64> = phi.iter().copied().collect();
+    distances[source] = 0.0;
     let minimum = distances.iter().copied().fold(f64::INFINITY, f64::min);
     distances.iter_mut().for_each(|d| *d -= minimum);
     Ok(nodes
