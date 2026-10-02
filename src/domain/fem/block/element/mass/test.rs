@@ -2,13 +2,17 @@ use crate::{
     fem::block::element::{
         ElementNodalReferenceCoordinates, FiniteElement,
         linear::{Hexahedron, Tetrahedron},
-        mass::{IntegrationDensities, LumpedMassFiniteElement, MassFiniteElement},
+        mass::{
+            ElementNodalLumpedMasses, ElementNodalMasses, IntegrationDensities,
+            LumpedMassFiniteElement, MassFiniteElement,
+        },
     },
-    math::{Quantity, Tensor},
+    math::{
+        Quantity, Tensor,
+        assert::{Assert, AssertionError},
+    },
     units::{Density, Mass, Volume},
 };
-
-const EPSILON: f64 = 1e-12;
 
 const DENSITY: Quantity<Density> = Density::kilograms_per_cubic_meter(7.8e3);
 
@@ -38,25 +42,37 @@ fn uniform<const G: usize>() -> IntegrationDensities<G> {
     [DENSITY; G].into()
 }
 
+fn varying() -> IntegrationDensities<4> {
+    [
+        Density::kilograms_per_cubic_meter(1e3),
+        Density::kilograms_per_cubic_meter(2e3),
+        Density::kilograms_per_cubic_meter(3e3),
+        Density::kilograms_per_cubic_meter(4e3),
+    ]
+    .into()
+}
+
 mod consistent {
     use super::*;
 
     #[test]
-    fn matches_the_closed_form_on_a_tetrahedron() {
+    fn matches_the_closed_form_on_a_tetrahedron() -> Result<(), AssertionError> {
         let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
         let mass = DENSITY * element.volume();
-        let masses = element.nodal_masses(&uniform());
-        (0..4).for_each(|a| {
-            (0..4).for_each(|b| {
-                let expected = mass * (if a == b { 2.0 } else { 1.0 } / 20.0);
-                assert!(!masses[a][b].differs(expected, EPSILON));
+        let expected: ElementNodalMasses<4> = (0..4)
+            .map(|a| {
+                (0..4)
+                    .map(|b| mass * (if a == b { 2.0 } else { 1.0 } / 20.0))
+                    .collect()
             })
-        });
-        let total = (0..4)
-            .flat_map(|a| (0..4).map(move |b| (a, b)))
-            .map(|(a, b)| masses[a][b])
+            .collect();
+        let masses = element.nodal_masses(&uniform());
+        Assert::default().eq_within_tols(&masses, &expected)?;
+        let total = masses
+            .iter()
+            .flat_map(|row| row.iter().copied())
             .sum::<Quantity<Mass>>();
-        assert!(!total.differs(mass, EPSILON));
+        Assert::default().eq_within_tols(total, &mass)
     }
 }
 
@@ -64,76 +80,52 @@ mod lumped {
     use super::*;
 
     #[test]
-    fn shares_a_tetrahedron_equally_with_one_point() {
+    fn shares_a_tetrahedron_equally_with_one_point() -> Result<(), AssertionError> {
         let element = Tetrahedron::<1>::from(tetrahedron_coordinates());
-        let mass = DENSITY * element.volume();
-        element
-            .nodal_lumped_masses(&uniform())
-            .iter()
-            .for_each(|node_mass| assert!(!node_mass.differs(mass / 4.0, EPSILON)));
+        let expected: ElementNodalLumpedMasses<4> = [DENSITY * element.volume() / 4.0; 4].into();
+        Assert::default().eq_within_tols(element.nodal_lumped_masses(&uniform()), &expected)
     }
 
     #[test]
-    fn shares_a_tetrahedron_equally_with_four_points() {
+    fn shares_a_tetrahedron_equally_with_four_points() -> Result<(), AssertionError> {
         let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
-        let mass = DENSITY * element.volume();
-        element
-            .nodal_lumped_masses(&uniform())
-            .iter()
-            .for_each(|node_mass| assert!(!node_mass.differs(mass / 4.0, EPSILON)));
+        let expected: ElementNodalLumpedMasses<4> = [DENSITY * element.volume() / 4.0; 4].into();
+        Assert::default().eq_within_tols(element.nodal_lumped_masses(&uniform()), &expected)
     }
 
     #[test]
-    fn shares_a_hexahedron_equally() {
+    fn shares_a_hexahedron_equally() -> Result<(), AssertionError> {
         let element = Hexahedron::from(hexahedron_coordinates());
         let mass = DENSITY * element.volume();
-        assert!(!mass.differs(DENSITY * Volume::cubic_meters(6.0), EPSILON));
-        element
-            .nodal_lumped_masses(&uniform())
-            .iter()
-            .for_each(|node_mass| assert!(!node_mass.differs(mass / 8.0, EPSILON)));
+        Assert::default().eq_within_tols(mass, &(DENSITY * Volume::cubic_meters(6.0)))?;
+        let expected: ElementNodalLumpedMasses<8> = [mass / 8.0; 8].into();
+        Assert::default().eq_within_tols(element.nodal_lumped_masses(&uniform()), &expected)
     }
 
     #[test]
-    fn is_the_row_sum_of_the_consistent_mass() {
+    fn is_the_row_sum_of_the_consistent_mass() -> Result<(), AssertionError> {
         let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
-        let densities: IntegrationDensities<4> = [
-            Density::kilograms_per_cubic_meter(1e3),
-            Density::kilograms_per_cubic_meter(2e3),
-            Density::kilograms_per_cubic_meter(3e3),
-            Density::kilograms_per_cubic_meter(4e3),
-        ]
-        .into();
-        let consistent = element.nodal_masses(&densities);
-        element
-            .nodal_lumped_masses(&densities)
+        let row_sums: ElementNodalLumpedMasses<4> = element
+            .nodal_masses(&varying())
             .iter()
-            .zip(consistent.iter())
-            .for_each(|(lumped, row)| {
-                assert!(!lumped.differs(row.iter().copied().sum::<Quantity<Mass>>(), EPSILON))
-            });
+            .map(|row| row.iter().copied().sum::<Quantity<Mass>>())
+            .collect();
+        Assert::default().eq_within_tols(element.nodal_lumped_masses(&varying()), &row_sums)
     }
 
     #[test]
-    fn totals_the_mass_integrated_over_the_points() {
+    fn totals_the_mass_integrated_over_the_points() -> Result<(), AssertionError> {
         let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
-        let densities: IntegrationDensities<4> = [
-            Density::kilograms_per_cubic_meter(1e3),
-            Density::kilograms_per_cubic_meter(2e3),
-            Density::kilograms_per_cubic_meter(3e3),
-            Density::kilograms_per_cubic_meter(4e3),
-        ]
-        .into();
-        let expected = densities
+        let expected = varying()
             .iter()
             .zip(element.integration_weights())
             .map(|(density, integration_weight)| density * integration_weight)
             .sum::<Quantity<Mass>>();
         let total = element
-            .nodal_lumped_masses(&densities)
+            .nodal_lumped_masses(&varying())
             .iter()
             .copied()
             .sum::<Quantity<Mass>>();
-        assert!(!total.differs(expected, EPSILON));
+        Assert::default().eq_within_tols(total, &expected)
     }
 }

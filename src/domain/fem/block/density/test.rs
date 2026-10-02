@@ -3,12 +3,13 @@ use crate::{
         NodalReferenceCoordinates,
         block::{Block, Densities, ElementDensities, element::linear::Tetrahedron},
     },
-    math::{Quantity, Tensor},
+    math::{
+        Quantity,
+        assert::{Assert, AssertionError},
+    },
     mechanics::ReferenceCoordinate,
-    units::Density,
+    units::{Density, Mass},
 };
-
-const EPSILON: f64 = 1e-12;
 
 fn coordinates() -> NodalReferenceCoordinates<3> {
     NodalReferenceCoordinates::from([
@@ -44,15 +45,15 @@ macro_rules! test_density {
             type Scalar = Block<(), Tetrahedron<$g>, $g, 3, 4, 4, Quantity<Density>>;
 
             #[test]
-            fn constant_density_gives_density_times_volume() {
+            fn constant_density_gives_density_times_volume() -> Result<(), AssertionError> {
                 let density = Density::kilograms_per_cubic_meter(7.8e3);
                 let block = Scalar::from(((), density, CONNECTIVITY.to_vec(), &coordinates()));
-                assert!(!block.mass().differs(density * block.volume(), EPSILON));
-                assert!(!block.density().differs(density, EPSILON));
+                Assert::default().eq_within_tols(&block.mass(), &(density * block.volume()))?;
+                Assert::default().eq_within_tols(block.density(), &density)
             }
 
             #[test]
-            fn a_constant_closure_agrees_with_the_scalar() {
+            fn a_constant_closure_agrees_with_the_scalar() -> Result<(), AssertionError> {
                 let density = Density::kilograms_per_cubic_meter(7.8e3);
                 let scalar = Scalar::from(((), density, CONNECTIVITY.to_vec(), &coordinates()));
                 let per_point = B::from((
@@ -61,20 +62,18 @@ macro_rules! test_density {
                     CONNECTIVITY.to_vec(),
                     &coordinates(),
                 ));
-                assert!(!per_point.mass().differs(scalar.mass(), EPSILON));
-                (0..CONNECTIVITY.len()).for_each(|element| {
-                    assert!(
-                        per_point
-                            .density()
-                            .at(element)
-                            .iter()
-                            .all(|point_density| !point_density.differs(density, EPSILON))
+                Assert::default().eq_within_tols(&per_point.mass(), &scalar.mass())?;
+                (0..CONNECTIVITY.len()).try_for_each(|element| {
+                    Assert::default().eq_within_tols(
+                        &per_point.density().at(element),
+                        &scalar.density().at(element),
                     )
                 })
             }
 
             #[test]
-            fn variable_density_is_sampled_at_the_integration_points() {
+            fn variable_density_is_sampled_at_the_integration_points() -> Result<(), AssertionError>
+            {
                 let block = B::from((
                     (),
                     |coordinate: &ReferenceCoordinate| {
@@ -95,8 +94,8 @@ macro_rules! test_density {
                         Density::kilograms_per_cubic_meter(linear(centroid_x(nodes)))
                             * crate::fem::block::element::FiniteElement::volume(element)
                     })
-                    .sum();
-                assert!(!block.mass().differs(expected, EPSILON));
+                    .sum::<Quantity<Mass>>();
+                Assert::default().eq_within_tols(&block.mass(), &expected)
             }
         }
     };

@@ -6,11 +6,12 @@ use crate::{
         block::element::linear::Tetrahedron,
         solid::{NodalForcesSolid, elastic::ElasticElements},
     },
-    math::{Quantity, Tensor},
-    units::{Density, Energy, Stress},
+    math::{
+        Quantity, Tensor,
+        assert::{Assert, AssertionError},
+    },
+    units::{Density, Energy, Mass, STANDARD_GRAVITY, Stress},
 };
-
-const EPSILON: f64 = 1e-12;
 
 const DENSITY: Quantity<Density> = Density::kilograms_per_cubic_meter(7.8e3);
 
@@ -26,7 +27,7 @@ type B = Block<NeoHookean, Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
 
 fn model() -> Model<B, 3> {
     let reference = NodalReferenceCoordinates::from(COORDINATES);
-    Model::from((
+    (
         B::from((
             NeoHookean {
                 shear_modulus: Stress::pascals(3.0e9),
@@ -37,83 +38,76 @@ fn model() -> Model<B, 3> {
             &reference,
         )),
         reference,
-    ))
+    )
+        .into()
 }
 
 fn uniform_velocities(velocity: [f64; 3]) -> NodalVelocities<3> {
-    NodalVelocities::from(COORDINATES.map(|_| velocity))
+    COORDINATES.map(|_| velocity).into()
+}
+
+fn gravity() -> NodalAccelerations<3> {
+    COORDINATES
+        .map(|_| [0.0, 0.0, -STANDARD_GRAVITY.in_meters_per_second_squared()])
+        .into()
+}
+
+fn noise_tolerant() -> Assert {
+    Assert {
+        abs_tol: 1e-6,
+        rel_tol: 1e-6,
+        ..Assert::default()
+    }
 }
 
 mod kinetic_energy {
     use super::*;
-
-    fn expected(speed: f64, mass: Quantity<crate::units::Mass>) -> Quantity<Energy> {
-        Quantity::new(0.5 * mass.value() * speed * speed)
+    fn expected(speed: f64, mass: Quantity<Mass>) -> Quantity<Energy> {
+        Energy::joules(0.5 * mass.in_kilograms() * speed * speed)
     }
-
     #[test]
-    fn of_a_uniform_motion_is_half_the_mass_times_the_speed_squared() {
+    fn of_a_uniform_motion_is_half_the_mass_times_the_speed_squared() -> Result<(), AssertionError>
+    {
         let model = model();
         let velocities = uniform_velocities([3.0, 0.0, 4.0]);
         let mass = model.nodal_lumped_masses().iter().copied().sum();
-        assert!(
-            !model
-                .nodal_lumped_masses()
-                .kinetic_energy(&velocities)
-                .differs(expected(5.0, mass), EPSILON)
-        );
-        assert!(
-            !model
-                .nodal_masses()
-                .kinetic_energy(&velocities)
-                .differs(expected(5.0, mass), EPSILON)
-        );
+        Assert::default().eq_within_tols(
+            model.nodal_lumped_masses().kinetic_energy(&velocities),
+            &expected(5.0, mass),
+        )?;
+        Assert::default().eq_within_tols(
+            model.nodal_masses().kinetic_energy(&velocities),
+            &expected(5.0, mass),
+        )
     }
 }
 
 mod inertial_forces {
     use super::*;
-
-    fn accelerations() -> NodalAccelerations<3> {
-        NodalAccelerations::from(COORDINATES.map(|_| [0.0, 0.0, -9.81]))
-    }
-
     #[test]
-    fn consistent_and_lumped_agree_on_a_uniform_acceleration() {
+    fn consistent_and_lumped_agree_on_a_uniform_acceleration() -> Result<(), AssertionError> {
         let model = model();
-        let lumped = model
-            .nodal_lumped_masses()
-            .inertial_forces(&accelerations());
-        let consistent = model.nodal_masses().inertial_forces(&accelerations());
-        lumped.iter().zip(consistent.iter()).for_each(|(a, b)| {
-            a.iter()
-                .zip(b.iter())
-                .for_each(|(a_i, b_i)| assert!(!a_i.differs(*b_i, EPSILON)))
-        });
+        Assert::default().eq_within_tols(
+            model.nodal_lumped_masses().inertial_forces(&gravity()),
+            &model.nodal_masses().inertial_forces(&gravity()),
+        )
     }
 }
 
 mod accelerations {
     use super::*;
-
     #[test]
-    fn a_body_in_its_reference_configuration_falls_with_gravity() {
+    fn a_body_in_its_reference_configuration_falls_with_gravity() -> Result<(), AssertionError> {
         let model = model();
         let masses = model.nodal_lumped_masses();
-        let gravity = NodalAccelerations::from(COORDINATES.map(|_| [0.0, 0.0, -9.81]));
-        let weights: NodalForcesSolid<3> = masses.inertial_forces(&gravity);
+        let weights = masses.inertial_forces(&gravity());
         let accelerations = model
             .nodal_accelerations(&NodalCoordinates::from(COORDINATES), &weights, &masses)
             .unwrap();
-        accelerations.iter().zip(gravity.iter()).for_each(|(a, g)| {
-            a.iter()
-                .zip(g.iter())
-                .for_each(|(a_i, g_i)| assert!(!a_i.differs_severely(*g_i, 1e-6)))
-        });
+        noise_tolerant().eq_within_tols(&accelerations, &gravity())
     }
-
     #[test]
-    fn internal_forces_decelerate_what_they_resist() {
+    fn internal_forces_decelerate_what_they_resist() -> Result<(), AssertionError> {
         let model = model();
         let masses = model.nodal_lumped_masses();
         let mut stretched = COORDINATES;
@@ -124,33 +118,20 @@ mod accelerations {
         let accelerations = model
             .nodal_accelerations(&stretched, &zero, &masses)
             .unwrap();
-        let resisted = masses.inertial_forces(&accelerations);
-        resisted.iter().zip(internal.iter()).for_each(|(r, f)| {
-            r.iter().zip(f.iter()).for_each(|(r_i, f_i)| {
-                assert!((r_i + f_i).value().abs() <= 1e-9 * f_i.value().abs().max(1.0))
-            })
-        });
+        let balance = masses.inertial_forces(&accelerations) + &internal;
+        noise_tolerant().zero_within_tols(&balance)
     }
 }
 
 mod consistent_accelerations {
     use super::*;
     use crate::fem::mass::InverseMass;
-
-    fn assert_close(a: &NodalAccelerations<3>, b: &NodalAccelerations<3>, tolerance: f64) {
-        a.iter().zip(b.iter()).for_each(|(a, b)| {
-            a.iter()
-                .zip(b.iter())
-                .for_each(|(a_i, b_i)| assert!(!a_i.differs_severely(*b_i, tolerance)))
-        });
-    }
-
     #[test]
-    fn solving_with_the_mass_undoes_applying_it() {
+    fn solving_with_the_mass_undoes_applying_it() -> Result<(), AssertionError> {
         let masses = model().nodal_masses();
         let accelerations = NodalAccelerations::from(vec![
             [1.0, -2.0, 3.0],
-            [0.5, 0.1, -9.81],
+            [0.5, 0.1, -STANDARD_GRAVITY.in_meters_per_second_squared()],
             [4.0, 4.0, 4.0],
             [-1.0, 0.0, 2.0],
             [7.0, -3.0, 0.25],
@@ -160,15 +141,18 @@ mod consistent_accelerations {
             .factor()
             .unwrap()
             .nodal_accelerations(&forces, &NodalForcesSolid::zero(COORDINATES.len()));
-        assert_close(&recovered, &accelerations, 1e-9);
+        Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Assert::default()
+        }
+        .eq_within_tols(&recovered, &accelerations)
     }
-
     #[test]
-    fn a_body_in_its_reference_configuration_falls_with_gravity() {
+    fn a_body_in_its_reference_configuration_falls_with_gravity() -> Result<(), AssertionError> {
         let model = model();
         let masses = model.nodal_masses();
-        let gravity = NodalAccelerations::from(COORDINATES.map(|_| [0.0, 0.0, -9.81]));
-        let weights = masses.inertial_forces(&gravity);
+        let weights = masses.inertial_forces(&gravity());
         let accelerations = model
             .nodal_accelerations(
                 &NodalCoordinates::from(COORDINATES),
@@ -176,6 +160,6 @@ mod consistent_accelerations {
                 &masses.factor().unwrap(),
             )
             .unwrap();
-        assert_close(&accelerations, &gravity, 1e-6);
+        noise_tolerant().eq_within_tols(&accelerations, &gravity())
     }
 }

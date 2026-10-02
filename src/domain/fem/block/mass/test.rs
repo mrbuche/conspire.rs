@@ -3,15 +3,17 @@ use crate::{
         Blocks, Model, NodalReferenceCoordinates,
         block::{
             Block, ElementDensities,
-            element::{FiniteElement, linear::Tetrahedron},
+            element::{ElementNodalReferenceCoordinates, FiniteElement, linear::Tetrahedron},
+            mass::NodalLumpedMasses,
         },
     },
-    math::{Quantity, Tensor},
+    math::{
+        Quantity, Tensor,
+        assert::{Assert, AssertionError},
+    },
     mechanics::ReferenceCoordinate,
     units::{Density, Mass},
 };
-
-const EPSILON: f64 = 1e-12;
 
 const DENSITY: Quantity<Density> = Density::kilograms_per_cubic_meter(7.8e3);
 
@@ -40,46 +42,54 @@ macro_rules! test_lumped {
                 B::from(((), DENSITY, CONNECTIVITY.to_vec(), &coordinates()))
             }
             #[test]
-            fn conserves_the_mass_of_the_block() {
+            fn conserves_the_mass_of_the_block() -> Result<(), AssertionError> {
                 let block = block();
                 let mass = block.mass();
                 let model = Model::from((block, coordinates()));
-                let lumped = model.nodal_lumped_masses();
-                assert!(!total(lumped.iter().copied()).differs(mass, EPSILON));
+                Assert::default()
+                    .eq_within_tols(&total(model.nodal_lumped_masses().iter().copied()), &mass)
             }
             #[test]
-            fn shared_nodes_collect_from_every_element() {
-                let reference = |nodes: [usize; 4]| {
+            fn shared_nodes_collect_from_every_element() -> Result<(), AssertionError> {
+                let volume = |nodes: [usize; 4]| {
                     let coordinates = coordinates();
                     Tetrahedron::<$g>::from(
                         nodes
                             .iter()
                             .map(|&node| coordinates[node].clone())
-                            .collect::<crate::fem::block::element::ElementNodalReferenceCoordinates<4>>(),
+                            .collect::<ElementNodalReferenceCoordinates<4>>(),
                     )
                     .volume()
                 };
-                let first = DENSITY * reference(CONNECTIVITY[0]) / 4.0;
-                let second = DENSITY * reference(CONNECTIVITY[1]) / 4.0;
-                let model = Model::from((block(), coordinates()));
-                let lumped = model.nodal_lumped_masses();
-                assert!(!lumped[0].differs(first, EPSILON));
-                assert!(!lumped[4].differs(second, EPSILON));
-                (1..4).for_each(|node| assert!(!lumped[node].differs(first + second, EPSILON)));
+                let first = DENSITY * volume(CONNECTIVITY[0]) / 4.0;
+                let second = DENSITY * volume(CONNECTIVITY[1]) / 4.0;
+                let expected = NodalLumpedMasses::from([
+                    first,
+                    first + second,
+                    first + second,
+                    first + second,
+                    second,
+                ]);
+                Assert::default().eq_within_tols(
+                    &Model::from((block(), coordinates())).nodal_lumped_masses(),
+                    &expected,
+                )
             }
             #[test]
-            fn follows_a_density_that_varies() {
-                let block = Block::<(), Tetrahedron<$g>, $g, 3, 4, 4, ElementDensities<$g>>::from((
-                    (),
-                    |coordinate: &ReferenceCoordinate| {
-                        Density::kilograms_per_cubic_meter(1e3 + 5e2 * coordinate[0].value())
-                    },
-                    CONNECTIVITY.to_vec(),
-                    &coordinates(),
-                ));
+            fn follows_a_density_that_varies() -> Result<(), AssertionError> {
+                let block =
+                    Block::<(), Tetrahedron<$g>, $g, 3, 4, 4, ElementDensities<$g>>::from((
+                        (),
+                        |coordinate: &ReferenceCoordinate| {
+                            Density::kilograms_per_cubic_meter(1e3 + 5e2 * coordinate[0].value())
+                        },
+                        CONNECTIVITY.to_vec(),
+                        &coordinates(),
+                    ));
                 let mass = block.mass();
                 let model = Model::from((block, coordinates()));
-                assert!(!total(model.nodal_lumped_masses().iter().copied()).differs(mass, EPSILON));
+                Assert::default()
+                    .eq_within_tols(&total(model.nodal_lumped_masses().iter().copied()), &mass)
             }
         }
     };
@@ -98,24 +108,24 @@ mod consistent {
         ))
     }
     #[test]
-    fn conserves_the_mass_of_the_block() {
+    fn conserves_the_mass_of_the_block() -> Result<(), AssertionError> {
         let model = model();
         let mass = DENSITY * model.blocks.volume();
-        let masses = model.nodal_masses();
         let sum = total(
-            masses
+            model
+                .nodal_masses()
                 .iter()
                 .flat_map(|row| row.entries().map(|(_, entry)| *entry)),
         );
-        assert!(!sum.differs(mass, EPSILON));
+        Assert::default().eq_within_tols(sum, &mass)
     }
     #[test]
-    fn is_symmetric() {
+    fn is_symmetric() -> Result<(), AssertionError> {
         let masses = model().nodal_masses();
-        masses.iter().enumerate().for_each(|(a, row)| {
+        masses.iter().enumerate().try_for_each(|(a, row)| {
             row.entries()
-                .for_each(|(b, entry)| assert!(!masses[b][a].differs(*entry, EPSILON)))
-        });
+                .try_for_each(|(b, entry)| Assert::default().eq_within_tols(masses[b][a], entry))
+        })
     }
     #[test]
     fn couples_only_nodes_that_share_an_element() {
@@ -124,14 +134,14 @@ mod consistent {
         assert!(masses[4].entries().all(|(b, _)| b != 0));
     }
     #[test]
-    fn lumps_to_its_row_sums() {
+    fn lumps_to_its_row_sums() -> Result<(), AssertionError> {
         let model = model();
-        let masses = model.nodal_masses();
-        let lumped = model.nodal_lumped_masses();
-        masses.iter().zip(lumped.iter()).for_each(|(row, lumped)| {
-            let sum = total(row.entries().map(|(_, entry)| *entry));
-            assert!(!sum.differs(*lumped, EPSILON))
-        });
+        let row_sums = model
+            .nodal_masses()
+            .iter()
+            .map(|row| total(row.entries().map(|(_, entry)| *entry)))
+            .collect::<NodalLumpedMasses>();
+        Assert::default().eq_within_tols(model.nodal_lumped_masses(), &row_sums)
     }
 }
 
@@ -139,19 +149,20 @@ mod combined {
     use super::*;
     type B = Block<(), Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
     #[test]
-    fn blocks_add_their_masses() {
+    fn blocks_add_their_masses() -> Result<(), AssertionError> {
         let heavy = Density::kilograms_per_cubic_meter(2.0 * 7.8e3);
         let first = B::from(((), DENSITY, vec![CONNECTIVITY[0]], &coordinates()));
         let second = B::from(((), heavy, vec![CONNECTIVITY[1]], &coordinates()));
         let mass = first.mass() + second.mass();
         let model = Model::from((Blocks(first, second), coordinates()));
-        assert!(!total(model.nodal_lumped_masses().iter().copied()).differs(mass, EPSILON));
+        Assert::default()
+            .eq_within_tols(total(model.nodal_lumped_masses().iter().copied()), &mass)?;
         let consistent = total(
             model
                 .nodal_masses()
                 .iter()
                 .flat_map(|row| row.entries().map(|(_, entry)| *entry)),
         );
-        assert!(!consistent.differs(mass, EPSILON));
+        Assert::default().eq_within_tols(consistent, &mass)
     }
 }
