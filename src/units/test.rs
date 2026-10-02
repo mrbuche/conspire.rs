@@ -62,6 +62,20 @@ fn inertial_units_close_over_their_products() {
 }
 
 #[test]
+fn specific_energy_closes_over_its_products() {
+    use crate::units::{Density, Energy, Mass, SpecificEnergy, UnitRoot, Velocity};
+    type Root<A> = <A as UnitRoot>::Output;
+    same::<Product<Velocity, Velocity>, SpecificEnergy>();
+    same::<Product<Mass, SpecificEnergy>, Energy>();
+    same::<Product<SpecificEnergy, Mass>, Energy>();
+    same::<Quotient<Energy, Mass>, SpecificEnergy>();
+    same::<Quotient<Energy, SpecificEnergy>, Mass>();
+    same::<Product<Density, SpecificEnergy>, Stress>();
+    same::<Quotient<Stress, Density>, SpecificEnergy>();
+    same::<Root<SpecificEnergy>, Velocity>();
+}
+
+#[test]
 fn units_are_zero_sized() {
     assert_eq!(size_of::<Stress>(), 0);
     assert_eq!(size_of::<Dimensionless>(), 0);

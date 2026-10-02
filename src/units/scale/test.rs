@@ -93,7 +93,22 @@ mod agree_inertial {
 
 mod cohere_inertial {
     use super::*;
-    use crate::units::{Acceleration, Density, Mass};
+    use crate::units::{Acceleration, Density, Mass, SpecificEnergy};
+    #[test]
+    fn a_squared_velocity_is_a_specific_energy() {
+        same(
+            Velocity::meters_per_second(3.0) * Velocity::meters_per_second(3.0),
+            SpecificEnergy::joules_per_kilogram(9.0),
+        );
+        same(
+            Mass::kilograms(2.0) * SpecificEnergy::joules_per_kilogram(5.0),
+            Energy::joules(10.0),
+        );
+        same(
+            Stress::pascals(8.0) / Density::kilograms_per_cubic_meter(2.0),
+            SpecificEnergy::joules_per_kilogram(4.0),
+        )
+    }
     #[test]
     fn a_density_over_a_volume_is_a_mass() {
         same(

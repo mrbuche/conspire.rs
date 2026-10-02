@@ -1,9 +1,11 @@
 use crate::{
     fem::{
-        Blocks, ElementModel, Elements, Model,
+        Blocks, ElementModel, Elements, Model, NodalAccelerations, NodalVelocities,
         block::mass::{NodalLumpedMasses, NodalMasses},
+        solid::NodalForcesSolid,
     },
-    math::Tensor,
+    math::{Current, Quantity, Tensor, TensorRank1},
+    units::{Energy, Force},
 };
 
 pub trait ConsistentMassElements
@@ -79,5 +81,67 @@ where
         let mut nodal_lumped_masses = NodalLumpedMasses::zero(self.coordinates().len());
         self.nodal_lumped_masses_into(&mut nodal_lumped_masses);
         nodal_lumped_masses
+    }
+}
+
+impl NodalLumpedMasses {
+    pub fn kinetic_energy<const D: usize>(
+        &self,
+        nodal_velocities: &NodalVelocities<D>,
+    ) -> Quantity<Energy> {
+        self.iter()
+            .zip(nodal_velocities.iter())
+            .map(|(&mass, velocity)| mass * (velocity * velocity))
+            .sum::<Quantity<Energy>>()
+            * 0.5
+    }
+    pub fn inertial_forces<const D: usize>(
+        &self,
+        nodal_accelerations: &NodalAccelerations<D>,
+    ) -> NodalForcesSolid<D> {
+        self.iter()
+            .zip(nodal_accelerations.iter())
+            .map(|(&mass, acceleration)| acceleration * mass)
+            .collect()
+    }
+    pub fn nodal_accelerations<const D: usize>(
+        &self,
+        external_forces: &NodalForcesSolid<D>,
+        internal_forces: &NodalForcesSolid<D>,
+    ) -> NodalAccelerations<D> {
+        self.iter()
+            .zip(external_forces.iter().zip(internal_forces.iter()))
+            .map(|(&mass, (external_force, internal_force))| {
+                (external_force - internal_force) / mass
+            })
+            .collect()
+    }
+}
+
+impl NodalMasses {
+    pub fn kinetic_energy<const D: usize>(
+        &self,
+        nodal_velocities: &NodalVelocities<D>,
+    ) -> Quantity<Energy> {
+        self.iter()
+            .zip(nodal_velocities.iter())
+            .flat_map(|(row, velocity_a)| {
+                row.entries()
+                    .map(move |(b, &mass)| mass * (velocity_a * &nodal_velocities[b]))
+            })
+            .sum::<Quantity<Energy>>()
+            * 0.5
+    }
+    pub fn inertial_forces<const D: usize>(
+        &self,
+        nodal_accelerations: &NodalAccelerations<D>,
+    ) -> NodalForcesSolid<D> {
+        self.iter()
+            .map(|row| {
+                row.entries()
+                    .map(|(b, &mass)| &nodal_accelerations[b] * mass)
+                    .sum::<TensorRank1<D, Current, Force>>()
+            })
+            .collect()
     }
 }

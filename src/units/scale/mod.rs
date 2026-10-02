@@ -21,8 +21,8 @@ mod test;
 use super::{
     Acceleration, Action, Amount, Area, Charge, Density, Dimensionless, Energy, Entropy, Force,
     ForcePerLength, Length, Mass, MolarEnergy, MolarEntropy, PowerPerLengthTemperature, Rate,
-    ReciprocalAmount, ReciprocalTemperature, Stress, StressPerLength, Temperature, Time, Velocity,
-    Viscosity, Volume,
+    ReciprocalAmount, ReciprocalTemperature, SpecificEnergy, Stress, StressPerLength, Temperature,
+    Time, Velocity, Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -189,6 +189,9 @@ scales!(
             "grams per cubic centimetre",
         tonnes_per_cubic_millimeter / in_tonnes_per_cubic_millimeter = 1e12,
             "tonnes per cubic millimetre",
+    }
+    SpecificEnergy {
+        joules_per_kilogram / in_joules_per_kilogram = 1.0, "joules per kilogram",
     }
     Charge {
         coulombs / in_coulombs = 1.0, "coulombs",

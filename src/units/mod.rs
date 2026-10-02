@@ -130,6 +130,8 @@ units!(
     Mass,
     /// A density, being a mass per unit volume.
     Density,
+    /// A specific energy, being an energy per unit mass, and equally a squared velocity.
+    SpecificEnergy,
     /// A force.
     Force,
     /// A force per unit length, as a stiffness is.
@@ -229,6 +231,10 @@ impl UnitRoot for RateSquared {
 
 impl UnitRoot for StressSquared {
     type Output = Stress;
+}
+
+impl UnitRoot for SpecificEnergy {
+    type Output = Velocity;
 }
 
 unit_products!(
@@ -405,6 +411,12 @@ unit_products!(
     RateSquared * Mass = ForcePerLength,
     Density * Acceleration = StressPerLength,
     Acceleration * Density = StressPerLength,
+    Dimensionless * SpecificEnergy = SpecificEnergy,
+    Velocity * Velocity = SpecificEnergy,
+    Mass * SpecificEnergy = Energy,
+    SpecificEnergy * Mass = Energy,
+    Density * SpecificEnergy = Stress,
+    SpecificEnergy * Density = Stress,
 );
 
 impl<A, B, C, D> UnitMul<(C, D)> for (A, B)

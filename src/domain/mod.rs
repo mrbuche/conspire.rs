@@ -28,7 +28,7 @@ use crate::{
         },
         styled_error,
     },
-    units::{Length, Velocity},
+    units::{Acceleration, Length, Velocity},
 };
 use std::fmt::{Debug, Display};
 
@@ -45,6 +45,7 @@ pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, Current, Length>;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Length>;
 pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, Reference, Length>;
+pub type NodalAccelerations<const D: usize> = TensorRank1Vec<D, Current, Acceleration>;
 pub type NodalVelocities<const D: usize> = TensorRank1Vec<D, Current, Velocity>;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Velocity>;
