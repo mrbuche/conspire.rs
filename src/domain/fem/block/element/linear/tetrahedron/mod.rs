@@ -19,7 +19,7 @@ const G4: usize = 4;
 const N: usize = 4;
 const P: usize = N;
 
-pub type Tetrahedron<const G: usize = G1> = LinearElement<G, N>;
+pub type Tetrahedron<const G: usize> = LinearElement<G, N>;
 
 impl FiniteElement<G1, M, N, P> for Tetrahedron<G1> {
     fn integration_points() -> ParametricCoordinates<G1, M> {

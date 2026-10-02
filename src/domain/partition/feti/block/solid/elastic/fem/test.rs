@@ -23,7 +23,7 @@ fn coordinates() -> Vec<[f64; 3]> {
     ]
 }
 
-fn block() -> Block<NeoHookean, Tetrahedron, 1, 3, 4, 4> {
+fn block() -> Block<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4> {
     let reference_coordinates = NodalReferenceCoordinates::from(coordinates());
     Block::from((
         NeoHookean {
@@ -43,7 +43,7 @@ fn partition() -> Partition {
 }
 
 fn solve(
-    block: &Block<NeoHookean, Tetrahedron, 1, 3, 4, 4>,
+    block: &Block<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4>,
     nodal_coordinates: &NodalCoordinates<3>,
     partition: &Partition,
     boundary_conditions: &BoundaryConditions,
