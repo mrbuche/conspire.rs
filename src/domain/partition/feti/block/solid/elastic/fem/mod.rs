@@ -12,8 +12,8 @@ use crate::{
     },
 };
 
-impl<C, F, const G: usize, const N: usize, const P: usize> DecomposableElements
-    for Block<C, F, G, 3, N, P>
+impl<C, F, const G: usize, const N: usize, const P: usize, R> DecomposableElements
+    for Block<C, F, G, 3, N, P, R>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, 3, N, P>,

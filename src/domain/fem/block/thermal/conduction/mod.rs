@@ -19,8 +19,8 @@ use crate::{
 pub type NodalForcesThermal = QuantityVector<Power>;
 pub type NodalStiffnessesThermal = QuantitySparseVec2D<PowerPerTemperature>;
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ThermalConductionElements
-    for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
+    ThermalConductionElements for Block<C, F, G, M, N, P, R>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N, P>,

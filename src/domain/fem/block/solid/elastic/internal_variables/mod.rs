@@ -22,8 +22,8 @@ use crate::{
     units::{Dimensionless, UnitDiv},
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E>
-    ElasticIVElements<G, V, 3> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E, R>
+    ElasticIVElements<G, V, 3> for Block<C, F, G, M, N, P, R>
 where
     C: ElasticIV<V>,
     C::Residual: Erase<Erased = E>,

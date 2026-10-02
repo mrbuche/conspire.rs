@@ -14,8 +14,8 @@ use crate::{
     units::Power,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElasticHyperviscousElements<3> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
+    ElasticHyperviscousElements<3> for Block<C, F, G, M, N, P, R>
 where
     C: ElasticHyperviscous,
     F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,

@@ -16,8 +16,8 @@ use crate::{
 };
 use std::ops::{Div, Mul};
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E>
-    HyperelasticIVElements<G, V, 3> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E, R>
+    HyperelasticIVElements<G, V, 3> for Block<C, F, G, M, N, P, R>
 where
     C: HyperelasticIV<V>,
     C::Residual: Erase<Erased = E>,
