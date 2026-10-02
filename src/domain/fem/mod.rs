@@ -5,6 +5,7 @@ mod test;
 
 pub mod block;
 mod from;
+pub mod mass;
 pub mod solid;
 pub mod thermal;
 
