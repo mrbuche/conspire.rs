@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+mod density;
 pub mod element;
 pub mod solid;
 pub mod surface;
@@ -20,8 +21,7 @@ use crate::{
 };
 use std::fmt::{self, Debug, Formatter};
 
-#[derive(Clone, Copy, Debug)]
-pub struct NoDensity;
+pub use density::{DensityField, ElementDensities, NoDensity};
 
 pub struct Block<
     C,
@@ -35,7 +35,6 @@ pub struct Block<
     constitutive_model: C,
     connectivity: PrimitiveConnectivity<M, N>,
     elements: Vec<F>,
-    #[expect(dead_code)]
     density: R,
 }
 
