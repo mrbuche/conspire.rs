@@ -28,10 +28,14 @@ where
             .iter()
             .zip(self.integration_weights())
             .map(|(shape_functions, integration_weight)| {
-                (0..P)
-                    .map(|a| {
-                        (0..P)
-                            .map(|b| integration_weight * (shape_functions[a] * shape_functions[b]))
+                shape_functions
+                    .iter()
+                    .map(|shape_function_a| {
+                        shape_functions
+                            .iter()
+                            .map(|shape_function_b| {
+                                integration_weight * (shape_function_a * shape_function_b)
+                            })
                             .collect()
                     })
                     .collect()
