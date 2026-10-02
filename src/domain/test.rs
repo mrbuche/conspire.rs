@@ -44,7 +44,7 @@ type MixedBlocks =
 #[test]
 fn fem_and_vem_blocks_combine_via_trait_bounds() {
     let coordinates = reference_coordinates();
-    let fem_block = FemBlock::<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4>::from((
+    let fem_block = FemBlock::<NeoHookean, Tetrahedron<1>, _, _, _, _>::from((
         constitutive_model(),
         vec![[8, 9, 10, 11]],
         &coordinates,

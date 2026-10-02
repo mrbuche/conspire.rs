@@ -16,7 +16,7 @@ fn block_error_carries_no_escape_codes() {
         [0.0, 1.0, 0.0],
         [0.0, 0.0, 1.0],
     ]);
-    let block = Block::<_, Tetrahedron<1>, 1, 3, 4, 4>::from((
+    let block = Block::<_, Tetrahedron<1>, _, _, _, _>::from((
         NeoHookean {
             shear_modulus: Stress::pascals(3.0),
             bulk_modulus: Stress::pascals(13.0),

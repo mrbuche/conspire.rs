@@ -7430,7 +7430,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let solution = conspire::fem::SecondOrderMinimize::minimize(
         &fem_model,
@@ -7541,7 +7541,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let times: Vec<Quantity<Time>> = (0..=8).map(|i| Time::seconds(0.25 * i as f64)).collect();
     let (times, coordinates_history, state_variables_history) = fem_model
@@ -7648,7 +7648,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive_minimize() -> Result<(), Ass
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
     let time: Vec<Quantity<Time>> = (0..=4).map(|i| Time::seconds(0.25 * i as f64)).collect();
     let (_, reference_coordinates_history, _) = fem_model
@@ -7727,7 +7727,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionErr
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
     let time: Vec<Quantity<Time>> = (0..=4).map(|i| Time::seconds(0.25 * i as f64)).collect();
     let (_, reference_coordinates_history, _) = fem_model
@@ -7854,7 +7854,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, velocities_history) =
         conspire::fem::solid::elastic_hyperviscous::SecondOrderMinimize::minimize(
@@ -7969,7 +7969,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let solution = conspire::fem::SecondOrderMinimize::minimize(
         &fem_model,
@@ -8059,7 +8059,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
@@ -8175,7 +8175,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
@@ -8345,7 +8345,7 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let boundary_conditions: Vec<EqualityConstraint> = times
         .iter()
@@ -8476,7 +8476,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
         vec![Connectivity::Tetrahedral(connectivity.into())],
         coordinates(),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
     let boundary_conditions: Vec<EqualityConstraint> = times
         .iter()
@@ -8526,7 +8526,7 @@ fn temporary_monolithic_tangents_match_finite_difference() -> Result<(), Asserti
             [0.0, 0.0, 1.0],
         ]),
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
     let blocks = fem_model.blocks();
     let state = blocks.initial_state();
@@ -8618,7 +8618,7 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
         vec![Connectivity::Tetrahedral(vec![[0, 1, 2, 3]].into())],
         reference_coordinates,
     ));
-    let fem_model: Model<Block<_, LinearTetrahedron<G>, G, M, N, P>, 3> =
+    let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
     let boundary_conditions: Vec<EqualityConstraint> = times
         .iter()
