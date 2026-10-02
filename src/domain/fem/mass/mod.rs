@@ -4,9 +4,13 @@ use crate::{
         block::mass::{NodalLumpedMasses, NodalMasses},
         solid::NodalForcesSolid,
     },
-    math::{Current, Quantity, Tensor, TensorRank1},
+    math::{
+        Current, Quantity, Scalar, Tensor, TensorRank1, Vector,
+        sparse::{CscLu, CscMatrix, SparseError},
+    },
     units::{Energy, Force},
 };
+use std::array::from_fn;
 
 pub trait ConsistentMassElements
 where
@@ -104,7 +108,18 @@ impl NodalLumpedMasses {
             .map(|(&mass, acceleration)| acceleration * mass)
             .collect()
     }
-    pub fn nodal_accelerations<const D: usize>(
+}
+
+pub trait InverseMass {
+    fn nodal_accelerations<const D: usize>(
+        &self,
+        external_forces: &NodalForcesSolid<D>,
+        internal_forces: &NodalForcesSolid<D>,
+    ) -> NodalAccelerations<D>;
+}
+
+impl InverseMass for NodalLumpedMasses {
+    fn nodal_accelerations<const D: usize>(
         &self,
         external_forces: &NodalForcesSolid<D>,
         internal_forces: &NodalForcesSolid<D>,
@@ -118,7 +133,47 @@ impl NodalLumpedMasses {
     }
 }
 
+pub struct FactoredMasses(CscLu);
+
+impl InverseMass for FactoredMasses {
+    fn nodal_accelerations<const D: usize>(
+        &self,
+        external_forces: &NodalForcesSolid<D>,
+        internal_forces: &NodalForcesSolid<D>,
+    ) -> NodalAccelerations<D> {
+        let components: Vec<Vector> = (0..D)
+            .map(|i| {
+                self.0.solve(
+                    &external_forces
+                        .iter()
+                        .zip(internal_forces.iter())
+                        .map(|(external_force, internal_force)| {
+                            external_force[i].value() - internal_force[i].value()
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
+        (0..external_forces.len())
+            .map(|node| from_fn(|i| components[i].as_slice()[node]))
+            .collect::<Vec<[Scalar; D]>>()
+            .into()
+    }
+}
+
 impl NodalMasses {
+    pub fn factor(&self) -> Result<FactoredMasses, SparseError> {
+        let mut matrix = CscMatrix::from_pattern(
+            self.len(),
+            self.len(),
+            self.iter()
+                .enumerate()
+                .flat_map(|(a, row)| row.entries().map(move |(b, _)| (a, b)))
+                .collect(),
+        );
+        matrix.fill(|a, b| self[a][b].value());
+        Ok(FactoredMasses(matrix.lu_amd()?))
+    }
     pub fn kinetic_energy<const D: usize>(
         &self,
         nodal_velocities: &NodalVelocities<D>,

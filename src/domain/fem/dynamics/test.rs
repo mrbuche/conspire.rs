@@ -132,3 +132,50 @@ mod accelerations {
         });
     }
 }
+
+mod consistent_accelerations {
+    use super::*;
+    use crate::fem::mass::InverseMass;
+
+    fn assert_close(a: &NodalAccelerations<3>, b: &NodalAccelerations<3>, tolerance: f64) {
+        a.iter().zip(b.iter()).for_each(|(a, b)| {
+            a.iter()
+                .zip(b.iter())
+                .for_each(|(a_i, b_i)| assert!(!a_i.differs_severely(*b_i, tolerance)))
+        });
+    }
+
+    #[test]
+    fn solving_with_the_mass_undoes_applying_it() {
+        let masses = model().nodal_masses();
+        let accelerations = NodalAccelerations::from(vec![
+            [1.0, -2.0, 3.0],
+            [0.5, 0.1, -9.81],
+            [4.0, 4.0, 4.0],
+            [-1.0, 0.0, 2.0],
+            [7.0, -3.0, 0.25],
+        ]);
+        let forces = masses.inertial_forces(&accelerations);
+        let recovered = masses
+            .factor()
+            .unwrap()
+            .nodal_accelerations(&forces, &NodalForcesSolid::zero(COORDINATES.len()));
+        assert_close(&recovered, &accelerations, 1e-9);
+    }
+
+    #[test]
+    fn a_body_in_its_reference_configuration_falls_with_gravity() {
+        let model = model();
+        let masses = model.nodal_masses();
+        let gravity = NodalAccelerations::from(COORDINATES.map(|_| [0.0, 0.0, -9.81]));
+        let weights = masses.inertial_forces(&gravity);
+        let accelerations = model
+            .nodal_accelerations(
+                &NodalCoordinates::from(COORDINATES),
+                &weights,
+                &masses.factor().unwrap(),
+            )
+            .unwrap();
+        assert_close(&accelerations, &gravity, 1e-6);
+    }
+}
