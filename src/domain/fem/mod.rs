@@ -4,7 +4,8 @@
 mod test;
 
 pub mod block;
-pub mod dynamics;
+#[cfg(test)]
+mod dynamics;
 mod from;
 pub mod mass;
 pub mod solid;

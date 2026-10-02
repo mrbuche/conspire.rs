@@ -1,20 +1,15 @@
 #[cfg(test)]
 mod test;
 
-use crate::{
-    fem::{
-        block::{
-            Block, Densities,
-            element::mass::{LumpedMassFiniteElement, MassFiniteElement},
-        },
-        mass::{ConsistentMassElements, LumpedMassElements},
+use crate::fem::{
+    block::{
+        Block, Densities,
+        element::mass::{LumpedMassFiniteElement, MassFiniteElement},
     },
-    math::{QuantitySparseVec2D, QuantityVector},
-    units::Mass,
+    mass::{ConsistentMassElements, LumpedMassElements},
 };
 
-pub type NodalMasses = QuantitySparseVec2D<Mass>;
-pub type NodalLumpedMasses = QuantityVector<Mass>;
+pub use crate::domain::mass::{NodalLumpedMasses, NodalMasses};
 
 impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize> ConsistentMassElements
     for Block<C, F, G, M, N, P, R>

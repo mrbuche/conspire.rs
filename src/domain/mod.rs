@@ -6,12 +6,16 @@ mod test;
 pub(crate) mod block;
 #[cfg(feature = "cbm")]
 pub mod cbm;
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub(crate) mod dynamics;
 #[cfg(feature = "fem")]
 pub mod fem;
 #[cfg(feature = "fem")]
 #[path = "partition/feti/mod.rs"]
 pub mod feti;
 pub(crate) mod from;
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub(crate) mod mass;
 pub(crate) mod solid;
 #[cfg(feature = "vem")]
 pub mod vem;
