@@ -1,8 +1,9 @@
 use crate::{
     fem::{
         NodalReferenceCoordinates,
-        block::{Block, ElementDensities, element::linear::Tetrahedron},
+        block::{Block, Densities, ElementDensities, element::linear::Tetrahedron},
     },
+    math::{Quantity, Tensor},
     mechanics::ReferenceCoordinate,
     units::Density,
 };
@@ -40,19 +41,36 @@ macro_rules! test_density {
             use super::*;
 
             type B = Block<(), Tetrahedron<$g>, $g, 3, 4, 4, ElementDensities<$g>>;
+            type Scalar = Block<(), Tetrahedron<$g>, $g, 3, 4, 4, Quantity<Density>>;
 
             #[test]
             fn constant_density_gives_density_times_volume() {
                 let density = Density::kilograms_per_cubic_meter(7.8e3);
-                let block = B::from(((), density, CONNECTIVITY.to_vec(), &coordinates()));
+                let block = Scalar::from(((), density, CONNECTIVITY.to_vec(), &coordinates()));
                 assert!(!block.mass().differs(density * block.volume(), EPSILON));
-                assert!(
-                    block
-                        .density()
-                        .iter()
-                        .flatten()
-                        .all(|point_density| !point_density.differs(density, EPSILON))
-                );
+                assert!(!block.density().differs(density, EPSILON));
+            }
+
+            #[test]
+            fn a_constant_closure_agrees_with_the_scalar() {
+                let density = Density::kilograms_per_cubic_meter(7.8e3);
+                let scalar = Scalar::from(((), density, CONNECTIVITY.to_vec(), &coordinates()));
+                let per_point = B::from((
+                    (),
+                    |_: &ReferenceCoordinate| density,
+                    CONNECTIVITY.to_vec(),
+                    &coordinates(),
+                ));
+                assert!(!per_point.mass().differs(scalar.mass(), EPSILON));
+                (0..CONNECTIVITY.len()).for_each(|element| {
+                    assert!(
+                        per_point
+                            .density()
+                            .at(element)
+                            .iter()
+                            .all(|point_density| !point_density.differs(density, EPSILON))
+                    )
+                })
             }
 
             #[test]

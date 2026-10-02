@@ -21,7 +21,7 @@ use crate::{
 };
 use std::fmt::{self, Debug, Formatter};
 
-pub use density::{DensityField, ElementDensities, NoDensity};
+pub use density::{Densities, DensityField, ElementDensities, NoDensity};
 
 pub struct Block<
     C,
