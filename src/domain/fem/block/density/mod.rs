@@ -10,7 +10,7 @@ use crate::{
         },
     },
     geometry::mesh::PrimitiveConnectivity,
-    math::{Quantity, Tensor, TensorList},
+    math::{Quantity, Tensor, TensorList, TensorListVec},
     mechanics::ReferenceCoordinate,
     units::{Density, Mass},
 };
@@ -22,12 +22,11 @@ pub trait Densities<const G: usize> {
     fn at(&self, element: usize) -> TensorList<Quantity<Density>, G>;
 }
 
-#[derive(Clone, Debug)]
-pub struct ElementDensities<const G: usize>(Vec<TensorList<Quantity<Density>, G>>);
+pub type ElementDensities<const G: usize> = TensorListVec<Quantity<Density>, G>;
 
 impl<const G: usize> Densities<G> for ElementDensities<G> {
     fn at(&self, element: usize) -> TensorList<Quantity<Density>, G> {
-        self.0[element].clone()
+        self[element].clone()
     }
 }
 
@@ -66,11 +65,9 @@ where
         I: Iterator<Item = J>,
         J: Iterator<Item = ReferenceCoordinate>,
     {
-        ElementDensities(
-            points
-                .map(|element_points| element_points.map(|point| self(&point)).collect())
-                .collect(),
-        )
+        points
+            .map(|element_points| element_points.map(|point| self(&point)).collect())
+            .collect()
     }
 }
 
