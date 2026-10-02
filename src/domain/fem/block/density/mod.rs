@@ -38,19 +38,18 @@ impl<const G: usize> Densities<G> for Quantity<Density> {
 
 pub trait DensityField {
     type Resolved<const G: usize>: Densities<G>;
-    fn resolve<const G: usize, I, J>(&self, points: I) -> Self::Resolved<G>
-    where
-        I: Iterator<Item = J>,
-        J: Iterator<Item = ReferenceCoordinate>;
+    fn resolve<const G: usize>(
+        &self,
+        points: impl Iterator<Item = impl Iterator<Item = ReferenceCoordinate>>,
+    ) -> Self::Resolved<G>;
 }
 
 impl DensityField for Quantity<Density> {
     type Resolved<const G: usize> = Quantity<Density>;
-    fn resolve<const G: usize, I, J>(&self, _points: I) -> Quantity<Density>
-    where
-        I: Iterator<Item = J>,
-        J: Iterator<Item = ReferenceCoordinate>,
-    {
+    fn resolve<const G: usize>(
+        &self,
+        _points: impl Iterator<Item = impl Iterator<Item = ReferenceCoordinate>>,
+    ) -> Quantity<Density> {
         *self
     }
 }
@@ -60,11 +59,10 @@ where
     F: Fn(&ReferenceCoordinate) -> Quantity<Density>,
 {
     type Resolved<const G: usize> = ElementDensities<G>;
-    fn resolve<const G: usize, I, J>(&self, points: I) -> ElementDensities<G>
-    where
-        I: Iterator<Item = J>,
-        J: Iterator<Item = ReferenceCoordinate>,
-    {
+    fn resolve<const G: usize>(
+        &self,
+        points: impl Iterator<Item = impl Iterator<Item = ReferenceCoordinate>>,
+    ) -> ElementDensities<G> {
         points
             .map(|element_points| element_points.map(|point| self(&point)).collect())
             .collect()
@@ -96,13 +94,12 @@ where
         self.elements()
             .iter()
             .enumerate()
-            .map(|(element_index, element)| {
+            .flat_map(|(element_index, element)| {
                 self.density()
                     .at(element_index)
-                    .iter()
+                    .into_iter()
                     .zip(element.integration_weights())
                     .map(|(density, integration_weight)| density * integration_weight)
-                    .sum::<Quantity<Mass>>()
             })
             .sum()
     }
@@ -128,15 +125,14 @@ where
         ),
     ) -> Self {
         let shape_functions = F::shape_functions_at_integration_points();
-        let density = density_field.resolve::<G, _, _>(connectivity.iter().map(|nodes| {
-            let element_coordinates =
-                Block::<C, F, G, 3, N, N>::element_coordinates(coordinates, nodes);
+        let density = density_field.resolve(connectivity.iter().map(|nodes| {
+            let element_coordinates = Self::element_coordinates(coordinates, nodes);
             shape_functions.iter().map(move |shape_functions| {
                 element_coordinates
                     .iter()
                     .zip(shape_functions.iter())
                     .map(|(coordinate, shape_function)| coordinate * shape_function)
-                    .sum::<ReferenceCoordinate>()
+                    .sum()
             })
         }));
         Block::from((constitutive_model, connectivity, coordinates)).with_density(density)
