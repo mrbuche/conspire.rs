@@ -5,12 +5,11 @@ use crate::{
         solid::NodalForcesSolid,
     },
     math::{
-        Current, Quantity, Scalar, Tensor, TensorRank1, Vector,
+        Quantity, Tensor,
         sparse::{CscLu, CscMatrix, SparseError},
     },
-    units::{Energy, Force},
+    units::Energy,
 };
-use std::array::from_fn;
 
 pub trait ConsistentMassElements
 where
@@ -110,16 +109,16 @@ impl NodalLumpedMasses {
     }
 }
 
-pub trait InverseMass {
-    fn nodal_accelerations<const D: usize>(
+pub trait InverseMass<const D: usize> {
+    fn nodal_accelerations(
         &self,
         external_forces: &NodalForcesSolid<D>,
         internal_forces: &NodalForcesSolid<D>,
     ) -> NodalAccelerations<D>;
 }
 
-impl InverseMass for NodalLumpedMasses {
-    fn nodal_accelerations<const D: usize>(
+impl<const D: usize> InverseMass<D> for NodalLumpedMasses {
+    fn nodal_accelerations(
         &self,
         external_forces: &NodalForcesSolid<D>,
         internal_forces: &NodalForcesSolid<D>,
@@ -133,45 +132,34 @@ impl InverseMass for NodalLumpedMasses {
     }
 }
 
-pub struct FactoredMasses(CscLu);
+pub struct FactoredMasses<const D: usize>(CscLu);
 
-impl InverseMass for FactoredMasses {
-    fn nodal_accelerations<const D: usize>(
+impl<const D: usize> InverseMass<D> for FactoredMasses<D> {
+    fn nodal_accelerations(
         &self,
         external_forces: &NodalForcesSolid<D>,
         internal_forces: &NodalForcesSolid<D>,
     ) -> NodalAccelerations<D> {
-        let components: Vec<Vector> = (0..D)
-            .map(|i| {
-                self.0.solve(
-                    &external_forces
-                        .iter()
-                        .zip(internal_forces.iter())
-                        .map(|(external_force, internal_force)| {
-                            external_force[i].value() - internal_force[i].value()
-                        })
-                        .collect(),
-                )
-            })
-            .collect();
-        (0..external_forces.len())
-            .map(|node| from_fn(|i| components[i].as_slice()[node]))
-            .collect::<Vec<[Scalar; D]>>()
+        self.0
+            .solve(&(external_forces - internal_forces).into_erased().into())
             .into()
     }
 }
 
 impl NodalMasses {
-    pub fn factor(&self) -> Result<FactoredMasses, SparseError> {
+    pub fn factor<const D: usize>(&self) -> Result<FactoredMasses<D>, SparseError> {
         let mut matrix = CscMatrix::from_pattern(
-            self.len(),
-            self.len(),
+            D * self.len(),
+            D * self.len(),
             self.iter()
                 .enumerate()
-                .flat_map(|(a, row)| row.entries().map(move |(b, _)| (a, b)))
+                .flat_map(|(a, row)| {
+                    row.entries()
+                        .flat_map(move |(b, _)| (0..D).map(move |i| (D * a + i, D * b + i)))
+                })
                 .collect(),
         );
-        matrix.fill(|a, b| self[a][b].value());
+        matrix.fill(|row, column| self[row / D][column / D].value());
         Ok(FactoredMasses(matrix.lu_amd()?))
     }
     pub fn kinetic_energy<const D: usize>(
@@ -195,7 +183,7 @@ impl NodalMasses {
             .map(|row| {
                 row.entries()
                     .map(|(b, &mass)| &nodal_accelerations[b] * mass)
-                    .sum::<TensorRank1<D, Current, Force>>()
+                    .sum()
             })
             .collect()
     }
