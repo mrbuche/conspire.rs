@@ -124,6 +124,12 @@ units!(
     SecondMomentOfArea,
     /// A velocity, being a length per unit time.
     Velocity,
+    /// An acceleration, being a velocity per unit time.
+    Acceleration,
+    /// A mass.
+    Mass,
+    /// A density, being a mass per unit volume.
+    Density,
     /// A force.
     Force,
     /// A force per unit length, as a stiffness is.
@@ -382,6 +388,23 @@ unit_products!(
     Force * ReciprocalForcePerLength = Length,
     Stress * Length = ForcePerLength,
     Length * Stress = ForcePerLength,
+    Dimensionless * Acceleration = Acceleration,
+    Dimensionless * Mass = Mass,
+    Dimensionless * Density = Density,
+    Velocity * Rate = Acceleration,
+    Rate * Velocity = Acceleration,
+    Length * RateSquared = Acceleration,
+    RateSquared * Length = Acceleration,
+    Acceleration * Time = Velocity,
+    Time * Acceleration = Velocity,
+    Density * Volume = Mass,
+    Volume * Density = Mass,
+    Mass * Acceleration = Force,
+    Acceleration * Mass = Force,
+    Mass * RateSquared = ForcePerLength,
+    RateSquared * Mass = ForcePerLength,
+    Density * Acceleration = StressPerLength,
+    Acceleration * Density = StressPerLength,
 );
 
 impl<A, B, C, D> UnitMul<(C, D)> for (A, B)
