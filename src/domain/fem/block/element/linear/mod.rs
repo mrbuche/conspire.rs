@@ -5,7 +5,7 @@ mod wedge;
 
 pub use hexahedron::Hexahedron;
 pub use pyramid::Pyramid;
-pub use tetrahedron::{Tetrahedron, TetrahedronConsistentMass};
+pub use tetrahedron::Tetrahedron;
 pub use wedge::Wedge;
 
 use crate::fem::block::element::{

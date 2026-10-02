@@ -1,6 +1,6 @@
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, linear::TetrahedronConsistentMass,
+        ElementNodalReferenceCoordinates, FiniteElement, linear::Tetrahedron,
         mass::MassFiniteElement,
     },
     math::Quantity,
@@ -9,7 +9,7 @@ use crate::{
 
 #[test]
 fn consistent_mass_matches_closed_form() {
-    let element = TetrahedronConsistentMass::from(ElementNodalReferenceCoordinates::<4>::from([
+    let element = Tetrahedron::<4>::from(ElementNodalReferenceCoordinates::<4>::from([
         [0.1, 0.2, 0.0],
         [1.3, 0.1, 0.2],
         [0.2, 0.9, 0.1],
