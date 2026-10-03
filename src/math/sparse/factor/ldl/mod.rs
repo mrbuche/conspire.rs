@@ -193,6 +193,24 @@ impl CscMatrix {
     }
 }
 
+fn dot(a: &[Scalar], b: &[Scalar]) -> Scalar {
+    let (a_chunks, a_rest) = a.as_chunks::<4>();
+    let (b_chunks, b_rest) = b.as_chunks::<4>();
+    let mut lanes = [0.0; 4];
+    a_chunks.iter().zip(b_chunks).for_each(|(a, b)| {
+        lanes
+            .iter_mut()
+            .zip(a.iter().zip(b))
+            .for_each(|(lane, (a, b))| *lane += a * b)
+    });
+    lanes.iter().sum::<Scalar>()
+        + a_rest
+            .iter()
+            .zip(b_rest)
+            .map(|(a, b)| a * b)
+            .sum::<Scalar>()
+}
+
 impl CscLdl {
     /// Solve a system of linear equations using the factorization.
     pub fn solve(&self, b: &Vector) -> Vector {
@@ -252,18 +270,16 @@ impl CscLdl {
             let rows = &self.sn_rows[self.sn_rows_ptr[s]..self.sn_rows_ptr[s + 1]];
             let m = rows.len();
             let panel = &self.sn_values[self.sn_panel_ptr[s]..self.sn_panel_ptr[s + 1]];
+            rows[width..]
+                .iter()
+                .zip(below[..m - width].iter_mut())
+                .for_each(|(&row, below_r)| *below_r = x[row]);
+            (0..width).for_each(|c| {
+                x[t1 + c] -= dot(&panel[c * m + width..(c + 1) * m], &below[..m - width]);
+            });
             (0..width).rev().for_each(|c| {
                 let column = &panel[c * m..(c + 1) * m];
-                let mut x_c = x[t1 + c];
-                x[t1 + c + 1..t2]
-                    .iter()
-                    .zip(column[c + 1..width].iter())
-                    .for_each(|(x_r, value)| x_c -= value * x_r);
-                rows[width..]
-                    .iter()
-                    .zip(column[width..].iter())
-                    .for_each(|(&row, value)| x_c -= value * x[row]);
-                x[t1 + c] = x_c;
+                x[t1 + c] -= dot(&column[c + 1..width], &x[t1 + c + 1..t2]);
             });
         });
         let mut solution = Vector::zero(n);
