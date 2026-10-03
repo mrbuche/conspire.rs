@@ -15,8 +15,8 @@ fn lumped() -> NodalLumpedMasses {
 fn consistent() -> NodalMasses {
     let mut masses = NodalMasses::zero(2);
     [(0, 0, 2.0), (0, 1, 1.0), (1, 0, 1.0), (1, 1, 2.0)]
-        .into_iter()
-        .for_each(|(a, b, mass)| masses[a][b] += Mass::kilograms(mass));
+        .iter()
+        .for_each(|&(a, b, mass)| masses[a][b] += Mass::kilograms(mass));
     masses
 }
 
