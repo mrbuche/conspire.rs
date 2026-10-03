@@ -19,9 +19,10 @@
 mod test;
 
 use super::{
-    Action, Amount, Area, Charge, Dimensionless, Energy, Entropy, Force, ForcePerLength, Length,
-    MolarEnergy, MolarEntropy, PowerPerLengthTemperature, Rate, ReciprocalAmount,
-    ReciprocalTemperature, Stress, StressPerLength, Temperature, Time, Velocity, Viscosity, Volume,
+    Acceleration, Action, Amount, Area, Charge, Density, Dimensionless, Energy, Entropy, Force,
+    ForcePerLength, Length, Mass, MolarEnergy, MolarEntropy, PowerPerLengthTemperature, Rate,
+    ReciprocalAmount, ReciprocalTemperature, SpecificEnergy, Stress, StressPerLength, Temperature,
+    Time, Velocity, Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -168,6 +169,29 @@ scales!(
         meters_per_second / in_meters_per_second = 1.0, "metres per second",
         millimeters_per_second / in_millimeters_per_second = 1e-3, "millimetres per second",
         kilometers_per_hour / in_kilometers_per_hour = 1.0 / 3.6, "kilometres per hour",
+    }
+    Acceleration {
+        meters_per_second_squared / in_meters_per_second_squared = 1.0,
+            "metres per second squared",
+        standard_gravities / in_standard_gravities = 9.806_65, "standard gravities",
+    }
+    Mass {
+        kilograms / in_kilograms = 1.0, "kilograms",
+        grams / in_grams = 1e-3, "grams",
+        milligrams / in_milligrams = 1e-6, "milligrams",
+        tonnes / in_tonnes = 1e3, "tonnes",
+        pounds_mass / in_pounds_mass = 4.535_923_7e-1, "pounds mass",
+    }
+    Density {
+        kilograms_per_cubic_meter / in_kilograms_per_cubic_meter = 1.0,
+            "kilograms per cubic metre",
+        grams_per_cubic_centimeter / in_grams_per_cubic_centimeter = 1e3,
+            "grams per cubic centimetre",
+        tonnes_per_cubic_millimeter / in_tonnes_per_cubic_millimeter = 1e12,
+            "tonnes per cubic millimetre",
+    }
+    SpecificEnergy {
+        joules_per_kilogram / in_joules_per_kilogram = 1.0, "joules per kilogram",
     }
     Charge {
         coulombs / in_coulombs = 1.0, "coulombs",

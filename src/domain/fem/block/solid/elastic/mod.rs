@@ -15,8 +15,8 @@ use crate::{
     },
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ElasticElements<3>
-    for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R> ElasticElements<3>
+    for Block<C, F, G, M, N, P, R>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N, P>,
@@ -72,8 +72,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> ElasticElements<2>
-    for Block<C, F, G, 2, N, P>
+impl<C, F, const G: usize, const N: usize, const P: usize, R> ElasticElements<2>
+    for Block<C, F, G, 2, N, P, R>
 where
     C: Elastic,
     F: PlanarElasticFiniteElement<C, G, N, P>,

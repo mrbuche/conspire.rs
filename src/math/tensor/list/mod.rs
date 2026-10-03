@@ -1,3 +1,5 @@
+pub(crate) mod vec;
+
 use crate::math::{
     ContractWith, Differentiable, Erase, Quantity, Tensor, TensorArray, TensorRank0,
 };

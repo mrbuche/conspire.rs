@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod test;
 
+mod density;
 pub mod element;
+pub mod mass;
 pub mod solid;
 pub mod surface;
 pub mod thermal;
@@ -20,13 +22,25 @@ use crate::{
 };
 use std::fmt::{self, Debug, Formatter};
 
-pub struct Block<C, F, const G: usize, const M: usize, const N: usize, const P: usize> {
+pub use density::{Densities, DensityField, ElementDensities, NoDensity};
+
+pub struct Block<
+    C,
+    F,
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+    R = NoDensity,
+> {
     constitutive_model: C,
     connectivity: PrimitiveConnectivity<M, N>,
     elements: Vec<F>,
+    density: R,
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
+    Block<C, F, G, M, N, P, R>
 where
     F: FiniteElement<G, M, N, P>,
 {
@@ -53,8 +67,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Debug
-    for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R> Debug
+    for Block<C, F, G, M, N, P, R>
 where
     F: FiniteElement<G, M, N, P>,
 {
@@ -68,8 +82,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> Elements
-    for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R> Elements
+    for Block<C, F, G, M, N, P, R>
 where
     F: FiniteElement<G, M, N, P>,
 {
@@ -105,6 +119,7 @@ where
             constitutive_model,
             connectivity,
             elements,
+            density: NoDensity,
         }
     }
 }
@@ -153,6 +168,7 @@ where
             constitutive_model,
             connectivity,
             elements,
+            density: NoDensity,
         }
     }
 }

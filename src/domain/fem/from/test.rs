@@ -33,15 +33,15 @@ use crate::{
 
 const D: usize = 14;
 
-type Tet = Block<AlmansiHamelEulerian, Tetrahedron, 1, 3, 4, 4>;
+type Tet = Block<AlmansiHamelEulerian, Tetrahedron<1>, 1, 3, 4, 4>;
 type Tri = Block<AlmansiHamelEulerian, Triangle, 1, 2, 3, 3>;
 type Quad = Block<AlmansiHamelEulerian, Quadrilateral, 4, 2, 4, 4>;
 type TriNeoHookean = Block<NeoHookean, Triangle, 1, 2, 3, 3>;
 type Hex = Block<AlmansiHamelEulerian, Hexahedron, 8, 3, 8, 8>;
-type TetNeoHookean = Block<NeoHookean, Tetrahedron, 1, 3, 4, 4>;
+type TetNeoHookean = Block<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4>;
 type TetViscoplastic = Block<
     ElasticMultiplicativeViscoplastic<AlmansiHamelEulerian, ViscoplasticFlow>,
-    Tetrahedron,
+    Tetrahedron<1>,
     1,
     3,
     4,

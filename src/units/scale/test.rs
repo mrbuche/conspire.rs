@@ -61,6 +61,108 @@ mod agree {
     }
 }
 
+mod agree_inertial {
+    use super::*;
+    use crate::units::{Acceleration, Density, Mass};
+    #[test]
+    fn masses() {
+        same(Mass::grams(1e3), Mass::kilograms(1.0));
+        same(Mass::milligrams(1e3), Mass::grams(1.0));
+        same(Mass::tonnes(1.0), Mass::kilograms(1e3));
+        same(Mass::pounds_mass(1.0), Mass::grams(453.592_37))
+    }
+    #[test]
+    fn densities() {
+        same(
+            Density::grams_per_cubic_centimeter(1.0),
+            Density::kilograms_per_cubic_meter(1e3),
+        );
+        same(
+            Density::tonnes_per_cubic_millimeter(1.0),
+            Density::grams_per_cubic_centimeter(1e9),
+        )
+    }
+    #[test]
+    fn accelerations() {
+        same(
+            Acceleration::standard_gravities(1.0),
+            Acceleration::meters_per_second_squared(9.806_65),
+        )
+    }
+}
+
+mod cohere_inertial {
+    use super::*;
+    use crate::units::{Acceleration, Density, Mass, SpecificEnergy};
+    #[test]
+    fn a_squared_velocity_is_a_specific_energy() {
+        same(
+            Velocity::meters_per_second(3.0) * Velocity::meters_per_second(3.0),
+            SpecificEnergy::joules_per_kilogram(9.0),
+        );
+        same(
+            Mass::kilograms(2.0) * SpecificEnergy::joules_per_kilogram(5.0),
+            Energy::joules(10.0),
+        );
+        same(
+            Stress::pascals(8.0) / Density::kilograms_per_cubic_meter(2.0),
+            SpecificEnergy::joules_per_kilogram(4.0),
+        )
+    }
+    #[test]
+    fn a_density_over_a_volume_is_a_mass() {
+        same(
+            Density::grams_per_cubic_centimeter(1.0) * Volume::cubic_centimeters(1.0),
+            Mass::grams(1.0),
+        );
+        same(
+            Density::tonnes_per_cubic_millimeter(1.0) * Volume::cubic_millimeters(1.0),
+            Mass::tonnes(1.0),
+        );
+        same(
+            Mass::kilograms(1.0) / Volume::cubic_meters(1.0),
+            Density::kilograms_per_cubic_meter(1.0),
+        )
+    }
+    #[test]
+    fn a_mass_times_an_acceleration_is_a_force() {
+        same(
+            Mass::kilograms(1.0) * Acceleration::meters_per_second_squared(1.0),
+            Force::newtons(1.0),
+        );
+        same(
+            Mass::tonnes(1.0) * Acceleration::meters_per_second_squared(1.0),
+            Force::kilonewtons(1.0),
+        );
+        same(
+            Force::newtons(1.0) / Mass::kilograms(1.0),
+            Acceleration::meters_per_second_squared(1.0),
+        )
+    }
+    #[test]
+    fn a_velocity_over_a_time_is_an_acceleration() {
+        same(
+            Velocity::meters_per_second(1.0) / Time::seconds(1.0),
+            Acceleration::meters_per_second_squared(1.0),
+        );
+        same(
+            Velocity::meters_per_second(1.0) * Rate::per_second(1.0),
+            Acceleration::meters_per_second_squared(1.0),
+        );
+        same(
+            Acceleration::meters_per_second_squared(1.0) * Time::seconds(1.0),
+            Velocity::meters_per_second(1.0),
+        )
+    }
+    #[test]
+    fn a_density_times_an_acceleration_is_a_stress_per_length() {
+        same(
+            Density::kilograms_per_cubic_meter(1e3) * Acceleration::standard_gravities(1.0),
+            StressPerLength::pascals_per_meter(9.806_65e3),
+        )
+    }
+}
+
 mod cohere {
     use super::*;
     #[test]

@@ -20,8 +20,8 @@ use crate::{
     units::Energy,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> HyperelasticElements<3>
-    for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
+    HyperelasticElements<3> for Block<C, F, G, M, N, P, R>
 where
     C: Hyperelastic,
     F: HyperelasticFiniteElement<C, G, M, N, P>,
@@ -75,8 +75,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> HyperelasticElements<2>
-    for Block<C, F, G, 2, N, P>
+impl<C, F, const G: usize, const N: usize, const P: usize, R> HyperelasticElements<2>
+    for Block<C, F, G, 2, N, P, R>
 where
     C: Hyperelastic,
     F: PlanarHyperelasticFiniteElement<C, G, N, P>,

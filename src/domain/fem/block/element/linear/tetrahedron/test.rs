@@ -6,7 +6,7 @@ use crate::{
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
-                linear::tetrahedron::{G, M, N, P, Tetrahedron},
+                linear::tetrahedron::{G1 as G, M, N, P, Tetrahedron as GenericTetrahedron},
                 test::test_finite_element,
             },
             test::test_finite_element_block,
@@ -16,6 +16,8 @@ use crate::{
     math::{ScalarList, Tensor, optimize::EqualityConstraint},
     mechanics::DeformationGradient,
 };
+
+type Tetrahedron = GenericTetrahedron<G>;
 
 const D: usize = 14;
 

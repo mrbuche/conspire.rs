@@ -39,6 +39,43 @@ fn length_and_its_reciprocal_cancel() {
 }
 
 #[test]
+fn inertial_units_close_over_their_products() {
+    use crate::units::{
+        Acceleration, Density, Force, ForcePerLength, Mass, RateSquared, StressPerLength, Time,
+        Velocity, Volume,
+    };
+    same::<Product<Density, Volume>, Mass>();
+    same::<Product<Volume, Density>, Mass>();
+    same::<Quotient<Mass, Volume>, Density>();
+    same::<Quotient<Mass, Density>, Volume>();
+    same::<Product<Mass, Acceleration>, Force>();
+    same::<Quotient<Force, Mass>, Acceleration>();
+    same::<Quotient<Force, Acceleration>, Mass>();
+    same::<Product<Velocity, Rate>, Acceleration>();
+    same::<Product<Length, RateSquared>, Acceleration>();
+    same::<Quotient<Velocity, Time>, Acceleration>();
+    same::<Product<Acceleration, Time>, Velocity>();
+    same::<Product<Mass, RateSquared>, ForcePerLength>();
+    same::<Product<Density, Acceleration>, StressPerLength>();
+    same::<Product<Mass, Dimensionless>, Mass>();
+    same::<Product<Dimensionless, Density>, Density>();
+}
+
+#[test]
+fn specific_energy_closes_over_its_products() {
+    use crate::units::{Density, Energy, Mass, SpecificEnergy, UnitRoot, Velocity};
+    type Root<A> = <A as UnitRoot>::Output;
+    same::<Product<Velocity, Velocity>, SpecificEnergy>();
+    same::<Product<Mass, SpecificEnergy>, Energy>();
+    same::<Product<SpecificEnergy, Mass>, Energy>();
+    same::<Quotient<Energy, Mass>, SpecificEnergy>();
+    same::<Quotient<Energy, SpecificEnergy>, Mass>();
+    same::<Product<Density, SpecificEnergy>, Stress>();
+    same::<Quotient<Stress, Density>, SpecificEnergy>();
+    same::<Root<SpecificEnergy>, Velocity>();
+}
+
+#[test]
 fn units_are_zero_sized() {
     assert_eq!(size_of::<Stress>(), 0);
     assert_eq!(size_of::<Dimensionless>(), 0);

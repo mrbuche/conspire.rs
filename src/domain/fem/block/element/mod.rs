@@ -5,6 +5,7 @@ mod test;
 pub(crate) mod autodiff;
 pub mod cohesive;
 pub mod linear;
+pub mod mass;
 pub mod planar;
 pub mod quadratic;
 pub mod serendipity;
@@ -93,7 +94,7 @@ impl<const D: usize, const G: usize, const N: usize, const O: usize> Debug for E
             (2, 4, 4, 1) => "LinearQuadrilateral",
             (3, 8, 8, 1) => "LinearHexahedron",
             (3, 8, 5, 1) => "LinearPyramid",
-            (3, 1, 4, 1) => "LinearTetrahedron",
+            (3, 1, 4, 1) | (3, 4, 4, 1) => "LinearTetrahedron",
             (3, 6, 6, 1) => "LinearWedge",
             (3, 27, 27, 2) => "QuadraticHexahedron",
             (3, 4, 10, 2) => "QuadraticTetrahedron",

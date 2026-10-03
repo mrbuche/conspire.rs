@@ -69,3 +69,29 @@ fn mixed_rank_blocks_assemble_into_one_kkt_matrix() {
     });
     assert_eq!(matrix[9][9], 100.0);
 }
+
+mod erase {
+    use crate::math::{Current, QuantityVector, Tensor, TensorRank1Vec};
+    use crate::units::Force;
+
+    #[test]
+    fn an_owned_vector_is_erased_without_copying() {
+        let vector = TensorRank1Vec::<3, Current, Force>::from([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
+        let pointer = vector.as_ptr() as *const u8;
+        let erased = vector.into_erased();
+        assert_eq!(erased.as_ptr() as *const u8, pointer);
+        assert_eq!(erased.len(), 2);
+        assert_eq!(erased[1][2], 6.0);
+    }
+
+    #[test]
+    fn erased_quantities_keep_their_values() {
+        let mut vector = QuantityVector::<Force>::zero(3);
+        vector
+            .iter_mut()
+            .enumerate()
+            .for_each(|(i, quantity)| *quantity = Force::newtons(i as f64 + 0.5));
+        let erased = vector.into_erased();
+        (0..3).for_each(|i| assert_eq!(erased[i], i as f64 + 0.5));
+    }
+}

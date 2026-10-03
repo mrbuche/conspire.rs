@@ -6,12 +6,18 @@ mod test;
 pub(crate) mod block;
 #[cfg(feature = "cbm")]
 pub mod cbm;
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub(crate) mod density;
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub(crate) mod dynamics;
 #[cfg(feature = "fem")]
 pub mod fem;
 #[cfg(feature = "fem")]
 #[path = "partition/feti/mod.rs"]
 pub mod feti;
 pub(crate) mod from;
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub(crate) mod mass;
 pub(crate) mod solid;
 #[cfg(feature = "vem")]
 pub mod vem;
@@ -28,7 +34,7 @@ use crate::{
         },
         styled_error,
     },
-    units::{Length, Velocity},
+    units::{Acceleration, Length, Velocity},
 };
 use std::fmt::{Debug, Display};
 
@@ -45,6 +51,7 @@ pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, Current, Length>;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Length>;
 pub type NodalReferenceCoordinates<const D: usize> = TensorRank1Vec<D, Reference, Length>;
+pub type NodalAccelerations<const D: usize> = TensorRank1Vec<D, Current, Acceleration>;
 pub type NodalVelocities<const D: usize> = TensorRank1Vec<D, Current, Velocity>;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Velocity>;

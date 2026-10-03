@@ -1,6 +1,6 @@
 use super::{
     AVOGADRO_CONSTANT, BOLTZMANN_CONSTANT, ELEMENTARY_CHARGE, GAS_CONSTANT, LIGHT_SPEED,
-    ROOM_TEMPERATURE,
+    ROOM_TEMPERATURE, STANDARD_GRAVITY,
 };
 use crate::units::{Energy, Length, Time};
 
@@ -29,4 +29,9 @@ fn light_speed() {
         (LIGHT_SPEED * Time::seconds(1.0)).in_meters(),
         Length::meters(2.997_924_58e8).in_meters()
     )
+}
+
+#[test]
+fn standard_gravity() {
+    assert_eq!(STANDARD_GRAVITY.in_meters_per_second_squared(), 9.806_65)
 }

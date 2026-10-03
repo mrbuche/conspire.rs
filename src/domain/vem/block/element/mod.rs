@@ -35,7 +35,7 @@ pub struct Element {
     gradient_vectors: GradientVectors,
     integration_weights: IntegrationWeights,
     stabilization: Scalar,
-    tetrahedra: Vec<Tetrahedron>,
+    tetrahedra: Vec<Tetrahedron<1>>,
     tetrahedra_nodes: Vec<[usize; 3]>,
 }
 
@@ -65,7 +65,7 @@ where
     fn gradient_vectors(&self) -> &GradientVectors;
     fn integration_weights(&self) -> &IntegrationWeights;
     fn stabilization(&self) -> Scalar;
-    fn tetrahedra(&self) -> &[Tetrahedron];
+    fn tetrahedra(&self) -> &[Tetrahedron<1>];
     fn tetrahedra_coordinates<U>(
         &self,
         nodal_quantities: &TensorRank1Vec<3, Current, U>,
@@ -110,7 +110,7 @@ impl VirtualElement for Element {
     fn stabilization(&self) -> Scalar {
         self.stabilization
     }
-    fn tetrahedra(&self) -> &[Tetrahedron] {
+    fn tetrahedra(&self) -> &[Tetrahedron<1>] {
         &self.tetrahedra
     }
     fn tetrahedra_coordinates<U>(
@@ -219,7 +219,7 @@ impl
                         face_area_vector += &cross;
                         area_vectors[face_nodes[spot]] += &cross;
                         area_vectors[face_nodes[next]] += &cross;
-                        Tetrahedron::from(FemElementNodalReferenceCoordinates::from([
+                        Tetrahedron::<1>::from(FemElementNodalReferenceCoordinates::from([
                             face_center.clone(),
                             face_coordinates[next].clone(),
                             face_coordinates[spot].clone(),

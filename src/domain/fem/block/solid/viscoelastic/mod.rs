@@ -10,8 +10,8 @@ use crate::{
     },
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize> ViscoelasticElements<3>
-    for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
+    ViscoelasticElements<3> for Block<C, F, G, M, N, P, R>
 where
     C: Viscoelastic,
     F: ViscoelasticFiniteElement<C, G, M, N, P>,

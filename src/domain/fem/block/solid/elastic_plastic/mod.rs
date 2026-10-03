@@ -23,8 +23,8 @@ use std::array::from_fn;
 
 pub use crate::domain::block::solid::plastic::PlasticStateVariablesField;
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElasticPlasticElements<PlasticStateVariablesField<G>, 3> for Block<C, F, G, M, N, P>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
+    ElasticPlasticElements<PlasticStateVariablesField<G>, 3> for Block<C, F, G, M, N, P, R>
 where
     C: ElasticPlastic,
     F: ElasticPlasticFiniteElement<C, G, M, N, P> + MonolithicElasticPlasticFiniteElement<C, G, N>,

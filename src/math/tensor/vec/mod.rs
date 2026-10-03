@@ -7,7 +7,9 @@ use std::{
     collections::VecDeque,
     fmt::{Display, Formatter, Result},
     iter::Sum,
+    mem::forget,
     ops::{Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign},
+    ptr::read,
     slice, vec,
 };
 
@@ -23,6 +25,18 @@ where
     type Erased = TensorVector<<T as Erase>::Erased>;
     fn erase(&self) -> &Self::Erased {
         unsafe { &*(self as *const Self as *const Self::Erased) }
+    }
+}
+
+impl<T> TensorVector<T>
+where
+    T: Erase + Tensor,
+{
+    /// Discards the configurations and unit of the vector, without copying.
+    pub fn into_erased(self) -> TensorVector<<T as Erase>::Erased> {
+        let erased = unsafe { read(self.erase()) };
+        forget(self);
+        erased
     }
 }
 // where

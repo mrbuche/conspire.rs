@@ -44,7 +44,7 @@ pub use tensor::{
     Flattened, Hessian, HessianAccumulate, HessianBlock, Intermediate, Is, Jacobian, Norm,
     Projection, Quantity, Rank2, Reference, Scalar, ScalarList, ScalarListVec, Scalars, Solution,
     Square, Tensor, TensorArray, TensorError, TensorVec, Transposed,
-    list::TensorList,
+    list::{TensorList, vec::TensorListVec},
     quantity::{
         sparse_vec::QuantitySparseVec, sparse_vec_2d::QuantitySparseVec2D, vec::QuantityVector,
     },

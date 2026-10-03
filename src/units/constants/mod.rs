@@ -3,7 +3,9 @@
 #[cfg(test)]
 mod test;
 
-use super::{Action, Charge, Entropy, MolarEntropy, ReciprocalAmount, Temperature, Velocity};
+use super::{
+    Acceleration, Action, Charge, Entropy, MolarEntropy, ReciprocalAmount, Temperature, Velocity,
+};
 use crate::math::Quantity;
 
 /// The Avogadro constant.
@@ -25,6 +27,9 @@ pub const LIGHT_SPEED: Quantity<Velocity> = Velocity::meters_per_second(2.997_92
 
 /// The Planck constant.
 pub const PLANCK_CONSTANT: Quantity<Action> = Action::joule_seconds(6.626_070_15e-34);
+
+/// The standard acceleration of gravity.
+pub const STANDARD_GRAVITY: Quantity<Acceleration> = Acceleration::standard_gravities(1.0);
 
 /// Standard room temperature.
 pub const ROOM_TEMPERATURE: Quantity<Temperature> = Temperature::celsius(20.0);
