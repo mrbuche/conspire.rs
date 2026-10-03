@@ -8,7 +8,7 @@ use crate::{
     },
     math::{
         Quantity, QuantitySparseVec2D, QuantityVector, Tensor,
-        sparse::{CscLu, CscMatrix, SparseError},
+        sparse::{CscLdl, CscMatrix, SparseError},
     },
     units::{Energy, Mass},
 };
@@ -137,7 +137,7 @@ impl<const D: usize> InverseMass<D> for NodalLumpedMasses {
     }
 }
 
-pub struct FactoredMasses<const D: usize>(CscLu);
+pub struct FactoredMasses<const D: usize>(CscLdl);
 
 impl<const D: usize> InverseMass<D> for FactoredMasses<D> {
     fn nodal_accelerations(
@@ -165,7 +165,9 @@ impl NodalMasses {
                 .collect(),
         );
         matrix.fill(|row, column| self[row / D][column / D].value());
-        Ok(FactoredMasses(matrix.lu_amd()?))
+        let mut factors = matrix.ldl_symbolic()?;
+        factors.refactor(&matrix)?;
+        Ok(FactoredMasses(factors))
     }
     pub fn kinetic_energy<const D: usize>(
         &self,
