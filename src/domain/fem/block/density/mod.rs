@@ -11,12 +11,10 @@ use crate::{
     },
     geometry::mesh::PrimitiveConnectivity,
     math::{Quantity, Tensor, TensorList, TensorListVec},
-    mechanics::ReferenceCoordinate,
     units::{Density, Mass},
 };
 
-#[derive(Clone, Copy, Debug)]
-pub struct NoDensity;
+pub use crate::domain::density::{DensityField, NoDensity};
 
 pub trait Densities<const G: usize> {
     fn at(&self, element: usize) -> TensorList<Quantity<Density>, G>;
@@ -33,39 +31,6 @@ impl<const G: usize> Densities<G> for ElementDensities<G> {
 impl<const G: usize> Densities<G> for Quantity<Density> {
     fn at(&self, _element: usize) -> TensorList<Quantity<Density>, G> {
         [*self; G].into()
-    }
-}
-
-pub trait DensityField {
-    type Resolved<const G: usize>: Densities<G>;
-    fn resolve<const G: usize>(
-        &self,
-        points: impl Iterator<Item = impl Iterator<Item = ReferenceCoordinate>>,
-    ) -> Self::Resolved<G>;
-}
-
-impl DensityField for Quantity<Density> {
-    type Resolved<const G: usize> = Quantity<Density>;
-    fn resolve<const G: usize>(
-        &self,
-        _points: impl Iterator<Item = impl Iterator<Item = ReferenceCoordinate>>,
-    ) -> Quantity<Density> {
-        *self
-    }
-}
-
-impl<F> DensityField for F
-where
-    F: Fn(&ReferenceCoordinate) -> Quantity<Density>,
-{
-    type Resolved<const G: usize> = ElementDensities<G>;
-    fn resolve<const G: usize>(
-        &self,
-        points: impl Iterator<Item = impl Iterator<Item = ReferenceCoordinate>>,
-    ) -> ElementDensities<G> {
-        points
-            .map(|element_points| element_points.map(|point| self(&point)).collect())
-            .collect()
     }
 }
 
@@ -111,7 +76,7 @@ impl<C, F, D, const G: usize, const N: usize>
         D,
         PrimitiveConnectivity<3, N>,
         &NodalReferenceCoordinates<3>,
-    )> for Block<C, F, G, 3, N, N, <D as DensityField>::Resolved<G>>
+    )> for Block<C, F, G, 3, N, N, <D as DensityField>::Resolved<ElementDensities<G>>>
 where
     F: FiniteElement<G, 3, N, N> + From<ElementNodalReferenceCoordinates<N>>,
     D: DensityField,
@@ -125,23 +90,33 @@ where
         ),
     ) -> Self {
         let shape_functions = F::shape_functions_at_integration_points();
-        let density = density_field.resolve(connectivity.iter().map(|nodes| {
-            let element_coordinates = Self::element_coordinates(coordinates, nodes);
-            shape_functions.iter().map(move |shape_functions| {
-                element_coordinates
-                    .iter()
-                    .zip(shape_functions.iter())
-                    .map(|(coordinate, shape_function)| coordinate * shape_function)
-                    .sum()
-            })
-        }));
+        let density = density_field.resolve(|field| {
+            connectivity
+                .iter()
+                .map(|nodes| {
+                    let element_coordinates = Self::element_coordinates(coordinates, nodes);
+                    shape_functions
+                        .iter()
+                        .map(|shape_functions| {
+                            field.density(
+                                &element_coordinates
+                                    .iter()
+                                    .zip(shape_functions.iter())
+                                    .map(|(coordinate, shape_function)| coordinate * shape_function)
+                                    .sum(),
+                            )
+                        })
+                        .collect()
+                })
+                .collect::<ElementDensities<G>>()
+        });
         Block::from((constitutive_model, connectivity, coordinates)).with_density(density)
     }
 }
 
 impl<C, F, D, const G: usize, const N: usize>
     From<(C, D, Vec<[usize; N]>, &NodalReferenceCoordinates<3>)>
-    for Block<C, F, G, 3, N, N, <D as DensityField>::Resolved<G>>
+    for Block<C, F, G, 3, N, N, <D as DensityField>::Resolved<ElementDensities<G>>>
 where
     F: FiniteElement<G, 3, N, N> + From<ElementNodalReferenceCoordinates<N>>,
     D: DensityField,
