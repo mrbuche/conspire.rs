@@ -22,43 +22,39 @@ fn consistent() -> NodalMasses {
 
 mod lumped_masses {
     use super::*;
-
     #[test]
     fn kinetic_energy_is_half_the_mass_times_the_speed_squared() -> Result<(), AssertionError> {
-        let velocities = NodalVelocities::<3>::from([[1.0, 2.0, 2.0], [0.0, 0.0, 4.0]]);
+        let velocities = NodalVelocities::from([[1.0, 2.0, 2.0], [0.0, 0.0, 4.0]]);
         Assert::default().eq_within_tols(
             lumped().kinetic_energy(&velocities),
             &Energy::joules(0.5 * (3.0 * 9.0 + 2.0 * 16.0)),
         )
     }
-
     #[test]
     fn inertial_forces_are_the_mass_times_the_acceleration() -> Result<(), AssertionError> {
-        let accelerations = NodalAccelerations::<3>::from([[1.0, 0.0, 0.0], [0.0, 2.0, 0.0]]);
+        let accelerations = NodalAccelerations::from([[1.0, 0.0, 0.0], [0.0, 2.0, 0.0]]);
         Assert::default().eq_within_tols(
             lumped().inertial_forces(&accelerations),
-            NodalForcesSolid::<3>::from([[3.0, 0.0, 0.0], [0.0, 4.0, 0.0]]),
+            NodalForcesSolid::from([[3.0, 0.0, 0.0], [0.0, 4.0, 0.0]]),
         )
     }
-
     #[test]
     fn accelerations_are_the_net_force_over_the_mass() -> Result<(), AssertionError> {
-        let external = NodalForcesSolid::<3>::from([[7.0, 0.0, 0.0], [0.0, 0.0, 6.0]]);
-        let internal = NodalForcesSolid::<3>::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]);
+        let external = NodalForcesSolid::from([[7.0, 0.0, 0.0], [0.0, 0.0, 6.0]]);
+        let internal = NodalForcesSolid::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]);
         Assert::default().eq_within_tols(
             lumped().nodal_accelerations(&external, &internal),
-            NodalAccelerations::<3>::from([[2.0, 0.0, 0.0], [0.0, 0.0, 3.0]]),
+            NodalAccelerations::from([[2.0, 0.0, 0.0], [0.0, 0.0, 3.0]]),
         )
     }
 }
 
 mod consistent_masses {
     use super::*;
-
     #[test]
     fn kinetic_energy_of_a_uniform_motion_matches_the_lumped_masses() -> Result<(), AssertionError>
     {
-        let velocities = NodalVelocities::<3>::from([[0.0, 0.0, 2.0], [0.0, 0.0, 2.0]]);
+        let velocities = NodalVelocities::from([[0.0, 0.0, 2.0], [0.0, 0.0, 2.0]]);
         Assert::default().eq_within_tols(
             consistent().kinetic_energy(&velocities),
             &Energy::joules(12.0),
@@ -69,20 +65,18 @@ mod consistent_masses {
             &row_sums.kinetic_energy(&velocities),
         )
     }
-
     #[test]
     fn inertial_forces_of_a_uniform_acceleration_are_the_row_sums() -> Result<(), AssertionError> {
-        let accelerations = NodalAccelerations::<3>::from([[0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]);
+        let accelerations = NodalAccelerations::from([[0.0, 0.0, 1.0], [0.0, 0.0, 1.0]]);
         Assert::default().eq_within_tols(
             consistent().inertial_forces(&accelerations),
-            NodalForcesSolid::<3>::from([[0.0, 0.0, 3.0], [0.0, 0.0, 3.0]]),
+            NodalForcesSolid::from([[0.0, 0.0, 3.0], [0.0, 0.0, 3.0]]),
         )
     }
-
     #[test]
     fn solving_with_the_factorization_undoes_applying_the_mass() -> Result<(), AssertionError> {
         let masses = consistent();
-        let accelerations = NodalAccelerations::<3>::from([[1.0, 2.0, 3.0], [-1.0, 0.5, 4.0]]);
+        let accelerations = NodalAccelerations::from([[1.0, 2.0, 3.0], [-1.0, 0.5, 4.0]]);
         let forces = masses.inertial_forces(&accelerations);
         Assert::default().eq_within_tols(
             masses
