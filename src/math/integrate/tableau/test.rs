@@ -68,3 +68,40 @@ fn verner_9() {
     const { assert!(!verner_9::Tableau::FSAL) };
     check_embedded::<verner_9::Tableau>(TOL_HIGH_ORDER);
 }
+
+mod stability {
+    use super::ButcherTableau;
+    use crate::math::integrate::ode::explicit::{
+        fixed_step::{euler, heun, midpoint, ralston},
+        variable_step::{bogacki_shampine, dormand_prince},
+    };
+
+    #[test]
+    fn first_and_second_order() {
+        [
+            euler::Tableau::stability(),
+            heun::Tableau::stability(),
+            midpoint::Tableau::stability(),
+            ralston::Tableau::stability(),
+        ]
+        .iter()
+        .for_each(|s| {
+            assert!((s.real - 2.0).abs() < 1e-9, "{}", s.real);
+            assert_eq!(s.imaginary, 0.0);
+        });
+    }
+
+    #[test]
+    fn embedded() {
+        let s = bogacki_shampine::Tableau::stability();
+        assert!((s.real - 2.5127).abs() < 1e-3, "{}", s.real);
+        assert!(
+            (s.imaginary - 3.0_f64.sqrt()).abs() < 1e-6,
+            "{}",
+            s.imaginary
+        );
+        let s = dormand_prince::Tableau::stability();
+        assert!((s.real - 3.3066).abs() < 1e-3, "{}", s.real);
+        assert!(s.imaginary > 0.5, "{}", s.imaginary);
+    }
+}

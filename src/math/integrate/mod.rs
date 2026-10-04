@@ -24,7 +24,7 @@ pub use field::{
     integrate_rkmk_state_adaptive, interpolate_hermite, rkmk_dae_step,
     rkmk_dae_step_first_order_root, rkmk_dae_step_second_order_minimize, rkmk_step,
 };
-pub use tableau::{ButcherTableau, EmbeddedTableau};
+pub use tableau::{ButcherTableau, EmbeddedTableau, StabilityInterval};
 
 pub use ode::explicit::variable_step::{
     bogacki_shampine::Tableau as BogackiShampineTableau,
@@ -54,7 +54,7 @@ pub use dae::{
 pub use ode::{
     FixedStep, OdeIntegrator, VariableStep,
     explicit::{
-        Explicit,
+        Explicit, Spectrum,
         fixed_step::{
             FixedStepExplicit, bogacki_shampine::BogackiShampine as BogackiShampineFixedStep,
             dormand_prince::DormandPrince as DormandPrinceFixedStep, euler::Euler, heun::Heun,
