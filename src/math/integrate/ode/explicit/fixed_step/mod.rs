@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::integrate::ode::explicit::check_safety;
+use crate::math::integrate::ode::explicit::{Stability, check_safety};
 use crate::{
     math::{
         Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
@@ -48,11 +48,11 @@ where
         initial_condition: Y,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         check_safety(safety)?;
-        let stability = Self::Tableau::stability();
+        let mut stability = Stability::new(Self::Tableau::stability());
         self.integrate_fixed_step_checked(
             function,
             |t, y, dt| {
-                let limit = bound(t, y)?.limit(stability) * safety;
+                let limit = bound(t, y)?.limit(&mut stability) * safety;
                 if dt > limit {
                     Err(IntegrationError::UnstableTimeStep(
                         dt.value(),

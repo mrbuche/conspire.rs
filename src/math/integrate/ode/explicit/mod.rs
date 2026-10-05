@@ -4,10 +4,11 @@ mod test;
 use crate::{
     math::{
         Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
-        integrate::{IntegrationError, OdeIntegrator, StabilityInterval, Times},
+        integrate::{IntegrationError, OdeIntegrator, StabilityRegion, Times},
     },
     units::Time,
 };
+use std::f64::consts::FRAC_PI_2;
 
 pub(crate) mod fixed_step;
 pub(crate) mod variable_step;
@@ -21,14 +22,41 @@ pub enum Spectrum<T = Time> {
     Real(Quantity<T>),
     /// The eigenvalues are imaginary, as in waves.
     Imaginary(Quantity<T>),
+    /// The eigenvalues lie along a ray at the given angle from the negative real axis,
+    /// as in damped waves, between $`0`$ (diffusion) and $`\pi/2`$ (waves).
+    Complex(Quantity<T>, Scalar),
 }
 
 impl<T> Spectrum<T> {
-    pub(crate) fn limit(self, stability: StabilityInterval) -> Quantity<T> {
+    pub(crate) fn limit(self, stability: &mut Stability) -> Quantity<T> {
         match self {
-            Self::Real(scale) => scale * stability.real,
-            Self::Imaginary(scale) => scale * stability.imaginary,
+            Self::Real(scale) => scale * stability.extent(0.0),
+            Self::Imaginary(scale) => scale * stability.extent(FRAC_PI_2),
+            Self::Complex(scale, angle) => scale * stability.extent(angle),
         }
+    }
+}
+
+pub(crate) struct Stability {
+    region: StabilityRegion,
+    angle: Scalar,
+    extent: Scalar,
+}
+
+impl Stability {
+    pub(crate) fn new(region: StabilityRegion) -> Self {
+        Self {
+            region,
+            angle: Scalar::NAN,
+            extent: 0.0,
+        }
+    }
+    fn extent(&mut self, angle: Scalar) -> Scalar {
+        if angle != self.angle {
+            self.angle = angle;
+            self.extent = self.region.extent(angle);
+        }
+        self.extent
     }
 }
 

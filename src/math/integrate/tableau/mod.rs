@@ -2,6 +2,7 @@
 mod test;
 
 use crate::math::Scalar;
+use std::f64::consts::FRAC_PI_2;
 
 /// Butcher tableau for an explicit Runge–Kutta method.
 pub trait ButcherTableau {
@@ -17,8 +18,8 @@ pub trait ButcherTableau {
     const B: &'static [Scalar];
     /// Whether the last stage of a step is the first stage of the next.
     const FSAL: bool = false;
-    /// Extents of the stability region along the negative real and the imaginary axes.
-    fn stability() -> StabilityInterval {
+    /// The stability region of this method.
+    fn stability() -> StabilityRegion {
         let mut coefficients = vec![1.0];
         let mut v = vec![1.0; Self::STAGES];
         for _ in 0..Self::STAGES {
@@ -27,20 +28,43 @@ pub trait ButcherTableau {
                 .map(|i| Self::A[i].iter().zip(v.iter()).map(|(a, v)| a * v).sum())
                 .collect();
         }
-        StabilityInterval {
-            real: extent(|s| amplification(&coefficients, -s, 0.0)),
-            imaginary: extent(|s| amplification(&coefficients, 0.0, s)),
-        }
+        StabilityRegion { coefficients }
     }
 }
 
-/// How far along each axis the stability region of a method extends.
-#[derive(Clone, Copy, Debug)]
-pub struct StabilityInterval {
-    /// Extent along the negative real axis.
-    pub real: Scalar,
-    /// Extent along the imaginary axis.
-    pub imaginary: Scalar,
+/// The set of $`z`$ for which a method's amplification factor $`|R(z)| \le 1`$.
+#[derive(Clone, Debug)]
+pub struct StabilityRegion {
+    coefficients: Vec<Scalar>,
+}
+
+impl StabilityRegion {
+    /// How far the region extends along the ray at `angle` from the negative real axis.
+    ///
+    /// An angle of zero is the negative real axis and $`\pi/2`$ is the imaginary axis.
+    /// Eigenvalues beyond $`\pi/2`$ grow in time, so no step is stable.
+    pub fn extent(&self, angle: Scalar) -> Scalar {
+        let angle = angle.abs();
+        if angle.is_nan() || angle > FRAC_PI_2 {
+            return 0.0;
+        }
+        let (re, im) = if angle == 0.0 {
+            (-1.0, 0.0)
+        } else if angle == FRAC_PI_2 {
+            (0.0, 1.0)
+        } else {
+            (-angle.cos(), angle.sin())
+        };
+        extent(|s| amplification(&self.coefficients, s * re, s * im))
+    }
+    /// How far the region extends along the negative real axis.
+    pub fn real(&self) -> Scalar {
+        self.extent(0.0)
+    }
+    /// How far the region extends along the imaginary axis.
+    pub fn imaginary(&self) -> Scalar {
+        self.extent(FRAC_PI_2)
+    }
 }
 
 const STABILITY_STEP: Scalar = 1e-3;

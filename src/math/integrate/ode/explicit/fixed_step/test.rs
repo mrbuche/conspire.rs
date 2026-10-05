@@ -69,7 +69,7 @@ macro_rules! test_explicit_fixed_step {
                     .eq_within_tols(f, &(y * -RATE))
                 })
         }
-        fn stability<I>(_: &I) -> $crate::math::integrate::StabilityInterval
+        fn stability<I>(_: &I) -> $crate::math::integrate::StabilityRegion
         where
             I: $crate::math::integrate::FixedStepExplicit<
                     Quantity,
@@ -94,12 +94,12 @@ macro_rules! test_explicit_fixed_step {
         }
         #[test]
         fn bounded_within_limit() {
-            let scale = 2.0 * TIME_STEP.value() / stability(&$integration).real;
+            let scale = 2.0 * TIME_STEP.value() / stability(&$integration).real();
             assert!(bounded(Spectrum::Real(Time::seconds(scale)), 1.0).is_ok());
         }
         #[test]
         fn bounded_beyond_limit() {
-            let scale = 0.5 * TIME_STEP.value() / stability(&$integration).real;
+            let scale = 0.5 * TIME_STEP.value() / stability(&$integration).real();
             assert!(matches!(
                 bounded(Spectrum::Real(Time::seconds(scale)), 1.0),
                 Err(IntegrationError::UnstableTimeStep(..))
@@ -107,7 +107,7 @@ macro_rules! test_explicit_fixed_step {
         }
         #[test]
         fn bounded_safety_factor_scales_the_limit() {
-            let scale = 1.5 * TIME_STEP.value() / stability(&$integration).real;
+            let scale = 1.5 * TIME_STEP.value() / stability(&$integration).real();
             assert!(bounded(Spectrum::Real(Time::seconds(scale)), 1.0).is_ok());
             let error = bounded(Spectrum::Real(Time::seconds(scale)), 0.5).unwrap_err();
             assert!(matches!(error, IntegrationError::UnstableTimeStep(..)));
@@ -115,7 +115,7 @@ macro_rules! test_explicit_fixed_step {
         }
         #[test]
         fn bounded_imaginary_spectrum() {
-            let imaginary = stability(&$integration).imaginary;
+            let imaginary = stability(&$integration).imaginary();
             let scale = if imaginary > 0.0 {
                 0.5 * TIME_STEP.value() / imaginary
             } else {
@@ -127,8 +127,34 @@ macro_rules! test_explicit_fixed_step {
             ));
         }
         #[test]
+        fn bounded_complex_spectrum() {
+            let angle = 1.5;
+            let extent = stability(&$integration).extent(angle);
+            assert!(
+                bounded(
+                    Spectrum::Complex(Time::seconds(1.05 * TIME_STEP.value() / extent), angle),
+                    1.0
+                )
+                .is_ok()
+            );
+            assert!(matches!(
+                bounded(
+                    Spectrum::Complex(Time::seconds(0.95 * TIME_STEP.value() / extent), angle),
+                    1.0
+                ),
+                Err(IntegrationError::UnstableTimeStep(..))
+            ));
+        }
+        #[test]
+        fn bounded_growing_spectrum_is_never_stable() {
+            assert!(matches!(
+                bounded(Spectrum::Complex(Time::seconds(1.0), 2.0), 1.0),
+                Err(IntegrationError::UnstableTimeStep(..))
+            ));
+        }
+        #[test]
         fn bounded_limit_is_where_the_method_diverges() {
-            let rate = stability(&$integration).real / TIME_STEP.value();
+            let rate = stability(&$integration).real() / TIME_STEP.value();
             let last = |rate: Scalar| {
                 let (_, y, _): (Times, TensorVector<Quantity>, TensorVector<Quantity<Rate>>) =
                     $integration

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::integrate::ode::explicit::check_safety;
+use crate::math::integrate::ode::explicit::{Stability, check_safety};
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
@@ -58,10 +58,10 @@ where
         Self: InterpolateSolution<Y, U, V, T>,
     {
         check_safety(safety)?;
-        let stability = Self::Tableau::stability();
+        let mut stability = Stability::new(Self::Tableau::stability());
         self.integrate_variable_step_limited(
             function,
-            |t, y| Ok(bound(t, y)?.limit(stability) * safety),
+            |t, y| Ok(bound(t, y)?.limit(&mut stability) * safety),
             time,
             initial_condition,
         )
