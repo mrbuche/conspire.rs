@@ -44,3 +44,23 @@ fn consistent_masses_are_symmetric() {
         })
     });
 }
+
+#[test]
+fn lumped_masses_are_positive_and_sum_to_the_mass_of_the_body() {
+    let lumped = model().nodal_lumped_masses();
+    assert!(lumped.iter().all(|mass| mass.value() > 0.0));
+    let total: f64 = lumped.iter().map(|mass| mass.value()).sum();
+    assert!((total / DENSITY.value() - 1.0).abs() < 1e-12, "{total}");
+}
+
+#[test]
+fn lumped_masses_scale_the_diagonal_of_the_consistent_masses() {
+    let model = model();
+    let consistent = model.nodal_masses();
+    let lumped = model.nodal_lumped_masses();
+    let ratio = lumped[0].value() / consistent[0][0].value();
+    assert!(ratio > 1.0);
+    lumped.iter().enumerate().for_each(|(node, mass)| {
+        assert!((mass.value() / consistent[node][node].value() - ratio).abs() < 1e-9 * ratio);
+    });
+}
