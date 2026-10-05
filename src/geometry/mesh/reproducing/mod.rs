@@ -1,5 +1,6 @@
 mod basis;
 mod gradient;
+mod products;
 mod quadrature;
 mod surface;
 
