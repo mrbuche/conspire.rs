@@ -1,7 +1,16 @@
-use crate::domain::{
-    ElementModelError, Model, NodalAccelerations, NodalCoordinates,
-    mass::InverseMass,
-    solid::{NodalForcesSolid, elastic::ElasticElements},
+use crate::{
+    domain::{
+        ElementModelError, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
+        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        mass::{InverseMass, NodalLumpedMasses},
+        solid::{NodalForcesSolid, elastic::ElasticElements},
+    },
+    math::{
+        Quantity,
+        integrate::{ExplicitDynamics, IntegrationError, Times},
+        optimize::EqualityConstraint,
+    },
+    units::Time,
 };
 
 impl<B> Model<B, 3>
@@ -15,5 +24,59 @@ where
         masses: &impl InverseMass<3>,
     ) -> Result<NodalAccelerations<3>, ElementModelError> {
         Ok(masses.nodal_accelerations(external_forces, &self.nodal_forces(nodal_coordinates)?))
+    }
+    /// Integrates the motion of the model with an explicit dynamics integrator.
+    ///
+    /// The accelerations come from the lumped masses, so fixed degrees of freedom, whose
+    /// indices are `3 * node + component`, are held by giving them no velocity or
+    /// acceleration. Linear constraints are not supported.
+    pub fn integrate(
+        &self,
+        integrator: &impl ExplicitDynamics<
+            NodalCoordinates<3>,
+            NodalCoordinatesHistory<3>,
+            NodalVelocitiesHistory<3>,
+            NodalAccelerationsHistory<3>,
+        >,
+        time: &[Quantity<Time>],
+        (initial_coordinates, mut initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
+        external_forces: &NodalForcesSolid<3>,
+        masses: &NodalLumpedMasses,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<
+        (
+            Times,
+            NodalCoordinatesHistory<3>,
+            NodalVelocitiesHistory<3>,
+            NodalAccelerationsHistory<3>,
+        ),
+        IntegrationError,
+    > {
+        let fixed = match equality_constraint {
+            EqualityConstraint::Fixed(indices) => indices,
+            EqualityConstraint::None => vec![],
+            EqualityConstraint::Linear(..) => {
+                return Err(IntegrationError::Intermediate(
+                    "Linear constraints are not supported by explicit dynamics.".to_string(),
+                ));
+            }
+        };
+        fixed
+            .iter()
+            .for_each(|&index| initial_velocities[index / 3][index % 3] = Default::default());
+        integrator.integrate(
+            |_, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
+                let mut accelerations = self
+                    .nodal_accelerations(coordinates, external_forces, masses)
+                    .map_err(|error| error.to_string())?;
+                fixed.iter().for_each(|&index| {
+                    accelerations[index / 3][index % 3] = Default::default();
+                });
+                Ok(accelerations)
+            },
+            time,
+            initial_coordinates,
+            initial_velocities,
+        )
     }
 }

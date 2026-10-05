@@ -24,6 +24,10 @@ impl<T> FixedStep<T> for VelocityVerlet {
 }
 
 impl VelocityVerlet {
+    /// Constructs the integrator with a fixed time step.
+    pub fn new<T>(dt: Quantity<T>) -> Self {
+        Self { dt: dt.value() }
+    }
     fn integrate_checked<X, UX, UV, UA, T>(
         &self,
         mut function: impl FnMut(
