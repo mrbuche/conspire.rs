@@ -430,6 +430,64 @@ macro_rules! test_explicit_variable_step {
                         .eq_within_tols(&f_3[3], &Quantity::new(t.sin()))
                 })
         }
+        fn stability<I>(_: &I) -> $crate::math::integrate::StabilityRegion
+        where
+            I: $crate::math::integrate::VariableStepExplicit<
+                    Quantity,
+                    TensorVector<Quantity>,
+                    TensorVector<Quantity<Rate>>,
+                >,
+        {
+            <I::Tableau as $crate::math::integrate::ButcherTableau>::stability()
+        }
+        fn bounded(
+            spectrum: Spectrum,
+            safety: $crate::math::Scalar,
+        ) -> Result<(Times, TensorVector<Quantity>, TensorVector<Quantity<Rate>>), IntegrationError>
+        {
+            $integration.integrate_bounded(
+                |_: Quantity<Time>, x: &Quantity| Ok(x * -Rate::per_second(1e3)),
+                |_, _| Ok(spectrum),
+                safety,
+                &[Quantity::new(0.0), Quantity::new(0.1)],
+                Quantity::new(1.0),
+            )
+        }
+        #[test]
+        fn bounded_steps_stay_within_the_limit() {
+            let scale = 1e-3;
+            let safety = 0.5;
+            let region = stability(&$integration);
+            [
+                (Spectrum::Real(Time::seconds(scale)), region.real()),
+                (
+                    Spectrum::Imaginary(Time::seconds(scale)),
+                    region.imaginary(),
+                ),
+                (
+                    Spectrum::Complex(Time::seconds(scale), 0.5),
+                    region.extent(0.5),
+                ),
+            ]
+            .into_iter()
+            .for_each(|(spectrum, extent)| {
+                let limit = safety * scale * extent;
+                let (time, solution, _) = bounded(spectrum, safety).unwrap();
+                assert!(
+                    time.iter()
+                        .zip(time.iter().skip(1))
+                        .all(|(a, b)| (*b - *a).value() <= limit * (1.0 + 1e-9))
+                );
+                assert!(solution.iter().last().unwrap().value().abs() < 1e-6);
+            });
+        }
+        #[test]
+        fn bounded_reaching_the_minimum_step() {
+            assert!(matches!(
+                bounded(Spectrum::Real(Time::seconds(1e-30)), 1.0),
+                Err(IntegrationError::MinimumStepSizeReached(..))
+            ));
+        }
     };
 }
 pub(crate) use test_explicit_variable_step;

@@ -8,11 +8,13 @@ use std::fmt::{Debug, Display};
 pub enum IntegrationError {
     InconsistentInitialConditions,
     InitialTimeNotLessThanFinalTime,
+    InvalidSafetyFactor(Scalar),
     Intermediate(String),
     LengthTimeLessThanTwo,
     MinimumStepSizeReached(Scalar, String),
     MinimumStepSizeUpstream(Scalar, String, String),
     TimeStepNotSet(Scalar, Scalar, String),
+    UnstableTimeStep(Scalar, Scalar, String),
     Upstream(String, String),
 }
 
@@ -38,6 +40,9 @@ impl StyledError for IntegrationError {
             Self::InitialTimeNotLessThanFinalTime => {
                 format!("{h}The initial time must precede the final time.")
             }
+            Self::InvalidSafetyFactor(safety) => {
+                format!("{h}The safety factor ({safety:?}) must be in (0, 1].")
+            }
             Self::Intermediate(message) => message.to_string(),
             Self::LengthTimeLessThanTwo => {
                 format!("{h}The time must contain at least two entries.")
@@ -58,6 +63,12 @@ impl StyledError for IntegrationError {
             Self::TimeStepNotSet(t0, tf, integrator) => {
                 format!(
                     "{h}A positive time step must be set within [{t0:?}, {tf:?}].{c}\n\
+                    In integrator: {integrator}."
+                )
+            }
+            Self::UnstableTimeStep(dt, limit, integrator) => {
+                format!(
+                    "{h}The time step ({dt:?}) exceeds the stability limit ({limit:?}).{c}\n\
                     In integrator: {integrator}."
                 )
             }

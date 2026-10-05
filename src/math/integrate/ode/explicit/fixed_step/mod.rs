@@ -1,10 +1,11 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::integrate::ode::explicit::{Stability, check_safety};
 use crate::{
     math::{
         Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
-        integrate::{ButcherTableau, Explicit, FixedStep, IntegrationError, Times},
+        integrate::{ButcherTableau, Explicit, FixedStep, IntegrationError, Spectrum, Times},
     },
     units::Time,
 };
@@ -32,7 +33,44 @@ where
     type Tableau: ButcherTableau;
     fn integrate_fixed_step(
         &self,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        time: &[Quantity<T>],
+        initial_condition: Y,
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
+        self.integrate_fixed_step_checked(function, |_, _, _| Ok(()), time, initial_condition)
+    }
+    fn integrate_fixed_step_bounded(
+        &self,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        mut bound: impl FnMut(Quantity<T>, &Y) -> Result<Spectrum<T>, String>,
+        safety: Scalar,
+        time: &[Quantity<T>],
+        initial_condition: Y,
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
+        check_safety(safety)?;
+        let mut stability = Stability::new(Self::Tableau::stability());
+        self.integrate_fixed_step_checked(
+            function,
+            |t, y, dt| {
+                let limit = bound(t, y)?.limit(&mut stability) * safety;
+                if dt > limit {
+                    Err(IntegrationError::UnstableTimeStep(
+                        dt.value(),
+                        limit.value(),
+                        format!("{self:?}"),
+                    ))
+                } else {
+                    Ok(())
+                }
+            },
+            time,
+            initial_condition,
+        )
+    }
+    fn integrate_fixed_step_checked(
+        &self,
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        mut check: impl FnMut(Quantity<T>, &Y, Quantity<T>) -> Result<(), IntegrationError>,
         time: &[Quantity<T>],
         initial_condition: Y,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
@@ -75,6 +113,7 @@ where
         while t < t_f {
             t_trial = t_sol[index + 1];
             dt = t_trial - t;
+            check(t, &y, dt)?;
             if let Err(error) = self.step(&mut function, &y, t, dt, &mut k, &mut y_trial) {
                 return Err(IntegrationError::upstream(error, self));
             } else {

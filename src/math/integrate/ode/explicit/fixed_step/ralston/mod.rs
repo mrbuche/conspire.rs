@@ -5,7 +5,7 @@ use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ButcherTableau, Explicit, FixedStep, FixedStepExplicit, IntegrationError, OdeIntegrator,
-        Times,
+        Spectrum, Times,
     },
 };
 use std::ops::{Add, Mul};
@@ -60,6 +60,16 @@ where
         initial_condition: Y,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_fixed_step(function, time, initial_condition)
+    }
+    fn integrate_bounded(
+        &self,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        bound: impl FnMut(Quantity<T>, &Y) -> Result<Spectrum<T>, String>,
+        safety: Scalar,
+        time: &[Quantity<T>],
+        initial_condition: Y,
+    ) -> Result<(Times<T>, U, V), IntegrationError> {
+        self.integrate_fixed_step_bounded(function, bound, safety, time, initial_condition)
     }
 }
 
