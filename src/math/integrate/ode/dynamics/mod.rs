@@ -1,3 +1,4 @@
+pub(crate) mod stacked;
 pub(crate) mod velocity_verlet;
 
 use crate::{
