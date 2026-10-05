@@ -7,7 +7,7 @@ use crate::{
         solid::NodalForcesSolid,
     },
     math::{
-        Quantity, QuantitySparseVec2D, QuantityVector, Tensor,
+        Quantity, QuantitySparseVec2D, QuantityVector, Tensor, Vector,
         sparse::{CscLdl, CscMatrix, SparseError},
     },
     units::{Energy, Mass},
@@ -151,23 +151,113 @@ impl<const D: usize> InverseMass<D> for FactoredMasses<D> {
     }
 }
 
+/// A mass that yields its inverse with some degrees of freedom held fixed.
+///
+/// Degrees of freedom are indexed as `D * node + component`. The accelerations of the
+/// inverse vanish on the fixed degrees of freedom, and on the others they account for
+/// the fixed ones not accelerating.
+pub trait MassMatrix<const D: usize> {
+    type Inverse: InverseMass<D>;
+    fn inverse(&self, fixed: &[usize]) -> Result<Self::Inverse, SparseError>;
+}
+
+/// The inverse of lumped masses with fixed degrees of freedom.
+pub struct FixedLumpedMasses {
+    masses: NodalLumpedMasses,
+    fixed: Vec<usize>,
+}
+
+impl<const D: usize> MassMatrix<D> for NodalLumpedMasses {
+    type Inverse = FixedLumpedMasses;
+    fn inverse(&self, fixed: &[usize]) -> Result<Self::Inverse, SparseError> {
+        Ok(FixedLumpedMasses {
+            masses: self.clone(),
+            fixed: fixed.to_vec(),
+        })
+    }
+}
+
+impl<const D: usize> InverseMass<D> for FixedLumpedMasses {
+    fn nodal_accelerations(
+        &self,
+        external_forces: &NodalForcesSolid<D>,
+        internal_forces: &NodalForcesSolid<D>,
+    ) -> NodalAccelerations<D> {
+        let mut accelerations =
+            InverseMass::<D>::nodal_accelerations(&self.masses, external_forces, internal_forces);
+        self.fixed
+            .iter()
+            .for_each(|&index| accelerations[index / D][index % D] = Default::default());
+        accelerations
+    }
+}
+
+/// The inverse of a consistent mass restricted to the free degrees of freedom.
+pub struct FreeFactoredMasses<const D: usize> {
+    factors: CscLdl,
+    free: Vec<usize>,
+}
+
+impl<const D: usize> MassMatrix<D> for NodalMasses {
+    type Inverse = FreeFactoredMasses<D>;
+    fn inverse(&self, fixed: &[usize]) -> Result<Self::Inverse, SparseError> {
+        let (factors, free) = self.factor_free::<D>(fixed)?;
+        Ok(FreeFactoredMasses { factors, free })
+    }
+}
+
+impl<const D: usize> InverseMass<D> for FreeFactoredMasses<D> {
+    fn nodal_accelerations(
+        &self,
+        external_forces: &NodalForcesSolid<D>,
+        internal_forces: &NodalForcesSolid<D>,
+    ) -> NodalAccelerations<D> {
+        let forces: Vector = (external_forces - internal_forces).into_erased().into();
+        let free_forces: Vector = self.free.iter().map(|&index| forces[index]).collect();
+        let free_accelerations = self.factors.solve(&free_forces);
+        let mut accelerations = Vector::zero(forces.len());
+        self.free
+            .iter()
+            .enumerate()
+            .for_each(|(k, &index)| accelerations[index] = free_accelerations[k]);
+        accelerations.into()
+    }
+}
+
 impl NodalMasses {
     pub fn factor<const D: usize>(&self) -> Result<FactoredMasses<D>, SparseError> {
+        Ok(FactoredMasses(self.factor_free::<D>(&[])?.0))
+    }
+    /// Factors the mass restricted to the degrees of freedom that are not fixed,
+    /// returning the factors and the indices of the free degrees of freedom.
+    fn factor_free<const D: usize>(
+        &self,
+        fixed: &[usize],
+    ) -> Result<(CscLdl, Vec<usize>), SparseError> {
+        let mut is_free = vec![true; D * self.len()];
+        fixed.iter().for_each(|&index| is_free[index] = false);
+        let free: Vec<usize> = (0..D * self.len()).filter(|&i| is_free[i]).collect();
+        let mut reduced = vec![usize::MAX; D * self.len()];
+        free.iter()
+            .enumerate()
+            .for_each(|(k, &index)| reduced[index] = k);
         let mut matrix = CscMatrix::from_pattern(
-            D * self.len(),
-            D * self.len(),
+            free.len(),
+            free.len(),
             self.iter()
                 .enumerate()
                 .flat_map(|(a, row)| {
                     row.entries()
                         .flat_map(move |(b, _)| (0..D).map(move |i| (D * a + i, D * b + i)))
                 })
+                .filter(|&(row, column)| is_free[row] && is_free[column])
+                .map(|(row, column)| (reduced[row], reduced[column]))
                 .collect(),
         );
-        matrix.fill(|row, column| self[row / D][column / D].value());
+        matrix.fill(|row, column| self[free[row] / D][free[column] / D].value());
         let mut factors = matrix.ldl_symbolic()?;
         factors.refactor(&matrix)?;
-        Ok(FactoredMasses(factors))
+        Ok((factors, free))
     }
     pub fn kinetic_energy<const D: usize>(
         &self,

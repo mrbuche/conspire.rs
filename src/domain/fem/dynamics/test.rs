@@ -308,3 +308,115 @@ mod integrate {
         assert!(result.is_err());
     }
 }
+
+mod consistent_masses {
+    use super::*;
+    use crate::{
+        fem::mass::{InverseMass, MassMatrix},
+        math::{integrate::VelocityVerlet, optimize::EqualityConstraint},
+        units::Time,
+    };
+    const FIXED: [usize; 4] = [0, 1, 2, 5];
+    fn integrator() -> VelocityVerlet {
+        VelocityVerlet::new(Time::seconds(1e-4))
+    }
+    fn forces() -> NodalForcesSolid<3> {
+        NodalForcesSolid::from(vec![
+            [1.0, -2.0, 3.0],
+            [0.5, 0.1, -4.0],
+            [4.0, 4.0, 4.0],
+            [-1.0, 0.0, 2.0],
+            [7.0, -3.0, 0.25],
+        ])
+    }
+    #[test]
+    fn fixed_degrees_of_freedom_are_eliminated_from_the_solve() -> Result<(), AssertionError> {
+        let masses = model().nodal_masses();
+        let inverse = MassMatrix::<3>::inverse(&masses, &FIXED).unwrap();
+        let accelerations = inverse.nodal_accelerations(&forces(), &NodalForcesSolid::zero(5));
+        FIXED
+            .iter()
+            .for_each(|&index| assert_eq!(accelerations[index / 3][index % 3].value(), 0.0));
+        let mut residual = masses.inertial_forces(&accelerations) - &forces();
+        FIXED
+            .iter()
+            .for_each(|&index| residual[index / 3][index % 3] = Default::default());
+        Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Assert::default()
+        }
+        .zero_within_tols(&residual)
+    }
+    #[test]
+    fn without_fixed_degrees_of_freedom_the_full_mass_is_solved() -> Result<(), AssertionError> {
+        let masses = model().nodal_masses();
+        let free = MassMatrix::<3>::inverse(&masses, &[])
+            .unwrap()
+            .nodal_accelerations(&forces(), &NodalForcesSolid::zero(5));
+        let full = masses
+            .factor::<3>()
+            .unwrap()
+            .nodal_accelerations(&forces(), &NodalForcesSolid::zero(5));
+        Assert {
+            abs_tol: 1e-9,
+            rel_tol: 1e-9,
+            ..Assert::default()
+        }
+        .eq_within_tols(&free, &full)
+    }
+    #[test]
+    fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
+        let model = model();
+        let masses = model.nodal_masses();
+        let weights = masses.inertial_forces(&gravity());
+        let (times, coordinates, ..) = model.integrate(
+            &integrator(),
+            &[Time::seconds(0.0), Time::seconds(0.01)],
+            (
+                NodalCoordinates::from(COORDINATES),
+                uniform_velocities([0.0; 3]),
+            ),
+            &weights,
+            &masses,
+            EqualityConstraint::None,
+        )?;
+        let elapsed = times[times.len() - 1].in_seconds();
+        let g = STANDARD_GRAVITY.in_meters_per_second_squared();
+        noise_tolerant().eq_within_tols(
+            &coordinates[coordinates.len() - 1],
+            &NodalCoordinates::from(
+                COORDINATES.map(|[x, y, z]| [x, y, z - 0.5 * g * elapsed * elapsed]),
+            ),
+        )
+    }
+    #[test]
+    fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
+        let model = model();
+        let masses = model.nodal_masses();
+        let weights = masses.inertial_forces(&gravity());
+        let (_, coordinates, velocities, accelerations) = model.integrate(
+            &integrator(),
+            &[Time::seconds(0.0), Time::seconds(0.01)],
+            (
+                NodalCoordinates::from(COORDINATES),
+                uniform_velocities([3.0, 0.0, 4.0]),
+            ),
+            &weights,
+            &masses,
+            EqualityConstraint::Fixed(FIXED.to_vec()),
+        )?;
+        let (last, initial) = (
+            &coordinates[coordinates.len() - 1],
+            NodalCoordinates::from(COORDINATES),
+        );
+        let end = velocities.len() - 1;
+        FIXED.iter().for_each(|&index| {
+            assert_eq!(last[index / 3][index % 3], initial[index / 3][index % 3]);
+            assert_eq!(velocities[end][index / 3][index % 3].value(), 0.0);
+            assert_eq!(accelerations[end][index / 3][index % 3].value(), 0.0);
+        });
+        assert_ne!(last[3], initial[3]);
+        Ok(())
+    }
+}
