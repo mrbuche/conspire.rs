@@ -1,11 +1,12 @@
 #[cfg(test)]
 mod test;
 
+use crate::math::integrate::ode::explicit::{Stability, check_safety};
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
-        ButcherTableau, EmbeddedTableau, Explicit, Flat, HermiteSegment, IntegrationError, Times,
-        VariableStep, interpolate_hermite,
+        ButcherTableau, EmbeddedTableau, Explicit, Flat, HermiteSegment, IntegrationError,
+        Spectrum, Times, VariableStep, interpolate_hermite,
     },
     interpolate::InterpolateSolution,
 };
@@ -31,7 +32,44 @@ where
 {
     fn integrate_variable_step(
         &self,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        time: &[Quantity<T>],
+        initial_condition: Y,
+    ) -> Result<(Times<T>, U, V), IntegrationError>
+    where
+        Self: InterpolateSolution<Y, U, V, T>,
+    {
+        self.integrate_variable_step_limited(
+            function,
+            |_, _| Ok(Quantity::new(Scalar::INFINITY)),
+            time,
+            initial_condition,
+        )
+    }
+    fn integrate_variable_step_bounded(
+        &self,
+        function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        mut bound: impl FnMut(Quantity<T>, &Y) -> Result<Spectrum<T>, String>,
+        safety: Scalar,
+        time: &[Quantity<T>],
+        initial_condition: Y,
+    ) -> Result<(Times<T>, U, V), IntegrationError>
+    where
+        Self: InterpolateSolution<Y, U, V, T>,
+    {
+        check_safety(safety)?;
+        let mut stability = Stability::new(Self::Tableau::stability());
+        self.integrate_variable_step_limited(
+            function,
+            |t, y| Ok(bound(t, y)?.limit(&mut stability) * safety),
+            time,
+            initial_condition,
+        )
+    }
+    fn integrate_variable_step_limited(
+        &self,
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, String>,
+        mut limit: impl FnMut(Quantity<T>, &Y) -> Result<Quantity<T>, String>,
         time: &[Quantity<T>],
         initial_condition: Y,
     ) -> Result<(Times<T>, U, V), IntegrationError>
@@ -59,6 +97,13 @@ where
         let mut k_sol: Vec<V> = Vec::new();
         let mut y_trial = Y::default();
         while t < t_f {
+            dt = dt.min(limit(t, &y)?);
+            if dt < self.dt_min() {
+                return Err(IntegrationError::MinimumStepSizeReached(
+                    self.dt_min().value(),
+                    format!("{self:?}"),
+                ));
+            }
             match self.slopes_and_error(&mut function, &y, t, dt, &mut k, &mut y_trial) {
                 Ok(e) => {
                     if let Err(error) = self.step(
