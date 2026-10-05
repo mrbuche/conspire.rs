@@ -40,9 +40,6 @@ pub struct StabilityRegion {
 
 impl StabilityRegion {
     /// How far the region extends along the ray at `angle` from the negative real axis.
-    ///
-    /// An angle of zero is the negative real axis and $`\pi/2`$ is the imaginary axis.
-    /// Eigenvalues beyond $`\pi/2`$ grow in time, so no step is stable.
     pub fn extent(&self, angle: Scalar) -> Scalar {
         let angle = angle.abs();
         if angle.is_nan() || angle > FRAC_PI_2 {
