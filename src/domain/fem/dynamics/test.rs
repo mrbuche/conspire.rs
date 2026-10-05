@@ -424,8 +424,14 @@ mod consistent_masses {
 mod bar_wave {
     use super::*;
     use crate::{
-        fem::block::element::linear::Hexahedron,
-        math::{integrate::VelocityVerlet, optimize::EqualityConstraint},
+        fem::{
+            NodalAccelerationsHistory, NodalCoordinatesHistory, NodalVelocitiesHistory,
+            block::element::linear::Hexahedron,
+        },
+        math::{
+            integrate::{DormandPrince, DormandPrinceFixedStep, ExplicitDynamics, VelocityVerlet},
+            optimize::EqualityConstraint,
+        },
         units::Time,
     };
     type Bar = Block<NeoHookean, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
@@ -484,17 +490,23 @@ mod bar_wave {
         (4 * ELEMENTS..4 * (ELEMENTS + 1)).for_each(|node| forces[node][2] = force / 4.0);
         (NodalForcesSolid::from(forces), STRAIN * LENGTH)
     }
-    fn run(
-        dt: f64,
-        end: f64,
-    ) -> Result<(crate::math::integrate::Times, Vec<f64>), crate::math::integrate::IntegrationError>
-    {
+    type History = (crate::math::integrate::Times, Vec<f64>);
+    type Failure = crate::math::integrate::IntegrationError;
+    fn run_with(
+        integrator: &impl ExplicitDynamics<
+            NodalCoordinates<3>,
+            NodalCoordinatesHistory<3>,
+            NodalVelocitiesHistory<3>,
+            NodalAccelerationsHistory<3>,
+        >,
+        time: &[Quantity<Time>],
+    ) -> Result<History, Failure> {
         let model = model();
         let masses = model.nodal_lumped_masses();
         let (forces, _) = tip_load();
         let (times, coordinates, ..) = model.integrate(
-            &VelocityVerlet::new(Time::seconds(dt)),
-            &[Time::seconds(0.0), Time::seconds(end)],
+            integrator,
+            time,
             (
                 NodalCoordinates::from(self::coordinates()),
                 NodalVelocities::from(vec![[0.0; 3]; 4 * (ELEMENTS + 1)]),
@@ -509,6 +521,44 @@ mod bar_wave {
             .map(|coordinates| coordinates[tip][2].value() - LENGTH)
             .collect();
         Ok((times, displacements))
+    }
+    fn run(dt: f64, end: f64) -> Result<History, Failure> {
+        run_with(
+            &VelocityVerlet::new(Time::seconds(dt)),
+            &[Time::seconds(0.0), Time::seconds(end)],
+        )
+    }
+    fn grid(dt: f64, end: f64) -> Vec<Quantity<Time>> {
+        let steps = (end / dt).ceil() as usize;
+        (0..=steps)
+            .map(|step| Time::seconds(end * step as f64 / steps as f64))
+            .collect()
+    }
+    fn peak((times, displacements): &History) -> (f64, f64) {
+        let (step, displacement) =
+            displacements
+                .iter()
+                .copied()
+                .enumerate()
+                .fold(
+                    (0, f64::MIN),
+                    |best, (step, u)| if u > best.1 { (step, u) } else { best },
+                );
+        (times[step].value(), displacement)
+    }
+    fn assert_wave_peak(history: &History) {
+        let transit = 2.0 * LENGTH / wave_speed();
+        let static_deflection = tip_load().1;
+        let (time, displacement) = peak(history);
+        assert!(
+            (time / transit - 1.0).abs() < 0.03,
+            "peak at {time} of {transit}"
+        );
+        assert!(
+            (displacement / (2.0 * static_deflection) - 1.0).abs() < 0.05,
+            "peak {displacement} of {}",
+            2.0 * static_deflection
+        );
     }
     fn element_transit_time() -> f64 {
         LENGTH / ELEMENTS as f64 / wave_speed()
@@ -549,6 +599,40 @@ mod bar_wave {
             "{} of {expected}",
             displacements[end]
         );
+    }
+    #[test]
+    fn a_stacked_fixed_step_integrator_reproduces_the_wave_peak() {
+        let transit = 2.0 * LENGTH / wave_speed();
+        let history = run_with(
+            &DormandPrinceFixedStep::default(),
+            &grid(0.5 * element_transit_time(), 1.5 * transit),
+        )
+        .unwrap();
+        assert_wave_peak(&history);
+    }
+    #[test]
+    fn a_stacked_adaptive_integrator_reproduces_the_wave_peak() {
+        let transit = 2.0 * LENGTH / wave_speed();
+        let history = run_with(
+            &DormandPrince::default(),
+            &[Time::seconds(0.0), Time::seconds(1.5 * transit)],
+        )
+        .unwrap();
+        assert_wave_peak(&history);
+    }
+    #[test]
+    fn stacked_and_velocity_verlet_agree_on_the_same_grid() {
+        let transit = 2.0 * LENGTH / wave_speed();
+        let time = grid(0.5 * element_transit_time(), 1.5 * transit);
+        let stacked = run_with(&DormandPrinceFixedStep::default(), &time).unwrap();
+        let verlet = run_with(&VelocityVerlet::new(Time::seconds(0.0)), &time).unwrap();
+        assert_eq!(stacked.1.len(), verlet.1.len());
+        let scale = 2.0 * tip_load().1;
+        stacked
+            .1
+            .iter()
+            .zip(verlet.1.iter())
+            .for_each(|(a, b)| assert!((a - b).abs() < 0.05 * scale, "{a} against {b}"));
     }
     #[test]
     fn a_time_step_above_the_transit_time_of_an_element_diverges() {
