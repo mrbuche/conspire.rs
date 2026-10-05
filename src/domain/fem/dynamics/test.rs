@@ -420,3 +420,148 @@ mod consistent_masses {
         Ok(())
     }
 }
+
+mod bar_wave {
+    use super::*;
+    use crate::{
+        fem::block::element::linear::Hexahedron,
+        math::{integrate::VelocityVerlet, optimize::EqualityConstraint},
+        units::Time,
+    };
+    type Bar = Block<NeoHookean, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
+    const ELEMENTS: usize = 40;
+    const LENGTH: f64 = 1.0;
+    const WIDTH: f64 = 0.1;
+    const SHEAR_MODULUS: f64 = 3.0e9;
+    const BULK_MODULUS: f64 = 13.0e9;
+    const STRAIN: f64 = 1.0e-4;
+    fn constrained_modulus() -> f64 {
+        BULK_MODULUS + 4.0 * SHEAR_MODULUS / 3.0
+    }
+    fn wave_speed() -> f64 {
+        (constrained_modulus() / DENSITY.in_kilograms_per_cubic_meter()).sqrt()
+    }
+    fn layer(k: usize) -> [[f64; 3]; 4] {
+        let z = LENGTH * k as f64 / ELEMENTS as f64;
+        [
+            [0.0, 0.0, z],
+            [WIDTH, 0.0, z],
+            [WIDTH, WIDTH, z],
+            [0.0, WIDTH, z],
+        ]
+    }
+    fn coordinates() -> Vec<[f64; 3]> {
+        (0..=ELEMENTS).flat_map(layer).collect()
+    }
+    fn model() -> Model<Bar, 3> {
+        let reference = NodalReferenceCoordinates::from(coordinates());
+        (
+            Bar::from((
+                NeoHookean {
+                    shear_modulus: Stress::pascals(SHEAR_MODULUS),
+                    bulk_modulus: Stress::pascals(BULK_MODULUS),
+                },
+                DENSITY,
+                (0..ELEMENTS)
+                    .map(|k| std::array::from_fn(|i| 4 * k + i))
+                    .collect::<Vec<[usize; 8]>>(),
+                &reference,
+            )),
+            reference,
+        )
+            .into()
+    }
+    fn fixed() -> Vec<usize> {
+        let nodes = 4 * (ELEMENTS + 1);
+        (0..nodes)
+            .flat_map(|node| [3 * node, 3 * node + 1])
+            .chain((0..4).map(|node| 3 * node + 2))
+            .collect()
+    }
+    fn tip_load() -> (NodalForcesSolid<3>, f64) {
+        let force = STRAIN * constrained_modulus() * WIDTH * WIDTH;
+        let mut forces = vec![[0.0; 3]; 4 * (ELEMENTS + 1)];
+        (4 * ELEMENTS..4 * (ELEMENTS + 1)).for_each(|node| forces[node][2] = force / 4.0);
+        (NodalForcesSolid::from(forces), STRAIN * LENGTH)
+    }
+    fn run(
+        dt: f64,
+        end: f64,
+    ) -> Result<(crate::math::integrate::Times, Vec<f64>), crate::math::integrate::IntegrationError>
+    {
+        let model = model();
+        let masses = model.nodal_lumped_masses();
+        let (forces, _) = tip_load();
+        let (times, coordinates, ..) = model.integrate(
+            &VelocityVerlet::new(Time::seconds(dt)),
+            &[Time::seconds(0.0), Time::seconds(end)],
+            (
+                NodalCoordinates::from(self::coordinates()),
+                NodalVelocities::from(vec![[0.0; 3]; 4 * (ELEMENTS + 1)]),
+            ),
+            &forces,
+            &masses,
+            EqualityConstraint::Fixed(fixed()),
+        )?;
+        let tip = 4 * ELEMENTS;
+        let displacements = coordinates
+            .iter()
+            .map(|coordinates| coordinates[tip][2].value() - LENGTH)
+            .collect();
+        Ok((times, displacements))
+    }
+    fn element_transit_time() -> f64 {
+        LENGTH / ELEMENTS as f64 / wave_speed()
+    }
+    #[test]
+    fn the_tip_of_a_loaded_bar_peaks_after_two_wave_transits_at_twice_the_static_deflection() {
+        let transit = 2.0 * LENGTH / wave_speed();
+        let (times, displacements) = run(0.5 * element_transit_time(), 1.5 * transit).unwrap();
+        let (peak, displacement) =
+            displacements
+                .iter()
+                .copied()
+                .enumerate()
+                .fold(
+                    (0, f64::MIN),
+                    |best, (step, u)| if u > best.1 { (step, u) } else { best },
+                );
+        let static_deflection = tip_load().1;
+        assert!(
+            (times[peak].value() / transit - 1.0).abs() < 0.03,
+            "peak at {} of {transit}",
+            times[peak].value()
+        );
+        assert!(
+            (displacement / (2.0 * static_deflection) - 1.0).abs() < 0.05,
+            "peak {displacement} of {}",
+            2.0 * static_deflection
+        );
+    }
+    #[test]
+    fn the_tip_of_a_loaded_bar_moves_at_the_strain_times_the_wave_speed_until_the_wave_returns() {
+        let transit = 2.0 * LENGTH / wave_speed();
+        let (times, displacements) = run(0.5 * element_transit_time(), 0.5 * transit).unwrap();
+        let end = displacements.len() - 1;
+        let expected = STRAIN * wave_speed() * times[end].value();
+        assert!(
+            (displacements[end] / expected - 1.0).abs() < 0.02,
+            "{} of {expected}",
+            displacements[end]
+        );
+    }
+    #[test]
+    fn a_time_step_above_the_transit_time_of_an_element_diverges() {
+        let transit = 2.0 * LENGTH / wave_speed();
+        let stable = run(0.9 * element_transit_time(), 1.5 * transit).unwrap().1;
+        let unstable = run(1.5 * element_transit_time(), 1.5 * transit);
+        let static_deflection = tip_load().1;
+        assert!(stable.iter().all(|u| u.abs() < 3.0 * static_deflection));
+        assert!(match unstable {
+            Err(_) => true,
+            Ok((_, displacements)) => displacements
+                .iter()
+                .any(|u| !u.is_finite() || u.abs() > 1.0e3 * static_deflection),
+        });
+    }
+}
