@@ -6,11 +6,11 @@ use crate::{
     },
     geometry::{
         Coordinates,
-        mesh::{Basis, Mesh},
+        mesh::{Basis, InnerProducts, Mesh},
     },
     math::{Quantity, Scalar},
     mechanics::Traction,
-    units::Length,
+    units::{Length, Volume},
 };
 
 /// The seeds of a basis, by their spacing and how many spacings their support reaches.
@@ -26,6 +26,7 @@ pub struct Discretization {
     coordinates: NodalReferenceCoordinates<3>,
     basis: Basis,
     points: Vec<Point>,
+    inner_products: InnerProducts<Volume>,
 }
 
 impl Discretization {
@@ -46,6 +47,7 @@ impl Discretization {
         };
         let (seeds, approximation) = basis(approximation, seed)?;
         let (_, quadrature) = basis(quadrature, seed + 1)?;
+        let inner_products = mesh.inner_products(&approximation)?;
         let weights = mesh.integrals(&quadrature)?;
         let gradients = mesh.projected_gradients(&approximation, &quadrature)?;
         let points = weights
@@ -64,6 +66,7 @@ impl Discretization {
             coordinates: nodal_coordinates(coordinates),
             basis: approximation,
             points,
+            inner_products,
         })
     }
     pub fn coordinates(&self) -> &NodalReferenceCoordinates<3> {
@@ -85,7 +88,7 @@ impl Discretization {
         let coordinates = self.coordinates.clone();
         (Block::from((constitutive_model, self)), coordinates).into()
     }
-    pub(crate) fn into_points(self) -> Vec<Point> {
-        self.points
+    pub(crate) fn into_parts(self) -> (Vec<Point>, InnerProducts<Volume>) {
+        (self.points, self.inner_products)
     }
 }

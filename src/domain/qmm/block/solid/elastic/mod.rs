@@ -9,7 +9,7 @@ use crate::{
 
 pub use crate::domain::solid::elastic::ElasticElements;
 
-impl<C> ElasticElements<3> for Block<C>
+impl<C, R> ElasticElements<3> for Block<C, R>
 where
     C: Elastic,
 {
