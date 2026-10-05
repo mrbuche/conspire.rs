@@ -3,7 +3,7 @@ macro_rules! test_explicit {
         use crate::math::{
             Quantity, TensorVector,
             assert::AssertionError,
-            integrate::{Explicit, IntegrationError, Times},
+            integrate::{Explicit, IntegrationError, Spectrum, Times},
         };
         use crate::units::{Rate, Time};
         const RATE: Quantity<Rate> = Rate::per_second(1.0);
@@ -40,6 +40,54 @@ macro_rules! test_explicit {
                     Quantity::new(0.0),
                 )
                 .unwrap();
+        }
+        #[test]
+        fn bounded_loose_bound_agrees() -> Result<(), AssertionError> {
+            let (time, solution, _): (Times, TensorVector<Quantity>, TensorVector<Quantity<Rate>>) =
+                $integration.integrate(
+                    |_: Quantity<Time>, x: &Quantity| Ok(x * -RATE),
+                    &[Quantity::new(0.0), Quantity::new(0.8)],
+                    Quantity::new(1.0),
+                )?;
+            let (time_bounded, solution_bounded, _): (
+                Times,
+                TensorVector<Quantity>,
+                TensorVector<Quantity<Rate>>,
+            ) = $integration.integrate_bounded(
+                |_: Quantity<Time>, x: &Quantity| Ok(x * -RATE),
+                |_, _| Ok(Spectrum::Real(Time::seconds(1e30))),
+                1.0,
+                &[Quantity::new(0.0), Quantity::new(0.8)],
+                Quantity::new(1.0),
+            )?;
+            assert_eq!(time.len(), time_bounded.len());
+            time.iter()
+                .zip(time_bounded.iter())
+                .try_for_each(|(a, b)| {
+                    $crate::math::assert::Assert::default().eq_within_tols(a, b)
+                })?;
+            solution
+                .iter()
+                .zip(solution_bounded.iter())
+                .try_for_each(|(a, b)| $crate::math::assert::Assert::default().eq_within_tols(a, b))
+        }
+        #[test]
+        fn bounded_invalid_safety_factor() {
+            [0.0, -1.0, 1.5, f64::NAN].iter().for_each(|&safety| {
+                let result: Result<
+                    (Times, TensorVector<Quantity>, TensorVector<Quantity<Rate>>),
+                    IntegrationError,
+                > = $integration.integrate_bounded(
+                    |_: Quantity<Time>, x: &Quantity| Ok(x * -RATE),
+                    |_, _| Ok(Spectrum::Real(Time::seconds(1.0))),
+                    safety,
+                    &[Quantity::new(0.0), Quantity::new(0.8)],
+                    Quantity::new(1.0),
+                );
+                let error = result.unwrap_err();
+                assert!(matches!(error, IntegrationError::InvalidSafetyFactor(_)));
+                assert!(format!("{error}").contains("safety factor"));
+            });
         }
     };
 }

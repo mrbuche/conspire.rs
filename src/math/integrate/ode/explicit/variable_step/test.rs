@@ -430,6 +430,49 @@ macro_rules! test_explicit_variable_step {
                         .eq_within_tols(&f_3[3], &Quantity::new(t.sin()))
                 })
         }
+        fn stability<I>(_: &I) -> $crate::math::integrate::StabilityInterval
+        where
+            I: $crate::math::integrate::VariableStepExplicit<
+                    Quantity,
+                    TensorVector<Quantity>,
+                    TensorVector<Quantity<Rate>>,
+                >,
+        {
+            <I::Tableau as $crate::math::integrate::ButcherTableau>::stability()
+        }
+        fn bounded(
+            scale: Quantity<Time>,
+            safety: $crate::math::Scalar,
+        ) -> Result<(Times, TensorVector<Quantity>, TensorVector<Quantity<Rate>>), IntegrationError>
+        {
+            $integration.integrate_bounded(
+                |_: Quantity<Time>, x: &Quantity| Ok(x * -Rate::per_second(1e3)),
+                |_, _| Ok(Spectrum::Real(scale)),
+                safety,
+                &[Quantity::new(0.0), Quantity::new(0.1)],
+                Quantity::new(1.0),
+            )
+        }
+        #[test]
+        fn bounded_steps_stay_within_the_limit() {
+            let scale = 1e-3;
+            let safety = 0.5;
+            let limit = safety * scale * stability(&$integration).real;
+            let (time, solution, _) = bounded(Time::seconds(scale), safety).unwrap();
+            assert!(
+                time.iter()
+                    .zip(time.iter().skip(1))
+                    .all(|(a, b)| (*b - *a).value() <= limit * (1.0 + 1e-9))
+            );
+            assert!(solution.iter().last().unwrap().value().abs() < 1e-6);
+        }
+        #[test]
+        fn bounded_reaching_the_minimum_step() {
+            assert!(matches!(
+                bounded(Time::seconds(1e-30), 1.0),
+                Err(IntegrationError::MinimumStepSizeReached(..))
+            ));
+        }
     };
 }
 pub(crate) use test_explicit_variable_step;
