@@ -162,3 +162,12 @@ fn acceleration_error_is_reported() {
     );
     assert!(result.is_err());
 }
+
+#[test]
+fn fixed_step_accelerations_belong_to_the_same_step_as_the_positions() {
+    let (time, x, _, a) = oscillate(&DormandPrinceFixedStep::default(), &grid(40, 1.0)).unwrap();
+    assert_eq!(time.len(), 41);
+    x.iter().zip(a.iter()).for_each(|(x, a)| {
+        assert!((a.value() + STIFFNESS * x.value()).abs() < 1e-9);
+    });
+}
