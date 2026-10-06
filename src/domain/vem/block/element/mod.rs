@@ -1,4 +1,5 @@
 use crate::math::Reference;
+pub mod mass;
 pub mod solid;
 #[cfg(test)]
 mod test;
