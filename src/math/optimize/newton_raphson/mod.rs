@@ -10,6 +10,10 @@ use super::{
     BacktrackingLineSearch, Direct, EqualityConstraint, LineSearch, LineSearchError, LinearSolver,
     Optimization, OptimizationBlock, OptimizationError, OptimizationIncremental, RootFinding,
     RootFindingBlock, RootFindingIncremental, SolveStrategy, StepSize, Tolerances, TrustRegion,
+    trust_region::{
+        TRUST_REGION_ETA, TRUST_REGION_MAX_REJECTIONS, TRUST_REGION_SHRINK, more_sorensen_dense,
+        more_sorensen_sparse, quadratic_dense, update_radius,
+    },
 };
 use crate::math::Norm;
 use crate::units::{UnitMul, UnitRatio, UnitSum};
@@ -1576,6 +1580,24 @@ where
     }
 }
 
+/// The entry of a bordered KKT system whose primal block is a Hessian left
+/// unassembled, the constraint rows and columns carried by the matrix itself.
+fn kkt_entry_sparse<H: Hessian>(
+    hessian: &H,
+    constraint_matrix: &Matrix,
+    num_variables: usize,
+    row: usize,
+    column: usize,
+) -> Scalar {
+    if row >= num_variables {
+        -constraint_matrix[row - num_variables][column]
+    } else if column >= num_variables {
+        -constraint_matrix[column - num_variables][row]
+    } else {
+        hessian.entry(row, column)
+    }
+}
+
 #[expect(clippy::too_many_arguments)]
 fn constrained<J, H, X>(
     newton_raphson: &NewtonRaphson,
@@ -1621,6 +1643,12 @@ where
                     })
             });
     }
+    let (mut radius, max_radius) =
+        if let TrustRegion::Adaptive { radius, max_radius } = newton_raphson.trust_region {
+            (radius, max_radius)
+        } else {
+            (0.0, 0.0)
+        };
     let mut steps = 0;
     loop {
         (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
@@ -1661,6 +1689,78 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
+        } else if minimizing && matches!(newton_raphson.trust_region, TrustRegion::Adaptive { .. })
+        {
+            let mut hess = Some(hessian(&solution)?);
+            if sparse.is_none()
+                && let Some(hess) = hess.take()
+            {
+                hess.fill_into(&mut tangent)
+            }
+            penalty = raise_penalty(
+                penalty,
+                multipliers.iter().zip(decrement.iter().skip(num_variables)),
+            );
+            let violated = penalty * violation(&constraint_matrix, &constraint_rhs, &solution);
+            let value = function(&solution)? + violated;
+            let mut gradient = Vector::zero(num_variables);
+            jacobian(&solution)?.fill_into(&mut gradient);
+            let mut accepted = false;
+            for _ in 0..TRUST_REGION_MAX_REJECTIONS {
+                let quadratic = if let (Some(solver), Some(hess)) = (&sparse, &hess) {
+                    decrement = more_sorensen_sparse(
+                        solver,
+                        |i, j| kkt_entry_sparse(hess, &constraint_matrix, num_variables, i, j),
+                        &residual,
+                        radius,
+                        num_variables,
+                    );
+                    hess.quadratic_form(&decrement)
+                } else {
+                    decrement = more_sorensen_dense(&tangent, &residual, radius, num_variables);
+                    quadratic_dense(&tangent, &decrement, num_variables)
+                };
+                let predicted =
+                    merit_slope(gradient.iter().zip(decrement.iter()), violated) - 0.5 * quadratic;
+                applied
+                    .iter_mut()
+                    .zip(decrement.iter())
+                    .for_each(|(applied_i, decrement_i)| *applied_i = *decrement_i);
+                if predicted <= Scalar::EPSILON * value.abs() {
+                    accepted = true;
+                    break;
+                }
+                let mut trial = solution.clone();
+                let mut trial_multipliers = multipliers.clone();
+                trial.decrement_from_chained(&mut trial_multipliers, &decrement);
+                let primal_norm =
+                    Norm::Euclidean.over(decrement.iter().take(num_variables).copied());
+                let trial_value = update(&solution, &applied, 1.0, false)
+                    .and_then(|()| function(&trial))
+                    .map(|value| {
+                        value + penalty * violation(&constraint_matrix, &constraint_rhs, &trial)
+                    });
+                let Ok(value_trial) = trial_value else {
+                    radius = TRUST_REGION_SHRINK * primal_norm;
+                    continue;
+                };
+                let rho = (value - value_trial) / predicted;
+                radius = update_radius(radius, max_radius, rho, primal_norm);
+                if rho > TRUST_REGION_ETA {
+                    accepted = true;
+                    break;
+                }
+            }
+            if !accepted {
+                return Err(OptimizationError::MaximumStepsReached(
+                    TRUST_REGION_MAX_REJECTIONS,
+                    format!("{newton_raphson:?}"),
+                ));
+            }
+            steps += 1;
+            update(&solution, &applied, 1.0, true)?;
+            solution.decrement_from_chained(&mut multipliers, &decrement);
+            continue;
         } else if let Some(ref solver) = sparse {
             let hess = hessian(&solution)?;
             decrement = solver.solve(
