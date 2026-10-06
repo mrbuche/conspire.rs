@@ -338,6 +338,13 @@ impl CscLdl {
         }
         (positive, negative, zero)
     }
+    /// Whether the matrix factorized, the Hessian bordered by the given number of
+    /// independent constraints, is positive definite on the constraints' null space.
+    ///
+    /// At a stationary point this is the second-order sufficient condition for a minimum.
+    pub fn is_minimum(&self, constraints: usize) -> bool {
+        self.inertia() == (self.d.len() - constraints, constraints, 0)
+    }
     /// Recomputes the factorization for new values in the same pattern, reusing
     /// the pivot order and fill pattern without any symbolic work or pivot search.
     /// The factorization is invalid if an error is returned.

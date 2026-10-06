@@ -192,3 +192,45 @@ fn saddle_point_scaled() -> Result<(), AssertionError> {
     let b: Vector = (0..46).map(|i| ((i % 13) as f64 - 6.0) * factor).collect();
     Assert::default().eq_within_tols(&(&matrix * &ldl.solve(&b)), &b)
 }
+
+fn factorized(dense: &[&[f64]]) -> super::CscLdl {
+    let n = dense.len();
+    let pattern: Vec<(usize, usize)> = (0..n)
+        .flat_map(|i| (0..n).map(move |j| (i, j)))
+        .filter(|&(i, j)| dense[i][j] != 0.0)
+        .collect();
+    let mut matrix = CscMatrix::from_pattern(n, n, pattern);
+    matrix.fill(|i, j| dense[i][j]);
+    let mut ldl = matrix.ldl_symbolic().expect("Symbolic failed.");
+    ldl.refactor(&matrix).expect("Refactorization failed.");
+    ldl
+}
+
+#[test]
+fn is_minimum_unconstrained() {
+    let definite: [&[f64]; 3] = [&[4.0, -1.0, 0.0], &[-1.0, 4.0, -1.0], &[0.0, -1.0, 4.0]];
+    let indefinite: [&[f64]; 3] = [&[4.0, -1.0, 0.0], &[-1.0, -4.0, -1.0], &[0.0, -1.0, 4.0]];
+    assert!(factorized(&definite).is_minimum(0));
+    assert!(!factorized(&indefinite).is_minimum(0))
+}
+
+#[test]
+fn is_minimum_constrained() {
+    let minimum: [&[f64]; 4] = [
+        &[1.0, 0.0, 0.0, 1.0],
+        &[0.0, 1.0, 0.0, 1.0],
+        &[0.0, 0.0, 1.0, 1.0],
+        &[1.0, 1.0, 1.0, 0.0],
+    ];
+    assert!(factorized(&minimum).is_minimum(1));
+    assert!(!factorized(&minimum).is_minimum(0));
+    assert!(!factorized(&minimum).is_minimum(2))
+}
+
+#[test]
+fn is_minimum_constrained_indefinite_hessian() {
+    let minimum: [&[f64]; 3] = [&[-1.0, 0.0, 1.0], &[0.0, 2.0, 0.0], &[1.0, 0.0, 0.0]];
+    assert!(factorized(&minimum).is_minimum(1));
+    let saddle: [&[f64]; 3] = [&[1.0, 0.0, 1.0], &[0.0, -1.0, 0.0], &[1.0, 0.0, 0.0]];
+    assert!(!factorized(&saddle).is_minimum(1))
+}
