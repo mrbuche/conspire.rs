@@ -15,11 +15,12 @@ use std::{
 /// A sparse direct solver for repeated solves on a fixed sparsity pattern.
 ///
 /// Cloning shares the cached factorization, whose pivot order and fill pattern
-/// are reused across solves until a pivot degrades. Symmetric values use an
-/// LDLᵀ factorization, falling back to LU otherwise. Symmetry is a caller-supplied
-/// guarantee about the source values, not detected at runtime — a source whose
-/// symmetry can vary between solves (e.g. a tangent that is only symmetric near
-/// a particular configuration) must be declared asymmetric.
+/// are reused across solves. Symmetric values use an LDLᵀ factorization,
+/// falling back to LU for that solve alone when a pivot degrades, and
+/// otherwise. Symmetry is a caller-supplied guarantee about the source values,
+/// not detected at runtime — a source whose symmetry can vary between solves
+/// (e.g. a tangent that is only symmetric near a particular configuration)
+/// must be declared asymmetric.
 #[derive(Clone)]
 pub struct SparseSolver {
     matrix: RefCell<CscMatrix>,
@@ -50,8 +51,33 @@ impl SparseSolver {
     pub fn pattern(&self) -> Ref<'_, [(usize, usize)]> {
         Ref::map(self.matrix.borrow(), |matrix| matrix.pattern())
     }
+    /// Solve using the LDLᵀ factorization alone, reporting its inertia and
+    /// never substituting LU.
+    ///
+    /// A caller that gates on inertia — a trust region asking whether a shift
+    /// has made the model admissible — needs this factorization's own verdict,
+    /// which an LU rescue would quietly launder into an answer carrying no
+    /// inertia at all. Errors instead: `Unsymmetric` if the solver was not
+    /// built for symmetric values, or whatever the refactorization reports.
+    pub fn solve_ldl(
+        &self,
+        source: impl FnMut(usize, usize) -> Scalar,
+        b: &Vector,
+    ) -> Result<(Vector, (usize, usize, usize)), SparseError> {
+        let mut matrix = self.matrix.borrow_mut();
+        matrix.fill(source);
+        let mut ldl = self.ldl.borrow_mut();
+        let cached = ldl.as_mut().ok_or(SparseError::Unsymmetric)?;
+        cached.refactor(&matrix)?;
+        Ok((cached.solve(b), cached.inertia()))
+    }
     /// Solve a system of linear equations with values from a source,
     /// refactoring the cached factorization when possible.
+    ///
+    /// A symmetric solver uses its LDLᵀ factorization, solving by LU for any
+    /// solve in which a pivot degrades; LU carries no inertia, so see
+    /// [`SparseSolver::solve_ldl`] for a solve that reports it instead of
+    /// falling back.
     pub fn solve(
         &self,
         source: impl FnMut(usize, usize) -> Scalar,
@@ -60,13 +86,10 @@ impl SparseSolver {
         let mut matrix = self.matrix.borrow_mut();
         matrix.fill(source);
         let mut ldl = self.ldl.borrow_mut();
-        if ldl.is_some() {
-            if let Some(cached) = ldl.as_mut()
-                && cached.refactor(&matrix).is_ok()
-            {
-                return Ok(cached.solve(b));
-            }
-            *ldl = None;
+        if let Some(cached) = ldl.as_mut()
+            && cached.refactor(&matrix).is_ok()
+        {
+            return Ok(cached.solve(b));
         }
         drop(ldl);
         let mut lu = self.lu.borrow_mut();
