@@ -1,8 +1,5 @@
 use super::{MORE_SORENSEN_TOLERANCE, SquareMatrix, Vector, more_sorensen_dense};
 
-/// A positive definite Hessian bordered by a full-rank constraint: KKT inertia
-/// is `(2, 1, 0)` already at `lambda = 0` (verified separately for this exact
-/// matrix in `math::matrix::square::ldl::test::inertia_kkt_bordered_hessian`).
 fn bordered_pd() -> SquareMatrix {
     let mut matrix = SquareMatrix::zero(3);
     matrix[0][0] = 2.0;
@@ -14,8 +11,6 @@ fn bordered_pd() -> SquareMatrix {
     matrix
 }
 
-/// The same border, but with a primal block that starts out negative definite,
-/// so `lambda = 0` is nowhere near admissible and the search must actually run.
 fn bordered_indefinite_primal() -> SquareMatrix {
     let mut matrix = SquareMatrix::zero(3);
     matrix[0][0] = -1.0;
@@ -74,9 +69,6 @@ fn unconstrained_degenerates_to_a_plain_shift() {
     assert!((norm - radius).abs() < 2.0 * MORE_SORENSEN_TOLERANCE * radius)
 }
 
-/// A radius only slightly shorter than the Newton step, with `lambda = 0`
-/// already admissible: the shift needed is correspondingly slight, and starting
-/// the search at the tangent's own scale overshoots it by a wide margin.
 #[test]
 fn a_radius_just_inside_the_newton_step_is_not_overshot() {
     let tangent = bordered_pd();

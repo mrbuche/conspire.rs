@@ -246,15 +246,8 @@ mod constrained {
             None,
         )?)
     }
-
     #[test]
     fn trust_region_adaptive() -> Result<(), AssertionError> {
-        // radius starts far smaller than the distance to the minimum, so
-        // convergence within max_steps requires the accept/reject loop to
-        // actually grow the radius across several outer Newton iterations;
-        // kept above the constraint's own feasibility floor (~0.71 here,
-        // from the initial constraint violation) so more_sorensen isn't
-        // being asked for a radius no shift could ever reach
         Assert::default().eq_within_tols(
             &minimized_trust_region(TrustRegion::Adaptive {
                 radius: 1.0,
@@ -263,11 +256,8 @@ mod constrained {
             &Vector::from([1.0, 1.0]),
         )
     }
-
     #[test]
     fn trust_region_adaptive_failed_trial_is_a_rejection() -> Result<(), AssertionError> {
-        // Newton's step on sqrt(1 + x^2) grows past any bound from far out, so
-        // the first trial lands outside the domain the function is defined on
         let root = |x: Scalar| (1.0 + x * x).sqrt();
         let result = NewtonRaphson {
             trust_region: TrustRegion::Adaptive {
@@ -298,7 +288,6 @@ mod constrained {
         )?;
         Assert::default().eq_within_tols(&result, &Vector::from([1.0, 1.0]))
     }
-
     fn scaled(rel_tol: Option<Scalar>) -> Result<Vector, OptimizationError> {
         const SCALE: Scalar = 1e12;
         NewtonRaphson {

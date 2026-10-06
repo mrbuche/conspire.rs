@@ -6,13 +6,7 @@ use super::super::{Norm, Scalar, SquareMatrix, Tensor, Vector, sparse::SparseSol
 /// How far a step is trusted to follow the model it was built from.
 #[derive(Clone, Copy, Debug, Default)]
 pub enum TrustRegion {
-    /// A radius that grows and shrinks with how well the model predicted the
-    /// step it was asked for, accepting or rejecting each step in turn.
-    ///
-    /// Only honored when minimizing under a linear equality constraint, dense
-    /// or sparse; when active it supersedes whatever `line_search` is set to,
-    /// the two being alternative globalization strategies rather than
-    /// composable ones.
+    /// The step grows or shrinks based on model predication.
     Adaptive { radius: Scalar, max_radius: Scalar },
     /// The step is shortened to a radius that never adapts.
     Fixed { radius: Scalar, norm: Norm },
@@ -21,7 +15,6 @@ pub enum TrustRegion {
     None,
 }
 
-/// The reduction ratio above which a trust-region step is accepted.
 pub(crate) const TRUST_REGION_ETA: Scalar = 0.1;
 const TRUST_REGION_SHRINK_THRESHOLD: Scalar = 0.25;
 const TRUST_REGION_GROW_THRESHOLD: Scalar = 0.75;
@@ -37,9 +30,6 @@ pub(crate) const TRUST_REGION_MAX_REJECTIONS: usize = 25;
 // would never see a step as having reached the boundary and the radius would
 // never grow.
 const MORE_SORENSEN_TOLERANCE: Scalar = 1e-2;
-// How far a shift is nudged to step off an exact singularity, which is a
-// question about floating-point spacing rather than about the radius, and stays
-// tight however loosely the boundary itself is located.
 const MORE_SORENSEN_NUDGE: Scalar = 1e-6;
 const MORE_SORENSEN_MAX_ITERATIONS: usize = 100;
 // How far a shift is let grow relative to the tangent's own scale before
