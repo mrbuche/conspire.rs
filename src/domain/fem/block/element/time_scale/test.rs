@@ -84,16 +84,20 @@ fn jacobi(stiffnesses: &[Vec<f64>], masses: &[f64]) -> f64 {
                 let theta = 0.5 * (a[q][q] - a[p][p]) / a[p][q];
                 let t = theta.signum() / (theta.abs() + (theta * theta + 1.0).sqrt());
                 let (c, s) = (1.0 / (t * t + 1.0).sqrt(), t / (t * t + 1.0).sqrt());
-                for k in 0..n {
-                    let (akp, akq) = (a[k][p], a[k][q]);
-                    a[k][p] = c * akp - s * akq;
-                    a[k][q] = s * akp + c * akq;
-                }
-                for k in 0..n {
-                    let (apk, aqk) = (a[p][k], a[q][k]);
-                    a[p][k] = c * apk - s * aqk;
-                    a[q][k] = s * apk + c * aqk;
-                }
+                a.iter_mut().for_each(|row| {
+                    let (akp, akq) = (row[p], row[q]);
+                    row[p] = c * akp - s * akq;
+                    row[q] = s * akp + c * akq;
+                });
+                let (head, tail) = a.split_at_mut(q);
+                head[p]
+                    .iter_mut()
+                    .zip(tail[0].iter_mut())
+                    .for_each(|(apk, aqk)| {
+                        let (x, y) = (*apk, *aqk);
+                        *apk = c * x - s * y;
+                        *aqk = s * x + c * y;
+                    });
             }
         }
     }
