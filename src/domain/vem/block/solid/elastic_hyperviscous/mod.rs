@@ -19,7 +19,7 @@ use crate::{
     },
 };
 
-impl<C, F> ElasticHyperviscousElements<3> for Block<C, F>
+impl<C, F, R> ElasticHyperviscousElements<3> for Block<C, F, R>
 where
     C: ElasticHyperviscous,
     F: ElasticHyperviscousVirtualElement<C>,

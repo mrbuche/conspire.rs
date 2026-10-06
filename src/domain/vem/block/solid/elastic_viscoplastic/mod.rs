@@ -19,7 +19,7 @@ use crate::{
 };
 use std::array::from_fn;
 
-impl<C, F, Y> ElasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3> for Block<C, F>
+impl<C, F, R, Y> ElasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3> for Block<C, F, R>
 where
     C: ElasticViscoplastic<Y>,
     F: ElasticViscoplasticVirtualElement<C, Y>,

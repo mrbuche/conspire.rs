@@ -2,6 +2,7 @@
 mod test;
 
 use crate::fem::{
+    NodalReferenceCoordinates,
     block::{
         Block, Densities,
         element::mass::{LumpedMassFiniteElement, MassFiniteElement},
@@ -36,13 +37,17 @@ where
     }
 }
 
-impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize> LumpedMassElements
+impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize> LumpedMassElements<M>
     for Block<C, F, G, M, N, P, R>
 where
     F: LumpedMassFiniteElement<G, M, N, P>,
     R: Densities<G>,
 {
-    fn nodal_lumped_masses_into(&self, nodal_lumped_masses: &mut NodalLumpedMasses) {
+    fn nodal_lumped_masses_into(
+        &self,
+        _reference_coordinates: &NodalReferenceCoordinates<M>,
+        nodal_lumped_masses: &mut NodalLumpedMasses,
+    ) {
         self.elements()
             .iter()
             .zip(self.connectivity())

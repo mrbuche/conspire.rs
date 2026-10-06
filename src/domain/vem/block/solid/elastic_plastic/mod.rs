@@ -16,7 +16,7 @@ use crate::{
 };
 use std::array::from_fn;
 
-impl<C, F> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C, F>
+impl<C, F, R> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C, F, R>
 where
     C: ElasticPlastic,
     F: ElasticPlasticVirtualElement<C>,

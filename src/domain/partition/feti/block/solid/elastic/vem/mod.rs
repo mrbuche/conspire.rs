@@ -13,7 +13,7 @@ use crate::{
     },
 };
 
-impl<C, F> DecomposableElements for Block<C, F>
+impl<C, F, R> DecomposableElements for Block<C, F, R>
 where
     C: Elastic,
     F: ElasticVirtualElement<C>,

@@ -22,7 +22,8 @@ use crate::{
     },
 };
 
-impl<C, F, Y> HyperelasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3> for Block<C, F>
+impl<C, F, R, Y> HyperelasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3>
+    for Block<C, F, R>
 where
     C: HyperelasticViscoplastic<Y>,
     F: HyperelasticViscoplasticVirtualElement<C, Y>,

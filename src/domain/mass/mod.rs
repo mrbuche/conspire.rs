@@ -3,8 +3,8 @@ mod test;
 
 use crate::{
     domain::{
-        Blocks, ElementModel, Model, NodalAccelerations, NodalVelocities, block::element::Elements,
-        solid::NodalForcesSolid,
+        Blocks, ElementModel, Model, NodalAccelerations, NodalReferenceCoordinates,
+        NodalVelocities, block::element::Elements, solid::NodalForcesSolid,
     },
     math::{
         Quantity, QuantitySparseVec2D, QuantityVector, Tensor, Vector,
@@ -23,11 +23,15 @@ where
     fn nodal_masses_into(&self, nodal_masses: &mut NodalMasses);
 }
 
-pub trait LumpedMassElements
+pub trait LumpedMassElements<const D: usize>
 where
     Self: Elements,
 {
-    fn nodal_lumped_masses_into(&self, nodal_lumped_masses: &mut NodalLumpedMasses);
+    fn nodal_lumped_masses_into(
+        &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
+        nodal_lumped_masses: &mut NodalLumpedMasses,
+    );
 }
 
 impl<B1, B2> ConsistentMassElements for Blocks<B1, B2>
@@ -41,14 +45,20 @@ where
     }
 }
 
-impl<B1, B2> LumpedMassElements for Blocks<B1, B2>
+impl<B1, B2, const D: usize> LumpedMassElements<D> for Blocks<B1, B2>
 where
-    B1: LumpedMassElements,
-    B2: LumpedMassElements,
+    B1: LumpedMassElements<D>,
+    B2: LumpedMassElements<D>,
 {
-    fn nodal_lumped_masses_into(&self, nodal_lumped_masses: &mut NodalLumpedMasses) {
-        self.0.nodal_lumped_masses_into(nodal_lumped_masses);
-        self.1.nodal_lumped_masses_into(nodal_lumped_masses)
+    fn nodal_lumped_masses_into(
+        &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
+        nodal_lumped_masses: &mut NodalLumpedMasses,
+    ) {
+        self.0
+            .nodal_lumped_masses_into(reference_coordinates, nodal_lumped_masses);
+        self.1
+            .nodal_lumped_masses_into(reference_coordinates, nodal_lumped_masses)
     }
 }
 
@@ -61,12 +71,17 @@ where
     }
 }
 
-impl<B, const D: usize> LumpedMassElements for Model<B, D>
+impl<B, const D: usize> LumpedMassElements<D> for Model<B, D>
 where
-    B: LumpedMassElements,
+    B: LumpedMassElements<D>,
 {
-    fn nodal_lumped_masses_into(&self, nodal_lumped_masses: &mut NodalLumpedMasses) {
-        self.blocks.nodal_lumped_masses_into(nodal_lumped_masses)
+    fn nodal_lumped_masses_into(
+        &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
+        nodal_lumped_masses: &mut NodalLumpedMasses,
+    ) {
+        self.blocks
+            .nodal_lumped_masses_into(reference_coordinates, nodal_lumped_masses)
     }
 }
 
@@ -83,11 +98,11 @@ where
 
 impl<B, const D: usize> Model<B, D>
 where
-    B: LumpedMassElements,
+    B: LumpedMassElements<D>,
 {
     pub fn nodal_lumped_masses(&self) -> NodalLumpedMasses {
         let mut nodal_lumped_masses = NodalLumpedMasses::zero(self.coordinates().len());
-        self.nodal_lumped_masses_into(&mut nodal_lumped_masses);
+        self.nodal_lumped_masses_into(self.coordinates(), &mut nodal_lumped_masses);
         nodal_lumped_masses
     }
 }
