@@ -14,7 +14,7 @@ pub mod thermal;
 pub(crate) use crate::domain::nodal_coordinates;
 pub use crate::domain::{
     Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, FirstOrderMinimize,
-    FirstOrderRoot, Model, NodalAccelerations, NodalCoordinates, NodalCoordinatesHistory,
-    NodalReferenceCoordinates, NodalVelocities, NodalVelocitiesHistory, ProvidesTangent,
-    SecondOrderMinimize, SolverFor, ZerothOrderRoot, block::element::Elements,
+    FirstOrderRoot, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
+    NodalCoordinatesHistory, NodalReferenceCoordinates, NodalVelocities, NodalVelocitiesHistory,
+    ProvidesTangent, SecondOrderMinimize, SolverFor, ZerothOrderRoot, block::element::Elements,
 };
