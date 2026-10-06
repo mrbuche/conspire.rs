@@ -102,7 +102,6 @@ pub(crate) fn largest_eigenvalue(
     eigenvalue
 }
 
-/// The time scale of a highest angular frequency squared, infinite where there is none.
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) fn time_scale_from_eigenvalue(eigenvalue: Scalar) -> Quantity<Time> {
     if eigenvalue > 0.0 {
