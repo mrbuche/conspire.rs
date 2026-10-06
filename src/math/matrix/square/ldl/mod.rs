@@ -252,6 +252,33 @@ impl LdlDecomposition {
                 .for_each(|((entry, source_j), paired_j)| *entry -= u * source_j + w * paired_j)
         })
     }
+    /// The number of positive, negative, and zero eigenvalues of the factorized matrix.
+    pub fn inertia(&self) -> (usize, usize, usize) {
+        let (mut positive, mut negative, mut zero) = (0, 0, 0);
+        let mut k = 0;
+        while k < self.ldl.len() {
+            if self.pair[k] {
+                positive += 1;
+                negative += 1;
+                k += 2
+            } else {
+                match self.ldl[k][k] {
+                    pivot if pivot > 0.0 => positive += 1,
+                    pivot if pivot < 0.0 => negative += 1,
+                    _ => zero += 1,
+                }
+                k += 1
+            }
+        }
+        (positive, negative, zero)
+    }
+    /// Whether the factorized matrix, the Hessian bordered by the given number of
+    /// independent constraints, is positive definite on the constraints' null space.
+    ///
+    /// At a stationary point this is the second-order sufficient condition for a minimum.
+    pub fn is_minimum(&self, constraints: usize) -> bool {
+        self.inertia() == (self.permutation.len() - constraints, constraints, 0)
+    }
     /// Solve a system of linear equations for another right-hand side.
     pub fn solve(&self, b: &Vector) -> Vector {
         let mut x = Vector::zero(self.permutation.len());

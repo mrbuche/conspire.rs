@@ -713,3 +713,140 @@ mod block {
         )
     }
 }
+
+mod verified_minimum {
+    use super::*;
+    use crate::math::{Matrix, SquareMatrix, Vector, sparse::SparseSolver};
+    fn diagonal(entries: [Scalar; 2]) -> impl Fn(&Vector) -> Result<SquareMatrix, String> {
+        move |_| Ok(SquareMatrix::from([[entries[0], 0.0], [0.0, entries[1]]]))
+    }
+    fn solver(sparse: bool, num: usize, pattern: Vec<(usize, usize)>) -> Option<SparseSolver> {
+        sparse.then(|| SparseSolver::from_pattern(num, pattern, true))
+    }
+    fn minimized(
+        curvature: [Scalar; 2],
+        equality_constraint: EqualityConstraint,
+        sparse: Option<SparseSolver>,
+    ) -> Result<Vector, OptimizationError> {
+        NewtonRaphson::default().minimize(
+            |x: &Vector| Ok((curvature[0] * x[0].powi(2) + curvature[1] * x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(Vector::from([curvature[0] * x[0], curvature[1] * x[1]])),
+            diagonal(curvature),
+            Vector::from([1.0, 1.0]),
+            equality_constraint,
+            sparse,
+        )
+    }
+    fn diagonal_pattern() -> Vec<(usize, usize)> {
+        vec![(0, 0), (1, 1)]
+    }
+    fn bordered_pattern() -> Vec<(usize, usize)> {
+        vec![(0, 0), (1, 1), (0, 2), (2, 0), (1, 2), (2, 1)]
+    }
+    fn sum_constraint() -> EqualityConstraint {
+        let mut matrix = Matrix::zero(1, 2);
+        matrix[0][0] = 1.0;
+        matrix[0][1] = 1.0;
+        EqualityConstraint::Linear(matrix, Vector::from([2.0]))
+    }
+    fn is_not_minimum(result: Result<Vector, OptimizationError>) -> bool {
+        result.is_err_and(|error| error.to_string().contains("not a minimum"))
+    }
+    const BOTH: [bool; 2] = [true, false];
+    #[test]
+    fn unconstrained_minimum() {
+        BOTH.iter().for_each(|&sparse| {
+            let solver = solver(sparse, 2, diagonal_pattern());
+            assert!(minimized([1.0, 2.0], EqualityConstraint::None, solver).is_ok())
+        })
+    }
+    #[test]
+    fn unconstrained_saddle() {
+        BOTH.iter().for_each(|&sparse| {
+            let solver = solver(sparse, 2, diagonal_pattern());
+            assert!(is_not_minimum(minimized(
+                [1.0, -1.0],
+                EqualityConstraint::None,
+                solver
+            )))
+        })
+    }
+    #[test]
+    fn unconstrained_maximum() {
+        BOTH.iter().for_each(|&sparse| {
+            let solver = solver(sparse, 2, diagonal_pattern());
+            assert!(is_not_minimum(minimized(
+                [-1.0, -2.0],
+                EqualityConstraint::None,
+                solver
+            )))
+        })
+    }
+    #[test]
+    fn fixed_saddle() {
+        let run = |curvature: [Scalar; 2], sparse: bool| {
+            NewtonRaphson::default().minimize(
+                |x: &Vector| {
+                    Ok(
+                        (curvature[0] * x[0].powi(2) + curvature[1] * x[1].powi(2) + x[2].powi(2))
+                            / 2.0,
+                    )
+                },
+                |x: &Vector| {
+                    Ok(Vector::from([
+                        curvature[0] * x[0],
+                        curvature[1] * x[1],
+                        x[2],
+                    ]))
+                },
+                |_: &Vector| {
+                    Ok(SquareMatrix::from([
+                        [curvature[0], 0.0, 0.0],
+                        [0.0, curvature[1], 0.0],
+                        [0.0, 0.0, 1.0],
+                    ]))
+                },
+                Vector::from([1.0, 1.0, 1.0]),
+                EqualityConstraint::Fixed(vec![2]),
+                solver(sparse, 2, diagonal_pattern()),
+            )
+        };
+        BOTH.iter().for_each(|&sparse| {
+            assert!(run([1.0, 2.0], sparse).is_ok());
+            assert!(is_not_minimum(run([1.0, -2.0], sparse)))
+        })
+    }
+    #[test]
+    fn constrained_minimum_with_indefinite_hessian() {
+        BOTH.iter().for_each(|&sparse| {
+            let solver = solver(sparse, 3, bordered_pattern());
+            assert!(minimized([3.0, -1.0], sum_constraint(), solver).is_ok())
+        })
+    }
+    #[test]
+    fn constrained_saddle() {
+        BOTH.iter().for_each(|&sparse| {
+            let solver = solver(sparse, 3, bordered_pattern());
+            assert!(is_not_minimum(minimized(
+                [1.0, -3.0],
+                sum_constraint(),
+                solver
+            )))
+        })
+    }
+    #[test]
+    fn scalar_minimum_and_maximum() {
+        let run = |curvature: Scalar| {
+            NewtonRaphson::default().minimize(
+                |x: &Scalar| Ok(curvature * x.powi(2) / 2.0),
+                |x: &Scalar| Ok(curvature * x),
+                |_: &Scalar| Ok(curvature),
+                1.0,
+                EqualityConstraint::None,
+                None,
+            )
+        };
+        assert!(run(1.0).is_ok());
+        assert!(run(-1.0).is_err_and(|error| error.to_string().contains("not a minimum")))
+    }
+}

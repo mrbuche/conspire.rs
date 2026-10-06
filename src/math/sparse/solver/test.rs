@@ -1,6 +1,7 @@
-use super::{SparseSolver, Vector};
+use super::{Scalar, SparseSolver, Vector};
 use crate::math::assert::Assert;
 use crate::math::assert::AssertionError;
+use crate::math::matrix::square::SquareMatrix;
 
 const N: usize = 100;
 
@@ -139,4 +140,130 @@ fn asymmetric_falls_back_to_lu() -> Result<(), AssertionError> {
         .iter()
         .for_each(|&(i, j)| residual[i] += source(i, j) * x[j]);
     Assert::default().eq_within_tols(&residual, &b)
+}
+
+#[test]
+fn degraded_pivot_keeps_the_ldl_for_the_next_solve() -> Result<(), AssertionError> {
+    let pattern = vec![(0, 0), (0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2)];
+    let solver = SparseSolver::from_pattern(3, pattern.clone(), true);
+    let b = Vector::from([1.0, 1.0, 1.0]);
+    let good = |i: usize, j: usize| if i == j { 4.0 } else { -1.0 };
+    let degraded = |i: usize, j: usize| {
+        if i == j {
+            if i == 0 { 0.0 } else { -2.0 }
+        } else {
+            -2.0
+        }
+    };
+    let check = |source: &dyn Fn(usize, usize) -> Scalar, x: &Vector| {
+        let mut residual = Vector::zero(3);
+        pattern
+            .iter()
+            .for_each(|&(i, j)| residual[i] += source(i, j) * x[j]);
+        Assert::default().eq_within_tols(&residual, &b)
+    };
+    check(&good, &solver.solve(good, &b)?)?;
+    assert!(solver.ldl.borrow().is_some());
+    check(&degraded, &solver.solve(degraded, &b)?)?;
+    assert!(solver.ldl.borrow().is_some());
+    check(&good, &solver.solve(good, &b)?)?;
+    assert!(solver.ldl.borrow().is_some());
+    Ok(())
+}
+
+fn inertia_of(
+    dense: &[Vec<Scalar>],
+    structural: &[(usize, usize)],
+) -> ((usize, usize, usize), (usize, usize, usize)) {
+    let n = dense.len();
+    let mut pattern: Vec<(usize, usize)> = (0..n)
+        .flat_map(|i| (0..n).map(move |j| (i, j)))
+        .filter(|&(i, j)| dense[i][j] != 0.0)
+        .collect();
+    pattern.extend_from_slice(structural);
+    let solver = SparseSolver::from_pattern(n, pattern, true);
+    let b = Vector::zero(n);
+    let sparse = solver.solve_ldl(|i, j| dense[i][j], &b).unwrap().1;
+    let mut square = SquareMatrix::zero(n);
+    (0..n).for_each(|i| (0..n).for_each(|j| square[i][j] = dense[i][j]));
+    (sparse, square.factorize_ldl().unwrap().inertia())
+}
+
+#[test]
+fn inertia_matches_the_dense_factorization() {
+    let positive_definite = vec![
+        vec![4.0, -1.0, 0.0],
+        vec![-1.0, 4.0, -1.0],
+        vec![0.0, -1.0, 4.0],
+    ];
+    let negative_definite: Vec<Vec<Scalar>> = positive_definite
+        .iter()
+        .map(|row| row.iter().map(|value| -value).collect())
+        .collect();
+    let bordered = vec![
+        vec![4.0, -1.0, 1.0],
+        vec![-1.0, 4.0, 1.0],
+        vec![1.0, 1.0, 0.0],
+    ];
+    let bordered_indefinite = vec![
+        vec![-3.0, -1.0, 1.0],
+        vec![-1.0, 4.0, 2.0],
+        vec![1.0, 2.0, 0.0],
+    ];
+    let positive_pair = vec![
+        vec![-1.0, 1.0, 0.0, 0.0, 0.0, 0.0, -2.0, 0.0],
+        vec![1.0, -1.0, 4.0, 0.0, 0.0, 0.0, -3.0, 0.0],
+        vec![0.0, 4.0, 0.0, -3.0, 0.0, 0.0, 3.0, -2.0],
+        vec![0.0, 0.0, -3.0, -3.0, -2.0, 0.0, 0.0, -2.0],
+        vec![0.0, 0.0, 0.0, -2.0, -1.0, -3.0, 0.0, 2.0],
+        vec![0.0, 0.0, 0.0, 0.0, -3.0, -1.0, 0.0, 0.0],
+        vec![-2.0, -3.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        vec![0.0, 0.0, -2.0, -2.0, 2.0, 0.0, 0.0, 0.0],
+    ];
+    let negative_pair: Vec<Vec<Scalar>> = positive_pair
+        .iter()
+        .map(|row| row.iter().map(|value| -value).collect())
+        .collect();
+    [
+        (positive_definite, vec![], (3, 0, 0)),
+        (negative_definite, vec![], (0, 3, 0)),
+        (bordered, vec![], (2, 1, 0)),
+        (bordered_indefinite, vec![], (1, 2, 0)),
+        (positive_pair, vec![(2, 2)], (4, 4, 0)),
+        (negative_pair, vec![(2, 2)], (4, 4, 0)),
+    ]
+    .into_iter()
+    .for_each(|(dense, structural, expected)| {
+        let (sparse, square) = inertia_of(&dense, &structural);
+        assert_eq!(sparse, square);
+        assert_eq!(sparse, expected);
+    })
+}
+
+#[test]
+fn solve_ldl_refuses_where_solve_recovers() {
+    let pattern = vec![(0, 0), (0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2)];
+    let solver = SparseSolver::from_pattern(3, pattern.clone(), true);
+    let b = Vector::from([1.0, 1.0, 1.0]);
+    let degraded = |i: usize, j: usize| {
+        if i == j {
+            if i == 0 { 0.0 } else { -2.0 }
+        } else {
+            -2.0
+        }
+    };
+    assert!(solver.solve_ldl(degraded, &b).is_err());
+    let solver = SparseSolver::from_pattern(3, pattern, true);
+    assert!(solver.solve(degraded, &b).is_ok())
+}
+
+#[test]
+fn solve_ldl_refuses_an_asymmetric_solver() {
+    let solver = SparseSolver::from_pattern(2, vec![(0, 0), (0, 1), (1, 0), (1, 1)], false);
+    let b = Vector::from([1.0, 1.0]);
+    assert!(
+        solver
+            .solve_ldl(|i, j| ((2 * i + j) % 3) as f64 + 1.0, &b)
+            .is_err()
+    )
 }
