@@ -71,6 +71,23 @@ impl SparseSolver {
         cached.refactor(&matrix)?;
         Ok((cached.solve(b), cached.inertia()))
     }
+    /// Whether the matrix of a source, the Hessian bordered by the given number of
+    /// independent constraints, is positive definite on the constraints' null space.
+    ///
+    /// `None` when the LDLᵀ factorization cannot say, being unavailable for an
+    /// asymmetric solver or broken down at these values: unverified is not a minimum.
+    pub fn is_minimum(
+        &self,
+        source: impl FnMut(usize, usize) -> Scalar,
+        constraints: usize,
+    ) -> Option<bool> {
+        let mut matrix = self.matrix.borrow_mut();
+        matrix.fill(source);
+        let mut ldl = self.ldl.borrow_mut();
+        let cached = ldl.as_mut()?;
+        cached.refactor(&matrix).ok()?;
+        Some(cached.is_minimum(constraints))
+    }
     /// Solve a system of linear equations with values from a source,
     /// refactoring the cached factorization when possible.
     ///

@@ -111,6 +111,8 @@ where
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
                 direct(sparse),
+                false,
+                unchecked,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -120,6 +122,7 @@ where
                 jacobian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
+                false,
                 sparse,
                 constraint_matrix,
                 constraint_rhs,
@@ -131,6 +134,7 @@ where
                 jacobian,
                 initial_guess,
                 sparse,
+                false,
             ),
         }
         .map_err(|error| OptimizationError::upstream(error, self))
@@ -167,6 +171,8 @@ where
                     *decrement = self.linear_solver.solve(tangent, retained, residual)?;
                     Ok(())
                 },
+                false,
+                unchecked,
                 indices,
             ),
             _ => Err(OptimizationError::Intermediate(
@@ -207,6 +213,8 @@ where
                 update,
                 initial_guess,
                 direct(sparse),
+                false,
+                unchecked,
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -216,6 +224,7 @@ where
                 jacobian,
                 update,
                 initial_guess,
+                false,
                 sparse,
                 constraint_matrix,
                 constraint_rhs,
@@ -263,7 +272,9 @@ where
                 hessian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
-                direct(sparse),
+                direct(sparse.clone()),
+                true,
+                verified(sparse),
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -273,13 +284,20 @@ where
                 hessian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
                 initial_guess,
+                true,
                 sparse,
                 constraint_matrix,
                 constraint_rhs,
             ),
-            EqualityConstraint::None => {
-                unconstrained(self, function, jacobian, hessian, initial_guess, sparse)
-            }
+            EqualityConstraint::None => unconstrained(
+                self,
+                function,
+                jacobian,
+                hessian,
+                initial_guess,
+                sparse,
+                true,
+            ),
         }
         .map_err(|error| OptimizationError::upstream(error, self))
     }
@@ -322,6 +340,8 @@ where
                     *decrement = self.linear_solver.solve(tangent, retained, residual)?;
                     Ok(())
                 },
+                false,
+                unchecked,
                 indices,
             ),
             _ => Err(OptimizationError::Intermediate(
@@ -368,7 +388,9 @@ where
                 hessian,
                 update,
                 initial_guess,
-                direct(sparse),
+                direct(sparse.clone()),
+                true,
+                verified(sparse),
                 indices,
             ),
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
@@ -378,6 +400,7 @@ where
                 hessian,
                 update,
                 initial_guess,
+                true,
                 sparse,
                 constraint_matrix,
                 constraint_rhs,
@@ -1319,6 +1342,7 @@ fn unconstrained<J, H, X, E>(
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
     sparse: Option<SparseSolver>,
+    minimizing: bool,
 ) -> Result<X, OptimizationError>
 where
     H: Hessian,
@@ -1343,6 +1367,12 @@ where
     loop {
         residual = jacobian(&solution)?;
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol.residual() {
+            if minimizing && let Some(ref solver) = sparse {
+                let hess = hessian(&solution)?;
+                if solver.is_minimum(|i, j| hess.entry(i, j), 0) == Some(false) {
+                    return Err(not_minimum(newton_raphson, flattened.len(), 0));
+                }
+            }
             return Ok(solution);
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -1380,6 +1410,32 @@ where
     }
 }
 
+fn not_minimum(
+    newton_raphson: &(impl Debug + ?Sized),
+    variables: usize,
+    constraints: usize,
+) -> OptimizationError {
+    OptimizationError::NotMinimum(
+        format!(
+            "a stationary point of {variables} variables and {constraints} constraints \
+            whose tangent is not positive definite on the constraints' null space"
+        ),
+        format!("{newton_raphson:?}"),
+    )
+}
+
+fn unchecked<H>(_: H, _: &[usize]) -> Option<bool> {
+    None
+}
+
+fn verified<H: Hessian>(sparse: Option<SparseSolver>) -> impl FnMut(H, &[usize]) -> Option<bool> {
+    move |hessian, unmap| {
+        sparse
+            .as_ref()?
+            .is_minimum(|i, j| hessian.entry(unmap[i], unmap[j]), 0)
+    }
+}
+
 fn direct<H: Hessian>(
     sparse: Option<SparseSolver>,
 ) -> impl FnMut(H, &[bool], &[usize], &Vector, &mut Vector) -> Result<(), OptimizationError> {
@@ -1408,6 +1464,8 @@ fn constrained_fixed<L, J, H, X, E>(
     mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
     mut solve: impl FnMut(H, &[bool], &[usize], &Vector, &mut Vector) -> Result<(), OptimizationError>,
+    minimizing: bool,
+    mut verify: impl FnMut(H, &[usize]) -> Option<bool>,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
@@ -1434,6 +1492,9 @@ where
     loop {
         residual = jacobian(&solution)?.retain_from(&retained);
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol.residual() {
+            if minimizing && verify(hessian(&solution)?, &unmap) == Some(false) {
+                return Err(not_minimum(newton_raphson, unmap.len(), 0));
+            }
             return Ok(solution);
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(
@@ -1512,6 +1573,7 @@ fn constrained<J, H, X>(
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
+    minimizing: bool,
     sparse: Option<SparseSolver>,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
@@ -1555,6 +1617,24 @@ where
             &mut residual,
         );
         if converged(newton_raphson, &residual, num_variables, &mut scales) {
+            if minimizing && let Some(ref solver) = sparse {
+                let hess = hessian(&solution)?;
+                let verdict = solver.is_minimum(
+                    |i, j| {
+                        if i >= num_variables {
+                            -constraint_matrix[i - num_variables][j]
+                        } else if j >= num_variables {
+                            -constraint_matrix[j - num_variables][i]
+                        } else {
+                            hess.entry(i, j)
+                        }
+                    },
+                    num_constraints,
+                );
+                if verdict == Some(false) {
+                    return Err(not_minimum(newton_raphson, num_variables, num_constraints));
+                }
+            }
             return Ok(solution);
         } else if steps == newton_raphson.max_steps {
             return Err(OptimizationError::MaximumStepsReached(

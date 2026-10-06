@@ -713,3 +713,118 @@ mod block {
         )
     }
 }
+
+mod verified_minimum {
+    use super::*;
+    use crate::math::{Matrix, SquareMatrix, Vector, sparse::SparseSolver};
+    fn diagonal(entries: [Scalar; 2]) -> impl Fn(&Vector) -> Result<SquareMatrix, String> {
+        move |_| Ok(SquareMatrix::from([[entries[0], 0.0], [0.0, entries[1]]]))
+    }
+    fn minimized(
+        curvature: [Scalar; 2],
+        equality_constraint: EqualityConstraint,
+        pattern: Vec<(usize, usize)>,
+    ) -> Result<Vector, OptimizationError> {
+        let num = pattern.iter().map(|&(i, j)| i.max(j)).max().unwrap() + 1;
+        NewtonRaphson::default().minimize(
+            |x: &Vector| Ok((curvature[0] * x[0].powi(2) + curvature[1] * x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(Vector::from([curvature[0] * x[0], curvature[1] * x[1]])),
+            diagonal(curvature),
+            Vector::from([1.0, 1.0]),
+            equality_constraint,
+            Some(SparseSolver::from_pattern(num, pattern, true)),
+        )
+    }
+    fn diagonal_pattern() -> Vec<(usize, usize)> {
+        vec![(0, 0), (1, 1)]
+    }
+    fn bordered_pattern() -> Vec<(usize, usize)> {
+        vec![(0, 0), (1, 1), (0, 2), (2, 0), (1, 2), (2, 1)]
+    }
+    fn sum_constraint() -> EqualityConstraint {
+        let mut matrix = Matrix::zero(1, 2);
+        matrix[0][0] = 1.0;
+        matrix[0][1] = 1.0;
+        EqualityConstraint::Linear(matrix, Vector::from([2.0]))
+    }
+    fn is_not_minimum(result: Result<Vector, OptimizationError>) -> bool {
+        result.is_err_and(|error| error.to_string().contains("not a minimum"))
+    }
+    #[test]
+    fn unconstrained_minimum() {
+        assert!(minimized([1.0, 2.0], EqualityConstraint::None, diagonal_pattern()).is_ok())
+    }
+    #[test]
+    fn unconstrained_saddle() {
+        assert!(is_not_minimum(minimized(
+            [1.0, -1.0],
+            EqualityConstraint::None,
+            diagonal_pattern()
+        )))
+    }
+    #[test]
+    fn unconstrained_maximum() {
+        assert!(is_not_minimum(minimized(
+            [-1.0, -2.0],
+            EqualityConstraint::None,
+            diagonal_pattern()
+        )))
+    }
+    #[test]
+    fn fixed_saddle() {
+        let fixed = || EqualityConstraint::Fixed(vec![2]);
+        let run = |curvature: [Scalar; 2]| {
+            NewtonRaphson::default().minimize(
+                |x: &Vector| {
+                    Ok(
+                        (curvature[0] * x[0].powi(2) + curvature[1] * x[1].powi(2) + x[2].powi(2))
+                            / 2.0,
+                    )
+                },
+                |x: &Vector| {
+                    Ok(Vector::from([
+                        curvature[0] * x[0],
+                        curvature[1] * x[1],
+                        x[2],
+                    ]))
+                },
+                |_: &Vector| {
+                    Ok(SquareMatrix::from([
+                        [curvature[0], 0.0, 0.0],
+                        [0.0, curvature[1], 0.0],
+                        [0.0, 0.0, 1.0],
+                    ]))
+                },
+                Vector::from([1.0, 1.0, 1.0]),
+                fixed(),
+                Some(SparseSolver::from_pattern(2, diagonal_pattern(), true)),
+            )
+        };
+        assert!(run([1.0, 2.0]).is_ok());
+        assert!(is_not_minimum(run([1.0, -2.0])))
+    }
+    #[test]
+    fn constrained_minimum_with_indefinite_hessian() {
+        assert!(minimized([3.0, -1.0], sum_constraint(), bordered_pattern()).is_ok())
+    }
+    #[test]
+    fn constrained_saddle() {
+        assert!(is_not_minimum(minimized(
+            [1.0, -3.0],
+            sum_constraint(),
+            bordered_pattern()
+        )))
+    }
+    #[test]
+    fn dense_is_not_checked() {
+        let saddle = NewtonRaphson::default().minimize(
+            |x: &Vector| Ok((x[0].powi(2) - x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(Vector::from([x[0], -x[1]])),
+            diagonal([1.0, -1.0]),
+            Vector::from([1.0, 1.0]),
+            EqualityConstraint::None,
+            None,
+        );
+        assert!(saddle.is_ok())
+    }
+}
