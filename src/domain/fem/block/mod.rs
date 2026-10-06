@@ -7,6 +7,7 @@ pub mod mass;
 pub mod solid;
 pub mod surface;
 pub mod thermal;
+mod time_scale;
 
 use crate::{
     fem::{

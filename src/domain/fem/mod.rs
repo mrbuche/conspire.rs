@@ -10,6 +10,7 @@ mod from;
 pub mod mass;
 pub mod solid;
 pub mod thermal;
+pub mod time_scale;
 
 pub(crate) use crate::domain::nodal_coordinates;
 pub use crate::domain::{

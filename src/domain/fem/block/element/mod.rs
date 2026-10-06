@@ -12,6 +12,7 @@ pub mod serendipity;
 pub mod solid;
 pub mod surface;
 pub mod thermal;
+pub mod time_scale;
 
 use crate::{
     domain::block::element::{ElementError, ElementKind},
