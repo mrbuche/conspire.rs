@@ -69,6 +69,58 @@ macro_rules! test_explicit_fixed_step {
                     .eq_within_tols(f, &(y * -RATE))
                 })
         }
+        #[test]
+        fn derivative_is_evaluated_at_the_solution() -> Result<(), AssertionError> {
+            let (time, solution, function): (
+                Times,
+                TensorVector<Quantity>,
+                TensorVector<Quantity<Rate>>,
+            ) = $integration.integrate(
+                |_: Quantity<Time>, x: &Quantity| Ok(x * -RATE),
+                &zero_to_one::<LENGTH>(),
+                Quantity::new(1.0),
+            )?;
+            assert_eq!(time.len(), function.len());
+            solution.iter().zip(function.iter()).try_for_each(|(y, f)| {
+                $crate::math::assert::Assert {
+                    abs_tol: 1e-12,
+                    rel_tol: 1e-12,
+                    ..Default::default()
+                }
+                .eq_within_tols(f, &(y * -RATE))
+            })
+        }
+        #[test]
+        fn function_evaluations_per_step() -> Result<(), AssertionError> {
+            fn stages<I>(_: &I) -> usize
+            where
+                I: crate::math::integrate::FixedStepExplicit<
+                        Quantity,
+                        TensorVector<Quantity>,
+                        TensorVector<Quantity<Rate>>,
+                    >,
+            {
+                <I::Tableau as crate::math::integrate::ButcherTableau>::STAGES.min(
+                    <I as crate::math::integrate::Explicit<
+                        Quantity,
+                        TensorVector<Quantity>,
+                        TensorVector<Quantity<Rate>>,
+                    >>::SLOPES,
+                )
+            }
+            let mut evaluations = 0;
+            let (time, ..): (Times, TensorVector<Quantity>, TensorVector<Quantity<Rate>>) =
+                $integration.integrate(
+                    |_: Quantity<Time>, x: &Quantity| {
+                        evaluations += 1;
+                        Ok(x * -RATE)
+                    },
+                    &zero_to_one::<LENGTH>(),
+                    Quantity::new(1.0),
+                )?;
+            assert_eq!(evaluations, stages(&$integration) * (time.len() - 1) + 1);
+            Ok(())
+        }
         fn stability<I>(_: &I) -> $crate::math::integrate::StabilityRegion
         where
             I: $crate::math::integrate::FixedStepExplicit<

@@ -108,7 +108,7 @@ where
         let mut y_sol = U::new();
         y_sol.push(initial_condition.clone());
         let mut dydt_sol = V::new();
-        dydt_sol.push(function(t, &y.clone())?);
+        dydt_sol.push(k[0].clone());
         let mut y_trial = Y::default();
         while t < t_f {
             t_trial = t_sol[index + 1];
@@ -120,6 +120,7 @@ where
                 t += dt;
                 y = y_trial.clone();
                 y_sol.push(y.clone());
+                k[0] = function(t, &y).map_err(|error| IntegrationError::upstream(error, self))?;
                 dydt_sol.push(k[0].clone());
                 index += 1;
             }
@@ -135,7 +136,6 @@ where
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
     ) -> Result<(), String> {
-        k[0] = function(t, y)?;
         for i in 1..Self::Tableau::STAGES.min(k.len()) {
             let row = Self::Tableau::A[i];
             let mut stage = &k[0] * (row[0] * dt);
