@@ -79,12 +79,20 @@ macro_rules! test_solid_hyperelastic_constitutive_model
 {
     ($constitutive_model: expr) =>
     {
+        crate::constitutive::solid::hyperelastic::test::test_solid_hyperelastic_constitutive_model!(
+            $constitutive_model,
+            (0.77, 0.88)
+        );
+    };
+    ($constitutive_model: expr, $biaxial_compression: expr) =>
+    {
         use_elastic_macros!();
         crate::constitutive::solid::hyperelastic::test::test_solid_hyperelastic_constitutive_model_no_minimize!(
             $constitutive_model
         );
         crate::constitutive::solid::hyperelastic::test::test_minimize_and_root!(
-            $constitutive_model
+            $constitutive_model,
+            $biaxial_compression
         );
     }
 }
@@ -346,7 +354,7 @@ macro_rules! test_solid_hyperelastic_constitutive_model_tangents
 pub(crate) use test_solid_hyperelastic_constitutive_model_tangents;
 
 macro_rules! test_minimize_and_root {
-    ($constitutive_model: expr) => {
+    ($constitutive_model: expr, $biaxial_compression: expr) => {
         crate::constitutive::solid::elastic::test::test_root!($constitutive_model);
         use crate::constitutive::solid::hyperelastic::Hyperelastic;
         macro_rules! test_minimize_with_solver {
@@ -397,8 +405,9 @@ macro_rules! test_minimize_and_root {
                 }
                 #[test]
                 fn biaxial_compression() -> Result<(), crate::math::assert::AssertionError> {
+                    let (stretch_1, stretch_2) = $biaxial_compression;
                     let deformation_gradient = $constitutive_model
-                        .minimize(AppliedLoad::BiaxialStress(0.77, 0.88), $solver)?;
+                        .minimize(AppliedLoad::BiaxialStress(stretch_1, stretch_2), $solver)?;
                     let cauchy_stress = $constitutive_model.cauchy_stress(&deformation_gradient)?;
                     assert!(cauchy_stress[0][0].value() < 0.0);
                     assert!(cauchy_stress[1][1].value() < 0.0);

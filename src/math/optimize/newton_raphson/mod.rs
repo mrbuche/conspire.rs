@@ -1367,10 +1367,17 @@ where
     loop {
         residual = jacobian(&solution)?;
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol.residual() {
-            if minimizing && let Some(ref solver) = sparse {
+            if minimizing {
                 let hess = hessian(&solution)?;
-                if solver.is_minimum(|i, j| hess.entry(i, j), 0) == Some(false) {
-                    return Err(not_minimum(newton_raphson, flattened.len(), 0));
+                let verdict = if let Some(ref solver) = sparse {
+                    solver.is_minimum(|i, j| hess.entry(i, j), 0)
+                } else {
+                    let mut square = SquareMatrix::zero(solution.size());
+                    hess.fill_into(&mut square);
+                    square.factorize_ldl().ok().map(|ldl| ldl.is_minimum(0))
+                };
+                if verdict == Some(false) {
+                    return Err(not_minimum(newton_raphson, solution.size(), 0));
                 }
             }
             return Ok(solution);
@@ -1424,15 +1431,20 @@ fn not_minimum(
     )
 }
 
-fn unchecked<H>(_: H, _: &[usize]) -> Option<bool> {
+fn unchecked<H>(_: H, _: &[bool], _: &[usize]) -> Option<bool> {
     None
 }
 
-fn verified<H: Hessian>(sparse: Option<SparseSolver>) -> impl FnMut(H, &[usize]) -> Option<bool> {
-    move |hessian, unmap| {
-        sparse
-            .as_ref()?
-            .is_minimum(|i, j| hessian.entry(unmap[i], unmap[j]), 0)
+fn verified<H: Hessian>(
+    sparse: Option<SparseSolver>,
+) -> impl FnMut(H, &[bool], &[usize]) -> Option<bool> {
+    move |hessian, retained, unmap| match &sparse {
+        Some(solver) => solver.is_minimum(|i, j| hessian.entry(unmap[i], unmap[j]), 0),
+        None => hessian
+            .retain_from(retained)
+            .factorize_ldl()
+            .ok()
+            .map(|ldl| ldl.is_minimum(0)),
     }
 }
 
@@ -1465,7 +1477,7 @@ fn constrained_fixed<L, J, H, X, E>(
     initial_guess: X,
     mut solve: impl FnMut(H, &[bool], &[usize], &Vector, &mut Vector) -> Result<(), OptimizationError>,
     minimizing: bool,
-    mut verify: impl FnMut(H, &[usize]) -> Option<bool>,
+    mut verify: impl FnMut(H, &[bool], &[usize]) -> Option<bool>,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
@@ -1492,7 +1504,7 @@ where
     loop {
         residual = jacobian(&solution)?.retain_from(&retained);
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol.residual() {
-            if minimizing && verify(hessian(&solution)?, &unmap) == Some(false) {
+            if minimizing && verify(hessian(&solution)?, &retained, &unmap) == Some(false) {
                 return Err(not_minimum(newton_raphson, unmap.len(), 0));
             }
             return Ok(solution);
@@ -1617,6 +1629,15 @@ where
             &mut residual,
         );
         if converged(newton_raphson, &residual, num_variables, &mut scales) {
+            if minimizing && sparse.is_none() {
+                hessian(&solution)?.fill_into(&mut tangent);
+                if tangent
+                    .factorize_ldl()
+                    .is_ok_and(|ldl| !ldl.is_minimum(num_constraints))
+                {
+                    return Err(not_minimum(newton_raphson, num_variables, num_constraints));
+                }
+            }
             if minimizing && let Some(ref solver) = sparse {
                 let hess = hessian(&solution)?;
                 let verdict = solver.is_minimum(
