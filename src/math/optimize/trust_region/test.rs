@@ -83,3 +83,21 @@ fn a_radius_just_inside_the_newton_step_is_not_overshot() {
         "step of norm {norm} for a radius of {radius}"
     )
 }
+
+/// Zero is inadmissible and the first admissible shift the doubling reaches is
+/// the tangent's scale, far above the smallest one: the step must still land
+/// on the radius rather than be damped to a fraction of it.
+#[test]
+fn an_indefinite_tangent_is_not_damped_to_its_scale() {
+    let mut tangent = SquareMatrix::zero(2);
+    tangent[0][0] = -1.0;
+    tangent[1][1] = 1000.0;
+    let residual: Vector = [1.0, 1.0].into_iter().collect();
+    let radius = 0.5;
+    let step = more_sorensen_dense(&tangent, &residual, radius, 2);
+    let norm = (step[0] * step[0] + step[1] * step[1]).sqrt();
+    assert!(
+        (norm - radius).abs() < 2.0 * MORE_SORENSEN_TOLERANCE * radius,
+        "step of norm {norm} for a radius of {radius}"
+    )
+}

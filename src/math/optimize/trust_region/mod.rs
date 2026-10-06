@@ -144,6 +144,7 @@ pub(crate) fn more_sorensen(
     }
     let cap = scale * MORE_SORENSEN_LAMBDA_CAP;
     let mut lambda = scale;
+    let mut below = 0.0;
     let mut admissible = None;
     while lambda <= cap {
         if let Some((step, inertia)) = solve(lambda)
@@ -152,6 +153,7 @@ pub(crate) fn more_sorensen(
             admissible = Some((lambda, step));
             break;
         }
+        below = lambda;
         lambda *= 2.0
     }
     // No lambda up to the cap made the shift admissible at all: the model
@@ -163,40 +165,52 @@ pub(crate) fn more_sorensen(
             .map(|(step, _)| step)
             .unwrap_or_else(|| Vector::zero(size));
     };
-    let fits = step_norm(&step_bar, num_variables) <= radius;
-    if fits && !admissible_at_zero {
-        // Nothing below `lambda_bar` is admissible at all, so a step already
-        // inside the radius is as close to the boundary as this model reaches.
-        return step_bar;
-    }
-    let (mut lambda_lo, mut lambda_hi, step_hi) = if fits {
-        //
-        // The doubling search only looks for an admissible shift, and starts
-        // at the tangent's own scale; when zero was admissible already that
-        // overshoots the boundary badly, damping a step that only needed
-        // shortening. Bracket back down toward the unshifted step instead of
-        // taking the overshoot.
-        //
+    let (mut lambda_lo, mut lambda_hi, mut step_hi) = if admissible_at_zero {
+        // The doubling search starts at the tangent's own scale, which
+        // overshoots a boundary that only needed the step shortened; bracket
+        // back down toward the unshifted step instead.
         (0.0, lambda_bar, step_bar)
     } else {
-        // The equality-constraint rows are never shifted, so they force the
-        // primal step to satisfy `constraint_matrix * step = constraint_residual`
-        // exactly regardless of lambda: the minimum-norm point on that affine
-        // set is a floor on the achievable step norm no shift can go below. If
-        // doubling stalls (or the cap is hit first), the requested radius is
-        // beneath that floor; return the smallest step found rather than
-        // chasing an unreachable target toward ever larger lambda.
-        let mut lambda_hi = lambda_bar * 2.0;
-        let mut step_hi = step_at(&mut solve, lambda_hi);
-        while step_norm(&step_hi, num_variables) > radius && lambda_hi < cap {
-            lambda_hi = (lambda_hi * 2.0).min(cap);
-            step_hi = step_at(&mut solve, lambda_hi);
+        //
+        // The same overshoot afflicts the first admissible shift when zero is
+        // not: it is only the first one doubling reached, and the smallest
+        // admissible shift can lie orders of magnitude below the tangent's
+        // scale. Admissibility is monotone in lambda, so bisect for its edge.
+        //
+        let (mut lo, mut hi, mut step) = (below, lambda_bar, step_bar);
+        for _ in 0..MORE_SORENSEN_MAX_ITERATIONS {
+            if hi - lo <= MORE_SORENSEN_TOLERANCE * hi {
+                break;
+            }
+            let mid = 0.5 * (lo + hi);
+            match solve(mid) {
+                Some((mid_step, inertia)) if inertia == expected => {
+                    hi = mid;
+                    step = mid_step
+                }
+                _ => lo = mid,
+            }
         }
-        if step_norm(&step_hi, num_variables) > radius {
-            return step_hi;
+        if step_norm(&step, num_variables) <= radius {
+            return step;
         }
-        (lambda_bar, lambda_hi, step_hi)
+        (hi, 2.0 * hi, step_at(&mut solve, 2.0 * hi))
     };
+    // The equality-constraint rows are never shifted, so they force the
+    // primal step to satisfy `constraint_matrix * step = constraint_residual`
+    // exactly regardless of lambda: the minimum-norm point on that affine
+    // set is a floor on the achievable step norm no shift can go below. If
+    // doubling stalls (or the cap is hit first), the requested radius is
+    // beneath that floor; return the smallest step found rather than
+    // chasing an unreachable target toward ever larger lambda.
+    while step_norm(&step_hi, num_variables) > radius && lambda_hi < cap {
+        lambda_lo = lambda_hi;
+        lambda_hi = (lambda_hi * 2.0).min(cap);
+        step_hi = step_at(&mut solve, lambda_hi);
+    }
+    if step_norm(&step_hi, num_variables) > radius {
+        return step_hi;
+    }
     let mut step = step_hi;
     for _ in 0..MORE_SORENSEN_MAX_ITERATIONS {
         let lambda_mid = 0.5 * (lambda_lo + lambda_hi);
