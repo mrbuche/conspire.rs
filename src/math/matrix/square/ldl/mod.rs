@@ -272,6 +272,13 @@ impl LdlDecomposition {
         }
         (positive, negative, zero)
     }
+    /// Whether the factorized matrix, the Hessian bordered by the given number of
+    /// independent constraints, is positive definite on the constraints' null space.
+    ///
+    /// At a stationary point this is the second-order sufficient condition for a minimum.
+    pub fn is_minimum(&self, constraints: usize) -> bool {
+        self.inertia() == (self.permutation.len() - constraints, constraints, 0)
+    }
     /// Solve a system of linear equations for another right-hand side.
     pub fn solve(&self, b: &Vector) -> Vector {
         let mut x = Vector::zero(self.permutation.len());

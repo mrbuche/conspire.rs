@@ -157,3 +157,46 @@ fn inertia_refactorized_in_place() {
         .unwrap();
     assert_eq!(decomposition.inertia(), (1, 2, 0))
 }
+
+#[test]
+fn is_minimum_unconstrained() {
+    assert!(
+        diagonal(&[1.0, 2.0, 3.0])
+            .factorize_ldl()
+            .unwrap()
+            .is_minimum(0)
+    );
+    assert!(
+        !diagonal(&[1.0, -2.0, 3.0])
+            .factorize_ldl()
+            .unwrap()
+            .is_minimum(0)
+    );
+    assert!(
+        !diagonal(&[-1.0, -2.0])
+            .factorize_ldl()
+            .unwrap()
+            .is_minimum(0)
+    )
+}
+
+#[test]
+fn is_minimum_constrained() {
+    let minimum = SquareMatrix::from([
+        [1.0, 0.0, 0.0, 1.0],
+        [0.0, 1.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0, 1.0],
+        [1.0, 1.0, 1.0, 0.0],
+    ]);
+    assert!(minimum.factorize_ldl().unwrap().is_minimum(1));
+    assert!(!minimum.factorize_ldl().unwrap().is_minimum(0));
+    assert!(!minimum.factorize_ldl().unwrap().is_minimum(2))
+}
+
+#[test]
+fn is_minimum_constrained_indefinite_hessian() {
+    let minimum = SquareMatrix::from([[-1.0, 0.0, 1.0], [0.0, 2.0, 0.0], [1.0, 0.0, 0.0]]);
+    assert!(minimum.factorize_ldl().unwrap().is_minimum(1));
+    let saddle = SquareMatrix::from([[1.0, 0.0, 1.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]]);
+    assert!(!saddle.factorize_ldl().unwrap().is_minimum(1))
+}
