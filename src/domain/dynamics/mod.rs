@@ -21,8 +21,6 @@ type Solution = (
     NodalAccelerationsHistory<3>,
 );
 
-/// The inverse of the masses with the fixed degrees of freedom held, and the velocities
-/// without any on those degrees of freedom.
 fn held<M>(
     masses: &M,
     equality_constraint: EqualityConstraint,
@@ -64,7 +62,7 @@ where
     /// Integrates the motion of the model with an explicit dynamics integrator.
     ///
     /// The masses may be lumped or consistent. Fixed degrees of freedom, whose indices are
-    /// `3 * node + component`, are held by giving them no velocity, and no acceleration
+    /// `D * node + component`, are held by giving them no velocity, and no acceleration
     /// from the inverse of the masses. Linear constraints are not supported.
     pub fn integrate(
         &self,
