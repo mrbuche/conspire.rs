@@ -122,11 +122,57 @@ fn shared_edge_averages_the_face_normals() {
 }
 
 #[test]
-fn unique_nearest_face_keeps_its_normal() {
+fn unique_nearest_face_keeps_its_point_and_leans_little_on_the_neighbours() {
     let (point, normal) = targets(&[[0.3, 0.2, 0.2]])[0];
     let unit = 3.0_f64.sqrt().recip();
     assert!(close(point, [0.4, 0.3, 0.3]), "{point:?}");
-    assert!(close(normal, [unit, unit, unit]), "{normal:?}");
+    let alignment = (normal[0] + normal[1] + normal[2]) * unit;
+    assert!(alignment > 0.94, "{normal:?}");
+    let magnitude = normal.iter().map(|entry| entry * entry).sum::<f64>().sqrt();
+    assert!((magnitude - 1.0).abs() < 1.0e-12, "{normal:?}");
+}
+
+#[test]
+fn smooth_surfaces_return_a_normal_closer_to_the_true_one_than_the_facet() {
+    let tessellation = octahedron(2);
+    let oracle = Oracle::new(&tessellation);
+    let queries: Vec<[f64; 3]> = (0..40)
+        .map(|k| {
+            let (u, v) = (0.37 * k as f64 + 0.2, 0.61 * k as f64 + 0.1);
+            let radius = 0.9;
+            [
+                radius * u.cos() * v.sin(),
+                radius * u.sin() * v.sin(),
+                radius * v.cos(),
+            ]
+        })
+        .collect();
+    let coordinates = Coordinates::from(queries.clone());
+    let faces: Vec<Vec<usize>> = (0..queries.len()).map(|query| vec![query]).collect();
+    let (mut smooth, mut flat) = (0.0, 0.0);
+    oracle
+        .targets(&faces, &coordinates, 1)
+        .unwrap()
+        .into_iter()
+        .zip(&queries)
+        .for_each(|((_, normal, _), query)| {
+            let radial = {
+                let norm = query.iter().map(|entry| entry * entry).sum::<f64>().sqrt();
+                query.map(|entry| entry / norm)
+            };
+            let (_, index) = oracle
+                .bvh
+                .closest_point(
+                    &Coordinates::from(vec![*query])[0],
+                    oracle.coordinates,
+                    &oracle.elements,
+                )
+                .unwrap();
+            let facet = &oracle.normals[index];
+            smooth += (0..3).map(|i| normal[i].value() * radial[i]).sum::<f64>();
+            flat += (0..3).map(|i| facet[i].value() * radial[i]).sum::<f64>();
+        });
+    assert!(smooth > flat, "smooth {smooth} vs flat {flat}");
 }
 
 #[test]
