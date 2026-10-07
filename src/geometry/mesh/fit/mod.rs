@@ -41,7 +41,7 @@ const HISTORY: usize = 8;
 const ITERATIONS: usize = 100;
 const NORMAL_FLOOR: Quantity = Dimensionless::of(1.0e-9);
 const RELAXATION: Scalar = 0.1;
-const SMOOTH_CONE: Quantity = Dimensionless::of(0.94);
+const CREASE: Quantity = Dimensionless::of(0.866);
 const STAGNATION: Scalar = 5.0e-4;
 const SWEEPS: usize = 50;
 const TIE_TOLERANCE: Scalar = 1.0e-6;
@@ -73,7 +73,7 @@ struct Oracle<'a> {
     coordinates: &'a Coordinates<3>,
     elements: Vec<&'a [usize]>,
     normals: DirectionsRef<'a, 3>,
-    vertex_normals: Vec<Direction<3>>,
+    corners: Vec<[Direction<3>; 3]>,
 }
 
 struct Sweep<'a> {
@@ -255,12 +255,13 @@ impl Mesh<3> {
 impl<'a> Oracle<'a> {
     fn new(target: &'a Tessellation) -> Self {
         let surface = target.mesh();
+        let normals: Vec<&Direction<3>> = target.normals().iter().flatten().collect();
         Self {
             bvh: target.bvh(),
             coordinates: surface.coordinates(),
+            corners: corner_normals(surface, &normals),
             elements: surface.connectivities().iter().flatten().collect(),
-            normals: target.normals().iter().flatten().collect(),
-            vertex_normals: vertex_normals(surface),
+            normals: normals.into_iter().collect(),
         }
     }
     fn tied_target(
@@ -309,17 +310,14 @@ impl<'a> Oracle<'a> {
         }
         let beta = (d11 * d20 - d01 * d21) / denominator;
         let gamma = (d00 * d21 - d01 * d20) / denominator;
-        let mut normal = &self.vertex_normals[triangle[0]] * (1.0 - beta - gamma);
-        normal += &self.vertex_normals[triangle[1]] * beta;
-        normal += &self.vertex_normals[triangle[2]] * gamma;
+        let corners = &self.corners[index];
+        let mut normal = &corners[0] * (1.0 - beta - gamma);
+        normal += &corners[1] * beta;
+        normal += &corners[2] * gamma;
         if normal.norm() < NORMAL_FLOOR {
-            return facet;
-        }
-        let normal = normal.normalized();
-        if normal.contract_with(&facet) < SMOOTH_CONE {
             facet
         } else {
-            normal
+            normal.normalized()
         }
     }
     fn targets(
@@ -371,35 +369,43 @@ impl<'a> Oracle<'a> {
     }
 }
 
-fn vertex_normals(surface: &Mesh<3>) -> Vec<Direction<3>> {
+fn corner_normals(surface: &Mesh<3>, normals: &[&Direction<3>]) -> Vec<[Direction<3>; 3]> {
     let coordinates = surface.coordinates();
-    let mut normals = vec![Direction::<3>::const_from([0.0; 3]); coordinates.len()];
-    surface
-        .connectivities()
+    let triangles: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
+    let angles: Vec<[Scalar; 3]> = triangles
         .iter()
-        .flatten()
-        .for_each(|triangle| {
-            let node = [triangle[0], triangle[1], triangle[2]];
-            let point = node.map(|node| &coordinates[node]);
-            let facet = (point[1] - point[0])
-                .cross(point[2] - point[0])
-                .normalized();
-            (0..3).for_each(|corner| {
+        .map(|triangle| {
+            let point = from_fn::<_, 3, _>(|corner| &coordinates[triangle[corner]]);
+            from_fn(|corner| {
                 let here = point[corner];
                 let one = (point[(corner + 1) % 3] - here).normalized();
                 let two = (point[(corner + 2) % 3] - here).normalized();
-                let angle = (one * two).clamp(-1.0, 1.0).acos();
-                normals[node[corner]] += &facet * angle;
+                (one * two).clamp(-1.0, 1.0).acos()
             })
-        });
-    normals
-        .into_iter()
-        .map(|normal| {
-            if normal.norm() < NORMAL_FLOOR {
-                normal
-            } else {
-                normal.normalized()
-            }
+        })
+        .collect();
+    let mut incident = vec![Vec::new(); coordinates.len()];
+    triangles.iter().enumerate().for_each(|(index, triangle)| {
+        (0..3).for_each(|corner| incident[triangle[corner]].push((index, corner)))
+    });
+    triangles
+        .iter()
+        .enumerate()
+        .map(|(index, triangle)| {
+            from_fn(|corner| {
+                let own = normals[index];
+                let sum = incident[triangle[corner]]
+                    .iter()
+                    .filter(|&&(other, _)| normals[other].contract_with(own) >= CREASE)
+                    .fold(Direction::<3>::const_from([0.0; 3]), |sum, &(other, at)| {
+                        sum + normals[other] * angles[other][at]
+                    });
+                if sum.norm() > NORMAL_FLOOR {
+                    sum.normalized()
+                } else {
+                    own.clone()
+                }
+            })
         })
         .collect()
 }
