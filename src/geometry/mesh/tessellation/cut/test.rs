@@ -17,7 +17,7 @@ fn cut(
     balancing: Balancing,
     scale: f64,
 ) -> Result<Mesh<3>, &'static str> {
-    let (mesh, classes) = tessellation.dual_background(balancing, scale)?;
+    let (mesh, classes) = tessellation.dual_background(balancing, scale, None)?;
     tessellation.cut(mesh, &classes)
 }
 
@@ -31,8 +31,40 @@ fn cut_polyhedral(
     balancing: Balancing,
     scale: f64,
 ) -> Result<Mesh<3>, &'static str> {
-    let (mesh, classes) = tessellation.octree_background(balancing, scale)?;
+    let (mesh, classes) = tessellation.octree_background(balancing, scale, None)?;
     tessellation.cut_polyhedral(mesh, &classes)
+}
+
+#[test]
+fn a_tolerance_refines_the_dual_background() {
+    let sphere = crate::geometry::mesh::test::octahedron(3);
+    let balancing = Balancing::Strong(1);
+    let (coarse, _) = sphere.dual_background(balancing, 3.0, None).unwrap();
+    let (fine, _) = sphere
+        .dual_background(balancing, 3.0, Some(Quantity::new(1.0e-3)))
+        .unwrap();
+    assert!(
+        fine.number_of_elements() > coarse.number_of_elements(),
+        "{} against {}",
+        fine.number_of_elements(),
+        coarse.number_of_elements()
+    );
+}
+
+#[test]
+fn a_tolerance_refines_the_octree_background() {
+    let sphere = crate::geometry::mesh::test::octahedron(3);
+    let balancing = Balancing::Strong(1);
+    let (coarse, _) = sphere.octree_background(balancing, 3.0, None).unwrap();
+    let (fine, _) = sphere
+        .octree_background(balancing, 3.0, Some(Quantity::new(1.0e-3)))
+        .unwrap();
+    assert!(
+        fine.number_of_elements() > coarse.number_of_elements(),
+        "{} against {}",
+        fine.number_of_elements(),
+        coarse.number_of_elements()
+    );
 }
 
 pub(super) fn signed_volumes(
@@ -596,7 +628,7 @@ fn check_octree_tet_background(tessellation: &Tessellation, graded: bool) {
         volume_of(&mesh)
     );
     let (polyhedra, _) = tessellation
-        .octree_background(Balancing::Strong(1), 1.0)
+        .octree_background(Balancing::Strong(1), 1.0, None)
         .unwrap();
     let leaves = polyhedra.number_of_elements();
     if graded {
