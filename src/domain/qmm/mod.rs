@@ -2,6 +2,8 @@
 
 pub mod block;
 mod discretization;
+#[cfg(test)]
+mod dynamics;
 
 pub use crate::domain::{
     ElementModelError, FirstOrderRoot, Model, NodalCoordinates, NodalReferenceCoordinates,
