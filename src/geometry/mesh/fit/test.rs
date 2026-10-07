@@ -5,6 +5,7 @@ use crate::{
     geometry::{
         Coordinates,
         mesh::{
+            Connectivity, Mesh, Tessellation,
             quality::metrics::{hexahedron, tetrahedron},
             test::octahedron,
         },
@@ -122,14 +123,54 @@ fn shared_edge_averages_the_face_normals() {
 }
 
 #[test]
-fn unique_nearest_face_keeps_its_point_and_leans_little_on_the_neighbours() {
+fn unique_nearest_face_keeps_its_normal() {
     let (point, normal) = targets(&[[0.3, 0.2, 0.2]])[0];
     let unit = 3.0_f64.sqrt().recip();
     assert!(close(point, [0.4, 0.3, 0.3]), "{point:?}");
-    let alignment = (normal[0] + normal[1] + normal[2]) * unit;
-    assert!(alignment > 0.94, "{normal:?}");
-    let magnitude = normal.iter().map(|entry| entry * entry).sum::<f64>().sqrt();
-    assert!((magnitude - 1.0).abs() < 1.0e-12, "{normal:?}");
+    assert!(close(normal, [unit, unit, unit]), "{normal:?}");
+}
+
+fn bent(angle: f64) -> Oracle<'static> {
+    let (sine, cosine) = angle.sin_cos();
+    let tessellation = Box::leak(Box::new(Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(vec![[0, 1, 2], [1, 0, 3]].into())],
+        Coordinates::from(vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, -cosine, sine],
+        ]),
+    )))));
+    Oracle::new(tessellation)
+}
+
+fn corner(oracle: &Oracle, triangle: usize, corner: usize) -> [f64; 3] {
+    from_fn(|i| oracle.corners[triangle][corner][i].value())
+}
+
+fn facet(oracle: &Oracle, triangle: usize) -> [f64; 3] {
+    from_fn(|i| oracle.normals[triangle][i].value())
+}
+
+#[test]
+fn shallow_bend_shares_one_normal_across_the_edge() {
+    let oracle = bent(0.2);
+    assert!(close(corner(&oracle, 0, 0), corner(&oracle, 1, 1)));
+    assert!(close(corner(&oracle, 0, 1), corner(&oracle, 1, 0)));
+    assert!(!close(corner(&oracle, 0, 0), facet(&oracle, 0)));
+}
+
+#[test]
+fn sharp_bend_keeps_each_facet_normal_at_the_edge() {
+    let oracle = bent(1.5);
+    (0..2).for_each(|triangle| {
+        (0..3).for_each(|at| {
+            assert!(
+                close(corner(&oracle, triangle, at), facet(&oracle, triangle)),
+                "{triangle} {at}"
+            )
+        })
+    });
 }
 
 #[test]
