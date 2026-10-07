@@ -13,7 +13,7 @@ use crate::{
     },
 };
 
-impl<C, F> HyperelasticElements<3> for Block<C, F>
+impl<C, F, R> HyperelasticElements<3> for Block<C, F, R>
 where
     C: Hyperelastic,
     F: HyperelasticVirtualElement<C>,

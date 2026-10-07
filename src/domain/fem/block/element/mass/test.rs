@@ -1,10 +1,10 @@
 use crate::{
     fem::block::element::{
         ElementNodalReferenceCoordinates, FiniteElement,
-        linear::{Hexahedron, Tetrahedron},
+        linear::{Hexahedron, Pyramid, Tetrahedron},
         mass::{
-            ElementNodalLumpedMasses, ElementNodalMasses, IntegrationDensities,
-            LumpedMassFiniteElement, MassFiniteElement,
+            DiagonallyScaledMassFiniteElement, ElementNodalLumpedMasses, ElementNodalMasses,
+            IntegrationDensities, LumpedMassFiniteElement, MassFiniteElement,
         },
     },
     math::{
@@ -54,7 +54,6 @@ fn varying() -> IntegrationDensities<4> {
 
 mod consistent {
     use super::*;
-
     #[test]
     fn matches_the_closed_form_on_a_tetrahedron() -> Result<(), AssertionError> {
         let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
@@ -78,21 +77,18 @@ mod consistent {
 
 mod lumped {
     use super::*;
-
     #[test]
     fn shares_a_tetrahedron_equally_with_one_point() -> Result<(), AssertionError> {
         let element = Tetrahedron::<1>::from(tetrahedron_coordinates());
         let expected: ElementNodalLumpedMasses<4> = [DENSITY * element.volume() / 4.0; 4].into();
         Assert::default().eq_within_tols(element.nodal_lumped_masses(&uniform()), &expected)
     }
-
     #[test]
     fn shares_a_tetrahedron_equally_with_four_points() -> Result<(), AssertionError> {
         let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
         let expected: ElementNodalLumpedMasses<4> = [DENSITY * element.volume() / 4.0; 4].into();
         Assert::default().eq_within_tols(element.nodal_lumped_masses(&uniform()), &expected)
     }
-
     #[test]
     fn shares_a_hexahedron_equally() -> Result<(), AssertionError> {
         let element = Hexahedron::from(hexahedron_coordinates());
@@ -101,7 +97,6 @@ mod lumped {
         let expected: ElementNodalLumpedMasses<8> = [mass / 8.0; 8].into();
         Assert::default().eq_within_tols(element.nodal_lumped_masses(&uniform()), &expected)
     }
-
     #[test]
     fn is_the_row_sum_of_the_consistent_mass() -> Result<(), AssertionError> {
         let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
@@ -112,7 +107,6 @@ mod lumped {
             .collect();
         Assert::default().eq_within_tols(element.nodal_lumped_masses(&varying()), &row_sums)
     }
-
     #[test]
     fn totals_the_mass_integrated_over_the_points() -> Result<(), AssertionError> {
         let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
@@ -127,5 +121,83 @@ mod lumped {
             .copied()
             .sum::<Quantity<Mass>>();
         Assert::default().eq_within_tols(total, &expected)
+    }
+}
+
+fn pyramid_coordinates() -> ElementNodalReferenceCoordinates<5> {
+    ElementNodalReferenceCoordinates::from([
+        [0.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [2.0, 2.0, 0.0],
+        [0.0, 2.0, 0.0],
+        [1.0, 1.0, 1.5],
+    ])
+}
+
+mod diagonally_scaled {
+    use super::*;
+    #[test]
+    fn is_the_scaled_diagonal_of_the_consistent_mass() -> Result<(), AssertionError> {
+        let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
+        let consistent = element.nodal_masses(&varying());
+        let total = consistent
+            .iter()
+            .flat_map(|row| row.iter().copied())
+            .sum::<Quantity<Mass>>();
+        let trace = (0..4).map(|a| consistent[a][a].value()).sum::<f64>();
+        let expected: ElementNodalLumpedMasses<4> = (0..4)
+            .map(|a| consistent[a][a] * (total.value() / trace))
+            .collect();
+        Assert::default().eq_within_tols(
+            element.nodal_diagonally_scaled_masses(&varying()),
+            &expected,
+        )
+    }
+    #[test]
+    fn matches_the_row_sum_on_a_tetrahedron() -> Result<(), AssertionError> {
+        let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
+        Assert::default().eq_within_tols(
+            element.nodal_diagonally_scaled_masses(&uniform()),
+            &element.nodal_lumped_masses(&uniform()),
+        )
+    }
+    #[test]
+    fn matches_the_row_sum_on_a_hexahedron() -> Result<(), AssertionError> {
+        let element = Hexahedron::from(hexahedron_coordinates());
+        Assert::default().eq_within_tols(
+            element.nodal_diagonally_scaled_masses(&uniform()),
+            &element.nodal_lumped_masses(&uniform()),
+        )
+    }
+    #[test]
+    fn totals_the_mass_integrated_over_the_points() -> Result<(), AssertionError> {
+        let element = Tetrahedron::<4>::from(tetrahedron_coordinates());
+        let expected = varying()
+            .iter()
+            .zip(element.integration_weights())
+            .map(|(density, integration_weight)| density * integration_weight)
+            .sum::<Quantity<Mass>>();
+        let total = element
+            .nodal_diagonally_scaled_masses(&varying())
+            .iter()
+            .copied()
+            .sum::<Quantity<Mass>>();
+        Assert::default().eq_within_tols(total, &expected)
+    }
+    #[test]
+    fn differs_from_the_row_sum_on_a_pyramid_and_keeps_the_mass() -> Result<(), AssertionError> {
+        let element = Pyramid::from(pyramid_coordinates());
+        let scaled = element.nodal_diagonally_scaled_masses(&uniform());
+        let row_sum = element.nodal_lumped_masses(&uniform());
+        assert!(scaled.iter().all(|mass| mass.value() > 0.0));
+        assert!(
+            scaled
+                .iter()
+                .zip(row_sum.iter())
+                .any(|(a, b)| (a.value() - b.value()).abs() > 1e-6 * b.value())
+        );
+        let total =
+            |masses: &ElementNodalLumpedMasses<5>| masses.iter().copied().sum::<Quantity<Mass>>();
+        Assert::default().eq_within_tols(total(&scaled), &total(&row_sum))
     }
 }

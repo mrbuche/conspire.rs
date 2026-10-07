@@ -22,7 +22,7 @@ pub type NodalForcesSolid = crate::domain::solid::NodalForcesSolid<3>;
 pub type NodalStiffnessesSolid = crate::domain::solid::NodalStiffnessesSolid<3>;
 pub type NodalStiffnessesSolidSymmetric = crate::domain::solid::NodalStiffnessesSolidSymmetric<3>;
 
-impl<C, F> SolidElements for Block<C, F>
+impl<C, F, R> SolidElements for Block<C, F, R>
 where
     C: Solid,
     F: SolidVirtualElement,

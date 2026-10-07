@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-impl<C, F> ViscoelasticElements<3> for Block<C, F>
+impl<C, F, R> ViscoelasticElements<3> for Block<C, F, R>
 where
     C: Viscoelastic,
     F: ViscoelasticVirtualElement<C>,

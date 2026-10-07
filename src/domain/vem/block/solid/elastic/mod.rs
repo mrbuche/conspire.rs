@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-impl<C, F> ElasticElements<3> for Block<C, F>
+impl<C, F, R> ElasticElements<3> for Block<C, F, R>
 where
     C: Elastic,
     F: ElasticVirtualElement<C>,

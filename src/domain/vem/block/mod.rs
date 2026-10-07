@@ -1,7 +1,10 @@
+mod density;
 pub mod element;
+mod mass;
 pub mod solid;
 #[cfg(test)]
 mod test;
+mod time_scale;
 
 use crate::{
     domain::block::element::Elements,
@@ -11,14 +14,17 @@ use crate::{
 };
 use std::fmt::{self, Debug, Formatter};
 
-pub struct Block<C, F> {
+pub use density::{Densities, DensityField, ElementDensities, NoDensity};
+
+pub struct Block<C, F, R = NoDensity> {
     constitutive_model: C,
     connectivity: PolytopalConnectivity<3>,
     elements: Vec<F>,
     elements_nodes: Vec<Vec<usize>>,
+    density: R,
 }
 
-impl<C, F> Block<C, F> {
+impl<C, F, R> Block<C, F, R> {
     pub(crate) fn constitutive_model(&self) -> &C {
         &self.constitutive_model
     }
@@ -45,7 +51,7 @@ impl<C, F> Block<C, F> {
     }
 }
 
-impl<C, F> Debug for Block<C, F> {
+impl<C, F, R> Debug for Block<C, F, R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -56,7 +62,7 @@ impl<C, F> Debug for Block<C, F> {
     }
 }
 
-impl<C, F> Elements for Block<C, F> {
+impl<C, F, R> Elements for Block<C, F, R> {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
         crate::domain::block::add_node_neighbors(
             self.elements_nodes().iter().map(|nodes| nodes.as_slice()),
@@ -111,6 +117,7 @@ where
             connectivity,
             elements,
             elements_nodes,
+            density: NoDensity,
         }
     }
 }

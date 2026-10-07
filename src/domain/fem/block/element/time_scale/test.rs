@@ -1,4 +1,4 @@
-use super::{fastest_time_scale, largest_eigenvalue};
+use super::{fastest_time_scale, largest_eigenvalue, time_scale_exceeds};
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::block::element::{
@@ -240,4 +240,14 @@ fn an_element_without_stiffness_has_an_infinite_time_scale() {
             .value()
             .is_infinite()
     );
+}
+
+#[test]
+fn the_certificate_brackets_the_time_scale() {
+    let reference = hexahedron_reference();
+    let (stiffnesses, masses) =
+        hexahedron_problem(reference, deform(reference), DENSITY, &material());
+    let scale = fastest_time_scale(&stiffnesses, &masses);
+    assert!(time_scale_exceeds(&stiffnesses, &masses, scale * 0.99));
+    assert!(!time_scale_exceeds(&stiffnesses, &masses, scale * 1.01));
 }

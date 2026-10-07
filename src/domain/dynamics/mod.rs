@@ -137,7 +137,7 @@ where
             |_, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
                 if evaluations % interval == 0 {
                     time_scale = self
-                        .fastest_time_scale(coordinates)
+                        .fastest_time_scale(&self.coordinates, coordinates)
                         .map_err(|error| error.to_string())?;
                 }
                 evaluations += 1;

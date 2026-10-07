@@ -20,7 +20,7 @@ use crate::{
     },
 };
 
-impl<C, F> HyperviscoelasticElements<3> for Block<C, F>
+impl<C, F, R> HyperviscoelasticElements<3> for Block<C, F, R>
 where
     C: Hyperviscoelastic,
     F: HyperviscoelasticVirtualElement<C>,
