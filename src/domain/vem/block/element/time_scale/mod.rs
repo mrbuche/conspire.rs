@@ -1,5 +1,11 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
-    domain::time_scale::{largest_eigenvalue as largest_eigenvalue_of, time_scale_from_eigenvalue},
+    domain::time_scale::{
+        largest_eigenvalue as largest_eigenvalue_of, time_scale_exceeds as time_scale_exceeds_of,
+        time_scale_from_eigenvalue,
+    },
     math::{Quantity, Scalar, Tensor},
     units::Time,
     vem::block::element::{mass::ElementNodalLumpedMasses, solid::ElementNodalStiffnessesSolid},
@@ -34,4 +40,30 @@ pub fn fastest_time_scale(
     nodal_lumped_masses: &ElementNodalLumpedMasses,
 ) -> Quantity<Time> {
     time_scale_from_eigenvalue(largest_eigenvalue(nodal_stiffnesses, nodal_lumped_masses))
+}
+
+/// Whether the fastest time scale of an element is certified to exceed `minimum`.
+///
+/// Certified by the inertia of an LDLᵀ factorization, so unlike [`fastest_time_scale`], which
+/// approaches the highest frequency from below, it cannot pass an element that is too fast.
+/// A time scale equal to `minimum`, up to rounding, is not certified.
+pub fn time_scale_exceeds(
+    nodal_stiffnesses: &ElementNodalStiffnessesSolid,
+    nodal_lumped_masses: &ElementNodalLumpedMasses,
+    minimum: Quantity<Time>,
+) -> bool {
+    assert_eq!(
+        nodal_stiffnesses.len(),
+        nodal_lumped_masses.len(),
+        "The stiffnesses and masses must have the same nodes."
+    );
+    let masses: Vec<Scalar> = (0..3 * nodal_lumped_masses.len())
+        .map(|index| nodal_lumped_masses[index / 3].value())
+        .collect();
+    time_scale_exceeds_of(
+        masses.len(),
+        |row, column| nodal_stiffnesses[row / 3][column / 3][row % 3][column % 3].value(),
+        &masses,
+        minimum,
+    )
 }

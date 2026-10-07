@@ -1,9 +1,12 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
     domain::{
         Blocks, ElementModelError, Model, NodalCoordinates, NodalReferenceCoordinates,
         block::element::Elements,
     },
-    math::{Quantity, Scalar},
+    math::{Quantity, Scalar, SquareMatrix},
     units::Time,
 };
 
@@ -119,4 +122,52 @@ pub(crate) fn time_scale_from_eigenvalue(eigenvalue: Scalar) -> Quantity<Time> {
     } else {
         Time::seconds(Scalar::INFINITY)
     }
+}
+
+/// Whether every eigenvalue of $`M^{-1}K`$ is below `bound`, for the stiffness $`K`$ of `size`
+/// degrees of freedom and the lumped masses $`M`$ on them.
+///
+/// Certified by the inertia of $`\text{bound}\,M - K`$, which is positive definite exactly then.
+/// Unlike [`largest_eigenvalue`] it cannot fall short of the largest eigenvalue, but a bound that
+/// is equal to it, up to rounding, is not certified.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub(crate) fn eigenvalues_below(
+    size: usize,
+    stiffness: impl Fn(usize, usize) -> Scalar,
+    masses: &[Scalar],
+    bound: Scalar,
+) -> bool {
+    assert_eq!(
+        size,
+        masses.len(),
+        "There must be a mass for each degree of freedom."
+    );
+    let mut matrix = SquareMatrix::zero(size);
+    (0..size).for_each(|row| {
+        (0..=row).for_each(|column| {
+            let entry = -0.5 * (stiffness(row, column) + stiffness(column, row));
+            matrix[row][column] = entry;
+            matrix[column][row] = entry
+        });
+        matrix[row][row] += bound * masses[row]
+    });
+    matrix
+        .factorize_ldl()
+        .is_ok_and(|decomposition| decomposition.inertia() == (size, 0, 0))
+}
+
+/// Whether the fastest time scale is certified to exceed `minimum`, see [`eigenvalues_below`].
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub(crate) fn time_scale_exceeds(
+    size: usize,
+    stiffness: impl Fn(usize, usize) -> Scalar,
+    masses: &[Scalar],
+    minimum: Quantity<Time>,
+) -> bool {
+    eigenvalues_below(
+        size,
+        stiffness,
+        masses,
+        1.0 / (minimum.value() * minimum.value()),
+    )
 }
