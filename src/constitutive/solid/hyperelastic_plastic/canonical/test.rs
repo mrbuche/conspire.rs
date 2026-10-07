@@ -4,17 +4,18 @@ use crate::{
         canonical::Canonical,
         fluid::plastic::{Linear, PlasticFlow, VonMises, YieldSurface},
         solid::{
-            elastic_plastic::ElasticPlasticOrViscoplastic,
+            elastic_plastic::{AppliedLoad, ElasticPlasticOrViscoplastic, FirstOrderRoot},
             hyperelastic::{Hencky, NeoHookean, SaintVenantKirchhoff},
             hyperelastic_plastic::HyperelasticPlastic,
         },
     },
     math::{
-        Rank2, Tensor,
-        assert::{AssertionError, perturbation},
+        Quantity, Rank2, Tensor,
+        assert::{Assert, AssertionError, perturbation},
+        optimize::{NewtonRaphson, SolveStrategy},
     },
     mechanics::{DeformationGradient, DeformationGradientPlastic},
-    units::Stress,
+    units::{Stress, Time},
 };
 
 macro_rules! test_canonical {
@@ -94,6 +95,50 @@ macro_rules! test_canonical {
                 "da/dgamma: fd {fd} vs -|M'| {exact}",
             );
             Ok(())
+        }
+        #[test]
+        fn solved_load_path_balances_energy() -> Result<(), AssertionError> {
+            let model = model();
+            let steps: Vec<Quantity<Time>> = (0..=400)
+                .map(|step| Quantity::new(0.5 * step as f64 / 400.0))
+                .collect();
+            let (_, fs, states) = FirstOrderRoot::root(
+                &model,
+                AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + t.value(), &steps),
+                NewtonRaphson::default(),
+                SolveStrategy::Condensed(NewtonRaphson::default()),
+            )?;
+            let (fs, states) = (fs.as_slice(), states.as_slice());
+            let stresses = fs
+                .iter()
+                .zip(states)
+                .map(|(f, state)| model.first_piola_kirchhoff_stress(f, &state.0))
+                .collect::<Result<Vec<_>, _>>()?;
+            let yield_stress =
+                |plastic_strain| Stress::pascals(2.0) + Stress::pascals(1.0) * plastic_strain;
+            let work: Quantity<Stress> = stresses
+                .windows(2)
+                .zip(fs.windows(2))
+                .map(|(p, f)| {
+                    ((p[0].clone() + &p[1]) * 0.5 * (f[1].clone() - &f[0]).transpose()).trace()
+                })
+                .sum();
+            let dissipation: Quantity<Stress> = states
+                .windows(2)
+                .map(|s| (yield_stress(s[0].1) + yield_stress(s[1].1)) * 0.5 * (s[1].1 - s[0].1))
+                .sum();
+            let energy = model
+                .helmholtz_free_energy_density(&fs[fs.len() - 1], &states[states.len() - 1].0)?
+                - model.helmholtz_free_energy_density(&fs[0], &states[0].0)?;
+            assert!(
+                dissipation.value() > 1e-2,
+                "the load path must yield for this test to mean anything"
+            );
+            Assert {
+                rel_tol: 2e-3,
+                ..Default::default()
+            }
+            .eq_within_tols(work, &(energy + dissipation))
         }
     };
 }
