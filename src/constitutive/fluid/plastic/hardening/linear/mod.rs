@@ -1,5 +1,9 @@
-use super::PlasticHardening;
-use crate::{constitutive::ConstitutiveError, math::Quantity, units::Stress};
+use super::{PlasticHardening, PlasticWork};
+use crate::{
+    constitutive::ConstitutiveError,
+    math::Quantity,
+    units::{EnergyDensity, Stress},
+};
 
 /// Linear isotropic hardening.
 ///
@@ -29,5 +33,17 @@ impl PlasticHardening for Linear {
         _equivalent_plastic_strain: Quantity,
     ) -> Result<Quantity<Stress>, ConstitutiveError> {
         Ok(self.hardening_slope)
+    }
+}
+
+impl PlasticWork for Linear {
+    fn plastic_work_density(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
+        Ok(
+            (self.yield_stress + self.hardening_slope * equivalent_plastic_strain * 0.5)
+                * equivalent_plastic_strain,
+        )
     }
 }

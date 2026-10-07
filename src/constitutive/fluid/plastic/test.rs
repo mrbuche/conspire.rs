@@ -365,3 +365,37 @@ fn hill_fenchel_equality() -> Result<(), AssertionError> {
         ),
     )
 }
+
+fn assert_work_integrates_the_yield_stress<M: PlasticWork>(
+    model: &M,
+) -> Result<(), AssertionError> {
+    assert_eq!(
+        model.plastic_work_density(Quantity::default())?.value(),
+        0.0
+    );
+    let step = 1e-6;
+    for strain in [0.01, 0.05, 0.3, 1.0] {
+        let finite_difference = (model.plastic_work_density(Quantity::new(strain + step))?
+            - model.plastic_work_density(Quantity::new(strain - step))?)
+            / (2.0 * step);
+        let yield_stress = model.yield_stress(Quantity::new(strain))?;
+        assert!(
+            (yield_stress.value() - finite_difference.value()).abs()
+                <= 1e-6 * (1.0 + yield_stress.value().abs()),
+            "strain {strain}: yield stress {} vs dw/de {}",
+            yield_stress.value(),
+            finite_difference.value(),
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn linear_plastic_work_integrates_the_yield_stress() -> Result<(), AssertionError> {
+    assert_work_integrates_the_yield_stress(&model())
+}
+
+#[test]
+fn voce_plastic_work_integrates_the_yield_stress() -> Result<(), AssertionError> {
+    assert_work_integrates_the_yield_stress(&voce())
+}

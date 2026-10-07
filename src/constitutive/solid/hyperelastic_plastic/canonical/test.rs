@@ -2,7 +2,7 @@ use crate::{
     EPSILON,
     constitutive::{
         canonical::Canonical,
-        fluid::plastic::{Linear, PlasticFlow, VonMises, YieldSurface},
+        fluid::plastic::{Linear, PlasticFlow, PlasticWork, VonMises, YieldSurface},
         solid::{
             elastic_plastic::{AppliedLoad, ElasticPlasticOrViscoplastic, FirstOrderRoot},
             hyperelastic::{Hencky, NeoHookean, SaintVenantKirchhoff},
@@ -114,8 +114,6 @@ macro_rules! test_canonical {
                 .zip(states)
                 .map(|(f, state)| model.first_piola_kirchhoff_stress(f, &state.0))
                 .collect::<Result<Vec<_>, _>>()?;
-            let yield_stress =
-                |plastic_strain| Stress::pascals(2.0) + Stress::pascals(1.0) * plastic_strain;
             let work: Quantity<Stress> = stresses
                 .windows(2)
                 .zip(fs.windows(2))
@@ -123,10 +121,8 @@ macro_rules! test_canonical {
                     ((p[0].clone() + &p[1]) * 0.5 * (f[1].clone() - &f[0]).transpose()).trace()
                 })
                 .sum();
-            let dissipation: Quantity<Stress> = states
-                .windows(2)
-                .map(|s| (yield_stress(s[0].1) + yield_stress(s[1].1)) * 0.5 * (s[1].1 - s[0].1))
-                .sum();
+            let dissipation = model.plastic_work_density(states[states.len() - 1].1)?
+                - model.plastic_work_density(states[0].1)?;
             let energy = model
                 .helmholtz_free_energy_density(&fs[fs.len() - 1], &states[states.len() - 1].0)?
                 - model.helmholtz_free_energy_density(&fs[0], &states[0].0)?;

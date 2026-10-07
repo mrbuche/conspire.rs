@@ -1,5 +1,10 @@
-use super::PlasticHardening;
-use crate::{constitutive::ConstitutiveError, math::Quantity, mechanics::Scalar, units::Stress};
+use super::{PlasticHardening, PlasticWork};
+use crate::{
+    constitutive::ConstitutiveError,
+    math::Quantity,
+    mechanics::Scalar,
+    units::{EnergyDensity, Stress},
+};
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
@@ -34,5 +39,20 @@ impl PlasticHardening for Voce {
     ) -> Result<Quantity<Stress>, ConstitutiveError> {
         let decay = (equivalent_plastic_strain * -self.saturation_rate).exp();
         Ok(self.hardening_slope + self.saturation_stress * decay * self.saturation_rate)
+    }
+}
+
+impl PlasticWork for Voce {
+    fn plastic_work_density(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
+        let decay = (equivalent_plastic_strain * -self.saturation_rate).exp();
+        Ok(
+            (self.yield_stress + self.hardening_slope * equivalent_plastic_strain * 0.5)
+                * equivalent_plastic_strain
+                + self.saturation_stress
+                    * (equivalent_plastic_strain - (1.0 - decay) / self.saturation_rate),
+        )
     }
 }

@@ -6,7 +6,11 @@ mod voce;
 pub use linear::Linear;
 pub use voce::Voce;
 
-use crate::{constitutive::ConstitutiveError, math::Quantity, units::Stress};
+use crate::{
+    constitutive::ConstitutiveError,
+    math::Quantity,
+    units::{EnergyDensity, Stress},
+};
 use std::fmt::Debug;
 
 /// Required methods for isotropic hardening laws.
@@ -31,4 +35,21 @@ where
         &self,
         equivalent_plastic_strain: Quantity,
     ) -> Result<Quantity<Stress>, ConstitutiveError>;
+}
+
+/// Required methods for isotropic hardening laws with a closed-form plastic work.
+pub trait PlasticWork
+where
+    Self: PlasticHardening,
+{
+    /// Calculates and returns the plastic work density, the integral of the yield stress
+    /// over the equivalent plastic strain.
+    ///
+    /// ```math
+    /// w_\mathrm{p}(\varepsilon_\mathrm{p}) = \int_0^{\varepsilon_\mathrm{p}} Y(\varepsilon)\,\mathrm{d}\varepsilon
+    /// ```
+    fn plastic_work_density(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }

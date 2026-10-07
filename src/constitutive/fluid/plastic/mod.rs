@@ -6,7 +6,7 @@ mod test;
 pub mod hardening;
 pub mod surface;
 
-pub use hardening::{Linear, PlasticHardening, Voce};
+pub use hardening::{Linear, PlasticHardening, PlasticWork, Voce};
 pub use surface::{Hill, VonMises, YieldSurface};
 
 use crate::{
@@ -16,7 +16,7 @@ use crate::{
         DeformationGradientPlastic, FlowDirectionPlastic, MandelStressElastic,
         StretchingRatePlastic,
     },
-    units::{Dissipation, Rate, Stress},
+    units::{Dissipation, EnergyDensity, Rate, Stress},
 };
 
 /// Rate-independent plastic state variables $`(\mathbf{F}_\mathrm{p},\,\varepsilon_\mathrm{p})`$.
@@ -93,6 +93,20 @@ where
         equivalent_plastic_strain: Quantity,
     ) -> Result<Quantity<Stress>, ConstitutiveError> {
         self.hardening.hardening_modulus(equivalent_plastic_strain)
+    }
+}
+
+impl<S, H> PlasticWork for PlasticFlow<S, H>
+where
+    S: YieldSurface,
+    H: PlasticWork,
+{
+    fn plastic_work_density(
+        &self,
+        equivalent_plastic_strain: Quantity,
+    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
+        self.hardening
+            .plastic_work_density(equivalent_plastic_strain)
     }
 }
 
