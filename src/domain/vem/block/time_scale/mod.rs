@@ -1,35 +1,37 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
     constitutive::solid::elastic::Elastic,
-    fem::{
-        ElementModelError, NodalCoordinates, NodalReferenceCoordinates,
+    domain::{ElementModelError, time_scale::TimeScaleElements},
+    math::Quantity,
+    units::Time,
+    vem::{
+        NodalCoordinates, NodalReferenceCoordinates,
         block::{
             Block, Densities,
             element::{
-                FiniteElementError, mass::LumpedMassFiniteElement,
-                solid::elastic::ElasticFiniteElement, time_scale::fastest_time_scale,
+                VirtualElementError, mass::LumpedMassVirtualElement,
+                solid::elastic::ElasticVirtualElement, time_scale::fastest_time_scale,
             },
         },
-        time_scale::TimeScaleElements,
     },
-    math::Quantity,
-    units::Time,
 };
 
-impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize> TimeScaleElements<3>
-    for Block<C, F, G, M, N, P, R>
+impl<C, F, R> TimeScaleElements<3> for Block<C, F, R>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P> + LumpedMassFiniteElement<G, M, N, P>,
-    R: Densities<G>,
+    F: ElasticVirtualElement<C> + LumpedMassVirtualElement,
+    R: Densities,
 {
     fn fastest_time_scale(
         &self,
-        _reference_coordinates: &NodalReferenceCoordinates<3>,
-        nodal_coordinates: &NodalCoordinates<3>,
+        reference_coordinates: &NodalReferenceCoordinates,
+        nodal_coordinates: &NodalCoordinates,
     ) -> Result<Quantity<Time>, ElementModelError> {
         self.elements()
             .iter()
-            .zip(self.connectivity())
+            .zip(self.elements_nodes())
             .enumerate()
             .try_fold(
                 Time::seconds(f64::INFINITY),
@@ -38,8 +40,11 @@ where
                         self.constitutive_model(),
                         &Self::element_coordinates(nodal_coordinates, nodes),
                     )?;
-                    let masses = element.nodal_lumped_masses(&self.density().at(element_index));
-                    Ok::<_, FiniteElementError>(
+                    let masses = element.nodal_lumped_masses(
+                        self.density().at(element_index),
+                        &Self::element_coordinates(reference_coordinates, nodes),
+                    );
+                    Ok::<_, VirtualElementError>(
                         fastest.min(fastest_time_scale(&stiffnesses, &masses)),
                     )
                 },

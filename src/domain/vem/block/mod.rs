@@ -4,6 +4,7 @@ mod mass;
 pub mod solid;
 #[cfg(test)]
 mod test;
+mod time_scale;
 
 use crate::{
     domain::block::element::Elements,

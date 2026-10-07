@@ -1,5 +1,8 @@
 use crate::{
-    domain::{Blocks, ElementModelError, Model, NodalCoordinates, block::element::Elements},
+    domain::{
+        Blocks, ElementModelError, Model, NodalCoordinates, NodalReferenceCoordinates,
+        block::element::Elements,
+    },
     math::{Quantity, Scalar},
     units::Time,
 };
@@ -14,6 +17,7 @@ where
     /// reciprocal of the highest angular frequency, which bounds a stable explicit time step.
     fn fastest_time_scale(
         &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
         nodal_coordinates: &NodalCoordinates<D>,
     ) -> Result<Quantity<Time>, ElementModelError>;
 }
@@ -24,9 +28,11 @@ where
 {
     fn fastest_time_scale(
         &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
         nodal_coordinates: &NodalCoordinates<D>,
     ) -> Result<Quantity<Time>, ElementModelError> {
-        self.blocks.fastest_time_scale(nodal_coordinates)
+        self.blocks
+            .fastest_time_scale(reference_coordinates, nodal_coordinates)
     }
 }
 
@@ -37,12 +43,16 @@ where
 {
     fn fastest_time_scale(
         &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
         nodal_coordinates: &NodalCoordinates<D>,
     ) -> Result<Quantity<Time>, ElementModelError> {
         Ok(self
             .0
-            .fastest_time_scale(nodal_coordinates)?
-            .min(self.1.fastest_time_scale(nodal_coordinates)?))
+            .fastest_time_scale(reference_coordinates, nodal_coordinates)?
+            .min(
+                self.1
+                    .fastest_time_scale(reference_coordinates, nodal_coordinates)?,
+            ))
     }
 }
 
