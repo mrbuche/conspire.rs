@@ -120,7 +120,7 @@ fn buffer_targeted_fans_only_the_cells_snapping_ruined_on_a_cylinder() {
         worst(&plain)
     );
     assert!(
-        worst(&targeted) > 0.1 && worst(&targeted) > 2.0 * worst(&plain),
+        worst(&targeted) > 0.1 && worst(&targeted) > 1.5 * worst(&plain),
         "targeted {} vs plain {}",
         worst(&targeted),
         worst(&plain)

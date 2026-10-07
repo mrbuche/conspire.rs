@@ -35,11 +35,13 @@ const BACKTRACKS: usize = 32;
 const BALANCE: Scalar = 2.5e3;
 const CONVERGENCE: Scalar = 1.0e-5;
 const CURVATURE_FLOOR: Scalar = 1.0e-12;
+const DEGENERACY: Quantity = Dimensionless::of(1.0e-12);
 const EPSILON_FLOOR: Scalar = 1.0e-12;
 const HISTORY: usize = 8;
 const ITERATIONS: usize = 100;
-const NORMAL_FLOOR: Scalar = 1.0e-9;
+const NORMAL_FLOOR: Quantity = Dimensionless::of(1.0e-9);
 const RELAXATION: Scalar = 0.1;
+const SMOOTH_CONE: Quantity = Dimensionless::of(0.94);
 const STAGNATION: Scalar = 5.0e-4;
 const SWEEPS: usize = 50;
 const TIE_TOLERANCE: Scalar = 1.0e-6;
@@ -71,6 +73,7 @@ struct Oracle<'a> {
     coordinates: &'a Coordinates<3>,
     elements: Vec<&'a [usize]>,
     normals: DirectionsRef<'a, 3>,
+    vertex_normals: Vec<Direction<3>>,
 }
 
 struct Sweep<'a> {
@@ -257,6 +260,7 @@ impl<'a> Oracle<'a> {
             coordinates: surface.coordinates(),
             elements: surface.connectivities().iter().flatten().collect(),
             normals: target.normals().iter().flatten().collect(),
+            vertex_normals: vertex_normals(surface),
         }
     }
     fn tied_target(
@@ -271,7 +275,7 @@ impl<'a> Oracle<'a> {
             .iter()
             .min_by(|(a, _), (b, _)| (a - centroid).norm().total_cmp(&(b - centroid).norm()))?;
         if ties.len() == 1 {
-            return Some((nearest.clone(), self.normals[*index].clone()));
+            return Some((nearest.clone(), self.smooth_normal(*index, nearest)));
         }
         let point =
             ties.iter().map(|(point, _)| point).sum::<Coordinate<3>>() / ties.len() as Scalar;
@@ -279,10 +283,43 @@ impl<'a> Oracle<'a> {
             .iter()
             .map(|&(_, index)| &self.normals[index])
             .sum::<Direction<3>>();
-        if normal.norm().value() > NORMAL_FLOOR {
+        if normal.norm() > NORMAL_FLOOR {
             Some((point, normal.normalized()))
         } else {
-            Some((nearest.clone(), self.normals[*index].clone()))
+            Some((nearest.clone(), self.smooth_normal(*index, nearest)))
+        }
+    }
+    fn smooth_normal(&self, index: usize, point: &Coordinate<3>) -> Direction<3> {
+        let facet = self.normals[index].clone();
+        let triangle = self.elements[index];
+        let a = &self.coordinates[triangle[0]];
+        let (v0, v1, v2) = (
+            &self.coordinates[triangle[1]] - a,
+            &self.coordinates[triangle[2]] - a,
+            point - a,
+        );
+        let d00 = &v0 * &v0;
+        let d01 = &v0 * &v1;
+        let d11 = &v1 * &v1;
+        let d20 = &v2 * &v0;
+        let d21 = &v2 * &v1;
+        let denominator = d00 * d11 - d01 * d01;
+        if denominator.norm() < (d00 * d11).norm() * DEGENERACY {
+            return facet;
+        }
+        let beta = (d11 * d20 - d01 * d21) / denominator;
+        let gamma = (d00 * d21 - d01 * d20) / denominator;
+        let mut normal = &self.vertex_normals[triangle[0]] * (1.0 - beta - gamma);
+        normal += &self.vertex_normals[triangle[1]] * beta;
+        normal += &self.vertex_normals[triangle[2]] * gamma;
+        if normal.norm() < NORMAL_FLOOR {
+            return facet;
+        }
+        let normal = normal.normalized();
+        if normal.contract_with(&facet) < SMOOTH_CONE {
+            facet
+        } else {
+            normal
         }
     }
     fn targets(
@@ -332,6 +369,39 @@ impl<'a> Oracle<'a> {
             .collect::<Option<_>>()
             .ok_or("empty tessellation")
     }
+}
+
+fn vertex_normals(surface: &Mesh<3>) -> Vec<Direction<3>> {
+    let coordinates = surface.coordinates();
+    let mut normals = vec![Direction::<3>::const_from([0.0; 3]); coordinates.len()];
+    surface
+        .connectivities()
+        .iter()
+        .flatten()
+        .for_each(|triangle| {
+            let node = [triangle[0], triangle[1], triangle[2]];
+            let point = node.map(|node| &coordinates[node]);
+            let facet = (point[1] - point[0])
+                .cross(point[2] - point[0])
+                .normalized();
+            (0..3).for_each(|corner| {
+                let here = point[corner];
+                let one = (point[(corner + 1) % 3] - here).normalized();
+                let two = (point[(corner + 2) % 3] - here).normalized();
+                let angle = (one * two).clamp(-1.0, 1.0).acos();
+                normals[node[corner]] += &facet * angle;
+            })
+        });
+    normals
+        .into_iter()
+        .map(|normal| {
+            if normal.norm() < NORMAL_FLOOR {
+                normal
+            } else {
+                normal.normalized()
+            }
+        })
+        .collect()
 }
 
 impl Sweep<'_> {
