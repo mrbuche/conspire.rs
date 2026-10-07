@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
     domain::{
-        NodalCoordinates, NodalVelocities,
+        Model, NodalCoordinates, NodalVelocities,
         mass::{InverseMass, MassMatrix},
         qmm::{Discretization, Support, block::Block},
         solid::NodalForcesSolid,
@@ -33,7 +33,7 @@ static DISCRETIZATION: LazyLock<Discretization> = LazyLock::new(|| {
 
 type B = Block<NeoHookean, Quantity<Density>>;
 
-fn model() -> crate::domain::Model<B, 3> {
+fn model() -> Model<B, 3> {
     let discretization = DISCRETIZATION.clone();
     let coordinates = discretization.coordinates().clone();
     (
@@ -221,4 +221,89 @@ fn consistent_masses_conserve_momentum_and_agree_on_a_uniform_acceleration() {
     accelerations.iter().for_each(|a| {
         assert!((a[2].value() + 9.81).abs() < 1e-6, "{}", a[2].value());
     });
+}
+
+mod time_scale {
+    use super::*;
+    use crate::domain::{
+        solid::elastic::ElasticElements,
+        time_scale::{TimeScaleElements, largest_eigenvalue, time_scale_from_eigenvalue},
+    };
+    fn dense_time_scale(model: &Model<B, 3>) -> f64 {
+        let coordinates = NodalCoordinates::from(reference());
+        let stiffnesses = model.nodal_stiffnesses(&coordinates).unwrap();
+        let masses: Vec<f64> = model
+            .nodal_lumped_masses()
+            .iter()
+            .flat_map(|mass| [mass.value(); 3])
+            .collect();
+        time_scale_from_eigenvalue(largest_eigenvalue(
+            masses.len(),
+            |row, column| {
+                stiffnesses[row / 3]
+                    .entries()
+                    .find(|&(b, _)| b == column / 3)
+                    .map_or(0.0, |(_, block)| block[row % 3][column % 3].value())
+            },
+            &masses,
+        ))
+        .in_seconds()
+    }
+    #[test]
+    fn the_sparse_estimate_matches_the_dense_one() {
+        let model = model();
+        let sparse = model
+            .fastest_time_scale(&NodalCoordinates::from(reference()))
+            .unwrap()
+            .in_seconds();
+        assert!(sparse.is_finite() && sparse > 0.0);
+        assert!((sparse / dense_time_scale(&model) - 1.0).abs() < 1e-9);
+    }
+    #[test]
+    fn the_time_scale_follows_the_square_root_of_the_density() {
+        let scale = |density: Quantity<Density>| {
+            let discretization = DISCRETIZATION.clone();
+            let coordinates = discretization.coordinates().clone();
+            let model = Model::from((
+                Block::from((
+                    NeoHookean {
+                        shear_modulus: Stress::pascals(3.0e9),
+                        bulk_modulus: Stress::pascals(13.0e9),
+                    },
+                    discretization,
+                ))
+                .with_density(density),
+                coordinates,
+            ));
+            model
+                .fastest_time_scale(&NodalCoordinates::from(reference()))
+                .unwrap()
+                .in_seconds()
+        };
+        let ratio = scale(4.0 * DENSITY) / scale(DENSITY);
+        assert!((ratio - 2.0).abs() < 1e-8, "{ratio}");
+    }
+    #[test]
+    fn a_step_above_the_bound_is_an_error() {
+        let model = model();
+        let masses = model.nodal_lumped_masses();
+        let time_scale = model
+            .fastest_time_scale(&NodalCoordinates::from(reference()))
+            .unwrap()
+            .in_seconds();
+        let run = |dt: f64| {
+            model.integrate_bounded(
+                &VelocityVerlet::new(Time::seconds(dt)),
+                1.0,
+                1,
+                &[Time::seconds(0.0), Time::seconds(10.0 * dt)],
+                (reference().into(), uniform_velocities([0.0; 3])),
+                &NodalForcesSolid::zero(reference().len()),
+                &masses,
+                EqualityConstraint::None,
+            )
+        };
+        assert!(run(0.5 * time_scale).is_ok());
+        assert!(run(5.0 * time_scale).is_err());
+    }
 }

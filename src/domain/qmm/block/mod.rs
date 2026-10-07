@@ -3,6 +3,7 @@ pub mod point;
 pub mod solid;
 #[cfg(test)]
 mod test;
+mod time_scale;
 
 use crate::{
     domain::{

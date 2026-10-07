@@ -5,7 +5,10 @@ use crate::{
 };
 
 /// Elements that report how fast their motion can be.
-#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+#[cfg_attr(
+    not(any(feature = "fem", feature = "vem", feature = "qmm")),
+    allow(dead_code)
+)]
 pub trait TimeScaleElements<const D: usize>
 where
     Self: Elements,
@@ -57,10 +60,40 @@ const TOLERANCE: Scalar = 1e-10;
 /// estimate approaches the largest eigenvalue from below, so it can fall short
 /// of it by about the tolerance, or by more where the largest eigenvalues are
 /// clustered and the iteration stops early.
-#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+#[cfg_attr(
+    not(any(feature = "fem", feature = "vem", feature = "qmm")),
+    allow(dead_code)
+)]
 pub(crate) fn largest_eigenvalue(
     size: usize,
     stiffness: impl Fn(usize, usize) -> Scalar,
+    masses: &[Scalar],
+) -> Scalar {
+    largest_eigenvalue_by_product(
+        size,
+        |vector| {
+            (0..size)
+                .map(|row| {
+                    (0..size)
+                        .map(|column| stiffness(row, column) * vector[column])
+                        .sum()
+                })
+                .collect()
+        },
+        masses,
+    )
+}
+
+/// The largest eigenvalue of $`M^{-1}K`$ like [`largest_eigenvalue`], for a stiffness
+/// $`K`$ given by its product with a vector, which a sparse stiffness can supply
+/// without visiting every entry.
+#[cfg_attr(
+    not(any(feature = "fem", feature = "vem", feature = "qmm")),
+    allow(dead_code)
+)]
+pub(crate) fn largest_eigenvalue_by_product(
+    size: usize,
+    stiffness_product: impl Fn(&[Scalar]) -> Vec<Scalar>,
     masses: &[Scalar],
 ) -> Scalar {
     assert_eq!(
@@ -73,13 +106,7 @@ pub(crate) fn largest_eigenvalue(
         .collect();
     let mut eigenvalue = 0.0;
     for _ in 0..MAXIMUM_ITERATIONS {
-        let product: Vec<Scalar> = (0..size)
-            .map(|row| {
-                (0..size)
-                    .map(|column| stiffness(row, column) * vector[column])
-                    .sum()
-            })
-            .collect();
+        let product = stiffness_product(&vector);
         let energy: Scalar = vector.iter().zip(&product).map(|(v, p)| v * p).sum();
         let mass: Scalar = vector.iter().zip(masses).map(|(v, m)| v * v * m).sum();
         let previous = eigenvalue;
@@ -102,7 +129,10 @@ pub(crate) fn largest_eigenvalue(
     eigenvalue
 }
 
-#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+#[cfg_attr(
+    not(any(feature = "fem", feature = "vem", feature = "qmm")),
+    allow(dead_code)
+)]
 pub(crate) fn time_scale_from_eigenvalue(eigenvalue: Scalar) -> Quantity<Time> {
     if eigenvalue > 0.0 {
         Time::seconds(1.0 / eigenvalue.sqrt())
