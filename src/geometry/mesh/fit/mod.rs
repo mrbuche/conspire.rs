@@ -35,12 +35,13 @@ const BACKTRACKS: usize = 32;
 const BALANCE: Scalar = 2.5e3;
 const CONVERGENCE: Scalar = 1.0e-5;
 const CURVATURE_FLOOR: Scalar = 1.0e-12;
+const DEGENERACY: Quantity = Dimensionless::of(1.0e-12);
 const EPSILON_FLOOR: Scalar = 1.0e-12;
 const HISTORY: usize = 8;
 const ITERATIONS: usize = 100;
-const NORMAL_FLOOR: Scalar = 1.0e-9;
+const NORMAL_FLOOR: Quantity = Dimensionless::of(1.0e-9);
 const RELAXATION: Scalar = 0.1;
-const SMOOTH_CONE: Scalar = 0.94;
+const SMOOTH_CONE: Quantity = Dimensionless::of(0.94);
 const STAGNATION: Scalar = 5.0e-4;
 const SWEEPS: usize = 50;
 const TIE_TOLERANCE: Scalar = 1.0e-6;
@@ -282,7 +283,7 @@ impl<'a> Oracle<'a> {
             .iter()
             .map(|&(_, index)| &self.normals[index])
             .sum::<Direction<3>>();
-        if normal.norm().value() > NORMAL_FLOOR {
+        if normal.norm() > NORMAL_FLOOR {
             Some((point, normal.normalized()))
         } else {
             Some((nearest.clone(), self.smooth_normal(*index, nearest)))
@@ -297,13 +298,13 @@ impl<'a> Oracle<'a> {
             &self.coordinates[triangle[2]] - a,
             point - a,
         );
-        let d00 = (&v0 * &v0).value();
-        let d01 = (&v0 * &v1).value();
-        let d11 = (&v1 * &v1).value();
-        let d20 = (&v2 * &v0).value();
-        let d21 = (&v2 * &v1).value();
+        let d00 = &v0 * &v0;
+        let d01 = &v0 * &v1;
+        let d11 = &v1 * &v1;
+        let d20 = &v2 * &v0;
+        let d21 = &v2 * &v1;
         let denominator = d00 * d11 - d01 * d01;
-        if denominator.abs() < CURVATURE_FLOOR {
+        if denominator.norm() < (d00 * d11).norm() * DEGENERACY {
             return facet;
         }
         let beta = (d11 * d20 - d01 * d21) / denominator;
@@ -311,11 +312,11 @@ impl<'a> Oracle<'a> {
         let mut normal = &self.vertex_normals[triangle[0]] * (1.0 - beta - gamma);
         normal += &self.vertex_normals[triangle[1]] * beta;
         normal += &self.vertex_normals[triangle[2]] * gamma;
-        if normal.norm().value() < NORMAL_FLOOR {
+        if normal.norm() < NORMAL_FLOOR {
             return facet;
         }
         let normal = normal.normalized();
-        if normal.contract_with(&facet).value() < SMOOTH_CONE {
+        if normal.contract_with(&facet) < SMOOTH_CONE {
             facet
         } else {
             normal
@@ -387,14 +388,14 @@ fn vertex_normals(surface: &Mesh<3>) -> Vec<Direction<3>> {
                 let here = point[corner];
                 let one = (point[(corner + 1) % 3] - here).normalized();
                 let two = (point[(corner + 2) % 3] - here).normalized();
-                let angle = (&one * &two).value().clamp(-1.0, 1.0).acos();
+                let angle = (one * two).clamp(-1.0, 1.0).acos();
                 normals[node[corner]] += &facet * angle;
             })
         });
     normals
         .into_iter()
         .map(|normal| {
-            if normal.norm().value() < NORMAL_FLOOR {
+            if normal.norm() < NORMAL_FLOOR {
                 normal
             } else {
                 normal.normalized()
