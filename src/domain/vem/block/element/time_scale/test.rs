@@ -33,7 +33,13 @@ fn certified_around_the_time_scale(nodes: &[[f64; 3]], faces: &[Vec<usize>]) {
         .collect();
     let faces_indices = (0..faces.len()).collect::<Vec<_>>();
     let nodes_indices = (0..nodes.len()).collect::<Vec<_>>();
-    let element = Element::from((coordinates, &faces_indices[..], &nodes_indices[..], faces));
+    let element = Element::from((
+        coordinates,
+        &faces_indices[..],
+        &nodes_indices[..],
+        faces,
+        crate::vem::block::element::DEFAULT_STABILIZATION,
+    ));
     let reference = crate::vem::NodalReferenceCoordinates::from(nodes.to_vec());
     let stiffnesses = element
         .nodal_stiffnesses(&material(), &NodalCoordinates::from(nodes.to_vec()))

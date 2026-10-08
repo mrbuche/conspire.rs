@@ -13,7 +13,9 @@ use crate::{
     },
     vem::{
         NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
-        block::element::{Element, ElementNodalReferenceCoordinates, VirtualElement},
+        block::element::{
+            DEFAULT_STABILIZATION, Element, ElementNodalReferenceCoordinates, VirtualElement,
+        },
     },
 };
 
@@ -137,6 +139,7 @@ fn element() -> Element {
         element_faces().as_slice(),
         element_nodes().as_slice(),
         faces_nodes().as_slice(),
+        DEFAULT_STABILIZATION,
     ))
 }
 
@@ -146,6 +149,7 @@ fn element_transformed() -> Element {
         element_faces().as_slice(),
         element_nodes().as_slice(),
         faces_nodes().as_slice(),
+        DEFAULT_STABILIZATION,
     ))
 }
 

@@ -4,7 +4,10 @@ mod test;
 use crate::{
     domain::{NodalReferenceCoordinates, from::FromConnectivities},
     geometry::mesh::{Connectivity, PolytopalConnectivity},
-    vem::block::{Block, element::VirtualElement},
+    vem::block::{
+        Block,
+        element::{DEFAULT_STABILIZATION, VirtualElement},
+    },
 };
 
 impl<C, F> FromConnectivities<3, C> for Block<C, F>
@@ -23,6 +26,11 @@ where
             ));
         }
         let connectivity = PolytopalConnectivity::<3>::try_from(connectivities.remove(0))?;
-        Ok(Block::from((constitutive_model, connectivity, coordinates)))
+        Ok(Block::from((
+            constitutive_model,
+            connectivity,
+            coordinates,
+            DEFAULT_STABILIZATION,
+        )))
     }
 }

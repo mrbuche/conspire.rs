@@ -20,11 +20,17 @@ fn model() -> NeoHookean {
 
 fn virtual_time_scale(nodes: &[[f64; 3]], faces: Vec<Vec<usize>>) -> f64 {
     let reference = NodalReferenceCoordinates::from(nodes.to_vec());
-    Block::<_, Element>::from((model(), vec![(0..faces.len()).collect()], faces, &reference))
-        .with_density(DENSITY)
-        .fastest_time_scale(&reference, &NodalCoordinates::from(nodes.to_vec()))
-        .unwrap()
-        .value()
+    Block::<_, Element>::from((
+        model(),
+        vec![(0..faces.len()).collect()],
+        faces,
+        &reference,
+        crate::vem::block::element::DEFAULT_STABILIZATION,
+    ))
+    .with_density(DENSITY)
+    .fastest_time_scale(&reference, &NodalCoordinates::from(nodes.to_vec()))
+    .unwrap()
+    .value()
 }
 
 fn finite_time_scale(nodes: &[[f64; 3]], tetrahedra: Vec<[usize; 4]>) -> f64 {
@@ -96,4 +102,25 @@ fn agglomerating_a_flat_wedge_beats_the_finite_elements() {
         virtual_element / finite_elements > 1e3,
         "{virtual_element} vs {finite_elements}"
     );
+}
+
+fn stabilized_time_scale(stabilization: f64) -> f64 {
+    let nodes = wedge(1.0e-2);
+    let reference = NodalReferenceCoordinates::from(nodes.to_vec());
+    Block::<_, Element>::from((
+        model(),
+        vec![(0..wedge_faces().len()).collect()],
+        wedge_faces(),
+        &reference,
+        stabilization,
+    ))
+    .with_density(DENSITY)
+    .fastest_time_scale(&reference, &NodalCoordinates::from(nodes.to_vec()))
+    .unwrap()
+    .value()
+}
+
+#[test]
+fn stabilization_changes_the_time_scale() {
+    assert_ne!(stabilized_time_scale(0.5), stabilized_time_scale(0.1));
 }

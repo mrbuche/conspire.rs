@@ -60,21 +60,29 @@ where
     }
 }
 
-impl<C, F, D> From<(C, D, PolytopalConnectivity<3>, &NodalReferenceCoordinates)>
-    for Block<C, F, <D as DensityField>::Resolved<ElementDensities>>
+impl<C, F, D>
+    From<(
+        C,
+        D,
+        PolytopalConnectivity<3>,
+        &NodalReferenceCoordinates,
+        Scalar,
+    )> for Block<C, F, <D as DensityField>::Resolved<ElementDensities>>
 where
     F: VirtualElement,
     D: DensityField,
 {
     fn from(
-        (constitutive_model, density_field, connectivity, coordinates): (
+        (constitutive_model, density_field, connectivity, coordinates, stabilization): (
             C,
             D,
             PolytopalConnectivity<3>,
             &NodalReferenceCoordinates,
+            Scalar,
         ),
     ) -> Self {
-        let block = Block::<C, F>::from((constitutive_model, connectivity, coordinates));
+        let block =
+            Block::<C, F>::from((constitutive_model, connectivity, coordinates, stabilization));
         let density = density_field.resolve(|field| {
             block
                 .elements_nodes()
@@ -100,18 +108,27 @@ impl<C, F, D>
         Vec<Vec<usize>>,
         Vec<Vec<usize>>,
         &NodalReferenceCoordinates,
+        Scalar,
     )> for Block<C, F, <D as DensityField>::Resolved<ElementDensities>>
 where
     F: VirtualElement,
     D: DensityField,
 {
     fn from(
-        (constitutive_model, density_field, elements_faces, faces_nodes, coordinates): (
+        (
+            constitutive_model,
+            density_field,
+            elements_faces,
+            faces_nodes,
+            coordinates,
+            stabilization,
+        ): (
             C,
             D,
             Vec<Vec<usize>>,
             Vec<Vec<usize>>,
             &NodalReferenceCoordinates,
+            Scalar,
         ),
     ) -> Self {
         Self::from((
@@ -119,6 +136,7 @@ where
             density_field,
             PolytopalConnectivity::from((elements_faces, faces_nodes)),
             coordinates,
+            stabilization,
         ))
     }
 }
