@@ -100,3 +100,72 @@ fn elements_that_do_not_touch_cannot_be_joined() {
     ));
     assert!(candidates(&mesh).time_scale(&[0, 1]).is_err());
 }
+
+fn tetrahedra(nodes: Vec<[f64; 3]>, blocks: Vec<Vec<[usize; 4]>>) -> Mesh<3> {
+    (
+        blocks
+            .into_iter()
+            .map(|block| Connectivity::Tetrahedral(block.into()))
+            .collect::<Vec<_>>(),
+        nodes.into(),
+    )
+        .into()
+}
+
+fn side_by_side(apex: [f64; 3], other: [f64; 3]) -> Mesh<3> {
+    tetrahedra(
+        vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            apex,
+            other,
+        ],
+        vec![vec![[0, 1, 2, 3], [0, 2, 1, 4]]],
+    )
+}
+
+#[test]
+fn a_wedge_is_a_valid_element() {
+    assert_eq!(candidates(&wedge(1.0e-1)).check(&[0, 1], 0.01), Ok(()));
+}
+
+#[test]
+fn a_single_element_is_valid() {
+    assert_eq!(candidates(&wedge(1.0e-1)).check(&[0], 0.01), Ok(()));
+}
+
+#[test]
+fn elements_in_different_blocks_are_not_joined() {
+    let mesh = tetrahedra(
+        vec![
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.3, 0.3, 1.0],
+            [0.3, 0.3, -1.0],
+        ],
+        vec![vec![[0, 1, 2, 3]], vec![[0, 2, 1, 4]]],
+    );
+    assert_eq!(
+        candidates(&mesh).check(&[0, 1], 0.01),
+        Err("the elements are in different blocks".to_string())
+    );
+    assert_eq!(candidates(&mesh).check(&[1], 0.01), Ok(()));
+}
+
+#[test]
+fn a_union_whose_mean_is_outside_is_not_star_shaped() {
+    let mesh = side_by_side([2.0, 2.0, 1.0], [2.0, 2.0, -1.0]);
+    assert_eq!(
+        candidates(&mesh).check(&[0, 1], 0.01),
+        Err("the element is not star-shaped about the mean of its nodes".to_string())
+    );
+}
+
+#[test]
+fn the_volume_floor_rejects_a_small_sub_tetrahedron() {
+    let mesh = side_by_side([0.3, 0.3, 1.0], [0.3, 0.3, -1.0]);
+    assert!(candidates(&mesh).check(&[0, 1], 0.01).is_ok());
+    assert!(candidates(&mesh).check(&[0, 1], 100.0).is_err());
+}

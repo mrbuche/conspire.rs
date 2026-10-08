@@ -1,9 +1,10 @@
+mod surface;
 #[cfg(test)]
 mod test;
 
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
-    domain::block::element::solid::elastic::ElasticElement,
+    domain::{block::element::solid::elastic::ElasticElement, fem::block::element::FiniteElement},
     geometry::mesh::{
         Mesh,
         partition::agglomerate::{outward_faces, union_faces},
@@ -13,18 +14,20 @@ use crate::{
     vem::{
         NodalReferenceCoordinates,
         block::element::{
-            Element, ElementNodalReferenceCoordinates,
+            Element, ElementNodalReferenceCoordinates, VirtualElement,
             mass::{ElementNodalLumpedMasses, LumpedMassVirtualElement},
             solid::ElementNodalStiffnessesSolid,
             time_scale::{fastest_time_scale, time_scale_exceeds},
         },
     },
 };
+use std::iter::repeat_n;
 
 /// The time scale of any union of the elements of a mesh as one virtual element.
 ///
 /// A unit elastic material and a unit density are used, since only ratios of time scales matter.
 pub struct Candidates {
+    elements_blocks: Vec<usize>,
     elements_faces: Vec<Vec<Vec<usize>>>,
     coordinates: NodalReferenceCoordinates,
     material: NeoHookean,
@@ -34,6 +37,13 @@ pub struct Candidates {
 impl Candidates {
     pub fn new(mesh: &Mesh<3>, poisson: Scalar, stabilization: Scalar) -> Result<Self, String> {
         Ok(Self {
+            elements_blocks: mesh
+                .iter()
+                .enumerate()
+                .flat_map(|(block, connectivity)| {
+                    repeat_n(block, connectivity.number_of_elements())
+                })
+                .collect(),
             elements_faces: outward_faces(mesh)?,
             coordinates: mesh.coordinates().clone(),
             material: NeoHookean {
@@ -63,10 +73,52 @@ impl Candidates {
         let (stiffnesses, masses) = self.matrices(elements)?;
         Ok(time_scale_exceeds(&stiffnesses, &masses, minimum))
     }
+    /// Whether the union of the elements can be one virtual element, else the reason it cannot.
+    ///
+    /// It must lie in one block, have a boundary that is one closed surface of genus zero, and
+    /// be star-shaped about the mean of its nodes, with every one of the element's tetrahedra
+    /// at least `minimum_volume` times the mean volume of them.
+    pub fn check(&self, elements: &[usize], minimum_volume: Scalar) -> Result<(), String> {
+        if elements
+            .iter()
+            .any(|&element| self.elements_blocks[element] != self.elements_blocks[elements[0]])
+        {
+            return Err("the elements are in different blocks".to_string());
+        }
+        let (element, _, faces) = self.element(elements)?;
+        surface::sphere(&faces)?;
+        let volumes = element
+            .tetrahedra()
+            .iter()
+            .map(|tetrahedron| tetrahedron.volume().value())
+            .collect::<Vec<_>>();
+        let mean = volumes.iter().sum::<Scalar>() / volumes.len() as Scalar;
+        if mean > 0.0
+            && volumes
+                .iter()
+                .all(|&volume| volume >= minimum_volume * mean)
+        {
+            Ok(())
+        } else {
+            Err("the element is not star-shaped about the mean of its nodes".to_string())
+        }
+    }
     fn matrices(
         &self,
         elements: &[usize],
     ) -> Result<(ElementNodalStiffnessesSolid, ElementNodalLumpedMasses), String> {
+        let (element, coordinates, _) = self.element(elements)?;
+        let stiffnesses = element
+            .nodal_stiffnesses(&self.material, &coordinates.clone().into())
+            .map_err(|error| format!("{error:?}"))?;
+        let masses =
+            element.nodal_lumped_masses(Density::kilograms_per_cubic_meter(1.0), &coordinates);
+        Ok((stiffnesses, masses))
+    }
+    fn element(
+        &self,
+        elements: &[usize],
+    ) -> Result<(Element, NodalReferenceCoordinates, Vec<Vec<usize>>), String> {
         let faces = union_faces(&self.elements_faces, elements)?;
         let mut nodes = faces.iter().flatten().copied().collect::<Vec<_>>();
         nodes.sort_unstable();
@@ -90,11 +142,6 @@ impl Candidates {
             .iter()
             .map(|&node| self.coordinates[node].clone())
             .collect::<NodalReferenceCoordinates>();
-        let stiffnesses = element
-            .nodal_stiffnesses(&self.material, &coordinates.clone().into())
-            .map_err(|error| format!("{error:?}"))?;
-        let masses =
-            element.nodal_lumped_masses(Density::kilograms_per_cubic_meter(1.0), &coordinates);
-        Ok((stiffnesses, masses))
+        Ok((element, coordinates, faces))
     }
 }
