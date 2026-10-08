@@ -3,14 +3,11 @@ mod test;
 
 use super::Candidates;
 use crate::{
-    geometry::mesh::{Mesh, partition::Partition},
+    geometry::mesh::{ElementsFaces, Mesh, Partition},
     math::{Quantity, Scalar},
     units::Time,
 };
-use std::{
-    collections::{BTreeSet, HashMap},
-    mem::take,
-};
+use std::{collections::BTreeSet, mem::take};
 
 /// The time scale a typical element is expected to have.
 pub enum Reference {
@@ -48,7 +45,7 @@ impl Agglomerated {
     }
 }
 
-impl Candidates {
+impl<S: ElementsFaces> Candidates<S> {
     pub fn agglomerate(&self, agglomeration: &Agglomeration) -> Result<Agglomerated, String> {
         let number_of_elements = self.number_of_elements();
         let mut scales = self.time_scales()?;
@@ -61,7 +58,7 @@ impl Candidates {
             Reference::Value(value) => *value,
         };
         let threshold = Time::seconds(reference.value() / agglomeration.step_reduction);
-        let adjacent = self.adjacent();
+        let adjacent = self.boundary.adjacent();
         let mut groups = (0..number_of_elements)
             .map(|element| vec![element])
             .collect::<Vec<_>>();
@@ -123,26 +120,6 @@ impl Candidates {
             time_scales,
             unresolved: unresolved.iter().map(|&group| parts[group]).collect(),
         })
-    }
-    fn adjacent(&self) -> Vec<Vec<usize>> {
-        let mut faces = HashMap::<Vec<usize>, Vec<usize>>::new();
-        self.elements_faces
-            .iter()
-            .enumerate()
-            .for_each(|(element, elements_faces)| {
-                elements_faces.iter().for_each(|face| {
-                    let mut key = face.clone();
-                    key.sort_unstable();
-                    faces.entry(key).or_default().push(element)
-                })
-            });
-        let mut adjacent = vec![Vec::new(); self.elements_faces.len()];
-        faces.values().for_each(|elements| {
-            elements.iter().for_each(|&element| {
-                adjacent[element].extend(elements.iter().filter(|&&other| other != element))
-            })
-        });
-        adjacent
     }
     fn unresolved(
         &self,

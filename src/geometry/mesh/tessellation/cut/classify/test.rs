@@ -43,7 +43,7 @@ fn classify_sphere_dual() {
             .iter()
             .zip(classes.iter())
             .for_each(|(element, &class)| {
-                block.local_faces().iter().for_each(|face| {
+                block.local_facets().iter().for_each(|face| {
                     let mut key: Vec<usize> = face.iter().map(|&local| element[local]).collect();
                     key.sort_unstable();
                     faces.entry(key).or_default().push(class);

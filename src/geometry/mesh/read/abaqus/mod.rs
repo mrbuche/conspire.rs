@@ -94,7 +94,7 @@ where
                                 })?;
                                 let side = side_label(chunk[1])?;
                                 let connectivity = element_connectivity(&blocks, element)?;
-                                let ordinal = (0..connectivity.local_faces().len())
+                                let ordinal = (0..connectivity.local_facets().len())
                                     .find(|&ordinal| connectivity.abaqus_side(ordinal) == side)
                                     .ok_or_else(|| {
                                         invalid(format!(

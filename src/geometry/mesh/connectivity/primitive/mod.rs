@@ -1,3 +1,7 @@
+mod facet;
+
+pub use facet::LocalFacets;
+
 use crate::geometry::mesh::connectivity::base::FlatConnectivity;
 use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Sets};
 use std::{fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
@@ -13,6 +17,9 @@ impl<const M: usize, const N: usize> From<Vec<[usize; N]>> for PrimitiveConnecti
 impl<const M: usize, const N: usize> PrimitiveConnectivity<M, N> {
     pub fn iter(&self) -> Iter<'_, [usize; N]> {
         self.0.members().iter()
+    }
+    pub fn element(&self, element: usize) -> &[usize; N] {
+        &self.0.members()[element]
     }
 }
 

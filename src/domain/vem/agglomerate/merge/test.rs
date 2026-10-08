@@ -1,6 +1,6 @@
 use super::{Agglomeration, Reference};
 use crate::{
-    geometry::mesh::{Connectivity, Mesh},
+    geometry::mesh::{Connectivity, Mesh, PrimitiveConnectivity},
     units::Time,
     vem::{agglomerate::Candidates, block::element::DEFAULT_STABILIZATION},
 };
@@ -24,7 +24,7 @@ fn wedge(epsilon: f64, blocks: Vec<Vec<[usize; 4]>>) -> Mesh<3> {
 }
 
 fn candidates(mesh: &Mesh<3>) -> Candidates {
-    Candidates::new(mesh, 0.3, DEFAULT_STABILIZATION).unwrap()
+    Candidates::from_mesh(mesh, 0.3, DEFAULT_STABILIZATION).unwrap()
 }
 
 fn agglomeration(reference: f64) -> Agglomeration {
@@ -39,6 +39,41 @@ fn agglomeration(reference: f64) -> Agglomeration {
 
 fn union_scale(mesh: &Mesh<3>) -> f64 {
     candidates(mesh).time_scale(&[0, 1]).unwrap().value()
+}
+
+#[test]
+fn elements_of_one_topology_are_joined_like_the_elements_of_a_mesh() {
+    let mesh = wedge(1.0e-4, vec![vec![[0, 1, 2, 3], [0, 2, 1, 4]]]);
+    let connectivity = PrimitiveConnectivity::<3, 4>::from(vec![[0, 1, 2, 3], [0, 2, 1, 4]]);
+    let typed = Candidates::new(
+        &connectivity,
+        mesh.coordinates().clone(),
+        0.3,
+        DEFAULT_STABILIZATION,
+    );
+    let agglomeration = agglomeration(union_scale(&mesh));
+    let from_mesh = candidates(&mesh).agglomerate(&agglomeration).unwrap();
+    let from_connectivity = typed.agglomerate(&agglomeration).unwrap();
+    assert_eq!(from_connectivity.elements_parts, [0, 0]);
+    assert_eq!(from_connectivity.elements_parts, from_mesh.elements_parts);
+    assert_eq!(from_connectivity.unresolved, from_mesh.unresolved);
+    assert_eq!(
+        from_connectivity.time_scales[0].value(),
+        from_mesh.time_scales[0].value()
+    );
+}
+
+#[test]
+fn a_fixed_topology_has_its_elements_in_one_block() {
+    let connectivity = PrimitiveConnectivity::<3, 4>::from(vec![[0, 1, 2, 3], [0, 2, 1, 4]]);
+    let mesh = wedge(1.0e-4, vec![vec![[0, 1, 2, 3], [0, 2, 1, 4]]]);
+    let typed = Candidates::new(
+        &connectivity,
+        mesh.coordinates().clone(),
+        0.3,
+        DEFAULT_STABILIZATION,
+    );
+    assert_eq!(typed.check(&[0, 1], 0.01), Ok(()));
 }
 
 #[test]

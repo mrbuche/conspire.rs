@@ -114,7 +114,7 @@ fn write_side_set<const D: usize>(
             .iter()
             .nth(local)
             .expect("side set references an out-of-range element");
-        let face: Vec<usize> = connectivity.local_faces()[ordinal]
+        let face: Vec<usize> = connectivity.local_facets()[ordinal]
             .iter()
             .map(|&local_node| nodes[local_node])
             .map(|global| {

@@ -24,7 +24,7 @@ fn wedge(epsilon: f64) -> Mesh<3> {
 }
 
 fn candidates(mesh: &Mesh<3>) -> Candidates {
-    Candidates::new(mesh, 0.3, DEFAULT_STABILIZATION).unwrap()
+    Candidates::from_mesh(mesh, 0.3, DEFAULT_STABILIZATION).unwrap()
 }
 
 #[test]

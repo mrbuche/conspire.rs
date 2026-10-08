@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-pub(crate) mod agglomerate;
+mod agglomerate;
 mod part;
 mod rcb;
 
