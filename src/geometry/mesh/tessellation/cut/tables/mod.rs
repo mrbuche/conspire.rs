@@ -204,10 +204,10 @@ impl Tessellation {
         let mut face_loops = HashMap::new();
         let mut offset = 0;
         mesh.iter().for_each(|block| {
-            let local_faces = block.local_faces();
+            let local_facets = block.local_facets();
             block.iter().enumerate().for_each(|(local, element)| {
                 if classes[offset + local] == Class::Cut {
-                    local_faces.iter().for_each(|face| {
+                    local_facets.iter().for_each(|face| {
                         let corners = from_fn::<_, 4, _>(|i| element[face[i]]);
                         let mut key = corners;
                         key.sort_unstable();

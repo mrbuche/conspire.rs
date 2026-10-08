@@ -2,13 +2,14 @@
 pub mod test;
 
 mod base;
+mod boundary;
 mod buffer;
 mod connectivity;
 pub(crate) mod differential;
 mod fit;
 mod from;
 mod into;
-pub(crate) mod partition;
+mod partition;
 mod quality;
 mod read;
 mod remesh;
@@ -22,6 +23,7 @@ pub use from::Dualization;
 pub use sets::{NodeSet, NodeSets, SideSet, SideSets};
 
 pub use self::{
+    boundary::{Boundary, ElementsFaces, Surface},
     connectivity::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,

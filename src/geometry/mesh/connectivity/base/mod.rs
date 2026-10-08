@@ -1,5 +1,9 @@
 use crate::{
-    geometry::mesh::connectivity::{Connectivities, Connectivity, iter::ElementIter},
+    geometry::mesh::connectivity::{
+        Connectivities, Connectivity,
+        iter::ElementIter,
+        primitive::{LocalFacets, PrimitiveConnectivity},
+    },
     math::{Graph, Incidence},
 };
 use std::{fmt::Debug, num::TryFromIntError};
@@ -29,33 +33,14 @@ pub enum FlatConnectivity<I> {
 }
 
 impl Connectivity {
-    pub fn local_faces(&self) -> &'static [&'static [usize]] {
+    pub fn local_facets(&self) -> &'static [&'static [usize]] {
         match self {
-            Connectivity::Hexahedral(_) => &[
-                &[0, 1, 5, 4],
-                &[1, 2, 6, 5],
-                &[2, 3, 7, 6],
-                &[3, 0, 4, 7],
-                &[0, 3, 2, 1],
-                &[4, 5, 6, 7],
-            ],
-            Connectivity::Tetrahedral(_) => &[&[0, 1, 3], &[1, 2, 3], &[2, 0, 3], &[0, 2, 1]],
-            Connectivity::Pyramidal(_) => &[
-                &[0, 1, 4],
-                &[1, 2, 4],
-                &[2, 3, 4],
-                &[3, 0, 4],
-                &[0, 3, 2, 1],
-            ],
-            Connectivity::Wedge(_) => &[
-                &[0, 1, 4, 3],
-                &[1, 2, 5, 4],
-                &[2, 0, 3, 5],
-                &[0, 2, 1],
-                &[3, 4, 5],
-            ],
-            Connectivity::Quadrilateral(_) => &[&[0, 1], &[1, 2], &[2, 3], &[3, 0]],
-            Connectivity::Triangular(_) => &[&[0, 1], &[1, 2], &[2, 0]],
+            Connectivity::Hexahedral(_) => PrimitiveConnectivity::<3, 8>::LOCAL_FACETS,
+            Connectivity::Tetrahedral(_) => PrimitiveConnectivity::<3, 4>::LOCAL_FACETS,
+            Connectivity::Pyramidal(_) => PrimitiveConnectivity::<3, 5>::LOCAL_FACETS,
+            Connectivity::Wedge(_) => PrimitiveConnectivity::<3, 6>::LOCAL_FACETS,
+            Connectivity::Quadrilateral(_) => PrimitiveConnectivity::<2, 4>::LOCAL_FACETS,
+            Connectivity::Triangular(_) => PrimitiveConnectivity::<2, 3>::LOCAL_FACETS,
             Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
         }
     }
@@ -95,7 +80,7 @@ impl Connectivity {
                 .map(|&face| connectivity.faces_nodes()[face].clone())
                 .collect(),
             _ => self
-                .local_faces()
+                .local_facets()
                 .iter()
                 .map(|face| face.iter().map(|&local| element[local]).collect())
                 .collect(),
@@ -112,8 +97,8 @@ impl Connectivity {
             Connectivity::Polygonal(_) | Connectivity::Polyhedral(_) => todo!(),
         }
     }
-    pub fn local_face_from_abaqus_side(&self, side: usize) -> usize {
-        (0..self.local_faces().len())
+    pub fn local_facet_from_abaqus_side(&self, side: usize) -> usize {
+        (0..self.local_facets().len())
             .find(|&ordinal| self.abaqus_side(ordinal) == side)
             .expect("invalid Abaqus side label for this element type")
     }
