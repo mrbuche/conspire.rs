@@ -1,4 +1,7 @@
+mod merge;
 mod surface;
+
+pub use merge::{Agglomerated, Agglomeration, Reference};
 #[cfg(test)]
 mod test;
 
