@@ -14,45 +14,22 @@ use std::collections::HashMap;
 impl Partition {
     pub fn agglomerate(&self, mesh: &Mesh<3>) -> Result<Mesh<3>, &'static str> {
         let elements_faces = outward_faces(mesh)?;
-        let mut faces_nodes: Vec<Vec<usize>> = Vec::new();
-        let mut indices: HashMap<Vec<usize>, usize> = HashMap::new();
+        let mut faces_nodes = Vec::<Vec<usize>>::new();
+        let mut indices = HashMap::<Vec<usize>, usize>::new();
         let mut cells = Vec::new();
         for part in 0..self.number_of_parts() {
             let elements = self.part_elements(part);
             if elements.is_empty() {
                 continue;
             }
-            let mut roots = (0..elements.len()).collect::<Vec<_>>();
-            let mut tally: HashMap<Vec<usize>, (usize, usize)> = HashMap::new();
-            let mut order: Vec<(&Vec<usize>, Vec<usize>)> = Vec::new();
-            for (position, &element) in elements.iter().enumerate() {
-                for face in &elements_faces[element] {
-                    let mut key = face.clone();
-                    key.sort_unstable();
-                    match tally.get_mut(&key) {
-                        Some((count, first)) => {
-                            *count += 1;
-                            let (a, b) = (find(&mut roots, *first), find(&mut roots, position));
-                            roots[b] = a;
-                        }
-                        None => {
-                            tally.insert(key.clone(), (1, position));
-                            order.push((face, key))
-                        }
-                    }
-                }
-            }
-            let root = find(&mut roots, 0);
-            if (1..elements.len()).any(|position| find(&mut roots, position) != root) {
-                return Err("a part is not connected through shared faces");
-            }
             cells.push(
-                order
+                union_faces(&elements_faces, elements)?
                     .into_iter()
-                    .filter(|(_, key)| tally[key].0 == 1)
-                    .map(|(face, key)| {
+                    .map(|face| {
+                        let mut key = face.clone();
+                        key.sort_unstable();
                         *indices.entry(key).or_insert_with(|| {
-                            faces_nodes.push(face.clone());
+                            faces_nodes.push(face);
                             faces_nodes.len() - 1
                         })
                     })
@@ -83,6 +60,41 @@ impl Partition {
     }
 }
 
+pub(crate) fn union_faces(
+    elements_faces: &[Vec<Vec<usize>>],
+    elements: &[usize],
+) -> Result<Vec<Vec<usize>>, &'static str> {
+    let mut roots = (0..elements.len()).collect::<Vec<_>>();
+    let mut tally = HashMap::<Vec<usize>, (usize, usize)>::new();
+    let mut order = Vec::<(&Vec<usize>, Vec<usize>)>::new();
+    for (position, &element) in elements.iter().enumerate() {
+        for face in &elements_faces[element] {
+            let mut key = face.clone();
+            key.sort_unstable();
+            match tally.get_mut(&key) {
+                Some((count, first)) => {
+                    *count += 1;
+                    let (a, b) = (find(&mut roots, *first), find(&mut roots, position));
+                    roots[b] = a;
+                }
+                None => {
+                    tally.insert(key.clone(), (1, position));
+                    order.push((face, key))
+                }
+            }
+        }
+    }
+    let root = find(&mut roots, 0);
+    if (1..elements.len()).any(|position| find(&mut roots, position) != root) {
+        return Err("a part is not connected through shared faces");
+    }
+    Ok(order
+        .into_iter()
+        .filter(|(_, key)| tally[key].0 == 1)
+        .map(|(face, _)| face.clone())
+        .collect())
+}
+
 fn find(roots: &mut [usize], mut node: usize) -> usize {
     while roots[node] != node {
         roots[node] = roots[roots[node]];
@@ -91,7 +103,7 @@ fn find(roots: &mut [usize], mut node: usize) -> usize {
     node
 }
 
-fn outward_faces(mesh: &Mesh<3>) -> Result<Vec<Vec<Vec<usize>>>, &'static str> {
+pub(crate) fn outward_faces(mesh: &Mesh<3>) -> Result<Vec<Vec<Vec<usize>>>, &'static str> {
     let mut elements_faces = Vec::with_capacity(mesh.number_of_elements());
     for block in mesh.iter() {
         match block {

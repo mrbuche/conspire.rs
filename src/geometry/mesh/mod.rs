@@ -8,7 +8,7 @@ pub(crate) mod differential;
 mod fit;
 mod from;
 mod into;
-mod partition;
+pub(crate) mod partition;
 mod quality;
 mod read;
 mod remesh;
