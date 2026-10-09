@@ -132,6 +132,8 @@ units!(
     Density,
     /// A specific energy, being an energy per unit mass, and equally a squared velocity.
     SpecificEnergy,
+    /// A specific entropy, being an entropy per unit mass, as a specific heat is.
+    SpecificEntropy,
     /// A force.
     Force,
     /// A force per unit length, as a stiffness is.
@@ -170,6 +172,8 @@ units!(
     Temperature,
     /// A reciprocal temperature, as a coefficient of thermal expansion is.
     ReciprocalTemperature,
+    /// A temperature per unit time, as a rate of heating is.
+    TemperatureRate,
     /// A stress per unit temperature, as a thermal stress coefficient is.
     StressPerTemperature,
     /// A power per unit volume, as a dissipation is.
@@ -355,6 +359,13 @@ unit_products!(
     Power * Temperature = PowerTemperature,
     PowerPerTemperature * Temperature = Power,
     Temperature * PowerPerTemperature = Power,
+    Dimensionless * TemperatureRate = TemperatureRate,
+    Temperature * Rate = TemperatureRate,
+    Rate * Temperature = TemperatureRate,
+    TemperatureRate * Time = Temperature,
+    Time * TemperatureRate = Temperature,
+    TemperatureRate * Entropy = Power,
+    Entropy * TemperatureRate = Power,
     Dimensionless * Entropy = Entropy,
     Entropy * Temperature = Energy,
     Temperature * Entropy = Energy,
@@ -417,6 +428,13 @@ unit_products!(
     SpecificEnergy * Mass = Energy,
     Density * SpecificEnergy = Stress,
     SpecificEnergy * Density = Stress,
+    Dimensionless * SpecificEntropy = SpecificEntropy,
+    Mass * SpecificEntropy = Entropy,
+    SpecificEntropy * Mass = Entropy,
+    Density * SpecificEntropy = StressPerTemperature,
+    SpecificEntropy * Density = StressPerTemperature,
+    StressPerTemperature * Volume = Entropy,
+    Volume * StressPerTemperature = Entropy,
 );
 
 impl<A, B, C, D> UnitMul<(C, D)> for (A, B)
@@ -491,6 +509,15 @@ pub type Dissipation = PowerDensity;
 
 /// An entropy per unit volume.
 pub type EntropyDensity = StressPerTemperature;
+
+/// A specific heat, being a heat capacity per unit mass.
+pub type SpecificHeat = SpecificEntropy;
+
+/// A heat capacity.
+pub type HeatCapacity = Entropy;
+
+/// A heat capacity per unit volume.
+pub type VolumetricHeatCapacity = StressPerTemperature;
 
 /// An entropy production rate per unit volume.
 pub type EntropyDensityRate = PowerPerVolumeTemperature;

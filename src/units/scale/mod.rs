@@ -21,8 +21,8 @@ mod test;
 use super::{
     Acceleration, Action, Amount, Area, Charge, Density, Dimensionless, Energy, Entropy, Force,
     ForcePerLength, Length, Mass, MolarEnergy, MolarEntropy, PowerPerLengthTemperature, Rate,
-    ReciprocalAmount, ReciprocalTemperature, SpecificEnergy, Stress, StressPerLength, Temperature,
-    Time, Velocity, Viscosity, Volume,
+    ReciprocalAmount, ReciprocalTemperature, SpecificEnergy, SpecificEntropy, Stress,
+    StressPerLength, Temperature, Time, Velocity, Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -192,6 +192,10 @@ scales!(
     }
     SpecificEnergy {
         joules_per_kilogram / in_joules_per_kilogram = 1.0, "joules per kilogram",
+    }
+    SpecificEntropy {
+        joules_per_kilogram_kelvin / in_joules_per_kilogram_kelvin = 1.0,
+            "joules per kilogram kelvin",
     }
     Charge {
         coulombs / in_coulombs = 1.0, "coulombs",

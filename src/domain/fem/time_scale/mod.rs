@@ -1,1 +1,1 @@
-pub use crate::domain::time_scale::TimeScaleElements;
+pub use crate::domain::solid::time_scale::TimeScaleElements;

@@ -12,12 +12,11 @@ use crate::{
         },
         thermal::conduction::ThermalConductionElements,
     },
-    math::{Quantity, QuantitySparseVec2D, QuantityVector},
-    units::{Power, PowerPerTemperature, PowerTemperature},
+    math::Quantity,
+    units::PowerTemperature,
 };
 
-pub type NodalForcesThermal = QuantityVector<Power>;
-pub type NodalStiffnessesThermal = QuantitySparseVec2D<PowerPerTemperature>;
+pub use crate::domain::thermal::{NodalForcesThermal, NodalStiffnessesThermal};
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
     ThermalConductionElements for Block<C, F, G, M, N, P, R>

@@ -6,7 +6,7 @@ use crate::units::Dimensionless;
 
 use crate::math::{
     Erase, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution, SquareMatrix, Tensor,
-    TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, write_tensor_rank_0,
+    TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, TensorVector, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -135,6 +135,12 @@ impl From<Vec<Scalar>> for Vector {
 impl From<Vector> for Vec<Scalar> {
     fn from(vector: Vector) -> Self {
         vector.0
+    }
+}
+
+impl From<TensorVector<Scalar>> for Vector {
+    fn from(tensor_vector: TensorVector<Scalar>) -> Self {
+        tensor_vector.iter().copied().collect()
     }
 }
 

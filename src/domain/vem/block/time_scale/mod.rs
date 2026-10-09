@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     constitutive::solid::elastic::Elastic,
-    domain::{ElementModelError, time_scale::TimeScaleElements},
+    domain::{ElementModelError, solid::time_scale::TimeScaleElements},
     math::Quantity,
     units::Time,
     vem::{
