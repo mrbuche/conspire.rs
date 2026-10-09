@@ -3,11 +3,10 @@ mod test;
 
 use super::Candidates;
 use crate::{
-    geometry::mesh::{ElementsFaces, Mesh, Partition},
+    geometry::mesh::{Criterion, ElementsFaces, Merging, Mesh, Partition},
     math::{Quantity, Scalar},
     units::Time,
 };
-use std::{collections::BTreeSet, mem::take};
 
 /// The time scale a typical element is expected to have.
 pub enum Reference {
@@ -19,14 +18,12 @@ pub enum Reference {
 
 /// An element is too fast when its time scale is not certified to exceed the reference over
 /// `step_reduction`. Such an element is joined to the neighbor that gives the largest time scale,
-/// if that is at least `minimum_improvement` times the smaller of the two, and the join can be
-/// one virtual element, see [`Candidates::check`].
+/// as described by `merging`, if the join can be one virtual element, see [`Candidates::check`].
 pub struct Agglomeration {
     pub reference: Reference,
     pub step_reduction: Scalar,
-    pub minimum_improvement: Scalar,
     pub minimum_volume: Scalar,
-    pub passes: usize,
+    pub merging: Merging,
 }
 
 pub struct Agglomerated {
@@ -45,10 +42,35 @@ impl Agglomerated {
     }
 }
 
-impl<S: ElementsFaces> Candidates<S> {
+struct TimeScale<'a, S> {
+    candidates: &'a Candidates<S>,
+    threshold: Quantity<Time>,
+    minimum_volume: Scalar,
+}
+
+impl<S> Criterion for TimeScale<'_, S>
+where
+    S: ElementsFaces,
+{
+    fn score(&self, elements: &[usize]) -> Result<Scalar, String> {
+        self.candidates
+            .time_scale(elements)
+            .map(|time_scale| time_scale.value())
+    }
+    fn certified(&self, elements: &[usize]) -> Result<bool, String> {
+        self.candidates.time_scale_exceeds(elements, self.threshold)
+    }
+    fn valid(&self, elements: &[usize]) -> bool {
+        self.candidates.check(elements, self.minimum_volume).is_ok()
+    }
+}
+
+impl<S> Candidates<S>
+where
+    S: ElementsFaces,
+{
     pub fn agglomerate(&self, agglomeration: &Agglomeration) -> Result<Agglomerated, String> {
-        let number_of_elements = self.number_of_elements();
-        let mut scales = self.time_scales()?;
+        let scales = self.time_scales()?;
         let reference = match &agglomeration.reference {
             Reference::Median => {
                 let mut values = scales.iter().map(|scale| scale.value()).collect::<Vec<_>>();
@@ -57,83 +79,20 @@ impl<S: ElementsFaces> Candidates<S> {
             }
             Reference::Value(value) => *value,
         };
-        let threshold = Time::seconds(reference.value() / agglomeration.step_reduction);
-        let adjacent = self.boundary.adjacent();
-        let mut groups = (0..number_of_elements)
-            .map(|element| vec![element])
-            .collect::<Vec<_>>();
-        let mut owner = (0..number_of_elements).collect::<Vec<_>>();
-        let mut alive = vec![true; number_of_elements];
-        for _ in 0..agglomeration.passes {
-            let mut seeds = self.unresolved(&groups, &alive, threshold)?;
-            seeds.sort_by(|&a, &b| scales[a].value().total_cmp(&scales[b].value()));
-            let mut merged = false;
-            for seed in seeds {
-                if !alive[seed] {
-                    continue;
-                }
-                let neighbors = groups[seed]
-                    .iter()
-                    .flat_map(|&element| adjacent[element].iter().map(|&other| owner[other]))
-                    .filter(|&group| group != seed)
-                    .collect::<BTreeSet<_>>();
-                let candidates = neighbors
-                    .into_iter()
-                    .filter_map(|neighbor| {
-                        let union = [groups[seed].as_slice(), groups[neighbor].as_slice()].concat();
-                        self.check(&union, agglomeration.minimum_volume)
-                            .ok()
-                            .map(|()| self.time_scale(&union).map(|scale| (neighbor, scale)))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                if let Some((neighbor, scale)) = candidates
-                    .into_iter()
-                    .max_by(|a, b| a.1.value().total_cmp(&b.1.value()))
-                    && scale.value()
-                        > agglomeration.minimum_improvement
-                            * scales[seed].value().min(scales[neighbor].value())
-                {
-                    let absorbed = take(&mut groups[neighbor]);
-                    absorbed.iter().for_each(|&element| owner[element] = seed);
-                    groups[seed].extend(absorbed);
-                    alive[neighbor] = false;
-                    scales[seed] = scale;
-                    merged = true
-                }
-            }
-            if !merged {
-                break;
-            }
-        }
-        let unresolved = self.unresolved(&groups, &alive, threshold)?;
-        let mut parts = vec![usize::MAX; number_of_elements];
-        let mut time_scales = Vec::new();
-        (0..number_of_elements)
-            .filter(|&group| alive[group])
-            .for_each(|group| {
-                parts[group] = time_scales.len();
-                time_scales.push(scales[group])
-            });
+        let merged = agglomeration.merging.agglomerate(
+            &self.boundary.adjacent(),
+            scales.iter().map(|scale| scale.value()).collect(),
+            &TimeScale {
+                candidates: self,
+                threshold: Time::seconds(reference.value() / agglomeration.step_reduction),
+                minimum_volume: agglomeration.minimum_volume,
+            },
+        )?;
         Ok(Agglomerated {
             reference,
-            elements_parts: owner.iter().map(|&group| parts[group]).collect(),
-            time_scales,
-            unresolved: unresolved.iter().map(|&group| parts[group]).collect(),
+            elements_parts: merged.elements_parts,
+            time_scales: merged.scores.into_iter().map(Time::seconds).collect(),
+            unresolved: merged.unresolved,
         })
-    }
-    fn unresolved(
-        &self,
-        groups: &[Vec<usize>],
-        alive: &[bool],
-        threshold: Quantity<Time>,
-    ) -> Result<Vec<usize>, String> {
-        (0..groups.len())
-            .filter(|&group| alive[group])
-            .filter_map(|group| {
-                self.time_scale_exceeds(&groups[group], threshold)
-                    .map(|certified| (!certified).then_some(group))
-                    .transpose()
-            })
-            .collect()
     }
 }

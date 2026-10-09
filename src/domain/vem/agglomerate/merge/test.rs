@@ -1,6 +1,6 @@
 use super::{Agglomeration, Reference};
 use crate::{
-    geometry::mesh::{Connectivity, Mesh, PrimitiveConnectivity},
+    geometry::mesh::{Connectivity, Merging, Mesh, PrimitiveConnectivity},
     units::Time,
     vem::{agglomerate::Candidates, block::element::DEFAULT_STABILIZATION},
 };
@@ -31,9 +31,11 @@ fn agglomeration(reference: f64) -> Agglomeration {
     Agglomeration {
         reference: Reference::Value(Time::seconds(reference)),
         step_reduction: 2.0,
-        minimum_improvement: 1.2,
         minimum_volume: 0.01,
-        passes: 5,
+        merging: Merging {
+            minimum_improvement: 1.2,
+            passes: 5,
+        },
     }
 }
 
@@ -117,7 +119,10 @@ fn no_passes_change_nothing() {
     let mesh = wedge(1.0e-4, vec![vec![[0, 1, 2, 3], [0, 2, 1, 4]]]);
     let result = candidates(&mesh)
         .agglomerate(&Agglomeration {
-            passes: 0,
+            merging: Merging {
+                minimum_improvement: 1.2,
+                passes: 0,
+            },
             ..agglomeration(union_scale(&mesh))
         })
         .unwrap();
@@ -130,7 +135,10 @@ fn an_unreachable_improvement_prevents_the_join() {
     let mesh = wedge(1.0e-4, vec![vec![[0, 1, 2, 3], [0, 2, 1, 4]]]);
     let result = candidates(&mesh)
         .agglomerate(&Agglomeration {
-            minimum_improvement: 1.0e12,
+            merging: Merging {
+                minimum_improvement: 1.0e12,
+                passes: 5,
+            },
             ..agglomeration(union_scale(&mesh))
         })
         .unwrap();
