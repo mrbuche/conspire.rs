@@ -4,12 +4,9 @@ mod test;
 use crate::{
     domain::{
         Blocks, ElementModel, Model, NodalAccelerations, NodalReferenceCoordinates,
-        NodalVelocities, block::element::Elements, factor::factor_free, solid::NodalForcesSolid,
+        NodalVelocities, block::element::Elements, factor::FreeFactored, solid::NodalForcesSolid,
     },
-    math::{
-        Quantity, QuantitySparseVec2D, QuantityVector, Tensor, Vector,
-        sparse::{CscLdl, SparseError},
-    },
+    math::{Quantity, QuantitySparseVec2D, QuantityVector, Tensor, sparse::SparseError},
     units::{Energy, Mass},
 };
 
@@ -152,19 +149,8 @@ impl<const D: usize> InverseMass<D> for NodalLumpedMasses {
     }
 }
 
-pub struct FactoredMasses<const D: usize>(CscLdl);
-
-impl<const D: usize> InverseMass<D> for FactoredMasses<D> {
-    fn nodal_accelerations(
-        &self,
-        external_forces: &NodalForcesSolid<D>,
-        internal_forces: &NodalForcesSolid<D>,
-    ) -> NodalAccelerations<D> {
-        self.0
-            .solve(&(external_forces - internal_forces).into_erased().into())
-            .into()
-    }
-}
+/// The factors of a consistent mass.
+pub type FactoredMasses<const D: usize> = FreeFactored<D>;
 
 /// A mass that yields its inverse with some degrees of freedom held fixed.
 ///
@@ -208,46 +194,29 @@ impl<const D: usize> InverseMass<D> for FixedLumpedMasses {
 }
 
 /// The inverse of a consistent mass restricted to the free degrees of freedom.
-pub struct FreeFactoredMasses<const D: usize> {
-    factors: CscLdl,
-    free: Vec<usize>,
-}
+pub type FreeFactoredMasses<const D: usize> = FreeFactored<D>;
 
 impl<const D: usize> MassMatrix<D> for NodalMasses {
-    type Inverse = FreeFactoredMasses<D>;
+    type Inverse = FreeFactored<D>;
     fn inverse(&self, fixed: &[usize]) -> Result<Self::Inverse, SparseError> {
-        let (factors, free) = self.factor_free::<D>(fixed)?;
-        Ok(FreeFactoredMasses { factors, free })
+        FreeFactored::factor(self, fixed)
     }
 }
 
-impl<const D: usize> InverseMass<D> for FreeFactoredMasses<D> {
+impl<const D: usize> InverseMass<D> for FreeFactored<D> {
     fn nodal_accelerations(
         &self,
         external_forces: &NodalForcesSolid<D>,
         internal_forces: &NodalForcesSolid<D>,
     ) -> NodalAccelerations<D> {
-        let forces: Vector = (external_forces - internal_forces).into_erased().into();
-        let free_forces: Vector = self.free.iter().map(|&index| forces[index]).collect();
-        let free_accelerations = self.factors.solve(&free_forces);
-        let mut accelerations = Vector::zero(forces.len());
-        self.free
-            .iter()
-            .enumerate()
-            .for_each(|(k, &index)| accelerations[index] = free_accelerations[k]);
-        accelerations.into()
+        self.solve(&(external_forces - internal_forces).into_erased().into())
+            .into()
     }
 }
 
 impl NodalMasses {
     pub fn factor<const D: usize>(&self) -> Result<FactoredMasses<D>, SparseError> {
-        Ok(FactoredMasses(self.factor_free::<D>(&[])?.0))
-    }
-    fn factor_free<const D: usize>(
-        &self,
-        fixed: &[usize],
-    ) -> Result<(CscLdl, Vec<usize>), SparseError> {
-        factor_free::<Mass, D>(self, fixed)
+        FreeFactored::factor(self, &[])
     }
     pub fn kinetic_energy<const D: usize>(
         &self,

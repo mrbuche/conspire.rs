@@ -1,12 +1,9 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, Model, block::element::Elements, factor::factor_free,
+        Blocks, ElementModel, Model, block::element::Elements, factor::FreeFactored,
         thermal::NodalForcesThermal,
     },
-    math::{
-        Erase, Quantity, QuantitySparseVec2D, QuantityVector, Tensor, Vector,
-        sparse::{CscLdl, SparseError},
-    },
+    math::{Quantity, QuantitySparseVec2D, QuantityVector, Tensor, sparse::SparseError},
     units::{HeatCapacity, TemperatureRate},
 };
 
@@ -83,16 +80,12 @@ where
 }
 
 /// The factors of a consistent heat capacity restricted to the free temperatures.
-pub struct FreeFactoredHeatCapacities {
-    factors: CscLdl,
-    free: Vec<usize>,
-}
+pub type FreeFactoredHeatCapacities = FreeFactored<1>;
 
 impl NodalHeatCapacities {
     /// Factors the heat capacity restricted to the nodes that are not fixed.
     pub fn factor(&self, fixed: &[usize]) -> Result<FreeFactoredHeatCapacities, SparseError> {
-        let (factors, free) = factor_free::<HeatCapacity, 1>(self, fixed)?;
-        Ok(FreeFactoredHeatCapacities { factors, free })
+        FreeFactored::factor(self, fixed)
     }
 }
 
@@ -174,19 +167,8 @@ impl InverseHeatCapacity for FreeFactoredHeatCapacities {
         external_heating: &NodalForcesThermal,
         internal_heating: &NodalForcesThermal,
     ) -> NodalTemperatureRates {
-        let (external, internal) = (external_heating.erase(), internal_heating.erase());
-        let free_heating: Vector = self
-            .free
-            .iter()
-            .map(|&index| external[index] - internal[index])
-            .collect();
-        let free_rates = self.factors.solve(&free_heating);
-        let mut rates = Vector::zero(external_heating.len());
-        self.free
-            .iter()
-            .enumerate()
-            .for_each(|(k, &index)| rates[index] = free_rates[k]);
-        rates.into()
+        self.solve(&(external_heating - internal_heating).into_erased().into())
+            .into()
     }
 }
 

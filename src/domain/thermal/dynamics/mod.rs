@@ -1,6 +1,7 @@
 use crate::{
     domain::{
         ElementModelError, Model,
+        factor::fixed_indices,
         thermal::{
             NodalForcesThermal, NodalTemperatures,
             capacity::{
@@ -35,15 +36,7 @@ fn held<M>(
 where
     M: HeatCapacityMatrix,
 {
-    let fixed = match equality_constraint {
-        EqualityConstraint::Fixed(indices) => indices,
-        EqualityConstraint::None => vec![],
-        EqualityConstraint::Linear(..) => {
-            return Err(IntegrationError::Intermediate(
-                "Linear constraints are not supported by explicit thermal dynamics.".to_string(),
-            ));
-        }
-    };
+    let fixed = fixed_indices(equality_constraint, "explicit thermal dynamics")?;
     capacities
         .inverse(&fixed)
         .map_err(|error| IntegrationError::Intermediate(error.to_string()))

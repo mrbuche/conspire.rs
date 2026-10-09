@@ -19,3 +19,10 @@ fn a_borrowed_sum_matches_the_owned_sum() {
         [1.5, 2.0, 2.5]
     );
 }
+
+#[test]
+fn a_tensor_vector_of_scalars_converts_in_order() {
+    let (a, _) = vectors();
+    let tensor_vector: crate::math::TensorVector<crate::math::Scalar> = a.iter().copied().collect();
+    assert_eq!(Vector::from(tensor_vector), a);
+}

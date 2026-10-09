@@ -2,6 +2,7 @@ use crate::{
     domain::{
         ElementModelError, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        factor::fixed_indices,
         solid::{
             NodalForcesSolid,
             elastic::ElasticElements,
@@ -32,15 +33,7 @@ fn held<M>(
 where
     M: MassMatrix<3>,
 {
-    let fixed = match equality_constraint {
-        EqualityConstraint::Fixed(indices) => indices,
-        EqualityConstraint::None => vec![],
-        EqualityConstraint::Linear(..) => {
-            return Err(IntegrationError::Intermediate(
-                "Linear constraints are not supported by explicit dynamics.".to_string(),
-            ));
-        }
-    };
+    let fixed = fixed_indices(equality_constraint, "explicit dynamics")?;
     let inverse = masses
         .inverse(&fixed)
         .map_err(|error| IntegrationError::Intermediate(error.to_string()))?;
