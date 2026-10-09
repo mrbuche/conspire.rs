@@ -20,7 +20,7 @@ use super::{
 use crate::{
     math::{
         ContractWith, Matrix, Quantity, Vector,
-        integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
+        integrate::ImplicitDaeMinimize,
         optimize::{EqualityConstraint, Optimization},
     },
     units::{Dissipation, Time},
@@ -78,9 +78,10 @@ pub trait FirstOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeFirstOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradient,
             DeformationGradients,
             DeformationGradientRates,
@@ -104,7 +105,7 @@ pub trait SecondOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeSecondOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
@@ -128,9 +129,10 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeFirstOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradient,
             DeformationGradients,
             DeformationGradientRates,
@@ -167,6 +169,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
+                    |_, _, _| Ok(()),
                     solver,
                     time,
                     DeformationGradient::identity(),
@@ -174,6 +177,7 @@ where
                         vector[0] = deformation_gradient_rate_11(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())
                     },
+                    None,
                 )
             }
             AppliedLoad::BiaxialStress(
@@ -205,6 +209,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
+                    |_, _, _| Ok(()),
                     solver,
                     time,
                     DeformationGradient::identity(),
@@ -213,6 +218,7 @@ where
                         vector[4] = deformation_gradient_rate_22(t);
                         EqualityConstraint::Linear(matrix.clone(), vector.clone())
                     },
+                    None,
                 )
             }
         }
@@ -227,7 +233,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeSecondOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,

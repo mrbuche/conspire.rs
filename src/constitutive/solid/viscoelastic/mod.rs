@@ -16,7 +16,7 @@ use super::{super::fluid::viscous::Viscous, *};
 use crate::{
     math::{
         Matrix, Quantity, Vector,
-        integrate::{ImplicitDaeFirstOrderRoot, ImplicitDaeZerothOrderRoot},
+        integrate::ImplicitDaeRoot,
         optimize::{EqualityConstraint, RootFinding},
     },
     units::Time,
@@ -150,8 +150,9 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeZerothOrderRoot<
+        integrator: impl ImplicitDaeRoot<
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradient,
             DeformationGradients,
             DeformationGradientRates,
@@ -170,7 +171,7 @@ pub trait FirstOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeFirstOrderRoot<
+        integrator: impl ImplicitDaeRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradient,
@@ -192,8 +193,9 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeZerothOrderRoot<
+        integrator: impl ImplicitDaeRoot<
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradient,
             DeformationGradients,
             DeformationGradientRates,
@@ -217,6 +219,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
+                    |_, _, _| Ok(()),
                     solver,
                     time,
                     DeformationGradient::identity(),
@@ -247,6 +250,7 @@ where
                             deformation_gradient_rate,
                         )?)
                     },
+                    |_, _, _| Ok(()),
                     solver,
                     time,
                     DeformationGradient::identity(),
@@ -269,7 +273,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeFirstOrderRoot<
+        integrator: impl ImplicitDaeRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradient,

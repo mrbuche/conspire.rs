@@ -9,28 +9,8 @@ use crate::units::Time;
 pub(super) mod explicit;
 // pub mod implicit;
 
-/// Integrators for explicit differential-algebraic equations using zeroth-order root-finding.
-pub trait ExplicitDaeZerothOrderRoot<G, Y, Z, U, V, W, T = Time>
-where
-    Y: Differentiable<T> + Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-    W: TensorVec<Item = Derivative<Y, T>>,
-{
-    fn integrate(
-        &self,
-        evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
-        function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<G, String>,
-        solver: impl RootFinding<G, (), Z>,
-        time: &[Quantity<T>],
-        initial_condition: (Y, Z),
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-    ) -> Result<(Times<T>, U, W, V), IntegrationError>;
-}
-
-/// Integrators for explicit differential-algebraic equations using first-order root-finding.
-pub trait ExplicitDaeFirstOrderRoot<F, J, Y, Z, U, V, W, T = Time>
+/// Integrators for explicit differential-algebraic equations using root-finding.
+pub trait ExplicitDaeRoot<F, J, Y, Z, U, V, W, T = Time>
 where
     Y: Differentiable<T> + Tensor,
     Z: Tensor,
@@ -51,30 +31,8 @@ where
     ) -> Result<(Times<T>, U, W, V), IntegrationError>;
 }
 
-/// Integrators for explicit differential-algebraic equations using first-order minimization.
-pub trait ExplicitDaeFirstOrderMinimize<F, G, Y, Z, U, V, W, T = Time>
-where
-    Y: Differentiable<T> + Tensor,
-    Z: Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Z>,
-    W: TensorVec<Item = Derivative<Y, T>>,
-{
-    #[expect(clippy::too_many_arguments)]
-    fn integrate(
-        &self,
-        evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
-        function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<F, String>,
-        jacobian: impl FnMut(Quantity<T>, &Y, &Z) -> Result<G, String>,
-        solver: impl Optimization<F, G, (), Z>,
-        time: &[Quantity<T>],
-        initial_condition: (Y, Z),
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-    ) -> Result<(Times<T>, U, W, V), IntegrationError>;
-}
-
-/// Integrators for explicit differential-algebraic equations using second-order minimization.
-pub trait ExplicitDaeSecondOrderMinimize<F, J, H, Y, Z, U, V, W, T = Time>
+/// Integrators for explicit differential-algebraic equations using minimization.
+pub trait ExplicitDaeMinimize<F, J, H, Y, Z, U, V, W, T = Time>
 where
     Y: Differentiable<T> + Tensor,
     Z: Tensor,
@@ -97,25 +55,8 @@ where
     ) -> Result<(Times<T>, U, W, V), IntegrationError>;
 }
 
-/// Integrators for implicit differential-algebraic equations using zeroth-order root-finding.
-pub trait ImplicitDaeZerothOrderRoot<G, Y, U, V, T = Time>
-where
-    Y: Differentiable<T> + Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Derivative<Y, T>>,
-{
-    fn integrate(
-        &self,
-        function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl RootFinding<G, (), Derivative<Y, T>>,
-        time: &[Quantity<T>],
-        initial_condition: Y,
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-    ) -> Result<(Times<T>, U, V), IntegrationError>;
-}
-
-/// Integrators for implicit differential-algebraic equations using first-order root-finding.
-pub trait ImplicitDaeFirstOrderRoot<F, J, Y, U, V, T = Time>
+/// Integrators for implicit differential-algebraic equations using root-finding.
+pub trait ImplicitDaeRoot<F, J, Y, U, V, T = Time>
 where
     Y: Differentiable<T> + Tensor,
     U: TensorVec<Item = Y>,
@@ -132,26 +73,8 @@ where
     ) -> Result<(Times<T>, U, V), IntegrationError>;
 }
 
-/// Integrators for implicit differential-algebraic equations using first-order minimization.
-pub trait ImplicitDaeFirstOrderMinimize<F, G, Y, U, V, T = Time>
-where
-    Y: Differentiable<T> + Tensor,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Derivative<Y, T>>,
-{
-    fn integrate(
-        &self,
-        function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
-        jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl Optimization<F, G, (), Derivative<Y, T>>,
-        time: &[Quantity<T>],
-        initial_condition: Y,
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-    ) -> Result<(Times<T>, U, V), IntegrationError>;
-}
-
-/// Integrators for implicit differential-algebraic equations using second-order minimization.
-pub trait ImplicitDaeSecondOrderMinimize<F, J, H, Y, U, V, T = Time>
+/// Integrators for implicit differential-algebraic equations using minimization.
+pub trait ImplicitDaeMinimize<F, J, H, Y, U, V, T = Time>
 where
     Y: Differentiable<T> + Tensor,
     U: TensorVec<Item = Y>,

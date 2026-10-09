@@ -24,9 +24,9 @@ use crate::{
     math::{
         Derivative, Differentiable, Quantity, Scalar, Tensor, TensorArray, TensorVec, Vector,
         integrate::{
-            ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderMinimize,
-            ExplicitDaeSecondOrderMinimize, Integrable, StateEvolution,
-            integrate_rkmk_dae_adaptive_second_order_minimize, rkmk_dae_step_second_order_minimize,
+            ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeMinimize, Integrable,
+            StateEvolution, integrate_rkmk_dae_adaptive_second_order_minimize,
+            rkmk_dae_step_second_order_minimize,
         },
         optimize::{EqualityConstraint, Optimization},
     },
@@ -69,9 +69,10 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeFirstOrderMinimize<
+        integrator: impl ExplicitDaeMinimize<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
+            (),
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
@@ -107,7 +108,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeSecondOrderMinimize<
+        integrator: impl ExplicitDaeMinimize<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -141,9 +142,10 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeFirstOrderMinimize<
+        integrator: impl ExplicitDaeMinimize<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
+            (),
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
@@ -191,6 +193,7 @@ where
                         deformation_gradient_p,
                     )?)
                 },
+                |_, _, _| Ok(()),
                 solver,
                 time,
                 (self.initial_state(), DeformationGradient::identity()),
@@ -200,6 +203,7 @@ where
                         .for_each(|(index, function)| vector[*index] = function(t));
                     EqualityConstraint::Linear(matrix.clone(), vector.clone())
                 },
+                None,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
         Ok((times, deformation_gradients, state_variables))
@@ -214,7 +218,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeSecondOrderMinimize<
+        integrator: impl ExplicitDaeMinimize<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,

@@ -164,7 +164,7 @@ where
 
 /// [`rkmk_dae_step`] with the algebraic unknown resolved by first-order
 /// root-finding at every stage abscissa, built from `function`/`jacobian`/
-/// `solver` exactly as `ExplicitDaeVariableStepExplicitFirstOrderRoot` builds
+/// `solver` exactly as `ExplicitDaeVariableStepExplicitRoot` builds
 /// its `solution` closure for the legacy flat DAE solver — the split between
 /// root-finding and minimization is orthogonal to which field the state lives
 /// on, so this is the one place that wrapping happens for the RKMK-DAE path.

@@ -21,9 +21,9 @@ use crate::{
         ContractWith, Derivative, Differentiable, Intermediate, Quantity, Rank2, Reference, Scalar,
         Tensor, TensorArray, TensorRank2, TensorTuple, TensorVec, Vector,
         integrate::{
-            ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderRoot,
-            ExplicitDaeZerothOrderRoot, Flat, Integrable, Product, StateEvolution, Unimodular,
-            integrate_rkmk_dae_adaptive_first_order_root, rkmk_dae_step_first_order_root,
+            ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeRoot, Flat, Integrable,
+            Product, StateEvolution, Unimodular, integrate_rkmk_dae_adaptive_first_order_root,
+            rkmk_dae_step_first_order_root,
         },
         optimize::{EqualityConstraint, RootFinding},
     },
@@ -90,8 +90,9 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeZerothOrderRoot<
+        integrator: impl ExplicitDaeRoot<
             FirstPiolaKirchhoffStress,
+            (),
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
@@ -122,7 +123,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeFirstOrderRoot<
+        integrator: impl ExplicitDaeRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             ViscoplasticStateVariables<Y>,
@@ -154,8 +155,9 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeZerothOrderRoot<
+        integrator: impl ExplicitDaeRoot<
             FirstPiolaKirchhoffStress,
+            (),
             ViscoplasticStateVariables<Y>,
             DeformationGradient,
             ViscoplasticStateVariablesHistory<Y>,
@@ -189,6 +191,7 @@ where
                         deformation_gradient_p,
                     )?)
                 },
+                |_, _, _| Ok(()),
                 solver,
                 time,
                 (self.initial_state(), DeformationGradient::identity()),
@@ -212,7 +215,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeFirstOrderRoot<
+        integrator: impl ExplicitDaeRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             ViscoplasticStateVariables<Y>,

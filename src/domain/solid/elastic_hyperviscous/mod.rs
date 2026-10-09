@@ -7,7 +7,7 @@ use crate::{
     },
     math::{
         Quantity, Tensor,
-        integrate::{ImplicitDaeSecondOrderMinimize, IntegrationError},
+        integrate::{ImplicitDaeMinimize, IntegrationError},
         optimize::{EqualityConstraint, Optimization},
     },
     mechanics::Times,
@@ -87,7 +87,7 @@ pub trait SecondOrderMinimize<const D: usize> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl ImplicitDaeSecondOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -112,7 +112,7 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl ImplicitDaeSecondOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
