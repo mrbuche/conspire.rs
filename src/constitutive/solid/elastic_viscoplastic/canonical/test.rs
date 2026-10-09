@@ -221,7 +221,7 @@ mod state_evolution {
     #[test]
     fn rkmk_step_cost_relative_to_the_rate_evaluations_alone() {
         use crate::math::integrate::{StateEvolution, rkmk_step};
-        use std::time::Instant;
+        use std::time::{Duration, Instant};
         type Model = super::Canonical<super::AlmansiHamelEulerian, super::ViscoplasticFlow>;
         type Field = <Model as StateEvolution<Time>>::Field;
         let model = model();
@@ -244,28 +244,33 @@ mod state_evolution {
             .0
             .determinant();
         }
-        let start = Instant::now();
-        for _ in 0..iterations {
-            sink += rkmk_step::<Field, BogackiShampineTableau, Time>(
-                &mut |tt, s| model.state_rate(tt, &f, s),
-                &initial,
-                t,
-                dt,
-                &mut scratch,
-            )
-            .unwrap()
-            .0
-            .determinant();
-        }
-        let rkmk = start.elapsed();
-        let start = Instant::now();
-        for _ in 0..iterations {
-            for _ in 0..4 {
-                let rate = StateEvolution::state_rate(&model, t, &f, &initial).unwrap();
-                sink += rate.0.norm().value();
+        let batch = 100;
+        let mut rkmk = Duration::ZERO;
+        let mut rates = Duration::ZERO;
+        for _ in 0..iterations / batch {
+            let start = Instant::now();
+            for _ in 0..batch {
+                sink += rkmk_step::<Field, BogackiShampineTableau, Time>(
+                    &mut |tt, s| model.state_rate(tt, &f, s),
+                    &initial,
+                    t,
+                    dt,
+                    &mut scratch,
+                )
+                .unwrap()
+                .0
+                .determinant();
             }
+            rkmk += start.elapsed();
+            let start = Instant::now();
+            for _ in 0..batch {
+                for _ in 0..4 {
+                    let rate = StateEvolution::state_rate(&model, t, &f, &initial).unwrap();
+                    sink += rate.0.norm().value();
+                }
+            }
+            rates += start.elapsed();
         }
-        let rates = start.elapsed();
         println!(
             "rkmk_step {rkmk:?}  vs  4x state_rate {rates:?}  =>  {:.2}x",
             rkmk.as_secs_f64() / rates.as_secs_f64()
