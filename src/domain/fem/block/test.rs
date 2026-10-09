@@ -210,12 +210,10 @@ macro_rules! test_finite_element_block_inner {
                         fn root() -> Result<(), AssertionError> {
                             let (applied_load, a, b) = equality_constraint();
                             let block = get_block();
-                            let coordinates = Root::root(
-                                &crate::domain::Model::from((
+                            let coordinates = crate::domain::Model::from((
                                     get_block(),
                                     get_reference_coordinates_block(),
-                                )),
-                                EqualityConstraint::Linear(a, b),
+                                )).root(EqualityConstraint::Linear(a, b),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -260,12 +258,10 @@ macro_rules! test_finite_element_block_inner {
                         fn minimize() -> Result<(), AssertionError> {
                             let (applied_load, a, b) = equality_constraint();
                             let block = get_block();
-                            let coordinates = Minimize::minimize(
-                                &crate::domain::Model::from((
+                            let coordinates = crate::domain::Model::from((
                                     get_block(),
                                     get_reference_coordinates_block(),
-                                )),
-                                EqualityConstraint::Linear(a, b),
+                                )).minimize(EqualityConstraint::Linear(a, b),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -412,13 +408,14 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                     use crate::fem::solid::elastic_hyperviscous::Minimize;
                     let (a, b) = applied_velocities();
                     let block = get_block();
-                    let (times, coordinates_history, velocities_history) = Minimize::minimize(
-                        &crate::fem::Model::from((get_block(), get_reference_coordinates_block())),
-                        EqualityConstraint::Linear(a, b),
-                        $integrator::default(),
-                        &[Quantity::new(0.0), Quantity::new(1.0)],
-                        NewtonRaphson::default(),
-                    )?;
+                    let (times, coordinates_history, velocities_history) =
+                        crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
+                            .minimize(
+                            EqualityConstraint::Linear(a, b),
+                            $integrator::default(),
+                            &[Quantity::new(0.0), Quantity::new(1.0)],
+                            NewtonRaphson::default(),
+                        )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.minimize(
                             applied_velocity(&times),
@@ -476,13 +473,14 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                     use crate::fem::solid::viscoelastic::Root;
                     let (a, b) = applied_velocities();
                     let block = get_block();
-                    let (times, coordinates_history, velocities_history) = Root::root(
-                        &crate::fem::Model::from((get_block(), get_reference_coordinates_block())),
-                        EqualityConstraint::Linear(a, b),
-                        $integrator::default(),
-                        &[Quantity::new(0.0), Quantity::new(1.0)],
-                        NewtonRaphson::default(),
-                    )?;
+                    let (times, coordinates_history, velocities_history) =
+                        crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
+                            .root(
+                            EqualityConstraint::Linear(a, b),
+                            $integrator::default(),
+                            &[Quantity::new(0.0), Quantity::new(1.0)],
+                            NewtonRaphson::default(),
+                        )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
                             applied_velocity(&times),

@@ -70,8 +70,8 @@ pub use ode::{
         },
     },
     implicit::{
-        ImplicitFirstOrder, ImplicitZerothOrder, backward_euler::BackwardEuler,
-        midpoint::Midpoint as ImplicitMidpoint, trapezoidal::Trapezoidal,
+        Implicit, backward_euler::BackwardEuler, midpoint::Midpoint as ImplicitMidpoint,
+        trapezoidal::Trapezoidal,
     },
 };
 
