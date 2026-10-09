@@ -1,16 +1,13 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, ElementModelError, FirstOrderMinimize, Model, NodalCoordinates,
-        ProvidesTangent, SecondOrderMinimize, SolverFor,
+        Blocks, ElementModel, ElementModelError, Minimize, Model, NodalCoordinates,
+        ProvidesTangent, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         solid::{NodalForcesSolid, NodalStiffnessesSolidSymmetric, elastic::ElasticElements},
     },
     math::{
         Quantity, Tensor,
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, NewtonRaphson, OptimizationError,
-            SecondOrderOptimization,
-        },
+        optimize::{EqualityConstraint, NewtonRaphson, Optimization, OptimizationError},
     },
     units::Energy,
 };
@@ -82,27 +79,6 @@ where
     }
 }
 
-impl<B, const D: usize>
-    FirstOrderMinimize<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>> for Model<B, D>
-where
-    B: HyperelasticElements<D>,
-{
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>>,
-    ) -> Result<NodalCoordinates<D>, OptimizationError> {
-        solver.minimize(
-            |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
-            },
-            |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
-            self.coordinates().clone().into(),
-            equality_constraint,
-        )
-    }
-}
-
 impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<Energy>, NodalForcesSolid<D>>
     for NewtonRaphson
 where
@@ -125,8 +101,8 @@ where
     }
 }
 
-impl<B, const D: usize>
-    SecondOrderMinimize<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>> for Model<B, D>
+impl<B, const D: usize> Minimize<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>>
+    for Model<B, D>
 where
     B: HyperelasticElements<D>,
 {
@@ -137,12 +113,7 @@ where
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where
         S: SolverFor<Self, Quantity<Energy>, NodalForcesSolid<D>>
-            + SecondOrderOptimization<
-                Quantity<Energy>,
-                NodalForcesSolid<D>,
-                S::Tangent,
-                NodalCoordinates<D>,
-            >,
+            + Optimization<Quantity<Energy>, NodalForcesSolid<D>, S::Tangent, NodalCoordinates<D>>,
         Self: ProvidesTangent<NodalCoordinates<D>, S::Tangent>,
     {
         let sparse = S::SPARSE.then(|| {

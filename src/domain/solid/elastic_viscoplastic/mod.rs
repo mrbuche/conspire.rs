@@ -10,9 +10,9 @@ use crate::{
         TensorVec, TensorVector,
         integrate::{
             ButcherTableau, EmbeddedTableau, Integrable, IntegrationError, Product,
-            integrate_rkmk_dae_adaptive_first_order_root, rkmk_dae_step_first_order_root,
+            integrate_rkmk_dae_adaptive_root, rkmk_dae_step_root,
         },
-        optimize::{EqualityConstraint, FirstOrderRootFinding},
+        optimize::{EqualityConstraint, RootFinding},
     },
     mechanics::Times,
     units::Time,
@@ -207,11 +207,7 @@ pub trait RootRkmkDae<const D: usize, Y = Quantity> {
     /// state advances on its group.
     fn root_rkmk_dae<Tab: ButcherTableau>(
         &self,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
-        >,
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>,
         time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
@@ -227,11 +223,7 @@ pub trait RootRkmkDae<const D: usize, Y = Quantity> {
     /// re-solved there.
     fn root_rkmk_dae_adaptive<Tab: EmbeddedTableau>(
         &self,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
-        >,
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>,
         time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
         abs_tol: Scalar,
@@ -347,11 +339,7 @@ where
     #[allow(clippy::type_complexity)]
     fn root_rkmk_dae<Tab: ButcherTableau>(
         &self,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<3>,
-            NodalStiffnessesSolid<3>,
-            NodalCoordinates<3>,
-        >,
+        solver: impl RootFinding<NodalForcesSolid<3>, NodalStiffnessesSolid<3>, NodalCoordinates<3>>,
         time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
@@ -400,7 +388,7 @@ where
         nodal_coordinates_history.push(nodal_coordinates.clone());
         state_variables_history.push(B::unflatten(&state));
         for step in time.windows(2) {
-            let advanced = rkmk_dae_step_first_order_root::<
+            let advanced = rkmk_dae_step_root::<
                 B::Field,
                 Tab,
                 NodalForcesSolid<3>,
@@ -434,11 +422,7 @@ where
     #[allow(clippy::type_complexity)]
     fn root_rkmk_dae_adaptive<Tab: EmbeddedTableau>(
         &self,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<3>,
-            NodalStiffnessesSolid<3>,
-            NodalCoordinates<3>,
-        >,
+        solver: impl RootFinding<NodalForcesSolid<3>, NodalStiffnessesSolid<3>, NodalCoordinates<3>>,
         time: &[Quantity<Time>],
         bcs: ElasticViscoplasticBCs,
         abs_tol: Scalar,
@@ -481,7 +465,7 @@ where
             )
             .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
         let (times, state_points_history, nodal_coordinates_history) =
-            integrate_rkmk_dae_adaptive_first_order_root::<
+            integrate_rkmk_dae_adaptive_root::<
                 B::Field,
                 Tab,
                 NodalForcesSolid<3>,

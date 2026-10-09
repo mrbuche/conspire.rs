@@ -16,7 +16,7 @@ macro_rules! test_implicit_fixed_step {
         type Rates = TensorVector<Quantity<Rate>>;
         #[test]
         fn finite_difference() -> Result<(), AssertionError> {
-            use crate::math::integrate::{ImplicitFirstOrder, ImplicitZerothOrder};
+            use crate::math::integrate::Implicit;
             let t = Quantity::<Time>::new(0.55);
             let y = (t * RATE).sin();
             let function = |t: Quantity<Time>, y: &Quantity| {
@@ -28,26 +28,25 @@ macro_rules! test_implicit_fixed_step {
             let dt = TIME_STEP;
             let t_trial = t + dt;
             let y_trial = y + function(t, &y)? * dt;
-            let finite_difference =
-                (ImplicitZerothOrder::<Quantity, States, Rates>::residual(
-                    &$integration,
-                    &function,
-                    t,
-                    &y,
-                    t_trial,
-                    &(y_trial + 0.5 * EPSILON),
-                    dt,
-                )? - ImplicitZerothOrder::<Quantity, States, Rates>::residual(
-                    &$integration,
-                    &function,
-                    t,
-                    &y,
-                    t_trial,
-                    &(y_trial - 0.5 * EPSILON),
-                    dt,
-                )?) / EPSILON;
+            let finite_difference = (Implicit::<Quantity, Quantity, States, Rates>::residual(
+                &$integration,
+                &function,
+                t,
+                &y,
+                t_trial,
+                &(y_trial + 0.5 * EPSILON),
+                dt,
+            )? - Implicit::<Quantity, Quantity, States, Rates>::residual(
+                &$integration,
+                &function,
+                t,
+                &y,
+                t_trial,
+                &(y_trial - 0.5 * EPSILON),
+                dt,
+            )?) / EPSILON;
             $crate::math::assert::Assert::default().eq_within_fd_tol(
-                &ImplicitFirstOrder::<Quantity, Quantity, States, Rates>::hessian(
+                &Implicit::<Quantity, Quantity, States, Rates>::hessian(
                     &$integration,
                     &jacobian,
                     t,
@@ -59,44 +58,17 @@ macro_rules! test_implicit_fixed_step {
                 &finite_difference,
             )
         }
-        mod gradient_descent {
-            use super::*;
-            use crate::math::{integrate::ImplicitZerothOrder, optimize::GradientDescent};
-            #[test]
-            fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
-                $crate::math::assert::Assert::eq(
-                    &FixedStep::<Time>::dt(&$integration),
-                    &TIME_STEP,
-                )?;
-                let (time, solution, function): (Times, States, Rates) = $integration.integrate(
-                    |t: Quantity<Time>, _: &Quantity| Ok((t * RATE) * RATE),
-                    &[Quantity::new(0.0), Quantity::new(1.0)],
-                    Quantity::new(0.0),
-                    GradientDescent::default(),
-                )?;
-                time.iter()
-                    .zip(solution.iter().zip(function.iter()))
-                    .for_each(|(t, (y, f))| {
-                        let t = (*t * RATE).value();
-                        assert!(
-                            (0.5 * t * t - y.value()).abs() < TOLERANCE
-                                && (t - f.value()).abs() < TOLERANCE
-                        )
-                    });
-                Ok(())
-            }
-        }
         mod newton_raphson {
             use super::*;
-            use crate::math::{integrate::ImplicitFirstOrder, optimize::NewtonRaphson};
+            use crate::math::{integrate::Implicit, optimize::NewtonRaphson};
             #[test]
-            fn first_order_tensor_rank_0() -> Result<(), AssertionError> {
+            fn tensor_rank_0() -> Result<(), AssertionError> {
                 $crate::math::assert::Assert::eq(
                     &FixedStep::<Time>::dt(&$integration),
                     &TIME_STEP,
                 )?;
                 let (time, solution, function): (Times, States, Rates) =
-                    ImplicitFirstOrder::<Quantity, Quantity, States, Rates>::integrate(
+                    Implicit::<Quantity, Quantity, States, Rates>::integrate(
                         &$integration,
                         |t: Quantity<Time>, _: &Quantity| Ok((t * RATE) * RATE),
                         |_: Quantity<Time>, _: &Quantity| Ok(RATE),

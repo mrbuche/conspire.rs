@@ -29,10 +29,7 @@ use crate::{
     math::{
         Current, Reference, Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
         assert::AssertionError,
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
-            SecondOrderOptimization, ZerothOrderRootFinding,
-        },
+        optimize::{EqualityConstraint, Optimization, OptimizationError, RootFinding},
         styled_error,
     },
     units::{Acceleration, Length, Velocity},
@@ -156,16 +153,8 @@ impl StyledError for ElementModelError {
 
 styled_error!(ElementModelError);
 
-pub trait ZerothOrderRoot<F, X> {
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<F, X>,
-    ) -> Result<X, OptimizationError>;
-}
-
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub trait FirstOrderRoot<F, J, X>
+pub trait Root<F, J, X>
 where
     Self: Sized,
 {
@@ -175,17 +164,8 @@ where
         solver: S,
     ) -> Result<X, OptimizationError>
     where
-        S: SolverFor<Self, F, J> + FirstOrderRootFinding<F, S::Tangent, X>,
+        S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
         Self: ProvidesTangent<X, S::Tangent>;
-}
-
-#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub trait FirstOrderMinimize<F, J, X> {
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<F, J, X>,
-    ) -> Result<X, OptimizationError>;
 }
 
 impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> {
@@ -224,7 +204,7 @@ pub trait ProvidesTangent<X, T> {
 
 /// Minimization of a model, where the solver determines the tangent it works from.
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub trait SecondOrderMinimize<F, J, X>
+pub trait Minimize<F, J, X>
 where
     Self: Sized,
 {
@@ -234,6 +214,6 @@ where
         solver: S,
     ) -> Result<X, OptimizationError>
     where
-        S: SolverFor<Self, F, J> + SecondOrderOptimization<F, J, S::Tangent, X>,
+        S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
         Self: ProvidesTangent<X, S::Tangent>;
 }

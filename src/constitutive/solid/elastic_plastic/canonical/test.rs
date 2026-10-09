@@ -6,9 +6,7 @@ use crate::{
             RateIndependentPlastic, Voce, VonMises, YieldSurface,
         },
         solid::{
-            elastic_plastic::{
-                AppliedLoad, ElasticPlastic, ElasticPlasticOrViscoplastic, FirstOrderRoot,
-            },
+            elastic_plastic::{AppliedLoad, ElasticPlastic, ElasticPlasticOrViscoplastic, Root},
             hyperelastic::NeoHookean,
         },
     },
@@ -44,8 +42,7 @@ fn root(
     ),
     crate::constitutive::ConstitutiveError,
 > {
-    FirstOrderRoot::root(
-        model,
+    model.root(
         applied_load,
         solver,
         SolveStrategy::Condensed(NewtonRaphson::default()),
@@ -199,14 +196,11 @@ fn hill_condensed_matches_the_return_map() -> Result<(), AssertionError> {
 
 #[test]
 fn hill_strategies_agree_under_non_proportional_loading() -> Result<(), AssertionError> {
-    use crate::{
-        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
-    };
+    use crate::{constitutive::solid::elastic_plastic::Root, math::optimize::SolveStrategy};
     let model = hill_model(ANISOTROPIC);
     let steps = times(0.5, 40);
     let load = || AppliedLoad::BiaxialStress(ramp, |t| 1.0 + 0.3 * t.value(), &steps);
-    let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
-        &model,
+    let (_, reference_gradients, reference_states) = model.root(
         load(),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
@@ -214,8 +208,7 @@ fn hill_strategies_agree_under_non_proportional_loading() -> Result<(), Assertio
     let reference_strain = reference_states.as_slice().last().unwrap().1;
     assert!(reference_strain.value() > 0.0);
     for elimination in [false, true] {
-        let (_, gradients, states) = FirstOrderRoot::root(
-            &model,
+        let (_, gradients, states) = model.root(
             load(),
             NewtonRaphson::default(),
             SolveStrategy::Monolithic { elimination },
@@ -434,13 +427,10 @@ fn consistent_tangent_keeps_the_outer_solve_within_a_tight_step_cap() -> Result<
 
 #[test]
 fn monolithic_strategies_agree_with_each_other() -> Result<(), AssertionError> {
-    use crate::{
-        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
-    };
+    use crate::{constitutive::solid::elastic_plastic::Root, math::optimize::SolveStrategy};
     let model = model(1.0);
     let steps = times(0.5, 40);
-    let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
-        &model,
+    let (_, reference_gradients, reference_states) = model.root(
         AppliedLoad::UniaxialStress(ramp, &steps),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
@@ -452,8 +442,7 @@ fn monolithic_strategies_agree_with_each_other() -> Result<(), AssertionError> {
         SolveStrategy::Monolithic { elimination: false },
         SolveStrategy::Monolithic { elimination: true },
     ] {
-        let (_, gradients, states) = FirstOrderRoot::root(
-            &model,
+        let (_, gradients, states) = model.root(
             AppliedLoad::UniaxialStress(ramp, &steps),
             NewtonRaphson::default(),
             strategy,
@@ -477,16 +466,13 @@ fn monolithic_strategies_agree_with_each_other() -> Result<(), AssertionError> {
 #[test]
 fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
 -> Result<(), AssertionError> {
-    use crate::{
-        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
-    };
+    use crate::{constitutive::solid::elastic_plastic::Root, math::optimize::SolveStrategy};
     let model = model(1.0);
     let solver = NewtonRaphson {
         max_steps: 6,
         ..Default::default()
     };
-    let (_, _, states) = FirstOrderRoot::root(
-        &model,
+    let (_, _, states) = model.root(
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)),
         solver,
         SolveStrategy::Monolithic { elimination: true },
@@ -770,9 +756,7 @@ fn monolithic_strategies_agree_with_nonlinear_hardening() -> Result<(), Assertio
 fn assert_strategies_agree_under_biaxial_loading<M: ElasticPlastic>(
     model: &M,
 ) -> Result<(), AssertionError> {
-    use crate::{
-        constitutive::solid::elastic_plastic::FirstOrderRoot, math::optimize::SolveStrategy,
-    };
+    use crate::{constitutive::solid::elastic_plastic::Root, math::optimize::SolveStrategy};
     let steps = times(0.5, 40);
     let load = || {
         AppliedLoad::BiaxialStress(
@@ -781,8 +765,7 @@ fn assert_strategies_agree_under_biaxial_loading<M: ElasticPlastic>(
             &steps,
         )
     };
-    let (_, reference_gradients, reference_states) = FirstOrderRoot::root(
-        model,
+    let (_, reference_gradients, reference_states) = model.root(
         load(),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
@@ -794,8 +777,7 @@ fn assert_strategies_agree_under_biaxial_loading<M: ElasticPlastic>(
         SolveStrategy::Monolithic { elimination: false },
         SolveStrategy::Monolithic { elimination: true },
     ] {
-        let (_, gradients, states) =
-            FirstOrderRoot::root(model, load(), NewtonRaphson::default(), strategy)?;
+        let (_, gradients, states) = model.root(load(), NewtonRaphson::default(), strategy)?;
         let assert = Assert {
             abs_tol: 1e-9,
             rel_tol: 1e-9,

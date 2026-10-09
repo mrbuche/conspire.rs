@@ -1,15 +1,13 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, ElementModelError, FirstOrderMinimize, FirstOrderRoot, Model,
-        ProvidesTangent, SecondOrderMinimize, SolverFor, ZerothOrderRoot,
+        Blocks, ElementModel, ElementModelError, Minimize, Model, ProvidesTangent, Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         thermal::{NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures},
     },
     math::{
         Quantity, Tensor,
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, NewtonRaphson,
-            OptimizationError, SecondOrderOptimization, ZerothOrderRootFinding,
+            EqualityConstraint, NewtonRaphson, Optimization, OptimizationError, RootFinding,
         },
     },
     units::PowerTemperature,
@@ -110,23 +108,6 @@ where
     }
 }
 
-impl<B, const D: usize> ZerothOrderRoot<NodalForcesThermal, NodalTemperatures> for Model<B, D>
-where
-    B: ThermalConductionElements,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalForcesThermal, NodalTemperatures>,
-    ) -> Result<NodalTemperatures, OptimizationError> {
-        solver.root(
-            |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
-            NodalTemperatures::zero(self.coordinates().len()),
-            equality_constraint,
-        )
-    }
-}
-
 impl<B, const D: usize> SolverFor<Model<B, D>, NodalForcesThermal, NodalStiffnessesThermal>
     for NewtonRaphson
 where
@@ -136,8 +117,8 @@ where
     const SPARSE: bool = true;
 }
 
-impl<B, const D: usize>
-    FirstOrderRoot<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures> for Model<B, D>
+impl<B, const D: usize> Root<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
+    for Model<B, D>
 where
     B: ThermalConductionElements,
 {
@@ -148,7 +129,7 @@ where
     ) -> Result<NodalTemperatures, OptimizationError>
     where
         S: SolverFor<Self, NodalForcesThermal, NodalStiffnessesThermal>
-            + FirstOrderRootFinding<NodalForcesThermal, S::Tangent, NodalTemperatures>,
+            + RootFinding<NodalForcesThermal, S::Tangent, NodalTemperatures>,
         Self: ProvidesTangent<NodalTemperatures, S::Tangent>,
     {
         let sparse = S::SPARSE.then(|| {
@@ -167,30 +148,6 @@ where
     }
 }
 
-impl<B, const D: usize>
-    FirstOrderMinimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
-    for Model<B, D>
-where
-    B: ThermalConductionElements,
-{
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<
-            Quantity<PowerTemperature>,
-            NodalForcesThermal,
-            NodalTemperatures,
-        >,
-    ) -> Result<NodalTemperatures, OptimizationError> {
-        solver.minimize(
-            |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
-            |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
-            NodalTemperatures::zero(self.coordinates().len()),
-            equality_constraint,
-        )
-    }
-}
-
 impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<PowerTemperature>, NodalForcesThermal>
     for NewtonRaphson
 where
@@ -200,8 +157,7 @@ where
     const SPARSE: bool = true;
 }
 
-impl<B, const D: usize>
-    SecondOrderMinimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
+impl<B, const D: usize> Minimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
     for Model<B, D>
 where
     B: ThermalConductionElements,
@@ -213,7 +169,7 @@ where
     ) -> Result<NodalTemperatures, OptimizationError>
     where
         S: SolverFor<Self, Quantity<PowerTemperature>, NodalForcesThermal>
-            + SecondOrderOptimization<
+            + Optimization<
                 Quantity<PowerTemperature>,
                 NodalForcesThermal,
                 S::Tangent,

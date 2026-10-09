@@ -3,9 +3,7 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorArray, TensorVec,
-    integrate::{
-        FixedStep, ImplicitFirstOrder, ImplicitZerothOrder, IntegrationError, OdeIntegrator,
-    },
+    integrate::{FixedStep, Implicit, IntegrationError, OdeIntegrator},
 };
 use std::{
     fmt::Debug,
@@ -32,10 +30,12 @@ impl<T> FixedStep<T> for Midpoint {
     }
 }
 
-impl<Y, U, V, T> ImplicitZerothOrder<Y, U, V, T> for Midpoint
+impl<Y, J, U, V, T> Implicit<Y, J, U, V, T> for Midpoint
 where
     Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
+    J: Differentiable<T> + Tensor + TensorArray,
+    Derivative<J, T>: Mul<Quantity<T>, Output = J>,
     for<'a> &'a Y: Add<&'a Y, Output = Y> + Sub<&'a Y, Output = Y>,
     U: TensorVec<Item = Y>,
     V: TensorVec<Item = Derivative<Y, T>>,
@@ -51,18 +51,6 @@ where
     ) -> Result<Y, String> {
         Ok(y_trial - y - function(t + 0.5 * dt, &((y + y_trial) * 0.5))? * dt)
     }
-}
-
-impl<Y, J, U, V, T> ImplicitFirstOrder<Y, J, U, V, T> for Midpoint
-where
-    Y: Differentiable<T> + Tensor,
-    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
-    J: Differentiable<T> + Tensor + TensorArray,
-    Derivative<J, T>: Mul<Quantity<T>, Output = J>,
-    for<'a> &'a Y: Add<&'a Y, Output = Y> + Sub<&'a Y, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Derivative<Y, T>>,
-{
     fn hessian(
         &self,
         mut jacobian: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<J, T>, IntegrationError>,

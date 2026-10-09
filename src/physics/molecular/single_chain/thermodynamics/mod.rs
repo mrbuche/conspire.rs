@@ -2,8 +2,7 @@ use crate::{
     math::{
         Current, Quantity, Scalar, SquareMatrix, Tensor, TensorArray, TensorRank1, Vector,
         optimize::{
-            Direct, EqualityConstraint, LineSearch, NewtonRaphson, SecondOrderOptimization,
-            Tolerances,
+            Direct, EqualityConstraint, LineSearch, NewtonRaphson, Optimization, Tolerances,
         },
     },
     mechanics::Vectors,

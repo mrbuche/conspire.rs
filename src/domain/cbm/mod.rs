@@ -3,8 +3,7 @@
 pub mod block;
 
 pub use crate::domain::{
-    ElementModelError, FirstOrderRoot, Model, NodalCoordinates, NodalReferenceCoordinates,
-    NodalVelocities, ZerothOrderRoot,
+    ElementModelError, Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities, Root,
     block::element::Elements,
     solid::{
         NodalDampingsSolid, NodalForcesSolid, NodalStiffnessesSolid, SolidElements,

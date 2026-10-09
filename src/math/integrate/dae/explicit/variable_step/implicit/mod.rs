@@ -2,14 +2,9 @@ use crate::{
     math::{
         Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
         integrate::{
-            ImplicitDaeFirstOrderMinimize, ImplicitDaeFirstOrderRoot,
-            ImplicitDaeSecondOrderMinimize, ImplicitDaeZerothOrderRoot, IntegrationError, Times,
-            VariableStepExplicit,
+            ImplicitDaeMinimize, ImplicitDaeRoot, IntegrationError, Times, VariableStepExplicit,
         },
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,
-            SecondOrderOptimization, ZerothOrderRootFinding,
-        },
+        optimize::{EqualityConstraint, Optimization, RootFinding},
         sparse::SparseSolver,
     },
     units::{Time, UnitInv},
@@ -194,8 +189,8 @@ where
 {
 }
 
-/// Variable-step explicit integrators for implicit differential-algebraic equations using zeroth-order root-finding.
-pub trait ImplicitDaeVariableStepExplicitZerothOrderRoot<G, Y, U, V, T = Time>
+/// Variable-step explicit integrators for implicit differential-algebraic equations using root-finding.
+pub trait ImplicitDaeVariableStepExplicitRoot<F, J, Y, U, V, T = Time>
 where
     Self: ImplicitDaeVariableStepExplicit<Y, U, V, T>,
     Y: Differentiable<T> + Tensor,
@@ -209,96 +204,11 @@ where
     for<'a> &'a Derivative<Y, T>:
         Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
-    fn integrate_implicit_dae_variable_step_explicit_root_0(
-        &self,
-        mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl ZerothOrderRootFinding<G, Derivative<Y, T>>,
-        time: &[Quantity<T>],
-        initial_condition: Y,
-        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-    ) -> Result<(Times<T>, U, V), IntegrationError> {
-        let evolution = |t: Quantity<T>,
-                         y: &Y,
-                         dydt_0: &Derivative<Y, T>|
-         -> Result<Derivative<Y, T>, String> {
-            Ok(solver.root(
-                |dydt| function(t, y, dydt),
-                dydt_0.clone(),
-                equality_constraint(t),
-            )?)
-        };
-        self.integrate_implicit_dae_variable_step(evolution, time, initial_condition)
-    }
-}
-
-impl<I, G, Y, U, V, T> ImplicitDaeVariableStepExplicitZerothOrderRoot<G, Y, U, V, T> for I
-where
-    I: ImplicitDaeVariableStepExplicit<Y, U, V, T>,
-    Y: Differentiable<T> + Tensor,
-    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Derivative<Y, T>>,
-    T: UnitInv,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>
-        + Mul<Quantity<<T as UnitInv>::Output>, Output = Derivative<Y, T>>
-        + Sub<&'a Y, Output = Y>,
-    for<'a> &'a Derivative<Y, T>:
-        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
-{
-}
-
-impl<I, G, Y, U, V, T> ImplicitDaeZerothOrderRoot<G, Y, U, V, T> for I
-where
-    Self: ImplicitDaeVariableStepExplicitZerothOrderRoot<G, Y, U, V, T>,
-    Y: Differentiable<T> + Tensor,
-    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Derivative<Y, T>>,
-    T: UnitInv,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>
-        + Mul<Quantity<<T as UnitInv>::Output>, Output = Derivative<Y, T>>
-        + Sub<&'a Y, Output = Y>,
-    for<'a> &'a Derivative<Y, T>:
-        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
-{
-    fn integrate(
-        &self,
-        function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl ZerothOrderRootFinding<G, Derivative<Y, T>>,
-        time: &[Quantity<T>],
-        initial_condition: Y,
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-    ) -> Result<(Times<T>, U, V), IntegrationError> {
-        self.integrate_implicit_dae_variable_step_explicit_root_0(
-            function,
-            solver,
-            time,
-            initial_condition,
-            equality_constraint,
-        )
-    }
-}
-
-/// Variable-step explicit integrators for implicit differential-algebraic equations using first-order root-finding.
-pub trait ImplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, U, V, T = Time>
-where
-    Self: ImplicitDaeVariableStepExplicit<Y, U, V, T>,
-    Y: Differentiable<T> + Tensor,
-    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Derivative<Y, T>>,
-    T: UnitInv,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>
-        + Mul<Quantity<<T as UnitInv>::Output>, Output = Derivative<Y, T>>
-        + Sub<&'a Y, Output = Y>,
-    for<'a> &'a Derivative<Y, T>:
-        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
-{
-    fn integrate_implicit_dae_variable_step_explicit_root_1(
+    fn integrate_implicit_dae_variable_step_explicit_root(
         &self,
         mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         mut jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<J, String>,
-        solver: impl FirstOrderRootFinding<F, J, Derivative<Y, T>>,
+        solver: impl RootFinding<F, J, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -319,7 +229,7 @@ where
     }
 }
 
-impl<I, F, J, Y, U, V, T> ImplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, U, V, T> for I
+impl<I, F, J, Y, U, V, T> ImplicitDaeVariableStepExplicitRoot<F, J, Y, U, V, T> for I
 where
     I: ImplicitDaeVariableStepExplicit<Y, U, V, T>,
     Y: Differentiable<T> + Tensor,
@@ -335,9 +245,9 @@ where
 {
 }
 
-impl<I, F, J, Y, U, V, T> ImplicitDaeFirstOrderRoot<F, J, Y, U, V, T> for I
+impl<I, F, J, Y, U, V, T> ImplicitDaeRoot<F, J, Y, U, V, T> for I
 where
-    Self: ImplicitDaeVariableStepExplicitFirstOrderRoot<F, J, Y, U, V, T>,
+    Self: ImplicitDaeVariableStepExplicitRoot<F, J, Y, U, V, T>,
     Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -353,12 +263,12 @@ where
         &self,
         function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<J, String>,
-        solver: impl FirstOrderRootFinding<F, J, Derivative<Y, T>>,
+        solver: impl RootFinding<F, J, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
-        self.integrate_implicit_dae_variable_step_explicit_root_1(
+        self.integrate_implicit_dae_variable_step_explicit_root(
             function,
             jacobian,
             solver,
@@ -369,97 +279,8 @@ where
     }
 }
 
-/// Variable-step explicit integrators for implicit differential-algebraic equations using first-order minimization.
-pub trait ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, Y, U, V, T = Time>
-where
-    Self: ImplicitDaeVariableStepExplicit<Y, U, V, T>,
-    Y: Differentiable<T> + Tensor,
-    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Derivative<Y, T>>,
-    T: UnitInv,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>
-        + Mul<Quantity<<T as UnitInv>::Output>, Output = Derivative<Y, T>>
-        + Sub<&'a Y, Output = Y>,
-    for<'a> &'a Derivative<Y, T>:
-        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
-{
-    fn integrate_implicit_dae_variable_step_explicit_minimize_1(
-        &self,
-        mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
-        mut jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl FirstOrderOptimization<F, G, Derivative<Y, T>>,
-        time: &[Quantity<T>],
-        initial_condition: Y,
-        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-    ) -> Result<(Times<T>, U, V), IntegrationError> {
-        let evolution = |t: Quantity<T>,
-                         y: &Y,
-                         dydt_0: &Derivative<Y, T>|
-         -> Result<Derivative<Y, T>, String> {
-            Ok(solver.minimize(
-                |dydt| function(t, y, dydt),
-                |dydt| jacobian(t, y, dydt),
-                dydt_0.clone(),
-                equality_constraint(t),
-            )?)
-        };
-        self.integrate_implicit_dae_variable_step(evolution, time, initial_condition)
-    }
-}
-
-impl<I, F, G, Y, U, V, T> ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, Y, U, V, T> for I
-where
-    I: ImplicitDaeVariableStepExplicit<Y, U, V, T>,
-    Y: Differentiable<T> + Tensor,
-    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Derivative<Y, T>>,
-    T: UnitInv,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>
-        + Mul<Quantity<<T as UnitInv>::Output>, Output = Derivative<Y, T>>
-        + Sub<&'a Y, Output = Y>,
-    for<'a> &'a Derivative<Y, T>:
-        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
-{
-}
-
-impl<I, F, G, Y, U, V, T> ImplicitDaeFirstOrderMinimize<F, G, Y, U, V, T> for I
-where
-    Self: ImplicitDaeVariableStepExplicitFirstOrderMinimize<F, G, Y, U, V, T>,
-    Y: Differentiable<T> + Tensor,
-    Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
-    U: TensorVec<Item = Y>,
-    V: TensorVec<Item = Derivative<Y, T>>,
-    T: UnitInv,
-    for<'a> &'a Y: Mul<Scalar, Output = Y>
-        + Mul<Quantity<<T as UnitInv>::Output>, Output = Derivative<Y, T>>
-        + Sub<&'a Y, Output = Y>,
-    for<'a> &'a Derivative<Y, T>:
-        Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
-{
-    fn integrate(
-        &self,
-        function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
-        jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl FirstOrderOptimization<F, G, Derivative<Y, T>>,
-        time: &[Quantity<T>],
-        initial_condition: Y,
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
-    ) -> Result<(Times<T>, U, V), IntegrationError> {
-        self.integrate_implicit_dae_variable_step_explicit_minimize_1(
-            function,
-            jacobian,
-            solver,
-            time,
-            initial_condition,
-            equality_constraint,
-        )
-    }
-}
-
-/// Variable-step explicit integrators for implicit differential-algebraic equations using second-order minimization.
-pub trait ImplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, U, V, T = Time>
+/// Variable-step explicit integrators for implicit differential-algebraic equations using minimization.
+pub trait ImplicitDaeVariableStepExplicitMinimize<F, J, H, Y, U, V, T = Time>
 where
     Self: ImplicitDaeVariableStepExplicit<Y, U, V, T>,
     Y: Differentiable<T> + Tensor,
@@ -474,12 +295,12 @@ where
         Mul<Scalar, Output = Derivative<Y, T>> + Mul<Quantity<T>, Output = Y>,
 {
     #[expect(clippy::too_many_arguments)]
-    fn integrate_implicit_dae_variable_step_explicit_minimize_2(
+    fn integrate_implicit_dae_variable_step_explicit_minimize(
         &self,
         mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         mut jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<J, String>,
         mut hessian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<H, String>,
-        solver: impl SecondOrderOptimization<F, J, H, Derivative<Y, T>>,
+        solver: impl Optimization<F, J, H, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -502,8 +323,7 @@ where
     }
 }
 
-impl<I, F, J, H, Y, U, V, T> ImplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, U, V, T>
-    for I
+impl<I, F, J, H, Y, U, V, T> ImplicitDaeVariableStepExplicitMinimize<F, J, H, Y, U, V, T> for I
 where
     I: ImplicitDaeVariableStepExplicit<Y, U, V, T>,
     Y: Differentiable<T> + Tensor,
@@ -519,9 +339,9 @@ where
 {
 }
 
-impl<I, F, J, H, Y, U, V, T> ImplicitDaeSecondOrderMinimize<F, J, H, Y, U, V, T> for I
+impl<I, F, J, H, Y, U, V, T> ImplicitDaeMinimize<F, J, H, Y, U, V, T> for I
 where
-    Self: ImplicitDaeVariableStepExplicitSecondOrderMinimize<F, J, H, Y, U, V, T>,
+    Self: ImplicitDaeVariableStepExplicitMinimize<F, J, H, Y, U, V, T>,
     Y: Differentiable<T> + Tensor,
     Derivative<Y, T>: Mul<Quantity<T>, Output = Y>,
     U: TensorVec<Item = Y>,
@@ -538,13 +358,13 @@ where
         function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<J, String>,
         hessian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<H, String>,
-        solver: impl SecondOrderOptimization<F, J, H, Derivative<Y, T>>,
+        solver: impl Optimization<F, J, H, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
-        self.integrate_implicit_dae_variable_step_explicit_minimize_2(
+        self.integrate_implicit_dae_variable_step_explicit_minimize(
             function,
             jacobian,
             hessian,

@@ -42,7 +42,7 @@ use super::{
 use crate::{
     math::{
         Quantity,
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        optimize::{EqualityConstraint, Optimization},
     },
     units::EnergyDensity,
 };
@@ -63,8 +63,8 @@ where
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }
 
-/// First-order minimization methods for elastic solid constitutive models.
-pub trait FirstOrderMinimize {
+/// Minimization methods for elastic solid constitutive models.
+pub trait Minimize {
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///
     /// ```math
@@ -73,25 +73,7 @@ pub trait FirstOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            DeformationGradient,
-        >,
-    ) -> Result<DeformationGradient, ConstitutiveError>;
-}
-
-/// Second-order minimization methods for elastic solid constitutive models.
-pub trait SecondOrderMinimize {
-    /// Solve for the unknown components of the deformation gradient under an applied load.
-    ///
-    /// ```math
-    /// \Pi(\mathbf{F},\boldsymbol{\lambda}) = a(\mathbf{F}) - \boldsymbol{\lambda}:(\mathbf{F} - \mathbf{F}_0) - \mathbf{P}_0:\mathbf{F}
-    /// ```
-    fn minimize(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -100,43 +82,14 @@ pub trait SecondOrderMinimize {
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
-impl<T> FirstOrderMinimize for T
+impl<T> Minimize for T
 where
     T: Hyperelastic,
 {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            DeformationGradient,
-        >,
-    ) -> Result<DeformationGradient, ConstitutiveError> {
-        let (matrix, vector) = bcs(applied_load);
-        solver
-            .minimize(
-                |deformation_gradient: &DeformationGradient| {
-                    Ok(self.helmholtz_free_energy_density(deformation_gradient)?)
-                },
-                |deformation_gradient: &DeformationGradient| {
-                    Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                },
-                DeformationGradient::identity(),
-                EqualityConstraint::Linear(matrix, vector),
-            )
-            .map_err(|error| ConstitutiveError::upstream(error, self))
-    }
-}
-
-impl<T> SecondOrderMinimize for T
-where
-    T: Hyperelastic,
-{
-    fn minimize(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,

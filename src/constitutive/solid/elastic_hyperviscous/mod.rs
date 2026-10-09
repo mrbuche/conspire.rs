@@ -20,8 +20,8 @@ use super::{
 use crate::{
     math::{
         ContractWith, Matrix, Quantity, Vector,
-        integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        integrate::ImplicitDaeMinimize,
+        optimize::{EqualityConstraint, Optimization},
     },
     units::{Dissipation, Time},
 };
@@ -68,8 +68,8 @@ where
     }
 }
 
-/// First-order optimization methods for elastic-hyperviscous solid constitutive models.
-pub trait FirstOrderMinimize {
+/// Optimization methods for elastic-hyperviscous solid constitutive models.
+pub trait Minimize {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
     /// ```math
@@ -78,32 +78,7 @@ pub trait FirstOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeFirstOrderMinimize<
-            Quantity<Dissipation>,
-            FirstPiolaKirchhoffStress,
-            DeformationGradient,
-            DeformationGradients,
-            DeformationGradientRates,
-        >,
-        solver: impl FirstOrderOptimization<
-            Quantity<Dissipation>,
-            FirstPiolaKirchhoffStress,
-            DeformationGradientRate,
-        >,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
-}
-
-/// Second-order optimization methods for elastic-hyperviscous solid constitutive models.
-pub trait SecondOrderMinimize {
-    /// Solve for the unknown components of the deformation gradient and rate under an applied load.
-    ///
-    /// ```math
-    /// \Pi(\mathbf{F},\dot{\mathbf{F}},\boldsymbol{\lambda}) = \mathbf{P}^e(\mathbf{F}):\dot{\mathbf{F}} + \psi(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda}:(\dot{\mathbf{F}} - \dot{\mathbf{F}}_0) - \mathbf{P}_0:\dot{\mathbf{F}}
-    /// ```
-    fn minimize(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeSecondOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
@@ -111,7 +86,7 @@ pub trait SecondOrderMinimize {
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
@@ -120,112 +95,14 @@ pub trait SecondOrderMinimize {
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
 
-impl<T> FirstOrderMinimize for T
+impl<T> Minimize for T
 where
     T: ElasticHyperviscous,
 {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeFirstOrderMinimize<
-            Quantity<Dissipation>,
-            FirstPiolaKirchhoffStress,
-            DeformationGradient,
-            DeformationGradients,
-            DeformationGradientRates,
-        >,
-        solver: impl FirstOrderOptimization<
-            Quantity<Dissipation>,
-            FirstPiolaKirchhoffStress,
-            DeformationGradientRate,
-        >,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
-        match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
-                let mut matrix = Matrix::zero(4, 9);
-                let mut vector = Vector::zero(4);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                integrator.integrate(
-                    |_: Quantity<Time>,
-                     deformation_gradient: &DeformationGradient,
-                     deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.dissipation_potential(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
-                    },
-                    |_: Quantity<Time>,
-                     deformation_gradient: &DeformationGradient,
-                     deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.first_piola_kirchhoff_stress(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
-                    },
-                    solver,
-                    time,
-                    DeformationGradient::identity(),
-                    |t: Quantity<Time>| {
-                        vector[0] = deformation_gradient_rate_11(t);
-                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
-                    },
-                )
-            }
-            AppliedLoad::BiaxialStress(
-                deformation_gradient_rate_11,
-                deformation_gradient_rate_22,
-                time,
-            ) => {
-                let mut matrix = Matrix::zero(5, 9);
-                let mut vector = Vector::zero(5);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                matrix[4][4] = 1.0;
-                integrator.integrate(
-                    |_: Quantity<Time>,
-                     deformation_gradient: &DeformationGradient,
-                     deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.dissipation_potential(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
-                    },
-                    |_: Quantity<Time>,
-                     deformation_gradient: &DeformationGradient,
-                     deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.first_piola_kirchhoff_stress(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
-                    },
-                    solver,
-                    time,
-                    DeformationGradient::identity(),
-                    |t: Quantity<Time>| {
-                        vector[0] = deformation_gradient_rate_11(t);
-                        vector[4] = deformation_gradient_rate_22(t);
-                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
-                    },
-                )
-            }
-        }
-        .map_err(|error| ConstitutiveError::upstream(error, self))
-    }
-}
-
-impl<T> SecondOrderMinimize for T
-where
-    T: ElasticHyperviscous,
-{
-    fn minimize(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeSecondOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
@@ -233,7 +110,7 @@ where
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,

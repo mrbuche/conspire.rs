@@ -955,25 +955,9 @@ macro_rules! test_root {
         }
         mod root {
             use super::*;
-            mod gradient_descent {
-                use super::*;
-                use crate::{
-                    constitutive::solid::elastic::ZerothOrderRoot, math::optimize::GradientDescent,
-                };
-                // test_root_with_solver!(GradientDescent::default());
-                mod dual {
-                    use super::*;
-                    test_root_with_solver!(GradientDescent {
-                        dual: true,
-                        ..Default::default()
-                    });
-                }
-            }
             mod newton_raphson {
                 use super::*;
-                use crate::{
-                    constitutive::solid::elastic::FirstOrderRoot, math::optimize::NewtonRaphson,
-                };
+                use crate::{constitutive::solid::elastic::Root, math::optimize::NewtonRaphson};
                 test_root_with_solver!(NewtonRaphson::default());
             }
         }

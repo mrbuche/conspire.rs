@@ -13,7 +13,7 @@ use crate::{
         Quantity, Tensor, TensorArray,
         assert::{Assert, AssertionError, FiniteDifference, perturbation},
         integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
-        optimize::{GradientDescent, NewtonRaphson},
+        optimize::NewtonRaphson,
     },
     mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
     units::{Rate, Stress, Time},
@@ -98,21 +98,8 @@ macro_rules! test_integrator_with_solver {
 macro_rules! test_model_with_integrator {
     ($integrator:ident) => {
         #[test]
-        fn root_0() -> Result<(), AssertionError> {
-            use crate::constitutive::solid::elastic_viscoplastic::ZerothOrderRoot;
-            test_integrator_with_solver!(
-                $integrator,
-                GradientDescent {
-                    dual: true,
-                    ..Default::default()
-                },
-                0.5
-            );
-            Ok(())
-        }
-        #[test]
-        fn root_1() -> Result<(), AssertionError> {
-            use crate::constitutive::solid::elastic_viscoplastic::FirstOrderRoot;
+        fn root() -> Result<(), AssertionError> {
+            use crate::constitutive::solid::elastic_viscoplastic::Root;
             test_integrator_with_solver!($integrator, NewtonRaphson::default(), 2.0);
             Ok(())
         }
@@ -234,7 +221,7 @@ mod state_evolution {
     #[test]
     fn rkmk_step_cost_relative_to_the_rate_evaluations_alone() {
         use crate::math::integrate::{StateEvolution, rkmk_step};
-        use std::time::Instant;
+        use std::time::{Duration, Instant};
         type Model = super::Canonical<super::AlmansiHamelEulerian, super::ViscoplasticFlow>;
         type Field = <Model as StateEvolution<Time>>::Field;
         let model = model();
@@ -257,28 +244,33 @@ mod state_evolution {
             .0
             .determinant();
         }
-        let start = Instant::now();
-        for _ in 0..iterations {
-            sink += rkmk_step::<Field, BogackiShampineTableau, Time>(
-                &mut |tt, s| model.state_rate(tt, &f, s),
-                &initial,
-                t,
-                dt,
-                &mut scratch,
-            )
-            .unwrap()
-            .0
-            .determinant();
-        }
-        let rkmk = start.elapsed();
-        let start = Instant::now();
-        for _ in 0..iterations {
-            for _ in 0..4 {
-                let rate = StateEvolution::state_rate(&model, t, &f, &initial).unwrap();
-                sink += rate.0.norm().value();
+        let batch = 100;
+        let mut rkmk = Duration::ZERO;
+        let mut rates = Duration::ZERO;
+        for _ in 0..iterations / batch {
+            let start = Instant::now();
+            for _ in 0..batch {
+                sink += rkmk_step::<Field, BogackiShampineTableau, Time>(
+                    &mut |tt, s| model.state_rate(tt, &f, s),
+                    &initial,
+                    t,
+                    dt,
+                    &mut scratch,
+                )
+                .unwrap()
+                .0
+                .determinant();
             }
+            rkmk += start.elapsed();
+            let start = Instant::now();
+            for _ in 0..batch {
+                for _ in 0..4 {
+                    let rate = StateEvolution::state_rate(&model, t, &f, &initial).unwrap();
+                    sink += rate.0.norm().value();
+                }
+            }
+            rates += start.elapsed();
         }
-        let rates = start.elapsed();
         println!(
             "rkmk_step {rkmk:?}  vs  4x state_rate {rates:?}  =>  {:.2}x",
             rkmk.as_secs_f64() / rates.as_secs_f64()
@@ -290,7 +282,7 @@ mod state_evolution {
     #[test]
     fn rkmk_dae_is_third_order() {
         use crate::{
-            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RootRkmkDae},
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, Root, RootRkmkDae},
             math::{integrate::BogackiShampine, optimize::NewtonRaphson},
         };
         let load = |t: Quantity<Time>| 1.0 + t.value();
@@ -340,7 +332,7 @@ mod state_evolution {
     #[test]
     fn rkmk_dae_keeps_the_group_structurally_where_the_additive_root_earns_it() {
         use crate::{
-            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RootRkmkDae},
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, Root, RootRkmkDae},
             math::{Scalar, integrate::BogackiShampine, optimize::NewtonRaphson},
         };
         let load = |t: Quantity<Time>| 1.0 + t.value();
@@ -378,7 +370,7 @@ mod state_evolution {
     #[test]
     fn rkmk_dae_adaptive_subdivides_and_meets_its_tolerance() {
         use crate::{
-            constitutive::solid::elastic_viscoplastic::{AppliedLoad, FirstOrderRoot, RootRkmkDae},
+            constitutive::solid::elastic_viscoplastic::{AppliedLoad, Root, RootRkmkDae},
             math::{Scalar, integrate::BogackiShampine, optimize::NewtonRaphson},
         };
         let load = |t: Quantity<Time>| 1.0 + t.value();

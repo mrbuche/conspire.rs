@@ -2,9 +2,9 @@
 mod test;
 
 use super::{
-    super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector},
-    BacktrackingLineSearch, EqualityConstraint, FirstOrderOptimization, LineSearch,
-    OptimizationError, StepSize, Tolerances, ZerothOrderRootFinding,
+    super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector, sparse::SparseSolver},
+    BacktrackingLineSearch, EqualityConstraint, LineSearch, Optimization, OptimizationError,
+    RootFinding, StepSize, Tolerances,
 };
 use crate::math::{Erase, Is, Norm};
 use crate::units::{UnitDiv, UnitMul, UnitSum};
@@ -62,7 +62,7 @@ impl Default for GradientDescent {
     }
 }
 
-impl<F, X, E> ZerothOrderRootFinding<F, X> for GradientDescent
+impl<F, X, E> RootFinding<F, (), X> for GradientDescent
 where
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
@@ -74,8 +74,10 @@ where
     fn root(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
+        _jacobian: impl FnMut(&X) -> Result<(), String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
+        _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
@@ -115,7 +117,7 @@ where
     }
 }
 
-impl<F, J, X, E> FirstOrderOptimization<F, J, X> for GradientDescent
+impl<F, J, X, E> Optimization<F, J, (), X> for GradientDescent
 where
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
@@ -133,8 +135,10 @@ where
         &self,
         mut function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
+        _hessian: impl FnMut(&X) -> Result<(), String>,
         initial_guess: X,
         equality_constraint: EqualityConstraint,
+        _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let objective = move |argument: &X| function(argument).map(|value| *value.erase());
         match equality_constraint {

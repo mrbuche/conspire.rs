@@ -19,7 +19,7 @@ use crate::{
     math::{
         TensorRank4, Vector,
         assert::FiniteDifference,
-        optimize::{GradientDescent, NewtonRaphson, SolveStrategy},
+        optimize::{NewtonRaphson, SolveStrategy},
     },
     mechanics::*,
 };
@@ -227,32 +227,6 @@ fn finite_difference_3() -> Result<(), AssertionError> {
 
 const STRETCH: Scalar = 1.5;
 
-#[test]
-fn root_0() -> Result<(), AssertionError> {
-    use crate::constitutive::solid::elastic::internal_variables::ZerothOrderRoot;
-    let model = ElasticMultiplicative::from((
-        AlmansiHamelEulerian {
-            bulk_modulus: BULK_MODULUS,
-            shear_modulus: SHEAR_MODULUS,
-        },
-        NeoHookean {
-            bulk_modulus: BULK_MODULUS,
-            shear_modulus: SHEAR_MODULUS,
-        },
-    ));
-    let time = std::time::Instant::now();
-    let (_f, _f_2) = model.root(
-        AppliedLoad::UniaxialStress(STRETCH),
-        GradientDescent {
-            dual: true,
-            ..Default::default()
-        },
-    )?;
-    println!("new_0 {:?}", time.elapsed());
-    // let _f_1 = &f * f_2.inverse();
-    Ok(())
-}
-
 fn model() -> ElasticMultiplicative<AlmansiHamelEulerian, NeoHookean> {
     ElasticMultiplicative::from((
         AlmansiHamelEulerian {
@@ -269,7 +243,7 @@ fn model() -> ElasticMultiplicative<AlmansiHamelEulerian, NeoHookean> {
 fn rooted(
     strategy: SolveStrategy,
 ) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
-    use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
+    use crate::constitutive::solid::elastic::internal_variables::Root;
     let (f, f_2) = model().root(
         AppliedLoad::UniaxialStress(STRETCH),
         NewtonRaphson::default(),
@@ -317,7 +291,7 @@ fn moduli() -> Result<(), AssertionError> {
         constitutive::solid::Solid,
         math::{
             Rank2,
-            optimize::{EqualityConstraint, FirstOrderRootFinding},
+            optimize::{EqualityConstraint, RootFinding},
         },
     };
     let model = model();

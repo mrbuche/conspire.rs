@@ -1,1 +1,1 @@
-pub use crate::domain::solid::viscoelastic::{FirstOrderRoot, ViscoelasticElements};
+pub use crate::domain::solid::viscoelastic::{Root, ViscoelasticElements};

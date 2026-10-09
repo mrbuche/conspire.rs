@@ -11,7 +11,7 @@ use conspire::{
             elastic_plastic::ElasticPlasticOrViscoplastic,
             elastic_viscoplastic::AppliedLoad,
             hyperelastic::{ArrudaBoyce, Hencky},
-            hyperelastic_viscoplastic::SecondOrderMinimize,
+            hyperelastic_viscoplastic::Minimize,
         },
     },
     math::{

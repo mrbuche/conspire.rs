@@ -5,7 +5,7 @@ use super::{Integrable, reconstruct_or_err};
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar,
     integrate::{ButcherTableau, IntegrationError},
-    optimize::{EqualityConstraint, FirstOrderRootFinding, SecondOrderOptimization},
+    optimize::{EqualityConstraint, Optimization, RootFinding},
     sparse::SparseSolver,
 };
 use std::ops::{AddAssign, Mul};
@@ -164,7 +164,7 @@ where
 
 /// [`rkmk_dae_step`] with the algebraic unknown resolved by first-order
 /// root-finding at every stage abscissa, built from `function`/`jacobian`/
-/// `solver` exactly as `ExplicitDaeVariableStepExplicitFirstOrderRoot` builds
+/// `solver` exactly as `ExplicitDaeVariableStepExplicitRoot` builds
 /// its `solution` closure for the legacy flat DAE solver — the split between
 /// root-finding and minimization is orthogonal to which field the state lives
 /// on, so this is the one place that wrapping happens for the RKMK-DAE path.
@@ -172,7 +172,7 @@ where
 /// Jacobian in terms of the *whole* field state gets the manifold-aware
 /// stage-equilibrium step for free, without hand-rolling this closure itself.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn rkmk_dae_step_first_order_root<Field, Tab, F, J, Z, T>(
+pub fn rkmk_dae_step_root<Field, Tab, F, J, Z, T>(
     rate: &mut impl FnMut(
         Quantity<T>,
         &Field::Point,
@@ -180,7 +180,7 @@ pub fn rkmk_dae_step_first_order_root<Field, Tab, F, J, Z, T>(
     ) -> Result<Derivative<Field::Increment, T>, String>,
     mut function: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<F, String>,
     mut jacobian: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<J, String>,
-    solver: &impl FirstOrderRootFinding<F, J, Z>,
+    solver: &impl RootFinding<F, J, Z>,
     point: &Field::Point,
     z: &Z,
     t: Quantity<T>,
@@ -214,12 +214,12 @@ where
 
 /// [`rkmk_dae_step`] with the algebraic unknown resolved by second-order
 /// minimization at every stage abscissa, built from `function`/`jacobian`/
-/// `hessian`/`solver` the same way [`rkmk_dae_step_first_order_root`] builds
+/// `hessian`/`solver` the same way [`rkmk_dae_step_root`] builds
 /// it for root-finding — the two are siblings so a model whose equilibrium is
 /// naturally posed as a potential (rather than a residual) gets the same
 /// manifold-aware stage-equilibrium step.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn rkmk_dae_step_second_order_minimize<Field, Tab, F, J, H, Z, T>(
+pub fn rkmk_dae_step_minimize<Field, Tab, F, J, H, Z, T>(
     rate: &mut impl FnMut(
         Quantity<T>,
         &Field::Point,
@@ -228,7 +228,7 @@ pub fn rkmk_dae_step_second_order_minimize<Field, Tab, F, J, H, Z, T>(
     mut function: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<F, String>,
     mut jacobian: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<J, String>,
     mut hessian: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<H, String>,
-    solver: &impl SecondOrderOptimization<F, J, H, Z>,
+    solver: &impl Optimization<F, J, H, Z>,
     point: &Field::Point,
     z: &Z,
     t: Quantity<T>,

@@ -6,8 +6,8 @@ use super::{
         },
         // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
     },
-    Direct, EqualityConstraint, FirstOrderRootFinding, LineSearch, NewtonRaphson,
-    OptimizationError, Scalar, SecondOrderOptimization, TrustRegion,
+    Direct, EqualityConstraint, LineSearch, NewtonRaphson, Optimization, OptimizationError,
+    RootFinding, Scalar, TrustRegion,
 };
 use crate::math::{Norm, Tensor, assert::Assert};
 
@@ -507,7 +507,7 @@ mod block {
     use super::*;
     use crate::math::{
         Matrix, Vector,
-        optimize::{FirstOrderRootFindingBlock, SolveStrategy},
+        optimize::{RootFindingBlock, SolveStrategy},
         sparse::{CscMatrix, SparseSolver},
     };
     use std::collections::BTreeSet;

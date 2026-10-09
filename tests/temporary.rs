@@ -7,9 +7,9 @@ use conspire::{
         fluid::{hyperviscous::Newtonian, viscoplastic::ViscoplasticFlow},
         solid::{
             elastic::{AlmansiHamelEulerian, AppliedLoad as AppliedDeformation},
-            elastic_hyperviscous::SecondOrderMinimize as _,
+            elastic_hyperviscous::Minimize as _,
             elastic_viscoplastic::AppliedLoad,
-            hyperelastic::{NeoHookean, SaintVenantKirchhoff, SecondOrderMinimize as _},
+            hyperelastic::{Minimize as _, NeoHookean, SaintVenantKirchhoff},
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
         thermal::conduction::Fourier,
@@ -7383,6 +7383,7 @@ fn coordinates() -> Coordinates<3> {
 
 #[test]
 fn temporary_hyperelastic() -> Result<(), AssertionError> {
+    use conspire::fem::Minimize as _;
     let strain = 13.0;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7432,8 +7433,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let solution = conspire::fem::SecondOrderMinimize::minimize(
-        &fem_model,
+    let solution = fem_model.minimize(
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson::default(),
     )?;
@@ -7799,6 +7799,7 @@ fn root_rkmk_dae_covers_nested_and_mixed_block_topologies() {
 
 #[test]
 fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
+    use conspire::fem::solid::elastic_hyperviscous::Minimize as _;
     let tol = 1e-4;
     let strain_rate = 2.3; // also set below
     let tspan = [Time::seconds(0.0), Time::seconds(1.0)];
@@ -7856,18 +7857,16 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let (times, coordinates_history, velocities_history) =
-        conspire::fem::solid::elastic_hyperviscous::SecondOrderMinimize::minimize(
-            &fem_model,
-            EqualityConstraint::Linear(matrix, vector),
-            DormandPrince {
-                abs_tol: tol,
-                rel_tol: tol,
-                ..Default::default()
-            },
-            &tspan,
-            NewtonRaphson::default(),
-        )?;
+    let (times, coordinates_history, velocities_history) = fem_model.minimize(
+        EqualityConstraint::Linear(matrix, vector),
+        DormandPrince {
+            abs_tol: tol,
+            rel_tol: tol,
+            ..Default::default()
+        },
+        &tspan,
+        NewtonRaphson::default(),
+    )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
@@ -7930,6 +7929,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
 
 #[test]
 fn temporary_thermal_conduction() -> Result<(), AssertionError> {
+    use conspire::fem::Minimize as _;
     let temperature = 13.0;
     let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
@@ -7971,8 +7971,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let solution = conspire::fem::SecondOrderMinimize::minimize(
-        &fem_model,
+    let solution = fem_model.minimize(
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
             max_steps: 1,
@@ -8005,7 +8004,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         constitutive::{
             hybrid::ElasticMultiplicative, solid::hyperelastic::SaintVenantKirchhoff as SVK,
         },
-        fem::solid::hyperelastic::internal_variables::SecondOrderMinimizeIV,
+        fem::solid::hyperelastic::internal_variables::MinimizeIV,
         math::optimize::{LineSearch, SolveStrategy},
     };
     let strain = 1.0;
@@ -8063,8 +8062,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         (mesh, model).try_into()?;
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
-    let condensed = SecondOrderMinimizeIV::minimize(
-        &fem_model,
+    let condensed = fem_model.minimize(
         EqualityConstraint::Linear(matrix.clone(), vector.clone()),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
@@ -8072,8 +8070,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
-    let eliminated = SecondOrderMinimizeIV::minimize(
-        &fem_model,
+    let eliminated = fem_model.minimize(
         EqualityConstraint::Linear(matrix.clone(), vector.clone()),
         NewtonRaphson {
             max_steps: 6,
@@ -8085,8 +8082,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated, Armijo)...");
-    let searched = SecondOrderMinimizeIV::minimize(
-        &fem_model,
+    let searched = fem_model.minimize(
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
             line_search: LineSearch::Armijo {
@@ -8121,7 +8117,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         constitutive::{
             hybrid::ElasticMultiplicative, solid::hyperelastic::SaintVenantKirchhoff as SVK,
         },
-        fem::solid::elastic::internal_variables::FirstOrderRootIV,
+        fem::solid::elastic::internal_variables::RootIV,
         math::optimize::SolveStrategy,
     };
     let strain = 1.0;
@@ -8179,8 +8175,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         (mesh, model).try_into()?;
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
-    let condensed = FirstOrderRootIV::root(
-        &fem_model,
+    let condensed = fem_model.root(
         EqualityConstraint::Linear(matrix.clone(), vector.clone()),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
@@ -8188,8 +8183,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
-    let eliminated = FirstOrderRootIV::root(
-        &fem_model,
+    let eliminated = fem_model.root(
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
             max_steps: 6,
@@ -8318,7 +8312,7 @@ mod cbm_forces_smoke {
 
 #[test]
 fn temporary_elastic_plastic() -> Result<(), AssertionError> {
-    use conspire::constitutive::solid::elastic_plastic::FirstOrderRoot;
+    use conspire::constitutive::solid::elastic_plastic::Root;
     use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
     use conspire::math::optimize::SolveStrategy;
     let tol = 1e-10;
@@ -8352,14 +8346,12 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
         .skip(1)
         .map(|&t| bcs_temporary_elastic_viscoplastic(t))
         .collect();
-    let (coordinates_history, state_history) = ElasticPlasticRoot::root(
-        &fem_model,
+    let (coordinates_history, state_history) = fem_model.root(
         NewtonRaphson::default(),
         &boundary_conditions,
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
-    let (_, deformation_gradients, state_variables) = FirstOrderRoot::root(
-        &model,
+    let (_, deformation_gradients, state_variables) = model.root(
         AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + t.value(), times.as_slice()),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
@@ -8483,15 +8475,13 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
         .skip(1)
         .map(|&t| bcs_temporary_elastic_viscoplastic(t))
         .collect();
-    let reference = ElasticPlasticRoot::root(
-        &fem_model,
+    let reference = fem_model.root(
         NewtonRaphson::default(),
         &boundary_conditions,
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
     for elimination in [false, true] {
-        let solution = ElasticPlasticRoot::root(
-            &fem_model,
+        let solution = fem_model.root(
             NewtonRaphson::default(),
             &boundary_conditions,
             SolveStrategy::Monolithic { elimination },
@@ -8637,15 +8627,13 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
             EqualityConstraint::Linear(matrix, vector)
         })
         .collect();
-    let reference = ElasticPlasticRoot::root(
-        &fem_model,
+    let reference = fem_model.root(
         NewtonRaphson::default(),
         &boundary_conditions,
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
     for elimination in [false, true] {
-        let solution = ElasticPlasticRoot::root(
-            &fem_model,
+        let solution = fem_model.root(
             NewtonRaphson::default(),
             &boundary_conditions,
             SolveStrategy::Monolithic { elimination },

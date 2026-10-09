@@ -19,10 +19,9 @@ pub use error::IntegrationError;
 pub use field::{
     EvolvedIncrement, EvolvedState, Flat, HermiteSegment, Integrable, List, Product,
     StateEvolution, Unimodular, integrate_euler, integrate_rkmk, integrate_rkmk_adaptive,
-    integrate_rkmk_dae_adaptive, integrate_rkmk_dae_adaptive_first_order_root,
-    integrate_rkmk_dae_adaptive_second_order_minimize, integrate_rkmk_state,
-    integrate_rkmk_state_adaptive, interpolate_hermite, rkmk_dae_step,
-    rkmk_dae_step_first_order_root, rkmk_dae_step_second_order_minimize, rkmk_step,
+    integrate_rkmk_dae_adaptive, integrate_rkmk_dae_adaptive_minimize,
+    integrate_rkmk_dae_adaptive_root, integrate_rkmk_state, integrate_rkmk_state_adaptive,
+    interpolate_hermite, rkmk_dae_step, rkmk_dae_step_minimize, rkmk_dae_step_root, rkmk_step,
 };
 pub use tableau::{ButcherTableau, EmbeddedTableau, StabilityRegion};
 
@@ -33,21 +32,15 @@ pub use ode::explicit::variable_step::{
 };
 
 pub use dae::{
-    ExplicitDaeFirstOrderMinimize, ExplicitDaeFirstOrderRoot, ExplicitDaeSecondOrderMinimize,
-    ExplicitDaeZerothOrderRoot, ImplicitDaeFirstOrderMinimize, ImplicitDaeFirstOrderRoot,
-    ImplicitDaeSecondOrderMinimize, ImplicitDaeZerothOrderRoot,
+    ExplicitDaeMinimize, ExplicitDaeRoot, ImplicitDaeMinimize, ImplicitDaeRoot,
     explicit::variable_step::{
         explicit::{
-            ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepExplicitFirstOrderMinimize,
-            ExplicitDaeVariableStepExplicitFirstOrderRoot,
-            ExplicitDaeVariableStepExplicitSecondOrderMinimize,
-            ExplicitDaeVariableStepExplicitZerothOrderRoot, ExplicitDaeVariableStepFirstSameAsLast,
+            ExplicitDaeVariableStepExplicit, ExplicitDaeVariableStepExplicitMinimize,
+            ExplicitDaeVariableStepExplicitRoot, ExplicitDaeVariableStepFirstSameAsLast,
         },
         implicit::{
-            ImplicitDaeVariableStepExplicit, ImplicitDaeVariableStepExplicitFirstOrderMinimize,
-            ImplicitDaeVariableStepExplicitFirstOrderRoot,
-            ImplicitDaeVariableStepExplicitSecondOrderMinimize,
-            ImplicitDaeVariableStepExplicitZerothOrderRoot,
+            ImplicitDaeVariableStepExplicit, ImplicitDaeVariableStepExplicitMinimize,
+            ImplicitDaeVariableStepExplicitRoot,
         },
     },
 };
@@ -76,8 +69,8 @@ pub use ode::{
         },
     },
     implicit::{
-        ImplicitFirstOrder, ImplicitZerothOrder, backward_euler::BackwardEuler,
-        midpoint::Midpoint as ImplicitMidpoint, trapezoidal::Trapezoidal,
+        Implicit, backward_euler::BackwardEuler, midpoint::Midpoint as ImplicitMidpoint,
+        trapezoidal::Trapezoidal,
     },
 };
 

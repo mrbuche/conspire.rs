@@ -13,8 +13,8 @@ use crate::{
     math::{
         Quantity, Scalar, Tensor, Vector,
         optimize::{
-            EqualityConstraint, OptimizationError, SecondOrderOptimization,
-            SecondOrderOptimizationIncremental, SolveStrategy,
+            EqualityConstraint, Optimization, OptimizationError, OptimizationIncremental,
+            SolveStrategy,
         },
     },
     units::Energy,
@@ -47,21 +47,21 @@ where
     }
 }
 
-/// Second-order minimization for hyperelastic models whose internal variables
+/// Minimization for hyperelastic models whose internal variables
 /// are condensed out at every integration point.
-pub trait SecondOrderMinimizeIV<const G: usize, V, const D: usize>
+pub trait MinimizeIV<const G: usize, V, const D: usize>
 where
     V: Tensor,
 {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
-        > + SecondOrderOptimizationIncremental<
+        > + OptimizationIncremental<
             Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
@@ -71,7 +71,7 @@ where
     ) -> Result<NodalCoordinates<D>, OptimizationError>;
 }
 
-impl<B, const G: usize, V, const D: usize> SecondOrderMinimizeIV<G, V, D> for Model<B, D>
+impl<B, const G: usize, V, const D: usize> MinimizeIV<G, V, D> for Model<B, D>
 where
     B: HyperelasticIVElements<G, V, D>,
     V: Tensor,
@@ -79,12 +79,12 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
-        > + SecondOrderOptimizationIncremental<
+        > + OptimizationIncremental<
             Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,

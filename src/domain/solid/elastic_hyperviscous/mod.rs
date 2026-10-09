@@ -7,8 +7,8 @@ use crate::{
     },
     math::{
         Quantity, Tensor,
-        integrate::{ImplicitDaeSecondOrderMinimize, IntegrationError},
-        optimize::{EqualityConstraint, SecondOrderOptimization},
+        integrate::{ImplicitDaeMinimize, IntegrationError},
+        optimize::{EqualityConstraint, Optimization},
     },
     mechanics::Times,
     units::{Power, Time},
@@ -83,11 +83,11 @@ where
     }
 }
 
-pub trait SecondOrderMinimize<const D: usize> {
+pub trait Minimize<const D: usize> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl ImplicitDaeSecondOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -96,7 +96,7 @@ pub trait SecondOrderMinimize<const D: usize> {
             NodalVelocitiesHistory<D>,
         >,
         time: &[Quantity<Time>],
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -105,14 +105,14 @@ pub trait SecondOrderMinimize<const D: usize> {
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>;
 }
 
-impl<B, const D: usize> SecondOrderMinimize<D> for Model<B, D>
+impl<B, const D: usize> Minimize<D> for Model<B, D>
 where
     B: ElasticHyperviscousElements<D>,
 {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl ImplicitDaeSecondOrderMinimize<
+        integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -121,7 +121,7 @@ where
             NodalVelocitiesHistory<D>,
         >,
         time: &[Quantity<Time>],
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,

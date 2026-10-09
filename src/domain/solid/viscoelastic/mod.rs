@@ -7,8 +7,8 @@ use crate::{
     },
     math::{
         Quantity, Tensor,
-        integrate::{ImplicitDaeFirstOrderRoot, IntegrationError},
-        optimize::{EqualityConstraint, FirstOrderRootFinding},
+        integrate::{ImplicitDaeRoot, IntegrationError},
+        optimize::{EqualityConstraint, RootFinding},
     },
     mechanics::Times,
     units::Time,
@@ -103,11 +103,11 @@ where
     }
 }
 
-pub trait FirstOrderRoot<const D: usize> {
+pub trait Root<const D: usize> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl ImplicitDaeFirstOrderRoot<
+        integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
             NodalCoordinates<D>,
@@ -115,22 +115,18 @@ pub trait FirstOrderRoot<const D: usize> {
             NodalVelocitiesHistory<D>,
         >,
         time: &[Quantity<Time>],
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalDampingsSolid<D>,
-            NodalVelocities<D>,
-        >,
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalDampingsSolid<D>, NodalVelocities<D>>,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>;
 }
 
-impl<B, const D: usize> FirstOrderRoot<D> for Model<B, D>
+impl<B, const D: usize> Root<D> for Model<B, D>
 where
     B: ViscoelasticElements<D>,
 {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        integrator: impl ImplicitDaeFirstOrderRoot<
+        integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
             NodalCoordinates<D>,
@@ -138,11 +134,7 @@ where
             NodalVelocitiesHistory<D>,
         >,
         time: &[Quantity<Time>],
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalDampingsSolid<D>,
-            NodalVelocities<D>,
-        >,
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalDampingsSolid<D>, NodalVelocities<D>>,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>
     {
         integrator.integrate(

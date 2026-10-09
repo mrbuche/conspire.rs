@@ -21,11 +21,11 @@ use crate::{
         ContractWith, Derivative, Differentiable, Intermediate, Quantity, Rank2, Reference, Scalar,
         Tensor, TensorArray, TensorRank2, TensorTuple, TensorVec, Vector,
         integrate::{
-            ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderRoot,
-            ExplicitDaeZerothOrderRoot, Flat, Integrable, Product, StateEvolution, Unimodular,
-            integrate_rkmk_dae_adaptive_first_order_root, rkmk_dae_step_first_order_root,
+            ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeRoot, Flat, Integrable,
+            Product, StateEvolution, Unimodular, integrate_rkmk_dae_adaptive_root,
+            rkmk_dae_step_root,
         },
-        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+        optimize::{EqualityConstraint, RootFinding},
     },
     mechanics::{
         DeformationGradient, DeformationGradients, FirstPiolaKirchhoffStress,
@@ -77,8 +77,8 @@ where
     }
 }
 
-/// Zeroth-order root-finding methods for elastic-viscoplastic solid constitutive models.
-pub trait ZerothOrderRoot<Y>
+/// Root-finding methods for elastic-viscoplastic solid constitutive models.
+pub trait Root<Y>
 where
     Y: Differentiable + Tensor,
 {
@@ -90,39 +90,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeZerothOrderRoot<
-            FirstPiolaKirchhoffStress,
-            ViscoplasticStateVariables<Y>,
-            DeformationGradient,
-            ViscoplasticStateVariablesHistory<Y>,
-            DeformationGradients,
-            ViscoplasticEvolutionHistory<Y>,
-        >,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
-    ) -> Result<
-        (
-            Times,
-            DeformationGradients,
-            ViscoplasticStateVariablesHistory<Y>,
-        ),
-        ConstitutiveError,
-    >;
-}
-
-/// First-order root-finding methods for elastic-viscoplastic solid constitutive models.
-pub trait FirstOrderRoot<Y>
-where
-    Y: Differentiable + Tensor,
-{
-    /// Solve for the unknown components of the deformation gradients under an applied load.
-    ///
-    /// ```math
-    /// \mathbf{P}(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
-    /// ```
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeFirstOrderRoot<
+        integrator: impl ExplicitDaeRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             ViscoplasticStateVariables<Y>,
@@ -131,7 +99,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -146,7 +114,7 @@ where
     >;
 }
 
-impl<C, Y> ZerothOrderRoot<Y> for C
+impl<C, Y> Root<Y> for C
 where
     C: ElasticViscoplastic<Y>,
     Y: Differentiable + Tensor,
@@ -154,65 +122,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeZerothOrderRoot<
-            FirstPiolaKirchhoffStress,
-            ViscoplasticStateVariables<Y>,
-            DeformationGradient,
-            ViscoplasticStateVariablesHistory<Y>,
-            DeformationGradients,
-            ViscoplasticEvolutionHistory<Y>,
-        >,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
-    ) -> Result<
-        (
-            Times,
-            DeformationGradients,
-            ViscoplasticStateVariablesHistory<Y>,
-        ),
-        ConstitutiveError,
-    > {
-        let (matrix, prescribed, time) = bcs(applied_load);
-        let mut vector = Vector::zero(matrix.len());
-        let (times, state_variables, _, deformation_gradients) = integrator
-            .integrate(
-                |_: Quantity<Time>,
-                 state_variables: &ViscoplasticStateVariables<Y>,
-                 deformation_gradient: &DeformationGradient| {
-                    Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
-                },
-                |_: Quantity<Time>,
-                 state_variables: &ViscoplasticStateVariables<Y>,
-                 deformation_gradient: &DeformationGradient| {
-                    let deformation_gradient_p = &state_variables.0;
-                    Ok(self.first_piola_kirchhoff_stress(
-                        deformation_gradient,
-                        deformation_gradient_p,
-                    )?)
-                },
-                solver,
-                time,
-                (self.initial_state(), DeformationGradient::identity()),
-                |t: Quantity<Time>| {
-                    prescribed
-                        .iter()
-                        .for_each(|(index, function)| vector[*index] = function(t));
-                    EqualityConstraint::Linear(matrix.clone(), vector.clone())
-                },
-            )
-            .map_err(|error| ConstitutiveError::upstream(error, self))?;
-        Ok((times, deformation_gradients, state_variables))
-    }
-}
-
-impl<C, Y> FirstOrderRoot<Y> for C
-where
-    C: ElasticViscoplastic<Y>,
-    Y: Differentiable + Tensor,
-{
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeFirstOrderRoot<
+        integrator: impl ExplicitDaeRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             ViscoplasticStateVariables<Y>,
@@ -221,7 +131,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -318,11 +228,11 @@ where
 }
 
 /// RKMK-DAE stage-equilibrium methods for elastic-viscoplastic solid constitutive
-/// models. The sibling of [`FirstOrderRoot`] that keeps `F_p` on its manifold
+/// models. The sibling of [`Root`] that keeps `F_p` on its manifold
 /// instead of marching it additively, by resolving `F` from equilibrium at
 /// every stage abscissa rather than freezing it across the window — so the
 /// coupling is the tableau's own order, not first order. Blanket over any
-/// [`ElasticViscoplastic`] model, same as [`FirstOrderRoot`] itself.
+/// [`ElasticViscoplastic`] model, same as [`Root`] itself.
 pub trait RootRkmkDae<Y>
 where
     Y: Differentiable + Tensor,
@@ -334,13 +244,13 @@ where
     /// plastic rate at that consistent pair.
     ///
     /// This is the half-explicit RK treatment of the index-1 DAE that
-    /// [`FirstOrderRoot::root`] already performs, with the state leg moved off
+    /// [`Root::root`] already performs, with the state leg moved off
     /// the additive march onto `expm`/`dexpinv` — so `det F_p = 1` is kept
     /// rather than drifting.
     fn root_rkmk_dae<Tab: ButcherTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -367,7 +277,7 @@ where
     fn root_rkmk_dae_adaptive<Tab: EmbeddedTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -402,7 +312,7 @@ where
     fn root_rkmk_dae<Tab: ButcherTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -458,7 +368,7 @@ where
         deformation_gradients.push(deformation_gradient.clone());
         state_variables.push(state.clone());
         for step in time.windows(2) {
-            let advanced = rkmk_dae_step_first_order_root::<
+            let advanced = rkmk_dae_step_root::<
                 <Self as StateEvolution<Time, Y>>::Field,
                 Tab,
                 FirstPiolaKirchhoffStress,
@@ -495,7 +405,7 @@ where
     fn root_rkmk_dae_adaptive<Tab: EmbeddedTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -544,29 +454,28 @@ where
                 None,
             )
             .map_err(|error| ConstitutiveError::upstream(String::from(error), self))?;
-        let (times, state_variables, deformation_gradients) =
-            integrate_rkmk_dae_adaptive_first_order_root::<
-                <Self as StateEvolution<Time, Y>>::Field,
-                Tab,
-                FirstPiolaKirchhoffStress,
-                FirstPiolaKirchhoffTangentStiffness,
-                DeformationGradient,
-                ViscoplasticStateVariablesHistory<Y>,
-                DeformationGradients,
-                Time,
-            >(
-                |t, state, deformation_gradient| self.state_rate(t, deformation_gradient, state),
-                function,
-                jacobian,
-                &solver,
-                time,
-                (state, deformation_gradient),
-                abs_tol,
-                rel_tol,
-                equality_constraint,
-                None,
-            )
-            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        let (times, state_variables, deformation_gradients) = integrate_rkmk_dae_adaptive_root::<
+            <Self as StateEvolution<Time, Y>>::Field,
+            Tab,
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+            ViscoplasticStateVariablesHistory<Y>,
+            DeformationGradients,
+            Time,
+        >(
+            |t, state, deformation_gradient| self.state_rate(t, deformation_gradient, state),
+            function,
+            jacobian,
+            &solver,
+            time,
+            (state, deformation_gradient),
+            abs_tol,
+            rel_tol,
+            equality_constraint,
+            None,
+        )
+        .map_err(|error| ConstitutiveError::upstream(error, self))?;
         Ok((times, deformation_gradients, state_variables))
     }
 }

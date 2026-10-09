@@ -24,11 +24,10 @@ use crate::{
     math::{
         Derivative, Differentiable, Quantity, Scalar, Tensor, TensorArray, TensorVec, Vector,
         integrate::{
-            ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeFirstOrderMinimize,
-            ExplicitDaeSecondOrderMinimize, Integrable, StateEvolution,
-            integrate_rkmk_dae_adaptive_second_order_minimize, rkmk_dae_step_second_order_minimize,
+            ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeMinimize, Integrable,
+            StateEvolution, integrate_rkmk_dae_adaptive_minimize, rkmk_dae_step_minimize,
         },
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        optimize::{EqualityConstraint, Optimization},
     },
     mechanics::{
         DeformationGradient, DeformationGradientPlastic, DeformationGradients,
@@ -56,8 +55,8 @@ where
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }
 
-/// First-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
-pub trait FirstOrderMinimize<Y>
+/// Minimization methods for hyperelastic-viscoplastic solid constitutive models.
+pub trait Minimize<Y>
 where
     Y: Differentiable + Tensor,
 {
@@ -69,44 +68,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeFirstOrderMinimize<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            ViscoplasticStateVariables<Y>,
-            DeformationGradient,
-            ViscoplasticStateVariablesHistory<Y>,
-            DeformationGradients,
-            ViscoplasticEvolutionHistory<Y>,
-        >,
-        solver: impl FirstOrderOptimization<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            DeformationGradient,
-        >,
-    ) -> Result<
-        (
-            Times,
-            DeformationGradients,
-            ViscoplasticStateVariablesHistory<Y>,
-        ),
-        ConstitutiveError,
-    >;
-}
-
-/// Second-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
-pub trait SecondOrderMinimize<Y>
-where
-    Y: Differentiable + Tensor,
-{
-    /// Solve for the unknown components of the deformation gradients under an applied load.
-    ///
-    /// ```math
-    /// \Pi(\mathbf{F},\mathbf{F}_\mathrm{p},\boldsymbol{\lambda}) = a(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda}:(\mathbf{F} - \mathbf{F}_0) - \mathbf{P}_0:\mathbf{F}
-    /// ```
-    fn minimize(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeSecondOrderMinimize<
+        integrator: impl ExplicitDaeMinimize<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -116,7 +78,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -132,7 +94,7 @@ where
     >;
 }
 
-impl<C, Y> FirstOrderMinimize<Y> for C
+impl<C, Y> Minimize<Y> for C
 where
     C: HyperelasticViscoplastic<Y>,
     Y: Differentiable + Tensor,
@@ -140,79 +102,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeFirstOrderMinimize<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            ViscoplasticStateVariables<Y>,
-            DeformationGradient,
-            ViscoplasticStateVariablesHistory<Y>,
-            DeformationGradients,
-            ViscoplasticEvolutionHistory<Y>,
-        >,
-        solver: impl FirstOrderOptimization<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            DeformationGradient,
-        >,
-    ) -> Result<
-        (
-            Times,
-            DeformationGradients,
-            ViscoplasticStateVariablesHistory<Y>,
-        ),
-        ConstitutiveError,
-    > {
-        let (matrix, prescribed, time) = bcs(applied_load);
-        let mut vector = Vector::zero(matrix.len());
-        let (times, state_variables, _, deformation_gradients) = integrator
-            .integrate(
-                |_: Quantity<Time>,
-                 state_variables: &ViscoplasticStateVariables<Y>,
-                 deformation_gradient: &DeformationGradient| {
-                    Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
-                },
-                |_: Quantity<Time>,
-                 state_variables: &ViscoplasticStateVariables<Y>,
-                 deformation_gradient: &DeformationGradient| {
-                    let deformation_gradient_p = &state_variables.0;
-                    Ok(self.helmholtz_free_energy_density(
-                        deformation_gradient,
-                        deformation_gradient_p,
-                    )?)
-                },
-                |_: Quantity<Time>,
-                 state_variables: &ViscoplasticStateVariables<Y>,
-                 deformation_gradient: &DeformationGradient| {
-                    let deformation_gradient_p = &state_variables.0;
-                    Ok(self.first_piola_kirchhoff_stress(
-                        deformation_gradient,
-                        deformation_gradient_p,
-                    )?)
-                },
-                solver,
-                time,
-                (self.initial_state(), DeformationGradient::identity()),
-                |t: Quantity<Time>| {
-                    prescribed
-                        .iter()
-                        .for_each(|(index, function)| vector[*index] = function(t));
-                    EqualityConstraint::Linear(matrix.clone(), vector.clone())
-                },
-            )
-            .map_err(|error| ConstitutiveError::upstream(error, self))?;
-        Ok((times, deformation_gradients, state_variables))
-    }
-}
-
-impl<C, Y> SecondOrderMinimize<Y> for C
-where
-    C: HyperelasticViscoplastic<Y>,
-    Y: Differentiable + Tensor,
-{
-    fn minimize(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeSecondOrderMinimize<
+        integrator: impl ExplicitDaeMinimize<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -222,7 +112,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -295,7 +185,7 @@ where
 /// rather than a stress-residual root. `F_p` still advances on its group at
 /// the tableau's own order; only how `F` is resolved within a stage differs.
 /// Blanket over any [`HyperelasticViscoplastic`] model, same as
-/// [`SecondOrderMinimize`] itself.
+/// [`Minimize`] itself.
 pub trait RootRkmkDaeMinimize<Y>
 where
     Y: Differentiable + Tensor,
@@ -306,7 +196,7 @@ where
     fn root_rkmk_dae_minimize<Tab: ButcherTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -326,7 +216,7 @@ where
     fn root_rkmk_dae_adaptive_minimize<Tab: EmbeddedTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -362,7 +252,7 @@ where
     fn root_rkmk_dae_minimize<Tab: ButcherTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -428,7 +318,7 @@ where
         deformation_gradients.push(deformation_gradient.clone());
         state_variables.push(state.clone());
         for step in time.windows(2) {
-            let advanced = rkmk_dae_step_second_order_minimize::<
+            let advanced = rkmk_dae_step_minimize::<
                 <Self as StateEvolution<Time, Y>>::Field,
                 Tab,
                 Quantity<EnergyDensity>,
@@ -467,7 +357,7 @@ where
     fn root_rkmk_dae_adaptive_minimize<Tab: EmbeddedTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -527,7 +417,7 @@ where
             )
             .map_err(|error| ConstitutiveError::upstream(String::from(error), self))?;
         let (times, state_variables, deformation_gradients) =
-            integrate_rkmk_dae_adaptive_second_order_minimize::<
+            integrate_rkmk_dae_adaptive_minimize::<
                 <Self as StateEvolution<Time, Y>>::Field,
                 Tab,
                 Quantity<EnergyDensity>,

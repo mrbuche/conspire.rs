@@ -16,8 +16,8 @@ use super::{super::fluid::viscous::Viscous, *};
 use crate::{
     math::{
         Matrix, Quantity, Vector,
-        integrate::{ImplicitDaeFirstOrderRoot, ImplicitDaeZerothOrderRoot},
-        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+        integrate::ImplicitDaeRoot,
+        optimize::{EqualityConstraint, RootFinding},
     },
     units::Time,
 };
@@ -140,8 +140,8 @@ where
     }
 }
 
-/// Zeroth-order root-finding methods for viscoelastic solid constitutive models.
-pub trait ZerothOrderRoot {
+/// Root-finding methods for viscoelastic solid constitutive models.
+pub trait Root {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///
     /// ```math
@@ -150,34 +150,14 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeZerothOrderRoot<
-            FirstPiolaKirchhoffStress,
-            DeformationGradient,
-            DeformationGradients,
-            DeformationGradientRates,
-        >,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradientRate>,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
-}
-
-/// Zeroth-order root-finding methods for viscoelastic solid constitutive models.
-pub trait FirstOrderRoot {
-    /// Solve for the unknown components of the deformation gradient and rate under an applied load.
-    ///
-    /// ```math
-    /// \mathbf{P}(\mathbf{F},\dot{\mathbf{F}}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
-    /// ```
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeFirstOrderRoot<
+        integrator: impl ImplicitDaeRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradient,
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradientRate,
@@ -185,98 +165,21 @@ pub trait FirstOrderRoot {
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
 
-impl<T> ZerothOrderRoot for T
+impl<T> Root for T
 where
     T: Viscoelastic,
 {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeZerothOrderRoot<
-            FirstPiolaKirchhoffStress,
-            DeformationGradient,
-            DeformationGradients,
-            DeformationGradientRates,
-        >,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradientRate>,
-    ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
-        match applied_load {
-            AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
-                let mut matrix = Matrix::zero(4, 9);
-                let mut vector = Vector::zero(4);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                integrator.integrate(
-                    |_: Quantity<Time>,
-                     deformation_gradient: &DeformationGradient,
-                     deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.first_piola_kirchhoff_stress(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
-                    },
-                    solver,
-                    time,
-                    DeformationGradient::identity(),
-                    |t: Quantity<Time>| {
-                        vector[0] = deformation_gradient_rate_11(t);
-                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
-                    },
-                )
-            }
-            AppliedLoad::BiaxialStress(
-                deformation_gradient_rate_11,
-                deformation_gradient_rate_22,
-                time,
-            ) => {
-                let mut matrix = Matrix::zero(5, 9);
-                let mut vector = Vector::zero(5);
-                matrix[0][0] = 1.0;
-                matrix[1][1] = 1.0;
-                matrix[2][2] = 1.0;
-                matrix[3][5] = 1.0;
-                matrix[4][4] = 1.0;
-                integrator.integrate(
-                    |_: Quantity<Time>,
-                     deformation_gradient: &DeformationGradient,
-                     deformation_gradient_rate: &DeformationGradientRate| {
-                        Ok(self.first_piola_kirchhoff_stress(
-                            deformation_gradient,
-                            deformation_gradient_rate,
-                        )?)
-                    },
-                    solver,
-                    time,
-                    DeformationGradient::identity(),
-                    |t: Quantity<Time>| {
-                        vector[0] = deformation_gradient_rate_11(t);
-                        vector[4] = deformation_gradient_rate_22(t);
-                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
-                    },
-                )
-            }
-        }
-        .map_err(|error| ConstitutiveError::upstream(error, self))
-    }
-}
-
-impl<T> FirstOrderRoot for T
-where
-    T: Viscoelastic,
-{
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ImplicitDaeFirstOrderRoot<
+        integrator: impl ImplicitDaeRoot<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradient,
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradientRate,

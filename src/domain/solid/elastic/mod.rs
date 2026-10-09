@@ -1,16 +1,13 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, ElementModelError, FirstOrderRoot, Model, NodalCoordinates,
-        ProvidesTangent, SolverFor, ZerothOrderRoot,
+        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, ProvidesTangent, Root,
+        SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
         Tensor,
-        optimize::{
-            EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizationError,
-            ZerothOrderRootFinding,
-        },
+        optimize::{EqualityConstraint, NewtonRaphson, OptimizationError, RootFinding},
     },
 };
 
@@ -93,23 +90,6 @@ where
     }
 }
 
-impl<B, const D: usize> ZerothOrderRoot<NodalForcesSolid<D>, NodalCoordinates<D>> for Model<B, D>
-where
-    B: ElasticElements<D>,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalForcesSolid<D>, NodalCoordinates<D>>,
-    ) -> Result<NodalCoordinates<D>, OptimizationError> {
-        solver.root(
-            |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
-            self.coordinates().clone().into(),
-            equality_constraint,
-        )
-    }
-}
-
 impl<B, const D: usize> SolverFor<Model<B, D>, NodalForcesSolid<D>, NodalStiffnessesSolid<D>>
     for NewtonRaphson
 where
@@ -132,8 +112,7 @@ where
     }
 }
 
-impl<B, const D: usize>
-    FirstOrderRoot<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
+impl<B, const D: usize> Root<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
     for Model<B, D>
 where
     B: ElasticElements<D>,
@@ -145,7 +124,7 @@ where
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where
         S: SolverFor<Self, NodalForcesSolid<D>, NodalStiffnessesSolid<D>>
-            + FirstOrderRootFinding<NodalForcesSolid<D>, S::Tangent, NodalCoordinates<D>>,
+            + RootFinding<NodalForcesSolid<D>, S::Tangent, NodalCoordinates<D>>,
         Self: ProvidesTangent<NodalCoordinates<D>, S::Tangent>,
     {
         let sparse = S::SPARSE.then(|| {

@@ -210,12 +210,10 @@ macro_rules! test_finite_element_block_inner {
                         fn root() -> Result<(), AssertionError> {
                             let (applied_load, a, b) = equality_constraint();
                             let block = get_block();
-                            let coordinates = FirstOrderRoot::root(
-                                &crate::domain::Model::from((
+                            let coordinates = crate::domain::Model::from((
                                     get_block(),
                                     get_reference_coordinates_block(),
-                                )),
-                                EqualityConstraint::Linear(a, b),
+                                )).root(EqualityConstraint::Linear(a, b),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -239,7 +237,7 @@ macro_rules! test_finite_element_block_inner {
                 mod newton_raphson_root {
                     use super::*;
                     use crate::{
-                        constitutive::solid::elastic::FirstOrderRoot as _, domain::FirstOrderRoot,
+                        constitutive::solid::elastic::Root as _, domain::Root,
                         math::optimize::NewtonRaphson,
                     };
                     test_root_with_solver!(NewtonRaphson);
@@ -260,12 +258,10 @@ macro_rules! test_finite_element_block_inner {
                         fn minimize() -> Result<(), AssertionError> {
                             let (applied_load, a, b) = equality_constraint();
                             let block = get_block();
-                            let coordinates = SecondOrderMinimize::minimize(
-                                &crate::domain::Model::from((
+                            let coordinates = crate::domain::Model::from((
                                     get_block(),
                                     get_reference_coordinates_block(),
-                                )),
-                                EqualityConstraint::Linear(a, b),
+                                )).minimize(EqualityConstraint::Linear(a, b),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -289,8 +285,8 @@ macro_rules! test_finite_element_block_inner {
                 mod newton_raphson_minimize {
                     use super::*;
                     use crate::{
-                        constitutive::solid::hyperelastic::SecondOrderMinimize as _,
-                        domain::SecondOrderMinimize, math::optimize::NewtonRaphson,
+                        constitutive::solid::hyperelastic::Minimize as _,
+                        domain::Minimize, math::optimize::NewtonRaphson,
                     };
                     test_minimize_with_solver!(NewtonRaphson);
                 }
@@ -408,16 +404,13 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
             ($integrator: ident) => {
                 #[test]
                 fn minimize() -> Result<(), AssertionError> {
-                    use crate::constitutive::solid::elastic_hyperviscous::SecondOrderMinimize as _;
-                    use crate::fem::solid::elastic_hyperviscous::SecondOrderMinimize;
+                    use crate::constitutive::solid::elastic_hyperviscous::Minimize as _;
+                    use crate::fem::solid::elastic_hyperviscous::Minimize;
                     let (a, b) = applied_velocities();
                     let block = get_block();
                     let (times, coordinates_history, velocities_history) =
-                        SecondOrderMinimize::minimize(
-                            &crate::fem::Model::from((
-                                get_block(),
-                                get_reference_coordinates_block(),
-                            )),
+                        crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
+                            .minimize(
                             EqualityConstraint::Linear(a, b),
                             $integrator::default(),
                             &[Quantity::new(0.0), Quantity::new(1.0)],
@@ -476,17 +469,18 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                 }
                 #[test]
                 fn root() -> Result<(), AssertionError> {
-                    use crate::constitutive::solid::viscoelastic::FirstOrderRoot as _;
-                    use crate::fem::solid::viscoelastic::FirstOrderRoot;
+                    use crate::constitutive::solid::viscoelastic::Root as _;
+                    use crate::fem::solid::viscoelastic::Root;
                     let (a, b) = applied_velocities();
                     let block = get_block();
-                    let (times, coordinates_history, velocities_history) = FirstOrderRoot::root(
-                        &crate::fem::Model::from((get_block(), get_reference_coordinates_block())),
-                        EqualityConstraint::Linear(a, b),
-                        $integrator::default(),
-                        &[Quantity::new(0.0), Quantity::new(1.0)],
-                        NewtonRaphson::default(),
-                    )?;
+                    let (times, coordinates_history, velocities_history) =
+                        crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
+                            .root(
+                            EqualityConstraint::Linear(a, b),
+                            $integrator::default(),
+                            &[Quantity::new(0.0), Quantity::new(1.0)],
+                            NewtonRaphson::default(),
+                        )?;
                     let (_, deformation_gradients, deformation_gradient_rates) =
                         $constitutive_model.root(
                             applied_velocity(&times),

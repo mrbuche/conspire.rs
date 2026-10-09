@@ -1119,35 +1119,10 @@ macro_rules! test_minimize_and_root {
                 // }
             };
         }
-        // mod gradient_descent {
-        //     use super::*;
-        //     use crate::{
-        //         constitutive::solid::{
-        //             elastic_hyperviscous::FirstOrderMinimize, viscoelastic::ZerothOrderRoot,
-        //         },
-        //         math::optimize::GradientDescent,
-        //     };
-        //     test_with_solver!(GradientDescent::default());
-        // }
-        mod gradient_descent_dual {
-            use super::*;
-            use crate::{
-                constitutive::solid::{
-                    elastic_hyperviscous::FirstOrderMinimize, viscoelastic::ZerothOrderRoot,
-                },
-                math::optimize::GradientDescent,
-            };
-            test_with_solver!(GradientDescent {
-                dual: true,
-                ..Default::default()
-            });
-        }
         mod newton_raphson {
             use super::*;
             use crate::{
-                constitutive::solid::{
-                    elastic_hyperviscous::SecondOrderMinimize, viscoelastic::FirstOrderRoot,
-                },
+                constitutive::solid::{elastic_hyperviscous::Minimize, viscoelastic::Root},
                 math::optimize::NewtonRaphson,
             };
             test_with_solver!(NewtonRaphson::default());

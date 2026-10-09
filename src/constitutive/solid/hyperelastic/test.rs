@@ -459,26 +459,10 @@ macro_rules! test_minimize_and_root {
         }
         mod minimize {
             use super::*;
-            mod gradient_descent {
-                use super::*;
-                use crate::{
-                    constitutive::solid::hyperelastic::FirstOrderMinimize,
-                    math::optimize::GradientDescent,
-                };
-                // test_minimize_with_solver!(GradientDescent::default());
-                mod dual {
-                    use super::*;
-                    test_minimize_with_solver!(GradientDescent {
-                        dual: true,
-                        ..Default::default()
-                    });
-                }
-            }
             mod newton_raphson {
                 use super::*;
                 use crate::{
-                    constitutive::solid::hyperelastic::SecondOrderMinimize,
-                    math::optimize::NewtonRaphson,
+                    constitutive::solid::hyperelastic::Minimize, math::optimize::NewtonRaphson,
                 };
                 test_minimize_with_solver!(NewtonRaphson::default());
             }
