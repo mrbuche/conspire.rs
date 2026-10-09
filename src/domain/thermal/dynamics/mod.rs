@@ -42,11 +42,66 @@ where
         .map_err(|error| IntegrationError::Intermediate(error.to_string()))
 }
 
-impl<B, const D: usize> Model<B, D>
+/// The temperatures of a model that conducts heat.
+pub trait ThermalConductionDynamics {
+    fn nodal_temperature_rates(
+        &self,
+        nodal_temperatures: &NodalTemperatures,
+        external_heating: &NodalForcesThermal,
+        capacities: &impl InverseHeatCapacity,
+    ) -> Result<NodalTemperatureRates, ElementModelError>;
+    /// Integrates the temperatures of the model with an explicit integrator.
+    ///
+    /// The heat capacities may be lumped or consistent. Fixed temperatures, whose indices are
+    /// those of their nodes, are held by giving them no rate of change, so that their initial
+    /// values are the ones prescribed. Linear constraints are not supported.
+    fn integrate(
+        &self,
+        integrator: &impl Explicit<
+            NodalTemperatures,
+            NodalTemperaturesHistory,
+            NodalTemperatureRatesHistory,
+        >,
+        time: &[Quantity<Time>],
+        initial_temperatures: NodalTemperatures,
+        external_heating: &NodalForcesThermal,
+        capacities: &impl HeatCapacityMatrix,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<Solution, IntegrationError>;
+    /// Integrates the temperatures of the model like [`integrate`](Self::integrate), with a
+    /// time step limited by the fastest time scale of the elements.
+    ///
+    /// Only lumped heat capacities are accepted, since the estimate of the largest eigenvalue
+    /// is that of the lumped heat capacities, which a consistent one exceeds. The estimate
+    /// assembles the element conduction tangents, and is refreshed every `interval`
+    /// evaluations of the bound, which for the integrators here is every step. The time step
+    /// may use at most the fraction `safety` of the stability limit, and a step above it is an
+    /// error.
+    #[expect(clippy::too_many_arguments)]
+    fn integrate_bounded(
+        &self,
+        integrator: &impl Explicit<
+            NodalTemperatures,
+            NodalTemperaturesHistory,
+            NodalTemperatureRatesHistory,
+        >,
+        safety: Scalar,
+        interval: usize,
+        time: &[Quantity<Time>],
+        initial_temperatures: NodalTemperatures,
+        external_heating: &NodalForcesThermal,
+        capacities: &NodalLumpedHeatCapacities,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<Solution, IntegrationError>
+    where
+        Self: ThermalTimeScaleElements;
+}
+
+impl<B, const D: usize> ThermalConductionDynamics for Model<B, D>
 where
     B: ThermalConductionElements,
 {
-    pub fn nodal_temperature_rates(
+    fn nodal_temperature_rates(
         &self,
         nodal_temperatures: &NodalTemperatures,
         external_heating: &NodalForcesThermal,
@@ -55,12 +110,7 @@ where
         Ok(capacities
             .nodal_temperature_rates(external_heating, &self.nodal_forces(nodal_temperatures)?))
     }
-    /// Integrates the temperatures of the model with an explicit integrator.
-    ///
-    /// The heat capacities may be lumped or consistent. Fixed temperatures, whose indices are
-    /// those of their nodes, are held by giving them no rate of change, so that their initial
-    /// values are the ones prescribed. Linear constraints are not supported.
-    pub fn integrate_temperatures(
+    fn integrate(
         &self,
         integrator: &impl Explicit<
             NodalTemperatures,
@@ -83,23 +133,7 @@ where
             initial_temperatures,
         )
     }
-}
-
-impl<B, const D: usize> Model<B, D>
-where
-    B: ThermalConductionElements + ThermalTimeScaleElements,
-{
-    /// Integrates the temperatures of the model like [`integrate_temperatures`](Self::integrate_temperatures), with a
-    /// time step limited by the fastest time scale of the elements.
-    ///
-    /// Only lumped heat capacities are accepted, since the estimate of the largest eigenvalue
-    /// is that of the lumped heat capacities, which a consistent one exceeds. The estimate
-    /// assembles the element conduction tangents, and is refreshed every `interval`
-    /// evaluations of the bound, which for the integrators here is every step. The time step
-    /// may use at most the fraction `safety` of the stability limit, and a step above it is an
-    /// error.
-    #[expect(clippy::too_many_arguments)]
-    pub fn integrate_temperatures_bounded(
+    fn integrate_bounded(
         &self,
         integrator: &impl Explicit<
             NodalTemperatures,
@@ -113,7 +147,10 @@ where
         external_heating: &NodalForcesThermal,
         capacities: &NodalLumpedHeatCapacities,
         equality_constraint: EqualityConstraint,
-    ) -> Result<Solution, IntegrationError> {
+    ) -> Result<Solution, IntegrationError>
+    where
+        Self: ThermalTimeScaleElements,
+    {
         if interval == 0 {
             return Err(IntegrationError::Intermediate(
                 "The interval between estimates of the time scale must be at least one."

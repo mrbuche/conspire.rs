@@ -43,11 +43,67 @@ where
     Ok((inverse, velocities))
 }
 
-impl<B> Model<B, 3>
+/// The motion of an elastic model.
+pub trait ElasticDynamics {
+    fn nodal_accelerations(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        external_forces: &NodalForcesSolid<3>,
+        masses: &impl InverseMass<3>,
+    ) -> Result<NodalAccelerations<3>, ElementModelError>;
+    /// Integrates the motion of the model with an explicit dynamics integrator.
+    ///
+    /// The masses may be lumped or consistent. Fixed degrees of freedom, whose indices are
+    /// `D * node + component`, are held by giving them no velocity, and no acceleration
+    /// from the inverse of the masses. Linear constraints are not supported.
+    fn integrate(
+        &self,
+        integrator: &impl ExplicitDynamics<
+            NodalCoordinates<3>,
+            NodalCoordinatesHistory<3>,
+            NodalVelocitiesHistory<3>,
+            NodalAccelerationsHistory<3>,
+        >,
+        time: &[Quantity<Time>],
+        initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
+        external_forces: &NodalForcesSolid<3>,
+        masses: &impl MassMatrix<3>,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<Solution, IntegrationError>;
+    /// Integrates the motion of the model like [`integrate`](Self::integrate), with a time
+    /// step limited by the fastest time scale of the elements.
+    ///
+    /// Only lumped masses are accepted, since the estimate of the highest frequency is that of
+    /// the lumped masses, which a consistent mass exceeds. The estimate assembles the element
+    /// stiffnesses, and is refreshed every `interval` evaluations of the bound, which for the
+    /// integrators here is every step. The time step may use at most the fraction `safety` of
+    /// the stability limit, and a step above it is an error.
+    #[expect(clippy::too_many_arguments)]
+    fn integrate_bounded(
+        &self,
+        integrator: &impl ExplicitDynamics<
+            NodalCoordinates<3>,
+            NodalCoordinatesHistory<3>,
+            NodalVelocitiesHistory<3>,
+            NodalAccelerationsHistory<3>,
+        >,
+        safety: Scalar,
+        interval: usize,
+        time: &[Quantity<Time>],
+        initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
+        external_forces: &NodalForcesSolid<3>,
+        masses: &NodalLumpedMasses,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<Solution, IntegrationError>
+    where
+        Self: TimeScaleElements<3>;
+}
+
+impl<B> ElasticDynamics for Model<B, 3>
 where
     B: ElasticElements<3>,
 {
-    pub fn nodal_accelerations(
+    fn nodal_accelerations(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         external_forces: &NodalForcesSolid<3>,
@@ -55,12 +111,7 @@ where
     ) -> Result<NodalAccelerations<3>, ElementModelError> {
         Ok(masses.nodal_accelerations(external_forces, &self.nodal_forces(nodal_coordinates)?))
     }
-    /// Integrates the motion of the model with an explicit dynamics integrator.
-    ///
-    /// The masses may be lumped or consistent. Fixed degrees of freedom, whose indices are
-    /// `D * node + component`, are held by giving them no velocity, and no acceleration
-    /// from the inverse of the masses. Linear constraints are not supported.
-    pub fn integrate(
+    fn integrate(
         &self,
         integrator: &impl ExplicitDynamics<
             NodalCoordinates<3>,
@@ -85,22 +136,7 @@ where
             initial_velocities,
         )
     }
-}
-
-impl<B> Model<B, 3>
-where
-    B: ElasticElements<3> + TimeScaleElements<3>,
-{
-    /// Integrates the motion of the model like [`integrate`](Self::integrate), with a time
-    /// step limited by the fastest time scale of the elements.
-    ///
-    /// Only lumped masses are accepted, since the estimate of the highest frequency is that of
-    /// the lumped masses, which a consistent mass exceeds. The estimate assembles the element
-    /// stiffnesses, and is refreshed every `interval` evaluations of the bound, which for the
-    /// integrators here is every step. The time step may use at most the fraction `safety` of
-    /// the stability limit, and a step above it is an error.
-    #[expect(clippy::too_many_arguments)]
-    pub fn integrate_bounded(
+    fn integrate_bounded(
         &self,
         integrator: &impl ExplicitDynamics<
             NodalCoordinates<3>,
@@ -115,7 +151,10 @@ where
         external_forces: &NodalForcesSolid<3>,
         masses: &NodalLumpedMasses,
         equality_constraint: EqualityConstraint,
-    ) -> Result<Solution, IntegrationError> {
+    ) -> Result<Solution, IntegrationError>
+    where
+        Self: TimeScaleElements<3>,
+    {
         if interval == 0 {
             return Err(IntegrationError::Intermediate(
                 "The interval between estimates of the time scale must be at least one."

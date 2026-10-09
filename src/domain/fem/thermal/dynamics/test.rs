@@ -10,7 +10,7 @@ use crate::{
         },
         thermal::{
             capacity::HeatCapacityMatrix, conduction::ThermalConductionElements,
-            time_scale::ThermalTimeScaleElements,
+            dynamics::ThermalConductionDynamics, time_scale::ThermalTimeScaleElements,
         },
     },
     math::{
@@ -128,7 +128,7 @@ mod integrate_temperatures {
         let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);
         let (.., history, _) = {
             let (times, history, rates) = model
-                .integrate_temperatures_bounded(
+                .integrate_bounded(
                     &Euler::default(),
                     SAFETY,
                     1,
@@ -153,7 +153,7 @@ mod integrate_temperatures {
         let model = model();
         let dt = step(&model);
         let (_, history, rates) = model
-            .integrate_temperatures_bounded(
+            .integrate_bounded(
                 &Euler::default(),
                 SAFETY,
                 1,
@@ -181,7 +181,7 @@ mod integrate_temperatures {
         let fixed = || EqualityConstraint::Fixed(vec![0]);
         let initial = || temperatures([300.0; NODES]);
         let (_, lumped, _) = model
-            .integrate_temperatures(
+            .integrate(
                 &Euler::default(),
                 &times(dt, 20000),
                 initial(),
@@ -191,7 +191,7 @@ mod integrate_temperatures {
             )
             .unwrap();
         let (_, consistent, _) = model
-            .integrate_temperatures(
+            .integrate(
                 &Euler::default(),
                 &times(dt, 20000),
                 initial(),
@@ -229,7 +229,7 @@ mod integrate_temperatures {
         let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);
         let capacities = model.nodal_lumped_heat_capacities();
         let error = model
-            .integrate_temperatures_bounded(
+            .integrate_bounded(
                 &Euler::default(),
                 1.0,
                 1,
@@ -242,7 +242,7 @@ mod integrate_temperatures {
             .unwrap_err();
         assert!(matches!(error, IntegrationError::UnstableTimeStep(..)));
         let (_, history, _) = model
-            .integrate_temperatures(
+            .integrate(
                 &Euler::default(),
                 &times(20.0 * dt, 40),
                 initial,

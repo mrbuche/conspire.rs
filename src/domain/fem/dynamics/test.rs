@@ -4,7 +4,7 @@ use crate::{
         Model, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::Block,
         block::element::linear::Tetrahedron,
-        solid::{NodalForcesSolid, elastic::ElasticElements},
+        solid::{ElasticDynamics, NodalForcesSolid, elastic::ElasticElements},
     },
     math::{
         Quantity, Tensor,

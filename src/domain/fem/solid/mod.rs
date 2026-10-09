@@ -7,6 +7,8 @@ pub mod hyperelastic_viscoplastic;
 pub mod hyperviscoelastic;
 pub mod viscoelastic;
 
+pub use crate::domain::solid::dynamics::ElasticDynamics;
+
 pub use crate::domain::solid::{
     NodalDampingsSolid, NodalDampingsSolidSymmetric, NodalForcesSolid, NodalStiffnessesSolid,
     NodalStiffnessesSolidSymmetric,
