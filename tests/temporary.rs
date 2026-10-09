@@ -7,9 +7,9 @@ use conspire::{
         fluid::{hyperviscous::Newtonian, viscoplastic::ViscoplasticFlow},
         solid::{
             elastic::{AlmansiHamelEulerian, AppliedLoad as AppliedDeformation},
-            elastic_hyperviscous::SecondOrderMinimize as _,
+            elastic_hyperviscous::Minimize as _,
             elastic_viscoplastic::AppliedLoad,
-            hyperelastic::{NeoHookean, SaintVenantKirchhoff, SecondOrderMinimize as _},
+            hyperelastic::{Minimize as _, NeoHookean, SaintVenantKirchhoff},
             viscoelastic::AppliedLoad as AppliedDeformationRate,
         },
         thermal::conduction::Fourier,
@@ -8318,7 +8318,7 @@ mod cbm_forces_smoke {
 
 #[test]
 fn temporary_elastic_plastic() -> Result<(), AssertionError> {
-    use conspire::constitutive::solid::elastic_plastic::FirstOrderRoot;
+    use conspire::constitutive::solid::elastic_plastic::Root;
     use conspire::fem::solid::elastic_plastic::ElasticPlasticRoot;
     use conspire::math::optimize::SolveStrategy;
     let tol = 1e-10;
@@ -8358,7 +8358,7 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
         &boundary_conditions,
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
-    let (_, deformation_gradients, state_variables) = FirstOrderRoot::root(
+    let (_, deformation_gradients, state_variables) = Root::root(
         &model,
         AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + t.value(), times.as_slice()),
         NewtonRaphson::default(),

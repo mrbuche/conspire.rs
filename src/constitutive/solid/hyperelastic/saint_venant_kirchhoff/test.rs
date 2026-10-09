@@ -12,7 +12,7 @@ test_solid_hyperelastic_constitutive_model!(
 #[test]
 fn biaxial_compression_is_not_a_minimum() {
     use crate::{
-        constitutive::solid::{elastic::AppliedLoad, hyperelastic::SecondOrderMinimize},
+        constitutive::solid::{elastic::AppliedLoad, hyperelastic::Minimize},
         math::optimize::NewtonRaphson,
     };
     let model = SaintVenantKirchhoff {

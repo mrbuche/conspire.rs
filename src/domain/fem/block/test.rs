@@ -239,7 +239,7 @@ macro_rules! test_finite_element_block_inner {
                 mod newton_raphson_root {
                     use super::*;
                     use crate::{
-                        constitutive::solid::elastic::FirstOrderRoot as _, domain::FirstOrderRoot,
+                        constitutive::solid::elastic::Root as _, domain::FirstOrderRoot,
                         math::optimize::NewtonRaphson,
                     };
                     test_root_with_solver!(NewtonRaphson);
@@ -289,7 +289,7 @@ macro_rules! test_finite_element_block_inner {
                 mod newton_raphson_minimize {
                     use super::*;
                     use crate::{
-                        constitutive::solid::hyperelastic::SecondOrderMinimize as _,
+                        constitutive::solid::hyperelastic::Minimize as _,
                         domain::SecondOrderMinimize, math::optimize::NewtonRaphson,
                     };
                     test_minimize_with_solver!(NewtonRaphson);
@@ -408,7 +408,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
             ($integrator: ident) => {
                 #[test]
                 fn minimize() -> Result<(), AssertionError> {
-                    use crate::constitutive::solid::elastic_hyperviscous::SecondOrderMinimize as _;
+                    use crate::constitutive::solid::elastic_hyperviscous::Minimize as _;
                     use crate::fem::solid::elastic_hyperviscous::SecondOrderMinimize;
                     let (a, b) = applied_velocities();
                     let block = get_block();
@@ -476,7 +476,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                 }
                 #[test]
                 fn root() -> Result<(), AssertionError> {
-                    use crate::constitutive::solid::viscoelastic::FirstOrderRoot as _;
+                    use crate::constitutive::solid::viscoelastic::Root as _;
                     use crate::fem::solid::viscoelastic::FirstOrderRoot;
                     let (a, b) = applied_velocities();
                     let block = get_block();

@@ -56,47 +56,8 @@ where
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
 }
 
-/// First-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
-pub trait FirstOrderMinimize<Y>
-where
-    Y: Differentiable + Tensor,
-{
-    /// Solve for the unknown components of the deformation gradients under an applied load.
-    ///
-    /// ```math
-    /// \Pi(\mathbf{F},\mathbf{F}_\mathrm{p},\boldsymbol{\lambda}) = a(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda}:(\mathbf{F} - \mathbf{F}_0) - \mathbf{P}_0:\mathbf{F}
-    /// ```
-    fn minimize(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeMinimize<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            (),
-            ViscoplasticStateVariables<Y>,
-            DeformationGradient,
-            ViscoplasticStateVariablesHistory<Y>,
-            DeformationGradients,
-            ViscoplasticEvolutionHistory<Y>,
-        >,
-        solver: impl Optimization<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            (),
-            DeformationGradient,
-        >,
-    ) -> Result<
-        (
-            Times,
-            DeformationGradients,
-            ViscoplasticStateVariablesHistory<Y>,
-        ),
-        ConstitutiveError,
-    >;
-}
-
-/// Second-order minimization methods for hyperelastic-viscoplastic solid constitutive models.
-pub trait SecondOrderMinimize<Y>
+/// Minimization methods for hyperelastic-viscoplastic solid constitutive models.
+pub trait Minimize<Y>
 where
     Y: Differentiable + Tensor,
 {
@@ -134,83 +95,7 @@ where
     >;
 }
 
-impl<C, Y> FirstOrderMinimize<Y> for C
-where
-    C: HyperelasticViscoplastic<Y>,
-    Y: Differentiable + Tensor,
-{
-    fn minimize(
-        &self,
-        applied_load: AppliedLoad,
-        integrator: impl ExplicitDaeMinimize<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            (),
-            ViscoplasticStateVariables<Y>,
-            DeformationGradient,
-            ViscoplasticStateVariablesHistory<Y>,
-            DeformationGradients,
-            ViscoplasticEvolutionHistory<Y>,
-        >,
-        solver: impl Optimization<
-            Quantity<EnergyDensity>,
-            FirstPiolaKirchhoffStress,
-            (),
-            DeformationGradient,
-        >,
-    ) -> Result<
-        (
-            Times,
-            DeformationGradients,
-            ViscoplasticStateVariablesHistory<Y>,
-        ),
-        ConstitutiveError,
-    > {
-        let (matrix, prescribed, time) = bcs(applied_load);
-        let mut vector = Vector::zero(matrix.len());
-        let (times, state_variables, _, deformation_gradients) = integrator
-            .integrate(
-                |_: Quantity<Time>,
-                 state_variables: &ViscoplasticStateVariables<Y>,
-                 deformation_gradient: &DeformationGradient| {
-                    Ok(self.state_variables_evolution(deformation_gradient, state_variables)?)
-                },
-                |_: Quantity<Time>,
-                 state_variables: &ViscoplasticStateVariables<Y>,
-                 deformation_gradient: &DeformationGradient| {
-                    let deformation_gradient_p = &state_variables.0;
-                    Ok(self.helmholtz_free_energy_density(
-                        deformation_gradient,
-                        deformation_gradient_p,
-                    )?)
-                },
-                |_: Quantity<Time>,
-                 state_variables: &ViscoplasticStateVariables<Y>,
-                 deformation_gradient: &DeformationGradient| {
-                    let deformation_gradient_p = &state_variables.0;
-                    Ok(self.first_piola_kirchhoff_stress(
-                        deformation_gradient,
-                        deformation_gradient_p,
-                    )?)
-                },
-                |_, _, _| Ok(()),
-                solver,
-                time,
-                (self.initial_state(), DeformationGradient::identity()),
-                |t: Quantity<Time>| {
-                    prescribed
-                        .iter()
-                        .for_each(|(index, function)| vector[*index] = function(t));
-                    EqualityConstraint::Linear(matrix.clone(), vector.clone())
-                },
-                None,
-            )
-            .map_err(|error| ConstitutiveError::upstream(error, self))?;
-        Ok((times, deformation_gradients, state_variables))
-    }
-}
-
-impl<C, Y> SecondOrderMinimize<Y> for C
+impl<C, Y> Minimize<Y> for C
 where
     C: HyperelasticViscoplastic<Y>,
     Y: Differentiable + Tensor,
@@ -301,7 +186,7 @@ where
 /// rather than a stress-residual root. `F_p` still advances on its group at
 /// the tableau's own order; only how `F` is resolved within a stage differs.
 /// Blanket over any [`HyperelasticViscoplastic`] model, same as
-/// [`SecondOrderMinimize`] itself.
+/// [`Minimize`] itself.
 pub trait RootRkmkDaeMinimize<Y>
 where
     Y: Differentiable + Tensor,

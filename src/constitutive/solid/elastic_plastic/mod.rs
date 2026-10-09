@@ -15,10 +15,7 @@ use crate::{
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
         TensorArray, Vector,
-        optimize::{
-            EqualityConstraint, FirstOrderRootFindingBlock, NewtonRaphson, RootFinding,
-            SolveStrategy,
-        },
+        optimize::{FirstOrderRootFindingBlock, NewtonRaphson, SolveStrategy},
         sparse::CscMatrix,
     },
     mechanics::{
@@ -280,68 +277,6 @@ where
     }
 }
 
-/// Zeroth-order root-finding methods for elastic-plastic solid constitutive models.
-pub trait ZerothOrderRoot {
-    /// Solve for the unknown components of the deformation gradients under an applied load.
-    ///
-    /// ```math
-    /// \mathbf{P}(\mathbf{F},\mathbf{F}_\mathrm{p}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
-    /// ```
-    /// The plastic state is updated by a nested return mapping at each load step.
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
-    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
-}
-
-impl<C> ZerothOrderRoot for C
-where
-    C: ElasticPlastic,
-{
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
-    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
-    {
-        let (matrix, prescribed, time) = bcs(applied_load);
-        let mut vector = Vector::zero(matrix.len());
-        let mut state = self.initial_state();
-        let mut deformation_gradient = DeformationGradient::identity();
-        let mut deformation_gradients = vec![deformation_gradient.clone()];
-        let mut states = vec![state.clone()];
-        for time_step in time.iter().skip(1) {
-            prescribed
-                .iter()
-                .for_each(|(index, function)| vector[*index] = function(*time_step));
-            let previous_state = state.clone();
-            deformation_gradient = solver
-                .root(
-                    |deformation_gradient: &DeformationGradient| {
-                        let updated_state =
-                            self.return_map(deformation_gradient, &previous_state)?;
-                        Ok(self
-                            .first_piola_kirchhoff_stress(deformation_gradient, &updated_state.0)?)
-                    },
-                    |_| Ok(()),
-                    deformation_gradient.clone(),
-                    EqualityConstraint::Linear(matrix.clone(), vector.clone()),
-                    None,
-                )
-                .map_err(|error| ConstitutiveError::upstream(error, self))?;
-            state = self.return_map(&deformation_gradient, &previous_state)?;
-            deformation_gradients.push(deformation_gradient.clone());
-            states.push(state.clone());
-        }
-        Ok((
-            time.iter().copied().collect(),
-            deformation_gradients.into(),
-            states.into(),
-        ))
-    }
-}
-
 /// The Fischer-Burmeister complementarity function.
 ///
 /// ```math
@@ -351,8 +286,8 @@ pub(crate) fn fischer_burmeister(a: Scalar, b: Scalar) -> Scalar {
     a + b - (a * a + b * b).sqrt()
 }
 
-/// First-order root-finding methods for elastic-plastic solid constitutive models.
-pub trait FirstOrderRoot {
+/// Root-finding methods for elastic-plastic solid constitutive models.
+pub trait Root {
     /// Solve for the unknown components of the deformation gradients under an applied load.
     ///
     /// With [`SolveStrategy::Condensed`], the coupled local unknowns
@@ -384,7 +319,7 @@ pub trait FirstOrderRoot {
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
 }
 
-impl<C> FirstOrderRoot for C
+impl<C> Root for C
 where
     C: ElasticPlastic,
 {

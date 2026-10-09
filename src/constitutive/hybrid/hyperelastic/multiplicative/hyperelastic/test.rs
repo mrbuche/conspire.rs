@@ -16,9 +16,7 @@ use crate::{
     constitutive::solid::elastic::AppliedLoad,
     math::{
         Norm,
-        optimize::{
-            Direct, GradientDescent, LineSearch, NewtonRaphson, SolveStrategy, TrustRegion,
-        },
+        optimize::{Direct, LineSearch, NewtonRaphson, SolveStrategy, TrustRegion},
     },
     mechanics::*,
 };
@@ -41,7 +39,7 @@ fn model() -> ElasticMultiplicative<NeoHookean, SaintVenantKirchhoff> {
 fn blocked(
     strategy: SolveStrategy,
 ) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
-    use crate::constitutive::solid::hyperelastic::internal_variables::SecondOrderMinimize;
+    use crate::constitutive::solid::hyperelastic::internal_variables::Minimize;
     let (f, f_2) = model().minimize(
         AppliedLoad::UniaxialStress(STRETCH),
         NewtonRaphson::default(),
@@ -63,19 +61,6 @@ fn check(f: &DeformationGradient, f_2: &DeformationGradient2) -> Result<(), Asse
         ]),
         &Vector::from([STRETCH, 0.0, 0.0, 0.0]),
     )
-}
-
-#[test]
-fn minimize_first_order() -> Result<(), AssertionError> {
-    use crate::constitutive::solid::hyperelastic::internal_variables::FirstOrderMinimize;
-    let (_f, _f_2) = model().minimize(
-        AppliedLoad::UniaxialStress(STRETCH),
-        GradientDescent {
-            dual: true,
-            ..Default::default()
-        },
-    )?;
-    Ok(())
 }
 
 #[test]
@@ -127,7 +112,7 @@ fn line_search(name: &str) -> LineSearch {
 }
 
 fn searched(name: &str, strategy: SolveStrategy) -> Result<(), AssertionError> {
-    use crate::constitutive::solid::hyperelastic::internal_variables::SecondOrderMinimize;
+    use crate::constitutive::solid::hyperelastic::internal_variables::Minimize;
     let (f, f_2) = model().minimize(
         AppliedLoad::UniaxialStress(STRETCH),
         NewtonRaphson {
@@ -163,7 +148,7 @@ fn far(
     trust_region: TrustRegion,
     strategy: SolveStrategy,
 ) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
-    use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
+    use crate::constitutive::solid::elastic::internal_variables::Root;
     let (f, f_2) = model().root(
         AppliedLoad::UniaxialStress(STRETCH_FAR),
         NewtonRaphson {
@@ -227,7 +212,7 @@ fn root_trust_region_needed() {
 
 #[test]
 fn root_line_search_error() -> Result<(), AssertionError> {
-    use crate::constitutive::solid::elastic::internal_variables::FirstOrderRoot;
+    use crate::constitutive::solid::elastic::internal_variables::Root;
     for strategy in [
         SolveStrategy::Monolithic { elimination: false },
         SolveStrategy::Monolithic { elimination: true },
@@ -290,7 +275,7 @@ const STRETCH_2: Scalar = 1.2;
 
 #[test]
 fn root_biaxial() -> Result<(), AssertionError> {
-    use crate::constitutive::solid::elastic::internal_variables::{ElasticIV, FirstOrderRoot};
+    use crate::constitutive::solid::elastic::internal_variables::{ElasticIV, Root};
     let (f, f_2) = model().root(
         AppliedLoad::BiaxialStress(STRETCH, STRETCH_2),
         NewtonRaphson::default(),
@@ -306,21 +291,5 @@ fn root_biaxial() -> Result<(), AssertionError> {
             f[1][1].value(),
         ]),
         &Vector::from([STRETCH, 0.0, 0.0, 0.0, STRETCH_2]),
-    )
-}
-
-#[test]
-fn minimize_biaxial_first_order() -> Result<(), AssertionError> {
-    use crate::constitutive::solid::hyperelastic::internal_variables::FirstOrderMinimize;
-    let (f, _f_2) = model().minimize(
-        AppliedLoad::BiaxialStress(STRETCH, STRETCH_2),
-        GradientDescent {
-            dual: true,
-            ..Default::default()
-        },
-    )?;
-    Assert::default().eq_within_tols(
-        Vector::from([f[0][0].value(), f[1][1].value()]),
-        &Vector::from([STRETCH, STRETCH_2]),
     )
 }

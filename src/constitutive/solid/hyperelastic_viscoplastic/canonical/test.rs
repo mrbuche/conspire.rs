@@ -13,7 +13,7 @@ use crate::{
         Quantity, Tensor, TensorArray,
         assert::{Assert, AssertionError, FiniteDifference, perturbation},
         integrate::{BogackiShampine, DormandPrince, Verner8, Verner9},
-        optimize::{GradientDescent, NewtonRaphson},
+        optimize::NewtonRaphson,
     },
     mechanics::{CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic},
     units::{Rate, Stress, Time},
@@ -118,25 +118,9 @@ macro_rules! test_canonical {
         macro_rules! test_model_with_integrator {
             ($integrator:ident) => {
                 #[test]
-                fn root_0_and_minimize_1() -> Result<(), AssertionError> {
+                fn root_and_minimize() -> Result<(), AssertionError> {
                     use crate::constitutive::solid::{
-                        elastic_viscoplastic::ZerothOrderRoot,
-                        hyperelastic_viscoplastic::FirstOrderMinimize,
-                    };
-                    test_integrator_with_solver!(
-                        $integrator,
-                        GradientDescent {
-                            dual: true,
-                            ..Default::default()
-                        }
-                    );
-                    Ok(())
-                }
-                #[test]
-                fn root_1_and_minimize_2() -> Result<(), AssertionError> {
-                    use crate::constitutive::solid::{
-                        elastic_viscoplastic::FirstOrderRoot,
-                        hyperelastic_viscoplastic::SecondOrderMinimize,
+                        elastic_viscoplastic::Root, hyperelastic_viscoplastic::Minimize,
                     };
                     test_integrator_with_solver!($integrator, NewtonRaphson::default());
                     Ok(())
@@ -166,7 +150,7 @@ macro_rules! test_canonical {
             use crate::{
                 constitutive::solid::{
                     elastic_viscoplastic::AppliedLoad,
-                    hyperelastic_viscoplastic::{RootRkmkDaeMinimize, SecondOrderMinimize},
+                    hyperelastic_viscoplastic::{Minimize, RootRkmkDaeMinimize},
                 },
                 math::{
                     Quantity, Tensor, TensorArray,

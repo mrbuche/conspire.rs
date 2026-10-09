@@ -172,22 +172,8 @@ where
     }
 }
 
-/// Zeroth-order root-finding methods for elastic solid constitutive models.
-pub trait ZerothOrderRoot {
-    /// Solve for the unknown components of the deformation gradient under an applied load.
-    ///
-    /// ```math
-    /// \mathbf{P}(\mathbf{F}) - \boldsymbol{\lambda} - \mathbf{P}_0 = \mathbf{0}
-    /// ```
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
-    ) -> Result<DeformationGradient, ConstitutiveError>;
-}
-
-/// First-order root-finding methods for elastic solid constitutive models.
-pub trait FirstOrderRoot {
+/// Root-finding methods for elastic solid constitutive models.
+pub trait Root {
     /// Solve for the unknown components of the deformation gradient under an applied load.
     ///
     /// ```math
@@ -204,31 +190,7 @@ pub trait FirstOrderRoot {
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
-impl<T> ZerothOrderRoot for T
-where
-    T: Elastic,
-{
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
-    ) -> Result<DeformationGradient, ConstitutiveError> {
-        let (matrix, vector) = bcs(applied_load);
-        solver
-            .root(
-                |deformation_gradient: &DeformationGradient| {
-                    Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
-                },
-                |_| Ok(()),
-                DeformationGradient::identity(),
-                EqualityConstraint::Linear(matrix, vector),
-                None,
-            )
-            .map_err(|error| ConstitutiveError::upstream(error, self))
-    }
-}
-
-impl<T> FirstOrderRoot for T
+impl<T> Root for T
 where
     T: Elastic,
 {
