@@ -20,7 +20,6 @@ use crate::{
         },
     },
 };
-use std::iter::repeat_n;
 
 /// The time scale of any union of the elements of a mesh as one virtual element.
 pub struct Candidates<S = Vec<Vec<Vec<usize>>>> {
@@ -40,12 +39,7 @@ impl Candidates {
     ) -> Result<Self, String> {
         Ok(Self::assemble(
             Boundary::try_from(mesh)?,
-            mesh.iter()
-                .enumerate()
-                .flat_map(|(block, connectivity)| {
-                    repeat_n(block, connectivity.number_of_elements())
-                })
-                .collect(),
+            mesh.elements_blocks(),
             mesh.coordinates().clone(),
             poisson,
             stabilization,
