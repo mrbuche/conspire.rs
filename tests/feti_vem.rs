@@ -94,6 +94,7 @@ fn problem(nel: [usize; 3]) -> (Model<VemBlock, 3>, EqualityConstraint) {
             .iter()
             .map(|coordinate| coordinate.clone().with_unit())
             .collect(),
+        conspire::vem::block::element::DEFAULT_STABILIZATION,
     ));
     let start = NodalReferenceCoordinates::from(
         reference
@@ -128,6 +129,7 @@ fn the_polyhedral_block_is_stress_free_at_its_reference_configuration() {
             .iter()
             .map(|coordinate| coordinate.clone().with_unit())
             .collect(),
+        conspire::vem::block::element::DEFAULT_STABILIZATION,
     ));
     let start = NodalReferenceCoordinates::from(
         coordinates

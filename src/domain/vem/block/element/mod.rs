@@ -32,6 +32,8 @@ pub type TetrahedraQuantities<U> = Vec<TensorRank1List<3, Current, 4, U>>;
 pub type TetrahedraCoordinates = TetrahedraQuantities<Length>;
 pub type TetrahedraVelocities = TetrahedraQuantities<Velocity>;
 
+pub const DEFAULT_STABILIZATION: Scalar = 0.1;
+
 pub struct Element {
     faces_nodes: Vec<Vec<usize>>,
     gradient_vectors: GradientVectors,
@@ -54,6 +56,7 @@ where
         &'a [usize],
         &'a [usize],
         &'a [Vec<usize>],
+        Scalar,
     )>,
 {
     fn element_center<U>(
@@ -145,14 +148,22 @@ impl
         &[usize],
         &[usize],
         &[Vec<usize>],
+        Scalar,
     )> for Element
 {
     fn from(
-        (reference_nodal_coordinates, element_faces, element_nodes, block_faces_nodes): (
+        (
+            reference_nodal_coordinates,
+            element_faces,
+            element_nodes,
+            block_faces_nodes,
+            stabilization,
+        ): (
             ElementNodalReferenceCoordinates,
             &[usize],
             &[usize],
             &[Vec<usize>],
+            Scalar,
         ),
     ) -> Self {
         let faces_nodes = element_faces
@@ -251,7 +262,7 @@ impl
             faces_nodes,
             gradient_vectors,
             integration_weights,
-            stabilization: 0.1,
+            stabilization,
             tetrahedra,
             tetrahedra_nodes,
         }

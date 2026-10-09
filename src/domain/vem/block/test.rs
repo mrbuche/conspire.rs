@@ -96,6 +96,7 @@ macro_rules! setup_block {
                 get_element_face_connectivity(),
                 get_face_node_connectivity(),
                 &get_reference_coordinates_block(),
+                crate::vem::block::element::DEFAULT_STABILIZATION,
             ))
         }
         fn get_block_transformed() -> Block<$constitutive_model_type, Element> {
@@ -104,6 +105,7 @@ macro_rules! setup_block {
                 get_element_face_connectivity(),
                 get_face_node_connectivity(),
                 &get_reference_coordinates_transformed_block(),
+                crate::vem::block::element::DEFAULT_STABILIZATION,
             ))
         }
     };

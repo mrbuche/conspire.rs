@@ -33,7 +33,13 @@ fn element(nodes: &[[Scalar; 3]], faces: &[Vec<usize>]) -> Case {
             .collect::<Vec<_>>(),
     );
     (
-        Element::from((coordinates, &faces_indices[..], &nodes_indices[..], faces)),
+        Element::from((
+            coordinates,
+            &faces_indices[..],
+            &nodes_indices[..],
+            faces,
+            crate::vem::block::element::DEFAULT_STABILIZATION,
+        )),
         nodal_coordinates,
     )
 }

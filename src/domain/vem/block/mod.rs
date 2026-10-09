@@ -9,7 +9,7 @@ mod time_scale;
 use crate::{
     domain::block::element::Elements,
     geometry::mesh::PolytopalConnectivity,
-    math::TensorRank1Vec,
+    math::{Scalar, TensorRank1Vec},
     vem::{NodalReferenceCoordinates, block::element::VirtualElement},
 };
 use std::fmt::{self, Debug, Formatter};
@@ -71,15 +71,22 @@ impl<C, F, R> Elements for Block<C, F, R> {
     }
 }
 
-impl<C, F> From<(C, PolytopalConnectivity<3>, &NodalReferenceCoordinates)> for Block<C, F>
+impl<C, F>
+    From<(
+        C,
+        PolytopalConnectivity<3>,
+        &NodalReferenceCoordinates,
+        Scalar,
+    )> for Block<C, F>
 where
     F: VirtualElement,
 {
     fn from(
-        (constitutive_model, connectivity, coordinates): (
+        (constitutive_model, connectivity, coordinates, stabilization): (
             C,
             PolytopalConnectivity<3>,
             &NodalReferenceCoordinates,
+            Scalar,
         ),
     ) -> Self {
         let faces_nodes = connectivity.faces_nodes();
@@ -107,6 +114,7 @@ where
                         element_faces,
                         &element_nodes,
                         faces_nodes,
+                        stabilization,
                     )),
                     element_nodes,
                 )
@@ -128,22 +136,25 @@ impl<C, F>
         Vec<Vec<usize>>,
         Vec<Vec<usize>>,
         &NodalReferenceCoordinates,
+        Scalar,
     )> for Block<C, F>
 where
     F: VirtualElement,
 {
     fn from(
-        (constitutive_model, elements_faces, faces_nodes, coordinates): (
+        (constitutive_model, elements_faces, faces_nodes, coordinates, stabilization): (
             C,
             Vec<Vec<usize>>,
             Vec<Vec<usize>>,
             &NodalReferenceCoordinates,
+            Scalar,
         ),
     ) -> Self {
         Self::from((
             constitutive_model,
             PolytopalConnectivity::from((elements_faces, faces_nodes)),
             coordinates,
+            stabilization,
         ))
     }
 }

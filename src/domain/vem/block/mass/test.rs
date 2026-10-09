@@ -73,7 +73,13 @@ fn field(coordinate: &ReferenceCoordinate) -> Quantity<Density> {
 #[test]
 fn a_uniform_density_block_has_the_mass_of_its_volume() -> Result<(), AssertionError> {
     let (connectivity, coordinates) = problem();
-    let block = VemBlock::from(((), LEFT, connectivity, &coordinates));
+    let block = VemBlock::from((
+        (),
+        LEFT,
+        connectivity,
+        &coordinates,
+        crate::vem::block::element::DEFAULT_STABILIZATION,
+    ));
     let model = Model::from((block, coordinates));
     let masses = model.nodal_lumped_masses();
     let total: Quantity<Mass> = masses.iter().copied().sum();
@@ -83,7 +89,13 @@ fn a_uniform_density_block_has_the_mass_of_its_volume() -> Result<(), AssertionE
 #[test]
 fn the_nodal_masses_are_an_eighth_of_each_hexahedron_mass() -> Result<(), AssertionError> {
     let (connectivity, coordinates) = problem();
-    let block = VemBlock::from(((), field, connectivity, &coordinates));
+    let block = VemBlock::from((
+        (),
+        field,
+        connectivity,
+        &coordinates,
+        crate::vem::block::element::DEFAULT_STABILIZATION,
+    ));
     let model = Model::from((block, coordinates));
     let masses = model.nodal_lumped_masses();
     let left = LEFT * crate::units::Volume::cubic_meters(1.0) / 8.0;
@@ -112,7 +124,13 @@ fn the_nodal_masses_are_an_eighth_of_each_hexahedron_mass() -> Result<(), Assert
 #[test]
 fn the_block_mass_is_the_total_of_the_nodal_masses() -> Result<(), AssertionError> {
     let (connectivity, coordinates) = problem();
-    let block = VemBlock::from(((), field, connectivity, &coordinates));
+    let block = VemBlock::from((
+        (),
+        field,
+        connectivity,
+        &coordinates,
+        crate::vem::block::element::DEFAULT_STABILIZATION,
+    ));
     let mass = block.mass();
     let model = Model::from((block, coordinates));
     let total: Quantity<Mass> = model.nodal_lumped_masses().iter().copied().sum();

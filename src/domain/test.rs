@@ -61,6 +61,7 @@ fn fem_and_vem_blocks_combine_via_trait_bounds() {
             vec![1, 3, 7, 5],
         ],
         &coordinates,
+        crate::vem::block::element::DEFAULT_STABILIZATION,
     ));
     let model: Model<MixedBlocks, 3> = (Blocks(fem_block, vem_block), coordinates.clone()).into();
     let current_coordinates = coordinates.into();
