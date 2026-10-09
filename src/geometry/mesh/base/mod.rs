@@ -12,6 +12,7 @@ use crate::{
     math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D},
     units::Dimensionless,
 };
+use std::iter::repeat_n;
 
 impl Mesh<3> {
     pub fn normals(&self) -> TensorRank1Vec2D<3, Reference, Dimensionless> {
@@ -174,6 +175,13 @@ impl<const D: usize> Mesh<D> {
     }
     pub fn number_of_element_blocks(&self) -> usize {
         self.connectivities().len()
+    }
+    /// The position of the block of each element, with the elements of the blocks in order.
+    pub fn elements_blocks(&self) -> Vec<usize> {
+        self.iter()
+            .enumerate()
+            .flat_map(|(block, connectivity)| repeat_n(block, connectivity.number_of_elements()))
+            .collect()
     }
     pub fn number_of_face_blocks(&self) -> Option<usize> {
         let number_of_face_blocks = self

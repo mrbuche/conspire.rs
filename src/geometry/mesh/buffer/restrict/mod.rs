@@ -20,12 +20,12 @@ impl Mesh<3> {
             let [Connectivity::Hexahedral(block)] = self.connectivities() else {
                 return Err("restrict requires a single hexahedral block");
             };
-            let local_faces = self.connectivities()[0].local_faces();
+            let local_facets = self.connectivities()[0].local_facets();
             let hexes: Vec<[usize; 8]> = block.iter().copied().collect();
             let coordinates = self.coordinates();
             let mut faces = FxHashMap::<[usize; 4], Vec<(usize, [usize; 4])>>::default();
             hexes.iter().enumerate().for_each(|(hex_index, hex)| {
-                local_faces.iter().for_each(|local| {
+                local_facets.iter().for_each(|local| {
                     let oriented: [usize; 4] = from_fn(|i| hex[local[i]]);
                     let mut key = oriented;
                     key.sort_unstable();

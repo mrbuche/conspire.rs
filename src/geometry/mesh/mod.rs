@@ -1,7 +1,9 @@
 #[cfg(test)]
 pub mod test;
 
+mod agglomeration;
 mod base;
+mod boundary;
 mod buffer;
 mod connectivity;
 pub(crate) mod differential;
@@ -20,6 +22,8 @@ mod write;
 pub use from::Dualization;
 
 pub use self::{
+    agglomeration::{Criterion, Merged, Merging},
+    boundary::{Boundary, ElementsFaces, Surface},
     connectivity::{
         Connectivities, Connectivity, polytopal::PolytopalConnectivity,
         primitive::PrimitiveConnectivity,

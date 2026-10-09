@@ -1,5 +1,6 @@
 //! Virtual element methods.
 
+pub mod agglomerate;
 pub mod block;
 mod from;
 
