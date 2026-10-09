@@ -7,10 +7,7 @@ use crate::{
     },
     math::{
         Tensor,
-        optimize::{
-            EqualityConstraint, FirstOrderRootFinding, NewtonRaphson, OptimizationError,
-            ZerothOrderRootFinding,
-        },
+        optimize::{EqualityConstraint, NewtonRaphson, OptimizationError, RootFinding},
     },
 };
 
@@ -100,12 +97,14 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalForcesSolid<D>, NodalCoordinates<D>>,
+        solver: impl RootFinding<NodalForcesSolid<D>, (), NodalCoordinates<D>>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         solver.root(
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
+            |_| Ok(()),
             self.coordinates().clone().into(),
             equality_constraint,
+            None,
         )
     }
 }
@@ -145,7 +144,7 @@ where
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where
         S: SolverFor<Self, NodalForcesSolid<D>, NodalStiffnessesSolid<D>>
-            + FirstOrderRootFinding<NodalForcesSolid<D>, S::Tangent, NodalCoordinates<D>>,
+            + RootFinding<NodalForcesSolid<D>, S::Tangent, NodalCoordinates<D>>,
         Self: ProvidesTangent<NodalCoordinates<D>, S::Tangent>,
     {
         let sparse = S::SPARSE.then(|| {

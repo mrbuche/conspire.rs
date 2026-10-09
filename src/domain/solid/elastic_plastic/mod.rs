@@ -7,8 +7,8 @@ use crate::{
     math::{
         Jacobian, Tensor, TensorVec, Vector,
         optimize::{
-            EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingBlock, NewtonRaphson,
-            OptimizationError, SolveStrategy,
+            EqualityConstraint, FirstOrderRootFindingBlock, NewtonRaphson, OptimizationError,
+            RootFinding, SolveStrategy,
         },
         sparse::{CscMatrix, SparseSolver},
     },
@@ -207,11 +207,8 @@ where
 pub trait ElasticPlasticRoot<S, const D: usize> {
     fn root(
         &self,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
-        > + FirstOrderRootFindingBlock<
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
+        + FirstOrderRootFindingBlock<
             Vector,
             Vector,
             Vector,
@@ -284,11 +281,8 @@ where
 {
     fn root(
         &self,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
-        > + FirstOrderRootFindingBlock<
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
+        + FirstOrderRootFindingBlock<
             Vector,
             Vector,
             Vector,

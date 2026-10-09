@@ -8,8 +8,7 @@ use crate::{
     math::{
         Quantity, Tensor,
         optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, NewtonRaphson,
-            OptimizationError, SecondOrderOptimization, ZerothOrderRootFinding,
+            EqualityConstraint, NewtonRaphson, Optimization, OptimizationError, RootFinding,
         },
     },
     units::PowerTemperature,
@@ -117,12 +116,14 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<NodalForcesThermal, NodalTemperatures>,
+        solver: impl RootFinding<NodalForcesThermal, (), NodalTemperatures>,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.root(
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
+            |_| Ok(()),
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
+            None,
         )
     }
 }
@@ -148,7 +149,7 @@ where
     ) -> Result<NodalTemperatures, OptimizationError>
     where
         S: SolverFor<Self, NodalForcesThermal, NodalStiffnessesThermal>
-            + FirstOrderRootFinding<NodalForcesThermal, S::Tangent, NodalTemperatures>,
+            + RootFinding<NodalForcesThermal, S::Tangent, NodalTemperatures>,
         Self: ProvidesTangent<NodalTemperatures, S::Tangent>,
     {
         let sparse = S::SPARSE.then(|| {
@@ -176,17 +177,15 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<
-            Quantity<PowerTemperature>,
-            NodalForcesThermal,
-            NodalTemperatures,
-        >,
+        solver: impl Optimization<Quantity<PowerTemperature>, NodalForcesThermal, (), NodalTemperatures>,
     ) -> Result<NodalTemperatures, OptimizationError> {
         solver.minimize(
             |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
             |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
+            |_| Ok(()),
             NodalTemperatures::zero(self.coordinates().len()),
             equality_constraint,
+            None,
         )
     }
 }
@@ -213,7 +212,7 @@ where
     ) -> Result<NodalTemperatures, OptimizationError>
     where
         S: SolverFor<Self, Quantity<PowerTemperature>, NodalForcesThermal>
-            + SecondOrderOptimization<
+            + Optimization<
                 Quantity<PowerTemperature>,
                 NodalForcesThermal,
                 S::Tangent,

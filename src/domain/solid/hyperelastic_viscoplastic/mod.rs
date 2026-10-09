@@ -17,7 +17,7 @@ use crate::{
             ButcherTableau, EmbeddedTableau, Integrable, IntegrationError,
             integrate_rkmk_dae_adaptive_second_order_minimize, rkmk_dae_step_second_order_minimize,
         },
-        optimize::SecondOrderOptimization,
+        optimize::Optimization,
     },
     mechanics::Times,
     units::{Energy, Time},
@@ -114,7 +114,7 @@ pub trait RootRkmkDaeMinimize<const D: usize, Y = Quantity> {
     /// Gauss point's plastic state advances on its group.
     fn root_rkmk_dae_minimize<Tab: ButcherTableau>(
         &self,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
@@ -135,7 +135,7 @@ pub trait RootRkmkDaeMinimize<const D: usize, Y = Quantity> {
     /// re-solved (by minimization) there.
     fn root_rkmk_dae_adaptive_minimize<Tab: EmbeddedTableau>(
         &self,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
@@ -164,7 +164,7 @@ where
     #[allow(clippy::type_complexity)]
     fn root_rkmk_dae_minimize<Tab: ButcherTableau>(
         &self,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<3>,
             NodalStiffnessesSolid<3>,
@@ -261,7 +261,7 @@ where
     #[allow(clippy::type_complexity)]
     fn root_rkmk_dae_adaptive_minimize<Tab: EmbeddedTableau>(
         &self,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<3>,
             NodalStiffnessesSolid<3>,

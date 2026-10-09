@@ -42,7 +42,7 @@ use super::{
 use crate::{
     math::{
         Quantity,
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        optimize::{EqualityConstraint, Optimization},
     },
     units::EnergyDensity,
 };
@@ -73,9 +73,10 @@ pub trait FirstOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradient,
         >,
     ) -> Result<DeformationGradient, ConstitutiveError>;
@@ -91,7 +92,7 @@ pub trait SecondOrderMinimize {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -107,9 +108,10 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradient,
         >,
     ) -> Result<DeformationGradient, ConstitutiveError> {
@@ -122,8 +124,10 @@ where
                 |deformation_gradient: &DeformationGradient| {
                     Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
                 },
+                |_| Ok(()),
                 DeformationGradient::identity(),
                 EqualityConstraint::Linear(matrix, vector),
+                None,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))
     }
@@ -136,7 +140,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,

@@ -10,8 +10,8 @@ use crate::{
     math::{
         Scalar, Tensor, TensorVector, Vector,
         optimize::{
-            EqualityConstraint, FirstOrderRootFinding, FirstOrderRootFindingIncremental,
-            NewtonRaphson, OptimizationError, SolveStrategy,
+            EqualityConstraint, FirstOrderRootFindingIncremental, NewtonRaphson, OptimizationError,
+            RootFinding, SolveStrategy,
         },
     },
 };
@@ -289,11 +289,8 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
-        > + FirstOrderRootFindingIncremental<
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
+        + FirstOrderRootFindingIncremental<
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
@@ -310,11 +307,8 @@ where
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalStiffnessesSolid<D>,
-            NodalCoordinates<D>,
-        > + FirstOrderRootFindingIncremental<
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
+        + FirstOrderRootFindingIncremental<
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,

@@ -7,9 +7,9 @@ use super::{
         Solution, SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
-    BacktrackingLineSearch, Direct, EqualityConstraint, FirstOrderRootFinding,
-    FirstOrderRootFindingBlock, FirstOrderRootFindingIncremental, LineSearch, LineSearchError,
-    LinearSolver, OptimizationError, SecondOrderOptimization, SecondOrderOptimizationBlock,
+    BacktrackingLineSearch, Direct, EqualityConstraint, FirstOrderRootFindingBlock,
+    FirstOrderRootFindingIncremental, LineSearch, LineSearchError, LinearSolver, Optimization,
+    OptimizationError, RootFinding, SecondOrderOptimizationBlock,
     SecondOrderOptimizationIncremental, SolveStrategy, Tolerances, TrustRegion,
 };
 use crate::math::Norm;
@@ -82,7 +82,7 @@ impl<L> NewtonRaphson<L> {
     }
 }
 
-impl<F, J, X, E> FirstOrderRootFinding<F, J, X> for NewtonRaphson
+impl<F, J, X, E> RootFinding<F, J, X> for NewtonRaphson
 where
     F: Jacobian,
     for<'a> &'a F: Div<J, Output = X>,
@@ -141,7 +141,7 @@ where
     }
 }
 
-impl<L, F, J, X, E> FirstOrderRootFinding<F, J, X> for NewtonRaphson<L>
+impl<L, F, J, X, E> RootFinding<F, J, X> for NewtonRaphson<L>
 where
     L: LinearSolver<Tangent = J>,
     F: Jacobian,
@@ -237,7 +237,7 @@ where
     }
 }
 
-impl<F, J, H, X, E> SecondOrderOptimization<F, J, H, X> for NewtonRaphson
+impl<F, J, H, X, E> Optimization<F, J, H, X> for NewtonRaphson
 where
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
@@ -303,7 +303,7 @@ where
     }
 }
 
-impl<L, F, J, H, X, E> SecondOrderOptimization<F, J, H, X> for NewtonRaphson<L>
+impl<L, F, J, H, X, E> Optimization<F, J, H, X> for NewtonRaphson<L>
 where
     L: LinearSolver<Tangent = H>,
     F: Erase<Erased = Scalar> + Tensor,

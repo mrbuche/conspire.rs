@@ -317,7 +317,7 @@ fn moduli() -> Result<(), AssertionError> {
         constitutive::solid::Solid,
         math::{
             Rank2,
-            optimize::{EqualityConstraint, FirstOrderRootFinding},
+            optimize::{EqualityConstraint, RootFinding},
         },
     };
     let model = model();

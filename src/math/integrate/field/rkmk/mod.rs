@@ -5,7 +5,7 @@ use super::{Integrable, reconstruct_or_err};
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar,
     integrate::{ButcherTableau, IntegrationError},
-    optimize::{EqualityConstraint, FirstOrderRootFinding, SecondOrderOptimization},
+    optimize::{EqualityConstraint, Optimization, RootFinding},
     sparse::SparseSolver,
 };
 use std::ops::{AddAssign, Mul};
@@ -180,7 +180,7 @@ pub fn rkmk_dae_step_first_order_root<Field, Tab, F, J, Z, T>(
     ) -> Result<Derivative<Field::Increment, T>, String>,
     mut function: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<F, String>,
     mut jacobian: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<J, String>,
-    solver: &impl FirstOrderRootFinding<F, J, Z>,
+    solver: &impl RootFinding<F, J, Z>,
     point: &Field::Point,
     z: &Z,
     t: Quantity<T>,
@@ -228,7 +228,7 @@ pub fn rkmk_dae_step_second_order_minimize<Field, Tab, F, J, H, Z, T>(
     mut function: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<F, String>,
     mut jacobian: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<J, String>,
     mut hessian: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<H, String>,
-    solver: &impl SecondOrderOptimization<F, J, H, Z>,
+    solver: &impl Optimization<F, J, H, Z>,
     point: &Field::Point,
     z: &Z,
     t: Quantity<T>,

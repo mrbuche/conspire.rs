@@ -28,7 +28,7 @@ use crate::{
             ExplicitDaeSecondOrderMinimize, Integrable, StateEvolution,
             integrate_rkmk_dae_adaptive_second_order_minimize, rkmk_dae_step_second_order_minimize,
         },
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        optimize::{EqualityConstraint, Optimization},
     },
     mechanics::{
         DeformationGradient, DeformationGradientPlastic, DeformationGradients,
@@ -78,9 +78,10 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl FirstOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradient,
         >,
     ) -> Result<
@@ -116,7 +117,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -149,9 +150,10 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl FirstOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradient,
         >,
     ) -> Result<
@@ -222,7 +224,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -306,7 +308,7 @@ where
     fn root_rkmk_dae_minimize<Tab: ButcherTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -326,7 +328,7 @@ where
     fn root_rkmk_dae_adaptive_minimize<Tab: EmbeddedTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -362,7 +364,7 @@ where
     fn root_rkmk_dae_minimize<Tab: ButcherTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
@@ -467,7 +469,7 @@ where
     fn root_rkmk_dae_adaptive_minimize<Tab: EmbeddedTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<EnergyDensity>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,

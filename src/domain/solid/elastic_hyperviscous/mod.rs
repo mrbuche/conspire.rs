@@ -8,7 +8,7 @@ use crate::{
     math::{
         Quantity, Tensor,
         integrate::{ImplicitDaeSecondOrderMinimize, IntegrationError},
-        optimize::{EqualityConstraint, SecondOrderOptimization},
+        optimize::{EqualityConstraint, Optimization},
     },
     mechanics::Times,
     units::{Power, Time},
@@ -96,7 +96,7 @@ pub trait SecondOrderMinimize<const D: usize> {
             NodalVelocitiesHistory<D>,
         >,
         time: &[Quantity<Time>],
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -121,7 +121,7 @@ where
             NodalVelocitiesHistory<D>,
         >,
         time: &[Quantity<Time>],
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Power>,
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,

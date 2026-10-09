@@ -7,10 +7,7 @@ use crate::{
     },
     math::{
         Quantity, Tensor,
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, NewtonRaphson, OptimizationError,
-            SecondOrderOptimization,
-        },
+        optimize::{EqualityConstraint, NewtonRaphson, Optimization, OptimizationError},
     },
     units::Energy,
 };
@@ -90,15 +87,17 @@ where
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<Quantity<Energy>, NodalForcesSolid<D>, NodalCoordinates<D>>,
+        solver: impl Optimization<Quantity<Energy>, NodalForcesSolid<D>, (), NodalCoordinates<D>>,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates<D>| {
                 Ok(self.helmholtz_free_energy(nodal_coordinates)?)
             },
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
+            |_| Ok(()),
             self.coordinates().clone().into(),
             equality_constraint,
+            None,
         )
     }
 }
@@ -137,12 +136,7 @@ where
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where
         S: SolverFor<Self, Quantity<Energy>, NodalForcesSolid<D>>
-            + SecondOrderOptimization<
-                Quantity<Energy>,
-                NodalForcesSolid<D>,
-                S::Tangent,
-                NodalCoordinates<D>,
-            >,
+            + Optimization<Quantity<Energy>, NodalForcesSolid<D>, S::Tangent, NodalCoordinates<D>>,
         Self: ProvidesTangent<NodalCoordinates<D>, S::Tangent>,
     {
         let sparse = S::SPARSE.then(|| {

@@ -6,10 +6,7 @@ use crate::{
             ImplicitDaeSecondOrderMinimize, ImplicitDaeZerothOrderRoot, IntegrationError, Times,
             VariableStepExplicit,
         },
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,
-            SecondOrderOptimization, ZerothOrderRootFinding,
-        },
+        optimize::{EqualityConstraint, Optimization, RootFinding},
         sparse::SparseSolver,
     },
     units::{Time, UnitInv},
@@ -212,7 +209,7 @@ where
     fn integrate_implicit_dae_variable_step_explicit_root_0(
         &self,
         mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl ZerothOrderRootFinding<G, Derivative<Y, T>>,
+        solver: impl RootFinding<G, (), Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -223,8 +220,10 @@ where
          -> Result<Derivative<Y, T>, String> {
             Ok(solver.root(
                 |dydt| function(t, y, dydt),
+                |_| Ok(()),
                 dydt_0.clone(),
                 equality_constraint(t),
+                None,
             )?)
         };
         self.integrate_implicit_dae_variable_step(evolution, time, initial_condition)
@@ -264,7 +263,7 @@ where
     fn integrate(
         &self,
         function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl ZerothOrderRootFinding<G, Derivative<Y, T>>,
+        solver: impl RootFinding<G, (), Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -298,7 +297,7 @@ where
         &self,
         mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         mut jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<J, String>,
-        solver: impl FirstOrderRootFinding<F, J, Derivative<Y, T>>,
+        solver: impl RootFinding<F, J, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -353,7 +352,7 @@ where
         &self,
         function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<J, String>,
-        solver: impl FirstOrderRootFinding<F, J, Derivative<Y, T>>,
+        solver: impl RootFinding<F, J, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -388,7 +387,7 @@ where
         &self,
         mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         mut jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl FirstOrderOptimization<F, G, Derivative<Y, T>>,
+        solver: impl Optimization<F, G, (), Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -400,8 +399,10 @@ where
             Ok(solver.minimize(
                 |dydt| function(t, y, dydt),
                 |dydt| jacobian(t, y, dydt),
+                |_| Ok(()),
                 dydt_0.clone(),
                 equality_constraint(t),
+                None,
             )?)
         };
         self.integrate_implicit_dae_variable_step(evolution, time, initial_condition)
@@ -442,7 +443,7 @@ where
         &self,
         function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<G, String>,
-        solver: impl FirstOrderOptimization<F, G, Derivative<Y, T>>,
+        solver: impl Optimization<F, G, (), Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -479,7 +480,7 @@ where
         mut function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         mut jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<J, String>,
         mut hessian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<H, String>,
-        solver: impl SecondOrderOptimization<F, J, H, Derivative<Y, T>>,
+        solver: impl Optimization<F, J, H, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -538,7 +539,7 @@ where
         function: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<F, String>,
         jacobian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<J, String>,
         hessian: impl FnMut(Quantity<T>, &Y, &Derivative<Y, T>) -> Result<H, String>,
-        solver: impl SecondOrderOptimization<F, J, H, Derivative<Y, T>>,
+        solver: impl Optimization<F, J, H, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,

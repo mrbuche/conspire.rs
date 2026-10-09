@@ -25,7 +25,7 @@ use crate::{
             ExplicitDaeZerothOrderRoot, Flat, Integrable, Product, StateEvolution, Unimodular,
             integrate_rkmk_dae_adaptive_first_order_root, rkmk_dae_step_first_order_root,
         },
-        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+        optimize::{EqualityConstraint, RootFinding},
     },
     mechanics::{
         DeformationGradient, DeformationGradients, FirstPiolaKirchhoffStress,
@@ -98,7 +98,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
     ) -> Result<
         (
             Times,
@@ -131,7 +131,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -162,7 +162,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
     ) -> Result<
         (
             Times,
@@ -221,7 +221,7 @@ where
             DeformationGradients,
             ViscoplasticEvolutionHistory<Y>,
         >,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -340,7 +340,7 @@ where
     fn root_rkmk_dae<Tab: ButcherTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -367,7 +367,7 @@ where
     fn root_rkmk_dae_adaptive<Tab: EmbeddedTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -402,7 +402,7 @@ where
     fn root_rkmk_dae<Tab: ButcherTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -495,7 +495,7 @@ where
     fn root_rkmk_dae_adaptive<Tab: EmbeddedTableau>(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,

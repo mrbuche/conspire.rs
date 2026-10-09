@@ -5,7 +5,7 @@ use crate::{
     math::{
         Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
         integrate::{FixedStep, IntegrationError, OdeIntegrator, Times},
-        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+        optimize::{EqualityConstraint, RootFinding},
     },
     units::Time,
 };
@@ -28,7 +28,7 @@ where
         mut function: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<Y, T>, IntegrationError>,
         time: &[Quantity<T>],
         initial_condition: Y,
-        solver: impl ZerothOrderRootFinding<Y, Y>,
+        solver: impl RootFinding<Y, (), Y>,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
@@ -69,8 +69,10 @@ where
             dt = t_trial - t;
             y_trial = match solver.root(
                 |y_trial: &Y| self.residual(&mut function, t, &y, t_trial, y_trial, dt),
+                |_| Ok(()),
                 y.clone(),
                 EqualityConstraint::None,
+                None,
             ) {
                 Ok(solution) => solution,
                 Err(error) => {
@@ -112,7 +114,7 @@ where
         mut jacobian: impl FnMut(Quantity<T>, &Y) -> Result<Derivative<J, T>, IntegrationError>,
         time: &[Quantity<T>],
         initial_condition: Y,
-        solver: impl FirstOrderRootFinding<Y, J, Y>,
+        solver: impl RootFinding<Y, J, Y>,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];

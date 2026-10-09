@@ -44,18 +44,8 @@ use std::{
 /// The step size taking a decrement of type `D` to an increment of `X`.
 pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;
 
-/// Zeroth-order root-finding algorithms.
-pub trait ZerothOrderRootFinding<F, X> {
-    fn root(
-        &self,
-        function: impl FnMut(&X) -> Result<F, String>,
-        initial_guess: X,
-        equality_constraint: EqualityConstraint,
-    ) -> Result<X, OptimizationError>;
-}
-
-/// First-order root-finding algorithms.
-pub trait FirstOrderRootFinding<F, J, X> {
+/// Root-finding algorithms, where a tangent of `()` is one the solver does not use.
+pub trait RootFinding<F, J, X> {
     fn root(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
@@ -93,19 +83,8 @@ pub trait FirstOrderRootFindingIncremental<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-/// First-order optimization algorithms.
-pub trait FirstOrderOptimization<F, J, X> {
-    fn minimize(
-        &self,
-        function: impl FnMut(&X) -> Result<F, String>,
-        jacobian: impl FnMut(&X) -> Result<J, String>,
-        initial_guess: X,
-        equality_constraint: EqualityConstraint,
-    ) -> Result<X, OptimizationError>;
-}
-
-/// Second-order optimization algorithms.
-pub trait SecondOrderOptimization<F, J, H, X> {
+/// Optimization algorithms, where a Hessian of `()` is one the solver does not use.
+pub trait Optimization<F, J, H, X> {
     fn minimize(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,

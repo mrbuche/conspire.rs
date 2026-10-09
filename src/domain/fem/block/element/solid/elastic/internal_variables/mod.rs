@@ -14,7 +14,7 @@ use crate::{
     math::{
         ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, Solution,
         SquareMatrix, Tensor, TensorList, Vector,
-        optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson},
+        optimize::{EqualityConstraint, NewtonRaphson, RootFinding},
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressList,

@@ -16,8 +16,8 @@ use crate::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
         TensorArray, Vector,
         optimize::{
-            EqualityConstraint, FirstOrderRootFindingBlock, NewtonRaphson, SolveStrategy,
-            ZerothOrderRootFinding,
+            EqualityConstraint, FirstOrderRootFindingBlock, NewtonRaphson, RootFinding,
+            SolveStrategy,
         },
         sparse::CscMatrix,
     },
@@ -291,7 +291,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
 }
 
@@ -302,7 +302,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
     {
         let (matrix, prescribed, time) = bcs(applied_load);
@@ -324,8 +324,10 @@ where
                         Ok(self
                             .first_piola_kirchhoff_stress(deformation_gradient, &updated_state.0)?)
                     },
+                    |_| Ok(()),
                     deformation_gradient.clone(),
                     EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+                    None,
                 )
                 .map_err(|error| ConstitutiveError::upstream(error, self))?;
             state = self.return_map(&deformation_gradient, &previous_state)?;

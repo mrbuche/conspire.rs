@@ -21,7 +21,7 @@ use crate::{
     math::{
         ContractWith, Matrix, Quantity, Vector,
         integrate::{ImplicitDaeFirstOrderMinimize, ImplicitDaeSecondOrderMinimize},
-        optimize::{EqualityConstraint, FirstOrderOptimization, SecondOrderOptimization},
+        optimize::{EqualityConstraint, Optimization},
     },
     units::{Dissipation, Time},
 };
@@ -85,9 +85,10 @@ pub trait FirstOrderMinimize {
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderOptimization<
+        solver: impl Optimization<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradientRate,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
@@ -111,7 +112,7 @@ pub trait SecondOrderMinimize {
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
@@ -134,9 +135,10 @@ where
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderOptimization<
+        solver: impl Optimization<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
+            (),
             DeformationGradientRate,
         >,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
@@ -233,7 +235,7 @@ where
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl SecondOrderOptimization<
+        solver: impl Optimization<
             Quantity<Dissipation>,
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,

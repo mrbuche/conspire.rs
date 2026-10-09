@@ -10,9 +10,7 @@ use crate::{
     },
     math::{
         Quantity, Tensor, TensorArray, TensorTuple,
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, SecondOrderOptimizationBlock, SolveStrategy,
-        },
+        optimize::{EqualityConstraint, Optimization, SecondOrderOptimizationBlock, SolveStrategy},
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
@@ -51,7 +49,7 @@ pub trait FirstOrderMinimize<V> {
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Quantity<EnergyDensity>, Self::Residuals, Self::Variables>,
+        solver: impl Optimization<Quantity<EnergyDensity>, Self::Residuals, (), Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError>;
 }
 
@@ -95,7 +93,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderOptimization<Quantity<EnergyDensity>, Self::Residuals, Self::Variables>,
+        solver: impl Optimization<Quantity<EnergyDensity>, Self::Residuals, (), Self::Variables>,
     ) -> Result<(DeformationGradient, V), ConstitutiveError> {
         let (matrix, vector) = bcs(self, applied_load);
         let solution = solver
@@ -115,11 +113,13 @@ where
                         self.internal_variables_residual(deformation_gradient, internal_variables)?,
                     )))
                 },
+                |_| Ok(()),
                 Self::Variables::from((
                     DeformationGradient::identity(),
                     self.internal_variables_initial(),
                 )),
                 EqualityConstraint::Linear(matrix, vector),
+                None,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
         Ok(solution.into())

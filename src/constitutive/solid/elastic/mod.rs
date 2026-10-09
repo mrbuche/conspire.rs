@@ -34,7 +34,7 @@ pub use self::{
 use super::*;
 use crate::math::{
     Matrix, Vector,
-    optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+    optimize::{EqualityConstraint, RootFinding},
 };
 
 /// Possible applied loads.
@@ -182,7 +182,7 @@ pub trait ZerothOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError>;
 }
 
@@ -196,7 +196,7 @@ pub trait FirstOrderRoot {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,
@@ -211,7 +211,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradient>,
+        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradient>,
     ) -> Result<DeformationGradient, ConstitutiveError> {
         let (matrix, vector) = bcs(applied_load);
         solver
@@ -219,8 +219,10 @@ where
                 |deformation_gradient: &DeformationGradient| {
                     Ok(self.first_piola_kirchhoff_stress(deformation_gradient)?)
                 },
+                |_| Ok(()),
                 DeformationGradient::identity(),
                 EqualityConstraint::Linear(matrix, vector),
+                None,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))
     }
@@ -233,7 +235,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffTangentStiffness,
             DeformationGradient,

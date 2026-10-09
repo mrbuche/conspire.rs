@@ -7,10 +7,7 @@ use crate::{
             ExplicitDaeSecondOrderMinimize, ExplicitDaeZerothOrderRoot, IntegrationError, Times,
             VariableStepExplicit,
         },
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding,
-            SecondOrderOptimization, ZerothOrderRootFinding,
-        },
+        optimize::{EqualityConstraint, Optimization, RootFinding},
         sparse::SparseSolver,
     },
     units::Time,
@@ -389,13 +386,19 @@ where
         &self,
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
         mut function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<G, String>,
-        solver: impl ZerothOrderRootFinding<G, Z>,
+        solver: impl RootFinding<G, (), Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
     ) -> Result<(Times<T>, U, W, V), IntegrationError> {
         let solution = |t: Quantity<T>, y: &Y, z_0: &Z| -> Result<Z, String> {
-            Ok(solver.root(|z| function(t, y, z), z_0.clone(), equality_constraint(t))?)
+            Ok(solver.root(
+                |z| function(t, y, z),
+                |_| Ok(()),
+                z_0.clone(),
+                equality_constraint(t),
+                None,
+            )?)
         };
         self.integrate_explicit_dae_variable_step(evolution, solution, time, initial_condition)
     }
@@ -434,7 +437,7 @@ where
         &self,
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
         function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<G, String>,
-        solver: impl ZerothOrderRootFinding<G, Z>,
+        solver: impl RootFinding<G, (), Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -470,7 +473,7 @@ where
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
         mut function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<F, String>,
         mut jacobian: impl FnMut(Quantity<T>, &Y, &Z) -> Result<J, String>,
-        solver: impl FirstOrderRootFinding<F, J, Z>,
+        solver: impl RootFinding<F, J, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -522,7 +525,7 @@ where
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
         function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<F, String>,
         jacobian: impl FnMut(Quantity<T>, &Y, &Z) -> Result<J, String>,
-        solver: impl FirstOrderRootFinding<F, J, Z>,
+        solver: impl RootFinding<F, J, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -559,7 +562,7 @@ where
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
         mut function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<F, String>,
         mut jacobian: impl FnMut(Quantity<T>, &Y, &Z) -> Result<G, String>,
-        solver: impl FirstOrderOptimization<F, G, Z>,
+        solver: impl Optimization<F, G, (), Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -568,8 +571,10 @@ where
             Ok(solver.minimize(
                 |z| function(t, y, z),
                 |z| jacobian(t, y, z),
+                |_| Ok(()),
                 z_0.clone(),
                 equality_constraint(t),
+                None,
             )?)
         };
         self.integrate_explicit_dae_variable_step(evolution, solution, time, initial_condition)
@@ -610,7 +615,7 @@ where
         evolution: impl FnMut(Quantity<T>, &Y, &Z) -> Result<Derivative<Y, T>, String>,
         function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<F, String>,
         jacobian: impl FnMut(Quantity<T>, &Y, &Z) -> Result<G, String>,
-        solver: impl FirstOrderOptimization<F, G, Z>,
+        solver: impl Optimization<F, G, (), Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -648,7 +653,7 @@ where
         mut function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<F, String>,
         mut jacobian: impl FnMut(Quantity<T>, &Y, &Z) -> Result<J, String>,
         mut hessian: impl FnMut(Quantity<T>, &Y, &Z) -> Result<H, String>,
-        solver: impl SecondOrderOptimization<F, J, H, Z>,
+        solver: impl Optimization<F, J, H, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
@@ -703,7 +708,7 @@ where
         function: impl FnMut(Quantity<T>, &Y, &Z) -> Result<F, String>,
         jacobian: impl FnMut(Quantity<T>, &Y, &Z) -> Result<J, String>,
         hessian: impl FnMut(Quantity<T>, &Y, &Z) -> Result<H, String>,
-        solver: impl SecondOrderOptimization<F, J, H, Z>,
+        solver: impl Optimization<F, J, H, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
         equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,

@@ -257,7 +257,7 @@ fn minimize_line_search_wolfe() {
 fn root_fixed_at_point() -> Result<(), AssertionError> {
     use crate::{
         constitutive::solid::elastic::internal_variables::ElasticIV,
-        math::optimize::{EqualityConstraint, FirstOrderRootFinding},
+        math::optimize::{EqualityConstraint, RootFinding},
     };
     let model = model();
     let deformation_gradient =

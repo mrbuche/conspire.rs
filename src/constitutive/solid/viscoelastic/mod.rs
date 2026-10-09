@@ -17,7 +17,7 @@ use crate::{
     math::{
         Matrix, Quantity, Vector,
         integrate::{ImplicitDaeFirstOrderRoot, ImplicitDaeZerothOrderRoot},
-        optimize::{EqualityConstraint, FirstOrderRootFinding, ZerothOrderRootFinding},
+        optimize::{EqualityConstraint, RootFinding},
     },
     units::Time,
 };
@@ -156,7 +156,7 @@ pub trait ZerothOrderRoot {
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradientRate>,
+        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradientRate>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError>;
 }
 
@@ -177,7 +177,7 @@ pub trait FirstOrderRoot {
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradientRate,
@@ -198,7 +198,7 @@ where
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl ZerothOrderRootFinding<FirstPiolaKirchhoffStress, DeformationGradientRate>,
+        solver: impl RootFinding<FirstPiolaKirchhoffStress, (), DeformationGradientRate>,
     ) -> Result<(Times, DeformationGradients, DeformationGradientRates), ConstitutiveError> {
         match applied_load {
             AppliedLoad::UniaxialStress(deformation_gradient_rate_11, time) => {
@@ -276,7 +276,7 @@ where
             DeformationGradients,
             DeformationGradientRates,
         >,
-        solver: impl FirstOrderRootFinding<
+        solver: impl RootFinding<
             FirstPiolaKirchhoffStress,
             FirstPiolaKirchhoffRateTangentStiffness,
             DeformationGradientRate,

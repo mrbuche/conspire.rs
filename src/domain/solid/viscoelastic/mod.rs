@@ -8,7 +8,7 @@ use crate::{
     math::{
         Quantity, Tensor,
         integrate::{ImplicitDaeFirstOrderRoot, IntegrationError},
-        optimize::{EqualityConstraint, FirstOrderRootFinding},
+        optimize::{EqualityConstraint, RootFinding},
     },
     mechanics::Times,
     units::Time,
@@ -115,11 +115,7 @@ pub trait FirstOrderRoot<const D: usize> {
             NodalVelocitiesHistory<D>,
         >,
         time: &[Quantity<Time>],
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalDampingsSolid<D>,
-            NodalVelocities<D>,
-        >,
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalDampingsSolid<D>, NodalVelocities<D>>,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>;
 }
 
@@ -138,11 +134,7 @@ where
             NodalVelocitiesHistory<D>,
         >,
         time: &[Quantity<Time>],
-        solver: impl FirstOrderRootFinding<
-            NodalForcesSolid<D>,
-            NodalDampingsSolid<D>,
-            NodalVelocities<D>,
-        >,
+        solver: impl RootFinding<NodalForcesSolid<D>, NodalDampingsSolid<D>, NodalVelocities<D>>,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>
     {
         integrator.integrate(

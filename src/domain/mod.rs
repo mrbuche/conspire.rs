@@ -29,10 +29,7 @@ use crate::{
     math::{
         Current, Reference, Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
         assert::AssertionError,
-        optimize::{
-            EqualityConstraint, FirstOrderOptimization, FirstOrderRootFinding, OptimizationError,
-            SecondOrderOptimization, ZerothOrderRootFinding,
-        },
+        optimize::{EqualityConstraint, Optimization, OptimizationError, RootFinding},
         styled_error,
     },
     units::{Acceleration, Length, Velocity},
@@ -160,7 +157,7 @@ pub trait ZerothOrderRoot<F, X> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl ZerothOrderRootFinding<F, X>,
+        solver: impl RootFinding<F, (), X>,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -175,7 +172,7 @@ where
         solver: S,
     ) -> Result<X, OptimizationError>
     where
-        S: SolverFor<Self, F, J> + FirstOrderRootFinding<F, S::Tangent, X>,
+        S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
         Self: ProvidesTangent<X, S::Tangent>;
 }
 
@@ -184,7 +181,7 @@ pub trait FirstOrderMinimize<F, J, X> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
-        solver: impl FirstOrderOptimization<F, J, X>,
+        solver: impl Optimization<F, J, (), X>,
     ) -> Result<X, OptimizationError>;
 }
 
@@ -234,6 +231,6 @@ where
         solver: S,
     ) -> Result<X, OptimizationError>
     where
-        S: SolverFor<Self, F, J> + SecondOrderOptimization<F, J, S::Tangent, X>,
+        S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
         Self: ProvidesTangent<X, S::Tangent>;
 }

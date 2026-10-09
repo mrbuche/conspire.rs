@@ -10,7 +10,7 @@ use super::{
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
-    optimize::{EqualityConstraint, FirstOrderRootFinding, SecondOrderOptimization},
+    optimize::{EqualityConstraint, Optimization, RootFinding},
     sparse::SparseSolver,
 };
 use std::ops::Mul;
@@ -186,7 +186,7 @@ pub fn integrate_rkmk_dae_adaptive_first_order_root<Field, Tab, F, J, Z, U, V, T
     rate: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<Derivative<Field::Increment, T>, String>,
     mut function: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<F, String>,
     mut jacobian: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<J, String>,
-    solver: &impl FirstOrderRootFinding<F, J, Z>,
+    solver: &impl RootFinding<F, J, Z>,
     time: &[Quantity<T>],
     initial_condition: (Field::Point, Z),
     abs_tol: Scalar,
@@ -235,7 +235,7 @@ pub fn integrate_rkmk_dae_adaptive_second_order_minimize<Field, Tab, F, J, H, Z,
     mut function: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<F, String>,
     mut jacobian: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<J, String>,
     mut hessian: impl FnMut(Quantity<T>, &Field::Point, &Z) -> Result<H, String>,
-    solver: &impl SecondOrderOptimization<F, J, H, Z>,
+    solver: &impl Optimization<F, J, H, Z>,
     time: &[Quantity<T>],
     initial_condition: (Field::Point, Z),
     abs_tol: Scalar,
