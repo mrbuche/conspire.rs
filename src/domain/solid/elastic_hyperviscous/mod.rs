@@ -83,7 +83,7 @@ where
     }
 }
 
-pub trait SecondOrderMinimize<const D: usize> {
+pub trait Minimize<const D: usize> {
     fn minimize(
         &self,
         equality_constraint: EqualityConstraint,
@@ -105,7 +105,7 @@ pub trait SecondOrderMinimize<const D: usize> {
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>;
 }
 
-impl<B, const D: usize> SecondOrderMinimize<D> for Model<B, D>
+impl<B, const D: usize> Minimize<D> for Model<B, D>
 where
     B: ElasticHyperviscousElements<D>,
 {

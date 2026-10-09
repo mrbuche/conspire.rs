@@ -3,7 +3,7 @@
 use conspire::{
     constitutive::solid::{elastic::AlmansiHamelLagrangian, hyperelastic::NeoHookean},
     fem::{
-        Model, NodalCoordinates, NodalReferenceCoordinates, SecondOrderMinimize,
+        Minimize, Model, NodalCoordinates, NodalReferenceCoordinates,
         block::{Block, element::linear::Hexahedron},
     },
     feti::{Feti, Formulation, GMRES},
@@ -165,7 +165,7 @@ fn newton_with_feti_matches_newton_with_the_sparse_solve() {
 
 #[test]
 fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
-    use conspire::fem::FirstOrderRoot;
+    use conspire::fem::Root;
     let (model, constraint) = problem([6; 3]);
     let sparse = model
         .root(
@@ -244,7 +244,7 @@ fn nonsymmetric_problem(nel: [usize; 3]) -> (Model<NonsymmetricBlock, 3>, Equali
 
 #[test]
 fn feti_solves_a_model_with_a_nonsymmetric_tangent() {
-    use conspire::fem::FirstOrderRoot;
+    use conspire::fem::Root;
     let nel = [6; 3];
     let (model, constraint) = nonsymmetric_problem(nel);
     let sparse = model

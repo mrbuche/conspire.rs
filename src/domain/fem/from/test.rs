@@ -6,8 +6,8 @@ use crate::{
         solid::{elastic::AlmansiHamelEulerian, hyperelastic::NeoHookean},
     },
     fem::{
-        Blocks, ElasticViscoplasticAndElastic, FirstOrderRoot, Model, NodalCoordinates,
-        NodalReferenceCoordinates, SecondOrderMinimize,
+        Blocks, ElasticViscoplasticAndElastic, Minimize, Model, NodalCoordinates,
+        NodalReferenceCoordinates, Root,
         block::{
             Block,
             element::{
@@ -245,13 +245,13 @@ fn split_blocks_nodal_forces() -> Result<(), AssertionError> {
 #[test]
 fn split_blocks_root() -> Result<(), AssertionError> {
     let (a, b) = constraint();
-    let solution = FirstOrderRoot::root(
+    let solution = Root::root(
         &single_block_model()?,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
     )?;
     let (a, b) = constraint();
-    let solution_split = FirstOrderRoot::root(
+    let solution_split = Root::root(
         &split_blocks_model()?,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
@@ -347,7 +347,7 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
         bcs,
     )?;
     let (a, b) = constraint();
-    let reference = FirstOrderRoot::root(
+    let reference = Root::root(
         &split_blocks_model()?,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
@@ -376,7 +376,7 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
         bcs,
     )?;
     let (a, b) = constraint();
-    let reference = FirstOrderRoot::root(
+    let reference = Root::root(
         &split_blocks_model()?,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
@@ -533,7 +533,7 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive_dense_output() -> Result<()
 fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
     let (a, b) = constraint();
     let model = heterogeneous_model()?;
-    let solution = FirstOrderRoot::root(
+    let solution = Root::root(
         &model,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
@@ -593,7 +593,7 @@ fn planar_patch_root() -> Result<(), AssertionError> {
                 .value();
         })
     });
-    let solution = FirstOrderRoot::root(
+    let solution = Root::root(
         &planar_model()?,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
@@ -630,7 +630,7 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
         b[row] = stretch;
         row += 1;
     });
-    let solution = FirstOrderRoot::root(
+    let solution = Root::root(
         &planar_model()?,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
@@ -674,7 +674,7 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
         b[row] = stretch;
         row += 1;
     });
-    let solution_wedge = FirstOrderRoot::root(
+    let solution_wedge = Root::root(
         &model,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
@@ -728,7 +728,7 @@ fn planar_quad_patch_root() -> Result<(), AssertionError> {
                 .value();
         })
     });
-    let solution = FirstOrderRoot::root(
+    let solution = Root::root(
         &model,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
@@ -777,13 +777,13 @@ fn planar_minimize_vs_root() -> Result<(), AssertionError> {
         .try_into()
         .map_err(|error: String| AssertionError { message: error })?;
     let (a, b) = planar_constraint();
-    let solution_root = FirstOrderRoot::root(
+    let solution_root = Root::root(
         &model,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),
     )?;
     let (a, b) = planar_constraint();
-    let solution_minimize = SecondOrderMinimize::minimize(
+    let solution_minimize = Minimize::minimize(
         &model,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),

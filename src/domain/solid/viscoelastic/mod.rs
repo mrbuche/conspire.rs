@@ -103,7 +103,7 @@ where
     }
 }
 
-pub trait FirstOrderRoot<const D: usize> {
+pub trait Root<const D: usize> {
     fn root(
         &self,
         equality_constraint: EqualityConstraint,
@@ -119,7 +119,7 @@ pub trait FirstOrderRoot<const D: usize> {
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>;
 }
 
-impl<B, const D: usize> FirstOrderRoot<D> for Model<B, D>
+impl<B, const D: usize> Root<D> for Model<B, D>
 where
     B: ViscoelasticElements<D>,
 {

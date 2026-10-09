@@ -1,7 +1,6 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, ElementModelError, FirstOrderMinimize, FirstOrderRoot, Model,
-        ProvidesTangent, SecondOrderMinimize, SolverFor, ZerothOrderRoot,
+        Blocks, ElementModel, ElementModelError, Minimize, Model, ProvidesTangent, Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         thermal::{NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures},
     },
@@ -109,25 +108,6 @@ where
     }
 }
 
-impl<B, const D: usize> ZerothOrderRoot<NodalForcesThermal, NodalTemperatures> for Model<B, D>
-where
-    B: ThermalConductionElements,
-{
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl RootFinding<NodalForcesThermal, (), NodalTemperatures>,
-    ) -> Result<NodalTemperatures, OptimizationError> {
-        solver.root(
-            |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
-            |_| Ok(()),
-            NodalTemperatures::zero(self.coordinates().len()),
-            equality_constraint,
-            None,
-        )
-    }
-}
-
 impl<B, const D: usize> SolverFor<Model<B, D>, NodalForcesThermal, NodalStiffnessesThermal>
     for NewtonRaphson
 where
@@ -137,8 +117,8 @@ where
     const SPARSE: bool = true;
 }
 
-impl<B, const D: usize>
-    FirstOrderRoot<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures> for Model<B, D>
+impl<B, const D: usize> Root<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>
+    for Model<B, D>
 where
     B: ThermalConductionElements,
 {
@@ -168,28 +148,6 @@ where
     }
 }
 
-impl<B, const D: usize>
-    FirstOrderMinimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
-    for Model<B, D>
-where
-    B: ThermalConductionElements,
-{
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl Optimization<Quantity<PowerTemperature>, NodalForcesThermal, (), NodalTemperatures>,
-    ) -> Result<NodalTemperatures, OptimizationError> {
-        solver.minimize(
-            |nodal_temperatures: &NodalTemperatures| Ok(self.potential(nodal_temperatures)?),
-            |nodal_temperatures: &NodalTemperatures| Ok(self.nodal_forces(nodal_temperatures)?),
-            |_| Ok(()),
-            NodalTemperatures::zero(self.coordinates().len()),
-            equality_constraint,
-            None,
-        )
-    }
-}
-
 impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<PowerTemperature>, NodalForcesThermal>
     for NewtonRaphson
 where
@@ -199,8 +157,7 @@ where
     const SPARSE: bool = true;
 }
 
-impl<B, const D: usize>
-    SecondOrderMinimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
+impl<B, const D: usize> Minimize<Quantity<PowerTemperature>, NodalForcesThermal, NodalTemperatures>
     for Model<B, D>
 where
     B: ThermalConductionElements,

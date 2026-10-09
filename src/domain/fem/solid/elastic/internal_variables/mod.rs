@@ -282,7 +282,7 @@ where
 
 /// First-order root-finding for elastic models whose internal variables are
 /// condensed out at every integration point.
-pub trait FirstOrderRootIV<const G: usize, V, const D: usize>
+pub trait RootIV<const G: usize, V, const D: usize>
 where
     V: Tensor,
 {
@@ -299,7 +299,7 @@ where
     ) -> Result<NodalCoordinates<D>, OptimizationError>;
 }
 
-impl<B, const G: usize, V, const D: usize> FirstOrderRootIV<G, V, D> for Model<B, D>
+impl<B, const G: usize, V, const D: usize> RootIV<G, V, D> for Model<B, D>
 where
     B: ElasticIVElements<G, V, D>,
     V: Tensor,

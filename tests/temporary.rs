@@ -7432,7 +7432,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let solution = conspire::fem::SecondOrderMinimize::minimize(
+    let solution = conspire::fem::Minimize::minimize(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson::default(),
@@ -7857,7 +7857,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, velocities_history) =
-        conspire::fem::solid::elastic_hyperviscous::SecondOrderMinimize::minimize(
+        conspire::fem::solid::elastic_hyperviscous::Minimize::minimize(
             &fem_model,
             EqualityConstraint::Linear(matrix, vector),
             DormandPrince {
@@ -7971,7 +7971,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let solution = conspire::fem::SecondOrderMinimize::minimize(
+    let solution = conspire::fem::Minimize::minimize(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
@@ -8005,7 +8005,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         constitutive::{
             hybrid::ElasticMultiplicative, solid::hyperelastic::SaintVenantKirchhoff as SVK,
         },
-        fem::solid::hyperelastic::internal_variables::SecondOrderMinimizeIV,
+        fem::solid::hyperelastic::internal_variables::MinimizeIV,
         math::optimize::{LineSearch, SolveStrategy},
     };
     let strain = 1.0;
@@ -8063,7 +8063,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
         (mesh, model).try_into()?;
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
-    let condensed = SecondOrderMinimizeIV::minimize(
+    let condensed = MinimizeIV::minimize(
         &fem_model,
         EqualityConstraint::Linear(matrix.clone(), vector.clone()),
         NewtonRaphson::default(),
@@ -8072,7 +8072,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
-    let eliminated = SecondOrderMinimizeIV::minimize(
+    let eliminated = MinimizeIV::minimize(
         &fem_model,
         EqualityConstraint::Linear(matrix.clone(), vector.clone()),
         NewtonRaphson {
@@ -8085,7 +8085,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated, Armijo)...");
-    let searched = SecondOrderMinimizeIV::minimize(
+    let searched = MinimizeIV::minimize(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {
@@ -8121,7 +8121,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         constitutive::{
             hybrid::ElasticMultiplicative, solid::hyperelastic::SaintVenantKirchhoff as SVK,
         },
-        fem::solid::elastic::internal_variables::FirstOrderRootIV,
+        fem::solid::elastic::internal_variables::RootIV,
         math::optimize::SolveStrategy,
     };
     let strain = 1.0;
@@ -8179,7 +8179,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
         (mesh, model).try_into()?;
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
-    let condensed = FirstOrderRootIV::root(
+    let condensed = RootIV::root(
         &fem_model,
         EqualityConstraint::Linear(matrix.clone(), vector.clone()),
         NewtonRaphson::default(),
@@ -8188,7 +8188,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     println!("Done ({:?}).", time.elapsed());
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
-    let eliminated = FirstOrderRootIV::root(
+    let eliminated = RootIV::root(
         &fem_model,
         EqualityConstraint::Linear(matrix, vector),
         NewtonRaphson {

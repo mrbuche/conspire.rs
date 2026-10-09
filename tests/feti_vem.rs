@@ -3,7 +3,7 @@
 use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{
-        Model, NodalCoordinates, NodalReferenceCoordinates, SecondOrderMinimize,
+        Minimize, Model, NodalCoordinates, NodalReferenceCoordinates,
         solid::elastic::ElasticElements,
     },
     feti::Feti,

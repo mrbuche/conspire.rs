@@ -153,16 +153,8 @@ impl StyledError for ElementModelError {
 
 styled_error!(ElementModelError);
 
-pub trait ZerothOrderRoot<F, X> {
-    fn root(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl RootFinding<F, (), X>,
-    ) -> Result<X, OptimizationError>;
-}
-
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub trait FirstOrderRoot<F, J, X>
+pub trait Root<F, J, X>
 where
     Self: Sized,
 {
@@ -174,15 +166,6 @@ where
     where
         S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
         Self: ProvidesTangent<X, S::Tangent>;
-}
-
-#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub trait FirstOrderMinimize<F, J, X> {
-    fn minimize(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: impl Optimization<F, J, (), X>,
-    ) -> Result<X, OptimizationError>;
 }
 
 impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> {
@@ -221,7 +204,7 @@ pub trait ProvidesTangent<X, T> {
 
 /// Minimization of a model, where the solver determines the tangent it works from.
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub trait SecondOrderMinimize<F, J, X>
+pub trait Minimize<F, J, X>
 where
     Self: Sized,
 {
