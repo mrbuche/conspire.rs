@@ -115,13 +115,7 @@ impl<S: ElementsFaces> Candidates<S> {
         {
             return Err("the elements are in different blocks".to_string());
         }
-        let surface = self.boundary.surface(elements)?;
-        if surface.number_of_components() != 1 {
-            return Err("the surface has several components".to_string());
-        }
-        if !surface.is_sphere() {
-            return Err("the surface is not a sphere".to_string());
-        }
+        self.boundary.surface(elements)?.ensure_sphere()?;
         let (element, _) = self.element(elements)?;
         let volumes = element
             .tetrahedra()

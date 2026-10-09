@@ -27,8 +27,23 @@ impl Surface {
             .map(|characteristic| ((2 - characteristic) / 2) as usize)
             .collect()
     }
+    /// Whether the surface is one topological sphere.
     pub fn is_sphere(&self) -> bool {
         self.euler_characteristics == [2]
+    }
+    /// Ok if the surface is one topological sphere, else why not.
+    pub fn ensure_sphere(&self) -> Result<(), String> {
+        match self.euler_characteristics() {
+            [2] => Ok(()),
+            [characteristic] => Err(format!(
+                "the surface is not a sphere, it has genus {}",
+                (2 - characteristic) / 2
+            )),
+            components => Err(format!(
+                "the surface has {} components, not one",
+                components.len()
+            )),
+        }
     }
 }
 
