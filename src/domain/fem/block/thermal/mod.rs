@@ -1,5 +1,6 @@
 pub mod capacity;
 pub mod conduction;
+mod time_scale;
 
 use crate::{
     constitutive::thermal::Thermal,
@@ -7,12 +8,10 @@ use crate::{
         Block,
         element::thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
-    math::QuantityVector,
     mechanics::TemperatureGradients,
-    units::Temperature,
 };
 
-pub type NodalTemperatures = QuantityVector<Temperature>;
+pub use crate::domain::thermal::NodalTemperatures;
 
 pub trait ThermalElements<C, F, const G: usize, const M: usize, const N: usize, const P: usize>
 where

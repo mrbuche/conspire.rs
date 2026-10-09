@@ -19,6 +19,8 @@ pub(crate) mod from;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod mass;
 pub(crate) mod solid;
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub(crate) mod thermal;
 pub(crate) mod time_scale;
 #[cfg(feature = "vem")]
 pub mod vem;
