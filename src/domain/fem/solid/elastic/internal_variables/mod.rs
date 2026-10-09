@@ -10,8 +10,8 @@ use crate::{
     math::{
         Scalar, Tensor, TensorVector, Vector,
         optimize::{
-            EqualityConstraint, FirstOrderRootFindingIncremental, NewtonRaphson, OptimizationError,
-            RootFinding, SolveStrategy,
+            EqualityConstraint, NewtonRaphson, OptimizationError, RootFinding,
+            RootFindingIncremental, SolveStrategy,
         },
     },
 };
@@ -280,7 +280,7 @@ where
     }
 }
 
-/// First-order root-finding for elastic models whose internal variables are
+/// Root-finding for elastic models whose internal variables are
 /// condensed out at every integration point.
 pub trait RootIV<const G: usize, V, const D: usize>
 where
@@ -290,7 +290,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
-        + FirstOrderRootFindingIncremental<
+        + RootFindingIncremental<
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
@@ -308,7 +308,7 @@ where
         &self,
         equality_constraint: EqualityConstraint,
         solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
-        + FirstOrderRootFindingIncremental<
+        + RootFindingIncremental<
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,

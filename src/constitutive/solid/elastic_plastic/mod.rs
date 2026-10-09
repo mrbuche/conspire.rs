@@ -15,7 +15,7 @@ use crate::{
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
         TensorArray, Vector,
-        optimize::{FirstOrderRootFindingBlock, NewtonRaphson, SolveStrategy},
+        optimize::{NewtonRaphson, RootFindingBlock, SolveStrategy},
         sparse::CscMatrix,
     },
     mechanics::{
@@ -296,7 +296,7 @@ pub trait Root {
     ///
     /// [`SolveStrategy::Monolithic`] steps the deformation gradient and the coupled local
     /// unknowns $`(\mathbf{E},\Delta\gamma)`$ of the return map together through
-    /// [`FirstOrderRootFindingBlock::root_block`], rather than converging the local
+    /// [`RootFindingBlock::root_block`], rather than converging the local
     /// block before every outer step. The local residual is the same coupled system the
     /// return map solves, with the yield inequality imposed by a Fischer-Burmeister
     /// complementarity residual so elastic steps recover $`\Delta\gamma = 0`$ on their
@@ -305,7 +305,7 @@ pub trait Root {
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFindingBlock<
+        solver: impl RootFindingBlock<
             DeformationGradient,
             Vector,
             FirstPiolaKirchhoffStress,
@@ -326,7 +326,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFindingBlock<
+        solver: impl RootFindingBlock<
             DeformationGradient,
             Vector,
             FirstPiolaKirchhoffStress,

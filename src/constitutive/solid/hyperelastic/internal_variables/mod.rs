@@ -10,7 +10,7 @@ use crate::{
     },
     math::{
         Quantity, Tensor, TensorArray,
-        optimize::{SecondOrderOptimizationBlock, SolveStrategy},
+        optimize::{OptimizationBlock, SolveStrategy},
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
@@ -49,7 +49,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimizationBlock<
+        solver: impl OptimizationBlock<
             Quantity<EnergyDensity>,
             DeformationGradient,
             V,
@@ -72,7 +72,7 @@ where
     fn minimize(
         &self,
         applied_load: AppliedLoad,
-        solver: impl SecondOrderOptimizationBlock<
+        solver: impl OptimizationBlock<
             Quantity<EnergyDensity>,
             DeformationGradient,
             V,

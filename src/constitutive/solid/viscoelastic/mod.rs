@@ -140,7 +140,7 @@ where
     }
 }
 
-/// Zeroth-order root-finding methods for viscoelastic solid constitutive models.
+/// Root-finding methods for viscoelastic solid constitutive models.
 pub trait Root {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///

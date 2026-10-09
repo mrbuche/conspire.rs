@@ -13,8 +13,8 @@ use crate::{
     math::{
         Quantity, Scalar, Tensor, Vector,
         optimize::{
-            EqualityConstraint, Optimization, OptimizationError,
-            SecondOrderOptimizationIncremental, SolveStrategy,
+            EqualityConstraint, Optimization, OptimizationError, OptimizationIncremental,
+            SolveStrategy,
         },
     },
     units::Energy,
@@ -47,7 +47,7 @@ where
     }
 }
 
-/// Second-order minimization for hyperelastic models whose internal variables
+/// Minimization for hyperelastic models whose internal variables
 /// are condensed out at every integration point.
 pub trait MinimizeIV<const G: usize, V, const D: usize>
 where
@@ -61,7 +61,7 @@ where
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
-        > + SecondOrderOptimizationIncremental<
+        > + OptimizationIncremental<
             Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
@@ -84,7 +84,7 @@ where
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,
             NodalCoordinates<D>,
-        > + SecondOrderOptimizationIncremental<
+        > + OptimizationIncremental<
             Quantity<Energy>,
             NodalForcesSolid<D>,
             NodalStiffnessesSolid<D>,

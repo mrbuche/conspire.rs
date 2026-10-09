@@ -68,7 +68,7 @@ where
     }
 }
 
-/// Second-order optimization methods for elastic-hyperviscous solid constitutive models.
+/// Optimization methods for elastic-hyperviscous solid constitutive models.
 pub trait Minimize {
     /// Solve for the unknown components of the deformation gradient and rate under an applied load.
     ///

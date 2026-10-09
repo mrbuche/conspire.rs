@@ -10,7 +10,7 @@ use crate::{
         TensorVec, TensorVector,
         integrate::{
             ButcherTableau, EmbeddedTableau, Integrable, IntegrationError, Product,
-            integrate_rkmk_dae_adaptive_first_order_root, rkmk_dae_step_first_order_root,
+            integrate_rkmk_dae_adaptive_root, rkmk_dae_step_root,
         },
         optimize::{EqualityConstraint, RootFinding},
     },
@@ -388,7 +388,7 @@ where
         nodal_coordinates_history.push(nodal_coordinates.clone());
         state_variables_history.push(B::unflatten(&state));
         for step in time.windows(2) {
-            let advanced = rkmk_dae_step_first_order_root::<
+            let advanced = rkmk_dae_step_root::<
                 B::Field,
                 Tab,
                 NodalForcesSolid<3>,
@@ -465,7 +465,7 @@ where
             )
             .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
         let (times, state_points_history, nodal_coordinates_history) =
-            integrate_rkmk_dae_adaptive_first_order_root::<
+            integrate_rkmk_dae_adaptive_root::<
                 B::Field,
                 Tab,
                 NodalForcesSolid<3>,

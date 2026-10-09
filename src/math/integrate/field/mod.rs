@@ -17,14 +17,11 @@ use std::{
 
 pub use adaptive::{
     integrate_rkmk, integrate_rkmk_adaptive, integrate_rkmk_dae_adaptive,
-    integrate_rkmk_dae_adaptive_first_order_root,
-    integrate_rkmk_dae_adaptive_second_order_minimize,
+    integrate_rkmk_dae_adaptive_minimize, integrate_rkmk_dae_adaptive_root,
 };
 pub use euler::integrate_euler;
 pub use hermite::{HermiteSegment, interpolate_hermite};
-pub use rkmk::{
-    rkmk_dae_step, rkmk_dae_step_first_order_root, rkmk_dae_step_second_order_minimize, rkmk_step,
-};
+pub use rkmk::{rkmk_dae_step, rkmk_dae_step_minimize, rkmk_dae_step_root, rkmk_step};
 pub use state::{
     EvolvedIncrement, EvolvedState, StateEvolution, integrate_rkmk_state,
     integrate_rkmk_state_adaptive,

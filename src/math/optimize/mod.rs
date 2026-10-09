@@ -56,7 +56,7 @@ pub trait RootFinding<F, J, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-/// First-order root-finding algorithms that hand out each increment before
+/// Root-finding algorithms that hand out each increment before
 /// applying it.
 ///
 /// The solver keeps the iteration; the increment is only lent to the caller so
@@ -71,7 +71,7 @@ pub trait RootFinding<F, J, X> {
 ///
 /// A step is offered before it is taken. The caller is asked to report whether
 /// the state it arrives at is admissible, and only later told to keep it.
-pub trait FirstOrderRootFindingIncremental<F, J, X> {
+pub trait RootFindingIncremental<F, J, X> {
     fn root_incremental(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
@@ -96,17 +96,17 @@ pub trait Optimization<F, J, H, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-/// Second-order optimization algorithms that hand out each increment before
+/// Optimization algorithms that hand out each increment before
 /// applying it.
 ///
-/// The counterpart of [`FirstOrderRootFindingIncremental`] for problems with an
+/// The counterpart of [`RootFindingIncremental`] for problems with an
 /// energy to descend, and the increment is lent on the same terms.
 ///
 /// What the line search measures is the energy of the whole state, eliminated
 /// variables included. Each trial is offered through the same update, so the
 /// eliminated variables are already standing where the trial puts them by the
 /// time the energy there is asked for.
-pub trait SecondOrderOptimizationIncremental<F, J, H, X> {
+pub trait OptimizationIncremental<F, J, H, X> {
     #[expect(clippy::too_many_arguments)]
     fn minimize_incremental(
         &self,
@@ -120,9 +120,9 @@ pub trait SecondOrderOptimizationIncremental<F, J, H, X> {
     ) -> Result<X, OptimizationError>;
 }
 
-/// First-order root-finding algorithms for problems split into global and local variables.
+/// Root-finding algorithms for problems split into global and local variables.
 #[expect(clippy::too_many_arguments)]
-pub trait FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
+pub trait RootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     fn root_block(
         &self,
         residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
@@ -136,9 +136,9 @@ pub trait FirstOrderRootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     ) -> Result<(U, V), OptimizationError>;
 }
 
-/// Second-order optimization algorithms for problems split into global and local variables.
+/// Optimization algorithms for problems split into global and local variables.
 #[expect(clippy::too_many_arguments)]
-pub trait SecondOrderOptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
+pub trait OptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     fn minimize_block(
         &self,
         function: impl FnMut(&U, &V) -> Result<F, String>,

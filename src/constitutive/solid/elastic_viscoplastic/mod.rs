@@ -22,8 +22,8 @@ use crate::{
         Tensor, TensorArray, TensorRank2, TensorTuple, TensorVec, Vector,
         integrate::{
             ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeRoot, Flat, Integrable,
-            Product, StateEvolution, Unimodular, integrate_rkmk_dae_adaptive_first_order_root,
-            rkmk_dae_step_first_order_root,
+            Product, StateEvolution, Unimodular, integrate_rkmk_dae_adaptive_root,
+            rkmk_dae_step_root,
         },
         optimize::{EqualityConstraint, RootFinding},
     },
@@ -368,7 +368,7 @@ where
         deformation_gradients.push(deformation_gradient.clone());
         state_variables.push(state.clone());
         for step in time.windows(2) {
-            let advanced = rkmk_dae_step_first_order_root::<
+            let advanced = rkmk_dae_step_root::<
                 <Self as StateEvolution<Time, Y>>::Field,
                 Tab,
                 FirstPiolaKirchhoffStress,
@@ -454,29 +454,28 @@ where
                 None,
             )
             .map_err(|error| ConstitutiveError::upstream(String::from(error), self))?;
-        let (times, state_variables, deformation_gradients) =
-            integrate_rkmk_dae_adaptive_first_order_root::<
-                <Self as StateEvolution<Time, Y>>::Field,
-                Tab,
-                FirstPiolaKirchhoffStress,
-                FirstPiolaKirchhoffTangentStiffness,
-                DeformationGradient,
-                ViscoplasticStateVariablesHistory<Y>,
-                DeformationGradients,
-                Time,
-            >(
-                |t, state, deformation_gradient| self.state_rate(t, deformation_gradient, state),
-                function,
-                jacobian,
-                &solver,
-                time,
-                (state, deformation_gradient),
-                abs_tol,
-                rel_tol,
-                equality_constraint,
-                None,
-            )
-            .map_err(|error| ConstitutiveError::upstream(error, self))?;
+        let (times, state_variables, deformation_gradients) = integrate_rkmk_dae_adaptive_root::<
+            <Self as StateEvolution<Time, Y>>::Field,
+            Tab,
+            FirstPiolaKirchhoffStress,
+            FirstPiolaKirchhoffTangentStiffness,
+            DeformationGradient,
+            ViscoplasticStateVariablesHistory<Y>,
+            DeformationGradients,
+            Time,
+        >(
+            |t, state, deformation_gradient| self.state_rate(t, deformation_gradient, state),
+            function,
+            jacobian,
+            &solver,
+            time,
+            (state, deformation_gradient),
+            abs_tol,
+            rel_tol,
+            equality_constraint,
+            None,
+        )
+        .map_err(|error| ConstitutiveError::upstream(error, self))?;
         Ok((times, deformation_gradients, state_variables))
     }
 }

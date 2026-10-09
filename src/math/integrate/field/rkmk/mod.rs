@@ -172,7 +172,7 @@ where
 /// Jacobian in terms of the *whole* field state gets the manifold-aware
 /// stage-equilibrium step for free, without hand-rolling this closure itself.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn rkmk_dae_step_first_order_root<Field, Tab, F, J, Z, T>(
+pub fn rkmk_dae_step_root<Field, Tab, F, J, Z, T>(
     rate: &mut impl FnMut(
         Quantity<T>,
         &Field::Point,
@@ -214,12 +214,12 @@ where
 
 /// [`rkmk_dae_step`] with the algebraic unknown resolved by second-order
 /// minimization at every stage abscissa, built from `function`/`jacobian`/
-/// `hessian`/`solver` the same way [`rkmk_dae_step_first_order_root`] builds
+/// `hessian`/`solver` the same way [`rkmk_dae_step_root`] builds
 /// it for root-finding — the two are siblings so a model whose equilibrium is
 /// naturally posed as a potential (rather than a residual) gets the same
 /// manifold-aware stage-equilibrium step.
 #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-pub fn rkmk_dae_step_second_order_minimize<Field, Tab, F, J, H, Z, T>(
+pub fn rkmk_dae_step_minimize<Field, Tab, F, J, H, Z, T>(
     rate: &mut impl FnMut(
         Quantity<T>,
         &Field::Point,

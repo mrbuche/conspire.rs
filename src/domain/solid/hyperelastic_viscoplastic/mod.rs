@@ -15,7 +15,7 @@ use crate::{
         Derivative, Differentiable, Quantity, Scalar, Tensor, TensorTuple, TensorVec, TensorVector,
         integrate::{
             ButcherTableau, EmbeddedTableau, Integrable, IntegrationError,
-            integrate_rkmk_dae_adaptive_second_order_minimize, rkmk_dae_step_second_order_minimize,
+            integrate_rkmk_dae_adaptive_minimize, rkmk_dae_step_minimize,
         },
         optimize::Optimization,
     },
@@ -225,7 +225,7 @@ where
         nodal_coordinates_history.push(nodal_coordinates.clone());
         state_variables_history.push(B::unflatten(&state));
         for step in time.windows(2) {
-            let advanced = rkmk_dae_step_second_order_minimize::<
+            let advanced = rkmk_dae_step_minimize::<
                 B::Field,
                 Tab,
                 Quantity<Energy>,
@@ -316,7 +316,7 @@ where
             )
             .map_err(|error| IntegrationError::from(format!("{error:?}")))?;
         let (times, state_points_history, nodal_coordinates_history) =
-            integrate_rkmk_dae_adaptive_second_order_minimize::<
+            integrate_rkmk_dae_adaptive_minimize::<
                 B::Field,
                 Tab,
                 Quantity<Energy>,

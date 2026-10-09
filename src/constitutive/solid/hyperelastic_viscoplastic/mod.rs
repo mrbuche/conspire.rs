@@ -25,8 +25,7 @@ use crate::{
         Derivative, Differentiable, Quantity, Scalar, Tensor, TensorArray, TensorVec, Vector,
         integrate::{
             ButcherTableau, EmbeddedTableau, EvolvedIncrement, ExplicitDaeMinimize, Integrable,
-            StateEvolution, integrate_rkmk_dae_adaptive_second_order_minimize,
-            rkmk_dae_step_second_order_minimize,
+            StateEvolution, integrate_rkmk_dae_adaptive_minimize, rkmk_dae_step_minimize,
         },
         optimize::{EqualityConstraint, Optimization},
     },
@@ -319,7 +318,7 @@ where
         deformation_gradients.push(deformation_gradient.clone());
         state_variables.push(state.clone());
         for step in time.windows(2) {
-            let advanced = rkmk_dae_step_second_order_minimize::<
+            let advanced = rkmk_dae_step_minimize::<
                 <Self as StateEvolution<Time, Y>>::Field,
                 Tab,
                 Quantity<EnergyDensity>,
@@ -418,7 +417,7 @@ where
             )
             .map_err(|error| ConstitutiveError::upstream(String::from(error), self))?;
         let (times, state_variables, deformation_gradients) =
-            integrate_rkmk_dae_adaptive_second_order_minimize::<
+            integrate_rkmk_dae_adaptive_minimize::<
                 <Self as StateEvolution<Time, Y>>::Field,
                 Tab,
                 Quantity<EnergyDensity>,

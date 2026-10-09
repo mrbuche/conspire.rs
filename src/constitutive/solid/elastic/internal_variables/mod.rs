@@ -8,7 +8,7 @@ use crate::{
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, Hessian, HessianBlock, IDENTITY,
         Jacobian, Matrix, Rank2, Tensor, TensorArray, Vector,
-        optimize::{FirstOrderRootFindingBlock, SolveStrategy},
+        optimize::{RootFindingBlock, SolveStrategy},
         sparse::CscMatrix,
     },
     mechanics::{
@@ -200,7 +200,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFindingBlock<
+        solver: impl RootFindingBlock<
             DeformationGradient,
             V,
             FirstPiolaKirchhoffStress,
@@ -222,7 +222,7 @@ where
     fn root(
         &self,
         applied_load: AppliedLoad,
-        solver: impl FirstOrderRootFindingBlock<
+        solver: impl RootFindingBlock<
             DeformationGradient,
             V,
             FirstPiolaKirchhoffStress,

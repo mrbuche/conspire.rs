@@ -507,7 +507,7 @@ mod block {
     use super::*;
     use crate::math::{
         Matrix, Vector,
-        optimize::{FirstOrderRootFindingBlock, SolveStrategy},
+        optimize::{RootFindingBlock, SolveStrategy},
         sparse::{CscMatrix, SparseSolver},
     };
     use std::collections::BTreeSet;
