@@ -1,3 +1,5 @@
+pub mod density;
+pub mod mass;
 pub mod node;
 pub mod solid;
 #[cfg(test)]
@@ -10,16 +12,18 @@ use crate::{
     },
     geometry::mesh::PrimitiveConnectivity,
 };
+use density::NoDensity;
 use node::{Node, Weighting};
 use std::fmt::{self, Debug, Formatter};
 
-pub struct Block<C> {
+pub struct Block<C, R = NoDensity> {
     constitutive_model: C,
     connectivity: PrimitiveConnectivity<3, 4>,
     nodes: Vec<Node>,
+    density: R,
 }
 
-impl<C> Debug for Block<C> {
+impl<C, R> Debug for Block<C, R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Block {{ {} particles }}", self.nodes.len())
     }
@@ -69,11 +73,12 @@ impl<C>
             constitutive_model,
             connectivity,
             nodes,
+            density: NoDensity,
         }
     }
 }
 
-impl<C> Elements for Block<C> {
+impl<C, R> Elements for Block<C, R> {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
         add_node_neighbors(
             self.connectivity.iter().map(|nodes| nodes.as_slice()),

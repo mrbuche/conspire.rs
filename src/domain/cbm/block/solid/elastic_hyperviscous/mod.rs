@@ -8,7 +8,7 @@ use crate::{
 
 pub use crate::domain::solid::elastic_hyperviscous::ElasticHyperviscousElements;
 
-impl<C> ElasticHyperviscousElements<3> for Block<C>
+impl<C, R> ElasticHyperviscousElements<3> for Block<C, R>
 where
     C: ElasticHyperviscous,
 {

@@ -15,7 +15,7 @@ use crate::{
 
 pub use crate::domain::solid::SolidElements;
 
-impl<C> SolidElements for Block<C> {
+impl<C, R> SolidElements for Block<C, R> {
     type DeformationGradients = DeformationGradient;
     type DeformationGradientRates = DeformationGradientRate;
     fn deformation_gradients(

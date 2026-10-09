@@ -131,12 +131,13 @@ where
             Scalar,
         ),
     ) -> Self {
-        Self::from((
+        (
             constitutive_model,
             density_field,
             PolytopalConnectivity::from((elements_faces, faces_nodes)),
             coordinates,
             stabilization,
-        ))
+        )
+            .into()
     }
 }

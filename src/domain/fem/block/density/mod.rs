@@ -129,11 +129,12 @@ where
             &NodalReferenceCoordinates<3>,
         ),
     ) -> Self {
-        Self::from((
+        (
             constitutive_model,
             density_field,
             PrimitiveConnectivity::from(connectivity),
             coordinates,
-        ))
+        )
+            .into()
     }
 }

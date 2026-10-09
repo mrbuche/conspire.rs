@@ -8,7 +8,7 @@ use crate::{
 
 pub use crate::domain::solid::hyperviscoelastic::HyperviscoelasticElements;
 
-impl<C> HyperviscoelasticElements<3> for Block<C>
+impl<C, R> HyperviscoelasticElements<3> for Block<C, R>
 where
     C: Hyperviscoelastic,
 {
