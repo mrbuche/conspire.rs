@@ -1,5 +1,5 @@
 use super::Vector;
-use crate::math::Tensor;
+use crate::math::{Scalar, Tensor, TensorVector};
 
 fn vectors() -> (Vector, Vector) {
     (
@@ -23,6 +23,6 @@ fn a_borrowed_sum_matches_the_owned_sum() {
 #[test]
 fn a_tensor_vector_of_scalars_converts_in_order() {
     let (a, _) = vectors();
-    let tensor_vector: crate::math::TensorVector<crate::math::Scalar> = a.iter().copied().collect();
+    let tensor_vector: TensorVector<Scalar> = a.iter().copied().collect();
     assert_eq!(Vector::from(tensor_vector), a);
 }
