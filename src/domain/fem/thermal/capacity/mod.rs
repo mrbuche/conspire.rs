@@ -3,12 +3,13 @@ mod test;
 
 use crate::{
     domain::mass::factor_free,
+    fem::block::thermal::conduction::NodalForcesThermal,
     fem::{Blocks, ElementModel, Elements, Model},
     math::{
-        Quantity, QuantitySparseVec2D, QuantityVector, Tensor, Vector,
+        Erase, Quantity, QuantitySparseVec2D, QuantityVector, Tensor, Vector,
         sparse::{CscLdl, SparseError},
     },
-    units::{HeatCapacity, Power},
+    units::{HeatCapacity, TemperatureRate},
 };
 
 pub type NodalHeatCapacities = QuantitySparseVec2D<HeatCapacity>;
@@ -97,17 +98,97 @@ impl NodalHeatCapacities {
     }
 }
 
-impl FreeFactoredHeatCapacities {
-    /// The temperature rates given the heat at every node, which vanish at fixed nodes.
-    pub fn nodal_temperature_rates(&self, heat: &QuantityVector<Power>) -> Vector {
-        let heating: Vector = self.free.iter().map(|&index| heat[index].value()).collect();
-        let free_rates = self.factors.solve(&heating);
-        let mut rates = Vector::zero(heat.len());
+pub type NodalTemperatureRates = QuantityVector<TemperatureRate>;
+
+/// A heat capacity inverted for the rates of temperature it gives.
+pub trait InverseHeatCapacity {
+    fn nodal_temperature_rates(
+        &self,
+        external_heating: &NodalForcesThermal,
+        internal_heating: &NodalForcesThermal,
+    ) -> NodalTemperatureRates;
+}
+
+impl InverseHeatCapacity for NodalLumpedHeatCapacities {
+    fn nodal_temperature_rates(
+        &self,
+        external_heating: &NodalForcesThermal,
+        internal_heating: &NodalForcesThermal,
+    ) -> NodalTemperatureRates {
+        self.iter()
+            .zip(external_heating.iter().zip(internal_heating.iter()))
+            .map(|(&capacity, (&external, &internal))| (external - internal) / capacity)
+            .collect()
+    }
+}
+
+/// A heat capacity that yields its inverse with some temperatures held fixed.
+///
+/// The rates of the inverse vanish at the fixed nodes, and elsewhere they account for the
+/// fixed ones not changing.
+pub trait HeatCapacityMatrix {
+    type Inverse: InverseHeatCapacity;
+    fn inverse(&self, fixed: &[usize]) -> Result<Self::Inverse, SparseError>;
+}
+
+/// The inverse of lumped heat capacities with fixed temperatures.
+pub struct FixedLumpedHeatCapacities {
+    capacities: NodalLumpedHeatCapacities,
+    fixed: Vec<usize>,
+}
+
+impl HeatCapacityMatrix for NodalLumpedHeatCapacities {
+    type Inverse = FixedLumpedHeatCapacities;
+    fn inverse(&self, fixed: &[usize]) -> Result<Self::Inverse, SparseError> {
+        Ok(FixedLumpedHeatCapacities {
+            capacities: self.clone(),
+            fixed: fixed.to_vec(),
+        })
+    }
+}
+
+impl InverseHeatCapacity for FixedLumpedHeatCapacities {
+    fn nodal_temperature_rates(
+        &self,
+        external_heating: &NodalForcesThermal,
+        internal_heating: &NodalForcesThermal,
+    ) -> NodalTemperatureRates {
+        let mut rates = self
+            .capacities
+            .nodal_temperature_rates(external_heating, internal_heating);
+        self.fixed
+            .iter()
+            .for_each(|&index| rates[index] = Default::default());
+        rates
+    }
+}
+
+impl HeatCapacityMatrix for NodalHeatCapacities {
+    type Inverse = FreeFactoredHeatCapacities;
+    fn inverse(&self, fixed: &[usize]) -> Result<Self::Inverse, SparseError> {
+        self.factor(fixed)
+    }
+}
+
+impl InverseHeatCapacity for FreeFactoredHeatCapacities {
+    fn nodal_temperature_rates(
+        &self,
+        external_heating: &NodalForcesThermal,
+        internal_heating: &NodalForcesThermal,
+    ) -> NodalTemperatureRates {
+        let (external, internal) = (external_heating.erase(), internal_heating.erase());
+        let free_heating: Vector = self
+            .free
+            .iter()
+            .map(|&index| external[index] - internal[index])
+            .collect();
+        let free_rates = self.factors.solve(&free_heating);
+        let mut rates = Vector::zero(external_heating.len());
         self.free
             .iter()
             .enumerate()
             .for_each(|(k, &index)| rates[index] = free_rates[k]);
-        rates
+        rates.into()
     }
 }
 

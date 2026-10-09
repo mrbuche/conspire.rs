@@ -172,6 +172,8 @@ units!(
     Temperature,
     /// A reciprocal temperature, as a coefficient of thermal expansion is.
     ReciprocalTemperature,
+    /// A temperature per unit time, as a rate of heating is.
+    TemperatureRate,
     /// A stress per unit temperature, as a thermal stress coefficient is.
     StressPerTemperature,
     /// A power per unit volume, as a dissipation is.
@@ -357,6 +359,13 @@ unit_products!(
     Power * Temperature = PowerTemperature,
     PowerPerTemperature * Temperature = Power,
     Temperature * PowerPerTemperature = Power,
+    Dimensionless * TemperatureRate = TemperatureRate,
+    Temperature * Rate = TemperatureRate,
+    Rate * Temperature = TemperatureRate,
+    TemperatureRate * Time = Temperature,
+    Time * TemperatureRate = Temperature,
+    TemperatureRate * Entropy = Power,
+    Entropy * TemperatureRate = Power,
     Dimensionless * Entropy = Entropy,
     Entropy * Temperature = Energy,
     Temperature * Entropy = Energy,

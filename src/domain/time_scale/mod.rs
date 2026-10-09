@@ -124,6 +124,17 @@ pub(crate) fn time_scale_from_eigenvalue(eigenvalue: Scalar) -> Quantity<Time> {
     }
 }
 
+/// The time scale of a diffusive eigenvalue, the reciprocal of the largest eigenvalue of
+/// $`C^{-1}K`$, which bounds a stable explicit time step.
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub(crate) fn diffusive_time_scale_from_eigenvalue(eigenvalue: Scalar) -> Quantity<Time> {
+    if eigenvalue > 0.0 {
+        Time::seconds(1.0 / eigenvalue)
+    } else {
+        Time::seconds(Scalar::INFINITY)
+    }
+}
+
 /// Whether every eigenvalue of $`M^{-1}K`$ is below `bound`, for the stiffness $`K`$ of `size`
 /// degrees of freedom and the lumped masses $`M`$ on them.
 ///

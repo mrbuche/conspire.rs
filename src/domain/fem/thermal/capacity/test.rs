@@ -1,6 +1,8 @@
+use super::InverseHeatCapacity;
 use crate::{
     fem::{
         Model, NodalReferenceCoordinates,
+        block::thermal::conduction::NodalForcesThermal,
         block::{
             Block, ElementDensities, element::linear::Tetrahedron,
             thermal::capacity::ElementHeatCapacities,
@@ -133,12 +135,12 @@ fn factors_to_the_inverse_with_fixed_nodes() {
         (Energy::joules(0.5) / Time::seconds(1.0)),
         (Energy::joules(3.0) / Time::seconds(1.0)),
     ]);
-    let rates = factors.nodal_temperature_rates(&heating);
-    assert_eq!(rates[0], 0.0);
+    let rates = factors.nodal_temperature_rates(&heating, &NodalForcesThermal::zero(5));
+    assert_eq!(rates[0].value(), 0.0);
     (1..5).for_each(|a| {
         let applied: f64 = capacities[a]
             .entries()
-            .map(|(b, entry)| entry.value() * rates[b])
+            .map(|(b, entry)| entry.value() * rates[b].value())
             .sum();
         let expected = heating[a].value();
         assert!((applied - expected).abs() <= 1e-9 * expected.abs().max(1.0));
