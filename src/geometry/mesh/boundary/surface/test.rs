@@ -77,6 +77,29 @@ fn components_have_their_own_genus() {
 }
 
 #[test]
+fn a_sphere_is_ensured() {
+    assert_eq!(surface(&cube()).unwrap().ensure_sphere(), Ok(()));
+}
+
+#[test]
+fn a_torus_is_not_ensured_and_has_genus_one() {
+    assert_eq!(
+        surface(&torus()).unwrap().ensure_sphere(),
+        Err("the surface is not a sphere, it has genus 1".to_string())
+    );
+}
+
+#[test]
+fn several_components_are_not_ensured() {
+    let mut faces = tetrahedron([0, 1, 2, 3]);
+    faces.extend(tetrahedron([4, 5, 6, 7]));
+    assert_eq!(
+        surface(&faces).unwrap().ensure_sphere(),
+        Err("the surface has 2 components, not one".to_string())
+    );
+}
+
+#[test]
 fn a_missing_face_is_not_closed() {
     let mut faces = cube();
     faces.pop();

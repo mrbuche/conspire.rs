@@ -56,12 +56,18 @@ fn elements_of_one_topology_are_joined_like_the_elements_of_a_mesh() {
     let agglomeration = agglomeration(union_scale(&mesh));
     let from_mesh = candidates(&mesh).agglomerate(&agglomeration).unwrap();
     let from_connectivity = typed.agglomerate(&agglomeration).unwrap();
-    assert_eq!(from_connectivity.elements_parts, [0, 0]);
-    assert_eq!(from_connectivity.elements_parts, from_mesh.elements_parts);
-    assert_eq!(from_connectivity.unresolved, from_mesh.unresolved);
+    assert_eq!(from_connectivity.merged.elements_parts, [0, 0]);
     assert_eq!(
-        from_connectivity.time_scales[0].value(),
-        from_mesh.time_scales[0].value()
+        from_connectivity.merged.elements_parts,
+        from_mesh.merged.elements_parts
+    );
+    assert_eq!(
+        from_connectivity.merged.unresolved,
+        from_mesh.merged.unresolved
+    );
+    assert_eq!(
+        from_connectivity.time_scales()[0].value(),
+        from_mesh.time_scales()[0].value()
     );
 }
 
@@ -84,10 +90,10 @@ fn a_flat_wedge_is_joined_into_one_element() {
     let result = candidates(&mesh)
         .agglomerate(&agglomeration(union_scale(&mesh)))
         .unwrap();
-    assert_eq!(result.elements_parts, vec![0, 0]);
-    assert!(result.unresolved.is_empty());
-    assert_eq!(result.time_scales.len(), 1);
-    assert_eq!(result.mesh(&mesh).unwrap().number_of_elements(), 1);
+    assert_eq!(result.merged.elements_parts, vec![0, 0]);
+    assert!(result.merged.unresolved.is_empty());
+    assert_eq!(result.time_scales().len(), 1);
+    assert_eq!(result.merged.mesh(&mesh).unwrap().number_of_elements(), 1);
 }
 
 #[test]
@@ -100,8 +106,8 @@ fn elements_that_are_fast_enough_are_left_alone() {
             ..agglomeration(reference)
         })
         .unwrap();
-    assert_eq!(result.elements_parts, vec![0, 1]);
-    assert!(result.unresolved.is_empty());
+    assert_eq!(result.merged.elements_parts, vec![0, 1]);
+    assert!(result.merged.unresolved.is_empty());
 }
 
 #[test]
@@ -110,8 +116,8 @@ fn elements_in_different_blocks_stay_unresolved() {
     let result = candidates(&mesh)
         .agglomerate(&agglomeration(union_scale(&mesh)))
         .unwrap();
-    assert_eq!(result.elements_parts, vec![0, 1]);
-    assert_eq!(result.unresolved, vec![0]);
+    assert_eq!(result.merged.elements_parts, vec![0, 1]);
+    assert_eq!(result.merged.unresolved, vec![0]);
 }
 
 #[test]
@@ -126,8 +132,8 @@ fn no_passes_change_nothing() {
             ..agglomeration(union_scale(&mesh))
         })
         .unwrap();
-    assert_eq!(result.elements_parts, vec![0, 1]);
-    assert_eq!(result.unresolved, vec![0]);
+    assert_eq!(result.merged.elements_parts, vec![0, 1]);
+    assert_eq!(result.merged.unresolved, vec![0]);
 }
 
 #[test]
@@ -142,7 +148,7 @@ fn an_unreachable_improvement_prevents_the_join() {
             ..agglomeration(union_scale(&mesh))
         })
         .unwrap();
-    assert_eq!(result.elements_parts, vec![0, 1]);
+    assert_eq!(result.merged.elements_parts, vec![0, 1]);
 }
 
 #[test]
@@ -192,6 +198,6 @@ fn good_hexahedra_are_left_alone() {
             ..agglomeration(1.0)
         })
         .unwrap();
-    assert_eq!(result.elements_parts, vec![0, 1]);
-    assert!(result.unresolved.is_empty());
+    assert_eq!(result.merged.elements_parts, vec![0, 1]);
+    assert!(result.merged.unresolved.is_empty());
 }

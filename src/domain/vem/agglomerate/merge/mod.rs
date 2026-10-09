@@ -3,7 +3,7 @@ mod test;
 
 use super::Candidates;
 use crate::{
-    geometry::mesh::{Criterion, ElementsFaces, Merging, Mesh, Partition},
+    geometry::mesh::{Criterion, ElementsFaces, Merged, Merging},
     math::{Quantity, Scalar},
     units::Time,
 };
@@ -26,19 +26,20 @@ pub struct Agglomeration {
     pub merging: Merging,
 }
 
+/// The elements joined, where the score of each part is the time scale.
 pub struct Agglomerated {
     pub reference: Quantity<Time>,
-    pub elements_parts: Vec<usize>,
-    pub time_scales: Vec<Quantity<Time>>,
-    pub unresolved: Vec<usize>,
+    pub merged: Merged,
 }
 
 impl Agglomerated {
-    pub fn partition(&self, mesh: &Mesh<3>) -> Partition {
-        Partition::new(mesh, self.elements_parts.clone())
-    }
-    pub fn mesh(&self, mesh: &Mesh<3>) -> Result<Mesh<3>, &'static str> {
-        self.partition(mesh).agglomerate(mesh)
+    pub fn time_scales(&self) -> Vec<Quantity<Time>> {
+        self.merged
+            .scores
+            .iter()
+            .copied()
+            .map(Time::seconds)
+            .collect()
     }
 }
 
@@ -88,11 +89,6 @@ where
                 minimum_volume: agglomeration.minimum_volume,
             },
         )?;
-        Ok(Agglomerated {
-            reference,
-            elements_parts: merged.elements_parts,
-            time_scales: merged.scores.into_iter().map(Time::seconds).collect(),
-            unresolved: merged.unresolved,
-        })
+        Ok(Agglomerated { reference, merged })
     }
 }
