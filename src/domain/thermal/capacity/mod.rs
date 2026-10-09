@@ -1,6 +1,6 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, Model, block::element::Elements, mass::factor_free,
+        Blocks, ElementModel, Model, block::element::Elements, factor::factor_free,
         thermal::NodalForcesThermal,
     },
     math::{

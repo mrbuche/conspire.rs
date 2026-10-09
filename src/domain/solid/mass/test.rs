@@ -1,8 +1,10 @@
 use crate::{
     domain::{
         NodalAccelerations, NodalVelocities,
-        mass::{InverseMass, NodalLumpedMasses, NodalMasses},
-        solid::NodalForcesSolid,
+        solid::{
+            NodalForcesSolid,
+            mass::{InverseMass, NodalLumpedMasses, NodalMasses},
+        },
     },
     math::assert::{Assert, AssertionError},
     units::{Energy, Mass},

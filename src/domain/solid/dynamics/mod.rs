@@ -2,9 +2,12 @@ use crate::{
     domain::{
         ElementModelError, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
-        mass::{InverseMass, MassMatrix, NodalLumpedMasses},
-        solid::{NodalForcesSolid, elastic::ElasticElements},
-        time_scale::TimeScaleElements,
+        solid::{
+            NodalForcesSolid,
+            elastic::ElasticElements,
+            mass::{InverseMass, MassMatrix, NodalLumpedMasses},
+            time_scale::TimeScaleElements,
+        },
     },
     math::{
         Quantity, Scalar,

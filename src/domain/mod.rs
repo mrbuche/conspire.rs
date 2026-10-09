@@ -8,16 +8,14 @@ pub(crate) mod block;
 pub mod cbm;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod density;
-#[cfg_attr(not(feature = "fem"), allow(dead_code))]
-pub(crate) mod dynamics;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub(crate) mod factor;
 #[cfg(feature = "fem")]
 pub mod fem;
 #[cfg(feature = "fem")]
 #[path = "partition/feti/mod.rs"]
 pub mod feti;
 pub(crate) mod from;
-#[cfg_attr(not(feature = "fem"), allow(dead_code))]
-pub(crate) mod mass;
 pub(crate) mod solid;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod thermal;

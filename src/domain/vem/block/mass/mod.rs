@@ -4,7 +4,7 @@ mod test;
 use crate::{
     domain::{
         NodalReferenceCoordinates,
-        mass::{LumpedMassElements, NodalLumpedMasses},
+        solid::mass::{LumpedMassElements, NodalLumpedMasses},
     },
     math::Tensor,
     vem::block::{Block, Densities, element::mass::LumpedMassVirtualElement},

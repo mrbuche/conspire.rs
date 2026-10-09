@@ -10,7 +10,7 @@ use crate::fem::{
     mass::{ConsistentMassElements, LumpedMassElements},
 };
 
-pub use crate::domain::mass::{NodalLumpedMasses, NodalMasses};
+pub use crate::domain::solid::mass::{NodalLumpedMasses, NodalMasses};
 
 impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize> ConsistentMassElements
     for Block<C, F, G, M, N, P, R>
