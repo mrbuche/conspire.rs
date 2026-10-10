@@ -1,5 +1,5 @@
 use crate::{
-    cbm::{Model, block::Block},
+    cbm::{Model, Weighting, block::Block},
     domain::NodalReferenceCoordinates,
     geometry::mesh::PrimitiveConnectivity,
     math::{
@@ -88,4 +88,35 @@ fn a_field_and_a_uniform_density_agree_when_the_field_is_constant() -> Result<()
         &coordinates,
     ));
     Assert::default().eq_within_tols(uniform.mass(), &constant.mass())
+}
+
+#[test]
+fn solid_angle_weighting_keeps_the_total_mass_but_moves_it_between_particles()
+-> Result<(), AssertionError> {
+    let (connectivity, coordinates) = problem();
+    let uniform = Block::from(((), LEFT, connectivity, &coordinates, Weighting::Uniform));
+    let angled = Block::from(((), LEFT, problem().0, &coordinates, Weighting::SolidAngle));
+    Assert::default().eq_within_tols(angled.mass(), &uniform.mass())?;
+    let uniform = Model::from((uniform, problem().1)).nodal_lumped_masses();
+    let angled = Model::from((angled, problem().1)).nodal_lumped_masses();
+    assert!(
+        uniform
+            .iter()
+            .zip(angled.iter())
+            .any(|(uniform, angled)| (uniform.value() - angled.value()).abs()
+                > 1e-6 * uniform.value())
+    );
+    Ok(())
+}
+
+#[test]
+fn the_solid_angle_mass_of_a_corner_particle_is_its_share_of_the_tetrahedron()
+-> Result<(), AssertionError> {
+    let (connectivity, coordinates) = problem();
+    let block = Block::from(((), LEFT, connectivity, &coordinates, Weighting::SolidAngle));
+    let masses = Model::from((block, problem().1)).nodal_lumped_masses();
+    let octant = std::f64::consts::FRAC_PI_2;
+    let other = 2.0 * (1.0 / (3.0 + 2.0 * 2.0_f64.sqrt())).atan();
+    let share = octant / (octant + 3.0 * other);
+    Assert::default().eq_within_tols(masses[0], &(LEFT * Volume::cubic_meters(share / 6.0)))
 }

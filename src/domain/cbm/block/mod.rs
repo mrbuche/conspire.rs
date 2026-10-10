@@ -4,6 +4,7 @@ pub mod node;
 pub mod solid;
 #[cfg(test)]
 mod test;
+pub mod time_scale;
 
 use crate::{
     domain::{
