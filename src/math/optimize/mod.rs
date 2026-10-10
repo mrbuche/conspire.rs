@@ -42,6 +42,9 @@ use std::{
 };
 
 /// The step size taking a decrement of type `D` to an increment of `X`.
+/// The unit of the ratio of a solution's unit to itself.
+pub type Ratio<X> = <<X as Tensor>::Unit as UnitDiv<<X as Tensor>::Unit>>::Output;
+
 pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;
 
 /// Root-finding algorithms, where a tangent of `()` is one the solver does not use.

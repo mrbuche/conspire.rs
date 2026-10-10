@@ -31,6 +31,32 @@ pub trait UnitDiv<Rhs> {
     type Output;
 }
 
+/// A unit that carries no unit, alone or in each part of a pair.
+pub trait IsDimensionless {}
+
+impl IsDimensionless for Dimensionless {}
+
+impl<A, B> IsDimensionless for (A, B)
+where
+    A: IsDimensionless,
+    B: IsDimensionless,
+{
+}
+
+/// A unit whose ratio with itself carries no unit.
+pub trait UnitRatio
+where
+    Self: Sized + UnitDiv<Self>,
+{
+}
+
+impl<U> UnitRatio for U
+where
+    U: UnitDiv<U>,
+    <U as UnitDiv<U>>::Output: IsDimensionless,
+{
+}
+
 /// The units the halves of a tuple take from a unit meant for the pair.
 ///
 /// A tuple is scaled either by a step in one variable, which both halves take,

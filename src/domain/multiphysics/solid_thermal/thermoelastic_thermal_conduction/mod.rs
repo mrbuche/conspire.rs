@@ -1,12 +1,20 @@
-use crate::domain::{
-    Blocks, ElementModelError, Model, NodalCoordinates,
-    block::element::Elements,
-    multiphysics::solid_thermal::{
-        NodalForceSolidThermal, NodalForcesSolidThermal, NodalStiffnessesSolidThermal,
+use crate::{
+    domain::{
+        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, ProvidesTangent, Root,
+        SolverFor,
+        block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        multiphysics::solid_thermal::{
+            NodalForceSolidThermal, NodalForcesSolidThermal, NodalStatesSolidThermal,
+            NodalStiffnessesSolidThermal,
+        },
+        thermal::NodalTemperatures,
     },
-    thermal::NodalTemperatures,
+    math::{
+        Quantity, Tensor, TensorTuple,
+        optimize::{EqualityConstraint, NewtonRaphson, OptimizationError, RootFinding},
+    },
+    units::Temperature,
 };
-use crate::math::Tensor;
 
 pub trait ThermoelasticThermalConductionElements
 where
@@ -100,5 +108,73 @@ where
             .nodal_stiffnesses_into(nodal_coordinates, nodal_temperatures, nodal_stiffnesses)?;
         self.1
             .nodal_stiffnesses_into(nodal_coordinates, nodal_temperatures, nodal_stiffnesses)
+    }
+}
+
+fn split(nodal_states: &NodalStatesSolidThermal) -> (NodalCoordinates<3>, NodalTemperatures) {
+    (
+        nodal_states.iter().map(|state| state.0.clone()).collect(),
+        nodal_states.iter().map(|state| state.1).collect(),
+    )
+}
+
+impl<B> SolverFor<Model<B, 3>, NodalForcesSolidThermal, NodalStiffnessesSolidThermal>
+    for NewtonRaphson
+where
+    B: ThermoelasticThermalConductionElements,
+{
+    type Tangent = NodalStiffnessesSolidThermal;
+    const SPARSE: bool = true;
+}
+
+impl<B> ProvidesTangent<NodalStatesSolidThermal, NodalStiffnessesSolidThermal> for Model<B, 3>
+where
+    B: ThermoelasticThermalConductionElements,
+{
+    fn provide_tangent(
+        &self,
+        nodal_states: &NodalStatesSolidThermal,
+    ) -> Result<NodalStiffnessesSolidThermal, ElementModelError> {
+        let (nodal_coordinates, nodal_temperatures) = split(nodal_states);
+        self.nodal_stiffnesses(&nodal_coordinates, &nodal_temperatures)
+    }
+}
+
+impl<B> Root<NodalForcesSolidThermal, NodalStiffnessesSolidThermal, NodalStatesSolidThermal>
+    for Model<B, 3>
+where
+    B: ThermoelasticThermalConductionElements,
+{
+    fn root<S>(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: S,
+    ) -> Result<NodalStatesSolidThermal, OptimizationError>
+    where
+        S: SolverFor<Self, NodalForcesSolidThermal, NodalStiffnessesSolidThermal>
+            + RootFinding<NodalForcesSolidThermal, S::Tangent, NodalStatesSolidThermal>,
+        Self: ProvidesTangent<NodalStatesSolidThermal, S::Tangent>,
+    {
+        let sparse = S::SPARSE.then(|| {
+            let mut neighbors = vec![Vec::new(); self.coordinates().len()];
+            self.node_neighbors(&mut neighbors);
+            finalize_node_neighbors(&mut neighbors);
+            solver_from_neighbors(&neighbors, &equality_constraint, 4, false)
+        });
+        solver.root(
+            |nodal_states: &NodalStatesSolidThermal| {
+                let (nodal_coordinates, nodal_temperatures) = split(nodal_states);
+                Ok(self.nodal_forces(&nodal_coordinates, &nodal_temperatures)?)
+            },
+            |nodal_states: &NodalStatesSolidThermal| Ok(self.provide_tangent(nodal_states)?),
+            NodalCoordinates::from(self.coordinates().clone())
+                .into_iter()
+                .map(|nodal_coordinate| {
+                    TensorTuple(nodal_coordinate, Quantity::<Temperature>::new(0.0))
+                })
+                .collect(),
+            equality_constraint,
+            sparse,
+        )
     }
 }

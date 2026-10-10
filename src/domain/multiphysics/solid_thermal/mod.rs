@@ -1,12 +1,15 @@
 pub(crate) mod thermoelastic_thermal_conduction;
 
+use std::ops::Div;
+
 use crate::{
     math::{
         Current, Quantity, TensorBlock2x2, TensorRank1, TensorRank2, TensorSparseVec2D,
         TensorTuple, TensorTupleVec,
     },
     units::{
-        Force, ForcePerLength, ForcePerTemperature, Power, PowerPerLength, PowerPerTemperature,
+        Force, ForcePerLength, ForcePerTemperature, Length, Power, PowerPerLength,
+        PowerPerTemperature, Temperature,
     },
 };
 
@@ -19,3 +22,14 @@ pub type NodalStiffnessSolidThermal = TensorBlock2x2<
     Quantity<PowerPerTemperature>,
 >;
 pub type NodalStiffnessesSolidThermal = TensorSparseVec2D<NodalStiffnessSolidThermal>;
+pub type NodalStatesSolidThermal =
+    TensorTupleVec<TensorRank1<3, Current, Length>, Quantity<Temperature>>;
+
+impl Div<NodalStiffnessesSolidThermal> for &NodalForcesSolidThermal {
+    type Output = NodalStatesSolidThermal;
+    fn div(self, _nodal_stiffnesses: NodalStiffnessesSolidThermal) -> Self::Output {
+        unimplemented!(
+            "A mesh-scale step wants the sparse solver the caller supplies, which a division has nowhere to hold."
+        )
+    }
+}
