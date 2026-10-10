@@ -1,4 +1,5 @@
 use super::*;
+use crate::constitutive::multiphysics::solid_thermal::test::COUPLING_PARAMETER;
 use crate::constitutive::solid::thermoelastic::{
     AlmansiHamel,
     test::{BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION, REFERENCE_TEMPERATURE, SHEAR_MODULUS},
@@ -15,6 +16,7 @@ test_thermoelastic_thermal_conduction_constitutive_model!(
         Fourier {
             thermal_conductivity: THERMAL_CONDUCTIVITY
         },
+        COUPLING_PARAMETER,
     )),
     AlmansiHamel {
         bulk_modulus: BULK_MODULUS,
@@ -37,6 +39,13 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
                 get_deformation_gradient, get_temperature, get_temperature_gradient,
             },
         };
+        #[test]
+        fn coupling_parameter() {
+            assert_eq!(
+                $thermoelastic_thermal_conduction_constitutive_model.coupling_parameter(),
+                COUPLING_PARAMETER
+            )
+        }
         #[test]
         fn bulk_modulus() {
             assert_eq!(

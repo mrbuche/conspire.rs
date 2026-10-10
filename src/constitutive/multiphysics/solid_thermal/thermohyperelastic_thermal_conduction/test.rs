@@ -1,4 +1,5 @@
 use super::*;
+use crate::constitutive::multiphysics::solid_thermal::test::COUPLING_PARAMETER;
 use crate::constitutive::solid::thermohyperelastic::{
     SaintVenantKirchhoff,
     test::{BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION, REFERENCE_TEMPERATURE, SHEAR_MODULUS},
@@ -14,7 +15,8 @@ test_thermohyperelastic_thermal_conduction_constitutive_model!(
         },
         Fourier {
             thermal_conductivity: THERMAL_CONDUCTIVITY
-        }
+        },
+        COUPLING_PARAMETER
     )),
     SaintVenantKirchhoff {
         bulk_modulus: BULK_MODULUS,

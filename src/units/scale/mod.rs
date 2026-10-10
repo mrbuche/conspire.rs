@@ -22,7 +22,7 @@ use super::{
     Acceleration, Action, Amount, Area, Charge, Density, Dimensionless, Energy, Entropy, Force,
     ForcePerLength, Length, Mass, MolarEnergy, MolarEntropy, PowerPerLengthTemperature, Rate,
     ReciprocalAmount, ReciprocalTemperature, SpecificEnergy, SpecificEntropy, Stress,
-    StressPerLength, Temperature, Time, Velocity, Viscosity, Volume,
+    StressPerLength, Temperature, Time, TimePerTemperature, Velocity, Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -211,6 +211,9 @@ scales!(
     ReciprocalTemperature {
         per_kelvin / in_per_kelvin = 1.0, "reciprocal kelvin",
         per_celsius / in_per_celsius = 1.0, "reciprocal degrees celsius",
+    }
+    TimePerTemperature {
+        seconds_per_kelvin / in_seconds_per_kelvin = 1.0, "seconds per kelvin",
     }
     StressPerLength {
         pascals_per_meter / in_pascals_per_meter = 1.0, "pascals per metre",
