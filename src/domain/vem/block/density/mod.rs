@@ -81,8 +81,7 @@ where
             Scalar,
         ),
     ) -> Self {
-        let block =
-            Block::<C, F>::from((constitutive_model, connectivity, coordinates, stabilization));
+        let block = Block::from((constitutive_model, connectivity, coordinates, stabilization));
         let density = density_field.resolve(|field| {
             block
                 .elements_nodes()
@@ -95,7 +94,7 @@ where
                             / (nodes.len() as Scalar)),
                     )
                 })
-                .collect::<ElementDensities>()
+                .collect()
         });
         block.with_density(density)
     }

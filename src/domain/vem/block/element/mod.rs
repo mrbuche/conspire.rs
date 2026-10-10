@@ -82,10 +82,7 @@ impl VirtualElement for Element {
     fn element_center<U>(
         nodal_quantities: &TensorRank1Vec<3, Current, U>,
     ) -> TensorRank1<3, Current, U> {
-        nodal_quantities
-            .iter()
-            .cloned()
-            .sum::<TensorRank1<3, Current, U>>()
+        nodal_quantities.iter().sum::<TensorRank1<3, Current, U>>()
             / nodal_quantities.len() as Scalar
     }
     fn faces_centers<U>(
@@ -217,10 +214,7 @@ impl
             .zip(reference_nodal_coordinates.iter())
             .flat_map(|(face_nodes, face_coordinates)| {
                 let num_nodes_face = face_coordinates.len();
-                let face_center = face_coordinates
-                    .iter()
-                    .cloned()
-                    .sum::<ReferenceCoordinate>()
+                let face_center = face_coordinates.iter().sum::<ReferenceCoordinate>()
                     / (num_nodes_face as Scalar);
                 let mut face_area_vector = TensorRank1::<3, Reference, Area>::zero();
                 let face_tetrahedra = (0..num_nodes_face)

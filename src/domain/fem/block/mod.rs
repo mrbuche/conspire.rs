@@ -10,6 +10,7 @@ pub mod thermal;
 mod time_scale;
 
 use crate::{
+    domain::block::{add_node_neighbors, trimmed_type_name},
     fem::{
         Elements, NodalReferenceCoordinates,
         block::element::{
@@ -77,7 +78,7 @@ where
         write!(
             f,
             "Block {{ constitutive model: {}, {} elements }}",
-            crate::domain::block::trimmed_type_name::<C>(),
+            trimmed_type_name::<C>(),
             self.elements().len()
         )
     }
@@ -89,7 +90,7 @@ where
     F: FiniteElement<G, M, N, P>,
 {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        crate::domain::block::add_node_neighbors(
+        add_node_neighbors(
             self.connectivity().iter().map(|nodes| nodes.as_slice()),
             neighbors,
         )
@@ -137,11 +138,12 @@ where
             &NodalReferenceCoordinates<3>,
         ),
     ) -> Self {
-        Self::from((
+        (
             constitutive_model,
             PrimitiveConnectivity::from(connectivity),
             coordinates,
-        ))
+        )
+            .into()
     }
 }
 
@@ -186,11 +188,12 @@ where
             &NodalReferenceCoordinates<2>,
         ),
     ) -> Self {
-        Self::from((
+        (
             constitutive_model,
             PrimitiveConnectivity::from(connectivity),
             coordinates,
-        ))
+        )
+            .into()
     }
 }
 
