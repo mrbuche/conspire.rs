@@ -2,7 +2,7 @@ pub(crate) mod solid;
 #[cfg(test)]
 pub(crate) mod test;
 
-use crate::math::{Style, StyledError, assert::AssertionError};
+use crate::math::{Style, StyledError, assert::AssertionError, defeat_message};
 use std::{
     fmt::{self, Debug, Display, Formatter},
     marker::PhantomData,
@@ -58,7 +58,7 @@ impl<K: ElementKind> Debug for ElementError<K> {
             "\n{}\n{}{}{}\n",
             self.message(&style),
             style.footer,
-            crate::math::defeat_message(),
+            defeat_message(),
             style.reset
         )
     }

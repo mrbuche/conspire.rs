@@ -4,10 +4,11 @@ mod mass;
 pub mod solid;
 #[cfg(test)]
 mod test;
+pub mod thermal;
 mod time_scale;
 
 use crate::{
-    domain::block::element::Elements,
+    domain::block::{add_node_neighbors, element::Elements, trimmed_type_name},
     geometry::mesh::PolytopalConnectivity,
     math::{Scalar, TensorRank1Vec},
     vem::{NodalReferenceCoordinates, block::element::VirtualElement},
@@ -56,7 +57,7 @@ impl<C, F, R> Debug for Block<C, F, R> {
         write!(
             f,
             "Block {{ constitutive model: {}, elements: [Virtual; {}] }}",
-            crate::domain::block::trimmed_type_name::<C>(),
+            trimmed_type_name::<C>(),
             self.elements().len()
         )
     }
@@ -64,7 +65,7 @@ impl<C, F, R> Debug for Block<C, F, R> {
 
 impl<C, F, R> Elements for Block<C, F, R> {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        crate::domain::block::add_node_neighbors(
+        add_node_neighbors(
             self.elements_nodes().iter().map(|nodes| nodes.as_slice()),
             neighbors,
         )
@@ -150,11 +151,12 @@ where
             Scalar,
         ),
     ) -> Self {
-        Self::from((
+        (
             constitutive_model,
             PolytopalConnectivity::from((elements_faces, faces_nodes)),
             coordinates,
             stabilization,
-        ))
+        )
+            .into()
     }
 }

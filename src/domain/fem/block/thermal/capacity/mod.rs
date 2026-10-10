@@ -1,5 +1,6 @@
 use crate::{
     fem::{
+        NodalReferenceCoordinates,
         block::{
             Block,
             element::thermal::capacity::{
@@ -73,13 +74,14 @@ where
 }
 
 impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize>
-    LumpedHeatCapacityElements for Block<C, F, G, M, N, P, R>
+    LumpedHeatCapacityElements<M> for Block<C, F, G, M, N, P, R>
 where
     F: LumpedHeatCapacityFiniteElement<G, M, N, P>,
     R: HeatCapacities<G>,
 {
     fn nodal_lumped_heat_capacities_into(
         &self,
+        _reference_coordinates: &NodalReferenceCoordinates<M>,
         nodal_lumped_heat_capacities: &mut NodalLumpedHeatCapacities,
     ) {
         self.elements()

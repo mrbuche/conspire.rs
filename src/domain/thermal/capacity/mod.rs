@@ -1,7 +1,7 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, Model, block::element::Elements, factor::FreeFactored,
-        thermal::NodalForcesThermal,
+        Blocks, ElementModel, Model, NodalReferenceCoordinates, block::element::Elements,
+        factor::FreeFactored, thermal::NodalForcesThermal,
     },
     math::{Quantity, QuantitySparseVec2D, QuantityVector, Tensor, sparse::SparseError},
     units::{HeatCapacity, TemperatureRate},
@@ -17,12 +17,13 @@ where
     fn nodal_heat_capacities_into(&self, nodal_heat_capacities: &mut NodalHeatCapacities);
 }
 
-pub trait LumpedHeatCapacityElements
+pub trait LumpedHeatCapacityElements<const D: usize>
 where
     Self: Elements,
 {
     fn nodal_lumped_heat_capacities_into(
         &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
         nodal_lumped_heat_capacities: &mut NodalLumpedHeatCapacities,
     );
 }
@@ -38,19 +39,20 @@ where
     }
 }
 
-impl<B1, B2> LumpedHeatCapacityElements for Blocks<B1, B2>
+impl<B1, B2, const D: usize> LumpedHeatCapacityElements<D> for Blocks<B1, B2>
 where
-    B1: LumpedHeatCapacityElements,
-    B2: LumpedHeatCapacityElements,
+    B1: LumpedHeatCapacityElements<D>,
+    B2: LumpedHeatCapacityElements<D>,
 {
     fn nodal_lumped_heat_capacities_into(
         &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
         nodal_lumped_heat_capacities: &mut NodalLumpedHeatCapacities,
     ) {
         self.0
-            .nodal_lumped_heat_capacities_into(nodal_lumped_heat_capacities);
+            .nodal_lumped_heat_capacities_into(reference_coordinates, nodal_lumped_heat_capacities);
         self.1
-            .nodal_lumped_heat_capacities_into(nodal_lumped_heat_capacities)
+            .nodal_lumped_heat_capacities_into(reference_coordinates, nodal_lumped_heat_capacities)
     }
 }
 
@@ -68,13 +70,15 @@ where
 
 impl<B, const D: usize> Model<B, D>
 where
-    B: LumpedHeatCapacityElements,
+    B: LumpedHeatCapacityElements<D>,
 {
     pub fn nodal_lumped_heat_capacities(&self) -> NodalLumpedHeatCapacities {
         let mut nodal_lumped_heat_capacities =
             NodalLumpedHeatCapacities::zero(self.coordinates().len());
-        self.blocks
-            .nodal_lumped_heat_capacities_into(&mut nodal_lumped_heat_capacities);
+        self.blocks.nodal_lumped_heat_capacities_into(
+            self.coordinates(),
+            &mut nodal_lumped_heat_capacities,
+        );
         nodal_lumped_heat_capacities
     }
 }

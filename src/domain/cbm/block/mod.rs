@@ -45,12 +45,13 @@ impl<C>
             &NodalReferenceCoordinates<3>,
         ),
     ) -> Self {
-        Self::from((
+        (
             constitutive_model,
             connectivity,
             reference_coordinates,
             Weighting::default(),
-        ))
+        )
+            .into()
     }
 }
 

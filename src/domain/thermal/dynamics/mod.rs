@@ -94,10 +94,10 @@ pub trait ThermalConductionDynamics {
         equality_constraint: EqualityConstraint,
     ) -> Result<Solution, IntegrationError>
     where
-        Self: ThermalTimeScaleElements;
+        Self: ThermalTimeScaleElements<3>;
 }
 
-impl<B, const D: usize> ThermalConductionDynamics for Model<B, D>
+impl<B> ThermalConductionDynamics for Model<B, 3>
 where
     B: ThermalConductionElements,
 {
@@ -149,7 +149,7 @@ where
         equality_constraint: EqualityConstraint,
     ) -> Result<Solution, IntegrationError>
     where
-        Self: ThermalTimeScaleElements,
+        Self: ThermalTimeScaleElements<3>,
     {
         if interval == 0 {
             return Err(IntegrationError::Intermediate(
@@ -168,7 +168,7 @@ where
             |_, temperatures: &NodalTemperatures| {
                 if evaluations % interval == 0 {
                     time_scale = self
-                        .fastest_diffusive_time_scale(temperatures)
+                        .fastest_diffusive_time_scale(&self.coordinates, temperatures)
                         .map_err(|error| error.to_string())?;
                 }
                 evaluations += 1;

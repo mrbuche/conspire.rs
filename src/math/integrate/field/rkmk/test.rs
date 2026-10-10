@@ -1,4 +1,4 @@
-use super::rkmk_dae_step;
+use super::{rkmk_dae_step, rkmk_step};
 use crate::math::{
     Current, Intermediate, Quantity, Reference, Tensor, TensorArray, TensorRank2, TensorVector,
     integrate::{
@@ -176,4 +176,60 @@ fn rkmk_on_a_field_whose_increment_is_not_its_point() {
     let last = points.iter().last().unwrap();
     assert!((last.determinant() - 1.0).abs() < 1e-10);
     assert!((last - &Fp::identity()).norm().value() > 1e-2);
+}
+
+#[test]
+fn rkmk_step_makes_one_rate_evaluation_per_stage_and_reuses_its_scratch() {
+    use std::cell::Cell;
+    let a = FpRate::from(constant_exponent());
+    let evaluations = Cell::new(0_usize);
+    let mut rate = |t: Quantity<Time>, _: &Fp| {
+        evaluations.set(evaluations.get() + 1);
+        Ok(a.clone() * (1.0 / (1.0 + t.value())))
+    };
+    let dt = Quantity::<Time>::new(0.1);
+    let mut scratch = Vec::new();
+    let mut point = Fp::identity();
+    let mut step = |point: &Fp, scratch: &mut Vec<_>, index: usize| {
+        rkmk_step::<Unimodular<Current>, BogackiShampine, Time>(
+            &mut rate,
+            point,
+            dt * index as f64,
+            dt,
+            scratch,
+        )
+        .unwrap()
+    };
+    point = step(&point, &mut scratch, 0);
+    assert_eq!(evaluations.get(), 4);
+    assert_eq!(scratch.len(), 4);
+    let (capacity, address) = (scratch.capacity(), scratch.as_ptr());
+    for index in 1..9 {
+        point = step(&point, &mut scratch, index);
+    }
+    assert_eq!(evaluations.get(), 4 * 9);
+    assert_eq!((scratch.capacity(), scratch.as_ptr()), (capacity, address));
+}
+
+#[test]
+fn rkmk_step_is_one_step_of_the_integrator() {
+    let a = FpRate::from(constant_exponent());
+    let dt = Quantity::<Time>::new(0.3);
+    let rate = |t: Quantity<Time>, _: &Fp| Ok(a.clone() * (1.0 / (1.0 + t.value())));
+    let (_, points): (Times, TensorVector<Fp>) =
+        integrate_rkmk::<Unimodular<Current>, BogackiShampine, _, _>(
+            rate,
+            &[Quantity::new(0.0), dt],
+            Fp::identity(),
+        )
+        .unwrap();
+    let stepped = rkmk_step::<Unimodular<Current>, BogackiShampine, Time>(
+        &mut { rate },
+        &Fp::identity(),
+        Quantity::new(0.0),
+        dt,
+        &mut Vec::new(),
+    )
+    .unwrap();
+    assert!((points.iter().last().unwrap() - &stepped).norm().value() < 1e-14);
 }

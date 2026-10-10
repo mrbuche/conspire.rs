@@ -1,6 +1,6 @@
 use crate::{
     constitutive::thermal::conduction::Fourier,
-    domain::time_scale::largest_eigenvalue,
+    domain::{ElementModel, time_scale::largest_eigenvalue},
     fem::{
         Model, NodalReferenceCoordinates,
         block::{
@@ -96,7 +96,7 @@ mod time_scale {
                 &capacities,
             );
         let elements = model
-            .fastest_diffusive_time_scale(&initial)
+            .fastest_diffusive_time_scale(model.coordinates(), &initial)
             .unwrap()
             .value();
         assert!(elements <= global * (1.0 + 1e-6), "{elements} > {global}");
@@ -109,7 +109,7 @@ mod integrate_temperatures {
     const SAFETY: f64 = 0.5;
     fn step(model: &Model<B, 3>) -> f64 {
         0.4 * model
-            .fastest_diffusive_time_scale(&temperatures([300.0; NODES]))
+            .fastest_diffusive_time_scale(model.coordinates(), &temperatures([300.0; NODES]))
             .unwrap()
             .value()
     }
@@ -223,7 +223,7 @@ mod integrate_temperatures {
         let model = model();
         let dt = 3.0
             * model
-                .fastest_diffusive_time_scale(&temperatures([300.0; NODES]))
+                .fastest_diffusive_time_scale(model.coordinates(), &temperatures([300.0; NODES]))
                 .unwrap()
                 .value();
         let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);

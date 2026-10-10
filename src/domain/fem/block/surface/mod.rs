@@ -30,13 +30,14 @@ where
         let elements = connectivity
             .iter()
             .map(|nodes| {
-                <F>::from((
+                (
                     nodes
                         .iter()
                         .map(|&node| coordinates[node].clone())
                         .collect(),
                     thickness,
-                ))
+                )
+                    .into()
             })
             .collect();
         let connectivity = connectivity.into();

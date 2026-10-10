@@ -108,7 +108,7 @@ where
                         })
                         .collect()
                 })
-                .collect::<ElementDensities<G>>()
+                .collect()
         });
         Block::from((constitutive_model, connectivity, coordinates)).with_density(density)
     }

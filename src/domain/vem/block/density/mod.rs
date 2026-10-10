@@ -81,21 +81,20 @@ where
             Scalar,
         ),
     ) -> Self {
-        let block =
-            Block::<C, F>::from((constitutive_model, connectivity, coordinates, stabilization));
+        let block = Block::from((constitutive_model, connectivity, coordinates, stabilization));
         let density = density_field.resolve(|field| {
             block
                 .elements_nodes()
                 .iter()
                 .map(|nodes| {
                     field.density(
-                        &(Block::<C, F>::element_coordinates(coordinates, nodes)
+                        &(Self::element_coordinates(coordinates, nodes)
                             .iter()
                             .sum::<ReferenceCoordinate>()
                             / (nodes.len() as Scalar)),
                     )
                 })
-                .collect::<ElementDensities>()
+                .collect()
         });
         block.with_density(density)
     }

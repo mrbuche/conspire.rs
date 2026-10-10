@@ -67,9 +67,9 @@ where
             reference_coordinates
                 .iter()
                 .map(|coordinate| field.density(coordinate))
-                .collect::<NodalDensities>()
+                .collect()
         });
-        Block::<C>::from((
+        Block::from((
             constitutive_model,
             connectivity,
             reference_coordinates,
