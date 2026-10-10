@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+pub(crate) mod block;
 pub(crate) mod list;
 pub(crate) mod vec;
 

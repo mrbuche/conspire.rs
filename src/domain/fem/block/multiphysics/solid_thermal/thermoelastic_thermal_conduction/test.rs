@@ -6,6 +6,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                 get_reference_coordinates_block, $element,
             };
             use crate::{
+                EPSILON,
                 constitutive::{
                     multiphysics::Canonical,
                     solid::{
@@ -27,10 +28,10 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                     thermal::conduction::ThermalConductionElements,
                 },
                 math::{
-                    Quantity, Tensor,
-                    assert::{Assert, AssertionError},
+                    Hessian, Quantity, Tensor,
+                    assert::{Assert, AssertionError, perturbation},
                 },
-                units::{Power, Temperature},
+                units::{Length, Power, Temperature},
             };
             fn coupled_block() -> Block<
                 Canonical<AlmansiHamel, Fourier>,
@@ -143,6 +144,65 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                 )?
                 .iter()
                     .try_for_each(|force| Assert::default().eq_within_fd_tol(&Quantity::<Power>::default(), &force.1))
+            }
+            #[test]
+            fn nodal_stiffnesses_match_finite_differences() -> Result<(), AssertionError> {
+                let block = coupled_block();
+                let coordinates = get_coordinates_block();
+                let temperatures = nonuniform_temperatures();
+                let stiffnesses = ThermoelasticThermalConductionElements::nodal_stiffnesses(
+                    &block,
+                    &coordinates,
+                    &temperatures,
+                )?;
+                (0..D).try_for_each(|node_b| {
+                    (0..4).try_for_each(|dof| {
+                        let (forward, backward) = if dof < 3 {
+                            let mut stepped = coordinates.clone();
+                            stepped[node_b][dof] += perturbation::<Length>(0.5 * EPSILON);
+                            let forward = ThermoelasticThermalConductionElements::nodal_forces(
+                                &block,
+                                &stepped,
+                                &temperatures,
+                            )?;
+                            stepped[node_b][dof] -= perturbation::<Length>(EPSILON);
+                            let backward = ThermoelasticThermalConductionElements::nodal_forces(
+                                &block,
+                                &stepped,
+                                &temperatures,
+                            )?;
+                            (forward, backward)
+                        } else {
+                            let mut stepped = temperatures.clone();
+                            stepped[node_b] += perturbation::<Temperature>(0.5 * EPSILON);
+                            let forward = ThermoelasticThermalConductionElements::nodal_forces(
+                                &block,
+                                &coordinates,
+                                &stepped,
+                            )?;
+                            stepped[node_b] -= perturbation::<Temperature>(EPSILON);
+                            let backward = ThermoelasticThermalConductionElements::nodal_forces(
+                                &block,
+                                &coordinates,
+                                &stepped,
+                            )?;
+                            (forward, backward)
+                        };
+                        (0..D).try_for_each(|node_a| {
+                            (0..4).try_for_each(|row| {
+                                let difference = if row < 3 {
+                                    (forward[node_a].0[row] - backward[node_a].0[row]).value()
+                                } else {
+                                    (forward[node_a].1 - backward[node_a].1).value()
+                                };
+                                Assert::default().eq_within_fd_tol(
+                                    &(difference / EPSILON),
+                                    &stiffnesses.entry(4 * node_a + row, 4 * node_b + dof),
+                                )
+                            })
+                        })
+                    })
+                })
             }
         }
     };

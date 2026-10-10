@@ -1,7 +1,9 @@
 use crate::domain::{
     Blocks, ElementModelError, Model, NodalCoordinates,
     block::element::Elements,
-    multiphysics::solid_thermal::{NodalForceSolidThermal, NodalForcesSolidThermal},
+    multiphysics::solid_thermal::{
+        NodalForceSolidThermal, NodalForcesSolidThermal, NodalStiffnessesSolidThermal,
+    },
     thermal::NodalTemperatures,
 };
 use crate::math::Tensor;
@@ -27,6 +29,25 @@ where
         self.nodal_forces_into(nodal_coordinates, nodal_temperatures, &mut nodal_forces)?;
         Ok(nodal_forces)
     }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_temperatures: &NodalTemperatures,
+        nodal_stiffnesses: &mut NodalStiffnessesSolidThermal,
+    ) -> Result<(), ElementModelError>;
+    fn nodal_stiffnesses(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_temperatures: &NodalTemperatures,
+    ) -> Result<NodalStiffnessesSolidThermal, ElementModelError> {
+        let mut nodal_stiffnesses = NodalStiffnessesSolidThermal::zero(nodal_coordinates.len());
+        self.nodal_stiffnesses_into(
+            nodal_coordinates,
+            nodal_temperatures,
+            &mut nodal_stiffnesses,
+        )?;
+        Ok(nodal_stiffnesses)
+    }
 }
 
 impl<B> ThermoelasticThermalConductionElements for Model<B, 3>
@@ -41,6 +62,15 @@ where
     ) -> Result<(), ElementModelError> {
         self.blocks
             .nodal_forces_into(nodal_coordinates, nodal_temperatures, nodal_forces)
+    }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_temperatures: &NodalTemperatures,
+        nodal_stiffnesses: &mut NodalStiffnessesSolidThermal,
+    ) -> Result<(), ElementModelError> {
+        self.blocks
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_temperatures, nodal_stiffnesses)
     }
 }
 
@@ -59,5 +89,16 @@ where
             .nodal_forces_into(nodal_coordinates, nodal_temperatures, nodal_forces)?;
         self.1
             .nodal_forces_into(nodal_coordinates, nodal_temperatures, nodal_forces)
+    }
+    fn nodal_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_temperatures: &NodalTemperatures,
+        nodal_stiffnesses: &mut NodalStiffnessesSolidThermal,
+    ) -> Result<(), ElementModelError> {
+        self.0
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_temperatures, nodal_stiffnesses)?;
+        self.1
+            .nodal_stiffnesses_into(nodal_coordinates, nodal_temperatures, nodal_stiffnesses)
     }
 }

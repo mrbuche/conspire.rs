@@ -196,6 +196,8 @@ units!(
     PowerPerAreaTemperature,
     /// A power per unit volume per unit temperature, as an entropy production rate per unit volume is.
     PowerPerVolumeTemperature,
+    /// A power per unit length, as a thermal force per unit displacement is.
+    PowerPerLength,
     /// A power per unit temperature, as a thermal stiffness is.
     PowerPerTemperature,
     /// A power times a temperature, as the potential a heat flux derives from is.
@@ -358,6 +360,9 @@ unit_products!(
     PowerDensity * Volume = Power,
     Energy * Rate = Power,
     Power * Time = Energy,
+    Dimensionless * PowerPerLength = PowerPerLength,
+    Power * ReciprocalLength = PowerPerLength,
+    PowerPerLength * Length = Power,
     Dimensionless * TemperaturePerLength = TemperaturePerLength,
     Dimensionless * TemperatureSquaredPerArea = TemperatureSquaredPerArea,
     TemperaturePerLength * TemperaturePerLength = TemperatureSquaredPerArea,

@@ -70,8 +70,10 @@ pub use tensor::{
         ContractThirdWithFirst, IDENTITY_1010, TensorRank4, list::TensorRank4List,
         vec::TensorRank4Vec,
     },
+    sparse_vec::{TensorSparseVec, TensorSparseVec2D},
     tuple::{
         TensorTuple,
+        block::TensorBlock2x2,
         list::{TensorTupleList, vec::TensorTupleListVec, vec_2d::TensorTupleListVec2D},
         vec::TensorTupleVec,
     },

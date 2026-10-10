@@ -10,6 +10,7 @@ pub(super) mod rank_1;
 pub(super) mod rank_2;
 pub(super) mod rank_3;
 pub(super) mod rank_4;
+pub(super) mod sparse_vec;
 pub(super) mod tuple;
 pub(super) mod vec;
 
