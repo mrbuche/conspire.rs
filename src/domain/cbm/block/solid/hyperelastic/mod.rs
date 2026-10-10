@@ -11,7 +11,7 @@ use crate::{
 
 pub use crate::domain::solid::hyperelastic::HyperelasticElements;
 
-impl<C> HyperelasticElements<3> for Block<C>
+impl<C, R> HyperelasticElements<3> for Block<C, R>
 where
     C: Hyperelastic,
 {

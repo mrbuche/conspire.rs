@@ -13,7 +13,7 @@ pub use crate::domain::{
     solid::elastic_plastic::{ElasticPlasticElements, ElasticPlasticRoot},
 };
 
-impl<C> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C>
+impl<C, R> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C, R>
 where
     C: ElasticPlastic,
 {

@@ -15,7 +15,7 @@ pub use crate::domain::solid::elastic_viscoplastic::{
     ElasticViscoplasticBCs, ElasticViscoplasticElements,
 };
 
-impl<C, Y> ElasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3> for Block<C>
+impl<C, R, Y> ElasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3> for Block<C, R>
 where
     C: ElasticViscoplastic<Y>,
     Y: Differentiable + Tensor,

@@ -12,7 +12,7 @@ use crate::{
 
 pub use crate::domain::solid::hyperelastic_viscoplastic::HyperelasticViscoplasticElements;
 
-impl<C, Y> HyperelasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3> for Block<C>
+impl<C, R, Y> HyperelasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3> for Block<C, R>
 where
     C: HyperelasticViscoplastic<Y>,
     Y: Differentiable + Tensor,

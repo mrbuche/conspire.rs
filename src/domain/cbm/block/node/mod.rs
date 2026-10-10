@@ -1,7 +1,9 @@
+pub mod mass;
 pub mod solid;
 #[cfg(test)]
 mod test;
 mod tetrahedron;
+pub mod thermal;
 
 use crate::{
     domain::NodalReferenceCoordinates,

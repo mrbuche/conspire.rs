@@ -9,7 +9,7 @@ use crate::{
 
 pub use crate::domain::solid::viscoelastic::ViscoelasticElements;
 
-impl<C> ViscoelasticElements<3> for Block<C>
+impl<C, R> ViscoelasticElements<3> for Block<C, R>
 where
     C: Viscoelastic,
 {
