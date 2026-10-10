@@ -39,36 +39,6 @@ where
     ) -> Result<ElementNodalStiffnessesThermal, VirtualElementError>;
 }
 
-/// The nodes that each temperature of the stabilization averages, with their weights.
-///
-/// The temperatures are those of the nodes, then of the face centers, then of the element
-/// center, which the tetrahedra of the stabilization are built on.
-fn averages(element: &Element, num_nodes: usize) -> Vec<Vec<(usize, Scalar)>> {
-    let center = (0..num_nodes)
-        .map(|node| (node, 1.0 / num_nodes as Scalar))
-        .collect();
-    (0..num_nodes)
-        .map(|node| vec![(node, 1.0)])
-        .chain(element.faces_nodes().iter().map(|face_nodes| {
-            face_nodes
-                .iter()
-                .map(|&node| (node, 1.0 / face_nodes.len() as Scalar))
-                .collect()
-        }))
-        .chain([center])
-        .collect()
-}
-
-/// The positions in the [`averages`] of the temperatures of a tetrahedron.
-fn reduced(element: &Element, num_nodes: usize, [face, node_b, node_a]: [usize; 3]) -> [usize; 4] {
-    [
-        num_nodes + face,
-        node_b,
-        node_a,
-        num_nodes + element.faces_nodes().len(),
-    ]
-}
-
 impl<C> ThermalConductionVirtualElement<C> for Element
 where
     C: ThermalConduction,
@@ -103,8 +73,8 @@ where
         constitutive_model: &C,
         nodal_temperatures: &ElementNodalTemperatures,
     ) -> Result<ElementNodalForcesThermal, VirtualElementError> {
-        let num_nodes = nodal_temperatures.len();
         let stabilization = self.stabilization();
+        let inverse_num_nodes = 1.0 / nodal_temperatures.len() as Scalar;
         let heat_flux = constitutive_model
             .heat_flux(&self.temperature_gradient(nodal_temperatures))
             .map_err(|error| self.upstream(error))?;
@@ -113,33 +83,36 @@ where
             .iter()
             .map(|gradient_vector| -heat_flux.contract_with(gradient_vector) * weight)
             .collect::<ElementNodalForcesThermal>();
-        let averages = averages(self, num_nodes);
-        let mut reduced_forces = vec![Quantity::<Power>::default(); averages.len()];
+        let mut faces_forces = vec![Quantity::<Power>::default(); self.faces_nodes().len()];
+        let mut center_force = Quantity::<Power>::default();
         self.tetrahedra()
             .iter()
             .zip(self.tetrahedra_temperatures(nodal_temperatures))
             .zip(self.tetrahedra_nodes())
-            .try_for_each(|((tetrahedron, temperatures), &nodes)| {
-                let tetrahedron_forces = ThermalConductionFiniteElement::nodal_forces(
+            .try_for_each(|((tetrahedron, temperatures), &[face, node_b, node_a])| {
+                let nodal_forces = ThermalConductionFiniteElement::nodal_forces(
                     tetrahedron,
                     constitutive_model,
                     &temperatures,
                 )?;
-                reduced(self, num_nodes, nodes)
-                    .into_iter()
-                    .zip(tetrahedron_forces)
-                    .for_each(|(index, force)| reduced_forces[index] += force * stabilization);
+                faces_forces[face] += nodal_forces[0];
+                forces[node_b] += nodal_forces[1] * stabilization;
+                forces[node_a] += nodal_forces[2] * stabilization;
+                center_force += nodal_forces[3];
                 Ok::<(), FiniteElementError>(())
             })
             .map_err(|error| self.upstream(error))?;
-        reduced_forces
+        self.faces_nodes()
             .iter()
-            .zip(averages)
-            .for_each(|(&reduced_force, average)| {
-                average
+            .zip(faces_forces.iter())
+            .for_each(|(face_nodes, &face_force)| {
+                let face_force = face_force * (stabilization / face_nodes.len() as Scalar);
+                face_nodes
                     .iter()
-                    .for_each(|&(node, weight)| forces[node] += reduced_force * weight)
+                    .for_each(|&face_node| forces[face_node] += face_force)
             });
+        center_force *= stabilization * inverse_num_nodes;
+        forces.iter_mut().for_each(|force| *force += center_force);
         Ok(forces)
     }
     fn nodal_stiffnesses(
@@ -149,6 +122,7 @@ where
     ) -> Result<ElementNodalStiffnessesThermal, VirtualElementError> {
         let num_nodes = nodal_temperatures.len();
         let stabilization = self.stabilization();
+        let inverse_num_nodes = 1.0 / num_nodes as Scalar;
         let heat_flux_tangent = constitutive_model
             .heat_flux_tangent(&self.temperature_gradient(nodal_temperatures))
             .map_err(|error| self.upstream(error))?;
@@ -166,44 +140,89 @@ where
                     .collect()
             })
             .collect::<ElementNodalStiffnessesThermal>();
-        let averages = averages(self, num_nodes);
-        let size = averages.len();
-        let mut reduced_stiffnesses =
-            vec![vec![Quantity::<PowerPerTemperature>::default(); size]; size];
+        let num_faces = self.faces_nodes().len();
+        let zero = Quantity::<PowerPerTemperature>::default();
+        let mut faces_stiffnesses = vec![zero; num_faces];
+        let mut faces_rows = vec![zero; num_faces];
+        let mut faces_columns = vec![zero; num_faces];
+        let mut rows = vec![zero; num_nodes];
+        let mut columns = vec![zero; num_nodes];
+        let mut center_stiffness = zero;
         self.tetrahedra()
             .iter()
             .zip(self.tetrahedra_temperatures(nodal_temperatures))
             .zip(self.tetrahedra_nodes())
-            .try_for_each(|((tetrahedron, temperatures), &nodes)| {
-                let tetrahedron_stiffnesses = ThermalConductionFiniteElement::nodal_stiffnesses(
+            .try_for_each(|((tetrahedron, temperatures), &[face, node_b, node_a])| {
+                let nodal_stiffnesses = ThermalConductionFiniteElement::nodal_stiffnesses(
                     tetrahedron,
                     constitutive_model,
                     &temperatures,
                 )?;
-                let indices = reduced(self, num_nodes, nodes);
-                indices.iter().enumerate().for_each(|(a, &row)| {
-                    indices.iter().enumerate().for_each(|(b, &column)| {
-                        reduced_stiffnesses[row][column] +=
-                            tetrahedron_stiffnesses[a][b] * stabilization
-                    })
+                let face_nodes = &self.faces_nodes()[face];
+                let weight = stabilization / face_nodes.len() as Scalar;
+                faces_stiffnesses[face] += nodal_stiffnesses[0][0];
+                faces_rows[face] += nodal_stiffnesses[0][3];
+                faces_columns[face] += nodal_stiffnesses[3][0];
+                let face_node_b = nodal_stiffnesses[0][1] * weight;
+                let face_node_a = nodal_stiffnesses[0][2] * weight;
+                let node_b_face = nodal_stiffnesses[1][0] * weight;
+                let node_a_face = nodal_stiffnesses[2][0] * weight;
+                face_nodes.iter().for_each(|&face_node| {
+                    stiffnesses[face_node][node_b] += face_node_b;
+                    stiffnesses[face_node][node_a] += face_node_a;
+                    stiffnesses[node_b][face_node] += node_b_face;
+                    stiffnesses[node_a][face_node] += node_a_face;
                 });
+                stiffnesses[node_b][node_b] += nodal_stiffnesses[1][1] * stabilization;
+                stiffnesses[node_b][node_a] += nodal_stiffnesses[1][2] * stabilization;
+                stiffnesses[node_a][node_b] += nodal_stiffnesses[2][1] * stabilization;
+                stiffnesses[node_a][node_a] += nodal_stiffnesses[2][2] * stabilization;
+                rows[node_b] += nodal_stiffnesses[1][3] * (stabilization * inverse_num_nodes);
+                rows[node_a] += nodal_stiffnesses[2][3] * (stabilization * inverse_num_nodes);
+                columns[node_b] += nodal_stiffnesses[3][1] * (stabilization * inverse_num_nodes);
+                columns[node_a] += nodal_stiffnesses[3][2] * (stabilization * inverse_num_nodes);
+                center_stiffness += nodal_stiffnesses[3][3]
+                    * (stabilization * inverse_num_nodes * inverse_num_nodes);
                 Ok::<(), FiniteElementError>(())
             })
             .map_err(|error| self.upstream(error))?;
-        reduced_stiffnesses
+        self.faces_nodes()
             .iter()
-            .zip(&averages)
-            .for_each(|(reduced_row, average_row)| {
-                reduced_row.iter().zip(&averages).for_each(
-                    |(&reduced_stiffness, average_column)| {
-                        average_row.iter().for_each(|&(node_a, weight_a)| {
-                            average_column.iter().for_each(|&(node_b, weight_b)| {
-                                stiffnesses[node_a][node_b] +=
-                                    reduced_stiffness * (weight_a * weight_b)
-                            })
+            .zip(
+                faces_stiffnesses
+                    .iter()
+                    .zip(faces_rows.iter().zip(faces_columns.iter())),
+            )
+            .for_each(
+                |(face_nodes, (&face_stiffness, (&face_row, &face_column)))| {
+                    let inverse_num_nodes_face = 1.0 / face_nodes.len() as Scalar;
+                    let face_stiffness = face_stiffness
+                        * (stabilization * inverse_num_nodes_face * inverse_num_nodes_face);
+                    let face_row =
+                        face_row * (stabilization * inverse_num_nodes_face * inverse_num_nodes);
+                    let face_column =
+                        face_column * (stabilization * inverse_num_nodes_face * inverse_num_nodes);
+                    face_nodes.iter().for_each(|&face_node_a| {
+                        rows[face_node_a] += face_row;
+                        columns[face_node_a] += face_column;
+                        face_nodes.iter().for_each(|&face_node_b| {
+                            stiffnesses[face_node_a][face_node_b] += face_stiffness
                         })
-                    },
-                )
+                    })
+                },
+            );
+        rows.iter_mut().for_each(|row| *row += center_stiffness);
+        stiffnesses
+            .iter_mut()
+            .zip(rows.iter())
+            .for_each(|(stiffness, &row)| {
+                stiffness
+                    .iter_mut()
+                    .zip(columns.iter())
+                    .for_each(|(entry, &column)| {
+                        *entry += row;
+                        *entry += column
+                    })
             });
         Ok(stiffnesses)
     }
