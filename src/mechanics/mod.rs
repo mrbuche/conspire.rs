@@ -4,8 +4,8 @@ pub mod test;
 
 use crate::units::{
     Dimensionless, Fluidity, ForcePerLength, ForcePerVelocity, Length, PowerPerArea,
-    PowerPerLengthTemperature, Rate, ReciprocalLength, Stress, TemperaturePerLength, Velocity,
-    Viscosity,
+    PowerPerLengthTemperature, Rate, ReciprocalLength, Stress, StressPerTemperature,
+    TemperaturePerLength, Velocity, Viscosity,
 };
 
 use crate::math::{Current, Intermediate, Reference};
@@ -188,6 +188,17 @@ pub type DeformationGradientRatesPlastic = TensorRank2Vec<3, Intermediate, Refer
 
 /// A displacement.
 pub type Displacement = TensorRank1<3, Current, Length>;
+
+/// The derivative of the Cauchy stress with respect to temperature $`\partial\boldsymbol{\sigma}/\partial T`$.
+pub type CauchyThermalTangent = TensorRank2<3, Current, Current, StressPerTemperature>;
+
+/// The derivative of the first Piola-Kirchhoff stress with respect to temperature $`\partial\mathbf{P}/\partial T`$.
+pub type FirstPiolaKirchhoffThermalTangent =
+    TensorRank2<3, Current, Reference, StressPerTemperature>;
+
+/// The derivative of the second Piola-Kirchhoff stress with respect to temperature $`\partial\mathbf{S}/\partial T`$.
+pub type SecondPiolaKirchhoffThermalTangent =
+    TensorRank2<3, Reference, Reference, StressPerTemperature>;
 
 /// The first Piola-Kirchhoff stress $`\mathbf{P}`$.
 pub type FirstPiolaKirchhoffStress = TensorRank2<3, Current, Reference, Stress>;

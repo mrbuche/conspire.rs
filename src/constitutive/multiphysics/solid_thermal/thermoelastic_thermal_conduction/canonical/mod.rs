@@ -10,9 +10,11 @@ use crate::{
     },
     math::Quantity,
     mechanics::{
-        CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, SecondPiolaKirchhoffStress,
-        SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
+        CauchyStress, CauchyTangentStiffness, CauchyThermalTangent, DeformationGradient,
+        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
+        FirstPiolaKirchhoffThermalTangent, HeatFlux, HeatFluxTangent, SecondPiolaKirchhoffStress,
+        SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffThermalTangent,
+        TemperatureGradient,
     },
     units::{
         PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature, TimePerTemperature,
@@ -116,6 +118,30 @@ where
     ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
         self.solid_constitutive_model()
             .second_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
+    }
+    fn cauchy_thermal_tangent(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<CauchyThermalTangent, ConstitutiveError> {
+        self.solid_constitutive_model()
+            .cauchy_thermal_tangent(deformation_gradient, temperature)
+    }
+    fn first_piola_kirchhoff_thermal_tangent(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<FirstPiolaKirchhoffThermalTangent, ConstitutiveError> {
+        self.solid_constitutive_model()
+            .first_piola_kirchhoff_thermal_tangent(deformation_gradient, temperature)
+    }
+    fn second_piola_kirchhoff_thermal_tangent(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<SecondPiolaKirchhoffThermalTangent, ConstitutiveError> {
+        self.solid_constitutive_model()
+            .second_piola_kirchhoff_thermal_tangent(deformation_gradient, temperature)
     }
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
         self.solid_constitutive_model()

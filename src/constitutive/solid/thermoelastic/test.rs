@@ -114,9 +114,44 @@ macro_rules! second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient 
 }
 pub(crate) use second_piola_kirchhoff_tangent_stiffness_from_deformation_gradient;
 
+macro_rules! thermal_tangent_finite_difference {
+    ($constitutive_model: expr, $stress: ident, $tangent: ident) => {
+        #[test]
+        fn $tangent() -> Result<(), $crate::math::assert::AssertionError> {
+            let model = $constitutive_model;
+            let deformation_gradient = $crate::mechanics::test::get_deformation_gradient();
+            let temperature = $crate::mechanics::test::get_temperature();
+            let step = $crate::math::Quantity::new($crate::EPSILON);
+            let finite_difference = (model
+                .$stress(&deformation_gradient, temperature + step * 0.5)?
+                - model.$stress(&deformation_gradient, temperature - step * 0.5)?)
+                / step;
+            $crate::math::assert::Assert::default().eq_within_fd_tol(
+                &finite_difference,
+                &model.$tangent(&deformation_gradient, temperature)?,
+            )
+        }
+    };
+}
+
 macro_rules! test_solid_thermal_constitutive_model {
     ($constitutive_model: expr) => {
         use crate::mechanics::test::get_temperature;
+        crate::constitutive::solid::thermoelastic::test::thermal_tangent_finite_difference!(
+            $constitutive_model,
+            cauchy_stress,
+            cauchy_thermal_tangent
+        );
+        crate::constitutive::solid::thermoelastic::test::thermal_tangent_finite_difference!(
+            $constitutive_model,
+            first_piola_kirchhoff_stress,
+            first_piola_kirchhoff_thermal_tangent
+        );
+        crate::constitutive::solid::thermoelastic::test::thermal_tangent_finite_difference!(
+            $constitutive_model,
+            second_piola_kirchhoff_stress,
+            second_piola_kirchhoff_thermal_tangent
+        );
         #[test]
         fn coefficient_of_thermal_expansion() -> Result<(), AssertionError> {
             let model = $constitutive_model;
@@ -144,6 +179,7 @@ macro_rules! test_solid_thermal_constitutive_model {
     };
 }
 pub(crate) use test_solid_thermal_constitutive_model;
+pub(crate) use thermal_tangent_finite_difference;
 
 macro_rules! test_solid_thermoelastic_constitutive_model {
     ($constitutive_model: expr) => {
