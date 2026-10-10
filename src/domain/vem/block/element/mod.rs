@@ -3,6 +3,7 @@ pub mod mass;
 pub mod solid;
 #[cfg(test)]
 mod test;
+pub mod thermal;
 pub mod time_scale;
 
 use crate::{
