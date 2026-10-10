@@ -30,9 +30,8 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                     Quantity, Tensor,
                     assert::{Assert, AssertionError},
                 },
-                units::{Entropy, Temperature, TimePerTemperature},
+                units::{Power, Temperature},
             };
-            const COUPLING_PARAMETER: f64 = 3.0;
             fn coupled_block() -> Block<
                 Canonical<AlmansiHamel, Fourier>,
                 $element,
@@ -52,7 +51,6 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                         Fourier {
                             thermal_conductivity: THERMAL_CONDUCTIVITY,
                         },
-                        TimePerTemperature::seconds_per_kelvin(COUPLING_PARAMETER),
                     )),
                     get_connectivity(),
                     &get_reference_coordinates_block(),
@@ -67,7 +65,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                 (0..D).map(|_| Temperature::kelvin(temperature)).collect()
             }
             #[test]
-            fn thermal_rows_are_the_conduction_forces_scaled() -> Result<(), AssertionError> {
+            fn thermal_rows_are_the_conduction_forces() -> Result<(), AssertionError> {
                 let temperatures = nonuniform_temperatures();
                 let thermal_block = Block::<Fourier, $element, G, M, N, P>::from((
                     Fourier {
@@ -87,11 +85,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                     .iter()
                     .zip(forces.iter())
                     .try_for_each(|(thermal_force, force)| {
-                        Assert::default().eq_within_fd_tol(
-                            &(TimePerTemperature::seconds_per_kelvin(COUPLING_PARAMETER)
-                                * thermal_force),
-                            &force.1,
-                        )
+                        Assert::default().eq_within_fd_tol(thermal_force, &force.1)
                     })
             }
             #[test]
@@ -148,7 +142,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                     &uniform_temperatures(250.0),
                 )?
                 .iter()
-                    .try_for_each(|force| Assert::default().eq_within_fd_tol(&Quantity::<Entropy>::default(), &force.1))
+                    .try_for_each(|force| Assert::default().eq_within_fd_tol(&Quantity::<Power>::default(), &force.1))
             }
         }
     };

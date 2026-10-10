@@ -44,7 +44,6 @@ where
     ) -> Result<ElementNodalForcesSolidThermal<N>, FiniteElementError> {
         let deformation_gradients = self.deformation_gradients(nodal_coordinates);
         let temperature_gradients = self.temperature_gradients(nodal_temperatures);
-        let coupling_parameter = constitutive_model.coupling_parameter();
         Self::shape_functions_at_integration_points()
             .iter()
             .zip(
@@ -81,8 +80,7 @@ where
                             TensorTuple(
                                 (&first_piola_kirchhoff_stress * gradient_vector)
                                     * integration_weight,
-                                coupling_parameter
-                                    * (-(&heat_flux * gradient_vector) * integration_weight),
+                                -(&heat_flux * gradient_vector) * integration_weight,
                             )
                         })
                         .collect::<ElementNodalForcesSolidThermal<N>>())

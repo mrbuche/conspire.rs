@@ -16,9 +16,7 @@ use crate::{
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffThermalTangent,
         TemperatureGradient,
     },
-    units::{
-        PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature, TimePerTemperature,
-    },
+    units::{PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature},
 };
 
 /// A thermoelastic-thermal conduction constitutive model.
@@ -30,25 +28,19 @@ where
 {
     thermoelastic_constitutive_model: C1,
     thermal_conduction_constitutive_model: C2,
-    coupling_parameter: Quantity<TimePerTemperature>,
 }
 
-impl<C1, C2> From<(C1, C2, Quantity<TimePerTemperature>)> for Canonical<C1, C2>
+impl<C1, C2> From<(C1, C2)> for Canonical<C1, C2>
 where
     C1: Thermoelastic,
     C2: ThermalConduction,
 {
     fn from(
-        (
-            thermoelastic_constitutive_model,
-            thermal_conduction_constitutive_model,
-            coupling_parameter,
-        ): (C1, C2, Quantity<TimePerTemperature>),
+        (thermoelastic_constitutive_model, thermal_conduction_constitutive_model): (C1, C2),
     ) -> Self {
         Self {
             thermoelastic_constitutive_model,
             thermal_conduction_constitutive_model,
-            coupling_parameter,
         }
     }
 }
@@ -206,8 +198,5 @@ where
     }
     fn thermal_constitutive_model(&self) -> &C2 {
         &self.thermal_conduction_constitutive_model
-    }
-    fn coupling_parameter(&self) -> Quantity<TimePerTemperature> {
-        self.coupling_parameter
     }
 }
