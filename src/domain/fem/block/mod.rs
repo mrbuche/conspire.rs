@@ -4,6 +4,7 @@ mod test;
 mod density;
 pub mod element;
 pub mod mass;
+pub mod multiphysics;
 pub mod solid;
 pub mod surface;
 pub mod thermal;

@@ -8,6 +8,7 @@ pub mod block;
 mod dynamics;
 mod from;
 pub mod mass;
+pub mod multiphysics;
 pub mod solid;
 pub mod thermal;
 pub mod time_scale;

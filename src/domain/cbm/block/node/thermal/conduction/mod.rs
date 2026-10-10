@@ -2,7 +2,7 @@ use super::{super::Node, ThermalNode};
 use crate::{
     constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
     domain::thermal::NodalTemperatures,
-    math::{ContractWith, Quantity},
+    math::Quantity,
     units::{Power, PowerPerTemperature, PowerTemperature},
 };
 
@@ -52,7 +52,7 @@ where
         Ok(self
             .gradient_vectors()
             .iter()
-            .map(|gradient_vector| -heat_flux.contract_with(gradient_vector) * self.volume)
+            .map(|gradient_vector| -(&heat_flux * gradient_vector) * self.volume)
             .collect())
     }
     fn nodal_stiffnesses(
@@ -69,7 +69,7 @@ where
                 self.gradient_vectors()
                     .iter()
                     .map(|gradient_vector_b| {
-                        -gradient_vector_a.contract_with(&(&heat_flux_tangent * gradient_vector_b))
+                        -(gradient_vector_a * &(&heat_flux_tangent * gradient_vector_b))
                             * self.volume
                     })
                     .collect()

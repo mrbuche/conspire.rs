@@ -6,7 +6,7 @@ use crate::constitutive::solid::thermoelastic::{
 };
 
 test_thermoelastic_thermal_conduction_constitutive_model!(
-    ThermoelasticThermalConduction::from((
+    Canonical::from((
         AlmansiHamel {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
@@ -153,7 +153,7 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
         // fn size() {
         //     assert_eq!(
         //         std::mem::size_of::<
-        //             ThermoelasticThermalConduction<
+        //             Canonical<
         //                 $thermoelastic_constitutive_model,
         //                 $thermal_conduction_constitutive_model,
         //             >,

@@ -182,6 +182,8 @@ units!(
     PowerDensity,
     /// A temperature per unit length, as a temperature gradient is.
     TemperaturePerLength,
+    /// A squared temperature gradient, being a squared temperature per unit area.
+    TemperatureSquaredPerArea,
     /// A power per unit area, as a heat flux is.
     PowerPerArea,
     /// A power per unit length per unit temperature, as a thermal conductivity is.
@@ -347,6 +349,10 @@ unit_products!(
     Energy * Rate = Power,
     Power * Time = Energy,
     Dimensionless * TemperaturePerLength = TemperaturePerLength,
+    Dimensionless * TemperatureSquaredPerArea = TemperatureSquaredPerArea,
+    TemperaturePerLength * TemperaturePerLength = TemperatureSquaredPerArea,
+    TemperatureSquaredPerArea * PowerPerLengthTemperature = PowerTemperatureDensity,
+    PowerPerLengthTemperature * TemperatureSquaredPerArea = PowerTemperatureDensity,
     Dimensionless * PowerPerArea = PowerPerArea,
     Dimensionless * PowerPerLengthTemperature = PowerPerLengthTemperature,
     Dimensionless * PowerPerAreaTemperature = PowerPerAreaTemperature,

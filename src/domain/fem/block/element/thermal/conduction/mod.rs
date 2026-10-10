@@ -7,7 +7,7 @@ use crate::{
         Element, FiniteElement, FiniteElementError,
         thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
-    math::{ContractWith, Quantity, Tensor, TensorList},
+    math::{Quantity, Tensor, TensorList},
     mechanics::{HeatFluxTangents, HeatFluxes},
     units::{Power, PowerPerTemperature, PowerTemperature},
 };
@@ -88,9 +88,7 @@ where
             .map(|(heat_flux, (gradient_vectors, integration_weight))| {
                 gradient_vectors
                     .iter()
-                    .map(|gradient_vector| {
-                        -heat_flux.contract_with(gradient_vector) * integration_weight
-                    })
+                    .map(|gradient_vector| -(heat_flux * gradient_vector) * integration_weight)
                     .collect()
             })
             .sum())
@@ -121,8 +119,7 @@ where
                             gradient_vectors
                                 .iter()
                                 .map(|gradient_vector_b| {
-                                    -gradient_vector_a
-                                        .contract_with(&(heat_flux_tangent * gradient_vector_b))
+                                    -(gradient_vector_a * &(heat_flux_tangent * gradient_vector_b))
                                         * integration_weight
                                 })
                                 .collect()
