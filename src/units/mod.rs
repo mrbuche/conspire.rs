@@ -198,7 +198,7 @@ units!(
     Temperature,
     /// A reciprocal temperature, as a coefficient of thermal expansion is.
     ReciprocalTemperature,
-    /// A time per unit temperature, as the coupling of a thermal potential to a mechanical one is.
+    /// A time per unit temperature.
     TimePerTemperature,
     /// A temperature per unit time, as a rate of heating is.
     TemperatureRate,
@@ -206,7 +206,7 @@ units!(
     StressPerTemperature,
     /// A stress per unit length per unit temperature, as a thermal stress coefficient per unit length is.
     StressPerLengthTemperature,
-    /// A force per unit temperature, as a thermal force coefficient is.
+    /// A force per unit temperature, as the dependence of a nodal force on a nodal temperature is.
     ForcePerTemperature,
     /// A power per unit volume, as a dissipation is.
     PowerDensity,
@@ -222,7 +222,7 @@ units!(
     PowerPerAreaTemperature,
     /// A power per unit volume per unit temperature, as an entropy production rate per unit volume is.
     PowerPerVolumeTemperature,
-    /// A power per unit length, as a thermal force per unit displacement is.
+    /// A power per unit length, as the dependence of a thermal power on a nodal displacement is.
     PowerPerLength,
     /// A power per unit temperature, as a thermal stiffness is.
     PowerPerTemperature,
