@@ -178,6 +178,10 @@ units!(
     TemperatureRate,
     /// A stress per unit temperature, as a thermal stress coefficient is.
     StressPerTemperature,
+    /// A stress per unit length per unit temperature, as a thermal stress coefficient per unit length is.
+    StressPerLengthTemperature,
+    /// A force per unit temperature, as a thermal force coefficient is.
+    ForcePerTemperature,
     /// A power per unit volume, as a dissipation is.
     PowerDensity,
     /// A temperature per unit length, as a temperature gradient is.
@@ -277,6 +281,12 @@ unit_products!(
     Dimensionless * StressPerTemperature = StressPerTemperature,
     Stress * ReciprocalTemperature = StressPerTemperature,
     StressPerTemperature * Temperature = Stress,
+    Dimensionless * StressPerLengthTemperature = StressPerLengthTemperature,
+    StressPerTemperature * ReciprocalLength = StressPerLengthTemperature,
+    ReciprocalLength * StressPerTemperature = StressPerLengthTemperature,
+    StressPerLengthTemperature * Volume = ForcePerTemperature,
+    Dimensionless * ForcePerTemperature = ForcePerTemperature,
+    ForcePerTemperature * Temperature = Force,
     ReciprocalTemperature * Temperature = Dimensionless,
     ReciprocalLength * Length = Dimensionless,
     Dimensionless * Time = Time,
