@@ -3,7 +3,7 @@ mod test;
 
 use super::{Block, density::Densities, node::mass::NodalMass};
 use crate::{
-    constitutive::solid::elastic::Elastic,
+    constitutive::{ConstitutiveError, solid::elastic::Elastic},
     domain::{
         ElementModelError, NodalCoordinates, NodalReferenceCoordinates,
         block::element::solid::elastic::ElasticElement,
@@ -40,7 +40,7 @@ where
                         [share; 3]
                     })
                     .collect();
-                Ok::<_, crate::constitutive::ConstitutiveError>(largest.max(largest_eigenvalue(
+                Ok::<_, ConstitutiveError>(largest.max(largest_eigenvalue(
                     masses.len(),
                     |row, column| stiffnesses[row / 3][column / 3][row % 3][column % 3].value(),
                     &masses,
