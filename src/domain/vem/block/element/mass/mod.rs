@@ -29,44 +29,51 @@ impl LumpedMassVirtualElement for Element {
         density: Quantity<Density>,
         nodal_reference_coordinates: &NodalReferenceCoordinates,
     ) -> ElementNodalLumpedMasses {
-        let nodes = nodal_reference_coordinates
-            .iter()
-            .map(array)
-            .collect::<Vec<_>>();
-        let center = mean(&nodes);
-        let tetrahedra = self
-            .faces_nodes()
-            .iter()
-            .flat_map(|face_nodes| {
-                let face_center = mean(
-                    &face_nodes
-                        .iter()
-                        .map(|&node| nodes[node])
-                        .collect::<Vec<_>>(),
-                );
-                (0..face_nodes.len())
-                    .map(|spot| {
-                        [
-                            face_center,
-                            nodes[face_nodes[(spot + 1) % face_nodes.len()]],
-                            nodes[face_nodes[spot]],
-                            center,
-                        ]
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect::<Vec<_>>();
-        let volume = self.integration_weights()[0];
-        let gradients = self.gradient_vectors()[0]
-            .iter()
-            .map(array)
-            .collect::<Vec<_>>();
-        let mass = density * volume;
-        diagonal_scaling(&nodes, center, &tetrahedra, &gradients, volume.value())
+        let mass = density * self.integration_weights()[0];
+        lumping_fractions(self, nodal_reference_coordinates)
             .into_iter()
             .map(|fraction| mass * fraction)
             .collect()
     }
+}
+
+pub(crate) fn lumping_fractions(
+    element: &Element,
+    nodal_reference_coordinates: &NodalReferenceCoordinates,
+) -> Vec<Scalar> {
+    let nodes = nodal_reference_coordinates
+        .iter()
+        .map(array)
+        .collect::<Vec<_>>();
+    let center = mean(&nodes);
+    let tetrahedra = element
+        .faces_nodes()
+        .iter()
+        .flat_map(|face_nodes| {
+            let face_center = mean(
+                &face_nodes
+                    .iter()
+                    .map(|&node| nodes[node])
+                    .collect::<Vec<_>>(),
+            );
+            (0..face_nodes.len())
+                .map(|spot| {
+                    [
+                        face_center,
+                        nodes[face_nodes[(spot + 1) % face_nodes.len()]],
+                        nodes[face_nodes[spot]],
+                        center,
+                    ]
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let volume = element.integration_weights()[0];
+    let gradients = element.gradient_vectors()[0]
+        .iter()
+        .map(array)
+        .collect::<Vec<_>>();
+    diagonal_scaling(&nodes, center, &tetrahedra, &gradients, volume.value())
 }
 
 fn array<I, U>(vector: &TensorRank1<3, I, U>) -> [Scalar; 3] {

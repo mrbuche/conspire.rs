@@ -1,3 +1,4 @@
+pub mod capacity;
 pub mod conduction;
 
 use crate::{

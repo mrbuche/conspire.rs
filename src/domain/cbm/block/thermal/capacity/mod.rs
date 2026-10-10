@@ -1,6 +1,9 @@
 use crate::{
     cbm::block::{Block, node::thermal::capacity::NodalHeatCapacity},
-    domain::thermal::capacity::{LumpedHeatCapacityElements, NodalLumpedHeatCapacities},
+    domain::{
+        NodalReferenceCoordinates,
+        thermal::capacity::{LumpedHeatCapacityElements, NodalLumpedHeatCapacities},
+    },
     math::Quantity,
     units::VolumetricHeatCapacity,
 };
@@ -32,12 +35,13 @@ impl<C, R> Block<C, R> {
     }
 }
 
-impl<C, R> LumpedHeatCapacityElements for Block<C, R>
+impl<C, R> LumpedHeatCapacityElements<3> for Block<C, R>
 where
     R: HeatCapacities,
 {
     fn nodal_lumped_heat_capacities_into(
         &self,
+        _reference_coordinates: &NodalReferenceCoordinates<3>,
         nodal_lumped_heat_capacities: &mut NodalLumpedHeatCapacities,
     ) {
         self.nodes.iter().enumerate().for_each(|(index, node)| {

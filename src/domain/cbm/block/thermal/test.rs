@@ -9,7 +9,7 @@ use crate::{
         },
     },
     constitutive::thermal::conduction::Fourier,
-    domain::{thermal::NodalForcesThermal, time_scale::largest_eigenvalue},
+    domain::{ElementModel, thermal::NodalForcesThermal, time_scale::largest_eigenvalue},
     geometry::mesh::PrimitiveConnectivity,
     math::{Hessian, Quantity, Tensor, integrate::Euler, optimize::EqualityConstraint},
     units::{
@@ -195,7 +195,7 @@ mod time_scale {
                 &capacities,
             );
         let patches = model
-            .fastest_diffusive_time_scale(&initial)
+            .fastest_diffusive_time_scale(model.coordinates(), &initial)
             .unwrap()
             .value();
         assert!(patches <= global * (1.0 + 1e-6), "{patches} > {global}");
@@ -208,7 +208,7 @@ mod integrate {
 
     fn step(model: &Model<B, 3>) -> f64 {
         0.4 * model
-            .fastest_diffusive_time_scale(&temperatures([300.0; NODES]))
+            .fastest_diffusive_time_scale(model.coordinates(), &temperatures([300.0; NODES]))
             .unwrap()
             .value()
     }

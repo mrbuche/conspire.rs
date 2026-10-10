@@ -1,13 +1,14 @@
 use crate::{
     domain::{
-        Blocks, ElementModelError, Model, block::element::Elements, thermal::NodalTemperatures,
+        Blocks, ElementModelError, Model, NodalReferenceCoordinates, block::element::Elements,
+        thermal::NodalTemperatures,
     },
     math::Quantity,
     units::Time,
 };
 
 /// Elements that report how fast their diffusion can be.
-pub trait ThermalTimeScaleElements
+pub trait ThermalTimeScaleElements<const D: usize>
 where
     Self: Elements,
 {
@@ -16,34 +17,41 @@ where
     /// tangent, which bounds a stable explicit time step.
     fn fastest_diffusive_time_scale(
         &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
         nodal_temperatures: &NodalTemperatures,
     ) -> Result<Quantity<Time>, ElementModelError>;
 }
 
-impl<B, const D: usize> ThermalTimeScaleElements for Model<B, D>
+impl<B, const D: usize> ThermalTimeScaleElements<D> for Model<B, D>
 where
-    B: ThermalTimeScaleElements,
+    B: ThermalTimeScaleElements<D>,
 {
     fn fastest_diffusive_time_scale(
         &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
         nodal_temperatures: &NodalTemperatures,
     ) -> Result<Quantity<Time>, ElementModelError> {
-        self.blocks.fastest_diffusive_time_scale(nodal_temperatures)
+        self.blocks
+            .fastest_diffusive_time_scale(reference_coordinates, nodal_temperatures)
     }
 }
 
-impl<B1, B2> ThermalTimeScaleElements for Blocks<B1, B2>
+impl<B1, B2, const D: usize> ThermalTimeScaleElements<D> for Blocks<B1, B2>
 where
-    B1: ThermalTimeScaleElements,
-    B2: ThermalTimeScaleElements,
+    B1: ThermalTimeScaleElements<D>,
+    B2: ThermalTimeScaleElements<D>,
 {
     fn fastest_diffusive_time_scale(
         &self,
+        reference_coordinates: &NodalReferenceCoordinates<D>,
         nodal_temperatures: &NodalTemperatures,
     ) -> Result<Quantity<Time>, ElementModelError> {
         Ok(self
             .0
-            .fastest_diffusive_time_scale(nodal_temperatures)?
-            .min(self.1.fastest_diffusive_time_scale(nodal_temperatures)?))
+            .fastest_diffusive_time_scale(reference_coordinates, nodal_temperatures)?
+            .min(
+                self.1
+                    .fastest_diffusive_time_scale(reference_coordinates, nodal_temperatures)?,
+            ))
     }
 }

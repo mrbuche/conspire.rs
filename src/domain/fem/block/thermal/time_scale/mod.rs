@@ -5,7 +5,7 @@ use crate::{
         time_scale::{diffusive_time_scale_from_eigenvalue, largest_eigenvalue},
     },
     fem::{
-        ElementModelError,
+        ElementModelError, NodalReferenceCoordinates,
         block::{
             Block,
             element::{
@@ -23,7 +23,7 @@ use crate::{
 };
 
 impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize>
-    ThermalTimeScaleElements for Block<C, F, G, M, N, P, R>
+    ThermalTimeScaleElements<M> for Block<C, F, G, M, N, P, R>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N, P> + LumpedHeatCapacityFiniteElement<G, M, N, P>,
@@ -31,6 +31,7 @@ where
 {
     fn fastest_diffusive_time_scale(
         &self,
+        _reference_coordinates: &NodalReferenceCoordinates<M>,
         nodal_temperatures: &NodalTemperatures,
     ) -> Result<Quantity<Time>, ElementModelError> {
         self.elements()

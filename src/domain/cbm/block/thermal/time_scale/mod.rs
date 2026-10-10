@@ -6,7 +6,7 @@ use crate::{
     },
     constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
     domain::{
-        ElementModelError,
+        ElementModelError, NodalReferenceCoordinates,
         thermal::time_scale::ThermalTimeScaleElements,
         time_scale::{diffusive_time_scale_from_eigenvalue, largest_eigenvalue},
     },
@@ -14,13 +14,14 @@ use crate::{
     units::Time,
 };
 
-impl<C, R> ThermalTimeScaleElements for Block<C, R>
+impl<C, R> ThermalTimeScaleElements<3> for Block<C, R>
 where
     C: ThermalConduction,
     R: HeatCapacities,
 {
     fn fastest_diffusive_time_scale(
         &self,
+        _reference_coordinates: &NodalReferenceCoordinates<3>,
         nodal_temperatures: &NodalTemperatures,
     ) -> Result<Quantity<Time>, ElementModelError> {
         self.nodes
