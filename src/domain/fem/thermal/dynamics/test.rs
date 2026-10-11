@@ -4,7 +4,7 @@ use crate::{
     fem::{
         Model, NodalReferenceCoordinates,
         block::{
-            Block,
+            Block, NoDensity,
             element::linear::Tetrahedron,
             thermal::{NodalTemperatures, conduction::NodalForcesThermal},
         },
@@ -36,7 +36,7 @@ fn coordinates() -> NodalReferenceCoordinates<3> {
     ])
 }
 
-type B = Block<Fourier, Tetrahedron<4>, 4, 3, 4, 4, Quantity<VolumetricHeatCapacity>>;
+type B = Block<Fourier, Tetrahedron<4>, 4, 3, 4, 4, NoDensity, Quantity<VolumetricHeatCapacity>>;
 
 fn model() -> Model<B, 3> {
     (

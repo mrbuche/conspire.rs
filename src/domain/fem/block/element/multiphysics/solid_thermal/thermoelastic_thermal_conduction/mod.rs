@@ -1,5 +1,6 @@
 #[cfg(test)]
 pub mod test;
+pub mod transient;
 
 use crate::{
     constitutive::{

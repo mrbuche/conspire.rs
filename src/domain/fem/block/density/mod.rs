@@ -34,15 +34,16 @@ impl<const G: usize> Densities<G> for Quantity<Density> {
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
-    Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
+    Block<C, F, G, M, N, P, R, H>
 {
-    pub fn with_density<S>(self, density: S) -> Block<C, F, G, M, N, P, S> {
+    pub fn with_density<S>(self, density: S) -> Block<C, F, G, M, N, P, S, H> {
         Block {
             constitutive_model: self.constitutive_model,
             connectivity: self.connectivity,
             elements: self.elements,
             density,
+            heat_capacity: self.heat_capacity,
         }
     }
     pub fn density(&self) -> &R {
@@ -50,7 +51,7 @@ impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
     }
 }
 
-impl<C, F, R, const G: usize, const N: usize> Block<C, F, G, 3, N, N, R>
+impl<C, F, R, H, const G: usize, const N: usize> Block<C, F, G, 3, N, N, R, H>
 where
     F: FiniteElement<G, 3, N, N>,
     R: Densities<G>,

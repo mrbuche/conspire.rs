@@ -35,8 +35,9 @@ pub use crate::domain::{
     solid::elastic_viscoplastic::ElasticViscoplasticBCs,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y, R>
-    ElasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3> for Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y, R, H>
+    ElasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3>
+    for Block<C, F, G, M, N, P, R, H>
 where
     C: ElasticViscoplastic<Y>,
     F: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
@@ -148,8 +149,8 @@ where
         .collect()
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize, Y, R>
-    ElasticViscoplasticDaeElements<Y, 3> for Block<C, F, G, 3, N, P, R>
+impl<C, F, const G: usize, const N: usize, const P: usize, Y, R, H>
+    ElasticViscoplasticDaeElements<Y, 3> for Block<C, F, G, 3, N, P, R, H>
 where
     F: SolidFiniteElement<G, 3, N, P> + ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
     Y: Clone + Differentiable<Time> + Tensor,

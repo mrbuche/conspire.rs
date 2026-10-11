@@ -25,6 +25,9 @@ pub enum Spectrum<T = Time> {
     /// The eigenvalues lie along a ray at the given angle from the negative real axis,
     /// as in damped waves, between $`0`$ (diffusion) and $`\pi/2`$ (waves).
     Complex(Quantity<T>, Scalar),
+    /// The eigenvalues are real and negative at the first time scale and imaginary at the
+    /// second, as in diffusion coupled to waves.
+    Mixed(Quantity<T>, Quantity<T>),
 }
 
 impl<T> Spectrum<T> {
@@ -33,6 +36,11 @@ impl<T> Spectrum<T> {
             Self::Real(scale) => scale * stability.extent(0.0),
             Self::Imaginary(scale) => scale * stability.extent(FRAC_PI_2),
             Self::Complex(scale, angle) => scale * stability.extent(angle),
+            Self::Mixed(real, imaginary) => {
+                let real = real * stability.extent(0.0);
+                let imaginary = imaginary * stability.extent(FRAC_PI_2);
+                if real < imaginary { real } else { imaginary }
+            }
         }
     }
 }

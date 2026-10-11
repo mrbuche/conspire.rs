@@ -15,8 +15,8 @@ use crate::{
     units::Time,
 };
 
-impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize> TimeScaleElements<3>
-    for Block<C, F, G, M, N, P, R>
+impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
+    TimeScaleElements<3> for Block<C, F, G, M, N, P, R, H>
 where
     C: Elastic,
     F: ElasticFiniteElement<C, G, M, N, P> + LumpedMassFiniteElement<G, M, N, P>,

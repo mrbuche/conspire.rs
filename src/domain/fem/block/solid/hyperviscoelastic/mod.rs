@@ -15,8 +15,8 @@ use crate::{
     units::Energy,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
-    HyperviscoelasticElements<3> for Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
+    HyperviscoelasticElements<3> for Block<C, F, G, M, N, P, R, H>
 where
     C: Hyperviscoelastic,
     F: HyperviscoelasticFiniteElement<C, G, M, N, P>,

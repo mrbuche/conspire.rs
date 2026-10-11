@@ -18,7 +18,7 @@ macro_rules! test_thermoelastic_thermal_conduction_element {
                 fem::block::element::{
                     ElementNodalCoordinates, FiniteElementError,
                     multiphysics::solid_thermal::{
-                        ElementNodalForcesSolidThermal,
+                        ElementNodalStiffnessesSolidThermal, ElementNodalForcesSolidThermal,
                         thermoelastic_thermal_conduction::ThermoelasticThermalConductionFiniteElement,
                     },
                     thermal::ElementNodalTemperatures,
@@ -27,7 +27,7 @@ macro_rules! test_thermoelastic_thermal_conduction_element {
                 units::{Length, Temperature},
             };
             fn model() -> Canonical<AlmansiHamel, Fourier> {
-                Canonical::from((
+                (
                     AlmansiHamel {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,
@@ -37,7 +37,7 @@ macro_rules! test_thermoelastic_thermal_conduction_element {
                     Fourier {
                         thermal_conductivity: THERMAL_CONDUCTIVITY,
                     },
-                ))
+                ).into()
             }
             fn temperatures() -> ElementNodalTemperatures<N> {
                 (0..N)
@@ -59,7 +59,7 @@ macro_rules! test_thermoelastic_thermal_conduction_element {
                 nodal_coordinates: &ElementNodalCoordinates<N>,
                 nodal_temperatures: &ElementNodalTemperatures<N>,
             ) -> Result<
-                crate::fem::block::element::multiphysics::solid_thermal::ElementNodalStiffnessesSolidThermal<N>,
+                ElementNodalStiffnessesSolidThermal<N>,
                 FiniteElementError,
             > {
                 ThermoelasticThermalConductionFiniteElement::nodal_stiffnesses(

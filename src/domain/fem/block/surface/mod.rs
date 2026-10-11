@@ -1,7 +1,7 @@
 use crate::{
     fem::{
         NodalReferenceCoordinates,
-        block::{Block, NoDensity, element::ElementNodalReferenceCoordinates},
+        block::{Block, NoDensity, NoHeatCapacity, element::ElementNodalReferenceCoordinates},
     },
     math::Quantity,
     units::Length,
@@ -46,6 +46,7 @@ where
             connectivity,
             elements,
             density: NoDensity,
+            heat_capacity: NoHeatCapacity,
         }
     }
 }

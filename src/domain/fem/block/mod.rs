@@ -26,6 +26,7 @@ use crate::{
 use std::fmt::{self, Debug, Formatter};
 
 pub use density::{Densities, DensityField, ElementDensities, NoDensity};
+pub use thermal::capacity::{ElementHeatCapacities, HeatCapacities, NoHeatCapacity};
 
 pub struct Block<
     C,
@@ -35,15 +36,17 @@ pub struct Block<
     const N: usize,
     const P: usize,
     R = NoDensity,
+    H = NoHeatCapacity,
 > {
     constitutive_model: C,
     connectivity: PrimitiveConnectivity<M, N>,
     elements: Vec<F>,
     density: R,
+    heat_capacity: H,
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
-    Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
+    Block<C, F, G, M, N, P, R, H>
 where
     F: FiniteElement<G, M, N, P>,
 {
@@ -70,8 +73,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R> Debug
-    for Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> Debug
+    for Block<C, F, G, M, N, P, R, H>
 where
     F: FiniteElement<G, M, N, P>,
 {
@@ -85,8 +88,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R> Elements
-    for Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> Elements
+    for Block<C, F, G, M, N, P, R, H>
 where
     F: FiniteElement<G, M, N, P>,
 {
@@ -123,6 +126,7 @@ where
             connectivity,
             elements,
             density: NoDensity,
+            heat_capacity: NoHeatCapacity,
         }
     }
 }
@@ -173,6 +177,7 @@ where
             connectivity,
             elements,
             density: NoDensity,
+            heat_capacity: NoHeatCapacity,
         }
     }
 }

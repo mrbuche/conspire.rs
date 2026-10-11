@@ -12,8 +12,8 @@ use crate::fem::{
 
 pub use crate::domain::solid::mass::{NodalLumpedMasses, NodalMasses};
 
-impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize> ConsistentMassElements
-    for Block<C, F, G, M, N, P, R>
+impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
+    ConsistentMassElements for Block<C, F, G, M, N, P, R, H>
 where
     F: MassFiniteElement<G, M, N, P>,
     R: Densities<G>,
@@ -37,8 +37,8 @@ where
     }
 }
 
-impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize> LumpedMassElements<M>
-    for Block<C, F, G, M, N, P, R>
+impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
+    LumpedMassElements<M> for Block<C, F, G, M, N, P, R, H>
 where
     F: LumpedMassFiniteElement<G, M, N, P>,
     R: Densities<G>,

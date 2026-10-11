@@ -10,8 +10,10 @@ pub mod doc;
 #[cfg(test)]
 pub mod test;
 
+mod neo_hookean;
 mod saint_venant_kirchhoff;
 
+pub use neo_hookean::NeoHookean;
 pub use saint_venant_kirchhoff::SaintVenantKirchhoff;
 
 use super::{thermoelastic::Thermoelastic, *};
