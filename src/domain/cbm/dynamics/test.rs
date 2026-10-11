@@ -1,6 +1,6 @@
 use crate::{
     cbm::{
-        ElasticDynamics, ElasticElements, HyperelasticElements, Model, NodalAccelerations,
+        ElasticElements, ElasticExplicitDynamics, HyperelasticElements, Model, NodalAccelerations,
         NodalCoordinates, NodalForcesSolid, NodalReferenceCoordinates, NodalVelocities,
         block::Block,
     },

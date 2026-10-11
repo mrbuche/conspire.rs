@@ -4,7 +4,7 @@ use crate::{
         Model, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::Block,
         block::element::linear::Tetrahedron,
-        solid::{ElasticDynamics, NodalForcesSolid, elastic::ElasticElements},
+        solid::{ElasticExplicitDynamics, NodalForcesSolid, elastic::ElasticElements},
     },
     math::{
         Quantity, Tensor,
@@ -312,7 +312,7 @@ mod integrate {
 mod integrate_implicit {
     use super::*;
     use crate::{
-        fem::solid::hyperelastic::HyperelasticElements,
+        fem::solid::{ElasticImplicitDynamics, hyperelastic::HyperelasticElements},
         math::{
             integrate::{Newmark, VelocityVerlet},
             optimize::{EqualityConstraint, NewtonRaphson, Tolerances},
@@ -340,7 +340,8 @@ mod integrate_implicit {
     fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
-        let (times, coordinates, ..) = model.integrate_implicit(
+        let (times, coordinates, ..) = ElasticImplicitDynamics::integrate(
+            &model,
             &integrator(dt),
             solver(),
             &time(dt),
@@ -365,7 +366,8 @@ mod integrate_implicit {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
         let weights = masses.inertial_forces(&gravity());
-        let (times, coordinates, velocities, accelerations) = model.integrate_implicit(
+        let (times, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
+            &model,
             &integrator(dt),
             solver(),
             &time(dt),
@@ -399,7 +401,8 @@ mod integrate_implicit {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
         let weights = masses.inertial_forces(&gravity());
-        let (_, coordinates, velocities, accelerations) = model.integrate_implicit(
+        let (_, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
+            &model,
             &integrator(dt),
             solver(),
             &time(dt),
@@ -433,7 +436,8 @@ mod integrate_implicit {
         };
         let zero = NodalForcesSolid::zero(COORDINATES.len());
         let interval = [Time::seconds(0.0), Time::seconds(100.0 * dt)];
-        let (_, implicit, ..) = model.integrate_implicit(
+        let (_, implicit, ..) = ElasticImplicitDynamics::integrate(
+            &model,
             &integrator(dt),
             solver(),
             &interval,
@@ -442,7 +446,8 @@ mod integrate_implicit {
             &masses,
             EqualityConstraint::None,
         )?;
-        let (_, explicit, ..) = model.integrate(
+        let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
+            &model,
             &VelocityVerlet::new(Time::seconds(dt)),
             &interval,
             state(),
@@ -466,7 +471,8 @@ mod integrate_implicit {
         let mut stretched = COORDINATES;
         stretched[4][0] += 0.01;
         let steps = 200;
-        let (_, coordinates, velocities, _) = model.integrate_implicit(
+        let (_, coordinates, velocities, _) = ElasticImplicitDynamics::integrate(
+            &model,
             &integrator(dt),
             solver(),
             &[Time::seconds(0.0), Time::seconds(steps as f64 * dt)],
@@ -497,7 +503,8 @@ mod integrate_implicit {
     fn linear_constraints_are_not_supported() {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
-        let result = model.integrate_implicit(
+        let result = ElasticImplicitDynamics::integrate(
+            &model,
             &integrator(dt),
             solver(),
             &time(dt),
