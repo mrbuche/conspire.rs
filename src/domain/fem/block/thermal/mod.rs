@@ -29,8 +29,8 @@ where
     ) -> Vec<TemperatureGradients<G>>;
 }
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
-    ThermalElements<C, F, G, M, N, P> for Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
+    ThermalElements<C, F, G, M, N, P> for Block<C, F, G, M, N, P, R, H>
 where
     C: Thermal,
     F: ThermalFiniteElement<G, M, N, P>,

@@ -18,8 +18,8 @@ use crate::{
 
 pub use crate::domain::solid::SolidElements;
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R> SolidElements
-    for Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> SolidElements
+    for Block<C, F, G, M, N, P, R, H>
 where
     C: Solid,
     F: SolidFiniteElement<G, M, N, P>,

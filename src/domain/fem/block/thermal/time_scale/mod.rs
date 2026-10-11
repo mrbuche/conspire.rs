@@ -22,12 +22,12 @@ use crate::{
     units::Time,
 };
 
-impl<C, F, R, const G: usize, const M: usize, const N: usize, const P: usize>
-    ThermalTimeScaleElements<M> for Block<C, F, G, M, N, P, R>
+impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
+    ThermalTimeScaleElements<M> for Block<C, F, G, M, N, P, R, H>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N, P> + LumpedHeatCapacityFiniteElement<G, M, N, P>,
-    R: HeatCapacities<G>,
+    H: HeatCapacities<G>,
 {
     fn fastest_diffusive_time_scale(
         &self,
@@ -46,7 +46,7 @@ where
                         &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
                     )?;
                     let capacities: Vec<f64> = element
-                        .nodal_lumped_heat_capacities(&self.density().at(element_index))
+                        .nodal_lumped_heat_capacities(&self.heat_capacity().at(element_index))
                         .iter()
                         .map(|capacity| capacity.value())
                         .collect();

@@ -1,3 +1,4 @@
+pub mod dynamics;
 pub mod transient;
 
 use crate::{

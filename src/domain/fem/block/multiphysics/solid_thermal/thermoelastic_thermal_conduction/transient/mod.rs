@@ -20,8 +20,8 @@ use crate::{
     },
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
-    ThermoelasticThermalConductionTransientElements for Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
+    ThermoelasticThermalConductionTransientElements for Block<C, F, G, M, N, P, R, H>
 where
     C: ThermoelasticThermalConduction,
     F: ThermoelasticThermalConductionTransientFiniteElement<C, G, M, N, P>,

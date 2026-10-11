@@ -4,7 +4,7 @@ use crate::{
         Model, NodalReferenceCoordinates,
         block::thermal::conduction::NodalForcesThermal,
         block::{
-            Block, ElementDensities, element::linear::Tetrahedron,
+            Block, ElementDensities, NoDensity, element::linear::Tetrahedron,
             thermal::capacity::ElementHeatCapacities,
         },
     },
@@ -42,8 +42,10 @@ fn total(capacities: impl Iterator<Item = Quantity<HeatCapacity>>) -> Quantity<H
 
 macro_rules! model {
     ($name:ident, $g:literal) => {
-        fn $name()
-        -> Model<Block<(), Tetrahedron<$g>, $g, 3, 4, 4, Quantity<VolumetricHeatCapacity>>, 3> {
+        fn $name() -> Model<
+            Block<(), Tetrahedron<$g>, $g, 3, 4, 4, NoDensity, Quantity<VolumetricHeatCapacity>>,
+            3,
+        > {
             (
                 Block::<(), Tetrahedron<$g>, $g, 3, 4, 4>::from((
                     (),

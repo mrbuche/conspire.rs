@@ -18,8 +18,8 @@ use crate::{
 
 pub use crate::domain::thermal::{NodalForcesThermal, NodalStiffnessesThermal};
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R>
-    ThermalConductionElements for Block<C, F, G, M, N, P, R>
+impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
+    ThermalConductionElements for Block<C, F, G, M, N, P, R, H>
 where
     C: ThermalConduction,
     F: ThermalConductionFiniteElement<C, G, M, N, P>,

@@ -147,3 +147,236 @@ fn fixed_temperatures_hold_the_reference_temperature_and_leave_the_body_unstrain
         )
     })
 }
+
+mod dynamics {
+    use crate::{
+        constitutive::{
+            multiphysics::Canonical,
+            solid::thermoelastic::{
+                AlmansiHamel,
+                test::{
+                    BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION, REFERENCE_TEMPERATURE,
+                    SHEAR_MODULUS,
+                },
+            },
+            thermal::conduction::{Fourier, test::THERMAL_CONDUCTIVITY},
+        },
+        fem::{
+            Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+            block::{
+                Block,
+                element::linear::Tetrahedron,
+                thermal::{NodalTemperatures, conduction::NodalForcesThermal},
+            },
+            multiphysics::solid_thermal::thermoelastic_thermal_conduction::dynamics::ThermoelasticThermalConductionDynamics,
+            solid::NodalForcesSolid,
+        },
+        math::{
+            Quantity, Tensor,
+            assert::{Assert, AssertionError},
+            integrate::DormandPrinceFixedStep,
+            optimize::EqualityConstraint,
+        },
+        units::{Density, Time, VolumetricHeatCapacity},
+    };
+
+    const DENSITY: Quantity<Density> = Density::kilograms_per_cubic_meter(7.8e3);
+    const HEAT_CAPACITY: f64 = 3.0e6;
+    const STRETCH_RATE: f64 = 0.01;
+
+    const COORDINATES: [[f64; 3]; 5] = [
+        [0.1, 0.2, 0.0],
+        [1.3, 0.1, 0.2],
+        [0.2, 0.9, 0.1],
+        [0.3, 0.4, 1.2],
+        [1.5, 1.4, 1.3],
+    ];
+
+    type Coupled = Canonical<AlmansiHamel, Fourier>;
+    type Massive = Block<Coupled, Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
+    type Both = Block<
+        Coupled,
+        Tetrahedron<4>,
+        4,
+        3,
+        4,
+        4,
+        Quantity<Density>,
+        Quantity<VolumetricHeatCapacity>,
+    >;
+
+    fn coupled() -> Coupled {
+        Canonical::from((
+            AlmansiHamel {
+                bulk_modulus: BULK_MODULUS,
+                shear_modulus: SHEAR_MODULUS,
+                coefficient_of_thermal_expansion: COEFFICIENT_OF_THERMAL_EXPANSION,
+                reference_temperature: REFERENCE_TEMPERATURE,
+            },
+            Fourier {
+                thermal_conductivity: THERMAL_CONDUCTIVITY,
+            },
+        ))
+    }
+
+    fn connectivity() -> Vec<[usize; 4]> {
+        vec![[0, 1, 2, 3], [1, 2, 3, 4]]
+    }
+
+    fn reference() -> NodalReferenceCoordinates<3> {
+        NodalReferenceCoordinates::from(COORDINATES)
+    }
+
+    fn model() -> Model<Both, 3> {
+        (
+            Massive::from((coupled(), DENSITY, connectivity(), &reference()))
+                .with_heat_capacity(Quantity::<VolumetricHeatCapacity>::new(HEAT_CAPACITY)),
+            reference(),
+        )
+            .into()
+    }
+
+    fn uniform_temperatures() -> NodalTemperatures {
+        COORDINATES
+            .map(|_| REFERENCE_TEMPERATURE)
+            .into_iter()
+            .collect()
+    }
+
+    fn stretching() -> NodalVelocities<3> {
+        COORDINATES
+            .map(|coordinate| coordinate.map(|component| STRETCH_RATE * component))
+            .into()
+    }
+
+    fn translating() -> NodalVelocities<3> {
+        COORDINATES.map(|_| [0.3, -0.2, 0.1]).into()
+    }
+
+    fn time() -> Vec<Quantity<Time>> {
+        (0..=10)
+            .map(|step| Time::seconds(1e-5 * step as f64))
+            .collect()
+    }
+
+    fn no_forces() -> NodalForcesSolid<3> {
+        NodalForcesSolid::zero(COORDINATES.len())
+    }
+
+    fn no_heating() -> NodalForcesThermal {
+        NodalForcesThermal::zero(COORDINATES.len())
+    }
+
+    fn integrate(
+        velocities: NodalVelocities<3>,
+        equality_constraint: EqualityConstraint,
+    ) -> (NodalCoordinates<3>, NodalTemperatures) {
+        let (_, coordinates, _, _, temperatures, _) = model()
+            .integrate(
+                &DormandPrinceFixedStep::default(),
+                &time(),
+                (NodalCoordinates::from(COORDINATES), velocities),
+                uniform_temperatures(),
+                &no_forces(),
+                &no_heating(),
+                &model().nodal_lumped_masses(),
+                &model().nodal_lumped_heat_capacities(),
+                equality_constraint,
+            )
+            .unwrap();
+        (
+            coordinates[coordinates.len() - 1].clone(),
+            temperatures[temperatures.len() - 1].clone(),
+        )
+    }
+
+    #[test]
+    fn stretching_cools_at_the_adiabatic_rate() -> Result<(), AssertionError> {
+        let (accelerations, rates) = model()
+            .nodal_rates(
+                &NodalCoordinates::from(COORDINATES),
+                &stretching(),
+                &uniform_temperatures(),
+                &no_forces(),
+                &no_heating(),
+                &model().nodal_lumped_masses(),
+                &model().nodal_lumped_heat_capacities(),
+            )
+            .unwrap();
+        let expected = -9.0
+            * COEFFICIENT_OF_THERMAL_EXPANSION.value()
+            * BULK_MODULUS.value()
+            * STRETCH_RATE
+            * REFERENCE_TEMPERATURE.value()
+            / HEAT_CAPACITY;
+        assert!(expected < 0.0);
+        rates
+            .iter()
+            .try_for_each(|rate| Assert::default().eq_within_tols(rate.value(), &expected))?;
+        accelerations.iter().for_each(|acceleration| {
+            (0..3).for_each(|i| assert!(acceleration[i].value().abs() < 1e-9))
+        });
+        Ok(())
+    }
+
+    #[test]
+    fn a_rigid_translation_neither_heats_nor_cools() -> Result<(), AssertionError> {
+        let (coordinates, temperatures) = integrate(translating(), EqualityConstraint::None);
+        temperatures.iter().try_for_each(|temperature| {
+            Assert::default().eq_within_tols(temperature, &REFERENCE_TEMPERATURE)
+        })?;
+        coordinates
+            .iter()
+            .zip(COORDINATES)
+            .try_for_each(|(coordinate, initial)| {
+                [0.3, -0.2, 0.1]
+                    .iter()
+                    .enumerate()
+                    .try_for_each(|(i, velocity)| {
+                        Assert::default()
+                            .eq_within_tols(coordinate[i].value(), &(initial[i] + velocity * 1e-4))
+                    })
+            })
+    }
+
+    #[test]
+    fn a_stretching_body_cools() {
+        let (_, temperatures) = integrate(stretching(), EqualityConstraint::None);
+        temperatures
+            .iter()
+            .for_each(|temperature| assert!(temperature.value() < REFERENCE_TEMPERATURE.value()));
+    }
+
+    #[test]
+    fn a_fixed_temperature_is_held() -> Result<(), AssertionError> {
+        let (_, temperatures) = integrate(stretching(), EqualityConstraint::Fixed(vec![3]));
+        Assert::default().eq_within_tols(temperatures[0], &REFERENCE_TEMPERATURE)?;
+        assert!(temperatures[1].value() < REFERENCE_TEMPERATURE.value());
+        Ok(())
+    }
+
+    #[test]
+    fn a_fixed_coordinate_is_held() -> Result<(), AssertionError> {
+        let (coordinates, _) = integrate(stretching(), EqualityConstraint::Fixed(vec![5]));
+        Assert::default().eq_within_tols(coordinates[1][1].value(), &COORDINATES[1][1])?;
+        assert!((coordinates[1][0].value() - COORDINATES[1][0]).abs() > 0.0);
+        Ok(())
+    }
+
+    #[test]
+    fn linear_constraints_are_rejected() {
+        use crate::math::{Matrix, Vector};
+        let result = model().integrate(
+            &DormandPrinceFixedStep::default(),
+            &time(),
+            (NodalCoordinates::from(COORDINATES), stretching()),
+            uniform_temperatures(),
+            &no_forces(),
+            &no_heating(),
+            &model().nodal_lumped_masses(),
+            &model().nodal_lumped_heat_capacities(),
+            EqualityConstraint::Linear(Matrix::zero(1, 20), Vector::zero(1)),
+        );
+        assert!(result.is_err());
+    }
+}
