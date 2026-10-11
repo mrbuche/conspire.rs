@@ -4,10 +4,16 @@ mod test;
 use crate::{
     domain::{
         Blocks, ElementModel, Model, NodalAccelerations, NodalReferenceCoordinates,
-        NodalVelocities, block::element::Elements, factor::FreeFactored, solid::NodalForcesSolid,
+        NodalVelocities,
+        block::element::Elements,
+        factor::FreeFactored,
+        solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
-    math::{Quantity, QuantitySparseVec2D, QuantityVector, Tensor, sparse::SparseError},
-    units::{Energy, Mass},
+    math::{
+        Current, Quantity, QuantitySparseVec2D, QuantityVector, Scalar, Tensor, TensorArray,
+        TensorRank2, sparse::SparseError,
+    },
+    units::{Energy, ForcePerLength, Mass},
 };
 
 pub type NodalMasses = QuantitySparseVec2D<Mass>;
@@ -242,5 +248,41 @@ impl NodalMasses {
                     .sum()
             })
             .collect()
+    }
+}
+
+/// A mass that enters implicit dynamics through the inertial forces and the tangent.
+pub trait InertialMass<const D: usize>
+where
+    Self: MassMatrix<D>,
+{
+    fn inertial_forces(&self, nodal_accelerations: &NodalAccelerations<D>) -> NodalForcesSolid<D>;
+    /// Adds the mass times `weight`, a rate squared, to the stiffnesses.
+    fn add_to_stiffnesses(&self, weight: Scalar, nodal_stiffnesses: &mut NodalStiffnessesSolid<D>);
+}
+
+impl<const D: usize> InertialMass<D> for NodalLumpedMasses {
+    fn inertial_forces(&self, nodal_accelerations: &NodalAccelerations<D>) -> NodalForcesSolid<D> {
+        NodalLumpedMasses::inertial_forces(self, nodal_accelerations)
+    }
+    fn add_to_stiffnesses(&self, weight: Scalar, nodal_stiffnesses: &mut NodalStiffnessesSolid<D>) {
+        self.iter().enumerate().for_each(|(node, &mass)| {
+            nodal_stiffnesses[node][node] += TensorRank2::<D, Current, Current>::identity()
+                * Quantity::<ForcePerLength>::new(mass.value() * weight);
+        });
+    }
+}
+
+impl<const D: usize> InertialMass<D> for NodalMasses {
+    fn inertial_forces(&self, nodal_accelerations: &NodalAccelerations<D>) -> NodalForcesSolid<D> {
+        NodalMasses::inertial_forces(self, nodal_accelerations)
+    }
+    fn add_to_stiffnesses(&self, weight: Scalar, nodal_stiffnesses: &mut NodalStiffnessesSolid<D>) {
+        self.iter().enumerate().for_each(|(a, row)| {
+            row.entries().for_each(|(b, &mass)| {
+                nodal_stiffnesses[a][b] += TensorRank2::<D, Current, Current>::identity()
+                    * Quantity::<ForcePerLength>::new(mass.value() * weight);
+            });
+        });
     }
 }

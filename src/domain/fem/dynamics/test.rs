@@ -500,6 +500,116 @@ mod integrate_implicit {
         })
     }
     #[test]
+    fn consistent_masses_let_a_free_body_fall_with_gravity() -> Result<(), AssertionError> {
+        let (model, dt) = (model(), 1e-3);
+        let masses = model.nodal_masses();
+        let weights = masses.inertial_forces(&gravity());
+        let (times, coordinates, _, accelerations) = ElasticImplicitDynamics::integrate(
+            &model,
+            &integrator(dt),
+            solver(),
+            &time(dt),
+            (
+                NodalCoordinates::from(COORDINATES),
+                uniform_velocities([0.0; 3]),
+            ),
+            &weights,
+            &masses,
+            EqualityConstraint::None,
+        )?;
+        let (elapsed, g) = (
+            times[times.len() - 1].in_seconds(),
+            STANDARD_GRAVITY.in_meters_per_second_squared(),
+        );
+        noise_tolerant().eq_within_tols(
+            &coordinates[STEPS],
+            &NodalCoordinates::from(
+                COORDINATES.map(|[x, y, z]| [x, y, z - 0.5 * g * elapsed * elapsed]),
+            ),
+        )?;
+        noise_tolerant().eq_within_tols(&accelerations[STEPS], &gravity())
+    }
+    #[test]
+    fn consistent_masses_hold_fixed_degrees_of_freedom() -> Result<(), AssertionError> {
+        let (model, dt) = (model(), 1e-3);
+        let masses = model.nodal_masses();
+        let weights = masses.inertial_forces(&gravity());
+        let (_, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
+            &model,
+            &integrator(dt),
+            solver(),
+            &time(dt),
+            (
+                NodalCoordinates::from(COORDINATES),
+                uniform_velocities([3.0, 0.0, 4.0]),
+            ),
+            &weights,
+            &masses,
+            EqualityConstraint::Fixed(vec![0, 1, 2, 5]),
+        )?;
+        let last = &coordinates[STEPS];
+        assert_eq!(last[0], NodalCoordinates::from(COORDINATES)[0]);
+        assert_eq!(last[1][2], NodalCoordinates::from(COORDINATES)[1][2]);
+        assert_eq!(velocities[STEPS][0], [0.0; 3].into());
+        assert_eq!(accelerations[STEPS][0], [0.0; 3].into());
+        assert_ne!(last[3], NodalCoordinates::from(COORDINATES)[3]);
+        Ok(())
+    }
+    #[test]
+    fn a_released_stretch_follows_the_explicit_motion_with_consistent_masses()
+    -> Result<(), AssertionError> {
+        let (model, dt) = (model(), 5e-6);
+        let masses = model.nodal_masses();
+        let mut stretched = COORDINATES;
+        stretched[4][0] += 0.01;
+        let state = || {
+            (
+                NodalCoordinates::from(stretched),
+                uniform_velocities([0.0; 3]),
+            )
+        };
+        let zero = NodalForcesSolid::zero(COORDINATES.len());
+        let interval = [Time::seconds(0.0), Time::seconds(400.0 * dt)];
+        let (_, implicit, ..) = ElasticImplicitDynamics::integrate(
+            &model,
+            &integrator(dt),
+            solver(),
+            &interval,
+            state(),
+            &zero,
+            &masses,
+            EqualityConstraint::None,
+        )?;
+        let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
+            &model,
+            &VelocityVerlet::new(Time::seconds(dt)),
+            &interval,
+            state(),
+            &zero,
+            &masses,
+            EqualityConstraint::None,
+        )?;
+        let (_, lumped, ..) = ElasticImplicitDynamics::integrate(
+            &model,
+            &integrator(dt),
+            solver(),
+            &interval,
+            state(),
+            &zero,
+            &model.nodal_lumped_masses(),
+            EqualityConstraint::None,
+        )?;
+        let moved = (implicit[400][4][0] - implicit[0][4][0]).norm().value();
+        Assert {
+            abs_tol: 1e-2 * moved,
+            rel_tol: 1e-2,
+            ..Assert::default()
+        }
+        .eq_within_tols(&implicit[400], &explicit[400])?;
+        assert!((&implicit[400] - &lumped[400]).norm().value() > 1e-3 * moved);
+        Ok(())
+    }
+    #[test]
     fn linear_constraints_are_not_supported() {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();

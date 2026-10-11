@@ -7,22 +7,22 @@ use crate::{
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
             elastic::ElasticElements,
-            mass::{InverseMass, NodalLumpedMasses},
+            mass::{InertialMass, InverseMass},
         },
     },
     math::{
-        Current, Quantity, Tensor, TensorArray, TensorRank2,
+        Quantity, Tensor,
         integrate::{ImplicitDynamics, IntegrationError},
         optimize::{EqualityConstraint, RootFinding},
     },
-    units::{ForcePerLength, Time},
+    units::Time,
 };
 
 /// The motion of an elastic model with implicit time integration.
 pub trait ElasticImplicitDynamics {
     /// Integrates the motion of the model with an implicit dynamics integrator.
     ///
-    /// Only lumped masses are accepted, which are added to the diagonal of the sparse tangent.
+    /// The masses may be lumped or consistent, and are added to the sparse tangent.
     /// Fixed degrees of freedom are held like the explicit integration does, and linear
     /// constraints are not supported.
     #[expect(clippy::too_many_arguments)]
@@ -40,7 +40,7 @@ pub trait ElasticImplicitDynamics {
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
-        masses: &NodalLumpedMasses,
+        masses: &impl InertialMass<3>,
         equality_constraint: EqualityConstraint,
     ) -> Result<Solution, IntegrationError>;
 }
@@ -63,7 +63,7 @@ where
         time: &[Quantity<Time>],
         (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
-        masses: &NodalLumpedMasses,
+        masses: &impl InertialMass<3>,
         equality_constraint: EqualityConstraint,
     ) -> Result<Solution, IntegrationError> {
         let (inverse, initial_velocities) =
@@ -85,7 +85,7 @@ where
              coordinates: &NodalCoordinates<3>,
              _: &NodalVelocities<3>,
              accelerations: &NodalAccelerations<3>| {
-                Ok(masses.inertial_forces(accelerations)
+                Ok(InertialMass::inertial_forces(masses, accelerations)
                     + self
                         .nodal_forces(coordinates)
                         .map_err(|error| error.to_string())?
@@ -95,12 +95,7 @@ where
                 let mut tangent = self
                     .nodal_stiffnesses(coordinates)
                     .map_err(|error| error.to_string())?;
-                masses.iter().enumerate().for_each(|(node, &mass)| {
-                    tangent[node][node] += TensorRank2::<3, Current, Current>::identity()
-                        * Quantity::<ForcePerLength>::new(
-                            mass.value() / (beta * dt.value().powi(2)),
-                        );
-                });
+                masses.add_to_stiffnesses(1.0 / (beta * dt.value().powi(2)), &mut tangent);
                 Ok(tangent)
             },
             solver,
