@@ -13,6 +13,9 @@ pub mod test;
 use super::*;
 use crate::{
     math::Quantity,
+    mechanics::{
+        CauchyThermalTangent, FirstPiolaKirchhoffThermalTangent, SecondPiolaKirchhoffThermalTangent,
+    },
     units::{ReciprocalTemperature, Temperature},
 };
 
@@ -152,6 +155,52 @@ where
                 &deformation_gradient_inverse,
                 &second_piola_kirchhoff_stress,
             ))
+    }
+    /// Calculates and returns the derivative of the Cauchy stress with respect to temperature.
+    ///
+    /// ```math
+    /// \frac{\partial\boldsymbol{\sigma}}{\partial T} = J^{-1}\mathbf{F}\cdot\frac{\partial\mathbf{S}}{\partial T}\cdot\mathbf{F}^T
+    /// ```
+    fn cauchy_thermal_tangent(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<CauchyThermalTangent, ConstitutiveError> {
+        Ok(deformation_gradient
+            * self.second_piola_kirchhoff_thermal_tangent(deformation_gradient, temperature)?
+            * deformation_gradient.transpose()
+            / deformation_gradient.determinant())
+    }
+    /// Calculates and returns the derivative of the first Piola-Kirchhoff stress with respect to temperature.
+    ///
+    /// ```math
+    /// \frac{\partial\mathbf{P}}{\partial T} = J\,\frac{\partial\boldsymbol{\sigma}}{\partial T}\cdot\mathbf{F}^{-T}
+    /// ```
+    fn first_piola_kirchhoff_thermal_tangent(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<FirstPiolaKirchhoffThermalTangent, ConstitutiveError> {
+        Ok(
+            self.cauchy_thermal_tangent(deformation_gradient, temperature)?
+                * deformation_gradient.inverse_transpose()
+                * deformation_gradient.determinant(),
+        )
+    }
+    /// Calculates and returns the derivative of the second Piola-Kirchhoff stress with respect to temperature.
+    ///
+    /// ```math
+    /// \frac{\partial\mathbf{S}}{\partial T} = \mathbf{F}^{-1}\cdot\frac{\partial\mathbf{P}}{\partial T}
+    /// ```
+    fn second_piola_kirchhoff_thermal_tangent(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<SecondPiolaKirchhoffThermalTangent, ConstitutiveError> {
+        Ok(deformation_gradient.inverse()
+            * self.cauchy_thermal_tangent(deformation_gradient, temperature)?
+            * deformation_gradient.inverse_transpose()
+            * deformation_gradient.determinant())
     }
     /// Returns the coefficient of thermal expansion.
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature>;

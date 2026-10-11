@@ -11,7 +11,7 @@ use super::{
 /// Required methods for solid-thermal constitutive models.
 pub trait SolidThermal
 where
-    Self: Multiphysics,
+    Self: Multiphysics + Solid + Thermal,
 {
     /// The solid constitutive model.
     type Solid: Solid;

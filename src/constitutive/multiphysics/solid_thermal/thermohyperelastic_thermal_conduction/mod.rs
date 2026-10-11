@@ -1,192 +1,20 @@
 //! Thermohyperelastic-thermal conduction constitutive models.
-#[cfg(test)]
-mod test;
 
-use crate::{
-    constitutive::{
-        ConstitutiveError,
-        multiphysics::{Multiphysics, solid_thermal::SolidThermal},
-        solid::{Solid, thermoelastic::Thermoelastic, thermohyperelastic::Thermohyperelastic},
-        thermal::{Thermal, conduction::ThermalConduction},
-    },
-    math::Quantity,
-    mechanics::{
-        CauchyStress, CauchyTangentStiffness, DeformationGradient, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, HeatFlux, HeatFluxTangent, SecondPiolaKirchhoffStress,
-        SecondPiolaKirchhoffTangentStiffness, TemperatureGradient,
-    },
-    units::{EnergyDensity, PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature},
+mod canonical;
+
+use crate::constitutive::{
+    multiphysics::SolidThermal, solid::thermohyperelastic::Thermohyperelastic,
+    thermal::conduction::ThermalConduction,
 };
 
-/// A thermohyperelastic-thermal conduction constitutive model.
-#[derive(Clone, Debug)]
-pub struct ThermohyperelasticThermalConduction<C1, C2>
+/// Required methods for thermohyperelastic-thermal conduction constitutive models.
+pub trait ThermohyperelasticThermalConduction
 where
-    C1: Thermohyperelastic,
-    C2: ThermalConduction,
-{
-    thermohyperelastic_constitutive_model: C1,
-    thermal_conduction_constitutive_model: C2,
-}
-
-impl<C1, C2> From<(C1, C2)> for ThermohyperelasticThermalConduction<C1, C2>
-where
-    C1: Thermohyperelastic,
-    C2: ThermalConduction,
-{
-    fn from(
-        (thermohyperelastic_constitutive_model, thermal_conduction_constitutive_model): (C1, C2),
-    ) -> Self {
-        Self {
-            thermohyperelastic_constitutive_model,
-            thermal_conduction_constitutive_model,
-        }
-    }
-}
-
-impl<C1, C2> Solid for ThermohyperelasticThermalConduction<C1, C2>
-where
-    C1: Thermohyperelastic,
-    C2: ThermalConduction,
-{
-    fn bulk_modulus(&self) -> Quantity<Stress> {
-        self.solid_constitutive_model().bulk_modulus()
-    }
-    fn shear_modulus(&self) -> Quantity<Stress> {
-        self.solid_constitutive_model().shear_modulus()
-    }
-}
-
-impl<C1, C2> Thermoelastic for ThermohyperelasticThermalConduction<C1, C2>
-where
-    C1: Thermohyperelastic,
-    C2: ThermalConduction,
-{
-    fn cauchy_stress(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        temperature: Quantity<Temperature>,
-    ) -> Result<CauchyStress, ConstitutiveError> {
-        self.solid_constitutive_model()
-            .cauchy_stress(deformation_gradient, temperature)
-    }
-    fn cauchy_tangent_stiffness(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        temperature: Quantity<Temperature>,
-    ) -> Result<CauchyTangentStiffness, ConstitutiveError> {
-        self.solid_constitutive_model()
-            .cauchy_tangent_stiffness(deformation_gradient, temperature)
-    }
-    fn first_piola_kirchhoff_stress(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        temperature: Quantity<Temperature>,
-    ) -> Result<FirstPiolaKirchhoffStress, ConstitutiveError> {
-        self.solid_constitutive_model()
-            .first_piola_kirchhoff_stress(deformation_gradient, temperature)
-    }
-    fn first_piola_kirchhoff_tangent_stiffness(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        temperature: Quantity<Temperature>,
-    ) -> Result<FirstPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        self.solid_constitutive_model()
-            .first_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
-    }
-    fn second_piola_kirchhoff_stress(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        temperature: Quantity<Temperature>,
-    ) -> Result<SecondPiolaKirchhoffStress, ConstitutiveError> {
-        self.solid_constitutive_model()
-            .second_piola_kirchhoff_stress(deformation_gradient, temperature)
-    }
-    fn second_piola_kirchhoff_tangent_stiffness(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        temperature: Quantity<Temperature>,
-    ) -> Result<SecondPiolaKirchhoffTangentStiffness, ConstitutiveError> {
-        self.solid_constitutive_model()
-            .second_piola_kirchhoff_tangent_stiffness(deformation_gradient, temperature)
-    }
-    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
-        self.solid_constitutive_model()
-            .coefficient_of_thermal_expansion()
-    }
-    fn reference_temperature(&self) -> Quantity<Temperature> {
-        self.solid_constitutive_model().reference_temperature()
-    }
-}
-
-impl<C1, C2> Thermohyperelastic for ThermohyperelasticThermalConduction<C1, C2>
-where
-    C1: Thermohyperelastic,
-    C2: ThermalConduction,
-{
-    fn helmholtz_free_energy_density(
-        &self,
-        deformation_gradient: &DeformationGradient,
-        temperature: Quantity<Temperature>,
-    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
-        self.solid_constitutive_model()
-            .helmholtz_free_energy_density(deformation_gradient, temperature)
-    }
-}
-
-impl<C1, C2> Thermal for ThermohyperelasticThermalConduction<C1, C2>
-where
-    C1: Thermohyperelastic,
-    C2: ThermalConduction,
+    Self: SolidThermal<Solid: Thermohyperelastic, Thermal: ThermalConduction>,
 {
 }
 
-impl<C1, C2> ThermalConduction for ThermohyperelasticThermalConduction<C1, C2>
-where
-    C1: Thermohyperelastic,
-    C2: ThermalConduction,
+impl<T> ThermohyperelasticThermalConduction for T where
+    T: SolidThermal<Solid: Thermohyperelastic, Thermal: ThermalConduction>
 {
-    fn potential(
-        &self,
-        temperature_gradient: &TemperatureGradient,
-    ) -> Result<Quantity<PowerTemperatureDensity>, ConstitutiveError> {
-        self.thermal_constitutive_model()
-            .potential(temperature_gradient)
-    }
-    fn heat_flux(
-        &self,
-        temperature_gradient: &TemperatureGradient,
-    ) -> Result<HeatFlux, ConstitutiveError> {
-        self.thermal_constitutive_model()
-            .heat_flux(temperature_gradient)
-    }
-    fn heat_flux_tangent(
-        &self,
-        temperature_gradient: &TemperatureGradient,
-    ) -> Result<HeatFluxTangent, ConstitutiveError> {
-        self.thermal_constitutive_model()
-            .heat_flux_tangent(temperature_gradient)
-    }
-}
-
-impl<C1, C2> Multiphysics for ThermohyperelasticThermalConduction<C1, C2>
-where
-    C1: Thermohyperelastic,
-    C2: ThermalConduction,
-{
-}
-
-impl<C1, C2> SolidThermal for ThermohyperelasticThermalConduction<C1, C2>
-where
-    C1: Thermohyperelastic,
-    C2: ThermalConduction,
-{
-    type Solid = C1;
-    type Thermal = C2;
-    fn solid_constitutive_model(&self) -> &C1 {
-        &self.thermohyperelastic_constitutive_model
-    }
-    fn thermal_constitutive_model(&self) -> &C2 {
-        &self.thermal_conduction_constitutive_model
-    }
 }

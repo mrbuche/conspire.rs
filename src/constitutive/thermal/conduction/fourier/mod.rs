@@ -6,7 +6,7 @@ use crate::{
         ConstitutiveError,
         thermal::{Thermal, conduction::ThermalConduction},
     },
-    math::{ContractWith, IDENTITY_00, Quantity},
+    math::{IDENTITY_00, Quantity, Tensor},
     mechanics::{HeatFlux, HeatFluxTangent, TemperatureGradient},
     units::{PowerPerLengthTemperature, PowerTemperatureDensity},
 };
@@ -32,11 +32,7 @@ impl ThermalConduction for Fourier {
         &self,
         temperature_gradient: &TemperatureGradient,
     ) -> Result<Quantity<PowerTemperatureDensity>, ConstitutiveError> {
-        Ok(
-            (temperature_gradient * self.thermal_conductivity())
-                .contract_with(temperature_gradient)
-                * 0.5,
-        )
+        Ok(temperature_gradient.norm_squared() * self.thermal_conductivity() * 0.5)
     }
     #[doc = include_str!("heat_flux.md")]
     fn heat_flux(

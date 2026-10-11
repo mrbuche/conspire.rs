@@ -3,16 +3,16 @@ mod test;
 
 use super::{
     super::{
-        Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Quantity, Scalar,
-        Solution, SquareMatrix, Tensor, Vector,
+        Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Scalar, Solution,
+        SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
     BacktrackingLineSearch, Direct, EqualityConstraint, LineSearch, LineSearchError, LinearSolver,
     Optimization, OptimizationBlock, OptimizationError, OptimizationIncremental, RootFinding,
-    RootFindingBlock, RootFindingIncremental, SolveStrategy, Tolerances, TrustRegion,
+    RootFindingBlock, RootFindingIncremental, SolveStrategy, StepSize, Tolerances, TrustRegion,
 };
 use crate::math::Norm;
-use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
+use crate::units::{UnitMul, UnitRatio, UnitSum};
 use std::{
     collections::BTreeMap,
     fmt::{self, Debug, Formatter},
@@ -89,8 +89,8 @@ where
     F: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
-    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
-    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn root(
@@ -147,8 +147,8 @@ where
     F: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
-    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
-    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
 {
     fn root(
         &self,
@@ -190,8 +190,8 @@ where
     F: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
-    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
-    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn root_incremental(
@@ -249,8 +249,8 @@ where
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
-    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
-    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
@@ -314,8 +314,8 @@ where
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
-    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
-    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
 {
     fn minimize(
         &self,
@@ -364,8 +364,8 @@ where
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
-    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
-    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize_incremental(
@@ -1350,8 +1350,8 @@ where
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
-    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
-    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
 {
     let mut decrement;
     let mut flattened = Vector::zero(if sparse.is_none() {
@@ -1484,8 +1484,8 @@ where
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
     E: Tensor,
-    <X as Tensor>::Unit: UnitDiv<<X as Tensor>::Unit, Output = Dimensionless>,
-    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X> + Mul<Scalar, Output = X>,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
 {
     let mut applied = Vector::zero(initial_guess.size());
     let mut retained = vec![true; initial_guess.size()];

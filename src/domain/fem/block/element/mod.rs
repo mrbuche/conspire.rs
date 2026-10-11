@@ -6,6 +6,7 @@ pub(crate) mod autodiff;
 pub mod cohesive;
 pub mod linear;
 pub mod mass;
+pub mod multiphysics;
 pub mod planar;
 pub mod quadratic;
 pub mod serendipity;

@@ -86,6 +86,16 @@ impl Thermoelastic for AlmansiHamel {
                 &inverse_transpose_deformation_gradient,
             ))
     }
+    #[doc = include_str!("cauchy_thermal_tangent.md")]
+    fn cauchy_thermal_tangent(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<CauchyThermalTangent, ConstitutiveError> {
+        let jacobian = self.jacobian(deformation_gradient)?;
+        Ok(IDENTITY
+            * (-3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion() / jacobian))
+    }
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
         self.coefficient_of_thermal_expansion
     }

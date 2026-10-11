@@ -1,8 +1,12 @@
 #[cfg(test)]
 mod test;
-use crate::math::{ContractWith, Quantity, Square};
-use crate::math::{Current, Factor, Flattened, Intermediate, Reference};
-use crate::units::{Dimensionless, UnitDiv, UnitMul};
+use crate::{
+    math::{
+        ContractWith, Current, Factor, Flattened, HessianBlock, Intermediate, Quantity, Reference,
+        Square, Vector,
+    },
+    units::{Dimensionless, UnitDiv, UnitMul},
+};
 
 mod eigen;
 mod exponential;
@@ -30,7 +34,6 @@ use std::{
 
 use super::{
     Differentiable, Erase, Hessian, Jacobian, Rank2, Solution, SquareMatrix, Tensor, TensorArray,
-    Vector,
     rank_0::TensorRank0,
     rank_1::{
         TensorRank1, list::TensorRank1List, relabel as relabel_rank_1, vec::TensorRank1Vec,
@@ -535,6 +538,29 @@ impl<I, J, U> TensorRank2<3, I, J, U> {
             ],
             PhantomData,
         )
+    }
+}
+
+impl<const D: usize, I, J, U> HessianBlock for TensorRank2<D, I, J, U> {
+    fn entry(&self, row: usize, column: usize) -> TensorRank0 {
+        self[row][column].value()
+    }
+    fn height(&self) -> usize {
+        D
+    }
+    fn width(&self) -> usize {
+        D
+    }
+    fn fill_into_block<M>(&self, matrix: &mut M, row: usize, column: usize)
+    where
+        M: IndexMut<usize, Output = Vector>,
+    {
+        self.iter().enumerate().for_each(|(i, self_i)| {
+            self_i
+                .iter()
+                .enumerate()
+                .for_each(|(j, self_ij)| matrix[row + i][column + j] = self_ij.value())
+        })
     }
 }
 
@@ -1390,8 +1416,6 @@ where
             .collect()
     }
 }
-
-// Solving against a rank 4 divides the units, as it undoes multiplying by one.
 
 #[expect(clippy::suspicious_arithmetic_impl)]
 impl<I, J, K, L, U, V> Div<TensorRank4<3, I, J, K, L, V>> for &TensorRank2<3, I, J, U>

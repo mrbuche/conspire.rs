@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test;
-use crate::math::{Quantity, TensorRank4};
 use crate::units::{EnergyDensity, ReciprocalTemperature, Stress, Temperature};
+use crate::{
+    math::{Quantity, TensorRank4},
+    mechanics::SecondPiolaKirchhoffThermalTangent,
+};
 
 use super::*;
 
@@ -63,6 +66,15 @@ impl Thermoelastic for SaintVenantKirchhoff {
                     deformation_gradient,
                 ),
         )
+    }
+    #[doc = include_str!("second_piola_kirchhoff_thermal_tangent.md")]
+    fn second_piola_kirchhoff_thermal_tangent(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<SecondPiolaKirchhoffThermalTangent, ConstitutiveError> {
+        let _jacobian = self.jacobian(deformation_gradient)?;
+        Ok(IDENTITY_00 * (-3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion()))
     }
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
         self.coefficient_of_thermal_expansion

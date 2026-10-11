@@ -31,6 +31,32 @@ pub trait UnitDiv<Rhs> {
     type Output;
 }
 
+/// A unit that carries no unit, alone or in each part of a pair.
+pub trait IsDimensionless {}
+
+impl IsDimensionless for Dimensionless {}
+
+impl<A, B> IsDimensionless for (A, B)
+where
+    A: IsDimensionless,
+    B: IsDimensionless,
+{
+}
+
+/// A unit whose ratio with itself carries no unit.
+pub trait UnitRatio
+where
+    Self: Sized + UnitDiv<Self>,
+{
+}
+
+impl<U> UnitRatio for U
+where
+    U: UnitDiv<U>,
+    <U as UnitDiv<U>>::Output: IsDimensionless,
+{
+}
+
 /// The units the halves of a tuple take from a unit meant for the pair.
 ///
 /// A tuple is scaled either by a step in one variable, which both halves take,
@@ -172,14 +198,22 @@ units!(
     Temperature,
     /// A reciprocal temperature, as a coefficient of thermal expansion is.
     ReciprocalTemperature,
+    /// A time per unit temperature.
+    TimePerTemperature,
     /// A temperature per unit time, as a rate of heating is.
     TemperatureRate,
     /// A stress per unit temperature, as a thermal stress coefficient is.
     StressPerTemperature,
+    /// A stress per unit length per unit temperature, as a thermal stress coefficient per unit length is.
+    StressPerLengthTemperature,
+    /// A force per unit temperature, as the dependence of a nodal force on a nodal temperature is.
+    ForcePerTemperature,
     /// A power per unit volume, as a dissipation is.
     PowerDensity,
     /// A temperature per unit length, as a temperature gradient is.
     TemperaturePerLength,
+    /// A squared temperature gradient, being a squared temperature per unit area.
+    TemperatureSquaredPerArea,
     /// A power per unit area, as a heat flux is.
     PowerPerArea,
     /// A power per unit length per unit temperature, as a thermal conductivity is.
@@ -188,6 +222,8 @@ units!(
     PowerPerAreaTemperature,
     /// A power per unit volume per unit temperature, as an entropy production rate per unit volume is.
     PowerPerVolumeTemperature,
+    /// A power per unit length, as the dependence of a thermal power on a nodal displacement is.
+    PowerPerLength,
     /// A power per unit temperature, as a thermal stiffness is.
     PowerPerTemperature,
     /// A power times a temperature, as the potential a heat flux derives from is.
@@ -258,10 +294,27 @@ unit_products!(
     Stress * ReciprocalStress = Dimensionless,
     ReciprocalStress * Stress = Dimensionless,
     Dimensionless * ReciprocalTemperature = ReciprocalTemperature,
+    Dimensionless * TimePerTemperature = TimePerTemperature,
+    Time * ReciprocalTemperature = TimePerTemperature,
+    ReciprocalTemperature * Time = TimePerTemperature,
+    TimePerTemperature * Temperature = Time,
+    Temperature * TimePerTemperature = Time,
+    TimePerTemperature * Power = Entropy,
+    Power * TimePerTemperature = Entropy,
+    TimePerTemperature * PowerTemperature = Energy,
+    PowerTemperature * TimePerTemperature = Energy,
+    TimePerTemperature * PowerTemperatureDensity = Stress,
+    PowerTemperatureDensity * TimePerTemperature = Stress,
     Temperature * ReciprocalTemperature = Dimensionless,
     Dimensionless * StressPerTemperature = StressPerTemperature,
     Stress * ReciprocalTemperature = StressPerTemperature,
     StressPerTemperature * Temperature = Stress,
+    Dimensionless * StressPerLengthTemperature = StressPerLengthTemperature,
+    StressPerTemperature * ReciprocalLength = StressPerLengthTemperature,
+    ReciprocalLength * StressPerTemperature = StressPerLengthTemperature,
+    StressPerLengthTemperature * Volume = ForcePerTemperature,
+    Dimensionless * ForcePerTemperature = ForcePerTemperature,
+    ForcePerTemperature * Temperature = Force,
     ReciprocalTemperature * Temperature = Dimensionless,
     ReciprocalLength * Length = Dimensionless,
     Dimensionless * Time = Time,
@@ -333,7 +386,14 @@ unit_products!(
     PowerDensity * Volume = Power,
     Energy * Rate = Power,
     Power * Time = Energy,
+    Dimensionless * PowerPerLength = PowerPerLength,
+    Power * ReciprocalLength = PowerPerLength,
+    PowerPerLength * Length = Power,
     Dimensionless * TemperaturePerLength = TemperaturePerLength,
+    Dimensionless * TemperatureSquaredPerArea = TemperatureSquaredPerArea,
+    TemperaturePerLength * TemperaturePerLength = TemperatureSquaredPerArea,
+    TemperatureSquaredPerArea * PowerPerLengthTemperature = PowerTemperatureDensity,
+    PowerPerLengthTemperature * TemperatureSquaredPerArea = PowerTemperatureDensity,
     Dimensionless * PowerPerArea = PowerPerArea,
     Dimensionless * PowerPerLengthTemperature = PowerPerLengthTemperature,
     Dimensionless * PowerPerAreaTemperature = PowerPerAreaTemperature,
