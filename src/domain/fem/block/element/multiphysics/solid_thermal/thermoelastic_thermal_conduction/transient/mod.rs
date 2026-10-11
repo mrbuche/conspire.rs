@@ -95,7 +95,7 @@ where
                                 (&first_piola_kirchhoff_stress * gradient_vector)
                                     * integration_weight,
                                 -(&heat_flux * gradient_vector) * integration_weight
-                                    + thermoelastic_heating * shape_function,
+                                    - thermoelastic_heating * shape_function,
                             )
                         })
                         .collect::<ElementNodalForcesSolidThermal<N>>())

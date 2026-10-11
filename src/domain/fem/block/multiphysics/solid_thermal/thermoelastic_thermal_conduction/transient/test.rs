@@ -126,7 +126,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                                 .sum::<f64>()
                         })
                         .sum::<f64>()
-                        * temperature;
+                        * -temperature;
                     Assert::default().eq_within_fd_tol(
                         &(transient[node_b].1.value() - steady[node_b].1.value()),
                         &expected,

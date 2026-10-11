@@ -129,7 +129,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                                 .sum::<f64>()
                         })
                         .sum::<f64>()
-                        * 100.7;
+                        * -100.7;
                     Assert::default().eq_within_tols(
                         &(transient[node_b].1.value() - steady[node_b].1.value()),
                         &expected,
