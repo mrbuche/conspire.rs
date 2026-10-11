@@ -43,11 +43,22 @@ impl Newmark {
         }
     }
     /// Constructs the method with a fixed time step and the given parameters.
-    pub fn with_parameters<T>(dt: Quantity<T>, beta: Scalar, gamma: Scalar) -> Self {
-        Self {
-            dt: dt.value(),
-            beta,
-            gamma,
+    ///
+    /// Only unconditionally stable parameters are accepted, which satisfy
+    /// $`2\beta \ge \gamma \ge 1/2`$.
+    pub fn with_parameters<T>(
+        dt: Quantity<T>,
+        beta: Scalar,
+        gamma: Scalar,
+    ) -> Result<Self, IntegrationError> {
+        if gamma >= 0.5 && 2.0 * beta >= gamma {
+            Ok(Self {
+                dt: dt.value(),
+                beta,
+                gamma,
+            })
+        } else {
+            Err(IntegrationError::InvalidNewmarkParameters(beta, gamma))
         }
     }
 }

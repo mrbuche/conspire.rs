@@ -83,7 +83,7 @@ fn conserves_energy_beyond_the_explicit_limit() {
 
 #[test]
 fn damped_by_numerical_dissipation_when_gamma_exceeds_one_half() {
-    let integrator = Newmark::with_parameters(Quantity::<Time>::new(0.1), 0.3025, 0.6);
+    let integrator = Newmark::with_parameters(Quantity::<Time>::new(0.1), 0.3025, 0.6).unwrap();
     let (_, x, v, _) = oscillate(&integrator, 10.0).unwrap();
     let last = x.len() - 1;
     assert!(energy(&x[last], &v[last]) < 0.9 * energy(&x[0], &v[0]));
@@ -95,4 +95,19 @@ fn time_step_not_set() {
         oscillate(&Newmark::default(), 1.0),
         Err(IntegrationError::TimeStepNotSet(..))
     ));
+}
+
+#[test]
+fn conditionally_stable_parameters_are_rejected() {
+    let dt = Quantity::<Time>::new(0.1);
+    [(0.0, 0.5), (0.2, 0.5), (0.25, 0.4), (0.25, 0.6)]
+        .iter()
+        .for_each(|&(beta, gamma)| {
+            assert!(matches!(
+                Newmark::with_parameters(dt, beta, gamma),
+                Err(IntegrationError::InvalidNewmarkParameters(..))
+            ));
+        });
+    assert!(Newmark::with_parameters(dt, 0.25, 0.5).is_ok());
+    assert!(Newmark::with_parameters(dt, 0.3025, 0.6).is_ok());
 }
