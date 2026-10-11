@@ -7,15 +7,18 @@ use crate::{
         solid::thermoelastic::Thermoelastic, thermal::conduction::ThermalConduction,
     },
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, ShapeFunctions,
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
+        FiniteElementError, ShapeFunctions,
         multiphysics::solid_thermal::{
             ElementNodalForcesSolidThermal, ElementNodalStiffnessesSolidThermal,
             SolidThermalFiniteElement,
         },
         solid::SolidElement,
-        thermal::{ElementNodalTemperatures, ThermalFiniteElement},
+        thermal::{
+            ElementNodalTemperatures, ThermalFiniteElement, conduction::ElementNodalForcesThermal,
+        },
     },
-    math::{ContractSecondFourthWithFirst, Quantity, Tensor, TensorTuple},
+    math::{ContractSecondFourthWithFirst, ContractWith, Quantity, Tensor, TensorTuple},
     units::Temperature,
 };
 
@@ -41,6 +44,13 @@ pub trait ThermoelasticThermalConductionFiniteElement<
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_temperatures: &ElementNodalTemperatures<N>,
     ) -> Result<ElementNodalStiffnessesSolidThermal<N>, FiniteElementError>;
+    fn nodal_thermoelastic_heatings(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_temperatures: &ElementNodalTemperatures<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
+    ) -> Result<ElementNodalForcesThermal<N>, FiniteElementError>;
 }
 
 fn temperature<const N: usize>(
@@ -202,5 +212,44 @@ where
                 .sum::<Result<_, ConstitutiveError>>()
                 .map_err(|error| FiniteElementError::upstream(error, self))?;
         Ok((solid, coupling, thermal))
+    }
+    fn nodal_thermoelastic_heatings(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        nodal_temperatures: &ElementNodalTemperatures<N>,
+        nodal_velocities: &ElementNodalVelocities<N>,
+    ) -> Result<ElementNodalForcesThermal<N>, FiniteElementError> {
+        let deformation_gradients = self.deformation_gradients(nodal_coordinates);
+        let deformation_gradient_rates =
+            self.deformation_gradient_rates(nodal_coordinates, nodal_velocities);
+        Self::shape_functions_at_integration_points()
+            .iter()
+            .zip(
+                deformation_gradients
+                    .iter()
+                    .zip(deformation_gradient_rates.iter()),
+            )
+            .zip(self.integration_weights())
+            .map(
+                |(
+                    (shape_functions, (deformation_gradient, deformation_gradient_rate)),
+                    integration_weight,
+                )| {
+                    let temperature = temperature(shape_functions, nodal_temperatures);
+                    let power = constitutive_model
+                        .solid_constitutive_model()
+                        .first_piola_kirchhoff_thermal_tangent(deformation_gradient, temperature)?
+                        .contract_with(deformation_gradient_rate)
+                        * integration_weight
+                        * temperature;
+                    Ok(shape_functions
+                        .iter()
+                        .map(|shape_function| power * shape_function)
+                        .collect::<ElementNodalForcesThermal<N>>())
+                },
+            )
+            .sum::<Result<_, ConstitutiveError>>()
+            .map_err(|error| FiniteElementError::upstream(error, self))
     }
 }

@@ -16,16 +16,19 @@ macro_rules! test_thermoelastic_thermal_conduction_element {
                     thermal::conduction::{Fourier, test::THERMAL_CONDUCTIVITY},
                 },
                 fem::block::element::{
-                    ElementNodalCoordinates, FiniteElementError,
+                    ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
                     multiphysics::solid_thermal::{
+                        ElementNodalStiffnessesSolidThermal,
                         ElementNodalForcesSolidThermal,
                         thermoelastic_thermal_conduction::ThermoelasticThermalConductionFiniteElement,
                     },
-                    thermal::ElementNodalTemperatures,
+                    thermal::{ElementNodalTemperatures, conduction::ElementNodalForcesThermal},
                 },
                 math::assert::{Assert, AssertionError, perturbation},
+                math::Tensor,
                 units::{Length, Temperature},
             };
+            use std::array::from_fn;
             fn model() -> Canonical<AlmansiHamel, Fourier> {
                 Canonical::from((
                     AlmansiHamel {
@@ -59,7 +62,7 @@ macro_rules! test_thermoelastic_thermal_conduction_element {
                 nodal_coordinates: &ElementNodalCoordinates<N>,
                 nodal_temperatures: &ElementNodalTemperatures<N>,
             ) -> Result<
-                crate::fem::block::element::multiphysics::solid_thermal::ElementNodalStiffnessesSolidThermal<N>,
+                ElementNodalStiffnessesSolidThermal<N>,
                 FiniteElementError,
             > {
                 ThermoelasticThermalConductionFiniteElement::nodal_stiffnesses(
@@ -101,6 +104,58 @@ macro_rules! test_thermoelastic_thermal_conduction_element {
                 nodal_temperatures[node] -= perturbation::<Temperature>(EPSILON);
                 let backward = forces(&coordinates(), &nodal_temperatures)?;
                 Ok((forward, backward))
+            }
+            fn velocities() -> ElementNodalVelocities<N> {
+                from_fn::<[f64; _], _, _>(|node| {
+                    [
+                        0.1 + 0.03 * node as f64,
+                        -0.2 + 0.05 * node as f64,
+                        0.07 - 0.02 * node as f64,
+                    ]
+                }).into()
+            }
+            fn heatings(
+                nodal_temperatures: &ElementNodalTemperatures<N>,
+                nodal_velocities: &ElementNodalVelocities<N>,
+            ) -> Result<ElementNodalForcesThermal<N>, FiniteElementError> {
+                ThermoelasticThermalConductionFiniteElement::nodal_thermoelastic_heatings(
+                    &element(),
+                    &model(),
+                    &coordinates(),
+                    nodal_temperatures,
+                    nodal_velocities,
+                )
+            }
+            #[test]
+            fn heating_vanishes_without_motion() -> Result<(), AssertionError> {
+                let at_rest = ElementNodalVelocities::from(from_fn(|_| [0.0; 3]));
+                heatings(&temperatures(), &at_rest)?
+                    .iter()
+                    .try_for_each(Assert::zero)
+            }
+            #[test]
+            fn heating_follows_coupling_stiffness() -> Result<(), AssertionError> {
+                let uniform = (0..N)
+                    .map(|_| Temperature::kelvin(100.7))
+                    .collect();
+                let (_, coupling, _) = stiffnesses(&coordinates(), &uniform)?;
+                let velocities = velocities();
+                let heatings = heatings(&uniform, &velocities)?;
+                assert!(heatings.iter().any(|heating| heating.value() != 0.0));
+                (0..N).try_for_each(|node_b| {
+                    let expected = (0..N)
+                        .map(|node_a| {
+                            (0..3)
+                                .map(|i| {
+                                    coupling[node_a][node_b][i].value()
+                                        * velocities[node_a][i].value()
+                                })
+                                .sum::<f64>()
+                        })
+                        .sum::<f64>()
+                        * 100.7;
+                    Assert::default().eq_within_tols(&heatings[node_b].value(), &expected)
+                })
             }
             #[test]
             fn solid_stiffness() -> Result<(), AssertionError> {
