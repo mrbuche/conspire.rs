@@ -1,3 +1,4 @@
+pub mod dynamics;
 #[cfg(test)]
 pub mod test;
 pub mod transient;

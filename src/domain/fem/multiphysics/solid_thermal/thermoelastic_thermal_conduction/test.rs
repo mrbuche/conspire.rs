@@ -41,8 +41,8 @@ fn coordinates() -> NodalReferenceCoordinates<3> {
 
 fn model() -> Model<B, 3> {
     (
-        B::from((
-            Canonical::from((
+        (
+            (
                 AlmansiHamel {
                     bulk_modulus: BULK_MODULUS,
                     shear_modulus: SHEAR_MODULUS,
@@ -52,10 +52,12 @@ fn model() -> Model<B, 3> {
                 Fourier {
                     thermal_conductivity: THERMAL_CONDUCTIVITY,
                 },
-            )),
+            )
+                .into(),
             CONNECTIVITY.to_vec(),
             &coordinates(),
-        )),
+        )
+            .into(),
         coordinates(),
     )
         .into()
@@ -168,22 +170,26 @@ mod dynamics {
                 element::linear::Tetrahedron,
                 thermal::{NodalTemperatures, conduction::NodalForcesThermal},
             },
-            multiphysics::solid_thermal::thermoelastic_thermal_conduction::dynamics::ThermoelasticThermalConductionDynamics,
+            multiphysics::solid_thermal::thermoelastic_thermal_conduction::dynamics::{
+                ThermoelasticThermalConductionDynamics,
+                time_scale::ThermoelasticThermalConductionTimeScaleElements,
+            },
             solid::NodalForcesSolid,
         },
         math::{
             Quantity, Tensor,
             assert::{Assert, AssertionError},
-            integrate::DormandPrinceFixedStep,
+            integrate::{
+                ButcherTableau, DormandPrinceFixedStep, DormandPrinceTableau, IntegrationError,
+            },
             optimize::EqualityConstraint,
         },
         units::{Density, Time, VolumetricHeatCapacity},
     };
-
+    use std::f64::consts::FRAC_PI_2;
     const DENSITY: Quantity<Density> = Density::kilograms_per_cubic_meter(7.8e3);
     const HEAT_CAPACITY: f64 = 3.0e6;
     const STRETCH_RATE: f64 = 0.01;
-
     const COORDINATES: [[f64; 3]; 5] = [
         [0.1, 0.2, 0.0],
         [1.3, 0.1, 0.2],
@@ -191,7 +197,6 @@ mod dynamics {
         [0.3, 0.4, 1.2],
         [1.5, 1.4, 1.3],
     ];
-
     type Coupled = Canonical<AlmansiHamel, Fourier>;
     type Massive = Block<Coupled, Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
     type Both = Block<
@@ -204,9 +209,8 @@ mod dynamics {
         Quantity<Density>,
         Quantity<VolumetricHeatCapacity>,
     >;
-
     fn coupled() -> Coupled {
-        Canonical::from((
+        (
             AlmansiHamel {
                 bulk_modulus: BULK_MODULUS,
                 shear_modulus: SHEAR_MODULUS,
@@ -216,17 +220,15 @@ mod dynamics {
             Fourier {
                 thermal_conductivity: THERMAL_CONDUCTIVITY,
             },
-        ))
+        )
+            .into()
     }
-
     fn connectivity() -> Vec<[usize; 4]> {
         vec![[0, 1, 2, 3], [1, 2, 3, 4]]
     }
-
     fn reference() -> NodalReferenceCoordinates<3> {
-        NodalReferenceCoordinates::from(COORDINATES)
+        COORDINATES.into()
     }
-
     fn model() -> Model<Both, 3> {
         (
             Massive::from((coupled(), DENSITY, connectivity(), &reference()))
@@ -235,38 +237,31 @@ mod dynamics {
         )
             .into()
     }
-
     fn uniform_temperatures() -> NodalTemperatures {
         COORDINATES
             .map(|_| REFERENCE_TEMPERATURE)
             .into_iter()
             .collect()
     }
-
     fn stretching() -> NodalVelocities<3> {
         COORDINATES
             .map(|coordinate| coordinate.map(|component| STRETCH_RATE * component))
             .into()
     }
-
     fn translating() -> NodalVelocities<3> {
         COORDINATES.map(|_| [0.3, -0.2, 0.1]).into()
     }
-
     fn time() -> Vec<Quantity<Time>> {
         (0..=10)
             .map(|step| Time::seconds(1e-5 * step as f64))
             .collect()
     }
-
     fn no_forces() -> NodalForcesSolid<3> {
         NodalForcesSolid::zero(COORDINATES.len())
     }
-
     fn no_heating() -> NodalForcesThermal {
         NodalForcesThermal::zero(COORDINATES.len())
     }
-
     fn integrate(
         velocities: NodalVelocities<3>,
         equality_constraint: EqualityConstraint,
@@ -289,7 +284,6 @@ mod dynamics {
             temperatures[temperatures.len() - 1].clone(),
         )
     }
-
     #[test]
     fn stretching_cools_at_the_adiabatic_rate() -> Result<(), AssertionError> {
         let (accelerations, rates) = model()
@@ -318,7 +312,6 @@ mod dynamics {
         });
         Ok(())
     }
-
     #[test]
     fn a_rigid_translation_neither_heats_nor_cools() -> Result<(), AssertionError> {
         let (coordinates, temperatures) = integrate(translating(), EqualityConstraint::None);
@@ -338,7 +331,6 @@ mod dynamics {
                     })
             })
     }
-
     #[test]
     fn a_stretching_body_cools() {
         let (_, temperatures) = integrate(stretching(), EqualityConstraint::None);
@@ -346,7 +338,6 @@ mod dynamics {
             .iter()
             .for_each(|temperature| assert!(temperature.value() < REFERENCE_TEMPERATURE.value()));
     }
-
     #[test]
     fn a_fixed_temperature_is_held() -> Result<(), AssertionError> {
         let (_, temperatures) = integrate(stretching(), EqualityConstraint::Fixed(vec![3]));
@@ -354,7 +345,6 @@ mod dynamics {
         assert!(temperatures[1].value() < REFERENCE_TEMPERATURE.value());
         Ok(())
     }
-
     #[test]
     fn a_fixed_coordinate_is_held() -> Result<(), AssertionError> {
         let (coordinates, _) = integrate(stretching(), EqualityConstraint::Fixed(vec![5]));
@@ -362,7 +352,6 @@ mod dynamics {
         assert!((coordinates[1][0].value() - COORDINATES[1][0]).abs() > 0.0);
         Ok(())
     }
-
     #[test]
     fn linear_constraints_are_rejected() {
         use crate::math::{Matrix, Vector};
@@ -378,5 +367,70 @@ mod dynamics {
             EqualityConstraint::Linear(Matrix::zero(1, 20), Vector::zero(1)),
         );
         assert!(result.is_err());
+    }
+    fn integrate_bounded(
+        time: &[Quantity<Time>],
+        safety: f64,
+        interval: usize,
+    ) -> Result<(NodalCoordinates<3>, NodalTemperatures), IntegrationError> {
+        let (_, coordinates, _, _, temperatures, _) = model().integrate_bounded(
+            &DormandPrinceFixedStep::default(),
+            safety,
+            interval,
+            time,
+            (NodalCoordinates::from(COORDINATES), stretching()),
+            uniform_temperatures(),
+            &no_forces(),
+            &no_heating(),
+            &model().nodal_lumped_masses(),
+            &model().nodal_lumped_heat_capacities(),
+            EqualityConstraint::None,
+        )?;
+        Ok((
+            coordinates[coordinates.len() - 1].clone(),
+            temperatures[temperatures.len() - 1].clone(),
+        ))
+    }
+    #[test]
+    fn a_stable_step_agrees_with_the_unbounded_integration() -> Result<(), AssertionError> {
+        let (coordinates, temperatures) = integrate_bounded(&time(), 0.9, 1).unwrap();
+        let (expected_coordinates, expected_temperatures) =
+            integrate(stretching(), EqualityConstraint::None);
+        Assert::default().eq_within_tols(&coordinates, &expected_coordinates)?;
+        Assert::default().eq_within_tols(&temperatures, &expected_temperatures)
+    }
+    #[test]
+    fn an_unstable_step_is_an_error() {
+        let (wave, diffusion) = model()
+            .fastest_time_scales(
+                &reference(),
+                &NodalCoordinates::from(COORDINATES),
+                &uniform_temperatures(),
+            )
+            .unwrap();
+        let step = 1.0e3 * wave.value().min(diffusion.value());
+        let result = integrate_bounded(
+            &[
+                Time::seconds(0.0),
+                Time::seconds(step),
+                Time::seconds(2.0 * step),
+            ],
+            1.0,
+            1,
+        )
+        .map(|_| ());
+        let stability = DormandPrinceTableau::stability();
+        let expected = (diffusion.value() * stability.extent(0.0))
+            .min(wave.value() * stability.extent(FRAC_PI_2));
+        match result {
+            Err(IntegrationError::UnstableTimeStep(_, limit, _)) => {
+                assert!((limit - expected).abs() < 1e-9 * expected)
+            }
+            _ => panic!("expected an unstable time step: {result:?}"),
+        }
+    }
+    #[test]
+    fn a_refresh_interval_of_zero_is_an_error() {
+        assert!(integrate_bounded(&time(), 0.9, 0).is_err());
     }
 }

@@ -216,3 +216,6 @@ crate::fem::block::multiphysics::solid_thermal::thermoelastic_thermal_conduction
 crate::fem::block::multiphysics::solid_thermal::thermoelastic_thermal_conduction::transient::test::test_thermoelastic_thermal_conduction_transient_block!(
     Tetrahedron
 );
+crate::fem::block::multiphysics::solid_thermal::thermoelastic_thermal_conduction::dynamics::test::test_thermoelastic_thermal_conduction_time_scale_block!(
+    Tetrahedron
+);

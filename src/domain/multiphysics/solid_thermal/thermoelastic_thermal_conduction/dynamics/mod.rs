@@ -1,3 +1,6 @@
+pub mod time_scale;
+
+use self::time_scale::ThermoelasticThermalConductionTimeScaleElements;
 use super::transient::ThermoelasticThermalConductionTransientElements;
 use crate::{
     domain::{
@@ -6,17 +9,20 @@ use crate::{
         factor::fixed_indices,
         solid::{
             NodalForcesSolid,
-            mass::{InverseMass, MassMatrix},
+            mass::{InverseMass, MassMatrix, NodalLumpedMasses},
         },
         thermal::{
             NodalForcesThermal, NodalTemperatures,
-            capacity::{HeatCapacityMatrix, InverseHeatCapacity, NodalTemperatureRates},
+            capacity::{
+                HeatCapacityMatrix, InverseHeatCapacity, NodalLumpedHeatCapacities,
+                NodalTemperatureRates,
+            },
             dynamics::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
         },
     },
     math::{
-        Quantity, Tensor,
-        integrate::{ExplicitDynamicsCoupled, IntegrationError, Times},
+        Quantity, Scalar, Tensor,
+        integrate::{ExplicitDynamicsCoupled, IntegrationError, Spectrum, Times},
         optimize::EqualityConstraint,
     },
     units::Time,
@@ -107,6 +113,41 @@ pub trait ThermoelasticThermalConductionDynamics {
         capacities: &impl HeatCapacityMatrix,
         equality_constraint: EqualityConstraint,
     ) -> Result<Solution, IntegrationError>;
+    /// Integrates the motion and temperatures of the model like [`integrate`](Self::integrate),
+    /// with a time step limited by the fastest time scales of the elements.
+    ///
+    /// Only lumped masses and heat capacities are accepted, since the estimates of the highest
+    /// frequency and of the largest eigenvalue are those of the lumped ones, which consistent
+    /// ones exceed. The estimates assemble the element stiffnesses, and are refreshed every
+    /// `interval` evaluations of the bound, which for the integrators here is every step. The
+    /// time step may use at most the fraction `safety` of the stability limit, which is the
+    /// stricter of that of the motion along the imaginary axis and of the diffusion along the
+    /// real axis, and a step above it is an error.
+    #[expect(clippy::too_many_arguments)]
+    fn integrate_bounded(
+        &self,
+        integrator: &impl ExplicitDynamicsCoupled<
+            NodalCoordinates<3>,
+            NodalTemperatures,
+            NodalCoordinatesHistory<3>,
+            NodalVelocitiesHistory<3>,
+            NodalAccelerationsHistory<3>,
+            NodalTemperaturesHistory,
+            NodalTemperatureRatesHistory,
+        >,
+        safety: Scalar,
+        interval: usize,
+        time: &[Quantity<Time>],
+        initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
+        initial_temperatures: NodalTemperatures,
+        external_forces: &NodalForcesSolid<3>,
+        external_heating: &NodalForcesThermal,
+        masses: &NodalLumpedMasses,
+        capacities: &NodalLumpedHeatCapacities,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<Solution, IntegrationError>
+    where
+        Self: ThermoelasticThermalConductionTimeScaleElements;
 }
 
 impl<B> ThermoelasticThermalConductionDynamics for Model<B, 3>
@@ -170,6 +211,79 @@ where
                 )
                 .map_err(|error| error.to_string())
             },
+            time,
+            initial_coordinates,
+            initial_velocities,
+            initial_temperatures,
+        )
+    }
+    fn integrate_bounded(
+        &self,
+        integrator: &impl ExplicitDynamicsCoupled<
+            NodalCoordinates<3>,
+            NodalTemperatures,
+            NodalCoordinatesHistory<3>,
+            NodalVelocitiesHistory<3>,
+            NodalAccelerationsHistory<3>,
+            NodalTemperaturesHistory,
+            NodalTemperatureRatesHistory,
+        >,
+        safety: Scalar,
+        interval: usize,
+        time: &[Quantity<Time>],
+        (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
+        initial_temperatures: NodalTemperatures,
+        external_forces: &NodalForcesSolid<3>,
+        external_heating: &NodalForcesThermal,
+        masses: &NodalLumpedMasses,
+        capacities: &NodalLumpedHeatCapacities,
+        equality_constraint: EqualityConstraint,
+    ) -> Result<Solution, IntegrationError>
+    where
+        Self: ThermoelasticThermalConductionTimeScaleElements,
+    {
+        if interval == 0 {
+            return Err(IntegrationError::Intermediate(
+                "The interval between estimates of the time scales must be at least one."
+                    .to_string(),
+            ));
+        }
+        let (masses, capacities, initial_velocities) =
+            held(masses, capacities, equality_constraint, initial_velocities)?;
+        let mut evaluations = 0;
+        let mut time_scales = (
+            Time::seconds(Scalar::INFINITY),
+            Time::seconds(Scalar::INFINITY),
+        );
+        integrator.integrate_coupled_bounded(
+            |_,
+             coordinates: &NodalCoordinates<3>,
+             velocities: &NodalVelocities<3>,
+             temperatures: &NodalTemperatures| {
+                self.nodal_rates(
+                    coordinates,
+                    velocities,
+                    temperatures,
+                    external_forces,
+                    external_heating,
+                    &masses,
+                    &capacities,
+                )
+                .map_err(|error| error.to_string())
+            },
+            |_,
+             coordinates: &NodalCoordinates<3>,
+             _: &NodalVelocities<3>,
+             temperatures: &NodalTemperatures| {
+                if evaluations % interval == 0 {
+                    time_scales = self
+                        .fastest_time_scales(&self.coordinates, coordinates, temperatures)
+                        .map_err(|error| error.to_string())?;
+                }
+                evaluations += 1;
+                Ok(Spectrum::Mixed(time_scales.1, time_scales.0))
+            },
+            safety,
             time,
             initial_coordinates,
             initial_velocities,

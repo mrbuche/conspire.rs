@@ -295,3 +295,45 @@ fn coupled_bounded_stable_step_agrees() {
         unbounded.1[unbounded.1.len() - 1].value()
     );
 }
+
+fn mixed_limit(real: Scalar, imaginary: Scalar) -> Scalar {
+    let result: Result<CoupledSolution, _> = DormandPrinceFixedStep::default()
+        .integrate_coupled_bounded(
+            |_: Quantity<Time>,
+             _: &Quantity<Length>,
+             v: &Quantity<Velocity>,
+             y: &Quantity<Length>| Ok((y * Quantity::<RateSquared>::new(-1.0), *v)),
+            |_: Quantity<Time>,
+             _: &Quantity<Length>,
+             _: &Quantity<Velocity>,
+             _: &Quantity<Length>| {
+                Ok(Spectrum::Mixed(
+                    Quantity::new(real),
+                    Quantity::new(imaginary),
+                ))
+            },
+            1.0,
+            &grid(4, 1.0e6),
+            Quantity::new(1.0),
+            Quantity::new(0.0),
+            Quantity::new(2.0),
+        );
+    match result {
+        Err(IntegrationError::UnstableTimeStep(_, reported, _)) => reported,
+        _ => panic!("expected an unstable time step"),
+    }
+}
+
+#[test]
+fn mixed_spectrum_is_limited_by_the_real_axis_when_it_binds() {
+    let stability = DormandPrinceTableau::stability();
+    let reported = mixed_limit(1.0, 1.0e3);
+    assert!((reported - stability.extent(0.0)).abs() < 1e-12);
+}
+
+#[test]
+fn mixed_spectrum_is_limited_by_the_imaginary_axis_when_it_binds() {
+    let stability = DormandPrinceTableau::stability();
+    let reported = mixed_limit(1.0e3, 1.0);
+    assert!((reported - stability.extent(FRAC_PI_2)).abs() < 1e-12);
+}
