@@ -3,9 +3,13 @@ use crate::constitutive::solid::thermohyperelastic::{
     SaintVenantKirchhoff,
     test::{BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION, REFERENCE_TEMPERATURE, SHEAR_MODULUS},
 };
+use crate::constitutive::{
+    solid::{Solid, thermoelastic::Thermoelastic},
+    thermal::conduction::ThermalConduction,
+};
 
 test_thermohyperelastic_thermal_conduction_constitutive_model!(
-    ThermohyperelasticThermalConduction::from((
+    Canonical::from((
         SaintVenantKirchhoff {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
