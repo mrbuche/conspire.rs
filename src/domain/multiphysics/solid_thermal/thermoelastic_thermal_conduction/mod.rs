@@ -10,10 +10,9 @@ use crate::{
         thermal::NodalTemperatures,
     },
     math::{
-        Quantity, Tensor, TensorTuple,
+        Tensor, TensorTuple,
         optimize::{EqualityConstraint, NewtonRaphson, OptimizationError, RootFinding},
     },
-    units::Temperature,
 };
 
 pub trait ThermoelasticThermalConductionElements
@@ -36,6 +35,12 @@ where
             .collect::<NodalForcesSolidThermal>();
         self.nodal_forces_into(nodal_coordinates, nodal_temperatures, &mut nodal_forces)?;
         Ok(nodal_forces)
+    }
+    fn nodal_reference_temperatures_into(&self, nodal_temperatures: &mut NodalTemperatures);
+    fn nodal_reference_temperatures(&self, nodes: usize) -> NodalTemperatures {
+        let mut nodal_temperatures = NodalTemperatures::zero(nodes);
+        self.nodal_reference_temperatures_into(&mut nodal_temperatures);
+        nodal_temperatures
     }
     fn nodal_stiffnesses_into(
         &self,
@@ -71,6 +76,10 @@ where
         self.blocks
             .nodal_forces_into(nodal_coordinates, nodal_temperatures, nodal_forces)
     }
+    fn nodal_reference_temperatures_into(&self, nodal_temperatures: &mut NodalTemperatures) {
+        self.blocks
+            .nodal_reference_temperatures_into(nodal_temperatures)
+    }
     fn nodal_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
@@ -97,6 +106,10 @@ where
             .nodal_forces_into(nodal_coordinates, nodal_temperatures, nodal_forces)?;
         self.1
             .nodal_forces_into(nodal_coordinates, nodal_temperatures, nodal_forces)
+    }
+    fn nodal_reference_temperatures_into(&self, nodal_temperatures: &mut NodalTemperatures) {
+        self.0.nodal_reference_temperatures_into(nodal_temperatures);
+        self.1.nodal_reference_temperatures_into(nodal_temperatures)
     }
     fn nodal_stiffnesses_into(
         &self,
@@ -169,8 +182,9 @@ where
             |nodal_states: &NodalStatesSolidThermal| Ok(self.provide_tangent(nodal_states)?),
             NodalCoordinates::from(self.coordinates().clone())
                 .into_iter()
-                .map(|nodal_coordinate| {
-                    TensorTuple(nodal_coordinate, Quantity::<Temperature>::new(0.0))
+                .zip(self.nodal_reference_temperatures(self.coordinates().len()))
+                .map(|(nodal_coordinate, nodal_temperature)| {
+                    TensorTuple(nodal_coordinate, nodal_temperature)
                 })
                 .collect(),
             equality_constraint,

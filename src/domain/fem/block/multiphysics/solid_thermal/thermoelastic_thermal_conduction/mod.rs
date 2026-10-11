@@ -2,7 +2,9 @@
 pub mod test;
 
 use crate::{
-    constitutive::multiphysics::ThermoelasticThermalConduction,
+    constitutive::{
+        multiphysics::ThermoelasticThermalConduction, solid::thermoelastic::Thermoelastic,
+    },
     fem::{
         ElementModelError, NodalCoordinates,
         block::{
@@ -49,6 +51,17 @@ where
                 Ok::<(), FiniteElementError>(())
             })
             .map_err(|error| ElementModelError::upstream(error, self))
+    }
+    fn nodal_reference_temperatures_into(&self, nodal_temperatures: &mut NodalTemperatures) {
+        let reference_temperature = self
+            .constitutive_model()
+            .solid_constitutive_model()
+            .reference_temperature();
+        self.connectivity().iter().for_each(|nodes| {
+            nodes
+                .iter()
+                .for_each(|&node| nodal_temperatures[node] = reference_temperature)
+        })
     }
     fn nodal_stiffnesses_into(
         &self,

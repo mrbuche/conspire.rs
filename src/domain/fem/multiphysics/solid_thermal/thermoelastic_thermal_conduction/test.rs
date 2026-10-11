@@ -84,19 +84,28 @@ fn constraint() -> EqualityConstraint {
     EqualityConstraint::Linear(matrix, rhs)
 }
 
-fn solve() -> NodalStatesSolidThermal {
+fn fixed() -> EqualityConstraint {
+    EqualityConstraint::Fixed(
+        (0..NODES)
+            .map(|node| 4 * node + 3)
+            .chain([0, 1, 2, 5, 6, 10])
+            .collect(),
+    )
+}
+
+fn solve(constraint: EqualityConstraint) -> NodalStatesSolidThermal {
     <Model<B, 3> as Root<
         NodalForcesSolidThermal,
         NodalStiffnessesSolidThermal,
         NodalStatesSolidThermal,
-    >>::root(&model(), constraint(), NewtonRaphson::default())
+    >>::root(&model(), constraint, NewtonRaphson::default())
     .unwrap()
 }
 
 #[test]
 fn a_uniform_temperature_dilates_the_body_without_stress() {
     let dilation = dilation();
-    let states = solve();
+    let states = solve(constraint());
     (0..NODES).for_each(|node| {
         (0..3).for_each(|direction| {
             let expected = dilation * coordinates()[node][direction].value();
@@ -111,9 +120,30 @@ fn a_uniform_temperature_dilates_the_body_without_stress() {
 
 #[test]
 fn the_imposed_temperature_is_reached_at_every_node() {
-    let states = solve();
+    let states = solve(constraint());
     (0..NODES).for_each(|node| {
         let found = states[node].1.value();
         assert!((found - HOT).abs() < 1e-8, "node {node}: {found} != {HOT}")
+    })
+}
+
+#[test]
+fn fixed_temperatures_hold_the_reference_temperature_and_leave_the_body_unstrained() {
+    let states = solve(fixed());
+    (0..NODES).for_each(|node| {
+        (0..3).for_each(|direction| {
+            let expected = coordinates()[node][direction].value();
+            let found = states[node].0[direction].value();
+            assert!(
+                (found - expected).abs() < 1e-10,
+                "node {node} direction {direction}: {found} != {expected}"
+            )
+        });
+        let found = states[node].1.value();
+        let expected = REFERENCE_TEMPERATURE.value();
+        assert!(
+            (found - expected).abs() < 1e-10,
+            "node {node}: {found} != {expected}"
+        )
     })
 }
