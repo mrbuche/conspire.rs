@@ -2,12 +2,13 @@ use super::Block;
 use crate::{
     constitutive::solid::elastic::Elastic,
     domain::{
-        ElementModelError, NodalCoordinates,
-        mass::{LumpedMassElements, NodalLumpedMasses},
-        solid::elastic::ElasticElements,
-        time_scale::{
-            TimeScaleElements, largest_eigenvalue_by_product, time_scale_from_eigenvalue,
+        ElementModelError, NodalCoordinates, NodalReferenceCoordinates,
+        solid::{
+            elastic::ElasticElements,
+            mass::{LumpedMassElements, NodalLumpedMasses},
+            time_scale::TimeScaleElements,
         },
+        time_scale::{largest_eigenvalue_by_product, time_scale_from_eigenvalue},
     },
     math::{Quantity, Scalar, Tensor},
     units::{Density, Time},
@@ -19,11 +20,12 @@ where
 {
     fn fastest_time_scale(
         &self,
+        reference_coordinates: &NodalReferenceCoordinates<3>,
         nodal_coordinates: &NodalCoordinates<3>,
     ) -> Result<Quantity<Time>, ElementModelError> {
         let stiffnesses = self.nodal_stiffnesses(nodal_coordinates)?;
         let mut lumped_masses = NodalLumpedMasses::zero(nodal_coordinates.len());
-        self.nodal_lumped_masses_into(&mut lumped_masses);
+        self.nodal_lumped_masses_into(reference_coordinates, &mut lumped_masses);
         let masses: Vec<Scalar> = lumped_masses
             .iter()
             .flat_map(|mass| [mass.value(); 3])

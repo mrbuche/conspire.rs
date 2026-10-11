@@ -6,8 +6,7 @@ mod discretization;
 mod dynamics;
 
 pub use crate::domain::{
-    ElementModelError, FirstOrderRoot, Model, NodalCoordinates, NodalReferenceCoordinates,
-    NodalVelocities, ZerothOrderRoot,
+    ElementModelError, Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities, Root,
     block::element::Elements,
     solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
 };
