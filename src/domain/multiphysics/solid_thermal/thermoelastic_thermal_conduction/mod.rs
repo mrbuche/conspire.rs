@@ -1,3 +1,5 @@
+pub mod transient;
+
 use crate::{
     domain::{
         Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, ProvidesTangent, Root,
