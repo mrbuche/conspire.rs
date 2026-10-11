@@ -18,7 +18,7 @@ const TOLERANCE: Scalar = 1e-10;
 /// of it by about the tolerance, or by more where the largest eigenvalues are
 /// clustered and the iteration stops early.
 #[cfg_attr(
-    not(any(feature = "fem", feature = "vem", feature = "qmm")),
+    not(any(feature = "fem", feature = "vem", all(test, feature = "qmm"))),
     allow(dead_code)
 )]
 pub(crate) fn largest_eigenvalue(
