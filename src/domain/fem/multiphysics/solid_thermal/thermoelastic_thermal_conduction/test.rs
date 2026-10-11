@@ -583,4 +583,83 @@ mod dynamics {
         }
         .eq_within_tols(ratio, &(1.0 + stiffening).sqrt())
     }
+    use crate::{
+        constitutive::solid::thermohyperelastic::NeoHookean, units::ReciprocalTemperature,
+    };
+    type Entropic = Canonical<NeoHookean, Fourier>;
+    type EntropicMassive = Block<Entropic, Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
+    type EntropicBoth = Block<
+        Entropic,
+        Tetrahedron<4>,
+        4,
+        3,
+        4,
+        4,
+        Quantity<Density>,
+        Quantity<VolumetricHeatCapacity>,
+    >;
+    fn entropic_model() -> Model<EntropicBoth, 3> {
+        (
+            EntropicMassive::from((
+                (
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        coefficient_of_thermal_expansion: ReciprocalTemperature::per_kelvin(0.0),
+                        reference_temperature: REFERENCE_TEMPERATURE,
+                    },
+                    Fourier {
+                        thermal_conductivity: THERMAL_CONDUCTIVITY,
+                    },
+                )
+                    .into(),
+                DENSITY,
+                connectivity(),
+                &reference(),
+            ))
+            .with_heat_capacity(Quantity::<VolumetricHeatCapacity>::new(HEAT_CAPACITY)),
+            reference(),
+        )
+            .into()
+    }
+    #[test]
+    fn an_entropic_solid_warms_at_the_rate_of_the_shear_work() {
+        let stretch: f64 = 1.3;
+        let stretches = [stretch, stretch.powf(-0.5), stretch.powf(-0.5)];
+        let directions = [1.0, -0.5, -0.5];
+        let coordinates =
+            NodalCoordinates::from(COORDINATES.map(|x| [0, 1, 2].map(|i| stretches[i] * x[i])));
+        let velocities = NodalVelocities::from(
+            COORDINATES
+                .map(|x| [0, 1, 2].map(|i| STRETCH_RATE * directions[i] * stretches[i] * x[i])),
+        );
+        let model = entropic_model();
+        let (_, rates) = model
+            .nodal_rates(
+                &coordinates,
+                &velocities,
+                &uniform_temperatures(),
+                &no_forces(),
+                &no_heating(),
+                &model.nodal_lumped_masses(),
+                &model.nodal_lumped_heat_capacities(),
+            )
+            .unwrap();
+        let squares = stretches.map(|stretch| stretch * stretch);
+        let mean = squares.iter().sum::<f64>() / 3.0;
+        let work = (0..3)
+            .map(|i| (squares[i] - mean) * directions[i])
+            .sum::<f64>()
+            * SHEAR_MODULUS.value()
+            * STRETCH_RATE;
+        let expected = work / HEAT_CAPACITY;
+        assert!(expected > 0.0);
+        rates.iter().for_each(|rate| {
+            assert!(
+                (rate.value() - expected).abs() < 1e-6 * expected,
+                "{} != {expected}",
+                rate.value()
+            )
+        });
+    }
 }
