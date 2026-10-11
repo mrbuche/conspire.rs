@@ -3,7 +3,7 @@ use crate::{
     EPSILON,
     constitutive::solid::{elastic::Elastic, hyperelastic::NeoHookean},
     domain::{
-        ElementModel, Elements, FirstOrderRoot, NodalCoordinates, NodalReferenceCoordinates,
+        ElementModel, Elements, NodalCoordinates, NodalReferenceCoordinates, Root,
         block::{finalize_node_neighbors, solver_from_neighbors},
         qmm::{Discretization, Support},
         solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
@@ -12,7 +12,7 @@ use crate::{
     math::{
         Matrix, Quantity, Tensor, Vector,
         assert::{Assert, AssertionError, perturbation},
-        optimize::{EqualityConstraint, FirstOrderRootFinding, NewtonRaphson},
+        optimize::{EqualityConstraint, NewtonRaphson, RootFinding},
     },
     mechanics::{DeformationGradient, Displacement, Traction},
     units::{Length, Stress},
@@ -144,7 +144,7 @@ fn solve_approximates_an_affine_field_from_its_boundary_values() -> Result<(), A
     }
     let block = Block::from((constitutive_model(), discretization.clone()));
     let model = discretization.model(constitutive_model());
-    let coordinates = FirstOrderRoot::root(
+    let coordinates = Root::root(
         &model,
         EqualityConstraint::Linear(a, b),
         NewtonRaphson::default(),

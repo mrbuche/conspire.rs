@@ -1,10 +1,13 @@
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
     domain::{
-        Model, NodalCoordinates, NodalVelocities,
-        mass::{InverseMass, MassMatrix},
+        Model, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         qmm::{Discretization, Support, block::Block},
-        solid::NodalForcesSolid,
+        solid::{
+            NodalForcesSolid,
+            dynamics::ElasticDynamics,
+            mass::{InverseMass, MassMatrix},
+        },
     },
     geometry::mesh::test::tetrahedra,
     math::{
@@ -227,7 +230,8 @@ mod time_scale {
     use super::*;
     use crate::domain::{
         solid::elastic::ElasticElements,
-        time_scale::{TimeScaleElements, largest_eigenvalue, time_scale_from_eigenvalue},
+        solid::time_scale::TimeScaleElements,
+        time_scale::{largest_eigenvalue, time_scale_from_eigenvalue},
     };
     fn dense_time_scale(model: &Model<B, 3>) -> f64 {
         let coordinates = NodalCoordinates::from(reference());
@@ -253,7 +257,10 @@ mod time_scale {
     fn the_sparse_estimate_matches_the_dense_one() {
         let model = model();
         let sparse = model
-            .fastest_time_scale(&NodalCoordinates::from(reference()))
+            .fastest_time_scale(
+                &NodalReferenceCoordinates::from(reference()),
+                &NodalCoordinates::from(reference()),
+            )
             .unwrap()
             .in_seconds();
         assert!(sparse.is_finite() && sparse > 0.0);
@@ -276,7 +283,10 @@ mod time_scale {
                 coordinates,
             ));
             model
-                .fastest_time_scale(&NodalCoordinates::from(reference()))
+                .fastest_time_scale(
+                    &NodalReferenceCoordinates::from(reference()),
+                    &NodalCoordinates::from(reference()),
+                )
                 .unwrap()
                 .in_seconds()
         };
@@ -288,7 +298,10 @@ mod time_scale {
         let model = model();
         let masses = model.nodal_lumped_masses();
         let time_scale = model
-            .fastest_time_scale(&NodalCoordinates::from(reference()))
+            .fastest_time_scale(
+                &NodalReferenceCoordinates::from(reference()),
+                &NodalCoordinates::from(reference()),
+            )
             .unwrap()
             .in_seconds();
         let run = |dt: f64| {

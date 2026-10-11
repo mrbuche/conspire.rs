@@ -3,13 +3,20 @@ mod test;
 
 use super::Block;
 use crate::{
-    domain::mass::{ConsistentMassElements, LumpedMassElements, NodalLumpedMasses, NodalMasses},
+    domain::{
+        NodalReferenceCoordinates,
+        solid::mass::{ConsistentMassElements, LumpedMassElements, NodalLumpedMasses, NodalMasses},
+    },
     math::{Quantity, Tensor},
     units::{Density, Volume},
 };
 
-impl<C> LumpedMassElements for Block<C, Quantity<Density>> {
-    fn nodal_lumped_masses_into(&self, nodal_lumped_masses: &mut NodalLumpedMasses) {
+impl<C> LumpedMassElements<3> for Block<C, Quantity<Density>> {
+    fn nodal_lumped_masses_into(
+        &self,
+        _reference_coordinates: &NodalReferenceCoordinates<3>,
+        nodal_lumped_masses: &mut NodalLumpedMasses,
+    ) {
         let diagonal = |node: usize| {
             self.inner_products[node]
                 .iter()
