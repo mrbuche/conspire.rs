@@ -24,7 +24,8 @@ pub mod thermal {
 
 pub mod mass {
     pub use crate::domain::solid::mass::{
-        FixedLumpedMasses, InverseMass, LumpedMassElements, MassMatrix, NodalLumpedMasses,
+        FixedLumpedMasses, InertialMass, InverseMass, LumpedMassElements, MassMatrix,
+        NodalLumpedMasses,
     };
 }
 
