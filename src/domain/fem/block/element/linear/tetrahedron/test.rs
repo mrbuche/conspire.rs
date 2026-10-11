@@ -207,6 +207,9 @@ crate::fem::block::thermal::conduction::test::test_thermal_block!(Tetrahedron);
 crate::fem::block::element::multiphysics::solid_thermal::thermoelastic_thermal_conduction::test::test_thermoelastic_thermal_conduction_element!(
     Tetrahedron
 );
+crate::fem::block::element::multiphysics::solid_thermal::thermoelastic_thermal_conduction::transient::test::test_thermoelastic_thermal_conduction_transient_element!(
+    Tetrahedron
+);
 crate::fem::block::multiphysics::solid_thermal::thermoelastic_thermal_conduction::test::test_thermoelastic_thermal_conduction_block!(
     Tetrahedron
 );
