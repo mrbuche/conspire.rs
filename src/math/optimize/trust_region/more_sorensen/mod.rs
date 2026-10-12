@@ -248,18 +248,23 @@ pub(crate) fn more_sorensen_sparse(
     )
 }
 
-/// The quadratic form of only the primal block of a bordered tangent, the
-/// multiplier rows having no part in what the model predicts.
 pub(crate) fn quadratic_dense(
     tangent: &SquareMatrix,
     step: &Vector,
     num_variables: usize,
 ) -> Scalar {
-    (0..num_variables)
-        .map(|i| {
-            (0..num_variables)
-                .map(|j| step[i] * tangent[i][j] * step[j])
-                .sum::<Scalar>()
+    tangent
+        .iter()
+        .zip(step)
+        .take(num_variables)
+        .map(|(tangent_i, step_i)| {
+            step_i
+                * tangent_i
+                    .iter()
+                    .zip(step)
+                    .take(num_variables)
+                    .map(|(tangent_ij, step_j)| tangent_ij * step_j)
+                    .sum::<Scalar>()
         })
         .sum()
 }
