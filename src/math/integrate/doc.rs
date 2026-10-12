@@ -109,6 +109,6 @@ pub fn trapezoidal<'a>() -> Vec<[&'a str; 2]> {
 pub fn velocity_verlet<'a>() -> Vec<[&'a str; 2]> {
     vec![[
         "math/integrate/dynamics/velocity_verlet",
-        include_str!("ode/dynamics/velocity_verlet/doc.md"),
+        include_str!("ode/dynamics/explicit/velocity_verlet/doc.md"),
     ]]
 }

@@ -8,6 +8,7 @@ use std::fmt::{Debug, Display};
 pub enum IntegrationError {
     InconsistentInitialConditions,
     InitialTimeNotLessThanFinalTime,
+    InvalidNewmarkParameters(Scalar, Scalar),
     InvalidSafetyFactor(Scalar),
     Intermediate(String),
     LengthTimeLessThanTwo,
@@ -39,6 +40,11 @@ impl StyledError for IntegrationError {
             }
             Self::InitialTimeNotLessThanFinalTime => {
                 format!("{h}The initial time must precede the final time.")
+            }
+            Self::InvalidNewmarkParameters(beta, gamma) => {
+                format!(
+                    "{h}The Newmark parameters (beta = {beta:?}, gamma = {gamma:?}) must satisfy 2 beta >= gamma >= 1/2 to be unconditionally stable."
+                )
             }
             Self::InvalidSafetyFactor(safety) => {
                 format!("{h}The safety factor ({safety:?}) must be in (0, 1].")

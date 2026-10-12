@@ -1,0 +1,3 @@
+Solves an initial value problem for dynamics, given the residual of the equations of motion as a function of time, position, velocity, and acceleration, and its tangent with respect to position.
+
+The acceleration function is only evaluated for the initial acceleration. The tangent is handed the time step and the parameters $`\beta`$ and $`\gamma`$ of the method, from which the weights of the mass and damping in the effective tangent follow. The solution contains the positions, velocities, and accelerations at each time. The time step is that of the integrator when `time` holds only the initial and final times, and otherwise `time` is the sequence of steps.

@@ -47,8 +47,11 @@ pub use dae::{
 pub use ode::{
     FixedStep, OdeIntegrator, VariableStep,
     dynamics::{
-        ExplicitDynamics, ExplicitDynamicsCoupled, stacked::Stacked,
-        velocity_verlet::VelocityVerlet,
+        explicit::{
+            ExplicitDynamics, ExplicitDynamicsCoupled, stacked::Stacked,
+            velocity_verlet::VelocityVerlet,
+        },
+        implicit::{ImplicitDynamics, newmark::Newmark},
     },
     explicit::{
         Explicit, Spectrum,
