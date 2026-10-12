@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test;
 
-use super::super::super::{Norm, Scalar, SquareMatrix, Tensor, Vector, sparse::SparseSolver};
+use crate::math::{Norm, Scalar, SquareMatrix, Tensor, Vector, sparse::SparseSolver};
 
 // How precisely the bisection locates the radius boundary. The radius is a
 // heuristic that only ever gets doubled or quartered, so resolving its boundary
@@ -21,16 +21,12 @@ const MORE_SORENSEN_MAX_ITERATIONS: usize = 100;
 // practice, chasing an infeasible radius toward lambda ~ 1e12).
 const MORE_SORENSEN_LAMBDA_CAP: Scalar = 1e8;
 
-/// The tangent shifted by `lambda` on only the primal (first `num_variables`) rows,
-/// the multiplier rows of a bordered KKT block left untouched.
 fn shift(tangent: &SquareMatrix, lambda: Scalar, num_variables: usize) -> SquareMatrix {
     let mut shifted = tangent.clone();
     (0..num_variables).for_each(|i| shifted[i][i] += lambda);
     shifted
 }
 
-/// The Euclidean norm of only the primal block of a step, the multiplier rows
-/// being of another kind entirely and not part of what the radius bounds.
 fn step_norm(step: &Vector, num_variables: usize) -> Scalar {
     Norm::Euclidean.over(step.iter().take(num_variables).copied())
 }
@@ -188,7 +184,6 @@ pub(crate) fn more_sorensen(
     step
 }
 
-/// The trust-region subproblem for a dense tangent held whole.
 pub(crate) fn more_sorensen_dense(
     tangent: &SquareMatrix,
     residual: &Vector,
@@ -246,25 +241,4 @@ pub(crate) fn more_sorensen_sparse(
         radius,
         num_variables,
     )
-}
-
-pub(crate) fn quadratic_dense(
-    tangent: &SquareMatrix,
-    step: &Vector,
-    num_variables: usize,
-) -> Scalar {
-    tangent
-        .iter()
-        .zip(step)
-        .take(num_variables)
-        .map(|(tangent_i, step_i)| {
-            step_i
-                * tangent_i
-                    .iter()
-                    .zip(step)
-                    .take(num_variables)
-                    .map(|(tangent_ij, step_j)| tangent_ij * step_j)
-                    .sum::<Scalar>()
-        })
-        .sum()
 }

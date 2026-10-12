@@ -12,7 +12,7 @@ use super::{
     RootFindingBlock, RootFindingIncremental, SolveStrategy, StepSize, Tolerances, TrustRegion,
     trust_region::{
         TRUST_REGION_ETA, TRUST_REGION_MAX_REJECTIONS, TRUST_REGION_SHRINK, more_sorensen_dense,
-        more_sorensen_sparse, quadratic_dense, update_radius,
+        more_sorensen_sparse, update_radius,
     },
 };
 use crate::math::Norm;
@@ -1197,7 +1197,7 @@ where
                         reduced_gradient.iter().zip(decrement_outer.iter()),
                         violated,
                     ) - 0.5
-                        * quadratic_dense(&tangent_outer, &decrement_outer, num_global)
+                        * tangent_outer.quadratic_form_leading(&decrement_outer, num_global)
                         + local_decrease;
                     if predicted <= Scalar::EPSILON * value.abs() {
                         accepted = true;
@@ -1845,7 +1845,7 @@ where
                     hess.quadratic_form(&decrement)
                 } else {
                     decrement = more_sorensen_dense(&tangent, &residual, radius, num_variables);
-                    quadratic_dense(&tangent, &decrement, num_variables)
+                    tangent.quadratic_form_leading(&decrement, num_variables)
                 };
                 let predicted =
                     merit_slope(gradient.iter().zip(decrement.iter()), violated) - 0.5 * quadratic;

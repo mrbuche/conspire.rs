@@ -2,7 +2,7 @@ mod more_sorensen;
 
 use super::super::{Norm, Scalar};
 use more_sorensen::MORE_SORENSEN_TOLERANCE;
-pub(crate) use more_sorensen::{more_sorensen_dense, more_sorensen_sparse, quadratic_dense};
+pub(crate) use more_sorensen::{more_sorensen_dense, more_sorensen_sparse};
 
 /// How far a step is trusted to follow the model it was built from.
 #[derive(Clone, Copy, Debug, Default)]
