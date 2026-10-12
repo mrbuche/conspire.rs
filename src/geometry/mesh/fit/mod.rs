@@ -7,6 +7,7 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity, Mesh, Tessellation,
+            lbfgs::{Objective, Settings, minimize},
             quality::metrics::{chi, hexahedron, pyramid, regularized, tetrahedron, wedge},
         },
     },
@@ -30,11 +31,9 @@ type Target = (Coordinate<3>, Direction<3>, Quantity<Area>);
 
 type CornerTable = [(usize, [usize; 3])];
 
-const ARMIJO: Scalar = 1.0e-4;
 const BACKTRACKS: usize = 32;
 const BALANCE: Scalar = 2.5e3;
 const CONVERGENCE: Scalar = 1.0e-5;
-const CURVATURE_FLOOR: Scalar = 1.0e-12;
 const DEGENERACY: Quantity = Dimensionless::of(1.0e-12);
 const EPSILON_FLOOR: Scalar = 1.0e-12;
 const HISTORY: usize = 8;
@@ -48,6 +47,13 @@ const TIE_TOLERANCE: Scalar = 1.0e-6;
 const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
+
+const SOLVER: Settings = Settings {
+    backtracks: BACKTRACKS,
+    convergence: CONVERGENCE,
+    history: HISTORY,
+    iterations: ITERATIONS,
+};
 
 /// Constraint on how fitted nodes approach the target surface.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -541,85 +547,73 @@ impl Sweep<'_> {
             .collect()
     }
     fn minimize(&self, coordinates: &mut Coordinates<3>) -> (Scalar, Quantity<Length>, bool) {
-        let typical = self
+        let typical = (self
             .nodes
             .iter()
             .map(|&node| self.lengths[node])
             .sum::<Quantity<Length>>()
-            / self.nodes.len().max(1) as Scalar;
-        let mut x: Coordinates<3> = self
+            / self.nodes.len().max(1) as Scalar)
+            .value();
+        let mut x: Vec<Scalar> = self
             .nodes
             .iter()
-            .map(|&node| coordinates[node].clone())
+            .flat_map(|&node| (0..3).map(move |i| (node, i)))
+            .map(|(node, i)| coordinates[node][i].value())
             .collect();
         let anchor = x.clone();
-        let mut history = Vec::<(Coordinates<3>, Gradient)>::new();
-        let mut gradient = self.derivative(coordinates);
-        let mut value = self.objective(coordinates);
-        let mut settled = false;
-        for iteration in 0..ITERATIONS {
-            let magnitude = gradient.norm().value();
-            if magnitude / x.norm().value().max(1.0) < CONVERGENCE {
-                settled = iteration == 0;
-                break;
-            }
-            let d = direction(&gradient, &history, typical / magnitude);
-            let slope = gradient.contract_with(&d);
-            if slope >= Quantity::default() {
-                history.clear();
-                continue;
-            }
-            let mut step = 1.0;
-            let mut accepted = None;
-            for _ in 0..BACKTRACKS {
-                self.nodes
-                    .iter()
-                    .enumerate()
-                    .for_each(|(index, &node)| coordinates[node] = &x[index] + &d[index] * step);
-                let trial = self.objective(coordinates);
-                if trial <= value + ARMIJO * step * slope {
-                    accepted = Some(trial);
-                    break;
-                }
-                step *= 0.5;
-            }
-            let Some(trial) = accepted else {
-                self.nodes
-                    .iter()
-                    .enumerate()
-                    .for_each(|(index, &node)| coordinates[node] = x[index].clone());
-                if history.is_empty() {
-                    break;
-                }
-                history.clear();
-                continue;
-            };
-            let s: Coordinates<3> = d.iter().map(|entry| entry * step).collect();
-            x += &s;
-            let updated = self.derivative(coordinates);
-            let y: Gradient = updated
-                .iter()
-                .zip(gradient.iter())
-                .map(|(new, old)| new - old)
-                .collect();
-            if s.contract_with(&y) > s.norm() * (CURVATURE_FLOOR * y.norm().value()) {
-                if history.len() == HISTORY {
-                    history.remove(0);
-                }
-                history.push((s, y));
-            }
-            gradient = updated;
-            value = trial;
-        }
+        let mut problem = Problem {
+            coordinates,
+            sweep: self,
+        };
+        let outcome = minimize(&mut problem, &mut x, typical, &SOLVER);
+        problem.assign(&x);
         let shift = self
             .nodes
             .iter()
             .enumerate()
             .map(|(index, &node)| {
-                ((&x[index] - &anchor[index]).norm() / self.lengths[node]).value()
+                let distance = (0..3)
+                    .map(|i| (x[3 * index + i] - anchor[3 * index + i]).powi(2))
+                    .sum::<Scalar>()
+                    .sqrt();
+                distance / self.lengths[node].value()
             })
             .fold(0.0, Scalar::max);
-        (shift, value, settled)
+        (shift, Quantity::new(outcome.value), outcome.settled)
+    }
+}
+
+struct Problem<'a, 'b> {
+    coordinates: &'a mut Coordinates<3>,
+    sweep: &'a Sweep<'b>,
+}
+
+impl Problem<'_, '_> {
+    fn assign(&mut self, x: &[Scalar]) {
+        self.sweep
+            .nodes
+            .iter()
+            .enumerate()
+            .for_each(|(index, &node)| {
+                (0..3).for_each(|i| self.coordinates[node][i] = Quantity::new(x[3 * index + i]))
+            })
+    }
+}
+
+impl Objective for Problem<'_, '_> {
+    fn value(&mut self, x: &[Scalar]) -> Scalar {
+        self.assign(x);
+        self.sweep.objective(self.coordinates).value()
+    }
+    fn gradient(&mut self, x: &[Scalar], gradient: &mut [Scalar]) {
+        self.assign(x);
+        self.sweep
+            .derivative(self.coordinates)
+            .iter()
+            .enumerate()
+            .for_each(|(index, entry)| {
+                (0..3).for_each(|i| gradient[3 * index + i] = entry[i].value())
+            })
     }
 }
 
@@ -665,34 +659,6 @@ fn schedule(
     };
     let epsilon_1999 = (1.0e-18 + (0.2 * worst).powi(2)).sqrt();
     epsilon_2021.min(epsilon_1999)
-}
-
-fn direction(
-    gradient: &Gradient,
-    history: &[(Coordinates<3>, Gradient)],
-    fallback: Quantity<Length>,
-) -> Coordinates<3> {
-    let mut q = gradient.clone();
-    let mut alphas = vec![0.0; history.len()];
-    let mut rhos = vec![Quantity::<ReciprocalLength>::default(); history.len()];
-    history.iter().enumerate().rev().for_each(|(k, (s, y))| {
-        rhos[k] = 1.0 / y.contract_with(s);
-        alphas[k] = (s.contract_with(&q) * rhos[k]).value();
-        q.iter_mut()
-            .zip(y.iter())
-            .for_each(|(qi, yi)| *qi -= yi * alphas[k]);
-    });
-    let mut q: Coordinates<3> = q * history
-        .last()
-        .map_or(fallback, |(s, y)| s.contract_with(y) / y.norm_squared());
-    history.iter().enumerate().for_each(|(k, (s, y))| {
-        let beta = (y.contract_with(&q) * rhos[k]).value();
-        q.iter_mut()
-            .zip(s.iter())
-            .for_each(|(qi, si)| *qi += si * (alphas[k] - beta));
-    });
-    q *= -1.0;
-    q
 }
 
 fn edges(
