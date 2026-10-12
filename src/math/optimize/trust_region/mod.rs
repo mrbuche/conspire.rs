@@ -23,9 +23,6 @@ pub(crate) const TRUST_REGION_SHRINK: Scalar = 0.25;
 const TRUST_REGION_GROW: Scalar = 2.0;
 pub(crate) const TRUST_REGION_MAX_REJECTIONS: usize = 25;
 
-/// Updates the trust-region radius from the reduction ratio and how close the
-/// step that ratio was measured against came to the radius boundary
-/// (Nocedal & Wright, Algorithm 4.1).
 pub(crate) fn update_radius(
     radius: Scalar,
     max_radius: Scalar,
