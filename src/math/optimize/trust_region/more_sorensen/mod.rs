@@ -8,22 +8,9 @@ use crate::math::{
     sparse::{SparseError, SparseSolver},
 };
 
-// How precisely the bisection locates the radius boundary. The radius is a
-// heuristic that only ever gets doubled or quartered, so resolving its boundary
-// to more than a couple of digits buys nothing and costs a factorization per
-// digit. `update_radius` has to read the boundary at least this loosely too: a
-// step is only converged to within this of the radius, so a tighter test there
-// would never see a step as having reached the boundary and the radius would
-// never grow.
 pub(super) const MORE_SORENSEN_TOLERANCE: Scalar = 1e-2;
 const MORE_SORENSEN_NUDGE: Scalar = 1e-6;
 const MORE_SORENSEN_MAX_ITERATIONS: usize = 100;
-// How far a shift is let grow relative to the tangent's own scale before
-// giving up on shrinking further: past this, the arithmetic used to test a
-// shift for singularity loses so much precision that a whole neighborhood of
-// lambda reads as singular, not just an isolated point, and no amount of
-// nudging escapes that (this is what an unbounded search ran into in
-// practice, chasing an infeasible radius toward lambda ~ 1e12).
 const MORE_SORENSEN_LAMBDA_CAP: Scalar = 1e8;
 
 fn shift(tangent: &SquareMatrix, lambda: Scalar, num_variables: usize) -> SquareMatrix {
@@ -36,11 +23,6 @@ fn step_norm(step: &Vector, num_variables: usize) -> Scalar {
     Norm::Euclidean.over(step.iter().take(num_variables).copied())
 }
 
-/// Solves the shifted system, nudging past a `lambda` landing exactly on a
-/// singular shift (only `lambda_bar` and the doubling bracket's endpoint are
-/// individually inertia-checked; a bisection midpoint can still land on an
-/// exact singularity for structured matrices, even though the admissible
-/// region on either side of it is generically open).
 fn step_at<E>(
     solve: &mut impl FnMut(Scalar) -> Result<Option<(Vector, (usize, usize, usize))>, E>,
     lambda: Scalar,
