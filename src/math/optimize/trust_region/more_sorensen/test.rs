@@ -1,4 +1,8 @@
-use super::{MORE_SORENSEN_TOLERANCE, SquareMatrix, Vector, more_sorensen_dense};
+use super::{
+    MORE_SORENSEN_TOLERANCE, SparseError, SquareMatrix, Vector, more_sorensen_dense,
+    more_sorensen_sparse,
+};
+use crate::math::sparse::SparseSolver;
 
 fn bordered_pd() -> SquareMatrix {
     let mut matrix = SquareMatrix::zero(3);
@@ -97,4 +101,33 @@ fn an_indefinite_tangent_is_not_damped_to_its_scale() {
         (norm - radius).abs() < 2.0 * MORE_SORENSEN_TOLERANCE * radius,
         "step of norm {norm} for a radius of {radius}"
     )
+}
+
+fn bordered_pattern() -> Vec<(usize, usize)> {
+    (0..3)
+        .flat_map(|i| (0..3).map(move |j| (i, j)))
+        .filter(|&(i, j)| i == j || i == 2 || j == 2)
+        .collect()
+}
+
+#[test]
+fn sparse_matches_dense() {
+    let tangent = bordered_pd();
+    let residual: Vector = [1.0, 0.0, 0.0].into_iter().collect();
+    let radius = 0.05;
+    let solver = SparseSolver::from_pattern(3, bordered_pattern(), true);
+    let sparse = more_sorensen_sparse(&solver, |i, j| tangent[i][j], &residual, radius, 2).unwrap();
+    let dense = more_sorensen_dense(&tangent, &residual, radius, 2);
+    (0..3).for_each(|i| assert!((sparse[i] - dense[i]).abs() < 1e-8))
+}
+
+#[test]
+fn sparse_refuses_an_unsymmetric_solver() {
+    let tangent = bordered_pd();
+    let residual: Vector = [1.0, 0.0, 0.0].into_iter().collect();
+    let solver = SparseSolver::from_pattern(3, bordered_pattern(), false);
+    assert!(matches!(
+        more_sorensen_sparse(&solver, |i, j| tangent[i][j], &residual, 0.05, 2),
+        Err(SparseError::Unsymmetric)
+    ))
 }

@@ -1,7 +1,12 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{Norm, Scalar, SquareMatrix, Tensor, Vector, sparse::SparseSolver};
+use std::convert::Infallible;
+
+use crate::math::{
+    Norm, Scalar, SquareMatrix, Tensor, Vector,
+    sparse::{SparseError, SparseSolver},
+};
 
 // How precisely the bisection locates the radius boundary. The radius is a
 // heuristic that only ever gets doubled or quartered, so resolving its boundary
@@ -36,14 +41,14 @@ fn step_norm(step: &Vector, num_variables: usize) -> Scalar {
 /// individually inertia-checked; a bisection midpoint can still land on an
 /// exact singularity for structured matrices, even though the admissible
 /// region on either side of it is generically open).
-fn step_at(
-    solve: &mut impl FnMut(Scalar) -> Option<(Vector, (usize, usize, usize))>,
+fn step_at<E>(
+    solve: &mut impl FnMut(Scalar) -> Result<Option<(Vector, (usize, usize, usize))>, E>,
     lambda: Scalar,
-) -> Vector {
+) -> Result<Vector, E> {
     let mut lambda = lambda;
     for _ in 0..MORE_SORENSEN_MAX_ITERATIONS {
-        if let Some((step, _)) = solve(lambda) {
-            return step;
+        if let Some((step, _)) = solve(lambda)? {
+            return Ok(step);
         }
         lambda *= 1.0 + MORE_SORENSEN_NUDGE
     }
@@ -56,7 +61,8 @@ fn step_at(
 /// definite by construction.
 ///
 /// `solve` is handed a shift and returns the step the shifted system takes
-/// along with its inertia, or nothing if that shift cannot be factorized; it is
+/// along with its inertia, or nothing if that shift cannot be factorized, or an
+/// error that no shift could cure, which ends the search at once; it is
 /// what keeps this free of how the system is stored, a dense tangent and a
 /// sparse pattern differing only in how they answer it. `scale` is the largest
 /// magnitude on the primal diagonal, which is what a shift is measured
@@ -77,15 +83,15 @@ fn step_at(
 /// affine set whose minimum-norm point is a floor no lambda goes below. A
 /// `radius` beneath that floor returns the smallest step found instead of
 /// hitting the radius exactly.
-pub(crate) fn more_sorensen(
+pub(crate) fn more_sorensen<E>(
     size: usize,
     scale: Scalar,
-    mut solve: impl FnMut(Scalar) -> Option<(Vector, (usize, usize, usize))>,
+    mut solve: impl FnMut(Scalar) -> Result<Option<(Vector, (usize, usize, usize))>, E>,
     radius: Scalar,
     num_variables: usize,
-) -> Vector {
+) -> Result<Vector, E> {
     let expected = (num_variables, size - num_variables, 0);
-    let at_zero = solve(0.0);
+    let at_zero = solve(0.0)?;
     //
     // Shifting the primal block of an already-admissible system by a positive
     // lambda keeps it admissible, the reduced Hessian only gaining a positive
@@ -97,14 +103,14 @@ pub(crate) fn more_sorensen(
         && admissible_at_zero
         && step_norm(&step, num_variables) <= radius
     {
-        return step;
+        return Ok(step);
     }
     let cap = scale * MORE_SORENSEN_LAMBDA_CAP;
     let mut lambda = scale;
     let mut below = 0.0;
     let mut admissible = None;
     while lambda <= cap {
-        if let Some((step, inertia)) = solve(lambda)
+        if let Some((step, inertia)) = solve(lambda)?
             && inertia == expected
         {
             admissible = Some((lambda, step));
@@ -118,9 +124,9 @@ pub(crate) fn more_sorensen(
     // a descent direction within the precision this scale supports. Fall
     // back to the unregularized Newton direction rather than fail outright.
     let Some((lambda_bar, step_bar)) = admissible else {
-        return solve(0.0)
+        return Ok(solve(0.0)?
             .map(|(step, _)| step)
-            .unwrap_or_else(|| Vector::zero(size));
+            .unwrap_or_else(|| Vector::zero(size)));
     };
     let (mut lambda_lo, mut lambda_hi, mut step_hi) = if admissible_at_zero {
         // The doubling search starts at the tangent's own scale, which
@@ -140,7 +146,7 @@ pub(crate) fn more_sorensen(
                 break;
             }
             let mid = 0.5 * (lo + hi);
-            match solve(mid) {
+            match solve(mid)? {
                 Some((mid_step, inertia)) if inertia == expected => {
                     hi = mid;
                     step = mid_step
@@ -149,9 +155,9 @@ pub(crate) fn more_sorensen(
             }
         }
         if step_norm(&step, num_variables) <= radius {
-            return step;
+            return Ok(step);
         }
-        (hi, 2.0 * hi, step_at(&mut solve, 2.0 * hi))
+        (hi, 2.0 * hi, step_at(&mut solve, 2.0 * hi)?)
     };
     // The equality-constraint rows are never shifted, so they force the
     // primal step to satisfy `constraint_matrix * step = constraint_residual`
@@ -163,15 +169,15 @@ pub(crate) fn more_sorensen(
     while step_norm(&step_hi, num_variables) > radius && lambda_hi < cap {
         lambda_lo = lambda_hi;
         lambda_hi = (lambda_hi * 2.0).min(cap);
-        step_hi = step_at(&mut solve, lambda_hi);
+        step_hi = step_at(&mut solve, lambda_hi)?;
     }
     if step_norm(&step_hi, num_variables) > radius {
-        return step_hi;
+        return Ok(step_hi);
     }
     let mut step = step_hi;
     for _ in 0..MORE_SORENSEN_MAX_ITERATIONS {
         let lambda_mid = 0.5 * (lambda_lo + lambda_hi);
-        step = step_at(&mut solve, lambda_mid);
+        step = step_at(&mut solve, lambda_mid)?;
         let norm = step_norm(&step, num_variables);
         if (norm - radius).abs() <= MORE_SORENSEN_TOLERANCE * radius {
             break;
@@ -181,7 +187,7 @@ pub(crate) fn more_sorensen(
             lambda_hi = lambda_mid
         }
     }
-    step
+    Ok(step)
 }
 
 pub(crate) fn more_sorensen_dense(
@@ -190,53 +196,48 @@ pub(crate) fn more_sorensen_dense(
     radius: Scalar,
     num_variables: usize,
 ) -> Vector {
-    more_sorensen(
+    more_sorensen::<Infallible>(
         tangent.len(),
         (0..num_variables)
             .map(|i| tangent[i][i].abs())
             .fold(1.0, Scalar::max),
         |lambda| {
-            shift(tangent, lambda, num_variables)
+            Ok(shift(tangent, lambda, num_variables)
                 .factorize_ldl()
                 .ok()
-                .map(|decomposition| (decomposition.solve(residual), decomposition.inertia()))
+                .map(|decomposition| (decomposition.solve(residual), decomposition.inertia())))
         },
         radius,
         num_variables,
     )
+    .unwrap_or_else(|never| match never {})
 }
 
-/// The trust-region subproblem for a system given as entries on a sparse
-/// pattern, the shift riding along in the source rather than in a matrix of
-/// its own: the pattern already holds every primal diagonal, so shifting one
-/// changes no structure and every trial reuses the same symbolic
-/// factorization.
 pub(crate) fn more_sorensen_sparse(
     solver: &SparseSolver,
     entry: impl Fn(usize, usize) -> Scalar,
     residual: &Vector,
     radius: Scalar,
     num_variables: usize,
-) -> Vector {
+) -> Result<Vector, SparseError> {
     more_sorensen(
         residual.len(),
         (0..num_variables)
             .map(|i| entry(i, i).abs())
             .fold(1.0, Scalar::max),
-        |lambda| {
-            solver
-                .solve_ldl(
-                    |i, j| {
-                        entry(i, j)
-                            + if i == j && i < num_variables {
-                                lambda
-                            } else {
-                                0.0
-                            }
-                    },
-                    residual,
-                )
-                .ok()
+        |lambda| match solver.solve_ldl(
+            |i, j| {
+                entry(i, j)
+                    + if i == j && i < num_variables {
+                        lambda
+                    } else {
+                        0.0
+                    }
+            },
+            residual,
+        ) {
+            Err(SparseError::Unsymmetric) => Err(SparseError::Unsymmetric),
+            result => Ok(result.ok()),
         },
         radius,
         num_variables,

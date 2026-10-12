@@ -1841,7 +1841,7 @@ where
                         &residual,
                         radius,
                         num_variables,
-                    );
+                    )?;
                     hess.quadratic_form(&decrement)
                 } else {
                     decrement = more_sorensen_dense(&tangent, &residual, radius, num_variables);
