@@ -202,7 +202,7 @@ fn root_trust_region() -> Result<(), AssertionError> {
 fn far_minimize(
     trust_region: TrustRegion,
 ) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
-    use crate::constitutive::solid::hyperelastic::internal_variables::SecondOrderMinimize;
+    use crate::constitutive::solid::hyperelastic::internal_variables::Minimize;
     let (f, f_2) = model().minimize(
         AppliedLoad::UniaxialStress(STRETCH_FAR),
         NewtonRaphson {
