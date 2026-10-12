@@ -5,7 +5,7 @@ use crate::{
         qmm::{Discretization, Support, block::Block},
         solid::{
             NodalForcesSolid,
-            dynamics::ElasticDynamics,
+            dynamics::ElasticExplicitDynamics,
             mass::{InverseMass, MassMatrix},
         },
     },
@@ -13,8 +13,8 @@ use crate::{
     math::{
         Quantity, Tensor,
         assert::{Assert, AssertionError},
-        integrate::VelocityVerlet,
-        optimize::EqualityConstraint,
+        integrate::{Newmark, VelocityVerlet},
+        optimize::{EqualityConstraint, NewtonRaphson, Tolerances},
     },
     units::{Density, Stress, Time},
 };
@@ -318,5 +318,140 @@ mod time_scale {
         };
         assert!(run(0.5 * time_scale).is_ok());
         assert!(run(5.0 * time_scale).is_err());
+    }
+}
+
+mod implicit {
+    use super::*;
+    use crate::domain::solid::dynamics::ElasticImplicitDynamics;
+    fn solver(residual: f64) -> NewtonRaphson {
+        NewtonRaphson {
+            abs_tol: Tolerances {
+                constraint: 1e-12,
+                residual,
+            },
+            rel_tol: Some(Quantity::new(1e-6)),
+            ..Default::default()
+        }
+    }
+    fn times(dt: f64, steps: usize) -> [Quantity<Time>; 2] {
+        [Time::seconds(0.0), Time::seconds(steps as f64 * dt)]
+    }
+    #[test]
+    fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionError> {
+        let (model, dt, steps) = (model(), 1e-3, 20);
+        let masses = model.nodal_lumped_masses();
+        let (times, coordinates, ..) = ElasticImplicitDynamics::integrate(
+            &model,
+            &Newmark::new(Time::seconds(dt)),
+            solver(1e-3),
+            &times(dt, steps),
+            (reference().into(), uniform_velocities([3.0, -1.0, 2.0])),
+            &NodalForcesSolid::zero(reference().len()),
+            &masses,
+            EqualityConstraint::None,
+        )?;
+        let elapsed = times[times.len() - 1].in_seconds();
+        let expected: Vec<[f64; 3]> = reference()
+            .iter()
+            .map(|&[x, y, z]| [x + 3.0 * elapsed, y - elapsed, z + 2.0 * elapsed])
+            .collect();
+        noise_tolerant().eq_within_tols(&coordinates[steps], &NodalCoordinates::from(expected))
+    }
+    #[test]
+    fn fixed_degrees_of_freedom_do_not_move() {
+        let (model, dt, steps) = (model(), 1e-5, 20);
+        let masses = model.nodal_lumped_masses();
+        let fixed = vec![0, 1, 2, 5];
+        let (_, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
+            &model,
+            &Newmark::new(Time::seconds(dt)),
+            solver(1.0),
+            &times(dt, steps),
+            (stretched(), uniform_velocities([3.0, 0.0, 4.0])),
+            &NodalForcesSolid::zero(reference().len()),
+            &masses,
+            EqualityConstraint::Fixed(fixed.clone()),
+        )
+        .unwrap();
+        fixed.iter().for_each(|&dof| {
+            let (node, c) = (dof / 3, dof % 3);
+            assert_eq!(coordinates[steps][node][c], stretched()[node][c]);
+            assert_eq!(velocities[steps][node][c].value(), 0.0);
+            assert_eq!(accelerations[steps][node][c].value(), 0.0);
+        });
+        assert_ne!(coordinates[steps][3], stretched()[3]);
+    }
+    #[test]
+    fn a_released_stretch_follows_the_explicit_motion() -> Result<(), AssertionError> {
+        let (model, dt, steps) = (model(), 2e-6, 100);
+        let masses = model.nodal_lumped_masses();
+        let zero = NodalForcesSolid::zero(reference().len());
+        let interval = times(dt, steps);
+        let state = || (stretched(), uniform_velocities([0.0; 3]));
+        let (_, implicit, ..) = ElasticImplicitDynamics::integrate(
+            &model,
+            &Newmark::new(Time::seconds(dt)),
+            solver(1.0),
+            &interval,
+            state(),
+            &zero,
+            &masses,
+            EqualityConstraint::None,
+        )?;
+        let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
+            &model,
+            &VelocityVerlet::new(Time::seconds(dt)),
+            &interval,
+            state(),
+            &zero,
+            &masses,
+            EqualityConstraint::None,
+        )?;
+        let moved = (0..reference().len())
+            .map(|node| (&implicit[steps][node] - &implicit[0][node]).norm().value())
+            .fold(0.0, f64::max);
+        assert!(moved > 0.0);
+        Assert {
+            abs_tol: 1e-2 * moved,
+            rel_tol: 1e-2,
+            ..Assert::default()
+        }
+        .eq_within_tols(&implicit[steps], &explicit[steps])
+    }
+    #[test]
+    fn consistent_masses_step_implicitly_and_conserve_momentum() {
+        let (model, dt, steps) = (model(), 1e-5, 20);
+        let masses = model.nodal_masses();
+        let (_, _, velocities, _) = ElasticImplicitDynamics::integrate(
+            &model,
+            &Newmark::new(Time::seconds(dt)),
+            solver(1.0),
+            &times(dt, steps),
+            (stretched(), uniform_velocities([0.0; 3])),
+            &NodalForcesSolid::zero(reference().len()),
+            &masses,
+            EqualityConstraint::None,
+        )
+        .unwrap();
+        let last = &velocities[steps];
+        let speed = last.iter().map(|v| v.norm().value()).fold(0.0, f64::max);
+        assert!(speed > 0.0);
+        let total: [f64; 3] = [0, 1, 2].map(|c| {
+            masses
+                .iter()
+                .flat_map(|row| row.entries())
+                .map(|(b, mass)| mass.value() * last[b][c].value())
+                .sum()
+        });
+        let scale = model
+            .nodal_lumped_masses()
+            .iter()
+            .map(|mass| mass.value())
+            .sum::<f64>()
+            * speed;
+        total
+            .iter()
+            .for_each(|&component| assert!(component.abs() < 1e-6 * scale, "{total:?}"));
     }
 }
