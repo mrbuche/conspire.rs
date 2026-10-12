@@ -5,7 +5,10 @@ use crate::{
     geometry::{
         Coordinate, Coordinates, CoordinatesRef, DirectionsRef,
         bbox::BoundingBox,
-        mesh::{Connectivity, Mesh, Tessellation},
+        mesh::{
+            Connectivity, Mesh, Tessellation,
+            lbfgs::{Objective, Settings, minimize},
+        },
     },
     math::{Quantity, Scalar, Tensor},
 };
@@ -14,19 +17,22 @@ use std::{array::from_fn, sync::LazyLock};
 type Point = [Scalar; 3];
 type Weights = [[Scalar; 8]; 3];
 
-const ARMIJO: Scalar = 1.0e-4;
 const CAP: usize = 4;
 const CREASE: Scalar = 0.866;
-const CURVATURE_FLOOR: Scalar = 1.0e-12;
-const HISTORY: usize = 10;
-const ITERATIONS: usize = 50;
-const MINIMUM_STEP: Scalar = 1.0e-8;
+const FIRST: Scalar = 0.01;
 const RADIUS: Scalar = 0.2;
 const RHO: Scalar = 1.0e2;
 const STALL: Scalar = 1.0e-6;
 const STEP: Scalar = 0.01;
 const SWEEPS: usize = 20;
 const TOLERANCE: Scalar = 1.0e-3;
+
+const SOLVER: Settings = Settings {
+    backtracks: 27,
+    convergence: 1.0e-14,
+    history: 10,
+    iterations: 50,
+};
 
 static POINTS: LazyLock<[Weights; 9]> = LazyLock::new(|| {
     let corners = [
@@ -121,7 +127,7 @@ impl Mesh<3> {
                     rho *= 2.0;
                     continue 'ratchet;
                 }
-                let energy = Energy {
+                let mut energy = Energy {
                     hexes: &hexes,
                     lambda: &lambda,
                     planes: &planes,
@@ -130,7 +136,10 @@ impl Mesh<3> {
                     scales: &scales,
                     theta,
                 };
-                let decrease = energy.minimize(&mut x);
+                let typical = FIRST * scales.iter().sum::<Scalar>() / scales.len().max(1) as Scalar;
+                let outcome = minimize(&mut energy, &mut x, typical, &SOLVER);
+                let decrease = (outcome.initial - outcome.value)
+                    / outcome.initial.abs().max(Scalar::MIN_POSITIVE);
                 planes.iter().for_each(|plane| {
                     lambda[plane.boundary][plane.slot] += rho * plane.residual(&x, &boundary)
                 });
@@ -223,9 +232,14 @@ impl<'a> Surface<'a> {
                     continue;
                 }
                 let vertex = &self.surface[self.elements[triangle][0]];
+                let offset: Scalar = (0..3).map(|i| normal[i] * vertex[i].value()).sum();
+                let residual = (0..3).map(|i| normal[i] * x[3 * node + i]).sum::<Scalar>() - offset;
+                if triangle != first && residual.abs() > TOLERANCE * sizes[node] {
+                    continue;
+                }
                 planes.push(Plane {
                     boundary: index,
-                    offset: (0..3).map(|i| normal[i] * vertex[i].value()).sum(),
+                    offset,
                     normal,
                     slot: kept.len(),
                 });
@@ -237,10 +251,7 @@ impl<'a> Surface<'a> {
 }
 
 impl Energy<'_> {
-    fn value(&self, x: &[Scalar]) -> Scalar {
-        self.evaluate(x, None)
-    }
-    fn evaluate(&self, x: &[Scalar], mut gradient: Option<&mut Vec<Scalar>>) -> Scalar {
+    fn evaluate(&self, x: &[Scalar], mut gradient: Option<&mut [Scalar]>) -> Scalar {
         let mut total = 0.0;
         self.hexes
             .iter()
@@ -267,62 +278,14 @@ impl Energy<'_> {
         });
         total
     }
-    fn minimize(&self, x: &mut [Scalar]) -> Scalar {
-        let typical = 0.1 * self.scales.iter().sum::<Scalar>() / self.scales.len().max(1) as Scalar;
-        let mut gradient = vec![0.0; x.len()];
-        let mut value = self.evaluate(x, Some(&mut gradient));
-        let initial = value;
-        let mut history: Vec<(Vec<Scalar>, Vec<Scalar>)> = Vec::new();
-        let mut trial = x.to_vec();
-        for _ in 0..ITERATIONS {
-            let peak = gradient
-                .iter()
-                .fold(0.0, |peak: Scalar, g| peak.max(g.abs()));
-            if peak < 1.0e-14 {
-                break;
-            }
-            let d = direction(&gradient, &history, typical / peak);
-            let slope = dot_slice(&gradient, &d);
-            if slope >= 0.0 {
-                history.clear();
-                continue;
-            }
-            let mut step = 1.0;
-            let mut accepted = None;
-            while step >= MINIMUM_STEP {
-                trial
-                    .iter_mut()
-                    .zip(x.iter().zip(&d))
-                    .for_each(|(t, (x, d))| *t = x + step * d);
-                let candidate = self.value(&trial);
-                if candidate <= value + ARMIJO * step * slope {
-                    accepted = Some(candidate);
-                    break;
-                }
-                step *= 0.5;
-            }
-            let Some(candidate) = accepted else {
-                if history.is_empty() {
-                    break;
-                }
-                history.clear();
-                continue;
-            };
-            let s: Vec<Scalar> = d.iter().map(|d| d * step).collect();
-            x.iter_mut().zip(&s).for_each(|(x, s)| *x += s);
-            let mut updated = vec![0.0; x.len()];
-            self.evaluate(x, Some(&mut updated));
-            let y: Vec<Scalar> = updated.iter().zip(&gradient).map(|(n, o)| n - o).collect();
-            if dot_slice(&s, &y) > CURVATURE_FLOOR * norm(&s) * norm(&y) {
-                if history.len() == HISTORY {
-                    history.remove(0);
-                }
-                history.push((s, y));
-            }
-            gradient = updated;
-            value = candidate;
-        }
-        (initial - value) / initial.abs().max(Scalar::MIN_POSITIVE)
+}
+
+impl Objective for Energy<'_> {
+    fn value(&mut self, x: &[Scalar]) -> Scalar {
+        self.evaluate(x, None)
+    }
+    fn gradient(&mut self, x: &[Scalar], gradient: &mut [Scalar]) {
+        self.evaluate(x, Some(gradient));
     }
 }
 
@@ -483,38 +446,8 @@ fn gap(
         .fold(0.0, Scalar::max)
 }
 
-fn direction(
-    gradient: &[Scalar],
-    history: &[(Vec<Scalar>, Vec<Scalar>)],
-    fallback: Scalar,
-) -> Vec<Scalar> {
-    let mut q = gradient.to_vec();
-    let mut alphas = vec![0.0; history.len()];
-    let rhos: Vec<Scalar> = history.iter().map(|(s, y)| 1.0 / dot_slice(y, s)).collect();
-    history.iter().enumerate().rev().for_each(|(k, (s, y))| {
-        alphas[k] = rhos[k] * dot_slice(s, &q);
-        q.iter_mut().zip(y).for_each(|(q, y)| *q -= alphas[k] * y)
-    });
-    let gamma = history
-        .last()
-        .map_or(fallback, |(s, y)| dot_slice(s, y) / dot_slice(y, y));
-    q.iter_mut().for_each(|q| *q *= gamma);
-    history.iter().enumerate().for_each(|(k, (s, y))| {
-        let beta = rhos[k] * dot_slice(y, &q);
-        q.iter_mut()
-            .zip(s)
-            .for_each(|(q, s)| *q += (alphas[k] - beta) * s)
-    });
-    q.iter_mut().for_each(|q| *q = -*q);
-    q
-}
-
 fn dot(a: &Point, b: &Point) -> Scalar {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-
-fn dot_slice(a: &[Scalar], b: &[Scalar]) -> Scalar {
-    a.iter().zip(b).map(|(a, b)| a * b).sum()
 }
 
 fn norm(a: &[Scalar]) -> Scalar {
