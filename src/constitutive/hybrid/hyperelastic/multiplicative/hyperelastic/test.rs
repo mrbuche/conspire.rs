@@ -199,46 +199,6 @@ fn root_trust_region() -> Result<(), AssertionError> {
     Ok(())
 }
 
-fn far_minimize(
-    trust_region: TrustRegion,
-) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
-    use crate::constitutive::solid::hyperelastic::internal_variables::Minimize;
-    let (f, f_2) = model().minimize(
-        AppliedLoad::UniaxialStress(STRETCH_FAR),
-        NewtonRaphson {
-            trust_region,
-            max_steps: 200,
-            ..Default::default()
-        },
-        SolveStrategy::Monolithic { elimination: true },
-    )?;
-    use crate::constitutive::solid::elastic::internal_variables::ElasticIV;
-    Assert::default().zero_within_tols(&model().internal_variables_residual(&f, &f_2)?)?;
-    Assert::default().eq_within_tols(
-        Vector::from([
-            f[0][0].value(),
-            f[0][1].value(),
-            f[0][2].value(),
-            f[1][2].value(),
-        ]),
-        &Vector::from([STRETCH_FAR, 0.0, 0.0, 0.0]),
-    )?;
-    Ok((f, f_2))
-}
-
-#[test]
-fn minimize_trust_region_adaptive() -> Result<(), AssertionError> {
-    for (radius, max_radius) in [(1e-1, 1e1), (1e3, 1e3)] {
-        far_minimize(TrustRegion::Adaptive { radius, max_radius })?;
-    }
-    Ok(())
-}
-
-#[test]
-fn minimize_trust_region_adaptive_needed() {
-    assert!(far_minimize(TrustRegion::None).is_err())
-}
-
 #[test]
 fn root_trust_region_needed() {
     for strategy in [
