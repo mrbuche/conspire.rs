@@ -84,9 +84,6 @@ fn a_radius_just_inside_the_newton_step_is_not_overshot() {
     )
 }
 
-/// Zero is inadmissible and the first admissible shift the doubling reaches is
-/// the tangent's scale, far above the smallest one: the step must still land
-/// on the radius rather than be damped to a fraction of it.
 #[test]
 fn an_indefinite_tangent_is_not_damped_to_its_scale() {
     let mut tangent = SquareMatrix::zero(2);
