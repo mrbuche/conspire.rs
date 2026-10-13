@@ -35,7 +35,7 @@ impl Merged {
         Partition::new(mesh, self.elements_parts.clone())
     }
     pub fn mesh(&self, mesh: &Mesh<3>) -> Result<Mesh<3>, &'static str> {
-        self.partition(mesh).agglomerate(mesh)
+        self.partition(mesh).agglomerate_blocks(mesh)
     }
 }
 

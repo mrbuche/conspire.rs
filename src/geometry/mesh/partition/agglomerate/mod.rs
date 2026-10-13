@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod test;
 
+mod blocks;
+
 use super::Partition;
 use crate::{
     geometry::{
