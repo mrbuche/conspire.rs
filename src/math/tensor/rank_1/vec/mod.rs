@@ -4,9 +4,9 @@ use crate::math::{Current, Reference};
 use crate::units::{Dimensionless, UnitDiv};
 
 use crate::math::{
-    Jacobian, Quantity, Scalar, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List,
-    TensorRank2SparseVec2D, TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, Vector,
-    assert::FiniteDifference, tensor::vec::TensorVector,
+    FlatView, Jacobian, Quantity, Scalar, Solution, Tensor, TensorRank0, TensorRank1,
+    TensorRank1List, TensorRank2SparseVec2D, TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D,
+    TensorVec, Vector, assert::FiniteDifference, tensor::vec::TensorVector,
 };
 use std::{
     array::from_fn,
@@ -57,6 +57,15 @@ impl<const D: usize, I, U> TensorRank1Vec<D, I, U> {
         let entries = self.as_mut_slice();
         // SAFETY: as in `as_flat`, the unique borrow of `entries` being carried over.
         unsafe { from_raw_parts_mut(entries.as_mut_ptr().cast(), entries.len() * D) }
+    }
+}
+
+impl<const D: usize, I, U> FlatView for TensorRank1Vec<D, I, U> {
+    fn as_flat(&self) -> &[TensorRank0] {
+        Self::as_flat(self)
+    }
+    fn as_flat_mut(&mut self) -> &mut [TensorRank0] {
+        Self::as_flat_mut(self)
     }
 }
 
