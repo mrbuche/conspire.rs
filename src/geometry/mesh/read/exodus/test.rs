@@ -1,3 +1,4 @@
+use super::face_offset;
 use crate::{
     geometry::{
         Coordinates,
@@ -6,8 +7,9 @@ use crate::{
             test::{CONNECTIVITY, COORDINATES, mesh},
         },
     },
-    io::Write,
+    io::{GetVariable, NetCDF, Write},
 };
+use std::array::from_fn;
 
 #[test]
 fn round_trip() {
@@ -48,7 +50,7 @@ fn round_trip_polyhedral() {
     let connectivities = vec![Connectivity::Polyhedral(
         (elements_faces.clone(), faces_nodes.clone()).into(),
     )];
-    let coordinates: Coordinates<3> = vec![
+    let coordinates = Coordinates::from(vec![
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [2.0, 0.0, 0.0],
@@ -61,8 +63,7 @@ fn round_trip_polyhedral() {
         [0.0, 1.0, 1.0],
         [1.0, 1.0, 1.0],
         [2.0, 1.0, 1.0],
-    ]
-    .into();
+    ]);
     let original = Mesh::from((connectivities, coordinates.clone()));
     original
         .write(Output::Exodus(ExodusFormat::Classic(
@@ -88,15 +89,14 @@ fn round_trip_block_labels() {
         Connectivity::Triangular(vec![[0, 1, 2]].into()),
         Connectivity::Triangular(vec![[3, 4, 5]].into()),
     ];
-    let coordinates: Coordinates<3> = vec![
+    let coordinates = Coordinates::from(vec![
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
         [0.0, 0.0, 1.0],
         [1.0, 0.0, 1.0],
         [0.0, 1.0, 1.0],
-    ]
-    .into();
+    ]);
     let original = Mesh::from((
         Connectivities::from((connectivities, vec![10, 20])),
         coordinates,
@@ -179,13 +179,12 @@ fn round_trip_without_node_labels() {
 #[test]
 fn round_trip_node_sets() {
     let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2], [1, 2, 3]].into())];
-    let coordinates: Coordinates<3> = vec![
+    let coordinates = Coordinates::from(vec![
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
         [1.0, 1.0, 0.0],
-    ]
-    .into();
+    ]);
     let mut original = Mesh::from((connectivities, coordinates));
     original.set_node_sets(vec![vec![0, 1], vec![2, 3]].into());
     original
@@ -203,13 +202,12 @@ fn round_trip_node_sets() {
 #[test]
 fn round_trip_node_set_labels() {
     let connectivities = vec![Connectivity::Triangular(vec![[0, 1, 2], [1, 2, 3]].into())];
-    let coordinates: Coordinates<3> = vec![
+    let coordinates = Coordinates::from(vec![
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
         [1.0, 1.0, 0.0],
-    ]
-    .into();
+    ]);
     let mut original = Mesh::from((connectivities, coordinates));
     original.set_node_sets(NodeSets::from((vec![vec![0, 1], vec![2, 3]], vec![10, 20])));
     original
@@ -339,6 +337,137 @@ fn round_trip_polygonal() {
 }
 
 const FIXTURES: &str = "src/geometry/mesh/read/exodus/fixtures";
+
+fn cube(nodes: [usize; 8]) -> (Vec<Vec<usize>>, Vec<Vec<usize>>) {
+    (
+        vec![vec![0, 1, 2, 3, 4, 5]],
+        [
+            [0, 1, 5, 4],
+            [1, 2, 6, 5],
+            [2, 3, 7, 6],
+            [3, 0, 4, 7],
+            [0, 3, 2, 1],
+            [4, 5, 6, 7],
+        ]
+        .iter()
+        .map(|face| face.iter().map(|&node| nodes[node]).collect())
+        .collect(),
+    )
+}
+
+fn cube_nodes(first: usize) -> [usize; 8] {
+    from_fn(|node| first + node)
+}
+
+fn mixed_coordinates(nodes: usize) -> Coordinates<3> {
+    (0..nodes)
+        .map(|node| [node as f64, 0.5 * node as f64, (node * node % 7) as f64])
+        .collect::<Vec<_>>()
+        .into()
+}
+
+fn write_and_read(mesh: &Mesh<3>, file: &str) -> Mesh<3> {
+    mesh.write(Output::Exodus(ExodusFormat::Classic(file)))
+        .unwrap();
+    Mesh::<3>::try_from(Input::Exodus(file)).unwrap()
+}
+
+fn assert_polyhedral(read: &Connectivity, expected: &(Vec<Vec<usize>>, Vec<Vec<usize>>)) {
+    match read {
+        Connectivity::Polyhedral(poly) => {
+            assert!(poly.iter().eq(expected.0.iter()));
+            assert_eq!(poly.faces_nodes(), expected.1);
+        }
+        _ => panic!("expected Polyhedral block"),
+    }
+}
+
+#[test]
+fn round_trip_primitive_and_polyhedral_blocks() {
+    let polyhedron = cube(cube_nodes(4));
+    let original = Mesh::from((
+        Connectivities::from((
+            vec![
+                Connectivity::Tetrahedral(vec![[0, 1, 2, 3]].into()),
+                Connectivity::Polyhedral((polyhedron.0.clone(), polyhedron.1.clone()).into()),
+            ],
+            vec![3, 7],
+        )),
+        mixed_coordinates(12).into(),
+    ));
+    let read = write_and_read(&original, "target/read_exodus_primitive_and_polyhedral.exo");
+    assert_eq!(read.connectivities.numbers(), Some([3, 7].as_slice()));
+    assert_eq!(read.coordinates(), original.coordinates());
+    match &read.connectivities()[0] {
+        Connectivity::Tetrahedral(tets) => assert!(tets.iter().eq([[0, 1, 2, 3]].iter())),
+        _ => panic!("expected Tetrahedral block"),
+    }
+    assert_polyhedral(&read.connectivities()[1], &polyhedron);
+}
+
+#[test]
+fn round_trip_polyhedral_blocks_around_a_primitive_block() {
+    let (first, second) = (cube(cube_nodes(0)), cube(cube_nodes(12)));
+    let original = Mesh::from((
+        vec![
+            Connectivity::Polyhedral((first.0.clone(), first.1.clone()).into()),
+            Connectivity::Tetrahedral(vec![[8, 9, 10, 11]].into()),
+            Connectivity::Polyhedral((second.0.clone(), second.1.clone()).into()),
+        ],
+        mixed_coordinates(20),
+    ));
+    let read = write_and_read(
+        &original,
+        "target/read_exodus_polyhedral_around_primitive.exo",
+    );
+    assert_eq!(read.connectivities().len(), 3);
+    assert_polyhedral(&read.connectivities()[0], &first);
+    assert_polyhedral(&read.connectivities()[2], &second);
+    match &read.connectivities()[1] {
+        Connectivity::Tetrahedral(tets) => assert!(tets.iter().eq([[8, 9, 10, 11]].iter())),
+        _ => panic!("expected Tetrahedral block"),
+    }
+}
+
+#[test]
+fn face_blocks_are_numbered_among_the_face_blocks() {
+    let (first, second) = (cube(cube_nodes(0)), cube(cube_nodes(12)));
+    let file = "target/read_exodus_face_block_numbering.exo";
+    Mesh::from((
+        Connectivities::from((
+            vec![
+                Connectivity::Polyhedral((first.0.clone(), first.1.clone()).into()),
+                Connectivity::Tetrahedral(vec![[8, 9, 10, 11]].into()),
+                Connectivity::Polyhedral((second.0.clone(), second.1.clone()).into()),
+            ],
+            vec![4, 5, 6],
+        )),
+        mixed_coordinates(20).into(),
+    ))
+    .write(Output::Exodus(ExodusFormat::Classic(file)))
+    .unwrap();
+    let netcdf = NetCDF::open(file).unwrap();
+    assert_eq!(netcdf.dimension_length("num_el_blk").unwrap(), 3);
+    assert_eq!(netcdf.dimension_length("num_fa_blk").unwrap(), 2);
+    assert_eq!(
+        netcdf.get_variable::<i32>("fa_prop1", 2).unwrap(),
+        vec![4, 6]
+    );
+    assert_eq!(netcdf.dimension_length("num_fa_in_blk1").unwrap(), 6);
+    assert_eq!(netcdf.dimension_length("num_fa_in_blk2").unwrap(), 6);
+    assert_eq!(netcdf.try_dimension_length("num_fa_in_blk3").unwrap(), None);
+    let second_faces = netcdf.get_variable::<i32>("facconn3", 6).unwrap();
+    assert_eq!(second_faces.iter().min(), Some(&7));
+    assert_eq!(second_faces.iter().max(), Some(&12));
+}
+
+#[test]
+fn face_numbers_start_after_the_faces_before_them_or_from_one() {
+    assert_eq!(face_offset(&[1, 2, 6, 3], 0), 0);
+    assert_eq!(face_offset(&[7, 8, 12, 9], 6), 6);
+    assert_eq!(face_offset(&[1, 2, 6, 3], 6), 0);
+    assert_eq!(face_offset(&[], 6), 0);
+}
 
 #[test]
 fn netcdf4_matches_classic() {

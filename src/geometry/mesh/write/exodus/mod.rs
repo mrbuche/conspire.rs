@@ -92,6 +92,7 @@ impl<const D: usize> Mesh<D> {
         if element_labels.is_some() {
             netcdf.define_variable::<i32>("elem_num_map", 1, &["num_elem"])?;
         }
+        let mut face_block = 0;
         self.iter()
             .enumerate()
             .try_for_each(|(block, connectivity)| {
@@ -116,6 +117,7 @@ impl<const D: usize> Mesh<D> {
                         connectivity.exodus_element_type(),
                     )
                 } else {
+                    face_block += 1;
                     if let Some(ebepecnt) = connectivity.number_of_faces_per_element::<i32>() {
                         netcdf.define_dimension(
                             &format!("num_fac_per_el{}", block),
@@ -150,38 +152,40 @@ impl<const D: usize> Mesh<D> {
                         panic!()
                     }
                     if let Some(num_fa_in_blk) = connectivity.number_of_faces() {
-                        netcdf
-                            .define_dimension(&format!("num_fa_in_blk{}", block), num_fa_in_blk)?;
+                        netcdf.define_dimension(
+                            &format!("num_fa_in_blk{}", face_block),
+                            num_fa_in_blk,
+                        )?;
                     } else {
                         panic!()
                     }
                     if let Some(fbepecnt) = connectivity.number_of_nodes_per_face::<i32>() {
                         netcdf.define_dimension(
-                            &format!("num_nod_per_fa{}", block),
+                            &format!("num_nod_per_fa{}", face_block),
                             fbepecnt.into_iter().map(|c| c as usize).sum(),
                         )?;
                         netcdf.define_variable::<i32>(
-                            &format!("fbconn{}", block),
+                            &format!("fbconn{}", face_block),
                             1,
-                            &[&format!("num_nod_per_fa{}", block)],
+                            &[&format!("num_nod_per_fa{}", face_block)],
                         )?;
                         netcdf.put_variable_attribute_text(
-                            &format!("fbconn{}", block),
+                            &format!("fbconn{}", face_block),
                             "elem_type",
                             "nsided",
                         )?;
                         netcdf.define_variable::<i32>(
-                            &format!("fbepecnt{}", block),
+                            &format!("fbepecnt{}", face_block),
                             1,
-                            &[&format!("num_fa_in_blk{}", block)],
+                            &[&format!("num_fa_in_blk{}", face_block)],
                         )?;
                         netcdf.put_variable_attribute_text(
-                            &format!("fbepecnt{}", block),
+                            &format!("fbepecnt{}", face_block),
                             "entity_type1",
                             "NODE",
                         )?;
                         netcdf.put_variable_attribute_text(
-                            &format!("fbepecnt{}", block),
+                            &format!("fbepecnt{}", face_block),
                             "entity_type2",
                             "FACE",
                         )
@@ -252,7 +256,13 @@ impl<const D: usize> Mesh<D> {
         };
         netcdf.put_variable("eb_prop1", &block_labels)?;
         if self.number_of_face_blocks().is_some() {
-            netcdf.put_variable("fa_prop1", &block_labels)?;
+            let face_block_labels: Vec<i32> = self
+                .iter()
+                .zip(&block_labels)
+                .filter(|(connectivity, _)| connectivity.number_of_faces().is_some())
+                .map(|(_, &label)| label)
+                .collect();
+            netcdf.put_variable("fa_prop1", &face_block_labels)?;
         }
         if let Some(element_labels) = &element_labels {
             netcdf.put_variable("elem_num_map", element_labels)?;
@@ -311,6 +321,8 @@ impl<const D: usize> Mesh<D> {
                     netcdf.put_variable(&format!("side_ss{}", set), &side_ids)
                 })?;
         }
+        let mut face_block = 0;
+        let mut faces_before = 0;
         self.iter()
             .enumerate()
             .try_for_each(|(block, connectivity)| {
@@ -320,15 +332,21 @@ impl<const D: usize> Mesh<D> {
                         netcdf.put_variable(&format!("connect{}", block), &flat)
                     }
                     FlatConnectivity::Polytopal(elements_faces, faces_nodes) => {
+                        face_block += 1;
+                        let elements_faces: Vec<i32> = elements_faces
+                            .into_iter()
+                            .map(|face| face + faces_before)
+                            .collect();
+                        faces_before += connectivity.number_of_faces().unwrap() as i32;
                         netcdf.put_variable(&format!("facconn{}", block), &elements_faces)?;
-                        netcdf.put_variable(&format!("fbconn{}", block), &faces_nodes)?;
+                        netcdf.put_variable(&format!("fbconn{}", face_block), &faces_nodes)?;
                         if let Some(ebepecnt) = connectivity.number_of_faces_per_element::<i32>() {
                             netcdf.put_variable(&format!("ebepecnt{}", block), &ebepecnt)?;
                         } else {
                             panic!()
                         }
                         if let Some(fbepecnt) = connectivity.number_of_nodes_per_face::<i32>() {
-                            netcdf.put_variable(&format!("fbepecnt{}", block), &fbepecnt)
+                            netcdf.put_variable(&format!("fbepecnt{}", face_block), &fbepecnt)
                         } else {
                             panic!()
                         }
