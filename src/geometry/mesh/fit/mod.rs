@@ -7,18 +7,19 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity, Mesh, Tessellation,
-            lbfgs::{Objective, Settings, minimize},
             quality::metrics::{chi, hexahedron, pyramid, regularized, tetrahedron, wedge},
         },
     },
     math::{
         ContractWith, CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1,
         TensorRank1List, TensorRank1Vec,
+        optimize::{EqualityConstraint, LimitedMemoryBFGS, LineSearch, Tolerances},
     },
     units::{Area, Dimensionless, Length, ReciprocalLength},
 };
 use std::{
     array::from_fn,
+    cell::RefCell,
     collections::{HashSet, VecDeque},
     mem::replace,
     thread::{available_parallelism, scope},
@@ -48,12 +49,23 @@ const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
 
-const SOLVER: Settings = Settings {
-    backtracks: BACKTRACKS,
-    convergence: CONVERGENCE,
-    history: HISTORY,
-    iterations: ITERATIONS,
-};
+fn solver(typical: Scalar, residual: Scalar) -> LimitedMemoryBFGS {
+    LimitedMemoryBFGS {
+        abs_tol: Tolerances {
+            constraint: 0.0,
+            residual,
+        },
+        history: HISTORY,
+        line_search: LineSearch::Armijo {
+            control: 1.0e-4,
+            cut_back: 0.5,
+            max_steps: BACKTRACKS,
+        },
+        max_steps: ITERATIONS,
+        rel_tol: None,
+        typical,
+    }
+}
 
 /// Constraint on how fitted nodes approach the target surface.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -241,7 +253,7 @@ impl Mesh<3> {
                 state.epsilon = epsilon;
             }
             previous = quality;
-            let (shift, value, settled) = state.minimize(coordinates);
+            let (shift, value, settled) = state.minimize(coordinates)?;
             let stagnant = window.len() == WINDOW
                 && window.iter().fold(value, |high, &entry| high.max(entry))
                     - window.iter().fold(value, |low, &entry| low.min(entry))
@@ -546,7 +558,10 @@ impl Sweep<'_> {
             .map(|_| TensorRank1::const_from([0.0; 3]))
             .collect()
     }
-    fn minimize(&self, coordinates: &mut Coordinates<3>) -> (Scalar, Quantity<Length>, bool) {
+    fn minimize(
+        &self,
+        coordinates: &mut Coordinates<3>,
+    ) -> Result<(Scalar, Quantity<Length>, bool), &'static str> {
         let typical = (self
             .nodes
             .iter()
@@ -554,66 +569,46 @@ impl Sweep<'_> {
             .sum::<Quantity<Length>>()
             / self.nodes.len().max(1) as Scalar)
             .value();
-        let mut x: Vec<Scalar> = self
+        let initial: Coordinates<3> = self
             .nodes
             .iter()
-            .flat_map(|&node| (0..3).map(move |i| (node, i)))
-            .map(|(node, i)| coordinates[node][i].value())
+            .map(|&node| coordinates[node].clone())
             .collect();
-        let anchor = x.clone();
-        let mut problem = Problem {
-            coordinates,
-            sweep: self,
+        let residual = CONVERGENCE * initial.norm().value().max(1.0);
+        let shared = RefCell::new(coordinates);
+        let assign = |x: &Coordinates<3>| {
+            let mut coordinates = shared.borrow_mut();
+            self.nodes
+                .iter()
+                .zip(x.iter())
+                .for_each(|(&node, entry)| coordinates[node] = entry.clone())
         };
-        let outcome = minimize(&mut problem, &mut x, typical, &SOLVER);
-        problem.assign(&x);
+        let descent = solver(typical, residual)
+            .descend(
+                |x| {
+                    assign(x);
+                    Ok(self.objective(&shared.borrow()))
+                },
+                |x| {
+                    assign(x);
+                    Ok(self.derivative(&shared.borrow()))
+                },
+                initial.clone(),
+                EqualityConstraint::None,
+            )
+            .map_err(|_| "could not minimize the fit energy")?;
+        assign(&descent.solution);
         let shift = self
             .nodes
             .iter()
-            .enumerate()
-            .map(|(index, &node)| {
-                let distance = (0..3)
-                    .map(|i| (x[3 * index + i] - anchor[3 * index + i]).powi(2))
-                    .sum::<Scalar>()
-                    .sqrt();
-                distance / self.lengths[node].value()
-            })
+            .zip(descent.solution.iter().zip(&initial))
+            .map(|(&node, (end, start))| ((end - start).norm() / self.lengths[node]).value())
             .fold(0.0, Scalar::max);
-        (shift, Quantity::new(outcome.value), outcome.settled)
-    }
-}
-
-struct Problem<'a, 'b> {
-    coordinates: &'a mut Coordinates<3>,
-    sweep: &'a Sweep<'b>,
-}
-
-impl Problem<'_, '_> {
-    fn assign(&mut self, x: &[Scalar]) {
-        self.sweep
-            .nodes
-            .iter()
-            .enumerate()
-            .for_each(|(index, &node)| {
-                (0..3).for_each(|i| self.coordinates[node][i] = Quantity::new(x[3 * index + i]))
-            })
-    }
-}
-
-impl Objective for Problem<'_, '_> {
-    fn value(&mut self, x: &[Scalar]) -> Scalar {
-        self.assign(x);
-        self.sweep.objective(self.coordinates).value()
-    }
-    fn gradient(&mut self, x: &[Scalar], gradient: &mut [Scalar]) {
-        self.assign(x);
-        self.sweep
-            .derivative(self.coordinates)
-            .iter()
-            .enumerate()
-            .for_each(|(index, entry)| {
-                (0..3).for_each(|i| gradient[3 * index + i] = entry[i].value())
-            })
+        Ok((
+            shift,
+            descent.value,
+            descent.converged && descent.steps == 0,
+        ))
     }
 }
 

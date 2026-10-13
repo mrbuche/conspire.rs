@@ -358,7 +358,9 @@ fn improves_a_buffered_bone() {
                 .unwrap();
             let mut mesh = octree.dualize();
             tessellation.trim(&mut mesh).unwrap();
+            let started = Instant::now();
             let mut mesh = mesh.buffer(&tessellation, Fitting::Snap).unwrap();
+            let buffered = started.elapsed();
             let (before, before_gap) = (worst(&mesh), gap(&mesh, &tessellation));
             let nine_before = nine_point(&mesh);
             let start = Instant::now();
@@ -367,7 +369,7 @@ fn improves_a_buffered_bone() {
             let (after, after_gap) = (worst(&mesh), gap(&mesh, &tessellation));
             let nine_after = nine_point(&mesh);
             eprintln!(
-                "BONE scale {scale} hexes {} nine {nine_before:.4} -> {nine_after:.4} corner {before:.4} -> {after:.4} gap {before_gap:.2e} -> {after_gap:.2e} in {elapsed:?} {result:?}",
+                "BONE scale {scale} buffer {buffered:?} hexes {} nine {nine_before:.4} -> {nine_after:.4} corner {before:.4} -> {after:.4} gap {before_gap:.2e} -> {after_gap:.2e} in {elapsed:?} {result:?}",
                 mesh.number_of_elements()
             );
         })

@@ -8,7 +8,6 @@ pub(crate) mod differential;
 mod fit;
 mod from;
 mod into;
-mod lbfgs;
 mod partition;
 mod quality;
 mod read;
