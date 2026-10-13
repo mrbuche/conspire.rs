@@ -1,10 +1,8 @@
 //! Virtual element methods.
 
 pub mod block;
-#[cfg(test)]
-mod dynamics;
 mod from;
-pub mod mass;
+pub mod solid;
 pub mod thermal;
 
 pub use crate::domain::{

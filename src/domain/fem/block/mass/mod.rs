@@ -7,7 +7,7 @@ use crate::fem::{
         Block, Densities,
         element::mass::{LumpedMassFiniteElement, MassFiniteElement},
     },
-    mass::{ConsistentMassElements, LumpedMassElements},
+    solid::mass::{ConsistentMassElements, LumpedMassElements},
 };
 
 pub use crate::domain::solid::mass::{NodalLumpedMasses, NodalMasses};

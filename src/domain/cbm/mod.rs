@@ -1,8 +1,7 @@
 //! Continuum bond methods.
 
 pub mod block;
-#[cfg(test)]
-mod dynamics;
+pub mod solid;
 
 pub mod thermal {
     pub mod capacity {
@@ -23,13 +22,6 @@ pub mod thermal {
     pub mod time_scale {
         pub use crate::domain::thermal::time_scale::ThermalTimeScaleElements;
     }
-}
-
-pub mod mass {
-    pub use crate::domain::solid::mass::{
-        FixedLumpedMasses, InertialMass, InverseMass, LumpedMassElements, MassMatrix,
-        NodalLumpedMasses,
-    };
 }
 
 pub use crate::domain::{
