@@ -62,6 +62,8 @@ impl<const D: usize, I, U> PartialEq for TensorRank1<D, I, U> {
 
 impl<const D: usize, I, U> TensorRank1<D, I, U> {
     pub(super) fn canonical(&self) -> &TensorRank1<D, Reference, Dimensionless> {
+        // SAFETY: `TensorRank1` is `repr(transparent)` over `[Quantity<U>; D]` and `Quantity` over a
+        // number, the configuration and unit markers being zero-sized, so all of them share a layout.
         unsafe { &*(self as *const Self as *const TensorRank1<D, Reference, Dimensionless>) }
     }
     /// Asserts that the tensor carries the given unit.
@@ -74,6 +76,7 @@ impl<const D: usize, I, U> TensorRank1<D, I, U> {
         (self / norm).with_unit()
     }
     fn into_canonical(self) -> TensorRank1<D, Reference, Dimensionless> {
+        // SAFETY: as in `canonical`, and `read` takes a bitwise copy of a tensor with no drop glue.
         unsafe {
             (&self as *const Self)
                 .cast::<TensorRank1<D, Reference, Dimensionless>>()
@@ -85,6 +88,7 @@ impl<const D: usize, I, U> TensorRank1<D, I, U> {
 pub(super) fn relabel<const D: usize, I, U>(
     tensor: TensorRank1<D, Reference, Dimensionless>,
 ) -> TensorRank1<D, I, U> {
+    // SAFETY: as in `into_canonical`.
     unsafe {
         (&tensor as *const TensorRank1<D, Reference, Dimensionless>)
             .cast::<TensorRank1<D, I, U>>()
