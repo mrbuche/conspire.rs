@@ -1,5 +1,8 @@
+mod corner_energy;
 mod smart_laplace;
 mod untangle;
+
+pub use corner_energy::CornerEnergy;
 
 use super::metrics::{self, Kind};
 use crate::{

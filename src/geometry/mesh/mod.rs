@@ -27,7 +27,7 @@ pub use self::{
     differential::laplace::Weighting,
     fit::{Fitting, Freedom},
     partition::{Bisection, Partition, PartitionQuality},
-    quality::metrics::Verdict,
+    quality::{improve::CornerEnergy, metrics::Verdict},
     read::Input,
     remesh::{AnisotropicSizing, IsotropicSizing, Remeshing, RemeshingMetric},
     smooth::Smoothing,
