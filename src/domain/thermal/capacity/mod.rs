@@ -1,10 +1,12 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, Model, NodalReferenceCoordinates, block::element::Elements,
-        factor::FreeFactored, thermal::NodalForcesThermal,
+        Blocks, ElementModel, Model, NodalReferenceCoordinates,
+        block::element::Elements,
+        factor::FreeFactored,
+        thermal::{NodalForcesThermal, NodalStiffnessesThermal},
     },
-    math::{Quantity, QuantitySparseVec2D, QuantityVector, Tensor, sparse::SparseError},
-    units::{HeatCapacity, TemperatureRate},
+    math::{Quantity, QuantitySparseVec2D, QuantityVector, Scalar, Tensor, sparse::SparseError},
+    units::{HeatCapacity, PowerPerTemperature, TemperatureRate},
 };
 
 pub type NodalHeatCapacities = QuantitySparseVec2D<HeatCapacity>;
@@ -111,7 +113,7 @@ impl InverseHeatCapacity for NodalLumpedHeatCapacities {
         internal_heating: &NodalForcesThermal,
     ) -> NodalTemperatureRates {
         self.iter()
-            .zip(external_heating.iter().zip(internal_heating.iter()))
+            .zip(external_heating.iter().zip(internal_heating))
             .map(|(&capacity, (&external, &internal))| (external - internal) / capacity)
             .collect()
     }
@@ -173,6 +175,60 @@ impl InverseHeatCapacity for FreeFactoredHeatCapacities {
     ) -> NodalTemperatureRates {
         self.solve(&(external_heating - internal_heating).into_erased().into())
             .into()
+    }
+}
+
+/// A heat capacity that enters implicit dynamics through the capacitive heating and the tangent.
+pub trait InertialHeatCapacity
+where
+    Self: HeatCapacityMatrix,
+{
+    fn capacitive_heating(
+        &self,
+        nodal_temperature_rates: &NodalTemperatureRates,
+    ) -> NodalForcesThermal;
+    /// Adds the heat capacity times `weight`, a rate, to the stiffnesses.
+    fn add_to_stiffnesses(&self, weight: Scalar, nodal_stiffnesses: &mut NodalStiffnessesThermal);
+}
+
+impl InertialHeatCapacity for NodalLumpedHeatCapacities {
+    fn capacitive_heating(
+        &self,
+        nodal_temperature_rates: &NodalTemperatureRates,
+    ) -> NodalForcesThermal {
+        self.iter()
+            .zip(nodal_temperature_rates)
+            .map(|(&capacity, &rate)| capacity * rate)
+            .collect()
+    }
+    fn add_to_stiffnesses(&self, weight: Scalar, nodal_stiffnesses: &mut NodalStiffnessesThermal) {
+        self.iter().enumerate().for_each(|(node, &capacity)| {
+            nodal_stiffnesses[node][node] +=
+                Quantity::<PowerPerTemperature>::new(capacity.value() * weight);
+        });
+    }
+}
+
+impl InertialHeatCapacity for NodalHeatCapacities {
+    fn capacitive_heating(
+        &self,
+        nodal_temperature_rates: &NodalTemperatureRates,
+    ) -> NodalForcesThermal {
+        self.iter()
+            .map(|row| {
+                row.entries()
+                    .map(|(b, &capacity)| capacity * nodal_temperature_rates[b])
+                    .sum()
+            })
+            .collect()
+    }
+    fn add_to_stiffnesses(&self, weight: Scalar, nodal_stiffnesses: &mut NodalStiffnessesThermal) {
+        self.iter().enumerate().for_each(|(a, row)| {
+            row.entries().for_each(|(b, &capacity)| {
+                nodal_stiffnesses[a][b] +=
+                    Quantity::<PowerPerTemperature>::new(capacity.value() * weight);
+            });
+        });
     }
 }
 

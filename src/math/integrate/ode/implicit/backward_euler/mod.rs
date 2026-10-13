@@ -14,7 +14,7 @@ use std::{
 #[derive(Debug, Default)]
 pub struct BackwardEuler {
     /// Fixed value for the time step.
-    dt: Scalar,
+    pub dt: Scalar,
 }
 
 impl<Y, U> OdeIntegrator<Y, U> for BackwardEuler
