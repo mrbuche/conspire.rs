@@ -158,6 +158,14 @@ where
     }
 }
 
+/// Common methods for tensors viewed as their contiguous numbers.
+pub trait FlatView {
+    /// Views the numbers, units discarded.
+    fn as_flat(&self) -> &[TensorRank0];
+    /// Views the numbers mutably, units discarded.
+    fn as_flat_mut(&mut self) -> &mut [TensorRank0];
+}
+
 /// Common methods for Jacobians.
 pub trait Jacobian
 where

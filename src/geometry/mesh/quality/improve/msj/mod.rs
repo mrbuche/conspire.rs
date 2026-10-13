@@ -6,14 +6,12 @@ use crate::{
         Coordinate, CoordinateList, Coordinates, CoordinatesRef, Direction, DirectionList,
         DirectionsRef,
         bbox::BoundingBox,
-        mesh::{
-            Connectivity, Mesh, Tessellation,
-            lbfgs::{Objective, Settings, minimize},
-        },
+        mesh::{Connectivity, Mesh, Tessellation},
     },
     math::{
         CrossProduct, Quantity, QuantityVector, Reference, Scalar, Tensor, TensorList,
         TensorListVec, TensorRank1, TensorRank1Vec,
+        optimize::{EqualityConstraint, LimitedMemoryBFGS, LineSearch, Tolerances},
     },
     units::{Area, Dimensionless, Length, ReciprocalLength, Volume},
 };
@@ -32,12 +30,23 @@ const STEP: Quantity = Dimensionless::of(0.01);
 const SWEEPS: usize = 20;
 const TOLERANCE: Quantity = Dimensionless::of(1.0e-3);
 
-const SOLVER: Settings = Settings {
-    backtracks: 27,
-    convergence: 1.0e-14,
-    history: 10,
-    iterations: 50,
-};
+fn solver(typical: Scalar) -> LimitedMemoryBFGS {
+    LimitedMemoryBFGS {
+        abs_tol: Tolerances {
+            constraint: 0.0,
+            residual: 1.0e-14,
+        },
+        history: 10,
+        line_search: LineSearch::Armijo {
+            control: 1.0e-4,
+            cut_back: 0.5,
+            max_steps: 27,
+        },
+        max_steps: 50,
+        rel_tol: None,
+        typical,
+    }
+}
 
 static POINTS: LazyLock<[Weights; 9]> = LazyLock::new(|| {
     let corners = [
@@ -92,7 +101,6 @@ struct Plane {
 
 struct Energy<'a> {
     boundary: &'a [usize],
-    coordinates: Coordinates<3>,
     hexes: &'a [[usize; 8]],
     lambda: TensorListVec<Quantity<Length>, CAP>,
     planes: Vec<Plane>,
@@ -117,7 +125,6 @@ impl Mesh<3> {
         let surface = Surface::new(target);
         let mut energy = Energy {
             boundary: &boundary,
-            coordinates: coordinates.clone(),
             hexes: &hexes,
             lambda: (0..boundary.len())
                 .map(|_| [Quantity::default(); CAP].into())
@@ -127,34 +134,46 @@ impl Mesh<3> {
             scales: QuantityVector::zero(0),
             theta: Quantity::default(),
         };
+        let mut current = coordinates.clone();
         let mut best: Option<Coordinates<3>> = None;
         let mut first = true;
         'ratchet: loop {
             for _ in 0..SWEEPS {
-                energy.refresh(&surface);
-                let quality = energy.quality();
-                let gap = energy.gap();
+                energy.refresh(&surface, &current);
+                let quality = energy.quality(&current);
+                let gap = energy.gap(&current);
                 if first {
                     first = false;
                     if gap <= TOLERANCE {
-                        best = Some(energy.coordinates.clone());
+                        best = Some(current.clone());
                         energy.theta = Self::next(quality);
                     }
                 }
                 if quality >= energy.theta && gap <= TOLERANCE {
-                    best = Some(energy.coordinates.clone());
+                    best = Some(current.clone());
                     energy.theta = Self::next(quality);
                     energy.rho *= 2.0;
                     continue 'ratchet;
                 }
-                let typical = FIRST * energy.typical();
-                let mut x = energy.flat();
-                let outcome = minimize(&mut energy, &mut x, typical.value(), &SOLVER);
-                energy.assign(&x);
-                energy.settle();
-                let initial = Quantity::<Area>::new(outcome.initial);
-                let decrease = (initial - Quantity::<Area>::new(outcome.value))
-                    / initial.abs().max(Quantity::new(Scalar::MIN_POSITIVE));
+                let descent = solver((FIRST * energy.typical()).value())
+                    .descend(
+                        |x| Ok(energy.evaluate(x, None)),
+                        |x| {
+                            let mut slopes = Gradient::zero(x.len());
+                            energy.evaluate(x, Some(&mut slopes));
+                            Ok(slopes)
+                        },
+                        current,
+                        EqualityConstraint::None,
+                    )
+                    .map_err(|_| "could not minimize the energy")?;
+                let decrease = (descent.initial - descent.value)
+                    / descent
+                        .initial
+                        .abs()
+                        .max(Quantity::new(Scalar::MIN_POSITIVE));
+                current = descent.solution;
+                energy.settle(&current);
                 if decrease < STALL {
                     break;
                 }
@@ -284,43 +303,19 @@ impl<'a> Surface<'a> {
 }
 
 impl Energy<'_> {
-    fn assign(&mut self, x: &[Scalar]) {
-        self.coordinates
-            .iter_mut()
-            .zip(x.as_chunks::<3>().0)
-            .for_each(|(node, values)| {
-                node.iter_mut()
-                    .zip(values)
-                    .for_each(|(entry, &value)| *entry = Quantity::new(value))
-            })
-    }
-    fn flat(&self) -> Vec<Scalar> {
-        self.coordinates
-            .iter()
-            .flat_map(|node| node.iter().map(|entry| entry.value()))
-            .collect()
-    }
-    fn refresh(&mut self, surface: &Surface) {
-        self.scales = scales(self.hexes, &self.coordinates);
-        let sizes = node_scales(
-            self.boundary,
-            self.hexes,
-            &self.scales,
-            self.coordinates.len(),
-        );
-        self.planes = surface.planes(self.boundary, &sizes, &self.coordinates);
+    fn refresh(&mut self, surface: &Surface, coordinates: &Coordinates<3>) {
+        self.scales = scales(self.hexes, coordinates);
+        let sizes = node_scales(self.boundary, self.hexes, &self.scales, coordinates.len());
+        self.planes = surface.planes(self.boundary, &sizes, coordinates);
     }
     fn typical(&self) -> Quantity<Length> {
         self.scales.iter().copied().sum::<Quantity<Length>>() / self.scales.len().max(1) as Scalar
     }
-    fn quality(&self) -> Quantity {
+    fn quality(&self, coordinates: &Coordinates<3>) -> Quantity {
         self.hexes
             .iter()
             .map(|hex| {
-                let nodes = hex
-                    .iter()
-                    .map(|&node| self.coordinates[node].clone())
-                    .collect();
+                let nodes = hex.iter().map(|&node| coordinates[node].clone()).collect();
                 POINTS
                     .iter()
                     .map(|weights| Frame::new(weights, &nodes).scaled)
@@ -328,38 +323,33 @@ impl Energy<'_> {
             })
             .fold(Quantity::new(Scalar::INFINITY), Quantity::min)
     }
-    fn gap(&self) -> Quantity {
-        let sizes = node_scales(
-            self.boundary,
-            self.hexes,
-            &self.scales,
-            self.coordinates.len(),
-        );
+    fn gap(&self, coordinates: &Coordinates<3>) -> Quantity {
+        let sizes = node_scales(self.boundary, self.hexes, &self.scales, coordinates.len());
         self.planes
             .iter()
             .map(|plane| {
                 let node = self.boundary[plane.boundary];
-                plane.residual(&self.coordinates[node]).abs() / sizes[node]
+                plane.residual(&coordinates[node]).abs() / sizes[node]
             })
             .fold(Quantity::default(), Quantity::max)
     }
-    fn settle(&mut self) {
+    fn settle(&mut self, coordinates: &Coordinates<3>) {
         self.planes.iter().for_each(|plane| {
             let node = self.boundary[plane.boundary];
-            self.lambda[plane.boundary][plane.slot] +=
-                self.rho * plane.residual(&self.coordinates[node])
+            self.lambda[plane.boundary][plane.slot] += self.rho * plane.residual(&coordinates[node])
         })
     }
-    fn evaluate(&self, mut gradient: Option<&mut Gradient>) -> Quantity<Area> {
+    fn evaluate(
+        &self,
+        coordinates: &Coordinates<3>,
+        mut gradient: Option<&mut Gradient>,
+    ) -> Quantity<Area> {
         let mut total = Quantity::<Area>::default();
         self.hexes
             .iter()
             .zip(&self.scales)
             .for_each(|(hex, &scale)| {
-                let nodes = hex
-                    .iter()
-                    .map(|&node| self.coordinates[node].clone())
-                    .collect();
+                let nodes = hex.iter().map(|&node| coordinates[node].clone()).collect();
                 let (value, slopes) = terms(self.theta, scale, &nodes, gradient.is_some());
                 total -= value;
                 if let Some(gradient) = gradient.as_deref_mut() {
@@ -370,7 +360,7 @@ impl Energy<'_> {
             });
         self.planes.iter().for_each(|plane| {
             let node = self.boundary[plane.boundary];
-            let residual = plane.residual(&self.coordinates[node]);
+            let residual = plane.residual(&coordinates[node]);
             let multiplier = self.lambda[plane.boundary][plane.slot];
             total += multiplier * residual + self.rho * residual * residual * 0.5;
             if let Some(gradient) = gradient.as_deref_mut() {
@@ -378,29 +368,6 @@ impl Energy<'_> {
             }
         });
         total
-    }
-}
-
-impl Objective for Energy<'_> {
-    fn value(&mut self, x: &[Scalar]) -> Scalar {
-        self.assign(x);
-        self.evaluate(None).value()
-    }
-    fn gradient(&mut self, x: &[Scalar], gradient: &mut [Scalar]) {
-        self.assign(x);
-        let mut slopes = Gradient::zero(self.coordinates.len());
-        self.evaluate(Some(&mut slopes));
-        gradient
-            .as_chunks_mut::<3>()
-            .0
-            .iter_mut()
-            .zip(slopes.iter())
-            .for_each(|(values, slope)| {
-                values
-                    .iter_mut()
-                    .zip(slope.iter())
-                    .for_each(|(value, entry)| *value = entry.value())
-            })
     }
 }
 
