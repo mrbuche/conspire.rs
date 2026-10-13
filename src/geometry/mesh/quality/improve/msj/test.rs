@@ -7,7 +7,7 @@ use crate::{
     },
     math::{Quantity, Scalar, Tensor},
 };
-use std::{collections::BTreeSet, env::var, f64::consts::TAU, path::Path, time::Instant};
+use std::{collections::BTreeSet, f64::consts::TAU, time::Instant};
 
 type Raw = [[Scalar; 3]; 8];
 
@@ -264,29 +264,6 @@ fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellati
     .into()
 }
 
-fn nine_point(mesh: &Mesh<3>) -> Scalar {
-    let hexes: Vec<[usize; 8]> = mesh
-        .iter()
-        .flat_map(|block| match block {
-            Connectivity::Hexahedral(elements) => elements.iter().copied().collect::<Vec<_>>(),
-            _ => Vec::new(),
-        })
-        .collect();
-    hexes
-        .iter()
-        .map(|hex| {
-            let nodes: CoordinateList<3, 8> = hex
-                .iter()
-                .map(|&node| mesh.coordinates()[node].clone())
-                .collect();
-            POINTS
-                .iter()
-                .map(|weights| Frame::new(weights, &nodes).scaled.value())
-                .fold(Scalar::INFINITY, Scalar::min)
-        })
-        .fold(Scalar::INFINITY, Scalar::min)
-}
-
 fn gap(mesh: &Mesh<3>, target: &Tessellation) -> Scalar {
     let surface = target.mesh().coordinates();
     let elements: Vec<&[usize]> = target.mesh().connectivities().iter().flatten().collect();
@@ -334,43 +311,4 @@ fn improves_a_buffered_torus() {
         start.elapsed()
     );
     assert!(after >= before);
-}
-
-#[test]
-#[ignore]
-fn improves_a_buffered_bone() {
-    let path = var("BONE").unwrap();
-    let tessellation = Tessellation::try_from(Path::new(&path)).unwrap();
-    var("SCALES")
-        .unwrap_or("3".into())
-        .split(',')
-        .for_each(|scale| {
-            let scale: Scalar = scale.parse().unwrap();
-            let mut octree = Octree::<u16, usize>::from_features(
-                &tessellation,
-                scale,
-                CurvatureSizing::default(),
-                0,
-            )
-            .unwrap();
-            octree
-                .equilibrate(Balancing::Strong(1), Pairing::Regular)
-                .unwrap();
-            let mut mesh = octree.dualize();
-            tessellation.trim(&mut mesh).unwrap();
-            let started = Instant::now();
-            let mut mesh = mesh.buffer(&tessellation, Fitting::Snap).unwrap();
-            let buffered = started.elapsed();
-            let (before, before_gap) = (worst(&mesh), gap(&mesh, &tessellation));
-            let nine_before = nine_point(&mesh);
-            let start = Instant::now();
-            let result = mesh.improve_scaled_jacobian(&tessellation);
-            let elapsed = start.elapsed();
-            let (after, after_gap) = (worst(&mesh), gap(&mesh, &tessellation));
-            let nine_after = nine_point(&mesh);
-            eprintln!(
-                "BONE scale {scale} buffer {buffered:?} hexes {} nine {nine_before:.4} -> {nine_after:.4} corner {before:.4} -> {after:.4} gap {before_gap:.2e} -> {after_gap:.2e} in {elapsed:?} {result:?}",
-                mesh.number_of_elements()
-            );
-        })
 }
