@@ -1,15 +1,17 @@
-use super::{Point, minimum_scaled_jacobian, terms};
+use super::{Frame, POINTS, terms};
 use crate::{
     geometry::{
-        Coordinate, Coordinates,
+        Coordinate, CoordinateList,
         mesh::{Connectivity, Dualization, Fitting, Mesh, Tessellation, Verdict},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
-    math::{Scalar, Tensor},
+    math::{Quantity, Scalar, Tensor},
 };
-use std::{f64::consts::TAU, time::Instant};
+use std::{collections::BTreeSet, env::var, f64::consts::TAU, path::Path, time::Instant};
 
-const UNIT: [Point; 8] = [
+type Raw = [[Scalar; 3]; 8];
+
+const UNIT: Raw = [
     [0.0, 0.0, 0.0],
     [1.0, 0.0, 0.0],
     [1.0, 1.0, 0.0],
@@ -24,7 +26,7 @@ fn offset(index: usize, seed: Scalar) -> Scalar {
     (seed + 12.9898 * index as Scalar).sin() * 43758.5453 % 1.0
 }
 
-fn distorted(scale: Scalar, seed: Scalar) -> [Point; 8] {
+fn distorted(scale: Scalar, seed: Scalar) -> Raw {
     let mut nodes = UNIT;
     nodes
         .iter_mut()
@@ -33,8 +35,28 @@ fn distorted(scale: Scalar, seed: Scalar) -> [Point; 8] {
     nodes
 }
 
-fn check(theta: Scalar, nodes: [Point; 8]) {
-    let (_, analytic) = terms(theta, 1.3, &nodes, true);
+fn typed(nodes: &Raw) -> CoordinateList<3, 8> {
+    nodes.iter().map(|&node| node.into()).collect()
+}
+
+fn energy(theta: Scalar, nodes: &Raw) -> Scalar {
+    terms(
+        Quantity::new(theta),
+        Quantity::new(1.3),
+        &typed(nodes),
+        false,
+    )
+    .0
+    .value()
+}
+
+fn check(theta: Scalar, nodes: Raw) {
+    let (_, analytic) = terms(
+        Quantity::new(theta),
+        Quantity::new(1.3),
+        &typed(&nodes),
+        true,
+    );
     let step = 1.0e-6;
     (0..8).for_each(|n| {
         (0..3).for_each(|i| {
@@ -42,13 +64,11 @@ fn check(theta: Scalar, nodes: [Point; 8]) {
             let mut below = nodes;
             above[n][i] += step;
             below[n][i] -= step;
-            let numerical = (terms(theta, 1.3, &above, false).0
-                - terms(theta, 1.3, &below, false).0)
-                / (2.0 * step);
+            let numerical = (energy(theta, &above) - energy(theta, &below)) / (2.0 * step);
+            let exact = analytic[n][i].value();
             assert!(
-                (analytic[n][i] - numerical).abs() < 1.0e-6,
-                "node {n} axis {i}: {} vs {numerical}",
-                analytic[n][i]
+                (exact - numerical).abs() < 1.0e-6,
+                "node {n} axis {i}: {exact} vs {numerical}"
             );
         })
     })
@@ -64,15 +84,24 @@ fn gradient_matches_finite_difference_on_the_jacobian_branch() {
     let mut nodes = UNIT;
     nodes[6] = [0.2, 0.3, 0.4];
     nodes[2] = [0.1, 0.2, -0.3];
-    assert!(minimum_scaled_jacobian(&[[0, 1, 2, 3, 4, 5, 6, 7]], &nodes.concat()) < 0.0);
+    let coordinates = typed(&nodes);
+    assert!(
+        POINTS
+            .iter()
+            .any(|weights| Frame::new(weights, &coordinates).scaled < Quantity::default())
+    );
     check(0.5, nodes)
 }
 
 #[test]
 fn rectified_branch_is_flat() {
-    let (value, slope) = terms(0.1, 1.0, &UNIT, true);
-    assert_eq!(value, 0.1);
-    assert!(slope.iter().flatten().all(|&entry| entry == 0.0));
+    let (value, slope) = terms(Quantity::new(0.1), Quantity::new(1.0), &typed(&UNIT), true);
+    assert_eq!(value.value(), 0.1);
+    assert!(
+        slope
+            .iter()
+            .all(|node| (0..3).all(|i| node[i].value() == 0.0))
+    );
 }
 
 fn cube() -> Tessellation {
@@ -90,10 +119,11 @@ fn cube() -> Tessellation {
         [3, 0, 4],
         [3, 4, 7],
     ];
-    Tessellation::from(Mesh::from((
+    Mesh::from((
         vec![Connectivity::Triangular(faces.into())],
-        Coordinates::from(UNIT.to_vec()),
-    )))
+        UNIT.to_vec().into(),
+    ))
+    .into()
 }
 
 fn grid(n: usize, wobble: Scalar) -> Mesh<3> {
@@ -131,10 +161,11 @@ fn grid(n: usize, wobble: Scalar) -> Mesh<3> {
             }
         }
     }
-    Mesh::from((
+    (
         vec![Connectivity::Hexahedral(connectivity.into())],
         coordinates.into(),
-    ))
+    )
+        .into()
 }
 
 fn worst(mesh: &Mesh<3>) -> Scalar {
@@ -179,7 +210,7 @@ fn keeps_the_cube_corners_and_edges() {
         .exterior_faces()
         .into_iter()
         .flatten()
-        .collect::<std::collections::BTreeSet<_>>()
+        .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();
     boundary.iter().for_each(|&node| {
@@ -241,19 +272,25 @@ fn nine_point(mesh: &Mesh<3>) -> Scalar {
             _ => Vec::new(),
         })
         .collect();
-    let x: Vec<Scalar> = mesh
-        .coordinates()
+    hexes
         .iter()
-        .flat_map(|node| (0..3).map(move |i| node[i].value()))
-        .collect();
-    minimum_scaled_jacobian(&hexes, &x)
+        .map(|hex| {
+            let nodes: CoordinateList<3, 8> = hex
+                .iter()
+                .map(|&node| mesh.coordinates()[node].clone())
+                .collect();
+            POINTS
+                .iter()
+                .map(|weights| Frame::new(weights, &nodes).scaled.value())
+                .fold(Scalar::INFINITY, Scalar::min)
+        })
+        .fold(Scalar::INFINITY, Scalar::min)
 }
 
 fn gap(mesh: &Mesh<3>, target: &Tessellation) -> Scalar {
     let surface = target.mesh().coordinates();
     let elements: Vec<&[usize]> = target.mesh().connectivities().iter().flatten().collect();
-    let boundary: std::collections::BTreeSet<usize> =
-        mesh.exterior_faces().into_iter().flatten().collect();
+    let boundary: BTreeSet<usize> = mesh.exterior_faces().into_iter().flatten().collect();
     boundary
         .into_iter()
         .map(|node| {
@@ -302,9 +339,9 @@ fn improves_a_buffered_torus() {
 #[test]
 #[ignore]
 fn improves_a_buffered_bone() {
-    let path = std::env::var("BONE").unwrap();
-    let tessellation = Tessellation::try_from(std::path::Path::new(&path)).unwrap();
-    std::env::var("SCALES")
+    let path = var("BONE").unwrap();
+    let tessellation = Tessellation::try_from(Path::new(&path)).unwrap();
+    var("SCALES")
         .unwrap_or("3".into())
         .split(',')
         .for_each(|scale| {
