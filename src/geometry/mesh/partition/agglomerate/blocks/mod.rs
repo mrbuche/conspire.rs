@@ -1,18 +1,11 @@
 #[cfg(test)]
 mod test;
 
-use super::super::Partition;
+use super::{super::Partition, compact, polyhedra};
 use crate::{
-    geometry::{
-        Coordinates,
-        mesh::{
-            Boundary, Connectivities, Connectivity, Mesh, PolytopalConnectivity,
-            PrimitiveConnectivity,
-        },
-    },
-    math::{Set, Tensor, TensorVec},
+    geometry::mesh::{Boundary, Connectivities, Connectivity, Mesh, PrimitiveConnectivity},
+    math::Set,
 };
-use std::collections::HashMap;
 
 impl Partition {
     /// Agglomerates each part of more than one element into a polyhedron, leaving the others.
@@ -69,26 +62,7 @@ impl Partition {
             }
             offset += block.number_of_elements();
         }
-        let mut remap = vec![usize::MAX; mesh.number_of_nodes()];
-        blocks.iter().for_each(|block| {
-            block.iter().for_each(|element| {
-                block
-                    .element_nodes(element)
-                    .into_iter()
-                    .for_each(|node| remap[node] = 0)
-            })
-        });
-        let mut coordinates = Coordinates::new();
-        remap.iter_mut().enumerate().for_each(|(node, new)| {
-            if *new == 0 {
-                *new = coordinates.len();
-                coordinates.push(mesh.coordinates()[node].clone())
-            }
-        });
-        let blocks = blocks
-            .iter()
-            .map(|block| renumbered(block, &remap))
-            .collect::<Vec<_>>();
+        let (blocks, coordinates) = compact(mesh, blocks);
         let connectivities = if mesh.blocks().is_some() {
             Connectivities::from((blocks, numbers))
         } else {
@@ -96,29 +70,6 @@ impl Partition {
         };
         Ok((connectivities, Set::from(coordinates)).into())
     }
-}
-
-fn polyhedra(boundary: &Boundary, parts: &[&[usize]]) -> Result<Connectivity, &'static str> {
-    let mut faces_nodes = Vec::<Vec<usize>>::new();
-    let mut indices = HashMap::<Vec<usize>, usize>::new();
-    let mut cells = Vec::new();
-    for elements in parts {
-        cells.push(
-            boundary
-                .faces(elements)?
-                .into_iter()
-                .map(|face| {
-                    let mut key = face.clone();
-                    key.sort_unstable();
-                    *indices.entry(key).or_insert_with(|| {
-                        faces_nodes.push(face);
-                        faces_nodes.len() - 1
-                    })
-                })
-                .collect::<Vec<usize>>(),
-        )
-    }
-    Ok(Connectivity::Polyhedral((cells, faces_nodes).into()))
 }
 
 fn kept(block: &Connectivity, offset: usize, keep: &impl Fn(usize) -> bool) -> Connectivity {
@@ -140,33 +91,6 @@ fn kept(block: &Connectivity, offset: usize, keep: &impl Fn(usize) -> bool) -> C
         Connectivity::Pyramidal(c) => Connectivity::Pyramidal(select(c, offset, keep)),
         Connectivity::Tetrahedral(c) => Connectivity::Tetrahedral(select(c, offset, keep)),
         Connectivity::Wedge(c) => Connectivity::Wedge(select(c, offset, keep)),
-        _ => unreachable!("a boundary requires three-dimensional elements"),
-    }
-}
-
-fn renumbered(block: &Connectivity, remap: &[usize]) -> Connectivity {
-    fn map<const N: usize>(
-        connectivity: &PrimitiveConnectivity<3, N>,
-        remap: &[usize],
-    ) -> PrimitiveConnectivity<3, N> {
-        connectivity
-            .iter()
-            .map(|nodes| nodes.map(|node| remap[node]))
-            .collect::<Vec<_>>()
-            .into()
-    }
-    match block {
-        Connectivity::Hexahedral(c) => Connectivity::Hexahedral(map(c, remap)),
-        Connectivity::Pyramidal(c) => Connectivity::Pyramidal(map(c, remap)),
-        Connectivity::Tetrahedral(c) => Connectivity::Tetrahedral(map(c, remap)),
-        Connectivity::Wedge(c) => Connectivity::Wedge(map(c, remap)),
-        Connectivity::Polyhedral(c) => Connectivity::Polyhedral(PolytopalConnectivity::from((
-            c.elements_faces().to_vec(),
-            c.faces_nodes()
-                .iter()
-                .map(|face| face.iter().map(|&node| remap[node]).collect())
-                .collect(),
-        ))),
         _ => unreachable!("a boundary requires three-dimensional elements"),
     }
 }
