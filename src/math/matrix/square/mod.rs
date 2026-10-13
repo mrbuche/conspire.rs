@@ -54,6 +54,21 @@ impl SquareMatrix {
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| Vector::zero(len)).collect()
     }
+    pub fn quadratic_form_leading(&self, vector: &Vector, size: usize) -> Scalar {
+        self.iter()
+            .zip(vector)
+            .take(size)
+            .map(|(self_i, vector_i)| {
+                vector_i
+                    * self_i
+                        .iter()
+                        .zip(vector)
+                        .take(size)
+                        .map(|(self_ij, vector_j)| self_ij * vector_j)
+                        .sum::<Scalar>()
+            })
+            .sum()
+    }
 }
 
 impl FiniteDifference for SquareMatrix {
@@ -157,17 +172,17 @@ impl Hessian for SquareMatrix {
     }
     fn quadratic_form(&self, vector: &Vector) -> Scalar {
         self.iter()
-            .zip(vector.iter())
+            .zip(vector)
             .map(|(self_i, vector_i)| vector_i * (self_i * vector))
             .sum()
     }
     fn retain_from(self, retained: &[bool]) -> SquareMatrix {
         self.into_iter()
-            .zip(retained.iter())
+            .zip(retained)
             .filter(|(_, retained_i)| **retained_i)
             .map(|(row, _)| {
                 row.into_iter()
-                    .zip(retained.iter())
+                    .zip(retained)
                     .filter(|(_, retained_j)| **retained_j)
                     .map(|(entry, _)| entry)
                     .collect()

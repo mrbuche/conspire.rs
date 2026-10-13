@@ -231,6 +231,63 @@ mod constrained {
     fn none() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(&minimized(LineSearch::None)?, &Vector::from([1.0, 1.0]))
     }
+    fn minimized_trust_region(trust_region: TrustRegion) -> Result<Vector, AssertionError> {
+        Ok(NewtonRaphson {
+            trust_region,
+            linear_solver: Direct,
+            ..Default::default()
+        }
+        .minimize(
+            |x: &Vector| Ok((x[0].powi(2) + x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(x.clone()),
+            |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+            Vector::from([4.0, -3.0]),
+            constraint(),
+            None,
+        )?)
+    }
+    #[test]
+    fn trust_region_adaptive() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &minimized_trust_region(TrustRegion::Adaptive {
+                radius: 1.0,
+                max_radius: 10.0,
+            })?,
+            &Vector::from([1.0, 1.0]),
+        )
+    }
+    #[test]
+    fn trust_region_adaptive_failed_trial_is_a_rejection() -> Result<(), AssertionError> {
+        let root = |x: Scalar| (1.0 + x * x).sqrt();
+        let result = NewtonRaphson {
+            trust_region: TrustRegion::Adaptive {
+                radius: 100.0,
+                max_radius: 100.0,
+            },
+            linear_solver: Direct,
+            max_steps: 100,
+            ..Default::default()
+        }
+        .minimize(
+            |x: &Vector| {
+                if x.iter().any(|x_i| x_i.abs() > 10.0) {
+                    Err("out of domain".to_string())
+                } else {
+                    Ok(root(x[0]) + root(x[1]))
+                }
+            },
+            |x: &Vector| Ok(x.iter().map(|&x_i| x_i / root(x_i)).collect()),
+            |x: &Vector| {
+                let mut hessian = SquareMatrix::zero(2);
+                (0..2).for_each(|i| hessian[i][i] = root(x[i]).powi(-3));
+                Ok(hessian)
+            },
+            Vector::from([4.0, -3.0]),
+            constraint(),
+            None,
+        )?;
+        Assert::default().eq_within_tols(&result, &Vector::from([1.0, 1.0]))
+    }
     fn scaled(rel_tol: Option<Scalar>) -> Result<Vector, OptimizationError> {
         const SCALE: Scalar = 1e12;
         NewtonRaphson {
