@@ -4,8 +4,8 @@ use crate::{
         Model, NodalReferenceCoordinates,
         block::{Block, node::thermal::ThermalNode},
         thermal::{
-            conduction::ThermalConductionElements, dynamics::ThermalConductionDynamics,
-            time_scale::ThermalTimeScaleElements,
+            conduction::ThermalConductionElements, time_scale::ThermalTimeScaleElements,
+            transient::ThermalConductionTransient,
         },
     },
     constitutive::thermal::conduction::Fourier,

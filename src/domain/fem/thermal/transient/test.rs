@@ -10,7 +10,7 @@ use crate::{
         },
         thermal::{
             capacity::HeatCapacityMatrix, conduction::ThermalConductionElements,
-            dynamics::ThermalConductionDynamics, time_scale::ThermalTimeScaleElements,
+            time_scale::ThermalTimeScaleElements, transient::ThermalConductionTransient,
         },
     },
     math::{
@@ -261,7 +261,7 @@ mod integrate_temperatures {
 
 mod integrate_implicit {
     use super::*;
-    use crate::fem::thermal::dynamics::ThermalConductionImplicitDynamics;
+    use crate::fem::thermal::transient::ThermalConductionImplicitTransient;
     fn limit(model: &Model<B, 3>) -> f64 {
         model
             .fastest_diffusive_time_scale(model.coordinates(), &temperatures([300.0; NODES]))
@@ -287,10 +287,10 @@ mod integrate_implicit {
         constraint: EqualityConstraint,
     ) -> (
         crate::math::integrate::Times,
-        crate::fem::thermal::dynamics::NodalTemperaturesHistory,
-        crate::fem::thermal::dynamics::NodalTemperatureRatesHistory,
+        crate::fem::thermal::transient::NodalTemperaturesHistory,
+        crate::fem::thermal::transient::NodalTemperatureRatesHistory,
     ) {
-        ThermalConductionImplicitDynamics::integrate(
+        ThermalConductionImplicitTransient::integrate(
             model,
             &BackwardEuler {
                 dt: (times[1] - times[0]).value(),
@@ -429,7 +429,7 @@ mod integrate_implicit {
         let dt = 0.01 * limit(&model);
         let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);
         let heating = NodalForcesThermal::zero(NODES);
-        let (_, explicit, _) = ThermalConductionDynamics::integrate(
+        let (_, explicit, _) = ThermalConductionTransient::integrate(
             &model,
             &Euler::default(),
             &times(dt, 200),

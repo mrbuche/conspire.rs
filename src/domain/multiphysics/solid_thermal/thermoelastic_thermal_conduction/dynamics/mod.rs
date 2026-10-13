@@ -17,7 +17,7 @@ use crate::{
                 HeatCapacityMatrix, InverseHeatCapacity, NodalLumpedHeatCapacities,
                 NodalTemperatureRates,
             },
-            dynamics::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
+            transient::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
         },
     },
     math::{

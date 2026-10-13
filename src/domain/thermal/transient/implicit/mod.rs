@@ -18,7 +18,7 @@ use crate::{
 };
 
 /// The temperatures of a model that conducts heat with implicit time integration.
-pub trait ThermalConductionImplicitDynamics {
+pub trait ThermalConductionImplicitTransient {
     /// Integrates the temperatures of the model with an implicit integrator.
     ///
     /// The heat capacities may be lumped or consistent, and are added to the sparse tangent.
@@ -43,7 +43,7 @@ pub trait ThermalConductionImplicitDynamics {
     ) -> Result<Solution, IntegrationError>;
 }
 
-impl<B> ThermalConductionImplicitDynamics for Model<B, 3>
+impl<B> ThermalConductionImplicitTransient for Model<B, 3>
 where
     B: ThermalConductionElements,
 {
@@ -66,7 +66,7 @@ where
         let inverse = held(
             capacities,
             equality_constraint.clone(),
-            "implicit thermal dynamics",
+            "implicit thermal transient",
         )?;
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);

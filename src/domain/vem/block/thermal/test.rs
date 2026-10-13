@@ -110,7 +110,7 @@ mod heat {
             ElementModel, Model,
             thermal::{
                 NodalForcesThermal, conduction::ThermalConductionElements,
-                dynamics::ThermalConductionDynamics, time_scale::ThermalTimeScaleElements,
+                time_scale::ThermalTimeScaleElements, transient::ThermalConductionTransient,
             },
             time_scale::{diffusive_time_scale_from_eigenvalue, largest_eigenvalue},
         },
