@@ -2,7 +2,7 @@ use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
     fem::{
         self, NodalCoordinates, NodalReferenceCoordinates, block::element::linear::Tetrahedron,
-        time_scale::TimeScaleElements,
+        solid::time_scale::TimeScaleElements,
     },
     math::Quantity,
     units::{Density, Stress},

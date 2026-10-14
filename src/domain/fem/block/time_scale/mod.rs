@@ -9,7 +9,7 @@ use crate::{
                 solid::elastic::ElasticFiniteElement, time_scale::fastest_time_scale,
             },
         },
-        time_scale::TimeScaleElements,
+        solid::time_scale::TimeScaleElements,
     },
     math::Quantity,
     units::Time,

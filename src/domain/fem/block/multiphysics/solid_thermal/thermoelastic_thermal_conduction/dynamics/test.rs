@@ -24,7 +24,7 @@ macro_rules! test_thermoelastic_thermal_conduction_time_scale_block {
                     block::{Block, thermal::NodalTemperatures},
                     multiphysics::solid_thermal::thermoelastic_thermal_conduction::dynamics::time_scale::ThermoelasticThermalConductionTimeScaleElements,
                     thermal::time_scale::ThermalTimeScaleElements,
-                    time_scale::TimeScaleElements,
+                    solid::time_scale::TimeScaleElements,
                 },
                 math::{
                     Quantity,

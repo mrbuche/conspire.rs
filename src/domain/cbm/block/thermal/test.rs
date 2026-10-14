@@ -4,8 +4,8 @@ use crate::{
         Model, NodalReferenceCoordinates,
         block::{Block, node::thermal::ThermalNode},
         thermal::{
-            conduction::ThermalConductionElements, dynamics::ThermalConductionDynamics,
-            time_scale::ThermalTimeScaleElements,
+            conduction::ThermalConductionElements, time_scale::ThermalTimeScaleElements,
+            transient::ThermalConductionTransient,
         },
     },
     constitutive::thermal::conduction::Fourier,
@@ -75,7 +75,6 @@ fn near(a: f64, b: f64, tolerance: f64) {
 
 mod conduction {
     use super::*;
-
     #[test]
     fn a_linear_temperature_field_has_its_gradient_at_every_particle() {
         let gradient = [3.0, -2.0, 5.0];
@@ -88,7 +87,6 @@ mod conduction {
             (0..3).for_each(|i| near(found[i].value(), gradient[i], 1e-10))
         });
     }
-
     #[test]
     fn the_nodal_heating_is_the_potential_gradient() {
         let model = model();
@@ -108,7 +106,6 @@ mod conduction {
             )
         });
     }
-
     #[test]
     fn the_stiffness_is_the_symmetric_derivative_of_the_heating() {
         let model = model();
@@ -136,7 +133,6 @@ mod conduction {
             })
         });
     }
-
     #[test]
     fn heat_is_conserved_and_a_uniform_temperature_does_not_flow() {
         let model = model();
@@ -154,11 +150,25 @@ mod conduction {
             .iter()
             .for_each(|flow| near(flow.value(), 0.0, 1e-9));
     }
+    #[test]
+    fn the_solver_pattern_covers_every_stored_stiffness() {
+        use crate::domain::block::{element::Elements, finalize_node_neighbors};
+        let model = model();
+        let mut neighbors = vec![Vec::new(); NODES];
+        model.node_neighbors(&mut neighbors);
+        finalize_node_neighbors(&mut neighbors);
+        let stiffnesses = model
+            .nodal_stiffnesses(&temperatures([300.0; NODES]))
+            .unwrap();
+        stiffnesses.iter().enumerate().for_each(|(a, row)| {
+            row.entries()
+                .for_each(|(b, _)| assert!(neighbors[a].contains(&b), "({a}, {b}) is not covered"))
+        });
+    }
 }
 
 mod capacity {
     use super::*;
-
     #[test]
     fn the_nodal_capacities_total_the_volumetric_capacity_times_the_volume() {
         let model = model();
@@ -177,7 +187,6 @@ mod capacity {
 
 mod time_scale {
     use super::*;
-
     #[test]
     fn bounds_the_global_time_scale_from_above_and_is_not_loose() {
         let model = model();
@@ -205,14 +214,12 @@ mod time_scale {
 
 mod integrate {
     use super::*;
-
     fn step(model: &Model<B, 3>) -> f64 {
         0.4 * model
             .fastest_diffusive_time_scale(model.coordinates(), &temperatures([300.0; NODES]))
             .unwrap()
             .value()
     }
-
     #[test]
     fn an_insulated_body_conserves_its_heat_and_relaxes_to_the_mean() {
         let model = model();
@@ -244,7 +251,6 @@ mod integrate {
         last.iter()
             .for_each(|temperature| near(temperature.value(), mean, 1e-6));
     }
-
     #[test]
     fn a_fixed_temperature_is_held_and_the_rest_relax_to_it() {
         let model = model();
@@ -261,6 +267,105 @@ mod integrate {
                 EqualityConstraint::Fixed(vec![0]),
             )
             .unwrap();
+        history.iter().for_each(|t| assert_eq!(t[0].value(), 300.0));
+        rates.iter().for_each(|r| assert_eq!(r[0].value(), 0.0));
+        history
+            .iter()
+            .last()
+            .unwrap()
+            .iter()
+            .for_each(|temperature| near(temperature.value(), 300.0, 1e-6));
+    }
+}
+
+mod integrate_implicit {
+    use super::*;
+    use crate::{
+        cbm::thermal::transient::ThermalConductionImplicitTransient,
+        math::{
+            integrate::BackwardEuler,
+            optimize::{NewtonRaphson, Tolerances},
+        },
+    };
+    fn limit(model: &Model<B, 3>) -> f64 {
+        model
+            .fastest_diffusive_time_scale(model.coordinates(), &temperatures([300.0; NODES]))
+            .unwrap()
+            .value()
+    }
+    fn solver() -> NewtonRaphson {
+        NewtonRaphson {
+            abs_tol: Tolerances {
+                constraint: 1e-12,
+                residual: 1e-6,
+            },
+            rel_tol: Some(1e-12),
+            ..Default::default()
+        }
+    }
+    fn run(
+        model: &Model<B, 3>,
+        dt: f64,
+        steps: usize,
+        initial: NodalTemperatures,
+        constraint: EqualityConstraint,
+    ) -> (
+        crate::domain::thermal::transient::NodalTemperaturesHistory,
+        crate::domain::thermal::transient::NodalTemperatureRatesHistory,
+    ) {
+        let (_, history, rates) = ThermalConductionImplicitTransient::integrate(
+            model,
+            &BackwardEuler { dt },
+            solver(),
+            &times(dt, steps),
+            initial,
+            &NodalForcesThermal::zero(NODES),
+            &model.nodal_lumped_heat_capacities(),
+            constraint,
+        )
+        .unwrap();
+        (history, rates)
+    }
+    #[test]
+    fn an_insulated_body_conserves_its_heat_and_relaxes_at_many_times_the_explicit_limit() {
+        let model = model();
+        let capacities = model.nodal_lumped_heat_capacities();
+        let heat = |temperatures: &NodalTemperatures| -> f64 {
+            capacities
+                .iter()
+                .zip(temperatures.iter())
+                .map(|(capacity, temperature)| capacity.value() * temperature.value())
+                .sum()
+        };
+        let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);
+        let (history, _) = run(
+            &model,
+            50.0 * limit(&model),
+            200,
+            initial.clone(),
+            EqualityConstraint::None,
+        );
+        history
+            .iter()
+            .for_each(|temperatures| near(heat(temperatures), heat(&initial), 1e-9));
+        let mean = heat(&initial) / capacities.iter().map(|c| c.value()).sum::<f64>();
+        history
+            .iter()
+            .last()
+            .unwrap()
+            .iter()
+            .for_each(|temperature| near(temperature.value(), mean, 1e-6));
+    }
+    #[test]
+    fn a_fixed_temperature_is_held_and_the_rest_relax_to_it() {
+        let model = model();
+        let (history, rates) = run(
+            &model,
+            50.0 * limit(&model),
+            200,
+            temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
+            EqualityConstraint::Fixed(vec![0]),
+        );
         history.iter().for_each(|t| assert_eq!(t[0].value(), 300.0));
         rates.iter().for_each(|r| assert_eq!(r[0].value(), 0.0));
         history

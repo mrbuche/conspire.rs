@@ -125,7 +125,7 @@ mod accelerations {
 
 mod consistent_accelerations {
     use super::*;
-    use crate::fem::mass::InverseMass;
+    use crate::fem::solid::mass::InverseMass;
     #[test]
     fn solving_with_the_mass_undoes_applying_it() -> Result<(), AssertionError> {
         let masses = model().nodal_masses();
@@ -633,7 +633,7 @@ mod integrate_implicit {
 mod consistent_masses {
     use super::*;
     use crate::{
-        fem::mass::{InverseMass, MassMatrix},
+        fem::solid::mass::{InverseMass, MassMatrix},
         math::{integrate::VelocityVerlet, optimize::EqualityConstraint},
         units::Time,
     };

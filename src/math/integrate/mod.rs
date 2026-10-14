@@ -76,7 +76,7 @@ pub use ode::{
     },
     implicit::{
         Implicit, backward_euler::BackwardEuler, midpoint::Midpoint as ImplicitMidpoint,
-        trapezoidal::Trapezoidal,
+        rates::ImplicitRates, trapezoidal::Trapezoidal,
     },
 };
 

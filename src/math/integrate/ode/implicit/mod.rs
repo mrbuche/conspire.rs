@@ -12,6 +12,7 @@ use crate::{
 
 pub(crate) mod backward_euler;
 pub(crate) mod midpoint;
+pub(crate) mod rates;
 pub(crate) mod trapezoidal;
 
 /// Implicit integrators for ordinary differential equations using root-finding.

@@ -1,3 +1,7 @@
+mod implicit;
+
+pub use implicit::ThermalConductionImplicitTransient;
+
 use crate::{
     domain::{
         ElementModelError, Model,
@@ -32,18 +36,19 @@ type Solution = (
 fn held<M>(
     capacities: &M,
     equality_constraint: EqualityConstraint,
+    integrator: &str,
 ) -> Result<M::Inverse, IntegrationError>
 where
     M: HeatCapacityMatrix,
 {
-    let fixed = fixed_indices(equality_constraint, "explicit thermal dynamics")?;
+    let fixed = fixed_indices(equality_constraint, integrator)?;
     capacities
         .inverse(&fixed)
         .map_err(|error| IntegrationError::Intermediate(error.to_string()))
 }
 
 /// The temperatures of a model that conducts heat.
-pub trait ThermalConductionDynamics {
+pub trait ThermalConductionTransient {
     fn nodal_temperature_rates(
         &self,
         nodal_temperatures: &NodalTemperatures,
@@ -97,7 +102,7 @@ pub trait ThermalConductionDynamics {
         Self: ThermalTimeScaleElements<3>;
 }
 
-impl<B> ThermalConductionDynamics for Model<B, 3>
+impl<B> ThermalConductionTransient for Model<B, 3>
 where
     B: ThermalConductionElements,
 {
@@ -123,7 +128,11 @@ where
         capacities: &impl HeatCapacityMatrix,
         equality_constraint: EqualityConstraint,
     ) -> Result<Solution, IntegrationError> {
-        let capacities = held(capacities, equality_constraint)?;
+        let capacities = held(
+            capacities,
+            equality_constraint,
+            "explicit thermal transient",
+        )?;
         integrator.integrate(
             |_, temperatures: &NodalTemperatures| {
                 self.nodal_temperature_rates(temperatures, external_heating, &capacities)
@@ -157,7 +166,11 @@ where
                     .to_string(),
             ));
         }
-        let capacities = held(capacities, equality_constraint)?;
+        let capacities = held(
+            capacities,
+            equality_constraint,
+            "explicit thermal transient",
+        )?;
         let mut evaluations = 0;
         let mut time_scale = Time::seconds(Scalar::INFINITY);
         integrator.integrate_bounded(

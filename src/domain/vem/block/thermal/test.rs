@@ -110,7 +110,7 @@ mod heat {
             ElementModel, Model,
             thermal::{
                 NodalForcesThermal, conduction::ThermalConductionElements,
-                dynamics::ThermalConductionDynamics, time_scale::ThermalTimeScaleElements,
+                time_scale::ThermalTimeScaleElements, transient::ThermalConductionTransient,
             },
             time_scale::{diffusive_time_scale_from_eigenvalue, largest_eigenvalue},
         },
@@ -387,6 +387,124 @@ mod heat {
                 )
                 .unwrap_err();
             assert!(matches!(error, IntegrationError::Intermediate(..)))
+        }
+    }
+    mod implicit {
+        use super::*;
+        use crate::{
+            domain::thermal::transient::ThermalConductionImplicitTransient,
+            math::{
+                integrate::BackwardEuler,
+                optimize::{NewtonRaphson, Tolerances},
+            },
+        };
+        fn solver() -> NewtonRaphson {
+            NewtonRaphson {
+                abs_tol: Tolerances {
+                    constraint: 1e-12,
+                    residual: 1e-6,
+                },
+                rel_tol: Some(1e-12),
+                ..Default::default()
+            }
+        }
+        fn run(
+            model: &Model<H, 3>,
+            dt: Scalar,
+            steps: usize,
+            initial: NodalTemperatures,
+            constraint: EqualityConstraint,
+        ) -> (
+            crate::domain::thermal::transient::NodalTemperaturesHistory,
+            crate::domain::thermal::transient::NodalTemperatureRatesHistory,
+        ) {
+            let (_, history, rates) = ThermalConductionImplicitTransient::integrate(
+                model,
+                &BackwardEuler { dt },
+                solver(),
+                &(0..=steps)
+                    .map(|step| Time::seconds(step as Scalar * dt))
+                    .collect::<Vec<_>>(),
+                initial,
+                &NodalForcesThermal::zero(NODES),
+                &model.nodal_lumped_heat_capacities(),
+                constraint,
+            )
+            .unwrap();
+            (history, rates)
+        }
+        #[test]
+        fn a_perturbed_interior_node_relaxes_to_the_linear_field_at_many_times_the_explicit_limit()
+        {
+            let model = model();
+            let steady = linear([0.3, -0.7, 1.1]);
+            let mut initial = steady.clone();
+            initial[INTERIOR] += 50.0;
+            let initial = temperatures(&initial);
+            let limit = model
+                .fastest_diffusive_time_scale(model.coordinates(), &initial)
+                .unwrap()
+                .value();
+            let dt = 20.0 * limit;
+            let rate = model
+                .nodal_stiffnesses(&initial)
+                .unwrap()
+                .entry(INTERIOR, INTERIOR)
+                / model.nodal_lumped_heat_capacities()[INTERIOR].value();
+            let steps = (14.0 / (rate * dt).ln_1p()).ceil() as usize;
+            let (history, rates) = run(
+                &model,
+                dt,
+                steps,
+                initial,
+                EqualityConstraint::Fixed((0..NODES).filter(|&node| node != INTERIOR).collect()),
+            );
+            history.iter().for_each(|temperatures| {
+                (0..NODES)
+                    .filter(|&node| node != INTERIOR)
+                    .for_each(|node| assert_eq!(temperatures[node].value(), steady[node]))
+            });
+            rates.iter().for_each(|rates| {
+                (0..NODES)
+                    .filter(|&node| node != INTERIOR)
+                    .for_each(|node| assert_eq!(rates[node].value(), 0.0))
+            });
+            let last = history.iter().last().unwrap();
+            assert!((last[INTERIOR].value() - steady[INTERIOR]).abs() < 0.1);
+        }
+        #[test]
+        fn an_insulated_body_conserves_its_heat_and_relaxes_to_the_mean() {
+            let model = model();
+            let capacities = model.nodal_lumped_heat_capacities();
+            let heat = |temperatures: &NodalTemperatures| -> Scalar {
+                capacities
+                    .iter()
+                    .zip(temperatures.iter())
+                    .map(|(capacity, temperature)| capacity.value() * temperature.value())
+                    .sum()
+            };
+            let initial = temperatures(
+                &(0..NODES)
+                    .map(|node| 300.0 + 20.0 * (node as Scalar * 1.7).sin())
+                    .collect::<Vec<_>>(),
+            );
+            let dt = 50.0
+                * model
+                    .fastest_diffusive_time_scale(model.coordinates(), &initial)
+                    .unwrap()
+                    .value();
+            let (history, _) = run(&model, dt, 400, initial.clone(), EqualityConstraint::None);
+            history.iter().for_each(|temperatures| {
+                let (a, b) = (heat(temperatures), heat(&initial));
+                assert!((a - b).abs() <= 1e-9 * b.abs(), "{a} != {b}")
+            });
+            let mean = heat(&initial) / capacities.iter().map(|c| c.value()).sum::<Scalar>();
+            history
+                .iter()
+                .last()
+                .unwrap()
+                .iter()
+                .for_each(|temperature| assert!((temperature.value() - mean).abs() < 1e-3));
         }
     }
 }
