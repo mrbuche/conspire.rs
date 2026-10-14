@@ -47,7 +47,7 @@ impl Thermoelastic for AlmansiHamel {
                 * (self.bulk_modulus() / jacobian
                     * (strain_trace
                         - 3.0
-                            * self.coefficient_of_thermal_expansion()
+                            * self.coefficient_of_thermal_expansion
                             * (temperature - self.reference_temperature()))))
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -81,7 +81,7 @@ impl Thermoelastic for AlmansiHamel {
                         * (self.bulk_modulus() / jacobian
                             * (strain_trace
                                 - 3.0
-                                    * self.coefficient_of_thermal_expansion()
+                                    * self.coefficient_of_thermal_expansion
                                     * (temperature - self.reference_temperature())))),
                 &inverse_transpose_deformation_gradient,
             ))
@@ -94,7 +94,7 @@ impl Thermoelastic for AlmansiHamel {
     ) -> Result<CauchyThermalTangent, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         Ok(IDENTITY
-            * (-3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion() / jacobian))
+            * (-3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion / jacobian))
     }
     #[doc = include_str!("cauchy_mixed_tangent_stiffness.md")]
     fn cauchy_mixed_tangent_stiffness(
@@ -105,7 +105,7 @@ impl Thermoelastic for AlmansiHamel {
         let jacobian = self.jacobian(deformation_gradient)?;
         Ok(
             TensorRank4::dyad_ij_kl(&IDENTITY, &deformation_gradient.inverse_transpose())
-                * (3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion() / jacobian),
+                * (3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion / jacobian),
         )
     }
     #[doc = include_str!("cauchy_thermal_tangent_stiffness.md")]
@@ -116,9 +116,6 @@ impl Thermoelastic for AlmansiHamel {
     ) -> Result<CauchyThermalTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         Ok(CauchyThermalTangentStiffness::zero())
-    }
-    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
-        self.coefficient_of_thermal_expansion
     }
     fn reference_temperature(&self) -> Quantity<Temperature> {
         self.reference_temperature

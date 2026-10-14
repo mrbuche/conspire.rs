@@ -19,7 +19,7 @@ use crate::{
         FirstPiolaKirchhoffThermalTangentStiffness, SecondPiolaKirchhoffMixedTangentStiffness,
         SecondPiolaKirchhoffThermalTangent, SecondPiolaKirchhoffThermalTangentStiffness,
     },
-    units::{ReciprocalTemperature, Temperature},
+    units::Temperature,
 };
 
 mod almansi_hamel;
@@ -339,8 +339,6 @@ where
             * deformation_gradient.inverse_transpose()
             * deformation_gradient.determinant())
     }
-    /// Returns the coefficient of thermal expansion.
-    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature>;
     /// Returns the reference temperature.
     fn reference_temperature(&self) -> Quantity<Temperature>;
 }

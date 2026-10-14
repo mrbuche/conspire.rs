@@ -225,7 +225,7 @@ macro_rules! test_solid_thermal_constitutive_model {
                     if i == j {
                         assert!(
                             ((first_piola_kirchhoff_stress[i][j] / compare).value()
-                                - model.coefficient_of_thermal_expansion().value())
+                                - model.coefficient_of_thermal_expansion.value())
                             .abs()
                                 < EPSILON
                         );

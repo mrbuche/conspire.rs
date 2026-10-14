@@ -55,7 +55,7 @@ impl Thermoelastic for NeoHookean {
                     * (self.bulk_modulus()
                         * (0.5 * (jacobian - 1.0 / jacobian)
                             - 3.0
-                                * self.coefficient_of_thermal_expansion()
+                                * self.coefficient_of_thermal_expansion
                                 * (temperature - self.reference_temperature()))),
         )
     }
@@ -89,7 +89,7 @@ impl Thermoelastic for NeoHookean {
         Ok(
             deformation_gradient.left_cauchy_green().deviatoric() / jacobian.powf(FIVE_THIRDS)
                 * (self.shear_modulus() / self.reference_temperature())
-                - IDENTITY * (3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion()),
+                - IDENTITY * (3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion),
         )
     }
     #[doc = include_str!("cauchy_mixed_tangent_stiffness.md")]
@@ -120,9 +120,6 @@ impl Thermoelastic for NeoHookean {
         let _jacobian = self.jacobian(deformation_gradient)?;
         Ok(CauchyThermalTangentStiffness::zero())
     }
-    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
-        self.coefficient_of_thermal_expansion
-    }
     fn reference_temperature(&self) -> Quantity<Temperature> {
         self.reference_temperature
     }
@@ -143,7 +140,7 @@ impl Thermohyperelastic for NeoHookean {
                 + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
             - self.bulk_modulus()
                 * (3.0
-                    * self.coefficient_of_thermal_expansion()
+                    * self.coefficient_of_thermal_expansion
                     * (temperature - self.reference_temperature()))
                 * (jacobian - 1.0))
     }

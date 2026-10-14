@@ -19,7 +19,7 @@ use crate::{
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffThermalTangent,
         SecondPiolaKirchhoffThermalTangentStiffness, TemperatureGradient,
     },
-    units::{PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature},
+    units::{PowerTemperatureDensity, Stress, Temperature},
 };
 
 /// A thermoelastic-thermal conduction constitutive model.
@@ -185,10 +185,6 @@ where
     ) -> Result<SecondPiolaKirchhoffThermalTangentStiffness, ConstitutiveError> {
         self.solid_constitutive_model()
             .second_piola_kirchhoff_thermal_tangent_stiffness(deformation_gradient, temperature)
-    }
-    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
-        self.solid_constitutive_model()
-            .coefficient_of_thermal_expansion()
     }
     fn reference_temperature(&self) -> Quantity<Temperature> {
         self.solid_constitutive_model().reference_temperature()

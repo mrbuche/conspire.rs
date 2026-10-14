@@ -49,7 +49,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
                 * (self.bulk_modulus()
                     * (strain_trace
                         - 3.0
-                            * self.coefficient_of_thermal_expansion()
+                            * self.coefficient_of_thermal_expansion
                             * (temperature - self.reference_temperature()))))
     }
     #[doc = include_str!("second_piola_kirchhoff_tangent_stiffness.md")]
@@ -77,7 +77,7 @@ impl Thermoelastic for SaintVenantKirchhoff {
         _: Quantity<Temperature>,
     ) -> Result<SecondPiolaKirchhoffThermalTangent, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
-        Ok(IDENTITY_00 * (-3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion()))
+        Ok(IDENTITY_00 * (-3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion))
     }
     #[doc = include_str!("second_piola_kirchhoff_mixed_tangent_stiffness.md")]
     fn second_piola_kirchhoff_mixed_tangent_stiffness(
@@ -96,9 +96,6 @@ impl Thermoelastic for SaintVenantKirchhoff {
     ) -> Result<SecondPiolaKirchhoffThermalTangentStiffness, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         Ok(SecondPiolaKirchhoffThermalTangentStiffness::zero())
-    }
-    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
-        self.coefficient_of_thermal_expansion
     }
     fn reference_temperature(&self) -> Quantity<Temperature> {
         self.reference_temperature
@@ -121,7 +118,7 @@ impl Thermohyperelastic for SaintVenantKirchhoff {
                 * strain_trace.powi(2)
             - 3.0
                 * self.bulk_modulus()
-                * self.coefficient_of_thermal_expansion()
+                * self.coefficient_of_thermal_expansion
                 * (temperature - self.reference_temperature())
                 * strain_trace)
     }
