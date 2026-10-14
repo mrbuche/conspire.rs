@@ -6,7 +6,7 @@ use crate::{
             tessellation::from::test::tessellation,
             test::{octahedron, sphere},
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
+        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, SeparationSizing},
     },
     math::{Quantity, Scalar, Tensor, assert::AssertionError},
 };
@@ -276,6 +276,7 @@ fn buffer_preserves_mirror_symmetry() {
             tolerance: None,
             ..Default::default()
         },
+        SeparationSizing::default(),
         0,
     )
     .unwrap();
