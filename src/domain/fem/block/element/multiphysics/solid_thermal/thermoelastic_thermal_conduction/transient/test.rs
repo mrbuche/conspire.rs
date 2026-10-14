@@ -6,12 +6,16 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                 EPSILON,
                 constitutive::{
                     multiphysics::Canonical,
-                    solid::thermoelastic::{
-                        AlmansiHamel,
-                        test::{
-                            BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION, REFERENCE_TEMPERATURE,
-                            SHEAR_MODULUS,
+                    solid::{
+                        thermoelastic::{
+                            AlmansiHamel,
+                            test::{
+                                BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION,
+                                COEFFICIENT_OF_THERMAL_EXPANSION_SLOPE, REFERENCE_TEMPERATURE,
+                                SHEAR_MODULUS,
+                            },
                         },
+                        thermohyperelastic::NeoHookean,
                     },
                     thermal::conduction::{Fourier, test::THERMAL_CONDUCTIVITY},
                 },
@@ -284,6 +288,70 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                                 / perturbation::<Temperature>(EPSILON)),
                             &thermal[node_a][node_b],
                         )
+                    })
+                })
+            }
+            #[test]
+            fn the_exact_tangent_of_a_temperature_dependent_expansion() -> Result<(), AssertionError> {
+                let model: Canonical<NeoHookean, Fourier> = (
+                    NeoHookean {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        coefficient_of_thermal_expansion: COEFFICIENT_OF_THERMAL_EXPANSION,
+                        coefficient_of_thermal_expansion_slope:
+                            COEFFICIENT_OF_THERMAL_EXPANSION_SLOPE,
+                        reference_temperature: REFERENCE_TEMPERATURE,
+                    },
+                    Fourier {
+                        thermal_conductivity: THERMAL_CONDUCTIVITY,
+                    },
+                )
+                    .into();
+                let forces = |nodal_coordinates: &_, nodal_temperatures: &_| {
+                    ThermoelasticThermalConductionTransientFiniteElement::nodal_forces(
+                        &element(),
+                        &model,
+                        nodal_coordinates,
+                        &velocities(),
+                        nodal_temperatures,
+                    )
+                };
+                let ((_, _, thermal), heating_stiffnesses, _) =
+                    ThermoelasticThermalConductionTransientFiniteElement::nodal_stiffnesses(
+                        &element(),
+                        &model,
+                        &coordinates(),
+                        &velocities(),
+                        &temperatures(),
+                    )?;
+                (0..N).try_for_each(|node_b| {
+                    let mut nodal_temperatures = temperatures();
+                    nodal_temperatures[node_b] += perturbation::<Temperature>(0.5 * EPSILON);
+                    let forward = forces(&coordinates(), &nodal_temperatures)?;
+                    nodal_temperatures[node_b] -= perturbation::<Temperature>(EPSILON);
+                    let backward = forces(&coordinates(), &nodal_temperatures)?;
+                    (0..N).try_for_each(|node_a| {
+                        Assert::default().eq_within_fd_tol(
+                            &((forward[node_a].1 - backward[node_a].1)
+                                / perturbation::<Temperature>(EPSILON)),
+                            &thermal[node_a][node_b],
+                        )
+                    })
+                })?;
+                (0..N).try_for_each(|node_b| {
+                    (0..3).try_for_each(|k| {
+                        let mut nodal_coordinates = coordinates();
+                        nodal_coordinates[node_b][k] += perturbation::<Length>(0.5 * EPSILON);
+                        let forward = forces(&nodal_coordinates, &temperatures())?;
+                        nodal_coordinates[node_b][k] -= perturbation::<Length>(EPSILON);
+                        let backward = forces(&nodal_coordinates, &temperatures())?;
+                        (0..N).try_for_each(|node_a| {
+                            Assert::default().eq_within_fd_tol(
+                                &((forward[node_a].1 - backward[node_a].1)
+                                    / perturbation::<Length>(EPSILON)),
+                                &heating_stiffnesses[node_a][node_b][k],
+                            )
+                        })
                     })
                 })
             }

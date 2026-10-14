@@ -1,12 +1,14 @@
 use crate::{
     math::Quantity,
-    units::{ReciprocalTemperature, Temperature},
+    units::{ReciprocalTemperature, ReciprocalTemperatureSquared, Temperature},
 };
 
 pub use crate::constitutive::solid::elastic::test::{BULK_MODULUS, SHEAR_MODULUS};
 
 pub const COEFFICIENT_OF_THERMAL_EXPANSION: Quantity<ReciprocalTemperature> =
     ReciprocalTemperature::per_kelvin(1.0);
+pub const COEFFICIENT_OF_THERMAL_EXPANSION_SLOPE: Quantity<ReciprocalTemperatureSquared> =
+    ReciprocalTemperatureSquared::per_kelvin_squared(0.01);
 pub const REFERENCE_TEMPERATURE: Quantity<Temperature> = Temperature::kelvin(100.0);
 
 macro_rules! cauchy_stress_from_deformation_gradient {

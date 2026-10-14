@@ -198,6 +198,8 @@ units!(
     Temperature,
     /// A reciprocal temperature, as a coefficient of thermal expansion is.
     ReciprocalTemperature,
+    /// A reciprocal temperature squared, as the change of a coefficient of thermal expansion with temperature is.
+    ReciprocalTemperatureSquared,
     /// A time per unit temperature.
     TimePerTemperature,
     /// A temperature per unit time, as a rate of heating is.
@@ -298,6 +300,10 @@ unit_products!(
     Stress * ReciprocalStress = Dimensionless,
     ReciprocalStress * Stress = Dimensionless,
     Dimensionless * ReciprocalTemperature = ReciprocalTemperature,
+    Dimensionless * ReciprocalTemperatureSquared = ReciprocalTemperatureSquared,
+    ReciprocalTemperature * ReciprocalTemperature = ReciprocalTemperatureSquared,
+    ReciprocalTemperatureSquared * Temperature = ReciprocalTemperature,
+    Stress * ReciprocalTemperatureSquared = StressPerTemperatureSquared,
     Dimensionless * TimePerTemperature = TimePerTemperature,
     Time * ReciprocalTemperature = TimePerTemperature,
     ReciprocalTemperature * Time = TimePerTemperature,

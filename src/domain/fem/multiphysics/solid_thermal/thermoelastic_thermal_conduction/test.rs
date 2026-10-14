@@ -606,6 +606,7 @@ mod dynamics {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,
                         coefficient_of_thermal_expansion: ReciprocalTemperature::per_kelvin(0.0),
+                        coefficient_of_thermal_expansion_slope: Quantity::new(0.0),
                         reference_temperature: REFERENCE_TEMPERATURE,
                     },
                     Fourier {
