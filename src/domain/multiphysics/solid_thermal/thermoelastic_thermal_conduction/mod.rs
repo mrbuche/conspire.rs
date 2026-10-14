@@ -1,4 +1,5 @@
 pub mod dynamics;
+pub mod quasistatic;
 pub mod transient;
 
 use crate::{

@@ -17,7 +17,7 @@ use crate::{
         },
     },
     math::{
-        Quantity, Tensor, TensorTuple,
+        Quantity, Scalar, Tensor, TensorTuple,
         integrate::{ImplicitDynamicsCoupled, IntegrationError},
         optimize::{EqualityConstraint, RootFinding},
     },
@@ -34,6 +34,23 @@ pub(crate) fn add_heatings(
             tangent[a][b] += TensorTuple(
                 TensorTuple(Default::default(), Default::default()),
                 TensorTuple(heating.clone() * velocity_rate, Default::default()),
+            )
+        })
+    });
+}
+
+pub(crate) fn add_capacities(
+    tangent: &mut NodalStiffnessesSolidThermal,
+    capacities: &impl InertialHeatCapacity,
+    weight: Scalar,
+) {
+    let mut capacitive = NodalStiffnessesThermal::zero(tangent.len());
+    capacities.add_to_stiffnesses(weight, &mut capacitive);
+    capacitive.iter().enumerate().for_each(|(a, row)| {
+        row.entries().for_each(|(b, &stiffness)| {
+            tangent[a][b] += TensorTuple(
+                TensorTuple(Default::default(), Default::default()),
+                TensorTuple(Default::default(), stiffness),
             )
         })
     });
@@ -189,16 +206,7 @@ where
                         )
                     })
                 });
-                let mut capacitive = NodalStiffnessesThermal::zero(coordinates.len());
-                capacities.add_to_stiffnesses(1.0 / dt.value(), &mut capacitive);
-                capacitive.iter().enumerate().for_each(|(a, row)| {
-                    row.entries().for_each(|(b, &stiffness)| {
-                        tangent[a][b] += TensorTuple(
-                            TensorTuple(Default::default(), Default::default()),
-                            TensorTuple(Default::default(), stiffness),
-                        )
-                    })
-                });
+                add_capacities(&mut tangent, capacities, 1.0 / dt.value());
                 Ok(tangent)
             },
             |coordinates: &NodalCoordinates<3>, temperatures: &NodalTemperatures| {
