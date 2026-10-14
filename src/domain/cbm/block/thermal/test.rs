@@ -271,3 +271,107 @@ mod integrate {
             .for_each(|temperature| near(temperature.value(), 300.0, 1e-6));
     }
 }
+
+mod integrate_implicit {
+    use super::*;
+    use crate::{
+        cbm::thermal::transient::ThermalConductionImplicitTransient,
+        math::{
+            integrate::BackwardEuler,
+            optimize::{NewtonRaphson, Tolerances},
+        },
+    };
+
+    fn limit(model: &Model<B, 3>) -> f64 {
+        model
+            .fastest_diffusive_time_scale(model.coordinates(), &temperatures([300.0; NODES]))
+            .unwrap()
+            .value()
+    }
+
+    fn solver() -> NewtonRaphson {
+        NewtonRaphson {
+            abs_tol: Tolerances {
+                constraint: 1e-12,
+                residual: 1e-6,
+            },
+            rel_tol: Some(1e-12),
+            ..Default::default()
+        }
+    }
+
+    fn run(
+        model: &Model<B, 3>,
+        dt: f64,
+        steps: usize,
+        initial: NodalTemperatures,
+        constraint: EqualityConstraint,
+    ) -> (
+        crate::domain::thermal::transient::NodalTemperaturesHistory,
+        crate::domain::thermal::transient::NodalTemperatureRatesHistory,
+    ) {
+        let (_, history, rates) = ThermalConductionImplicitTransient::integrate(
+            model,
+            &BackwardEuler { dt },
+            solver(),
+            &times(dt, steps),
+            initial,
+            &NodalForcesThermal::zero(NODES),
+            &model.nodal_lumped_heat_capacities(),
+            constraint,
+        )
+        .unwrap();
+        (history, rates)
+    }
+
+    #[test]
+    fn an_insulated_body_conserves_its_heat_and_relaxes_to_the_mean() {
+        let model = model();
+        let capacities = model.nodal_lumped_heat_capacities();
+        let heat = |temperatures: &NodalTemperatures| -> f64 {
+            capacities
+                .iter()
+                .zip(temperatures.iter())
+                .map(|(capacity, temperature)| capacity.value() * temperature.value())
+                .sum()
+        };
+        let initial = temperatures([300.0, 500.0, 350.0, 420.0, 280.0]);
+        let (history, _) = run(
+            &model,
+            2.0 * limit(&model),
+            200,
+            initial.clone(),
+            EqualityConstraint::None,
+        );
+        history
+            .iter()
+            .for_each(|temperatures| near(heat(temperatures), heat(&initial), 1e-9));
+        let mean = heat(&initial) / capacities.iter().map(|c| c.value()).sum::<f64>();
+        history
+            .iter()
+            .last()
+            .unwrap()
+            .iter()
+            .for_each(|temperature| near(temperature.value(), mean, 1e-6));
+    }
+
+    #[test]
+    fn a_fixed_temperature_is_held_and_the_rest_relax_to_it() {
+        let model = model();
+        let (history, rates) = run(
+            &model,
+            50.0 * limit(&model),
+            200,
+            temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
+            EqualityConstraint::Fixed(vec![0]),
+        );
+        history.iter().for_each(|t| assert_eq!(t[0].value(), 300.0));
+        rates.iter().for_each(|r| assert_eq!(r[0].value(), 0.0));
+        history
+            .iter()
+            .last()
+            .unwrap()
+            .iter()
+            .for_each(|temperature| near(temperature.value(), 300.0, 1e-6));
+    }
+}
