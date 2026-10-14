@@ -9,33 +9,24 @@ use crate::{
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         factor::fixed_indices,
         multiphysics::solid_thermal::{
-            NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
+            NodalForcesSolidThermal, NodalRatesSolidThermal, NodalRatesSolidThermalHistory,
+            NodalStatesSolidThermal, NodalStatesSolidThermalHistory, NodalStiffnessesSolidThermal,
+            join_rates, join_states, split_rates, split_states,
         },
         solid::NodalForcesSolid,
         thermal::{
             NodalForcesThermal, NodalTemperatures,
-            capacity::{InertialHeatCapacity, InverseHeatCapacity, NodalTemperatureRates},
+            capacity::{InertialHeatCapacity, InverseHeatCapacity},
             transient::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
         },
     },
     math::{
-        Current, Quantity, Tensor, TensorRank1, TensorTuple, TensorTupleVec, TensorVector,
+        Quantity, Tensor, TensorTuple,
         integrate::{ImplicitRates, IntegrationError, Times},
         optimize::{EqualityConstraint, RootFinding},
     },
-    units::{Rate, TemperatureRate, Time, Velocity},
+    units::{Rate, Time},
 };
-
-/// The rates of the coordinates and temperatures, which are the velocities and the rates of
-/// the temperatures.
-pub type NodalRatesSolidThermal =
-    TensorTupleVec<TensorRank1<3, Current, Velocity>, Quantity<TemperatureRate>>;
-
-/// A history of the coordinates and temperatures.
-pub type NodalStatesSolidThermalHistory = TensorVector<NodalStatesSolidThermal>;
-
-/// A history of the rates of the coordinates and temperatures.
-pub type NodalRatesSolidThermalHistory = TensorVector<NodalRatesSolidThermal>;
 
 type Solution = (
     Times,
@@ -44,20 +35,6 @@ type Solution = (
     NodalTemperaturesHistory,
     NodalTemperatureRatesHistory,
 );
-
-fn split_states(states: &NodalStatesSolidThermal) -> (NodalCoordinates<3>, NodalTemperatures) {
-    (
-        states.iter().map(|state| state.0.clone()).collect(),
-        states.iter().map(|state| state.1).collect(),
-    )
-}
-
-fn split_rates(rates: &NodalRatesSolidThermal) -> (NodalVelocities<3>, NodalTemperatureRates) {
-    (
-        rates.iter().map(|rate| rate.0.clone()).collect(),
-        rates.iter().map(|rate| rate.1).collect(),
-    )
-}
 
 /// The coordinates and temperatures of a thermoelastic model that conducts heat, without
 /// inertia, with implicit time integration.
@@ -150,11 +127,7 @@ where
                     .collect();
                 let temperature_rates =
                     inverse.nodal_temperature_rates(external_heating, &internal_heating);
-                Ok(at_rest
-                    .into_iter()
-                    .zip(temperature_rates)
-                    .map(|(velocity, rate)| TensorTuple(velocity, rate))
-                    .collect())
+                Ok(join_rates(at_rest, temperature_rates))
             },
             |_, states: &NodalStatesSolidThermal, rates: &NodalRatesSolidThermal| {
                 let (coordinates, temperatures) = split_states(states);
@@ -197,11 +170,7 @@ where
             equality_constraint,
             Some(sparse),
             time,
-            initial_coordinates
-                .into_iter()
-                .zip(initial_temperatures)
-                .map(|(coordinate, temperature)| TensorTuple(coordinate, temperature))
-                .collect(),
+            join_states(&initial_coordinates, &initial_temperatures),
         )?;
         Ok((
             times,

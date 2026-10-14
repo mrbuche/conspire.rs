@@ -9,7 +9,7 @@ use crate::{
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         multiphysics::solid_thermal::{
             NodalForceSolidThermal, NodalForcesSolidThermal, NodalStatesSolidThermal,
-            NodalStiffnessesSolidThermal,
+            NodalStiffnessesSolidThermal, split_states,
         },
         thermal::NodalTemperatures,
     },
@@ -128,13 +128,6 @@ where
     }
 }
 
-fn split(nodal_states: &NodalStatesSolidThermal) -> (NodalCoordinates<3>, NodalTemperatures) {
-    (
-        nodal_states.iter().map(|state| state.0.clone()).collect(),
-        nodal_states.iter().map(|state| state.1).collect(),
-    )
-}
-
 impl<B> SolverFor<Model<B, 3>, NodalForcesSolidThermal, NodalStiffnessesSolidThermal>
     for NewtonRaphson
 where
@@ -152,7 +145,7 @@ where
         &self,
         nodal_states: &NodalStatesSolidThermal,
     ) -> Result<NodalStiffnessesSolidThermal, ElementModelError> {
-        let (nodal_coordinates, nodal_temperatures) = split(nodal_states);
+        let (nodal_coordinates, nodal_temperatures) = split_states(nodal_states);
         self.nodal_stiffnesses(&nodal_coordinates, &nodal_temperatures)
     }
 }
@@ -180,7 +173,7 @@ where
         });
         solver.root(
             |nodal_states: &NodalStatesSolidThermal| {
-                let (nodal_coordinates, nodal_temperatures) = split(nodal_states);
+                let (nodal_coordinates, nodal_temperatures) = split_states(nodal_states);
                 Ok(self.nodal_forces(&nodal_coordinates, &nodal_temperatures)?)
             },
             |nodal_states: &NodalStatesSolidThermal| Ok(self.provide_tangent(nodal_states)?),

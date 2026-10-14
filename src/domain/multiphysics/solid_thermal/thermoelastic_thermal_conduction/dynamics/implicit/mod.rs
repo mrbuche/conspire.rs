@@ -6,7 +6,7 @@ use crate::{
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalHeatingsSolidThermal, NodalStatesSolidThermal,
-            NodalStiffnessesSolidThermal,
+            NodalStiffnessesSolidThermal, join_states, split_states,
             thermoelastic_thermal_conduction::transient::ThermoelasticThermalConductionTransientElements,
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid, mass::InertialMass},
@@ -209,19 +209,8 @@ where
                 add_capacities(&mut tangent, capacities, 1.0 / dt.value());
                 Ok(tangent)
             },
-            |coordinates: &NodalCoordinates<3>, temperatures: &NodalTemperatures| {
-                coordinates
-                    .iter()
-                    .zip(temperatures.iter())
-                    .map(|(coordinate, &temperature)| TensorTuple(coordinate.clone(), temperature))
-                    .collect()
-            },
-            |states: &NodalStatesSolidThermal| {
-                (
-                    states.iter().map(|state| state.0.clone()).collect(),
-                    states.iter().map(|state| state.1).collect(),
-                )
-            },
+            join_states,
+            split_states,
             solver,
             equality_constraint,
             Some(sparse),
