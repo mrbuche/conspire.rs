@@ -14,7 +14,10 @@ use super::*;
 use crate::{
     math::Quantity,
     mechanics::{
-        CauchyThermalTangent, FirstPiolaKirchhoffThermalTangent, SecondPiolaKirchhoffThermalTangent,
+        CauchyMixedTangentStiffness, CauchyThermalTangent, CauchyThermalTangentStiffness,
+        FirstPiolaKirchhoffMixedTangentStiffness, FirstPiolaKirchhoffThermalTangent,
+        FirstPiolaKirchhoffThermalTangentStiffness, SecondPiolaKirchhoffMixedTangentStiffness,
+        SecondPiolaKirchhoffThermalTangent, SecondPiolaKirchhoffThermalTangentStiffness,
     },
     units::{ReciprocalTemperature, Temperature},
 };
@@ -199,6 +202,140 @@ where
     ) -> Result<SecondPiolaKirchhoffThermalTangent, ConstitutiveError> {
         Ok(deformation_gradient.inverse()
             * self.cauchy_thermal_tangent(deformation_gradient, temperature)?
+            * deformation_gradient.inverse_transpose()
+            * deformation_gradient.determinant())
+    }
+    /// Calculates and returns the derivative of the Cauchy stress with respect to the deformation gradient and temperature.
+    ///
+    /// ```math
+    /// \mathcal{M}_{ijkL} = \frac{\partial^2\sigma_{ij}}{\partial F_{kL}\partial T}
+    /// ```
+    fn cauchy_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<CauchyMixedTangentStiffness, ConstitutiveError> {
+        let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
+        let cauchy_thermal_tangent =
+            self.cauchy_thermal_tangent(deformation_gradient, temperature)?;
+        let some_stress = &cauchy_thermal_tangent * &deformation_gradient_inverse_transpose;
+        Ok(self
+            .second_piola_kirchhoff_mixed_tangent_stiffness(deformation_gradient, temperature)?
+            .contract_first_second_with_second(deformation_gradient, deformation_gradient)
+            / deformation_gradient.determinant()
+            - CauchyMixedTangentStiffness::dyad_ij_kl(
+                &cauchy_thermal_tangent,
+                &deformation_gradient_inverse_transpose,
+            )
+            + CauchyMixedTangentStiffness::dyad_il_kj(&some_stress, &IDENTITY)
+            + CauchyMixedTangentStiffness::dyad_ik_jl(&IDENTITY, &some_stress))
+    }
+    /// Calculates and returns the second derivative of the Cauchy stress with respect to temperature.
+    ///
+    /// ```math
+    /// \frac{\partial^2\boldsymbol{\sigma}}{\partial T^2} = J^{-1}\mathbf{F}\cdot\frac{\partial^2\mathbf{S}}{\partial T^2}\cdot\mathbf{F}^T
+    /// ```
+    fn cauchy_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<CauchyThermalTangentStiffness, ConstitutiveError> {
+        Ok(deformation_gradient
+            * self.second_piola_kirchhoff_thermal_tangent_stiffness(
+                deformation_gradient,
+                temperature,
+            )?
+            * deformation_gradient.transpose()
+            / deformation_gradient.determinant())
+    }
+    /// Calculates and returns the derivative of the first Piola-Kirchhoff stress with respect to the deformation gradient and temperature.
+    ///
+    /// ```math
+    /// \frac{\partial^2 P_{iJ}}{\partial F_{kL}\partial T} = J \mathcal{M}_{iskL} F_{sJ}^{-T} + \frac{\partial P_{iJ}}{\partial T} F_{kL}^{-T} - \frac{\partial P_{iL}}{\partial T} F_{kJ}^{-T}
+    /// ```
+    fn first_piola_kirchhoff_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<FirstPiolaKirchhoffMixedTangentStiffness, ConstitutiveError> {
+        let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
+        let first_piola_kirchhoff_thermal_tangent =
+            self.first_piola_kirchhoff_thermal_tangent(deformation_gradient, temperature)?;
+        Ok(self
+            .cauchy_mixed_tangent_stiffness(deformation_gradient, temperature)?
+            .contract_second_with_first(&deformation_gradient_inverse_transpose)
+            * deformation_gradient.determinant()
+            + FirstPiolaKirchhoffMixedTangentStiffness::dyad_ij_kl(
+                &first_piola_kirchhoff_thermal_tangent,
+                &deformation_gradient_inverse_transpose,
+            )
+            - FirstPiolaKirchhoffMixedTangentStiffness::dyad_il_kj(
+                &first_piola_kirchhoff_thermal_tangent,
+                &deformation_gradient_inverse_transpose,
+            ))
+    }
+    /// Calculates and returns the second derivative of the first Piola-Kirchhoff stress with respect to temperature.
+    ///
+    /// ```math
+    /// \frac{\partial^2\mathbf{P}}{\partial T^2} = J\,\frac{\partial^2\boldsymbol{\sigma}}{\partial T^2}\cdot\mathbf{F}^{-T}
+    /// ```
+    fn first_piola_kirchhoff_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<FirstPiolaKirchhoffThermalTangentStiffness, ConstitutiveError> {
+        Ok(
+            self.cauchy_thermal_tangent_stiffness(deformation_gradient, temperature)?
+                * deformation_gradient.inverse_transpose()
+                * deformation_gradient.determinant(),
+        )
+    }
+    /// Calculates and returns the derivative of the second Piola-Kirchhoff stress with respect to the deformation gradient and temperature.
+    ///
+    /// ```math
+    /// \frac{\partial^2 S_{IJ}}{\partial F_{kL}\partial T} = J \mathcal{M}_{mnkL} F_{mI}^{-T} F_{nJ}^{-T} + \frac{\partial S_{IJ}}{\partial T} F_{kL}^{-T} - \frac{\partial S_{IL}}{\partial T} F_{kJ}^{-T} - \frac{\partial S_{LJ}}{\partial T} F_{kI}^{-T}
+    /// ```
+    fn second_piola_kirchhoff_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<SecondPiolaKirchhoffMixedTangentStiffness, ConstitutiveError> {
+        let deformation_gradient_inverse_transpose = deformation_gradient.inverse_transpose();
+        let deformation_gradient_inverse = deformation_gradient_inverse_transpose.transpose();
+        let second_piola_kirchhoff_thermal_tangent =
+            self.second_piola_kirchhoff_thermal_tangent(deformation_gradient, temperature)?;
+        Ok(self
+            .cauchy_mixed_tangent_stiffness(deformation_gradient, temperature)?
+            .contract_first_second_with_second(
+                &deformation_gradient_inverse,
+                &deformation_gradient_inverse,
+            )
+            * deformation_gradient.determinant()
+            + SecondPiolaKirchhoffMixedTangentStiffness::dyad_ij_kl(
+                &second_piola_kirchhoff_thermal_tangent,
+                &deformation_gradient_inverse_transpose,
+            )
+            - SecondPiolaKirchhoffMixedTangentStiffness::dyad_il_kj(
+                &second_piola_kirchhoff_thermal_tangent,
+                &deformation_gradient_inverse_transpose,
+            )
+            - SecondPiolaKirchhoffMixedTangentStiffness::dyad_ik_jl(
+                &deformation_gradient_inverse,
+                &second_piola_kirchhoff_thermal_tangent,
+            ))
+    }
+    /// Calculates and returns the second derivative of the second Piola-Kirchhoff stress with respect to temperature.
+    ///
+    /// ```math
+    /// \frac{\partial^2\mathbf{S}}{\partial T^2} = J\,\mathbf{F}^{-1}\cdot\frac{\partial^2\boldsymbol{\sigma}}{\partial T^2}\cdot\mathbf{F}^{-T}
+    /// ```
+    fn second_piola_kirchhoff_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<SecondPiolaKirchhoffThermalTangentStiffness, ConstitutiveError> {
+        Ok(deformation_gradient.inverse()
+            * self.cauchy_thermal_tangent_stiffness(deformation_gradient, temperature)?
             * deformation_gradient.inverse_transpose()
             * deformation_gradient.determinant())
     }

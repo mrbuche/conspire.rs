@@ -5,7 +5,10 @@ use super::*;
 use crate::{
     constitutive::solid::{FIVE_THIRDS, TWO_THIRDS},
     math::{IDENTITY, Quantity, Rank2, TensorRank4},
-    mechanics::{CauchyThermalTangent, Deformation},
+    mechanics::{
+        CauchyMixedTangentStiffness, CauchyThermalTangent, CauchyThermalTangentStiffness,
+        Deformation,
+    },
     units::{EnergyDensity, ReciprocalTemperature, Stress, Temperature},
 };
 
@@ -88,6 +91,34 @@ impl Thermoelastic for NeoHookean {
                 * (self.shear_modulus() / self.reference_temperature())
                 - IDENTITY * (3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion()),
         )
+    }
+    #[doc = include_str!("cauchy_mixed_tangent_stiffness.md")]
+    fn cauchy_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<CauchyMixedTangentStiffness, ConstitutiveError> {
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let scaled_shear_modulus_rate =
+            self.shear_modulus() / self.reference_temperature() / jacobian.powf(FIVE_THIRDS);
+        Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
+            - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
+            * scaled_shear_modulus_rate
+            - TensorRank4::dyad_ij_kl(
+                &(deformation_gradient.left_cauchy_green().deviatoric()
+                    * (scaled_shear_modulus_rate * FIVE_THIRDS)),
+                &deformation_gradient.inverse_transpose(),
+            ))
+    }
+    #[doc = include_str!("cauchy_thermal_tangent_stiffness.md")]
+    fn cauchy_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<CauchyThermalTangentStiffness, ConstitutiveError> {
+        let _jacobian = self.jacobian(deformation_gradient)?;
+        Ok(CauchyThermalTangentStiffness::zero())
     }
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
         self.coefficient_of_thermal_expansion

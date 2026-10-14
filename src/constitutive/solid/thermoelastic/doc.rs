@@ -14,6 +14,14 @@ pub fn almansi_hamel<'a>() -> Vec<[&'a str; 2]> {
             "cauchy_tangent_stiffness",
             include_str!("almansi_hamel/cauchy_tangent_stiffness.md"),
         ],
+        [
+            "cauchy_mixed_tangent_stiffness",
+            include_str!("almansi_hamel/cauchy_mixed_tangent_stiffness.md"),
+        ],
+        [
+            "cauchy_thermal_tangent_stiffness",
+            include_str!("almansi_hamel/cauchy_thermal_tangent_stiffness.md"),
+        ],
         ["first_piola_kirchhoff_stress", ""],
         ["first_piola_kirchhoff_tangent_stiffness", ""],
         ["second_piola_kirchhoff_stress", ""],

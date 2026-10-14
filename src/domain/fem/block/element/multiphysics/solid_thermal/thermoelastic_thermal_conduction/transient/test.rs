@@ -18,8 +18,8 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                 fem::block::element::{
                     ElementNodalVelocities, FiniteElementError,
                     multiphysics::solid_thermal::{
-                        ElementNodalForcesSolidThermal, ElementNodalHeatingsSolidThermal,
-                        ElementNodalStiffnessesSolidThermal,
+                        ElementNodalForcesSolidThermal, ElementNodalHeatingStiffnessesSolidThermal,
+                        ElementNodalHeatingsSolidThermal, ElementNodalStiffnessesSolidThermal,
                         thermoelastic_thermal_conduction::{
                             ThermoelasticThermalConductionFiniteElement,
                             transient::ThermoelasticThermalConductionTransientFiniteElement,
@@ -28,7 +28,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                     thermal::ElementNodalTemperatures,
                 },
                 math::assert::{Assert, AssertionError, perturbation},
-                units::{Temperature, Velocity},
+                units::{Length, Temperature, Velocity},
             };
             use std::array::from_fn;
             fn model() -> Canonical<AlmansiHamel, Fourier> {
@@ -144,6 +144,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
             ) -> Result<
                 (
                     ElementNodalStiffnessesSolidThermal<N>,
+                    ElementNodalHeatingStiffnessesSolidThermal<N>,
                     ElementNodalHeatingsSolidThermal<N>,
                 ),
                 FiniteElementError,
@@ -158,7 +159,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
             }
             #[test]
             fn at_rest_recovers_steady_stiffnesses() -> Result<(), AssertionError> {
-                let ((solid, coupling, thermal), _) = stiffnesses(&at_rest(), &temperatures())?;
+                let ((solid, coupling, thermal), _, _) = stiffnesses(&at_rest(), &temperatures())?;
                 let (steady_solid, steady_coupling, steady_thermal) =
                     ThermoelasticThermalConductionFiniteElement::nodal_stiffnesses(
                         &element(),
@@ -190,7 +191,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
             #[test]
             fn heating_stiffness_is_the_transposed_coupling() -> Result<(), AssertionError> {
                 let uniform = (0..N).map(|_| Temperature::kelvin(100.7)).collect();
-                let ((_, coupling, _), heatings) = stiffnesses(&velocities(), &uniform)?;
+                let ((_, coupling, _), _, heatings) = stiffnesses(&velocities(), &uniform)?;
                 assert!((0..N).any(|node_a| {
                     (0..N).any(|node_b| (0..3).any(|i| heatings[node_a][node_b][i].value() != 0.0))
                 }));
@@ -207,7 +208,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
             }
             #[test]
             fn heating_stiffness() -> Result<(), AssertionError> {
-                let (_, heatings) = stiffnesses(&velocities(), &temperatures())?;
+                let (_, _, heatings) = stiffnesses(&velocities(), &temperatures())?;
                 (0..N).try_for_each(|node_b| {
                     (0..3).try_for_each(|k| {
                         let mut nodal_velocities = velocities();
@@ -226,8 +227,51 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                 })
             }
             #[test]
+            fn heating_stiffness_vanishes_at_rest() -> Result<(), AssertionError> {
+                let (_, heating_stiffnesses, _) = stiffnesses(&at_rest(), &temperatures())?;
+                (0..N).try_for_each(|node_a| {
+                    (0..N).try_for_each(|node_b| {
+                        (0..3)
+                            .try_for_each(|k| Assert::zero(&heating_stiffnesses[node_a][node_b][k]))
+                    })
+                })
+            }
+            #[test]
+            fn heating_stiffness_in_coordinates() -> Result<(), AssertionError> {
+                let (_, heating_stiffnesses, _) = stiffnesses(&velocities(), &temperatures())?;
+                assert!((0..N).any(|node_a| {
+                    (0..N).any(|node_b| {
+                        (0..3).any(|k| heating_stiffnesses[node_a][node_b][k].value() != 0.0)
+                    })
+                }));
+                (0..N).try_for_each(|node_b| {
+                    (0..3).try_for_each(|k| {
+                        let forces = |step: f64| {
+                            let mut nodal_coordinates = coordinates();
+                            nodal_coordinates[node_b][k] += perturbation::<Length>(step);
+                            ThermoelasticThermalConductionTransientFiniteElement::nodal_forces(
+                                &element(),
+                                &model(),
+                                &nodal_coordinates,
+                                &velocities(),
+                                &temperatures(),
+                            )
+                        };
+                        let forward = forces(0.5 * EPSILON)?;
+                        let backward = forces(-0.5 * EPSILON)?;
+                        (0..N).try_for_each(|node_a| {
+                            Assert::default().eq_within_fd_tol(
+                                &((forward[node_a].1 - backward[node_a].1)
+                                    / perturbation::<Length>(EPSILON)),
+                                &heating_stiffnesses[node_a][node_b][k],
+                            )
+                        })
+                    })
+                })
+            }
+            #[test]
             fn thermal_stiffness_in_motion() -> Result<(), AssertionError> {
-                let ((_, _, thermal), _) = stiffnesses(&velocities(), &temperatures())?;
+                let ((_, _, thermal), _, _) = stiffnesses(&velocities(), &temperatures())?;
                 (0..N).try_for_each(|node_b| {
                     let mut nodal_temperatures = temperatures();
                     nodal_temperatures[node_b] += perturbation::<Temperature>(0.5 * EPSILON);

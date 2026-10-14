@@ -134,6 +134,36 @@ macro_rules! thermal_tangent_finite_difference {
     };
 }
 
+macro_rules! mixed_tangent_finite_difference {
+    ($constitutive_model: expr, $thermal_tangent: ident, $mixed_tangent: ident) => {
+        #[test]
+        fn $mixed_tangent() -> Result<(), $crate::math::assert::AssertionError> {
+            let model = $constitutive_model;
+            let deformation_gradient = $crate::mechanics::test::get_deformation_gradient();
+            let temperature = $crate::mechanics::test::get_temperature();
+            let mixed = model.$mixed_tangent(&deformation_gradient, temperature)?;
+            (0..3).try_for_each(|k| {
+                (0..3).try_for_each(|l| {
+                    let mut plus = deformation_gradient.clone();
+                    plus[k][l] += $crate::math::assert::perturbation(0.5 * $crate::EPSILON);
+                    let mut minus = deformation_gradient.clone();
+                    minus[k][l] -= $crate::math::assert::perturbation(0.5 * $crate::EPSILON);
+                    let difference = model.$thermal_tangent(&plus, temperature)?
+                        - model.$thermal_tangent(&minus, temperature)?;
+                    (0..3).try_for_each(|i| {
+                        (0..3).try_for_each(|j| {
+                            $crate::math::assert::Assert::default().eq_within_fd_tol(
+                                &(difference[i][j] / $crate::EPSILON),
+                                &mixed[i][j][k][l],
+                            )
+                        })
+                    })
+                })
+            })
+        }
+    };
+}
+
 macro_rules! test_solid_thermal_constitutive_model {
     ($constitutive_model: expr) => {
         use crate::mechanics::test::get_temperature;
@@ -151,6 +181,36 @@ macro_rules! test_solid_thermal_constitutive_model {
             $constitutive_model,
             second_piola_kirchhoff_stress,
             second_piola_kirchhoff_thermal_tangent
+        );
+        crate::constitutive::solid::thermoelastic::test::thermal_tangent_finite_difference!(
+            $constitutive_model,
+            cauchy_thermal_tangent,
+            cauchy_thermal_tangent_stiffness
+        );
+        crate::constitutive::solid::thermoelastic::test::thermal_tangent_finite_difference!(
+            $constitutive_model,
+            first_piola_kirchhoff_thermal_tangent,
+            first_piola_kirchhoff_thermal_tangent_stiffness
+        );
+        crate::constitutive::solid::thermoelastic::test::thermal_tangent_finite_difference!(
+            $constitutive_model,
+            second_piola_kirchhoff_thermal_tangent,
+            second_piola_kirchhoff_thermal_tangent_stiffness
+        );
+        crate::constitutive::solid::thermoelastic::test::mixed_tangent_finite_difference!(
+            $constitutive_model,
+            cauchy_thermal_tangent,
+            cauchy_mixed_tangent_stiffness
+        );
+        crate::constitutive::solid::thermoelastic::test::mixed_tangent_finite_difference!(
+            $constitutive_model,
+            first_piola_kirchhoff_thermal_tangent,
+            first_piola_kirchhoff_mixed_tangent_stiffness
+        );
+        crate::constitutive::solid::thermoelastic::test::mixed_tangent_finite_difference!(
+            $constitutive_model,
+            second_piola_kirchhoff_thermal_tangent,
+            second_piola_kirchhoff_mixed_tangent_stiffness
         );
         #[test]
         fn coefficient_of_thermal_expansion() -> Result<(), AssertionError> {
@@ -178,6 +238,7 @@ macro_rules! test_solid_thermal_constitutive_model {
         }
     };
 }
+pub(crate) use mixed_tangent_finite_difference;
 pub(crate) use test_solid_thermal_constitutive_model;
 pub(crate) use thermal_tangent_finite_difference;
 

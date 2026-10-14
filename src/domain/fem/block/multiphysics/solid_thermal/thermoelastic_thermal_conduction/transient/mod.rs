@@ -64,33 +64,49 @@ where
             .iter()
             .zip(self.connectivity())
             .try_for_each(|(element, nodes)| {
-                let ((solid, coupling, thermal), heatings) = element.nodal_stiffnesses(
-                    self.constitutive_model(),
-                    &Self::element_coordinates(nodal_coordinates, nodes),
-                    &Self::element_coordinates(nodal_velocities, nodes),
-                    &self.nodal_temperatures_element(nodes, nodal_temperatures),
-                )?;
+                let ((solid, coupling, thermal), heating_stiffnesses, heatings) = element
+                    .nodal_stiffnesses(
+                        self.constitutive_model(),
+                        &Self::element_coordinates(nodal_coordinates, nodes),
+                        &Self::element_coordinates(nodal_velocities, nodes),
+                        &self.nodal_temperatures_element(nodes, nodal_temperatures),
+                    )?;
                 solid
                     .into_iter()
                     .zip(coupling)
                     .zip(thermal)
+                    .zip(heating_stiffnesses)
                     .zip(heatings)
                     .zip(nodes)
-                    .for_each(|((((solid, coupling), thermal), heatings), &node_a)| {
-                        solid
-                            .into_iter()
-                            .zip(coupling)
-                            .zip(thermal)
-                            .zip(heatings)
-                            .zip(nodes)
-                            .for_each(|((((solid, coupling), thermal), heating), &node_b)| {
-                                nodal_stiffnesses[node_a][node_b] += TensorTuple(
-                                    TensorTuple(solid, coupling),
-                                    TensorTuple(Default::default(), thermal),
-                                );
-                                nodal_heatings[node_a][node_b] += heating
-                            })
-                    });
+                    .for_each(
+                        |(
+                            ((((solid, coupling), thermal), heating_stiffnesses), heatings),
+                            &node_a,
+                        )| {
+                            solid
+                                .into_iter()
+                                .zip(coupling)
+                                .zip(thermal)
+                                .zip(heating_stiffnesses)
+                                .zip(heatings)
+                                .zip(nodes)
+                                .for_each(
+                                    |(
+                                        (
+                                            (((solid, coupling), thermal), heating_stiffness),
+                                            heating,
+                                        ),
+                                        &node_b,
+                                    )| {
+                                        nodal_stiffnesses[node_a][node_b] += TensorTuple(
+                                            TensorTuple(solid, coupling),
+                                            TensorTuple(heating_stiffness, thermal),
+                                        );
+                                        nodal_heatings[node_a][node_b] += heating
+                                    },
+                                )
+                        },
+                    );
                 Ok::<(), FiniteElementError>(())
             })
             .map_err(|error| ElementModelError::upstream(error, self))

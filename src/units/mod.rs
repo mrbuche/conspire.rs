@@ -204,6 +204,8 @@ units!(
     TemperatureRate,
     /// A stress per unit temperature, as a thermal stress coefficient is.
     StressPerTemperature,
+    /// A stress per unit temperature squared, as the change of a thermal stress coefficient with temperature is.
+    StressPerTemperatureSquared,
     /// A stress per unit length per unit temperature, as a thermal stress coefficient per unit length is.
     StressPerLengthTemperature,
     /// A force per unit temperature, as the dependence of a nodal force on a nodal temperature is.
@@ -222,6 +224,8 @@ units!(
     PowerPerAreaTemperature,
     /// A power per unit volume per unit temperature, as an entropy production rate per unit volume is.
     PowerPerVolumeTemperature,
+    /// A power per unit volume per unit temperature squared, as the change of an entropy production rate per unit volume with temperature is.
+    PowerPerVolumeTemperatureSquared,
     /// A power per unit length, as the dependence of a thermal power on a nodal displacement is.
     PowerPerLength,
     /// A power per unit temperature, as a thermal stiffness is.
@@ -309,6 +313,9 @@ unit_products!(
     Dimensionless * StressPerTemperature = StressPerTemperature,
     Stress * ReciprocalTemperature = StressPerTemperature,
     StressPerTemperature * Temperature = Stress,
+    Dimensionless * StressPerTemperatureSquared = StressPerTemperatureSquared,
+    StressPerTemperature * ReciprocalTemperature = StressPerTemperatureSquared,
+    StressPerTemperatureSquared * Temperature = StressPerTemperature,
     Dimensionless * StressPerLengthTemperature = StressPerLengthTemperature,
     StressPerTemperature * ReciprocalLength = StressPerLengthTemperature,
     ReciprocalLength * StressPerTemperature = StressPerLengthTemperature,
@@ -390,6 +397,8 @@ unit_products!(
     Power * ReciprocalLength = PowerPerLength,
     Force * Rate = PowerPerLength,
     Rate * Force = PowerPerLength,
+    ForcePerLength * Velocity = PowerPerLength,
+    Velocity * ForcePerLength = PowerPerLength,
     PowerPerLength * Length = Power,
     Dimensionless * TemperaturePerLength = TemperaturePerLength,
     Dimensionless * TemperatureSquaredPerArea = TemperatureSquaredPerArea,
@@ -417,6 +426,10 @@ unit_products!(
     ReciprocalLength * PowerPerAreaTemperature = PowerPerVolumeTemperature,
     PowerDensity * ReciprocalTemperature = EntropyDensityRate,
     EntropyDensity * Rate = EntropyDensityRate,
+    Dimensionless * PowerPerVolumeTemperatureSquared = PowerPerVolumeTemperatureSquared,
+    StressPerTemperatureSquared * Rate = PowerPerVolumeTemperatureSquared,
+    Rate * StressPerTemperatureSquared = PowerPerVolumeTemperatureSquared,
+    PowerPerVolumeTemperatureSquared * Temperature = PowerPerVolumeTemperature,
     PowerPerVolumeTemperature * Volume = PowerPerTemperature,
     Power * Temperature = PowerTemperature,
     PowerPerTemperature * Temperature = Power,

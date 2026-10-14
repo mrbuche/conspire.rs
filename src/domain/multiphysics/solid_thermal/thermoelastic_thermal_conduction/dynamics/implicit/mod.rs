@@ -45,10 +45,9 @@ pub trait ThermoelasticThermalConductionImplicitDynamics {
     /// Integrates the motion and temperatures of the model with an implicit coupled integrator.
     ///
     /// The masses and heat capacities may be lumped or consistent, and are added to the sparse
-    /// tangent. The tangent holds the thermoelastic heating at the thermal tangent of the stress,
-    /// so that the iteration is that of an inexact Newton method. Fixed degrees of freedom,
-    /// whose indices are `4 * node + component` with the temperature as the last component, are
-    /// held at their initial values, and linear constraints are not supported.
+    /// tangent, which is the exact derivative of the residual. Fixed degrees of freedom, whose
+    /// indices are `4 * node + component` with the temperature as the last component, are held at
+    /// their initial values, and linear constraints are not supported.
     #[expect(clippy::too_many_arguments)]
     fn integrate(
         &self,

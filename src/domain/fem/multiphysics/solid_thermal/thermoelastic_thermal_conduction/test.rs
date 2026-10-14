@@ -758,11 +758,17 @@ mod dynamics {
                     &uniform_temperatures(),
                 )
                 .unwrap();
-            (0..COORDINATES.len()).for_each(|a| {
-                (0..COORDINATES.len()).for_each(|b| {
-                    (0..3).for_each(|k| assert_eq!(tangent.entry(4 * a + 3, 4 * b + k), 0.0))
+            let before = (0..COORDINATES.len())
+                .map(|a| {
+                    (0..COORDINATES.len())
+                        .map(|b| {
+                            (0..3)
+                                .map(|k| tangent.entry(4 * a + 3, 4 * b + k))
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>()
                 })
-            });
+                .collect::<Vec<_>>();
             add_heatings(&mut tangent, &heatings, Quantity::<Rate>::new(rate));
             let mut any = false;
             (0..COORDINATES.len()).for_each(|a| {
@@ -775,7 +781,8 @@ mod dynamics {
                         let expected = rate * heating;
                         any |= expected != 0.0;
                         assert!(
-                            (tangent.entry(4 * a + 3, 4 * b + k) - expected).abs()
+                            (tangent.entry(4 * a + 3, 4 * b + k) - before[a][b][k] - expected)
+                                .abs()
                                 <= 1e-12 * expected.abs()
                         );
                     })

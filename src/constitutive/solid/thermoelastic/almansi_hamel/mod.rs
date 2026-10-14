@@ -96,6 +96,27 @@ impl Thermoelastic for AlmansiHamel {
         Ok(IDENTITY
             * (-3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion() / jacobian))
     }
+    #[doc = include_str!("cauchy_mixed_tangent_stiffness.md")]
+    fn cauchy_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<CauchyMixedTangentStiffness, ConstitutiveError> {
+        let jacobian = self.jacobian(deformation_gradient)?;
+        Ok(
+            TensorRank4::dyad_ij_kl(&IDENTITY, &deformation_gradient.inverse_transpose())
+                * (3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion() / jacobian),
+        )
+    }
+    #[doc = include_str!("cauchy_thermal_tangent_stiffness.md")]
+    fn cauchy_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<CauchyThermalTangentStiffness, ConstitutiveError> {
+        let _jacobian = self.jacobian(deformation_gradient)?;
+        Ok(CauchyThermalTangentStiffness::zero())
+    }
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
         self.coefficient_of_thermal_expansion
     }

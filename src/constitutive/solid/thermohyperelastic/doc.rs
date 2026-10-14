@@ -18,6 +18,14 @@ pub fn neo_hookean<'a>() -> Vec<[&'a str; 2]> {
             "cauchy_thermal_tangent",
             include_str!("neo_hookean/cauchy_thermal_tangent.md"),
         ],
+        [
+            "cauchy_mixed_tangent_stiffness",
+            include_str!("neo_hookean/cauchy_mixed_tangent_stiffness.md"),
+        ],
+        [
+            "cauchy_thermal_tangent_stiffness",
+            include_str!("neo_hookean/cauchy_thermal_tangent_stiffness.md"),
+        ],
         ["first_piola_kirchhoff_stress", ""],
         ["first_piola_kirchhoff_tangent_stiffness", ""],
         ["second_piola_kirchhoff_stress", ""],
@@ -46,6 +54,18 @@ pub fn saint_venant_kirchhoff<'a>() -> Vec<[&'a str; 2]> {
         [
             "second_piola_kirchhoff_tangent_stiffness",
             include_str!("saint_venant_kirchhoff/second_piola_kirchhoff_tangent_stiffness.md"),
+        ],
+        [
+            "second_piola_kirchhoff_mixed_tangent_stiffness",
+            include_str!(
+                "saint_venant_kirchhoff/second_piola_kirchhoff_mixed_tangent_stiffness.md"
+            ),
+        ],
+        [
+            "second_piola_kirchhoff_thermal_tangent_stiffness",
+            include_str!(
+                "saint_venant_kirchhoff/second_piola_kirchhoff_thermal_tangent_stiffness.md"
+            ),
         ],
         [
             "helmholtz_free_energy_density",

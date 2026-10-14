@@ -3,7 +3,10 @@ mod test;
 use crate::units::{EnergyDensity, ReciprocalTemperature, Stress, Temperature};
 use crate::{
     math::{Quantity, TensorRank4},
-    mechanics::SecondPiolaKirchhoffThermalTangent,
+    mechanics::{
+        SecondPiolaKirchhoffMixedTangentStiffness, SecondPiolaKirchhoffThermalTangent,
+        SecondPiolaKirchhoffThermalTangentStiffness,
+    },
 };
 
 use super::*;
@@ -75,6 +78,24 @@ impl Thermoelastic for SaintVenantKirchhoff {
     ) -> Result<SecondPiolaKirchhoffThermalTangent, ConstitutiveError> {
         let _jacobian = self.jacobian(deformation_gradient)?;
         Ok(IDENTITY_00 * (-3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion()))
+    }
+    #[doc = include_str!("second_piola_kirchhoff_mixed_tangent_stiffness.md")]
+    fn second_piola_kirchhoff_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<SecondPiolaKirchhoffMixedTangentStiffness, ConstitutiveError> {
+        let _jacobian = self.jacobian(deformation_gradient)?;
+        Ok(SecondPiolaKirchhoffMixedTangentStiffness::zero())
+    }
+    #[doc = include_str!("second_piola_kirchhoff_thermal_tangent_stiffness.md")]
+    fn second_piola_kirchhoff_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<SecondPiolaKirchhoffThermalTangentStiffness, ConstitutiveError> {
+        let _jacobian = self.jacobian(deformation_gradient)?;
+        Ok(SecondPiolaKirchhoffThermalTangentStiffness::zero())
     }
     fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
         self.coefficient_of_thermal_expansion
