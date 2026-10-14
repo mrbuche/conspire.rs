@@ -22,6 +22,8 @@ pub type NodalStiffnessSolidThermal = TensorBlock2x2<
     Quantity<PowerPerTemperature>,
 >;
 pub type NodalStiffnessesSolidThermal = TensorSparseVec2D<NodalStiffnessSolidThermal>;
+pub type NodalHeatingSolidThermal = TensorRank1<3, Current, Force>;
+pub type NodalHeatingsSolidThermal = TensorSparseVec2D<NodalHeatingSolidThermal>;
 pub type NodalStatesSolidThermal =
     TensorTupleVec<TensorRank1<3, Current, Length>, Quantity<Temperature>>;
 

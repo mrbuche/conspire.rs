@@ -51,7 +51,7 @@ pub use ode::{
             ExplicitDynamics, ExplicitDynamicsCoupled, stacked::Stacked,
             velocity_verlet::VelocityVerlet,
         },
-        implicit::{ImplicitDynamics, newmark::Newmark},
+        implicit::{ImplicitDynamics, ImplicitDynamicsCoupled, newmark::Newmark},
     },
     explicit::{
         Explicit, Spectrum,

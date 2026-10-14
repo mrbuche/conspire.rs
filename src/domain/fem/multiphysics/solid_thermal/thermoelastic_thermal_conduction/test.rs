@@ -662,4 +662,175 @@ mod dynamics {
             )
         });
     }
+    mod implicit {
+        use super::*;
+        use crate::{
+            fem::multiphysics::solid_thermal::thermoelastic_thermal_conduction::dynamics::implicit::ThermoelasticThermalConductionImplicitDynamics,
+            math::{
+                integrate::Newmark,
+                optimize::{NewtonRaphson, Tolerances},
+            },
+        };
+        fn solver() -> NewtonRaphson {
+            NewtonRaphson {
+                abs_tol: Tolerances {
+                    constraint: 1e-12,
+                    residual: 1e-3,
+                },
+                rel_tol: Some(1e-10),
+                ..Default::default()
+            }
+        }
+        fn implicit(
+            velocities: NodalVelocities<3>,
+            equality_constraint: EqualityConstraint,
+            time: &[Quantity<Time>],
+        ) -> Result<(NodalCoordinates<3>, NodalTemperatures), IntegrationError> {
+            let model = model();
+            let (_, coordinates, _, _, temperatures, _) =
+                ThermoelasticThermalConductionImplicitDynamics::integrate(
+                    &model,
+                    &Newmark::default(),
+                    solver(),
+                    time,
+                    (NodalCoordinates::from(COORDINATES), velocities),
+                    uniform_temperatures(),
+                    &no_forces(),
+                    &no_heating(),
+                    &model.nodal_lumped_masses(),
+                    &model.nodal_lumped_heat_capacities(),
+                    equality_constraint,
+                )?;
+            Ok((
+                coordinates[coordinates.len() - 1].clone(),
+                temperatures[temperatures.len() - 1].clone(),
+            ))
+        }
+        #[test]
+        fn a_stretching_body_cools_like_the_explicit_integration() {
+            let (coordinates, temperatures) =
+                implicit(stretching(), EqualityConstraint::None, &time()).unwrap();
+            let (explicit_coordinates, explicit_temperatures) =
+                integrate(stretching(), EqualityConstraint::None);
+            temperatures
+                .iter()
+                .zip(explicit_temperatures.iter())
+                .for_each(|(found, expected)| {
+                    let change = expected.value() - REFERENCE_TEMPERATURE.value();
+                    assert!(change < 0.0);
+                    assert!(
+                        (found.value() - expected.value()).abs() < 1e-3 * change.abs(),
+                        "{} != {}",
+                        found.value(),
+                        expected.value()
+                    )
+                });
+            coordinates
+                .iter()
+                .zip(explicit_coordinates.iter())
+                .zip(COORDINATES)
+                .for_each(|((found, expected), initial)| {
+                    (0..3).for_each(|i| {
+                        let change = expected[i].value() - initial[i];
+                        assert!(
+                            (found[i].value() - expected[i].value()).abs()
+                                < 1e-3 * change.abs().max(1e-12)
+                        )
+                    })
+                });
+        }
+        #[test]
+        fn the_velocity_rate_scales_the_heating_into_the_thermal_row() {
+            use crate::{
+                fem::multiphysics::solid_thermal::thermoelastic_thermal_conduction::{
+                    dynamics::implicit::add_heatings,
+                    transient::ThermoelasticThermalConductionTransientElements,
+                },
+                math::Hessian,
+                units::Rate,
+            };
+            let rate = 7.0;
+            let (mut tangent, heatings) =
+                ThermoelasticThermalConductionTransientElements::nodal_stiffnesses(
+                    &model(),
+                    &NodalCoordinates::from(COORDINATES),
+                    &stretching(),
+                    &uniform_temperatures(),
+                )
+                .unwrap();
+            (0..COORDINATES.len()).for_each(|a| {
+                (0..COORDINATES.len()).for_each(|b| {
+                    (0..3).for_each(|k| assert_eq!(tangent.entry(4 * a + 3, 4 * b + k), 0.0))
+                })
+            });
+            add_heatings(&mut tangent, &heatings, Quantity::<Rate>::new(rate));
+            let mut any = false;
+            (0..COORDINATES.len()).for_each(|a| {
+                (0..COORDINATES.len()).for_each(|b| {
+                    (0..3).for_each(|k| {
+                        let heating = heatings[a]
+                            .entries()
+                            .find(|&(column, _)| column == b)
+                            .map_or(0.0, |(_, heating)| heating[k].value());
+                        let expected = rate * heating;
+                        any |= expected != 0.0;
+                        assert!(
+                            (tangent.entry(4 * a + 3, 4 * b + k) - expected).abs()
+                                <= 1e-12 * expected.abs()
+                        );
+                    })
+                })
+            });
+            assert!(any);
+        }
+        #[test]
+        fn a_rigid_translation_neither_heats_nor_cools() {
+            let (coordinates, temperatures) =
+                implicit(translating(), EqualityConstraint::None, &time()).unwrap();
+            temperatures.iter().for_each(|temperature| {
+                assert!((temperature.value() - REFERENCE_TEMPERATURE.value()).abs() < 1e-9)
+            });
+            coordinates
+                .iter()
+                .zip(COORDINATES)
+                .for_each(|(coordinate, initial)| {
+                    [0.3, -0.2, 0.1]
+                        .iter()
+                        .enumerate()
+                        .for_each(|(i, velocity)| {
+                            assert!(
+                                (coordinate[i].value() - (initial[i] + velocity * 1e-4)).abs()
+                                    < 1e-9
+                            )
+                        })
+                });
+        }
+        #[test]
+        fn a_fixed_temperature_is_held() {
+            let (_, temperatures) =
+                implicit(stretching(), EqualityConstraint::Fixed(vec![3]), &time()).unwrap();
+            assert_eq!(temperatures[0].value(), REFERENCE_TEMPERATURE.value());
+            assert!(temperatures[1].value() < REFERENCE_TEMPERATURE.value());
+        }
+        #[test]
+        fn a_fixed_coordinate_is_held() {
+            let (coordinates, _) =
+                implicit(stretching(), EqualityConstraint::Fixed(vec![0]), &time()).unwrap();
+            assert_eq!(coordinates[0][0].value(), COORDINATES[0][0]);
+        }
+        #[test]
+        fn linear_constraints_are_rejected() {
+            assert!(
+                implicit(
+                    stretching(),
+                    EqualityConstraint::Linear(
+                        crate::math::Matrix::zero(1, 20),
+                        crate::math::Vector::zero(1)
+                    ),
+                    &time()
+                )
+                .is_err()
+            );
+        }
+    }
 }

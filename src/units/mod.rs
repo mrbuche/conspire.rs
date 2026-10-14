@@ -388,6 +388,8 @@ unit_products!(
     Power * Time = Energy,
     Dimensionless * PowerPerLength = PowerPerLength,
     Power * ReciprocalLength = PowerPerLength,
+    Force * Rate = PowerPerLength,
+    Rate * Force = PowerPerLength,
     PowerPerLength * Length = Power,
     Dimensionless * TemperaturePerLength = TemperaturePerLength,
     Dimensionless * TemperatureSquaredPerArea = TemperatureSquaredPerArea,

@@ -1,3 +1,4 @@
+pub mod implicit;
 pub mod time_scale;
 
 use self::time_scale::ThermoelasticThermalConductionTimeScaleElements;

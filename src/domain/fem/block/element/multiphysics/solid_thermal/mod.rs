@@ -13,6 +13,8 @@ pub type ElementNodalForcesSolidThermal<const N: usize> =
     TensorTupleList<TensorRank1<3, Current, Force>, Quantity<Power>, N>;
 pub type ElementNodalCouplingsSolidThermal<const N: usize> =
     TensorRank1List2D<3, Current, N, N, ForcePerTemperature>;
+pub type ElementNodalHeatingsSolidThermal<const N: usize> =
+    TensorRank1List2D<3, Current, N, N, Force>;
 pub type ElementNodalStiffnessesSolidThermal<const N: usize> = (
     ElementNodalStiffnessesSolid<N>,
     ElementNodalCouplingsSolidThermal<N>,

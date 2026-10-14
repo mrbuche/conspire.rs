@@ -6,6 +6,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                 get_reference_coordinates_block, get_velocities_block, $element,
             };
             use crate::{
+                EPSILON,
                 constitutive::{
                     multiphysics::Canonical,
                     solid::thermoelastic::{
@@ -27,9 +28,9 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                 },
                 math::{
                     Hessian, Tensor,
-                    assert::{Assert, AssertionError},
+                    assert::{Assert, AssertionError, perturbation},
                 },
-                units::Temperature,
+                units::{Temperature, Velocity},
             };
             fn coupled_block() -> Block<Canonical<AlmansiHamel, Fourier>, $element, G, M, N, P> {
                 (
@@ -132,6 +133,57 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                         &expected,
                     )
                 })
+            }
+            #[test]
+            fn the_heating_stiffness_matches_finite_differences() -> Result<(), AssertionError> {
+                let block = coupled_block();
+                let temperatures = nonuniform_temperatures();
+                let velocities = get_velocities_block();
+                let (stiffnesses, heatings) =
+                    ThermoelasticThermalConductionTransientElements::nodal_stiffnesses(
+                        &block,
+                        &get_coordinates_block(),
+                        &velocities,
+                        &temperatures,
+                    )?;
+                let heating = |a: usize, b: usize, k: usize| {
+                    heatings[a]
+                        .entries()
+                        .find(|&(column, _)| column == b)
+                        .map_or(0.0, |(_, heating)| heating[k].value())
+                };
+                let mut any = false;
+                (0..D).try_for_each(|node_b| {
+                    (0..3).try_for_each(|k| {
+                        let mut stepped = velocities.clone();
+                        stepped[node_b][k] += perturbation::<Velocity>(0.5 * EPSILON);
+                        let forward =
+                            ThermoelasticThermalConductionTransientElements::nodal_forces(
+                                &block,
+                                &get_coordinates_block(),
+                                &stepped,
+                                &temperatures,
+                            )?;
+                        stepped[node_b][k] -= perturbation::<Velocity>(EPSILON);
+                        let backward =
+                            ThermoelasticThermalConductionTransientElements::nodal_forces(
+                                &block,
+                                &get_coordinates_block(),
+                                &stepped,
+                                &temperatures,
+                            )?;
+                        (0..D).try_for_each(|node_a| {
+                            let expected =
+                                (forward[node_a].1 - backward[node_a].1).value() / EPSILON;
+                            any |= expected != 0.0;
+                            assert_eq!(stiffnesses.entry(4 * node_a + 3, 4 * node_b + k), 0.0);
+                            Assert::default()
+                                .eq_within_fd_tol(&expected, &heating(node_a, node_b, k))
+                        })
+                    })
+                })?;
+                assert!(any);
+                Ok(())
             }
         }
     };
