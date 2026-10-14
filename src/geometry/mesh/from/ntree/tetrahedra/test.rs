@@ -5,7 +5,10 @@ use crate::{
             Connectivity, Mesh, Tessellation, Verdict, from::ntree::facets::leaves,
             test::sphere as ball,
         },
-        ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, node::slot::Slot},
+        ntree::{
+            Balance, Balancing, CurvatureSizing, Octree, Pairing, SeparationSizing,
+            node::slot::Slot,
+        },
     },
     math::{FxHashMap, Scalar},
 };
@@ -44,8 +47,14 @@ fn box_surface(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
 }
 
 fn tree(tessellation: &Tessellation, scale: Scalar) -> Tree {
-    let mut octree =
-        Tree::from_features(tessellation, scale, CurvatureSizing::default(), 2).unwrap();
+    let mut octree = Tree::from_features(
+        tessellation,
+        scale,
+        CurvatureSizing::default(),
+        SeparationSizing::default(),
+        2,
+    )
+    .unwrap();
     octree
         .equilibrate(Balancing::Strong(1), Pairing::None)
         .unwrap();
