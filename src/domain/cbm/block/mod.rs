@@ -83,9 +83,6 @@ impl<C>
 
 impl<C, R> Elements for Block<C, R> {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
-        add_node_neighbors(
-            self.connectivity.iter().map(|nodes| nodes.as_slice()),
-            neighbors,
-        )
+        add_node_neighbors(self.nodes.iter().map(Node::neighbors), neighbors)
     }
 }
