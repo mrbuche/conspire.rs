@@ -118,20 +118,14 @@ impl<const D: usize> Mesh<D> {
     pub fn connectivities(&self) -> &[Connectivity] {
         self.connectivities.blocks()
     }
-    pub fn node_sets(&self) -> &[Vec<usize>] {
-        self.node_sets.members()
-    }
-    pub fn node_set_labels(&self) -> Option<&[usize]> {
-        self.node_sets.labels()
+    pub fn node_sets(&self) -> &NodeSets {
+        &self.node_sets
     }
     pub fn set_node_sets(&mut self, node_sets: NodeSets) {
         self.node_sets = node_sets;
     }
-    pub fn side_sets(&self) -> &[Vec<(usize, usize)>] {
-        self.side_sets.members()
-    }
-    pub fn side_set_labels(&self) -> Option<&[usize]> {
-        self.side_sets.labels()
+    pub fn side_sets(&self) -> &SideSets {
+        &self.side_sets
     }
     pub fn set_side_sets(&mut self, side_sets: SideSets) {
         self.side_sets = side_sets;

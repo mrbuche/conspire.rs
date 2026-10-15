@@ -19,7 +19,7 @@ mod tessellation;
 mod write;
 
 pub use from::Dualization;
-pub use sets::{NodeSets, SideSets};
+pub use sets::{NodeSet, NodeSets, SideSet, SideSets};
 
 pub use self::{
     connectivity::{

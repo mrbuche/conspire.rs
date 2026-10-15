@@ -1,7 +1,7 @@
 use super::ReadVtkMultiBlock;
 use crate::{
     geometry::mesh::{
-        Connectivity, Mesh, Output, Vtk, write::vtk::multi_block::WriteVtkMultiBlock,
+        Connectivity, Mesh, Output, SideSets, Vtk, write::vtk::multi_block::WriteVtkMultiBlock,
     },
     io::{Write, write::Compression},
 };
@@ -29,8 +29,10 @@ fn round_trip_side_sets() {
     mesh.write_vtk_multi_block(path).unwrap();
     let read = Mesh::<3>::read_vtk_multi_block(path).unwrap();
     assert_eq!(read.number_of_nodes(), 8);
-    assert_eq!(read.side_sets(), side_sets.as_slice());
-    assert_eq!(read.side_set_labels(), Some([1, 2].as_slice()));
+    assert_eq!(
+        read.side_sets(),
+        &SideSets::from((side_sets.clone(), vec![1, 2]))
+    );
 }
 
 #[test]
@@ -64,12 +66,14 @@ fn round_trip_side_sets_compressed() {
     assert!(side_set_contents.contains("compressor=\"vtkZLibDataCompressor\""));
     let read = Mesh::<3>::read_vtk_multi_block(path).unwrap();
     assert_eq!(read.number_of_nodes(), 8);
-    assert_eq!(read.side_sets(), side_sets.as_slice());
-    assert_eq!(read.side_set_labels(), Some([1, 2].as_slice()));
+    assert_eq!(
+        read.side_sets(),
+        &SideSets::from((side_sets.clone(), vec![1, 2]))
+    );
 }
 
 #[test]
-fn round_trip_side_set_numbers() {
+fn round_trip_side_set_labels() {
     use crate::geometry::mesh::SideSets;
     let connectivities = vec![Connectivity::Hexahedral(
         vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
@@ -90,10 +94,13 @@ fn round_trip_side_set_numbers() {
         vec![vec![(0, 4), (0, 5)], vec![(0, 0)]],
         vec![10, 20],
     )));
-    let path = "target/read_multi_block_side_set_numbers.vtm";
+    let path = "target/read_multi_block_side_set_labels.vtm";
     mesh.write_vtk_multi_block(path).unwrap();
     let read = Mesh::<3>::read_vtk_multi_block(path).unwrap();
-    assert_eq!(read.side_set_labels(), Some([10, 20].as_slice()));
+    assert_eq!(
+        read.side_sets(),
+        &SideSets::from((vec![vec![(0, 4), (0, 5)], vec![(0, 0)]], vec![10, 20]))
+    );
 }
 
 #[test]

@@ -2,7 +2,7 @@ use super::Partition;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivities, Mesh, NodeSets, SideSets, retain::subset},
+        mesh::{Connectivities, Mesh, NodeSet, SideSet, retain::subset},
     },
     math::TensorVec,
 };
@@ -61,40 +61,36 @@ impl Partition {
             node_labels,
         )
             .into();
-        let (mut node_sets, mut node_set_labels) = (Vec::new(), Vec::new());
-        mesh.node_sets()
+        let node_sets: Vec<NodeSet> = mesh
+            .node_sets()
             .iter()
             .enumerate()
-            .for_each(|(set, members)| {
-                let kept: Vec<usize> = members
-                    .iter()
-                    .filter(|&&node| nodes[node] != usize::MAX)
-                    .map(|&node| nodes[node])
-                    .collect();
-                if !kept.is_empty() {
-                    node_sets.push(kept);
-                    node_set_labels
-                        .push(mesh.node_set_labels().map_or(set + 1, |labels| labels[set]))
-                }
-            });
-        let (mut side_sets, mut side_set_labels) = (Vec::new(), Vec::new());
-        mesh.side_sets()
+            .filter_map(|(set, node_set)| {
+                node_set
+                    .restrict(|node| (nodes[node] != usize::MAX).then_some(nodes[node]))
+                    .map(|kept| match kept.label() {
+                        Some(_) => kept,
+                        None => kept.with_label(set + 1),
+                    })
+            })
+            .collect();
+        let side_sets: Vec<SideSet> = mesh
+            .side_sets()
             .iter()
             .enumerate()
-            .for_each(|(set, members)| {
-                let kept: Vec<(usize, usize)> = members
-                    .iter()
-                    .filter(|&&(element, _)| elements[element] != usize::MAX)
-                    .map(|&(element, side)| (elements[element], side))
-                    .collect();
-                if !kept.is_empty() {
-                    side_sets.push(kept);
-                    side_set_labels
-                        .push(mesh.side_set_labels().map_or(set + 1, |labels| labels[set]))
-                }
-            });
-        submesh.set_node_sets(NodeSets::from((node_sets, node_set_labels)));
-        submesh.set_side_sets(SideSets::from((side_sets, side_set_labels)));
+            .filter_map(|(set, side_set)| {
+                side_set
+                    .restrict(|(element, side)| {
+                        (elements[element] != usize::MAX).then_some((elements[element], side))
+                    })
+                    .map(|kept| match kept.label() {
+                        Some(_) => kept,
+                        None => kept.with_label(set + 1),
+                    })
+            })
+            .collect();
+        submesh.set_node_sets(node_sets.into());
+        submesh.set_side_sets(side_sets.into());
         (submesh, old_nodes)
     }
 }

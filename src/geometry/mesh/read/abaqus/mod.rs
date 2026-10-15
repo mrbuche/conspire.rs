@@ -4,7 +4,7 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Mesh},
+        mesh::{Connectivities, Connectivity, Mesh, NodeSet, SideSet},
     },
     math::Scalar,
 };
@@ -33,11 +33,12 @@ where
         let text = read_to_string(input)?;
         let mut lines = text.lines().peekable();
         let mut points = Vec::<[Scalar; D]>::new();
+        let mut node_labels = Vec::<usize>::new();
         let mut node_index = HashMap::<usize, usize>::new();
         let mut element_index = HashMap::<usize, usize>::new();
         let mut blocks = Vec::<Connectivity>::new();
-        let mut node_sets = Vec::<Vec<usize>>::new();
-        let mut side_sets = Vec::<Vec<(usize, usize)>>::new();
+        let mut node_sets = Vec::<NodeSet>::new();
+        let mut side_sets = Vec::<SideSet>::new();
         while let Some(line) = lines.next() {
             let line = line.trim();
             if line.is_empty() || line.starts_with("**") || !line.starts_with('*') {
@@ -53,7 +54,10 @@ where
                         for (value, token) in point.iter_mut().zip(&chunk[1..]) {
                             *value = parse(token)?;
                         }
-                        node_index.insert(id, points.len());
+                        if node_index.insert(id, points.len()).is_some() {
+                            return Err(invalid(format!("*Node repeats node {id}")));
+                        }
+                        node_labels.push(id);
                         points.push(point);
                     }
                 }
@@ -71,46 +75,52 @@ where
                     )?);
                 }
                 "NSET" => {
-                    node_sets.push(
-                        tokens(&mut lines)
-                            .into_iter()
-                            .map(|token| {
-                                let id = parse(token)?;
-                                node_index.get(&id).copied().ok_or_else(|| {
-                                    invalid(format!("*Nset references unknown node {id}"))
-                                })
+                    let nodes = tokens(&mut lines)
+                        .into_iter()
+                        .map(|token| {
+                            let id = parse(token)?;
+                            node_index.get(&id).copied().ok_or_else(|| {
+                                invalid(format!("*Nset references unknown node {id}"))
                             })
-                            .collect::<Result<_>>()?,
-                    );
+                        })
+                        .collect::<Result<_>>()?;
+                    let node_set = NodeSet::new(nodes);
+                    node_sets.push(match parameter(&parameters, "NSET") {
+                        Some(name) => node_set.with_name(name),
+                        None => node_set,
+                    });
                 }
                 "SURFACE" => {
-                    side_sets.push(
-                        records(&mut lines, 2)?
-                            .into_iter()
-                            .map(|chunk| {
-                                let label = parse(chunk[0])?;
-                                let element = element_index.get(&label).copied().ok_or_else(|| {
-                                    invalid(format!("*Surface references unknown element {label}"))
+                    let sides = records(&mut lines, 2)?
+                        .into_iter()
+                        .map(|chunk| {
+                            let label = parse(chunk[0])?;
+                            let element = element_index.get(&label).copied().ok_or_else(|| {
+                                invalid(format!("*Surface references unknown element {label}"))
+                            })?;
+                            let side = side_label(chunk[1])?;
+                            let connectivity = element_connectivity(&blocks, element)?;
+                            let ordinal = (0..connectivity.local_faces().len())
+                                .find(|&ordinal| connectivity.abaqus_side(ordinal) == side)
+                                .ok_or_else(|| {
+                                    invalid(format!(
+                                        "unknown Abaqus side label S{side} for this element type"
+                                    ))
                                 })?;
-                                let side = side_label(chunk[1])?;
-                                let connectivity = element_connectivity(&blocks, element)?;
-                                let ordinal = (0..connectivity.local_faces().len())
-                                    .find(|&ordinal| connectivity.abaqus_side(ordinal) == side)
-                                    .ok_or_else(|| {
-                                        invalid(format!(
-                                            "unknown Abaqus side label S{side} for this element type"
-                                        ))
-                                    })?;
-                                Ok((element, ordinal))
-                            })
-                            .collect::<Result<_>>()?,
-                    );
+                            Ok((element, ordinal))
+                        })
+                        .collect::<Result<_>>()?;
+                    let side_set = SideSet::new(sides);
+                    side_sets.push(match parameter(&parameters, "NAME") {
+                        Some(name) => side_set.with_name(name),
+                        None => side_set,
+                    });
                 }
                 _ => {}
             }
         }
         let coordinates: Coordinates<D> = points.into_iter().map(|point| point.into()).collect();
-        let mut mesh = Mesh::<D>::from((blocks, coordinates));
+        let mut mesh = Mesh::<D>::from((Connectivities::from(blocks), coordinates, node_labels));
         if !node_sets.is_empty() {
             mesh.set_node_sets(node_sets.into());
         }
@@ -128,27 +138,35 @@ fn element_block(
     element_index: &mut HashMap<usize, usize>,
     offset: usize,
 ) -> Result<Connectivity> {
-    Ok(match element_type {
-        "S3" | "S3R" | "CPS3" | "CPE3" | "STRI3" => Connectivity::Triangular(
-            elements::<3>(lines, node_index, element_index, offset)?.into(),
-        ),
-        "S4" | "S4R" | "CPS4" | "CPS4R" | "CPE4" => Connectivity::Quadrilateral(
-            elements::<4>(lines, node_index, element_index, offset)?.into(),
-        ),
-        "C3D4" => Connectivity::Tetrahedral(
-            elements::<4>(lines, node_index, element_index, offset)?.into(),
-        ),
+    let (mut block, labels) = match element_type {
+        "S3" | "S3R" | "CPS3" | "CPE3" | "STRI3" => {
+            let (nodes, labels) = elements::<3>(lines, node_index, element_index, offset)?;
+            (Connectivity::Triangular(nodes.into()), labels)
+        }
+        "S4" | "S4R" | "CPS4" | "CPS4R" | "CPE4" => {
+            let (nodes, labels) = elements::<4>(lines, node_index, element_index, offset)?;
+            (Connectivity::Quadrilateral(nodes.into()), labels)
+        }
+        "C3D4" => {
+            let (nodes, labels) = elements::<4>(lines, node_index, element_index, offset)?;
+            (Connectivity::Tetrahedral(nodes.into()), labels)
+        }
         "C3D5" => {
-            Connectivity::Pyramidal(elements::<5>(lines, node_index, element_index, offset)?.into())
+            let (nodes, labels) = elements::<5>(lines, node_index, element_index, offset)?;
+            (Connectivity::Pyramidal(nodes.into()), labels)
         }
         "C3D6" => {
-            Connectivity::Wedge(elements::<6>(lines, node_index, element_index, offset)?.into())
+            let (nodes, labels) = elements::<6>(lines, node_index, element_index, offset)?;
+            (Connectivity::Wedge(nodes.into()), labels)
         }
-        "C3D8" | "C3D8R" => Connectivity::Hexahedral(
-            elements::<8>(lines, node_index, element_index, offset)?.into(),
-        ),
+        "C3D8" | "C3D8R" => {
+            let (nodes, labels) = elements::<8>(lines, node_index, element_index, offset)?;
+            (Connectivity::Hexahedral(nodes.into()), labels)
+        }
         other => return Err(invalid(format!("unsupported Abaqus element type: {other}"))),
-    })
+    };
+    block.label_elements(labels);
+    Ok(block)
 }
 
 fn elements<const N: usize>(
@@ -156,13 +174,15 @@ fn elements<const N: usize>(
     node_index: &HashMap<usize, usize>,
     element_index: &mut HashMap<usize, usize>,
     offset: usize,
-) -> Result<Vec<[usize; N]>> {
+) -> Result<(Vec<[usize; N]>, Vec<usize>)> {
     records(lines, 1 + N)?
         .into_iter()
         .enumerate()
         .map(|(local, chunk)| {
             let label = parse(chunk[0])?;
-            element_index.insert(label, offset + local);
+            if element_index.insert(label, offset + local).is_some() {
+                return Err(invalid(format!("*Element repeats element {label}")));
+            }
             let mut nodes = [0; N];
             for (node, token) in nodes.iter_mut().zip(&chunk[1..]) {
                 let id = parse(token)?;
@@ -170,7 +190,7 @@ fn elements<const N: usize>(
                     .get(&id)
                     .ok_or_else(|| invalid(format!("element references unknown node {id}")))?;
             }
-            Ok(nodes)
+            Ok((nodes, label))
         })
         .collect()
 }

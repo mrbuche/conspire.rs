@@ -61,8 +61,8 @@ impl<const D: usize> From<(Connectivities, Coordinates<D>)> for Mesh<D> {
             connectivities,
             coordinates,
             node_labels: None,
-            node_sets: NodeSets::from(Vec::new()),
-            side_sets: SideSets::from(Vec::new()),
+            node_sets: NodeSets::new(),
+            side_sets: SideSets::new(),
             nodes_elements: OnceCell::new(),
             nodes_nodes: OnceCell::new(),
         }
