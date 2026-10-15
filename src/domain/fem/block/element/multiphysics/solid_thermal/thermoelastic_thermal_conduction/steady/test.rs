@@ -19,7 +19,7 @@ macro_rules! test_thermoelastic_thermal_conduction_element {
                     ElementNodalCoordinates, FiniteElementError,
                     multiphysics::solid_thermal::{
                         ElementNodalStiffnessesSolidThermal, ElementNodalForcesSolidThermal,
-                        thermoelastic_thermal_conduction::ThermoelasticThermalConductionFiniteElement,
+                        thermoelastic_thermal_conduction::steady::ThermoelasticThermalConductionFiniteElement,
                     },
                     thermal::ElementNodalTemperatures,
                 },

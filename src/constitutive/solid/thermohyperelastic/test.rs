@@ -1,5 +1,6 @@
 pub use crate::constitutive::solid::thermoelastic::test::{
-    BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION, REFERENCE_TEMPERATURE, SHEAR_MODULUS,
+    BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION, COEFFICIENT_OF_THERMAL_EXPANSION_SLOPE,
+    REFERENCE_TEMPERATURE, SHEAR_MODULUS,
 };
 
 macro_rules! helmholtz_free_energy_density_from_deformation_gradient_simple {

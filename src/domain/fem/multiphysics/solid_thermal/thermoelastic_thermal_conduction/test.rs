@@ -606,6 +606,7 @@ mod dynamics {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,
                         coefficient_of_thermal_expansion: ReciprocalTemperature::per_kelvin(0.0),
+                        coefficient_of_thermal_expansion_slope: Quantity::new(0.0),
                         reference_temperature: REFERENCE_TEMPERATURE,
                     },
                     Fourier {
@@ -661,5 +662,450 @@ mod dynamics {
                 rate.value()
             )
         });
+    }
+    mod implicit {
+        use super::*;
+        use crate::{
+            fem::multiphysics::solid_thermal::thermoelastic_thermal_conduction::dynamics::implicit::ThermoelasticThermalConductionImplicitDynamics,
+            math::{
+                integrate::Newmark,
+                optimize::{NewtonRaphson, Tolerances},
+            },
+        };
+        fn solver() -> NewtonRaphson {
+            NewtonRaphson {
+                abs_tol: Tolerances {
+                    constraint: 1e-12,
+                    residual: 1e-3,
+                },
+                rel_tol: Some(1e-10),
+                ..Default::default()
+            }
+        }
+        fn implicit(
+            velocities: NodalVelocities<3>,
+            equality_constraint: EqualityConstraint,
+            time: &[Quantity<Time>],
+        ) -> Result<(NodalCoordinates<3>, NodalTemperatures), IntegrationError> {
+            let model = model();
+            let (_, coordinates, _, _, temperatures, _) =
+                ThermoelasticThermalConductionImplicitDynamics::integrate(
+                    &model,
+                    &Newmark::default(),
+                    solver(),
+                    time,
+                    (NodalCoordinates::from(COORDINATES), velocities),
+                    uniform_temperatures(),
+                    &no_forces(),
+                    &no_heating(),
+                    &model.nodal_lumped_masses(),
+                    &model.nodal_lumped_heat_capacities(),
+                    equality_constraint,
+                )?;
+            Ok((
+                coordinates[coordinates.len() - 1].clone(),
+                temperatures[temperatures.len() - 1].clone(),
+            ))
+        }
+        #[test]
+        fn a_stretching_body_cools_like_the_explicit_integration() {
+            let (coordinates, temperatures) =
+                implicit(stretching(), EqualityConstraint::None, &time()).unwrap();
+            let (explicit_coordinates, explicit_temperatures) =
+                integrate(stretching(), EqualityConstraint::None);
+            temperatures
+                .iter()
+                .zip(explicit_temperatures.iter())
+                .for_each(|(found, expected)| {
+                    let change = expected.value() - REFERENCE_TEMPERATURE.value();
+                    assert!(change < 0.0);
+                    assert!(
+                        (found.value() - expected.value()).abs() < 1e-3 * change.abs(),
+                        "{} != {}",
+                        found.value(),
+                        expected.value()
+                    )
+                });
+            coordinates
+                .iter()
+                .zip(explicit_coordinates.iter())
+                .zip(COORDINATES)
+                .for_each(|((found, expected), initial)| {
+                    (0..3).for_each(|i| {
+                        let change = expected[i].value() - initial[i];
+                        assert!(
+                            (found[i].value() - expected[i].value()).abs()
+                                < 1e-3 * change.abs().max(1e-12)
+                        )
+                    })
+                });
+        }
+        #[test]
+        fn the_velocity_rate_scales_the_heating_into_the_thermal_row() {
+            use crate::{
+                fem::multiphysics::solid_thermal::thermoelastic_thermal_conduction::{
+                    rates::ThermoelasticThermalConductionRateElements, rates::add_heatings,
+                },
+                math::Hessian,
+                units::Rate,
+            };
+            let rate = 7.0;
+            let (mut tangent, heatings) =
+                ThermoelasticThermalConductionRateElements::nodal_stiffnesses(
+                    &model(),
+                    &NodalCoordinates::from(COORDINATES),
+                    &stretching(),
+                    &uniform_temperatures(),
+                )
+                .unwrap();
+            let before = (0..COORDINATES.len())
+                .map(|a| {
+                    (0..COORDINATES.len())
+                        .map(|b| {
+                            (0..3)
+                                .map(|k| tangent.entry(4 * a + 3, 4 * b + k))
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>();
+            add_heatings(&mut tangent, &heatings, Quantity::<Rate>::new(rate));
+            let mut any = false;
+            (0..COORDINATES.len()).for_each(|a| {
+                (0..COORDINATES.len()).for_each(|b| {
+                    (0..3).for_each(|k| {
+                        let heating = heatings[a]
+                            .entries()
+                            .find(|&(column, _)| column == b)
+                            .map_or(0.0, |(_, heating)| heating[k].value());
+                        let expected = rate * heating;
+                        any |= expected != 0.0;
+                        assert!(
+                            (tangent.entry(4 * a + 3, 4 * b + k) - before[a][b][k] - expected)
+                                .abs()
+                                <= 1e-12 * expected.abs()
+                        );
+                    })
+                })
+            });
+            assert!(any);
+        }
+        #[test]
+        fn a_rigid_translation_neither_heats_nor_cools() {
+            let (coordinates, temperatures) =
+                implicit(translating(), EqualityConstraint::None, &time()).unwrap();
+            temperatures.iter().for_each(|temperature| {
+                assert!((temperature.value() - REFERENCE_TEMPERATURE.value()).abs() < 1e-9)
+            });
+            coordinates
+                .iter()
+                .zip(COORDINATES)
+                .for_each(|(coordinate, initial)| {
+                    [0.3, -0.2, 0.1]
+                        .iter()
+                        .enumerate()
+                        .for_each(|(i, velocity)| {
+                            assert!(
+                                (coordinate[i].value() - (initial[i] + velocity * 1e-4)).abs()
+                                    < 1e-9
+                            )
+                        })
+                });
+        }
+        #[test]
+        fn a_fixed_temperature_is_held() {
+            let (_, temperatures) =
+                implicit(stretching(), EqualityConstraint::Fixed(vec![3]), &time()).unwrap();
+            assert_eq!(temperatures[0].value(), REFERENCE_TEMPERATURE.value());
+            assert!(temperatures[1].value() < REFERENCE_TEMPERATURE.value());
+        }
+        #[test]
+        fn a_fixed_coordinate_is_held() {
+            let (coordinates, _) =
+                implicit(stretching(), EqualityConstraint::Fixed(vec![0]), &time()).unwrap();
+            assert_eq!(coordinates[0][0].value(), COORDINATES[0][0]);
+        }
+        #[test]
+        fn linear_constraints_are_rejected() {
+            assert!(
+                implicit(
+                    stretching(),
+                    EqualityConstraint::Linear(
+                        crate::math::Matrix::zero(1, 20),
+                        crate::math::Vector::zero(1)
+                    ),
+                    &time()
+                )
+                .is_err()
+            );
+        }
+    }
+}
+
+mod quasistatic {
+    use crate::{
+        constitutive::{
+            multiphysics::Canonical,
+            solid::thermoelastic::{
+                AlmansiHamel,
+                test::{
+                    BULK_MODULUS, COEFFICIENT_OF_THERMAL_EXPANSION, REFERENCE_TEMPERATURE,
+                    SHEAR_MODULUS,
+                },
+            },
+            thermal::conduction::{Fourier, test::THERMAL_CONDUCTIVITY},
+        },
+        fem::{
+            Model, NodalCoordinates, NodalReferenceCoordinates,
+            block::{
+                Block,
+                element::linear::Tetrahedron,
+                thermal::{NodalTemperatures, conduction::NodalForcesThermal},
+            },
+            multiphysics::solid_thermal::thermoelastic_thermal_conduction::quasistatic::ThermoelasticThermalConductionQuasistatic,
+            solid::NodalForcesSolid,
+        },
+        math::{
+            Quantity, Tensor,
+            integrate::BackwardEuler,
+            optimize::{EqualityConstraint, NewtonRaphson, Tolerances},
+        },
+        units::{TemperatureRate, Time, VolumetricHeatCapacity},
+    };
+    const NODES: usize = 5;
+    const HEAT_CAPACITY: f64 = 1.0e3;
+    const HEATING_RATE: f64 = 0.3;
+    const FINAL_TIME: f64 = 1.0;
+    const COORDINATES: [[f64; 3]; NODES] = [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [1.0, 1.0, 1.0],
+    ];
+    type Coupled = Canonical<AlmansiHamel, Fourier>;
+    type Capacitive = Block<
+        Coupled,
+        Tetrahedron<4>,
+        4,
+        3,
+        4,
+        4,
+        crate::fem::block::NoDensity,
+        Quantity<VolumetricHeatCapacity>,
+    >;
+    fn reference() -> NodalReferenceCoordinates<3> {
+        COORDINATES.into()
+    }
+    fn model() -> Model<Capacitive, 3> {
+        (
+            Block::<Coupled, Tetrahedron<4>, 4, 3, 4, 4>::from((
+                (
+                    AlmansiHamel {
+                        bulk_modulus: BULK_MODULUS,
+                        shear_modulus: SHEAR_MODULUS,
+                        coefficient_of_thermal_expansion: COEFFICIENT_OF_THERMAL_EXPANSION,
+                        reference_temperature: REFERENCE_TEMPERATURE,
+                    },
+                    Fourier {
+                        thermal_conductivity: THERMAL_CONDUCTIVITY,
+                    },
+                )
+                    .into(),
+                vec![[0, 1, 2, 3], [1, 2, 3, 4]],
+                &reference(),
+            ))
+            .with_heat_capacity(Quantity::<VolumetricHeatCapacity>::new(HEAT_CAPACITY)),
+            reference(),
+        )
+            .into()
+    }
+    fn pins() -> Vec<usize> {
+        vec![0, 1, 2, 5, 6, 10]
+    }
+    fn solver(max_steps: usize) -> NewtonRaphson {
+        NewtonRaphson {
+            abs_tol: Tolerances {
+                constraint: 1e-12,
+                residual: 1e-6,
+            },
+            max_steps,
+            rel_tol: Some(1e-12),
+            ..Default::default()
+        }
+    }
+    fn times(steps: usize) -> Vec<Quantity<Time>> {
+        (0..=steps)
+            .map(|step| Time::seconds(FINAL_TIME * step as f64 / steps as f64))
+            .collect()
+    }
+    fn heating(model: &Model<Capacitive, 3>) -> NodalForcesThermal {
+        model
+            .nodal_lumped_heat_capacities()
+            .iter()
+            .map(|&capacity| capacity * Quantity::<TemperatureRate>::new(HEATING_RATE))
+            .collect()
+    }
+    fn integrate(
+        steps: usize,
+        constraint: EqualityConstraint,
+    ) -> Result<(NodalCoordinates<3>, NodalTemperatures), crate::math::integrate::IntegrationError>
+    {
+        integrate_with(steps, constraint, solver(25))
+    }
+    fn integrate_with(
+        steps: usize,
+        constraint: EqualityConstraint,
+        solver: NewtonRaphson,
+    ) -> Result<(NodalCoordinates<3>, NodalTemperatures), crate::math::integrate::IntegrationError>
+    {
+        let model = model();
+        let (_, coordinates, _, temperatures, _) =
+            ThermoelasticThermalConductionQuasistatic::integrate(
+                &model,
+                &BackwardEuler::default(),
+                solver,
+                &times(steps),
+                (
+                    NodalCoordinates::from(COORDINATES),
+                    COORDINATES
+                        .map(|_| REFERENCE_TEMPERATURE)
+                        .into_iter()
+                        .collect(),
+                ),
+                &NodalForcesSolid::zero(NODES),
+                &heating(&model),
+                &model.nodal_lumped_heat_capacities(),
+                constraint,
+            )?;
+        Ok((
+            coordinates[coordinates.len() - 1].clone(),
+            temperatures[temperatures.len() - 1].clone(),
+        ))
+    }
+    fn dilation(temperature: f64) -> f64 {
+        let change = temperature - REFERENCE_TEMPERATURE.value();
+        (1.0 - 2.0 * COEFFICIENT_OF_THERMAL_EXPANSION.value() * change).powf(-0.5)
+    }
+    fn biot(temperature: f64) -> f64 {
+        9.0 * BULK_MODULUS.value()
+            * COEFFICIENT_OF_THERMAL_EXPANSION.value().powi(2)
+            * temperature
+            * dilation(temperature).powi(2)
+    }
+    fn backward_euler(steps: usize) -> f64 {
+        let dt = FINAL_TIME / steps as f64;
+        let alpha = COEFFICIENT_OF_THERMAL_EXPANSION.value();
+        let kappa = BULK_MODULUS.value();
+        (0..steps).fold(REFERENCE_TEMPERATURE.value(), |previous, _| {
+            let residual = |temperature: f64| {
+                HEAT_CAPACITY * (temperature - previous) / dt
+                    + 9.0
+                        * kappa
+                        * alpha
+                        * temperature
+                        * (1.0 - dilation(previous) / dilation(temperature))
+                        / dt
+                    - HEAT_CAPACITY * HEATING_RATE
+            };
+            let (mut low, mut high) = (previous, previous + 0.1);
+            (0..200).for_each(|_| {
+                let middle = 0.5 * (low + high);
+                if residual(middle) < 0.0 {
+                    low = middle
+                } else {
+                    high = middle
+                }
+            });
+            0.5 * (low + high)
+        })
+    }
+    fn exact() -> f64 {
+        let steps = 20000;
+        let dt = FINAL_TIME / steps as f64;
+        let rate =
+            |temperature: f64| HEAT_CAPACITY * HEATING_RATE / (HEAT_CAPACITY + biot(temperature));
+        (0..steps).fold(REFERENCE_TEMPERATURE.value(), |t, _| {
+            let k1 = rate(t);
+            let k2 = rate(t + 0.5 * dt * k1);
+            let k3 = rate(t + 0.5 * dt * k2);
+            let k4 = rate(t + dt * k3);
+            t + dt / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+        })
+    }
+    #[test]
+    fn the_thermoelastic_coupling_slows_the_heating() {
+        let uncoupled = HEATING_RATE * FINAL_TIME;
+        let change = exact() - REFERENCE_TEMPERATURE.value();
+        assert!(change < 0.5 * uncoupled, "{change} !< {uncoupled}");
+        assert!(change > 0.0);
+    }
+    #[test]
+    fn the_heating_follows_the_backward_euler_recursion() {
+        let steps = 50;
+        let (_, temperatures) = integrate(steps, EqualityConstraint::Fixed(pins())).unwrap();
+        let expected = backward_euler(steps);
+        temperatures.iter().for_each(|temperature| {
+            assert!(
+                (temperature.value() - expected).abs() < 1e-8,
+                "{} != {expected}",
+                temperature.value()
+            )
+        });
+    }
+    #[test]
+    fn the_body_dilates_without_stress_with_the_temperature() {
+        let (coordinates, temperatures) = integrate(50, EqualityConstraint::Fixed(pins())).unwrap();
+        let dilation = dilation(temperatures[0].value());
+        assert!(dilation > 1.0);
+        coordinates
+            .iter()
+            .zip(COORDINATES)
+            .for_each(|(coordinate, initial)| {
+                (0..3).for_each(|i| {
+                    assert!(
+                        (coordinate[i].value() - dilation * initial[i]).abs() < 1e-8,
+                        "{} != {}",
+                        coordinate[i].value(),
+                        dilation * initial[i]
+                    )
+                })
+            });
+    }
+    #[test]
+    fn the_integration_approaches_the_exact_heating_at_first_order() {
+        let exact = exact() - REFERENCE_TEMPERATURE.value();
+        let error = |steps| (backward_euler(steps) - REFERENCE_TEMPERATURE.value() - exact).abs();
+        let ratio = error(25) / error(50);
+        assert!((ratio - 2.0).abs() < 0.15, "ratio {ratio}");
+    }
+    #[test]
+    fn the_exact_tangent_converges_in_a_few_newton_steps() {
+        let (_, temperatures) =
+            integrate_with(50, EqualityConstraint::Fixed(pins()), solver(4)).unwrap();
+        assert!((temperatures[0].value() - backward_euler(50)).abs() < 1e-8);
+    }
+    #[test]
+    fn a_fixed_temperature_is_held() {
+        let (_, temperatures) = integrate(
+            10,
+            EqualityConstraint::Fixed(pins().into_iter().chain([3]).collect()),
+        )
+        .unwrap();
+        assert_eq!(temperatures[0].value(), REFERENCE_TEMPERATURE.value());
+        assert!(temperatures[1].value() > REFERENCE_TEMPERATURE.value());
+    }
+    #[test]
+    fn linear_constraints_are_rejected() {
+        assert!(
+            integrate(
+                10,
+                EqualityConstraint::Linear(
+                    crate::math::Matrix::zero(1, 4 * NODES),
+                    crate::math::Vector::zero(1)
+                ),
+            )
+            .is_err()
+        );
     }
 }

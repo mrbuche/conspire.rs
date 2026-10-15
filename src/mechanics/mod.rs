@@ -5,7 +5,7 @@ pub mod test;
 use crate::units::{
     Dimensionless, Fluidity, ForcePerLength, ForcePerVelocity, Length, PowerPerArea,
     PowerPerLengthTemperature, Rate, ReciprocalLength, Stress, StressPerTemperature,
-    TemperaturePerLength, Velocity, Viscosity,
+    StressPerTemperatureSquared, TemperaturePerLength, Velocity, Viscosity,
 };
 
 use crate::math::{Current, Intermediate, Reference};
@@ -199,6 +199,30 @@ pub type FirstPiolaKirchhoffThermalTangent =
 /// The derivative of the second Piola-Kirchhoff stress with respect to temperature $`\partial\mathbf{S}/\partial T`$.
 pub type SecondPiolaKirchhoffThermalTangent =
     TensorRank2<3, Reference, Reference, StressPerTemperature>;
+
+/// The derivative of the Cauchy stress with respect to the deformation gradient and temperature $`\partial^2\boldsymbol{\sigma}/\partial\mathbf{F}\partial T`$.
+pub type CauchyMixedTangentStiffness =
+    TensorRank4<3, Current, Current, Current, Reference, StressPerTemperature>;
+
+/// The second derivative of the Cauchy stress with respect to temperature $`\partial^2\boldsymbol{\sigma}/\partial T^2`$.
+pub type CauchyThermalTangentStiffness =
+    TensorRank2<3, Current, Current, StressPerTemperatureSquared>;
+
+/// The derivative of the first Piola-Kirchhoff stress with respect to the deformation gradient and temperature $`\partial^2\mathbf{P}/\partial\mathbf{F}\partial T`$.
+pub type FirstPiolaKirchhoffMixedTangentStiffness =
+    TensorRank4<3, Current, Reference, Current, Reference, StressPerTemperature>;
+
+/// The second derivative of the first Piola-Kirchhoff stress with respect to temperature $`\partial^2\mathbf{P}/\partial T^2`$.
+pub type FirstPiolaKirchhoffThermalTangentStiffness =
+    TensorRank2<3, Current, Reference, StressPerTemperatureSquared>;
+
+/// The derivative of the second Piola-Kirchhoff stress with respect to the deformation gradient and temperature $`\partial^2\mathbf{S}/\partial\mathbf{F}\partial T`$.
+pub type SecondPiolaKirchhoffMixedTangentStiffness =
+    TensorRank4<3, Reference, Reference, Current, Reference, StressPerTemperature>;
+
+/// The second derivative of the second Piola-Kirchhoff stress with respect to temperature $`\partial^2\mathbf{S}/\partial T^2`$.
+pub type SecondPiolaKirchhoffThermalTangentStiffness =
+    TensorRank2<3, Reference, Reference, StressPerTemperatureSquared>;
 
 /// The first Piola-Kirchhoff stress $`\mathbf{P}`$.
 pub type FirstPiolaKirchhoffStress = TensorRank2<3, Current, Reference, Stress>;

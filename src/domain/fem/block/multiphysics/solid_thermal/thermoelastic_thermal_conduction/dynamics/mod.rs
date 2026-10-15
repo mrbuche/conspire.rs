@@ -10,7 +10,7 @@ use crate::{
             Block, Densities, HeatCapacities,
             element::{
                 FiniteElementError, mass::LumpedMassFiniteElement,
-                multiphysics::solid_thermal::thermoelastic_thermal_conduction::ThermoelasticThermalConductionFiniteElement,
+                multiphysics::solid_thermal::thermoelastic_thermal_conduction::steady::ThermoelasticThermalConductionFiniteElement,
                 thermal::capacity::LumpedHeatCapacityFiniteElement, time_scale::fastest_time_scale,
             },
             thermal::{NodalTemperatures, ThermalElements},

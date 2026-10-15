@@ -10,13 +10,16 @@ use crate::{
     },
     math::Quantity,
     mechanics::{
-        CauchyStress, CauchyTangentStiffness, CauchyThermalTangent, DeformationGradient,
-        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
-        FirstPiolaKirchhoffThermalTangent, HeatFlux, HeatFluxTangent, SecondPiolaKirchhoffStress,
+        CauchyMixedTangentStiffness, CauchyStress, CauchyTangentStiffness, CauchyThermalTangent,
+        CauchyThermalTangentStiffness, DeformationGradient,
+        FirstPiolaKirchhoffMixedTangentStiffness, FirstPiolaKirchhoffStress,
+        FirstPiolaKirchhoffTangentStiffness, FirstPiolaKirchhoffThermalTangent,
+        FirstPiolaKirchhoffThermalTangentStiffness, HeatFlux, HeatFluxTangent,
+        SecondPiolaKirchhoffMixedTangentStiffness, SecondPiolaKirchhoffStress,
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffThermalTangent,
-        TemperatureGradient,
+        SecondPiolaKirchhoffThermalTangentStiffness, TemperatureGradient,
     },
-    units::{PowerTemperatureDensity, ReciprocalTemperature, Stress, Temperature},
+    units::{PowerTemperatureDensity, Stress, Temperature},
 };
 
 /// A thermoelastic-thermal conduction constitutive model.
@@ -135,9 +138,53 @@ where
         self.solid_constitutive_model()
             .second_piola_kirchhoff_thermal_tangent(deformation_gradient, temperature)
     }
-    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
+    fn cauchy_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<CauchyMixedTangentStiffness, ConstitutiveError> {
         self.solid_constitutive_model()
-            .coefficient_of_thermal_expansion()
+            .cauchy_mixed_tangent_stiffness(deformation_gradient, temperature)
+    }
+    fn cauchy_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<CauchyThermalTangentStiffness, ConstitutiveError> {
+        self.solid_constitutive_model()
+            .cauchy_thermal_tangent_stiffness(deformation_gradient, temperature)
+    }
+    fn first_piola_kirchhoff_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<FirstPiolaKirchhoffMixedTangentStiffness, ConstitutiveError> {
+        self.solid_constitutive_model()
+            .first_piola_kirchhoff_mixed_tangent_stiffness(deformation_gradient, temperature)
+    }
+    fn first_piola_kirchhoff_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<FirstPiolaKirchhoffThermalTangentStiffness, ConstitutiveError> {
+        self.solid_constitutive_model()
+            .first_piola_kirchhoff_thermal_tangent_stiffness(deformation_gradient, temperature)
+    }
+    fn second_piola_kirchhoff_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<SecondPiolaKirchhoffMixedTangentStiffness, ConstitutiveError> {
+        self.solid_constitutive_model()
+            .second_piola_kirchhoff_mixed_tangent_stiffness(deformation_gradient, temperature)
+    }
+    fn second_piola_kirchhoff_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        temperature: Quantity<Temperature>,
+    ) -> Result<SecondPiolaKirchhoffThermalTangentStiffness, ConstitutiveError> {
+        self.solid_constitutive_model()
+            .second_piola_kirchhoff_thermal_tangent_stiffness(deformation_gradient, temperature)
     }
     fn reference_temperature(&self) -> Quantity<Temperature> {
         self.solid_constitutive_model().reference_temperature()

@@ -5,8 +5,14 @@ use super::*;
 use crate::{
     constitutive::solid::{FIVE_THIRDS, TWO_THIRDS},
     math::{IDENTITY, Quantity, Rank2, TensorRank4},
-    mechanics::{CauchyThermalTangent, Deformation},
-    units::{EnergyDensity, ReciprocalTemperature, Stress, Temperature},
+    mechanics::{
+        CauchyMixedTangentStiffness, CauchyThermalTangent, CauchyThermalTangentStiffness,
+        Deformation,
+    },
+    units::{
+        Dimensionless, EnergyDensity, ReciprocalTemperature, ReciprocalTemperatureSquared, Stress,
+        Temperature,
+    },
 };
 
 #[doc = include_str!("doc.md")]
@@ -16,8 +22,10 @@ pub struct NeoHookean {
     pub bulk_modulus: Quantity<Stress>,
     /// The shear modulus $`\mu`$ at the reference temperature.
     pub shear_modulus: Quantity<Stress>,
-    /// The coefficient of thermal expansion $`\alpha`$.
+    /// The coefficient of thermal expansion $`\alpha`$ at the reference temperature.
     pub coefficient_of_thermal_expansion: Quantity<ReciprocalTemperature>,
+    /// The change of the coefficient of thermal expansion with temperature $`\alpha'`$.
+    pub coefficient_of_thermal_expansion_slope: Quantity<ReciprocalTemperatureSquared>,
     /// The reference temperature $`T_\mathrm{ref}`$.
     pub reference_temperature: Quantity<Temperature>,
 }
@@ -35,6 +43,21 @@ impl NeoHookean {
     fn shear_modulus_at(&self, temperature: Quantity<Temperature>) -> Quantity<Stress> {
         self.shear_modulus() * (temperature / self.reference_temperature())
     }
+    fn thermal_expansion_at(
+        &self,
+        temperature: Quantity<Temperature>,
+    ) -> Quantity<ReciprocalTemperature> {
+        self.coefficient_of_thermal_expansion
+            + self.coefficient_of_thermal_expansion_slope
+                * (temperature - self.reference_temperature())
+    }
+    fn thermal_strain_at(&self, temperature: Quantity<Temperature>) -> Quantity<Dimensionless> {
+        (self.coefficient_of_thermal_expansion
+            + self.coefficient_of_thermal_expansion_slope
+                * (temperature - self.reference_temperature())
+                * 0.5)
+            * (temperature - self.reference_temperature())
+    }
 }
 
 impl Thermoelastic for NeoHookean {
@@ -51,9 +74,7 @@ impl Thermoelastic for NeoHookean {
                 + IDENTITY
                     * (self.bulk_modulus()
                         * (0.5 * (jacobian - 1.0 / jacobian)
-                            - 3.0
-                                * self.coefficient_of_thermal_expansion()
-                                * (temperature - self.reference_temperature()))),
+                            - 3.0 * self.thermal_strain_at(temperature))),
         )
     }
     #[doc = include_str!("cauchy_tangent_stiffness.md")]
@@ -80,17 +101,42 @@ impl Thermoelastic for NeoHookean {
     fn cauchy_thermal_tangent(
         &self,
         deformation_gradient: &DeformationGradient,
-        _: Quantity<Temperature>,
+        temperature: Quantity<Temperature>,
     ) -> Result<CauchyThermalTangent, ConstitutiveError> {
         let jacobian = self.jacobian(deformation_gradient)?;
         Ok(
             deformation_gradient.left_cauchy_green().deviatoric() / jacobian.powf(FIVE_THIRDS)
                 * (self.shear_modulus() / self.reference_temperature())
-                - IDENTITY * (3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion()),
+                - IDENTITY * (3.0 * self.bulk_modulus() * self.thermal_expansion_at(temperature)),
         )
     }
-    fn coefficient_of_thermal_expansion(&self) -> Quantity<ReciprocalTemperature> {
-        self.coefficient_of_thermal_expansion
+    #[doc = include_str!("cauchy_mixed_tangent_stiffness.md")]
+    fn cauchy_mixed_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<CauchyMixedTangentStiffness, ConstitutiveError> {
+        let jacobian = self.jacobian(deformation_gradient)?;
+        let scaled_shear_modulus_rate =
+            self.shear_modulus() / self.reference_temperature() / jacobian.powf(FIVE_THIRDS);
+        Ok((TensorRank4::dyad_ik_jl(&IDENTITY, deformation_gradient)
+            + TensorRank4::dyad_il_jk(deformation_gradient, &IDENTITY)
+            - TensorRank4::dyad_ij_kl(&IDENTITY, deformation_gradient) * (TWO_THIRDS))
+            * scaled_shear_modulus_rate
+            - TensorRank4::dyad_ij_kl(
+                &(deformation_gradient.left_cauchy_green().deviatoric()
+                    * (scaled_shear_modulus_rate * FIVE_THIRDS)),
+                &deformation_gradient.inverse_transpose(),
+            ))
+    }
+    #[doc = include_str!("cauchy_thermal_tangent_stiffness.md")]
+    fn cauchy_thermal_tangent_stiffness(
+        &self,
+        deformation_gradient: &DeformationGradient,
+        _: Quantity<Temperature>,
+    ) -> Result<CauchyThermalTangentStiffness, ConstitutiveError> {
+        let _jacobian = self.jacobian(deformation_gradient)?;
+        Ok(IDENTITY * (-3.0 * self.bulk_modulus() * self.coefficient_of_thermal_expansion_slope))
     }
     fn reference_temperature(&self) -> Quantity<Temperature> {
         self.reference_temperature
@@ -110,10 +156,6 @@ impl Thermohyperelastic for NeoHookean {
                 * (deformation_gradient.left_cauchy_green().trace() / jacobian.powf(TWO_THIRDS)
                     - 3.0)
                 + self.bulk_modulus() * (0.5 * (jacobian.powi(2) - 1.0) - jacobian.ln()))
-            - self.bulk_modulus()
-                * (3.0
-                    * self.coefficient_of_thermal_expansion()
-                    * (temperature - self.reference_temperature()))
-                * (jacobian - 1.0))
+            - self.bulk_modulus() * (3.0 * self.thermal_strain_at(temperature)) * (jacobian - 1.0))
     }
 }

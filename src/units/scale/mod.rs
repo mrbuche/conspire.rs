@@ -21,8 +21,9 @@ mod test;
 use super::{
     Acceleration, Action, Amount, Area, Charge, Density, Dimensionless, Energy, Entropy, Force,
     ForcePerLength, Length, Mass, MolarEnergy, MolarEntropy, PowerPerLengthTemperature, Rate,
-    ReciprocalAmount, ReciprocalTemperature, SpecificEnergy, SpecificEntropy, Stress,
-    StressPerLength, Temperature, Time, TimePerTemperature, Velocity, Viscosity, Volume,
+    ReciprocalAmount, ReciprocalTemperature, ReciprocalTemperatureSquared, SpecificEnergy,
+    SpecificEntropy, Stress, StressPerLength, Temperature, Time, TimePerTemperature, Velocity,
+    Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -211,6 +212,9 @@ scales!(
     ReciprocalTemperature {
         per_kelvin / in_per_kelvin = 1.0, "reciprocal kelvin",
         per_celsius / in_per_celsius = 1.0, "reciprocal degrees celsius",
+    }
+    ReciprocalTemperatureSquared {
+        per_kelvin_squared / in_per_kelvin_squared = 1.0, "reciprocal kelvin squared",
     }
     TimePerTemperature {
         seconds_per_kelvin / in_seconds_per_kelvin = 1.0, "seconds per kelvin",

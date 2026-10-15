@@ -52,14 +52,6 @@ macro_rules! test_thermoelastic_thermal_conduction_constitutive_model {
             )
         }
         #[test]
-        fn coefficient_of_thermal_expansion() {
-            assert_eq!(
-                $thermoelastic_thermal_conduction_constitutive_model
-                    .coefficient_of_thermal_expansion(),
-                $thermoelastic_constitutive_model.coefficient_of_thermal_expansion()
-            )
-        }
-        #[test]
         fn reference_temperature() {
             assert_eq!(
                 $thermoelastic_thermal_conduction_constitutive_model.reference_temperature(),

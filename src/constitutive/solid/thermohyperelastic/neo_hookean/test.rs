@@ -8,6 +8,7 @@ test_solid_thermohyperelastic_constitutive_model!(NeoHookean {
     bulk_modulus: BULK_MODULUS,
     shear_modulus: SHEAR_MODULUS,
     coefficient_of_thermal_expansion: COEFFICIENT_OF_THERMAL_EXPANSION,
+    coefficient_of_thermal_expansion_slope: COEFFICIENT_OF_THERMAL_EXPANSION_SLOPE,
     reference_temperature: REFERENCE_TEMPERATURE,
 });
 
@@ -22,6 +23,7 @@ mod consistency {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
             coefficient_of_thermal_expansion: COEFFICIENT_OF_THERMAL_EXPANSION,
+            coefficient_of_thermal_expansion_slope: COEFFICIENT_OF_THERMAL_EXPANSION_SLOPE,
             reference_temperature: REFERENCE_TEMPERATURE,
         }
     }
@@ -70,6 +72,7 @@ mod entropic {
             bulk_modulus: BULK_MODULUS,
             shear_modulus: SHEAR_MODULUS,
             coefficient_of_thermal_expansion: ReciprocalTemperature::per_kelvin(0.0),
+            coefficient_of_thermal_expansion_slope: Quantity::new(0.0),
             reference_temperature: REFERENCE_TEMPERATURE,
         }
     }
