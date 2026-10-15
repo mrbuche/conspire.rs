@@ -23,7 +23,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                 },
                 fem::{
                     block::{Block, thermal::NodalTemperatures},
-                    multiphysics::solid_thermal::thermoelastic_thermal_conduction::ThermoelasticThermalConductionElements,
+                    multiphysics::solid_thermal::thermoelastic_thermal_conduction::steady::ThermoelasticThermalConductionElements,
                     solid::elastic::ElasticElements,
                     thermal::conduction::ThermalConductionElements,
                 },

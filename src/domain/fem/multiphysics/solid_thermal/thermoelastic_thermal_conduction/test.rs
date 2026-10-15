@@ -744,15 +744,14 @@ mod dynamics {
         fn the_velocity_rate_scales_the_heating_into_the_thermal_row() {
             use crate::{
                 fem::multiphysics::solid_thermal::thermoelastic_thermal_conduction::{
-                    dynamics::implicit::add_heatings,
-                    transient::ThermoelasticThermalConductionTransientElements,
+                    rates::ThermoelasticThermalConductionRateElements, rates::add_heatings,
                 },
                 math::Hessian,
                 units::Rate,
             };
             let rate = 7.0;
             let (mut tangent, heatings) =
-                ThermoelasticThermalConductionTransientElements::nodal_stiffnesses(
+                ThermoelasticThermalConductionRateElements::nodal_stiffnesses(
                     &model(),
                     &NodalCoordinates::from(COORDINATES),
                     &stretching(),

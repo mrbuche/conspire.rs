@@ -1,7 +1,4 @@
-use super::{
-    dynamics::implicit::{add_capacities, add_heatings},
-    transient::ThermoelasticThermalConductionTransientElements,
-};
+use super::rates::{ThermoelasticThermalConductionRateElements, add_capacities, add_heatings};
 use crate::{
     domain::{
         ElementModel, Model, NodalCoordinates, NodalCoordinatesHistory, NodalVelocities,
@@ -76,7 +73,7 @@ pub trait ThermoelasticThermalConductionQuasistatic {
 
 impl<B> ThermoelasticThermalConductionQuasistatic for Model<B, 3>
 where
-    B: ThermoelasticThermalConductionTransientElements,
+    B: ThermoelasticThermalConductionRateElements,
 {
     fn integrate(
         &self,

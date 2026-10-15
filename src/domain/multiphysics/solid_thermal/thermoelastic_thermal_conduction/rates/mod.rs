@@ -6,12 +6,45 @@ use crate::{
             NodalForceSolidThermal, NodalForcesSolidThermal, NodalHeatingsSolidThermal,
             NodalStiffnessesSolidThermal,
         },
-        thermal::NodalTemperatures,
+        thermal::{NodalStiffnessesThermal, NodalTemperatures, capacity::InertialHeatCapacity},
     },
-    math::Tensor,
+    math::{Quantity, Scalar, Tensor, TensorTuple},
+    units::Rate,
 };
 
-pub trait ThermoelasticThermalConductionTransientElements
+pub(crate) fn add_heatings(
+    tangent: &mut NodalStiffnessesSolidThermal,
+    heatings: &NodalHeatingsSolidThermal,
+    velocity_rate: Quantity<Rate>,
+) {
+    heatings.iter().enumerate().for_each(|(a, row)| {
+        row.entries().for_each(|(b, heating)| {
+            tangent[a][b] += TensorTuple(
+                TensorTuple(Default::default(), Default::default()),
+                TensorTuple(heating.clone() * velocity_rate, Default::default()),
+            )
+        })
+    });
+}
+
+pub(crate) fn add_capacities(
+    tangent: &mut NodalStiffnessesSolidThermal,
+    capacities: &impl InertialHeatCapacity,
+    weight: Scalar,
+) {
+    let mut capacitive = NodalStiffnessesThermal::zero(tangent.len());
+    capacities.add_to_stiffnesses(weight, &mut capacitive);
+    capacitive.iter().enumerate().for_each(|(a, row)| {
+        row.entries().for_each(|(b, &stiffness)| {
+            tangent[a][b] += TensorTuple(
+                TensorTuple(Default::default(), Default::default()),
+                TensorTuple(Default::default(), stiffness),
+            )
+        })
+    });
+}
+
+pub trait ThermoelasticThermalConductionRateElements
 where
     Self: Elements,
 {
@@ -66,9 +99,9 @@ where
     }
 }
 
-impl<B> ThermoelasticThermalConductionTransientElements for Model<B, 3>
+impl<B> ThermoelasticThermalConductionRateElements for Model<B, 3>
 where
-    B: ThermoelasticThermalConductionTransientElements,
+    B: ThermoelasticThermalConductionRateElements,
 {
     fn nodal_forces_into(
         &self,
@@ -102,10 +135,10 @@ where
     }
 }
 
-impl<B1, B2> ThermoelasticThermalConductionTransientElements for Blocks<B1, B2>
+impl<B1, B2> ThermoelasticThermalConductionRateElements for Blocks<B1, B2>
 where
-    B1: ThermoelasticThermalConductionTransientElements,
-    B2: ThermoelasticThermalConductionTransientElements,
+    B1: ThermoelasticThermalConductionRateElements,
+    B2: ThermoelasticThermalConductionRateElements,
 {
     fn nodal_forces_into(
         &self,

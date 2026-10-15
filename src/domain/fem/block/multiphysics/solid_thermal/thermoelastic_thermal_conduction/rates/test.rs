@@ -1,6 +1,6 @@
-macro_rules! test_thermoelastic_thermal_conduction_transient_block {
+macro_rules! test_thermoelastic_thermal_conduction_rate_block {
     ($element: ident) => {
-        mod thermoelastic_thermal_conduction_transient_block {
+        mod thermoelastic_thermal_conduction_rate_block {
             use super::{
                 D, G, M, N, P, get_connectivity, get_coordinates_block,
                 get_reference_coordinates_block, get_velocities_block, $element,
@@ -22,8 +22,8 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                     NodalVelocities,
                     block::{Block, thermal::NodalTemperatures},
                     multiphysics::solid_thermal::thermoelastic_thermal_conduction::{
-                        ThermoelasticThermalConductionElements,
-                        transient::ThermoelasticThermalConductionTransientElements,
+                        rates::ThermoelasticThermalConductionRateElements,
+                        steady::ThermoelasticThermalConductionElements,
                     },
                 },
                 math::{
@@ -71,7 +71,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                     &get_coordinates_block(),
                     &temperatures,
                 )?;
-                let transient = ThermoelasticThermalConductionTransientElements::nodal_forces(
+                let transient = ThermoelasticThermalConductionRateElements::nodal_forces(
                     &block,
                     &get_coordinates_block(),
                     &at_rest(),
@@ -104,7 +104,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                     &get_coordinates_block(),
                     &uniform,
                 )?;
-                let transient = ThermoelasticThermalConductionTransientElements::nodal_forces(
+                let transient = ThermoelasticThermalConductionRateElements::nodal_forces(
                     &block,
                     &get_coordinates_block(),
                     &velocities,
@@ -140,7 +140,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                 let temperatures = nonuniform_temperatures();
                 let velocities = get_velocities_block();
                 let (stiffnesses, heatings) =
-                    ThermoelasticThermalConductionTransientElements::nodal_stiffnesses(
+                    ThermoelasticThermalConductionRateElements::nodal_stiffnesses(
                         &block,
                         &get_coordinates_block(),
                         &velocities,
@@ -157,21 +157,19 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                     (0..3).try_for_each(|k| {
                         let mut stepped = velocities.clone();
                         stepped[node_b][k] += perturbation::<Velocity>(0.5 * EPSILON);
-                        let forward =
-                            ThermoelasticThermalConductionTransientElements::nodal_forces(
-                                &block,
-                                &get_coordinates_block(),
-                                &stepped,
-                                &temperatures,
-                            )?;
+                        let forward = ThermoelasticThermalConductionRateElements::nodal_forces(
+                            &block,
+                            &get_coordinates_block(),
+                            &stepped,
+                            &temperatures,
+                        )?;
                         stepped[node_b][k] -= perturbation::<Velocity>(EPSILON);
-                        let backward =
-                            ThermoelasticThermalConductionTransientElements::nodal_forces(
-                                &block,
-                                &get_coordinates_block(),
-                                &stepped,
-                                &temperatures,
-                            )?;
+                        let backward = ThermoelasticThermalConductionRateElements::nodal_forces(
+                            &block,
+                            &get_coordinates_block(),
+                            &stepped,
+                            &temperatures,
+                        )?;
                         (0..D).try_for_each(|node_a| {
                             let expected =
                                 (forward[node_a].1 - backward[node_a].1).value() / EPSILON;
@@ -187,21 +185,19 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
                     (0..3).try_for_each(|k| {
                         let mut stepped = get_coordinates_block();
                         stepped[node_b][k] += perturbation::<Length>(0.5 * EPSILON);
-                        let forward =
-                            ThermoelasticThermalConductionTransientElements::nodal_forces(
-                                &block,
-                                &stepped,
-                                &velocities,
-                                &temperatures,
-                            )?;
+                        let forward = ThermoelasticThermalConductionRateElements::nodal_forces(
+                            &block,
+                            &stepped,
+                            &velocities,
+                            &temperatures,
+                        )?;
                         stepped[node_b][k] -= perturbation::<Length>(EPSILON);
-                        let backward =
-                            ThermoelasticThermalConductionTransientElements::nodal_forces(
-                                &block,
-                                &stepped,
-                                &velocities,
-                                &temperatures,
-                            )?;
+                        let backward = ThermoelasticThermalConductionRateElements::nodal_forces(
+                            &block,
+                            &stepped,
+                            &velocities,
+                            &temperatures,
+                        )?;
                         (0..D).try_for_each(|node_a| {
                             let expected =
                                 (forward[node_a].1 - backward[node_a].1).value() / EPSILON;
@@ -219,4 +215,4 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_block {
         }
     };
 }
-pub(crate) use test_thermoelastic_thermal_conduction_transient_block;
+pub(crate) use test_thermoelastic_thermal_conduction_rate_block;

@@ -1,6 +1,6 @@
-macro_rules! test_thermoelastic_thermal_conduction_transient_element {
+macro_rules! test_thermoelastic_thermal_conduction_rate_element {
     ($element: ident) => {
-        mod thermoelastic_thermal_conduction_transient_element {
+        mod thermoelastic_thermal_conduction_rate_element {
             use super::{N, coordinates, element};
             use crate::{
                 EPSILON,
@@ -25,8 +25,8 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                         ElementNodalForcesSolidThermal, ElementNodalHeatingStiffnessesSolidThermal,
                         ElementNodalHeatingsSolidThermal, ElementNodalStiffnessesSolidThermal,
                         thermoelastic_thermal_conduction::{
-                            ThermoelasticThermalConductionFiniteElement,
-                            transient::ThermoelasticThermalConductionTransientFiniteElement,
+                            steady::ThermoelasticThermalConductionFiniteElement,
+                            rates::ThermoelasticThermalConductionRateFiniteElement,
                         },
                     },
                     thermal::ElementNodalTemperatures,
@@ -81,7 +81,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                 nodal_velocities: &ElementNodalVelocities<N>,
                 nodal_temperatures: &ElementNodalTemperatures<N>,
             ) -> Result<ElementNodalForcesSolidThermal<N>, FiniteElementError> {
-                ThermoelasticThermalConductionTransientFiniteElement::nodal_forces(
+                ThermoelasticThermalConductionRateFiniteElement::nodal_forces(
                     &element(),
                     &model(),
                     &coordinates(),
@@ -153,7 +153,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                 ),
                 FiniteElementError,
             > {
-                ThermoelasticThermalConductionTransientFiniteElement::nodal_stiffnesses(
+                ThermoelasticThermalConductionRateFiniteElement::nodal_stiffnesses(
                     &element(),
                     &model(),
                     &coordinates(),
@@ -253,7 +253,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                         let forces = |step: f64| {
                             let mut nodal_coordinates = coordinates();
                             nodal_coordinates[node_b][k] += perturbation::<Length>(step);
-                            ThermoelasticThermalConductionTransientFiniteElement::nodal_forces(
+                            ThermoelasticThermalConductionRateFiniteElement::nodal_forces(
                                 &element(),
                                 &model(),
                                 &nodal_coordinates,
@@ -308,7 +308,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                 )
                     .into();
                 let forces = |nodal_coordinates: &_, nodal_temperatures: &_| {
-                    ThermoelasticThermalConductionTransientFiniteElement::nodal_forces(
+                    ThermoelasticThermalConductionRateFiniteElement::nodal_forces(
                         &element(),
                         &model,
                         nodal_coordinates,
@@ -317,7 +317,7 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
                     )
                 };
                 let ((_, _, thermal), heating_stiffnesses, _) =
-                    ThermoelasticThermalConductionTransientFiniteElement::nodal_stiffnesses(
+                    ThermoelasticThermalConductionRateFiniteElement::nodal_stiffnesses(
                         &element(),
                         &model,
                         &coordinates(),
@@ -358,4 +358,4 @@ macro_rules! test_thermoelastic_thermal_conduction_transient_element {
         }
     };
 }
-pub(crate) use test_thermoelastic_thermal_conduction_transient_element;
+pub(crate) use test_thermoelastic_thermal_conduction_rate_element;

@@ -1,7 +1,7 @@
 #[cfg(test)]
 pub mod test;
 
-use super::temperature;
+use super::steady::temperature;
 use crate::{
     constitutive::{
         ConstitutiveError, multiphysics::ThermoelasticThermalConduction,
@@ -14,7 +14,7 @@ use crate::{
             ElementNodalForcesSolidThermal, ElementNodalHeatingStiffnessesSolidThermal,
             ElementNodalHeatingsSolidThermal, ElementNodalStiffnessesSolidThermal,
             SolidThermalFiniteElement,
-            thermoelastic_thermal_conduction::ThermoelasticThermalConductionFiniteElement,
+            thermoelastic_thermal_conduction::steady::ThermoelasticThermalConductionFiniteElement,
         },
         solid::SolidElement,
         thermal::{ElementNodalTemperatures, ThermalFiniteElement},
@@ -26,7 +26,7 @@ use crate::{
     units::PowerPerLength,
 };
 
-pub trait ThermoelasticThermalConductionTransientFiniteElement<
+pub trait ThermoelasticThermalConductionRateFiniteElement<
     C,
     const G: usize,
     const M: usize,
@@ -60,7 +60,7 @@ pub trait ThermoelasticThermalConductionTransientFiniteElement<
 }
 
 impl<C, const G: usize, const N: usize, const O: usize>
-    ThermoelasticThermalConductionTransientFiniteElement<C, G, 3, N, N> for Element<3, G, N, O>
+    ThermoelasticThermalConductionRateFiniteElement<C, G, 3, N, N> for Element<3, G, N, O>
 where
     C: ThermoelasticThermalConduction,
     Self: SolidThermalFiniteElement<G, 3, N, N>,

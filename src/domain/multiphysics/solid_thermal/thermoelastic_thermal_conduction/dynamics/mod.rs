@@ -2,7 +2,7 @@ pub mod implicit;
 pub mod time_scale;
 
 use self::time_scale::ThermoelasticThermalConductionTimeScaleElements;
-use super::transient::ThermoelasticThermalConductionTransientElements;
+use super::rates::ThermoelasticThermalConductionRateElements;
 use crate::{
     domain::{
         ElementModelError, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
@@ -153,7 +153,7 @@ pub trait ThermoelasticThermalConductionDynamics {
 
 impl<B> ThermoelasticThermalConductionDynamics for Model<B, 3>
 where
-    B: ThermoelasticThermalConductionTransientElements,
+    B: ThermoelasticThermalConductionRateElements,
 {
     fn nodal_rates(
         &self,

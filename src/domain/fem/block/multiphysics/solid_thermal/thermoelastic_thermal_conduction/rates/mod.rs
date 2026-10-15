@@ -9,23 +9,23 @@ use crate::{
             Block,
             element::{
                 FiniteElementError,
-                multiphysics::solid_thermal::thermoelastic_thermal_conduction::transient::ThermoelasticThermalConductionTransientFiniteElement,
+                multiphysics::solid_thermal::thermoelastic_thermal_conduction::rates::ThermoelasticThermalConductionRateFiniteElement,
             },
             thermal::{NodalTemperatures, ThermalElements},
         },
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalHeatingsSolidThermal, NodalStiffnessesSolidThermal,
-            thermoelastic_thermal_conduction::transient::ThermoelasticThermalConductionTransientElements,
+            thermoelastic_thermal_conduction::rates::ThermoelasticThermalConductionRateElements,
         },
     },
     math::TensorTuple,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    ThermoelasticThermalConductionTransientElements for Block<C, F, G, M, N, P, R, H>
+    ThermoelasticThermalConductionRateElements for Block<C, F, G, M, N, P, R, H>
 where
     C: ThermoelasticThermalConduction,
-    F: ThermoelasticThermalConductionTransientFiniteElement<C, G, M, N, P>,
+    F: ThermoelasticThermalConductionRateFiniteElement<C, G, M, N, P>,
 {
     fn nodal_forces_into(
         &self,

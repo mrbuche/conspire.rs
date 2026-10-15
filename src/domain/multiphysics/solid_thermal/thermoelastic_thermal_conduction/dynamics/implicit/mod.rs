@@ -5,56 +5,26 @@ use crate::{
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         multiphysics::solid_thermal::{
-            NodalForcesSolidThermal, NodalHeatingsSolidThermal, NodalStatesSolidThermal,
-            NodalStiffnessesSolidThermal, join_states, split_states,
-            thermoelastic_thermal_conduction::transient::ThermoelasticThermalConductionTransientElements,
+            NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
+            join_states, split_states,
+            thermoelastic_thermal_conduction::rates::{
+                ThermoelasticThermalConductionRateElements, add_capacities, add_heatings,
+            },
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid, mass::InertialMass},
         thermal::{
-            NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
+            NodalForcesThermal, NodalTemperatures,
             capacity::{InertialHeatCapacity, NodalTemperatureRates},
             transient::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
         },
     },
     math::{
-        Quantity, Scalar, Tensor, TensorTuple,
+        Quantity, Tensor, TensorTuple,
         integrate::{ImplicitDynamicsCoupled, IntegrationError},
         optimize::{EqualityConstraint, RootFinding},
     },
     units::{Rate, Time},
 };
-
-pub(crate) fn add_heatings(
-    tangent: &mut NodalStiffnessesSolidThermal,
-    heatings: &NodalHeatingsSolidThermal,
-    velocity_rate: Quantity<Rate>,
-) {
-    heatings.iter().enumerate().for_each(|(a, row)| {
-        row.entries().for_each(|(b, heating)| {
-            tangent[a][b] += TensorTuple(
-                TensorTuple(Default::default(), Default::default()),
-                TensorTuple(heating.clone() * velocity_rate, Default::default()),
-            )
-        })
-    });
-}
-
-pub(crate) fn add_capacities(
-    tangent: &mut NodalStiffnessesSolidThermal,
-    capacities: &impl InertialHeatCapacity,
-    weight: Scalar,
-) {
-    let mut capacitive = NodalStiffnessesThermal::zero(tangent.len());
-    capacities.add_to_stiffnesses(weight, &mut capacitive);
-    capacitive.iter().enumerate().for_each(|(a, row)| {
-        row.entries().for_each(|(b, &stiffness)| {
-            tangent[a][b] += TensorTuple(
-                TensorTuple(Default::default(), Default::default()),
-                TensorTuple(Default::default(), stiffness),
-            )
-        })
-    });
-}
 
 /// The motion and temperatures of a thermoelastic model that conducts heat, with implicit time
 /// integration.
@@ -98,7 +68,7 @@ pub trait ThermoelasticThermalConductionImplicitDynamics {
 
 impl<B> ThermoelasticThermalConductionImplicitDynamics for Model<B, 3>
 where
-    B: ThermoelasticThermalConductionTransientElements,
+    B: ThermoelasticThermalConductionRateElements,
 {
     fn integrate(
         &self,
