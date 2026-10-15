@@ -16,7 +16,6 @@ macro_rules! sets {
             name: Option<String>,
             $members: Vec<$member>,
         }
-
         impl $set {
             pub fn new($members: Vec<$member>) -> Self {
                 Self {
@@ -42,8 +41,6 @@ macro_rules! sets {
             pub fn $members(&self) -> &[$member] {
                 &self.$members
             }
-            /// The set with its members mapped through `map`, dropping those it maps to nothing,
-            /// or nothing if no member remains.
             pub fn restrict(&self, map: impl Fn($member) -> Option<$member>) -> Option<Self> {
                 let $members: Vec<$member> = self.$members.iter().filter_map(|&m| map(m)).collect();
                 (!$members.is_empty()).then(|| Self {
@@ -53,11 +50,9 @@ macro_rules! sets {
                 })
             }
         }
-
         #[doc = $docs]
         #[derive(Clone, Debug, Default, PartialEq)]
         pub struct $sets(Vec<$set>);
-
         impl $sets {
             pub fn new() -> Self {
                 Self::default()
@@ -100,7 +95,6 @@ macro_rules! sets {
                     .collect()
             }
         }
-
         impl<'a> IntoIterator for &'a $sets {
             type Item = &'a $set;
             type IntoIter = Iter<'a, $set>;
@@ -108,19 +102,16 @@ macro_rules! sets {
                 self.0.iter()
             }
         }
-
         impl From<Vec<$set>> for $sets {
             fn from(sets: Vec<$set>) -> Self {
                 Self(sets)
             }
         }
-
         impl From<Vec<Vec<$member>>> for $sets {
             fn from(sets: Vec<Vec<$member>>) -> Self {
                 Self(sets.into_iter().map($set::new).collect())
             }
         }
-
         impl From<(Vec<Vec<$member>>, Vec<usize>)> for $sets {
             fn from((sets, labels): (Vec<Vec<$member>>, Vec<usize>)) -> Self {
                 assert_eq!(
