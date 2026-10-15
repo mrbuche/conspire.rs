@@ -79,7 +79,8 @@ fn specific_energy_closes_over_its_products() {
 fn electrical_units_close_over_their_products() {
     use crate::units::{
         Area, Capacitance, CapacitancePerArea, CapacitancePerVolume, Charge, ChargeDensity,
-        ElectricDisplacement, ElectricField, ElectricPotential, Energy, Permittivity, Volume,
+        ElectricDisplacement, ElectricField, ElectricFieldSquared, ElectricPotential, Energy,
+        Permittivity, Volume,
     };
     same::<Product<ElectricPotential, Charge>, Energy>();
     same::<Quotient<Energy, Charge>, ElectricPotential>();
@@ -105,6 +106,10 @@ fn electrical_units_close_over_their_products() {
     same::<Product<ChargeDensity, Volume>, Charge>();
     same::<Quotient<Charge, Volume>, ChargeDensity>();
     same::<Product<ElectricField, ElectricDisplacement>, Stress>();
+    same::<Product<ElectricField, ElectricField>, ElectricFieldSquared>();
+    same::<Product<Permittivity, ElectricFieldSquared>, Stress>();
+    same::<Quotient<Stress, Permittivity>, ElectricFieldSquared>();
+    same::<Quotient<Stress, ElectricFieldSquared>, Permittivity>();
     same::<Quotient<Stress, ElectricField>, ElectricDisplacement>();
     same::<Product<Capacitance, Dimensionless>, Capacitance>();
     same::<Product<Dimensionless, ChargeDensity>, ChargeDensity>();

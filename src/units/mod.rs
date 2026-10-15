@@ -254,6 +254,8 @@ units!(
     ElectricPotential,
     /// An electric field, being an electric potential per unit length.
     ElectricField,
+    /// A squared electric field, being a squared electric potential per unit area.
+    ElectricFieldSquared,
     /// An electric displacement, being a charge per unit area.
     ElectricDisplacement,
     /// A permittivity, being a capacitance per unit length.
@@ -476,6 +478,10 @@ unit_products!(
     Dimensionless * Charge = Charge,
     Dimensionless * ElectricPotential = ElectricPotential,
     Dimensionless * ElectricField = ElectricField,
+    Dimensionless * ElectricFieldSquared = ElectricFieldSquared,
+    ElectricField * ElectricField = ElectricFieldSquared,
+    Permittivity * ElectricFieldSquared = Stress,
+    ElectricFieldSquared * Permittivity = Stress,
     Dimensionless * ElectricDisplacement = ElectricDisplacement,
     Dimensionless * Permittivity = Permittivity,
     Dimensionless * Permeability = Permeability,
