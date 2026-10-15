@@ -1,10 +1,12 @@
-use crate::geometry::mesh::connectivity::{Connectivities, Connectivity, iter::ElementIter};
+use crate::{
+    geometry::mesh::connectivity::{Connectivities, Connectivity, iter::ElementIter},
+    math::{Graph, Incidence},
+};
 use std::{fmt::Debug, num::TryFromIntError};
 
 pub(crate) trait ConnectivityImpl {
     fn is_empty(&self) -> bool;
     fn element_numbers(&self) -> Option<&[usize]>;
-    fn node_element_connectivity(&self) -> &[Vec<usize>];
     fn number_elements(&mut self, numbers: Vec<usize>);
     fn number_of_elements(&self) -> usize;
     fn number_of_faces(&self) -> Option<usize>;
@@ -154,16 +156,16 @@ impl Connectivity {
             Connectivity::Triangular(c) => c.element_numbers(),
         }
     }
-    pub fn node_element_connectivity(&self) -> &[Vec<usize>] {
+    pub fn node_element_connectivity(&self, number_of_nodes: usize) -> Incidence {
         match self {
-            Connectivity::Hexahedral(c) => c.node_element_connectivity(),
-            Connectivity::Pyramidal(c) => c.node_element_connectivity(),
-            Connectivity::Wedge(c) => c.node_element_connectivity(),
-            Connectivity::Polyhedral(c) => c.node_element_connectivity(),
-            Connectivity::Polygonal(c) => c.node_element_connectivity(),
-            Connectivity::Quadrilateral(c) => c.node_element_connectivity(),
-            Connectivity::Tetrahedral(c) => c.node_element_connectivity(),
-            Connectivity::Triangular(c) => c.node_element_connectivity(),
+            Connectivity::Hexahedral(c) => c.transpose(number_of_nodes),
+            Connectivity::Pyramidal(c) => c.transpose(number_of_nodes),
+            Connectivity::Wedge(c) => c.transpose(number_of_nodes),
+            Connectivity::Polyhedral(c) => c.transpose(number_of_nodes),
+            Connectivity::Polygonal(c) => c.transpose(number_of_nodes),
+            Connectivity::Quadrilateral(c) => c.transpose(number_of_nodes),
+            Connectivity::Tetrahedral(c) => c.transpose(number_of_nodes),
+            Connectivity::Triangular(c) => c.transpose(number_of_nodes),
         }
     }
     pub fn number_elements(&mut self, numbers: Vec<usize>) {

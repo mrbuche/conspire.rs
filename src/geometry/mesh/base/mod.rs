@@ -9,7 +9,7 @@ use crate::{
         bbox::{BoundingBox, BoundingBoxes},
         mesh::{Connectivity, Mesh, NodeSets, SideSets},
     },
-    math::{CrossProduct, Graph, Scalar, Tensor, TensorRank1Vec2D},
+    math::{CrossProduct, Incidence, Scalar, Tensor, TensorRank1Vec2D},
     units::Dimensionless,
 };
 
@@ -143,20 +143,27 @@ impl<const D: usize> Mesh<D> {
         self.coordinates.members()
     }
     pub fn node_element_connectivity(&self) -> &[Vec<usize>] {
-        self.nodes_elements.get_or_init(|| {
-            let mut nodes_elements = vec![Vec::new(); self.number_of_nodes()];
-            let mut element_offset = 0;
-            for connectivity in self.iter() {
-                let local = connectivity.node_element_connectivity();
-                for (node, elems) in local.iter().enumerate() {
-                    nodes_elements[node].extend(elems.iter().map(|&e| e + element_offset))
+        self.nodes_elements
+            .get_or_init(|| {
+                let number_of_nodes = self.number_of_nodes();
+                let mut nodes_elements = vec![Vec::new(); number_of_nodes];
+                let mut element_offset = 0;
+                for connectivity in self.iter() {
+                    connectivity
+                        .node_element_connectivity(number_of_nodes)
+                        .as_slice()
+                        .iter()
+                        .zip(&mut nodes_elements)
+                        .for_each(|(elements, node_elements)| {
+                            node_elements.extend(elements.iter().map(|&e| e + element_offset))
+                        });
+                    element_offset += connectivity.number_of_elements();
                 }
-                element_offset += connectivity.number_of_elements();
-            }
-            nodes_elements
-        })
+                Incidence::new(nodes_elements, element_offset)
+            })
+            .as_slice()
     }
-    pub fn node_nodes(&self) -> &Graph {
+    pub fn node_nodes(&self) -> &Incidence {
         self.nodes_nodes.get_or_init(|| {
             let mut nodes_nodes = vec![Vec::new(); self.number_of_nodes()];
             for connectivity in self.iter() {
@@ -166,11 +173,11 @@ impl<const D: usize> Mesh<D> {
                 neighbors.sort_unstable();
                 neighbors.dedup();
             }
-            nodes_nodes.into()
+            Incidence::adjacency(nodes_nodes)
         })
     }
     pub fn node_node_connectivity(&self) -> &[Vec<usize>] {
-        self.node_nodes().adjacency()
+        self.node_nodes().as_slice()
     }
     pub fn number_of_element_blocks(&self) -> usize {
         self.connectivities().len()

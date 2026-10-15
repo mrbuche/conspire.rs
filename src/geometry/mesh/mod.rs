@@ -44,7 +44,7 @@ pub use self::{
 
 use crate::{
     geometry::Coordinates,
-    math::{Graph, Set},
+    math::{Incidence, Set},
 };
 use std::cell::OnceCell;
 
@@ -56,6 +56,6 @@ pub struct Mesh<const D: usize> {
     coordinates: Set<Coordinates<D>>,
     node_sets: NodeSets,
     side_sets: SideSets,
-    nodes_elements: OnceCell<Vec<Vec<usize>>>,
-    nodes_nodes: OnceCell<Graph>,
+    nodes_elements: OnceCell<Incidence>,
+    nodes_nodes: OnceCell<Incidence>,
 }

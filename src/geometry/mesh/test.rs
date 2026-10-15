@@ -193,3 +193,16 @@ pub fn octahedron(levels: usize) -> Tessellation {
     let connectivities = vec![Connectivity::Triangular(faces.into())];
     Mesh::from((connectivities, coordinates)).into()
 }
+
+mod node_element_connectivity {
+    use crate::geometry::mesh::Connectivity;
+
+    #[test]
+    fn block_sized_to_the_number_of_nodes() {
+        let block = Connectivity::Triangular(vec![[0_usize, 1, 2]].into());
+        let incidence = block.node_element_connectivity(5);
+        assert_eq!(incidence.as_slice().len(), 5);
+        assert_eq!(incidence.as_slice()[4], Vec::<usize>::new());
+        assert_eq!(incidence.number_of_incident_vertices(), 1);
+    }
+}
