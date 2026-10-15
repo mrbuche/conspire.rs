@@ -378,7 +378,7 @@ fn netcdf4_write_then_read_round_trip() {
     }
 }
 
-fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
+fn nul_terminated_exo_bytes(elem_type: &[u8], nodes: usize) -> Vec<u8> {
     const NC_DIMENSION: u32 = 0x0A;
     const NC_VARIABLE: u32 = 0x0B;
     const NC_ATTRIBUTE: u32 = 0x0C;
@@ -398,11 +398,11 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
     u32be(&mut b, 0);
     let dims: [(&str, u32); 6] = [
         ("num_dim", 3),
-        ("num_nodes", 4),
+        ("num_nodes", nodes as u32),
         ("num_elem", 1),
         ("num_el_blk", 1),
         ("num_el_in_blk1", 1),
-        ("num_nod_per_el1", 4),
+        ("num_nod_per_el1", nodes as u32),
     ];
     u32be(&mut b, NC_DIMENSION);
     u32be(&mut b, dims.len() as u32);
@@ -433,8 +433,9 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
             b.extend_from_slice(&1u32.to_be_bytes());
             name(b, "elem_type");
             b.extend_from_slice(&NC_CHAR.to_be_bytes());
-            b.extend_from_slice(&6u32.to_be_bytes());
-            b.extend_from_slice(b"TETRA\x00");
+            b.extend_from_slice(&(elem_type.len() as u32 + 1).to_be_bytes());
+            b.extend_from_slice(elem_type);
+            b.push(0);
             while !b.len().is_multiple_of(4) {
                 b.push(0);
             }
@@ -464,7 +465,7 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
         "coordx",
         &[1],
         NC_DOUBLE,
-        32,
+        8 * nodes,
     );
     fixed_var(
         &mut b,
@@ -473,7 +474,7 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
         "coordy",
         &[1],
         NC_DOUBLE,
-        32,
+        8 * nodes,
     );
     fixed_var(
         &mut b,
@@ -482,7 +483,7 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
         "coordz",
         &[1],
         NC_DOUBLE,
-        32,
+        8 * nodes,
     );
     fixed_var(
         &mut b,
@@ -491,7 +492,7 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
         "connect1",
         &[4, 5],
         NC_INT,
-        16,
+        4 * nodes,
     );
     let mut offset = b.len();
     for (&pos, &vsize) in begin_at.iter().zip(&vsizes) {
@@ -499,16 +500,13 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
         offset += vsize.div_ceil(4) * 4;
     }
     b.extend_from_slice(&1i32.to_be_bytes());
-    for coord in [
-        [0.0_f64, 1.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ] {
-        for v in coord {
+    for axis in 0..3 {
+        for node in 0..nodes {
+            let v = if node == axis + 1 { 1.0_f64 } else { 0.0 };
             b.extend_from_slice(&v.to_bits().to_be_bytes());
         }
     }
-    for node in [1i32, 2, 3, 4] {
+    for node in 1..=nodes as i32 {
         b.extend_from_slice(&node.to_be_bytes());
     }
     b
@@ -517,7 +515,7 @@ fn nul_terminated_tetra_exo_bytes() -> Vec<u8> {
 #[test]
 fn reads_nul_terminated_tetra() {
     let path = "target/read_exodus_nul_terminated_tetra.exo";
-    std::fs::write(path, nul_terminated_tetra_exo_bytes()).unwrap();
+    std::fs::write(path, nul_terminated_exo_bytes(b"TETRA", 4)).unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus(path)).unwrap();
     assert_eq!(
         read.coordinates(),
@@ -531,5 +529,18 @@ fn reads_nul_terminated_tetra() {
     match &read.connectivities()[0] {
         Connectivity::Tetrahedral(tets) => assert!(tets.iter().eq([[0, 1, 2, 3]].iter())),
         _ => panic!("expected Tetrahedral block"),
+    }
+}
+
+#[test]
+fn reads_bare_pyramid() {
+    let path = "target/read_exodus_bare_pyramid.exo";
+    std::fs::write(path, nul_terminated_exo_bytes(b"PYRAMID", 5)).unwrap();
+    let read = Mesh::<3>::try_from(Input::Exodus(path)).unwrap();
+    match &read.connectivities()[0] {
+        Connectivity::Pyramidal(pyramids) => {
+            assert!(pyramids.iter().eq([[0, 1, 2, 3, 4]].iter()))
+        }
+        _ => panic!("expected Pyramidal block"),
     }
 }
