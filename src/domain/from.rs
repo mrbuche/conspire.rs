@@ -43,7 +43,7 @@ where
         let coordinates = nodal_coordinates(coordinates);
         Ok(Self {
             blocks: B::from_connectivities(
-                connectivities.into_members(),
+                connectivities.into_blocks(),
                 constitutive_models,
                 &coordinates,
             )?,

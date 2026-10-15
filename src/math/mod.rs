@@ -23,22 +23,22 @@ pub mod special;
 
 mod graph;
 mod hash;
+mod labels;
 mod matrix;
-mod set;
 mod simd;
 mod style;
 mod tensor;
 
 pub(crate) use style::{Style, StyledError, defeat_message, styled_error};
 
-pub use graph::Graph;
+pub use graph::{Graph, Incidence};
 pub use hash::{FxHashMap, FxHashSet, FxHasher};
+pub use labels::Labels;
 pub use matrix::{
     Matrix,
     square::{LdlDecomposition, LuDecomposition, SquareMatrix},
     vector::Vector,
 };
-pub use set::{Set, sets::Sets};
 pub use tensor::{
     Auxiliary, Configuration, ContractWith, Current, Derivative, Differentiable, Erase, Factor,
     Flattened, Hessian, HessianAccumulate, HessianBlock, Intermediate, Is, Jacobian, Norm,

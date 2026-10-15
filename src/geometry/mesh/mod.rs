@@ -13,11 +13,13 @@ mod quality;
 mod read;
 mod remesh;
 mod retain;
+mod sets;
 mod smooth;
 mod tessellation;
 mod write;
 
 pub use from::Dualization;
+pub use sets::{NodeSet, NodeSets, SideSet, SideSets};
 
 pub use self::{
     connectivity::{
@@ -44,18 +46,16 @@ pub use self::{
 
 use crate::{
     geometry::Coordinates,
-    math::{Graph, Set},
+    math::{Incidence, Labels},
 };
 use std::cell::OnceCell;
 
-pub type NodeSets = Set<Vec<Vec<usize>>>;
-pub type SideSets = Set<Vec<Vec<(usize, usize)>>>;
-
 pub struct Mesh<const D: usize> {
     connectivities: Connectivities,
-    coordinates: Set<Coordinates<D>>,
+    coordinates: Coordinates<D>,
+    node_labels: Option<Labels>,
     node_sets: NodeSets,
     side_sets: SideSets,
-    nodes_elements: OnceCell<Vec<Vec<usize>>>,
-    nodes_nodes: OnceCell<Graph>,
+    nodes_elements: OnceCell<Incidence>,
+    nodes_nodes: OnceCell<Incidence>,
 }

@@ -32,7 +32,7 @@ fn problem() -> (PolytopalConnectivity<3>, NodalReferenceCoordinates) {
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) =
         Mesh::from_voxels(Voxels::new(vec![1u8; 2], [2, 1, 1]), None).into();
     let hexahedra: Vec<[usize; 8]> = connectivities
-        .into_members()
+        .into_blocks()
         .into_iter()
         .flat_map(|connectivity| match connectivity {
             Connectivity::Hexahedral(hexahedra) => hexahedra.into_iter().collect::<Vec<_>>(),

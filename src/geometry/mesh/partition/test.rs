@@ -1,6 +1,6 @@
 use crate::geometry::{
     grid::Voxels,
-    mesh::{Mesh, NodeSets, Partition, SideSets},
+    mesh::{Mesh, NodeSet, NodeSets, Partition, SideSets},
 };
 
 impl Partition {
@@ -189,21 +189,21 @@ fn materials() -> Mesh<3> {
 }
 
 #[test]
-fn part_keeps_block_ids_drops_empty_blocks_and_records_global_numbers() {
+fn part_keeps_block_labels_drops_empty_blocks_and_records_global_labels() {
     let mesh = materials();
-    assert_eq!(mesh.blocks(), Some([5, 7].as_slice()));
+    assert_eq!(mesh.block_labels(), Some([5, 7].as_slice()));
     let partition = mesh.partition_box([2, 1, 1]);
     let (first, first_nodes) = partition.part(&mesh, 0);
     let (second, second_nodes) = partition.part(&mesh, 1);
-    assert_eq!(first.blocks(), Some([5].as_slice()));
-    assert_eq!(second.blocks(), Some([7].as_slice()));
+    assert_eq!(first.block_labels(), Some([5].as_slice()));
+    assert_eq!(second.block_labels(), Some([7].as_slice()));
     assert_eq!(
-        second.iter().next().unwrap().element_numbers(),
+        second.iter().next().unwrap().element_labels(),
         Some([3, 4].as_slice())
     );
     assert_eq!(first_nodes, [0, 1, 2, 5, 6, 7, 10, 11, 12, 15, 16, 17]);
     assert_eq!(
-        second.coordinates.numbers(),
+        second.node_labels(),
         Some(
             second_nodes
                 .iter()
@@ -225,17 +225,30 @@ fn part_carries_node_and_side_sets() {
     let partition = mesh.partition_box([2, 1, 1]);
     let (first, first_nodes) = partition.part(&mesh, 0);
     let (second, second_nodes) = partition.part(&mesh, 1);
-    assert_eq!(first.node_set_numbers(), Some([7, 9].as_slice()));
-    assert_eq!(second.node_set_numbers(), Some([9].as_slice()));
-    first.node_sets()[0]
+    let labels = |part: &Mesh<3>| {
+        part.node_sets()
+            .iter()
+            .map(NodeSet::label)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(labels(&first), [Some(7), Some(9)]);
+    assert_eq!(labels(&second), [Some(9)]);
+    first
+        .node_sets()
+        .by_label(7)
+        .unwrap()
+        .nodes()
         .iter()
         .zip([0, 5, 10, 15])
         .for_each(|(&local, old)| assert_eq!(first_nodes[local], old));
-    second.node_sets()[0]
+    second
+        .node_sets()
+        .by_label(9)
+        .unwrap()
+        .nodes()
         .iter()
         .zip([2, 7, 12, 17])
         .for_each(|(&local, old)| assert_eq!(second_nodes[local], old));
-    assert_eq!(first.side_sets(), [vec![(0, 3)]]);
-    assert_eq!(second.side_sets(), [vec![(1, 1)]]);
-    assert_eq!(first.side_set_numbers(), Some([4].as_slice()));
+    assert_eq!(first.side_sets().by_label(4).unwrap().sides(), [(0, 3)]);
+    assert_eq!(second.side_sets().by_label(4).unwrap().sides(), [(1, 1)]);
 }

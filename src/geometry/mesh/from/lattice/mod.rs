@@ -9,7 +9,7 @@ use crate::{
             from::{kuhn, orient},
         },
     },
-    math::{FxHashMap, Set, TensorVec},
+    math::{FxHashMap, TensorVec},
 };
 use std::{array::from_fn, collections::BTreeMap};
 
@@ -55,12 +55,12 @@ fn blocks<const N: usize>(
         .zip(materials)
         .for_each(|(nodes, material)| grouped.entry(material).or_default().push(nodes));
     let mut connectivities = Vec::with_capacity(grouped.len());
-    let mut numbers = Vec::with_capacity(grouped.len());
+    let mut labels = Vec::with_capacity(grouped.len());
     for (material, elements) in grouped {
-        numbers.push(material);
+        labels.push(material);
         connectivities.push(variant(elements));
     }
-    Connectivities::from((connectivities, numbers))
+    Connectivities::from((connectivities, labels))
 }
 
 impl Mesh<3> {
@@ -100,7 +100,7 @@ impl Mesh<3> {
             blocks(connectivity, materials, |elements| {
                 Connectivity::Hexahedral(elements.into())
             }),
-            Set::from(coordinates),
+            coordinates,
         )
             .into()
     }
@@ -139,7 +139,7 @@ impl Mesh<3> {
             blocks(connectivity, materials, |elements| {
                 Connectivity::Tetrahedral(elements.into())
             }),
-            Set::from(coordinates),
+            coordinates,
         )
             .into()
     }

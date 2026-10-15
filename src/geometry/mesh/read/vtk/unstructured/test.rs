@@ -2,7 +2,7 @@ use super::ReadVtkUnstructured;
 use crate::{
     geometry::{
         Coordinate,
-        mesh::{Connectivity, Mesh, Output, Vtk},
+        mesh::{Connectivity, Mesh, NodeSets, Output, Vtk},
     },
     io::{Write, write::Compression},
 };
@@ -195,7 +195,10 @@ fn round_trip_node_sets() {
     mesh.write(Output::Vtk(Vtk::UnstructuredGrid(Compression::Off(path))))
         .unwrap();
     let read = Mesh::<3>::read_vtk_unstructured(path).unwrap();
-    assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
+    assert_eq!(
+        read.node_sets(),
+        &NodeSets::from(vec![vec![0, 1], vec![2, 3]])
+    );
 }
 
 #[test]
@@ -222,7 +225,10 @@ fn reads_point_data_node_sets_ascii() {
     )
     .unwrap();
     let mesh = Mesh::<3>::read_vtk_unstructured(path).unwrap();
-    assert_eq!(mesh.node_sets(), &[vec![0, 1], vec![2, 3]]);
+    assert_eq!(
+        mesh.node_sets(),
+        &NodeSets::from(vec![vec![0, 1], vec![2, 3]])
+    );
 }
 
 #[test]

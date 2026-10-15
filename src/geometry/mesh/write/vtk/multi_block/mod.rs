@@ -56,12 +56,13 @@ impl<const D: usize> Mesh<D> {
             self.write_vtk_unstructured(join(&volume_file))?;
         }
         let mut blocks = vec![("volume".to_string(), volume_file)];
-        for (set, sides) in self.side_sets().iter().enumerate() {
-            let label = self
-                .side_set_numbers()
-                .map_or_else(|| (set + 1).to_string(), |numbers| numbers[set].to_string());
+        for (side_set, label) in self
+            .side_sets()
+            .iter()
+            .zip(self.side_sets().resolved_labels())
+        {
             let side_set_file = format!("{stem}_side_set_{label}.vtp");
-            write_side_set(self, sides, join(&side_set_file), compress)?;
+            write_side_set(self, side_set.sides(), join(&side_set_file), compress)?;
             blocks.push((format!("side_set_{label}"), side_set_file));
         }
         let mut file = BufWriter::new(File::create(path)?);

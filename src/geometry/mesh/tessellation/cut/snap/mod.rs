@@ -254,6 +254,6 @@ impl Tessellation {
             }
         });
         let (connectivities, _) = mesh.into();
-        Ok(((connectivities.into_members(), working).into(), snapped))
+        Ok(((connectivities.into_blocks(), working).into(), snapped))
     }
 }

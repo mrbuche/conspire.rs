@@ -110,7 +110,7 @@ where
     ) -> Result<Self, Self::Error> {
         let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh.into();
         let coordinates = nodal_coordinates(coordinates);
-        let mut connectivities = connectivities.into_members().into_iter();
+        let mut connectivities = connectivities.into_blocks().into_iter();
         if connectivities.len() != 2 {
             return Err(format!(
                 "mesh has {} blocks, model type expects 2",

@@ -69,9 +69,12 @@ where
                 element += 1;
             }
         }
-        for (set, nodes) in self.node_sets().iter().enumerate() {
-            writeln!(file, "*Nset, nset=NSET{}", set + 1)?;
-            for chunk in nodes.chunks(16) {
+        for (set, node_set) in self.node_sets().iter().enumerate() {
+            match node_set.name() {
+                Some(name) => writeln!(file, "*Nset, nset={name}")?,
+                None => writeln!(file, "*Nset, nset=NSET{}", set + 1)?,
+            }
+            for chunk in node_set.nodes().chunks(16) {
                 let line = chunk
                     .iter()
                     .map(|&node| (node + 1).to_string())
@@ -80,9 +83,12 @@ where
                 writeln!(file, "{line}")?;
             }
         }
-        for (set, sides) in self.side_sets().iter().enumerate() {
-            writeln!(file, "*Surface, type=ELEMENT, name=SURF{}", set + 1)?;
-            for &(element, ordinal) in sides {
+        for (set, side_set) in self.side_sets().iter().enumerate() {
+            match side_set.name() {
+                Some(name) => writeln!(file, "*Surface, type=ELEMENT, name={name}")?,
+                None => writeln!(file, "*Surface, type=ELEMENT, name=SURF{}", set + 1)?,
+            }
+            for &(element, ordinal) in side_set.sides() {
                 let mut offset = 0;
                 let connectivity = self
                     .iter()

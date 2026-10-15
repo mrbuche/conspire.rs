@@ -106,7 +106,7 @@ where
         ));
         if let Ok(point_data) = region(&text, "PointData") {
             let point_arrays = data_arrays(point_data)?;
-            let mut node_sets = Vec::new();
+            let mut node_sets = Vec::<Vec<usize>>::new();
             let mut set = 1;
             while let Ok(array) = find_data_array(&point_arrays, Some(&format!("NodeSet{set}"))) {
                 let flags = integers(&array, &encoding)?;

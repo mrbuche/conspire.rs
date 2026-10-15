@@ -1,22 +1,20 @@
-use crate::geometry::mesh::connectivity::base::FlatConnectivity;
-use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Set};
-use std::{cell::OnceCell, fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
+mod graph;
 
-pub struct PolytopalConnectivity<const M: usize>(
-    Set<Vec<Vec<usize>>>,
-    Vec<Vec<usize>>,
-    OnceCell<Vec<Vec<usize>>>,
-);
+use crate::geometry::mesh::connectivity::base::FlatConnectivity;
+use crate::{geometry::mesh::connectivity::base::ConnectivityImpl, math::Labels};
+use std::{fmt::Debug, num::TryFromIntError, slice::Iter, vec::IntoIter};
+
+pub struct PolytopalConnectivity<const M: usize>(Vec<Vec<usize>>, Vec<Vec<usize>>, Option<Labels>);
 
 impl<const M: usize> From<(Vec<Vec<usize>>, Vec<Vec<usize>>)> for PolytopalConnectivity<M> {
     fn from((elements_faces, faces_nodes): (Vec<Vec<usize>>, Vec<Vec<usize>>)) -> Self {
-        PolytopalConnectivity(Set::from(elements_faces), faces_nodes, OnceCell::new())
+        PolytopalConnectivity(elements_faces, faces_nodes, None)
     }
 }
 
 impl<const M: usize> PolytopalConnectivity<M> {
     pub fn add_edge_adjacency(&self, nodes_nodes: &mut [Vec<usize>]) {
-        for faces in self.0.members() {
+        for faces in &self.0 {
             for &face in faces {
                 let nodes = &self.1[face];
                 for (index, &u) in nodes.iter().enumerate() {
@@ -30,13 +28,13 @@ impl<const M: usize> PolytopalConnectivity<M> {
         }
     }
     pub fn elements_faces(&self) -> &[Vec<usize>] {
-        self.0.members()
+        &self.0
     }
     pub fn faces_nodes(&self) -> &[Vec<usize>] {
         &self.1
     }
     pub fn iter(&self) -> Iter<'_, Vec<usize>> {
-        self.0.members().iter()
+        self.0.iter()
     }
 }
 
@@ -44,7 +42,7 @@ impl<'a, const M: usize> IntoIterator for &'a PolytopalConnectivity<M> {
     type Item = &'a Vec<usize>;
     type IntoIter = Iter<'a, Vec<usize>>;
     fn into_iter(self) -> Self::IntoIter {
-        self.0.members().iter()
+        self.0.iter()
     }
 }
 
@@ -52,40 +50,22 @@ impl<const M: usize> IntoIterator for PolytopalConnectivity<M> {
     type Item = Vec<usize>;
     type IntoIter = IntoIter<Vec<usize>>;
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_members().into_iter()
+        self.0.into_iter()
     }
 }
 
 impl<const M: usize> ConnectivityImpl for PolytopalConnectivity<M> {
     fn is_empty(&self) -> bool {
-        self.0.members().is_empty()
+        self.0.is_empty()
     }
-    fn element_numbers(&self) -> Option<&[usize]> {
-        self.0.numbers()
+    fn element_labels(&self) -> Option<&[usize]> {
+        self.2.as_ref().map(Labels::as_slice)
     }
-    fn node_element_connectivity(&self) -> &[Vec<usize>] {
-        self.2.get_or_init(|| {
-            let number_of_nodes = self.1.iter().flatten().max().map_or(0, |&node| node + 1);
-            let mut nodes_elements = vec![Vec::new(); number_of_nodes];
-            for (element, faces) in self.0.members().iter().enumerate() {
-                let mut nodes: Vec<usize> = faces
-                    .iter()
-                    .flat_map(|&face| self.1[face].iter().copied())
-                    .collect();
-                nodes.sort_unstable();
-                nodes.dedup();
-                for node in nodes {
-                    nodes_elements[node].push(element)
-                }
-            }
-            nodes_elements
-        })
-    }
-    fn number_elements(&mut self, numbers: Vec<usize>) {
-        self.0.set_numbers(numbers)
+    fn label_elements(&mut self, labels: Vec<usize>) {
+        self.2 = Some(Labels::new(labels, self.0.len()))
     }
     fn number_of_elements(&self) -> usize {
-        self.0.members().len()
+        self.0.len()
     }
     fn number_of_faces(&self) -> Option<usize> {
         Some(self.1.len())
@@ -94,13 +74,7 @@ impl<const M: usize> ConnectivityImpl for PolytopalConnectivity<M> {
     where
         I: Debug + TryFrom<usize, Error = TryFromIntError>,
     {
-        if let Ok(num) = self
-            .0
-            .members()
-            .iter()
-            .map(|faces| faces.len().try_into())
-            .collect()
-        {
+        if let Ok(num) = self.0.iter().map(|faces| faces.len().try_into()).collect() {
             Some(num)
         } else {
             panic!()
@@ -132,7 +106,6 @@ impl<const M: usize> ConnectivityImpl for PolytopalConnectivity<M> {
     {
         let elements_faces = self
             .0
-            .members()
             .iter()
             .flat_map(|faces| faces.iter().map(|&f| (f + 1).try_into()))
             .collect();

@@ -161,9 +161,9 @@ impl<const D: usize> Mesh<D> {
         )?;
         if !self.node_sets().is_empty() {
             writeln!(file, "      <PointData>")?;
-            for (set, nodes) in self.node_sets().iter().enumerate() {
+            for (set, node_set) in self.node_sets().iter().enumerate() {
                 let mut flags = vec![0_u8; coordinates.len()];
-                for &node in nodes {
+                for &node in node_set.nodes() {
                     flags[node] = 1;
                 }
                 writeln!(

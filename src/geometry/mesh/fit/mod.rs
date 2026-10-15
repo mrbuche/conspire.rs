@@ -147,7 +147,7 @@ impl Mesh<3> {
         let surface_coordinates = surface.coordinates();
         let elements: Vec<&[usize]> = surface.connectivities().iter().flatten().collect();
         let bvh = target.bvh();
-        let coordinates = self.coordinates.members_mut();
+        let coordinates = &mut self.coordinates;
         nodes.iter().try_for_each(|&node| {
             let (point, _) = bvh
                 .closest_point(&coordinates[node], surface_coordinates, &elements)
@@ -203,7 +203,7 @@ impl Mesh<3> {
         let face_chunk = faces.len().div_ceil(threads).max(1);
         let element_chunk = tracked.len().div_ceil(threads).max(1);
         let node_chunk = nodes.len().div_ceil(threads).max(1);
-        let coordinates = self.coordinates.members_mut();
+        let coordinates = &mut self.coordinates;
         let mut slot = vec![None; number_of_nodes];
         nodes
             .iter()

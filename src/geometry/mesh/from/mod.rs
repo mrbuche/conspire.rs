@@ -14,7 +14,7 @@ use crate::{
         Coordinates,
         mesh::{Connectivities, Connectivity, Mesh, NodeSets, SideSets},
     },
-    math::{CrossProduct, Set},
+    math::{CrossProduct, Labels, Tensor},
 };
 use std::cell::OnceCell;
 
@@ -55,28 +55,34 @@ pub(super) fn orient(tets: &mut [[usize; 4]], coordinates: &Coordinates<3>) {
     })
 }
 
-impl<const D: usize> From<(Connectivities, Set<Coordinates<D>>)> for Mesh<D> {
-    fn from((connectivities, coordinates): (Connectivities, Set<Coordinates<D>>)) -> Self {
+impl<const D: usize> From<(Connectivities, Coordinates<D>)> for Mesh<D> {
+    fn from((connectivities, coordinates): (Connectivities, Coordinates<D>)) -> Self {
         Self {
             connectivities,
             coordinates,
-            node_sets: NodeSets::from(Vec::new()),
-            side_sets: SideSets::from(Vec::new()),
+            node_labels: None,
+            node_sets: NodeSets::new(),
+            side_sets: SideSets::new(),
             nodes_elements: OnceCell::new(),
             nodes_nodes: OnceCell::new(),
         }
     }
 }
 
+impl<const D: usize> From<(Connectivities, Coordinates<D>, Vec<usize>)> for Mesh<D> {
+    fn from(
+        (connectivities, coordinates, node_labels): (Connectivities, Coordinates<D>, Vec<usize>),
+    ) -> Self {
+        let node_labels = Some(Labels::new(node_labels, coordinates.len()));
+        Self {
+            node_labels,
+            ..Self::from((connectivities, coordinates))
+        }
+    }
+}
+
 impl<const D: usize> From<(Vec<Connectivity>, Coordinates<D>)> for Mesh<D> {
     fn from((connectivities, coordinates): (Vec<Connectivity>, Coordinates<D>)) -> Self {
-        Self {
-            connectivities: Connectivities::from(connectivities),
-            coordinates: Set::from(coordinates),
-            node_sets: NodeSets::from(Vec::new()),
-            side_sets: SideSets::from(Vec::new()),
-            nodes_elements: OnceCell::new(),
-            nodes_nodes: OnceCell::new(),
-        }
+        (Connectivities::from(connectivities), coordinates).into()
     }
 }

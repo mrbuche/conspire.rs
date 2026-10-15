@@ -63,23 +63,19 @@ impl<const D: usize> Mesh<D> {
             None => NetCDF::create(path)?,
         };
         netcdf.global();
-        let element_numbers: Option<Vec<i32>> = self
+        let element_labels: Option<Vec<i32>> = self
             .connectivities()
             .iter()
             .map(|connectivity| {
-                connectivity.element_numbers().map(|numbers| {
-                    numbers
-                        .iter()
-                        .map(|&number| number as i32)
-                        .collect::<Vec<_>>()
-                })
+                connectivity
+                    .element_labels()
+                    .map(|labels| labels.iter().map(|&label| label as i32).collect::<Vec<_>>())
             })
             .collect::<Option<Vec<Vec<i32>>>>()
             .map(|per_block| per_block.into_iter().flatten().collect());
-        let node_numbers: Option<Vec<i32>> = self
-            .coordinates
-            .numbers()
-            .map(|numbers| numbers.iter().map(|&number| number as i32).collect());
+        let node_labels: Option<Vec<i32>> = self
+            .node_labels()
+            .map(|labels| labels.iter().map(|&label| label as i32).collect());
         netcdf.define_dimension("num_dim", D)?;
         netcdf.define_dimension("num_elem", self.number_of_elements())?;
         netcdf.define_dimension("num_el_blk", self.number_of_element_blocks())?;
@@ -93,7 +89,7 @@ impl<const D: usize> Mesh<D> {
         if let Some(num_face) = self.number_of_faces() {
             netcdf.define_dimension("num_face", num_face)?;
         }
-        if element_numbers.is_some() {
+        if element_labels.is_some() {
             netcdf.define_variable::<i32>("elem_num_map", 1, &["num_elem"])?;
         }
         self.iter()
@@ -195,7 +191,7 @@ impl<const D: usize> Mesh<D> {
                 }
             })?;
         netcdf.define_dimension("num_nodes", self.number_of_nodes())?;
-        if node_numbers.is_some() {
+        if node_labels.is_some() {
             netcdf.define_variable::<i32>("node_num_map", 1, &["num_nodes"])?;
         }
         if !self.node_sets().is_empty() {
@@ -205,9 +201,10 @@ impl<const D: usize> Mesh<D> {
             self.node_sets()
                 .iter()
                 .enumerate()
-                .try_for_each(|(set, nodes)| {
+                .try_for_each(|(set, node_set)| {
                     let set = set + 1;
-                    netcdf.define_dimension(&format!("num_nod_ns{}", set), nodes.len())?;
+                    netcdf
+                        .define_dimension(&format!("num_nod_ns{}", set), node_set.nodes().len())?;
                     netcdf.define_variable::<i32>(
                         &format!("node_ns{}", set),
                         1,
@@ -222,9 +219,10 @@ impl<const D: usize> Mesh<D> {
             self.side_sets()
                 .iter()
                 .enumerate()
-                .try_for_each(|(set, sides)| {
+                .try_for_each(|(set, side_set)| {
                     let set = set + 1;
-                    netcdf.define_dimension(&format!("num_side_ss{}", set), sides.len())?;
+                    netcdf
+                        .define_dimension(&format!("num_side_ss{}", set), side_set.sides().len())?;
                     netcdf.define_variable::<i32>(
                         &format!("elem_ss{}", set),
                         1,
@@ -248,55 +246,67 @@ impl<const D: usize> Mesh<D> {
             _ => unimplemented!(),
         }
         netcdf.end_definition();
-        let block_ids: Vec<i32> = match self.connectivities.numbers() {
-            Some(numbers) => numbers.iter().map(|&number| number as i32).collect(),
+        let block_labels: Vec<i32> = match self.connectivities.labels() {
+            Some(labels) => labels.iter().map(|&label| label as i32).collect(),
             None => (1..=self.number_of_element_blocks() as i32).collect(),
         };
-        netcdf.put_variable("eb_prop1", &block_ids)?;
+        netcdf.put_variable("eb_prop1", &block_labels)?;
         if self.number_of_face_blocks().is_some() {
-            netcdf.put_variable("fa_prop1", &block_ids)?;
+            netcdf.put_variable("fa_prop1", &block_labels)?;
         }
-        if let Some(element_numbers) = &element_numbers {
-            netcdf.put_variable("elem_num_map", element_numbers)?;
+        if let Some(element_labels) = &element_labels {
+            netcdf.put_variable("elem_num_map", element_labels)?;
         }
-        if let Some(node_numbers) = &node_numbers {
-            netcdf.put_variable("node_num_map", node_numbers)?;
+        if let Some(node_labels) = &node_labels {
+            netcdf.put_variable("node_num_map", node_labels)?;
         }
         if !self.node_sets().is_empty() {
-            let node_set_ids: Vec<i32> = match self.node_set_numbers() {
-                Some(numbers) => numbers.iter().map(|&number| number as i32).collect(),
-                None => (1..=self.node_sets().len() as i32).collect(),
-            };
-            netcdf.put_variable("ns_prop1", &node_set_ids)?;
+            let node_set_labels: Vec<i32> = self
+                .node_sets()
+                .resolved_labels()
+                .into_iter()
+                .map(|label| label as i32)
+                .collect();
+            netcdf.put_variable("ns_prop1", &node_set_labels)?;
             self.node_sets()
                 .iter()
                 .enumerate()
-                .try_for_each(|(set, nodes)| {
+                .try_for_each(|(set, node_set)| {
                     let set = set + 1;
-                    let node_ids: Vec<i32> = nodes.iter().map(|&node| node as i32 + 1).collect();
+                    let node_ids: Vec<i32> = node_set
+                        .nodes()
+                        .iter()
+                        .map(|&node| node as i32 + 1)
+                        .collect();
                     netcdf.put_variable(&format!("node_ns{}", set), &node_ids)
                 })?;
         }
         if !self.side_sets().is_empty() {
-            let side_set_ids: Vec<i32> = match self.side_set_numbers() {
-                Some(numbers) => numbers.iter().map(|&number| number as i32).collect(),
-                None => (1..=self.side_sets().len() as i32).collect(),
-            };
-            netcdf.put_variable("ss_prop1", &side_set_ids)?;
+            let side_set_labels: Vec<i32> = self
+                .side_sets()
+                .resolved_labels()
+                .into_iter()
+                .map(|label| label as i32)
+                .collect();
+            netcdf.put_variable("ss_prop1", &side_set_labels)?;
             self.side_sets()
                 .iter()
                 .enumerate()
-                .try_for_each(|(set, sides)| {
+                .try_for_each(|(set, side_set)| {
                     let set = set + 1;
-                    let elem_ids: Vec<i32> = sides
+                    let elem_ids: Vec<i32> = side_set
+                        .sides()
                         .iter()
-                        .map(|&(element, _)| match &element_numbers {
-                            Some(numbers) => numbers[element],
+                        .map(|&(element, _)| match &element_labels {
+                            Some(labels) => labels[element],
                             None => element as i32 + 1,
                         })
                         .collect();
-                    let side_ids: Vec<i32> =
-                        sides.iter().map(|&(_, side)| side as i32 + 1).collect();
+                    let side_ids: Vec<i32> = side_set
+                        .sides()
+                        .iter()
+                        .map(|&(_, side)| side as i32 + 1)
+                        .collect();
                     netcdf.put_variable(&format!("elem_ss{}", set), &elem_ids)?;
                     netcdf.put_variable(&format!("side_ss{}", set), &side_ids)
                 })?;

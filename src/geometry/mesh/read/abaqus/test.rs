@@ -2,7 +2,7 @@ use super::ReadAbaqus;
 use crate::{
     geometry::{
         Coordinate,
-        mesh::{Connectivity, Mesh, Output},
+        mesh::{Connectivity, Mesh, NodeSet, Output, SideSet},
     },
     io::Write,
 };
@@ -92,7 +92,8 @@ fn round_trip_node_sets() {
     let path = "target/round_trip_node_sets.inp";
     mesh.write(Output::Abaqus(path)).unwrap();
     let read = Mesh::<3>::read_abaqus(path).unwrap();
-    assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
+    assert_eq!(read.node_sets().by_name("NSET1").unwrap().nodes(), [0, 1]);
+    assert_eq!(read.node_sets().by_name("NSET2").unwrap().nodes(), [2, 3]);
 }
 
 #[test]
@@ -107,7 +108,10 @@ fn reads_nset_with_sparse_ids() {
     )
     .unwrap();
     let mesh = Mesh::<3>::read_abaqus(path).unwrap();
-    assert_eq!(mesh.node_sets(), &[vec![0, 1, 2]]);
+    assert_eq!(
+        mesh.node_sets().by_name("FIXED").unwrap().nodes(),
+        [0, 1, 2]
+    );
 }
 
 fn round_trips_all_faces(connectivity: Connectivity, coordinates: Vec<[f64; 3]>, path: &str) {
@@ -117,7 +121,7 @@ fn round_trips_all_faces(connectivity: Connectivity, coordinates: Vec<[f64; 3]>,
     mesh.set_side_sets(vec![sides.clone()].into());
     mesh.write(Output::Abaqus(path)).unwrap();
     let read = Mesh::<3>::read_abaqus(path).unwrap();
-    assert_eq!(read.side_sets(), &[sides]);
+    assert_eq!(read.side_sets().by_name("SURF1").unwrap().sides(), sides);
 }
 
 #[test]
@@ -218,5 +222,85 @@ fn reads_surface_with_sparse_element_ids() {
     )
     .unwrap();
     let mesh = Mesh::<3>::read_abaqus(path).unwrap();
-    assert_eq!(mesh.side_sets(), &[vec![(0, 1)]]);
+    assert_eq!(mesh.side_sets().by_name("TOP").unwrap().sides(), [(0, 1)]);
+}
+
+#[test]
+fn reads_node_labels() {
+    let path = "target/node_labels.inp";
+    write(
+        path,
+        "*Node\n10, 0., 0., 0.\n20, 1., 0., 0.\n30, 0., 1., 0.\n\
+         *Element, TYPE=S3\n7, 10, 20, 30\n",
+    )
+    .unwrap();
+    let mesh = Mesh::<3>::read_abaqus(path).unwrap();
+    assert_eq!(mesh.node_labels(), Some([10, 20, 30].as_slice()));
+    assert_eq!(first_element(&mesh, 0), [0, 1, 2]);
+}
+
+#[test]
+fn reads_element_labels_of_each_block() {
+    let path = "target/element_labels.inp";
+    write(
+        path,
+        "*Node\n1, 0., 0., 0.\n2, 1., 0., 0.\n3, 0., 1., 0.\n4, 1., 1., 0.\n\
+         *Element, TYPE=S3, ELSET=A\n100, 1, 2, 3\n\
+         *Element, TYPE=S3, ELSET=B\n200, 2, 4, 3\n\
+         *Surface, type=ELEMENT, name=S\n200, S2\n",
+    )
+    .unwrap();
+    let mesh = Mesh::<3>::read_abaqus(path).unwrap();
+    assert_eq!(
+        mesh.connectivities()[0].element_labels(),
+        Some([100].as_slice())
+    );
+    assert_eq!(
+        mesh.connectivities()[1].element_labels(),
+        Some([200].as_slice())
+    );
+    assert_eq!(mesh.side_sets().by_name("S").unwrap().sides(), [(1, 1)]);
+}
+
+#[test]
+fn repeated_node_label_errors() {
+    let path = "target/repeated_node.inp";
+    write(path, "*Node\n1, 0., 0., 0.\n1, 1., 0., 0.\n").unwrap();
+    assert!(Mesh::<3>::read_abaqus(path).is_err());
+}
+
+#[test]
+fn repeated_element_label_errors() {
+    let path = "target/repeated_element.inp";
+    write(
+        path,
+        "*Node\n1, 0., 0., 0.\n2, 1., 0., 0.\n3, 0., 1., 0.\n\
+         *Element, TYPE=S3\n5, 1, 2, 3\n\
+         *Element, TYPE=S3\n5, 1, 2, 3\n",
+    )
+    .unwrap();
+    assert!(Mesh::<3>::read_abaqus(path).is_err());
+}
+
+#[test]
+fn round_trip_set_names() {
+    let connectivities = vec![Connectivity::Quadrilateral(vec![[0, 1, 2, 3]].into())];
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+    ]
+    .into();
+    let mut mesh = Mesh::from((connectivities, coordinates));
+    mesh.set_node_sets(vec![NodeSet::new(vec![0, 1]).with_name("bottom")].into());
+    mesh.set_side_sets(vec![SideSet::new(vec![(0, 2)]).with_name("loaded")].into());
+    let path = "target/round_trip_set_names.inp";
+    mesh.write(Output::Abaqus(path)).unwrap();
+    let read = Mesh::<3>::read_abaqus(path).unwrap();
+    assert_eq!(read.node_sets().by_name("bottom").unwrap().nodes(), [0, 1]);
+    assert_eq!(
+        read.side_sets().by_name("loaded").unwrap().sides(),
+        [(0, 2)]
+    );
 }

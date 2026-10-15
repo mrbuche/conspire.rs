@@ -2,9 +2,9 @@ use super::Partition;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivities, Mesh, NodeSets, SideSets, retain::subset},
+        mesh::{Connectivities, Mesh, NodeSet, SideSet, retain::subset},
     },
-    math::{Set, TensorVec},
+    math::TensorVec,
 };
 
 impl Partition {
@@ -22,16 +22,16 @@ impl Partition {
             .for_each(|(new, &old)| elements[old] = new);
         let mut index = 0;
         let mut blocks = Vec::new();
-        let mut block_numbers = Vec::new();
+        let mut block_labels = Vec::new();
         for (block, connectivity) in mesh.iter().enumerate() {
             let mut kept = Vec::new();
-            let mut element_numbers = Vec::new();
+            let mut element_labels = Vec::new();
             for (local, element) in connectivity.iter().enumerate() {
                 let global = index + local;
                 if elements[global] != usize::MAX {
                     kept.push(element);
-                    element_numbers.push(match connectivity.element_numbers() {
-                        Some(numbers) => numbers[local],
+                    element_labels.push(match connectivity.element_labels() {
+                        Some(labels) => labels[local],
                         None => global + 1,
                     })
                 }
@@ -39,66 +39,58 @@ impl Partition {
             index += connectivity.number_of_elements();
             if !kept.is_empty() {
                 let mut new_block = subset(connectivity, &kept, &mut |node| nodes[node]);
-                new_block.number_elements(element_numbers);
+                new_block.label_elements(element_labels);
                 blocks.push(new_block);
-                block_numbers.push(mesh.blocks().map_or(block + 1, |numbers| numbers[block]))
+                block_labels.push(
+                    mesh.block_labels()
+                        .map_or(block + 1, |labels| labels[block]),
+                )
             }
         }
         let mut coordinates = Coordinates::new();
         old_nodes
             .iter()
             .for_each(|&node| coordinates.push(mesh.coordinates()[node].clone()));
-        let node_numbers = old_nodes
+        let node_labels = old_nodes
             .iter()
-            .map(|&node| {
-                mesh.coordinates
-                    .numbers()
-                    .map_or(node + 1, |numbers| numbers[node])
-            })
+            .map(|&node| mesh.node_labels().map_or(node + 1, |labels| labels[node]))
             .collect::<Vec<_>>();
         let mut submesh: Mesh<D> = (
-            Connectivities::from((blocks, block_numbers)),
-            Set::from((coordinates, node_numbers)),
+            Connectivities::from((blocks, block_labels)),
+            coordinates,
+            node_labels,
         )
             .into();
-        let (mut node_sets, mut node_set_numbers) = (Vec::new(), Vec::new());
-        mesh.node_sets()
+        let node_sets: Vec<NodeSet> = mesh
+            .node_sets()
             .iter()
             .enumerate()
-            .for_each(|(set, members)| {
-                let kept: Vec<usize> = members
-                    .iter()
-                    .filter(|&&node| nodes[node] != usize::MAX)
-                    .map(|&node| nodes[node])
-                    .collect();
-                if !kept.is_empty() {
-                    node_sets.push(kept);
-                    node_set_numbers.push(
-                        mesh.node_set_numbers()
-                            .map_or(set + 1, |numbers| numbers[set]),
-                    )
-                }
-            });
-        let (mut side_sets, mut side_set_numbers) = (Vec::new(), Vec::new());
-        mesh.side_sets()
+            .filter_map(|(set, node_set)| {
+                node_set
+                    .restrict(|node| (nodes[node] != usize::MAX).then_some(nodes[node]))
+                    .map(|kept| match kept.label() {
+                        Some(_) => kept,
+                        None => kept.with_label(set + 1),
+                    })
+            })
+            .collect();
+        let side_sets: Vec<SideSet> = mesh
+            .side_sets()
             .iter()
             .enumerate()
-            .for_each(|(set, members)| {
-                let kept: Vec<(usize, usize)> = members
-                    .iter()
-                    .filter(|&&(element, _)| elements[element] != usize::MAX)
-                    .map(|&(element, side)| (elements[element], side))
-                    .collect();
-                if !kept.is_empty() {
-                    side_sets.push(kept);
-                    side_set_numbers.push(
-                        mesh.side_set_numbers()
-                            .map_or(set + 1, |numbers| numbers[set]),
-                    )
-                }
-            });
-        submesh.set_node_sets(NodeSets::from((node_sets, node_set_numbers)));
-        submesh.set_side_sets(SideSets::from((side_sets, side_set_numbers)));
+            .filter_map(|(set, side_set)| {
+                side_set
+                    .restrict(|(element, side)| {
+                        (elements[element] != usize::MAX).then_some((elements[element], side))
+                    })
+                    .map(|kept| match kept.label() {
+                        Some(_) => kept,
+                        None => kept.with_label(set + 1),
+                    })
+            })
+            .collect();
+        submesh.set_node_sets(node_sets.into());
+        submesh.set_side_sets(side_sets.into());
         (submesh, old_nodes)
     }
 }

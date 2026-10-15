@@ -4,10 +4,9 @@ mod test;
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh},
+        mesh::{Connectivity, Mesh},
     },
     io::{GetVariable, NetCDF},
-    math::Set,
 };
 use std::{array::from_fn, collections::HashMap, ffi::NulError, path::Path};
 
@@ -42,13 +41,13 @@ where
             .into_iter()
             .map(|id| id as usize)
             .collect();
-        let element_numbers = netcdf.try_get_variable::<i32>("elem_num_map", num_elem)?;
-        if let Some(element_numbers) = &element_numbers {
+        let element_labels = netcdf.try_get_variable::<i32>("elem_num_map", num_elem)?;
+        if let Some(element_labels) = &element_labels {
             let mut offset = 0;
             connectivities.iter_mut().for_each(|connectivity| {
                 let count = connectivity.number_of_elements();
-                connectivity.number_elements(
-                    element_numbers[offset..offset + count]
+                connectivity.label_elements(
+                    element_labels[offset..offset + count]
                         .iter()
                         .map(|&id| id as usize)
                         .collect(),
@@ -74,17 +73,17 @@ where
                 .into()
             })
             .collect();
-        let coordinates = match netcdf.try_get_variable::<i32>("node_num_map", num_nodes)? {
-            Some(node_numbers) => Set::from((
+        let connectivities = (connectivities, blocks).into();
+        let mut mesh = match netcdf.try_get_variable::<i32>("node_num_map", num_nodes)? {
+            Some(node_labels) => Mesh::from((
+                connectivities,
                 coordinates,
-                node_numbers.into_iter().map(|id| id as usize).collect(),
+                node_labels.into_iter().map(|id| id as usize).collect(),
             )),
-            None => Set::from(coordinates),
+            None => (connectivities, coordinates).into(),
         };
-        let mut mesh =
-            Mesh::<D>::from((Connectivities::from((connectivities, blocks)), coordinates));
         if let Some(num_node_sets) = netcdf.try_dimension_length("num_node_sets")? {
-            let node_set_numbers = netcdf
+            let node_set_labels = netcdf
                 .get_variable::<i32>("ns_prop1", num_node_sets)?
                 .into_iter()
                 .map(|id| id as usize)
@@ -97,18 +96,18 @@ where
                         .map(|nodes| nodes.into_iter().map(|id| (id - 1) as usize).collect())
                 })
                 .collect::<Result<Vec<Vec<usize>>, _>>()?;
-            mesh.set_node_sets((node_sets, node_set_numbers).into());
+            mesh.set_node_sets((node_sets, node_set_labels).into());
         }
         if let Some(num_side_sets) = netcdf.try_dimension_length("num_side_sets")? {
-            let element_index: HashMap<usize, usize> = match &element_numbers {
-                Some(numbers) => numbers
+            let element_index: HashMap<usize, usize> = match &element_labels {
+                Some(labels) => labels
                     .iter()
                     .enumerate()
                     .map(|(i, &id)| (id as usize, i))
                     .collect(),
                 None => (0..num_elem).map(|i| (i + 1, i)).collect(),
             };
-            let side_set_numbers = netcdf
+            let side_set_labels = netcdf
                 .get_variable::<i32>("ss_prop1", num_side_sets)?
                 .into_iter()
                 .map(|id| id as usize)
@@ -127,7 +126,7 @@ where
                         .collect())
                 })
                 .collect::<Result<Vec<Vec<(usize, usize)>>, _>>()?;
-            mesh.set_side_sets((side_sets, side_set_numbers).into());
+            mesh.set_side_sets((side_sets, side_set_labels).into());
         }
         Ok(mesh)
     }

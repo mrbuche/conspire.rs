@@ -240,7 +240,7 @@ impl Mesh<3> {
             return Err("non-manifold boundary");
         }
         let (connectivities, mut coordinates) = self.into();
-        let connectivities = connectivities.into_members();
+        let connectivities = connectivities.into_blocks();
         let count = coordinates.len();
         let mut duplicates = HashMap::new();
         let mut layer = Vec::new();

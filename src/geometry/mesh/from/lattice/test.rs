@@ -197,7 +197,7 @@ fn tets_carry_materials_like_cells() {
         .map(|(index, (cell, _))| (cell, 1 + index % 3))
         .collect();
     let mesh = Mesh::from_lattice_tets(cells, nel, &UNIT, &ORIGIN);
-    assert_eq!(mesh.blocks(), Some(&[1, 2, 3][..]));
+    assert_eq!(mesh.block_labels(), Some(&[1, 2, 3][..]));
     mesh.connectivities()
         .iter()
         .for_each(|block| assert!(matches!(block, Connectivity::Tetrahedral(_))))
