@@ -163,6 +163,105 @@ mod cohere_inertial {
     }
 }
 
+mod cohere_electrical {
+    use super::*;
+    use crate::units::{
+        Capacitance, CapacitancePerArea, CapacitancePerVolume, Charge, ChargeDensity,
+        ElectricDisplacement, ElectricField, ElectricPotential, Permittivity,
+    };
+    #[test]
+    fn a_volt_is_a_joule_per_coulomb() {
+        same(
+            ElectricPotential::volts(2.0) * Charge::coulombs(3.0),
+            Energy::joules(6.0),
+        );
+        same(
+            Energy::electronvolts(1.0) / Charge::coulombs(1.602_176_634e-19),
+            ElectricPotential::volts(1.0),
+        );
+        same(
+            ElectricPotential::kilovolts(1.0),
+            ElectricPotential::millivolts(1e6),
+        )
+    }
+    #[test]
+    fn a_farad_is_a_coulomb_per_volt() {
+        same(
+            Capacitance::farads(2.0) * ElectricPotential::volts(3.0),
+            Charge::coulombs(6.0),
+        );
+        same(
+            Charge::coulombs(1e-12) / ElectricPotential::volts(1.0),
+            Capacitance::picofarads(1.0),
+        );
+        same(Capacitance::microfarads(1e3), Capacitance::nanofarads(1e6))
+    }
+    #[test]
+    fn a_field_is_a_potential_per_length() {
+        same(
+            ElectricPotential::volts(5.0) / Length::meters(2.0),
+            ElectricField::volts_per_meter(2.5),
+        );
+        same(
+            ElectricPotential::kilovolts(1.0) / Length::millimeters(1.0),
+            ElectricField::kilovolts_per_millimeter(1.0),
+        );
+        same(
+            ElectricPotential::volts(1.0) / Length::micrometers(1.0),
+            ElectricField::volts_per_micrometer(1.0),
+        )
+    }
+    #[test]
+    fn a_displacement_is_a_permittivity_times_a_field() {
+        same(
+            Permittivity::farads_per_meter(2.0) * ElectricField::volts_per_meter(3.0),
+            ElectricDisplacement::coulombs_per_square_meter(6.0),
+        );
+        same(
+            Charge::coulombs(6.0) / Area::square_meters(2.0),
+            ElectricDisplacement::coulombs_per_square_meter(3.0),
+        );
+        same(
+            Permittivity::farads_per_meter(1.0),
+            Permittivity::picofarads_per_meter(1e12),
+        )
+    }
+    #[test]
+    fn a_field_times_a_displacement_is_an_energy_density() {
+        same(
+            ElectricField::volts_per_meter(2.0)
+                * ElectricDisplacement::coulombs_per_square_meter(3.0),
+            Stress::pascals(6.0),
+        )
+    }
+    #[test]
+    fn a_permittivity_over_a_length_is_a_capacitance_per_area() {
+        same(
+            Capacitance::farads(6.0) / Area::square_meters(2.0),
+            CapacitancePerArea::farads_per_square_meter(3.0),
+        );
+        same(
+            Capacitance::farads(6.0) / Volume::cubic_meters(2.0),
+            CapacitancePerVolume::farads_per_cubic_meter(3.0),
+        );
+        same(
+            Permittivity::farads_per_meter(6.0) * Length::meters(2.0),
+            Capacitance::farads(12.0),
+        )
+    }
+    #[test]
+    fn a_charge_density_is_a_charge_per_volume() {
+        same(
+            Charge::coulombs(6.0) / Volume::cubic_meters(2.0),
+            ChargeDensity::coulombs_per_cubic_meter(3.0),
+        );
+        same(
+            ChargeDensity::coulombs_per_cubic_meter(3.0) * Volume::cubic_meters(2.0),
+            Charge::coulombs(6.0),
+        )
+    }
+}
+
 mod cohere {
     use super::*;
     #[test]

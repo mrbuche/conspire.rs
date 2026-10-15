@@ -1,8 +1,8 @@
 use super::{
     AVOGADRO_CONSTANT, BOLTZMANN_CONSTANT, ELEMENTARY_CHARGE, GAS_CONSTANT, LIGHT_SPEED,
-    ROOM_TEMPERATURE, STANDARD_GRAVITY,
+    ROOM_TEMPERATURE, STANDARD_GRAVITY, VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY,
 };
-use crate::units::{Energy, Length, Time};
+use crate::units::{ElectricPotential, Energy, Length, Time};
 
 #[test]
 fn gas_constant() {
@@ -20,6 +20,28 @@ fn electronvolt() {
     assert_eq!(
         Energy::electronvolts(1.0).in_joules(),
         ELEMENTARY_CHARGE.in_coulombs()
+    )
+}
+
+#[test]
+fn elementary_charge_through_a_volt_is_an_electronvolt() {
+    assert_eq!(
+        (ELEMENTARY_CHARGE * ElectricPotential::volts(1.0)).in_electronvolts(),
+        1.0
+    )
+}
+
+#[test]
+fn vacuum_constants_give_the_light_speed() {
+    let speed = LIGHT_SPEED.in_meters_per_second();
+    assert!(
+        (VACUUM_PERMITTIVITY.in_farads_per_meter()
+            * VACUUM_PERMEABILITY.in_henries_per_meter()
+            * speed
+            * speed
+            - 1.0)
+            .abs()
+            < 1e-9
     )
 }
 
