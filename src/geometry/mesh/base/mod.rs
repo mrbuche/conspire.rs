@@ -7,7 +7,7 @@ use crate::{
     geometry::{
         Coordinate, Coordinates, CoordinatesRef,
         bbox::{BoundingBox, BoundingBoxes},
-        mesh::{Connectivity, Mesh, NodeSets, SideSets},
+        mesh::{Connectivity, Mesh, NodeSet, NodeSets, SideSet, SideSets},
     },
     math::{CrossProduct, Incidence, Labels, Scalar, Tensor, TensorRank1Vec2D},
     units::Dimensionless,
@@ -32,6 +32,57 @@ impl Mesh<3> {
 }
 
 impl<const D: usize> Mesh<D> {
+    /// The nodes of the faces in a side set, keeping its label and name.
+    ///
+    /// # Panics
+    /// Panics if the side set references an element or face the mesh does not have.
+    pub fn nodes_from(&self, side_set: &SideSet) -> NodeSet {
+        let mut ordinals = FxHashMap::<usize, Vec<usize>>::default();
+        side_set
+            .sides()
+            .iter()
+            .for_each(|&(element, ordinal)| ordinals.entry(element).or_default().push(ordinal));
+        let mut nodes = Vec::new();
+        let mut index = 0;
+        let mut found = 0;
+        for block in self.iter() {
+            for element in block.iter() {
+                if let Some(ordinals) = ordinals.get(&index) {
+                    let faces = block.element_faces(element);
+                    ordinals
+                        .iter()
+                        .for_each(|&ordinal| nodes.extend_from_slice(&faces[ordinal]));
+                    found += 1;
+                }
+                index += 1;
+            }
+        }
+        assert_eq!(
+            found,
+            ordinals.len(),
+            "The side set references an element the mesh does not have."
+        );
+        nodes.sort_unstable();
+        nodes.dedup();
+        let mut node_set = NodeSet::new(nodes);
+        if let Some(label) = side_set.label() {
+            node_set = node_set.with_label(label);
+        }
+        if let Some(name) = side_set.name() {
+            node_set = node_set.with_name(name);
+        }
+        node_set
+    }
+    /// The nodes whose coordinates satisfy a predicate.
+    pub fn select_nodes(&self, predicate: impl Fn(&Coordinate<D>) -> bool) -> NodeSet {
+        NodeSet::new(
+            self.coordinates
+                .iter()
+                .enumerate()
+                .filter_map(|(node, coordinate)| predicate(coordinate).then_some(node))
+                .collect(),
+        )
+    }
     pub fn exterior_faces(&self) -> Vec<Vec<usize>> {
         let mut faces = FxHashMap::default();
         self.iter().for_each(|block| {
