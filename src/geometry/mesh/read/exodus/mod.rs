@@ -34,9 +34,17 @@ where
         let num_el_blk = netcdf.dimension_length("num_el_blk")?;
         let num_elem = netcdf.dimension_length("num_elem")?;
         let num_nodes = netcdf.dimension_length("num_nodes")?;
-        let mut connectivities = (1..=num_el_blk)
-            .map(|block| read_block::<D>(&netcdf, block))
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut connectivities = Vec::with_capacity(num_el_blk);
+        let mut face_blocks = 0;
+        let mut faces_before = 0;
+        for block in 1..=num_el_blk {
+            let connectivity = read_block::<D>(&netcdf, block, face_blocks + 1, faces_before)?;
+            if let Some(faces) = connectivity.number_of_faces() {
+                face_blocks += 1;
+                faces_before += faces
+            }
+            connectivities.push(connectivity)
+        }
         let blocks = netcdf
             .get_variable::<i32>("eb_prop1", num_el_blk)?
             .into_iter()
@@ -133,14 +141,19 @@ where
     }
 }
 
-fn read_block<const D: usize>(netcdf: &NetCDF, block: usize) -> Result<Connectivity, NulError> {
+fn read_block<const D: usize>(
+    netcdf: &NetCDF,
+    block: usize,
+    face_block: usize,
+    faces_before: usize,
+) -> Result<Connectivity, NulError> {
     let num_el_in_blk = netcdf.dimension_length(&format!("num_el_in_blk{}", block))?;
     if let Some(num_nod_per_el) =
         netcdf.try_dimension_length(&format!("num_nod_per_el{}", block))?
     {
         read_primitive_block::<D>(netcdf, block, num_el_in_blk, num_nod_per_el)
     } else {
-        read_polytopal_block(netcdf, block, num_el_in_blk)
+        read_polytopal_block(netcdf, block, face_block, faces_before, num_el_in_blk)
     }
 }
 
@@ -170,16 +183,20 @@ fn read_primitive_block<const D: usize>(
 fn read_polytopal_block(
     netcdf: &NetCDF,
     block: usize,
+    face_block: usize,
+    faces_before: usize,
     num_el_in_blk: usize,
 ) -> Result<Connectivity, NulError> {
     let num_fac_per_el = netcdf.dimension_length(&format!("num_fac_per_el{}", block))?;
     let ebepecnt = netcdf.get_variable::<i32>(&format!("ebepecnt{}", block), num_el_in_blk)?;
-    let facconn = netcdf.get_variable::<i32>(&format!("facconn{}", block), num_fac_per_el)?;
+    let mut facconn = netcdf.get_variable::<i32>(&format!("facconn{}", block), num_fac_per_el)?;
+    let offset = face_offset(&facconn, faces_before) as i32;
+    facconn.iter_mut().for_each(|face| *face -= offset);
     let elements_faces = unflatten_var(&facconn, &ebepecnt);
-    let num_fa_in_blk = netcdf.dimension_length(&format!("num_fa_in_blk{}", block))?;
-    let num_nod_per_fa = netcdf.dimension_length(&format!("num_nod_per_fa{}", block))?;
-    let fbepecnt = netcdf.get_variable::<i32>(&format!("fbepecnt{}", block), num_fa_in_blk)?;
-    let fbconn = netcdf.get_variable::<i32>(&format!("fbconn{}", block), num_nod_per_fa)?;
+    let num_fa_in_blk = netcdf.dimension_length(&format!("num_fa_in_blk{}", face_block))?;
+    let num_nod_per_fa = netcdf.dimension_length(&format!("num_nod_per_fa{}", face_block))?;
+    let fbepecnt = netcdf.get_variable::<i32>(&format!("fbepecnt{}", face_block), num_fa_in_blk)?;
+    let fbconn = netcdf.get_variable::<i32>(&format!("fbconn{}", face_block), num_nod_per_fa)?;
     let faces_nodes = unflatten_var(&fbconn, &fbepecnt);
     let elem_type = netcdf
         .get_variable_attribute_text(&format!("facconn{}", block), "elem_type")?
@@ -193,6 +210,18 @@ fn read_polytopal_block(
             (elements_faces, faces_nodes).into(),
         )),
         _ => panic!("unknown polytopal element type: {elem_type}"),
+    }
+}
+
+/// How much to take from the face numbers of a block to make them start at one.
+///
+/// Faces are numbered across all of the face blocks, so the faces of a block start after the faces
+/// before it. Files with several polytopal blocks that were written earlier number the faces of
+/// each block from one instead, and those need nothing taken off.
+fn face_offset(faces: &[i32], faces_before: usize) -> usize {
+    match faces.iter().min() {
+        Some(&first) if first as usize > faces_before => faces_before,
+        _ => 0,
     }
 }
 

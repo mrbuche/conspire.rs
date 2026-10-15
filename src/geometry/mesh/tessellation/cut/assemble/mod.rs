@@ -52,7 +52,7 @@ fn build_cut_cells(
     let mut sources = Vec::<[usize; 8]>::new();
     let mut offset = 0;
     mesh.iter().try_for_each(|block| {
-        let local_faces = block.local_faces();
+        let local_facets = block.local_facets();
         block.iter().enumerate().try_for_each(|(local, element)| {
             match classes[offset + local] {
                 Class::Inside => {
@@ -64,7 +64,7 @@ fn build_cut_cells(
                     let interior = element
                         .iter()
                         .any(|node| tables.signs[node] == Sign::Inside);
-                    let faces: Vec<([usize; 4], [usize; 4])> = local_faces
+                    let faces: Vec<([usize; 4], [usize; 4])> = local_facets
                         .iter()
                         .map(|face| {
                             let oriented = from_fn(|i| element[face[i]]);

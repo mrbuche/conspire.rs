@@ -111,7 +111,7 @@ fn reads_nset_with_sparse_ids() {
 }
 
 fn round_trips_all_faces(connectivity: Connectivity, coordinates: Vec<[f64; 3]>, path: &str) {
-    let num_faces = connectivity.local_faces().len();
+    let num_faces = connectivity.local_facets().len();
     let mut mesh = Mesh::from((vec![connectivity], coordinates.into()));
     let sides: Vec<(usize, usize)> = (0..num_faces).map(|ordinal| (0, ordinal)).collect();
     mesh.set_side_sets(vec![sides.clone()].into());
