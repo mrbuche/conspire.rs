@@ -42,7 +42,7 @@ fn mesh(nel: [usize; 3]) -> Mesh<3> {
 
 fn block(connectivities: Connectivities, coordinates: &Coordinates<3>, scale: f64) -> HexBlock {
     let elements: Vec<[usize; 8]> = connectivities
-        .into_members()
+        .into_blocks()
         .into_iter()
         .flat_map(|connectivity| match connectivity {
             Connectivity::Hexahedral(hexahedra) => hexahedra.into_iter().collect::<Vec<_>>(),
@@ -212,7 +212,7 @@ fn nonsymmetric_problem(nel: [usize; 3]) -> (Model<NonsymmetricBlock, 3>, Equali
         .flat_map(|(node, _)| (0..3).map(move |component| 3 * node + component))
         .collect();
     let elements: Vec<[usize; 8]> = connectivities
-        .into_members()
+        .into_blocks()
         .into_iter()
         .flat_map(|connectivity| match connectivity {
             Connectivity::Hexahedral(hexahedra) => hexahedra.into_iter().collect::<Vec<_>>(),

@@ -30,7 +30,7 @@ fn round_trip_side_sets() {
     let read = Mesh::<3>::read_vtk_multi_block(path).unwrap();
     assert_eq!(read.number_of_nodes(), 8);
     assert_eq!(read.side_sets(), side_sets.as_slice());
-    assert_eq!(read.side_set_numbers(), Some([1, 2].as_slice()));
+    assert_eq!(read.side_set_labels(), Some([1, 2].as_slice()));
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn round_trip_side_sets_compressed() {
     let read = Mesh::<3>::read_vtk_multi_block(path).unwrap();
     assert_eq!(read.number_of_nodes(), 8);
     assert_eq!(read.side_sets(), side_sets.as_slice());
-    assert_eq!(read.side_set_numbers(), Some([1, 2].as_slice()));
+    assert_eq!(read.side_set_labels(), Some([1, 2].as_slice()));
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn round_trip_side_set_numbers() {
     let path = "target/read_multi_block_side_set_numbers.vtm";
     mesh.write_vtk_multi_block(path).unwrap();
     let read = Mesh::<3>::read_vtk_multi_block(path).unwrap();
-    assert_eq!(read.side_set_numbers(), Some([10, 20].as_slice()));
+    assert_eq!(read.side_set_labels(), Some([10, 20].as_slice()));
 }
 
 #[test]

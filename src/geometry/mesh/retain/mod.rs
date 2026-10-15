@@ -6,7 +6,7 @@ use crate::{
         Coordinates,
         mesh::{Connectivities, Connectivity, Mesh},
     },
-    math::{Set, Tensor, TensorVec},
+    math::{Tensor, TensorVec},
 };
 use std::array::from_fn;
 
@@ -16,7 +16,7 @@ impl<const D: usize> Mesh<D> {
         mut keep: impl FnMut(usize, &[usize], &Coordinates<D>) -> bool,
     ) {
         let coordinates = self.coordinates();
-        let numbers = self.blocks().map(<[usize]>::to_vec);
+        let labels = self.block_labels().map(<[usize]>::to_vec);
         let mut remap = vec![usize::MAX; coordinates.len()];
         let mut new_coordinates = Coordinates::new();
         let mut id = |node: usize| {
@@ -39,11 +39,11 @@ impl<const D: usize> Mesh<D> {
                 .collect();
             blocks.push(subset(block, &kept, &mut id))
         }
-        let connectivities = match numbers {
-            Some(numbers) => Connectivities::from((blocks, numbers)),
+        let connectivities = match labels {
+            Some(labels) => Connectivities::from((blocks, labels)),
             None => Connectivities::from(blocks),
         };
-        *self = (connectivities, Set::from(new_coordinates)).into()
+        *self = (connectivities, new_coordinates).into()
     }
 }
 

@@ -58,7 +58,7 @@ impl<const D: usize> Mesh<D> {
         let mut blocks = vec![("volume".to_string(), volume_file)];
         for (set, sides) in self.side_sets().iter().enumerate() {
             let label = self
-                .side_set_numbers()
+                .side_set_labels()
                 .map_or_else(|| (set + 1).to_string(), |numbers| numbers[set].to_string());
             let side_set_file = format!("{stem}_side_set_{label}.vtp");
             write_side_set(self, sides, join(&side_set_file), compress)?;

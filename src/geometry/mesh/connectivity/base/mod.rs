@@ -6,8 +6,8 @@ use std::{fmt::Debug, num::TryFromIntError};
 
 pub(crate) trait ConnectivityImpl {
     fn is_empty(&self) -> bool;
-    fn element_numbers(&self) -> Option<&[usize]>;
-    fn number_elements(&mut self, numbers: Vec<usize>);
+    fn element_labels(&self) -> Option<&[usize]>;
+    fn label_elements(&mut self, labels: Vec<usize>);
     fn number_of_elements(&self) -> usize;
     fn number_of_faces(&self) -> Option<usize>;
     fn number_of_faces_per_element<I>(&self) -> Option<Vec<I>>
@@ -144,16 +144,16 @@ impl Connectivity {
     pub fn iter(&self) -> ElementIter<'_> {
         self.into_iter()
     }
-    pub fn element_numbers(&self) -> Option<&[usize]> {
+    pub fn element_labels(&self) -> Option<&[usize]> {
         match self {
-            Connectivity::Hexahedral(c) => c.element_numbers(),
-            Connectivity::Pyramidal(c) => c.element_numbers(),
-            Connectivity::Wedge(c) => c.element_numbers(),
-            Connectivity::Polyhedral(c) => c.element_numbers(),
-            Connectivity::Polygonal(c) => c.element_numbers(),
-            Connectivity::Quadrilateral(c) => c.element_numbers(),
-            Connectivity::Tetrahedral(c) => c.element_numbers(),
-            Connectivity::Triangular(c) => c.element_numbers(),
+            Connectivity::Hexahedral(c) => c.element_labels(),
+            Connectivity::Pyramidal(c) => c.element_labels(),
+            Connectivity::Wedge(c) => c.element_labels(),
+            Connectivity::Polyhedral(c) => c.element_labels(),
+            Connectivity::Polygonal(c) => c.element_labels(),
+            Connectivity::Quadrilateral(c) => c.element_labels(),
+            Connectivity::Tetrahedral(c) => c.element_labels(),
+            Connectivity::Triangular(c) => c.element_labels(),
         }
     }
     pub fn node_element_connectivity(&self, number_of_nodes: usize) -> Incidence {
@@ -168,16 +168,16 @@ impl Connectivity {
             Connectivity::Triangular(c) => c.transpose(number_of_nodes),
         }
     }
-    pub fn number_elements(&mut self, numbers: Vec<usize>) {
+    pub fn label_elements(&mut self, labels: Vec<usize>) {
         match self {
-            Connectivity::Hexahedral(c) => c.number_elements(numbers),
-            Connectivity::Pyramidal(c) => c.number_elements(numbers),
-            Connectivity::Wedge(c) => c.number_elements(numbers),
-            Connectivity::Polyhedral(c) => c.number_elements(numbers),
-            Connectivity::Polygonal(c) => c.number_elements(numbers),
-            Connectivity::Quadrilateral(c) => c.number_elements(numbers),
-            Connectivity::Tetrahedral(c) => c.number_elements(numbers),
-            Connectivity::Triangular(c) => c.number_elements(numbers),
+            Connectivity::Hexahedral(c) => c.label_elements(labels),
+            Connectivity::Pyramidal(c) => c.label_elements(labels),
+            Connectivity::Wedge(c) => c.label_elements(labels),
+            Connectivity::Polyhedral(c) => c.label_elements(labels),
+            Connectivity::Polygonal(c) => c.label_elements(labels),
+            Connectivity::Quadrilateral(c) => c.label_elements(labels),
+            Connectivity::Tetrahedral(c) => c.label_elements(labels),
+            Connectivity::Triangular(c) => c.label_elements(labels),
         }
     }
     pub fn number_of_elements(&self) -> usize {
@@ -279,7 +279,7 @@ impl TryFrom<Connectivities> for Vec<[usize; 3]> {
     type Error = &'static str;
     fn try_from(connectivities: Connectivities) -> Result<Self, Self::Error> {
         let mut triangles = Self::new();
-        for block in connectivities.into_members() {
+        for block in connectivities.into_blocks() {
             match block {
                 Connectivity::Triangular(block) if triangles.is_empty() => {
                     triangles = block.into_iter().collect()
@@ -296,7 +296,7 @@ impl TryFrom<Connectivities> for Vec<[usize; 8]> {
     type Error = &'static str;
     fn try_from(connectivities: Connectivities) -> Result<Self, Self::Error> {
         let mut hexes = Self::new();
-        for block in connectivities.into_members() {
+        for block in connectivities.into_blocks() {
             match block {
                 Connectivity::Hexahedral(block) if hexes.is_empty() => {
                     hexes = block.into_iter().collect()

@@ -29,7 +29,7 @@ impl<const D: usize> Mesh<D> {
                 .flatten()
                 .for_each(|&node| boundary[node] = true);
         }
-        let coordinates = self.coordinates.members_mut();
+        let coordinates = &mut self.coordinates;
         for _ in 0..iterations {
             for node in 0..number_of_nodes {
                 if neighbors[node].is_empty() {

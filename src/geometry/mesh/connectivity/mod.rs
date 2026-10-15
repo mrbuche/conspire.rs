@@ -7,7 +7,7 @@ use crate::{
     geometry::mesh::connectivity::{
         polytopal::PolytopalConnectivity, primitive::PrimitiveConnectivity,
     },
-    math::Set,
+    math::Labels,
 };
 
 pub enum Connectivity {
@@ -21,7 +21,39 @@ pub enum Connectivity {
     Wedge(PrimitiveConnectivity<3, 6>),
 }
 
-pub type Connectivities = Set<Vec<Connectivity>>;
+/// Blocks of element connectivities, each optionally labeled with a number.
+pub struct Connectivities {
+    blocks: Vec<Connectivity>,
+    labels: Option<Labels>,
+}
+
+impl Connectivities {
+    pub fn blocks(&self) -> &[Connectivity] {
+        &self.blocks
+    }
+    pub fn into_blocks(self) -> Vec<Connectivity> {
+        self.blocks
+    }
+    pub fn labels(&self) -> Option<&[usize]> {
+        self.labels.as_ref().map(Labels::as_slice)
+    }
+}
+
+impl From<Vec<Connectivity>> for Connectivities {
+    fn from(blocks: Vec<Connectivity>) -> Self {
+        Self {
+            blocks,
+            labels: None,
+        }
+    }
+}
+
+impl From<(Vec<Connectivity>, Vec<usize>)> for Connectivities {
+    fn from((blocks, labels): (Vec<Connectivity>, Vec<usize>)) -> Self {
+        let labels = Some(Labels::new(labels, blocks.len()));
+        Self { blocks, labels }
+    }
+}
 
 macro_rules! try_from_connectivity {
     ($variant: ident, $m: literal, $n: literal, $error: literal) => {

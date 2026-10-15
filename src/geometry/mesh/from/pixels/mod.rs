@@ -7,7 +7,7 @@ use crate::{
         grid::Pixels,
         mesh::{Connectivities, Connectivity, Mesh},
     },
-    math::{Set, Tensor, TensorVec},
+    math::{Tensor, TensorVec},
 };
 use std::collections::BTreeMap;
 
@@ -51,15 +51,11 @@ impl Mesh<2> {
             .zip(materials)
             .for_each(|(nodes, material)| blocks.entry(material).or_default().push(nodes));
         let mut connectivities = Vec::with_capacity(blocks.len());
-        let mut numbers = Vec::with_capacity(blocks.len());
+        let mut labels = Vec::with_capacity(blocks.len());
         for (material, quads) in blocks {
-            numbers.push(material);
+            labels.push(material);
             connectivities.push(Connectivity::Quadrilateral(quads.into()));
         }
-        (
-            Connectivities::from((connectivities, numbers)),
-            Set::from(coordinates),
-        )
-            .into()
+        (Connectivities::from((connectivities, labels)), coordinates).into()
     }
 }

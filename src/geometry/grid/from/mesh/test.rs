@@ -4,7 +4,7 @@ use crate::{
         grid::Voxels,
         mesh::{Connectivities, Connectivity, Mesh},
     },
-    math::{Quantity, Set, TensorVec},
+    math::{Quantity, TensorVec},
 };
 
 #[test]
@@ -21,7 +21,7 @@ fn tetrahedron() {
     let connectivity = Connectivity::Tetrahedral(vec![[0, 1, 2, 3]].into());
     let mesh = Mesh::from((
         Connectivities::from((vec![connectivity], vec![5])),
-        Set::from(coordinates),
+        coordinates,
     ));
     let voxels = Voxels::from_finite_elements(&mesh, Quantity::new(1.0));
     assert_eq!(*voxels.nel(), [4, 4, 4]);

@@ -9,7 +9,7 @@ use crate::{
         bbox::{BoundingBox, BoundingBoxes},
         mesh::{Connectivity, Mesh, NodeSets, SideSets},
     },
-    math::{CrossProduct, Incidence, Scalar, Tensor, TensorRank1Vec2D},
+    math::{CrossProduct, Incidence, Labels, Scalar, Tensor, TensorRank1Vec2D},
     units::Dimensionless,
 };
 
@@ -112,17 +112,17 @@ impl<const D: usize> Mesh<D> {
                 )
             })
     }
-    pub fn blocks(&self) -> Option<&[usize]> {
-        self.connectivities.numbers()
+    pub fn block_labels(&self) -> Option<&[usize]> {
+        self.connectivities.labels()
     }
     pub fn connectivities(&self) -> &[Connectivity] {
-        self.connectivities.members()
+        self.connectivities.blocks()
     }
     pub fn node_sets(&self) -> &[Vec<usize>] {
         self.node_sets.members()
     }
-    pub fn node_set_numbers(&self) -> Option<&[usize]> {
-        self.node_sets.numbers()
+    pub fn node_set_labels(&self) -> Option<&[usize]> {
+        self.node_sets.labels()
     }
     pub fn set_node_sets(&mut self, node_sets: NodeSets) {
         self.node_sets = node_sets;
@@ -130,17 +130,20 @@ impl<const D: usize> Mesh<D> {
     pub fn side_sets(&self) -> &[Vec<(usize, usize)>] {
         self.side_sets.members()
     }
-    pub fn side_set_numbers(&self) -> Option<&[usize]> {
-        self.side_sets.numbers()
+    pub fn side_set_labels(&self) -> Option<&[usize]> {
+        self.side_sets.labels()
     }
     pub fn set_side_sets(&mut self, side_sets: SideSets) {
         self.side_sets = side_sets;
     }
     pub fn iter(&self) -> impl Iterator<Item = &Connectivity> {
-        self.connectivities.members().iter()
+        self.connectivities.blocks().iter()
+    }
+    pub fn node_labels(&self) -> Option<&[usize]> {
+        self.node_labels.as_ref().map(Labels::as_slice)
     }
     pub fn coordinates(&self) -> &Coordinates<D> {
-        self.coordinates.members()
+        &self.coordinates
     }
     pub fn node_element_connectivity(&self) -> &[Vec<usize>] {
         self.nodes_elements

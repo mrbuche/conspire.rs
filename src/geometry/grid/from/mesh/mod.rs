@@ -35,7 +35,7 @@ impl Voxels<usize> {
         let nel: [usize; 3] = from_fn(|ax| (((max[ax] - min[ax]) / size).ceil() as usize).max(1));
         let [nx, ny, nz] = nel;
         let mut data = vec![0usize; nx * ny * nz];
-        let numbers = mesh.blocks();
+        let numbers = mesh.block_labels();
         for (block, connectivity) in mesh.iter().enumerate() {
             let material = numbers.map_or(block + 1, |numbers| numbers[block]);
             for nodes in connectivity {

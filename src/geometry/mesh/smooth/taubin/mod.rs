@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     geometry::mesh::{Mesh, differential::laplace::Weighting},
-    math::Scalar,
+    math::{Scalar, Tensor},
 };
 
 impl<const D: usize> Mesh<D> {

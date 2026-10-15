@@ -7,7 +7,6 @@ use crate::{
         },
     },
     io::Write,
-    math::Set,
 };
 
 #[test]
@@ -100,7 +99,7 @@ fn round_trip_block_numbers() {
     .into();
     let original = Mesh::from((
         Connectivities::from((connectivities, vec![10, 20])),
-        coordinates.into(),
+        coordinates,
     ));
     original
         .write(Output::Exodus(ExodusFormat::Classic(
@@ -108,15 +107,15 @@ fn round_trip_block_numbers() {
         )))
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_block_numbers.exo")).unwrap();
-    assert_eq!(read.connectivities.numbers(), Some([10, 20].as_slice()));
+    assert_eq!(read.connectivities.labels(), Some([10, 20].as_slice()));
 }
 
 #[test]
 fn round_trip_element_numbers() {
     let mut block_0 = Connectivity::Triangular(vec![[0, 1, 2]].into());
-    block_0.number_elements(vec![100]);
+    block_0.label_elements(vec![100]);
     let mut block_1 = Connectivity::Triangular(vec![[3, 4, 5]].into());
-    block_1.number_elements(vec![200]);
+    block_1.label_elements(vec![200]);
     let coordinates: Coordinates<3> = vec![
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
@@ -135,11 +134,11 @@ fn round_trip_element_numbers() {
     let read =
         Mesh::<3>::try_from(Input::Exodus("target/read_exodus_element_numbers.exo")).unwrap();
     assert_eq!(
-        read.connectivities()[0].element_numbers(),
+        read.connectivities()[0].element_labels(),
         Some([100].as_slice())
     );
     assert_eq!(
-        read.connectivities()[1].element_numbers(),
+        read.connectivities()[1].element_labels(),
         Some([200].as_slice())
     );
 }
@@ -151,7 +150,8 @@ fn round_trip_node_numbers() {
         vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].into();
     let original = Mesh::from((
         Connectivities::from(connectivities),
-        Set::from((coordinates, vec![7, 8, 9])),
+        coordinates,
+        vec![7, 8, 9],
     ));
     original
         .write(Output::Exodus(ExodusFormat::Classic(
@@ -159,7 +159,7 @@ fn round_trip_node_numbers() {
         )))
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_node_numbers.exo")).unwrap();
-    assert_eq!(read.coordinates.numbers(), Some([7, 8, 9].as_slice()));
+    assert_eq!(read.node_labels(), Some([7, 8, 9].as_slice()));
 }
 
 #[test]
@@ -181,7 +181,7 @@ fn round_trip_node_sets() {
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_node_sets.exo")).unwrap();
     assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
-    assert_eq!(read.node_set_numbers(), Some([1, 2].as_slice()));
+    assert_eq!(read.node_set_labels(), Some([1, 2].as_slice()));
 }
 
 #[test]
@@ -204,7 +204,7 @@ fn round_trip_node_set_numbers() {
     let read =
         Mesh::<3>::try_from(Input::Exodus("target/read_exodus_node_set_numbers.exo")).unwrap();
     assert_eq!(read.node_sets(), &[vec![0, 1], vec![2, 3]]);
-    assert_eq!(read.node_set_numbers(), Some([10, 20].as_slice()));
+    assert_eq!(read.node_set_labels(), Some([10, 20].as_slice()));
 }
 
 #[test]
@@ -226,7 +226,7 @@ fn round_trip_side_sets() {
         .unwrap();
     let read = Mesh::<3>::try_from(Input::Exodus("target/read_exodus_side_sets.exo")).unwrap();
     assert_eq!(read.side_sets(), &[vec![(0, 1)], vec![(0, 2), (1, 0)]]);
-    assert_eq!(read.side_set_numbers(), Some([1, 2].as_slice()));
+    assert_eq!(read.side_set_labels(), Some([1, 2].as_slice()));
 }
 
 #[test]
@@ -252,15 +252,15 @@ fn round_trip_side_set_numbers() {
     let read =
         Mesh::<3>::try_from(Input::Exodus("target/read_exodus_side_set_numbers.exo")).unwrap();
     assert_eq!(read.side_sets(), &[vec![(0, 1)], vec![(1, 0)]]);
-    assert_eq!(read.side_set_numbers(), Some([10, 20].as_slice()));
+    assert_eq!(read.side_set_labels(), Some([10, 20].as_slice()));
 }
 
 #[test]
 fn round_trip_side_sets_with_custom_element_numbers() {
     let mut block_0 = Connectivity::Triangular(vec![[0, 1, 2]].into());
-    block_0.number_elements(vec![100]);
+    block_0.label_elements(vec![100]);
     let mut block_1 = Connectivity::Triangular(vec![[1, 2, 3]].into());
-    block_1.number_elements(vec![200]);
+    block_1.label_elements(vec![200]);
     let coordinates: Coordinates<3> = vec![
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],

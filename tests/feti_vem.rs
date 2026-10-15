@@ -47,7 +47,7 @@ const FACES: [[usize; 4]; 6] = [
 
 fn polyhedra(connectivities: Connectivities) -> PolytopalConnectivity<3> {
     let hexahedra: Vec<[usize; 8]> = connectivities
-        .into_members()
+        .into_blocks()
         .into_iter()
         .flat_map(|connectivity| match connectivity {
             Connectivity::Hexahedral(hexahedra) => hexahedra.into_iter().collect::<Vec<_>>(),

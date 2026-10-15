@@ -58,12 +58,12 @@ where
             }
         }
         if !side_sets.is_empty() {
-            let numbers: Option<Vec<usize>> = side_set_labels
+            let labels: Option<Vec<usize>> = side_set_labels
                 .iter()
                 .map(|label| label.parse().ok())
                 .collect();
-            mesh.set_side_sets(match numbers {
-                Some(numbers) => (side_sets, numbers).into(),
+            mesh.set_side_sets(match labels {
+                Some(labels) => (side_sets, labels).into(),
                 None => side_sets.into(),
             });
         }

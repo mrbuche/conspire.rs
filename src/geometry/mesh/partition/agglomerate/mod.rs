@@ -7,7 +7,7 @@ use crate::{
         Coordinates,
         mesh::{Connectivities, Connectivity, Mesh},
     },
-    math::{Set, Tensor, TensorVec},
+    math::{Tensor, TensorVec},
 };
 use std::collections::HashMap;
 
@@ -77,7 +77,7 @@ impl Partition {
             .for_each(|node| *node = remap[*node]);
         Ok((
             Connectivities::from(vec![Connectivity::Polyhedral((cells, faces_nodes).into())]),
-            Set::from(coordinates),
+            coordinates,
         )
             .into())
     }

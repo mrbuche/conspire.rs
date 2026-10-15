@@ -105,7 +105,7 @@ impl Mesh<3> {
         let baseline = worst(&mesh);
         let (fitted, fitted_coordinates) = mesh.into();
         let blocks: Vec<Vec<[usize; 8]>> = fitted
-            .into_members()
+            .into_blocks()
             .into_iter()
             .map(|connectivity| {
                 PrimitiveConnectivity::<3, 8>::try_from(connectivity)

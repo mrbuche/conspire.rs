@@ -12,7 +12,7 @@ impl<const D: usize> Mesh<D> {
         let number_of_nodes = self.number_of_nodes();
         let neighbors = self.node_node_connectivity().to_vec();
         let incidence = Incidence::of(self);
-        let coordinates = self.coordinates.members_mut();
+        let coordinates = &mut self.coordinates;
         for _ in 0..iterations {
             for node in 0..number_of_nodes {
                 if neighbors[node].is_empty() {
