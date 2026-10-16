@@ -2,7 +2,7 @@ use super::{NodalTemperatures, capacity::HeatCapacities};
 use crate::{
     cbm::block::{
         Block,
-        node::thermal::{capacity::NodalHeatCapacity, conduction::ThermalConductionNode},
+        node::{diffusion::DiffusionNode, thermal::capacity::NodalHeatCapacity},
     },
     constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
     domain::{

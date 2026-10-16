@@ -1,6 +1,16 @@
 //! Virtual element methods.
 
 pub mod block;
+pub mod diffusion {
+    pub use crate::domain::diffusion::{
+        DiffusionElements, NodalFields, NodalForces, NodalStiffnesses,
+    };
+}
+pub mod electrical {
+    pub mod dielectric {
+        pub use crate::domain::electrical::dielectric::DielectricElements;
+    }
+}
 mod from;
 pub mod solid;
 pub mod thermal;

@@ -4,6 +4,11 @@
 mod test;
 
 pub mod block;
+pub mod diffusion {
+    pub use crate::domain::diffusion::{
+        DiffusionElements, NodalFields, NodalForces, NodalStiffnesses,
+    };
+}
 pub mod electrical;
 mod from;
 pub mod multiphysics;

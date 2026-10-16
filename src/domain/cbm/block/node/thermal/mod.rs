@@ -1,19 +1,18 @@
 pub mod capacity;
 pub mod conduction;
 
-use super::Node;
-use crate::{domain::thermal::NodalTemperatures, mechanics::TemperatureGradient};
+use super::diffusion::DiffusiveNode;
+use crate::{
+    domain::thermal::NodalTemperatures, mechanics::TemperatureGradient, units::Temperature,
+};
 
-pub trait ThermalNode {
-    fn temperature_gradient(&self, nodal_temperatures: &NodalTemperatures) -> TemperatureGradient;
-}
-
-impl ThermalNode for Node {
+pub trait ThermalNode
+where
+    Self: DiffusiveNode<Temperature>,
+{
     fn temperature_gradient(&self, nodal_temperatures: &NodalTemperatures) -> TemperatureGradient {
-        self.neighbors()
-            .iter()
-            .zip(self.gradient_vectors())
-            .map(|(&neighbor, gradient_vector)| gradient_vector * nodal_temperatures[neighbor])
-            .sum()
+        self.gradient(nodal_temperatures)
     }
 }
+
+impl<T> ThermalNode for T where T: DiffusiveNode<Temperature> {}
