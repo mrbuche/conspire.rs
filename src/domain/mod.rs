@@ -34,7 +34,10 @@ pub(crate) mod time_scale;
 pub mod vem;
 
 use crate::{
-    domain::block::element::Elements,
+    domain::{
+        block::element::Elements,
+        boundary::{BoundaryConditions, NodalState},
+    },
     geometry::{
         Coordinates,
         mesh::{NodeSets, SideSets},
@@ -192,6 +195,20 @@ where
     where
         S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
         Self: ProvidesTangent<X, S::Tangent>;
+    /// Finds the root holding the degrees of freedom of boundary conditions, whose layout must be
+    /// that of the state.
+    fn root_with<S>(
+        &self,
+        boundary_conditions: &BoundaryConditions<'_, X::Layout>,
+        solver: S,
+    ) -> Result<X, OptimizationError>
+    where
+        S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
+        Self: ProvidesTangent<X, S::Tangent>,
+        X: NodalState,
+    {
+        self.root(boundary_conditions.constraint(), solver)
+    }
 }
 
 impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> {

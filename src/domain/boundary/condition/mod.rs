@@ -64,37 +64,37 @@ where
     pub fn new() -> Self {
         Self::default()
     }
-    fn with<C>(mut self, target: Target<'m>) -> Self
+    fn with<C, I>(mut self, target: Target<'m>) -> Self
     where
-        C: Component<L>,
+        C: Component<L, I>,
     {
         self.conditions.push(BoundaryCondition {
             target,
             stride: L::STRIDE,
-            offset: C::OFFSET,
+            offset: <C as Component<L, I>>::OFFSET,
         });
         self
     }
     /// Holds a component of every node in a set at its initial value.
-    pub fn fix<C>(self, nodes: &'m NodeSet) -> Self
+    pub fn fix<C, I>(self, _: C, nodes: &'m NodeSet) -> Self
     where
-        C: Component<L>,
+        C: Component<L, I>,
     {
-        self.with::<C>(Target::Set(nodes))
+        self.with::<C, I>(Target::Set(nodes))
     }
     /// Holds a component of the listed nodes at its initial value.
-    pub fn fix_nodes<C>(self, nodes: impl IntoIterator<Item = usize>) -> Self
+    pub fn fix_nodes<C, I>(self, _: C, nodes: impl IntoIterator<Item = usize>) -> Self
     where
-        C: Component<L>,
+        C: Component<L, I>,
     {
-        self.with::<C>(Target::Nodes(nodes.into_iter().collect()))
+        self.with::<C, I>(Target::Nodes(nodes.into_iter().collect()))
     }
     /// Holds a component of a node at its initial value.
-    pub fn fix_node<C>(self, node: usize) -> Self
+    pub fn fix_node<C, I>(self, _: C, node: usize) -> Self
     where
-        C: Component<L>,
+        C: Component<L, I>,
     {
-        self.with::<C>(Target::Nodes(vec![node]))
+        self.with::<C, I>(Target::Nodes(vec![node]))
     }
     /// The conditions, in the order they were made.
     pub fn conditions(&self) -> &[BoundaryCondition<'m>] {
