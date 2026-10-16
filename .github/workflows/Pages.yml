@@ -3,8 +3,7 @@ concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.head_ref }}
 on:
-  pull_request:
-    branches: main
+  workflow_dispatch:
   push:
     branches: main
 permissions: {}
