@@ -647,6 +647,14 @@ impl<U> Solution for Quantity<U> {
             .zip(vector.iter().skip(1))
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
+    fn flat_entry(&self, index: usize) -> TensorRank0 {
+        assert_eq!(index, 0, "A quantity has one entry.");
+        self.0
+    }
+    fn set_flat_entry(&mut self, index: usize, value: TensorRank0) {
+        assert_eq!(index, 0, "A quantity has one entry.");
+        self.0 = value
+    }
 }
 
 impl<U> Hessian for Quantity<U> {

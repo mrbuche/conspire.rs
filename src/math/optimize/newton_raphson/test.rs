@@ -560,6 +560,184 @@ mod fixed {
     }
 }
 
+mod prescribed {
+    use super::*;
+    use crate::math::{
+        Matrix, SquareMatrix, Vector,
+        optimize::{LinearSolver, Prescription},
+    };
+    fn residual(x: &Vector) -> Result<Vector, String> {
+        Ok([
+            2.0 * x[0] - x[1] - 1.0,
+            -x[0] + 2.0 * x[1] - x[2],
+            -x[1] + 2.0 * x[2] - 1.0,
+        ]
+        .into())
+    }
+    fn tangent(_: &Vector) -> Result<SquareMatrix, String> {
+        Ok([[2.0, -1.0, 0.0], [-1.0, 2.0, -1.0], [0.0, -1.0, 2.0]].into())
+    }
+    fn energy(x: &Vector) -> Result<Scalar, String> {
+        Ok(0.5
+            * (2.0 * x[0] * x[0] - 2.0 * x[0] * x[1] + 2.0 * x[1] * x[1] - 2.0 * x[1] * x[2]
+                + 2.0 * x[2] * x[2])
+            - x[0]
+            - x[2])
+    }
+    fn multiplier() -> EqualityConstraint {
+        let mut matrix = Matrix::zero(1, 3);
+        matrix[0][2] = 1.0;
+        EqualityConstraint::Linear(matrix, Vector::from([0.7]))
+    }
+    const SOLUTION: [Scalar; 3] = [0.9, 0.8, 0.7];
+    #[test]
+    fn an_absolute_value() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &NewtonRaphson::default().root(
+                |x: &Vector| Ok(Vector::from([x[0] - 4.0, x[1] - 7.0])),
+                |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+                Vector::from([0.0, 3.0]),
+                EqualityConstraint::Prescribed(vec![(1, Prescription::Absolute(5.0))]),
+                None,
+            )?,
+            &Vector::from([4.0, 5.0]),
+        )
+    }
+    #[test]
+    fn an_offset() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &NewtonRaphson::default().root(
+                |x: &Vector| Ok(Vector::from([x[0] - 4.0, x[1] - 7.0])),
+                |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+                Vector::from([0.0, 3.0]),
+                EqualityConstraint::Prescribed(vec![(1, Prescription::Offset(0.5))]),
+                None,
+            )?,
+            &Vector::from([4.0, 3.5]),
+        )
+    }
+    #[test]
+    fn a_hold_is_a_fixed_index() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &NewtonRaphson::default().root(
+                |x: &Vector| Ok(Vector::from([x[0] - 4.0, x[1] - 7.0])),
+                |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+                Vector::from([0.0, 3.0]),
+                EqualityConstraint::Prescribed(vec![(1, Prescription::Initial)]),
+                None,
+            )?,
+            &Vector::from([4.0, 3.0]),
+        )
+    }
+    #[test]
+    fn elimination_and_multipliers_find_the_same_root() -> Result<(), AssertionError> {
+        let eliminated = NewtonRaphson::default().root(
+            residual,
+            tangent,
+            Vector::zero(3),
+            EqualityConstraint::Prescribed(vec![(2, Prescription::Absolute(0.7))]),
+            None,
+        )?;
+        let multiplied = NewtonRaphson::default().root(
+            residual,
+            tangent,
+            Vector::zero(3),
+            multiplier(),
+            None,
+        )?;
+        Assert::default().eq_within_tols(&eliminated, &Vector::from(SOLUTION))?;
+        Assert::default().eq_within_tols(&multiplied, &eliminated)
+    }
+    struct Diagonal;
+    impl LinearSolver for Diagonal {
+        type Tangent = Vector;
+        fn solve(
+            &self,
+            tangent: Vector,
+            retained: &[usize],
+            residual: &Vector,
+        ) -> Result<Vector, String> {
+            Ok(retained
+                .iter()
+                .zip(residual.iter())
+                .map(|(&dof, residual)| residual / tangent[dof])
+                .collect())
+        }
+    }
+    #[test]
+    fn a_linear_solver_that_needs_fixed_indices_is_given_them() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &NewtonRaphson::with(Diagonal).root(
+                |x: &Vector| {
+                    Ok(Vector::from([
+                        2.0 * (x[0] - 1.0),
+                        4.0 * (x[1] - 2.0),
+                        5.0 * (x[2] - 3.0),
+                    ]))
+                },
+                |_: &Vector| Ok(Vector::from([2.0, 4.0, 5.0])),
+                Vector::zero(3),
+                EqualityConstraint::Prescribed(vec![
+                    (1, Prescription::Absolute(9.0)),
+                    (2, Prescription::Offset(1.0)),
+                ]),
+                None,
+            )?,
+            &Vector::from([1.0, 9.0, 1.0]),
+        )
+    }
+    #[test]
+    fn a_linear_solver_that_needs_fixed_indices_refuses_multipliers() {
+        let mut matrix = Matrix::zero(1, 3);
+        matrix[0][2] = 1.0;
+        assert!(
+            NewtonRaphson::with(Diagonal)
+                .root(
+                    |x: &Vector| Ok(Vector::from([x[0], x[1], x[2]])),
+                    |_: &Vector| Ok(Vector::from([1.0, 1.0, 1.0])),
+                    Vector::zero(3),
+                    EqualityConstraint::Linear(matrix, Vector::from([0.7])),
+                    None,
+                )
+                .is_err()
+        )
+    }
+    #[test]
+    fn an_offset_from_the_initial_guess_finds_the_same_root() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &NewtonRaphson::default().root(
+                residual,
+                tangent,
+                Vector::from([0.0, 0.0, 0.2]),
+                EqualityConstraint::Prescribed(vec![(2, Prescription::Offset(0.5))]),
+                None,
+            )?,
+            &Vector::from(SOLUTION),
+        )
+    }
+    #[test]
+    fn minimizing_finds_the_same_minimum_as_multipliers() -> Result<(), AssertionError> {
+        let eliminated = NewtonRaphson::default().minimize(
+            energy,
+            residual,
+            tangent,
+            Vector::zero(3),
+            EqualityConstraint::Prescribed(vec![(2, Prescription::Absolute(0.7))]),
+            None,
+        )?;
+        let multiplied = NewtonRaphson::default().minimize(
+            energy,
+            residual,
+            tangent,
+            Vector::zero(3),
+            multiplier(),
+            None,
+        )?;
+        Assert::default().eq_within_tols(&eliminated, &Vector::from(SOLUTION))?;
+        Assert::default().eq_within_tols(&multiplied, &eliminated)
+    }
+}
+
 mod block {
     use super::*;
     use crate::math::{

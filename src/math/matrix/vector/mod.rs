@@ -235,6 +235,12 @@ impl Solution for Vector {
             .zip(other.iter())
             .for_each(|((self_i, _), vector_i)| *self_i -= vector_i)
     }
+    fn flat_entry(&self, index: usize) -> Scalar {
+        self[index]
+    }
+    fn set_flat_entry(&mut self, index: usize, value: Scalar) {
+        self[index] = value
+    }
 }
 
 impl Jacobian for Vector {

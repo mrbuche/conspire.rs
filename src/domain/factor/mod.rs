@@ -1,9 +1,13 @@
+#[cfg(test)]
+mod test;
+
 use crate::math::{
     QuantitySparseVec2D, Tensor, Vector,
     integrate::IntegrationError,
-    optimize::EqualityConstraint,
+    optimize::{EqualityConstraint, Prescription},
     sparse::{CscLdl, CscMatrix, SparseError},
 };
+use std::collections::BTreeSet;
 
 /// The indices of the fixed degrees of freedom of a constraint, for an integrator named
 /// `integrator`, which does not support linear constraints.
@@ -14,6 +18,23 @@ pub(crate) fn fixed_indices(
     match equality_constraint {
         EqualityConstraint::Fixed(indices) => Ok(indices),
         EqualityConstraint::None => Ok(vec![]),
+        EqualityConstraint::Prescribed(entries) => {
+            if entries
+                .iter()
+                .all(|&(_, prescription)| prescription == Prescription::Initial)
+            {
+                Ok(entries
+                    .iter()
+                    .map(|&(index, _)| index)
+                    .collect::<BTreeSet<usize>>()
+                    .into_iter()
+                    .collect())
+            } else {
+                Err(IntegrationError::Intermediate(format!(
+                    "Prescribed values are not supported by {integrator}."
+                )))
+            }
+        }
         EqualityConstraint::Linear(..) => Err(IntegrationError::Intermediate(format!(
             "Linear constraints are not supported by {integrator}."
         ))),

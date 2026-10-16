@@ -58,7 +58,10 @@ pub(crate) fn solver_from_neighbors(
         })
         .collect();
     match equality_constraint {
-        EqualityConstraint::Fixed(indices) => {
+        EqualityConstraint::Fixed(_) | EqualityConstraint::Prescribed(_) => {
+            let Some(indices) = equality_constraint.held_indices() else {
+                unreachable!("A fixed or prescribed constraint holds indices.")
+            };
             let mut keep = vec![true; num_coords];
             indices.iter().for_each(|&index| keep[index] = false);
             let mut remap = vec![0; num_coords];

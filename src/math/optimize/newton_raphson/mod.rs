@@ -101,11 +101,11 @@ where
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
-        initial_guess: X,
+        mut initial_guess: X,
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint {
+        match equality_constraint.lower(&mut initial_guess) {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -118,6 +118,9 @@ where
                 unchecked,
                 indices,
             ),
+            EqualityConstraint::Prescribed(_) => {
+                unreachable!("Prescribed constraints are lowered first.")
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -158,11 +161,11 @@ where
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
-        initial_guess: X,
+        mut initial_guess: X,
         equality_constraint: EqualityConstraint,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint {
+        match equality_constraint.lower(&mut initial_guess) {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -203,11 +206,11 @@ where
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
-        initial_guess: X,
+        mut initial_guess: X,
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint {
+        match equality_constraint.lower(&mut initial_guess) {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -220,6 +223,9 @@ where
                 unchecked,
                 indices,
             ),
+            EqualityConstraint::Prescribed(_) => {
+                unreachable!("Prescribed constraints are lowered first.")
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -262,12 +268,12 @@ where
         mut function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
-        initial_guess: X,
+        mut initial_guess: X,
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match equality_constraint {
+        match equality_constraint.lower(&mut initial_guess) {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 function,
@@ -280,6 +286,9 @@ where
                 verified(sparse),
                 indices,
             ),
+            EqualityConstraint::Prescribed(_) => {
+                unreachable!("Prescribed constraints are lowered first.")
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 function,
@@ -326,12 +335,12 @@ where
         mut function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
-        initial_guess: X,
+        mut initial_guess: X,
         equality_constraint: EqualityConstraint,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match equality_constraint {
+        match equality_constraint.lower(&mut initial_guess) {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 function,
@@ -378,12 +387,12 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
-        initial_guess: X,
+        mut initial_guess: X,
         equality_constraint: EqualityConstraint,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match equality_constraint {
+        match equality_constraint.lower(&mut initial_guess) {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 function,
@@ -396,6 +405,9 @@ where
                 verified(sparse),
                 indices,
             ),
+            EqualityConstraint::Prescribed(_) => {
+                unreachable!("Prescribed constraints are lowered first.")
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 function,

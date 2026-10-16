@@ -63,3 +63,66 @@ mod root {
         )
     }
 }
+
+mod prescribed {
+    use super::*;
+    use crate::math::optimize::Prescription;
+    type Point = TensorRank1<2, Current>;
+    fn target() -> Point {
+        TensorRank1::from([4.0, 7.0])
+    }
+    fn root(prescribed: Vec<(usize, Prescription)>) -> Result<Point, AssertionError> {
+        Ok(GradientDescent::default().root(
+            |x: &Point| Ok(x - &target()),
+            |_| Ok(()),
+            TensorRank1::from([0.0, 3.0]),
+            EqualityConstraint::Prescribed(prescribed),
+            None,
+        )?)
+    }
+    fn minimum(prescribed: Vec<(usize, Prescription)>) -> Result<Point, AssertionError> {
+        Ok(GradientDescent::default().minimize(
+            |x: &Point| Ok(0.5 * ((x[0].value() - 4.0).powi(2) + (x[1].value() - 7.0).powi(2))),
+            |x: &Point| Ok(x - &target()),
+            |_| Ok(()),
+            TensorRank1::from([0.0, 3.0]),
+            EqualityConstraint::Prescribed(prescribed),
+            None,
+        )?)
+    }
+    #[test]
+    fn an_absolute_value() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &root(vec![(1, Prescription::Absolute(5.0))])?,
+            &Point::from([4.0, 5.0]),
+        )
+    }
+    #[test]
+    fn an_offset() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &root(vec![(1, Prescription::Offset(0.5))])?,
+            &Point::from([4.0, 3.5]),
+        )
+    }
+    #[test]
+    fn a_hold() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &root(vec![(1, Prescription::Initial)])?,
+            &Point::from([4.0, 3.0]),
+        )
+    }
+    #[test]
+    fn minimizing_an_absolute_value() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &minimum(vec![(1, Prescription::Absolute(5.0))])?,
+            &Point::from([4.0, 5.0]),
+        )
+    }
+    #[test]
+    fn minimizing_an_offset() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &minimum(vec![(0, Prescription::Offset(-1.0))])?,
+            &Point::from([-1.0, 7.0]),
+        )
+    }
+}
