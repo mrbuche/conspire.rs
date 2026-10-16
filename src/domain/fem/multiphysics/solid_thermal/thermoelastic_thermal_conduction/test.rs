@@ -19,9 +19,10 @@ use crate::{
         },
     },
     math::{
-        Matrix, Vector,
+        Matrix, Quantity, Vector,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
+    units::{Length, Temperature as TemperatureUnit},
 };
 
 const NODES: usize = 5;
@@ -88,6 +89,20 @@ fn constraint() -> EqualityConstraint {
     EqualityConstraint::Linear(matrix, rhs)
 }
 
+fn prescribed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
+    let moved = |node: usize, direction: usize| {
+        Quantity::<Length>::new((dilation() - 1.0) * coordinates()[node][direction].value())
+    };
+    BoundaryConditions::new()
+        .prescribe_nodes(Temperature, 0..NODES, Quantity::<TemperatureUnit>::new(HOT))
+        .prescribe_node(Displacement::<0>, 0, moved(0, 0))
+        .prescribe_node(Displacement::<1>, 0, moved(0, 1))
+        .prescribe_node(Displacement::<2>, 0, moved(0, 2))
+        .prescribe_node(Displacement::<1>, 1, moved(1, 1))
+        .prescribe_node(Displacement::<2>, 1, moved(1, 2))
+        .prescribe_node(Displacement::<2>, 2, moved(2, 2))
+}
+
 fn fixed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
     BoundaryConditions::new()
         .fix_nodes(Temperature, 0..NODES)
@@ -129,6 +144,35 @@ fn boundary_conditions_of_the_layout_of_the_state_give_the_same_solution() {
             )
         });
         assert_eq!(states[node].1.value(), expected[node].1.value())
+    })
+}
+
+#[test]
+fn prescribed_values_found_by_elimination_are_what_multipliers_find() {
+    let dilation = dilation();
+    let eliminated = <Model<B, 3> as Root<
+        NodalForcesSolidThermal,
+        NodalStiffnessesSolidThermal,
+        NodalStatesSolidThermal,
+    >>::root_with(&model(), &prescribed_conditions(), NewtonRaphson::default())
+    .unwrap();
+    let multiplied = solve(constraint());
+    (0..NODES).for_each(|node| {
+        (0..3).for_each(|direction| {
+            let found = eliminated[node].0[direction].value();
+            let expected = dilation * coordinates()[node][direction].value();
+            assert!(
+                (found - expected).abs() < 1e-8,
+                "node {node} direction {direction}: {found} != {expected}"
+            );
+            assert!(
+                (found - multiplied[node].0[direction].value()).abs() < 1e-8,
+                "node {node} direction {direction}: {found} != multipliers"
+            )
+        });
+        let found = eliminated[node].1.value();
+        assert!((found - HOT).abs() < 1e-8, "node {node}: {found} != {HOT}");
+        assert!((found - multiplied[node].1.value()).abs() < 1e-8)
     })
 }
 

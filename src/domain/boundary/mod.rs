@@ -5,7 +5,9 @@ mod condition;
 pub use condition::{BoundaryCondition, BoundaryConditions};
 
 use crate::{
-    math::{Current, Quantity, Tensor, TensorRank1, TensorTuple, TensorVector},
+    math::{
+        Current, Quantity, Tensor, TensorRank1, TensorTuple, TensorVector, optimize::Prescription,
+    },
     units::{
         Concentration as ConcentrationUnit, ElectricPotential, Length,
         Temperature as TemperatureUnit,
@@ -116,6 +118,14 @@ where
     const OFFSET: usize = A::STRIDE + C::OFFSET;
 }
 
+/// A component that can be held at a value.
+///
+/// A displacement is held at a distance from its initial value, and a field at its value.
+pub trait Prescribable {
+    type Value;
+    fn prescription(value: Self::Value) -> Prescription;
+}
+
 /// The displacement along an axis.
 pub struct Displacement<const AXIS: usize>;
 
@@ -145,4 +155,32 @@ impl Component<Field<ElectricPotential>, Direct> for Potential {
 
 impl Component<Field<ConcentrationUnit>, Direct> for Concentration {
     const OFFSET: usize = 0;
+}
+
+impl<const AXIS: usize> Prescribable for Displacement<AXIS> {
+    type Value = Quantity<Length>;
+    fn prescription(value: Self::Value) -> Prescription {
+        Prescription::Offset(value.value())
+    }
+}
+
+impl Prescribable for Temperature {
+    type Value = Quantity<TemperatureUnit>;
+    fn prescription(value: Self::Value) -> Prescription {
+        Prescription::Absolute(value.value())
+    }
+}
+
+impl Prescribable for Potential {
+    type Value = Quantity<ElectricPotential>;
+    fn prescription(value: Self::Value) -> Prescription {
+        Prescription::Absolute(value.value())
+    }
+}
+
+impl Prescribable for Concentration {
+    type Value = Quantity<ConcentrationUnit>;
+    fn prescription(value: Self::Value) -> Prescription {
+        Prescription::Absolute(value.value())
+    }
 }

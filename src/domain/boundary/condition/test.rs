@@ -213,6 +213,118 @@ mod coupled {
     }
 }
 
+mod prescribed {
+    use super::*;
+    use crate::math::{Vector, optimize::Prescription};
+    fn entries(constraint: EqualityConstraint) -> Vec<(usize, Prescription)> {
+        match constraint {
+            EqualityConstraint::Prescribed(entries) => entries,
+            _ => panic!("expected a prescribed constraint"),
+        }
+    }
+    #[test]
+    fn a_displacement_is_held_at_a_distance_from_where_it_starts() {
+        let sets = sets();
+        let prescribed = BoundaryConditions::<Solid<3>>::new().prescribe(
+            Displacement::<1>,
+            sets.by_name("bottom").unwrap(),
+            Quantity::<Length>::new(0.25),
+        );
+        assert_eq!(
+            entries(prescribed.constraint()),
+            [
+                (1, Prescription::Offset(0.25)),
+                (7, Prescription::Offset(0.25))
+            ]
+        );
+    }
+    #[test]
+    fn a_field_is_held_at_its_value() {
+        let prescribed = BoundaryConditions::<Field<TemperatureUnit>>::new().prescribe_nodes(
+            Temperature,
+            [3, 1],
+            Quantity::<TemperatureUnit>::new(500.0),
+        );
+        assert_eq!(
+            entries(prescribed.constraint()),
+            [
+                (3, Prescription::Absolute(500.0)),
+                (1, Prescription::Absolute(500.0))
+            ]
+        );
+    }
+    #[test]
+    fn every_field_is_held_at_its_value() {
+        let prescribed = BoundaryConditions::<
+            Coupled<Coupled<Solid<3>, Field<TemperatureUnit>>, Field<ElectricPotential>>,
+        >::new()
+        .prescribe_node(Temperature, 2, Quantity::<TemperatureUnit>::new(300.0))
+        .prescribe_node(Potential, 2, Quantity::<ElectricPotential>::new(1.5));
+        assert_eq!(
+            entries(prescribed.constraint()),
+            [
+                (13, Prescription::Absolute(300.0)),
+                (14, Prescription::Absolute(1.5))
+            ]
+        );
+        let concentration = BoundaryConditions::<Field<ConcentrationUnit>>::new().prescribe_node(
+            Concentration,
+            4,
+            Quantity::<ConcentrationUnit>::new(2.0),
+        );
+        assert_eq!(
+            entries(concentration.constraint()),
+            [(4, Prescription::Absolute(2.0))]
+        );
+    }
+    #[test]
+    fn a_hold_among_values_is_held_at_its_initial_value() {
+        let prescribed = BoundaryConditions::<Solid<3>>::new()
+            .fix_node(Displacement::<0>, 0)
+            .prescribe_node(Displacement::<2>, 0, Quantity::<Length>::new(0.5));
+        assert_eq!(
+            entries(prescribed.constraint()),
+            [(0, Prescription::Initial), (2, Prescription::Offset(0.5))]
+        );
+    }
+    #[test]
+    fn only_holds_are_fixed() {
+        let held = BoundaryConditions::<Solid<3>>::new().fix_node(Displacement::<0>, 1);
+        assert_eq!(indices(held.constraint()), [3]);
+    }
+    #[test]
+    fn the_conditions_know_what_they_hold() {
+        let prescribed = BoundaryConditions::<Solid<3>>::new()
+            .fix_node(Displacement::<0>, 0)
+            .prescribe_node(Displacement::<1>, 0, Quantity::<Length>::new(0.5));
+        let conditions = prescribed.conditions();
+        assert_eq!(conditions[0].prescription(), Prescription::Initial);
+        assert_eq!(conditions[1].prescription(), Prescription::Offset(0.5));
+    }
+    #[test]
+    fn lowered_the_values_move_the_state() {
+        let mut state = Vector::zero(4);
+        let constraint = BoundaryConditions::<Solid<2>>::new()
+            .prescribe_node(Displacement::<1>, 1, Quantity::<Length>::new(0.5))
+            .prescribe_node(Displacement::<0>, 0, Quantity::<Length>::new(-1.0))
+            .constraint()
+            .lower(&mut state);
+        assert_eq!(indices(constraint), [0, 3]);
+        assert_eq!(state, Vector::from([-1.0, 0.0, 0.0, 0.5]));
+    }
+    #[test]
+    fn a_later_condition_on_a_degree_of_freedom_wins() {
+        let mut state = Vector::zero(4);
+        let constraint = BoundaryConditions::<Solid<2>>::new()
+            .prescribe_node(Displacement::<1>, 1, Quantity::<Length>::new(0.5))
+            .prescribe_node(Displacement::<1>, 1, Quantity::<Length>::new(0.75))
+            .constraint()
+            .lower(&mut state);
+        assert_eq!(indices(constraint), [3]);
+        assert_eq!(state, Vector::from([0.0, 0.0, 0.0, 0.75]));
+    }
+}
+
 mod solve_with {
     use crate::{
         domain::{
@@ -262,7 +374,10 @@ mod solve_with {
             EqualityConstraint::Fixed(indices) => {
                 Err(OptimizationError::Intermediate(format!("{indices:?}")))
             }
-            _ => panic!("expected a fixed constraint"),
+            EqualityConstraint::Prescribed(entries) => {
+                Err(OptimizationError::Intermediate(format!("{entries:?}")))
+            }
+            _ => panic!("expected a fixed or prescribed constraint"),
         }
     }
     impl<X> ProvidesTangent<X, ()> for Dummy<X> {
@@ -344,12 +459,27 @@ mod solve_with {
         assert_eq!(found(coupled().root_with(&fixed, Recorder)), "[3, 4, 7]");
     }
     #[test]
+    fn prescribed_values_reach_the_solver() {
+        let fixed = super::BoundaryConditions::new().prescribe_node(
+            Displacement::<1>,
+            2,
+            crate::math::Quantity::<crate::units::Length>::new(0.25),
+        );
+        assert_eq!(
+            found(solid().root_with(&fixed, Recorder)),
+            "[(7, Offset(0.25))]"
+        );
+        assert_eq!(
+            found(solid().minimize_with(&fixed, Recorder)),
+            "[(7, Offset(0.25))]"
+        );
+    }
+    #[test]
     fn minimizing_follows_the_layout_of_the_state() {
         let set = NodeSet::new(vec![0, 2]);
         let fixed = super::BoundaryConditions::new().fix(Displacement::<1>, &set);
         assert_eq!(found(solid().minimize_with(&fixed, Recorder)), "[1, 7]");
     }
-
     #[test]
     fn minimizing_coupled_conditions_follows_the_layout_of_the_state() {
         let fixed = super::BoundaryConditions::new()
@@ -360,7 +490,6 @@ mod solve_with {
             "[3, 4, 7]"
         );
     }
-
     #[test]
     fn conditions_of_the_layout_may_be_written_out() {
         let set = NodeSet::new(vec![1]);
