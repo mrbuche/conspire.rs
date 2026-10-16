@@ -29,7 +29,7 @@ const COORDINATES: [[f64; 3]; NODES] = [
 
 type B = Block<Fourier, Quantity<VolumetricHeatCapacity>>;
 
-fn conductivity() -> Fourier {
+fn thermal_conductivity() -> Fourier {
     Fourier {
         thermal_conductivity: PowerPerLengthTemperature::watts_per_meter_kelvin(50.0),
     }
@@ -45,7 +45,7 @@ fn reference() -> NodalReferenceCoordinates<3> {
 
 fn block() -> B {
     Block::<Fourier>::from((
-        conductivity(),
+        thermal_conductivity(),
         PrimitiveConnectivity::from(vec![[0, 1, 2, 3], [1, 2, 3, 4]]),
         &reference(),
     ))

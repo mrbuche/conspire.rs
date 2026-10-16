@@ -20,10 +20,10 @@ mod test;
 
 use super::{
     Acceleration, Action, Amount, Area, Capacitance, CapacitancePerArea, CapacitancePerVolume,
-    Charge, ChargeDensity, Conductance, ConductancePerArea, ConductancePerVolume, Conductivity,
-    Current, CurrentDensity, CurrentPerVolume, Density, Dimensionless, ElectricDisplacement,
-    ElectricField, ElectricPotential, Energy, Entropy, Force, ForcePerLength, Length, Mass,
-    MolarEnergy, MolarEntropy, Permeability, Permittivity, PowerPerLengthTemperature, Rate,
+    Charge, ChargeDensity, Conductance, ConductancePerArea, ConductancePerVolume, Current,
+    CurrentDensity, CurrentPerVolume, Density, Dimensionless, ElectricDisplacement, ElectricField,
+    ElectricPotential, ElectricalConductivity, Energy, Entropy, Force, ForcePerLength, Length,
+    Mass, MolarEnergy, MolarEntropy, Permeability, Permittivity, PowerPerLengthTemperature, Rate,
     ReciprocalAmount, ReciprocalTemperature, ReciprocalTemperatureSquared, SpecificEnergy,
     SpecificEntropy, Stress, StressPerLength, Temperature, Time, TimePerTemperature, Velocity,
     Viscosity, Volume,
@@ -259,7 +259,7 @@ scales!(
         millisiemens / in_millisiemens = 1e-3, "millisiemens",
         microsiemens / in_microsiemens = 1e-6, "microsiemens",
     }
-    Conductivity {
+    ElectricalConductivity {
         siemens_per_meter / in_siemens_per_meter = 1.0, "siemens per metre",
         millisiemens_per_meter / in_millisiemens_per_meter = 1e-3, "millisiemens per metre",
     }

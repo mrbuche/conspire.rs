@@ -1,7 +1,7 @@
 The Ohmic electrical conduction constitutive model.
 
 **Parameters**
-- The conductivity $`\sigma`$.
+- The electrical conductivity $`\sigma`$.
 
 **External variables**
 - The potential gradient $`\nabla\phi`$.

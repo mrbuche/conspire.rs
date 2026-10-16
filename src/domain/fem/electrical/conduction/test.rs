@@ -10,7 +10,7 @@ use crate::{
         Matrix, Quantity, Tensor, Vector,
         optimize::{EqualityConstraint, NewtonRaphson},
     },
-    units::{Conductivity, Power},
+    units::{ElectricalConductivity, Power},
 };
 
 const WIDTH: f64 = 0.2;
@@ -50,9 +50,9 @@ fn coordinates(levels: &[f64]) -> NodalReferenceCoordinates<3> {
         .into()
 }
 
-fn conductivity(value: f64) -> Ohmic {
+fn electrical_conductivity(value: f64) -> Ohmic {
     Ohmic {
-        conductivity: Conductivity::siemens_per_meter(value),
+        electrical_conductivity: ElectricalConductivity::siemens_per_meter(value),
     }
 }
 
@@ -60,7 +60,7 @@ fn slab() -> (Model<B, 3>, NodalReferenceCoordinates<3>) {
     let coordinates = coordinates(&[0.0, GAP]);
     (
         (
-            B::from((conductivity(2.5), connectivity(0), &coordinates)),
+            B::from((electrical_conductivity(2.5), connectivity(0), &coordinates)),
             coordinates.clone(),
         )
             .into(),
@@ -73,8 +73,8 @@ fn layers() -> (Model<Blocks<B, B>, 3>, NodalReferenceCoordinates<3>, f64) {
     (
         (
             Blocks(
-                B::from((conductivity(2.5), connectivity(0), &coordinates)),
-                B::from((conductivity(10.0), connectivity(4), &coordinates)),
+                B::from((electrical_conductivity(2.5), connectivity(0), &coordinates)),
+                B::from((electrical_conductivity(10.0), connectivity(4), &coordinates)),
             ),
             coordinates.clone(),
         )

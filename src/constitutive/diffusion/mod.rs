@@ -7,8 +7,8 @@ use crate::{
     math::{Quantity, Reference, TensorRank1, TensorRank1List, TensorRank2, TensorRank2List},
     units::{
         Capacitance, CapacitancePerArea, CapacitancePerVolume, Charge, ChargeDensity, Conductance,
-        ConductancePerArea, ConductancePerVolume, Conductivity, Current, CurrentDensity,
-        CurrentPerVolume, ElectricDisplacement, ElectricField, ElectricPotential, Energy,
+        ConductancePerArea, ConductancePerVolume, Current, CurrentDensity, CurrentPerVolume,
+        ElectricDisplacement, ElectricField, ElectricPotential, ElectricalConductivity, Energy,
         EnergyDensity, Permittivity, Power, PowerDensity, PowerPerArea, PowerPerAreaTemperature,
         PowerPerLengthTemperature, PowerPerTemperature, PowerPerVolumeTemperature,
         PowerTemperature, PowerTemperatureDensity, ReciprocalLength, Temperature,
@@ -74,7 +74,7 @@ impl Diffusive for Current {
     type Gradient = ElectricField;
     type Flux = CurrentDensity;
     type FluxPerLength = CurrentPerVolume;
-    type Tangent = Conductivity;
+    type Tangent = ElectricalConductivity;
     type TangentPerLength = ConductancePerArea;
     type TangentPerArea = ConductancePerVolume;
     type EnergyDensity = PowerDensity;

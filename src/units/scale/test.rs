@@ -166,8 +166,8 @@ mod cohere_inertial {
 mod cohere_conduction {
     use super::*;
     use crate::units::{
-        Charge, Conductance, ConductancePerArea, ConductancePerVolume, Conductivity, Current,
-        CurrentDensity, CurrentPerVolume, ElectricField, ElectricPotential,
+        Charge, Conductance, ConductancePerArea, ConductancePerVolume, Current, CurrentDensity,
+        CurrentPerVolume, ElectricField, ElectricPotential, ElectricalConductivity,
     };
     #[test]
     fn an_ampere_is_a_coulomb_per_second() {
@@ -201,9 +201,9 @@ mod cohere_conduction {
         )
     }
     #[test]
-    fn a_current_density_is_a_conductivity_times_a_field() {
+    fn a_current_density_is_an_electrical_conductivity_times_a_field() {
         same(
-            Conductivity::siemens_per_meter(2.0) * ElectricField::volts_per_meter(3.0),
+            ElectricalConductivity::siemens_per_meter(2.0) * ElectricField::volts_per_meter(3.0),
             CurrentDensity::amperes_per_square_meter(6.0),
         );
         same(
@@ -211,14 +211,14 @@ mod cohere_conduction {
             CurrentDensity::amperes_per_square_meter(3.0),
         );
         same(
-            Conductivity::siemens_per_meter(1.0),
-            Conductivity::millisiemens_per_meter(1e3),
+            ElectricalConductivity::siemens_per_meter(1.0),
+            ElectricalConductivity::millisiemens_per_meter(1e3),
         )
     }
     #[test]
-    fn a_conductivity_times_a_length_is_a_conductance() {
+    fn an_electrical_conductivity_times_a_length_is_a_conductance() {
         same(
-            Conductivity::siemens_per_meter(6.0) * Length::meters(2.0),
+            ElectricalConductivity::siemens_per_meter(6.0) * Length::meters(2.0),
             Conductance::siemens(12.0),
         );
         same(
@@ -242,9 +242,9 @@ mod cohere_conduction {
         )
     }
     #[test]
-    fn the_dissipation_is_a_conductivity_times_a_field_squared() {
+    fn the_dissipation_is_an_electrical_conductivity_times_a_field_squared() {
         same(
-            Conductivity::siemens_per_meter(2.0)
+            ElectricalConductivity::siemens_per_meter(2.0)
                 * ElectricField::volts_per_meter(3.0)
                 * ElectricField::volts_per_meter(3.0),
             Stress::pascals(18.0) * Rate::per_second(1.0),

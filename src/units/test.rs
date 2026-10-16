@@ -118,9 +118,9 @@ fn electrical_units_close_over_their_products() {
 #[test]
 fn conduction_units_close_over_their_products() {
     use crate::units::{
-        Area, Charge, Conductance, ConductancePerArea, ConductancePerVolume, Conductivity, Current,
+        Area, Charge, Conductance, ConductancePerArea, ConductancePerVolume, Current,
         CurrentDensity, CurrentPerVolume, ElectricField, ElectricFieldSquared, ElectricPotential,
-        Power, PowerDensity, Time, Volume,
+        ElectricalConductivity, Power, PowerDensity, Time, Volume,
     };
     same::<Product<Current, Time>, Charge>();
     same::<Quotient<Charge, Time>, Current>();
@@ -131,12 +131,12 @@ fn conduction_units_close_over_their_products() {
     same::<Product<Conductance, ElectricPotential>, Current>();
     same::<Quotient<Current, ElectricPotential>, Conductance>();
     same::<Quotient<Current, Conductance>, ElectricPotential>();
-    same::<Product<Conductivity, ElectricField>, CurrentDensity>();
-    same::<Quotient<CurrentDensity, ElectricField>, Conductivity>();
-    same::<Quotient<CurrentDensity, Conductivity>, ElectricField>();
-    same::<Product<Conductivity, Length>, Conductance>();
-    same::<Quotient<Conductance, Length>, Conductivity>();
-    same::<Product<Conductivity, ReciprocalLength>, ConductancePerArea>();
+    same::<Product<ElectricalConductivity, ElectricField>, CurrentDensity>();
+    same::<Quotient<CurrentDensity, ElectricField>, ElectricalConductivity>();
+    same::<Quotient<CurrentDensity, ElectricalConductivity>, ElectricField>();
+    same::<Product<ElectricalConductivity, Length>, Conductance>();
+    same::<Quotient<Conductance, Length>, ElectricalConductivity>();
+    same::<Product<ElectricalConductivity, ReciprocalLength>, ConductancePerArea>();
     same::<Product<ConductancePerArea, ReciprocalLength>, ConductancePerVolume>();
     same::<Product<ConductancePerArea, Area>, Conductance>();
     same::<Product<ConductancePerVolume, Volume>, Conductance>();
@@ -145,8 +145,8 @@ fn conduction_units_close_over_their_products() {
     same::<Product<CurrentDensity, ReciprocalLength>, CurrentPerVolume>();
     same::<Product<CurrentPerVolume, Volume>, Current>();
     same::<Quotient<Current, Volume>, CurrentPerVolume>();
-    same::<Product<Conductivity, ElectricFieldSquared>, PowerDensity>();
-    same::<Quotient<PowerDensity, Conductivity>, ElectricFieldSquared>();
+    same::<Product<ElectricalConductivity, ElectricFieldSquared>, PowerDensity>();
+    same::<Quotient<PowerDensity, ElectricalConductivity>, ElectricFieldSquared>();
     same::<Product<ElectricField, CurrentDensity>, PowerDensity>();
     same::<Quotient<PowerDensity, ElectricField>, CurrentDensity>();
     same::<Product<Conductance, Dimensionless>, Conductance>();

@@ -148,11 +148,12 @@ pub type CurrentDensities<const W: usize> =
     TensorRank1List<3, Reference, W, crate::units::CurrentDensity>;
 
 /// The current density tangent $`\partial\mathbf{J}/\partial\nabla\phi`$.
-pub type CurrentTangent = TensorRank2<3, Reference, Reference, crate::units::Conductivity>;
+pub type CurrentTangent =
+    TensorRank2<3, Reference, Reference, crate::units::ElectricalConductivity>;
 
 /// A list of current density tangents.
 pub type CurrentTangents<const W: usize> =
-    TensorRank2List<3, Reference, Reference, W, crate::units::Conductivity>;
+    TensorRank2List<3, Reference, Reference, W, crate::units::ElectricalConductivity>;
 
 /// A velocity in the current configuration.
 pub type CurrentVelocity = TensorRank1<3, Current, Velocity>;

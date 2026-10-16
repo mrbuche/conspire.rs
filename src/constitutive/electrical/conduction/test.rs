@@ -1,3 +1,4 @@
-use crate::{math::Quantity, units::Conductivity};
+use crate::{math::Quantity, units::ElectricalConductivity};
 
-pub const CONDUCTIVITY: Quantity<Conductivity> = Conductivity::siemens_per_meter(3.0);
+pub const ELECTRICAL_CONDUCTIVITY: Quantity<ElectricalConductivity> =
+    ElectricalConductivity::siemens_per_meter(3.0);

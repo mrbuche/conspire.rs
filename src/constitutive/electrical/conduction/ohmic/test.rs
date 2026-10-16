@@ -1,4 +1,4 @@
-use super::{super::test::CONDUCTIVITY, Ohmic};
+use super::{super::test::ELECTRICAL_CONDUCTIVITY, Ohmic};
 use crate::{
     constitutive::{diffusion::Diffusion, electrical::conduction::ElectricalConduction},
     math::{
@@ -11,7 +11,7 @@ use crate::{
 
 fn model() -> Ohmic {
     Ohmic {
-        conductivity: CONDUCTIVITY,
+        electrical_conductivity: ELECTRICAL_CONDUCTIVITY,
     }
 }
 
@@ -21,7 +21,7 @@ fn size() {
 }
 
 #[test]
-fn conductivity() -> Result<(), AssertionError> {
+fn electrical_conductivity() -> Result<(), AssertionError> {
     model()
         .current_density(&get_electric_field())?
         .iter()
