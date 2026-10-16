@@ -18,7 +18,6 @@ use crate::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
         },
     },
-    geometry::mesh::NodeSet,
     math::{
         Matrix, Vector,
         optimize::{EqualityConstraint, NewtonRaphson},
@@ -91,7 +90,7 @@ fn constraint() -> EqualityConstraint {
 
 fn fixed() -> EqualityConstraint {
     BoundaryConditions::<SolidThermal<3>>::new()
-        .fix::<Temperature>(&NodeSet::new((0..NODES).collect()))
+        .fix_nodes::<Temperature>(0..NODES)
         .fix_node::<Displacement<0>>(0)
         .fix_node::<Displacement<1>>(0)
         .fix_node::<Displacement<2>>(0)

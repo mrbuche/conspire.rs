@@ -1,7 +1,11 @@
 use super::FromConnectivities;
 use crate::{
-    domain::{Model, NodalReferenceCoordinates},
+    domain::{
+        Model, NodalReferenceCoordinates,
+        boundary::{BoundaryConditions, Displacement, Solid},
+    },
     geometry::mesh::{Connectivity, Mesh, NodeSet, SideSet},
+    math::optimize::EqualityConstraint,
 };
 
 #[derive(Debug)]
@@ -33,6 +37,20 @@ fn a_model_keeps_the_sets_of_its_mesh() {
     let model = Model::<NoBlocks, 3>::try_from((mesh, ())).unwrap();
     assert_eq!(model.node_sets().by_name("bottom").unwrap().nodes(), [0, 1]);
     assert_eq!(model.side_sets().by_label(4).unwrap().sides(), [(0, 1)]);
+}
+
+#[test]
+fn a_model_finds_the_sets_of_its_boundary_conditions() {
+    let mut mesh = mesh();
+    mesh.set_node_sets(vec![NodeSet::new(vec![0, 2]).with_name("bottom")].into());
+    let model = Model::<NoBlocks, 3>::try_from((mesh, ())).unwrap();
+    let bottom = model.node_sets().by_name("bottom").unwrap();
+    let fixed = BoundaryConditions::<Solid<3>>::new().fix::<Displacement<1>>(bottom);
+    match fixed.constraint() {
+        EqualityConstraint::Fixed(indices) => assert_eq!(indices, [1, 7]),
+        _ => panic!("expected a fixed constraint"),
+    }
+    assert!(model.node_sets().by_name("top").is_none());
 }
 
 #[test]

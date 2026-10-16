@@ -6,8 +6,8 @@ mod test;
 pub mod block;
 pub mod boundary {
     pub use crate::domain::boundary::{
-        BoundaryConditions, Component, Concentration, Displacement, Field, Layout, Potential,
-        Solid, SolidThermal, Temperature,
+        BoundaryCondition, BoundaryConditions, Component, Concentration, Displacement, Field,
+        Layout, Potential, Solid, SolidThermal, Temperature,
     };
 }
 pub mod chemical;

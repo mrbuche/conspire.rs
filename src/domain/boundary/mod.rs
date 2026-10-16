@@ -2,7 +2,7 @@
 
 mod condition;
 
-pub use condition::BoundaryConditions;
+pub use condition::{BoundaryCondition, BoundaryConditions};
 
 use crate::units::{Charge, Current, MolarFlowRate, Power};
 use std::marker::PhantomData;
