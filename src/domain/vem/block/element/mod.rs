@@ -1,4 +1,5 @@
 use crate::math::Reference;
+pub mod diffusion;
 pub mod mass;
 pub mod solid;
 #[cfg(test)]
