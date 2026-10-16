@@ -13,11 +13,13 @@ use crate::{
     math::{
         ContractWith, CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1,
         TensorRank1List, TensorRank1Vec,
+        optimize::{EqualityConstraint, LimitedMemoryBFGS, LineSearch, Tolerances},
     },
     units::{Area, Dimensionless, Length, ReciprocalLength},
 };
 use std::{
     array::from_fn,
+    cell::RefCell,
     collections::{HashSet, VecDeque},
     mem::replace,
     thread::{available_parallelism, scope},
@@ -30,11 +32,9 @@ type Target = (Coordinate<3>, Direction<3>, Quantity<Area>);
 
 type CornerTable = [(usize, [usize; 3])];
 
-const ARMIJO: Scalar = 1.0e-4;
 const BACKTRACKS: usize = 32;
 const BALANCE: Scalar = 2.5e3;
 const CONVERGENCE: Scalar = 1.0e-5;
-const CURVATURE_FLOOR: Scalar = 1.0e-12;
 const DEGENERACY: Quantity = Dimensionless::of(1.0e-12);
 const EPSILON_FLOOR: Scalar = 1.0e-12;
 const HISTORY: usize = 8;
@@ -48,6 +48,24 @@ const TIE_TOLERANCE: Scalar = 1.0e-6;
 const TOLERANCE: Scalar = 1.0e-3;
 const WEIGHT_FLOOR: Quantity = Dimensionless::of(0.3);
 const WINDOW: usize = 3;
+
+fn solver(typical: Scalar, residual: Scalar) -> LimitedMemoryBFGS {
+    LimitedMemoryBFGS {
+        abs_tol: Tolerances {
+            constraint: 0.0,
+            residual,
+        },
+        history: HISTORY,
+        line_search: LineSearch::Armijo {
+            control: 1.0e-4,
+            cut_back: 0.5,
+            max_steps: BACKTRACKS,
+        },
+        max_steps: ITERATIONS,
+        rel_tol: None,
+        typical,
+    }
+}
 
 /// Constraint on how fitted nodes approach the target surface.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -235,7 +253,7 @@ impl Mesh<3> {
                 state.epsilon = epsilon;
             }
             previous = quality;
-            let (shift, value, settled) = state.minimize(coordinates);
+            let (shift, value, settled) = state.minimize(coordinates)?;
             let stagnant = window.len() == WINDOW
                 && window.iter().fold(value, |high, &entry| high.max(entry))
                     - window.iter().fold(value, |low, &entry| low.min(entry))
@@ -540,86 +558,57 @@ impl Sweep<'_> {
             .map(|_| TensorRank1::const_from([0.0; 3]))
             .collect()
     }
-    fn minimize(&self, coordinates: &mut Coordinates<3>) -> (Scalar, Quantity<Length>, bool) {
-        let typical = self
+    fn minimize(
+        &self,
+        coordinates: &mut Coordinates<3>,
+    ) -> Result<(Scalar, Quantity<Length>, bool), &'static str> {
+        let typical = (self
             .nodes
             .iter()
             .map(|&node| self.lengths[node])
             .sum::<Quantity<Length>>()
-            / self.nodes.len().max(1) as Scalar;
-        let mut x: Coordinates<3> = self
+            / self.nodes.len().max(1) as Scalar)
+            .value();
+        let initial: Coordinates<3> = self
             .nodes
             .iter()
             .map(|&node| coordinates[node].clone())
             .collect();
-        let anchor = x.clone();
-        let mut history = Vec::<(Coordinates<3>, Gradient)>::new();
-        let mut gradient = self.derivative(coordinates);
-        let mut value = self.objective(coordinates);
-        let mut settled = false;
-        for iteration in 0..ITERATIONS {
-            let magnitude = gradient.norm().value();
-            if magnitude / x.norm().value().max(1.0) < CONVERGENCE {
-                settled = iteration == 0;
-                break;
-            }
-            let d = direction(&gradient, &history, typical / magnitude);
-            let slope = gradient.contract_with(&d);
-            if slope >= Quantity::default() {
-                history.clear();
-                continue;
-            }
-            let mut step = 1.0;
-            let mut accepted = None;
-            for _ in 0..BACKTRACKS {
-                self.nodes
-                    .iter()
-                    .enumerate()
-                    .for_each(|(index, &node)| coordinates[node] = &x[index] + &d[index] * step);
-                let trial = self.objective(coordinates);
-                if trial <= value + ARMIJO * step * slope {
-                    accepted = Some(trial);
-                    break;
-                }
-                step *= 0.5;
-            }
-            let Some(trial) = accepted else {
-                self.nodes
-                    .iter()
-                    .enumerate()
-                    .for_each(|(index, &node)| coordinates[node] = x[index].clone());
-                if history.is_empty() {
-                    break;
-                }
-                history.clear();
-                continue;
-            };
-            let s: Coordinates<3> = d.iter().map(|entry| entry * step).collect();
-            x += &s;
-            let updated = self.derivative(coordinates);
-            let y: Gradient = updated
+        let residual = CONVERGENCE * initial.norm().value().max(1.0);
+        let shared = RefCell::new(coordinates);
+        let assign = |x: &Coordinates<3>| {
+            let mut coordinates = shared.borrow_mut();
+            self.nodes
                 .iter()
-                .zip(gradient.iter())
-                .map(|(new, old)| new - old)
-                .collect();
-            if s.contract_with(&y) > s.norm() * (CURVATURE_FLOOR * y.norm().value()) {
-                if history.len() == HISTORY {
-                    history.remove(0);
-                }
-                history.push((s, y));
-            }
-            gradient = updated;
-            value = trial;
-        }
+                .zip(x.iter())
+                .for_each(|(&node, entry)| coordinates[node] = entry.clone())
+        };
+        let descent = solver(typical, residual)
+            .descend(
+                |x| {
+                    assign(x);
+                    Ok(self.objective(&shared.borrow()))
+                },
+                |x| {
+                    assign(x);
+                    Ok(self.derivative(&shared.borrow()))
+                },
+                initial.clone(),
+                EqualityConstraint::None,
+            )
+            .map_err(|_| "could not minimize the fit energy")?;
+        assign(&descent.solution);
         let shift = self
             .nodes
             .iter()
-            .enumerate()
-            .map(|(index, &node)| {
-                ((&x[index] - &anchor[index]).norm() / self.lengths[node]).value()
-            })
+            .zip(descent.solution.iter().zip(&initial))
+            .map(|(&node, (end, start))| ((end - start).norm() / self.lengths[node]).value())
             .fold(0.0, Scalar::max);
-        (shift, value, settled)
+        Ok((
+            shift,
+            descent.value,
+            descent.converged && descent.steps == 0,
+        ))
     }
 }
 
@@ -665,34 +654,6 @@ fn schedule(
     };
     let epsilon_1999 = (1.0e-18 + (0.2 * worst).powi(2)).sqrt();
     epsilon_2021.min(epsilon_1999)
-}
-
-fn direction(
-    gradient: &Gradient,
-    history: &[(Coordinates<3>, Gradient)],
-    fallback: Quantity<Length>,
-) -> Coordinates<3> {
-    let mut q = gradient.clone();
-    let mut alphas = vec![0.0; history.len()];
-    let mut rhos = vec![Quantity::<ReciprocalLength>::default(); history.len()];
-    history.iter().enumerate().rev().for_each(|(k, (s, y))| {
-        rhos[k] = 1.0 / y.contract_with(s);
-        alphas[k] = (s.contract_with(&q) * rhos[k]).value();
-        q.iter_mut()
-            .zip(y.iter())
-            .for_each(|(qi, yi)| *qi -= yi * alphas[k]);
-    });
-    let mut q: Coordinates<3> = q * history
-        .last()
-        .map_or(fallback, |(s, y)| s.contract_with(y) / y.norm_squared());
-    history.iter().enumerate().for_each(|(k, (s, y))| {
-        let beta = (y.contract_with(&q) * rhos[k]).value();
-        q.iter_mut()
-            .zip(s.iter())
-            .for_each(|(qi, si)| *qi += si * (alphas[k] - beta));
-    });
-    q *= -1.0;
-    q
 }
 
 fn edges(

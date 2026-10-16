@@ -5,8 +5,8 @@ use crate::math::assert::FiniteDifference;
 use crate::units::Dimensionless;
 
 use crate::math::{
-    Erase, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution, SquareMatrix, Tensor,
-    TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, TensorVector, write_tensor_rank_0,
+    Erase, FlatView, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution, SquareMatrix,
+    Tensor, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, TensorVector, write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -234,6 +234,15 @@ impl Solution for Vector {
             .filter(|(_, retained_i)| **retained_i)
             .zip(other.iter())
             .for_each(|((self_i, _), vector_i)| *self_i -= vector_i)
+    }
+}
+
+impl FlatView for Vector {
+    fn as_flat(&self) -> &[Scalar] {
+        self.as_slice()
+    }
+    fn as_flat_mut(&mut self) -> &mut [Scalar] {
+        self.as_mut_slice()
     }
 }
 

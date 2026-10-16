@@ -4,17 +4,16 @@ use crate::math::{Current, Reference};
 use crate::units::{Dimensionless, UnitDiv};
 
 use crate::math::{
-    Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List,
+    FlatView, Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List,
     TensorRank2SparseVec2D, TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, Vector,
-    tensor::vec::TensorVector,
+    assert::FiniteDifference, tensor::vec::TensorVector,
 };
 use std::{
     array::from_fn,
     mem::forget,
     ops::{Div, Sub},
+    slice::{from_raw_parts, from_raw_parts_mut},
 };
-
-use crate::math::assert::FiniteDifference;
 
 /// A vector of rank-1 tensors.
 pub type TensorRank1Vec<const D: usize, I, U = Dimensionless> = TensorVector<TensorRank1<D, I, U>>;
@@ -41,6 +40,33 @@ impl<const D: usize, I, U> TensorRank1Vec<D, I, U> {
     pub fn zero(len: usize) -> Self {
         (0..len).map(|_| super::zero()).collect()
     }
+    /// Views the entries as one contiguous slice of numbers, units discarded.
+    pub fn as_flat(&self) -> &[TensorRank0] {
+        const { assert!(size_of::<TensorRank1<D, I, U>>() == D * size_of::<TensorRank0>()) };
+        const { assert!(align_of::<TensorRank1<D, I, U>>() == align_of::<TensorRank0>()) };
+        let entries = self.as_slice();
+        // SAFETY: `TensorRank1` is `repr(transparent)` over `[Quantity<U>; D]` and `Quantity`
+        // over `TensorRank0`, the markers being zero-sized, so `entries` is `entries.len() * D`
+        // contiguous numbers of the same alignment, as the assertions above check.
+        unsafe { from_raw_parts(entries.as_ptr().cast(), entries.len() * D) }
+    }
+    /// Views the entries as one contiguous mutable slice of numbers, units discarded.
+    pub fn as_flat_mut(&mut self) -> &mut [TensorRank0] {
+        const { assert!(size_of::<TensorRank1<D, I, U>>() == D * size_of::<TensorRank0>()) };
+        const { assert!(align_of::<TensorRank1<D, I, U>>() == align_of::<TensorRank0>()) };
+        let entries = self.as_mut_slice();
+        // SAFETY: as in `as_flat`, the unique borrow of `entries` being carried over.
+        unsafe { from_raw_parts_mut(entries.as_mut_ptr().cast(), entries.len() * D) }
+    }
+}
+
+impl<const D: usize, I, U> FlatView for TensorRank1Vec<D, I, U> {
+    fn as_flat(&self) -> &[TensorRank0] {
+        Self::as_flat(self)
+    }
+    fn as_flat_mut(&mut self) -> &mut [TensorRank0] {
+        Self::as_flat_mut(self)
+    }
 }
 
 impl<const D: usize, I, const N: usize, U> From<[[TensorRank0; D]; N]> for TensorRank1Vec<D, I, U> {
@@ -54,6 +80,8 @@ impl<const D: usize, I, U> From<Vec<[TensorRank0; D]>> for TensorRank1Vec<D, I, 
         let (length, capacity) = (vec.len(), vec.capacity());
         let pointer = vec.as_ptr() as *mut TensorRank1<D, I, U>;
         forget(vec);
+        // SAFETY: `vec` is forgotten, so ownership of its allocation moves to the new `Vec`, and
+        // `TensorRank1` has the size and alignment of `[TensorRank0; D]`, so the layout is unchanged.
         unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
@@ -64,6 +92,7 @@ impl<const D: usize, I, U> From<TensorRank1Vec<D, I, U>> for Vec<[TensorRank0; D
         let (length, capacity) = (vec.len(), vec.capacity());
         let pointer = vec.as_ptr() as *mut [TensorRank0; D];
         forget(vec);
+        // SAFETY: as above, from `TensorRank1` back to `[TensorRank0; D]`.
         unsafe { Vec::from_raw_parts(pointer, length, capacity) }
     }
 }
@@ -132,6 +161,7 @@ impl<const D: usize, U> From<TensorRank1Vec<D, Reference, U>> for TensorRank1Vec
         let (length, capacity) = (tensor_rank_1_vec.len(), tensor_rank_1_vec.capacity());
         let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, Current, U>;
         forget(tensor_rank_1_vec);
+        // SAFETY: as above, the two types differing only in a zero-sized configuration marker.
         unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
@@ -150,6 +180,7 @@ impl<const D: usize, U> From<TensorRank1Vec<D, Current, U>> for TensorRank1Vec<D
         let (length, capacity) = (tensor_rank_1_vec.len(), tensor_rank_1_vec.capacity());
         let pointer = tensor_rank_1_vec.as_ptr() as *mut TensorRank1<D, Reference, U>;
         forget(tensor_rank_1_vec);
+        // SAFETY: as above, the two types differing only in a zero-sized configuration marker.
         unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
     }
 }
@@ -172,6 +203,8 @@ impl<const D: usize, I, U> From<Vector> for TensorRank1Vec<D, I, U> {
             let (length, capacity) = (n / D, vector.capacity() / D);
             let pointer = vector.as_ptr() as *mut TensorRank1<D, I, U>;
             forget(vector);
+            // SAFETY: as above, `capacity` being a multiple of `D` so the allocation holds exactly
+            // `capacity / D` entries of `D` numbers.
             unsafe { Self::from(Vec::from_raw_parts(pointer, length, capacity)) }
         } else {
             (0..n / D)
