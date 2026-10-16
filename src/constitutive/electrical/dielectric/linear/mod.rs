@@ -5,7 +5,7 @@ use crate::{
     constitutive::{ConstitutiveError, diffusion::Diffusion, electrical::Electrical},
     math::{IDENTITY_00, Quantity, Tensor},
     mechanics::{ElectricDisplacement, ElectricField, ElectricTangent},
-    units::{ElectricPotential, EnergyDensity, Permittivity},
+    units::{Charge, EnergyDensity, Permittivity},
 };
 
 #[doc = include_str!("doc.md")]
@@ -18,7 +18,7 @@ pub struct Linear {
 impl Electrical for Linear {}
 
 impl Diffusion for Linear {
-    type Field = ElectricPotential;
+    type Balance = Charge;
     #[doc = include_str!("potential.md")]
     fn potential(
         &self,

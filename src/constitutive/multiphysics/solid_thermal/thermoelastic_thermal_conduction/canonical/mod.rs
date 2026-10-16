@@ -20,7 +20,7 @@ use crate::{
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffThermalTangent,
         SecondPiolaKirchhoffThermalTangentStiffness, TemperatureGradient,
     },
-    units::{PowerTemperatureDensity, Stress, Temperature},
+    units::{Power, PowerTemperatureDensity, Stress, Temperature},
 };
 
 /// A thermoelastic-thermal conduction constitutive model.
@@ -204,7 +204,7 @@ where
     C1: Thermoelastic,
     C2: ThermalConduction,
 {
-    type Field = Temperature;
+    type Balance = Power;
     fn potential(
         &self,
         temperature_gradient: &TemperatureGradient,

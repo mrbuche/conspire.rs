@@ -5,9 +5,9 @@ pub(crate) mod transient;
 
 use crate::{
     domain::diffusion::{NodalFields, NodalForces, NodalStiffnesses},
-    units::Temperature,
+    units::Power,
 };
 
-pub type NodalTemperatures = NodalFields<Temperature>;
-pub type NodalForcesThermal = NodalForces<Temperature>;
-pub type NodalStiffnessesThermal = NodalStiffnesses<Temperature>;
+pub type NodalTemperatures = NodalFields<Power>;
+pub type NodalForcesThermal = NodalForces<Power>;
+pub type NodalStiffnessesThermal = NodalStiffnesses<Power>;

@@ -17,36 +17,36 @@ use crate::{
     math::Quantity,
 };
 
-pub trait DiffusiveElements<U, C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait DiffusiveElements<L, C, F, const G: usize, const M: usize, const N: usize, const P: usize>
 where
-    U: Diffusive,
-    F: DiffusiveFiniteElement<U, G, M, N, P>,
+    L: Diffusive,
+    F: DiffusiveFiniteElement<L, G, M, N, P>,
 {
     fn nodal_fields_element(
         &self,
         element_connectivity: &[usize; N],
-        nodal_fields: &NodalFields<U>,
-    ) -> ElementNodalFields<U, N>;
-    fn gradients(&self, nodal_fields: &NodalFields<U>) -> Vec<ElementGradients<U, G>>;
+        nodal_fields: &NodalFields<L>,
+    ) -> ElementNodalFields<L, N>;
+    fn gradients(&self, nodal_fields: &NodalFields<L>) -> Vec<ElementGradients<L, G>>;
 }
 
-impl<U, C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    DiffusiveElements<U, C, F, G, M, N, P> for Block<C, F, G, M, N, P, R, H>
+impl<L, C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
+    DiffusiveElements<L, C, F, G, M, N, P> for Block<C, F, G, M, N, P, R, H>
 where
-    U: Diffusive,
-    F: DiffusiveFiniteElement<U, G, M, N, P>,
+    L: Diffusive,
+    F: DiffusiveFiniteElement<L, G, M, N, P>,
 {
     fn nodal_fields_element(
         &self,
         element_connectivity: &[usize; N],
-        nodal_fields: &NodalFields<U>,
-    ) -> ElementNodalFields<U, N> {
+        nodal_fields: &NodalFields<L>,
+    ) -> ElementNodalFields<L, N> {
         element_connectivity
             .iter()
             .map(|&node| nodal_fields[node])
             .collect()
     }
-    fn gradients(&self, nodal_fields: &NodalFields<U>) -> Vec<ElementGradients<U, G>> {
+    fn gradients(&self, nodal_fields: &NodalFields<L>) -> Vec<ElementGradients<L, G>> {
         self.elements()
             .iter()
             .zip(self.connectivity())
@@ -57,17 +57,17 @@ where
     }
 }
 
-impl<U, C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    DiffusionElements<U> for Block<C, F, G, M, N, P, R, H>
+impl<L, C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
+    DiffusionElements<L> for Block<C, F, G, M, N, P, R, H>
 where
-    U: Diffusive,
-    C: Diffusion<Field = U>,
+    L: Diffusive,
+    C: Diffusion<Balance = L>,
     F: DiffusionFiniteElement<C, G, M, N, P>,
 {
     fn potential(
         &self,
-        nodal_fields: &NodalFields<U>,
-    ) -> Result<Quantity<U::Energy>, ElementModelError> {
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<Quantity<L::Energy>, ElementModelError> {
         self.elements()
             .iter()
             .zip(self.connectivity())
@@ -77,13 +77,13 @@ where
                     &self.nodal_fields_element(element_connectivity, nodal_fields),
                 )
             })
-            .sum::<Result<Quantity<U::Energy>, FiniteElementError>>()
+            .sum::<Result<Quantity<L::Energy>, FiniteElementError>>()
             .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_forces_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_forces: &mut NodalForces<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_forces: &mut NodalForces<L>,
     ) -> Result<(), ElementModelError> {
         self.elements()
             .iter()
@@ -103,8 +103,8 @@ where
     }
     fn nodal_stiffnesses_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_stiffnesses: &mut NodalStiffnesses<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_stiffnesses: &mut NodalStiffnesses<L>,
     ) -> Result<(), ElementModelError> {
         self.elements()
             .iter()

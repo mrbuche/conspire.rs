@@ -6,11 +6,11 @@ use crate::{
     fem::block::element::diffusion::{
         DiffusionFiniteElement, ElementNodalForces, ElementNodalStiffnesses,
     },
-    units::Temperature,
+    units::Power,
 };
 
-pub type ElementNodalForcesThermal<const D: usize> = ElementNodalForces<Temperature, D>;
-pub type ElementNodalStiffnessesThermal<const D: usize> = ElementNodalStiffnesses<Temperature, D>;
+pub type ElementNodalForcesThermal<const D: usize> = ElementNodalForces<Power, D>;
+pub type ElementNodalStiffnessesThermal<const D: usize> = ElementNodalStiffnesses<Power, D>;
 
 pub trait ThermalConductionFiniteElement<
     C,

@@ -6,103 +6,105 @@ use crate::{
     },
     math::{
         Quantity, QuantitySparseVec2D, QuantityVector, Tensor,
-        optimize::{EqualityConstraint, Optimization, OptimizationError, RootFinding},
+        optimize::{
+            EqualityConstraint, NewtonRaphson, Optimization, OptimizationError, RootFinding,
+        },
     },
 };
 
-pub type NodalFields<U> = QuantityVector<U>;
-pub type NodalForces<U> = QuantityVector<<U as Diffusive>::Force>;
-pub type NodalStiffnesses<U> = QuantitySparseVec2D<<U as Diffusive>::Stiffness>;
+pub type NodalFields<L> = QuantityVector<<L as Diffusive>::Field>;
+pub type NodalForces<L> = QuantityVector<L>;
+pub type NodalStiffnesses<L> = QuantitySparseVec2D<<L as Diffusive>::Stiffness>;
 
-pub trait DiffusionElements<U>
+pub trait DiffusionElements<L>
 where
-    U: Diffusive,
+    L: Diffusive,
     Self: Elements,
 {
     fn potential(
         &self,
-        nodal_fields: &NodalFields<U>,
-    ) -> Result<Quantity<U::Energy>, ElementModelError>;
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<Quantity<L::Energy>, ElementModelError>;
     fn nodal_forces_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_forces: &mut NodalForces<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_forces: &mut NodalForces<L>,
     ) -> Result<(), ElementModelError>;
     fn nodal_forces(
         &self,
-        nodal_fields: &NodalFields<U>,
-    ) -> Result<NodalForces<U>, ElementModelError> {
-        let mut nodal_forces = NodalForces::<U>::zero(nodal_fields.len());
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<NodalForces<L>, ElementModelError> {
+        let mut nodal_forces = NodalForces::<L>::zero(nodal_fields.len());
         self.nodal_forces_into(nodal_fields, &mut nodal_forces)?;
         Ok(nodal_forces)
     }
     fn nodal_stiffnesses_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_stiffnesses: &mut NodalStiffnesses<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_stiffnesses: &mut NodalStiffnesses<L>,
     ) -> Result<(), ElementModelError>;
     fn nodal_stiffnesses(
         &self,
-        nodal_fields: &NodalFields<U>,
-    ) -> Result<NodalStiffnesses<U>, ElementModelError> {
-        let mut nodal_stiffnesses = NodalStiffnesses::<U>::zero(nodal_fields.len());
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<NodalStiffnesses<L>, ElementModelError> {
+        let mut nodal_stiffnesses = NodalStiffnesses::<L>::zero(nodal_fields.len());
         self.nodal_stiffnesses_into(nodal_fields, &mut nodal_stiffnesses)?;
         Ok(nodal_stiffnesses)
     }
 }
 
-impl<U, B, const D: usize> DiffusionElements<U> for Model<B, D>
+impl<L, B, const D: usize> DiffusionElements<L> for Model<B, D>
 where
-    U: Diffusive,
-    B: DiffusionElements<U>,
+    L: Diffusive,
+    B: DiffusionElements<L>,
 {
     fn potential(
         &self,
-        nodal_fields: &NodalFields<U>,
-    ) -> Result<Quantity<U::Energy>, ElementModelError> {
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<Quantity<L::Energy>, ElementModelError> {
         self.blocks.potential(nodal_fields)
     }
     fn nodal_forces_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_forces: &mut NodalForces<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_forces: &mut NodalForces<L>,
     ) -> Result<(), ElementModelError> {
         self.blocks.nodal_forces_into(nodal_fields, nodal_forces)
     }
     fn nodal_stiffnesses_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_stiffnesses: &mut NodalStiffnesses<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_stiffnesses: &mut NodalStiffnesses<L>,
     ) -> Result<(), ElementModelError> {
         self.blocks
             .nodal_stiffnesses_into(nodal_fields, nodal_stiffnesses)
     }
 }
 
-impl<U, B1, B2> DiffusionElements<U> for Blocks<B1, B2>
+impl<L, B1, B2> DiffusionElements<L> for Blocks<B1, B2>
 where
-    U: Diffusive,
-    B1: DiffusionElements<U>,
-    B2: DiffusionElements<U>,
+    L: Diffusive,
+    B1: DiffusionElements<L>,
+    B2: DiffusionElements<L>,
 {
     fn potential(
         &self,
-        nodal_fields: &NodalFields<U>,
-    ) -> Result<Quantity<U::Energy>, ElementModelError> {
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<Quantity<L::Energy>, ElementModelError> {
         Ok(self.0.potential(nodal_fields)? + self.1.potential(nodal_fields)?)
     }
     fn nodal_forces_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_forces: &mut NodalForces<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_forces: &mut NodalForces<L>,
     ) -> Result<(), ElementModelError> {
         self.0.nodal_forces_into(nodal_fields, nodal_forces)?;
         self.1.nodal_forces_into(nodal_fields, nodal_forces)
     }
     fn nodal_stiffnesses_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_stiffnesses: &mut NodalStiffnesses<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_stiffnesses: &mut NodalStiffnesses<L>,
     ) -> Result<(), ElementModelError> {
         self.0
             .nodal_stiffnesses_into(nodal_fields, nodal_stiffnesses)?;
@@ -111,33 +113,30 @@ where
     }
 }
 
-impl<U, B, const D: usize> ProvidesTangent<NodalFields<U>, NodalStiffnesses<U>> for Model<B, D>
+impl<L, B, const D: usize> SolverFor<Model<B, D>, NodalForces<L>, NodalStiffnesses<L>>
+    for NewtonRaphson
 where
-    U: Diffusive,
-    B: DiffusionElements<U>,
+    L: Diffusive,
+    B: DiffusionElements<L>,
 {
-    fn provide_tangent(
-        &self,
-        nodal_fields: &NodalFields<U>,
-    ) -> Result<NodalStiffnesses<U>, ElementModelError> {
-        self.nodal_stiffnesses(nodal_fields)
-    }
+    type Tangent = NodalStiffnesses<L>;
+    const SPARSE: bool = true;
 }
 
-impl<U, B, const D: usize> Root<NodalForces<U>, NodalStiffnesses<U>, NodalFields<U>> for Model<B, D>
+impl<L, B, const D: usize> Root<NodalForces<L>, NodalStiffnesses<L>, NodalFields<L>> for Model<B, D>
 where
-    U: Diffusive,
-    B: DiffusionElements<U>,
+    L: Diffusive,
+    B: DiffusionElements<L>,
 {
     fn root<S>(
         &self,
         equality_constraint: EqualityConstraint,
         solver: S,
-    ) -> Result<NodalFields<U>, OptimizationError>
+    ) -> Result<NodalFields<L>, OptimizationError>
     where
-        S: SolverFor<Self, NodalForces<U>, NodalStiffnesses<U>>
-            + RootFinding<NodalForces<U>, S::Tangent, NodalFields<U>>,
-        Self: ProvidesTangent<NodalFields<U>, S::Tangent>,
+        S: SolverFor<Self, NodalForces<L>, NodalStiffnesses<L>>
+            + RootFinding<NodalForces<L>, S::Tangent, NodalFields<L>>,
+        Self: ProvidesTangent<NodalFields<L>, S::Tangent>,
     {
         let sparse = S::SPARSE.then(|| {
             let mut neighbors = vec![Vec::new(); self.coordinates().len()];
@@ -146,30 +145,40 @@ where
             solver_from_neighbors(&neighbors, &equality_constraint, 1, true)
         });
         solver.root(
-            |nodal_fields: &NodalFields<U>| Ok(self.nodal_forces(nodal_fields)?),
-            |nodal_fields: &NodalFields<U>| Ok(self.provide_tangent(nodal_fields)?),
-            NodalFields::<U>::zero(self.coordinates().len()),
+            |nodal_fields: &NodalFields<L>| Ok(self.nodal_forces(nodal_fields)?),
+            |nodal_fields: &NodalFields<L>| Ok(self.provide_tangent(nodal_fields)?),
+            NodalFields::<L>::zero(self.coordinates().len()),
             equality_constraint,
             sparse,
         )
     }
 }
 
-impl<U, B, const D: usize> Minimize<Quantity<U::Energy>, NodalForces<U>, NodalFields<U>>
+impl<L, B, const D: usize> SolverFor<Model<B, D>, Quantity<L::Energy>, NodalForces<L>>
+    for NewtonRaphson
+where
+    L: Diffusive,
+    B: DiffusionElements<L>,
+{
+    type Tangent = NodalStiffnesses<L>;
+    const SPARSE: bool = true;
+}
+
+impl<L, B, const D: usize> Minimize<Quantity<L::Energy>, NodalForces<L>, NodalFields<L>>
     for Model<B, D>
 where
-    U: Diffusive,
-    B: DiffusionElements<U>,
+    L: Diffusive,
+    B: DiffusionElements<L>,
 {
     fn minimize<S>(
         &self,
         equality_constraint: EqualityConstraint,
         solver: S,
-    ) -> Result<NodalFields<U>, OptimizationError>
+    ) -> Result<NodalFields<L>, OptimizationError>
     where
-        S: SolverFor<Self, Quantity<U::Energy>, NodalForces<U>>
-            + Optimization<Quantity<U::Energy>, NodalForces<U>, S::Tangent, NodalFields<U>>,
-        Self: ProvidesTangent<NodalFields<U>, S::Tangent>,
+        S: SolverFor<Self, Quantity<L::Energy>, NodalForces<L>>
+            + Optimization<Quantity<L::Energy>, NodalForces<L>, S::Tangent, NodalFields<L>>,
+        Self: ProvidesTangent<NodalFields<L>, S::Tangent>,
     {
         let sparse = S::SPARSE.then(|| {
             let mut neighbors = vec![Vec::new(); self.coordinates().len()];
@@ -178,10 +187,10 @@ where
             solver_from_neighbors(&neighbors, &equality_constraint, 1, true)
         });
         solver.minimize(
-            |nodal_fields: &NodalFields<U>| Ok(self.potential(nodal_fields)?),
-            |nodal_fields: &NodalFields<U>| Ok(self.nodal_forces(nodal_fields)?),
-            |nodal_fields: &NodalFields<U>| Ok(self.provide_tangent(nodal_fields)?),
-            NodalFields::<U>::zero(self.coordinates().len()),
+            |nodal_fields: &NodalFields<L>| Ok(self.potential(nodal_fields)?),
+            |nodal_fields: &NodalFields<L>| Ok(self.nodal_forces(nodal_fields)?),
+            |nodal_fields: &NodalFields<L>| Ok(self.provide_tangent(nodal_fields)?),
+            NodalFields::<L>::zero(self.coordinates().len()),
             equality_constraint,
             sparse,
         )

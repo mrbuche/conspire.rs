@@ -1,35 +1,28 @@
 use crate::{
     domain::{
-        Model, SolverFor,
+        ElementModelError, Model, ProvidesTangent,
         diffusion::DiffusionElements,
-        electrical::{NodalForcesElectrical, NodalStiffnessesElectrical},
+        electrical::{NodalPotentials, NodalStiffnessesElectrical},
     },
-    math::{Quantity, optimize::NewtonRaphson},
-    units::{ElectricPotential, Energy},
+    units::Charge,
 };
 
 pub trait DielectricElements
 where
-    Self: DiffusionElements<ElectricPotential>,
+    Self: DiffusionElements<Charge>,
 {
 }
 
-impl<B> DielectricElements for B where B: DiffusionElements<ElectricPotential> {}
+impl<B> DielectricElements for B where B: DiffusionElements<Charge> {}
 
-impl<B, const D: usize> SolverFor<Model<B, D>, NodalForcesElectrical, NodalStiffnessesElectrical>
-    for NewtonRaphson
+impl<B, const D: usize> ProvidesTangent<NodalPotentials, NodalStiffnessesElectrical> for Model<B, D>
 where
     B: DielectricElements,
 {
-    type Tangent = NodalStiffnessesElectrical;
-    const SPARSE: bool = true;
-}
-
-impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<Energy>, NodalForcesElectrical>
-    for NewtonRaphson
-where
-    B: DielectricElements,
-{
-    type Tangent = NodalStiffnessesElectrical;
-    const SPARSE: bool = true;
+    fn provide_tangent(
+        &self,
+        nodal_potentials: &NodalPotentials,
+    ) -> Result<NodalStiffnessesElectrical, ElementModelError> {
+        self.nodal_stiffnesses(nodal_potentials)
+    }
 }

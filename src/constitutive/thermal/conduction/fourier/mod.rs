@@ -5,7 +5,7 @@ use crate::{
     constitutive::{ConstitutiveError, diffusion::Diffusion, thermal::Thermal},
     math::{IDENTITY_00, Quantity, Tensor},
     mechanics::{HeatFlux, HeatFluxTangent, TemperatureGradient},
-    units::{PowerPerLengthTemperature, PowerTemperatureDensity, Temperature},
+    units::{Power, PowerPerLengthTemperature, PowerTemperatureDensity},
 };
 
 #[doc = include_str!("doc.md")]
@@ -24,7 +24,7 @@ impl Fourier {
 impl Thermal for Fourier {}
 
 impl Diffusion for Fourier {
-    type Field = Temperature;
+    type Balance = Power;
     #[doc = include_str!("potential.md")]
     fn potential(
         &self,

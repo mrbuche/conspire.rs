@@ -75,7 +75,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                     get_connectivity(),
                     &get_reference_coordinates_block(),
                 ));
-                let thermal_forces = DiffusionElements::<Temperature>::nodal_forces(&thermal_block, &temperatures)?;
+                let thermal_forces = DiffusionElements::<Power>::nodal_forces(&thermal_block, &temperatures)?;
                 let forces = ThermoelasticThermalConductionElements::nodal_forces(
                     &coupled_block(),
                     &get_coordinates_block(),

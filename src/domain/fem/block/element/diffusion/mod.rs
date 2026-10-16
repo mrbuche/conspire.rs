@@ -8,29 +8,29 @@ use crate::{
     units::{ReciprocalLength, UnitMul},
 };
 
-pub type ElementNodalFields<U, const D: usize> = TensorList<Quantity<U>, D>;
-pub type ElementNodalForces<U, const D: usize> = TensorList<Quantity<<U as Diffusive>::Force>, D>;
-pub type ElementNodalStiffnesses<U, const D: usize> =
-    TensorList<TensorList<Quantity<<U as Diffusive>::Stiffness>, D>, D>;
-pub type ElementGradients<U, const G: usize> =
-    TensorRank1List<3, Reference, G, <U as Diffusive>::Gradient>;
+pub type ElementNodalFields<L, const D: usize> = TensorList<Quantity<<L as Diffusive>::Field>, D>;
+pub type ElementNodalForces<L, const D: usize> = TensorList<Quantity<L>, D>;
+pub type ElementNodalStiffnesses<L, const D: usize> =
+    TensorList<TensorList<Quantity<<L as Diffusive>::Stiffness>, D>, D>;
+pub type ElementGradients<L, const G: usize> =
+    TensorRank1List<3, Reference, G, <L as Diffusive>::Gradient>;
 
-pub trait DiffusiveFiniteElement<U, const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait DiffusiveFiniteElement<L, const G: usize, const M: usize, const N: usize, const P: usize>
 where
-    U: Diffusive,
+    L: Diffusive,
     Self: FiniteElement<G, M, N, P>,
 {
-    fn gradients(&self, nodal_fields: &ElementNodalFields<U, N>) -> ElementGradients<U, G>;
+    fn gradients(&self, nodal_fields: &ElementNodalFields<L, N>) -> ElementGradients<L, G>;
 }
 
-impl<U, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    DiffusiveFiniteElement<U, G, M, N, P> for Element<3, G, N, O>
+impl<L, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
+    DiffusiveFiniteElement<L, G, M, N, P> for Element<3, G, N, O>
 where
-    U: Diffusive,
-    ReciprocalLength: UnitMul<U, Output = U::Gradient>,
+    L: Diffusive,
+    ReciprocalLength: UnitMul<L::Field, Output = L::Gradient>,
     Self: FiniteElement<G, M, N, P>,
 {
-    fn gradients(&self, nodal_fields: &ElementNodalFields<U, N>) -> ElementGradients<U, G> {
+    fn gradients(&self, nodal_fields: &ElementNodalFields<L, N>) -> ElementGradients<L, G> {
         self.gradient_vectors()
             .iter()
             .map(|gradient_vectors| {
@@ -47,36 +47,36 @@ where
 pub trait DiffusionFiniteElement<C, const G: usize, const M: usize, const N: usize, const P: usize>
 where
     C: Diffusion,
-    Self: DiffusiveFiniteElement<C::Field, G, M, N, P>,
+    Self: DiffusiveFiniteElement<C::Balance, G, M, N, P>,
 {
     fn potential(
         &self,
         constitutive_model: &C,
-        nodal_fields: &ElementNodalFields<C::Field, N>,
-    ) -> Result<Quantity<<C::Field as Diffusive>::Energy>, FiniteElementError>;
+        nodal_fields: &ElementNodalFields<C::Balance, N>,
+    ) -> Result<Quantity<<C::Balance as Diffusive>::Energy>, FiniteElementError>;
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_fields: &ElementNodalFields<C::Field, N>,
-    ) -> Result<ElementNodalForces<C::Field, N>, FiniteElementError>;
+        nodal_fields: &ElementNodalFields<C::Balance, N>,
+    ) -> Result<ElementNodalForces<C::Balance, N>, FiniteElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_fields: &ElementNodalFields<C::Field, N>,
-    ) -> Result<ElementNodalStiffnesses<C::Field, N>, FiniteElementError>;
+        nodal_fields: &ElementNodalFields<C::Balance, N>,
+    ) -> Result<ElementNodalStiffnesses<C::Balance, N>, FiniteElementError>;
 }
 
 impl<C, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
     DiffusionFiniteElement<C, G, M, N, P> for Element<3, G, N, O>
 where
     C: Diffusion,
-    Self: DiffusiveFiniteElement<C::Field, G, M, N, P>,
+    Self: DiffusiveFiniteElement<C::Balance, G, M, N, P>,
 {
     fn potential(
         &self,
         constitutive_model: &C,
-        nodal_fields: &ElementNodalFields<C::Field, N>,
-    ) -> Result<Quantity<<C::Field as Diffusive>::Energy>, FiniteElementError> {
+        nodal_fields: &ElementNodalFields<C::Balance, N>,
+    ) -> Result<Quantity<<C::Balance as Diffusive>::Energy>, FiniteElementError> {
         self.gradients(nodal_fields)
             .iter()
             .zip(self.integration_weights())
@@ -91,8 +91,8 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_fields: &ElementNodalFields<C::Field, N>,
-    ) -> Result<ElementNodalForces<C::Field, N>, FiniteElementError> {
+        nodal_fields: &ElementNodalFields<C::Balance, N>,
+    ) -> Result<ElementNodalForces<C::Balance, N>, FiniteElementError> {
         let fluxes = self
             .gradients(nodal_fields)
             .iter()
@@ -117,8 +117,8 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_fields: &ElementNodalFields<C::Field, N>,
-    ) -> Result<ElementNodalStiffnesses<C::Field, N>, FiniteElementError> {
+        nodal_fields: &ElementNodalFields<C::Balance, N>,
+    ) -> Result<ElementNodalStiffnesses<C::Balance, N>, FiniteElementError> {
         let tangents = self
             .gradients(nodal_fields)
             .iter()

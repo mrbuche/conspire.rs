@@ -6,26 +6,29 @@ use crate::{
     constitutive::ConstitutiveError,
     math::{Quantity, Reference, TensorRank1, TensorRank1List, TensorRank2, TensorRank2List},
     units::{
-        Capacitance, CapacitancePerArea, CapacitancePerVolume, Charge, ChargeDensity,
-        ElectricDisplacement, ElectricField, ElectricPotential, Energy, EnergyDensity,
-        Permittivity, Power, PowerDensity, PowerPerArea, PowerPerAreaTemperature,
+        Capacitance, CapacitancePerArea, CapacitancePerVolume, Charge, ChargeDensity, Conductance,
+        ConductancePerArea, ConductancePerVolume, Conductivity, Current, CurrentDensity,
+        CurrentPerVolume, ElectricDisplacement, ElectricField, ElectricPotential, Energy,
+        EnergyDensity, Permittivity, Power, PowerDensity, PowerPerArea, PowerPerAreaTemperature,
         PowerPerLengthTemperature, PowerPerTemperature, PowerPerVolumeTemperature,
         PowerTemperature, PowerTemperatureDensity, ReciprocalLength, Temperature,
         TemperaturePerLength, Unit, UnitMul, Volume,
     },
 };
 
-/// A field whose gradient drives a flux, and the units that follow from it.
+/// A balance law, named by the unit of its residual, and the units that follow.
 pub trait Diffusive
 where
     Self: Unit,
 {
+    /// The unit of the field whose gradient drives the flux.
+    type Field: Unit;
     /// The unit of the gradient of the field.
     type Gradient: Unit;
     /// The unit of the flux.
     type Flux: Unit + UnitMul<ReciprocalLength, Output = Self::FluxPerLength>;
     /// The unit of the flux per length.
-    type FluxPerLength: Unit + UnitMul<Volume, Output = Self::Force>;
+    type FluxPerLength: Unit + UnitMul<Volume, Output = Self>;
     /// The unit of the tangent of the flux.
     type Tangent: Unit + UnitMul<ReciprocalLength, Output = Self::TangentPerLength>;
     /// The unit of the tangent per length.
@@ -36,13 +39,12 @@ where
     type EnergyDensity: Unit + UnitMul<Volume, Output = Self::Energy>;
     /// The unit of the energy.
     type Energy: Unit;
-    /// The unit of the nodal force.
-    type Force: Unit;
     /// The unit of the nodal stiffness.
     type Stiffness: Unit;
 }
 
-impl Diffusive for Temperature {
+impl Diffusive for Power {
+    type Field = Temperature;
     type Gradient = TemperaturePerLength;
     type Flux = PowerPerArea;
     type FluxPerLength = PowerDensity;
@@ -51,11 +53,11 @@ impl Diffusive for Temperature {
     type TangentPerArea = PowerPerVolumeTemperature;
     type EnergyDensity = PowerTemperatureDensity;
     type Energy = PowerTemperature;
-    type Force = Power;
     type Stiffness = PowerPerTemperature;
 }
 
-impl Diffusive for ElectricPotential {
+impl Diffusive for Charge {
+    type Field = ElectricPotential;
     type Gradient = ElectricField;
     type Flux = ElectricDisplacement;
     type FluxPerLength = ChargeDensity;
@@ -64,32 +66,45 @@ impl Diffusive for ElectricPotential {
     type TangentPerArea = CapacitancePerVolume;
     type EnergyDensity = EnergyDensity;
     type Energy = Energy;
-    type Force = Charge;
     type Stiffness = Capacitance;
+}
+
+impl Diffusive for Current {
+    type Field = ElectricPotential;
+    type Gradient = ElectricField;
+    type Flux = CurrentDensity;
+    type FluxPerLength = CurrentPerVolume;
+    type Tangent = Conductivity;
+    type TangentPerLength = ConductancePerArea;
+    type TangentPerArea = ConductancePerVolume;
+    type EnergyDensity = PowerDensity;
+    type Energy = Power;
+    type Stiffness = Conductance;
 }
 
 /// The gradient of the field.
 pub type DiffusionGradient<C> =
-    TensorRank1<3, Reference, <<C as Diffusion>::Field as Diffusive>::Gradient>;
+    TensorRank1<3, Reference, <<C as Diffusion>::Balance as Diffusive>::Gradient>;
 
 /// A list of gradients of the field.
 pub type DiffusionGradients<C, const N: usize> =
-    TensorRank1List<3, Reference, N, <<C as Diffusion>::Field as Diffusive>::Gradient>;
+    TensorRank1List<3, Reference, N, <<C as Diffusion>::Balance as Diffusive>::Gradient>;
 
 /// The flux.
-pub type DiffusionFlux<C> = TensorRank1<3, Reference, <<C as Diffusion>::Field as Diffusive>::Flux>;
+pub type DiffusionFlux<C> =
+    TensorRank1<3, Reference, <<C as Diffusion>::Balance as Diffusive>::Flux>;
 
 /// A list of fluxes.
 pub type DiffusionFluxes<C, const N: usize> =
-    TensorRank1List<3, Reference, N, <<C as Diffusion>::Field as Diffusive>::Flux>;
+    TensorRank1List<3, Reference, N, <<C as Diffusion>::Balance as Diffusive>::Flux>;
 
 /// The tangent to the flux.
 pub type DiffusionTangent<C> =
-    TensorRank2<3, Reference, Reference, <<C as Diffusion>::Field as Diffusive>::Tangent>;
+    TensorRank2<3, Reference, Reference, <<C as Diffusion>::Balance as Diffusive>::Tangent>;
 
 /// A list of tangents to the flux.
 pub type DiffusionTangents<C, const N: usize> =
-    TensorRank2List<3, Reference, Reference, N, <<C as Diffusion>::Field as Diffusive>::Tangent>;
+    TensorRank2List<3, Reference, Reference, N, <<C as Diffusion>::Balance as Diffusive>::Tangent>;
 
 /// Required methods for diffusion constitutive models.
 ///
@@ -100,13 +115,13 @@ pub trait Diffusion
 where
     Self: Clone + Debug,
 {
-    /// The field whose gradient drives the flux.
-    type Field: Diffusive;
+    /// The balance law the flux enters.
+    type Balance: Diffusive;
     /// Calculates and returns the potential.
     fn potential(
         &self,
         gradient: &DiffusionGradient<Self>,
-    ) -> Result<Quantity<<Self::Field as Diffusive>::EnergyDensity>, ConstitutiveError>;
+    ) -> Result<Quantity<<Self::Balance as Diffusive>::EnergyDensity>, ConstitutiveError>;
     /// Calculates and returns the flux.
     fn flux(
         &self,

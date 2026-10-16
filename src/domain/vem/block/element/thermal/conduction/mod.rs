@@ -3,14 +3,14 @@ mod test;
 
 use crate::{
     constitutive::thermal::conduction::ThermalConduction,
-    units::Temperature,
+    units::Power,
     vem::block::element::diffusion::{
         DiffusionVirtualElement, ElementNodalForces, ElementNodalStiffnesses,
     },
 };
 
-pub type ElementNodalForcesThermal = ElementNodalForces<Temperature>;
-pub type ElementNodalStiffnessesThermal = ElementNodalStiffnesses<Temperature>;
+pub type ElementNodalForcesThermal = ElementNodalForces<Power>;
+pub type ElementNodalStiffnessesThermal = ElementNodalStiffnesses<Power>;
 
 pub trait ThermalConductionVirtualElement<C>
 where

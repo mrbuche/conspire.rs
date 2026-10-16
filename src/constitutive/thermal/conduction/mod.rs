@@ -15,7 +15,7 @@ mod fourier;
 use crate::{
     constitutive::{ConstitutiveError, diffusion::Diffusion, thermal::Thermal},
     mechanics::{HeatFlux, HeatFluxTangent, TemperatureGradient},
-    units::Temperature,
+    units::Power,
 };
 
 pub use fourier::Fourier;
@@ -23,7 +23,7 @@ pub use fourier::Fourier;
 /// Required methods for thermal conduction constitutive models.
 pub trait ThermalConduction
 where
-    Self: Thermal + Diffusion<Field = Temperature>,
+    Self: Thermal + Diffusion<Balance = Power>,
 {
     /// Calculates and returns the heat flux.
     fn heat_flux(
@@ -41,4 +41,4 @@ where
     }
 }
 
-impl<C> ThermalConduction for C where C: Thermal + Diffusion<Field = Temperature> {}
+impl<C> ThermalConduction for C where C: Thermal + Diffusion<Balance = Power> {}

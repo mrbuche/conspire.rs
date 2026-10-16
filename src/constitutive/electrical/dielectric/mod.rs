@@ -15,7 +15,7 @@ mod linear;
 use crate::{
     constitutive::{ConstitutiveError, diffusion::Diffusion, electrical::Electrical},
     mechanics::{ElectricDisplacement, ElectricField, ElectricTangent},
-    units::ElectricPotential,
+    units::Charge,
 };
 
 pub use linear::Linear;
@@ -23,7 +23,7 @@ pub use linear::Linear;
 /// Required methods for dielectric constitutive models.
 pub trait Dielectric
 where
-    Self: Electrical + Diffusion<Field = ElectricPotential>,
+    Self: Electrical + Diffusion<Balance = Charge>,
 {
     /// Calculates and returns the electric displacement.
     fn electric_displacement(
@@ -41,4 +41,4 @@ where
     }
 }
 
-impl<C> Dielectric for C where C: Electrical + Diffusion<Field = ElectricPotential> {}
+impl<C> Dielectric for C where C: Electrical + Diffusion<Balance = Charge> {}

@@ -9,50 +9,57 @@ use crate::{
     },
 };
 
-pub type ElementNodalForces<U> = TensorVector<Quantity<<U as Diffusive>::Force>>;
-pub type ElementNodalStiffnesses<U> =
-    TensorVector<TensorVector<Quantity<<U as Diffusive>::Stiffness>>>;
+pub type ElementNodalForces<L> = TensorVector<Quantity<L>>;
+pub type ElementNodalStiffnesses<L> =
+    TensorVector<TensorVector<Quantity<<L as Diffusive>::Stiffness>>>;
 
 pub trait DiffusionVirtualElement<C>
 where
     C: Diffusion,
-    Self: DiffusiveVirtualElement<C::Field>,
+    Self: DiffusiveVirtualElement<C::Balance>,
 {
     fn potential(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<Quantity<<C::Field as Diffusive>::Energy>, VirtualElementError>;
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<Quantity<<C::Balance as Diffusive>::Energy>, VirtualElementError>;
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<ElementNodalForces<C::Field>, VirtualElementError>;
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<ElementNodalForces<C::Balance>, VirtualElementError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<ElementNodalStiffnesses<C::Field>, VirtualElementError>;
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<ElementNodalStiffnesses<C::Balance>, VirtualElementError>;
 }
 
 impl<C> DiffusionVirtualElement<C> for Element
 where
     C: Diffusion,
-    ReciprocalLength: UnitMul<C::Field, Output = <C::Field as Diffusive>::Gradient>,
+    ReciprocalLength:
+        UnitMul<<C::Balance as Diffusive>::Field, Output = <C::Balance as Diffusive>::Gradient>,
 {
     fn potential(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<Quantity<<C::Field as Diffusive>::Energy>, VirtualElementError> {
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<Quantity<<C::Balance as Diffusive>::Energy>, VirtualElementError> {
         let stabilization = self.stabilization();
         let projected = constitutive_model
-            .potential(&self.gradient(nodal_fields))
+            .potential(&DiffusiveVirtualElement::<C::Balance>::gradient(
+                self,
+                nodal_fields,
+            ))
             .map_err(|error| self.upstream(error))?
             * (self.integration_weights()[0] * (1.0 - stabilization));
         self.tetrahedra()
             .iter()
-            .zip(self.tetrahedra_fields(nodal_fields))
+            .zip(DiffusiveVirtualElement::<C::Balance>::tetrahedra_fields(
+                self,
+                nodal_fields,
+            ))
             .try_fold(projected, |total, (tetrahedron, fields)| {
                 Ok::<_, FiniteElementError>(
                     total
@@ -68,24 +75,29 @@ where
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<ElementNodalForces<C::Field>, VirtualElementError> {
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<ElementNodalForces<C::Balance>, VirtualElementError> {
         let stabilization = self.stabilization();
         let inverse_num_nodes = 1.0 / nodal_fields.len() as Scalar;
         let flux = constitutive_model
-            .flux(&self.gradient(nodal_fields))
+            .flux(&DiffusiveVirtualElement::<C::Balance>::gradient(
+                self,
+                nodal_fields,
+            ))
             .map_err(|error| self.upstream(error))?;
         let weight = self.integration_weights()[0] * (1.0 - stabilization);
         let mut forces = self.gradient_vectors()[0]
             .iter()
             .map(|gradient_vector| -flux.contract_with(gradient_vector) * weight)
-            .collect::<ElementNodalForces<C::Field>>();
-        let mut faces_forces =
-            vec![Quantity::<<C::Field as Diffusive>::Force>::default(); self.faces_nodes().len()];
-        let mut center_force = Quantity::<<C::Field as Diffusive>::Force>::default();
+            .collect::<ElementNodalForces<C::Balance>>();
+        let mut faces_forces = vec![Quantity::<C::Balance>::default(); self.faces_nodes().len()];
+        let mut center_force = Quantity::<C::Balance>::default();
         self.tetrahedra()
             .iter()
-            .zip(self.tetrahedra_fields(nodal_fields))
+            .zip(DiffusiveVirtualElement::<C::Balance>::tetrahedra_fields(
+                self,
+                nodal_fields,
+            ))
             .zip(self.tetrahedra_nodes())
             .try_for_each(|((tetrahedron, fields), &[face, node_b, node_a])| {
                 let nodal_forces =
@@ -113,13 +125,16 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<ElementNodalStiffnesses<C::Field>, VirtualElementError> {
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<ElementNodalStiffnesses<C::Balance>, VirtualElementError> {
         let num_nodes = nodal_fields.len();
         let stabilization = self.stabilization();
         let inverse_num_nodes = 1.0 / num_nodes as Scalar;
         let tangent = constitutive_model
-            .tangent(&self.gradient(nodal_fields))
+            .tangent(&DiffusiveVirtualElement::<C::Balance>::gradient(
+                self,
+                nodal_fields,
+            ))
             .map_err(|error| self.upstream(error))?;
         let weight = self.integration_weights()[0] * (1.0 - stabilization);
         let gradient_vectors = &self.gradient_vectors()[0];
@@ -133,9 +148,9 @@ where
                     })
                     .collect()
             })
-            .collect::<ElementNodalStiffnesses<C::Field>>();
+            .collect::<ElementNodalStiffnesses<C::Balance>>();
         let num_faces = self.faces_nodes().len();
-        let zero = Quantity::<<C::Field as Diffusive>::Stiffness>::default();
+        let zero = Quantity::<<C::Balance as Diffusive>::Stiffness>::default();
         let mut faces_stiffnesses = vec![zero; num_faces];
         let mut faces_rows = vec![zero; num_faces];
         let mut faces_columns = vec![zero; num_faces];
@@ -144,7 +159,10 @@ where
         let mut center_stiffness = zero;
         self.tetrahedra()
             .iter()
-            .zip(self.tetrahedra_fields(nodal_fields))
+            .zip(DiffusiveVirtualElement::<C::Balance>::tetrahedra_fields(
+                self,
+                nodal_fields,
+            ))
             .zip(self.tetrahedra_nodes())
             .try_for_each(|((tetrahedron, fields), &[face, node_b, node_a])| {
                 let nodal_stiffnesses = DiffusionFiniteElement::nodal_stiffnesses(

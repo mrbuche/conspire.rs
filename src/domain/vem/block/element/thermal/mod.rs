@@ -3,7 +3,7 @@ pub mod conduction;
 
 use crate::{
     fem::block::element::thermal::ElementNodalTemperatures as TetrahedronNodalTemperatures,
-    mechanics::TemperatureGradient, units::Temperature,
+    mechanics::TemperatureGradient, units::Power,
     vem::block::element::diffusion::DiffusiveVirtualElement,
 };
 
@@ -11,7 +11,7 @@ pub use crate::domain::thermal::NodalTemperatures as ElementNodalTemperatures;
 
 pub trait ThermalVirtualElement
 where
-    Self: DiffusiveVirtualElement<Temperature>,
+    Self: DiffusiveVirtualElement<Power>,
 {
     fn temperature_gradient(
         &self,
@@ -27,4 +27,4 @@ where
     }
 }
 
-impl<T> ThermalVirtualElement for T where T: DiffusiveVirtualElement<Temperature> {}
+impl<T> ThermalVirtualElement for T where T: DiffusiveVirtualElement<Power> {}

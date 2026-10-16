@@ -9,7 +9,7 @@ use crate::{
         element::thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
     mechanics::TemperatureGradients,
-    units::Temperature,
+    units::Power,
 };
 
 pub use crate::domain::thermal::NodalTemperatures;
@@ -18,7 +18,7 @@ pub trait ThermalElements<C, F, const G: usize, const M: usize, const N: usize, 
 where
     C: Thermal,
     F: ThermalFiniteElement<G, M, N, P>,
-    Self: DiffusiveElements<Temperature, C, F, G, M, N, P>,
+    Self: DiffusiveElements<Power, C, F, G, M, N, P>,
 {
     fn nodal_temperatures_element(
         &self,
@@ -40,6 +40,6 @@ impl<T, C, F, const G: usize, const M: usize, const N: usize, const P: usize>
 where
     C: Thermal,
     F: ThermalFiniteElement<G, M, N, P>,
-    T: DiffusiveElements<Temperature, C, F, G, M, N, P>,
+    T: DiffusiveElements<Power, C, F, G, M, N, P>,
 {
 }

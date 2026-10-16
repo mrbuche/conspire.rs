@@ -11,14 +11,14 @@ use crate::{
     vem::block::element::{Element, VirtualElement},
 };
 
-pub trait DiffusiveVirtualElement<U>
+pub trait DiffusiveVirtualElement<L>
 where
-    U: Diffusive,
+    L: Diffusive,
     Self: VirtualElement,
 {
-    fn gradient(&self, nodal_fields: &NodalFields<U>) -> TensorRank1<3, Reference, U::Gradient>;
-    fn tetrahedra_fields(&self, nodal_fields: &NodalFields<U>)
-    -> Vec<TetrahedronNodalFields<U, 4>>;
+    fn gradient(&self, nodal_fields: &NodalFields<L>) -> TensorRank1<3, Reference, L::Gradient>;
+    fn tetrahedra_fields(&self, nodal_fields: &NodalFields<L>)
+    -> Vec<TetrahedronNodalFields<L, 4>>;
 }
 
 fn mean<U>(fields: Vec<Quantity<U>>) -> Quantity<U> {
@@ -26,12 +26,12 @@ fn mean<U>(fields: Vec<Quantity<U>>) -> Quantity<U> {
     fields.into_iter().sum::<Quantity<U>>() / number
 }
 
-impl<U> DiffusiveVirtualElement<U> for Element
+impl<L> DiffusiveVirtualElement<L> for Element
 where
-    U: Diffusive,
-    ReciprocalLength: UnitMul<U, Output = U::Gradient>,
+    L: Diffusive,
+    ReciprocalLength: UnitMul<L::Field, Output = L::Gradient>,
 {
-    fn gradient(&self, nodal_fields: &NodalFields<U>) -> TensorRank1<3, Reference, U::Gradient> {
+    fn gradient(&self, nodal_fields: &NodalFields<L>) -> TensorRank1<3, Reference, L::Gradient> {
         nodal_fields
             .iter()
             .zip(&self.gradient_vectors()[0])
@@ -40,8 +40,8 @@ where
     }
     fn tetrahedra_fields(
         &self,
-        nodal_fields: &NodalFields<U>,
-    ) -> Vec<TetrahedronNodalFields<U, 4>> {
+        nodal_fields: &NodalFields<L>,
+    ) -> Vec<TetrahedronNodalFields<L, 4>> {
         let element_center = mean(nodal_fields.iter().copied().collect());
         let faces_centers = self
             .faces_nodes()

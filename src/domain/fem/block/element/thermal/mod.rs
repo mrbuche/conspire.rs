@@ -4,14 +4,14 @@ pub mod conduction;
 use crate::{
     fem::block::element::diffusion::{DiffusiveFiniteElement, ElementNodalFields},
     mechanics::TemperatureGradients,
-    units::Temperature,
+    units::Power,
 };
 
-pub type ElementNodalTemperatures<const D: usize> = ElementNodalFields<Temperature, D>;
+pub type ElementNodalTemperatures<const D: usize> = ElementNodalFields<Power, D>;
 
 pub trait ThermalFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where
-    Self: DiffusiveFiniteElement<Temperature, G, M, N, P>,
+    Self: DiffusiveFiniteElement<Power, G, M, N, P>,
 {
     fn temperature_gradients(
         &self,
@@ -24,6 +24,6 @@ where
 impl<T, const G: usize, const M: usize, const N: usize, const P: usize>
     ThermalFiniteElement<G, M, N, P> for T
 where
-    T: DiffusiveFiniteElement<Temperature, G, M, N, P>,
+    T: DiffusiveFiniteElement<Power, G, M, N, P>,
 {
 }

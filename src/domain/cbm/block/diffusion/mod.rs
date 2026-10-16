@@ -14,26 +14,26 @@ use crate::{
     math::Quantity,
 };
 
-impl<U, C, R> DiffusionElements<U> for Block<C, R>
+impl<L, C, R> DiffusionElements<L> for Block<C, R>
 where
-    U: Diffusive,
-    C: Diffusion<Field = U>,
+    L: Diffusive,
+    C: Diffusion<Balance = L>,
     Node: DiffusionNode<C>,
 {
     fn potential(
         &self,
-        nodal_fields: &NodalFields<U>,
-    ) -> Result<Quantity<U::Energy>, ElementModelError> {
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<Quantity<L::Energy>, ElementModelError> {
         self.nodes
             .iter()
             .map(|node| node.potential(&self.constitutive_model, nodal_fields))
-            .sum::<Result<Quantity<U::Energy>, ConstitutiveError>>()
+            .sum::<Result<Quantity<L::Energy>, ConstitutiveError>>()
             .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn nodal_forces_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_forces: &mut NodalForces<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_forces: &mut NodalForces<L>,
     ) -> Result<(), ElementModelError> {
         self.nodes
             .iter()
@@ -48,8 +48,8 @@ where
     }
     fn nodal_stiffnesses_into(
         &self,
-        nodal_fields: &NodalFields<U>,
-        nodal_stiffnesses: &mut NodalStiffnesses<U>,
+        nodal_fields: &NodalFields<L>,
+        nodal_stiffnesses: &mut NodalStiffnesses<L>,
     ) -> Result<(), ElementModelError> {
         self.nodes
             .iter()

@@ -9,21 +9,21 @@ use crate::{
     units::{ReciprocalLength, UnitMul},
 };
 
-pub type NodeStiffnesses<U> = Vec<Vec<Quantity<<U as Diffusive>::Stiffness>>>;
+pub type NodeStiffnesses<L> = Vec<Vec<Quantity<<L as Diffusive>::Stiffness>>>;
 
-pub trait DiffusiveNode<U>
+pub trait DiffusiveNode<L>
 where
-    U: Diffusive,
+    L: Diffusive,
 {
-    fn gradient(&self, nodal_fields: &NodalFields<U>) -> TensorRank1<3, Reference, U::Gradient>;
+    fn gradient(&self, nodal_fields: &NodalFields<L>) -> TensorRank1<3, Reference, L::Gradient>;
 }
 
-impl<U> DiffusiveNode<U> for Node
+impl<L> DiffusiveNode<L> for Node
 where
-    U: Diffusive,
-    ReciprocalLength: UnitMul<U, Output = U::Gradient>,
+    L: Diffusive,
+    ReciprocalLength: UnitMul<L::Field, Output = L::Gradient>,
 {
-    fn gradient(&self, nodal_fields: &NodalFields<U>) -> TensorRank1<3, Reference, U::Gradient> {
+    fn gradient(&self, nodal_fields: &NodalFields<L>) -> TensorRank1<3, Reference, L::Gradient> {
         self.neighbors()
             .iter()
             .zip(self.gradient_vectors())
@@ -35,43 +35,43 @@ where
 pub trait DiffusionNode<C>
 where
     C: Diffusion,
-    Self: DiffusiveNode<C::Field>,
+    Self: DiffusiveNode<C::Balance>,
 {
     fn potential(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<Quantity<<C::Field as Diffusive>::Energy>, ConstitutiveError>;
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<Quantity<<C::Balance as Diffusive>::Energy>, ConstitutiveError>;
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<Vec<Quantity<<C::Field as Diffusive>::Force>>, ConstitutiveError>;
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<Vec<Quantity<C::Balance>>, ConstitutiveError>;
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<NodeStiffnesses<C::Field>, ConstitutiveError>;
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<NodeStiffnesses<C::Balance>, ConstitutiveError>;
 }
 
 impl<C> DiffusionNode<C> for Node
 where
     C: Diffusion,
-    Self: DiffusiveNode<C::Field>,
+    Self: DiffusiveNode<C::Balance>,
 {
     fn potential(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<Quantity<<C::Field as Diffusive>::Energy>, ConstitutiveError> {
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<Quantity<<C::Balance as Diffusive>::Energy>, ConstitutiveError> {
         let gradient: DiffusionGradient<C> = self.gradient(nodal_fields);
         Ok(constitutive_model.potential(&gradient)? * self.volume)
     }
     fn nodal_forces(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<Vec<Quantity<<C::Field as Diffusive>::Force>>, ConstitutiveError> {
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<Vec<Quantity<C::Balance>>, ConstitutiveError> {
         let gradient: DiffusionGradient<C> = self.gradient(nodal_fields);
         let flux: DiffusionFlux<C> = constitutive_model.flux(&gradient)?;
         Ok(self
@@ -83,8 +83,8 @@ where
     fn nodal_stiffnesses(
         &self,
         constitutive_model: &C,
-        nodal_fields: &NodalFields<C::Field>,
-    ) -> Result<NodeStiffnesses<C::Field>, ConstitutiveError> {
+        nodal_fields: &NodalFields<C::Balance>,
+    ) -> Result<NodeStiffnesses<C::Balance>, ConstitutiveError> {
         let gradient: DiffusionGradient<C> = self.gradient(nodal_fields);
         let tangent: DiffusionTangent<C> = constitutive_model.tangent(&gradient)?;
         Ok(self

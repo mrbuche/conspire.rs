@@ -1,35 +1,28 @@
 use crate::{
     domain::{
-        Model, SolverFor,
+        ElementModelError, Model, ProvidesTangent,
         diffusion::DiffusionElements,
-        thermal::{NodalForcesThermal, NodalStiffnessesThermal},
+        thermal::{NodalStiffnessesThermal, NodalTemperatures},
     },
-    math::{Quantity, optimize::NewtonRaphson},
-    units::{PowerTemperature, Temperature},
+    units::Power,
 };
 
 pub trait ThermalConductionElements
 where
-    Self: DiffusionElements<Temperature>,
+    Self: DiffusionElements<Power>,
 {
 }
 
-impl<B> ThermalConductionElements for B where B: DiffusionElements<Temperature> {}
+impl<B> ThermalConductionElements for B where B: DiffusionElements<Power> {}
 
-impl<B, const D: usize> SolverFor<Model<B, D>, NodalForcesThermal, NodalStiffnessesThermal>
-    for NewtonRaphson
+impl<B, const D: usize> ProvidesTangent<NodalTemperatures, NodalStiffnessesThermal> for Model<B, D>
 where
     B: ThermalConductionElements,
 {
-    type Tangent = NodalStiffnessesThermal;
-    const SPARSE: bool = true;
-}
-
-impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<PowerTemperature>, NodalForcesThermal>
-    for NewtonRaphson
-where
-    B: ThermalConductionElements,
-{
-    type Tangent = NodalStiffnessesThermal;
-    const SPARSE: bool = true;
+    fn provide_tangent(
+        &self,
+        nodal_temperatures: &NodalTemperatures,
+    ) -> Result<NodalStiffnessesThermal, ElementModelError> {
+        self.nodal_stiffnesses(nodal_temperatures)
+    }
 }
