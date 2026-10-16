@@ -243,9 +243,11 @@ impl From<&EqualityConstraint> for ConstraintPattern {
     fn from(constraint: &EqualityConstraint) -> Self {
         match constraint {
             EqualityConstraint::None => Self::None,
-            EqualityConstraint::Fixed(indices) => Self::Fixed(indices.clone()),
-            EqualityConstraint::Prescribed(_) => {
-                unimplemented!("Prescribed constraints are not enforced yet.")
+            EqualityConstraint::Fixed(_) | EqualityConstraint::Prescribed(_) => {
+                let Some(indices) = constraint.held_indices() else {
+                    unreachable!("A fixed or prescribed constraint holds indices.")
+                };
+                Self::Fixed(indices)
             }
             EqualityConstraint::Linear(matrix, _) => {
                 let mut nonzeros = Vec::new();

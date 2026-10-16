@@ -119,3 +119,33 @@ fn coordinates_and_temperatures_are_moved_by_their_index() {
     assert_eq!(guess[1].0[1].value(), 0.25);
     assert_eq!(guess[0].1.value(), 0.0);
 }
+
+#[test]
+fn a_fixed_constraint_holds_its_indices_as_they_are() {
+    assert_eq!(
+        EqualityConstraint::Fixed(vec![2, 0, 2]).held_indices(),
+        Some(vec![2, 0, 2])
+    );
+}
+
+#[test]
+fn a_prescribed_constraint_holds_its_indices_once_in_ascending_order() {
+    assert_eq!(
+        EqualityConstraint::Prescribed(vec![
+            (3, Prescription::Initial),
+            (1, Prescription::Absolute(2.0)),
+            (3, Prescription::Offset(1.0)),
+        ])
+        .held_indices(),
+        Some(vec![1, 3])
+    );
+}
+
+#[test]
+fn other_constraints_hold_no_indices() {
+    assert_eq!(EqualityConstraint::None.held_indices(), None);
+    assert_eq!(
+        EqualityConstraint::Linear(Matrix::zero(1, 4), Vector::zero(1)).held_indices(),
+        None
+    );
+}

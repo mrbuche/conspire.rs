@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{Matrix, Scalar, Solution, Vector};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// What an index of a prescribed constraint is held at.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -29,6 +29,23 @@ pub enum EqualityConstraint {
 }
 
 impl EqualityConstraint {
+    /// The indices that are eliminated, which are those of a fixed or prescribed constraint.
+    ///
+    /// The indices of a prescribed constraint are in ascending order and without repeats.
+    pub fn held_indices(&self) -> Option<Vec<usize>> {
+        match self {
+            Self::Fixed(indices) => Some(indices.clone()),
+            Self::Prescribed(entries) => Some(
+                entries
+                    .iter()
+                    .map(|&(index, _)| index)
+                    .collect::<BTreeSet<usize>>()
+                    .into_iter()
+                    .collect(),
+            ),
+            Self::Linear(..) | Self::None => None,
+        }
+    }
     /// Eliminates what is prescribed, by moving the initial guess to it and fixing the indices.
     ///
     /// The last entry for an index wins, and the indices are fixed in ascending order.
