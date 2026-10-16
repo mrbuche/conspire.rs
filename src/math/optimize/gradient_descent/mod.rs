@@ -87,6 +87,9 @@ where
                 initial_guess,
                 indices,
             ),
+            EqualityConstraint::Prescribed(_) => {
+                unimplemented!("Prescribed constraints are not enforced yet.")
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {
                     constrained_dual(
@@ -144,6 +147,9 @@ where
         match equality_constraint {
             EqualityConstraint::Fixed(indices) => {
                 constrained_fixed(self, objective, jacobian, initial_guess, indices)
+            }
+            EqualityConstraint::Prescribed(_) => {
+                unimplemented!("Prescribed constraints are not enforced yet.")
             }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {

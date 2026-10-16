@@ -118,6 +118,9 @@ where
                 unchecked,
                 indices,
             ),
+            EqualityConstraint::Prescribed(_) => {
+                unimplemented!("Prescribed constraints are not enforced yet.")
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -220,6 +223,9 @@ where
                 unchecked,
                 indices,
             ),
+            EqualityConstraint::Prescribed(_) => {
+                unimplemented!("Prescribed constraints are not enforced yet.")
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -280,6 +286,9 @@ where
                 verified(sparse),
                 indices,
             ),
+            EqualityConstraint::Prescribed(_) => {
+                unimplemented!("Prescribed constraints are not enforced yet.")
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 function,
@@ -396,6 +405,9 @@ where
                 verified(sparse),
                 indices,
             ),
+            EqualityConstraint::Prescribed(_) => {
+                unimplemented!("Prescribed constraints are not enforced yet.")
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 function,

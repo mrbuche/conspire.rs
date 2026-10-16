@@ -244,6 +244,9 @@ impl From<&EqualityConstraint> for ConstraintPattern {
         match constraint {
             EqualityConstraint::None => Self::None,
             EqualityConstraint::Fixed(indices) => Self::Fixed(indices.clone()),
+            EqualityConstraint::Prescribed(_) => {
+                unimplemented!("Prescribed constraints are not enforced yet.")
+            }
             EqualityConstraint::Linear(matrix, _) => {
                 let mut nonzeros = Vec::new();
                 (0..matrix.len()).for_each(|row| {

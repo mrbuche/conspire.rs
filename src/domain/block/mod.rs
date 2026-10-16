@@ -76,6 +76,9 @@ pub(crate) fn solver_from_neighbors(
                 .collect();
             SparseSolver::from_pattern(next, pattern, symmetric)
         }
+        EqualityConstraint::Prescribed(_) => {
+            unimplemented!("Prescribed constraints are not enforced yet.")
+        }
         EqualityConstraint::Linear(matrix, _) => {
             assert_eq!(matrix.width(), num_coords);
             let num_dof = matrix.len() + matrix.width();

@@ -12,7 +12,7 @@ mod strategy;
 mod tolerance;
 mod trust_region;
 
-pub use constraint::EqualityConstraint;
+pub use constraint::{EqualityConstraint, Prescription};
 pub use gradient_descent::GradientDescent;
 pub use krylov::{Krylov, KrylovError, KrylovMethod};
 pub use line_search::{LineSearch, LineSearchError};
