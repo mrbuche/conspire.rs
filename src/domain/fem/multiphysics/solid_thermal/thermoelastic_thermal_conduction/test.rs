@@ -13,10 +13,12 @@ use crate::{
     fem::{
         Model, NodalReferenceCoordinates, Root,
         block::{Block, element::linear::Tetrahedron},
+        boundary::{BoundaryConditions, Displacement, SolidThermal, Temperature},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
         },
     },
+    geometry::mesh::NodeSet,
     math::{
         Matrix, Vector,
         optimize::{EqualityConstraint, NewtonRaphson},
@@ -88,12 +90,15 @@ fn constraint() -> EqualityConstraint {
 }
 
 fn fixed() -> EqualityConstraint {
-    EqualityConstraint::Fixed(
-        (0..NODES)
-            .map(|node| 4 * node + 3)
-            .chain([0, 1, 2, 5, 6, 10])
-            .collect(),
-    )
+    BoundaryConditions::<SolidThermal<3>>::new()
+        .fix::<Temperature>(&NodeSet::new((0..NODES).collect()))
+        .fix_node::<Displacement<0>>(0)
+        .fix_node::<Displacement<1>>(0)
+        .fix_node::<Displacement<2>>(0)
+        .fix_node::<Displacement<1>>(1)
+        .fix_node::<Displacement<2>>(1)
+        .fix_node::<Displacement<2>>(2)
+        .constraint()
 }
 
 fn solve(constraint: EqualityConstraint) -> NodalStatesSolidThermal {

@@ -1,6 +1,12 @@
 //! Continuum bond methods.
 
 pub mod block;
+pub mod boundary {
+    pub use crate::domain::boundary::{
+        BoundaryConditions, Component, Concentration, Displacement, Field, Layout, Potential,
+        Solid, Temperature,
+    };
+}
 pub mod chemical {
     pub mod diffusion {
         pub use crate::domain::chemical::diffusion::{
