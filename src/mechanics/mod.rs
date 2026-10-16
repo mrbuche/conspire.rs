@@ -140,6 +140,20 @@ pub type CurrentCoordinates<const W: usize> = TensorRank1List<3, Current, W, Len
 /// A vector of references to current coordinates.
 pub type CurrentCoordinatesRef<'a> = TensorRank1RefVec<'a, 3, Current, Length>;
 
+/// The current density $`\mathbf{J}`$.
+pub type CurrentDensity = TensorRank1<3, Reference, crate::units::CurrentDensity>;
+
+/// A list of current densities.
+pub type CurrentDensities<const W: usize> =
+    TensorRank1List<3, Reference, W, crate::units::CurrentDensity>;
+
+/// The current density tangent $`\partial\mathbf{J}/\partial\nabla\phi`$.
+pub type CurrentTangent = TensorRank2<3, Reference, Reference, crate::units::Conductivity>;
+
+/// A list of current density tangents.
+pub type CurrentTangents<const W: usize> =
+    TensorRank2List<3, Reference, Reference, W, crate::units::Conductivity>;
+
 /// A velocity in the current configuration.
 pub type CurrentVelocity = TensorRank1<3, Current, Velocity>;
 

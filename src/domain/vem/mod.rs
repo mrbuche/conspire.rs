@@ -7,6 +7,11 @@ pub mod diffusion {
     };
 }
 pub mod electrical {
+    pub mod conduction {
+        pub use crate::domain::electrical::conduction::{
+            ElectricalConductionElements, NodalConductances, NodalCurrents,
+        };
+    }
     pub mod dielectric {
         pub use crate::domain::electrical::dielectric::DielectricElements;
     }
