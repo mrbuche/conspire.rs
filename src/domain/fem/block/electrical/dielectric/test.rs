@@ -7,6 +7,7 @@ macro_rules! test_dielectric_block {
             use crate::{
                 EPSILON,
                 constitutive::electrical::dielectric::Linear,
+                domain::diffusion::DiffusionElements,
                 fem::{
                     ElementModelError,
                     block::{
@@ -16,7 +17,6 @@ macro_rules! test_dielectric_block {
                             dielectric::{NodalForcesElectrical, NodalStiffnessesElectrical},
                         },
                     },
-                    electrical::dielectric::DielectricElements,
                 },
                 math::{Quantity, assert::AssertionError},
             };

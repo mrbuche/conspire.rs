@@ -7,6 +7,7 @@ macro_rules! test_thermal_block {
             use crate::{
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,
+                domain::diffusion::DiffusionElements,
                 fem::{
                     ElementModelError,
                     block::{
@@ -16,7 +17,6 @@ macro_rules! test_thermal_block {
                             conduction::{NodalForcesThermal, NodalStiffnessesThermal},
                         },
                     },
-                    thermal::conduction::ThermalConductionElements,
                 },
                 math::{Quantity, assert::AssertionError},
             };

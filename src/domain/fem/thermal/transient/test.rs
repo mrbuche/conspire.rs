@@ -1,6 +1,6 @@
 use crate::{
     constitutive::thermal::conduction::Fourier,
-    domain::{ElementModel, time_scale::largest_eigenvalue},
+    domain::{ElementModel, diffusion::DiffusionElements, time_scale::largest_eigenvalue},
     fem::{
         Model, NodalReferenceCoordinates,
         block::{
@@ -9,8 +9,8 @@ use crate::{
             thermal::{NodalTemperatures, conduction::NodalForcesThermal},
         },
         thermal::{
-            capacity::HeatCapacityMatrix, conduction::ThermalConductionElements,
-            time_scale::ThermalTimeScaleElements, transient::ThermalConductionTransient,
+            capacity::HeatCapacityMatrix, time_scale::ThermalTimeScaleElements,
+            transient::ThermalConductionTransient,
         },
     },
     math::{

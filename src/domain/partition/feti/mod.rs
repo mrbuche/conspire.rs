@@ -11,8 +11,6 @@ pub(crate) mod parallel;
 pub(crate) mod pcg;
 pub(crate) mod solid;
 pub(crate) mod subdomain;
-#[cfg(feature = "fem")]
-pub(crate) mod thermal;
 
 pub use block::element::{DecomposableElements, ElementSystems};
 #[cfg(feature = "fem")]

@@ -7,6 +7,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
             };
             use crate::{
                 EPSILON,
+                domain::diffusion::DiffusionElements,
                 constitutive::{
                     multiphysics::Canonical,
                     solid::{
@@ -25,7 +26,6 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                     block::{Block, thermal::NodalTemperatures},
                     multiphysics::solid_thermal::thermoelastic_thermal_conduction::steady::ThermoelasticThermalConductionElements,
                     solid::elastic::ElasticElements,
-                    thermal::conduction::ThermalConductionElements,
                 },
                 math::{
                     Hessian, Quantity, Tensor,
@@ -75,7 +75,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                     get_connectivity(),
                     &get_reference_coordinates_block(),
                 ));
-                let thermal_forces = ThermalConductionElements::nodal_forces(&thermal_block, &temperatures)?;
+                let thermal_forces = DiffusionElements::<Temperature>::nodal_forces(&thermal_block, &temperatures)?;
                 let forces = ThermoelasticThermalConductionElements::nodal_forces(
                     &coupled_block(),
                     &get_coordinates_block(),

@@ -3,13 +3,13 @@ use crate::{
     cbm::{
         Model, NodalReferenceCoordinates,
         block::{Block, node::thermal::ThermalNode},
-        thermal::{
-            conduction::ThermalConductionElements, time_scale::ThermalTimeScaleElements,
-            transient::ThermalConductionTransient,
-        },
+        thermal::{time_scale::ThermalTimeScaleElements, transient::ThermalConductionTransient},
     },
     constitutive::thermal::conduction::Fourier,
-    domain::{ElementModel, thermal::NodalForcesThermal, time_scale::largest_eigenvalue},
+    domain::{
+        ElementModel, diffusion::DiffusionElements, thermal::NodalForcesThermal,
+        time_scale::largest_eigenvalue,
+    },
     geometry::mesh::PrimitiveConnectivity,
     math::{Hessian, Quantity, Tensor, integrate::Euler, optimize::EqualityConstraint},
     units::{

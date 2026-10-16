@@ -108,9 +108,10 @@ mod heat {
     use crate::{
         domain::{
             ElementModel, Model,
+            diffusion::DiffusionElements,
             thermal::{
-                NodalForcesThermal, conduction::ThermalConductionElements,
-                time_scale::ThermalTimeScaleElements, transient::ThermalConductionTransient,
+                NodalForcesThermal, time_scale::ThermalTimeScaleElements,
+                transient::ThermalConductionTransient,
             },
             time_scale::{diffusive_time_scale_from_eigenvalue, largest_eigenvalue},
         },

@@ -9,6 +9,8 @@ pub mod cbm;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod density;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub(crate) mod diffusion;
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod electrical;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod factor;

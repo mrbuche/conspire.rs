@@ -1,5 +1,6 @@
 use crate::{
     constitutive::electrical::dielectric::Linear,
+    domain::diffusion::DiffusionElements,
     fem::{
         Blocks, Minimize, Model, NodalReferenceCoordinates, Root,
         block::{

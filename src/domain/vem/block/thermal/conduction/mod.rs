@@ -3,9 +3,9 @@ mod test;
 
 use crate::{
     constitutive::thermal::conduction::ThermalConduction,
-    domain::{ElementModelError, thermal::conduction::ThermalConductionElements},
+    domain::{ElementModelError, diffusion::DiffusionElements},
     math::{Quantity, Tensor},
-    units::PowerTemperature,
+    units::{PowerTemperature, Temperature},
     vem::block::{
         Block,
         element::{VirtualElementError, thermal::conduction::ThermalConductionVirtualElement},
@@ -15,7 +15,7 @@ use crate::{
 
 pub use crate::domain::thermal::{NodalForcesThermal, NodalStiffnessesThermal};
 
-impl<C, F, R> ThermalConductionElements for Block<C, F, R>
+impl<C, F, R> DiffusionElements<Temperature> for Block<C, F, R>
 where
     C: ThermalConduction,
     F: ThermalConductionVirtualElement<C>,

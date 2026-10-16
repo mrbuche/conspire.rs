@@ -3,6 +3,7 @@ use crate::{
     domain::{
         ElementModel, Model,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        diffusion::DiffusionElements,
         thermal::{
             NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
             capacity::{InertialHeatCapacity, InverseHeatCapacity, NodalTemperatureRates},

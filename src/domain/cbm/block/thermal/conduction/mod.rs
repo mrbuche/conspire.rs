@@ -1,17 +1,14 @@
 use crate::{
-    cbm::{
-        block::{Block, node::thermal::conduction::ThermalConductionNode},
-        thermal::conduction::ThermalConductionElements,
-    },
+    cbm::block::{Block, node::thermal::conduction::ThermalConductionNode},
     constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
-    domain::ElementModelError,
+    domain::{ElementModelError, diffusion::DiffusionElements},
     math::Quantity,
-    units::PowerTemperature,
+    units::{PowerTemperature, Temperature},
 };
 
 pub use crate::domain::thermal::{NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures};
 
-impl<C, R> ThermalConductionElements for Block<C, R>
+impl<C, R> DiffusionElements<Temperature> for Block<C, R>
 where
     C: ThermalConduction,
 {
