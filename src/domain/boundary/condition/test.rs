@@ -213,16 +213,16 @@ mod coupled {
     }
 }
 
-mod root_with {
+mod solve_with {
     use crate::{
         domain::{
-            ElementModelError, NodalCoordinates, ProvidesTangent, Root, SolverFor,
+            ElementModelError, Minimize, NodalCoordinates, ProvidesTangent, Root, SolverFor,
             boundary::{Displacement, NodalState, Temperature},
             multiphysics::solid_thermal::NodalStatesSolidThermal,
         },
         geometry::mesh::NodeSet,
         math::{
-            optimize::{EqualityConstraint, OptimizationError, RootFinding},
+            optimize::{EqualityConstraint, Optimization, OptimizationError, RootFinding},
             sparse::SparseSolver,
         },
     };
@@ -241,12 +241,28 @@ mod root_with {
             equality_constraint: EqualityConstraint,
             _: Option<SparseSolver>,
         ) -> Result<X, OptimizationError> {
-            match equality_constraint {
-                EqualityConstraint::Fixed(indices) => {
-                    Err(OptimizationError::Intermediate(format!("{indices:?}")))
-                }
-                _ => panic!("expected a fixed constraint"),
+            record(equality_constraint)
+        }
+    }
+    impl<X> Optimization<(), (), (), X> for Recorder {
+        fn minimize(
+            &self,
+            _: impl FnMut(&X) -> Result<(), String>,
+            _: impl FnMut(&X) -> Result<(), String>,
+            _: impl FnMut(&X) -> Result<(), String>,
+            _: X,
+            equality_constraint: EqualityConstraint,
+            _: Option<SparseSolver>,
+        ) -> Result<X, OptimizationError> {
+            record(equality_constraint)
+        }
+    }
+    fn record<X>(equality_constraint: EqualityConstraint) -> Result<X, OptimizationError> {
+        match equality_constraint {
+            EqualityConstraint::Fixed(indices) => {
+                Err(OptimizationError::Intermediate(format!("{indices:?}")))
             }
+            _ => panic!("expected a fixed constraint"),
         }
     }
     impl<X> ProvidesTangent<X, ()> for Dummy<X> {
@@ -268,6 +284,29 @@ mod root_with {
             Self: ProvidesTangent<X, S::Tangent>,
         {
             solver.root(
+                |_| Ok(()),
+                |x| self.provide_tangent(x).map_err(String::from),
+                self.0.clone(),
+                equality_constraint,
+                None,
+            )
+        }
+    }
+    impl<X> Minimize<(), (), X> for Dummy<X>
+    where
+        X: Clone,
+    {
+        fn minimize<S>(
+            &self,
+            equality_constraint: EqualityConstraint,
+            solver: S,
+        ) -> Result<X, OptimizationError>
+        where
+            S: SolverFor<Self, (), ()> + Optimization<(), (), S::Tangent, X>,
+            Self: ProvidesTangent<X, S::Tangent>,
+        {
+            solver.minimize(
+                |_| Ok(()),
                 |_| Ok(()),
                 |x| self.provide_tangent(x).map_err(String::from),
                 self.0.clone(),
@@ -304,6 +343,24 @@ mod root_with {
             .fix_node(Displacement::<0>, 1);
         assert_eq!(found(coupled().root_with(&fixed, Recorder)), "[3, 4, 7]");
     }
+    #[test]
+    fn minimizing_follows_the_layout_of_the_state() {
+        let set = NodeSet::new(vec![0, 2]);
+        let fixed = super::BoundaryConditions::new().fix(Displacement::<1>, &set);
+        assert_eq!(found(solid().minimize_with(&fixed, Recorder)), "[1, 7]");
+    }
+
+    #[test]
+    fn minimizing_coupled_conditions_follows_the_layout_of_the_state() {
+        let fixed = super::BoundaryConditions::new()
+            .fix_nodes(Temperature, 0..2)
+            .fix_node(Displacement::<0>, 1);
+        assert_eq!(
+            found(coupled().minimize_with(&fixed, Recorder)),
+            "[3, 4, 7]"
+        );
+    }
+
     #[test]
     fn conditions_of_the_layout_may_be_written_out() {
         let set = NodeSet::new(vec![1]);

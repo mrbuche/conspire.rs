@@ -195,8 +195,6 @@ where
     where
         S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
         Self: ProvidesTangent<X, S::Tangent>;
-    /// Finds the root holding the degrees of freedom of boundary conditions, whose layout must be
-    /// that of the state.
     fn root_with<S>(
         &self,
         boundary_conditions: &BoundaryConditions<'_, X::Layout>,
@@ -208,6 +206,33 @@ where
         X: NodalState,
     {
         self.root(boundary_conditions.constraint(), solver)
+    }
+}
+
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait Minimize<F, J, X>
+where
+    Self: Sized,
+{
+    fn minimize<S>(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: S,
+    ) -> Result<X, OptimizationError>
+    where
+        S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
+        Self: ProvidesTangent<X, S::Tangent>;
+    fn minimize_with<S>(
+        &self,
+        boundary_conditions: &BoundaryConditions<'_, X::Layout>,
+        solver: S,
+    ) -> Result<X, OptimizationError>
+    where
+        S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
+        Self: ProvidesTangent<X, S::Tangent>,
+        X: NodalState,
+    {
+        self.minimize(boundary_conditions.constraint(), solver)
     }
 }
 
@@ -245,20 +270,4 @@ pub trait SolverFor<M, F, J> {
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub trait ProvidesTangent<X, T> {
     fn provide_tangent(&self, argument: &X) -> Result<T, ElementModelError>;
-}
-
-/// Minimization of a model, where the solver determines the tangent it works from.
-#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub trait Minimize<F, J, X>
-where
-    Self: Sized,
-{
-    fn minimize<S>(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: S,
-    ) -> Result<X, OptimizationError>
-    where
-        S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
-        Self: ProvidesTangent<X, S::Tangent>;
 }
