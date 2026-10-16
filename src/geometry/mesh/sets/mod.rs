@@ -1,10 +1,6 @@
 #[cfg(test)]
 mod test;
 
-use crate::{
-    geometry::{Coordinate, mesh::Mesh},
-    math::Tensor,
-};
 use std::slice::Iter;
 
 macro_rules! sets {
@@ -146,19 +142,3 @@ sets!(
     "A set of element sides, each an element and the ordinal of one of its faces, optionally labeled and named.",
     "Sets of element sides."
 );
-
-impl NodeSet {
-    /// The nodes of a mesh whose coordinates satisfy a predicate.
-    pub fn select<const D: usize>(
-        mesh: &Mesh<D>,
-        predicate: impl Fn(&Coordinate<D>) -> bool,
-    ) -> Self {
-        Self::new(
-            mesh.coordinates()
-                .iter()
-                .enumerate()
-                .filter_map(|(node, coordinate)| predicate(coordinate).then_some(node))
-                .collect(),
-        )
-    }
-}

@@ -1,8 +1,4 @@
 use super::{NodeSet, NodeSets, SideSet, SideSets};
-use crate::geometry::{
-    Coordinates,
-    mesh::{Connectivity, Mesh},
-};
 
 fn sets() -> NodeSets {
     vec![
@@ -81,18 +77,4 @@ fn restrict_keeps_label_and_name() {
 #[test]
 fn restrict_to_nothing() {
     assert!(SideSet::new(vec![(0, 1)]).restrict(|_| None).is_none());
-}
-
-#[test]
-fn select() {
-    let mesh = Mesh::from((
-        vec![Connectivity::Triangular(vec![[0, 1, 2]].into())],
-        Coordinates::<3>::from([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]),
-    ));
-    assert_eq!(NodeSet::select(&mesh, |x| x[0].value() > 0.5).nodes(), [1]);
-    assert!(
-        NodeSet::select(&mesh, |x| x[2].value() > 0.5)
-            .nodes()
-            .is_empty()
-    );
 }
