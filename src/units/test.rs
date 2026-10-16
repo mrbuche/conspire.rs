@@ -76,6 +76,46 @@ fn specific_energy_closes_over_its_products() {
 }
 
 #[test]
+fn electrical_units_close_over_their_products() {
+    use crate::units::{
+        Area, Capacitance, CapacitancePerArea, CapacitancePerVolume, Charge, ChargeDensity,
+        ElectricDisplacement, ElectricField, ElectricFieldSquared, ElectricPotential, Energy,
+        Permittivity, Volume,
+    };
+    same::<Product<ElectricPotential, Charge>, Energy>();
+    same::<Quotient<Energy, Charge>, ElectricPotential>();
+    same::<Quotient<Energy, ElectricPotential>, Charge>();
+    same::<Product<Capacitance, ElectricPotential>, Charge>();
+    same::<Quotient<Charge, ElectricPotential>, Capacitance>();
+    same::<Quotient<Charge, Capacitance>, ElectricPotential>();
+    same::<Product<ElectricPotential, ReciprocalLength>, ElectricField>();
+    same::<Quotient<ElectricPotential, Length>, ElectricField>();
+    same::<Product<ElectricField, Length>, ElectricPotential>();
+    same::<Product<Permittivity, ElectricField>, ElectricDisplacement>();
+    same::<Quotient<ElectricDisplacement, ElectricField>, Permittivity>();
+    same::<Quotient<ElectricDisplacement, Permittivity>, ElectricField>();
+    same::<Product<Permittivity, Length>, Capacitance>();
+    same::<Quotient<Capacitance, Length>, Permittivity>();
+    same::<Product<Permittivity, ReciprocalLength>, CapacitancePerArea>();
+    same::<Product<CapacitancePerArea, ReciprocalLength>, CapacitancePerVolume>();
+    same::<Product<CapacitancePerArea, Area>, Capacitance>();
+    same::<Product<CapacitancePerVolume, Volume>, Capacitance>();
+    same::<Product<ElectricDisplacement, Area>, Charge>();
+    same::<Quotient<Charge, Area>, ElectricDisplacement>();
+    same::<Product<ElectricDisplacement, ReciprocalLength>, ChargeDensity>();
+    same::<Product<ChargeDensity, Volume>, Charge>();
+    same::<Quotient<Charge, Volume>, ChargeDensity>();
+    same::<Product<ElectricField, ElectricDisplacement>, Stress>();
+    same::<Product<ElectricField, ElectricField>, ElectricFieldSquared>();
+    same::<Product<Permittivity, ElectricFieldSquared>, Stress>();
+    same::<Quotient<Stress, Permittivity>, ElectricFieldSquared>();
+    same::<Quotient<Stress, ElectricFieldSquared>, Permittivity>();
+    same::<Quotient<Stress, ElectricField>, ElectricDisplacement>();
+    same::<Product<Capacitance, Dimensionless>, Capacitance>();
+    same::<Product<Dimensionless, ChargeDensity>, ChargeDensity>();
+}
+
+#[test]
 fn units_are_zero_sized() {
     assert_eq!(size_of::<Stress>(), 0);
     assert_eq!(size_of::<Dimensionless>(), 0);

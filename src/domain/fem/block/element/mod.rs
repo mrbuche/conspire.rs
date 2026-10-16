@@ -4,6 +4,7 @@ mod test;
 #[cfg(feature = "autodiff")]
 pub(crate) mod autodiff;
 pub mod cohesive;
+pub mod electrical;
 pub mod linear;
 pub mod mass;
 pub mod multiphysics;

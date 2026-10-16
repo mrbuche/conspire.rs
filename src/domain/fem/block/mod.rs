@@ -2,6 +2,7 @@
 mod test;
 
 mod density;
+pub mod electrical;
 pub mod element;
 pub mod mass;
 pub mod multiphysics;

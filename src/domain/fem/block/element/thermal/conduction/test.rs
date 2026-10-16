@@ -42,7 +42,6 @@ macro_rules! test_thermal {
                             nodal_temperatures[node] -= $crate::math::assert::perturbation(EPSILON);
                             finite_difference -=
                                 element.potential(&constitutive_model, &nodal_temperatures)?;
-                            // A potential per unit temperature is a power.
                             Ok(finite_difference
                                 / $crate::math::Quantity::<$crate::units::Temperature>::new(
                                     EPSILON,
@@ -81,7 +80,6 @@ macro_rules! test_thermal {
                                     finite_difference -= element
                                         .nodal_forces(&constitutive_model, &nodal_temperatures)?
                                         [node_a];
-                                    // A power per unit temperature is a thermal stiffness.
                                     Ok(finite_difference
                                         / $crate::math::Quantity::<$crate::units::Temperature>::new(
                                             EPSILON,

@@ -4,7 +4,8 @@
 mod test;
 
 use super::{
-    Acceleration, Action, Charge, Entropy, MolarEntropy, ReciprocalAmount, Temperature, Velocity,
+    Acceleration, Action, Charge, Entropy, MolarEntropy, Permeability, Permittivity,
+    ReciprocalAmount, Temperature, Velocity,
 };
 use crate::math::Quantity;
 
@@ -21,6 +22,14 @@ pub const GAS_CONSTANT: Quantity<MolarEntropy> =
 
 /// The elementary charge.
 pub const ELEMENTARY_CHARGE: Quantity<Charge> = Charge::coulombs(1.602_176_634e-19);
+
+/// The vacuum permeability.
+pub const VACUUM_PERMEABILITY: Quantity<Permeability> =
+    Permeability::henries_per_meter(1.256_637_062_12e-6);
+
+/// The vacuum permittivity.
+pub const VACUUM_PERMITTIVITY: Quantity<Permittivity> =
+    Permittivity::farads_per_meter(8.854_187_812_8e-12);
 
 /// The speed of light in vacuum.
 pub const LIGHT_SPEED: Quantity<Velocity> = Velocity::meters_per_second(2.997_924_58e8);

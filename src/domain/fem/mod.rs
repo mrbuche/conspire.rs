@@ -4,6 +4,7 @@
 mod test;
 
 pub mod block;
+pub mod electrical;
 mod from;
 pub mod multiphysics;
 pub mod solid;

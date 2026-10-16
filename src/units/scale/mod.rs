@@ -19,11 +19,12 @@
 mod test;
 
 use super::{
-    Acceleration, Action, Amount, Area, Charge, Density, Dimensionless, Energy, Entropy, Force,
-    ForcePerLength, Length, Mass, MolarEnergy, MolarEntropy, PowerPerLengthTemperature, Rate,
-    ReciprocalAmount, ReciprocalTemperature, ReciprocalTemperatureSquared, SpecificEnergy,
-    SpecificEntropy, Stress, StressPerLength, Temperature, Time, TimePerTemperature, Velocity,
-    Viscosity, Volume,
+    Acceleration, Action, Amount, Area, Capacitance, CapacitancePerArea, CapacitancePerVolume,
+    Charge, ChargeDensity, Density, Dimensionless, ElectricDisplacement, ElectricField,
+    ElectricPotential, Energy, Entropy, Force, ForcePerLength, Length, Mass, MolarEnergy,
+    MolarEntropy, Permeability, Permittivity, PowerPerLengthTemperature, Rate, ReciprocalAmount,
+    ReciprocalTemperature, ReciprocalTemperatureSquared, SpecificEnergy, SpecificEntropy, Stress,
+    StressPerLength, Temperature, Time, TimePerTemperature, Velocity, Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -200,6 +201,44 @@ scales!(
     }
     Charge {
         coulombs / in_coulombs = 1.0, "coulombs",
+    }
+    ElectricPotential {
+        volts / in_volts = 1.0, "volts",
+        millivolts / in_millivolts = 1e-3, "millivolts",
+        kilovolts / in_kilovolts = 1e3, "kilovolts",
+    }
+    ElectricField {
+        volts_per_meter / in_volts_per_meter = 1.0, "volts per metre",
+        volts_per_micrometer / in_volts_per_micrometer = 1e6, "volts per micrometre",
+        kilovolts_per_millimeter / in_kilovolts_per_millimeter = 1e6,
+            "kilovolts per millimetre",
+    }
+    ElectricDisplacement {
+        coulombs_per_square_meter / in_coulombs_per_square_meter = 1.0,
+            "coulombs per square metre",
+    }
+    Permittivity {
+        farads_per_meter / in_farads_per_meter = 1.0, "farads per metre",
+        picofarads_per_meter / in_picofarads_per_meter = 1e-12, "picofarads per metre",
+    }
+    Permeability {
+        henries_per_meter / in_henries_per_meter = 1.0, "henries per metre",
+    }
+    Capacitance {
+        farads / in_farads = 1.0, "farads",
+        microfarads / in_microfarads = 1e-6, "microfarads",
+        nanofarads / in_nanofarads = 1e-9, "nanofarads",
+        picofarads / in_picofarads = 1e-12, "picofarads",
+    }
+    CapacitancePerArea {
+        farads_per_square_meter / in_farads_per_square_meter = 1.0, "farads per square metre",
+    }
+    CapacitancePerVolume {
+        farads_per_cubic_meter / in_farads_per_cubic_meter = 1.0, "farads per cubic metre",
+    }
+    ChargeDensity {
+        coulombs_per_cubic_meter / in_coulombs_per_cubic_meter = 1.0,
+            "coulombs per cubic metre",
     }
     Viscosity {
         pascal_seconds / in_pascal_seconds = 1.0, "pascal seconds",

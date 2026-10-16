@@ -3,7 +3,7 @@
 pub mod test;
 
 use crate::units::{
-    Dimensionless, Fluidity, ForcePerLength, ForcePerVelocity, Length, PowerPerArea,
+    Dimensionless, Fluidity, ForcePerLength, ForcePerVelocity, Length, Permittivity, PowerPerArea,
     PowerPerLengthTemperature, Rate, ReciprocalLength, Stress, StressPerTemperature,
     StressPerTemperatureSquared, TemperaturePerLength, Velocity, Viscosity,
 };
@@ -188,6 +188,27 @@ pub type DeformationGradientRatesPlastic = TensorRank2Vec<3, Intermediate, Refer
 
 /// A displacement.
 pub type Displacement = TensorRank1<3, Current, Length>;
+
+/// The electric displacement $`\mathbf{D}`$.
+pub type ElectricDisplacement = TensorRank1<3, Reference, crate::units::ElectricDisplacement>;
+
+/// A list of electric displacements.
+pub type ElectricDisplacements<const N: usize> =
+    TensorRank1List<3, Reference, N, crate::units::ElectricDisplacement>;
+
+/// The electric displacement tangent $`\partial\mathbf{D}/\partial\mathbf{E}`$.
+pub type ElectricTangent = TensorRank2<3, Reference, Reference, Permittivity>;
+
+/// A list of electric displacement tangents.
+pub type ElectricTangents<const N: usize> =
+    TensorRank2List<3, Reference, Reference, N, Permittivity>;
+
+/// The electric field $`\mathbf{E}`$.
+pub type ElectricField = TensorRank1<3, Reference, crate::units::ElectricField>;
+
+/// A list of electric fields.
+pub type ElectricFields<const N: usize> =
+    TensorRank1List<3, Reference, N, crate::units::ElectricField>;
 
 /// The derivative of the Cauchy stress with respect to temperature $`\partial\boldsymbol{\sigma}/\partial T`$.
 pub type CauchyThermalTangent = TensorRank2<3, Current, Current, StressPerTemperature>;

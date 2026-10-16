@@ -8,7 +8,7 @@ mod scale;
 
 pub use constants::{
     AVOGADRO_CONSTANT, BOLTZMANN_CONSTANT, ELEMENTARY_CHARGE, GAS_CONSTANT, LIGHT_SPEED,
-    PLANCK_CONSTANT, ROOM_TEMPERATURE, STANDARD_GRAVITY,
+    PLANCK_CONSTANT, ROOM_TEMPERATURE, STANDARD_GRAVITY, VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY,
 };
 pub use scale::{Scale, length_scale};
 
@@ -250,6 +250,26 @@ units!(
     MolarEnergy,
     /// An electric charge, as the elementary charge is.
     Charge,
+    /// An electric potential, being an energy per unit charge.
+    ElectricPotential,
+    /// An electric field, being an electric potential per unit length.
+    ElectricField,
+    /// A squared electric field, being a squared electric potential per unit area.
+    ElectricFieldSquared,
+    /// An electric displacement, being a charge per unit area.
+    ElectricDisplacement,
+    /// A permittivity, being a capacitance per unit length.
+    Permittivity,
+    /// A permeability, being an inductance per unit length.
+    Permeability,
+    /// A capacitance, being a charge per unit electric potential.
+    Capacitance,
+    /// A capacitance per unit area, as a permittivity per unit length is.
+    CapacitancePerArea,
+    /// A capacitance per unit volume, as a permittivity per unit area is.
+    CapacitancePerVolume,
+    /// A charge per unit volume, as a free charge density is.
+    ChargeDensity,
     /// A reciprocal stiffness, as a compliance conjugate to a force is.
     ReciprocalForcePerLength,
 );
@@ -456,6 +476,47 @@ unit_products!(
     Dimensionless * MolarEntropy = MolarEntropy,
     Dimensionless * MolarEnergy = MolarEnergy,
     Dimensionless * Charge = Charge,
+    Dimensionless * ElectricPotential = ElectricPotential,
+    Dimensionless * ElectricField = ElectricField,
+    Dimensionless * ElectricFieldSquared = ElectricFieldSquared,
+    ElectricField * ElectricField = ElectricFieldSquared,
+    Permittivity * ElectricFieldSquared = Stress,
+    ElectricFieldSquared * Permittivity = Stress,
+    Dimensionless * ElectricDisplacement = ElectricDisplacement,
+    Dimensionless * Permittivity = Permittivity,
+    Dimensionless * Permeability = Permeability,
+    Dimensionless * Capacitance = Capacitance,
+    Dimensionless * CapacitancePerArea = CapacitancePerArea,
+    Dimensionless * CapacitancePerVolume = CapacitancePerVolume,
+    Dimensionless * ChargeDensity = ChargeDensity,
+    ElectricPotential * Charge = Energy,
+    Charge * ElectricPotential = Energy,
+    Capacitance * ElectricPotential = Charge,
+    ElectricPotential * Capacitance = Charge,
+    ElectricPotential * ReciprocalLength = ElectricField,
+    ReciprocalLength * ElectricPotential = ElectricField,
+    ElectricField * Length = ElectricPotential,
+    Length * ElectricField = ElectricPotential,
+    Permittivity * ElectricField = ElectricDisplacement,
+    ElectricField * Permittivity = ElectricDisplacement,
+    Permittivity * Length = Capacitance,
+    Length * Permittivity = Capacitance,
+    Permittivity * ReciprocalLength = CapacitancePerArea,
+    ReciprocalLength * Permittivity = CapacitancePerArea,
+    CapacitancePerArea * ReciprocalLength = CapacitancePerVolume,
+    ReciprocalLength * CapacitancePerArea = CapacitancePerVolume,
+    CapacitancePerArea * Area = Capacitance,
+    Area * CapacitancePerArea = Capacitance,
+    CapacitancePerVolume * Volume = Capacitance,
+    Volume * CapacitancePerVolume = Capacitance,
+    ElectricDisplacement * Area = Charge,
+    Area * ElectricDisplacement = Charge,
+    ElectricDisplacement * ReciprocalLength = ChargeDensity,
+    ReciprocalLength * ElectricDisplacement = ChargeDensity,
+    ChargeDensity * Volume = Charge,
+    Volume * ChargeDensity = Charge,
+    ElectricField * ElectricDisplacement = Stress,
+    ElectricDisplacement * ElectricField = Stress,
     Energy * Time = Action,
     Time * Energy = Action,
     Action * Rate = Energy,
