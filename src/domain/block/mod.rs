@@ -57,6 +57,14 @@ pub(crate) fn solver_from_neighbors(
             })
         })
         .collect();
+    let merged;
+    let equality_constraint = match equality_constraint {
+        EqualityConstraint::All(_) => {
+            merged = equality_constraint.clone().merged();
+            &merged
+        }
+        constraint => constraint,
+    };
     match equality_constraint {
         EqualityConstraint::Fixed(_) | EqualityConstraint::Prescribed(_) => {
             let Some(indices) = equality_constraint.held_indices() else {
@@ -92,6 +100,9 @@ pub(crate) fn solver_from_neighbors(
                 })
             });
             SparseSolver::from_pattern(num_dof, pattern, symmetric)
+        }
+        EqualityConstraint::All(_) => {
+            unimplemented!("Fixed and linear constraints together are not supported yet.")
         }
         EqualityConstraint::None => SparseSolver::from_pattern(num_coords, pattern, symmetric),
     }

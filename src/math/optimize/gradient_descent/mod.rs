@@ -3,8 +3,8 @@ mod test;
 
 use super::{
     super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector, sparse::SparseSolver},
-    BacktrackingLineSearch, EqualityConstraint, LineSearch, Optimization, OptimizationError,
-    RootFinding, StepSize, Tolerances,
+    ALL_UNSUPPORTED, BacktrackingLineSearch, EqualityConstraint, LineSearch, Optimization,
+    OptimizationError, RootFinding, StepSize, Tolerances,
 };
 use crate::math::{Erase, Is, Norm};
 use crate::units::{UnitDiv, UnitMul, UnitSum};
@@ -90,6 +90,9 @@ where
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
             }
+            EqualityConstraint::All(_) => {
+                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {
                     constrained_dual(
@@ -150,6 +153,9 @@ where
             }
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
+            }
+            EqualityConstraint::All(_) => {
+                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
             }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {

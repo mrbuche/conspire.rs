@@ -149,3 +149,100 @@ fn other_constraints_hold_no_indices() {
         None
     );
 }
+
+mod all {
+    use super::*;
+    fn rows(row: [f64; 4], rhs: f64) -> EqualityConstraint {
+        let mut matrix = Matrix::zero(1, 4);
+        (0..4).for_each(|j| matrix[0][j] = row[j]);
+        EqualityConstraint::Linear(matrix, Vector::from([rhs]))
+    }
+    #[test]
+    fn fixed_and_prescribed_are_merged_with_the_last_entry_winning() {
+        let mut guess = vector();
+        let constraint = EqualityConstraint::All(vec![
+            EqualityConstraint::Fixed(vec![2, 0]),
+            EqualityConstraint::Prescribed(vec![(0, Prescription::Absolute(7.0))]),
+            EqualityConstraint::All(vec![EqualityConstraint::Prescribed(vec![(
+                3,
+                Prescription::Offset(1.0),
+            )])]),
+        ])
+        .lower(&mut guess);
+        assert_eq!(indices(constraint), [0, 2, 3]);
+        assert_eq!(entries(&guess), [7.0, 2.0, 3.0, 5.0]);
+    }
+    #[test]
+    fn a_later_hold_undoes_an_earlier_value() {
+        let mut guess = vector();
+        let constraint = EqualityConstraint::All(vec![
+            EqualityConstraint::Prescribed(vec![(1, Prescription::Absolute(9.0))]),
+            EqualityConstraint::Fixed(vec![1]),
+        ])
+        .lower(&mut guess);
+        assert_eq!(indices(constraint), [1]);
+        assert_eq!(entries(&guess), [1.0, 2.0, 3.0, 4.0]);
+    }
+    #[test]
+    fn linear_constraints_are_stacked() {
+        let EqualityConstraint::Linear(matrix, rhs) = EqualityConstraint::All(vec![
+            rows([1.0, 0.0, 0.0, 0.0], 5.0),
+            EqualityConstraint::None,
+            rows([0.0, 2.0, 0.0, 3.0], 6.0),
+        ])
+        .merged() else {
+            panic!("expected a linear constraint")
+        };
+        assert_eq!((matrix.len(), matrix.width()), (2, 4));
+        assert_eq!((matrix[0][0], matrix[1][1], matrix[1][3]), (1.0, 2.0, 3.0));
+        assert_eq!((rhs[0], rhs[1]), (5.0, 6.0));
+    }
+    #[test]
+    fn nothing_merges_to_none_and_a_single_kind_to_itself() {
+        assert!(matches!(
+            EqualityConstraint::All(vec![EqualityConstraint::None]).merged(),
+            EqualityConstraint::None
+        ));
+        assert!(matches!(
+            EqualityConstraint::All(vec![]).merged(),
+            EqualityConstraint::None
+        ));
+        assert!(matches!(
+            EqualityConstraint::All(vec![rows([1.0; 4], 0.0)]).merged(),
+            EqualityConstraint::Linear(..)
+        ));
+    }
+    #[test]
+    fn prescribed_with_linear_is_lowered_to_fixed_with_linear() {
+        let mut guess = vector();
+        let EqualityConstraint::All(parts) = EqualityConstraint::All(vec![
+            EqualityConstraint::Prescribed(vec![(1, Prescription::Absolute(9.0))]),
+            rows([1.0; 4], 0.0),
+        ])
+        .lower(&mut guess) else {
+            panic!("expected both parts")
+        };
+        assert!(matches!(&parts[0], EqualityConstraint::Fixed(i) if i == &[1]));
+        assert!(matches!(&parts[1], EqualityConstraint::Linear(..)));
+        assert_eq!(entries(&guess), [1.0, 9.0, 3.0, 4.0]);
+    }
+    #[test]
+    fn held_indices_see_through_all_unless_linear_is_in_it() {
+        assert_eq!(
+            EqualityConstraint::All(vec![
+                EqualityConstraint::Fixed(vec![3]),
+                EqualityConstraint::Prescribed(vec![(1, Prescription::Initial)]),
+            ])
+            .held_indices(),
+            Some(vec![1, 3])
+        );
+        assert_eq!(
+            EqualityConstraint::All(vec![
+                EqualityConstraint::Fixed(vec![3]),
+                rows([1.0; 4], 0.0)
+            ])
+            .held_indices(),
+            None
+        );
+    }
+}

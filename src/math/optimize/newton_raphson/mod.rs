@@ -9,9 +9,10 @@ use super::{
         SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
-    BacktrackingLineSearch, Direct, EqualityConstraint, LineSearch, LineSearchError, LinearSolver,
-    Optimization, OptimizationBlock, OptimizationError, OptimizationIncremental, RootFinding,
-    RootFindingBlock, RootFindingIncremental, SolveStrategy, StepSize, Tolerances, TrustRegion,
+    ALL_UNSUPPORTED, BacktrackingLineSearch, Direct, EqualityConstraint, LineSearch,
+    LineSearchError, LinearSolver, Optimization, OptimizationBlock, OptimizationError,
+    OptimizationIncremental, RootFinding, RootFindingBlock, RootFindingIncremental, SolveStrategy,
+    StepSize, Tolerances, TrustRegion,
     trust_region::{
         TRUST_REGION_ETA, TRUST_REGION_MAX_REJECTIONS, TRUST_REGION_SHRINK, more_sorensen_dense,
         more_sorensen_sparse, update_radius,
@@ -124,6 +125,9 @@ where
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
             }
+            EqualityConstraint::All(_) => {
+                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -229,6 +233,9 @@ where
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
             }
+            EqualityConstraint::All(_) => {
+                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
+            }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
@@ -291,6 +298,9 @@ where
             ),
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
+            }
+            EqualityConstraint::All(_) => {
+                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
             }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,
@@ -410,6 +420,9 @@ where
             ),
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
+            }
+            EqualityConstraint::All(_) => {
+                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
             }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
                 self,

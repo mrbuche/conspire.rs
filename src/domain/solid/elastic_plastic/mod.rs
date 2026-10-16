@@ -241,7 +241,18 @@ enum ConstraintPattern {
 
 impl From<&EqualityConstraint> for ConstraintPattern {
     fn from(constraint: &EqualityConstraint) -> Self {
+        let merged;
+        let constraint = match constraint {
+            EqualityConstraint::All(_) => {
+                merged = constraint.clone().merged();
+                &merged
+            }
+            constraint => constraint,
+        };
         match constraint {
+            EqualityConstraint::All(_) => {
+                unimplemented!("Fixed and linear constraints together are not supported yet.")
+            }
             EqualityConstraint::None => Self::None,
             EqualityConstraint::Fixed(_) | EqualityConstraint::Prescribed(_) => {
                 let Some(indices) = constraint.held_indices() else {

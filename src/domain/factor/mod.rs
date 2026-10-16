@@ -15,7 +15,7 @@ pub(crate) fn fixed_indices(
     equality_constraint: EqualityConstraint,
     integrator: &str,
 ) -> Result<Vec<usize>, IntegrationError> {
-    match equality_constraint {
+    match equality_constraint.merged() {
         EqualityConstraint::Fixed(indices) => Ok(indices),
         EqualityConstraint::None => Ok(vec![]),
         EqualityConstraint::Prescribed(entries) => {
@@ -35,9 +35,11 @@ pub(crate) fn fixed_indices(
                 )))
             }
         }
-        EqualityConstraint::Linear(..) => Err(IntegrationError::Intermediate(format!(
-            "Linear constraints are not supported by {integrator}."
-        ))),
+        EqualityConstraint::Linear(..) | EqualityConstraint::All(_) => {
+            Err(IntegrationError::Intermediate(format!(
+                "Linear constraints are not supported by {integrator}."
+            )))
+        }
     }
 }
 
