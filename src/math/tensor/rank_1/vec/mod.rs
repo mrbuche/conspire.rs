@@ -4,7 +4,7 @@ use crate::math::{Current, Reference};
 use crate::units::{Dimensionless, UnitDiv};
 
 use crate::math::{
-    Jacobian, Quantity, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List,
+    Jacobian, Quantity, Scalar, Solution, Tensor, TensorRank0, TensorRank1, TensorRank1List,
     TensorRank2SparseVec2D, TensorRank2SparseVec2DSymmetric, TensorRank2Vec2D, TensorVec, Vector,
     tensor::vec::TensorVector,
 };
@@ -236,6 +236,12 @@ impl<const D: usize, I, U> Solution for TensorRank1Vec<D, I, U> {
             .filter(|(_, retained_i)| **retained_i)
             .zip(other.iter())
             .for_each(|((self_i, _), vector_i)| *self_i -= Quantity::new(*vector_i))
+    }
+    fn flat_entry(&self, index: usize) -> Scalar {
+        self[index / D][index % D].value()
+    }
+    fn set_flat_entry(&mut self, index: usize, value: Scalar) {
+        self[index / D][index % D] = Quantity::new(value)
     }
 }
 

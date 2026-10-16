@@ -2,7 +2,8 @@
 mod test;
 
 use crate::math::{
-    Jacobian, Matrix, Quantity, Solution, Tensor, TensorRank1, TensorTuple, TensorVector, Vector,
+    Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, TensorRank1, TensorTuple, TensorVector,
+    Vector,
 };
 use std::{array::from_fn, ops::Mul, ops::Sub};
 
@@ -110,6 +111,22 @@ impl<const D: usize, I, U1, U2> Solution for TensorTupleVec<TensorRank1<D, I, U1
                 entry.1 -= Quantity::new(*values.next().unwrap())
             }
         })
+    }
+    fn flat_entry(&self, index: usize) -> Scalar {
+        let (a, i) = (index / (D + 1), index % (D + 1));
+        if i < D {
+            self[a].0[i].value()
+        } else {
+            self[a].1.value()
+        }
+    }
+    fn set_flat_entry(&mut self, index: usize, value: Scalar) {
+        let (a, i) = (index / (D + 1), index % (D + 1));
+        if i < D {
+            self[a].0[i] = Quantity::new(value)
+        } else {
+            self[a].1 = Quantity::new(value)
+        }
     }
 }
 

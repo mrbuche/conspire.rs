@@ -148,6 +148,14 @@ where
     fn decrement_from_retained(&mut self, _retained: &[bool], _other: &Vector) {
         unimplemented!()
     }
+    /// The entry at an index over all of the entries of the solution.
+    fn flat_entry(&self, _index: usize) -> Scalar {
+        unimplemented!()
+    }
+    /// Sets the entry at an index over all of the entries of the solution.
+    fn set_flat_entry(&mut self, _index: usize, _value: Scalar) {
+        unimplemented!()
+    }
 }
 
 /// Common methods for Jacobians.

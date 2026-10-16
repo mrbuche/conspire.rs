@@ -22,7 +22,6 @@ fn same_units_add() {
 
 #[test]
 fn multiplication_combines_the_units() {
-    // Viscosity * Rate = Stress, resolved when this compiles.
     let stress: Stresses = Viscosities::zero() * Rates::zero();
     assert!(stress.is_zero())
 }
@@ -73,7 +72,6 @@ fn mixed_rank_blocks_assemble_into_one_kkt_matrix() {
 mod erase {
     use crate::math::{Current, QuantityVector, Tensor, TensorRank1Vec};
     use crate::units::Force;
-
     #[test]
     fn an_owned_vector_is_erased_without_copying() {
         let vector = TensorRank1Vec::<3, Current, Force>::from([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]);
@@ -83,7 +81,6 @@ mod erase {
         assert_eq!(erased.len(), 2);
         assert_eq!(erased[1][2], 6.0);
     }
-
     #[test]
     fn erased_quantities_keep_their_values() {
         let mut vector = QuantityVector::<Force>::zero(3);
@@ -93,5 +90,63 @@ mod erase {
             .for_each(|(i, quantity)| *quantity = Force::newtons(i as f64 + 0.5));
         let erased = vector.into_erased();
         (0..3).for_each(|i| assert_eq!(erased[i], i as f64 + 0.5));
+    }
+}
+
+mod flat_entries {
+    use crate::{
+        math::{
+            Current, Quantity, QuantityVector, Scalar, Solution, TensorRank1, TensorRank1Vec,
+            TensorTupleVec, Vector,
+        },
+        units::{Length, Temperature},
+    };
+    fn agree_with_decrementing<X>(size: usize)
+    where
+        X: Solution + Clone,
+    {
+        let mut solution = X::from(Vector::zero(size));
+        (0..size).for_each(|i| solution.set_flat_entry(i, i as Scalar + 0.5));
+        (0..size).for_each(|i| assert_eq!(solution.flat_entry(i), i as Scalar + 0.5));
+        (0..size).for_each(|i| {
+            let mut unit = Vector::zero(size);
+            unit[i] = 1.0;
+            let mut decremented = solution.clone();
+            decremented.decrement_from(&unit);
+            (0..size).for_each(|j| {
+                let expected = solution.flat_entry(j) - if j == i { 1.0 } else { 0.0 };
+                assert_eq!(decremented.flat_entry(j), expected, "index {i}, entry {j}")
+            })
+        });
+    }
+    #[test]
+    fn a_vector() {
+        agree_with_decrementing::<Vector>(7)
+    }
+    #[test]
+    fn a_vector_of_quantities() {
+        agree_with_decrementing::<QuantityVector<Length>>(7)
+    }
+    #[test]
+    fn coordinates() {
+        agree_with_decrementing::<TensorRank1Vec<3, Current, Length>>(9)
+    }
+    #[test]
+    fn coordinates_and_temperatures() {
+        agree_with_decrementing::<
+            TensorTupleVec<TensorRank1<3, Current, Length>, Quantity<Temperature>>,
+        >(12)
+    }
+    #[test]
+    fn the_temperature_follows_the_coordinates_of_its_node() {
+        let mut solution =
+            TensorTupleVec::<TensorRank1<3, Current, Length>, Quantity<Temperature>>::from(
+                Vector::zero(8),
+            );
+        solution.set_flat_entry(7, 300.0);
+        solution.set_flat_entry(5, 1.5);
+        assert_eq!(solution[1].1.value(), 300.0);
+        assert_eq!(solution[1].0[1].value(), 1.5);
+        assert_eq!(solution[0].1.value(), 0.0);
     }
 }

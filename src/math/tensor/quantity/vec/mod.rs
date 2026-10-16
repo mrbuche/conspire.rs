@@ -1,6 +1,6 @@
 use super::Quantity;
 use crate::math::{
-    Jacobian, Solution, Tensor, TensorRank0, Vector, assert::FiniteDifference,
+    Jacobian, Scalar, Solution, Tensor, TensorRank0, Vector, assert::FiniteDifference,
     tensor::vec::TensorVector,
 };
 use crate::units::{Dimensionless, UnitDiv};
@@ -71,6 +71,12 @@ impl<U> Solution for QuantityVector<U> {
             .filter(|(_, retained_a)| **retained_a)
             .zip(other.iter())
             .for_each(|((self_a, _), vector_a)| *self_a -= Quantity::new(*vector_a))
+    }
+    fn flat_entry(&self, index: usize) -> Scalar {
+        self[index].value()
+    }
+    fn set_flat_entry(&mut self, index: usize, value: Scalar) {
+        self[index] = Quantity::new(value)
     }
 }
 
