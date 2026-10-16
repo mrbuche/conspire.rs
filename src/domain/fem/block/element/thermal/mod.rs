@@ -2,12 +2,12 @@ pub mod capacity;
 pub mod conduction;
 
 use crate::{
-    fem::block::element::diffusion::{DiffusiveFiniteElement, ElementNodalPotentials},
+    fem::block::element::diffusion::{DiffusiveFiniteElement, ElementNodalFields},
     mechanics::TemperatureGradients,
     units::Temperature,
 };
 
-pub type ElementNodalTemperatures<const D: usize> = ElementNodalPotentials<Temperature, D>;
+pub type ElementNodalTemperatures<const D: usize> = ElementNodalFields<Temperature, D>;
 
 pub trait ThermalFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where

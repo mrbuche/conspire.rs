@@ -24,7 +24,7 @@ impl Fourier {
 impl Thermal for Fourier {}
 
 impl Diffusion for Fourier {
-    type Potential = Temperature;
+    type Field = Temperature;
     #[doc = include_str!("potential.md")]
     fn potential(
         &self,

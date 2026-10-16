@@ -23,7 +23,7 @@ pub use linear::Linear;
 /// Required methods for dielectric constitutive models.
 pub trait Dielectric
 where
-    Self: Electrical + Diffusion<Potential = ElectricPotential>,
+    Self: Electrical + Diffusion<Field = ElectricPotential>,
 {
     /// Calculates and returns the electric displacement.
     fn electric_displacement(
@@ -41,4 +41,4 @@ where
     }
 }
 
-impl<C> Dielectric for C where C: Electrical + Diffusion<Potential = ElectricPotential> {}
+impl<C> Dielectric for C where C: Electrical + Diffusion<Field = ElectricPotential> {}

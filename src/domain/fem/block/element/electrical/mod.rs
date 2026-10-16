@@ -2,12 +2,12 @@ pub mod dielectric;
 
 use crate::{
     fem::block::element::diffusion::{
-        DiffusiveFiniteElement, ElementGradients, ElementNodalPotentials as Potentials,
+        DiffusiveFiniteElement, ElementGradients, ElementNodalFields,
     },
     units::ElectricPotential,
 };
 
-pub type ElementNodalPotentials<const D: usize> = Potentials<ElectricPotential, D>;
+pub type ElementNodalPotentials<const D: usize> = ElementNodalFields<ElectricPotential, D>;
 
 pub trait ElectricalFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where

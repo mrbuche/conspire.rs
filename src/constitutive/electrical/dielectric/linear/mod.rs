@@ -18,7 +18,7 @@ pub struct Linear {
 impl Electrical for Linear {}
 
 impl Diffusion for Linear {
-    type Potential = ElectricPotential;
+    type Field = ElectricPotential;
     #[doc = include_str!("potential.md")]
     fn potential(
         &self,

@@ -23,7 +23,7 @@ pub use fourier::Fourier;
 /// Required methods for thermal conduction constitutive models.
 pub trait ThermalConduction
 where
-    Self: Thermal + Diffusion<Potential = Temperature>,
+    Self: Thermal + Diffusion<Field = Temperature>,
 {
     /// Calculates and returns the heat flux.
     fn heat_flux(
@@ -41,4 +41,4 @@ where
     }
 }
 
-impl<C> ThermalConduction for C where C: Thermal + Diffusion<Potential = Temperature> {}
+impl<C> ThermalConduction for C where C: Thermal + Diffusion<Field = Temperature> {}

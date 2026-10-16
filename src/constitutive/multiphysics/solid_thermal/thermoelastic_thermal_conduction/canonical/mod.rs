@@ -204,7 +204,7 @@ where
     C1: Thermoelastic,
     C2: ThermalConduction,
 {
-    type Potential = Temperature;
+    type Field = Temperature;
     fn potential(
         &self,
         temperature_gradient: &TemperatureGradient,

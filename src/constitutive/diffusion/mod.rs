@@ -15,12 +15,12 @@ use crate::{
     },
 };
 
-/// A potential whose gradient drives a flux, and the units that follow from it.
+/// A field whose gradient drives a flux, and the units that follow from it.
 pub trait Diffusive
 where
     Self: Unit,
 {
-    /// The unit of the gradient of the potential.
+    /// The unit of the gradient of the field.
     type Gradient: Unit;
     /// The unit of the flux.
     type Flux: Unit + UnitMul<ReciprocalLength, Output = Self::FluxPerLength>;
@@ -68,54 +68,45 @@ impl Diffusive for ElectricPotential {
     type Stiffness = Capacitance;
 }
 
-/// The potential of a diffusion constitutive model.
-pub type Potential<C> = <C as Diffusion>::Potential;
-
-/// The gradient of the potential.
+/// The gradient of the field.
 pub type DiffusionGradient<C> =
-    TensorRank1<3, Reference, <<C as Diffusion>::Potential as Diffusive>::Gradient>;
+    TensorRank1<3, Reference, <<C as Diffusion>::Field as Diffusive>::Gradient>;
 
-/// A list of gradients of the potential.
+/// A list of gradients of the field.
 pub type DiffusionGradients<C, const N: usize> =
-    TensorRank1List<3, Reference, N, <<C as Diffusion>::Potential as Diffusive>::Gradient>;
+    TensorRank1List<3, Reference, N, <<C as Diffusion>::Field as Diffusive>::Gradient>;
 
 /// The flux.
-pub type DiffusionFlux<C> =
-    TensorRank1<3, Reference, <<C as Diffusion>::Potential as Diffusive>::Flux>;
+pub type DiffusionFlux<C> = TensorRank1<3, Reference, <<C as Diffusion>::Field as Diffusive>::Flux>;
 
 /// A list of fluxes.
 pub type DiffusionFluxes<C, const N: usize> =
-    TensorRank1List<3, Reference, N, <<C as Diffusion>::Potential as Diffusive>::Flux>;
+    TensorRank1List<3, Reference, N, <<C as Diffusion>::Field as Diffusive>::Flux>;
 
 /// The tangent to the flux.
 pub type DiffusionTangent<C> =
-    TensorRank2<3, Reference, Reference, <<C as Diffusion>::Potential as Diffusive>::Tangent>;
+    TensorRank2<3, Reference, Reference, <<C as Diffusion>::Field as Diffusive>::Tangent>;
 
 /// A list of tangents to the flux.
-pub type DiffusionTangents<C, const N: usize> = TensorRank2List<
-    3,
-    Reference,
-    Reference,
-    N,
-    <<C as Diffusion>::Potential as Diffusive>::Tangent,
->;
+pub type DiffusionTangents<C, const N: usize> =
+    TensorRank2List<3, Reference, Reference, N, <<C as Diffusion>::Field as Diffusive>::Tangent>;
 
 /// Required methods for diffusion constitutive models.
 ///
-/// The flux is $`-\kappa\nabla\phi`$ for a potential $`\phi`$, so that the
-/// tangent is negative and the potential is the energy density whose
-/// derivative with respect to the gradient is the negative flux.
+/// The flux is $`-\kappa\nabla\phi`$ for a field $`\phi`$, so that the tangent
+/// is negative, and the potential is the energy density whose derivative with
+/// respect to the gradient is the negative flux.
 pub trait Diffusion
 where
     Self: Clone + Debug,
 {
-    /// The potential whose gradient drives the flux.
-    type Potential: Diffusive;
+    /// The field whose gradient drives the flux.
+    type Field: Diffusive;
     /// Calculates and returns the potential.
     fn potential(
         &self,
         gradient: &DiffusionGradient<Self>,
-    ) -> Result<Quantity<<Self::Potential as Diffusive>::EnergyDensity>, ConstitutiveError>;
+    ) -> Result<Quantity<<Self::Field as Diffusive>::EnergyDensity>, ConstitutiveError>;
     /// Calculates and returns the flux.
     fn flux(
         &self,
