@@ -35,7 +35,10 @@ pub mod vem;
 
 use crate::{
     domain::block::element::Elements,
-    geometry::Coordinates,
+    geometry::{
+        Coordinates,
+        mesh::{NodeSets, SideSets},
+    },
     math::{
         Current, Reference, Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
         assert::AssertionError,
@@ -70,6 +73,19 @@ pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, Current, V
 pub struct Model<B, const D: usize> {
     pub(crate) blocks: B,
     pub(crate) coordinates: NodalReferenceCoordinates<D>,
+    pub(crate) node_sets: NodeSets,
+    pub(crate) side_sets: SideSets,
+}
+
+impl<B, const D: usize> Model<B, D> {
+    /// The sets of nodes the model took from its mesh.
+    pub fn node_sets(&self) -> &NodeSets {
+        &self.node_sets
+    }
+    /// The sets of element sides the model took from its mesh.
+    pub fn side_sets(&self) -> &SideSets {
+        &self.side_sets
+    }
 }
 
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
@@ -183,6 +199,8 @@ impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> 
         Self {
             blocks,
             coordinates,
+            node_sets: NodeSets::new(),
+            side_sets: SideSets::new(),
         }
     }
 }

@@ -3,13 +3,24 @@ mod test;
 
 use crate::geometry::{
     Coordinates,
-    mesh::{Connectivities, Connectivity, Mesh},
+    mesh::{Connectivities, Connectivity, Mesh, NodeSets, SideSets},
 };
 use std::vec::IntoIter;
 
 impl<const D: usize> From<Mesh<D>> for (Connectivities, Coordinates<D>) {
     fn from(mesh: Mesh<D>) -> Self {
         (mesh.connectivities, mesh.coordinates)
+    }
+}
+
+impl<const D: usize> From<Mesh<D>> for (Connectivities, Coordinates<D>, NodeSets, SideSets) {
+    fn from(mesh: Mesh<D>) -> Self {
+        (
+            mesh.connectivities,
+            mesh.coordinates,
+            mesh.node_sets,
+            mesh.side_sets,
+        )
     }
 }
 
