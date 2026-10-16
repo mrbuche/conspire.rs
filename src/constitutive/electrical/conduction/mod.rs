@@ -14,7 +14,7 @@ mod ohmic;
 
 use crate::{
     constitutive::{ConstitutiveError, diffusion::Diffusion, electrical::Electrical},
-    mechanics::{CurrentDensity, CurrentTangent, ElectricField},
+    mechanics::{CurrentDensity, CurrentDensityTangent, ElectricField},
     units::Current,
 };
 
@@ -33,10 +33,10 @@ where
         self.flux(potential_gradient)
     }
     /// Calculates and returns the tangent to the current density.
-    fn current_tangent(
+    fn current_density_tangent(
         &self,
         potential_gradient: &ElectricField,
-    ) -> Result<CurrentTangent, ConstitutiveError> {
+    ) -> Result<CurrentDensityTangent, ConstitutiveError> {
         self.tangent(potential_gradient)
     }
 }

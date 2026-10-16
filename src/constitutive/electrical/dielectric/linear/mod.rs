@@ -4,7 +4,7 @@ mod test;
 use crate::{
     constitutive::{ConstitutiveError, diffusion::Diffusion, electrical::Electrical},
     math::{IDENTITY_00, Quantity, Tensor},
-    mechanics::{ElectricDisplacement, ElectricField, ElectricTangent},
+    mechanics::{ElectricDisplacement, ElectricDisplacementTangent, ElectricField},
     units::{Charge, EnergyDensity, Permittivity},
 };
 
@@ -33,11 +33,11 @@ impl Diffusion for Linear {
     ) -> Result<ElectricDisplacement, ConstitutiveError> {
         Ok(potential_gradient * -self.permittivity)
     }
-    #[doc = include_str!("electric_tangent.md")]
+    #[doc = include_str!("electric_displacement_tangent.md")]
     fn tangent(
         &self,
         _potential_gradient: &ElectricField,
-    ) -> Result<ElectricTangent, ConstitutiveError> {
+    ) -> Result<ElectricDisplacementTangent, ConstitutiveError> {
         Ok(IDENTITY_00 * -self.permittivity)
     }
 }

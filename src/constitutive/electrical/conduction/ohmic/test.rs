@@ -5,7 +5,7 @@ use crate::{
         Quantity, Scalar, Tensor, TensorArray,
         assert::{Assert, AssertionError, FiniteDifference, perturbation},
     },
-    mechanics::{CurrentDensity, CurrentTangent, ElectricField, test::get_electric_field},
+    mechanics::{CurrentDensity, CurrentDensityTangent, ElectricField, test::get_electric_field},
     units::{Rate, Stress},
 };
 
@@ -50,7 +50,7 @@ fn potential() -> Result<(), AssertionError> {
 
 #[test]
 fn tangent() -> Result<(), AssertionError> {
-    let tangent = model().current_tangent(&get_electric_field())?;
+    let tangent = model().current_density_tangent(&get_electric_field())?;
     (0..3).try_for_each(|i| {
         (0..3)
             .try_for_each(|j| Assert::eq(tangent[i][j].value(), &(if i == j { -3.0 } else { 0.0 })))
@@ -83,8 +83,8 @@ fn finite_difference_current_density() -> Result<(), AssertionError> {
 #[test]
 fn finite_difference_tangent() -> Result<(), AssertionError> {
     let electric_field = get_electric_field();
-    let tangent = model().current_tangent(&electric_field)?;
-    let mut fd = CurrentTangent::zero();
+    let tangent = model().current_density_tangent(&electric_field)?;
+    let mut fd = CurrentDensityTangent::zero();
     for j in 0..3 {
         let mut electric_field_plus = electric_field.clone();
         electric_field_plus[j] += perturbation(0.5 * crate::EPSILON);

@@ -4,7 +4,7 @@ mod test;
 use crate::{
     constitutive::{ConstitutiveError, diffusion::Diffusion, electrical::Electrical},
     math::{IDENTITY_00, Quantity, Tensor},
-    mechanics::{CurrentDensity, CurrentTangent, ElectricField},
+    mechanics::{CurrentDensity, CurrentDensityTangent, ElectricField},
     units::{Current, ElectricalConductivity, PowerDensity},
 };
 
@@ -33,11 +33,11 @@ impl Diffusion for Ohmic {
     ) -> Result<CurrentDensity, ConstitutiveError> {
         Ok(potential_gradient * -self.electrical_conductivity)
     }
-    #[doc = include_str!("current_tangent.md")]
+    #[doc = include_str!("current_density_tangent.md")]
     fn tangent(
         &self,
         _potential_gradient: &ElectricField,
-    ) -> Result<CurrentTangent, ConstitutiveError> {
+    ) -> Result<CurrentDensityTangent, ConstitutiveError> {
         Ok(IDENTITY_00 * -self.electrical_conductivity)
     }
 }

@@ -155,11 +155,11 @@ pub type CurrentDensities<const W: usize> =
     TensorRank1List<3, Reference, W, crate::units::CurrentDensity>;
 
 /// The current density tangent $`\partial\mathbf{J}/\partial\nabla\phi`$.
-pub type CurrentTangent =
+pub type CurrentDensityTangent =
     TensorRank2<3, Reference, Reference, crate::units::ElectricalConductivity>;
 
 /// A list of current density tangents.
-pub type CurrentTangents<const W: usize> =
+pub type CurrentDensityTangents<const W: usize> =
     TensorRank2List<3, Reference, Reference, W, crate::units::ElectricalConductivity>;
 
 /// A velocity in the current configuration.
@@ -219,10 +219,10 @@ pub type ElectricDisplacements<const N: usize> =
     TensorRank1List<3, Reference, N, crate::units::ElectricDisplacement>;
 
 /// The electric displacement tangent $`\partial\mathbf{D}/\partial\mathbf{E}`$.
-pub type ElectricTangent = TensorRank2<3, Reference, Reference, Permittivity>;
+pub type ElectricDisplacementTangent = TensorRank2<3, Reference, Reference, Permittivity>;
 
 /// A list of electric displacement tangents.
-pub type ElectricTangents<const N: usize> =
+pub type ElectricDisplacementTangents<const N: usize> =
     TensorRank2List<3, Reference, Reference, N, Permittivity>;
 
 /// The electric field $`\mathbf{E}`$.

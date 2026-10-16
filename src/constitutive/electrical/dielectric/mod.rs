@@ -14,7 +14,7 @@ mod linear;
 
 use crate::{
     constitutive::{ConstitutiveError, diffusion::Diffusion, electrical::Electrical},
-    mechanics::{ElectricDisplacement, ElectricField, ElectricTangent},
+    mechanics::{ElectricDisplacement, ElectricDisplacementTangent, ElectricField},
     units::Charge,
 };
 
@@ -33,10 +33,10 @@ where
         self.flux(potential_gradient)
     }
     /// Calculates and returns the tangent to the electric displacement.
-    fn electric_tangent(
+    fn electric_displacement_tangent(
         &self,
         potential_gradient: &ElectricField,
-    ) -> Result<ElectricTangent, ConstitutiveError> {
+    ) -> Result<ElectricDisplacementTangent, ConstitutiveError> {
         self.tangent(potential_gradient)
     }
 }
