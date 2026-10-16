@@ -116,6 +116,44 @@ fn electrical_units_close_over_their_products() {
 }
 
 #[test]
+fn conduction_units_close_over_their_products() {
+    use crate::units::{
+        Area, Charge, Conductance, ConductancePerArea, ConductancePerVolume, Conductivity, Current,
+        CurrentDensity, CurrentPerVolume, ElectricField, ElectricFieldSquared, ElectricPotential,
+        Power, PowerDensity, Time, Volume,
+    };
+    same::<Product<Current, Time>, Charge>();
+    same::<Quotient<Charge, Time>, Current>();
+    same::<Quotient<Charge, Current>, Time>();
+    same::<Product<Current, ElectricPotential>, Power>();
+    same::<Quotient<Power, ElectricPotential>, Current>();
+    same::<Quotient<Power, Current>, ElectricPotential>();
+    same::<Product<Conductance, ElectricPotential>, Current>();
+    same::<Quotient<Current, ElectricPotential>, Conductance>();
+    same::<Quotient<Current, Conductance>, ElectricPotential>();
+    same::<Product<Conductivity, ElectricField>, CurrentDensity>();
+    same::<Quotient<CurrentDensity, ElectricField>, Conductivity>();
+    same::<Quotient<CurrentDensity, Conductivity>, ElectricField>();
+    same::<Product<Conductivity, Length>, Conductance>();
+    same::<Quotient<Conductance, Length>, Conductivity>();
+    same::<Product<Conductivity, ReciprocalLength>, ConductancePerArea>();
+    same::<Product<ConductancePerArea, ReciprocalLength>, ConductancePerVolume>();
+    same::<Product<ConductancePerArea, Area>, Conductance>();
+    same::<Product<ConductancePerVolume, Volume>, Conductance>();
+    same::<Product<CurrentDensity, Area>, Current>();
+    same::<Quotient<Current, Area>, CurrentDensity>();
+    same::<Product<CurrentDensity, ReciprocalLength>, CurrentPerVolume>();
+    same::<Product<CurrentPerVolume, Volume>, Current>();
+    same::<Quotient<Current, Volume>, CurrentPerVolume>();
+    same::<Product<Conductivity, ElectricFieldSquared>, PowerDensity>();
+    same::<Quotient<PowerDensity, Conductivity>, ElectricFieldSquared>();
+    same::<Product<ElectricField, CurrentDensity>, PowerDensity>();
+    same::<Quotient<PowerDensity, ElectricField>, CurrentDensity>();
+    same::<Product<Conductance, Dimensionless>, Conductance>();
+    same::<Product<Dimensionless, CurrentPerVolume>, CurrentPerVolume>();
+}
+
+#[test]
 fn units_are_zero_sized() {
     assert_eq!(size_of::<Stress>(), 0);
     assert_eq!(size_of::<Dimensionless>(), 0);

@@ -270,6 +270,20 @@ units!(
     CapacitancePerVolume,
     /// A charge per unit volume, as a free charge density is.
     ChargeDensity,
+    /// An electric current, being a charge per unit time.
+    Current,
+    /// A current density, being a current per unit area.
+    CurrentDensity,
+    /// A current per unit volume, as a current density per unit length is.
+    CurrentPerVolume,
+    /// A conductance, being a current per unit electric potential.
+    Conductance,
+    /// A conductivity, being a conductance per unit length.
+    Conductivity,
+    /// A conductance per unit area, as a conductivity per unit length is.
+    ConductancePerArea,
+    /// A conductance per unit volume, as a conductivity per unit area is.
+    ConductancePerVolume,
     /// A reciprocal stiffness, as a compliance conjugate to a force is.
     ReciprocalForcePerLength,
 );
@@ -517,6 +531,41 @@ unit_products!(
     Volume * ChargeDensity = Charge,
     ElectricField * ElectricDisplacement = Stress,
     ElectricDisplacement * ElectricField = Stress,
+    Dimensionless * Current = Current,
+    Dimensionless * CurrentDensity = CurrentDensity,
+    Dimensionless * CurrentPerVolume = CurrentPerVolume,
+    Dimensionless * Conductance = Conductance,
+    Dimensionless * Conductivity = Conductivity,
+    Dimensionless * ConductancePerArea = ConductancePerArea,
+    Dimensionless * ConductancePerVolume = ConductancePerVolume,
+    Current * Time = Charge,
+    Time * Current = Charge,
+    Current * ElectricPotential = Power,
+    ElectricPotential * Current = Power,
+    Conductance * ElectricPotential = Current,
+    ElectricPotential * Conductance = Current,
+    Conductivity * ElectricField = CurrentDensity,
+    ElectricField * Conductivity = CurrentDensity,
+    Conductivity * Length = Conductance,
+    Length * Conductivity = Conductance,
+    Conductivity * ReciprocalLength = ConductancePerArea,
+    ReciprocalLength * Conductivity = ConductancePerArea,
+    ConductancePerArea * ReciprocalLength = ConductancePerVolume,
+    ReciprocalLength * ConductancePerArea = ConductancePerVolume,
+    ConductancePerArea * Area = Conductance,
+    Area * ConductancePerArea = Conductance,
+    ConductancePerVolume * Volume = Conductance,
+    Volume * ConductancePerVolume = Conductance,
+    CurrentDensity * Area = Current,
+    Area * CurrentDensity = Current,
+    CurrentDensity * ReciprocalLength = CurrentPerVolume,
+    ReciprocalLength * CurrentDensity = CurrentPerVolume,
+    CurrentPerVolume * Volume = Current,
+    Volume * CurrentPerVolume = Current,
+    Conductivity * ElectricFieldSquared = PowerDensity,
+    ElectricFieldSquared * Conductivity = PowerDensity,
+    ElectricField * CurrentDensity = PowerDensity,
+    CurrentDensity * ElectricField = PowerDensity,
     Energy * Time = Action,
     Time * Energy = Action,
     Action * Rate = Energy,

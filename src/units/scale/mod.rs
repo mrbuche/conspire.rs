@@ -20,11 +20,13 @@ mod test;
 
 use super::{
     Acceleration, Action, Amount, Area, Capacitance, CapacitancePerArea, CapacitancePerVolume,
-    Charge, ChargeDensity, Density, Dimensionless, ElectricDisplacement, ElectricField,
-    ElectricPotential, Energy, Entropy, Force, ForcePerLength, Length, Mass, MolarEnergy,
-    MolarEntropy, Permeability, Permittivity, PowerPerLengthTemperature, Rate, ReciprocalAmount,
-    ReciprocalTemperature, ReciprocalTemperatureSquared, SpecificEnergy, SpecificEntropy, Stress,
-    StressPerLength, Temperature, Time, TimePerTemperature, Velocity, Viscosity, Volume,
+    Charge, ChargeDensity, Conductance, ConductancePerArea, ConductancePerVolume, Conductivity,
+    Current, CurrentDensity, CurrentPerVolume, Density, Dimensionless, ElectricDisplacement,
+    ElectricField, ElectricPotential, Energy, Entropy, Force, ForcePerLength, Length, Mass,
+    MolarEnergy, MolarEntropy, Permeability, Permittivity, PowerPerLengthTemperature, Rate,
+    ReciprocalAmount, ReciprocalTemperature, ReciprocalTemperatureSquared, SpecificEnergy,
+    SpecificEntropy, Stress, StressPerLength, Temperature, Time, TimePerTemperature, Velocity,
+    Viscosity, Volume,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -239,6 +241,34 @@ scales!(
     ChargeDensity {
         coulombs_per_cubic_meter / in_coulombs_per_cubic_meter = 1.0,
             "coulombs per cubic metre",
+    }
+    Current {
+        amperes / in_amperes = 1.0, "amperes",
+        milliamperes / in_milliamperes = 1e-3, "milliamperes",
+        microamperes / in_microamperes = 1e-6, "microamperes",
+    }
+    CurrentDensity {
+        amperes_per_square_meter / in_amperes_per_square_meter = 1.0,
+            "amperes per square metre",
+    }
+    CurrentPerVolume {
+        amperes_per_cubic_meter / in_amperes_per_cubic_meter = 1.0, "amperes per cubic metre",
+    }
+    Conductance {
+        siemens / in_siemens = 1.0, "siemens",
+        millisiemens / in_millisiemens = 1e-3, "millisiemens",
+        microsiemens / in_microsiemens = 1e-6, "microsiemens",
+    }
+    Conductivity {
+        siemens_per_meter / in_siemens_per_meter = 1.0, "siemens per metre",
+        millisiemens_per_meter / in_millisiemens_per_meter = 1e-3, "millisiemens per metre",
+    }
+    ConductancePerArea {
+        siemens_per_square_meter / in_siemens_per_square_meter = 1.0,
+            "siemens per square metre",
+    }
+    ConductancePerVolume {
+        siemens_per_cubic_meter / in_siemens_per_cubic_meter = 1.0, "siemens per cubic metre",
     }
     Viscosity {
         pascal_seconds / in_pascal_seconds = 1.0, "pascal seconds",

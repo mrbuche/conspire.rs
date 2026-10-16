@@ -163,6 +163,99 @@ mod cohere_inertial {
     }
 }
 
+mod cohere_conduction {
+    use super::*;
+    use crate::units::{
+        Charge, Conductance, ConductancePerArea, ConductancePerVolume, Conductivity, Current,
+        CurrentDensity, CurrentPerVolume, ElectricField, ElectricPotential,
+    };
+    #[test]
+    fn an_ampere_is_a_coulomb_per_second() {
+        same(
+            Charge::coulombs(6.0) / Time::seconds(2.0),
+            Current::amperes(3.0),
+        );
+        same(Current::milliamperes(1e3), Current::amperes(1.0));
+        same(Current::microamperes(1e6), Current::amperes(1.0))
+    }
+    #[test]
+    fn a_watt_is_an_ampere_volt() {
+        same(
+            Current::amperes(2.0) * ElectricPotential::volts(3.0),
+            Energy::joules(6.0) * Rate::per_second(1.0),
+        )
+    }
+    #[test]
+    fn a_siemens_is_an_ampere_per_volt() {
+        same(
+            Conductance::siemens(2.0) * ElectricPotential::volts(3.0),
+            Current::amperes(6.0),
+        );
+        same(
+            Current::milliamperes(1.0) / ElectricPotential::volts(1.0),
+            Conductance::millisiemens(1.0),
+        );
+        same(
+            Conductance::microsiemens(1e3),
+            Conductance::millisiemens(1.0),
+        )
+    }
+    #[test]
+    fn a_current_density_is_a_conductivity_times_a_field() {
+        same(
+            Conductivity::siemens_per_meter(2.0) * ElectricField::volts_per_meter(3.0),
+            CurrentDensity::amperes_per_square_meter(6.0),
+        );
+        same(
+            Current::amperes(6.0) / Area::square_meters(2.0),
+            CurrentDensity::amperes_per_square_meter(3.0),
+        );
+        same(
+            Conductivity::siemens_per_meter(1.0),
+            Conductivity::millisiemens_per_meter(1e3),
+        )
+    }
+    #[test]
+    fn a_conductivity_times_a_length_is_a_conductance() {
+        same(
+            Conductivity::siemens_per_meter(6.0) * Length::meters(2.0),
+            Conductance::siemens(12.0),
+        );
+        same(
+            Conductance::siemens(6.0) / Area::square_meters(2.0),
+            ConductancePerArea::siemens_per_square_meter(3.0),
+        );
+        same(
+            Conductance::siemens(6.0) / Volume::cubic_meters(2.0),
+            ConductancePerVolume::siemens_per_cubic_meter(3.0),
+        )
+    }
+    #[test]
+    fn a_current_per_volume_is_a_current_over_a_volume() {
+        same(
+            Current::amperes(6.0) / Volume::cubic_meters(2.0),
+            CurrentPerVolume::amperes_per_cubic_meter(3.0),
+        );
+        same(
+            CurrentPerVolume::amperes_per_cubic_meter(3.0) * Volume::cubic_meters(2.0),
+            Current::amperes(6.0),
+        )
+    }
+    #[test]
+    fn the_dissipation_is_a_conductivity_times_a_field_squared() {
+        same(
+            Conductivity::siemens_per_meter(2.0)
+                * ElectricField::volts_per_meter(3.0)
+                * ElectricField::volts_per_meter(3.0),
+            Stress::pascals(18.0) * Rate::per_second(1.0),
+        );
+        same(
+            ElectricField::volts_per_meter(2.0) * CurrentDensity::amperes_per_square_meter(3.0),
+            Stress::pascals(6.0) * Rate::per_second(1.0),
+        )
+    }
+}
+
 mod cohere_electrical {
     use super::*;
     use crate::units::{
