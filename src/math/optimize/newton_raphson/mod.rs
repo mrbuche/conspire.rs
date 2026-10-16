@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod test;
 
+mod constraint;
+
 use super::{
     super::{
         Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Scalar, Solution,
@@ -17,6 +19,7 @@ use super::{
 };
 use crate::math::Norm;
 use crate::units::{UnitMul, UnitRatio, UnitSum};
+use constraint::{ConstraintMatrix, kkt_entry_sparse};
 use std::{
     collections::BTreeMap,
     fmt::{self, Debug, Formatter},
@@ -1719,26 +1722,8 @@ where
     }
 }
 
-/// The entry of a bordered KKT system whose primal block is a Hessian left
-/// unassembled, the constraint rows and columns carried by the matrix itself.
-fn kkt_entry_sparse<H: Hessian>(
-    hessian: &H,
-    constraint_matrix: &Matrix,
-    num_variables: usize,
-    row: usize,
-    column: usize,
-) -> Scalar {
-    if row >= num_variables {
-        -constraint_matrix[row - num_variables][column]
-    } else if column >= num_variables {
-        -constraint_matrix[column - num_variables][row]
-    } else {
-        hessian.entry(row, column)
-    }
-}
-
 #[expect(clippy::too_many_arguments)]
-fn constrained<J, H, X>(
+fn constrained<J, H, X, M>(
     newton_raphson: &NewtonRaphson,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
@@ -1747,14 +1732,15 @@ fn constrained<J, H, X>(
     initial_guess: X,
     minimizing: bool,
     sparse: Option<SparseSolver>,
-    constraint_matrix: Matrix,
+    constraint_matrix: M,
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
     H: Hessian,
     J: Jacobian,
     X: Solution,
-    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+    M: ConstraintMatrix,
+    for<'a> &'a M: Mul<&'a X, Output = Vector>,
 {
     let mut penalty = 0.0 as Scalar;
     let num_variables = initial_guess.size();
@@ -1769,18 +1755,10 @@ where
     let mut solution = initial_guess;
     let mut tangent = SquareMatrix::zero(if sparse.is_none() { num_total } else { 0 });
     if sparse.is_none() {
-        constraint_matrix
-            .iter()
-            .enumerate()
-            .for_each(|(i, constraint_matrix_i)| {
-                constraint_matrix_i
-                    .iter()
-                    .enumerate()
-                    .for_each(|(j, constraint_matrix_ij)| {
-                        tangent[i + num_variables][j] = -constraint_matrix_ij;
-                        tangent[j][i + num_variables] = -constraint_matrix_ij;
-                    })
-            });
+        constraint_matrix.for_each_nonzero(|i, j, constraint_matrix_ij| {
+            tangent[i + num_variables][j] = -constraint_matrix_ij;
+            tangent[j][i + num_variables] = -constraint_matrix_ij;
+        });
     }
     let (mut radius, max_radius) =
         if let TrustRegion::Adaptive { radius, max_radius } = newton_raphson.trust_region {
@@ -1790,7 +1768,7 @@ where
         };
     let mut steps = 0;
     loop {
-        (jacobian(&solution)? - &multipliers * &constraint_matrix).fill_into_chained(
+        (jacobian(&solution)? - constraint_matrix.weighted(&multipliers)).fill_into_chained(
             &constraint_rhs - &constraint_matrix * &solution,
             &mut residual,
         );
@@ -1809,9 +1787,9 @@ where
                 let verdict = solver.is_minimum(
                     |i, j| {
                         if i >= num_variables {
-                            -constraint_matrix[i - num_variables][j]
+                            -constraint_matrix.at(i - num_variables, j)
                         } else if j >= num_variables {
-                            -constraint_matrix[j - num_variables][i]
+                            -constraint_matrix.at(j - num_variables, i)
                         } else {
                             hess.entry(i, j)
                         }
@@ -1905,9 +1883,9 @@ where
             decrement = solver.solve(
                 |i, j| {
                     if i >= num_variables {
-                        -constraint_matrix[i - num_variables][j]
+                        -constraint_matrix.at(i - num_variables, j)
                     } else if j >= num_variables {
-                        -constraint_matrix[j - num_variables][i]
+                        -constraint_matrix.at(j - num_variables, i)
                     } else {
                         hess.entry(i, j)
                     }
