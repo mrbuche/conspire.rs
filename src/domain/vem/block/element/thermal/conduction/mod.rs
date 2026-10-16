@@ -3,9 +3,7 @@ mod test;
 
 use crate::{
     constitutive::thermal::conduction::ThermalConduction,
-    fem::block::element::{
-        FiniteElementError, thermal::conduction::ThermalConductionFiniteElement,
-    },
+    fem::block::element::{FiniteElementError, diffusion::DiffusionFiniteElement},
     math::{ContractWith, Quantity, Scalar, Tensor, TensorVector},
     units::{Power, PowerPerTemperature, PowerTemperature},
     vem::block::element::{
@@ -59,7 +57,7 @@ where
             .try_fold(projected, |total, (tetrahedron, temperatures)| {
                 Ok::<_, FiniteElementError>(
                     total
-                        + ThermalConductionFiniteElement::potential(
+                        + DiffusionFiniteElement::potential(
                             tetrahedron,
                             constitutive_model,
                             &temperatures,
@@ -90,7 +88,7 @@ where
             .zip(self.tetrahedra_temperatures(nodal_temperatures))
             .zip(self.tetrahedra_nodes())
             .try_for_each(|((tetrahedron, temperatures), &[face, node_b, node_a])| {
-                let nodal_forces = ThermalConductionFiniteElement::nodal_forces(
+                let nodal_forces = DiffusionFiniteElement::nodal_forces(
                     tetrahedron,
                     constitutive_model,
                     &temperatures,
@@ -153,7 +151,7 @@ where
             .zip(self.tetrahedra_temperatures(nodal_temperatures))
             .zip(self.tetrahedra_nodes())
             .try_for_each(|((tetrahedron, temperatures), &[face, node_b, node_a])| {
-                let nodal_stiffnesses = ThermalConductionFiniteElement::nodal_stiffnesses(
+                let nodal_stiffnesses = DiffusionFiniteElement::nodal_stiffnesses(
                     tetrahedron,
                     constitutive_model,
                     &temperatures,

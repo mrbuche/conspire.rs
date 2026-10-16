@@ -13,10 +13,9 @@ pub mod test;
 mod fourier;
 
 use crate::{
-    constitutive::{ConstitutiveError, thermal::Thermal},
-    math::Quantity,
+    constitutive::{ConstitutiveError, diffusion::Diffusion, thermal::Thermal},
     mechanics::{HeatFlux, HeatFluxTangent, TemperatureGradient},
-    units::PowerTemperatureDensity,
+    units::Temperature,
 };
 
 pub use fourier::Fourier;
@@ -24,21 +23,22 @@ pub use fourier::Fourier;
 /// Required methods for thermal conduction constitutive models.
 pub trait ThermalConduction
 where
-    Self: Thermal,
+    Self: Thermal + Diffusion<Potential = Temperature>,
 {
-    /// Calculates and returns the potential.
-    fn potential(
-        &self,
-        temperature_gradient: &TemperatureGradient,
-    ) -> Result<Quantity<PowerTemperatureDensity>, ConstitutiveError>;
     /// Calculates and returns the heat flux.
     fn heat_flux(
         &self,
         temperature_gradient: &TemperatureGradient,
-    ) -> Result<HeatFlux, ConstitutiveError>;
+    ) -> Result<HeatFlux, ConstitutiveError> {
+        self.flux(temperature_gradient)
+    }
     /// Calculates and returns the tangent to the heat flux.
     fn heat_flux_tangent(
         &self,
         temperature_gradient: &TemperatureGradient,
-    ) -> Result<HeatFluxTangent, ConstitutiveError>;
+    ) -> Result<HeatFluxTangent, ConstitutiveError> {
+        self.tangent(temperature_gradient)
+    }
 }
+
+impl<C> ThermalConduction for C where C: Thermal + Diffusion<Potential = Temperature> {}

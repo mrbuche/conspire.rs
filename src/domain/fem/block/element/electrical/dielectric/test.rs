@@ -7,11 +7,11 @@ macro_rules! test_dielectric {
                 constitutive::electrical::dielectric::Linear,
                 fem::block::element::{
                     FiniteElementError,
+                    diffusion::DiffusionFiniteElement,
                     electrical::{
                         ElectricalFiniteElement, ElementNodalPotentials,
                         dielectric::{
-                            DielectricFiniteElement, ElementNodalForcesElectrical,
-                            ElementNodalStiffnessesElectrical,
+                            ElementNodalForcesElectrical, ElementNodalStiffnessesElectrical,
                         },
                     },
                 },
@@ -100,7 +100,7 @@ macro_rules! test_dielectric {
                         .iter()
                         .try_for_each($crate::math::assert::Assert::zero)?;
                     element
-                        .electric_fields(&potentials)
+                        .potential_gradients(&potentials)
                         .iter()
                         .try_for_each($crate::math::assert::Assert::zero)
                 }

@@ -1,4 +1,5 @@
-use super::{super::test::THERMAL_CONDUCTIVITY, Fourier, TemperatureGradient, ThermalConduction};
+use super::{super::test::THERMAL_CONDUCTIVITY, Fourier, TemperatureGradient};
+use crate::constitutive::thermal::conduction::ThermalConduction;
 use crate::math::assert::Assert;
 use crate::{
     math::{Scalar, Tensor},

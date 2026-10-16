@@ -1,36 +1,29 @@
 pub mod dielectric;
 
 use crate::{
-    fem::block::element::{Element, FiniteElement},
-    math::{Quantity, Tensor, TensorList},
-    mechanics::{ElectricField, ElectricFields},
+    fem::block::element::diffusion::{
+        DiffusiveFiniteElement, ElementGradients, ElementNodalPotentials as Potentials,
+    },
     units::ElectricPotential,
 };
 
-pub type ElementNodalPotentials<const D: usize> = TensorList<Quantity<ElectricPotential>, D>;
+pub type ElementNodalPotentials<const D: usize> = Potentials<ElectricPotential, D>;
 
 pub trait ElectricalFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElement<G, M, N, P>,
+    Self: DiffusiveFiniteElement<ElectricPotential, G, M, N, P>,
 {
-    fn electric_fields(&self, nodal_potentials: &ElementNodalPotentials<N>) -> ElectricFields<G>;
+    fn potential_gradients(
+        &self,
+        nodal_potentials: &ElementNodalPotentials<N>,
+    ) -> ElementGradients<ElectricPotential, G> {
+        self.gradients(nodal_potentials)
+    }
 }
 
-impl<const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    ElectricalFiniteElement<G, M, N, P> for Element<3, G, N, O>
+impl<T, const G: usize, const M: usize, const N: usize, const P: usize>
+    ElectricalFiniteElement<G, M, N, P> for T
 where
-    Self: FiniteElement<G, M, N, P>,
+    T: DiffusiveFiniteElement<ElectricPotential, G, M, N, P>,
 {
-    fn electric_fields(&self, nodal_potentials: &ElementNodalPotentials<N>) -> ElectricFields<G> {
-        self.gradient_vectors()
-            .iter()
-            .map(|gradient_vectors| {
-                -nodal_potentials
-                    .iter()
-                    .zip(gradient_vectors)
-                    .map(|(nodal_potential, gradient_vector)| gradient_vector * nodal_potential)
-                    .sum::<ElectricField>()
-            })
-            .collect()
-    }
 }

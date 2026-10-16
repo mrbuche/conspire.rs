@@ -1,3 +1,3 @@
 ```math
-u(\mathbf{E}) = \frac{1}{2}\varepsilon\mathbf{E}\cdot\mathbf{E}
+u(\nabla\phi) = \frac{1}{2}\varepsilon\nabla\phi\cdot\nabla\phi
 ```

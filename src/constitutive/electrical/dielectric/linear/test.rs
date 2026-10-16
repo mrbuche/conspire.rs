@@ -1,5 +1,6 @@
-use super::{super::test::PERMITTIVITY, Dielectric, Linear};
+use super::{super::test::PERMITTIVITY, Linear};
 use crate::{
+    constitutive::{diffusion::Diffusion, electrical::dielectric::Dielectric},
     math::{
         Quantity, Scalar, Tensor, TensorArray,
         assert::{Assert, AssertionError, FiniteDifference, perturbation},
@@ -26,7 +27,7 @@ fn permittivity() -> Result<(), AssertionError> {
         .iter()
         .zip(get_electric_field().iter())
         .try_for_each(|(displacement_i, field_i)| {
-            Assert::eq(displacement_i.value(), &(3.0 * field_i.value()))
+            Assert::eq(displacement_i.value(), &(-3.0 * field_i.value()))
         })
 }
 
@@ -51,7 +52,7 @@ fn tangent() -> Result<(), AssertionError> {
     let tangent = model().electric_tangent(&get_electric_field())?;
     (0..3).try_for_each(|i| {
         (0..3)
-            .try_for_each(|j| Assert::eq(tangent[i][j].value(), &(if i == j { 3.0 } else { 0.0 })))
+            .try_for_each(|j| Assert::eq(tangent[i][j].value(), &(if i == j { -3.0 } else { 0.0 })))
     })
 }
 
@@ -66,7 +67,7 @@ fn finite_difference_displacement() -> Result<(), AssertionError> {
         let mut electric_field_minus = electric_field.clone();
         electric_field_minus[i] -= perturbation(0.5 * crate::EPSILON);
         fd[i] = Quantity::new(
-            (model().potential(&electric_field_plus)?.value()
+            -(model().potential(&electric_field_plus)?.value()
                 - model().potential(&electric_field_minus)?.value())
                 / crate::EPSILON,
         );

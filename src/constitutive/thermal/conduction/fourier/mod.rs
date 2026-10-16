@@ -2,13 +2,10 @@
 mod test;
 
 use crate::{
-    constitutive::{
-        ConstitutiveError,
-        thermal::{Thermal, conduction::ThermalConduction},
-    },
+    constitutive::{ConstitutiveError, diffusion::Diffusion, thermal::Thermal},
     math::{IDENTITY_00, Quantity, Tensor},
     mechanics::{HeatFlux, HeatFluxTangent, TemperatureGradient},
-    units::{PowerPerLengthTemperature, PowerTemperatureDensity},
+    units::{PowerPerLengthTemperature, PowerTemperatureDensity, Temperature},
 };
 
 #[doc = include_str!("doc.md")]
@@ -26,7 +23,8 @@ impl Fourier {
 
 impl Thermal for Fourier {}
 
-impl ThermalConduction for Fourier {
+impl Diffusion for Fourier {
+    type Potential = Temperature;
     #[doc = include_str!("potential.md")]
     fn potential(
         &self,
@@ -35,14 +33,14 @@ impl ThermalConduction for Fourier {
         Ok(temperature_gradient.norm_squared() * self.thermal_conductivity() * 0.5)
     }
     #[doc = include_str!("heat_flux.md")]
-    fn heat_flux(
+    fn flux(
         &self,
         temperature_gradient: &TemperatureGradient,
     ) -> Result<HeatFlux, ConstitutiveError> {
         Ok(temperature_gradient * -self.thermal_conductivity())
     }
     #[doc = include_str!("heat_flux_tangent.md")]
-    fn heat_flux_tangent(
+    fn tangent(
         &self,
         _temperature_gradient: &TemperatureGradient,
     ) -> Result<HeatFluxTangent, ConstitutiveError> {

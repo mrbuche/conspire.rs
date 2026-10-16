@@ -21,7 +21,7 @@ where
         element_connectivity: &[usize; N],
         nodal_potentials: &NodalPotentials,
     ) -> ElementNodalPotentials<N>;
-    fn electric_fields(&self, nodal_potentials: &NodalPotentials) -> Vec<ElectricFields<G>>;
+    fn potential_gradients(&self, nodal_potentials: &NodalPotentials) -> Vec<ElectricFields<G>>;
 }
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
@@ -40,12 +40,12 @@ where
             .map(|&node| nodal_potentials[node])
             .collect()
     }
-    fn electric_fields(&self, nodal_potentials: &NodalPotentials) -> Vec<ElectricFields<G>> {
+    fn potential_gradients(&self, nodal_potentials: &NodalPotentials) -> Vec<ElectricFields<G>> {
         self.elements()
             .iter()
             .zip(self.connectivity())
             .map(|(element, element_connectivity)| {
-                element.electric_fields(
+                element.potential_gradients(
                     &self.nodal_potentials_element(element_connectivity, nodal_potentials),
                 )
             })
