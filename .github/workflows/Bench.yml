@@ -1,0 +1,44 @@
+name: Bench
+
+on:
+  pull_request:
+    paths:
+      - "src/math/**"
+      - "examples/sparse_bench.rs"
+      - ".github/workflows/Bench.yml"
+  workflow_dispatch:
+
+permissions: {}
+jobs:
+  Sparse:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
+        with:
+          toolchain: stable
+      - name: Nightly toolchain
+        run: rustup toolchain install nightly --profile minimal
+      - name: Scalar fallback tests
+        if: runner.arch == 'X64'
+        run: CONSPIRE_SIMD=scalar cargo test --release --features all --lib simd
+      - name: Benchmark
+        shell: bash
+        run: |
+          {
+            echo "### Sparse factorization (median ms, 3D Laplacian)"
+            echo
+            echo "| backend | n | LU refactor | LU solve | LDL refactor | LDL solve |"
+            echo "|---|---|---|---|---|---|"
+            cargo run --quiet --release --features math --example sparse_bench
+            if [ "$RUNNER_ARCH" = "X64" ]; then
+              CONSPIRE_SIMD=scalar cargo run --quiet --release --features math --example sparse_bench
+            fi
+            cargo +nightly run --quiet --release --features math,nightly --example sparse_bench
+          } | tee -a "$GITHUB_STEP_SUMMARY"

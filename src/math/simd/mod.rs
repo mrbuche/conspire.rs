@@ -9,6 +9,9 @@ use crate::math::Scalar;
 #[cfg(target_arch = "x86_64")]
 use std::sync::LazyLock;
 
+#[cfg(test)]
+mod test;
+
 #[cfg(all(not(feature = "nightly"), target_arch = "x86_64"))]
 use avx as backend;
 
@@ -25,14 +28,19 @@ pub(crate) enum Isa {
 
 #[cfg(target_arch = "x86_64")]
 static ISA: LazyLock<Isa> = LazyLock::new(|| {
-    if std::arch::is_x86_feature_detected!("avx2") && std::arch::is_x86_feature_detected!("fma") {
+    if std::env::var_os("CONSPIRE_SIMD").is_some_and(|value| value == "scalar") {
+        Isa::None
+    } else if std::arch::is_x86_feature_detected!("avx2")
+        && std::arch::is_x86_feature_detected!("fma")
+    {
         Isa::Avx2
     } else {
         Isa::None
     }
 });
 
-/// The SIMD backend selected for this run, resolved once.
+/// The SIMD backend selected for this run, resolved once. Setting the
+/// environment variable `CONSPIRE_SIMD=scalar` forces the scalar fallback.
 #[cfg(target_arch = "x86_64")]
 pub(crate) fn isa() -> Isa {
     *ISA

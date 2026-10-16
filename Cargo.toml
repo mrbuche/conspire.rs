@@ -26,6 +26,10 @@ nightly = []
 physics = ['mechanics']
 vem = ['fem']
 
+[[example]]
+name = "sparse_bench"
+required-features = ["math"]
+
 [package.metadata.docs.rs]
 features = ["all"]
 rustdoc-args = ["--html-in-header", ".github/katex.html"]
