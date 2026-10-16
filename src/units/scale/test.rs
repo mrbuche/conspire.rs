@@ -163,6 +163,64 @@ mod cohere_inertial {
     }
 }
 
+mod cohere_mass_transport {
+    use super::*;
+    use crate::units::{Amount, Concentration, Diffusivity, MolarFlowRate, MolarFlux};
+    #[test]
+    fn a_concentration_is_an_amount_per_volume() {
+        same(
+            Amount::moles(6.0) / Volume::cubic_meters(2.0),
+            Concentration::moles_per_cubic_meter(3.0),
+        );
+        same(
+            Concentration::moles_per_liter(1.0),
+            Concentration::moles_per_cubic_meter(1e3),
+        );
+        same(
+            Concentration::millimoles_per_liter(1.0),
+            Concentration::moles_per_cubic_meter(1.0),
+        );
+        same(
+            Amount::millimoles(1.0) / Volume::liters(1.0),
+            Concentration::millimoles_per_liter(1.0),
+        )
+    }
+    #[test]
+    fn a_molar_flow_rate_is_an_amount_per_time() {
+        same(
+            Amount::moles(6.0) / Time::seconds(2.0),
+            MolarFlowRate::moles_per_second(3.0),
+        );
+        same(
+            MolarFlowRate::millimoles_per_second(1e3),
+            MolarFlowRate::moles_per_second(1.0),
+        )
+    }
+    #[test]
+    fn a_molar_flux_is_a_molar_flow_rate_per_area() {
+        same(
+            MolarFlowRate::moles_per_second(6.0) / Area::square_meters(2.0),
+            MolarFlux::moles_per_square_meter_second(3.0),
+        )
+    }
+    #[test]
+    fn a_molar_flux_is_a_diffusivity_times_a_concentration_gradient() {
+        same(
+            Diffusivity::square_meters_per_second(2.0)
+                * (Concentration::moles_per_cubic_meter(6.0) / Length::meters(3.0)),
+            MolarFlux::moles_per_square_meter_second(4.0),
+        );
+        same(
+            Diffusivity::square_centimeters_per_second(1.0),
+            Diffusivity::square_millimeters_per_second(1e2),
+        );
+        same(
+            Diffusivity::square_centimeters_per_second(1.0),
+            Diffusivity::square_meters_per_second(1e-4),
+        )
+    }
+}
+
 mod cohere_conduction {
     use super::*;
     use crate::units::{

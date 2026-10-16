@@ -154,6 +154,43 @@ fn conduction_units_close_over_their_products() {
 }
 
 #[test]
+fn mass_transport_units_close_over_their_products() {
+    use crate::units::{
+        Amount, Area, Concentration, ConcentrationPerLength, ConcentrationPerLengthSquared,
+        Diffusivity, MolarFlowRate, MolarFlowRateConcentration, MolarFlowRateConcentrationDensity,
+        MolarFlux, MolarFluxPerLength, Time, Velocity, Volume, VolumetricFlowRate,
+    };
+    same::<Product<Concentration, Volume>, Amount>();
+    same::<Quotient<Amount, Volume>, Concentration>();
+    same::<Quotient<Amount, Concentration>, Volume>();
+    same::<Product<Concentration, ReciprocalLength>, ConcentrationPerLength>();
+    same::<Quotient<Concentration, Length>, ConcentrationPerLength>();
+    same::<Product<ConcentrationPerLength, ConcentrationPerLength>, ConcentrationPerLengthSquared>(
+    );
+    same::<Product<Diffusivity, ConcentrationPerLength>, MolarFlux>();
+    same::<Quotient<MolarFlux, ConcentrationPerLength>, Diffusivity>();
+    same::<Quotient<MolarFlux, Diffusivity>, ConcentrationPerLength>();
+    same::<Product<Diffusivity, ReciprocalLength>, Velocity>();
+    same::<Quotient<Velocity, Length>, Rate>();
+    same::<Product<MolarFlux, Area>, MolarFlowRate>();
+    same::<Quotient<MolarFlowRate, Area>, MolarFlux>();
+    same::<Product<MolarFlux, ReciprocalLength>, MolarFluxPerLength>();
+    same::<Product<MolarFluxPerLength, Volume>, MolarFlowRate>();
+    same::<Product<MolarFlowRate, Time>, Amount>();
+    same::<Quotient<Amount, Time>, MolarFlowRate>();
+    same::<Product<Rate, Volume>, VolumetricFlowRate>();
+    same::<Quotient<VolumetricFlowRate, Volume>, Rate>();
+    same::<Product<VolumetricFlowRate, Concentration>, MolarFlowRate>();
+    same::<Quotient<MolarFlowRate, Concentration>, VolumetricFlowRate>();
+    same::<Product<Diffusivity, ConcentrationPerLengthSquared>, MolarFlowRateConcentrationDensity>(
+    );
+    same::<Product<MolarFlux, ConcentrationPerLength>, MolarFlowRateConcentrationDensity>();
+    same::<Product<MolarFlowRateConcentrationDensity, Volume>, MolarFlowRateConcentration>();
+    same::<Product<MolarFlowRate, Concentration>, MolarFlowRateConcentration>();
+    same::<Product<Diffusivity, Dimensionless>, Diffusivity>();
+}
+
+#[test]
 fn units_are_zero_sized() {
     assert_eq!(size_of::<Stress>(), 0);
     assert_eq!(size_of::<Dimensionless>(), 0);

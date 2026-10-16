@@ -20,13 +20,14 @@ mod test;
 
 use super::{
     Acceleration, Action, Amount, Area, Capacitance, CapacitancePerArea, CapacitancePerVolume,
-    Charge, ChargeDensity, Conductance, ConductancePerArea, ConductancePerVolume, Current,
-    CurrentDensity, CurrentPerVolume, Density, Dimensionless, ElectricDisplacement, ElectricField,
-    ElectricPotential, ElectricalConductivity, Energy, Entropy, Force, ForcePerLength, Length,
-    Mass, MolarEnergy, MolarEntropy, Permeability, Permittivity, PowerPerLengthTemperature, Rate,
-    ReciprocalAmount, ReciprocalTemperature, ReciprocalTemperatureSquared, SpecificEnergy,
-    SpecificEntropy, Stress, StressPerLength, Temperature, Time, TimePerTemperature, Velocity,
-    Viscosity, Volume,
+    Charge, ChargeDensity, Concentration, Conductance, ConductancePerArea, ConductancePerVolume,
+    Current, CurrentDensity, CurrentPerVolume, Density, Diffusivity, Dimensionless,
+    ElectricDisplacement, ElectricField, ElectricPotential, ElectricalConductivity, Energy,
+    Entropy, Force, ForcePerLength, Length, Mass, MolarEnergy, MolarEntropy, MolarFlowRate,
+    MolarFlux, Permeability, Permittivity, PowerPerLengthTemperature, Rate, ReciprocalAmount,
+    ReciprocalTemperature, ReciprocalTemperatureSquared, SpecificEnergy, SpecificEntropy, Stress,
+    StressPerLength, Temperature, Time, TimePerTemperature, Velocity, Viscosity, Volume,
+    VolumetricFlowRate,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -241,6 +242,29 @@ scales!(
     ChargeDensity {
         coulombs_per_cubic_meter / in_coulombs_per_cubic_meter = 1.0,
             "coulombs per cubic metre",
+    }
+    Concentration {
+        moles_per_cubic_meter / in_moles_per_cubic_meter = 1.0, "moles per cubic metre",
+        moles_per_liter / in_moles_per_liter = 1e3, "moles per litre",
+        millimoles_per_liter / in_millimoles_per_liter = 1.0, "millimoles per litre",
+    }
+    MolarFlux {
+        moles_per_square_meter_second / in_moles_per_square_meter_second = 1.0,
+            "moles per square metre second",
+    }
+    MolarFlowRate {
+        moles_per_second / in_moles_per_second = 1.0, "moles per second",
+        millimoles_per_second / in_millimoles_per_second = 1e-3, "millimoles per second",
+    }
+    Diffusivity {
+        square_meters_per_second / in_square_meters_per_second = 1.0, "square metres per second",
+        square_centimeters_per_second / in_square_centimeters_per_second = 1e-4,
+            "square centimetres per second",
+        square_millimeters_per_second / in_square_millimeters_per_second = 1e-6,
+            "square millimetres per second",
+    }
+    VolumetricFlowRate {
+        cubic_meters_per_second / in_cubic_meters_per_second = 1.0, "cubic metres per second",
     }
     Current {
         amperes / in_amperes = 1.0, "amperes",

@@ -284,6 +284,26 @@ units!(
     ConductancePerArea,
     /// A conductance per unit volume, as an electrical conductivity per unit area is.
     ConductancePerVolume,
+    /// A concentration, being an amount of substance per unit volume.
+    Concentration,
+    /// A concentration gradient, being a concentration per unit length.
+    ConcentrationPerLength,
+    /// A squared concentration gradient, being a squared concentration per unit area.
+    ConcentrationPerLengthSquared,
+    /// A molar flux, being an amount of substance per unit area and time.
+    MolarFlux,
+    /// A molar flux per unit length, as a molar source per unit volume and time is.
+    MolarFluxPerLength,
+    /// A molar flow rate, being an amount of substance per unit time.
+    MolarFlowRate,
+    /// A diffusivity, being an area per unit time.
+    Diffusivity,
+    /// A volumetric flow rate, being a volume per unit time.
+    VolumetricFlowRate,
+    /// A molar flow rate times a concentration, as the potential of diffusion is.
+    MolarFlowRateConcentration,
+    /// A molar flow rate times a concentration per unit volume.
+    MolarFlowRateConcentrationDensity,
     /// A reciprocal stiffness, as a compliance conjugate to a force is.
     ReciprocalForcePerLength,
 );
@@ -566,6 +586,49 @@ unit_products!(
     ElectricFieldSquared * ElectricalConductivity = PowerDensity,
     ElectricField * CurrentDensity = PowerDensity,
     CurrentDensity * ElectricField = PowerDensity,
+    Dimensionless * Concentration = Concentration,
+    Dimensionless * ConcentrationPerLength = ConcentrationPerLength,
+    Dimensionless * ConcentrationPerLengthSquared = ConcentrationPerLengthSquared,
+    Dimensionless * MolarFlux = MolarFlux,
+    Dimensionless * MolarFluxPerLength = MolarFluxPerLength,
+    Dimensionless * MolarFlowRate = MolarFlowRate,
+    Dimensionless * Diffusivity = Diffusivity,
+    Dimensionless * VolumetricFlowRate = VolumetricFlowRate,
+    Dimensionless * MolarFlowRateConcentration = MolarFlowRateConcentration,
+    Dimensionless * MolarFlowRateConcentrationDensity = MolarFlowRateConcentrationDensity,
+    Concentration * ReciprocalLength = ConcentrationPerLength,
+    ReciprocalLength * Concentration = ConcentrationPerLength,
+    Concentration * Volume = Amount,
+    Volume * Concentration = Amount,
+    ConcentrationPerLength * Length = Concentration,
+    Length * ConcentrationPerLength = Concentration,
+    ConcentrationPerLength * ConcentrationPerLength = ConcentrationPerLengthSquared,
+    Diffusivity * ConcentrationPerLength = MolarFlux,
+    ConcentrationPerLength * Diffusivity = MolarFlux,
+    Diffusivity * ReciprocalLength = Velocity,
+    ReciprocalLength * Diffusivity = Velocity,
+    Diffusivity * ConcentrationPerLengthSquared = MolarFlowRateConcentrationDensity,
+    ConcentrationPerLengthSquared * Diffusivity = MolarFlowRateConcentrationDensity,
+    MolarFlux * ConcentrationPerLength = MolarFlowRateConcentrationDensity,
+    ConcentrationPerLength * MolarFlux = MolarFlowRateConcentrationDensity,
+    MolarFlux * Area = MolarFlowRate,
+    Area * MolarFlux = MolarFlowRate,
+    MolarFlux * ReciprocalLength = MolarFluxPerLength,
+    ReciprocalLength * MolarFlux = MolarFluxPerLength,
+    MolarFluxPerLength * Volume = MolarFlowRate,
+    Volume * MolarFluxPerLength = MolarFlowRate,
+    MolarFlowRate * Time = Amount,
+    Time * MolarFlowRate = Amount,
+    VolumetricFlowRate * Concentration = MolarFlowRate,
+    Concentration * VolumetricFlowRate = MolarFlowRate,
+    Rate * Volume = VolumetricFlowRate,
+    Volume * Rate = VolumetricFlowRate,
+    Velocity * Area = VolumetricFlowRate,
+    Area * Velocity = VolumetricFlowRate,
+    MolarFlowRate * Concentration = MolarFlowRateConcentration,
+    Concentration * MolarFlowRate = MolarFlowRateConcentration,
+    MolarFlowRateConcentrationDensity * Volume = MolarFlowRateConcentration,
+    Volume * MolarFlowRateConcentrationDensity = MolarFlowRateConcentration,
     Energy * Time = Action,
     Time * Energy = Action,
     Action * Rate = Energy,
