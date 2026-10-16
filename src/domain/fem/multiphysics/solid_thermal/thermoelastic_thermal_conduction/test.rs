@@ -13,6 +13,7 @@ use crate::{
     fem::{
         Model, NodalReferenceCoordinates, Root,
         block::{Block, element::linear::Tetrahedron},
+        boundary::{BoundaryConditions, Displacement, SolidThermal, Temperature},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
         },
@@ -87,13 +88,19 @@ fn constraint() -> EqualityConstraint {
     EqualityConstraint::Linear(matrix, rhs)
 }
 
+fn fixed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
+    BoundaryConditions::new()
+        .fix_nodes(Temperature, 0..NODES)
+        .fix_node(Displacement::<0>, 0)
+        .fix_node(Displacement::<1>, 0)
+        .fix_node(Displacement::<2>, 0)
+        .fix_node(Displacement::<1>, 1)
+        .fix_node(Displacement::<2>, 1)
+        .fix_node(Displacement::<2>, 2)
+}
+
 fn fixed() -> EqualityConstraint {
-    EqualityConstraint::Fixed(
-        (0..NODES)
-            .map(|node| 4 * node + 3)
-            .chain([0, 1, 2, 5, 6, 10])
-            .collect(),
-    )
+    fixed_conditions().constraint()
 }
 
 fn solve(constraint: EqualityConstraint) -> NodalStatesSolidThermal {
@@ -103,6 +110,26 @@ fn solve(constraint: EqualityConstraint) -> NodalStatesSolidThermal {
         NodalStatesSolidThermal,
     >>::root(&model(), constraint, NewtonRaphson::default())
     .unwrap()
+}
+
+#[test]
+fn boundary_conditions_of_the_layout_of_the_state_give_the_same_solution() {
+    let states = <Model<B, 3> as Root<
+        NodalForcesSolidThermal,
+        NodalStiffnessesSolidThermal,
+        NodalStatesSolidThermal,
+    >>::root_with(&model(), &fixed_conditions(), NewtonRaphson::default())
+    .unwrap();
+    let expected = solve(fixed());
+    (0..NODES).for_each(|node| {
+        (0..3).for_each(|direction| {
+            assert_eq!(
+                states[node].0[direction].value(),
+                expected[node].0[direction].value()
+            )
+        });
+        assert_eq!(states[node].1.value(), expected[node].1.value())
+    })
 }
 
 #[test]

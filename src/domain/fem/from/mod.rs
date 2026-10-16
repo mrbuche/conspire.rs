@@ -16,7 +16,7 @@ use crate::{
     },
     geometry::{
         Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh, PrimitiveConnectivity},
+        mesh::{Connectivities, Connectivity, Mesh, NodeSets, PrimitiveConnectivity, SideSets},
     },
 };
 
@@ -108,7 +108,12 @@ where
     fn try_from(
         (mesh, (constitutive_model_1, constitutive_model_2)): (Mesh<3>, (C1, C2)),
     ) -> Result<Self, Self::Error> {
-        let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh.into();
+        let (connectivities, coordinates, node_sets, side_sets): (
+            Connectivities,
+            Coordinates<3>,
+            NodeSets,
+            SideSets,
+        ) = mesh.into();
         let coordinates = nodal_coordinates(coordinates);
         let mut connectivities = connectivities.into_blocks().into_iter();
         if connectivities.len() != 2 {
@@ -131,6 +136,8 @@ where
                 )?,
             ),
             coordinates,
+            node_sets,
+            side_sets,
         })
     }
 }

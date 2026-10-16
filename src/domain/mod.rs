@@ -4,6 +4,8 @@
 mod test;
 
 pub(crate) mod block;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub(crate) mod boundary;
 #[cfg(feature = "cbm")]
 pub mod cbm;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
@@ -32,8 +34,14 @@ pub(crate) mod time_scale;
 pub mod vem;
 
 use crate::{
-    domain::block::element::Elements,
-    geometry::Coordinates,
+    domain::{
+        block::element::Elements,
+        boundary::{BoundaryConditions, NodalState},
+    },
+    geometry::{
+        Coordinates,
+        mesh::{NodeSets, SideSets},
+    },
     math::{
         Current, Reference, Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
         assert::AssertionError,
@@ -68,6 +76,19 @@ pub type NodalVelocitiesHistory<const D: usize> = TensorRank1Vec2D<D, Current, V
 pub struct Model<B, const D: usize> {
     pub(crate) blocks: B,
     pub(crate) coordinates: NodalReferenceCoordinates<D>,
+    pub(crate) node_sets: NodeSets,
+    pub(crate) side_sets: SideSets,
+}
+
+impl<B, const D: usize> Model<B, D> {
+    /// The sets of nodes the model took from its mesh.
+    pub fn node_sets(&self) -> &NodeSets {
+        &self.node_sets
+    }
+    /// The sets of element sides the model took from its mesh.
+    pub fn side_sets(&self) -> &SideSets {
+        &self.side_sets
+    }
 }
 
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
@@ -174,6 +195,45 @@ where
     where
         S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
         Self: ProvidesTangent<X, S::Tangent>;
+    fn root_with<S>(
+        &self,
+        boundary_conditions: &BoundaryConditions<'_, X::Layout>,
+        solver: S,
+    ) -> Result<X, OptimizationError>
+    where
+        S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
+        Self: ProvidesTangent<X, S::Tangent>,
+        X: NodalState,
+    {
+        self.root(boundary_conditions.constraint(), solver)
+    }
+}
+
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub trait Minimize<F, J, X>
+where
+    Self: Sized,
+{
+    fn minimize<S>(
+        &self,
+        equality_constraint: EqualityConstraint,
+        solver: S,
+    ) -> Result<X, OptimizationError>
+    where
+        S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
+        Self: ProvidesTangent<X, S::Tangent>;
+    fn minimize_with<S>(
+        &self,
+        boundary_conditions: &BoundaryConditions<'_, X::Layout>,
+        solver: S,
+    ) -> Result<X, OptimizationError>
+    where
+        S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
+        Self: ProvidesTangent<X, S::Tangent>,
+        X: NodalState,
+    {
+        self.minimize(boundary_conditions.constraint(), solver)
+    }
 }
 
 impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> {
@@ -181,6 +241,8 @@ impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> 
         Self {
             blocks,
             coordinates,
+            node_sets: NodeSets::new(),
+            side_sets: SideSets::new(),
         }
     }
 }
@@ -208,20 +270,4 @@ pub trait SolverFor<M, F, J> {
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub trait ProvidesTangent<X, T> {
     fn provide_tangent(&self, argument: &X) -> Result<T, ElementModelError>;
-}
-
-/// Minimization of a model, where the solver determines the tangent it works from.
-#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub trait Minimize<F, J, X>
-where
-    Self: Sized,
-{
-    fn minimize<S>(
-        &self,
-        equality_constraint: EqualityConstraint,
-        solver: S,
-    ) -> Result<X, OptimizationError>
-    where
-        S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
-        Self: ProvidesTangent<X, S::Tangent>;
 }

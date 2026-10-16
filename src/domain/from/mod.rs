@@ -1,8 +1,11 @@
+#[cfg(test)]
+mod test;
+
 use crate::{
     domain::{Blocks, Model, NodalReferenceCoordinates, nodal_coordinates},
     geometry::{
         Coordinates,
-        mesh::{Connectivities, Connectivity, Mesh},
+        mesh::{Connectivities, Connectivity, Mesh, NodeSets, SideSets},
     },
 };
 
@@ -39,7 +42,12 @@ where
 {
     type Error = String;
     fn try_from((mesh, constitutive_models): (Mesh<D>, M)) -> Result<Self, Self::Error> {
-        let (connectivities, coordinates): (Connectivities, Coordinates<D>) = mesh.into();
+        let (connectivities, coordinates, node_sets, side_sets): (
+            Connectivities,
+            Coordinates<D>,
+            NodeSets,
+            SideSets,
+        ) = mesh.into();
         let coordinates = nodal_coordinates(coordinates);
         Ok(Self {
             blocks: B::from_connectivities(
@@ -48,6 +56,8 @@ where
                 &coordinates,
             )?,
             coordinates,
+            node_sets,
+            side_sets,
         })
     }
 }
