@@ -5,10 +5,11 @@ mod time_scale;
 use crate::{
     constitutive::thermal::Thermal,
     fem::block::{
-        Block,
+        diffusion::DiffusiveElements,
         element::thermal::{ElementNodalTemperatures, ThermalFiniteElement},
     },
     mechanics::TemperatureGradients,
+    units::Temperature,
 };
 
 pub use crate::domain::thermal::NodalTemperatures;
@@ -17,46 +18,28 @@ pub trait ThermalElements<C, F, const G: usize, const M: usize, const N: usize, 
 where
     C: Thermal,
     F: ThermalFiniteElement<G, M, N, P>,
-{
-    fn nodal_temperatures_element(
-        &self,
-        element_connectivity: &[usize; N],
-        nodal_temperatures: &NodalTemperatures,
-    ) -> ElementNodalTemperatures<N>;
-    fn temperature_gradients(
-        &self,
-        nodal_temperatures: &NodalTemperatures,
-    ) -> Vec<TemperatureGradients<G>>;
-}
-
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    ThermalElements<C, F, G, M, N, P> for Block<C, F, G, M, N, P, R, H>
-where
-    C: Thermal,
-    F: ThermalFiniteElement<G, M, N, P>,
+    Self: DiffusiveElements<Temperature, C, F, G, M, N, P>,
 {
     fn nodal_temperatures_element(
         &self,
         element_connectivity: &[usize; N],
         nodal_temperatures: &NodalTemperatures,
     ) -> ElementNodalTemperatures<N> {
-        element_connectivity
-            .iter()
-            .map(|&node| nodal_temperatures[node])
-            .collect()
+        self.nodal_fields_element(element_connectivity, nodal_temperatures)
     }
     fn temperature_gradients(
         &self,
         nodal_temperatures: &NodalTemperatures,
     ) -> Vec<TemperatureGradients<G>> {
-        self.elements()
-            .iter()
-            .zip(self.connectivity())
-            .map(|(element, element_connectivity)| {
-                element.temperature_gradients(
-                    &self.nodal_temperatures_element(element_connectivity, nodal_temperatures),
-                )
-            })
-            .collect()
+        self.gradients(nodal_temperatures)
     }
+}
+
+impl<T, C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+    ThermalElements<C, F, G, M, N, P> for T
+where
+    C: Thermal,
+    F: ThermalFiniteElement<G, M, N, P>,
+    T: DiffusiveElements<Temperature, C, F, G, M, N, P>,
+{
 }

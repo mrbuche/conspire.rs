@@ -7,12 +7,55 @@ use crate::{
             Block,
             element::{
                 FiniteElementError,
-                diffusion::{DiffusionFiniteElement, ElementNodalFields},
+                diffusion::{
+                    DiffusionFiniteElement, DiffusiveFiniteElement, ElementGradients,
+                    ElementNodalFields,
+                },
             },
         },
     },
     math::Quantity,
 };
+
+pub trait DiffusiveElements<U, C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+where
+    U: Diffusive,
+    F: DiffusiveFiniteElement<U, G, M, N, P>,
+{
+    fn nodal_fields_element(
+        &self,
+        element_connectivity: &[usize; N],
+        nodal_fields: &NodalFields<U>,
+    ) -> ElementNodalFields<U, N>;
+    fn gradients(&self, nodal_fields: &NodalFields<U>) -> Vec<ElementGradients<U, G>>;
+}
+
+impl<U, C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
+    DiffusiveElements<U, C, F, G, M, N, P> for Block<C, F, G, M, N, P, R, H>
+where
+    U: Diffusive,
+    F: DiffusiveFiniteElement<U, G, M, N, P>,
+{
+    fn nodal_fields_element(
+        &self,
+        element_connectivity: &[usize; N],
+        nodal_fields: &NodalFields<U>,
+    ) -> ElementNodalFields<U, N> {
+        element_connectivity
+            .iter()
+            .map(|&node| nodal_fields[node])
+            .collect()
+    }
+    fn gradients(&self, nodal_fields: &NodalFields<U>) -> Vec<ElementGradients<U, G>> {
+        self.elements()
+            .iter()
+            .zip(self.connectivity())
+            .map(|(element, element_connectivity)| {
+                element.gradients(&self.nodal_fields_element(element_connectivity, nodal_fields))
+            })
+            .collect()
+    }
+}
 
 impl<U, C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
     DiffusionElements<U> for Block<C, F, G, M, N, P, R, H>
@@ -31,7 +74,7 @@ where
             .map(|(element, element_connectivity)| {
                 element.potential(
                     self.constitutive_model(),
-                    &element_nodal_fields(element_connectivity, nodal_fields),
+                    &self.nodal_fields_element(element_connectivity, nodal_fields),
                 )
             })
             .sum::<Result<Quantity<U::Energy>, FiniteElementError>>()
@@ -49,7 +92,7 @@ where
                 element
                     .nodal_forces(
                         self.constitutive_model(),
-                        &element_nodal_fields(element_connectivity, nodal_fields),
+                        &self.nodal_fields_element(element_connectivity, nodal_fields),
                     )?
                     .into_iter()
                     .zip(element_connectivity)
@@ -70,7 +113,7 @@ where
                 element
                     .nodal_stiffnesses(
                         self.constitutive_model(),
-                        &element_nodal_fields(element_connectivity, nodal_fields),
+                        &self.nodal_fields_element(element_connectivity, nodal_fields),
                     )?
                     .into_iter()
                     .zip(element_connectivity)
@@ -85,17 +128,4 @@ where
             })
             .map_err(|error| ElementModelError::upstream(error, self))
     }
-}
-
-fn element_nodal_fields<U, const N: usize>(
-    element_connectivity: &[usize; N],
-    nodal_fields: &NodalFields<U>,
-) -> ElementNodalFields<U, N>
-where
-    U: Diffusive,
-{
-    element_connectivity
-        .iter()
-        .map(|&node| nodal_fields[node])
-        .collect()
 }
