@@ -6,7 +6,10 @@ pub use condition::{BoundaryCondition, BoundaryConditions};
 
 use crate::{
     math::{Current, Quantity, Tensor, TensorRank1, TensorTuple, TensorVector},
-    units::{ElectricPotential, Length, Concentration, Temperature},
+    units::{
+        Concentration as ConcentrationUnit, ElectricPotential, Length,
+        Temperature as TemperatureUnit,
+    },
 };
 use std::marker::PhantomData;
 
@@ -35,7 +38,7 @@ pub struct Field<U>(PhantomData<U>);
 pub struct Coupled<A, B>(PhantomData<(A, B)>);
 
 /// The coordinates of a solid in `D` dimensions, then its temperature, to a node.
-pub type SolidThermal<const D: usize> = Coupled<Solid<D>, Field<Temperature>>;
+pub type SolidThermal<const D: usize> = Coupled<Solid<D>, Field<TemperatureUnit>>;
 
 impl<const D: usize> Layout for Solid<D> {
     const STRIDE: usize = D;
@@ -132,7 +135,7 @@ impl<const D: usize, const AXIS: usize> Component<Solid<D>, Direct> for Displace
     };
 }
 
-impl Component<Field<Temperature>, Direct> for Temperature {
+impl Component<Field<TemperatureUnit>, Direct> for Temperature {
     const OFFSET: usize = 0;
 }
 
@@ -140,6 +143,6 @@ impl Component<Field<ElectricPotential>, Direct> for Potential {
     const OFFSET: usize = 0;
 }
 
-impl Component<Field<Concentration>, Direct> for Concentration {
+impl Component<Field<ConcentrationUnit>, Direct> for Concentration {
     const OFFSET: usize = 0;
 }
