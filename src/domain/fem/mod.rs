@@ -4,6 +4,7 @@
 mod test;
 
 pub mod block;
+pub mod chemical;
 pub mod diffusion {
     pub use crate::domain::diffusion::{
         DiffusionElements, NodalFields, NodalForces, NodalStiffnesses,

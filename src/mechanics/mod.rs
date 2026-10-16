@@ -131,6 +131,13 @@ pub type Coordinates<I> = TensorRank1Vec<3, I, Length>;
 /// A vector of references to coordinates.
 pub type CoordinatesRef<'a, I> = TensorRank1RefVec<'a, 3, I, Length>;
 
+/// The concentration gradient $`\nabla c`$.
+pub type ConcentrationGradient = TensorRank1<3, Reference, crate::units::ConcentrationPerLength>;
+
+/// A list of concentration gradients.
+pub type ConcentrationGradients<const N: usize> =
+    TensorRank1List<3, Reference, N, crate::units::ConcentrationPerLength>;
+
 /// A coordinate in the current configuration.
 pub type CurrentCoordinate = TensorRank1<3, Current, Length>;
 
@@ -341,6 +348,19 @@ pub type HeatFluxTangents<const N: usize> =
 
 /// The left Cauchy-Green deformation $`\mathbf{B}`$.
 pub type LeftCauchyGreenDeformation = TensorRank2<3, Current, Current>;
+
+/// The molar flux $`\mathbf{J}`$.
+pub type MolarFlux = TensorRank1<3, Reference, crate::units::MolarFlux>;
+
+/// A list of molar fluxes.
+pub type MolarFluxes<const N: usize> = TensorRank1List<3, Reference, N, crate::units::MolarFlux>;
+
+/// The molar flux tangent $`\partial\mathbf{J}/\partial\nabla c`$.
+pub type MolarFluxTangent = TensorRank2<3, Reference, Reference, crate::units::Diffusivity>;
+
+/// A list of molar flux tangents.
+pub type MolarFluxTangents<const N: usize> =
+    TensorRank2List<3, Reference, Reference, N, crate::units::Diffusivity>;
 
 /// The Mandel stress $`\mathbf{M}`$.
 pub type MandelStress = TensorRank2<3, Reference, Reference, Stress>;

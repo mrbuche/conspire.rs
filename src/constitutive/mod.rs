@@ -7,6 +7,7 @@ pub mod test;
 pub mod autodiff;
 
 pub mod canonical;
+pub mod chemical;
 pub mod cohesive;
 pub mod diffusion;
 pub mod electrical;

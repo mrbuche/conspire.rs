@@ -6,13 +6,16 @@ use crate::{
     constitutive::ConstitutiveError,
     math::{Quantity, Reference, TensorRank1, TensorRank1List, TensorRank2, TensorRank2List},
     units::{
-        Capacitance, CapacitancePerArea, CapacitancePerVolume, Charge, ChargeDensity, Conductance,
-        ConductancePerArea, ConductancePerVolume, Current, CurrentDensity, CurrentPerVolume,
+        Capacitance, CapacitancePerArea, CapacitancePerVolume, Charge, ChargeDensity,
+        Concentration, ConcentrationPerLength, Conductance, ConductancePerArea,
+        ConductancePerVolume, Current, CurrentDensity, CurrentPerVolume, Diffusivity,
         ElectricDisplacement, ElectricField, ElectricPotential, ElectricalConductivity, Energy,
-        EnergyDensity, Permittivity, Power, PowerDensity, PowerPerArea, PowerPerAreaTemperature,
-        PowerPerLengthTemperature, PowerPerTemperature, PowerPerVolumeTemperature,
-        PowerTemperature, PowerTemperatureDensity, ReciprocalLength, Temperature,
-        TemperaturePerLength, Unit, UnitMul, Volume,
+        EnergyDensity, MolarFlowRate, MolarFlowRateConcentration,
+        MolarFlowRateConcentrationDensity, MolarFlux, MolarFluxPerLength, Permittivity, Power,
+        PowerDensity, PowerPerArea, PowerPerAreaTemperature, PowerPerLengthTemperature,
+        PowerPerTemperature, PowerPerVolumeTemperature, PowerTemperature, PowerTemperatureDensity,
+        Rate, ReciprocalLength, Temperature, TemperaturePerLength, Unit, UnitMul, Velocity, Volume,
+        VolumetricFlowRate,
     },
 };
 
@@ -54,6 +57,19 @@ impl Diffusive for Power {
     type EnergyDensity = PowerTemperatureDensity;
     type Energy = PowerTemperature;
     type Stiffness = PowerPerTemperature;
+}
+
+impl Diffusive for MolarFlowRate {
+    type Field = Concentration;
+    type Gradient = ConcentrationPerLength;
+    type Flux = MolarFlux;
+    type FluxPerLength = MolarFluxPerLength;
+    type Tangent = Diffusivity;
+    type TangentPerLength = Velocity;
+    type TangentPerArea = Rate;
+    type EnergyDensity = MolarFlowRateConcentrationDensity;
+    type Energy = MolarFlowRateConcentration;
+    type Stiffness = VolumetricFlowRate;
 }
 
 impl Diffusive for Charge {

@@ -1,6 +1,14 @@
 //! Continuum bond methods.
 
 pub mod block;
+pub mod chemical {
+    pub mod diffusion {
+        pub use crate::domain::chemical::diffusion::{
+            ChemicalDiffusionElements, NodalConcentrations, NodalMolarFlowRates,
+            NodalVolumetricFlowRates,
+        };
+    }
+}
 pub mod diffusion {
     pub use crate::domain::diffusion::{
         DiffusionElements, NodalFields, NodalForces, NodalStiffnesses,
