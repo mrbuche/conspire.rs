@@ -1,79 +1,16 @@
-use super::{super::Node, ThermalNode};
-use crate::{
-    constitutive::{ConstitutiveError, thermal::conduction::ThermalConduction},
-    domain::thermal::NodalTemperatures,
-    math::Quantity,
-    units::{Power, PowerPerTemperature, PowerTemperature},
-};
+use super::super::diffusion::DiffusionNode;
+use crate::constitutive::thermal::conduction::ThermalConduction;
 
 pub trait ThermalConductionNode<C>
 where
     C: ThermalConduction,
-    Self: ThermalNode,
+    Self: DiffusionNode<C>,
 {
-    fn potential(
-        &self,
-        constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Quantity<PowerTemperature>, ConstitutiveError>;
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Vec<Quantity<Power>>, ConstitutiveError>;
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Vec<Vec<Quantity<PowerPerTemperature>>>, ConstitutiveError>;
 }
 
-impl<C> ThermalConductionNode<C> for Node
+impl<T, C> ThermalConductionNode<C> for T
 where
     C: ThermalConduction,
+    T: DiffusionNode<C>,
 {
-    fn potential(
-        &self,
-        constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Quantity<PowerTemperature>, ConstitutiveError> {
-        Ok(
-            constitutive_model.potential(&self.temperature_gradient(nodal_temperatures))?
-                * self.volume,
-        )
-    }
-    fn nodal_forces(
-        &self,
-        constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Vec<Quantity<Power>>, ConstitutiveError> {
-        let heat_flux =
-            constitutive_model.heat_flux(&self.temperature_gradient(nodal_temperatures))?;
-        Ok(self
-            .gradient_vectors()
-            .iter()
-            .map(|gradient_vector| -(&heat_flux * gradient_vector) * self.volume)
-            .collect())
-    }
-    fn nodal_stiffnesses(
-        &self,
-        constitutive_model: &C,
-        nodal_temperatures: &NodalTemperatures,
-    ) -> Result<Vec<Vec<Quantity<PowerPerTemperature>>>, ConstitutiveError> {
-        let heat_flux_tangent =
-            constitutive_model.heat_flux_tangent(&self.temperature_gradient(nodal_temperatures))?;
-        Ok(self
-            .gradient_vectors()
-            .iter()
-            .map(|gradient_vector_a| {
-                self.gradient_vectors()
-                    .iter()
-                    .map(|gradient_vector_b| {
-                        -(gradient_vector_a * &(&heat_flux_tangent * gradient_vector_b))
-                            * self.volume
-                    })
-                    .collect()
-            })
-            .collect())
-    }
 }

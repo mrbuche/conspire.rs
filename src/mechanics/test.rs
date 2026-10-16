@@ -1,8 +1,9 @@
 use super::{
-    CurrentCoordinate, CurrentVelocity, Deformation, DeformationError, DeformationGradient,
-    DeformationGradientRate, ElectricField, FrameSpin, LeftCauchyGreenDeformation,
-    ReferenceCoordinate, RightCauchyGreenDeformation, RotationCurrentConfiguration,
-    RotationRateCurrentConfiguration, RotationReferenceConfiguration, Scalar, TemperatureGradient,
+    ConcentrationGradient, CurrentCoordinate, CurrentVelocity, Deformation, DeformationError,
+    DeformationGradient, DeformationGradientRate, ElectricField, FrameSpin,
+    LeftCauchyGreenDeformation, ReferenceCoordinate, RightCauchyGreenDeformation,
+    RotationCurrentConfiguration, RotationRateCurrentConfiguration, RotationReferenceConfiguration,
+    Scalar, TemperatureGradient,
 };
 use crate::math::assert::Assert;
 use crate::math::{
@@ -139,6 +140,10 @@ pub fn get_translation_reference_configuration() -> ReferenceCoordinate {
 
 pub fn get_temperature() -> Quantity<Temperature> {
     Quantity::new(123.0)
+}
+
+pub fn get_concentration_gradient() -> ConcentrationGradient {
+    ConcentrationGradient::from([12.3, -5.0, 8.8])
 }
 
 pub fn get_electric_field() -> ElectricField {

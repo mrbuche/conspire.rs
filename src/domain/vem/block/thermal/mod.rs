@@ -1,7 +1,7 @@
 pub mod capacity;
 pub mod conduction;
 #[cfg(test)]
-mod test;
+pub(crate) mod test;
 mod time_scale;
 
 use crate::vem::block::{Block, element::thermal::ElementNodalTemperatures};

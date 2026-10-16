@@ -1,3 +1,3 @@
 ```math
-\mathbf{D}(\mathbf{E}) = \varepsilon\mathbf{E}
+\mathbf{D}(\nabla\phi) = -\varepsilon\nabla\phi
 ```

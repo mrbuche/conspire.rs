@@ -1,7 +1,7 @@
 use super::super::test::{B, INTERIOR, NODES, block, coordinates, pseudorandom, temperatures};
 use crate::{
     EPSILON,
-    domain::{Model, thermal::conduction::ThermalConductionElements},
+    domain::{Model, diffusion::DiffusionElements},
     math::{Hessian, Scalar, Tensor},
     vem::NodalReferenceCoordinates,
 };

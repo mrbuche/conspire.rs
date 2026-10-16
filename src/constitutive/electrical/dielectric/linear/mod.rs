@@ -2,13 +2,10 @@
 mod test;
 
 use crate::{
-    constitutive::{
-        ConstitutiveError,
-        electrical::{Electrical, dielectric::Dielectric},
-    },
+    constitutive::{ConstitutiveError, diffusion::Diffusion, electrical::Electrical},
     math::{IDENTITY_00, Quantity, Tensor},
-    mechanics::{ElectricDisplacement, ElectricField, ElectricTangent},
-    units::{EnergyDensity, Permittivity},
+    mechanics::{ElectricDisplacement, ElectricDisplacementTangent, ElectricField},
+    units::{Charge, EnergyDensity, Permittivity},
 };
 
 #[doc = include_str!("doc.md")]
@@ -20,26 +17,27 @@ pub struct Linear {
 
 impl Electrical for Linear {}
 
-impl Dielectric for Linear {
+impl Diffusion for Linear {
+    type Balance = Charge;
     #[doc = include_str!("potential.md")]
     fn potential(
         &self,
-        electric_field: &ElectricField,
+        potential_gradient: &ElectricField,
     ) -> Result<Quantity<EnergyDensity>, ConstitutiveError> {
-        Ok(electric_field.norm_squared() * self.permittivity * 0.5)
+        Ok(potential_gradient.norm_squared() * self.permittivity * 0.5)
     }
     #[doc = include_str!("electric_displacement.md")]
-    fn electric_displacement(
+    fn flux(
         &self,
-        electric_field: &ElectricField,
+        potential_gradient: &ElectricField,
     ) -> Result<ElectricDisplacement, ConstitutiveError> {
-        Ok(electric_field * self.permittivity)
+        Ok(potential_gradient * -self.permittivity)
     }
-    #[doc = include_str!("electric_tangent.md")]
-    fn electric_tangent(
+    #[doc = include_str!("electric_displacement_tangent.md")]
+    fn tangent(
         &self,
-        _electric_field: &ElectricField,
-    ) -> Result<ElectricTangent, ConstitutiveError> {
-        Ok(IDENTITY_00 * self.permittivity)
+        _potential_gradient: &ElectricField,
+    ) -> Result<ElectricDisplacementTangent, ConstitutiveError> {
+        Ok(IDENTITY_00 * -self.permittivity)
     }
 }

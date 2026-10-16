@@ -7,12 +7,10 @@ macro_rules! test_thermal {
                 constitutive::thermal::conduction::Fourier,
                 fem::block::element::{
                     FiniteElementError,
+                    diffusion::DiffusionFiniteElement,
                     thermal::{
                         ElementNodalTemperatures,
-                        conduction::{
-                            ElementNodalForcesThermal, ElementNodalStiffnessesThermal,
-                            ThermalConductionFiniteElement,
-                        },
+                        conduction::{ElementNodalForcesThermal, ElementNodalStiffnessesThermal},
                     },
                 },
                 math::assert::AssertionError,

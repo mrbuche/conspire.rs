@@ -3,13 +3,13 @@ use crate::{
     cbm::{
         Model, NodalReferenceCoordinates,
         block::{Block, node::thermal::ThermalNode},
-        thermal::{
-            conduction::ThermalConductionElements, time_scale::ThermalTimeScaleElements,
-            transient::ThermalConductionTransient,
-        },
+        thermal::{time_scale::ThermalTimeScaleElements, transient::ThermalConductionTransient},
     },
     constitutive::thermal::conduction::Fourier,
-    domain::{ElementModel, thermal::NodalForcesThermal, time_scale::largest_eigenvalue},
+    domain::{
+        ElementModel, diffusion::DiffusionElements, thermal::NodalForcesThermal,
+        time_scale::largest_eigenvalue,
+    },
     geometry::mesh::PrimitiveConnectivity,
     math::{Hessian, Quantity, Tensor, integrate::Euler, optimize::EqualityConstraint},
     units::{
@@ -29,7 +29,7 @@ const COORDINATES: [[f64; 3]; NODES] = [
 
 type B = Block<Fourier, Quantity<VolumetricHeatCapacity>>;
 
-fn conductivity() -> Fourier {
+fn thermal_conductivity() -> Fourier {
     Fourier {
         thermal_conductivity: PowerPerLengthTemperature::watts_per_meter_kelvin(50.0),
     }
@@ -45,7 +45,7 @@ fn reference() -> NodalReferenceCoordinates<3> {
 
 fn block() -> B {
     Block::<Fourier>::from((
-        conductivity(),
+        thermal_conductivity(),
         PrimitiveConnectivity::from(vec![[0, 1, 2, 3], [1, 2, 3, 4]]),
         &reference(),
     ))

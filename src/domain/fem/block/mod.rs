@@ -2,6 +2,7 @@
 mod test;
 
 mod density;
+pub(crate) mod diffusion;
 pub mod electrical;
 pub mod element;
 pub mod mass;

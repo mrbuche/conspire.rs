@@ -131,6 +131,13 @@ pub type Coordinates<I> = TensorRank1Vec<3, I, Length>;
 /// A vector of references to coordinates.
 pub type CoordinatesRef<'a, I> = TensorRank1RefVec<'a, 3, I, Length>;
 
+/// The concentration gradient $`\nabla c`$.
+pub type ConcentrationGradient = TensorRank1<3, Reference, crate::units::ConcentrationPerLength>;
+
+/// A list of concentration gradients.
+pub type ConcentrationGradients<const N: usize> =
+    TensorRank1List<3, Reference, N, crate::units::ConcentrationPerLength>;
+
 /// A coordinate in the current configuration.
 pub type CurrentCoordinate = TensorRank1<3, Current, Length>;
 
@@ -139,6 +146,21 @@ pub type CurrentCoordinates<const W: usize> = TensorRank1List<3, Current, W, Len
 
 /// A vector of references to current coordinates.
 pub type CurrentCoordinatesRef<'a> = TensorRank1RefVec<'a, 3, Current, Length>;
+
+/// The current density $`\mathbf{J}`$.
+pub type CurrentDensity = TensorRank1<3, Reference, crate::units::CurrentDensity>;
+
+/// A list of current densities.
+pub type CurrentDensities<const W: usize> =
+    TensorRank1List<3, Reference, W, crate::units::CurrentDensity>;
+
+/// The current density tangent $`\partial\mathbf{J}/\partial\nabla\phi`$.
+pub type CurrentDensityTangent =
+    TensorRank2<3, Reference, Reference, crate::units::ElectricalConductivity>;
+
+/// A list of current density tangents.
+pub type CurrentDensityTangents<const W: usize> =
+    TensorRank2List<3, Reference, Reference, W, crate::units::ElectricalConductivity>;
 
 /// A velocity in the current configuration.
 pub type CurrentVelocity = TensorRank1<3, Current, Velocity>;
@@ -197,10 +219,10 @@ pub type ElectricDisplacements<const N: usize> =
     TensorRank1List<3, Reference, N, crate::units::ElectricDisplacement>;
 
 /// The electric displacement tangent $`\partial\mathbf{D}/\partial\mathbf{E}`$.
-pub type ElectricTangent = TensorRank2<3, Reference, Reference, Permittivity>;
+pub type ElectricDisplacementTangent = TensorRank2<3, Reference, Reference, Permittivity>;
 
 /// A list of electric displacement tangents.
-pub type ElectricTangents<const N: usize> =
+pub type ElectricDisplacementTangents<const N: usize> =
     TensorRank2List<3, Reference, Reference, N, Permittivity>;
 
 /// The electric field $`\mathbf{E}`$.
@@ -326,6 +348,19 @@ pub type HeatFluxTangents<const N: usize> =
 
 /// The left Cauchy-Green deformation $`\mathbf{B}`$.
 pub type LeftCauchyGreenDeformation = TensorRank2<3, Current, Current>;
+
+/// The molar flux $`\mathbf{J}`$.
+pub type MolarFlux = TensorRank1<3, Reference, crate::units::MolarFlux>;
+
+/// A list of molar fluxes.
+pub type MolarFluxes<const N: usize> = TensorRank1List<3, Reference, N, crate::units::MolarFlux>;
+
+/// The molar flux tangent $`\partial\mathbf{J}/\partial\nabla c`$.
+pub type MolarFluxTangent = TensorRank2<3, Reference, Reference, crate::units::Diffusivity>;
+
+/// A list of molar flux tangents.
+pub type MolarFluxTangents<const N: usize> =
+    TensorRank2List<3, Reference, Reference, N, crate::units::Diffusivity>;
 
 /// The Mandel stress $`\mathbf{M}`$.
 pub type MandelStress = TensorRank2<3, Reference, Reference, Stress>;

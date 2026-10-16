@@ -1,4 +1,7 @@
 pub mod density;
+mod diffusion;
+#[cfg(test)]
+mod electrical;
 pub mod mass;
 pub mod node;
 pub mod solid;

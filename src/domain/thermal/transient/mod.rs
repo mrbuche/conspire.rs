@@ -5,6 +5,7 @@ pub use implicit::ThermalConductionImplicitTransient;
 use crate::{
     domain::{
         ElementModelError, Model,
+        diffusion::DiffusionElements,
         factor::fixed_indices,
         thermal::{
             NodalForcesThermal, NodalTemperatures,

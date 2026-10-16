@@ -4,6 +4,7 @@ pub(crate) mod test;
 use crate::{
     constitutive::{
         ConstitutiveError,
+        diffusion::Diffusion,
         multiphysics::{Multiphysics, solid_thermal::SolidThermal},
         solid::{Solid, thermoelastic::Thermoelastic},
         thermal::{Thermal, conduction::ThermalConduction},
@@ -19,7 +20,7 @@ use crate::{
         SecondPiolaKirchhoffTangentStiffness, SecondPiolaKirchhoffThermalTangent,
         SecondPiolaKirchhoffThermalTangentStiffness, TemperatureGradient,
     },
-    units::{PowerTemperatureDensity, Stress, Temperature},
+    units::{Power, PowerTemperatureDensity, Stress, Temperature},
 };
 
 /// A thermoelastic-thermal conduction constitutive model.
@@ -198,11 +199,12 @@ where
 {
 }
 
-impl<C1, C2> ThermalConduction for Canonical<C1, C2>
+impl<C1, C2> Diffusion for Canonical<C1, C2>
 where
     C1: Thermoelastic,
     C2: ThermalConduction,
 {
+    type Balance = Power;
     fn potential(
         &self,
         temperature_gradient: &TemperatureGradient,
@@ -210,19 +212,18 @@ where
         self.thermal_constitutive_model()
             .potential(temperature_gradient)
     }
-    fn heat_flux(
+    fn flux(
         &self,
         temperature_gradient: &TemperatureGradient,
     ) -> Result<HeatFlux, ConstitutiveError> {
-        self.thermal_constitutive_model()
-            .heat_flux(temperature_gradient)
+        self.thermal_constitutive_model().flux(temperature_gradient)
     }
-    fn heat_flux_tangent(
+    fn tangent(
         &self,
         temperature_gradient: &TemperatureGradient,
     ) -> Result<HeatFluxTangent, ConstitutiveError> {
         self.thermal_constitutive_model()
-            .heat_flux_tangent(temperature_gradient)
+            .tangent(temperature_gradient)
     }
 }
 

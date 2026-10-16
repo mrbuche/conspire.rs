@@ -4,7 +4,7 @@ The linear dielectric constitutive model.
 - The permittivity $`\varepsilon`$.
 
 **External variables**
-- The electric field $`\mathbf{E}`$.
+- The potential gradient $`\nabla\phi`$.
 
 **Internal variables**
 - None.

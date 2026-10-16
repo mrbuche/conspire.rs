@@ -12,20 +12,20 @@ use crate::{
     },
 };
 
-pub(super) const CELLS: usize = 2;
-pub(super) const NODES: usize = (CELLS + 1) * (CELLS + 1) * (CELLS + 1);
-pub(super) const INTERIOR: usize = 13;
-pub(super) const MODEL: Fourier = Fourier {
+pub(crate) const CELLS: usize = 2;
+pub(crate) const NODES: usize = (CELLS + 1) * (CELLS + 1) * (CELLS + 1);
+pub(crate) const INTERIOR: usize = 13;
+pub(crate) const MODEL: Fourier = Fourier {
     thermal_conductivity: PowerPerLengthTemperature::watts_per_meter_kelvin(2.5),
 };
 
-pub(super) type B = Block<Fourier, Element>;
+pub(crate) type B = Block<Fourier, Element>;
 
-pub(super) fn node(i: usize, j: usize, k: usize) -> usize {
+pub(crate) fn node(i: usize, j: usize, k: usize) -> usize {
     i + (CELLS + 1) * (j + (CELLS + 1) * k)
 }
 
-pub(super) fn coordinates() -> Vec<[Scalar; 3]> {
+pub(crate) fn coordinates() -> Vec<[Scalar; 3]> {
     (0..NODES)
         .map(|index| {
             let (i, j, k) = (
@@ -43,7 +43,11 @@ pub(super) fn coordinates() -> Vec<[Scalar; 3]> {
         .collect()
 }
 
-pub(super) fn block() -> B {
+pub(crate) fn block() -> B {
+    block_with(MODEL)
+}
+
+pub(crate) fn block_with<C>(model: C) -> Block<C, Element> {
     let corners = [
         (0, 0, 0),
         (1, 0, 0),
@@ -81,7 +85,7 @@ pub(super) fn block() -> B {
         })
     });
     (
-        MODEL,
+        model,
         elements_faces,
         faces_nodes,
         &NodalReferenceCoordinates::from(coordinates()),
@@ -90,14 +94,14 @@ pub(super) fn block() -> B {
         .into()
 }
 
-pub(super) fn temperatures(values: &[Scalar]) -> NodalTemperatures {
+pub(crate) fn temperatures(values: &[Scalar]) -> NodalTemperatures {
     values
         .iter()
         .map(|&value| Quantity::<Temperature>::new(value))
         .collect()
 }
 
-pub(super) fn pseudorandom() -> Vec<Scalar> {
+pub(crate) fn pseudorandom() -> Vec<Scalar> {
     (0..NODES)
         .map(|index| ((index as Scalar + 1.0) * 12.9898).sin() * 0.5 + 0.7)
         .collect()
@@ -108,9 +112,10 @@ mod heat {
     use crate::{
         domain::{
             ElementModel, Model,
+            diffusion::DiffusionElements,
             thermal::{
-                NodalForcesThermal, conduction::ThermalConductionElements,
-                time_scale::ThermalTimeScaleElements, transient::ThermalConductionTransient,
+                NodalForcesThermal, time_scale::ThermalTimeScaleElements,
+                transient::ThermalConductionTransient,
             },
             time_scale::{diffusive_time_scale_from_eigenvalue, largest_eigenvalue},
         },

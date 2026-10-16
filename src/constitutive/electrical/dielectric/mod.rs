@@ -13,10 +13,9 @@ pub mod test;
 mod linear;
 
 use crate::{
-    constitutive::{ConstitutiveError, electrical::Electrical},
-    math::Quantity,
-    mechanics::{ElectricDisplacement, ElectricField, ElectricTangent},
-    units::EnergyDensity,
+    constitutive::{ConstitutiveError, diffusion::Diffusion, electrical::Electrical},
+    mechanics::{ElectricDisplacement, ElectricDisplacementTangent, ElectricField},
+    units::Charge,
 };
 
 pub use linear::Linear;
@@ -24,21 +23,22 @@ pub use linear::Linear;
 /// Required methods for dielectric constitutive models.
 pub trait Dielectric
 where
-    Self: Electrical,
+    Self: Electrical + Diffusion<Balance = Charge>,
 {
-    /// Calculates and returns the potential.
-    fn potential(
-        &self,
-        electric_field: &ElectricField,
-    ) -> Result<Quantity<EnergyDensity>, ConstitutiveError>;
     /// Calculates and returns the electric displacement.
     fn electric_displacement(
         &self,
-        electric_field: &ElectricField,
-    ) -> Result<ElectricDisplacement, ConstitutiveError>;
+        potential_gradient: &ElectricField,
+    ) -> Result<ElectricDisplacement, ConstitutiveError> {
+        self.flux(potential_gradient)
+    }
     /// Calculates and returns the tangent to the electric displacement.
-    fn electric_tangent(
+    fn electric_displacement_tangent(
         &self,
-        electric_field: &ElectricField,
-    ) -> Result<ElectricTangent, ConstitutiveError>;
+        potential_gradient: &ElectricField,
+    ) -> Result<ElectricDisplacementTangent, ConstitutiveError> {
+        self.tangent(potential_gradient)
+    }
 }
+
+impl<C> Dielectric for C where C: Electrical + Diffusion<Balance = Charge> {}

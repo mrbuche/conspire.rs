@@ -12,8 +12,8 @@ pub fn linear<'a>() -> Vec<[&'a str; 2]> {
             include_str!("linear/electric_displacement.md"),
         ],
         [
-            "electric_tangent",
-            include_str!("linear/electric_tangent.md"),
+            "electric_displacement_tangent",
+            include_str!("linear/electric_displacement_tangent.md"),
         ],
     ]
 }

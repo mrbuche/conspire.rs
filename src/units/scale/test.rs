@@ -163,6 +163,157 @@ mod cohere_inertial {
     }
 }
 
+mod cohere_mass_transport {
+    use super::*;
+    use crate::units::{Amount, Concentration, Diffusivity, MolarFlowRate, MolarFlux};
+    #[test]
+    fn a_concentration_is_an_amount_per_volume() {
+        same(
+            Amount::moles(6.0) / Volume::cubic_meters(2.0),
+            Concentration::moles_per_cubic_meter(3.0),
+        );
+        same(
+            Concentration::moles_per_liter(1.0),
+            Concentration::moles_per_cubic_meter(1e3),
+        );
+        same(
+            Concentration::millimoles_per_liter(1.0),
+            Concentration::moles_per_cubic_meter(1.0),
+        );
+        same(
+            Amount::millimoles(1.0) / Volume::liters(1.0),
+            Concentration::millimoles_per_liter(1.0),
+        )
+    }
+    #[test]
+    fn a_molar_flow_rate_is_an_amount_per_time() {
+        same(
+            Amount::moles(6.0) / Time::seconds(2.0),
+            MolarFlowRate::moles_per_second(3.0),
+        );
+        same(
+            MolarFlowRate::millimoles_per_second(1e3),
+            MolarFlowRate::moles_per_second(1.0),
+        )
+    }
+    #[test]
+    fn a_molar_flux_is_a_molar_flow_rate_per_area() {
+        same(
+            MolarFlowRate::moles_per_second(6.0) / Area::square_meters(2.0),
+            MolarFlux::moles_per_square_meter_second(3.0),
+        )
+    }
+    #[test]
+    fn a_molar_flux_is_a_diffusivity_times_a_concentration_gradient() {
+        same(
+            Diffusivity::square_meters_per_second(2.0)
+                * (Concentration::moles_per_cubic_meter(6.0) / Length::meters(3.0)),
+            MolarFlux::moles_per_square_meter_second(4.0),
+        );
+        same(
+            Diffusivity::square_centimeters_per_second(1.0),
+            Diffusivity::square_millimeters_per_second(1e2),
+        );
+        same(
+            Diffusivity::square_centimeters_per_second(1.0),
+            Diffusivity::square_meters_per_second(1e-4),
+        )
+    }
+}
+
+mod cohere_conduction {
+    use super::*;
+    use crate::units::{
+        Charge, Conductance, ConductancePerArea, ConductancePerVolume, Current, CurrentDensity,
+        CurrentPerVolume, ElectricField, ElectricPotential, ElectricalConductivity,
+    };
+    #[test]
+    fn an_ampere_is_a_coulomb_per_second() {
+        same(
+            Charge::coulombs(6.0) / Time::seconds(2.0),
+            Current::amperes(3.0),
+        );
+        same(Current::milliamperes(1e3), Current::amperes(1.0));
+        same(Current::microamperes(1e6), Current::amperes(1.0))
+    }
+    #[test]
+    fn a_watt_is_an_ampere_volt() {
+        same(
+            Current::amperes(2.0) * ElectricPotential::volts(3.0),
+            Energy::joules(6.0) * Rate::per_second(1.0),
+        )
+    }
+    #[test]
+    fn a_siemens_is_an_ampere_per_volt() {
+        same(
+            Conductance::siemens(2.0) * ElectricPotential::volts(3.0),
+            Current::amperes(6.0),
+        );
+        same(
+            Current::milliamperes(1.0) / ElectricPotential::volts(1.0),
+            Conductance::millisiemens(1.0),
+        );
+        same(
+            Conductance::microsiemens(1e3),
+            Conductance::millisiemens(1.0),
+        )
+    }
+    #[test]
+    fn a_current_density_is_an_electrical_conductivity_times_a_field() {
+        same(
+            ElectricalConductivity::siemens_per_meter(2.0) * ElectricField::volts_per_meter(3.0),
+            CurrentDensity::amperes_per_square_meter(6.0),
+        );
+        same(
+            Current::amperes(6.0) / Area::square_meters(2.0),
+            CurrentDensity::amperes_per_square_meter(3.0),
+        );
+        same(
+            ElectricalConductivity::siemens_per_meter(1.0),
+            ElectricalConductivity::millisiemens_per_meter(1e3),
+        )
+    }
+    #[test]
+    fn an_electrical_conductivity_times_a_length_is_a_conductance() {
+        same(
+            ElectricalConductivity::siemens_per_meter(6.0) * Length::meters(2.0),
+            Conductance::siemens(12.0),
+        );
+        same(
+            Conductance::siemens(6.0) / Area::square_meters(2.0),
+            ConductancePerArea::siemens_per_square_meter(3.0),
+        );
+        same(
+            Conductance::siemens(6.0) / Volume::cubic_meters(2.0),
+            ConductancePerVolume::siemens_per_cubic_meter(3.0),
+        )
+    }
+    #[test]
+    fn a_current_per_volume_is_a_current_over_a_volume() {
+        same(
+            Current::amperes(6.0) / Volume::cubic_meters(2.0),
+            CurrentPerVolume::amperes_per_cubic_meter(3.0),
+        );
+        same(
+            CurrentPerVolume::amperes_per_cubic_meter(3.0) * Volume::cubic_meters(2.0),
+            Current::amperes(6.0),
+        )
+    }
+    #[test]
+    fn the_dissipation_is_an_electrical_conductivity_times_a_field_squared() {
+        same(
+            ElectricalConductivity::siemens_per_meter(2.0)
+                * ElectricField::volts_per_meter(3.0)
+                * ElectricField::volts_per_meter(3.0),
+            Stress::pascals(18.0) * Rate::per_second(1.0),
+        );
+        same(
+            ElectricField::volts_per_meter(2.0) * CurrentDensity::amperes_per_square_meter(3.0),
+            Stress::pascals(6.0) * Rate::per_second(1.0),
+        )
+    }
+}
+
 mod cohere_electrical {
     use super::*;
     use crate::units::{

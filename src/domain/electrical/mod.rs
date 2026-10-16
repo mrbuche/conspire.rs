@@ -1,10 +1,11 @@
+pub(crate) mod conduction;
 pub(crate) mod dielectric;
 
 use crate::{
-    math::{QuantitySparseVec2D, QuantityVector},
-    units::{Capacitance, Charge, ElectricPotential},
+    domain::diffusion::{NodalFields, NodalForces, NodalStiffnesses},
+    units::Charge,
 };
 
-pub type NodalPotentials = QuantityVector<ElectricPotential>;
-pub type NodalForcesElectrical = QuantityVector<Charge>;
-pub type NodalStiffnessesElectrical = QuantitySparseVec2D<Capacitance>;
+pub type NodalPotentials = NodalFields<Charge>;
+pub type NodalForcesElectrical = NodalForces<Charge>;
+pub type NodalStiffnessesElectrical = NodalStiffnesses<Charge>;

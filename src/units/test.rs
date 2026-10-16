@@ -116,6 +116,81 @@ fn electrical_units_close_over_their_products() {
 }
 
 #[test]
+fn conduction_units_close_over_their_products() {
+    use crate::units::{
+        Area, Charge, Conductance, ConductancePerArea, ConductancePerVolume, Current,
+        CurrentDensity, CurrentPerVolume, ElectricField, ElectricFieldSquared, ElectricPotential,
+        ElectricalConductivity, Power, PowerDensity, Time, Volume,
+    };
+    same::<Product<Current, Time>, Charge>();
+    same::<Quotient<Charge, Time>, Current>();
+    same::<Quotient<Charge, Current>, Time>();
+    same::<Product<Current, ElectricPotential>, Power>();
+    same::<Quotient<Power, ElectricPotential>, Current>();
+    same::<Quotient<Power, Current>, ElectricPotential>();
+    same::<Product<Conductance, ElectricPotential>, Current>();
+    same::<Quotient<Current, ElectricPotential>, Conductance>();
+    same::<Quotient<Current, Conductance>, ElectricPotential>();
+    same::<Product<ElectricalConductivity, ElectricField>, CurrentDensity>();
+    same::<Quotient<CurrentDensity, ElectricField>, ElectricalConductivity>();
+    same::<Quotient<CurrentDensity, ElectricalConductivity>, ElectricField>();
+    same::<Product<ElectricalConductivity, Length>, Conductance>();
+    same::<Quotient<Conductance, Length>, ElectricalConductivity>();
+    same::<Product<ElectricalConductivity, ReciprocalLength>, ConductancePerArea>();
+    same::<Product<ConductancePerArea, ReciprocalLength>, ConductancePerVolume>();
+    same::<Product<ConductancePerArea, Area>, Conductance>();
+    same::<Product<ConductancePerVolume, Volume>, Conductance>();
+    same::<Product<CurrentDensity, Area>, Current>();
+    same::<Quotient<Current, Area>, CurrentDensity>();
+    same::<Product<CurrentDensity, ReciprocalLength>, CurrentPerVolume>();
+    same::<Product<CurrentPerVolume, Volume>, Current>();
+    same::<Quotient<Current, Volume>, CurrentPerVolume>();
+    same::<Product<ElectricalConductivity, ElectricFieldSquared>, PowerDensity>();
+    same::<Quotient<PowerDensity, ElectricalConductivity>, ElectricFieldSquared>();
+    same::<Product<ElectricField, CurrentDensity>, PowerDensity>();
+    same::<Quotient<PowerDensity, ElectricField>, CurrentDensity>();
+    same::<Product<Conductance, Dimensionless>, Conductance>();
+    same::<Product<Dimensionless, CurrentPerVolume>, CurrentPerVolume>();
+}
+
+#[test]
+fn mass_transport_units_close_over_their_products() {
+    use crate::units::{
+        Amount, Area, Concentration, ConcentrationPerLength, ConcentrationPerLengthSquared,
+        Diffusivity, MolarFlowRate, MolarFlowRateConcentration, MolarFlowRateConcentrationDensity,
+        MolarFlux, MolarFluxPerLength, Time, Velocity, Volume, VolumetricFlowRate,
+    };
+    same::<Product<Concentration, Volume>, Amount>();
+    same::<Quotient<Amount, Volume>, Concentration>();
+    same::<Quotient<Amount, Concentration>, Volume>();
+    same::<Product<Concentration, ReciprocalLength>, ConcentrationPerLength>();
+    same::<Quotient<Concentration, Length>, ConcentrationPerLength>();
+    same::<Product<ConcentrationPerLength, ConcentrationPerLength>, ConcentrationPerLengthSquared>(
+    );
+    same::<Product<Diffusivity, ConcentrationPerLength>, MolarFlux>();
+    same::<Quotient<MolarFlux, ConcentrationPerLength>, Diffusivity>();
+    same::<Quotient<MolarFlux, Diffusivity>, ConcentrationPerLength>();
+    same::<Product<Diffusivity, ReciprocalLength>, Velocity>();
+    same::<Quotient<Velocity, Length>, Rate>();
+    same::<Product<MolarFlux, Area>, MolarFlowRate>();
+    same::<Quotient<MolarFlowRate, Area>, MolarFlux>();
+    same::<Product<MolarFlux, ReciprocalLength>, MolarFluxPerLength>();
+    same::<Product<MolarFluxPerLength, Volume>, MolarFlowRate>();
+    same::<Product<MolarFlowRate, Time>, Amount>();
+    same::<Quotient<Amount, Time>, MolarFlowRate>();
+    same::<Product<Rate, Volume>, VolumetricFlowRate>();
+    same::<Quotient<VolumetricFlowRate, Volume>, Rate>();
+    same::<Product<VolumetricFlowRate, Concentration>, MolarFlowRate>();
+    same::<Quotient<MolarFlowRate, Concentration>, VolumetricFlowRate>();
+    same::<Product<Diffusivity, ConcentrationPerLengthSquared>, MolarFlowRateConcentrationDensity>(
+    );
+    same::<Product<MolarFlux, ConcentrationPerLength>, MolarFlowRateConcentrationDensity>();
+    same::<Product<MolarFlowRateConcentrationDensity, Volume>, MolarFlowRateConcentration>();
+    same::<Product<MolarFlowRate, Concentration>, MolarFlowRateConcentration>();
+    same::<Product<Diffusivity, Dimensionless>, Diffusivity>();
+}
+
+#[test]
 fn units_are_zero_sized() {
     assert_eq!(size_of::<Stress>(), 0);
     assert_eq!(size_of::<Dimensionless>(), 0);

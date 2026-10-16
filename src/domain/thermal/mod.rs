@@ -4,10 +4,10 @@ pub(crate) mod time_scale;
 pub(crate) mod transient;
 
 use crate::{
-    math::{QuantitySparseVec2D, QuantityVector},
-    units::{Power, PowerPerTemperature, Temperature},
+    domain::diffusion::{NodalFields, NodalForces, NodalStiffnesses},
+    units::Power,
 };
 
-pub type NodalTemperatures = QuantityVector<Temperature>;
-pub type NodalForcesThermal = QuantityVector<Power>;
-pub type NodalStiffnessesThermal = QuantitySparseVec2D<PowerPerTemperature>;
+pub type NodalTemperatures = NodalFields<Power>;
+pub type NodalForcesThermal = NodalForces<Power>;
+pub type NodalStiffnessesThermal = NodalStiffnesses<Power>;

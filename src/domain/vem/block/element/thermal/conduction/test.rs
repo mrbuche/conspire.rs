@@ -6,10 +6,8 @@ use crate::{
     units::{PowerPerLengthTemperature, Temperature},
     vem::block::element::{
         Element, ElementNodalReferenceCoordinates, VirtualElement,
-        thermal::{
-            ElementNodalTemperatures, ThermalVirtualElement,
-            conduction::ThermalConductionVirtualElement,
-        },
+        diffusion::DiffusionVirtualElement,
+        thermal::{ElementNodalTemperatures, ThermalVirtualElement},
     },
 };
 
