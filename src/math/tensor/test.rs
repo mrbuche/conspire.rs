@@ -128,6 +128,14 @@ mod flat_entries {
         agree_with_decrementing::<QuantityVector<Length>>(7)
     }
     #[test]
+    fn a_point() {
+        agree_with_decrementing::<TensorRank1<3, Current, Length>>(3)
+    }
+    #[test]
+    fn a_quantity() {
+        agree_with_decrementing::<Quantity<Length>>(1)
+    }
+    #[test]
     fn coordinates() {
         agree_with_decrementing::<TensorRank1Vec<3, Current, Length>>(9)
     }

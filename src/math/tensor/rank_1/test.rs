@@ -388,3 +388,14 @@ fn zero() {
         .iter()
         .for_each(|tensor_rank_1_i| assert_eq!(tensor_rank_1_i, &0.0));
 }
+
+#[test]
+fn zero_out_clears_the_listed_entries() {
+    use crate::math::Jacobian;
+    let mut tensor_rank_1 = get_tensor_rank_1();
+    tensor_rank_1.zero_out(&[0, 2]);
+    assert_eq!(
+        tensor_rank_1,
+        TensorRank1::<4, Current>::from([0.0, 2.0, 0.0, 4.0])
+    )
+}

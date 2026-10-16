@@ -221,6 +221,12 @@ impl<const D: usize, I, U> Solution for TensorRank1<D, I, U> {
             .zip(values)
             .for_each(|(entry_i, vector_i)| *entry_i -= vector_i)
     }
+    fn flat_entry(&self, index: usize) -> TensorRank0 {
+        self[index].value()
+    }
+    fn set_flat_entry(&mut self, index: usize, value: TensorRank0) {
+        self[index] = Quantity::new(value)
+    }
 }
 
 impl<const D: usize, I, U> Jacobian for TensorRank1<D, I, U> {
@@ -235,6 +241,11 @@ impl<const D: usize, I, U> Jacobian for TensorRank1<D, I, U> {
             .chain(other)
             .zip(vector.iter_mut())
             .for_each(|(self_i, vector_i)| *vector_i = self_i)
+    }
+    fn zero_out(&mut self, indices: &[usize]) {
+        indices
+            .iter()
+            .for_each(|&index| self[index] = Quantity::new(0.0))
     }
 }
 
