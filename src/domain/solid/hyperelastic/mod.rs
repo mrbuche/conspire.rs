@@ -1,8 +1,9 @@
 use crate::{
     domain::{
-        Blocks, BoundaryConditions, ElementModel, ElementModelError, Minimize, Model,
-        NodalCoordinates, NodalState, ProvidesTangent, SolverFor,
+        Blocks, ElementModel, ElementModelError, Minimize, Model, NodalCoordinates, NodalState,
+        ProvidesTangent, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::Constrain,
         solid::{NodalForcesSolid, NodalStiffnessesSolidSymmetric, elastic::ElasticElements},
     },
     math::{
@@ -108,7 +109,7 @@ where
 {
     fn minimize<S>(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalCoordinates<D> as NodalState>::Layout>,
+        boundary_conditions: &impl Constrain<<NodalCoordinates<D> as NodalState>::Layout>,
         solver: S,
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where

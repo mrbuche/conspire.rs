@@ -429,7 +429,7 @@ mod solve_with {
     use crate::{
         domain::{
             ElementModelError, Minimize, NodalCoordinates, ProvidesTangent, Root, SolverFor,
-            boundary::{Displacement, NodalState, Temperature},
+            boundary::{Constrain, Displacement, NodalState, Temperature},
             multiphysics::solid_thermal::NodalStatesSolidThermal,
         },
         geometry::mesh::NodeSet,
@@ -503,7 +503,7 @@ mod solve_with {
     {
         fn root<S>(
             &self,
-            boundary_conditions: &super::BoundaryConditions<'_, X::Layout>,
+            boundary_conditions: &impl Constrain<X::Layout>,
             solver: S,
         ) -> Result<X, OptimizationError>
         where
@@ -525,7 +525,7 @@ mod solve_with {
     {
         fn minimize<S>(
             &self,
-            boundary_conditions: &super::BoundaryConditions<'_, X::Layout>,
+            boundary_conditions: &impl Constrain<X::Layout>,
             solver: S,
         ) -> Result<X, OptimizationError>
         where

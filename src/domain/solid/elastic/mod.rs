@@ -1,8 +1,9 @@
 use crate::{
     domain::{
-        Blocks, BoundaryConditions, ElementModel, ElementModelError, Model, NodalCoordinates,
-        NodalState, ProvidesTangent, Root, SolverFor,
+        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalState,
+        ProvidesTangent, Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::Constrain,
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
@@ -119,7 +120,7 @@ where
 {
     fn root<S>(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalCoordinates<D> as NodalState>::Layout>,
+        boundary_conditions: &impl Constrain<<NodalCoordinates<D> as NodalState>::Layout>,
         solver: S,
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where

@@ -2,7 +2,9 @@
 
 mod condition;
 
-pub use condition::{BoundaryCondition, BoundaryConditions, ConstrainAt, Enforcement, Timed};
+pub use condition::{
+    BoundaryCondition, BoundaryConditions, Constrain, ConstrainAt, Enforcement, Timed,
+};
 
 use crate::{
     math::{

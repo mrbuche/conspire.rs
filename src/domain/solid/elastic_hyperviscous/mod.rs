@@ -1,8 +1,9 @@
 use crate::{
     domain::{
-        Blocks, BoundaryConditions, ElementModel, ElementModelError, Model, NodalCoordinates,
-        NodalCoordinatesHistory, NodalState, NodalVelocities, NodalVelocitiesHistory,
+        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
+        NodalState, NodalVelocities, NodalVelocitiesHistory,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::Constrain,
         solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
@@ -86,7 +87,7 @@ where
 pub trait Minimize<const D: usize> {
     fn minimize(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
+        boundary_conditions: &impl Constrain<<NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
@@ -111,7 +112,7 @@ where
 {
     fn minimize(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
+        boundary_conditions: &impl Constrain<<NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,

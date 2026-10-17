@@ -3,9 +3,10 @@
 pub mod block;
 pub mod boundary {
     pub use crate::domain::boundary::{
-        BoundaryCondition, BoundaryConditions, Component, Concentration, ConstrainAt, Coupled,
-        Direct, Displacement, Enforcement, Field, Layout, Left, NodalDof, NodalState, Potential,
-        Prescribable, Right, Solid, SolidRate, SolidThermal, Temperature, Timed, Velocity,
+        BoundaryCondition, BoundaryConditions, Component, Concentration, Constrain, ConstrainAt,
+        Coupled, Direct, Displacement, Enforcement, Field, Layout, Left, NodalDof, NodalState,
+        Potential, Prescribable, Right, Solid, SolidRate, SolidThermal, Temperature, Timed,
+        Velocity,
     };
 }
 pub mod chemical {

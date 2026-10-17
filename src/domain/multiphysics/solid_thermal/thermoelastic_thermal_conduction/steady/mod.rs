@@ -1,8 +1,9 @@
 use crate::{
     domain::{
-        Blocks, BoundaryConditions, ElementModel, ElementModelError, Model, NodalCoordinates,
-        NodalState, ProvidesTangent, Root, SolverFor,
+        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalState,
+        ProvidesTangent, Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::Constrain,
         multiphysics::solid_thermal::{
             NodalForceSolidThermal, NodalForcesSolidThermal, NodalStatesSolidThermal,
             NodalStiffnessesSolidThermal, split_states,
@@ -153,10 +154,7 @@ where
 {
     fn root<S>(
         &self,
-        boundary_conditions: &BoundaryConditions<
-            '_,
-            <NodalStatesSolidThermal as NodalState>::Layout,
-        >,
+        boundary_conditions: &impl Constrain<<NodalStatesSolidThermal as NodalState>::Layout>,
         solver: S,
     ) -> Result<NodalStatesSolidThermal, OptimizationError>
     where

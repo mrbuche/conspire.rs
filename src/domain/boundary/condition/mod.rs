@@ -65,12 +65,30 @@ pub trait ConstrainAt<L> {
     }
 }
 
+/// Boundary conditions on the degrees of freedom of a layout, whose constraints do not depend on time.
+///
+/// A solver that is not a function of time takes these, so conditions that are a function of
+/// time are not accepted by it.
+pub trait Constrain<L> {
+    /// The constraints holding the degrees of freedom.
+    fn constraint(&self) -> EqualityConstraints;
+}
+
+impl<L> Constrain<L> for BoundaryConditions<'_, L>
+where
+    L: Layout,
+{
+    fn constraint(&self) -> EqualityConstraints {
+        BoundaryConditions::constraint(self)
+    }
+}
+
 impl<L> ConstrainAt<L> for BoundaryConditions<'_, L>
 where
     L: Layout,
 {
     fn constraint_at(&self, _: Quantity<Time>) -> EqualityConstraints {
-        self.constraint()
+        BoundaryConditions::constraint(self)
     }
 }
 
