@@ -301,7 +301,7 @@ mod several {
         assert_eq!(entries, &[(0, Prescription::Initial)]);
     }
     #[test]
-    fn splitting_eliminates_some_and_makes_rows_of_the_rest() {
+    fn splitting_eliminates_some_and_makes_rows_of_the_rest_in_ascending_order() {
         let mut guess = vector();
         let (eliminated, Rows::Sparse(matrix, rhs)) = EqualityConstraint::split(
             vec![
@@ -320,11 +320,11 @@ mod several {
         assert_eq!(eliminated, Some(vec![0]));
         assert_eq!(entries(&guess), [7.0, 2.0, 3.0, 4.0]);
         assert_eq!(rhs.len(), 4);
-        assert_eq!((rhs[0], rhs[1], rhs[2], rhs[3]), (2.0, 4.5, 9.0, 6.0));
+        assert_eq!((rhs[0], rhs[1], rhs[2], rhs[3]), (2.0, 9.0, 4.5, 6.0));
         let row_of = |row| (0..4).map(|j| matrix.entry(row, j)).collect::<Vec<_>>();
         assert_eq!(row_of(0), [0.0, 1.0, 0.0, 0.0]);
-        assert_eq!(row_of(1), [0.0, 0.0, 0.0, 1.0]);
-        assert_eq!(row_of(2), [0.0, 0.0, 1.0, 0.0]);
+        assert_eq!(row_of(1), [0.0, 0.0, 1.0, 0.0]);
+        assert_eq!(row_of(2), [0.0, 0.0, 0.0, 1.0]);
         assert_eq!(row_of(3), [0.0, 1.0, 0.0, 2.0]);
     }
     #[test]
