@@ -2,8 +2,8 @@ use crate::{
     domain::{
         NodalCoordinates,
         boundary::{
-            BoundaryConditions, Concentration, Coupled, Direct, Displacement, Field, Layout, Left,
-            NodalState, Potential, Right, Solid, SolidThermal, Temperature,
+            BoundaryConditions, Concentration, Coupled, Direct, Displacement, Enforcement, Field,
+            Layout, Left, NodalState, Potential, Right, Solid, SolidThermal, Temperature,
         },
         multiphysics::solid_thermal::NodalStatesSolidThermal,
     },
@@ -322,6 +322,80 @@ mod prescribed {
         let conditions = prescribed.conditions();
         assert_eq!(conditions[0].prescription(), Prescription::Initial);
         assert_eq!(conditions[1].prescription(), Prescription::Offset(0.5));
+    }
+    #[test]
+    fn a_condition_is_eliminated_unless_made_otherwise() {
+        let sets = sets();
+        let bcs = BoundaryConditions::<Solid<3>>::new()
+            .fix_node(Displacement::<0>, 0)
+            .fix_by(
+                Enforcement::Multipliers,
+                Displacement::<1>,
+                sets.by_name("bottom").unwrap(),
+            )
+            .prescribe_node(Displacement::<2>, 0, Quantity::<Length>::new(0.5))
+            .prescribe_nodes_by(
+                Enforcement::Multipliers,
+                Displacement::<2>,
+                [1, 2],
+                Quantity::<Length>::new(0.25),
+            )
+            .prescribe_node_by(
+                Enforcement::Elimination,
+                Displacement::<0>,
+                3,
+                Quantity::<Length>::new(0.125),
+            );
+        let enforcements: Vec<Enforcement> = bcs
+            .conditions()
+            .iter()
+            .map(|condition| condition.enforcement())
+            .collect();
+        assert_eq!(
+            enforcements,
+            [
+                Enforcement::Elimination,
+                Enforcement::Multipliers,
+                Enforcement::Elimination,
+                Enforcement::Multipliers,
+                Enforcement::Elimination,
+            ]
+        );
+    }
+    #[test]
+    fn a_condition_held_by_multipliers_keeps_its_indices_and_prescription() {
+        let held = BoundaryConditions::<Solid<3>>::new()
+            .fix_nodes_by(Enforcement::Multipliers, Displacement::<1>, [2, 0, 2])
+            .prescribe_node_by(
+                Enforcement::Multipliers,
+                Displacement::<2>,
+                1,
+                Quantity::<Length>::new(0.5),
+            )
+            .prescribe_node(Displacement::<0>, 3, Quantity::<Length>::new(0.75))
+            .fix_node(Displacement::<0>, 4);
+        let constraints = held.constraint();
+        assert_eq!(constraints.len(), 4);
+        assert!(matches!(
+            &constraints[0],
+            EqualityConstraint::Multipliers(entries) if entries == &[
+                (7, Prescription::Initial),
+                (1, Prescription::Initial),
+                (7, Prescription::Initial),
+            ]
+        ));
+        assert!(matches!(
+            &constraints[1],
+            EqualityConstraint::Multipliers(entries) if entries == &[(5, Prescription::Offset(0.5))]
+        ));
+        assert!(matches!(
+            &constraints[2],
+            EqualityConstraint::Prescribed(entries) if entries == &[(9, Prescription::Offset(0.75))]
+        ));
+        assert!(matches!(
+            &constraints[3],
+            EqualityConstraint::Fixed(indices) if indices == &[12]
+        ));
     }
     #[test]
     fn lowered_the_values_move_the_state() {

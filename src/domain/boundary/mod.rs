@@ -2,7 +2,7 @@
 
 mod condition;
 
-pub use condition::{BoundaryCondition, BoundaryConditions};
+pub use condition::{BoundaryCondition, BoundaryConditions, Enforcement};
 
 use crate::{
     math::{
