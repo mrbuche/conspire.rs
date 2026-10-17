@@ -28,11 +28,8 @@ use crate::{
 };
 use std::array::from_fn;
 
-pub use crate::domain::{
-    block::solid::viscoplastic::{
-        ViscoplasticEvolution, ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
-    },
-    solid::elastic_viscoplastic::ElasticViscoplasticBCs,
+pub use crate::domain::block::solid::viscoplastic::{
+    ViscoplasticEvolution, ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
 };
 
 impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y, R, H>

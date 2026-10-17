@@ -1,13 +1,12 @@
 use crate::{
     domain::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Model,
-        NodalCoordinates, NodalCoordinatesHistory,
+        NodalCoordinates, NodalCoordinatesHistory, NodalState,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::ConstrainAt,
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
-            elastic_viscoplastic::{
-                ElasticViscoplasticBCs, ElasticViscoplasticDaeElements, ElasticViscoplasticElements,
-            },
+            elastic_viscoplastic::{ElasticViscoplasticDaeElements, ElasticViscoplasticElements},
             hyperelastic::HyperelasticElements,
         },
     },
@@ -17,7 +16,7 @@ use crate::{
             ButcherTableau, EmbeddedTableau, Integrable, IntegrationError,
             integrate_rkmk_dae_adaptive_minimize, rkmk_dae_step_minimize,
         },
-        optimize::Optimization,
+        optimize::{EqualityConstraint, Optimization},
     },
     mechanics::Times,
     units::{Energy, Time},
@@ -121,7 +120,7 @@ pub trait RootRkmkDaeMinimize<const D: usize, Y = Quantity> {
             NodalCoordinates<D>,
         >,
         time: &[Quantity<Time>],
-        bcs: ElasticViscoplasticBCs,
+        bcs: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
     /// As [`Self::root_rkmk_dae_minimize`], but the whole span is stepped
     /// under embedded (`Tab::D`) error control rather than on the supplied
@@ -142,7 +141,7 @@ pub trait RootRkmkDaeMinimize<const D: usize, Y = Quantity> {
             NodalCoordinates<D>,
         >,
         time: &[Quantity<Time>],
-        bcs: ElasticViscoplasticBCs,
+        bcs: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
         abs_tol: Scalar,
         rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
@@ -171,13 +170,17 @@ where
             NodalCoordinates<3>,
         >,
         time: &[Quantity<Time>],
-        bcs: ElasticViscoplasticBCs,
+        bcs: &impl ConstrainAt<<NodalCoordinates<3> as NodalState>::Layout>,
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
         let blocks = self.blocks();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), 3, true);
+        let reference: NodalCoordinates<3> = self.coordinates().clone().into();
+        let at = |t: Quantity<Time>| {
+            EqualityConstraint::from_reference(bcs.constraint_at(t), &reference)
+        };
+        let sparse = solver_from_neighbors(&neighbors, &at(time[0]), 3, true);
         let function = |_: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
@@ -203,7 +206,7 @@ where
              -> Result<Derivative<<B::Field as Integrable>::Increment, Time>, String> {
                 Ok(blocks.dae_rate(t, nodal_coordinates, state)?)
             };
-        let equality_constraint = bcs;
+        let equality_constraint = at;
         let mut state = B::flatten(&ElasticViscoplasticElements::initial_state(blocks));
         let guess: NodalCoordinates<3> = self.coordinates().clone().into();
         let mut nodal_coordinates = solver
@@ -268,7 +271,7 @@ where
             NodalCoordinates<3>,
         >,
         time: &[Quantity<Time>],
-        bcs: ElasticViscoplasticBCs,
+        bcs: &impl ConstrainAt<<NodalCoordinates<3> as NodalState>::Layout>,
         abs_tol: Scalar,
         rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
@@ -276,7 +279,11 @@ where
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &bcs(time[0]), 3, true);
+        let reference: NodalCoordinates<3> = self.coordinates().clone().into();
+        let at = |t: Quantity<Time>| {
+            EqualityConstraint::from_reference(bcs.constraint_at(t), &reference)
+        };
+        let sparse = solver_from_neighbors(&neighbors, &at(time[0]), 3, true);
         let function = |_: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
@@ -302,7 +309,7 @@ where
              -> Result<Derivative<<B::Field as Integrable>::Increment, Time>, String> {
                 Ok(blocks.dae_rate(t, nodal_coordinates, state)?)
             };
-        let equality_constraint = bcs;
+        let equality_constraint = at;
         let state = B::flatten(&ElasticViscoplasticElements::initial_state(blocks));
         let guess: NodalCoordinates<3> = self.coordinates().clone().into();
         let nodal_coordinates = solver

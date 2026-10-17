@@ -11,9 +11,7 @@ use crate::{
 pub use crate::domain::block::solid::viscoplastic::{
     ViscoplasticEvolution, ViscoplasticStateVariables,
 };
-pub use crate::domain::solid::elastic_viscoplastic::{
-    ElasticViscoplasticBCs, ElasticViscoplasticElements,
-};
+pub use crate::domain::solid::elastic_viscoplastic::ElasticViscoplasticElements;
 
 impl<C, R, Y> ElasticViscoplasticElements<ViscoplasticStateVariables<1, Y>, 3> for Block<C, R>
 where

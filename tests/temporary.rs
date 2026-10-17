@@ -22,7 +22,7 @@ use conspire::{
         },
         boundary::{
             ConstrainAt, Displacement, Enforcement, Field, Rows, Solid, SolidRate, Temperature,
-            Velocity,
+            Timewise, Velocity,
         },
     },
     geometry::{
@@ -7560,7 +7560,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
         .root_rkmk_dae_minimize::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &times,
-            bcs_temporary_elastic_viscoplastic,
+            &Timewise(bcs_temporary_elastic_viscoplastic),
         )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
@@ -7667,7 +7667,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive_minimize() -> Result<(), Ass
         .root_rkmk_dae_minimize::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &time,
-            bcs_temporary_elastic_viscoplastic,
+            &Timewise(bcs_temporary_elastic_viscoplastic),
         )
         .unwrap();
     // one load window only: a single [t_0, t_end] adaptive step across the
@@ -7681,7 +7681,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive_minimize() -> Result<(), Ass
         .root_rkmk_dae_adaptive_minimize::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &span,
-            bcs_temporary_elastic_viscoplastic,
+            &Timewise(bcs_temporary_elastic_viscoplastic),
             1e-6,
             1e-6,
         )
@@ -7746,7 +7746,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionErr
         .root_rkmk_dae::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &time,
-            bcs_temporary_elastic_viscoplastic,
+            &Timewise(bcs_temporary_elastic_viscoplastic),
         )
         .unwrap();
     let reference = reference_coordinates_history.iter().last().unwrap().clone();
@@ -7755,7 +7755,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionErr
         .root_rkmk_dae_adaptive::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &span,
-            bcs_temporary_elastic_viscoplastic,
+            &Timewise(bcs_temporary_elastic_viscoplastic),
             1e-6,
             1e-6,
         )

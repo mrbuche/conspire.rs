@@ -309,19 +309,73 @@ mod timed_velocity {
         )
             .into()
     }
-    #[test]
-    fn a_stretch_rate_that_grows_with_time() -> Result<(), AssertionError> {
-        use crate::constitutive::solid::viscoelastic::Root as _;
-        use crate::fem::solid::viscoelastic::Root;
-        let block = get_block();
-        let conditions = BoundaryConditions::<SolidRate<3>>::new()
+    fn conditions() -> impl ConstrainAt<SolidRate<3>> {
+        BoundaryConditions::<SolidRate<3>>::new()
             .fix_nodes(Velocity::<0>, (0..9).map(|node| 3 * node))
             .fix_node(Velocity::<1>, 0)
             .fix_node(Velocity::<2>, 0)
             .fix_node(Velocity::<2>, 6)
             .prescribe_nodes_with(Velocity::<0>, (0..9).map(|node| 3 * node + 2), |time| {
                 VelocityUnit::meters_per_second(0.23 * (1.0 + time.value()))
-            });
+            })
+    }
+    macro_rules! same_as_the_constitutive_model {
+        ($block: ident, $coordinates_history: ident, $velocities_history: ident, $gradients: ident, $rates: ident) => {
+            $coordinates_history
+                .iter()
+                .zip(&$velocities_history)
+                .zip($gradients.iter().zip(&$rates))
+                .try_for_each(|((coordinates, velocities), (gradient, rate))| {
+                    $block
+                        .deformation_gradients(coordinates)
+                        .iter()
+                        .try_for_each(|gradients| {
+                            gradients
+                                .iter()
+                                .try_for_each(|g| Assert::default().eq_within_tols(g, gradient))
+                        })?;
+                    $block
+                        .deformation_gradient_rates(coordinates, velocities)
+                        .iter()
+                        .try_for_each(|rates| {
+                            rates
+                                .iter()
+                                .try_for_each(|r| Assert::default().eq_within_tols(r, rate))
+                        })
+                })
+        };
+    }
+    #[test]
+    fn a_stretch_rate_that_grows_with_time_minimizing() -> Result<(), AssertionError> {
+        use crate::constitutive::solid::elastic_hyperviscous::Minimize as _;
+        use crate::fem::solid::elastic_hyperviscous::Minimize;
+        let block = get_block();
+        let (times, coordinates_history, velocities_history) =
+            Model::from((get_block(), get_reference_coordinates_block())).minimize(
+                &conditions(),
+                BogackiShampine::default(),
+                &[Quantity::new(0.0), Quantity::new(1.0)],
+                NewtonRaphson::default(),
+            )?;
+        let (_, deformation_gradients, deformation_gradient_rates) = model().minimize(
+            AppliedLoad::UniaxialStress(|time| 0.23 * (1.0 + time.value()), times.as_slice()),
+            BogackiShampine::default(),
+            NewtonRaphson::default(),
+        )?;
+        same_as_the_constitutive_model!(
+            block,
+            coordinates_history,
+            velocities_history,
+            deformation_gradients,
+            deformation_gradient_rates
+        )
+    }
+    #[test]
+    fn a_stretch_rate_that_grows_with_time() -> Result<(), AssertionError> {
+        use crate::constitutive::solid::viscoelastic::Root as _;
+        use crate::fem::solid::viscoelastic::Root;
+        let block = get_block();
+        let conditions = conditions();
         let (times, coordinates_history, velocities_history) =
             Model::from((get_block(), get_reference_coordinates_block())).root(
                 &conditions,
@@ -334,32 +388,13 @@ mod timed_velocity {
             BogackiShampine::default(),
             NewtonRaphson::default(),
         )?;
-        coordinates_history
-            .iter()
-            .zip(&velocities_history)
-            .zip(
-                deformation_gradients
-                    .iter()
-                    .zip(&deformation_gradient_rates),
-            )
-            .try_for_each(|((coordinates, velocities), (gradient, rate))| {
-                block
-                    .deformation_gradients(coordinates)
-                    .iter()
-                    .try_for_each(|gradients| {
-                        gradients
-                            .iter()
-                            .try_for_each(|g| Assert::default().eq_within_tols(g, gradient))
-                    })?;
-                block
-                    .deformation_gradient_rates(coordinates, velocities)
-                    .iter()
-                    .try_for_each(|rates| {
-                        rates
-                            .iter()
-                            .try_for_each(|r| Assert::default().eq_within_tols(r, rate))
-                    })
-            })
+        same_as_the_constitutive_model!(
+            block,
+            coordinates_history,
+            velocities_history,
+            deformation_gradients,
+            deformation_gradient_rates
+        )
     }
 }
 

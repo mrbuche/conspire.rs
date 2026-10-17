@@ -6,7 +6,7 @@ pub mod boundary {
         BoundaryConditions, Component, Concentration, Condition, Constrain, ConstrainAt, Coupled,
         Direct, Displacement, Enforcement, Field, Fixed, Layout, Left, NodalDof, NodalState,
         Potential, Prescribable, Prescribed, Right, Rows, Solid, SolidRate, SolidThermal, Static,
-        Temperature, Timed, Velocity,
+        Temperature, Timed, Timewise, Velocity,
     };
 }
 pub mod chemical {
@@ -65,7 +65,7 @@ pub use crate::domain::{
         dynamics::{ElasticExplicitDynamics, ElasticImplicitDynamics},
         elastic::ElasticElements,
         elastic_hyperviscous::ElasticHyperviscousElements,
-        elastic_viscoplastic::{ElasticViscoplasticBCs, ElasticViscoplasticElements},
+        elastic_viscoplastic::ElasticViscoplasticElements,
         hyperelastic::HyperelasticElements,
         hyperelastic_viscoplastic::HyperelasticViscoplasticElements,
         hyperviscoelastic::HyperviscoelasticElements,
