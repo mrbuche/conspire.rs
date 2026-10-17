@@ -33,7 +33,7 @@ fn get_connectivity() -> Vec<[usize; N]> {
 }
 
 fn get_coordinates_block() -> NodalCoordinates<3> {
-    NodalCoordinates::from([
+    [
         [-0.49344606, -0.44672548, -0.55524455],
         [0.00224851, -0.43237921, -0.46885579],
         [0.59974619, -0.58745455, -0.54662781],
@@ -61,11 +61,12 @@ fn get_coordinates_block() -> NodalCoordinates<3> {
         [-0.5825826, 0.47432363, 0.55823452],
         [0.02164257, 0.52156089, 0.48985245],
         [0.45546198, 0.44538201, 0.40452406],
-    ])
+    ]
+    .into()
 }
 
 fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
-    ElementNodalReferenceCoordinates::from([
+    [
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [1.0, 1.0, 0.0],
@@ -74,11 +75,12 @@ fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
         [1.0, 0.0, 1.0],
         [1.0, 1.0, 1.0],
         [0.0, 1.0, 1.0],
-    ])
+    ]
+    .into()
 }
 
 fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
-    NodalReferenceCoordinates::from([
+    [
         [-0.5, -0.5, -0.5],
         [0.0, -0.5, -0.5],
         [0.5, -0.5, -0.5],
@@ -106,11 +108,12 @@ fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
         [-0.5, 0.5, 0.5],
         [0.0, 0.5, 0.5],
         [0.5, 0.5, 0.5],
-    ])
+    ]
+    .into()
 }
 
 fn get_velocities_block() -> NodalVelocities<3> {
-    NodalVelocities::from([
+    [
         [0.04705949, 0.03631753, 0.07485168],
         [-0.05308881, 0.00788418, -0.00509899],
         [0.09843214, 0.01365840, 0.03718527],
@@ -138,7 +141,8 @@ fn get_velocities_block() -> NodalVelocities<3> {
         [-0.09463749, -0.0138323, 0.06690724],
         [-0.04392108, -0.00704832, 0.00025807],
         [-0.02136258, 0.03102960, -0.04881753],
-    ])
+    ]
+    .into()
 }
 
 fn equality_constraint() -> (
@@ -254,6 +258,109 @@ fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
     b[19] = 0.0;
     b[20] = 0.0;
     (a, b)
+}
+
+mod timed_velocity {
+    use super::*;
+    use crate::{
+        constitutive::{
+            canonical::Canonical,
+            fluid::hyperviscous::SaintVenantKirchhoff as ViscousSaintVenantKirchhoff,
+            solid::{
+                elastic::test::{BULK_MODULUS, SHEAR_MODULUS},
+                hyperelastic::SaintVenantKirchhoff as HyperelasticSaintVenantKirchhoff,
+                hyperviscoelastic::test::{BULK_VISCOSITY, SHEAR_VISCOSITY},
+                viscoelastic::AppliedLoad,
+            },
+        },
+        fem::{
+            Model,
+            block::solid::SolidElements,
+            boundary::{BoundaryConditions, ConstrainAt, SolidRate, Velocity},
+        },
+        math::{
+            Quantity,
+            assert::{Assert, AssertionError},
+            integrate::BogackiShampine,
+            optimize::NewtonRaphson,
+        },
+        units::Velocity as VelocityUnit,
+    };
+    type SaintVenantKirchhoff =
+        Canonical<HyperelasticSaintVenantKirchhoff, ViscousSaintVenantKirchhoff>;
+    fn model() -> SaintVenantKirchhoff {
+        (
+            HyperelasticSaintVenantKirchhoff {
+                bulk_modulus: BULK_MODULUS,
+                shear_modulus: SHEAR_MODULUS,
+            },
+            ViscousSaintVenantKirchhoff {
+                bulk_viscosity: BULK_VISCOSITY,
+                shear_viscosity: SHEAR_VISCOSITY,
+            },
+        )
+            .into()
+    }
+    fn get_block() -> Block<SaintVenantKirchhoff, Hexahedron, G, M, N, P> {
+        (
+            model(),
+            get_connectivity(),
+            &get_reference_coordinates_block(),
+        )
+            .into()
+    }
+    #[test]
+    fn a_stretch_rate_that_grows_with_time() -> Result<(), AssertionError> {
+        use crate::constitutive::solid::viscoelastic::Root as _;
+        use crate::fem::solid::viscoelastic::Root;
+        let block = get_block();
+        let conditions = BoundaryConditions::<SolidRate<3>>::new()
+            .fix_nodes(Velocity::<0>, (0..9).map(|node| 3 * node))
+            .fix_node(Velocity::<1>, 0)
+            .fix_node(Velocity::<2>, 0)
+            .fix_node(Velocity::<2>, 6)
+            .prescribe_nodes_with(Velocity::<0>, (0..9).map(|node| 3 * node + 2), |time| {
+                VelocityUnit::meters_per_second(0.23 * (1.0 + time.value()))
+            });
+        let (times, coordinates_history, velocities_history) =
+            Model::from((get_block(), get_reference_coordinates_block())).root(
+                &conditions,
+                BogackiShampine::default(),
+                &[Quantity::new(0.0), Quantity::new(1.0)],
+                NewtonRaphson::default(),
+            )?;
+        let (_, deformation_gradients, deformation_gradient_rates) = model().root(
+            AppliedLoad::UniaxialStress(|time| 0.23 * (1.0 + time.value()), times.as_slice()),
+            BogackiShampine::default(),
+            NewtonRaphson::default(),
+        )?;
+        coordinates_history
+            .iter()
+            .zip(&velocities_history)
+            .zip(
+                deformation_gradients
+                    .iter()
+                    .zip(&deformation_gradient_rates),
+            )
+            .try_for_each(|((coordinates, velocities), (gradient, rate))| {
+                block
+                    .deformation_gradients(coordinates)
+                    .iter()
+                    .try_for_each(|gradients| {
+                        gradients
+                            .iter()
+                            .try_for_each(|g| Assert::default().eq_within_tols(g, gradient))
+                    })?;
+                block
+                    .deformation_gradient_rates(coordinates, velocities)
+                    .iter()
+                    .try_for_each(|rates| {
+                        rates
+                            .iter()
+                            .try_for_each(|r| Assert::default().eq_within_tols(r, rate))
+                    })
+            })
+    }
 }
 
 test_finite_element!(Hexahedron);

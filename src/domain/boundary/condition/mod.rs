@@ -4,7 +4,11 @@ mod test;
 use crate::{
     domain::boundary::{Component, Layout, Prescribable},
     geometry::mesh::NodeSet,
-    math::optimize::{EqualityConstraint, EqualityConstraints, Prescription},
+    math::{
+        Quantity,
+        optimize::{EqualityConstraint, EqualityConstraints, Prescription},
+    },
+    units::Time,
 };
 use std::marker::PhantomData;
 
@@ -21,6 +25,107 @@ pub enum Enforcement {
 enum Target<'m> {
     Set(&'m NodeSet),
     Nodes(Vec<usize>),
+}
+
+/// Boundary conditions on the degrees of freedom of a layout, whose constraints may depend on time.
+pub trait ConstrainAt<L> {
+    /// The constraints holding the degrees of freedom at a time.
+    fn constraint_at(&self, time: Quantity<Time>) -> EqualityConstraints;
+    /// Holds a component of every node in a set at a value that is a function of time.
+    fn prescribe_with<'m, C, I>(
+        self,
+        component: C,
+        nodes: &'m NodeSet,
+        value: impl Fn(Quantity<Time>) -> C::Value,
+    ) -> (Self, Timed<'m, L, impl Fn(Quantity<Time>) -> Prescription>)
+    where
+        Self: Sized,
+        L: Layout,
+        C: Component<L, I> + Prescribable,
+    {
+        (
+            self,
+            Timed::new::<C, I>(Target::Set(nodes), component, value),
+        )
+    }
+    /// Holds a component of the listed nodes at a value that is a function of time.
+    fn prescribe_nodes_with<'m, C, I>(
+        self,
+        component: C,
+        nodes: impl IntoIterator<Item = usize>,
+        value: impl Fn(Quantity<Time>) -> C::Value,
+    ) -> (Self, Timed<'m, L, impl Fn(Quantity<Time>) -> Prescription>)
+    where
+        Self: Sized,
+        L: Layout,
+        C: Component<L, I> + Prescribable,
+    {
+        let target = Target::Nodes(nodes.into_iter().collect());
+        (self, Timed::new::<C, I>(target, component, value))
+    }
+}
+
+impl<L> ConstrainAt<L> for BoundaryConditions<'_, L>
+where
+    L: Layout,
+{
+    fn constraint_at(&self, _: Quantity<Time>) -> EqualityConstraints {
+        self.constraint()
+    }
+}
+
+/// A component of some nodes held at a value that is a function of time, by elimination.
+pub struct Timed<'m, L, G> {
+    target: Target<'m>,
+    stride: usize,
+    offset: usize,
+    prescription: G,
+    layout: PhantomData<L>,
+}
+
+impl<'m, L> Timed<'m, L, ()>
+where
+    L: Layout,
+{
+    fn new<C, I>(
+        target: Target<'m>,
+        _: C,
+        value: impl Fn(Quantity<Time>) -> C::Value,
+    ) -> Timed<'m, L, impl Fn(Quantity<Time>) -> Prescription>
+    where
+        C: Component<L, I> + Prescribable,
+    {
+        Timed {
+            target,
+            stride: L::STRIDE,
+            offset: <C as Component<L, I>>::OFFSET,
+            prescription: move |time| C::prescription(value(time)),
+            layout: PhantomData,
+        }
+    }
+}
+
+impl<L, T, G> ConstrainAt<L> for (T, Timed<'_, L, G>)
+where
+    T: ConstrainAt<L>,
+    G: Fn(Quantity<Time>) -> Prescription,
+{
+    fn constraint_at(&self, time: Quantity<Time>) -> EqualityConstraints {
+        let mut constraints = self.0.constraint_at(time);
+        let timed = &self.1;
+        let nodes = match &timed.target {
+            Target::Set(set) => set.nodes(),
+            Target::Nodes(nodes) => nodes,
+        };
+        let prescription = (timed.prescription)(time);
+        constraints.push(EqualityConstraint::Prescribed(
+            nodes
+                .iter()
+                .map(|&node| (timed.stride * node + timed.offset, prescription))
+                .collect(),
+        ));
+        constraints
+    }
 }
 
 /// A component of some nodes held fixed or at a value, as `stride * node + offset`.
