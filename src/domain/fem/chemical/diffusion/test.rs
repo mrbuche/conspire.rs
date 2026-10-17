@@ -9,10 +9,7 @@ use crate::{
             NodalVolumetricFlowRates,
         },
     },
-    math::{
-        Matrix, Quantity, Tensor, Vector,
-        optimize::{EqualityConstraint, NewtonRaphson},
-    },
+    math::{Matrix, Quantity, Tensor, Vector, optimize::NewtonRaphson},
     units::{Diffusivity, MolarFlowRateConcentration},
 };
 
@@ -90,7 +87,14 @@ fn layers() -> (Model<Blocks<B, B>, 3>, NodalReferenceCoordinates<3>, f64) {
 fn ends(
     coordinates: &NodalReferenceCoordinates<3>,
     top: f64,
-) -> (EqualityConstraint, Vec<usize>, Vec<usize>) {
+) -> (
+    crate::fem::boundary::BoundaryConditions<
+        'static,
+        crate::fem::boundary::Field<crate::units::Concentration>,
+    >,
+    Vec<usize>,
+    Vec<usize>,
+) {
     let nodes = coordinates.len();
     let on = |height: f64| {
         (0..nodes)
@@ -106,7 +110,16 @@ fn ends(
         .enumerate()
         .for_each(|(row, &node)| matrix[row][node] = 1.0);
     (0..top.len()).for_each(|row| rhs[bottom.len() + row] = DELTA);
-    (EqualityConstraint::Linear(matrix, rhs), bottom, top)
+    (
+        crate::fem::block::test::field_conditions(
+            crate::fem::boundary::Concentration,
+            &matrix,
+            &rhs,
+            Quantity::<crate::units::Concentration>::new,
+        ),
+        bottom,
+        top,
+    )
 }
 
 fn near(found: f64, expected: f64) {
@@ -120,13 +133,19 @@ fn molar_flow(forces: &NodalMolarFlowRates, nodes: &[usize]) -> f64 {
     nodes.iter().map(|&node| forces[node].value()).sum()
 }
 
-fn solve<Bl>(model: &Model<Bl, 3>, constraint: EqualityConstraint) -> NodalConcentrations
+fn solve<Bl>(
+    model: &Model<Bl, 3>,
+    constraint: crate::fem::boundary::BoundaryConditions<
+        '_,
+        crate::fem::boundary::Field<crate::units::Concentration>,
+    >,
+) -> NodalConcentrations
 where
     Bl: ChemicalDiffusionElements,
 {
     <Model<Bl, 3> as Root<NodalMolarFlowRates, NodalVolumetricFlowRates, NodalConcentrations>>::root(
         model,
-        &vec![constraint].into(),
+        &constraint,
         NewtonRaphson::default(),
     )
     .unwrap()
@@ -183,13 +202,12 @@ mod bar {
         let (constraint, _, _) = ends(&coordinates, GAP);
         let solved = solve(&model, constraint);
         let (constraint, _, _) = ends(&coordinates, GAP);
-        let minimized =
-            <Model<B, 3> as Minimize<
-                Quantity<MolarFlowRateConcentration>,
-                NodalMolarFlowRates,
-                NodalConcentrations,
-            >>::minimize(&model, &vec![constraint].into(), NewtonRaphson::default())
-            .unwrap();
+        let minimized = <Model<B, 3> as Minimize<
+            Quantity<MolarFlowRateConcentration>,
+            NodalMolarFlowRates,
+            NodalConcentrations,
+        >>::minimize(&model, &constraint, NewtonRaphson::default())
+        .unwrap();
         (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
     }
 }

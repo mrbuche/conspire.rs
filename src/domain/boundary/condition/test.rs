@@ -148,24 +148,6 @@ fn a_condition_follows_the_set_it_borrows() {
 }
 
 #[test]
-fn a_constraint_may_be_added_as_it_is() {
-    let bcs = BoundaryConditions::<Solid<3>>::new()
-        .fix_node(Displacement::<0>, 1)
-        .with_constraint(EqualityConstraint::Fixed(vec![9, 8]));
-    let constraints = bcs.constraint();
-    assert_eq!(constraints.len(), 2);
-    assert!(matches!(&constraints[0], EqualityConstraint::Fixed(i) if i == &[3]));
-    assert!(matches!(&constraints[1], EqualityConstraint::Fixed(i) if i == &[9, 8]));
-}
-
-#[test]
-fn constraints_are_boundary_conditions_of_any_layout() {
-    let bcs = BoundaryConditions::<Solid<3>>::from(vec![EqualityConstraint::Fixed(vec![4])]);
-    assert!(bcs.conditions().is_empty());
-    assert!(matches!(bcs.constraint().as_slice(), [EqualityConstraint::Fixed(i)] if i == &[4]));
-}
-
-#[test]
 fn a_set_that_is_not_there() {
     assert!(sets().by_name("side").is_none());
     assert!(sets().by_label(8).is_none());
@@ -600,12 +582,6 @@ mod solve_with {
             found(solid().minimize(&fixed, Recorder)),
             "[(7, Offset(0.25))]"
         );
-    }
-    #[test]
-    fn a_vec_of_constraints_is_taken_as_it_is() {
-        let raw = super::BoundaryConditions::from(vec![EqualityConstraint::Fixed(vec![2])]);
-        assert_eq!(found(solid().root(&raw, Recorder)), "[2]");
-        assert_eq!(found(solid().minimize(&raw, Recorder)), "[2]");
     }
     #[test]
     fn minimizing_follows_the_layout_of_the_state() {

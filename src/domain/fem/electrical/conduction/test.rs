@@ -6,10 +6,7 @@ use crate::{
         block::{Block, electrical::NodalPotentials, element::linear::Tetrahedron},
         electrical::conduction::{ElectricalConductionElements, NodalConductances, NodalCurrents},
     },
-    math::{
-        Matrix, Quantity, Tensor, Vector,
-        optimize::{EqualityConstraint, NewtonRaphson},
-    },
+    math::{Matrix, Quantity, Tensor, Vector, optimize::NewtonRaphson},
     units::{ElectricalConductivity, Power},
 };
 
@@ -87,7 +84,14 @@ fn layers() -> (Model<Blocks<B, B>, 3>, NodalReferenceCoordinates<3>, f64) {
 fn electrodes(
     coordinates: &NodalReferenceCoordinates<3>,
     top: f64,
-) -> (EqualityConstraint, Vec<usize>, Vec<usize>) {
+) -> (
+    crate::fem::boundary::BoundaryConditions<
+        'static,
+        crate::fem::boundary::Field<crate::units::ElectricPotential>,
+    >,
+    Vec<usize>,
+    Vec<usize>,
+) {
     let nodes = coordinates.len();
     let on = |height: f64| {
         (0..nodes)
@@ -103,7 +107,16 @@ fn electrodes(
         .enumerate()
         .for_each(|(row, &node)| matrix[row][node] = 1.0);
     (0..top.len()).for_each(|row| rhs[bottom.len() + row] = VOLTAGE);
-    (EqualityConstraint::Linear(matrix, rhs), bottom, top)
+    (
+        crate::fem::block::test::field_conditions(
+            crate::fem::boundary::Potential,
+            &matrix,
+            &rhs,
+            Quantity::<crate::units::ElectricPotential>::new,
+        ),
+        bottom,
+        top,
+    )
 }
 
 fn near(found: f64, expected: f64) {
@@ -117,13 +130,19 @@ fn current(forces: &NodalCurrents, nodes: &[usize]) -> f64 {
     nodes.iter().map(|&node| forces[node].value()).sum()
 }
 
-fn solve<Bl>(model: &Model<Bl, 3>, constraint: EqualityConstraint) -> NodalPotentials
+fn solve<Bl>(
+    model: &Model<Bl, 3>,
+    constraint: crate::fem::boundary::BoundaryConditions<
+        '_,
+        crate::fem::boundary::Field<crate::units::ElectricPotential>,
+    >,
+) -> NodalPotentials
 where
     Bl: ElectricalConductionElements,
 {
     <Model<Bl, 3> as Root<NodalCurrents, NodalConductances, NodalPotentials>>::root(
         model,
-        &vec![constraint].into(),
+        &constraint,
         NewtonRaphson::default(),
     )
     .unwrap()
@@ -179,13 +198,12 @@ mod bar {
         let (constraint, _, _) = electrodes(&coordinates, GAP);
         let solved = solve(&model, constraint);
         let (constraint, _, _) = electrodes(&coordinates, GAP);
-        let minimized =
-            <Model<B, 3> as Minimize<Quantity<Power>, NodalCurrents, NodalPotentials>>::minimize(
-                &model,
-                &vec![constraint].into(),
-                NewtonRaphson::default(),
-            )
-            .unwrap();
+        let minimized = <Model<B, 3> as Minimize<
+            Quantity<Power>,
+            NodalCurrents,
+            NodalPotentials,
+        >>::minimize(&model, &constraint, NewtonRaphson::default())
+        .unwrap();
         (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
     }
 }

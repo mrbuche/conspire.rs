@@ -138,18 +138,23 @@ pub trait Prescribable {
 }
 
 /// The displacement along an axis.
+#[derive(Clone, Copy)]
 pub struct Displacement<const AXIS: usize>;
 
 /// The velocity along an axis.
+#[derive(Clone, Copy)]
 pub struct Velocity<const AXIS: usize>;
 
 /// The temperature.
+#[derive(Clone, Copy)]
 pub struct Temperature;
 
 /// The electric potential.
+#[derive(Clone, Copy)]
 pub struct Potential;
 
 /// The molar concentration.
+#[derive(Clone, Copy)]
 pub struct Concentration;
 
 impl<const D: usize, const AXIS: usize> Component<Solid<D>, Direct> for Displacement<AXIS> {

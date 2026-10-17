@@ -12,8 +12,9 @@ mod strategy;
 mod tolerance;
 mod trust_region;
 
+pub(crate) use constraint::Rows;
+use constraint::UNSUPPORTED;
 pub use constraint::{EqualityConstraint, EqualityConstraints, Prescription};
-use constraint::{Rows, UNSUPPORTED};
 pub use gradient_descent::GradientDescent;
 pub use krylov::{Krylov, KrylovError, KrylovMethod};
 pub use line_search::{LineSearch, LineSearchError};

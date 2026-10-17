@@ -13,10 +13,7 @@ use crate::{
         },
         electrical::dielectric::DielectricElements,
     },
-    math::{
-        Matrix, Quantity, Tensor, Vector,
-        optimize::{EqualityConstraint, NewtonRaphson},
-    },
+    math::{Matrix, Quantity, Tensor, Vector, optimize::NewtonRaphson},
     units::{Energy, Permittivity},
 };
 
@@ -94,7 +91,14 @@ fn layers() -> (Model<Blocks<B, B>, 3>, NodalReferenceCoordinates<3>, f64) {
 fn electrodes(
     coordinates: &NodalReferenceCoordinates<3>,
     top: f64,
-) -> (EqualityConstraint, Vec<usize>, Vec<usize>) {
+) -> (
+    crate::fem::boundary::BoundaryConditions<
+        'static,
+        crate::fem::boundary::Field<crate::units::ElectricPotential>,
+    >,
+    Vec<usize>,
+    Vec<usize>,
+) {
     let nodes = coordinates.len();
     let on = |height: f64| {
         (0..nodes)
@@ -110,7 +114,16 @@ fn electrodes(
         .enumerate()
         .for_each(|(row, &node)| matrix[row][node] = 1.0);
     (0..top.len()).for_each(|row| rhs[bottom.len() + row] = VOLTAGE);
-    (EqualityConstraint::Linear(matrix, rhs), bottom, top)
+    (
+        crate::fem::block::test::field_conditions(
+            crate::fem::boundary::Potential,
+            &matrix,
+            &rhs,
+            Quantity::<crate::units::ElectricPotential>::new,
+        ),
+        bottom,
+        top,
+    )
 }
 
 fn near(found: f64, expected: f64) {
@@ -124,13 +137,19 @@ fn charge(forces: &NodalForcesElectrical, nodes: &[usize]) -> f64 {
     nodes.iter().map(|&node| forces[node].value()).sum()
 }
 
-fn solve<Bl>(model: &Model<Bl, 3>, constraint: EqualityConstraint) -> NodalPotentials
+fn solve<Bl>(
+    model: &Model<Bl, 3>,
+    constraint: crate::fem::boundary::BoundaryConditions<
+        '_,
+        crate::fem::boundary::Field<crate::units::ElectricPotential>,
+    >,
+) -> NodalPotentials
 where
     Bl: DielectricElements,
 {
     <Model<Bl, 3> as Root<NodalForcesElectrical, NodalStiffnessesElectrical, NodalPotentials>>::root(
         model,
-        &vec![constraint].into(),
+        &constraint,
         NewtonRaphson::default(),
     )
     .unwrap()
@@ -190,9 +209,7 @@ mod parallel_plate {
             Quantity<Energy>,
             NodalForcesElectrical,
             NodalPotentials,
-        >>::minimize(
-            &model, &vec![constraint].into(), NewtonRaphson::default()
-        )
+        >>::minimize(&model, &constraint, NewtonRaphson::default())
         .unwrap();
         (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
     }

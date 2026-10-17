@@ -63,12 +63,8 @@ impl BoundaryCondition<'_> {
 /// does not have is an error when compiling. The conditions borrow the sets they hold, such as
 /// those of the model they are for, so they cannot outlive them. Each is eliminated from the
 /// system unless it is made to be held by multipliers.
-///
-/// Constraints that are not on a component of some nodes, such as one tying degrees of
-/// freedom together, are added as they are, and are not checked against the layout.
 pub struct BoundaryConditions<'m, L> {
     conditions: Vec<BoundaryCondition<'m>>,
-    constraints: EqualityConstraints,
     layout: PhantomData<L>,
 }
 
@@ -76,17 +72,6 @@ impl<L> Default for BoundaryConditions<'_, L> {
     fn default() -> Self {
         Self {
             conditions: Vec::new(),
-            constraints: Vec::new(),
-            layout: PhantomData,
-        }
-    }
-}
-
-impl<L> From<EqualityConstraints> for BoundaryConditions<'_, L> {
-    fn from(constraints: EqualityConstraints) -> Self {
-        Self {
-            conditions: Vec::new(),
-            constraints,
             layout: PhantomData,
         }
     }
@@ -245,17 +230,11 @@ where
             enforcement,
         )
     }
-    /// Adds a constraint as it is, on the degrees of freedom as `stride * node + offset`.
-    pub fn with_constraint(mut self, constraint: EqualityConstraint) -> Self {
-        self.constraints.push(constraint);
-        self
-    }
     /// The conditions, in the order they were made.
     pub fn conditions(&self) -> &[BoundaryCondition<'m>] {
         &self.conditions
     }
-    /// The constraints holding the degrees of freedom, one for each condition and then those
-    /// added as they are.
+    /// The constraints holding the degrees of freedom, one for each condition.
     ///
     /// A condition eliminated at its initial values is fixed, with the indices in ascending
     /// order and without repeats, and any other eliminated is prescribed. One held by
@@ -286,7 +265,6 @@ where
                     ),
                 }
             })
-            .chain(self.constraints.iter().cloned())
             .collect()
     }
 }

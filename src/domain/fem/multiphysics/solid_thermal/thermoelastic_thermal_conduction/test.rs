@@ -13,15 +13,12 @@ use crate::{
     fem::{
         Model, NodalReferenceCoordinates, Root,
         block::{Block, element::linear::Tetrahedron},
-        boundary::{BoundaryConditions, Displacement, SolidThermal, Temperature},
+        boundary::{BoundaryConditions, Displacement, Enforcement, SolidThermal, Temperature},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
         },
     },
-    math::{
-        Matrix, Quantity, Vector,
-        optimize::{EqualityConstraint, EqualityConstraints, NewtonRaphson},
-    },
+    math::{Quantity, optimize::NewtonRaphson},
     units::{Length, Temperature as TemperatureUnit},
 };
 
@@ -71,24 +68,6 @@ fn dilation() -> f64 {
     (1.0 - 2.0 * COEFFICIENT_OF_THERMAL_EXPANSION.value() * temperature_change).powf(-0.5)
 }
 
-fn constraint() -> EqualityConstraints {
-    let dilation = dilation();
-    let mut matrix = Matrix::zero(11, 4 * NODES);
-    let mut rhs = Vector::zero(11);
-    (0..NODES).for_each(|node| {
-        matrix[node][4 * node + 3] = 1.0;
-        rhs[node] = HOT
-    });
-    [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]
-        .iter()
-        .enumerate()
-        .for_each(|(row, &(node, direction))| {
-            matrix[NODES + row][4 * node + direction] = 1.0;
-            rhs[NODES + row] = dilation * coordinates()[node][direction].value()
-        });
-    vec![EqualityConstraint::Linear(matrix, rhs)]
-}
-
 fn prescribed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
     let moved = |node: usize, direction: usize| {
         Quantity::<Length>::new((dilation() - 1.0) * coordinates()[node][direction].value())
@@ -114,16 +93,32 @@ fn fixed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
         .fix_node(Displacement::<2>, 2)
 }
 
-fn fixed() -> EqualityConstraints {
-    fixed_conditions().constraint()
+fn multiplied_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
+    let moved = |node: usize, direction: usize| {
+        Quantity::<Length>::new((dilation() - 1.0) * coordinates()[node][direction].value())
+    };
+    let multipliers = Enforcement::Multipliers;
+    BoundaryConditions::new()
+        .prescribe_nodes_by(
+            multipliers,
+            Temperature,
+            0..NODES,
+            Quantity::<TemperatureUnit>::new(HOT),
+        )
+        .prescribe_node_by(multipliers, Displacement::<0>, 0, moved(0, 0))
+        .prescribe_node_by(multipliers, Displacement::<1>, 0, moved(0, 1))
+        .prescribe_node_by(multipliers, Displacement::<2>, 0, moved(0, 2))
+        .prescribe_node_by(multipliers, Displacement::<1>, 1, moved(1, 1))
+        .prescribe_node_by(multipliers, Displacement::<2>, 1, moved(1, 2))
+        .prescribe_node_by(multipliers, Displacement::<2>, 2, moved(2, 2))
 }
 
-fn solve(constraint: EqualityConstraints) -> NodalStatesSolidThermal {
+fn solve(conditions: &BoundaryConditions<'_, SolidThermal<3>>) -> NodalStatesSolidThermal {
     <Model<B, 3> as Root<
         NodalForcesSolidThermal,
         NodalStiffnessesSolidThermal,
         NodalStatesSolidThermal,
-    >>::root(&model(), &constraint.into(), NewtonRaphson::default())
+    >>::root(&model(), conditions, NewtonRaphson::default())
     .unwrap()
 }
 
@@ -135,7 +130,7 @@ fn boundary_conditions_of_the_layout_of_the_state_give_the_same_solution() {
         NodalStatesSolidThermal,
     >>::root(&model(), &fixed_conditions(), NewtonRaphson::default())
     .unwrap();
-    let expected = solve(fixed());
+    let expected = solve(&fixed_conditions());
     (0..NODES).for_each(|node| {
         (0..3).for_each(|direction| {
             assert_eq!(
@@ -156,7 +151,7 @@ fn prescribed_values_found_by_elimination_are_what_multipliers_find() {
         NodalStatesSolidThermal,
     >>::root(&model(), &prescribed_conditions(), NewtonRaphson::default())
     .unwrap();
-    let multiplied = solve(constraint());
+    let multiplied = solve(&multiplied_conditions());
     (0..NODES).for_each(|node| {
         (0..3).for_each(|direction| {
             let found = eliminated[node].0[direction].value();
@@ -179,7 +174,7 @@ fn prescribed_values_found_by_elimination_are_what_multipliers_find() {
 #[test]
 fn a_uniform_temperature_dilates_the_body_without_stress() {
     let dilation = dilation();
-    let states = solve(constraint());
+    let states = solve(&multiplied_conditions());
     (0..NODES).for_each(|node| {
         (0..3).for_each(|direction| {
             let expected = dilation * coordinates()[node][direction].value();
@@ -194,7 +189,7 @@ fn a_uniform_temperature_dilates_the_body_without_stress() {
 
 #[test]
 fn the_imposed_temperature_is_reached_at_every_node() {
-    let states = solve(constraint());
+    let states = solve(&multiplied_conditions());
     (0..NODES).for_each(|node| {
         let found = states[node].1.value();
         assert!((found - HOT).abs() < 1e-8, "node {node}: {found} != {HOT}")
@@ -203,7 +198,7 @@ fn the_imposed_temperature_is_reached_at_every_node() {
 
 #[test]
 fn fixed_temperatures_hold_the_reference_temperature_and_leave_the_body_unstrained() {
-    let states = solve(fixed());
+    let states = solve(&fixed_conditions());
     (0..NODES).for_each(|node| {
         (0..3).for_each(|direction| {
             let expected = coordinates()[node][direction].value();
