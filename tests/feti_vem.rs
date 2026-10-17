@@ -2,7 +2,9 @@
 
 use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
-    fem::boundary::{BoundaryConditions as Conditions, Displacement, Solid},
+    fem::boundary::{
+        BoundaryConditions as Conditions, Constrain, ConstrainAt, Displacement, Solid,
+    },
     fem::{
         Minimize, Model, NodalCoordinates, NodalReferenceCoordinates,
         solid::elastic::ElasticElements,
@@ -23,8 +25,8 @@ use conspire::{
 
 type VemBlock = Block<NeoHookean, Element>;
 
-fn clamped(nodes: Vec<usize>) -> Conditions<'static, Solid<3>> {
-    Conditions::new()
+fn clamped(nodes: Vec<usize>) -> impl Constrain<Solid<3>> {
+    Conditions::<Solid<3>>::new()
         .fix_nodes(Displacement::<0>, nodes.clone())
         .fix_nodes(Displacement::<1>, nodes.clone())
         .fix_nodes(Displacement::<2>, nodes)
@@ -80,7 +82,7 @@ fn mesh(nel: [usize; 3]) -> Mesh<3> {
     Mesh::from_voxels(Voxels::new(vec![1u8; nel.iter().product()], nel), None)
 }
 
-fn problem(nel: [usize; 3]) -> (Model<VemBlock, 3>, Conditions<'static, Solid<3>>) {
+fn problem(nel: [usize; 3]) -> (Model<VemBlock, 3>, impl Constrain<Solid<3>>) {
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
     let reference: Vec<[f64; 3]> = coordinates
         .iter()

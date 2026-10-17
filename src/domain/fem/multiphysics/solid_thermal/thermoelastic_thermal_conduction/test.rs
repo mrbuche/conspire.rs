@@ -13,7 +13,10 @@ use crate::{
     fem::{
         Model, NodalReferenceCoordinates, Root,
         block::{Block, element::linear::Tetrahedron},
-        boundary::{BoundaryConditions, Displacement, Enforcement, SolidThermal, Temperature},
+        boundary::{
+            BoundaryConditions, Constrain, ConstrainAt, Displacement, Enforcement, SolidThermal,
+            Temperature,
+        },
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
         },
@@ -68,7 +71,7 @@ fn dilation() -> f64 {
     (1.0 - 2.0 * COEFFICIENT_OF_THERMAL_EXPANSION.value() * temperature_change).powf(-0.5)
 }
 
-fn prescribed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
+fn prescribed_conditions() -> impl Constrain<SolidThermal<3>> {
     let moved = |node: usize, direction: usize| {
         Quantity::<Length>::new((dilation() - 1.0) * coordinates()[node][direction].value())
     };
@@ -82,7 +85,7 @@ fn prescribed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
         .prescribe_node(Displacement::<2>, 2, moved(2, 2))
 }
 
-fn fixed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
+fn fixed_conditions() -> impl Constrain<SolidThermal<3>> {
     BoundaryConditions::new()
         .fix_nodes(Temperature, 0..NODES)
         .fix_node(Displacement::<0>, 0)
@@ -93,7 +96,7 @@ fn fixed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
         .fix_node(Displacement::<2>, 2)
 }
 
-fn multiplied_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
+fn multiplied_conditions() -> impl Constrain<SolidThermal<3>> {
     let moved = |node: usize, direction: usize| {
         Quantity::<Length>::new((dilation() - 1.0) * coordinates()[node][direction].value())
     };
@@ -113,7 +116,7 @@ fn multiplied_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
         .prescribe_node_by(multipliers, Displacement::<2>, 2, moved(2, 2))
 }
 
-fn solve(conditions: &BoundaryConditions<'_, SolidThermal<3>>) -> NodalStatesSolidThermal {
+fn solve(conditions: &impl Constrain<SolidThermal<3>>) -> NodalStatesSolidThermal {
     <Model<B, 3> as Root<
         NodalForcesSolidThermal,
         NodalStiffnessesSolidThermal,

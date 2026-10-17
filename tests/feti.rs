@@ -5,7 +5,7 @@ use conspire::{
     fem::{
         Minimize, Model, NodalCoordinates, NodalReferenceCoordinates,
         block::{Block, element::linear::Hexahedron},
-        boundary::{BoundaryConditions as Conditions, Displacement, Solid},
+        boundary::{BoundaryConditions as Conditions, Constrain, ConstrainAt, Displacement, Solid},
     },
     feti::{Feti, Formulation, GMRES},
     geometry::{
@@ -28,8 +28,8 @@ const TOLERANCES: Tolerances = Tolerances {
 
 type HexBlock = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
 
-fn clamped(nodes: Vec<usize>) -> Conditions<'static, Solid<3>> {
-    Conditions::new()
+fn clamped(nodes: Vec<usize>) -> impl Constrain<Solid<3>> {
+    Conditions::<Solid<3>>::new()
         .fix_nodes(Displacement::<0>, nodes.clone())
         .fix_nodes(Displacement::<1>, nodes.clone())
         .fix_nodes(Displacement::<2>, nodes)
@@ -70,7 +70,7 @@ fn block(connectivities: Connectivities, coordinates: &Coordinates<3>, scale: f6
     ))
 }
 
-fn problem(nel: [usize; 3]) -> (Model<HexBlock, 3>, Conditions<'static, Solid<3>>) {
+fn problem(nel: [usize; 3]) -> (Model<HexBlock, 3>, impl Constrain<Solid<3>>) {
     scaled_problem(nel, 1.0, &[0.0])
 }
 
@@ -78,7 +78,7 @@ fn scaled_problem(
     nel: [usize; 3],
     scale: f64,
     fixed_planes: &[f64],
-) -> (Model<HexBlock, 3>, Conditions<'static, Solid<3>>) {
+) -> (Model<HexBlock, 3>, impl Constrain<Solid<3>>) {
     strained_problem(nel, scale, fixed_planes, 1.0)
 }
 
@@ -87,7 +87,7 @@ fn strained_problem(
     scale: f64,
     fixed_planes: &[f64],
     strain: f64,
-) -> (Model<HexBlock, 3>, Conditions<'static, Solid<3>>) {
+) -> (Model<HexBlock, 3>, impl Constrain<Solid<3>>) {
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
     let reference: Vec<[f64; 3]> = coordinates
         .iter()
@@ -209,7 +209,7 @@ type NonsymmetricBlock = Block<AlmansiHamelLagrangian, Hexahedron, 8, 3, 8, 8>;
 
 fn nonsymmetric_problem(
     nel: [usize; 3],
-) -> (Model<NonsymmetricBlock, 3>, Conditions<'static, Solid<3>>) {
+) -> (Model<NonsymmetricBlock, 3>, impl Constrain<Solid<3>>) {
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
     let reference: Vec<[f64; 3]> = coordinates
         .iter()

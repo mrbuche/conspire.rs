@@ -3,7 +3,8 @@
 mod condition;
 
 pub use condition::{
-    BoundaryCondition, BoundaryConditions, Constrain, ConstrainAt, Enforcement, Timed,
+    BoundaryConditions, Condition, Constrain, ConstrainAt, Enforcement, Fixed, Prescribed, Rows,
+    Static, Timed,
 };
 
 use crate::{

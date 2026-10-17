@@ -88,10 +88,7 @@ fn ends(
     coordinates: &NodalReferenceCoordinates<3>,
     top: f64,
 ) -> (
-    crate::fem::boundary::BoundaryConditions<
-        'static,
-        crate::fem::boundary::Field<crate::units::Concentration>,
-    >,
+    impl crate::fem::boundary::Constrain<crate::fem::boundary::Field<crate::units::Concentration>>,
     Vec<usize>,
     Vec<usize>,
 ) {
@@ -135,8 +132,7 @@ fn molar_flow(forces: &NodalMolarFlowRates, nodes: &[usize]) -> f64 {
 
 fn solve<Bl>(
     model: &Model<Bl, 3>,
-    constraint: crate::fem::boundary::BoundaryConditions<
-        '_,
+    constraint: impl crate::fem::boundary::Constrain<
         crate::fem::boundary::Field<crate::units::Concentration>,
     >,
 ) -> NodalConcentrations

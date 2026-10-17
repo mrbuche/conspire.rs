@@ -21,7 +21,7 @@ use conspire::{
             thermal::ThermalElements,
         },
         boundary::{
-            BoundaryConditions, Displacement, Enforcement, Field, Solid, SolidRate, Temperature,
+            ConstrainAt, Displacement, Enforcement, Field, Rows, Solid, SolidRate, Temperature,
             Velocity,
         },
     },
@@ -7409,19 +7409,14 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
         .enumerate()
         .filter(|(_, coordinate)| coordinate[0].abs().value() == 0.5)
         .fold(
-            BoundaryConditions::<Solid<3>>::new(),
+            Rows::<Solid<3>>::new(Enforcement::Multipliers),
             |conditions, (node, coordinate)| {
                 let target = if coordinate[0].value() > 0.0 {
                     coordinate[0].value() + strain
                 } else {
                     coordinate[0].value()
                 };
-                conditions.prescribe_node_by(
-                    Enforcement::Multipliers,
-                    Displacement::<0>,
-                    node,
-                    hold(node, 0, target),
-                )
+                conditions.add(Displacement::<0>, node, hold(node, 0, target))
             },
         )
         .prescribe_node_by(
@@ -7841,19 +7836,14 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
         .enumerate()
         .filter(|(_, coordinate)| coordinate[0].abs().value() == 0.5)
         .fold(
-            BoundaryConditions::<SolidRate<3>>::new(),
+            Rows::<SolidRate<3>>::new(Enforcement::Multipliers),
             |conditions, (node, coordinate)| {
                 let rate = if coordinate[0].value() > 0.0 {
                     strain_rate
                 } else {
                     0.0
                 };
-                conditions.prescribe_node_by(
-                    Enforcement::Multipliers,
-                    Velocity::<0>,
-                    node,
-                    VelocityUnit::meters_per_second(rate),
-                )
+                conditions.add(Velocity::<0>, node, VelocityUnit::meters_per_second(rate))
             },
         )
         .prescribe_node_by(Enforcement::Multipliers, Velocity::<1>, 132, zero)
@@ -7954,19 +7944,14 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
         .enumerate()
         .filter(|(_, coordinate)| coordinate[0].abs().value() == 0.5)
         .fold(
-            BoundaryConditions::<Field<TemperatureUnit>>::new(),
+            Rows::<Field<TemperatureUnit>>::new(Enforcement::Multipliers),
             |conditions, (node, coordinate)| {
                 let kelvin = if coordinate[0].value() > 0.0 {
                     temperature
                 } else {
                     0.0
                 };
-                conditions.prescribe_node_by(
-                    Enforcement::Multipliers,
-                    Temperature,
-                    node,
-                    TemperatureUnit::kelvin(kelvin),
-                )
+                conditions.add(Temperature, node, TemperatureUnit::kelvin(kelvin))
             },
         );
     let mut time = std::time::Instant::now();
