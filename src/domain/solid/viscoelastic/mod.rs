@@ -106,7 +106,7 @@ where
 pub trait Root<const D: usize> {
     fn root(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalCoordinates<D> as NodalState>::Layout>,
+        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -125,7 +125,7 @@ where
 {
     fn root(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalCoordinates<D> as NodalState>::Layout>,
+        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,

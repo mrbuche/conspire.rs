@@ -10,7 +10,7 @@ use crate::{
     },
     units::{
         Concentration as ConcentrationUnit, ElectricPotential, Length,
-        Temperature as TemperatureUnit,
+        Temperature as TemperatureUnit, Velocity as VelocityUnit,
     },
 };
 use std::marker::PhantomData;
@@ -33,6 +33,9 @@ pub trait NodalState {
 /// The coordinates of a solid in `D` dimensions.
 pub struct Solid<const D: usize>;
 
+/// The velocities of a solid in `D` dimensions, such as the unknown of a dynamic solve.
+pub struct SolidRate<const D: usize>;
+
 /// A scalar field, named by its unit.
 pub struct Field<U>(PhantomData<U>);
 
@@ -43,6 +46,10 @@ pub struct Coupled<A, B>(PhantomData<(A, B)>);
 pub type SolidThermal<const D: usize> = Coupled<Solid<D>, Field<TemperatureUnit>>;
 
 impl<const D: usize> Layout for Solid<D> {
+    const STRIDE: usize = D;
+}
+
+impl<const D: usize> Layout for SolidRate<D> {
     const STRIDE: usize = D;
 }
 
@@ -60,6 +67,10 @@ where
 
 impl<const D: usize> NodalDof for TensorRank1<D, Current, Length> {
     type Layout = Solid<D>;
+}
+
+impl<const D: usize> NodalDof for TensorRank1<D, Current, VelocityUnit> {
+    type Layout = SolidRate<D>;
 }
 
 impl<U> NodalDof for Quantity<U> {
@@ -129,6 +140,9 @@ pub trait Prescribable {
 /// The displacement along an axis.
 pub struct Displacement<const AXIS: usize>;
 
+/// The velocity along an axis.
+pub struct Velocity<const AXIS: usize>;
+
 /// The temperature.
 pub struct Temperature;
 
@@ -139,6 +153,13 @@ pub struct Potential;
 pub struct Concentration;
 
 impl<const D: usize, const AXIS: usize> Component<Solid<D>, Direct> for Displacement<AXIS> {
+    const OFFSET: usize = {
+        assert!(AXIS < D, "The axis is not one of the dimensions.");
+        AXIS
+    };
+}
+
+impl<const D: usize, const AXIS: usize> Component<SolidRate<D>, Direct> for Velocity<AXIS> {
     const OFFSET: usize = {
         assert!(AXIS < D, "The axis is not one of the dimensions.");
         AXIS
@@ -161,6 +182,13 @@ impl<const AXIS: usize> Prescribable for Displacement<AXIS> {
     type Value = Quantity<Length>;
     fn prescription(value: Self::Value) -> Prescription {
         Prescription::Offset(value.value())
+    }
+}
+
+impl<const AXIS: usize> Prescribable for Velocity<AXIS> {
+    type Value = Quantity<VelocityUnit>;
+    fn prescription(value: Self::Value) -> Prescription {
+        Prescription::Absolute(value.value())
     }
 }
 

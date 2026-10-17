@@ -393,6 +393,32 @@ macro_rules! test_finite_element_block_inner {
 }
 pub(crate) use test_finite_element_block_inner;
 
+pub(crate) fn velocity_conditions(
+    matrix: &crate::math::Matrix,
+    values: &crate::math::Vector,
+) -> crate::fem::boundary::BoundaryConditions<'static, crate::fem::boundary::SolidRate<3>> {
+    use crate::{
+        fem::boundary::{BoundaryConditions, Enforcement, Velocity},
+        math::Quantity,
+        units::Velocity as VelocityUnit,
+    };
+    (0..matrix.len()).fold(BoundaryConditions::new(), |conditions, row| {
+        let columns: Vec<usize> = (0..matrix.width())
+            .filter(|&column| matrix[row][column] != 0.0)
+            .collect();
+        assert_eq!(columns.len(), 1, "Each row selects a single velocity.");
+        let column = columns[0];
+        assert_eq!(matrix[row][column], 1.0);
+        let (node, value) = (column / 3, Quantity::<VelocityUnit>::new(values[row]));
+        let enforcement = Enforcement::Multipliers;
+        match column % 3 {
+            0 => conditions.prescribe_node_by(enforcement, Velocity::<0>, node, value),
+            1 => conditions.prescribe_node_by(enforcement, Velocity::<1>, node, value),
+            _ => conditions.prescribe_node_by(enforcement, Velocity::<2>, node, value),
+        }
+    })
+}
+
 macro_rules! test_dae_root_and_minimize_with_integrators {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         use crate::math::{
@@ -411,7 +437,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                     let (times, coordinates_history, velocities_history) =
                         crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
                             .minimize(
-                            &vec![EqualityConstraint::Linear(a, b)].into(),
+                            &crate::fem::block::test::velocity_conditions(&a, &b),
                             $integrator::default(),
                             &[Quantity::new(0.0), Quantity::new(1.0)],
                             NewtonRaphson::default(),
@@ -476,7 +502,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                     let (times, coordinates_history, velocities_history) =
                         crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
                             .root(
-                            &vec![EqualityConstraint::Linear(a, b)].into(),
+                            &crate::fem::block::test::velocity_conditions(&a, &b),
                             $integrator::default(),
                             &[Quantity::new(0.0), Quantity::new(1.0)],
                             NewtonRaphson::default(),

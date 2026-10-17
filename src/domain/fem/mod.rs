@@ -8,7 +8,7 @@ pub mod boundary {
     pub use crate::domain::boundary::{
         BoundaryCondition, BoundaryConditions, Component, Concentration, Coupled, Direct,
         Displacement, Enforcement, Field, Layout, Left, NodalDof, NodalState, Potential,
-        Prescribable, Right, Solid, SolidThermal, Temperature,
+        Prescribable, Right, Solid, SolidRate, SolidThermal, Temperature, Velocity,
     };
 }
 pub mod chemical;

@@ -20,6 +20,7 @@ use conspire::{
             Block, element::linear::Tetrahedron as LinearTetrahedron, solid::SolidElements,
             thermal::ThermalElements,
         },
+        boundary::{BoundaryConditions, Enforcement, SolidRate, Velocity},
     },
     geometry::{
         Coordinates,
@@ -32,7 +33,7 @@ use conspire::{
         optimize::{Direct, EqualityConstraint, EqualityConstraints, NewtonRaphson},
     },
     mechanics::TemperatureGradient,
-    units::{PowerPerLengthTemperature, Rate, Stress, Time, Viscosity},
+    units::{PowerPerLengthTemperature, Rate, Stress, Time, Velocity as VelocityUnit, Viscosity},
 };
 
 const G: usize = 1;
@@ -7806,13 +7807,11 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let tol = 1e-4;
     let strain_rate = 2.3; // also set below
     let tspan = [Time::seconds(0.0), Time::seconds(1.0)];
-    let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
         .flatten()
         .for_each(|entry| *entry -= 1);
-    let num_nodes = ref_coordinates.len();
     let model = Canonical::from((
         AlmansiHamelEulerian {
             bulk_modulus: Stress::pascals(13.0),
@@ -7823,35 +7822,30 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
             shear_viscosity: Viscosity::pascal_seconds(1.0),
         },
     ));
-    let length = ref_coordinates
-        .iter()
-        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
-        .count()
-        + 3;
-    let width = num_nodes * 3;
-    let mut matrix = Matrix::zero(length, width);
-    let mut vector = Vector::zero(length);
-    let mut index = 0;
-    coordinates()
+    let zero = VelocityUnit::meters_per_second(0.0);
+    let conditions = coordinates()
         .iter()
         .enumerate()
-        .for_each(|(node, coordinate)| {
-            if coordinate[0].abs().value() == 0.5 {
-                matrix[index][3 * node] = 1.0;
-                if coordinate[0].value() > 0.0 {
-                    vector[index] = strain_rate
+        .filter(|(_, coordinate)| coordinate[0].abs().value() == 0.5)
+        .fold(
+            BoundaryConditions::<SolidRate<3>>::new(),
+            |conditions, (node, coordinate)| {
+                let rate = if coordinate[0].value() > 0.0 {
+                    strain_rate
                 } else {
-                    vector[index] = 0.0
-                }
-                index += 1;
-            }
-        });
-    matrix[length - 3][132 * 3 + 1] = 1.0;
-    matrix[length - 2][132 * 3 + 2] = 1.0;
-    matrix[length - 1][142 * 3 + 2] = 1.0;
-    vector[length - 3] = 0.0;
-    vector[length - 2] = 0.0;
-    vector[length - 1] = 0.0;
+                    0.0
+                };
+                conditions.prescribe_node_by(
+                    Enforcement::Multipliers,
+                    Velocity::<0>,
+                    node,
+                    VelocityUnit::meters_per_second(rate),
+                )
+            },
+        )
+        .prescribe_node_by(Enforcement::Multipliers, Velocity::<1>, 132, zero)
+        .prescribe_node_by(Enforcement::Multipliers, Velocity::<2>, 132, zero)
+        .prescribe_node_by(Enforcement::Multipliers, Velocity::<2>, 142, zero);
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let mesh = Mesh::from((
@@ -7861,7 +7855,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, velocities_history) = fem_model.minimize(
-        &vec![EqualityConstraint::Linear(matrix, vector)].into(),
+        &conditions,
         DormandPrince {
             abs_tol: tol,
             rel_tol: tol,

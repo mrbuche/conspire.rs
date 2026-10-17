@@ -300,6 +300,28 @@ mod prescribed {
         );
     }
     #[test]
+    fn a_velocity_is_held_at_its_value_in_its_own_layout() {
+        use crate::{
+            domain::{
+                NodalVelocities,
+                boundary::{SolidRate, Velocity},
+            },
+            units::Velocity as VelocityUnit,
+        };
+        let _: PhantomData<SolidRate<3>> = layout_of::<NodalVelocities<3>>();
+        let rates = BoundaryConditions::<SolidRate<3>>::new().prescribe_node(
+            Velocity::<1>,
+            2,
+            VelocityUnit::meters_per_second(0.5),
+        );
+        assert_eq!(
+            entries(rates.constraint()),
+            [(7, Prescription::Absolute(0.5))]
+        );
+        let held = BoundaryConditions::<SolidRate<2>>::new().fix_node(Velocity::<1>, 3);
+        assert_eq!(indices(held.constraint()), [7]);
+    }
+    #[test]
     fn a_hold_among_values_is_held_at_its_initial_value() {
         let prescribed = BoundaryConditions::<Solid<3>>::new()
             .fix_node(Displacement::<0>, 0)
