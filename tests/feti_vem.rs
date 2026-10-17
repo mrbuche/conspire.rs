@@ -2,6 +2,7 @@
 
 use conspire::{
     constitutive::solid::hyperelastic::NeoHookean,
+    fem::boundary::{BoundaryConditions as Conditions, Displacement, Solid},
     fem::{
         Minimize, Model, NodalCoordinates, NodalReferenceCoordinates,
         solid::elastic::ElasticElements,
@@ -14,13 +15,20 @@ use conspire::{
     },
     math::{
         Tensor,
-        optimize::{Direct, EqualityConstraint, NewtonRaphson, Tolerances},
+        optimize::{Direct, NewtonRaphson, Tolerances},
     },
     units::Stress,
     vem::block::{Block, element::Element},
 };
 
 type VemBlock = Block<NeoHookean, Element>;
+
+fn clamped(nodes: Vec<usize>) -> Conditions<'static, Solid<3>> {
+    Conditions::new()
+        .fix_nodes(Displacement::<0>, nodes.clone())
+        .fix_nodes(Displacement::<1>, nodes.clone())
+        .fix_nodes(Displacement::<2>, nodes)
+}
 
 const TOLERANCES: Tolerances = Tolerances {
     constraint: 1e-9,
@@ -72,7 +80,7 @@ fn mesh(nel: [usize; 3]) -> Mesh<3> {
     Mesh::from_voxels(Voxels::new(vec![1u8; nel.iter().product()], nel), None)
 }
 
-fn problem(nel: [usize; 3]) -> (Model<VemBlock, 3>, EqualityConstraint) {
+fn problem(nel: [usize; 3]) -> (Model<VemBlock, 3>, Conditions<'static, Solid<3>>) {
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
     let reference: Vec<[f64; 3]> = coordinates
         .iter()
@@ -82,7 +90,7 @@ fn problem(nel: [usize; 3]) -> (Model<VemBlock, 3>, EqualityConstraint) {
         .iter()
         .enumerate()
         .filter(|(_, point)| point[0].abs() < 1e-9)
-        .flat_map(|(node, _)| (0..3).map(move |component| 3 * node + component))
+        .map(|(node, _)| node)
         .collect();
     let block = VemBlock::from((
         NeoHookean {
@@ -102,10 +110,7 @@ fn problem(nel: [usize; 3]) -> (Model<VemBlock, 3>, EqualityConstraint) {
             .map(|&point| perturbed(point, nel[0] as f64))
             .collect::<Vec<_>>(),
     );
-    (
-        Model::from((block, start)),
-        EqualityConstraint::Fixed(fixed),
-    )
+    (Model::from((block, start)), clamped(fixed))
 }
 
 fn largest_difference(a: &NodalCoordinates<3>, b: &NodalCoordinates<3>) -> f64 {
@@ -159,7 +164,7 @@ fn newton_with_feti_matches_newton_with_the_sparse_solve_on_polyhedra() {
     let (model, constraint) = problem(nel);
     let sparse = model
         .minimize(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -171,7 +176,7 @@ fn newton_with_feti_matches_newton_with_the_sparse_solve_on_polyhedra() {
     let (model, constraint) = problem(nel);
     let decomposed = model
         .minimize(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {

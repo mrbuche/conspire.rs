@@ -5,6 +5,7 @@ use conspire::{
     fem::{
         Minimize, Model, NodalCoordinates, NodalReferenceCoordinates,
         block::{Block, element::linear::Hexahedron},
+        boundary::{BoundaryConditions as Conditions, Displacement, Solid},
     },
     feti::{Feti, Formulation, GMRES},
     geometry::{
@@ -14,7 +15,7 @@ use conspire::{
     },
     math::{
         Tensor,
-        optimize::{Direct, EqualityConstraint, NewtonRaphson, Tolerances},
+        optimize::{Direct, NewtonRaphson, Tolerances},
     },
     units::Stress,
 };
@@ -26,6 +27,13 @@ const TOLERANCES: Tolerances = Tolerances {
 };
 
 type HexBlock = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
+
+fn clamped(nodes: Vec<usize>) -> Conditions<'static, Solid<3>> {
+    Conditions::new()
+        .fix_nodes(Displacement::<0>, nodes.clone())
+        .fix_nodes(Displacement::<1>, nodes.clone())
+        .fix_nodes(Displacement::<2>, nodes)
+}
 
 fn perturbed(reference: [f64; 3], extent: f64) -> [f64; 3] {
     let [x, y, z] = reference;
@@ -62,7 +70,7 @@ fn block(connectivities: Connectivities, coordinates: &Coordinates<3>, scale: f6
     ))
 }
 
-fn problem(nel: [usize; 3]) -> (Model<HexBlock, 3>, EqualityConstraint) {
+fn problem(nel: [usize; 3]) -> (Model<HexBlock, 3>, Conditions<'static, Solid<3>>) {
     scaled_problem(nel, 1.0, &[0.0])
 }
 
@@ -70,7 +78,7 @@ fn scaled_problem(
     nel: [usize; 3],
     scale: f64,
     fixed_planes: &[f64],
-) -> (Model<HexBlock, 3>, EqualityConstraint) {
+) -> (Model<HexBlock, 3>, Conditions<'static, Solid<3>>) {
     strained_problem(nel, scale, fixed_planes, 1.0)
 }
 
@@ -79,7 +87,7 @@ fn strained_problem(
     scale: f64,
     fixed_planes: &[f64],
     strain: f64,
-) -> (Model<HexBlock, 3>, EqualityConstraint) {
+) -> (Model<HexBlock, 3>, Conditions<'static, Solid<3>>) {
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
     let reference: Vec<[f64; 3]> = coordinates
         .iter()
@@ -93,7 +101,7 @@ fn strained_problem(
                 .iter()
                 .any(|&plane| (point[0] - plane).abs() < 1e-9)
         })
-        .flat_map(|(node, _)| (0..3).map(move |component| 3 * node + component))
+        .map(|(node, _)| node)
         .collect();
     let start = NodalReferenceCoordinates::from(
         reference
@@ -110,7 +118,7 @@ fn strained_problem(
     );
     (
         Model::from((block(connectivities, &coordinates, scale), start)),
-        EqualityConstraint::Fixed(fixed),
+        clamped(fixed),
     )
 }
 
@@ -126,7 +134,7 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
     let clock = Instant::now();
     let sparse = model
         .minimize(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -147,7 +155,7 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
     };
     let clock = Instant::now();
     let decomposed = model
-        .minimize(&vec![constraint].into(), feti)
+        .minimize(&constraint, feti)
         .unwrap_or_else(|error| panic!("FETI solve failed: {error}"));
     let feti_time = clock.elapsed();
     (
@@ -169,7 +177,7 @@ fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
     let (model, constraint) = problem([6; 3]);
     let sparse = model
         .root(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -181,7 +189,7 @@ fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
     let (model, constraint) = problem([6; 3]);
     let decomposed = model
         .root(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -199,7 +207,9 @@ fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
 
 type NonsymmetricBlock = Block<AlmansiHamelLagrangian, Hexahedron, 8, 3, 8, 8>;
 
-fn nonsymmetric_problem(nel: [usize; 3]) -> (Model<NonsymmetricBlock, 3>, EqualityConstraint) {
+fn nonsymmetric_problem(
+    nel: [usize; 3],
+) -> (Model<NonsymmetricBlock, 3>, Conditions<'static, Solid<3>>) {
     let (connectivities, coordinates): (Connectivities, Coordinates<3>) = mesh(nel).into();
     let reference: Vec<[f64; 3]> = coordinates
         .iter()
@@ -209,7 +219,7 @@ fn nonsymmetric_problem(nel: [usize; 3]) -> (Model<NonsymmetricBlock, 3>, Equali
         .iter()
         .enumerate()
         .filter(|(_, point)| point[0].abs() < 1e-9)
-        .flat_map(|(node, _)| (0..3).map(move |component| 3 * node + component))
+        .map(|(node, _)| node)
         .collect();
     let elements: Vec<[usize; 8]> = connectivities
         .into_blocks()
@@ -236,10 +246,7 @@ fn nonsymmetric_problem(nel: [usize; 3]) -> (Model<NonsymmetricBlock, 3>, Equali
             .map(|&point| perturbed(point, nel[0] as f64))
             .collect::<Vec<_>>(),
     );
-    (
-        Model::from((block, start)),
-        EqualityConstraint::Fixed(fixed),
-    )
+    (Model::from((block, start)), clamped(fixed))
 }
 
 #[test]
@@ -249,7 +256,7 @@ fn feti_solves_a_model_with_a_nonsymmetric_tangent() {
     let (model, constraint) = nonsymmetric_problem(nel);
     let sparse = model
         .root(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -261,7 +268,7 @@ fn feti_solves_a_model_with_a_nonsymmetric_tangent() {
     let (model, constraint) = nonsymmetric_problem(nel);
     let decomposed = model
         .root(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -283,7 +290,7 @@ fn gmres_on_the_dual_problem_matches_conjugate_gradients() {
         let (model, constraint) = problem([6; 3]);
         model
             .minimize(
-                &vec![constraint].into(),
+                &constraint,
                 NewtonRaphson {
                     abs_tol: TOLERANCES,
                     linear_solver: Feti {
@@ -372,7 +379,7 @@ fn a_partition_that_leaves_a_subdomain_floating_is_refused() {
     let (model, constraint) = problem(nel);
     let error = model
         .minimize(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -400,7 +407,7 @@ fn refusal(
     let (model, constraint) = scaled_problem(nel, scale, fixed_planes);
     model
         .minimize(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -452,7 +459,7 @@ fn benchmark_cg_vs_gmres() {
             let clock = Instant::now();
             model
                 .minimize(
-                    &vec![constraint].into(),
+                    &constraint,
                     NewtonRaphson {
                         abs_tol: TOLERANCES,
                         linear_solver: Feti {
@@ -478,7 +485,7 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
     let (model, constraint) = problem(nel);
     let sparse = model
         .minimize(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -489,7 +496,7 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
     let (model, constraint) = problem(nel);
     let classical = model
         .minimize(
-            &vec![constraint].into(),
+            &constraint,
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -523,7 +530,7 @@ fn classical_differs_from_dual_primal_by_the_prestress() {
         let (model, constraint) = strained_problem(nel, 1.0, &[0.0], strain);
         let converged = model
             .minimize(
-                &vec![constraint].into(),
+                &constraint,
                 NewtonRaphson {
                     abs_tol: TOLERANCES,
                     linear_solver: Direct,
