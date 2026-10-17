@@ -213,7 +213,7 @@ macro_rules! test_finite_element_block_inner {
                             let coordinates = crate::domain::Model::from((
                                     get_block(),
                                     get_reference_coordinates_block(),
-                                )).root(vec![EqualityConstraint::Linear(a, b)],
+                                )).root(&vec![EqualityConstraint::Linear(a, b)].into(),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -261,7 +261,7 @@ macro_rules! test_finite_element_block_inner {
                             let coordinates = crate::domain::Model::from((
                                     get_block(),
                                     get_reference_coordinates_block(),
-                                )).minimize(vec![EqualityConstraint::Linear(a, b)],
+                                )).minimize(&vec![EqualityConstraint::Linear(a, b)].into(),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -411,7 +411,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                     let (times, coordinates_history, velocities_history) =
                         crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
                             .minimize(
-                            vec![EqualityConstraint::Linear(a, b)],
+                            &vec![EqualityConstraint::Linear(a, b)].into(),
                             $integrator::default(),
                             &[Quantity::new(0.0), Quantity::new(1.0)],
                             NewtonRaphson::default(),
@@ -476,7 +476,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                     let (times, coordinates_history, velocities_history) =
                         crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
                             .root(
-                            vec![EqualityConstraint::Linear(a, b)],
+                            &vec![EqualityConstraint::Linear(a, b)].into(),
                             $integrator::default(),
                             &[Quantity::new(0.0), Quantity::new(1.0)],
                             NewtonRaphson::default(),

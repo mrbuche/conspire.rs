@@ -148,6 +148,24 @@ fn a_condition_follows_the_set_it_borrows() {
 }
 
 #[test]
+fn a_constraint_may_be_added_as_it_is() {
+    let bcs = BoundaryConditions::<Solid<3>>::new()
+        .fix_node(Displacement::<0>, 1)
+        .with_constraint(EqualityConstraint::Fixed(vec![9, 8]));
+    let constraints = bcs.constraint();
+    assert_eq!(constraints.len(), 2);
+    assert!(matches!(&constraints[0], EqualityConstraint::Fixed(i) if i == &[3]));
+    assert!(matches!(&constraints[1], EqualityConstraint::Fixed(i) if i == &[9, 8]));
+}
+
+#[test]
+fn constraints_are_boundary_conditions_of_any_layout() {
+    let bcs = BoundaryConditions::<Solid<3>>::from(vec![EqualityConstraint::Fixed(vec![4])]);
+    assert!(bcs.conditions().is_empty());
+    assert!(matches!(bcs.constraint().as_slice(), [EqualityConstraint::Fixed(i)] if i == &[4]));
+}
+
+#[test]
 fn a_set_that_is_not_there() {
     assert!(sets().by_name("side").is_none());
     assert!(sets().by_label(8).is_none());
@@ -403,11 +421,11 @@ mod solve_with {
     }
     impl<X> Root<(), (), X> for Dummy<X>
     where
-        X: Clone,
+        X: Clone + NodalState,
     {
         fn root<S>(
             &self,
-            equality_constraint: EqualityConstraints,
+            boundary_conditions: &super::BoundaryConditions<'_, X::Layout>,
             solver: S,
         ) -> Result<X, OptimizationError>
         where
@@ -418,18 +436,18 @@ mod solve_with {
                 |_| Ok(()),
                 |x| self.provide_tangent(x).map_err(String::from),
                 self.0.clone(),
-                equality_constraint,
+                boundary_conditions.constraint(),
                 None,
             )
         }
     }
     impl<X> Minimize<(), (), X> for Dummy<X>
     where
-        X: Clone,
+        X: Clone + NodalState,
     {
         fn minimize<S>(
             &self,
-            equality_constraint: EqualityConstraints,
+            boundary_conditions: &super::BoundaryConditions<'_, X::Layout>,
             solver: S,
         ) -> Result<X, OptimizationError>
         where
@@ -441,7 +459,7 @@ mod solve_with {
                 |_| Ok(()),
                 |x| self.provide_tangent(x).map_err(String::from),
                 self.0.clone(),
-                equality_constraint,
+                boundary_conditions.constraint(),
                 None,
             )
         }
@@ -465,14 +483,14 @@ mod solve_with {
     fn the_layout_of_the_conditions_is_that_of_the_state() {
         let set = NodeSet::new(vec![0, 2]);
         let fixed = super::BoundaryConditions::new().fix(Displacement::<1>, &set);
-        assert_eq!(found(solid().root_with(&fixed, Recorder)), "[1, 7]");
+        assert_eq!(found(solid().root(&fixed, Recorder)), "[1, 7]");
     }
     #[test]
     fn the_layout_of_coupled_conditions_is_that_of_the_state() {
         let fixed = super::BoundaryConditions::new()
             .fix_nodes(Temperature, 0..2)
             .fix_node(Displacement::<0>, 1);
-        assert_eq!(found(coupled().root_with(&fixed, Recorder)), "[3, 4, 7]");
+        assert_eq!(found(coupled().root(&fixed, Recorder)), "[3, 4, 7]");
     }
     #[test]
     fn prescribed_values_reach_the_solver() {
@@ -481,36 +499,36 @@ mod solve_with {
             2,
             crate::math::Quantity::<crate::units::Length>::new(0.25),
         );
+        assert_eq!(found(solid().root(&fixed, Recorder)), "[(7, Offset(0.25))]");
         assert_eq!(
-            found(solid().root_with(&fixed, Recorder)),
+            found(solid().minimize(&fixed, Recorder)),
             "[(7, Offset(0.25))]"
         );
-        assert_eq!(
-            found(solid().minimize_with(&fixed, Recorder)),
-            "[(7, Offset(0.25))]"
-        );
+    }
+    #[test]
+    fn a_vec_of_constraints_is_taken_as_it_is() {
+        let raw = super::BoundaryConditions::from(vec![EqualityConstraint::Fixed(vec![2])]);
+        assert_eq!(found(solid().root(&raw, Recorder)), "[2]");
+        assert_eq!(found(solid().minimize(&raw, Recorder)), "[2]");
     }
     #[test]
     fn minimizing_follows_the_layout_of_the_state() {
         let set = NodeSet::new(vec![0, 2]);
         let fixed = super::BoundaryConditions::new().fix(Displacement::<1>, &set);
-        assert_eq!(found(solid().minimize_with(&fixed, Recorder)), "[1, 7]");
+        assert_eq!(found(solid().minimize(&fixed, Recorder)), "[1, 7]");
     }
     #[test]
     fn minimizing_coupled_conditions_follows_the_layout_of_the_state() {
         let fixed = super::BoundaryConditions::new()
             .fix_nodes(Temperature, 0..2)
             .fix_node(Displacement::<0>, 1);
-        assert_eq!(
-            found(coupled().minimize_with(&fixed, Recorder)),
-            "[3, 4, 7]"
-        );
+        assert_eq!(found(coupled().minimize(&fixed, Recorder)), "[3, 4, 7]");
     }
     #[test]
     fn conditions_of_the_layout_may_be_written_out() {
         let set = NodeSet::new(vec![1]);
         let fixed =
             super::BoundaryConditions::<super::Solid<3>>::new().fix(Displacement::<2>, &set);
-        assert_eq!(found(solid().root_with(&fixed, Recorder)), "[5]");
+        assert_eq!(found(solid().root(&fixed, Recorder)), "[5]");
     }
 }

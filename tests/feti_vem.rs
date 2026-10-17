@@ -159,7 +159,7 @@ fn newton_with_feti_matches_newton_with_the_sparse_solve_on_polyhedra() {
     let (model, constraint) = problem(nel);
     let sparse = model
         .minimize(
-            vec![constraint],
+            &vec![constraint].into(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -171,7 +171,7 @@ fn newton_with_feti_matches_newton_with_the_sparse_solve_on_polyhedra() {
     let (model, constraint) = problem(nel);
     let decomposed = model
         .minimize(
-            vec![constraint],
+            &vec![constraint].into(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {

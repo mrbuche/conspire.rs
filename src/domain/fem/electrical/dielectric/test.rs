@@ -130,7 +130,7 @@ where
 {
     <Model<Bl, 3> as Root<NodalForcesElectrical, NodalStiffnessesElectrical, NodalPotentials>>::root(
         model,
-        vec![constraint],
+        &vec![constraint].into(),
         NewtonRaphson::default(),
     )
     .unwrap()
@@ -190,7 +190,9 @@ mod parallel_plate {
             Quantity<Energy>,
             NodalForcesElectrical,
             NodalPotentials,
-        >>::minimize(&model, vec![constraint], NewtonRaphson::default())
+        >>::minimize(
+            &model, &vec![constraint].into(), NewtonRaphson::default()
+        )
         .unwrap();
         (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
     }

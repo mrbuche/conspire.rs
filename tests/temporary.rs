@@ -7434,7 +7434,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let solution = fem_model.minimize(
-        vec![EqualityConstraint::Linear(matrix, vector)],
+        &vec![EqualityConstraint::Linear(matrix, vector)].into(),
         NewtonRaphson::default(),
     )?;
     println!("Done ({:?}).", time.elapsed());
@@ -7861,7 +7861,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, velocities_history) = fem_model.minimize(
-        vec![EqualityConstraint::Linear(matrix, vector)],
+        &vec![EqualityConstraint::Linear(matrix, vector)].into(),
         DormandPrince {
             abs_tol: tol,
             rel_tol: tol,
@@ -7975,7 +7975,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let solution = fem_model.minimize(
-        vec![EqualityConstraint::Linear(matrix, vector)],
+        &vec![EqualityConstraint::Linear(matrix, vector)].into(),
         NewtonRaphson {
             max_steps: 1,
             linear_solver: Direct,

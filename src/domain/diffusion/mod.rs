@@ -1,14 +1,13 @@
 use crate::{
     constitutive::diffusion::Diffusive,
     domain::{
-        Blocks, ElementModel, ElementModelError, Minimize, Model, ProvidesTangent, Root, SolverFor,
+        Blocks, BoundaryConditions, ElementModel, ElementModelError, Minimize, Model, NodalState,
+        ProvidesTangent, Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
     },
     math::{
         Quantity, QuantitySparseVec2D, QuantityVector, Tensor,
-        optimize::{
-            EqualityConstraints, NewtonRaphson, Optimization, OptimizationError, RootFinding,
-        },
+        optimize::{NewtonRaphson, Optimization, OptimizationError, RootFinding},
     },
 };
 
@@ -130,7 +129,7 @@ where
 {
     fn root<S>(
         &self,
-        equality_constraint: EqualityConstraints,
+        boundary_conditions: &BoundaryConditions<'_, <NodalFields<L> as NodalState>::Layout>,
         solver: S,
     ) -> Result<NodalFields<L>, OptimizationError>
     where
@@ -138,6 +137,7 @@ where
             + RootFinding<NodalForces<L>, S::Tangent, NodalFields<L>>,
         Self: ProvidesTangent<NodalFields<L>, S::Tangent>,
     {
+        let equality_constraint = boundary_conditions.constraint();
         let sparse = S::SPARSE.then(|| {
             let mut neighbors = vec![Vec::new(); self.coordinates().len()];
             self.node_neighbors(&mut neighbors);
@@ -172,7 +172,7 @@ where
 {
     fn minimize<S>(
         &self,
-        equality_constraint: EqualityConstraints,
+        boundary_conditions: &BoundaryConditions<'_, <NodalFields<L> as NodalState>::Layout>,
         solver: S,
     ) -> Result<NodalFields<L>, OptimizationError>
     where
@@ -180,6 +180,7 @@ where
             + Optimization<Quantity<L::Energy>, NodalForces<L>, S::Tangent, NodalFields<L>>,
         Self: ProvidesTangent<NodalFields<L>, S::Tangent>,
     {
+        let equality_constraint = boundary_conditions.constraint();
         let sparse = S::SPARSE.then(|| {
             let mut neighbors = vec![Vec::new(); self.coordinates().len()];
             self.node_neighbors(&mut neighbors);

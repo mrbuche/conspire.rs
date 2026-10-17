@@ -45,7 +45,7 @@ use crate::{
     math::{
         Current, Reference, Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
         assert::AssertionError,
-        optimize::{EqualityConstraints, Optimization, OptimizationError, RootFinding},
+        optimize::{Optimization, OptimizationError, RootFinding},
         styled_error,
     },
     units::{Acceleration, Length, Velocity},
@@ -186,54 +186,32 @@ styled_error!(ElementModelError);
 pub trait Root<F, J, X>
 where
     Self: Sized,
+    X: NodalState,
 {
     fn root<S>(
-        &self,
-        equality_constraint: EqualityConstraints,
-        solver: S,
-    ) -> Result<X, OptimizationError>
-    where
-        S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
-        Self: ProvidesTangent<X, S::Tangent>;
-    fn root_with<S>(
         &self,
         boundary_conditions: &BoundaryConditions<'_, X::Layout>,
         solver: S,
     ) -> Result<X, OptimizationError>
     where
         S: SolverFor<Self, F, J> + RootFinding<F, S::Tangent, X>,
-        Self: ProvidesTangent<X, S::Tangent>,
-        X: NodalState,
-    {
-        self.root(boundary_conditions.constraint(), solver)
-    }
+        Self: ProvidesTangent<X, S::Tangent>;
 }
 
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub trait Minimize<F, J, X>
 where
     Self: Sized,
+    X: NodalState,
 {
     fn minimize<S>(
-        &self,
-        equality_constraint: EqualityConstraints,
-        solver: S,
-    ) -> Result<X, OptimizationError>
-    where
-        S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
-        Self: ProvidesTangent<X, S::Tangent>;
-    fn minimize_with<S>(
         &self,
         boundary_conditions: &BoundaryConditions<'_, X::Layout>,
         solver: S,
     ) -> Result<X, OptimizationError>
     where
         S: SolverFor<Self, F, J> + Optimization<F, J, S::Tangent, X>,
-        Self: ProvidesTangent<X, S::Tangent>,
-        X: NodalState,
-    {
-        self.minimize(boundary_conditions.constraint(), solver)
-    }
+        Self: ProvidesTangent<X, S::Tangent>;
 }
 
 impl<B, const D: usize> From<(B, NodalReferenceCoordinates<D>)> for Model<B, D> {

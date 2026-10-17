@@ -246,12 +246,12 @@ fn split_blocks_nodal_forces() -> Result<(), AssertionError> {
 fn split_blocks_root() -> Result<(), AssertionError> {
     let (a, b) = constraint();
     let solution = single_block_model()?.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     let (a, b) = constraint();
     let solution_split = split_blocks_model()?.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     Assert::default().eq_within_tols(&solution, &solution_split)
@@ -346,7 +346,7 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
     )?;
     let (a, b) = constraint();
     let reference = split_blocks_model()?.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
@@ -374,7 +374,7 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
     )?;
     let (a, b) = constraint();
     let reference = split_blocks_model()?.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
@@ -530,7 +530,7 @@ fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
     let (a, b) = constraint();
     let model = heterogeneous_model()?;
     let solution = model.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     assert!((solution[0][0].value() - 1.05).abs() < 1e-10);
@@ -589,7 +589,7 @@ fn planar_patch_root() -> Result<(), AssertionError> {
         })
     });
     let solution = planar_model()?.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     let expected: NodalCoordinates<2> = coordinates
@@ -625,7 +625,7 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
         row += 1;
     });
     let solution = planar_model()?.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     let coordinates: NodalReferenceCoordinates<3> = (0..2)
@@ -668,7 +668,7 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
         row += 1;
     });
     let solution_wedge = model.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     let layer_0: NodalCoordinates<2> = solution_wedge
@@ -721,7 +721,7 @@ fn planar_quad_patch_root() -> Result<(), AssertionError> {
         })
     });
     let solution = model.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     let expected: NodalCoordinates<2> = coordinates
@@ -769,12 +769,12 @@ fn planar_minimize_vs_root() -> Result<(), AssertionError> {
         .map_err(|error: String| AssertionError { message: error })?;
     let (a, b) = planar_constraint();
     let solution_root = model.root(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     let (a, b) = planar_constraint();
     let solution_minimize = model.minimize(
-        vec![EqualityConstraint::Linear(a, b)],
+        &vec![EqualityConstraint::Linear(a, b)].into(),
         NewtonRaphson::default(),
     )?;
     Assert::default().eq_within_tols(&solution_root, &solution_minimize)
