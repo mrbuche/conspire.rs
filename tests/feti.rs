@@ -126,7 +126,7 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
     let clock = Instant::now();
     let sparse = model
         .minimize(
-            constraint,
+            vec![constraint],
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -147,7 +147,7 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
     };
     let clock = Instant::now();
     let decomposed = model
-        .minimize(constraint, feti)
+        .minimize(vec![constraint], feti)
         .unwrap_or_else(|error| panic!("FETI solve failed: {error}"));
     let feti_time = clock.elapsed();
     (
@@ -169,7 +169,7 @@ fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
     let (model, constraint) = problem([6; 3]);
     let sparse = model
         .root(
-            constraint,
+            vec![constraint],
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -181,7 +181,7 @@ fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
     let (model, constraint) = problem([6; 3]);
     let decomposed = model
         .root(
-            constraint,
+            vec![constraint],
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -249,7 +249,7 @@ fn feti_solves_a_model_with_a_nonsymmetric_tangent() {
     let (model, constraint) = nonsymmetric_problem(nel);
     let sparse = model
         .root(
-            constraint,
+            vec![constraint],
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -261,7 +261,7 @@ fn feti_solves_a_model_with_a_nonsymmetric_tangent() {
     let (model, constraint) = nonsymmetric_problem(nel);
     let decomposed = model
         .root(
-            constraint,
+            vec![constraint],
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -283,7 +283,7 @@ fn gmres_on_the_dual_problem_matches_conjugate_gradients() {
         let (model, constraint) = problem([6; 3]);
         model
             .minimize(
-                constraint,
+                vec![constraint],
                 NewtonRaphson {
                     abs_tol: TOLERANCES,
                     linear_solver: Feti {
@@ -372,7 +372,7 @@ fn a_partition_that_leaves_a_subdomain_floating_is_refused() {
     let (model, constraint) = problem(nel);
     let error = model
         .minimize(
-            constraint,
+            vec![constraint],
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -400,7 +400,7 @@ fn refusal(
     let (model, constraint) = scaled_problem(nel, scale, fixed_planes);
     model
         .minimize(
-            constraint,
+            vec![constraint],
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -452,7 +452,7 @@ fn benchmark_cg_vs_gmres() {
             let clock = Instant::now();
             model
                 .minimize(
-                    constraint,
+                    vec![constraint],
                     NewtonRaphson {
                         abs_tol: TOLERANCES,
                         linear_solver: Feti {
@@ -478,7 +478,7 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
     let (model, constraint) = problem(nel);
     let sparse = model
         .minimize(
-            constraint,
+            vec![constraint],
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -489,7 +489,7 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
     let (model, constraint) = problem(nel);
     let classical = model
         .minimize(
-            constraint,
+            vec![constraint],
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -523,7 +523,7 @@ fn classical_differs_from_dual_primal_by_the_prestress() {
         let (model, constraint) = strained_problem(nel, 1.0, &[0.0], strain);
         let converged = model
             .minimize(
-                constraint,
+                vec![constraint],
                 NewtonRaphson {
                     abs_tol: TOLERANCES,
                     linear_solver: Direct,

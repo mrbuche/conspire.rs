@@ -4,7 +4,7 @@ mod test;
 use crate::{
     domain::boundary::{Component, Layout, Prescribable},
     geometry::mesh::NodeSet,
-    math::optimize::{EqualityConstraint, Prescription},
+    math::optimize::{EqualityConstraint, EqualityConstraints, Prescription},
 };
 use std::marker::PhantomData;
 
@@ -139,37 +139,29 @@ where
     pub fn conditions(&self) -> &[BoundaryCondition<'m>] {
         &self.conditions
     }
-    /// The constraint holding the degrees of freedom.
+    /// The constraints holding the degrees of freedom, one for each condition.
     ///
-    /// It is fixed, with the indices in ascending order and without repeats, if every condition
-    /// holds its degrees of freedom at their initial values, and prescribed otherwise.
-    pub fn constraint(&self) -> EqualityConstraint {
-        if self
-            .conditions
+    /// A condition that holds its degrees of freedom at their initial values is fixed, with the
+    /// indices in ascending order and without repeats, and any other is prescribed.
+    pub fn constraint(&self) -> EqualityConstraints {
+        self.conditions
             .iter()
-            .all(|condition| condition.prescription == Prescription::Initial)
-        {
-            let mut fixed: Vec<usize> = self
-                .conditions
-                .iter()
-                .flat_map(BoundaryCondition::indices)
-                .collect();
-            fixed.sort_unstable();
-            fixed.dedup();
-            EqualityConstraint::Fixed(fixed)
-        } else {
-            EqualityConstraint::Prescribed(
-                self.conditions
-                    .iter()
-                    .flat_map(|condition| {
-                        let prescription = condition.prescription;
-                        condition
-                            .indices()
+            .map(|condition| {
+                let mut indices = condition.indices();
+                if condition.prescription == Prescription::Initial {
+                    indices.sort_unstable();
+                    indices.dedup();
+                    EqualityConstraint::Fixed(indices)
+                } else {
+                    let prescription = condition.prescription;
+                    EqualityConstraint::Prescribed(
+                        indices
                             .into_iter()
-                            .map(move |index| (index, prescription))
-                    })
-                    .collect(),
-            )
-        }
+                            .map(|index| (index, prescription))
+                            .collect(),
+                    )
+                }
+            })
+            .collect()
     }
 }

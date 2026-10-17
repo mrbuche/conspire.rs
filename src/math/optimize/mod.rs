@@ -12,8 +12,8 @@ mod strategy;
 mod tolerance;
 mod trust_region;
 
-use constraint::ALL_UNSUPPORTED;
-pub use constraint::{EqualityConstraint, Prescription};
+pub use constraint::{EqualityConstraint, EqualityConstraints, Prescription};
+use constraint::{Rows, UNSUPPORTED};
 pub use gradient_descent::GradientDescent;
 pub use krylov::{Krylov, KrylovError, KrylovMethod};
 pub use line_search::{LineSearch, LineSearchError};
@@ -52,7 +52,7 @@ pub trait RootFinding<F, J, X> {
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError>;
 }
@@ -79,7 +79,7 @@ pub trait RootFindingIncremental<F, J, X> {
         jacobian: impl FnMut(&X) -> Result<J, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
         initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError>;
 }
@@ -92,7 +92,7 @@ pub trait Optimization<F, J, H, X> {
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError>;
 }
@@ -116,7 +116,7 @@ pub trait OptimizationIncremental<F, J, H, X> {
         hessian: impl FnMut(&X) -> Result<H, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
         initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError>;
 }

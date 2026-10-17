@@ -301,7 +301,7 @@ fn moduli() -> Result<(), AssertionError> {
             |v: &DeformationGradient2| Ok(model.internal_variables_residual(f, v)?),
             |v: &DeformationGradient2| Ok(model.tangents(f, v)?.3),
             model.internal_variables_initial(),
-            EqualityConstraint::Fixed(fixed.clone()),
+            vec![EqualityConstraint::Fixed(fixed.clone())],
             None,
         )
     };

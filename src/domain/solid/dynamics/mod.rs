@@ -11,7 +11,7 @@ use crate::{
     },
     math::{
         integrate::{IntegrationError, Times},
-        optimize::EqualityConstraint,
+        optimize::EqualityConstraints,
     },
 };
 
@@ -24,7 +24,7 @@ type Solution = (
 
 fn held<M>(
     masses: &M,
-    equality_constraint: EqualityConstraint,
+    equality_constraint: EqualityConstraints,
     mut velocities: NodalVelocities<3>,
 ) -> Result<(M::Inverse, NodalVelocities<3>), IntegrationError>
 where

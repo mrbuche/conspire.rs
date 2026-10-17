@@ -17,7 +17,7 @@ use crate::{
     },
     math::{
         Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector,
-        optimize::NewtonRaphson,
+        optimize::NewtonRaphson, sparse::CscMatrix,
     },
     units::{Dimensionless, UnitDiv},
 };
@@ -32,6 +32,7 @@ where
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a V, Output = Vector>,
     V: Erase<Erased = E> + Jacobian + Solution,
     <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
 {

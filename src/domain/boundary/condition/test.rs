@@ -10,7 +10,7 @@ use crate::{
     geometry::mesh::{NodeSet, NodeSets},
     math::{
         Current, Quantity, QuantityVector, TensorRank1, TensorTuple, TensorTupleVec,
-        optimize::EqualityConstraint,
+        optimize::{EqualityConstraint, EqualityConstraints},
     },
     units::{
         Concentration as ConcentrationUnit, ElectricPotential, Length,
@@ -19,11 +19,8 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-fn indices(constraint: EqualityConstraint) -> Vec<usize> {
-    match constraint {
-        EqualityConstraint::Fixed(indices) => indices,
-        _ => panic!("expected a fixed constraint"),
-    }
+fn indices(constraints: EqualityConstraints) -> Vec<usize> {
+    EqualityConstraint::held_indices(&constraints).unwrap_or_default()
 }
 
 fn sets() -> NodeSets {
@@ -216,11 +213,18 @@ mod coupled {
 mod prescribed {
     use super::*;
     use crate::math::{Vector, optimize::Prescription};
-    fn entries(constraint: EqualityConstraint) -> Vec<(usize, Prescription)> {
-        match constraint {
-            EqualityConstraint::Prescribed(entries) => entries,
-            _ => panic!("expected a prescribed constraint"),
-        }
+    fn entries(constraints: EqualityConstraints) -> Vec<(usize, Prescription)> {
+        constraints
+            .into_iter()
+            .flat_map(|constraint| match constraint {
+                EqualityConstraint::Prescribed(entries) => entries,
+                EqualityConstraint::Fixed(indices) => indices
+                    .into_iter()
+                    .map(|index| (index, Prescription::Initial))
+                    .collect(),
+                _ => panic!("expected a fixed or prescribed constraint"),
+            })
+            .collect()
     }
     #[test]
     fn a_displacement_is_held_at_a_distance_from_where_it_starts() {
@@ -307,8 +311,8 @@ mod prescribed {
         let constraint = BoundaryConditions::<Solid<2>>::new()
             .prescribe_node(Displacement::<1>, 1, Quantity::<Length>::new(0.5))
             .prescribe_node(Displacement::<0>, 0, Quantity::<Length>::new(-1.0))
-            .constraint()
-            .lower(&mut state);
+            .constraint();
+        let constraint = EqualityConstraint::lower(constraint, &mut state);
         assert_eq!(indices(constraint), [0, 3]);
         assert_eq!(state, Vector::from([-1.0, 0.0, 0.0, 0.5]));
     }
@@ -318,8 +322,8 @@ mod prescribed {
         let constraint = BoundaryConditions::<Solid<2>>::new()
             .prescribe_node(Displacement::<1>, 1, Quantity::<Length>::new(0.5))
             .prescribe_node(Displacement::<1>, 1, Quantity::<Length>::new(0.75))
-            .constraint()
-            .lower(&mut state);
+            .constraint();
+        let constraint = EqualityConstraint::lower(constraint, &mut state);
         assert_eq!(indices(constraint), [3]);
         assert_eq!(state, Vector::from([0.0, 0.0, 0.0, 0.75]));
     }
@@ -334,7 +338,10 @@ mod solve_with {
         },
         geometry::mesh::NodeSet,
         math::{
-            optimize::{EqualityConstraint, Optimization, OptimizationError, RootFinding},
+            optimize::{
+                EqualityConstraint, EqualityConstraints, Optimization, OptimizationError,
+                Prescription, RootFinding,
+            },
             sparse::SparseSolver,
         },
     };
@@ -350,7 +357,7 @@ mod solve_with {
             _: impl FnMut(&X) -> Result<(), String>,
             _: impl FnMut(&X) -> Result<(), String>,
             _: X,
-            equality_constraint: EqualityConstraint,
+            equality_constraint: EqualityConstraints,
             _: Option<SparseSolver>,
         ) -> Result<X, OptimizationError> {
             record(equality_constraint)
@@ -363,18 +370,27 @@ mod solve_with {
             _: impl FnMut(&X) -> Result<(), String>,
             _: impl FnMut(&X) -> Result<(), String>,
             _: X,
-            equality_constraint: EqualityConstraint,
+            equality_constraint: EqualityConstraints,
             _: Option<SparseSolver>,
         ) -> Result<X, OptimizationError> {
             record(equality_constraint)
         }
     }
-    fn record<X>(equality_constraint: EqualityConstraint) -> Result<X, OptimizationError> {
-        match equality_constraint {
-            EqualityConstraint::Fixed(indices) => {
+    fn record<X>(equality_constraints: EqualityConstraints) -> Result<X, OptimizationError> {
+        let merged = EqualityConstraint::merged(equality_constraints);
+        match merged.as_slice() {
+            [EqualityConstraint::Fixed(indices)] => {
                 Err(OptimizationError::Intermediate(format!("{indices:?}")))
             }
-            EqualityConstraint::Prescribed(entries) => {
+            [EqualityConstraint::Prescribed(entries)]
+                if entries
+                    .iter()
+                    .all(|&(_, prescription)| prescription == Prescription::Initial) =>
+            {
+                let indices: Vec<usize> = entries.iter().map(|&(index, _)| index).collect();
+                Err(OptimizationError::Intermediate(format!("{indices:?}")))
+            }
+            [EqualityConstraint::Prescribed(entries)] => {
                 Err(OptimizationError::Intermediate(format!("{entries:?}")))
             }
             _ => panic!("expected a fixed or prescribed constraint"),
@@ -391,7 +407,7 @@ mod solve_with {
     {
         fn root<S>(
             &self,
-            equality_constraint: EqualityConstraint,
+            equality_constraint: EqualityConstraints,
             solver: S,
         ) -> Result<X, OptimizationError>
         where
@@ -413,7 +429,7 @@ mod solve_with {
     {
         fn minimize<S>(
             &self,
-            equality_constraint: EqualityConstraint,
+            equality_constraint: EqualityConstraints,
             solver: S,
         ) -> Result<X, OptimizationError>
         where

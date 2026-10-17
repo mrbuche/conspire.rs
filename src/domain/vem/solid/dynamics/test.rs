@@ -115,7 +115,7 @@ mod explicit {
             ),
             &weights,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -155,7 +155,7 @@ mod implicit {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
         let expected =
@@ -178,7 +178,7 @@ mod implicit {
             ),
             &weights,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -212,7 +212,7 @@ mod implicit {
             ),
             &weights,
             &masses,
-            EqualityConstraint::Fixed(vec![0, 1, 2, 5]),
+            vec![EqualityConstraint::Fixed(vec![0, 1, 2, 5])],
         )?;
         let last = &coordinates[STEPS];
         assert_eq!(last[0], NodalCoordinates::from(COORDINATES)[0]);
@@ -237,7 +237,7 @@ mod implicit {
             state(),
             &zero,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
@@ -246,7 +246,7 @@ mod implicit {
             state(),
             &zero,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let moved = (implicit[100][4][2] - implicit[0][4][2]).norm().value();
         assert!(moved > 0.0);
@@ -270,7 +270,7 @@ mod implicit {
             (stretched(), uniform_velocities([0.0; 3])),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let energy = |step: usize| -> Quantity<Energy> {
             masses.kinetic_energy(&velocities[step])

@@ -1,7 +1,7 @@
 use crate::math::{
     Derivative, Differentiable, Quantity, Tensor, TensorVec,
     integrate::{IntegrationError, Times},
-    optimize::{EqualityConstraint, Optimization, RootFinding},
+    optimize::{EqualityConstraints, Optimization, RootFinding},
     sparse::SparseSolver,
 };
 use crate::units::Time;
@@ -27,7 +27,7 @@ where
         solver: impl RootFinding<F, J, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     ) -> Result<(Times<T>, U, W, V), IntegrationError>;
 }
 
@@ -50,7 +50,7 @@ where
         solver: impl Optimization<F, J, H, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<(Times<T>, U, W, V), IntegrationError>;
 }
@@ -69,7 +69,7 @@ where
         solver: impl RootFinding<F, J, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     ) -> Result<(Times<T>, U, V), IntegrationError>;
 }
 
@@ -89,7 +89,7 @@ where
         solver: impl Optimization<F, J, H, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<(Times<T>, U, V), IntegrationError>;
 }

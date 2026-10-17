@@ -4,21 +4,27 @@ mod test;
 use crate::math::{
     QuantitySparseVec2D, Tensor, Vector,
     integrate::IntegrationError,
-    optimize::{EqualityConstraint, Prescription},
+    optimize::{EqualityConstraint, EqualityConstraints, Prescription},
     sparse::{CscLdl, CscMatrix, SparseError},
 };
 use std::collections::BTreeSet;
 
-/// The indices of the fixed degrees of freedom of a constraint, for an integrator named
+/// The indices of the fixed degrees of freedom of constraints, for an integrator named
 /// `integrator`, which does not support linear constraints.
 pub(crate) fn fixed_indices(
-    equality_constraint: EqualityConstraint,
+    equality_constraints: EqualityConstraints,
     integrator: &str,
 ) -> Result<Vec<usize>, IntegrationError> {
-    match equality_constraint.merged() {
-        EqualityConstraint::Fixed(indices) => Ok(indices),
-        EqualityConstraint::None => Ok(vec![]),
-        EqualityConstraint::Prescribed(entries) => {
+    let mut parts = EqualityConstraint::merged(equality_constraints);
+    if parts.len() > 1 {
+        return Err(IntegrationError::Intermediate(format!(
+            "Constraints of several kinds are not supported by {integrator}."
+        )));
+    }
+    match parts.pop() {
+        None | Some(EqualityConstraint::None) => Ok(vec![]),
+        Some(EqualityConstraint::Fixed(indices)) => Ok(indices),
+        Some(EqualityConstraint::Prescribed(entries)) => {
             if entries
                 .iter()
                 .all(|&(_, prescription)| prescription == Prescription::Initial)
@@ -35,11 +41,12 @@ pub(crate) fn fixed_indices(
                 )))
             }
         }
-        EqualityConstraint::Linear(..) | EqualityConstraint::All(_) => {
-            Err(IntegrationError::Intermediate(format!(
-                "Linear constraints are not supported by {integrator}."
-            )))
-        }
+        Some(EqualityConstraint::Multipliers(_)) => Err(IntegrationError::Intermediate(format!(
+            "Constraints held by multipliers are not supported by {integrator}."
+        ))),
+        Some(EqualityConstraint::Linear(..)) => Err(IntegrationError::Intermediate(format!(
+            "Linear constraints are not supported by {integrator}."
+        ))),
     }
 }
 

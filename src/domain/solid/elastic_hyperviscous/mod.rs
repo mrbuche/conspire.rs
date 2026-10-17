@@ -8,7 +8,7 @@ use crate::{
     math::{
         Quantity, Tensor,
         integrate::{ImplicitDaeMinimize, IntegrationError},
-        optimize::{EqualityConstraint, Optimization},
+        optimize::{EqualityConstraints, Optimization},
     },
     mechanics::Times,
     units::{Power, Time},
@@ -86,7 +86,7 @@ where
 pub trait Minimize<const D: usize> {
     fn minimize(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
@@ -111,7 +111,7 @@ where
 {
     fn minimize(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,

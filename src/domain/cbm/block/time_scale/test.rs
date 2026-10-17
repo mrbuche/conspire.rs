@@ -145,7 +145,7 @@ fn a_bounded_integration_runs_below_the_limit_and_errors_above_it() {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )
     };
     assert!(run(0.5 * limit).is_ok());

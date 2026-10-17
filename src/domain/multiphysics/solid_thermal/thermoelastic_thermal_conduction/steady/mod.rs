@@ -11,7 +11,7 @@ use crate::{
     },
     math::{
         Tensor, TensorTuple,
-        optimize::{EqualityConstraint, NewtonRaphson, OptimizationError, RootFinding},
+        optimize::{EqualityConstraints, NewtonRaphson, OptimizationError, RootFinding},
     },
 };
 
@@ -153,7 +153,7 @@ where
 {
     fn root<S>(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         solver: S,
     ) -> Result<NodalStatesSolidThermal, OptimizationError>
     where

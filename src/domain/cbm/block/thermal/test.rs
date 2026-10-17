@@ -242,7 +242,7 @@ mod integrate {
                 initial.clone(),
                 &NodalForcesThermal::zero(NODES),
                 &capacities,
-                EqualityConstraint::None,
+                vec![EqualityConstraint::None],
             )
             .unwrap();
         let last = history.iter().last().unwrap();
@@ -264,7 +264,7 @@ mod integrate {
                 temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
                 &NodalForcesThermal::zero(NODES),
                 &model.nodal_lumped_heat_capacities(),
-                EqualityConstraint::Fixed(vec![0]),
+                vec![EqualityConstraint::Fixed(vec![0])],
             )
             .unwrap();
         history.iter().for_each(|t| assert_eq!(t[0].value(), 300.0));
@@ -321,7 +321,7 @@ mod integrate_implicit {
             initial,
             &NodalForcesThermal::zero(NODES),
             &model.nodal_lumped_heat_capacities(),
-            constraint,
+            vec![constraint],
         )
         .unwrap();
         (history, rates)

@@ -12,14 +12,14 @@ use crate::{
             ButcherTableau, EmbeddedTableau, Integrable, IntegrationError, Product,
             integrate_rkmk_dae_adaptive_root, rkmk_dae_step_root,
         },
-        optimize::{EqualityConstraint, RootFinding},
+        optimize::{EqualityConstraints, RootFinding},
     },
     mechanics::Times,
     units::Time,
 };
 use std::ops::Mul;
 
-pub type ElasticViscoplasticBCs = fn(Quantity<Time>) -> EqualityConstraint;
+pub type ElasticViscoplasticBCs = fn(Quantity<Time>) -> EqualityConstraints;
 
 pub trait ElasticViscoplasticElements<S, const D: usize>
 where

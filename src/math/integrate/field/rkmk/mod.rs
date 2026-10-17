@@ -5,7 +5,7 @@ use super::{Integrable, reconstruct_or_err};
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar,
     integrate::{ButcherTableau, IntegrationError},
-    optimize::{EqualityConstraint, Optimization, RootFinding},
+    optimize::{EqualityConstraints, Optimization, RootFinding},
     sparse::SparseSolver,
 };
 use std::ops::{AddAssign, Mul};
@@ -187,7 +187,7 @@ pub fn rkmk_dae_step_root<Field, Tab, F, J, Z, T>(
     dt: Quantity<T>,
     scratch: &mut Vec<Field::Increment>,
     first_rate: Option<&Derivative<Field::Increment, T>>,
-    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     sparse: Option<SparseSolver>,
 ) -> Result<(Field::Point, Z, Option<Derivative<Field::Increment, T>>), IntegrationError>
 where
@@ -235,7 +235,7 @@ pub fn rkmk_dae_step_minimize<Field, Tab, F, J, H, Z, T>(
     dt: Quantity<T>,
     scratch: &mut Vec<Field::Increment>,
     first_rate: Option<&Derivative<Field::Increment, T>>,
-    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     sparse: Option<SparseSolver>,
 ) -> Result<(Field::Point, Z, Option<Derivative<Field::Increment, T>>), IntegrationError>
 where

@@ -13,7 +13,7 @@ use crate::{
     math::{
         Quantity, Tensor,
         integrate::{ImplicitRates, IntegrationError},
-        optimize::{EqualityConstraint, RootFinding},
+        optimize::{EqualityConstraints, RootFinding},
     },
     units::Time,
 };
@@ -40,7 +40,7 @@ pub trait ThermalConductionImplicitTransient {
         initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>;
 }
 
@@ -62,7 +62,7 @@ where
         initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError> {
         let inverse = held(
             capacities,

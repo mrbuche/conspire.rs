@@ -39,7 +39,7 @@ fn oscillate(integrator: &Newmark, final_time: Scalar) -> Result<Solution, Integ
             ))
         },
         NewtonRaphson::default(),
-        EqualityConstraint::None,
+        vec![EqualityConstraint::None],
         None,
         &[Quantity::new(0.0), Quantity::new(final_time)],
         Quantity::new(1.0),

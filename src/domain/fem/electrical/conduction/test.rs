@@ -123,7 +123,7 @@ where
 {
     <Model<Bl, 3> as Root<NodalCurrents, NodalConductances, NodalPotentials>>::root(
         model,
-        constraint,
+        vec![constraint],
         NewtonRaphson::default(),
     )
     .unwrap()
@@ -183,7 +183,7 @@ mod bar {
             Quantity<Power>,
             NodalCurrents,
             NodalPotentials,
-        >>::minimize(&model, constraint, NewtonRaphson::default())
+        >>::minimize(&model, vec![constraint], NewtonRaphson::default())
         .unwrap();
         (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
     }

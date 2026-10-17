@@ -191,7 +191,7 @@ mod integrate {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
         let expected =
@@ -215,7 +215,7 @@ mod integrate {
             ),
             &weights,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -249,7 +249,7 @@ mod integrate {
             ),
             &weights,
             &masses,
-            EqualityConstraint::Fixed(vec![0, 1, 2, 5]),
+            vec![EqualityConstraint::Fixed(vec![0, 1, 2, 5])],
         )?;
         let last = &coordinates[STEPS];
         assert_eq!(last[0], NodalCoordinates::from(COORDINATES)[0]);
@@ -272,7 +272,7 @@ mod integrate {
             (stretched, uniform_velocities([0.0; 3])),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let energy = |step: usize| -> Quantity<Energy> {
             masses.kinetic_energy(&velocities[step])
@@ -303,7 +303,10 @@ mod integrate {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::Linear(Default::default(), Default::default()),
+            vec![EqualityConstraint::Linear(
+                Default::default(),
+                Default::default(),
+            )],
         );
         assert!(result.is_err());
     }
@@ -351,7 +354,7 @@ mod integrate_implicit {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
         let expected =
@@ -377,7 +380,7 @@ mod integrate_implicit {
             ),
             &weights,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -412,7 +415,7 @@ mod integrate_implicit {
             ),
             &weights,
             &masses,
-            EqualityConstraint::Fixed(vec![0, 1, 2, 5]),
+            vec![EqualityConstraint::Fixed(vec![0, 1, 2, 5])],
         )?;
         let last = &coordinates[STEPS];
         assert_eq!(last[0], NodalCoordinates::from(COORDINATES)[0]);
@@ -444,7 +447,7 @@ mod integrate_implicit {
             state(),
             &zero,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
@@ -453,7 +456,7 @@ mod integrate_implicit {
             state(),
             &zero,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let moved = (implicit[100][4][0] - implicit[0][4][0]).norm().value();
         assert!(moved > 0.0);
@@ -482,7 +485,7 @@ mod integrate_implicit {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let energy = |step: usize| -> Quantity<Energy> {
             masses.kinetic_energy(&velocities[step])
@@ -515,7 +518,7 @@ mod integrate_implicit {
             ),
             &weights,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -545,7 +548,7 @@ mod integrate_implicit {
             ),
             &weights,
             &masses,
-            EqualityConstraint::Fixed(vec![0, 1, 2, 5]),
+            vec![EqualityConstraint::Fixed(vec![0, 1, 2, 5])],
         )?;
         let last = &coordinates[STEPS];
         assert_eq!(last[0], NodalCoordinates::from(COORDINATES)[0]);
@@ -578,7 +581,7 @@ mod integrate_implicit {
             state(),
             &zero,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
@@ -587,7 +590,7 @@ mod integrate_implicit {
             state(),
             &zero,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (_, lumped, ..) = ElasticImplicitDynamics::integrate(
             &model,
@@ -597,7 +600,7 @@ mod integrate_implicit {
             state(),
             &zero,
             &model.nodal_lumped_masses(),
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let moved = (implicit[400][4][0] - implicit[0][4][0]).norm().value();
         Assert {
@@ -624,7 +627,10 @@ mod integrate_implicit {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::Linear(Default::default(), Default::default()),
+            vec![EqualityConstraint::Linear(
+                Default::default(),
+                Default::default(),
+            )],
         );
         assert!(result.is_err());
     }
@@ -700,7 +706,7 @@ mod consistent_masses {
             ),
             &weights,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
         let g = STANDARD_GRAVITY.in_meters_per_second_squared();
@@ -725,7 +731,7 @@ mod consistent_masses {
             ),
             &weights,
             &masses,
-            EqualityConstraint::Fixed(FIXED.to_vec()),
+            vec![EqualityConstraint::Fixed(FIXED.to_vec())],
         )?;
         let (last, initial) = (
             &coordinates[coordinates.len() - 1],
@@ -834,7 +840,7 @@ mod bar_wave {
             ),
             &forces,
             &masses,
-            EqualityConstraint::Fixed(fixed()),
+            vec![EqualityConstraint::Fixed(fixed())],
         )?;
         let tip = 4 * ELEMENTS;
         let displacements = coordinates

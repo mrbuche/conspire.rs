@@ -13,7 +13,7 @@ use crate::{
     math::{
         Quantity, Scalar, Tensor, Vector,
         optimize::{
-            EqualityConstraint, Optimization, OptimizationError, OptimizationIncremental,
+            EqualityConstraints, Optimization, OptimizationError, OptimizationIncremental,
             SolveStrategy,
         },
     },
@@ -55,7 +55,7 @@ where
 {
     fn minimize(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<D>,
@@ -78,7 +78,7 @@ where
 {
     fn minimize(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<D>,

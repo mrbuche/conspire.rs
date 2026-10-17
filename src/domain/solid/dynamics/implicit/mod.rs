@@ -13,7 +13,7 @@ use crate::{
     math::{
         Quantity, Tensor,
         integrate::{ImplicitDynamics, IntegrationError},
-        optimize::{EqualityConstraint, RootFinding},
+        optimize::{EqualityConstraints, RootFinding},
     },
     units::Time,
 };
@@ -41,7 +41,7 @@ pub trait ElasticImplicitDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &impl InertialMass<3>,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>;
 }
 
@@ -64,7 +64,7 @@ where
         (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &impl InertialMass<3>,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError> {
         let (inverse, initial_velocities) =
             held(masses, equality_constraint.clone(), initial_velocities)?;

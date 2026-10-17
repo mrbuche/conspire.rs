@@ -9,10 +9,10 @@ use super::{
         SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
-    ALL_UNSUPPORTED, BacktrackingLineSearch, Direct, EqualityConstraint, LineSearch,
+    BacktrackingLineSearch, Direct, EqualityConstraint, EqualityConstraints, LineSearch,
     LineSearchError, LinearSolver, Optimization, OptimizationBlock, OptimizationError,
-    OptimizationIncremental, RootFinding, RootFindingBlock, RootFindingIncremental, SolveStrategy,
-    StepSize, Tolerances, TrustRegion,
+    OptimizationIncremental, RootFinding, RootFindingBlock, RootFindingIncremental, Rows,
+    SolveStrategy, StepSize, Tolerances, TrustRegion,
     trust_region::{
         TRUST_REGION_ETA, TRUST_REGION_MAX_REJECTIONS, TRUST_REGION_SHRINK, more_sorensen_dense,
         more_sorensen_sparse, update_radius,
@@ -20,7 +20,7 @@ use super::{
 };
 use crate::math::Norm;
 use crate::units::{UnitMul, UnitRatio, UnitSum};
-use constraint::{ConstraintMatrix, kkt_entry_sparse};
+use constraint::{ConstraintMatrix, Eliminated, kkt_entry_sparse};
 use std::{
     collections::BTreeMap,
     fmt::{self, Debug, Formatter},
@@ -100,17 +100,18 @@ where
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a X, Output = Vector>,
 {
     fn root(
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         mut initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint.lower(&mut initial_guess) {
-            EqualityConstraint::Fixed(indices) => constrained_fixed(
+        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
+            (Some(indices), Rows::None) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
                 function,
@@ -122,13 +123,7 @@ where
                 unchecked,
                 indices,
             ),
-            EqualityConstraint::Prescribed(_) => {
-                unreachable!("Prescribed constraints are lowered first.")
-            }
-            EqualityConstraint::All(_) => {
-                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
-            }
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+            (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
                 function,
@@ -137,10 +132,24 @@ where
                 initial_guess,
                 false,
                 sparse,
+                &indices.unwrap_or_default(),
                 constraint_matrix,
                 constraint_rhs,
             ),
-            EqualityConstraint::None => unconstrained(
+            (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
+                self,
+                |_: &X| panic!("No line search in root finding"),
+                function,
+                jacobian,
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
+                initial_guess,
+                false,
+                sparse,
+                &indices.unwrap_or_default(),
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            (None, Rows::None) => unconstrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
                 function,
@@ -169,11 +178,11 @@ where
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         mut initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint.lower(&mut initial_guess) {
-            EqualityConstraint::Fixed(indices) => constrained_fixed(
+        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
+            (Some(indices), Rows::None) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
                 function,
@@ -207,6 +216,7 @@ where
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a X, Output = Vector>,
 {
     fn root_incremental(
         &self,
@@ -214,11 +224,11 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
         mut initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint.lower(&mut initial_guess) {
-            EqualityConstraint::Fixed(indices) => constrained_fixed(
+        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
+            (Some(indices), Rows::None) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding"),
                 function,
@@ -230,13 +240,7 @@ where
                 unchecked,
                 indices,
             ),
-            EqualityConstraint::Prescribed(_) => {
-                unreachable!("Prescribed constraints are lowered first.")
-            }
-            EqualityConstraint::All(_) => {
-                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
-            }
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+            (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
                 self,
                 |_: &X| panic!("No line search in root finding"),
                 function,
@@ -245,10 +249,24 @@ where
                 initial_guess,
                 false,
                 sparse,
+                &indices.unwrap_or_default(),
                 constraint_matrix,
                 constraint_rhs,
             ),
-            EqualityConstraint::None => unimplemented!(
+            (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
+                self,
+                |_: &X| panic!("No line search in root finding"),
+                function,
+                jacobian,
+                update,
+                initial_guess,
+                false,
+                sparse,
+                &indices.unwrap_or_default(),
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            (None, Rows::None) => unimplemented!(
                 "An unconstrained solution has no chained vector to lend the increment through."
             ),
         }
@@ -272,6 +290,7 @@ where
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize(
         &self,
@@ -279,12 +298,12 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         mut initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match equality_constraint.lower(&mut initial_guess) {
-            EqualityConstraint::Fixed(indices) => constrained_fixed(
+        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
+            (Some(indices), Rows::None) => constrained_fixed(
                 self,
                 function,
                 jacobian,
@@ -296,13 +315,7 @@ where
                 verified(sparse),
                 indices,
             ),
-            EqualityConstraint::Prescribed(_) => {
-                unreachable!("Prescribed constraints are lowered first.")
-            }
-            EqualityConstraint::All(_) => {
-                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
-            }
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+            (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
                 self,
                 function,
                 jacobian,
@@ -311,10 +324,24 @@ where
                 initial_guess,
                 true,
                 sparse,
+                &indices.unwrap_or_default(),
                 constraint_matrix,
                 constraint_rhs,
             ),
-            EqualityConstraint::None => unconstrained(
+            (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
+                self,
+                function,
+                jacobian,
+                hessian,
+                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
+                initial_guess,
+                true,
+                sparse,
+                &indices.unwrap_or_default(),
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            (None, Rows::None) => unconstrained(
                 self,
                 function,
                 jacobian,
@@ -349,12 +376,12 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         mut initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match equality_constraint.lower(&mut initial_guess) {
-            EqualityConstraint::Fixed(indices) => constrained_fixed(
+        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
+            (Some(indices), Rows::None) => constrained_fixed(
                 self,
                 function,
                 jacobian,
@@ -393,6 +420,7 @@ where
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a X, Output = Vector>,
 {
     fn minimize_incremental(
         &self,
@@ -401,12 +429,12 @@ where
         hessian: impl FnMut(&X) -> Result<H, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
         mut initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match equality_constraint.lower(&mut initial_guess) {
-            EqualityConstraint::Fixed(indices) => constrained_fixed(
+        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
+            (Some(indices), Rows::None) => constrained_fixed(
                 self,
                 function,
                 jacobian,
@@ -418,13 +446,7 @@ where
                 verified(sparse),
                 indices,
             ),
-            EqualityConstraint::Prescribed(_) => {
-                unreachable!("Prescribed constraints are lowered first.")
-            }
-            EqualityConstraint::All(_) => {
-                Err(OptimizationError::Intermediate(ALL_UNSUPPORTED.to_string()))
-            }
-            EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => constrained(
+            (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
                 self,
                 function,
                 jacobian,
@@ -433,10 +455,24 @@ where
                 initial_guess,
                 true,
                 sparse,
+                &indices.unwrap_or_default(),
                 constraint_matrix,
                 constraint_rhs,
             ),
-            EqualityConstraint::None => unimplemented!(
+            (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
+                self,
+                function,
+                jacobian,
+                hessian,
+                update,
+                initial_guess,
+                true,
+                sparse,
+                &indices.unwrap_or_default(),
+                constraint_matrix,
+                constraint_rhs,
+            ),
+            (None, Rows::None) => unimplemented!(
                 "An unconstrained solution has no chained vector to lend the increment through."
             ),
         }
@@ -1745,6 +1781,7 @@ fn constrained<J, H, X, M>(
     initial_guess: X,
     minimizing: bool,
     sparse: Option<SparseSolver>,
+    eliminated: &[usize],
     constraint_matrix: M,
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
@@ -1757,6 +1794,7 @@ where
 {
     let mut penalty = 0.0 as Scalar;
     let num_variables = initial_guess.size();
+    let eliminated = Eliminated::new(eliminated, num_variables);
     let mut applied = Vector::zero(num_variables);
     let num_constraints = constraint_rhs.len();
     let num_total = num_variables + num_constraints;
@@ -1773,6 +1811,7 @@ where
             tangent[j][i + num_variables] = -constraint_matrix_ij;
         });
     }
+    eliminated.decouple(&mut tangent);
     let (mut radius, max_radius) =
         if let TrustRegion::Adaptive { radius, max_radius } = newton_raphson.trust_region {
             (radius, max_radius)
@@ -1781,13 +1820,16 @@ where
         };
     let mut steps = 0;
     loop {
-        (jacobian(&solution)? - constraint_matrix.weighted(&multipliers)).fill_into_chained(
-            &constraint_rhs - &constraint_matrix * &solution,
-            &mut residual,
-        );
+        eliminated
+            .hold(jacobian(&solution)? - constraint_matrix.weighted(&multipliers))
+            .fill_into_chained(
+                &constraint_rhs - &constraint_matrix * &solution,
+                &mut residual,
+            );
         if converged(newton_raphson, &residual, num_variables, &mut scales) {
             if minimizing && sparse.is_none() {
                 hessian(&solution)?.fill_into(&mut tangent);
+                eliminated.decouple(&mut tangent);
                 if tangent
                     .factorize_ldl()
                     .is_ok_and(|ldl| !ldl.is_minimum(num_constraints))
@@ -1799,13 +1841,14 @@ where
                 let hess = hessian(&solution)?;
                 let verdict = solver.is_minimum(
                     |i, j| {
-                        if i >= num_variables {
-                            -constraint_matrix.at(i - num_variables, j)
-                        } else if j >= num_variables {
-                            -constraint_matrix.at(j - num_variables, i)
-                        } else {
-                            hess.entry(i, j)
-                        }
+                        kkt_entry_sparse(
+                            &hess,
+                            &constraint_matrix,
+                            num_variables,
+                            i,
+                            j,
+                            &eliminated,
+                        )
                     },
                     num_constraints,
                 );
@@ -1825,7 +1868,8 @@ where
             if sparse.is_none()
                 && let Some(hess) = hess.take()
             {
-                hess.fill_into(&mut tangent)
+                hess.fill_into(&mut tangent);
+                eliminated.decouple(&mut tangent)
             }
             penalty = raise_penalty(
                 penalty,
@@ -1834,13 +1878,24 @@ where
             let violated = penalty * violation(&constraint_matrix, &constraint_rhs, &solution);
             let value = function(&solution)? + violated;
             let mut gradient = Vector::zero(num_variables);
-            jacobian(&solution)?.fill_into(&mut gradient);
+            eliminated
+                .hold(jacobian(&solution)?)
+                .fill_into(&mut gradient);
             let mut accepted = false;
             for _ in 0..TRUST_REGION_MAX_REJECTIONS {
                 let quadratic = if let (Some(solver), Some(hess)) = (&sparse, &hess) {
                     decrement = more_sorensen_sparse(
                         solver,
-                        |i, j| kkt_entry_sparse(hess, &constraint_matrix, num_variables, i, j),
+                        |i, j| {
+                            kkt_entry_sparse(
+                                hess,
+                                &constraint_matrix,
+                                num_variables,
+                                i,
+                                j,
+                                &eliminated,
+                            )
+                        },
                         &residual,
                         radius,
                         num_variables,
@@ -1895,18 +1950,13 @@ where
             let hess = hessian(&solution)?;
             decrement = solver.solve(
                 |i, j| {
-                    if i >= num_variables {
-                        -constraint_matrix.at(i - num_variables, j)
-                    } else if j >= num_variables {
-                        -constraint_matrix.at(j - num_variables, i)
-                    } else {
-                        hess.entry(i, j)
-                    }
+                    kkt_entry_sparse(&hess, &constraint_matrix, num_variables, i, j, &eliminated)
                 },
                 &residual,
             )?;
         } else {
             hessian(&solution)?.fill_into(&mut tangent);
+            eliminated.decouple(&mut tangent);
             tangent.factorize_lu_into(&mut factorization)?;
             factorization.solve_into(&residual, &mut decrement)
         }
@@ -1947,7 +1997,9 @@ where
             );
             let violated = penalty * violation(&constraint_matrix, &constraint_rhs, &solution);
             let mut gradient = Vector::zero(num_variables);
-            jacobian(&solution)?.fill_into(&mut gradient);
+            eliminated
+                .hold(jacobian(&solution)?)
+                .fill_into(&mut gradient);
             let slope = merit_slope(gradient.iter().zip(decrement.iter()), violated);
             update(&solution, &applied, 0.0, false)?;
             let value = function(&solution)? + violated;

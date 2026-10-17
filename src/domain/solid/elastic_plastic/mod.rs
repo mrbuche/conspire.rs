@@ -7,8 +7,8 @@ use crate::{
     math::{
         Jacobian, Tensor, TensorVec, Vector,
         optimize::{
-            EqualityConstraint, NewtonRaphson, OptimizationError, RootFinding, RootFindingBlock,
-            SolveStrategy,
+            EqualityConstraint, EqualityConstraints, NewtonRaphson, OptimizationError, RootFinding,
+            RootFindingBlock, SolveStrategy,
         },
         sparse::{CscMatrix, SparseSolver},
     },
@@ -218,7 +218,7 @@ pub trait ElasticPlasticRoot<S, const D: usize> {
             CscMatrix,
             CscMatrix,
         >,
-        boundary_conditions: &[EqualityConstraint],
+        boundary_conditions: &[EqualityConstraints],
         strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError>;
 }
@@ -239,28 +239,24 @@ enum ConstraintPattern {
     Linear(usize, usize, Vec<(usize, usize)>),
 }
 
-impl From<&EqualityConstraint> for ConstraintPattern {
-    fn from(constraint: &EqualityConstraint) -> Self {
+impl From<&[EqualityConstraint]> for ConstraintPattern {
+    fn from(constraints: &[EqualityConstraint]) -> Self {
         let merged;
-        let constraint = match constraint {
-            EqualityConstraint::All(_) => {
-                merged = constraint.clone().merged();
-                &merged
-            }
-            constraint => constraint,
+        let constraints = if constraints.len() > 1 {
+            merged = EqualityConstraint::merged(constraints.to_vec());
+            merged.as_slice()
+        } else {
+            constraints
         };
-        match constraint {
-            EqualityConstraint::All(_) => {
-                unimplemented!("Fixed and linear constraints together are not supported yet.")
-            }
-            EqualityConstraint::None => Self::None,
-            EqualityConstraint::Fixed(_) | EqualityConstraint::Prescribed(_) => {
-                let Some(indices) = constraint.held_indices() else {
+        match constraints {
+            [] | [EqualityConstraint::None] => Self::None,
+            [EqualityConstraint::Fixed(_)] | [EqualityConstraint::Prescribed(_)] => {
+                let Some(indices) = EqualityConstraint::held_indices(constraints) else {
                     unreachable!("A fixed or prescribed constraint holds indices.")
                 };
                 Self::Fixed(indices)
             }
-            EqualityConstraint::Linear(matrix, _) => {
+            [EqualityConstraint::Linear(matrix, _)] => {
                 let mut nonzeros = Vec::new();
                 (0..matrix.len()).for_each(|row| {
                     (0..matrix.width()).for_each(|column| {
@@ -271,6 +267,9 @@ impl From<&EqualityConstraint> for ConstraintPattern {
                 });
                 Self::Linear(matrix.len(), matrix.width(), nonzeros)
             }
+            _ => unimplemented!(
+                "Constraints held by multipliers, or of several kinds, are not supported yet."
+            ),
         }
     }
 }
@@ -280,7 +279,7 @@ impl From<&EqualityConstraint> for ConstraintPattern {
 /// the same pattern.
 fn cached<'a, T>(
     cache: &'a mut Option<(ConstraintPattern, T)>,
-    constraint: &EqualityConstraint,
+    constraint: &[EqualityConstraint],
     build: impl FnOnce() -> T,
 ) -> &'a T {
     let pattern = ConstraintPattern::from(constraint);
@@ -308,7 +307,7 @@ where
             CscMatrix,
             CscMatrix,
         >,
-        boundary_conditions: &[EqualityConstraint],
+        boundary_conditions: &[EqualityConstraints],
         strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError> {
         let mut nodal_coordinates: NodalCoordinates<D> = self.coordinates().clone().into();
@@ -335,7 +334,7 @@ where
             if let (Some(monolithic), SolveStrategy::Monolithic { elimination }) =
                 (system.take(), &strategy)
             {
-                let EqualityConstraint::Linear(matrix, vector) = constraint else {
+                let [EqualityConstraint::Linear(matrix, vector)] = constraint.as_slice() else {
                     return Err(OptimizationError::Intermediate(
                         "The monolithic solve only supports EqualityConstraint::Linear."
                             .to_string(),

@@ -7,7 +7,7 @@ use crate::{
     },
     math::{
         Quantity, Tensor,
-        optimize::{EqualityConstraint, NewtonRaphson, Optimization, OptimizationError},
+        optimize::{EqualityConstraints, NewtonRaphson, Optimization, OptimizationError},
     },
     units::Energy,
 };
@@ -108,7 +108,7 @@ where
 {
     fn minimize<S>(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         solver: S,
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where

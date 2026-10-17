@@ -28,7 +28,7 @@ fn decay(integrator: &BackwardEuler, final_time: Scalar) -> Result<Solution, Int
             Ok(Quantity::<Rate>::new(CAPACITY / dt.value() + STIFFNESS))
         },
         NewtonRaphson::default(),
-        EqualityConstraint::None,
+        vec![EqualityConstraint::None],
         None,
         &[Quantity::new(0.0), Quantity::new(final_time)],
         Quantity::new(1.0),

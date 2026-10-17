@@ -29,7 +29,7 @@ use conspire::{
         Matrix, Quantity, Tensor, Vector,
         assert::AssertionError,
         integrate::DormandPrince,
-        optimize::{Direct, EqualityConstraint, NewtonRaphson},
+        optimize::{Direct, EqualityConstraint, EqualityConstraints, NewtonRaphson},
     },
     mechanics::TemperatureGradient,
     units::{PowerPerLengthTemperature, Rate, Stress, Time, Viscosity},
@@ -7434,7 +7434,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let solution = fem_model.minimize(
-        EqualityConstraint::Linear(matrix, vector),
+        vec![EqualityConstraint::Linear(matrix, vector)],
         NewtonRaphson::default(),
     )?;
     println!("Done ({:?}).", time.elapsed());
@@ -7485,7 +7485,7 @@ fn bcs_temporary_elastic_viscoplastic_vector(t: Quantity<Time>) -> Vector {
     vector
 }
 
-fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
+fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraints {
     let num_nodes = coordinates().len();
     let length = coordinates()
         .iter()
@@ -7507,7 +7507,10 @@ fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
     matrix[length - 3][132 * 3 + 1] = 1.0;
     matrix[length - 2][132 * 3 + 2] = 1.0;
     matrix[length - 1][142 * 3 + 2] = 1.0;
-    EqualityConstraint::Linear(matrix, bcs_temporary_elastic_viscoplastic_vector(t))
+    vec![EqualityConstraint::Linear(
+        matrix,
+        bcs_temporary_elastic_viscoplastic_vector(t),
+    )]
 }
 
 #[test]
@@ -7858,7 +7861,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, velocities_history) = fem_model.minimize(
-        EqualityConstraint::Linear(matrix, vector),
+        vec![EqualityConstraint::Linear(matrix, vector)],
         DormandPrince {
             abs_tol: tol,
             rel_tol: tol,
@@ -7972,7 +7975,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let solution = fem_model.minimize(
-        EqualityConstraint::Linear(matrix, vector),
+        vec![EqualityConstraint::Linear(matrix, vector)],
         NewtonRaphson {
             max_steps: 1,
             linear_solver: Direct,
@@ -8063,7 +8066,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
     let condensed = fem_model.minimize(
-        EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+        vec![EqualityConstraint::Linear(matrix.clone(), vector.clone())],
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
@@ -8071,7 +8074,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
     let eliminated = fem_model.minimize(
-        EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+        vec![EqualityConstraint::Linear(matrix.clone(), vector.clone())],
         NewtonRaphson {
             max_steps: 6,
             linear_solver: Direct,
@@ -8083,7 +8086,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated, Armijo)...");
     let searched = fem_model.minimize(
-        EqualityConstraint::Linear(matrix, vector),
+        vec![EqualityConstraint::Linear(matrix, vector)],
         NewtonRaphson {
             line_search: LineSearch::Armijo {
                 control: 9e-1,
@@ -8176,7 +8179,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
     let condensed = fem_model.root(
-        EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+        vec![EqualityConstraint::Linear(matrix.clone(), vector.clone())],
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
@@ -8184,7 +8187,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
     let eliminated = fem_model.root(
-        EqualityConstraint::Linear(matrix, vector),
+        vec![EqualityConstraint::Linear(matrix, vector)],
         NewtonRaphson {
             max_steps: 6,
             linear_solver: Direct,
@@ -8341,7 +8344,7 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let boundary_conditions: Vec<EqualityConstraint> = times
+    let boundary_conditions: Vec<EqualityConstraints> = times
         .iter()
         .skip(1)
         .map(|&t| bcs_temporary_elastic_viscoplastic(t))
@@ -8470,7 +8473,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
-    let boundary_conditions: Vec<EqualityConstraint> = times
+    let boundary_conditions: Vec<EqualityConstraints> = times
         .iter()
         .skip(1)
         .map(|&t| bcs_temporary_elastic_viscoplastic(t))
@@ -8610,7 +8613,7 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
-    let boundary_conditions: Vec<EqualityConstraint> = times
+    let boundary_conditions: Vec<EqualityConstraints> = times
         .iter()
         .skip(1)
         .map(|&t| {
@@ -8624,7 +8627,7 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
             matrix[5][3] = 1.0;
             vector[5] = 1.0 + t.value();
             matrix[6][8] = 1.0;
-            EqualityConstraint::Linear(matrix, vector)
+            vec![EqualityConstraint::Linear(matrix, vector)]
         })
         .collect();
     let reference = fem_model.root(

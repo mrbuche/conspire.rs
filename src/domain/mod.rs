@@ -45,7 +45,7 @@ use crate::{
     math::{
         Current, Reference, Style, StyledError, TensorRank1Vec, TensorRank1Vec2D,
         assert::AssertionError,
-        optimize::{EqualityConstraint, Optimization, OptimizationError, RootFinding},
+        optimize::{EqualityConstraints, Optimization, OptimizationError, RootFinding},
         styled_error,
     },
     units::{Acceleration, Length, Velocity},
@@ -189,7 +189,7 @@ where
 {
     fn root<S>(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         solver: S,
     ) -> Result<X, OptimizationError>
     where
@@ -216,7 +216,7 @@ where
 {
     fn minimize<S>(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         solver: S,
     ) -> Result<X, OptimizationError>
     where

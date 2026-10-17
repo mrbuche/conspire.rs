@@ -112,7 +112,7 @@ fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionE
         ),
         &NodalForcesSolid::zero(COORDINATES.len()),
         &masses,
-        EqualityConstraint::None,
+        vec![EqualityConstraint::None],
     )?;
     let elapsed = times[times.len() - 1].in_seconds();
     let expected =
@@ -137,7 +137,7 @@ fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
         ),
         &weights,
         &masses,
-        EqualityConstraint::None,
+        vec![EqualityConstraint::None],
     )?;
     let (elapsed, g) = (
         times[times.len() - 1].in_seconds(),
@@ -170,7 +170,7 @@ fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
         ),
         &weights,
         &masses,
-        EqualityConstraint::Fixed(vec![0, 1, 2, 5]),
+        vec![EqualityConstraint::Fixed(vec![0, 1, 2, 5])],
     )?;
     let last = &coordinates[STEPS];
     assert_eq!(last[0], NodalCoordinates::from(COORDINATES)[0]);
@@ -196,7 +196,7 @@ fn the_total_energy_of_a_released_stretch_is_conserved() -> Result<(), Assertion
         ),
         &NodalForcesSolid::zero(COORDINATES.len()),
         &masses,
-        EqualityConstraint::None,
+        vec![EqualityConstraint::None],
     )?;
     let energy = |step: usize| -> Quantity<Energy> {
         masses.kinetic_energy(&velocities[step])
@@ -256,7 +256,7 @@ mod implicit {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
         let expected =
@@ -282,7 +282,7 @@ mod implicit {
             ),
             &weights,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -316,7 +316,7 @@ mod implicit {
             ),
             &weights,
             &masses,
-            EqualityConstraint::Fixed(vec![0, 1, 2, 5]),
+            vec![EqualityConstraint::Fixed(vec![0, 1, 2, 5])],
         )?;
         let last = &coordinates[STEPS];
         assert_eq!(last[0], NodalCoordinates::from(COORDINATES)[0]);
@@ -348,7 +348,7 @@ mod implicit {
             state(),
             &zero,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
@@ -357,7 +357,7 @@ mod implicit {
             state(),
             &zero,
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let moved = (implicit[100][4][0] - implicit[0][4][0]).norm().value();
         assert!(moved > 0.0);
@@ -386,7 +386,7 @@ mod implicit {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         let energy = |step: usize| -> Quantity<Energy> {
             masses.kinetic_energy(&velocities[step])

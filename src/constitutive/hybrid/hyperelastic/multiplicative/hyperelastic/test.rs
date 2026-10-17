@@ -256,7 +256,7 @@ fn root_fixed_at_point() -> Result<(), AssertionError> {
             Ok(model.tangents(&deformation_gradient, internal_variables)?.3)
         },
         model.internal_variables_initial(),
-        EqualityConstraint::Fixed(fixed.clone()),
+        vec![EqualityConstraint::Fixed(fixed.clone())],
         None,
     )?;
     let residual = model.internal_variables_residual(&deformation_gradient, &root)?;

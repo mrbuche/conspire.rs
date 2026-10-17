@@ -8,7 +8,7 @@ use crate::{
     math::{
         Quantity, Tensor,
         integrate::{ImplicitDaeRoot, IntegrationError},
-        optimize::{EqualityConstraint, RootFinding},
+        optimize::{EqualityConstraints, RootFinding},
     },
     mechanics::Times,
     units::Time,
@@ -106,7 +106,7 @@ where
 pub trait Root<const D: usize> {
     fn root(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -125,7 +125,7 @@ where
 {
     fn root(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,

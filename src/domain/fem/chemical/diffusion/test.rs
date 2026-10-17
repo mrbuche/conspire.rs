@@ -126,7 +126,7 @@ where
 {
     <Model<Bl, 3> as Root<NodalMolarFlowRates, NodalVolumetricFlowRates, NodalConcentrations>>::root(
         model,
-        constraint,
+        vec![constraint],
         NewtonRaphson::default(),
     )
     .unwrap()
@@ -187,7 +187,7 @@ mod bar {
             Quantity<MolarFlowRateConcentration>,
             NodalMolarFlowRates,
             NodalConcentrations,
-        >>::minimize(&model, constraint, NewtonRaphson::default())
+        >>::minimize(&model, vec![constraint], NewtonRaphson::default())
         .unwrap();
         (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
     }

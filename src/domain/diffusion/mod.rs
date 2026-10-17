@@ -7,7 +7,7 @@ use crate::{
     math::{
         Quantity, QuantitySparseVec2D, QuantityVector, Tensor,
         optimize::{
-            EqualityConstraint, NewtonRaphson, Optimization, OptimizationError, RootFinding,
+            EqualityConstraints, NewtonRaphson, Optimization, OptimizationError, RootFinding,
         },
     },
 };
@@ -130,7 +130,7 @@ where
 {
     fn root<S>(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         solver: S,
     ) -> Result<NodalFields<L>, OptimizationError>
     where
@@ -172,7 +172,7 @@ where
 {
     fn minimize<S>(
         &self,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         solver: S,
     ) -> Result<NodalFields<L>, OptimizationError>
     where

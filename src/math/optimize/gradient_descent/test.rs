@@ -17,7 +17,7 @@ mod minimize {
             |x: &Quantity| Ok(*x),
             |_| Ok(()),
             Quantity::new(1.0),
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
             None,
         )?)
     }
@@ -29,7 +29,7 @@ mod minimize {
                 rosenbrock_derivative,
                 |_| Ok(()),
                 TensorRank1::from([-1.0, 1.0]),
-                EqualityConstraint::None,
+                vec![EqualityConstraint::None],
                 None,
             )?,
             &TensorRank1::<2, Current>::identity(),
@@ -45,7 +45,7 @@ mod root {
             |x: &Quantity| Ok(*x),
             |_| Ok(()),
             Quantity::new(1.0),
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
             None,
         )?)
     }
@@ -56,7 +56,7 @@ mod root {
                 rosenbrock_derivative,
                 |_| Ok(()),
                 TensorRank1::from([-1.0, 1.0]),
-                EqualityConstraint::None,
+                vec![EqualityConstraint::None],
                 None,
             )?,
             &TensorRank1::<2, Current>::identity(),
@@ -76,7 +76,7 @@ mod prescribed {
             |x: &Point| Ok(x - &target()),
             |_| Ok(()),
             TensorRank1::from([0.0, 3.0]),
-            EqualityConstraint::Prescribed(prescribed),
+            vec![EqualityConstraint::Prescribed(prescribed)],
             None,
         )?)
     }
@@ -86,7 +86,7 @@ mod prescribed {
             |x: &Point| Ok(x - &target()),
             |_| Ok(()),
             TensorRank1::from([0.0, 3.0]),
-            EqualityConstraint::Prescribed(prescribed),
+            vec![EqualityConstraint::Prescribed(prescribed)],
             None,
         )?)
     }
