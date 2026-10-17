@@ -1,14 +1,14 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
-        NodalVelocities, NodalVelocitiesHistory,
+        Blocks, BoundaryConditions, ElementModel, ElementModelError, Model, NodalCoordinates,
+        NodalCoordinatesHistory, NodalState, NodalVelocities, NodalVelocitiesHistory,
         block::element::Elements,
         solid::{NodalDampingsSolid, NodalForcesSolid},
     },
     math::{
         Quantity, Tensor,
         integrate::{ImplicitDaeRoot, IntegrationError},
-        optimize::{EqualityConstraint, RootFinding},
+        optimize::RootFinding,
     },
     mechanics::Times,
     units::Time,
@@ -106,7 +106,7 @@ where
 pub trait Root<const D: usize> {
     fn root(
         &self,
-        equality_constraint: EqualityConstraint,
+        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -125,7 +125,7 @@ where
 {
     fn root(
         &self,
-        equality_constraint: EqualityConstraint,
+        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -137,6 +137,7 @@ where
         solver: impl RootFinding<NodalForcesSolid<D>, NodalDampingsSolid<D>, NodalVelocities<D>>,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>
     {
+        let equality_constraint = boundary_conditions.constraint();
         integrator.integrate(
             |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,

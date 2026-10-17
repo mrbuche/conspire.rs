@@ -46,8 +46,8 @@ fn a_model_finds_the_sets_of_its_boundary_conditions() {
     let model = Model::<NoBlocks, 3>::try_from((mesh, ())).unwrap();
     let bottom = model.node_sets().by_name("bottom").unwrap();
     let fixed = BoundaryConditions::<Solid<3>>::new().fix(Displacement::<1>, bottom);
-    match fixed.constraint() {
-        EqualityConstraint::Fixed(indices) => assert_eq!(indices, [1, 7]),
+    match fixed.constraint().as_slice() {
+        [EqualityConstraint::Fixed(indices)] => assert_eq!(indices, &[1, 7]),
         _ => panic!("expected a fixed constraint"),
     }
     assert!(model.node_sets().by_name("top").is_none());

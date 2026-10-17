@@ -213,7 +213,7 @@ macro_rules! test_finite_element_block_inner {
                             let coordinates = crate::domain::Model::from((
                                     get_block(),
                                     get_reference_coordinates_block(),
-                                )).root(EqualityConstraint::Linear(a, b),
+                                )).root(&crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| get_reference_coordinates_block()[node][component].value()),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -261,7 +261,7 @@ macro_rules! test_finite_element_block_inner {
                             let coordinates = crate::domain::Model::from((
                                     get_block(),
                                     get_reference_coordinates_block(),
-                                )).minimize(EqualityConstraint::Linear(a, b),
+                                )).minimize(&crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| get_reference_coordinates_block()[node][component].value()),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -393,6 +393,161 @@ macro_rules! test_finite_element_block_inner {
 }
 pub(crate) use test_finite_element_block_inner;
 
+fn selected(
+    matrix: &crate::math::Matrix,
+    values: &crate::math::Vector,
+    row: usize,
+    stride: usize,
+) -> (usize, usize, f64) {
+    let columns: Vec<usize> = (0..matrix.width())
+        .filter(|&column| matrix[row][column] != 0.0)
+        .collect();
+    assert_eq!(
+        columns.len(),
+        1,
+        "Each row selects a single degree of freedom."
+    );
+    let column = columns[0];
+    assert_eq!(matrix[row][column], 1.0);
+    (column / stride, column % stride, values[row])
+}
+
+pub(crate) fn velocity_conditions(
+    matrix: &crate::math::Matrix,
+    values: &crate::math::Vector,
+) -> crate::fem::boundary::BoundaryConditions<'static, crate::fem::boundary::SolidRate<3>> {
+    use crate::{
+        fem::boundary::{BoundaryConditions, Enforcement, Velocity},
+        units::Velocity as VelocityUnit,
+    };
+    (0..matrix.len()).fold(BoundaryConditions::new(), |conditions, row| {
+        let (node, component, value) = selected(matrix, values, row, 3);
+        let value = VelocityUnit::meters_per_second(value);
+        let enforcement = Enforcement::Multipliers;
+        match component {
+            0 => conditions.prescribe_node_by(enforcement, Velocity::<0>, node, value),
+            1 => conditions.prescribe_node_by(enforcement, Velocity::<1>, node, value),
+            _ => conditions.prescribe_node_by(enforcement, Velocity::<2>, node, value),
+        }
+    })
+}
+
+macro_rules! displacement_conditions {
+    ($name:ident, $dimension:literal, [$($axis:literal),*]) => {
+        pub(crate) fn $name(
+            matrix: &crate::math::Matrix,
+            values: &crate::math::Vector,
+            reference: impl Fn(usize, usize) -> f64,
+        ) -> crate::fem::boundary::BoundaryConditions<'static, crate::fem::boundary::Solid<$dimension>> {
+            use crate::{
+                fem::boundary::{BoundaryConditions, Displacement, Enforcement},
+                math::Quantity,
+                units::Length,
+            };
+            (0..matrix.len()).fold(BoundaryConditions::new(), |conditions, row| {
+                let (node, component, value) = selected(matrix, values, row, $dimension);
+                let offset = Quantity::<Length>::new(value - reference(node, component));
+                let enforcement = Enforcement::Multipliers;
+                match component {
+                    $($axis => conditions.prescribe_node_by(
+                        enforcement,
+                        Displacement::<$axis>,
+                        node,
+                        offset,
+                    ),)*
+                    _ => unreachable!("The component is not one of the dimensions."),
+                }
+            })
+        }
+    };
+}
+
+displacement_conditions!(displacement_conditions_3, 3, [0, 1, 2]);
+displacement_conditions!(displacement_conditions_2, 2, [0, 1]);
+
+pub(crate) fn field_conditions<L, C, I>(
+    component: C,
+    matrix: &crate::math::Matrix,
+    values: &crate::math::Vector,
+    value: impl Fn(f64) -> C::Value,
+) -> crate::fem::boundary::BoundaryConditions<'static, L>
+where
+    L: crate::fem::boundary::Layout,
+    C: crate::fem::boundary::Component<L, I> + crate::fem::boundary::Prescribable + Copy,
+{
+    use crate::fem::boundary::{BoundaryConditions, Enforcement};
+    (0..matrix.len()).fold(BoundaryConditions::new(), |conditions, row| {
+        let (node, _, entry) = selected(matrix, values, row, 1);
+        conditions.prescribe_node_by(Enforcement::Multipliers, component, node, value(entry))
+    })
+}
+
+mod conditions {
+    use super::{displacement_conditions_3, field_conditions};
+    use crate::{
+        fem::boundary::Temperature,
+        math::{
+            Matrix, Quantity, Tensor, Vector,
+            optimize::{EqualityConstraint, Rows},
+        },
+        units::Temperature as TemperatureUnit,
+    };
+    fn rows() -> (Matrix, Vector) {
+        let mut a = Matrix::zero(3, 9);
+        a[0][1] = 1.0;
+        a[1][5] = 1.0;
+        a[2][6] = 1.0;
+        (a, Vector::from([0.75, -0.25, 2.0]))
+    }
+    fn reference(node: usize, component: usize) -> f64 {
+        10.0 * node as f64 + component as f64
+    }
+    fn found(constraints: Vec<EqualityConstraint>, guess: &mut Vector) -> Vec<(usize, f64)> {
+        let (eliminated, Rows::Sparse(matrix, values)) =
+            EqualityConstraint::split(constraints, guess)
+        else {
+            panic!("expected sparse rows")
+        };
+        assert_eq!(eliminated, None);
+        let mut found: Vec<(usize, f64)> = (0..values.len())
+            .map(|row| {
+                let columns: Vec<usize> = (0..9)
+                    .filter(|&column| matrix.entry(row, column) != 0.0)
+                    .collect();
+                assert_eq!(columns.len(), 1);
+                (columns[0], values[row])
+            })
+            .collect();
+        found.sort_by_key(|&(column, _)| column);
+        found
+    }
+    #[test]
+    fn displacements_come_back_as_the_rows_they_came_from() {
+        let (a, b) = rows();
+        let mut guess = Vector::zero(9);
+        (0..3).for_each(|node| (0..3).for_each(|c| guess[3 * node + c] = reference(node, c)));
+        let conditions = displacement_conditions_3(&a, &b, reference);
+        assert_eq!(
+            found(conditions.constraint(), &mut guess),
+            [(1, 0.75), (5, -0.25), (6, 2.0)]
+        );
+    }
+    #[test]
+    fn fields_come_back_as_the_rows_they_came_from() {
+        let (a, b) = rows();
+        let mut guess = Vector::zero(9);
+        let conditions = field_conditions(Temperature, &a, &b, Quantity::<TemperatureUnit>::new);
+        let held: crate::fem::boundary::BoundaryConditions<
+            '_,
+            crate::fem::boundary::Field<TemperatureUnit>,
+        > = conditions;
+        assert_eq!(
+            found(held.constraint(), &mut guess),
+            [(1, 0.75), (5, -0.25), (6, 2.0)]
+        );
+    }
+}
+
 macro_rules! test_dae_root_and_minimize_with_integrators {
     ($block: ident, $element: ident, $constitutive_model: expr, $constitutive_model_type: ident) => {
         use crate::math::{
@@ -411,7 +566,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                     let (times, coordinates_history, velocities_history) =
                         crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
                             .minimize(
-                            EqualityConstraint::Linear(a, b),
+                            &crate::fem::block::test::velocity_conditions(&a, &b),
                             $integrator::default(),
                             &[Quantity::new(0.0), Quantity::new(1.0)],
                             NewtonRaphson::default(),
@@ -476,7 +631,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                     let (times, coordinates_history, velocities_history) =
                         crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
                             .root(
-                            EqualityConstraint::Linear(a, b),
+                            &crate::fem::block::test::velocity_conditions(&a, &b),
                             $integrator::default(),
                             &[Quantity::new(0.0), Quantity::new(1.0)],
                             NewtonRaphson::default(),

@@ -20,6 +20,10 @@ use conspire::{
             Block, element::linear::Tetrahedron as LinearTetrahedron, solid::SolidElements,
             thermal::ThermalElements,
         },
+        boundary::{
+            BoundaryConditions, Displacement, Enforcement, Field, Solid, SolidRate, Temperature,
+            Velocity,
+        },
     },
     geometry::{
         Coordinates,
@@ -29,10 +33,13 @@ use conspire::{
         Matrix, Quantity, Tensor, Vector,
         assert::AssertionError,
         integrate::DormandPrince,
-        optimize::{Direct, EqualityConstraint, NewtonRaphson},
+        optimize::{Direct, EqualityConstraint, EqualityConstraints, NewtonRaphson},
     },
     mechanics::TemperatureGradient,
-    units::{PowerPerLengthTemperature, Rate, Stress, Time, Viscosity},
+    units::{
+        Length, PowerPerLengthTemperature, Rate, Stress, Temperature as TemperatureUnit, Time,
+        Velocity as VelocityUnit, Viscosity,
+    },
 };
 
 const G: usize = 1;
@@ -7385,46 +7392,56 @@ fn coordinates() -> Coordinates<3> {
 fn temporary_hyperelastic() -> Result<(), AssertionError> {
     use conspire::fem::Minimize as _;
     let strain = 13.0;
-    let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
         .flatten()
         .for_each(|entry| *entry -= 1);
-    let num_nodes = ref_coordinates.len();
     let model = NeoHookean {
         bulk_modulus: Stress::pascals(13.0),
         shear_modulus: Stress::pascals(3.0),
     };
-    let length = ref_coordinates
-        .iter()
-        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
-        .count()
-        + 3;
-    let width = num_nodes * 3;
-    let mut matrix = Matrix::zero(length, width);
-    let mut vector = Vector::zero(length);
-    let mut index = 0;
-    coordinates()
+    let hold = |node: usize, direction: usize, target: f64| {
+        Length::meters(target - coordinates()[node][direction].value())
+    };
+    let conditions = coordinates()
         .iter()
         .enumerate()
-        .for_each(|(node, coordinate)| {
-            if coordinate[0].abs().value() == 0.5 {
-                matrix[index][3 * node] = 1.0;
-                if coordinate[0].value() > 0.0 {
-                    vector[index] = coordinate[0].value() + strain
+        .filter(|(_, coordinate)| coordinate[0].abs().value() == 0.5)
+        .fold(
+            BoundaryConditions::<Solid<3>>::new(),
+            |conditions, (node, coordinate)| {
+                let target = if coordinate[0].value() > 0.0 {
+                    coordinate[0].value() + strain
                 } else {
-                    vector[index] = coordinate[0].value()
-                }
-                index += 1;
-            }
-        });
-    matrix[length - 3][132 * 3 + 1] = 1.0;
-    matrix[length - 2][132 * 3 + 2] = 1.0;
-    matrix[length - 1][142 * 3 + 2] = 1.0;
-    vector[length - 3] = -0.5;
-    vector[length - 2] = -0.5;
-    vector[length - 1] = -0.5;
+                    coordinate[0].value()
+                };
+                conditions.prescribe_node_by(
+                    Enforcement::Multipliers,
+                    Displacement::<0>,
+                    node,
+                    hold(node, 0, target),
+                )
+            },
+        )
+        .prescribe_node_by(
+            Enforcement::Multipliers,
+            Displacement::<1>,
+            132,
+            hold(132, 1, -0.5),
+        )
+        .prescribe_node_by(
+            Enforcement::Multipliers,
+            Displacement::<2>,
+            132,
+            hold(132, 2, -0.5),
+        )
+        .prescribe_node_by(
+            Enforcement::Multipliers,
+            Displacement::<2>,
+            142,
+            hold(142, 2, -0.5),
+        );
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let mesh = Mesh::from((
@@ -7433,10 +7450,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let solution = fem_model.minimize(
-        EqualityConstraint::Linear(matrix, vector),
-        NewtonRaphson::default(),
-    )?;
+    let solution = fem_model.minimize(&conditions, NewtonRaphson::default())?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
@@ -7485,7 +7499,7 @@ fn bcs_temporary_elastic_viscoplastic_vector(t: Quantity<Time>) -> Vector {
     vector
 }
 
-fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
+fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraints {
     let num_nodes = coordinates().len();
     let length = coordinates()
         .iter()
@@ -7507,7 +7521,10 @@ fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraint {
     matrix[length - 3][132 * 3 + 1] = 1.0;
     matrix[length - 2][132 * 3 + 2] = 1.0;
     matrix[length - 1][142 * 3 + 2] = 1.0;
-    EqualityConstraint::Linear(matrix, bcs_temporary_elastic_viscoplastic_vector(t))
+    vec![EqualityConstraint::Linear(
+        matrix,
+        bcs_temporary_elastic_viscoplastic_vector(t),
+    )]
 }
 
 #[test]
@@ -7803,13 +7820,11 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let tol = 1e-4;
     let strain_rate = 2.3; // also set below
     let tspan = [Time::seconds(0.0), Time::seconds(1.0)];
-    let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
         .flatten()
         .for_each(|entry| *entry -= 1);
-    let num_nodes = ref_coordinates.len();
     let model = Canonical::from((
         AlmansiHamelEulerian {
             bulk_modulus: Stress::pascals(13.0),
@@ -7820,35 +7835,30 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
             shear_viscosity: Viscosity::pascal_seconds(1.0),
         },
     ));
-    let length = ref_coordinates
-        .iter()
-        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
-        .count()
-        + 3;
-    let width = num_nodes * 3;
-    let mut matrix = Matrix::zero(length, width);
-    let mut vector = Vector::zero(length);
-    let mut index = 0;
-    coordinates()
+    let zero = VelocityUnit::meters_per_second(0.0);
+    let conditions = coordinates()
         .iter()
         .enumerate()
-        .for_each(|(node, coordinate)| {
-            if coordinate[0].abs().value() == 0.5 {
-                matrix[index][3 * node] = 1.0;
-                if coordinate[0].value() > 0.0 {
-                    vector[index] = strain_rate
+        .filter(|(_, coordinate)| coordinate[0].abs().value() == 0.5)
+        .fold(
+            BoundaryConditions::<SolidRate<3>>::new(),
+            |conditions, (node, coordinate)| {
+                let rate = if coordinate[0].value() > 0.0 {
+                    strain_rate
                 } else {
-                    vector[index] = 0.0
-                }
-                index += 1;
-            }
-        });
-    matrix[length - 3][132 * 3 + 1] = 1.0;
-    matrix[length - 2][132 * 3 + 2] = 1.0;
-    matrix[length - 1][142 * 3 + 2] = 1.0;
-    vector[length - 3] = 0.0;
-    vector[length - 2] = 0.0;
-    vector[length - 1] = 0.0;
+                    0.0
+                };
+                conditions.prescribe_node_by(
+                    Enforcement::Multipliers,
+                    Velocity::<0>,
+                    node,
+                    VelocityUnit::meters_per_second(rate),
+                )
+            },
+        )
+        .prescribe_node_by(Enforcement::Multipliers, Velocity::<1>, 132, zero)
+        .prescribe_node_by(Enforcement::Multipliers, Velocity::<2>, 132, zero)
+        .prescribe_node_by(Enforcement::Multipliers, Velocity::<2>, 142, zero);
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let mesh = Mesh::from((
@@ -7858,7 +7868,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, velocities_history) = fem_model.minimize(
-        EqualityConstraint::Linear(matrix, vector),
+        &conditions,
         DormandPrince {
             abs_tol: tol,
             rel_tol: tol,
@@ -7931,38 +7941,34 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
 fn temporary_thermal_conduction() -> Result<(), AssertionError> {
     use conspire::fem::Minimize as _;
     let temperature = 13.0;
-    let ref_coordinates = coordinates();
     let mut connectivity = connectivity();
     connectivity
         .iter_mut()
         .flatten()
         .for_each(|entry| *entry -= 1);
-    let num_nodes = ref_coordinates.len();
     let model = Fourier {
         thermal_conductivity: PowerPerLengthTemperature::watts_per_meter_kelvin(1.0),
     };
-    let length = ref_coordinates
-        .iter()
-        .filter(|coordinate| coordinate[0].abs().value() == 0.5)
-        .count();
-    let width = num_nodes;
-    let mut matrix = Matrix::zero(length, width);
-    let mut vector = Vector::zero(length);
-    let mut index = 0;
-    coordinates()
+    let conditions = coordinates()
         .iter()
         .enumerate()
-        .for_each(|(node, coordinate)| {
-            if coordinate[0].abs().value() == 0.5 {
-                matrix[index][node] = 1.0;
-                if coordinate[0].value() > 0.0 {
-                    vector[index] = temperature
+        .filter(|(_, coordinate)| coordinate[0].abs().value() == 0.5)
+        .fold(
+            BoundaryConditions::<Field<TemperatureUnit>>::new(),
+            |conditions, (node, coordinate)| {
+                let kelvin = if coordinate[0].value() > 0.0 {
+                    temperature
                 } else {
-                    vector[index] = 0.0
-                }
-                index += 1;
-            }
-        });
+                    0.0
+                };
+                conditions.prescribe_node_by(
+                    Enforcement::Multipliers,
+                    Temperature,
+                    node,
+                    TemperatureUnit::kelvin(kelvin),
+                )
+            },
+        );
     let mut time = std::time::Instant::now();
     println!("Solving...");
     let mesh = Mesh::from((
@@ -7972,7 +7978,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
     let solution = fem_model.minimize(
-        EqualityConstraint::Linear(matrix, vector),
+        &conditions,
         NewtonRaphson {
             max_steps: 1,
             linear_solver: Direct,
@@ -8063,7 +8069,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
     let condensed = fem_model.minimize(
-        EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+        vec![EqualityConstraint::Linear(matrix.clone(), vector.clone())],
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
@@ -8071,7 +8077,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
     let eliminated = fem_model.minimize(
-        EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+        vec![EqualityConstraint::Linear(matrix.clone(), vector.clone())],
         NewtonRaphson {
             max_steps: 6,
             linear_solver: Direct,
@@ -8083,7 +8089,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated, Armijo)...");
     let searched = fem_model.minimize(
-        EqualityConstraint::Linear(matrix, vector),
+        vec![EqualityConstraint::Linear(matrix, vector)],
         NewtonRaphson {
             line_search: LineSearch::Armijo {
                 control: 9e-1,
@@ -8176,7 +8182,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (condensed)...");
     let condensed = fem_model.root(
-        EqualityConstraint::Linear(matrix.clone(), vector.clone()),
+        vec![EqualityConstraint::Linear(matrix.clone(), vector.clone())],
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
@@ -8184,7 +8190,7 @@ fn temporary_elastic_internal_variables() -> Result<(), AssertionError> {
     let time = std::time::Instant::now();
     println!("Solving (monolithic, eliminated)...");
     let eliminated = fem_model.root(
-        EqualityConstraint::Linear(matrix, vector),
+        vec![EqualityConstraint::Linear(matrix, vector)],
         NewtonRaphson {
             max_steps: 6,
             linear_solver: Direct,
@@ -8341,7 +8347,7 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let boundary_conditions: Vec<EqualityConstraint> = times
+    let boundary_conditions: Vec<EqualityConstraints> = times
         .iter()
         .skip(1)
         .map(|&t| bcs_temporary_elastic_viscoplastic(t))
@@ -8470,7 +8476,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
-    let boundary_conditions: Vec<EqualityConstraint> = times
+    let boundary_conditions: Vec<EqualityConstraints> = times
         .iter()
         .skip(1)
         .map(|&t| bcs_temporary_elastic_viscoplastic(t))
@@ -8610,7 +8616,7 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model).try_into()?;
-    let boundary_conditions: Vec<EqualityConstraint> = times
+    let boundary_conditions: Vec<EqualityConstraints> = times
         .iter()
         .skip(1)
         .map(|&t| {
@@ -8624,7 +8630,7 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
             matrix[5][3] = 1.0;
             vector[5] = 1.0 + t.value();
             matrix[6][8] = 1.0;
-            EqualityConstraint::Linear(matrix, vector)
+            vec![EqualityConstraint::Linear(matrix, vector)]
         })
         .collect();
     let reference = fem_model.root(

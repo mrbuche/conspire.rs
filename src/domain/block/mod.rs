@@ -4,7 +4,7 @@ pub(crate) mod test;
 pub(crate) mod element;
 pub(crate) mod solid;
 
-use crate::math::{Tensor, optimize::EqualityConstraint, sparse::SparseSolver};
+use crate::math::{optimize::EqualityConstraint, sparse::SparseSolver};
 use std::any::type_name;
 
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
@@ -40,7 +40,7 @@ pub(crate) fn finalize_node_neighbors(neighbors: &mut [Vec<usize>]) {
 
 pub(crate) fn solver_from_neighbors(
     neighbors: &[Vec<usize>],
-    equality_constraint: &EqualityConstraint,
+    equality_constraints: &[EqualityConstraint],
     dimension: usize,
     symmetric: bool,
 ) -> SparseSolver {
@@ -57,9 +57,19 @@ pub(crate) fn solver_from_neighbors(
             })
         })
         .collect();
-    match equality_constraint {
-        EqualityConstraint::Fixed(_) | EqualityConstraint::Prescribed(_) => {
-            let Some(indices) = equality_constraint.held_indices() else {
+    let merged;
+    let constraints = if equality_constraints.len() > 1 {
+        merged = EqualityConstraint::merged(equality_constraints.to_vec());
+        merged.as_slice()
+    } else {
+        equality_constraints
+    };
+    match constraints {
+        [] | [EqualityConstraint::None] => {
+            SparseSolver::from_pattern(num_coords, pattern, symmetric)
+        }
+        [EqualityConstraint::Fixed(_)] | [EqualityConstraint::Prescribed(_)] => {
+            let Some(indices) = EqualityConstraint::held_indices(constraints) else {
                 unreachable!("A fixed or prescribed constraint holds indices.")
             };
             let mut keep = vec![true; num_coords];
@@ -79,20 +89,29 @@ pub(crate) fn solver_from_neighbors(
                 .collect();
             SparseSolver::from_pattern(next, pattern, symmetric)
         }
-        EqualityConstraint::Linear(matrix, _) => {
-            assert_eq!(matrix.width(), num_coords);
-            let num_dof = matrix.len() + matrix.width();
-            matrix.iter().enumerate().for_each(|(row, matrix_i)| {
-                let index = num_coords + row;
-                matrix_i.iter().enumerate().for_each(|(j, matrix_ij)| {
-                    if matrix_ij != &0.0 {
-                        pattern.push((index, j));
-                        pattern.push((j, index));
-                    }
+        parts => {
+            let mut rows = Vec::<Vec<usize>>::new();
+            parts.iter().for_each(|part| match part {
+                EqualityConstraint::Multipliers(entries) => {
+                    rows.extend(entries.iter().map(|&(index, _)| vec![index]))
+                }
+                EqualityConstraint::Linear(matrix, _) => {
+                    assert_eq!(matrix.width(), num_coords);
+                    rows.extend((0..matrix.len()).map(|row| {
+                        (0..num_coords)
+                            .filter(|&column| matrix[row][column] != 0.0)
+                            .collect()
+                    }))
+                }
+                _ => {}
+            });
+            rows.iter().enumerate().for_each(|(row, columns)| {
+                columns.iter().for_each(|&column| {
+                    pattern.push((num_coords + row, column));
+                    pattern.push((column, num_coords + row));
                 })
             });
-            SparseSolver::from_pattern(num_dof, pattern, symmetric)
+            SparseSolver::from_pattern(num_coords + rows.len(), pattern, symmetric)
         }
-        EqualityConstraint::None => SparseSolver::from_pattern(num_coords, pattern, symmetric),
     }
 }

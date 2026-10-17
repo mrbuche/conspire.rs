@@ -495,7 +495,7 @@ where
                 )?)
             },
             nondimensional_extension,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
             None,
         ))
         .map_err(|error| SingleChainError::upstream(error, self))
@@ -601,7 +601,7 @@ where
                 )?)
             },
             nondimensional_force,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
             None,
         ))
         .map_err(|error| SingleChainError::upstream(error, self))

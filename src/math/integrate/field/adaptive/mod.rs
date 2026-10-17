@@ -10,7 +10,7 @@ use super::{
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
-    optimize::{EqualityConstraint, Optimization, RootFinding},
+    optimize::{EqualityConstraints, Optimization, RootFinding},
     sparse::SparseSolver,
 };
 use std::ops::Mul;
@@ -191,7 +191,7 @@ pub fn integrate_rkmk_dae_adaptive_root<Field, Tab, F, J, Z, U, V, T>(
     initial_condition: (Field::Point, Z),
     abs_tol: Scalar,
     rel_tol: Scalar,
-    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     sparse: Option<SparseSolver>,
 ) -> Result<(Times<T>, U, V), IntegrationError>
 where
@@ -240,7 +240,7 @@ pub fn integrate_rkmk_dae_adaptive_minimize<Field, Tab, F, J, H, Z, U, V, T>(
     initial_condition: (Field::Point, Z),
     abs_tol: Scalar,
     rel_tol: Scalar,
-    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+    mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     sparse: Option<SparseSolver>,
 ) -> Result<(Times<T>, U, V), IntegrationError>
 where

@@ -136,7 +136,7 @@ mod integrate_temperatures {
                     initial.clone(),
                     &NodalForcesThermal::zero(NODES),
                     &capacities,
-                    EqualityConstraint::None,
+                    vec![EqualityConstraint::None],
                 )
                 .unwrap();
             (times, history, rates)
@@ -161,7 +161,7 @@ mod integrate_temperatures {
                 temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
                 &NodalForcesThermal::zero(NODES),
                 &model.nodal_lumped_heat_capacities(),
-                EqualityConstraint::Fixed(vec![0]),
+                vec![EqualityConstraint::Fixed(vec![0])],
             )
             .unwrap();
         history.iter().for_each(|t| assert_eq!(t[0].value(), 300.0));
@@ -187,7 +187,7 @@ mod integrate_temperatures {
                 initial(),
                 &heating,
                 &model.nodal_lumped_heat_capacities(),
-                fixed(),
+                vec![fixed()],
             )
             .unwrap();
         let (_, consistent, _) = model
@@ -197,7 +197,7 @@ mod integrate_temperatures {
                 initial(),
                 &heating,
                 &model.nodal_heat_capacities(),
-                fixed(),
+                vec![fixed()],
             )
             .unwrap();
         let (lumped, consistent) = (
@@ -237,7 +237,7 @@ mod integrate_temperatures {
                 initial.clone(),
                 &NodalForcesThermal::zero(NODES),
                 &capacities,
-                EqualityConstraint::None,
+                vec![EqualityConstraint::None],
             )
             .unwrap_err();
         assert!(matches!(error, IntegrationError::UnstableTimeStep(..)));
@@ -248,7 +248,7 @@ mod integrate_temperatures {
                 initial,
                 &NodalForcesThermal::zero(NODES),
                 &capacities,
-                EqualityConstraint::None,
+                vec![EqualityConstraint::None],
             )
             .unwrap();
         assert!(
@@ -300,7 +300,7 @@ mod integrate_implicit {
             initial,
             heating,
             capacities,
-            constraint,
+            vec![constraint],
         )
         .unwrap()
     }
@@ -436,7 +436,7 @@ mod integrate_implicit {
             initial.clone(),
             &heating,
             &capacities,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )
         .unwrap();
         let (_, implicit, _) = run(

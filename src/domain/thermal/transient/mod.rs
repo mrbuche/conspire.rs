@@ -20,7 +20,7 @@ use crate::{
     math::{
         Quantity, Scalar, TensorVector,
         integrate::{Explicit, IntegrationError, Spectrum, Times},
-        optimize::EqualityConstraint,
+        optimize::EqualityConstraints,
     },
     units::Time,
 };
@@ -36,7 +36,7 @@ type Solution = (
 
 fn held<M>(
     capacities: &M,
-    equality_constraint: EqualityConstraint,
+    equality_constraint: EqualityConstraints,
     integrator: &str,
 ) -> Result<M::Inverse, IntegrationError>
 where
@@ -72,7 +72,7 @@ pub trait ThermalConductionTransient {
         initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &impl HeatCapacityMatrix,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>;
     /// Integrates the temperatures of the model like [`integrate`](Self::integrate), with a
     /// time step limited by the fastest time scale of the elements.
@@ -97,7 +97,7 @@ pub trait ThermalConductionTransient {
         initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &NodalLumpedHeatCapacities,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>
     where
         Self: ThermalTimeScaleElements<3>;
@@ -127,7 +127,7 @@ where
         initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &impl HeatCapacityMatrix,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError> {
         let capacities = held(
             capacities,
@@ -156,7 +156,7 @@ where
         initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &NodalLumpedHeatCapacities,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>
     where
         Self: ThermalTimeScaleElements<3>,

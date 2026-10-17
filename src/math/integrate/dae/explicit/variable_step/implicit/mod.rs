@@ -4,7 +4,7 @@ use crate::{
         integrate::{
             ImplicitDaeMinimize, ImplicitDaeRoot, IntegrationError, Times, VariableStepExplicit,
         },
-        optimize::{EqualityConstraint, Optimization, RootFinding},
+        optimize::{EqualityConstraints, Optimization, RootFinding},
         sparse::SparseSolver,
     },
     units::{Time, UnitInv},
@@ -211,7 +211,7 @@ where
         solver: impl RootFinding<F, J, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
-        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         let evolution = |t: Quantity<T>,
                          y: &Y,
@@ -266,7 +266,7 @@ where
         solver: impl RootFinding<F, J, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_implicit_dae_variable_step_explicit_root(
             function,
@@ -303,7 +303,7 @@ where
         solver: impl Optimization<F, J, H, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
-        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         let evolution = |t: Quantity<T>,
@@ -361,7 +361,7 @@ where
         solver: impl Optimization<F, J, H, Derivative<Y, T>>,
         time: &[Quantity<T>],
         initial_condition: Y,
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<(Times<T>, U, V), IntegrationError> {
         self.integrate_implicit_dae_variable_step_explicit_minimize(

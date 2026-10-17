@@ -6,7 +6,7 @@ use crate::{
             ButcherTableau, ExplicitDaeMinimize, ExplicitDaeRoot, IntegrationError, Times,
             VariableStepExplicit,
         },
-        optimize::{EqualityConstraint, Optimization, RootFinding},
+        optimize::{EqualityConstraints, Optimization, RootFinding},
         sparse::SparseSolver,
     },
     units::Time,
@@ -390,7 +390,7 @@ where
         solver: impl RootFinding<F, J, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
-        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     ) -> Result<(Times<T>, U, W, V), IntegrationError> {
         let solution = |t: Quantity<T>, y: &Y, z_0: &Z| -> Result<Z, String> {
             Ok(solver.root(
@@ -441,7 +441,7 @@ where
         solver: impl RootFinding<F, J, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
     ) -> Result<(Times<T>, U, W, V), IntegrationError> {
         self.integrate_explicit_dae_variable_step_explicit_root(
             evolution,
@@ -479,7 +479,7 @@ where
         solver: impl Optimization<F, J, H, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
-        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        mut equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<(Times<T>, U, W, V), IntegrationError> {
         let solution = |t: Quantity<T>, y: &Y, z_0: &Z| -> Result<Z, String> {
@@ -534,7 +534,7 @@ where
         solver: impl Optimization<F, J, H, Z>,
         time: &[Quantity<T>],
         initial_condition: (Y, Z),
-        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraint,
+        equality_constraint: impl FnMut(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<(Times<T>, U, W, V), IntegrationError> {
         self.integrate_explicit_dae_variable_step_explicit_minimize(

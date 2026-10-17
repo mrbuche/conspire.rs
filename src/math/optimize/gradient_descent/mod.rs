@@ -3,8 +3,8 @@ mod test;
 
 use super::{
     super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector, sparse::SparseSolver},
-    BacktrackingLineSearch, EqualityConstraint, LineSearch, Optimization, OptimizationError,
-    RootFinding, StepSize, Tolerances,
+    BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, LineSearch, Optimization,
+    OptimizationError, RootFinding, StepSize, Tolerances, UNSUPPORTED,
 };
 use crate::math::{Erase, Is, Norm};
 use crate::units::{UnitDiv, UnitMul, UnitSum};
@@ -76,10 +76,15 @@ where
         function: impl FnMut(&X) -> Result<F, String>,
         _jacobian: impl FnMut(&X) -> Result<(), String>,
         mut initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match equality_constraint.lower(&mut initial_guess) {
+        let Some(equality_constraint) =
+            EqualityConstraint::lower_single(equality_constraint, &mut initial_guess)
+        else {
+            return Err(OptimizationError::Intermediate(UNSUPPORTED.to_string()));
+        };
+        match equality_constraint {
             EqualityConstraint::Fixed(indices) => constrained_fixed(
                 self,
                 |_: &X| panic!("No line search in root finding."),
@@ -89,6 +94,9 @@ where
             ),
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
+            }
+            EqualityConstraint::Multipliers(_) => {
+                Err(OptimizationError::Intermediate(UNSUPPORTED.to_string()))
             }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {
@@ -140,16 +148,24 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         _hessian: impl FnMut(&X) -> Result<(), String>,
         mut initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let objective = move |argument: &X| function(argument).map(|value| *value.erase());
-        match equality_constraint.lower(&mut initial_guess) {
+        let Some(equality_constraint) =
+            EqualityConstraint::lower_single(equality_constraint, &mut initial_guess)
+        else {
+            return Err(OptimizationError::Intermediate(UNSUPPORTED.to_string()));
+        };
+        match equality_constraint {
             EqualityConstraint::Fixed(indices) => {
                 constrained_fixed(self, objective, jacobian, initial_guess, indices)
             }
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
+            }
+            EqualityConstraint::Multipliers(_) => {
+                Err(OptimizationError::Intermediate(UNSUPPORTED.to_string()))
             }
             EqualityConstraint::Linear(constraint_matrix, constraint_rhs) => {
                 if self.dual {

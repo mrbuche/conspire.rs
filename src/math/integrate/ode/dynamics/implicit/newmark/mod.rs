@@ -4,7 +4,7 @@ mod test;
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{FixedStep, ImplicitDynamics, ImplicitDynamicsCoupled, IntegrationError, Times},
-    optimize::{EqualityConstraint, RootFinding},
+    optimize::{EqualityConstraints, RootFinding},
     sparse::SparseSolver,
 };
 use std::ops::{Div, Mul, Sub};
@@ -127,7 +127,7 @@ where
             Scalar,
         ) -> Result<J, String>,
         solver: impl RootFinding<F, J, X>,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
         time: &[Quantity<T>],
         initial_position: X,
@@ -231,7 +231,7 @@ where
         join: impl Fn(&X, &Y) -> Z,
         split: impl Fn(&Z) -> (X, Y),
         solver: impl RootFinding<F, J, Z>,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
         time: &[Quantity<T>],
         initial_position: X,

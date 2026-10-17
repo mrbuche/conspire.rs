@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod test;
+pub(crate) mod test;
 
 mod density;
 pub(crate) mod diffusion;

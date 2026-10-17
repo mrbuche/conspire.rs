@@ -178,7 +178,7 @@ where
                     prescribed
                         .iter()
                         .for_each(|(index, function)| vector[*index] = function(t));
-                    EqualityConstraint::Linear(matrix.clone(), vector.clone())
+                    vec![EqualityConstraint::Linear(matrix.clone(), vector.clone())]
                 },
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))?;
@@ -333,7 +333,7 @@ where
             prescribed
                 .iter()
                 .for_each(|(index, function)| vector[*index] = function(t));
-            EqualityConstraint::Linear(matrix.clone(), vector)
+            vec![EqualityConstraint::Linear(matrix.clone(), vector)]
         };
         let function = |_: Quantity<Time>,
                         state: &ViscoplasticStateVariables<Y>,
@@ -427,7 +427,7 @@ where
             prescribed
                 .iter()
                 .for_each(|(index, function)| vector[*index] = function(t));
-            EqualityConstraint::Linear(matrix.clone(), vector)
+            vec![EqualityConstraint::Linear(matrix.clone(), vector)]
         };
         let function = |_: Quantity<Time>,
                         state: &ViscoplasticStateVariables<Y>,

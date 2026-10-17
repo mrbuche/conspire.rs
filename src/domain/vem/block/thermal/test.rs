@@ -217,7 +217,7 @@ mod heat {
                 initial,
                 &NodalForcesThermal::zero(NODES),
                 &capacities,
-                EqualityConstraint::Fixed(boundary),
+                vec![EqualityConstraint::Fixed(boundary)],
             )
             .unwrap();
         history.iter().for_each(|temperatures| {
@@ -282,7 +282,7 @@ mod heat {
                     initial.clone(),
                     &NodalForcesThermal::zero(NODES),
                     &capacities,
-                    EqualityConstraint::None,
+                    vec![EqualityConstraint::None],
                 )
                 .unwrap();
             let last = history.iter().last().unwrap();
@@ -314,7 +314,7 @@ mod heat {
                     initial,
                     &NodalForcesThermal::zero(NODES),
                     &model.nodal_lumped_heat_capacities(),
-                    EqualityConstraint::Fixed(boundary.clone()),
+                    vec![EqualityConstraint::Fixed(boundary.clone())],
                 )
                 .unwrap();
             history.iter().for_each(|temperatures| {
@@ -352,7 +352,7 @@ mod heat {
                     perturbed.clone(),
                     &NodalForcesThermal::zero(NODES),
                     &capacities,
-                    EqualityConstraint::None,
+                    vec![EqualityConstraint::None],
                 )
                 .unwrap_err();
             assert!(matches!(error, IntegrationError::UnstableTimeStep(..)));
@@ -363,7 +363,7 @@ mod heat {
                     perturbed,
                     &NodalForcesThermal::zero(NODES),
                     &capacities,
-                    EqualityConstraint::None,
+                    vec![EqualityConstraint::None],
                 )
                 .unwrap();
             assert!(
@@ -388,7 +388,7 @@ mod heat {
                     initial,
                     &NodalForcesThermal::zero(NODES),
                     &model.nodal_lumped_heat_capacities(),
-                    EqualityConstraint::None,
+                    vec![EqualityConstraint::None],
                 )
                 .unwrap_err();
             assert!(matches!(error, IntegrationError::Intermediate(..)))
@@ -433,7 +433,7 @@ mod heat {
                 initial,
                 &NodalForcesThermal::zero(NODES),
                 &model.nodal_lumped_heat_capacities(),
-                constraint,
+                vec![constraint],
             )
             .unwrap();
             (history, rates)

@@ -155,7 +155,7 @@ where
                     DeformationGradient::identity(),
                     |t: Quantity<Time>| {
                         vector[0] = deformation_gradient_rate_11(t);
-                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
+                        vec![EqualityConstraint::Linear(matrix.clone(), vector.clone())]
                     },
                     None,
                 )
@@ -203,7 +203,7 @@ where
                     |t: Quantity<Time>| {
                         vector[0] = deformation_gradient_rate_11(t);
                         vector[4] = deformation_gradient_rate_22(t);
-                        EqualityConstraint::Linear(matrix.clone(), vector.clone())
+                        vec![EqualityConstraint::Linear(matrix.clone(), vector.clone())]
                     },
                     None,
                 )

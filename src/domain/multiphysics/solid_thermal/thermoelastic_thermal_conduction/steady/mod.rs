@@ -1,7 +1,7 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, ProvidesTangent, Root,
-        SolverFor,
+        Blocks, BoundaryConditions, ElementModel, ElementModelError, Model, NodalCoordinates,
+        NodalState, ProvidesTangent, Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         multiphysics::solid_thermal::{
             NodalForceSolidThermal, NodalForcesSolidThermal, NodalStatesSolidThermal,
@@ -11,7 +11,7 @@ use crate::{
     },
     math::{
         Tensor, TensorTuple,
-        optimize::{EqualityConstraint, NewtonRaphson, OptimizationError, RootFinding},
+        optimize::{NewtonRaphson, OptimizationError, RootFinding},
     },
 };
 
@@ -153,7 +153,10 @@ where
 {
     fn root<S>(
         &self,
-        equality_constraint: EqualityConstraint,
+        boundary_conditions: &BoundaryConditions<
+            '_,
+            <NodalStatesSolidThermal as NodalState>::Layout,
+        >,
         solver: S,
     ) -> Result<NodalStatesSolidThermal, OptimizationError>
     where
@@ -161,6 +164,7 @@ where
             + RootFinding<NodalForcesSolidThermal, S::Tangent, NodalStatesSolidThermal>,
         Self: ProvidesTangent<NodalStatesSolidThermal, S::Tangent>,
     {
+        let equality_constraint = boundary_conditions.constraint();
         let sparse = S::SPARSE.then(|| {
             let mut neighbors = vec![Vec::new(); self.coordinates().len()];
             self.node_neighbors(&mut neighbors);

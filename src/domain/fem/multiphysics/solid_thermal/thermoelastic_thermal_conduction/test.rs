@@ -13,15 +13,12 @@ use crate::{
     fem::{
         Model, NodalReferenceCoordinates, Root,
         block::{Block, element::linear::Tetrahedron},
-        boundary::{BoundaryConditions, Displacement, SolidThermal, Temperature},
+        boundary::{BoundaryConditions, Displacement, Enforcement, SolidThermal, Temperature},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
         },
     },
-    math::{
-        Matrix, Quantity, Vector,
-        optimize::{EqualityConstraint, NewtonRaphson},
-    },
+    math::{Quantity, optimize::NewtonRaphson},
     units::{Length, Temperature as TemperatureUnit},
 };
 
@@ -71,24 +68,6 @@ fn dilation() -> f64 {
     (1.0 - 2.0 * COEFFICIENT_OF_THERMAL_EXPANSION.value() * temperature_change).powf(-0.5)
 }
 
-fn constraint() -> EqualityConstraint {
-    let dilation = dilation();
-    let mut matrix = Matrix::zero(11, 4 * NODES);
-    let mut rhs = Vector::zero(11);
-    (0..NODES).for_each(|node| {
-        matrix[node][4 * node + 3] = 1.0;
-        rhs[node] = HOT
-    });
-    [(0, 0), (0, 1), (0, 2), (1, 1), (1, 2), (2, 2)]
-        .iter()
-        .enumerate()
-        .for_each(|(row, &(node, direction))| {
-            matrix[NODES + row][4 * node + direction] = 1.0;
-            rhs[NODES + row] = dilation * coordinates()[node][direction].value()
-        });
-    EqualityConstraint::Linear(matrix, rhs)
-}
-
 fn prescribed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
     let moved = |node: usize, direction: usize| {
         Quantity::<Length>::new((dilation() - 1.0) * coordinates()[node][direction].value())
@@ -114,16 +93,32 @@ fn fixed_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
         .fix_node(Displacement::<2>, 2)
 }
 
-fn fixed() -> EqualityConstraint {
-    fixed_conditions().constraint()
+fn multiplied_conditions() -> BoundaryConditions<'static, SolidThermal<3>> {
+    let moved = |node: usize, direction: usize| {
+        Quantity::<Length>::new((dilation() - 1.0) * coordinates()[node][direction].value())
+    };
+    let multipliers = Enforcement::Multipliers;
+    BoundaryConditions::new()
+        .prescribe_nodes_by(
+            multipliers,
+            Temperature,
+            0..NODES,
+            Quantity::<TemperatureUnit>::new(HOT),
+        )
+        .prescribe_node_by(multipliers, Displacement::<0>, 0, moved(0, 0))
+        .prescribe_node_by(multipliers, Displacement::<1>, 0, moved(0, 1))
+        .prescribe_node_by(multipliers, Displacement::<2>, 0, moved(0, 2))
+        .prescribe_node_by(multipliers, Displacement::<1>, 1, moved(1, 1))
+        .prescribe_node_by(multipliers, Displacement::<2>, 1, moved(1, 2))
+        .prescribe_node_by(multipliers, Displacement::<2>, 2, moved(2, 2))
 }
 
-fn solve(constraint: EqualityConstraint) -> NodalStatesSolidThermal {
+fn solve(conditions: &BoundaryConditions<'_, SolidThermal<3>>) -> NodalStatesSolidThermal {
     <Model<B, 3> as Root<
         NodalForcesSolidThermal,
         NodalStiffnessesSolidThermal,
         NodalStatesSolidThermal,
-    >>::root(&model(), constraint, NewtonRaphson::default())
+    >>::root(&model(), conditions, NewtonRaphson::default())
     .unwrap()
 }
 
@@ -133,9 +128,9 @@ fn boundary_conditions_of_the_layout_of_the_state_give_the_same_solution() {
         NodalForcesSolidThermal,
         NodalStiffnessesSolidThermal,
         NodalStatesSolidThermal,
-    >>::root_with(&model(), &fixed_conditions(), NewtonRaphson::default())
+    >>::root(&model(), &fixed_conditions(), NewtonRaphson::default())
     .unwrap();
-    let expected = solve(fixed());
+    let expected = solve(&fixed_conditions());
     (0..NODES).for_each(|node| {
         (0..3).for_each(|direction| {
             assert_eq!(
@@ -154,9 +149,9 @@ fn prescribed_values_found_by_elimination_are_what_multipliers_find() {
         NodalForcesSolidThermal,
         NodalStiffnessesSolidThermal,
         NodalStatesSolidThermal,
-    >>::root_with(&model(), &prescribed_conditions(), NewtonRaphson::default())
+    >>::root(&model(), &prescribed_conditions(), NewtonRaphson::default())
     .unwrap();
-    let multiplied = solve(constraint());
+    let multiplied = solve(&multiplied_conditions());
     (0..NODES).for_each(|node| {
         (0..3).for_each(|direction| {
             let found = eliminated[node].0[direction].value();
@@ -179,7 +174,7 @@ fn prescribed_values_found_by_elimination_are_what_multipliers_find() {
 #[test]
 fn a_uniform_temperature_dilates_the_body_without_stress() {
     let dilation = dilation();
-    let states = solve(constraint());
+    let states = solve(&multiplied_conditions());
     (0..NODES).for_each(|node| {
         (0..3).for_each(|direction| {
             let expected = dilation * coordinates()[node][direction].value();
@@ -194,7 +189,7 @@ fn a_uniform_temperature_dilates_the_body_without_stress() {
 
 #[test]
 fn the_imposed_temperature_is_reached_at_every_node() {
-    let states = solve(constraint());
+    let states = solve(&multiplied_conditions());
     (0..NODES).for_each(|node| {
         let found = states[node].1.value();
         assert!((found - HOT).abs() < 1e-8, "node {node}: {found} != {HOT}")
@@ -203,7 +198,7 @@ fn the_imposed_temperature_is_reached_at_every_node() {
 
 #[test]
 fn fixed_temperatures_hold_the_reference_temperature_and_leave_the_body_unstrained() {
-    let states = solve(fixed());
+    let states = solve(&fixed_conditions());
     (0..NODES).for_each(|node| {
         (0..3).for_each(|direction| {
             let expected = coordinates()[node][direction].value();
@@ -254,7 +249,7 @@ mod dynamics {
             integrate::{
                 ButcherTableau, DormandPrinceFixedStep, DormandPrinceTableau, IntegrationError,
             },
-            optimize::EqualityConstraint,
+            optimize::{EqualityConstraint, EqualityConstraints},
         },
         units::{Density, Time, VolumetricHeatCapacity},
     };
@@ -336,7 +331,7 @@ mod dynamics {
     }
     fn integrate(
         velocities: NodalVelocities<3>,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> (NodalCoordinates<3>, NodalTemperatures) {
         let (_, coordinates, _, _, temperatures, _) = model()
             .integrate(
@@ -386,7 +381,7 @@ mod dynamics {
     }
     #[test]
     fn a_rigid_translation_neither_heats_nor_cools() -> Result<(), AssertionError> {
-        let (coordinates, temperatures) = integrate(translating(), EqualityConstraint::None);
+        let (coordinates, temperatures) = integrate(translating(), vec![EqualityConstraint::None]);
         temperatures.iter().try_for_each(|temperature| {
             Assert::default().eq_within_tols(temperature, &REFERENCE_TEMPERATURE)
         })?;
@@ -405,21 +400,21 @@ mod dynamics {
     }
     #[test]
     fn a_stretching_body_cools() {
-        let (_, temperatures) = integrate(stretching(), EqualityConstraint::None);
+        let (_, temperatures) = integrate(stretching(), vec![EqualityConstraint::None]);
         temperatures
             .iter()
             .for_each(|temperature| assert!(temperature.value() < REFERENCE_TEMPERATURE.value()));
     }
     #[test]
     fn a_fixed_temperature_is_held() -> Result<(), AssertionError> {
-        let (_, temperatures) = integrate(stretching(), EqualityConstraint::Fixed(vec![3]));
+        let (_, temperatures) = integrate(stretching(), vec![EqualityConstraint::Fixed(vec![3])]);
         Assert::default().eq_within_tols(temperatures[0], &REFERENCE_TEMPERATURE)?;
         assert!(temperatures[1].value() < REFERENCE_TEMPERATURE.value());
         Ok(())
     }
     #[test]
     fn a_fixed_coordinate_is_held() -> Result<(), AssertionError> {
-        let (coordinates, _) = integrate(stretching(), EqualityConstraint::Fixed(vec![5]));
+        let (coordinates, _) = integrate(stretching(), vec![EqualityConstraint::Fixed(vec![5])]);
         Assert::default().eq_within_tols(coordinates[1][1].value(), &COORDINATES[1][1])?;
         assert!((coordinates[1][0].value() - COORDINATES[1][0]).abs() > 0.0);
         Ok(())
@@ -436,7 +431,10 @@ mod dynamics {
             &no_heating(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
-            EqualityConstraint::Linear(Matrix::zero(1, 20), Vector::zero(1)),
+            vec![EqualityConstraint::Linear(
+                Matrix::zero(1, 20),
+                Vector::zero(1),
+            )],
         );
         assert!(result.is_err());
     }
@@ -456,7 +454,7 @@ mod dynamics {
             &no_heating(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
         )?;
         Ok((
             coordinates[coordinates.len() - 1].clone(),
@@ -467,7 +465,7 @@ mod dynamics {
     fn a_stable_step_agrees_with_the_unbounded_integration() -> Result<(), AssertionError> {
         let (coordinates, temperatures) = integrate_bounded(&time(), 0.9, 1).unwrap();
         let (expected_coordinates, expected_temperatures) =
-            integrate(stretching(), EqualityConstraint::None);
+            integrate(stretching(), vec![EqualityConstraint::None]);
         Assert::default().eq_within_tols(&coordinates, &expected_coordinates)?;
         Assert::default().eq_within_tols(&temperatures, &expected_temperatures)
     }
@@ -609,7 +607,7 @@ mod dynamics {
                 &NodalForcesThermal::zero(nodes),
                 &model.nodal_lumped_masses(),
                 &model.nodal_lumped_heat_capacities(),
-                bar_constraint(),
+                vec![bar_constraint()],
             )
             .unwrap();
         let tip = bar_node(BAR_ELEMENTS, 0, 0);
@@ -755,7 +753,7 @@ mod dynamics {
         }
         fn implicit(
             velocities: NodalVelocities<3>,
-            equality_constraint: EqualityConstraint,
+            equality_constraint: EqualityConstraints,
             time: &[Quantity<Time>],
         ) -> Result<(NodalCoordinates<3>, NodalTemperatures), IntegrationError> {
             let model = model();
@@ -781,9 +779,9 @@ mod dynamics {
         #[test]
         fn a_stretching_body_cools_like_the_explicit_integration() {
             let (coordinates, temperatures) =
-                implicit(stretching(), EqualityConstraint::None, &time()).unwrap();
+                implicit(stretching(), vec![EqualityConstraint::None], &time()).unwrap();
             let (explicit_coordinates, explicit_temperatures) =
-                integrate(stretching(), EqualityConstraint::None);
+                integrate(stretching(), vec![EqualityConstraint::None]);
             temperatures
                 .iter()
                 .zip(explicit_temperatures.iter())
@@ -864,7 +862,7 @@ mod dynamics {
         #[test]
         fn a_rigid_translation_neither_heats_nor_cools() {
             let (coordinates, temperatures) =
-                implicit(translating(), EqualityConstraint::None, &time()).unwrap();
+                implicit(translating(), vec![EqualityConstraint::None], &time()).unwrap();
             temperatures.iter().for_each(|temperature| {
                 assert!((temperature.value() - REFERENCE_TEMPERATURE.value()).abs() < 1e-9)
             });
@@ -885,15 +883,23 @@ mod dynamics {
         }
         #[test]
         fn a_fixed_temperature_is_held() {
-            let (_, temperatures) =
-                implicit(stretching(), EqualityConstraint::Fixed(vec![3]), &time()).unwrap();
+            let (_, temperatures) = implicit(
+                stretching(),
+                vec![EqualityConstraint::Fixed(vec![3])],
+                &time(),
+            )
+            .unwrap();
             assert_eq!(temperatures[0].value(), REFERENCE_TEMPERATURE.value());
             assert!(temperatures[1].value() < REFERENCE_TEMPERATURE.value());
         }
         #[test]
         fn a_fixed_coordinate_is_held() {
-            let (coordinates, _) =
-                implicit(stretching(), EqualityConstraint::Fixed(vec![0]), &time()).unwrap();
+            let (coordinates, _) = implicit(
+                stretching(),
+                vec![EqualityConstraint::Fixed(vec![0])],
+                &time(),
+            )
+            .unwrap();
             assert_eq!(coordinates[0][0].value(), COORDINATES[0][0]);
         }
         #[test]
@@ -901,10 +907,10 @@ mod dynamics {
             assert!(
                 implicit(
                     stretching(),
-                    EqualityConstraint::Linear(
+                    vec![EqualityConstraint::Linear(
                         crate::math::Matrix::zero(1, 20),
                         crate::math::Vector::zero(1)
-                    ),
+                    )],
                     &time()
                 )
                 .is_err()
@@ -1047,7 +1053,7 @@ mod quasistatic {
                 &NodalForcesSolid::zero(NODES),
                 &heating(&model),
                 &model.nodal_lumped_heat_capacities(),
-                constraint,
+                vec![constraint],
             )?;
         Ok((
             coordinates[coordinates.len() - 1].clone(),

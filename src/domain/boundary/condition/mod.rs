@@ -4,9 +4,18 @@ mod test;
 use crate::{
     domain::boundary::{Component, Layout, Prescribable},
     geometry::mesh::NodeSet,
-    math::optimize::{EqualityConstraint, Prescription},
+    math::optimize::{EqualityConstraint, EqualityConstraints, Prescription},
 };
 use std::marker::PhantomData;
+
+/// How degrees of freedom are held.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Enforcement {
+    /// They are eliminated from the system.
+    Elimination,
+    /// They are held by Lagrange multipliers.
+    Multipliers,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 enum Target<'m> {
@@ -23,6 +32,7 @@ pub struct BoundaryCondition<'m> {
     stride: usize,
     offset: usize,
     prescription: Prescription,
+    enforcement: Enforcement,
 }
 
 impl BoundaryCondition<'_> {
@@ -41,14 +51,18 @@ impl BoundaryCondition<'_> {
     pub fn prescription(&self) -> Prescription {
         self.prescription
     }
+    /// How the degrees of freedom are held.
+    pub fn enforcement(&self) -> Enforcement {
+        self.enforcement
+    }
 }
 
 /// Degrees of freedom held fixed or at a value, chosen by node and component.
 ///
 /// The components a layout has are the only ones that can be held, and an axis that a layout
 /// does not have is an error when compiling. The conditions borrow the sets they hold, such as
-/// those of the model they are for, so they cannot outlive them. How what is held is enforced
-/// is up to the solver.
+/// those of the model they are for, so they cannot outlive them. Each is eliminated from the
+/// system unless it is made to be held by multipliers.
 pub struct BoundaryConditions<'m, L> {
     conditions: Vec<BoundaryCondition<'m>>,
     layout: PhantomData<L>,
@@ -70,7 +84,12 @@ where
     pub fn new() -> Self {
         Self::default()
     }
-    fn with<C, I>(mut self, target: Target<'m>, prescription: Prescription) -> Self
+    fn hold<C, I>(
+        mut self,
+        target: Target<'m>,
+        prescription: Prescription,
+        enforcement: Enforcement,
+    ) -> Self
     where
         C: Component<L, I>,
     {
@@ -79,43 +98,101 @@ where
             stride: L::STRIDE,
             offset: <C as Component<L, I>>::OFFSET,
             prescription,
+            enforcement,
         });
         self
     }
     /// Holds a component of every node in a set at its initial value.
-    pub fn fix<C, I>(self, _: C, nodes: &'m NodeSet) -> Self
+    pub fn fix<C, I>(self, component: C, nodes: &'m NodeSet) -> Self
     where
         C: Component<L, I>,
     {
-        self.with::<C, I>(Target::Set(nodes), Prescription::Initial)
+        self.fix_by(Enforcement::Elimination, component, nodes)
+    }
+    /// Holds a component of every node in a set at its initial value, the way given.
+    pub fn fix_by<C, I>(self, enforcement: Enforcement, _: C, nodes: &'m NodeSet) -> Self
+    where
+        C: Component<L, I>,
+    {
+        self.hold::<C, I>(Target::Set(nodes), Prescription::Initial, enforcement)
     }
     /// Holds a component of the listed nodes at its initial value.
-    pub fn fix_nodes<C, I>(self, _: C, nodes: impl IntoIterator<Item = usize>) -> Self
+    pub fn fix_nodes<C, I>(self, component: C, nodes: impl IntoIterator<Item = usize>) -> Self
     where
         C: Component<L, I>,
     {
-        self.with::<C, I>(
+        self.fix_nodes_by(Enforcement::Elimination, component, nodes)
+    }
+    /// Holds a component of the listed nodes at its initial value, the way given.
+    pub fn fix_nodes_by<C, I>(
+        self,
+        enforcement: Enforcement,
+        _: C,
+        nodes: impl IntoIterator<Item = usize>,
+    ) -> Self
+    where
+        C: Component<L, I>,
+    {
+        self.hold::<C, I>(
             Target::Nodes(nodes.into_iter().collect()),
             Prescription::Initial,
+            enforcement,
         )
     }
     /// Holds a component of a node at its initial value.
-    pub fn fix_node<C, I>(self, _: C, node: usize) -> Self
+    pub fn fix_node<C, I>(self, component: C, node: usize) -> Self
     where
         C: Component<L, I>,
     {
-        self.with::<C, I>(Target::Nodes(vec![node]), Prescription::Initial)
+        self.fix_node_by(Enforcement::Elimination, component, node)
+    }
+    /// Holds a component of a node at its initial value, the way given.
+    pub fn fix_node_by<C, I>(self, enforcement: Enforcement, _: C, node: usize) -> Self
+    where
+        C: Component<L, I>,
+    {
+        self.hold::<C, I>(
+            Target::Nodes(vec![node]),
+            Prescription::Initial,
+            enforcement,
+        )
     }
     /// Holds a component of every node in a set at a value.
-    pub fn prescribe<C, I>(self, _: C, nodes: &'m NodeSet, value: C::Value) -> Self
+    pub fn prescribe<C, I>(self, component: C, nodes: &'m NodeSet, value: C::Value) -> Self
     where
         C: Component<L, I> + Prescribable,
     {
-        self.with::<C, I>(Target::Set(nodes), C::prescription(value))
+        self.prescribe_by(Enforcement::Elimination, component, nodes, value)
+    }
+    /// Holds a component of every node in a set at a value, the way given.
+    pub fn prescribe_by<C, I>(
+        self,
+        enforcement: Enforcement,
+        _: C,
+        nodes: &'m NodeSet,
+        value: C::Value,
+    ) -> Self
+    where
+        C: Component<L, I> + Prescribable,
+    {
+        self.hold::<C, I>(Target::Set(nodes), C::prescription(value), enforcement)
     }
     /// Holds a component of the listed nodes at a value.
     pub fn prescribe_nodes<C, I>(
         self,
+        component: C,
+        nodes: impl IntoIterator<Item = usize>,
+        value: C::Value,
+    ) -> Self
+    where
+        C: Component<L, I> + Prescribable,
+    {
+        self.prescribe_nodes_by(Enforcement::Elimination, component, nodes, value)
+    }
+    /// Holds a component of the listed nodes at a value, the way given.
+    pub fn prescribe_nodes_by<C, I>(
+        self,
+        enforcement: Enforcement,
         _: C,
         nodes: impl IntoIterator<Item = usize>,
         value: C::Value,
@@ -123,53 +200,71 @@ where
     where
         C: Component<L, I> + Prescribable,
     {
-        self.with::<C, I>(
+        self.hold::<C, I>(
             Target::Nodes(nodes.into_iter().collect()),
             C::prescription(value),
+            enforcement,
         )
     }
     /// Holds a component of a node at a value.
-    pub fn prescribe_node<C, I>(self, _: C, node: usize, value: C::Value) -> Self
+    pub fn prescribe_node<C, I>(self, component: C, node: usize, value: C::Value) -> Self
     where
         C: Component<L, I> + Prescribable,
     {
-        self.with::<C, I>(Target::Nodes(vec![node]), C::prescription(value))
+        self.prescribe_node_by(Enforcement::Elimination, component, node, value)
+    }
+    /// Holds a component of a node at a value, the way given.
+    pub fn prescribe_node_by<C, I>(
+        self,
+        enforcement: Enforcement,
+        _: C,
+        node: usize,
+        value: C::Value,
+    ) -> Self
+    where
+        C: Component<L, I> + Prescribable,
+    {
+        self.hold::<C, I>(
+            Target::Nodes(vec![node]),
+            C::prescription(value),
+            enforcement,
+        )
     }
     /// The conditions, in the order they were made.
     pub fn conditions(&self) -> &[BoundaryCondition<'m>] {
         &self.conditions
     }
-    /// The constraint holding the degrees of freedom.
+    /// The constraints holding the degrees of freedom, one for each condition.
     ///
-    /// It is fixed, with the indices in ascending order and without repeats, if every condition
-    /// holds its degrees of freedom at their initial values, and prescribed otherwise.
-    pub fn constraint(&self) -> EqualityConstraint {
-        if self
-            .conditions
+    /// A condition eliminated at its initial values is fixed, with the indices in ascending
+    /// order and without repeats, and any other eliminated is prescribed. One held by
+    /// multipliers has the indices as they are.
+    pub fn constraint(&self) -> EqualityConstraints {
+        self.conditions
             .iter()
-            .all(|condition| condition.prescription == Prescription::Initial)
-        {
-            let mut fixed: Vec<usize> = self
-                .conditions
-                .iter()
-                .flat_map(BoundaryCondition::indices)
-                .collect();
-            fixed.sort_unstable();
-            fixed.dedup();
-            EqualityConstraint::Fixed(fixed)
-        } else {
-            EqualityConstraint::Prescribed(
-                self.conditions
-                    .iter()
-                    .flat_map(|condition| {
-                        let prescription = condition.prescription;
-                        condition
-                            .indices()
+            .map(|condition| {
+                let mut indices = condition.indices();
+                let prescription = condition.prescription;
+                match condition.enforcement {
+                    Enforcement::Multipliers => EqualityConstraint::Multipliers(
+                        indices
                             .into_iter()
-                            .map(move |index| (index, prescription))
-                    })
-                    .collect(),
-            )
-        }
+                            .map(|index| (index, prescription))
+                            .collect(),
+                    ),
+                    Enforcement::Elimination if prescription == Prescription::Initial => {
+                        indices.sort_unstable();
+                        indices.dedup();
+                        EqualityConstraint::Fixed(indices)
+                    }
+                    Enforcement::Elimination => EqualityConstraint::Prescribed(
+                        indices
+                            .into_iter()
+                            .map(|index| (index, prescription))
+                            .collect(),
+                    ),
+                }
+            })
+            .collect()
     }
 }

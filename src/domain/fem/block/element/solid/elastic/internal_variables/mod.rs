@@ -15,6 +15,7 @@ use crate::{
         ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, Solution,
         SquareMatrix, Tensor, TensorList, Vector,
         optimize::{EqualityConstraint, NewtonRaphson, RootFinding},
+        sparse::CscMatrix,
     },
     mechanics::{
         DeformationGradient, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffStressList,
@@ -57,6 +58,7 @@ pub trait ElasticIVFiniteElement<
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a V, Output = Vector>,
 {
     /// The internal variables an element starts from at every integration point.
     fn internal_variables_initial(&self, constitutive_model: &C) -> InternalVariables<G, V>;
@@ -129,6 +131,7 @@ where
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a V, Output = Vector>,
 {
     local_solver
         .root(
@@ -137,7 +140,9 @@ where
             },
             |root: &V| Ok(constitutive_model.tangents(deformation_gradient, root)?.3),
             internal_variables.clone(),
-            EqualityConstraint::Fixed(constitutive_model.internal_variables_fixed().to_vec()),
+            vec![EqualityConstraint::Fixed(
+                constitutive_model.internal_variables_fixed().to_vec(),
+            )],
             None,
         )
         .map_err(|error| ConstitutiveError::custom(error, deformation_gradient))
@@ -365,6 +370,7 @@ where
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
     for<'a> &'a Matrix: Mul<&'a V, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a V, Output = Vector>,
 {
     fn internal_variables_initial(&self, constitutive_model: &C) -> InternalVariables<G, V> {
         std::array::from_fn(|_| constitutive_model.internal_variables_initial()).into()

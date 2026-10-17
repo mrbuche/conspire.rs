@@ -20,7 +20,7 @@ use crate::{
     math::{
         Quantity, Tensor, TensorTuple,
         integrate::{ImplicitRates, IntegrationError, Times},
-        optimize::{EqualityConstraint, RootFinding},
+        optimize::{EqualityConstraints, RootFinding},
     },
     units::{Rate, Time},
 };
@@ -67,7 +67,7 @@ pub trait ThermoelasticThermalConductionQuasistatic {
         external_forces: &NodalForcesSolid<3>,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>;
 }
 
@@ -94,7 +94,7 @@ where
         external_forces: &NodalForcesSolid<3>,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError> {
         let fixed = fixed_indices(
             equality_constraint.clone(),

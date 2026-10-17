@@ -1,14 +1,14 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
-        NodalVelocities, NodalVelocitiesHistory,
+        Blocks, BoundaryConditions, ElementModel, ElementModelError, Model, NodalCoordinates,
+        NodalCoordinatesHistory, NodalState, NodalVelocities, NodalVelocitiesHistory,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
         Quantity, Tensor,
         integrate::{ImplicitDaeMinimize, IntegrationError},
-        optimize::{EqualityConstraint, Optimization},
+        optimize::Optimization,
     },
     mechanics::Times,
     units::{Power, Time},
@@ -86,7 +86,7 @@ where
 pub trait Minimize<const D: usize> {
     fn minimize(
         &self,
-        equality_constraint: EqualityConstraint,
+        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
@@ -111,7 +111,7 @@ where
 {
     fn minimize(
         &self,
-        equality_constraint: EqualityConstraint,
+        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
@@ -129,6 +129,7 @@ where
         >,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>
     {
+        let equality_constraint = boundary_conditions.constraint();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);

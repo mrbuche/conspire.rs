@@ -1,13 +1,13 @@
 use crate::{
     domain::{
-        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, ProvidesTangent, Root,
-        SolverFor,
+        Blocks, BoundaryConditions, ElementModel, ElementModelError, Model, NodalCoordinates,
+        NodalState, ProvidesTangent, Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
         Tensor,
-        optimize::{EqualityConstraint, NewtonRaphson, OptimizationError, RootFinding},
+        optimize::{NewtonRaphson, OptimizationError, RootFinding},
     },
 };
 
@@ -119,7 +119,7 @@ where
 {
     fn root<S>(
         &self,
-        equality_constraint: EqualityConstraint,
+        boundary_conditions: &BoundaryConditions<'_, <NodalCoordinates<D> as NodalState>::Layout>,
         solver: S,
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where
@@ -127,6 +127,7 @@ where
             + RootFinding<NodalForcesSolid<D>, S::Tangent, NodalCoordinates<D>>,
         Self: ProvidesTangent<NodalCoordinates<D>, S::Tangent>,
     {
+        let equality_constraint = boundary_conditions.constraint();
         let sparse = S::SPARSE.then(|| {
             let mut neighbors = vec![Vec::new(); self.coordinates().len()];
             self.node_neighbors(&mut neighbors);

@@ -1745,12 +1745,12 @@ pub(crate) use test_finite_element_block_with_hyperelastic_viscoplastic_constitu
 mod eliminated {
     use crate::{
         domain::block::solver_from_neighbors,
-        math::optimize::{EqualityConstraint, Prescription},
+        math::optimize::{EqualityConstraint, EqualityConstraints, Prescription},
     };
     fn chain() -> Vec<Vec<usize>> {
         vec![vec![0, 1], vec![0, 1, 2], vec![1, 2]]
     }
-    fn pattern(constraint: EqualityConstraint) -> Vec<(usize, usize)> {
+    fn pattern(constraint: EqualityConstraints) -> Vec<(usize, usize)> {
         let mut pattern = solver_from_neighbors(&chain(), &constraint, 1, true)
             .pattern()
             .to_vec();
@@ -1760,10 +1760,10 @@ mod eliminated {
     #[test]
     fn what_is_prescribed_is_left_out_of_the_pattern() {
         assert_eq!(
-            pattern(EqualityConstraint::Prescribed(vec![(
+            pattern(vec![EqualityConstraint::Prescribed(vec![(
                 1,
                 Prescription::Absolute(1.0)
-            )])),
+            )])]),
             [(0, 0), (1, 1)]
         );
     }
@@ -1774,8 +1774,8 @@ mod eliminated {
             (1, Prescription::Initial),
         ]);
         assert_eq!(
-            pattern(prescribed),
-            pattern(EqualityConstraint::Fixed(vec![1]))
+            pattern(vec![prescribed]),
+            pattern(vec![EqualityConstraint::Fixed(vec![1])])
         );
     }
 }

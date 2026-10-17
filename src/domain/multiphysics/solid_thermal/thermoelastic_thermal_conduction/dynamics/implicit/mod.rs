@@ -21,7 +21,7 @@ use crate::{
     math::{
         Quantity, Tensor, TensorTuple,
         integrate::{ImplicitDynamicsCoupled, IntegrationError},
-        optimize::{EqualityConstraint, RootFinding},
+        optimize::{EqualityConstraints, RootFinding},
     },
     units::{Rate, Time},
 };
@@ -62,7 +62,7 @@ pub trait ThermoelasticThermalConductionImplicitDynamics {
         external_heating: &NodalForcesThermal,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>;
 }
 
@@ -96,7 +96,7 @@ where
         external_heating: &NodalForcesThermal,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError> {
         let (inverse_masses, inverse_capacities, initial_velocities) = held(
             masses,

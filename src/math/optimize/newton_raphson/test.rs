@@ -6,8 +6,8 @@ use super::{
         },
         // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
     },
-    Direct, EqualityConstraint, LineSearch, NewtonRaphson, Optimization, OptimizationError,
-    RootFinding, Scalar, TrustRegion,
+    Direct, EqualityConstraint, EqualityConstraints, LineSearch, NewtonRaphson, Optimization,
+    OptimizationError, RootFinding, Scalar, TrustRegion,
 };
 use crate::math::{Norm, Tensor, assert::Assert};
 
@@ -25,7 +25,7 @@ mod minimize {
             |x: &Scalar| Ok(*x),
             |_: &Scalar| Ok(1.0),
             1.0,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
             None,
         )?)
     }
@@ -78,7 +78,7 @@ mod minimize {
                     |x: &Scalar| Ok(*x),
                     |_: &Scalar| Ok(1.0),
                     1.0,
-                    EqualityConstraint::None,
+                    vec![EqualityConstraint::None],
                     None,
                 )?,
             )
@@ -100,7 +100,7 @@ mod minimize {
                     |x: &Scalar| Ok(*x),
                     |_: &Scalar| Ok(1.0),
                     1.0,
-                    EqualityConstraint::None,
+                    vec![EqualityConstraint::None],
                     None,
                 )?,
             )
@@ -126,7 +126,7 @@ mod minimize {
                         |x: &Scalar| Ok(*x),
                         |_: &Scalar| Ok(1.0),
                         1.0,
-                        EqualityConstraint::None,
+                        vec![EqualityConstraint::None],
                         None,
                     )?,
                 )
@@ -150,7 +150,7 @@ mod minimize {
                         |x: &Scalar| Ok(*x),
                         |_: &Scalar| Ok(1.0),
                         1.0,
-                        EqualityConstraint::None,
+                        vec![EqualityConstraint::None],
                         None,
                     )?,
                 )
@@ -168,7 +168,7 @@ mod root {
             |x: &Scalar| Ok(*x),
             |_: &Scalar| Ok(1.0),
             1.0,
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
             None,
         )?)
     }
@@ -182,7 +182,7 @@ mod root {
             },
             |_: &Vector| Ok(SquareMatrix::from([[1.0, 2.0], [3.0, -1.0]])),
             Vector::from([0.0, 0.0]),
-            EqualityConstraint::None,
+            vec![EqualityConstraint::None],
             sparse,
         )?)
     }
@@ -223,7 +223,7 @@ mod constrained {
             |x: &Vector| Ok(x.clone()),
             |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
             Vector::from([4.0, -3.0]),
-            constraint(),
+            vec![constraint()],
             None,
         )?)
     }
@@ -242,7 +242,7 @@ mod constrained {
             |x: &Vector| Ok(x.clone()),
             |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
             Vector::from([4.0, -3.0]),
-            constraint(),
+            vec![constraint()],
             None,
         )?)
     }
@@ -283,7 +283,7 @@ mod constrained {
                 Ok(hessian)
             },
             Vector::from([4.0, -3.0]),
-            constraint(),
+            vec![constraint()],
             None,
         )?;
         Assert::default().eq_within_tols(&result, &Vector::from([1.0, 1.0]))
@@ -304,7 +304,7 @@ mod constrained {
             |x: &Vector| Ok(x * SCALE),
             |_: &Vector| Ok(SquareMatrix::from([[SCALE, 0.0], [0.0, SCALE]])),
             Vector::from([4.0, -3.0]),
-            constraint(),
+            vec![constraint()],
             None,
         )
     }
@@ -363,7 +363,7 @@ mod constrained {
                 |x: &Vector| Ok(x.clone()),
                 |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
                 Vector::from([4.0, -3.0]),
-                constraint(),
+                vec![constraint()],
                 None,
             )?,
             &Vector::from([1.0, 1.0]),
@@ -388,7 +388,7 @@ mod constrained {
             {
                 let mut matrix = Matrix::zero(1, 2);
                 matrix[0][1] = 1.0;
-                EqualityConstraint::Linear(matrix, Vector::from([1.0]))
+                vec![EqualityConstraint::Linear(matrix, Vector::from([1.0]))]
             },
             None,
         )
@@ -426,7 +426,7 @@ mod constrained {
                 ]))
             },
             Vector::from([2.0, 0.0]),
-            EqualityConstraint::Linear(matrix, Vector::zero(1)),
+            vec![EqualityConstraint::Linear(matrix, Vector::zero(1))],
             None,
         )
     }
@@ -470,7 +470,7 @@ mod constrained {
                 ]))
             },
             Vector::from([2.0, 0.0]),
-            EqualityConstraint::Linear(matrix, Vector::zero(1)),
+            vec![EqualityConstraint::Linear(matrix, Vector::zero(1))],
             None,
         )
     }
@@ -515,7 +515,10 @@ mod constrained {
             |x: &Vector| Ok(x.clone()),
             |_: &Vector| Ok(tangent.clone()),
             initial_guess,
-            EqualityConstraint::Linear(constraint_matrix, Vector::zero(1)),
+            vec![EqualityConstraint::Linear(
+                constraint_matrix,
+                Vector::zero(1),
+            )],
             None,
         )
     }
@@ -552,7 +555,7 @@ mod fixed {
                 |x: &Vector| Ok(Vector::from([x[0] - 4.0, x[1] - 7.0])),
                 |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
                 Vector::from([0.0, 3.0]),
-                EqualityConstraint::Fixed(vec![1]),
+                vec![EqualityConstraint::Fixed(vec![1])],
                 None,
             )?,
             &Vector::from([4.0, 3.0]),
@@ -597,7 +600,10 @@ mod prescribed {
                 |x: &Vector| Ok(Vector::from([x[0] - 4.0, x[1] - 7.0])),
                 |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
                 Vector::from([0.0, 3.0]),
-                EqualityConstraint::Prescribed(vec![(1, Prescription::Absolute(5.0))]),
+                vec![EqualityConstraint::Prescribed(vec![(
+                    1,
+                    Prescription::Absolute(5.0),
+                )])],
                 None,
             )?,
             &Vector::from([4.0, 5.0]),
@@ -610,7 +616,10 @@ mod prescribed {
                 |x: &Vector| Ok(Vector::from([x[0] - 4.0, x[1] - 7.0])),
                 |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
                 Vector::from([0.0, 3.0]),
-                EqualityConstraint::Prescribed(vec![(1, Prescription::Offset(0.5))]),
+                vec![EqualityConstraint::Prescribed(vec![(
+                    1,
+                    Prescription::Offset(0.5),
+                )])],
                 None,
             )?,
             &Vector::from([4.0, 3.5]),
@@ -623,7 +632,10 @@ mod prescribed {
                 |x: &Vector| Ok(Vector::from([x[0] - 4.0, x[1] - 7.0])),
                 |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
                 Vector::from([0.0, 3.0]),
-                EqualityConstraint::Prescribed(vec![(1, Prescription::Initial)]),
+                vec![EqualityConstraint::Prescribed(vec![(
+                    1,
+                    Prescription::Initial,
+                )])],
                 None,
             )?,
             &Vector::from([4.0, 3.0]),
@@ -635,14 +647,17 @@ mod prescribed {
             residual,
             tangent,
             Vector::zero(3),
-            EqualityConstraint::Prescribed(vec![(2, Prescription::Absolute(0.7))]),
+            vec![EqualityConstraint::Prescribed(vec![(
+                2,
+                Prescription::Absolute(0.7),
+            )])],
             None,
         )?;
         let multiplied = NewtonRaphson::default().root(
             residual,
             tangent,
             Vector::zero(3),
-            multiplier(),
+            vec![multiplier()],
             None,
         )?;
         Assert::default().eq_within_tols(&eliminated, &Vector::from(SOLUTION))?;
@@ -677,10 +692,10 @@ mod prescribed {
                 },
                 |_: &Vector| Ok(Vector::from([2.0, 4.0, 5.0])),
                 Vector::zero(3),
-                EqualityConstraint::Prescribed(vec![
+                vec![EqualityConstraint::Prescribed(vec![
                     (1, Prescription::Absolute(9.0)),
                     (2, Prescription::Offset(1.0)),
-                ]),
+                ])],
                 None,
             )?,
             &Vector::from([1.0, 9.0, 1.0]),
@@ -696,7 +711,7 @@ mod prescribed {
                     |x: &Vector| Ok(Vector::from([x[0], x[1], x[2]])),
                     |_: &Vector| Ok(Vector::from([1.0, 1.0, 1.0])),
                     Vector::zero(3),
-                    EqualityConstraint::Linear(matrix, Vector::from([0.7])),
+                    vec![EqualityConstraint::Linear(matrix, Vector::from([0.7]))],
                     None,
                 )
                 .is_err()
@@ -709,7 +724,10 @@ mod prescribed {
                 residual,
                 tangent,
                 Vector::from([0.0, 0.0, 0.2]),
-                EqualityConstraint::Prescribed(vec![(2, Prescription::Offset(0.5))]),
+                vec![EqualityConstraint::Prescribed(vec![(
+                    2,
+                    Prescription::Offset(0.5),
+                )])],
                 None,
             )?,
             &Vector::from(SOLUTION),
@@ -722,7 +740,10 @@ mod prescribed {
             residual,
             tangent,
             Vector::zero(3),
-            EqualityConstraint::Prescribed(vec![(2, Prescription::Absolute(0.7))]),
+            vec![EqualityConstraint::Prescribed(vec![(
+                2,
+                Prescription::Absolute(0.7),
+            )])],
             None,
         )?;
         let multiplied = NewtonRaphson::default().minimize(
@@ -730,11 +751,140 @@ mod prescribed {
             residual,
             tangent,
             Vector::zero(3),
-            multiplier(),
+            vec![multiplier()],
             None,
         )?;
         Assert::default().eq_within_tols(&eliminated, &Vector::from(SOLUTION))?;
         Assert::default().eq_within_tols(&multiplied, &eliminated)
+    }
+}
+
+mod multiplied {
+    use super::*;
+    use crate::math::{Matrix, SquareMatrix, Vector, optimize::Prescription, sparse::SparseSolver};
+    fn residual(x: &Vector) -> Result<Vector, String> {
+        Ok([
+            2.0 * x[0] - x[1] - 1.0,
+            -x[0] + 2.0 * x[1] - x[2],
+            -x[1] + 2.0 * x[2] - 1.0,
+        ]
+        .into())
+    }
+    fn tangent(_: &Vector) -> Result<SquareMatrix, String> {
+        Ok([[2.0, -1.0, 0.0], [-1.0, 2.0, -1.0], [0.0, -1.0, 2.0]].into())
+    }
+    fn energy(x: &Vector) -> Result<Scalar, String> {
+        Ok(0.5
+            * (2.0 * x[0] * x[0] - 2.0 * x[0] * x[1] + 2.0 * x[1] * x[1] - 2.0 * x[1] * x[2]
+                + 2.0 * x[2] * x[2])
+            - x[0]
+            - x[2])
+    }
+    fn solver(rows: usize) -> Option<SparseSolver> {
+        let mut pattern = vec![(0, 0), (0, 1), (1, 0), (1, 1), (1, 2), (2, 1), (2, 2)];
+        (0..rows).for_each(|row| {
+            pattern.push((3 + row, 2));
+            pattern.push((2, 3 + row));
+        });
+        Some(SparseSolver::from_pattern(3 + rows, pattern, true))
+    }
+    fn mixed() -> EqualityConstraints {
+        vec![
+            EqualityConstraint::Prescribed(vec![(0, Prescription::Absolute(0.5))]),
+            EqualityConstraint::Multipliers(vec![(2, Prescription::Absolute(0.9))]),
+        ]
+    }
+    const SOLUTION: [Scalar; 3] = [0.5, 0.7, 0.9];
+    fn rooted(constraint: EqualityConstraints, sparse: Option<SparseSolver>) -> Vector {
+        NewtonRaphson::default()
+            .root(residual, tangent, Vector::zero(3), constraint, sparse)
+            .unwrap()
+    }
+    fn minimized(constraint: EqualityConstraints, sparse: Option<SparseSolver>) -> Vector {
+        NewtonRaphson::default()
+            .minimize(
+                energy,
+                residual,
+                tangent,
+                Vector::zero(3),
+                constraint,
+                sparse,
+            )
+            .unwrap()
+    }
+    #[test]
+    fn what_is_multiplied_is_held_at_its_value() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            rooted(
+                vec![EqualityConstraint::Multipliers(vec![(
+                    2,
+                    Prescription::Absolute(0.7),
+                )])],
+                None,
+            ),
+            &Vector::from([0.9, 0.8, 0.7]),
+        )
+    }
+    #[test]
+    fn an_offset_and_a_hold_are_relative_to_the_initial_guess() -> Result<(), AssertionError> {
+        let solve = |prescription| {
+            NewtonRaphson::default()
+                .root(
+                    |x: &Vector| Ok(Vector::from([x[0] - 4.0, x[1] - 7.0])),
+                    |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+                    Vector::from([0.0, 3.0]),
+                    vec![EqualityConstraint::Multipliers(vec![(1, prescription)])],
+                    None,
+                )
+                .unwrap()
+        };
+        Assert::default()
+            .eq_within_tols(solve(Prescription::Offset(0.5)), &Vector::from([4.0, 3.5]))?;
+        Assert::default().eq_within_tols(solve(Prescription::Initial), &Vector::from([4.0, 3.0]))
+    }
+    #[test]
+    fn one_index_eliminated_and_another_multiplied_find_the_root() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(rooted(mixed(), None), &Vector::from(SOLUTION))?;
+        Assert::default().eq_within_tols(rooted(mixed(), solver(1)), &Vector::from(SOLUTION))
+    }
+    #[test]
+    fn one_index_eliminated_and_another_multiplied_find_the_minimum() -> Result<(), AssertionError>
+    {
+        Assert::default().eq_within_tols(minimized(mixed(), None), &Vector::from(SOLUTION))?;
+        Assert::default().eq_within_tols(minimized(mixed(), solver(1)), &Vector::from(SOLUTION))
+    }
+    #[test]
+    fn the_same_constraint_held_either_way_gives_the_same_answer() -> Result<(), AssertionError> {
+        let entries = vec![
+            (0, Prescription::Absolute(0.5)),
+            (2, Prescription::Absolute(0.9)),
+        ];
+        let eliminated = rooted(vec![EqualityConstraint::Prescribed(entries.clone())], None);
+        let multiplied = rooted(vec![EqualityConstraint::Multipliers(entries)], None);
+        Assert::default().eq_within_tols(&eliminated, &Vector::from(SOLUTION))?;
+        Assert::default().eq_within_tols(&multiplied, &eliminated)
+    }
+    #[test]
+    fn an_eliminated_index_still_counts_in_a_linear_constraint() -> Result<(), AssertionError> {
+        let mut matrix = Matrix::zero(1, 3);
+        matrix[0][0] = 1.0;
+        matrix[0][2] = 1.0;
+        let constraint = vec![
+            EqualityConstraint::Prescribed(vec![(0, Prescription::Absolute(0.5))]),
+            EqualityConstraint::Linear(matrix, Vector::from([1.4])),
+        ];
+        Assert::default()
+            .eq_within_tols(rooted(constraint.clone(), None), &Vector::from(SOLUTION))?;
+        Assert::default().eq_within_tols(rooted(constraint, solver(1)), &Vector::from(SOLUTION))
+    }
+    #[test]
+    fn the_last_entry_wins_whichever_way_it_is_held() -> Result<(), AssertionError> {
+        let constraint = vec![
+            EqualityConstraint::Multipliers(vec![(0, Prescription::Absolute(9.0))]),
+            EqualityConstraint::Prescribed(vec![(0, Prescription::Absolute(0.5))]),
+            EqualityConstraint::Multipliers(vec![(2, Prescription::Absolute(0.9))]),
+        ];
+        Assert::default().eq_within_tols(rooted(constraint, None), &Vector::from(SOLUTION))
     }
 }
 
@@ -960,7 +1110,7 @@ mod verified_minimum {
     }
     fn minimized(
         curvature: [Scalar; 2],
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<Vector, OptimizationError> {
         NewtonRaphson::default().minimize(
@@ -992,7 +1142,7 @@ mod verified_minimum {
     fn unconstrained_minimum() {
         BOTH.iter().for_each(|&sparse| {
             let solver = solver(sparse, 2, diagonal_pattern());
-            assert!(minimized([1.0, 2.0], EqualityConstraint::None, solver).is_ok())
+            assert!(minimized([1.0, 2.0], vec![EqualityConstraint::None], solver).is_ok())
         })
     }
     #[test]
@@ -1001,7 +1151,7 @@ mod verified_minimum {
             let solver = solver(sparse, 2, diagonal_pattern());
             assert!(is_not_minimum(minimized(
                 [1.0, -1.0],
-                EqualityConstraint::None,
+                vec![EqualityConstraint::None],
                 solver
             )))
         })
@@ -1012,7 +1162,7 @@ mod verified_minimum {
             let solver = solver(sparse, 2, diagonal_pattern());
             assert!(is_not_minimum(minimized(
                 [-1.0, -2.0],
-                EqualityConstraint::None,
+                vec![EqualityConstraint::None],
                 solver
             )))
         })
@@ -1042,7 +1192,7 @@ mod verified_minimum {
                     ]))
                 },
                 Vector::from([1.0, 1.0, 1.0]),
-                EqualityConstraint::Fixed(vec![2]),
+                vec![EqualityConstraint::Fixed(vec![2])],
                 solver(sparse, 2, diagonal_pattern()),
             )
         };
@@ -1055,7 +1205,7 @@ mod verified_minimum {
     fn constrained_minimum_with_indefinite_hessian() {
         BOTH.iter().for_each(|&sparse| {
             let solver = solver(sparse, 3, bordered_pattern());
-            assert!(minimized([3.0, -1.0], sum_constraint(), solver).is_ok())
+            assert!(minimized([3.0, -1.0], vec![sum_constraint()], solver).is_ok())
         })
     }
     #[test]
@@ -1064,7 +1214,7 @@ mod verified_minimum {
             let solver = solver(sparse, 3, bordered_pattern());
             assert!(is_not_minimum(minimized(
                 [1.0, -3.0],
-                sum_constraint(),
+                vec![sum_constraint()],
                 solver
             )))
         })
@@ -1077,7 +1227,7 @@ mod verified_minimum {
                 |x: &Scalar| Ok(curvature * x),
                 |_: &Scalar| Ok(curvature),
                 1.0,
-                EqualityConstraint::None,
+                vec![EqualityConstraint::None],
                 None,
             )
         };

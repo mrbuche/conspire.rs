@@ -213,7 +213,7 @@ where
                     Ok(self.first_piola_kirchhoff_tangent_stiffness(deformation_gradient)?)
                 },
                 DeformationGradient::identity(),
-                EqualityConstraint::Linear(matrix, vector),
+                vec![EqualityConstraint::Linear(matrix, vector)],
                 None,
             )
             .map_err(|error| ConstitutiveError::upstream(error, self))

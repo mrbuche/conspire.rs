@@ -13,7 +13,7 @@ use crate::{
     math::{
         Quantity, Scalar,
         integrate::{ExplicitDynamics, IntegrationError},
-        optimize::EqualityConstraint,
+        optimize::EqualityConstraints,
     },
     units::Time,
 };
@@ -43,7 +43,7 @@ pub trait ElasticExplicitDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &impl MassMatrix<3>,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>;
     /// Integrates the motion of the model like [`integrate`](Self::integrate), with a time
     /// step limited by the fastest time scale of the elements.
@@ -68,7 +68,7 @@ pub trait ElasticExplicitDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &NodalLumpedMasses,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>
     where
         Self: TimeScaleElements<3>;
@@ -98,7 +98,7 @@ where
         (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &impl MassMatrix<3>,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError> {
         let (masses, initial_velocities) = held(masses, equality_constraint, initial_velocities)?;
         integrator.integrate(
@@ -125,7 +125,7 @@ where
         (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &NodalLumpedMasses,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>
     where
         Self: TimeScaleElements<3>,

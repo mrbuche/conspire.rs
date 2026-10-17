@@ -24,7 +24,7 @@ use crate::{
     math::{
         Quantity, Scalar, Tensor,
         integrate::{ExplicitDynamicsCoupled, IntegrationError, Spectrum, Times},
-        optimize::EqualityConstraint,
+        optimize::EqualityConstraints,
     },
     units::Time,
 };
@@ -41,7 +41,7 @@ type Solution = (
 fn held<M, C>(
     masses: &M,
     capacities: &C,
-    equality_constraint: EqualityConstraint,
+    equality_constraint: EqualityConstraints,
     mut velocities: NodalVelocities<3>,
 ) -> Result<(M::Inverse, C::Inverse, NodalVelocities<3>), IntegrationError>
 where
@@ -112,7 +112,7 @@ pub trait ThermoelasticThermalConductionDynamics {
         external_heating: &NodalForcesThermal,
         masses: &impl MassMatrix<3>,
         capacities: &impl HeatCapacityMatrix,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>;
     /// Integrates the motion and temperatures of the model like [`integrate`](Self::integrate),
     /// with a time step limited by the fastest time scales of the elements.
@@ -145,7 +145,7 @@ pub trait ThermoelasticThermalConductionDynamics {
         external_heating: &NodalForcesThermal,
         masses: &NodalLumpedMasses,
         capacities: &NodalLumpedHeatCapacities,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>
     where
         Self: ThermoelasticThermalConductionTimeScaleElements;
@@ -192,7 +192,7 @@ where
         external_heating: &NodalForcesThermal,
         masses: &impl MassMatrix<3>,
         capacities: &impl HeatCapacityMatrix,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError> {
         let (masses, capacities, initial_velocities) =
             held(masses, capacities, equality_constraint, initial_velocities)?;
@@ -238,7 +238,7 @@ where
         external_heating: &NodalForcesThermal,
         masses: &NodalLumpedMasses,
         capacities: &NodalLumpedHeatCapacities,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Solution, IntegrationError>
     where
         Self: ThermoelasticThermalConductionTimeScaleElements,

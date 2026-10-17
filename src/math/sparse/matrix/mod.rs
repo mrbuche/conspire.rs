@@ -3,7 +3,10 @@ mod test;
 
 mod amd;
 
-use crate::math::{HessianBlock, Scalar, TensorRank1Vec, TensorRank2, Vector};
+use crate::math::{
+    HessianBlock, Quantity, QuantityVector, Scalar, TensorRank1, TensorRank1Vec, TensorRank2,
+    TensorTuple, TensorTupleVec, Vector,
+};
 use std::ops::{IndexMut, Mul};
 
 /// A sparse matrix in compressed sparse column format.
@@ -272,17 +275,82 @@ impl Mul<&Vector> for &CscMatrix {
     }
 }
 
-impl<const D: usize, I, J> Mul<&TensorRank2<D, I, J>> for &CscMatrix {
+impl<const D: usize, I, J, U> Mul<&TensorRank2<D, I, J, U>> for &CscMatrix {
     type Output = Vector;
-    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J>) -> Self::Output {
+    fn mul(self, tensor_rank_2: &TensorRank2<D, I, J, U>) -> Self::Output {
         self.multiply(|j| tensor_rank_2[j / D][j % D].value())
     }
 }
 
-impl<const D: usize, I> Mul<&TensorRank1Vec<D, I>> for &CscMatrix {
+impl<const D: usize, I, U> Mul<&TensorRank1Vec<D, I, U>> for &CscMatrix {
     type Output = Vector;
-    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I>) -> Self::Output {
+    fn mul(self, tensor_rank_1_vec: &TensorRank1Vec<D, I, U>) -> Self::Output {
         self.multiply(|j| tensor_rank_1_vec[j / D][j % D].value())
+    }
+}
+
+impl<const D: usize, I, U> Mul<&TensorRank1<D, I, U>> for &CscMatrix {
+    type Output = Vector;
+    fn mul(self, tensor_rank_1: &TensorRank1<D, I, U>) -> Self::Output {
+        self.multiply(|j| tensor_rank_1[j].value())
+    }
+}
+
+impl Mul<&Scalar> for &CscMatrix {
+    type Output = Vector;
+    fn mul(self, scalar: &Scalar) -> Self::Output {
+        self.multiply(|_| *scalar)
+    }
+}
+
+impl<U> Mul<&Quantity<U>> for &CscMatrix {
+    type Output = Vector;
+    fn mul(self, quantity: &Quantity<U>) -> Self::Output {
+        self.multiply(|_| quantity.value())
+    }
+}
+
+impl<U> Mul<&QuantityVector<U>> for &CscMatrix {
+    type Output = Vector;
+    fn mul(self, quantity_vector: &QuantityVector<U>) -> Self::Output {
+        self.multiply(|j| quantity_vector[j].value())
+    }
+}
+
+impl<const D: usize, I, J, K, L, U, V>
+    Mul<&TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, V>>> for &CscMatrix
+{
+    type Output = Vector;
+    fn mul(
+        self,
+        tensor_tuple: &TensorTuple<TensorRank2<D, I, J, U>, TensorRank2<D, K, L, V>>,
+    ) -> Self::Output {
+        let (tensor_rank_2_a, tensor_rank_2_b) = tensor_tuple.into();
+        self.multiply(|j| {
+            if j < D * D {
+                tensor_rank_2_a[j / D][j % D].value()
+            } else {
+                tensor_rank_2_b[(j - D * D) / D][(j - D * D) % D].value()
+            }
+        })
+    }
+}
+
+impl<const D: usize, I, U1, U2> Mul<&TensorTupleVec<TensorRank1<D, I, U1>, Quantity<U2>>>
+    for &CscMatrix
+{
+    type Output = Vector;
+    fn mul(
+        self,
+        tensor_tuple_vec: &TensorTupleVec<TensorRank1<D, I, U1>, Quantity<U2>>,
+    ) -> Self::Output {
+        self.multiply(|j| {
+            let entry = &tensor_tuple_vec[j / (D + 1)];
+            match j % (D + 1) {
+                i if i < D => entry.0[i].value(),
+                _ => entry.1.value(),
+            }
+        })
     }
 }
 
