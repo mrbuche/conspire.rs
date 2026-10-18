@@ -1,13 +1,17 @@
+#[cfg(test)]
+mod test;
+
 pub(super) mod base;
 pub(super) mod iter;
 pub(super) mod polytopal;
 pub(super) mod primitive;
 
 use crate::{
-    geometry::mesh::connectivity::{
-        polytopal::PolytopalConnectivity, primitive::PrimitiveConnectivity,
+    geometry::mesh::{
+        SideSet,
+        connectivity::{polytopal::PolytopalConnectivity, primitive::PrimitiveConnectivity},
     },
-    math::Labels,
+    math::{FxHashMap, FxHashSet, Labels},
 };
 
 pub enum Connectivity {
@@ -36,6 +40,31 @@ impl Connectivities {
     }
     pub fn labels(&self) -> Option<&[usize]> {
         self.labels.as_ref().map(Labels::as_slice)
+    }
+    /// The nodes of the face of each side in a side set, in the order of the sides.
+    ///
+    /// There are none if the side set names an element or a face the blocks do not have.
+    pub fn faces_from(&self, side_set: &SideSet) -> Option<Vec<Vec<usize>>> {
+        let requested: FxHashSet<usize> = side_set
+            .sides()
+            .iter()
+            .map(|&(element, _)| element)
+            .collect();
+        let mut element_faces = FxHashMap::<usize, Vec<Vec<usize>>>::default();
+        let mut index = 0;
+        for block in &self.blocks {
+            for element in block.iter() {
+                if requested.contains(&index) {
+                    element_faces.insert(index, block.element_faces(element));
+                }
+                index += 1;
+            }
+        }
+        side_set
+            .sides()
+            .iter()
+            .map(|&(element, ordinal)| element_faces.get(&element)?.get(ordinal).cloned())
+            .collect()
     }
 }
 

@@ -178,8 +178,17 @@ impl<const D: usize> Mesh<D> {
     pub fn side_sets(&self) -> &SideSets {
         &self.side_sets
     }
+    /// Sets the sets of element sides, giving each the nodes of the face of every one of its
+    /// sides, unless it names an element or a face the mesh does not have.
     pub fn set_side_sets(&mut self, side_sets: SideSets) {
-        self.side_sets = side_sets;
+        self.side_sets = side_sets
+            .into_iter()
+            .map(|side_set| match self.connectivities.faces_from(&side_set) {
+                Some(faces) => side_set.with_faces(faces),
+                None => side_set,
+            })
+            .collect::<Vec<SideSet>>()
+            .into();
     }
     pub fn iter(&self) -> impl Iterator<Item = &Connectivity> {
         self.connectivities.blocks().iter()
