@@ -182,7 +182,7 @@ where
             join_states,
             split_states,
             solver,
-            equality_constraint,
+            |_| equality_constraint.clone(),
             Some(sparse),
             time,
             initial_coordinates,

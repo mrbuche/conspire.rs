@@ -127,7 +127,7 @@ where
             Scalar,
         ) -> Result<J, String>,
         solver: impl RootFinding<F, J, X>,
-        equality_constraint: EqualityConstraints,
+        equality_constraint: impl Fn(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
         time: &[Quantity<T>],
         initial_position: X,
@@ -165,7 +165,7 @@ where
                         tangent(t_next, x_trial, &v_trial, dt, beta, gamma)
                     },
                     x_predictor.clone(),
-                    equality_constraint.clone(),
+                    equality_constraint(t_next),
                     sparse.clone(),
                 )
                 .map_err(|error| IntegrationError::upstream(error, self))?;
@@ -231,7 +231,7 @@ where
         join: impl Fn(&X, &Y) -> Z,
         split: impl Fn(&Z) -> (X, Y),
         solver: impl RootFinding<F, J, Z>,
-        equality_constraint: EqualityConstraints,
+        equality_constraint: impl Fn(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
         time: &[Quantity<T>],
         initial_position: X,
@@ -287,7 +287,7 @@ where
                         tangent(t_next, &x_trial, &v_trial, &y_trial, dt, beta, gamma)
                     },
                     join(&x_predictor, &y),
-                    equality_constraint.clone(),
+                    equality_constraint(t_next),
                     sparse.clone(),
                 )
                 .map_err(|error| IntegrationError::upstream(error, self))?;
