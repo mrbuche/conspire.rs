@@ -305,6 +305,20 @@ macro_rules! test_surface_finite_element {
                     })
             }
         }
+        mod traction {
+            use super::*;
+            #[test]
+            fn sum_to_the_traction_on_the_area() -> Result<(), AssertionError> {
+                let traction = $crate::mechanics::Traction::from([1.0, 2.0, 3.0]);
+                let area = element().volume() / THICKNESS;
+                $crate::math::assert::Assert::default().eq_within_tols(
+                    &$element::traction_forces(&reference_coordinates(), &traction)
+                        .into_iter()
+                        .sum::<$crate::mechanics::Force>(),
+                    &(&traction * area),
+                )
+            }
+        }
         mod dual_bases {
             #[test]
             fn basis() -> Result<(), AssertionError> {

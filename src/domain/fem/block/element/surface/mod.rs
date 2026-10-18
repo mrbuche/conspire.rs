@@ -7,8 +7,8 @@ use crate::{
     },
     math::{CrossProduct, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank2},
     mechanics::{
-        Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
-        SurfaceDualBases,
+        ForceList, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
+        SurfaceDualBases, Traction,
     },
     units::{Area, Length, Rate, Volume},
 };
@@ -96,11 +96,31 @@ where
             })
             .collect()
     }
+    fn traction_forces(
+        reference_coordinates: &ElementNodalReferenceCoordinates<P>,
+        traction: &Traction,
+    ) -> ForceList<P> {
+        let shape_functions = Self::shape_functions_at_integration_points();
+        let areas = Self::bases(reference_coordinates)
+            .into_iter()
+            .zip(Self::parametric_weights())
+            .map(|(basis, parametric_weight)| basis[0].cross(&basis[1]).norm() * parametric_weight)
+            .collect::<Vec<_>>();
+        (0..P)
+            .map(|a| {
+                shape_functions
+                    .iter()
+                    .zip(&areas)
+                    .map(|(shape_functions, &area)| traction * area * shape_functions[a])
+                    .sum()
+            })
+            .collect()
+    }
     fn normals(nodal_coordinates: &ElementNodalCoordinates<P>) -> Normals<G> {
         Self::bases(nodal_coordinates)
             .into_iter()
-            .map(|basis_vectors| {
-                let normal = basis_vectors[0].cross(&basis_vectors[1]);
+            .map(|basis| {
+                let normal = basis[0].cross(&basis[1]);
                 let area = normal.norm();
                 normal / area
             })
