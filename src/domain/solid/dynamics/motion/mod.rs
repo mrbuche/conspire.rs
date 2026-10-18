@@ -123,8 +123,12 @@ where
     }
     /// Gives the degrees of freedom that are moved the motion they are held at in the history.
     pub(super) fn record(&self, times: &Times, coordinates: &mut NodalCoordinatesHistory<3>) {
-        times.iter().enumerate().for_each(|(k, &time)| {
-            self.apply(time, &mut coordinates[k]);
-        });
+        times
+            .iter()
+            .take(coordinates.len())
+            .enumerate()
+            .for_each(|(k, &time)| {
+                self.apply(time, &mut coordinates[k]);
+            });
     }
 }

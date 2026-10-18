@@ -110,8 +110,12 @@ where
     }
     /// Gives the temperatures that are moved the motion they are held at in the history.
     pub(super) fn record(&self, times: &Times, temperatures: &mut NodalTemperaturesHistory) {
-        times.iter().enumerate().for_each(|(k, &time)| {
-            self.apply(time, &mut temperatures[k]);
-        });
+        times
+            .iter()
+            .take(temperatures.len())
+            .enumerate()
+            .for_each(|(k, &time)| {
+                self.apply(time, &mut temperatures[k]);
+            });
     }
 }
