@@ -3,7 +3,10 @@ mod test;
 
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{FixedStep, ImplicitDynamics, ImplicitDynamicsCoupled, IntegrationError, Times},
+    integrate::{
+        FixedStep, ImplicitDynamics, ImplicitDynamicsCoupled, IntegrationError, Times,
+        fixed_step_times,
+    },
     optimize::{EqualityConstraints, RootFinding},
     sparse::SparseSolver,
 };
@@ -42,7 +45,7 @@ impl Newmark {
         let t_0 = time[0];
         let t_f = time[time.len() - 1];
         let dt_fixed = FixedStep::<T>::dt(self);
-        let mut t_sol: Times<T>;
+        let t_sol: Times<T>;
         if t_0 >= t_f {
             return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
         } else if time.len() == 2 {
@@ -53,11 +56,7 @@ impl Newmark {
                     format!("{self:?}"),
                 ));
             } else {
-                let max_steps = ((t_f - t_0).value() / dt_fixed.value()).ceil() as usize;
-                t_sol = (0..max_steps)
-                    .map(|step| t_0 + dt_fixed * (step as Scalar))
-                    .collect();
-                t_sol.push(t_f);
+                t_sol = fixed_step_times(t_0, t_f, dt_fixed);
             }
         } else {
             t_sol = time.iter().copied().collect();

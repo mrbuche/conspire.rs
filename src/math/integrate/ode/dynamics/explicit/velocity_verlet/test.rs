@@ -44,6 +44,18 @@ fn max_error(dt: Scalar) -> Scalar {
 }
 
 #[test]
+fn a_state_is_given_at_every_time_when_the_span_rounds_up_to_one_more_step() {
+    let dt = std::hint::black_box(1e-6_f64);
+    assert!((2000.0 * dt) / dt > 2000.0);
+    let (times, positions, velocities, accelerations) =
+        oscillate(&VelocityVerlet { dt }, 2000.0 * dt).unwrap();
+    assert_eq!(times.len(), 2001);
+    assert_eq!(positions.len(), times.len());
+    assert_eq!(velocities.len(), times.len());
+    assert_eq!(accelerations.len(), times.len());
+}
+
+#[test]
 fn fixed_step() {
     let integrator = VelocityVerlet { dt: 0.01 };
     assert_eq!(FixedStep::<Time>::dt(&integrator).value(), 0.01);

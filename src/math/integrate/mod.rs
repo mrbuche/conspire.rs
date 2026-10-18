@@ -9,11 +9,34 @@ mod field;
 mod ode;
 mod tableau;
 
-use crate::math::QuantityVector;
+use crate::math::{Quantity, QuantityVector, Scalar, TensorVec};
 use crate::units::Time;
 
 /// The variable of integration values.
 pub type Times<T = Time> = QuantityVector<T>;
+
+/// The values of a span stepped at a fixed step, the last step being shorter if the step does
+/// not divide the span.
+///
+/// A span that is a whole number of steps up to rounding is that number of steps, since
+/// rounding it up would end the values with the final one twice, or with a step that is only
+/// rounding. The rounding is that of the values, which is large when they are large next to
+/// the step, and of the count of the steps.
+pub(crate) fn fixed_step_times<T>(t_0: Quantity<T>, t_f: Quantity<T>, dt: Quantity<T>) -> Times<T> {
+    let steps = (t_f - t_0).value() / dt.value();
+    let whole = steps.round();
+    let magnitude = t_0.value().abs().max(t_f.value().abs()) / dt.value().abs();
+    let max_steps = if (steps - whole).abs() <= 4.0 * Scalar::EPSILON * (magnitude + whole) {
+        whole
+    } else {
+        steps.ceil()
+    } as usize;
+    let mut times: Times<T> = (0..max_steps.max(1))
+        .map(|step| t_0 + dt * (step as Scalar))
+        .collect();
+    times.push(t_f);
+    times
+}
 
 pub use error::IntegrationError;
 pub use field::{
