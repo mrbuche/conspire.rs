@@ -2,7 +2,7 @@ use super::{Solution, motion::Motion};
 use crate::{
     domain::{
         ElementModel, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
-        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         boundary::{ConstrainAt, Solid},
         solid::{
@@ -76,6 +76,7 @@ where
             initial_time,
             &mut initial_coordinates,
             initial_velocities,
+            Stepping::Implicit,
         )?;
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);

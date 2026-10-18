@@ -5,7 +5,7 @@ use super::{
 use crate::{
     domain::{
         ElementModel, Model, NodalCoordinates, NodalCoordinatesHistory, NodalVelocities,
-        NodalVelocitiesHistory,
+        NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         boundary::{ConstrainAt, SolidThermal},
         multiphysics::solid_thermal::{
@@ -111,6 +111,7 @@ where
             &mut initial_coordinates,
             &mut initial_temperatures,
             "implicit quasistatic thermoelastic-thermal transient",
+            Stepping::Implicit,
         )?;
         let inverse = capacities
             .inverse(&motion.held_temperatures())

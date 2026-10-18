@@ -2,7 +2,7 @@ use super::{Solution, motion::Motion};
 use crate::{
     domain::{
         ElementModelError, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
-        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
         boundary::{ConstrainAt, Solid},
         solid::{
             NodalForcesSolid,
@@ -109,6 +109,7 @@ where
             initial_time,
             &mut initial_coordinates,
             initial_velocities,
+            Stepping::Explicit,
         )?;
         let (times, mut coordinates, velocities, accelerations) = integrator.integrate(
             |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
@@ -158,6 +159,7 @@ where
             initial_time,
             &mut initial_coordinates,
             initial_velocities,
+            Stepping::Explicit,
         )?;
         let mut evaluations = 0;
         let mut time_scale = Time::seconds(Scalar::INFINITY);

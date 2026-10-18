@@ -2,7 +2,7 @@ use super::{Solution, ThermoelasticThermalConductionDynamics, held};
 use crate::{
     domain::{
         ElementModel, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
-        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         boundary::{ConstrainAt, SolidThermal},
         multiphysics::solid_thermal::{
@@ -111,6 +111,7 @@ where
             &mut initial_temperatures,
             initial_velocities,
             "implicit thermoelastic-thermal dynamics",
+            Stepping::Implicit,
         )?;
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);

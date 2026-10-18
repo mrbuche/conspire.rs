@@ -1,6 +1,7 @@
 use super::NodalTemperaturesHistory;
 use crate::{
     domain::{
+        Stepping,
         boundary::{ConstrainAt, Field},
         thermal::{NodalTemperatures, capacity::HeatCapacityMatrix},
     },
@@ -37,6 +38,7 @@ where
         initial_time: Quantity<Time>,
         temperatures: &mut NodalTemperatures,
         integrator: &str,
+        stepping: Stepping,
     ) -> Result<(M::Inverse, Self), IntegrationError>
     where
         M: HeatCapacityMatrix,
@@ -48,6 +50,15 @@ where
                 EqualityConstraint::None => {}
                 EqualityConstraint::Fixed(indices) => fixed.extend(indices),
                 EqualityConstraint::Prescribed(entries) => {
+                    entries.into_iter().for_each(|(index, prescription)| {
+                        if prescription == Prescription::Initial {
+                            fixed.insert(index);
+                        } else {
+                            moving.insert(index);
+                        }
+                    })
+                }
+                EqualityConstraint::Multipliers(entries) if stepping == Stepping::Implicit => {
                     entries.into_iter().for_each(|(index, prescription)| {
                         if prescription == Prescription::Initial {
                             fixed.insert(index);
@@ -90,7 +101,9 @@ where
     fn targets(&self, time: Quantity<Time>) -> BTreeMap<usize, f64> {
         let mut targets = BTreeMap::new();
         for constraint in self.constraint_at(time) {
-            if let EqualityConstraint::Prescribed(entries) = constraint {
+            if let EqualityConstraint::Prescribed(entries)
+            | EqualityConstraint::Multipliers(entries) = constraint
+            {
                 for (node, prescription) in entries {
                     if let Prescription::Absolute(value) = prescription {
                         targets.insert(node, value);

@@ -8,7 +8,7 @@ pub use implicit::ThermalConductionImplicitTransient;
 
 use crate::{
     domain::{
-        ElementModelError, Model,
+        ElementModelError, Model, Stepping,
         boundary::{ConstrainAt, Field},
         diffusion::DiffusionElements,
         thermal::{
@@ -128,6 +128,7 @@ where
             initial_time,
             &mut initial_temperatures,
             "explicit thermal transient",
+            Stepping::Explicit,
         )?;
         let (times, mut temperatures, rates) = integrator.integrate(
             |time, temperatures: &NodalTemperatures| {
@@ -175,6 +176,7 @@ where
             initial_time,
             &mut initial_temperatures,
             "explicit thermal transient",
+            Stepping::Explicit,
         )?;
         let mut evaluations = 0;
         let mut time_scale = Time::seconds(Scalar::INFINITY);

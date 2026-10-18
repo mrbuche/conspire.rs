@@ -61,6 +61,17 @@ pub(crate) fn nodal_coordinates<const D: usize>(
         .collect()
 }
 
+/// How a scheme steps through time.
+///
+/// An explicit scheme has no solve, so it imposes the degrees of freedom that are held
+/// itself, and an implicit one gives them to the solve of its step, which may hold them by
+/// multipliers.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Stepping {
+    Explicit,
+    Implicit,
+}
+
 pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, Current, Length>;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub type NodalCoordinatesHistory<const D: usize> = TensorRank1Vec2D<D, Current, Length>;

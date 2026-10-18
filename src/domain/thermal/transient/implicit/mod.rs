@@ -1,7 +1,7 @@
 use super::{NodalTemperatureRatesHistory, NodalTemperaturesHistory, Solution, motion::Motion};
 use crate::{
     domain::{
-        ElementModel, Model,
+        ElementModel, Model, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         boundary::{ConstrainAt, Field},
         diffusion::DiffusionElements,
@@ -74,6 +74,7 @@ where
             initial_time,
             &mut initial_temperatures,
             "implicit thermal transient",
+            Stepping::Implicit,
         )?;
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);

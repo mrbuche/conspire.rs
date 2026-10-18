@@ -6,7 +6,7 @@ use super::{motion::Motion, rates::ThermoelasticThermalConductionRateElements};
 use crate::{
     domain::{
         ElementModelError, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
-        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
         boundary::{ConstrainAt, SolidThermal},
         solid::{
             NodalForcesSolid,
@@ -47,6 +47,7 @@ fn held<'c, M, C, K>(
     temperatures: &mut NodalTemperatures,
     mut velocities: NodalVelocities<3>,
     integrator: &str,
+    stepping: Stepping,
 ) -> Result<(M::Inverse, C::Inverse, NodalVelocities<3>, Motion<'c, K>), IntegrationError>
 where
     M: MassMatrix<3>,
@@ -59,6 +60,7 @@ where
         coordinates,
         temperatures,
         integrator,
+        stepping,
     )?;
     let masses = masses
         .inverse(&motion.held_coordinates())
@@ -205,6 +207,7 @@ where
             &mut initial_temperatures,
             initial_velocities,
             "explicit thermoelastic-thermal dynamics",
+            Stepping::Explicit,
         )?;
         let (times, mut coordinates, velocities, accelerations, mut temperatures, rates) =
             integrator.integrate_coupled(
@@ -284,6 +287,7 @@ where
             &mut initial_temperatures,
             initial_velocities,
             "explicit thermoelastic-thermal dynamics",
+            Stepping::Explicit,
         )?;
         let mut evaluations = 0;
         let mut time_scales = (

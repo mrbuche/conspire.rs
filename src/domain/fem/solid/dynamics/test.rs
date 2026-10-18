@@ -696,23 +696,53 @@ mod integrate_implicit {
         Ok(())
     }
     #[test]
-    fn constraints_held_by_multipliers_are_not_supported() {
+    fn nodes_moved_with_the_body_by_multipliers_leave_it_in_uniform_motion()
+    -> Result<(), AssertionError> {
+        use crate::{
+            fem::boundary::{BoundaryConditions, ConstrainAt, Displacement},
+            units::Length,
+        };
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
-        let result = ElasticImplicitDynamics::integrate(
+        let by = Enforcement::Multipliers;
+        let conditions = BoundaryConditions::<Solid<3>>::new()
+            .prescribe_nodes_with_by(by, Displacement::<0>, 0..3, |time| {
+                Length::meters(3.0 * time.value())
+            })
+            .prescribe_nodes_with_by(by, Displacement::<1>, 0..3, |time| {
+                Length::meters(-time.value())
+            })
+            .prescribe_nodes_with_by(by, Displacement::<2>, 0..3, |time| {
+                Length::meters(2.0 * time.value())
+            });
+        let (times, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
             &integrator(dt),
             solver(),
             &time(dt),
             (
                 NodalCoordinates::from(COORDINATES),
-                uniform_velocities([0.0; 3]),
+                uniform_velocities([3.0, -1.0, 2.0]),
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            &Rows::<Solid<3>>::new(Enforcement::Multipliers).hold(0, Prescription::Initial),
-        );
-        assert!(result.is_err());
+            &conditions,
+        )?;
+        let elapsed = times[times.len() - 1].in_seconds();
+        let expected =
+            COORDINATES.map(|[x, y, z]| [x + 3.0 * elapsed, y - 1.0 * elapsed, z + 2.0 * elapsed]);
+        noise_tolerant().eq_within_tols(
+            &coordinates[coordinates.len() - 1],
+            &NodalCoordinates::from(expected),
+        )?;
+        noise_tolerant().eq_within_tols(
+            &velocities[velocities.len() - 1],
+            &uniform_velocities([3.0, -1.0, 2.0]),
+        )?;
+        noise_tolerant().eq_within_tols(
+            &accelerations[accelerations.len() - 1],
+            &NodalAccelerations::zero(COORDINATES.len()),
+        )
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::{
     domain::{
-        NodalCoordinates, NodalCoordinatesHistory,
+        NodalCoordinates, NodalCoordinatesHistory, Stepping,
         boundary::{ConstrainAt, SolidThermal},
         multiphysics::solid_thermal::{NodalStatesSolidThermal, join_states},
         thermal::{NodalTemperatures, transient::NodalTemperaturesHistory},
@@ -41,6 +41,7 @@ where
         coordinates: &mut NodalCoordinates<3>,
         temperatures: &mut NodalTemperatures,
         integrator: &str,
+        stepping: Stepping,
     ) -> Result<Self, IntegrationError> {
         let mut fixed = BTreeSet::new();
         let mut moving = BTreeSet::new();
@@ -49,6 +50,15 @@ where
                 EqualityConstraint::None => {}
                 EqualityConstraint::Fixed(indices) => fixed.extend(indices),
                 EqualityConstraint::Prescribed(entries) => {
+                    entries.into_iter().for_each(|(index, prescription)| {
+                        if prescription == Prescription::Initial {
+                            fixed.insert(index);
+                        } else {
+                            moving.insert(index);
+                        }
+                    })
+                }
+                EqualityConstraint::Multipliers(entries) if stepping == Stepping::Implicit => {
                     entries.into_iter().for_each(|(index, prescription)| {
                         if prescription == Prescription::Initial {
                             fixed.insert(index);
@@ -118,7 +128,9 @@ where
     fn targets(&self, time: Quantity<Time>) -> BTreeMap<usize, f64> {
         let mut targets = BTreeMap::new();
         for constraint in self.constraint_at(time) {
-            if let EqualityConstraint::Prescribed(entries) = constraint {
+            if let EqualityConstraint::Prescribed(entries)
+            | EqualityConstraint::Multipliers(entries) = constraint
+            {
                 for (index, prescription) in entries {
                     if let Prescription::Absolute(value) = prescription {
                         targets.insert(index, value);

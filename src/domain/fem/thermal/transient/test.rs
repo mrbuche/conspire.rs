@@ -379,6 +379,60 @@ mod integrate_implicit {
             .for_each(|rates| rates.iter().for_each(|r| near(r.value(), rate, 1e-9)));
     }
     #[test]
+    fn temperatures_moved_with_the_body_by_multipliers_leave_it_on_the_same_ramp() {
+        use crate::fem::boundary::{
+            BoundaryConditions, ConstrainAt, Enforcement, Field, Temperature as Component,
+        };
+        let model = model();
+        let dt = 50.0 * limit(&model);
+        let rate = 2.0;
+        let capacities = model.nodal_lumped_heat_capacities();
+        let heating = NodalForcesThermal::from(std::array::from_fn::<_, NODES, _>(|node| {
+            crate::units::Energy::joules(capacities[node].value() * rate) / Time::seconds(1.0)
+        }));
+        let conditions = BoundaryConditions::<Field<Temperature>>::new().prescribe_nodes_with_by(
+            Enforcement::Multipliers,
+            Component,
+            0..2,
+            |time| Temperature::kelvin(300.0 + rate * time.value()),
+        );
+        let (times, history, _) = run(
+            &model,
+            &capacities,
+            &times(dt, 20),
+            temperatures([300.0; NODES]),
+            &heating,
+            &conditions,
+        );
+        let elapsed = times[times.len() - 1].value();
+        values(history.iter().last().unwrap())
+            .iter()
+            .for_each(|&temperature| near(temperature, 300.0 + rate * elapsed, 1e-9));
+    }
+    #[test]
+    fn the_explicit_integration_rejects_temperatures_held_by_multipliers() {
+        use crate::fem::boundary::{
+            BoundaryConditions, ConstrainAt, Enforcement, Field, Temperature as Component,
+        };
+        let model = model();
+        let conditions = BoundaryConditions::<Field<Temperature>>::new().prescribe_nodes_with_by(
+            Enforcement::Multipliers,
+            Component,
+            0..2,
+            |time| Temperature::kelvin(300.0 + time.value()),
+        );
+        let result = ThermalConductionTransient::integrate(
+            &model,
+            &Euler::default(),
+            &times(1e-6, 2),
+            temperatures([300.0; NODES]),
+            &NodalForcesThermal::zero(NODES),
+            &model.nodal_lumped_heat_capacities(),
+            &conditions,
+        );
+        assert!(result.is_err());
+    }
+    #[test]
     fn an_insulated_body_conserves_its_heat_and_relaxes_at_many_times_the_explicit_limit() {
         let model = model();
         let dt = 50.0 * limit(&model);

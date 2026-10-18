@@ -1,6 +1,6 @@
 use crate::{
     domain::{
-        NodalCoordinates, NodalCoordinatesHistory, NodalVelocities,
+        NodalCoordinates, NodalCoordinatesHistory, NodalVelocities, Stepping,
         boundary::{ConstrainAt, Solid},
         solid::mass::MassMatrix,
     },
@@ -38,6 +38,7 @@ where
         initial_time: Quantity<Time>,
         coordinates: &mut NodalCoordinates<3>,
         mut velocities: NodalVelocities<3>,
+        stepping: Stepping,
     ) -> Result<(M::Inverse, NodalVelocities<3>, Self), IntegrationError>
     where
         M: MassMatrix<3>,
@@ -57,9 +58,18 @@ where
                         }
                     })
                 }
+                EqualityConstraint::Multipliers(entries) if stepping == Stepping::Implicit => {
+                    entries.into_iter().for_each(|(index, prescription)| {
+                        if prescription == Prescription::Initial {
+                            fixed.insert(index);
+                        } else {
+                            moving.insert(index);
+                        }
+                    })
+                }
                 EqualityConstraint::Multipliers(_) => {
                     return Err(IntegrationError::Intermediate(
-                        "Constraints held by multipliers are not supported by dynamics."
+                        "Constraints held by multipliers are not supported by explicit dynamics."
                             .to_string(),
                     ));
                 }
@@ -95,7 +105,9 @@ where
     fn targets(&self, time: Quantity<Time>) -> BTreeMap<usize, f64> {
         let mut targets = BTreeMap::new();
         for constraint in self.conditions.constraint_at(time) {
-            if let EqualityConstraint::Prescribed(entries) = constraint {
+            if let EqualityConstraint::Prescribed(entries)
+            | EqualityConstraint::Multipliers(entries) = constraint
+            {
                 for (dof, prescription) in entries {
                     let start = self.anchor[dof / 3][dof % 3].value();
                     match prescription {
