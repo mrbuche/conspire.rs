@@ -1,5 +1,6 @@
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
+    domain::solid::dynamics::test::fixed_dofs,
     domain::solid::hyperelastic::HyperelasticElements,
     math::{
         Quantity, Tensor,
@@ -115,7 +116,7 @@ mod explicit {
             ),
             &weights,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -246,7 +247,7 @@ mod implicit {
             state(),
             &zero,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let moved = (implicit[100][4][2] - implicit[0][4][2]).norm().value();
         assert!(moved > 0.0);

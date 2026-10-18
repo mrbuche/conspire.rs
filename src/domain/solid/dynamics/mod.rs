@@ -1,5 +1,9 @@
+#[cfg(test)]
+pub(crate) mod test;
+
 mod explicit;
 mod implicit;
+mod motion;
 
 pub use explicit::ElasticExplicitDynamics;
 pub use implicit::ElasticImplicitDynamics;

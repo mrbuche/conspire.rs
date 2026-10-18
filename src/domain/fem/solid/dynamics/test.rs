@@ -1,14 +1,17 @@
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
+    domain::solid::dynamics::test::fixed_dofs,
     fem::{
         Model, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         block::Block,
         block::element::linear::Tetrahedron,
+        boundary::{Enforcement, Rows, Solid},
         solid::{ElasticExplicitDynamics, NodalForcesSolid, elastic::ElasticElements},
     },
     math::{
         Quantity, Tensor,
         assert::{Assert, AssertionError},
+        optimize::Prescription,
     },
     units::{Density, Energy, Mass, STANDARD_GRAVITY, Stress},
 };
@@ -167,8 +170,7 @@ mod consistent_accelerations {
 mod integrate {
     use super::*;
     use crate::{
-        fem::solid::hyperelastic::HyperelasticElements,
-        math::{integrate::VelocityVerlet, optimize::EqualityConstraint},
+        fem::solid::hyperelastic::HyperelasticElements, math::integrate::VelocityVerlet,
         units::Time,
     };
     const STEPS: usize = 100;
@@ -191,7 +193,44 @@ mod integrate {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
+        )?;
+        let elapsed = times[times.len() - 1].in_seconds();
+        let expected =
+            COORDINATES.map(|[x, y, z]| [x + 3.0 * elapsed, y - 1.0 * elapsed, z + 2.0 * elapsed]);
+        noise_tolerant().eq_within_tols(
+            &coordinates[coordinates.len() - 1],
+            &NodalCoordinates::from(expected),
+        )
+    }
+    #[test]
+    fn nodes_moved_with_the_body_leave_it_in_uniform_motion() -> Result<(), AssertionError> {
+        use crate::{
+            fem::boundary::{BoundaryConditions, ConstrainAt, Displacement},
+            units::Length,
+        };
+        let (model, dt) = (model(), 1e-4);
+        let masses = model.nodal_lumped_masses();
+        let conditions = BoundaryConditions::<Solid<3>>::new()
+            .prescribe_nodes_with(Displacement::<0>, 0..3, |time| {
+                Length::meters(3.0 * time.value())
+            })
+            .prescribe_nodes_with(Displacement::<1>, 0..3, |time| {
+                Length::meters(-time.value())
+            })
+            .prescribe_nodes_with(Displacement::<2>, 0..3, |time| {
+                Length::meters(2.0 * time.value())
+            });
+        let (times, coordinates, ..) = model.integrate(
+            &integrator(dt),
+            &time(dt),
+            (
+                NodalCoordinates::from(COORDINATES),
+                uniform_velocities([3.0, -1.0, 2.0]),
+            ),
+            &NodalForcesSolid::zero(COORDINATES.len()),
+            &masses,
+            &conditions,
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
         let expected =
@@ -215,7 +254,7 @@ mod integrate {
             ),
             &weights,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -249,7 +288,7 @@ mod integrate {
             ),
             &weights,
             &masses,
-            vec![EqualityConstraint::Fixed(vec![0, 1, 2, 5])],
+            &fixed_dofs(&[0, 1, 2, 5]),
         )?;
         let last = &coordinates[STEPS];
         assert_eq!(last[0], NodalCoordinates::from(COORDINATES)[0]);
@@ -272,7 +311,7 @@ mod integrate {
             (stretched, uniform_velocities([0.0; 3])),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let energy = |step: usize| -> Quantity<Energy> {
             masses.kinetic_energy(&velocities[step])
@@ -291,7 +330,7 @@ mod integrate {
         })
     }
     #[test]
-    fn linear_constraints_are_not_supported() {
+    fn constraints_held_by_multipliers_are_not_supported() {
         let (model, dt) = (model(), 1e-4);
         let masses = model.nodal_lumped_masses();
         let result = model.integrate(
@@ -303,10 +342,7 @@ mod integrate {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            vec![EqualityConstraint::Linear(
-                Default::default(),
-                Default::default(),
-            )],
+            &Rows::<Solid<3>>::new(Enforcement::Multipliers).hold(0, Prescription::Initial),
         );
         assert!(result.is_err());
     }
@@ -456,7 +492,7 @@ mod integrate_implicit {
             state(),
             &zero,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let moved = (implicit[100][4][0] - implicit[0][4][0]).norm().value();
         assert!(moved > 0.0);
@@ -590,7 +626,7 @@ mod integrate_implicit {
             state(),
             &zero,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let (_, lumped, ..) = ElasticImplicitDynamics::integrate(
             &model,
@@ -640,7 +676,7 @@ mod consistent_masses {
     use super::*;
     use crate::{
         fem::solid::mass::{InverseMass, MassMatrix},
-        math::{integrate::VelocityVerlet, optimize::EqualityConstraint},
+        math::integrate::VelocityVerlet,
         units::Time,
     };
     const FIXED: [usize; 4] = [0, 1, 2, 5];
@@ -706,7 +742,7 @@ mod consistent_masses {
             ),
             &weights,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
         let g = STANDARD_GRAVITY.in_meters_per_second_squared();
@@ -731,7 +767,7 @@ mod consistent_masses {
             ),
             &weights,
             &masses,
-            vec![EqualityConstraint::Fixed(FIXED.to_vec())],
+            &fixed_dofs(&FIXED),
         )?;
         let (last, initial) = (
             &coordinates[coordinates.len() - 1],
@@ -755,9 +791,8 @@ mod bar_wave {
             NodalAccelerationsHistory, NodalCoordinatesHistory, NodalVelocitiesHistory,
             block::element::linear::Hexahedron,
         },
-        math::{
-            integrate::{DormandPrince, DormandPrinceFixedStep, ExplicitDynamics, VelocityVerlet},
-            optimize::EqualityConstraint,
+        math::integrate::{
+            DormandPrince, DormandPrinceFixedStep, ExplicitDynamics, VelocityVerlet,
         },
         units::Time,
     };
@@ -840,7 +875,7 @@ mod bar_wave {
             ),
             &forces,
             &masses,
-            vec![EqualityConstraint::Fixed(fixed())],
+            &fixed_dofs(&fixed()),
         )?;
         let tip = 4 * ELEMENTS;
         let displacements = coordinates
