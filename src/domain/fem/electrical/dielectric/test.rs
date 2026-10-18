@@ -92,10 +92,7 @@ fn electrodes(
     coordinates: &NodalReferenceCoordinates<3>,
     top: f64,
 ) -> (
-    crate::fem::boundary::BoundaryConditions<
-        'static,
-        crate::fem::boundary::Field<crate::units::ElectricPotential>,
-    >,
+    impl crate::fem::boundary::Constrain<crate::fem::boundary::Field<crate::units::ElectricPotential>>,
     Vec<usize>,
     Vec<usize>,
 ) {
@@ -139,8 +136,7 @@ fn charge(forces: &NodalForcesElectrical, nodes: &[usize]) -> f64 {
 
 fn solve<Bl>(
     model: &Model<Bl, 3>,
-    constraint: crate::fem::boundary::BoundaryConditions<
-        '_,
+    constraint: impl crate::fem::boundary::Constrain<
         crate::fem::boundary::Field<crate::units::ElectricPotential>,
     >,
 ) -> NodalPotentials

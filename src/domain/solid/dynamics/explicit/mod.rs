@@ -1,8 +1,9 @@
-use super::{Solution, held};
+use super::{Solution, motion::Motion};
 use crate::{
     domain::{
         ElementModelError, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
-        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
+        boundary::{ConstrainAt, Solid},
         solid::{
             NodalForcesSolid,
             elastic::ElasticElements,
@@ -13,7 +14,6 @@ use crate::{
     math::{
         Quantity, Scalar,
         integrate::{ExplicitDynamics, IntegrationError},
-        optimize::EqualityConstraints,
     },
     units::Time,
 };
@@ -43,7 +43,7 @@ pub trait ElasticExplicitDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &impl MassMatrix<3>,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError>;
     /// Integrates the motion of the model like [`integrate`](Self::integrate), with a time
     /// step limited by the fastest time scale of the elements.
@@ -68,7 +68,7 @@ pub trait ElasticExplicitDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &NodalLumpedMasses,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError>
     where
         Self: TimeScaleElements<3>;
@@ -95,21 +95,35 @@ where
             NodalAccelerationsHistory<3>,
         >,
         time: &[Quantity<Time>],
-        (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
+        (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &impl MassMatrix<3>,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError> {
-        let (masses, initial_velocities) = held(masses, equality_constraint, initial_velocities)?;
-        integrator.integrate(
-            |_, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
-                self.nodal_accelerations(coordinates, external_forces, &masses)
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (masses, initial_velocities, motion) = Motion::held(
+            masses,
+            conditions,
+            initial_time,
+            &mut initial_coordinates,
+            initial_velocities,
+            Stepping::Explicit,
+        )?;
+        let (times, mut coordinates, velocities, accelerations) = integrator.integrate(
+            |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
+                let mut coordinates = coordinates.clone();
+                motion.apply(time, &mut coordinates);
+                self.nodal_accelerations(&coordinates, external_forces, &masses)
                     .map_err(|error| error.to_string())
             },
             time,
             initial_coordinates,
             initial_velocities,
-        )
+        )?;
+        motion.record(&times, &mut coordinates);
+        Ok((times, coordinates, velocities, accelerations))
     }
     fn integrate_bounded(
         &self,
@@ -122,10 +136,10 @@ where
         safety: Scalar,
         interval: usize,
         time: &[Quantity<Time>],
-        (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
+        (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &NodalLumpedMasses,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError>
     where
         Self: TimeScaleElements<3>,
@@ -136,18 +150,32 @@ where
                     .to_string(),
             ));
         }
-        let (masses, initial_velocities) = held(masses, equality_constraint, initial_velocities)?;
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (masses, initial_velocities, motion) = Motion::held(
+            masses,
+            conditions,
+            initial_time,
+            &mut initial_coordinates,
+            initial_velocities,
+            Stepping::Explicit,
+        )?;
         let mut evaluations = 0;
         let mut time_scale = Time::seconds(Scalar::INFINITY);
-        integrator.integrate_bounded(
-            |_, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
-                self.nodal_accelerations(coordinates, external_forces, &masses)
+        let (times, mut coordinates, velocities, accelerations) = integrator.integrate_bounded(
+            |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
+                let mut coordinates = coordinates.clone();
+                motion.apply(time, &mut coordinates);
+                self.nodal_accelerations(&coordinates, external_forces, &masses)
                     .map_err(|error| error.to_string())
             },
-            |_, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
+            |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
                 if evaluations % interval == 0 {
+                    let mut coordinates = coordinates.clone();
+                    motion.apply(time, &mut coordinates);
                     time_scale = self
-                        .fastest_time_scale(&self.coordinates, coordinates)
+                        .fastest_time_scale(&self.coordinates, &coordinates)
                         .map_err(|error| error.to_string())?;
                 }
                 evaluations += 1;
@@ -157,6 +185,8 @@ where
             time,
             initial_coordinates,
             initial_velocities,
-        )
+        )?;
+        motion.record(&times, &mut coordinates);
+        Ok((times, coordinates, velocities, accelerations))
     }
 }

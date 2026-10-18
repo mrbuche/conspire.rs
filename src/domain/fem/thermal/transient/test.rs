@@ -1,6 +1,12 @@
 use crate::{
     constitutive::thermal::conduction::Fourier,
-    domain::{ElementModel, diffusion::DiffusionElements, time_scale::largest_eigenvalue},
+    domain::{
+        ElementModel,
+        boundary::{ConstrainAt, Field},
+        diffusion::DiffusionElements,
+        thermal::transient::test::fixed_temperatures,
+        time_scale::largest_eigenvalue,
+    },
     fem::{
         Model, NodalReferenceCoordinates,
         block::{
@@ -16,7 +22,7 @@ use crate::{
     math::{
         Hessian, Quantity, Tensor,
         integrate::{BackwardEuler, Euler, IntegrationError},
-        optimize::{EqualityConstraint, NewtonRaphson, Tolerances},
+        optimize::{NewtonRaphson, Tolerances},
     },
     units::{
         Density, PowerPerLengthTemperature, SpecificHeat, Temperature, Time, VolumetricHeatCapacity,
@@ -136,7 +142,7 @@ mod integrate_temperatures {
                     initial.clone(),
                     &NodalForcesThermal::zero(NODES),
                     &capacities,
-                    vec![EqualityConstraint::None],
+                    &fixed_temperatures(&[]),
                 )
                 .unwrap();
             (times, history, rates)
@@ -161,7 +167,7 @@ mod integrate_temperatures {
                 temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
                 &NodalForcesThermal::zero(NODES),
                 &model.nodal_lumped_heat_capacities(),
-                vec![EqualityConstraint::Fixed(vec![0])],
+                &fixed_temperatures(&[0]),
             )
             .unwrap();
         history.iter().for_each(|t| assert_eq!(t[0].value(), 300.0));
@@ -171,6 +177,40 @@ mod integrate_temperatures {
             .for_each(|&temperature| near(temperature, 300.0, 1e-6));
     }
     #[test]
+    fn temperatures_moved_with_the_body_leave_it_on_the_same_ramp() {
+        use crate::fem::boundary::{
+            BoundaryConditions, ConstrainAt, Field, Temperature as Component,
+        };
+        let model = model();
+        let dt = step(&model);
+        let rate = 2.0;
+        let capacities = model.nodal_lumped_heat_capacities();
+        let heating = NodalForcesThermal::from(std::array::from_fn::<_, NODES, _>(|node| {
+            crate::units::Energy::joules(capacities[node].value() * rate) / Time::seconds(1.0)
+        }));
+        let conditions = BoundaryConditions::<Field<Temperature>>::new().prescribe_nodes_with(
+            Component,
+            0..2,
+            |time| Temperature::kelvin(300.0 + rate * time.value()),
+        );
+        let (times, history, _) = model
+            .integrate_bounded(
+                &Euler::default(),
+                SAFETY,
+                1,
+                &times(dt, 100),
+                temperatures([300.0; NODES]),
+                &heating,
+                &capacities,
+                &conditions,
+            )
+            .unwrap();
+        let elapsed = times[times.len() - 1].value();
+        values(history.iter().last().unwrap())
+            .iter()
+            .for_each(|&temperature| near(temperature, 300.0 + rate * elapsed, 1e-9));
+    }
+    #[test]
     fn consistent_and_lumped_capacities_reach_the_same_steady_state() {
         let model = model();
         let dt = step(&model) / 4.0;
@@ -178,7 +218,7 @@ mod integrate_temperatures {
             [0.0, 0.0, 2.0e3, 0.0, 1.0e3]
                 .map(|watts| crate::units::Energy::joules(watts) / Time::seconds(1.0)),
         );
-        let fixed = || EqualityConstraint::Fixed(vec![0]);
+        let fixed = || fixed_temperatures(&[0]);
         let initial = || temperatures([300.0; NODES]);
         let (_, lumped, _) = model
             .integrate(
@@ -187,7 +227,7 @@ mod integrate_temperatures {
                 initial(),
                 &heating,
                 &model.nodal_lumped_heat_capacities(),
-                vec![fixed()],
+                &fixed(),
             )
             .unwrap();
         let (_, consistent, _) = model
@@ -197,7 +237,7 @@ mod integrate_temperatures {
                 initial(),
                 &heating,
                 &model.nodal_heat_capacities(),
-                vec![fixed()],
+                &fixed(),
             )
             .unwrap();
         let (lumped, consistent) = (
@@ -237,7 +277,7 @@ mod integrate_temperatures {
                 initial.clone(),
                 &NodalForcesThermal::zero(NODES),
                 &capacities,
-                vec![EqualityConstraint::None],
+                &fixed_temperatures(&[]),
             )
             .unwrap_err();
         assert!(matches!(error, IntegrationError::UnstableTimeStep(..)));
@@ -248,7 +288,7 @@ mod integrate_temperatures {
                 initial,
                 &NodalForcesThermal::zero(NODES),
                 &capacities,
-                vec![EqualityConstraint::None],
+                &fixed_temperatures(&[]),
             )
             .unwrap();
         assert!(
@@ -284,7 +324,7 @@ mod integrate_implicit {
         times: &[Quantity<Time>],
         initial: NodalTemperatures,
         heating: &NodalForcesThermal,
-        constraint: EqualityConstraint,
+        conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> (
         crate::math::integrate::Times,
         crate::fem::thermal::transient::NodalTemperaturesHistory,
@@ -300,9 +340,97 @@ mod integrate_implicit {
             initial,
             heating,
             capacities,
-            vec![constraint],
+            conditions,
         )
         .unwrap()
+    }
+    #[test]
+    fn temperatures_moved_with_the_body_leave_it_on_the_same_ramp() {
+        use crate::fem::boundary::{
+            BoundaryConditions, ConstrainAt, Field, Temperature as Component,
+        };
+        let model = model();
+        let dt = 50.0 * limit(&model);
+        let rate = 2.0;
+        let capacities = model.nodal_lumped_heat_capacities();
+        let heating = NodalForcesThermal::from(std::array::from_fn::<_, NODES, _>(|node| {
+            crate::units::Energy::joules(capacities[node].value() * rate) / Time::seconds(1.0)
+        }));
+        let conditions = BoundaryConditions::<Field<Temperature>>::new().prescribe_nodes_with(
+            Component,
+            0..2,
+            |time| Temperature::kelvin(300.0 + rate * time.value()),
+        );
+        let (times, history, rates) = run(
+            &model,
+            &capacities,
+            &times(dt, 20),
+            temperatures([300.0; NODES]),
+            &heating,
+            &conditions,
+        );
+        let elapsed = times[times.len() - 1].value();
+        values(history.iter().last().unwrap())
+            .iter()
+            .for_each(|&temperature| near(temperature, 300.0 + rate * elapsed, 1e-9));
+        rates
+            .iter()
+            .skip(1)
+            .for_each(|rates| rates.iter().for_each(|r| near(r.value(), rate, 1e-9)));
+    }
+    #[test]
+    fn temperatures_moved_with_the_body_by_multipliers_leave_it_on_the_same_ramp() {
+        use crate::fem::boundary::{
+            BoundaryConditions, ConstrainAt, Enforcement, Field, Temperature as Component,
+        };
+        let model = model();
+        let dt = 50.0 * limit(&model);
+        let rate = 2.0;
+        let capacities = model.nodal_lumped_heat_capacities();
+        let heating = NodalForcesThermal::from(std::array::from_fn::<_, NODES, _>(|node| {
+            crate::units::Energy::joules(capacities[node].value() * rate) / Time::seconds(1.0)
+        }));
+        let conditions = BoundaryConditions::<Field<Temperature>>::new().prescribe_nodes_with_by(
+            Enforcement::Multipliers,
+            Component,
+            0..2,
+            |time| Temperature::kelvin(300.0 + rate * time.value()),
+        );
+        let (times, history, _) = run(
+            &model,
+            &capacities,
+            &times(dt, 20),
+            temperatures([300.0; NODES]),
+            &heating,
+            &conditions,
+        );
+        let elapsed = times[times.len() - 1].value();
+        values(history.iter().last().unwrap())
+            .iter()
+            .for_each(|&temperature| near(temperature, 300.0 + rate * elapsed, 1e-9));
+    }
+    #[test]
+    fn the_explicit_integration_rejects_temperatures_held_by_multipliers() {
+        use crate::fem::boundary::{
+            BoundaryConditions, ConstrainAt, Enforcement, Field, Temperature as Component,
+        };
+        let model = model();
+        let conditions = BoundaryConditions::<Field<Temperature>>::new().prescribe_nodes_with_by(
+            Enforcement::Multipliers,
+            Component,
+            0..2,
+            |time| Temperature::kelvin(300.0 + time.value()),
+        );
+        let result = ThermalConductionTransient::integrate(
+            &model,
+            &Euler::default(),
+            &times(1e-6, 2),
+            temperatures([300.0; NODES]),
+            &NodalForcesThermal::zero(NODES),
+            &model.nodal_lumped_heat_capacities(),
+            &conditions,
+        );
+        assert!(result.is_err());
     }
     #[test]
     fn an_insulated_body_conserves_its_heat_and_relaxes_at_many_times_the_explicit_limit() {
@@ -323,7 +451,7 @@ mod integrate_implicit {
             &times(dt, 200),
             initial.clone(),
             &NodalForcesThermal::zero(NODES),
-            EqualityConstraint::None,
+            &fixed_temperatures(&[]),
         );
         history
             .iter()
@@ -343,7 +471,7 @@ mod integrate_implicit {
             &times(dt, 200),
             temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
             &NodalForcesThermal::zero(NODES),
-            EqualityConstraint::Fixed(vec![0]),
+            &fixed_temperatures(&[0]),
         );
         history.iter().for_each(|t| assert_eq!(t[0].value(), 300.0));
         rates.iter().for_each(|r| assert_eq!(r[0].value(), 0.0));
@@ -360,14 +488,14 @@ mod integrate_implicit {
                 .map(|watts| crate::units::Energy::joules(watts) / Time::seconds(1.0)),
         );
         let initial = || temperatures([300.0; NODES]);
-        let fixed = || EqualityConstraint::Fixed(vec![0]);
+        let fixed = || fixed_temperatures(&[0]);
         let (_, lumped, _) = run(
             &model,
             &model.nodal_lumped_heat_capacities(),
             &times(dt, 100),
             initial(),
             &heating,
-            fixed(),
+            &fixed(),
         );
         let (_, consistent, _) = run(
             &model,
@@ -375,7 +503,7 @@ mod integrate_implicit {
             &times(dt, 100),
             initial(),
             &heating,
-            fixed(),
+            &fixed(),
         );
         let (lumped, consistent) = (
             values(lumped.iter().last().unwrap()),
@@ -408,7 +536,7 @@ mod integrate_implicit {
                 &times(horizon / steps as f64, steps),
                 initial.clone(),
                 &NodalForcesThermal::zero(NODES),
-                EqualityConstraint::None,
+                &fixed_temperatures(&[]),
             );
             values(history.iter().last().unwrap())
         };
@@ -436,7 +564,7 @@ mod integrate_implicit {
             initial.clone(),
             &heating,
             &capacities,
-            vec![EqualityConstraint::None],
+            &fixed_temperatures(&[]),
         )
         .unwrap();
         let (_, implicit, _) = run(
@@ -445,7 +573,7 @@ mod integrate_implicit {
             &times(dt, 200),
             initial,
             &heating,
-            EqualityConstraint::None,
+            &fixed_temperatures(&[]),
         );
         values(explicit.iter().last().unwrap())
             .iter()

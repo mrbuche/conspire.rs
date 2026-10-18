@@ -1,9 +1,10 @@
 use crate::{
     constitutive::diffusion::Diffusive,
     domain::{
-        Blocks, BoundaryConditions, ElementModel, ElementModelError, Minimize, Model, NodalState,
-        ProvidesTangent, Root, SolverFor,
+        Blocks, ElementModel, ElementModelError, Minimize, Model, NodalState, ProvidesTangent,
+        Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::Constrain,
     },
     math::{
         Quantity, QuantitySparseVec2D, QuantityVector, Tensor,
@@ -129,7 +130,7 @@ where
 {
     fn root<S>(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalFields<L> as NodalState>::Layout>,
+        boundary_conditions: &impl Constrain<<NodalFields<L> as NodalState>::Layout>,
         solver: S,
     ) -> Result<NodalFields<L>, OptimizationError>
     where
@@ -172,7 +173,7 @@ where
 {
     fn minimize<S>(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalFields<L> as NodalState>::Layout>,
+        boundary_conditions: &impl Constrain<<NodalFields<L> as NodalState>::Layout>,
         solver: S,
     ) -> Result<NodalFields<L>, OptimizationError>
     where

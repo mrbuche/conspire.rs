@@ -1,54 +1,7 @@
-#[cfg(test)]
-mod test;
-
 use crate::math::{
     QuantitySparseVec2D, Tensor, Vector,
-    integrate::IntegrationError,
-    optimize::{EqualityConstraint, EqualityConstraints, Prescription},
     sparse::{CscLdl, CscMatrix, SparseError},
 };
-use std::collections::BTreeSet;
-
-/// The indices of the fixed degrees of freedom of constraints, for an integrator named
-/// `integrator`, which does not support linear constraints.
-pub(crate) fn fixed_indices(
-    equality_constraints: EqualityConstraints,
-    integrator: &str,
-) -> Result<Vec<usize>, IntegrationError> {
-    let mut parts = EqualityConstraint::merged(equality_constraints);
-    if parts.len() > 1 {
-        return Err(IntegrationError::Intermediate(format!(
-            "Constraints of several kinds are not supported by {integrator}."
-        )));
-    }
-    match parts.pop() {
-        None | Some(EqualityConstraint::None) => Ok(vec![]),
-        Some(EqualityConstraint::Fixed(indices)) => Ok(indices),
-        Some(EqualityConstraint::Prescribed(entries)) => {
-            if entries
-                .iter()
-                .all(|&(_, prescription)| prescription == Prescription::Initial)
-            {
-                Ok(entries
-                    .iter()
-                    .map(|&(index, _)| index)
-                    .collect::<BTreeSet<usize>>()
-                    .into_iter()
-                    .collect())
-            } else {
-                Err(IntegrationError::Intermediate(format!(
-                    "Prescribed values are not supported by {integrator}."
-                )))
-            }
-        }
-        Some(EqualityConstraint::Multipliers(_)) => Err(IntegrationError::Intermediate(format!(
-            "Constraints held by multipliers are not supported by {integrator}."
-        ))),
-        Some(EqualityConstraint::Linear(..)) => Err(IntegrationError::Intermediate(format!(
-            "Linear constraints are not supported by {integrator}."
-        ))),
-    }
-}
 
 /// The factors of a symmetric positive definite matrix restricted to the degrees of freedom
 /// that are not fixed, `D` per node and indexed as `D * node + component`.

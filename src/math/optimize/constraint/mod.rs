@@ -127,6 +127,35 @@ impl EqualityConstraint {
         }
         parts
     }
+    /// What is prescribed relative to the initial guess, made relative to a reference instead.
+    ///
+    /// A solver that moves its initial guess as it steps through time uses this, so that what is
+    /// held at a distance from where it starts is held at that distance from the reference.
+    pub fn from_reference<X>(constraints: Vec<Self>, reference: &X) -> Vec<Self>
+    where
+        X: Solution,
+    {
+        let anchored = |entries: Vec<(usize, Prescription)>| {
+            entries
+                .into_iter()
+                .map(|(index, prescription)| match prescription {
+                    Prescription::Offset(offset) => (
+                        index,
+                        Prescription::Absolute(reference.flat_entry(index) + offset),
+                    ),
+                    prescription => (index, prescription),
+                })
+                .collect()
+        };
+        constraints
+            .into_iter()
+            .map(|constraint| match constraint {
+                Self::Prescribed(entries) => Self::Prescribed(anchored(entries)),
+                Self::Multipliers(entries) => Self::Multipliers(anchored(entries)),
+                constraint => constraint,
+            })
+            .collect()
+    }
     /// Eliminates what is prescribed, by moving the initial guess to it and fixing the indices.
     ///
     /// The last entry for an index wins, and the indices are fixed in ascending order.

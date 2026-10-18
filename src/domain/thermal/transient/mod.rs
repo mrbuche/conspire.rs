@@ -1,12 +1,16 @@
+#[cfg(test)]
+pub(crate) mod test;
+
 mod implicit;
+mod motion;
 
 pub use implicit::ThermalConductionImplicitTransient;
 
 use crate::{
     domain::{
-        ElementModelError, Model,
+        ElementModelError, Model, Stepping,
+        boundary::{ConstrainAt, Field},
         diffusion::DiffusionElements,
-        factor::fixed_indices,
         thermal::{
             NodalForcesThermal, NodalTemperatures,
             capacity::{
@@ -20,10 +24,10 @@ use crate::{
     math::{
         Quantity, Scalar, TensorVector,
         integrate::{Explicit, IntegrationError, Spectrum, Times},
-        optimize::EqualityConstraints,
     },
-    units::Time,
+    units::{Temperature, Time},
 };
+use motion::Motion;
 
 pub type NodalTemperaturesHistory = TensorVector<NodalTemperatures>;
 pub type NodalTemperatureRatesHistory = TensorVector<NodalTemperatureRates>;
@@ -33,20 +37,6 @@ type Solution = (
     NodalTemperaturesHistory,
     NodalTemperatureRatesHistory,
 );
-
-fn held<M>(
-    capacities: &M,
-    equality_constraint: EqualityConstraints,
-    integrator: &str,
-) -> Result<M::Inverse, IntegrationError>
-where
-    M: HeatCapacityMatrix,
-{
-    let fixed = fixed_indices(equality_constraint, integrator)?;
-    capacities
-        .inverse(&fixed)
-        .map_err(|error| IntegrationError::Intermediate(error.to_string()))
-}
 
 /// The temperatures of a model that conducts heat.
 pub trait ThermalConductionTransient {
@@ -72,7 +62,7 @@ pub trait ThermalConductionTransient {
         initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &impl HeatCapacityMatrix,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>;
     /// Integrates the temperatures of the model like [`integrate`](Self::integrate), with a
     /// time step limited by the fastest time scale of the elements.
@@ -97,7 +87,7 @@ pub trait ThermalConductionTransient {
         initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &NodalLumpedHeatCapacities,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>
     where
         Self: ThermalTimeScaleElements<3>;
@@ -124,24 +114,34 @@ where
             NodalTemperatureRatesHistory,
         >,
         time: &[Quantity<Time>],
-        initial_temperatures: NodalTemperatures,
+        mut initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &impl HeatCapacityMatrix,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError> {
-        let capacities = held(
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (capacities, motion) = Motion::held(
             capacities,
-            equality_constraint,
+            conditions,
+            initial_time,
+            &mut initial_temperatures,
             "explicit thermal transient",
+            Stepping::Explicit,
         )?;
-        integrator.integrate(
-            |_, temperatures: &NodalTemperatures| {
-                self.nodal_temperature_rates(temperatures, external_heating, &capacities)
+        let (times, mut temperatures, rates) = integrator.integrate(
+            |time, temperatures: &NodalTemperatures| {
+                let mut temperatures = temperatures.clone();
+                motion.apply(time, &mut temperatures);
+                self.nodal_temperature_rates(&temperatures, external_heating, &capacities)
                     .map_err(|error| error.to_string())
             },
             time,
             initial_temperatures,
-        )
+        )?;
+        motion.record(&times, &mut temperatures);
+        Ok((times, temperatures, rates))
     }
     fn integrate_bounded(
         &self,
@@ -153,10 +153,10 @@ where
         safety: Scalar,
         interval: usize,
         time: &[Quantity<Time>],
-        initial_temperatures: NodalTemperatures,
+        mut initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &NodalLumpedHeatCapacities,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>
     where
         Self: ThermalTimeScaleElements<3>,
@@ -167,22 +167,32 @@ where
                     .to_string(),
             ));
         }
-        let capacities = held(
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (capacities, motion) = Motion::held(
             capacities,
-            equality_constraint,
+            conditions,
+            initial_time,
+            &mut initial_temperatures,
             "explicit thermal transient",
+            Stepping::Explicit,
         )?;
         let mut evaluations = 0;
         let mut time_scale = Time::seconds(Scalar::INFINITY);
-        integrator.integrate_bounded(
-            |_, temperatures: &NodalTemperatures| {
-                self.nodal_temperature_rates(temperatures, external_heating, &capacities)
+        let (times, mut temperatures, rates) = integrator.integrate_bounded(
+            |time, temperatures: &NodalTemperatures| {
+                let mut temperatures = temperatures.clone();
+                motion.apply(time, &mut temperatures);
+                self.nodal_temperature_rates(&temperatures, external_heating, &capacities)
                     .map_err(|error| error.to_string())
             },
-            |_, temperatures: &NodalTemperatures| {
+            |time, temperatures: &NodalTemperatures| {
                 if evaluations % interval == 0 {
+                    let mut temperatures = temperatures.clone();
+                    motion.apply(time, &mut temperatures);
                     time_scale = self
-                        .fastest_diffusive_time_scale(&self.coordinates, temperatures)
+                        .fastest_diffusive_time_scale(&self.coordinates, &temperatures)
                         .map_err(|error| error.to_string())?;
                 }
                 evaluations += 1;
@@ -191,6 +201,8 @@ where
             safety,
             time,
             initial_temperatures,
-        )
+        )?;
+        motion.record(&times, &mut temperatures);
+        Ok((times, temperatures, rates))
     }
 }

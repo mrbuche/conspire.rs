@@ -4,12 +4,13 @@ use crate::{
         NodalReferenceCoordinates, NodalVelocities, block::Block,
     },
     constitutive::solid::hyperelastic::NeoHookean,
+    domain::solid::dynamics::test::fixed_dofs,
     domain::{
         solid::time_scale::TimeScaleElements,
         time_scale::{largest_eigenvalue, time_scale_from_eigenvalue},
     },
     geometry::mesh::PrimitiveConnectivity,
-    math::{Quantity, Tensor, integrate::VelocityVerlet, optimize::EqualityConstraint},
+    math::{Quantity, Tensor, integrate::VelocityVerlet},
     units::{Density, Stress, Time},
 };
 
@@ -145,7 +146,7 @@ fn a_bounded_integration_runs_below_the_limit_and_errors_above_it() {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )
     };
     assert!(run(0.5 * limit).is_ok());

@@ -371,3 +371,52 @@ mod several {
         );
     }
 }
+
+#[test]
+fn offsets_made_relative_to_a_reference_are_absolute() {
+    let reference = vector();
+    let constraints = EqualityConstraint::from_reference(
+        vec![
+            EqualityConstraint::Prescribed(vec![
+                (1, Prescription::Offset(0.5)),
+                (2, Prescription::Absolute(9.0)),
+                (3, Prescription::Initial),
+            ]),
+            EqualityConstraint::Multipliers(vec![(0, Prescription::Offset(-1.0))]),
+            EqualityConstraint::Fixed(vec![2]),
+        ],
+        &reference,
+    );
+    let EqualityConstraint::Prescribed(prescribed) = &constraints[0] else {
+        panic!("expected prescribed")
+    };
+    assert_eq!(
+        prescribed,
+        &[
+            (1, Prescription::Absolute(2.5)),
+            (2, Prescription::Absolute(9.0)),
+            (3, Prescription::Initial)
+        ]
+    );
+    let EqualityConstraint::Multipliers(multiplied) = &constraints[1] else {
+        panic!("expected multipliers")
+    };
+    assert_eq!(multiplied, &[(0, Prescription::Absolute(0.0))]);
+    assert!(matches!(&constraints[2], EqualityConstraint::Fixed(held) if held == &[2]));
+}
+
+#[test]
+fn a_guess_that_has_moved_does_not_change_what_is_held_relative_to_the_reference() {
+    let reference = vector();
+    let offset = vec![EqualityConstraint::Prescribed(vec![(
+        1,
+        Prescription::Offset(0.5),
+    )])];
+    let mut moved = vector();
+    moved.set_flat_entry(1, 100.0);
+    EqualityConstraint::lower(
+        EqualityConstraint::from_reference(offset, &reference),
+        &mut moved,
+    );
+    assert_eq!(moved.flat_entry(1), 2.5);
+}

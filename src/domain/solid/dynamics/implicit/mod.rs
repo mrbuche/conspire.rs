@@ -1,9 +1,10 @@
-use super::{Solution, held};
+use super::{Solution, motion::Motion};
 use crate::{
     domain::{
         ElementModel, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
-        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
+        NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::{ConstrainAt, Solid},
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
             elastic::ElasticElements,
@@ -13,7 +14,7 @@ use crate::{
     math::{
         Quantity, Tensor,
         integrate::{ImplicitDynamics, IntegrationError},
-        optimize::{EqualityConstraints, RootFinding},
+        optimize::RootFinding,
     },
     units::Time,
 };
@@ -41,7 +42,7 @@ pub trait ElasticImplicitDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &impl InertialMass<3>,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError>;
 }
 
@@ -61,17 +62,27 @@ where
         >,
         solver: impl RootFinding<NodalForcesSolid<3>, NodalStiffnessesSolid<3>, NodalCoordinates<3>>,
         time: &[Quantity<Time>],
-        (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
+        (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         external_forces: &NodalForcesSolid<3>,
         masses: &impl InertialMass<3>,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError> {
-        let (inverse, initial_velocities) =
-            held(masses, equality_constraint.clone(), initial_velocities)?;
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (inverse, initial_velocities, motion) = Motion::held(
+            masses,
+            conditions,
+            initial_time,
+            &mut initial_coordinates,
+            initial_velocities,
+            Stepping::Implicit,
+        )?;
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 3, false);
+        let sparse =
+            solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 3, false);
         integrator.integrate(
             |_, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>| {
                 Ok(inverse.nodal_accelerations(
@@ -99,7 +110,7 @@ where
                 Ok(tangent)
             },
             solver,
-            equality_constraint,
+            |time| motion.constraint_at(time),
             Some(sparse),
             time,
             initial_coordinates,

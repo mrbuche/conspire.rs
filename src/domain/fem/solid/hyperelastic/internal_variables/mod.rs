@@ -2,6 +2,7 @@ use crate::{
     fem::{
         ElementModel, ElementModelError, Elements, Model, NodalCoordinates,
         block::{finalize_node_neighbors, solver_from_neighbors},
+        boundary::{Constrain, NodalState},
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
             elastic::internal_variables::{
@@ -12,10 +13,7 @@ use crate::{
     },
     math::{
         Quantity, Scalar, Tensor, Vector,
-        optimize::{
-            EqualityConstraints, Optimization, OptimizationError, OptimizationIncremental,
-            SolveStrategy,
-        },
+        optimize::{Optimization, OptimizationError, OptimizationIncremental, SolveStrategy},
     },
     units::Energy,
 };
@@ -55,7 +53,7 @@ where
 {
     fn minimize(
         &self,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl Constrain<<NodalCoordinates<D> as NodalState>::Layout>,
         solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<D>,
@@ -78,7 +76,7 @@ where
 {
     fn minimize(
         &self,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl Constrain<<NodalCoordinates<D> as NodalState>::Layout>,
         solver: impl Optimization<
             Quantity<Energy>,
             NodalForcesSolid<D>,
@@ -92,6 +90,7 @@ where
         >,
         strategy: SolveStrategy,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
+        let equality_constraint = conditions.constraint();
         let initial = self.internal_variables_initial();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);

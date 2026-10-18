@@ -1,11 +1,12 @@
 use crate::{
     constitutive::solid::hyperelastic::NeoHookean,
+    domain::solid::dynamics::test::fixed_dofs,
     domain::solid::hyperelastic::HyperelasticElements,
     math::{
         Quantity, Tensor,
         assert::{Assert, AssertionError},
         integrate::{Newmark, VelocityVerlet},
-        optimize::{EqualityConstraint, NewtonRaphson, Tolerances},
+        optimize::{NewtonRaphson, Tolerances},
     },
     units::{Density, Energy, STANDARD_GRAVITY, Stress, Time},
     vem::{
@@ -115,7 +116,7 @@ mod explicit {
             ),
             &weights,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -155,7 +156,7 @@ mod implicit {
             ),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
         let expected =
@@ -178,7 +179,7 @@ mod implicit {
             ),
             &weights,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let (elapsed, g) = (
             times[times.len() - 1].in_seconds(),
@@ -212,7 +213,7 @@ mod implicit {
             ),
             &weights,
             &masses,
-            vec![EqualityConstraint::Fixed(vec![0, 1, 2, 5])],
+            &fixed_dofs(&[0, 1, 2, 5]),
         )?;
         let last = &coordinates[STEPS];
         assert_eq!(last[0], NodalCoordinates::from(COORDINATES)[0]);
@@ -237,7 +238,7 @@ mod implicit {
             state(),
             &zero,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
@@ -246,7 +247,7 @@ mod implicit {
             state(),
             &zero,
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let moved = (implicit[100][4][2] - implicit[0][4][2]).norm().value();
         assert!(moved > 0.0);
@@ -270,7 +271,7 @@ mod implicit {
             (stretched(), uniform_velocities([0.0; 3])),
             &NodalForcesSolid::zero(COORDINATES.len()),
             &masses,
-            vec![EqualityConstraint::None],
+            &fixed_dofs(&[]),
         )?;
         let energy = |step: usize| -> Quantity<Energy> {
             masses.kinetic_energy(&velocities[step])

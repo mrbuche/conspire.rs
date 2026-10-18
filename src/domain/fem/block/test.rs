@@ -415,19 +415,18 @@ fn selected(
 pub(crate) fn velocity_conditions(
     matrix: &crate::math::Matrix,
     values: &crate::math::Vector,
-) -> crate::fem::boundary::BoundaryConditions<'static, crate::fem::boundary::SolidRate<3>> {
+) -> crate::fem::boundary::Rows<crate::fem::boundary::SolidRate<3>> {
     use crate::{
-        fem::boundary::{BoundaryConditions, Enforcement, Velocity},
+        fem::boundary::{Enforcement, Rows, Velocity},
         units::Velocity as VelocityUnit,
     };
-    (0..matrix.len()).fold(BoundaryConditions::new(), |conditions, row| {
+    (0..matrix.len()).fold(Rows::new(Enforcement::Multipliers), |rows, row| {
         let (node, component, value) = selected(matrix, values, row, 3);
         let value = VelocityUnit::meters_per_second(value);
-        let enforcement = Enforcement::Multipliers;
         match component {
-            0 => conditions.prescribe_node_by(enforcement, Velocity::<0>, node, value),
-            1 => conditions.prescribe_node_by(enforcement, Velocity::<1>, node, value),
-            _ => conditions.prescribe_node_by(enforcement, Velocity::<2>, node, value),
+            0 => rows.add(Velocity::<0>, node, value),
+            1 => rows.add(Velocity::<1>, node, value),
+            _ => rows.add(Velocity::<2>, node, value),
         }
     })
 }
@@ -438,23 +437,17 @@ macro_rules! displacement_conditions {
             matrix: &crate::math::Matrix,
             values: &crate::math::Vector,
             reference: impl Fn(usize, usize) -> f64,
-        ) -> crate::fem::boundary::BoundaryConditions<'static, crate::fem::boundary::Solid<$dimension>> {
+        ) -> crate::fem::boundary::Rows<crate::fem::boundary::Solid<$dimension>> {
             use crate::{
-                fem::boundary::{BoundaryConditions, Displacement, Enforcement},
+                fem::boundary::{Displacement, Enforcement, Rows},
                 math::Quantity,
                 units::Length,
             };
-            (0..matrix.len()).fold(BoundaryConditions::new(), |conditions, row| {
+            (0..matrix.len()).fold(Rows::new(Enforcement::Multipliers), |rows, row| {
                 let (node, component, value) = selected(matrix, values, row, $dimension);
                 let offset = Quantity::<Length>::new(value - reference(node, component));
-                let enforcement = Enforcement::Multipliers;
                 match component {
-                    $($axis => conditions.prescribe_node_by(
-                        enforcement,
-                        Displacement::<$axis>,
-                        node,
-                        offset,
-                    ),)*
+                    $($axis => rows.add(Displacement::<$axis>, node, offset),)*
                     _ => unreachable!("The component is not one of the dimensions."),
                 }
             })
@@ -470,22 +463,22 @@ pub(crate) fn field_conditions<L, C, I>(
     matrix: &crate::math::Matrix,
     values: &crate::math::Vector,
     value: impl Fn(f64) -> C::Value,
-) -> crate::fem::boundary::BoundaryConditions<'static, L>
+) -> crate::fem::boundary::Rows<L>
 where
     L: crate::fem::boundary::Layout,
     C: crate::fem::boundary::Component<L, I> + crate::fem::boundary::Prescribable + Copy,
 {
-    use crate::fem::boundary::{BoundaryConditions, Enforcement};
-    (0..matrix.len()).fold(BoundaryConditions::new(), |conditions, row| {
+    use crate::fem::boundary::{Enforcement, Rows};
+    (0..matrix.len()).fold(Rows::new(Enforcement::Multipliers), |rows, row| {
         let (node, _, entry) = selected(matrix, values, row, 1);
-        conditions.prescribe_node_by(Enforcement::Multipliers, component, node, value(entry))
+        rows.add(component, node, value(entry))
     })
 }
 
 mod conditions {
     use super::{displacement_conditions_3, field_conditions};
     use crate::{
-        fem::boundary::Temperature,
+        fem::boundary::{Constrain, Temperature},
         math::{
             Matrix, Quantity, Tensor, Vector,
             optimize::{EqualityConstraint, Rows},
@@ -537,10 +530,8 @@ mod conditions {
         let (a, b) = rows();
         let mut guess = Vector::zero(9);
         let conditions = field_conditions(Temperature, &a, &b, Quantity::<TemperatureUnit>::new);
-        let held: crate::fem::boundary::BoundaryConditions<
-            '_,
-            crate::fem::boundary::Field<TemperatureUnit>,
-        > = conditions;
+        let held: crate::fem::boundary::Rows<crate::fem::boundary::Field<TemperatureUnit>> =
+            conditions;
         assert_eq!(
             found(held.constraint(), &mut guess),
             [(1, 0.75), (5, -0.25), (6, 2.0)]

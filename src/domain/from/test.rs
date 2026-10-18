@@ -2,7 +2,7 @@ use super::FromConnectivities;
 use crate::{
     domain::{
         Model, NodalReferenceCoordinates,
-        boundary::{BoundaryConditions, Displacement, Solid},
+        boundary::{BoundaryConditions, Constrain, ConstrainAt, Displacement, Solid},
     },
     geometry::mesh::{Connectivity, Mesh, NodeSet, SideSet},
     math::optimize::EqualityConstraint,

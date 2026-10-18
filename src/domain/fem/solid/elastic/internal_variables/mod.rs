@@ -5,13 +5,13 @@ use crate::{
             element::solid::elastic::internal_variables::InternalVariables,
             finalize_node_neighbors, solver_from_neighbors,
         },
+        boundary::{Constrain, NodalState},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
         Scalar, Tensor, TensorVector, Vector,
         optimize::{
-            EqualityConstraints, NewtonRaphson, OptimizationError, RootFinding,
-            RootFindingIncremental, SolveStrategy,
+            NewtonRaphson, OptimizationError, RootFinding, RootFindingIncremental, SolveStrategy,
         },
     },
 };
@@ -288,7 +288,7 @@ where
 {
     fn root(
         &self,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl Constrain<<NodalCoordinates<D> as NodalState>::Layout>,
         solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
         + RootFindingIncremental<
             NodalForcesSolid<D>,
@@ -306,7 +306,7 @@ where
 {
     fn root(
         &self,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl Constrain<<NodalCoordinates<D> as NodalState>::Layout>,
         solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
         + RootFindingIncremental<
             NodalForcesSolid<D>,
@@ -315,6 +315,7 @@ where
         >,
         strategy: SolveStrategy,
     ) -> Result<NodalCoordinates<D>, OptimizationError> {
+        let equality_constraint = conditions.constraint();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);

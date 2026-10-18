@@ -1,8 +1,9 @@
 use crate::{
     domain::{
-        Blocks, BoundaryConditions, ElementModel, ElementModelError, Model, NodalCoordinates,
-        NodalCoordinatesHistory, NodalState, NodalVelocities, NodalVelocitiesHistory,
+        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
+        NodalState, NodalVelocities, NodalVelocitiesHistory,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::ConstrainAt,
         solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
@@ -86,7 +87,7 @@ where
 pub trait Minimize<const D: usize> {
     fn minimize(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
+        boundary_conditions: &impl ConstrainAt<<NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
@@ -111,7 +112,7 @@ where
 {
     fn minimize(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, <NodalVelocities<D> as NodalState>::Layout>,
+        boundary_conditions: &impl ConstrainAt<<NodalVelocities<D> as NodalState>::Layout>,
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
@@ -129,11 +130,18 @@ where
         >,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>
     {
-        let equality_constraint = boundary_conditions.constraint();
+        let initial = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, D, true);
+        let sparse = solver_from_neighbors(
+            &neighbors,
+            &boundary_conditions.constraint_at(initial),
+            D,
+            true,
+        );
         integrator.integrate(
             |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
@@ -153,7 +161,7 @@ where
             solver,
             time,
             self.coordinates().clone().into(),
-            |_: Quantity<Time>| equality_constraint.clone(),
+            |time: Quantity<Time>| boundary_conditions.constraint_at(time),
             Some(sparse),
         )
     }

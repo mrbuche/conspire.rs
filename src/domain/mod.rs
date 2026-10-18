@@ -36,7 +36,7 @@ pub mod vem;
 use crate::{
     domain::{
         block::element::Elements,
-        boundary::{BoundaryConditions, NodalState},
+        boundary::{Constrain, NodalState},
     },
     geometry::{
         Coordinates,
@@ -59,6 +59,17 @@ pub(crate) fn nodal_coordinates<const D: usize>(
         .into_iter()
         .map(|coordinate| coordinate.with_unit())
         .collect()
+}
+
+/// How a scheme steps through time.
+///
+/// An explicit scheme has no solve, so it imposes the degrees of freedom that are held
+/// itself, and an implicit one gives them to the solve of its step, which may hold them by
+/// multipliers.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) enum Stepping {
+    Explicit,
+    Implicit,
 }
 
 pub type NodalCoordinates<const D: usize> = TensorRank1Vec<D, Current, Length>;
@@ -190,7 +201,7 @@ where
 {
     fn root<S>(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, X::Layout>,
+        boundary_conditions: &impl Constrain<X::Layout>,
         solver: S,
     ) -> Result<X, OptimizationError>
     where
@@ -206,7 +217,7 @@ where
 {
     fn minimize<S>(
         &self,
-        boundary_conditions: &BoundaryConditions<'_, X::Layout>,
+        boundary_conditions: &impl Constrain<X::Layout>,
         solver: S,
     ) -> Result<X, OptimizationError>
     where

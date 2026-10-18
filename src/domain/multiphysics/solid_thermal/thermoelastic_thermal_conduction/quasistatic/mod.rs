@@ -1,10 +1,13 @@
-use super::rates::{ThermoelasticThermalConductionRateElements, add_capacities, add_heatings};
+use super::{
+    motion::Motion,
+    rates::{ThermoelasticThermalConductionRateElements, add_capacities, add_heatings},
+};
 use crate::{
     domain::{
         ElementModel, Model, NodalCoordinates, NodalCoordinatesHistory, NodalVelocities,
-        NodalVelocitiesHistory,
+        NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        factor::fixed_indices,
+        boundary::{ConstrainAt, SolidThermal},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalRatesSolidThermal, NodalRatesSolidThermalHistory,
             NodalStatesSolidThermal, NodalStatesSolidThermalHistory, NodalStiffnessesSolidThermal,
@@ -20,7 +23,7 @@ use crate::{
     math::{
         Quantity, Tensor, TensorTuple,
         integrate::{ImplicitRates, IntegrationError, Times},
-        optimize::{EqualityConstraints, RootFinding},
+        optimize::RootFinding,
     },
     units::{Rate, Time},
 };
@@ -67,7 +70,7 @@ pub trait ThermoelasticThermalConductionQuasistatic {
         external_forces: &NodalForcesSolid<3>,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>;
 }
 
@@ -90,28 +93,34 @@ where
             NodalStatesSolidThermal,
         >,
         time: &[Quantity<Time>],
-        (initial_coordinates, initial_temperatures): (NodalCoordinates<3>, NodalTemperatures),
+        (mut initial_coordinates, mut initial_temperatures): (
+            NodalCoordinates<3>,
+            NodalTemperatures,
+        ),
         external_forces: &NodalForcesSolid<3>,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError> {
-        let fixed = fixed_indices(
-            equality_constraint.clone(),
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let motion = Motion::new(
+            conditions,
+            initial_time,
+            &mut initial_coordinates,
+            &mut initial_temperatures,
             "implicit quasistatic thermoelastic-thermal transient",
+            Stepping::Implicit,
         )?;
-        let fixed_temperatures = fixed
-            .iter()
-            .filter(|&&index| index % 4 == 3)
-            .map(|&index| index / 4)
-            .collect::<Vec<_>>();
         let inverse = capacities
-            .inverse(&fixed_temperatures)
+            .inverse(&motion.held_temperatures())
             .map_err(|error| IntegrationError::Intermediate(error.to_string()))?;
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 4, false);
+        let sparse =
+            solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 4, false);
         let (times, states, rates) = integrator.integrate(
             |_, states: &NodalStatesSolidThermal| {
                 let (coordinates, temperatures) = split_states(states);
@@ -164,7 +173,7 @@ where
                 Ok(tangent)
             },
             solver,
-            equality_constraint,
+            |time| motion.constraint_at(time),
             Some(sparse),
             time,
             join_states(&initial_coordinates, &initial_temperatures),

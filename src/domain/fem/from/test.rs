@@ -15,6 +15,7 @@ use crate::{
                 planar::{Quadrilateral, Triangle},
             },
         },
+        boundary::{BoundaryConditions, ConstrainAt, Displacement, Enforcement, Solid},
         nodal_coordinates,
         solid::{elastic::ElasticElements, elastic_viscoplastic::RootRkmkDae},
     },
@@ -23,12 +24,10 @@ use crate::{
         mesh::{Connectivity, Mesh},
     },
     math::{
-        Matrix, Quantity, Scalar, Tensor, Vector,
-        assert::AssertionError,
-        integrate::BogackiShampineTableau,
-        optimize::{EqualityConstraint, EqualityConstraints, NewtonRaphson},
+        Matrix, Quantity, Scalar, Tensor, Vector, assert::AssertionError,
+        integrate::BogackiShampineTableau, optimize::NewtonRaphson,
     },
-    units::{Rate, Stress, Time},
+    units::{Length, Rate, Stress, Time},
 };
 
 const D: usize = 14;
@@ -322,10 +321,18 @@ fn viscoplastic_model() -> ElasticMultiplicativeViscoplastic<AlmansiHamelEuleria
     ))
 }
 
-fn bcs(time: Quantity<Time>) -> EqualityConstraints {
-    let (a, mut b) = constraint();
-    (0..5).for_each(|i| b[i] = 0.5 + 0.55 * time.value());
-    vec![EqualityConstraint::Linear(a, b)]
+fn conditions() -> impl ConstrainAt<Solid<3>> {
+    BoundaryConditions::<Solid<3>>::new()
+        .fix_nodes(Displacement::<0>, [2, 3, 6, 7, 11])
+        .fix_node(Displacement::<1>, 6)
+        .fix_node(Displacement::<2>, 6)
+        .fix_node(Displacement::<2>, 7)
+        .prescribe_nodes_with_by(
+            Enforcement::Multipliers,
+            Displacement::<0>,
+            [0, 1, 4, 5, 13],
+            |time| Length::meters(0.55 * time.value()),
+        )
 }
 
 #[test]
@@ -346,7 +353,38 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
         &model,
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
-        bcs,
+        &conditions(),
+    )?;
+    let (a, b) = constraint();
+    let reference = split_blocks_model()?.root(
+        &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
+            coordinates()[node][component].value()
+        }),
+        NewtonRaphson::default(),
+    )?;
+    Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
+}
+
+#[test]
+fn displacements_that_are_a_function_of_time_are_held_from_the_reference_in_every_window()
+-> Result<(), AssertionError> {
+    let (connectivity_1, connectivity_2) = split_connectivities();
+    let mesh = Mesh::from((
+        vec![
+            Connectivity::Tetrahedral(connectivity_1.into()),
+            Connectivity::Tetrahedral(connectivity_2.into()),
+        ],
+        coordinates(),
+    ));
+    let model: Model<ElasticViscoplasticAndElastic<TetViscoplastic, Tet>, 3> =
+        (mesh, (viscoplastic_model(), constitutive_model()))
+            .try_into()
+            .map_err(|error: String| AssertionError { message: error })?;
+    let (_, coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
+        &model,
+        NewtonRaphson::default(),
+        &[0.0, 0.25, 0.5, 1.0].map(Quantity::<Time>::new),
+        &conditions(),
     )?;
     let (a, b) = constraint();
     let reference = split_blocks_model()?.root(
@@ -376,7 +414,7 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
         &model,
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
-        bcs,
+        &conditions(),
     )?;
     let (a, b) = constraint();
     let reference = split_blocks_model()?.root(
@@ -421,7 +459,7 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive() -> Result<(), AssertionEr
         &model,
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
-        bcs,
+        &conditions(),
     )?;
     let reference = reference_coordinates_history.iter().last().unwrap().clone();
     let (times, coordinates_history, state_variables_history) =
@@ -429,7 +467,7 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive() -> Result<(), AssertionEr
             &model,
             NewtonRaphson::default(),
             &[Quantity::new(0.0), Quantity::new(1.0)],
-            bcs,
+            &conditions(),
             1e-6,
             1e-6,
         )?;
@@ -485,7 +523,7 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive_dense_output() -> Result<()
         &model,
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
-        bcs,
+        &conditions(),
     )?;
     let reference = reference_coordinates_history.iter().last().unwrap().clone();
     let requested: Vec<Quantity<Time>> = (0..=4).map(|i| Quantity::new(0.25 * i as f64)).collect();
@@ -494,7 +532,7 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive_dense_output() -> Result<()
             &model,
             NewtonRaphson::default(),
             &requested,
-            bcs,
+            &conditions(),
             1e-6,
             1e-6,
         )?;
