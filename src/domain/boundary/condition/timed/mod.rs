@@ -12,12 +12,13 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-/// A component of some nodes held at a value that is a function of time, by elimination.
+/// A component of some nodes held at a value that is a function of time.
 pub struct Timed<'m, L, G> {
     target: Target<'m>,
     stride: usize,
     offset: usize,
     prescription: G,
+    enforcement: Enforcement,
     layout: PhantomData<L>,
 }
 
@@ -27,6 +28,7 @@ where
 {
     pub(super) fn new<C, I>(
         target: Target<'m>,
+        enforcement: Enforcement,
         _: C,
         value: impl Fn(Quantity<Time>) -> C::Value,
     ) -> Timed<'m, L, impl Fn(Quantity<Time>) -> Prescription>
@@ -38,6 +40,7 @@ where
             stride: L::STRIDE,
             offset: <C as Component<L, I>>::OFFSET,
             prescription: move |time| C::prescription(value(time)),
+            enforcement,
             layout: PhantomData,
         }
     }
@@ -55,7 +58,7 @@ where
                 .into_iter()
                 .map(|index| (index, prescription))
                 .collect(),
-            Enforcement::Elimination,
+            self.enforcement,
         )
     }
 }

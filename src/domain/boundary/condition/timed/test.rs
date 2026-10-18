@@ -1,5 +1,5 @@
 use crate::{
-    domain::boundary::{BoundaryConditions, ConstrainAt, SolidRate, Velocity},
+    domain::boundary::{BoundaryConditions, ConstrainAt, Enforcement, SolidRate, Velocity},
     geometry::mesh::NodeSet,
     math::{
         Quantity,
@@ -54,6 +54,27 @@ fn the_static_conditions_come_first() {
         &constraints[1],
         EqualityConstraint::Prescribed(held) if held == &[(3, Prescription::Absolute(0.5))]
     ));
+}
+
+#[test]
+fn a_value_may_be_held_by_multipliers() {
+    let conditions = BoundaryConditions::<SolidRate<3>>::new().prescribe_nodes_with_by(
+        Enforcement::Multipliers,
+        Velocity::<1>,
+        [0, 2],
+        |time| VelocityUnit::meters_per_second(2.0 * time.value()),
+    );
+    let constraints = conditions.constraint_at(Quantity::<Time>::new(1.5));
+    let [EqualityConstraint::Multipliers(held)] = constraints.as_slice() else {
+        panic!("expected one constraint held by multipliers")
+    };
+    assert_eq!(
+        held,
+        &[
+            (1, Prescription::Absolute(3.0)),
+            (7, Prescription::Absolute(3.0))
+        ]
+    );
 }
 
 #[test]

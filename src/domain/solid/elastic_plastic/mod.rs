@@ -1,19 +1,22 @@
 use crate::{
     domain::{
         ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
+        NodalState,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::ConstrainAt,
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
-        Jacobian, Tensor, TensorVec, Vector,
+        Jacobian, Quantity, Tensor, TensorVec, Vector,
         optimize::{
-            EqualityConstraint, EqualityConstraints, NewtonRaphson, OptimizationError, RootFinding,
+            EqualityConstraint, NewtonRaphson, OptimizationError, Prescription, RootFinding,
             RootFindingBlock, SolveStrategy,
         },
         sparse::{CscMatrix, SparseSolver},
     },
+    units::Time,
 };
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::BTreeMap};
 
 /// The assembled residuals and tangent blocks of the monolithic system. The unknowns
 /// are the nodal coordinates, then the local unknowns of every integration point of
@@ -196,14 +199,17 @@ where
 }
 
 /// Static load-stepping: solve nodal equilibrium with the plastic state of the previous
-/// step, then commit the updated state, once per prescribed boundary condition.
+/// step, then commit the updated state, once per time of the load.
+///
+/// The model is rate independent, so the times only order the steps. The conditions are
+/// held at each of them, and what is held at a distance from where it starts is held at
+/// that distance from the initial coordinates, whatever the step.
 ///
 /// With [`SolveStrategy::Condensed`] the local unknowns of the plastic step are converged
 /// and eliminated at each integration point, so the solver only sees the nodal
 /// coordinates. With [`SolveStrategy::Monolithic`] they are unknowns of the solve too,
 /// stepped together with the nodal coordinates through one sparse system, with or
-/// without eliminating them; that needs a domain that supports it, and only
-/// [`EqualityConstraint::Linear`] boundary conditions.
+/// without eliminating them; that needs a domain that supports it.
 pub trait ElasticPlasticRoot<S, const D: usize> {
     fn root(
         &self,
@@ -218,7 +224,8 @@ pub trait ElasticPlasticRoot<S, const D: usize> {
             CscMatrix,
             CscMatrix,
         >,
-        boundary_conditions: &[EqualityConstraints],
+        conditions: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        times: &[Quantity<Time>],
         strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError>;
 }
@@ -230,47 +237,118 @@ type Evaluation<const D: usize> = (
 );
 
 /// What of a constraint the sparsity pattern of the sparse solver depends on: which
-/// coordinates are fixed, or where the rows of the linear constraint are nonzero, but not
-/// the values, which change from one load step to the next.
+/// coordinates are eliminated, which are held by multipliers, or where the rows of the linear
+/// constraint are nonzero, but not the values, which change from one load step to the next.
 #[derive(PartialEq)]
-enum ConstraintPattern {
-    None,
+enum ConstraintPart {
     Fixed(Vec<usize>),
+    Multipliers(Vec<usize>),
     Linear(usize, usize, Vec<(usize, usize)>),
 }
 
+#[derive(PartialEq)]
+struct ConstraintPattern(Vec<ConstraintPart>);
+
 impl From<&[EqualityConstraint]> for ConstraintPattern {
     fn from(constraints: &[EqualityConstraint]) -> Self {
-        let merged;
-        let constraints = if constraints.len() > 1 {
-            merged = EqualityConstraint::merged(constraints.to_vec());
-            merged.as_slice()
-        } else {
-            constraints
+        Self(
+            EqualityConstraint::merged(constraints.to_vec())
+                .into_iter()
+                .filter_map(|part| match part {
+                    EqualityConstraint::None => None,
+                    EqualityConstraint::Fixed(_) | EqualityConstraint::Prescribed(_) => {
+                        let Some(indices) = EqualityConstraint::held_indices(&[part]) else {
+                            unreachable!("A fixed or prescribed constraint holds indices.")
+                        };
+                        Some(ConstraintPart::Fixed(indices))
+                    }
+                    EqualityConstraint::Multipliers(entries) => Some(ConstraintPart::Multipliers(
+                        entries.into_iter().map(|(index, _)| index).collect(),
+                    )),
+                    EqualityConstraint::Linear(matrix, _) => {
+                        let mut nonzeros = Vec::new();
+                        (0..matrix.len()).for_each(|row| {
+                            (0..matrix.width()).for_each(|column| {
+                                if matrix[row][column] != 0.0 {
+                                    nonzeros.push((row, column))
+                                }
+                            })
+                        });
+                        Some(ConstraintPart::Linear(
+                            matrix.len(),
+                            matrix.width(),
+                            nonzeros,
+                        ))
+                    }
+                })
+                .collect(),
+        )
+    }
+}
+
+/// The rows of the constraints for the monolithic solve, as the entries that are not zero.
+///
+/// What is fixed or prescribed is one row for each index, held at the guess when it is fixed
+/// or prescribed at its initial value, so that the rows are never a dense matrix.
+struct ConstraintRows {
+    height: usize,
+    width: usize,
+    entries: BTreeMap<(usize, usize), f64>,
+    values: Vec<f64>,
+}
+
+impl ConstraintRows {
+    fn new(constraints: &[EqualityConstraint], guess: &Vector) -> Self {
+        let mut rows = Self {
+            height: 0,
+            width: guess.len(),
+            entries: BTreeMap::new(),
+            values: Vec::new(),
         };
-        match constraints {
-            [] | [EqualityConstraint::None] => Self::None,
-            [EqualityConstraint::Fixed(_)] | [EqualityConstraint::Prescribed(_)] => {
-                let Some(indices) = EqualityConstraint::held_indices(constraints) else {
-                    unreachable!("A fixed or prescribed constraint holds indices.")
-                };
-                Self::Fixed(indices)
-            }
-            [EqualityConstraint::Linear(matrix, _)] => {
-                let mut nonzeros = Vec::new();
-                (0..matrix.len()).for_each(|row| {
+        let hold = |rows: &mut Self, index: usize, value: f64| {
+            rows.entries.insert((rows.height, index), 1.0);
+            rows.values.push(value);
+            rows.height += 1;
+        };
+        for constraint in EqualityConstraint::merged(constraints.to_vec()) {
+            match constraint {
+                EqualityConstraint::Fixed(indices) => indices
+                    .into_iter()
+                    .for_each(|index| hold(&mut rows, index, guess[index])),
+                EqualityConstraint::Prescribed(entries)
+                | EqualityConstraint::Multipliers(entries) => {
+                    entries
+                        .into_iter()
+                        .for_each(|(index, prescription)| match prescription {
+                            Prescription::Initial => hold(&mut rows, index, guess[index]),
+                            Prescription::Offset(offset) => {
+                                hold(&mut rows, index, guess[index] + offset)
+                            }
+                            Prescription::Absolute(value) => hold(&mut rows, index, value),
+                        })
+                }
+                EqualityConstraint::Linear(matrix, vector) => (0..matrix.len()).for_each(|row| {
                     (0..matrix.width()).for_each(|column| {
                         if matrix[row][column] != 0.0 {
-                            nonzeros.push((row, column))
+                            rows.entries
+                                .insert((rows.height, column), matrix[row][column]);
                         }
-                    })
-                });
-                Self::Linear(matrix.len(), matrix.width(), nonzeros)
+                    });
+                    rows.values.push(vector[row]);
+                    rows.height += 1;
+                }),
+                EqualityConstraint::None => {}
             }
-            _ => unimplemented!(
-                "Constraints held by multipliers, or of several kinds, are not supported yet."
-            ),
         }
+        rows
+    }
+    fn values(&self) -> Vector {
+        let mut values = Vector::zero(self.height);
+        self.values
+            .iter()
+            .enumerate()
+            .for_each(|(row, &value)| values[row] = value);
+        values
     }
 }
 
@@ -307,7 +385,8 @@ where
             CscMatrix,
             CscMatrix,
         >,
-        boundary_conditions: &[EqualityConstraints],
+        conditions: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        times: &[Quantity<Time>],
         strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError> {
         let mut nodal_coordinates: NodalCoordinates<D> = self.coordinates().clone().into();
@@ -329,56 +408,45 @@ where
         };
         let mut condensed_cache = None;
         let mut monolithic_cache = None;
-        for constraint in boundary_conditions {
+        let anchor = nodal_coordinates.clone();
+        for &time in times {
+            let constraint =
+                EqualityConstraint::from_reference(conditions.constraint_at(time), &anchor);
             let frozen_state = state.clone();
             if let (Some(monolithic), SolveStrategy::Monolithic { elimination }) =
                 (system.take(), &strategy)
             {
-                let [EqualityConstraint::Linear(matrix, vector)] = constraint.as_slice() else {
-                    return Err(OptimizationError::Intermediate(
-                        "The monolithic solve only supports EqualityConstraint::Linear."
-                            .to_string(),
-                    ));
-                };
                 let (num_global, num_local) = (monolithic.num_global(), monolithic.num_local());
+                let mut initial = Vector::zero(num_global);
+                nodal_coordinates.fill_into(&mut initial);
+                let rows = ConstraintRows::new(&constraint, &initial);
                 let (sparse, mut constraint_matrix) =
-                    cached(&mut monolithic_cache, constraint, || {
+                    cached(&mut monolithic_cache, &constraint, || {
                         let mut pattern = if *elimination {
                             monolithic.tangent_uu.pattern().to_vec()
                         } else {
-                            monolithic.pattern(matrix.len())
+                            monolithic.pattern(rows.height)
                         };
                         let mut constraint_pattern = Vec::new();
-                        (0..matrix.len()).for_each(|row| {
-                            (0..matrix.width()).for_each(|column| {
-                                if matrix[row][column] != 0.0 {
-                                    constraint_pattern.push((row, column));
-                                    pattern.push((num_global + row, column));
-                                    pattern.push((column, num_global + row))
-                                }
-                            })
+                        rows.entries.keys().for_each(|&(row, column)| {
+                            constraint_pattern.push((row, column));
+                            pattern.push((num_global + row, column));
+                            pattern.push((column, num_global + row))
                         });
                         pattern.sort_unstable();
                         pattern.dedup();
                         (
                             SparseSolver::from_pattern(
-                                num_global
-                                    + matrix.len()
-                                    + if *elimination { 0 } else { num_local },
+                                num_global + rows.height + if *elimination { 0 } else { num_local },
                                 pattern,
                                 false,
                             ),
-                            CscMatrix::from_pattern(
-                                matrix.len(),
-                                matrix.width(),
-                                constraint_pattern,
-                            ),
+                            CscMatrix::from_pattern(rows.height, rows.width, constraint_pattern),
                         )
                     })
                     .clone();
-                constraint_matrix.fill(|row, column| matrix[row][column]);
-                let mut initial = Vector::zero(num_global);
-                nodal_coordinates.fill_into(&mut initial);
+                constraint_matrix
+                    .fill(|row, column| rows.entries.get(&(row, column)).copied().unwrap_or(0.0));
                 let cache = RefCell::<Option<(Vector, Vector)>>::new(None);
                 let evaluate = |global: &Vector,
                                 local: &Vector,
@@ -425,7 +493,7 @@ where
                         ))
                     },
                     (initial, Vector::zero(num_local)),
-                    (constraint_matrix, vector.clone()),
+                    (constraint_matrix, rows.values()),
                     (
                         CscMatrix::from_pattern(0, num_local, Vec::new()),
                         Vector::zero(0),
@@ -440,8 +508,8 @@ where
                     .map_err(|error| error.to_string())?;
                 system = Some(cell.into_inner());
             } else if let SolveStrategy::Condensed(local_solver) = &strategy {
-                let sparse = cached(&mut condensed_cache, constraint, || {
-                    solver_from_neighbors(&neighbors, constraint, D, false)
+                let sparse = cached(&mut condensed_cache, &constraint, || {
+                    solver_from_neighbors(&neighbors, &constraint, D, false)
                 })
                 .clone();
                 let cache = RefCell::<Option<Evaluation<D>>>::new(None);

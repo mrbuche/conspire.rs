@@ -263,9 +263,25 @@ pub trait ConstrainAt<L> {
         L: Layout,
         C: Component<L, I> + Prescribable,
     {
+        self.prescribe_with_by(Enforcement::Elimination, component, nodes, value)
+    }
+    /// Holds a component of every node in a set at a value that is a function of time, the way
+    /// given.
+    fn prescribe_with_by<'m, C, I>(
+        self,
+        enforcement: Enforcement,
+        component: C,
+        nodes: &'m NodeSet,
+        value: impl Fn(Quantity<Time>) -> C::Value,
+    ) -> (Self, Timed<'m, L, impl Fn(Quantity<Time>) -> Prescription>)
+    where
+        Self: Sized,
+        L: Layout,
+        C: Component<L, I> + Prescribable,
+    {
         (
             self,
-            Timed::new::<C, I>(Target::Set(nodes), component, value),
+            Timed::new::<C, I>(Target::Set(nodes), enforcement, component, value),
         )
     }
     /// Holds a component of the listed nodes at a value that is a function of time.
@@ -280,8 +296,27 @@ pub trait ConstrainAt<L> {
         L: Layout,
         C: Component<L, I> + Prescribable,
     {
+        self.prescribe_nodes_with_by(Enforcement::Elimination, component, nodes, value)
+    }
+    /// Holds a component of the listed nodes at a value that is a function of time, the way
+    /// given.
+    fn prescribe_nodes_with_by<'m, C, I>(
+        self,
+        enforcement: Enforcement,
+        component: C,
+        nodes: impl IntoIterator<Item = usize>,
+        value: impl Fn(Quantity<Time>) -> C::Value,
+    ) -> (Self, Timed<'m, L, impl Fn(Quantity<Time>) -> Prescription>)
+    where
+        Self: Sized,
+        L: Layout,
+        C: Component<L, I> + Prescribable,
+    {
         let target = Target::Nodes(nodes.into_iter().collect());
-        (self, Timed::new::<C, I>(target, component, value))
+        (
+            self,
+            Timed::new::<C, I>(target, enforcement, component, value),
+        )
     }
 }
 

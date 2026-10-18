@@ -15,7 +15,7 @@ use crate::{
                 planar::{Quadrilateral, Triangle},
             },
         },
-        boundary::{BoundaryConditions, ConstrainAt, Displacement, Solid},
+        boundary::{BoundaryConditions, ConstrainAt, Displacement, Enforcement, Solid},
         nodal_coordinates,
         solid::{elastic::ElasticElements, elastic_viscoplastic::RootRkmkDae},
     },
@@ -327,9 +327,12 @@ fn conditions() -> impl ConstrainAt<Solid<3>> {
         .fix_node(Displacement::<1>, 6)
         .fix_node(Displacement::<2>, 6)
         .fix_node(Displacement::<2>, 7)
-        .prescribe_nodes_with(Displacement::<0>, [0, 1, 4, 5, 13], |time| {
-            Length::meters(0.55 * time.value())
-        })
+        .prescribe_nodes_with_by(
+            Enforcement::Multipliers,
+            Displacement::<0>,
+            [0, 1, 4, 5, 13],
+            |time| Length::meters(0.55 * time.value()),
+        )
 }
 
 #[test]
