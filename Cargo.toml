@@ -38,5 +38,5 @@ strip = "symbols"
 
 [profile.release-dev]
 inherits = "release"
-codegen-units = 16
+codegen-units = 32
 lto = false
