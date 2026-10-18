@@ -3,7 +3,7 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Minimize, Model, NodalCoordinates, NodalState,
         ProvidesTangent, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::Constrain,
+        boundary::{Conservative, Constrain, Load},
         solid::{NodalForcesSolid, NodalStiffnessesSolidSymmetric, elastic::ElasticElements},
     },
     math::{
@@ -110,6 +110,10 @@ where
     fn minimize<S>(
         &self,
         boundary_conditions: &impl Constrain<<NodalCoordinates<D> as NodalState>::Layout>,
+        applied_loads: &(
+             impl Load<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + Conservative<NodalCoordinates<D>, Quantity<Energy>>
+         ),
         solver: S,
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where
@@ -126,9 +130,14 @@ where
         });
         solver.minimize(
             |nodal_coordinates: &NodalCoordinates<D>| {
-                Ok(self.helmholtz_free_energy(nodal_coordinates)?)
+                Ok(self.helmholtz_free_energy(nodal_coordinates)?
+                    + applied_loads.potential_energy(nodal_coordinates)?)
             },
-            |nodal_coordinates: &NodalCoordinates<D>| Ok(self.nodal_forces(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinates<D>| {
+                let mut nodal_forces = self.nodal_forces(nodal_coordinates)?;
+                applied_loads.subtract_from(nodal_coordinates, &mut nodal_forces)?;
+                Ok(nodal_forces)
+            },
             |nodal_coordinates: &NodalCoordinates<D>| Ok(self.provide_tangent(nodal_coordinates)?),
             self.coordinates().clone().into(),
             equality_constraint,

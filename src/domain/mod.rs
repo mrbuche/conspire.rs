@@ -36,7 +36,7 @@ pub mod vem;
 use crate::{
     domain::{
         block::element::Elements,
-        boundary::{Constrain, NodalState},
+        boundary::{Conservative, Constrain, Load, NodalState},
     },
     geometry::{
         Coordinates,
@@ -202,6 +202,7 @@ where
     fn root<S>(
         &self,
         boundary_conditions: &impl Constrain<X::Layout>,
+        applied_loads: &impl Load<X, F>,
         solver: S,
     ) -> Result<X, OptimizationError>
     where
@@ -218,6 +219,7 @@ where
     fn minimize<S>(
         &self,
         boundary_conditions: &impl Constrain<X::Layout>,
+        applied_loads: &(impl Load<X, J> + Conservative<X, F>),
         solver: S,
     ) -> Result<X, OptimizationError>
     where

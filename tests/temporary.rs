@@ -7445,7 +7445,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let solution = fem_model.minimize(&conditions, NewtonRaphson::default())?;
+    let solution = fem_model.minimize(&conditions, &(), NewtonRaphson::default())?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
@@ -7965,6 +7965,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
         (mesh, model.clone()).try_into()?;
     let solution = fem_model.minimize(
         &conditions,
+        &(),
         NewtonRaphson {
             max_steps: 1,
             linear_solver: Direct,

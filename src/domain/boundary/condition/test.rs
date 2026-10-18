@@ -108,7 +108,9 @@ mod solve_with {
     use crate::{
         domain::{
             ElementModelError, Minimize, NodalCoordinates, ProvidesTangent, Root, SolverFor,
-            boundary::{Constrain, ConstrainAt, Displacement, NodalState, Temperature},
+            boundary::{
+                Conservative, Constrain, ConstrainAt, Displacement, Load, NodalState, Temperature,
+            },
             multiphysics::solid_thermal::NodalStatesSolidThermal,
         },
         geometry::mesh::NodeSet,
@@ -183,6 +185,7 @@ mod solve_with {
         fn root<S>(
             &self,
             boundary_conditions: &impl Constrain<X::Layout>,
+            _: &impl Load<X, ()>,
             solver: S,
         ) -> Result<X, OptimizationError>
         where
@@ -205,6 +208,7 @@ mod solve_with {
         fn minimize<S>(
             &self,
             boundary_conditions: &impl Constrain<X::Layout>,
+            _: &(impl Load<X, ()> + Conservative<X, ()>),
             solver: S,
         ) -> Result<X, OptimizationError>
         where
@@ -240,14 +244,14 @@ mod solve_with {
     fn the_layout_of_the_conditions_is_that_of_the_state() {
         let set = NodeSet::new(vec![0, 2]);
         let fixed = super::BoundaryConditions::new().fix(Displacement::<1>, &set);
-        assert_eq!(found(solid().root(&fixed, Recorder)), "[1, 7]");
+        assert_eq!(found(solid().root(&fixed, &(), Recorder)), "[1, 7]");
     }
     #[test]
     fn the_layout_of_coupled_conditions_is_that_of_the_state() {
         let fixed = super::BoundaryConditions::new()
             .fix_nodes(Temperature, 0..2)
             .fix_node(Displacement::<0>, 1);
-        assert_eq!(found(coupled().root(&fixed, Recorder)), "[3, 4, 7]");
+        assert_eq!(found(coupled().root(&fixed, &(), Recorder)), "[3, 4, 7]");
     }
     #[test]
     fn prescribed_values_reach_the_solver() {
@@ -256,9 +260,12 @@ mod solve_with {
             2,
             crate::math::Quantity::<crate::units::Length>::new(0.25),
         );
-        assert_eq!(found(solid().root(&fixed, Recorder)), "[(7, Offset(0.25))]");
         assert_eq!(
-            found(solid().minimize(&fixed, Recorder)),
+            found(solid().root(&fixed, &(), Recorder)),
+            "[(7, Offset(0.25))]"
+        );
+        assert_eq!(
+            found(solid().minimize(&fixed, &(), Recorder)),
             "[(7, Offset(0.25))]"
         );
     }
@@ -266,20 +273,23 @@ mod solve_with {
     fn minimizing_follows_the_layout_of_the_state() {
         let set = NodeSet::new(vec![0, 2]);
         let fixed = super::BoundaryConditions::new().fix(Displacement::<1>, &set);
-        assert_eq!(found(solid().minimize(&fixed, Recorder)), "[1, 7]");
+        assert_eq!(found(solid().minimize(&fixed, &(), Recorder)), "[1, 7]");
     }
     #[test]
     fn minimizing_coupled_conditions_follows_the_layout_of_the_state() {
         let fixed = super::BoundaryConditions::new()
             .fix_nodes(Temperature, 0..2)
             .fix_node(Displacement::<0>, 1);
-        assert_eq!(found(coupled().minimize(&fixed, Recorder)), "[3, 4, 7]");
+        assert_eq!(
+            found(coupled().minimize(&fixed, &(), Recorder)),
+            "[3, 4, 7]"
+        );
     }
     #[test]
     fn conditions_of_the_layout_may_be_written_out() {
         let set = NodeSet::new(vec![1]);
         let fixed =
             super::BoundaryConditions::<super::Solid<3>>::new().fix(Displacement::<2>, &set);
-        assert_eq!(found(solid().root(&fixed, Recorder)), "[5]");
+        assert_eq!(found(solid().root(&fixed, &(), Recorder)), "[5]");
     }
 }

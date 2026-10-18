@@ -136,7 +136,7 @@ fn solve(conditions: &impl Constrain<SolidThermal<3>>) -> NodalStatesSolidTherma
         NodalForcesSolidThermal,
         NodalStiffnessesSolidThermal,
         NodalStatesSolidThermal,
-    >>::root(&model(), conditions, NewtonRaphson::default())
+    >>::root(&model(), conditions, &(), NewtonRaphson::default())
     .unwrap()
 }
 
@@ -146,7 +146,7 @@ fn boundary_conditions_of_the_layout_of_the_state_give_the_same_solution() {
         NodalForcesSolidThermal,
         NodalStiffnessesSolidThermal,
         NodalStatesSolidThermal,
-    >>::root(&model(), &fixed_conditions(), NewtonRaphson::default())
+    >>::root(&model(), &fixed_conditions(), &(), NewtonRaphson::default())
     .unwrap();
     let expected = solve(&fixed_conditions());
     (0..NODES).for_each(|node| {
@@ -167,7 +167,12 @@ fn prescribed_values_found_by_elimination_are_what_multipliers_find() {
         NodalForcesSolidThermal,
         NodalStiffnessesSolidThermal,
         NodalStatesSolidThermal,
-    >>::root(&model(), &prescribed_conditions(), NewtonRaphson::default())
+    >>::root(
+        &model(),
+        &prescribed_conditions(),
+        &(),
+        NewtonRaphson::default(),
+    )
     .unwrap();
     let multiplied = solve(&multiplied_conditions());
     (0..NODES).for_each(|node| {

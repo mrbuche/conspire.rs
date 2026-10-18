@@ -2,8 +2,9 @@
 mod test;
 
 use crate::{
+    domain::boundary::{Conservative, Load, Loads, Solid},
     fem::{
-        NodalReferenceCoordinates,
+        NodalCoordinates, NodalReferenceCoordinates,
         block::element::{
             ElementNodalReferenceCoordinates,
             surface::{
@@ -14,8 +15,10 @@ use crate::{
         solid::NodalForcesSolid,
     },
     geometry::mesh::SideSet,
+    math::Quantity,
     math::Tensor,
     mechanics::{Force, Traction},
+    units::Energy,
 };
 
 /// The nodal forces of a dead traction per unit reference area on the faces of a side set.
@@ -66,4 +69,67 @@ pub fn traction_forces(
         Ok(())
     })?;
     Ok(forces)
+}
+
+/// A traction per unit reference area on the faces of a side set, whose force does not change
+/// as the body deforms.
+#[derive(Clone, Debug)]
+pub struct DeadTraction {
+    reference: NodalCoordinates<3>,
+    forces: NodalForcesSolid<3>,
+}
+
+impl<T> Loads<Solid<3>, T> {
+    /// Adds a dead traction per unit reference area on the faces of a side set.
+    pub fn traction(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        side_set: &SideSet,
+        traction: &Traction,
+    ) -> Result<Loads<Solid<3>, (T, DeadTraction)>, String> {
+        Ok(self.with(DeadTraction {
+            reference: coordinates.clone().into(),
+            forces: traction_forces(coordinates, side_set, traction)?,
+        }))
+    }
+}
+
+impl DeadTraction {
+    fn check(&self, nodal_coordinates: &NodalCoordinates<3>) -> Result<(), String> {
+        if nodal_coordinates.len() == self.reference.len() {
+            Ok(())
+        } else {
+            Err("The traction is on a mesh with another number of nodes.".to_string())
+        }
+    }
+}
+
+impl Load<NodalCoordinates<3>, NodalForcesSolid<3>> for DeadTraction {
+    fn subtract_from(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+        residual: &mut NodalForcesSolid<3>,
+    ) -> Result<(), String> {
+        self.check(nodal_coordinates)?;
+        residual
+            .iter_mut()
+            .zip(&self.forces)
+            .for_each(|(residual, force)| *residual -= force);
+        Ok(())
+    }
+}
+
+impl Conservative<NodalCoordinates<3>, Quantity<Energy>> for DeadTraction {
+    fn potential_energy(
+        &self,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<Quantity<Energy>, String> {
+        self.check(nodal_coordinates)?;
+        Ok(-nodal_coordinates
+            .iter()
+            .zip(&self.reference)
+            .zip(&self.forces)
+            .map(|((coordinate, reference), force)| force * &(coordinate - reference))
+            .sum::<Quantity<Energy>>())
+    }
 }

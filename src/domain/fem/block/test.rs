@@ -214,6 +214,7 @@ macro_rules! test_finite_element_block_inner {
                                     get_block(),
                                     get_reference_coordinates_block(),
                                 )).root(&crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| get_reference_coordinates_block()[node][component].value()),
+                                &(),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -262,6 +263,7 @@ macro_rules! test_finite_element_block_inner {
                                     get_block(),
                                     get_reference_coordinates_block(),
                                 )).minimize(&crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| get_reference_coordinates_block()[node][component].value()),
+                                &(),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =

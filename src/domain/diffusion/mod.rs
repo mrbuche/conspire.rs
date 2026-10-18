@@ -4,7 +4,7 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Minimize, Model, NodalState, ProvidesTangent,
         Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::Constrain,
+        boundary::{Conservative, Constrain, Load},
     },
     math::{
         Quantity, QuantitySparseVec2D, QuantityVector, Tensor,
@@ -131,6 +131,7 @@ where
     fn root<S>(
         &self,
         boundary_conditions: &impl Constrain<<NodalFields<L> as NodalState>::Layout>,
+        applied_loads: &impl Load<NodalFields<L>, NodalForces<L>>,
         solver: S,
     ) -> Result<NodalFields<L>, OptimizationError>
     where
@@ -146,7 +147,11 @@ where
             solver_from_neighbors(&neighbors, &equality_constraint, 1, true)
         });
         solver.root(
-            |nodal_fields: &NodalFields<L>| Ok(self.nodal_forces(nodal_fields)?),
+            |nodal_fields: &NodalFields<L>| {
+                let mut nodal_forces = self.nodal_forces(nodal_fields)?;
+                applied_loads.subtract_from(nodal_fields, &mut nodal_forces)?;
+                Ok(nodal_forces)
+            },
             |nodal_fields: &NodalFields<L>| Ok(self.provide_tangent(nodal_fields)?),
             NodalFields::<L>::zero(self.coordinates().len()),
             equality_constraint,
@@ -174,6 +179,10 @@ where
     fn minimize<S>(
         &self,
         boundary_conditions: &impl Constrain<<NodalFields<L> as NodalState>::Layout>,
+        applied_loads: &(
+             impl Load<NodalFields<L>, NodalForces<L>>
+             + Conservative<NodalFields<L>, Quantity<L::Energy>>
+         ),
         solver: S,
     ) -> Result<NodalFields<L>, OptimizationError>
     where
@@ -189,8 +198,14 @@ where
             solver_from_neighbors(&neighbors, &equality_constraint, 1, true)
         });
         solver.minimize(
-            |nodal_fields: &NodalFields<L>| Ok(self.potential(nodal_fields)?),
-            |nodal_fields: &NodalFields<L>| Ok(self.nodal_forces(nodal_fields)?),
+            |nodal_fields: &NodalFields<L>| {
+                Ok(self.potential(nodal_fields)? + applied_loads.potential_energy(nodal_fields)?)
+            },
+            |nodal_fields: &NodalFields<L>| {
+                let mut nodal_forces = self.nodal_forces(nodal_fields)?;
+                applied_loads.subtract_from(nodal_fields, &mut nodal_forces)?;
+                Ok(nodal_forces)
+            },
             |nodal_fields: &NodalFields<L>| Ok(self.provide_tangent(nodal_fields)?),
             NodalFields::<L>::zero(self.coordinates().len()),
             equality_constraint,
