@@ -4,6 +4,7 @@ use crate::{
         ElementModel, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::{ConstrainAt, SolidThermal},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
             join_states, split_states,
@@ -21,7 +22,7 @@ use crate::{
     math::{
         Quantity, Tensor, TensorTuple,
         integrate::{ImplicitDynamicsCoupled, IntegrationError},
-        optimize::{EqualityConstraints, RootFinding},
+        optimize::RootFinding,
     },
     units::{Rate, Time},
 };
@@ -62,7 +63,7 @@ pub trait ThermoelasticThermalConductionImplicitDynamics {
         external_heating: &NodalForcesThermal,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>;
 }
 
@@ -90,24 +91,32 @@ where
             NodalStatesSolidThermal,
         >,
         time: &[Quantity<Time>],
-        (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
-        initial_temperatures: NodalTemperatures,
+        (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
+        mut initial_temperatures: NodalTemperatures,
         external_forces: &NodalForcesSolid<3>,
         external_heating: &NodalForcesThermal,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError> {
-        let (inverse_masses, inverse_capacities, initial_velocities) = held(
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (inverse_masses, inverse_capacities, initial_velocities, motion) = held(
             masses,
             capacities,
-            equality_constraint.clone(),
+            conditions,
+            initial_time,
+            &mut initial_coordinates,
+            &mut initial_temperatures,
             initial_velocities,
+            "implicit thermoelastic-thermal dynamics",
         )?;
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 4, false);
+        let sparse =
+            solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 4, false);
         integrator.integrate_coupled(
             |_,
              coordinates: &NodalCoordinates<3>,
@@ -182,7 +191,7 @@ where
             join_states,
             split_states,
             solver,
-            |_| equality_constraint.clone(),
+            |time| motion.constraint_at(time),
             Some(sparse),
             time,
             initial_coordinates,

@@ -2,12 +2,12 @@ pub mod implicit;
 pub mod time_scale;
 
 use self::time_scale::ThermoelasticThermalConductionTimeScaleElements;
-use super::rates::ThermoelasticThermalConductionRateElements;
+use super::{motion::Motion, rates::ThermoelasticThermalConductionRateElements};
 use crate::{
     domain::{
         ElementModelError, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory,
-        factor::fixed_indices,
+        boundary::{ConstrainAt, SolidThermal},
         solid::{
             NodalForcesSolid,
             mass::{InverseMass, MassMatrix, NodalLumpedMasses},
@@ -24,7 +24,6 @@ use crate::{
     math::{
         Quantity, Scalar, Tensor,
         integrate::{ExplicitDynamicsCoupled, IntegrationError, Spectrum, Times},
-        optimize::EqualityConstraints,
     },
     units::Time,
 };
@@ -38,40 +37,40 @@ type Solution = (
     NodalTemperatureRatesHistory,
 );
 
-fn held<M, C>(
+#[expect(clippy::too_many_arguments, clippy::type_complexity)]
+fn held<'c, M, C, K>(
     masses: &M,
     capacities: &C,
-    equality_constraint: EqualityConstraints,
+    conditions: &'c K,
+    initial_time: Quantity<Time>,
+    coordinates: &mut NodalCoordinates<3>,
+    temperatures: &mut NodalTemperatures,
     mut velocities: NodalVelocities<3>,
-) -> Result<(M::Inverse, C::Inverse, NodalVelocities<3>), IntegrationError>
+    integrator: &str,
+) -> Result<(M::Inverse, C::Inverse, NodalVelocities<3>, Motion<'c, K>), IntegrationError>
 where
     M: MassMatrix<3>,
     C: HeatCapacityMatrix,
+    K: ConstrainAt<SolidThermal<3>>,
 {
-    let fixed = fixed_indices(
-        equality_constraint,
-        "explicit thermoelastic-thermal dynamics",
+    let motion = Motion::new(
+        conditions,
+        initial_time,
+        coordinates,
+        temperatures,
+        integrator,
     )?;
-    let fixed_coordinates = fixed
-        .iter()
-        .filter(|&&index| index % 4 < 3)
-        .map(|&index| 3 * (index / 4) + index % 4)
-        .collect::<Vec<_>>();
-    let fixed_temperatures = fixed
-        .iter()
-        .filter(|&&index| index % 4 == 3)
-        .map(|&index| index / 4)
-        .collect::<Vec<_>>();
     let masses = masses
-        .inverse(&fixed_coordinates)
+        .inverse(&motion.held_coordinates())
         .map_err(|error| IntegrationError::Intermediate(error.to_string()))?;
     let capacities = capacities
-        .inverse(&fixed_temperatures)
+        .inverse(&motion.held_temperatures())
         .map_err(|error| IntegrationError::Intermediate(error.to_string()))?;
-    fixed_coordinates
+    motion
+        .fixed_coordinates()
         .iter()
         .for_each(|&index| velocities[index / 3][index % 3] = Default::default());
-    Ok((masses, capacities, velocities))
+    Ok((masses, capacities, velocities, motion))
 }
 
 /// The motion and temperatures of a thermoelastic model that conducts heat.
@@ -112,7 +111,7 @@ pub trait ThermoelasticThermalConductionDynamics {
         external_heating: &NodalForcesThermal,
         masses: &impl MassMatrix<3>,
         capacities: &impl HeatCapacityMatrix,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>;
     /// Integrates the motion and temperatures of the model like [`integrate`](Self::integrate),
     /// with a time step limited by the fastest time scales of the elements.
@@ -145,7 +144,7 @@ pub trait ThermoelasticThermalConductionDynamics {
         external_heating: &NodalForcesThermal,
         masses: &NodalLumpedMasses,
         capacities: &NodalLumpedHeatCapacities,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>
     where
         Self: ThermoelasticThermalConductionTimeScaleElements;
@@ -186,37 +185,61 @@ where
             NodalTemperatureRatesHistory,
         >,
         time: &[Quantity<Time>],
-        (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
-        initial_temperatures: NodalTemperatures,
+        (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
+        mut initial_temperatures: NodalTemperatures,
         external_forces: &NodalForcesSolid<3>,
         external_heating: &NodalForcesThermal,
         masses: &impl MassMatrix<3>,
         capacities: &impl HeatCapacityMatrix,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError> {
-        let (masses, capacities, initial_velocities) =
-            held(masses, capacities, equality_constraint, initial_velocities)?;
-        integrator.integrate_coupled(
-            |_,
-             coordinates: &NodalCoordinates<3>,
-             velocities: &NodalVelocities<3>,
-             temperatures: &NodalTemperatures| {
-                self.nodal_rates(
-                    coordinates,
-                    velocities,
-                    temperatures,
-                    external_forces,
-                    external_heating,
-                    &masses,
-                    &capacities,
-                )
-                .map_err(|error| error.to_string())
-            },
-            time,
-            initial_coordinates,
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (masses, capacities, initial_velocities, motion) = held(
+            masses,
+            capacities,
+            conditions,
+            initial_time,
+            &mut initial_coordinates,
+            &mut initial_temperatures,
             initial_velocities,
-            initial_temperatures,
-        )
+            "explicit thermoelastic-thermal dynamics",
+        )?;
+        let (times, mut coordinates, velocities, accelerations, mut temperatures, rates) =
+            integrator.integrate_coupled(
+                |time,
+                 coordinates: &NodalCoordinates<3>,
+                 velocities: &NodalVelocities<3>,
+                 temperatures: &NodalTemperatures| {
+                    let (mut coordinates, mut temperatures) =
+                        (coordinates.clone(), temperatures.clone());
+                    motion.apply(time, &mut coordinates, &mut temperatures);
+                    self.nodal_rates(
+                        &coordinates,
+                        velocities,
+                        &temperatures,
+                        external_forces,
+                        external_heating,
+                        &masses,
+                        &capacities,
+                    )
+                    .map_err(|error| error.to_string())
+                },
+                time,
+                initial_coordinates,
+                initial_velocities,
+                initial_temperatures,
+            )?;
+        motion.record(&times, &mut coordinates, &mut temperatures);
+        Ok((
+            times,
+            coordinates,
+            velocities,
+            accelerations,
+            temperatures,
+            rates,
+        ))
     }
     fn integrate_bounded(
         &self,
@@ -232,13 +255,13 @@ where
         safety: Scalar,
         interval: usize,
         time: &[Quantity<Time>],
-        (initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
-        initial_temperatures: NodalTemperatures,
+        (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
+        mut initial_temperatures: NodalTemperatures,
         external_forces: &NodalForcesSolid<3>,
         external_heating: &NodalForcesThermal,
         masses: &NodalLumpedMasses,
         capacities: &NodalLumpedHeatCapacities,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>
     where
         Self: ThermoelasticThermalConductionTimeScaleElements,
@@ -249,46 +272,73 @@ where
                     .to_string(),
             ));
         }
-        let (masses, capacities, initial_velocities) =
-            held(masses, capacities, equality_constraint, initial_velocities)?;
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (masses, capacities, initial_velocities, motion) = held(
+            masses,
+            capacities,
+            conditions,
+            initial_time,
+            &mut initial_coordinates,
+            &mut initial_temperatures,
+            initial_velocities,
+            "explicit thermoelastic-thermal dynamics",
+        )?;
         let mut evaluations = 0;
         let mut time_scales = (
             Time::seconds(Scalar::INFINITY),
             Time::seconds(Scalar::INFINITY),
         );
-        integrator.integrate_coupled_bounded(
-            |_,
-             coordinates: &NodalCoordinates<3>,
-             velocities: &NodalVelocities<3>,
-             temperatures: &NodalTemperatures| {
-                self.nodal_rates(
-                    coordinates,
-                    velocities,
-                    temperatures,
-                    external_forces,
-                    external_heating,
-                    &masses,
-                    &capacities,
-                )
-                .map_err(|error| error.to_string())
-            },
-            |_,
-             coordinates: &NodalCoordinates<3>,
-             _: &NodalVelocities<3>,
-             temperatures: &NodalTemperatures| {
-                if evaluations % interval == 0 {
-                    time_scales = self
-                        .fastest_time_scales(&self.coordinates, coordinates, temperatures)
-                        .map_err(|error| error.to_string())?;
-                }
-                evaluations += 1;
-                Ok(Spectrum::Mixed(time_scales.1, time_scales.0))
-            },
-            safety,
-            time,
-            initial_coordinates,
-            initial_velocities,
-            initial_temperatures,
-        )
+        let (times, mut coordinates, velocities, accelerations, mut temperatures, rates) =
+            integrator.integrate_coupled_bounded(
+                |time,
+                 coordinates: &NodalCoordinates<3>,
+                 velocities: &NodalVelocities<3>,
+                 temperatures: &NodalTemperatures| {
+                    let (mut coordinates, mut temperatures) =
+                        (coordinates.clone(), temperatures.clone());
+                    motion.apply(time, &mut coordinates, &mut temperatures);
+                    self.nodal_rates(
+                        &coordinates,
+                        velocities,
+                        &temperatures,
+                        external_forces,
+                        external_heating,
+                        &masses,
+                        &capacities,
+                    )
+                    .map_err(|error| error.to_string())
+                },
+                |time,
+                 coordinates: &NodalCoordinates<3>,
+                 _: &NodalVelocities<3>,
+                 temperatures: &NodalTemperatures| {
+                    if evaluations % interval == 0 {
+                        let (mut coordinates, mut temperatures) =
+                            (coordinates.clone(), temperatures.clone());
+                        motion.apply(time, &mut coordinates, &mut temperatures);
+                        time_scales = self
+                            .fastest_time_scales(&self.coordinates, &coordinates, &temperatures)
+                            .map_err(|error| error.to_string())?;
+                    }
+                    evaluations += 1;
+                    Ok(Spectrum::Mixed(time_scales.1, time_scales.0))
+                },
+                safety,
+                time,
+                initial_coordinates,
+                initial_velocities,
+                initial_temperatures,
+            )?;
+        motion.record(&times, &mut coordinates, &mut temperatures);
+        Ok((
+            times,
+            coordinates,
+            velocities,
+            accelerations,
+            temperatures,
+            rates,
+        ))
     }
 }

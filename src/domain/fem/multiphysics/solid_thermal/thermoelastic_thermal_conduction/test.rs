@@ -14,16 +14,36 @@ use crate::{
         Model, NodalReferenceCoordinates, Root,
         block::{Block, element::linear::Tetrahedron},
         boundary::{
-            BoundaryConditions, Constrain, ConstrainAt, Displacement, Enforcement, SolidThermal,
-            Temperature,
+            BoundaryConditions, Constrain, ConstrainAt, Displacement, Enforcement, Rows,
+            SolidThermal, Temperature,
         },
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
         },
     },
-    math::{Quantity, optimize::NewtonRaphson},
+    math::{
+        Quantity,
+        optimize::{EqualityConstraint, NewtonRaphson, Prescription},
+    },
     units::{Length, Temperature as TemperatureUnit},
 };
+
+fn conditions(constraints: Vec<EqualityConstraint>) -> Rows<SolidThermal<3>> {
+    constraints
+        .into_iter()
+        .fold(
+            Rows::new(Enforcement::Elimination),
+            |rows, constraint| match constraint {
+                EqualityConstraint::Fixed(indices) => indices
+                    .into_iter()
+                    .fold(rows, |rows, index| rows.hold(index, Prescription::Initial)),
+                EqualityConstraint::Linear(..) | EqualityConstraint::Multipliers(_) => {
+                    Rows::new(Enforcement::Multipliers).hold(0, Prescription::Initial)
+                }
+                EqualityConstraint::None | EqualityConstraint::Prescribed(_) => rows,
+            },
+        )
+}
 
 const NODES: usize = 5;
 const CONNECTIVITY: [[usize; 4]; 2] = [[0, 1, 2, 3], [1, 2, 3, 4]];
@@ -221,6 +241,7 @@ fn fixed_temperatures_hold_the_reference_temperature_and_leave_the_body_unstrain
 }
 
 mod dynamics {
+    use super::conditions;
     use crate::{
         constitutive::{
             multiphysics::Canonical,
@@ -346,7 +367,7 @@ mod dynamics {
                 &no_heating(),
                 &model().nodal_lumped_masses(),
                 &model().nodal_lumped_heat_capacities(),
-                equality_constraint,
+                &conditions(equality_constraint),
             )
             .unwrap();
         (
@@ -402,6 +423,53 @@ mod dynamics {
             })
     }
     #[test]
+    fn nodes_moved_with_the_body_leave_it_in_uniform_motion() -> Result<(), AssertionError> {
+        use crate::{
+            fem::boundary::{BoundaryConditions, ConstrainAt, Displacement, SolidThermal},
+            units::Length,
+        };
+        let conditions = BoundaryConditions::<SolidThermal<3>>::new()
+            .prescribe_nodes_with(Displacement::<0>, 0..3, |time| {
+                Length::meters(0.3 * time.value())
+            })
+            .prescribe_nodes_with(Displacement::<1>, 0..3, |time| {
+                Length::meters(-0.2 * time.value())
+            })
+            .prescribe_nodes_with(Displacement::<2>, 0..3, |time| {
+                Length::meters(0.1 * time.value())
+            });
+        let (_, coordinates, _, _, temperatures, _) = model()
+            .integrate(
+                &DormandPrinceFixedStep::default(),
+                &time(),
+                (NodalCoordinates::from(COORDINATES), translating()),
+                uniform_temperatures(),
+                &no_forces(),
+                &no_heating(),
+                &model().nodal_lumped_masses(),
+                &model().nodal_lumped_heat_capacities(),
+                &conditions,
+            )
+            .unwrap();
+        temperatures[temperatures.len() - 1]
+            .iter()
+            .try_for_each(|temperature| {
+                Assert::default().eq_within_tols(temperature, &REFERENCE_TEMPERATURE)
+            })?;
+        coordinates[coordinates.len() - 1]
+            .iter()
+            .zip(COORDINATES)
+            .try_for_each(|(coordinate, initial)| {
+                [0.3, -0.2, 0.1]
+                    .iter()
+                    .enumerate()
+                    .try_for_each(|(i, velocity)| {
+                        Assert::default()
+                            .eq_within_tols(coordinate[i].value(), &(initial[i] + velocity * 1e-4))
+                    })
+            })
+    }
+    #[test]
     fn a_stretching_body_cools() {
         let (_, temperatures) = integrate(stretching(), vec![EqualityConstraint::None]);
         temperatures
@@ -434,10 +502,10 @@ mod dynamics {
             &no_heating(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
-            vec![EqualityConstraint::Linear(
+            &conditions(vec![EqualityConstraint::Linear(
                 Matrix::zero(1, 20),
                 Vector::zero(1),
-            )],
+            )]),
         );
         assert!(result.is_err());
     }
@@ -457,7 +525,7 @@ mod dynamics {
             &no_heating(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
-            vec![EqualityConstraint::None],
+            &conditions(vec![EqualityConstraint::None]),
         )?;
         Ok((
             coordinates[coordinates.len() - 1].clone(),
@@ -610,7 +678,7 @@ mod dynamics {
                 &NodalForcesThermal::zero(nodes),
                 &model.nodal_lumped_masses(),
                 &model.nodal_lumped_heat_capacities(),
-                vec![bar_constraint()],
+                &conditions(vec![bar_constraint()]),
             )
             .unwrap();
         let tip = bar_node(BAR_ELEMENTS, 0, 0);
@@ -772,12 +840,64 @@ mod dynamics {
                     &no_heating(),
                     &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
-                    equality_constraint,
+                    &conditions(equality_constraint),
                 )?;
             Ok((
                 coordinates[coordinates.len() - 1].clone(),
                 temperatures[temperatures.len() - 1].clone(),
             ))
+        }
+        #[test]
+        fn nodes_moved_with_the_body_leave_it_in_uniform_motion() -> Result<(), AssertionError> {
+            use crate::{
+                fem::boundary::{BoundaryConditions, ConstrainAt, Displacement, SolidThermal},
+                units::Length,
+            };
+            let conditions = BoundaryConditions::<SolidThermal<3>>::new()
+                .prescribe_nodes_with(Displacement::<0>, 0..3, |time| {
+                    Length::meters(0.3 * time.value())
+                })
+                .prescribe_nodes_with(Displacement::<1>, 0..3, |time| {
+                    Length::meters(-0.2 * time.value())
+                })
+                .prescribe_nodes_with(Displacement::<2>, 0..3, |time| {
+                    Length::meters(0.1 * time.value())
+                });
+            let model = model();
+            let (_, coordinates, _, _, temperatures, _) =
+                ThermoelasticThermalConductionImplicitDynamics::integrate(
+                    &model,
+                    &Newmark::default(),
+                    solver(),
+                    &time(),
+                    (NodalCoordinates::from(COORDINATES), translating()),
+                    uniform_temperatures(),
+                    &no_forces(),
+                    &no_heating(),
+                    &model.nodal_lumped_masses(),
+                    &model.nodal_lumped_heat_capacities(),
+                    &conditions,
+                )
+                .unwrap();
+            temperatures[temperatures.len() - 1]
+                .iter()
+                .try_for_each(|temperature| {
+                    Assert::default().eq_within_tols(temperature, &REFERENCE_TEMPERATURE)
+                })?;
+            coordinates[coordinates.len() - 1]
+                .iter()
+                .zip(COORDINATES)
+                .try_for_each(|(coordinate, initial)| {
+                    [0.3, -0.2, 0.1]
+                        .iter()
+                        .enumerate()
+                        .try_for_each(|(i, velocity)| {
+                            Assert::default().eq_within_tols(
+                                coordinate[i].value(),
+                                &(initial[i] + velocity * 1e-4),
+                            )
+                        })
+                })
         }
         #[test]
         fn a_stretching_body_cools_like_the_explicit_integration() {
@@ -923,6 +1043,7 @@ mod dynamics {
 }
 
 mod quasistatic {
+    use super::conditions;
     use crate::{
         constitutive::{
             multiphysics::Canonical,
@@ -1026,6 +1147,51 @@ mod quasistatic {
             .map(|&capacity| capacity * Quantity::<TemperatureRate>::new(HEATING_RATE))
             .collect()
     }
+    #[test]
+    fn a_temperature_moved_with_time_follows_it() {
+        use crate::{
+            fem::boundary::{ConstrainAt, Temperature},
+            units::Temperature as TemperatureUnit,
+        };
+        let model = model();
+        let rate = 2.0;
+        let conditions = conditions(vec![EqualityConstraint::Fixed(pins())]).prescribe_nodes_with(
+            Temperature,
+            [0],
+            |time| TemperatureUnit::kelvin(REFERENCE_TEMPERATURE.value() + rate * time.value()),
+        );
+        let (elapsed, _, _, temperatures, _) =
+            ThermoelasticThermalConductionQuasistatic::integrate(
+                &model,
+                &BackwardEuler::default(),
+                solver(25),
+                &times(4),
+                (
+                    NodalCoordinates::from(COORDINATES),
+                    COORDINATES
+                        .map(|_| REFERENCE_TEMPERATURE)
+                        .into_iter()
+                        .collect(),
+                ),
+                &NodalForcesSolid::zero(NODES),
+                &heating(&model),
+                &model.nodal_lumped_heat_capacities(),
+                &conditions,
+            )
+            .unwrap();
+        assert!(elapsed.len() > 1);
+        elapsed
+            .iter()
+            .zip(temperatures.iter())
+            .for_each(|(time, temperatures)| {
+                let expected = REFERENCE_TEMPERATURE.value() + rate * time.value();
+                assert!(
+                    (temperatures[0].value() - expected).abs() < 1e-9,
+                    "{} != {expected}",
+                    temperatures[0].value()
+                );
+            });
+    }
     fn integrate(
         steps: usize,
         constraint: EqualityConstraint,
@@ -1056,7 +1222,7 @@ mod quasistatic {
                 &NodalForcesSolid::zero(NODES),
                 &heating(&model),
                 &model.nodal_lumped_heat_capacities(),
-                vec![constraint],
+                &conditions(vec![constraint]),
             )?;
         Ok((
             coordinates[coordinates.len() - 1].clone(),
