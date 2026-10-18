@@ -21,8 +21,8 @@ use conspire::{
             thermal::ThermalElements,
         },
         boundary::{
-            ConstrainAt, Displacement, Enforcement, Field, Rows, Solid, SolidRate, Temperature,
-            Timewise, Velocity,
+            BoundaryConditions, ConstrainAt, Displacement, Enforcement, Field, Rows, Solid,
+            SolidRate, Temperature, Velocity,
         },
     },
     geometry::{
@@ -7522,6 +7522,31 @@ fn bcs_temporary_elastic_viscoplastic(t: Quantity<Time>) -> EqualityConstraints 
     )]
 }
 
+fn conditions_temporary_elastic_viscoplastic() -> impl ConstrainAt<Solid<3>> {
+    let strain_rate = 1.0;
+    let faces = |keep: fn(f64) -> bool| -> Vec<usize> {
+        coordinates()
+            .iter()
+            .enumerate()
+            .filter(|(_, coordinate)| {
+                coordinate[0].abs().value() == 0.5 && keep(coordinate[0].value())
+            })
+            .map(|(node, _)| node)
+            .collect()
+    };
+    let hold = |node: usize, direction: usize| {
+        Length::meters(-0.5 - coordinates()[node][direction].value())
+    };
+    BoundaryConditions::<Solid<3>>::new()
+        .fix_nodes(Displacement::<0>, faces(|x| x < 0.0))
+        .prescribe_node(Displacement::<1>, 132, hold(132, 1))
+        .prescribe_node(Displacement::<2>, 132, hold(132, 2))
+        .prescribe_node(Displacement::<2>, 142, hold(142, 2))
+        .prescribe_nodes_with(Displacement::<0>, faces(|x| x > 0.0), move |time| {
+            Length::meters(strain_rate * time.value())
+        })
+}
+
 #[test]
 fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
     use conspire::{
@@ -7560,7 +7585,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
         .root_rkmk_dae_minimize::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &times,
-            &Timewise(bcs_temporary_elastic_viscoplastic),
+            &conditions_temporary_elastic_viscoplastic(),
         )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
@@ -7667,7 +7692,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive_minimize() -> Result<(), Ass
         .root_rkmk_dae_minimize::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &time,
-            &Timewise(bcs_temporary_elastic_viscoplastic),
+            &conditions_temporary_elastic_viscoplastic(),
         )
         .unwrap();
     // one load window only: a single [t_0, t_end] adaptive step across the
@@ -7681,7 +7706,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive_minimize() -> Result<(), Ass
         .root_rkmk_dae_adaptive_minimize::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &span,
-            &Timewise(bcs_temporary_elastic_viscoplastic),
+            &conditions_temporary_elastic_viscoplastic(),
             1e-6,
             1e-6,
         )
@@ -7746,7 +7771,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionErr
         .root_rkmk_dae::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &time,
-            &Timewise(bcs_temporary_elastic_viscoplastic),
+            &conditions_temporary_elastic_viscoplastic(),
         )
         .unwrap();
     let reference = reference_coordinates_history.iter().last().unwrap().clone();
@@ -7755,7 +7780,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionErr
         .root_rkmk_dae_adaptive::<BogackiShampineTableau>(
             NewtonRaphson::default(),
             &span,
-            &Timewise(bcs_temporary_elastic_viscoplastic),
+            &conditions_temporary_elastic_viscoplastic(),
             1e-6,
             1e-6,
         )

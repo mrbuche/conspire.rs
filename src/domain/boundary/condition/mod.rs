@@ -5,13 +5,11 @@ mod fixed;
 mod prescribed;
 mod rows;
 mod timed;
-mod timewise;
 
 pub use fixed::Fixed;
 pub use prescribed::Prescribed;
 pub use rows::Rows;
 pub use timed::Timed;
-pub use timewise::Timewise;
 
 use crate::{
     domain::boundary::{Component, Layout, Prescribable},

@@ -4,7 +4,7 @@ mod condition;
 
 pub use condition::{
     BoundaryConditions, Condition, Constrain, ConstrainAt, Enforcement, Fixed, Prescribed, Rows,
-    Static, Timed, Timewise,
+    Static, Timed,
 };
 
 use crate::{
