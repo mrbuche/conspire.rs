@@ -112,15 +112,17 @@ mod heat {
     use crate::{
         domain::{
             ElementModel, Model,
+            boundary::{ConstrainAt, Field},
             diffusion::DiffusionElements,
             thermal::{
-                NodalForcesThermal, time_scale::ThermalTimeScaleElements,
-                transient::ThermalConductionTransient,
+                NodalForcesThermal,
+                time_scale::ThermalTimeScaleElements,
+                transient::{ThermalConductionTransient, test::fixed_temperatures},
             },
             time_scale::{diffusive_time_scale_from_eigenvalue, largest_eigenvalue},
         },
-        math::{Hessian, Tensor, integrate::Euler, optimize::EqualityConstraint},
-        units::{Density, SpecificHeat, Time, Volume, VolumetricHeatCapacity},
+        math::{Hessian, Tensor, integrate::Euler},
+        units::{Density, SpecificHeat, Temperature, Time, Volume, VolumetricHeatCapacity},
         vem::block::element::VirtualElement,
     };
     type H = Block<Fourier, Element, Quantity<VolumetricHeatCapacity>>;
@@ -209,7 +211,7 @@ mod heat {
         let times = (0..=steps)
             .map(|step| Time::seconds(step as Scalar * dt))
             .collect::<Vec<_>>();
-        let boundary = (0..NODES).filter(|&node| node != INTERIOR).collect();
+        let boundary: Vec<usize> = (0..NODES).filter(|&node| node != INTERIOR).collect();
         let (_, history, rates) = model
             .integrate(
                 &Euler::default(),
@@ -217,7 +219,7 @@ mod heat {
                 initial,
                 &NodalForcesThermal::zero(NODES),
                 &capacities,
-                vec![EqualityConstraint::Fixed(boundary)],
+                &fixed_temperatures(&boundary),
             )
             .unwrap();
         history.iter().for_each(|temperatures| {
@@ -282,7 +284,7 @@ mod heat {
                     initial.clone(),
                     &NodalForcesThermal::zero(NODES),
                     &capacities,
-                    vec![EqualityConstraint::None],
+                    &fixed_temperatures(&[]),
                 )
                 .unwrap();
             let last = history.iter().last().unwrap();
@@ -314,7 +316,7 @@ mod heat {
                     initial,
                     &NodalForcesThermal::zero(NODES),
                     &model.nodal_lumped_heat_capacities(),
-                    vec![EqualityConstraint::Fixed(boundary.clone())],
+                    &fixed_temperatures(&boundary),
                 )
                 .unwrap();
             history.iter().for_each(|temperatures| {
@@ -352,7 +354,7 @@ mod heat {
                     perturbed.clone(),
                     &NodalForcesThermal::zero(NODES),
                     &capacities,
-                    vec![EqualityConstraint::None],
+                    &fixed_temperatures(&[]),
                 )
                 .unwrap_err();
             assert!(matches!(error, IntegrationError::UnstableTimeStep(..)));
@@ -363,7 +365,7 @@ mod heat {
                     perturbed,
                     &NodalForcesThermal::zero(NODES),
                     &capacities,
-                    vec![EqualityConstraint::None],
+                    &fixed_temperatures(&[]),
                 )
                 .unwrap();
             assert!(
@@ -388,7 +390,7 @@ mod heat {
                     initial,
                     &NodalForcesThermal::zero(NODES),
                     &model.nodal_lumped_heat_capacities(),
-                    vec![EqualityConstraint::None],
+                    &fixed_temperatures(&[]),
                 )
                 .unwrap_err();
             assert!(matches!(error, IntegrationError::Intermediate(..)))
@@ -418,7 +420,7 @@ mod heat {
             dt: Scalar,
             steps: usize,
             initial: NodalTemperatures,
-            constraint: EqualityConstraint,
+            conditions: &impl ConstrainAt<Field<Temperature>>,
         ) -> (
             crate::domain::thermal::transient::NodalTemperaturesHistory,
             crate::domain::thermal::transient::NodalTemperatureRatesHistory,
@@ -433,7 +435,7 @@ mod heat {
                 initial,
                 &NodalForcesThermal::zero(NODES),
                 &model.nodal_lumped_heat_capacities(),
-                vec![constraint],
+                conditions,
             )
             .unwrap();
             (history, rates)
@@ -462,7 +464,11 @@ mod heat {
                 dt,
                 steps,
                 initial,
-                EqualityConstraint::Fixed((0..NODES).filter(|&node| node != INTERIOR).collect()),
+                &fixed_temperatures(
+                    &(0..NODES)
+                        .filter(|&node| node != INTERIOR)
+                        .collect::<Vec<_>>(),
+                ),
             );
             history.iter().for_each(|temperatures| {
                 (0..NODES)
@@ -498,7 +504,7 @@ mod heat {
                     .fastest_diffusive_time_scale(model.coordinates(), &initial)
                     .unwrap()
                     .value();
-            let (history, _) = run(&model, dt, 400, initial.clone(), EqualityConstraint::None);
+            let (history, _) = run(&model, dt, 400, initial.clone(), &fixed_temperatures(&[]));
             history.iter().for_each(|temperatures| {
                 let (a, b) = (heat(temperatures), heat(&initial));
                 assert!((a - b).abs() <= 1e-9 * b.abs(), "{a} != {b}")

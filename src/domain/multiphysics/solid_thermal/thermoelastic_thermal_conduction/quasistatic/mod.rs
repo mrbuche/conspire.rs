@@ -164,7 +164,7 @@ where
                 Ok(tangent)
             },
             solver,
-            equality_constraint,
+            |_| equality_constraint.clone(),
             Some(sparse),
             time,
             join_states(&initial_coordinates, &initial_temperatures),

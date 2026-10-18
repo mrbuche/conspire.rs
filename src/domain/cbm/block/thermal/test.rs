@@ -7,11 +7,14 @@ use crate::{
     },
     constitutive::thermal::conduction::Fourier,
     domain::{
-        ElementModel, diffusion::DiffusionElements, thermal::NodalForcesThermal,
+        ElementModel,
+        boundary::{ConstrainAt, Field},
+        diffusion::DiffusionElements,
+        thermal::{NodalForcesThermal, transient::test::fixed_temperatures},
         time_scale::largest_eigenvalue,
     },
     geometry::mesh::PrimitiveConnectivity,
-    math::{Hessian, Quantity, Tensor, integrate::Euler, optimize::EqualityConstraint},
+    math::{Hessian, Quantity, Tensor, integrate::Euler},
     units::{
         Density, PowerPerLengthTemperature, SpecificHeat, Temperature, Time, VolumetricHeatCapacity,
     },
@@ -242,7 +245,7 @@ mod integrate {
                 initial.clone(),
                 &NodalForcesThermal::zero(NODES),
                 &capacities,
-                vec![EqualityConstraint::None],
+                &fixed_temperatures(&[]),
             )
             .unwrap();
         let last = history.iter().last().unwrap();
@@ -264,7 +267,7 @@ mod integrate {
                 temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
                 &NodalForcesThermal::zero(NODES),
                 &model.nodal_lumped_heat_capacities(),
-                vec![EqualityConstraint::Fixed(vec![0])],
+                &fixed_temperatures(&[0]),
             )
             .unwrap();
         history.iter().for_each(|t| assert_eq!(t[0].value(), 300.0));
@@ -308,7 +311,7 @@ mod integrate_implicit {
         dt: f64,
         steps: usize,
         initial: NodalTemperatures,
-        constraint: EqualityConstraint,
+        conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> (
         crate::domain::thermal::transient::NodalTemperaturesHistory,
         crate::domain::thermal::transient::NodalTemperatureRatesHistory,
@@ -321,7 +324,7 @@ mod integrate_implicit {
             initial,
             &NodalForcesThermal::zero(NODES),
             &model.nodal_lumped_heat_capacities(),
-            vec![constraint],
+            conditions,
         )
         .unwrap();
         (history, rates)
@@ -343,7 +346,7 @@ mod integrate_implicit {
             50.0 * limit(&model),
             200,
             initial.clone(),
-            EqualityConstraint::None,
+            &fixed_temperatures(&[]),
         );
         history
             .iter()
@@ -364,7 +367,7 @@ mod integrate_implicit {
             50.0 * limit(&model),
             200,
             temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
-            EqualityConstraint::Fixed(vec![0]),
+            &fixed_temperatures(&[0]),
         );
         history.iter().for_each(|t| assert_eq!(t[0].value(), 300.0));
         rates.iter().for_each(|r| assert_eq!(r[0].value(), 0.0));

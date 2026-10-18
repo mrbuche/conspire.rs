@@ -1,8 +1,9 @@
-use super::{NodalTemperatureRatesHistory, NodalTemperaturesHistory, Solution, held};
+use super::{NodalTemperatureRatesHistory, NodalTemperaturesHistory, Solution, motion::Motion};
 use crate::{
     domain::{
         ElementModel, Model,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
+        boundary::{ConstrainAt, Field},
         diffusion::DiffusionElements,
         thermal::{
             NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
@@ -13,9 +14,9 @@ use crate::{
     math::{
         Quantity, Tensor,
         integrate::{ImplicitRates, IntegrationError},
-        optimize::{EqualityConstraints, RootFinding},
+        optimize::RootFinding,
     },
-    units::Time,
+    units::{Temperature, Time},
 };
 
 /// The temperatures of a model that conducts heat with implicit time integration.
@@ -40,7 +41,7 @@ pub trait ThermalConductionImplicitTransient {
         initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>;
 }
 
@@ -59,20 +60,26 @@ where
         >,
         solver: impl RootFinding<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>,
         time: &[Quantity<Time>],
-        initial_temperatures: NodalTemperatures,
+        mut initial_temperatures: NodalTemperatures,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
-        equality_constraint: EqualityConstraints,
+        conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError> {
-        let inverse = held(
+        let initial_time = *time
+            .first()
+            .ok_or(IntegrationError::LengthTimeLessThanTwo)?;
+        let (inverse, motion) = Motion::held(
             capacities,
-            equality_constraint.clone(),
+            conditions,
+            initial_time,
+            &mut initial_temperatures,
             "implicit thermal transient",
         )?;
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
-        let sparse = solver_from_neighbors(&neighbors, &equality_constraint, 1, true);
+        let sparse =
+            solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 1, true);
         integrator.integrate(
             |_, temperatures: &NodalTemperatures| {
                 Ok(inverse.nodal_temperature_rates(
@@ -97,7 +104,7 @@ where
                 Ok(tangent)
             },
             solver,
-            equality_constraint,
+            |time| motion.constraint_at(time),
             Some(sparse),
             time,
             initial_temperatures,

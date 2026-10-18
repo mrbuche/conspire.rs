@@ -35,7 +35,7 @@ where
         residual: impl FnMut(Quantity<T>, &X, &Derivative<X, T>) -> Result<F, String>,
         tangent: impl FnMut(Quantity<T>, &X, &Derivative<X, T>, Quantity<T>) -> Result<J, String>,
         solver: impl RootFinding<F, J, X>,
-        equality_constraint: EqualityConstraints,
+        equality_constraint: impl Fn(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
         time: &[Quantity<T>],
         initial_state: X,
@@ -57,7 +57,7 @@ where
         mut residual: impl FnMut(Quantity<T>, &X, &Derivative<X, T>) -> Result<F, String>,
         mut tangent: impl FnMut(Quantity<T>, &X, &Derivative<X, T>, Quantity<T>) -> Result<J, String>,
         solver: impl RootFinding<F, J, X>,
-        equality_constraint: EqualityConstraints,
+        equality_constraint: impl Fn(Quantity<T>) -> EqualityConstraints,
         sparse: Option<SparseSolver>,
         time: &[Quantity<T>],
         initial_state: X,
@@ -103,7 +103,7 @@ where
                     |x_trial: &X| residual(t_next, x_trial, &(&(x_trial - &x) / dt)),
                     |x_trial: &X| tangent(t_next, x_trial, &(&(x_trial - &x) / dt), dt),
                     x.clone(),
-                    equality_constraint.clone(),
+                    equality_constraint(t_next),
                     sparse.clone(),
                 )
                 .map_err(|error| IntegrationError::upstream(error, self))?;
