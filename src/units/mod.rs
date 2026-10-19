@@ -478,6 +478,8 @@ unit_products!(
     PowerPerLengthTemperature * TemperaturePerLength = PowerPerArea,
     PowerPerArea * ReciprocalLength = PowerDensity,
     ReciprocalLength * PowerPerArea = PowerDensity,
+    PowerPerArea * Area = Power,
+    Area * PowerPerArea = Power,
     PowerPerArea * TemperaturePerLength = PowerTemperatureDensity,
     PowerTemperatureDensity * Volume = PowerTemperature,
     PowerPerLengthTemperature * ReciprocalLength = PowerPerAreaTemperature,

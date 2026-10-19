@@ -85,7 +85,7 @@ pub trait ThermoelasticThermalConductionDynamics {
         nodal_temperatures: &NodalTemperatures,
         time: Quantity<Time>,
         applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        external_heating: &NodalForcesThermal,
+        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         masses: &impl InverseMass<3>,
         capacities: &impl InverseHeatCapacity,
     ) -> Result<(NodalAccelerations<3>, NodalTemperatureRates), ElementModelError>;
@@ -111,7 +111,7 @@ pub trait ThermoelasticThermalConductionDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        external_heating: &NodalForcesThermal,
+        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         masses: &impl MassMatrix<3>,
         capacities: &impl HeatCapacityMatrix,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -144,7 +144,7 @@ pub trait ThermoelasticThermalConductionDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        external_heating: &NodalForcesThermal,
+        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         masses: &NodalLumpedMasses,
         capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -164,7 +164,7 @@ where
         nodal_temperatures: &NodalTemperatures,
         time: Quantity<Time>,
         applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        external_heating: &NodalForcesThermal,
+        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         masses: &impl InverseMass<3>,
         capacities: &impl InverseHeatCapacity,
     ) -> Result<(NodalAccelerations<3>, NodalTemperatureRates), ElementModelError> {
@@ -174,10 +174,13 @@ where
         applied_loads
             .subtract_at(time, nodal_coordinates, &mut unbalanced_forces)
             .map_err(|error| ElementModelError::upstream(error, "the applied loads"))?;
-        let internal_heating = nodal_forces.iter().map(|force| force.1).collect();
+        let mut unbalanced_heating = nodal_forces.iter().map(|force| force.1).collect();
+        applied_heating
+            .subtract_at(time, nodal_temperatures, &mut unbalanced_heating)
+            .map_err(|error| ElementModelError::upstream(error, "the applied heating"))?;
         Ok((
             masses.nodal_accelerations(&unbalanced_forces),
-            capacities.nodal_temperature_rates(external_heating, &internal_heating),
+            capacities.nodal_temperature_rates(&unbalanced_heating),
         ))
     }
     fn integrate(
@@ -195,7 +198,7 @@ where
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         mut initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        external_heating: &NodalForcesThermal,
+        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         masses: &impl MassMatrix<3>,
         capacities: &impl HeatCapacityMatrix,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -229,7 +232,7 @@ where
                         &temperatures,
                         time,
                         applied_loads,
-                        external_heating,
+                        applied_heating,
                         &masses,
                         &capacities,
                     )
@@ -267,7 +270,7 @@ where
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         mut initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        external_heating: &NodalForcesThermal,
+        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         masses: &NodalLumpedMasses,
         capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -315,7 +318,7 @@ where
                         &temperatures,
                         time,
                         applied_loads,
-                        external_heating,
+                        applied_heating,
                         &masses,
                         &capacities,
                     )

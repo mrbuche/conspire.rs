@@ -60,7 +60,7 @@ pub trait ThermoelasticThermalConductionImplicitDynamics {
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        external_heating: &NodalForcesThermal,
+        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -94,7 +94,7 @@ where
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         mut initial_temperatures: NodalTemperatures,
         applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        external_heating: &NodalForcesThermal,
+        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -129,7 +129,7 @@ where
                     temperatures,
                     time,
                     applied_loads,
-                    external_heating,
+                    applied_heating,
                     &inverse_masses,
                     &inverse_capacities,
                 )
@@ -143,6 +143,8 @@ where
              rates: &NodalTemperatureRates| {
                 let mut loaded = NodalForcesSolid::<3>::zero(coordinates.len());
                 applied_loads.subtract_at(time, coordinates, &mut loaded)?;
+                let mut heated = NodalForcesThermal::zero(coordinates.len());
+                applied_heating.subtract_at(time, temperatures, &mut heated)?;
                 let internal = self
                     .nodal_forces(coordinates, velocities, temperatures)
                     .map_err(|error| error.to_string())?;
@@ -153,12 +155,12 @@ where
                     .zip(inertial_forces)
                     .zip(capacitive_heating)
                     .zip(loaded)
-                    .zip(external_heating)
+                    .zip(heated)
                     .map(
-                        |((((internal, inertial_force), capacitive), loaded_force), external)| {
+                        |((((internal, inertial_force), capacitive), loaded_force), heating)| {
                             TensorTuple(
                                 inertial_force + internal.0 + loaded_force,
-                                capacitive + internal.1 - *external,
+                                capacitive + internal.1 + heating,
                             )
                         },
                     )

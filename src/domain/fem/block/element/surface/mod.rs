@@ -96,10 +96,9 @@ where
             })
             .collect()
     }
-    fn traction_forces(
+    fn nodal_areas(
         reference_coordinates: &ElementNodalReferenceCoordinates<P>,
-        traction: &Traction,
-    ) -> ForceList<P> {
+    ) -> Vec<Quantity<Area>> {
         let shape_functions = Self::shape_functions_at_integration_points();
         let areas = Self::bases(reference_coordinates)
             .into_iter()
@@ -111,9 +110,18 @@ where
                 shape_functions
                     .iter()
                     .zip(&areas)
-                    .map(|(shape_functions, &area)| traction * area * shape_functions[a])
+                    .map(|(shape_functions, &area)| area * shape_functions[a])
                     .sum()
             })
+            .collect()
+    }
+    fn traction_forces(
+        reference_coordinates: &ElementNodalReferenceCoordinates<P>,
+        traction: &Traction,
+    ) -> ForceList<P> {
+        Self::nodal_areas(reference_coordinates)
+            .into_iter()
+            .map(|area| traction * area)
             .collect()
     }
     fn normals(nodal_coordinates: &ElementNodalCoordinates<P>) -> Normals<G> {

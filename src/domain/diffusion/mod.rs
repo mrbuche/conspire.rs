@@ -1,3 +1,5 @@
+pub(crate) mod loads;
+
 use crate::{
     constitutive::diffusion::Diffusive,
     domain::{

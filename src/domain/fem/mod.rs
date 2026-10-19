@@ -15,11 +15,13 @@ pub mod boundary {
 }
 pub mod chemical;
 pub mod diffusion {
+    pub use crate::domain::diffusion::loads::NodalSource;
     pub use crate::domain::diffusion::{
         DiffusionElements, NodalFields, NodalForces, NodalStiffnesses,
     };
 }
 pub mod electrical;
+pub mod flux;
 mod from;
 pub mod multiphysics;
 pub mod solid;

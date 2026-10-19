@@ -19,6 +19,7 @@ pub mod chemical {
     }
 }
 pub mod diffusion {
+    pub use crate::domain::diffusion::loads::NodalSource;
     pub use crate::domain::diffusion::{
         DiffusionElements, NodalFields, NodalForces, NodalStiffnesses,
     };

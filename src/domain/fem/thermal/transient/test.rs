@@ -140,7 +140,7 @@ mod integrate_temperatures {
                     1,
                     &times(dt, 4000),
                     initial.clone(),
-                    &NodalForcesThermal::zero(NODES),
+                    &(),
                     &capacities,
                     &fixed_temperatures(&[]),
                 )
@@ -165,7 +165,7 @@ mod integrate_temperatures {
                 1,
                 &times(dt, 4000),
                 temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
-                &NodalForcesThermal::zero(NODES),
+                &(),
                 &model.nodal_lumped_heat_capacities(),
                 &fixed_temperatures(&[0]),
             )
@@ -200,7 +200,7 @@ mod integrate_temperatures {
                 1,
                 &times(dt, 100),
                 temperatures([300.0; NODES]),
-                &heating,
+                &source(heating.clone()),
                 &capacities,
                 &conditions,
             )
@@ -225,7 +225,7 @@ mod integrate_temperatures {
                 &Euler::default(),
                 &times(dt, 20000),
                 initial(),
-                &heating,
+                &source(heating.clone()),
                 &model.nodal_lumped_heat_capacities(),
                 &fixed(),
             )
@@ -235,7 +235,7 @@ mod integrate_temperatures {
                 &Euler::default(),
                 &times(dt, 20000),
                 initial(),
-                &heating,
+                &source(heating.clone()),
                 &model.nodal_heat_capacities(),
                 &fixed(),
             )
@@ -252,7 +252,8 @@ mod integrate_temperatures {
         let rates = model
             .nodal_temperature_rates(
                 &temperatures(lumped.clone().try_into().unwrap()),
-                &heating,
+                Time::seconds(0.0),
+                &source(heating.clone()),
                 &model.nodal_lumped_heat_capacities().inverse(&[0]).unwrap(),
             )
             .unwrap();
@@ -275,7 +276,7 @@ mod integrate_temperatures {
                 1,
                 &times(dt, 40),
                 initial.clone(),
-                &NodalForcesThermal::zero(NODES),
+                &(),
                 &capacities,
                 &fixed_temperatures(&[]),
             )
@@ -286,7 +287,7 @@ mod integrate_temperatures {
                 &Euler::default(),
                 &times(20.0 * dt, 40),
                 initial,
-                &NodalForcesThermal::zero(NODES),
+                &(),
                 &capacities,
                 &fixed_temperatures(&[]),
             )
@@ -338,7 +339,7 @@ mod integrate_implicit {
             solver(),
             times,
             initial,
-            heating,
+            &source(heating.clone()),
             capacities,
             conditions,
         )
@@ -426,7 +427,7 @@ mod integrate_implicit {
             &Euler::default(),
             &times(1e-6, 2),
             temperatures([300.0; NODES]),
-            &NodalForcesThermal::zero(NODES),
+            &(),
             &model.nodal_lumped_heat_capacities(),
             &conditions,
         );
@@ -517,7 +518,8 @@ mod integrate_implicit {
         let rates = model
             .nodal_temperature_rates(
                 &temperatures(lumped.clone().try_into().unwrap()),
-                &heating,
+                Time::seconds(0.0),
+                &source(heating.clone()),
                 &model.nodal_lumped_heat_capacities().inverse(&[0]).unwrap(),
             )
             .unwrap();
@@ -562,7 +564,7 @@ mod integrate_implicit {
             &Euler::default(),
             &times(dt, 200),
             initial.clone(),
-            &heating,
+            &source(heating.clone()),
             &capacities,
             &fixed_temperatures(&[]),
         )
@@ -580,4 +582,14 @@ mod integrate_implicit {
             .zip(values(implicit.iter().last().unwrap()))
             .for_each(|(&a, b)| near(a, b, 1e-2));
     }
+}
+
+fn source(
+    heating: crate::domain::thermal::NodalForcesThermal,
+) -> crate::fem::boundary::Loads<
+    crate::fem::boundary::Field<crate::units::Temperature>,
+    ((), crate::fem::diffusion::NodalSource<crate::units::Power>),
+> {
+    crate::fem::boundary::Loads::<crate::fem::boundary::Field<crate::units::Temperature>>::new()
+        .source(heating)
 }

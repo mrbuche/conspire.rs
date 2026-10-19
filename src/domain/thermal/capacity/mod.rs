@@ -99,22 +99,21 @@ pub type NodalTemperatureRates = QuantityVector<TemperatureRate>;
 
 /// A heat capacity inverted for the rates of temperature it gives.
 pub trait InverseHeatCapacity {
+    /// The rates of temperature that balance heating, the internal heating less the external.
     fn nodal_temperature_rates(
         &self,
-        external_heating: &NodalForcesThermal,
-        internal_heating: &NodalForcesThermal,
+        unbalanced_heating: &NodalForcesThermal,
     ) -> NodalTemperatureRates;
 }
 
 impl InverseHeatCapacity for NodalLumpedHeatCapacities {
     fn nodal_temperature_rates(
         &self,
-        external_heating: &NodalForcesThermal,
-        internal_heating: &NodalForcesThermal,
+        unbalanced_heating: &NodalForcesThermal,
     ) -> NodalTemperatureRates {
         self.iter()
-            .zip(external_heating.iter().zip(internal_heating))
-            .map(|(&capacity, (&external, &internal))| (external - internal) / capacity)
+            .zip(unbalanced_heating)
+            .map(|(&capacity, &unbalanced)| -unbalanced / capacity)
             .collect()
     }
 }
@@ -147,12 +146,9 @@ impl HeatCapacityMatrix for NodalLumpedHeatCapacities {
 impl InverseHeatCapacity for FixedLumpedHeatCapacities {
     fn nodal_temperature_rates(
         &self,
-        external_heating: &NodalForcesThermal,
-        internal_heating: &NodalForcesThermal,
+        unbalanced_heating: &NodalForcesThermal,
     ) -> NodalTemperatureRates {
-        let mut rates = self
-            .capacities
-            .nodal_temperature_rates(external_heating, internal_heating);
+        let mut rates = self.capacities.nodal_temperature_rates(unbalanced_heating);
         self.fixed
             .iter()
             .for_each(|&index| rates[index] = Default::default());
@@ -170,11 +166,17 @@ impl HeatCapacityMatrix for NodalHeatCapacities {
 impl InverseHeatCapacity for FreeFactoredHeatCapacities {
     fn nodal_temperature_rates(
         &self,
-        external_heating: &NodalForcesThermal,
-        internal_heating: &NodalForcesThermal,
+        unbalanced_heating: &NodalForcesThermal,
     ) -> NodalTemperatureRates {
-        self.solve(&(external_heating - internal_heating).into_erased().into())
-            .into()
+        self.solve(
+            &unbalanced_heating
+                .iter()
+                .map(|heating| -*heating)
+                .collect::<NodalForcesThermal>()
+                .into_erased()
+                .into(),
+        )
+        .into()
     }
 }
 

@@ -9,7 +9,7 @@ pub use implicit::ThermalConductionImplicitTransient;
 use crate::{
     domain::{
         ElementModelError, Model, Stepping,
-        boundary::{ConstrainAt, Field},
+        boundary::{ConstrainAt, Field, LoadAt},
         diffusion::DiffusionElements,
         thermal::{
             NodalForcesThermal, NodalTemperatures,
@@ -43,7 +43,8 @@ pub trait ThermalConductionTransient {
     fn nodal_temperature_rates(
         &self,
         nodal_temperatures: &NodalTemperatures,
-        external_heating: &NodalForcesThermal,
+        time: Quantity<Time>,
+        applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         capacities: &impl InverseHeatCapacity,
     ) -> Result<NodalTemperatureRates, ElementModelError>;
     /// Integrates the temperatures of the model with an explicit integrator.
@@ -60,7 +61,7 @@ pub trait ThermalConductionTransient {
         >,
         time: &[Quantity<Time>],
         initial_temperatures: NodalTemperatures,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         capacities: &impl HeatCapacityMatrix,
         conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>;
@@ -85,7 +86,7 @@ pub trait ThermalConductionTransient {
         interval: usize,
         time: &[Quantity<Time>],
         initial_temperatures: NodalTemperatures,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>
@@ -100,11 +101,15 @@ where
     fn nodal_temperature_rates(
         &self,
         nodal_temperatures: &NodalTemperatures,
-        external_heating: &NodalForcesThermal,
+        time: Quantity<Time>,
+        applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         capacities: &impl InverseHeatCapacity,
     ) -> Result<NodalTemperatureRates, ElementModelError> {
-        Ok(capacities
-            .nodal_temperature_rates(external_heating, &self.nodal_forces(nodal_temperatures)?))
+        let mut unbalanced_heating = self.nodal_forces(nodal_temperatures)?;
+        applied_loads
+            .subtract_at(time, nodal_temperatures, &mut unbalanced_heating)
+            .map_err(|error| ElementModelError::upstream(error, "the applied loads"))?;
+        Ok(capacities.nodal_temperature_rates(&unbalanced_heating))
     }
     fn integrate(
         &self,
@@ -115,7 +120,7 @@ where
         >,
         time: &[Quantity<Time>],
         mut initial_temperatures: NodalTemperatures,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         capacities: &impl HeatCapacityMatrix,
         conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError> {
@@ -134,7 +139,7 @@ where
             |time, temperatures: &NodalTemperatures| {
                 let mut temperatures = temperatures.clone();
                 motion.apply(time, &mut temperatures);
-                self.nodal_temperature_rates(&temperatures, external_heating, &capacities)
+                self.nodal_temperature_rates(&temperatures, time, applied_loads, &capacities)
                     .map_err(|error| error.to_string())
             },
             time,
@@ -154,7 +159,7 @@ where
         interval: usize,
         time: &[Quantity<Time>],
         mut initial_temperatures: NodalTemperatures,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
         capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>
@@ -184,7 +189,7 @@ where
             |time, temperatures: &NodalTemperatures| {
                 let mut temperatures = temperatures.clone();
                 motion.apply(time, &mut temperatures);
-                self.nodal_temperature_rates(&temperatures, external_heating, &capacities)
+                self.nodal_temperature_rates(&temperatures, time, applied_loads, &capacities)
                     .map_err(|error| error.to_string())
             },
             |time, temperatures: &NodalTemperatures| {

@@ -230,3 +230,60 @@ mod series {
         )
     }
 }
+
+mod source {
+    use super::*;
+    use crate::{
+        fem::{
+            boundary::{BoundaryConditions, ConstrainAt as _, Field, Loads, Potential},
+            diffusion::NodalSource,
+        },
+        units::{Current, ElectricPotential},
+    };
+
+    fn injection(total: f64) -> Loads<Field<ElectricPotential>, ((), NodalSource<Current>)> {
+        let sources = (0..8)
+            .map(|node| Quantity::<Current>::new(if node >= 4 { total / 4.0 } else { 0.0 }))
+            .collect::<NodalCurrents>();
+        Loads::<Field<ElectricPotential>>::new().source(sources)
+    }
+    fn grounded() -> impl crate::fem::boundary::Constrain<Field<ElectricPotential>> {
+        BoundaryConditions::<Field<ElectricPotential>>::new().fix_nodes(Potential, 0..4)
+    }
+    #[test]
+    fn a_current_injected_into_a_slab_raises_it_by_the_current_over_the_conductance() {
+        let (model, _) = slab();
+        let potentials =
+            <Model<B, 3> as Root<NodalCurrents, NodalConductances, NodalPotentials>>::root(
+                &model,
+                &grounded(),
+                &injection(2.0),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let expected = 2.0 * GAP / (2.5 * WIDTH * DEPTH);
+        (0..4).for_each(|node| near(potentials[node].value(), 0.0));
+        (4..8).for_each(|node| near(potentials[node].value(), expected))
+    }
+    #[test]
+    fn minimizing_the_energy_with_the_source_gives_the_same_potentials() {
+        let (model, _) = slab();
+        let solved =
+            <Model<B, 3> as Root<NodalCurrents, NodalConductances, NodalPotentials>>::root(
+                &model,
+                &grounded(),
+                &injection(2.0),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let minimized =
+            <Model<B, 3> as Minimize<Quantity<Power>, NodalCurrents, NodalPotentials>>::minimize(
+                &model,
+                &grounded(),
+                &injection(2.0),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
+    }
+}

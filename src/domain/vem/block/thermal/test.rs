@@ -115,7 +115,6 @@ mod heat {
             boundary::{ConstrainAt, Field},
             diffusion::DiffusionElements,
             thermal::{
-                NodalForcesThermal,
                 time_scale::ThermalTimeScaleElements,
                 transient::{ThermalConductionTransient, test::fixed_temperatures},
             },
@@ -217,7 +216,7 @@ mod heat {
                 &Euler::default(),
                 &times,
                 initial,
-                &NodalForcesThermal::zero(NODES),
+                &(),
                 &capacities,
                 &fixed_temperatures(&boundary),
             )
@@ -282,7 +281,7 @@ mod heat {
                     1,
                     &times(dt, 20000),
                     initial.clone(),
-                    &NodalForcesThermal::zero(NODES),
+                    &(),
                     &capacities,
                     &fixed_temperatures(&[]),
                 )
@@ -314,7 +313,7 @@ mod heat {
                     1,
                     &times(dt, 20000),
                     initial,
-                    &NodalForcesThermal::zero(NODES),
+                    &(),
                     &model.nodal_lumped_heat_capacities(),
                     &fixed_temperatures(&boundary),
                 )
@@ -352,7 +351,7 @@ mod heat {
                     1,
                     &times(dt, 40),
                     perturbed.clone(),
-                    &NodalForcesThermal::zero(NODES),
+                    &(),
                     &capacities,
                     &fixed_temperatures(&[]),
                 )
@@ -363,7 +362,7 @@ mod heat {
                     &Euler::default(),
                     &times(20.0 * dt, 40),
                     perturbed,
-                    &NodalForcesThermal::zero(NODES),
+                    &(),
                     &capacities,
                     &fixed_temperatures(&[]),
                 )
@@ -388,7 +387,7 @@ mod heat {
                     0,
                     &times(1.0, 2),
                     initial,
-                    &NodalForcesThermal::zero(NODES),
+                    &(),
                     &model.nodal_lumped_heat_capacities(),
                     &fixed_temperatures(&[]),
                 )
@@ -433,7 +432,7 @@ mod heat {
                     .map(|step| Time::seconds(step as Scalar * dt))
                     .collect::<Vec<_>>(),
                 initial,
-                &NodalForcesThermal::zero(NODES),
+                &(),
                 &model.nodal_lumped_heat_capacities(),
                 conditions,
             )
