@@ -1,11 +1,13 @@
 use crate::{
     cbm::{
         ElasticElements, ElasticExplicitDynamics, HyperelasticElements, Model, NodalAccelerations,
-        NodalCoordinates, NodalForcesSolid, NodalReferenceCoordinates, NodalVelocities,
-        block::Block,
+        NodalCoordinates, NodalReferenceCoordinates, NodalVelocities, block::Block,
     },
     constitutive::solid::hyperelastic::NeoHookean,
-    domain::solid::dynamics::test::fixed_dofs,
+    domain::{
+        boundary::{Loads, Solid},
+        solid::{dynamics::test::fixed_dofs, loads::DeadLoad, mass::InertialMass},
+    },
     geometry::mesh::PrimitiveConnectivity,
     math::{
         Quantity, Tensor,
@@ -50,14 +52,13 @@ fn uniform_velocities(velocity: [f64; 3]) -> NodalVelocities<3> {
     COORDINATES.map(|_| velocity).into()
 }
 
-fn dead(
-    forces: NodalForcesSolid<3>,
-) -> crate::domain::boundary::Loads<
-    crate::domain::boundary::Solid<3>,
-    ((), crate::domain::solid::loads::DeadLoad),
-> {
-    crate::domain::boundary::Loads::<crate::domain::boundary::Solid<3>>::new()
-        .nodal_forces(&NodalReferenceCoordinates::from(COORDINATES), forces)
+fn weights(masses: &impl InertialMass<3>) -> Loads<Solid<3>, ((), DeadLoad)> {
+    Loads::<Solid<3>>::new()
+        .body_acceleration(
+            &NodalReferenceCoordinates::from(COORDINATES),
+            masses,
+            &gravity()[0],
+        )
         .unwrap()
 }
 
@@ -87,7 +88,7 @@ fn time(dt: f64) -> [Quantity<Time>; 2] {
 fn a_body_in_its_reference_configuration_falls_with_gravity() -> Result<(), AssertionError> {
     let model = model();
     let masses = model.nodal_lumped_masses();
-    let weights = dead(masses.inertial_forces(&gravity()));
+    let weights = weights(&masses);
     let accelerations = model
         .nodal_accelerations(
             &NodalCoordinates::from(COORDINATES),
@@ -142,7 +143,7 @@ fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionE
 fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
     let (model, dt) = (model(), 1e-4);
     let masses = model.nodal_lumped_masses();
-    let weights = dead(masses.inertial_forces(&gravity()));
+    let weights = weights(&masses);
     let (times, coordinates, velocities, accelerations) = model.integrate(
         &integrator(dt),
         &time(dt),
@@ -175,7 +176,7 @@ fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
 fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
     let (model, dt) = (model(), 1e-4);
     let masses = model.nodal_lumped_masses();
-    let weights = dead(masses.inertial_forces(&gravity()));
+    let weights = weights(&masses);
     let (_, coordinates, velocities, accelerations) = model.integrate(
         &integrator(dt),
         &time(dt),
@@ -285,7 +286,7 @@ mod implicit {
     fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
-        let weights = dead(masses.inertial_forces(&gravity()));
+        let weights = weights(&masses);
         let (times, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
             &integrator(dt),
@@ -319,7 +320,7 @@ mod implicit {
     fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
-        let weights = dead(masses.inertial_forces(&gravity()));
+        let weights = weights(&masses);
         let (_, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
             &integrator(dt),

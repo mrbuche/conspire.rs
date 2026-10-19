@@ -1,14 +1,14 @@
 use crate::{
     domain::{
-        NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         boundary::{
             Conservative, ConservativeAt, Layout, Load, LoadAt, Loads, PowerAt, Solid, SolidThermal,
         },
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
-        solid::NodalForcesSolid,
+        solid::{NodalForcesSolid, mass::InertialMass},
     },
-    math::{Quantity, Tensor},
-    units::{Energy, Power, Time},
+    math::{Current, Quantity, Tensor, TensorRank1},
+    units::{Acceleration, Energy, Power, Time},
 };
 
 /// A layout whose degrees of freedom begin with the coordinates of a solid in three dimensions.
@@ -52,6 +52,21 @@ impl<L, T> Loads<L, T>
 where
     L: SolidLayout,
 {
+    /// Adds the weight of a body, which is the force of an acceleration on the masses of its nodes.
+    ///
+    /// The masses may be lumped or consistent, and the acceleration is the same at every node.
+    pub fn body_acceleration(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        masses: &impl InertialMass<3>,
+        acceleration: &TensorRank1<3, Current, Acceleration>,
+    ) -> Result<Loads<L, (T, DeadLoad)>, String> {
+        let accelerations = coordinates
+            .iter()
+            .map(|_| acceleration.clone())
+            .collect::<NodalAccelerations<3>>();
+        self.nodal_forces(coordinates, masses.inertial_forces(&accelerations))
+    }
     /// Adds a force on each node, such as the weight of a body.
     pub fn nodal_forces(
         self,
