@@ -3,7 +3,7 @@ use crate::{
     domain::{
         ElementModel, Model, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{ConstrainAt, Field, LoadAt},
+        boundary::{ConstrainAt, Field, LoadAt, LoadStiffnessAt},
         diffusion::DiffusionElements,
         thermal::{
             NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures,
@@ -39,7 +39,10 @@ pub trait ThermalConductionImplicitTransient {
         solver: impl RootFinding<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>,
         time: &[Quantity<Time>],
         initial_temperatures: NodalTemperatures,
-        applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
+        applied_loads: &(
+             impl LoadAt<NodalTemperatures, NodalForcesThermal>
+             + LoadStiffnessAt<NodalTemperatures, NodalStiffnessesThermal>
+         ),
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError>;
@@ -61,7 +64,10 @@ where
         solver: impl RootFinding<NodalForcesThermal, NodalStiffnessesThermal, NodalTemperatures>,
         time: &[Quantity<Time>],
         mut initial_temperatures: NodalTemperatures,
-        applied_loads: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
+        applied_loads: &(
+             impl LoadAt<NodalTemperatures, NodalForcesThermal>
+             + LoadStiffnessAt<NodalTemperatures, NodalStiffnessesThermal>
+         ),
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<Field<Temperature>>,
     ) -> Result<Solution, IntegrationError> {
@@ -97,11 +103,12 @@ where
                 applied_loads.subtract_at(time, temperatures, &mut residual)?;
                 Ok(residual)
             },
-            |_, temperatures: &NodalTemperatures, _: &NodalTemperatureRates, dt| {
+            |time, temperatures: &NodalTemperatures, _: &NodalTemperatureRates, dt| {
                 let mut tangent = self
                     .nodal_stiffnesses(temperatures)
                     .map_err(|error| error.to_string())?;
                 capacities.add_to_stiffnesses(1.0 / dt.value(), &mut tangent);
+                applied_loads.add_stiffness_at(time, temperatures, &mut tangent)?;
                 Ok(tangent)
             },
             solver,

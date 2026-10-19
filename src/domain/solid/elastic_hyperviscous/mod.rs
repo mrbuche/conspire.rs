@@ -3,7 +3,7 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         NodalState, NodalVelocities, NodalVelocitiesHistory,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{ConstrainAt, LoadAt, PowerAt},
+        boundary::{ConstrainAt, LoadAt, LoadStiffnessAt, PowerAt},
         solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
@@ -90,6 +90,7 @@ pub trait Minimize<const D: usize> {
         boundary_conditions: &impl ConstrainAt<<NodalVelocities<D> as NodalState>::Layout>,
         applied_loads: &(
              impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + LoadStiffnessAt<NodalCoordinates<D>, NodalDampingsSolid<D>>
              + PowerAt<NodalCoordinates<D>, NodalVelocities<D>, Quantity<Power>>
          ),
         integrator: impl ImplicitDaeMinimize<
@@ -119,6 +120,7 @@ where
         boundary_conditions: &impl ConstrainAt<<NodalVelocities<D> as NodalState>::Layout>,
         applied_loads: &(
              impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + LoadStiffnessAt<NodalCoordinates<D>, NodalDampingsSolid<D>>
              + PowerAt<NodalCoordinates<D>, NodalVelocities<D>, Quantity<Power>>
          ),
         integrator: impl ImplicitDaeMinimize<
@@ -166,10 +168,13 @@ where
                 applied_loads.subtract_at(time, nodal_coordinates, &mut nodal_forces)?;
                 Ok(nodal_forces)
             },
-            |_: Quantity<Time>,
+            |time: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
-                Ok(self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?)
+                let mut nodal_dampings =
+                    self.nodal_stiffnesses(nodal_coordinates, nodal_velocities)?;
+                applied_loads.add_stiffness_at(time, nodal_coordinates, &mut nodal_dampings)?;
+                Ok(nodal_dampings)
             },
             solver,
             time,

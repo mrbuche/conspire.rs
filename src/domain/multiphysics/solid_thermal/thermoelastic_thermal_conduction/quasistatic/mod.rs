@@ -7,7 +7,7 @@ use crate::{
         ElementModel, Model, NodalCoordinates, NodalCoordinatesHistory, NodalVelocities,
         NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{ConstrainAt, LoadAt, SolidThermal},
+        boundary::{ConstrainAt, LoadAt, LoadStiffnessAt, SolidThermal},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalRatesSolidThermal, NodalRatesSolidThermalHistory,
             NodalStatesSolidThermal, NodalStatesSolidThermalHistory, NodalStiffnessesSolidThermal,
@@ -66,7 +66,10 @@ pub trait ThermoelasticThermalConductionQuasistatic {
         >,
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalTemperatures),
-        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
+        applied_loads: &(
+             impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
+             + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
+         ),
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>;
@@ -95,7 +98,10 @@ where
             NodalCoordinates<3>,
             NodalTemperatures,
         ),
-        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
+        applied_loads: &(
+             impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
+             + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
+         ),
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError> {
@@ -144,7 +150,7 @@ where
                     .map(|(internal, capacitive)| TensorTuple(internal.0, capacitive + internal.1))
                     .collect())
             },
-            |_,
+            |time,
              states: &NodalStatesSolidThermal,
              rates: &NodalRatesSolidThermal,
              dt: Quantity<Time>| {
@@ -159,6 +165,7 @@ where
                     Quantity::<Rate>::new(1.0 / dt.value()),
                 );
                 add_capacities(&mut tangent, capacities, 1.0 / dt.value());
+                applied_loads.add_stiffness_at(time, states, &mut tangent)?;
                 Ok(tangent)
             },
             solver,

@@ -3,7 +3,8 @@ use crate::{
     domain::{
         ElementModel,
         boundary::{
-            Conservative, ConservativeAt, Field, Load, LoadAt, LoadStiffness, Loads, SolidThermal,
+            Conservative, ConservativeAt, Field, Load, LoadAt, LoadStiffness, LoadStiffnessAt,
+            Loads, SolidThermal,
         },
         diffusion::{NodalFields, NodalForces},
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
@@ -48,6 +49,10 @@ where
 }
 
 impl<L, X, J> LoadStiffness<X, J> for NodalSource<L> where L: Diffusive {}
+
+impl<L, X, J> LoadStiffnessAt<X, J> for NodalSource<L> where L: Diffusive {}
+
+impl<W, G, X, J> LoadStiffnessAt<X, J> for TimedSource<W, G> {}
 
 impl<L> Load<NodalFields<L>, NodalForces<L>> for NodalSource<L>
 where

@@ -4,7 +4,7 @@ use crate::{
         ElementModel, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{ConstrainAt, LoadAt, SolidThermal},
+        boundary::{ConstrainAt, LoadAt, LoadStiffnessAt, SolidThermal},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
             join_states, split_states,
@@ -59,7 +59,10 @@ pub trait ThermoelasticThermalConductionImplicitDynamics {
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         initial_temperatures: NodalTemperatures,
-        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
+        applied_loads: &(
+             impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
+             + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
+         ),
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -92,7 +95,10 @@ where
         time: &[Quantity<Time>],
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         mut initial_temperatures: NodalTemperatures,
-        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
+        applied_loads: &(
+             impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
+             + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
+         ),
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -157,7 +163,7 @@ where
                     })
                     .collect())
             },
-            |_,
+            |time,
              coordinates: &NodalCoordinates<3>,
              velocities: &NodalVelocities<3>,
              temperatures: &NodalTemperatures,
@@ -183,6 +189,11 @@ where
                     })
                 });
                 add_capacities(&mut tangent, capacities, 1.0 / dt.value());
+                applied_loads.add_stiffness_at(
+                    time,
+                    &join_states(coordinates, temperatures),
+                    &mut tangent,
+                )?;
                 Ok(tangent)
             },
             join_states,

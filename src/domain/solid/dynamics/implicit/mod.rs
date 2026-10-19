@@ -4,7 +4,7 @@ use crate::{
         ElementModel, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{ConstrainAt, LoadAt, Solid},
+        boundary::{ConstrainAt, LoadAt, LoadStiffnessAt, Solid},
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
             elastic::ElasticElements,
@@ -40,7 +40,10 @@ pub trait ElasticImplicitDynamics {
         solver: impl RootFinding<NodalForcesSolid<3>, NodalStiffnessesSolid<3>, NodalCoordinates<3>>,
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
-        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>
+             + LoadStiffnessAt<NodalCoordinates<3>, NodalStiffnessesSolid<3>>
+         ),
         masses: &impl InertialMass<3>,
         conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError>;
@@ -63,7 +66,10 @@ where
         solver: impl RootFinding<NodalForcesSolid<3>, NodalStiffnessesSolid<3>, NodalCoordinates<3>>,
         time: &[Quantity<Time>],
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
-        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>
+             + LoadStiffnessAt<NodalCoordinates<3>, NodalStiffnessesSolid<3>>
+         ),
         masses: &impl InertialMass<3>,
         conditions: &impl ConstrainAt<Solid<3>>,
     ) -> Result<Solution, IntegrationError> {
@@ -102,11 +108,12 @@ where
                 applied_loads.subtract_at(time, coordinates, &mut residual)?;
                 Ok(residual)
             },
-            |_, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>, dt, beta, _| {
+            |time, coordinates: &NodalCoordinates<3>, _: &NodalVelocities<3>, dt, beta, _| {
                 let mut tangent = self
                     .nodal_stiffnesses(coordinates)
                     .map_err(|error| error.to_string())?;
                 masses.add_to_stiffnesses(1.0 / (beta * dt.value().powi(2)), &mut tangent);
+                applied_loads.add_stiffness_at(time, coordinates, &mut tangent)?;
                 Ok(tangent)
             },
             solver,

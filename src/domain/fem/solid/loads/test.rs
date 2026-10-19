@@ -597,7 +597,8 @@ mod follower {
     }
     fn conditions<'a>(
         sets: &'a [NodeSet; 4],
-    ) -> impl crate::fem::boundary::Constrain<Solid<3>> + 'a {
+    ) -> impl crate::fem::boundary::Constrain<Solid<3>> + crate::fem::boundary::ConstrainAt<Solid<3>> + 'a
+    {
         let [bottom, pinned, along_x, along_y] = sets;
         BoundaryConditions::<Solid<3>>::new()
             .fix(Displacement::<2>, bottom)
@@ -673,5 +674,72 @@ mod follower {
             follower > 1.005 * dead,
             "{follower} is not more than {dead}"
         );
+    }
+    mod dynamics {
+        use super::*;
+        use crate::{
+            fem::{NodalReferenceCoordinates, NodalVelocities, solid::ElasticImplicitDynamics},
+            math::{integrate::Newmark, optimize::Tolerances},
+            units::{Density, Time},
+        };
+        type Dense = Block<NeoHookean, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
+        fn dense() -> Model<Dense, 3> {
+            let coordinates = NodalReferenceCoordinates::from([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [2.0, 3.0, 0.0],
+                [0.0, 3.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [2.0, 0.0, 1.0],
+                [2.0, 3.0, 1.0],
+                [0.0, 3.0, 1.0],
+            ]);
+            (
+                Dense::from((
+                    NeoHookean {
+                        bulk_modulus: Stress::pascals(13.0),
+                        shear_modulus: Stress::pascals(3.0),
+                    },
+                    Density::kilograms_per_cubic_meter(1.0),
+                    vec![[0, 1, 2, 3, 4, 5, 6, 7]],
+                    &coordinates,
+                )),
+                coordinates,
+            )
+                .into()
+        }
+        #[test]
+        fn a_pressure_that_follows_the_face_converges_in_few_steps_of_an_implicit_motion() {
+            let model = dense();
+            let sets = sets();
+            let side_set = SideSet::new(vec![(0, 5)]).with_faces(vec![vec![4, 5, 6, 7]]);
+            let loads = Loads::<Solid<3>>::new()
+                .pressure(&side_set, Quantity::<Stress>::new(0.8))
+                .unwrap();
+            let (times, coordinates, ..) = ElasticImplicitDynamics::integrate(
+                &model,
+                &Newmark::new(Time::seconds(0.05)),
+                NewtonRaphson {
+                    abs_tol: Tolerances {
+                        constraint: 1e-12,
+                        residual: 1e-10,
+                    },
+                    max_steps: 6,
+                    linear_solver: Direct,
+                    ..Default::default()
+                },
+                &[Time::seconds(0.0), Time::seconds(0.25)],
+                (
+                    model.coordinates().clone().into(),
+                    NodalVelocities::from(vec![[0.0; 3]; 8]),
+                ),
+                &loads,
+                &model.nodal_lumped_masses(),
+                &conditions(&sets),
+            )
+            .unwrap();
+            assert!(times.into_iter().count() > 2);
+            assert!(coordinates.into_iter().last().unwrap()[4][2].value() < 1.0);
+        }
     }
 }

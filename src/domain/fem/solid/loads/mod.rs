@@ -3,7 +3,11 @@ mod test;
 
 use crate::{
     domain::{
-        boundary::{Load, LoadStiffness, Loads, Solid},
+        boundary::{Load, LoadAt, LoadStiffness, LoadStiffnessAt, Loads, Solid},
+        multiphysics::solid_thermal::{
+            NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
+            split_states,
+        },
         solid::loads::{DeadLoad, SolidLayout, TimedLoad},
     },
     fem::{
@@ -18,7 +22,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     geometry::mesh::SideSet,
-    math::{Current, Quantity, Tensor, TensorRank2List2D},
+    math::{Current, Quantity, Tensor, TensorRank2List2D, TensorTuple},
     mechanics::{ForceList, Traction},
     units::{Area, ForcePerLength, Stress, Time},
 };
@@ -261,6 +265,68 @@ impl LoadStiffness<NodalCoordinates<3>, NodalStiffnessesSolid<3>> for Pressure {
                 tangent,
             ),
             _ => panic!(),
+        });
+        Ok(())
+    }
+}
+
+impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>> for Pressure {
+    fn subtract_at(
+        &self,
+        _: Quantity<Time>,
+        coordinates: &NodalCoordinates<3>,
+        residual: &mut NodalForcesSolid<3>,
+    ) -> Result<(), String> {
+        self.subtract_from(coordinates, residual)
+    }
+}
+
+impl LoadStiffnessAt<NodalCoordinates<3>, NodalStiffnessesSolid<3>> for Pressure {
+    fn add_stiffness_at(
+        &self,
+        _: Quantity<Time>,
+        coordinates: &NodalCoordinates<3>,
+        tangent: &mut NodalStiffnessesSolid<3>,
+    ) -> Result<(), String> {
+        self.add_stiffness_to(coordinates, tangent)
+    }
+}
+
+impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for Pressure {
+    fn subtract_at(
+        &self,
+        _: Quantity<Time>,
+        states: &NodalStatesSolidThermal,
+        residual: &mut NodalForcesSolidThermal,
+    ) -> Result<(), String> {
+        let (coordinates, _) = split_states(states);
+        let mut forces = NodalForcesSolid::<3>::zero(coordinates.len());
+        self.subtract_from(&coordinates, &mut forces)?;
+        residual
+            .iter_mut()
+            .zip(forces)
+            .for_each(|(residual, force)| residual.0 += force);
+        Ok(())
+    }
+}
+
+impl LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal> for Pressure {
+    fn add_stiffness_at(
+        &self,
+        _: Quantity<Time>,
+        states: &NodalStatesSolidThermal,
+        tangent: &mut NodalStiffnessesSolidThermal,
+    ) -> Result<(), String> {
+        let (coordinates, _) = split_states(states);
+        let mut stiffnesses = NodalStiffnessesSolid::<3>::zero(coordinates.len());
+        self.add_stiffness_to(&coordinates, &mut stiffnesses)?;
+        stiffnesses.iter().enumerate().for_each(|(a, row)| {
+            row.entries().for_each(|(b, stiffness)| {
+                tangent[a][b] += TensorTuple(
+                    TensorTuple(stiffness.clone(), Default::default()),
+                    TensorTuple(Default::default(), Default::default()),
+                )
+            })
         });
         Ok(())
     }

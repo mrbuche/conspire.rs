@@ -3,8 +3,8 @@ use crate::{
         ElementModel, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates,
         NodalVelocities,
         boundary::{
-            Conservative, ConservativeAt, Layout, Load, LoadAt, LoadStiffness, Loads, PowerAt,
-            Solid, SolidThermal,
+            Conservative, ConservativeAt, Layout, Load, LoadAt, LoadStiffness, LoadStiffnessAt,
+            Loads, PowerAt, Solid, SolidThermal,
         },
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
         solid::{NodalForcesSolid, mass::InertialMass},
@@ -83,6 +83,10 @@ where
 }
 
 impl<X, J> LoadStiffness<X, J> for DeadLoad {}
+
+impl<X, J> LoadStiffnessAt<X, J> for DeadLoad {}
+
+impl<W, G, X, J> LoadStiffnessAt<X, J> for TimedLoad<W, G> {}
 
 impl Load<NodalCoordinates<3>, NodalForcesSolid<3>> for DeadLoad {
     fn subtract_from(

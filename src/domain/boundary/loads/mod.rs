@@ -88,7 +88,55 @@ impl<X, R> Load<X, R> for () {
     }
 }
 
+/// The stiffness of external forces that depend on the state and may be a function of time.
+///
+/// A load that does not depend on the state has none to add, so the default adds nothing.
+pub trait LoadStiffnessAt<X, J> {
+    /// Adds the derivative of the residual of the external forces at a time to a tangent.
+    fn add_stiffness_at(
+        &self,
+        _time: Quantity<Time>,
+        _state: &X,
+        _tangent: &mut J,
+    ) -> Result<(), String> {
+        Ok(())
+    }
+}
+
 impl<X, J> LoadStiffness<X, J> for () {}
+
+impl<X, J> LoadStiffnessAt<X, J> for () {}
+
+impl<X, J, A, B> LoadStiffnessAt<X, J> for (A, B)
+where
+    A: LoadStiffnessAt<X, J>,
+    B: LoadStiffnessAt<X, J>,
+{
+    fn add_stiffness_at(
+        &self,
+        time: Quantity<Time>,
+        state: &X,
+        tangent: &mut J,
+    ) -> Result<(), String> {
+        self.0.add_stiffness_at(time, state, tangent)?;
+        self.1.add_stiffness_at(time, state, tangent)
+    }
+}
+
+impl<L, T, X, J> LoadStiffnessAt<X, J> for Loads<L, T>
+where
+    X: NodalState<Layout = L>,
+    T: LoadStiffnessAt<X, J>,
+{
+    fn add_stiffness_at(
+        &self,
+        time: Quantity<Time>,
+        state: &X,
+        tangent: &mut J,
+    ) -> Result<(), String> {
+        self.0.add_stiffness_at(time, state, tangent)
+    }
+}
 
 impl<X, J, A, B> LoadStiffness<X, J> for (A, B)
 where
