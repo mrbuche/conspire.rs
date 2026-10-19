@@ -1,6 +1,6 @@
 use crate::{
     cbm::{
-        ElasticElements, ElasticExplicitDynamics, Model, NodalCoordinates, NodalForcesSolid,
+        ElasticElements, ElasticExplicitDynamics, Model, NodalCoordinates,
         NodalReferenceCoordinates, NodalVelocities, block::Block,
     },
     constitutive::solid::hyperelastic::NeoHookean,
@@ -144,7 +144,7 @@ fn a_bounded_integration_runs_below_the_limit_and_errors_above_it() {
                 NodalCoordinates::from(COORDINATES),
                 NodalVelocities::from(COORDINATES.map(|_| [0.0; 3])),
             ),
-            &NodalForcesSolid::zero(COORDINATES.len()),
+            &(),
             &masses,
             &fixed_dofs(&[]),
         )

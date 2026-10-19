@@ -7,7 +7,7 @@ use crate::{
         ElementModel, Model, NodalCoordinates, NodalCoordinatesHistory, NodalVelocities,
         NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{ConstrainAt, SolidThermal},
+        boundary::{ConstrainAt, LoadAt, SolidThermal},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalRatesSolidThermal, NodalRatesSolidThermalHistory,
             NodalStatesSolidThermal, NodalStatesSolidThermalHistory, NodalStiffnessesSolidThermal,
@@ -67,7 +67,7 @@ pub trait ThermoelasticThermalConductionQuasistatic {
         >,
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalTemperatures),
-        external_forces: &NodalForcesSolid<3>,
+        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -97,7 +97,7 @@ where
             NodalCoordinates<3>,
             NodalTemperatures,
         ),
-        external_forces: &NodalForcesSolid<3>,
+        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
         external_heating: &NodalForcesThermal,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -135,9 +135,11 @@ where
                     inverse.nodal_temperature_rates(external_heating, &internal_heating);
                 Ok(join_rates(at_rest, temperature_rates))
             },
-            |_, states: &NodalStatesSolidThermal, rates: &NodalRatesSolidThermal| {
+            |time, states: &NodalStatesSolidThermal, rates: &NodalRatesSolidThermal| {
                 let (coordinates, temperatures) = split_states(states);
                 let (velocities, temperature_rates) = split_rates(rates);
+                let mut loaded = NodalForcesSolid::<3>::zero(coordinates.len());
+                applied_loads.subtract_at(time, &coordinates, &mut loaded)?;
                 let internal = self
                     .nodal_forces(&coordinates, &velocities, &temperatures)
                     .map_err(|error| error.to_string())?;
@@ -145,11 +147,11 @@ where
                 Ok(internal
                     .into_iter()
                     .zip(capacitive_heating)
-                    .zip(external_forces)
+                    .zip(loaded)
                     .zip(external_heating)
-                    .map(|(((internal, capacitive), external_force), external)| {
+                    .map(|(((internal, capacitive), loaded_force), external)| {
                         TensorTuple(
-                            internal.0 - external_force,
+                            internal.0 + loaded_force,
                             capacitive + internal.1 - *external,
                         )
                     })

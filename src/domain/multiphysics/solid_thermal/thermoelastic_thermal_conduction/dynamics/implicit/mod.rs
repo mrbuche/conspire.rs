@@ -4,7 +4,7 @@ use crate::{
         ElementModel, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{ConstrainAt, SolidThermal},
+        boundary::{ConstrainAt, LoadAt, SolidThermal},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
             join_states, split_states,
@@ -59,7 +59,7 @@ pub trait ThermoelasticThermalConductionImplicitDynamics {
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         initial_temperatures: NodalTemperatures,
-        external_forces: &NodalForcesSolid<3>,
+        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
         external_heating: &NodalForcesThermal,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
@@ -93,7 +93,7 @@ where
         time: &[Quantity<Time>],
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         mut initial_temperatures: NodalTemperatures,
-        external_forces: &NodalForcesSolid<3>,
+        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
         external_heating: &NodalForcesThermal,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
@@ -119,7 +119,7 @@ where
         let sparse =
             solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 4, false);
         integrator.integrate_coupled(
-            |_,
+            |time,
              coordinates: &NodalCoordinates<3>,
              velocities: &NodalVelocities<3>,
              temperatures: &NodalTemperatures| {
@@ -127,19 +127,22 @@ where
                     coordinates,
                     velocities,
                     temperatures,
-                    external_forces,
+                    time,
+                    applied_loads,
                     external_heating,
                     &inverse_masses,
                     &inverse_capacities,
                 )
                 .map_err(|error| error.to_string())
             },
-            |_,
+            |time,
              coordinates: &NodalCoordinates<3>,
              velocities: &NodalVelocities<3>,
              accelerations: &NodalAccelerations<3>,
              temperatures: &NodalTemperatures,
              rates: &NodalTemperatureRates| {
+                let mut loaded = NodalForcesSolid::<3>::zero(coordinates.len());
+                applied_loads.subtract_at(time, coordinates, &mut loaded)?;
                 let internal = self
                     .nodal_forces(coordinates, velocities, temperatures)
                     .map_err(|error| error.to_string())?;
@@ -149,12 +152,12 @@ where
                     .into_iter()
                     .zip(inertial_forces)
                     .zip(capacitive_heating)
-                    .zip(external_forces)
+                    .zip(loaded)
                     .zip(external_heating)
                     .map(
-                        |((((internal, inertial_force), capacitive), external_force), external)| {
+                        |((((internal, inertial_force), capacitive), loaded_force), external)| {
                             TensorTuple(
-                                inertial_force + internal.0 - external_force,
+                                inertial_force + internal.0 + loaded_force,
                                 capacitive + internal.1 - *external,
                             )
                         },

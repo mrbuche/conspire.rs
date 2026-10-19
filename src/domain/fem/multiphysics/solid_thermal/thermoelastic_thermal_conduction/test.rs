@@ -265,7 +265,6 @@ mod dynamics {
                 ThermoelasticThermalConductionDynamics,
                 time_scale::ThermoelasticThermalConductionTimeScaleElements,
             },
-            solid::NodalForcesSolid,
         },
         math::{
             Quantity, Tensor,
@@ -347,9 +346,6 @@ mod dynamics {
             .map(|step| Time::seconds(1e-5 * step as f64))
             .collect()
     }
-    fn no_forces() -> NodalForcesSolid<3> {
-        NodalForcesSolid::zero(COORDINATES.len())
-    }
     fn no_heating() -> NodalForcesThermal {
         NodalForcesThermal::zero(COORDINATES.len())
     }
@@ -363,7 +359,7 @@ mod dynamics {
                 &time(),
                 (NodalCoordinates::from(COORDINATES), velocities),
                 uniform_temperatures(),
-                &no_forces(),
+                &(),
                 &no_heating(),
                 &model().nodal_lumped_masses(),
                 &model().nodal_lumped_heat_capacities(),
@@ -382,7 +378,8 @@ mod dynamics {
                 &NodalCoordinates::from(COORDINATES),
                 &stretching(),
                 &uniform_temperatures(),
-                &no_forces(),
+                crate::units::Time::seconds(0.0),
+                &(),
                 &no_heating(),
                 &model().nodal_lumped_masses(),
                 &model().nodal_lumped_heat_capacities(),
@@ -444,7 +441,7 @@ mod dynamics {
                 &time(),
                 (NodalCoordinates::from(COORDINATES), translating()),
                 uniform_temperatures(),
-                &no_forces(),
+                &(),
                 &no_heating(),
                 &model().nodal_lumped_masses(),
                 &model().nodal_lumped_heat_capacities(),
@@ -476,7 +473,7 @@ mod dynamics {
             &time(),
             (NodalCoordinates::from(COORDINATES), translating()),
             uniform_temperatures(),
-            &no_forces(),
+            &(),
             &no_heating(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
@@ -516,7 +513,7 @@ mod dynamics {
             &time(),
             (NodalCoordinates::from(COORDINATES), stretching()),
             uniform_temperatures(),
-            &no_forces(),
+            &(),
             &no_heating(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
@@ -539,7 +536,7 @@ mod dynamics {
             time,
             (NodalCoordinates::from(COORDINATES), stretching()),
             uniform_temperatures(),
-            &no_forces(),
+            &(),
             &no_heating(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
@@ -692,7 +689,7 @@ mod dynamics {
                 &time,
                 (NodalCoordinates::from(bar_coordinates()), bar_velocities()),
                 (0..nodes).map(|_| REFERENCE_TEMPERATURE).collect(),
-                &NodalForcesSolid::zero(nodes),
+                &(),
                 &NodalForcesThermal::zero(nodes),
                 &model.nodal_lumped_masses(),
                 &model.nodal_lumped_heat_capacities(),
@@ -798,7 +795,8 @@ mod dynamics {
                 &coordinates,
                 &velocities,
                 &uniform_temperatures(),
-                &no_forces(),
+                crate::units::Time::seconds(0.0),
+                &(),
                 &no_heating(),
                 &model.nodal_lumped_masses(),
                 &model.nodal_lumped_heat_capacities(),
@@ -854,7 +852,7 @@ mod dynamics {
                     time,
                     (NodalCoordinates::from(COORDINATES), velocities),
                     uniform_temperatures(),
-                    &no_forces(),
+                    &(),
                     &no_heating(),
                     &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
@@ -890,7 +888,7 @@ mod dynamics {
                     &time(),
                     (NodalCoordinates::from(COORDINATES), translating()),
                     uniform_temperatures(),
-                    &no_forces(),
+                    &(),
                     &no_heating(),
                     &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
@@ -946,7 +944,7 @@ mod dynamics {
                     &time(),
                     (NodalCoordinates::from(COORDINATES), translating()),
                     uniform_temperatures(),
-                    &no_forces(),
+                    &(),
                     &no_heating(),
                     &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
@@ -1138,7 +1136,6 @@ mod quasistatic {
                 thermal::{NodalTemperatures, conduction::NodalForcesThermal},
             },
             multiphysics::solid_thermal::thermoelastic_thermal_conduction::quasistatic::ThermoelasticThermalConductionQuasistatic,
-            solid::NodalForcesSolid,
         },
         math::{
             Quantity, Tensor,
@@ -1246,7 +1243,7 @@ mod quasistatic {
                         .into_iter()
                         .collect(),
                 ),
-                &NodalForcesSolid::zero(NODES),
+                &(),
                 &heating(&model),
                 &model.nodal_lumped_heat_capacities(),
                 &conditions,
@@ -1291,7 +1288,7 @@ mod quasistatic {
                         .into_iter()
                         .collect(),
                 ),
-                &NodalForcesSolid::zero(NODES),
+                &(),
                 &heating(&model),
                 &model.nodal_lumped_heat_capacities(),
                 &conditions,
@@ -1337,7 +1334,7 @@ mod quasistatic {
                         .into_iter()
                         .collect(),
                 ),
-                &NodalForcesSolid::zero(NODES),
+                &(),
                 &heating(&model),
                 &model.nodal_lumped_heat_capacities(),
                 &conditions(vec![constraint]),

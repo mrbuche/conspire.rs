@@ -50,6 +50,17 @@ fn uniform_velocities(velocity: [f64; 3]) -> NodalVelocities<3> {
     COORDINATES.map(|_| velocity).into()
 }
 
+fn dead(
+    forces: NodalForcesSolid<3>,
+) -> crate::domain::boundary::Loads<
+    crate::domain::boundary::Solid<3>,
+    ((), crate::domain::solid::loads::DeadLoad),
+> {
+    crate::domain::boundary::Loads::<crate::domain::boundary::Solid<3>>::new()
+        .nodal_forces(&NodalReferenceCoordinates::from(COORDINATES), forces)
+        .unwrap()
+}
+
 fn gravity() -> NodalAccelerations<3> {
     COORDINATES
         .map(|_| [0.0, 0.0, -STANDARD_GRAVITY.in_meters_per_second_squared()])
@@ -76,9 +87,14 @@ fn time(dt: f64) -> [Quantity<Time>; 2] {
 fn a_body_in_its_reference_configuration_falls_with_gravity() -> Result<(), AssertionError> {
     let model = model();
     let masses = model.nodal_lumped_masses();
-    let weights = masses.inertial_forces(&gravity());
+    let weights = dead(masses.inertial_forces(&gravity()));
     let accelerations = model
-        .nodal_accelerations(&NodalCoordinates::from(COORDINATES), &weights, &masses)
+        .nodal_accelerations(
+            &NodalCoordinates::from(COORDINATES),
+            crate::units::Time::seconds(0.0),
+            &weights,
+            &masses,
+        )
         .unwrap();
     noise_tolerant().eq_within_tols(&accelerations, &gravity())
 }
@@ -90,10 +106,9 @@ fn internal_forces_decelerate_what_they_resist() -> Result<(), AssertionError> {
     let mut stretched = COORDINATES;
     stretched[4][0] += 0.1;
     let stretched = NodalCoordinates::from(stretched);
-    let zero = NodalForcesSolid::zero(COORDINATES.len());
     let internal = model.nodal_forces(&stretched).unwrap();
     let accelerations = model
-        .nodal_accelerations(&stretched, &zero, &masses)
+        .nodal_accelerations(&stretched, crate::units::Time::seconds(0.0), &(), &masses)
         .unwrap();
     let balance = masses.inertial_forces(&accelerations) + &internal;
     noise_tolerant().zero_within_tols(&balance)
@@ -110,7 +125,7 @@ fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionE
             NodalCoordinates::from(COORDINATES),
             uniform_velocities([3.0, -1.0, 2.0]),
         ),
-        &NodalForcesSolid::zero(COORDINATES.len()),
+        &(),
         &masses,
         &fixed_dofs(&[]),
     )?;
@@ -127,7 +142,7 @@ fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionE
 fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
     let (model, dt) = (model(), 1e-4);
     let masses = model.nodal_lumped_masses();
-    let weights = masses.inertial_forces(&gravity());
+    let weights = dead(masses.inertial_forces(&gravity()));
     let (times, coordinates, velocities, accelerations) = model.integrate(
         &integrator(dt),
         &time(dt),
@@ -160,7 +175,7 @@ fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
 fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
     let (model, dt) = (model(), 1e-4);
     let masses = model.nodal_lumped_masses();
-    let weights = masses.inertial_forces(&gravity());
+    let weights = dead(masses.inertial_forces(&gravity()));
     let (_, coordinates, velocities, accelerations) = model.integrate(
         &integrator(dt),
         &time(dt),
@@ -194,7 +209,7 @@ fn the_total_energy_of_a_released_stretch_is_conserved() -> Result<(), Assertion
             NodalCoordinates::from(stretched),
             uniform_velocities([0.0; 3]),
         ),
-        &NodalForcesSolid::zero(COORDINATES.len()),
+        &(),
         &masses,
         &fixed_dofs(&[]),
     )?;
@@ -254,7 +269,7 @@ mod implicit {
                 NodalCoordinates::from(COORDINATES),
                 uniform_velocities([3.0, -1.0, 2.0]),
             ),
-            &NodalForcesSolid::zero(COORDINATES.len()),
+            &(),
             &masses,
             &fixed_dofs(&[]),
         )?;
@@ -270,7 +285,7 @@ mod implicit {
     fn a_free_body_falls_with_gravity() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
-        let weights = masses.inertial_forces(&gravity());
+        let weights = dead(masses.inertial_forces(&gravity()));
         let (times, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
             &integrator(dt),
@@ -304,7 +319,7 @@ mod implicit {
     fn fixed_degrees_of_freedom_do_not_move() -> Result<(), AssertionError> {
         let (model, dt) = (model(), 1e-3);
         let masses = model.nodal_lumped_masses();
-        let weights = masses.inertial_forces(&gravity());
+        let weights = dead(masses.inertial_forces(&gravity()));
         let (_, coordinates, velocities, accelerations) = ElasticImplicitDynamics::integrate(
             &model,
             &integrator(dt),
@@ -338,7 +353,6 @@ mod implicit {
                 uniform_velocities([0.0; 3]),
             )
         };
-        let zero = NodalForcesSolid::zero(COORDINATES.len());
         let interval = [Time::seconds(0.0), Time::seconds(100.0 * dt)];
         let (_, implicit, ..) = ElasticImplicitDynamics::integrate(
             &model,
@@ -346,7 +360,7 @@ mod implicit {
             solver(1.0),
             &interval,
             state(),
-            &zero,
+            &(),
             &masses,
             &fixed_dofs(&[]),
         )?;
@@ -355,7 +369,7 @@ mod implicit {
             &super::integrator(dt),
             &interval,
             state(),
-            &zero,
+            &(),
             &masses,
             &fixed_dofs(&[]),
         )?;
@@ -384,7 +398,7 @@ mod implicit {
                 NodalCoordinates::from(stretched),
                 uniform_velocities([0.0; 3]),
             ),
-            &NodalForcesSolid::zero(COORDINATES.len()),
+            &(),
             &masses,
             &fixed_dofs(&[]),
         )?;

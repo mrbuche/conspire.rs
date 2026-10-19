@@ -2,7 +2,10 @@
 mod test;
 
 use crate::{
-    domain::boundary::{Conservative, Load, Loads, Solid},
+    domain::{
+        boundary::{LoadAt, Loads, Solid},
+        solid::loads::DeadLoad,
+    },
     fem::{
         NodalCoordinates, NodalReferenceCoordinates,
         block::element::{
@@ -18,7 +21,7 @@ use crate::{
     math::Quantity,
     math::Tensor,
     mechanics::{Force, Traction},
-    units::Energy,
+    units::Time,
 };
 
 /// The nodal forces of a dead traction per unit reference area on the faces of a side set.
@@ -71,14 +74,6 @@ pub fn traction_forces(
     Ok(forces)
 }
 
-/// A traction per unit reference area on the faces of a side set, whose force does not change
-/// as the body deforms.
-#[derive(Clone, Debug)]
-pub struct DeadTraction {
-    reference: NodalCoordinates<3>,
-    forces: NodalForcesSolid<3>,
-}
-
 impl<T> Loads<Solid<3>, T> {
     /// Adds a dead traction per unit reference area on the faces of a side set.
     pub fn traction(
@@ -86,50 +81,60 @@ impl<T> Loads<Solid<3>, T> {
         coordinates: &NodalReferenceCoordinates<3>,
         side_set: &SideSet,
         traction: &Traction,
-    ) -> Result<Loads<Solid<3>, (T, DeadTraction)>, String> {
-        Ok(self.with(DeadTraction {
-            reference: coordinates.clone().into(),
-            forces: traction_forces(coordinates, side_set, traction)?,
+    ) -> Result<Loads<Solid<3>, (T, DeadLoad)>, String> {
+        Ok(self.with(DeadLoad::new(
+            coordinates,
+            traction_forces(coordinates, side_set, traction)?,
+        )?))
+    }
+}
+
+/// A traction per unit reference area on the faces of a side set, whose force does not change
+/// as the body deforms, and is a function of time.
+pub struct TimedTraction<G> {
+    coordinates: NodalReferenceCoordinates<3>,
+    side_set: SideSet,
+    traction: G,
+}
+
+type WithTimedTraction<T, G> = Loads<Solid<3>, (T, TimedTraction<G>)>;
+
+impl<T> Loads<Solid<3>, T> {
+    /// Adds a dead traction per unit reference area on the faces of a side set, that is a
+    /// function of time.
+    pub fn traction_with(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        side_set: &SideSet,
+        traction: impl Fn(Quantity<Time>) -> Traction,
+    ) -> Result<WithTimedTraction<T, impl Fn(Quantity<Time>) -> Traction>, String> {
+        traction_forces(coordinates, side_set, &Traction::from([0.0; 3]))?;
+        Ok(self.with(TimedTraction {
+            coordinates: coordinates.clone(),
+            side_set: side_set.clone(),
+            traction,
         }))
     }
 }
 
-impl DeadTraction {
-    fn check(&self, nodal_coordinates: &NodalCoordinates<3>) -> Result<(), String> {
-        if nodal_coordinates.len() == self.reference.len() {
-            Ok(())
-        } else {
-            Err("The traction is on a mesh with another number of nodes.".to_string())
-        }
-    }
-}
-
-impl Load<NodalCoordinates<3>, NodalForcesSolid<3>> for DeadTraction {
-    fn subtract_from(
+impl<G> LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>> for TimedTraction<G>
+where
+    G: Fn(Quantity<Time>) -> Traction,
+{
+    fn subtract_at(
         &self,
+        time: Quantity<Time>,
         nodal_coordinates: &NodalCoordinates<3>,
         residual: &mut NodalForcesSolid<3>,
     ) -> Result<(), String> {
-        self.check(nodal_coordinates)?;
+        if nodal_coordinates.len() != self.coordinates.len() {
+            return Err("The traction is on a mesh with another number of nodes.".to_string());
+        }
+        let forces = traction_forces(&self.coordinates, &self.side_set, &(self.traction)(time))?;
         residual
             .iter_mut()
-            .zip(&self.forces)
+            .zip(forces)
             .for_each(|(residual, force)| *residual -= force);
         Ok(())
-    }
-}
-
-impl Conservative<NodalCoordinates<3>, Quantity<Energy>> for DeadTraction {
-    fn potential_energy(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<Quantity<Energy>, String> {
-        self.check(nodal_coordinates)?;
-        Ok(-nodal_coordinates
-            .iter()
-            .zip(&self.reference)
-            .zip(&self.forces)
-            .map(|((coordinate, reference), force)| force * &(coordinate - reference))
-            .sum::<Quantity<Energy>>())
     }
 }

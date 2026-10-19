@@ -1,11 +1,20 @@
 #[cfg(test)]
 mod test;
 
-use crate::domain::boundary::NodalState;
+use crate::{domain::boundary::NodalState, math::Quantity, units::Time};
 use std::{marker::PhantomData, ops::Add};
 
+/// External forces on the degrees of freedom of a state, which may be a function of time.
+pub trait LoadAt<X, R> {
+    /// Subtracts the external forces at a time and a state from a residual.
+    fn subtract_at(&self, time: Quantity<Time>, state: &X, residual: &mut R) -> Result<(), String>;
+}
+
 /// External forces on the degrees of freedom of a state, which a residual of type `R` takes up.
-pub trait Load<X, R> {
+///
+/// A solve that is not a function of time takes these, so loads that are a function of time are
+/// not accepted by it.
+pub trait Load<X, R>: LoadAt<X, R> {
     /// Subtracts the external forces at a state from a residual.
     fn subtract_from(&self, state: &X, residual: &mut R) -> Result<(), String>;
 }
@@ -42,6 +51,12 @@ impl<L, T> Loads<L, T> {
     }
 }
 
+impl<X, R> LoadAt<X, R> for () {
+    fn subtract_at(&self, _: Quantity<Time>, _: &X, _: &mut R) -> Result<(), String> {
+        Ok(())
+    }
+}
+
 impl<X, R> Load<X, R> for () {
     fn subtract_from(&self, _: &X, _: &mut R) -> Result<(), String> {
         Ok(())
@@ -54,6 +69,17 @@ where
 {
     fn potential_energy(&self, _: &X) -> Result<E, String> {
         Ok(E::default())
+    }
+}
+
+impl<X, R, A, B> LoadAt<X, R> for (A, B)
+where
+    A: LoadAt<X, R>,
+    B: LoadAt<X, R>,
+{
+    fn subtract_at(&self, time: Quantity<Time>, state: &X, residual: &mut R) -> Result<(), String> {
+        self.0.subtract_at(time, state, residual)?;
+        self.1.subtract_at(time, state, residual)
     }
 }
 
@@ -76,6 +102,16 @@ where
 {
     fn potential_energy(&self, state: &X) -> Result<E, String> {
         Ok(self.0.potential_energy(state)? + self.1.potential_energy(state)?)
+    }
+}
+
+impl<L, T, X, R> LoadAt<X, R> for Loads<L, T>
+where
+    X: NodalState<Layout = L>,
+    T: LoadAt<X, R>,
+{
+    fn subtract_at(&self, time: Quantity<Time>, state: &X, residual: &mut R) -> Result<(), String> {
+        self.0.subtract_at(time, state, residual)
     }
 }
 
