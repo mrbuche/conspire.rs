@@ -240,9 +240,27 @@ mod source {
         },
         units::{Current, ElectricPotential},
     };
-    fn injection(total: f64) -> Loads<Field<ElectricPotential>, ((), NodalSource<Current>)> {
+    const RISE: f64 = 0.5;
+    fn linear(coordinates: &NodalReferenceCoordinates<3>) -> NodalPotentials {
+        (0..8)
+            .map(|node| {
+                Quantity::<ElectricPotential>::new(RISE * coordinates[node][2].value() / GAP)
+            })
+            .collect()
+    }
+    fn injection(
+        model: &Model<B, 3>,
+        coordinates: &NodalReferenceCoordinates<3>,
+    ) -> Loads<Field<ElectricPotential>, ((), NodalSource<Current>)> {
+        let forces = model.nodal_forces(&linear(coordinates)).unwrap();
         let sources = (0..8)
-            .map(|node| Quantity::<Current>::new(if node >= 4 { total / 4.0 } else { 0.0 }))
+            .map(|node| {
+                if node >= 4 {
+                    forces[node]
+                } else {
+                    Quantity::<Current>::new(0.0)
+                }
+            })
             .collect::<NodalCurrents>();
         Loads::<Field<ElectricPotential>>::new().source(sources)
     }
@@ -250,28 +268,34 @@ mod source {
         BoundaryConditions::new().fix_nodes(Potential, 0..4)
     }
     #[test]
-    fn a_current_injected_into_a_slab_raises_it_by_the_current_over_the_conductance() {
-        let (model, _) = slab();
+    fn the_currents_a_linear_potential_needs_at_the_top_of_a_slab_give_that_potential() {
+        let (model, coordinates) = slab();
         let potentials =
             <Model<B, 3> as Root<NodalCurrents, NodalConductances, NodalPotentials>>::root(
                 &model,
                 &grounded(),
-                &injection(2.0),
+                &injection(&model, &coordinates),
                 NewtonRaphson::default(),
             )
             .unwrap();
-        let expected = 2.0 * GAP / (2.5 * WIDTH * DEPTH);
-        (0..4).for_each(|node| near(potentials[node].value(), 0.0));
-        (4..8).for_each(|node| near(potentials[node].value(), expected))
+        let expected = linear(&coordinates);
+        (0..8).for_each(|node| near(potentials[node].value(), expected[node].value()))
+    }
+    #[test]
+    fn the_injected_current_is_the_conductance_times_the_rise() {
+        let (model, coordinates) = slab();
+        let top = (4..8).collect::<Vec<_>>();
+        let sources = model.nodal_forces(&linear(&coordinates)).unwrap();
+        near(current(&sources, &top), 2.5 * WIDTH * DEPTH / GAP * RISE)
     }
     #[test]
     fn minimizing_the_energy_with_the_source_gives_the_same_potentials() {
-        let (model, _) = slab();
+        let (model, coordinates) = slab();
         let solved =
             <Model<B, 3> as Root<NodalCurrents, NodalConductances, NodalPotentials>>::root(
                 &model,
                 &grounded(),
-                &injection(2.0),
+                &injection(&model, &coordinates),
                 NewtonRaphson::default(),
             )
             .unwrap();
@@ -279,7 +303,7 @@ mod source {
             <Model<B, 3> as Minimize<Quantity<Power>, NodalCurrents, NodalPotentials>>::minimize(
                 &model,
                 &grounded(),
-                &injection(2.0),
+                &injection(&model, &coordinates),
                 NewtonRaphson::default(),
             )
             .unwrap();

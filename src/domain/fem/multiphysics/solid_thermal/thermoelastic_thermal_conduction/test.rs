@@ -26,7 +26,7 @@ use crate::{
         Quantity,
         optimize::{EqualityConstraint, EqualityConstraints, NewtonRaphson},
     },
-    units::{Length, Temperature as TemperatureUnit, Time},
+    units::{Length, Power, Temperature as TemperatureUnit, Time},
 };
 
 struct Raw(Vec<EqualityConstraint>);
@@ -169,6 +169,45 @@ fn a_force_on_a_free_node_moves_it_along_the_force() {
     assert!(once > 0.0);
     assert!((twice / once - 2.0).abs() < 1e-2);
     assert!(moved(-1e-3) < 0.0);
+}
+
+fn heated_conditions() -> impl Constrain<SolidThermal<3>> {
+    BoundaryConditions::new()
+        .fix_nodes(Temperature, 0..NODES - 1)
+        .fix_node(Displacement::<0>, 0)
+        .fix_node(Displacement::<1>, 0)
+        .fix_node(Displacement::<2>, 0)
+        .fix_node(Displacement::<1>, 1)
+        .fix_node(Displacement::<2>, 1)
+        .fix_node(Displacement::<2>, 2)
+}
+
+#[test]
+fn a_heat_source_on_a_free_node_warms_it_in_proportion() {
+    let warmed = |heat: f64| {
+        let mut sources = vec![Quantity::<Power>::new(0.0); NODES];
+        sources[NODES - 1] = Quantity::<Power>::new(heat);
+        let loads = Loads::<SolidThermal<3>>::new().source(sources.into_iter().collect());
+        <Model<B, 3> as Root<
+            NodalForcesSolidThermal,
+            NodalStiffnessesSolidThermal,
+            NodalStatesSolidThermal,
+        >>::root(
+            &model(),
+            &heated_conditions(),
+            &loads,
+            NewtonRaphson::default(),
+        )
+        .unwrap()[NODES - 1]
+            .1
+            .value()
+            - REFERENCE_TEMPERATURE.value()
+    };
+    let (none, once, twice) = (warmed(0.0), warmed(1e-3), warmed(2e-3));
+    assert!(none.abs() < 1e-9);
+    assert!(once > 0.0);
+    assert!((twice / once - 2.0).abs() < 1e-2);
+    assert!(warmed(-1e-3) < 0.0);
 }
 
 #[test]

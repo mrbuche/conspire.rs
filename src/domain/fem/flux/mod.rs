@@ -4,7 +4,7 @@ mod test;
 use crate::{
     constitutive::diffusion::Diffusive,
     domain::{
-        boundary::{Field, LoadAt, Loads},
+        boundary::{ConservativeAt, Field, LoadAt, Loads, SolidThermal},
         diffusion::loads::NodalSource,
     },
     fem::{
@@ -14,7 +14,7 @@ use crate::{
     },
     geometry::mesh::SideSet,
     math::{Quantity, Tensor},
-    units::{Area, Time},
+    units::{Area, Power, PowerPerArea, Time},
 };
 use std::{marker::PhantomData, ops::Mul};
 
@@ -65,6 +65,22 @@ impl<U, T> Loads<Field<U>, T> {
     }
 }
 
+impl<T> Loads<SolidThermal<3>, T> {
+    /// Adds a heat flux per unit reference area through the faces of a side set.
+    pub fn flux(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        side_set: &SideSet,
+        flux: Quantity<PowerPerArea>,
+    ) -> Result<Loads<SolidThermal<3>, (T, NodalSource<Power>)>, String> {
+        let sources = nodal_areas(coordinates, side_set)?
+            .into_iter()
+            .map(|area| flux * area)
+            .collect();
+        Ok(self.source(sources))
+    }
+}
+
 impl<L, G> LoadAt<NodalFields<L>, NodalForces<L>> for TimedFlux<L, G>
 where
     L: Diffusive,
@@ -86,5 +102,29 @@ where
             .zip(&self.areas)
             .for_each(|(residual, &area)| *residual -= flux * area);
         Ok(())
+    }
+}
+
+impl<L, G> ConservativeAt<NodalFields<L>, Quantity<L::Energy>> for TimedFlux<L, G>
+where
+    L: Diffusive,
+    G: Fn(Quantity<Time>) -> Flux<L>,
+    Quantity<L::Flux>: Mul<Quantity<Area>, Output = Quantity<L>>,
+    Quantity<L::Field>: Mul<Quantity<L>, Output = Quantity<L::Energy>>,
+{
+    fn potential_energy_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<Quantity<L::Energy>, String> {
+        if nodal_fields.len() != self.areas.len() {
+            return Err("The flux is on a mesh with another number of nodes.".to_string());
+        }
+        let flux = (self.flux)(time);
+        Ok(-nodal_fields
+            .iter()
+            .zip(&self.areas)
+            .map(|(&field, &area)| field * (flux * area))
+            .sum::<Quantity<L::Energy>>())
     }
 }

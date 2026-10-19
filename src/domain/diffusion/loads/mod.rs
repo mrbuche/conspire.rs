@@ -1,11 +1,12 @@
 use crate::{
     constitutive::diffusion::Diffusive,
     domain::{
-        boundary::{Conservative, ConservativeAt, Field, Load, LoadAt, Loads},
+        boundary::{Conservative, ConservativeAt, Field, Load, LoadAt, Loads, SolidThermal},
         diffusion::{NodalFields, NodalForces},
+        multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
     },
     math::{Quantity, Tensor},
-    units::Time,
+    units::{Power, Time},
 };
 use std::ops::Mul;
 
@@ -102,5 +103,41 @@ where
         nodal_fields: &NodalFields<L>,
     ) -> Result<Quantity<L::Energy>, String> {
         self.potential_energy(nodal_fields)
+    }
+}
+
+impl<T> Loads<SolidThermal<3>, T> {
+    /// Adds a heat source on each node, such as the heating of a body.
+    pub fn source(
+        self,
+        sources: NodalForces<Power>,
+    ) -> Loads<SolidThermal<3>, (T, NodalSource<Power>)> {
+        self.with(NodalSource { sources })
+    }
+}
+
+impl Load<NodalStatesSolidThermal, NodalForcesSolidThermal> for NodalSource<Power> {
+    fn subtract_from(
+        &self,
+        nodal_states: &NodalStatesSolidThermal,
+        residual: &mut NodalForcesSolidThermal,
+    ) -> Result<(), String> {
+        self.check(nodal_states.len())?;
+        residual
+            .iter_mut()
+            .zip(&self.sources)
+            .for_each(|(residual, &source)| residual.1 -= source);
+        Ok(())
+    }
+}
+
+impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for NodalSource<Power> {
+    fn subtract_at(
+        &self,
+        _: Quantity<Time>,
+        nodal_states: &NodalStatesSolidThermal,
+        residual: &mut NodalForcesSolidThermal,
+    ) -> Result<(), String> {
+        self.subtract_from(nodal_states, residual)
     }
 }

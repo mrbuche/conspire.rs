@@ -494,6 +494,7 @@ unit_products!(
     PowerPerVolumeTemperatureSquared * Temperature = PowerPerVolumeTemperature,
     PowerPerVolumeTemperature * Volume = PowerPerTemperature,
     Power * Temperature = PowerTemperature,
+    Temperature * Power = PowerTemperature,
     PowerPerTemperature * Temperature = Power,
     Temperature * PowerPerTemperature = Power,
     Dimensionless * TemperatureRate = TemperatureRate,

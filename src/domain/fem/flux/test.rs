@@ -4,7 +4,7 @@ use crate::{
     fem::{
         Model,
         block::{Block, element::linear::Hexahedron},
-        boundary::{Field, Loads},
+        boundary::{ConservativeAt, Field, Loads},
         diffusion::{NodalFields, NodalForces},
     },
     geometry::mesh::{Connectivity, Mesh, SideSet},
@@ -138,4 +138,83 @@ fn a_flux_through_the_top_of_a_held_bar_raises_it_by_the_flux_times_the_length_o
             "node {node}: {found} != {rise}"
         )
     });
+}
+
+fn temperatures() -> NodalFields<Power> {
+    (0..8)
+        .map(|node| Quantity::<Temperature>::new(node as f64))
+        .collect()
+}
+
+#[test]
+fn the_energy_of_a_flux_that_depends_on_time_is_that_of_the_flux_at_the_time() {
+    let model = model();
+    let side_set = model.side_sets().iter().next().unwrap();
+    let loads = Loads::<Field<Temperature>>::new()
+        .flux_with::<Power>(model.coordinates(), side_set, |time| {
+            Quantity::<PowerPerArea>::new(time.value())
+        })
+        .unwrap();
+    let (early, late) = (
+        loads
+            .potential_energy_at(Time::seconds(2.0), &temperatures())
+            .unwrap(),
+        loads
+            .potential_energy_at(Time::seconds(3.0), &temperatures())
+            .unwrap(),
+    );
+    let top = (4..8).sum::<usize>() as f64 * 6.0 / 4.0;
+    assert!((early.value() + 2.0 * top).abs() < 1e-12);
+    assert!((late.value() + 3.0 * top).abs() < 1e-12);
+}
+
+#[test]
+fn a_flux_that_does_not_change_has_the_same_energy_whether_or_not_it_could() {
+    let model = model();
+    let side_set = model.side_sets().iter().next().unwrap();
+    let timed = Loads::<Field<Temperature>>::new()
+        .flux_with::<Power>(model.coordinates(), side_set, |_| {
+            Quantity::<PowerPerArea>::new(5.0)
+        })
+        .unwrap();
+    let fixed = Loads::<Field<Temperature>>::new()
+        .flux::<Power>(
+            model.coordinates(),
+            side_set,
+            Quantity::<PowerPerArea>::new(5.0),
+        )
+        .unwrap();
+    let at = Time::seconds(7.0);
+    assert!(
+        (timed
+            .potential_energy_at(at, &temperatures())
+            .unwrap()
+            .value()
+            - fixed
+                .potential_energy_at(at, &temperatures())
+                .unwrap()
+                .value())
+        .abs()
+            < 1e-12
+    );
+}
+
+#[test]
+fn the_products_of_a_flux_and_of_an_energy_exist_for_every_balance_law() {
+    use crate::{
+        constitutive::diffusion::Diffusive,
+        units::{Area, Charge, Current, MolarFlowRate},
+    };
+    use std::ops::Mul;
+    fn typed<L>()
+    where
+        L: Diffusive,
+        Quantity<L::Flux>: Mul<Quantity<Area>, Output = Quantity<L>>,
+        Quantity<L::Field>: Mul<Quantity<L>, Output = Quantity<L::Energy>>,
+    {
+    }
+    typed::<Power>();
+    typed::<MolarFlowRate>();
+    typed::<Charge>();
+    typed::<Current>();
 }

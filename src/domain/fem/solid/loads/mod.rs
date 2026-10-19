@@ -98,8 +98,8 @@ where
 /// A traction per unit reference area on the faces of a side set, whose force does not change
 /// as the body deforms, and is a function of time.
 pub struct TimedTraction<G> {
-    coordinates: NodalReferenceCoordinates<3>,
-    side_set: SideSet,
+    areas: Vec<Quantity<Area>>,
+    reference: NodalCoordinates<3>,
     traction: G,
 }
 
@@ -114,12 +114,28 @@ impl<T> Loads<Solid<3>, T> {
         side_set: &SideSet,
         traction: impl Fn(Quantity<Time>) -> Traction,
     ) -> Result<WithTimedTraction<T, impl Fn(Quantity<Time>) -> Traction>, String> {
-        traction_forces(coordinates, side_set, &Traction::from([0.0; 3]))?;
         Ok(self.with(TimedTraction {
-            coordinates: coordinates.clone(),
-            side_set: side_set.clone(),
+            areas: nodal_areas(coordinates, side_set)?,
+            reference: coordinates.clone().into(),
             traction,
         }))
+    }
+}
+
+impl<G> TimedTraction<G>
+where
+    G: Fn(Quantity<Time>) -> Traction,
+{
+    fn forces(
+        &self,
+        time: Quantity<Time>,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<NodalForcesSolid<3>, String> {
+        if nodal_coordinates.len() != self.areas.len() {
+            return Err("The traction is on a mesh with another number of nodes.".to_string());
+        }
+        let traction = (self.traction)(time);
+        Ok(self.areas.iter().map(|&area| &traction * area).collect())
     }
 }
 
@@ -133,13 +149,9 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         residual: &mut NodalForcesSolid<3>,
     ) -> Result<(), String> {
-        if nodal_coordinates.len() != self.coordinates.len() {
-            return Err("The traction is on a mesh with another number of nodes.".to_string());
-        }
-        let forces = traction_forces(&self.coordinates, &self.side_set, &(self.traction)(time))?;
         residual
             .iter_mut()
-            .zip(forces)
+            .zip(self.forces(time, nodal_coordinates)?)
             .for_each(|(residual, force)| *residual -= force);
         Ok(())
     }
@@ -154,15 +166,10 @@ where
         time: Quantity<Time>,
         nodal_coordinates: &NodalCoordinates<3>,
     ) -> Result<Quantity<Energy>, String> {
-        if nodal_coordinates.len() != self.coordinates.len() {
-            return Err("The traction is on a mesh with another number of nodes.".to_string());
-        }
-        let forces = traction_forces(&self.coordinates, &self.side_set, &(self.traction)(time))?;
-        let reference: NodalCoordinates<3> = self.coordinates.clone().into();
         Ok(-nodal_coordinates
             .iter()
-            .zip(reference)
-            .zip(forces)
+            .zip(&self.reference)
+            .zip(self.forces(time, nodal_coordinates)?)
             .map(|((coordinate, reference), force)| force * &(coordinate - reference))
             .sum::<Quantity<Energy>>())
     }
@@ -178,13 +185,9 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
     ) -> Result<Quantity<Power>, String> {
-        if nodal_coordinates.len() != self.coordinates.len() {
-            return Err("The traction is on a mesh with another number of nodes.".to_string());
-        }
-        let forces = traction_forces(&self.coordinates, &self.side_set, &(self.traction)(time))?;
         Ok(-nodal_velocities
             .iter()
-            .zip(forces)
+            .zip(self.forces(time, nodal_coordinates)?)
             .map(|(velocity, force)| force * velocity)
             .sum::<Quantity<Power>>())
     }
