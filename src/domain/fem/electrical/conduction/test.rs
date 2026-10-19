@@ -235,20 +235,19 @@ mod source {
     use super::*;
     use crate::{
         fem::{
-            boundary::{BoundaryConditions, ConstrainAt as _, Field, Loads, Potential},
+            boundary::{BoundaryConditions, Constrain, ConstrainAt as _, Field, Loads, Potential},
             diffusion::NodalSource,
         },
         units::{Current, ElectricPotential},
     };
-
     fn injection(total: f64) -> Loads<Field<ElectricPotential>, ((), NodalSource<Current>)> {
         let sources = (0..8)
             .map(|node| Quantity::<Current>::new(if node >= 4 { total / 4.0 } else { 0.0 }))
             .collect::<NodalCurrents>();
         Loads::<Field<ElectricPotential>>::new().source(sources)
     }
-    fn grounded() -> impl crate::fem::boundary::Constrain<Field<ElectricPotential>> {
-        BoundaryConditions::<Field<ElectricPotential>>::new().fix_nodes(Potential, 0..4)
+    fn grounded() -> impl Constrain<Field<ElectricPotential>> {
+        BoundaryConditions::new().fix_nodes(Potential, 0..4)
     }
     #[test]
     fn a_current_injected_into_a_slab_raises_it_by_the_current_over_the_conductance() {
