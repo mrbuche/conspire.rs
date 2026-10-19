@@ -442,6 +442,7 @@ unit_products!(
     StressPerLength * Length = Stress,
     Length * StressPerLength = Stress,
     StressPerLength * Area = ForcePerLength,
+    Volume * StressPerLength = Force,
     StressPerLength * Volume = Force,
     StressPerArea * Volume = ForcePerLength,
     Viscosity * ReciprocalLength = ViscosityPerLength,

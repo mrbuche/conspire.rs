@@ -1,12 +1,15 @@
 use crate::{
     constitutive::diffusion::Diffusive,
     domain::{
+        NodalReferenceCoordinates,
         boundary::{Conservative, ConservativeAt, Field, Load, LoadAt, Loads, SolidThermal},
         diffusion::{NodalFields, NodalForces},
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
+        volume::NodalVolumes,
     },
     math::{Quantity, Tensor},
-    units::{Power, Time},
+    mechanics::ReferenceCoordinate,
+    units::{Power, PowerDensity, Time, UnitMul, Volume},
 };
 use std::ops::Mul;
 
@@ -139,5 +142,184 @@ impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for NodalSource<Po
         residual: &mut NodalForcesSolidThermal,
     ) -> Result<(), String> {
         self.subtract_from(nodal_states, residual)
+    }
+}
+
+/// A source per unit of some measure, such as area or volume, on the nodes, that is a function of
+/// time.
+pub struct TimedSource<W, G> {
+    weights: Vec<Quantity<W>>,
+    density: G,
+}
+
+impl<W, G> TimedSource<W, G> {
+    pub(crate) fn new(weights: Vec<Quantity<W>>, density: G) -> Self {
+        Self { weights, density }
+    }
+}
+
+impl<L, F, W, G> LoadAt<NodalFields<L>, NodalForces<L>> for TimedSource<W, G>
+where
+    L: Diffusive,
+    F: UnitMul<W, Output = L>,
+    G: Fn(Quantity<Time>) -> Quantity<F>,
+{
+    fn subtract_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_fields: &NodalFields<L>,
+        residual: &mut NodalForces<L>,
+    ) -> Result<(), String> {
+        if nodal_fields.len() != self.weights.len() {
+            return Err("The source is on a mesh with another number of nodes.".to_string());
+        }
+        let density = (self.density)(time);
+        residual
+            .iter_mut()
+            .zip(&self.weights)
+            .for_each(|(residual, &weight)| *residual -= density * weight);
+        Ok(())
+    }
+}
+
+impl<L, F, W, G> ConservativeAt<NodalFields<L>, Quantity<L::Energy>> for TimedSource<W, G>
+where
+    L: Diffusive,
+    F: UnitMul<W, Output = L>,
+    G: Fn(Quantity<Time>) -> Quantity<F>,
+    Quantity<L::Field>: Mul<Quantity<L>, Output = Quantity<L::Energy>>,
+{
+    fn potential_energy_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<Quantity<L::Energy>, String> {
+        if nodal_fields.len() != self.weights.len() {
+            return Err("The source is on a mesh with another number of nodes.".to_string());
+        }
+        let density = (self.density)(time);
+        Ok(-nodal_fields
+            .iter()
+            .zip(&self.weights)
+            .map(|(&field, &weight)| field * (density * weight))
+            .sum::<Quantity<L::Energy>>())
+    }
+}
+
+impl<F, W, G> LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for TimedSource<W, G>
+where
+    F: UnitMul<W, Output = Power>,
+    G: Fn(Quantity<Time>) -> Quantity<F>,
+{
+    fn subtract_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_states: &NodalStatesSolidThermal,
+        residual: &mut NodalForcesSolidThermal,
+    ) -> Result<(), String> {
+        if nodal_states.len() != self.weights.len() {
+            return Err("The source is on a mesh with another number of nodes.".to_string());
+        }
+        let density = (self.density)(time);
+        residual
+            .iter_mut()
+            .zip(&self.weights)
+            .for_each(|(residual, &weight)| residual.1 -= density * weight);
+        Ok(())
+    }
+}
+
+/// A source per unit reference volume.
+type Density<L> = Quantity<<L as Diffusive>::FluxPerLength>;
+
+type WithSource<U, T, L> = Loads<Field<U>, (T, NodalSource<L>)>;
+type WithTimedSource<U, T, G> = Loads<Field<U>, (T, TimedSource<Volume, G>)>;
+
+impl<U, T> Loads<Field<U>, T> {
+    /// Adds a source per unit reference volume, the same at every node, such as the heating of a
+    /// body.
+    pub fn source_density<L>(
+        self,
+        volumes: &NodalVolumes,
+        density: Density<L>,
+    ) -> WithSource<U, T, L>
+    where
+        L: Diffusive<Field = U>,
+    {
+        self.source(volumes.iter().map(|&volume| density * volume).collect())
+    }
+    /// Adds a source per unit reference volume that is a function of position, which is sampled at
+    /// the nodes.
+    pub fn source_density_field<L>(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        volumes: &NodalVolumes,
+        field: impl Fn(&ReferenceCoordinate) -> Density<L>,
+    ) -> Result<WithSource<U, T, L>, String>
+    where
+        L: Diffusive<Field = U>,
+    {
+        if coordinates.len() != volumes.len() {
+            return Err("There must be exactly one volume for each node.".to_string());
+        }
+        Ok(self.source(
+            coordinates
+                .iter()
+                .zip(volumes.iter())
+                .map(|(coordinate, &volume)| field(coordinate) * volume)
+                .collect(),
+        ))
+    }
+    /// Adds a source per unit reference volume that is a function of time.
+    pub fn source_density_with<L, G>(
+        self,
+        volumes: &NodalVolumes,
+        density: G,
+    ) -> WithTimedSource<U, T, G>
+    where
+        L: Diffusive<Field = U>,
+        G: Fn(Quantity<Time>) -> Density<L>,
+    {
+        self.with(TimedSource::new(volumes.iter().copied().collect(), density))
+    }
+}
+
+type WithHeat<T> = Loads<SolidThermal<3>, (T, NodalSource<Power>)>;
+type WithTimedHeat<T, G> = Loads<SolidThermal<3>, (T, TimedSource<Volume, G>)>;
+
+impl<T> Loads<SolidThermal<3>, T> {
+    /// Adds a heat source per unit reference volume, the same at every node.
+    pub fn source_density(
+        self,
+        volumes: &NodalVolumes,
+        density: Quantity<PowerDensity>,
+    ) -> WithHeat<T> {
+        self.source(volumes.iter().map(|&volume| density * volume).collect())
+    }
+    /// Adds a heat source per unit reference volume that is a function of position, which is
+    /// sampled at the nodes.
+    pub fn source_density_field(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        volumes: &NodalVolumes,
+        field: impl Fn(&ReferenceCoordinate) -> Quantity<PowerDensity>,
+    ) -> Result<WithHeat<T>, String> {
+        if coordinates.len() != volumes.len() {
+            return Err("There must be exactly one volume for each node.".to_string());
+        }
+        Ok(self.source(
+            coordinates
+                .iter()
+                .zip(volumes.iter())
+                .map(|(coordinate, &volume)| field(coordinate) * volume)
+                .collect(),
+        ))
+    }
+    /// Adds a heat source per unit reference volume that is a function of time.
+    pub fn source_density_with<G>(self, volumes: &NodalVolumes, density: G) -> WithTimedHeat<T, G>
+    where
+        G: Fn(Quantity<Time>) -> Quantity<PowerDensity>,
+    {
+        self.with(TimedSource::new(volumes.iter().copied().collect(), density))
     }
 }

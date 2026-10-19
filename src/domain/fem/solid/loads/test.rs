@@ -435,3 +435,116 @@ mod rate {
         });
     }
 }
+
+mod body {
+    use crate::{
+        constitutive::solid::hyperelastic::NeoHookean,
+        domain::{ElementModel, solid::loads::BodyForce},
+        fem::{
+            Model, NodalCoordinates,
+            block::{Block, element::linear::Hexahedron},
+            boundary::{LoadAt, Loads, Solid},
+            solid::NodalForcesSolid,
+        },
+        geometry::mesh::{Connectivity, Mesh},
+        math::Tensor,
+        units::{Stress, Time},
+    };
+    type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
+    fn model() -> Model<Hex, 3> {
+        let mesh = Mesh::from((
+            vec![Connectivity::Hexahedral(
+                vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
+            )],
+            vec![
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [2.0, 3.0, 0.0],
+                [0.0, 3.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [2.0, 0.0, 1.0],
+                [2.0, 3.0, 1.0],
+                [0.0, 3.0, 1.0],
+            ]
+            .into(),
+        ));
+        (
+            mesh,
+            NeoHookean {
+                bulk_modulus: Stress::pascals(13.0),
+                shear_modulus: Stress::pascals(3.0),
+            },
+        )
+            .try_into()
+            .unwrap()
+    }
+    fn residual_at(
+        loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
+        model: &Model<Hex, 3>,
+        time: f64,
+    ) -> Vec<[f64; 3]> {
+        let mut residual = NodalForcesSolid::<3>::zero(8);
+        loads
+            .subtract_at(
+                Time::seconds(time),
+                &model.coordinates().clone().into(),
+                &mut residual,
+            )
+            .unwrap();
+        residual
+            .iter()
+            .map(|force| [force[0].value(), force[1].value(), force[2].value()])
+            .collect()
+    }
+    fn force(z: f64) -> BodyForce {
+        [0.0, 0.0, z].into()
+    }
+    #[test]
+    fn a_uniform_force_gives_each_node_its_share_of_the_volume() {
+        let model = model();
+        let loads = Loads::<Solid<3>>::new()
+            .body_force(model.coordinates(), &model.nodal_volumes(), &force(-10.0))
+            .unwrap();
+        residual_at(&loads, &model, 0.0)
+            .iter()
+            .for_each(|force| assert!((force[2] - 10.0 * 6.0 / 8.0).abs() < 1e-12));
+    }
+    #[test]
+    fn a_force_that_depends_on_position_is_sampled_at_the_nodes() {
+        let model = model();
+        let loads = Loads::<Solid<3>>::new()
+            .body_force_field(model.coordinates(), &model.nodal_volumes(), |coordinate| {
+                force(coordinate[2].value())
+            })
+            .unwrap();
+        let residual = residual_at(&loads, &model, 0.0);
+        (0..4).for_each(|node| assert_eq!(residual[node][2], 0.0));
+        (4..8).for_each(|node| assert!((residual[node][2] + 6.0 / 8.0).abs() < 1e-12));
+    }
+    #[test]
+    fn a_force_that_depends_on_time_takes_the_time_it_is_given() {
+        let model = model();
+        let loads = Loads::<Solid<3>>::new()
+            .body_force_with(model.coordinates(), &model.nodal_volumes(), |time| {
+                force(time.value())
+            })
+            .unwrap();
+        (0..8).for_each(|node| {
+            assert!((residual_at(&loads, &model, 2.0)[node][2] + 2.0 * 6.0 / 8.0).abs() < 1e-12);
+            assert!((residual_at(&loads, &model, 3.0)[node][2] + 3.0 * 6.0 / 8.0).abs() < 1e-12)
+        });
+    }
+    #[test]
+    fn a_force_needs_a_volume_for_every_node() {
+        let model = model();
+        let error = Loads::<Solid<3>>::new()
+            .body_force_with(
+                model.coordinates(),
+                &crate::fem::volume::NodalVolumes::zero(3),
+                |_| force(1.0),
+            )
+            .err()
+            .unwrap();
+        assert!(error.contains("one weight for each node"));
+    }
+}

@@ -4,6 +4,9 @@
 mod test;
 
 pub mod block;
+pub mod volume {
+    pub use crate::domain::volume::{NodalVolumeElements, NodalVolumes};
+}
 pub mod boundary {
     pub use crate::domain::boundary::{
         BoundaryConditions, Component, Concentration, Condition, Conservative, ConservativeAt,

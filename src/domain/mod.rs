@@ -32,6 +32,11 @@ pub(crate) mod thermal;
 pub(crate) mod time_scale;
 #[cfg(feature = "vem")]
 pub mod vem;
+#[cfg_attr(
+    not(any(feature = "fem", feature = "vem", feature = "cbm")),
+    allow(dead_code)
+)]
+pub(crate) mod volume;
 
 use crate::{
     domain::{

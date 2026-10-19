@@ -11,6 +11,7 @@ pub mod solid;
 pub mod surface;
 pub mod thermal;
 mod time_scale;
+pub mod volume;
 
 use crate::{
     domain::block::{add_node_neighbors, trimmed_type_name},

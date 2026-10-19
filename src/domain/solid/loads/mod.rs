@@ -6,10 +6,13 @@ use crate::{
         },
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
         solid::{NodalForcesSolid, mass::InertialMass},
+        volume::NodalVolumes,
     },
     math::{Current, Quantity, Tensor, TensorRank1},
-    units::{Acceleration, Energy, Power, Time},
+    mechanics::ReferenceCoordinate,
+    units::{Acceleration, Energy, Force, Power, StressPerLength, Time, UnitMul, Volume},
 };
+use std::marker::PhantomData;
 
 /// A layout whose degrees of freedom begin with the coordinates of a solid in three dimensions.
 pub trait SolidLayout: Layout {}
@@ -167,5 +170,184 @@ impl PowerAt<NodalCoordinates<3>, NodalVelocities<3>, Quantity<Power>> for DeadL
             .zip(&self.forces)
             .map(|(velocity, force)| force * velocity)
             .sum::<Quantity<Power>>())
+    }
+}
+
+/// A force per unit volume, such as a weight.
+pub type BodyForce = TensorRank1<3, Current, StressPerLength>;
+
+type WithBodyForce<L, T> = Result<Loads<L, (T, DeadLoad)>, String>;
+type WithTimedBodyForce<L, T, G> = Result<Loads<L, (T, TimedLoad<Volume, G>)>, String>;
+
+impl<L, T> Loads<L, T>
+where
+    L: SolidLayout,
+{
+    /// Adds a force per unit reference volume, the same at every node.
+    pub fn body_force(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        volumes: &NodalVolumes,
+        force: &BodyForce,
+    ) -> WithBodyForce<L, T> {
+        self.nodal_forces(
+            coordinates,
+            volumes.iter().map(|&volume| force * volume).collect(),
+        )
+    }
+    /// Adds a force per unit reference volume that is a function of position, which is sampled at
+    /// the nodes.
+    pub fn body_force_field(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        volumes: &NodalVolumes,
+        field: impl Fn(&ReferenceCoordinate) -> BodyForce,
+    ) -> WithBodyForce<L, T> {
+        self.nodal_forces(
+            coordinates,
+            coordinates
+                .iter()
+                .zip(volumes.iter())
+                .map(|(coordinate, &volume)| &field(coordinate) * volume)
+                .collect(),
+        )
+    }
+    /// Adds a force per unit reference volume that is a function of time.
+    pub fn body_force_with<G>(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        volumes: &NodalVolumes,
+        force: G,
+    ) -> WithTimedBodyForce<L, T, G>
+    where
+        G: Fn(Quantity<Time>) -> BodyForce,
+    {
+        Ok(self.with(TimedLoad::new(
+            coordinates,
+            volumes.iter().copied().collect(),
+            force,
+        )?))
+    }
+}
+
+/// A force per unit of some measure, such as area or volume, on the nodes of a solid, whose
+/// force does not change as the body deforms, and is a function of time.
+pub struct TimedLoad<W, G> {
+    weights: Vec<Quantity<W>>,
+    reference: NodalCoordinates<3>,
+    density: G,
+    unit: PhantomData<W>,
+}
+
+impl<W, G> TimedLoad<W, G> {
+    pub(crate) fn new(
+        coordinates: &NodalReferenceCoordinates<3>,
+        weights: Vec<Quantity<W>>,
+        density: G,
+    ) -> Result<Self, String> {
+        if weights.len() == coordinates.len() {
+            Ok(Self {
+                weights,
+                reference: coordinates.clone().into(),
+                density,
+                unit: PhantomData,
+            })
+        } else {
+            Err("There must be exactly one weight for each node.".to_string())
+        }
+    }
+}
+
+impl<W, D, G> TimedLoad<W, G>
+where
+    G: Fn(Quantity<Time>) -> TensorRank1<3, Current, D>,
+    D: UnitMul<W, Output = Force>,
+{
+    fn forces(&self, time: Quantity<Time>, nodes: usize) -> Result<NodalForcesSolid<3>, String> {
+        if nodes != self.weights.len() {
+            return Err("The load is on a mesh with another number of nodes.".to_string());
+        }
+        let density = (self.density)(time);
+        Ok(self
+            .weights
+            .iter()
+            .map(|&weight| &density * weight)
+            .collect())
+    }
+}
+
+impl<W, D, G> LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>> for TimedLoad<W, G>
+where
+    G: Fn(Quantity<Time>) -> TensorRank1<3, Current, D>,
+    D: UnitMul<W, Output = Force>,
+{
+    fn subtract_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_coordinates: &NodalCoordinates<3>,
+        residual: &mut NodalForcesSolid<3>,
+    ) -> Result<(), String> {
+        residual
+            .iter_mut()
+            .zip(self.forces(time, nodal_coordinates.len())?)
+            .for_each(|(residual, force)| *residual -= force);
+        Ok(())
+    }
+}
+
+impl<W, D, G> ConservativeAt<NodalCoordinates<3>, Quantity<Energy>> for TimedLoad<W, G>
+where
+    G: Fn(Quantity<Time>) -> TensorRank1<3, Current, D>,
+    D: UnitMul<W, Output = Force>,
+{
+    fn potential_energy_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<Quantity<Energy>, String> {
+        Ok(-nodal_coordinates
+            .iter()
+            .zip(&self.reference)
+            .zip(self.forces(time, nodal_coordinates.len())?)
+            .map(|((coordinate, reference), force)| force * &(coordinate - reference))
+            .sum::<Quantity<Energy>>())
+    }
+}
+
+impl<W, D, G> PowerAt<NodalCoordinates<3>, NodalVelocities<3>, Quantity<Power>> for TimedLoad<W, G>
+where
+    G: Fn(Quantity<Time>) -> TensorRank1<3, Current, D>,
+    D: UnitMul<W, Output = Force>,
+{
+    fn power_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
+    ) -> Result<Quantity<Power>, String> {
+        Ok(-nodal_velocities
+            .iter()
+            .zip(self.forces(time, nodal_coordinates.len())?)
+            .map(|(velocity, force)| force * velocity)
+            .sum::<Quantity<Power>>())
+    }
+}
+
+impl<W, D, G> LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for TimedLoad<W, G>
+where
+    G: Fn(Quantity<Time>) -> TensorRank1<3, Current, D>,
+    D: UnitMul<W, Output = Force>,
+{
+    fn subtract_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_states: &NodalStatesSolidThermal,
+        residual: &mut NodalForcesSolidThermal,
+    ) -> Result<(), String> {
+        residual
+            .iter_mut()
+            .zip(self.forces(time, nodal_states.len())?)
+            .for_each(|(residual, force)| residual.0 -= force);
+        Ok(())
     }
 }
