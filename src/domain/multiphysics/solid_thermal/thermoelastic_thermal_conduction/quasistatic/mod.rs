@@ -13,9 +13,8 @@ use crate::{
             NodalStatesSolidThermal, NodalStatesSolidThermalHistory, NodalStiffnessesSolidThermal,
             join_rates, join_states, split_rates, split_states,
         },
-        solid::NodalForcesSolid,
         thermal::{
-            NodalForcesThermal, NodalTemperatures,
+            NodalTemperatures,
             capacity::{InertialHeatCapacity, InverseHeatCapacity},
             transient::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
         },
@@ -67,8 +66,7 @@ pub trait ThermoelasticThermalConductionQuasistatic {
         >,
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalTemperatures),
-        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>;
@@ -97,8 +95,7 @@ where
             NodalCoordinates<3>,
             NodalTemperatures,
         ),
-        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError> {
@@ -125,35 +122,26 @@ where
             |time, states: &NodalStatesSolidThermal| {
                 let (coordinates, temperatures) = split_states(states);
                 let at_rest = NodalVelocities::zero(coordinates.len());
-                let mut unbalanced_heating = self
+                let mut internal = self
                     .nodal_forces(&coordinates, &at_rest, &temperatures)
-                    .map_err(|error| error.to_string())?
-                    .iter()
-                    .map(|force| force.1)
-                    .collect();
-                applied_heating.subtract_at(time, &temperatures, &mut unbalanced_heating)?;
+                    .map_err(|error| error.to_string())?;
+                applied_loads.subtract_at(time, states, &mut internal)?;
+                let unbalanced_heating = internal.iter().map(|force| force.1).collect();
                 let temperature_rates = inverse.nodal_temperature_rates(&unbalanced_heating);
                 Ok(join_rates(at_rest, temperature_rates))
             },
             |time, states: &NodalStatesSolidThermal, rates: &NodalRatesSolidThermal| {
                 let (coordinates, temperatures) = split_states(states);
                 let (velocities, temperature_rates) = split_rates(rates);
-                let mut loaded = NodalForcesSolid::<3>::zero(coordinates.len());
-                applied_loads.subtract_at(time, &coordinates, &mut loaded)?;
-                let mut heated = NodalForcesThermal::zero(coordinates.len());
-                applied_heating.subtract_at(time, &temperatures, &mut heated)?;
-                let internal = self
+                let mut internal = self
                     .nodal_forces(&coordinates, &velocities, &temperatures)
                     .map_err(|error| error.to_string())?;
+                applied_loads.subtract_at(time, states, &mut internal)?;
                 let capacitive_heating = capacities.capacitive_heating(&temperature_rates);
                 Ok(internal
                     .into_iter()
                     .zip(capacitive_heating)
-                    .zip(loaded)
-                    .zip(heated)
-                    .map(|(((internal, capacitive), loaded_force), heating)| {
-                        TensorTuple(internal.0 + loaded_force, capacitive + internal.1 + heating)
-                    })
+                    .map(|(internal, capacitive)| TensorTuple(internal.0, capacitive + internal.1))
                     .collect())
             },
             |_,

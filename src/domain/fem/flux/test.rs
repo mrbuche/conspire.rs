@@ -218,3 +218,42 @@ fn the_products_of_a_flux_and_of_an_energy_exist_for_every_balance_law() {
     typed::<Charge>();
     typed::<Current>();
 }
+
+#[test]
+fn a_heat_flux_that_depends_on_time_leaves_the_forces_of_a_coupled_residual_alone() {
+    use crate::{
+        domain::multiphysics::solid_thermal::{
+            NodalForcesSolidThermal, NodalStatesSolidThermal, join_states,
+        },
+        fem::{
+            NodalCoordinates,
+            boundary::{LoadAt, SolidThermal},
+        },
+    };
+    let model = model();
+    let loads = Loads::<SolidThermal<3>>::new()
+        .flux_with(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            |time| Quantity::<PowerPerArea>::new(time.value()),
+        )
+        .unwrap();
+    let coordinates: NodalCoordinates<3> = model.coordinates().clone().into();
+    let states: NodalStatesSolidThermal = join_states(&coordinates, &NodalFields::<Power>::zero(8));
+    let mut residual = (0..8)
+        .map(|_| {
+            crate::math::TensorTuple(
+                crate::mechanics::Force::from([0.0; 3]),
+                Quantity::<crate::units::Power>::new(0.0),
+            )
+        })
+        .collect::<NodalForcesSolidThermal>();
+    loads
+        .subtract_at(Time::seconds(2.0), &states, &mut residual)
+        .unwrap();
+    (0..8).for_each(|node| {
+        assert!(residual[node].0.iter().all(|force| force.value() == 0.0));
+        let heat = if node < 4 { 0.0 } else { -2.0 * 6.0 / 4.0 };
+        assert!((residual[node].1.value() - heat).abs() < 1e-12)
+    });
+}

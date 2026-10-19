@@ -6,6 +6,7 @@ use crate::{
     domain::{
         boundary::{ConservativeAt, Field, LoadAt, Loads, SolidThermal},
         diffusion::loads::NodalSource,
+        multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
     },
     fem::{
         NodalReferenceCoordinates,
@@ -78,6 +79,47 @@ impl<T> Loads<SolidThermal<3>, T> {
             .map(|area| flux * area)
             .collect();
         Ok(self.source(sources))
+    }
+}
+
+type WithTimedHeat<T, G> = Result<Loads<SolidThermal<3>, (T, TimedFlux<Power, G>)>, String>;
+
+impl<T> Loads<SolidThermal<3>, T> {
+    /// Adds a heat flux per unit reference area through the faces of a side set, that is a
+    /// function of time.
+    pub fn flux_with(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        side_set: &SideSet,
+        flux: impl Fn(Quantity<Time>) -> Quantity<PowerPerArea>,
+    ) -> WithTimedHeat<T, impl Fn(Quantity<Time>) -> Quantity<PowerPerArea>> {
+        Ok(self.with(TimedFlux {
+            areas: nodal_areas(coordinates, side_set)?,
+            flux,
+            unit: PhantomData,
+        }))
+    }
+}
+
+impl<G> LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for TimedFlux<Power, G>
+where
+    G: Fn(Quantity<Time>) -> Quantity<PowerPerArea>,
+{
+    fn subtract_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_states: &NodalStatesSolidThermal,
+        residual: &mut NodalForcesSolidThermal,
+    ) -> Result<(), String> {
+        if nodal_states.len() != self.areas.len() {
+            return Err("The flux is on a mesh with another number of nodes.".to_string());
+        }
+        let flux = (self.flux)(time);
+        residual
+            .iter_mut()
+            .zip(&self.areas)
+            .for_each(|(residual, &area)| residual.1 -= flux * area);
+        Ok(())
     }
 }
 

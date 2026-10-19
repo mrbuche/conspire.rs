@@ -3,7 +3,8 @@ mod test;
 
 use crate::{
     domain::{
-        boundary::{ConservativeAt, LoadAt, Loads, PowerAt, Solid},
+        boundary::{ConservativeAt, LoadAt, Loads, PowerAt},
+        multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
         solid::loads::{DeadLoad, SolidLayout},
     },
     fem::{
@@ -103,9 +104,12 @@ pub struct TimedTraction<G> {
     traction: G,
 }
 
-type WithTimedTraction<T, G> = Loads<Solid<3>, (T, TimedTraction<G>)>;
+type WithTimedTraction<L, T, G> = Result<Loads<L, (T, TimedTraction<G>)>, String>;
 
-impl<T> Loads<Solid<3>, T> {
+impl<L, T> Loads<L, T>
+where
+    L: SolidLayout,
+{
     /// Adds a dead traction per unit reference area on the faces of a side set, that is a
     /// function of time.
     pub fn traction_with(
@@ -113,7 +117,7 @@ impl<T> Loads<Solid<3>, T> {
         coordinates: &NodalReferenceCoordinates<3>,
         side_set: &SideSet,
         traction: impl Fn(Quantity<Time>) -> Traction,
-    ) -> Result<WithTimedTraction<T, impl Fn(Quantity<Time>) -> Traction>, String> {
+    ) -> WithTimedTraction<L, T, impl Fn(Quantity<Time>) -> Traction> {
         Ok(self.with(TimedTraction {
             areas: nodal_areas(coordinates, side_set)?,
             reference: coordinates.clone().into(),
@@ -126,12 +130,8 @@ impl<G> TimedTraction<G>
 where
     G: Fn(Quantity<Time>) -> Traction,
 {
-    fn forces(
-        &self,
-        time: Quantity<Time>,
-        nodal_coordinates: &NodalCoordinates<3>,
-    ) -> Result<NodalForcesSolid<3>, String> {
-        if nodal_coordinates.len() != self.areas.len() {
+    fn forces(&self, time: Quantity<Time>, nodes: usize) -> Result<NodalForcesSolid<3>, String> {
+        if nodes != self.areas.len() {
             return Err("The traction is on a mesh with another number of nodes.".to_string());
         }
         let traction = (self.traction)(time);
@@ -151,7 +151,7 @@ where
     ) -> Result<(), String> {
         residual
             .iter_mut()
-            .zip(self.forces(time, nodal_coordinates)?)
+            .zip(self.forces(time, nodal_coordinates.len())?)
             .for_each(|(residual, force)| *residual -= force);
         Ok(())
     }
@@ -169,7 +169,7 @@ where
         Ok(-nodal_coordinates
             .iter()
             .zip(&self.reference)
-            .zip(self.forces(time, nodal_coordinates)?)
+            .zip(self.forces(time, nodal_coordinates.len())?)
             .map(|((coordinate, reference), force)| force * &(coordinate - reference))
             .sum::<Quantity<Energy>>())
     }
@@ -187,8 +187,26 @@ where
     ) -> Result<Quantity<Power>, String> {
         Ok(-nodal_velocities
             .iter()
-            .zip(self.forces(time, nodal_coordinates)?)
+            .zip(self.forces(time, nodal_coordinates.len())?)
             .map(|(velocity, force)| force * velocity)
             .sum::<Quantity<Power>>())
+    }
+}
+
+impl<G> LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for TimedTraction<G>
+where
+    G: Fn(Quantity<Time>) -> Traction,
+{
+    fn subtract_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_states: &NodalStatesSolidThermal,
+        residual: &mut NodalForcesSolidThermal,
+    ) -> Result<(), String> {
+        residual
+            .iter_mut()
+            .zip(self.forces(time, nodal_states.len())?)
+            .for_each(|(residual, force)| residual.0 -= force);
+        Ok(())
     }
 }

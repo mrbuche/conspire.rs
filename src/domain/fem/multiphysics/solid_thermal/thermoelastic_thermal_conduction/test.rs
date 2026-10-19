@@ -423,7 +423,6 @@ mod dynamics {
                 (NodalCoordinates::from(COORDINATES), velocities),
                 uniform_temperatures(),
                 &(),
-                &(),
                 &model().nodal_lumped_masses(),
                 &model().nodal_lumped_heat_capacities(),
                 &conditions(equality_constraint),
@@ -442,7 +441,6 @@ mod dynamics {
                 &stretching(),
                 &uniform_temperatures(),
                 crate::units::Time::seconds(0.0),
-                &(),
                 &(),
                 &model().nodal_lumped_masses(),
                 &model().nodal_lumped_heat_capacities(),
@@ -505,7 +503,6 @@ mod dynamics {
                 (NodalCoordinates::from(COORDINATES), translating()),
                 uniform_temperatures(),
                 &(),
-                &(),
                 &model().nodal_lumped_masses(),
                 &model().nodal_lumped_heat_capacities(),
                 &conditions,
@@ -536,7 +533,6 @@ mod dynamics {
             &time(),
             (NodalCoordinates::from(COORDINATES), translating()),
             uniform_temperatures(),
-            &(),
             &(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
@@ -577,7 +573,6 @@ mod dynamics {
             (NodalCoordinates::from(COORDINATES), stretching()),
             uniform_temperatures(),
             &(),
-            &(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
             &conditions(vec![EqualityConstraint::Linear(
@@ -599,7 +594,6 @@ mod dynamics {
             time,
             (NodalCoordinates::from(COORDINATES), stretching()),
             uniform_temperatures(),
-            &(),
             &(),
             &model().nodal_lumped_masses(),
             &model().nodal_lumped_heat_capacities(),
@@ -753,7 +747,6 @@ mod dynamics {
                 (NodalCoordinates::from(bar_coordinates()), bar_velocities()),
                 (0..nodes).map(|_| REFERENCE_TEMPERATURE).collect(),
                 &(),
-                &(),
                 &model.nodal_lumped_masses(),
                 &model.nodal_lumped_heat_capacities(),
                 &conditions(vec![bar_constraint()]),
@@ -860,7 +853,6 @@ mod dynamics {
                 &uniform_temperatures(),
                 crate::units::Time::seconds(0.0),
                 &(),
-                &(),
                 &model.nodal_lumped_masses(),
                 &model.nodal_lumped_heat_capacities(),
             )
@@ -916,7 +908,6 @@ mod dynamics {
                     (NodalCoordinates::from(COORDINATES), velocities),
                     uniform_temperatures(),
                     &(),
-                    &(),
                     &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
                     &conditions(equality_constraint),
@@ -951,7 +942,6 @@ mod dynamics {
                     &time(),
                     (NodalCoordinates::from(COORDINATES), translating()),
                     uniform_temperatures(),
-                    &(),
                     &(),
                     &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
@@ -1007,7 +997,6 @@ mod dynamics {
                     &time(),
                     (NodalCoordinates::from(COORDINATES), translating()),
                     uniform_temperatures(),
-                    &(),
                     &(),
                     &model.nodal_lumped_masses(),
                     &model.nodal_lumped_heat_capacities(),
@@ -1306,7 +1295,6 @@ mod quasistatic {
                         .into_iter()
                         .collect(),
                 ),
-                &(),
                 &super::source(heating(&model)),
                 &model.nodal_lumped_heat_capacities(),
                 &conditions,
@@ -1351,7 +1339,6 @@ mod quasistatic {
                         .into_iter()
                         .collect(),
                 ),
-                &(),
                 &super::source(heating(&model)),
                 &model.nodal_lumped_heat_capacities(),
                 &conditions,
@@ -1397,7 +1384,6 @@ mod quasistatic {
                         .into_iter()
                         .collect(),
                 ),
-                &(),
                 &super::source(heating(&model)),
                 &model.nodal_lumped_heat_capacities(),
                 &conditions(vec![constraint]),
@@ -1537,9 +1523,8 @@ mod quasistatic {
 fn source(
     heating: crate::domain::thermal::NodalForcesThermal,
 ) -> crate::fem::boundary::Loads<
-    crate::fem::boundary::Field<crate::units::Temperature>,
+    crate::fem::boundary::SolidThermal<3>,
     ((), crate::fem::diffusion::NodalSource<crate::units::Power>),
 > {
-    crate::fem::boundary::Loads::<crate::fem::boundary::Field<crate::units::Temperature>>::new()
-        .source(heating)
+    crate::fem::boundary::Loads::<crate::fem::boundary::SolidThermal<3>>::new().source(heating)
 }

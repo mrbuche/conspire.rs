@@ -228,6 +228,44 @@ mod patch {
         )
     }
     #[test]
+    fn a_traction_that_depends_on_time_loads_the_forces_of_a_coupled_residual_only() {
+        use crate::{
+            domain::multiphysics::solid_thermal::{
+                NodalForcesSolidThermal, NodalStatesSolidThermal, join_states,
+            },
+            fem::boundary::{LoadAt, SolidThermal},
+        };
+        let model = model();
+        let loads = Loads::<SolidThermal<3>>::new()
+            .traction_with(
+                model.coordinates(),
+                model.side_sets().iter().next().unwrap(),
+                |time| Traction::from([0.0, 0.0, time.value()]),
+            )
+            .unwrap();
+        let states: NodalStatesSolidThermal = join_states(
+            &at_rest(&model),
+            &crate::fem::diffusion::NodalFields::<crate::units::Power>::zero(8),
+        );
+        let mut residual = (0..8)
+            .map(|_| {
+                crate::math::TensorTuple(
+                    crate::mechanics::Force::from([0.0; 3]),
+                    crate::math::Quantity::<crate::units::Power>::new(0.0),
+                )
+            })
+            .collect::<NodalForcesSolidThermal>();
+        loads
+            .subtract_at(Time::seconds(3.0), &states, &mut residual)
+            .unwrap();
+        (0..8).for_each(|node| {
+            let force = if node < 4 { 0.0 } else { -3.0 / 4.0 };
+            assert!((residual[node].0[2].value() - force).abs() < 1e-12);
+            assert_eq!(residual[node].1.value(), 0.0)
+        });
+    }
+
+    #[test]
     fn a_constant_traction_that_depends_on_time_matches_the_static_one()
     -> Result<(), AssertionError> {
         let model = model();

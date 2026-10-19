@@ -12,9 +12,9 @@ use crate::{
                 ThermoelasticThermalConductionRateElements, add_capacities, add_heatings,
             },
         },
-        solid::{NodalForcesSolid, NodalStiffnessesSolid, mass::InertialMass},
+        solid::{NodalStiffnessesSolid, mass::InertialMass},
         thermal::{
-            NodalForcesThermal, NodalTemperatures,
+            NodalTemperatures,
             capacity::{InertialHeatCapacity, NodalTemperatureRates},
             transient::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
         },
@@ -59,8 +59,7 @@ pub trait ThermoelasticThermalConductionImplicitDynamics {
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         initial_temperatures: NodalTemperatures,
-        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -93,8 +92,7 @@ where
         time: &[Quantity<Time>],
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         mut initial_temperatures: NodalTemperatures,
-        applied_loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
-        applied_heating: &impl LoadAt<NodalTemperatures, NodalForcesThermal>,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         masses: &impl InertialMass<3>,
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -129,7 +127,6 @@ where
                     temperatures,
                     time,
                     applied_loads,
-                    applied_heating,
                     &inverse_masses,
                     &inverse_capacities,
                 )
@@ -141,29 +138,23 @@ where
              accelerations: &NodalAccelerations<3>,
              temperatures: &NodalTemperatures,
              rates: &NodalTemperatureRates| {
-                let mut loaded = NodalForcesSolid::<3>::zero(coordinates.len());
-                applied_loads.subtract_at(time, coordinates, &mut loaded)?;
-                let mut heated = NodalForcesThermal::zero(coordinates.len());
-                applied_heating.subtract_at(time, temperatures, &mut heated)?;
-                let internal = self
+                let mut internal = self
                     .nodal_forces(coordinates, velocities, temperatures)
                     .map_err(|error| error.to_string())?;
+                applied_loads.subtract_at(
+                    time,
+                    &join_states(coordinates, temperatures),
+                    &mut internal,
+                )?;
                 let inertial_forces = InertialMass::inertial_forces(masses, accelerations);
                 let capacitive_heating = capacities.capacitive_heating(rates);
                 Ok(internal
                     .into_iter()
                     .zip(inertial_forces)
                     .zip(capacitive_heating)
-                    .zip(loaded)
-                    .zip(heated)
-                    .map(
-                        |((((internal, inertial_force), capacitive), loaded_force), heating)| {
-                            TensorTuple(
-                                inertial_force + internal.0 + loaded_force,
-                                capacitive + internal.1 + heating,
-                            )
-                        },
-                    )
+                    .map(|((internal, inertial_force), capacitive)| {
+                        TensorTuple(inertial_force + internal.0, capacitive + internal.1)
+                    })
                     .collect())
             },
             |_,
