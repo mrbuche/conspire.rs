@@ -136,3 +136,39 @@ fn the_block_mass_is_the_total_of_the_nodal_masses() -> Result<(), AssertionErro
     let total: Quantity<Mass> = model.nodal_lumped_masses().iter().copied().sum();
     Assert::default().eq_within_tols(total, &mass)
 }
+
+#[test]
+fn the_nodal_volumes_add_up_to_the_volume() -> Result<(), AssertionError> {
+    let (connectivity, coordinates) = problem();
+    let block = VemBlock::from((
+        (),
+        LEFT,
+        connectivity,
+        &coordinates,
+        crate::vem::block::element::DEFAULT_STABILIZATION,
+    ));
+    let model = Model::from((block, coordinates));
+    Assert::default().eq_within_tols(
+        model.nodal_volumes().volume(),
+        &crate::units::Volume::cubic_meters(2.0),
+    )
+}
+
+#[test]
+fn a_linear_field_integrates_exactly_at_the_centers() {
+    use crate::domain::volume::NodalVolumeElements;
+    let (connectivity, coordinates) = problem();
+    let block = VemBlock::from((
+        (),
+        LEFT,
+        connectivity,
+        &coordinates,
+        crate::vem::block::element::DEFAULT_STABILIZATION,
+    ));
+    let model = Model::from((block, coordinates.clone()));
+    let mut integral = 0.0;
+    model.for_each_sample(&coordinates, &mut |_, position, volume| {
+        integral += position[0].value() * volume.value()
+    });
+    assert!((integral - 2.0).abs() < 1e-12, "{integral} is not 2");
+}

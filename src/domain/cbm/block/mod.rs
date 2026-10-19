@@ -9,6 +9,7 @@ pub mod solid;
 mod test;
 pub mod thermal;
 pub mod time_scale;
+mod volume;
 
 use crate::{
     domain::{

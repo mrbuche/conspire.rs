@@ -1,11 +1,11 @@
 use crate::{
     constitutive::diffusion::Diffusive,
     domain::{
-        NodalReferenceCoordinates,
+        ElementModel,
         boundary::{Conservative, ConservativeAt, Field, Load, LoadAt, Loads, SolidThermal},
         diffusion::{NodalFields, NodalForces},
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
-        volume::NodalVolumes,
+        volume::{NodalVolumeElements, NodalVolumes},
     },
     math::{Quantity, Tensor},
     mechanics::ReferenceCoordinate,
@@ -248,27 +248,22 @@ impl<U, T> Loads<Field<U>, T> {
     {
         self.source(volumes.iter().map(|&volume| density * volume).collect())
     }
-    /// Adds a source per unit reference volume that is a function of position, which is sampled at
-    /// the nodes.
+    /// Adds a source per unit reference volume that is a function of position, which is
+    /// integrated against the shape functions of the nodes at the samples of the elements.
     pub fn source_density_field<L>(
         self,
-        coordinates: &NodalReferenceCoordinates<3>,
-        volumes: &NodalVolumes,
+        model: &(impl NodalVolumeElements + ElementModel<3>),
         field: impl Fn(&ReferenceCoordinate) -> Density<L>,
-    ) -> Result<WithSource<U, T, L>, String>
+    ) -> WithSource<U, T, L>
     where
         L: Diffusive<Field = U>,
     {
-        if coordinates.len() != volumes.len() {
-            return Err("There must be exactly one volume for each node.".to_string());
-        }
-        Ok(self.source(
-            coordinates
-                .iter()
-                .zip(volumes.iter())
-                .map(|(coordinate, &volume)| field(coordinate) * volume)
-                .collect(),
-        ))
+        let coordinates = model.coordinates();
+        let mut sources = NodalForces::<L>::zero(coordinates.len());
+        model.for_each_sample(coordinates, &mut |node, position, volume| {
+            sources[node] += field(position) * volume
+        });
+        self.source(sources)
     }
     /// Adds a source per unit reference volume that is a function of time.
     pub fn source_density_with<L, G>(
@@ -297,23 +292,18 @@ impl<T> Loads<SolidThermal<3>, T> {
         self.source(volumes.iter().map(|&volume| density * volume).collect())
     }
     /// Adds a heat source per unit reference volume that is a function of position, which is
-    /// sampled at the nodes.
+    /// integrated against the shape functions of the nodes at the samples of the elements.
     pub fn source_density_field(
         self,
-        coordinates: &NodalReferenceCoordinates<3>,
-        volumes: &NodalVolumes,
+        model: &(impl NodalVolumeElements + ElementModel<3>),
         field: impl Fn(&ReferenceCoordinate) -> Quantity<PowerDensity>,
-    ) -> Result<WithHeat<T>, String> {
-        if coordinates.len() != volumes.len() {
-            return Err("There must be exactly one volume for each node.".to_string());
-        }
-        Ok(self.source(
-            coordinates
-                .iter()
-                .zip(volumes.iter())
-                .map(|(coordinate, &volume)| field(coordinate) * volume)
-                .collect(),
-        ))
+    ) -> WithHeat<T> {
+        let coordinates = model.coordinates();
+        let mut sources = NodalForces::<Power>::zero(coordinates.len());
+        model.for_each_sample(coordinates, &mut |node, position, volume| {
+            sources[node] += field(position) * volume
+        });
+        self.source(sources)
     }
     /// Adds a heat source per unit reference volume that is a function of time.
     pub fn source_density_with<G>(self, volumes: &NodalVolumes, density: G) -> WithTimedHeat<T, G>

@@ -510,16 +510,16 @@ mod body {
             .for_each(|force| assert!((force[2] - 10.0 * 6.0 / 8.0).abs() < 1e-12));
     }
     #[test]
-    fn a_force_that_depends_on_position_is_sampled_at_the_nodes() {
+    fn a_force_that_depends_on_position_is_integrated_against_the_shape_functions() {
         let model = model();
         let loads = Loads::<Solid<3>>::new()
-            .body_force_field(model.coordinates(), &model.nodal_volumes(), |coordinate| {
-                force(coordinate[2].value())
-            })
+            .body_force_field(&model, |coordinate| force(coordinate[2].value()))
             .unwrap();
         let residual = residual_at(&loads, &model, 0.0);
-        (0..4).for_each(|node| assert_eq!(residual[node][2], 0.0));
-        (4..8).for_each(|node| assert!((residual[node][2] + 6.0 / 8.0).abs() < 1e-12));
+        (0..4).for_each(|node| assert!((residual[node][2] + 0.25).abs() < 1e-12));
+        (4..8).for_each(|node| assert!((residual[node][2] + 0.5).abs() < 1e-12));
+        let total = residual.iter().map(|force| force[2]).sum::<f64>();
+        assert!((total + 3.0).abs() < 1e-12);
     }
     #[test]
     fn a_force_that_depends_on_time_takes_the_time_it_is_given() {

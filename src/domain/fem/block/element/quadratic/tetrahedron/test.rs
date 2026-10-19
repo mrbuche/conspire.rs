@@ -37,7 +37,7 @@ pub fn get_connectivity() -> Vec<[usize; N]> {
 }
 
 pub fn get_coordinates_block() -> NodalCoordinates<3> {
-    NodalCoordinates::from([
+    [
         [0.50970092, -0.45999746, 0.47715613],
         [0.53320092, 0.50645170, 0.48671275],
         [-0.48918872, 0.49235727, 0.52419583],
@@ -73,11 +73,12 @@ pub fn get_coordinates_block() -> NodalCoordinates<3> {
         [0.23046696, 0.20175434, -0.24036472],
         [-0.23621308, 0.22857201, -0.26962741],
         [-0.28625675, -0.27375433, -0.26379361],
-    ])
+    ]
+    .into()
 }
 
 pub fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
-    ElementNodalReferenceCoordinates::from([
+    [
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
@@ -88,11 +89,12 @@ pub fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
         [0.0, 0.0, 0.5],
         [0.5, 0.0, 0.5],
         [0.0, 0.5, 0.5],
-    ])
+    ]
+    .into()
 }
 
 pub fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
-    NodalReferenceCoordinates::from([
+    [
         [0.50, -0.50, 0.50],
         [0.50, 0.50, 0.50],
         [-0.50, 0.50, 0.50],
@@ -128,11 +130,12 @@ pub fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
         [0.25, 0.25, -0.25],
         [-0.25, 0.25, -0.25],
         [-0.25, -0.25, -0.25],
-    ])
+    ]
+    .into()
 }
 
 pub fn get_velocities_block() -> NodalVelocities<3> {
-    NodalVelocities::from([
+    [
         [0.04705949, 0.03631753, 0.07485168],
         [-0.05308881, 0.00788418, -0.00509899],
         [0.09843214, 0.01365840, 0.03718527],
@@ -168,7 +171,8 @@ pub fn get_velocities_block() -> NodalVelocities<3> {
         [-0.06432809, -0.05701089, -0.08241133],
         [0.02712482, -0.09724979, 0.02285835],
         [-0.05965081, -0.07478612, -0.04896525],
-    ])
+    ]
+    .into()
 }
 
 pub fn equality_constraint() -> (
@@ -288,3 +292,46 @@ pub fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
 
 test_finite_element!(Tetrahedron);
 test_finite_element_block!(Tetrahedron);
+
+mod volume {
+    use super::*;
+    use crate::{
+        constitutive::solid::hyperelastic::NeoHookean,
+        domain::{ElementModel, volume::NodalVolumeElements},
+        fem::Model,
+        units::Stress,
+    };
+    fn model() -> Model<Block<NeoHookean, Tetrahedron, G, M, N, P>, 3> {
+        let coordinates = get_reference_coordinates_block();
+        (
+            Block::from((
+                NeoHookean {
+                    bulk_modulus: Stress::pascals(13.0),
+                    shear_modulus: Stress::pascals(3.0),
+                },
+                get_connectivity(),
+                &coordinates,
+            )),
+            coordinates,
+        )
+            .into()
+    }
+    #[test]
+    fn the_nodal_volumes_add_up_to_the_volume_though_some_corners_have_none() {
+        let volumes = model().nodal_volumes();
+        assert!((volumes.volume().value() - 1.0).abs() < 1e-12);
+        assert!(volumes.iter().any(|volume| volume.value() < 0.0));
+    }
+    #[test]
+    fn a_quadratic_field_integrates_exactly_against_the_shape_functions() {
+        let model = model();
+        let mut integral = 0.0;
+        model.for_each_sample(model.coordinates(), &mut |_, position, volume| {
+            integral += position[0].value().powi(2) * volume.value()
+        });
+        assert!(
+            (integral - 1.0 / 12.0).abs() < 1e-12,
+            "{integral} is not 1/12"
+        );
+    }
+}

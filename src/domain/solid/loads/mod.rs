@@ -1,12 +1,13 @@
 use crate::{
     domain::{
-        NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
+        ElementModel, NodalAccelerations, NodalCoordinates, NodalReferenceCoordinates,
+        NodalVelocities,
         boundary::{
             Conservative, ConservativeAt, Layout, Load, LoadAt, Loads, PowerAt, Solid, SolidThermal,
         },
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
         solid::{NodalForcesSolid, mass::InertialMass},
-        volume::NodalVolumes,
+        volume::{NodalVolumeElements, NodalVolumes},
     },
     math::{Current, Quantity, Tensor, TensorRank1},
     mechanics::ReferenceCoordinate,
@@ -195,22 +196,19 @@ where
             volumes.iter().map(|&volume| force * volume).collect(),
         )
     }
-    /// Adds a force per unit reference volume that is a function of position, which is sampled at
-    /// the nodes.
+    /// Adds a force per unit reference volume that is a function of position, which is
+    /// integrated against the shape functions of the nodes at the samples of the elements.
     pub fn body_force_field(
         self,
-        coordinates: &NodalReferenceCoordinates<3>,
-        volumes: &NodalVolumes,
+        model: &(impl NodalVolumeElements + ElementModel<3>),
         field: impl Fn(&ReferenceCoordinate) -> BodyForce,
     ) -> WithBodyForce<L, T> {
-        self.nodal_forces(
-            coordinates,
-            coordinates
-                .iter()
-                .zip(volumes.iter())
-                .map(|(coordinate, &volume)| &field(coordinate) * volume)
-                .collect(),
-        )
+        let coordinates = model.coordinates();
+        let mut forces = NodalForcesSolid::<3>::zero(coordinates.len());
+        model.for_each_sample(coordinates, &mut |node, position, volume| {
+            forces[node] += &field(position) * volume
+        });
+        self.nodal_forces(coordinates, forces)
     }
     /// Adds a force per unit reference volume that is a function of time.
     pub fn body_force_with<G>(

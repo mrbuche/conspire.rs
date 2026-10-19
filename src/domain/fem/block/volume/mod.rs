@@ -2,31 +2,47 @@
 mod test;
 
 use crate::{
-    domain::volume::{NodalVolumeElements, NodalVolumes},
-    fem::block::{Block, element::FiniteElement},
+    domain::volume::NodalVolumeElements,
+    fem::{
+        NodalReferenceCoordinates,
+        block::{Block, element::FiniteElement},
+    },
     math::{Quantity, Tensor},
+    mechanics::ReferenceCoordinate,
     units::Volume,
 };
 
-impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize> NodalVolumeElements
-    for Block<C, F, G, M, N, P, R, H>
+impl<C, F, R, H, const G: usize, const N: usize, const P: usize> NodalVolumeElements
+    for Block<C, F, G, 3, N, P, R, H>
 where
-    F: FiniteElement<G, M, N, P>,
+    F: FiniteElement<G, 3, N, P>,
 {
-    fn nodal_volumes_into(&self, nodal_volumes: &mut NodalVolumes) {
+    fn for_each_sample(
+        &self,
+        reference_coordinates: &NodalReferenceCoordinates<3>,
+        sample: &mut impl FnMut(usize, &ReferenceCoordinate, Quantity<Volume>),
+    ) {
         let shape_functions = F::shape_functions_at_integration_points();
         self.elements().iter().zip(self.connectivity()).for_each(
             |(element, element_connectivity)| {
-                element_connectivity
+                element
+                    .integration_weights()
                     .iter()
-                    .enumerate()
-                    .for_each(|(a, &node)| {
-                        nodal_volumes[node] += element
-                            .integration_weights()
+                    .zip(&shape_functions)
+                    .for_each(|(&weight, shape_functions)| {
+                        let position = element_connectivity
                             .iter()
-                            .zip(&shape_functions)
-                            .map(|(&weight, shape_functions)| weight * shape_functions[a])
-                            .sum::<Quantity<Volume>>()
+                            .zip(shape_functions.iter())
+                            .map(|(&node, &shape_function)| {
+                                &reference_coordinates[node] * shape_function
+                            })
+                            .sum::<ReferenceCoordinate>();
+                        element_connectivity
+                            .iter()
+                            .zip(shape_functions.iter())
+                            .for_each(|(&node, &shape_function)| {
+                                sample(node, &position, weight * shape_function)
+                            })
                     })
             },
         )
