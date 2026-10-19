@@ -14,9 +14,20 @@ pub trait LoadAt<X, R> {
 ///
 /// A solve that is not a function of time takes these, so loads that are a function of time are
 /// not accepted by it.
-pub trait Load<X, R>: LoadAt<X, R> {
+pub trait Load<X, R> {
     /// Subtracts the external forces at a state from a residual.
     fn subtract_from(&self, state: &X, residual: &mut R) -> Result<(), String>;
+}
+
+/// The stiffness of external forces that depend on the state, such as a pressure that follows the
+/// surface it acts on, which a tangent of type `J` takes up.
+///
+/// A load that does not depend on the state has none to add, so the default adds nothing.
+pub trait LoadStiffness<X, J> {
+    /// Adds the derivative of the residual of the external forces to a tangent.
+    fn add_stiffness_to(&self, _state: &X, _tangent: &mut J) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// The potential energy of external forces that have one, which may be a function of time.
@@ -74,6 +85,29 @@ impl<X, R> LoadAt<X, R> for () {
 impl<X, R> Load<X, R> for () {
     fn subtract_from(&self, _: &X, _: &mut R) -> Result<(), String> {
         Ok(())
+    }
+}
+
+impl<X, J> LoadStiffness<X, J> for () {}
+
+impl<X, J, A, B> LoadStiffness<X, J> for (A, B)
+where
+    A: LoadStiffness<X, J>,
+    B: LoadStiffness<X, J>,
+{
+    fn add_stiffness_to(&self, state: &X, tangent: &mut J) -> Result<(), String> {
+        self.0.add_stiffness_to(state, tangent)?;
+        self.1.add_stiffness_to(state, tangent)
+    }
+}
+
+impl<L, T, X, J> LoadStiffness<X, J> for Loads<L, T>
+where
+    X: NodalState<Layout = L>,
+    T: LoadStiffness<X, J>,
+{
+    fn add_stiffness_to(&self, state: &X, tangent: &mut J) -> Result<(), String> {
+        self.0.add_stiffness_to(state, tangent)
     }
 }
 

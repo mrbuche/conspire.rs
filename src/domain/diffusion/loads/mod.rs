@@ -2,7 +2,9 @@ use crate::{
     constitutive::diffusion::Diffusive,
     domain::{
         ElementModel,
-        boundary::{Conservative, ConservativeAt, Field, Load, LoadAt, Loads, SolidThermal},
+        boundary::{
+            Conservative, ConservativeAt, Field, Load, LoadAt, LoadStiffness, Loads, SolidThermal,
+        },
         diffusion::{NodalFields, NodalForces},
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
         volume::{NodalVolumeElements, NodalVolumes},
@@ -44,6 +46,8 @@ where
         }
     }
 }
+
+impl<L, X, J> LoadStiffness<X, J> for NodalSource<L> where L: Diffusive {}
 
 impl<L> Load<NodalFields<L>, NodalForces<L>> for NodalSource<L>
 where

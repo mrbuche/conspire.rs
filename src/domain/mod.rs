@@ -41,7 +41,7 @@ pub(crate) mod volume;
 use crate::{
     domain::{
         block::element::Elements,
-        boundary::{Conservative, Constrain, Load, NodalState},
+        boundary::{Conservative, Constrain, Load, LoadStiffness, NodalState},
     },
     geometry::{
         Coordinates,
@@ -207,7 +207,7 @@ where
     fn root<S>(
         &self,
         boundary_conditions: &impl Constrain<X::Layout>,
-        applied_loads: &impl Load<X, F>,
+        applied_loads: &(impl Load<X, F> + LoadStiffness<X, S::Tangent>),
         solver: S,
     ) -> Result<X, OptimizationError>
     where

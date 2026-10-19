@@ -3,7 +3,7 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalState,
         ProvidesTangent, Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{Constrain, Load},
+        boundary::{Constrain, Load, LoadStiffness},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
@@ -121,7 +121,10 @@ where
     fn root<S>(
         &self,
         boundary_conditions: &impl Constrain<<NodalCoordinates<D> as NodalState>::Layout>,
-        applied_loads: &impl Load<NodalCoordinates<D>, NodalForcesSolid<D>>,
+        applied_loads: &(
+             impl Load<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + LoadStiffness<NodalCoordinates<D>, S::Tangent>
+         ),
         solver: S,
     ) -> Result<NodalCoordinates<D>, OptimizationError>
     where
@@ -142,7 +145,11 @@ where
                 applied_loads.subtract_from(nodal_coordinates, &mut nodal_forces)?;
                 Ok(nodal_forces)
             },
-            |nodal_coordinates: &NodalCoordinates<D>| Ok(self.provide_tangent(nodal_coordinates)?),
+            |nodal_coordinates: &NodalCoordinates<D>| {
+                let mut tangent = self.provide_tangent(nodal_coordinates)?;
+                applied_loads.add_stiffness_to(nodal_coordinates, &mut tangent)?;
+                Ok(tangent)
+            },
             self.coordinates().clone().into(),
             equality_constraint,
             sparse,

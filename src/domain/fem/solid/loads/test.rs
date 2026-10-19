@@ -548,3 +548,130 @@ mod body {
         assert!(error.contains("one weight for each node"));
     }
 }
+
+mod follower {
+    use crate::{
+        constitutive::solid::hyperelastic::NeoHookean,
+        domain::ElementModel,
+        fem::{
+            Model, NodalCoordinates, Root,
+            block::{Block, element::linear::Hexahedron},
+            boundary::{BoundaryConditions, ConstrainAt as _, Displacement, Loads, Solid},
+        },
+        geometry::mesh::{Connectivity, Mesh, NodeSet, SideSet},
+        math::{
+            Quantity,
+            optimize::{Direct, NewtonRaphson},
+        },
+        mechanics::Traction,
+        units::Stress,
+    };
+    type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
+    fn model() -> Model<Hex, 3> {
+        let mut mesh = Mesh::from((
+            vec![Connectivity::Hexahedral(
+                vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
+            )],
+            vec![
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [2.0, 3.0, 0.0],
+                [0.0, 3.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [2.0, 0.0, 1.0],
+                [2.0, 3.0, 1.0],
+                [0.0, 3.0, 1.0],
+            ]
+            .into(),
+        ));
+        mesh.set_side_sets(vec![SideSet::new(vec![(0, 5)])].into());
+        (
+            mesh,
+            NeoHookean {
+                bulk_modulus: Stress::pascals(13.0),
+                shear_modulus: Stress::pascals(3.0),
+            },
+        )
+            .try_into()
+            .unwrap()
+    }
+    fn conditions<'a>(
+        sets: &'a [NodeSet; 4],
+    ) -> impl crate::fem::boundary::Constrain<Solid<3>> + 'a {
+        let [bottom, pinned, along_x, along_y] = sets;
+        BoundaryConditions::<Solid<3>>::new()
+            .fix(Displacement::<2>, bottom)
+            .fix(Displacement::<0>, pinned)
+            .fix(Displacement::<1>, along_x)
+            .fix(Displacement::<0>, along_y)
+    }
+    fn sets() -> [NodeSet; 4] {
+        [
+            NodeSet::new(vec![0, 1, 2, 3]),
+            NodeSet::new(vec![0]),
+            NodeSet::new(vec![1, 0]),
+            NodeSet::new(vec![3, 0]),
+        ]
+    }
+    fn shortening(x: &NodalCoordinates<3>) -> f64 {
+        1.0 - x[4][2].value()
+    }
+    fn pressed(pressure: f64) -> NodalCoordinates<3> {
+        let model = model();
+        let sets = sets();
+        let loads = Loads::<Solid<3>>::new()
+            .pressure(
+                model.side_sets().iter().next().unwrap(),
+                Quantity::<Stress>::new(pressure),
+            )
+            .unwrap();
+        model
+            .root(
+                &conditions(&sets),
+                &loads,
+                NewtonRaphson {
+                    max_steps: 10,
+                    linear_solver: Direct,
+                    ..Default::default()
+                },
+            )
+            .unwrap()
+    }
+    fn pulled_by_the_same(pressure: f64) -> NodalCoordinates<3> {
+        let model = model();
+        let sets = sets();
+        let loads = Loads::<Solid<3>>::new()
+            .traction(
+                model.coordinates(),
+                model.side_sets().iter().next().unwrap(),
+                &Traction::from([0.0, 0.0, -pressure]),
+            )
+            .unwrap();
+        model
+            .root(&conditions(&sets), &loads, NewtonRaphson::default())
+            .unwrap()
+    }
+    #[test]
+    fn a_small_pressure_shortens_a_bar_as_the_traction_it_is_the_same_as_does() {
+        let (follower, dead) = (
+            shortening(&pressed(1e-4)),
+            shortening(&pulled_by_the_same(1e-4)),
+        );
+        assert!(follower > 0.0);
+        assert!(
+            (follower - dead).abs() < 1e-4 * dead,
+            "{follower} != {dead}"
+        );
+    }
+    #[test]
+    fn a_large_pressure_shortens_a_bar_more_because_the_face_it_follows_widens() {
+        let (follower, dead) = (
+            shortening(&pressed(0.8)),
+            shortening(&pulled_by_the_same(0.8)),
+        );
+        assert!(
+            follower > 1.005 * dead,
+            "{follower} is not more than {dead}"
+        );
+    }
+}

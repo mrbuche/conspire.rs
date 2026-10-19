@@ -5,12 +5,15 @@ use crate::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
         ElementNodalVelocities, FiniteElement, GradientVectors, IntegrationWeights,
     },
-    math::{CrossProduct, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank2},
+    math::{
+        CrossProduct, Current, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank1,
+        TensorRank2, TensorRank2List2D,
+    },
     mechanics::{
         ForceList, Normal, NormalGradients, NormalRates, Normals, ReferenceNormals, SurfaceBases,
         SurfaceDualBases, Traction,
     },
-    units::{Area, Length, Rate, Volume},
+    units::{Area, ForcePerLength, Length, Rate, Stress, Volume},
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -122,6 +125,78 @@ where
         Self::nodal_areas(reference_coordinates)
             .into_iter()
             .map(|area| traction * area)
+            .collect()
+    }
+    /// The forces of a pressure on the face, which pushes into the body and follows the face as
+    /// it moves, so that they depend on the current coordinates.
+    ///
+    /// The nodes of the face are numbered counterclockwise as seen from outside the body.
+    fn pressure_forces(
+        nodal_coordinates: &ElementNodalCoordinates<P>,
+        pressure: Quantity<Stress>,
+    ) -> ForceList<P> {
+        let shape_functions = Self::shape_functions_at_integration_points();
+        let normals = Self::bases(nodal_coordinates)
+            .into_iter()
+            .zip(Self::parametric_weights())
+            .map(|(basis, parametric_weight)| basis[0].cross(&basis[1]) * parametric_weight)
+            .collect::<Vec<_>>();
+        (0..P)
+            .map(|a| {
+                shape_functions
+                    .iter()
+                    .zip(&normals)
+                    .map(|(shape_functions, normal)| normal * shape_functions[a])
+                    .sum::<TensorRank1<3, Current, Area>>()
+                    * -pressure
+            })
+            .collect()
+    }
+    /// The derivatives of the forces of a pressure on the face with respect to its coordinates.
+    fn pressure_stiffnesses(
+        nodal_coordinates: &ElementNodalCoordinates<P>,
+        pressure: Quantity<Stress>,
+    ) -> TensorRank2List2D<3, Current, Current, P, P, ForcePerLength> {
+        let shape_functions = Self::shape_functions_at_integration_points();
+        let gradients = Self::shape_functions_gradients_at_integration_points();
+        let bases = Self::bases(nodal_coordinates);
+        let weights = Self::parametric_weights();
+        let zero = Quantity::<Length>::new(0.0);
+        let skew = |vector: &TensorRank1<3, Current, Length>| {
+            [
+                [zero, -vector[2], vector[1]],
+                [vector[2], zero, -vector[0]],
+                [-vector[1], vector[0], zero],
+            ]
+        };
+        (0..P)
+            .map(|a| {
+                (0..P)
+                    .map(|b| {
+                        let mut block = [[Quantity::<ForcePerLength>::new(0.0); 3]; 3];
+                        shape_functions
+                            .iter()
+                            .zip(gradients.iter())
+                            .zip(bases.iter())
+                            .zip(weights.iter())
+                            .for_each(|(((shape_functions, gradients), basis), &weight)| {
+                                let (skew_1, skew_2) = (skew(&basis[0]), skew(&basis[1]));
+                                let scale = -weight * shape_functions[a].value();
+                                let (gradient_1, gradient_2) =
+                                    (gradients[b][0].value(), gradients[b][1].value());
+                                (0..3).for_each(|i| {
+                                    (0..3).for_each(|j| {
+                                        block[i][j] += pressure
+                                            * (skew_1[i][j] * gradient_2
+                                                - skew_2[i][j] * gradient_1)
+                                            * scale
+                                    })
+                                })
+                            });
+                        TensorRank2::from(block)
+                    })
+                    .collect()
+            })
             .collect()
     }
     fn normals(nodal_coordinates: &ElementNodalCoordinates<P>) -> Normals<G> {

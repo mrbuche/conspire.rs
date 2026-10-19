@@ -109,7 +109,8 @@ mod solve_with {
         domain::{
             ElementModelError, Minimize, NodalCoordinates, ProvidesTangent, Root, SolverFor,
             boundary::{
-                Conservative, Constrain, ConstrainAt, Displacement, Load, NodalState, Temperature,
+                Conservative, Constrain, ConstrainAt, Displacement, Load, LoadStiffness,
+                NodalState, Temperature,
             },
             multiphysics::solid_thermal::NodalStatesSolidThermal,
         },
@@ -185,7 +186,7 @@ mod solve_with {
         fn root<S>(
             &self,
             boundary_conditions: &impl Constrain<X::Layout>,
-            _: &impl Load<X, ()>,
+            _: &(impl Load<X, ()> + LoadStiffness<X, S::Tangent>),
             solver: S,
         ) -> Result<X, OptimizationError>
         where

@@ -6,7 +6,7 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Minimize, Model, NodalState, ProvidesTangent,
         Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{Conservative, Constrain, Load},
+        boundary::{Conservative, Constrain, Load, LoadStiffness},
     },
     math::{
         Quantity, QuantitySparseVec2D, QuantityVector, Tensor,
@@ -133,7 +133,9 @@ where
     fn root<S>(
         &self,
         boundary_conditions: &impl Constrain<<NodalFields<L> as NodalState>::Layout>,
-        applied_loads: &impl Load<NodalFields<L>, NodalForces<L>>,
+        applied_loads: &(
+             impl Load<NodalFields<L>, NodalForces<L>> + LoadStiffness<NodalFields<L>, S::Tangent>
+         ),
         solver: S,
     ) -> Result<NodalFields<L>, OptimizationError>
     where
@@ -154,7 +156,11 @@ where
                 applied_loads.subtract_from(nodal_fields, &mut nodal_forces)?;
                 Ok(nodal_forces)
             },
-            |nodal_fields: &NodalFields<L>| Ok(self.provide_tangent(nodal_fields)?),
+            |nodal_fields: &NodalFields<L>| {
+                let mut tangent = self.provide_tangent(nodal_fields)?;
+                applied_loads.add_stiffness_to(nodal_fields, &mut tangent)?;
+                Ok(tangent)
+            },
             NodalFields::<L>::zero(self.coordinates().len()),
             equality_constraint,
             sparse,
