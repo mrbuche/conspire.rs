@@ -133,3 +133,35 @@ fn unlabelled_input_deck() {
          *Surface, type=ELEMENT, name=SURF1\n1, S1\n"
     );
 }
+
+#[test]
+fn partially_labelled_blocks_are_numbered() {
+    let mut block_0 = Connectivity::Tetrahedral(vec![[0, 1, 2, 3]].into());
+    block_0.label_elements(vec![2]);
+    let block_1 = Connectivity::Tetrahedral(vec![[1, 2, 3, 4]].into());
+    let coordinates = vec![
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0],
+        [1.0, 1.0, 1.0],
+    ]
+    .into();
+    let mut mesh = Mesh::from((vec![block_0, block_1], coordinates));
+    mesh.set_side_sets(vec![SideSet::new(vec![(1, 2)])].into());
+    let path = "target/write_abaqus_partially_labelled.inp";
+    mesh.write(Output::Abaqus(path)).unwrap();
+    let contents = read_to_string(path).unwrap();
+    assert!(contents.contains("elset=BLOCK1\n1, 1, 2, 3, 4\n"));
+    assert!(contents.contains("elset=BLOCK2\n2, 2, 3, 4, 5\n"));
+    let read = Mesh::<3>::try_from(Input::Abaqus(path)).unwrap();
+    assert_eq!(
+        read.connectivities()[0].element_labels(),
+        Some([1].as_slice())
+    );
+    assert_eq!(
+        read.connectivities()[1].element_labels(),
+        Some([2].as_slice())
+    );
+    assert_eq!(read.side_sets().by_name("SURF1").unwrap().sides(), [(1, 2)]);
+}

@@ -54,7 +54,17 @@ where
             }
             writeln!(file)?;
         }
-        let mut element = 1;
+        let element_labels = self
+            .iter()
+            .map(|connectivity| connectivity.element_labels())
+            .collect::<Option<Vec<_>>>()
+            .map(|labels| labels.concat());
+        let element_label = |element: usize| {
+            element_labels
+                .as_ref()
+                .map_or(element + 1, |labels| labels[element])
+        };
+        let mut element = 0;
         for (block, connectivity) in self.iter().enumerate() {
             let element_type = abaqus_type(connectivity)?;
             writeln!(
@@ -62,10 +72,8 @@ where
                 "*Element, type={element_type}, elset=BLOCK{}",
                 block + 1
             )?;
-            let element_labels = connectivity.element_labels();
-            for (local, nodes) in connectivity.iter().enumerate() {
-                let label = element_labels.map_or(element, |labels| labels[local]);
-                write!(file, "{label}")?;
+            for nodes in connectivity.iter() {
+                write!(file, "{}", element_label(element))?;
                 for &node in nodes {
                     write!(file, ", {}", node_label(node))?;
                 }
@@ -94,21 +102,17 @@ where
             }
             for &(element, ordinal) in side_set.sides() {
                 let mut offset = 0;
-                let (connectivity, local) = self
+                let connectivity = self
                     .iter()
-                    .find_map(|connectivity| {
+                    .find(|connectivity| {
                         let count = connectivity.number_of_elements();
-                        let found =
-                            (element < offset + count).then_some((connectivity, element - offset));
+                        let found = element < offset + count;
                         offset += count;
                         found
                     })
                     .expect("side set references an out-of-range element");
-                let label = connectivity
-                    .element_labels()
-                    .map_or(element + 1, |labels| labels[local]);
-                let side = connectivity.abaqus_side(ordinal);
-                writeln!(file, "{label}, S{side}")?;
+                let label = connectivity.abaqus_side(ordinal);
+                writeln!(file, "{}, S{label}", element_label(element))?;
             }
         }
         Ok(())
