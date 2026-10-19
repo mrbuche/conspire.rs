@@ -14,12 +14,13 @@ use crate::{
         Model, NodalReferenceCoordinates, Root,
         block::{Block, element::linear::Tetrahedron},
         boundary::{
-            BoundaryConditions, Constrain, ConstrainAt, Displacement, Enforcement, SolidThermal,
-            Temperature,
+            BoundaryConditions, Constrain, ConstrainAt, Displacement, Enforcement, Loads,
+            SolidThermal, Temperature,
         },
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
         },
+        solid::NodalForcesSolid,
     },
     math::{
         Quantity,
@@ -138,6 +139,36 @@ fn solve(conditions: &impl Constrain<SolidThermal<3>>) -> NodalStatesSolidTherma
         NodalStatesSolidThermal,
     >>::root(&model(), conditions, &(), NewtonRaphson::default())
     .unwrap()
+}
+
+#[test]
+fn a_force_on_a_free_node_moves_it_along_the_force() {
+    let moved = |force: f64| {
+        let mut forces = [[0.0; 3]; NODES];
+        forces[3][2] = force;
+        let loads = Loads::<SolidThermal<3>>::new()
+            .nodal_forces(&coordinates(), NodalForcesSolid::from(forces))
+            .unwrap();
+        <Model<B, 3> as Root<
+            NodalForcesSolidThermal,
+            NodalStiffnessesSolidThermal,
+            NodalStatesSolidThermal,
+        >>::root(
+            &model(),
+            &fixed_conditions(),
+            &loads,
+            NewtonRaphson::default(),
+        )
+        .unwrap()[3]
+            .0[2]
+            .value()
+            - coordinates()[3][2].value()
+    };
+    let (none, once, twice) = (moved(0.0), moved(1e-3), moved(2e-3));
+    assert!(none.abs() < 1e-12);
+    assert!(once > 0.0);
+    assert!((twice / once - 2.0).abs() < 1e-2);
+    assert!(moved(-1e-3) < 0.0);
 }
 
 #[test]

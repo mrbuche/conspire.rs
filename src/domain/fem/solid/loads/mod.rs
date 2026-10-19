@@ -4,7 +4,7 @@ mod test;
 use crate::{
     domain::{
         boundary::{LoadAt, Loads, Solid},
-        solid::loads::DeadLoad,
+        solid::loads::{DeadLoad, SolidLayout},
     },
     fem::{
         NodalCoordinates, NodalReferenceCoordinates,
@@ -74,14 +74,17 @@ pub fn traction_forces(
     Ok(forces)
 }
 
-impl<T> Loads<Solid<3>, T> {
+impl<L, T> Loads<L, T>
+where
+    L: SolidLayout,
+{
     /// Adds a dead traction per unit reference area on the faces of a side set.
     pub fn traction(
         self,
         coordinates: &NodalReferenceCoordinates<3>,
         side_set: &SideSet,
         traction: &Traction,
-    ) -> Result<Loads<Solid<3>, (T, DeadLoad)>, String> {
+    ) -> Result<Loads<L, (T, DeadLoad)>, String> {
         Ok(self.with(DeadLoad::new(
             coordinates,
             traction_forces(coordinates, side_set, traction)?,
