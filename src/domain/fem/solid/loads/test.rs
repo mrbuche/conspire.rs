@@ -278,3 +278,122 @@ mod patch {
         assert!(error.contains("one force for each node"));
     }
 }
+
+mod rate {
+    use crate::{
+        constitutive::{
+            canonical::Canonical, fluid::hyperviscous::Newtonian,
+            solid::elastic::AlmansiHamelEulerian,
+        },
+        domain::ElementModel,
+        fem::{
+            Model,
+            block::{Block, element::linear::Hexahedron},
+            boundary::{BoundaryConditions, ConstrainAt, Loads, Solid, SolidRate, Velocity},
+            solid::{
+                elastic_hyperviscous::Minimize as _, loads::DeadLoad, viscoelastic::Root as _,
+            },
+        },
+        geometry::mesh::{Connectivity, Mesh, NodeSet, SideSet},
+        math::{integrate::DormandPrince, optimize::NewtonRaphson},
+        mechanics::Traction,
+        units::{Stress, Time, Viscosity},
+    };
+    type Hex = Block<Canonical<AlmansiHamelEulerian, Newtonian>, Hexahedron, 8, 3, 8, 8>;
+    const PULL: f64 = 1e-2;
+    fn model() -> Model<Hex, 3> {
+        let mut mesh = Mesh::from((
+            vec![Connectivity::Hexahedral(
+                vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
+            )],
+            vec![
+                [0.0, 0.0, 0.0],
+                [1.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0],
+                [0.0, 1.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [1.0, 0.0, 1.0],
+                [1.0, 1.0, 1.0],
+                [0.0, 1.0, 1.0],
+            ]
+            .into(),
+        ));
+        mesh.set_side_sets(vec![SideSet::new(vec![(0, 5)])].into());
+        (
+            mesh,
+            Canonical::from((
+                AlmansiHamelEulerian {
+                    bulk_modulus: Stress::pascals(13.0),
+                    shear_modulus: Stress::pascals(3.0),
+                },
+                Newtonian {
+                    bulk_viscosity: Viscosity::pascal_seconds(11.0),
+                    shear_viscosity: Viscosity::pascal_seconds(1.0),
+                },
+            )),
+        )
+            .try_into()
+            .unwrap()
+    }
+    fn loads(model: &Model<Hex, 3>) -> Loads<Solid<3>, ((), DeadLoad)> {
+        Loads::<Solid<3>>::new()
+            .traction(
+                model.coordinates(),
+                model.side_sets().iter().next().unwrap(),
+                &Traction::from([0.0, 0.0, PULL]),
+            )
+            .unwrap()
+    }
+    fn supports() -> [NodeSet; 4] {
+        [
+            NodeSet::new(vec![0, 1, 2, 3]),
+            NodeSet::new(vec![0]),
+            NodeSet::new(vec![1, 0]),
+            NodeSet::new(vec![3, 0]),
+        ]
+    }
+    #[test]
+    fn the_rate_potential_and_the_forces_of_a_viscous_solid_agree_under_a_load() {
+        let model = model();
+        let [bottom, pinned, along_x, along_y] = supports();
+        let conditions = BoundaryConditions::<SolidRate<3>>::new()
+            .fix(Velocity::<2>, &bottom)
+            .fix(Velocity::<0>, &pinned)
+            .fix(Velocity::<1>, &along_x)
+            .fix(Velocity::<0>, &along_y);
+        let loads = loads(&model);
+        let times = [Time::seconds(0.0), Time::seconds(1.0)];
+        let integrator = || DormandPrince {
+            abs_tol: 1e-8,
+            rel_tol: 1e-8,
+            ..Default::default()
+        };
+        let (_, by_forces, _) = model
+            .root(
+                &conditions,
+                &loads,
+                integrator(),
+                &times,
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let (_, by_potential, _) = model
+            .minimize(
+                &conditions,
+                &loads,
+                integrator(),
+                &times,
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let (forces, potential) = (
+            by_forces.into_iter().last().unwrap(),
+            by_potential.into_iter().last().unwrap(),
+        );
+        (4..8).for_each(|node| {
+            let (a, b) = (forces[node][2].value(), potential[node][2].value());
+            assert!(a > 1.0, "the pulled face should move out: {a}");
+            assert!((a - b).abs() < 1e-6, "node {node}: {a} != {b}");
+        });
+    }
+}

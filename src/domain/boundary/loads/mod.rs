@@ -31,6 +31,14 @@ pub trait Conservative<X, E>: ConservativeAt<X, E> {
     fn potential_energy(&self, state: &X) -> Result<E, String>;
 }
 
+/// The power of external forces, which a minimization over the rates of a state takes up.
+///
+/// The power is linear in the rates, so loads that are not conservative have one.
+pub trait PowerAt<X, V, P> {
+    /// The power of the external forces at a time and a state, through rates.
+    fn power_at(&self, time: Quantity<Time>, state: &X, rates: &V) -> Result<P, String>;
+}
+
 /// External loads on the degrees of freedom of a layout, held in a nest of pairs.
 ///
 /// The loads a layout can have are the builders defined for it, so that a load cannot be given
@@ -84,6 +92,36 @@ where
 {
     fn potential_energy(&self, _: &X) -> Result<E, String> {
         Ok(E::default())
+    }
+}
+
+impl<X, V, P> PowerAt<X, V, P> for ()
+where
+    P: Default,
+{
+    fn power_at(&self, _: Quantity<Time>, _: &X, _: &V) -> Result<P, String> {
+        Ok(P::default())
+    }
+}
+
+impl<X, V, P, A, B> PowerAt<X, V, P> for (A, B)
+where
+    A: PowerAt<X, V, P>,
+    B: PowerAt<X, V, P>,
+    P: Add<Output = P>,
+{
+    fn power_at(&self, time: Quantity<Time>, state: &X, rates: &V) -> Result<P, String> {
+        Ok(self.0.power_at(time, state, rates)? + self.1.power_at(time, state, rates)?)
+    }
+}
+
+impl<L, T, X, V, P> PowerAt<X, V, P> for Loads<L, T>
+where
+    X: NodalState<Layout = L>,
+    T: PowerAt<X, V, P>,
+{
+    fn power_at(&self, time: Quantity<Time>, state: &X, rates: &V) -> Result<P, String> {
+        self.0.power_at(time, state, rates)
     }
 }
 

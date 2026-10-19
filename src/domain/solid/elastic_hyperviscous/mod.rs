@@ -3,7 +3,7 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         NodalState, NodalVelocities, NodalVelocitiesHistory,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::ConstrainAt,
+        boundary::{ConstrainAt, LoadAt, PowerAt},
         solid::{NodalDampingsSolid, NodalForcesSolid, viscoelastic::ViscoelasticElements},
     },
     math::{
@@ -88,6 +88,10 @@ pub trait Minimize<const D: usize> {
     fn minimize(
         &self,
         boundary_conditions: &impl ConstrainAt<<NodalVelocities<D> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + PowerAt<NodalCoordinates<D>, NodalVelocities<D>, Quantity<Power>>
+         ),
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
@@ -113,6 +117,10 @@ where
     fn minimize(
         &self,
         boundary_conditions: &impl ConstrainAt<<NodalVelocities<D> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + PowerAt<NodalCoordinates<D>, NodalVelocities<D>, Quantity<Power>>
+         ),
         integrator: impl ImplicitDaeMinimize<
             Quantity<Power>,
             NodalForcesSolid<D>,
@@ -143,15 +151,20 @@ where
             true,
         );
         integrator.integrate(
-            |_: Quantity<Time>,
+            |time: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
-                Ok(self.dissipation_potential(nodal_coordinates, nodal_velocities)?)
+                Ok(
+                    self.dissipation_potential(nodal_coordinates, nodal_velocities)?
+                        + applied_loads.power_at(time, nodal_coordinates, nodal_velocities)?,
+                )
             },
-            |_: Quantity<Time>,
+            |time: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
-                Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
+                let mut nodal_forces = self.nodal_forces(nodal_coordinates, nodal_velocities)?;
+                applied_loads.subtract_at(time, nodal_coordinates, &mut nodal_forces)?;
+                Ok(nodal_forces)
             },
             |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,

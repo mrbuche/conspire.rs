@@ -1,14 +1,14 @@
 use crate::{
     domain::{
-        NodalCoordinates, NodalReferenceCoordinates,
+        NodalCoordinates, NodalReferenceCoordinates, NodalVelocities,
         boundary::{
-            Conservative, ConservativeAt, Layout, Load, LoadAt, Loads, Solid, SolidThermal,
+            Conservative, ConservativeAt, Layout, Load, LoadAt, Loads, PowerAt, Solid, SolidThermal,
         },
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
         solid::NodalForcesSolid,
     },
     math::{Quantity, Tensor},
-    units::{Energy, Time},
+    units::{Energy, Power, Time},
 };
 
 /// A layout whose degrees of freedom begin with the coordinates of a solid in three dimensions.
@@ -136,5 +136,21 @@ impl ConservativeAt<NodalCoordinates<3>, Quantity<Energy>> for DeadLoad {
         nodal_coordinates: &NodalCoordinates<3>,
     ) -> Result<Quantity<Energy>, String> {
         self.potential_energy(nodal_coordinates)
+    }
+}
+
+impl PowerAt<NodalCoordinates<3>, NodalVelocities<3>, Quantity<Power>> for DeadLoad {
+    fn power_at(
+        &self,
+        _: Quantity<Time>,
+        nodal_coordinates: &NodalCoordinates<3>,
+        nodal_velocities: &NodalVelocities<3>,
+    ) -> Result<Quantity<Power>, String> {
+        self.check(nodal_coordinates.len())?;
+        Ok(-nodal_velocities
+            .iter()
+            .zip(&self.forces)
+            .map(|(velocity, force)| force * velocity)
+            .sum::<Quantity<Power>>())
     }
 }

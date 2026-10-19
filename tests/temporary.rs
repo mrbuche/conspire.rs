@@ -7865,6 +7865,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
         (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, velocities_history) = fem_model.minimize(
         &conditions,
+        &(),
         DormandPrince {
             abs_tol: tol,
             rel_tol: tol,
