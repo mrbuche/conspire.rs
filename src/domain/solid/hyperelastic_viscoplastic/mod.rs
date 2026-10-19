@@ -3,7 +3,7 @@ use crate::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Model,
         NodalCoordinates, NodalCoordinatesHistory, NodalState,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::ConstrainAt,
+        boundary::{ConservativeAt, ConstrainAt, LoadAt},
         solid::{
             NodalForcesSolid, NodalStiffnessesSolid,
             elastic_viscoplastic::{ElasticViscoplasticDaeElements, ElasticViscoplasticElements},
@@ -121,6 +121,10 @@ pub trait RootRkmkDaeMinimize<const D: usize, Y = Quantity> {
         >,
         time: &[Quantity<Time>],
         bcs: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + ConservativeAt<NodalCoordinates<D>, Quantity<Energy>>
+         ),
     ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
     /// As [`Self::root_rkmk_dae_minimize`], but the whole span is stepped
     /// under embedded (`Tab::D`) error control rather than on the supplied
@@ -142,6 +146,10 @@ pub trait RootRkmkDaeMinimize<const D: usize, Y = Quantity> {
         >,
         time: &[Quantity<Time>],
         bcs: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + ConservativeAt<NodalCoordinates<D>, Quantity<Energy>>
+         ),
         abs_tol: Scalar,
         rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
@@ -171,6 +179,10 @@ where
         >,
         time: &[Quantity<Time>],
         bcs: &impl ConstrainAt<<NodalCoordinates<3> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>
+             + ConservativeAt<NodalCoordinates<3>, Quantity<Energy>>
+         ),
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
         let blocks = self.blocks();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
@@ -181,17 +193,22 @@ where
             EqualityConstraint::from_reference(bcs.constraint_at(t), &reference)
         };
         let sparse = solver_from_neighbors(&neighbors, &at(time[0]), 3, true);
-        let function = |_: Quantity<Time>,
+        let function = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<Quantity<Energy>, String> {
-            Ok(blocks.helmholtz_free_energy(nodal_coordinates, &B::unflatten(state))?)
+            Ok(
+                blocks.helmholtz_free_energy(nodal_coordinates, &B::unflatten(state))?
+                    + applied_loads.potential_energy_at(time, nodal_coordinates)?,
+            )
         };
-        let jacobian = |_: Quantity<Time>,
+        let jacobian = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalForcesSolid<3>, String> {
-            Ok(blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?)
+            let mut nodal_forces = blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?;
+            applied_loads.subtract_at(time, nodal_coordinates, &mut nodal_forces)?;
+            Ok(nodal_forces)
         };
         let hessian = |_: Quantity<Time>,
                        state: &<B::Field as Integrable>::Point,
@@ -272,6 +289,10 @@ where
         >,
         time: &[Quantity<Time>],
         bcs: &impl ConstrainAt<<NodalCoordinates<3> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>
+             + ConservativeAt<NodalCoordinates<3>, Quantity<Energy>>
+         ),
         abs_tol: Scalar,
         rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
@@ -284,17 +305,22 @@ where
             EqualityConstraint::from_reference(bcs.constraint_at(t), &reference)
         };
         let sparse = solver_from_neighbors(&neighbors, &at(time[0]), 3, true);
-        let function = |_: Quantity<Time>,
+        let function = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<Quantity<Energy>, String> {
-            Ok(blocks.helmholtz_free_energy(nodal_coordinates, &B::unflatten(state))?)
+            Ok(
+                blocks.helmholtz_free_energy(nodal_coordinates, &B::unflatten(state))?
+                    + applied_loads.potential_energy_at(time, nodal_coordinates)?,
+            )
         };
-        let jacobian = |_: Quantity<Time>,
+        let jacobian = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalForcesSolid<3>, String> {
-            Ok(blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?)
+            let mut nodal_forces = blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?;
+            applied_loads.subtract_at(time, nodal_coordinates, &mut nodal_forces)?;
+            Ok(nodal_forces)
         };
         let hessian = |_: Quantity<Time>,
                        state: &<B::Field as Integrable>::Point,

@@ -19,8 +19,14 @@ pub trait Load<X, R>: LoadAt<X, R> {
     fn subtract_from(&self, state: &X, residual: &mut R) -> Result<(), String>;
 }
 
+/// The potential energy of external forces that have one, which may be a function of time.
+pub trait ConservativeAt<X, E> {
+    /// The potential energy of the external forces at a time and a state.
+    fn potential_energy_at(&self, time: Quantity<Time>, state: &X) -> Result<E, String>;
+}
+
 /// The potential energy of external forces that have one, so that a minimization can take them up.
-pub trait Conservative<X, E> {
+pub trait Conservative<X, E>: ConservativeAt<X, E> {
     /// The potential energy of the external forces at a state.
     fn potential_energy(&self, state: &X) -> Result<E, String>;
 }
@@ -63,6 +69,15 @@ impl<X, R> Load<X, R> for () {
     }
 }
 
+impl<X, E> ConservativeAt<X, E> for ()
+where
+    E: Default,
+{
+    fn potential_energy_at(&self, _: Quantity<Time>, _: &X) -> Result<E, String> {
+        Ok(E::default())
+    }
+}
+
 impl<X, E> Conservative<X, E> for ()
 where
     E: Default,
@@ -94,6 +109,17 @@ where
     }
 }
 
+impl<X, E, A, B> ConservativeAt<X, E> for (A, B)
+where
+    A: ConservativeAt<X, E>,
+    B: ConservativeAt<X, E>,
+    E: Add<Output = E>,
+{
+    fn potential_energy_at(&self, time: Quantity<Time>, state: &X) -> Result<E, String> {
+        Ok(self.0.potential_energy_at(time, state)? + self.1.potential_energy_at(time, state)?)
+    }
+}
+
 impl<X, E, A, B> Conservative<X, E> for (A, B)
 where
     A: Conservative<X, E>,
@@ -122,6 +148,16 @@ where
 {
     fn subtract_from(&self, state: &X, residual: &mut R) -> Result<(), String> {
         self.0.subtract_from(state, residual)
+    }
+}
+
+impl<L, T, X, E> ConservativeAt<X, E> for Loads<L, T>
+where
+    X: NodalState<Layout = L>,
+    T: ConservativeAt<X, E>,
+{
+    fn potential_energy_at(&self, time: Quantity<Time>, state: &X) -> Result<E, String> {
+        self.0.potential_energy_at(time, state)
     }
 }
 

@@ -1,4 +1,4 @@
-use super::{Conservative, Load, LoadAt, Loads};
+use super::{Conservative, ConservativeAt, Load, LoadAt, Loads};
 use crate::{
     domain::boundary::{Field, Solid},
     math::Quantity,
@@ -22,6 +22,12 @@ impl Load<[f64; 2], [f64; 2]> for Pull {
     fn subtract_from(&self, _: &[f64; 2], residual: &mut [f64; 2]) -> Result<(), String> {
         residual[0] -= self.0;
         Ok(())
+    }
+}
+
+impl ConservativeAt<[f64; 2], f64> for Pull {
+    fn potential_energy_at(&self, _: Quantity<Time>, state: &[f64; 2]) -> Result<f64, String> {
+        self.potential_energy(state)
     }
 }
 

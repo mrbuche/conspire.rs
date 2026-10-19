@@ -3,7 +3,7 @@ use crate::{
         ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         NodalState,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::ConstrainAt,
+        boundary::{ConstrainAt, LoadAt},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
@@ -225,6 +225,7 @@ pub trait ElasticPlasticRoot<S, const D: usize> {
             CscMatrix,
         >,
         conditions: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        applied_loads: &impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>,
         times: &[Quantity<Time>],
         strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError>;
@@ -386,6 +387,7 @@ where
             CscMatrix,
         >,
         conditions: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        applied_loads: &impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>,
         times: &[Quantity<Time>],
         strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError> {
@@ -475,7 +477,15 @@ where
                     |global: &Vector, local: &Vector| {
                         let mut system = cell.borrow_mut();
                         evaluate(global, local, &mut system)?;
-                        Ok(system.residual_global.clone())
+                        let mut loaded = NodalForcesSolid::<D>::zero(global.len() / D);
+                        applied_loads.subtract_at(
+                            time,
+                            &NodalCoordinates::from(global.clone()),
+                            &mut loaded,
+                        )?;
+                        let mut flat = Vector::zero(global.len());
+                        loaded.fill_into(&mut flat);
+                        Ok(&system.residual_global + &flat)
                     },
                     |global: &Vector, local: &Vector| {
                         let mut system = cell.borrow_mut();
@@ -530,7 +540,9 @@ where
                 nodal_coordinates = solver.root(
                     |coordinates: &NodalCoordinates<D>| {
                         evaluate(coordinates)?;
-                        Ok(cache.borrow().as_ref().unwrap().1.clone())
+                        let mut nodal_forces = cache.borrow().as_ref().unwrap().1.clone();
+                        applied_loads.subtract_at(time, coordinates, &mut nodal_forces)?;
+                        Ok(nodal_forces)
                     },
                     |coordinates: &NodalCoordinates<D>| {
                         evaluate(coordinates)?;

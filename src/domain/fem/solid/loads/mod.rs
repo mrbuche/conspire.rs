@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     domain::{
-        boundary::{LoadAt, Loads, Solid},
+        boundary::{ConservativeAt, LoadAt, Loads, Solid},
         solid::loads::{DeadLoad, SolidLayout},
     },
     fem::{
@@ -21,7 +21,7 @@ use crate::{
     math::Quantity,
     math::Tensor,
     mechanics::{Force, Traction},
-    units::Time,
+    units::{Energy, Time},
 };
 
 /// The nodal forces of a dead traction per unit reference area on the faces of a side set.
@@ -139,5 +139,28 @@ where
             .zip(forces)
             .for_each(|(residual, force)| *residual -= force);
         Ok(())
+    }
+}
+
+impl<G> ConservativeAt<NodalCoordinates<3>, Quantity<Energy>> for TimedTraction<G>
+where
+    G: Fn(Quantity<Time>) -> Traction,
+{
+    fn potential_energy_at(
+        &self,
+        time: Quantity<Time>,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<Quantity<Energy>, String> {
+        if nodal_coordinates.len() != self.coordinates.len() {
+            return Err("The traction is on a mesh with another number of nodes.".to_string());
+        }
+        let forces = traction_forces(&self.coordinates, &self.side_set, &(self.traction)(time))?;
+        let reference: NodalCoordinates<3> = self.coordinates.clone().into();
+        Ok(-nodal_coordinates
+            .iter()
+            .zip(&reference)
+            .zip(&forces)
+            .map(|((coordinate, reference), force)| force * &(coordinate - reference))
+            .sum::<Quantity<Energy>>())
     }
 }

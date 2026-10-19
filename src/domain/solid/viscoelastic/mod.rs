@@ -3,7 +3,7 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         NodalState, NodalVelocities, NodalVelocitiesHistory,
         block::element::Elements,
-        boundary::ConstrainAt,
+        boundary::{ConstrainAt, LoadAt},
         solid::{NodalDampingsSolid, NodalForcesSolid},
     },
     math::{
@@ -108,6 +108,7 @@ pub trait Root<const D: usize> {
     fn root(
         &self,
         boundary_conditions: &impl ConstrainAt<<NodalVelocities<D> as NodalState>::Layout>,
+        applied_loads: &impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>,
         integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -127,6 +128,7 @@ where
     fn root(
         &self,
         boundary_conditions: &impl ConstrainAt<<NodalVelocities<D> as NodalState>::Layout>,
+        applied_loads: &impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>,
         integrator: impl ImplicitDaeRoot<
             NodalForcesSolid<D>,
             NodalDampingsSolid<D>,
@@ -139,10 +141,12 @@ where
     ) -> Result<(Times, NodalCoordinatesHistory<D>, NodalVelocitiesHistory<D>), IntegrationError>
     {
         integrator.integrate(
-            |_: Quantity<Time>,
+            |time: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,
              nodal_velocities: &NodalVelocities<D>| {
-                Ok(self.nodal_forces(nodal_coordinates, nodal_velocities)?)
+                let mut nodal_forces = self.nodal_forces(nodal_coordinates, nodal_velocities)?;
+                applied_loads.subtract_at(time, nodal_coordinates, &mut nodal_forces)?;
+                Ok(nodal_forces)
             },
             |_: Quantity<Time>,
              nodal_coordinates: &NodalCoordinates<D>,

@@ -7,7 +7,7 @@ pub use condition::{
     BoundaryConditions, Condition, Constrain, ConstrainAt, Enforcement, Fixed, Prescribed, Rows,
     Static, Timed,
 };
-pub use loads::{Conservative, Load, LoadAt, Loads};
+pub use loads::{Conservative, ConservativeAt, Load, LoadAt, Loads};
 
 use crate::{
     math::{

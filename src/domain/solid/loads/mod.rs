@@ -1,7 +1,9 @@
 use crate::{
     domain::{
         NodalCoordinates, NodalReferenceCoordinates,
-        boundary::{Conservative, Layout, Load, LoadAt, Loads, Solid, SolidThermal},
+        boundary::{
+            Conservative, ConservativeAt, Layout, Load, LoadAt, Loads, Solid, SolidThermal,
+        },
         multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
         solid::NodalForcesSolid,
     },
@@ -124,5 +126,15 @@ impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for DeadLoad {
         residual: &mut NodalForcesSolidThermal,
     ) -> Result<(), String> {
         self.subtract_from(nodal_states, residual)
+    }
+}
+
+impl ConservativeAt<NodalCoordinates<3>, Quantity<Energy>> for DeadLoad {
+    fn potential_energy_at(
+        &self,
+        _: Quantity<Time>,
+        nodal_coordinates: &NodalCoordinates<3>,
+    ) -> Result<Quantity<Energy>, String> {
+        self.potential_energy(nodal_coordinates)
     }
 }
