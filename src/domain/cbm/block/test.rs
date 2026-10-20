@@ -695,6 +695,6 @@ fn the_nodal_volumes_are_those_of_the_nodes() -> Result<(), crate::math::assert:
     assert!(volumes.iter().all(|volume| volume.value() > 0.0));
     crate::math::assert::Assert::default().eq_within_tols(
         volumes.volume(),
-        &crate::units::Volume::cubic_meters(1.0 / 6.0 + 1.0 / 6.0),
+        &crate::units::Volume::cubic_meters(1.0 / 6.0 + 1.0 / 3.0),
     )
 }
