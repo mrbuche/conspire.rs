@@ -107,7 +107,7 @@ fn totals_the_heat_capacity_of_the_element() {
             .iter()
             .copied()
             .sum::<Quantity<_>>();
-        let expected = capacity() * element.integration_weights()[0];
+        let expected = capacity() * element.volume();
         assert!(
             ((total / expected).value() - 1.0).abs() < 1e-12,
             "{total:?} != {expected:?}"

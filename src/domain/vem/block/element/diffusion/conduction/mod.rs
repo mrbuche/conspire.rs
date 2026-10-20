@@ -53,7 +53,7 @@ where
                 nodal_fields,
             ))
             .map_err(|error| self.upstream(error))?
-            * (self.integration_weights()[0] * (1.0 - stabilization));
+            * (self.volume() * (1.0 - stabilization));
         self.tetrahedra()
             .iter()
             .zip(DiffusiveVirtualElement::<C::Balance>::tetrahedra_fields(
@@ -85,7 +85,7 @@ where
                 nodal_fields,
             ))
             .map_err(|error| self.upstream(error))?;
-        let weight = self.integration_weights()[0] * (1.0 - stabilization);
+        let weight = self.volume() * (1.0 - stabilization);
         let mut forces = self.gradient_vectors()[0]
             .iter()
             .map(|gradient_vector| -flux.contract_with(gradient_vector) * weight)
@@ -136,7 +136,7 @@ where
                 nodal_fields,
             ))
             .map_err(|error| self.upstream(error))?;
-        let weight = self.integration_weights()[0] * (1.0 - stabilization);
+        let weight = self.volume() * (1.0 - stabilization);
         let gradient_vectors = &self.gradient_vectors()[0];
         let mut stiffnesses = gradient_vectors
             .iter()

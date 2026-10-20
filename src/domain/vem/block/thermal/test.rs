@@ -154,7 +154,7 @@ mod heat {
             .blocks
             .elements()
             .iter()
-            .map(|element| element.integration_weights()[0])
+            .map(|element| element.volume())
             .sum::<Quantity<Volume>>();
         assert!(((total / (capacity() * volume)).value() - 1.0).abs() < 1e-12);
         assert!(

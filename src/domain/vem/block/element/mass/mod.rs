@@ -35,7 +35,7 @@ impl LumpedMassVirtualElement for Element {
     ) -> Vec<Quantity<Volume>> {
         lumping_fractions(self, nodal_reference_coordinates)
             .into_iter()
-            .map(|fraction| self.integration_weights()[0] * fraction)
+            .map(|fraction| self.volume() * fraction)
             .collect()
     }
     fn nodal_lumped_masses(
@@ -43,7 +43,7 @@ impl LumpedMassVirtualElement for Element {
         density: Quantity<Density>,
         nodal_reference_coordinates: &NodalReferenceCoordinates,
     ) -> ElementNodalLumpedMasses {
-        let mass = density * self.integration_weights()[0];
+        let mass = density * self.volume();
         lumping_fractions(self, nodal_reference_coordinates)
             .into_iter()
             .map(|fraction| mass * fraction)
@@ -82,7 +82,7 @@ pub(crate) fn lumping_fractions(
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    let volume = element.integration_weights()[0];
+    let volume = element.volume();
     let gradients = element.gradient_vectors()[0]
         .iter()
         .map(array)

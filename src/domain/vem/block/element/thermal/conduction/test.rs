@@ -311,5 +311,5 @@ fn box_with_no_stabilization_has_no_hourglass_energy() {
     found
         .iter()
         .for_each(|row| assert_close(row.iter().zip(mode).map(|(&k, b)| k * b).sum(), 0.0, 1e-12));
-    assert!(element.integration_weights()[0].value() > 0.0)
+    assert!(element.volume().value() > 0.0)
 }

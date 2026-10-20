@@ -53,9 +53,7 @@ where
         self.elements()
             .iter()
             .enumerate()
-            .map(|(element_index, element)| {
-                self.density().at(element_index) * element.integration_weights()[0]
-            })
+            .map(|(element_index, element)| self.density().at(element_index) * element.volume())
             .sum()
     }
 }

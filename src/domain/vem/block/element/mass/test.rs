@@ -45,7 +45,7 @@ fn element(nodes: &[[Scalar; 3]], faces: &[Vec<usize>]) -> Case {
 }
 
 fn fractions((element, coordinates): &Case) -> Vec<Scalar> {
-    let total = DENSITY * element.integration_weights()[0];
+    let total = DENSITY * element.volume();
     element
         .nodal_lumped_masses(DENSITY, coordinates)
         .iter()
@@ -141,11 +141,7 @@ fn totals_the_mass_of_the_element() {
                 .iter()
                 .copied()
                 .sum::<Quantity<Mass>>();
-            assert_close(
-                (total / (DENSITY * element.integration_weights()[0])).value(),
-                1.0,
-                1e-12,
-            )
+            assert_close((total / (DENSITY * element.volume())).value(), 1.0, 1e-12)
         })
 }
 
@@ -198,7 +194,7 @@ fn matches_a_quadrature_of_the_projection_on_a_lopsided_bipyramid() {
     let (a, b) = (0.585_410_196_624_968_5, 0.138_196_601_125_010_5);
     let rule = [[a, b, b, b], [b, a, b, b], [b, b, a, b], [b, b, b, a]];
     let tetrahedra = [[0, 1, 2, 3], [0, 2, 1, 4]];
-    let volume = element.integration_weights()[0].value();
+    let volume = element.volume().value();
     let projection = |gradient: &[Scalar; 3], point: &[Scalar; 3]| {
         1.0 / number_of_nodes
             + (0..3)
