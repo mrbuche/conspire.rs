@@ -84,6 +84,11 @@ static POINTS: LazyLock<[Weights; 9]> = LazyLock::new(|| {
     })
 });
 
+pub enum Stop {
+    Budget { theta: Quantity, sweeps: usize },
+    Stall { theta: Quantity, sweeps: usize },
+}
+
 struct Frame {
     edges: CoordinateList<3, 3>,
     jacobian: Quantity<Volume>,
@@ -113,7 +118,7 @@ impl Mesh<3> {
         &mut self,
         target: &Tessellation,
         sweeps: usize,
-    ) -> Result<(), &'static str> {
+    ) -> Result<Stop, &'static str> {
         let mut hexes = Vec::new();
         for block in self.iter() {
             match block {
@@ -140,9 +145,10 @@ impl Mesh<3> {
         let mut current = coordinates.clone();
         let mut best: Option<Coordinates<3>> = None;
         let mut first = true;
-        'ratchet: loop {
+        let stop = 'ratchet: loop {
             let mut stalled = false;
-            for sweep in 0..=sweeps {
+            let mut sweep = 0;
+            loop {
                 energy.refresh(&surface, &current);
                 let quality = energy.quality(&current);
                 let gap = energy.gap(&current);
@@ -159,8 +165,17 @@ impl Mesh<3> {
                     energy.rho *= 2.0;
                     continue 'ratchet;
                 }
-                if stalled || sweep == sweeps {
-                    break;
+                if stalled {
+                    break 'ratchet Stop::Stall {
+                        theta: energy.theta,
+                        sweeps: sweep,
+                    };
+                }
+                if sweep == sweeps {
+                    break 'ratchet Stop::Budget {
+                        theta: energy.theta,
+                        sweeps,
+                    };
                 }
                 let descent = solver((FIRST * energy.typical()).value())
                     .descend(
@@ -181,14 +196,14 @@ impl Mesh<3> {
                         .max(Quantity::new(Scalar::MIN_POSITIVE));
                 current = descent.solution;
                 energy.settle(&current);
+                sweep += 1;
                 if decrease < STALL {
                     stalled = true;
                 }
             }
-            break;
-        }
+        };
         *coordinates = best.ok_or("could not fit the surface")?;
-        Ok(())
+        Ok(stop)
     }
     fn next(quality: Quantity) -> Quantity {
         ((quality / STEP).floor() + Dimensionless::of(1.0)) * STEP
