@@ -110,7 +110,12 @@ struct Energy<'a> {
 }
 
 impl Mesh<3> {
-    pub fn improve_scaled_jacobian(&mut self, target: &Tessellation) -> Result<(), &'static str> {
+    pub fn improve_scaled_jacobian(
+        &mut self,
+        target: &Tessellation,
+        sweeps: Option<usize>,
+    ) -> Result<(), &'static str> {
+        let sweeps = sweeps.unwrap_or(SWEEPS);
         let mut hexes = Vec::new();
         for block in self.iter() {
             match block {
@@ -139,7 +144,7 @@ impl Mesh<3> {
         let mut first = true;
         'ratchet: loop {
             let mut stalled = false;
-            for sweep in 0..=SWEEPS {
+            for sweep in 0..=sweeps {
                 energy.refresh(&surface, &current);
                 let quality = energy.quality(&current);
                 let gap = energy.gap(&current);
@@ -156,7 +161,7 @@ impl Mesh<3> {
                     energy.rho *= 2.0;
                     continue 'ratchet;
                 }
-                if stalled || sweep == SWEEPS {
+                if stalled || sweep == sweeps {
                     break;
                 }
                 let descent = solver((FIRST * energy.typical()).value())
