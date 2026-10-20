@@ -1,4 +1,4 @@
-use super::{Frame, POINTS, terms};
+use super::{Frame, POINTS, Stop, terms};
 use crate::{
     geometry::{
         Coordinate, CoordinateList,
@@ -249,6 +249,20 @@ fn one_sweep_stops_the_ratchet_below_the_full_budget() {
     let mut full = grid(4, 0.9);
     full.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
     assert!(worst(&one) < worst(&full) - 0.1);
+}
+
+#[test]
+fn one_sweep_stops_on_the_budget() {
+    let mut mesh = grid(4, 0.9);
+    let stop = mesh.improve_scaled_jacobian(&cube(), 1).unwrap();
+    assert!(matches!(stop, Stop::Budget { sweeps: 1, .. }));
+}
+
+#[test]
+fn the_full_budget_stops_on_a_stall() {
+    let mut mesh = grid(4, 0.9);
+    let stop = mesh.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
+    assert!(matches!(stop, Stop::Stall { sweeps, .. } if sweeps < SWEEPS));
 }
 
 fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellation {
