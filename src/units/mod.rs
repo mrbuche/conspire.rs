@@ -486,6 +486,8 @@ unit_products!(
     PowerPerLengthTemperature * ReciprocalLength = PowerPerAreaTemperature,
     ReciprocalLength * PowerPerLengthTemperature = PowerPerAreaTemperature,
     PowerPerAreaTemperature * ReciprocalLength = PowerPerVolumeTemperature,
+    PowerPerAreaTemperature * Area = PowerPerTemperature,
+    Area * PowerPerAreaTemperature = PowerPerTemperature,
     ReciprocalLength * PowerPerAreaTemperature = PowerPerVolumeTemperature,
     PowerDensity * ReciprocalTemperature = EntropyDensityRate,
     EntropyDensity * Rate = EntropyDensityRate,

@@ -6,13 +6,15 @@ use crate::{
             Conservative, ConservativeAt, Field, Load, LoadAt, LoadStiffness, LoadStiffnessAt,
             Loads, SolidThermal,
         },
-        diffusion::{NodalFields, NodalForces},
-        multiphysics::solid_thermal::{NodalForcesSolidThermal, NodalStatesSolidThermal},
+        diffusion::{NodalFields, NodalForces, NodalStiffnesses},
+        multiphysics::solid_thermal::{
+            NodalForcesSolidThermal, NodalStatesSolidThermal, NodalStiffnessesSolidThermal,
+        },
         volume::{NodalVolumeElements, NodalVolumes},
     },
-    math::{Quantity, Tensor},
+    math::{Quantity, Tensor, TensorTuple},
     mechanics::ReferenceCoordinate,
-    units::{Power, PowerDensity, Time, UnitMul, Volume},
+    units::{Power, PowerDensity, PowerPerTemperature, Temperature, Time, UnitMul, Volume},
 };
 use std::ops::Mul;
 
@@ -320,5 +322,189 @@ impl<T> Loads<SolidThermal<3>, T> {
         G: Fn(Quantity<Time>) -> Quantity<PowerDensity>,
     {
         self.with(TimedSource::new(volumes.iter().copied().collect(), density))
+    }
+}
+
+/// A flux through faces that is proportional to the difference between the field and that of the
+/// surroundings, such as the convection of heat, held as the coefficient on each node.
+#[derive(Clone, Debug)]
+pub struct Convection<L>
+where
+    L: Diffusive,
+{
+    ambient: Quantity<L::Field>,
+    coefficients: Vec<Quantity<L::Stiffness>>,
+}
+
+impl<U, T> Loads<Field<U>, T> {
+    /// Adds a flux that is the coefficient of each node times the difference of its field from
+    /// the ambient field.
+    pub fn convection<L>(
+        self,
+        ambient: Quantity<L::Field>,
+        coefficients: Vec<Quantity<L::Stiffness>>,
+    ) -> Loads<Field<U>, (T, Convection<L>)>
+    where
+        L: Diffusive<Field = U>,
+    {
+        self.with(Convection {
+            ambient,
+            coefficients,
+        })
+    }
+}
+
+impl<T> Loads<SolidThermal<3>, T> {
+    /// Adds a heat flux that is the coefficient of each node times the difference of its
+    /// temperature from the ambient temperature.
+    pub fn convection(
+        self,
+        ambient: Quantity<Temperature>,
+        coefficients: Vec<Quantity<PowerPerTemperature>>,
+    ) -> Loads<SolidThermal<3>, (T, Convection<Power>)> {
+        self.with(Convection {
+            ambient,
+            coefficients,
+        })
+    }
+}
+
+impl<L> Convection<L>
+where
+    L: Diffusive,
+{
+    fn check(&self, nodes: usize) -> Result<(), String> {
+        if nodes == self.coefficients.len() {
+            Ok(())
+        } else {
+            Err("The convection is on a mesh with another number of nodes.".to_string())
+        }
+    }
+}
+
+impl<L> Load<NodalFields<L>, NodalForces<L>> for Convection<L>
+where
+    L: Diffusive,
+    Quantity<L::Stiffness>: Mul<Quantity<L::Field>, Output = Quantity<L>>,
+{
+    fn subtract_from(
+        &self,
+        nodal_fields: &NodalFields<L>,
+        residual: &mut NodalForces<L>,
+    ) -> Result<(), String> {
+        self.check(nodal_fields.len())?;
+        residual
+            .iter_mut()
+            .zip(nodal_fields.iter().zip(&self.coefficients))
+            .for_each(|(residual, (&field, &coefficient))| {
+                *residual += coefficient * (field - self.ambient)
+            });
+        Ok(())
+    }
+}
+
+impl<L> LoadStiffness<NodalFields<L>, NodalStiffnesses<L>> for Convection<L>
+where
+    L: Diffusive,
+{
+    fn add_stiffness_to(
+        &self,
+        nodal_fields: &NodalFields<L>,
+        tangent: &mut NodalStiffnesses<L>,
+    ) -> Result<(), String> {
+        self.check(nodal_fields.len())?;
+        self.coefficients
+            .iter()
+            .enumerate()
+            .for_each(|(node, &coefficient)| tangent[node][node] += coefficient);
+        Ok(())
+    }
+}
+
+impl<L> LoadAt<NodalFields<L>, NodalForces<L>> for Convection<L>
+where
+    L: Diffusive,
+    Quantity<L::Stiffness>: Mul<Quantity<L::Field>, Output = Quantity<L>>,
+{
+    fn subtract_at(
+        &self,
+        _: Quantity<Time>,
+        nodal_fields: &NodalFields<L>,
+        residual: &mut NodalForces<L>,
+    ) -> Result<(), String> {
+        self.subtract_from(nodal_fields, residual)
+    }
+}
+
+impl<L> LoadStiffnessAt<NodalFields<L>, NodalStiffnesses<L>> for Convection<L>
+where
+    L: Diffusive,
+{
+    fn add_stiffness_at(
+        &self,
+        _: Quantity<Time>,
+        nodal_fields: &NodalFields<L>,
+        tangent: &mut NodalStiffnesses<L>,
+    ) -> Result<(), String> {
+        self.add_stiffness_to(nodal_fields, tangent)
+    }
+}
+
+impl Load<NodalStatesSolidThermal, NodalForcesSolidThermal> for Convection<Power> {
+    fn subtract_from(
+        &self,
+        nodal_states: &NodalStatesSolidThermal,
+        residual: &mut NodalForcesSolidThermal,
+    ) -> Result<(), String> {
+        self.check(nodal_states.len())?;
+        residual
+            .iter_mut()
+            .zip(nodal_states.iter().zip(&self.coefficients))
+            .for_each(|(residual, (state, &coefficient))| {
+                residual.1 += coefficient * (state.1 - self.ambient)
+            });
+        Ok(())
+    }
+}
+
+impl LoadStiffness<NodalStatesSolidThermal, NodalStiffnessesSolidThermal> for Convection<Power> {
+    fn add_stiffness_to(
+        &self,
+        nodal_states: &NodalStatesSolidThermal,
+        tangent: &mut NodalStiffnessesSolidThermal,
+    ) -> Result<(), String> {
+        self.check(nodal_states.len())?;
+        self.coefficients
+            .iter()
+            .enumerate()
+            .for_each(|(node, &coefficient)| {
+                tangent[node][node] += TensorTuple(
+                    TensorTuple(Default::default(), Default::default()),
+                    TensorTuple(Default::default(), coefficient),
+                )
+            });
+        Ok(())
+    }
+}
+
+impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for Convection<Power> {
+    fn subtract_at(
+        &self,
+        _: Quantity<Time>,
+        nodal_states: &NodalStatesSolidThermal,
+        residual: &mut NodalForcesSolidThermal,
+    ) -> Result<(), String> {
+        self.subtract_from(nodal_states, residual)
+    }
+}
+
+impl LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal> for Convection<Power> {
+    fn add_stiffness_at(
+        &self,
+        _: Quantity<Time>,
+        nodal_states: &NodalStatesSolidThermal,
+        tangent: &mut NodalStiffnessesSolidThermal,
+    ) -> Result<(), String> {
+        self.add_stiffness_to(nodal_states, tangent)
     }
 }

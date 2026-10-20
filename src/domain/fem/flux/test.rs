@@ -358,3 +358,52 @@ mod volumetric {
         });
     }
 }
+
+#[test]
+fn a_convection_through_the_top_of_a_held_bar_settles_between_the_ambient_and_the_held_temperature()
+{
+    use crate::{
+        fem::{
+            Root,
+            boundary::{BoundaryConditions, ConstrainAt as _},
+            diffusion::NodalStiffnesses,
+        },
+        math::optimize::NewtonRaphson,
+        units::PowerPerAreaTemperature,
+    };
+    let model = model();
+    let conditions = BoundaryConditions::<Field<Temperature>>::new()
+        .fix_nodes(crate::fem::boundary::Temperature, 0..4);
+    let (coefficient, ambient) = (4.0, 10.0);
+    let loads = Loads::<Field<Temperature>>::new()
+        .convection_through::<Power>(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            Quantity::<PowerPerAreaTemperature>::new(coefficient),
+            Quantity::<Temperature>::new(ambient),
+        )
+        .unwrap();
+    let temperatures = <Model<Hex, 3> as Root<
+        NodalForces<Power>,
+        NodalStiffnesses<Power>,
+        NodalFields<Power>,
+    >>::root(
+        &model,
+        &conditions,
+        &loads,
+        NewtonRaphson {
+            max_steps: 2,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let top = coefficient * ambient / (coefficient + THERMAL_CONDUCTIVITY.value());
+    (0..4).for_each(|node| assert!(temperatures[node].value().abs() < 1e-9));
+    (4..8).for_each(|node| {
+        let found = temperatures[node].value();
+        assert!(
+            (found - top).abs() < 1e-9 * top,
+            "node {node}: {found} != {top}"
+        )
+    });
+}
