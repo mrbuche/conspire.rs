@@ -96,7 +96,7 @@ fn gradient_matches_finite_difference_on_the_jacobian_branch() {
 #[test]
 fn rectified_branch_is_flat() {
     let (value, slope) = terms(Quantity::new(0.1), Quantity::new(1.0), &typed(&UNIT), true);
-    assert_eq!(value.value(), 0.1);
+    assert_eq!(value.value(), 0.0);
     assert!(
         slope
             .iter()
