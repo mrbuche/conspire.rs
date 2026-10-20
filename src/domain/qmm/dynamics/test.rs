@@ -5,7 +5,7 @@ use crate::{
         qmm::{Discretization, Support, block::Block},
         solid::{
             NodalForcesSolid,
-            dynamics::ElasticExplicitDynamics,
+            dynamics::{ElasticExplicitDynamics, test::fixed_dofs},
             mass::{InverseMass, MassMatrix},
         },
     },
@@ -14,7 +14,7 @@ use crate::{
         Quantity, Tensor,
         assert::{Assert, AssertionError},
         integrate::{Newmark, VelocityVerlet},
-        optimize::{EqualityConstraint, NewtonRaphson, Tolerances},
+        optimize::{NewtonRaphson, Tolerances},
     },
     units::{Density, Stress, Time},
 };
@@ -100,9 +100,9 @@ fn a_free_body_in_uniform_motion_translates_uniformly() -> Result<(), AssertionE
         &integrator(),
         &time(),
         (reference().into(), uniform_velocities([3.0, -1.0, 2.0])),
-        &NodalForcesSolid::zero(reference().len()),
+        &(),
         &masses,
-        EqualityConstraint::None,
+        &fixed_dofs(&[]),
     )?;
     let elapsed = times[times.len() - 1].in_seconds();
     let expected: Vec<[f64; 3]> = reference()
@@ -124,9 +124,9 @@ fn lumped_momentum_is_conserved_by_a_released_stretch() {
             &integrator(),
             &time(),
             (stretched(), uniform_velocities([0.0; 3])),
-            &NodalForcesSolid::zero(reference().len()),
+            &(),
             &masses,
-            EqualityConstraint::None,
+            &fixed_dofs(&[]),
         )
         .unwrap();
     let last = &velocities[STEPS];
@@ -155,9 +155,9 @@ fn fixed_degrees_of_freedom_do_not_move() {
             &integrator(),
             &time(),
             (stretched(), uniform_velocities([3.0, 0.0, 4.0])),
-            &NodalForcesSolid::zero(reference().len()),
+            &(),
             &masses,
-            EqualityConstraint::Fixed(fixed.clone()),
+            &fixed_dofs(&fixed),
         )
         .unwrap();
     fixed.iter().for_each(|&dof| {
@@ -178,9 +178,9 @@ fn consistent_masses_conserve_momentum_and_agree_on_a_uniform_acceleration() {
             &integrator(),
             &time(),
             (stretched(), uniform_velocities([0.0; 3])),
-            &NodalForcesSolid::zero(reference().len()),
+            &(),
             &masses,
-            EqualityConstraint::None,
+            &fixed_dofs(&[]),
         )
         .unwrap();
     let last = &velocities[STEPS];
@@ -212,14 +212,17 @@ fn consistent_masses_conserve_momentum_and_agree_on_a_uniform_acceleration() {
     let inverse = MassMatrix::<3>::inverse(&masses, &[]).unwrap();
     let uniform = [0.0, 0.0, -9.81];
     let accelerations = inverse.nodal_accelerations(
-        &masses.inertial_forces(
-            &reference()
-                .iter()
-                .map(|_| uniform)
-                .collect::<Vec<_>>()
-                .into(),
-        ),
-        &NodalForcesSolid::zero(reference().len()),
+        &masses
+            .inertial_forces(
+                &reference()
+                    .iter()
+                    .map(|_| uniform)
+                    .collect::<Vec<_>>()
+                    .into(),
+            )
+            .iter()
+            .map(|force| -force)
+            .collect::<NodalForcesSolid<3>>(),
     );
     accelerations.iter().for_each(|a| {
         assert!((a[2].value() + 9.81).abs() < 1e-6, "{}", a[2].value());
@@ -311,9 +314,9 @@ mod time_scale {
                 1,
                 &[Time::seconds(0.0), Time::seconds(10.0 * dt)],
                 (reference().into(), uniform_velocities([0.0; 3])),
-                &NodalForcesSolid::zero(reference().len()),
+                &(),
                 &masses,
-                EqualityConstraint::None,
+                &fixed_dofs(&[]),
             )
         };
         assert!(run(0.5 * time_scale).is_ok());
@@ -347,9 +350,9 @@ mod implicit {
             solver(1e-3),
             &times(dt, steps),
             (reference().into(), uniform_velocities([3.0, -1.0, 2.0])),
-            &NodalForcesSolid::zero(reference().len()),
+            &(),
             &masses,
-            EqualityConstraint::None,
+            &fixed_dofs(&[]),
         )?;
         let elapsed = times[times.len() - 1].in_seconds();
         let expected: Vec<[f64; 3]> = reference()
@@ -369,9 +372,9 @@ mod implicit {
             solver(1.0),
             &times(dt, steps),
             (stretched(), uniform_velocities([3.0, 0.0, 4.0])),
-            &NodalForcesSolid::zero(reference().len()),
+            &(),
             &masses,
-            EqualityConstraint::Fixed(fixed.clone()),
+            &fixed_dofs(&fixed),
         )
         .unwrap();
         fixed.iter().for_each(|&dof| {
@@ -386,7 +389,6 @@ mod implicit {
     fn a_released_stretch_follows_the_explicit_motion() -> Result<(), AssertionError> {
         let (model, dt, steps) = (model(), 2e-6, 100);
         let masses = model.nodal_lumped_masses();
-        let zero = NodalForcesSolid::zero(reference().len());
         let interval = times(dt, steps);
         let state = || (stretched(), uniform_velocities([0.0; 3]));
         let (_, implicit, ..) = ElasticImplicitDynamics::integrate(
@@ -395,18 +397,18 @@ mod implicit {
             solver(1.0),
             &interval,
             state(),
-            &zero,
+            &(),
             &masses,
-            EqualityConstraint::None,
+            &fixed_dofs(&[]),
         )?;
         let (_, explicit, ..) = ElasticExplicitDynamics::integrate(
             &model,
             &VelocityVerlet::new(Time::seconds(dt)),
             &interval,
             state(),
-            &zero,
+            &(),
             &masses,
-            EqualityConstraint::None,
+            &fixed_dofs(&[]),
         )?;
         let moved = (0..reference().len())
             .map(|node| (&implicit[steps][node] - &implicit[0][node]).norm().value())
@@ -429,9 +431,9 @@ mod implicit {
             solver(1.0),
             &times(dt, steps),
             (stretched(), uniform_velocities([0.0; 3])),
-            &NodalForcesSolid::zero(reference().len()),
+            &(),
             &masses,
-            EqualityConstraint::None,
+            &fixed_dofs(&[]),
         )
         .unwrap();
         let last = &velocities[steps];

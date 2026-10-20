@@ -3,16 +3,16 @@ use crate::{
     EPSILON,
     constitutive::solid::{elastic::Elastic, hyperelastic::NeoHookean},
     domain::{
-        ElementModel, Elements, NodalCoordinates, NodalReferenceCoordinates, Root,
-        block::{finalize_node_neighbors, solver_from_neighbors},
+        ElementModel, NodalCoordinates, NodalReferenceCoordinates, Root,
+        boundary::{Enforcement, Loads, Rows, Solid},
         qmm::{Discretization, Support},
         solid::{NodalForcesSolid, NodalStiffnessesSolid, SolidElements, elastic::ElasticElements},
     },
     geometry::mesh::{Mesh, test::tetrahedra},
     math::{
-        Matrix, Quantity, Tensor, Vector,
+        Quantity, Tensor,
         assert::{Assert, AssertionError, perturbation},
-        optimize::{EqualityConstraint, NewtonRaphson, RootFinding},
+        optimize::{NewtonRaphson, Prescription},
     },
     mechanics::{DeformationGradient, Displacement, Traction},
     units::{Length, Stress},
@@ -133,22 +133,18 @@ fn solve_approximates_an_affine_field_from_its_boundary_values() -> Result<(), A
         .filter(|&node| on_the_boundary(&reference, node))
         .collect();
     assert!(boundary.len() < number_of_nodes, "no interior seed");
-    let mut a = Matrix::zero(3 * boundary.len(), 3 * number_of_nodes);
-    let mut b = Vector::zero(3 * boundary.len());
-    for (index, &node) in boundary.iter().enumerate() {
-        let target = &deformation_gradient() * &reference[node];
-        for c in 0..3 {
-            a[3 * index + c][3 * node + c] = 1.0;
-            b[3 * index + c] = target[c].value();
-        }
-    }
+    let held = boundary.iter().fold(
+        Rows::<Solid<3>>::new(Enforcement::Elimination),
+        |rows, &node| {
+            let target = &deformation_gradient() * &reference[node];
+            (0..3).fold(rows, |rows, c| {
+                rows.hold(3 * node + c, Prescription::Absolute(target[c].value()))
+            })
+        },
+    );
     let block = Block::from((constitutive_model(), discretization.clone()));
     let model = discretization.model(constitutive_model());
-    let coordinates = Root::root(
-        &model,
-        EqualityConstraint::Linear(a, b),
-        NewtonRaphson::default(),
-    )?;
+    let coordinates = Root::root(&model, &held, &(), NewtonRaphson::default())?;
     let expected = apply(&deformation_gradient(), &reference);
     boundary.iter().try_for_each(|&node| {
         Assert::default().eq_within_tols(&coordinates[node], &expected[node])
@@ -187,15 +183,15 @@ fn recovers_an_affine_field_exactly_with_tractions(
         .filter(|&node| on_the_boundary(&reference, node))
         .collect();
     assert!(boundary.len() < number_of_nodes, "no interior seed");
-    let mut a = Matrix::zero(3 * boundary.len(), 3 * number_of_nodes);
-    let mut b = Vector::zero(3 * boundary.len());
-    for (index, &node) in boundary.iter().enumerate() {
-        let target = &deformation_gradient() * &reference[node];
-        for c in 0..3 {
-            a[3 * index + c][3 * node + c] = 1.0;
-            b[3 * index + c] = target[c].value();
-        }
-    }
+    let held = boundary.iter().fold(
+        Rows::<Solid<3>>::new(Enforcement::Multipliers),
+        |rows, &node| {
+            let target = &deformation_gradient() * &reference[node];
+            (0..3).fold(rows, |rows, c| {
+                rows.hold(3 * node + c, Prescription::Absolute(target[c].value()))
+            })
+        },
+    );
     let stress = constitutive_model()
         .first_piola_kirchhoff_stress(&deformation_gradient())
         .unwrap();
@@ -216,18 +212,10 @@ fn recovers_an_affine_field_exactly_with_tractions(
     }
     let block = Block::from((constitutive_model(), discretization.clone()));
     let model = discretization.model(constitutive_model());
-    let constraint = EqualityConstraint::Linear(a, b);
-    let mut neighbors = vec![Vec::new(); number_of_nodes];
-    model.node_neighbors(&mut neighbors);
-    finalize_node_neighbors(&mut neighbors);
-    let sparse = solver_from_neighbors(&neighbors, &constraint, 3, false);
-    let coordinates = NewtonRaphson::default().root(
-        |x: &NodalCoordinates<3>| Ok(model.nodal_forces(x)? - &external),
-        |x: &NodalCoordinates<3>| Ok(model.nodal_stiffnesses(x)?),
-        model.coordinates().clone().into(),
-        constraint,
-        Some(sparse),
-    )?;
+    let loads = Loads::<Solid<3>>::new()
+        .nodal_forces(model.coordinates(), external)
+        .unwrap();
+    let coordinates = Root::root(&model, &held, &loads, NewtonRaphson::default())?;
     let expected = apply(&deformation_gradient(), &reference);
     (0..number_of_nodes).try_for_each(|node| {
         Assert::default().eq_within_tols(&coordinates[node], &expected[node])
