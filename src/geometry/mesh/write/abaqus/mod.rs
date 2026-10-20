@@ -44,15 +44,27 @@ where
         writeln!(file, "*Heading")?;
         writeln!(file, " conspire mesh")?;
         writeln!(file, "*Node")?;
+        let node_labels = self.node_labels();
+        let node_label = |node: usize| node_labels.map_or(node + 1, |labels| labels[node]);
         let coordinates = self.coordinates();
         for node in 0..coordinates.len() {
-            write!(file, "{}", node + 1)?;
+            write!(file, "{}", node_label(node))?;
             for i in 0..D {
                 write!(file, ", {}", coordinates[node][i])?;
             }
             writeln!(file)?;
         }
-        let mut element = 1;
+        let element_labels = self
+            .iter()
+            .map(|connectivity| connectivity.element_labels())
+            .collect::<Option<Vec<_>>>()
+            .map(|labels| labels.concat());
+        let element_label = |element: usize| {
+            element_labels
+                .as_ref()
+                .map_or(element + 1, |labels| labels[element])
+        };
+        let mut element = 0;
         for (block, connectivity) in self.iter().enumerate() {
             let element_type = abaqus_type(connectivity)?;
             writeln!(
@@ -61,9 +73,9 @@ where
                 block + 1
             )?;
             for nodes in connectivity.iter() {
-                write!(file, "{element}")?;
+                write!(file, "{}", element_label(element))?;
                 for &node in nodes {
-                    write!(file, ", {}", node + 1)?;
+                    write!(file, ", {}", node_label(node))?;
                 }
                 writeln!(file)?;
                 element += 1;
@@ -77,7 +89,7 @@ where
             for chunk in node_set.nodes().chunks(16) {
                 let line = chunk
                     .iter()
-                    .map(|&node| (node + 1).to_string())
+                    .map(|&node| node_label(node).to_string())
                     .collect::<Vec<_>>()
                     .join(", ");
                 writeln!(file, "{line}")?;
@@ -100,7 +112,7 @@ where
                     })
                     .expect("side set references an out-of-range element");
                 let label = connectivity.abaqus_side(ordinal);
-                writeln!(file, "{}, S{label}", element + 1)?;
+                writeln!(file, "{}, S{label}", element_label(element))?;
             }
         }
         Ok(())
