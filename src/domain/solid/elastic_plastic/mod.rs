@@ -3,7 +3,7 @@ use crate::{
         ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         NodalState,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::ConstrainAt,
+        boundary::{ConstrainAt, LoadAt, LoadStiffnessAt},
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
     math::{
@@ -225,6 +225,10 @@ pub trait ElasticPlasticRoot<S, const D: usize> {
             CscMatrix,
         >,
         conditions: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + LoadStiffnessAt<NodalCoordinates<D>, NodalStiffnessesSolid<D>>
+         ),
         times: &[Quantity<Time>],
         strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError>;
@@ -386,6 +390,10 @@ where
             CscMatrix,
         >,
         conditions: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + LoadStiffnessAt<NodalCoordinates<D>, NodalStiffnessesSolid<D>>
+         ),
         times: &[Quantity<Time>],
         strategy: SolveStrategy,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError> {
@@ -475,7 +483,15 @@ where
                     |global: &Vector, local: &Vector| {
                         let mut system = cell.borrow_mut();
                         evaluate(global, local, &mut system)?;
-                        Ok(system.residual_global.clone())
+                        let mut loaded = NodalForcesSolid::<D>::zero(global.len() / D);
+                        applied_loads.subtract_at(
+                            time,
+                            &NodalCoordinates::from(global.clone()),
+                            &mut loaded,
+                        )?;
+                        let mut flat = Vector::zero(global.len());
+                        loaded.fill_into(&mut flat);
+                        Ok(&system.residual_global + &flat)
                     },
                     |global: &Vector, local: &Vector| {
                         let mut system = cell.borrow_mut();
@@ -485,8 +501,28 @@ where
                     |global: &Vector, local: &Vector| {
                         let mut system = cell.borrow_mut();
                         evaluate(global, local, &mut system)?;
+                        let mut tangent_uu = system.tangent_uu.clone();
+                        let mut loaded = NodalStiffnessesSolid::<D>::zero(global.len() / D);
+                        applied_loads.add_stiffness_at(
+                            time,
+                            &NodalCoordinates::from(global.clone()),
+                            &mut loaded,
+                        )?;
+                        loaded.iter().enumerate().for_each(|(a, row)| {
+                            row.entries().for_each(|(b, block)| {
+                                (0..D).for_each(|i| {
+                                    (0..D).for_each(|j| {
+                                        tangent_uu.accumulate(
+                                            D * a + i,
+                                            D * b + j,
+                                            block[i][j].value(),
+                                        )
+                                    })
+                                })
+                            })
+                        });
                         Ok((
-                            system.tangent_uu.clone(),
+                            tangent_uu,
                             system.tangent_vu.clone(),
                             system.tangent_uv.clone(),
                             system.tangent_vv.clone(),
@@ -530,11 +566,15 @@ where
                 nodal_coordinates = solver.root(
                     |coordinates: &NodalCoordinates<D>| {
                         evaluate(coordinates)?;
-                        Ok(cache.borrow().as_ref().unwrap().1.clone())
+                        let mut nodal_forces = cache.borrow().as_ref().unwrap().1.clone();
+                        applied_loads.subtract_at(time, coordinates, &mut nodal_forces)?;
+                        Ok(nodal_forces)
                     },
                     |coordinates: &NodalCoordinates<D>| {
                         evaluate(coordinates)?;
-                        Ok(cache.borrow().as_ref().unwrap().2.clone())
+                        let mut stiffnesses = cache.borrow().as_ref().unwrap().2.clone();
+                        applied_loads.add_stiffness_at(time, coordinates, &mut stiffnesses)?;
+                        Ok(stiffnesses)
                     },
                     nodal_coordinates.clone(),
                     constraint.clone(),

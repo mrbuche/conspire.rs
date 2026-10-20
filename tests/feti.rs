@@ -135,6 +135,7 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
     let sparse = model
         .minimize(
             &constraint,
+            &(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -155,7 +156,7 @@ fn compare(nel: [usize; 3], divisions: [usize; 3]) -> (f64, Duration, Duration) 
     };
     let clock = Instant::now();
     let decomposed = model
-        .minimize(&constraint, feti)
+        .minimize(&constraint, &(), feti)
         .unwrap_or_else(|error| panic!("FETI solve failed: {error}"));
     let feti_time = clock.elapsed();
     (
@@ -178,6 +179,7 @@ fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
     let sparse = model
         .root(
             &constraint,
+            &(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -190,6 +192,7 @@ fn root_finding_of_an_elastic_model_with_feti_matches_the_sparse_solve() {
     let decomposed = model
         .root(
             &constraint,
+            &(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -257,6 +260,7 @@ fn feti_solves_a_model_with_a_nonsymmetric_tangent() {
     let sparse = model
         .root(
             &constraint,
+            &(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -269,6 +273,7 @@ fn feti_solves_a_model_with_a_nonsymmetric_tangent() {
     let decomposed = model
         .root(
             &constraint,
+            &(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -291,6 +296,7 @@ fn gmres_on_the_dual_problem_matches_conjugate_gradients() {
         model
             .minimize(
                 &constraint,
+                &(),
                 NewtonRaphson {
                     abs_tol: TOLERANCES,
                     linear_solver: Feti {
@@ -380,6 +386,7 @@ fn a_partition_that_leaves_a_subdomain_floating_is_refused() {
     let error = model
         .minimize(
             &constraint,
+            &(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -408,6 +415,7 @@ fn refusal(
     model
         .minimize(
             &constraint,
+            &(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -460,6 +468,7 @@ fn benchmark_cg_vs_gmres() {
             model
                 .minimize(
                     &constraint,
+                    &(),
                     NewtonRaphson {
                         abs_tol: TOLERANCES,
                         linear_solver: Feti {
@@ -486,6 +495,7 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
     let sparse = model
         .minimize(
             &constraint,
+            &(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Direct,
@@ -497,6 +507,7 @@ fn newton_with_classical_feti_matches_newton_with_the_sparse_solve() {
     let classical = model
         .minimize(
             &constraint,
+            &(),
             NewtonRaphson {
                 abs_tol: TOLERANCES,
                 linear_solver: Feti {
@@ -531,6 +542,7 @@ fn classical_differs_from_dual_primal_by_the_prestress() {
         let converged = model
             .minimize(
                 &constraint,
+                &(),
                 NewtonRaphson {
                     abs_tol: TOLERANCES,
                     linear_solver: Direct,

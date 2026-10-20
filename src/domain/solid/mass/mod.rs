@@ -133,24 +133,19 @@ impl NodalLumpedMasses {
 }
 
 pub trait InverseMass<const D: usize> {
-    fn nodal_accelerations(
-        &self,
-        external_forces: &NodalForcesSolid<D>,
-        internal_forces: &NodalForcesSolid<D>,
-    ) -> NodalAccelerations<D>;
+    /// The accelerations that balance forces, the internal forces less the external ones.
+    fn nodal_accelerations(&self, unbalanced_forces: &NodalForcesSolid<D>)
+    -> NodalAccelerations<D>;
 }
 
 impl<const D: usize> InverseMass<D> for NodalLumpedMasses {
     fn nodal_accelerations(
         &self,
-        external_forces: &NodalForcesSolid<D>,
-        internal_forces: &NodalForcesSolid<D>,
+        unbalanced_forces: &NodalForcesSolid<D>,
     ) -> NodalAccelerations<D> {
         self.iter()
-            .zip(external_forces.iter().zip(internal_forces.iter()))
-            .map(|(&mass, (external_force, internal_force))| {
-                (external_force - internal_force) / mass
-            })
+            .zip(unbalanced_forces.iter())
+            .map(|(&mass, unbalanced_force)| -unbalanced_force / mass)
             .collect()
     }
 }
@@ -187,11 +182,10 @@ impl<const D: usize> MassMatrix<D> for NodalLumpedMasses {
 impl<const D: usize> InverseMass<D> for FixedLumpedMasses {
     fn nodal_accelerations(
         &self,
-        external_forces: &NodalForcesSolid<D>,
-        internal_forces: &NodalForcesSolid<D>,
+        unbalanced_forces: &NodalForcesSolid<D>,
     ) -> NodalAccelerations<D> {
         let mut accelerations =
-            InverseMass::<D>::nodal_accelerations(&self.masses, external_forces, internal_forces);
+            InverseMass::<D>::nodal_accelerations(&self.masses, unbalanced_forces);
         self.fixed
             .iter()
             .for_each(|&index| accelerations[index / D][index % D] = Default::default());
@@ -212,11 +206,17 @@ impl<const D: usize> MassMatrix<D> for NodalMasses {
 impl<const D: usize> InverseMass<D> for FreeFactored<D> {
     fn nodal_accelerations(
         &self,
-        external_forces: &NodalForcesSolid<D>,
-        internal_forces: &NodalForcesSolid<D>,
+        unbalanced_forces: &NodalForcesSolid<D>,
     ) -> NodalAccelerations<D> {
-        self.solve(&(external_forces - internal_forces).into_erased().into())
-            .into()
+        self.solve(
+            &unbalanced_forces
+                .iter()
+                .map(|force| -force)
+                .collect::<NodalForcesSolid<D>>()
+                .into_erased()
+                .into(),
+        )
+        .into()
     }
 }
 

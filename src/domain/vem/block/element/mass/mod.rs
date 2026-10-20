@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     math::{Quantity, Scalar, Tensor, TensorRank1, TensorVector},
-    units::{Density, Mass},
+    units::{Density, Mass, Volume},
     vem::{
         NodalReferenceCoordinates,
         block::element::{Element, VirtualElement},
@@ -21,15 +21,29 @@ where
         density: Quantity<Density>,
         nodal_reference_coordinates: &NodalReferenceCoordinates,
     ) -> ElementNodalLumpedMasses;
+    /// The volume that each node has of the element, whose sum is its volume.
+    fn nodal_volumes(
+        &self,
+        nodal_reference_coordinates: &NodalReferenceCoordinates,
+    ) -> Vec<Quantity<Volume>>;
 }
 
 impl LumpedMassVirtualElement for Element {
+    fn nodal_volumes(
+        &self,
+        nodal_reference_coordinates: &NodalReferenceCoordinates,
+    ) -> Vec<Quantity<Volume>> {
+        lumping_fractions(self, nodal_reference_coordinates)
+            .into_iter()
+            .map(|fraction| self.volume() * fraction)
+            .collect()
+    }
     fn nodal_lumped_masses(
         &self,
         density: Quantity<Density>,
         nodal_reference_coordinates: &NodalReferenceCoordinates,
     ) -> ElementNodalLumpedMasses {
-        let mass = density * self.integration_weights()[0];
+        let mass = density * self.volume();
         lumping_fractions(self, nodal_reference_coordinates)
             .into_iter()
             .map(|fraction| mass * fraction)
@@ -68,7 +82,7 @@ pub(crate) fn lumping_fractions(
                 .collect::<Vec<_>>()
         })
         .collect::<Vec<_>>();
-    let volume = element.integration_weights()[0];
+    let volume = element.volume();
     let gradients = element.gradient_vectors()[0]
         .iter()
         .map(array)

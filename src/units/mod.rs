@@ -8,7 +8,8 @@ mod scale;
 
 pub use constants::{
     AVOGADRO_CONSTANT, BOLTZMANN_CONSTANT, ELEMENTARY_CHARGE, GAS_CONSTANT, LIGHT_SPEED,
-    PLANCK_CONSTANT, ROOM_TEMPERATURE, STANDARD_GRAVITY, VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY,
+    PLANCK_CONSTANT, ROOM_TEMPERATURE, STANDARD_GRAVITY, STEFAN_BOLTZMANN_CONSTANT,
+    VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY,
 };
 pub use scale::{Scale, length_scale};
 
@@ -196,6 +197,14 @@ units!(
     ReciprocalViscosity,
     /// A temperature.
     Temperature,
+    /// A squared temperature.
+    TemperatureSquared,
+    /// A cubed temperature.
+    TemperatureCubed,
+    /// A temperature to the fourth.
+    TemperatureFourth,
+    /// A temperature to the fifth.
+    TemperatureFifth,
     /// A reciprocal temperature, as a coefficient of thermal expansion is.
     ReciprocalTemperature,
     /// A reciprocal temperature squared, as the change of a coefficient of thermal expansion with temperature is.
@@ -224,6 +233,10 @@ units!(
     PowerPerLengthTemperature,
     /// A power per unit area per unit temperature, as a heat flux per unit temperature is.
     PowerPerAreaTemperature,
+    /// A power per unit area per unit temperature to the fourth, as the Stefan-Boltzmann constant is.
+    PowerPerAreaTemperatureFourth,
+    /// A power per unit temperature to the fourth, as the radiation from an area is.
+    PowerPerTemperatureFourth,
     /// A power per unit volume per unit temperature, as an entropy production rate per unit volume is.
     PowerPerVolumeTemperature,
     /// A power per unit volume per unit temperature squared, as the change of an entropy production rate per unit volume with temperature is.
@@ -442,6 +455,7 @@ unit_products!(
     StressPerLength * Length = Stress,
     Length * StressPerLength = Stress,
     StressPerLength * Area = ForcePerLength,
+    Volume * StressPerLength = Force,
     StressPerLength * Volume = Force,
     StressPerArea * Volume = ForcePerLength,
     Viscosity * ReciprocalLength = ViscosityPerLength,
@@ -478,11 +492,39 @@ unit_products!(
     PowerPerLengthTemperature * TemperaturePerLength = PowerPerArea,
     PowerPerArea * ReciprocalLength = PowerDensity,
     ReciprocalLength * PowerPerArea = PowerDensity,
+    PowerPerArea * Area = Power,
+    Area * PowerPerArea = Power,
     PowerPerArea * TemperaturePerLength = PowerTemperatureDensity,
     PowerTemperatureDensity * Volume = PowerTemperature,
     PowerPerLengthTemperature * ReciprocalLength = PowerPerAreaTemperature,
     ReciprocalLength * PowerPerLengthTemperature = PowerPerAreaTemperature,
     PowerPerAreaTemperature * ReciprocalLength = PowerPerVolumeTemperature,
+    PowerPerAreaTemperature * Area = PowerPerTemperature,
+    PowerPerAreaTemperature * Temperature = PowerPerArea,
+    Temperature * PowerPerAreaTemperature = PowerPerArea,
+    Area * PowerPerAreaTemperature = PowerPerTemperature,
+    Dimensionless * TemperatureSquared = TemperatureSquared,
+    Dimensionless * TemperatureCubed = TemperatureCubed,
+    Dimensionless * TemperatureFourth = TemperatureFourth,
+    Dimensionless * TemperatureFifth = TemperatureFifth,
+    Dimensionless * PowerPerAreaTemperatureFourth = PowerPerAreaTemperatureFourth,
+    Dimensionless * PowerPerTemperatureFourth = PowerPerTemperatureFourth,
+    Temperature * Temperature = TemperatureSquared,
+    TemperatureSquared * Temperature = TemperatureCubed,
+    Temperature * TemperatureSquared = TemperatureCubed,
+    TemperatureCubed * Temperature = TemperatureFourth,
+    Temperature * TemperatureCubed = TemperatureFourth,
+    TemperatureSquared * TemperatureSquared = TemperatureFourth,
+    TemperatureFourth * Temperature = TemperatureFifth,
+    Temperature * TemperatureFourth = TemperatureFifth,
+    PowerPerAreaTemperatureFourth * TemperatureFourth = PowerPerArea,
+    TemperatureFourth * PowerPerAreaTemperatureFourth = PowerPerArea,
+    PowerPerAreaTemperatureFourth * TemperatureCubed = PowerPerAreaTemperature,
+    TemperatureCubed * PowerPerAreaTemperatureFourth = PowerPerAreaTemperature,
+    PowerPerAreaTemperatureFourth * Area = PowerPerTemperatureFourth,
+    Area * PowerPerAreaTemperatureFourth = PowerPerTemperatureFourth,
+    PowerPerTemperatureFourth * TemperatureFifth = PowerTemperature,
+    TemperatureFifth * PowerPerTemperatureFourth = PowerTemperature,
     ReciprocalLength * PowerPerAreaTemperature = PowerPerVolumeTemperature,
     PowerDensity * ReciprocalTemperature = EntropyDensityRate,
     EntropyDensity * Rate = EntropyDensityRate,
@@ -492,6 +534,7 @@ unit_products!(
     PowerPerVolumeTemperatureSquared * Temperature = PowerPerVolumeTemperature,
     PowerPerVolumeTemperature * Volume = PowerPerTemperature,
     Power * Temperature = PowerTemperature,
+    Temperature * Power = PowerTemperature,
     PowerPerTemperature * Temperature = Power,
     Temperature * PowerPerTemperature = Power,
     Dimensionless * TemperatureRate = TemperatureRate,

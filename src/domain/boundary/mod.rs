@@ -1,10 +1,14 @@
 //! Boundary conditions on the degrees of freedom of a model.
 
 mod condition;
+mod loads;
 
 pub use condition::{
     BoundaryConditions, Condition, Constrain, ConstrainAt, Enforcement, Fixed, Prescribed, Rows,
     Static, Timed,
+};
+pub use loads::{
+    Conservative, ConservativeAt, Load, LoadAt, LoadStiffness, LoadStiffnessAt, Loads, PowerAt,
 };
 
 use crate::{

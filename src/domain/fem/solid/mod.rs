@@ -7,6 +7,7 @@ pub mod elastic_viscoplastic;
 pub mod hyperelastic;
 pub mod hyperelastic_viscoplastic;
 pub mod hyperviscoelastic;
+pub mod loads;
 pub mod mass;
 pub mod time_scale;
 pub mod viscoelastic;

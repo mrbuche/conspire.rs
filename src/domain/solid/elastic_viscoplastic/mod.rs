@@ -3,7 +3,7 @@ use crate::{
         Blocks, ElasticViscoplasticAndElastic, ElementModel, ElementModelError, Model,
         NodalCoordinates, NodalCoordinatesHistory, NodalState,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::ConstrainAt,
+        boundary::{ConstrainAt, LoadAt, LoadStiffnessAt},
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     math::{
@@ -209,6 +209,10 @@ pub trait RootRkmkDae<const D: usize, Y = Quantity> {
         solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>,
         time: &[Quantity<Time>],
         bcs: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + LoadStiffnessAt<NodalCoordinates<D>, NodalStiffnessesSolid<D>>
+         ),
     ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
     /// As [`Self::root_rkmk_dae`], but the whole span is stepped under
     /// embedded (`Tab::D`) error control rather than on the supplied load
@@ -225,6 +229,10 @@ pub trait RootRkmkDae<const D: usize, Y = Quantity> {
         solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>,
         time: &[Quantity<Time>],
         bcs: &impl ConstrainAt<<NodalCoordinates<D> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<D>, NodalForcesSolid<D>>
+             + LoadStiffnessAt<NodalCoordinates<D>, NodalStiffnessesSolid<D>>
+         ),
         abs_tol: Scalar,
         rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<D>, Self::History), IntegrationError>;
@@ -341,6 +349,10 @@ where
         solver: impl RootFinding<NodalForcesSolid<3>, NodalStiffnessesSolid<3>, NodalCoordinates<3>>,
         time: &[Quantity<Time>],
         bcs: &impl ConstrainAt<<NodalCoordinates<3> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>
+             + LoadStiffnessAt<NodalCoordinates<3>, NodalStiffnessesSolid<3>>
+         ),
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
         let blocks = self.blocks();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
@@ -351,17 +363,22 @@ where
             EqualityConstraint::from_reference(bcs.constraint_at(t), &reference)
         };
         let sparse = solver_from_neighbors(&neighbors, &at(time[0]), 3, false);
-        let function = |_: Quantity<Time>,
+        let function = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalForcesSolid<3>, String> {
-            Ok(blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?)
+            let mut nodal_forces = blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?;
+            applied_loads.subtract_at(time, nodal_coordinates, &mut nodal_forces)?;
+            Ok(nodal_forces)
         };
-        let jacobian = |_: Quantity<Time>,
+        let jacobian = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalStiffnessesSolid<3>, String> {
-            Ok(blocks.nodal_stiffnesses(nodal_coordinates, &B::unflatten(state))?)
+            let mut nodal_stiffnesses =
+                blocks.nodal_stiffnesses(nodal_coordinates, &B::unflatten(state))?;
+            applied_loads.add_stiffness_at(time, nodal_coordinates, &mut nodal_stiffnesses)?;
+            Ok(nodal_stiffnesses)
         };
         let rate =
             |t: Quantity<Time>,
@@ -428,6 +445,10 @@ where
         solver: impl RootFinding<NodalForcesSolid<3>, NodalStiffnessesSolid<3>, NodalCoordinates<3>>,
         time: &[Quantity<Time>],
         bcs: &impl ConstrainAt<<NodalCoordinates<3> as NodalState>::Layout>,
+        applied_loads: &(
+             impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>
+             + LoadStiffnessAt<NodalCoordinates<3>, NodalStiffnessesSolid<3>>
+         ),
         abs_tol: Scalar,
         rel_tol: Scalar,
     ) -> Result<(Times, NodalCoordinatesHistory<3>, Self::History), IntegrationError> {
@@ -440,17 +461,22 @@ where
             EqualityConstraint::from_reference(bcs.constraint_at(t), &reference)
         };
         let sparse = solver_from_neighbors(&neighbors, &at(time[0]), 3, false);
-        let function = |_: Quantity<Time>,
+        let function = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalForcesSolid<3>, String> {
-            Ok(blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?)
+            let mut nodal_forces = blocks.nodal_forces(nodal_coordinates, &B::unflatten(state))?;
+            applied_loads.subtract_at(time, nodal_coordinates, &mut nodal_forces)?;
+            Ok(nodal_forces)
         };
-        let jacobian = |_: Quantity<Time>,
+        let jacobian = |time: Quantity<Time>,
                         state: &<B::Field as Integrable>::Point,
                         nodal_coordinates: &NodalCoordinates<3>|
          -> Result<NodalStiffnessesSolid<3>, String> {
-            Ok(blocks.nodal_stiffnesses(nodal_coordinates, &B::unflatten(state))?)
+            let mut nodal_stiffnesses =
+                blocks.nodal_stiffnesses(nodal_coordinates, &B::unflatten(state))?;
+            applied_loads.add_stiffness_at(time, nodal_coordinates, &mut nodal_stiffnesses)?;
+            Ok(nodal_stiffnesses)
         };
         let rate =
             |t: Quantity<Time>,

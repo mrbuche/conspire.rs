@@ -5,7 +5,7 @@ mod test;
 
 use super::{
     Acceleration, Action, Charge, Entropy, MolarEntropy, Permeability, Permittivity,
-    ReciprocalAmount, Temperature, Velocity,
+    PowerPerAreaTemperatureFourth, ReciprocalAmount, Temperature, Velocity,
 };
 use crate::math::Quantity;
 
@@ -42,3 +42,7 @@ pub const STANDARD_GRAVITY: Quantity<Acceleration> = Acceleration::standard_grav
 
 /// Standard room temperature.
 pub const ROOM_TEMPERATURE: Quantity<Temperature> = Temperature::celsius(20.0);
+
+/// The Stefan-Boltzmann constant.
+pub const STEFAN_BOLTZMANN_CONSTANT: Quantity<PowerPerAreaTemperatureFourth> =
+    PowerPerAreaTemperatureFourth::watts_per_square_meter_kelvin_fourth(5.670_374_419e-8);

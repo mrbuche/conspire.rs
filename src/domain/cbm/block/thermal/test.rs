@@ -10,7 +10,7 @@ use crate::{
         ElementModel,
         boundary::{ConstrainAt, Field},
         diffusion::DiffusionElements,
-        thermal::{NodalForcesThermal, transient::test::fixed_temperatures},
+        thermal::transient::test::fixed_temperatures,
         time_scale::largest_eigenvalue,
     },
     geometry::mesh::PrimitiveConnectivity,
@@ -243,7 +243,7 @@ mod integrate {
                 1,
                 &times(dt, 4000),
                 initial.clone(),
-                &NodalForcesThermal::zero(NODES),
+                &(),
                 &capacities,
                 &fixed_temperatures(&[]),
             )
@@ -265,7 +265,7 @@ mod integrate {
                 1,
                 &times(dt, 4000),
                 temperatures([300.0, 500.0, 350.0, 420.0, 280.0]),
-                &NodalForcesThermal::zero(NODES),
+                &(),
                 &model.nodal_lumped_heat_capacities(),
                 &fixed_temperatures(&[0]),
             )
@@ -322,7 +322,7 @@ mod integrate_implicit {
             solver(),
             &times(dt, steps),
             initial,
-            &NodalForcesThermal::zero(NODES),
+            &(),
             &model.nodal_lumped_heat_capacities(),
             conditions,
         )

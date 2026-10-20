@@ -137,7 +137,7 @@ fn factors_to_the_inverse_with_fixed_nodes() {
         (Energy::joules(0.5) / Time::seconds(1.0)),
         (Energy::joules(3.0) / Time::seconds(1.0)),
     ]);
-    let rates = factors.nodal_temperature_rates(&heating, &NodalForcesThermal::zero(5));
+    let rates = factors.nodal_temperature_rates(&(&NodalForcesThermal::zero(5) - &heating));
     assert_eq!(rates[0].value(), 0.0);
     (1..5).for_each(|a| {
         let applied: f64 = capacities[a]

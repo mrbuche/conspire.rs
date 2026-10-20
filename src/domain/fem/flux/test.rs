@@ -1,0 +1,609 @@
+use crate::{
+    EPSILON,
+    constitutive::{
+        thermal::conduction::{Fourier, test::THERMAL_CONDUCTIVITY},
+        thermal::convection::Newton,
+    },
+    domain::ElementModel,
+    fem::{
+        Model,
+        block::{Block, element::linear::Hexahedron},
+        boundary::{ConservativeAt, Field, Loads},
+        diffusion::{NodalFields, NodalForces},
+    },
+    geometry::mesh::{Connectivity, Mesh, SideSet},
+    math::{
+        Quantity, Tensor,
+        assert::{Assert, AssertionError, perturbation},
+    },
+    units::{Power, PowerPerArea, PowerTemperature, Temperature, Time},
+};
+
+type Hex = Block<Fourier, Hexahedron, 8, 3, 8, 8>;
+
+fn model() -> Model<Hex, 3> {
+    let mut mesh = Mesh::from((
+        vec![Connectivity::Hexahedral(
+            vec![[0, 1, 2, 3, 4, 5, 6, 7]].into(),
+        )],
+        vec![
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [2.0, 3.0, 0.0],
+            [0.0, 3.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [2.0, 0.0, 1.0],
+            [2.0, 3.0, 1.0],
+            [0.0, 3.0, 1.0],
+        ]
+        .into(),
+    ));
+    mesh.set_side_sets(vec![SideSet::new(vec![(0, 5)])].into());
+    (
+        mesh,
+        Fourier {
+            thermal_conductivity: THERMAL_CONDUCTIVITY,
+        },
+    )
+        .try_into()
+        .unwrap()
+}
+
+fn residual_at(
+    loads: &impl crate::fem::boundary::LoadAt<NodalFields<Power>, NodalForces<Power>>,
+    time: f64,
+) -> NodalForces<Power> {
+    let mut residual = NodalForces::<Power>::zero(8);
+    loads
+        .subtract_at(
+            Time::seconds(time),
+            &NodalFields::<Power>::zero(8),
+            &mut residual,
+        )
+        .unwrap();
+    residual
+}
+
+fn forces(entries: impl Fn(usize) -> f64) -> NodalForces<Power> {
+    (0..8)
+        .map(|node| Quantity::<Power>::new(entries(node)))
+        .collect()
+}
+
+fn held(top: f64) -> NodalFields<Power> {
+    (0..8)
+        .map(|node| Quantity::<Temperature>::new(if node < 4 { 0.0 } else { top }))
+        .collect()
+}
+
+fn within(tolerance: f64) -> Assert {
+    Assert {
+        abs_tol: tolerance,
+        rel_tol: tolerance,
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_flux_through_a_face_gives_each_node_its_share_of_the_area() -> Result<(), AssertionError> {
+    let model = model();
+    let loads = Loads::<Field<Temperature>>::new()
+        .flux::<Power>(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            Quantity::<PowerPerArea>::new(5.0),
+        )
+        .unwrap();
+    Assert::default().eq_within_tols(
+        residual_at(&loads, 0.0),
+        &forces(|node| if node < 4 { 0.0 } else { -5.0 * 6.0 / 4.0 }),
+    )
+}
+
+#[test]
+fn a_flux_that_depends_on_time_takes_the_time_it_is_given() -> Result<(), AssertionError> {
+    let model = model();
+    let loads = Loads::<Field<Temperature>>::new()
+        .flux_with::<Power, _>(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            |time| Quantity::<PowerPerArea>::new(time.value()),
+        )
+        .unwrap();
+    [2.0, 3.0].into_iter().try_for_each(|time| {
+        Assert::default().eq_within_tols(
+            residual_at(&loads, time),
+            &forces(|node| if node < 4 { 0.0 } else { -time * 6.0 / 4.0 }),
+        )
+    })
+}
+
+#[test]
+fn a_flux_through_faces_the_mesh_does_not_have_is_an_error() {
+    let model = model();
+    let error = Loads::<Field<Temperature>>::new()
+        .flux::<Power>(
+            model.coordinates(),
+            &SideSet::new(vec![(0, 5)]),
+            Quantity::<PowerPerArea>::new(1.0),
+        )
+        .err()
+        .unwrap();
+    assert!(error.contains("no faces"));
+}
+
+#[test]
+fn a_flux_through_the_top_of_a_held_bar_raises_it_by_the_flux_times_the_length_over_the_conductivity()
+-> Result<(), AssertionError> {
+    use crate::{
+        fem::{
+            Root,
+            boundary::{BoundaryConditions, ConstrainAt as _},
+            diffusion::NodalStiffnesses,
+        },
+        math::optimize::NewtonRaphson,
+    };
+    let model = model();
+    let conditions = BoundaryConditions::<Field<Temperature>>::new()
+        .fix_nodes(crate::fem::boundary::Temperature, 0..4);
+    let loads = Loads::<Field<Temperature>>::new()
+        .flux::<Power>(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            Quantity::<PowerPerArea>::new(5.0),
+        )
+        .unwrap();
+    let temperatures = <Model<Hex, 3> as Root<
+        NodalForces<Power>,
+        NodalStiffnesses<Power>,
+        NodalFields<Power>,
+    >>::root(&model, &conditions, &loads, NewtonRaphson::default())
+    .unwrap();
+    let rise = 5.0 * 1.0 / THERMAL_CONDUCTIVITY.value();
+    within(1e-9).eq_within_tols(&temperatures, &held(rise))
+}
+
+fn temperatures() -> NodalFields<Power> {
+    (0..8)
+        .map(|node| Quantity::<Temperature>::new(node as f64))
+        .collect()
+}
+
+#[test]
+fn the_energy_of_a_flux_that_depends_on_time_is_that_of_the_flux_at_the_time()
+-> Result<(), AssertionError> {
+    let model = model();
+    let side_set = model.side_sets().iter().next().unwrap();
+    let loads = Loads::<Field<Temperature>>::new()
+        .flux_with::<Power, _>(model.coordinates(), side_set, |time| {
+            Quantity::<PowerPerArea>::new(time.value())
+        })
+        .unwrap();
+    let (early, late) = (
+        loads
+            .potential_energy_at(Time::seconds(2.0), &temperatures())
+            .unwrap(),
+        loads
+            .potential_energy_at(Time::seconds(3.0), &temperatures())
+            .unwrap(),
+    );
+    let top = (4..8).sum::<usize>() as f64 * 6.0 / 4.0;
+    Assert::default().eq_within_tols(early, &Quantity::<PowerTemperature>::new(-2.0 * top))?;
+    Assert::default().eq_within_tols(late, &Quantity::<PowerTemperature>::new(-3.0 * top))
+}
+
+#[test]
+fn a_flux_that_does_not_change_has_the_same_energy_whether_or_not_it_could()
+-> Result<(), AssertionError> {
+    let model = model();
+    let side_set = model.side_sets().iter().next().unwrap();
+    let timed = Loads::<Field<Temperature>>::new()
+        .flux_with::<Power, _>(model.coordinates(), side_set, |_| {
+            Quantity::<PowerPerArea>::new(5.0)
+        })
+        .unwrap();
+    let fixed = Loads::<Field<Temperature>>::new()
+        .flux::<Power>(
+            model.coordinates(),
+            side_set,
+            Quantity::<PowerPerArea>::new(5.0),
+        )
+        .unwrap();
+    let at = Time::seconds(7.0);
+    Assert::default().eq_within_tols(
+        timed.potential_energy_at(at, &temperatures()).unwrap(),
+        &fixed.potential_energy_at(at, &temperatures()).unwrap(),
+    )
+}
+
+#[test]
+fn the_products_of_a_flux_and_of_an_energy_exist_for_every_balance_model() {
+    use crate::{
+        constitutive::diffusion::Diffusive,
+        units::{Area, Charge, Current, MolarFlowRate},
+    };
+    use std::ops::Mul;
+    fn typed<L>()
+    where
+        L: Diffusive,
+        Quantity<L::Flux>: Mul<Quantity<Area>, Output = Quantity<L>>,
+        Quantity<L::Field>: Mul<Quantity<L>, Output = Quantity<L::Energy>>,
+    {
+    }
+    typed::<Power>();
+    typed::<MolarFlowRate>();
+    typed::<Charge>();
+    typed::<Current>();
+}
+
+#[test]
+fn a_heat_flux_that_depends_on_time_leaves_the_forces_of_a_coupled_residual_alone()
+-> Result<(), AssertionError> {
+    use crate::{
+        domain::multiphysics::solid_thermal::{
+            NodalForcesSolidThermal, NodalStatesSolidThermal, join_states,
+        },
+        fem::{
+            NodalCoordinates,
+            boundary::{LoadAt, SolidThermal},
+        },
+    };
+    let model = model();
+    let loads = Loads::<SolidThermal<3>>::new()
+        .flux_with(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            |time| Quantity::<PowerPerArea>::new(time.value()),
+        )
+        .unwrap();
+    let coordinates: NodalCoordinates<3> = model.coordinates().clone().into();
+    let states: NodalStatesSolidThermal = join_states(&coordinates, &NodalFields::<Power>::zero(8));
+    let mut residual = (0..8)
+        .map(|_| {
+            crate::math::TensorTuple(
+                crate::mechanics::Force::from([0.0; 3]),
+                Quantity::<crate::units::Power>::new(0.0),
+            )
+        })
+        .collect::<NodalForcesSolidThermal>();
+    loads
+        .subtract_at(Time::seconds(2.0), &states, &mut residual)
+        .unwrap();
+    (0..8).try_for_each(|node| {
+        assert!(residual[node].0.iter().all(|force| force.value() == 0.0));
+        let heat = if node < 4 { 0.0 } else { -2.0 * 6.0 / 4.0 };
+        Assert::default().eq_within_tols(residual[node].1, &Quantity::<Power>::new(heat))
+    })
+}
+
+mod volumetric {
+    use super::*;
+    use crate::{
+        fem::{
+            Root,
+            boundary::{BoundaryConditions, ConstrainAt as _, LoadAt, SolidThermal},
+            diffusion::NodalStiffnesses,
+        },
+        math::optimize::NewtonRaphson,
+        units::PowerDensity,
+    };
+    #[test]
+    fn a_uniform_source_heats_a_held_bar_by_the_source_times_the_length_squared_over_twice_the_conductivity()
+    -> Result<(), AssertionError> {
+        let model = model();
+        let conditions = BoundaryConditions::<Field<Temperature>>::new()
+            .fix_nodes(crate::fem::boundary::Temperature, 0..4);
+        let loads = Loads::<Field<Temperature>>::new()
+            .source_density::<Power>(&model.nodal_volumes(), Quantity::<PowerDensity>::new(5.0));
+        let temperatures = <Model<Hex, 3> as Root<
+            NodalForces<Power>,
+            NodalStiffnesses<Power>,
+            NodalFields<Power>,
+        >>::root(&model, &conditions, &loads, NewtonRaphson::default())
+        .unwrap();
+        let rise = 5.0 / (2.0 * THERMAL_CONDUCTIVITY.value());
+        within(1e-9).eq_within_tols(&temperatures, &held(rise))
+    }
+    #[test]
+    fn a_source_gives_each_node_its_share_of_the_volume() -> Result<(), AssertionError> {
+        let model = model();
+        let loads = Loads::<Field<Temperature>>::new()
+            .source_density::<Power>(&model.nodal_volumes(), Quantity::<PowerDensity>::new(4.0));
+        Assert::default().eq_within_tols(residual_at(&loads, 0.0), &forces(|_| -4.0 * 6.0 / 8.0))
+    }
+
+    #[test]
+    fn a_source_that_depends_on_position_is_integrated_against_the_shape_functions()
+    -> Result<(), AssertionError> {
+        let model = model();
+        let loads = Loads::<Field<Temperature>>::new()
+            .source_density_field::<Power>(&model, |coordinate| {
+                Quantity::<PowerDensity>::new(coordinate[2].value())
+            });
+        Assert::default().eq_within_tols(
+            residual_at(&loads, 0.0),
+            &forces(|node| if node < 4 { -0.25 } else { -0.5 }),
+        )
+    }
+    #[test]
+    fn a_source_that_depends_on_time_takes_the_time_it_is_given() -> Result<(), AssertionError> {
+        let model = model();
+        let loads = Loads::<Field<Temperature>>::new()
+            .source_density_with::<Power, _>(&model.nodal_volumes(), |time| {
+                Quantity::<PowerDensity>::new(time.value())
+            });
+        [2.0, 3.0].into_iter().try_for_each(|time| {
+            Assert::default()
+                .eq_within_tols(residual_at(&loads, time), &forces(|_| -time * 6.0 / 8.0))
+        })
+    }
+    #[test]
+    fn a_heat_source_leaves_the_forces_of_a_coupled_residual_alone() -> Result<(), AssertionError> {
+        use crate::{
+            domain::multiphysics::solid_thermal::{
+                NodalForcesSolidThermal, NodalStatesSolidThermal, join_states,
+            },
+            fem::NodalCoordinates,
+        };
+        let model = model();
+        let loads = Loads::<SolidThermal<3>>::new()
+            .source_density_with(&model.nodal_volumes(), |time| {
+                Quantity::<PowerDensity>::new(time.value())
+            });
+        let coordinates: NodalCoordinates<3> = model.coordinates().clone().into();
+        let states: NodalStatesSolidThermal =
+            join_states(&coordinates, &NodalFields::<Power>::zero(8));
+        let mut residual = (0..8)
+            .map(|_| {
+                crate::math::TensorTuple(
+                    crate::mechanics::Force::from([0.0; 3]),
+                    Quantity::<Power>::new(0.0),
+                )
+            })
+            .collect::<NodalForcesSolidThermal>();
+        loads
+            .subtract_at(Time::seconds(2.0), &states, &mut residual)
+            .unwrap();
+        (0..8).try_for_each(|node| {
+            assert!(residual[node].0.iter().all(|force| force.value() == 0.0));
+            Assert::default()
+                .eq_within_tols(residual[node].1, &Quantity::<Power>::new(-2.0 * 6.0 / 8.0))
+        })
+    }
+}
+
+#[test]
+fn a_convection_through_the_top_of_a_held_bar_settles_between_the_ambient_and_the_held_temperature()
+-> Result<(), AssertionError> {
+    use crate::{
+        fem::{
+            Root,
+            boundary::{BoundaryConditions, ConstrainAt as _},
+            diffusion::NodalStiffnesses,
+        },
+        math::optimize::NewtonRaphson,
+        units::PowerPerAreaTemperature,
+    };
+    let model = model();
+    let conditions = BoundaryConditions::<Field<Temperature>>::new()
+        .fix_nodes(crate::fem::boundary::Temperature, 0..4);
+    let (coefficient, ambient) = (4.0, 10.0);
+    let loads = Loads::<Field<Temperature>>::new()
+        .surface(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            Newton {
+                coefficient: Quantity::<PowerPerAreaTemperature>::new(coefficient),
+                ambient: Quantity::<Temperature>::new(ambient),
+            },
+        )
+        .unwrap();
+    let temperatures = <Model<Hex, 3> as Root<
+        NodalForces<Power>,
+        NodalStiffnesses<Power>,
+        NodalFields<Power>,
+    >>::root(
+        &model,
+        &conditions,
+        &loads,
+        NewtonRaphson {
+            max_steps: 2,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let top = coefficient * ambient / (coefficient + THERMAL_CONDUCTIVITY.value());
+    within(1e-9).eq_within_tols(&temperatures, &held(top))
+}
+
+#[test]
+fn the_residual_of_a_convection_is_the_gradient_of_its_potential() -> Result<(), AssertionError> {
+    use crate::{
+        fem::boundary::{Conservative, Load},
+        units::PowerPerAreaTemperature,
+    };
+    let model = model();
+    let loads = Loads::<Field<Temperature>>::new()
+        .surface(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            Newton {
+                coefficient: Quantity::<PowerPerAreaTemperature>::new(4.0),
+                ambient: Quantity::<Temperature>::new(10.0),
+            },
+        )
+        .unwrap();
+    let convection = &loads;
+    let fields: NodalFields<Power> = (0..8)
+        .map(|node| Quantity::<Temperature>::new(1.0 + node as f64))
+        .collect();
+    let mut residual = NodalForces::<Power>::zero(8);
+    convection.subtract_from(&fields, &mut residual).unwrap();
+    let step = perturbation::<Temperature>(EPSILON);
+    (0..8).try_for_each(|node| {
+        let shifted = |sign: f64| {
+            let mut shifted = fields.clone();
+            shifted[node] += sign * step;
+            convection.potential_energy(&shifted).unwrap()
+        };
+        let slope = (shifted(1.0) - shifted(-1.0)) / (2.0 * step);
+        Assert::default().eq_within_fd_tol(slope, &residual[node])
+    })?;
+    assert!(residual.iter().skip(4).all(|power| power.value() != 0.0));
+    Ok(())
+}
+
+#[test]
+fn a_radiation_onto_the_top_of_a_held_bar_balances_the_conduction_through_it()
+-> Result<(), AssertionError> {
+    use crate::{
+        constitutive::thermal::radiation::StefanBoltzmann,
+        fem::{
+            Root,
+            boundary::{BoundaryConditions, ConstrainAt as _},
+            diffusion::NodalStiffnesses,
+        },
+        math::optimize::NewtonRaphson,
+        units::STEFAN_BOLTZMANN_CONSTANT,
+    };
+    let model = model();
+    let conditions = BoundaryConditions::<Field<Temperature>>::new()
+        .fix_nodes(crate::fem::boundary::Temperature, 0..4);
+    let (emissivity, ambient) = (0.5, 300.0);
+    let loads = Loads::<Field<Temperature>>::new()
+        .surface(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            StefanBoltzmann {
+                emissivity,
+                ambient: Quantity::<Temperature>::new(ambient),
+            },
+        )
+        .unwrap();
+    let temperatures = <Model<Hex, 3> as Root<
+        NodalForces<Power>,
+        NodalStiffnesses<Power>,
+        NodalFields<Power>,
+    >>::root(
+        &model,
+        &conditions,
+        &loads,
+        NewtonRaphson {
+            max_steps: 50,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let (sigma, k) = (
+        STEFAN_BOLTZMANN_CONSTANT.value() * emissivity,
+        THERMAL_CONDUCTIVITY.value(),
+    );
+    let balance = |top: f64| k * top - sigma * (ambient.powi(4) - top.powi(4));
+    let (mut low, mut high) = (0.0_f64, ambient);
+    (0..200).for_each(|_| {
+        let middle = 0.5 * (low + high);
+        match balance(middle) < 0.0 {
+            true => low = middle,
+            false => high = middle,
+        }
+    });
+    let top = 0.5 * (low + high);
+    within(1e-6).eq_within_tols(&temperatures, &held(top))
+}
+
+mod timed_surface {
+    use super::{Hex, forces, model};
+    use crate::{
+        constitutive::thermal::convection::Newton,
+        domain::ElementModel,
+        fem::{
+            boundary::{ConservativeAt, Field, LoadAt, LoadStiffnessAt, Loads},
+            diffusion::{NodalFields, NodalForces, NodalStiffnesses},
+        },
+        math::{
+            Quantity, QuantityVector,
+            assert::{Assert, AssertionError},
+        },
+        units::{Power, PowerPerAreaTemperature, PowerPerTemperature, Temperature, Time},
+    };
+    fn newton(ambient: f64) -> Newton {
+        Newton {
+            coefficient: Quantity::<PowerPerAreaTemperature>::new(4.0),
+            ambient: Quantity::<Temperature>::new(ambient),
+        }
+    }
+    fn fields() -> NodalFields<Power> {
+        (0..8)
+            .map(|node| Quantity::<Temperature>::new(1.0 + node as f64))
+            .collect()
+    }
+    fn residual(
+        loads: &impl LoadAt<NodalFields<Power>, NodalForces<Power>>,
+        time: f64,
+    ) -> NodalForces<Power> {
+        let mut residual = NodalForces::<Power>::zero(8);
+        loads
+            .subtract_at(Time::seconds(time), &fields(), &mut residual)
+            .unwrap();
+        residual
+    }
+    fn stiffness(
+        loads: &impl LoadStiffnessAt<NodalFields<Power>, NodalStiffnesses<Power>>,
+        time: f64,
+    ) -> QuantityVector<PowerPerTemperature> {
+        let mut tangent = NodalStiffnesses::<Power>::zero(8);
+        loads
+            .add_stiffness_at(Time::seconds(time), &fields(), &mut tangent)
+            .unwrap();
+        (0..8).map(|node| tangent[node][node]).collect()
+    }
+    fn sets() -> (crate::geometry::mesh::SideSet, crate::fem::Model<Hex, 3>) {
+        let model = model();
+        (model.side_sets().iter().next().unwrap().clone(), model)
+    }
+    #[test]
+    fn a_model_that_does_not_change_is_the_surface_that_does_not() -> Result<(), AssertionError> {
+        let (side_set, model) = sets();
+        let fixed = Loads::<Field<Temperature>>::new()
+            .surface(model.coordinates(), &side_set, newton(10.0))
+            .unwrap();
+        let timed = Loads::<Field<Temperature>>::new()
+            .surface_with(model.coordinates(), &side_set, |_| newton(10.0))
+            .unwrap();
+        [0.0, 3.0].into_iter().try_for_each(|time| {
+            Assert::default().eq_within_tols(residual(&fixed, time), &residual(&timed, time))?;
+            Assert::default().eq_within_tols(stiffness(&fixed, time), &stiffness(&timed, time))?;
+            Assert::default().eq_within_tols(
+                fixed
+                    .potential_energy_at(Time::seconds(time), &fields())
+                    .unwrap(),
+                &timed
+                    .potential_energy_at(Time::seconds(time), &fields())
+                    .unwrap(),
+            )
+        })
+    }
+    #[test]
+    fn an_ambient_that_changes_with_time_changes_the_residual_with_it() -> Result<(), AssertionError>
+    {
+        let (side_set, model) = sets();
+        let timed = Loads::<Field<Temperature>>::new()
+            .surface_with(model.coordinates(), &side_set, |time| {
+                newton(10.0 + time.value())
+            })
+            .unwrap();
+        [0.0, 2.0].into_iter().try_for_each(|time| {
+            Assert::default().eq_within_tols(
+                residual(&timed, time),
+                &forces(|node| {
+                    if node < 4 {
+                        0.0
+                    } else {
+                        4.0 * 1.5 * (1.0 + node as f64 - (10.0 + time))
+                    }
+                }),
+            )
+        })?;
+        Assert::default().eq_within_tols(stiffness(&timed, 0.0), &stiffness(&timed, 2.0))
+    }
+}

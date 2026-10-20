@@ -353,6 +353,7 @@ mod timed_velocity {
         let (times, coordinates_history, velocities_history) =
             Model::from((get_block(), get_reference_coordinates_block())).minimize(
                 &conditions(),
+                &(),
                 BogackiShampine::default(),
                 &[Quantity::new(0.0), Quantity::new(1.0)],
                 NewtonRaphson::default(),
@@ -379,6 +380,7 @@ mod timed_velocity {
         let (times, coordinates_history, velocities_history) =
             Model::from((get_block(), get_reference_coordinates_block())).root(
                 &conditions,
+                &(),
                 BogackiShampine::default(),
                 &[Quantity::new(0.0), Quantity::new(1.0)],
                 NewtonRaphson::default(),

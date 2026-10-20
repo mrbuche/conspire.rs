@@ -1,5 +1,8 @@
 use crate::{
-    math::{Quantity, Scalar, Tensor},
+    math::{
+        Quantity, Scalar, Tensor,
+        assert::{Assert, AssertionError},
+    },
     mechanics::ReferenceCoordinate,
     units::{Density, Mass, SpecificHeat, VolumetricHeatCapacity},
     vem::{
@@ -100,25 +103,22 @@ fn cases() -> Vec<Case> {
 }
 
 #[test]
-fn totals_the_heat_capacity_of_the_element() {
-    cases().iter().for_each(|(element, coordinates)| {
+fn totals_the_heat_capacity_of_the_element() -> Result<(), AssertionError> {
+    cases().iter().try_for_each(|(element, coordinates)| {
         let total = element
             .nodal_lumped_heat_capacities(capacity(), coordinates)
             .iter()
             .copied()
             .sum::<Quantity<_>>();
-        let expected = capacity() * element.integration_weights()[0];
-        assert!(
-            ((total / expected).value() - 1.0).abs() < 1e-12,
-            "{total:?} != {expected:?}"
-        )
+        let expected = capacity() * element.volume();
+        Assert::default().eq_within_tols(total, &expected)
     })
 }
 
 #[test]
-fn lumps_like_the_mass() {
+fn lumps_like_the_mass() -> Result<(), AssertionError> {
     let density = Density::kilograms_per_cubic_meter(7.8e3);
-    cases().iter().for_each(|(element, coordinates)| {
+    cases().iter().try_for_each(|(element, coordinates)| {
         let masses = element.nodal_lumped_masses(density, coordinates);
         let capacities = element.nodal_lumped_heat_capacities(capacity(), coordinates);
         let total_mass = masses.iter().copied().sum::<Quantity<Mass>>();
@@ -126,11 +126,8 @@ fn lumps_like_the_mass() {
         masses
             .iter()
             .zip(capacities.iter())
-            .for_each(|(&mass, &capacity)| {
-                assert!(
-                    ((mass / total_mass).value() - (capacity / total_capacity).value()).abs()
-                        < 1e-12
-                )
+            .try_for_each(|(&mass, &capacity)| {
+                Assert::default().eq_within_tols(mass / total_mass, &(capacity / total_capacity))
             })
     })
 }

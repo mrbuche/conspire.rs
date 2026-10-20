@@ -3,7 +3,7 @@ use crate::{
         Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalState,
         ProvidesTangent, Root, SolverFor,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::Constrain,
+        boundary::{Constrain, Load, LoadStiffness},
         multiphysics::solid_thermal::{
             NodalForceSolidThermal, NodalForcesSolidThermal, NodalStatesSolidThermal,
             NodalStiffnessesSolidThermal, split_states,
@@ -155,6 +155,10 @@ where
     fn root<S>(
         &self,
         boundary_conditions: &impl Constrain<<NodalStatesSolidThermal as NodalState>::Layout>,
+        applied_loads: &(
+             impl Load<NodalStatesSolidThermal, NodalForcesSolidThermal>
+             + LoadStiffness<NodalStatesSolidThermal, S::Tangent>
+         ),
         solver: S,
     ) -> Result<NodalStatesSolidThermal, OptimizationError>
     where
@@ -172,9 +176,16 @@ where
         solver.root(
             |nodal_states: &NodalStatesSolidThermal| {
                 let (nodal_coordinates, nodal_temperatures) = split_states(nodal_states);
-                Ok(self.nodal_forces(&nodal_coordinates, &nodal_temperatures)?)
+                let mut nodal_forces =
+                    self.nodal_forces(&nodal_coordinates, &nodal_temperatures)?;
+                applied_loads.subtract_from(nodal_states, &mut nodal_forces)?;
+                Ok(nodal_forces)
             },
-            |nodal_states: &NodalStatesSolidThermal| Ok(self.provide_tangent(nodal_states)?),
+            |nodal_states: &NodalStatesSolidThermal| {
+                let mut tangent = self.provide_tangent(nodal_states)?;
+                applied_loads.add_stiffness_to(nodal_states, &mut tangent)?;
+                Ok(tangent)
+            },
             NodalCoordinates::from(self.coordinates().clone())
                 .into_iter()
                 .zip(self.nodal_reference_temperatures(self.coordinates().len()))

@@ -32,11 +32,16 @@ pub(crate) mod thermal;
 pub(crate) mod time_scale;
 #[cfg(feature = "vem")]
 pub mod vem;
+#[cfg_attr(
+    not(any(feature = "fem", feature = "vem", feature = "cbm")),
+    allow(dead_code)
+)]
+pub(crate) mod volume;
 
 use crate::{
     domain::{
         block::element::Elements,
-        boundary::{Constrain, NodalState},
+        boundary::{Conservative, Constrain, Load, LoadStiffness, NodalState},
     },
     geometry::{
         Coordinates,
@@ -202,6 +207,7 @@ where
     fn root<S>(
         &self,
         boundary_conditions: &impl Constrain<X::Layout>,
+        applied_loads: &(impl Load<X, F> + LoadStiffness<X, S::Tangent>),
         solver: S,
     ) -> Result<X, OptimizationError>
     where
@@ -218,6 +224,7 @@ where
     fn minimize<S>(
         &self,
         boundary_conditions: &impl Constrain<X::Layout>,
+        applied_loads: &(impl Load<X, J> + Conservative<X, F>),
         solver: S,
     ) -> Result<X, OptimizationError>
     where

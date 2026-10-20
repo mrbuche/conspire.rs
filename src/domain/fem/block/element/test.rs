@@ -305,6 +305,79 @@ macro_rules! test_surface_finite_element {
                     })
             }
         }
+        mod traction {
+            use super::*;
+            #[test]
+            fn sum_to_the_traction_on_the_area() -> Result<(), AssertionError> {
+                let traction = $crate::mechanics::Traction::from([1.0, 2.0, 3.0]);
+                let area = element().volume() / THICKNESS;
+                $crate::math::assert::Assert::default().eq_within_tols(
+                    &$element::traction_forces(&reference_coordinates(), &traction)
+                        .into_iter()
+                        .sum::<$crate::mechanics::Force>(),
+                    &(&traction * area),
+                )
+            }
+        }
+        mod pressure {
+            use super::*;
+            use $crate::units::{Length, Stress};
+            const PRESSURE: f64 = 3.0;
+            fn pressure() -> $crate::math::Quantity<Stress> {
+                $crate::math::Quantity::<Stress>::new(PRESSURE)
+            }
+            #[test]
+            fn a_flat_face_carries_the_pressure_on_its_area_vector() -> Result<(), AssertionError> {
+                let coordinates = coordinates();
+                let mut area_vector = [0.0; 3];
+                (0..N).for_each(|a| {
+                    let (x, y) = (&coordinates[a], &coordinates[(a + 1) % N]);
+                    [
+                        x[1].value() * y[2].value() - x[2].value() * y[1].value(),
+                        x[2].value() * y[0].value() - x[0].value() * y[2].value(),
+                        x[0].value() * y[1].value() - x[1].value() * y[0].value(),
+                    ]
+                    .iter()
+                    .enumerate()
+                    .for_each(|(i, entry)| area_vector[i] += 0.5 * entry);
+                });
+                let total = $element::pressure_forces(&coordinates, pressure())
+                    .into_iter()
+                    .sum::<$crate::mechanics::Force>();
+                (0..3).try_for_each(|i| {
+                    $crate::math::assert::Assert::default().eq_within_tols(
+                        &total[i],
+                        &$crate::math::Quantity::<$crate::units::Force>::new(
+                            -PRESSURE * area_vector[i],
+                        ),
+                    )
+                })
+            }
+            #[test]
+            fn the_stiffnesses_are_the_derivatives_of_the_forces() -> Result<(), AssertionError> {
+                let coordinates = coordinates();
+                let stiffnesses = $element::pressure_stiffnesses(&coordinates, pressure());
+                let step = 1e-6;
+                (0..N).try_for_each(|node| {
+                    (0..3).try_for_each(|axis| {
+                        let (mut up, mut down) = (coordinates.clone(), coordinates.clone());
+                        up[node][axis] += Length::meters(step);
+                        down[node][axis] -= Length::meters(step);
+                        let (up, down) = (
+                            $element::pressure_forces(&up, pressure()),
+                            $element::pressure_forces(&down, pressure()),
+                        );
+                        (0..N).try_for_each(|a| {
+                            (0..3).try_for_each(|i| {
+                                let found = (up[a][i] - down[a][i]) / (2.0 * Length::meters(step));
+                                $crate::math::assert::Assert::default()
+                                    .eq_within_fd_tol(&found, &stiffnesses[a][node][i][axis])
+                            })
+                        })
+                    })
+                })
+            }
+        }
         mod dual_bases {
             #[test]
             fn basis() -> Result<(), AssertionError> {

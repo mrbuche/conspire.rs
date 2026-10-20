@@ -214,6 +214,7 @@ macro_rules! test_finite_element_block_inner {
                                     get_block(),
                                     get_reference_coordinates_block(),
                                 )).root(&crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| get_reference_coordinates_block()[node][component].value()),
+                                &(),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -262,6 +263,7 @@ macro_rules! test_finite_element_block_inner {
                                     get_block(),
                                     get_reference_coordinates_block(),
                                 )).minimize(&crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| get_reference_coordinates_block()[node][component].value()),
+                                &(),
                                 $solver::default(),
                             )?;
                             let deformation_gradient =
@@ -558,6 +560,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                         crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
                             .minimize(
                             &crate::fem::block::test::velocity_conditions(&a, &b),
+                            &(),
                             $integrator::default(),
                             &[Quantity::new(0.0), Quantity::new(1.0)],
                             NewtonRaphson::default(),
@@ -623,6 +626,7 @@ macro_rules! test_dae_root_and_minimize_with_integrators {
                         crate::fem::Model::from((get_block(), get_reference_coordinates_block()))
                             .root(
                             &crate::fem::block::test::velocity_conditions(&a, &b),
+                            &(),
                             $integrator::default(),
                             &[Quantity::new(0.0), Quantity::new(1.0)],
                             NewtonRaphson::default(),

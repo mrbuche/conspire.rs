@@ -1,11 +1,15 @@
 //! Virtual element methods.
 
 pub mod block;
+pub mod volume {
+    pub use crate::domain::volume::{NodalVolumeElements, NodalVolumes};
+}
 pub mod boundary {
     pub use crate::domain::boundary::{
-        BoundaryConditions, Component, Concentration, Condition, Constrain, ConstrainAt, Coupled,
-        Direct, Displacement, Enforcement, Field, Fixed, Layout, Left, NodalDof, NodalState,
-        Potential, Prescribable, Prescribed, Right, Rows, Solid, SolidRate, SolidThermal, Static,
+        BoundaryConditions, Component, Concentration, Condition, Conservative, ConservativeAt,
+        Constrain, ConstrainAt, Coupled, Direct, Displacement, Enforcement, Field, Fixed, Layout,
+        Left, Load, LoadAt, LoadStiffness, LoadStiffnessAt, Loads, NodalDof, NodalState, Potential,
+        PowerAt, Prescribable, Prescribed, Right, Rows, Solid, SolidRate, SolidThermal, Static,
         Temperature, Timed, Velocity,
     };
 }
@@ -18,6 +22,7 @@ pub mod chemical {
     }
 }
 pub mod diffusion {
+    pub use crate::domain::diffusion::loads::NodalSource;
     pub use crate::domain::diffusion::{
         DiffusionElements, NodalFields, NodalForces, NodalStiffnesses,
     };

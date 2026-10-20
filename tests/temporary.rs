@@ -7445,7 +7445,7 @@ fn temporary_hyperelastic() -> Result<(), AssertionError> {
     ));
     let fem_model: Model<Block<_, LinearTetrahedron<G>, _, _, _, _>, 3> =
         (mesh, model.clone()).try_into()?;
-    let solution = fem_model.minimize(&conditions, NewtonRaphson::default())?;
+    let solution = fem_model.minimize(&conditions, &(), NewtonRaphson::default())?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
     println!("Verifying...");
@@ -7562,6 +7562,7 @@ fn temporary_elastic_viscoplastic() -> Result<(), AssertionError> {
             NewtonRaphson::default(),
             &times,
             &conditions_temporary_elastic_viscoplastic(),
+            &(),
         )?;
     println!("Done ({:?}).", time.elapsed());
     time = std::time::Instant::now();
@@ -7669,6 +7670,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive_minimize() -> Result<(), Ass
             NewtonRaphson::default(),
             &time,
             &conditions_temporary_elastic_viscoplastic(),
+            &(),
         )
         .unwrap();
     // one load window only: a single [t_0, t_end] adaptive step across the
@@ -7683,6 +7685,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive_minimize() -> Result<(), Ass
             NewtonRaphson::default(),
             &span,
             &conditions_temporary_elastic_viscoplastic(),
+            &(),
             1e-6,
             1e-6,
         )
@@ -7748,6 +7751,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionErr
             NewtonRaphson::default(),
             &time,
             &conditions_temporary_elastic_viscoplastic(),
+            &(),
         )
         .unwrap();
     let reference = reference_coordinates_history.iter().last().unwrap().clone();
@@ -7757,6 +7761,7 @@ fn temporary_elastic_viscoplastic_rkmk_dae_adaptive() -> Result<(), AssertionErr
             NewtonRaphson::default(),
             &span,
             &conditions_temporary_elastic_viscoplastic(),
+            &(),
             1e-6,
             1e-6,
         )
@@ -7860,6 +7865,7 @@ fn temporary_hyperviscoelastic() -> Result<(), AssertionError> {
         (mesh, model.clone()).try_into()?;
     let (times, coordinates_history, velocities_history) = fem_model.minimize(
         &conditions,
+        &(),
         DormandPrince {
             abs_tol: tol,
             rel_tol: tol,
@@ -7965,6 +7971,7 @@ fn temporary_thermal_conduction() -> Result<(), AssertionError> {
         (mesh, model.clone()).try_into()?;
     let solution = fem_model.minimize(
         &conditions,
+        &(),
         NewtonRaphson {
             max_steps: 1,
             linear_solver: Direct,
@@ -8277,6 +8284,7 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
     let (coordinates_history, state_history) = fem_model.root(
         NewtonRaphson::default(),
         &conditions,
+        &(),
         &times[1..],
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
@@ -8403,6 +8411,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
     let reference = fem_model.root(
         NewtonRaphson::default(),
         &conditions,
+        &(),
         &times[1..],
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
@@ -8410,6 +8419,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
         let solution = fem_model.root(
             NewtonRaphson::default(),
             &conditions,
+            &(),
             &times[1..],
             SolveStrategy::Monolithic { elimination },
         )?;
@@ -8548,6 +8558,7 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
     let reference = fem_model.root(
         NewtonRaphson::default(),
         &conditions,
+        &(),
         &times[1..],
         SolveStrategy::Condensed(NewtonRaphson::default()),
     )?;
@@ -8555,6 +8566,7 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
         let solution = fem_model.root(
             NewtonRaphson::default(),
             &conditions,
+            &(),
             &times[1..],
             SolveStrategy::Monolithic { elimination },
         )?;

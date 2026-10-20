@@ -7,13 +7,13 @@ use crate::{
     domain::{
         ElementModelError, Model, NodalAccelerations, NodalAccelerationsHistory, NodalCoordinates,
         NodalCoordinatesHistory, NodalVelocities, NodalVelocitiesHistory, Stepping,
-        boundary::{ConstrainAt, SolidThermal},
-        solid::{
-            NodalForcesSolid,
-            mass::{InverseMass, MassMatrix, NodalLumpedMasses},
+        boundary::{ConstrainAt, LoadAt, SolidThermal},
+        multiphysics::solid_thermal::{
+            NodalForcesSolidThermal, NodalStatesSolidThermal, join_states,
         },
+        solid::mass::{InverseMass, MassMatrix, NodalLumpedMasses},
         thermal::{
-            NodalForcesThermal, NodalTemperatures,
+            NodalTemperatures,
             capacity::{
                 HeatCapacityMatrix, InverseHeatCapacity, NodalLumpedHeatCapacities,
                 NodalTemperatureRates,
@@ -83,8 +83,8 @@ pub trait ThermoelasticThermalConductionDynamics {
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
         nodal_temperatures: &NodalTemperatures,
-        external_forces: &NodalForcesSolid<3>,
-        external_heating: &NodalForcesThermal,
+        time: Quantity<Time>,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         masses: &impl InverseMass<3>,
         capacities: &impl InverseHeatCapacity,
     ) -> Result<(NodalAccelerations<3>, NodalTemperatureRates), ElementModelError>;
@@ -109,8 +109,7 @@ pub trait ThermoelasticThermalConductionDynamics {
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         initial_temperatures: NodalTemperatures,
-        external_forces: &NodalForcesSolid<3>,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         masses: &impl MassMatrix<3>,
         capacities: &impl HeatCapacityMatrix,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -142,8 +141,7 @@ pub trait ThermoelasticThermalConductionDynamics {
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalVelocities<3>),
         initial_temperatures: NodalTemperatures,
-        external_forces: &NodalForcesSolid<3>,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         masses: &NodalLumpedMasses,
         capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -161,18 +159,25 @@ where
         nodal_coordinates: &NodalCoordinates<3>,
         nodal_velocities: &NodalVelocities<3>,
         nodal_temperatures: &NodalTemperatures,
-        external_forces: &NodalForcesSolid<3>,
-        external_heating: &NodalForcesThermal,
+        time: Quantity<Time>,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         masses: &impl InverseMass<3>,
         capacities: &impl InverseHeatCapacity,
     ) -> Result<(NodalAccelerations<3>, NodalTemperatureRates), ElementModelError> {
-        let nodal_forces =
+        let mut nodal_forces =
             self.nodal_forces(nodal_coordinates, nodal_velocities, nodal_temperatures)?;
-        let internal_forces = nodal_forces.iter().map(|force| force.0.clone()).collect();
-        let internal_heating = nodal_forces.iter().map(|force| force.1).collect();
+        applied_loads
+            .subtract_at(
+                time,
+                &join_states(nodal_coordinates, nodal_temperatures),
+                &mut nodal_forces,
+            )
+            .map_err(|error| ElementModelError::upstream(error, "the applied loads"))?;
+        let unbalanced_forces = nodal_forces.iter().map(|force| force.0.clone()).collect();
+        let unbalanced_heating = nodal_forces.iter().map(|force| force.1).collect();
         Ok((
-            masses.nodal_accelerations(external_forces, &internal_forces),
-            capacities.nodal_temperature_rates(external_heating, &internal_heating),
+            masses.nodal_accelerations(&unbalanced_forces),
+            capacities.nodal_temperature_rates(&unbalanced_heating),
         ))
     }
     fn integrate(
@@ -189,8 +194,7 @@ where
         time: &[Quantity<Time>],
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         mut initial_temperatures: NodalTemperatures,
-        external_forces: &NodalForcesSolid<3>,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         masses: &impl MassMatrix<3>,
         capacities: &impl HeatCapacityMatrix,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -222,8 +226,8 @@ where
                         &coordinates,
                         velocities,
                         &temperatures,
-                        external_forces,
-                        external_heating,
+                        time,
+                        applied_loads,
                         &masses,
                         &capacities,
                     )
@@ -260,8 +264,7 @@ where
         time: &[Quantity<Time>],
         (mut initial_coordinates, initial_velocities): (NodalCoordinates<3>, NodalVelocities<3>),
         mut initial_temperatures: NodalTemperatures,
-        external_forces: &NodalForcesSolid<3>,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>,
         masses: &NodalLumpedMasses,
         capacities: &NodalLumpedHeatCapacities,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
@@ -307,8 +310,8 @@ where
                         &coordinates,
                         velocities,
                         &temperatures,
-                        external_forces,
-                        external_heating,
+                        time,
+                        applied_loads,
                         &masses,
                         &capacities,
                     )

@@ -46,7 +46,7 @@ fn get_connectivity() -> Vec<[usize; N]> {
 }
 
 pub fn get_coordinates_block() -> NodalCoordinates<3> {
-    NodalCoordinates::from([
+    [
         [0.48219277, 0.03953903, 0.54126292],
         [-0.53252101, 0.02114387, 0.48863541],
         [0.11774076, 0.00839197, 0.46116171],
@@ -63,15 +63,16 @@ pub fn get_coordinates_block() -> NodalCoordinates<3> {
         [-0.20109496, 0.04358951, 0.18518477],
         [0.12802234, -0.04216153, -0.15167375],
         [-0.21027768, -0.02122073, -0.14090996],
-    ])
+    ]
+    .into()
 }
 
 fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
-    ElementNodalReferenceCoordinates::from([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]].into()
 }
 
 pub fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
-    NodalReferenceCoordinates::from([
+    [
         [0.5, 0.0, 0.5],
         [-0.5, 0.0, 0.5],
         [1.0 / 6.0, 0.0, 0.5],
@@ -88,11 +89,12 @@ pub fn get_reference_coordinates_block() -> NodalReferenceCoordinates<3> {
         [-1.0 / 6.0, 0.0, 1.0 / 6.0],
         [1.0 / 6.0, 0.0, -1.0 / 6.0],
         [-1.0 / 6.0, 0.0, -1.0 / 6.0],
-    ])
+    ]
+    .into()
 }
 
 pub fn get_velocities_block() -> NodalVelocities<3> {
-    NodalVelocities::from([
+    [
         [-0.08580606, -0.03719631, -0.06520447],
         [0.07911747, 0.05345331, -0.01990356],
         [-0.06609921, -0.05301467, 0.07700232],
@@ -109,7 +111,8 @@ pub fn get_velocities_block() -> NodalVelocities<3> {
         [0.08723950, 0.07024736, 0.04183591],
         [-0.00572455, 0.06721516, -0.00456959],
         [-0.03502294, 0.03342112, 0.00639822],
-    ])
+    ]
+    .into()
 }
 
 pub fn equality_constraint() -> (
@@ -254,3 +257,20 @@ pub fn applied_velocities() -> (crate::math::Matrix, crate::math::Vector) {
 
 test_surface_finite_element!(Triangle);
 test_surface_finite_element_block!(Triangle);
+
+mod traction_forces {
+    use super::{N, Triangle};
+    use crate::{
+        fem::block::element::surface::SurfaceFiniteElement,
+        math::assert::{Assert, AssertionError},
+    };
+
+    #[test]
+    fn share_the_traction_of_the_area_among_the_nodes() -> Result<(), AssertionError> {
+        let forces = Triangle::traction_forces(
+            &[[0.0, 0.0, 0.0], [2.0, 0.0, 0.0], [0.0, 3.0, 0.0]].into(),
+            &[1.0, 2.0, 3.0].into(),
+        );
+        Assert::default().eq_within_tols(&forces, &[[1.0, 2.0, 3.0]; N].into())
+    }
+}

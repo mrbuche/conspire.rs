@@ -1,6 +1,6 @@
 use crate::{
     cbm::{
-        ElasticElements, ElasticExplicitDynamics, Model, NodalCoordinates, NodalForcesSolid,
+        ElasticElements, ElasticExplicitDynamics, Model, NodalCoordinates,
         NodalReferenceCoordinates, NodalVelocities, block::Block,
     },
     constitutive::solid::hyperelastic::NeoHookean,
@@ -81,7 +81,8 @@ fn the_patch_bound_is_not_longer_than_the_time_scale_of_the_assembled_system() {
 }
 
 #[test]
-fn the_bound_scales_with_the_square_root_of_the_density() {
+fn the_bound_scales_with_the_square_root_of_the_density()
+-> Result<(), crate::math::assert::AssertionError> {
     let reference = NodalReferenceCoordinates::from(COORDINATES);
     let coordinates = NodalCoordinates::from(COORDINATES);
     let scaled = |density: Quantity<Density>| {
@@ -99,7 +100,12 @@ fn the_bound_scales_with_the_square_root_of_the_density() {
         .in_seconds()
     };
     let ratio = scaled(DENSITY * 4.0) / scaled(DENSITY);
-    assert!((ratio - 2.0).abs() < 1e-6, "{ratio}");
+    crate::math::assert::Assert {
+        abs_tol: 1e-6,
+        rel_tol: 1e-6,
+        ..Default::default()
+    }
+    .eq_within_tols(ratio, &2.0)
 }
 
 #[test]
@@ -144,7 +150,7 @@ fn a_bounded_integration_runs_below_the_limit_and_errors_above_it() {
                 NodalCoordinates::from(COORDINATES),
                 NodalVelocities::from(COORDINATES.map(|_| [0.0; 3])),
             ),
-            &NodalForcesSolid::zero(COORDINATES.len()),
+            &(),
             &masses,
             &fixed_dofs(&[]),
         )

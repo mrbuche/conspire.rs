@@ -29,7 +29,7 @@ impl LumpedHeatCapacityVirtualElement for Element {
         capacity: Quantity<VolumetricHeatCapacity>,
         nodal_reference_coordinates: &NodalReferenceCoordinates,
     ) -> ElementNodalLumpedHeatCapacities {
-        let total = capacity * self.integration_weights()[0];
+        let total = capacity * self.volume();
         lumping_fractions(self, nodal_reference_coordinates)
             .into_iter()
             .map(|fraction| total * fraction)

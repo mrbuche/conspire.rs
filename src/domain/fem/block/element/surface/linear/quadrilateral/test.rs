@@ -42,13 +42,38 @@ fn get_connectivity() -> Vec<[usize; N]> {
 }
 
 fn reference_coordinates() -> ElementNodalReferenceCoordinates<N> {
-    ElementNodalReferenceCoordinates::from([
+    [
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [1.0, 1.0, 0.0],
         [0.0, 1.0, 0.0],
-    ])
+    ]
+    .into()
 }
 
 test_surface_finite_element!(Quadrilateral);
 test_surface_finite_element_block!(Quadrilateral);
+
+mod traction_forces {
+    use super::{N, Quadrilateral};
+    use crate::{
+        fem::block::element::surface::SurfaceFiniteElement,
+        math::assert::{Assert, AssertionError},
+    };
+
+    #[test]
+    fn share_the_traction_of_the_area_among_the_nodes() -> Result<(), AssertionError> {
+        let forces = Quadrilateral::traction_forces(
+            &[
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 1.0],
+                [2.0, 3.0, 1.0],
+                [0.0, 3.0, 0.0],
+            ]
+            .into(),
+            &[1.0, 2.0, 3.0].into(),
+        );
+        let share = 45.0_f64.sqrt() / 4.0;
+        Assert::default().eq_within_tols(&forces, &[[share, 2.0 * share, 3.0 * share]; N].into())
+    }
+}

@@ -45,7 +45,7 @@ mod lumped_masses {
         let external = NodalForcesSolid::from([[7.0, 0.0, 0.0], [0.0, 0.0, 6.0]]);
         let internal = NodalForcesSolid::from([[1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]);
         Assert::default().eq_within_tols(
-            lumped().nodal_accelerations(&external, &internal),
+            lumped().nodal_accelerations(&(&internal - &external)),
             NodalAccelerations::from([[2.0, 0.0, 0.0], [0.0, 0.0, 3.0]]),
         )
     }
@@ -84,7 +84,7 @@ mod consistent_masses {
             masses
                 .factor()
                 .unwrap()
-                .nodal_accelerations(&forces, &NodalForcesSolid::zero(2)),
+                .nodal_accelerations(&(&NodalForcesSolid::zero(2) - &forces)),
             accelerations,
         )
     }

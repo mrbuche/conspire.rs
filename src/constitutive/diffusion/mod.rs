@@ -1,5 +1,7 @@
 //! Diffusion constitutive models.
 
+pub mod surface;
+
 use std::fmt::Debug;
 
 use crate::{

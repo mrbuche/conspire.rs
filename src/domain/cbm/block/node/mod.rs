@@ -68,6 +68,9 @@ pub(crate) struct Node {
 }
 
 impl Node {
+    pub(crate) fn volume(&self) -> Quantity<Volume> {
+        self.volume
+    }
     pub(crate) fn neighbors(&self) -> &[usize] {
         &self.neighbors
     }

@@ -120,10 +120,13 @@ fn ends(
 }
 
 fn near(found: f64, expected: f64) {
-    assert!(
-        (found - expected).abs() <= NEAR * expected.abs().max(1.0),
-        "{found} is not within {NEAR} of {expected}"
-    )
+    crate::math::assert::Assert {
+        abs_tol: NEAR * expected.abs().max(1.0),
+        rel_tol: NEAR,
+        ..Default::default()
+    }
+    .eq_within_tols(found, &expected)
+    .unwrap()
 }
 
 fn molar_flow(forces: &NodalMolarFlowRates, nodes: &[usize]) -> f64 {
@@ -141,7 +144,7 @@ where
 {
     <Model<Bl, 3> as Root<NodalMolarFlowRates, NodalVolumetricFlowRates, NodalConcentrations>>::root(
         model,
-        &constraint,
+        &constraint, &(),
         NewtonRaphson::default(),
     )
     .unwrap()
@@ -202,7 +205,7 @@ mod bar {
             Quantity<MolarFlowRateConcentration>,
             NodalMolarFlowRates,
             NodalConcentrations,
-        >>::minimize(&model, &constraint, NewtonRaphson::default())
+        >>::minimize(&model, &constraint, &(), NewtonRaphson::default())
         .unwrap();
         (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
     }

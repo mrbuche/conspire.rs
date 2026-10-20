@@ -24,10 +24,10 @@ use super::{
     Current, CurrentDensity, CurrentPerVolume, Density, Diffusivity, Dimensionless,
     ElectricDisplacement, ElectricField, ElectricPotential, ElectricalConductivity, Energy,
     Entropy, Force, ForcePerLength, Length, Mass, MolarEnergy, MolarEntropy, MolarFlowRate,
-    MolarFlux, Permeability, Permittivity, PowerPerLengthTemperature, Rate, ReciprocalAmount,
-    ReciprocalTemperature, ReciprocalTemperatureSquared, SpecificEnergy, SpecificEntropy, Stress,
-    StressPerLength, Temperature, Time, TimePerTemperature, Velocity, Viscosity, Volume,
-    VolumetricFlowRate,
+    MolarFlux, Permeability, Permittivity, PowerPerAreaTemperatureFourth,
+    PowerPerLengthTemperature, Rate, ReciprocalAmount, ReciprocalTemperature,
+    ReciprocalTemperatureSquared, SpecificEnergy, SpecificEntropy, Stress, StressPerLength,
+    Temperature, Time, TimePerTemperature, Velocity, Viscosity, Volume, VolumetricFlowRate,
 };
 use crate::math::{Quantity, TensorRank0};
 
@@ -316,6 +316,10 @@ scales!(
         pascals_per_meter / in_pascals_per_meter = 1.0, "pascals per metre",
         megapascals_per_millimeter / in_megapascals_per_millimeter = 1e9,
             "megapascals per millimetre",
+    }
+    PowerPerAreaTemperatureFourth {
+        watts_per_square_meter_kelvin_fourth / in_watts_per_square_meter_kelvin_fourth = 1.0,
+            "watts per square metre kelvin to the fourth",
     }
     PowerPerLengthTemperature {
         watts_per_meter_kelvin / in_watts_per_meter_kelvin = 1.0, "watts per metre kelvin",

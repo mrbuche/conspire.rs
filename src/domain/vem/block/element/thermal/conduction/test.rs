@@ -171,7 +171,13 @@ fn stiffnesses(element: &Element, values: &[Scalar]) -> Vec<Vec<Scalar>> {
 }
 
 fn assert_close(a: Scalar, b: Scalar, tolerance: Scalar) {
-    assert!((a - b).abs() <= tolerance, "{a} != {b}");
+    crate::math::assert::Assert {
+        abs_tol: tolerance,
+        rel_tol: tolerance,
+        ..Default::default()
+    }
+    .eq_within_tols(a, &b)
+    .unwrap()
 }
 
 #[test]
@@ -311,5 +317,5 @@ fn box_with_no_stabilization_has_no_hourglass_energy() {
     found
         .iter()
         .for_each(|row| assert_close(row.iter().zip(mode).map(|(&k, b)| k * b).sum(), 0.0, 1e-12));
-    assert!(element.integration_weights()[0].value() > 0.0)
+    assert!(element.volume().value() > 0.0)
 }

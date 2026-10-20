@@ -15,9 +15,9 @@ use crate::{
                 planar::{Quadrilateral, Triangle},
             },
         },
-        boundary::{BoundaryConditions, ConstrainAt, Displacement, Enforcement, Solid},
+        boundary::{BoundaryConditions, ConstrainAt, Displacement, Enforcement, Loads, Solid},
         nodal_coordinates,
-        solid::{elastic::ElasticElements, elastic_viscoplastic::RootRkmkDae},
+        solid::{NodalForcesSolid, elastic::ElasticElements, elastic_viscoplastic::RootRkmkDae},
     },
     geometry::{
         Coordinates,
@@ -248,6 +248,7 @@ fn split_blocks_root() -> Result<(), AssertionError> {
         &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
             coordinates()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     let (a, b) = constraint();
@@ -255,6 +256,7 @@ fn split_blocks_root() -> Result<(), AssertionError> {
         &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
             coordinates()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     Assert::default().eq_within_tols(&solution, &solution_split)
@@ -354,14 +356,67 @@ fn mixed_viscoplastic_elastic_root() -> Result<(), AssertionError> {
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
         &conditions(),
+        &(),
     )?;
     let (a, b) = constraint();
     let reference = split_blocks_model()?.root(
         &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
             coordinates()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
+    Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
+}
+
+#[test]
+fn mixed_viscoplastic_elastic_root_with_a_force() -> Result<(), AssertionError> {
+    let (connectivity_1, connectivity_2) = split_connectivities();
+    let mesh = Mesh::from((
+        vec![
+            Connectivity::Tetrahedral(connectivity_1.into()),
+            Connectivity::Tetrahedral(connectivity_2.into()),
+        ],
+        coordinates(),
+    ));
+    let model: Model<ElasticViscoplasticAndElastic<TetViscoplastic, Tet>, 3> =
+        (mesh, (viscoplastic_model(), constitutive_model()))
+            .try_into()
+            .map_err(|error: String| AssertionError { message: error })?;
+    let mut forces = [[0.0; 3]; D];
+    forces[8][2] = 0.05;
+    let loads = Loads::<Solid<3>>::new()
+        .nodal_forces(
+            &nodal_coordinates(coordinates()),
+            NodalForcesSolid::from(forces),
+        )
+        .map_err(|message| AssertionError { message })?;
+    let (_, coordinates_history, _) = RootRkmkDae::root_rkmk_dae::<BogackiShampineTableau>(
+        &model,
+        NewtonRaphson::default(),
+        &[Quantity::new(0.0), Quantity::new(1.0)],
+        &conditions(),
+        &loads,
+    )?;
+    let (a, b) = constraint();
+    let reference = split_blocks_model()?.root(
+        &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
+            coordinates()[node][component].value()
+        }),
+        &loads,
+        NewtonRaphson::default(),
+    )?;
+    let unloaded = split_blocks_model()?.root(
+        &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
+            coordinates()[node][component].value()
+        }),
+        &(),
+        NewtonRaphson::default(),
+    )?;
+    assert!(
+        (reference[8][2].value() - unloaded[8][2].value()).abs() > 1e-3,
+        "the force should move the node it acts on"
+    );
     Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
 }
 
@@ -385,12 +440,14 @@ fn displacements_that_are_a_function_of_time_are_held_from_the_reference_in_ever
         NewtonRaphson::default(),
         &[0.0, 0.25, 0.5, 1.0].map(Quantity::<Time>::new),
         &conditions(),
+        &(),
     )?;
     let (a, b) = constraint();
     let reference = split_blocks_model()?.root(
         &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
             coordinates()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
@@ -415,12 +472,14 @@ fn paired_viscoplastic_blocks_root() -> Result<(), AssertionError> {
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
         &conditions(),
+        &(),
     )?;
     let (a, b) = constraint();
     let reference = split_blocks_model()?.root(
         &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
             coordinates()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     Assert::default().eq_within_tols(coordinates_history.iter().last().unwrap(), &reference)
@@ -460,6 +519,7 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive() -> Result<(), AssertionEr
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
         &conditions(),
+        &(),
     )?;
     let reference = reference_coordinates_history.iter().last().unwrap().clone();
     let (times, coordinates_history, state_variables_history) =
@@ -468,6 +528,7 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive() -> Result<(), AssertionEr
             NewtonRaphson::default(),
             &[Quantity::new(0.0), Quantity::new(1.0)],
             &conditions(),
+            &(),
             1e-6,
             1e-6,
         )?;
@@ -524,6 +585,7 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive_dense_output() -> Result<()
         NewtonRaphson::default(),
         &[Quantity::new(0.0), Quantity::new(1.0)],
         &conditions(),
+        &(),
     )?;
     let reference = reference_coordinates_history.iter().last().unwrap().clone();
     let requested: Vec<Quantity<Time>> = (0..=4).map(|i| Quantity::new(0.25 * i as f64)).collect();
@@ -533,6 +595,7 @@ fn paired_viscoplastic_blocks_root_rkmk_dae_adaptive_dense_output() -> Result<()
             NewtonRaphson::default(),
             &requested,
             &conditions(),
+            &(),
             1e-6,
             1e-6,
         )?;
@@ -579,6 +642,7 @@ fn heterogeneous_blocks_root() -> Result<(), AssertionError> {
         &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
             coordinates()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     assert!((solution[0][0].value() - 1.05).abs() < 1e-10);
@@ -640,6 +704,7 @@ fn planar_patch_root() -> Result<(), AssertionError> {
         &crate::fem::block::test::displacement_conditions_2(&a, &b, |node, component| {
             coordinates_2d()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     let expected: NodalCoordinates<2> = coordinates
@@ -678,6 +743,7 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
         &crate::fem::block::test::displacement_conditions_2(&a, &b, |node, component| {
             coordinates_2d()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     let coordinates: NodalReferenceCoordinates<3> = (0..2)
@@ -723,6 +789,7 @@ fn planar_vs_wedge_root() -> Result<(), AssertionError> {
         &crate::fem::block::test::displacement_conditions_3(&a, &b, |node, component| {
             coordinates[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     let layer_0: NodalCoordinates<2> = solution_wedge
@@ -778,6 +845,7 @@ fn planar_quad_patch_root() -> Result<(), AssertionError> {
         &crate::fem::block::test::displacement_conditions_2(&a, &b, |node, component| {
             coordinates_2d()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     let expected: NodalCoordinates<2> = coordinates
@@ -828,6 +896,7 @@ fn planar_minimize_vs_root() -> Result<(), AssertionError> {
         &crate::fem::block::test::displacement_conditions_2(&a, &b, |node, component| {
             coordinates_2d()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     let (a, b) = planar_constraint();
@@ -835,6 +904,7 @@ fn planar_minimize_vs_root() -> Result<(), AssertionError> {
         &crate::fem::block::test::displacement_conditions_2(&a, &b, |node, component| {
             coordinates_2d()[node][component].value()
         }),
+        &(),
         NewtonRaphson::default(),
     )?;
     Assert::default().eq_within_tols(&solution_root, &solution_minimize)

@@ -7,15 +7,14 @@ use crate::{
         ElementModel, Model, NodalCoordinates, NodalCoordinatesHistory, NodalVelocities,
         NodalVelocitiesHistory, Stepping,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
-        boundary::{ConstrainAt, SolidThermal},
+        boundary::{ConstrainAt, LoadAt, LoadStiffnessAt, SolidThermal},
         multiphysics::solid_thermal::{
             NodalForcesSolidThermal, NodalRatesSolidThermal, NodalRatesSolidThermalHistory,
             NodalStatesSolidThermal, NodalStatesSolidThermalHistory, NodalStiffnessesSolidThermal,
             join_rates, join_states, split_rates, split_states,
         },
-        solid::NodalForcesSolid,
         thermal::{
-            NodalForcesThermal, NodalTemperatures,
+            NodalTemperatures,
             capacity::{InertialHeatCapacity, InverseHeatCapacity},
             transient::{NodalTemperatureRatesHistory, NodalTemperaturesHistory},
         },
@@ -67,8 +66,10 @@ pub trait ThermoelasticThermalConductionQuasistatic {
         >,
         time: &[Quantity<Time>],
         initial_state: (NodalCoordinates<3>, NodalTemperatures),
-        external_forces: &NodalForcesSolid<3>,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &(
+             impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
+             + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
+         ),
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError>;
@@ -97,8 +98,10 @@ where
             NodalCoordinates<3>,
             NodalTemperatures,
         ),
-        external_forces: &NodalForcesSolid<3>,
-        external_heating: &NodalForcesThermal,
+        applied_loads: &(
+             impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal>
+             + LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal>
+         ),
         capacities: &impl InertialHeatCapacity,
         conditions: &impl ConstrainAt<SolidThermal<3>>,
     ) -> Result<Solution, IntegrationError> {
@@ -122,40 +125,32 @@ where
         let sparse =
             solver_from_neighbors(&neighbors, &motion.constraint_at(initial_time), 4, false);
         let (times, states, rates) = integrator.integrate(
-            |_, states: &NodalStatesSolidThermal| {
+            |time, states: &NodalStatesSolidThermal| {
                 let (coordinates, temperatures) = split_states(states);
                 let at_rest = NodalVelocities::zero(coordinates.len());
-                let internal_heating = self
+                let mut internal = self
                     .nodal_forces(&coordinates, &at_rest, &temperatures)
-                    .map_err(|error| error.to_string())?
-                    .iter()
-                    .map(|force| force.1)
-                    .collect();
-                let temperature_rates =
-                    inverse.nodal_temperature_rates(external_heating, &internal_heating);
+                    .map_err(|error| error.to_string())?;
+                applied_loads.subtract_at(time, states, &mut internal)?;
+                let unbalanced_heating = internal.iter().map(|force| force.1).collect();
+                let temperature_rates = inverse.nodal_temperature_rates(&unbalanced_heating);
                 Ok(join_rates(at_rest, temperature_rates))
             },
-            |_, states: &NodalStatesSolidThermal, rates: &NodalRatesSolidThermal| {
+            |time, states: &NodalStatesSolidThermal, rates: &NodalRatesSolidThermal| {
                 let (coordinates, temperatures) = split_states(states);
                 let (velocities, temperature_rates) = split_rates(rates);
-                let internal = self
+                let mut internal = self
                     .nodal_forces(&coordinates, &velocities, &temperatures)
                     .map_err(|error| error.to_string())?;
+                applied_loads.subtract_at(time, states, &mut internal)?;
                 let capacitive_heating = capacities.capacitive_heating(&temperature_rates);
                 Ok(internal
                     .into_iter()
                     .zip(capacitive_heating)
-                    .zip(external_forces)
-                    .zip(external_heating)
-                    .map(|(((internal, capacitive), external_force), external)| {
-                        TensorTuple(
-                            internal.0 - external_force,
-                            capacitive + internal.1 - *external,
-                        )
-                    })
+                    .map(|(internal, capacitive)| TensorTuple(internal.0, capacitive + internal.1))
                     .collect())
             },
-            |_,
+            |time,
              states: &NodalStatesSolidThermal,
              rates: &NodalRatesSolidThermal,
              dt: Quantity<Time>| {
@@ -170,6 +165,7 @@ where
                     Quantity::<Rate>::new(1.0 / dt.value()),
                 );
                 add_capacities(&mut tangent, capacities, 1.0 / dt.value());
+                applied_loads.add_stiffness_at(time, states, &mut tangent)?;
                 Ok(tangent)
             },
             solver,

@@ -71,6 +71,7 @@ where
     fn faces_nodes(&self) -> &[Vec<usize>];
     fn gradient_vectors(&self) -> &GradientVectors;
     fn integration_weights(&self) -> &IntegrationWeights;
+    fn volume(&self) -> Quantity<Volume>;
     fn stabilization(&self) -> Scalar;
     fn tetrahedra(&self) -> &[Tetrahedron<1>];
     fn tetrahedra_coordinates<U>(
@@ -113,6 +114,9 @@ impl VirtualElement for Element {
     }
     fn stabilization(&self) -> Scalar {
         self.stabilization
+    }
+    fn volume(&self) -> Quantity<Volume> {
+        self.integration_weights[0]
     }
     fn tetrahedra(&self) -> &[Tetrahedron<1>] {
         &self.tetrahedra

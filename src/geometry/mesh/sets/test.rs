@@ -78,3 +78,48 @@ fn restrict_keeps_label_and_name() {
 fn restrict_to_nothing() {
     assert!(SideSet::new(vec![(0, 1)]).restrict(|_| None).is_none());
 }
+
+#[test]
+fn a_side_set_has_no_faces_until_it_is_resolved() {
+    assert!(SideSet::new(vec![(0, 1)]).faces().is_empty());
+}
+
+#[test]
+fn a_side_set_has_the_face_of_each_side() {
+    let set = SideSet::new(vec![(0, 1), (2, 3)]).with_faces(vec![vec![1, 2, 3], vec![4, 5, 6]]);
+    assert_eq!(set.sides(), [(0, 1), (2, 3)]);
+    assert_eq!(set.faces(), [vec![1, 2, 3], vec![4, 5, 6]]);
+}
+
+#[test]
+#[should_panic(expected = "exactly one face for each side")]
+fn a_side_set_needs_a_face_for_every_side() {
+    SideSet::new(vec![(0, 1), (2, 3)]).with_faces(vec![vec![1, 2, 3]]);
+}
+
+#[test]
+fn restricting_a_side_set_keeps_the_faces_of_the_sides_it_keeps() {
+    let set = SideSet::new(vec![(0, 1), (2, 3), (4, 5)])
+        .with_label(6)
+        .with_faces(vec![vec![1, 2, 3], vec![4, 5, 6], vec![7, 8, 9]]);
+    let kept = set
+        .restrict(|(element, ordinal)| (element != 2).then_some((element + 10, ordinal)))
+        .unwrap();
+    assert_eq!(kept.sides(), [(10, 1), (14, 5)]);
+    assert_eq!(kept.faces(), [vec![1, 2, 3], vec![7, 8, 9]]);
+    assert_eq!(kept.label(), Some(6));
+}
+
+#[test]
+fn restricting_a_side_set_without_faces_leaves_it_without() {
+    let kept = SideSet::new(vec![(0, 1), (2, 3)]).restrict(Some).unwrap();
+    assert!(kept.faces().is_empty());
+}
+
+#[test]
+fn side_sets_are_equal_whatever_their_faces() {
+    let set = SideSet::new(vec![(0, 1)]).with_name("a");
+    assert_eq!(set, set.clone().with_faces(vec![vec![1, 2, 3]]));
+    assert_ne!(set, SideSet::new(vec![(0, 2)]).with_name("a"));
+    assert_ne!(set, SideSet::new(vec![(0, 1)]).with_name("b"));
+}

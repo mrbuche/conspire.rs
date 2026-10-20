@@ -117,10 +117,13 @@ fn electrodes(
 }
 
 fn near(found: f64, expected: f64) {
-    assert!(
-        (found - expected).abs() <= NEAR * expected.abs().max(1.0),
-        "{found} is not within {NEAR} of {expected}"
-    )
+    crate::math::assert::Assert {
+        abs_tol: NEAR * expected.abs().max(1.0),
+        rel_tol: NEAR,
+        ..Default::default()
+    }
+    .eq_within_tols(found, &expected)
+    .unwrap()
 }
 
 fn current(forces: &NodalCurrents, nodes: &[usize]) -> f64 {
@@ -139,6 +142,7 @@ where
     <Model<Bl, 3> as Root<NodalCurrents, NodalConductances, NodalPotentials>>::root(
         model,
         &constraint,
+        &(),
         NewtonRaphson::default(),
     )
     .unwrap()
@@ -198,7 +202,7 @@ mod bar {
             Quantity<Power>,
             NodalCurrents,
             NodalPotentials,
-        >>::minimize(&model, &constraint, NewtonRaphson::default())
+        >>::minimize(&model, &constraint, &(), NewtonRaphson::default())
         .unwrap();
         (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
     }
@@ -227,5 +231,85 @@ mod series {
             potentials[middle].value(),
             conductance * VOLTAGE / (2.5 * WIDTH * DEPTH / GAP),
         )
+    }
+}
+
+mod source {
+    use super::*;
+    use crate::{
+        fem::{
+            boundary::{BoundaryConditions, Constrain, ConstrainAt as _, Field, Loads, Potential},
+            diffusion::NodalSource,
+        },
+        units::{Current, ElectricPotential},
+    };
+    const RISE: f64 = 0.5;
+    fn linear(coordinates: &NodalReferenceCoordinates<3>) -> NodalPotentials {
+        (0..8)
+            .map(|node| {
+                Quantity::<ElectricPotential>::new(RISE * coordinates[node][2].value() / GAP)
+            })
+            .collect()
+    }
+    fn injection(
+        model: &Model<B, 3>,
+        coordinates: &NodalReferenceCoordinates<3>,
+    ) -> Loads<Field<ElectricPotential>, ((), NodalSource<Current>)> {
+        let forces = model.nodal_forces(&linear(coordinates)).unwrap();
+        let sources = (0..8)
+            .map(|node| {
+                if node >= 4 {
+                    forces[node]
+                } else {
+                    Quantity::<Current>::new(0.0)
+                }
+            })
+            .collect::<NodalCurrents>();
+        Loads::<Field<ElectricPotential>>::new().source(sources)
+    }
+    fn grounded() -> impl Constrain<Field<ElectricPotential>> {
+        BoundaryConditions::new().fix_nodes(Potential, 0..4)
+    }
+    #[test]
+    fn the_currents_a_linear_potential_needs_at_the_top_of_a_slab_give_that_potential() {
+        let (model, coordinates) = slab();
+        let potentials =
+            <Model<B, 3> as Root<NodalCurrents, NodalConductances, NodalPotentials>>::root(
+                &model,
+                &grounded(),
+                &injection(&model, &coordinates),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let expected = linear(&coordinates);
+        (0..8).for_each(|node| near(potentials[node].value(), expected[node].value()))
+    }
+    #[test]
+    fn the_injected_current_is_the_conductance_times_the_rise() {
+        let (model, coordinates) = slab();
+        let top = (4..8).collect::<Vec<_>>();
+        let sources = model.nodal_forces(&linear(&coordinates)).unwrap();
+        near(current(&sources, &top), 2.5 * WIDTH * DEPTH / GAP * RISE)
+    }
+    #[test]
+    fn minimizing_the_energy_with_the_source_gives_the_same_potentials() {
+        let (model, coordinates) = slab();
+        let solved =
+            <Model<B, 3> as Root<NodalCurrents, NodalConductances, NodalPotentials>>::root(
+                &model,
+                &grounded(),
+                &injection(&model, &coordinates),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        let minimized =
+            <Model<B, 3> as Minimize<Quantity<Power>, NodalCurrents, NodalPotentials>>::minimize(
+                &model,
+                &grounded(),
+                &injection(&model, &coordinates),
+                NewtonRaphson::default(),
+            )
+            .unwrap();
+        (0..8).for_each(|node| near(minimized[node].value(), solved[node].value()))
     }
 }
