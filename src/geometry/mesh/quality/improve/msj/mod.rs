@@ -138,7 +138,8 @@ impl Mesh<3> {
         let mut best: Option<Coordinates<3>> = None;
         let mut first = true;
         'ratchet: loop {
-            for _ in 0..SWEEPS {
+            let mut stalled = false;
+            for sweep in 0..=SWEEPS {
                 energy.refresh(&surface, &current);
                 let quality = energy.quality(&current);
                 let gap = energy.gap(&current);
@@ -154,6 +155,9 @@ impl Mesh<3> {
                     energy.theta = Self::next(quality);
                     energy.rho *= 2.0;
                     continue 'ratchet;
+                }
+                if stalled || sweep == SWEEPS {
+                    break;
                 }
                 let descent = solver((FIRST * energy.typical()).value())
                     .descend(
@@ -175,7 +179,7 @@ impl Mesh<3> {
                 current = descent.solution;
                 energy.settle(&current);
                 if decrease < STALL {
-                    break;
+                    stalled = true;
                 }
             }
             break;
@@ -402,7 +406,7 @@ fn terms(
             .into();
             scatter(&POINTS[j], &g, &mut slopes)
         }
-        (lowest_j / scale, slopes)
+        (lowest_j / scale - theta * scale * scale, slopes)
     } else if lowest_sj <= theta {
         let area = scale * scale;
         if derivative {
@@ -423,9 +427,9 @@ fn terms(
                 .collect();
             scatter(&POINTS[s], &g, &mut slopes)
         }
-        (lowest_sj * area, slopes)
+        ((lowest_sj - theta) * area, slopes)
     } else {
-        (theta * scale * scale, slopes)
+        (Quantity::default(), slopes)
     }
 }
 
