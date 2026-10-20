@@ -116,11 +116,12 @@ mod patch {
         },
         geometry::mesh::{Connectivity, Mesh, NodeSet, SideSet},
         math::{
+            Quantity,
             assert::{Assert, AssertionError},
             optimize::NewtonRaphson,
         },
         mechanics::Traction,
-        units::{Stress, Time},
+        units::{Length, Stress, Time},
     };
     type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
     const PULL: f64 = 1e-3;
@@ -172,7 +173,7 @@ mod patch {
         ]
     }
     #[test]
-    fn a_pulled_bar_stretches_by_the_traction_over_the_modulus() {
+    fn a_pulled_bar_stretches_by_the_traction_over_the_modulus() -> Result<(), AssertionError> {
         let model = model();
         let [bottom, pinned, along_x, along_y] = supports();
         let conditions = BoundaryConditions::<Solid<3>>::new()
@@ -189,12 +190,19 @@ mod patch {
             .unwrap();
         let youngs = 9.0 * BULK * SHEAR / (3.0 * BULK + SHEAR);
         let stretch = PULL / youngs;
-        (4..8).for_each(|node| {
-            let root = by_root[node][2].value();
-            let minimum = by_minimize[node][2].value();
-            assert!((root - minimum).abs() < 1e-9);
-            assert!((root - 1.0 - stretch).abs() < 1e-3 * stretch);
-        });
+        (4..8).try_for_each(|node| {
+            Assert {
+                abs_tol: 1e-9,
+                rel_tol: 1e-9,
+                ..Default::default()
+            }
+            .eq_within_tols(by_root[node][2], &by_minimize[node][2])?;
+            Assert {
+                abs_tol: 1e-3 * stretch,
+                ..Default::default()
+            }
+            .eq_within_tols(by_root[node][2], &Quantity::<Length>::new(1.0 + stretch))
+        })
     }
     fn at_rest(model: &Model<Hex, 3>) -> NodalCoordinates<3> {
         model.coordinates().clone().into()
@@ -228,7 +236,8 @@ mod patch {
         )
     }
     #[test]
-    fn a_traction_that_depends_on_time_loads_the_forces_of_a_coupled_residual_only() {
+    fn a_traction_that_depends_on_time_loads_the_forces_of_a_coupled_residual_only()
+    -> Result<(), AssertionError> {
         use crate::{
             domain::multiphysics::solid_thermal::{
                 NodalForcesSolidThermal, NodalStatesSolidThermal, join_states,
@@ -258,11 +267,17 @@ mod patch {
         loads
             .subtract_at(Time::seconds(3.0), &states, &mut residual)
             .unwrap();
-        (0..8).for_each(|node| {
+        (0..8).try_for_each(|node| {
             let force = if node < 4 { 0.0 } else { -3.0 / 4.0 };
-            assert!((residual[node].0[2].value() - force).abs() < 1e-12);
-            assert_eq!(residual[node].1.value(), 0.0)
-        });
+            Assert::default().eq_within_tols(
+                residual[node].0[2],
+                &crate::math::Quantity::<crate::units::Force>::new(force),
+            )?;
+            Assert::default().eq_within_tols(
+                residual[node].1,
+                &crate::math::Quantity::<crate::units::Power>::new(0.0),
+            )
+        })
     }
 
     #[test]
@@ -281,7 +296,8 @@ mod patch {
         )
     }
     #[test]
-    fn forces_on_the_nodes_are_the_same_as_the_traction_they_add_up_to() {
+    fn forces_on_the_nodes_are_the_same_as_the_traction_they_add_up_to()
+    -> Result<(), AssertionError> {
         let model = model();
         let [bottom, pinned, along_x, along_y] = supports();
         let conditions = BoundaryConditions::<Solid<3>>::new()
@@ -300,11 +316,7 @@ mod patch {
         let by_traction = model
             .root(&conditions, &loads(&model), NewtonRaphson::default())
             .unwrap();
-        (0..8).for_each(|node| {
-            (0..3).for_each(|i| {
-                assert!((by_nodes[node][i].value() - by_traction[node][i].value()).abs() < 1e-12)
-            })
-        });
+        Assert::default().eq_within_tols(&by_nodes, &by_traction)
     }
     #[test]
     fn forces_need_a_node_each() {
@@ -333,7 +345,11 @@ mod rate {
             },
         },
         geometry::mesh::{Connectivity, Mesh, NodeSet, SideSet},
-        math::{integrate::DormandPrince, optimize::NewtonRaphson},
+        math::{
+            assert::{Assert, AssertionError},
+            integrate::DormandPrince,
+            optimize::NewtonRaphson,
+        },
         mechanics::Traction,
         units::{Stress, Time, Viscosity},
     };
@@ -391,7 +407,8 @@ mod rate {
         ]
     }
     #[test]
-    fn the_rate_potential_and_the_forces_of_a_viscous_solid_agree_under_a_load() {
+    fn the_rate_potential_and_the_forces_of_a_viscous_solid_agree_under_a_load()
+    -> Result<(), AssertionError> {
         let model = model();
         let [bottom, pinned, along_x, along_y] = supports();
         let conditions = BoundaryConditions::<SolidRate<3>>::new()
@@ -428,11 +445,20 @@ mod rate {
             by_forces.into_iter().last().unwrap(),
             by_potential.into_iter().last().unwrap(),
         );
-        (4..8).for_each(|node| {
-            let (a, b) = (forces[node][2].value(), potential[node][2].value());
-            assert!(a > 1.0, "the pulled face should move out: {a}");
-            assert!((a - b).abs() < 1e-6, "node {node}: {a} != {b}");
-        });
+        (4..8).try_for_each(|node| {
+            let (a, b) = (forces[node][2], potential[node][2]);
+            assert!(
+                a.value() > 1.0,
+                "the pulled face should move out: {}",
+                a.value()
+            );
+            Assert {
+                abs_tol: 1e-6,
+                rel_tol: 1e-6,
+                ..Default::default()
+            }
+            .eq_within_tols(a, &b)
+        })
     }
 }
 
@@ -447,7 +473,7 @@ mod body {
             solid::NodalForcesSolid,
         },
         geometry::mesh::{Connectivity, Mesh},
-        math::Tensor,
+        math::assert::{Assert, AssertionError},
         units::{Stress, Time},
     };
     type Hex = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
@@ -482,7 +508,7 @@ mod body {
         loads: &impl LoadAt<NodalCoordinates<3>, NodalForcesSolid<3>>,
         model: &Model<Hex, 3>,
         time: f64,
-    ) -> Vec<[f64; 3]> {
+    ) -> NodalForcesSolid<3> {
         let mut residual = NodalForcesSolid::<3>::zero(8);
         loads
             .subtract_at(
@@ -492,47 +518,50 @@ mod body {
             )
             .unwrap();
         residual
-            .iter()
-            .map(|force| [force[0].value(), force[1].value(), force[2].value()])
-            .collect()
+    }
+    fn forces(z: impl Fn(usize) -> f64) -> NodalForcesSolid<3> {
+        std::array::from_fn::<_, 8, _>(|node| [0.0, 0.0, z(node)]).into()
     }
     fn force(z: f64) -> BodyForce {
         [0.0, 0.0, z].into()
     }
     #[test]
-    fn a_uniform_force_gives_each_node_its_share_of_the_volume() {
+    fn a_uniform_force_gives_each_node_its_share_of_the_volume() -> Result<(), AssertionError> {
         let model = model();
         let loads = Loads::<Solid<3>>::new()
             .body_force(model.coordinates(), &model.nodal_volumes(), &force(-10.0))
             .unwrap();
-        residual_at(&loads, &model, 0.0)
-            .iter()
-            .for_each(|force| assert!((force[2] - 10.0 * 6.0 / 8.0).abs() < 1e-12));
+        Assert::default().eq_within_tols(
+            residual_at(&loads, &model, 0.0),
+            &forces(|_| 10.0 * 6.0 / 8.0),
+        )
     }
     #[test]
-    fn a_force_that_depends_on_position_is_integrated_against_the_shape_functions() {
+    fn a_force_that_depends_on_position_is_integrated_against_the_shape_functions()
+    -> Result<(), AssertionError> {
         let model = model();
         let loads = Loads::<Solid<3>>::new()
             .body_force_field(&model, |coordinate| force(coordinate[2].value()))
             .unwrap();
-        let residual = residual_at(&loads, &model, 0.0);
-        (0..4).for_each(|node| assert!((residual[node][2] + 0.25).abs() < 1e-12));
-        (4..8).for_each(|node| assert!((residual[node][2] + 0.5).abs() < 1e-12));
-        let total = residual.iter().map(|force| force[2]).sum::<f64>();
-        assert!((total + 3.0).abs() < 1e-12);
+        Assert::default().eq_within_tols(
+            residual_at(&loads, &model, 0.0),
+            &forces(|node| if node < 4 { -0.25 } else { -0.5 }),
+        )
     }
     #[test]
-    fn a_force_that_depends_on_time_takes_the_time_it_is_given() {
+    fn a_force_that_depends_on_time_takes_the_time_it_is_given() -> Result<(), AssertionError> {
         let model = model();
         let loads = Loads::<Solid<3>>::new()
             .body_force_with(model.coordinates(), &model.nodal_volumes(), |time| {
                 force(time.value())
             })
             .unwrap();
-        (0..8).for_each(|node| {
-            assert!((residual_at(&loads, &model, 2.0)[node][2] + 2.0 * 6.0 / 8.0).abs() < 1e-12);
-            assert!((residual_at(&loads, &model, 3.0)[node][2] + 3.0 * 6.0 / 8.0).abs() < 1e-12)
-        });
+        [2.0, 3.0].into_iter().try_for_each(|time| {
+            Assert::default().eq_within_tols(
+                residual_at(&loads, &model, time),
+                &forces(|_| -time * 6.0 / 8.0),
+            )
+        })
     }
     #[test]
     fn a_force_needs_a_volume_for_every_node() {
@@ -561,6 +590,7 @@ mod follower {
         geometry::mesh::{Connectivity, Mesh, NodeSet, SideSet},
         math::{
             Quantity,
+            assert::{Assert, AssertionError},
             optimize::{Direct, NewtonRaphson},
         },
         mechanics::Traction,
@@ -653,16 +683,18 @@ mod follower {
             .unwrap()
     }
     #[test]
-    fn a_small_pressure_shortens_a_bar_as_the_traction_it_is_the_same_as_does() {
+    fn a_small_pressure_shortens_a_bar_as_the_traction_it_is_the_same_as_does()
+    -> Result<(), AssertionError> {
         let (follower, dead) = (
             shortening(&pressed(1e-4)),
             shortening(&pulled_by_the_same(1e-4)),
         );
         assert!(follower > 0.0);
-        assert!(
-            (follower - dead).abs() < 1e-4 * dead,
-            "{follower} != {dead}"
-        );
+        Assert {
+            rel_tol: 1e-4,
+            ..Default::default()
+        }
+        .eq_within_tols(follower, &dead)
     }
     #[test]
     fn a_large_pressure_shortens_a_bar_more_because_the_face_it_follows_widens() {

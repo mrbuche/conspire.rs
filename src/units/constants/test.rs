@@ -3,7 +3,13 @@ use super::{
     PLANCK_CONSTANT, ROOM_TEMPERATURE, STANDARD_GRAVITY, STEFAN_BOLTZMANN_CONSTANT,
     VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY,
 };
-use crate::units::{ElectricPotential, Energy, Length, Time};
+use crate::{
+    math::{
+        Quantity,
+        assert::{Assert, AssertionError},
+    },
+    units::{ElectricPotential, Energy, Length, PowerPerAreaTemperatureFourth, Time},
+};
 
 #[test]
 fn gas_constant() {
@@ -60,12 +66,19 @@ fn standard_gravity() {
 }
 
 #[test]
-fn stefan_boltzmann_constant() {
+fn stefan_boltzmann_constant() -> Result<(), AssertionError> {
     let (k, h, c) = (
         BOLTZMANN_CONSTANT.value(),
         PLANCK_CONSTANT.value(),
         LIGHT_SPEED.value(),
     );
     let expected = 2.0 * std::f64::consts::PI.powi(5) * k.powi(4) / (15.0 * h.powi(3) * c * c);
-    assert!((STEFAN_BOLTZMANN_CONSTANT.value() / expected - 1.0).abs() < 1e-8)
+    Assert {
+        rel_tol: 1e-8,
+        ..Default::default()
+    }
+    .eq_within_tols(
+        STEFAN_BOLTZMANN_CONSTANT,
+        &Quantity::<PowerPerAreaTemperatureFourth>::new(expected),
+    )
 }

@@ -1,4 +1,4 @@
-//! Laws of the flux through a surface.
+//! Models of the flux through a surface.
 
 #[cfg(test)]
 pub mod test;
@@ -20,7 +20,7 @@ pub type SurfaceFluxPerArea<S> = Quantity<<<S as SurfaceFlux>::Balance as Diffus
 /// The tangent of a surface flux, per unit area.
 pub type SurfaceTangent<S> = Quantity<<<S as SurfaceFlux>::Balance as Diffusive>::TangentPerLength>;
 
-/// Required methods for laws of the flux out of a body through a surface, as a function of the
+/// Required methods for models of the flux out of a body through a surface, as a function of the
 /// field on it.
 pub trait SurfaceFlux {
     /// The balance law of the flux.
@@ -31,7 +31,7 @@ pub trait SurfaceFlux {
     fn tangent(&self, field: SurfaceField<Self>) -> SurfaceTangent<Self>;
 }
 
-/// Required methods for laws of the flux through a surface whose flux is the derivative of a
+/// Required methods for models of the flux through a surface whose flux is the derivative of a
 /// potential with respect to the field.
 pub trait SurfacePotential
 where

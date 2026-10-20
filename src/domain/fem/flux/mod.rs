@@ -5,7 +5,7 @@ use crate::{
     constitutive::diffusion::{Diffusive, surface::SurfaceFlux},
     domain::{
         boundary::{Field, Loads, SolidThermal},
-        diffusion::loads::{NodalSource, Surface, TimedSource},
+        diffusion::loads::{NodalSource, Surface, TimedSource, TimedSurface},
     },
     fem::{NodalReferenceCoordinates, solid::loads::nodal_areas},
     geometry::mesh::SideSet,
@@ -25,22 +25,39 @@ type WithHeat<T> = Loads<SolidThermal<3>, (T, NodalSource<Power>)>;
 type WithTimedHeat<T, G> = Result<Loads<SolidThermal<3>, (T, TimedFlux<G>)>, String>;
 
 type WithSurface<U, T, S> = Result<Loads<Field<U>, (T, Surface<S>)>, String>;
+type WithTimedSurface<U, T, G> = Result<Loads<Field<U>, (T, TimedSurface<G>)>, String>;
+type WithTimedHeatSurface<T, G> = Result<Loads<SolidThermal<3>, (T, TimedSurface<G>)>, String>;
 type WithHeatSurface<T, S> = Result<Loads<SolidThermal<3>, (T, Surface<S>)>, String>;
 
 impl<U, T> Loads<Field<U>, T> {
-    /// Adds a flux through the faces of a side set that is a law of the field on them, such as
+    /// Adds a flux through the faces of a side set that is a model of the field on them, such as
     /// convection.
     pub fn surface<S>(
         self,
         coordinates: &NodalReferenceCoordinates<3>,
         side_set: &SideSet,
-        law: S,
+        model: S,
     ) -> WithSurface<U, T, S>
     where
         S: SurfaceFlux,
         Balance<S>: Diffusive<Field = U>,
     {
-        Ok(self.with_surface(nodal_areas(coordinates, side_set)?, law))
+        Ok(self.with_surface(nodal_areas(coordinates, side_set)?, model))
+    }
+    /// Adds a flux through the faces of a side set that is a model of the field on them, where the
+    /// model is a function of time.
+    pub fn surface_with<S, G>(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        side_set: &SideSet,
+        model: G,
+    ) -> WithTimedSurface<U, T, G>
+    where
+        S: SurfaceFlux,
+        Balance<S>: Diffusive<Field = U>,
+        G: Fn(Quantity<Time>) -> S,
+    {
+        Ok(self.with_timed_surface(nodal_areas(coordinates, side_set)?, model))
     }
 }
 
@@ -107,17 +124,31 @@ impl<T> Loads<SolidThermal<3>, T> {
 }
 
 impl<T> Loads<SolidThermal<3>, T> {
-    /// Adds a heat flux through the faces of a side set that is a law of the temperature on
+    /// Adds a heat flux through the faces of a side set that is a model of the temperature on
     /// them, such as convection.
     pub fn surface<S>(
         self,
         coordinates: &NodalReferenceCoordinates<3>,
         side_set: &SideSet,
-        law: S,
+        model: S,
     ) -> WithHeatSurface<T, S>
     where
         S: SurfaceFlux<Balance = Power>,
     {
-        Ok(self.with_surface(nodal_areas(coordinates, side_set)?, law))
+        Ok(self.with_surface(nodal_areas(coordinates, side_set)?, model))
+    }
+    /// Adds a heat flux through the faces of a side set that is a model of the temperature on
+    /// them, where the model is a function of time.
+    pub fn surface_with<S, G>(
+        self,
+        coordinates: &NodalReferenceCoordinates<3>,
+        side_set: &SideSet,
+        model: G,
+    ) -> WithTimedHeatSurface<T, G>
+    where
+        S: SurfaceFlux<Balance = Power>,
+        G: Fn(Quantity<Time>) -> S,
+    {
+        Ok(self.with_timed_surface(nodal_areas(coordinates, side_set)?, model))
     }
 }

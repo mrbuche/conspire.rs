@@ -1,8 +1,11 @@
 use super::Linear;
 use crate::{
     constitutive::diffusion::surface::{SurfaceFlux, test::test_surface},
-    math::Quantity,
-    units::{Power, PowerPerAreaTemperature, Temperature},
+    math::{
+        Quantity,
+        assert::{Assert, AssertionError},
+    },
+    units::{Power, PowerPerArea, PowerPerAreaTemperature, Temperature},
 };
 
 fn model() -> Linear<Power> {
@@ -15,25 +18,22 @@ fn model() -> Linear<Power> {
 test_surface!(battery, model(), [3.0, 10.0, 14.0]);
 
 #[test]
-fn the_flux_is_the_coefficient_times_the_difference_from_the_ambient() {
-    assert_eq!(
-        model().flux(Quantity::<Temperature>::new(13.0)).value(),
-        12.0
-    );
-    assert_eq!(
-        model().flux(Quantity::<Temperature>::new(10.0)).value(),
-        0.0
-    );
-    assert_eq!(
-        model().flux(Quantity::<Temperature>::new(7.0)).value(),
-        -12.0
-    )
+fn the_flux_is_the_coefficient_times_the_difference_from_the_ambient() -> Result<(), AssertionError>
+{
+    [(13.0, 12.0), (10.0, 0.0), (7.0, -12.0)]
+        .into_iter()
+        .try_for_each(|(field, flux)| {
+            Assert::default().eq_within_tols(
+                model().flux(Quantity::<Temperature>::new(field)),
+                &Quantity::<PowerPerArea>::new(flux),
+            )
+        })
 }
 
 #[test]
-fn the_tangent_is_the_coefficient() {
-    assert_eq!(
-        model().tangent(Quantity::<Temperature>::new(3.0)).value(),
-        4.0
+fn the_tangent_is_the_coefficient() -> Result<(), AssertionError> {
+    Assert::default().eq_within_tols(
+        model().tangent(Quantity::<Temperature>::new(3.0)),
+        &Quantity::<PowerPerAreaTemperature>::new(4.0),
     )
 }
