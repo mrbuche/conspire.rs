@@ -407,3 +407,41 @@ fn a_convection_through_the_top_of_a_held_bar_settles_between_the_ambient_and_th
         )
     });
 }
+
+#[test]
+fn the_residual_of_a_convection_is_the_gradient_of_its_potential() {
+    use crate::{
+        fem::boundary::{Conservative, Load},
+        units::PowerPerAreaTemperature,
+    };
+    let model = model();
+    let loads = Loads::<Field<Temperature>>::new()
+        .convection_through::<Power>(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            Quantity::<PowerPerAreaTemperature>::new(4.0),
+            Quantity::<Temperature>::new(10.0),
+        )
+        .unwrap();
+    let convection = &loads;
+    let fields: NodalFields<Power> = (0..8)
+        .map(|node| Quantity::<Temperature>::new(1.0 + node as f64))
+        .collect();
+    let mut residual = NodalForces::<Power>::zero(8);
+    convection.subtract_from(&fields, &mut residual).unwrap();
+    let step = 1e-6;
+    (0..8).for_each(|node| {
+        let shifted = |sign: f64| {
+            let mut shifted = fields.clone();
+            shifted[node] += Quantity::<Temperature>::new(sign * step);
+            convection.potential_energy(&shifted).unwrap().value()
+        };
+        let slope = (shifted(1.0) - shifted(-1.0)) / (2.0 * step);
+        assert!(
+            (slope - residual[node].value()).abs() < 1e-6 * (1.0 + slope.abs()),
+            "node {node}: {slope} != {}",
+            residual[node].value()
+        )
+    });
+    assert!(residual.iter().skip(4).all(|power| power.value() != 0.0));
+}

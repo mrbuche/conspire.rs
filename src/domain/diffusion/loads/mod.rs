@@ -450,6 +450,44 @@ where
     }
 }
 
+impl<L> Conservative<NodalFields<L>, Quantity<L::Energy>> for Convection<L>
+where
+    L: Diffusive,
+    Quantity<L::Stiffness>: Mul<Quantity<L::Field>, Output = Quantity<L>>,
+    Quantity<L::Field>: Mul<Quantity<L>, Output = Quantity<L::Energy>>,
+{
+    fn potential_energy(
+        &self,
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<Quantity<L::Energy>, String> {
+        self.check(nodal_fields.len())?;
+        Ok(nodal_fields
+            .iter()
+            .zip(&self.coefficients)
+            .map(|(&field, &coefficient)| {
+                let difference = field - self.ambient;
+                difference * (coefficient * difference)
+            })
+            .sum::<Quantity<L::Energy>>()
+            * 0.5)
+    }
+}
+
+impl<L> ConservativeAt<NodalFields<L>, Quantity<L::Energy>> for Convection<L>
+where
+    L: Diffusive,
+    Quantity<L::Stiffness>: Mul<Quantity<L::Field>, Output = Quantity<L>>,
+    Quantity<L::Field>: Mul<Quantity<L>, Output = Quantity<L::Energy>>,
+{
+    fn potential_energy_at(
+        &self,
+        _: Quantity<Time>,
+        nodal_fields: &NodalFields<L>,
+    ) -> Result<Quantity<L::Energy>, String> {
+        self.potential_energy(nodal_fields)
+    }
+}
+
 impl Load<NodalStatesSolidThermal, NodalForcesSolidThermal> for Convection<Power> {
     fn subtract_from(
         &self,
