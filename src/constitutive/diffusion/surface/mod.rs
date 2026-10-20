@@ -3,8 +3,10 @@
 #[cfg(test)]
 pub mod test;
 
+pub mod linear;
 pub mod power_law;
 
+pub use linear::Linear;
 pub use power_law::PowerLaw;
 
 use crate::{constitutive::diffusion::Diffusive, math::Quantity, units::Area};

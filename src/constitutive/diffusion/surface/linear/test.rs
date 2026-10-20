@@ -1,12 +1,12 @@
-use super::Newton;
+use super::Linear;
 use crate::{
     constitutive::diffusion::surface::{SurfaceFlux, test::test_surface},
     math::Quantity,
     units::{Power, PowerPerAreaTemperature, Temperature},
 };
 
-fn model() -> Newton<Power> {
-    Newton {
+fn model() -> Linear<Power> {
+    Linear {
         coefficient: Quantity::<PowerPerAreaTemperature>::new(4.0),
         ambient: Quantity::<Temperature>::new(10.0),
     }

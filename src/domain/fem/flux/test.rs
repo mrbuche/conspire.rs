@@ -382,7 +382,7 @@ fn a_convection_through_the_top_of_a_held_bar_settles_between_the_ambient_and_th
         .surface(
             model.coordinates(),
             model.side_sets().iter().next().unwrap(),
-            Newton::<Power> {
+            Newton {
                 coefficient: Quantity::<PowerPerAreaTemperature>::new(coefficient),
                 ambient: Quantity::<Temperature>::new(ambient),
             },
@@ -424,7 +424,7 @@ fn the_residual_of_a_convection_is_the_gradient_of_its_potential() {
         .surface(
             model.coordinates(),
             model.side_sets().iter().next().unwrap(),
-            Newton::<Power> {
+            Newton {
                 coefficient: Quantity::<PowerPerAreaTemperature>::new(4.0),
                 ambient: Quantity::<Temperature>::new(10.0),
             },
