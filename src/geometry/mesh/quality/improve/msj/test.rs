@@ -1,15 +1,24 @@
-use super::{Frame, POINTS, Stop, terms};
+use super::{Frame, POINTS, terms};
 use crate::{
     geometry::{
         Coordinate, CoordinateList,
-        mesh::{Connectivity, Dualization, Fitting, Mesh, Tessellation, Verdict},
+        mesh::{Connectivity, Dualization, Fitting, Mesh, MeshError, Tessellation, Verdict},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing},
     },
     math::{Quantity, Scalar, Tensor},
+    units::Dimensionless,
 };
 use std::{collections::BTreeSet, f64::consts::TAU, time::Instant};
 
 const SWEEPS: usize = 20;
+const UNREACHABLE: Quantity = Dimensionless::of(1.0);
+
+fn improve(mesh: &mut Mesh<3>, target: &Tessellation, sweeps: usize) -> MeshError {
+    match mesh.improve_scaled_jacobian(target, UNREACHABLE, sweeps) {
+        Err(error @ (MeshError::Budget { .. } | MeshError::Stall { .. })) => error,
+        other => panic!("{other:?}"),
+    }
+}
 
 type Raw = [[Scalar; 3]; 8];
 
@@ -182,7 +191,7 @@ fn improves_a_wobbly_grid_without_leaving_the_cube() {
     let n = 5;
     let mut mesh = grid(n, 0.9);
     let before = worst(&mesh);
-    mesh.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
+    improve(&mut mesh, &cube(), SWEEPS);
     let after = worst(&mesh);
     assert!(after > before + 0.05, "{before} -> {after}");
     mesh.coordinates().iter().for_each(|node| {
@@ -193,7 +202,7 @@ fn improves_a_wobbly_grid_without_leaving_the_cube() {
 #[test]
 fn keeps_the_cube_corners_and_edges() {
     let mut mesh = grid(4, 0.9);
-    mesh.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
+    improve(&mut mesh, &cube(), SWEEPS);
     let corners = UNIT.map(|corner| {
         mesh.coordinates()
             .iter()
@@ -230,7 +239,7 @@ fn keeps_the_cube_corners_and_edges() {
 fn never_lowers_the_worst_scaled_jacobian() {
     let mut mesh = grid(4, 0.5);
     let before = worst(&mesh);
-    mesh.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
+    improve(&mut mesh, &cube(), SWEEPS);
     assert!(worst(&mesh) >= before);
 }
 
@@ -238,31 +247,63 @@ fn never_lowers_the_worst_scaled_jacobian() {
 fn zero_sweeps_leave_the_mesh_unchanged() {
     let mut mesh = grid(4, 0.9);
     let before = mesh.coordinates().clone();
-    mesh.improve_scaled_jacobian(&cube(), 0).unwrap();
+    improve(&mut mesh, &cube(), 0);
     assert_eq!(mesh.coordinates(), &before);
 }
 
 #[test]
 fn one_sweep_stops_the_ratchet_below_the_full_budget() {
     let mut one = grid(4, 0.9);
-    one.improve_scaled_jacobian(&cube(), 1).unwrap();
+    improve(&mut one, &cube(), 1);
     let mut full = grid(4, 0.9);
-    full.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
+    improve(&mut full, &cube(), SWEEPS);
     assert!(worst(&one) < worst(&full) - 0.1);
 }
 
 #[test]
 fn one_sweep_stops_on_the_budget() {
     let mut mesh = grid(4, 0.9);
-    let stop = mesh.improve_scaled_jacobian(&cube(), 1).unwrap();
-    assert!(matches!(stop, Stop::Budget { sweeps: 1, .. }));
+    let error = improve(&mut mesh, &cube(), 1);
+    assert!(
+        matches!(error, MeshError::Budget { sweeps: 1, theta } if (theta - 0.71).abs() < 1.0e-9)
+    );
 }
 
 #[test]
 fn the_full_budget_stops_on_a_stall() {
     let mut mesh = grid(4, 0.9);
-    let stop = mesh.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
-    assert!(matches!(stop, Stop::Stall { sweeps, .. } if sweeps < SWEEPS));
+    let error = improve(&mut mesh, &cube(), SWEEPS);
+    assert!(
+        matches!(error, MeshError::Stall { sweeps: 1, theta } if (theta - 0.85).abs() < 1.0e-9)
+    );
+}
+
+#[test]
+fn a_reachable_threshold_is_met() {
+    let mut full = grid(4, 0.9);
+    improve(&mut full, &cube(), SWEEPS);
+    let threshold = worst(&full) - 0.1;
+    let mut mesh = grid(4, 0.9);
+    mesh.improve_scaled_jacobian(&cube(), Quantity::new(threshold), SWEEPS)
+        .unwrap();
+    assert!(worst(&mesh) >= threshold);
+}
+
+#[test]
+fn a_mesh_already_over_the_threshold_is_returned_unchanged() {
+    let mut mesh = grid(4, 0.0);
+    let before = mesh.coordinates().clone();
+    mesh.improve_scaled_jacobian(&cube(), Quantity::new(0.9), SWEEPS)
+        .unwrap();
+    assert_eq!(mesh.coordinates(), &before);
+}
+
+#[test]
+fn an_unreachable_threshold_is_an_error_but_keeps_the_improvement() {
+    let mut mesh = grid(4, 0.9);
+    let before = worst(&mesh);
+    improve(&mut mesh, &cube(), SWEEPS);
+    assert!(worst(&mesh) > before + 0.05);
 }
 
 fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellation {
@@ -336,7 +377,7 @@ fn improves_a_buffered_torus() {
     let mut mesh = mesh.buffer(&tessellation, Fitting::Snap).unwrap();
     let (before, before_gap) = (worst(&mesh), gap(&mesh, &tessellation));
     let start = Instant::now();
-    mesh.improve_scaled_jacobian(&tessellation, SWEEPS).unwrap();
+    improve(&mut mesh, &tessellation, SWEEPS);
     let (after, after_gap) = (worst(&mesh), gap(&mesh, &tessellation));
     eprintln!(
         "BENCH hexes {} sj {before:.4} -> {after:.4} gap {before_gap:.2e} -> {after_gap:.2e} in {:?}",

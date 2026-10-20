@@ -6,7 +6,7 @@ use crate::{
         Coordinate, CoordinateList, Coordinates, CoordinatesRef, Direction, DirectionList,
         DirectionsRef,
         bbox::BoundingBox,
-        mesh::{Connectivity, Mesh, Tessellation},
+        mesh::{Connectivity, Mesh, MeshError, Tessellation},
     },
     math::{
         CrossProduct, Quantity, QuantityVector, Reference, Scalar, Tensor, TensorList,
@@ -84,11 +84,6 @@ static POINTS: LazyLock<[Weights; 9]> = LazyLock::new(|| {
     })
 });
 
-pub enum Stop {
-    Budget { theta: Quantity, sweeps: usize },
-    Stall { theta: Quantity, sweeps: usize },
-}
-
 struct Frame {
     edges: CoordinateList<3, 3>,
     jacobian: Quantity<Volume>,
@@ -117,13 +112,14 @@ impl Mesh<3> {
     pub fn improve_scaled_jacobian(
         &mut self,
         target: &Tessellation,
+        threshold: Quantity,
         sweeps: usize,
-    ) -> Result<Stop, &'static str> {
+    ) -> Result<(), MeshError> {
         let mut hexes = Vec::new();
         for block in self.iter() {
             match block {
                 Connectivity::Hexahedral(elements) => hexes.extend(elements.iter().copied()),
-                _ => return Err("improve_scaled_jacobian requires hexahedra"),
+                _ => return Err(MeshError::HexahedraRequired),
             }
         }
         let mut boundary: Vec<usize> = self.exterior_faces().into_iter().flatten().collect();
@@ -156,26 +152,32 @@ impl Mesh<3> {
                     first = false;
                     if gap <= TOLERANCE {
                         best = Some(current.clone());
+                        if quality >= threshold {
+                            break 'ratchet None;
+                        }
                         energy.theta = Self::next(quality);
                     }
                 }
                 if quality >= energy.theta && gap <= TOLERANCE {
                     best = Some(current.clone());
+                    if quality >= threshold {
+                        break 'ratchet None;
+                    }
                     energy.theta = Self::next(quality);
                     energy.rho *= 2.0;
                     continue 'ratchet;
                 }
                 if stalled {
-                    break 'ratchet Stop::Stall {
-                        theta: energy.theta,
+                    break 'ratchet Some(MeshError::Stall {
+                        theta: energy.theta.value(),
                         sweeps: sweep,
-                    };
+                    });
                 }
                 if sweep == sweeps {
-                    break 'ratchet Stop::Budget {
-                        theta: energy.theta,
+                    break 'ratchet Some(MeshError::Budget {
+                        theta: energy.theta.value(),
                         sweeps,
-                    };
+                    });
                 }
                 let descent = solver((FIRST * energy.typical()).value())
                     .descend(
@@ -188,7 +190,7 @@ impl Mesh<3> {
                         current,
                         EqualityConstraint::None,
                     )
-                    .map_err(|_| "could not minimize the energy")?;
+                    .map_err(|_| MeshError::Minimization)?;
                 let decrease = (descent.initial - descent.value)
                     / descent
                         .initial
@@ -202,8 +204,8 @@ impl Mesh<3> {
                 }
             }
         };
-        *coordinates = best.ok_or("could not fit the surface")?;
-        Ok(stop)
+        *coordinates = best.ok_or(MeshError::SurfaceFit)?;
+        stop.map_or(Ok(()), Err)
     }
     fn next(quality: Quantity) -> Quantity {
         ((quality / STEP).floor() + Dimensionless::of(1.0)) * STEP

@@ -2,8 +2,6 @@ mod msj;
 mod smart_laplace;
 mod untangle;
 
-pub use msj::Stop;
-
 use super::metrics::{self, Kind};
 use crate::{
     geometry::{Coordinates, mesh::Mesh},
