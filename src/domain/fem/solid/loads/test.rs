@@ -675,6 +675,111 @@ mod follower {
             "{follower} is not more than {dead}"
         );
     }
+    mod timed {
+        use crate::{
+            domain::{
+                boundary::{LoadAt, LoadStiffnessAt, Loads, Solid, SolidThermal},
+                multiphysics::solid_thermal::{
+                    NodalForcesSolidThermal, NodalStiffnessesSolidThermal, join_states,
+                },
+            },
+            fem::{
+                NodalCoordinates,
+                block::thermal::NodalTemperatures,
+                solid::{NodalForcesSolid, NodalStiffnessesSolid},
+            },
+            geometry::mesh::SideSet,
+            math::{
+                Quantity, Tensor, TensorArray, TensorRank1, TensorTuple,
+                assert::{Assert, AssertionError},
+            },
+            units::{Power, Stress, Temperature, Time},
+        };
+        fn side_set() -> SideSet {
+            SideSet::new(vec![(0, 5)]).with_faces(vec![vec![4, 5, 6, 7]])
+        }
+        fn deformed() -> NodalCoordinates<3> {
+            [
+                [0.0, 0.0, 0.0],
+                [2.1, 0.1, 0.0],
+                [2.0, 3.2, 0.1],
+                [0.1, 3.0, 0.0],
+                [0.0, 0.1, 1.1],
+                [2.2, 0.0, 0.9],
+                [2.0, 3.1, 1.2],
+                [0.1, 3.0, 1.0],
+            ]
+            .into()
+        }
+        fn temperatures() -> NodalTemperatures {
+            (0..8)
+                .map(|_| Quantity::<Temperature>::new(300.0))
+                .collect()
+        }
+        #[test]
+        fn a_pressure_that_is_a_function_of_time_is_the_pressure_it_gives_at_that_time()
+        -> Result<(), AssertionError> {
+            let side_set = side_set();
+            let x = deformed();
+            let time = Quantity::<Time>::new(2.0);
+            let fixed = Loads::<Solid<3>>::new()
+                .pressure(&side_set, Quantity::<Stress>::new(1.5))
+                .unwrap();
+            let timed = Loads::<Solid<3>>::new()
+                .pressure_with(&side_set, |time| {
+                    Quantity::<Stress>::new(0.75) * time.value()
+                })
+                .unwrap();
+            let (mut a, mut b) = (
+                NodalForcesSolid::<3>::zero(8),
+                NodalForcesSolid::<3>::zero(8),
+            );
+            fixed.subtract_at(time, &x, &mut a).unwrap();
+            timed.subtract_at(time, &x, &mut b).unwrap();
+            Assert::default().eq_within_tols(&a, &b)?;
+            let (mut k, mut l) = (
+                NodalStiffnessesSolid::<3>::zero(8),
+                NodalStiffnessesSolid::<3>::zero(8),
+            );
+            fixed.add_stiffness_at(time, &x, &mut k).unwrap();
+            timed.add_stiffness_at(time, &x, &mut l).unwrap();
+            Assert::default().eq_within_tols(&k, &l)
+        }
+        #[test]
+        fn a_pressure_with_a_temperature_pushes_as_without_and_adds_no_heat()
+        -> Result<(), AssertionError> {
+            let side_set = side_set();
+            let x = deformed();
+            let time = Quantity::<Time>::new(0.0);
+            let plain = Loads::<Solid<3>>::new()
+                .pressure(&side_set, Quantity::<Stress>::new(1.5))
+                .unwrap();
+            let coupled = Loads::<SolidThermal<3>>::new()
+                .pressure(&side_set, Quantity::<Stress>::new(1.5))
+                .unwrap();
+            let states = join_states(&x, &temperatures());
+            let mut forces = NodalForcesSolid::<3>::zero(8);
+            plain.subtract_at(time, &x, &mut forces).unwrap();
+            let mut residual: NodalForcesSolidThermal = (0..8)
+                .map(|_| TensorTuple(TensorRank1::zero(), Quantity::<Power>::new(0.0)))
+                .collect();
+            coupled.subtract_at(time, &states, &mut residual).unwrap();
+            let mechanical: NodalForcesSolid<3> = residual.iter().map(|r| r.0.clone()).collect();
+            Assert::default().eq_within_tols(&mechanical, &forces)?;
+            assert!(residual.iter().all(|r| r.1.value() == 0.0));
+            let mut stiffnesses = NodalStiffnessesSolid::<3>::zero(8);
+            plain.add_stiffness_at(time, &x, &mut stiffnesses).unwrap();
+            let mut tangent = NodalStiffnessesSolidThermal::zero(8);
+            coupled
+                .add_stiffness_at(time, &states, &mut tangent)
+                .unwrap();
+            stiffnesses.iter().enumerate().try_for_each(|(a, row)| {
+                row.entries().try_for_each(|(b, block)| {
+                    Assert::default().eq_within_tols(&tangent[a][b].0.0, block)
+                })
+            })
+        }
+    }
     mod dynamics {
         use super::*;
         use crate::{
