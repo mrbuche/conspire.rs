@@ -7,13 +7,6 @@ pub enum MeshError {
     Minimization,
     Stall { theta: Scalar, sweeps: usize },
     SurfaceFit,
-    Upstream(String),
-}
-
-impl From<&str> for MeshError {
-    fn from(error: &str) -> Self {
-        Self::Upstream(error.to_string())
-    }
 }
 
 impl StyledError for MeshError {
@@ -29,7 +22,6 @@ impl StyledError for MeshError {
                 "{h}The scaled Jacobian pass stalled after {sweeps} sweeps short of {theta:.2}."
             ),
             Self::SurfaceFit => format!("{h}Could not fit the surface."),
-            Self::Upstream(error) => format!("{h}{error}"),
         }
     }
 }
