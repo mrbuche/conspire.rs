@@ -686,17 +686,15 @@ mod solid_angle {
 }
 
 #[test]
-fn the_nodal_volumes_are_those_of_the_nodes() {
+fn the_nodal_volumes_are_those_of_the_nodes() -> Result<(), crate::math::assert::AssertionError> {
     let (connectivity, reference_coordinates) = two_tetrahedra_reference();
     let block = Block::from(((), connectivity, &reference_coordinates));
     let model = crate::cbm::Model::from((block, reference_coordinates));
     let volumes = model.nodal_volumes();
     assert_eq!(volumes.len(), 5);
     assert!(volumes.iter().all(|volume| volume.value() > 0.0));
-    let total = volumes.volume().value();
-    let tetrahedra = 1.0 / 6.0 + 1.0 / 6.0;
-    assert!(
-        (total - tetrahedra).abs() < 1e-12,
-        "{total} is not {tetrahedra}"
-    );
+    crate::math::assert::Assert::default().eq_within_tols(
+        volumes.volume(),
+        &crate::units::Volume::cubic_meters(1.0 / 6.0 + 1.0 / 6.0),
+    )
 }

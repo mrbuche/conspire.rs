@@ -317,21 +317,21 @@ mod volume {
             .into()
     }
     #[test]
-    fn the_nodal_volumes_add_up_to_the_volume_though_some_corners_have_none() {
+    fn the_nodal_volumes_add_up_to_the_volume_though_some_corners_have_none()
+    -> Result<(), crate::math::assert::AssertionError> {
         let volumes = model().nodal_volumes();
-        assert!((volumes.volume().value() - 1.0).abs() < 1e-12);
         assert!(volumes.iter().any(|volume| volume.value() < 0.0));
+        crate::math::assert::Assert::default()
+            .eq_within_tols(volumes.volume(), &crate::units::Volume::cubic_meters(1.0))
     }
     #[test]
-    fn a_quadratic_field_integrates_exactly_against_the_shape_functions() {
+    fn a_quadratic_field_integrates_exactly_against_the_shape_functions()
+    -> Result<(), crate::math::assert::AssertionError> {
         let model = model();
         let mut integral = 0.0;
         model.for_each_sample(model.coordinates(), &mut |_, position, volume| {
             integral += position[0].value().powi(2) * volume.value()
         });
-        assert!(
-            (integral - 1.0 / 12.0).abs() < 1e-12,
-            "{integral} is not 1/12"
-        );
+        crate::math::assert::Assert::default().eq_within_tols(integral, &(1.0 / 12.0))
     }
 }

@@ -114,7 +114,13 @@ fn bipyramid_at(nodes: &[[Scalar; 3]; 5]) -> Case {
 }
 
 fn assert_close(a: Scalar, b: Scalar, tolerance: Scalar) {
-    assert!((a - b).abs() <= tolerance, "{a} != {b}");
+    crate::math::assert::Assert {
+        abs_tol: tolerance,
+        rel_tol: tolerance,
+        ..Default::default()
+    }
+    .eq_within_tols(a, &b)
+    .unwrap()
 }
 
 #[test]

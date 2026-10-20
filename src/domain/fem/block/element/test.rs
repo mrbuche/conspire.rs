@@ -327,7 +327,7 @@ macro_rules! test_surface_finite_element {
                 $crate::math::Quantity::<Stress>::new(PRESSURE)
             }
             #[test]
-            fn a_flat_face_carries_the_pressure_on_its_area_vector() {
+            fn a_flat_face_carries_the_pressure_on_its_area_vector() -> Result<(), AssertionError> {
                 let coordinates = coordinates();
                 let mut area_vector = [0.0; 3];
                 (0..N).for_each(|a| {
@@ -344,22 +344,22 @@ macro_rules! test_surface_finite_element {
                 let total = $element::pressure_forces(&coordinates, pressure())
                     .into_iter()
                     .sum::<$crate::mechanics::Force>();
-                (0..3).for_each(|i| {
-                    assert!(
-                        (total[i].value() + PRESSURE * area_vector[i]).abs() < 1e-12,
-                        "{} is not {}",
-                        total[i].value(),
-                        -PRESSURE * area_vector[i]
+                (0..3).try_for_each(|i| {
+                    $crate::math::assert::Assert::default().eq_within_tols(
+                        &total[i],
+                        &$crate::math::Quantity::<$crate::units::Force>::new(
+                            -PRESSURE * area_vector[i],
+                        ),
                     )
-                });
+                })
             }
             #[test]
-            fn the_stiffnesses_are_the_derivatives_of_the_forces() {
+            fn the_stiffnesses_are_the_derivatives_of_the_forces() -> Result<(), AssertionError> {
                 let coordinates = coordinates();
                 let stiffnesses = $element::pressure_stiffnesses(&coordinates, pressure());
                 let step = 1e-6;
-                (0..N).for_each(|node| {
-                    (0..3).for_each(|axis| {
+                (0..N).try_for_each(|node| {
+                    (0..3).try_for_each(|axis| {
                         let (mut up, mut down) = (coordinates.clone(), coordinates.clone());
                         up[node][axis] += Length::meters(step);
                         down[node][axis] -= Length::meters(step);
@@ -367,18 +367,15 @@ macro_rules! test_surface_finite_element {
                             $element::pressure_forces(&up, pressure()),
                             $element::pressure_forces(&down, pressure()),
                         );
-                        (0..N).for_each(|a| {
-                            (0..3).for_each(|i| {
-                                let found = (up[a][i].value() - down[a][i].value()) / (2.0 * step);
-                                let exact = stiffnesses[a][node][i][axis].value();
-                                assert!(
-                                    (found - exact).abs() < 1e-6,
-                                    "d f[{a}][{i}] / d x[{node}][{axis}]: {found} != {exact}"
-                                )
+                        (0..N).try_for_each(|a| {
+                            (0..3).try_for_each(|i| {
+                                let found = (up[a][i] - down[a][i]) / (2.0 * Length::meters(step));
+                                $crate::math::assert::Assert::default()
+                                    .eq_within_fd_tol(&found, &stiffnesses[a][node][i][axis])
                             })
                         })
                     })
-                });
+                })
             }
         }
         mod dual_bases {

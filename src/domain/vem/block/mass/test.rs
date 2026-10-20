@@ -155,7 +155,7 @@ fn the_nodal_volumes_add_up_to_the_volume() -> Result<(), AssertionError> {
 }
 
 #[test]
-fn a_linear_field_integrates_exactly_at_the_centers() {
+fn a_linear_field_integrates_exactly_at_the_centers() -> Result<(), AssertionError> {
     use crate::domain::volume::NodalVolumeElements;
     let (connectivity, coordinates) = problem();
     let block = VemBlock::from((
@@ -170,5 +170,5 @@ fn a_linear_field_integrates_exactly_at_the_centers() {
     model.for_each_sample(&coordinates, &mut |_, position, volume| {
         integral += position[0].value() * volume.value()
     });
-    assert!((integral - 2.0).abs() < 1e-12, "{integral} is not 2");
+    Assert::default().eq_within_tols(integral, &2.0)
 }

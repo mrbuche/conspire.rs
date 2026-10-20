@@ -124,10 +124,13 @@ fn electrodes(
 }
 
 fn near(found: f64, expected: f64) {
-    assert!(
-        (found - expected).abs() <= NEAR * expected.abs().max(1.0),
-        "{found} is not within {NEAR} of {expected}"
-    )
+    crate::math::assert::Assert {
+        abs_tol: NEAR * expected.abs().max(1.0),
+        rel_tol: NEAR,
+        ..Default::default()
+    }
+    .eq_within_tols(found, &expected)
+    .unwrap()
 }
 
 fn charge(forces: &NodalForcesElectrical, nodes: &[usize]) -> f64 {
