@@ -203,7 +203,7 @@ fn a_flux_that_does_not_change_has_the_same_energy_whether_or_not_it_could() {
 }
 
 #[test]
-fn the_products_of_a_flux_and_of_an_energy_exist_for_every_balance_law() {
+fn the_products_of_a_flux_and_of_an_energy_exist_for_every_balance_model() {
     use crate::{
         constitutive::diffusion::Diffusive,
         units::{Area, Charge, Current, MolarFlowRate},

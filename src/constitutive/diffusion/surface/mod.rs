@@ -1,5 +1,12 @@
 //! Laws of the flux through a surface.
 
+#[cfg(test)]
+pub mod test;
+
+pub mod power_law;
+
+pub use power_law::PowerLaw;
+
 use crate::{constitutive::diffusion::Diffusive, math::Quantity, units::Area};
 
 /// The field of the balance law of a surface flux.

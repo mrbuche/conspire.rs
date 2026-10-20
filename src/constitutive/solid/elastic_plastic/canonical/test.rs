@@ -233,7 +233,7 @@ fn hill_strategies_agree_under_non_proportional_loading() -> Result<(), Assertio
 }
 
 #[test]
-fn a_composed_model_forwards_the_hardening_law() -> Result<(), AssertionError> {
+fn a_composed_model_forwards_the_hardening_model() -> Result<(), AssertionError> {
     let model = voce_model();
     for strain in [0.0, 0.01, 0.05, 0.4] {
         let strain = Quantity::new(strain);
