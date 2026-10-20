@@ -1,7 +1,7 @@
 use crate::{
     constitutive::{
-        diffusion::surface::Newton,
         thermal::conduction::{Fourier, test::THERMAL_CONDUCTIVITY},
+        thermal::convection::Newton,
     },
     domain::ElementModel,
     fem::{
@@ -456,7 +456,7 @@ fn the_residual_of_a_convection_is_the_gradient_of_its_potential() {
 #[test]
 fn a_radiation_onto_the_top_of_a_held_bar_balances_the_conduction_through_it() {
     use crate::{
-        constitutive::diffusion::surface::StefanBoltzmann,
+        constitutive::thermal::radiation::StefanBoltzmann,
         fem::{
             Root,
             boundary::{BoundaryConditions, ConstrainAt as _},

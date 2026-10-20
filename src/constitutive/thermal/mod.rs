@@ -1,6 +1,8 @@
 //! Thermal constitutive models.
 
 pub mod conduction;
+pub mod convection;
+pub mod radiation;
 
 use std::fmt::Debug;
 

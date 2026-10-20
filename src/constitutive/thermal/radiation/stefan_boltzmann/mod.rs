@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod test;
 
-use super::{SurfaceField, SurfaceFlux, SurfaceFluxPerArea, SurfacePotential, SurfaceTangent};
+use crate::constitutive::diffusion::surface::{
+    SurfaceField, SurfaceFlux, SurfaceFluxPerArea, SurfacePotential, SurfaceTangent,
+};
 use crate::{
     math::{Quantity, Scalar},
     units::{

@@ -1,11 +1,5 @@
 //! Laws of the flux through a surface.
 
-pub mod newton;
-pub mod stefan_boltzmann;
-
-pub use newton::Newton;
-pub use stefan_boltzmann::StefanBoltzmann;
-
 use crate::{constitutive::diffusion::Diffusive, math::Quantity, units::Area};
 
 /// The field of the balance law of a surface flux.
