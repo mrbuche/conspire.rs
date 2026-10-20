@@ -1,5 +1,8 @@
 use crate::{
-    constitutive::diffusion::Diffusive,
+    constitutive::diffusion::{
+        Diffusive,
+        surface::{SurfaceFlux, SurfaceFluxPerArea, SurfacePotential, SurfaceTangent},
+    },
     domain::{
         ElementModel,
         boundary::{
@@ -14,7 +17,7 @@ use crate::{
     },
     math::{Quantity, Tensor, TensorTuple},
     mechanics::ReferenceCoordinate,
-    units::{Power, PowerDensity, PowerPerTemperature, Temperature, Time, UnitMul, Volume},
+    units::{Area, Power, PowerDensity, Time, UnitMul, Volume},
 };
 use std::ops::Mul;
 
@@ -325,170 +328,170 @@ impl<T> Loads<SolidThermal<3>, T> {
     }
 }
 
-/// A flux through faces that is proportional to the difference between the field and that of the
-/// surroundings, such as the convection of heat, held as the coefficient on each node.
+/// A flux out of the body through a surface that is a law of the field on it,
+/// held as the area that each node has of the surface.
 #[derive(Clone, Debug)]
-pub struct Convection<L>
+pub struct Surface<S>
 where
-    L: Diffusive,
+    S: SurfaceFlux,
 {
-    ambient: Quantity<L::Field>,
-    coefficients: Vec<Quantity<L::Stiffness>>,
+    areas: Vec<Quantity<Area>>,
+    model: S,
 }
 
+type Balance<S> = <S as SurfaceFlux>::Balance;
+
 impl<U, T> Loads<Field<U>, T> {
-    /// Adds a flux that is the coefficient of each node times the difference of its field from
-    /// the ambient field.
-    pub fn convection<L>(
+    /// Adds a flux through a surface, given the area that each node has of it, as a law of the
+    /// field.
+    pub fn with_surface<S>(
         self,
-        ambient: Quantity<L::Field>,
-        coefficients: Vec<Quantity<L::Stiffness>>,
-    ) -> Loads<Field<U>, (T, Convection<L>)>
+        areas: Vec<Quantity<Area>>,
+        model: S,
+    ) -> Loads<Field<U>, (T, Surface<S>)>
     where
-        L: Diffusive<Field = U>,
+        S: SurfaceFlux,
+        Balance<S>: Diffusive<Field = U>,
     {
-        self.with(Convection {
-            ambient,
-            coefficients,
-        })
+        self.with(Surface { areas, model })
     }
 }
 
 impl<T> Loads<SolidThermal<3>, T> {
-    /// Adds a heat flux that is the coefficient of each node times the difference of its
-    /// temperature from the ambient temperature.
-    pub fn convection(
+    /// Adds a heat flux through a surface, given the area that each node has of it, as a law of
+    /// the temperature.
+    pub fn with_surface<S>(
         self,
-        ambient: Quantity<Temperature>,
-        coefficients: Vec<Quantity<PowerPerTemperature>>,
-    ) -> Loads<SolidThermal<3>, (T, Convection<Power>)> {
-        self.with(Convection {
-            ambient,
-            coefficients,
-        })
+        areas: Vec<Quantity<Area>>,
+        model: S,
+    ) -> Loads<SolidThermal<3>, (T, Surface<S>)>
+    where
+        S: SurfaceFlux<Balance = Power>,
+    {
+        self.with(Surface { areas, model })
     }
 }
 
-impl<L> Convection<L>
+impl<S> Surface<S>
 where
-    L: Diffusive,
+    S: SurfaceFlux,
 {
     fn check(&self, nodes: usize) -> Result<(), String> {
-        if nodes == self.coefficients.len() {
+        if nodes == self.areas.len() {
             Ok(())
         } else {
-            Err("The convection is on a mesh with another number of nodes.".to_string())
+            Err("The surface is on a mesh with another number of nodes.".to_string())
         }
     }
 }
 
-impl<L> Load<NodalFields<L>, NodalForces<L>> for Convection<L>
+impl<S> Load<NodalFields<Balance<S>>, NodalForces<Balance<S>>> for Surface<S>
 where
-    L: Diffusive,
-    Quantity<L::Stiffness>: Mul<Quantity<L::Field>, Output = Quantity<L>>,
+    S: SurfaceFlux,
+    SurfaceFluxPerArea<S>: Mul<Quantity<Area>, Output = Quantity<Balance<S>>>,
 {
     fn subtract_from(
         &self,
-        nodal_fields: &NodalFields<L>,
-        residual: &mut NodalForces<L>,
+        nodal_fields: &NodalFields<Balance<S>>,
+        residual: &mut NodalForces<Balance<S>>,
     ) -> Result<(), String> {
         self.check(nodal_fields.len())?;
         residual
             .iter_mut()
-            .zip(nodal_fields.iter().zip(&self.coefficients))
-            .for_each(|(residual, (&field, &coefficient))| {
-                *residual += coefficient * (field - self.ambient)
+            .zip(nodal_fields.iter().zip(&self.areas))
+            .for_each(|(residual, (&field, &area))| *residual += self.model.flux(field) * area);
+        Ok(())
+    }
+}
+
+impl<S> LoadStiffness<NodalFields<Balance<S>>, NodalStiffnesses<Balance<S>>> for Surface<S>
+where
+    S: SurfaceFlux,
+    SurfaceTangent<S>: Mul<Quantity<Area>, Output = Quantity<<Balance<S> as Diffusive>::Stiffness>>,
+{
+    fn add_stiffness_to(
+        &self,
+        nodal_fields: &NodalFields<Balance<S>>,
+        tangent: &mut NodalStiffnesses<Balance<S>>,
+    ) -> Result<(), String> {
+        self.check(nodal_fields.len())?;
+        nodal_fields
+            .iter()
+            .zip(&self.areas)
+            .enumerate()
+            .for_each(|(node, (&field, &area))| {
+                tangent[node][node] += self.model.tangent(field) * area
             });
         Ok(())
     }
 }
 
-impl<L> LoadStiffness<NodalFields<L>, NodalStiffnesses<L>> for Convection<L>
+impl<S> LoadAt<NodalFields<Balance<S>>, NodalForces<Balance<S>>> for Surface<S>
 where
-    L: Diffusive,
-{
-    fn add_stiffness_to(
-        &self,
-        nodal_fields: &NodalFields<L>,
-        tangent: &mut NodalStiffnesses<L>,
-    ) -> Result<(), String> {
-        self.check(nodal_fields.len())?;
-        self.coefficients
-            .iter()
-            .enumerate()
-            .for_each(|(node, &coefficient)| tangent[node][node] += coefficient);
-        Ok(())
-    }
-}
-
-impl<L> LoadAt<NodalFields<L>, NodalForces<L>> for Convection<L>
-where
-    L: Diffusive,
-    Quantity<L::Stiffness>: Mul<Quantity<L::Field>, Output = Quantity<L>>,
+    S: SurfaceFlux,
+    SurfaceFluxPerArea<S>: Mul<Quantity<Area>, Output = Quantity<Balance<S>>>,
 {
     fn subtract_at(
         &self,
         _: Quantity<Time>,
-        nodal_fields: &NodalFields<L>,
-        residual: &mut NodalForces<L>,
+        nodal_fields: &NodalFields<Balance<S>>,
+        residual: &mut NodalForces<Balance<S>>,
     ) -> Result<(), String> {
         self.subtract_from(nodal_fields, residual)
     }
 }
 
-impl<L> LoadStiffnessAt<NodalFields<L>, NodalStiffnesses<L>> for Convection<L>
+impl<S> LoadStiffnessAt<NodalFields<Balance<S>>, NodalStiffnesses<Balance<S>>> for Surface<S>
 where
-    L: Diffusive,
+    S: SurfaceFlux,
+    SurfaceTangent<S>: Mul<Quantity<Area>, Output = Quantity<<Balance<S> as Diffusive>::Stiffness>>,
 {
     fn add_stiffness_at(
         &self,
         _: Quantity<Time>,
-        nodal_fields: &NodalFields<L>,
-        tangent: &mut NodalStiffnesses<L>,
+        nodal_fields: &NodalFields<Balance<S>>,
+        tangent: &mut NodalStiffnesses<Balance<S>>,
     ) -> Result<(), String> {
         self.add_stiffness_to(nodal_fields, tangent)
     }
 }
 
-impl<L> Conservative<NodalFields<L>, Quantity<L::Energy>> for Convection<L>
+impl<S> Conservative<NodalFields<Balance<S>>, Quantity<<Balance<S> as Diffusive>::Energy>>
+    for Surface<S>
 where
-    L: Diffusive,
-    Quantity<L::Stiffness>: Mul<Quantity<L::Field>, Output = Quantity<L>>,
-    Quantity<L::Field>: Mul<Quantity<L>, Output = Quantity<L::Energy>>,
+    S: SurfacePotential,
 {
     fn potential_energy(
         &self,
-        nodal_fields: &NodalFields<L>,
-    ) -> Result<Quantity<L::Energy>, String> {
+        nodal_fields: &NodalFields<Balance<S>>,
+    ) -> Result<Quantity<<Balance<S> as Diffusive>::Energy>, String> {
         self.check(nodal_fields.len())?;
         Ok(nodal_fields
             .iter()
-            .zip(&self.coefficients)
-            .map(|(&field, &coefficient)| {
-                let difference = field - self.ambient;
-                difference * (coefficient * difference)
-            })
-            .sum::<Quantity<L::Energy>>()
-            * 0.5)
+            .zip(&self.areas)
+            .map(|(&field, &area)| self.model.potential(field, area))
+            .sum::<Quantity<<Balance<S> as Diffusive>::Energy>>())
     }
 }
 
-impl<L> ConservativeAt<NodalFields<L>, Quantity<L::Energy>> for Convection<L>
+impl<S> ConservativeAt<NodalFields<Balance<S>>, Quantity<<Balance<S> as Diffusive>::Energy>>
+    for Surface<S>
 where
-    L: Diffusive,
-    Quantity<L::Stiffness>: Mul<Quantity<L::Field>, Output = Quantity<L>>,
-    Quantity<L::Field>: Mul<Quantity<L>, Output = Quantity<L::Energy>>,
+    S: SurfacePotential,
 {
     fn potential_energy_at(
         &self,
         _: Quantity<Time>,
-        nodal_fields: &NodalFields<L>,
-    ) -> Result<Quantity<L::Energy>, String> {
+        nodal_fields: &NodalFields<Balance<S>>,
+    ) -> Result<Quantity<<Balance<S> as Diffusive>::Energy>, String> {
         self.potential_energy(nodal_fields)
     }
 }
 
-impl Load<NodalStatesSolidThermal, NodalForcesSolidThermal> for Convection<Power> {
+impl<S> Load<NodalStatesSolidThermal, NodalForcesSolidThermal> for Surface<S>
+where
+    S: SurfaceFlux<Balance = Power>,
+{
     fn subtract_from(
         &self,
         nodal_states: &NodalStatesSolidThermal,
@@ -497,35 +500,40 @@ impl Load<NodalStatesSolidThermal, NodalForcesSolidThermal> for Convection<Power
         self.check(nodal_states.len())?;
         residual
             .iter_mut()
-            .zip(nodal_states.iter().zip(&self.coefficients))
-            .for_each(|(residual, (state, &coefficient))| {
-                residual.1 += coefficient * (state.1 - self.ambient)
-            });
+            .zip(nodal_states.iter().zip(&self.areas))
+            .for_each(|(residual, (state, &area))| residual.1 += self.model.flux(state.1) * area);
         Ok(())
     }
 }
 
-impl LoadStiffness<NodalStatesSolidThermal, NodalStiffnessesSolidThermal> for Convection<Power> {
+impl<S> LoadStiffness<NodalStatesSolidThermal, NodalStiffnessesSolidThermal> for Surface<S>
+where
+    S: SurfaceFlux<Balance = Power>,
+{
     fn add_stiffness_to(
         &self,
         nodal_states: &NodalStatesSolidThermal,
         tangent: &mut NodalStiffnessesSolidThermal,
     ) -> Result<(), String> {
         self.check(nodal_states.len())?;
-        self.coefficients
+        nodal_states
             .iter()
+            .zip(&self.areas)
             .enumerate()
-            .for_each(|(node, &coefficient)| {
+            .for_each(|(node, (state, &area))| {
                 tangent[node][node] += TensorTuple(
                     TensorTuple(Default::default(), Default::default()),
-                    TensorTuple(Default::default(), coefficient),
+                    TensorTuple(Default::default(), self.model.tangent(state.1) * area),
                 )
             });
         Ok(())
     }
 }
 
-impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for Convection<Power> {
+impl<S> LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for Surface<S>
+where
+    S: SurfaceFlux<Balance = Power>,
+{
     fn subtract_at(
         &self,
         _: Quantity<Time>,
@@ -536,7 +544,10 @@ impl LoadAt<NodalStatesSolidThermal, NodalForcesSolidThermal> for Convection<Pow
     }
 }
 
-impl LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal> for Convection<Power> {
+impl<S> LoadStiffnessAt<NodalStatesSolidThermal, NodalStiffnessesSolidThermal> for Surface<S>
+where
+    S: SurfaceFlux<Balance = Power>,
+{
     fn add_stiffness_at(
         &self,
         _: Quantity<Time>,

@@ -2,50 +2,49 @@
 mod test;
 
 use crate::{
-    constitutive::diffusion::Diffusive,
+    constitutive::diffusion::{Diffusive, surface::SurfaceFlux},
     domain::{
         boundary::{Field, Loads, SolidThermal},
-        diffusion::loads::{Convection, NodalSource, TimedSource},
+        diffusion::loads::{NodalSource, Surface, TimedSource},
     },
     fem::{NodalReferenceCoordinates, solid::loads::nodal_areas},
     geometry::mesh::SideSet,
     math::Quantity,
-    units::{Area, Power, PowerPerArea, PowerPerAreaTemperature, Temperature, Time},
+    units::{Area, Power, PowerPerArea, Time},
 };
 use std::ops::Mul;
 
 /// A flux per unit reference area.
 pub type TimedFlux<G> = TimedSource<Area, G>;
 
+type Balance<S> = <S as SurfaceFlux>::Balance;
 type Flux<L> = Quantity<<L as Diffusive>::Flux>;
 type WithSource<U, T, L> = Loads<Field<U>, (T, NodalSource<L>)>;
 type WithTimedFlux<U, T, G> = Result<Loads<Field<U>, (T, TimedFlux<G>)>, String>;
 type WithHeat<T> = Loads<SolidThermal<3>, (T, NodalSource<Power>)>;
 type WithTimedHeat<T, G> = Result<Loads<SolidThermal<3>, (T, TimedFlux<G>)>, String>;
 
-type WithConvection<U, T, L> = Result<Loads<Field<U>, (T, Convection<L>)>, String>;
-type WithHeatConvection<T> = Result<Loads<SolidThermal<3>, (T, Convection<Power>)>, String>;
+type WithSurface<U, T, S> = Result<Loads<Field<U>, (T, Surface<S>)>, String>;
+type WithHeatSurface<T, S> = Result<Loads<SolidThermal<3>, (T, Surface<S>)>, String>;
 
 impl<U, T> Loads<Field<U>, T> {
-    /// Adds a flux per unit reference area through the faces of a side set that is the
-    /// coefficient times the difference of the field from the ambient field, such as convection.
-    pub fn convection_through<L>(
+    /// Adds a flux through the faces of a side set that is a law of the field on them, such as
+    /// convection.
+    pub fn surface<S>(
         self,
         coordinates: &NodalReferenceCoordinates<3>,
         side_set: &SideSet,
-        coefficient: Quantity<L::TangentPerLength>,
-        ambient: Quantity<L::Field>,
-    ) -> WithConvection<U, T, L>
+        law: S,
+    ) -> WithSurface<U, T, S>
     where
-        L: Diffusive<Field = U>,
-        Quantity<L::TangentPerLength>: Mul<Quantity<Area>, Output = Quantity<L::Stiffness>>,
+        S: SurfaceFlux,
+        Balance<S>: Diffusive<Field = U>,
     {
-        let coefficients = nodal_areas(coordinates, side_set)?
-            .into_iter()
-            .map(|area| coefficient * area)
-            .collect();
-        Ok(self.convection(ambient, coefficients))
+        Ok(self.with_surface(nodal_areas(coordinates, side_set)?, law))
     }
+}
+
+impl<U, T> Loads<Field<U>, T> {
     /// Adds a flux per unit reference area through the faces of a side set, such as heating.
     pub fn flux<L>(
         self,
@@ -108,19 +107,17 @@ impl<T> Loads<SolidThermal<3>, T> {
 }
 
 impl<T> Loads<SolidThermal<3>, T> {
-    /// Adds a heat flux per unit reference area through the faces of a side set that is the
-    /// coefficient times the difference of the temperature from the ambient temperature.
-    pub fn convection_through(
+    /// Adds a heat flux through the faces of a side set that is a law of the temperature on
+    /// them, such as convection.
+    pub fn surface<S>(
         self,
         coordinates: &NodalReferenceCoordinates<3>,
         side_set: &SideSet,
-        coefficient: Quantity<PowerPerAreaTemperature>,
-        ambient: Quantity<Temperature>,
-    ) -> WithHeatConvection<T> {
-        let coefficients = nodal_areas(coordinates, side_set)?
-            .into_iter()
-            .map(|area| coefficient * area)
-            .collect();
-        Ok(self.convection(ambient, coefficients))
+        law: S,
+    ) -> WithHeatSurface<T, S>
+    where
+        S: SurfaceFlux<Balance = Power>,
+    {
+        Ok(self.with_surface(nodal_areas(coordinates, side_set)?, law))
     }
 }

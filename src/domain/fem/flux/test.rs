@@ -1,5 +1,8 @@
 use crate::{
-    constitutive::thermal::conduction::{Fourier, test::THERMAL_CONDUCTIVITY},
+    constitutive::{
+        diffusion::surface::Newton,
+        thermal::conduction::{Fourier, test::THERMAL_CONDUCTIVITY},
+    },
     domain::ElementModel,
     fem::{
         Model,
@@ -376,11 +379,13 @@ fn a_convection_through_the_top_of_a_held_bar_settles_between_the_ambient_and_th
         .fix_nodes(crate::fem::boundary::Temperature, 0..4);
     let (coefficient, ambient) = (4.0, 10.0);
     let loads = Loads::<Field<Temperature>>::new()
-        .convection_through::<Power>(
+        .surface(
             model.coordinates(),
             model.side_sets().iter().next().unwrap(),
-            Quantity::<PowerPerAreaTemperature>::new(coefficient),
-            Quantity::<Temperature>::new(ambient),
+            Newton::<Power> {
+                coefficient: Quantity::<PowerPerAreaTemperature>::new(coefficient),
+                ambient: Quantity::<Temperature>::new(ambient),
+            },
         )
         .unwrap();
     let temperatures = <Model<Hex, 3> as Root<
@@ -416,11 +421,13 @@ fn the_residual_of_a_convection_is_the_gradient_of_its_potential() {
     };
     let model = model();
     let loads = Loads::<Field<Temperature>>::new()
-        .convection_through::<Power>(
+        .surface(
             model.coordinates(),
             model.side_sets().iter().next().unwrap(),
-            Quantity::<PowerPerAreaTemperature>::new(4.0),
-            Quantity::<Temperature>::new(10.0),
+            Newton::<Power> {
+                coefficient: Quantity::<PowerPerAreaTemperature>::new(4.0),
+                ambient: Quantity::<Temperature>::new(10.0),
+            },
         )
         .unwrap();
     let convection = &loads;
@@ -444,4 +451,68 @@ fn the_residual_of_a_convection_is_the_gradient_of_its_potential() {
         )
     });
     assert!(residual.iter().skip(4).all(|power| power.value() != 0.0));
+}
+
+#[test]
+fn a_radiation_onto_the_top_of_a_held_bar_balances_the_conduction_through_it() {
+    use crate::{
+        constitutive::diffusion::surface::StefanBoltzmann,
+        fem::{
+            Root,
+            boundary::{BoundaryConditions, ConstrainAt as _},
+            diffusion::NodalStiffnesses,
+        },
+        math::optimize::NewtonRaphson,
+        units::STEFAN_BOLTZMANN_CONSTANT,
+    };
+    let model = model();
+    let conditions = BoundaryConditions::<Field<Temperature>>::new()
+        .fix_nodes(crate::fem::boundary::Temperature, 0..4);
+    let (emissivity, ambient) = (0.5, 300.0);
+    let loads = Loads::<Field<Temperature>>::new()
+        .surface(
+            model.coordinates(),
+            model.side_sets().iter().next().unwrap(),
+            StefanBoltzmann {
+                emissivity,
+                ambient: Quantity::<Temperature>::new(ambient),
+            },
+        )
+        .unwrap();
+    let temperatures = <Model<Hex, 3> as Root<
+        NodalForces<Power>,
+        NodalStiffnesses<Power>,
+        NodalFields<Power>,
+    >>::root(
+        &model,
+        &conditions,
+        &loads,
+        NewtonRaphson {
+            max_steps: 50,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let (sigma, k) = (
+        STEFAN_BOLTZMANN_CONSTANT.value() * emissivity,
+        THERMAL_CONDUCTIVITY.value(),
+    );
+    let balance = |top: f64| k * top - sigma * (ambient.powi(4) - top.powi(4));
+    let (mut low, mut high) = (0.0_f64, ambient);
+    (0..200).for_each(|_| {
+        let middle = 0.5 * (low + high);
+        match balance(middle) < 0.0 {
+            true => low = middle,
+            false => high = middle,
+        }
+    });
+    let top = 0.5 * (low + high);
+    (0..4).for_each(|node| assert!(temperatures[node].value().abs() < 1e-9));
+    (4..8).for_each(|node| {
+        let found = temperatures[node].value();
+        assert!(
+            (found - top).abs() < 1e-6 * top,
+            "node {node}: {found} != {top}"
+        )
+    });
 }

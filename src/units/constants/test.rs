@@ -1,6 +1,7 @@
 use super::{
     AVOGADRO_CONSTANT, BOLTZMANN_CONSTANT, ELEMENTARY_CHARGE, GAS_CONSTANT, LIGHT_SPEED,
-    ROOM_TEMPERATURE, STANDARD_GRAVITY, VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY,
+    PLANCK_CONSTANT, ROOM_TEMPERATURE, STANDARD_GRAVITY, STEFAN_BOLTZMANN_CONSTANT,
+    VACUUM_PERMEABILITY, VACUUM_PERMITTIVITY,
 };
 use crate::units::{ElectricPotential, Energy, Length, Time};
 
@@ -56,4 +57,15 @@ fn light_speed() {
 #[test]
 fn standard_gravity() {
     assert_eq!(STANDARD_GRAVITY.in_meters_per_second_squared(), 9.806_65)
+}
+
+#[test]
+fn stefan_boltzmann_constant() {
+    let (k, h, c) = (
+        BOLTZMANN_CONSTANT.value(),
+        PLANCK_CONSTANT.value(),
+        LIGHT_SPEED.value(),
+    );
+    let expected = 2.0 * std::f64::consts::PI.powi(5) * k.powi(4) / (15.0 * h.powi(3) * c * c);
+    assert!((STEFAN_BOLTZMANN_CONSTANT.value() / expected - 1.0).abs() < 1e-8)
 }
