@@ -1,10 +1,15 @@
 macro_rules! test_surface_flux {
     ($name: ident, $model: expr, $fields: expr) => {
+        crate::constitutive::diffusion::surface::test::test_surface_flux!(
+            $name, $model, $fields, $fields
+        );
+    };
+    ($name: ident, $model: expr, $fields: expr, $smooth: expr) => {
         mod $name {
             use super::*;
             #[test]
             fn the_tangent_is_the_derivative_of_the_flux() -> Result<(), AssertionError> {
-                $fields.into_iter().try_for_each(|field: f64| {
+                $smooth.into_iter().try_for_each(|field: f64| {
                     let (field, step) = (Quantity::new(field), perturbation(EPSILON));
                     let flux = |field| SurfaceFlux::flux(&$model, field);
                     let slope = (flux(field + step) - flux(field - step)) / (2.0 * step);
@@ -73,6 +78,11 @@ pub(crate) use test_surface_potential;
 
 macro_rules! test_surface {
     ($name: ident, $model: expr, $fields: expr) => {
+        crate::constitutive::diffusion::surface::test::test_surface!(
+            $name, $model, $fields, $fields
+        );
+    };
+    ($name: ident, $model: expr, $fields: expr, $smooth: expr) => {
         mod $name {
             use super::*;
             use crate::{
@@ -85,7 +95,7 @@ macro_rules! test_surface {
                 units::Area,
             };
             crate::constitutive::diffusion::surface::test::test_surface_flux!(
-                flux, $model, $fields
+                flux, $model, $fields, $smooth
             );
             crate::constitutive::diffusion::surface::test::test_surface_potential!(
                 potential, $model, $fields

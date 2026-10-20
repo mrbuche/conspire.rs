@@ -26,11 +26,19 @@ fn flux(value: f64) -> Quantity<PowerPerArea> {
 }
 
 test_surface!(linear, model(1.0), [3.0, 9.5, 10.0, 10.5, 14.0, 30.0]);
-test_surface!(laminar, model(1.25), [3.0, 9.5, 10.0, 10.5, 14.0, 30.0]);
+// The derivative of the flux at the ambient value is zero, which a finite difference only
+// approaches as the step to the power of the exponent less one.
+test_surface!(
+    laminar,
+    model(1.25),
+    [3.0, 9.5, 10.0, 10.5, 14.0, 30.0],
+    [3.0, 9.5, 10.5, 14.0, 30.0]
+);
 test_surface!(
     turbulent,
     model(4.0 / 3.0),
-    [3.0, 9.5, 10.0, 10.5, 14.0, 30.0]
+    [3.0, 9.5, 10.0, 10.5, 14.0, 30.0],
+    [3.0, 9.5, 10.5, 14.0, 30.0]
 );
 test_surface!(quadratic, model(2.0), [3.0, 9.5, 10.0, 10.5, 14.0, 30.0]);
 
