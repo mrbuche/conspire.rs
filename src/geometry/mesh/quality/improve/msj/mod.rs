@@ -27,7 +27,6 @@ const RADIUS: Quantity = Dimensionless::of(0.2);
 const RHO: Quantity = Dimensionless::of(1.0e2);
 const STALL: Quantity = Dimensionless::of(1.0e-6);
 const STEP: Quantity = Dimensionless::of(0.01);
-const SWEEPS: usize = 20;
 const TOLERANCE: Quantity = Dimensionless::of(1.0e-3);
 
 fn solver(typical: Scalar) -> LimitedMemoryBFGS {
@@ -113,9 +112,8 @@ impl Mesh<3> {
     pub fn improve_scaled_jacobian(
         &mut self,
         target: &Tessellation,
-        sweeps: Option<usize>,
+        sweeps: usize,
     ) -> Result<(), &'static str> {
-        let sweeps = sweeps.unwrap_or(SWEEPS);
         let mut hexes = Vec::new();
         for block in self.iter() {
             match block {

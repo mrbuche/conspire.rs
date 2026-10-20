@@ -9,6 +9,8 @@ use crate::{
 };
 use std::{collections::BTreeSet, f64::consts::TAU, time::Instant};
 
+const SWEEPS: usize = 20;
+
 type Raw = [[Scalar; 3]; 8];
 
 const UNIT: Raw = [
@@ -180,7 +182,7 @@ fn improves_a_wobbly_grid_without_leaving_the_cube() {
     let n = 5;
     let mut mesh = grid(n, 0.9);
     let before = worst(&mesh);
-    mesh.improve_scaled_jacobian(&cube(), None).unwrap();
+    mesh.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
     let after = worst(&mesh);
     assert!(after > before + 0.05, "{before} -> {after}");
     mesh.coordinates().iter().for_each(|node| {
@@ -191,7 +193,7 @@ fn improves_a_wobbly_grid_without_leaving_the_cube() {
 #[test]
 fn keeps_the_cube_corners_and_edges() {
     let mut mesh = grid(4, 0.9);
-    mesh.improve_scaled_jacobian(&cube(), None).unwrap();
+    mesh.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
     let corners = UNIT.map(|corner| {
         mesh.coordinates()
             .iter()
@@ -228,7 +230,7 @@ fn keeps_the_cube_corners_and_edges() {
 fn never_lowers_the_worst_scaled_jacobian() {
     let mut mesh = grid(4, 0.5);
     let before = worst(&mesh);
-    mesh.improve_scaled_jacobian(&cube(), None).unwrap();
+    mesh.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
     assert!(worst(&mesh) >= before);
 }
 
@@ -236,17 +238,17 @@ fn never_lowers_the_worst_scaled_jacobian() {
 fn zero_sweeps_leave_the_mesh_unchanged() {
     let mut mesh = grid(4, 0.9);
     let before = mesh.coordinates().clone();
-    mesh.improve_scaled_jacobian(&cube(), Some(0)).unwrap();
+    mesh.improve_scaled_jacobian(&cube(), 0).unwrap();
     assert_eq!(mesh.coordinates(), &before);
 }
 
 #[test]
-fn one_sweep_stops_the_ratchet_below_the_default() {
+fn one_sweep_stops_the_ratchet_below_the_full_budget() {
     let mut one = grid(4, 0.9);
-    one.improve_scaled_jacobian(&cube(), Some(1)).unwrap();
-    let mut default = grid(4, 0.9);
-    default.improve_scaled_jacobian(&cube(), None).unwrap();
-    assert!(worst(&one) < worst(&default) - 0.1);
+    one.improve_scaled_jacobian(&cube(), 1).unwrap();
+    let mut full = grid(4, 0.9);
+    full.improve_scaled_jacobian(&cube(), SWEEPS).unwrap();
+    assert!(worst(&one) < worst(&full) - 0.1);
 }
 
 fn torus(major: Scalar, minor: Scalar, around: usize, tube: usize) -> Tessellation {
@@ -320,7 +322,7 @@ fn improves_a_buffered_torus() {
     let mut mesh = mesh.buffer(&tessellation, Fitting::Snap).unwrap();
     let (before, before_gap) = (worst(&mesh), gap(&mesh, &tessellation));
     let start = Instant::now();
-    mesh.improve_scaled_jacobian(&tessellation, None).unwrap();
+    mesh.improve_scaled_jacobian(&tessellation, SWEEPS).unwrap();
     let (after, after_gap) = (worst(&mesh), gap(&mesh, &tessellation));
     eprintln!(
         "BENCH hexes {} sj {before:.4} -> {after:.4} gap {before_gap:.2e} -> {after_gap:.2e} in {:?}",
