@@ -1,7 +1,10 @@
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Dualization, Fitting, Mesh, Output, Tessellation, Vtk, test::sphere},
+        mesh::{
+            Connectivity, Dualization, Fitting, Mesh, Output, Tessellation, Vtk,
+            test::{extrusion, sphere},
+        },
         ntree::node::{Node, cell::Cell},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, SeparationSizing, Sizing},
     },
@@ -1435,4 +1438,50 @@ fn creases_that_touch_leave_no_gap_to_resolve() {
         0,
     );
     assert!(sizing.levels() > 0);
+}
+
+/// A stair whose tread, a step `rise` high, widens from `narrow` at one end to
+/// `wide` at the other, so the two creases bounding it run apart.
+fn tapering_stair(narrow: f64, wide: f64, rise: f64) -> Tessellation {
+    let (start, length, rate) = (1.0, 2.0, wide / narrow - 1.0);
+    let solid = extrusion(&[
+        [0.0, -1.0],
+        [length, -1.0],
+        [length, 2.0 * rise],
+        [start + narrow, 2.0 * rise],
+        [start + narrow, rise],
+        [start, rise],
+        [start, 0.0],
+        [0.0, 0.0],
+    ]);
+    let points = solid
+        .mesh()
+        .coordinates()
+        .iter()
+        .map(|point| {
+            let (x, y, z) = (point[0].value(), point[1].value(), point[2].value());
+            let y = if y >= start {
+                start + (y - start) * (1.0 + rate * x)
+            } else {
+                y
+            };
+            [x, y, z]
+        })
+        .collect();
+    let faces = solid
+        .mesh()
+        .connectivities()
+        .iter()
+        .flatten()
+        .map(|element| from_fn::<_, 3, _>(|index| element[index]))
+        .collect();
+    tessellate(points, faces)
+}
+
+#[test]
+fn a_tapering_gap_is_refined_along_its_whole_length() {
+    [0.25, 0.6].into_iter().for_each(|wide| {
+        let stair = tapering_stair(0.05, wide, 0.6);
+        coverage(&stair, &stair);
+    })
 }
