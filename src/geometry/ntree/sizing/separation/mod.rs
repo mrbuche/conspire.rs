@@ -11,9 +11,13 @@ use crate::{
 /// being thin at all, and without needing any continuous curvature to key
 /// off of.
 pub struct SeparationSizing {
-    /// The maximum crease-to-crease distance considered a narrow feature.
-    /// `None` disables separation-driven refinement entirely.
-    pub radius: Option<Quantity<Length>>,
+    /// The minimum crease-to-crease distance considered a narrow feature:
+    /// creases closer together than this are taken for noise and ignored.
+    /// `None` disables separation-driven refinement entirely, and zero
+    /// enables it with nothing ignored. There is no maximum, so creases are
+    /// compared with every other crease and the cost grows with the square of
+    /// their number.
+    pub minimum: Option<Quantity<Length>>,
     /// Creases within this many steps of one another along the crease graph
     /// are not compared, so a crease is not mistaken for lying close to its
     /// own smoothly-continuing neighbors (e.g. the other edges meeting it at
@@ -28,7 +32,7 @@ pub struct SeparationSizing {
 impl Default for SeparationSizing {
     fn default() -> Self {
         Self {
-            radius: None,
+            minimum: None,
             hops: 1,
             scale: None,
         }

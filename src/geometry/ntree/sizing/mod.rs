@@ -60,7 +60,7 @@ impl<'a> Sizing<'a> {
             floor_fraction,
         } = curvature;
         let SeparationSizing {
-            radius: separation_radius,
+            minimum: separation_minimum,
             hops: separation_hops,
             scale: separation_scale,
         } = separation;
@@ -133,34 +133,38 @@ impl<'a> Sizing<'a> {
         // the triangles or the whole creases would drive the entire model down
         // to the gap size instead of just the gap. Every pair a crease takes
         // part in is kept, since each covers a different stretch of it.
-        let narrow_pairs: Vec<([[Coordinate<D>; 2]; 2], Quantity<Length>)> = match separation_radius
-        {
-            Some(radius) => {
-                let features = tessellation.features();
-                features
-                    .separation(tessellation, radius, separation_hops)
-                    .into_iter()
-                    .enumerate()
-                    .flat_map(|(crease, partners)| {
-                        // Each pair is reported from both of its creases, and
-                        // one copy of it is enough.
-                        partners
-                            .into_iter()
-                            .filter(move |partner| crease < partner.crease)
-                            .map(move |partner| {
-                                (
-                                    [
-                                        features.creases()[crease].clone(),
-                                        features.creases()[partner.crease].clone(),
-                                    ],
-                                    partner.distance,
-                                )
-                            })
-                    })
-                    .collect()
-            }
-            None => Vec::new(),
-        };
+        let narrow_pairs: Vec<([[Coordinate<D>; 2]; 2], Quantity<Length>)> =
+            match separation_minimum {
+                Some(minimum) => {
+                    let features = tessellation.features();
+                    features
+                        .separation(tessellation, minimum, separation_hops)
+                        .into_iter()
+                        .enumerate()
+                        .flat_map(|(crease, partners)| {
+                            // Each pair is reported from both of its creases, and
+                            // one copy of it is enough. Creases that touch have
+                            // no gap to resolve.
+                            partners
+                                .into_iter()
+                                .filter(move |partner| {
+                                    crease < partner.crease
+                                        && partner.distance > Quantity::default()
+                                })
+                                .map(move |partner| {
+                                    (
+                                        [
+                                            features.creases()[crease].clone(),
+                                            features.creases()[partner.crease].clone(),
+                                        ],
+                                        partner.distance,
+                                    )
+                                })
+                        })
+                        .collect()
+                }
+                None => Vec::new(),
+            };
         let min_narrow = narrow_pairs
             .iter()
             .map(|&(_, distance)| distance)
