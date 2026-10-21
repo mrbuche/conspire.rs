@@ -2,8 +2,9 @@
 mod test;
 
 use super::{
-    super::{Erase, FlatView, Is, Scalar, Tensor, Vector, sparse::SparseSolver},
-    EqualityConstraint, LineSearch, Optimization, OptimizationError, Tolerances,
+    super::{Erase, FlatView, Is, Scalar, Solution, Tensor, Vector, sparse::SparseSolver},
+    EqualityConstraint, EqualityConstraints, LineSearch, Optimization, OptimizationError,
+    Tolerances,
 };
 use crate::units::{UnitMul, UnitSum};
 use std::{collections::VecDeque, mem::swap};
@@ -69,7 +70,7 @@ where
     <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
         Is<<F as Tensor>::Unit>,
     J: FlatView + Tensor,
-    X: FlatView + Tensor,
+    X: FlatView + Solution + Tensor,
 {
     fn minimize(
         &self,
@@ -77,7 +78,7 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         _hessian: impl FnMut(&X) -> Result<(), String>,
         initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        equality_constraint: EqualityConstraints,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let descent = self.descend(function, jacobian, initial_guess, equality_constraint)?;
@@ -103,8 +104,8 @@ impl LimitedMemoryBFGS {
         &self,
         mut function: impl FnMut(&X) -> Result<F, String>,
         mut jacobian: impl FnMut(&X) -> Result<J, String>,
-        initial_guess: X,
-        equality_constraint: EqualityConstraint,
+        mut initial_guess: X,
+        equality_constraint: EqualityConstraints,
     ) -> Result<Descent<F, X>, OptimizationError>
     where
         F: Erase<Erased = Scalar> + Tensor,
@@ -113,15 +114,26 @@ impl LimitedMemoryBFGS {
         <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
             Is<<F as Tensor>::Unit>,
         J: FlatView + Tensor,
-        X: FlatView + Tensor,
+        X: FlatView + Solution + Tensor,
     {
+        let unsupported = || {
+            OptimizationError::Intermediate(format!(
+                "These equality constraints are not supported, in solver: {self:?}."
+            ))
+        };
+        let Some(equality_constraint) =
+            EqualityConstraint::lower_single(equality_constraint, &mut initial_guess)
+        else {
+            return Err(unsupported());
+        };
         let fixed = match equality_constraint {
             EqualityConstraint::Fixed(indices) => indices,
             EqualityConstraint::None => Vec::new(),
-            EqualityConstraint::Linear(..) => {
-                return Err(OptimizationError::Intermediate(format!(
-                    "Linear equality constraints are not supported, in solver: {self:?}."
-                )));
+            EqualityConstraint::Prescribed(_) => {
+                unreachable!("Prescribed constraints are lowered first.")
+            }
+            EqualityConstraint::Multipliers(_) | EqualityConstraint::Linear(..) => {
+                return Err(unsupported());
             }
         };
         let mut gradient = |solution: &X| -> Result<J, String> {

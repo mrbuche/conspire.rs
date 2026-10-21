@@ -45,7 +45,7 @@ fn rosenbrock_converges() -> Result<(), AssertionError> {
             rosenbrock_gradient,
             |_| Ok(()),
             Vector::from([-1.2, 1.0]),
-            EqualityConstraint::None,
+            Vec::new(),
             None,
         )?,
         &Vector::from([1.0, 1.0]),
@@ -70,7 +70,7 @@ fn converges_on_a_typed_problem_with_units() -> Result<(), AssertionError> {
         },
         |_| Ok(()),
         TensorRank1Vec::<3, Reference, Length>::from([[0.0, 2.0, 5.0], [-3.0, 1.0, 0.5]]),
-        EqualityConstraint::None,
+        Vec::new(),
         None,
     )?;
     Assert::default().eq_within_tols(
@@ -85,7 +85,7 @@ fn fixed_entries_stay_put() -> Result<(), AssertionError> {
         bowl,
         bowl_gradient,
         Vector::from([0.0, 0.0, 0.0]),
-        EqualityConstraint::Fixed(vec![1]),
+        vec![EqualityConstraint::Fixed(vec![1])],
     )?;
     assert!(descent.converged);
     Assert::default().eq_within_tols(&descent.solution, &Vector::from([1.0, 0.0, 1.0]))
@@ -98,7 +98,10 @@ fn linear_constraints_are_refused() {
             bowl,
             bowl_gradient,
             Vector::from([0.0, 0.0]),
-            EqualityConstraint::Linear(Matrix::zero(2, 2), Vector::from([0.0, 0.0])),
+            vec![EqualityConstraint::Linear(
+                Matrix::zero(2, 2),
+                Vector::from([0.0, 0.0])
+            )],
         ),
         Err(OptimizationError::Intermediate(_))
     ))
@@ -114,7 +117,7 @@ fn reports_where_it_got_to_when_the_budget_runs_out() -> Result<(), Optimization
         rosenbrock,
         rosenbrock_gradient,
         Vector::from([-1.2, 1.0]),
-        EqualityConstraint::None,
+        Vec::new(),
     )?;
     assert!(!descent.converged);
     assert_eq!(descent.steps, 3);
@@ -125,7 +128,7 @@ fn reports_where_it_got_to_when_the_budget_runs_out() -> Result<(), Optimization
             rosenbrock_gradient,
             |_| Ok(()),
             Vector::from([-1.2, 1.0]),
-            EqualityConstraint::None,
+            Vec::new(),
             None,
         ),
         Err(OptimizationError::MaximumStepsReached(3, _))
@@ -137,7 +140,7 @@ fn reports_where_it_got_to_when_the_budget_runs_out() -> Result<(), Optimization
 fn stops_when_no_step_decreases_the_function() -> Result<(), OptimizationError> {
     let lying = |_: &Vector| Ok(Vector::from([1.0]));
     let rising = |x: &Vector| Ok(-x[0]);
-    let descent = solver().descend(rising, lying, Vector::from([0.0]), EqualityConstraint::None)?;
+    let descent = solver().descend(rising, lying, Vector::from([0.0]), Vec::new())?;
     assert!(!descent.converged);
     assert!(descent.steps < 500);
     assert!(matches!(
@@ -146,7 +149,7 @@ fn stops_when_no_step_decreases_the_function() -> Result<(), OptimizationError> 
             lying,
             |_| Ok(()),
             Vector::from([0.0]),
-            EqualityConstraint::None,
+            Vec::new(),
             None,
         ),
         Err(OptimizationError::Intermediate(_))
@@ -156,12 +159,7 @@ fn stops_when_no_step_decreases_the_function() -> Result<(), OptimizationError> 
 
 #[test]
 fn starts_converged_at_a_minimum() -> Result<(), OptimizationError> {
-    let descent = solver().descend(
-        bowl,
-        bowl_gradient,
-        Vector::from([1.0, 1.0]),
-        EqualityConstraint::None,
-    )?;
+    let descent = solver().descend(bowl, bowl_gradient, Vector::from([1.0, 1.0]), Vec::new())?;
     assert!(descent.converged);
     assert_eq!(descent.steps, 0);
     Ok(())
@@ -177,12 +175,7 @@ fn relative_tolerance_is_read_against_the_initial_gradient() -> Result<(), Optim
         rel_tol: Some(1.0e-6),
         ..solver()
     };
-    let descent = solver.descend(
-        bowl,
-        bowl_gradient,
-        Vector::from([10.0, -7.0]),
-        EqualityConstraint::None,
-    )?;
+    let descent = solver.descend(bowl, bowl_gradient, Vector::from([10.0, -7.0]), Vec::new())?;
     assert!(descent.converged);
     assert!(descent.steps > 0);
     Ok(())
@@ -194,12 +187,7 @@ fn takes_whole_steps_without_a_line_search() -> Result<(), OptimizationError> {
         line_search: LineSearch::None,
         ..solver()
     };
-    let descent = solver.descend(
-        bowl,
-        bowl_gradient,
-        Vector::from([3.0, 3.0]),
-        EqualityConstraint::None,
-    )?;
+    let descent = solver.descend(bowl, bowl_gradient, Vector::from([3.0, 3.0]), Vec::new())?;
     assert!(descent.converged);
     Ok(())
 }
@@ -211,12 +199,7 @@ fn an_ascent_direction_is_never_followed() -> Result<(), OptimizationError> {
         typical: -1.0,
         ..Default::default()
     };
-    let descent = solver.descend(
-        bowl,
-        bowl_gradient,
-        Vector::from([3.0, 3.0]),
-        EqualityConstraint::None,
-    )?;
+    let descent = solver.descend(bowl, bowl_gradient, Vector::from([3.0, 3.0]), Vec::new())?;
     assert!(!descent.converged);
     assert_eq!(descent.steps, 5);
     assert_eq!(descent.value, descent.initial);
@@ -233,7 +216,7 @@ fn a_flat_function_gives_no_curvature_to_learn_from() -> Result<(), Optimization
         |x: &Vector| Ok(x.iter().sum::<Scalar>()),
         |x: &Vector| Ok(x.iter().map(|_| 1.0).collect::<Vector>()),
         Vector::from([0.0, 0.0]),
-        EqualityConstraint::None,
+        Vec::new(),
     )?;
     assert!(!descent.converged);
     assert!(descent.value < descent.initial);
@@ -247,7 +230,7 @@ fn a_failing_function_is_an_error() {
             |_: &Vector| Err::<Scalar, _>("broken".to_string()),
             bowl_gradient,
             Vector::from([0.0]),
-            EqualityConstraint::None,
+            Vec::new(),
         ),
         Err(OptimizationError::Intermediate(_))
     ))
@@ -265,7 +248,7 @@ fn a_short_history_still_converges() -> Result<(), AssertionError> {
                 rosenbrock,
                 rosenbrock_gradient,
                 Vector::from([-1.2, 1.0]),
-                EqualityConstraint::None,
+                Vec::new(),
             )
             .map_err(|error| AssertionError::from(format!("{error}")))?
             .solution,
