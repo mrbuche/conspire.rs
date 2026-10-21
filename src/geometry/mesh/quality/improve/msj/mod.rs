@@ -11,7 +11,7 @@ use crate::{
     math::{
         CrossProduct, Quantity, QuantityVector, Reference, Scalar, Tensor, TensorList,
         TensorListVec, TensorRank1, TensorRank1Vec,
-        optimize::{EqualityConstraint, LimitedMemoryBFGS, LineSearch, Tolerances},
+        optimize::{LimitedMemoryBFGS, LineSearch, Tolerances},
     },
     units::{Area, Dimensionless, Length, ReciprocalLength, Volume},
 };
@@ -125,7 +125,7 @@ impl Mesh<3> {
         let mut boundary: Vec<usize> = self.exterior_faces().into_iter().flatten().collect();
         boundary.sort_unstable();
         boundary.dedup();
-        let coordinates = self.coordinates.members_mut();
+        let coordinates = &mut self.coordinates;
         let surface = Surface::new(target);
         let mut energy = Energy {
             boundary: &boundary,
@@ -188,7 +188,7 @@ impl Mesh<3> {
                             Ok(slopes)
                         },
                         current,
-                        EqualityConstraint::None,
+                        Vec::new(),
                     )
                     .map_err(|_| MeshError::Minimization)?;
                 let decrease = (descent.initial - descent.value)

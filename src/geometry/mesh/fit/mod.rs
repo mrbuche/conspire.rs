@@ -13,7 +13,7 @@ use crate::{
     math::{
         ContractWith, CrossProduct, Quantity, Reference, Scalar, Tensor, TensorRank1,
         TensorRank1List, TensorRank1Vec,
-        optimize::{EqualityConstraint, LimitedMemoryBFGS, LineSearch, Tolerances},
+        optimize::{LimitedMemoryBFGS, LineSearch, Tolerances},
     },
     units::{Area, Dimensionless, Length, ReciprocalLength},
 };
@@ -594,7 +594,7 @@ impl Sweep<'_> {
                     Ok(self.derivative(&shared.borrow()))
                 },
                 initial.clone(),
-                EqualityConstraint::None,
+                Vec::new(),
             )
             .map_err(|_| "could not minimize the fit energy")?;
         assign(&descent.solution);
