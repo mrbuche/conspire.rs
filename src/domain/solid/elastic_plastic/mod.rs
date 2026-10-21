@@ -231,10 +231,13 @@ where
 /// are reported. More than two are breakpoints: the steps are cut to end on each, and only
 /// they are reported, since the response has kinks at yielding and at unloading that an
 /// interpolant between steps would smooth over. The first time is where the initial
-/// coordinates are. A step is accepted when both the change of the flow direction over it
-/// and the plastic increment of a step that begins inside the yield surface, the larger of
-/// each over the integration points, are within `abs_tol`, strains, and a step the solver
-/// fails on is cut back like a rejected one.
+/// coordinates are. A step is accepted when both the estimated error of the step in the
+/// plastic deformation, from the change of the flow direction over it, and the plastic
+/// increment of a step that begins inside the yield surface, the larger of each over the
+/// integration points, are within `abs_tol`, strains, and a step the solver
+/// fails on is cut back like a rejected one. The tolerance bounds the estimated error of
+/// each step, as those of the integrators do, so the errors add up over the steps: the
+/// error of the result is larger than `abs_tol` and falls more slowly than it.
 ///
 /// The conditions are held at each time, and what is held at a distance from where it
 /// starts is held at that distance from the initial coordinates, whatever the step.

@@ -146,7 +146,7 @@ fn a_turning_load_takes_more_steps_as_the_tolerance_tightens() -> Result<(), Ass
     }
     assert!(counts[0] < counts[1] && counts[1] < counts[2], "{counts:?}");
     assert!(errors[2] < errors[0], "{errors:?}");
-    assert!(counts[0] > 12, "{counts:?}");
+    assert!(counts[1] > 12, "{counts:?}");
     Ok(())
 }
 
@@ -218,4 +218,39 @@ fn the_times_must_be_at_least_two_and_increasing() {
                 .is_err()
         );
     }
+}
+
+#[test]
+fn the_error_of_the_result_falls_more_slowly_than_the_tolerance() -> Result<(), AssertionError> {
+    use crate::math::Tensor;
+    let model = model(1.0);
+    let turning = |t: Quantity<Time>| 1.0 + 0.6 * t.value() * t.value();
+    let run = |load: AppliedLoad, tolerance: f64| {
+        model.root(
+            load,
+            solver(),
+            SolveStrategy::Condensed(NewtonRaphson::default()),
+            Quantity::new(tolerance),
+        )
+    };
+    let (_, _, reference) = run(
+        AppliedLoad::BiaxialStress(ramp, turning, &times(1.0, 500)),
+        1e9,
+    )?;
+    let reference = reference.as_slice().last().unwrap().clone();
+    let span = [Quantity::new(0.0), Quantity::new(1.0)];
+    let mut errors = Vec::new();
+    let mut steps = Vec::new();
+    for tolerance in [1e-2, 1e-4] {
+        let (accepted, _, states) =
+            run(AppliedLoad::BiaxialStress(ramp, turning, &span), tolerance)?;
+        let last = states.as_slice().last().unwrap();
+        errors.push((last.0.clone() - reference.0.clone()).norm().value());
+        steps.push(accepted.len() - 1);
+    }
+    assert!(errors[1] < errors[0], "{errors:?}");
+    assert!(steps[1] > steps[0], "{steps:?}");
+    let ratio = errors[0] / errors[1];
+    assert!((4.0..30.0).contains(&ratio), "{ratio} {errors:?}");
+    Ok(())
 }

@@ -37,10 +37,15 @@ pub trait Root {
     /// end on each, and only they are reported, since the response has kinks at yielding
     /// and at unloading that an interpolant between steps would smooth over.
     ///
-    /// A step is accepted when both the change of the flow direction over it and the
-    /// plastic increment of a step that begins inside the yield surface are within
-    /// `abs_tol`, strains. The first falls as the square of the step and the second as the
-    /// step. A step the solver fails on is cut back like a rejected one.
+    /// A step is accepted when both the estimated error of the step in the plastic
+    /// deformation, from the change of the flow direction over it, and the plastic increment
+    /// of a step that begins inside the yield surface are within `abs_tol`, strains. The
+    /// first falls as the square of the step and the second as the step. A step the solver
+    /// fails on is cut back like a rejected one.
+    ///
+    /// The tolerance bounds the estimated error of each step, as those of the integrators
+    /// do, so the errors add up over the steps: the error of the result is larger than
+    /// `abs_tol` and falls more slowly than it.
     fn root(
         &self,
         applied_load: AppliedLoad,

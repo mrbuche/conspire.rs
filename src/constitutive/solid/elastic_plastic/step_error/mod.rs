@@ -13,11 +13,16 @@ const ONSET_TOLERANCE: Scalar = 1e-6;
 /// The error indicators of one plastic step.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct StepError {
-    /// The change of the flow direction over the step, weighted by the plastic increment.
+    /// The error of the step in the plastic deformation, estimated by the change of the flow
+    /// direction over it, weighted by the plastic increment.
     ///
     /// ```math
-    /// \Delta\gamma\,\|\mathbf{N}^{n+1} - \mathbf{N}^{n}\|
+    /// \tfrac{1}{2}\,\Delta\gamma\,\|\mathbf{N}^{n+1} - \mathbf{N}^{n}\|
     /// ```
+    ///
+    /// The step takes the increment at the direction at its end, and the exact one is about
+    /// that at the mean of the two directions, so the error of the step is half of their
+    /// difference. It is that error as the step shrinks, and more than it for larger steps.
     ///
     /// The directions are those at the two ends of the step, so it measures the turning
     /// of the load path as well as of the flow. A direction frozen at the trial state
@@ -66,7 +71,7 @@ pub(super) fn evaluate<C: ElasticPlastic>(
     let direction = (direction_at(deformation_gradient, f_p_new)?
         - direction_at(deformation_gradient_old, f_p_old)?)
     .norm()
-        * increment;
+        * (increment * 0.5);
     let yield_function = model.yield_function(
         &model
             .mandel_stress(deformation_gradient_old, f_p_old)?

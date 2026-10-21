@@ -181,3 +181,46 @@ fn the_maximum_takes_each_indicator_from_whichever_is_larger() {
     assert_eq!(b.max(a), expected);
     assert_eq!(StepError::default().max(a), a);
 }
+
+#[test]
+fn the_estimate_is_the_local_error_of_the_step_as_it_shrinks() -> Result<(), ConstitutiveError> {
+    use crate::math::Tensor;
+    let model: Canonical<NeoHookean, PlasticFlow<VonMises, Voce>> = Canonical::from((
+        NeoHookean {
+            bulk_modulus: Stress::pascals(13.0),
+            shear_modulus: Stress::pascals(3.0),
+        },
+        flow(),
+    ));
+    let f0 = uniaxial(1.5);
+    let s0 = model.return_map(&f0, &model.initial_state())?;
+    let plastic = |state: &PlasticStateVariables| -> DeformationGradientPlastic {
+        let (f_p, _): (&DeformationGradientPlastic, &Quantity) = state.into();
+        f_p.clone()
+    };
+    let f_p_0 = plastic(&s0);
+    let ratios = [0.25, 0.125, 0.0625, 0.03125]
+        .into_iter()
+        .map(|h| {
+            let f = turning(h);
+            let step = model.return_map(&f, &s0)?;
+            let estimate = model.step_error(&f0, &f, &s0, &step)?.direction.value();
+            let substeps = 128;
+            let mut reference = s0.clone();
+            for k in 1..=substeps {
+                reference =
+                    model.return_map(&turning(h * k as f64 / substeps as f64), &reference)?;
+            }
+            let error = ((plastic(&step) - plastic(&reference)) * f_p_0.inverse())
+                .norm()
+                .value();
+            Ok(error / estimate)
+        })
+        .collect::<Result<Vec<_>, ConstitutiveError>>()?;
+    ratios
+        .windows(2)
+        .for_each(|pair| assert!(pair[0] < pair[1], "{ratios:?}"));
+    assert!(ratios.iter().all(|&ratio| ratio < 1.02), "{ratios:?}");
+    assert!(ratios[3] > 0.92, "{ratios:?}");
+    Ok(())
+}
