@@ -1,17 +1,16 @@
 #[cfg(test)]
 mod test;
 
-use super::{AppliedLoad, ElasticPlastic, load::Load};
+use super::{AppliedLoad, ElasticPlastic, Outcome, Stepper, load::Load};
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariablesHistory},
     math::{
         Matrix, Quantity, TensorArray, Vector,
-        integrate::StepController,
         optimize::{RootFindingBlock, SolveStrategy},
     },
     mechanics::{
         DeformationGradient, DeformationGradients, FirstPiolaKirchhoffStress,
-        FirstPiolaKirchhoffTangentStiffness, Scalar, Times,
+        FirstPiolaKirchhoffTangentStiffness, Times,
     },
 };
 
@@ -60,8 +59,6 @@ pub trait Root {
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
 }
 
-const DT_CUT: Scalar = 0.2;
-
 impl<C> Root for C
 where
     C: ElasticPlastic,
@@ -84,46 +81,26 @@ where
     ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
     {
         let (mut load, time) = Load::new(applied_load);
-        if time.len() < 2 || time[0] >= time[time.len() - 1] {
-            return Err(ConstitutiveError::custom(
-                "The times must be at least two and increasing.",
-                self,
-            ));
-        }
-        let (t_0, t_f) = (time[0], time[time.len() - 1]);
-        let direction = StepController::new(0.9, 2.0, DT_CUT, 5.0);
-        let overshoot = StepController::new(0.9, 1.0, DT_CUT, 5.0);
-        let dt_min = (t_f - t_0) * 1e-10;
-        let mut t = t_0;
-        let mut dt = t_f - t_0;
-        let mut breakpoint = 1;
+        let mut stepper =
+            Stepper::new(time).map_err(|error| ConstitutiveError::custom(error, self))?;
         let mut state = self.initial_state();
         let mut deformation_gradient = DeformationGradient::identity();
-        let mut times = vec![t_0];
+        let mut times = vec![time[0]];
         let mut deformation_gradients = vec![deformation_gradient.clone()];
         let mut states = vec![state.clone()];
-        while breakpoint < time.len() {
-            let remaining = time[breakpoint] - t;
-            let landing = dt >= remaining;
-            let step = if landing { remaining } else { dt };
-            let t_next = if landing { time[breakpoint] } else { t + step };
-            let advanced = load.advance(
+        while !stepper.is_done() {
+            let step = stepper.propose();
+            let (deformation_gradient_next, state_next) = match load.advance(
                 self,
                 &solver,
                 &strategy,
-                t_next,
+                step.time,
                 &deformation_gradient,
                 &state,
-            );
-            let (deformation_gradient_next, state_next) = match advanced {
+            ) {
                 Ok(next) => next,
-                Err(error) => {
-                    if step <= dt_min {
-                        return Err(error);
-                    }
-                    dt = step * DT_CUT;
-                    continue;
-                }
+                Err(_) if stepper.fail(&step) => continue,
+                Err(error) => return Err(error),
             };
             let error = self.step_error(
                 &deformation_gradient,
@@ -131,33 +108,20 @@ where
                 &state,
                 &state_next,
             )?;
-            let scale = direction
-                .scale(error.direction, abs_tol)
-                .min(overshoot.scale(error.overshoot, abs_tol));
-            if error.direction <= abs_tol && error.overshoot <= abs_tol {
-                t = t_next;
-                deformation_gradient = deformation_gradient_next;
-                state = state_next;
-                if landing {
-                    breakpoint += 1;
+            match stepper
+                .judge(&step, error, abs_tol)
+                .map_err(|error| ConstitutiveError::custom(error, self))?
+            {
+                Outcome::Accepted { report } => {
+                    deformation_gradient = deformation_gradient_next;
+                    state = state_next;
+                    if report {
+                        times.push(step.time);
+                        deformation_gradients.push(deformation_gradient.clone());
+                        states.push(state.clone());
+                    }
                 }
-                if landing || time.len() == 2 {
-                    times.push(t);
-                    deformation_gradients.push(deformation_gradient.clone());
-                    states.push(state.clone());
-                }
-                dt = if landing {
-                    dt.max(step * scale)
-                } else {
-                    step * scale
-                };
-            } else if step <= dt_min {
-                return Err(ConstitutiveError::custom(
-                    "The adaptive step fell below the floor.",
-                    self,
-                ));
-            } else {
-                dt = step * scale;
+                Outcome::Rejected => {}
             }
         }
         Ok((

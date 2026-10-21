@@ -11,7 +11,7 @@ use crate::{
 const ONSET_TOLERANCE: Scalar = 1e-6;
 
 /// The error indicators of one plastic step.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct StepError {
     /// The change of the flow direction over the step, weighted by the plastic increment.
     ///
@@ -30,6 +30,16 @@ pub struct StepError {
     /// The plastic increment $`\Delta\gamma`$ of a step that begins inside the yield
     /// surface, how far the step runs past the onset of yielding, and zero otherwise.
     pub overshoot: Quantity,
+}
+
+impl StepError {
+    /// The larger of each of the two, as for the points of a mesh.
+    pub fn max(self, other: Self) -> Self {
+        Self {
+            direction: self.direction.max(other.direction),
+            overshoot: self.overshoot.max(other.overshoot),
+        }
+    }
 }
 
 pub(super) fn evaluate<C: ElasticPlastic>(

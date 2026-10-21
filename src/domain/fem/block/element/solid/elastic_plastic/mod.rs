@@ -1,7 +1,7 @@
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::elastic_plastic::{ElasticPlastic, coupled},
+        solid::elastic_plastic::{ElasticPlastic, StepError, coupled},
     },
     domain::block::element::solid::elastic_plastic::ElasticPlasticElement,
     fem::block::element::{
@@ -153,6 +153,30 @@ where
                     .map(|(_, _, state)| state)
             })
             .collect::<Result<_, _>>()
+            .map_err(|error| FiniteElementError::upstream(error, self))
+    }
+    fn step_error(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates_old: &ElementNodalCoordinates<N>,
+        nodal_coordinates: &ElementNodalCoordinates<N>,
+        state_variables: &PlasticStateVariables<G>,
+        updated_state: &PlasticStateVariables<G>,
+    ) -> Result<StepError, FiniteElementError> {
+        let gradients_old = self.deformation_gradients(nodal_coordinates_old);
+        let gradients = self.deformation_gradients(nodal_coordinates);
+        gradients_old
+            .iter()
+            .zip(gradients.iter())
+            .zip(state_variables.iter().zip(updated_state))
+            .try_fold(
+                StepError::default(),
+                |worst, ((gradient_old, gradient), (state_old, state))| {
+                    constitutive_model
+                        .step_error(gradient_old, gradient, state_old, state)
+                        .map(|error| worst.max(error))
+                },
+            )
             .map_err(|error| FiniteElementError::upstream(error, self))
     }
 }

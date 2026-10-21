@@ -5,9 +5,11 @@ pub(crate) mod coupled;
 mod load;
 mod root;
 mod step_error;
+mod stepper;
 
 pub use root::Root;
 pub use step_error::StepError;
+pub use stepper::{Outcome, Step, Stepper};
 
 use crate::{
     constitutive::{
