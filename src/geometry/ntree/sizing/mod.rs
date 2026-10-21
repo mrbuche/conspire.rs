@@ -137,6 +137,15 @@ impl<'a> Sizing<'a> {
         {
             Some(radius) => {
                 let features = tessellation.features();
+                let facing = features
+                    .facing(tessellation, radius)
+                    .into_iter()
+                    .map(|facing| {
+                        (
+                            [features.creases()[facing.crease].clone(), facing.foot],
+                            facing.distance,
+                        )
+                    });
                 features
                     .separation(tessellation, radius, separation_hops)
                     .into_iter()
@@ -157,6 +166,7 @@ impl<'a> Sizing<'a> {
                                 )
                             })
                     })
+                    .chain(facing)
                     .collect()
             }
             None => Vec::new(),

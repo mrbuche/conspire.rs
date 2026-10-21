@@ -15,9 +15,10 @@ use crate::{
     math::{Quantity, Scalar, Tensor},
     units::{Area, Length},
 };
+use std::slice::from_ref;
 
-struct Nearest {
-    excluded: Option<usize>,
+struct Nearest<'a> {
+    excluded: &'a [usize],
     hit: Option<Hit>,
 }
 
@@ -64,7 +65,7 @@ impl BoundingVolumeHierarchy<3> {
         coordinates: &Coordinates<3>,
         elements: &[&[usize]],
     ) -> Option<Hit> {
-        self.nearest(ray, coordinates, elements, None)
+        self.nearest(ray, coordinates, elements, &[])
     }
     pub fn intersect_excluding(
         &self,
@@ -73,14 +74,23 @@ impl BoundingVolumeHierarchy<3> {
         elements: &[&[usize]],
         excluded: usize,
     ) -> Option<Hit> {
-        self.nearest(ray, coordinates, elements, Some(excluded))
+        self.nearest(ray, coordinates, elements, from_ref(&excluded))
+    }
+    pub fn intersect_excluding_all(
+        &self,
+        ray: &Ray<3>,
+        coordinates: &Coordinates<3>,
+        elements: &[&[usize]],
+        excluded: &[usize],
+    ) -> Option<Hit> {
+        self.nearest(ray, coordinates, elements, excluded)
     }
     fn nearest(
         &self,
         ray: &Ray<3>,
         coordinates: &Coordinates<3>,
         elements: &[&[usize]],
-        excluded: Option<usize>,
+        excluded: &[usize],
     ) -> Option<Hit> {
         let mut nearest = Nearest {
             excluded,
@@ -193,7 +203,7 @@ impl BoundingVolumeHierarchy<3> {
         ray: &Ray<3>,
         coordinates: &Coordinates<3>,
         elements: &[&[usize]],
-        nearest: &mut Nearest,
+        nearest: &mut Nearest<'_>,
     ) {
         if nearest
             .hit
@@ -207,7 +217,7 @@ impl BoundingVolumeHierarchy<3> {
             NodeKind::Leaf { start, end } => {
                 self.items[*start..*end]
                     .iter()
-                    .filter(|&&item| nearest.excluded != Some(item))
+                    .filter(|&&item| !nearest.excluded.contains(&item))
                     .for_each(|&item| {
                         let element = elements[item];
                         if let Some(distance) = ray.intersects_triangle(
