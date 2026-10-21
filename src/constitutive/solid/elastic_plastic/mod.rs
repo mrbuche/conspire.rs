@@ -2,6 +2,9 @@
 
 mod canonical;
 pub(crate) mod coupled;
+mod step_error;
+
+pub use step_error::StepError;
 
 use crate::{
     constitutive::{
@@ -252,6 +255,27 @@ where
             &NewtonRaphson::default(),
         )?;
         Ok(coupled::updated_state(state_variables, converged.as_ref()))
+    }
+    /// The error indicators of one load step, from the deformation gradients and the plastic
+    /// states at its two ends.
+    ///
+    /// The return map is exact for any step when the flow direction is constant, so the
+    /// step is resolved by how much the direction changes between its two ends, and by
+    /// whether it runs past the onset of yielding. See [`StepError`].
+    fn step_error(
+        &self,
+        deformation_gradient_old: &DeformationGradient,
+        deformation_gradient: &DeformationGradient,
+        state_old: &PlasticStateVariables,
+        state_new: &PlasticStateVariables,
+    ) -> Result<StepError, ConstitutiveError> {
+        step_error::evaluate(
+            self,
+            deformation_gradient_old,
+            deformation_gradient,
+            state_old,
+            state_new,
+        )
     }
     /// The first Piola-Kirchhoff stress, the consistent tangent stiffness and the updated
     /// plastic state of one load step, from one local solve.
