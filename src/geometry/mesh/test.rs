@@ -194,6 +194,89 @@ pub fn octahedron(levels: usize) -> Tessellation {
     Mesh::from((connectivities, coordinates)).into()
 }
 
+/// A closed solid extruded one unit along x from a counterclockwise outline
+/// in (y, z), its end caps ear-clipped so the outline may be non-convex.
+pub fn extrusion(outline: &[[f64; 2]]) -> Tessellation {
+    let count = outline.len();
+    let points: Vec<[f64; 3]> = [0.0, 1.0]
+        .into_iter()
+        .flat_map(|x| outline.iter().map(move |&[y, z]| [x, y, z]))
+        .collect();
+    let cross = |o: [f64; 2], a: [f64; 2], b: [f64; 2]| {
+        (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    };
+    let mut faces: Vec<[usize; 3]> = Vec::new();
+    (0..count).for_each(|i| {
+        let j = (i + 1) % count;
+        faces.extend([[i, j, count + j], [i, count + j, count + i]])
+    });
+    let mut rest: Vec<usize> = (0..count).collect();
+    while rest.len() > 3 {
+        let ear = (0..rest.len())
+            .find(|&k| {
+                let (a, b, c) = (
+                    rest[(k + rest.len() - 1) % rest.len()],
+                    rest[k],
+                    rest[(k + 1) % rest.len()],
+                );
+                cross(outline[a], outline[b], outline[c]) > 0.0
+                    && rest
+                        .iter()
+                        .filter(|&&p| p != a && p != b && p != c)
+                        .all(|&p| {
+                            [(a, b), (b, c), (c, a)]
+                                .iter()
+                                .any(|&(u, v)| cross(outline[u], outline[v], outline[p]) <= 0.0)
+                        })
+            })
+            .expect("outline is simple and counterclockwise");
+        let (a, b, c) = (
+            rest[(ear + rest.len() - 1) % rest.len()],
+            rest[ear],
+            rest[(ear + 1) % rest.len()],
+        );
+        faces.extend([[count + a, count + b, count + c], [a, c, b]]);
+        rest.remove(ear);
+    }
+    faces.extend([
+        [count + rest[0], count + rest[1], count + rest[2]],
+        [rest[0], rest[2], rest[1]],
+    ]);
+    Tessellation::from(Mesh::from((
+        vec![Connectivity::Triangular(faces.into())],
+        Coordinates::from(points),
+    )))
+}
+
+/// A 2 x 1 block with a 60 degree V-groove down its top, whose tip is `ligament`
+/// above the bottom.
+pub fn grooved(ligament: f64) -> Tessellation {
+    let reach = (1.0 - ligament) * 30.0_f64.to_radians().tan();
+    extrusion(&[
+        [0.0, 0.0],
+        [2.0, 0.0],
+        [2.0, 1.0],
+        [1.0 + reach, 1.0],
+        [1.0, ligament],
+        [1.0 - reach, 1.0],
+        [0.0, 1.0],
+    ])
+}
+
+/// A 2 x 1 block with a `gap` wide slot half way down its top.
+pub fn slotted(gap: f64) -> Tessellation {
+    extrusion(&[
+        [0.0, 0.0],
+        [2.0, 0.0],
+        [2.0, 1.0],
+        [1.0 + gap / 2.0, 1.0],
+        [1.0 + gap / 2.0, 0.5],
+        [1.0 - gap / 2.0, 0.5],
+        [1.0 - gap / 2.0, 1.0],
+        [0.0, 1.0],
+    ])
+}
+
 mod node_element_connectivity {
     use crate::geometry::mesh::Connectivity;
 

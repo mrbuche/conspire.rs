@@ -1,7 +1,11 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, tessellation::Tessellation},
+        mesh::{
+            Connectivity, Mesh,
+            tessellation::Tessellation,
+            test::{grooved, slotted},
+        },
     },
     math::{Quantity, Tensor, TensorVec},
 };
@@ -402,4 +406,48 @@ fn a_subdivided_slot_floor_is_seen_along_its_whole_length() {
             "{covered} of {floor} floor creases paired at n = {n}"
         )
     }
+}
+
+#[test]
+fn a_groove_tip_faces_the_bottom_across_the_ligament() {
+    let ligament = 0.05;
+    let tessellation = grooved(ligament);
+    let features = tessellation.features();
+    let facing = features.facing(&tessellation, Quantity::new(0.5));
+    let tip: Vec<_> = facing
+        .iter()
+        .filter(|facing| {
+            features.creases()[facing.crease]
+                .iter()
+                .all(|end| (end[2].value() - ligament).abs() < 1.0e-12)
+        })
+        .collect();
+    assert_eq!(tip.len(), 1);
+    assert!(
+        (tip[0].distance.value() - ligament).abs() < 1.0e-12,
+        "{}",
+        tip[0].distance.value()
+    );
+    tip[0]
+        .foot
+        .iter()
+        .for_each(|end| assert!(end[2].value().abs() < 1.0e-12, "{}", end[2].value()));
+}
+
+#[test]
+fn a_ligament_beyond_the_radius_is_not_faced() {
+    let tessellation = grooved(0.6);
+    let facing = tessellation
+        .features()
+        .facing(&tessellation, Quantity::new(0.5));
+    assert!(facing.is_empty(), "{facing:?}");
+}
+
+#[test]
+fn creases_do_not_face_across_open_space() {
+    let tessellation = slotted(0.1);
+    let facing = tessellation
+        .features()
+        .facing(&tessellation, Quantity::new(0.5));
+    assert!(facing.is_empty(), "{facing:?}");
 }

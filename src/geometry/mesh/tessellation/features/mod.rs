@@ -7,13 +7,16 @@ use crate::{
         bvh::BoundingVolumeHierarchy,
         mesh::{
             Connectivity,
-            tessellation::{D, Tessellation},
+            tessellation::{D, Tessellation, sdf::cone_directions},
         },
     },
     math::{CrossProduct, FxHashMap, FxHashSet, Quantity, Scalar, Tensor},
     units::{Area, Dimensionless, Length},
 };
-use std::array::from_fn;
+use std::{
+    array::from_fn,
+    f64::consts::{FRAC_PI_4, PI},
+};
 
 /// Cosine of the dihedral deviation past which an edge is a crease.
 const CREASE_COSINE: Scalar = 0.866_025_403_784_438_6;
@@ -63,6 +66,19 @@ pub struct Separation {
     pub distance: Quantity<Length>,
 }
 
+/// The surface a crease faces across the solid behind it, and how far away
+/// it is (see [`Features::facing`]).
+#[derive(Clone, Debug)]
+pub struct Facing {
+    /// Index into [`Features::creases`] of the crease that was cast from.
+    pub crease: usize,
+    /// The crease carried the distance it was found at, along the ray that
+    /// found it, so that it lies on the surface facing the crease.
+    pub foot: [Coordinate<D>; 2],
+    /// The distance from the crease to the surface it faces.
+    pub distance: Quantity<Length>,
+}
+
 /// The features of a tessellation, binned for lookup within a fixed radius.
 pub struct FeatureIndex<'a> {
     features: &'a Features,
@@ -75,6 +91,15 @@ pub struct FeatureIndex<'a> {
 
 /// How many cells a crease may be binned into before it is left sprawling.
 const SPAN: i64 = 64;
+
+/// The widest a crease's cone of rays opens, and the fraction of the
+/// half-angle of the wedge at the crease it may fill, and how far in from
+/// either end of the crease a hit must land (see [`Features::facing`]).
+const FACING_HALF_ANGLE: Scalar = FRAC_PI_4;
+const FACING_WEDGE_FRACTION: Scalar = 0.45;
+const FACING_MARGIN: Scalar = 0.05;
+const FACING_RINGS: usize = 2;
+const FACING_AZIMUTHAL: usize = 8;
 
 fn triangles(tessellation: &Tessellation) -> Vec<[usize; D]> {
     match &tessellation.mesh().connectivities()[0] {
@@ -238,6 +263,111 @@ impl Features {
         });
         (0..self.creases.len())
             .map(|crease| root(&mut parent, crease))
+            .collect()
+    }
+    /// The nearest surface each crease faces across the solid behind it,
+    /// where one lies within `radius`.
+    ///
+    /// Rays are cast from the middle of each crease into the solid, along
+    /// the bisector of the wedge the crease bounds and in a cone about it,
+    /// as in the shape diameter function, and the nearest hit is the
+    /// thickness there. This catches a crease running close to a surface
+    /// that has no crease of its own nearby, which [`separation`](Self::separation)
+    /// cannot. Rays that run into open space are never cast, so a gap that
+    /// is empty rather than solid is not reported.
+    ///
+    /// The cone is kept narrower than the wedge so that its rays do not run
+    /// along the faces of the crease itself, and the two triangles at the
+    /// crease are skipped. A hit counts only where it lands alongside the crease
+    /// and not past either end of it, since a ray tilted along the crease would
+    /// otherwise meet the face the crease runs into and report a gap that is
+    /// only its own distance from its end, one that shrinks as the crease is
+    /// subdivided. A crease whose two faces nearly double back on one
+    /// another has no bisector to cast along and is skipped.
+    pub fn facing(&self, tessellation: &Tessellation, radius: Quantity<Length>) -> Vec<Facing> {
+        let coordinates = tessellation.mesh().coordinates();
+        let triangles = triangles(tessellation);
+        let normals: Vec<Direction<D>> = triangles
+            .iter()
+            .map(|&[a, b, c]| {
+                (&coordinates[b] - &coordinates[a])
+                    .cross(&(&coordinates[c] - &coordinates[a]))
+                    .normalized()
+            })
+            .collect();
+        let mut sides: FxHashMap<[usize; 2], Vec<usize>> = self
+            .crease_nodes
+            .iter()
+            .map(|&[a, b]| (key(a, b), Vec::new()))
+            .collect();
+        triangles
+            .iter()
+            .enumerate()
+            .for_each(|(index, &[a, b, c])| {
+                [key(a, b), key(b, c), key(c, a)]
+                    .into_iter()
+                    .for_each(|edge| {
+                        if let Some(side) = sides.get_mut(&edge) {
+                            side.push(index)
+                        }
+                    })
+            });
+        let elements: Vec<&[usize]> = tessellation
+            .mesh()
+            .connectivities()
+            .iter()
+            .flatten()
+            .collect();
+        let bvh = tessellation.bvh();
+        self.creases
+            .iter()
+            .zip(&self.crease_nodes)
+            .enumerate()
+            .filter_map(|(crease, (segment, &[a, b]))| {
+                let triangles = &sides[&key(a, b)];
+                let (one, two) = (&normals[triangles[0]], &normals[triangles[1]]);
+                let sum = one + two;
+                let length = sum.norm().value();
+                if length < Scalar::EPSILON.sqrt() {
+                    return None;
+                }
+                let axis = Direction::<D>::from(from_fn(|i| -sum[i].value() / length));
+                let opening = PI - (one * two).value().clamp(-1.0, 1.0).acos();
+                let half = FACING_HALF_ANGLE.min(FACING_WEDGE_FRACTION * opening);
+                let middle =
+                    Coordinate::<D>::from(from_fn(|i| (segment[0][i] + segment[1][i]) / 2.0));
+                let span: [Scalar; D] = from_fn(|i| (segment[1][i] - segment[0][i]).value());
+                let extent = span.iter().map(|s| s * s).sum::<Scalar>().sqrt();
+                cone_directions(&axis, half, FACING_RINGS, FACING_AZIMUTHAL)
+                    .into_iter()
+                    .filter_map(|(direction, _)| {
+                        let ray = (middle.clone(), direction.clone()).into();
+                        bvh.intersect_excluding_all(&ray, coordinates, &elements, triangles)
+                            .map(|hit| (hit.distance(), direction))
+                    })
+                    .filter(|(distance, direction)| {
+                        let along = (0..D)
+                            .map(|i| {
+                                (middle[i].value() + distance.value() * direction[i].value()
+                                    - segment[0][i].value())
+                                    * span[i]
+                            })
+                            .sum::<Scalar>()
+                            / extent;
+                        along > FACING_MARGIN * extent && along < (1.0 - FACING_MARGIN) * extent
+                    })
+                    .min_by(|(one, _), (two, _)| one.total_cmp(two))
+                    .filter(|&(distance, _)| distance < radius)
+                    .map(|(distance, direction)| Facing {
+                        crease,
+                        foot: from_fn(|end| {
+                            Coordinate::<D>::from(from_fn(|i| {
+                                segment[end][i] + distance * direction[i].value()
+                            }))
+                        }),
+                        distance,
+                    })
+            })
             .collect()
     }
     /// Every *unrelated* crease within `radius` of each crease that surface

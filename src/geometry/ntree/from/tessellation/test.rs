@@ -1,7 +1,10 @@
 use crate::{
     geometry::{
         Coordinates,
-        mesh::{Connectivity, Dualization, Fitting, Mesh, Output, Tessellation, Vtk, test::sphere},
+        mesh::{
+            Connectivity, Dualization, Fitting, Mesh, Output, Tessellation, Vtk,
+            test::{grooved, sphere},
+        },
         ntree::node::{Node, cell::Cell},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, SeparationSizing, Sizing},
     },
@@ -1385,4 +1388,34 @@ fn cell_sizes(tessellation: &Tessellation, scale: f64) -> (f64, impl Fn([f64; 3]
             .filter_map(|[i, j, k]| grid.get(&[key[0] + i, key[1] + j, key[2] + k]))
             .fold(f64::INFINITY, |best, &size| best.min(size))
     })
+}
+
+#[test]
+fn a_groove_tip_is_refined_across_its_ligament() {
+    let ligament = 0.05;
+    let scale = 5.0;
+    let block = grooved(ligament);
+    let (finest, cells) = cell_sizes(&block, scale);
+    let tip = [0.5, 1.0, ligament];
+    let size = cells(tip);
+    assert!(
+        size <= 1.5 * ligament / scale,
+        "the groove tip sits in cells of {size}"
+    );
+    assert!(
+        size >= finest,
+        "{size} is finer than the finest cell {finest}"
+    );
+}
+
+#[test]
+fn a_groove_ligament_is_refined_alike_however_finely_triangulated() {
+    let ligament = 0.05;
+    let scale = 5.0;
+    let tip = [0.5, 1.0, ligament];
+    let block = grooved(ligament);
+    let fine = subdivided(&block, 2);
+    let coarse = cell_sizes(&block, scale).1(tip);
+    let fine = cell_sizes(&fine, scale).1(tip);
+    assert_eq!(coarse, fine);
 }

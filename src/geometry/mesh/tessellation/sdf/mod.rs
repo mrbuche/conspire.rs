@@ -95,7 +95,7 @@ fn interpolate_to_nodes(
     nodal
 }
 
-fn cone_directions(
+pub(super) fn cone_directions(
     axis: &Direction<3>,
     half_angle: Scalar,
     rings: usize,
