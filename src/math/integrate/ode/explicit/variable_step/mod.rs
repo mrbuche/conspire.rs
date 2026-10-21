@@ -10,7 +10,7 @@ use crate::math::{
     },
     interpolate::InterpolateSolution,
 };
-use crate::units::Time;
+use crate::units::{Dimensionless, Time};
 use std::ops::{Div, Mul, Sub};
 
 pub(crate) mod bogacki_shampine;
@@ -293,7 +293,10 @@ where
             self.dt_cut(),
             self.dt_grow(),
         )
-        .scale(error, tolerance);
+        .scale(
+            Quantity::<Dimensionless>::new(error),
+            Quantity::new(tolerance),
+        );
     }
 }
 

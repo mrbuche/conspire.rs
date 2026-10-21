@@ -13,6 +13,7 @@ use crate::math::{
     optimize::{EqualityConstraints, Optimization, RootFinding},
     sparse::SparseSolver,
 };
+use crate::units::Dimensionless;
 use std::ops::Mul;
 
 const DT_CUT: Scalar = 0.2;
@@ -149,7 +150,10 @@ where
                 }
             }
         }
-        dt *= controller.scale(error, tolerance);
+        dt *= controller.scale(
+            Quantity::<Dimensionless>::new(error),
+            Quantity::new(tolerance),
+        );
         if !accept && dt <= dt_min {
             return Err(IntegrationError::from(
                 "the adaptive RKMK-DAE step fell below the floor".to_string(),
@@ -430,7 +434,10 @@ where
             points.push(point.clone());
             times.push(t);
         }
-        dt *= controller.scale(error, tolerance);
+        dt *= controller.scale(
+            Quantity::<Dimensionless>::new(error),
+            Quantity::new(tolerance),
+        );
         if !accept && dt <= dt_min {
             return Err(IntegrationError::from(
                 "the adaptive RKMK step fell below the floor".to_string(),

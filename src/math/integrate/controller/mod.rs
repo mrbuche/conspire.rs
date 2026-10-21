@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::Scalar;
+use crate::{
+    math::{Quantity, Scalar},
+    units::UnitRatio,
+};
 
 /// The step-size law of an adaptive integrator.
 ///
@@ -33,9 +36,13 @@ impl StepController {
         }
     }
     /// The factor to multiply the step by given the error and the tolerance it is held to.
-    pub fn scale(&self, error: Scalar, tolerance: Scalar) -> Scalar {
-        if error > 0.0 {
-            (self.beta * (tolerance / error).powf(1.0 / self.order)).clamp(self.cut, self.grow)
+    pub fn scale<U>(&self, error: Quantity<U>, tolerance: Quantity<U>) -> Scalar
+    where
+        U: UnitRatio,
+    {
+        if error > Quantity::default() {
+            (self.beta * (tolerance / error).value().powf(1.0 / self.order))
+                .clamp(self.cut, self.grow)
         } else {
             self.grow
         }
