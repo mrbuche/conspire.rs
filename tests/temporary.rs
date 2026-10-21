@@ -37,8 +37,8 @@ use conspire::{
     },
     mechanics::TemperatureGradient,
     units::{
-        Length, PowerPerLengthTemperature, Rate, Stress, Temperature as TemperatureUnit, Time,
-        Velocity as VelocityUnit, Viscosity,
+        Dimensionless, Length, PowerPerLengthTemperature, Rate, Stress,
+        Temperature as TemperatureUnit, Time, Velocity as VelocityUnit, Viscosity,
     },
 };
 
@@ -8292,6 +8292,7 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
         AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + t.value(), times.as_slice()),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
+        Dimensionless::of(1e-3),
     )?;
     coordinates_history
         .iter()

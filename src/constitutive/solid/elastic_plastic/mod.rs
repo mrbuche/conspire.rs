@@ -2,30 +2,27 @@
 
 mod canonical;
 pub(crate) mod coupled;
+mod load;
+mod root;
 mod step_error;
 
+pub use root::Root;
 pub use step_error::StepError;
 
 use crate::{
     constitutive::{
         ConstitutiveError,
-        fluid::plastic::{
-            PlasticHardening, PlasticStateVariables, PlasticStateVariablesHistory,
-            RateIndependentPlastic,
-        },
+        fluid::plastic::{PlasticHardening, PlasticStateVariables, RateIndependentPlastic},
         solid::Solid,
     },
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
-        TensorArray, Vector,
-        optimize::{NewtonRaphson, RootFindingBlock, SolveStrategy},
-        sparse::CscMatrix,
+        optimize::NewtonRaphson,
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
-        DeformationGradients, FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness,
-        MandelStressElastic, Scalar, SecondPiolaKirchhoffStress,
-        SecondPiolaKirchhoffTangentStiffness, Times,
+        FirstPiolaKirchhoffStress, FirstPiolaKirchhoffTangentStiffness, MandelStressElastic,
+        Scalar, SecondPiolaKirchhoffStress, SecondPiolaKirchhoffTangentStiffness,
     },
     units::Time,
 };
@@ -281,7 +278,7 @@ where
     /// plastic state of one load step, from one local solve.
     ///
     /// The local unknowns $`(\mathbf{E},\Delta\gamma)`$ of the step are converged by the
-    /// local solver of [`SolveStrategy::Condensed`] and eliminated from the tangent by a
+    /// local solver of [`SolveStrategy::Condensed`](crate::math::optimize::SolveStrategy::Condensed) and eliminated from the tangent by a
     /// Schur complement, so a caller needing both the force and the stiffness pays for
     /// one solve.
     fn condensed(
@@ -308,117 +305,4 @@ where
 /// ```
 pub(crate) fn fischer_burmeister(a: Scalar, b: Scalar) -> Scalar {
     a + b - (a * a + b * b).sqrt()
-}
-
-/// Root-finding methods for elastic-plastic solid constitutive models.
-pub trait Root {
-    /// Solve for the unknown components of the deformation gradients under an applied load.
-    ///
-    /// With [`SolveStrategy::Condensed`], the coupled local unknowns
-    /// $`(\mathbf{E},\Delta\gamma)`$ of the return map are converged at each outer
-    /// iterate and eliminated from the tangent by a Schur complement.
-    ///
-    /// [`SolveStrategy::Monolithic`] steps the deformation gradient and the coupled local
-    /// unknowns $`(\mathbf{E},\Delta\gamma)`$ of the return map together through
-    /// [`RootFindingBlock::root_block`], rather than converging the local
-    /// block before every outer step. The local residual is the same coupled system the
-    /// return map solves, with the yield inequality imposed by a Fischer-Burmeister
-    /// complementarity residual so elastic steps recover $`\Delta\gamma = 0`$ on their
-    /// own. It converges to the same step as [`SolveStrategy::Condensed`], also under
-    /// non-proportional loading.
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl RootFindingBlock<
-            DeformationGradient,
-            Vector,
-            FirstPiolaKirchhoffStress,
-            Vector,
-            FirstPiolaKirchhoffTangentStiffness,
-            Matrix,
-            Matrix,
-            Matrix,
-        >,
-        strategy: SolveStrategy,
-    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>;
-}
-
-impl<C> Root for C
-where
-    C: ElasticPlastic,
-{
-    fn root(
-        &self,
-        applied_load: AppliedLoad,
-        solver: impl RootFindingBlock<
-            DeformationGradient,
-            Vector,
-            FirstPiolaKirchhoffStress,
-            Vector,
-            FirstPiolaKirchhoffTangentStiffness,
-            Matrix,
-            Matrix,
-            Matrix,
-        >,
-        strategy: SolveStrategy,
-    ) -> Result<(Times, DeformationGradients, PlasticStateVariablesHistory), ConstitutiveError>
-    {
-        let (matrix, prescribed, time) = bcs(applied_load);
-        let mut global_pattern = Vec::new();
-        for row in 0..matrix.len() {
-            for column in 0..9 {
-                if matrix[row][column] != 0.0 {
-                    global_pattern.push((row, column));
-                }
-            }
-        }
-        let mut global_matrix = CscMatrix::from_pattern(matrix.len(), 9, global_pattern);
-        global_matrix.fill(|row, column| matrix[row][column]);
-        let mut global_vector = Vector::zero(matrix.len());
-        let local_constraint = (
-            CscMatrix::from_pattern(0, coupled::SIZE, Vec::new()),
-            Vector::zero(0),
-        );
-        let mut state = self.initial_state();
-        let mut deformation_gradient = DeformationGradient::identity();
-        let mut deformation_gradients = vec![deformation_gradient.clone()];
-        let mut states = vec![state.clone()];
-        for time_step in time.iter().skip(1) {
-            prescribed
-                .iter()
-                .for_each(|(index, function)| global_vector[*index] = function(*time_step));
-            let previous_state = state.clone();
-            let (deformation_gradient_new, local_new) = solver
-                .root_block(
-                    |global: &DeformationGradient, local: &Vector| {
-                        coupled::monolithic_plastic(self, &previous_state, local)
-                            .and_then(|plastic| self.first_piola_kirchhoff_stress(global, &plastic))
-                            .map_err(|error| error.to_string())
-                    },
-                    |global: &DeformationGradient, local: &Vector| {
-                        coupled::monolithic_residual_local(self, global, &previous_state, local)
-                            .map_err(|error| error.to_string())
-                    },
-                    |global: &DeformationGradient, local: &Vector| {
-                        coupled::monolithic_tangents(self, global, &previous_state, local)
-                            .map_err(|error| error.to_string())
-                    },
-                    (deformation_gradient.clone(), Vector::zero(coupled::SIZE)),
-                    (global_matrix.clone(), global_vector.clone()),
-                    local_constraint.clone(),
-                    None,
-                    strategy.clone(),
-                )
-                .map_err(|error| ConstitutiveError::upstream(error, self))?;
-            state = coupled::monolithic_state(self, &previous_state, &local_new)?;
-            deformation_gradient = deformation_gradient_new;
-            deformation_gradients.push(deformation_gradient.clone());
-            states.push(state.clone());
-        }
-        Ok((
-            time.iter().copied().collect(),
-            deformation_gradients.into(),
-            states.into(),
-        ))
-    }
 }
