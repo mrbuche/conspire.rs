@@ -16,7 +16,7 @@ use crate::{
         },
     },
     math::{Quantity, Scalar, Tensor},
-    units::{Area, Dimensionless},
+    units::{Area, Dimensionless, Length},
 };
 use std::array::from_fn;
 
@@ -75,11 +75,10 @@ where
             center,
             coordinates,
             elements,
-            gaps,
             levels,
             min_length,
             narrow,
-            distances,
+            ratio,
             scale,
             targets,
         } = sizing;
@@ -131,6 +130,32 @@ where
                 &coordinates[element[2]],
             )
         };
+        // How far apart the two creases of a pair are where a cell sits, if
+        // the cell lies between them: each crease within that distance, plus
+        // `slack` times the cell's reach, of the cell's centre. The gap is
+        // measured at the cell rather than carried by the pair, since a pair
+        // running apart is narrow only at its closest point.
+        let facing =
+            |pair: usize, center: &Coordinate<3>, reach: Quantity<Length>, slack: Scalar| {
+                let [one, two] = &narrow[pair];
+                let (one, two) = (closest_on(one, center), closest_on(two, center));
+                let gap = (&one - &two).norm();
+                let near = gap + reach * slack;
+                ((&one - center).norm() <= near && (&two - center).norm() <= near).then_some(gap)
+            };
+        let frame = |tree: &Self, node: usize| {
+            let corner = tree.nodes[node].corner;
+            let extent: Scalar = tree.nodes[node].length.scalar();
+            let minimum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
+                center[ax] + min_length * (corner[ax].scalar() - half)
+            }));
+            let maximum =
+                Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| minimum[ax] + min_length * extent));
+            let middle =
+                Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| (minimum[ax] + maximum[ax]) / 2.0));
+            let reach = (&maximum - &minimum).norm() / 2.0;
+            (minimum, maximum, middle, reach)
+        };
         let mut stack: Vec<(usize, Vec<usize>, Vec<usize>)> = vec![(
             0,
             (0..elements.len()).collect(),
@@ -139,10 +164,16 @@ where
         while let Some((index, overlapping, nearby)) = stack.pop() {
             let cells: usize = tree.nodes[index].length.cells();
             let extent: Scalar = tree.nodes[index].length.scalar();
+            let (_, _, middle, reach) = frame(&tree, index);
             let target = overlapping
                 .iter()
                 .map(|&triangle| targets[triangle])
-                .chain(nearby.iter().map(|&pair| gaps[pair]))
+                .chain(
+                    nearby
+                        .iter()
+                        .filter_map(|&pair| facing(pair, &middle, reach, 1.0))
+                        .map(|gap| gap * *ratio),
+                )
                 .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
             if min_length * (extent * scale) <= target {
                 continue;
@@ -158,18 +189,7 @@ where
                 .map(|&child| child.slot())
                 .collect();
             for child in children {
-                let corner = tree.nodes[child].corner;
-                let child_extent: Scalar = tree.nodes[child].length.scalar();
-                let minimum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
-                    center[ax] + min_length * (corner[ax].scalar() - half)
-                }));
-                let maximum = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
-                    minimum[ax] + min_length * child_extent
-                }));
-                let center_of = Coordinate::<3>::from(from_fn::<_, 3, _>(|ax| {
-                    (minimum[ax] + maximum[ax]) / 2.0
-                }));
-                let reach = (&maximum - &minimum).norm() / 2.0;
+                let (minimum, maximum, center_of, reach) = frame(&tree, child);
                 let bbox = BoundingBox::from(CoordinateList::const_from([minimum, maximum]));
                 let inside: Vec<usize> = overlapping
                     .iter()
@@ -179,16 +199,13 @@ where
                 if inside.is_empty() {
                     continue;
                 }
+                // The gap varies over a cell, and the centre sees it from the
+                // middle, so a pair is carried down while any smaller cell
+                // inside could still lie between its creases.
                 let within: Vec<usize> = nearby
                     .iter()
                     .copied()
-                    .filter(|&pair| {
-                        let distance = distances[pair];
-                        narrow[pair].iter().all(|segment| {
-                            (&closest_on(segment, &center_of) - &center_of).norm()
-                                <= distance + reach
-                        })
-                    })
+                    .filter(|&pair| facing(pair, &center_of, reach, 3.0).is_some())
                     .collect();
                 stack.push((child, inside, within));
             }
