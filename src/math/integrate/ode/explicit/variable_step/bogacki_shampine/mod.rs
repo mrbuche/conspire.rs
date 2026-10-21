@@ -157,7 +157,7 @@ where
         dt: Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
-    ) -> Result<Scalar, String> {
+    ) -> Result<Quantity<<Y as Tensor>::Unit>, String> {
         self.slopes_and_error_fsal(function, y, t, dt, k, y_trial)
     }
     fn step(
@@ -172,18 +172,18 @@ where
         dt: &mut Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &Y,
-        e: Scalar,
+        e: Quantity<<Y as Tensor>::Unit>,
     ) -> Result<(), String> {
         let dt_0 = *dt;
         self.step_fsal(y, t, y_sol, t_sol, dydt_sol, k_sol, dt, k, y_trial, e)?;
-        if e > 0.0 {
+        if e > Quantity::default() {
             let (beta, tol, expn) = (
                 VariableStep::<T>::dt_beta(self),
-                VariableStep::<T>::abs_tol(self),
+                Quantity::new(VariableStep::<T>::abs_tol(self)),
                 VariableStep::<T>::dt_expn(self),
             );
             *dt = dt_0;
-            *dt *= beta * (tol / e).powf(1.0 / expn)
+            *dt *= tol.ratio(e).powf(1.0 / expn) * beta
         }
         Ok(()) // some temporary fixes to pass tests in fem that are barely failing
     }

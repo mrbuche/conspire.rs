@@ -31,7 +31,7 @@ where
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
         z_trial: &mut Z,
-    ) -> Result<Scalar, String> {
+    ) -> Result<Quantity<<Y as Tensor>::Unit>, String> {
         self.slopes_solve_and_error_fsal(evolution, solution, y, z, t, dt, k, y_trial, z_trial)
     }
     fn step_solve(
@@ -49,7 +49,7 @@ where
         k: &mut [Derivative<Y, T>],
         y_trial: &Y,
         z_trial: &Z,
-        e: Scalar,
+        e: Quantity<<Y as Tensor>::Unit>,
     ) -> Result<(), String> {
         self.step_solve_fsal(
             y, z, t, y_sol, z_sol, t_sol, dydt_sol, k_sol, dt, k, y_trial, z_trial, e,

@@ -240,7 +240,7 @@ where
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
         z_trial: &mut Z,
-    ) -> Result<Scalar, String> {
+    ) -> Result<Quantity<<Y as Tensor>::Unit>, String> {
         Self::slopes_solve(
             &mut evolution,
             &mut solution,
@@ -270,12 +270,11 @@ where
         k: &mut [Derivative<Y, T>],
         y_trial: &Y,
         z_trial: &Z,
-        e: Scalar,
+        e: Quantity<<Y as Tensor>::Unit>,
     ) -> Result<(), String> {
-        let tolerance = self
-            .abs_tol()
-            .max(self.rel_tol() * self.error_norm().measure(y_trial));
-        if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
+        let relative = self.error_norm().apply(y_trial) * self.rel_tol();
+        let tolerance = Quantity::new(self.abs_tol()).max(relative);
+        if e < Quantity::new(self.abs_tol()) || e < relative {
             k_sol.push(k.iter().cloned().collect());
             *t += *dt;
             *y = y_trial.clone();
@@ -316,7 +315,7 @@ where
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
         z_trial: &mut Z,
-    ) -> Result<Scalar, String> {
+    ) -> Result<Quantity<<Y as Tensor>::Unit>, String> {
         Self::slopes_solve(
             &mut evolution,
             &mut solution,
@@ -346,12 +345,11 @@ where
         k: &mut [Derivative<Y, T>],
         y_trial: &Y,
         z_trial: &Z,
-        e: Scalar,
+        e: Quantity<<Y as Tensor>::Unit>,
     ) -> Result<(), String> {
-        let tolerance = self
-            .abs_tol()
-            .max(self.rel_tol() * self.error_norm().measure(y_trial));
-        if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
+        let relative = self.error_norm().apply(y_trial) * self.rel_tol();
+        let tolerance = Quantity::new(self.abs_tol()).max(relative);
+        if e < Quantity::new(self.abs_tol()) || e < relative {
             k_sol.push(k.iter().cloned().collect());
             k[0] = k[Self::SLOPES - 1].clone();
             *t += *dt;

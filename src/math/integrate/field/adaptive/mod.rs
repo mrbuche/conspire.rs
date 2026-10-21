@@ -13,7 +13,6 @@ use crate::math::{
     optimize::{EqualityConstraints, Optimization, RootFinding},
     sparse::SparseSolver,
 };
-use crate::units::Dimensionless;
 use std::ops::Mul;
 
 const DT_CUT: Scalar = 0.2;
@@ -114,8 +113,8 @@ where
                 continue;
             }
         };
-        let error = weight(&slopes, Tab::D).norm().value().abs();
-        let tolerance = abs_tol + rel_tol * trial.norm().value();
+        let error = weight(&slopes, Tab::D).norm().abs();
+        let tolerance = Quantity::new(abs_tol) + trial.norm() * rel_tol;
         let accept = error <= tolerance;
         if accept {
             let t_previous = t;
@@ -150,10 +149,7 @@ where
                 }
             }
         }
-        dt *= controller.scale(
-            Quantity::<Dimensionless>::new(error),
-            Quantity::new(tolerance),
-        );
+        dt *= controller.scale(error, tolerance);
         if !accept && dt <= dt_min {
             return Err(IntegrationError::from(
                 "the adaptive RKMK-DAE step fell below the floor".to_string(),
@@ -398,8 +394,8 @@ where
                 continue;
             }
         };
-        let error = weight(&slopes, Tab::D).norm().value().abs();
-        let tolerance = abs_tol + rel_tol * trial.norm().value();
+        let error = weight(&slopes, Tab::D).norm().abs();
+        let tolerance = Quantity::new(abs_tol) + trial.norm() * rel_tol;
         let accept = error <= tolerance;
         if accept {
             let t_previous = t;
@@ -434,10 +430,7 @@ where
             points.push(point.clone());
             times.push(t);
         }
-        dt *= controller.scale(
-            Quantity::<Dimensionless>::new(error),
-            Quantity::new(tolerance),
-        );
+        dt *= controller.scale(error, tolerance);
         if !accept && dt <= dt_min {
             return Err(IntegrationError::from(
                 "the adaptive RKMK step fell below the floor".to_string(),

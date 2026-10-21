@@ -275,8 +275,18 @@ impl<B1, B2, Y, const D: usize> ElasticViscoplasticDaeElements<Y, D> for Blocks<
 where
     B1: ElasticViscoplasticDaeElements<Y, D>,
     B2: ElasticViscoplasticDaeElements<Y, D>,
-    TensorTuple<<B1::Field as Integrable>::Point, <B2::Field as Integrable>::Point>: Tensor,
-    TensorTuple<<B1::Field as Integrable>::Increment, <B2::Field as Integrable>::Increment>: Tensor,
+    TensorTuple<<B1::Field as Integrable>::Point, <B2::Field as Integrable>::Point>: Tensor<
+        Unit = (
+            <<B1::Field as Integrable>::Point as Tensor>::Unit,
+            <<B2::Field as Integrable>::Point as Tensor>::Unit,
+        ),
+    >,
+    TensorTuple<<B1::Field as Integrable>::Increment, <B2::Field as Integrable>::Increment>: Tensor<
+        Unit = (
+            <<B1::Field as Integrable>::Increment as Tensor>::Unit,
+            <<B2::Field as Integrable>::Increment as Tensor>::Unit,
+        ),
+    >,
     TensorTuple<B1::State, B2::State>: Clone + Differentiable + Tensor,
     Derivative<B1::State>: Tensor,
     Derivative<B2::State>: Tensor,

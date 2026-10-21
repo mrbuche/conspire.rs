@@ -159,8 +159,12 @@ where
             Field: Integrable<Point = PointStateVariables<Y>>,
         >,
     EvolvedIncrement<C, Time, Y>: Clone + Differentiable<Time>,
-    TensorVector<PointStateVariables<Y>>: Tensor<Item = PointStateVariables<Y>>,
-    TensorVector<EvolvedIncrement<C, Time, Y>>: Tensor<Item = EvolvedIncrement<C, Time, Y>>,
+    TensorVector<PointStateVariables<Y>>:
+        Tensor<Item = PointStateVariables<Y>, Unit = <PointStateVariables<Y> as Tensor>::Unit>,
+    TensorVector<EvolvedIncrement<C, Time, Y>>: Tensor<
+            Item = EvolvedIncrement<C, Time, Y>,
+            Unit = <EvolvedIncrement<C, Time, Y> as Tensor>::Unit,
+        >,
     ViscoplasticStateVariables<G, Y>: Clone + Differentiable + Tensor,
     ViscoplasticStateVariablesHistory<G, Y>: TensorVec<Item = ViscoplasticStateVariables<G, Y>>,
 {

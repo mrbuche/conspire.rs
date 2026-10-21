@@ -40,7 +40,7 @@ pub trait Integrable {
     /// The state value this field carries.
     type Point: Tensor;
     /// The tangent/algebra element that advances a [`Self::Point`].
-    type Increment: Tensor;
+    type Increment: Tensor<Unit = <Self::Point as Tensor>::Unit>;
     /// Advances `base` by `increment`.
     fn reconstruct(
         base: &Self::Point,
@@ -76,8 +76,8 @@ pub struct Unimodular<A, B = A>(PhantomData<(A, B)>);
 
 impl<A, B> Integrable for Unimodular<A, B>
 where
-    TensorRank2<3, A, B, Dimensionless>: Tensor,
-    TensorRank2<3, A, A, Dimensionless>: Tensor,
+    TensorRank2<3, A, B, Dimensionless>: Tensor<Unit = Dimensionless>,
+    TensorRank2<3, A, A, Dimensionless>: Tensor<Unit = Dimensionless>,
     for<'a> TensorRank2<3, A, A, Dimensionless>:
         Mul<&'a TensorRank2<3, A, B, Dimensionless>, Output = TensorRank2<3, A, B, Dimensionless>>,
 {
@@ -102,8 +102,14 @@ impl<H, T> Integrable for Product<H, T>
 where
     H: Integrable,
     T: Integrable,
-    TensorTuple<H::Point, T::Point>: Tensor,
-    TensorTuple<H::Increment, T::Increment>: Tensor,
+    TensorTuple<H::Point, T::Point>:
+        Tensor<Unit = (<H::Point as Tensor>::Unit, <T::Point as Tensor>::Unit)>,
+    TensorTuple<H::Increment, T::Increment>: Tensor<
+        Unit = (
+            <H::Increment as Tensor>::Unit,
+            <T::Increment as Tensor>::Unit,
+        ),
+    >,
 {
     type Point = TensorTuple<H::Point, T::Point>;
     type Increment = TensorTuple<H::Increment, T::Increment>;
@@ -132,8 +138,9 @@ pub struct List<Field>(PhantomData<Field>);
 impl<Field> Integrable for List<Field>
 where
     Field: Integrable,
-    TensorVector<Field::Point>: Tensor<Item = Field::Point>,
-    TensorVector<Field::Increment>: Tensor<Item = Field::Increment>,
+    TensorVector<Field::Point>: Tensor<Item = Field::Point, Unit = <Field::Point as Tensor>::Unit>,
+    TensorVector<Field::Increment>:
+        Tensor<Item = Field::Increment, Unit = <Field::Increment as Tensor>::Unit>,
 {
     type Point = TensorVector<Field::Point>;
     type Increment = TensorVector<Field::Increment>;
