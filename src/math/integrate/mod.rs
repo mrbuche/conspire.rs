@@ -3,6 +3,7 @@ pub mod doc;
 #[cfg(test)]
 mod test;
 
+mod controller;
 mod dae;
 mod error;
 mod field;
@@ -38,6 +39,7 @@ pub(crate) fn fixed_step_times<T>(t_0: Quantity<T>, t_f: Quantity<T>, dt: Quanti
     times
 }
 
+pub use controller::StepController;
 pub use error::IntegrationError;
 pub use field::{
     EvolvedIncrement, EvolvedState, Flat, HermiteSegment, Integrable, List, Product,

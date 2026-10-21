@@ -9,7 +9,7 @@ use super::{
 };
 use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
-    integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, Times},
+    integrate::{ButcherTableau, EmbeddedTableau, IntegrationError, StepController, Times},
     optimize::{EqualityConstraints, Optimization, RootFinding},
     sparse::SparseSolver,
 };
@@ -64,7 +64,7 @@ where
     if t_0 >= t_f {
         return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
     }
-    let exponent = 1.0 / Tab::ORDER;
+    let controller = StepController::new(0.9, Tab::ORDER, DT_CUT, 5.0);
     let dt_min = (t_f - t_0) * 1e-10;
     let mut t = t_0;
     let mut dt = t_f - t_0;
@@ -149,12 +149,7 @@ where
                 }
             }
         }
-        let scale = if error > 0.0 {
-            (0.9 * (tolerance / error).powf(exponent)).clamp(DT_CUT, 5.0)
-        } else {
-            5.0
-        };
-        dt *= scale;
+        dt *= controller.scale(error, tolerance);
         if !accept && dt <= dt_min {
             return Err(IntegrationError::from(
                 "the adaptive RKMK-DAE step fell below the floor".to_string(),
@@ -355,7 +350,7 @@ where
     if t_0 >= t_f {
         return Err(IntegrationError::InitialTimeNotLessThanFinalTime);
     }
-    let exponent = 1.0 / Tab::ORDER;
+    let controller = StepController::new(0.9, Tab::ORDER, DT_CUT, 5.0);
     let dt_min = (t_f - t_0) * 1e-10;
     let mut t = t_0;
     let mut dt = t_f - t_0;
@@ -435,12 +430,7 @@ where
             points.push(point.clone());
             times.push(t);
         }
-        let scale = if error > 0.0 {
-            (0.9 * (tolerance / error).powf(exponent)).clamp(DT_CUT, 5.0)
-        } else {
-            5.0
-        };
-        dt *= scale;
+        dt *= controller.scale(error, tolerance);
         if !accept && dt <= dt_min {
             return Err(IntegrationError::from(
                 "the adaptive RKMK step fell below the floor".to_string(),
