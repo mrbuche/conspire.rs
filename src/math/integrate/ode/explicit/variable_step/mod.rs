@@ -6,7 +6,7 @@ use crate::math::{
     Derivative, Differentiable, Quantity, Scalar, Tensor, TensorVec,
     integrate::{
         ButcherTableau, EmbeddedTableau, Explicit, Flat, HermiteSegment, IntegrationError,
-        Spectrum, Times, VariableStep, interpolate_hermite,
+        Spectrum, StepController, Times, VariableStep, interpolate_hermite,
     },
     interpolate::InterpolateSolution,
 };
@@ -287,12 +287,13 @@ where
     /// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
     /// ```
     fn time_step(&self, error: Scalar, tolerance: Scalar, dt: &mut Quantity<T>) {
-        if error > 0.0 {
-            *dt *= (self.dt_beta() * (tolerance / error).powf(1.0 / self.dt_expn()))
-                .clamp(self.dt_cut(), self.dt_grow())
-        } else {
-            *dt *= self.dt_grow();
-        }
+        *dt *= StepController::new(
+            self.dt_beta(),
+            self.dt_expn(),
+            self.dt_cut(),
+            self.dt_grow(),
+        )
+        .scale(error, tolerance);
     }
 }
 
