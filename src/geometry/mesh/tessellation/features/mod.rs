@@ -240,12 +240,17 @@ impl Features {
             .map(|crease| root(&mut parent, crease))
             .collect()
     }
-    /// Every *unrelated* crease within `radius` of each crease that surface
-    /// runs between (see [`joined`]), nearest first, where a crease is related
-    /// to every crease of its own chain and of every chain within `hops` steps
-    /// of it (so a crease does not see its own smoothly-continuing neighbors
-    /// as a narrow feature). Entries are empty when no such crease exists
-    /// within `radius`.
+    /// Every *unrelated* crease at least `minimum` from each crease that
+    /// surface runs between (see [`joined`]), nearest first, where a crease is
+    /// related to every crease of its own chain and of every chain within
+    /// `hops` steps of it (so a crease does not see its own
+    /// smoothly-continuing neighbors as a narrow feature). Entries are empty
+    /// when no such crease exists. Pairs closer than `minimum` are left out,
+    /// which keeps the noise of a tessellation, such as creases a hair apart
+    /// on a sliver, from being taken for a feature.
+    ///
+    /// Every pair of creases is compared, so the cost grows with the square
+    /// of the number of creases.
     ///
     /// All of them are reported, not just the nearest, because a crease
     /// generally bounds a narrow feature along only part of its length: the
@@ -276,7 +281,7 @@ impl Features {
     pub fn separation(
         &self,
         tessellation: &Tessellation,
-        radius: Quantity<Length>,
+        minimum: Quantity<Length>,
         hops: usize,
     ) -> Vec<Vec<Separation>> {
         if self.creases.is_empty() {
@@ -327,10 +332,8 @@ impl Features {
             });
         });
         // The creases of each chain running closest to each crease. Every
-        // candidate pair is recorded from both ends, so the two creases agree
-        // on it however the spatial index happened to turn one of them up,
-        // and is measured once, from whichever end reached it first.
-        let index = self.index(radius);
+        // candidate pair is measured once and recorded from both ends, so the
+        // two creases agree on it.
         let coordinates = tessellation.mesh().coordinates();
         let elements: Vec<&[usize]> = tessellation
             .mesh()
@@ -340,7 +343,6 @@ impl Features {
             .collect();
         let bvh = tessellation.bvh();
         let mut nearest = vec![FxHashMap::<usize, Vec<Separation>>::default(); self.creases.len()];
-        let mut measured = FxHashSet::<[usize; 2]>::default();
         let record = |nearest: &mut Vec<FxHashMap<usize, Vec<Separation>>>,
                       this: usize,
                       other: usize,
@@ -354,15 +356,11 @@ impl Features {
                 })
         };
         self.creases.iter().enumerate().for_each(|(this, segment)| {
-            index
-                .nearby_creases(&segment[0], &segment[1])
+            (this + 1..self.creases.len())
                 .filter(|other| !excluded[&chain[this]].contains(&chain[*other]))
                 .for_each(|other| {
-                    if !measured.insert(key(this, other)) {
-                        return;
-                    }
                     let distance = segment_distance(segment, &self.creases[other]);
-                    if distance < radius
+                    if distance >= minimum
                         && joined(segment, &self.creases[other], coordinates, &elements, bvh)
                     {
                         record(&mut nearest, this, other, distance);
@@ -563,21 +561,6 @@ impl FeatureIndex<'_> {
             .filter(|&(_, distance)| distance < radius)
             .min_by(|(_, one), (_, two)| one.total_cmp(two))
             .map(|(closest, _)| closest)
-    }
-    /// The (deduplicated) crease indices whose bins overlap either endpoint
-    /// of a segment, plus any sprawling creases, for the caller to filter and
-    /// measure exactly against.
-    fn nearby_creases(&self, a: &Coordinate<D>, b: &Coordinate<D>) -> impl Iterator<Item = usize> {
-        let mut candidates: FxHashSet<usize> = self
-            .about(a)
-            .into_iter()
-            .chain(self.about(b))
-            .filter_map(|cell| self.creases.get(&cell))
-            .flatten()
-            .copied()
-            .collect();
-        candidates.extend(self.sprawling.iter().copied());
-        candidates.into_iter()
     }
     pub fn corner(&self, index: usize) -> &Coordinate<D> {
         &self.features.corners[index]

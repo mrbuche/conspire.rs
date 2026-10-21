@@ -429,7 +429,7 @@ fn a_stair_step_notch_is_not_refined_by_thickness_or_curvature_alone() {
         scale,
         CurvatureSizing::default(),
         SeparationSizing {
-            radius: Some(Quantity::new(0.5)),
+            minimum: Some(Quantity::new(0.0)),
             hops: 1,
             scale: None,
         },
@@ -458,7 +458,7 @@ fn diagnose(path: &str) {
         scale,
         CurvatureSizing::default(),
         SeparationSizing {
-            radius: Some(Quantity::new(0.5)),
+            minimum: Some(Quantity::new(0.0)),
             hops: 1,
             scale: None,
         },
@@ -541,7 +541,7 @@ fn diagnose_unmatched_creases_on_the_pyramid() {
     .unwrap();
     let features = tessellation.features();
     let creases = features.creases();
-    let separation = features.separation(&tessellation, Quantity::new(0.5), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
     println!("{} creases total", creases.len());
     let mut unmatched = 0;
     creases
@@ -592,7 +592,7 @@ fn mesh_the_stair_pyramid() {
         (
             "enabled",
             SeparationSizing {
-                radius: Some(Quantity::new(0.5)),
+                minimum: Some(Quantity::new(0.0)),
                 hops: 1,
                 scale: None,
             },
@@ -635,7 +635,7 @@ fn diagnose_unmatched_creases_on_the_staircase() {
     .unwrap();
     let features = tessellation.features();
     let creases = features.creases();
-    let separation = features.separation(&tessellation, Quantity::new(0.5), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
     println!("{} creases total", creases.len());
     let mut unmatched = 0;
     creases
@@ -697,7 +697,7 @@ fn mesh_the_staircase() {
         (
             "enabled",
             SeparationSizing {
-                radius: Some(Quantity::new(0.5)),
+                minimum: Some(Quantity::new(0.0)),
                 hops: 1,
                 scale: None,
             },
@@ -740,7 +740,7 @@ fn diagnose_unmatched_creases_on_the_heatsink() {
     .unwrap();
     let features = tessellation.features();
     let creases = features.creases();
-    let separation = features.separation(&tessellation, Quantity::new(0.5), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
     println!("{} creases total", creases.len());
     let mut unmatched = 0;
     creases
@@ -793,7 +793,7 @@ fn diagnose_heatsink_fine_cells() {
         scale,
         CurvatureSizing::default(),
         SeparationSizing {
-            radius: Some(Quantity::new(0.5)),
+            minimum: Some(Quantity::new(0.0)),
             hops: 1,
             scale: None,
         },
@@ -900,7 +900,7 @@ fn mesh_the_heatsink() {
         (
             "enabled",
             SeparationSizing {
-                radius: Some(Quantity::new(0.5)),
+                minimum: Some(Quantity::new(0.0)),
                 hops: 1,
                 scale: None,
             },
@@ -952,7 +952,7 @@ fn mesh_the_real_stair_step_stl() {
             "enabled, scale 5/5",
             5.0,
             SeparationSizing {
-                radius: Some(Quantity::new(0.5)),
+                minimum: Some(Quantity::new(0.0)),
                 hops: 1,
                 scale: None,
             },
@@ -962,7 +962,7 @@ fn mesh_the_real_stair_step_stl() {
             "enabled, scale 3/5",
             3.0,
             SeparationSizing {
-                radius: Some(Quantity::new(0.5)),
+                minimum: Some(Quantity::new(0.0)),
                 hops: 1,
                 scale: Some(5.0),
             },
@@ -972,7 +972,7 @@ fn mesh_the_real_stair_step_stl() {
             "enabled, scale 4/5",
             4.0,
             SeparationSizing {
-                radius: Some(Quantity::new(0.5)),
+                minimum: Some(Quantity::new(0.0)),
                 hops: 1,
                 scale: Some(5.0),
             },
@@ -1084,11 +1084,11 @@ fn narrow_feature_refinement_is_invariant_to_triangulation_density() {
         16 * coarse.mesh().connectivities().iter().flatten().count(),
         fine.mesh().connectivities().iter().flatten().count()
     );
-    let radius = Quantity::new(0.5);
+    let minimum = Quantity::new(0.0);
     let gap = |tessellation: &Tessellation| {
         tessellation
             .features()
-            .separation(tessellation, radius, 1)
+            .separation(tessellation, minimum, 1)
             .iter()
             .flatten()
             .map(|separation| separation.distance.value())
@@ -1125,7 +1125,7 @@ fn separation_refinement(tessellation: &Tessellation) -> (f64, Vec<[f64; 3]>) {
         5.0,
         CurvatureSizing::default(),
         SeparationSizing {
-            radius: Some(Quantity::new(0.5)),
+            minimum: Some(Quantity::new(0.0)),
             hops: 1,
             scale: None,
         },
@@ -1334,7 +1334,7 @@ fn cell_sizes(tessellation: &Tessellation, scale: f64) -> (f64, impl Fn([f64; 3]
         scale,
         CurvatureSizing::default(),
         SeparationSizing {
-            radius: Some(Quantity::new(0.5)),
+            minimum: Some(Quantity::new(0.0)),
             hops: 1,
             scale: None,
         },
@@ -1385,4 +1385,54 @@ fn cell_sizes(tessellation: &Tessellation, scale: f64) -> (f64, impl Fn([f64; 3]
             .filter_map(|[i, j, k]| grid.get(&[key[0] + i, key[1] + j, key[2] + k]))
             .fold(f64::INFINITY, |best, &size| best.min(size))
     })
+}
+
+#[test]
+fn a_notch_closer_than_the_minimum_is_not_refined() {
+    let tessellation = notched_cube(0.05);
+    let sized = |minimum: f64| {
+        Octree::<u16, usize>::from_features(
+            &tessellation,
+            5.0,
+            CurvatureSizing::default(),
+            SeparationSizing {
+                minimum: Some(Quantity::new(minimum)),
+                hops: 1,
+                scale: None,
+            },
+            0,
+        )
+        .unwrap()
+        .len()
+    };
+    let without = Octree::<u16, usize>::from_features(
+        &tessellation,
+        5.0,
+        CurvatureSizing::default(),
+        SeparationSizing::default(),
+        0,
+    )
+    .unwrap()
+    .len();
+    assert!(sized(0.0) > without);
+    assert!(sized(0.01) > without);
+    assert_eq!(sized(0.1), without);
+}
+
+#[test]
+fn creases_that_touch_leave_no_gap_to_resolve() {
+    let (points, faces) = cube(1);
+    let tessellation = tessellate(points, faces);
+    let sizing = Sizing::new(
+        &tessellation,
+        5.0,
+        CurvatureSizing::default(),
+        SeparationSizing {
+            minimum: Some(Quantity::new(0.0)),
+            hops: 0,
+            scale: None,
+        },
+        0,
+    );
+    assert!(sizing.levels() > 0);
 }

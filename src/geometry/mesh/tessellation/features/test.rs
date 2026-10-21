@@ -183,7 +183,7 @@ fn a_stair_step_has_two_creases() {
 fn a_stair_step_notch_is_seen_as_a_narrow_feature() {
     let tessellation = stair_step(0.1);
     let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(1.0), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
     // the two creases are not adjacent in the crease graph (they share no
     // node) but sit 0.1 apart in space, across the riser panel.
     separation.iter().for_each(|entry| {
@@ -200,7 +200,7 @@ fn a_stair_step_notch_is_seen_as_a_narrow_feature() {
 fn a_wider_stair_step_notch_reports_a_larger_separation() {
     let tessellation = stair_step(0.3);
     let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(1.0), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
     separation.iter().for_each(|entry| {
         let distance = entry.first().expect("no nearby crease").distance;
         assert!(
@@ -212,10 +212,10 @@ fn a_wider_stair_step_notch_reports_a_larger_separation() {
 }
 
 #[test]
-fn a_stair_step_notch_beyond_the_radius_is_not_seen() {
+fn a_stair_step_notch_no_wider_than_the_minimum_is_not_seen() {
     let tessellation = stair_step(0.1);
     let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(0.05), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.1), 1);
     separation
         .iter()
         .for_each(|entry| assert!(entry.is_empty(), "{entry:?}"));
@@ -267,7 +267,7 @@ fn only_the_creases_with_surface_between_them_bound_a_slot() {
     let tessellation = slot(0.1, 1.0);
     let features = tessellation.features();
     assert_eq!(features.creases().len(), 4);
-    let separation = features.separation(&tessellation, Quantity::new(0.5), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
     let floor = features
         .creases()
         .iter()
@@ -284,7 +284,12 @@ fn only_the_creases_with_surface_between_them_bound_a_slot() {
                 let distance = entry.first().expect("the slot floor went unseen").distance;
                 assert!((distance.value() - 0.1).abs() < 1.0e-12, "{distance}")
             } else {
-                assert!(entry.is_empty(), "the slot mouth was seen as narrow")
+                assert!(
+                    entry
+                        .first()
+                        .is_none_or(|nearest| nearest.distance.value() > 0.5),
+                    "the slot mouth was seen as narrow"
+                )
             }
         })
 }
@@ -296,7 +301,7 @@ fn without_graph_exclusion_a_cube_corner_looks_like_a_narrow_feature() {
     // corner would be misread as an arbitrarily narrow feature.
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
     let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(0.5), 0);
+    let separation = features.separation(&tessellation, Quantity::new(0.0), 0);
     assert!(
         separation.iter().all(|entry| {
             entry
@@ -311,9 +316,14 @@ fn without_graph_exclusion_a_cube_corner_looks_like_a_narrow_feature() {
 fn excluding_one_hop_removes_the_shared_corner_false_positive() {
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
     let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(0.5), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
+    // The edges of a cube are all a whole edge length from the ones they
+    // are not related to, so nothing there is narrow.
     assert!(
-        separation.iter().all(|entry| entry.is_empty()),
+        separation
+            .iter()
+            .flatten()
+            .all(|separation| separation.distance.value() > 1.0 - 1.0e-12),
         "{separation:?}"
     );
 }
@@ -383,7 +393,7 @@ fn a_subdivided_slot_floor_is_seen_along_its_whole_length() {
     for n in [1, 2, 3, 4, 8] {
         let tessellation = slot_divided(0.1, 1.0, n);
         let features = tessellation.features();
-        let separation = features.separation(&tessellation, Quantity::new(0.5), 1);
+        let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
         let (mut floor, mut covered) = (0, 0);
         features
             .creases()
