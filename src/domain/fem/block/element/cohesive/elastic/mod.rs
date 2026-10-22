@@ -1,4 +1,4 @@
-use crate::constitutive::cohesive::elastic::StiffnessCohesive;
+use crate::constitutive::cohesive::StiffnessCohesive;
 use crate::{
     constitutive::cohesive::elastic::Elastic,
     fem::block::element::{
