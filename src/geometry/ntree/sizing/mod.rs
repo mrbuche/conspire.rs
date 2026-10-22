@@ -28,11 +28,10 @@ pub struct Sizing<'a> {
     pub(crate) center: Coordinate<D>,
     pub(crate) coordinates: &'a Coordinates<D>,
     pub(crate) elements: Vec<&'a [usize]>,
-    pub(crate) gaps: Vec<Quantity<Length>>,
     pub(crate) levels: u32,
     pub(crate) min_length: Quantity<Length>,
     pub(crate) narrow: Vec<[[Coordinate<D>; 2]; 2]>,
-    pub(crate) distances: Vec<Quantity<Length>>,
+    pub(crate) ratio: Scalar,
     pub(crate) scale: Scalar,
     pub(crate) targets: Vec<Quantity<Length>>,
 }
@@ -72,11 +71,10 @@ impl<'a> Sizing<'a> {
                 center: Coordinate::const_from([0.0; D]),
                 coordinates,
                 elements: Vec::new(),
-                gaps: Vec::new(),
                 levels: 0,
                 min_length: Quantity::new(1.0),
                 narrow: Vec::new(),
-                distances: Vec::new(),
+                ratio: 1.0,
                 scale,
                 targets: Vec::new(),
             };
@@ -197,26 +195,18 @@ impl<'a> Sizing<'a> {
                 thickness.min(feature)
             })
             .collect();
-        // Each narrow pair demands cells of `distance / separation_scale`
-        // throughout the region between the two creases, which is where cells
-        // have to be small enough to separate one from the other.
-        let gaps: Vec<Quantity<Length>> = narrow_pairs
-            .iter()
-            .map(|&(_, distance)| distance * (scale / separation_scale))
-            .collect();
-        let (narrow, distances): (Vec<[[Coordinate<D>; 2]; 2]>, Vec<Quantity<Length>>) =
-            narrow_pairs.into_iter().unzip();
+        let narrow: Vec<[[Coordinate<D>; 2]; 2]> =
+            narrow_pairs.into_iter().map(|(pair, _)| pair).collect();
         Self {
             center: Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
                 (min_coord[ax] + max_coord[ax]) / 2.0
             })),
             coordinates,
             elements,
-            gaps,
             levels,
             min_length,
             narrow,
-            distances,
+            ratio: scale / separation_scale,
             scale,
             targets,
         }
