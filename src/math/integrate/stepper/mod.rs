@@ -4,8 +4,9 @@ mod test;
 use super::StepController;
 use crate::{
     math::{Quantity, Scalar},
-    units::Time,
+    units::{Dimensionless, Time},
 };
+use std::fmt::{self, Debug, Formatter};
 
 const DT_CUT: Scalar = 0.2;
 
@@ -13,24 +14,123 @@ const DT_CUT: Scalar = 0.2;
 ///
 /// A step is resolved by how much the direction of the response changes over it, and by
 /// whether it runs past a kink in the response. Both vanish when the response is exact for
-/// the step, as for a constant direction, and both are dimensionless.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct StepError {
+/// the step, as for a constant direction.
+pub struct StepError<U = Dimensionless> {
     /// The estimated error of the step from the change of the direction of the response
     /// over it, which falls as the square of the step.
-    pub direction: Quantity,
+    pub direction: Quantity<U>,
     /// How far the step runs past a kink in the response that it begins before, and zero
     /// otherwise, which falls as the step.
-    pub overshoot: Quantity,
+    pub overshoot: Quantity<U>,
 }
 
-impl StepError {
+impl<U> Clone for StepError<U> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<U> Copy for StepError<U> {}
+
+impl<U> Debug for StepError<U> {
+    fn fmt(&self, formatter: &mut Formatter) -> fmt::Result {
+        formatter
+            .debug_struct("StepError")
+            .field("direction", &self.direction)
+            .field("overshoot", &self.overshoot)
+            .finish()
+    }
+}
+
+impl<U> Default for StepError<U> {
+    fn default() -> Self {
+        Self {
+            direction: Quantity::default(),
+            overshoot: Quantity::default(),
+        }
+    }
+}
+
+impl<U> PartialEq for StepError<U> {
+    fn eq(&self, other: &Self) -> bool {
+        self.direction == other.direction && self.overshoot == other.overshoot
+    }
+}
+
+impl<U> StepError<U> {
     /// The larger of each of the two, as for the points of a mesh.
     pub fn max(self, other: Self) -> Self {
         Self {
             direction: self.direction.max(other.direction),
             overshoot: self.overshoot.max(other.overshoot),
         }
+    }
+}
+
+/// The error indicators of the sources of a step, each held to a tolerance in its own unit.
+///
+/// A tuple of indicators holds a step to the tolerances of all of them, and sizes the next
+/// step by the most restrictive. Indicators of different units are never combined, only
+/// compared to their own tolerance.
+pub trait StepIndicators {
+    /// The tolerances the indicators are held to, of the same structure.
+    type Tolerance: Copy;
+    /// Whether every indicator is within its tolerance.
+    fn within(&self, tolerance: &Self::Tolerance) -> bool;
+    /// The factor to multiply the step by, the smallest over the indicators.
+    fn scale(
+        &self,
+        tolerance: &Self::Tolerance,
+        direction: &StepController,
+        overshoot: &StepController,
+    ) -> Quantity;
+}
+
+impl<U> StepIndicators for StepError<U> {
+    type Tolerance = Quantity<U>;
+    fn within(&self, tolerance: &Quantity<U>) -> bool {
+        self.direction <= *tolerance && self.overshoot <= *tolerance
+    }
+    fn scale(
+        &self,
+        tolerance: &Quantity<U>,
+        direction: &StepController,
+        overshoot: &StepController,
+    ) -> Quantity {
+        direction
+            .scale(self.direction, *tolerance)
+            .min(overshoot.scale(self.overshoot, *tolerance))
+    }
+}
+
+impl StepIndicators for () {
+    type Tolerance = ();
+    fn within(&self, _: &()) -> bool {
+        true
+    }
+    fn scale(&self, _: &(), direction: &StepController, _: &StepController) -> Quantity {
+        direction.grow
+    }
+}
+
+impl<A, B> StepIndicators for (A, B)
+where
+    A: StepIndicators,
+    B: StepIndicators,
+{
+    type Tolerance = (A::Tolerance, B::Tolerance);
+    fn within(&self, tolerance: &Self::Tolerance) -> bool {
+        self.0.within(&tolerance.0) && self.1.within(&tolerance.1)
+    }
+    fn scale(
+        &self,
+        tolerance: &Self::Tolerance,
+        direction: &StepController,
+        overshoot: &StepController,
+    ) -> Quantity {
+        self.0
+            .scale(&tolerance.0, direction, overshoot)
+            .min(self.1.scale(&tolerance.1, direction, overshoot))
     }
 }
 
@@ -103,17 +203,17 @@ impl<'a> Stepper<'a> {
         }
     }
     /// Takes the step if its error is within the tolerance, and sizes the next one by it.
-    pub fn judge(
+    pub fn judge<I>(
         &mut self,
         step: &Step,
-        error: StepError,
-        abs_tol: Quantity,
-    ) -> Result<Outcome, String> {
-        let scale = self
-            .direction
-            .scale(error.direction, abs_tol)
-            .min(self.overshoot.scale(error.overshoot, abs_tol));
-        if error.direction <= abs_tol && error.overshoot <= abs_tol {
+        error: I,
+        tolerance: I::Tolerance,
+    ) -> Result<Outcome, String>
+    where
+        I: StepIndicators,
+    {
+        let scale = error.scale(&tolerance, &self.direction, &self.overshoot);
+        if error.within(&tolerance) {
             self.time = step.time;
             if step.landing {
                 self.breakpoint += 1;
@@ -147,20 +247,21 @@ impl<'a> Stepper<'a> {
 /// are reported, beginning with `initial` at the first time.
 ///
 /// `advance` takes the state at a step's start to its end at the given time, and `error`
-/// gives the [`StepError`] of the step from the states at its two ends. A step that
+/// gives the [`StepIndicators`] of the step from the states at its two ends. A step that
 /// `advance` fails on is cut back like a rejected one, and `message` makes the error
 /// of a step controller that cannot continue.
-pub fn adapt<X, S, E>(
+pub fn adapt<X, S, E, I>(
     times: &[Quantity<Time>],
-    abs_tol: Quantity,
+    tolerance: I::Tolerance,
     initial: (X, S),
     mut advance: impl FnMut(Quantity<Time>, &X, &S) -> Result<(X, S), E>,
-    error: impl Fn(&X, &X, &S, &S) -> Result<StepError, E>,
+    error: impl Fn(&X, &X, &S, &S) -> Result<I, E>,
     message: impl Fn(String) -> E,
 ) -> Result<Vec<(Quantity<Time>, X, S)>, E>
 where
     X: Clone,
     S: Clone,
+    I: StepIndicators,
 {
     let mut stepper = Stepper::new(times).map_err(&message)?;
     let (mut current, mut state) = initial;
@@ -174,7 +275,7 @@ where
         };
         let step_error = error(&current, &next, &state, &state_next)?;
         match stepper
-            .judge(&step, step_error, abs_tol)
+            .judge(&step, step_error, tolerance)
             .map_err(&message)?
         {
             Outcome::Accepted { report } => {

@@ -1,7 +1,7 @@
-use super::{Outcome, StepError, Stepper, adapt};
+use super::{Outcome, StepError, StepIndicators, Stepper, adapt};
 use crate::{
     math::Quantity,
-    units::{Dimensionless, Time},
+    units::{Dimensionless, Length, Time},
 };
 
 const TOLERANCE: f64 = 1e-3;
@@ -284,4 +284,115 @@ fn times_that_cannot_be_stepped_are_a_message_in_the_error_of_the_caller() {
         |message| format!("failed: {message}"),
     );
     assert!(result.err().unwrap().starts_with("failed: "));
+}
+
+fn metric(direction: f64, overshoot: f64) -> StepError<Length> {
+    StepError {
+        direction: Length::meters(direction),
+        overshoot: Length::meters(overshoot),
+    }
+}
+
+fn next_step<I: StepIndicators>(error: I, tolerance: I::Tolerance) -> (Outcome, Option<f64>) {
+    let times = [0.0, 1.0].map(Time::seconds);
+    let mut stepper = Stepper::new(&times).unwrap();
+    let step = stepper.propose();
+    let outcome = stepper.judge(&step, error, tolerance).unwrap();
+    (
+        outcome,
+        (!stepper.is_done()).then(|| stepper.propose().time.value()),
+    )
+}
+
+#[test]
+fn an_error_in_another_unit_is_held_to_a_tolerance_in_it() {
+    let tolerance = Length::meters(TOLERANCE);
+    assert_eq!(
+        next_step(metric(0.1 * TOLERANCE, 0.0), tolerance).0,
+        Outcome::Accepted { report: true }
+    );
+    assert_eq!(
+        next_step(metric(10.0 * TOLERANCE, 0.0), tolerance).0,
+        Outcome::Rejected
+    );
+    assert_eq!(
+        next_step(metric(0.0, 10.0 * TOLERANCE), tolerance).0,
+        Outcome::Rejected
+    );
+}
+
+#[test]
+fn every_source_must_be_within_its_own_tolerance() {
+    let tolerance = (Dimensionless::of(TOLERANCE), Length::meters(TOLERANCE));
+    let (small, large) = (0.1 * TOLERANCE, 10.0 * TOLERANCE);
+    assert_eq!(
+        next_step((error(small, 0.0), metric(small, 0.0)), tolerance).0,
+        Outcome::Accepted { report: true }
+    );
+    assert_eq!(
+        next_step((error(large, 0.0), metric(small, 0.0)), tolerance).0,
+        Outcome::Rejected
+    );
+    assert_eq!(
+        next_step((error(small, 0.0), metric(0.0, large)), tolerance).0,
+        Outcome::Rejected
+    );
+}
+
+#[test]
+fn the_next_step_follows_the_most_restrictive_source() {
+    let tolerance = (Dimensionless::of(TOLERANCE), Length::meters(TOLERANCE));
+    let (mild, severe) = (2.0 * TOLERANCE, 50.0 * TOLERANCE);
+    let by_mild = next_step(error(mild, 0.0), Dimensionless::of(TOLERANCE))
+        .1
+        .unwrap();
+    let by_severe = next_step(metric(severe, 0.0), Length::meters(TOLERANCE))
+        .1
+        .unwrap();
+    assert!(by_severe < by_mild);
+    let (_, together) = next_step((error(mild, 0.0), metric(severe, 0.0)), tolerance);
+    let together = together.unwrap();
+    assert_eq!(together, by_severe);
+    let (_, swapped) = next_step(
+        (metric(severe, 0.0), error(mild, 0.0)),
+        (tolerance.1, tolerance.0),
+    );
+    assert_eq!(swapped.unwrap(), by_severe);
+}
+
+#[test]
+fn a_source_without_indicators_does_not_hold_the_step() {
+    assert_eq!(next_step((), ()).0, Outcome::Accepted { report: true });
+    let (outcome, size) = next_step(
+        ((), error(2.0 * TOLERANCE, 0.0)),
+        ((), Dimensionless::of(TOLERANCE)),
+    );
+    let (alone, alone_size) = next_step(error(2.0 * TOLERANCE, 0.0), Dimensionless::of(TOLERANCE));
+    assert_eq!(outcome, alone);
+    assert_eq!(size, alone_size);
+}
+
+#[test]
+fn each_source_of_an_adaptive_loop_refines_by_its_own_tolerance() {
+    let times = [0.0, 1.0].map(Time::seconds);
+    let count = |rates: (f64, f64)| {
+        adapt(
+            &times,
+            (Dimensionless::of(TOLERANCE), Length::meters(TOLERANCE)),
+            (0.0, ()),
+            advance,
+            |start: &f64, end: &f64, _: &(), _: &()| {
+                let step = (end - start).powi(2);
+                Ok::<_, String>((error(rates.0 * step, 0.0), metric(rates.1 * step, 0.0)))
+            },
+            |message| message,
+        )
+        .unwrap()
+        .len()
+    };
+    let (none, first, second) = (count((0.0, 0.0)), count((1.0, 0.0)), count((0.0, 1.0)));
+    assert_eq!(none, 2);
+    assert!(first > none && second > none);
+    assert_eq!(first, second);
+    assert!(count((1.0, 1.0)) >= first);
 }
