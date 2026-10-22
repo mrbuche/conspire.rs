@@ -5,12 +5,13 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        IntegrationWeights, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{Hexahedron as QuadraticHexahedron, QuadraticElement, QuadraticFiniteElement},
         serendipity::M,
     },
     math::ScalarList,
+    units::Volume,
 };
 
 const G: usize = 27;
@@ -19,7 +20,10 @@ const P: usize = N;
 
 pub type Hexahedron = QuadraticElement<G, N>;
 
-impl FiniteElementInterpolation<G, M, N, P> for Hexahedron {
+impl ReferenceFiniteElement<G, M, N, P> for Hexahedron {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         QuadraticHexahedron::integration_points()
     }

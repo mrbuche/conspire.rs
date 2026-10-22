@@ -5,7 +5,7 @@ use crate::{
     EPSILON,
     constitutive::cohesive::elastic::LinearElastic,
     fem::block::element::{
-        ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElementIntegration,
+        ElementNodalCoordinates, ElementNodalReferenceCoordinates, ReferenceFiniteElement,
         cohesive::{
             elastic::ElasticCohesiveElement,
             linear::wedge::{N, P, Wedge},

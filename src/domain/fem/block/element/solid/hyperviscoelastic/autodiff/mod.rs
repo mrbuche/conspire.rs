@@ -9,7 +9,7 @@ use crate::{
         solid::hyperviscoelastic::autodiff::AutodiffHyperviscoelastic,
     },
     fem::block::element::{
-        Element, FiniteElement, FiniteElementInterpolation,
+        Element, FiniteElement, ReferenceFiniteElement,
         autodiff::{Coordinates, flatten, unflatten},
         solid::{
             autodiff::{

@@ -1,7 +1,7 @@
 #![allow(clippy::needless_range_loop)]
 
 use crate::{
-    fem::block::element::{Element, FiniteElement, FiniteElementInterpolation},
+    fem::block::element::{Element, FiniteElement, ReferenceFiniteElement},
     math::{Current, TensorRank1List},
     units::Length,
 };

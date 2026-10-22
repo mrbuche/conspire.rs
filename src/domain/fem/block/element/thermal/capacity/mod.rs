@@ -1,6 +1,6 @@
 use crate::{
     fem::block::element::{
-        Element, FiniteElement, FiniteElementIntegration, FiniteElementInterpolation,
+        Element, FiniteElement, ReferenceFiniteElement,
         mass::{ConsistentMass, RowSumLumping},
     },
     math::{Quantity, Tensor, TensorList},

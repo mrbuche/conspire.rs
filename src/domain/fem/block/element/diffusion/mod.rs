@@ -3,7 +3,7 @@ use crate::{
         ConstitutiveError,
         diffusion::{Diffusion, DiffusionFluxes, DiffusionTangents, Diffusive},
     },
-    fem::block::element::{Element, FiniteElement, FiniteElementError, FiniteElementIntegration},
+    fem::block::element::{Element, FiniteElement, FiniteElementError, ReferenceFiniteElement},
     math::{Quantity, Reference, Tensor, TensorList, TensorRank1List},
     units::{ReciprocalLength, UnitMul},
 };

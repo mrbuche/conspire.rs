@@ -9,7 +9,7 @@ use crate::{
     },
     fem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
-        FiniteElementIntegration, FiniteElementInterpolation,
+        ReferenceFiniteElement,
         multiphysics::solid_thermal::{
             ElementNodalForcesSolidThermal, ElementNodalHeatingStiffnessesSolidThermal,
             ElementNodalHeatingsSolidThermal, ElementNodalStiffnessesSolidThermal,

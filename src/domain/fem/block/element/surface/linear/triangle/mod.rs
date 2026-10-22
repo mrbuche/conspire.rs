@@ -3,11 +3,12 @@ pub mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        IntegrationWeights, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
     math::ScalarList,
+    units::Volume,
 };
 
 // When implement G=3, share the methods with cohesive linear wedge.
@@ -18,7 +19,10 @@ const P: usize = N;
 
 pub type Triangle = LinearSurfaceElement<G, N>;
 
-impl FiniteElementInterpolation<G, M, N, P> for Triangle {
+impl ReferenceFiniteElement<G, M, N, P> for Triangle {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         [[1.0 / 3.0; M]].into()
     }

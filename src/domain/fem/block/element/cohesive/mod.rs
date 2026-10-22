@@ -4,8 +4,8 @@ pub mod linear;
 
 use crate::{
     fem::block::element::{
-        ElementNodalCoordinates, ElementNodalEitherCoordinates, FiniteElementIntegration,
-        FiniteElementInterpolation, IntegrationWeights, ShapeFunctionsAtIntegrationPoints,
+        ElementNodalCoordinates, ElementNodalEitherCoordinates, IntegrationWeights,
+        ReferenceFiniteElement, ShapeFunctionsAtIntegrationPoints,
         cohesive::elastic::StiffnessCohesiveList,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
         surface::SurfaceFiniteElement,
@@ -26,14 +26,6 @@ pub struct CohesiveElement<const G: usize, const N: usize, const O: usize> {
     integration_weights: IntegrationWeights<G, Area>,
 }
 
-impl<const G: usize, const N: usize, const O: usize> FiniteElementIntegration<G, Area>
-    for CohesiveElement<G, N, O>
-{
-    fn integration_weights(&self) -> &IntegrationWeights<G, Area> {
-        &self.integration_weights
-    }
-}
-
 impl<const G: usize, const N: usize, const O: usize> Debug for CohesiveElement<G, N, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N, O) {
@@ -48,7 +40,7 @@ impl<const G: usize, const N: usize, const O: usize> Debug for CohesiveElement<G
 impl<const G: usize, const N: usize, const O: usize, const P: usize>
     SurfaceFiniteElement<G, N, P, Area> for CohesiveElement<G, N, O>
 where
-    Self: FiniteElementInterpolation<G, M, N, P>,
+    Self: ReferenceFiniteElement<G, M, N, P, Area>,
 {
 }
 

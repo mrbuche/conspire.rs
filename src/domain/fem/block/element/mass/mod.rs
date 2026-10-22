@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        Element, FiniteElement, FiniteElementIntegration, FiniteElementInterpolation,
+        Element, FiniteElement, ReferenceFiniteElement,
         linear::{LinearElement, LinearFiniteElement},
     },
     math::{Quantity, Scalar, Tensor, TensorList},

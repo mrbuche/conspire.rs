@@ -5,8 +5,8 @@ use std::ops::{Div, Mul};
 use crate::{
     constitutive::{ConstitutiveError, solid::elastic::internal_variables::ElasticIV},
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElementError, FiniteElementIntegration,
-        GradientVectors, IntegrationWeights,
+        Element, ElementNodalCoordinates, FiniteElementError, GradientVectors, IntegrationWeights,
+        ReferenceFiniteElement,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement, SolidFiniteElement,
         },

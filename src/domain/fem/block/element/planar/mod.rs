@@ -11,10 +11,9 @@ use crate::{
         solid::{elastic::Elastic, hyperelastic::Hyperelastic},
     },
     fem::block::element::{
-        Element, FiniteElement, FiniteElementError, FiniteElementIntegration,
-        FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients, basic_from,
-        surface::SurfaceElement,
+        Element, FiniteElement, FiniteElementError, IntegrationWeights, ParametricCoordinate,
+        ParametricCoordinates, ParametricReference, ReferenceFiniteElement, ShapeFunctions,
+        ShapeFunctionsGradients, basic_from, surface::SurfaceElement,
     },
     math::{
         Current, Quantity, Reference, ScalarList, Tensor, TensorArray, TensorRank1,
@@ -24,7 +23,7 @@ use crate::{
         DeformationGradient, DeformationGradientList, FirstPiolaKirchhoffStressList,
         FirstPiolaKirchhoffTangentStiffnessList,
     },
-    units::{Energy, Force, ForcePerLength, Length, StressPerArea, StressPerLength},
+    units::{Energy, Force, ForcePerLength, Length, StressPerArea, StressPerLength, Volume},
 };
 
 const M: usize = 2;
@@ -37,10 +36,13 @@ pub type PlanarElementNodalStiffnessesSolid<const N: usize> =
     TensorRank2List2D<M, Current, Current, N, N, ForcePerLength>;
 
 impl<const G: usize, const N: usize, const O: usize, const P: usize>
-    FiniteElementInterpolation<G, M, N, P> for Element<2, G, N, O>
+    ReferenceFiniteElement<G, M, N, P> for Element<2, G, N, O>
 where
-    SurfaceElement<G, N, O>: FiniteElementInterpolation<G, M, N, P>,
+    SurfaceElement<G, N, O>: ReferenceFiniteElement<G, M, N, P>,
 {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         SurfaceElement::<G, N, O>::integration_points()
     }

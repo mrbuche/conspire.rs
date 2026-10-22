@@ -6,7 +6,7 @@ pub(crate) mod test;
 use crate::{
     constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic,
     fem::block::element::{
-        Element, FiniteElement, FiniteElementInterpolation,
+        Element, FiniteElement, ReferenceFiniteElement,
         autodiff::{Coordinates, flatten, unflatten},
         solid::autodiff::{
             Forces, Stiffnesses, assemble_tangent, deformation_gradient, tangent_matrix,

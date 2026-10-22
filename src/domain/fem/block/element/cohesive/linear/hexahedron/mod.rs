@@ -4,8 +4,8 @@ pub mod test;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        IntegrationWeights, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         cohesive::{
             CohesiveFiniteElement, M, Separations,
             linear::{LinearCohesiveElement, LinearCohesiveFiniteElement},
@@ -14,6 +14,7 @@ use crate::{
     },
     math::ScalarList,
     mechanics::NormalGradients,
+    units::Area,
 };
 
 const G: usize = 4;
@@ -22,7 +23,10 @@ const P: usize = 4;
 
 pub type Hexahedron = LinearCohesiveElement<G, N>;
 
-impl FiniteElementInterpolation<G, M, N, P> for Hexahedron {
+impl ReferenceFiniteElement<G, M, N, P, Area> for Hexahedron {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Area> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         Quadrilateral::integration_points()
     }

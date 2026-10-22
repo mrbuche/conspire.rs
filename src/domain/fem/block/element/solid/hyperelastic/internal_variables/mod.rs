@@ -4,7 +4,7 @@ use std::ops::{Div, Mul};
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::internal_variables::HyperelasticIV},
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElementError, FiniteElementIntegration,
+        Element, ElementNodalCoordinates, FiniteElementError, ReferenceFiniteElement,
         solid::{
             SolidElement, SolidFiniteElement,
             elastic::internal_variables::{ElasticIVFiniteElement, InternalVariables},

@@ -51,12 +51,19 @@ pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, con
     TensorRank1List2D<M, Reference, P, O>;
 
 /// The reference element: its nodes, the shape functions of `P` of them and their gradients,
-/// and its quadrature points and weights.
-pub trait FiniteElementInterpolation<const G: usize, const M: usize, const N: usize, const P: usize>
-where
+/// its quadrature points and weights, and the weights in the unit `W` of the measure of the
+/// element itself.
+pub trait ReferenceFiniteElement<
+    const G: usize,
+    const M: usize,
+    const N: usize,
+    const P: usize,
+    W = Volume,
+> where
     Self: Clone + Debug,
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
+    fn integration_weights(&self) -> &IntegrationWeights<G, W>;
     fn parametric_reference() -> ParametricReference<M, N>;
     fn parametric_weights() -> ScalarList<G>;
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P>;
@@ -77,15 +84,10 @@ where
     }
 }
 
-/// The weights of the quadrature points of an element, in the unit `W` of its measure.
-pub trait FiniteElementIntegration<const G: usize, W> {
-    fn integration_weights(&self) -> &IntegrationWeights<G, W>;
-}
-
-/// A [`FiniteElementInterpolation`] that integrates over a volume, with as many shape functions as nodes.
+/// A [`ReferenceFiniteElement`] that integrates over a volume, with as many shape functions as nodes.
 pub trait FiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElementInterpolation<G, M, N, N> + FiniteElementIntegration<G, Volume>,
+    Self: ReferenceFiniteElement<G, M, N, N>,
 {
     fn volume(&self) -> Quantity<Volume> {
         self.integration_weights().into_iter().sum()
@@ -93,7 +95,7 @@ where
 }
 
 impl<T, const G: usize, const M: usize, const N: usize> FiniteElement<G, M, N> for T where
-    T: FiniteElementInterpolation<G, M, N, N> + FiniteElementIntegration<G, Volume>
+    T: ReferenceFiniteElement<G, M, N, N>
 {
 }
 
@@ -134,7 +136,7 @@ fn basic_from<const D: usize, const G: usize, const N: usize, const O: usize>(
     reference_nodal_coordinates: TensorRank1List<D, Reference, N, Length>,
 ) -> Element<D, G, N, O>
 where
-    Element<D, G, N, O>: FiniteElementInterpolation<G, D, N, N>,
+    Element<D, G, N, O>: ReferenceFiniteElement<G, D, N, N>,
 {
     let gradient_vectors = Element::shape_functions_gradients_at_integration_points()
         .into_iter()
@@ -166,11 +168,3 @@ impl ElementKind for FiniteElementKind {
 }
 
 pub type FiniteElementError = ElementError<FiniteElementKind>;
-
-impl<const D: usize, const G: usize, const N: usize, const O: usize>
-    FiniteElementIntegration<G, Volume> for Element<D, G, N, O>
-{
-    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
-        &self.integration_weights
-    }
-}

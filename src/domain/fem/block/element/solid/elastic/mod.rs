@@ -5,8 +5,8 @@ pub use crate::domain::block::element::solid::elastic::ElasticElement;
 use crate::{
     constitutive::solid::elastic::Elastic,
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElementError, FiniteElementIntegration,
-        GradientVectors,
+        Element, ElementNodalCoordinates, FiniteElementError, GradientVectors,
+        ReferenceFiniteElement,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement, SolidFiniteElement,
         },

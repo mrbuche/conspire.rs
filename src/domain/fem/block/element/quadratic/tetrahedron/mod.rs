@@ -5,11 +5,12 @@ pub mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        IntegrationWeights, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
     math::ScalarList,
+    units::Volume,
 };
 
 const G: usize = 4;
@@ -18,7 +19,10 @@ const P: usize = N;
 
 pub type Tetrahedron = QuadraticElement<G, N>;
 
-impl FiniteElementInterpolation<G, M, N, P> for Tetrahedron {
+impl ReferenceFiniteElement<G, M, N, P> for Tetrahedron {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         let alpha = (1.0 + 3.0 / 5.0_f64.sqrt()) / 4.0;
         let beta = (1.0 - 1.0 / 5.0_f64.sqrt()) / 4.0;

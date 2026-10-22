@@ -3,11 +3,12 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_1_SQRT_3, FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_1_SQRT_3, IntegrationWeights, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
     math::ScalarList,
+    units::Volume,
 };
 
 const G: usize = 4;
@@ -16,7 +17,10 @@ const P: usize = N;
 
 pub type Quadrilateral = LinearSurfaceElement<G, N>;
 
-impl FiniteElementInterpolation<G, M, N, P> for Quadrilateral {
+impl ReferenceFiniteElement<G, M, N, P> for Quadrilateral {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         [
             [-FRAC_1_SQRT_3, -FRAC_1_SQRT_3],

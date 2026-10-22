@@ -7,7 +7,7 @@ pub use wedge::Wedge;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        FiniteElementInterpolation,
+        ReferenceFiniteElement,
         cohesive::{CohesiveElement, Separations},
         surface::SurfaceFiniteElement,
     },
@@ -21,7 +21,7 @@ pub type LinearCohesiveElement<const G: usize, const N: usize> = CohesiveElement
 
 pub trait LinearCohesiveFiniteElement<const G: usize, const N: usize, const P: usize>
 where
-    Self: FiniteElementInterpolation<G, 2, N, P> + SurfaceFiniteElement<G, N, P, Area>,
+    Self: ReferenceFiniteElement<G, 2, N, P, Area> + SurfaceFiniteElement<G, N, P, Area>,
 {
     fn from_linear(
         reference_nodal_coordinates: ElementNodalReferenceCoordinates<N>,

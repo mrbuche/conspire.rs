@@ -5,11 +5,12 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_SQRT_3_5, FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_SQRT_3_5, IntegrationWeights, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
     math::{Scalar, ScalarList},
+    units::Volume,
 };
 
 const G: usize = 18;
@@ -18,7 +19,10 @@ const P: usize = N;
 
 pub type Wedge = QuadraticElement<G, N>;
 
-impl FiniteElementInterpolation<G, M, N, P> for Wedge {
+impl ReferenceFiniteElement<G, M, N, P> for Wedge {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         const ONE_SIXTH: Scalar = 1.0 / 12.0;
         const TWO_THIRDS: Scalar = 2.0 / 3.0;

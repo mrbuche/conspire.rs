@@ -4,7 +4,7 @@ use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::block::element::{
         Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
-        FiniteElementIntegration, GradientVectors,
+        GradientVectors, ReferenceFiniteElement,
         solid::{
             ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidElement, SolidFiniteElement,
         },

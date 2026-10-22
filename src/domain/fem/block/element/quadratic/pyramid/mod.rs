@@ -5,11 +5,12 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_SQRT_3_5, FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_SQRT_3_5, IntegrationWeights, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
     math::{Scalar, ScalarList, TensorRank1},
+    units::Volume,
 };
 
 const G: usize = 27;
@@ -18,7 +19,10 @@ const P: usize = N;
 
 pub type Pyramid = QuadraticElement<G, N>;
 
-impl FiniteElementInterpolation<G, M, N, P> for Pyramid {
+impl ReferenceFiniteElement<G, M, N, P> for Pyramid {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         const X: [f64; 3] = [0.294997790111502, 0.652996233961648, 0.927005975926850];
         let u1_2d = [

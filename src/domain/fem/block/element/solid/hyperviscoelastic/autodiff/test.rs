@@ -22,7 +22,7 @@ macro_rules! viscous_tests {
                 },
                 fem::block::element::{
                     ElementNodalCoordinates, ElementNodalReferenceCoordinates,
-                    ElementNodalVelocities, FiniteElementInterpolation,
+                    ElementNodalVelocities, ReferenceFiniteElement,
                     solid::{
                         elastic_hyperviscous::ElasticHyperviscousElement,
                         hyperviscoelastic::{
@@ -44,7 +44,7 @@ macro_rules! viscous_tests {
                 Canonical<NeoHookean, Newtonian>,
             ) {
                 let parametric =
-                    <$element as FiniteElementInterpolation<$g, 3, $n, $n>>::parametric_reference();
+                    <$element as ReferenceFiniteElement<$g, 3, $n, $n>>::parametric_reference();
                 let mut nodes = [[0.0; 3]; $n];
                 for a in 0..$n {
                     for k in 0..3 {

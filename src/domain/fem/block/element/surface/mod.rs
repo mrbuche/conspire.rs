@@ -3,8 +3,7 @@ pub mod linear;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        ElementNodalVelocities, FiniteElementIntegration, FiniteElementInterpolation,
-        GradientVectors, IntegrationWeights,
+        ElementNodalVelocities, GradientVectors, IntegrationWeights, ReferenceFiniteElement,
     },
     math::{
         CrossProduct, Current, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank1,
@@ -36,14 +35,6 @@ impl<const G: usize, const N: usize, const O: usize> SurfaceElement<G, N, O> {
     }
 }
 
-impl<const G: usize, const N: usize, const O: usize> FiniteElementIntegration<G, Volume>
-    for SurfaceElement<G, N, O>
-{
-    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
-        &self.integration_weights
-    }
-}
-
 impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G, N, O> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let element = match (G, N, O) {
@@ -57,7 +48,7 @@ impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G,
 
 pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize, W = Volume>
 where
-    Self: FiniteElementInterpolation<G, M, N, P> + FiniteElementIntegration<G, W>,
+    Self: ReferenceFiniteElement<G, M, N, P, W>,
 {
     fn bases<I>(nodal_coordinates: &ElementNodalEitherCoordinates<I, P>) -> SurfaceBases<I, G> {
         Self::shape_functions_gradients_at_integration_points()
@@ -302,7 +293,7 @@ where
 impl<const G: usize, const N: usize, const O: usize, const P: usize> SurfaceFiniteElement<G, N, P>
     for SurfaceElement<G, N, O>
 where
-    Self: FiniteElementInterpolation<G, M, N, P>,
+    Self: ReferenceFiniteElement<G, M, N, P>,
 {
 }
 

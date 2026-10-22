@@ -4,8 +4,8 @@ pub mod test;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        IntegrationWeights, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         cohesive::{
             CohesiveFiniteElement, M, Separations,
             linear::{LinearCohesiveElement, LinearCohesiveFiniteElement},
@@ -14,6 +14,7 @@ use crate::{
     },
     math::ScalarList,
     mechanics::NormalGradients,
+    units::Area,
 };
 
 // This should share integration_points() and parametric_weights() with Triangle<G=3> when get to it.
@@ -24,7 +25,10 @@ const P: usize = 3;
 
 pub type Wedge = LinearCohesiveElement<G, N>;
 
-impl FiniteElementInterpolation<G, M, N, P> for Wedge {
+impl ReferenceFiniteElement<G, M, N, P, Area> for Wedge {
+    fn integration_weights(&self) -> &IntegrationWeights<G, Area> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G, M> {
         [
             [1.0 / 6.0, 1.0 / 6.0],
