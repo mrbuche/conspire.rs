@@ -5,30 +5,14 @@ use super::{Damage, HyperDamage};
 use crate::{
     constitutive::{
         Constitutive, ConstitutiveError,
-        cohesive::{Cohesive, Stiffnesses, SymmetricStiffnesses, Tractions},
+        cohesive::{Cohesive, Stiffnesses, Tractions},
     },
     math::Quantity,
     mechanics::Scalar,
     units::{ForcePerLength, Length, Stress},
 };
 
-/// The trapezoidal Tvergaard-Hutchinson cohesive constitutive model.
-///
-/// The effective opening is $`\lambda=\sqrt{\langle\delta_n\rangle^2/\delta_n^{*2}+\delta_t^2/\delta_t^{*2}}`$,
-/// so compression does not open the interface, and the tractions are
-/// $`T_n=\sigma_\mathrm{max}\,g\,\delta_n/\delta_n^*`$ and
-/// $`T_t=\sigma_\mathrm{max}\,(\delta_n^*/\delta_t^*)\,g\,\delta_t/\delta_t^*`$ for $`\delta_n\ge0`$,
-/// where $`g=F(\lambda_\mathrm{max})/\lambda_\mathrm{max}`$ and
-/// $`F`$ rises linearly to one at $`\lambda_1`$, stays there to $`\lambda_2`$, and falls linearly to zero at one.
-/// Compression has the same secant stiffness as tension, which vanishes once the interface has failed.
-///
-/// The tractions derive from the potential
-/// $`\Phi=\sigma_\mathrm{max}\delta_n^*\big(\int_0^{\lambda_\mathrm{max}}F-\tfrac{1}{2}g\lambda_\mathrm{max}^2+\tfrac{1}{2}g(\delta_n^2/\delta_n^{*2}+\delta_t^2/\delta_t^{*2})\big)`$,
-/// so the stiffness is symmetric.
-/// Because the secant stiffness in compression depends on the opening,
-/// the shear traction while softening in compression is
-/// $`T_t=\sigma_\mathrm{max}(\delta_n^*/\delta_t^*)\big(g\,\delta_t/\delta_t^*+\tfrac{1}{2}g'\,\delta_n^2\delta_t/(\delta_n^{*2}\delta_t^*\lambda)\big)`$.
-/// The energy to fail the interface is $`\tfrac{1}{2}\sigma_\mathrm{max}\delta_n^*(1-\lambda_1+\lambda_2)`$.
+#[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
 pub struct TvergaardHutchinson {
     /// The strength $`\sigma_\mathrm{max}`$.
@@ -102,6 +86,7 @@ impl TvergaardHutchinson {
 }
 
 impl Damage for TvergaardHutchinson {
+    #[doc = include_str!("tractions.md")]
     fn tractions(
         &self,
         normal_separation: Quantity<Length>,
@@ -122,47 +107,13 @@ impl Damage for TvergaardHutchinson {
             self.tangential_strength() * (g * b + compressive),
         ))
     }
+    #[doc = include_str!("stiffnesses.md")]
     fn stiffnesses(
         &self,
         normal_separation: Quantity<Length>,
         tangential_separation: Quantity<Length>,
         state: Quantity,
     ) -> Result<Stiffnesses, ConstitutiveError> {
-        let (normal, coupling, tangential) =
-            self.symmetric_stiffnesses(normal_separation, tangential_separation, state)?;
-        Ok((normal, coupling, coupling, tangential))
-    }
-    fn opening(
-        &self,
-        normal_separation: Quantity<Length>,
-        tangential_separation: Quantity<Length>,
-    ) -> Result<Quantity, ConstitutiveError> {
-        let (a, b) = self.scaled(normal_separation, tangential_separation);
-        Ok(Quantity::new(a.max(0.0).hypot(b)))
-    }
-}
-
-impl HyperDamage for TvergaardHutchinson {
-    fn potential(
-        &self,
-        normal_separation: Quantity<Length>,
-        tangential_separation: Quantity<Length>,
-        state: Quantity,
-    ) -> Result<Quantity<ForcePerLength>, ConstitutiveError> {
-        self.check()?;
-        let (a, b) = self.scaled(normal_separation, tangential_separation);
-        let lambda = a.max(0.0).hypot(b).max(state.value());
-        let (g, _, _) = self.secant(lambda);
-        Ok(self.strength
-            * self.normal_length
-            * (self.area(lambda) - 0.5 * g * lambda.powi(2) + 0.5 * g * (a * a + b * b)))
-    }
-    fn symmetric_stiffnesses(
-        &self,
-        normal_separation: Quantity<Length>,
-        tangential_separation: Quantity<Length>,
-        state: Quantity,
-    ) -> Result<SymmetricStiffnesses, ConstitutiveError> {
         self.check()?;
         let (a, b) = self.scaled(normal_separation, tangential_separation);
         let opening = a.max(0.0).hypot(b);
@@ -183,10 +134,39 @@ impl HyperDamage for TvergaardHutchinson {
             } else {
                 0.0
             };
+        let coupling = ratio * a * b;
         Ok((
             self.strength / self.normal_length * normal,
-            self.strength / self.tangential_length * (ratio * a * b),
+            self.strength / self.tangential_length * coupling,
+            self.tangential_strength() / self.normal_length * coupling,
             self.tangential_strength() / self.tangential_length * tangential,
         ))
+    }
+    #[doc = include_str!("opening.md")]
+    fn opening(
+        &self,
+        normal_separation: Quantity<Length>,
+        tangential_separation: Quantity<Length>,
+    ) -> Result<Quantity, ConstitutiveError> {
+        let (a, b) = self.scaled(normal_separation, tangential_separation);
+        Ok(Quantity::new(a.max(0.0).hypot(b)))
+    }
+}
+
+impl HyperDamage for TvergaardHutchinson {
+    #[doc = include_str!("potential.md")]
+    fn potential(
+        &self,
+        normal_separation: Quantity<Length>,
+        tangential_separation: Quantity<Length>,
+        state: Quantity,
+    ) -> Result<Quantity<ForcePerLength>, ConstitutiveError> {
+        self.check()?;
+        let (a, b) = self.scaled(normal_separation, tangential_separation);
+        let lambda = a.max(0.0).hypot(b).max(state.value());
+        let (g, _, _) = self.secant(lambda);
+        Ok(self.strength
+            * self.normal_length
+            * (self.area(lambda) - 0.5 * g * lambda.powi(2) + 0.5 * g * (a * a + b * b)))
     }
 }

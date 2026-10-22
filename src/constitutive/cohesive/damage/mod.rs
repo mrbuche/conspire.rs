@@ -7,7 +7,7 @@ pub use tvergaard_hutchinson::TvergaardHutchinson;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        cohesive::{self, Cohesive, StiffnessCohesive, Stiffnesses, SymmetricStiffnesses},
+        cohesive::{self, Cohesive, StiffnessCohesive, Stiffnesses},
     },
     math::{Quantity, Tensor},
     mechanics::{Normal, Separation, Traction},
@@ -100,11 +100,4 @@ where
         tangential_separation: Quantity<Length>,
         state: Quantity,
     ) -> Result<Quantity<ForcePerLength>, ConstitutiveError>;
-    /// Calculates and returns the normal, coupling, and tangential stiffnesses at a fixed state.
-    fn symmetric_stiffnesses(
-        &self,
-        normal_separation: Quantity<Length>,
-        tangential_separation: Quantity<Length>,
-        state: Quantity,
-    ) -> Result<SymmetricStiffnesses, ConstitutiveError>;
 }

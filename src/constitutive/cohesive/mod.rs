@@ -29,13 +29,6 @@ pub type Stiffnesses = (
     Quantity<StressPerLength>,
 );
 
-/// The normal, coupling, and tangential stiffnesses of a symmetric tangent.
-pub type SymmetricStiffnesses = (
-    Quantity<StressPerLength>,
-    Quantity<StressPerLength>,
-    Quantity<StressPerLength>,
-);
-
 pub(crate) type Tractions = (Quantity<Stress>, Quantity<Stress>);
 
 /// Required methods for cohesive constitutive models.

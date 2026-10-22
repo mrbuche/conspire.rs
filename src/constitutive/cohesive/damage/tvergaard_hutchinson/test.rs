@@ -159,15 +159,14 @@ fn shear_softens_under_compression() -> Result<(), AssertionError> {
 fn stiffness_is_continuous_through_zero_normal_separation() -> Result<(), AssertionError> {
     let k = |a: Scalar, state: Scalar| {
         let (n, t) = lengths(a, 0.3);
-        model()
-            .symmetric_stiffnesses(n, t, Quantity::new(state))
-            .unwrap()
+        model().stiffnesses(n, t, Quantity::new(state)).unwrap()
     };
     for state in STATES {
         let (below, above) = (k(-1e-9, state), k(1e-9, state));
         limit(below.0.value(), above.0.value())?;
         limit(below.1.value(), above.1.value())?;
         limit(below.2.value(), above.2.value())?;
+        limit(below.3.value(), above.3.value())?;
     }
     Ok(())
 }
@@ -242,13 +241,14 @@ fn coupling_is_the_derivative_of_both_tractions() -> Result<(), AssertionError> 
         let traction = |n, t| model().tractions(n, t, state).unwrap();
         for (a, b) in OPENINGS {
             let (n, t) = lengths(a, b);
-            let (_, coupling, _) = model().symmetric_stiffnesses(n, t, state).unwrap();
+            let (_, normal_tangential, tangential_normal, _) =
+                model().stiffnesses(n, t, state).unwrap();
             let normal_by_tangential = (traction(n, t + step).0 - traction(n, t - step).0)
                 / perturbation::<Length>(EPSILON);
             let tangential_by_normal = (traction(n + step, t).1 - traction(n - step, t).1)
                 / perturbation::<Length>(EPSILON);
-            Assert::default().eq_within_fd_tol(coupling, &normal_by_tangential)?;
-            Assert::default().eq_within_fd_tol(coupling, &tangential_by_normal)?;
+            Assert::default().eq_within_fd_tol(normal_tangential, &normal_by_tangential)?;
+            Assert::default().eq_within_fd_tol(tangential_normal, &tangential_by_normal)?;
         }
     }
     Ok(())
@@ -260,12 +260,9 @@ fn stiffness_is_symmetric() -> Result<(), AssertionError> {
         for (a, b) in OPENINGS {
             let (n, t) = lengths(a, b);
             let state = Quantity::new(state);
-            let (normal, coupling, tangential) =
-                model().symmetric_stiffnesses(n, t, state).unwrap();
-            assert_eq!(
-                model().stiffnesses(n, t, state).unwrap(),
-                (normal, coupling, coupling, tangential)
-            );
+            let (_, normal_tangential, tangential_normal, _) =
+                model().stiffnesses(n, t, state).unwrap();
+            Assert::default().eq_within_tols(normal_tangential, &tangential_normal)?;
         }
     }
     for normal in normals() {
