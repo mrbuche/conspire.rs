@@ -50,12 +50,11 @@ pub type StandardGradientOperators<const M: usize, const O: usize, const P: usiz
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, Reference, P, O>;
 
-pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize, W = Volume>
+pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
 where
     Self: Clone + Debug,
 {
     fn integration_points() -> ParametricCoordinates<G, M>;
-    fn integration_weights(&self) -> &IntegrationWeights<G, W>;
     fn parametric_reference() -> ParametricReference<M, N>;
     fn parametric_weights() -> ScalarList<G>;
     fn shape_functions(parametric_coordinate: ParametricCoordinate<M>) -> ShapeFunctions<P>;
@@ -76,18 +75,23 @@ where
     }
 }
 
+/// The weights of the quadrature points of an element, in the unit `W` of its measure.
+pub trait FiniteElementIntegration<const G: usize, W> {
+    fn integration_weights(&self) -> &IntegrationWeights<G, W>;
+}
+
 /// A [`FiniteElement`] that integrates over a volume, with as many shape functions as nodes.
-pub trait FiniteElementVolume<const G: usize, const M: usize, const N: usize>
+pub trait VolumeFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N>,
+    Self: FiniteElement<G, M, N, N> + FiniteElementIntegration<G, Volume>,
 {
     fn volume(&self) -> Quantity<Volume> {
         self.integration_weights().into_iter().sum()
     }
 }
 
-impl<T, const G: usize, const M: usize, const N: usize> FiniteElementVolume<G, M, N> for T where
-    T: FiniteElement<G, M, N, N>
+impl<T, const G: usize, const M: usize, const N: usize> VolumeFiniteElement<G, M, N> for T where
+    T: FiniteElement<G, M, N, N> + FiniteElementIntegration<G, Volume>
 {
 }
 
@@ -160,3 +164,11 @@ impl ElementKind for FiniteElementKind {
 }
 
 pub type FiniteElementError = ElementError<FiniteElementKind>;
+
+impl<const D: usize, const G: usize, const N: usize, const O: usize>
+    FiniteElementIntegration<G, Volume> for Element<D, G, N, O>
+{
+    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
+        &self.integration_weights
+    }
+}

@@ -2,7 +2,7 @@ use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic_viscoplastic::HyperelasticViscoplastic},
     domain::block::element::solid::hyperelastic_viscoplastic::HyperelasticViscoplasticElement,
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElementError, FiniteElementIntegration,
         solid::{
             SolidElement, SolidFiniteElement,
             elastic_viscoplastic::ElasticViscoplasticFiniteElement,

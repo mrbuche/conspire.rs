@@ -1,6 +1,6 @@
 use crate::{
     fem::block::element::{
-        ElementNodalReferenceCoordinates, FiniteElement, FiniteElementVolume,
+        ElementNodalReferenceCoordinates, FiniteElementIntegration, VolumeFiniteElement,
         linear::{Hexahedron, Pyramid, Tetrahedron},
         mass::{
             DiagonallyScaledMassFiniteElement, ElementNodalLumpedMasses, ElementNodalMasses,

@@ -3,7 +3,7 @@ use crate::{
     EPSILON,
     constitutive::cohesive::damage::{Damage, TvergaardHutchinson},
     fem::block::element::{
-        ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement,
+        ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElementIntegration,
         cohesive::{CohesiveFiniteElement, linear::Hexahedron},
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
     },

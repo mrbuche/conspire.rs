@@ -3,7 +3,9 @@ use crate::{
         ConstitutiveError,
         diffusion::{Diffusion, DiffusionFluxes, DiffusionTangents, Diffusive},
     },
-    fem::block::element::{Element, FiniteElement, FiniteElementError, FiniteElementVolume},
+    fem::block::element::{
+        Element, FiniteElementError, FiniteElementIntegration, VolumeFiniteElement,
+    },
     math::{Quantity, Reference, Tensor, TensorList, TensorRank1List},
     units::{ReciprocalLength, UnitMul},
 };
@@ -18,7 +20,7 @@ pub type ElementGradients<L, const G: usize> =
 pub trait DiffusiveFiniteElement<L, const G: usize, const M: usize, const N: usize>
 where
     L: Diffusive,
-    Self: FiniteElementVolume<G, M, N>,
+    Self: VolumeFiniteElement<G, M, N>,
 {
     fn gradients(&self, nodal_fields: &ElementNodalFields<L, N>) -> ElementGradients<L, G>;
 }
@@ -28,7 +30,7 @@ impl<L, const G: usize, const M: usize, const N: usize, const O: usize>
 where
     L: Diffusive,
     ReciprocalLength: UnitMul<L::Field, Output = L::Gradient>,
-    Self: FiniteElementVolume<G, M, N>,
+    Self: VolumeFiniteElement<G, M, N>,
 {
     fn gradients(&self, nodal_fields: &ElementNodalFields<L, N>) -> ElementGradients<L, G> {
         self.gradient_vectors()

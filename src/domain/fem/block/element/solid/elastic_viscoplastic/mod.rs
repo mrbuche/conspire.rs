@@ -2,7 +2,7 @@ use crate::{
     constitutive::solid::elastic_viscoplastic::ElasticViscoplastic,
     domain::block::element::solid::elastic_viscoplastic::ElasticViscoplasticElement,
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElementError, FiniteElementIntegration,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement,
             SolidFiniteElement,

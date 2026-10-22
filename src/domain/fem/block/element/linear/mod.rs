@@ -9,7 +9,7 @@ pub use tetrahedron::Tetrahedron;
 pub use wedge::Wedge;
 
 use crate::fem::block::element::{
-    Element, ElementNodalReferenceCoordinates, FiniteElementVolume, basic_from,
+    Element, ElementNodalReferenceCoordinates, VolumeFiniteElement, basic_from,
 };
 
 const M: usize = 3;
@@ -18,7 +18,7 @@ pub type LinearElement<const G: usize, const N: usize> = Element<3, G, N, 1>;
 
 pub trait LinearFiniteElement<const G: usize, const N: usize>
 where
-    Self: FiniteElementVolume<G, M, N>,
+    Self: VolumeFiniteElement<G, M, N>,
 {
 }
 

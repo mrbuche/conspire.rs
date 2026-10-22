@@ -7,7 +7,8 @@ use crate::{
         solid::thermoelastic::Thermoelastic, thermal::conduction::ThermalConduction,
     },
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError, ShapeFunctions,
+        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        FiniteElementIntegration, ShapeFunctions,
         multiphysics::solid_thermal::{
             ElementNodalForcesSolidThermal, ElementNodalStiffnessesSolidThermal,
             SolidThermalFiniteElement,

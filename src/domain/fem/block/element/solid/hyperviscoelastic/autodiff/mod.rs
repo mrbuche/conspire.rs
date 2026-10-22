@@ -9,7 +9,7 @@ use crate::{
         solid::hyperviscoelastic::autodiff::AutodiffHyperviscoelastic,
     },
     fem::block::element::{
-        Element, FiniteElement, FiniteElementVolume,
+        Element, FiniteElement, VolumeFiniteElement,
         autodiff::{Coordinates, flatten, unflatten},
         solid::{
             autodiff::{
@@ -82,7 +82,7 @@ pub(crate) fn forces<
     velocities: &Velocities<D, N>,
 ) -> Forces<D, N>
 where
-    Element<D, G, N, O>: FiniteElementVolume<G, D, N>,
+    Element<D, G, N, O>: VolumeFiniteElement<G, D, N>,
 {
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
     let v = flatten_velocities::<D, N, DOF>(velocities);
@@ -121,7 +121,7 @@ pub(crate) fn dampings<
     velocities: &Velocities<D, N>,
 ) -> Dampings<D, N>
 where
-    Element<D, G, N, O>: FiniteElementVolume<G, D, N>,
+    Element<D, G, N, O>: VolumeFiniteElement<G, D, N>,
 {
     let parameters = model.viscous_parameters();
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
@@ -152,7 +152,7 @@ pub(crate) fn viscous_dissipation<
     velocities: &Velocities<D, N>,
 ) -> Quantity<Power>
 where
-    Element<D, G, N, O>: FiniteElementVolume<G, D, N>,
+    Element<D, G, N, O>: VolumeFiniteElement<G, D, N>,
 {
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
     let v = flatten_velocities::<D, N, DOF>(velocities);
@@ -179,7 +179,7 @@ pub(crate) fn helmholtz_free_energy<
     coordinates: &Coordinates<D, N>,
 ) -> Quantity<Energy>
 where
-    Element<D, G, N, O>: FiniteElementVolume<G, D, N>,
+    Element<D, G, N, O>: VolumeFiniteElement<G, D, N>,
 {
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
     Quantity::new(element_energy::<M::Elastic, D, N, G, DOF, GN>(

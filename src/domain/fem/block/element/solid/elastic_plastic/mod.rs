@@ -6,7 +6,7 @@ use crate::{
     },
     domain::block::element::solid::elastic_plastic::ElasticPlasticElement,
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElementError, FiniteElementIntegration,
         solid::{
             ElementNodalForcesSolid, ElementNodalStiffnessesSolid, SolidElement,
             SolidFiniteElement, plastic::PlasticStateVariables,

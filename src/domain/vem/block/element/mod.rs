@@ -11,7 +11,7 @@ use crate::{
     domain::block::element::{ElementError, ElementKind},
     fem::block::element::{
         ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates,
-        FiniteElementVolume, linear::Tetrahedron,
+        VolumeFiniteElement, linear::Tetrahedron,
     },
     math::{
         CrossProduct, Current, Quantity, Scalar, Tensor, TensorArray, TensorRank1, TensorRank1List,

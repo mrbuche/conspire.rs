@@ -307,7 +307,7 @@ macro_rules! test_surface_finite_element {
         }
         mod traction {
             use super::*;
-            use $crate::fem::block::element::FiniteElementVolume;
+            use $crate::fem::block::element::VolumeFiniteElement;
             #[test]
             fn sum_to_the_traction_on_the_area() -> Result<(), AssertionError> {
                 let traction = $crate::mechanics::Traction::from([1.0, 2.0, 3.0]);

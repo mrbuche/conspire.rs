@@ -3,8 +3,8 @@ pub use crate::domain::block::element::solid::viscoelastic::ViscoelasticElement;
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::block::element::{
-        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
-        FiniteElementError, GradientVectors,
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
+        FiniteElementIntegration, GradientVectors,
         solid::{
             ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidElement, SolidFiniteElement,
         },

@@ -5,12 +5,11 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_1_SQRT_3, FiniteElement, IntegrationWeights, ParametricCoordinate,
-        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
     math::ScalarList,
-    units::Volume,
 };
 
 const G: usize = 8;
@@ -32,9 +31,6 @@ impl FiniteElement<G, M, N, P> for Hexahedron {
             [FRAC_1_SQRT_3, FRAC_1_SQRT_3, FRAC_1_SQRT_3],
         ]
         .into()
-    }
-    fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
-        &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {
         [
