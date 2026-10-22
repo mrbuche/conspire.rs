@@ -66,8 +66,7 @@ fn narrow_slab() -> Tessellation {
 
 fn separation() -> SeparationSizing {
     SeparationSizing {
-        radius: Some(Quantity::new(0.5)),
-        hops: 1,
+        minimum: Some(Quantity::new(0.0)),
         scale: Some(4.0),
     }
 }
