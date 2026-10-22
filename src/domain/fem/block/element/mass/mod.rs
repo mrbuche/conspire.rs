@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        Element, FiniteElement,
+        Element, FiniteElement, FiniteElementVolume,
         linear::{LinearElement, LinearFiniteElement},
     },
     math::{Quantity, Scalar, Tensor, TensorList},
@@ -32,14 +32,14 @@ impl<const G: usize, const N: usize> DiagonalScaling for LinearElement<G, N> whe
 
 pub trait MassFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N> + ConsistentMass,
+    Self: FiniteElementVolume<G, M, N> + ConsistentMass,
 {
     fn nodal_masses(&self, densities: &IntegrationDensities<G>) -> ElementNodalMasses<N>;
 }
 
 pub trait DiagonallyScaledMassFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N> + DiagonalScaling,
+    Self: FiniteElementVolume<G, M, N> + DiagonalScaling,
 {
     fn nodal_diagonally_scaled_masses(
         &self,
@@ -49,7 +49,7 @@ where
 
 pub trait LumpedMassFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N> + RowSumLumping,
+    Self: FiniteElementVolume<G, M, N> + RowSumLumping,
 {
     fn nodal_lumped_masses(
         &self,
@@ -60,7 +60,7 @@ where
 impl<const G: usize, const M: usize, const N: usize, const O: usize> MassFiniteElement<G, M, N>
     for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, N> + ConsistentMass,
+    Self: FiniteElementVolume<G, M, N> + ConsistentMass,
 {
     fn nodal_masses(&self, densities: &IntegrationDensities<G>) -> ElementNodalMasses<N> {
         Self::shape_functions_at_integration_points()
@@ -86,7 +86,7 @@ where
 impl<const G: usize, const M: usize, const N: usize, const O: usize>
     LumpedMassFiniteElement<G, M, N> for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, N> + RowSumLumping,
+    Self: FiniteElementVolume<G, M, N> + RowSumLumping,
 {
     fn nodal_lumped_masses(
         &self,
@@ -110,7 +110,7 @@ where
 impl<const G: usize, const M: usize, const N: usize, const O: usize>
     DiagonallyScaledMassFiniteElement<G, M, N> for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, N> + DiagonalScaling,
+    Self: FiniteElementVolume<G, M, N> + DiagonalScaling,
 {
     fn nodal_diagonally_scaled_masses(
         &self,

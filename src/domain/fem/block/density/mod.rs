@@ -6,7 +6,7 @@ use crate::{
         NodalReferenceCoordinates,
         block::{
             Block,
-            element::{ElementNodalReferenceCoordinates, FiniteElement},
+            element::{ElementNodalReferenceCoordinates, FiniteElementVolume},
         },
     },
     geometry::mesh::PrimitiveConnectivity,
@@ -51,7 +51,7 @@ impl<C, F, const G: usize, const M: usize, const N: usize, R, H> Block<C, F, G, 
 
 impl<C, F, R, H, const G: usize, const N: usize> Block<C, F, G, 3, N, R, H>
 where
-    F: FiniteElement<G, 3, N, N>,
+    F: FiniteElementVolume<G, 3, N>,
     R: Densities<G>,
 {
     pub fn mass(&self) -> Quantity<Mass> {
@@ -77,7 +77,7 @@ impl<C, F, D, const G: usize, const N: usize>
         &NodalReferenceCoordinates<3>,
     )> for Block<C, F, G, 3, N, <D as DensityField>::Resolved<ElementDensities<G>>>
 where
-    F: FiniteElement<G, 3, N, N> + From<ElementNodalReferenceCoordinates<N>>,
+    F: FiniteElementVolume<G, 3, N> + From<ElementNodalReferenceCoordinates<N>>,
     D: DensityField,
 {
     fn from(
@@ -117,7 +117,7 @@ impl<C, F, D, const G: usize, const N: usize>
     From<(C, D, Vec<[usize; N]>, &NodalReferenceCoordinates<3>)>
     for Block<C, F, G, 3, N, <D as DensityField>::Resolved<ElementDensities<G>>>
 where
-    F: FiniteElement<G, 3, N, N> + From<ElementNodalReferenceCoordinates<N>>,
+    F: FiniteElementVolume<G, 3, N> + From<ElementNodalReferenceCoordinates<N>>,
     D: DensityField,
 {
     fn from(

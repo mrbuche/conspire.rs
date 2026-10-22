@@ -10,8 +10,8 @@ pub mod time_scale;
 use crate::{
     domain::block::element::{ElementError, ElementKind},
     fem::block::element::{
-        ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates, FiniteElement,
-        linear::Tetrahedron,
+        ElementNodalReferenceCoordinates as FemElementNodalReferenceCoordinates,
+        FiniteElementVolume, linear::Tetrahedron,
     },
     math::{
         CrossProduct, Current, Quantity, Scalar, Tensor, TensorArray, TensorRank1, TensorRank1List,

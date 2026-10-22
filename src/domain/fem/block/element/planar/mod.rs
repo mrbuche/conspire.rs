@@ -11,9 +11,9 @@ use crate::{
         solid::{elastic::Elastic, hyperelastic::Hyperelastic},
     },
     fem::block::element::{
-        Element, FiniteElement, FiniteElementError, IntegrationWeights, ParametricCoordinate,
-        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
-        basic_from, surface::SurfaceElement,
+        Element, FiniteElement, FiniteElementError, FiniteElementVolume, IntegrationWeights,
+        ParametricCoordinate, ParametricCoordinates, ParametricReference, ShapeFunctions,
+        ShapeFunctionsGradients, basic_from, surface::SurfaceElement,
     },
     math::{
         Current, Quantity, Reference, ScalarList, Tensor, TensorArray, TensorRank1,
@@ -65,7 +65,7 @@ where
 impl<const G: usize, const N: usize, const O: usize> From<PlanarElementNodalReferenceCoordinates<N>>
     for Element<2, G, N, O>
 where
-    Self: FiniteElement<G, M, N, N>,
+    Self: FiniteElementVolume<G, M, N>,
 {
     fn from(reference_nodal_coordinates: PlanarElementNodalReferenceCoordinates<N>) -> Self {
         basic_from(reference_nodal_coordinates)
@@ -74,7 +74,7 @@ where
 
 pub trait PlanarSolidFiniteElement<const G: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N>,
+    Self: FiniteElementVolume<G, M, N>,
 {
     fn deformation_gradients(
         &self,
@@ -85,7 +85,7 @@ where
 impl<const G: usize, const N: usize, const O: usize> PlanarSolidFiniteElement<G, N>
     for Element<2, G, N, O>
 where
-    Self: FiniteElement<G, M, N, N>,
+    Self: FiniteElementVolume<G, M, N>,
 {
     fn deformation_gradients(
         &self,

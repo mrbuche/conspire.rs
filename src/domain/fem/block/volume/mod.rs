@@ -5,7 +5,7 @@ use crate::{
     domain::volume::NodalVolumeElements,
     fem::{
         NodalReferenceCoordinates,
-        block::{Block, element::FiniteElement},
+        block::{Block, FiniteElementVolume},
     },
     math::{Quantity, Tensor},
     mechanics::ReferenceCoordinate,
@@ -14,7 +14,7 @@ use crate::{
 
 impl<C, F, R, H, const G: usize, const N: usize> NodalVolumeElements for Block<C, F, G, 3, N, R, H>
 where
-    F: FiniteElement<G, 3, N, N>,
+    F: FiniteElementVolume<G, 3, N>,
 {
     fn for_each_sample(
         &self,

@@ -6,7 +6,7 @@ pub(crate) mod test;
 use crate::{
     constitutive::solid::hyperelastic::autodiff::AutodiffHyperelastic,
     fem::block::element::{
-        Element, FiniteElement,
+        Element, FiniteElement, FiniteElementVolume,
         autodiff::{Coordinates, flatten, unflatten},
         solid::autodiff::{
             Forces, Stiffnesses, assemble_tangent, deformation_gradient, tangent_matrix,
@@ -69,7 +69,7 @@ pub(crate) fn forces<
     coordinates: &Coordinates<D, N>,
 ) -> Forces<D, N>
 where
-    Element<D, G, N, O>: FiniteElement<G, D, N, N>,
+    Element<D, G, N, O>: FiniteElementVolume<G, D, N>,
 {
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);
     let flat = forces_flat::<M, D, N, G, DOF, GN>(&model.parameters(), &grad_n, &weights, &x);
@@ -90,7 +90,7 @@ pub(crate) fn stiffnesses<
     coordinates: &Coordinates<D, N>,
 ) -> Stiffnesses<D, N>
 where
-    Element<D, G, N, O>: FiniteElement<G, D, N, N>,
+    Element<D, G, N, O>: FiniteElementVolume<G, D, N>,
 {
     let parameters = model.parameters();
     let (grad_n, weights, x) = flatten::<D, G, N, O, DOF, GN>(element, coordinates);

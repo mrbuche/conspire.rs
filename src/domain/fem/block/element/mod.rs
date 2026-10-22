@@ -74,9 +74,21 @@ where
             .map(|integration_point| Self::shape_functions_gradients(integration_point))
             .collect()
     }
-    fn volume(&self) -> Quantity<W> {
+}
+
+/// A [`FiniteElement`] that integrates over a volume, with as many shape functions as nodes.
+pub trait FiniteElementVolume<const G: usize, const M: usize, const N: usize>
+where
+    Self: FiniteElement<G, M, N, N>,
+{
+    fn volume(&self) -> Quantity<Volume> {
         self.integration_weights().into_iter().sum()
     }
+}
+
+impl<T, const G: usize, const M: usize, const N: usize> FiniteElementVolume<G, M, N> for T where
+    T: FiniteElement<G, M, N, N>
+{
 }
 
 #[derive(Clone)]

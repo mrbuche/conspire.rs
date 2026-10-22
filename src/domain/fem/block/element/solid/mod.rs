@@ -13,7 +13,7 @@ pub mod viscoplastic;
 
 use crate::{
     fem::block::element::{
-        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementVolume,
         surface::{SurfaceElement, SurfaceFiniteElement},
     },
     math::Tensor,
@@ -31,7 +31,7 @@ pub type ElementNodalDampingsSolid<const N: usize> = DampingList2D<N>;
 
 pub trait SolidFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N>
+    Self: FiniteElementVolume<G, M, N>
         + SolidElement<
             Coordinates = ElementNodalCoordinates<N>,
             Velocities = ElementNodalVelocities<N>,
@@ -42,7 +42,7 @@ where
 }
 
 impl<T, const G: usize, const M: usize, const N: usize> SolidFiniteElement<G, M, N> for T where
-    T: FiniteElement<G, M, N, N>
+    T: FiniteElementVolume<G, M, N>
         + SolidElement<
             Coordinates = ElementNodalCoordinates<N>,
             Velocities = ElementNodalVelocities<N>,

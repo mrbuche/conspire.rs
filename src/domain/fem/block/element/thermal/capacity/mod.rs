@@ -1,6 +1,6 @@
 use crate::{
     fem::block::element::{
-        Element, FiniteElement,
+        Element, FiniteElement, FiniteElementVolume,
         mass::{ConsistentMass, RowSumLumping},
     },
     math::{Quantity, Tensor, TensorList},
@@ -15,7 +15,7 @@ pub type ElementNodalLumpedHeatCapacities<const D: usize> = TensorList<Quantity<
 
 pub trait HeatCapacityFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N> + ConsistentMass,
+    Self: FiniteElementVolume<G, M, N> + ConsistentMass,
 {
     fn nodal_heat_capacities(
         &self,
@@ -25,7 +25,7 @@ where
 
 pub trait LumpedHeatCapacityFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N> + RowSumLumping,
+    Self: FiniteElementVolume<G, M, N> + RowSumLumping,
 {
     fn nodal_lumped_heat_capacities(
         &self,
@@ -36,7 +36,7 @@ where
 impl<const G: usize, const M: usize, const N: usize, const O: usize>
     HeatCapacityFiniteElement<G, M, N> for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, N> + ConsistentMass,
+    Self: FiniteElementVolume<G, M, N> + ConsistentMass,
 {
     fn nodal_heat_capacities(
         &self,
@@ -67,7 +67,7 @@ where
 impl<const G: usize, const M: usize, const N: usize, const O: usize>
     LumpedHeatCapacityFiniteElement<G, M, N> for Element<3, G, N, O>
 where
-    Self: FiniteElement<G, M, N, N> + RowSumLumping,
+    Self: FiniteElementVolume<G, M, N> + RowSumLumping,
 {
     fn nodal_lumped_heat_capacities(
         &self,
