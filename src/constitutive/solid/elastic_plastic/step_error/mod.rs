@@ -4,48 +4,11 @@ mod test;
 use super::ElasticPlastic;
 use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariables},
-    math::{Quantity, Rank2, Tensor},
+    math::{Quantity, Rank2, Tensor, integrate::StepError},
     mechanics::{DeformationGradient, FlowDirectionPlastic, Scalar},
 };
 
 const ONSET_TOLERANCE: Scalar = 1e-6;
-
-/// The error indicators of one plastic step.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct StepError {
-    /// The error of the step in the plastic deformation, estimated by the change of the flow
-    /// direction over it, weighted by the plastic increment.
-    ///
-    /// ```math
-    /// \tfrac{1}{2}\,\Delta\gamma\,\|\mathbf{N}^{n+1} - \mathbf{N}^{n}\|
-    /// ```
-    ///
-    /// The step takes the increment at the direction at its end, and the exact one is about
-    /// that at the mean of the two directions, so the error of the step is half of their
-    /// difference. It is that error as the step shrinks, and more than it for larger steps.
-    ///
-    /// The directions are those at the two ends of the step, so it measures the turning
-    /// of the load path as well as of the flow. A direction frozen at the trial state
-    /// instead would miss the turning of the load, and vanishes identically for a
-    /// radial return such as Hencky with a von Mises surface.
-    ///
-    /// It vanishes when the direction is constant, as under proportional loading, however
-    /// large the step, and falls as the square of the step otherwise.
-    pub direction: Quantity,
-    /// The plastic increment $`\Delta\gamma`$ of a step that begins inside the yield
-    /// surface, how far the step runs past the onset of yielding, and zero otherwise.
-    pub overshoot: Quantity,
-}
-
-impl StepError {
-    /// The larger of each of the two, as for the points of a mesh.
-    pub fn max(self, other: Self) -> Self {
-        Self {
-            direction: self.direction.max(other.direction),
-            overshoot: self.overshoot.max(other.overshoot),
-        }
-    }
-}
 
 pub(super) fn evaluate<C: ElasticPlastic>(
     model: &C,

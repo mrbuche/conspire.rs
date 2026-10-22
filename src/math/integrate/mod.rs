@@ -8,6 +8,7 @@ mod dae;
 mod error;
 mod field;
 mod ode;
+mod stepper;
 mod tableau;
 
 use crate::math::{Quantity, QuantityVector, Scalar, TensorVec};
@@ -48,6 +49,7 @@ pub use field::{
     integrate_rkmk_dae_adaptive_root, integrate_rkmk_state, integrate_rkmk_state_adaptive,
     interpolate_hermite, rkmk_dae_step, rkmk_dae_step_minimize, rkmk_dae_step_root, rkmk_step,
 };
+pub use stepper::{Outcome, Step, StepError, Stepper, adapt};
 pub use tableau::{ButcherTableau, EmbeddedTableau, StabilityRegion};
 
 pub use ode::explicit::variable_step::{

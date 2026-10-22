@@ -1,14 +1,38 @@
 #[cfg(test)]
 mod test;
 
-use super::StepError;
+use super::StepController;
 use crate::{
-    math::{Quantity, integrate::StepController},
-    mechanics::Scalar,
+    math::{Quantity, Scalar},
     units::Time,
 };
 
 const DT_CUT: Scalar = 0.2;
+
+/// The error indicators of one step of a load parameter.
+///
+/// A step is resolved by how much the direction of the response changes over it, and by
+/// whether it runs past a kink in the response. Both vanish when the response is exact for
+/// the step, as for a constant direction, and both are dimensionless.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct StepError {
+    /// The estimated error of the step from the change of the direction of the response
+    /// over it, which falls as the square of the step.
+    pub direction: Quantity,
+    /// How far the step runs past a kink in the response that it begins before, and zero
+    /// otherwise, which falls as the step.
+    pub overshoot: Quantity,
+}
+
+impl StepError {
+    /// The larger of each of the two, as for the points of a mesh.
+    pub fn max(self, other: Self) -> Self {
+        Self {
+            direction: self.direction.max(other.direction),
+            overshoot: self.overshoot.max(other.overshoot),
+        }
+    }
+}
 
 /// The steps of a load parameter, chosen by the [`StepError`] of each.
 ///
@@ -117,4 +141,51 @@ impl<'a> Stepper<'a> {
         self.size = step.size * DT_CUT;
         true
     }
+}
+
+/// Steps a load parameter adaptively through `times`, and returns the accepted steps that
+/// are reported, beginning with `initial` at the first time.
+///
+/// `advance` takes the state at a step's start to its end at the given time, and `error`
+/// gives the [`StepError`] of the step from the states at its two ends. A step that
+/// `advance` fails on is cut back like a rejected one, and `message` makes the error
+/// of a step controller that cannot continue.
+pub fn adapt<X, S, E>(
+    times: &[Quantity<Time>],
+    abs_tol: Quantity,
+    initial: (X, S),
+    mut advance: impl FnMut(Quantity<Time>, &X, &S) -> Result<(X, S), E>,
+    error: impl Fn(&X, &X, &S, &S) -> Result<StepError, E>,
+    message: impl Fn(String) -> E,
+) -> Result<Vec<(Quantity<Time>, X, S)>, E>
+where
+    X: Clone,
+    S: Clone,
+{
+    let mut stepper = Stepper::new(times).map_err(&message)?;
+    let (mut current, mut state) = initial;
+    let mut reported = vec![(times[0], current.clone(), state.clone())];
+    while !stepper.is_done() {
+        let step = stepper.propose();
+        let (next, state_next) = match advance(step.time, &current, &state) {
+            Ok(next) => next,
+            Err(_) if stepper.fail(&step) => continue,
+            Err(error) => return Err(error),
+        };
+        let step_error = error(&current, &next, &state, &state_next)?;
+        match stepper
+            .judge(&step, step_error, abs_tol)
+            .map_err(&message)?
+        {
+            Outcome::Accepted { report } => {
+                current = next;
+                state = state_next;
+                if report {
+                    reported.push((step.time, current.clone(), state.clone()));
+                }
+            }
+            Outcome::Rejected => {}
+        }
+    }
+    Ok(reported)
 }

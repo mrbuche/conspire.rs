@@ -2,11 +2,9 @@
 mod test;
 
 use super::super::{Block, node::solid::elastic_plastic::ElasticPlasticElement};
+use crate::math::integrate::StepError;
 use crate::{
-    constitutive::{
-        ConstitutiveError,
-        solid::elastic_plastic::{ElasticPlastic, StepError},
-    },
+    constitutive::{ConstitutiveError, solid::elastic_plastic::ElasticPlastic},
     domain::{
         ElementModelError, NodalCoordinates,
         solid::{NodalForcesSolid, NodalStiffnessesSolid},

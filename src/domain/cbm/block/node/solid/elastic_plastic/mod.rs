@@ -1,9 +1,7 @@
 use super::{super::Node, SolidElement};
+use crate::math::integrate::StepError;
 use crate::{
-    constitutive::{
-        ConstitutiveError,
-        solid::elastic_plastic::{ElasticPlastic, StepError},
-    },
+    constitutive::{ConstitutiveError, solid::elastic_plastic::ElasticPlastic},
     domain::{NodalCoordinates, block::element::solid::plastic::PlasticStateVariables},
     math::{
         ContractSecondFourthWithFirst, Current, TensorRank1, TensorRank2, optimize::NewtonRaphson,

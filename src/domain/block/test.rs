@@ -1575,10 +1575,7 @@ macro_rules! test_finite_element_block_with_elastic_plastic_constitutive_model {
         }
         mod step_error {
             use super::*;
-            use $crate::{
-                constitutive::solid::elastic_plastic::StepError,
-                math::{Quantity, optimize::NewtonRaphson},
-            };
+            use $crate::math::{Quantity, integrate::StepError, optimize::NewtonRaphson};
             #[test]
             fn vanishes_when_the_state_does_not_change() {
                 let block = get_block();

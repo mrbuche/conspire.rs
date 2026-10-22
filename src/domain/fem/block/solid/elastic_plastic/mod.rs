@@ -1,7 +1,8 @@
+use crate::math::integrate::StepError;
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::elastic_plastic::{ElasticPlastic, StepError, coupled},
+        solid::elastic_plastic::{ElasticPlastic, coupled},
     },
     domain::solid::elastic_plastic::{ElasticPlasticElements, MonolithicSystem},
     fem::{

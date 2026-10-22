@@ -5,11 +5,8 @@ pub(crate) mod coupled;
 mod load;
 mod root;
 mod step_error;
-mod stepper;
 
 pub use root::Root;
-pub use step_error::StepError;
-pub use stepper::{Outcome, Step, Stepper};
 
 use crate::{
     constitutive::{
@@ -19,7 +16,7 @@ use crate::{
     },
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
-        optimize::NewtonRaphson,
+        integrate::StepError, optimize::NewtonRaphson,
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
@@ -260,7 +257,30 @@ where
     ///
     /// The return map is exact for any step when the flow direction is constant, so the
     /// step is resolved by how much the direction changes between its two ends, and by
-    /// whether it runs past the onset of yielding. See [`StepError`].
+    /// whether it runs past the onset of yielding.
+    ///
+    /// The error of the step in the plastic deformation is estimated by the change of the
+    /// flow direction over it, weighted by the plastic increment.
+    ///
+    /// ```math
+    /// \tfrac{1}{2}\,\Delta\gamma\,\|\mathbf{N}^{n+1} - \mathbf{N}^{n}\|
+    /// ```
+    ///
+    /// The step takes the increment at the direction at its end, and the exact one is about
+    /// that at the mean of the two directions, so the error of the step is half of their
+    /// difference. It is that error as the step shrinks, and more than it for larger steps.
+    ///
+    /// The directions are those at the two ends of the step, so it measures the turning
+    /// of the load path as well as of the flow. A direction frozen at the trial state
+    /// instead would miss the turning of the load, and vanishes identically for a
+    /// radial return such as Hencky with a von Mises surface.
+    ///
+    /// It vanishes when the direction is constant, as under proportional loading, however
+    /// large the step, and falls as the square of the step otherwise.
+    ///
+    /// The overshoot is the plastic increment $`\Delta\gamma`$ of a step that begins inside
+    /// the yield surface, how far the step runs past the onset of yielding, and zero
+    /// otherwise.
     fn step_error(
         &self,
         deformation_gradient_old: &DeformationGradient,

@@ -1,5 +1,6 @@
+use crate::math::integrate::StepError;
 use crate::{
-    constitutive::solid::elastic_plastic::{ElasticPlastic, StepError},
+    constitutive::solid::elastic_plastic::ElasticPlastic,
     domain::block::element::solid::{
         elastic_plastic::ElasticPlasticElement, plastic::PlasticStateVariables,
     },

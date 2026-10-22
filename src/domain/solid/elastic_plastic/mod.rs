@@ -1,5 +1,4 @@
 use crate::{
-    constitutive::solid::elastic_plastic::{Outcome, StepError, Stepper},
     domain::{
         ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         NodalState,
@@ -9,6 +8,7 @@ use crate::{
     },
     math::{
         Jacobian, Quantity, Tensor, TensorVec, Vector,
+        integrate::{StepError, adapt},
         optimize::{
             EqualityConstraint, NewtonRaphson, OptimizationError, Prescription, RootFinding,
             RootFindingBlock, SolveStrategy,
@@ -436,12 +436,8 @@ where
         strategy: SolveStrategy,
         abs_tol: Quantity,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError> {
-        let mut nodal_coordinates: NodalCoordinates<D> = self.coordinates().clone().into();
-        let mut state = self.blocks().initial_state();
-        let mut coordinates_history = NodalCoordinatesHistory::new();
-        let mut state_history = Vec::new();
-        coordinates_history.push(nodal_coordinates.clone());
-        state_history.push(state.clone());
+        let nodal_coordinates: NodalCoordinates<D> = self.coordinates().clone().into();
+        let state = self.blocks().initial_state();
         let mut neighbors = vec![Vec::new(); self.coordinates().len()];
         self.node_neighbors(&mut neighbors);
         finalize_node_neighbors(&mut neighbors);
@@ -632,30 +628,23 @@ where
             }
             Ok((nodal_coordinates, state))
         };
-        let mut stepper = Stepper::new(times)?;
-        while !stepper.is_done() {
-            let step = stepper.propose();
-            let (coordinates, updated_state) = match advance(step.time, &nodal_coordinates, &state)
-            {
-                Ok(next) => next,
-                Err(_) if stepper.fail(&step) => continue,
-                Err(error) => return Err(error),
-            };
-            let error = self
-                .blocks()
-                .step_error(&nodal_coordinates, &coordinates, &state, &updated_state)
-                .map_err(|error| error.to_string())?;
-            match stepper.judge(&step, error, abs_tol)? {
-                Outcome::Accepted { report } => {
-                    nodal_coordinates = coordinates;
-                    state = updated_state;
-                    if report {
-                        coordinates_history.push(nodal_coordinates.clone());
-                        state_history.push(state.clone());
-                    }
-                }
-                Outcome::Rejected => {}
-            }
+        let reported = adapt(
+            times,
+            abs_tol,
+            (nodal_coordinates, state),
+            &mut advance,
+            |coordinates, updated_coordinates, state, updated_state| {
+                self.blocks()
+                    .step_error(coordinates, updated_coordinates, state, updated_state)
+                    .map_err(|error| OptimizationError::from(error.to_string()))
+            },
+            OptimizationError::from,
+        )?;
+        let mut coordinates_history = NodalCoordinatesHistory::new();
+        let mut state_history = Vec::new();
+        for (_, coordinates, state) in reported {
+            coordinates_history.push(coordinates);
+            state_history.push(state);
         }
         Ok((coordinates_history, state_history))
     }
