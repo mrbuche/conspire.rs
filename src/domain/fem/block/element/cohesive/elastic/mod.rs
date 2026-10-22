@@ -2,12 +2,12 @@ use crate::constitutive::cohesive::StiffnessCohesive;
 use crate::{
     constitutive::cohesive::elastic::Elastic,
     fem::block::element::{
-        ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        ElementNodalCoordinates, FiniteElementError,
         cohesive::{CohesiveElement, CohesiveFiniteElement},
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
         surface::SurfaceFiniteElement,
     },
-    math::{Rank2, Tensor, TensorList, TensorTuple},
+    math::TensorList,
     mechanics::TractionList,
 };
 
@@ -48,22 +48,7 @@ where
             .map(|(separation, normal)| constitutive_model.traction(separation, normal))
             .collect::<Result<TractionList<G>, _>>()
             .map_err(|error| FiniteElementError::upstream(error, self))?;
-        Ok(tractions
-            .into_iter()
-            .zip(
-                Self::signed_shape_functions()
-                    .into_iter()
-                    .zip(self.integration_weights()),
-            )
-            .map(|(traction, (signed_shape_functions, integration_weight))| {
-                signed_shape_functions
-                    .iter()
-                    .map(|signed_shape_function| {
-                        &traction * (signed_shape_function * integration_weight)
-                    })
-                    .collect()
-            })
-            .sum())
+        Ok(self.nodal_forces_from(tractions))
     }
     fn nodal_stiffnesses(
         &self,
@@ -79,32 +64,6 @@ where
             .map(|(separation, normal)| constitutive_model.stiffness(separation, normal))
             .collect::<Result<StiffnessCohesiveList<G>, _>>()
             .map_err(|error| FiniteElementError::upstream(error, self))?;
-        Ok(stiffnesses
-            .into_iter()
-            .zip(
-                Self::signed_shape_functions()
-                    .into_iter()
-                    .zip(normal_gradients.into_iter().zip(self.integration_weights())),
-            )
-            .map(
-                |(stiffness, (signed_shape_functions, (normal_gradient, integration_weight)))| {
-                    let TensorTuple(stiffness_u, stiffness_n) = stiffness;
-                    signed_shape_functions
-                        .iter()
-                        .map(|signed_shape_function_a| {
-                            signed_shape_functions
-                                .iter()
-                                .zip(normal_gradient.iter())
-                                .map(|(signed_shape_function_b, normal_gradient_b)| {
-                                    (&stiffness_u * signed_shape_function_b
-                                        + (&stiffness_n * normal_gradient_b.transpose()) * 0.5)
-                                        * (signed_shape_function_a * integration_weight)
-                                })
-                                .collect()
-                        })
-                        .collect()
-                },
-            )
-            .sum())
+        Ok(self.nodal_stiffnesses_from(stiffnesses, normal_gradients))
     }
 }

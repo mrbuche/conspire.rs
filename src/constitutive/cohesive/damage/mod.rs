@@ -9,7 +9,7 @@ use crate::{
         ConstitutiveError,
         cohesive::{self, Cohesive, StiffnessCohesive, Stiffnesses},
     },
-    math::{Quantity, Tensor, integrate::StepError},
+    math::{Quantity, integrate::StepError},
     mechanics::{Normal, Separation, Traction},
     units::{ForcePerLength, Length, Stress},
 };
@@ -79,8 +79,8 @@ where
         normal: Normal,
         state: Quantity,
     ) -> Result<Quantity, ConstitutiveError> {
-        let normal_component = &separation * &normal;
-        let tangential_component = (separation - &normal * normal_component).norm();
+        let (normal_component, tangential_component) =
+            cohesive::opening_components(&separation, &normal);
         Ok(state.max(self.opening(normal_component, tangential_component)?))
     }
     /// Calculates and returns the error indicators of a step of the separation, from its

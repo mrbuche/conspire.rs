@@ -52,6 +52,14 @@ fn components(
     )
 }
 
+pub(crate) fn opening_components(
+    separation: &Separation,
+    normal: &Normal,
+) -> (Quantity<Length>, Quantity<Length>) {
+    let (normal_component, _, tangential_component) = components(separation, normal);
+    (normal_component, tangential_component)
+}
+
 pub(crate) fn traction(
     separation: Separation,
     normal: Normal,
