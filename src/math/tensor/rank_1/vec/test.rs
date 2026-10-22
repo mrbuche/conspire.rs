@@ -1,6 +1,7 @@
 use crate::math::assert::Assert;
 use crate::math::{Current, Reference};
 use crate::math::{TensorRank0, TensorRank1Vec, TensorVec, Vector, assert::AssertionError};
+use crate::units::Length;
 
 fn get_array() -> [[TensorRank0; 3]; 2] {
     [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
@@ -93,4 +94,44 @@ fn from_tensor_rank_1_vec_into_vec_vec() {
 #[test]
 fn from_vec_vec_into_tensor_rank_1_vec() -> Result<(), AssertionError> {
     Assert::eq(get_tensor_rank_1_vec(), &get_vec_vec().into())
+}
+
+#[test]
+fn as_flat_lists_the_numbers_in_order() {
+    assert_eq!(
+        get_tensor_rank_1_vec().as_flat(),
+        &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    )
+}
+
+#[test]
+fn as_flat_ignores_the_unit() {
+    let tensor_rank_1_vec = TensorRank1Vec::<3, Reference, Length>::from(get_array());
+    assert_eq!(tensor_rank_1_vec.as_flat(), &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+}
+
+#[test]
+fn as_flat_of_nothing_is_empty() {
+    assert!(TensorRank1Vec::<3, Current>::zero(0).as_flat().is_empty())
+}
+
+#[test]
+fn as_flat_mut_writes_through() {
+    let mut tensor_rank_1_vec = get_tensor_rank_1_vec();
+    tensor_rank_1_vec.as_flat_mut()[4] = 10.0;
+    assert_eq!(tensor_rank_1_vec[1][1].value(), 10.0);
+    assert_eq!(tensor_rank_1_vec[0][1].value(), 2.0)
+}
+
+#[test]
+fn as_flat_mut_spans_all_the_entries() {
+    let mut tensor_rank_1_vec = get_tensor_rank_1_vec();
+    tensor_rank_1_vec
+        .as_flat_mut()
+        .iter_mut()
+        .for_each(|number| *number *= 2.0);
+    assert_eq!(
+        Vec::<[TensorRank0; 3]>::from(tensor_rank_1_vec),
+        vec![[2.0, 4.0, 6.0], [8.0, 10.0, 12.0]]
+    )
 }
