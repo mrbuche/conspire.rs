@@ -17,6 +17,9 @@ pub mod boundary {
     };
 }
 pub mod chemical;
+pub mod cohesive {
+    pub use crate::domain::cohesive::damage::DamageElements;
+}
 pub mod diffusion {
     pub use crate::domain::diffusion::loads::NodalSource;
     pub use crate::domain::diffusion::{

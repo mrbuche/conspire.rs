@@ -1,6 +1,7 @@
 #[cfg(test)]
 pub(crate) mod test;
 
+pub mod cohesive;
 mod density;
 pub(crate) mod diffusion;
 pub mod electrical;
@@ -14,7 +15,7 @@ mod time_scale;
 pub mod volume;
 
 use crate::{
-    domain::block::{add_node_neighbors, trimmed_type_name},
+    domain::block::{add_node_neighbors, element_coordinates, trimmed_type_name},
     fem::{
         Elements, NodalReferenceCoordinates,
         block::element::{
@@ -66,10 +67,7 @@ where
         coordinates: &TensorRank1Vec<D, I, U>,
         nodes: &[usize; N],
     ) -> TensorRank1List<D, I, N, U> {
-        nodes
-            .iter()
-            .map(|&node| coordinates[node].clone())
-            .collect()
+        element_coordinates(coordinates, nodes)
     }
     pub fn volume(&self) -> Quantity<Volume> {
         self.elements().iter().map(|element| element.volume()).sum()

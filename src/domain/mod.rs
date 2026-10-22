@@ -11,6 +11,8 @@ pub mod cbm;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod chemical;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
+pub(crate) mod cohesive;
+#[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod density;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod diffusion;
