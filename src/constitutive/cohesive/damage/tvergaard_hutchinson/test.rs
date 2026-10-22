@@ -315,3 +315,129 @@ fn stiffness_on_every_branch() -> Result<(), AssertionError> {
     }
     Ok(())
 }
+
+fn step_error(
+    old: (Scalar, Scalar),
+    new: (Scalar, Scalar),
+    state_old: Scalar,
+    state: Scalar,
+) -> (Scalar, Scalar) {
+    let error = model()
+        .step_error(
+            lengths(old.0, old.1),
+            lengths(new.0, new.1),
+            Quantity::new(state_old),
+            Quantity::new(state),
+        )
+        .unwrap();
+    (error.direction.value(), error.overshoot.value())
+}
+
+fn opening(point: (Scalar, Scalar)) -> Scalar {
+    point.0.max(0.0).hypot(point.1)
+}
+
+fn loaded(old: (Scalar, Scalar), new: (Scalar, Scalar)) -> (Scalar, Scalar) {
+    step_error(old, new, opening(old), opening(new))
+}
+
+#[test]
+fn a_step_without_growth_of_the_greatest_opening_has_no_error() -> Result<(), AssertionError> {
+    let (direction, overshoot) = step_error((0.4, 0.3), (0.1, 0.9), 0.9, 0.9);
+    close(direction, 0.0)?;
+    close(overshoot, 0.0)?;
+    let (direction, overshoot) = step_error((0.0, 0.0), (0.0, 0.0), 0.0, 0.0);
+    close(direction, 0.0)?;
+    close(overshoot, 0.0)
+}
+
+#[test]
+fn the_direction_vanishes_under_proportional_opening() -> Result<(), AssertionError> {
+    for (old, new) in [
+        ((0.1, 0.05), (0.8, 0.4)),
+        ((0.0, 0.0), (0.5, 0.2)),
+        ((0.3, 0.0), (2.0, 0.0)),
+        ((0.0, 0.2), (0.0, 1.5)),
+    ] {
+        close(loaded(old, new).0, 0.0)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn the_direction_is_half_the_growth_times_the_turning() -> Result<(), AssertionError> {
+    close(loaded((0.3, 0.0), (0.0, 0.6)).0, 0.5 * 0.3 * 2.0_f64.sqrt())
+}
+
+#[test]
+fn the_direction_falls_as_the_square_of_the_step() -> Result<(), AssertionError> {
+    let spiral = |t: Scalar| {
+        let (radius, angle) = (0.3 + 0.3 * t, 0.5 * std::f64::consts::PI * t);
+        (radius * angle.cos(), radius * angle.sin())
+    };
+    let error = |h: Scalar| loaded(spiral(0.0), spiral(h)).0;
+    for h in [0.04, 0.02, 0.01] {
+        assert!((error(h) / error(0.5 * h) - 4.0).abs() < 0.1);
+    }
+    Ok(())
+}
+
+#[test]
+fn the_overshoot_is_how_far_the_step_runs_past_a_kink() -> Result<(), AssertionError> {
+    for (state_old, state, expected) in [
+        (0.1, 0.5, 0.3),
+        (0.1, 0.7, 0.5),
+        (0.5, 1.2, 0.6),
+        (0.3, 0.7, 0.1),
+        (0.7, 1.2, 0.2),
+        (0.25, 0.5, 0.0),
+        (0.7, 0.9, 0.0),
+        (1.1, 1.4, 0.0),
+    ] {
+        let (_, overshoot) = step_error((state_old, 0.0), (state, 0.0), state_old, state);
+        close(overshoot, expected)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn the_overshoot_falls_as_the_step() -> Result<(), AssertionError> {
+    for h in [0.04, 0.02, 0.01] {
+        let (_, overshoot) = loaded((0.6 - 0.5 * h, 0.0), (0.6 + 0.5 * h, 0.0));
+        close(overshoot, 0.5 * h)?;
+    }
+    Ok(())
+}
+
+#[test]
+fn reloading_past_the_greatest_opening_is_a_kink() -> Result<(), AssertionError> {
+    let (_, overshoot) = step_error((0.4, 0.0), (0.9, 0.0), 0.8, 0.9);
+    close(overshoot, 0.1)?;
+    let (_, overshoot) = step_error((0.4, 0.0), (0.7, 0.0), 0.8, 0.8);
+    close(overshoot, 0.0)?;
+    let (_, overshoot) = step_error((0.8 * (1.0 - 1e-9), 0.0), (0.9, 0.0), 0.8, 0.9);
+    close(overshoot, 0.0)
+}
+
+#[test]
+fn compression_does_not_enter_the_error() -> Result<(), AssertionError> {
+    let (direction, overshoot) = step_error((-0.5, 0.3), (-0.9, 0.5), 0.3, 0.5);
+    close(direction, 0.0)?;
+    close(overshoot, 0.0)
+}
+
+#[test]
+fn an_invalid_opening_is_an_error_of_the_step() {
+    let mut model = model();
+    model.softening = 1.0;
+    assert!(
+        model
+            .step_error(
+                lengths(0.1, 0.0),
+                lengths(0.2, 0.0),
+                Quantity::new(0.1),
+                Quantity::new(0.2)
+            )
+            .is_err()
+    );
+}

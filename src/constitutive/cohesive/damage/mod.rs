@@ -9,7 +9,7 @@ use crate::{
         ConstitutiveError,
         cohesive::{self, Cohesive, StiffnessCohesive, Stiffnesses},
     },
-    math::{Quantity, Tensor},
+    math::{Quantity, Tensor, integrate::StepError},
     mechanics::{Normal, Separation, Traction},
     units::{ForcePerLength, Length, Stress},
 };
@@ -83,6 +83,15 @@ where
         let tangential_component = (separation - &normal * normal_component).norm();
         Ok(state.max(self.opening(normal_component, tangential_component)?))
     }
+    /// Calculates and returns the error indicators of a step of the separation, from its
+    /// normal and tangential components and the states at the two ends of the step.
+    fn step_error(
+        &self,
+        separation_old: (Quantity<Length>, Quantity<Length>),
+        separation: (Quantity<Length>, Quantity<Length>),
+        state_old: Quantity,
+        state: Quantity,
+    ) -> Result<StepError, ConstitutiveError>;
 }
 
 /// Required methods for irreversible cohesive constitutive models whose tractions derive from a potential.

@@ -7,10 +7,12 @@ use crate::{
         Constitutive, ConstitutiveError,
         cohesive::{Cohesive, Stiffnesses, Tractions},
     },
-    math::Quantity,
+    math::{Quantity, integrate::StepError},
     mechanics::Scalar,
     units::{ForcePerLength, Length, Stress},
 };
+
+const ONSET_TOLERANCE: Scalar = 1e-6;
 
 #[doc = include_str!("doc.md")]
 #[derive(Clone, Debug)]
@@ -141,6 +143,43 @@ impl Damage for TvergaardHutchinson {
             self.tangential_strength() / self.normal_length * coupling,
             self.tangential_strength() / self.tangential_length * tangential,
         ))
+    }
+    #[doc = include_str!("step_error.md")]
+    fn step_error(
+        &self,
+        separation_old: (Quantity<Length>, Quantity<Length>),
+        separation: (Quantity<Length>, Quantity<Length>),
+        state_old: Quantity,
+        state: Quantity,
+    ) -> Result<StepError, ConstitutiveError> {
+        self.check()?;
+        let (a_old, b_old) = self.scaled(separation_old.0, separation_old.1);
+        let (a, b) = self.scaled(separation.0, separation.1);
+        let (a_old, a) = (a_old.max(0.0), a.max(0.0));
+        let (opening_old, opening) = (a_old.hypot(b_old), a.hypot(b));
+        let (state_old, state) = (state_old.value(), state.value());
+        let increment = state - state_old;
+        if increment <= 0.0 || opening <= 0.0 {
+            return Ok(StepError::default());
+        }
+        let direction = (a / opening, b / opening);
+        let direction_old = if opening_old > 0.0 {
+            (a_old / opening_old, b_old / opening_old)
+        } else {
+            direction
+        };
+        let turning = (direction.0 - direction_old.0).hypot(direction.1 - direction_old.1);
+        let reloaded = opening_old < state_old * (1.0 - ONSET_TOLERANCE) && state_old < opening;
+        let overshoot = [self.onset, self.softening, 1.0]
+            .into_iter()
+            .filter(|&kink| state_old < kink && kink <= state)
+            .map(|kink| state - kink)
+            .chain(reloaded.then_some(opening - state_old))
+            .fold(0.0, Scalar::max);
+        Ok(StepError {
+            direction: Quantity::new(0.5 * increment * turning),
+            overshoot: Quantity::new(overshoot),
+        })
     }
     #[doc = include_str!("opening.md")]
     fn opening(
