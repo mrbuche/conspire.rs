@@ -17,7 +17,8 @@ fn cut(
     balancing: Balancing,
     scale: f64,
 ) -> Result<Mesh<3>, &'static str> {
-    let (mesh, classes) = tessellation.dual_background(balancing, scale, None)?;
+    let (mesh, classes) =
+        tessellation.dual_background(balancing, scale, None, SeparationSizing::default())?;
     tessellation.cut(mesh, &classes)
 }
 
@@ -31,7 +32,8 @@ fn cut_polyhedral(
     balancing: Balancing,
     scale: f64,
 ) -> Result<Mesh<3>, &'static str> {
-    let (mesh, classes) = tessellation.octree_background(balancing, scale, None)?;
+    let (mesh, classes) =
+        tessellation.octree_background(balancing, scale, None, SeparationSizing::default())?;
     tessellation.cut_polyhedral(mesh, &classes)
 }
 
@@ -39,9 +41,16 @@ fn cut_polyhedral(
 fn a_tolerance_refines_the_dual_background() {
     let sphere = crate::geometry::mesh::test::octahedron(3);
     let balancing = Balancing::Strong(1);
-    let (coarse, _) = sphere.dual_background(balancing, 3.0, None).unwrap();
+    let (coarse, _) = sphere
+        .dual_background(balancing, 3.0, None, SeparationSizing::default())
+        .unwrap();
     let (fine, _) = sphere
-        .dual_background(balancing, 3.0, Some(Quantity::new(1.0e-3)))
+        .dual_background(
+            balancing,
+            3.0,
+            Some(Quantity::new(1.0e-3)),
+            SeparationSizing::default(),
+        )
         .unwrap();
     assert!(
         fine.number_of_elements() > coarse.number_of_elements(),
@@ -51,13 +60,82 @@ fn a_tolerance_refines_the_dual_background() {
     );
 }
 
+fn narrow_slab() -> Tessellation {
+    box_surface([-2.0, -1.0, -0.15], [2.0, 1.0, 0.15])
+}
+
+fn separation() -> SeparationSizing {
+    SeparationSizing {
+        radius: Some(Quantity::new(0.5)),
+        hops: 1,
+        scale: Some(4.0),
+    }
+}
+
+#[test]
+fn a_separation_refines_the_dual_background() {
+    let slab = narrow_slab();
+    let balancing = Balancing::Strong(1);
+    let (plain, _) = slab
+        .dual_background(balancing, 1.0, None, SeparationSizing::default())
+        .unwrap();
+    let (narrow, _) = slab
+        .dual_background(balancing, 1.0, None, separation())
+        .unwrap();
+    assert!(narrow.number_of_elements() > plain.number_of_elements());
+}
+
+#[test]
+fn a_separation_refines_the_octree_background() {
+    let slab = narrow_slab();
+    let balancing = Balancing::Strong(1);
+    let (plain, _) = slab
+        .octree_background(balancing, 1.0, None, SeparationSizing::default())
+        .unwrap();
+    let (narrow, _) = slab
+        .octree_background(balancing, 1.0, None, separation())
+        .unwrap();
+    assert!(narrow.number_of_elements() > plain.number_of_elements());
+}
+
+#[test]
+fn a_separation_refines_the_octree_tet_background() {
+    let slab = narrow_slab();
+    let (plain, _) = slab
+        .octree_tet_background(
+            Balancing::Strong(1),
+            Pairing::Regular,
+            1.0,
+            None,
+            SeparationSizing::default(),
+        )
+        .unwrap();
+    let (narrow, _) = slab
+        .octree_tet_background(
+            Balancing::Strong(1),
+            Pairing::Regular,
+            1.0,
+            None,
+            separation(),
+        )
+        .unwrap();
+    assert!(narrow.number_of_elements() > plain.number_of_elements());
+}
+
 #[test]
 fn a_tolerance_refines_the_octree_background() {
     let sphere = crate::geometry::mesh::test::octahedron(3);
     let balancing = Balancing::Strong(1);
-    let (coarse, _) = sphere.octree_background(balancing, 3.0, None).unwrap();
+    let (coarse, _) = sphere
+        .octree_background(balancing, 3.0, None, SeparationSizing::default())
+        .unwrap();
     let (fine, _) = sphere
-        .octree_background(balancing, 3.0, Some(Quantity::new(1.0e-3)))
+        .octree_background(
+            balancing,
+            3.0,
+            Some(Quantity::new(1.0e-3)),
+            SeparationSizing::default(),
+        )
         .unwrap();
     assert!(
         fine.number_of_elements() > coarse.number_of_elements(),
@@ -620,7 +698,13 @@ fn classify_agrees_between_the_hex_and_tet_lattices() {
 
 fn check_octree_tet_background(tessellation: &Tessellation, graded: bool) {
     let (mesh, classes) = tessellation
-        .octree_tet_background(Balancing::Strong(1), Pairing::Regular, 1.0, None)
+        .octree_tet_background(
+            Balancing::Strong(1),
+            Pairing::Regular,
+            1.0,
+            None,
+            SeparationSizing::default(),
+        )
         .unwrap();
     assert_eq!(mesh.number_of_element_blocks(), 1);
     assert_eq!(classes.len(), mesh.number_of_elements());
@@ -633,7 +717,7 @@ fn check_octree_tet_background(tessellation: &Tessellation, graded: bool) {
         volume_of(&mesh)
     );
     let (polyhedra, _) = tessellation
-        .octree_background(Balancing::Strong(1), 1.0, None)
+        .octree_background(Balancing::Strong(1), 1.0, None, SeparationSizing::default())
         .unwrap();
     let leaves = polyhedra.number_of_elements();
     if graded {
@@ -663,17 +747,35 @@ fn octree_tet_background_requires_strong_1() {
     let tessellation = sphere(2);
     assert!(
         tessellation
-            .octree_tet_background(Balancing::Weak(1), Pairing::Regular, 1.0, None)
+            .octree_tet_background(
+                Balancing::Weak(1),
+                Pairing::Regular,
+                1.0,
+                None,
+                SeparationSizing::default(),
+            )
             .is_err()
     );
     assert!(
         tessellation
-            .octree_tet_background(Balancing::Strong(2), Pairing::Regular, 1.0, None)
+            .octree_tet_background(
+                Balancing::Strong(2),
+                Pairing::Regular,
+                1.0,
+                None,
+                SeparationSizing::default(),
+            )
             .is_err()
     );
     assert!(
         tessellation
-            .octree_tet_background(Balancing::Strong(1), Pairing::Regular, 1.0, None)
+            .octree_tet_background(
+                Balancing::Strong(1),
+                Pairing::Regular,
+                1.0,
+                None,
+                SeparationSizing::default(),
+            )
             .is_ok()
     )
 }
