@@ -1,7 +1,7 @@
 use crate::{
     constitutive::{
         ConstitutiveError,
-        solid::elastic_plastic::{ElasticPlastic, coupled},
+        solid::elastic_plastic::{ElasticPlastic, StepError, coupled},
     },
     domain::solid::elastic_plastic::{ElasticPlasticElements, MonolithicSystem},
     fem::{
@@ -92,6 +92,33 @@ where
                 )
             })
             .collect::<Result<_, FiniteElementError>>()
+            .map_err(|error| ElementModelError::upstream(error, self))
+    }
+    fn step_error(
+        &self,
+        nodal_coordinates_old: &NodalCoordinates<3>,
+        nodal_coordinates: &NodalCoordinates<3>,
+        state_variables: &PlasticStateVariablesField<G>,
+        updated_state: &PlasticStateVariablesField<G>,
+    ) -> Result<StepError, ElementModelError> {
+        self.elements()
+            .iter()
+            .zip(self.connectivity())
+            .zip(state_variables.iter().zip(updated_state))
+            .try_fold(
+                StepError::default(),
+                |worst, ((element, nodes), (state_old, state))| {
+                    element
+                        .step_error(
+                            self.constitutive_model(),
+                            &Self::element_coordinates(nodal_coordinates_old, nodes),
+                            &Self::element_coordinates(nodal_coordinates, nodes),
+                            state_old,
+                            state,
+                        )
+                        .map(|error| worst.max(error))
+                },
+            )
             .map_err(|error| ElementModelError::upstream(error, self))
     }
     fn monolithic_system(&self, num_nodes: usize) -> Option<MonolithicSystem> {

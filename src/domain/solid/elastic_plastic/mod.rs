@@ -1,4 +1,5 @@
 use crate::{
+    constitutive::solid::elastic_plastic::{Outcome, StepError, Stepper},
     domain::{
         ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         NodalState,
@@ -142,6 +143,15 @@ where
         state_variables: &S,
         local_solver: &NewtonRaphson,
     ) -> Result<S, ElementModelError>;
+    /// The error indicators of a load step, from the coordinates and the plastic states at
+    /// its two ends, the larger over the integration points.
+    fn step_error(
+        &self,
+        nodal_coordinates_old: &NodalCoordinates<D>,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        updated_state: &S,
+    ) -> Result<StepError, ElementModelError>;
 }
 
 impl<B, S, const D: usize> ElasticPlasticElements<S, D> for Model<B, D>
@@ -196,14 +206,41 @@ where
         self.blocks()
             .updated_state(nodal_coordinates, state_variables, local_solver)
     }
+    fn step_error(
+        &self,
+        nodal_coordinates_old: &NodalCoordinates<D>,
+        nodal_coordinates: &NodalCoordinates<D>,
+        state_variables: &S,
+        updated_state: &S,
+    ) -> Result<StepError, ElementModelError> {
+        self.blocks().step_error(
+            nodal_coordinates_old,
+            nodal_coordinates,
+            state_variables,
+            updated_state,
+        )
+    }
 }
 
-/// Static load-stepping: solve nodal equilibrium with the plastic state of the previous
-/// step, then commit the updated state, once per time of the load.
+/// Quasi-static adaptive load stepping: solve nodal equilibrium with the plastic state of
+/// the last accepted step, then commit the updated state when the error of the step is
+/// within tolerance.
 ///
-/// The model is rate independent, so the times only order the steps. The conditions are
-/// held at each of them, and what is held at a distance from where it starts is held at
-/// that distance from the initial coordinates, whatever the step.
+/// The model is rate independent, so the times are values of the load parameter, and the
+/// step is chosen by [`StepError`]. Two times give only the span, and the accepted steps
+/// are reported. More than two are breakpoints: the steps are cut to end on each, and only
+/// they are reported, since the response has kinks at yielding and at unloading that an
+/// interpolant between steps would smooth over. The first time is where the initial
+/// coordinates are. A step is accepted when both the estimated error of the step in the
+/// plastic deformation, from the change of the flow direction over it, and the plastic
+/// increment of a step that begins inside the yield surface, the larger of each over the
+/// integration points, are within `abs_tol`, strains, and a step the solver
+/// fails on is cut back like a rejected one. The tolerance bounds the estimated error of
+/// each step, as those of the integrators do, so the errors add up over the steps: the
+/// error of the result is larger than `abs_tol` and falls more slowly than it.
+///
+/// The conditions are held at each time, and what is held at a distance from where it
+/// starts is held at that distance from the initial coordinates, whatever the step.
 ///
 /// With [`SolveStrategy::Condensed`] the local unknowns of the plastic step are converged
 /// and eliminated at each integration point, so the solver only sees the nodal
@@ -231,6 +268,7 @@ pub trait ElasticPlasticRoot<S, const D: usize> {
          ),
         times: &[Quantity<Time>],
         strategy: SolveStrategy,
+        abs_tol: Quantity,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError>;
 }
 
@@ -396,6 +434,7 @@ where
          ),
         times: &[Quantity<Time>],
         strategy: SolveStrategy,
+        abs_tol: Quantity,
     ) -> Result<(NodalCoordinatesHistory<D>, Vec<S>), OptimizationError> {
         let mut nodal_coordinates: NodalCoordinates<D> = self.coordinates().clone().into();
         let mut state = self.blocks().initial_state();
@@ -417,7 +456,12 @@ where
         let mut condensed_cache = None;
         let mut monolithic_cache = None;
         let anchor = nodal_coordinates.clone();
-        for &time in times {
+        let mut advance = |time: Quantity<Time>,
+                           start: &NodalCoordinates<D>,
+                           start_state: &S|
+         -> Result<(NodalCoordinates<D>, S), OptimizationError> {
+            let mut nodal_coordinates = start.clone();
+            let mut state = start_state.clone();
             let constraint =
                 EqualityConstraint::from_reference(conditions.constraint_at(time), &anchor);
             let frozen_state = state.clone();
@@ -479,7 +523,7 @@ where
                     Ok(())
                 };
                 let cell = RefCell::new(monolithic);
-                let (new_global, new_local) = solver.root_block(
+                let solved = solver.root_block(
                     |global: &Vector, local: &Vector| {
                         let mut system = cell.borrow_mut();
                         evaluate(global, local, &mut system)?;
@@ -536,13 +580,14 @@ where
                     ),
                     Some(sparse),
                     strategy.clone(),
-                )?;
+                );
+                system = Some(cell.into_inner());
+                let (new_global, new_local) = solved?;
                 nodal_coordinates = NodalCoordinates::from(new_global);
                 state = self
                     .blocks()
                     .monolithic_state(&frozen_state, &new_local)
                     .map_err(|error| error.to_string())?;
-                system = Some(cell.into_inner());
             } else if let SolveStrategy::Condensed(local_solver) = &strategy {
                 let sparse = cached(&mut condensed_cache, &constraint, || {
                     solver_from_neighbors(&neighbors, &constraint, D, false)
@@ -585,8 +630,32 @@ where
                     .updated_state(&nodal_coordinates, &frozen_state, local_solver)
                     .map_err(|error| error.to_string())?;
             }
-            coordinates_history.push(nodal_coordinates.clone());
-            state_history.push(state.clone());
+            Ok((nodal_coordinates, state))
+        };
+        let mut stepper = Stepper::new(times)?;
+        while !stepper.is_done() {
+            let step = stepper.propose();
+            let (coordinates, updated_state) = match advance(step.time, &nodal_coordinates, &state)
+            {
+                Ok(next) => next,
+                Err(_) if stepper.fail(&step) => continue,
+                Err(error) => return Err(error),
+            };
+            let error = self
+                .blocks()
+                .step_error(&nodal_coordinates, &coordinates, &state, &updated_state)
+                .map_err(|error| error.to_string())?;
+            match stepper.judge(&step, error, abs_tol)? {
+                Outcome::Accepted { report } => {
+                    nodal_coordinates = coordinates;
+                    state = updated_state;
+                    if report {
+                        coordinates_history.push(nodal_coordinates.clone());
+                        state_history.push(state.clone());
+                    }
+                }
+                Outcome::Rejected => {}
+            }
         }
         Ok((coordinates_history, state_history))
     }

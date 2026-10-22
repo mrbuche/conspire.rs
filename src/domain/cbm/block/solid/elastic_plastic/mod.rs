@@ -1,11 +1,17 @@
+#[cfg(test)]
+mod test;
+
 use super::super::{Block, node::solid::elastic_plastic::ElasticPlasticElement};
 use crate::{
-    constitutive::{ConstitutiveError, solid::elastic_plastic::ElasticPlastic},
+    constitutive::{
+        ConstitutiveError,
+        solid::elastic_plastic::{ElasticPlastic, StepError},
+    },
     domain::{
         ElementModelError, NodalCoordinates,
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
-    math::optimize::NewtonRaphson,
+    math::{Tensor, optimize::NewtonRaphson},
 };
 
 pub use crate::domain::{
@@ -77,6 +83,28 @@ where
                 )
             })
             .collect::<Result<_, ConstitutiveError>>()
+            .map_err(|error| ElementModelError::upstream(error, self))
+    }
+    fn step_error(
+        &self,
+        nodal_coordinates_old: &NodalCoordinates<3>,
+        nodal_coordinates: &NodalCoordinates<3>,
+        state_variables: &PlasticStateVariablesField<1>,
+        updated_state: &PlasticStateVariablesField<1>,
+    ) -> Result<StepError, ElementModelError> {
+        self.nodes
+            .iter()
+            .zip(state_variables.iter().zip(updated_state))
+            .try_fold(StepError::default(), |worst, (node, (state_old, state))| {
+                node.step_error(
+                    &self.constitutive_model,
+                    nodal_coordinates_old,
+                    nodal_coordinates,
+                    state_old,
+                    state,
+                )
+                .map(|error| worst.max(error))
+            })
             .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

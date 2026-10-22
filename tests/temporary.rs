@@ -37,8 +37,8 @@ use conspire::{
     },
     mechanics::TemperatureGradient,
     units::{
-        Length, PowerPerLengthTemperature, Rate, Stress, Temperature as TemperatureUnit, Time,
-        Velocity as VelocityUnit, Viscosity,
+        Dimensionless, Length, PowerPerLengthTemperature, Rate, Stress,
+        Temperature as TemperatureUnit, Time, Velocity as VelocityUnit, Viscosity,
     },
 };
 
@@ -8285,13 +8285,15 @@ fn temporary_elastic_plastic() -> Result<(), AssertionError> {
         NewtonRaphson::default(),
         &conditions,
         &(),
-        &times[1..],
+        &times,
         SolveStrategy::Condensed(NewtonRaphson::default()),
+        Dimensionless::of(1e-3),
     )?;
     let (_, deformation_gradients, state_variables) = model.root(
         AppliedLoad::UniaxialStress(|t: Quantity<Time>| 1.0 + t.value(), times.as_slice()),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
+        Dimensionless::of(1e-3),
     )?;
     coordinates_history
         .iter()
@@ -8412,16 +8414,18 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
         NewtonRaphson::default(),
         &conditions,
         &(),
-        &times[1..],
+        &times,
         SolveStrategy::Condensed(NewtonRaphson::default()),
+        Dimensionless::of(1e-3),
     )?;
     for elimination in [false, true] {
         let solution = fem_model.root(
             NewtonRaphson::default(),
             &conditions,
             &(),
-            &times[1..],
+            &times,
             SolveStrategy::Monolithic { elimination },
+            Dimensionless::of(1e-3),
         )?;
         assert_same_plastic_solution(&reference, &solution, 1e-8)?;
     }
@@ -8559,16 +8563,18 @@ fn temporary_elastic_plastic_block_single_tet() -> Result<(), AssertionError> {
         NewtonRaphson::default(),
         &conditions,
         &(),
-        &times[1..],
+        &times,
         SolveStrategy::Condensed(NewtonRaphson::default()),
+        Dimensionless::of(1e-3),
     )?;
     for elimination in [false, true] {
         let solution = fem_model.root(
             NewtonRaphson::default(),
             &conditions,
             &(),
-            &times[1..],
+            &times,
             SolveStrategy::Monolithic { elimination },
+            Dimensionless::of(1e-3),
         )?;
         assert_same_plastic_solution(&reference, &solution, tol)?;
     }

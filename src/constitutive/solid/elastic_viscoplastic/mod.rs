@@ -31,7 +31,7 @@ use crate::{
         DeformationGradient, DeformationGradients, FirstPiolaKirchhoffStress,
         FirstPiolaKirchhoffTangentStiffness, Times,
     },
-    units::{Dissipation, Rate, Time},
+    units::{Dimensionless, Dissipation, Rate, Time},
 };
 use std::ops::{Add, Mul};
 
@@ -207,7 +207,7 @@ where
                 TensorRank2<3, Intermediate, Intermediate, Rate>,
                 Derivative<Y>,
             >,
-        >,
+        > + Tensor<Unit = (Dimensionless, <Y as Tensor>::Unit)>,
 {
     type Field = Product<Unimodular<Intermediate, Reference>, Flat<Y>>;
     type Drive = DeformationGradient;

@@ -1,5 +1,5 @@
 use crate::{
-    constitutive::solid::elastic_plastic::ElasticPlastic,
+    constitutive::solid::elastic_plastic::{ElasticPlastic, StepError},
     domain::block::element::solid::{SolidElement, plastic::PlasticStateVariables},
     math::optimize::NewtonRaphson,
 };
@@ -28,4 +28,14 @@ where
         state_variables: &PlasticStateVariables<G>,
         local_solver: &NewtonRaphson,
     ) -> Result<PlasticStateVariables<G>, Self::Error>;
+    /// The error indicators of a load step, from the coordinates and the plastic states at
+    /// its two ends, the larger over the integration points.
+    fn step_error(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates_old: &Self::Coordinates,
+        nodal_coordinates: &Self::Coordinates,
+        state_variables: &PlasticStateVariables<G>,
+        updated_state: &PlasticStateVariables<G>,
+    ) -> Result<StepError, Self::Error>;
 }

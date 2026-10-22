@@ -51,6 +51,10 @@ impl<U> Quantity<U> {
     pub fn abs(self) -> Self {
         Self::new(self.0.abs())
     }
+    /// Returns the ratio to a quantity of the same unit, which carries none.
+    pub fn ratio(self, quantity: Self) -> Quantity {
+        Quantity::new(self.0 / quantity.0)
+    }
     /// Returns whether the value is not a number.
     pub fn is_nan(&self) -> bool {
         self.0.is_nan()
@@ -341,6 +345,12 @@ impl<U> Mul<&TensorRank0> for Quantity<U> {
 impl<U> MulAssign<TensorRank0> for Quantity<U> {
     fn mul_assign(&mut self, tensor_rank_0: TensorRank0) {
         self.0 *= tensor_rank_0
+    }
+}
+
+impl<U> MulAssign<Quantity> for Quantity<U> {
+    fn mul_assign(&mut self, quantity: Quantity) {
+        self.0 *= quantity.0
     }
 }
 

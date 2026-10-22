@@ -113,8 +113,8 @@ where
                 continue;
             }
         };
-        let error = weight(&slopes, Tab::D).norm().value().abs();
-        let tolerance = abs_tol + rel_tol * trial.norm().value();
+        let error = weight(&slopes, Tab::D).norm().abs();
+        let tolerance = Quantity::new(abs_tol) + trial.norm() * rel_tol;
         let accept = error <= tolerance;
         if accept {
             let t_previous = t;
@@ -394,8 +394,8 @@ where
                 continue;
             }
         };
-        let error = weight(&slopes, Tab::D).norm().value().abs();
-        let tolerance = abs_tol + rel_tol * trial.norm().value();
+        let error = weight(&slopes, Tab::D).norm().abs();
+        let tolerance = Quantity::new(abs_tol) + trial.norm() * rel_tol;
         let accept = error <= tolerance;
         if accept {
             let t_previous = t;

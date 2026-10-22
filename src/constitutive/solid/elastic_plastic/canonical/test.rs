@@ -19,6 +19,8 @@ use crate::{
     units::{Stress, Time},
 };
 
+const TOLERANCE: Quantity = Quantity::new(1e-3);
+
 type Mises = PlasticFlow<VonMises, Linear>;
 type MisesVoce = PlasticFlow<VonMises, Voce>;
 type HillLinear = PlasticFlow<Hill, Linear>;
@@ -46,6 +48,7 @@ fn root(
         applied_load,
         solver,
         SolveStrategy::Condensed(NewtonRaphson::default()),
+        TOLERANCE,
     )
 }
 
@@ -204,6 +207,7 @@ fn hill_strategies_agree_under_non_proportional_loading() -> Result<(), Assertio
         load(),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
+        TOLERANCE,
     )?;
     let reference_strain = reference_states.as_slice().last().unwrap().1;
     assert!(reference_strain.value() > 0.0);
@@ -212,6 +216,7 @@ fn hill_strategies_agree_under_non_proportional_loading() -> Result<(), Assertio
             load(),
             NewtonRaphson::default(),
             SolveStrategy::Monolithic { elimination },
+            TOLERANCE,
         )?;
         Assert {
             abs_tol: 1e-9,
@@ -434,6 +439,7 @@ fn monolithic_strategies_agree_with_each_other() -> Result<(), AssertionError> {
         AppliedLoad::UniaxialStress(ramp, &steps),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
+        TOLERANCE,
     )?;
     let reference_gradient = reference_gradients.as_slice().last().unwrap();
     let reference_strain = reference_states.as_slice().last().unwrap().1;
@@ -446,6 +452,7 @@ fn monolithic_strategies_agree_with_each_other() -> Result<(), AssertionError> {
             AppliedLoad::UniaxialStress(ramp, &steps),
             NewtonRaphson::default(),
             strategy,
+            TOLERANCE,
         )?;
         Assert {
             abs_tol: 1e-11,
@@ -476,6 +483,7 @@ fn monolithic_coupling_blocks_keep_the_block_solve_within_a_tight_step_cap()
         AppliedLoad::UniaxialStress(ramp, &times(0.5, 6)),
         solver,
         SolveStrategy::Monolithic { elimination: true },
+        TOLERANCE,
     )?;
     assert!(states.as_slice().last().unwrap().1.value() > 0.0);
     Ok(())
@@ -769,6 +777,7 @@ fn assert_strategies_agree_under_biaxial_loading<M: ElasticPlastic>(
         load(),
         NewtonRaphson::default(),
         SolveStrategy::Condensed(NewtonRaphson::default()),
+        TOLERANCE,
     )?;
     let reference_gradient = reference_gradients.as_slice().last().unwrap();
     let reference_state = reference_states.as_slice().last().unwrap();
@@ -777,7 +786,8 @@ fn assert_strategies_agree_under_biaxial_loading<M: ElasticPlastic>(
         SolveStrategy::Monolithic { elimination: false },
         SolveStrategy::Monolithic { elimination: true },
     ] {
-        let (_, gradients, states) = model.root(load(), NewtonRaphson::default(), strategy)?;
+        let (_, gradients, states) =
+            model.root(load(), NewtonRaphson::default(), strategy, TOLERANCE)?;
         let assert = Assert {
             abs_tol: 1e-9,
             rel_tol: 1e-9,

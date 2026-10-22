@@ -1,5 +1,5 @@
 use crate::{
-    constitutive::solid::elastic_plastic::ElasticPlastic,
+    constitutive::solid::elastic_plastic::{ElasticPlastic, StepError},
     domain::block::element::solid::{
         elastic_plastic::ElasticPlasticElement, plastic::PlasticStateVariables,
     },
@@ -307,6 +307,30 @@ where
                     .map(|(_, _, state)| state)
             })
             .collect::<Result<_, _>>()
+            .map_err(|error| self.upstream(error))
+    }
+    fn step_error(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates_old: &ElementNodalCoordinates,
+        nodal_coordinates: &ElementNodalCoordinates,
+        state_variables: &PlasticStateVariables<1>,
+        updated_state: &PlasticStateVariables<1>,
+    ) -> Result<StepError, VirtualElementError> {
+        let gradients_old = self.deformation_gradients(nodal_coordinates_old);
+        let gradients = self.deformation_gradients(nodal_coordinates);
+        gradients_old
+            .iter()
+            .zip(gradients.iter())
+            .zip(state_variables.iter().zip(updated_state))
+            .try_fold(
+                StepError::default(),
+                |worst, ((gradient_old, gradient), (state_old, state))| {
+                    constitutive_model
+                        .step_error(gradient_old, gradient, state_old, state)
+                        .map(|error| worst.max(error))
+                },
+            )
             .map_err(|error| self.upstream(error))
     }
 }

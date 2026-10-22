@@ -1,6 +1,9 @@
 use super::{super::Node, SolidElement};
 use crate::{
-    constitutive::{ConstitutiveError, solid::elastic_plastic::ElasticPlastic},
+    constitutive::{
+        ConstitutiveError,
+        solid::elastic_plastic::{ElasticPlastic, StepError},
+    },
     domain::{NodalCoordinates, block::element::solid::plastic::PlasticStateVariables},
     math::{
         ContractSecondFourthWithFirst, Current, TensorRank1, TensorRank2, optimize::NewtonRaphson,
@@ -71,5 +74,20 @@ where
             local_solver,
         )?;
         Ok([state].into())
+    }
+    fn step_error(
+        &self,
+        constitutive_model: &C,
+        nodal_coordinates_old: &NodalCoordinates<3>,
+        nodal_coordinates: &NodalCoordinates<3>,
+        state_variables: &PlasticStateVariables<1>,
+        updated_state: &PlasticStateVariables<1>,
+    ) -> Result<StepError, ConstitutiveError> {
+        constitutive_model.step_error(
+            &self.deformation_gradients(nodal_coordinates_old),
+            &self.deformation_gradients(nodal_coordinates),
+            &state_variables[0],
+            &updated_state[0],
+        )
     }
 }

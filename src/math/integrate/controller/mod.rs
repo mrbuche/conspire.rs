@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::Scalar;
+use crate::{
+    math::{Quantity, Scalar},
+    units::Dimensionless,
+};
 
 /// The step-size law of an adaptive integrator.
 ///
@@ -18,9 +21,9 @@ pub struct StepController {
     /// The order $`p`$ of the error estimate.
     pub order: Scalar,
     /// The cut back factor $`c`$, the floor of the scale.
-    pub cut: Scalar,
+    pub cut: Quantity,
     /// The growth factor $`g`$, the ceiling of the scale.
-    pub grow: Scalar,
+    pub grow: Quantity,
 }
 
 impl StepController {
@@ -28,14 +31,16 @@ impl StepController {
         Self {
             beta,
             order,
-            cut,
-            grow,
+            cut: Dimensionless::of(cut),
+            grow: Dimensionless::of(grow),
         }
     }
     /// The factor to multiply the step by given the error and the tolerance it is held to.
-    pub fn scale(&self, error: Scalar, tolerance: Scalar) -> Scalar {
-        if error > 0.0 {
-            (self.beta * (tolerance / error).powf(1.0 / self.order)).clamp(self.cut, self.grow)
+    pub fn scale<U>(&self, error: Quantity<U>, tolerance: Quantity<U>) -> Quantity {
+        if error > Quantity::default() {
+            (tolerance.ratio(error).powf(1.0 / self.order) * self.beta)
+                .max(self.cut)
+                .min(self.grow)
         } else {
             self.grow
         }

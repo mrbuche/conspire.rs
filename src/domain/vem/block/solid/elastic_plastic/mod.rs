@@ -1,10 +1,10 @@
 use crate::{
-    constitutive::solid::elastic_plastic::ElasticPlastic,
+    constitutive::solid::elastic_plastic::{ElasticPlastic, StepError},
     domain::{
         ElementModelError, block::solid::plastic::PlasticStateVariablesField,
         solid::elastic_plastic::ElasticPlasticElements,
     },
-    math::optimize::NewtonRaphson,
+    math::{Tensor, optimize::NewtonRaphson},
     vem::{
         NodalCoordinates,
         block::{
@@ -84,6 +84,33 @@ where
                 )
             })
             .collect::<Result<_, VirtualElementError>>()
+            .map_err(|error| ElementModelError::upstream(error, self))
+    }
+    fn step_error(
+        &self,
+        nodal_coordinates_old: &NodalCoordinates,
+        nodal_coordinates: &NodalCoordinates,
+        state_variables: &PlasticStateVariablesField<1>,
+        updated_state: &PlasticStateVariablesField<1>,
+    ) -> Result<StepError, ElementModelError> {
+        self.elements()
+            .iter()
+            .zip(self.elements_nodes())
+            .zip(state_variables.iter().zip(updated_state))
+            .try_fold(
+                StepError::default(),
+                |worst, ((element, nodes), (state_old, state))| {
+                    element
+                        .step_error(
+                            self.constitutive_model(),
+                            &Self::element_coordinates(nodal_coordinates_old, nodes),
+                            &Self::element_coordinates(nodal_coordinates, nodes),
+                            state_old,
+                            state,
+                        )
+                        .map(|error| worst.max(error))
+                },
+            )
             .map_err(|error| ElementModelError::upstream(error, self))
     }
 }

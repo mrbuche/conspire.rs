@@ -233,12 +233,16 @@ where
     /// ```math
     /// e_{n+1} = \Big\Vert h \textstyle\sum_i d_i\,\mathbf{k}_i \Big\Vert
     /// ```
-    fn error(&self, dt: Quantity<T>, k: &[Derivative<Y, T>]) -> Result<Scalar, String> {
+    fn error(
+        &self,
+        dt: Quantity<T>,
+        k: &[Derivative<Y, T>],
+    ) -> Result<Quantity<<Y as Tensor>::Unit>, String> {
         let mut sum = &k[0] * Self::Tableau::D[0];
         for (d, slope) in Self::Tableau::D.iter().zip(k.iter()).skip(1) {
             sum += slope * *d;
         }
-        Ok(self.error_norm().measure(&(&sum * dt)))
+        Ok(self.error_norm().apply(&(&sum * dt)))
     }
     fn slopes_and_error(
         &self,
@@ -248,7 +252,7 @@ where
         dt: Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
-    ) -> Result<Scalar, String> {
+    ) -> Result<Quantity<<Y as Tensor>::Unit>, String> {
         Self::slopes(&mut function, y, t, dt, k, y_trial)?;
         self.error(dt, k)
     }
@@ -265,12 +269,11 @@ where
         dt: &mut Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &Y,
-        e: Scalar,
+        e: Quantity<<Y as Tensor>::Unit>,
     ) -> Result<(), String> {
-        let tolerance = self
-            .abs_tol()
-            .max(self.rel_tol() * self.error_norm().measure(y_trial));
-        if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
+        let relative = self.error_norm().apply(y_trial) * self.rel_tol();
+        let tolerance = Quantity::new(self.abs_tol()).max(relative);
+        if e < Quantity::new(self.abs_tol()) || e < relative {
             k_sol.push(k.iter().cloned().collect());
             *t += *dt;
             *y = y_trial.clone();
@@ -286,7 +289,7 @@ where
     /// ```math
     /// h_{n+1} = \beta h \left(\frac{e_\mathrm{tol}}{e_{n+1}}\right)^{1/p}
     /// ```
-    fn time_step(&self, error: Scalar, tolerance: Scalar, dt: &mut Quantity<T>) {
+    fn time_step<E>(&self, error: Quantity<E>, tolerance: Quantity<E>, dt: &mut Quantity<T>) {
         *dt *= StepController::new(
             self.dt_beta(),
             self.dt_expn(),
@@ -377,7 +380,7 @@ where
         dt: Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &mut Y,
-    ) -> Result<Scalar, String> {
+    ) -> Result<Quantity<<Y as Tensor>::Unit>, String> {
         Self::slopes(&mut function, y, t, dt, k, y_trial)?;
         k[Self::SLOPES - 1] = function(t + dt, y_trial)?;
         self.error(dt, k)
@@ -394,12 +397,11 @@ where
         dt: &mut Quantity<T>,
         k: &mut [Derivative<Y, T>],
         y_trial: &Y,
-        e: Scalar,
+        e: Quantity<<Y as Tensor>::Unit>,
     ) -> Result<(), String> {
-        let tolerance = self
-            .abs_tol()
-            .max(self.rel_tol() * self.error_norm().measure(y_trial));
-        if e < self.abs_tol() || e < self.rel_tol() * self.error_norm().measure(y_trial) {
+        let relative = self.error_norm().apply(y_trial) * self.rel_tol();
+        let tolerance = Quantity::new(self.abs_tol()).max(relative);
+        if e < Quantity::new(self.abs_tol()) || e < relative {
             k_sol.push(k.iter().cloned().collect());
             k[0] = k[Self::SLOPES - 1].clone();
             *t += *dt;

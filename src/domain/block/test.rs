@@ -1573,6 +1573,83 @@ macro_rules! test_finite_element_block_with_elastic_plastic_constitutive_model {
                 $crate::math::assert::Assert::default().eq_within_tols(&updated, &state_variables)
             }
         }
+        mod step_error {
+            use super::*;
+            use $crate::{
+                constitutive::solid::elastic_plastic::StepError,
+                math::{Quantity, optimize::NewtonRaphson},
+            };
+            #[test]
+            fn vanishes_when_the_state_does_not_change() {
+                let block = get_block();
+                let state_variables = block.initial_state();
+                let error = block
+                    .step_error(
+                        &get_reference_coordinates_block().into(),
+                        &get_coordinates_block(),
+                        &state_variables,
+                        &state_variables,
+                    )
+                    .unwrap();
+                assert_eq!(error, StepError::default());
+            }
+            #[test]
+            fn the_first_yield_overshoots_by_the_largest_increment_of_any_point() {
+                let block = get_block();
+                let state_variables = block.initial_state();
+                let updated = block
+                    .updated_state(
+                        &get_coordinates_block(),
+                        &state_variables,
+                        &NewtonRaphson::default(),
+                    )
+                    .unwrap();
+                let error = block
+                    .step_error(
+                        &get_reference_coordinates_block().into(),
+                        &get_coordinates_block(),
+                        &state_variables,
+                        &updated,
+                    )
+                    .unwrap();
+                let largest = updated
+                    .iter()
+                    .flat_map(|element_state| element_state.iter())
+                    .map(|state_variable| state_variable.1)
+                    .fold(Quantity::default(), |largest, increment| {
+                        largest.max(increment)
+                    });
+                assert!(largest > Quantity::default());
+                assert_eq!(error.overshoot, largest);
+            }
+            #[test]
+            fn a_point_already_yielding_does_not_overshoot() {
+                let block = get_block();
+                let updated = block
+                    .updated_state(
+                        &get_coordinates_block(),
+                        &block.initial_state(),
+                        &NewtonRaphson::default(),
+                    )
+                    .unwrap();
+                let again = block
+                    .updated_state(
+                        &get_coordinates_block(),
+                        &updated,
+                        &NewtonRaphson::default(),
+                    )
+                    .unwrap();
+                let error = block
+                    .step_error(
+                        &get_coordinates_block(),
+                        &get_coordinates_block(),
+                        &updated,
+                        &again,
+                    )
+                    .unwrap();
+                assert_eq!(error.overshoot, Quantity::default());
+            }
+        }
     };
 }
 pub(crate) use test_finite_element_block_with_elastic_plastic_constitutive_model;
