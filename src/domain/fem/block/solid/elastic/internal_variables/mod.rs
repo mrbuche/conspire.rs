@@ -22,12 +22,12 @@ use crate::{
     units::{Dimensionless, UnitDiv},
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E, R, H>
-    ElasticIVElements<G, V, 3> for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, V, E, R, H> ElasticIVElements<G, V, 3>
+    for Block<C, F, G, M, N, R, H>
 where
     C: ElasticIV<V>,
     C::Residual: Erase<Erased = E>,
-    F: ElasticIVFiniteElement<C, G, M, N, P, V, E>,
+    F: ElasticIVFiniteElement<C, G, M, N, V, E>,
     E: Tensor,
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,

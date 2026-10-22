@@ -12,10 +12,9 @@ use crate::{
     units::Volume,
 };
 
-impl<C, F, R, H, const G: usize, const N: usize, const P: usize> NodalVolumeElements
-    for Block<C, F, G, 3, N, P, R, H>
+impl<C, F, R, H, const G: usize, const N: usize> NodalVolumeElements for Block<C, F, G, 3, N, R, H>
 where
-    F: FiniteElement<G, 3, N, P>,
+    F: FiniteElement<G, 3, N, N>,
 {
     fn for_each_sample(
         &self,

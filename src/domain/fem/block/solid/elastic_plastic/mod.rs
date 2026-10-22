@@ -24,11 +24,11 @@ use std::array::from_fn;
 
 pub use crate::domain::block::solid::plastic::PlasticStateVariablesField;
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    ElasticPlasticElements<PlasticStateVariablesField<G>, 3> for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, R, H>
+    ElasticPlasticElements<PlasticStateVariablesField<G>, 3> for Block<C, F, G, M, N, R, H>
 where
     C: ElasticPlastic,
-    F: ElasticPlasticFiniteElement<C, G, M, N, P> + MonolithicElasticPlasticFiniteElement<C, G, N>,
+    F: ElasticPlasticFiniteElement<C, G, M, N> + MonolithicElasticPlasticFiniteElement<C, G, N>,
 {
     fn initial_state(&self) -> PlasticStateVariablesField<G> {
         self.elements()

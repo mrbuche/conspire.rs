@@ -2,7 +2,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
     ($element: ident) => {
         mod thermoelastic_thermal_conduction_block {
             use super::{
-                D, G, M, N, P, get_connectivity, get_coordinates_block,
+                D, G, M, N, get_connectivity, get_coordinates_block,
                 get_reference_coordinates_block, $element,
             };
             use crate::{
@@ -39,7 +39,6 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
                 G,
                 M,
                 N,
-                P,
             > {
                 Block::from((
                     Canonical::from((
@@ -68,7 +67,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
             #[test]
             fn thermal_rows_are_the_conduction_forces() -> Result<(), AssertionError> {
                 let temperatures = nonuniform_temperatures();
-                let thermal_block = Block::<Fourier, $element, G, M, N, P>::from((
+                let thermal_block = Block::<Fourier, $element, G, M, N>::from((
                     Fourier {
                         thermal_conductivity: THERMAL_CONDUCTIVITY,
                     },
@@ -92,7 +91,7 @@ macro_rules! test_thermoelastic_thermal_conduction_block {
             #[test]
             fn solid_rows_are_the_elastic_forces_at_the_reference_temperature()
             -> Result<(), AssertionError> {
-                let elastic_block = Block::<AlmansiHamelEulerian, $element, G, M, N, P>::from((
+                let elastic_block = Block::<AlmansiHamelEulerian, $element, G, M, N>::from((
                     AlmansiHamelEulerian {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,

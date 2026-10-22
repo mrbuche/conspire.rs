@@ -20,13 +20,13 @@ use crate::{
     },
 };
 
-fn block<C, F, const D: usize, const G: usize, const N: usize, const P: usize>(
+fn block<C, F, const D: usize, const G: usize, const N: usize>(
     constitutive_model: C,
     connectivity: Connectivity,
     coordinates: &NodalReferenceCoordinates<D>,
-) -> Result<Block<C, F, G, D, N, P>, String>
+) -> Result<Block<C, F, G, D, N>, String>
 where
-    Block<C, F, G, D, N, P>: for<'a> From<(
+    Block<C, F, G, D, N>: for<'a> From<(
         C,
         PrimitiveConnectivity<D, N>,
         &'a NodalReferenceCoordinates<D>,
@@ -40,10 +40,9 @@ where
     )))
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> FromConnectivities<3, C>
-    for Block<C, F, G, 3, N, P>
+impl<C, F, const G: usize, const N: usize> FromConnectivities<3, C> for Block<C, F, G, 3, N>
 where
-    F: FiniteElement<G, 3, N, P> + From<ElementNodalReferenceCoordinates<N>>,
+    F: FiniteElement<G, 3, N, N> + From<ElementNodalReferenceCoordinates<N>>,
     PrimitiveConnectivity<3, N>: TryFrom<Connectivity, Error = &'static str>,
 {
     fn from_connectivities(
@@ -61,10 +60,9 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> FromConnectivities<2, C>
-    for Block<C, F, G, 2, N, P>
+impl<C, F, const G: usize, const N: usize> FromConnectivities<2, C> for Block<C, F, G, 2, N>
 where
-    F: FiniteElement<G, 2, N, P> + From<PlanarElementNodalReferenceCoordinates<N>>,
+    F: FiniteElement<G, 2, N, N> + From<PlanarElementNodalReferenceCoordinates<N>>,
     PrimitiveConnectivity<2, N>: TryFrom<Connectivity, Error = &'static str>,
 {
     fn from_connectivities(
@@ -82,25 +80,12 @@ where
     }
 }
 
-impl<
-    C1,
-    C2,
-    F1,
-    F2,
-    const G1: usize,
-    const N1: usize,
-    const P1: usize,
-    const G2: usize,
-    const N2: usize,
-    const P2: usize,
-> TryFrom<(Mesh<3>, (C1, C2))>
-    for Model<
-        ElasticViscoplasticAndElastic<Block<C1, F1, G1, 3, N1, P1>, Block<C2, F2, G2, 3, N2, P2>>,
-        3,
-    >
+impl<C1, C2, F1, F2, const G1: usize, const N1: usize, const G2: usize, const N2: usize>
+    TryFrom<(Mesh<3>, (C1, C2))>
+    for Model<ElasticViscoplasticAndElastic<Block<C1, F1, G1, 3, N1>, Block<C2, F2, G2, 3, N2>>, 3>
 where
-    F1: FiniteElement<G1, 3, N1, P1> + From<ElementNodalReferenceCoordinates<N1>>,
-    F2: FiniteElement<G2, 3, N2, P2> + From<ElementNodalReferenceCoordinates<N2>>,
+    F1: FiniteElement<G1, 3, N1, N1> + From<ElementNodalReferenceCoordinates<N1>>,
+    F2: FiniteElement<G2, 3, N2, N2> + From<ElementNodalReferenceCoordinates<N2>>,
     PrimitiveConnectivity<3, N1>: TryFrom<Connectivity, Error = &'static str>,
     PrimitiveConnectivity<3, N2>: TryFrom<Connectivity, Error = &'static str>,
 {

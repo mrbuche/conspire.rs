@@ -21,11 +21,11 @@ use crate::{
     math::TensorTuple,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    ThermoelasticThermalConductionRateElements for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, R, H>
+    ThermoelasticThermalConductionRateElements for Block<C, F, G, M, N, R, H>
 where
     C: ThermoelasticThermalConduction,
-    F: ThermoelasticThermalConductionRateFiniteElement<C, G, M, N, P>,
+    F: ThermoelasticThermalConductionRateFiniteElement<C, G, M, N>,
 {
     fn nodal_forces_into(
         &self,

@@ -6,7 +6,7 @@ use crate::{
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
                 FiniteElement, GradientVectors,
-                quadratic::tetrahedron::{G, M, N, P, Tetrahedron},
+                quadratic::tetrahedron::{G, M, N, Tetrahedron},
                 test::test_finite_element,
             },
             test::test_finite_element_block,
@@ -301,7 +301,7 @@ mod volume {
         fem::Model,
         units::Stress,
     };
-    fn model() -> Model<Block<NeoHookean, Tetrahedron, G, M, N, P>, 3> {
+    fn model() -> Model<Block<NeoHookean, Tetrahedron, G, M, N>, 3> {
         let coordinates = get_reference_coordinates_block();
         (
             Block::from((

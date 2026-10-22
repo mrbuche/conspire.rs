@@ -33,7 +33,7 @@ use std::array::from_fn;
 
 type Damaged = CohesiveBlock<TvergaardHutchinson, CohesiveHexahedron, 4, 8, 4>;
 type Elastic = CohesiveBlock<LinearElastic, CohesiveHexahedron, 4, 8, 4>;
-type Solid = Block<NeoHookean, Hexahedron, 8, 3, 8, 8>;
+type Solid = Block<NeoHookean, Hexahedron, 8, 3, 8>;
 
 const ELEMENTS: [[usize; 8]; 2] = [[0, 1, 4, 3, 6, 7, 10, 9], [1, 2, 5, 4, 7, 8, 11, 10]];
 const BOTTOM: [[Scalar; 3]; 6] = [

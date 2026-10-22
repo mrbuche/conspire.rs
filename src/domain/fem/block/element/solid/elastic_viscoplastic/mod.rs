@@ -13,16 +13,10 @@ use crate::{
     mechanics::{FirstPiolaKirchhoffStressList, FirstPiolaKirchhoffTangentStiffnessList},
 };
 
-pub trait ElasticViscoplasticFiniteElement<
-    C,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-    Y,
-> where
+pub trait ElasticViscoplasticFiniteElement<C, const G: usize, const M: usize, const N: usize, Y>
+where
     C: ElasticViscoplastic<Y>,
-    Self: SolidFiniteElement<G, M, N, P>
+    Self: SolidFiniteElement<G, M, N>
         + ElasticViscoplasticElement<
             C,
             G,
@@ -35,11 +29,11 @@ pub trait ElasticViscoplasticFiniteElement<
 {
 }
 
-impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize, Y>
-    ElasticViscoplasticFiniteElement<C, G, M, N, P, Y> for T
+impl<T, C, const G: usize, const M: usize, const N: usize, Y>
+    ElasticViscoplasticFiniteElement<C, G, M, N, Y> for T
 where
     C: ElasticViscoplastic<Y>,
-    T: SolidFiniteElement<G, M, N, P>
+    T: SolidFiniteElement<G, M, N>
         + ElasticViscoplasticElement<
             C,
             G,
@@ -56,7 +50,7 @@ impl<C, const G: usize, const N: usize, const O: usize, Y> ElasticViscoplasticEl
     for Element<3, G, N, O>
 where
     C: ElasticViscoplastic<Y>,
-    Self: SolidFiniteElement<G, 3, N, N>,
+    Self: SolidFiniteElement<G, 3, N>,
     Y: Differentiable + Tensor,
 {
     type Forces = ElementNodalForcesSolid<N>;

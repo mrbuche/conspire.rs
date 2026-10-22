@@ -19,7 +19,7 @@ use crate::{
     units::{Power, PowerPerArea, PowerTemperature, Temperature, Time},
 };
 
-type Hex = Block<Fourier, Hexahedron, 8, 3, 8, 8>;
+type Hex = Block<Fourier, Hexahedron, 8, 3, 8>;
 
 fn model() -> Model<Hex, 3> {
     let mut mesh = Mesh::from((

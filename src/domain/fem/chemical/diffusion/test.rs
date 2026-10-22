@@ -19,7 +19,7 @@ const GAP: f64 = 0.05;
 const DELTA: f64 = 100.0;
 const NEAR: f64 = 1e-9;
 
-type B = Block<Fick, Tetrahedron<4>, 4, 3, 4, 4>;
+type B = Block<Fick, Tetrahedron<4>, 4, 3, 4>;
 
 const CUBOID: [[usize; 4]; 6] = [
     [0, 1, 3, 7],

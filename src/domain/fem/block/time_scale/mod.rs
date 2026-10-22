@@ -15,11 +15,11 @@ use crate::{
     units::Time,
 };
 
-impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
-    TimeScaleElements<3> for Block<C, F, G, M, N, P, R, H>
+impl<C, F, R, H, const G: usize, const M: usize, const N: usize> TimeScaleElements<3>
+    for Block<C, F, G, M, N, R, H>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P> + LumpedMassFiniteElement<G, M, N, P>,
+    F: ElasticFiniteElement<C, G, M, N> + LumpedMassFiniteElement<G, M, N>,
     R: Densities<G>,
 {
     fn fastest_time_scale(

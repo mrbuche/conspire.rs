@@ -45,7 +45,6 @@ use conspire::{
 const G: usize = 1;
 const M: usize = 3;
 const N: usize = 4;
-const P: usize = 4;
 
 fn connectivity() -> Vec<[usize; N]> {
     vec![
@@ -7808,8 +7807,8 @@ fn root_rkmk_dae_covers_nested_and_mixed_block_topologies() {
     };
     fn assert_root_rkmk_dae<T: RootRkmkDae<3>>() {}
     type Viscoplastic =
-        Block<Canonical<AlmansiHamelEulerian, ViscoplasticFlow>, LinearTetrahedron<G>, G, M, N, P>;
-    type Elastic = Block<AlmansiHamelEulerian, LinearTetrahedron<G>, G, M, N, P>;
+        Block<Canonical<AlmansiHamelEulerian, ViscoplasticFlow>, LinearTetrahedron<G>, G, M, N>;
+    type Elastic = Block<AlmansiHamelEulerian, LinearTetrahedron<G>, G, M, N>;
     assert_root_rkmk_dae::<Model<ElasticViscoplasticAndElastic<Viscoplastic, Elastic>, 3>>();
     assert_root_rkmk_dae::<Model<Blocks<Blocks<Viscoplastic, Viscoplastic>, Viscoplastic>, 3>>();
     assert_root_rkmk_dae::<Model<Blocks<Viscoplastic, Blocks<Viscoplastic, Viscoplastic>>, 3>>();

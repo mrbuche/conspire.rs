@@ -37,7 +37,7 @@ macro_rules! test_lumped {
     ($mod:ident, $g:literal) => {
         mod $mod {
             use super::*;
-            type B = Block<(), Tetrahedron<$g>, $g, 3, 4, 4, Quantity<Density>>;
+            type B = Block<(), Tetrahedron<$g>, $g, 3, 4, Quantity<Density>>;
             fn block() -> B {
                 B::from(((), DENSITY, CONNECTIVITY.to_vec(), &coordinates()))
             }
@@ -77,15 +77,14 @@ macro_rules! test_lumped {
             }
             #[test]
             fn follows_a_density_that_varies() -> Result<(), AssertionError> {
-                let block =
-                    Block::<(), Tetrahedron<$g>, $g, 3, 4, 4, ElementDensities<$g>>::from((
-                        (),
-                        |coordinate: &ReferenceCoordinate| {
-                            Density::kilograms_per_cubic_meter(1e3 + 5e2 * coordinate[0].value())
-                        },
-                        CONNECTIVITY.to_vec(),
-                        &coordinates(),
-                    ));
+                let block = Block::<(), Tetrahedron<$g>, $g, 3, 4, ElementDensities<$g>>::from((
+                    (),
+                    |coordinate: &ReferenceCoordinate| {
+                        Density::kilograms_per_cubic_meter(1e3 + 5e2 * coordinate[0].value())
+                    },
+                    CONNECTIVITY.to_vec(),
+                    &coordinates(),
+                ));
                 let mass = block.mass();
                 let model = Model::from((block, coordinates()));
                 Assert::default()
@@ -100,7 +99,7 @@ test_lumped!(lumped_four_points, 4);
 
 mod consistent {
     use super::*;
-    type B = Block<(), Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
+    type B = Block<(), Tetrahedron<4>, 4, 3, 4, Quantity<Density>>;
     fn model() -> Model<B, 3> {
         Model::from((
             B::from(((), DENSITY, CONNECTIVITY.to_vec(), &coordinates())),
@@ -147,7 +146,7 @@ mod consistent {
 
 mod combined {
     use super::*;
-    type B = Block<(), Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
+    type B = Block<(), Tetrahedron<4>, 4, 3, 4, Quantity<Density>>;
     #[test]
     fn blocks_add_their_masses() -> Result<(), AssertionError> {
         let heavy = Density::kilograms_per_cubic_meter(2.0 * 7.8e3);

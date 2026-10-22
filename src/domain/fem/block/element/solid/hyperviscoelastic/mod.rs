@@ -13,23 +13,18 @@ use crate::{
     units::Energy,
 };
 
-pub trait HyperviscoelasticFiniteElement<
-    C,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
+pub trait HyperviscoelasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
+where
     C: Hyperviscoelastic,
-    Self: ElasticHyperviscousFiniteElement<C, G, M, N, P> + HyperviscoelasticElement<C>,
+    Self: ElasticHyperviscousFiniteElement<C, G, M, N> + HyperviscoelasticElement<C>,
 {
 }
 
-impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
-    HyperviscoelasticFiniteElement<C, G, M, N, P> for T
+impl<T, C, const G: usize, const M: usize, const N: usize>
+    HyperviscoelasticFiniteElement<C, G, M, N> for T
 where
     C: Hyperviscoelastic,
-    T: ElasticHyperviscousFiniteElement<C, G, M, N, P> + HyperviscoelasticElement<C>,
+    T: ElasticHyperviscousFiniteElement<C, G, M, N> + HyperviscoelasticElement<C>,
 {
 }
 
@@ -37,14 +32,14 @@ impl<C, const G: usize, const N: usize, const O: usize> HyperviscoelasticElement
     for Element<3, G, N, O>
 where
     C: Hyperviscoelastic,
-    Self: ElasticHyperviscousFiniteElement<C, G, 3, N, N>,
+    Self: ElasticHyperviscousFiniteElement<C, G, 3, N>,
 {
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Quantity<Energy>, FiniteElementError> {
-        helmholtz_free_energy::<_, _, _, _, _, O, _>(self, constitutive_model, nodal_coordinates)
+        helmholtz_free_energy::<_, _, _, _, _, O>(self, constitutive_model, nodal_coordinates)
     }
 }
 
@@ -52,33 +47,25 @@ impl<C, const G: usize, const N: usize, const O: usize> HyperviscoelasticElement
     for SurfaceElement<G, N, O>
 where
     C: Hyperviscoelastic,
-    Self: ElasticHyperviscousFiniteElement<C, G, 2, N, N>,
+    Self: ElasticHyperviscousFiniteElement<C, G, 2, N>,
 {
     fn helmholtz_free_energy(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
     ) -> Result<Quantity<Energy>, FiniteElementError> {
-        helmholtz_free_energy::<_, _, _, _, _, O, _>(self, constitutive_model, nodal_coordinates)
+        helmholtz_free_energy::<_, _, _, _, _, O>(self, constitutive_model, nodal_coordinates)
     }
 }
 
-fn helmholtz_free_energy<
-    C,
-    F,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const O: usize,
-    const P: usize,
->(
+fn helmholtz_free_energy<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
     element: &F,
     constitutive_model: &C,
     nodal_coordinates: &ElementNodalCoordinates<N>,
 ) -> Result<Quantity<Energy>, FiniteElementError>
 where
     C: Hyperviscoelastic,
-    F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,
+    F: ElasticHyperviscousFiniteElement<C, G, M, N>,
 {
     element
         .deformation_gradients(nodal_coordinates)

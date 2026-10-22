@@ -9,9 +9,9 @@ use crate::{
 
 pub type ElementNodalPotentials<const D: usize> = ElementNodalFields<Charge, D>;
 
-pub trait ElectricalFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait ElectricalFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: DiffusiveFiniteElement<Charge, G, M, N, P>,
+    Self: DiffusiveFiniteElement<Charge, G, M, N>,
 {
     fn potential_gradients(
         &self,
@@ -21,9 +21,7 @@ where
     }
 }
 
-impl<T, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElectricalFiniteElement<G, M, N, P> for T
-where
-    T: DiffusiveFiniteElement<Charge, G, M, N, P>,
+impl<T, const G: usize, const M: usize, const N: usize> ElectricalFiniteElement<G, M, N> for T where
+    T: DiffusiveFiniteElement<Charge, G, M, N>
 {
 }

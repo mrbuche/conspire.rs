@@ -17,15 +17,10 @@ use crate::{
 };
 use std::array::from_fn;
 
-pub trait ElasticPlasticFiniteElement<
-    C,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
+pub trait ElasticPlasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
+where
     C: ElasticPlastic,
-    Self: SolidFiniteElement<G, M, N, P>
+    Self: SolidFiniteElement<G, M, N>
         + ElasticPlasticElement<
             C,
             G,
@@ -36,11 +31,11 @@ pub trait ElasticPlasticFiniteElement<
 {
 }
 
-impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
-    ElasticPlasticFiniteElement<C, G, M, N, P> for T
+impl<T, C, const G: usize, const M: usize, const N: usize> ElasticPlasticFiniteElement<C, G, M, N>
+    for T
 where
     C: ElasticPlastic,
-    T: SolidFiniteElement<G, M, N, P>
+    T: SolidFiniteElement<G, M, N>
         + ElasticPlasticElement<
             C,
             G,
@@ -55,7 +50,7 @@ impl<C, const G: usize, const N: usize, const O: usize> ElasticPlasticElement<C,
     for Element<3, G, N, O>
 where
     C: ElasticPlastic,
-    Self: SolidFiniteElement<G, 3, N, N>,
+    Self: SolidFiniteElement<G, 3, N>,
 {
     type Forces = ElementNodalForcesSolid<N>;
     type Stiffnesses = ElementNodalStiffnessesSolid<N>;
@@ -210,7 +205,7 @@ impl<C, const G: usize, const N: usize, const O: usize>
     MonolithicElasticPlasticFiniteElement<C, G, N> for Element<3, G, N, O>
 where
     C: ElasticPlastic,
-    Self: SolidFiniteElement<G, 3, N, N>,
+    Self: SolidFiniteElement<G, 3, N>,
 {
     fn monolithic(
         &self,

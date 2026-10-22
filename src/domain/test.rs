@@ -39,7 +39,7 @@ fn reference_coordinates() -> NodalReferenceCoordinates<3> {
 }
 
 type MixedBlocks =
-    Blocks<FemBlock<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4>, VemBlock<NeoHookean, VemElement>>;
+    Blocks<FemBlock<NeoHookean, Tetrahedron<1>, 1, 3, 4>, VemBlock<NeoHookean, VemElement>>;
 
 #[test]
 fn fem_and_vem_blocks_combine_via_trait_bounds() {
@@ -87,8 +87,8 @@ fn faces_nodes() -> Vec<Vec<usize>> {
 
 type ThreeBlocks = Blocks<
     Blocks<
-        FemBlock<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4>,
-        FemBlock<NeoHookean, Tetrahedron<1>, 1, 3, 4, 4>,
+        FemBlock<NeoHookean, Tetrahedron<1>, 1, 3, 4>,
+        FemBlock<NeoHookean, Tetrahedron<1>, 1, 3, 4>,
     >,
     VemBlock<NeoHookean, VemElement>,
 >;

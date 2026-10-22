@@ -17,10 +17,10 @@ use crate::{
     math::Quantity,
 };
 
-pub trait DiffusiveElements<L, C, F, const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait DiffusiveElements<L, C, F, const G: usize, const M: usize, const N: usize>
 where
     L: Diffusive,
-    F: DiffusiveFiniteElement<L, G, M, N, P>,
+    F: DiffusiveFiniteElement<L, G, M, N>,
 {
     fn nodal_fields_element(
         &self,
@@ -30,11 +30,11 @@ where
     fn gradients(&self, nodal_fields: &NodalFields<L>) -> Vec<ElementGradients<L, G>>;
 }
 
-impl<L, C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    DiffusiveElements<L, C, F, G, M, N, P> for Block<C, F, G, M, N, P, R, H>
+impl<L, C, F, const G: usize, const M: usize, const N: usize, R, H>
+    DiffusiveElements<L, C, F, G, M, N> for Block<C, F, G, M, N, R, H>
 where
     L: Diffusive,
-    F: DiffusiveFiniteElement<L, G, M, N, P>,
+    F: DiffusiveFiniteElement<L, G, M, N>,
 {
     fn nodal_fields_element(
         &self,
@@ -57,12 +57,12 @@ where
     }
 }
 
-impl<L, C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    DiffusionElements<L> for Block<C, F, G, M, N, P, R, H>
+impl<L, C, F, const G: usize, const M: usize, const N: usize, R, H> DiffusionElements<L>
+    for Block<C, F, G, M, N, R, H>
 where
     L: Diffusive,
     C: Diffusion<Balance = L>,
-    F: DiffusionFiniteElement<C, G, M, N, P>,
+    F: DiffusionFiniteElement<C, G, M, N>,
 {
     fn potential(
         &self,

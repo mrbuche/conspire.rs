@@ -39,10 +39,8 @@ impl<const G: usize> HeatCapacities<G> for Quantity<VolumetricHeatCapacity> {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct NoHeatCapacity;
 
-impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
-    Block<C, F, G, M, N, P, R, H>
-{
-    pub fn with_heat_capacity<S>(self, heat_capacity: S) -> Block<C, F, G, M, N, P, R, S>
+impl<C, F, R, H, const G: usize, const M: usize, const N: usize> Block<C, F, G, M, N, R, H> {
+    pub fn with_heat_capacity<S>(self, heat_capacity: S) -> Block<C, F, G, M, N, R, S>
     where
         S: HeatCapacities<G>,
     {
@@ -59,10 +57,10 @@ impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
     }
 }
 
-impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
-    ConsistentHeatCapacityElements for Block<C, F, G, M, N, P, R, H>
+impl<C, F, R, H, const G: usize, const M: usize, const N: usize> ConsistentHeatCapacityElements
+    for Block<C, F, G, M, N, R, H>
 where
-    F: HeatCapacityFiniteElement<G, M, N, P>,
+    F: HeatCapacityFiniteElement<G, M, N>,
     H: HeatCapacities<G>,
 {
     fn nodal_heat_capacities_into(&self, nodal_heat_capacities: &mut NodalHeatCapacities) {
@@ -86,10 +84,10 @@ where
     }
 }
 
-impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
-    LumpedHeatCapacityElements<M> for Block<C, F, G, M, N, P, R, H>
+impl<C, F, R, H, const G: usize, const M: usize, const N: usize> LumpedHeatCapacityElements<M>
+    for Block<C, F, G, M, N, R, H>
 where
-    F: LumpedHeatCapacityFiniteElement<G, M, N, P>,
+    F: LumpedHeatCapacityFiniteElement<G, M, N>,
     H: HeatCapacities<G>,
 {
     fn nodal_lumped_heat_capacities_into(

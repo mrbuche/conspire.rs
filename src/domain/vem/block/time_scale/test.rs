@@ -35,7 +35,7 @@ fn virtual_time_scale(nodes: &[[f64; 3]], faces: Vec<Vec<usize>>) -> f64 {
 
 fn finite_time_scale(nodes: &[[f64; 3]], tetrahedra: Vec<[usize; 4]>) -> f64 {
     let reference = NodalReferenceCoordinates::from(nodes.to_vec());
-    fem::block::Block::<_, Tetrahedron<1>, 1, 3, 4, 4, Quantity<Density>>::from((
+    fem::block::Block::<_, Tetrahedron<1>, 1, 3, 4, Quantity<Density>>::from((
         model(),
         DENSITY,
         tetrahedra,

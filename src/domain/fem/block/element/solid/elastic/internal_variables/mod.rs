@@ -40,18 +40,11 @@ where
 /// The internal variables held at each integration point of an element.
 pub type InternalVariables<const G: usize, V> = TensorList<V, G>;
 
-pub trait ElasticIVFiniteElement<
-    C,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-    V,
-    E,
-> where
+pub trait ElasticIVFiniteElement<C, const G: usize, const M: usize, const N: usize, V, E>
+where
     C: ElasticIV<V>,
     C::Residual: Erase<Erased = E>,
-    Self: SolidFiniteElement<G, M, N, P>,
+    Self: SolidFiniteElement<G, M, N>,
     V: Erase<Erased = E> + Jacobian + Solution,
     <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
     E: Tensor,
@@ -358,12 +351,12 @@ where
     Ok(condensed)
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V, E>
-    ElasticIVFiniteElement<C, G, 3, N, P, V, E> for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, V, E>
+    ElasticIVFiniteElement<C, G, 3, N, V, E> for Element<3, G, N, O>
 where
     C: ElasticIV<V>,
     C::Residual: Erase<Erased = E>,
-    Self: SolidFiniteElement<G, 3, N, P>,
+    Self: SolidFiniteElement<G, 3, N>,
     V: Erase<Erased = E> + Jacobian + Solution,
     <V as Tensor>::Unit: UnitDiv<<V as Tensor>::Unit, Output = Dimensionless>,
     E: Tensor,
