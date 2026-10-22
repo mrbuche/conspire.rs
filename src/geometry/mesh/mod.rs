@@ -20,6 +20,7 @@ mod write;
 
 pub use from::Dualization;
 pub use sets::{NodeSet, NodeSets, SideSet, SideSets};
+pub(crate) use tessellation::features::Along;
 
 pub use self::{
     connectivity::{

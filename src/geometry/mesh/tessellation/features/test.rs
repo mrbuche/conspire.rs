@@ -1,11 +1,15 @@
 use crate::{
     geometry::{
         Coordinate, Coordinates,
-        mesh::{Connectivity, Mesh, tessellation::Tessellation},
+        mesh::{
+            Along, Connectivity, Mesh,
+            tessellation::Tessellation,
+            test::{trench, wedge},
+        },
     },
     math::{Quantity, Tensor, TensorVec},
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, f64::consts::PI};
 
 fn cube(minimum: [f64; 3], maximum: [f64; 3]) -> Tessellation {
     let [x0, y0, z0] = minimum;
@@ -183,7 +187,7 @@ fn a_stair_step_has_two_creases() {
 fn a_stair_step_notch_is_seen_as_a_narrow_feature() {
     let tessellation = stair_step(0.1);
     let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0));
     // the two creases are not adjacent in the crease graph (they share no
     // node) but sit 0.1 apart in space, across the riser panel.
     separation.iter().for_each(|entry| {
@@ -200,7 +204,7 @@ fn a_stair_step_notch_is_seen_as_a_narrow_feature() {
 fn a_wider_stair_step_notch_reports_a_larger_separation() {
     let tessellation = stair_step(0.3);
     let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0));
     separation.iter().for_each(|entry| {
         let distance = entry.first().expect("no nearby crease").distance;
         assert!(
@@ -215,7 +219,7 @@ fn a_wider_stair_step_notch_reports_a_larger_separation() {
 fn a_stair_step_notch_no_wider_than_the_minimum_is_not_seen() {
     let tessellation = stair_step(0.1);
     let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(0.1), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.1));
     separation
         .iter()
         .for_each(|entry| assert!(entry.is_empty(), "{entry:?}"));
@@ -267,7 +271,7 @@ fn only_the_creases_with_surface_between_them_bound_a_slot() {
     let tessellation = slot(0.1, 1.0);
     let features = tessellation.features();
     assert_eq!(features.creases().len(), 4);
-    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0));
     let floor = features
         .creases()
         .iter()
@@ -295,28 +299,10 @@ fn only_the_creases_with_surface_between_them_bound_a_slot() {
 }
 
 #[test]
-fn without_graph_exclusion_a_cube_corner_looks_like_a_narrow_feature() {
-    // three creases meet at every corner of a cube, touching at distance
-    // zero; with no hops excluded beyond the crease itself, that shared
-    // corner would be misread as an arbitrarily narrow feature.
+fn creases_that_meet_are_not_compared_by_separation() {
     let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
     let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(0.0), 0);
-    assert!(
-        separation.iter().all(|entry| {
-            entry
-                .first()
-                .is_some_and(|entry| entry.distance == Quantity::new(0.0))
-        }),
-        "{separation:?}"
-    );
-}
-
-#[test]
-fn excluding_one_hop_removes_the_shared_corner_false_positive() {
-    let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
-    let features = tessellation.features();
-    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0));
     // The edges of a cube are all a whole edge length from the ones they
     // are not related to, so nothing there is narrow.
     assert!(
@@ -393,7 +379,7 @@ fn a_subdivided_slot_floor_is_seen_along_its_whole_length() {
     for n in [1, 2, 3, 4, 8] {
         let tessellation = slot_divided(0.1, 1.0, n);
         let features = tessellation.features();
-        let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
+        let separation = features.separation(&tessellation, Quantity::new(0.0));
         let (mut floor, mut covered) = (0, 0);
         features
             .creases()
@@ -412,4 +398,81 @@ fn a_subdivided_slot_floor_is_seen_along_its_whole_length() {
             "{covered} of {floor} floor creases paired at n = {n}"
         )
     }
+}
+
+#[test]
+fn the_corners_of_a_cube_bound_no_narrow_feature() {
+    let tessellation = cube([0.0, 0.0, 0.0], [1.0, 1.0, 1.0]);
+    let bends = tessellation
+        .features()
+        .bends(&tessellation, Quantity::new(0.01), |ratio| ratio < 0.5);
+    assert!(bends.is_empty(), "{bends:?}");
+}
+
+#[test]
+fn the_point_of_a_thin_wedge_bounds_a_narrow_feature() {
+    let plate = wedge(10.0, 1.0, 1.0);
+    let bends = plate
+        .features()
+        .bends(&plate, Quantity::new(0.01), |ratio| ratio < 0.4);
+    // The edges along the top of the two long sides, and those along the
+    // bottom, each meet at the point.
+    assert_eq!(bends.len(), 2, "{bends:?}");
+    bends
+        .iter()
+        .for_each(|bend| assert!(matches!(bend.along, Along::Meeting { .. }), "{bend:?}"));
+}
+
+#[test]
+fn creases_that_open_faster_than_the_gap_asked_for_are_left_out() {
+    let plate = wedge(10.0, 1.0, 1.0);
+    let features = plate.features();
+    assert!(
+        features
+            .bends(&plate, Quantity::new(0.01), |ratio| ratio < 0.02)
+            .is_empty()
+    );
+    assert!(
+        features
+            .bends(&plate, Quantity::new(10.0), |ratio| ratio < 0.5)
+            .is_empty()
+    );
+}
+
+#[test]
+fn the_two_sides_of_a_trench_floor_are_far_apart_round_its_end() {
+    let (width, depth) = (0.05, 0.3);
+    let block = trench(width, depth);
+    let features = block.features();
+    let floor = 0.5 - depth;
+    let bends = features.bends(&block, Quantity::new(0.01), |ratio| ratio < 0.4);
+    let sides: Vec<_> = bends
+        .iter()
+        .filter(|bend| {
+            matches!(bend.along, Along::Chain { .. })
+                && bend.creases.iter().all(|&crease| {
+                    features.creases()[crease]
+                        .iter()
+                        .all(|end| (end[2].value() - floor).abs() < 1.0e-12)
+                })
+        })
+        .collect();
+    assert!(!sides.is_empty(), "no pair of creases on the trench floor");
+    // The sides run in to y = 0.6 and eight chords of a semicircle close them,
+    // so a point halfway along one is `2 * 0.3` and the length of the chords
+    // from the point opposite it.
+    let radius = width / 2.0;
+    let expected = 2.0 * 0.3 + 16.0 * radius * (PI / 16.0).sin();
+    let found = sides.iter().any(|bend| {
+        let segments = [
+            features.creases()[bend.creases[0]].clone(),
+            features.creases()[bend.creases[1]].clone(),
+        ];
+        let at = |segment: &[Coordinate<3>; 2]| {
+            Coordinate::<3>::from([segment[0][0], Quantity::new(0.3), Quantity::new(floor)])
+        };
+        let (one, two) = (at(&segments[0]), at(&segments[1]));
+        (bend.along.between(&segments, &one, &two) - expected).abs() < 1.0e-9
+    });
+    assert!(found, "no pair of sides {expected} apart round the end");
 }

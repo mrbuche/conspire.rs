@@ -8,12 +8,15 @@ use crate::{
     geometry::{
         Coordinate, Coordinates,
         mesh::{
-            Tessellation,
+            Along, Tessellation,
             differential::sizing::{Creases, Unresolved, sizing_field},
         },
         ntree::{
             node::cell::Cell,
-            sizing::{curvature::CurvatureSizing, separation::SeparationSizing},
+            sizing::{
+                curvature::CurvatureSizing,
+                separation::{SeparationSizing, asks},
+            },
         },
     },
     math::{Quantity, Scalar, Tensor, TensorVec},
@@ -23,6 +26,10 @@ use std::{array::from_fn, f64::consts::FRAC_PI_4};
 
 const D: usize = 3;
 
+/// Two creases, how close they come, and how far apart they are along the
+/// creases.
+type Narrow = ([[Coordinate<D>; 2]; 2], Quantity<Length>, Along);
+
 /// Parameters controlling octree refinement.
 pub struct Sizing<'a> {
     pub(crate) center: Coordinate<D>,
@@ -30,6 +37,7 @@ pub struct Sizing<'a> {
     pub(crate) elements: Vec<&'a [usize]>,
     pub(crate) levels: u32,
     pub(crate) min_length: Quantity<Length>,
+    pub(crate) along: Vec<Along>,
     pub(crate) narrow: Vec<[[Coordinate<D>; 2]; 2]>,
     pub(crate) ratio: Scalar,
     pub(crate) scale: Scalar,
@@ -60,7 +68,6 @@ impl<'a> Sizing<'a> {
         } = curvature;
         let SeparationSizing {
             minimum: separation_minimum,
-            hops: separation_hops,
             scale: separation_scale,
         } = separation;
         let separation_scale = separation_scale.unwrap_or(scale);
@@ -73,6 +80,7 @@ impl<'a> Sizing<'a> {
                 elements: Vec::new(),
                 levels: 0,
                 min_length: Quantity::new(1.0),
+                along: Vec::new(),
                 narrow: Vec::new(),
                 ratio: 1.0,
                 scale,
@@ -131,41 +139,61 @@ impl<'a> Sizing<'a> {
         // the triangles or the whole creases would drive the entire model down
         // to the gap size instead of just the gap. Every pair a crease takes
         // part in is kept, since each covers a different stretch of it.
-        let narrow_pairs: Vec<([[Coordinate<D>; 2]; 2], Quantity<Length>)> =
-            match separation_minimum {
-                Some(minimum) => {
-                    let features = tessellation.features();
-                    features
-                        .separation(tessellation, minimum, separation_hops)
-                        .into_iter()
-                        .enumerate()
-                        .flat_map(|(crease, partners)| {
-                            // Each pair is reported from both of its creases, and
-                            // one copy of it is enough. Creases that touch have
-                            // no gap to resolve.
-                            partners
-                                .into_iter()
-                                .filter(move |partner| {
-                                    crease < partner.crease
-                                        && partner.distance > Quantity::default()
-                                })
-                                .map(move |partner| {
-                                    (
-                                        [
-                                            features.creases()[crease].clone(),
-                                            features.creases()[partner.crease].clone(),
-                                        ],
-                                        partner.distance,
-                                    )
-                                })
-                        })
-                        .collect()
-                }
-                None => Vec::new(),
-            };
+        let narrow_pairs: Vec<Narrow> = match separation_minimum {
+            Some(minimum) => {
+                let features = tessellation.features();
+                let apart = features
+                    .separation(tessellation, minimum)
+                    .into_iter()
+                    .enumerate()
+                    .flat_map(|(crease, partners)| {
+                        // Each pair is reported from both of its creases, and
+                        // one copy of it is enough. Creases that touch have
+                        // no gap to resolve.
+                        partners
+                            .into_iter()
+                            .filter(move |partner| {
+                                crease < partner.crease && partner.distance > Quantity::default()
+                            })
+                            .map(move |partner| {
+                                (
+                                    [
+                                        features.creases()[crease].clone(),
+                                        features.creases()[partner.crease].clone(),
+                                    ],
+                                    partner.distance,
+                                    Along::Apart,
+                                )
+                            })
+                    });
+                // Creases of one chain, or of chains that meet, are narrow only
+                // where they run close for how far apart they are along the
+                // creases, and may reach down to a gap of nothing where they
+                // meet, so they are taken only with a minimum to stop at, which
+                // is the gap they are then sized to.
+                let bends = if minimum > Quantity::default() {
+                    features.bends(tessellation, minimum, asks)
+                } else {
+                    Vec::new()
+                };
+                apart
+                    .chain(bends.into_iter().map(|bend| {
+                        (
+                            [
+                                features.creases()[bend.creases[0]].clone(),
+                                features.creases()[bend.creases[1]].clone(),
+                            ],
+                            minimum,
+                            bend.along,
+                        )
+                    }))
+                    .collect()
+            }
+            None => Vec::new(),
+        };
         let min_narrow = narrow_pairs
             .iter()
-            .map(|&(_, distance)| distance)
+            .map(|&(_, distance, _)| distance)
             .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
         let thickness_length = if min_sdf.value().is_finite() {
             min_sdf / scale
@@ -199,8 +227,10 @@ impl<'a> Sizing<'a> {
                 thickness.min(feature)
             })
             .collect();
-        let narrow: Vec<[[Coordinate<D>; 2]; 2]> =
-            narrow_pairs.into_iter().map(|(pair, _)| pair).collect();
+        let (narrow, along): (Vec<[[Coordinate<D>; 2]; 2]>, Vec<Along>) = narrow_pairs
+            .into_iter()
+            .map(|(pair, _, along)| (pair, along))
+            .unzip();
         Self {
             center: Coordinate::<D>::from(from_fn::<_, D, _>(|ax| {
                 (min_coord[ax] + max_coord[ax]) / 2.0
@@ -209,6 +239,7 @@ impl<'a> Sizing<'a> {
             elements,
             levels,
             min_length,
+            along,
             narrow,
             ratio: scale / separation_scale,
             scale,

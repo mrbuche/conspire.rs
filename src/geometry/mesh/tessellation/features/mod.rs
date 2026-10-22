@@ -63,6 +63,103 @@ pub struct Separation {
     pub distance: Quantity<Length>,
 }
 
+/// How far apart two creases are along the creases themselves, which is
+/// farther than they are in space where the creases bend back on each other,
+/// as the two sides of a wall do round the end of it (see [`Features::bends`]).
+#[derive(Clone, Debug)]
+pub enum Along {
+    /// Nothing joins them, so there is no way along the creases from one to
+    /// the other.
+    Apart,
+    /// They lie in one chain. `spans` hold the position along the chain of the
+    /// two ends of each crease, and `period` the length of the chain if it
+    /// closes on itself.
+    Chain {
+        spans: [[Scalar; 2]; 2],
+        period: Scalar,
+    },
+    /// They lie in two chains that meet. `links` hold the position along each
+    /// chain of each place they meet, and `periods` the length of each chain if
+    /// it closes on itself.
+    Meeting {
+        spans: [[Scalar; 2]; 2],
+        periods: [Scalar; 2],
+        links: Vec<[Scalar; 2]>,
+    },
+}
+
+/// Two creases, one of which is the same chain as the other or of a chain
+/// that meets it, and that run close together for how far apart they are
+/// along the creases (see [`Features::bends`]).
+#[derive(Clone, Debug)]
+pub struct Bend {
+    /// Indices into [`Features::creases`] of the two creases.
+    pub creases: [usize; 2],
+    /// How far apart they are along the creases.
+    pub along: Along,
+}
+
+impl Along {
+    /// The distance along the creases from the point of `segments[0]` nearest
+    /// `one` to the point of `segments[1]` nearest `two`, or infinity where
+    /// nothing joins them.
+    pub fn between(
+        &self,
+        segments: &[[Coordinate<D>; 2]; 2],
+        one: &Coordinate<D>,
+        two: &Coordinate<D>,
+    ) -> Scalar {
+        let position = |side: usize, spans: &[[Scalar; 2]; 2], point: &Coordinate<D>| {
+            spans[side][0]
+                + fraction_along(&segments[side], point) * (spans[side][1] - spans[side][0])
+        };
+        match self {
+            Along::Apart => Scalar::INFINITY,
+            Along::Chain { spans, period } => {
+                around(position(0, spans, one) - position(1, spans, two), *period)
+            }
+            Along::Meeting {
+                spans,
+                periods,
+                links,
+            } => {
+                let (one, two) = (position(0, spans, one), position(1, spans, two));
+                links
+                    .iter()
+                    .map(|link| {
+                        around(one - link[0], periods[0]) + around(two - link[1], periods[1])
+                    })
+                    .fold(Scalar::INFINITY, Scalar::min)
+            }
+        }
+    }
+}
+
+/// The distance between two positions along a chain, the short way round if
+/// the chain closes on itself and so has a finite `period`.
+fn around(delta: Scalar, period: Scalar) -> Scalar {
+    let delta = delta.abs();
+    if period.is_finite() {
+        let delta = delta % period;
+        delta.min(period - delta)
+    } else {
+        delta
+    }
+}
+
+/// How far along `segment`, as a fraction of its length, lies the point of it
+/// nearest `point`.
+fn fraction_along(segment: &[Coordinate<D>; 2], point: &Coordinate<D>) -> Scalar {
+    let along = &segment[1] - &segment[0];
+    let length = &along * &along;
+    if length == Quantity::<Area>::new(0.0) {
+        return 0.0;
+    }
+    ((point - &segment[0]) * &along / length)
+        .value()
+        .clamp(0.0, 1.0)
+}
+
 /// The features of a tessellation, binned for lookup within a fixed radius.
 pub struct FeatureIndex<'a> {
     features: &'a Features,
@@ -240,12 +337,217 @@ impl Features {
             .map(|crease| root(&mut parent, crease))
             .collect()
     }
+    /// Where each crease lies along its chain, as the positions of its two ends
+    /// measured by length from one end of the chain, with the length of each
+    /// chain that closes on itself (and infinity for one that does not).
+    fn positions(
+        &self,
+        incident: &FxHashMap<usize, Vec<usize>>,
+        chain: &[usize],
+    ) -> (Vec<[Scalar; 2]>, FxHashMap<usize, Scalar>) {
+        let mut members = FxHashMap::<usize, Vec<usize>>::default();
+        chain
+            .iter()
+            .enumerate()
+            .for_each(|(crease, &chain)| members.entry(chain).or_default().push(crease));
+        let mut roots: Vec<usize> = members.keys().copied().collect();
+        roots.sort_unstable();
+        let mut spans = vec![[0.0; 2]; self.creases.len()];
+        let mut periods = FxHashMap::<usize, Scalar>::default();
+        let mut done = vec![false; self.creases.len()];
+        roots.into_iter().for_each(|root| {
+            let creases = &members[&root];
+            let inside = |node: usize| {
+                incident[&node]
+                    .iter()
+                    .filter(|&&crease| chain[crease] == root)
+                    .count()
+            };
+            let start = creases
+                .iter()
+                .flat_map(|&crease| self.crease_nodes[crease])
+                .find(|&node| inside(node) == 1);
+            let mut node = start.unwrap_or(self.crease_nodes[creases[0]][0]);
+            let mut position = 0.0;
+            while let Some(&crease) = incident[&node]
+                .iter()
+                .find(|&&crease| chain[crease] == root && !done[crease])
+            {
+                done[crease] = true;
+                let [a, b] = self.crease_nodes[crease];
+                let end = position
+                    + (&self.creases[crease][1] - &self.creases[crease][0])
+                        .norm()
+                        .value();
+                if a == node {
+                    spans[crease] = [position, end];
+                    node = b;
+                } else {
+                    spans[crease] = [end, position];
+                    node = a;
+                }
+                position = end;
+            }
+            periods.insert(
+                root,
+                if start.is_none() {
+                    position
+                } else {
+                    Scalar::INFINITY
+                },
+            );
+        });
+        (spans, periods)
+    }
+    /// Pairs of creases, with surface between them, that [`separation`](Self::separation)
+    /// leaves out, being of one chain or of chains that meet, and that lie
+    /// close together for how far apart they are along the creases: where
+    /// one lies `g` from the other and `d` away along them, `thin(g / d)`
+    /// holds somewhere along them, and `g` is at least `floor` somewhere.
+    ///
+    /// Such creases are not a narrow feature where they bend into each other,
+    /// as at the corner of a box, where they lie about as far apart in space as
+    /// along the creases. But two creases that meet at a small angle, such as a
+    /// wall thinning to a point, and the two sides of a wall that closes in a
+    /// curve, so that they are one chain, run a gap apart that is small against
+    /// how far they are from one another along the creases, and are narrow
+    /// all the way along. That distance is reported with each pair so the
+    /// caller can tell the two apart where it applies the pair.
+    pub fn bends(
+        &self,
+        tessellation: &Tessellation,
+        floor: Quantity<Length>,
+        thin: impl Fn(Scalar) -> bool,
+    ) -> Vec<Bend> {
+        if self.creases.is_empty() {
+            return Vec::new();
+        }
+        let mut incident = FxHashMap::<usize, Vec<usize>>::default();
+        self.crease_nodes
+            .iter()
+            .enumerate()
+            .for_each(|(index, &[a, b])| {
+                incident.entry(a).or_default().push(index);
+                incident.entry(b).or_default().push(index);
+            });
+        let chain = self.chains(&incident);
+        let (spans, periods) = self.positions(&incident, &chain);
+        let mut members = FxHashMap::<usize, Vec<usize>>::default();
+        chain
+            .iter()
+            .enumerate()
+            .for_each(|(crease, &chain)| members.entry(chain).or_default().push(crease));
+        let mut roots: Vec<usize> = members.keys().copied().collect();
+        roots.sort_unstable();
+        // Where each pair of chains meet, as the position along each.
+        let mut nodes: Vec<usize> = incident.keys().copied().collect();
+        nodes.sort_unstable();
+        let mut meetings = FxHashMap::<[usize; 2], Vec<[Scalar; 2]>>::default();
+        nodes.into_iter().for_each(|node| {
+            let at =
+                |crease: usize| spans[crease][usize::from(self.crease_nodes[crease][1] == node)];
+            incident[&node].iter().for_each(|&one| {
+                incident[&node].iter().for_each(|&two| {
+                    if chain[one] < chain[two] {
+                        meetings
+                            .entry([chain[one], chain[two]])
+                            .or_default()
+                            .push([at(one), at(two)])
+                    }
+                })
+            })
+        });
+        let coordinates = tessellation.mesh().coordinates();
+        let elements: Vec<&[usize]> = tessellation
+            .mesh()
+            .connectivities()
+            .iter()
+            .flatten()
+            .collect();
+        let bvh = tessellation.bvh();
+        let mut found = Vec::new();
+        let mut consider = |this: usize, other: usize, along: Along| {
+            let segments = [self.creases[this].clone(), self.creases[other].clone()];
+            let samples = |segment: &[Coordinate<D>; 2]| {
+                [
+                    segment[0].clone(),
+                    segment[1].clone(),
+                    Coordinate::<D>::from(from_fn::<_, D, _>(|axis| {
+                        (segment[0][axis] + segment[1][axis]) / 2.0
+                    })),
+                ]
+            };
+            let mut thinnest = Scalar::INFINITY;
+            let mut widest = Quantity::<Length>::default();
+            samples(&segments[0])
+                .iter()
+                .map(|point| (point.clone(), closest_on(&segments[1], point)))
+                .chain(
+                    samples(&segments[1])
+                        .iter()
+                        .map(|point| (closest_on(&segments[0], point), point.clone())),
+                )
+                .for_each(|(on_this, on_other)| {
+                    let gap = (&on_this - &on_other).norm();
+                    widest = widest.max(gap);
+                    let far = along.between(&segments, &on_this, &on_other);
+                    if far.is_infinite() {
+                        thinnest = 0.0;
+                    } else if far > 0.0 {
+                        thinnest = thinnest.min(gap.value() / far);
+                    }
+                });
+            if thinnest.is_finite()
+                && thin(thinnest)
+                && widest >= floor
+                && joined(&segments[0], &segments[1], coordinates, &elements, bvh)
+            {
+                found.push(Bend {
+                    creases: [this, other],
+                    along,
+                })
+            }
+        };
+        roots.iter().for_each(|root| {
+            let creases = &members[root];
+            creases.iter().enumerate().for_each(|(i, &this)| {
+                creases[i + 1..].iter().for_each(|&other| {
+                    consider(
+                        this,
+                        other,
+                        Along::Chain {
+                            spans: [spans[this], spans[other]],
+                            period: periods[root],
+                        },
+                    )
+                })
+            })
+        });
+        let mut meeting: Vec<[usize; 2]> = meetings.keys().copied().collect();
+        meeting.sort_unstable();
+        meeting.into_iter().for_each(|pair| {
+            let [one, two] = pair;
+            members[&one].iter().for_each(|&this| {
+                members[&two].iter().for_each(|&other| {
+                    consider(
+                        this,
+                        other,
+                        Along::Meeting {
+                            spans: [spans[this], spans[other]],
+                            periods: [periods[&one], periods[&two]],
+                            links: meetings[&pair].clone(),
+                        },
+                    )
+                })
+            })
+        });
+        found
+    }
     /// Every *unrelated* crease at least `minimum` from each crease that
     /// surface runs between (see [`joined`]), nearest first, where a crease is
-    /// related to every crease of its own chain and of every chain within
-    /// `hops` steps of it (so a crease does not see its own
-    /// smoothly-continuing neighbors as a narrow feature). Entries are empty
-    /// when no such crease exists. Pairs closer than `minimum` are left out,
+    /// related to every crease of its own chain and of every chain that meets
+    /// it, which [`bends`](Self::bends) takes instead. Entries are empty when
+    /// no such crease exists. Pairs closer than `minimum` are left out,
     /// which keeps the noise of a tessellation, such as creases a hair apart
     /// on a sliver, from being taken for a feature.
     ///
@@ -259,13 +561,13 @@ impl Features {
     /// creases are also routinely tied to the last bit for nearest, so
     /// choosing one of them would make the answer arbitrary.
     ///
-    /// Chains, rather than individual creases, are what `hops` steps over:
-    /// a chain is a maximal run of creases meeting end to end at nodes that
-    /// are not corners, so the chain decomposition depends only on the shape
-    /// and not on how finely the shape happens to be triangulated. Counting
-    /// hops in creases instead would let a single sharp edge, once subdivided,
-    /// pair its own collinear pieces with each other, reporting a "gap" of one
-    /// triangle edge that shrinks with every refinement of the input.
+    /// Chains, rather than individual creases, are what is left out: a chain
+    /// is a maximal run of creases meeting end to end at nodes that are not
+    /// corners, so the chain decomposition depends only on the shape and not
+    /// on how finely the shape happens to be triangulated. Counting creases
+    /// instead would let a single sharp edge, once subdivided, pair its own
+    /// collinear pieces with each other, reporting a "gap" of one triangle edge
+    /// that shrinks with every refinement of the input.
     ///
     /// This is a proxy for local feature size that costs nothing beyond the
     /// crease detection already performed: two creases close in space but far
@@ -282,7 +584,6 @@ impl Features {
         &self,
         tessellation: &Tessellation,
         minimum: Quantity<Length>,
-        hops: usize,
     ) -> Vec<Vec<Separation>> {
         if self.creases.is_empty() {
             return Vec::new();
@@ -306,31 +607,16 @@ impl Features {
                 })
             })
         });
-        // Which chains a chain may not be compared against depends only on
-        // the chain, so the walk is done once per chain rather than per
-        // crease.
-        let mut excluded = FxHashMap::<usize, FxHashSet<usize>>::default();
-        chain.iter().for_each(|&start| {
-            excluded.entry(start).or_insert_with(|| {
-                let mut reached = FxHashSet::<usize>::default();
+        // A chain is compared against neither itself nor a chain that meets
+        // it.
+        let excluded: FxHashMap<usize, FxHashSet<usize>> = chain
+            .iter()
+            .map(|&start| {
+                let mut reached = adjacent.get(&start).cloned().unwrap_or_default();
                 reached.insert(start);
-                let mut frontier = vec![start];
-                for _ in 0..hops {
-                    let mut next = Vec::new();
-                    frontier.iter().for_each(|near| {
-                        if let Some(neighbors) = adjacent.get(near) {
-                            neighbors.iter().for_each(|&other| {
-                                if reached.insert(other) {
-                                    next.push(other)
-                                }
-                            })
-                        }
-                    });
-                    frontier = next;
-                }
-                reached
-            });
-        });
+                (start, reached)
+            })
+            .collect();
         // The creases of each chain running closest to each crease. Every
         // candidate pair is measured once and recorded from both ends, so the
         // two creases agree on it.

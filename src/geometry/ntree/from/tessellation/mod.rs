@@ -12,7 +12,11 @@ use crate::{
             node::{Kind, Node, cell::Cell, slot::Slot},
             pair::Pairing,
             rescale::Rescaling,
-            sizing::{Sizing, curvature::CurvatureSizing, separation::SeparationSizing},
+            sizing::{
+                Sizing,
+                curvature::CurvatureSizing,
+                separation::{NARROWEST, SeparationSizing, narrowness},
+            },
         },
     },
     math::{Quantity, Scalar, Tensor},
@@ -75,6 +79,7 @@ where
             center,
             coordinates,
             elements,
+            along,
             levels,
             min_length,
             narrow,
@@ -143,6 +148,29 @@ where
                 let near = gap + reach * slack;
                 ((&one - center).norm() <= near && (&two - center).norm() <= near).then_some(gap)
             };
+        // What a pair asks of a cell between its creases: cells of the gap
+        // between them over the cells wanted across it. Creases of one chain, or
+        // of chains that meet, ask for it only as far as they bound a narrow
+        // feature, which they do while the gap is small against the distance
+        // along the creases between the points nearest the cell, and not at the
+        // corner of a box. Where they meet the gap goes to nothing, which the
+        // finest cell the tree has stops short of.
+        let applied = |pair: usize, center: &Coordinate<3>, reach: Quantity<Length>| {
+            let [one, two] = &narrow[pair];
+            let (one, two) = (closest_on(one, center), closest_on(two, center));
+            let gap = (&one - &two).norm();
+            let near = gap + reach;
+            if (&one - center).norm() > near || (&two - center).norm() > near {
+                return None;
+            }
+            let far = along[pair].between(&narrow[pair], &one, &two);
+            let thin = narrowness(if far.is_finite() && far > 0.0 {
+                gap.value() / far
+            } else {
+                0.0
+            });
+            (thin > NARROWEST).then(|| gap * (*ratio / thin))
+        };
         let frame = |tree: &Self, node: usize| {
             let corner = tree.nodes[node].corner;
             let extent: Scalar = tree.nodes[node].length.scalar();
@@ -171,8 +199,7 @@ where
                 .chain(
                     nearby
                         .iter()
-                        .filter_map(|&pair| facing(pair, &middle, reach, 1.0))
-                        .map(|gap| gap * *ratio),
+                        .filter_map(|&pair| applied(pair, &middle, reach)),
                 )
                 .fold(Quantity::new(Scalar::INFINITY), Quantity::min);
             if min_length * (extent * scale) <= target {

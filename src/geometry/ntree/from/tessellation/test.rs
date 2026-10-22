@@ -3,7 +3,7 @@ use crate::{
         Coordinates,
         mesh::{
             Connectivity, Dualization, Fitting, Mesh, Output, Tessellation, Vtk,
-            test::{extrusion, sphere},
+            test::{extrusion, sphere, trench, wedge},
         },
         ntree::node::{Node, cell::Cell},
         ntree::{Balance, Balancing, CurvatureSizing, Octree, Pairing, SeparationSizing, Sizing},
@@ -433,7 +433,6 @@ fn a_stair_step_notch_is_not_refined_by_thickness_or_curvature_alone() {
         CurvatureSizing::default(),
         SeparationSizing {
             minimum: Some(Quantity::new(0.0)),
-            hops: 1,
             scale: None,
         },
         0,
@@ -462,7 +461,6 @@ fn diagnose(path: &str) {
         CurvatureSizing::default(),
         SeparationSizing {
             minimum: Some(Quantity::new(0.0)),
-            hops: 1,
             scale: None,
         },
         0,
@@ -544,7 +542,7 @@ fn diagnose_unmatched_creases_on_the_pyramid() {
     .unwrap();
     let features = tessellation.features();
     let creases = features.creases();
-    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0));
     println!("{} creases total", creases.len());
     let mut unmatched = 0;
     creases
@@ -596,7 +594,6 @@ fn mesh_the_stair_pyramid() {
             "enabled",
             SeparationSizing {
                 minimum: Some(Quantity::new(0.0)),
-                hops: 1,
                 scale: None,
             },
             "/home/mrbuche/GitHub/autotwin/automesh/cube_stairpyramid_enabled.vtu",
@@ -638,7 +635,7 @@ fn diagnose_unmatched_creases_on_the_staircase() {
     .unwrap();
     let features = tessellation.features();
     let creases = features.creases();
-    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0));
     println!("{} creases total", creases.len());
     let mut unmatched = 0;
     creases
@@ -701,7 +698,6 @@ fn mesh_the_staircase() {
             "enabled",
             SeparationSizing {
                 minimum: Some(Quantity::new(0.0)),
-                hops: 1,
                 scale: None,
             },
             "/home/mrbuche/GitHub/autotwin/automesh/cube_staircase_enabled.vtu",
@@ -743,7 +739,7 @@ fn diagnose_unmatched_creases_on_the_heatsink() {
     .unwrap();
     let features = tessellation.features();
     let creases = features.creases();
-    let separation = features.separation(&tessellation, Quantity::new(0.0), 1);
+    let separation = features.separation(&tessellation, Quantity::new(0.0));
     println!("{} creases total", creases.len());
     let mut unmatched = 0;
     creases
@@ -797,7 +793,6 @@ fn diagnose_heatsink_fine_cells() {
         CurvatureSizing::default(),
         SeparationSizing {
             minimum: Some(Quantity::new(0.0)),
-            hops: 1,
             scale: None,
         },
         0,
@@ -904,7 +899,6 @@ fn mesh_the_heatsink() {
             "enabled",
             SeparationSizing {
                 minimum: Some(Quantity::new(0.0)),
-                hops: 1,
                 scale: None,
             },
             "/home/mrbuche/GitHub/autotwin/automesh/cube_heatsink_enabled.vtu",
@@ -956,7 +950,6 @@ fn mesh_the_real_stair_step_stl() {
             5.0,
             SeparationSizing {
                 minimum: Some(Quantity::new(0.0)),
-                hops: 1,
                 scale: None,
             },
             "/home/mrbuche/GitHub/autotwin/automesh/cube_stairstep_scale5_separation5.vtu",
@@ -966,7 +959,6 @@ fn mesh_the_real_stair_step_stl() {
             3.0,
             SeparationSizing {
                 minimum: Some(Quantity::new(0.0)),
-                hops: 1,
                 scale: Some(5.0),
             },
             "/home/mrbuche/GitHub/autotwin/automesh/cube_stairstep_scale3_separation5.vtu",
@@ -976,7 +968,6 @@ fn mesh_the_real_stair_step_stl() {
             4.0,
             SeparationSizing {
                 minimum: Some(Quantity::new(0.0)),
-                hops: 1,
                 scale: Some(5.0),
             },
             "/home/mrbuche/GitHub/autotwin/automesh/cube_stairstep_scale4_separation5.vtu",
@@ -1091,7 +1082,7 @@ fn narrow_feature_refinement_is_invariant_to_triangulation_density() {
     let gap = |tessellation: &Tessellation| {
         tessellation
             .features()
-            .separation(tessellation, minimum, 1)
+            .separation(tessellation, minimum)
             .iter()
             .flatten()
             .map(|separation| separation.distance.value())
@@ -1129,7 +1120,6 @@ fn separation_refinement(tessellation: &Tessellation) -> (f64, Vec<[f64; 3]>) {
         CurvatureSizing::default(),
         SeparationSizing {
             minimum: Some(Quantity::new(0.0)),
-            hops: 1,
             scale: None,
         },
         0,
@@ -1332,13 +1322,21 @@ fn distance_to(point: &[f64; 3], segment: &[crate::geometry::Coordinate<3>; 2]) 
 /// The finest cell the octree refines a tessellation to, and a lookup of the
 /// finest cell near any point.
 fn cell_sizes(tessellation: &Tessellation, scale: f64) -> (f64, impl Fn([f64; 3]) -> f64) {
+    cell_sizes_above(tessellation, scale, 0.0)
+}
+
+/// As [`cell_sizes`], ignoring creases closer together than `minimum`.
+fn cell_sizes_above(
+    tessellation: &Tessellation,
+    scale: f64,
+    minimum: f64,
+) -> (f64, impl Fn([f64; 3]) -> f64) {
     let mut octree = Octree::<u16, usize>::from_features(
         tessellation,
         scale,
         CurvatureSizing::default(),
         SeparationSizing {
-            minimum: Some(Quantity::new(0.0)),
-            hops: 1,
+            minimum: Some(Quantity::new(minimum)),
             scale: None,
         },
         0,
@@ -1400,7 +1398,6 @@ fn a_notch_closer_than_the_minimum_is_not_refined() {
             CurvatureSizing::default(),
             SeparationSizing {
                 minimum: Some(Quantity::new(minimum)),
-                hops: 1,
                 scale: None,
             },
             0,
@@ -1420,24 +1417,6 @@ fn a_notch_closer_than_the_minimum_is_not_refined() {
     assert!(sized(0.0) > without);
     assert!(sized(0.01) > without);
     assert_eq!(sized(0.1), without);
-}
-
-#[test]
-fn creases_that_touch_leave_no_gap_to_resolve() {
-    let (points, faces) = cube(1);
-    let tessellation = tessellate(points, faces);
-    let sizing = Sizing::new(
-        &tessellation,
-        5.0,
-        CurvatureSizing::default(),
-        SeparationSizing {
-            minimum: Some(Quantity::new(0.0)),
-            hops: 0,
-            scale: None,
-        },
-        0,
-    );
-    assert!(sizing.levels() > 0);
 }
 
 /// A stair whose tread, a step `rise` high, widens from `narrow` at one end to
@@ -1484,4 +1463,118 @@ fn a_tapering_gap_is_refined_along_its_whole_length() {
         let stair = tapering_stair(0.05, wide, 0.6);
         coverage(&stair, &stair);
     })
+}
+#[test]
+fn a_thin_wedge_is_refined_along_its_length() {
+    let (scale, minimum, angle) = (5.0, 0.01, 10.0);
+    let plate = wedge(angle, 1.0, 1.0);
+    let (_, cells) = cell_sizes_above(&plate, scale, minimum);
+    [0.3, 0.5, 0.8].into_iter().for_each(|distance: f64| {
+        let gap = 2.0 * distance * (0.5 * angle.to_radians()).tan();
+        let size = cells([distance, 0.0, 1.0 - 1.0e-3]);
+        assert!(
+            size <= 1.5 * gap / scale,
+            "{distance} along a wedge {gap} across sits in cells of {size}"
+        )
+    })
+}
+
+#[test]
+fn the_point_of_a_wedge_is_refined_no_finer_than_the_minimum_allows() {
+    let (scale, minimum) = (5.0, 0.01);
+    let plate = wedge(10.0, 1.0, 1.0);
+    let (finest, _) = cell_sizes_above(&plate, scale, minimum);
+    assert!(
+        finest >= minimum / scale * (1.0 - 1.0e-9),
+        "the finest cell is {finest}"
+    )
+}
+
+#[test]
+fn a_wedge_opening_to_sixty_degrees_is_not_refined_toward_its_point() {
+    let (scale, minimum) = (5.0, 0.01);
+    let plate = wedge(60.0, 1.0, 1.0);
+    let (finest, _) = cell_sizes_above(&plate, scale, minimum);
+    // Near its point the creases are 2 s sin(30 degrees) apart at a distance
+    // s, as far apart as they are from the point, so there is no narrow
+    // feature for a cell as fine as one across that gap to resolve.
+    let gap = 0.1;
+    assert!(
+        finest > gap / scale,
+        "the finest cell of a plate opening as fast as a corner is {finest}"
+    )
+}
+
+#[test]
+fn a_cube_is_not_refined_toward_its_corners() {
+    let (points, faces) = cube(1);
+    let cube = tessellate(points, faces);
+    let sized = |separation: SeparationSizing| {
+        Octree::<u16, usize>::from_features(&cube, 5.0, CurvatureSizing::default(), separation, 0)
+            .unwrap()
+            .len()
+    };
+    let with = sized(SeparationSizing {
+        minimum: Some(Quantity::new(0.01)),
+        scale: None,
+    });
+    assert_eq!(with, sized(SeparationSizing::default()));
+}
+
+#[test]
+fn a_narrow_trench_with_a_rounded_end_is_refined_across_its_width() {
+    let (width, scale, minimum) = (0.05, 5.0, 0.01);
+    let block = trench(width, 0.3);
+    let (_, cells) = cell_sizes_above(&block, scale, minimum);
+    let size = cells([0.5, 0.3, 0.2 - 1.0e-3]);
+    assert!(
+        size <= 1.5 * width / scale,
+        "the floor of a trench {width} wide sits in cells of {size}"
+    )
+}
+
+/// How many cells the octree has with separation sizing on, over how many it
+/// has with it off, for a plate narrowing to a point at `angle`.
+fn growth(angle: f64) -> f64 {
+    let plate = wedge(angle, 1.0, 1.0);
+    let count = |minimum: Option<Quantity<Length>>| {
+        Octree::<u16, usize>::from_features(
+            &plate,
+            5.0,
+            CurvatureSizing::default(),
+            SeparationSizing {
+                minimum,
+                scale: None,
+            },
+            0,
+        )
+        .unwrap()
+        .len() as f64
+    };
+    count(Some(Quantity::new(0.01))) / count(None)
+}
+
+#[test]
+fn a_wedge_is_refined_less_the_faster_it_opens() {
+    let growth = [10.0, 30.0, 50.0, 60.0].map(growth);
+    assert!(
+        growth.windows(2).all(|pair| pair[0] > pair[1]),
+        "{growth:?}"
+    );
+    assert_eq!(growth[3], 1.0);
+}
+
+#[test]
+fn a_wedge_opening_to_fifty_degrees_is_refined_only_lightly() {
+    // Left to ask for the whole gap it would add over five times the cells.
+    let growth = growth(50.0);
+    assert!(growth < 2.5, "{growth}");
+}
+
+#[test]
+fn a_plate_with_a_right_angle_is_refined_only_at_its_sharper_corners() {
+    // Its other two corners are forty-five degrees. Left to ask for the whole
+    // gap, the right angle would add over ten times the cells.
+    let growth = growth(90.0);
+    assert!(growth < 3.0, "{growth}");
 }
