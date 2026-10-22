@@ -12,7 +12,7 @@ pub use tetrahedron::Tetrahedron;
 pub use wedge::Wedge;
 
 use crate::fem::block::element::{
-    Element, ElementNodalReferenceCoordinates, VolumeFiniteElement, basic_from,
+    Element, ElementNodalReferenceCoordinates, FiniteElement, basic_from,
 };
 
 const M: usize = 3;
@@ -21,7 +21,7 @@ pub type QuadraticElement<const G: usize, const N: usize> = Element<3, G, N, 2>;
 
 pub trait QuadraticFiniteElement<const G: usize, const N: usize>
 where
-    Self: VolumeFiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N>,
 {
 }
 

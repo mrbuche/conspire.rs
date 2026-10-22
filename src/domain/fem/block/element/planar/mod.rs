@@ -11,9 +11,10 @@ use crate::{
         solid::{elastic::Elastic, hyperelastic::Hyperelastic},
     },
     fem::block::element::{
-        Element, FiniteElement, FiniteElementError, FiniteElementIntegration, ParametricCoordinate,
-        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
-        VolumeFiniteElement, basic_from, surface::SurfaceElement,
+        Element, FiniteElement, FiniteElementError, FiniteElementIntegration,
+        FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients, basic_from,
+        surface::SurfaceElement,
     },
     math::{
         Current, Quantity, Reference, ScalarList, Tensor, TensorArray, TensorRank1,
@@ -35,10 +36,10 @@ pub type PlanarElementNodalForcesSolid<const N: usize> = TensorRank1List<M, Curr
 pub type PlanarElementNodalStiffnessesSolid<const N: usize> =
     TensorRank2List2D<M, Current, Current, N, N, ForcePerLength>;
 
-impl<const G: usize, const N: usize, const O: usize, const P: usize> FiniteElement<G, M, N, P>
-    for Element<2, G, N, O>
+impl<const G: usize, const N: usize, const O: usize, const P: usize>
+    FiniteElementInterpolation<G, M, N, P> for Element<2, G, N, O>
 where
-    SurfaceElement<G, N, O>: FiniteElement<G, M, N, P>,
+    SurfaceElement<G, N, O>: FiniteElementInterpolation<G, M, N, P>,
 {
     fn integration_points() -> ParametricCoordinates<G, M> {
         SurfaceElement::<G, N, O>::integration_points()
@@ -62,7 +63,7 @@ where
 impl<const G: usize, const N: usize, const O: usize> From<PlanarElementNodalReferenceCoordinates<N>>
     for Element<2, G, N, O>
 where
-    Self: VolumeFiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N>,
 {
     fn from(reference_nodal_coordinates: PlanarElementNodalReferenceCoordinates<N>) -> Self {
         basic_from(reference_nodal_coordinates)
@@ -71,7 +72,7 @@ where
 
 pub trait PlanarSolidFiniteElement<const G: usize, const N: usize>
 where
-    Self: VolumeFiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N>,
 {
     fn deformation_gradients(
         &self,
@@ -82,7 +83,7 @@ where
 impl<const G: usize, const N: usize, const O: usize> PlanarSolidFiniteElement<G, N>
     for Element<2, G, N, O>
 where
-    Self: VolumeFiniteElement<G, M, N>,
+    Self: FiniteElement<G, M, N>,
 {
     fn deformation_gradients(
         &self,

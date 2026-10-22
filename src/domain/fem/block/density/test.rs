@@ -92,7 +92,7 @@ macro_rules! test_density {
                     .zip(reference.elements())
                     .map(|(&nodes, element)| {
                         Density::kilograms_per_cubic_meter(linear(centroid_x(nodes)))
-                            * crate::fem::block::element::VolumeFiniteElement::volume(element)
+                            * crate::fem::block::element::FiniteElement::volume(element)
                     })
                     .sum::<Quantity<Mass>>();
                 Assert::default().eq_within_tols(&block.mass(), &expected)

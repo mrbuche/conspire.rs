@@ -1,7 +1,7 @@
 #![allow(clippy::needless_range_loop)]
 
 use crate::{
-    fem::block::element::{Element, FiniteElement, VolumeFiniteElement},
+    fem::block::element::{Element, FiniteElement, FiniteElementInterpolation},
     math::{Current, TensorRank1List},
     units::Length,
 };
@@ -21,7 +21,7 @@ pub(crate) fn flatten<
     coordinates: &Coordinates<D, N>,
 ) -> ([f64; GN], [f64; G], [f64; DOF])
 where
-    Element<D, G, N, O>: VolumeFiniteElement<G, D, N>,
+    Element<D, G, N, O>: FiniteElement<G, D, N>,
 {
     let mut grad_n = [0.0; GN];
     let mut weights = [0.0; G];

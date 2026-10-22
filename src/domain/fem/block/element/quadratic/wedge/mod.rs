@@ -5,7 +5,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_SQRT_3_5, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        FRAC_SQRT_3_5, FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
         ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         quadratic::{M, QuadraticElement, QuadraticFiniteElement},
     },
@@ -18,7 +18,7 @@ const P: usize = N;
 
 pub type Wedge = QuadraticElement<G, N>;
 
-impl FiniteElement<G, M, N, P> for Wedge {
+impl FiniteElementInterpolation<G, M, N, P> for Wedge {
     fn integration_points() -> ParametricCoordinates<G, M> {
         const ONE_SIXTH: Scalar = 1.0 / 12.0;
         const TWO_THIRDS: Scalar = 2.0 / 3.0;

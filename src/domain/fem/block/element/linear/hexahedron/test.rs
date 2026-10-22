@@ -5,7 +5,7 @@ use crate::{
             Block,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                FiniteElement, GradientVectors,
+                FiniteElementInterpolation, GradientVectors,
                 linear::hexahedron::{G, Hexahedron, M, N},
                 test::test_finite_element,
             },

@@ -41,7 +41,8 @@ macro_rules! elastic_tests {
             use crate::{
                 constitutive::solid::hyperelastic::{NeoHookean, autodiff::AutodiffNeoHookean},
                 fem::block::element::{
-                    ElementNodalCoordinates, ElementNodalReferenceCoordinates, FiniteElement,
+                    ElementNodalCoordinates, ElementNodalReferenceCoordinates,
+                    FiniteElementInterpolation,
                     solid::{elastic::ElasticElement, hyperelastic::autodiff::AutodiffElement},
                 },
                 math::assert::{Assert, AssertionError},
@@ -54,7 +55,8 @@ macro_rules! elastic_tests {
                 AutodiffNeoHookean,
                 NeoHookean,
             ) {
-                let parametric = <$element as FiniteElement<$g, 3, $n, $n>>::parametric_reference();
+                let parametric =
+                    <$element as FiniteElementInterpolation<$g, 3, $n, $n>>::parametric_reference();
                 let mut nodes = [[0.0; 3]; $n];
                 for a in 0..$n {
                     for k in 0..3 {

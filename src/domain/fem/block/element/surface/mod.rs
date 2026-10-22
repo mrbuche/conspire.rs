@@ -3,8 +3,8 @@ pub mod linear;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        ElementNodalVelocities, FiniteElement, FiniteElementIntegration, GradientVectors,
-        IntegrationWeights,
+        ElementNodalVelocities, FiniteElementIntegration, FiniteElementInterpolation,
+        GradientVectors, IntegrationWeights,
     },
     math::{
         CrossProduct, Current, IDENTITY, LEVI_CIVITA, Quantity, Tensor, TensorArray, TensorRank1,
@@ -57,7 +57,7 @@ impl<const G: usize, const N: usize, const O: usize> Debug for SurfaceElement<G,
 
 pub trait SurfaceFiniteElement<const G: usize, const N: usize, const P: usize, W = Volume>
 where
-    Self: FiniteElement<G, M, N, P> + FiniteElementIntegration<G, W>,
+    Self: FiniteElementInterpolation<G, M, N, P> + FiniteElementIntegration<G, W>,
 {
     fn bases<I>(nodal_coordinates: &ElementNodalEitherCoordinates<I, P>) -> SurfaceBases<I, G> {
         Self::shape_functions_gradients_at_integration_points()
@@ -302,7 +302,7 @@ where
 impl<const G: usize, const N: usize, const O: usize, const P: usize> SurfaceFiniteElement<G, N, P>
     for SurfaceElement<G, N, O>
 where
-    Self: FiniteElement<G, M, N, P>,
+    Self: FiniteElementInterpolation<G, M, N, P>,
 {
 }
 

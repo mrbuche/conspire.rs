@@ -4,8 +4,8 @@ pub mod test;
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalEitherCoordinates, ElementNodalReferenceCoordinates,
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         cohesive::{
             CohesiveFiniteElement, M, Separations,
             linear::{LinearCohesiveElement, LinearCohesiveFiniteElement},
@@ -24,7 +24,7 @@ const P: usize = 3;
 
 pub type Wedge = LinearCohesiveElement<G, N>;
 
-impl FiniteElement<G, M, N, P> for Wedge {
+impl FiniteElementInterpolation<G, M, N, P> for Wedge {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [
             [1.0 / 6.0, 1.0 / 6.0],

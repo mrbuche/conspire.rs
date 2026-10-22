@@ -1,7 +1,7 @@
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-        FiniteElement, GradientVectors,
+        FiniteElementInterpolation, GradientVectors,
         serendipity::hexahedron::{G, Hexahedron, M, N},
         test::test_finite_element,
     },

@@ -19,7 +19,7 @@ use crate::{
     fem::{
         Elements, NodalReferenceCoordinates,
         block::element::{
-            ElementNodalReferenceCoordinates, VolumeFiniteElement,
+            ElementNodalReferenceCoordinates, FiniteElement,
             planar::PlanarElementNodalReferenceCoordinates,
         },
     },
@@ -50,7 +50,7 @@ pub struct Block<
 
 impl<C, F, const G: usize, const M: usize, const N: usize, R, H> Block<C, F, G, M, N, R, H>
 where
-    F: VolumeFiniteElement<G, M, N>,
+    F: FiniteElement<G, M, N>,
 {
     pub(crate) fn constitutive_model(&self) -> &C {
         &self.constitutive_model
@@ -75,7 +75,7 @@ where
 impl<C, F, const G: usize, const M: usize, const N: usize, R, H> Debug
     for Block<C, F, G, M, N, R, H>
 where
-    F: VolumeFiniteElement<G, M, N>,
+    F: FiniteElement<G, M, N>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
@@ -90,7 +90,7 @@ where
 impl<C, F, const G: usize, const M: usize, const N: usize, R, H> Elements
     for Block<C, F, G, M, N, R, H>
 where
-    F: VolumeFiniteElement<G, M, N>,
+    F: FiniteElement<G, M, N>,
 {
     fn node_neighbors(&self, neighbors: &mut [Vec<usize>]) {
         add_node_neighbors(
@@ -107,7 +107,7 @@ impl<C, F, const G: usize, const N: usize>
         &NodalReferenceCoordinates<3>,
     )> for Block<C, F, G, 3, N>
 where
-    F: VolumeFiniteElement<G, 3, N> + From<ElementNodalReferenceCoordinates<N>>,
+    F: FiniteElement<G, 3, N> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (
@@ -133,7 +133,7 @@ where
 impl<C, F, const G: usize, const N: usize> From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<3>)>
     for Block<C, F, G, 3, N>
 where
-    F: VolumeFiniteElement<G, 3, N> + From<ElementNodalReferenceCoordinates<N>>,
+    F: FiniteElement<G, 3, N> + From<ElementNodalReferenceCoordinates<N>>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (
@@ -158,7 +158,7 @@ impl<C, F, const G: usize, const N: usize>
         &NodalReferenceCoordinates<2>,
     )> for Block<C, F, G, 2, N>
 where
-    F: VolumeFiniteElement<G, 2, N> + From<PlanarElementNodalReferenceCoordinates<N>>,
+    F: FiniteElement<G, 2, N> + From<PlanarElementNodalReferenceCoordinates<N>>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (
@@ -184,7 +184,7 @@ where
 impl<C, F, const G: usize, const N: usize> From<(C, Vec<[usize; N]>, &NodalReferenceCoordinates<2>)>
     for Block<C, F, G, 2, N>
 where
-    F: VolumeFiniteElement<G, 2, N> + From<PlanarElementNodalReferenceCoordinates<N>>,
+    F: FiniteElement<G, 2, N> + From<PlanarElementNodalReferenceCoordinates<N>>,
 {
     fn from(
         (constitutive_model, connectivity, coordinates): (

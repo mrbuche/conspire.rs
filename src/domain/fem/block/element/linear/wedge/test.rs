@@ -1,7 +1,7 @@
 use crate::{
     fem::block::element::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-        FiniteElement, GradientVectors,
+        FiniteElementInterpolation, GradientVectors,
         linear::wedge::{G, M, N, Wedge},
         test::test_finite_element,
     },

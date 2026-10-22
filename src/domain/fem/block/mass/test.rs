@@ -3,7 +3,7 @@ use crate::{
         Blocks, Model, NodalReferenceCoordinates,
         block::{
             Block, ElementDensities,
-            element::{ElementNodalReferenceCoordinates, VolumeFiniteElement, linear::Tetrahedron},
+            element::{ElementNodalReferenceCoordinates, FiniteElement, linear::Tetrahedron},
             mass::NodalLumpedMasses,
         },
     },

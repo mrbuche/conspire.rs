@@ -5,7 +5,7 @@ use crate::{
             Block,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                FiniteElement, GradientVectors,
+                FiniteElementInterpolation, GradientVectors,
                 surface::{
                     Normals, SurfaceFiniteElement,
                     linear::{

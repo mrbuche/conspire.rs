@@ -3,8 +3,8 @@ pub mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElement, ParametricCoordinate, ParametricCoordinates, ParametricReference,
-        ShapeFunctions, ShapeFunctionsGradients,
+        FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
+        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
     math::ScalarList,
@@ -18,7 +18,7 @@ const P: usize = N;
 
 pub type Triangle = LinearSurfaceElement<G, N>;
 
-impl FiniteElement<G, M, N, P> for Triangle {
+impl FiniteElementInterpolation<G, M, N, P> for Triangle {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [[1.0 / 3.0; M]].into()
     }

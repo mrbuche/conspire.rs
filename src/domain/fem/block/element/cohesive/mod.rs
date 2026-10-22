@@ -4,8 +4,8 @@ pub mod linear;
 
 use crate::{
     fem::block::element::{
-        ElementNodalCoordinates, ElementNodalEitherCoordinates, FiniteElement,
-        FiniteElementIntegration, IntegrationWeights, ShapeFunctionsAtIntegrationPoints,
+        ElementNodalCoordinates, ElementNodalEitherCoordinates, FiniteElementIntegration,
+        FiniteElementInterpolation, IntegrationWeights, ShapeFunctionsAtIntegrationPoints,
         cohesive::elastic::StiffnessCohesiveList,
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
         surface::SurfaceFiniteElement,
@@ -48,7 +48,7 @@ impl<const G: usize, const N: usize, const O: usize> Debug for CohesiveElement<G
 impl<const G: usize, const N: usize, const O: usize, const P: usize>
     SurfaceFiniteElement<G, N, P, Area> for CohesiveElement<G, N, O>
 where
-    Self: FiniteElement<G, M, N, P>,
+    Self: FiniteElementInterpolation<G, M, N, P>,
 {
 }
 

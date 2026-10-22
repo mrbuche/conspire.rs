@@ -5,7 +5,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        FRAC_1_SQRT_3, FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
         ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
     },
@@ -18,7 +18,7 @@ const P: usize = N;
 
 pub type Pyramid = LinearElement<G, N>;
 
-impl FiniteElement<G, M, N, P> for Pyramid {
+impl FiniteElementInterpolation<G, M, N, P> for Pyramid {
     fn integration_points() -> ParametricCoordinates<G, M> {
         integration_points_and_weights().0
     }

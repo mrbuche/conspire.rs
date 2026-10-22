@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FRAC_1_SQRT_3, FiniteElement, ParametricCoordinate, ParametricCoordinates,
+        FRAC_1_SQRT_3, FiniteElementInterpolation, ParametricCoordinate, ParametricCoordinates,
         ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
@@ -16,7 +16,7 @@ const P: usize = N;
 
 pub type Quadrilateral = LinearSurfaceElement<G, N>;
 
-impl FiniteElement<G, M, N, P> for Quadrilateral {
+impl FiniteElementInterpolation<G, M, N, P> for Quadrilateral {
     fn integration_points() -> ParametricCoordinates<G, M> {
         [
             [-FRAC_1_SQRT_3, -FRAC_1_SQRT_3],

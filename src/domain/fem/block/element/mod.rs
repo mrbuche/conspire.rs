@@ -50,7 +50,9 @@ pub type StandardGradientOperators<const M: usize, const O: usize, const P: usiz
 pub type StandardGradientOperatorsTransposed<const M: usize, const O: usize, const P: usize> =
     TensorRank1List2D<M, Reference, P, O>;
 
-pub trait FiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
+/// The reference element: its nodes, the shape functions of `P` of them and their gradients,
+/// and its quadrature points and weights.
+pub trait FiniteElementInterpolation<const G: usize, const M: usize, const N: usize, const P: usize>
 where
     Self: Clone + Debug,
 {
@@ -80,18 +82,18 @@ pub trait FiniteElementIntegration<const G: usize, W> {
     fn integration_weights(&self) -> &IntegrationWeights<G, W>;
 }
 
-/// A [`FiniteElement`] that integrates over a volume, with as many shape functions as nodes.
-pub trait VolumeFiniteElement<const G: usize, const M: usize, const N: usize>
+/// A [`FiniteElementInterpolation`] that integrates over a volume, with as many shape functions as nodes.
+pub trait FiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N> + FiniteElementIntegration<G, Volume>,
+    Self: FiniteElementInterpolation<G, M, N, N> + FiniteElementIntegration<G, Volume>,
 {
     fn volume(&self) -> Quantity<Volume> {
         self.integration_weights().into_iter().sum()
     }
 }
 
-impl<T, const G: usize, const M: usize, const N: usize> VolumeFiniteElement<G, M, N> for T where
-    T: FiniteElement<G, M, N, N> + FiniteElementIntegration<G, Volume>
+impl<T, const G: usize, const M: usize, const N: usize> FiniteElement<G, M, N> for T where
+    T: FiniteElementInterpolation<G, M, N, N> + FiniteElementIntegration<G, Volume>
 {
 }
 
@@ -132,7 +134,7 @@ fn basic_from<const D: usize, const G: usize, const N: usize, const O: usize>(
     reference_nodal_coordinates: TensorRank1List<D, Reference, N, Length>,
 ) -> Element<D, G, N, O>
 where
-    Element<D, G, N, O>: FiniteElement<G, D, N, N>,
+    Element<D, G, N, O>: FiniteElementInterpolation<G, D, N, N>,
 {
     let gradient_vectors = Element::shape_functions_gradients_at_integration_points()
         .into_iter()
