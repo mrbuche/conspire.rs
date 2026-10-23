@@ -5,8 +5,8 @@ use crate::{
     constitutive::cohesive::{damage::Damage, elastic::Elastic},
     domain::{
         block::{add_node_neighbors, element::Elements, element_coordinates, trimmed_type_name},
-        cohesive::damage::DamageElements,
         from::FromConnectivities,
+        solid::rate_independent::RateIndependentElements,
     },
     fem::{
         ElementModelError, NodalCoordinates, NodalReferenceCoordinates,
@@ -20,7 +20,7 @@ use crate::{
         solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic::ElasticElements},
     },
     geometry::mesh::{Connectivity, PrimitiveConnectivity},
-    math::integrate::StepError,
+    math::{integrate::StepError, optimize::NewtonRaphson},
 };
 use std::fmt::{self, Debug, Formatter};
 
@@ -148,8 +148,8 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize> DamageElements<DamageStateField<G>, 3>
-    for CohesiveBlock<C, F, G, N, P>
+impl<C, F, const G: usize, const N: usize, const P: usize>
+    RateIndependentElements<DamageStateField<G>, 3> for CohesiveBlock<C, F, G, N, P>
 where
     C: Damage,
     F: DamageCohesiveElement<C, G, N, P>,
@@ -157,34 +157,12 @@ where
     fn initial_state(&self) -> DamageStateField<G> {
         self.elements().iter().map(|_| initial_state()).collect()
     }
-    fn nodal_forces_into(
+    fn nodal_forces_and_stiffnesses_into(
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state: &DamageStateField<G>,
+        _local_solver: &NewtonRaphson,
         nodal_forces: &mut NodalForcesSolid<3>,
-    ) -> Result<(), ElementModelError> {
-        self.elements()
-            .iter()
-            .zip(self.connectivity())
-            .zip(state)
-            .try_for_each(|((element, nodes), state)| {
-                element
-                    .nodal_forces(
-                        self.constitutive_model(),
-                        &element_coordinates(nodal_coordinates, nodes),
-                        state,
-                    )?
-                    .into_iter()
-                    .zip(nodes)
-                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
-                Ok::<(), FiniteElementError>(())
-            })
-            .map_err(|error| ElementModelError::upstream(error, self))
-    }
-    fn nodal_stiffnesses_into(
-        &self,
-        nodal_coordinates: &NodalCoordinates<3>,
-        state: &DamageStateField<G>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
         self.elements()
@@ -192,14 +170,16 @@ where
             .zip(self.connectivity())
             .zip(state)
             .try_for_each(|((element, nodes), state)| {
+                let coordinates = element_coordinates(nodal_coordinates, nodes);
+                element
+                    .nodal_forces(self.constitutive_model(), &coordinates, state)?
+                    .into_iter()
+                    .zip(nodes)
+                    .for_each(|(nodal_force, &node)| nodal_forces[node] += nodal_force);
                 add_stiffnesses(
                     nodal_stiffnesses,
                     nodes,
-                    element.nodal_stiffnesses(
-                        self.constitutive_model(),
-                        &element_coordinates(nodal_coordinates, nodes),
-                        state,
-                    )?,
+                    element.nodal_stiffnesses(self.constitutive_model(), &coordinates, state)?,
                 );
                 Ok::<(), FiniteElementError>(())
             })
@@ -209,6 +189,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state: &DamageStateField<G>,
+        _local_solver: &NewtonRaphson,
     ) -> Result<DamageStateField<G>, ElementModelError> {
         self.elements()
             .iter()

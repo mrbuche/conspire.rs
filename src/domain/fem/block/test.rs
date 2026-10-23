@@ -39,7 +39,7 @@ macro_rules! test_finite_element_block {
  solid::{elastic::SaintVenantKirchhoff, hyperelastic::NeoHookean},
                     },
                     domain::block::test::test_finite_element_block_with_elastic_plastic_constitutive_model,
-                    fem::solid::{NodalForcesSolid, NodalStiffnessesSolid, elastic_plastic::ElasticPlasticElements},
+                    fem::solid::{NodalForcesSolid, NodalStiffnessesSolid, rate_independent::RateIndependentElements},
                 };
                 type NeoHookeanPlastic = Canonical<NeoHookean, PlasticFlow<VonMises, Linear>>;
                 type SaintVenantKirchhoffVocePlastic = Canonical<SaintVenantKirchhoff, PlasticFlow<VonMises, Voce>>;

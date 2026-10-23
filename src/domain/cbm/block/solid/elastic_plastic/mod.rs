@@ -14,10 +14,10 @@ use crate::{
 
 pub use crate::domain::{
     block::solid::plastic::PlasticStateVariablesField,
-    solid::elastic_plastic::{ElasticPlasticElements, ElasticPlasticRoot},
+    solid::rate_independent::{RateIndependentElements, RateIndependentRoot},
 };
 
-impl<C, R> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C, R>
+impl<C, R> RateIndependentElements<PlasticStateVariablesField<1>, 3> for Block<C, R>
 where
     C: ElasticPlastic,
 {

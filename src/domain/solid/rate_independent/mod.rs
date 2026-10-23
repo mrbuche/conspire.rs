@@ -1,6 +1,6 @@
 use crate::{
     domain::{
-        ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
+        Blocks, ElementModel, ElementModelError, Model, NodalCoordinates, NodalCoordinatesHistory,
         NodalState,
         block::{element::Elements, finalize_node_neighbors, solver_from_neighbors},
         boundary::{ConstrainAt, LoadAt, LoadStiffnessAt},
@@ -77,14 +77,18 @@ fn monolithic_unsupported() -> ElementModelError {
     ElementModelError::Upstream(MONOLITHIC_UNSUPPORTED.to_string(), String::new())
 }
 
-/// Assembly for rate-independent elastic-plastic solids, with the local unknowns of the
-/// plastic step at each integration point converged by the local solver and eliminated
-/// there, so the force and the stiffness of a point come from the same solve.
-pub trait ElasticPlasticElements<S, const D: usize>
+/// Assembly for blocks with rate-independent history variables, such as the plastic state
+/// of a solid or the greatest opening of a cohesive interface, which change only when a
+/// load step is committed. The local unknowns of a plastic step at each integration point
+/// are converged by the local solver and eliminated there, so the force and the stiffness
+/// of a point come from the same solve; a block with none ignores the local solver.
+///
+/// A tuple of blocks has the tuple of their states.
+pub trait RateIndependentElements<S, const D: usize>
 where
     Self: Elements,
 {
-    /// The initial (unyielded) plastic state field.
+    /// The initial state field, such as unyielded or undamaged.
     fn initial_state(&self) -> S;
     /// Adds the nodal forces and the nodal stiffnesses.
     fn nodal_forces_and_stiffnesses_into(
@@ -154,9 +158,9 @@ where
     ) -> Result<StepError, ElementModelError>;
 }
 
-impl<B, S, const D: usize> ElasticPlasticElements<S, D> for Model<B, D>
+impl<B, S, const D: usize> RateIndependentElements<S, D> for Model<B, D>
 where
-    B: ElasticPlasticElements<S, D>,
+    B: RateIndependentElements<S, D>,
 {
     fn initial_state(&self) -> S {
         self.blocks().initial_state()
@@ -222,6 +226,74 @@ where
     }
 }
 
+impl<B1, B2, S1, S2, const D: usize> RateIndependentElements<(S1, S2), D> for Blocks<B1, B2>
+where
+    B1: RateIndependentElements<S1, D>,
+    B2: RateIndependentElements<S2, D>,
+{
+    fn initial_state(&self) -> (S1, S2) {
+        (self.0.initial_state(), self.1.initial_state())
+    }
+    fn nodal_forces_and_stiffnesses_into(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        (state_1, state_2): &(S1, S2),
+        local_solver: &NewtonRaphson,
+        nodal_forces: &mut NodalForcesSolid<D>,
+        nodal_stiffnesses: &mut NodalStiffnessesSolid<D>,
+    ) -> Result<(), ElementModelError> {
+        self.0.nodal_forces_and_stiffnesses_into(
+            nodal_coordinates,
+            state_1,
+            local_solver,
+            nodal_forces,
+            nodal_stiffnesses,
+        )?;
+        self.1.nodal_forces_and_stiffnesses_into(
+            nodal_coordinates,
+            state_2,
+            local_solver,
+            nodal_forces,
+            nodal_stiffnesses,
+        )
+    }
+    fn updated_state(
+        &self,
+        nodal_coordinates: &NodalCoordinates<D>,
+        (state_1, state_2): &(S1, S2),
+        local_solver: &NewtonRaphson,
+    ) -> Result<(S1, S2), ElementModelError> {
+        Ok((
+            self.0
+                .updated_state(nodal_coordinates, state_1, local_solver)?,
+            self.1
+                .updated_state(nodal_coordinates, state_2, local_solver)?,
+        ))
+    }
+    fn step_error(
+        &self,
+        nodal_coordinates_old: &NodalCoordinates<D>,
+        nodal_coordinates: &NodalCoordinates<D>,
+        (state_1, state_2): &(S1, S2),
+        (updated_state_1, updated_state_2): &(S1, S2),
+    ) -> Result<StepError, ElementModelError> {
+        Ok(self
+            .0
+            .step_error(
+                nodal_coordinates_old,
+                nodal_coordinates,
+                state_1,
+                updated_state_1,
+            )?
+            .max(self.1.step_error(
+                nodal_coordinates_old,
+                nodal_coordinates,
+                state_2,
+                updated_state_2,
+            )?))
+    }
+}
+
 /// Quasi-static adaptive load stepping: solve nodal equilibrium with the plastic state of
 /// the last accepted step, then commit the updated state when the error of the step is
 /// within tolerance.
@@ -247,7 +319,7 @@ where
 /// coordinates. With [`SolveStrategy::Monolithic`] they are unknowns of the solve too,
 /// stepped together with the nodal coordinates through one sparse system, with or
 /// without eliminating them; that needs a domain that supports it.
-pub trait ElasticPlasticRoot<S, const D: usize> {
+pub trait RateIndependentRoot<S, const D: usize> {
     fn root(
         &self,
         solver: impl RootFinding<NodalForcesSolid<D>, NodalStiffnessesSolid<D>, NodalCoordinates<D>>
@@ -409,9 +481,9 @@ fn cached<'a, T>(
     &cache.as_ref().unwrap().1
 }
 
-impl<B, S, const D: usize> ElasticPlasticRoot<S, D> for Model<B, D>
+impl<B, S, const D: usize> RateIndependentRoot<S, D> for Model<B, D>
 where
-    B: ElasticPlasticElements<S, D>,
+    B: RateIndependentElements<S, D>,
     S: Clone,
 {
     fn root(

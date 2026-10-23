@@ -4,7 +4,7 @@ use crate::{
         ConstitutiveError,
         solid::elastic_plastic::{ElasticPlastic, coupled},
     },
-    domain::solid::elastic_plastic::{ElasticPlasticElements, MonolithicSystem},
+    domain::solid::rate_independent::{MonolithicSystem, RateIndependentElements},
     fem::{
         ElementModelError, NodalCoordinates,
         block::{
@@ -25,7 +25,7 @@ use std::array::from_fn;
 pub use crate::domain::block::solid::plastic::PlasticStateVariablesField;
 
 impl<C, F, const G: usize, const M: usize, const N: usize, R, H>
-    ElasticPlasticElements<PlasticStateVariablesField<G>, 3> for Block<C, F, G, M, N, R, H>
+    RateIndependentElements<PlasticStateVariablesField<G>, 3> for Block<C, F, G, M, N, R, H>
 where
     C: ElasticPlastic,
     F: ElasticPlasticFiniteElement<C, G, M, N> + MonolithicElasticPlasticFiniteElement<C, G, N>,
