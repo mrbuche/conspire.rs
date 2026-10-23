@@ -441,3 +441,8 @@ fn an_invalid_opening_is_an_error_of_the_step() {
             .is_err()
     );
 }
+
+#[test]
+fn the_elastic_opening_is_where_the_strength_is_reached() -> Result<(), AssertionError> {
+    close(model().elastic_opening().value(), 0.2)
+}

@@ -40,9 +40,10 @@ pub trait Root {
     ///
     /// A step is accepted when both the estimated error of the step in the plastic
     /// deformation, from the change of the flow direction over it, and the plastic increment
-    /// of a step that begins inside the yield surface are within `abs_tol`, strains. The
-    /// first falls as the square of the step and the second as the step. A step the solver
-    /// fails on is cut back like a rejected one.
+    /// of a step that begins inside the yield surface are within `abs_tol`, in units of the
+    /// yield strain, so the tolerance is a fraction of the reversible range of the response.
+    /// The first falls as the square of the step and the second as the step. A step the
+    /// solver fails on is cut back like a rejected one.
     ///
     /// The tolerance bounds the estimated error of each step, as those of the integrators
     /// do, so the errors add up over the steps: the error of the result is larger than
@@ -95,12 +96,14 @@ where
                 load.advance(self, &solver, &strategy, time, deformation_gradient, state)
             },
             |deformation_gradient, deformation_gradient_next, state, state_next| {
-                self.step_error(
-                    deformation_gradient,
-                    deformation_gradient_next,
-                    state,
-                    state_next,
-                )
+                Ok(self
+                    .step_error(
+                        deformation_gradient,
+                        deformation_gradient_next,
+                        state,
+                        state_next,
+                    )?
+                    .relative_to(self.yield_strain(state)?))
             },
             |error| ConstitutiveError::custom(error, self),
         )?;

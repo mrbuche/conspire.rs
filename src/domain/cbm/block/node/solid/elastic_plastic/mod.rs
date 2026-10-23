@@ -81,11 +81,13 @@ where
         state_variables: &PlasticStateVariables<1>,
         updated_state: &PlasticStateVariables<1>,
     ) -> Result<StepError, ConstitutiveError> {
-        constitutive_model.step_error(
-            &self.deformation_gradients(nodal_coordinates_old),
-            &self.deformation_gradients(nodal_coordinates),
-            &state_variables[0],
-            &updated_state[0],
-        )
+        Ok(constitutive_model
+            .step_error(
+                &self.deformation_gradients(nodal_coordinates_old),
+                &self.deformation_gradients(nodal_coordinates),
+                &state_variables[0],
+                &updated_state[0],
+            )?
+            .relative_to(constitutive_model.yield_strain(&state_variables[0])?))
     }
 }

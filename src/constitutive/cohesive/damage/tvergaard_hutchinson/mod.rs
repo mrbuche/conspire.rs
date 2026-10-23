@@ -144,6 +144,9 @@ impl Damage for TvergaardHutchinson {
             self.tangential_strength() / self.tangential_length * tangential,
         ))
     }
+    fn elastic_opening(&self) -> Quantity {
+        Quantity::new(self.onset)
+    }
     #[doc = include_str!("step_error.md")]
     fn step_error(
         &self,

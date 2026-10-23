@@ -181,7 +181,10 @@ fn expected_error(
         .zip(components(new))
         .zip(state_old.iter().zip(state.iter()))
         .map(|((before, after), (&state_old, &state))| {
-            let error = MODEL.step_error(before, after, state_old, state).unwrap();
+            let error = MODEL
+                .step_error(before, after, state_old, state)
+                .unwrap()
+                .relative_to(MODEL.elastic_opening());
             (error.direction.value(), error.overshoot.value())
         })
         .fold((0.0, 0.0), |worst, (direction, overshoot)| {
@@ -195,7 +198,7 @@ fn the_step_error_of_a_uniform_opening_is_that_of_a_point() -> Result<(), Assert
     let state = element().updated_state(&MODEL, &new, &initial_state::<G>())?;
     let error = element().step_error(&MODEL, &old, &new, &initial_state::<G>(), &state)?;
     Assert::default().eq_within_tols(error.direction.value(), 0.0)?;
-    Assert::default().eq_within_tols(error.overshoot.value(), 0.3)
+    Assert::default().eq_within_tols(error.overshoot.value(), 0.3 / 0.2)
 }
 
 #[test]

@@ -83,6 +83,9 @@ where
             cohesive::opening_components(&separation, &normal);
         Ok(state.max(self.opening(normal_component, tangential_component)?))
     }
+    /// Returns the opening at which the interface reaches its strength, the extent of its
+    /// reversible range.
+    fn elastic_opening(&self) -> Quantity;
     /// Calculates and returns the error indicators of a step of the separation, from its
     /// normal and tangential components and the states at the two ends of the step.
     fn step_error(

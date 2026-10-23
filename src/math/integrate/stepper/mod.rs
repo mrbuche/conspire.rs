@@ -14,7 +14,9 @@ const DT_CUT: Scalar = 0.2;
 ///
 /// A step is resolved by how much the direction of the response changes over it, and by
 /// whether it runs past a kink in the response. Both vanish when the response is exact for
-/// the step, as for a constant direction.
+/// the step, as for a constant direction. A solver measures them against the reversible
+/// range of the response, with [`relative_to`](Self::relative_to), before comparing them
+/// to a tolerance.
 pub struct StepError<U = Dimensionless> {
     /// The estimated error of the step from the change of the direction of the response
     /// over it, which falls as the square of the step.
@@ -58,6 +60,14 @@ impl<U> PartialEq for StepError<U> {
 }
 
 impl<U> StepError<U> {
+    /// The indicators in units of a scale of the same unit, such as the reversible range of
+    /// the response, which makes them dimensionless.
+    pub fn relative_to(self, scale: Quantity<U>) -> StepError {
+        StepError {
+            direction: self.direction.ratio(scale),
+            overshoot: self.overshoot.ratio(scale),
+        }
+    }
     /// The larger of each of the two, as for the points of a mesh.
     pub fn max(self, other: Self) -> Self {
         Self {

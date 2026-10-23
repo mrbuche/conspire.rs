@@ -396,3 +396,13 @@ fn each_source_of_an_adaptive_loop_refines_by_its_own_tolerance() {
     assert_eq!(first, second);
     assert!(count((1.0, 1.0)) >= first);
 }
+
+#[test]
+fn the_indicators_in_units_of_a_scale_are_dimensionless() {
+    let relative = metric(3.0, 5.0).relative_to(Length::meters(2.0));
+    assert_eq!(relative, error(1.5, 2.5));
+    assert_eq!(
+        StepError::<Length>::default().relative_to(Length::meters(2.0)),
+        error(0.0, 0.0)
+    );
+}

@@ -168,9 +168,13 @@ where
             .try_fold(
                 StepError::default(),
                 |worst, ((gradient_old, gradient), (state_old, state))| {
-                    constitutive_model
-                        .step_error(gradient_old, gradient, state_old, state)
-                        .map(|error| worst.max(error))
+                    Ok::<_, crate::constitutive::ConstitutiveError>(
+                        worst.max(
+                            constitutive_model
+                                .step_error(gradient_old, gradient, state_old, state)?
+                                .relative_to(constitutive_model.yield_strain(state_old)?),
+                        ),
+                    )
                 },
             )
             .map_err(|error| FiniteElementError::upstream(error, self))

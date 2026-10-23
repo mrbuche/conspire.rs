@@ -252,6 +252,18 @@ where
         )?;
         Ok(coupled::updated_state(state_variables, converged.as_ref()))
     }
+    /// The equivalent strain at which the response yields, the extent of its reversible
+    /// range, at the equivalent plastic strain of the state.
+    ///
+    /// ```math
+    /// \varepsilon_\mathrm{y} = \frac{\sigma_\mathrm{y}(\bar\varepsilon_\mathrm{p})}{3\mu}
+    /// ```
+    fn yield_strain(&self, state: &PlasticStateVariables) -> Result<Quantity, ConstitutiveError> {
+        let (_, &equivalent_plastic_strain) = state.into();
+        Ok(self
+            .yield_stress(equivalent_plastic_strain)?
+            .ratio(self.shear_modulus() * 3.0))
+    }
     /// The error indicators of one load step, from the deformation gradients and the plastic
     /// states at its two ends.
     ///

@@ -140,7 +140,9 @@ where
                 |worst, ((opening_old, opening), (&state_old, &state))| {
                     constitutive_model
                         .step_error(opening_old, opening, state_old, state)
-                        .map(|error| worst.max(error))
+                        .map(|error| {
+                            worst.max(error.relative_to(constitutive_model.elastic_opening()))
+                        })
                 },
             )
             .map_err(|error| FiniteElementError::upstream(error, self))

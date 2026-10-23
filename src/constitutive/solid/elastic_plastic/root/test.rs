@@ -102,8 +102,12 @@ fn proportional_loading_resolves_the_onset_then_takes_large_steps() -> Result<()
         .copied()
         .find(|&strain| strain > 0.0)
         .unwrap();
-    assert!(first_plastic <= 1e-3, "{first_plastic}");
-    assert!(accepted.len() <= 12, "{} steps", accepted.len());
+    let yield_strain = 2.0 / (3.0 * 3.0);
+    assert!(
+        first_plastic <= TOLERANCE.value() * yield_strain,
+        "{first_plastic}"
+    );
+    assert!(accepted.len() <= 20, "{} steps", accepted.len());
     let (_, fine_gradients, fine_states) = root(
         &model,
         AppliedLoad::UniaxialStress(ramp, &times(1.0, 200)),
@@ -253,4 +257,23 @@ fn the_error_of_the_result_falls_more_slowly_than_the_tolerance() -> Result<(), 
     let ratio = errors[0] / errors[1];
     assert!((4.0..30.0).contains(&ratio), "{ratio} {errors:?}");
     Ok(())
+}
+
+#[test]
+fn the_yield_strain_is_the_yield_stress_over_three_shear_moduli() -> Result<(), AssertionError> {
+    use crate::{
+        constitutive::solid::elastic_plastic::ElasticPlastic,
+        math::{TensorArray, TensorTuple},
+        mechanics::DeformationGradientPlastic,
+    };
+    let model = model(1.0);
+    let state = |strain: f64| {
+        TensorTuple(
+            DeformationGradientPlastic::identity(),
+            Quantity::new(strain),
+        )
+    };
+    let assert = Assert::default();
+    assert.eq_within_tols(model.yield_strain(&state(0.0))?.value(), 2.0 / 9.0)?;
+    assert.eq_within_tols(model.yield_strain(&state(0.5))?.value(), 2.5 / 9.0)
 }

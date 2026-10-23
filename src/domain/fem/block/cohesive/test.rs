@@ -179,7 +179,7 @@ fn the_state_is_kept_by_element_and_the_step_error_is_the_largest() -> Result<()
     }
     let error = model.step_error(&opened(0.0), &coordinates, &state, &updated)?;
     Assert::default().eq_within_tols(error.direction.value(), 0.0)?;
-    Assert::default().eq_within_tols(error.overshoot.value(), 0.3)?;
+    Assert::default().eq_within_tols(error.overshoot.value(), 0.3 / 0.2)?;
     let mut uneven = opened(0.05);
     uneven[11][2] += Quantity::new(0.12);
     let updated_uneven = model.updated_state(&uneven, &state, &NewtonRaphson::default())?;
@@ -190,7 +190,7 @@ fn the_state_is_kept_by_element_and_the_step_error_is_the_largest() -> Result<()
             .any(|opening| opening.value() > 0.5)
     );
     let error = model.step_error(&opened(0.0), &uneven, &state, &updated_uneven)?;
-    assert!(error.overshoot.value() > 0.3);
+    assert!(error.overshoot.value() > 0.3 / 0.2);
     Ok(())
 }
 

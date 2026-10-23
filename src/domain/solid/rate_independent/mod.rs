@@ -306,8 +306,10 @@ where
 /// coordinates are. A step is accepted when both the estimated error of the step in the
 /// plastic deformation, from the change of the flow direction over it, and the plastic
 /// increment of a step that begins inside the yield surface, the larger of each over the
-/// integration points, are within `abs_tol`, strains, and a step the solver
-/// fails on is cut back like a rejected one. The tolerance bounds the estimated error of
+/// integration points, are within `abs_tol`, in units of the reversible range of the
+/// response at the point, the yield strain of a plastic solid and the opening at which a
+/// cohesive interface reaches its strength, so the tolerance is the same fraction of it for
+/// every block, and a step the solver fails on is cut back like a rejected one. The tolerance bounds the estimated error of
 /// each step, as those of the integrators do, so the errors add up over the steps: the
 /// error of the result is larger than `abs_tol` and falls more slowly than it.
 ///
