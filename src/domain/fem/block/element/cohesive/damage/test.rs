@@ -6,6 +6,7 @@ use crate::{
         ElementNodalCoordinates, ElementNodalReferenceCoordinates, ReferenceFiniteElement,
         cohesive::{CohesiveFiniteElement, linear::Hexahedron},
         solid::{ElementNodalForcesSolid, ElementNodalStiffnessesSolid},
+        surface::SurfaceFiniteElement,
     },
     math::{
         Quantity, Tensor,
@@ -166,13 +167,13 @@ fn expected_error(
     state: &DamageState<G>,
 ) -> (Scalar, Scalar) {
     let components = |coordinates: &ElementNodalCoordinates<N>| {
+        let normals = Hexahedron::normals(&Hexahedron::nodal_mid_surface(coordinates));
         Hexahedron::separations(coordinates)
             .into_iter()
-            .map(|separation| {
-                (
-                    separation[2],
-                    Length::meters(separation[0].value().hypot(separation[1].value())),
-                )
+            .zip(normals)
+            .map(|(separation, normal)| {
+                let opening = &separation * &normal;
+                (opening, (&separation - &normal * opening).norm())
             })
             .collect::<Vec<_>>()
     };
