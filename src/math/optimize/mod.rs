@@ -188,7 +188,7 @@ where
         <X as Tensor>::Unit: UnitDiv<<D as Tensor>::Unit>,
         for<'a> &'a D: Mul<StepSize<D, X>, Output = X>,
     {
-        self.get_line_search()
+        self.line_search()
             .search(
                 function, jacobian, argument, jacobian0, decrement, step_size,
             )

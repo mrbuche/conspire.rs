@@ -1,11 +1,25 @@
 #[cfg(test)]
 mod test;
 
+mod armijo;
+mod error;
+mod goldstein;
+mod none;
+mod residual;
+mod wolfe;
+
+pub use armijo::Armijo;
+pub use error::Error;
+pub use goldstein::Goldstein;
+pub use none::NoSearch;
+pub use residual::Residual;
+pub use wolfe::Wolfe;
+
 use crate::math::{
     Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, styled_error,
 };
 use std::{
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{Debug, Display},
     ops::Mul,
 };
 
@@ -61,7 +75,7 @@ pub trait ResidualMerit: Clone + Debug + Display {
     const MERIT: bool = true;
     /// Backtrack on the residual merit of the step size alone.
     ///
-    /// The step is judged along the share `fraction` of a Newton step, which is
+    /// The step is judged along the share `fraction` of a step, which is
     /// one unless something shortened the step beforehand.
     fn search_residual(
         &self,
@@ -70,83 +84,6 @@ pub trait ResidualMerit: Clone + Debug + Display {
         fraction: Scalar,
     ) -> Result<Scalar, LineSearchError>;
 }
-
-/// The Armijo condition on the objective.
-#[derive(Clone, Debug)]
-pub struct Armijo {
-    pub control: Scalar,
-    pub cut_back: Scalar,
-    pub max_steps: usize,
-}
-
-impl Default for Armijo {
-    fn default() -> Self {
-        Self {
-            control: 1e-3,
-            cut_back: 9e-1,
-            max_steps: 100,
-        }
-    }
-}
-
-/// Backtrack for errors.
-#[derive(Clone, Debug)]
-pub struct Error {
-    pub cut_back: Scalar,
-    pub max_steps: usize,
-}
-
-/// The Goldstein conditions on the objective.
-#[derive(Clone, Debug)]
-pub struct Goldstein {
-    pub control: Scalar,
-    pub cut_back: Scalar,
-    pub max_steps: usize,
-}
-
-/// No line search.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct NoSearch;
-
-/// The Armijo condition on half the squared norm of the residual.
-#[derive(Clone, Debug)]
-pub struct Residual {
-    pub control: Scalar,
-    pub cut_back: Scalar,
-    pub max_steps: usize,
-}
-
-impl Default for Residual {
-    fn default() -> Self {
-        Self {
-            control: 1e-3,
-            cut_back: 9e-1,
-            max_steps: 100,
-        }
-    }
-}
-
-/// The Wolfe conditions on the objective.
-#[derive(Clone, Debug)]
-pub struct Wolfe {
-    pub control_1: Scalar,
-    pub control_2: Scalar,
-    pub cut_back: Scalar,
-    pub max_steps: usize,
-    pub strong: bool,
-}
-
-macro_rules! display {
-    ($($search:ident),*) => {
-        $(impl Display for $search {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write!(f, stringify!($search))
-            }
-        })*
-    };
-}
-
-display!(Armijo, Error, Goldstein, NoSearch, Residual, Wolfe);
 
 fn exhausted(search: &impl Debug, max_steps: usize) -> LineSearchError {
     LineSearchError::MaximumStepsReached(format!("{search:?}"), max_steps)
@@ -258,310 +195,6 @@ fn backtrack_merit(
         }
     }
     Err(exhausted(search, max_steps))
-}
-
-impl ObjectiveMerit for Armijo {
-    fn search<X, J, D, W, E>(
-        &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        _jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
-    where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
-    {
-        backtrack(
-            self,
-            self.cut_back,
-            self.max_steps,
-            function,
-            argument,
-            jacobian0,
-            decrement,
-            step_size,
-            |decrease, n, slope| decrease >= n * self.control * slope,
-        )
-    }
-    fn search_merit(
-        &self,
-        merit: impl FnMut(Scalar) -> Result<Scalar, String>,
-        value: Scalar,
-        slope: Scalar,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError> {
-        backtrack_merit(
-            self,
-            self.cut_back,
-            self.max_steps,
-            merit,
-            value,
-            slope,
-            step_size,
-            |decrease, n, slope| decrease >= n * self.control * slope,
-        )
-    }
-}
-
-impl ObjectiveMerit for Goldstein {
-    fn search<X, J, D, W, E>(
-        &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        _jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
-    where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
-    {
-        backtrack(
-            self,
-            self.cut_back,
-            self.max_steps,
-            function,
-            argument,
-            jacobian0,
-            decrement,
-            step_size,
-            |decrease, n, slope| self.accepts(decrease, n, slope),
-        )
-    }
-    fn search_merit(
-        &self,
-        merit: impl FnMut(Scalar) -> Result<Scalar, String>,
-        value: Scalar,
-        slope: Scalar,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError> {
-        backtrack_merit(
-            self,
-            self.cut_back,
-            self.max_steps,
-            merit,
-            value,
-            slope,
-            step_size,
-            |decrease, n, slope| self.accepts(decrease, n, slope),
-        )
-    }
-}
-
-impl Goldstein {
-    fn accepts(&self, decrease: Scalar, n: Scalar, slope: Scalar) -> bool {
-        !(n * (1.0 - self.control) * slope < decrease || decrease < n * self.control * slope)
-    }
-}
-
-impl ObjectiveMerit for Error {
-    const MERIT: bool = false;
-    fn search<X, J, D, W, E>(
-        &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        _jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
-    where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
-    {
-        backtrack(
-            self,
-            self.cut_back,
-            self.max_steps,
-            function,
-            argument,
-            jacobian0,
-            decrement,
-            step_size,
-            |_, _, _| true,
-        )
-    }
-    fn search_merit(
-        &self,
-        merit: impl FnMut(Scalar) -> Result<Scalar, String>,
-        _value: Scalar,
-        _slope: Scalar,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError> {
-        self.reachable(merit, step_size)
-    }
-}
-
-impl Error {
-    fn reachable(
-        &self,
-        mut merit: impl FnMut(Scalar) -> Result<Scalar, String>,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError> {
-        let mut n = step_size;
-        for _ in 0..self.max_steps {
-            if merit(n).is_ok() {
-                return Ok(n);
-            } else {
-                n *= self.cut_back
-            }
-        }
-        Err(exhausted(self, self.max_steps))
-    }
-}
-
-impl ResidualMerit for Error {
-    const MERIT: bool = false;
-    fn search_residual(
-        &self,
-        merit: impl FnMut(Scalar) -> Result<Scalar, String>,
-        _value: Scalar,
-        _fraction: Scalar,
-    ) -> Result<Scalar, LineSearchError> {
-        self.reachable(merit, 1.0)
-    }
-}
-
-impl ObjectiveMerit for NoSearch {
-    const SEARCHES: bool = false;
-    const MERIT: bool = false;
-    fn search<X, J, D, W, E>(
-        &self,
-        _function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        _jacobian: impl FnMut(&X) -> Result<J, String>,
-        _argument: &X,
-        _jacobian0: &J,
-        _decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
-    where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
-    {
-        Ok(step_size)
-    }
-    fn search_merit(
-        &self,
-        _merit: impl FnMut(Scalar) -> Result<Scalar, String>,
-        _value: Scalar,
-        _slope: Scalar,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError> {
-        Ok(step_size)
-    }
-}
-
-impl ResidualMerit for NoSearch {
-    const SEARCHES: bool = false;
-    const MERIT: bool = false;
-    fn search_residual(
-        &self,
-        _merit: impl FnMut(Scalar) -> Result<Scalar, String>,
-        _value: Scalar,
-        _fraction: Scalar,
-    ) -> Result<Scalar, LineSearchError> {
-        Ok(1.0)
-    }
-}
-
-impl ResidualMerit for Residual {
-    fn search_residual(
-        &self,
-        mut merit: impl FnMut(Scalar) -> Result<Scalar, String>,
-        value: Scalar,
-        fraction: Scalar,
-    ) -> Result<Scalar, LineSearchError> {
-        let t = self.control * 2.0 * fraction * value;
-        let mut n = 1.0;
-        for _ in 0..self.max_steps {
-            if let Ok(trial) = merit(n)
-                && value - trial >= n * t
-            {
-                return Ok(n);
-            } else {
-                n *= self.cut_back
-            }
-        }
-        Err(exhausted(self, self.max_steps))
-    }
-}
-
-impl ObjectiveMerit for Wolfe {
-    fn search<X, J, D, W, E>(
-        &self,
-        mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        mut jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
-    where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
-    {
-        let (value, slope) = start(
-            self,
-            &mut function,
-            argument,
-            jacobian0,
-            decrement,
-            step_size,
-        )?;
-        let t_1 = self.control_1 * slope;
-        let t_2 = self.control_2 * slope;
-        let mut n = step_size;
-        for _ in 0..self.max_steps {
-            let trial = decrement * Quantity::new(-n) + argument;
-            if let Ok(trial_value) = function(&trial, n)
-                && let Ok(trial_jacobian) = jacobian(&trial)
-                && value - trial_value >= n * t_1
-                && {
-                    let curvature = trial_jacobian.erase().full_contraction(decrement.erase());
-                    if self.strong {
-                        curvature.abs() < t_2.abs()
-                    } else {
-                        curvature < t_2
-                    }
-                }
-            {
-                return Ok(n);
-            } else {
-                n *= self.cut_back
-            }
-        }
-        Err(exhausted(self, self.max_steps))
-    }
-    fn search_merit(
-        &self,
-        _merit: impl FnMut(Scalar) -> Result<Scalar, String>,
-        _value: Scalar,
-        _slope: Scalar,
-        _step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError> {
-        panic!(
-            "The Wolfe conditions need the gradient of the merit function, which the exact penalty function does not have."
-        )
-    }
 }
 
 /// Possible errors encountered during line search.
