@@ -3,10 +3,10 @@ use super::{
         super::{TensorArray, TensorRank1, assert::AssertionError},
         test::{rosenbrock, rosenbrock_derivative},
     },
-    EqualityConstraint, GradientDescent, Optimization, RootFinding,
+    EqualityConstraint, GradientDescent, Optimization, RootFinding, Tolerances,
 };
 use crate::math::assert::Assert;
-use crate::math::{Current, Quantity};
+use crate::math::{Current, Matrix, Quantity, Vector};
 
 mod minimize {
     use super::*;
@@ -124,5 +124,40 @@ mod prescribed {
             &minimum(vec![(0, Prescription::Offset(-1.0))])?,
             &Point::from([-1.0, 7.0]),
         )
+    }
+}
+
+mod linear_constraint {
+    use super::*;
+    fn minimized(dual: bool) -> Result<Vector, super::super::OptimizationError> {
+        let mut matrix = Matrix::zero(1, 2);
+        matrix[0][0] = 1.0;
+        matrix[0][1] = 1.0;
+        GradientDescent {
+            abs_tol: Tolerances {
+                constraint: 1e-6,
+                residual: 1e-6,
+            },
+            dual,
+            max_steps: 5000,
+            ..GradientDescent::default()
+        }
+        .minimize(
+            |x: &Vector| Ok((x[0].powi(2) + x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(x.clone()),
+            |_| Ok(()),
+            Vector::from([4.0, -3.0]),
+            vec![EqualityConstraint::Linear(matrix, Vector::from([2.0]))],
+            None,
+        )
+    }
+    #[test]
+    fn dual() -> Result<(), AssertionError> {
+        Assert {
+            abs_tol: 1e-5,
+            rel_tol: 1e-5,
+            ..Default::default()
+        }
+        .eq_within_tols(&minimized(true)?, &Vector::from([1.0, 1.0]))
     }
 }

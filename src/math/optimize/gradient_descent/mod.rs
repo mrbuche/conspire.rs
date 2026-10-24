@@ -231,11 +231,9 @@ where
         None
     };
     let mut residual;
-    let mut residual_change = None;
-    let mut solution = initial_guess.clone();
-    let mut solution_change = solution.clone();
+    let mut secant = Secant::new(&initial_guess);
+    let mut solution = initial_guess;
     let mut step_size = INITIAL_STEP_SIZE;
-    let mut step_trial;
     let mut steps = 0;
     loop {
         residual = if let Some(ref extra) = constraint {
@@ -252,14 +250,7 @@ where
             ));
         } else {
             steps += 1;
-            solution_change -= &solution;
-            let change = residual_change.get_or_insert_with(|| zeroed(&residual));
-            *change -= &residual;
-            step_trial = change.erase().full_contraction(solution_change.erase())
-                / change.erase().full_contraction(change.erase());
-            if step_trial.abs() > 0.0 && !step_trial.is_nan() {
-                step_size = step_trial.abs()
-            }
+            step_size = secant.step_size(&solution, &residual, step_size);
             step_size = gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
@@ -268,8 +259,6 @@ where
                 &residual,
                 step_size,
             )?;
-            *change = residual.clone();
-            solution_change = solution.clone();
             solution -= residual * StepSize::<F, X>::new(step_size);
         }
     }
@@ -291,12 +280,10 @@ where
 {
     let mut relative_scale = 0.0;
     let mut residual: F;
-    let mut residual_change = None;
     let mut residual_norm;
-    let mut solution = initial_guess.clone();
-    let mut solution_change = solution.clone();
+    let mut secant = Secant::new(&initial_guess);
+    let mut solution = initial_guess;
     let mut step_size = INITIAL_STEP_SIZE;
-    let mut step_trial;
     let mut steps = 0;
     loop {
         residual = jacobian(&solution)?;
@@ -318,14 +305,7 @@ where
             ));
         } else {
             steps += 1;
-            solution_change -= &solution;
-            let change = residual_change.get_or_insert_with(|| zeroed(&residual));
-            *change -= &residual;
-            step_trial = change.erase().full_contraction(solution_change.erase())
-                / change.erase().full_contraction(change.erase());
-            if step_trial.abs() > 0.0 && !step_trial.is_nan() {
-                step_size = step_trial.abs()
-            }
+            step_size = secant.step_size(&solution, &residual, step_size);
             step_size = gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
@@ -334,8 +314,6 @@ where
                 &residual,
                 step_size,
             )?;
-            *change = residual.clone();
-            solution_change = solution.clone();
             solution -= residual * StepSize::<F, X>::new(step_size);
         }
     }
@@ -359,18 +337,14 @@ where
         panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let mut residual_solution;
-    let mut residual_solution_change = None;
-    let mut solution = initial_guess.clone();
-    let mut solution_change = solution.clone();
+    let mut secant_solution = Secant::new(&initial_guess);
+    let mut solution = initial_guess;
     let mut step_size_solution = INITIAL_STEP_SIZE;
-    let mut step_trial_solution;
     let num_constraints = constraint_rhs.len();
     let mut residual_multipliers;
-    let mut residual_multipliers_change = Vector::zero(num_constraints);
     let mut multipliers = Vector::zero(num_constraints);
-    let mut multipliers_change = Vector::zero(num_constraints);
+    let mut secant_multipliers = Secant::new(&multipliers);
     let mut step_size_multipliers = INITIAL_STEP_SIZE;
-    let mut step_trial_multipliers;
     let mut step_size;
     let mut steps = 0;
     loop {
@@ -389,26 +363,13 @@ where
             ));
         } else {
             steps += 1;
-            solution_change -= &solution;
-            let change = residual_solution_change.get_or_insert_with(|| zeroed(&residual_solution));
-            *change -= &residual_solution;
-            step_trial_solution = change.erase().full_contraction(solution_change.erase())
-                / change.erase().full_contraction(change.erase());
-            if step_trial_solution.abs() > 0.0 && !step_trial_solution.is_nan() {
-                step_size_solution = step_trial_solution.abs()
-            }
-            *change = residual_solution.clone();
-            solution_change = solution.clone();
-            multipliers_change -= &multipliers;
-            residual_multipliers_change -= &residual_multipliers;
-            step_trial_multipliers = residual_multipliers_change
-                .full_contraction(&multipliers_change)
-                / residual_multipliers_change.full_contraction(&residual_multipliers_change);
-            if step_trial_multipliers.abs() > 0.0 && !step_trial_multipliers.is_nan() {
-                step_size_multipliers = step_trial_multipliers.abs()
-            }
-            residual_multipliers_change = residual_multipliers.clone();
-            multipliers_change = multipliers.clone();
+            step_size_solution =
+                secant_solution.step_size(&solution, &residual_solution, step_size_solution);
+            step_size_multipliers = secant_multipliers.step_size(
+                &multipliers,
+                &residual_multipliers,
+                step_size_multipliers,
+            );
             step_size = step_size_solution.min(step_size_multipliers);
             solution -= residual_solution * StepSize::<F, X>::new(step_size);
             multipliers += residual_multipliers * step_size;
@@ -436,12 +397,10 @@ where
     }
     let num_constraints = constraint_rhs.len();
     let mut multipliers = Vector::zero(num_constraints);
-    let mut multipliers_change = multipliers.clone();
+    let mut secant = Secant::new(&multipliers);
     let mut residual;
-    let mut residual_change = Vector::zero(num_constraints);
     let mut solution = initial_guess;
     let mut step_size = INITIAL_STEP_SIZE;
-    let mut step_trial;
     for _ in 0..gradient_descent.max_steps {
         if let Ok(result) = unconstrained(
             gradient_descent,
@@ -458,22 +417,14 @@ where
             {
                 return Ok(solution);
             } else {
-                multipliers_change -= &multipliers;
-                residual_change -= &residual;
-                step_trial = residual_change.full_contraction(&multipliers_change)
-                    / residual_change.full_contraction(&residual_change);
-                if step_trial.abs() > 0.0 && !step_trial.is_nan() {
-                    step_size = step_trial.abs()
-                }
-                residual_change = residual.clone();
-                multipliers_change = multipliers.clone();
+                step_size = secant.step_size(&multipliers, &residual, step_size);
                 multipliers += residual * step_size;
             }
         } else {
             //
             // This sort of acts like LineSearch::Error, does it not?
             //
-            multipliers -= (multipliers.clone() - &multipliers_change) * CUTBACK_FACTOR_MINUS_ONE;
+            multipliers -= (multipliers.clone() - secant.solution()) * CUTBACK_FACTOR_MINUS_ONE;
             step_size *= CUTBACK_FACTOR;
         }
     }
@@ -483,12 +434,50 @@ where
     ))
 }
 
-/// A zeroed copy, to start the difference the step size is estimated from.
-fn zeroed<F>(residual: &F) -> F
+/// The step size the last two iterates suggest, after Barzilai and Borwein.
+///
+/// It is the step along which the change in residual best matches the change
+/// in solution, and stands in for a line search where there is none. What it
+/// remembers is the last solution and residual it was shown.
+struct Secant<X, F> {
+    solution: X,
+    residual: Option<F>,
+}
+
+impl<X, F, E> Secant<X, F>
 where
-    F: Tensor,
+    X: Erase<Erased = E> + Tensor,
+    F: Erase<Erased = E> + Tensor,
+    E: Tensor,
 {
-    let mut zero = residual.clone();
-    zero *= 0.0;
-    zero
+    fn new(solution: &X) -> Self {
+        Self {
+            solution: solution.clone(),
+            residual: None,
+        }
+    }
+    /// The last solution it was shown.
+    fn solution(&self) -> &X {
+        &self.solution
+    }
+    /// The step size suggested by the change since last shown, or the one
+    /// given where that change says nothing.
+    fn step_size(&mut self, solution: &X, residual: &F, step_size: Scalar) -> Scalar {
+        self.solution -= solution;
+        let change = self.residual.get_or_insert_with(|| {
+            let mut zero = residual.clone();
+            zero *= 0.0;
+            zero
+        });
+        *change -= residual;
+        let trial = change.erase().full_contraction(self.solution.erase())
+            / change.erase().full_contraction(change.erase());
+        *change = residual.clone();
+        self.solution = solution.clone();
+        if trial.abs() > 0.0 && !trial.is_nan() {
+            trial.abs()
+        } else {
+            step_size
+        }
+    }
 }
