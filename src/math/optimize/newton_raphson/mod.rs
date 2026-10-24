@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod test;
 
+mod adaptive;
 mod backtrack;
 mod blocked;
 mod constrained;
