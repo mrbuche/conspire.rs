@@ -35,7 +35,7 @@ pub struct GradientDescent<S = NoSearch> {
 
 impl<S: ObjectiveMerit, J, X> BacktrackingLineSearch<J, X> for GradientDescent<S> {
     type Search = S;
-    fn get_line_search(&self) -> &S {
+    fn line_search(&self) -> &S {
         &self.line_search
     }
 }

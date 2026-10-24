@@ -48,7 +48,7 @@ pub struct NewtonRaphson<L = Direct, S = NoSearch> {
 
 impl<L, S: ObjectiveMerit, J, X> BacktrackingLineSearch<J, X> for NewtonRaphson<L, S> {
     type Search = S;
-    fn get_line_search(&self) -> &S {
+    fn line_search(&self) -> &S {
         &self.line_search
     }
 }
@@ -849,17 +849,14 @@ impl<S: ResidualMerit> Backtrack for Residually<'_, S> {
     }
 }
 
-/// Half the squared Euclidean norm of a tensor.
 fn half_square_norm(tensor: &impl Tensor) -> Scalar {
     0.5 * Norm::Euclidean.measure(tensor).powi(2)
 }
 
-/// Half the sum of the squares of the entries.
 fn half_square(entries: impl Iterator<Item = Scalar>) -> Scalar {
     0.5 * entries.map(|entry| entry * entry).sum::<Scalar>()
 }
 
-/// Gives a line search failure the solver it happened in.
 fn searched<L, S: Display>(
     newton_raphson: &NewtonRaphson<L, S>,
     step_size: Result<Scalar, LineSearchError>,

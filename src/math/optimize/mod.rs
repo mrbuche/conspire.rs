@@ -158,14 +158,10 @@ pub trait OptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     ) -> Result<(U, V), OptimizationError>;
 }
 
-/// Stands in for the objective of a root, which has none.
-///
-/// A root is only ever searched along a residual, so nothing asks.
 fn no_objective<X>(_: &X) -> Result<Scalar, String> {
     Err("A root has no objective.".to_string())
 }
 
-/// Stands in for the objective of a root with global and local variables.
 fn no_objective_blocks<U, V>(_: &U, _: &V) -> Result<Scalar, String> {
     Err("A root has no objective.".to_string())
 }
@@ -198,7 +194,7 @@ where
             )
             .map_err(|error| OptimizationError::upstream(error, self))
     }
-    fn get_line_search(&self) -> &Self::Search;
+    fn line_search(&self) -> &Self::Search;
 }
 
 /// Possible errors encountered during optimization.
