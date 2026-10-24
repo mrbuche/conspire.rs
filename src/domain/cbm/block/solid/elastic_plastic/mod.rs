@@ -2,11 +2,9 @@
 mod test;
 
 use super::super::{Block, node::solid::elastic_plastic::ElasticPlasticElement};
+use crate::math::integrate::StepError;
 use crate::{
-    constitutive::{
-        ConstitutiveError,
-        solid::elastic_plastic::{ElasticPlastic, StepError},
-    },
+    constitutive::{ConstitutiveError, solid::elastic_plastic::ElasticPlastic},
     domain::{
         ElementModelError, NodalCoordinates,
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
@@ -16,10 +14,10 @@ use crate::{
 
 pub use crate::domain::{
     block::solid::plastic::PlasticStateVariablesField,
-    solid::elastic_plastic::{ElasticPlasticElements, ElasticPlasticRoot},
+    solid::rate_independent::{RateIndependentElements, RateIndependentRoot},
 };
 
-impl<C, R> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C, R>
+impl<C, R> RateIndependentElements<PlasticStateVariablesField<1>, 3> for Block<C, R>
 where
     C: ElasticPlastic,
 {

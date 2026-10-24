@@ -1575,10 +1575,8 @@ macro_rules! test_finite_element_block_with_elastic_plastic_constitutive_model {
         }
         mod step_error {
             use super::*;
-            use $crate::{
-                constitutive::solid::elastic_plastic::StepError,
-                math::{Quantity, optimize::NewtonRaphson},
-            };
+            use $crate::constitutive::solid::elastic_plastic::ElasticPlastic as _;
+            use $crate::math::{Quantity, integrate::StepError, optimize::NewtonRaphson};
             #[test]
             fn vanishes_when_the_state_does_not_change() {
                 let block = get_block();
@@ -1620,7 +1618,16 @@ macro_rules! test_finite_element_block_with_elastic_plastic_constitutive_model {
                         largest.max(increment)
                     });
                 assert!(largest > Quantity::default());
-                assert_eq!(error.overshoot, largest);
+                let yield_strain = $constitutive_model
+                    .yield_strain(
+                        state_variables
+                            .iter()
+                            .flat_map(|element_state| element_state.iter())
+                            .next()
+                            .unwrap(),
+                    )
+                    .unwrap();
+                assert_eq!(error.overshoot, largest.ratio(yield_strain));
             }
             #[test]
             fn a_point_already_yielding_does_not_overshoot() {

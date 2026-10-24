@@ -18,7 +18,7 @@ pub type LinearElement<const G: usize, const N: usize> = Element<3, G, N, 1>;
 
 pub trait LinearFiniteElement<const G: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, N>,
+    Self: FiniteElement<G, M, N>,
 {
 }
 

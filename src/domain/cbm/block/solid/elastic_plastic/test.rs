@@ -1,4 +1,4 @@
-use super::{ElasticPlasticRoot, PlasticStateVariablesField};
+use super::{PlasticStateVariablesField, RateIndependentRoot};
 use crate::{
     cbm::{Model, NodalCoordinatesHistory, NodalReferenceCoordinates, block::Block},
     constitutive::{

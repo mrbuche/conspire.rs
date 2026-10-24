@@ -2,7 +2,7 @@ macro_rules! test_thermoelastic_thermal_conduction_time_scale_block {
     ($element: ident) => {
         mod thermoelastic_thermal_conduction_time_scale_block {
             use super::{
-                D, G, M, N, P, get_connectivity, get_coordinates_block,
+                D, G, M, N, get_connectivity, get_coordinates_block,
                 get_reference_coordinates_block, $element,
             };
             use crate::{
@@ -43,11 +43,10 @@ macro_rules! test_thermoelastic_thermal_conduction_time_scale_block {
                 G,
                 M,
                 N,
-                P,
                 Quantity<Density>,
                 Quantity<VolumetricHeatCapacity>,
             > {
-                Block::<_, _, G, M, N, P, Quantity<Density>>::from((
+                Block::<_, _, G, M, N, Quantity<Density>>::from((
                     Canonical::from((
                         AlmansiHamel {
                             bulk_modulus: BULK_MODULUS,
@@ -71,7 +70,7 @@ macro_rules! test_thermoelastic_thermal_conduction_time_scale_block {
             #[test]
             fn motion_is_that_of_the_elastic_block_at_the_reference_temperature()
             -> Result<(), AssertionError> {
-                let elastic = Block::<AlmansiHamelEulerian, $element, G, M, N, P, Quantity<Density>>::from((
+                let elastic = Block::<AlmansiHamelEulerian, $element, G, M, N, Quantity<Density>>::from((
                     AlmansiHamelEulerian {
                         bulk_modulus: BULK_MODULUS,
                         shear_modulus: SHEAR_MODULUS,
@@ -92,7 +91,7 @@ macro_rules! test_thermoelastic_thermal_conduction_time_scale_block {
             }
             #[test]
             fn diffusion_is_that_of_the_thermal_block() -> Result<(), AssertionError> {
-                let thermal = Block::<Fourier, $element, G, M, N, P>::from((
+                let thermal = Block::<Fourier, $element, G, M, N>::from((
                     Fourier {
                         thermal_conductivity: THERMAL_CONDUCTIVITY,
                     },

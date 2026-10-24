@@ -12,8 +12,8 @@ use crate::{
     },
     fem::block::element::{
         Element, FiniteElement, FiniteElementError, IntegrationWeights, ParametricCoordinate,
-        ParametricCoordinates, ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
-        basic_from, surface::SurfaceElement,
+        ParametricCoordinates, ParametricReference, ReferenceFiniteElement, ShapeFunctions,
+        ShapeFunctionsGradients, basic_from, surface::SurfaceElement,
     },
     math::{
         Current, Quantity, Reference, ScalarList, Tensor, TensorArray, TensorRank1,
@@ -35,16 +35,16 @@ pub type PlanarElementNodalForcesSolid<const N: usize> = TensorRank1List<M, Curr
 pub type PlanarElementNodalStiffnessesSolid<const N: usize> =
     TensorRank2List2D<M, Current, Current, N, N, ForcePerLength>;
 
-impl<const G: usize, const N: usize, const O: usize, const P: usize> FiniteElement<G, M, N, P>
-    for Element<2, G, N, O>
+impl<const G: usize, const N: usize, const O: usize, const P: usize>
+    ReferenceFiniteElement<G, M, N, P> for Element<2, G, N, O>
 where
-    SurfaceElement<G, N, O>: FiniteElement<G, M, N, P>,
+    SurfaceElement<G, N, O>: ReferenceFiniteElement<G, M, N, P>,
 {
-    fn integration_points() -> ParametricCoordinates<G, M> {
-        SurfaceElement::<G, N, O>::integration_points()
-    }
     fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
         &self.integration_weights
+    }
+    fn integration_points() -> ParametricCoordinates<G, M> {
+        SurfaceElement::<G, N, O>::integration_points()
     }
     fn parametric_reference() -> ParametricReference<M, N> {
         SurfaceElement::<G, N, O>::parametric_reference()
@@ -65,16 +65,16 @@ where
 impl<const G: usize, const N: usize, const O: usize> From<PlanarElementNodalReferenceCoordinates<N>>
     for Element<2, G, N, O>
 where
-    Self: FiniteElement<G, M, N, N>,
+    Self: FiniteElement<G, M, N>,
 {
     fn from(reference_nodal_coordinates: PlanarElementNodalReferenceCoordinates<N>) -> Self {
         basic_from(reference_nodal_coordinates)
     }
 }
 
-pub trait PlanarSolidFiniteElement<const G: usize, const N: usize, const P: usize>
+pub trait PlanarSolidFiniteElement<const G: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, P>,
+    Self: FiniteElement<G, M, N>,
 {
     fn deformation_gradients(
         &self,
@@ -82,10 +82,10 @@ where
     ) -> DeformationGradientList<G>;
 }
 
-impl<const G: usize, const N: usize, const O: usize, const P: usize>
-    PlanarSolidFiniteElement<G, N, P> for Element<2, G, N, O>
+impl<const G: usize, const N: usize, const O: usize> PlanarSolidFiniteElement<G, N>
+    for Element<2, G, N, O>
 where
-    Self: FiniteElement<G, M, N, P>,
+    Self: FiniteElement<G, M, N>,
 {
     fn deformation_gradients(
         &self,
@@ -112,10 +112,10 @@ where
     }
 }
 
-pub trait PlanarElasticFiniteElement<C, const G: usize, const N: usize, const P: usize>
+pub trait PlanarElasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Elastic,
-    Self: PlanarSolidFiniteElement<G, N, P>,
+    Self: PlanarSolidFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -129,11 +129,11 @@ where
     ) -> Result<PlanarElementNodalStiffnessesSolid<N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    PlanarElasticFiniteElement<C, G, N, P> for Element<2, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize> PlanarElasticFiniteElement<C, G, N>
+    for Element<2, G, N, O>
 where
     C: Elastic,
-    Self: PlanarSolidFiniteElement<G, N, P>,
+    Self: PlanarSolidFiniteElement<G, N>,
 {
     fn nodal_forces(
         &self,
@@ -238,10 +238,10 @@ where
     }
 }
 
-pub trait PlanarHyperelasticFiniteElement<C, const G: usize, const N: usize, const P: usize>
+pub trait PlanarHyperelasticFiniteElement<C, const G: usize, const N: usize>
 where
     C: Hyperelastic,
-    Self: PlanarElasticFiniteElement<C, G, N, P>,
+    Self: PlanarElasticFiniteElement<C, G, N>,
 {
     fn helmholtz_free_energy(
         &self,
@@ -250,11 +250,11 @@ where
     ) -> Result<Quantity<Energy>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize>
-    PlanarHyperelasticFiniteElement<C, G, N, P> for Element<2, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize> PlanarHyperelasticFiniteElement<C, G, N>
+    for Element<2, G, N, O>
 where
     C: Hyperelastic,
-    Self: PlanarElasticFiniteElement<C, G, N, P>,
+    Self: PlanarElasticFiniteElement<C, G, N>,
 {
     fn helmholtz_free_energy(
         &self,

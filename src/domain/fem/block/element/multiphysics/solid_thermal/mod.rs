@@ -23,15 +23,13 @@ pub type ElementNodalStiffnessesSolidThermal<const N: usize> = (
     ElementNodalStiffnessesThermal<N>,
 );
 
-pub trait SolidThermalFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait SolidThermalFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: SolidFiniteElement<G, M, N, P> + ThermalFiniteElement<G, M, N, P>,
+    Self: SolidFiniteElement<G, M, N> + ThermalFiniteElement<G, M, N>,
 {
 }
 
-impl<T, const G: usize, const M: usize, const N: usize, const P: usize>
-    SolidThermalFiniteElement<G, M, N, P> for T
-where
-    T: SolidFiniteElement<G, M, N, P> + ThermalFiniteElement<G, M, N, P>,
+impl<T, const G: usize, const M: usize, const N: usize> SolidThermalFiniteElement<G, M, N> for T where
+    T: SolidFiniteElement<G, M, N> + ThermalFiniteElement<G, M, N>
 {
 }

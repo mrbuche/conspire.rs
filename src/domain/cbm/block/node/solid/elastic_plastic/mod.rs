@@ -1,9 +1,7 @@
 use super::{super::Node, SolidElement};
+use crate::math::integrate::StepError;
 use crate::{
-    constitutive::{
-        ConstitutiveError,
-        solid::elastic_plastic::{ElasticPlastic, StepError},
-    },
+    constitutive::{ConstitutiveError, solid::elastic_plastic::ElasticPlastic},
     domain::{NodalCoordinates, block::element::solid::plastic::PlasticStateVariables},
     math::{
         ContractSecondFourthWithFirst, Current, TensorRank1, TensorRank2, optimize::NewtonRaphson,
@@ -83,11 +81,13 @@ where
         state_variables: &PlasticStateVariables<1>,
         updated_state: &PlasticStateVariables<1>,
     ) -> Result<StepError, ConstitutiveError> {
-        constitutive_model.step_error(
-            &self.deformation_gradients(nodal_coordinates_old),
-            &self.deformation_gradients(nodal_coordinates),
-            &state_variables[0],
-            &updated_state[0],
-        )
+        Ok(constitutive_model
+            .step_error(
+                &self.deformation_gradients(nodal_coordinates_old),
+                &self.deformation_gradients(nodal_coordinates),
+                &state_variables[0],
+                &updated_state[0],
+            )?
+            .relative_to(constitutive_model.yield_strain(&state_variables[0])?))
     }
 }

@@ -413,7 +413,7 @@ mod uniform {
                     solid::{elastic::SaintVenantKirchhoff, hyperelastic::NeoHookean},
                 },
                 domain::block::test::test_finite_element_block_with_elastic_plastic_constitutive_model,
-                domain::solid::elastic_plastic::ElasticPlasticElements,
+                domain::solid::rate_independent::RateIndependentElements,
             };
             type NeoHookeanPlastic = Canonical<NeoHookean, PlasticFlow<VonMises, Linear>>;
             type SaintVenantKirchhoffVocePlastic =

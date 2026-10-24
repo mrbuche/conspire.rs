@@ -22,11 +22,11 @@ use crate::{
     units::Time,
 };
 
-impl<C, F, R, H, const G: usize, const M: usize, const N: usize, const P: usize>
-    ThermalTimeScaleElements<M> for Block<C, F, G, M, N, P, R, H>
+impl<C, F, R, H, const G: usize, const M: usize, const N: usize> ThermalTimeScaleElements<M>
+    for Block<C, F, G, M, N, R, H>
 where
     C: ThermalConduction,
-    F: ThermalConductionFiniteElement<C, G, M, N, P> + LumpedHeatCapacityFiniteElement<G, M, N, P>,
+    F: ThermalConductionFiniteElement<C, G, M, N> + LumpedHeatCapacityFiniteElement<G, M, N>,
     H: HeatCapacities<G>,
 {
     fn fastest_diffusive_time_scale(

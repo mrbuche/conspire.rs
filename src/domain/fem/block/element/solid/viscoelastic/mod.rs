@@ -3,8 +3,8 @@ pub use crate::domain::block::element::solid::viscoelastic::ViscoelasticElement;
 use crate::{
     constitutive::solid::viscoelastic::Viscoelastic,
     fem::block::element::{
-        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElement,
-        FiniteElementError, GradientVectors,
+        Element, ElementNodalCoordinates, ElementNodalVelocities, FiniteElementError,
+        GradientVectors, ReferenceFiniteElement,
         solid::{
             ElementNodalDampingsSolid, ElementNodalForcesSolid, SolidElement, SolidFiniteElement,
         },
@@ -15,15 +15,10 @@ use crate::{
     units::ViscosityPerArea,
 };
 
-pub trait ViscoelasticFiniteElement<
-    C,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-> where
+pub trait ViscoelasticFiniteElement<C, const G: usize, const M: usize, const N: usize>
+where
     C: Viscoelastic,
-    Self: SolidFiniteElement<G, M, N, P>
+    Self: SolidFiniteElement<G, M, N>
         + ViscoelasticElement<
             C,
             Forces = ElementNodalForcesSolid<N>,
@@ -33,11 +28,11 @@ pub trait ViscoelasticFiniteElement<
 {
 }
 
-impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize>
-    ViscoelasticFiniteElement<C, G, M, N, P> for T
+impl<T, C, const G: usize, const M: usize, const N: usize> ViscoelasticFiniteElement<C, G, M, N>
+    for T
 where
     C: Viscoelastic,
-    T: SolidFiniteElement<G, M, N, P>
+    T: SolidFiniteElement<G, M, N>
         + ViscoelasticElement<
             C,
             Forces = ElementNodalForcesSolid<N>,
@@ -51,7 +46,7 @@ impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticElement<C>
     for Element<3, G, N, O>
 where
     C: Viscoelastic,
-    Self: SolidFiniteElement<G, 3, N, N>,
+    Self: SolidFiniteElement<G, 3, N>,
 {
     type Forces = ElementNodalForcesSolid<N>;
     type Dampings = ElementNodalDampingsSolid<N>;
@@ -62,7 +57,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        nodal_forces::<_, _, _, _, _, O, _>(
+        nodal_forces::<_, _, _, _, _, O>(
             self,
             constitutive_model,
             self.gradient_vectors(),
@@ -131,7 +126,7 @@ impl<C, const G: usize, const N: usize, const O: usize> ViscoelasticElement<C>
     for SurfaceElement<G, N, O>
 where
     C: Viscoelastic,
-    Self: SolidFiniteElement<G, 2, N, N>,
+    Self: SolidFiniteElement<G, 2, N>,
 {
     type Forces = ElementNodalForcesSolid<N>;
     type Dampings = ElementNodalDampingsSolid<N>;
@@ -142,7 +137,7 @@ where
         nodal_coordinates: &ElementNodalCoordinates<N>,
         nodal_velocities: &ElementNodalVelocities<N>,
     ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError> {
-        nodal_forces::<_, _, _, _, _, O, _>(
+        nodal_forces::<_, _, _, _, _, O>(
             self,
             constitutive_model,
             self.gradient_vectors(),
@@ -224,15 +219,7 @@ where
     }
 }
 
-fn nodal_forces<
-    C,
-    F,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const O: usize,
-    const P: usize,
->(
+fn nodal_forces<C, F, const G: usize, const M: usize, const N: usize, const O: usize>(
     element: &F,
     constitutive_model: &C,
     gradient_vectors: &GradientVectors<3, G, N>,
@@ -241,7 +228,7 @@ fn nodal_forces<
 ) -> Result<ElementNodalForcesSolid<N>, FiniteElementError>
 where
     C: Viscoelastic,
-    F: SolidFiniteElement<G, M, N, P>,
+    F: SolidFiniteElement<G, M, N>,
 {
     let first_piola_kirchhoff_stresses = element
         .deformation_gradients(nodal_coordinates)

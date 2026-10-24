@@ -4,7 +4,7 @@ use std::ops::{Div, Mul};
 use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic::internal_variables::HyperelasticIV},
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElementError, ReferenceFiniteElement,
         solid::{
             SolidElement, SolidFiniteElement,
             elastic::internal_variables::{ElasticIVFiniteElement, InternalVariables},
@@ -16,18 +16,11 @@ use crate::{
     units::Energy,
 };
 
-pub trait HyperelasticIVFiniteElement<
-    C,
-    const G: usize,
-    const M: usize,
-    const N: usize,
-    const P: usize,
-    V,
-    E,
-> where
+pub trait HyperelasticIVFiniteElement<C, const G: usize, const M: usize, const N: usize, V, E>
+where
     C: HyperelasticIV<V>,
     C::Residual: Erase<Erased = E>,
-    Self: ElasticIVFiniteElement<C, G, M, N, P, V, E>,
+    Self: ElasticIVFiniteElement<C, G, M, N, V, E>,
     E: Tensor,
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,
@@ -44,12 +37,12 @@ pub trait HyperelasticIVFiniteElement<
     ) -> Result<Quantity<Energy>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const N: usize, const O: usize, const P: usize, V, E>
-    HyperelasticIVFiniteElement<C, G, 3, N, P, V, E> for Element<3, G, N, O>
+impl<C, const G: usize, const N: usize, const O: usize, V, E>
+    HyperelasticIVFiniteElement<C, G, 3, N, V, E> for Element<3, G, N, O>
 where
     C: HyperelasticIV<V>,
     C::Residual: Erase<Erased = E>,
-    Self: ElasticIVFiniteElement<C, G, 3, N, P, V, E> + SolidFiniteElement<G, 3, N, P>,
+    Self: ElasticIVFiniteElement<C, G, 3, N, V, E> + SolidFiniteElement<G, 3, N>,
     E: Tensor,
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,
     for<'a> &'a V: Mul<Quantity<Dimensionless>, Output = V> + Mul<Scalar, Output = V>,

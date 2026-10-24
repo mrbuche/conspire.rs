@@ -29,9 +29,9 @@ pub type ElementNodalForcesSolid<const N: usize> = ForceList<N>;
 pub type ElementNodalStiffnessesSolid<const N: usize> = StiffnessList2D<N>;
 pub type ElementNodalDampingsSolid<const N: usize> = DampingList2D<N>;
 
-pub trait SolidFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait SolidFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: FiniteElement<G, M, N, P>
+    Self: FiniteElement<G, M, N>
         + SolidElement<
             Coordinates = ElementNodalCoordinates<N>,
             Velocities = ElementNodalVelocities<N>,
@@ -41,16 +41,14 @@ where
 {
 }
 
-impl<T, const G: usize, const M: usize, const N: usize, const P: usize>
-    SolidFiniteElement<G, M, N, P> for T
-where
-    T: FiniteElement<G, M, N, P>
+impl<T, const G: usize, const M: usize, const N: usize> SolidFiniteElement<G, M, N> for T where
+    T: FiniteElement<G, M, N>
         + SolidElement<
             Coordinates = ElementNodalCoordinates<N>,
             Velocities = ElementNodalVelocities<N>,
             DeformationGradients = DeformationGradientList<G>,
             DeformationGradientRates = DeformationGradientRateList<G>,
-        >,
+        >
 {
 }
 

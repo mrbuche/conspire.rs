@@ -29,7 +29,7 @@ const COORDINATES: [[f64; 3]; 5] = [
     [1.5, 1.4, 1.3],
 ];
 
-type B = Block<NeoHookean, Tetrahedron<4>, 4, 3, 4, 4, Quantity<Density>>;
+type B = Block<NeoHookean, Tetrahedron<4>, 4, 3, 4, Quantity<Density>>;
 
 fn model() -> Model<B, 3> {
     let reference = NodalReferenceCoordinates::from(COORDINATES);
@@ -890,7 +890,7 @@ mod bar_wave {
         },
         units::Time,
     };
-    type Bar = Block<NeoHookean, Hexahedron, 8, 3, 8, 8, Quantity<Density>>;
+    type Bar = Block<NeoHookean, Hexahedron, 8, 3, 8, Quantity<Density>>;
     const ELEMENTS: usize = 40;
     const LENGTH: f64 = 1.0;
     const WIDTH: f64 = 0.1;

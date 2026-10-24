@@ -15,11 +15,11 @@ use crate::{
     },
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H> ElasticElements<3>
-    for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, R, H> ElasticElements<3>
+    for Block<C, F, G, M, N, R, H>
 where
     C: Elastic,
-    F: ElasticFiniteElement<C, G, M, N, P>,
+    F: ElasticFiniteElement<C, G, M, N>,
 {
     fn nodal_forces_into(
         &self,
@@ -72,11 +72,10 @@ where
     }
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize, R> ElasticElements<2>
-    for Block<C, F, G, 2, N, P, R>
+impl<C, F, const G: usize, const N: usize, R> ElasticElements<2> for Block<C, F, G, 2, N, R>
 where
     C: Elastic,
-    F: PlanarElasticFiniteElement<C, G, N, P>,
+    F: PlanarElasticFiniteElement<C, G, N>,
 {
     fn nodal_forces_into(
         &self,

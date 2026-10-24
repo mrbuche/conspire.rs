@@ -9,9 +9,9 @@ use crate::{
 
 pub type ElementNodalTemperatures<const D: usize> = ElementNodalFields<Power, D>;
 
-pub trait ThermalFiniteElement<const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait ThermalFiniteElement<const G: usize, const M: usize, const N: usize>
 where
-    Self: DiffusiveFiniteElement<Power, G, M, N, P>,
+    Self: DiffusiveFiniteElement<Power, G, M, N>,
 {
     fn temperature_gradients(
         &self,
@@ -21,9 +21,7 @@ where
     }
 }
 
-impl<T, const G: usize, const M: usize, const N: usize, const P: usize>
-    ThermalFiniteElement<G, M, N, P> for T
-where
-    T: DiffusiveFiniteElement<Power, G, M, N, P>,
+impl<T, const G: usize, const M: usize, const N: usize> ThermalFiniteElement<G, M, N> for T where
+    T: DiffusiveFiniteElement<Power, G, M, N>
 {
 }

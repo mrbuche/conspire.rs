@@ -3,8 +3,8 @@ pub mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElement, IntegrationWeights, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        IntegrationWeights, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         surface::{M, linear::LinearSurfaceElement},
     },
     math::ScalarList,
@@ -19,12 +19,12 @@ const P: usize = N;
 
 pub type Triangle = LinearSurfaceElement<G, N>;
 
-impl FiniteElement<G, M, N, P> for Triangle {
-    fn integration_points() -> ParametricCoordinates<G, M> {
-        [[1.0 / 3.0; M]].into()
-    }
+impl ReferenceFiniteElement<G, M, N, P> for Triangle {
     fn integration_weights(&self) -> &IntegrationWeights<G, Volume> {
         &self.integration_weights
+    }
+    fn integration_points() -> ParametricCoordinates<G, M> {
+        [[1.0 / 3.0; M]].into()
     }
     fn parametric_reference() -> ParametricReference<M, N> {
         [[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]].into()

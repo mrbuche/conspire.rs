@@ -3,7 +3,7 @@ use crate::{
         ConstitutiveError,
         diffusion::{Diffusion, DiffusionFluxes, DiffusionTangents, Diffusive},
     },
-    fem::block::element::{Element, FiniteElement, FiniteElementError},
+    fem::block::element::{Element, FiniteElement, FiniteElementError, ReferenceFiniteElement},
     math::{Quantity, Reference, Tensor, TensorList, TensorRank1List},
     units::{ReciprocalLength, UnitMul},
 };
@@ -15,20 +15,20 @@ pub type ElementNodalStiffnesses<L, const D: usize> =
 pub type ElementGradients<L, const G: usize> =
     TensorRank1List<3, Reference, G, <L as Diffusive>::Gradient>;
 
-pub trait DiffusiveFiniteElement<L, const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait DiffusiveFiniteElement<L, const G: usize, const M: usize, const N: usize>
 where
     L: Diffusive,
-    Self: FiniteElement<G, M, N, P>,
+    Self: FiniteElement<G, M, N>,
 {
     fn gradients(&self, nodal_fields: &ElementNodalFields<L, N>) -> ElementGradients<L, G>;
 }
 
-impl<L, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    DiffusiveFiniteElement<L, G, M, N, P> for Element<3, G, N, O>
+impl<L, const G: usize, const M: usize, const N: usize, const O: usize>
+    DiffusiveFiniteElement<L, G, M, N> for Element<3, G, N, O>
 where
     L: Diffusive,
     ReciprocalLength: UnitMul<L::Field, Output = L::Gradient>,
-    Self: FiniteElement<G, M, N, P>,
+    Self: FiniteElement<G, M, N>,
 {
     fn gradients(&self, nodal_fields: &ElementNodalFields<L, N>) -> ElementGradients<L, G> {
         self.gradient_vectors()
@@ -44,10 +44,10 @@ where
     }
 }
 
-pub trait DiffusionFiniteElement<C, const G: usize, const M: usize, const N: usize, const P: usize>
+pub trait DiffusionFiniteElement<C, const G: usize, const M: usize, const N: usize>
 where
     C: Diffusion,
-    Self: DiffusiveFiniteElement<C::Balance, G, M, N, P>,
+    Self: DiffusiveFiniteElement<C::Balance, G, M, N>,
 {
     fn potential(
         &self,
@@ -66,11 +66,11 @@ where
     ) -> Result<ElementNodalStiffnesses<C::Balance, N>, FiniteElementError>;
 }
 
-impl<C, const G: usize, const M: usize, const N: usize, const O: usize, const P: usize>
-    DiffusionFiniteElement<C, G, M, N, P> for Element<3, G, N, O>
+impl<C, const G: usize, const M: usize, const N: usize, const O: usize>
+    DiffusionFiniteElement<C, G, M, N> for Element<3, G, N, O>
 where
     C: Diffusion,
-    Self: DiffusiveFiniteElement<C::Balance, G, M, N, P>,
+    Self: DiffusiveFiniteElement<C::Balance, G, M, N>,
 {
     fn potential(
         &self,

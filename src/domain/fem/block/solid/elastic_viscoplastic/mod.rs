@@ -32,12 +32,11 @@ pub use crate::domain::block::solid::viscoplastic::{
     ViscoplasticEvolution, ViscoplasticStateVariables, ViscoplasticStateVariablesHistory,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, Y, R, H>
-    ElasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3>
-    for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, Y, R, H>
+    ElasticViscoplasticElements<ViscoplasticStateVariables<G, Y>, 3> for Block<C, F, G, M, N, R, H>
 where
     C: ElasticViscoplastic<Y>,
-    F: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>,
+    F: ElasticViscoplasticFiniteElement<C, G, M, N, Y>,
     Y: Differentiable + Tensor,
 {
     fn initial_state(&self) -> ViscoplasticStateVariables<G, Y> {
@@ -146,10 +145,10 @@ where
         .collect()
 }
 
-impl<C, F, const G: usize, const N: usize, const P: usize, Y, R, H>
-    ElasticViscoplasticDaeElements<Y, 3> for Block<C, F, G, 3, N, P, R, H>
+impl<C, F, const G: usize, const N: usize, Y, R, H> ElasticViscoplasticDaeElements<Y, 3>
+    for Block<C, F, G, 3, N, R, H>
 where
-    F: SolidFiniteElement<G, 3, N, P> + ElasticViscoplasticFiniteElement<C, G, 3, N, P, Y>,
+    F: SolidFiniteElement<G, 3, N> + ElasticViscoplasticFiniteElement<C, G, 3, N, Y>,
     Y: Clone + Differentiable<Time> + Tensor,
     C: ElasticViscoplastic<Y>
         + StateEvolution<

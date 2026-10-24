@@ -15,11 +15,11 @@ use crate::{
     units::Energy,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    HyperviscoelasticElements<3> for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, R, H> HyperviscoelasticElements<3>
+    for Block<C, F, G, M, N, R, H>
 where
     C: Hyperviscoelastic,
-    F: HyperviscoelasticFiniteElement<C, G, M, N, P>,
+    F: HyperviscoelasticFiniteElement<C, G, M, N>,
     Self: ElasticHyperviscousElements<3>,
 {
     fn helmholtz_free_energy(

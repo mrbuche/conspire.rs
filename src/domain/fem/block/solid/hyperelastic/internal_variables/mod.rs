@@ -18,12 +18,12 @@ use crate::{
 };
 use std::ops::{Div, Mul};
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, V, E, R, H>
-    HyperelasticIVElements<G, V, 3> for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, V, E, R, H>
+    HyperelasticIVElements<G, V, 3> for Block<C, F, G, M, N, R, H>
 where
     C: HyperelasticIV<V>,
     C::Residual: Erase<Erased = E>,
-    F: HyperelasticIVFiniteElement<C, G, M, N, P, V, E>,
+    F: HyperelasticIVFiniteElement<C, G, M, N, V, E>,
     Self: ElasticIVElements<G, V, 3>,
     E: Tensor,
     for<'a> &'a C::Residual: Div<C::TangentVv, Output = V>,

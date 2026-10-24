@@ -2,7 +2,7 @@ macro_rules! test_thermoelastic_thermal_conduction_rate_block {
     ($element: ident) => {
         mod thermoelastic_thermal_conduction_rate_block {
             use super::{
-                D, G, M, N, P, get_connectivity, get_coordinates_block,
+                D, G, M, N, get_connectivity, get_coordinates_block,
                 get_reference_coordinates_block, get_velocities_block, $element,
             };
             use crate::{
@@ -32,7 +32,7 @@ macro_rules! test_thermoelastic_thermal_conduction_rate_block {
                 },
                 units::{Length, Temperature, Velocity},
             };
-            fn coupled_block() -> Block<Canonical<AlmansiHamel, Fourier>, $element, G, M, N, P> {
+            fn coupled_block() -> Block<Canonical<AlmansiHamel, Fourier>, $element, G, M, N> {
                 (
                     (
                         AlmansiHamel {

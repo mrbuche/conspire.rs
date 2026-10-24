@@ -43,11 +43,11 @@ fn total(capacities: impl Iterator<Item = Quantity<HeatCapacity>>) -> Quantity<H
 macro_rules! model {
     ($name:ident, $g:literal) => {
         fn $name() -> Model<
-            Block<(), Tetrahedron<$g>, $g, 3, 4, 4, NoDensity, Quantity<VolumetricHeatCapacity>>,
+            Block<(), Tetrahedron<$g>, $g, 3, 4, NoDensity, Quantity<VolumetricHeatCapacity>>,
             3,
         > {
             (
-                Block::<(), Tetrahedron<$g>, $g, 3, 4, 4>::from((
+                Block::<(), Tetrahedron<$g>, $g, 3, 4>::from((
                     (),
                     CONNECTIVITY.to_vec(),
                     &coordinates(),
@@ -100,7 +100,7 @@ fn consistent_lumps_to_its_row_sums() -> Result<(), AssertionError> {
 
 #[test]
 fn varies_with_the_density() -> Result<(), AssertionError> {
-    let block = Block::<(), Tetrahedron<4>, 4, 3, 4, 4, ElementDensities<4>>::from((
+    let block = Block::<(), Tetrahedron<4>, 4, 3, 4, ElementDensities<4>>::from((
         (),
         |coordinate: &ReferenceCoordinate| {
             Density::kilograms_per_cubic_meter(1e3 + 5e2 * coordinate[0].value())

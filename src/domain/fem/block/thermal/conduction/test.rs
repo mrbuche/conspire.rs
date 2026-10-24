@@ -1,9 +1,7 @@
 macro_rules! test_thermal_block {
     ($element: ident) => {
         mod thermal_block {
-            use super::{
-                D, G, M, N, P, get_connectivity, get_reference_coordinates_block, $element,
-            };
+            use super::{D, G, M, N, get_connectivity, get_reference_coordinates_block, $element};
             use crate::{
                 EPSILON,
                 constitutive::thermal::conduction::Fourier,
@@ -30,7 +28,7 @@ macro_rules! test_thermal_block {
                 #[test]
                 fn potential() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
-                    let block = Block::<Fourier, $element, G, M, N, P>::from((
+                    let block = Block::<Fourier, $element, G, M, N>::from((
                         constitutive_model,
                         get_connectivity(),
                         &get_reference_coordinates_block(),
@@ -54,7 +52,7 @@ macro_rules! test_thermal_block {
                 #[test]
                 fn nodal_forces() -> Result<(), AssertionError> {
                     let constitutive_model = MODEL;
-                    let block = Block::<Fourier, $element, G, M, N, P>::from((
+                    let block = Block::<Fourier, $element, G, M, N>::from((
                         constitutive_model,
                         get_connectivity(),
                         &get_reference_coordinates_block(),

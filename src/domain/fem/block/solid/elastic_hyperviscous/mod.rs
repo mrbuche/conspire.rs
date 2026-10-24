@@ -14,11 +14,11 @@ use crate::{
     units::Power,
 };
 
-impl<C, F, const G: usize, const M: usize, const N: usize, const P: usize, R, H>
-    ElasticHyperviscousElements<3> for Block<C, F, G, M, N, P, R, H>
+impl<C, F, const G: usize, const M: usize, const N: usize, R, H> ElasticHyperviscousElements<3>
+    for Block<C, F, G, M, N, R, H>
 where
     C: ElasticHyperviscous,
-    F: ElasticHyperviscousFiniteElement<C, G, M, N, P>,
+    F: ElasticHyperviscousFiniteElement<C, G, M, N>,
     Self: ViscoelasticElements<3>,
 {
     fn viscous_dissipation(

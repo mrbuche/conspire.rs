@@ -5,10 +5,10 @@ use crate::{
             Block,
             element::{
                 ElementNodalCoordinates, ElementNodalReferenceCoordinates, ElementNodalVelocities,
-                FiniteElement, GradientVectors,
+                GradientVectors, ReferenceFiniteElement,
                 surface::{
                     Normals, SurfaceFiniteElement,
-                    linear::triangle::{G, M, N, P, Triangle},
+                    linear::triangle::{G, M, N, Triangle},
                 },
                 test::test_surface_finite_element,
             },

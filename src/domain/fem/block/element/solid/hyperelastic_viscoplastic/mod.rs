@@ -2,7 +2,7 @@ use crate::{
     constitutive::{ConstitutiveError, solid::hyperelastic_viscoplastic::HyperelasticViscoplastic},
     domain::block::element::solid::hyperelastic_viscoplastic::HyperelasticViscoplasticElement,
     fem::block::element::{
-        Element, ElementNodalCoordinates, FiniteElement, FiniteElementError,
+        Element, ElementNodalCoordinates, FiniteElementError, ReferenceFiniteElement,
         solid::{
             SolidElement, SolidFiniteElement,
             elastic_viscoplastic::ElasticViscoplasticFiniteElement,
@@ -18,22 +18,20 @@ pub trait HyperelasticViscoplasticFiniteElement<
     const G: usize,
     const M: usize,
     const N: usize,
-    const P: usize,
     Y,
 > where
     C: HyperelasticViscoplastic<Y>,
-    Self: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>
-        + HyperelasticViscoplasticElement<C, G, Y>,
+    Self:
+        ElasticViscoplasticFiniteElement<C, G, M, N, Y> + HyperelasticViscoplasticElement<C, G, Y>,
     Y: Differentiable + Tensor,
 {
 }
 
-impl<T, C, const G: usize, const M: usize, const N: usize, const P: usize, Y>
-    HyperelasticViscoplasticFiniteElement<C, G, M, N, P, Y> for T
+impl<T, C, const G: usize, const M: usize, const N: usize, Y>
+    HyperelasticViscoplasticFiniteElement<C, G, M, N, Y> for T
 where
     C: HyperelasticViscoplastic<Y>,
-    T: ElasticViscoplasticFiniteElement<C, G, M, N, P, Y>
-        + HyperelasticViscoplasticElement<C, G, Y>,
+    T: ElasticViscoplasticFiniteElement<C, G, M, N, Y> + HyperelasticViscoplasticElement<C, G, Y>,
     Y: Differentiable + Tensor,
 {
 }
@@ -42,7 +40,7 @@ impl<C, const G: usize, const N: usize, const O: usize, Y> HyperelasticViscoplas
     for Element<3, G, N, O>
 where
     C: HyperelasticViscoplastic<Y>,
-    Self: SolidFiniteElement<G, 3, N, N>,
+    Self: SolidFiniteElement<G, 3, N>,
     Y: Differentiable + Tensor,
 {
     fn helmholtz_free_energy(

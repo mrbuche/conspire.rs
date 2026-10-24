@@ -42,11 +42,11 @@ fn coordinates() -> NodalReferenceCoordinates<3> {
     ])
 }
 
-type B = Block<Fourier, Tetrahedron<4>, 4, 3, 4, 4, NoDensity, Quantity<VolumetricHeatCapacity>>;
+type B = Block<Fourier, Tetrahedron<4>, 4, 3, 4, NoDensity, Quantity<VolumetricHeatCapacity>>;
 
 fn model() -> Model<B, 3> {
     (
-        Block::<Fourier, Tetrahedron<4>, 4, 3, 4, 4>::from((
+        Block::<Fourier, Tetrahedron<4>, 4, 3, 4>::from((
             Fourier {
                 thermal_conductivity: PowerPerLengthTemperature::watts_per_meter_kelvin(50.0),
             },

@@ -5,8 +5,8 @@ mod test;
 
 use crate::{
     fem::block::element::{
-        FiniteElement, IntegrationWeights, ParametricCoordinate, ParametricCoordinates,
-        ParametricReference, ShapeFunctions, ShapeFunctionsGradients,
+        IntegrationWeights, ParametricCoordinate, ParametricCoordinates, ParametricReference,
+        ReferenceFiniteElement, ShapeFunctions, ShapeFunctionsGradients,
         linear::{LinearElement, LinearFiniteElement, M},
         mass::ConsistentMass,
     },
@@ -21,12 +21,12 @@ const P: usize = N;
 
 pub type Tetrahedron<const G: usize> = LinearElement<G, N>;
 
-impl FiniteElement<G1, M, N, P> for Tetrahedron<G1> {
-    fn integration_points() -> ParametricCoordinates<G1, M> {
-        [[0.25; M]].into()
-    }
+impl ReferenceFiniteElement<G1, M, N, P> for Tetrahedron<G1> {
     fn integration_weights(&self) -> &IntegrationWeights<G1, Volume> {
         &self.integration_weights
+    }
+    fn integration_points() -> ParametricCoordinates<G1, M> {
+        [[0.25; M]].into()
     }
     fn parametric_reference() -> ParametricReference<M, N> {
         [
@@ -57,7 +57,10 @@ impl FiniteElement<G1, M, N, P> for Tetrahedron<G1> {
     }
 }
 
-impl FiniteElement<G4, M, N, P> for Tetrahedron<G4> {
+impl ReferenceFiniteElement<G4, M, N, P> for Tetrahedron<G4> {
+    fn integration_weights(&self) -> &IntegrationWeights<G4, Volume> {
+        &self.integration_weights
+    }
     fn integration_points() -> ParametricCoordinates<G4, M> {
         let alpha = (5.0 + 3.0 * 5.0_f64.sqrt()) / 20.0;
         let beta = (5.0 - 5.0_f64.sqrt()) / 20.0;
@@ -68,9 +71,6 @@ impl FiniteElement<G4, M, N, P> for Tetrahedron<G4> {
             [beta, beta, alpha],
         ]
         .into()
-    }
-    fn integration_weights(&self) -> &IntegrationWeights<G4, Volume> {
-        &self.integration_weights
     }
     fn parametric_reference() -> ParametricReference<M, N> {
         Tetrahedron::<G1>::parametric_reference()

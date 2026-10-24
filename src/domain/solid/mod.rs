@@ -4,8 +4,6 @@ pub(crate) mod elastic;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod elastic_hyperviscous;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
-pub(crate) mod elastic_plastic;
-#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod elastic_viscoplastic;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod hyperelastic;
@@ -16,6 +14,8 @@ pub(crate) mod hyperviscoelastic;
 pub(crate) mod loads;
 #[cfg_attr(not(feature = "fem"), allow(dead_code))]
 pub(crate) mod mass;
+#[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
+pub(crate) mod rate_independent;
 pub(crate) mod time_scale;
 #[cfg_attr(not(any(feature = "fem", feature = "vem")), allow(dead_code))]
 pub(crate) mod viscoelastic;

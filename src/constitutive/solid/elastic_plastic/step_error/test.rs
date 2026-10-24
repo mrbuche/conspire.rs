@@ -1,3 +1,4 @@
+use crate::math::integrate::StepError;
 use crate::{
     constitutive::{
         ConstitutiveError,
@@ -6,7 +7,7 @@ use crate::{
             PlasticFlow, PlasticStateVariables, RateIndependentPlastic, Voce, VonMises,
         },
         solid::{
-            elastic_plastic::{ElasticPlastic, StepError},
+            elastic_plastic::ElasticPlastic,
             hyperelastic::{Hencky, NeoHookean},
         },
     },
@@ -160,26 +161,6 @@ mod hencky {
 
 mod neo_hookean {
     test_models!(NeoHookean);
-}
-
-#[test]
-fn the_maximum_takes_each_indicator_from_whichever_is_larger() {
-    use crate::units::Dimensionless;
-    let a = StepError {
-        direction: Dimensionless::of(3.0),
-        overshoot: Dimensionless::of(1.0),
-    };
-    let b = StepError {
-        direction: Dimensionless::of(2.0),
-        overshoot: Dimensionless::of(5.0),
-    };
-    let expected = StepError {
-        direction: Dimensionless::of(3.0),
-        overshoot: Dimensionless::of(5.0),
-    };
-    assert_eq!(a.max(b), expected);
-    assert_eq!(b.max(a), expected);
-    assert_eq!(StepError::default().max(a), a);
 }
 
 #[test]

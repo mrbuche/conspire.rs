@@ -1,8 +1,9 @@
+use crate::math::integrate::StepError;
 use crate::{
-    constitutive::solid::elastic_plastic::{ElasticPlastic, StepError},
+    constitutive::solid::elastic_plastic::ElasticPlastic,
     domain::{
         ElementModelError, block::solid::plastic::PlasticStateVariablesField,
-        solid::elastic_plastic::ElasticPlasticElements,
+        solid::rate_independent::RateIndependentElements,
     },
     math::{Tensor, optimize::NewtonRaphson},
     vem::{
@@ -16,7 +17,7 @@ use crate::{
 };
 use std::array::from_fn;
 
-impl<C, F, R> ElasticPlasticElements<PlasticStateVariablesField<1>, 3> for Block<C, F, R>
+impl<C, F, R> RateIndependentElements<PlasticStateVariablesField<1>, 3> for Block<C, F, R>
 where
     C: ElasticPlastic,
     F: ElasticPlasticVirtualElement<C>,
