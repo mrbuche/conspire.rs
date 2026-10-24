@@ -161,7 +161,7 @@ where
     X: Erase<Erased = E> + Solution,
     E: Tensor,
     <X as Tensor>::Unit: UnitRatio,
-    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {
     fn root(
         &self,
@@ -282,7 +282,7 @@ where
     X: Erase<Erased = E> + Solution,
     E: Tensor,
     <X as Tensor>::Unit: UnitRatio,
-    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {
     fn minimize(
         &self,
@@ -574,7 +574,7 @@ where
     X: Erase<Erased = E> + Solution,
     E: Tensor,
     <X as Tensor>::Unit: UnitRatio,
-    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {
     match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
         (Some(indices), Rows::None) => constrained_fixed(
@@ -1895,7 +1895,7 @@ where
     X: Erase<Erased = E> + Solution,
     E: Tensor,
     <X as Tensor>::Unit: UnitRatio,
-    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {
     let mut applied = Vector::zero(initial_guess.size());
     let mut retained = vec![true; initial_guess.size()];
@@ -1973,7 +1973,8 @@ where
             )?
         } else {
             let jac = jacobian(&solution)?;
-            let mut decrement_full = &solution * 0.0;
+            let mut decrement_full = solution.clone();
+            decrement_full *= 0.0;
             decrement_full.decrement_from_retained(&retained, &decrement);
             decrement_full *= -1.0;
             searched(
