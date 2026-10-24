@@ -5,9 +5,14 @@ use super::{
             assert::AssertionError,
         },
         // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
+        EqualityConstraint,
+        EqualityConstraints,
+        Optimization,
+        OptimizationError,
+        ResidualMerit,
+        RootFinding,
     },
-    Direct, EqualityConstraint, EqualityConstraints, NewtonRaphson, NoSearch, ObjectiveMerit,
-    Optimization, OptimizationError, ResidualMerit, RootFinding, Scalar, TrustRegion,
+    Direct, NewtonRaphson, NoSearch, ObjectiveMerit, Scalar, TrustRegion,
 };
 use crate::math::{
     Norm, Tensor,
@@ -355,7 +360,7 @@ mod constrained {
             &Vector::from([1.0, 1.0]),
         )
     }
-    fn barrier(line_search: impl ResidualMerit) -> Result<Vector, super::super::OptimizationError> {
+    fn barrier(line_search: impl ResidualMerit) -> Result<Vector, OptimizationError> {
         NewtonRaphson::default().with_line_search(line_search).root(
             |x: &Vector| {
                 if x[0] < 3.0 {
@@ -388,9 +393,7 @@ mod constrained {
     fn error_backtracks_needed() {
         assert!(barrier(NoSearch).is_err())
     }
-    fn overshooting(
-        line_search: impl ObjectiveMerit,
-    ) -> Result<Vector, super::super::OptimizationError> {
+    fn overshooting(line_search: impl ObjectiveMerit) -> Result<Vector, OptimizationError> {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][1] = 1.0;
         NewtonRaphson {

@@ -1,7 +1,9 @@
 use super::{
     super::{
-        Direct, NewtonRaphson, NoSearch, Objective, OptimizationError, Residually, TrustRegion,
-        constrained, no_objective,
+        super::{OptimizationError, no_objective},
+        Direct, NewtonRaphson, NoSearch, TrustRegion,
+        backtrack::{Objective, Residually},
+        constrained::constrained,
     },
     ConstraintMatrix,
 };
