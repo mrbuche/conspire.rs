@@ -46,14 +46,20 @@ pub struct NewtonRaphson<L = Direct, S = NoSearch> {
     pub trust_region: TrustRegion,
 }
 
-impl<L, S: ObjectiveMerit, J, X> BacktrackingLineSearch<J, X> for NewtonRaphson<L, S> {
+impl<L, S, J, X> BacktrackingLineSearch<J, X> for NewtonRaphson<L, S>
+where
+    S: ObjectiveMerit,
+{
     type Search = S;
     fn line_search(&self) -> &S {
         &self.line_search
     }
 }
 
-impl<L, S: Display> Debug for NewtonRaphson<L, S> {
+impl<L, S> Debug for NewtonRaphson<L, S>
+where
+    S: Display,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -70,7 +76,10 @@ impl NewtonRaphson {
     }
 }
 
-impl<L: Default> Default for NewtonRaphson<L> {
+impl<L> Default for NewtonRaphson<L>
+where
+    L: Default,
+{
     fn default() -> Self {
         Self::with(L::default())
     }
@@ -671,13 +680,16 @@ fn merit_slope<'a>(
 /// against, which leaves the comparison a ratio and the threshold the
 /// precision that ratio is held in. A number of its own would carry units and
 /// mean something different at every scale.
-fn backtrack_penalty<L, S: Display>(
+fn backtrack_penalty<L, S>(
     newton_raphson: &NewtonRaphson<L, S>,
     search: &impl Backtrack,
     merit: impl FnMut(Scalar) -> Result<Scalar, String>,
     value: Scalar,
     slope: Scalar,
-) -> Result<Scalar, OptimizationError> {
+) -> Result<Scalar, OptimizationError>
+where
+    S: Display,
+{
     if slope <= Scalar::EPSILON * value.abs() {
         Ok(1.0)
     } else {
@@ -781,7 +793,10 @@ struct Objective<'a, S>(&'a S);
 /// The line search of a root.
 struct Residually<'a, S>(&'a S);
 
-impl<S: ObjectiveMerit> Backtrack for Objective<'_, S> {
+impl<S> Backtrack for Objective<'_, S>
+where
+    S: ObjectiveMerit,
+{
     const OBJECTIVE: bool = true;
     const SEARCHES: bool = S::SEARCHES;
     const MERIT: bool = S::MERIT;
@@ -816,7 +831,10 @@ impl<S: ObjectiveMerit> Backtrack for Objective<'_, S> {
     }
 }
 
-impl<S: ResidualMerit> Backtrack for Residually<'_, S> {
+impl<S> Backtrack for Residually<'_, S>
+where
+    S: ResidualMerit,
+{
     const OBJECTIVE: bool = false;
     const SEARCHES: bool = S::SEARCHES;
     const MERIT: bool = S::MERIT;
@@ -857,10 +875,13 @@ fn half_square(entries: impl Iterator<Item = Scalar>) -> Scalar {
     0.5 * entries.map(|entry| entry * entry).sum::<Scalar>()
 }
 
-fn searched<L, S: Display>(
+fn searched<L, S>(
     newton_raphson: &NewtonRaphson<L, S>,
     step_size: Result<Scalar, LineSearchError>,
-) -> Result<Scalar, OptimizationError> {
+) -> Result<Scalar, OptimizationError>
+where
+    S: Display,
+{
     step_size.map_err(|error| OptimizationError::upstream(error, newton_raphson))
 }
 
@@ -1838,9 +1859,10 @@ fn unchecked<H>(_: H, _: &[bool], _: &[usize]) -> Option<bool> {
     None
 }
 
-fn verified<H: Hessian>(
-    sparse: Option<SparseSolver>,
-) -> impl FnMut(H, &[bool], &[usize]) -> Option<bool> {
+fn verified<H>(sparse: Option<SparseSolver>) -> impl FnMut(H, &[bool], &[usize]) -> Option<bool>
+where
+    H: Hessian,
+{
     move |hessian, retained, unmap| match &sparse {
         Some(solver) => solver.is_minimum(|i, j| hessian.entry(unmap[i], unmap[j]), 0),
         None => hessian
@@ -1851,9 +1873,12 @@ fn verified<H: Hessian>(
     }
 }
 
-fn direct<H: Hessian>(
+fn direct<H>(
     sparse: Option<SparseSolver>,
-) -> impl FnMut(H, &[bool], &[usize], &Vector, &mut Vector) -> Result<(), OptimizationError> {
+) -> impl FnMut(H, &[bool], &[usize], &Vector, &mut Vector) -> Result<(), OptimizationError>
+where
+    H: Hessian,
+{
     let mut factorization = None;
     move |hessian, retained, unmap, residual, decrement| {
         if let Some(ref solver) = sparse {

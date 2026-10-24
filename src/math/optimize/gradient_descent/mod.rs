@@ -36,8 +36,10 @@ pub struct GradientDescent<S = NoSearch, Q = BarzilaiBorwein> {
     pub step_estimator: Q,
 }
 
-impl<S: ObjectiveMerit, Q: StepEstimator, J, X> BacktrackingLineSearch<J, X>
-    for GradientDescent<S, Q>
+impl<S, Q, J, X> BacktrackingLineSearch<J, X> for GradientDescent<S, Q>
+where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
 {
     type Search = S;
     fn line_search(&self) -> &S {
@@ -45,7 +47,11 @@ impl<S: ObjectiveMerit, Q: StepEstimator, J, X> BacktrackingLineSearch<J, X>
     }
 }
 
-impl<S: ObjectiveMerit, Q: StepEstimator> Debug for GradientDescent<S, Q> {
+impl<S, Q> Debug for GradientDescent<S, Q>
+where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -67,7 +73,10 @@ impl GradientDescent {
     }
 }
 
-impl<S: Default> Default for GradientDescent<S> {
+impl<S> Default for GradientDescent<S>
+where
+    S: Default,
+{
     fn default() -> Self {
         Self::with(S::default())
     }
@@ -240,7 +249,7 @@ where
     }
 }
 
-fn unconstrained<S: ObjectiveMerit, Q: StepEstimator, F, X, E>(
+fn unconstrained<S, Q, F, X, E>(
     gradient_descent: &GradientDescent<S, Q>,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
@@ -248,6 +257,8 @@ fn unconstrained<S: ObjectiveMerit, Q: StepEstimator, F, X, E>(
     linear_equality_constraint: Option<(&Matrix, &Vector)>,
 ) -> Result<X, OptimizationError>
 where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
@@ -298,7 +309,7 @@ where
     }
 }
 
-fn constrained_fixed<S: ObjectiveMerit, Q: StepEstimator, F, X, E>(
+fn constrained_fixed<S, Q, F, X, E>(
     gradient_descent: &GradientDescent<S, Q>,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
@@ -306,6 +317,8 @@ fn constrained_fixed<S: ObjectiveMerit, Q: StepEstimator, F, X, E>(
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
@@ -358,7 +371,7 @@ where
     }
 }
 
-fn constrained<S: ObjectiveMerit, Q: StepEstimator, F, X, E>(
+fn constrained<S, Q, F, X, E>(
     gradient_descent: &GradientDescent<S, Q>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
@@ -366,6 +379,8 @@ fn constrained<S: ObjectiveMerit, Q: StepEstimator, F, X, E>(
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
@@ -421,7 +436,7 @@ where
     }
 }
 
-fn constrained_dual<S: ObjectiveMerit, Q: StepEstimator, F, X, E>(
+fn constrained_dual<S, Q, F, X, E>(
     gradient_descent: &GradientDescent<S, Q>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
@@ -429,6 +444,8 @@ fn constrained_dual<S: ObjectiveMerit, Q: StepEstimator, F, X, E>(
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
