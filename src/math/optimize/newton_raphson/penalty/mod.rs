@@ -1,11 +1,8 @@
-use super::super::{
-    super::{Scalar, Tensor, Vector},
-    OptimizationError,
+use crate::math::{
+    Scalar, Vector,
+    optimize::{NewtonRaphson, OptimizationError, newton_raphson::backtrack::Backtrack},
 };
 use std::{fmt::Display, ops::Mul};
-
-use super::NewtonRaphson;
-use super::backtrack::Backtrack;
 
 pub(super) const PENALTY_SAFETY: Scalar = 2.0;
 
@@ -18,7 +15,7 @@ where
     for<'a> &'a M: Mul<&'a T, Output = Vector>,
 {
     (constraint_rhs - constraint_matrix * variables)
-        .iter()
+        .into_iter()
         .map(|entry| entry.abs())
         .sum()
 }

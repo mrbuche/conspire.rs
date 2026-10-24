@@ -19,7 +19,7 @@ use super::NewtonRaphson;
 use super::backtrack::{Backtrack, Objective, Residually};
 use super::blocked::blocked;
 use super::constrained::constrained;
-use super::constrained_fixed::constrained_fixed;
+use super::fixed::constrained_fixed;
 use super::unconstrained::unconstrained;
 use super::verify::{unchecked, verified};
 
@@ -363,13 +363,6 @@ pub(super) fn no_update<X>(_: &X, _: &Vector, _: Scalar, _: bool) -> Result<(), 
     Ok(())
 }
 
-/// Iterates with the direct solver, in whichever form the equality constraints
-/// call for.
-///
-/// The residual is what is driven to zero and the tangent is what it is
-/// stepped by, which are the jacobian and hessian of a minimization and the
-/// function and jacobian of a root. An unconstrained solution has no chained
-/// vector to lend the increment through, so is only taken when it is not lent.
 #[expect(clippy::too_many_arguments)]
 pub(super) fn iterate<B, S, J, H, X, E>(
     newton_raphson: &NewtonRaphson<Direct, S>,
@@ -461,8 +454,6 @@ where
     .map_err(|error| OptimizationError::upstream(error, newton_raphson))
 }
 
-/// Iterates with a linear solver of the user's, which needs a fixed equality
-/// constraint.
 #[expect(clippy::too_many_arguments)]
 pub(super) fn iterate_linear<B, L, S, J, H, X, E>(
     newton_raphson: &NewtonRaphson<L, S>,

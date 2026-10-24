@@ -70,11 +70,6 @@ where
         }
         steps += 1;
         let fraction = limit_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
-        //
-        // Spread over the variables it belongs to before anything shortens it,
-        // so that whatever was eliminated is offered the whole direction and
-        // the fraction of it being taken, rather than a direction of its own.
-        //
         applied.iter_mut().for_each(|entry| *entry = 0.0);
         unmap
             .iter()
@@ -83,10 +78,6 @@ where
         step_size = if !B::SEARCHES {
             1.0
         } else if !(B::OBJECTIVE && B::MERIT) {
-            //
-            // Without a merit of the objective to compare, a trial point is
-            // judged by the residual it leaves, or by whether there is one.
-            //
             let value = if B::MERIT {
                 half_square(residual.iter().copied())
             } else {
