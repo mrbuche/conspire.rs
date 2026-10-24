@@ -14,7 +14,7 @@ use crate::math::Norm;
 use std::{fmt::Display, ops::Mul};
 
 use super::NewtonRaphson;
-use super::backtrack::{Backtrack, half_square, searched};
+use super::backtrack::{Backtrack, half_square, residual_step};
 use super::convergence::{converged, limit_decrement};
 use super::penalty::{backtrack_penalty, merit_slope, raise_penalty, violation};
 use super::verify::not_minimum;
@@ -230,37 +230,27 @@ where
             // Without a merit of the objective to compare, a trial point is
             // judged by the residual it leaves, or by whether there is one.
             //
-            let value = if B::MERIT {
-                half_square(residual.iter().copied())
-            } else {
-                0.0
-            };
-            searched(
+
+            residual_step(
                 newton_raphson,
-                search.merit(
-                    |trial_size| {
-                        let mut trial = solution.clone();
-                        let mut trial_multipliers = multipliers.clone();
-                        trial.decrement_from_chained(
-                            &mut trial_multipliers,
-                            &(&decrement * trial_size),
+                &search,
+                || half_square(residual.iter().copied()),
+                |trial_size| {
+                    let mut trial = solution.clone();
+                    let mut trial_multipliers = multipliers.clone();
+                    trial
+                        .decrement_from_chained(&mut trial_multipliers, &(&decrement * trial_size));
+                    update(&solution, &applied, trial_size, false)?;
+                    let mut trial_residual = Vector::zero(num_total);
+                    eliminated
+                        .hold(jacobian(&trial)? - constraint_matrix.weighted(&trial_multipliers))
+                        .fill_into_chained(
+                            &constraint_rhs - &constraint_matrix * &trial,
+                            &mut trial_residual,
                         );
-                        update(&solution, &applied, trial_size, false)?;
-                        let mut trial_residual = Vector::zero(num_total);
-                        eliminated
-                            .hold(
-                                jacobian(&trial)? - constraint_matrix.weighted(&trial_multipliers),
-                            )
-                            .fill_into_chained(
-                                &constraint_rhs - &constraint_matrix * &trial,
-                                &mut trial_residual,
-                            );
-                        Ok(half_square(trial_residual.iter().copied()))
-                    },
-                    value,
-                    0.0,
-                    fraction,
-                ),
+                    Ok(half_square(trial_residual.iter().copied()))
+                },
+                fraction,
             )?
         } else {
             penalty = raise_penalty(

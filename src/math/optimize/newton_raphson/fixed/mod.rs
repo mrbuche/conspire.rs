@@ -6,7 +6,7 @@ use crate::units::UnitRatio;
 use std::{fmt::Display, ops::Mul};
 
 use super::NewtonRaphson;
-use super::backtrack::{Backtrack, half_square, searched};
+use super::backtrack::{Backtrack, half_square, residual_step, searched};
 use super::convergence::limit_decrement;
 use super::verify::not_minimum;
 
@@ -79,26 +79,19 @@ where
         step_size = if !B::SEARCHES {
             1.0
         } else if !(B::OBJECTIVE && B::MERIT) {
-            let value = if B::MERIT {
-                half_square(residual.iter().copied())
-            } else {
-                0.0
-            };
-            searched(
+            residual_step(
                 newton_raphson,
-                search.merit(
-                    |trial_size| {
-                        let mut trial = solution.clone();
-                        trial.decrement_from_retained(&retained, &(&decrement * trial_size));
-                        update(&solution, &applied, trial_size, false)?;
-                        Ok(half_square(
-                            jacobian(&trial)?.retain_from(&retained).iter().copied(),
-                        ))
-                    },
-                    value,
-                    0.0,
-                    fraction,
-                ),
+                &search,
+                || half_square(residual.iter().copied()),
+                |trial_size| {
+                    let mut trial = solution.clone();
+                    trial.decrement_from_retained(&retained, &(&decrement * trial_size));
+                    update(&solution, &applied, trial_size, false)?;
+                    Ok(half_square(
+                        jacobian(&trial)?.retain_from(&retained).iter().copied(),
+                    ))
+                },
+                fraction,
             )?
         } else {
             let jac = jacobian(&solution)?;

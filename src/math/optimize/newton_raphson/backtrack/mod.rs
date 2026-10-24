@@ -146,3 +146,24 @@ where
 {
     step_size.map_err(|error| OptimizationError::upstream(error, newton_raphson))
 }
+
+/// The step size along the share `fraction` of a Newton step, judged by the
+/// residual that trial points leave.
+///
+/// What a trial leaves is half the squared norm of the residual there, or only
+/// whether there is one where the search reads no merit. The value at no step
+/// is only asked for by a search that reads it.
+pub(super) fn residual_step<B, L, S>(
+    newton_raphson: &NewtonRaphson<L, S>,
+    search: &B,
+    value: impl FnOnce() -> Scalar,
+    leaves: impl FnMut(Scalar) -> Result<Scalar, String>,
+    fraction: Scalar,
+) -> Result<Scalar, OptimizationError>
+where
+    B: Backtrack,
+    S: Display,
+{
+    let value = if B::MERIT { value() } else { 0.0 };
+    searched(newton_raphson, search.merit(leaves, value, 0.0, fraction))
+}

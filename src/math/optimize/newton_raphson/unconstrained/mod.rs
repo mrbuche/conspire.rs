@@ -12,7 +12,7 @@ use std::{
 };
 
 use super::NewtonRaphson;
-use super::backtrack::{Backtrack, half_square_norm, searched};
+use super::backtrack::{Backtrack, half_square_norm, residual_step, searched};
 use super::verify::not_minimum;
 
 pub(super) fn unconstrained<B, S, J, H, X, E>(
@@ -100,23 +100,16 @@ where
                     ),
                 )?
             } else {
-                let value = if B::MERIT {
-                    half_square_norm(&residual)
-                } else {
-                    0.0
-                };
-                searched(
+                residual_step(
                     newton_raphson,
-                    search.merit(
-                        |trial_size| {
-                            let mut trial = solution.clone();
-                            trial -= &decrement * trial_size;
-                            Ok(half_square_norm(&jacobian(&trial)?))
-                        },
-                        value,
-                        0.0,
-                        fraction,
-                    ),
+                    &search,
+                    || half_square_norm(&residual),
+                    |trial_size| {
+                        let mut trial = solution.clone();
+                        trial -= &decrement * trial_size;
+                        Ok(half_square_norm(&jacobian(&trial)?))
+                    },
+                    fraction,
                 )?
             };
             if step_size != 1.0 {

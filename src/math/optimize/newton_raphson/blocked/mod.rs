@@ -14,7 +14,7 @@ use crate::math::Norm;
 use std::{fmt::Display, ops::Mul};
 
 use super::NewtonRaphson;
-use super::backtrack::{Backtrack, half_square, searched};
+use super::backtrack::{Backtrack, half_square, residual_step};
 use super::convergence::{converged, limit_decrement};
 use super::kkt::{converge_local, eliminate_blocks, kkt_block, kkt_entry, kkt_residual};
 use super::penalty::{backtrack_penalty, merit_slope, raise_penalty, violation};
@@ -413,78 +413,81 @@ where
             // residual it leaves. Condensed makes the local residual vanish at
             // every trial, so only the global residual is measured then.
             //
-            let value = if !B::MERIT {
-                0.0
-            } else if condensed.is_some() {
-                half_square(residual.iter().take(num_outer).copied())
-            } else {
-                half_square(residual.iter().copied())
-            };
-            searched(
+
+            residual_step(
                 newton_raphson,
-                search.merit(
-                    |trial_size| {
-                        let mut trial_global = global.clone();
-                        let mut trial_local = local.clone();
-                        let mut trial_multipliers_global = multipliers_global.clone();
-                        let mut trial_multipliers_local = multipliers_local.clone();
-                        trial_global.decrement_from_chained(
-                            &mut trial_multipliers_global,
-                            &(&decrement_outer * trial_size),
-                        );
-                        if let Some(local_solver) = condensed {
-                            converge_local(
-                                local_solver,
-                                &mut residual_local,
-                                &mut tangents,
-                                &trial_global,
-                                &mut trial_local,
-                                &mut trial_multipliers_local,
-                                &constraint_matrix_local,
-                                &constraint_rhs_local,
-                                num_local,
-                                &mut update_inner,
-                                &mut tangent_inner,
-                                &mut factorization,
-                            )
-                            .map_err(|error| format!("{error}"))?
-                        } else {
-                            trial_local.decrement_from_chained(
-                                &mut trial_multipliers_local,
-                                &(&decrement_inner * trial_size),
-                            )
-                        }
-                        let mut trial_outer = Vector::zero(num_outer);
-                        kkt_residual(
-                            residual_global(&trial_global, &trial_local)?,
-                            &trial_multipliers_global,
-                            &constraint_matrix_global,
-                            &constraint_rhs_global,
+                &search,
+                || {
+                    half_square(
+                        residual
+                            .iter()
+                            .take(if condensed.is_some() {
+                                num_outer
+                            } else {
+                                residual.len()
+                            })
+                            .copied(),
+                    )
+                },
+                |trial_size| {
+                    let mut trial_global = global.clone();
+                    let mut trial_local = local.clone();
+                    let mut trial_multipliers_global = multipliers_global.clone();
+                    let mut trial_multipliers_local = multipliers_local.clone();
+                    trial_global.decrement_from_chained(
+                        &mut trial_multipliers_global,
+                        &(&decrement_outer * trial_size),
+                    );
+                    if let Some(local_solver) = condensed {
+                        converge_local(
+                            local_solver,
+                            &mut residual_local,
+                            &mut tangents,
                             &trial_global,
-                            &mut trial_outer,
+                            &mut trial_local,
+                            &mut trial_multipliers_local,
+                            &constraint_matrix_local,
+                            &constraint_rhs_local,
+                            num_local,
+                            &mut update_inner,
+                            &mut tangent_inner,
+                            &mut factorization,
+                        )
+                        .map_err(|error| format!("{error}"))?
+                    } else {
+                        trial_local.decrement_from_chained(
+                            &mut trial_multipliers_local,
+                            &(&decrement_inner * trial_size),
+                        )
+                    }
+                    let mut trial_outer = Vector::zero(num_outer);
+                    kkt_residual(
+                        residual_global(&trial_global, &trial_local)?,
+                        &trial_multipliers_global,
+                        &constraint_matrix_global,
+                        &constraint_rhs_global,
+                        &trial_global,
+                        &mut trial_outer,
+                    );
+                    let mut merit = half_square(trial_outer.iter().copied());
+                    if condensed.is_none() {
+                        let mut trial_inner = Vector::zero(num_inner);
+                        kkt_residual(
+                            residual_local(&trial_global, &trial_local)?,
+                            &trial_multipliers_local,
+                            &constraint_matrix_local,
+                            &constraint_rhs_local,
+                            &trial_local,
+                            &mut trial_inner,
                         );
-                        let mut merit = half_square(trial_outer.iter().copied());
-                        if condensed.is_none() {
-                            let mut trial_inner = Vector::zero(num_inner);
-                            kkt_residual(
-                                residual_local(&trial_global, &trial_local)?,
-                                &trial_multipliers_local,
-                                &constraint_matrix_local,
-                                &constraint_rhs_local,
-                                &trial_local,
-                                &mut trial_inner,
-                            );
-                            merit += half_square(trial_inner.iter().copied())
-                        }
-                        if !B::MERIT {
-                            tangents(&trial_global, &trial_local)?;
-                        }
-                        Ok(merit)
-                    },
-                    value,
-                    0.0,
-                    fraction,
-                ),
+                        merit += half_square(trial_inner.iter().copied())
+                    }
+                    if !B::MERIT {
+                        tangents(&trial_global, &trial_local)?;
+                    }
+                    Ok(merit)
+                },
+                fraction,
             )?
         } else {
             penalty = raise_penalty(
