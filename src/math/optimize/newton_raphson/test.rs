@@ -6,10 +6,14 @@ use super::{
         },
         // test::{rosenbrock, rosenbrock_derivative, rosenbrock_second_derivative},
     },
-    Direct, EqualityConstraint, EqualityConstraints, LineSearch, NewtonRaphson, Optimization,
-    OptimizationError, RootFinding, Scalar, TrustRegion,
+    Direct, EqualityConstraint, EqualityConstraints, NewtonRaphson, NoSearch, ObjectiveMerit,
+    Optimization, OptimizationError, ResidualMerit, RootFinding, Scalar, TrustRegion,
 };
-use crate::math::{Norm, Tensor, assert::Assert};
+use crate::math::{
+    Norm, Tensor,
+    assert::Assert,
+    optimize::{Armijo, Error, Goldstein, Residual, Wolfe},
+};
 
 const CONTROL_1: Scalar = 1e-3;
 const CONTROL_2: Scalar = 1e-1;
@@ -64,45 +68,39 @@ mod minimize {
         #[test]
         fn armijo() -> Result<(), AssertionError> {
             Assert::default().zero_within_tols(
-                &NewtonRaphson {
-                    line_search: LineSearch::Armijo {
+                &NewtonRaphson::default()
+                    .with_line_search(Armijo {
                         control: CONTROL_1,
                         cut_back: CUT_BACK,
                         max_steps: MAX_STEPS,
-                    },
-                    linear_solver: Direct,
-                    ..Default::default()
-                }
-                .minimize(
-                    |x: &Scalar| Ok(x.powi(2) / 2.0),
-                    |x: &Scalar| Ok(*x),
-                    |_: &Scalar| Ok(1.0),
-                    1.0,
-                    vec![EqualityConstraint::None],
-                    None,
-                )?,
+                    })
+                    .minimize(
+                        |x: &Scalar| Ok(x.powi(2) / 2.0),
+                        |x: &Scalar| Ok(*x),
+                        |_: &Scalar| Ok(1.0),
+                        1.0,
+                        vec![EqualityConstraint::None],
+                        None,
+                    )?,
             )
         }
         #[test]
         fn goldstein() -> Result<(), AssertionError> {
             Assert::default().zero_within_tols(
-                &NewtonRaphson {
-                    line_search: LineSearch::Goldstein {
+                &NewtonRaphson::default()
+                    .with_line_search(Goldstein {
                         control: CONTROL_1,
                         cut_back: CUT_BACK,
                         max_steps: MAX_STEPS,
-                    },
-                    linear_solver: Direct,
-                    ..Default::default()
-                }
-                .minimize(
-                    |x: &Scalar| Ok(x.powi(2) / 2.0),
-                    |x: &Scalar| Ok(*x),
-                    |_: &Scalar| Ok(1.0),
-                    1.0,
-                    vec![EqualityConstraint::None],
-                    None,
-                )?,
+                    })
+                    .minimize(
+                        |x: &Scalar| Ok(x.powi(2) / 2.0),
+                        |x: &Scalar| Ok(*x),
+                        |_: &Scalar| Ok(1.0),
+                        1.0,
+                        vec![EqualityConstraint::None],
+                        None,
+                    )?,
             )
         }
         mod wolfe {
@@ -110,49 +108,43 @@ mod minimize {
             #[test]
             fn strong() -> Result<(), AssertionError> {
                 Assert::default().zero_within_tols(
-                    &NewtonRaphson {
-                        line_search: LineSearch::Wolfe {
+                    &NewtonRaphson::default()
+                        .with_line_search(Wolfe {
                             control_1: CONTROL_1,
                             control_2: CONTROL_2,
                             cut_back: CUT_BACK,
                             max_steps: MAX_STEPS,
                             strong: true,
-                        },
-                        linear_solver: Direct,
-                        ..Default::default()
-                    }
-                    .minimize(
-                        |x: &Scalar| Ok(x.powi(2) / 2.0),
-                        |x: &Scalar| Ok(*x),
-                        |_: &Scalar| Ok(1.0),
-                        1.0,
-                        vec![EqualityConstraint::None],
-                        None,
-                    )?,
+                        })
+                        .minimize(
+                            |x: &Scalar| Ok(x.powi(2) / 2.0),
+                            |x: &Scalar| Ok(*x),
+                            |_: &Scalar| Ok(1.0),
+                            1.0,
+                            vec![EqualityConstraint::None],
+                            None,
+                        )?,
                 )
             }
             #[test]
             fn weak() -> Result<(), AssertionError> {
                 Assert::default().zero_within_tols(
-                    &NewtonRaphson {
-                        line_search: LineSearch::Wolfe {
+                    &NewtonRaphson::default()
+                        .with_line_search(Wolfe {
                             control_1: CONTROL_1,
                             control_2: CONTROL_2,
                             cut_back: CUT_BACK,
                             max_steps: MAX_STEPS,
                             strong: false,
-                        },
-                        linear_solver: Direct,
-                        ..Default::default()
-                    }
-                    .minimize(
-                        |x: &Scalar| Ok(x.powi(2) / 2.0),
-                        |x: &Scalar| Ok(*x),
-                        |_: &Scalar| Ok(1.0),
-                        1.0,
-                        vec![EqualityConstraint::None],
-                        None,
-                    )?,
+                        })
+                        .minimize(
+                            |x: &Scalar| Ok(x.powi(2) / 2.0),
+                            |x: &Scalar| Ok(*x),
+                            |_: &Scalar| Ok(1.0),
+                            1.0,
+                            vec![EqualityConstraint::None],
+                            None,
+                        )?,
                 )
             }
         }
@@ -212,24 +204,21 @@ mod constrained {
         matrix[0][1] = 1.0;
         EqualityConstraint::Linear(matrix, Vector::from([2.0]))
     }
-    fn minimized(line_search: LineSearch) -> Result<Vector, AssertionError> {
-        Ok(NewtonRaphson {
-            line_search,
-            linear_solver: Direct,
-            ..Default::default()
-        }
-        .minimize(
-            |x: &Vector| Ok((x[0].powi(2) + x[1].powi(2)) / 2.0),
-            |x: &Vector| Ok(x.clone()),
-            |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
-            Vector::from([4.0, -3.0]),
-            vec![constraint()],
-            None,
-        )?)
+    fn minimized(line_search: impl ObjectiveMerit) -> Result<Vector, AssertionError> {
+        Ok(NewtonRaphson::default()
+            .with_line_search(line_search)
+            .minimize(
+                |x: &Vector| Ok((x[0].powi(2) + x[1].powi(2)) / 2.0),
+                |x: &Vector| Ok(x.clone()),
+                |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+                Vector::from([4.0, -3.0]),
+                vec![constraint()],
+                None,
+            )?)
     }
     #[test]
     fn none() -> Result<(), AssertionError> {
-        Assert::default().eq_within_tols(&minimized(LineSearch::None)?, &Vector::from([1.0, 1.0]))
+        Assert::default().eq_within_tols(&minimized(NoSearch)?, &Vector::from([1.0, 1.0]))
     }
     fn minimized_trust_region(trust_region: TrustRegion) -> Result<Vector, AssertionError> {
         Ok(NewtonRaphson {
@@ -319,7 +308,7 @@ mod constrained {
     #[test]
     fn armijo() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &minimized(LineSearch::Armijo {
+            &minimized(Armijo {
                 control: CONTROL_1,
                 cut_back: CUT_BACK,
                 max_steps: MAX_STEPS,
@@ -330,7 +319,7 @@ mod constrained {
     #[test]
     fn goldstein() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &minimized(LineSearch::Goldstein {
+            &minimized(Goldstein {
                 control: CONTROL_2,
                 cut_back: CUT_BACK,
                 max_steps: MAX_STEPS,
@@ -341,7 +330,7 @@ mod constrained {
     #[test]
     fn error() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &minimized(LineSearch::Error {
+            &minimized(Error {
                 cut_back: CUT_BACK,
                 max_steps: MAX_STEPS,
             })?,
@@ -351,31 +340,23 @@ mod constrained {
     #[test]
     fn error_root() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &NewtonRaphson {
-                line_search: LineSearch::Error {
+            &NewtonRaphson::default()
+                .with_line_search(Error {
                     cut_back: CUT_BACK,
                     max_steps: MAX_STEPS,
-                },
-                linear_solver: Direct,
-                ..Default::default()
-            }
-            .root(
-                |x: &Vector| Ok(x.clone()),
-                |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
-                Vector::from([4.0, -3.0]),
-                vec![constraint()],
-                None,
-            )?,
+                })
+                .root(
+                    |x: &Vector| Ok(x.clone()),
+                    |_: &Vector| Ok(SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])),
+                    Vector::from([4.0, -3.0]),
+                    vec![constraint()],
+                    None,
+                )?,
             &Vector::from([1.0, 1.0]),
         )
     }
-    fn barrier(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
-        NewtonRaphson {
-            line_search,
-            linear_solver: Direct,
-            ..Default::default()
-        }
-        .root(
+    fn barrier(line_search: impl ResidualMerit) -> Result<Vector, super::super::OptimizationError> {
+        NewtonRaphson::default().with_line_search(line_search).root(
             |x: &Vector| {
                 if x[0] < 3.0 {
                     Err("Beyond the barrier.".to_string())
@@ -396,7 +377,7 @@ mod constrained {
     #[test]
     fn error_backtracks() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &barrier(LineSearch::Error {
+            &barrier(Error {
                 cut_back: 5e-1,
                 max_steps: MAX_STEPS,
             })?,
@@ -405,17 +386,19 @@ mod constrained {
     }
     #[test]
     fn error_backtracks_needed() {
-        assert!(barrier(LineSearch::None).is_err())
+        assert!(barrier(NoSearch).is_err())
     }
-    fn overshooting(line_search: LineSearch) -> Result<Vector, super::super::OptimizationError> {
+    fn overshooting(
+        line_search: impl ObjectiveMerit,
+    ) -> Result<Vector, super::super::OptimizationError> {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][1] = 1.0;
         NewtonRaphson {
-            line_search,
             max_steps: 100,
             linear_solver: Direct,
             ..Default::default()
         }
+        .with_line_search(line_search)
         .minimize(
             |x: &Vector| Ok((1.0 + x[0].powi(2)).sqrt() + x[1].powi(2) / 2.0),
             |x: &Vector| Ok(Vector::from([x[0] / (1.0 + x[0].powi(2)).sqrt(), x[1]])),
@@ -433,7 +416,7 @@ mod constrained {
     #[test]
     fn overshooting_armijo() -> Result<(), AssertionError> {
         Assert::default().eq_within_tols(
-            &overshooting(LineSearch::Armijo {
+            &overshooting(Armijo {
                 control: CONTROL_1,
                 cut_back: CUT_BACK,
                 max_steps: MAX_STEPS,
@@ -443,24 +426,24 @@ mod constrained {
     }
     #[test]
     fn overshooting_none() {
-        assert!(match overshooting(LineSearch::None) {
+        assert!(match overshooting(NoSearch) {
             Ok(solution) => solution[0].abs() > 1.0,
             Err(_) => true,
         })
     }
     fn steep(
         trust_region: TrustRegion,
-        line_search: LineSearch,
+        line_search: impl ResidualMerit,
     ) -> Result<Vector, OptimizationError> {
         let mut matrix = Matrix::zero(1, 2);
         matrix[0][1] = 1.0;
         NewtonRaphson {
-            line_search,
             trust_region,
             max_steps: 100,
             linear_solver: Direct,
             ..Default::default()
         }
+        .with_line_search(line_search)
         .root(
             |x: &Vector| Ok(Vector::from([x[0] / (1.0 + x[0].powi(2)).sqrt(), x[1]])),
             |x: &Vector| {
@@ -482,17 +465,31 @@ mod constrained {
                     radius: 0.75,
                     norm: Norm::Chebyshev,
                 },
-                LineSearch::None,
+                NoSearch,
             )?,
             &Vector::zero(2),
         )
     }
     #[test]
     fn trust_region_needed() {
-        assert!(match steep(TrustRegion::None, LineSearch::None) {
+        assert!(match steep(TrustRegion::None, NoSearch) {
             Ok(solution) => solution[0].abs() > 1.0,
             Err(_) => true,
         })
+    }
+    #[test]
+    fn residual_needs_no_trust_region() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &steep(
+                TrustRegion::None,
+                Residual {
+                    control: CONTROL_1,
+                    cut_back: 5e-1,
+                    max_steps: MAX_STEPS,
+                },
+            )?,
+            &Vector::zero(2),
+        )
     }
     fn wide(norm: Norm) -> Result<Vector, OptimizationError> {
         const WIDTH: usize = 100;
@@ -534,7 +531,7 @@ mod constrained {
     fn trust_region_beyond_errors() {
         assert!(match steep(
             TrustRegion::None,
-            LineSearch::Error {
+            Error {
                 cut_back: 5e-1,
                 max_steps: MAX_STEPS,
             },

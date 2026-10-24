@@ -3,8 +3,8 @@ mod test;
 
 use super::{
     super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector, sparse::SparseSolver},
-    BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, LineSearch, Optimization,
-    OptimizationError, RootFinding, StepSize, Tolerances, UNSUPPORTED,
+    BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, NoSearch, ObjectiveMerit,
+    Optimization, OptimizationError, RootFinding, StepSize, Tolerances, UNSUPPORTED, no_objective,
 };
 use crate::math::{Erase, Is, Norm};
 use crate::units::{UnitDiv, UnitMul, UnitSum};
@@ -18,7 +18,7 @@ const CUTBACK_FACTOR_MINUS_ONE: Scalar = 1.0 - CUTBACK_FACTOR;
 const INITIAL_STEP_SIZE: Scalar = 1e-2;
 
 /// The method of gradient descent.
-pub struct GradientDescent {
+pub struct GradientDescent<S = NoSearch> {
     /// Absolute error tolerances.
     pub abs_tol: Tolerances,
     /// Lagrangian dual.
@@ -26,20 +26,21 @@ pub struct GradientDescent {
     /// Norm type for error evaluation.
     pub error_norm: Norm,
     /// Line search algorithm.
-    pub line_search: LineSearch,
+    pub line_search: S,
     /// Maximum number of steps.
     pub max_steps: usize,
     /// Relative error tolerance.
     pub rel_tol: Option<Scalar>,
 }
 
-impl<J, X> BacktrackingLineSearch<J, X> for GradientDescent {
-    fn get_line_search(&self) -> &LineSearch {
+impl<S: ObjectiveMerit, J, X> BacktrackingLineSearch<J, X> for GradientDescent<S> {
+    type Search = S;
+    fn get_line_search(&self) -> &S {
         &self.line_search
     }
 }
 
-impl Debug for GradientDescent {
+impl<S: ObjectiveMerit> Debug for GradientDescent<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -49,20 +50,44 @@ impl Debug for GradientDescent {
     }
 }
 
-impl Default for GradientDescent {
+impl GradientDescent {
+    #[allow(clippy::should_implement_trait)]
+    pub fn default() -> Self {
+        Self::with(NoSearch)
+    }
+}
+
+impl<S: Default> Default for GradientDescent<S> {
     fn default() -> Self {
+        Self::with(S::default())
+    }
+}
+
+impl<S> GradientDescent<S> {
+    /// The same solver, searching along each step with another line search.
+    pub fn with_line_search<T>(self, line_search: T) -> GradientDescent<T> {
+        GradientDescent {
+            abs_tol: self.abs_tol,
+            dual: self.dual,
+            error_norm: self.error_norm,
+            line_search,
+            max_steps: self.max_steps,
+            rel_tol: self.rel_tol,
+        }
+    }
+    fn with(line_search: S) -> Self {
         Self {
             abs_tol: Tolerances::default(),
             dual: false,
             error_norm: Norm::Chebyshev,
-            line_search: LineSearch::None,
+            line_search,
             max_steps: 250,
             rel_tol: None,
         }
     }
 }
 
-impl<F, X, E> RootFinding<F, (), X> for GradientDescent
+impl<F, X, E> RootFinding<F, (), X> for GradientDescent<NoSearch>
 where
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
@@ -85,13 +110,9 @@ where
             return Err(OptimizationError::Intermediate(UNSUPPORTED.to_string()));
         };
         match equality_constraint {
-            EqualityConstraint::Fixed(indices) => constrained_fixed(
-                self,
-                |_: &X| panic!("No line search in root finding."),
-                function,
-                initial_guess,
-                indices,
-            ),
+            EqualityConstraint::Fixed(indices) => {
+                constrained_fixed(self, no_objective, function, initial_guess, indices)
+            }
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
             }
@@ -117,19 +138,16 @@ where
                     )
                 }
             }
-            EqualityConstraint::None => unconstrained(
-                self,
-                |_: &X| panic!("No line search in root finding."),
-                function,
-                initial_guess,
-                None,
-            ),
+            EqualityConstraint::None => {
+                unconstrained(self, no_objective, function, initial_guess, None)
+            }
         }
     }
 }
 
-impl<F, J, X, E> Optimization<F, J, (), X> for GradientDescent
+impl<S, F, J, X, E> Optimization<F, J, (), X> for GradientDescent<S>
 where
+    S: ObjectiveMerit,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
     <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
@@ -193,8 +211,8 @@ where
     }
 }
 
-fn unconstrained<F, X, E>(
-    gradient_descent: &GradientDescent,
+fn unconstrained<S: ObjectiveMerit, F, X, E>(
+    gradient_descent: &GradientDescent<S>,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
@@ -257,8 +275,8 @@ where
     }
 }
 
-fn constrained_fixed<F, X, E>(
-    gradient_descent: &GradientDescent,
+fn constrained_fixed<S: ObjectiveMerit, F, X, E>(
+    gradient_descent: &GradientDescent<S>,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
@@ -323,8 +341,8 @@ where
     }
 }
 
-fn constrained<F, X, E>(
-    gradient_descent: &GradientDescent,
+fn constrained<S: ObjectiveMerit, F, X, E>(
+    gradient_descent: &GradientDescent<S>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     constraint_matrix: Matrix,
@@ -337,7 +355,7 @@ where
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    if !matches!(gradient_descent.line_search, LineSearch::None) {
+    if S::SEARCHES {
         panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let mut residual_solution;
@@ -398,8 +416,8 @@ where
     }
 }
 
-fn constrained_dual<F, X, E>(
-    gradient_descent: &GradientDescent,
+fn constrained_dual<S: ObjectiveMerit, F, X, E>(
+    gradient_descent: &GradientDescent<S>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     constraint_matrix: Matrix,
@@ -413,7 +431,7 @@ where
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    if !matches!(gradient_descent.line_search, LineSearch::None) {
+    if S::SEARCHES {
         panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let num_constraints = constraint_rhs.len();

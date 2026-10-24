@@ -1,9 +1,7 @@
 use crate::{
     math::{
         Current, Quantity, Scalar, SquareMatrix, Tensor, TensorArray, TensorRank1, Vector,
-        optimize::{
-            Direct, EqualityConstraint, LineSearch, NewtonRaphson, Optimization, Tolerances,
-        },
+        optimize::{Direct, EqualityConstraint, Error, NewtonRaphson, Optimization, Tolerances},
     },
     mechanics::Vectors,
     physics::molecular::single_chain::{Extensible, Inextensible, SingleChain, SingleChainError},
@@ -468,13 +466,13 @@ where
                 constraint: 1e-10,
                 residual: 1e-10,
             },
-            line_search: LineSearch::Error {
-                cut_back: 5e-1,
-                max_steps: 10,
-            },
             linear_solver: Direct,
             ..Default::default()
         }
+        .with_line_search(Error {
+            cut_back: 5e-1,
+            max_steps: 10,
+        })
         .minimize(
             |&nondimensional_force| {
                 Ok(Isotensional::nondimensional_gibbs_free_energy_per_link(
@@ -574,13 +572,13 @@ where
                 constraint: 1e-10,
                 residual: 1e-10,
             },
-            line_search: LineSearch::Error {
-                cut_back: 5e-1,
-                max_steps: 10,
-            },
             linear_solver: Direct,
             ..Default::default()
         }
+        .with_line_search(Error {
+            cut_back: 5e-1,
+            max_steps: 10,
+        })
         .minimize(
             |&nondimensional_extension| {
                 Ok(Isometric::nondimensional_helmholtz_free_energy_per_link(

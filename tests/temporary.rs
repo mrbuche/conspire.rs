@@ -8004,7 +8004,7 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
             hybrid::ElasticMultiplicative, solid::hyperelastic::SaintVenantKirchhoff as SVK,
         },
         fem::solid::hyperelastic::internal_variables::MinimizeIV,
-        math::optimize::{LineSearch, SolveStrategy},
+        math::optimize::{Armijo, SolveStrategy},
     };
     let strain = 1.0;
     let mut connectivity = connectivity();
@@ -8054,15 +8054,15 @@ fn temporary_hyperelastic_internal_variables() -> Result<(), AssertionError> {
     let searched = fem_model.minimize(
         &conditions,
         NewtonRaphson {
-            line_search: LineSearch::Armijo {
-                control: 9e-1,
-                cut_back: 5e-1,
-                max_steps: 25,
-            },
             max_steps: 5,
             linear_solver: Direct,
             ..Default::default()
-        },
+        }
+        .with_line_search(Armijo {
+            control: 9e-1,
+            cut_back: 5e-1,
+            max_steps: 25,
+        }),
         SolveStrategy::Monolithic { elimination: true },
     )?;
     println!("Done ({:?}).", time.elapsed());

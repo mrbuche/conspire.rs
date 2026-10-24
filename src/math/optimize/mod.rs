@@ -17,7 +17,10 @@ use constraint::UNSUPPORTED;
 pub use constraint::{EqualityConstraint, EqualityConstraints, Prescription};
 pub use gradient_descent::GradientDescent;
 pub use krylov::{Krylov, KrylovError, KrylovMethod};
-pub use line_search::{LineSearch, LineSearchError};
+pub use line_search::{
+    Armijo, Error, Goldstein, LineSearchError, NoSearch, ObjectiveMerit, Residual, ResidualMerit,
+    Wolfe,
+};
 pub use linear_solve::{Direct, LinearSolver};
 pub use newton_raphson::NewtonRaphson;
 pub use precondition::{Precondition, Preconditioning};
@@ -155,14 +158,27 @@ pub trait OptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     ) -> Result<(U, V), OptimizationError>;
 }
 
+/// Stands in for the objective of a root, which has none.
+///
+/// A root is only ever searched along a residual, so nothing asks.
+fn no_objective<X>(_: &X) -> Result<Scalar, String> {
+    Err("A root has no objective.".to_string())
+}
+
+/// Stands in for the objective of a root with global and local variables.
+fn no_objective_blocks<U, V>(_: &U, _: &V) -> Result<Scalar, String> {
+    Err("A root has no objective.".to_string())
+}
+
 trait BacktrackingLineSearch<J, X>
 where
     Self: Debug,
 {
+    type Search: ObjectiveMerit;
     fn backtracking_line_search<D, E>(
         &self,
-        mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        mut jacobian: impl FnMut(&X) -> Result<J, String>,
+        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
         decrement: &D,
@@ -176,22 +192,13 @@ where
         <X as Tensor>::Unit: UnitDiv<<D as Tensor>::Unit>,
         for<'a> &'a D: Mul<StepSize<D, X>, Output = X>,
     {
-        if matches!(self.get_line_search(), LineSearch::None) {
-            Ok(step_size)
-        } else {
-            self.get_line_search()
-                .backtrack(
-                    &mut function,
-                    &mut jacobian,
-                    argument,
-                    jacobian0,
-                    decrement,
-                    step_size,
-                )
-                .map_err(|error| OptimizationError::upstream(error, self))
-        }
+        self.get_line_search()
+            .search(
+                function, jacobian, argument, jacobian0, decrement, step_size,
+            )
+            .map_err(|error| OptimizationError::upstream(error, self))
     }
-    fn get_line_search(&self) -> &LineSearch;
+    fn get_line_search(&self) -> &Self::Search;
 }
 
 /// Possible errors encountered during optimization.

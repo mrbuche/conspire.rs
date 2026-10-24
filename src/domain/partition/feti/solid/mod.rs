@@ -26,7 +26,7 @@ use crate::{
 };
 
 #[cfg(feature = "fem")]
-impl<B> SolverFor<Model<B, 3>, Quantity<Energy>, NodalForcesSolid<3>> for NewtonRaphson<Feti>
+impl<B, S> SolverFor<Model<B, 3>, Quantity<Energy>, NodalForcesSolid<3>> for NewtonRaphson<Feti, S>
 where
     B: DecomposableElements,
 {
@@ -35,8 +35,8 @@ where
 }
 
 #[cfg(feature = "fem")]
-impl<B> SolverFor<Model<B, 3>, NodalForcesSolid<3>, NodalStiffnessesSolid<3>>
-    for NewtonRaphson<Feti>
+impl<B, S> SolverFor<Model<B, 3>, NodalForcesSolid<3>, NodalStiffnessesSolid<3>>
+    for NewtonRaphson<Feti, S>
 where
     B: DecomposableElements,
 {

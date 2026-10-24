@@ -10,7 +10,7 @@ use crate::{
     },
     math::{
         Quantity, QuantitySparseVec2D, QuantityVector, Tensor,
-        optimize::{NewtonRaphson, Optimization, OptimizationError, RootFinding},
+        optimize::{Direct, NewtonRaphson, Optimization, OptimizationError, RootFinding},
     },
 };
 
@@ -115,8 +115,8 @@ where
     }
 }
 
-impl<L, B, const D: usize> SolverFor<Model<B, D>, NodalForces<L>, NodalStiffnesses<L>>
-    for NewtonRaphson
+impl<L, B, const D: usize, S> SolverFor<Model<B, D>, NodalForces<L>, NodalStiffnesses<L>>
+    for NewtonRaphson<Direct, S>
 where
     L: Diffusive,
     B: DiffusionElements<L>,
@@ -168,8 +168,8 @@ where
     }
 }
 
-impl<L, B, const D: usize> SolverFor<Model<B, D>, Quantity<L::Energy>, NodalForces<L>>
-    for NewtonRaphson
+impl<L, B, const D: usize, S> SolverFor<Model<B, D>, Quantity<L::Energy>, NodalForces<L>>
+    for NewtonRaphson<Direct, S>
 where
     L: Diffusive,
     B: DiffusionElements<L>,

@@ -1,5 +1,8 @@
 use super::{
-    super::{Direct, NewtonRaphson, OptimizationError, TrustRegion, constrained},
+    super::{
+        Direct, NewtonRaphson, NoSearch, Objective, OptimizationError, Residually, TrustRegion,
+        constrained, no_objective,
+    },
     ConstraintMatrix,
 };
 use crate::math::{
@@ -79,7 +82,8 @@ where
 {
     constrained(
         &NewtonRaphson::default(),
-        |_: &Vector| panic!("No line search in root finding"),
+        Residually(&NoSearch),
+        no_objective,
         residual,
         tangent,
         |_: &Vector, _: &Vector, _: Scalar, _: bool| Ok(()),
@@ -107,6 +111,7 @@ where
             linear_solver: Direct,
             ..Default::default()
         },
+        Objective(&NoSearch),
         energy,
         residual,
         tangent,

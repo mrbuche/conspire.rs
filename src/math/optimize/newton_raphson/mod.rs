@@ -9,33 +9,33 @@ use super::{
         SquareMatrix, Tensor, Vector,
         sparse::{CscMatrix, SparseSolver},
     },
-    BacktrackingLineSearch, Direct, EqualityConstraint, EqualityConstraints, LineSearch,
-    LineSearchError, LinearSolver, Optimization, OptimizationBlock, OptimizationError,
-    OptimizationIncremental, RootFinding, RootFindingBlock, RootFindingIncremental, Rows,
-    SolveStrategy, StepSize, Tolerances, TrustRegion,
+    BacktrackingLineSearch, Direct, EqualityConstraint, EqualityConstraints, LineSearchError,
+    LinearSolver, NoSearch, ObjectiveMerit, Optimization, OptimizationBlock, OptimizationError,
+    OptimizationIncremental, ResidualMerit, RootFinding, RootFindingBlock, RootFindingIncremental,
+    Rows, SolveStrategy, StepSize, Tolerances, TrustRegion, no_objective, no_objective_blocks,
     trust_region::{
         TRUST_REGION_ETA, TRUST_REGION_MAX_REJECTIONS, TRUST_REGION_SHRINK, more_sorensen_dense,
         more_sorensen_sparse, update_radius,
     },
 };
-use crate::math::Norm;
+use crate::math::{Norm, Quantity};
 use crate::units::{UnitMul, UnitRatio, UnitSum};
 use constraint::{ConstraintMatrix, Eliminated, kkt_entry_sparse};
 use std::{
     collections::BTreeMap,
-    fmt::{self, Debug, Formatter},
+    fmt::{self, Debug, Display, Formatter},
     ops::{Div, Mul},
 };
 
 /// The Newton-Raphson method.
 #[derive(Clone)]
-pub struct NewtonRaphson<L = Direct> {
+pub struct NewtonRaphson<L = Direct, S = NoSearch> {
     /// Absolute error tolerances.
     pub abs_tol: Tolerances,
     /// Norm type for error evaluation.
     pub error_norm: Norm,
     /// Line search algorithm.
-    pub line_search: LineSearch,
+    pub line_search: S,
     /// Linear solver for each step.
     pub linear_solver: L,
     /// Maximum number of steps.
@@ -46,13 +46,14 @@ pub struct NewtonRaphson<L = Direct> {
     pub trust_region: TrustRegion,
 }
 
-impl<L, J, X> BacktrackingLineSearch<J, X> for NewtonRaphson<L> {
-    fn get_line_search(&self) -> &LineSearch {
+impl<L, S: ObjectiveMerit, J, X> BacktrackingLineSearch<J, X> for NewtonRaphson<L, S> {
+    type Search = S;
+    fn get_line_search(&self) -> &S {
         &self.line_search
     }
 }
 
-impl<L> Debug for NewtonRaphson<L> {
+impl<L, S: Display> Debug for NewtonRaphson<L, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -75,12 +76,27 @@ impl<L: Default> Default for NewtonRaphson<L> {
     }
 }
 
+impl<L, S> NewtonRaphson<L, S> {
+    /// The same solver, searching along each step with another line search.
+    pub fn with_line_search<T>(self, line_search: T) -> NewtonRaphson<L, T> {
+        NewtonRaphson {
+            abs_tol: self.abs_tol,
+            error_norm: self.error_norm,
+            line_search,
+            linear_solver: self.linear_solver,
+            max_steps: self.max_steps,
+            rel_tol: self.rel_tol,
+            trust_region: self.trust_region,
+        }
+    }
+}
+
 impl<L> NewtonRaphson<L> {
     fn with(linear_solver: L) -> Self {
         Self {
             abs_tol: Tolerances::default(),
             error_norm: Norm::Chebyshev,
-            line_search: LineSearch::None,
+            line_search: NoSearch,
             linear_solver,
             max_steps: 25,
             rel_tol: None,
@@ -89,8 +105,9 @@ impl<L> NewtonRaphson<L> {
     }
 }
 
-impl<F, J, X, E> RootFinding<F, J, X> for NewtonRaphson
+impl<S, F, J, X, E> RootFinding<F, J, X> for NewtonRaphson<Direct, S>
 where
+    S: ResidualMerit,
     F: Jacobian,
     for<'a> &'a F: Div<J, Output = X>,
     J: Hessian,
@@ -113,7 +130,8 @@ where
         match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
             (Some(indices), Rows::None) => constrained_fixed(
                 self,
-                |_: &X| panic!("No line search in root finding"),
+                Residually(&self.line_search),
+                no_objective,
                 function,
                 jacobian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
@@ -125,7 +143,8 @@ where
             ),
             (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
                 self,
-                |_: &X| panic!("No line search in root finding"),
+                Residually(&self.line_search),
+                no_objective,
                 function,
                 jacobian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
@@ -138,7 +157,8 @@ where
             ),
             (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
                 self,
-                |_: &X| panic!("No line search in root finding"),
+                Residually(&self.line_search),
+                no_objective,
                 function,
                 jacobian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
@@ -151,7 +171,8 @@ where
             ),
             (None, Rows::None) => unconstrained(
                 self,
-                |_: &X| panic!("No line search in root finding"),
+                Residually(&self.line_search),
+                no_objective,
                 function,
                 jacobian,
                 initial_guess,
@@ -163,8 +184,9 @@ where
     }
 }
 
-impl<L, F, J, X, E> RootFinding<F, J, X> for NewtonRaphson<L>
+impl<L, S, F, J, X, E> RootFinding<F, J, X> for NewtonRaphson<L, S>
 where
+    S: ResidualMerit,
     L: LinearSolver<Tangent = J>,
     F: Jacobian,
     F: Erase<Erased = E>,
@@ -184,7 +206,8 @@ where
         match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
             (Some(indices), Rows::None) => constrained_fixed(
                 self,
-                |_: &X| panic!("No line search in root finding"),
+                Residually(&self.line_search),
+                no_objective,
                 function,
                 jacobian,
                 |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
@@ -205,8 +228,9 @@ where
     }
 }
 
-impl<F, J, X, E> RootFindingIncremental<F, J, X> for NewtonRaphson
+impl<S, F, J, X, E> RootFindingIncremental<F, J, X> for NewtonRaphson<Direct, S>
 where
+    S: ResidualMerit,
     F: Jacobian,
     for<'a> &'a F: Div<J, Output = X>,
     J: Hessian,
@@ -230,7 +254,8 @@ where
         match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
             (Some(indices), Rows::None) => constrained_fixed(
                 self,
-                |_: &X| panic!("No line search in root finding"),
+                Residually(&self.line_search),
+                no_objective,
                 function,
                 jacobian,
                 update,
@@ -242,7 +267,8 @@ where
             ),
             (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
                 self,
-                |_: &X| panic!("No line search in root finding"),
+                Residually(&self.line_search),
+                no_objective,
                 function,
                 jacobian,
                 update,
@@ -255,7 +281,8 @@ where
             ),
             (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
                 self,
-                |_: &X| panic!("No line search in root finding"),
+                Residually(&self.line_search),
+                no_objective,
                 function,
                 jacobian,
                 update,
@@ -274,8 +301,9 @@ where
     }
 }
 
-impl<F, J, H, X, E> Optimization<F, J, H, X> for NewtonRaphson
+impl<S, F, J, H, X, E> Optimization<F, J, H, X> for NewtonRaphson<Direct, S>
 where
+    S: ObjectiveMerit,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
     <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
@@ -305,6 +333,7 @@ where
         match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
             (Some(indices), Rows::None) => constrained_fixed(
                 self,
+                Objective(&self.line_search),
                 function,
                 jacobian,
                 hessian,
@@ -317,6 +346,7 @@ where
             ),
             (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
                 self,
+                Objective(&self.line_search),
                 function,
                 jacobian,
                 hessian,
@@ -330,6 +360,7 @@ where
             ),
             (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
                 self,
+                Objective(&self.line_search),
                 function,
                 jacobian,
                 hessian,
@@ -343,6 +374,7 @@ where
             ),
             (None, Rows::None) => unconstrained(
                 self,
+                Objective(&self.line_search),
                 function,
                 jacobian,
                 hessian,
@@ -355,8 +387,9 @@ where
     }
 }
 
-impl<L, F, J, H, X, E> Optimization<F, J, H, X> for NewtonRaphson<L>
+impl<L, S, F, J, H, X, E> Optimization<F, J, H, X> for NewtonRaphson<L, S>
 where
+    S: ObjectiveMerit,
     L: LinearSolver<Tangent = H>,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
@@ -383,6 +416,7 @@ where
         match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
             (Some(indices), Rows::None) => constrained_fixed(
                 self,
+                Objective(&self.line_search),
                 function,
                 jacobian,
                 hessian,
@@ -404,8 +438,9 @@ where
     }
 }
 
-impl<F, J, H, X, E> OptimizationIncremental<F, J, H, X> for NewtonRaphson
+impl<S, F, J, H, X, E> OptimizationIncremental<F, J, H, X> for NewtonRaphson<Direct, S>
 where
+    S: ObjectiveMerit,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
     <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
@@ -436,6 +471,7 @@ where
         match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
             (Some(indices), Rows::None) => constrained_fixed(
                 self,
+                Objective(&self.line_search),
                 function,
                 jacobian,
                 hessian,
@@ -448,6 +484,7 @@ where
             ),
             (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
                 self,
+                Objective(&self.line_search),
                 function,
                 jacobian,
                 hessian,
@@ -461,6 +498,7 @@ where
             ),
             (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
                 self,
+                Objective(&self.line_search),
                 function,
                 jacobian,
                 hessian,
@@ -480,9 +518,10 @@ where
     }
 }
 
-impl<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> RootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>
-    for NewtonRaphson
+impl<S, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> RootFindingBlock<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>
+    for NewtonRaphson<Direct, S>
 where
+    S: ResidualMerit,
     U: Solution,
     V: Solution,
     Ru: Jacobian,
@@ -506,7 +545,8 @@ where
     ) -> Result<(U, V), OptimizationError> {
         blocked(
             self,
-            |_: &U, _: &V| panic!("No line search in root finding"),
+            Residually(&self.line_search),
+            no_objective_blocks,
             false,
             residual_global,
             residual_local,
@@ -521,9 +561,10 @@ where
     }
 }
 
-impl<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> OptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>
-    for NewtonRaphson
+impl<S, F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> OptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>
+    for NewtonRaphson<Direct, S>
 where
+    S: ObjectiveMerit,
     F: Erase<Erased = Scalar> + Tensor,
     <Ru as Tensor>::Unit: UnitMul<<U as Tensor>::Unit>,
     <<Ru as Tensor>::Unit as UnitMul<<U as Tensor>::Unit>>::Output: UnitSum,
@@ -558,6 +599,7 @@ where
         let function = move |global: &U, local: &V| function(global, local).map(|v| *v.erase());
         blocked(
             self,
+            Objective(&self.line_search),
             function,
             true,
             residual_global,
@@ -629,8 +671,9 @@ fn merit_slope<'a>(
 /// against, which leaves the comparison a ratio and the threshold the
 /// precision that ratio is held in. A number of its own would carry units and
 /// mean something different at every scale.
-fn backtrack_penalty(
-    newton_raphson: &NewtonRaphson,
+fn backtrack_penalty<L, S: Display>(
+    newton_raphson: &NewtonRaphson<L, S>,
+    search: &impl Backtrack,
     merit: impl FnMut(Scalar) -> Result<Scalar, String>,
     value: Scalar,
     slope: Scalar,
@@ -638,9 +681,8 @@ fn backtrack_penalty(
     if slope <= Scalar::EPSILON * value.abs() {
         Ok(1.0)
     } else {
-        newton_raphson
-            .line_search
-            .backtrack_merit(merit, value, slope, 1.0)
+        search
+            .merit(merit, value, slope, 1.0)
             .map_err(|error| OptimizationError::upstream(error, newton_raphson))
     }
 }
@@ -691,34 +733,138 @@ where
     }
 }
 
-/// Shortens the step until it lands somewhere the problem can be evaluated,
-/// or gives up.
+/// A line search as the Newton loops take it, in the problem it is taken in.
 ///
-/// This asks nothing of a merit function, so it is the one line search root
-/// finding can also take, and it says nothing about descent. Where a trial
-/// point is, and what makes it reachable, is left to the formulation asking:
-/// whatever was eliminated is stepped alongside, so the state to test is the
-/// one everything arrives at together.
-fn backtrack_errors<L>(
-    newton_raphson: &NewtonRaphson<L>,
-    mut reachable: impl FnMut(Scalar) -> bool,
-    cut_back: Scalar,
-    max_steps: usize,
-) -> Result<Scalar, OptimizationError> {
-    let mut trial_size = 1.0;
-    for _ in 0..max_steps {
-        if reachable(trial_size) {
-            return Ok(trial_size);
-        }
-        trial_size *= cut_back
+/// A loop is shared by minimization and root finding, which judge a step by
+/// different merits and so by different kinds of line search. What it holds
+/// is the one kind its problem allows, so asking a root for an objective, or
+/// a minimization for a residual, is not a question a loop can put.
+trait Backtrack {
+    /// Whether the merit is built from the objective, rather than the residual.
+    const OBJECTIVE: bool;
+    /// Whether anything is searched at all.
+    const SEARCHES: bool;
+    /// Whether the value and slope of the merit are read.
+    const MERIT: bool;
+    /// Backtrack on a merit of the step size alone.
+    ///
+    /// A residual merit has its slope along the share `fraction` of a Newton
+    /// step, so is not given one.
+    fn merit(
+        &self,
+        merit: impl FnMut(Scalar) -> Result<Scalar, String>,
+        value: Scalar,
+        slope: Scalar,
+        fraction: Scalar,
+    ) -> Result<Scalar, LineSearchError>;
+    /// Backtrack along a step of the objective, whose gradient is known.
+    fn gradient<X, J, D, W, E>(
+        &self,
+        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        argument: &X,
+        jacobian0: &J,
+        decrement: &D,
+        step_size: Scalar,
+    ) -> Result<Scalar, LineSearchError>
+    where
+        J: Erase<Erased = E> + Jacobian,
+        D: Erase<Erased = E>,
+        E: Tensor,
+        X: Solution,
+        for<'a> &'a D: Mul<Quantity<W>, Output = X>;
+}
+
+/// The line search of a minimization.
+struct Objective<'a, S>(&'a S);
+
+/// The line search of a root.
+struct Residually<'a, S>(&'a S);
+
+impl<S: ObjectiveMerit> Backtrack for Objective<'_, S> {
+    const OBJECTIVE: bool = true;
+    const SEARCHES: bool = S::SEARCHES;
+    const MERIT: bool = S::MERIT;
+    fn merit(
+        &self,
+        merit: impl FnMut(Scalar) -> Result<Scalar, String>,
+        value: Scalar,
+        slope: Scalar,
+        _fraction: Scalar,
+    ) -> Result<Scalar, LineSearchError> {
+        self.0.search_merit(merit, value, slope, 1.0)
     }
-    Err(OptimizationError::upstream(
-        LineSearchError::MaximumStepsReached(
-            format!("{:?}", newton_raphson.line_search),
-            max_steps,
-        ),
-        newton_raphson,
-    ))
+    fn gradient<X, J, D, W, E>(
+        &self,
+        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
+        jacobian: impl FnMut(&X) -> Result<J, String>,
+        argument: &X,
+        jacobian0: &J,
+        decrement: &D,
+        step_size: Scalar,
+    ) -> Result<Scalar, LineSearchError>
+    where
+        J: Erase<Erased = E> + Jacobian,
+        D: Erase<Erased = E>,
+        E: Tensor,
+        X: Solution,
+        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
+    {
+        self.0.search(
+            function, jacobian, argument, jacobian0, decrement, step_size,
+        )
+    }
+}
+
+impl<S: ResidualMerit> Backtrack for Residually<'_, S> {
+    const OBJECTIVE: bool = false;
+    const SEARCHES: bool = S::SEARCHES;
+    const MERIT: bool = S::MERIT;
+    fn merit(
+        &self,
+        merit: impl FnMut(Scalar) -> Result<Scalar, String>,
+        value: Scalar,
+        _slope: Scalar,
+        fraction: Scalar,
+    ) -> Result<Scalar, LineSearchError> {
+        self.0.search_residual(merit, value, fraction)
+    }
+    fn gradient<X, J, D, W, E>(
+        &self,
+        _function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
+        _jacobian: impl FnMut(&X) -> Result<J, String>,
+        _argument: &X,
+        _jacobian0: &J,
+        _decrement: &D,
+        _step_size: Scalar,
+    ) -> Result<Scalar, LineSearchError>
+    where
+        J: Erase<Erased = E> + Jacobian,
+        D: Erase<Erased = E>,
+        E: Tensor,
+        X: Solution,
+        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
+    {
+        unreachable!("A root has no objective to take the gradient of.")
+    }
+}
+
+/// Half the squared Euclidean norm of a tensor.
+fn half_square_norm(tensor: &impl Tensor) -> Scalar {
+    0.5 * Norm::Euclidean.measure(tensor).powi(2)
+}
+
+/// Half the sum of the squares of the entries.
+fn half_square(entries: impl Iterator<Item = Scalar>) -> Scalar {
+    0.5 * entries.map(|entry| entry * entry).sum::<Scalar>()
+}
+
+/// Gives a line search failure the solver it happened in.
+fn searched<L, S: Display>(
+    newton_raphson: &NewtonRaphson<L, S>,
+    step_size: Result<Scalar, LineSearchError>,
+) -> Result<Scalar, OptimizationError> {
+    step_size.map_err(|error| OptimizationError::upstream(error, newton_raphson))
 }
 
 /// Whether every block of the residual has come within the tolerance.
@@ -730,8 +876,8 @@ fn backtrack_errors<L>(
 /// The scales are what each block was on the first step, so that the relative
 /// tolerance is compared against a ratio of two norms of the same kind, and
 /// means the same thing whatever units that kind is measured in.
-pub(crate) fn converged(
-    newton_raphson: &NewtonRaphson,
+pub(crate) fn converged<L, S>(
+    newton_raphson: &NewtonRaphson<L, S>,
     residual: &Vector,
     variables: usize,
     scales: &mut Option<(Scalar, Scalar)>,
@@ -759,10 +905,12 @@ pub(crate) fn converged(
 ///
 /// Only the variables are measured, the multipliers being of another kind
 /// entirely, but everything is scaled together so that the direction survives.
-pub(crate) fn limit_decrement<L>(
-    newton_raphson: &NewtonRaphson<L>,
+///
+/// What is returned is the share of the decrement that was kept.
+pub(crate) fn limit_decrement<L, S>(
+    newton_raphson: &NewtonRaphson<L, S>,
     decrements: &mut [(&mut Vector, usize)],
-) {
+) -> Scalar {
     if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
         let size = norm.over(
             decrements
@@ -772,9 +920,11 @@ pub(crate) fn limit_decrement<L>(
         if size > radius {
             decrements
                 .iter_mut()
-                .for_each(|(decrement, _)| **decrement *= radius / size)
+                .for_each(|(decrement, _)| **decrement *= radius / size);
+            return radius / size;
         }
     }
+    1.0
 }
 
 fn kkt_block<K>(
@@ -1000,8 +1150,9 @@ where
 }
 
 #[expect(clippy::too_many_arguments)]
-fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
-    newton_raphson: &NewtonRaphson,
+fn blocked<B, S, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
+    newton_raphson: &NewtonRaphson<Direct, S>,
+    search: B,
     mut function: impl FnMut(&U, &V) -> Result<Scalar, String>,
     minimizing: bool,
     mut residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
@@ -1014,6 +1165,8 @@ fn blocked<U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     strategy: SolveStrategy,
 ) -> Result<(U, V), OptimizationError>
 where
+    B: Backtrack,
+    S: Display,
     U: Solution,
     V: Solution,
     Ru: Jacobian,
@@ -1376,67 +1529,93 @@ where
                 .zip(decrement_outer.iter_mut().chain(decrement_inner.iter_mut()))
                 .for_each(|(entry, decrement_i)| *decrement_i = *entry);
         }
-        limit_decrement(
+        let fraction = limit_decrement(
             newton_raphson,
             &mut [
                 (&mut decrement_outer, num_global),
                 (&mut decrement_inner, num_local),
             ],
         );
-        let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
+        let step_size = if !B::SEARCHES {
             1.0
-        } else if !minimizing
-            && let LineSearch::Error {
-                cut_back,
-                max_steps,
-            } = &newton_raphson.line_search
-        {
+        } else if !B::OBJECTIVE {
             //
-            // Root finding has no merit function to backtrack against, so the
-            // trial point is judged by whether the problem can be evaluated
-            // there at all. Minimization keeps its merit function instead.
+            // A root has no objective, so the trial point is judged by the
+            // residual it leaves. Condensed makes the local residual vanish at
+            // every trial, so only the global residual is measured then.
             //
-            backtrack_errors(
+            let value = if !B::MERIT {
+                0.0
+            } else if condensed.is_some() {
+                half_square(residual.iter().take(num_outer).copied())
+            } else {
+                half_square(residual.iter().copied())
+            };
+            searched(
                 newton_raphson,
-                |trial_size| {
-                    let mut trial_global = global.clone();
-                    let mut trial_local = local.clone();
-                    let mut trial_multipliers_global = multipliers_global.clone();
-                    let mut trial_multipliers_local = multipliers_local.clone();
-                    trial_global.decrement_from_chained(
-                        &mut trial_multipliers_global,
-                        &(&decrement_outer * trial_size),
-                    );
-                    let reached = if let Some(local_solver) = condensed {
-                        converge_local(
-                            local_solver,
-                            &mut residual_local,
-                            &mut tangents,
-                            &trial_global,
-                            &mut trial_local,
-                            &mut trial_multipliers_local,
-                            &constraint_matrix_local,
-                            &constraint_rhs_local,
-                            num_local,
-                            &mut update_inner,
-                            &mut tangent_inner,
-                            &mut factorization,
-                        )
-                        .is_ok()
-                    } else {
-                        trial_local.decrement_from_chained(
-                            &mut trial_multipliers_local,
-                            &(&decrement_inner * trial_size),
+                search.merit(
+                    |trial_size| {
+                        let mut trial_global = global.clone();
+                        let mut trial_local = local.clone();
+                        let mut trial_multipliers_global = multipliers_global.clone();
+                        let mut trial_multipliers_local = multipliers_local.clone();
+                        trial_global.decrement_from_chained(
+                            &mut trial_multipliers_global,
+                            &(&decrement_outer * trial_size),
                         );
-                        true
-                    };
-                    reached
-                        && residual_global(&trial_global, &trial_local).is_ok()
-                        && residual_local(&trial_global, &trial_local).is_ok()
-                        && tangents(&trial_global, &trial_local).is_ok()
-                },
-                *cut_back,
-                *max_steps,
+                        if let Some(local_solver) = condensed {
+                            converge_local(
+                                local_solver,
+                                &mut residual_local,
+                                &mut tangents,
+                                &trial_global,
+                                &mut trial_local,
+                                &mut trial_multipliers_local,
+                                &constraint_matrix_local,
+                                &constraint_rhs_local,
+                                num_local,
+                                &mut update_inner,
+                                &mut tangent_inner,
+                                &mut factorization,
+                            )
+                            .map_err(|error| format!("{error}"))?
+                        } else {
+                            trial_local.decrement_from_chained(
+                                &mut trial_multipliers_local,
+                                &(&decrement_inner * trial_size),
+                            )
+                        }
+                        let mut trial_outer = Vector::zero(num_outer);
+                        kkt_residual(
+                            residual_global(&trial_global, &trial_local)?,
+                            &trial_multipliers_global,
+                            &constraint_matrix_global,
+                            &constraint_rhs_global,
+                            &trial_global,
+                            &mut trial_outer,
+                        );
+                        let mut merit = half_square(trial_outer.iter().copied());
+                        if condensed.is_none() {
+                            let mut trial_inner = Vector::zero(num_inner);
+                            kkt_residual(
+                                residual_local(&trial_global, &trial_local)?,
+                                &trial_multipliers_local,
+                                &constraint_matrix_local,
+                                &constraint_rhs_local,
+                                &trial_local,
+                                &mut trial_inner,
+                            );
+                            merit += half_square(trial_inner.iter().copied())
+                        }
+                        if !B::MERIT {
+                            tangents(&trial_global, &trial_local)?;
+                        }
+                        Ok(merit)
+                    },
+                    value,
+                    0.0,
+                    fraction,
+                ),
             )?
         } else {
             penalty = raise_penalty(
@@ -1467,6 +1646,7 @@ where
             let value = function(&global, &local)? + violated;
             backtrack_penalty(
                 newton_raphson,
+                &search,
                 |step| {
                     let mut trial_global = global.clone();
                     let mut trial_local = local.clone();
@@ -1529,8 +1709,10 @@ where
     }
 }
 
-fn unconstrained<J, H, X, E>(
-    newton_raphson: &NewtonRaphson,
+#[expect(clippy::too_many_arguments)]
+fn unconstrained<B, S, J, H, X, E>(
+    newton_raphson: &NewtonRaphson<Direct, S>,
+    search: B,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
@@ -1539,6 +1721,8 @@ fn unconstrained<J, H, X, E>(
     minimizing: bool,
 ) -> Result<X, OptimizationError>
 where
+    B: Backtrack,
+    S: Display,
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
@@ -1589,20 +1773,48 @@ where
             } else {
                 &residual / hessian(&solution)?
             };
+            let mut fraction = 1.0;
             if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
                 let size = norm.measure(&decrement);
                 if size > radius {
-                    decrement *= radius / size
+                    decrement *= radius / size;
+                    fraction = radius / size
                 }
             }
-            step_size = newton_raphson.backtracking_line_search::<X, E>(
-                |trial: &X, _: Scalar| function(trial),
-                &mut jacobian,
-                &solution,
-                &residual,
-                &decrement,
-                1.0,
-            )?;
+            step_size = if !B::SEARCHES {
+                1.0
+            } else if B::OBJECTIVE {
+                searched(
+                    newton_raphson,
+                    search.gradient(
+                        |trial: &X, _: Scalar| function(trial),
+                        &mut jacobian,
+                        &solution,
+                        &residual,
+                        &decrement,
+                        1.0,
+                    ),
+                )?
+            } else {
+                let value = if B::MERIT {
+                    half_square_norm(&residual)
+                } else {
+                    0.0
+                };
+                searched(
+                    newton_raphson,
+                    search.merit(
+                        |trial_size| {
+                            let mut trial = solution.clone();
+                            trial -= &decrement * trial_size;
+                            Ok(half_square_norm(&jacobian(&trial)?))
+                        },
+                        value,
+                        0.0,
+                        fraction,
+                    ),
+                )?
+            };
             if step_size != 1.0 {
                 decrement *= step_size
             }
@@ -1662,8 +1874,9 @@ fn direct<H: Hessian>(
 }
 
 #[expect(clippy::too_many_arguments)]
-fn constrained_fixed<L, J, H, X, E>(
-    newton_raphson: &NewtonRaphson<L>,
+fn constrained_fixed<B, L, S, J, H, X, E>(
+    newton_raphson: &NewtonRaphson<L, S>,
+    search: B,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
@@ -1675,6 +1888,8 @@ fn constrained_fixed<L, J, H, X, E>(
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
+    B: Backtrack,
+    S: Display,
     J: Jacobian,
     J: Erase<Erased = E>,
     X: Erase<Erased = E> + Solution,
@@ -1717,7 +1932,7 @@ where
             )?
         }
         steps += 1;
-        limit_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
+        let fraction = limit_decrement(newton_raphson, &mut [(&mut decrement, unmap.len())]);
         //
         // Spread over the variables it belongs to before anything shortens it,
         // so that whatever was eliminated is offered the whole direction and
@@ -1728,39 +1943,52 @@ where
             .iter()
             .zip(decrement.iter())
             .for_each(|(&index, decrement_a)| applied[index] = *decrement_a);
-        step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
+        step_size = if !B::SEARCHES {
             1.0
-        } else if let LineSearch::Error {
-            cut_back,
-            max_steps,
-        } = &newton_raphson.line_search
-        {
-            backtrack_errors(
+        } else if !(B::OBJECTIVE && B::MERIT) {
+            //
+            // Without a merit of the objective to compare, a trial point is
+            // judged by the residual it leaves, or by whether there is one.
+            //
+            let value = if B::MERIT {
+                half_square(residual.iter().copied())
+            } else {
+                0.0
+            };
+            searched(
                 newton_raphson,
-                |trial_size| {
-                    let mut trial = solution.clone();
-                    trial.decrement_from_retained(&retained, &(&decrement * trial_size));
-                    update(&solution, &applied, trial_size, false).is_ok()
-                        && jacobian(&trial).is_ok()
-                },
-                *cut_back,
-                *max_steps,
+                search.merit(
+                    |trial_size| {
+                        let mut trial = solution.clone();
+                        trial.decrement_from_retained(&retained, &(&decrement * trial_size));
+                        update(&solution, &applied, trial_size, false)?;
+                        Ok(half_square(
+                            jacobian(&trial)?.retain_from(&retained).iter().copied(),
+                        ))
+                    },
+                    value,
+                    0.0,
+                    fraction,
+                ),
             )?
         } else {
             let jac = jacobian(&solution)?;
             let mut decrement_full = &solution * 0.0;
             decrement_full.decrement_from_retained(&retained, &decrement);
             decrement_full *= -1.0;
-            newton_raphson.backtracking_line_search::<X, E>(
-                |trial: &X, step: Scalar| {
-                    update(&solution, &applied, step, false)?;
-                    function(trial)
-                },
-                &mut jacobian,
-                &solution,
-                &jac,
-                &decrement_full,
-                1.0,
+            searched(
+                newton_raphson,
+                search.gradient(
+                    |trial: &X, step: Scalar| {
+                        update(&solution, &applied, step, false)?;
+                        function(trial)
+                    },
+                    &mut jacobian,
+                    &solution,
+                    &jac,
+                    &decrement_full,
+                    1.0,
+                ),
             )?
         };
         update(&solution, &applied, step_size, true)?;
@@ -1772,8 +2000,9 @@ where
 }
 
 #[expect(clippy::too_many_arguments)]
-fn constrained<J, H, X, M>(
-    newton_raphson: &NewtonRaphson,
+fn constrained<B, S, J, H, X, M>(
+    newton_raphson: &NewtonRaphson<Direct, S>,
+    search: B,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<J, String>,
     mut hessian: impl FnMut(&X) -> Result<H, String>,
@@ -1786,6 +2015,8 @@ fn constrained<J, H, X, M>(
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
+    B: Backtrack,
+    S: Display,
     H: Hessian,
     J: Jacobian,
     X: Solution,
@@ -1961,7 +2192,7 @@ where
             factorization.solve_into(&residual, &mut decrement)
         }
         steps += 1;
-        limit_decrement(newton_raphson, &mut [(&mut decrement, num_variables)]);
+        let fraction = limit_decrement(newton_raphson, &mut [(&mut decrement, num_variables)]);
         //
         // Only the variables are lent out, the multipliers chained onto the end
         // of the decrement being of another kind entirely.
@@ -1970,25 +2201,44 @@ where
             .iter_mut()
             .zip(decrement.iter())
             .for_each(|(applied_i, decrement_i)| *applied_i = *decrement_i);
-        let step_size = if matches!(newton_raphson.line_search, LineSearch::None) {
+        let step_size = if !B::SEARCHES {
             1.0
-        } else if let LineSearch::Error {
-            cut_back,
-            max_steps,
-        } = &newton_raphson.line_search
-        {
-            backtrack_errors(
+        } else if !(B::OBJECTIVE && B::MERIT) {
+            //
+            // Without a merit of the objective to compare, a trial point is
+            // judged by the residual it leaves, or by whether there is one.
+            //
+            let value = if B::MERIT {
+                half_square(residual.iter().copied())
+            } else {
+                0.0
+            };
+            searched(
                 newton_raphson,
-                |trial_size| {
-                    let mut trial = solution.clone();
-                    let mut trial_multipliers = multipliers.clone();
-                    trial
-                        .decrement_from_chained(&mut trial_multipliers, &(&decrement * trial_size));
-                    update(&solution, &applied, trial_size, false).is_ok()
-                        && jacobian(&trial).is_ok()
-                },
-                *cut_back,
-                *max_steps,
+                search.merit(
+                    |trial_size| {
+                        let mut trial = solution.clone();
+                        let mut trial_multipliers = multipliers.clone();
+                        trial.decrement_from_chained(
+                            &mut trial_multipliers,
+                            &(&decrement * trial_size),
+                        );
+                        update(&solution, &applied, trial_size, false)?;
+                        let mut trial_residual = Vector::zero(num_total);
+                        eliminated
+                            .hold(
+                                jacobian(&trial)? - constraint_matrix.weighted(&trial_multipliers),
+                            )
+                            .fill_into_chained(
+                                &constraint_rhs - &constraint_matrix * &trial,
+                                &mut trial_residual,
+                            );
+                        Ok(half_square(trial_residual.iter().copied()))
+                    },
+                    value,
+                    0.0,
+                    fraction,
+                ),
             )?
         } else {
             penalty = raise_penalty(
@@ -2005,6 +2255,7 @@ where
             let value = function(&solution)? + violated;
             backtrack_penalty(
                 newton_raphson,
+                &search,
                 |step| {
                     let mut trial = solution.clone();
                     let mut trial_multipliers = multipliers.clone();
