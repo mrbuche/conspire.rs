@@ -88,6 +88,32 @@ fn minimize_condensed() -> Result<(), AssertionError> {
     Assert::default().eq_within_tols(&f_2, &f_2_condensed)
 }
 
+#[test]
+fn minimize_trust_region_adaptive() -> Result<(), AssertionError> {
+    use crate::constitutive::solid::hyperelastic::internal_variables::Minimize;
+    let strategy = SolveStrategy::Monolithic { elimination: true };
+    let (f_plain, f_2_plain) = blocked(strategy.clone())?;
+    for radius in [1.0, 1e-2] {
+        let (f, f_2) = model().minimize(
+            AppliedLoad::UniaxialStress(STRETCH),
+            NewtonRaphson {
+                trust_region: TrustRegion::Adaptive {
+                    radius,
+                    max_radius: 10.0,
+                },
+                linear_solver: Direct,
+                max_steps: 500,
+                ..Default::default()
+            },
+            strategy.clone(),
+        )?;
+        check(&f, &f_2)?;
+        Assert::default().eq_within_tols(&f, &f_plain)?;
+        Assert::default().eq_within_tols(&f_2, &f_2_plain)?
+    }
+    Ok(())
+}
+
 fn searched(
     line_search: impl ObjectiveMerit,
     strategy: SolveStrategy,
