@@ -201,9 +201,9 @@ fn the_elastic_block_gives_the_forces_of_its_elements() -> Result<(), AssertionE
         .try_into()
         .map_err(|message: String| AssertionError { message })?;
     let forces = model.nodal_forces(&opened(0.05))?;
-    Assert::default().eq_within_tols(forces[6][2], &Quantity::<Force>::new(0.5 * 0.17))?;
-    Assert::default().eq_within_tols(forces[7][2], &Quantity::<Force>::new(0.17))?;
-    Assert::default().eq_within_tols(forces[0][2], &Quantity::<Force>::new(-0.5 * 0.17))
+    Assert::default().eq_within_tols(forces[6][2], &Quantity::<Force>::new(0.25 * 0.17))?;
+    Assert::default().eq_within_tols(forces[7][2], &Quantity::<Force>::new(0.5 * 0.17))?;
+    Assert::default().eq_within_tols(forces[0][2], &Quantity::<Force>::new(-0.25 * 0.17))
 }
 
 #[test]
@@ -421,7 +421,8 @@ mod mixed {
         let (model, coordinates, states) = solve(there_and_back, &[0.0, 1.0, 2.0])?;
         let unloaded = forces(&model, &coordinates[2], &states[2])?[7][2].abs();
         let (model, coordinates, states) = solve(straight, &[0.0, 1.0])?;
-        let loaded = forces(&model, &coordinates[1], &states[1])?[7][2].abs();
+        let last = coordinates.len() - 1;
+        let loaded = forces(&model, &coordinates[last], &states[last])?[7][2].abs();
         assert!(unloaded.value() > 0.0);
         assert!(
             unloaded.value() < 0.75 * loaded.value(),
