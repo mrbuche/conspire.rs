@@ -132,64 +132,23 @@ where
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
-        mut initial_guess: X,
+        initial_guess: X,
         equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
-            (Some(indices), Rows::None) => constrained_fixed(
-                self,
-                Residually(&self.line_search),
-                no_objective,
-                function,
-                jacobian,
-                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
-                initial_guess,
-                direct(sparse),
-                false,
-                unchecked,
-                indices,
-            ),
-            (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
-                self,
-                Residually(&self.line_search),
-                no_objective,
-                function,
-                jacobian,
-                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
-                initial_guess,
-                false,
-                sparse,
-                &indices.unwrap_or_default(),
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
-                self,
-                Residually(&self.line_search),
-                no_objective,
-                function,
-                jacobian,
-                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
-                initial_guess,
-                false,
-                sparse,
-                &indices.unwrap_or_default(),
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            (None, Rows::None) => unconstrained(
-                self,
-                Residually(&self.line_search),
-                no_objective,
-                function,
-                jacobian,
-                initial_guess,
-                sparse,
-                false,
-            ),
-        }
-        .map_err(|error| OptimizationError::upstream(error, self))
+        iterate(
+            self,
+            Residually(&self.line_search),
+            no_objective,
+            function,
+            jacobian,
+            no_update,
+            initial_guess,
+            equality_constraint,
+            sparse,
+            false,
+            false,
+        )
     }
 }
 
@@ -208,32 +167,20 @@ where
         &self,
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
-        mut initial_guess: X,
+        initial_guess: X,
         equality_constraint: EqualityConstraints,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
-            (Some(indices), Rows::None) => constrained_fixed(
-                self,
-                Residually(&self.line_search),
-                no_objective,
-                function,
-                jacobian,
-                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
-                initial_guess,
-                |tangent, _, retained, residual, decrement| {
-                    *decrement = self.linear_solver.solve(tangent, retained, residual)?;
-                    Ok(())
-                },
-                false,
-                unchecked,
-                indices,
-            ),
-            _ => Err(OptimizationError::Intermediate(
-                "This linear solver requires a fixed equality constraint.".to_string(),
-            )),
-        }
-        .map_err(|error| OptimizationError::upstream(error, self))
+        iterate_linear(
+            self,
+            Residually(&self.line_search),
+            no_objective,
+            function,
+            jacobian,
+            no_update,
+            initial_guess,
+            equality_constraint,
+        )
     }
 }
 
@@ -256,57 +203,23 @@ where
         function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
-        mut initial_guess: X,
+        initial_guess: X,
         equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
-            (Some(indices), Rows::None) => constrained_fixed(
-                self,
-                Residually(&self.line_search),
-                no_objective,
-                function,
-                jacobian,
-                update,
-                initial_guess,
-                direct(sparse),
-                false,
-                unchecked,
-                indices,
-            ),
-            (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
-                self,
-                Residually(&self.line_search),
-                no_objective,
-                function,
-                jacobian,
-                update,
-                initial_guess,
-                false,
-                sparse,
-                &indices.unwrap_or_default(),
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
-                self,
-                Residually(&self.line_search),
-                no_objective,
-                function,
-                jacobian,
-                update,
-                initial_guess,
-                false,
-                sparse,
-                &indices.unwrap_or_default(),
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            (None, Rows::None) => unimplemented!(
-                "An unconstrained solution has no chained vector to lend the increment through."
-            ),
-        }
-        .map_err(|error| OptimizationError::upstream(error, self))
+        iterate(
+            self,
+            Residually(&self.line_search),
+            no_objective,
+            function,
+            jacobian,
+            update,
+            initial_guess,
+            equality_constraint,
+            sparse,
+            false,
+            true,
+        )
     }
 }
 
@@ -334,65 +247,24 @@ where
         mut function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
-        mut initial_guess: X,
+        initial_guess: X,
         equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
-            (Some(indices), Rows::None) => constrained_fixed(
-                self,
-                Objective(&self.line_search),
-                function,
-                jacobian,
-                hessian,
-                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
-                initial_guess,
-                direct(sparse.clone()),
-                true,
-                verified(sparse),
-                indices,
-            ),
-            (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
-                self,
-                Objective(&self.line_search),
-                function,
-                jacobian,
-                hessian,
-                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
-                initial_guess,
-                true,
-                sparse,
-                &indices.unwrap_or_default(),
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
-                self,
-                Objective(&self.line_search),
-                function,
-                jacobian,
-                hessian,
-                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
-                initial_guess,
-                true,
-                sparse,
-                &indices.unwrap_or_default(),
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            (None, Rows::None) => unconstrained(
-                self,
-                Objective(&self.line_search),
-                function,
-                jacobian,
-                hessian,
-                initial_guess,
-                sparse,
-                true,
-            ),
-        }
-        .map_err(|error| OptimizationError::upstream(error, self))
+        iterate(
+            self,
+            Objective(&self.line_search),
+            function,
+            jacobian,
+            hessian,
+            no_update,
+            initial_guess,
+            equality_constraint,
+            sparse,
+            true,
+            false,
+        )
     }
 }
 
@@ -417,33 +289,21 @@ where
         mut function: impl FnMut(&X) -> Result<F, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
-        mut initial_guess: X,
+        initial_guess: X,
         equality_constraint: EqualityConstraints,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
-            (Some(indices), Rows::None) => constrained_fixed(
-                self,
-                Objective(&self.line_search),
-                function,
-                jacobian,
-                hessian,
-                |_: &X, _: &Vector, _: Scalar, _: bool| Ok(()),
-                initial_guess,
-                |tangent, _, retained, residual, decrement| {
-                    *decrement = self.linear_solver.solve(tangent, retained, residual)?;
-                    Ok(())
-                },
-                false,
-                unchecked,
-                indices,
-            ),
-            _ => Err(OptimizationError::Intermediate(
-                "This linear solver requires a fixed equality constraint.".to_string(),
-            )),
-        }
-        .map_err(|error| OptimizationError::upstream(error, self))
+        iterate_linear(
+            self,
+            Objective(&self.line_search),
+            function,
+            jacobian,
+            hessian,
+            no_update,
+            initial_guess,
+            equality_constraint,
+        )
     }
 }
 
@@ -472,58 +332,24 @@ where
         jacobian: impl FnMut(&X) -> Result<J, String>,
         hessian: impl FnMut(&X) -> Result<H, String>,
         update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
-        mut initial_guess: X,
+        initial_guess: X,
         equality_constraint: EqualityConstraints,
         sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
         let function = move |argument: &X| function(argument).map(|value| *value.erase());
-        match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
-            (Some(indices), Rows::None) => constrained_fixed(
-                self,
-                Objective(&self.line_search),
-                function,
-                jacobian,
-                hessian,
-                update,
-                initial_guess,
-                direct(sparse.clone()),
-                true,
-                verified(sparse),
-                indices,
-            ),
-            (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
-                self,
-                Objective(&self.line_search),
-                function,
-                jacobian,
-                hessian,
-                update,
-                initial_guess,
-                true,
-                sparse,
-                &indices.unwrap_or_default(),
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
-                self,
-                Objective(&self.line_search),
-                function,
-                jacobian,
-                hessian,
-                update,
-                initial_guess,
-                true,
-                sparse,
-                &indices.unwrap_or_default(),
-                constraint_matrix,
-                constraint_rhs,
-            ),
-            (None, Rows::None) => unimplemented!(
-                "An unconstrained solution has no chained vector to lend the increment through."
-            ),
-        }
-        .map_err(|error| OptimizationError::upstream(error, self))
+        iterate(
+            self,
+            Objective(&self.line_search),
+            function,
+            jacobian,
+            hessian,
+            update,
+            initial_guess,
+            equality_constraint,
+            sparse,
+            true,
+            true,
+        )
     }
 }
 
@@ -622,6 +448,159 @@ where
         )
         .map_err(|error| OptimizationError::upstream(error, self))
     }
+}
+
+/// Takes no part in the iteration, for a problem that is not lent its increments.
+fn no_update<X>(_: &X, _: &Vector, _: Scalar, _: bool) -> Result<(), String> {
+    Ok(())
+}
+
+/// Iterates with the direct solver, in whichever form the equality constraints
+/// call for.
+///
+/// The residual is what is driven to zero and the tangent is what it is
+/// stepped by, which are the jacobian and hessian of a minimization and the
+/// function and jacobian of a root. An unconstrained solution has no chained
+/// vector to lend the increment through, so is only taken when it is not lent.
+#[expect(clippy::too_many_arguments)]
+fn iterate<B, S, J, H, X, E>(
+    newton_raphson: &NewtonRaphson<Direct, S>,
+    search: B,
+    objective: impl FnMut(&X) -> Result<Scalar, String>,
+    jacobian: impl FnMut(&X) -> Result<J, String>,
+    hessian: impl FnMut(&X) -> Result<H, String>,
+    update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
+    mut initial_guess: X,
+    equality_constraint: EqualityConstraints,
+    sparse: Option<SparseSolver>,
+    minimizing: bool,
+    lent: bool,
+) -> Result<X, OptimizationError>
+where
+    B: Backtrack,
+    S: Display,
+    H: Hessian,
+    J: Jacobian,
+    for<'a> &'a J: Div<H, Output = X>,
+    J: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
+    for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
+    for<'a> &'a CscMatrix: Mul<&'a X, Output = Vector>,
+{
+    match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
+        (Some(indices), Rows::None) => constrained_fixed(
+            newton_raphson,
+            search,
+            objective,
+            jacobian,
+            hessian,
+            update,
+            initial_guess,
+            direct(sparse.clone()),
+            minimizing,
+            verified(sparse),
+            indices,
+        ),
+        (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
+            newton_raphson,
+            search,
+            objective,
+            jacobian,
+            hessian,
+            update,
+            initial_guess,
+            minimizing,
+            sparse,
+            &indices.unwrap_or_default(),
+            constraint_matrix,
+            constraint_rhs,
+        ),
+        (indices, Rows::Sparse(constraint_matrix, constraint_rhs)) => constrained(
+            newton_raphson,
+            search,
+            objective,
+            jacobian,
+            hessian,
+            update,
+            initial_guess,
+            minimizing,
+            sparse,
+            &indices.unwrap_or_default(),
+            constraint_matrix,
+            constraint_rhs,
+        ),
+        (None, Rows::None) => {
+            if lent {
+                unimplemented!(
+                    "An unconstrained solution has no chained vector to lend the increment through."
+                )
+            }
+            unconstrained(
+                newton_raphson,
+                search,
+                objective,
+                jacobian,
+                hessian,
+                initial_guess,
+                sparse,
+                minimizing,
+            )
+        }
+    }
+    .map_err(|error| OptimizationError::upstream(error, newton_raphson))
+}
+
+/// Iterates with a linear solver of the user's, which needs a fixed equality
+/// constraint.
+#[expect(clippy::too_many_arguments)]
+fn iterate_linear<B, L, S, J, H, X, E>(
+    newton_raphson: &NewtonRaphson<L, S>,
+    search: B,
+    objective: impl FnMut(&X) -> Result<Scalar, String>,
+    jacobian: impl FnMut(&X) -> Result<J, String>,
+    hessian: impl FnMut(&X) -> Result<H, String>,
+    update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
+    mut initial_guess: X,
+    equality_constraint: EqualityConstraints,
+) -> Result<X, OptimizationError>
+where
+    B: Backtrack,
+    L: LinearSolver<Tangent = H>,
+    S: Display,
+    J: Jacobian,
+    J: Erase<Erased = E>,
+    X: Erase<Erased = E> + Solution,
+    E: Tensor,
+    <X as Tensor>::Unit: UnitRatio,
+    for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
+{
+    match EqualityConstraint::split(equality_constraint, &mut initial_guess) {
+        (Some(indices), Rows::None) => constrained_fixed(
+            newton_raphson,
+            search,
+            objective,
+            jacobian,
+            hessian,
+            update,
+            initial_guess,
+            |tangent, _, retained, residual, decrement| {
+                *decrement = newton_raphson
+                    .linear_solver
+                    .solve(tangent, retained, residual)?;
+                Ok(())
+            },
+            false,
+            unchecked,
+            indices,
+        ),
+        _ => Err(OptimizationError::Intermediate(
+            "This linear solver requires a fixed equality constraint.".to_string(),
+        )),
+    }
+    .map_err(|error| OptimizationError::upstream(error, newton_raphson))
 }
 
 const PENALTY_SAFETY: Scalar = 2.0;
