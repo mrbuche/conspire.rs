@@ -15,7 +15,6 @@ use super::NewtonRaphson;
 use super::backtrack::{Backtrack, half_square_norm, searched};
 use super::verify::not_minimum;
 
-#[expect(clippy::too_many_arguments)]
 pub(super) fn unconstrained<B, S, J, H, X, E>(
     newton_raphson: &NewtonRaphson<Direct, S>,
     search: B,
@@ -24,7 +23,6 @@ pub(super) fn unconstrained<B, S, J, H, X, E>(
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     initial_guess: X,
     sparse: Option<SparseSolver>,
-    minimizing: bool,
 ) -> Result<X, OptimizationError>
 where
     B: Backtrack,
@@ -51,7 +49,7 @@ where
     loop {
         residual = jacobian(&solution)?;
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol.residual() {
-            if minimizing {
+            if B::OBJECTIVE {
                 let hess = hessian(&solution)?;
                 let verdict = if let Some(ref solver) = sparse {
                     solver.is_minimum(|i, j| hess.entry(i, j), 0)

@@ -18,10 +18,6 @@ pub(super) fn not_minimum(
     )
 }
 
-pub(super) fn unchecked<H>(_: H, _: &[bool], _: &[usize]) -> Option<bool> {
-    None
-}
-
 pub(super) fn verified<H>(
     sparse: Option<SparseSolver>,
 ) -> impl FnMut(H, &[bool], &[usize]) -> Option<bool>

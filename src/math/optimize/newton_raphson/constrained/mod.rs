@@ -28,7 +28,6 @@ pub(super) fn constrained<B, S, J, H, X, M>(
     mut hessian: impl FnMut(&X) -> Result<H, String>,
     mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
-    minimizing: bool,
     sparse: Option<SparseSolver>,
     eliminated: &[usize],
     constraint_matrix: M,
@@ -78,7 +77,7 @@ where
                 &mut residual,
             );
         if converged(newton_raphson, &residual, num_variables, &mut scales) {
-            if minimizing && sparse.is_none() {
+            if B::OBJECTIVE && sparse.is_none() {
                 hessian(&solution)?.fill_into(&mut tangent);
                 eliminated.decouple(&mut tangent);
                 if tangent
@@ -88,7 +87,9 @@ where
                     return Err(not_minimum(newton_raphson, num_variables, num_constraints));
                 }
             }
-            if minimizing && let Some(ref solver) = sparse {
+            if B::OBJECTIVE
+                && let Some(ref solver) = sparse
+            {
                 let hess = hessian(&solution)?;
                 let verdict = solver.is_minimum(
                     |i, j| {
@@ -113,7 +114,8 @@ where
                 newton_raphson.max_steps,
                 format!("{newton_raphson:?}"),
             ));
-        } else if minimizing && matches!(newton_raphson.trust_region, TrustRegion::Adaptive { .. })
+        } else if B::OBJECTIVE
+            && matches!(newton_raphson.trust_region, TrustRegion::Adaptive { .. })
         {
             let mut hess = Some(hessian(&solution)?);
             if sparse.is_none()

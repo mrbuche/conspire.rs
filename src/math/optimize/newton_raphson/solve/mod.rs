@@ -21,7 +21,7 @@ use super::blocked::blocked;
 use super::constrained::constrained;
 use super::fixed::constrained_fixed;
 use super::unconstrained::unconstrained;
-use super::verify::{unchecked, verified};
+use super::verify::verified;
 
 impl<S, F, J, X, E> RootFinding<F, J, X> for NewtonRaphson<Direct, S>
 where
@@ -55,7 +55,6 @@ where
             initial_guess,
             equality_constraint,
             sparse,
-            false,
             false,
         )
     }
@@ -126,7 +125,6 @@ where
             initial_guess,
             equality_constraint,
             sparse,
-            false,
             true,
         )
     }
@@ -171,7 +169,6 @@ where
             initial_guess,
             equality_constraint,
             sparse,
-            true,
             false,
         )
     }
@@ -257,7 +254,6 @@ where
             equality_constraint,
             sparse,
             true,
-            true,
         )
     }
 }
@@ -291,7 +287,6 @@ where
             self,
             Residually(&self.line_search),
             no_objective_blocks,
-            false,
             residual_global,
             residual_local,
             tangents,
@@ -345,7 +340,6 @@ where
             self,
             Objective(&self.line_search),
             function,
-            true,
             residual_global,
             residual_local,
             tangents,
@@ -374,7 +368,6 @@ pub(super) fn iterate<B, S, J, H, X, E>(
     mut initial_guess: X,
     equality_constraint: EqualityConstraints,
     sparse: Option<SparseSolver>,
-    minimizing: bool,
     lent: bool,
 ) -> Result<X, OptimizationError>
 where
@@ -401,8 +394,7 @@ where
             update,
             initial_guess,
             direct(sparse.clone()),
-            minimizing,
-            verified(sparse),
+            B::OBJECTIVE.then(|| verified(sparse)),
             indices,
         ),
         (indices, Rows::Dense(constraint_matrix, constraint_rhs)) => constrained(
@@ -413,7 +405,6 @@ where
             hessian,
             update,
             initial_guess,
-            minimizing,
             sparse,
             &indices.unwrap_or_default(),
             constraint_matrix,
@@ -427,7 +418,6 @@ where
             hessian,
             update,
             initial_guess,
-            minimizing,
             sparse,
             &indices.unwrap_or_default(),
             constraint_matrix,
@@ -447,7 +437,6 @@ where
                 hessian,
                 initial_guess,
                 sparse,
-                minimizing,
             )
         }
     }
@@ -491,8 +480,7 @@ where
                     .solve(tangent, retained, residual)?;
                 Ok(())
             },
-            false,
-            unchecked,
+            None::<fn(H, &[bool], &[usize]) -> Option<bool>>,
             indices,
         ),
         _ => Err(OptimizationError::Intermediate(

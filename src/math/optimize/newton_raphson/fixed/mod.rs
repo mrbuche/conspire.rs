@@ -20,8 +20,7 @@ pub(super) fn constrained_fixed<B, L, S, J, H, X, E>(
     mut update: impl FnMut(&X, &Vector, Scalar, bool) -> Result<(), String>,
     initial_guess: X,
     mut solve: impl FnMut(H, &[bool], &[usize], &Vector, &mut Vector) -> Result<(), OptimizationError>,
-    minimizing: bool,
-    mut verify: impl FnMut(H, &[bool], &[usize]) -> Option<bool>,
+    mut verify: Option<impl FnMut(H, &[bool], &[usize]) -> Option<bool>>,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
@@ -50,7 +49,9 @@ where
     loop {
         residual = jacobian(&solution)?.retain_from(&retained);
         if newton_raphson.error_norm.apply(&residual) < newton_raphson.abs_tol.residual() {
-            if minimizing && verify(hessian(&solution)?, &retained, &unmap) == Some(false) {
+            if let Some(verify) = verify.as_mut()
+                && verify(hessian(&solution)?, &retained, &unmap) == Some(false)
+            {
                 return Err(not_minimum(newton_raphson, unmap.len(), 0));
             }
             return Ok(solution);

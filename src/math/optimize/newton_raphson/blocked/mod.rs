@@ -24,7 +24,6 @@ pub(super) fn blocked<B, S, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv>(
     newton_raphson: &NewtonRaphson<Direct, S>,
     search: B,
     mut function: impl FnMut(&U, &V) -> Result<Scalar, String>,
-    minimizing: bool,
     mut residual_global: impl FnMut(&U, &V) -> Result<Ru, String>,
     mut residual_local: impl FnMut(&U, &V) -> Result<Rv, String>,
     mut tangents: impl FnMut(&U, &V) -> Result<(Kuu, Kvu, Kuv, Kvv), String>,
@@ -115,7 +114,7 @@ where
         } else {
             (0.0, 0.0)
         };
-    let adaptive = minimizing
+    let adaptive = B::OBJECTIVE
         && matches!(newton_raphson.trust_region, TrustRegion::Adaptive { .. })
         && eliminating
         && !structured
