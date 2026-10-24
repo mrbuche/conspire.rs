@@ -8415,7 +8415,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
         &(),
         &times,
         SolveStrategy::Condensed(NewtonRaphson::default()),
-        Dimensionless::of(1e-3),
+        Dimensionless::of(1e3),
     )?;
     for elimination in [false, true] {
         let solution = fem_model.root(
@@ -8424,7 +8424,7 @@ fn temporary_elastic_plastic_monolithic_mesh() -> Result<(), AssertionError> {
             &(),
             &times,
             SolveStrategy::Monolithic { elimination },
-            Dimensionless::of(1e-3),
+            Dimensionless::of(1e3),
         )?;
         assert_same_plastic_solution(&reference, &solution, 1e-8)?;
     }
