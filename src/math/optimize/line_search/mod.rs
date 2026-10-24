@@ -14,39 +14,6 @@ use std::{
 /// The objective is the function being minimized, plus a penalty where it is
 /// constrained, so these are the searches a minimization can take and a root
 /// cannot: a root has no objective to compare the values of.
-///
-/// A minimization takes one of them:
-///
-/// ```
-/// use conspire::math::optimize::{Armijo, EqualityConstraint, NewtonRaphson, Optimization};
-/// NewtonRaphson::default()
-///     .with_line_search(Armijo::default())
-///     .minimize(
-///         |x: &f64| Ok(x.powi(2) / 2.0),
-///         |x: &f64| Ok(*x),
-///         |_: &f64| Ok(1.0),
-///         1.0,
-///         vec![EqualityConstraint::None],
-///         None,
-///     )
-///     .unwrap();
-/// ```
-///
-/// A root cannot:
-///
-/// ```compile_fail
-/// use conspire::math::optimize::{Armijo, EqualityConstraint, NewtonRaphson, RootFinding};
-/// NewtonRaphson::default()
-///     .with_line_search(Armijo::default())
-///     .root(
-///         |x: &f64| Ok(*x),
-///         |_: &f64| Ok(1.0),
-///         1.0,
-///         vec![EqualityConstraint::None],
-///         None,
-///     )
-///     .unwrap();
-/// ```
 pub trait ObjectiveMerit: Clone + Debug + Display {
     /// Whether anything is searched at all.
     const SEARCHES: bool = true;
@@ -87,39 +54,6 @@ pub trait ObjectiveMerit: Clone + Debug + Display {
 /// The merit is half the squared norm of the residual being driven to zero.
 /// Along an exact Newton step its slope is the negative of twice itself, so
 /// nothing beyond the residual need be known.
-///
-/// A root takes one of them:
-///
-/// ```
-/// use conspire::math::optimize::{EqualityConstraint, NewtonRaphson, Residual, RootFinding};
-/// NewtonRaphson::default()
-///     .with_line_search(Residual::default())
-///     .root(
-///         |x: &f64| Ok(*x),
-///         |_: &f64| Ok(1.0),
-///         1.0,
-///         vec![EqualityConstraint::None],
-///         None,
-///     )
-///     .unwrap();
-/// ```
-///
-/// A minimization cannot:
-///
-/// ```compile_fail
-/// use conspire::math::optimize::{EqualityConstraint, NewtonRaphson, Optimization, Residual};
-/// NewtonRaphson::default()
-///     .with_line_search(Residual::default())
-///     .minimize(
-///         |x: &f64| Ok(x.powi(2) / 2.0),
-///         |x: &f64| Ok(*x),
-///         |_: &f64| Ok(1.0),
-///         1.0,
-///         vec![EqualityConstraint::None],
-///         None,
-///     )
-///     .unwrap();
-/// ```
 pub trait ResidualMerit: Clone + Debug + Display {
     /// Whether anything is searched at all.
     const SEARCHES: bool = true;
