@@ -450,7 +450,6 @@ where
     }
 }
 
-/// Takes no part in the iteration, for a problem that is not lent its increments.
 fn no_update<X>(_: &X, _: &Vector, _: Scalar, _: bool) -> Result<(), String> {
     Ok(())
 }
