@@ -3,10 +3,10 @@ use super::{
         super::{TensorArray, TensorRank1, assert::AssertionError},
         test::{rosenbrock, rosenbrock_derivative},
     },
-    EqualityConstraint, GradientDescent, Optimization, RootFinding, Tolerances,
+    BarzilaiBorwein, EqualityConstraint, GradientDescent, Optimization, RootFinding, Tolerances,
 };
-use crate::math::assert::Assert;
 use crate::math::{Current, Matrix, Quantity, Vector};
+use crate::math::{assert::Assert, optimize::BarzilaiBorweinStep};
 
 mod minimize {
     use super::*;
@@ -34,6 +34,41 @@ mod minimize {
             )?,
             &TensorRank1::<2, Current>::identity(),
         )
+    }
+}
+
+mod step_estimator {
+    use super::*;
+    fn minimized(step: BarzilaiBorweinStep) -> Result<Vector, super::super::OptimizationError> {
+        GradientDescent {
+            max_steps: 1000,
+            ..GradientDescent::default()
+        }
+        .with_step_estimator(BarzilaiBorwein { step })
+        .minimize(
+            |x: &Vector| Ok((x[0].powi(2) + 10.0 * x[1].powi(2)) / 2.0),
+            |x: &Vector| Ok(Vector::from([x[0], 10.0 * x[1]])),
+            |_| Ok(()),
+            Vector::from([3.0, -2.0]),
+            vec![EqualityConstraint::None],
+            None,
+        )
+    }
+    #[test]
+    fn short() -> Result<(), AssertionError> {
+        Assert::default().zero_within_tols(&minimized(BarzilaiBorweinStep::Short)?)
+    }
+    #[test]
+    fn long() -> Result<(), AssertionError> {
+        Assert::default().zero_within_tols(&minimized(BarzilaiBorweinStep::Long)?)
+    }
+    #[test]
+    fn alternating() -> Result<(), AssertionError> {
+        Assert::default().zero_within_tols(&minimized(BarzilaiBorweinStep::Alternating)?)
+    }
+    #[test]
+    fn the_default_is_the_short_step() {
+        assert!(format!("{:?}", GradientDescent::default().step_estimator).contains("Short"))
     }
 }
 

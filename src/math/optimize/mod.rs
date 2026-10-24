@@ -8,6 +8,7 @@ mod line_search;
 mod linear_solve;
 mod newton_raphson;
 mod precondition;
+mod step_size;
 mod strategy;
 mod tolerance;
 mod trust_region;
@@ -24,6 +25,7 @@ pub use line_search::{
 pub use linear_solve::{Direct, LinearSolver};
 pub use newton_raphson::NewtonRaphson;
 pub use precondition::{Precondition, Preconditioning};
+pub use step_size::{BarzilaiBorwein, BarzilaiBorweinStep, StepEstimator};
 pub use strategy::SolveStrategy;
 pub use tolerance::Tolerances;
 pub use trust_region::TrustRegion;
