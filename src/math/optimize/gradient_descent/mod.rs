@@ -3,8 +3,9 @@ mod test;
 
 use super::{
     super::{Jacobian, Matrix, Scalar, Solution, Tensor, Vector, sparse::SparseSolver},
-    BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, LineSearch, Optimization,
-    OptimizationError, RootFinding, StepSize, Tolerances, UNSUPPORTED,
+    BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, NoSearch, ObjectiveMerit,
+    Optimization, OptimizationError, RootFinding, StepSize, Tolerances, UNSUPPORTED, no_objective,
+    step_size::{BarzilaiBorwein, Secant, StepEstimator},
 };
 use crate::math::{Erase, Is, Norm};
 use crate::units::{UnitDiv, UnitMul, UnitSum};
@@ -18,7 +19,7 @@ const CUTBACK_FACTOR_MINUS_ONE: Scalar = 1.0 - CUTBACK_FACTOR;
 const INITIAL_STEP_SIZE: Scalar = 1e-2;
 
 /// The method of gradient descent.
-pub struct GradientDescent {
+pub struct GradientDescent<S = NoSearch, Q = BarzilaiBorwein> {
     /// Absolute error tolerances.
     pub abs_tol: Tolerances,
     /// Lagrangian dual.
@@ -26,44 +27,105 @@ pub struct GradientDescent {
     /// Norm type for error evaluation.
     pub error_norm: Norm,
     /// Line search algorithm.
-    pub line_search: LineSearch,
+    pub line_search: S,
     /// Maximum number of steps.
     pub max_steps: usize,
     /// Relative error tolerance.
     pub rel_tol: Option<Scalar>,
+    /// Step size estimator.
+    pub step_estimator: Q,
 }
 
-impl<J, X> BacktrackingLineSearch<J, X> for GradientDescent {
-    fn get_line_search(&self) -> &LineSearch {
+impl<S, Q, J, X> BacktrackingLineSearch<J, X> for GradientDescent<S, Q>
+where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
+{
+    type Search = S;
+    fn line_search(&self) -> &S {
         &self.line_search
     }
 }
 
-impl Debug for GradientDescent {
+impl<S, Q> Debug for GradientDescent<S, Q>
+where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "GradientDescent {{ abs_tol: {:?}, dual: {:?}, line_search: {}, max_steps: {:?}, rel_tol: {:?} }}",
-            self.abs_tol, self.dual, self.line_search, self.max_steps, self.rel_tol
+            "GradientDescent {{ abs_tol: {:?}, dual: {:?}, line_search: {}, max_steps: {:?}, rel_tol: {:?}, step_estimator: {} }}",
+            self.abs_tol,
+            self.dual,
+            self.line_search,
+            self.max_steps,
+            self.rel_tol,
+            self.step_estimator
         )
     }
 }
 
-impl Default for GradientDescent {
+impl GradientDescent {
+    #[allow(clippy::should_implement_trait)]
+    pub fn default() -> Self {
+        Self::with(NoSearch)
+    }
+}
+
+impl<S> Default for GradientDescent<S>
+where
+    S: Default,
+{
     fn default() -> Self {
-        Self {
-            abs_tol: Tolerances::default(),
-            dual: false,
-            error_norm: Norm::Chebyshev,
-            line_search: LineSearch::None,
-            max_steps: 250,
-            rel_tol: None,
+        Self::with(S::default())
+    }
+}
+
+impl<S, Q> GradientDescent<S, Q> {
+    /// The same solver, searching along each step with another line search.
+    pub fn with_line_search<T>(self, line_search: T) -> GradientDescent<T, Q> {
+        GradientDescent {
+            abs_tol: self.abs_tol,
+            dual: self.dual,
+            error_norm: self.error_norm,
+            line_search,
+            max_steps: self.max_steps,
+            rel_tol: self.rel_tol,
+            step_estimator: self.step_estimator,
+        }
+    }
+    /// The same solver, estimating each step size with another estimator.
+    pub fn with_step_estimator<T>(self, step_estimator: T) -> GradientDescent<S, T> {
+        GradientDescent {
+            abs_tol: self.abs_tol,
+            dual: self.dual,
+            error_norm: self.error_norm,
+            line_search: self.line_search,
+            max_steps: self.max_steps,
+            rel_tol: self.rel_tol,
+            step_estimator,
         }
     }
 }
 
-impl<F, X, E> RootFinding<F, (), X> for GradientDescent
+impl<S> GradientDescent<S> {
+    fn with(line_search: S) -> Self {
+        Self {
+            abs_tol: Tolerances::default(),
+            dual: false,
+            error_norm: Norm::Chebyshev,
+            line_search,
+            max_steps: 250,
+            rel_tol: None,
+            step_estimator: BarzilaiBorwein::default(),
+        }
+    }
+}
+
+impl<Q, F, X, E> RootFinding<F, (), X> for GradientDescent<NoSearch, Q>
 where
+    Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
@@ -85,13 +147,9 @@ where
             return Err(OptimizationError::Intermediate(UNSUPPORTED.to_string()));
         };
         match equality_constraint {
-            EqualityConstraint::Fixed(indices) => constrained_fixed(
-                self,
-                |_: &X| panic!("No line search in root finding."),
-                function,
-                initial_guess,
-                indices,
-            ),
+            EqualityConstraint::Fixed(indices) => {
+                constrained_fixed(self, no_objective, function, initial_guess, indices)
+            }
             EqualityConstraint::Prescribed(_) => {
                 unreachable!("Prescribed constraints are lowered first.")
             }
@@ -117,19 +175,17 @@ where
                     )
                 }
             }
-            EqualityConstraint::None => unconstrained(
-                self,
-                |_: &X| panic!("No line search in root finding."),
-                function,
-                initial_guess,
-                None,
-            ),
+            EqualityConstraint::None => {
+                unconstrained(self, no_objective, function, initial_guess, None)
+            }
         }
     }
 }
 
-impl<F, J, X, E> Optimization<F, J, (), X> for GradientDescent
+impl<S, Q, F, J, X, E> Optimization<F, J, (), X> for GradientDescent<S, Q>
 where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
     <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
@@ -193,14 +249,16 @@ where
     }
 }
 
-fn unconstrained<F, X, E>(
-    gradient_descent: &GradientDescent,
+fn unconstrained<S, Q, F, X, E>(
+    gradient_descent: &GradientDescent<S, Q>,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     linear_equality_constraint: Option<(&Matrix, &Vector)>,
 ) -> Result<X, OptimizationError>
 where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
@@ -213,11 +271,9 @@ where
         None
     };
     let mut residual;
-    let mut residual_change = None;
-    let mut solution = initial_guess.clone();
-    let mut solution_change = solution.clone();
+    let mut secant = Secant::new(&initial_guess);
+    let mut solution = initial_guess;
     let mut step_size = INITIAL_STEP_SIZE;
-    let mut step_trial;
     let mut steps = 0;
     loop {
         residual = if let Some(ref extra) = constraint {
@@ -234,14 +290,12 @@ where
             ));
         } else {
             steps += 1;
-            solution_change -= &solution;
-            let change = residual_change.get_or_insert_with(|| zeroed(&residual));
-            *change -= &residual;
-            step_trial = change.erase().full_contraction(solution_change.erase())
-                / change.erase().full_contraction(change.erase());
-            if step_trial.abs() > 0.0 && !step_trial.is_nan() {
-                step_size = step_trial.abs()
-            }
+            step_size = secant.step_size(
+                &gradient_descent.step_estimator,
+                &solution,
+                &residual,
+                step_size,
+            );
             step_size = gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
@@ -250,21 +304,21 @@ where
                 &residual,
                 step_size,
             )?;
-            *change = residual.clone();
-            solution_change = solution.clone();
             solution -= residual * StepSize::<F, X>::new(step_size);
         }
     }
 }
 
-fn constrained_fixed<F, X, E>(
-    gradient_descent: &GradientDescent,
+fn constrained_fixed<S, Q, F, X, E>(
+    gradient_descent: &GradientDescent<S, Q>,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
@@ -273,12 +327,10 @@ where
 {
     let mut relative_scale = 0.0;
     let mut residual: F;
-    let mut residual_change = None;
     let mut residual_norm;
-    let mut solution = initial_guess.clone();
-    let mut solution_change = solution.clone();
+    let mut secant = Secant::new(&initial_guess);
+    let mut solution = initial_guess;
     let mut step_size = INITIAL_STEP_SIZE;
-    let mut step_trial;
     let mut steps = 0;
     loop {
         residual = jacobian(&solution)?;
@@ -300,14 +352,12 @@ where
             ));
         } else {
             steps += 1;
-            solution_change -= &solution;
-            let change = residual_change.get_or_insert_with(|| zeroed(&residual));
-            *change -= &residual;
-            step_trial = change.erase().full_contraction(solution_change.erase())
-                / change.erase().full_contraction(change.erase());
-            if step_trial.abs() > 0.0 && !step_trial.is_nan() {
-                step_size = step_trial.abs()
-            }
+            step_size = secant.step_size(
+                &gradient_descent.step_estimator,
+                &solution,
+                &residual,
+                step_size,
+            );
             step_size = gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
@@ -316,43 +366,39 @@ where
                 &residual,
                 step_size,
             )?;
-            *change = residual.clone();
-            solution_change = solution.clone();
             solution -= residual * StepSize::<F, X>::new(step_size);
         }
     }
 }
 
-fn constrained<F, X, E>(
-    gradient_descent: &GradientDescent,
+fn constrained<S, Q, F, X, E>(
+    gradient_descent: &GradientDescent<S, Q>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    if !matches!(gradient_descent.line_search, LineSearch::None) {
+    if S::SEARCHES {
         panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let mut residual_solution;
-    let mut residual_solution_change = None;
-    let mut solution = initial_guess.clone();
-    let mut solution_change = solution.clone();
+    let mut secant_solution = Secant::new(&initial_guess);
+    let mut solution = initial_guess;
     let mut step_size_solution = INITIAL_STEP_SIZE;
-    let mut step_trial_solution;
     let num_constraints = constraint_rhs.len();
     let mut residual_multipliers;
-    let mut residual_multipliers_change = Vector::zero(num_constraints);
     let mut multipliers = Vector::zero(num_constraints);
-    let mut multipliers_change = Vector::zero(num_constraints);
+    let mut secant_multipliers = Secant::new(&multipliers);
     let mut step_size_multipliers = INITIAL_STEP_SIZE;
-    let mut step_trial_multipliers;
     let mut step_size;
     let mut steps = 0;
     loop {
@@ -371,26 +417,18 @@ where
             ));
         } else {
             steps += 1;
-            solution_change -= &solution;
-            let change = residual_solution_change.get_or_insert_with(|| zeroed(&residual_solution));
-            *change -= &residual_solution;
-            step_trial_solution = change.erase().full_contraction(solution_change.erase())
-                / change.erase().full_contraction(change.erase());
-            if step_trial_solution.abs() > 0.0 && !step_trial_solution.is_nan() {
-                step_size_solution = step_trial_solution.abs()
-            }
-            *change = residual_solution.clone();
-            solution_change = solution.clone();
-            multipliers_change -= &multipliers;
-            residual_multipliers_change -= &residual_multipliers;
-            step_trial_multipliers = residual_multipliers_change
-                .full_contraction(&multipliers_change)
-                / residual_multipliers_change.full_contraction(&residual_multipliers_change);
-            if step_trial_multipliers.abs() > 0.0 && !step_trial_multipliers.is_nan() {
-                step_size_multipliers = step_trial_multipliers.abs()
-            }
-            residual_multipliers_change = residual_multipliers.clone();
-            multipliers_change = multipliers.clone();
+            step_size_solution = secant_solution.step_size(
+                &gradient_descent.step_estimator,
+                &solution,
+                &residual_solution,
+                step_size_solution,
+            );
+            step_size_multipliers = secant_multipliers.step_size(
+                &gradient_descent.step_estimator,
+                &multipliers,
+                &residual_multipliers,
+                step_size_multipliers,
+            );
             step_size = step_size_solution.min(step_size_multipliers);
             solution -= residual_solution * StepSize::<F, X>::new(step_size);
             multipliers += residual_multipliers * step_size;
@@ -398,14 +436,16 @@ where
     }
 }
 
-fn constrained_dual<F, X, E>(
-    gradient_descent: &GradientDescent,
+fn constrained_dual<S, Q, F, X, E>(
+    gradient_descent: &GradientDescent<S, Q>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     constraint_matrix: Matrix,
     constraint_rhs: Vector,
 ) -> Result<X, OptimizationError>
 where
+    S: ObjectiveMerit,
+    Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
@@ -413,17 +453,15 @@ where
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
 {
-    if !matches!(gradient_descent.line_search, LineSearch::None) {
+    if S::SEARCHES {
         panic!("Line search needs the exact penalty function in constrained optimization.")
     }
     let num_constraints = constraint_rhs.len();
     let mut multipliers = Vector::zero(num_constraints);
-    let mut multipliers_change = multipliers.clone();
+    let mut secant = Secant::new(&multipliers);
     let mut residual;
-    let mut residual_change = Vector::zero(num_constraints);
     let mut solution = initial_guess;
     let mut step_size = INITIAL_STEP_SIZE;
-    let mut step_trial;
     for _ in 0..gradient_descent.max_steps {
         if let Ok(result) = unconstrained(
             gradient_descent,
@@ -440,22 +478,19 @@ where
             {
                 return Ok(solution);
             } else {
-                multipliers_change -= &multipliers;
-                residual_change -= &residual;
-                step_trial = residual_change.full_contraction(&multipliers_change)
-                    / residual_change.full_contraction(&residual_change);
-                if step_trial.abs() > 0.0 && !step_trial.is_nan() {
-                    step_size = step_trial.abs()
-                }
-                residual_change = residual.clone();
-                multipliers_change = multipliers.clone();
+                step_size = secant.step_size(
+                    &gradient_descent.step_estimator,
+                    &multipliers,
+                    &residual,
+                    step_size,
+                );
                 multipliers += residual * step_size;
             }
         } else {
             //
             // This sort of acts like LineSearch::Error, does it not?
             //
-            multipliers -= (multipliers.clone() - &multipliers_change) * CUTBACK_FACTOR_MINUS_ONE;
+            multipliers -= (multipliers.clone() - secant.solution()) * CUTBACK_FACTOR_MINUS_ONE;
             step_size *= CUTBACK_FACTOR;
         }
     }
@@ -463,14 +498,4 @@ where
         gradient_descent.max_steps,
         format!("{gradient_descent:?}"),
     ))
-}
-
-/// A zeroed copy, to start the difference the step size is estimated from.
-fn zeroed<F>(residual: &F) -> F
-where
-    F: Tensor,
-{
-    let mut zero = residual.clone();
-    zero *= 0.0;
-    zero
 }

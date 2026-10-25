@@ -65,7 +65,10 @@ impl Eliminated {
     fn contains(&self, index: usize) -> bool {
         self.mask.get(index).copied().unwrap_or(false)
     }
-    pub(super) fn hold<J: Jacobian>(&self, mut jacobian: J) -> J {
+    pub(super) fn hold<J>(&self, mut jacobian: J) -> J
+    where
+        J: Jacobian,
+    {
         if !self.indices.is_empty() {
             jacobian.zero_out(&self.indices)
         }
@@ -85,14 +88,18 @@ impl Eliminated {
     }
 }
 
-pub(super) fn kkt_entry_sparse<H: Hessian, M: ConstraintMatrix>(
+pub(super) fn kkt_entry_sparse<H, M>(
     hessian: &H,
     constraint_matrix: &M,
     num_variables: usize,
     row: usize,
     column: usize,
     eliminated: &Eliminated,
-) -> Scalar {
+) -> Scalar
+where
+    H: Hessian,
+    M: ConstraintMatrix,
+{
     if row >= num_variables {
         if eliminated.contains(column) {
             0.0

@@ -16,7 +16,10 @@ use crate::{
     constitutive::solid::elastic::AppliedLoad,
     math::{
         Norm,
-        optimize::{Direct, LineSearch, NewtonRaphson, SolveStrategy, TrustRegion},
+        optimize::{
+            Armijo, Direct, Error, Goldstein, NewtonRaphson, NoSearch, ObjectiveMerit, Residual,
+            ResidualMerit, SolveStrategy, TrustRegion, Wolfe,
+        },
     },
     mechanics::*,
 };
@@ -85,41 +88,44 @@ fn minimize_condensed() -> Result<(), AssertionError> {
     Assert::default().eq_within_tols(&f_2, &f_2_condensed)
 }
 
-fn line_search(name: &str) -> LineSearch {
-    match name {
-        "armijo" => LineSearch::Armijo {
-            control: 1e-3,
-            cut_back: 9e-1,
-            max_steps: 100,
-        },
-        "goldstein" => LineSearch::Goldstein {
-            control: 1e-4,
-            cut_back: 5e-1,
-            max_steps: 100,
-        },
-        "error" => LineSearch::Error {
-            cut_back: 5e-1,
-            max_steps: 100,
-        },
-        _ => LineSearch::Wolfe {
-            control_1: 1e-3,
-            control_2: 9e-1,
-            cut_back: 5e-1,
-            max_steps: 100,
-            strong: true,
-        },
+#[test]
+fn minimize_trust_region_adaptive() -> Result<(), AssertionError> {
+    use crate::constitutive::solid::hyperelastic::internal_variables::Minimize;
+    let strategy = SolveStrategy::Monolithic { elimination: true };
+    let (f_plain, f_2_plain) = blocked(strategy.clone())?;
+    for radius in [1.0, 1e-2] {
+        let (f, f_2) = model().minimize(
+            AppliedLoad::UniaxialStress(STRETCH),
+            NewtonRaphson {
+                trust_region: TrustRegion::Adaptive {
+                    radius,
+                    max_radius: 10.0,
+                },
+                linear_solver: Direct,
+                max_steps: 500,
+                ..Default::default()
+            },
+            strategy.clone(),
+        )?;
+        check(&f, &f_2)?;
+        Assert::default().eq_within_tols(&f, &f_plain)?;
+        Assert::default().eq_within_tols(&f_2, &f_2_plain)?
     }
+    Ok(())
 }
 
-fn searched(name: &str, strategy: SolveStrategy) -> Result<(), AssertionError> {
+fn searched(
+    line_search: impl ObjectiveMerit,
+    strategy: SolveStrategy,
+) -> Result<(), AssertionError> {
     use crate::constitutive::solid::hyperelastic::internal_variables::Minimize;
     let (f, f_2) = model().minimize(
         AppliedLoad::UniaxialStress(STRETCH),
         NewtonRaphson {
-            line_search: line_search(name),
             linear_solver: Direct,
             ..Default::default()
-        },
+        }
+        .with_line_search(line_search),
         strategy.clone(),
     )?;
     check(&f, &f_2)?;
@@ -130,14 +136,34 @@ fn searched(name: &str, strategy: SolveStrategy) -> Result<(), AssertionError> {
 
 #[test]
 fn minimize_line_search() -> Result<(), AssertionError> {
-    for name in ["armijo", "goldstein", "error"] {
-        for strategy in [
-            SolveStrategy::Monolithic { elimination: false },
-            SolveStrategy::Monolithic { elimination: true },
-            SolveStrategy::Condensed(NewtonRaphson::default()),
-        ] {
-            searched(name, strategy)?
-        }
+    for strategy in [
+        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    ] {
+        searched(
+            Armijo {
+                control: 1e-3,
+                cut_back: 9e-1,
+                max_steps: 100,
+            },
+            strategy.clone(),
+        )?;
+        searched(
+            Goldstein {
+                control: 1e-4,
+                cut_back: 5e-1,
+                max_steps: 100,
+            },
+            strategy.clone(),
+        )?;
+        searched(
+            Error {
+                cut_back: 5e-1,
+                max_steps: 100,
+            },
+            strategy,
+        )?
     }
     Ok(())
 }
@@ -148,6 +174,14 @@ fn far(
     trust_region: TrustRegion,
     strategy: SolveStrategy,
 ) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
+    far_searched(trust_region, NoSearch, strategy)
+}
+
+fn far_searched(
+    trust_region: TrustRegion,
+    line_search: impl ResidualMerit,
+    strategy: SolveStrategy,
+) -> Result<(DeformationGradient, DeformationGradient2), AssertionError> {
     use crate::constitutive::solid::elastic::internal_variables::Root;
     let (f, f_2) = model().root(
         AppliedLoad::UniaxialStress(STRETCH_FAR),
@@ -156,7 +190,8 @@ fn far(
             max_steps: 200,
             linear_solver: Direct,
             ..Default::default()
-        },
+        }
+        .with_line_search(line_search),
         strategy,
     )?;
     use crate::constitutive::solid::elastic::internal_variables::ElasticIV;
@@ -171,6 +206,26 @@ fn far(
         &Vector::from([STRETCH_FAR, 0.0, 0.0, 0.0]),
     )?;
     Ok((f, f_2))
+}
+
+#[test]
+fn root_residual_search_is_what_the_trust_region_was() -> Result<(), AssertionError> {
+    for strategy in [
+        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    ] {
+        far_searched(
+            TrustRegion::None,
+            Residual {
+                control: 1e-3,
+                cut_back: 5e-1,
+                max_steps: 100,
+            },
+            strategy,
+        )?;
+    }
+    Ok(())
 }
 
 #[test]
@@ -221,10 +276,39 @@ fn root_line_search_error() -> Result<(), AssertionError> {
         let (f, f_2) = model().root(
             AppliedLoad::UniaxialStress(STRETCH),
             NewtonRaphson {
-                line_search: line_search("error"),
                 linear_solver: Direct,
                 ..Default::default()
-            },
+            }
+            .with_line_search(Error {
+                cut_back: 5e-1,
+                max_steps: 100,
+            }),
+            strategy,
+        )?;
+        check(&f, &f_2)?
+    }
+    Ok(())
+}
+
+#[test]
+fn root_line_search_residual() -> Result<(), AssertionError> {
+    use crate::constitutive::solid::elastic::internal_variables::Root;
+    for strategy in [
+        SolveStrategy::Monolithic { elimination: false },
+        SolveStrategy::Monolithic { elimination: true },
+        SolveStrategy::Condensed(NewtonRaphson::default()),
+    ] {
+        let (f, f_2) = model().root(
+            AppliedLoad::UniaxialStress(STRETCH),
+            NewtonRaphson {
+                linear_solver: Direct,
+                ..Default::default()
+            }
+            .with_line_search(Residual {
+                control: 1e-3,
+                cut_back: 5e-1,
+                max_steps: 100,
+            }),
             strategy,
         )?;
         check(&f, &f_2)?
@@ -235,7 +319,17 @@ fn root_line_search_error() -> Result<(), AssertionError> {
 #[test]
 #[should_panic(expected = "gradient of the merit function")]
 fn minimize_line_search_wolfe() {
-    searched("wolfe", SolveStrategy::Monolithic { elimination: false }).unwrap();
+    searched(
+        Wolfe {
+            control_1: 1e-3,
+            control_2: 9e-1,
+            cut_back: 5e-1,
+            max_steps: 100,
+            strong: true,
+        },
+        SolveStrategy::Monolithic { elimination: false },
+    )
+    .unwrap();
 }
 
 #[test]

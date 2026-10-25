@@ -8,7 +8,7 @@ use crate::{
     },
     math::{
         Tensor,
-        optimize::{NewtonRaphson, OptimizationError, RootFinding},
+        optimize::{Direct, NewtonRaphson, OptimizationError, RootFinding},
     },
 };
 
@@ -91,8 +91,8 @@ where
     }
 }
 
-impl<B, const D: usize> SolverFor<Model<B, D>, NodalForcesSolid<D>, NodalStiffnessesSolid<D>>
-    for NewtonRaphson
+impl<B, const D: usize, S> SolverFor<Model<B, D>, NodalForcesSolid<D>, NodalStiffnessesSolid<D>>
+    for NewtonRaphson<Direct, S>
 where
     B: ElasticElements<D>,
 {

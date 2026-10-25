@@ -12,7 +12,7 @@ use crate::{
     },
     math::{
         Tensor, TensorTuple,
-        optimize::{NewtonRaphson, OptimizationError, RootFinding},
+        optimize::{Direct, NewtonRaphson, OptimizationError, RootFinding},
     },
 };
 
@@ -125,8 +125,8 @@ where
     }
 }
 
-impl<B> SolverFor<Model<B, 3>, NodalForcesSolidThermal, NodalStiffnessesSolidThermal>
-    for NewtonRaphson
+impl<B, S> SolverFor<Model<B, 3>, NodalForcesSolidThermal, NodalStiffnessesSolidThermal>
+    for NewtonRaphson<Direct, S>
 where
     B: ThermoelasticThermalConductionElements,
 {

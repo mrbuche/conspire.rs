@@ -8,7 +8,7 @@ use crate::{
     },
     math::{
         Quantity, Tensor,
-        optimize::{NewtonRaphson, Optimization, OptimizationError},
+        optimize::{Direct, NewtonRaphson, Optimization, OptimizationError},
     },
     units::Energy,
 };
@@ -80,8 +80,8 @@ where
     }
 }
 
-impl<B, const D: usize> SolverFor<Model<B, D>, Quantity<Energy>, NodalForcesSolid<D>>
-    for NewtonRaphson
+impl<B, const D: usize, S> SolverFor<Model<B, D>, Quantity<Energy>, NodalForcesSolid<D>>
+    for NewtonRaphson<Direct, S>
 where
     B: HyperelasticElements<D>,
 {
