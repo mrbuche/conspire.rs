@@ -5,7 +5,7 @@ use crate::math::{
     Hessian, Jacobian, Norm, Scalar, Solution, SquareMatrix, Tensor, Vector,
     optimize::{
         Direct, OptimizationError,
-        trust_region::{
+        globalization::{
             TRUST_REGION_ETA, TRUST_REGION_MAX_REJECTIONS, TRUST_REGION_SHRINK,
             more_sorensen_dense, more_sorensen_sparse, update_radius,
         },

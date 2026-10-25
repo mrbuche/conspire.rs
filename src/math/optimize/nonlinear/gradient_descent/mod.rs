@@ -7,7 +7,7 @@ use crate::math::{
         BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, NoSearch, ObjectiveMerit,
         Optimization, OptimizationError, RootFinding, StepSize, Tolerances, UNSUPPORTED,
         no_objective,
-        step_size::{BarzilaiBorwein, Secant, StepEstimator},
+        nonlinear::step_size::{BarzilaiBorwein, Secant, StepEstimator},
     },
     sparse::SparseSolver,
 };

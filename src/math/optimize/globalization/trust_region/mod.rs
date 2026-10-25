@@ -1,6 +1,6 @@
 mod more_sorensen;
 
-use super::super::{Norm, Scalar};
+use crate::math::{Norm, Scalar};
 use more_sorensen::MORE_SORENSEN_TOLERANCE;
 pub(crate) use more_sorensen::{more_sorensen_dense, more_sorensen_sparse};
 

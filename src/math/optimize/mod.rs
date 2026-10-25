@@ -2,36 +2,35 @@
 mod test;
 
 mod constraint;
-mod line_search;
+mod globalization;
 mod linear;
 mod nonlinear;
-mod precondition;
-mod step_size;
+mod preconditioning;
 mod strategy;
 mod tolerance;
-mod trust_region;
 
 pub(crate) use constraint::Rows;
 use constraint::UNSUPPORTED;
 pub use constraint::{EqualityConstraint, EqualityConstraints, Prescription};
-pub use line_search::{
+use globalization::BacktrackingLineSearch;
+pub use globalization::{
     Armijo, Error, Goldstein, LineSearchError, NoSearch, ObjectiveMerit, Residual, ResidualMerit,
-    Wolfe,
+    TrustRegion, Wolfe,
 };
 pub use linear::{Direct, Krylov, KrylovError, KrylovMethod, LinearSolver};
-pub use nonlinear::{GradientDescent, NewtonRaphson};
-pub use precondition::{Precondition, Preconditioning};
-pub use step_size::{BarzilaiBorwein, BarzilaiBorweinStep, StepEstimator};
+pub use nonlinear::{
+    BarzilaiBorwein, BarzilaiBorweinStep, GradientDescent, NewtonRaphson, StepEstimator,
+};
+pub use preconditioning::{Precondition, Preconditioning};
 pub use strategy::SolveStrategy;
 pub use tolerance::Tolerances;
-pub use trust_region::TrustRegion;
 
 #[cfg(feature = "constitutive")]
 pub(crate) use nonlinear::{converged, limit_decrement};
 
 use crate::{
     math::{
-        Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, Vector,
+        Quantity, Scalar, Style, StyledError, Tensor, Vector,
         assert::AssertionError,
         matrix::square::SquareMatrixError,
         sparse::{CscMatrix, SparseError, SparseSolver},
@@ -39,10 +38,7 @@ use crate::{
     },
     units::UnitDiv,
 };
-use std::{
-    fmt::{Debug, Display},
-    ops::Mul,
-};
+use std::fmt::{Debug, Display};
 
 /// The step size taking a decrement of type `D` to an increment of `X`.
 pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;
@@ -162,37 +158,6 @@ fn no_objective<X>(_: &X) -> Result<Scalar, String> {
 
 fn no_objective_blocks<U, V>(_: &U, _: &V) -> Result<Scalar, String> {
     Err("A root has no objective.".to_string())
-}
-
-trait BacktrackingLineSearch<J, X>
-where
-    Self: Debug,
-{
-    type Search: ObjectiveMerit;
-    fn backtracking_line_search<D, E>(
-        &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, OptimizationError>
-    where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E> + Tensor,
-        E: Tensor,
-        X: Solution,
-        <X as Tensor>::Unit: UnitDiv<<D as Tensor>::Unit>,
-        for<'a> &'a D: Mul<StepSize<D, X>, Output = X>,
-    {
-        self.line_search()
-            .search(
-                function, jacobian, argument, jacobian0, decrement, step_size,
-            )
-            .map_err(|error| OptimizationError::upstream(error, self))
-    }
-    fn line_search(&self) -> &Self::Search;
 }
 
 /// Possible errors encountered during optimization.
