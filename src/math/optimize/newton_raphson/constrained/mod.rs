@@ -66,12 +66,15 @@ where
         };
     let mut steps = 0;
     loop {
-        eliminated
-            .hold(jacobian(&solution)? - constraint_matrix.weighted(&multipliers))
-            .fill_into_chained(
-                &constraint_rhs - &constraint_matrix * &solution,
-                &mut residual,
-            );
+        residual_at(
+            &mut jacobian,
+            &eliminated,
+            &constraint_matrix,
+            &constraint_rhs,
+            &solution,
+            &multipliers,
+            &mut residual,
+        )?;
         if converged(newton_raphson, &residual, num_variables, &mut scales) {
             if B::OBJECTIVE && sparse.is_none() {
                 hessian(&solution)?.fill_into(&mut tangent);
@@ -178,12 +181,15 @@ where
                         .decrement_from_chained(&mut trial_multipliers, &(&decrement * trial_size));
                     update(&solution, &applied, trial_size, false)?;
                     let mut trial_residual = Vector::zero(num_total);
-                    eliminated
-                        .hold(jacobian(&trial)? - constraint_matrix.weighted(&trial_multipliers))
-                        .fill_into_chained(
-                            &constraint_rhs - &constraint_matrix * &trial,
-                            &mut trial_residual,
-                        );
+                    residual_at(
+                        &mut jacobian,
+                        &eliminated,
+                        &constraint_matrix,
+                        &constraint_rhs,
+                        &trial,
+                        &trial_multipliers,
+                        &mut trial_residual,
+                    )?;
                     Ok(half_square(trial_residual.iter().copied()))
                 },
                 fraction,
@@ -227,4 +233,29 @@ where
         }
         solution.decrement_from_chained(&mut multipliers, &decrement)
     }
+}
+
+/// The residual of the bordered system at a point.
+///
+/// The gradient less the constraints weighted by their multipliers, held at
+/// zero where a variable is eliminated, chained with how far the constraints
+/// are from being met.
+fn residual_at<J, X, M>(
+    jacobian: &mut impl FnMut(&X) -> Result<J, String>,
+    eliminated: &Eliminated,
+    constraint_matrix: &M,
+    constraint_rhs: &Vector,
+    solution: &X,
+    multipliers: &Vector,
+    residual: &mut Vector,
+) -> Result<(), String>
+where
+    J: Jacobian,
+    M: ConstraintMatrix,
+    for<'a> &'a M: Mul<&'a X, Output = Vector>,
+{
+    eliminated
+        .hold(jacobian(solution)? - constraint_matrix.weighted(multipliers))
+        .fill_into_chained(constraint_rhs - constraint_matrix * solution, residual);
+    Ok(())
 }
