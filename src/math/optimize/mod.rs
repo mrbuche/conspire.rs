@@ -2,11 +2,9 @@
 mod test;
 
 mod constraint;
-mod gradient_descent;
-mod krylov;
 mod line_search;
-mod linear_solve;
-mod newton_raphson;
+mod linear;
+mod nonlinear;
 mod precondition;
 mod step_size;
 mod strategy;
@@ -16,14 +14,12 @@ mod trust_region;
 pub(crate) use constraint::Rows;
 use constraint::UNSUPPORTED;
 pub use constraint::{EqualityConstraint, EqualityConstraints, Prescription};
-pub use gradient_descent::GradientDescent;
-pub use krylov::{Krylov, KrylovError, KrylovMethod};
 pub use line_search::{
     Armijo, Error, Goldstein, LineSearchError, NoSearch, ObjectiveMerit, Residual, ResidualMerit,
     Wolfe,
 };
-pub use linear_solve::{Direct, LinearSolver};
-pub use newton_raphson::NewtonRaphson;
+pub use linear::{Direct, Krylov, KrylovError, KrylovMethod, LinearSolver};
+pub use nonlinear::{GradientDescent, NewtonRaphson};
 pub use precondition::{Precondition, Preconditioning};
 pub use step_size::{BarzilaiBorwein, BarzilaiBorweinStep, StepEstimator};
 pub use strategy::SolveStrategy;
@@ -31,7 +27,7 @@ pub use tolerance::Tolerances;
 pub use trust_region::TrustRegion;
 
 #[cfg(feature = "constitutive")]
-pub(crate) use newton_raphson::{converged, limit_decrement};
+pub(crate) use nonlinear::{converged, limit_decrement};
 
 use crate::{
     math::{
