@@ -1235,3 +1235,73 @@ mod verified_minimum {
         assert!(run(-1.0).is_err_and(|error| error.to_string().contains("not a minimum")))
     }
 }
+
+mod adaptive_block {
+    use super::*;
+    use crate::math::{
+        Matrix, Vector,
+        optimize::{OptimizationBlock, SolveStrategy},
+        sparse::CscMatrix,
+    };
+    fn root(x: Scalar) -> Scalar {
+        (1.0 + x * x).sqrt()
+    }
+    fn none(size: usize) -> (CscMatrix, Vector) {
+        (
+            CscMatrix::from_pattern(0, size, Vec::new()),
+            Vector::zero(0),
+        )
+    }
+    fn block(value: Scalar) -> Matrix {
+        let mut matrix = Matrix::zero(1, 1);
+        matrix[0][0] = value;
+        matrix
+    }
+    fn minimized(radius: Scalar) -> Result<(Vector, Vector), OptimizationError> {
+        NewtonRaphson {
+            trust_region: TrustRegion::Adaptive {
+                radius,
+                max_radius: 100.0,
+            },
+            linear_solver: Direct,
+            max_steps: 200,
+            ..Default::default()
+        }
+        .minimize_block(
+            |u: &Vector, v: &Vector| {
+                if u[0].abs() > 10.0 || v[0].abs() > 10.0 {
+                    Err("out of domain".to_string())
+                } else {
+                    Ok(root(u[0]) + (u[0] - v[0]).powi(2) / 2.0)
+                }
+            },
+            |u: &Vector, v: &Vector| Ok(Vector::from([u[0] / root(u[0]) + (u[0] - v[0])])),
+            |u: &Vector, v: &Vector| Ok(Vector::from([v[0] - u[0]])),
+            |u: &Vector, _: &Vector| {
+                Ok((
+                    block(root(u[0]).powi(-3) + 1.0),
+                    block(-1.0),
+                    block(-1.0),
+                    block(1.0),
+                ))
+            },
+            (Vector::from([4.0]), Vector::from([-3.0])),
+            none(1),
+            none(1),
+            None,
+            SolveStrategy::Monolithic { elimination: true },
+        )
+    }
+    #[test]
+    fn a_small_radius_grows_to_the_minimum() -> Result<(), AssertionError> {
+        let (u, v) = minimized(1.0)?;
+        Assert::default().zero_within_tols(&u)?;
+        Assert::default().zero_within_tols(&v)
+    }
+    #[test]
+    fn a_trial_the_problem_cannot_be_evaluated_at_is_a_rejection() -> Result<(), AssertionError> {
+        let (u, v) = minimized(100.0)?;
+        Assert::default().zero_within_tols(&u)?;
+        Assert::default().zero_within_tols(&v)
+    }
+}
