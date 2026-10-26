@@ -48,3 +48,19 @@ fn nested_mixed_tuple_round_trips() {
     tuple.fill_into(&mut zeroed);
     zeroed.iter().for_each(|&entry| assert_eq!(entry, 0.0));
 }
+
+#[test]
+fn a_pair_contracts_as_the_sum_of_its_halves() {
+    let a = TensorTuple::from((
+        TensorRank1::<3, Current>::from([1.0, 2.0, 3.0]),
+        Quantity::<Dimensionless>::new(4.0),
+    ));
+    let b = TensorTuple::from((
+        TensorRank1::<3, Current>::from([1.0, 0.0, 2.0]),
+        Quantity::<Dimensionless>::new(3.0),
+    ));
+    assert_eq!(
+        crate::math::ContractWith::contract_with(&a, &b).value(),
+        19.0
+    )
+}

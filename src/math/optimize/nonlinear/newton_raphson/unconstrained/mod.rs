@@ -10,7 +10,7 @@ use std::{
 };
 
 use super::NewtonRaphson;
-use super::backtrack::{Backtrack, half_square_norm, residual_step, searched};
+use super::backtrack::{Backtrack, Gradient, half_square_norm, residual_step, searched};
 use super::verify::not_minimum;
 
 pub(super) fn unconstrained<B, S, J, H, X, E>(
@@ -23,7 +23,7 @@ pub(super) fn unconstrained<B, S, J, H, X, E>(
     sparse: Option<SparseSolver>,
 ) -> Result<X, OptimizationError>
 where
-    B: Backtrack,
+    B: Backtrack + Gradient<X, J, X>,
     S: Display,
     H: Hessian,
     J: Jacobian,

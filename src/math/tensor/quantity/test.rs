@@ -56,3 +56,13 @@ mod constitutive_law {
         assert_eq!(rate.norm(), StrainRate::identity().norm() / 2.0)
     }
 }
+
+#[test]
+fn contract_with_has_the_product_unit() {
+    use crate::units::{Dimensionless, Length, ReciprocalLength};
+    let length = Quantity::<Length>::new(3.0);
+    let reciprocal = Quantity::<ReciprocalLength>::new(4.0);
+    let product: Quantity<Dimensionless> =
+        crate::math::ContractWith::contract_with(&length, &reciprocal);
+    assert_eq!(product.value(), 12.0);
+}

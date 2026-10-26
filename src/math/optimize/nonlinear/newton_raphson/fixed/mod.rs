@@ -6,7 +6,7 @@ use crate::units::UnitRatio;
 use std::{fmt::Display, ops::Mul};
 
 use super::NewtonRaphson;
-use super::backtrack::{Backtrack, half_square, residual_step, searched};
+use super::backtrack::{Backtrack, Gradient, half_square, residual_step, searched};
 use super::convergence::limit_decrement;
 use super::verify::not_minimum;
 
@@ -24,7 +24,7 @@ pub(super) fn constrained_fixed<B, L, S, J, H, X, E>(
     indices: Vec<usize>,
 ) -> Result<X, OptimizationError>
 where
-    B: Backtrack,
+    B: Backtrack + Gradient<X, J, X>,
     S: Display,
     J: Jacobian,
     J: Erase<Erased = E>,

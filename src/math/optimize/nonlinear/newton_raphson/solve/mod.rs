@@ -1,6 +1,6 @@
 use crate::math::{
-    Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Scalar, Solution, Tensor,
-    Vector,
+    ContractWith, Erase, Hessian, HessianBlock, Is, Jacobian, LuDecomposition, Matrix, Quantity,
+    Scalar, Solution, Tensor, Vector,
     optimize::{
         Direct, EqualityConstraint, EqualityConstraints, LinearSolver, ObjectiveMerit,
         Optimization, OptimizationBlock, OptimizationError, OptimizationIncremental, ResidualMerit,
@@ -9,14 +9,14 @@ use crate::math::{
     },
     sparse::{CscMatrix, SparseSolver},
 };
-use crate::units::{UnitMul, UnitRatio, UnitSum};
+use crate::units::{Dimensionless, UnitMul, UnitRatio, UnitSum};
 use std::{
     fmt::Display,
     ops::{Div, Mul},
 };
 
 use super::NewtonRaphson;
-use super::backtrack::{Backtrack, Objective, Residually};
+use super::backtrack::{Backtrack, Gradient, Objective, Residually};
 use super::blocked::blocked;
 use super::constrained::constrained;
 use super::fixed::constrained_fixed;
@@ -130,9 +130,12 @@ where
     }
 }
 
-impl<S, F, J, H, X, E> Optimization<F, J, H, X> for NewtonRaphson<Direct, S>
+impl<S, F, J, H, X, E, U> Optimization<F, J, H, X> for NewtonRaphson<Direct, S>
 where
     S: ObjectiveMerit,
+    J: ContractWith<X, Output = Quantity<U>>,
+    Dimensionless: UnitMul<U, Output = U>,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X>,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
     <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
@@ -174,9 +177,12 @@ where
     }
 }
 
-impl<L, S, F, J, H, X, E> Optimization<F, J, H, X> for NewtonRaphson<L, S>
+impl<L, S, F, J, H, X, E, U> Optimization<F, J, H, X> for NewtonRaphson<L, S>
 where
     S: ObjectiveMerit,
+    J: ContractWith<X, Output = Quantity<U>>,
+    Dimensionless: UnitMul<U, Output = U>,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X>,
     L: LinearSolver<Tangent = H>,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
@@ -213,9 +219,12 @@ where
     }
 }
 
-impl<S, F, J, H, X, E> OptimizationIncremental<F, J, H, X> for NewtonRaphson<Direct, S>
+impl<S, F, J, H, X, E, U> OptimizationIncremental<F, J, H, X> for NewtonRaphson<Direct, S>
 where
     S: ObjectiveMerit,
+    J: ContractWith<X, Output = Quantity<U>>,
+    Dimensionless: UnitMul<U, Output = U>,
+    for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X>,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
     <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
@@ -371,7 +380,7 @@ pub(super) fn iterate<B, S, J, H, X, E>(
     lent: bool,
 ) -> Result<X, OptimizationError>
 where
-    B: Backtrack,
+    B: Backtrack + Gradient<X, J, X>,
     S: Display,
     H: Hessian,
     J: Jacobian,
@@ -455,7 +464,7 @@ pub(super) fn iterate_linear<B, L, S, J, H, X, E>(
     equality_constraint: EqualityConstraints,
 ) -> Result<X, OptimizationError>
 where
-    B: Backtrack,
+    B: Backtrack + Gradient<X, J, X>,
     L: LinearSolver<Tangent = H>,
     S: Display,
     J: Jacobian,

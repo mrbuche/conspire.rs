@@ -12,11 +12,8 @@ pub(crate) use trust_region::{
 };
 
 use crate::{
-    math::{
-        Erase, Jacobian, Scalar, Solution, Tensor,
-        optimize::{OptimizationError, StepSize},
-    },
-    units::UnitDiv,
+    math::{ContractWith, Quantity, Solution, optimize::OptimizationError},
+    units::UnitMul,
 };
 use std::{fmt::Debug, ops::Mul};
 
@@ -25,26 +22,33 @@ where
     Self: Debug,
 {
     type Search: ObjectiveMerit;
-    fn backtracking_line_search<D, E>(
+    fn backtracking_line_search<D, W, U, V>(
         &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        jacobian: impl FnMut(&X) -> Result<J, String>,
+        mut function: impl FnMut(&X) -> Result<Quantity<V>, String>,
+        mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
         decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, OptimizationError>
+        step_size: Quantity<W>,
+    ) -> Result<Quantity<W>, OptimizationError>
     where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E> + Tensor,
-        E: Tensor,
+        J: ContractWith<D, Output = Quantity<U>>,
+        W: UnitMul<U, Output = V>,
         X: Solution,
-        <X as Tensor>::Unit: UnitDiv<<D as Tensor>::Unit>,
-        for<'a> &'a D: Mul<StepSize<D, X>, Output = X>,
+        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
     {
+        let initial = jacobian0.contract_with(decrement);
         self.line_search()
             .search(
-                function, jacobian, argument, jacobian0, decrement, step_size,
+                |n| function(&(decrement * -n + argument)),
+                |n| {
+                    if n == Quantity::new(0.0) {
+                        Ok(initial)
+                    } else {
+                        Ok(jacobian(&(decrement * -n + argument))?.contract_with(decrement))
+                    }
+                },
+                step_size,
             )
             .map_err(|error| OptimizationError::upstream(error, self))
     }

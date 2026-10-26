@@ -3,7 +3,7 @@ use crate::math::{
     assert::{Assert, AssertionError},
     optimize::{
         Armijo, Conjugacy, ConjugateGradient, EqualityConstraint, Optimization, OptimizationError,
-        Tolerances,
+        Tolerances, Wolfe,
         test::{rosenbrock, rosenbrock_derivative},
     },
 };
@@ -63,6 +63,19 @@ mod minimize {
     fn quadratic_anisotropic() -> Result<(), AssertionError> {
         Assert::default().zero_within_tols(&minimized(
             &ConjugateGradient::default(),
+            EqualityConstraint::None,
+        )?)
+    }
+    #[test]
+    fn quadratic_with_wolfe() -> Result<(), AssertionError> {
+        Assert::default().zero_within_tols(&minimized(
+            &ConjugateGradient::default().with_line_search(Wolfe {
+                control_1: 1e-4,
+                control_2: 0.999,
+                cut_back: 0.5,
+                max_steps: 100,
+                strong: true,
+            }),
             EqualityConstraint::None,
         )?)
     }

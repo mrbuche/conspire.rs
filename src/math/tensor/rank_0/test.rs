@@ -57,3 +57,13 @@ fn size() {
         std::mem::size_of::<f64>()
     )
 }
+
+#[test]
+fn contract_with() {
+    let a: TensorRank0 = 3.0;
+    let b: TensorRank0 = 4.0;
+    assert_eq!(
+        crate::math::ContractWith::contract_with(&a, &b).value(),
+        12.0
+    );
+}

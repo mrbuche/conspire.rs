@@ -1,9 +1,9 @@
 use super::{LineSearchError, ObjectiveMerit, ResidualMerit, backtrack, exhausted};
-use crate::math::{Erase, Jacobian, Quantity, Scalar, Solution, Tensor};
-use std::{
-    fmt::{self, Display, Formatter},
-    ops::Mul,
+use crate::{
+    math::{Quantity, Scalar},
+    units::UnitMul,
 };
+use std::fmt::{self, Display, Formatter};
 
 /// Backtrack for errors.
 #[derive(Clone, Debug)]
@@ -38,32 +38,23 @@ impl Error {
 
 impl ObjectiveMerit for Error {
     const MERIT: bool = false;
-    fn search<X, J, D, W, E>(
+    fn search<W, U, V>(
         &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        _jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
+        value: impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
+        slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
+        step_size: Quantity<W>,
+    ) -> Result<Quantity<W>, LineSearchError>
     where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
+        W: UnitMul<U, Output = V>,
     {
         backtrack(
             self,
             self.cut_back,
             self.max_steps,
-            function,
-            argument,
-            jacobian0,
-            decrement,
+            value,
+            slope,
             step_size,
-            |_, _, _| true,
+            |_, _| true,
         )
     }
     fn search_merit(

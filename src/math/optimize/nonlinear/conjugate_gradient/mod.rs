@@ -2,15 +2,15 @@
 mod test;
 
 use crate::math::{
-    ContractWith, Erase, Jacobian, Norm, Quantity, Scalar, Solution, Tensor,
+    ContractWith, Jacobian, Norm, Quantity, Scalar, Solution, Tensor,
     optimize::{
         BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, NoSearch, ObjectiveMerit,
-        Optimization, OptimizationError, StepSize, Tolerances, UNSUPPORTED,
+        ObjectiveOf, Optimization, OptimizationError, StepSize, Tolerances, UNSUPPORTED,
         nonlinear::step_size::{BarzilaiBorwein, Secant, SecantWith, StepEstimator},
     },
     sparse::SparseSolver,
 };
-use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
+use crate::units::{Dimensionless, UnitDiv, UnitMul};
 use std::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
@@ -138,25 +138,19 @@ impl<S> ConjugateGradient<S> {
     }
 }
 
-impl<S, Q, F, J, X, E, A> Optimization<F, J, (), X> for ConjugateGradient<S, Q>
+impl<S, Q, F, J, X, A> Optimization<F, J, (), X> for ConjugateGradient<S, Q>
 where
     S: ObjectiveMerit,
     Q: StepEstimator,
-    F: Erase<Erased = Scalar> + Tensor,
-    <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
-    <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
-    <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
-        crate::math::Is<<F as Tensor>::Unit>,
-    J: ContractWith<J, Output = Quantity<A>>,
-    J: Erase<Erased = E> + Jacobian + Mul<StepSize<J, X>, Output = X>,
+    F: Into<ObjectiveOf<J, X, A>>,
+    J: ContractWith<J, Output = Quantity<A>> + Jacobian + Mul<StepSize<J, X>, Output = X>,
+    J: Mul<Quantity<Dimensionless>, Output = J>,
     for<'a> &'a J: Mul<StepSize<J, X>, Output = X>,
     A: UnitDiv<A, Output = Dimensionless>,
-    J: Mul<Quantity<Dimensionless>, Output = J>,
     StepSize<J, X>: Mul<Quantity<Dimensionless>, Output = StepSize<J, X>>,
-    X: Erase<Erased = E> + Jacobian + Solution,
-    X: SecantWith<J, Step = StepSize<J, X>>,
+    X: Jacobian + Solution + SecantWith<J, Step = StepSize<J, X>>,
     <X as Tensor>::Unit: UnitDiv<<J as Tensor>::Unit>,
-    E: Tensor,
+    <<X as Tensor>::Unit as UnitDiv<<J as Tensor>::Unit>>::Output: UnitMul<A>,
 {
     fn minimize(
         &self,
@@ -167,7 +161,7 @@ where
         equality_constraint: EqualityConstraints,
         _sparse: Option<SparseSolver>,
     ) -> Result<X, OptimizationError> {
-        let objective = move |argument: &X| function(argument).map(|value| *value.erase());
+        let objective = move |argument: &X| function(argument).map(Into::into);
         let Some(equality_constraint) =
             EqualityConstraint::lower_single(equality_constraint, &mut initial_guess)
         else {
@@ -196,9 +190,9 @@ fn restart_if_unbounded(weight: Quantity<Dimensionless>) -> Quantity<Dimensionle
     }
 }
 
-fn descend<S, Q, F, X, E, A>(
+fn descend<S, Q, F, X, A>(
     conjugate_gradient: &ConjugateGradient<S, Q>,
-    mut function: impl FnMut(&X) -> Result<Scalar, String>,
+    mut function: impl FnMut(&X) -> Result<ObjectiveOf<F, X, A>, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
     initial_guess: X,
     indices: Option<&[usize]>,
@@ -206,16 +200,14 @@ fn descend<S, Q, F, X, E, A>(
 where
     S: ObjectiveMerit,
     Q: StepEstimator,
-    F: ContractWith<F, Output = Quantity<A>>,
-    F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    F: ContractWith<F, Output = Quantity<A>> + Jacobian + Mul<StepSize<F, X>, Output = X>,
+    F: Mul<Quantity<Dimensionless>, Output = F>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     A: UnitDiv<A, Output = Dimensionless>,
-    F: Mul<Quantity<Dimensionless>, Output = F>,
     StepSize<F, X>: Mul<Quantity<Dimensionless>, Output = StepSize<F, X>>,
-    X: Erase<Erased = E> + Jacobian + Solution,
-    X: SecantWith<F, Step = StepSize<F, X>>,
+    X: Jacobian + Solution + SecantWith<F, Step = StepSize<F, X>>,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
-    E: Tensor,
+    <<X as Tensor>::Unit as UnitDiv<<F as Tensor>::Unit>>::Output: UnitMul<A>,
 {
     let mut gradient = |argument: &X| -> Result<F, String> {
         let mut residual = jacobian(argument)?;
@@ -278,15 +270,15 @@ where
             step_size,
         );
         let scale = (squared / direction.contract_with(&direction)).sqrt();
-        let taken = conjugate_gradient.backtracking_line_search::<F, E>(
-            |trial: &X, _: Scalar| function(trial),
+        let taken = conjugate_gradient.backtracking_line_search(
+            &mut function,
             &mut gradient,
             &solution,
             &residual,
             &direction,
-            (step_size * scale).value(),
+            step_size * scale,
         )?;
-        solution -= &direction * StepSize::<F, X>::new(taken);
+        solution -= &direction * taken;
         previous = Some((residual, direction));
     }
 }

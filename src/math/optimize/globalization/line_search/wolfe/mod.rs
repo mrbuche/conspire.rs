@@ -1,9 +1,9 @@
 use super::{LineSearchError, ObjectiveMerit, exhausted, start};
-use crate::math::{Erase, Jacobian, Quantity, Scalar, Solution, Tensor};
-use std::{
-    fmt::{self, Display, Formatter},
-    ops::Mul,
+use crate::{
+    math::{Quantity, Scalar},
+    units::UnitMul,
 };
+use std::fmt::{self, Display, Formatter};
 
 /// The Wolfe conditions on the objective.
 #[derive(Clone, Debug)]
@@ -22,45 +22,27 @@ impl Display for Wolfe {
 }
 
 impl ObjectiveMerit for Wolfe {
-    fn search<X, J, D, W, E>(
+    fn search<W, U, V>(
         &self,
-        mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        mut jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
+        mut value: impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
+        mut slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
+        step_size: Quantity<W>,
+    ) -> Result<Quantity<W>, LineSearchError>
     where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
+        W: UnitMul<U, Output = V>,
     {
-        let (value, slope) = start(
-            self,
-            &mut function,
-            argument,
-            jacobian0,
-            decrement,
-            step_size,
-        )?;
-        let t_1 = self.control_1 * slope;
-        let t_2 = self.control_2 * slope;
+        let (initial, gradient) = start(self, &mut value, &mut slope, step_size)?;
+        let t_1 = gradient * self.control_1;
+        let t_2 = gradient * self.control_2;
         let mut n = step_size;
         for _ in 0..self.max_steps {
-            let trial = decrement * Quantity::new(-n) + argument;
-            if let Ok(trial_value) = function(&trial, n)
-                && let Ok(trial_jacobian) = jacobian(&trial)
-                && value - trial_value >= n * t_1
-                && {
-                    let curvature = trial_jacobian.erase().full_contraction(decrement.erase());
-                    if self.strong {
-                        curvature.abs() < t_2.abs()
-                    } else {
-                        curvature < t_2
-                    }
+            if let Ok(trial) = value(n)
+                && let Ok(curvature) = slope(n)
+                && initial - trial >= n * t_1
+                && if self.strong {
+                    curvature.abs() < t_2.abs()
+                } else {
+                    curvature < t_2
                 }
             {
                 return Ok(n);

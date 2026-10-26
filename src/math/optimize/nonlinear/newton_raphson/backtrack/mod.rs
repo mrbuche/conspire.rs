@@ -1,7 +1,8 @@
 use crate::math::{
-    Erase, Jacobian, Norm, Quantity, Scalar, Solution, Tensor,
+    ContractWith, Norm, Quantity, Scalar, Solution, Tensor,
     optimize::{LineSearchError, ObjectiveMerit, OptimizationError, ResidualMerit},
 };
+use crate::units::{Dimensionless, UnitMul};
 use std::{fmt::Display, ops::Mul};
 
 use super::NewtonRaphson;
@@ -20,9 +21,6 @@ pub(super) trait Backtrack {
     /// Whether the value and slope of the merit are read.
     const MERIT: bool;
     /// Backtrack on a merit of the step size alone.
-    ///
-    /// A residual merit has its slope along the share `fraction` of a Newton
-    /// step, so is not given one.
     fn merit(
         &self,
         merit: impl FnMut(Scalar) -> Result<Scalar, String>,
@@ -30,8 +28,17 @@ pub(super) trait Backtrack {
         slope: Scalar,
         fraction: Scalar,
     ) -> Result<Scalar, LineSearchError>;
-    /// Backtrack along a step of the objective, whose gradient is known.
-    fn gradient<X, J, D, W, E>(
+}
+
+/// A line search along a step of the objective, whose gradient is known.
+///
+/// Only a minimization has an objective to take the gradient of, so a root is
+/// searched along no step and needs nothing of the tensors, while a minimization
+/// needs to contract the gradient with the step, which the pair of them name a
+/// unit for. The objective here is a bare scalar, as the merits are, so it takes
+/// the unit the slope along the step has.
+pub(super) trait Gradient<X, J, D>: Backtrack {
+    fn gradient(
         &self,
         function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         jacobian: impl FnMut(&X) -> Result<J, String>,
@@ -39,13 +46,7 @@ pub(super) trait Backtrack {
         jacobian0: &J,
         decrement: &D,
         step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
-    where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>;
+    ) -> Result<Scalar, LineSearchError>;
 }
 
 /// The line search of a minimization.
@@ -70,25 +71,41 @@ where
     ) -> Result<Scalar, LineSearchError> {
         self.0.search_merit(merit, value, slope, 1.0)
     }
-    fn gradient<X, J, D, W, E>(
+}
+
+impl<S, X, J, D, U> Gradient<X, J, D> for Objective<'_, S>
+where
+    S: ObjectiveMerit,
+    J: ContractWith<D, Output = Quantity<U>>,
+    Dimensionless: UnitMul<U, Output = U>,
+    X: Solution,
+    for<'a> &'a D: Mul<Quantity<Dimensionless>, Output = X>,
+{
+    fn gradient(
         &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        jacobian: impl FnMut(&X) -> Result<J, String>,
+        mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
+        mut jacobian: impl FnMut(&X) -> Result<J, String>,
         argument: &X,
         jacobian0: &J,
         decrement: &D,
         step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
-    where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
-    {
-        self.0.search(
-            function, jacobian, argument, jacobian0, decrement, step_size,
-        )
+    ) -> Result<Scalar, LineSearchError> {
+        let initial = jacobian0.contract_with(decrement);
+        self.0
+            .search(
+                |n: Quantity<Dimensionless>| {
+                    function(&(decrement * -n + argument), n.into()).map(Quantity::new)
+                },
+                |n: Quantity<Dimensionless>| {
+                    if n == Quantity::new(0.0) {
+                        Ok(initial)
+                    } else {
+                        Ok(jacobian(&(decrement * -n + argument))?.contract_with(decrement))
+                    }
+                },
+                step_size.into(),
+            )
+            .map(Into::into)
     }
 }
 
@@ -108,7 +125,13 @@ where
     ) -> Result<Scalar, LineSearchError> {
         self.0.search_residual(merit, value, fraction)
     }
-    fn gradient<X, J, D, W, E>(
+}
+
+impl<S, X, J, D> Gradient<X, J, D> for Residually<'_, S>
+where
+    S: ResidualMerit,
+{
+    fn gradient(
         &self,
         _function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
         _jacobian: impl FnMut(&X) -> Result<J, String>,
@@ -116,14 +139,7 @@ where
         _jacobian0: &J,
         _decrement: &D,
         _step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
-    where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
-    {
+    ) -> Result<Scalar, LineSearchError> {
         unreachable!("A root has no objective to take the gradient of.")
     }
 }

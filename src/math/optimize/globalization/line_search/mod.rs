@@ -15,13 +15,11 @@ pub use none::NoSearch;
 pub use residual::Residual;
 pub use wolfe::Wolfe;
 
-use crate::math::{
-    Erase, Jacobian, Quantity, Scalar, Solution, Style, StyledError, Tensor, styled_error,
+use crate::{
+    math::{Quantity, Scalar, Style, StyledError, styled_error},
+    units::UnitMul,
 };
-use std::{
-    fmt::{Debug, Display},
-    ops::Mul,
-};
+use std::fmt::{Debug, Display};
 
 /// Line searches that judge a step by a merit built from the objective.
 ///
@@ -33,22 +31,15 @@ pub trait ObjectiveMerit: Clone + Debug + Display {
     const SEARCHES: bool = true;
     /// Whether the value and slope of the merit are read, and so worth preparing.
     const MERIT: bool = true;
-    /// Backtrack along a step of the objective, whose gradient is known.
-    fn search<X, J, D, W, E>(
+    /// Backtrack along a step of the objective, whose slope along it is known.
+    fn search<W, U, V>(
         &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
+        value: impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
+        slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
+        step_size: Quantity<W>,
+    ) -> Result<Quantity<W>, LineSearchError>
     where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>;
+        W: UnitMul<U, Output = V>;
     /// Backtrack on a merit function of the step size alone.
     ///
     /// The exact penalty function is not differentiable, its norm having a kink
@@ -89,31 +80,23 @@ fn exhausted(search: &impl Debug, max_steps: usize) -> LineSearchError {
     LineSearchError::MaximumStepsReached(format!("{search:?}"), max_steps)
 }
 
-/// The value and the slope at no step, once the step and direction are vetted.
-fn start<X, J, D, E>(
+/// The value and the slope at no step, once the step is vetted.
+fn start<W, U, V>(
     search: &impl Debug,
-    function: &mut impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-    argument: &X,
-    jacobian0: &J,
-    decrement: &D,
-    step_size: Scalar,
-) -> Result<(Scalar, Scalar), LineSearchError>
-where
-    J: Erase<Erased = E> + Jacobian,
-    D: Erase<Erased = E>,
-    E: Tensor,
-{
-    if step_size <= 0.0 {
+    value: &mut impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
+    slope: &mut impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
+    step_size: Quantity<W>,
+) -> Result<(Quantity<V>, Quantity<U>), LineSearchError> {
+    if step_size <= Quantity::new(0.0) {
         return Err(LineSearchError::NegativeStepSize(
             format!("{search:?}"),
-            step_size,
+            step_size.value(),
         ));
     }
-    let Ok(value) = function(argument, 0.0) else {
+    let (Ok(value), Ok(slope)) = (value(Quantity::new(0.0)), slope(Quantity::new(0.0))) else {
         return Err(LineSearchError::InvalidStartingPoint(format!("{search:?}")));
     };
-    let slope = jacobian0.erase().full_contraction(decrement.erase());
-    if slope <= 0.0 {
+    if slope <= Quantity::new(0.0) {
         return Err(LineSearchError::NotDescentDirection(format!("{search:?}")));
     }
     Ok((value, slope))
@@ -122,38 +105,25 @@ where
 /// Cut the step back until the decrease it buys is accepted.
 ///
 /// The decrease is what the objective loses, so a step that cannot be
-/// evaluated is cut back as one that buys nothing.
-#[expect(clippy::too_many_arguments)]
-fn backtrack<X, J, D, W, E>(
+/// evaluated is cut back as one that buys nothing. It is judged against what
+/// the slope along the step promises.
+fn backtrack<W, U, V>(
     search: &impl Debug,
     cut_back: Scalar,
     max_steps: usize,
-    mut function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-    argument: &X,
-    jacobian0: &J,
-    decrement: &D,
-    step_size: Scalar,
-    accepted: impl Fn(Scalar, Scalar, Scalar) -> bool,
-) -> Result<Scalar, LineSearchError>
+    mut value: impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
+    mut slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
+    step_size: Quantity<W>,
+    accepted: impl Fn(Quantity<V>, Quantity<V>) -> bool,
+) -> Result<Quantity<W>, LineSearchError>
 where
-    J: Erase<Erased = E> + Jacobian,
-    D: Erase<Erased = E>,
-    E: Tensor,
-    X: Solution,
-    for<'a> &'a D: Mul<Quantity<W>, Output = X>,
+    W: UnitMul<U, Output = V>,
 {
-    let (value, slope) = start(
-        search,
-        &mut function,
-        argument,
-        jacobian0,
-        decrement,
-        step_size,
-    )?;
+    let (initial, gradient) = start(search, &mut value, &mut slope, step_size)?;
     let mut n = step_size;
     for _ in 0..max_steps {
-        if let Ok(trial) = function(&(decrement * Quantity::new(-n) + argument), n)
-            && accepted(value - trial, n, slope)
+        if let Ok(trial) = value(n)
+            && accepted(initial - trial, n * gradient)
         {
             return Ok(n);
         } else {
@@ -173,7 +143,7 @@ fn backtrack_merit(
     value: Scalar,
     slope: Scalar,
     step_size: Scalar,
-    accepted: impl Fn(Scalar, Scalar, Scalar) -> bool,
+    accepted: impl Fn(Scalar, Scalar) -> bool,
 ) -> Result<Scalar, LineSearchError> {
     if step_size <= 0.0 {
         return Err(LineSearchError::NegativeStepSize(
@@ -187,7 +157,7 @@ fn backtrack_merit(
     let mut n = step_size;
     for _ in 0..max_steps {
         if let Ok(trial) = merit(n)
-            && accepted(value - trial, n, slope)
+            && accepted(value - trial, n * slope)
         {
             return Ok(n);
         } else {

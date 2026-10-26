@@ -1,5 +1,8 @@
 use super::{LineSearchError, ObjectiveMerit, backtrack, backtrack_merit};
-use crate::math::{Erase, Jacobian, Quantity, Scalar, Solution, Tensor};
+use crate::{
+    math::{Quantity, Scalar},
+    units::UnitMul,
+};
 use std::{
     fmt::{self, Display, Formatter},
     ops::Mul,
@@ -20,38 +23,32 @@ impl Display for Goldstein {
 }
 
 impl Goldstein {
-    fn accepts(&self, decrease: Scalar, n: Scalar, slope: Scalar) -> bool {
-        !(n * (1.0 - self.control) * slope < decrease || decrease < n * self.control * slope)
+    fn accepts<T>(&self, decrease: T, n_slope: T) -> bool
+    where
+        T: Copy + PartialOrd + Mul<Scalar, Output = T>,
+    {
+        !(n_slope * (1.0 - self.control) < decrease || decrease < n_slope * self.control)
     }
 }
 
 impl ObjectiveMerit for Goldstein {
-    fn search<X, J, D, W, E>(
+    fn search<W, U, V>(
         &self,
-        function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        _jacobian: impl FnMut(&X) -> Result<J, String>,
-        argument: &X,
-        jacobian0: &J,
-        decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
+        value: impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
+        slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
+        step_size: Quantity<W>,
+    ) -> Result<Quantity<W>, LineSearchError>
     where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
+        W: UnitMul<U, Output = V>,
     {
         backtrack(
             self,
             self.cut_back,
             self.max_steps,
-            function,
-            argument,
-            jacobian0,
-            decrement,
+            value,
+            slope,
             step_size,
-            |decrease, n, slope| self.accepts(decrease, n, slope),
+            |decrease, n_slope| self.accepts(decrease, n_slope),
         )
     }
     fn search_merit(
@@ -69,7 +66,7 @@ impl ObjectiveMerit for Goldstein {
             value,
             slope,
             step_size,
-            |decrease, n, slope| self.accepts(decrease, n, slope),
+            |decrease, n_slope| self.accepts(decrease, n_slope),
         )
     }
 }

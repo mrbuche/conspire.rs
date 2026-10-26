@@ -735,6 +735,18 @@ impl<U> Sub<&Vector> for Quantity<U> {
     }
 }
 
+impl From<Quantity<Dimensionless>> for TensorRank0 {
+    fn from(quantity: Quantity<Dimensionless>) -> Self {
+        quantity.value()
+    }
+}
+
+impl From<TensorRank0> for Quantity<Dimensionless> {
+    fn from(tensor_rank_0: TensorRank0) -> Self {
+        Self::new(tensor_rank_0)
+    }
+}
+
 impl<U> From<Vector> for Quantity<U> {
     fn from(vector: Vector) -> Self {
         Self::new(vector[0])

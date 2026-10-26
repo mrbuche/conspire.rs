@@ -8,7 +8,10 @@ use crate::units::Dimensionless;
 pub(crate) mod list;
 pub(crate) mod list_2d;
 
-use super::{Hessian, HessianBlock, Jacobian, Solution, SquareMatrix, Tensor, TensorArray, Vector};
+use super::{
+    ContractWith, Hessian, HessianBlock, Jacobian, Solution, SquareMatrix, Tensor, TensorArray,
+    Vector,
+};
 use std::{
     ops::{IndexMut, Sub},
     slice::from_ref,
@@ -89,6 +92,13 @@ impl HessianBlock for TensorRank0 {
         M: IndexMut<usize, Output = Vector>,
     {
         matrix[row][column] = *self
+    }
+}
+
+impl ContractWith<TensorRank0> for TensorRank0 {
+    type Output = Quantity<Dimensionless>;
+    fn contract_with(&self, tensor_rank_0: &TensorRank0) -> Self::Output {
+        Quantity::new(self.full_contraction(tensor_rank_0))
     }
 }
 

@@ -1,9 +1,9 @@
 use super::{LineSearchError, ObjectiveMerit, ResidualMerit};
-use crate::math::{Erase, Jacobian, Quantity, Scalar, Solution, Tensor};
-use std::{
-    fmt::{self, Display, Formatter},
-    ops::Mul,
+use crate::{
+    math::{Quantity, Scalar},
+    units::UnitMul,
 };
+use std::fmt::{self, Display, Formatter};
 
 /// No line search.
 #[derive(Clone, Copy, Debug, Default)]
@@ -18,21 +18,14 @@ impl Display for NoSearch {
 impl ObjectiveMerit for NoSearch {
     const SEARCHES: bool = false;
     const MERIT: bool = false;
-    fn search<X, J, D, W, E>(
+    fn search<W, U, V>(
         &self,
-        _function: impl FnMut(&X, Scalar) -> Result<Scalar, String>,
-        _jacobian: impl FnMut(&X) -> Result<J, String>,
-        _argument: &X,
-        _jacobian0: &J,
-        _decrement: &D,
-        step_size: Scalar,
-    ) -> Result<Scalar, LineSearchError>
+        _value: impl FnMut(Quantity<W>) -> Result<Quantity<V>, String>,
+        _slope: impl FnMut(Quantity<W>) -> Result<Quantity<U>, String>,
+        step_size: Quantity<W>,
+    ) -> Result<Quantity<W>, LineSearchError>
     where
-        J: Erase<Erased = E> + Jacobian,
-        D: Erase<Erased = E>,
-        E: Tensor,
-        X: Solution,
-        for<'a> &'a D: Mul<Quantity<W>, Output = X>,
+        W: UnitMul<U, Output = V>,
     {
         Ok(step_size)
     }

@@ -37,12 +37,17 @@ use crate::{
         sparse::{CscMatrix, SparseError, SparseSolver},
         styled_error,
     },
-    units::UnitDiv,
+    units::{UnitDiv, UnitMul},
 };
 use std::fmt::{Debug, Display};
 
 /// The step size taking a decrement of type `D` to an increment of `X`.
 pub type StepSize<D, X> = Quantity<<<X as Tensor>::Unit as UnitDiv<<D as Tensor>::Unit>>::Output>;
+
+/// The objective a step along a gradient `J` of a solution `X` changes, where `A` is
+/// the unit of the gradient contracted with itself.
+pub type ObjectiveOf<J, X, A> =
+    Quantity<<<<X as Tensor>::Unit as UnitDiv<<J as Tensor>::Unit>>::Output as UnitMul<A>>::Output>;
 
 /// Root-finding algorithms, where a tangent of `()` is one the solver does not use.
 pub trait RootFinding<F, J, X> {
@@ -153,7 +158,7 @@ pub trait OptimizationBlock<F, U, V, Ru, Rv, Kuu, Kvu, Kuv, Kvv> {
     ) -> Result<(U, V), OptimizationError>;
 }
 
-fn no_objective<X>(_: &X) -> Result<Scalar, String> {
+fn no_objective<X, V>(_: &X) -> Result<V, String> {
     Err("A root has no objective.".to_string())
 }
 
