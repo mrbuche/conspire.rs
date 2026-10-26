@@ -1,8 +1,8 @@
 use crate::math::{Tensor, Vector};
 
 /// Residual modification to improve solver conditioning.
-pub trait Precondition {
-    fn apply(&self, residual: &Vector) -> Vector;
+pub trait Precondition<F = Vector, X = Vector> {
+    fn apply(&self, residual: &F) -> X;
 }
 
 /// Available preconditioning methods.
@@ -26,11 +26,11 @@ impl Precondition for Preconditioning {
     }
 }
 
-impl<F> Precondition for F
+impl<G, F, X> Precondition<F, X> for G
 where
-    F: Fn(&Vector) -> Vector,
+    G: Fn(&F) -> X,
 {
-    fn apply(&self, residual: &Vector) -> Vector {
+    fn apply(&self, residual: &F) -> X {
         self(residual)
     }
 }

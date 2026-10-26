@@ -1,13 +1,16 @@
 #[cfg(test)]
 mod test;
 
-use crate::math::{
-    Scalar, Style, StyledError, Tensor, Vector,
-    assert::AssertionError,
-    optimize::{OptimizationError, Precondition},
-    styled_error,
+use crate::{
+    math::{
+        ContractWith, Quantity, Scalar, Style, StyledError, Tensor, Vector,
+        assert::AssertionError,
+        optimize::{OptimizationError, Precondition},
+        styled_error,
+    },
+    units::{Dimensionless, UnitDiv},
 };
-use std::mem::replace;
+use std::{mem::replace, ops::Mul};
 
 const PATIENCE: usize = 30;
 const PROGRESS: Scalar = 0.9;
@@ -63,6 +66,32 @@ impl Default for Krylov {
 }
 
 impl Krylov {
+    /// Conjugate gradients on a system between tensors.
+    #[allow(clippy::type_complexity)]
+    pub fn conjugate_gradients<X, F, A>(
+        &self,
+        apply: impl FnMut(&X) -> F,
+        preconditioning: impl Precondition<F, X>,
+        right_hand_side: &F,
+    ) -> Result<X, KrylovError>
+    where
+        X: Tensor
+            + ContractWith<F, Output = Quantity<A>>
+            + Mul<Quantity<Dimensionless>, Output = X>,
+        F: Tensor
+            + ContractWith<X, Output = Quantity<A>>
+            + Mul<Quantity<Dimensionless>, Output = F>,
+        A: UnitDiv<A, Output = Dimensionless>,
+        <F as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit, Output = Dimensionless>,
+    {
+        descend(
+            self.max_steps,
+            self.rel_tol,
+            apply,
+            preconditioning,
+            right_hand_side,
+        )
+    }
     /// Iteratively solves a linear system given its action on a vector.
     pub fn solve(
         &self,
@@ -97,48 +126,49 @@ impl Krylov {
     }
 }
 
-fn descend(
+#[allow(clippy::type_complexity)]
+fn descend<X, F, A>(
     max_steps: usize,
     rel_tol: Scalar,
-    mut apply: impl FnMut(&Vector) -> Vector,
-    preconditioning: impl Precondition,
-    right_hand_side: &Vector,
-) -> Result<Vector, KrylovError> {
-    let scale = right_hand_side.norm().value();
-    let mut solution = Vector::zero(right_hand_side.len());
-    if scale == 0.0 {
-        return Ok(solution);
-    }
-    let divide = |residual: &Vector| preconditioning.apply(residual);
+    mut apply: impl FnMut(&X) -> F,
+    preconditioning: impl Precondition<F, X>,
+    right_hand_side: &F,
+) -> Result<X, KrylovError>
+where
+    X: Tensor + ContractWith<F, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = X>,
+    F: Tensor + ContractWith<X, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = F>,
+    A: UnitDiv<A, Output = Dimensionless>,
+    <F as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit, Output = Dimensionless>,
+{
+    let scale = right_hand_side.norm();
     let mut residual = right_hand_side.clone();
-    let mut preconditioned = divide(&residual);
+    let mut preconditioned = preconditioning.apply(&residual);
+    if scale == Quantity::new(0.0) {
+        return Ok(preconditioned * Quantity::new(0.0));
+    }
+    let mut solution = preconditioned.clone() * Quantity::new(0.0);
     let mut direction = preconditioned.clone();
-    let mut projection = residual.full_contraction(&preconditioned);
-    let mut applied;
-    let mut curvature;
-    let mut next;
-    let mut step;
+    let mut projection = residual.contract_with(&preconditioned);
     for _ in 0..max_steps {
-        applied = apply(&direction);
-        curvature = direction.full_contraction(&applied);
-        if curvature <= 0.0 {
-            return Err(KrylovError::NotPositiveDefinite(curvature));
+        let applied = apply(&direction);
+        let curvature = direction.contract_with(&applied);
+        if curvature <= Quantity::new(0.0) {
+            return Err(KrylovError::NotPositiveDefinite(curvature.value()));
         }
-        step = projection / curvature;
-        solution += &direction * step;
+        let step = projection / curvature;
+        solution += direction.clone() * step;
         residual -= applied * step;
-        if residual.norm().value() <= rel_tol * scale {
+        if residual.norm() <= scale * rel_tol {
             return Ok(solution);
         }
-        preconditioned = divide(&residual);
-        next = residual.full_contraction(&preconditioned);
-        direction *= next / projection;
-        direction += &preconditioned;
+        preconditioned = preconditioning.apply(&residual);
+        let next = residual.contract_with(&preconditioned);
+        direction = direction * (next / projection) + &preconditioned;
         projection = next
     }
     Err(KrylovError::MaximumStepsReached(
         max_steps,
-        residual.norm().value() / scale,
+        (residual.norm() / scale).into(),
     ))
 }
 

@@ -181,3 +181,100 @@ fn gmres_zero_right_hand_side() {
         .unwrap();
     Assert::default().eq_within_tols(&solution, &rhs).unwrap();
 }
+
+mod typed {
+    use super::super::KrylovError;
+    use super::*;
+    use crate::{
+        math::{Current, Tensor, TensorRank1},
+        units::{Force, Length},
+    };
+    type Displacement = TensorRank1<3, Current, Length>;
+    type Load = TensorRank1<3, Current, Force>;
+    fn load() -> Load {
+        [1.0, 2.0, 3.0].into()
+    }
+    fn stiffness(matrix: SquareMatrix) -> impl FnMut(&Displacement) -> Load {
+        move |displacement| {
+            let applied = |row: usize| -> f64 {
+                (0..3)
+                    .map(|column| matrix[row][column] * displacement[column].value())
+                    .sum()
+            };
+            Load::from([applied(0), applied(1), applied(2)])
+        }
+    }
+    fn jacobi(matrix: SquareMatrix) -> impl Fn(&Load) -> Displacement {
+        move |load| {
+            Displacement::from([
+                load[0].value() / matrix[0][0],
+                load[1].value() / matrix[1][1],
+                load[2].value() / matrix[2][2],
+            ])
+        }
+    }
+    fn flat(displacement: &Displacement) -> Vector {
+        (0..3).map(|i| displacement[i].value()).collect()
+    }
+    #[test]
+    fn matches_the_direct_solve() {
+        let expected = coupled().solve_lu(&right_hand_side()).unwrap();
+        let solution = krylov()
+            .conjugate_gradients(stiffness(coupled()), jacobi(coupled()), &load())
+            .unwrap();
+        Assert::default()
+            .eq_within_tols(flat(&solution), &expected)
+            .unwrap();
+    }
+    #[test]
+    fn matches_the_solve_without_units() {
+        let matrix = coupled();
+        let bare = krylov()
+            .solve(apply(&matrix), Preconditioning::None, &right_hand_side())
+            .unwrap();
+        let typed = krylov()
+            .conjugate_gradients(
+                stiffness(coupled()),
+                |load: &Load| {
+                    Displacement::from([load[0].value(), load[1].value(), load[2].value()])
+                },
+                &load(),
+            )
+            .unwrap();
+        Assert::default()
+            .eq_within_tols(flat(&typed), &bare)
+            .unwrap();
+    }
+    #[test]
+    fn refuses_a_nonpositive_curvature() {
+        assert!(matches!(
+            krylov().conjugate_gradients(stiffness(indefinite()), jacobi(coupled()), &load()),
+            Err(KrylovError::NotPositiveDefinite(_))
+        ))
+    }
+    #[test]
+    fn a_zero_right_hand_side_gives_a_zero_solution() {
+        let solution = krylov()
+            .conjugate_gradients(
+                stiffness(coupled()),
+                jacobi(coupled()),
+                &Load::from([0.0; 3]),
+            )
+            .unwrap();
+        assert!(flat(&solution).iter().all(|&entry| entry == 0.0))
+    }
+    #[test]
+    fn running_out_of_steps_reports_the_relative_residual() {
+        let one_step = Krylov {
+            max_steps: 1,
+            rel_tol: 1e-15,
+            ..Default::default()
+        };
+        match one_step.conjugate_gradients(stiffness(coupled()), jacobi(coupled()), &load()) {
+            Err(KrylovError::MaximumStepsReached(1, relative)) => {
+                assert!(relative > 0.0 && relative < 1.0)
+            }
+            _ => panic!("expected the steps to run out"),
+        }
+    }
+}
