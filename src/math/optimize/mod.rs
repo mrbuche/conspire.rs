@@ -19,7 +19,8 @@ pub use globalization::{
 };
 pub use linear::{Direct, Krylov, KrylovError, KrylovMethod, LinearSolver};
 pub use nonlinear::{
-    BarzilaiBorwein, BarzilaiBorweinStep, GradientDescent, NewtonRaphson, StepEstimator,
+    BarzilaiBorwein, BarzilaiBorweinStep, Conjugacy, ConjugateGradient, GradientDescent,
+    NewtonRaphson, StepEstimator,
 };
 pub use preconditioning::{Precondition, Preconditioning};
 pub use strategy::SolveStrategy;
