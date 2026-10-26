@@ -23,15 +23,13 @@ use super::fixed::constrained_fixed;
 use super::unconstrained::unconstrained;
 use super::verify::verified;
 
-impl<S, F, J, X, E> RootFinding<F, J, X> for NewtonRaphson<Direct, S>
+impl<S, F, J, X> RootFinding<F, J, X> for NewtonRaphson<Direct, S>
 where
     S: ResidualMerit,
     F: Jacobian,
     for<'a> &'a F: Div<J, Output = X>,
     J: Hessian,
-    F: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -60,14 +58,12 @@ where
     }
 }
 
-impl<L, S, F, J, X, E> RootFinding<F, J, X> for NewtonRaphson<L, S>
+impl<L, S, F, J, X> RootFinding<F, J, X> for NewtonRaphson<L, S>
 where
     S: ResidualMerit,
     L: LinearSolver<Tangent = J>,
     F: Jacobian,
-    F: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {
@@ -92,15 +88,13 @@ where
     }
 }
 
-impl<S, F, J, X, E> RootFindingIncremental<F, J, X> for NewtonRaphson<Direct, S>
+impl<S, F, J, X> RootFindingIncremental<F, J, X> for NewtonRaphson<Direct, S>
 where
     S: ResidualMerit,
     F: Jacobian,
     for<'a> &'a F: Div<J, Output = X>,
     J: Hessian,
-    F: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -130,7 +124,7 @@ where
     }
 }
 
-impl<S, F, J, H, X, E, U> Optimization<F, J, H, X> for NewtonRaphson<Direct, S>
+impl<S, F, J, H, X, U> Optimization<F, J, H, X> for NewtonRaphson<Direct, S>
 where
     S: ObjectiveMerit,
     J: ContractWith<X, Output = Quantity<U>>,
@@ -144,9 +138,7 @@ where
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
-    J: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -177,7 +169,7 @@ where
     }
 }
 
-impl<L, S, F, J, H, X, E, U> Optimization<F, J, H, X> for NewtonRaphson<L, S>
+impl<L, S, F, J, H, X, U> Optimization<F, J, H, X> for NewtonRaphson<L, S>
 where
     S: ObjectiveMerit,
     J: ContractWith<X, Output = Quantity<U>>,
@@ -190,9 +182,7 @@ where
     <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
         Is<<F as Tensor>::Unit>,
     J: Jacobian,
-    J: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {
@@ -219,7 +209,7 @@ where
     }
 }
 
-impl<S, F, J, H, X, E, U> OptimizationIncremental<F, J, H, X> for NewtonRaphson<Direct, S>
+impl<S, F, J, H, X, U> OptimizationIncremental<F, J, H, X> for NewtonRaphson<Direct, S>
 where
     S: ObjectiveMerit,
     J: ContractWith<X, Output = Quantity<U>>,
@@ -233,9 +223,7 @@ where
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
-    J: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -367,7 +355,7 @@ pub(super) fn no_update<X>(_: &X, _: &Vector, _: Scalar, _: bool) -> Result<(), 
 }
 
 #[expect(clippy::too_many_arguments)]
-pub(super) fn iterate<B, S, J, H, X, E>(
+pub(super) fn iterate<B, S, J, H, X>(
     newton_raphson: &NewtonRaphson<Direct, S>,
     search: B,
     objective: impl FnMut(&X) -> Result<Scalar, String>,
@@ -385,9 +373,7 @@ where
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
-    J: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -453,7 +439,7 @@ where
 }
 
 #[expect(clippy::too_many_arguments)]
-pub(super) fn iterate_linear<B, L, S, J, H, X, E>(
+pub(super) fn iterate_linear<B, L, S, J, H, X>(
     newton_raphson: &NewtonRaphson<L, S>,
     search: B,
     objective: impl FnMut(&X) -> Result<Scalar, String>,
@@ -468,9 +454,7 @@ where
     L: LinearSolver<Tangent = H>,
     S: Display,
     J: Jacobian,
-    J: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {

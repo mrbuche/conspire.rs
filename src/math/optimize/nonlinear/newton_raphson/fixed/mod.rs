@@ -1,5 +1,5 @@
 use crate::math::{
-    Erase, Jacobian, Scalar, Solution, Tensor, Vector,
+    Jacobian, Scalar, Solution, Tensor, Vector,
     optimize::{OptimizationError, StepSize},
 };
 use crate::units::UnitRatio;
@@ -11,7 +11,7 @@ use super::convergence::limit_decrement;
 use super::verify::not_minimum;
 
 #[expect(clippy::too_many_arguments)]
-pub(super) fn constrained_fixed<B, L, S, J, H, X, E>(
+pub(super) fn constrained_fixed<B, L, S, J, H, X>(
     newton_raphson: &NewtonRaphson<L, S>,
     search: B,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
@@ -27,9 +27,7 @@ where
     B: Backtrack + Gradient<X, J, X>,
     S: Display,
     J: Jacobian,
-    J: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {

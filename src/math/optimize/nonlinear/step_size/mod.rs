@@ -5,7 +5,7 @@ mod barzilai_borwein;
 
 pub use barzilai_borwein::{BarzilaiBorwein, Step as BarzilaiBorweinStep};
 
-use crate::math::{ContractWith, Quantity, Scalar, Tensor};
+use crate::math::{ContractWith, Quantity, Tensor};
 use std::{
     fmt::{Debug, Display},
     ops::Div,
@@ -110,9 +110,9 @@ where
         *change = residual.clone();
         self.solution = solution.clone();
         self.iteration += 1;
-        let value: Scalar = trial.value();
-        if value.abs() > 0.0 && !value.is_nan() {
-            Quantity::new(value.abs())
+        let trial = trial.abs();
+        if trial > Quantity::new(0.0) {
+            trial
         } else {
             step_size
         }

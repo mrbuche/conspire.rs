@@ -1,5 +1,5 @@
 use crate::math::{
-    Erase, Hessian, Jacobian, Scalar, Solution, SquareMatrix, Tensor, Vector,
+    Hessian, Jacobian, Scalar, Solution, SquareMatrix, Tensor, Vector,
     optimize::{Direct, OptimizationError, StepSize, TrustRegion},
     sparse::SparseSolver,
 };
@@ -13,7 +13,7 @@ use super::NewtonRaphson;
 use super::backtrack::{Backtrack, Gradient, half_square_norm, residual_step, searched};
 use super::verify::not_minimum;
 
-pub(super) fn unconstrained<B, S, J, H, X, E>(
+pub(super) fn unconstrained<B, S, J, H, X>(
     newton_raphson: &NewtonRaphson<Direct, S>,
     search: B,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
@@ -28,9 +28,7 @@ where
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
-    J: Erase<Erased = E>,
-    X: Erase<Erased = E> + Solution,
-    E: Tensor,
+    X: Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
 {
