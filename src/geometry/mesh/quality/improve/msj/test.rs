@@ -393,3 +393,10 @@ fn improves_a_buffered_torus() {
     );
     assert!(after >= before);
 }
+
+#[test]
+fn lifts_a_buffered_torus_past_0_45() {
+    let (mut mesh, tessellation) = buffered_torus();
+    improve(&mut mesh, &tessellation, SWEEPS);
+    assert!(worst(&mesh) > 0.45);
+}
