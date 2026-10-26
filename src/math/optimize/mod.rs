@@ -22,7 +22,7 @@ pub use nonlinear::{
     BarzilaiBorwein, BarzilaiBorweinStep, Conjugacy, ConjugateGradient, GradientDescent,
     NewtonRaphson, StepEstimator,
 };
-pub use preconditioning::{Precondition, Preconditioning};
+pub use preconditioning::{Jacobi, Precondition, Preconditioning, Scaled};
 pub use strategy::SolveStrategy;
 pub use tolerance::Tolerances;
 

@@ -508,3 +508,160 @@ mod typed {
         ))
     }
 }
+
+mod nodal {
+    use super::super::KrylovError;
+    use super::*;
+    use crate::math::optimize::{Jacobi, Scaled};
+    use crate::{
+        math::{Current, Quantity, QuantityVector, Tensor, TensorRank1Vec},
+        units::{Force, ForcePerLength, Length},
+    };
+    type Displacements = TensorRank1Vec<3, Current, Length>;
+    type Forces = TensorRank1Vec<3, Current, Force>;
+    const NODES: usize = 6;
+    const COUPLING: f64 = 1.5;
+    fn grounded(node: usize) -> f64 {
+        2.0 + node as f64
+    }
+    fn chain() -> impl FnMut(&Displacements) -> Forces {
+        |displacements| {
+            (0..NODES)
+                .map(|node| {
+                    let stiffness = |value: f64| Quantity::<ForcePerLength>::new(value);
+                    let mut force =
+                        displacements[node].clone() * stiffness(grounded(node) + 2.0 * COUPLING);
+                    if node > 0 {
+                        force -= displacements[node - 1].clone() * stiffness(COUPLING)
+                    }
+                    if node + 1 < NODES {
+                        force -= displacements[node + 1].clone() * stiffness(COUPLING)
+                    }
+                    force
+                })
+                .collect()
+        }
+    }
+    fn diagonal() -> Jacobi<ForcePerLength> {
+        Jacobi(
+            (0..NODES)
+                .map(|node| Quantity::new(grounded(node) + 2.0 * COUPLING))
+                .collect::<QuantityVector<ForcePerLength>>(),
+        )
+    }
+    fn load() -> Forces {
+        Forces::from(
+            (0..NODES)
+                .map(|node| {
+                    let n = node as f64;
+                    [1.0 + n, 2.0 - 0.5 * n, -3.0 + n * n]
+                })
+                .collect::<Vec<_>>(),
+        )
+    }
+    fn expected() -> Vec<f64> {
+        let mut matrix = SquareMatrix::zero(NODES);
+        for node in 0..NODES {
+            matrix[node][node] = grounded(node) + 2.0 * COUPLING;
+            if node > 0 {
+                matrix[node][node - 1] = -COUPLING;
+            }
+            if node + 1 < NODES {
+                matrix[node][node + 1] = -COUPLING;
+            }
+        }
+        let mut entries = vec![0.0; 3 * NODES];
+        for component in 0..3 {
+            let rhs: Vector = (0..NODES)
+                .map(|node| load()[node][component].value())
+                .collect();
+            let solved = matrix.clone().solve_lu(&rhs).unwrap();
+            for node in 0..NODES {
+                entries[3 * node + component] = solved[node];
+            }
+        }
+        entries
+    }
+    fn within(solution: &Displacements, tolerance: f64) -> bool {
+        expected()
+            .iter()
+            .zip(
+                solution
+                    .iter()
+                    .flat_map(|node| (0..3).map(|i| node[i].value())),
+            )
+            .all(|(expected, got)| (expected - got).abs() <= tolerance * expected.abs().max(1.0))
+    }
+    #[test]
+    fn conjugate_gradients_solves_the_chain() {
+        let solution = krylov().solve(chain(), diagonal(), &load()).unwrap();
+        assert!(within(&solution, 1e-10))
+    }
+    #[test]
+    fn minres_solves_the_chain() {
+        let solution = minres().solve(chain(), diagonal(), &load()).unwrap();
+        assert!(within(&solution, 1e-10))
+    }
+    #[test]
+    fn gmres_solves_the_chain() {
+        let solution = gmres(30).solve(chain(), diagonal(), &load()).unwrap();
+        assert!(within(&solution, 1e-10))
+    }
+    #[test]
+    fn a_multiple_of_the_identity_preconditions_the_chain() {
+        let preconditioner = Scaled(Quantity::<crate::units::ReciprocalForcePerLength>::new(0.1));
+        let solution = krylov().solve(chain(), preconditioner, &load()).unwrap();
+        assert!(within(&solution, 1e-10))
+    }
+    #[test]
+    fn the_diagonal_shortens_the_iteration() {
+        let steps = |preconditioned: bool| {
+            (1..40)
+                .find(|&max_steps| {
+                    let solver = Krylov {
+                        max_steps,
+                        rel_tol: 1e-10,
+                        ..Default::default()
+                    };
+                    if preconditioned {
+                        solver.solve(chain(), diagonal(), &load()).is_ok()
+                    } else {
+                        solver
+                            .solve(
+                                chain(),
+                                Scaled(Quantity::<crate::units::ReciprocalForcePerLength>::new(
+                                    1.0,
+                                )),
+                                &load(),
+                            )
+                            .is_ok()
+                    }
+                })
+                .unwrap()
+        };
+        assert!(steps(true) <= steps(false))
+    }
+    #[test]
+    fn a_chain_with_no_load_gives_no_displacement() {
+        let none = Forces::from(vec![[0.0; 3]; NODES]);
+        let solution = krylov().solve(chain(), diagonal(), &none).unwrap();
+        assert!(within_zero(&solution))
+    }
+    fn within_zero(solution: &Displacements) -> bool {
+        solution
+            .iter()
+            .all(|node| (0..3).all(|i| node[i].value() == 0.0))
+    }
+    #[test]
+    fn running_out_of_steps_is_reported() {
+        let short = Krylov {
+            max_steps: 1,
+            rel_tol: 1e-15,
+            ..Default::default()
+        };
+        assert!(matches!(
+            short.solve(chain(), diagonal(), &load()),
+            Err(KrylovError::MaximumStepsReached(1, _))
+        ))
+    }
+}
