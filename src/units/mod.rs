@@ -45,11 +45,7 @@ where
 }
 
 /// A unit whose ratio with itself carries no unit.
-pub trait UnitRatio
-where
-    Self: Sized + UnitDiv<Self>,
-{
-}
+pub trait UnitRatio: Sized + UnitDiv<Self, Output: IsDimensionless> {}
 
 impl<U> UnitRatio for U
 where

@@ -147,6 +147,22 @@ mod minimize {
         )?)
     }
     #[test]
+    fn a_loose_absolute_tolerance_ends_the_descent_where_it_is() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &minimized(
+                &ConjugateGradient {
+                    abs_tol: Tolerances {
+                        residual: 1e3,
+                        ..Tolerances::default()
+                    },
+                    ..ConjugateGradient::default()
+                },
+                EqualityConstraint::None,
+            )?,
+            &Vector::from([3.0, -2.0]),
+        )
+    }
+    #[test]
     fn maximum_steps() {
         assert!(matches!(
             rosenbrock_with(Conjugacy::default(), 3),

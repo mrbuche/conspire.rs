@@ -198,3 +198,46 @@ mod linear_constraint {
         .eq_within_tols(&minimized(true)?, &Vector::from([1.0, 1.0]))
     }
 }
+
+mod tolerance {
+    use super::*;
+    fn stiff(x: &Vector) -> Result<f64, String> {
+        Ok((x[0].powi(2) + 10.0 * x[1].powi(2)) / 2.0)
+    }
+    fn stiff_derivative(x: &Vector) -> Result<Vector, String> {
+        Ok(Vector::from([x[0], 10.0 * x[1]]))
+    }
+    fn held(solver: GradientDescent) -> Result<Vector, OptimizationError> {
+        solver.minimize(
+            stiff,
+            stiff_derivative,
+            |_| Ok(()),
+            Vector::from([3.0, -2.0]),
+            vec![EqualityConstraint::Fixed(vec![0])],
+            None,
+        )
+    }
+    #[test]
+    fn a_loose_absolute_tolerance_ends_the_descent_where_it_is() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(
+            &held(GradientDescent {
+                abs_tol: Tolerances {
+                    residual: 1e3,
+                    ..Tolerances::default()
+                },
+                ..GradientDescent::default()
+            })?,
+            &Vector::from([3.0, -2.0]),
+        )
+    }
+    #[test]
+    fn a_relative_tolerance_ends_the_descent_sooner() {
+        let solver = |rel_tol| GradientDescent {
+            max_steps: 1,
+            rel_tol,
+            ..GradientDescent::default()
+        };
+        assert!(held(solver(None)).is_err());
+        assert!(held(solver(Some(0.99))).is_ok())
+    }
+}

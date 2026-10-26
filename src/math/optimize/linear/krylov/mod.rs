@@ -8,7 +8,7 @@ use crate::{
         optimize::{OptimizationError, Precondition},
         styled_error,
     },
-    units::{Dimensionless, UnitDiv},
+    units::{Dimensionless, UnitDiv, UnitRatio},
 };
 use std::{mem::replace, ops::Mul};
 
@@ -82,7 +82,7 @@ impl Krylov {
             + ContractWith<X, Output = Quantity<A>>
             + Mul<Quantity<Dimensionless>, Output = F>,
         A: UnitDiv<A, Output = Dimensionless>,
-        <F as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit, Output = Dimensionless>,
+        <F as Tensor>::Unit: UnitRatio,
     {
         match self.method {
             KrylovMethod::ConjugateGradients => descend(
@@ -123,7 +123,7 @@ where
     X: Tensor + ContractWith<F, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = X>,
     F: Tensor + ContractWith<X, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = F>,
     A: UnitDiv<A, Output = Dimensionless>,
-    <F as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit, Output = Dimensionless>,
+    <F as Tensor>::Unit: UnitRatio,
 {
     let scale = right_hand_side.norm();
     let mut residual = right_hand_side.clone();
@@ -169,7 +169,7 @@ where
     X: Tensor + ContractWith<F, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = X>,
     F: Tensor + ContractWith<X, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = F>,
     A: UnitDiv<A, Output = Dimensionless>,
-    <F as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit, Output = Dimensionless>,
+    <F as Tensor>::Unit: UnitRatio,
 {
     let mut previous = right_hand_side.clone();
     let mut current = previous.clone();
@@ -261,7 +261,7 @@ where
     X: Tensor + ContractWith<F, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = X>,
     F: Tensor + ContractWith<X, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = F>,
     A: UnitDiv<A, Output = Dimensionless>,
-    <F as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit, Output = Dimensionless>,
+    <F as Tensor>::Unit: UnitRatio,
 {
     let scale = right_hand_side.norm();
     let mut solution = preconditioning.apply(right_hand_side) * Quantity::new(0.0);

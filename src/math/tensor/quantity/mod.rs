@@ -10,7 +10,9 @@ use super::{
     Tensor, TensorArray, Vector, rank_0::TensorRank0,
 };
 use crate::math::{TensorList, assert::FiniteDifference};
-use crate::units::{Dimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul, UnitRoot};
+use crate::units::{
+    Dimensionless, IsDimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul, UnitRoot,
+};
 use std::{
     cmp::Ordering,
     fmt::{self, Display, Formatter},
@@ -735,8 +737,11 @@ impl<U> Sub<&Vector> for Quantity<U> {
     }
 }
 
-impl From<Quantity<Dimensionless>> for TensorRank0 {
-    fn from(quantity: Quantity<Dimensionless>) -> Self {
+impl<U> From<Quantity<U>> for TensorRank0
+where
+    U: IsDimensionless,
+{
+    fn from(quantity: Quantity<U>) -> Self {
         quantity.value()
     }
 }

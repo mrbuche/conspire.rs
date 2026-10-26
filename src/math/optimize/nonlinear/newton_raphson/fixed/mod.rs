@@ -1,12 +1,13 @@
 use crate::math::{
     Jacobian, Scalar, Solution, Tensor, Vector,
-    optimize::{OptimizationError, StepSize, TrustRegion},
+    optimize::{OptimizationError, StepSize},
 };
 use crate::units::UnitRatio;
 use std::{fmt::Display, ops::Mul};
 
 use super::NewtonRaphson;
 use super::backtrack::{Backtrack, Gradient, half_square_norm, residual_step, searched};
+use super::convergence::shorten;
 use super::verify::not_minimum;
 
 #[expect(clippy::too_many_arguments)]
@@ -60,14 +61,7 @@ where
         }
         let mut decrement = solve(hessian(&solution)?, &indices, &residual)?;
         steps += 1;
-        let mut fraction = 1.0;
-        if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
-            let size = norm.measure(&decrement);
-            if size > radius {
-                decrement *= radius / size;
-                fraction = radius / size
-            }
-        }
+        let fraction = shorten(newton_raphson, &mut decrement);
         decrement.fill_into(&mut applied);
         step_size = if !B::SEARCHES {
             1.0

@@ -1,4 +1,7 @@
-use crate::math::{Scalar, Tensor, Vector, optimize::TrustRegion};
+use crate::{
+    math::{Quantity, Scalar, Tensor, Vector, optimize::TrustRegion},
+    units::UnitRatio,
+};
 
 use super::NewtonRaphson;
 
@@ -34,6 +37,27 @@ pub(crate) fn converged<L, S>(
     };
     met(norms.0, scales.0, newton_raphson.abs_tol.residual)
         && met(norms.1, scales.1, newton_raphson.abs_tol.constraint)
+}
+
+/// Shortens a decrement until it moves the variables no further than the maximum.
+///
+/// The maximum is read back in the unit of the decrement. What is returned is
+/// the share of the decrement that was kept.
+pub(crate) fn shorten<L, S, X>(newton_raphson: &NewtonRaphson<L, S>, decrement: &mut X) -> Scalar
+where
+    X: Tensor,
+    <X as Tensor>::Unit: UnitRatio,
+{
+    if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
+        let size = norm.apply(decrement);
+        let radius = Quantity::new(radius);
+        if size > radius {
+            let share = Scalar::from(radius / size);
+            *decrement *= share;
+            return share;
+        }
+    }
+    1.0
 }
 
 /// Shortens the step until the variables move no further than the maximum.

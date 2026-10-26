@@ -1,6 +1,6 @@
 use crate::math::{
     Hessian, Jacobian, Scalar, Solution, SquareMatrix, Tensor, Vector,
-    optimize::{Direct, OptimizationError, StepSize, TrustRegion},
+    optimize::{Direct, OptimizationError, StepSize},
     sparse::SparseSolver,
 };
 use crate::units::UnitRatio;
@@ -11,6 +11,7 @@ use std::{
 
 use super::NewtonRaphson;
 use super::backtrack::{Backtrack, Gradient, half_square_norm, residual_step, searched};
+use super::convergence::shorten;
 use super::verify::not_minimum;
 
 pub(super) fn unconstrained<B, S, J, H, X>(
@@ -73,14 +74,7 @@ where
             } else {
                 &residual / hessian(&solution)?
             };
-            let mut fraction = 1.0;
-            if let TrustRegion::Fixed { radius, norm } = newton_raphson.trust_region {
-                let size = norm.measure(&decrement);
-                if size > radius {
-                    decrement *= radius / size;
-                    fraction = radius / size
-                }
-            }
+            let fraction = shorten(newton_raphson, &mut decrement);
             step_size = if !B::SEARCHES {
                 1.0
             } else if B::OBJECTIVE {

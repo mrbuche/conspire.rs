@@ -10,7 +10,7 @@ use crate::math::{
     },
     sparse::SparseSolver,
 };
-use crate::units::{Dimensionless, UnitDiv, UnitMul};
+use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitRatio};
 use std::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
@@ -149,6 +149,7 @@ where
     A: UnitDiv<A, Output = Dimensionless>,
     StepSize<J, X>: Mul<Quantity<Dimensionless>, Output = StepSize<J, X>>,
     X: Jacobian + Solution + SecantWith<J, Step = StepSize<J, X>>,
+    <J as Tensor>::Unit: UnitRatio,
     <X as Tensor>::Unit: UnitDiv<<J as Tensor>::Unit>,
     <<X as Tensor>::Unit as UnitDiv<<J as Tensor>::Unit>>::Output: UnitMul<A>,
 {
@@ -206,6 +207,7 @@ where
     A: UnitDiv<A, Output = Dimensionless>,
     StepSize<F, X>: Mul<Quantity<Dimensionless>, Output = StepSize<F, X>>,
     X: Jacobian + Solution + SecantWith<F, Step = StepSize<F, X>>,
+    <F as Tensor>::Unit: UnitRatio,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     <<X as Tensor>::Unit as UnitDiv<<F as Tensor>::Unit>>::Output: UnitMul<A>,
 {
@@ -217,21 +219,19 @@ where
         Ok(residual)
     };
     let mut previous: Option<(F, F)> = None;
-    let mut relative_scale = 0.0;
+    let mut relative_scale = None;
     let mut secant = Secant::new(&initial_guess);
     let mut solution = initial_guess;
     let mut step_size = StepSize::<F, X>::new(INITIAL_STEP_SIZE);
     let mut steps = 0;
     loop {
         let residual = gradient(&solution)?;
-        let residual_norm = conjugate_gradient.error_norm.measure(&residual);
-        if steps == 0 {
-            relative_scale = residual_norm;
-        }
+        let residual_norm = conjugate_gradient.error_norm.apply(&residual);
+        let scale = *relative_scale.get_or_insert(residual_norm);
         if residual_norm < conjugate_gradient.abs_tol.residual() {
             return Ok(solution);
         } else if let Some(rel_tol) = conjugate_gradient.rel_tol
-            && residual_norm / relative_scale < rel_tol
+            && Scalar::from(residual_norm / scale) < rel_tol
         {
             return Ok(solution);
         } else if steps == conjugate_gradient.max_steps {
