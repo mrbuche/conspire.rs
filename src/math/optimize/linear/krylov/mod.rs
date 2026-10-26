@@ -3,7 +3,7 @@ mod test;
 
 use crate::{
     math::{
-        ContractWith, Quantity, Scalar, Style, StyledError, Tensor, Vector,
+        ContractWith, Quantity, Scalar, Style, StyledError, Tensor,
         assert::AssertionError,
         optimize::{OptimizationError, Precondition},
         styled_error,
@@ -66,9 +66,9 @@ impl Default for Krylov {
 }
 
 impl Krylov {
-    /// Conjugate gradients on a system between tensors.
+    /// Iteratively solves a linear system between tensors.
     #[allow(clippy::type_complexity)]
-    pub fn conjugate_gradients<X, F, A>(
+    pub fn solve<X, F, A>(
         &self,
         apply: impl FnMut(&X) -> F,
         preconditioning: impl Precondition<F, X>,
@@ -84,21 +84,6 @@ impl Krylov {
         A: UnitDiv<A, Output = Dimensionless>,
         <F as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit, Output = Dimensionless>,
     {
-        descend(
-            self.max_steps,
-            self.rel_tol,
-            apply,
-            preconditioning,
-            right_hand_side,
-        )
-    }
-    /// Iteratively solves a linear system given its action on a vector.
-    pub fn solve(
-        &self,
-        apply: impl FnMut(&Vector) -> Vector,
-        preconditioning: impl Precondition,
-        right_hand_side: &Vector,
-    ) -> Result<Vector, KrylovError> {
         match self.method {
             KrylovMethod::ConjugateGradients => descend(
                 self.max_steps,
@@ -172,51 +157,55 @@ where
     ))
 }
 
-fn minimize_residual(
+#[allow(clippy::type_complexity)]
+fn minimize_residual<X, F, A>(
     max_steps: usize,
     rel_tol: Scalar,
-    mut apply: impl FnMut(&Vector) -> Vector,
-    preconditioning: impl Precondition,
-    right_hand_side: &Vector,
-) -> Result<Vector, KrylovError> {
-    let size = right_hand_side.len();
-    let mut solution = Vector::zero(size);
-    let divide = |residual: &Vector| preconditioning.apply(residual);
+    mut apply: impl FnMut(&X) -> F,
+    preconditioning: impl Precondition<F, X>,
+    right_hand_side: &F,
+) -> Result<X, KrylovError>
+where
+    X: Tensor + ContractWith<F, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = X>,
+    F: Tensor + ContractWith<X, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = F>,
+    A: UnitDiv<A, Output = Dimensionless>,
+    <F as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit, Output = Dimensionless>,
+{
     let mut previous = right_hand_side.clone();
     let mut current = previous.clone();
-    let mut preconditioned = divide(&previous);
-    let squared = previous.full_contraction(&preconditioned);
-    if squared < 0.0 {
-        return Err(KrylovError::PreconditionerNotPositiveDefinite(squared));
+    let mut preconditioned = preconditioning.apply(&previous);
+    let first = previous.contract_with(&preconditioned);
+    if first < Quantity::new(0.0) {
+        return Err(KrylovError::PreconditionerNotPositiveDefinite(
+            first.value(),
+        ));
     }
-    let scale = squared.sqrt();
-    if scale == 0.0 {
+    let mut solution = preconditioned.clone() * Quantity::new(0.0);
+    if first == Quantity::new(0.0) {
         return Ok(solution);
     }
     let (mut cosine, mut sine) = (-1.0, 0.0);
-    let mut length = scale;
-    let mut off_diagonal = scale;
+    let mut length = 1.0;
+    let mut off_diagonal: Scalar = 1.0;
     let (mut previous_off, mut carried, mut trailing) = (0.0, 0.0, 0.0 as Scalar);
-    let mut direction = Vector::zero(size);
-    let mut older;
-    let mut old = Vector::zero(size);
-    let mut basis;
-    let load = right_hand_side.norm().value();
+    let mut direction = solution.clone();
+    let mut old = solution.clone();
+    let load = right_hand_side.norm();
     let mut watched = 1.0;
     let mut demanded = rel_tol;
     for step in 0..max_steps {
-        basis = &preconditioned * off_diagonal.recip();
-        preconditioned = apply(&basis);
+        let basis = preconditioned * Quantity::new(off_diagonal.recip());
+        let mut next = apply(&basis);
         if step > 0 {
-            preconditioned -= &previous * (off_diagonal / previous_off)
+            next -= previous.clone() * Quantity::new(off_diagonal / previous_off)
         }
-        let diagonal_entry = basis.full_contraction(&preconditioned);
-        preconditioned -= &current * (diagonal_entry / off_diagonal);
-        previous = replace(&mut current, preconditioned);
-        preconditioned = divide(&current);
+        let diagonal_entry: Scalar = (basis.contract_with(&next) / first).into();
+        next -= current.clone() * Quantity::new(diagonal_entry / off_diagonal);
+        previous = replace(&mut current, next);
+        preconditioned = preconditioning.apply(&current);
         previous_off = off_diagonal;
-        let squared = current.full_contraction(&preconditioned);
-        if squared < -Scalar::EPSILON * scale * scale {
+        let squared: Scalar = (current.contract_with(&preconditioned) / first).into();
+        if squared < -Scalar::EPSILON {
             return Err(KrylovError::PreconditionerNotPositiveDefinite(squared));
         }
         off_diagonal = squared.max(0.0).sqrt();
@@ -225,19 +214,18 @@ fn minimize_residual(
         let remaining = sine * trailing - cosine * diagonal_entry;
         carried = sine * off_diagonal;
         trailing = -cosine * off_diagonal;
-        let rotated = remaining
-            .hypot(off_diagonal)
-            .max(Scalar::EPSILON * scale.max(1.0));
+        let rotated = remaining.hypot(off_diagonal).max(Scalar::EPSILON);
         cosine = remaining / rotated;
         sine = off_diagonal / rotated;
-        older = replace(&mut old, direction);
-        direction = (basis - &older * reached - &old * shifted) * rotated.recip();
-        solution += &direction * (cosine * length);
+        let older = replace(&mut old, direction);
+        direction = (basis - older * Quantity::new(reached) - old.clone() * Quantity::new(shifted))
+            * Quantity::new(rotated.recip());
+        solution += direction.clone() * Quantity::new(cosine * length);
         length *= sine;
-        let estimate = length.abs() / scale;
+        let estimate = length.abs();
         let checkpoint = step % PATIENCE == PATIENCE - 1;
         if estimate <= demanded || checkpoint {
-            let truth = (right_hand_side.clone() - apply(&solution)).norm().value() / load;
+            let truth = Scalar::from((right_hand_side.clone() - apply(&solution)).norm() / load);
             if truth <= rel_tol {
                 return Ok(solution);
             }
@@ -256,44 +244,57 @@ fn minimize_residual(
     }
     Err(KrylovError::MaximumStepsReached(
         max_steps,
-        (right_hand_side.clone() - apply(&solution)).norm().value() / load,
+        ((right_hand_side.clone() - apply(&solution)).norm() / load).into(),
     ))
 }
 
-fn restarted(
+#[allow(clippy::type_complexity)]
+fn restarted<X, F, A>(
     max_steps: usize,
     restart: usize,
     rel_tol: Scalar,
-    mut apply: impl FnMut(&Vector) -> Vector,
-    preconditioning: impl Precondition,
-    right_hand_side: &Vector,
-) -> Result<Vector, KrylovError> {
-    let scale = right_hand_side.norm().value();
-    let mut solution = Vector::zero(right_hand_side.len());
-    if scale == 0.0 {
+    mut apply: impl FnMut(&X) -> F,
+    preconditioning: impl Precondition<F, X>,
+    right_hand_side: &F,
+) -> Result<X, KrylovError>
+where
+    X: Tensor + ContractWith<F, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = X>,
+    F: Tensor + ContractWith<X, Output = Quantity<A>> + Mul<Quantity<Dimensionless>, Output = F>,
+    A: UnitDiv<A, Output = Dimensionless>,
+    <F as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit, Output = Dimensionless>,
+{
+    let scale = right_hand_side.norm();
+    let mut solution = preconditioning.apply(right_hand_side) * Quantity::new(0.0);
+    if scale == Quantity::new(0.0) {
         return Ok(solution);
     }
     let restart = restart.max(1);
     let mut steps = 0;
-    let mut relative = 1.0;
+    let mut relative: Scalar = 1.0;
     let mut residual = right_hand_side.clone();
     while steps < max_steps {
-        let beta = residual.norm().value();
-        let mut basis = vec![&residual * beta.recip()];
+        let beta = residual.norm();
+        let share: Scalar = (beta / scale).into();
+        let mut basis = vec![residual.clone()];
+        let mut weights = vec![1.0];
         let mut preconditioned = Vec::new();
         let mut triangle = Vec::<Vec<Scalar>>::new();
         let mut rotations = Vec::<(Scalar, Scalar)>::new();
-        let mut projected = vec![beta];
+        let mut projected = vec![1.0];
         let mut inner = 0;
         while inner < restart && steps < max_steps {
             preconditioned.push(preconditioning.apply(&basis[inner]));
             let mut next = apply(&preconditioned[inner]);
             let mut column = vec![0.0; inner + 2];
-            for (entry, vector) in column.iter_mut().zip(&basis) {
-                *entry = next.full_contraction(vector);
-                next -= vector * *entry;
+            for (index, vector) in basis.iter().enumerate() {
+                let weight: Scalar = weights[index];
+                let coefficient =
+                    Scalar::from(next.contraction_over(vector, beta)) / (weight * weight);
+                next -= vector.clone() * Quantity::new(coefficient);
+                column[index] = coefficient * weight / weights[inner];
             }
-            let subdiagonal = next.norm().value();
+            let weight: Scalar = (next.norm() / beta).into();
+            let subdiagonal = weight / weights[inner];
             column[inner + 1] = subdiagonal;
             for (row, &(cosine, sine)) in rotations.iter().enumerate() {
                 let upper = cosine * column[row] + sine * column[row + 1];
@@ -314,11 +315,12 @@ fn restarted(
             projected[inner] *= cosine;
             inner += 1;
             steps += 1;
-            relative = projected[inner].abs() / scale;
-            if relative <= rel_tol || subdiagonal <= Scalar::EPSILON * beta {
+            relative = projected[inner].abs() * share;
+            if relative <= rel_tol || weight <= Scalar::EPSILON {
                 break;
             }
-            basis.push(next * subdiagonal.recip());
+            basis.push(next);
+            weights.push(weight);
         }
         let mut coefficients = vec![0.0; inner];
         for row in (0..inner).rev() {
@@ -327,11 +329,13 @@ fn restarted(
                 .sum();
             coefficients[row] = (projected[row] - tail) / triangle[row][row];
         }
-        for (coefficient, vector) in coefficients.iter().zip(&preconditioned) {
-            solution += vector * *coefficient;
+        for ((coefficient, weight), vector) in
+            coefficients.iter().zip(&weights).zip(&preconditioned)
+        {
+            solution += vector.clone() * Quantity::new(coefficient / weight);
         }
         residual = right_hand_side.clone() - apply(&solution);
-        relative = residual.norm().value() / scale;
+        relative = (residual.norm() / scale).into();
         if relative <= rel_tol {
             return Ok(solution);
         }

@@ -379,6 +379,19 @@ where
     fn norm(&self) -> Quantity<Self::Unit> {
         Quantity::new(self.full_contraction(self).sqrt())
     }
+    /// Returns the contraction with another tensor of this type over the
+    /// square of a length of this unit.
+    ///
+    /// The contraction of two tensors of a unit is of the square of that unit,
+    /// which not every unit has a name for, so it is given relative to the
+    /// square of a length of the unit, which is a number.
+    fn contraction_over(
+        &self,
+        other: &Self,
+        length: Quantity<Self::Unit>,
+    ) -> Quantity<Dimensionless> {
+        Quantity::new(self.full_contraction(other) / length.value().powi(2))
+    }
     /// Returns the infinity norm.
     fn norm_inf(&self) -> Quantity<Self::Unit> {
         Quantity::new(

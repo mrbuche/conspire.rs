@@ -220,7 +220,7 @@ mod typed {
     fn matches_the_direct_solve() {
         let expected = coupled().solve_lu(&right_hand_side()).unwrap();
         let solution = krylov()
-            .conjugate_gradients(stiffness(coupled()), jacobi(coupled()), &load())
+            .solve(stiffness(coupled()), jacobi(coupled()), &load())
             .unwrap();
         Assert::default()
             .eq_within_tols(flat(&solution), &expected)
@@ -233,7 +233,7 @@ mod typed {
             .solve(apply(&matrix), Preconditioning::None, &right_hand_side())
             .unwrap();
         let typed = krylov()
-            .conjugate_gradients(
+            .solve(
                 stiffness(coupled()),
                 |load: &Load| {
                     Displacement::from([load[0].value(), load[1].value(), load[2].value()])
@@ -248,14 +248,14 @@ mod typed {
     #[test]
     fn refuses_a_nonpositive_curvature() {
         assert!(matches!(
-            krylov().conjugate_gradients(stiffness(indefinite()), jacobi(coupled()), &load()),
+            krylov().solve(stiffness(indefinite()), jacobi(coupled()), &load()),
             Err(KrylovError::NotPositiveDefinite(_))
         ))
     }
     #[test]
     fn a_zero_right_hand_side_gives_a_zero_solution() {
         let solution = krylov()
-            .conjugate_gradients(
+            .solve(
                 stiffness(coupled()),
                 jacobi(coupled()),
                 &Load::from([0.0; 3]),
@@ -270,11 +270,241 @@ mod typed {
             rel_tol: 1e-15,
             ..Default::default()
         };
-        match one_step.conjugate_gradients(stiffness(coupled()), jacobi(coupled()), &load()) {
+        match one_step.solve(stiffness(coupled()), jacobi(coupled()), &load()) {
             Err(KrylovError::MaximumStepsReached(1, relative)) => {
                 assert!(relative > 0.0 && relative < 1.0)
             }
             _ => panic!("expected the steps to run out"),
         }
+    }
+    fn scaled_load(scale: f64) -> Load {
+        Load::from([1.0 * scale, 2.0 * scale, 3.0 * scale])
+    }
+    fn scaled_expected(matrix: &SquareMatrix, scale: f64) -> Vector {
+        matrix
+            .clone()
+            .solve_lu(
+                &[1.0 * scale, 2.0 * scale, 3.0 * scale]
+                    .into_iter()
+                    .collect(),
+            )
+            .unwrap()
+    }
+    #[test]
+    fn minres_serves_the_indefinite_system() {
+        let solution = minres()
+            .solve(stiffness(indefinite()), jacobi(coupled()), &load())
+            .unwrap();
+        Assert::default()
+            .eq_within_tols(
+                flat(&solution),
+                &indefinite().solve_lu(&right_hand_side()).unwrap(),
+            )
+            .unwrap();
+    }
+    #[test]
+    fn minres_does_not_depend_on_the_size_of_the_load() {
+        for scale in [1e-8, 1e-3, 1e5, 1e9] {
+            let solution = minres()
+                .solve(
+                    stiffness(indefinite()),
+                    jacobi(coupled()),
+                    &scaled_load(scale),
+                )
+                .unwrap();
+            let expected = scaled_expected(&indefinite(), scale);
+            let error = (0..3)
+                .map(|i| (solution[i].value() - expected[i]).abs())
+                .fold(0.0_f64, f64::max);
+            assert!(error <= 1e-9 * scale, "off by {error:e} at {scale:e}")
+        }
+    }
+    #[test]
+    fn minres_refuses_a_preconditioner_that_is_not_positive_definite() {
+        let negative = |load: &Load| -> Displacement {
+            Displacement::from([-load[0].value(), -load[1].value(), -load[2].value()])
+        };
+        assert!(matches!(
+            minres().solve(stiffness(coupled()), negative, &load()),
+            Err(KrylovError::PreconditionerNotPositiveDefinite(_))
+        ))
+    }
+    #[test]
+    fn minres_gives_a_zero_solution_for_a_zero_load() {
+        let solution = minres()
+            .solve(
+                stiffness(coupled()),
+                jacobi(coupled()),
+                &Load::from([0.0; 3]),
+            )
+            .unwrap();
+        assert!(flat(&solution).iter().all(|&entry| entry == 0.0))
+    }
+    #[test]
+    fn gmres_serves_the_nonsymmetric_system() {
+        let solution = gmres(30)
+            .solve(stiffness(nonsymmetric()), jacobi(coupled()), &load())
+            .unwrap();
+        Assert::default()
+            .eq_within_tols(
+                flat(&solution),
+                &nonsymmetric().solve_lu(&right_hand_side()).unwrap(),
+            )
+            .unwrap();
+    }
+    #[test]
+    fn gmres_restarts() {
+        let solution = gmres(2)
+            .solve(stiffness(nonsymmetric()), jacobi(coupled()), &load())
+            .unwrap();
+        Assert::default()
+            .eq_within_tols(
+                flat(&solution),
+                &nonsymmetric().solve_lu(&right_hand_side()).unwrap(),
+            )
+            .unwrap();
+    }
+    #[test]
+    fn gmres_does_not_depend_on_the_size_of_the_load() {
+        for scale in [1e-8, 1e-3, 1e5, 1e9] {
+            let solution = gmres(30)
+                .solve(
+                    stiffness(nonsymmetric()),
+                    jacobi(coupled()),
+                    &scaled_load(scale),
+                )
+                .unwrap();
+            let expected = scaled_expected(&nonsymmetric(), scale);
+            let error = (0..3)
+                .map(|i| (solution[i].value() - expected[i]).abs())
+                .fold(0.0_f64, f64::max);
+            assert!(error <= 1e-9 * scale, "off by {error:e} at {scale:e}")
+        }
+    }
+    #[test]
+    fn gmres_matches_the_solve_without_units() {
+        let matrix = nonsymmetric();
+        let bare = gmres(30)
+            .solve(apply(&matrix), Preconditioning::None, &right_hand_side())
+            .unwrap();
+        let typed = gmres(30)
+            .solve(
+                stiffness(nonsymmetric()),
+                |load: &Load| {
+                    Displacement::from([load[0].value(), load[1].value(), load[2].value()])
+                },
+                &load(),
+            )
+            .unwrap();
+        Assert::default()
+            .eq_within_tols(flat(&typed), &bare)
+            .unwrap();
+    }
+    #[test]
+    fn gmres_gives_a_zero_solution_for_a_zero_load() {
+        let solution = gmres(30)
+            .solve(
+                stiffness(coupled()),
+                jacobi(coupled()),
+                &Load::from([0.0; 3]),
+            )
+            .unwrap();
+        assert!(flat(&solution).iter().all(|&entry| entry == 0.0))
+    }
+    #[test]
+    fn gmres_running_out_of_steps_reports_the_relative_residual() {
+        let short = Krylov {
+            max_steps: 1,
+            method: KrylovMethod::Gmres(30),
+            rel_tol: 1e-15,
+        };
+        match short.solve(stiffness(nonsymmetric()), jacobi(coupled()), &load()) {
+            Err(KrylovError::MaximumStepsReached(1, relative)) => {
+                assert!(relative > 0.0 && relative < 1.0)
+            }
+            _ => panic!("expected the steps to run out"),
+        }
+    }
+    #[test]
+    fn gmres_converges_within_one_cycle() {
+        let one_cycle = Krylov {
+            max_steps: 3,
+            method: KrylovMethod::Gmres(30),
+            rel_tol: 1e-12,
+        };
+        let solution = one_cycle
+            .solve(stiffness(nonsymmetric()), jacobi(coupled()), &load())
+            .unwrap();
+        Assert::default()
+            .eq_within_tols(
+                flat(&solution),
+                &nonsymmetric().solve_lu(&right_hand_side()).unwrap(),
+            )
+            .unwrap();
+    }
+    #[test]
+    fn gmres_converges_within_one_cycle_without_a_preconditioner() {
+        let one_cycle = Krylov {
+            max_steps: 3,
+            method: KrylovMethod::Gmres(30),
+            rel_tol: 1e-12,
+        };
+        let solution = one_cycle
+            .solve(
+                stiffness(nonsymmetric()),
+                |load: &Load| {
+                    Displacement::from([load[0].value(), load[1].value(), load[2].value()])
+                },
+                &load(),
+            )
+            .unwrap();
+        Assert::default()
+            .eq_within_tols(
+                flat(&solution),
+                &nonsymmetric().solve_lu(&right_hand_side()).unwrap(),
+            )
+            .unwrap();
+    }
+    #[test]
+    fn minres_converges_within_the_dimension() {
+        let exact = Krylov {
+            max_steps: 3,
+            method: KrylovMethod::Minres,
+            rel_tol: 1e-12,
+        };
+        let solution = exact
+            .solve(stiffness(indefinite()), jacobi(coupled()), &load())
+            .unwrap();
+        Assert::default()
+            .eq_within_tols(
+                flat(&solution),
+                &indefinite().solve_lu(&right_hand_side()).unwrap(),
+            )
+            .unwrap();
+    }
+    #[test]
+    fn minres_stops_when_the_residual_cannot_be_shortened() {
+        let nothing = |_: &Displacement| Load::from([0.0; 3]);
+        assert!(matches!(
+            minres().solve(nothing, jacobi(coupled()), &load()),
+            Err(KrylovError::StoppedShortening(..))
+        ))
+    }
+    #[test]
+    fn minres_refuses_a_preconditioner_that_stops_being_positive_definite() {
+        let calls = std::cell::Cell::new(0);
+        let fading = move |load: &Load| {
+            calls.set(calls.get() + 1);
+            let sign = if calls.get() == 1 { 1.0 } else { -1.0 };
+            Displacement::from([
+                sign * load[0].value(),
+                sign * load[1].value(),
+                sign * load[2].value(),
+            ])
+        };
+        assert!(matches!(
+            minres().solve(stiffness(coupled()), fading, &load()),
+            Err(KrylovError::PreconditionerNotPositiveDefinite(_))
+        ))
     }
 }
