@@ -253,28 +253,28 @@ fn zero_sweeps_leave_the_mesh_unchanged() {
 
 #[test]
 fn one_sweep_stops_the_ratchet_below_the_full_budget() {
-    let mut one = grid(4, 0.9);
-    improve(&mut one, &cube(), 1);
-    let mut full = grid(4, 0.9);
-    improve(&mut full, &cube(), SWEEPS);
+    let (mut one, tessellation) = buffered_torus();
+    improve(&mut one, &tessellation, 1);
+    let (mut full, _) = buffered_torus();
+    improve(&mut full, &tessellation, SWEEPS);
     assert!(worst(&one) < worst(&full) - 0.1);
 }
 
 #[test]
 fn one_sweep_stops_on_the_budget() {
-    let mut mesh = grid(4, 0.9);
-    let error = improve(&mut mesh, &cube(), 1);
+    let (mut mesh, tessellation) = buffered_torus();
+    let error = improve(&mut mesh, &tessellation, 1);
     assert!(
-        matches!(error, MeshError::Budget { sweeps: 1, theta } if (theta - 0.71).abs() < 1.0e-9)
+        matches!(error, MeshError::Budget { sweeps: 1, theta } if (theta - 0.28).abs() < 1.0e-9)
     );
 }
 
 #[test]
 fn the_full_budget_stops_on_a_stall() {
-    let mut mesh = grid(4, 0.9);
+    let mut mesh = grid(2, 0.9);
     let error = improve(&mut mesh, &cube(), SWEEPS);
     assert!(
-        matches!(error, MeshError::Stall { sweeps: 1, theta } if (theta - 0.85).abs() < 1.0e-9)
+        matches!(error, MeshError::Stall { sweeps: 2, theta } if (theta - 0.72).abs() < 1.0e-9)
     );
 }
 
@@ -362,8 +362,7 @@ fn gap(mesh: &Mesh<3>, target: &Tessellation) -> Scalar {
         .fold(0.0, Scalar::max)
 }
 
-#[test]
-fn improves_a_buffered_torus() {
+fn buffered_torus() -> (Mesh<3>, Tessellation) {
     let scale = 1.0;
     let tessellation = torus(scale, 0.15 * scale, 64, 24);
     let mut octree =
@@ -374,7 +373,15 @@ fn improves_a_buffered_torus() {
         .unwrap();
     let mut mesh = octree.dualize();
     tessellation.trim(&mut mesh).unwrap();
-    let mut mesh = mesh.buffer(&tessellation, Fitting::Snap).unwrap();
+    (
+        mesh.buffer(&tessellation, Fitting::Snap).unwrap(),
+        tessellation,
+    )
+}
+
+#[test]
+fn improves_a_buffered_torus() {
+    let (mut mesh, tessellation) = buffered_torus();
     let (before, before_gap) = (worst(&mesh), gap(&mesh, &tessellation));
     let start = Instant::now();
     improve(&mut mesh, &tessellation, SWEEPS);

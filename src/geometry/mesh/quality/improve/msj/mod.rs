@@ -103,7 +103,6 @@ struct Energy<'a> {
     hexes: &'a [[usize; 8]],
     lambda: TensorListVec<Quantity<Length>, CAP>,
     planes: Vec<Plane>,
-    rho: Quantity,
     scales: QuantityVector<Length>,
     theta: Quantity,
 }
@@ -134,7 +133,6 @@ impl Mesh<3> {
                 .map(|_| [Quantity::default(); CAP].into())
                 .collect(),
             planes: Vec::new(),
-            rho: RHO,
             scales: QuantityVector::zero(0),
             theta: Quantity::default(),
         };
@@ -164,7 +162,6 @@ impl Mesh<3> {
                         break 'ratchet None;
                     }
                     energy.theta = Self::next(quality);
-                    energy.rho *= 2.0;
                     continue 'ratchet;
                 }
                 if stalled {
@@ -360,7 +357,7 @@ impl Energy<'_> {
     fn settle(&mut self, coordinates: &Coordinates<3>) {
         self.planes.iter().for_each(|plane| {
             let node = self.boundary[plane.boundary];
-            self.lambda[plane.boundary][plane.slot] += self.rho * plane.residual(&coordinates[node])
+            self.lambda[plane.boundary][plane.slot] += RHO * plane.residual(&coordinates[node])
         })
     }
     fn evaluate(
@@ -386,9 +383,9 @@ impl Energy<'_> {
             let node = self.boundary[plane.boundary];
             let residual = plane.residual(&coordinates[node]);
             let multiplier = self.lambda[plane.boundary][plane.slot];
-            total += multiplier * residual + self.rho * residual * residual * 0.5;
+            total += multiplier * residual + RHO * residual * residual * 0.5;
             if let Some(gradient) = gradient.as_deref_mut() {
-                gradient[node] += &plane.normal * (multiplier + self.rho * residual)
+                gradient[node] += &plane.normal * (multiplier + RHO * residual)
             }
         });
         total
