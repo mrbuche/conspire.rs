@@ -564,6 +564,161 @@ mod fixed {
             &Vector::from([4.0, 3.0]),
         )
     }
+    fn identity() -> SquareMatrix {
+        SquareMatrix::from([[1.0, 0.0], [0.0, 1.0]])
+    }
+    #[test]
+    fn a_trust_region_limits_each_step() {
+        let solved = |max_steps| {
+            NewtonRaphson {
+                max_steps,
+                trust_region: TrustRegion::Fixed {
+                    radius: 2.0,
+                    norm: Norm::Euclidean,
+                },
+                ..NewtonRaphson::default()
+            }
+            .root(
+                |x: &Vector| Ok(Vector::from([x[0] - 10.0, x[1] - 7.0])),
+                |_: &Vector| Ok(identity()),
+                Vector::from([0.0, 3.0]),
+                vec![EqualityConstraint::Fixed(vec![1])],
+                None,
+            )
+        };
+        assert!(solved(4).is_err());
+        assert!(solved(5).is_ok())
+    }
+    #[test]
+    fn the_increment_lent_is_the_decrement_and_nothing_over_the_fixed() -> Result<(), AssertionError>
+    {
+        use crate::math::optimize::RootFindingIncremental;
+        let mut lent = vec![];
+        NewtonRaphson::default().root_incremental(
+            |x: &Vector| Ok(Vector::from([x[0] - 1.0, x[1] - 2.0])),
+            |_: &Vector| Ok(identity()),
+            |_: &Vector, applied: &Vector, step: Scalar, accepted: bool| {
+                if accepted {
+                    lent.push((applied.clone(), step))
+                }
+                Ok(())
+            },
+            Vector::from([0.0, 5.0]),
+            vec![EqualityConstraint::Fixed(vec![1])],
+            None,
+        )?;
+        assert_eq!(lent.len(), 1);
+        assert_eq!(lent[0].1, 1.0);
+        Assert::default().eq_within_tols(&lent[0].0, &Vector::from([-1.0, 0.0]))
+    }
+    fn atan_with<S>(search: S) -> Result<Vector, OptimizationError>
+    where
+        S: ResidualMerit,
+    {
+        NewtonRaphson::default().with_line_search(search).root(
+            |x: &Vector| Ok(Vector::from([x[0].atan(), x[1] + x[0]])),
+            |x: &Vector| {
+                Ok(SquareMatrix::from([
+                    [1.0 / (1.0 + x[0] * x[0]), 0.0],
+                    [1.0, 1.0],
+                ]))
+            },
+            Vector::from([3.0, 5.0]),
+            vec![EqualityConstraint::Fixed(vec![1])],
+            None,
+        )
+    }
+    #[test]
+    fn a_search_judges_the_share_of_a_step_a_trust_region_leaves() {
+        let solution = NewtonRaphson {
+            max_steps: 4,
+            trust_region: TrustRegion::Fixed {
+                radius: 1.0,
+                norm: Norm::Euclidean,
+            },
+            ..NewtonRaphson::default()
+        }
+        .with_line_search(Residual {
+            control: 0.45,
+            cut_back: 5e-1,
+            max_steps: MAX_STEPS,
+        })
+        .root(
+            |x: &Vector| Ok(Vector::from([x[0].atan(), x[1] + x[0]])),
+            |x: &Vector| {
+                Ok(SquareMatrix::from([
+                    [1.0 / (1.0 + x[0] * x[0]), 0.0],
+                    [1.0, 1.0],
+                ]))
+            },
+            Vector::from([3.0, 5.0]),
+            vec![EqualityConstraint::Fixed(vec![1])],
+            None,
+        )
+        .unwrap();
+        assert!(solution[0].abs() < 1e-6)
+    }
+    #[test]
+    fn a_step_cut_back_by_the_search_is_the_step_taken() {
+        assert!(atan_with(NoSearch).is_err());
+        let solution = atan_with(Residual {
+            control: CONTROL_1,
+            cut_back: 5e-1,
+            max_steps: MAX_STEPS,
+        })
+        .unwrap();
+        assert!(solution[0].abs() < 1e-6 && solution[1] == 5.0)
+    }
+}
+
+mod direct {
+    use super::super::solve::direct;
+    use super::*;
+    use crate::math::{SquareMatrix, Vector, sparse::SparseSolver};
+    fn tangent(scale: Scalar) -> SquareMatrix {
+        SquareMatrix::from([
+            [4.0 * scale, 1.0, 0.0],
+            [1.0, 5.0 * scale, 2.0],
+            [0.0, 2.0, 6.0 * scale],
+        ])
+    }
+    fn reduced() -> Option<SparseSolver> {
+        Some(SparseSolver::from_pattern(
+            2,
+            vec![(0, 0), (0, 1), (1, 0), (1, 1)],
+            false,
+        ))
+    }
+    fn solved(sparse: Option<SparseSolver>, scale: Scalar) -> Vector {
+        direct(sparse)(tangent(scale), &[1], &Vector::from([1.0, 2.0, 3.0])).unwrap()
+    }
+    #[test]
+    fn dense_solves_over_the_entries_not_fixed() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(solved(None, 1.0), &Vector::from([0.25, 0.0, 0.5]))
+    }
+    #[test]
+    fn sparse_solves_over_the_entries_not_fixed() -> Result<(), AssertionError> {
+        Assert::default().eq_within_tols(solved(reduced(), 1.0), &Vector::from([0.25, 0.0, 0.5]))
+    }
+    #[test]
+    fn a_later_tangent_is_not_solved_with_an_earlier_factorization() -> Result<(), AssertionError> {
+        let mut dense = direct(None);
+        let residual = Vector::from([1.0, 2.0, 3.0]);
+        let first: Vector = dense(tangent(1.0), &[1], &residual).unwrap();
+        let second: Vector = dense(tangent(2.0), &[1], &residual).unwrap();
+        Assert::default().eq_within_tols(&first, &Vector::from([0.25, 0.0, 0.5]))?;
+        Assert::default().eq_within_tols(&second, &Vector::from([0.125, 0.0, 0.25]))
+    }
+    #[test]
+    fn nothing_fixed_solves_the_whole_system() -> Result<(), AssertionError> {
+        let decrement: Vector = direct(None)(
+            SquareMatrix::from([[2.0, 0.0], [0.0, 4.0]]),
+            &[],
+            &Vector::from([1.0, 2.0]),
+        )
+        .unwrap();
+        Assert::default().eq_within_tols(&decrement, &Vector::from([0.5, 0.5]))
+    }
 }
 
 mod prescribed {
@@ -669,16 +824,22 @@ mod prescribed {
     struct Diagonal;
     impl LinearSolver for Diagonal {
         type Tangent = Vector;
+        type Residual = Vector;
+        type Decrement = Vector;
         fn solve(
             &self,
             tangent: Vector,
-            retained: &[usize],
+            fixed: &[usize],
             residual: &Vector,
         ) -> Result<Vector, String> {
-            Ok(retained
-                .iter()
-                .zip(residual.iter())
-                .map(|(&dof, residual)| residual / tangent[dof])
+            Ok((0..residual.len())
+                .map(|dof| {
+                    if fixed.contains(&dof) {
+                        0.0
+                    } else {
+                        residual[dof] / tangent[dof]
+                    }
+                })
                 .collect())
         }
     }

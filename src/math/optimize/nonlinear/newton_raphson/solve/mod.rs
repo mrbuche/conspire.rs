@@ -29,7 +29,7 @@ where
     F: Jacobian,
     for<'a> &'a F: Div<J, Output = X>,
     J: Hessian,
-    X: Solution,
+    X: Jacobian + Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -61,9 +61,9 @@ where
 impl<L, S, F, J, X> RootFinding<F, J, X> for NewtonRaphson<L, S>
 where
     S: ResidualMerit,
-    L: LinearSolver<Tangent = J>,
+    L: LinearSolver<Tangent = J, Residual = F, Decrement = X>,
     F: Jacobian,
-    X: Solution,
+    X: Jacobian + Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {
@@ -94,7 +94,7 @@ where
     F: Jacobian,
     for<'a> &'a F: Div<J, Output = X>,
     J: Hessian,
-    X: Solution,
+    X: Jacobian + Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -138,7 +138,7 @@ where
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
-    X: Solution,
+    X: Jacobian + Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -175,14 +175,14 @@ where
     J: ContractWith<X, Output = Quantity<U>>,
     Dimensionless: UnitMul<U, Output = U>,
     for<'a> &'a X: Mul<Quantity<Dimensionless>, Output = X>,
-    L: LinearSolver<Tangent = H>,
+    L: LinearSolver<Tangent = H, Residual = J, Decrement = X>,
     F: Erase<Erased = Scalar> + Tensor,
     <J as Tensor>::Unit: UnitMul<<X as Tensor>::Unit>,
     <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
     <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
         Is<<F as Tensor>::Unit>,
     J: Jacobian,
-    X: Solution,
+    X: Jacobian + Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {
@@ -223,7 +223,7 @@ where
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
-    X: Solution,
+    X: Jacobian + Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -373,7 +373,7 @@ where
     H: Hessian,
     J: Jacobian,
     for<'a> &'a J: Div<H, Output = X>,
-    X: Solution,
+    X: Jacobian + Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X> + Mul<Scalar, Output = X>,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -451,10 +451,10 @@ pub(super) fn iterate_linear<B, L, S, J, H, X>(
 ) -> Result<X, OptimizationError>
 where
     B: Backtrack + Gradient<X, J, X>,
-    L: LinearSolver<Tangent = H>,
+    L: LinearSolver<Tangent = H, Residual = J, Decrement = X>,
     S: Display,
     J: Jacobian,
-    X: Solution,
+    X: Jacobian + Solution,
     <X as Tensor>::Unit: UnitRatio,
     for<'a> &'a X: Mul<StepSize<X, X>, Output = X>,
 {
@@ -467,11 +467,10 @@ where
             hessian,
             update,
             initial_guess,
-            |tangent, _, retained, residual, decrement| {
-                *decrement = newton_raphson
+            |tangent, fixed, residual| {
+                Ok(newton_raphson
                     .linear_solver
-                    .solve(tangent, retained, residual)?;
-                Ok(())
+                    .solve(tangent, fixed, residual)?)
             },
             None::<fn(H, &[bool], &[usize]) -> Option<bool>>,
             indices,
@@ -483,24 +482,44 @@ where
     .map_err(|error| OptimizationError::upstream(error, newton_raphson))
 }
 
-pub(super) fn direct<H>(
+pub(super) fn direct<H, F, X>(
     sparse: Option<SparseSolver>,
-) -> impl FnMut(H, &[bool], &[usize], &Vector, &mut Vector) -> Result<(), OptimizationError>
+) -> impl FnMut(H, &[usize], &F) -> Result<X, OptimizationError>
 where
     H: Hessian,
+    F: Jacobian,
+    X: Jacobian + Solution,
 {
     let mut factorization = None;
-    move |hessian, retained, unmap, residual, decrement| {
-        if let Some(ref solver) = sparse {
-            *decrement = solver.solve(|i, j| hessian.entry(unmap[i], unmap[j]), residual)?
+    move |hessian, fixed, residual| {
+        let size = residual.size();
+        let mut retained = vec![true; size];
+        fixed.iter().for_each(|&index| retained[index] = false);
+        let unmap: Vec<usize> = retained
+            .iter()
+            .enumerate()
+            .filter_map(|(index, &keep)| keep.then_some(index))
+            .collect();
+        let mut flattened = Vector::zero(size);
+        residual.fill_into(&mut flattened);
+        let reduced: Vector = unmap.iter().map(|&index| flattened[index]).collect();
+        let solved = if let Some(ref solver) = sparse {
+            solver.solve(|i, j| hessian.entry(unmap[i], unmap[j]), &reduced)?
         } else {
             let factorization =
                 factorization.get_or_insert_with(|| LuDecomposition::zero(unmap.len()));
             hessian
-                .retain_from(retained)
+                .retain_from(&retained)
                 .factorize_lu_into(factorization)?;
-            factorization.solve_into(residual, decrement)
-        }
-        Ok(())
+            let mut solved = Vector::zero(unmap.len());
+            factorization.solve_into(&reduced, &mut solved);
+            solved
+        };
+        flattened.iter_mut().for_each(|entry| *entry = 0.0);
+        unmap
+            .into_iter()
+            .zip(solved)
+            .for_each(|(index, entry)| flattened[index] = entry);
+        Ok(X::from(flattened))
     }
 }
