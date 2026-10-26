@@ -2,7 +2,7 @@
 mod test;
 
 use crate::math::{
-    Erase, Jacobian, Norm, Scalar, Solution, Tensor,
+    ContractWith, Erase, Jacobian, Norm, Quantity, Scalar, Solution, Tensor,
     optimize::{
         BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, NoSearch, ObjectiveMerit,
         Optimization, OptimizationError, StepSize, Tolerances, UNSUPPORTED,
@@ -10,7 +10,7 @@ use crate::math::{
     },
     sparse::SparseSolver,
 };
-use crate::units::{UnitDiv, UnitMul, UnitSum};
+use crate::units::{Dimensionless, UnitDiv, UnitMul, UnitSum};
 use std::{
     fmt::{self, Debug, Formatter},
     ops::Mul,
@@ -138,7 +138,7 @@ impl<S> ConjugateGradient<S> {
     }
 }
 
-impl<S, Q, F, J, X, E> Optimization<F, J, (), X> for ConjugateGradient<S, Q>
+impl<S, Q, F, J, X, E, A> Optimization<F, J, (), X> for ConjugateGradient<S, Q>
 where
     S: ObjectiveMerit,
     Q: StepEstimator,
@@ -147,8 +147,12 @@ where
     <<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output: UnitSum,
     <<<J as Tensor>::Unit as UnitMul<<X as Tensor>::Unit>>::Output as UnitSum>::Output:
         crate::math::Is<<F as Tensor>::Unit>,
+    J: ContractWith<J, Output = Quantity<A>>,
     J: Erase<Erased = E> + Jacobian + Mul<StepSize<J, X>, Output = X>,
     for<'a> &'a J: Mul<StepSize<J, X>, Output = X>,
+    A: UnitDiv<A, Output = Dimensionless>,
+    J: Mul<Quantity<Dimensionless>, Output = J>,
+    StepSize<J, X>: Mul<Quantity<Dimensionless>, Output = StepSize<J, X>>,
     X: Erase<Erased = E> + Jacobian + Solution,
     X: SecantWith<J, Step = StepSize<J, X>>,
     <X as Tensor>::Unit: UnitDiv<<J as Tensor>::Unit>,
@@ -184,15 +188,15 @@ where
     }
 }
 
-fn dot<F, E>(a: &F, b: &F) -> Scalar
-where
-    F: Erase<Erased = E>,
-    E: Tensor,
-{
-    a.erase().full_contraction(b.erase())
+fn restart_if_unbounded(weight: Quantity<Dimensionless>) -> Quantity<Dimensionless> {
+    if weight > Quantity::new(0.0) && weight < Quantity::new(Scalar::INFINITY) {
+        weight
+    } else {
+        Quantity::new(0.0)
+    }
 }
 
-fn descend<S, Q, F, X, E>(
+fn descend<S, Q, F, X, E, A>(
     conjugate_gradient: &ConjugateGradient<S, Q>,
     mut function: impl FnMut(&X) -> Result<Scalar, String>,
     mut jacobian: impl FnMut(&X) -> Result<F, String>,
@@ -202,8 +206,12 @@ fn descend<S, Q, F, X, E>(
 where
     S: ObjectiveMerit,
     Q: StepEstimator,
+    F: ContractWith<F, Output = Quantity<A>>,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
+    A: UnitDiv<A, Output = Dimensionless>,
+    F: Mul<Quantity<Dimensionless>, Output = F>,
+    StepSize<F, X>: Mul<Quantity<Dimensionless>, Output = StepSize<F, X>>,
     X: Erase<Erased = E> + Jacobian + Solution,
     X: SecantWith<F, Step = StepSize<F, X>>,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
@@ -241,31 +249,26 @@ where
             ));
         }
         steps += 1;
-        let squared = dot(&residual, &residual);
+        let squared = residual.contract_with(&residual);
         let mut direction = match previous.take() {
-            Some((last_residual, mut last_direction)) => {
-                let last_squared = dot(&last_residual, &last_residual);
-                let change = squared - dot(&residual, &last_residual);
+            Some((last_residual, last_direction)) => {
+                let last_squared = last_residual.contract_with(&last_residual);
+                let change = squared - residual.contract_with(&last_residual);
                 let weight = match conjugate_gradient.conjugacy {
                     Conjugacy::FletcherReeves => squared / last_squared,
                     Conjugacy::HestenesStiefel => {
                         change
-                            / (dot(&last_direction, &residual)
-                                - dot(&last_direction, &last_residual))
+                            / (last_direction.contract_with(&residual)
+                                - last_direction.contract_with(&last_residual))
                     }
                     Conjugacy::PolakRibiere => change / last_squared,
                 };
-                last_direction *= if weight.is_finite() {
-                    weight.max(0.0)
-                } else {
-                    0.0
-                };
-                last_direction += &residual;
-                last_direction
+                let weight = restart_if_unbounded(weight);
+                last_direction * weight + &residual
             }
             None => residual.clone(),
         };
-        if dot(&residual, &direction) <= 0.0 {
+        if residual.contract_with(&direction) <= Quantity::new(0.0) {
             direction = residual.clone();
         }
         step_size = secant.step_size(
@@ -274,13 +277,14 @@ where
             &residual,
             step_size,
         );
+        let scale = (squared / direction.contract_with(&direction)).sqrt();
         let taken = conjugate_gradient.backtracking_line_search::<F, E>(
             |trial: &X, _: Scalar| function(trial),
             &mut gradient,
             &solution,
             &residual,
             &direction,
-            (step_size * (squared / dot(&direction, &direction)).sqrt()).value(),
+            (step_size * scale).value(),
         )?;
         solution -= &direction * StepSize::<F, X>::new(taken);
         previous = Some((residual, direction));

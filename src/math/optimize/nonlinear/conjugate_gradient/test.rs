@@ -142,6 +142,55 @@ mod minimize {
     }
 }
 
+mod weight {
+    use super::super::restart_if_unbounded;
+    use crate::{math::Quantity, units::Dimensionless};
+    fn bounded(weight: f64) -> f64 {
+        restart_if_unbounded(Quantity::<Dimensionless>::new(weight)).value()
+    }
+    #[test]
+    fn a_positive_weight_is_kept() {
+        assert_eq!(bounded(0.5), 0.5)
+    }
+    #[test]
+    fn a_negative_weight_restarts() {
+        assert_eq!(bounded(-0.5), 0.0)
+    }
+    #[test]
+    fn an_infinite_weight_restarts() {
+        assert_eq!(bounded(f64::INFINITY), 0.0)
+    }
+    #[test]
+    fn an_undefined_weight_restarts() {
+        assert_eq!(bounded(f64::NAN), 0.0)
+    }
+}
+
+mod units {
+    use super::*;
+    use crate::{
+        math::Quantity,
+        units::{Dimensionless, Length, ReciprocalLength},
+    };
+    #[test]
+    fn a_quantity_with_a_unit_is_minimized() -> Result<(), OptimizationError> {
+        let x = ConjugateGradient::default().minimize(
+            |x: &Quantity<Length>| {
+                Ok(Quantity::<Dimensionless>::new(
+                    (x.value() - 1.0).powi(2) / 2.0,
+                ))
+            },
+            |x: &Quantity<Length>| Ok(Quantity::<ReciprocalLength>::new(x.value() - 1.0)),
+            |_| Ok(()),
+            Quantity::<Length>::new(4.0),
+            vec![EqualityConstraint::None],
+            None,
+        )?;
+        assert!((x.value() - 1.0).abs() < 1e-6);
+        Ok(())
+    }
+}
+
 mod conjugacy {
     use super::*;
     fn solves(conjugacy: Conjugacy, max_steps: usize) -> Result<(), OptimizationError> {
