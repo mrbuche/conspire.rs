@@ -5,8 +5,9 @@ use crate::math::assert::FiniteDifference;
 use crate::units::Dimensionless;
 
 use crate::math::{
-    Erase, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution, SquareMatrix, Tensor,
-    TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, TensorVector, write_tensor_rank_0,
+    ContractWith, Erase, Jacobian, Matrix, Quantity, QuantityVector, Scalar, Solution,
+    SquareMatrix, Tensor, TensorRank1Vec, TensorRank2, TensorTuple, TensorVec, TensorVector,
+    write_tensor_rank_0,
 };
 use std::{
     fmt::{Display, Formatter, Result},
@@ -374,6 +375,13 @@ impl Erase for Vector {
     type Erased = Self;
     fn erase(&self) -> &Self {
         self
+    }
+}
+
+impl ContractWith<Vector> for Vector {
+    type Output = Quantity<Dimensionless>;
+    fn contract_with(&self, vector: &Vector) -> Self::Output {
+        Quantity::new(self.full_contraction(vector))
     }
 }
 

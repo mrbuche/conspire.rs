@@ -6,7 +6,7 @@ use crate::math::{
     optimize::{
         BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, NoSearch, ObjectiveMerit,
         Optimization, OptimizationError, StepSize, Tolerances, UNSUPPORTED,
-        nonlinear::step_size::{BarzilaiBorwein, Secant, StepEstimator},
+        nonlinear::step_size::{BarzilaiBorwein, Secant, SecantWith, StepEstimator},
     },
     sparse::SparseSolver,
 };
@@ -150,6 +150,7 @@ where
     J: Erase<Erased = E> + Jacobian + Mul<StepSize<J, X>, Output = X>,
     for<'a> &'a J: Mul<StepSize<J, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    X: SecantWith<J, Step = StepSize<J, X>>,
     <X as Tensor>::Unit: UnitDiv<<J as Tensor>::Unit>,
     E: Tensor,
 {
@@ -204,6 +205,7 @@ where
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    X: SecantWith<F, Step = StepSize<F, X>>,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
 {
@@ -218,7 +220,7 @@ where
     let mut relative_scale = 0.0;
     let mut secant = Secant::new(&initial_guess);
     let mut solution = initial_guess;
-    let mut step_size = INITIAL_STEP_SIZE;
+    let mut step_size = StepSize::<F, X>::new(INITIAL_STEP_SIZE);
     let mut steps = 0;
     loop {
         let residual = gradient(&solution)?;
@@ -278,7 +280,7 @@ where
             &solution,
             &residual,
             &direction,
-            step_size * (squared / dot(&direction, &direction)).sqrt(),
+            (step_size * (squared / dot(&direction, &direction)).sqrt()).value(),
         )?;
         solution -= &direction * StepSize::<F, X>::new(taken);
         previous = Some((residual, direction));

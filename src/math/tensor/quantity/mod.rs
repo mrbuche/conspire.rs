@@ -6,8 +6,8 @@ pub(crate) mod sparse_vec_2d;
 pub(crate) mod vec;
 
 use super::{
-    Differentiable, Erase, Hessian, HessianBlock, Jacobian, Solution, SquareMatrix, Tensor,
-    TensorArray, Vector, rank_0::TensorRank0,
+    ContractWith, Differentiable, Erase, Hessian, HessianBlock, Jacobian, Solution, SquareMatrix,
+    Tensor, TensorArray, Vector, rank_0::TensorRank0,
 };
 use crate::math::{TensorList, assert::FiniteDifference};
 use crate::units::{Dimensionless, UnitDiv, UnitHalves, UnitInv, UnitMul, UnitRoot};
@@ -379,6 +379,16 @@ impl Mul<Quantity<Dimensionless>> for &TensorRank0 {
     type Output = TensorRank0;
     fn mul(self, quantity: Quantity<Dimensionless>) -> Self::Output {
         self * quantity.0
+    }
+}
+
+impl<U, V> ContractWith<Quantity<V>> for Quantity<U>
+where
+    U: UnitMul<V>,
+{
+    type Output = Quantity<<U as UnitMul<V>>::Output>;
+    fn contract_with(&self, quantity: &Quantity<V>) -> Self::Output {
+        Quantity::new(self.0 * quantity.0)
     }
 }
 

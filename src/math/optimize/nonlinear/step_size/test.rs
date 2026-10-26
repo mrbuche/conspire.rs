@@ -1,5 +1,8 @@
 use super::{BarzilaiBorwein, BarzilaiBorweinStep, Secant, StepEstimator};
-use crate::math::{Scalar, Vector};
+use crate::{
+    math::{Quantity, Scalar, Vector},
+    units::{Length, ReciprocalLength, UnitDiv},
+};
 
 fn barzilai_borwein(step: BarzilaiBorweinStep) -> BarzilaiBorwein {
     BarzilaiBorwein { step }
@@ -55,12 +58,14 @@ mod secant {
     fn the_first_look_has_no_change_to_go_on() {
         let (mut secant, start) = secant();
         assert_eq!(
-            secant.step_size(
-                &barzilai_borwein(BarzilaiBorweinStep::Short),
-                &start,
-                &residual(&start),
-                0.5
-            ),
+            secant
+                .step_size(
+                    &barzilai_borwein(BarzilaiBorweinStep::Short),
+                    &start,
+                    &residual(&start),
+                    Quantity::new(0.5)
+                )
+                .value(),
             0.5
         )
     }
@@ -73,10 +78,10 @@ mod secant {
         ] {
             let (mut secant, start) = secant();
             let estimator = barzilai_borwein(step);
-            secant.step_size(&estimator, &start, &residual(&start), 0.5);
+            secant.step_size(&estimator, &start, &residual(&start), Quantity::new(0.5));
             let next = Vector::from([0.25, -0.5]);
-            let size = secant.step_size(&estimator, &next, &residual(&next), 0.5);
-            assert!((size - 1.0 / CURVATURE).abs() < 1e-12)
+            let size = secant.step_size(&estimator, &next, &residual(&next), Quantity::new(0.5));
+            assert!((size.value() - 1.0 / CURVATURE).abs() < 1e-12)
         }
     }
     #[test]
@@ -87,14 +92,27 @@ mod secant {
             &barzilai_borwein(BarzilaiBorweinStep::Short),
             &start,
             &residual(&start),
-            0.5,
+            Quantity::new(0.5),
         );
         secant.step_size(
             &barzilai_borwein(BarzilaiBorweinStep::Short),
             &next,
             &residual(&next),
-            0.5,
+            Quantity::new(0.5),
         );
         assert_eq!(secant.solution(), &next)
     }
+}
+
+#[test]
+fn a_step_takes_the_unit_of_the_solution_over_the_residual() {
+    type Step = Quantity<<Length as UnitDiv<ReciprocalLength>>::Output>;
+    let mut secant = Secant::new(&Quantity::<Length>::new(1.0));
+    let estimator = barzilai_borwein(BarzilaiBorweinStep::Short);
+    let residual = |x: &Quantity<Length>| Quantity::<ReciprocalLength>::new(4.0 * x.value());
+    let start = Quantity::<Length>::new(1.0);
+    secant.step_size(&estimator, &start, &residual(&start), Step::new(0.5));
+    let next = Quantity::<Length>::new(0.25);
+    let size: Step = secant.step_size(&estimator, &next, &residual(&next), Step::new(0.5));
+    assert!((size.value() - 0.25).abs() < 1e-12)
 }

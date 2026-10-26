@@ -1,6 +1,8 @@
 use super::StepEstimator;
-use crate::math::Scalar;
-use std::fmt::{self, Display, Formatter};
+use std::{
+    fmt::{self, Display, Formatter},
+    ops::Div,
+};
 
 /// The step sizes of Barzilai and Borwein.
 ///
@@ -30,7 +32,11 @@ impl Display for BarzilaiBorwein {
 }
 
 impl StepEstimator for BarzilaiBorwein {
-    fn estimate(&self, ss: Scalar, sy: Scalar, yy: Scalar, iteration: usize) -> Scalar {
+    fn estimate<SS, SY, YY, T>(&self, ss: SS, sy: SY, yy: YY, iteration: usize) -> T
+    where
+        SS: Div<SY, Output = T>,
+        SY: Div<YY, Output = T>,
+    {
         match self.step {
             Step::Short => sy / yy,
             Step::Long => ss / sy,

@@ -2,12 +2,12 @@
 mod test;
 
 use crate::math::{
-    Erase, Is, Jacobian, Matrix, Norm, Scalar, Solution, Tensor, Vector,
+    Erase, Is, Jacobian, Matrix, Norm, Quantity, Scalar, Solution, Tensor, Vector,
     optimize::{
         BacktrackingLineSearch, EqualityConstraint, EqualityConstraints, NoSearch, ObjectiveMerit,
         Optimization, OptimizationError, RootFinding, StepSize, Tolerances, UNSUPPORTED,
         no_objective,
-        nonlinear::step_size::{BarzilaiBorwein, Secant, StepEstimator},
+        nonlinear::step_size::{BarzilaiBorwein, Secant, SecantWith, StepEstimator},
     },
     sparse::SparseSolver,
 };
@@ -132,6 +132,7 @@ where
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    X: SecantWith<F, Step = StepSize<F, X>>,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -197,6 +198,7 @@ where
     J: Erase<Erased = E> + Jacobian + Mul<StepSize<J, X>, Output = X>,
     for<'a> &'a J: Mul<StepSize<J, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    X: SecantWith<J, Step = StepSize<J, X>>,
     <X as Tensor>::Unit: UnitDiv<<J as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -265,6 +267,7 @@ where
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    X: SecantWith<F, Step = StepSize<F, X>>,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
 {
@@ -276,7 +279,7 @@ where
     let mut residual;
     let mut secant = Secant::new(&initial_guess);
     let mut solution = initial_guess;
-    let mut step_size = INITIAL_STEP_SIZE;
+    let mut step_size = StepSize::<F, X>::new(INITIAL_STEP_SIZE);
     let mut steps = 0;
     loop {
         residual = if let Some(ref extra) = constraint {
@@ -299,15 +302,15 @@ where
                 &residual,
                 step_size,
             );
-            step_size = gradient_descent.backtracking_line_search::<F, E>(
+            step_size = StepSize::<F, X>::new(gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
                 &residual,
                 &residual,
-                step_size,
-            )?;
-            solution -= residual * StepSize::<F, X>::new(step_size);
+                step_size.value(),
+            )?);
+            solution -= residual * step_size;
         }
     }
 }
@@ -325,6 +328,7 @@ where
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    X: SecantWith<F, Step = StepSize<F, X>>,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
 {
@@ -333,7 +337,7 @@ where
     let mut residual_norm;
     let mut secant = Secant::new(&initial_guess);
     let mut solution = initial_guess;
-    let mut step_size = INITIAL_STEP_SIZE;
+    let mut step_size = StepSize::<F, X>::new(INITIAL_STEP_SIZE);
     let mut steps = 0;
     loop {
         residual = jacobian(&solution)?;
@@ -361,15 +365,15 @@ where
                 &residual,
                 step_size,
             );
-            step_size = gradient_descent.backtracking_line_search::<F, E>(
+            step_size = StepSize::<F, X>::new(gradient_descent.backtracking_line_search::<F, E>(
                 |trial: &X, _: Scalar| function(trial),
                 &mut jacobian,
                 &solution,
                 &residual,
                 &residual,
-                step_size,
-            )?;
-            solution -= residual * StepSize::<F, X>::new(step_size);
+                step_size.value(),
+            )?);
+            solution -= residual * step_size;
         }
     }
 }
@@ -385,7 +389,7 @@ where
     S: ObjectiveMerit,
     Q: StepEstimator,
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
-    X: Erase<Erased = E> + Jacobian,
+    X: Erase<Erased = E> + Jacobian + SecantWith<F, Step = StepSize<F, X>>,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -396,12 +400,12 @@ where
     let mut residual_solution;
     let mut secant_solution = Secant::new(&initial_guess);
     let mut solution = initial_guess;
-    let mut step_size_solution = INITIAL_STEP_SIZE;
+    let mut step_size_solution = StepSize::<F, X>::new(INITIAL_STEP_SIZE);
     let num_constraints = constraint_rhs.len();
     let mut residual_multipliers;
     let mut multipliers = Vector::zero(num_constraints);
     let mut secant_multipliers = Secant::new(&multipliers);
-    let mut step_size_multipliers = INITIAL_STEP_SIZE;
+    let mut step_size_multipliers = Quantity::new(INITIAL_STEP_SIZE);
     let mut step_size;
     let mut steps = 0;
     loop {
@@ -432,7 +436,9 @@ where
                 &residual_multipliers,
                 step_size_multipliers,
             );
-            step_size = step_size_solution.min(step_size_multipliers);
+            step_size = step_size_solution
+                .value()
+                .min(step_size_multipliers.value());
             solution -= residual_solution * StepSize::<F, X>::new(step_size);
             multipliers += residual_multipliers * step_size;
         }
@@ -452,6 +458,7 @@ where
     F: Erase<Erased = E> + Jacobian + Mul<StepSize<F, X>, Output = X>,
     for<'a> &'a F: Mul<StepSize<F, X>, Output = X>,
     X: Erase<Erased = E> + Jacobian + Solution,
+    X: SecantWith<F, Step = StepSize<F, X>>,
     <X as Tensor>::Unit: UnitDiv<<F as Tensor>::Unit>,
     E: Tensor,
     for<'a> &'a Matrix: Mul<&'a X, Output = Vector>,
@@ -464,7 +471,7 @@ where
     let mut secant = Secant::new(&multipliers);
     let mut residual;
     let mut solution = initial_guess;
-    let mut step_size = INITIAL_STEP_SIZE;
+    let mut step_size = Quantity::new(INITIAL_STEP_SIZE);
     for _ in 0..gradient_descent.max_steps {
         if let Ok(result) = unconstrained(
             gradient_descent,
