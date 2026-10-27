@@ -293,7 +293,7 @@ fn one_sweep_stops_on_the_budget() {
     let (mut mesh, tessellation) = buffered_torus();
     let error = improve(&mut mesh, &tessellation, 1);
     assert!(
-        matches!(error, MeshError::Budget { sweeps: 1, theta } if (theta - 0.29).abs() < 1.0e-9)
+        matches!(error, MeshError::Budget { sweeps: 1, theta } if (theta - 0.32).abs() < 1.0e-9)
     );
 }
 
@@ -301,9 +301,7 @@ fn one_sweep_stops_on_the_budget() {
 fn the_full_budget_stops_on_a_stall() {
     let mut mesh = grid(2, 0.9);
     let error = improve(&mut mesh, &cube(), SWEEPS);
-    assert!(
-        matches!(error, MeshError::Stall { sweeps: 11, theta } if (theta - 1.0).abs() < 1.0e-9)
-    );
+    assert!(matches!(error, MeshError::Stall { sweeps: 4, theta } if (theta - 1.0).abs() < 1.0e-9));
 }
 
 #[test]
@@ -391,8 +389,12 @@ fn gap(mesh: &Mesh<3>, target: &Tessellation) -> Scalar {
 }
 
 fn buffered_torus() -> (Mesh<3>, Tessellation) {
+    fitted_torus(0.15, Fitting::Snap)
+}
+
+fn fitted_torus(minor: Scalar, fitting: Fitting) -> (Mesh<3>, Tessellation) {
     let scale = 1.0;
-    let tessellation = torus(scale, 0.15 * scale, 64, 24);
+    let tessellation = torus(scale, minor * scale, 64, 24);
     let mut octree =
         Octree::<u16, usize>::from_features(&tessellation, 3.0, CurvatureSizing::default(), 0)
             .unwrap();
@@ -401,10 +403,7 @@ fn buffered_torus() -> (Mesh<3>, Tessellation) {
         .unwrap();
     let mut mesh = octree.dualize();
     tessellation.trim(&mut mesh).unwrap();
-    (
-        mesh.buffer(&tessellation, Fitting::Snap).unwrap(),
-        tessellation,
-    )
+    (mesh.buffer(&tessellation, fitting).unwrap(), tessellation)
 }
 
 #[test]
@@ -427,4 +426,11 @@ fn lifts_a_buffered_torus_past_0_45() {
     let (mut mesh, tessellation) = buffered_torus();
     improve(&mut mesh, &tessellation, SWEEPS);
     assert!(worst(&mesh) > 0.45);
+}
+
+#[test]
+fn lifts_a_soft_fitted_torus_past_0_60() {
+    let (mut mesh, tessellation) = fitted_torus(0.25, Fitting::Soft);
+    improve(&mut mesh, &tessellation, SWEEPS);
+    assert!(worst(&mesh) > 0.6);
 }

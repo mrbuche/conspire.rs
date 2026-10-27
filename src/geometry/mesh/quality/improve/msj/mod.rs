@@ -23,6 +23,7 @@ type Weights = [[Scalar; 8]; 3];
 const CAP: usize = 4;
 const CREASE: Quantity = Dimensionless::of(0.866);
 const FIRST: Quantity = Dimensionless::of(0.01);
+const OFFSET: Quantity = Dimensionless::of(2.5e-3);
 const RADIUS: Quantity = Dimensionless::of(0.2);
 const RHO: Quantity = Dimensionless::of(1.0e2);
 const STALL: Quantity = Dimensionless::of(1.0e-6);
@@ -371,7 +372,7 @@ impl Energy<'_> {
             .zip(&self.scales)
             .for_each(|(hex, &scale)| {
                 let nodes = hex.iter().map(|&node| coordinates[node].clone()).collect();
-                let (value, slopes) = terms(self.theta, scale, &nodes, gradient.is_some());
+                let (value, slopes) = terms(self.theta + OFFSET, scale, &nodes, gradient.is_some());
                 total -= value;
                 if let Some(gradient) = gradient.as_deref_mut() {
                     hex.iter()
