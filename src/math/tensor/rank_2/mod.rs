@@ -755,6 +755,11 @@ impl<const D: usize, I, J, U> Jacobian for TensorRank2<D, I, J, U> {
             .map(|(entry, _)| entry.value())
             .collect()
     }
+    fn zero_out(&mut self, indices: &[usize]) {
+        indices
+            .iter()
+            .for_each(|index| self[index / D][index % D] = Quantity::new(0.0))
+    }
 }
 
 impl<const D: usize, I, J, U> Sub<Vector> for TensorRank2<D, I, J, U> {
@@ -885,8 +890,14 @@ impl<U> From<TensorRank2<3, Reference, Reference, U>> for TensorRank2<3, Current
 }
 
 impl<const D: usize, I, J, U> From<Vector> for TensorRank2<D, I, J, U> {
-    fn from(_vector: Vector) -> Self {
-        unimplemented!()
+    fn from(vector: Vector) -> Self {
+        let mut tensor_rank_2 = Self::zero();
+        tensor_rank_2.iter_mut().enumerate().for_each(|(i, row)| {
+            row.iter_mut()
+                .enumerate()
+                .for_each(|(j, entry)| *entry = Quantity::new(vector[D * i + j]))
+        });
+        tensor_rank_2
     }
 }
 
