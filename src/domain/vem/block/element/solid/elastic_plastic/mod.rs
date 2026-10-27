@@ -10,7 +10,10 @@ use crate::{
             ElementNodalStiffnessesSolid as TetrahedronStiffnesses,
         },
     },
-    math::{ContractSecondFourthWithFirst, Scalar, Tensor, TensorArray, optimize::NewtonRaphson},
+    math::{
+        ContractSecondFourthWithFirst, Scalar, Tensor, TensorArray,
+        optimize::{Direct, NewtonRaphson, ResidualMerit},
+    },
     mechanics::{
         FirstPiolaKirchhoffStresses, FirstPiolaKirchhoffTangentStiffnesses, Force, Stiffness,
     },
@@ -236,7 +239,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates,
         state_variables: &PlasticStateVariables<1>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<(ElementNodalForcesSolid, ElementNodalStiffnessesSolid), VirtualElementError> {
         let evaluations = self
             .deformation_gradients(nodal_coordinates)
@@ -296,7 +299,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates,
         state_variables: &PlasticStateVariables<1>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<PlasticStateVariables<1>, VirtualElementError> {
         self.deformation_gradients(nodal_coordinates)
             .iter()

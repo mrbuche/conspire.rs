@@ -6,7 +6,8 @@ use crate::{
     },
     domain::{NodalCoordinates, block::element::solid::plastic::PlasticStateVariables},
     math::{
-        ContractSecondFourthWithFirst, Current, TensorRank1, TensorRank2, optimize::NewtonRaphson,
+        ContractSecondFourthWithFirst, Current, TensorRank1, TensorRank2,
+        optimize::{Direct, NewtonRaphson, ResidualMerit},
     },
     units::{Force, ForcePerLength},
 };
@@ -28,7 +29,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariables<1>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<(Vec<NodalForce>, Vec<Vec<NodalStiffness>>), ConstitutiveError> {
         let (first_piola_kirchhoff_stress, first_piola_kirchhoff_tangent_stiffness, _) =
             constitutive_model.condensed(
@@ -66,7 +67,7 @@ where
         constitutive_model: &C,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariables<1>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<PlasticStateVariables<1>, ConstitutiveError> {
         let (_, _, state) = constitutive_model.condensed(
             &self.deformation_gradients(nodal_coordinates),

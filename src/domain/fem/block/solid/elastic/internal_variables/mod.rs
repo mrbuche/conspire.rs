@@ -17,7 +17,8 @@ use crate::{
     },
     math::{
         Erase, Jacobian, Matrix, Quantity, Scalar, Solution, Tensor, Vector,
-        optimize::NewtonRaphson, sparse::CscMatrix,
+        optimize::{Direct, NewtonRaphson, ResidualMerit},
+        sparse::CscMatrix,
     },
     units::{Dimensionless, UnitDiv},
 };
@@ -67,7 +68,7 @@ where
     }
     fn internal_variables_root(
         &self,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
         nodal_coordinates: &NodalCoordinates<3>,
         internal_variables: &InternalVariablesField<G, V>,
     ) -> Result<InternalVariablesField<G, V>, ElementModelError> {

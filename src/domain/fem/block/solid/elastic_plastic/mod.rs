@@ -17,7 +17,11 @@ use crate::{
         },
         solid::{NodalForcesSolid, NodalStiffnessesSolid},
     },
-    math::{Tensor, Vector, optimize::NewtonRaphson, sparse::CscMatrix},
+    math::{
+        Tensor, Vector,
+        optimize::{Direct, NewtonRaphson, ResidualMerit},
+        sparse::CscMatrix,
+    },
 };
 use std::array::from_fn;
 
@@ -39,7 +43,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariablesField<G>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
         nodal_forces: &mut NodalForcesSolid<3>,
         nodal_stiffnesses: &mut NodalStiffnessesSolid<3>,
     ) -> Result<(), ElementModelError> {
@@ -77,7 +81,7 @@ where
         &self,
         nodal_coordinates: &NodalCoordinates<3>,
         state_variables: &PlasticStateVariablesField<G>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<PlasticStateVariablesField<G>, ElementModelError> {
         self.elements()
             .iter()

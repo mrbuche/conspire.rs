@@ -19,7 +19,7 @@ use crate::{
     },
     math::{
         ContractFirstSecondWithSecond, ContractSecondWithFirst, IDENTITY, Matrix, Quantity, Rank2,
-        optimize::NewtonRaphson,
+        optimize::{Direct, NewtonRaphson, ResidualMerit},
     },
     mechanics::{
         CauchyStress, CauchyTangentStiffness, DeformationGradient, DeformationGradientPlastic,
@@ -287,7 +287,7 @@ where
         &self,
         deformation_gradient: &DeformationGradient,
         state_variables: &PlasticStateVariables,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<
         (
             FirstPiolaKirchhoffStress,

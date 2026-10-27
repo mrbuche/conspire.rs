@@ -1,7 +1,7 @@
 use crate::{
     constitutive::solid::elastic_plastic::{ElasticPlastic, StepError},
     domain::block::element::solid::{SolidElement, plastic::PlasticStateVariables},
-    math::optimize::NewtonRaphson,
+    math::optimize::{Direct, NewtonRaphson, ResidualMerit},
 };
 
 pub trait ElasticPlasticElement<C, const G: usize>
@@ -19,14 +19,14 @@ where
         constitutive_model: &C,
         nodal_coordinates: &Self::Coordinates,
         state_variables: &PlasticStateVariables<G>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<(Self::Forces, Self::Stiffnesses), Self::Error>;
     fn updated_state(
         &self,
         constitutive_model: &C,
         nodal_coordinates: &Self::Coordinates,
         state_variables: &PlasticStateVariables<G>,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     ) -> Result<PlasticStateVariables<G>, Self::Error>;
     /// The error indicators of a load step, from the coordinates and the plastic states at
     /// its two ends, the larger over the integration points.

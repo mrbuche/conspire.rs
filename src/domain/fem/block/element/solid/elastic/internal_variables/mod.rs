@@ -14,7 +14,7 @@ use crate::{
     math::{
         ContractSecondFourthWithFirst, HessianBlock, Jacobian, Matrix, Scalar, Solution,
         SquareMatrix, Tensor, TensorList, Vector,
-        optimize::{EqualityConstraint, NewtonRaphson, RootFinding},
+        optimize::{Direct, EqualityConstraint, NewtonRaphson, ResidualMerit, RootFinding},
         sparse::CscMatrix,
     },
     mechanics::{
@@ -69,7 +69,7 @@ pub trait ElasticIVFiniteElement<
     /// variables of one never entering the residual of another.
     fn internal_variables_root(
         &self,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,
@@ -117,7 +117,7 @@ pub trait ElasticIVFiniteElement<
 /// indices, so the constraint is imposed by leaving them out of the system
 /// rather than by a multiplier.
 fn root_at_point<C, V, E>(
-    local_solver: &NewtonRaphson,
+    local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
     constitutive_model: &C,
     deformation_gradient: &DeformationGradient,
     internal_variables: &V,
@@ -377,7 +377,7 @@ where
     }
     fn internal_variables_root(
         &self,
-        local_solver: &NewtonRaphson,
+        local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
         constitutive_model: &C,
         nodal_coordinates: &ElementNodalCoordinates<N>,
         internal_variables: &InternalVariables<G, V>,

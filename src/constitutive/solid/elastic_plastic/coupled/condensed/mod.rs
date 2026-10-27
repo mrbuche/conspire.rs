@@ -8,7 +8,7 @@ use crate::{
     constitutive::{ConstitutiveError, fluid::plastic::PlasticStateVariables},
     math::{
         Quantity, Rank2, SquareMatrix, Vector,
-        optimize::{NewtonRaphson, converged, limit_decrement},
+        optimize::{Direct, NewtonRaphson, ResidualMerit, converged, limit_decrement},
     },
     mechanics::{
         DeformationGradient, DeformationGradientPlastic, FirstPiolaKirchhoffStress,
@@ -43,7 +43,7 @@ pub(crate) fn solve<C: ElasticPlastic>(
     model: &C,
     f: &DeformationGradient,
     state: &PlasticStateVariables,
-    local_solver: &NewtonRaphson,
+    local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
 ) -> Result<Option<Converged>, ConstitutiveError> {
     let (f_p_n, &strain_n): (&DeformationGradientPlastic, &Quantity) = state.into();
     let strain_n = strain_n.value();
@@ -121,7 +121,7 @@ pub(crate) fn condensed<C: ElasticPlastic>(
     model: &C,
     f: &DeformationGradient,
     state: &PlasticStateVariables,
-    local_solver: &NewtonRaphson,
+    local_solver: &NewtonRaphson<Direct, impl ResidualMerit>,
 ) -> Result<
     (
         FirstPiolaKirchhoffStress,
